@@ -74,7 +74,7 @@ These commands exist and may be useful, but they are **not contractual**:
 - Behavior and flags may change.
 - They are not covered by CI gate tests.
 
-**Experimental (30):**
+**Experimental (31):**
 
 `ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
 `find-tool` · `goals` · `habit` · `ideas` · `inbox` · `insights` · `llm` · `lsp`

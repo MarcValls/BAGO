@@ -95,7 +95,7 @@ Pueden cambiar. No forman parte del quickstart. No bloquean instalación.
 
 ---
 
-## LEGACY — Deprecated (29 comandos)
+## LEGACY — Deprecated (28 comandos)
 
 Solo redirigen. No se desarrollan. Se eliminarán en versión futura.
 
