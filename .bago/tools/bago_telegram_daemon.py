@@ -220,7 +220,8 @@ def kb_menu_principal() -> InlineKeyboardMarkup:
          InlineKeyboardButton("📝 Notas",    callback_data="accion:notas")],
         [InlineKeyboardButton("📁 Git Log",  callback_data="accion:git"),
          InlineKeyboardButton("📜 Logs",     callback_data="accion:logs")],
-        [InlineKeyboardButton("🌐 Mini App", callback_data="accion:app")],
+        [InlineKeyboardButton("💰 Cartera",  callback_data="accion:cartera"),
+         InlineKeyboardButton("🌐 Mini App", callback_data="accion:app")],
     ])
 
 def kb_estado() -> InlineKeyboardMarkup:
@@ -679,6 +680,64 @@ async def cmd_reparar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(summary, parse_mode="Markdown", reply_markup=kb)
 
 
+async def cmd_cartera(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Muestra el portfolio crypto (READ-ONLY, nunca mueve fondos)."""
+    if not await check_auth(update):
+        return
+    args = ctx.args  # e.g. ["add", "BTC", "0.5"] or ["alerta", "BTC", "90000"]
+
+    import sys as _sys
+    _sys.path.insert(0, str(TOOLS_DIR))
+    try:
+        from wallet_tracker import (
+            portfolio_summary, format_summary, check_alerts,
+            load_config, save_config, get_wallet_cfg
+        )
+    except ImportError as e:
+        await update.message.reply_text(f"❌ wallet_tracker no disponible: {e}")
+        return
+
+    # Subcomandos: add, remove, alerta
+    if args and args[0] == "add" and len(args) == 3:
+        sym, amount = args[1].upper(), float(args[2])
+        cfg = load_config()
+        cfg.setdefault("wallet", {}).setdefault("holdings", {})[sym] = amount
+        save_config(cfg)
+        await update.message.reply_text(f"✅ {sym}: {amount} añadido al portfolio")
+        return
+
+    if args and args[0] == "remove" and len(args) == 2:
+        sym = args[1].upper()
+        cfg = load_config()
+        cfg.setdefault("wallet", {}).setdefault("holdings", {}).pop(sym, None)
+        save_config(cfg)
+        await update.message.reply_text(f"🗑 {sym} eliminado del portfolio")
+        return
+
+    if args and args[0] == "alerta" and len(args) == 3:
+        sym, price = args[1].upper(), float(args[2])
+        cfg = load_config()
+        cfg.setdefault("wallet", {}).setdefault("alerts", []).append({"coin": sym, "above": price})
+        save_config(cfg)
+        await update.message.reply_text(f"🔔 Alerta: {sym} > {price:,.0f} configurada")
+        return
+
+    await update.message.reply_text("⏳ Consultando precios…")
+    try:
+        data = portfolio_summary()
+        text = format_summary(data)
+        alerts = check_alerts(data)
+        if alerts:
+            text += "\n\n" + "\n".join(alerts)
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 Actualizar", callback_data="accion:cartera"),
+            InlineKeyboardButton("🏠 Menú", callback_data="accion:menu"),
+        ]])
+        await update.message.reply_text(text, reply_markup=kb)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+
 async def cmd_ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not await check_auth(update):
         return
@@ -704,7 +763,8 @@ async def cmd_ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "  /git — commits recientes\n"
         "  /nota `<texto>` — guardar nota\n"
         "  /logs — últimos logs\n"
-        "  /app — Mini App dashboard\n\n"
+        "  /app — Mini App dashboard\n"
+        "  /cartera — portfolio crypto (add BTC 0.5 / alerta BTC 90000)\n\n"
         "_Texto libre: 'ideas', 'next', 'health', 'doctor', 'cosecha', 'estado', 'git'..._"
     )
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=kb_menu_principal())
@@ -897,6 +957,25 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🏠 Menú",   callback_data="accion:menu"),
         ]])
         await q.edit_message_text(f"⚡ *Tarea aceptada*\n\n```\n{out[:1800]}\n```", parse_mode="Markdown", reply_markup=kb2)
+
+    elif data == "accion:cartera":
+        await q.edit_message_text("💰 Consultando precios…", parse_mode="Markdown")
+        import sys as _sys
+        _sys.path.insert(0, str(TOOLS_DIR))
+        try:
+            from wallet_tracker import portfolio_summary, format_summary, check_alerts
+            data2 = portfolio_summary()
+            text = format_summary(data2)
+            alerts = check_alerts(data2)
+            if alerts:
+                text += "\n\n" + "\n".join(alerts)
+            kb2 = InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔄 Actualizar", callback_data="accion:cartera"),
+                InlineKeyboardButton("🏠 Menú",       callback_data="accion:menu"),
+            ]])
+            await q.edit_message_text(text, reply_markup=kb2)
+        except Exception as e:
+            await q.edit_message_text(f"❌ Error cartera: {e}")
 
     elif data == "accion:health":
         await q.edit_message_text("⚕️ Calculando health score...", parse_mode="Markdown")
@@ -1152,7 +1231,10 @@ def main():
     app.add_handler(CommandHandler("doctor",  cmd_doctor))
     app.add_handler(CommandHandler("cosecha", cmd_cosecha))
     app.add_handler(CommandHandler("commit",  cmd_commit))
-    app.add_handler(CommandHandler("reparar", cmd_reparar))
+    app.add_handler(CommandHandler("reparar",  cmd_reparar))
+    app.add_handler(CommandHandler("cartera",  cmd_cartera))
+    app.add_handler(CommandHandler("wallet",   cmd_cartera))
+    app.add_handler(CommandHandler("portfolio",cmd_cartera))
 
     # Callbacks de botones inline
     app.add_handler(CallbackQueryHandler(on_callback))
