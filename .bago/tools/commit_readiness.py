@@ -310,7 +310,7 @@ def run_tests():
     results.append(("commit_readiness:valid_syntax_ok", ok2, f"findings={len(findings)}"))
 
     # Test 3: secret detection
-    tmp.write_text('API_KEY = "sk-abcdefghijklmnopqrstuvwxyz12345678"\n')  # nosec - test fixture, not a real credential
+    tmp.write_text('API_KEY = "sk-abcdefghijklmnopqrstuvwxyz12345678"\n')  # noqa: test fixture
     findings = check_secrets(tmp)
     ok3 = any(f["code"] == "CR-E002" for f in findings)
     results.append(("commit_readiness:secret_detected", ok3, f"findings={len(findings)}"))

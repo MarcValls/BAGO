@@ -217,7 +217,7 @@ def _self_test() -> None:
     def fail(n, m): fails.append(n); print(f"  FAIL: {n}: {m}")
 
     # T1 — password hardcodeada detectada
-    src1 = 'password = "supersecret123"\n'
+    src1 = 'password = "supersecret123"\n'  # noqa: test fixture
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
         f.write(src1); tmp1 = f.name
     r1 = scan_file(tmp1)
@@ -227,7 +227,7 @@ def _self_test() -> None:
         fail("secret_scan:password_detected", f"findings={[x.rule for x in r1]}")
 
     # T2 — API key detectada
-    src2 = 'api_key = "AbCdEfGhIjKlMnOpQrStUvWx"\n'
+    src2 = 'api_key = "AbCdEfGhIjKlMnOpQrStUvWx"\n'  # noqa: test fixture
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
         f.write(src2); tmp2 = f.name
     r2 = scan_file(tmp2)
