@@ -1,304 +1,304 @@
 {
-    "id": "bago_amtec",
-    "name": "BAGO",
-    "version": "3.2-kernel",
-    "encoding": "UTF-8",
-    "manifest": "pack.json",
-    "description": "Sistema operativo de trabajo técnico para programación y generación compleja.",
-    "purpose": "Sistema operativo de trabajo técnico para programación y generación compleja",
-    "canonical_entry": ".bago/AGENT_START.md",
-    "principles": [
-        "Balanceado",
-        "Adaptativo",
-        "Generativo",
-        "Organizativo"
-    ],
-    "entrypoints": {
-        "agent_start": "AGENT_START.md",
-        "master": "agents/MAESTRO_BAGO.md",
-        "copilot_ally": "agents/COPILOT_ALIADO_BAGO.md",
-        "global_state": "state.example/global_state.json",
-        "brain": "core/00_CEREBRO_BAGO.md"
+  "id": "bago_amtec",
+  "name": "BAGO",
+  "version": "3.3.0",
+  "encoding": "UTF-8",
+  "manifest": "pack.json",
+  "description": "Sistema operativo de trabajo técnico para programación y generación compleja.",
+  "purpose": "Sistema operativo de trabajo técnico para programación y generación compleja",
+  "canonical_entry": ".bago/AGENT_START.md",
+  "principles": [
+    "Balanceado",
+    "Adaptativo",
+    "Generativo",
+    "Organizativo"
+  ],
+  "entrypoints": {
+    "agent_start": "AGENT_START.md",
+    "master": "agents/MAESTRO_BAGO.md",
+    "copilot_ally": "agents/COPILOT_ALIADO_BAGO.md",
+    "global_state": "state.example/global_state.json",
+    "brain": "core/00_CEREBRO_BAGO.md"
+  },
+  "contracts": {
+    "role": "core/04_CONTRATOS_DE_ROL.md",
+    "workflow": "core/canon/CONTRATOS/contrato_workflow.md",
+    "change": "core/07_PROTOCOLO_DE_CAMBIO.md",
+    "evidence": "core/canon/CONTRATOS/contrato_evidencia.md"
+  },
+  "workflows": {
+    "analysis": "core/workflows/workflow_analisis.md",
+    "design": "core/workflows/workflow_diseno.md",
+    "execution": "core/workflows/workflow_ejecucion.md",
+    "validation": "core/workflows/workflow_validacion.md",
+    "system_change": "core/workflows/workflow_cambio_sistemico.md",
+    "history_migration": "core/workflows/workflow_migracion_historial.md",
+    "repo_bootstrap": "core/workflows/workflow_bootstrap_repo_first.md",
+    "w1_cold_start": "workflows/W1_COLD_START.md",
+    "w2_implementacion_controlada": "workflows/W2_IMPLEMENTACION_CONTROLADA.md",
+    "w3_refactor_sensible": "workflows/W3_REFACTOR_SENSIBLE.md",
+    "w4_debug_multicausa": "workflows/W4_DEBUG_MULTICAUSA.md",
+    "w5_cierre_continuidad": "workflows/W5_CIERRE_Y_CONTINUIDAD.md",
+    "w6_ideacion_aplicada": "workflows/W6_IDEACION_APLICADA.md",
+    "w7_foco_sesion": "workflows/W7_FOCO_SESION.md",
+    "w0_free_session": "workflows/W0_FREE_SESSION.md",
+    "w8_exploracion": "workflows/W8_EXPLORACION.md",
+    "w9_cosecha": "workflows/W9_COSECHA.md",
+    "w10_auditoria_sinceridad": "workflows/W10_AUDITORIA_SINCERIDAD.md"
+  },
+  "governance": {
+    "activation_rules": "core/06_MATRIZ_DE_ACTIVACION.md",
+    "change_protocol": "core/07_PROTOCOLO_DE_CAMBIO.md",
+    "session_governance": "core/05_GOBERNANZA_DE_SESION.md",
+    "official_baseline_act": "docs/governance/PROTOCOLO_CIERRE_SESION.md",
+    "validation_rule": "docs/governance/REGLA_INMUTABILIDAD_VALIDACION.md"
+  },
+  "docs": {
+    "canon": "docs/BAGO_CANON.md",
+    "state": "core/03_ESTADO_BAGO.md",
+    "usage_guide": "docs/operation/GUIA_DE_USO.md",
+    "evaluation_template": "docs/PLANTILLA_EVALUACION_BRUTAL_BAGO.md"
+  },
+  "knowledge": {
+    "directory": "knowledge/",
+    "index": "knowledge/README.md",
+    "files": {
+      "april_arc": "knowledge/april_2026_arc.md",
+      "image_gen": "knowledge/image_generation_guide.md",
+      "traps": "knowledge/framework_traps.md",
+      "patterns": "knowledge/project_patterns.md",
+      "tools_ref": "knowledge/tools_reference.md"
     },
-    "contracts": {
-        "role": "core/04_CONTRATOS_DE_ROL.md",
-        "workflow": "core/canon/CONTRATOS/contrato_workflow.md",
-        "change": "core/07_PROTOCOLO_DE_CAMBIO.md",
-        "evidence": "core/canon/CONTRATOS/contrato_evidencia.md"
-    },
-    "workflows": {
-        "analysis": "core/workflows/workflow_analisis.md",
-        "design": "core/workflows/workflow_diseno.md",
-        "execution": "core/workflows/workflow_ejecucion.md",
-        "validation": "core/workflows/workflow_validacion.md",
-        "system_change": "core/workflows/workflow_cambio_sistemico.md",
-        "history_migration": "core/workflows/workflow_migracion_historial.md",
-        "repo_bootstrap": "core/workflows/workflow_bootstrap_repo_first.md",
-        "w1_cold_start": "workflows/W1_COLD_START.md",
-        "w2_implementacion_controlada": "workflows/W2_IMPLEMENTACION_CONTROLADA.md",
-        "w3_refactor_sensible": "workflows/W3_REFACTOR_SENSIBLE.md",
-        "w4_debug_multicausa": "workflows/W4_DEBUG_MULTICAUSA.md",
-        "w5_cierre_continuidad": "workflows/W5_CIERRE_Y_CONTINUIDAD.md",
-        "w6_ideacion_aplicada": "workflows/W6_IDEACION_APLICADA.md",
-        "w7_foco_sesion": "workflows/W7_FOCO_SESION.md",
-        "w0_free_session": "workflows/W0_FREE_SESSION.md",
-        "w8_exploracion": "workflows/W8_EXPLORACION.md",
-        "w9_cosecha": "workflows/W9_COSECHA.md",
-        "w10_auditoria_sinceridad": "workflows/W10_AUDITORIA_SINCERIDAD.md"
-    },
-    "governance": {
-        "activation_rules": "core/06_MATRIZ_DE_ACTIVACION.md",
-        "change_protocol": "core/07_PROTOCOLO_DE_CAMBIO.md",
-        "session_governance": "core/05_GOBERNANZA_DE_SESION.md",
-        "official_baseline_act": "docs/governance/PROTOCOLO_CIERRE_SESION.md",
-        "validation_rule": "docs/governance/REGLA_INMUTABILIDAD_VALIDACION.md"
-    },
-    "docs": {
-        "canon": "docs/BAGO_CANON.md",
-        "state": "core/03_ESTADO_BAGO.md",
-        "usage_guide": "docs/operation/GUIA_DE_USO.md",
-        "evaluation_template": "docs/PLANTILLA_EVALUACION_BRUTAL_BAGO.md"
-    },
-    "knowledge": {
-        "directory": "knowledge/",
-        "index": "knowledge/README.md",
-        "files": {
-            "april_arc": "knowledge/april_2026_arc.md",
-            "image_gen": "knowledge/image_generation_guide.md",
-            "traps": "knowledge/framework_traps.md",
-            "patterns": "knowledge/project_patterns.md",
-            "tools_ref": "knowledge/tools_reference.md"
-        },
-        "last_updated": "2026-05-04"
-    },
-    "bootstrap": {
-        "installation_readme": "docs/operation/INSTALACION.md",
-        "project_bootstrap_prompt": "prompts/00_BOOTSTRAP_PROYECTO.md"
-    },
-    "default_roles": [
-        "MAESTRO_BAGO"
-    ],
-    "max_active_roles": 3,
-    "review_role": "role_vertice",
-    "review_policy": "solo_con_evidencia",
-    "sensitive_changes_require_human_validation": true,
-    "commands": {
-        "sync": {
-            "script": "tools/sync_pack_metadata.py",
-            "type": "generative",
-            "produces": [
-                "TREE.txt",
-                "CHECKSUMS.sha256"
-            ]
-        },
-        "validate": {
-            "script": "tools/validate_pack.py",
-            "type": "verification",
-            "reads_only": true,
-            "description": "Verifica integridad del pack sin modificar archivos"
-        },
-        "audit": {
-            "script": "tools/audit_v2.py",
-            "type": "diagnostic",
-            "description": "Auditoría integral: sync + validate + health + vértice + workflow"
-        },
-        "health": {
-            "script": "tools/health_score.py",
-            "type": "diagnostic"
-        },
-        "stale": {
-            "script": "tools/stale_detector.py",
-            "type": "diagnostic"
-        },
-        "dashboard": {
-            "script": "tools/pack_dashboard.py",
-            "type": "reporting"
-        },
-        "efficiency": {
-            "script": "tools/efficiency_meter.py",
-            "type": "reporting"
-        },
-        "ideas": {
-            "script": "tools/emit_ideas.py",
-            "type": "reporting"
-        },
-        "workflow": {
-            "script": "tools/workflow_selector.py",
-            "type": "interactive"
-        },
-        "cosecha": {
-            "script": "tools/cosecha.py",
-            "type": "generative"
-        },
-        "detector": {
-            "script": "tools/context_detector.py",
-            "type": "diagnostic"
-        },
-        "task": {
-            "script": "tools/show_task.py",
-            "type": "reporting"
-        },
-        "stability": {
-            "script": "tools/stability_summary.py",
-            "type": "reporting"
-        },
-        "session": {
-            "script": "tools/session_opener.py",
-            "type": "interactive"
-        },
-        "check": {
-            "script": "tools/check_validate_purity.py",
-            "type": "verification",
-            "reads_only": true,
-            "description": "Static purity check — no write ops in validate_* tools"
-        },
-        "sincerity": {
-            "script": "tools/sincerity_detector.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Centinela de sinceridad: detecta sincofancía y trampas en docs .md"
-        },
-        "cabinet": {
-            "script": "tools/cabinet_orchestrator.py",
-            "type": "orchestration",
-            "description": "Orquesta el gabinete de agentes BAGO y emite informe unificado"
-        },
-        "git": {
-            "script": "tools/git_context.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Contexto git (log/diff/brief) para workflows"
-        },
-        "deps": {
-            "script": "tools/dep_audit.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Auditoría de dependencias del proyecto"
-        },
-        "naming": {
-            "script": "tools/naming_check.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Lint de convenciones de nombres"
-        },
-        "types": {
-            "script": "tools/type_check.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Chequeo de tipos estáticos"
-        },
-        "map": {
-            "script": "tools/context_map.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Mapa de contexto del repositorio"
-        },
-        "doctor": {
-            "script": "tools/doctor.py",
-            "type": "diagnostic",
-            "description": "Diagnóstico general del pack con opción --fix"
-        },
-        "report": {
-            "script": "tools/health_report.py",
-            "type": "reporting",
-            "description": "Health report en Markdown"
-        },
-        "commit": {
-            "script": "tools/commit_readiness.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Evaluación de preparación para commit"
-        },
-        "flow": {
-            "script": "tools/flow.py",
-            "type": "reporting",
-            "reads_only": true,
-            "description": "Lista workflows BAGO disponibles"
-        },
-        "find-tool": {
-            "script": "tools/tool_search.py",
-            "type": "reporting",
-            "reads_only": true,
-            "description": "Busca la herramienta BAGO adecuada para un problema"
-        },
-        "ask": {
-            "script": "tools/intent_router.py",
-            "type": "interactive",
-            "description": "Router lenguaje natural → tools BAGO"
-        },
-        "rules": {
-            "script": "tools/rule_catalog.py",
-            "type": "reporting",
-            "reads_only": true,
-            "description": "Catálogo de reglas BAGO"
-        },
-        "research": {
-            "script": "tools/research_orchestrator.py",
-            "type": "interactive",
-            "description": "Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada"
-        },
-        "chronicle": {
-            "script": "tools/chronicle_reporter.py",
-            "type": "reporting",
-            "reads_only": true,
-            "description": "Sesión Chronicle integrando Copilot CLI /chronicle — historial de sesiones y recomendaciones"
-        },
-        "lsp": {
-            "script": "tools/lsp_manager.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código"
-        },
-        "db": {
-            "script": "tools/db_init.py",
-            "type": "interactive",
-            "description": "Gestión de la BD SQLite BAGO (init, status, ideas, reset-ideas)"
-        },
-        "select": {
-            "script": "tools/ideas_selector.py",
-            "type": "interactive",
-            "description": "Selector interactivo de ideas por slot con plan de implementación"
-        },
-        "sprint": {
-            "script": "tools/sprint_summary.py",
-            "type": "reporting",
-            "description": "Resumen automático de sprint (batch de N ideas implementadas)"
-        },
-        "net": {
-            "script": "tools/net_scan.py",
-            "type": "diagnostic",
-            "reads_only": true,
-            "description": "Estado de red y cables: detecta adaptadores, velocidad de enlace y dispositivos vecinos"
-        },
-        "net-interact": {
-            "script": "tools/net_interact.py",
-            "type": "diagnostic",
-            "description": "Interacción con red Ethernet interna (10.0.0.x): PC Suite de telefonía, llamadas, SMS, terminales Orange"
-        },
-        "lenovo-monitor": {
-            "script": "tools/lenovo_monitor.ps1",
-            "type": "network",
-            "description": "Monitor ARP+TCP para detectar PC Lenovo en Ethernet directo (169.254.31.155/16). Escucha en :4444 y hace autoconexión WinRM cuando detecta al Lenovo."
-        },
-        "lenovo-connect": {
-            "script": "tools/bago_autoconnect.ps1",
-            "type": "network",
-            "description": "Conexión WinRM/SMB/NetBIOS al PC Lenovo. Requiere LenovoIP como parámetro. Detecta hostname, servicios y abre sesión remota."
-        },
-        "lenovo-http": {
-            "script": "tools/http_discover.py",
-            "type": "network",
-            "description": "Servidor HTTP en :8080 para detección de IP del Lenovo. Cuando el Lenovo accede a http://169.254.31.155:8080, se registra su IP automáticamente."
-        }
-    },
-    "canonical_files": [
-        "pack.json",
-        "AGENT_START.md",
-        "core/00_CEREBRO_BAGO.md"
-    ],
-    "generated_artifacts": [
+    "last_updated": "2026-05-04"
+  },
+  "bootstrap": {
+    "installation_readme": "docs/operation/INSTALACION.md",
+    "project_bootstrap_prompt": "prompts/00_BOOTSTRAP_PROYECTO.md"
+  },
+  "default_roles": [
+    "MAESTRO_BAGO"
+  ],
+  "max_active_roles": 3,
+  "review_role": "role_vertice",
+  "review_policy": "solo_con_evidencia",
+  "sensitive_changes_require_human_validation": true,
+  "commands": {
+    "sync": {
+      "script": "tools/sync_pack_metadata.py",
+      "type": "generative",
+      "produces": [
         "TREE.txt",
         "CHECKSUMS.sha256"
-    ],
-    "released_at": "2026-05-06"
+      ]
+    },
+    "validate": {
+      "script": "tools/validate_pack.py",
+      "type": "verification",
+      "reads_only": true,
+      "description": "Verifica integridad del pack sin modificar archivos"
+    },
+    "audit": {
+      "script": "tools/audit_v2.py",
+      "type": "diagnostic",
+      "description": "Auditoría integral: sync + validate + health + vértice + workflow"
+    },
+    "health": {
+      "script": "tools/health_score.py",
+      "type": "diagnostic"
+    },
+    "stale": {
+      "script": "tools/stale_detector.py",
+      "type": "diagnostic"
+    },
+    "dashboard": {
+      "script": "tools/pack_dashboard.py",
+      "type": "reporting"
+    },
+    "efficiency": {
+      "script": "tools/efficiency_meter.py",
+      "type": "reporting"
+    },
+    "ideas": {
+      "script": "tools/emit_ideas.py",
+      "type": "reporting"
+    },
+    "workflow": {
+      "script": "tools/workflow_selector.py",
+      "type": "interactive"
+    },
+    "cosecha": {
+      "script": "tools/cosecha.py",
+      "type": "generative"
+    },
+    "detector": {
+      "script": "tools/context_detector.py",
+      "type": "diagnostic"
+    },
+    "task": {
+      "script": "tools/show_task.py",
+      "type": "reporting"
+    },
+    "stability": {
+      "script": "tools/stability_summary.py",
+      "type": "reporting"
+    },
+    "session": {
+      "script": "tools/session_opener.py",
+      "type": "interactive"
+    },
+    "check": {
+      "script": "tools/check_validate_purity.py",
+      "type": "verification",
+      "reads_only": true,
+      "description": "Static purity check — no write ops in validate_* tools"
+    },
+    "sincerity": {
+      "script": "tools/sincerity_detector.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Centinela de sinceridad: detecta sincofancía y trampas en docs .md"
+    },
+    "cabinet": {
+      "script": "tools/cabinet_orchestrator.py",
+      "type": "orchestration",
+      "description": "Orquesta el gabinete de agentes BAGO y emite informe unificado"
+    },
+    "git": {
+      "script": "tools/git_context.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Contexto git (log/diff/brief) para workflows"
+    },
+    "deps": {
+      "script": "tools/dep_audit.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Auditoría de dependencias del proyecto"
+    },
+    "naming": {
+      "script": "tools/naming_check.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Lint de convenciones de nombres"
+    },
+    "types": {
+      "script": "tools/type_check.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Chequeo de tipos estáticos"
+    },
+    "map": {
+      "script": "tools/context_map.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Mapa de contexto del repositorio"
+    },
+    "doctor": {
+      "script": "tools/doctor.py",
+      "type": "diagnostic",
+      "description": "Diagnóstico general del pack con opción --fix"
+    },
+    "report": {
+      "script": "tools/health_report.py",
+      "type": "reporting",
+      "description": "Health report en Markdown"
+    },
+    "commit": {
+      "script": "tools/commit_readiness.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Evaluación de preparación para commit"
+    },
+    "flow": {
+      "script": "tools/flow.py",
+      "type": "reporting",
+      "reads_only": true,
+      "description": "Lista workflows BAGO disponibles"
+    },
+    "find-tool": {
+      "script": "tools/tool_search.py",
+      "type": "reporting",
+      "reads_only": true,
+      "description": "Busca la herramienta BAGO adecuada para un problema"
+    },
+    "ask": {
+      "script": "tools/intent_router.py",
+      "type": "interactive",
+      "description": "Router lenguaje natural → tools BAGO"
+    },
+    "rules": {
+      "script": "tools/rule_catalog.py",
+      "type": "reporting",
+      "reads_only": true,
+      "description": "Catálogo de reglas BAGO"
+    },
+    "research": {
+      "script": "tools/research_orchestrator.py",
+      "type": "interactive",
+      "description": "Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada"
+    },
+    "chronicle": {
+      "script": "tools/chronicle_reporter.py",
+      "type": "reporting",
+      "reads_only": true,
+      "description": "Sesión Chronicle integrando Copilot CLI /chronicle — historial de sesiones y recomendaciones"
+    },
+    "lsp": {
+      "script": "tools/lsp_manager.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código"
+    },
+    "db": {
+      "script": "tools/db_init.py",
+      "type": "interactive",
+      "description": "Gestión de la BD SQLite BAGO (init, status, ideas, reset-ideas)"
+    },
+    "select": {
+      "script": "tools/ideas_selector.py",
+      "type": "interactive",
+      "description": "Selector interactivo de ideas por slot con plan de implementación"
+    },
+    "sprint": {
+      "script": "tools/sprint_summary.py",
+      "type": "reporting",
+      "description": "Resumen automático de sprint (batch de N ideas implementadas)"
+    },
+    "net": {
+      "script": "tools/net_scan.py",
+      "type": "diagnostic",
+      "reads_only": true,
+      "description": "Estado de red y cables: detecta adaptadores, velocidad de enlace y dispositivos vecinos"
+    },
+    "net-interact": {
+      "script": "tools/net_interact.py",
+      "type": "diagnostic",
+      "description": "Interacción con red Ethernet interna (10.0.0.x): PC Suite de telefonía, llamadas, SMS, terminales Orange"
+    },
+    "lenovo-monitor": {
+      "script": "tools/lenovo_monitor.ps1",
+      "type": "network",
+      "description": "Monitor ARP+TCP para detectar PC Lenovo en Ethernet directo (169.254.31.155/16). Escucha en :4444 y hace autoconexión WinRM cuando detecta al Lenovo."
+    },
+    "lenovo-connect": {
+      "script": "tools/bago_autoconnect.ps1",
+      "type": "network",
+      "description": "Conexión WinRM/SMB/NetBIOS al PC Lenovo. Requiere LenovoIP como parámetro. Detecta hostname, servicios y abre sesión remota."
+    },
+    "lenovo-http": {
+      "script": "tools/http_discover.py",
+      "type": "network",
+      "description": "Servidor HTTP en :8080 para detección de IP del Lenovo. Cuando el Lenovo accede a http://169.254.31.155:8080, se registra su IP automáticamente."
+    }
+  },
+  "canonical_files": [
+    "pack.json",
+    "AGENT_START.md",
+    "core/00_CEREBRO_BAGO.md"
+  ],
+  "generated_artifacts": [
+    "TREE.txt",
+    "CHECKSUMS.sha256"
+  ],
+  "released_at": "2026-05-06"
 }
