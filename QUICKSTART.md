@@ -1,7 +1,6 @@
-# Manual de usuario · BAGO v3.1
+# Manual de usuario · BAGO v3.2-kernel
 
 > Para quien instala BAGO por primera vez y quiere entender cómo usarlo en su día a día.
-> Instalación rápida: ver [INSTALL.md](INSTALL.md).
 
 ---
 
@@ -22,7 +21,7 @@ BAGO **no es** un agente. Es el sistema operativo debajo de cualquier agente.
 
 ---
 
-## 2. Instalación rápida
+## 2. Instalación
 
 ### Requisitos
 - Python 3.9 o superior
@@ -31,20 +30,23 @@ BAGO **no es** un agente. Es el sistema operativo debajo de cualquier agente.
 ### Pasos
 
 ```bash
-# 1. Clona el repositorio (o descarga el ZIP)
-git clone https://github.com/MarcValls/bago-framework.git
-cd bago-framework
+# 1. Clona el repositorio
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
 
-# 2. Verifica que el sistema está bien
-python3 bago validate
+# 2. Instala el comando bago
+pip install -e .
+
+# 3. Verifica que el sistema está bien
+bago validate
 
 # Salida esperada:
 # GO manifest
 # GO state
 # GO pack
 
-# 3. Comprueba el estado inicial
-python3 bago health
+# 4. Comprueba el estado inicial
+bago health
 
 # Salida esperada en instalación limpia:
 # BAGO Health: initializing ⚪
@@ -53,28 +55,17 @@ python3 bago health
 
 > **Nota:** El estado `initializing` es **correcto** en una instalación nueva. El score de salud solo sube con el uso real del sistema.
 
-### Instalar el alias `bago` (opcional pero recomendado)
-
-```bash
-make install
-# o manualmente:
-echo 'alias bago="python3 /ruta/a/bago-framework/bago"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-Con el alias instalado puedes escribir `bago health` en lugar de `python3 bago health`.
-
 ---
 
-## 3. Los 83 comandos CLI — selección de comandos clave
+## 3. Comandos clave
 
-### Comandos de diagnóstico
+### Diagnóstico
 
 #### `bago health`
 Muestra el estado de salud del sistema (0–100).
 
 ```bash
-python3 bago health
+bago health
 ```
 
 - En instalación limpia: `initializing ⚪` (normal, sin historial todavía)
@@ -86,7 +77,7 @@ python3 bago health
 Verifica la integridad del sistema: manifiesto, estado y checksums.
 
 ```bash
-python3 bago validate
+bago validate
 ```
 
 Ejecuta este comando **antes y después** de cada sesión de trabajo. Si algo está mal, lo indica aquí.
@@ -97,7 +88,7 @@ Ejecuta este comando **antes y después** de cada sesión de trabajo. Si algo es
 Auditoría completa: integridad, inventario, reportes, health score y workflow recomendado.
 
 ```bash
-python3 bago audit
+bago audit full
 ```
 
 Ejemplo de salida:
@@ -112,22 +103,20 @@ Ejemplo de salida:
 
 ---
 
-#### `bago stability`
-Resumen de estabilidad: validadores canónicos + sandbox (smoke, VM, soak, matrix).
+#### `bago status`
+Estado actual: flujo activo, tarea pendiente y salud del sistema.
 
 ```bash
-python3 bago stability
+bago status
 ```
-
-En instalación sin entorno sandbox obtendrás `WARN` para smoke/vm/soak/matrix — **es normal**. Los validadores canónicos deben estar en verde.
 
 ---
 
-#### `bago stale`
+#### `bago context stale`
 Detecta artefactos o tareas que llevan demasiado tiempo sin cerrarse.
 
 ```bash
-python3 bago stale
+bago context stale
 ```
 
 ---
@@ -138,13 +127,13 @@ python3 bago stale
 Lista las ideas priorizadas (0–100) para el siguiente paso de mejora del sistema.
 
 ```bash
-python3 bago ideas
+bago ideas
 
 # Aceptar una idea para trabajarla (la convierte en tarea W2):
-python3 bago ideas --accept 1
+bago ideas --accept 1
 
 # Ver detalle de una idea concreta:
-python3 bago ideas --detail 2
+bago ideas --detail 2
 ```
 
 ---
@@ -153,7 +142,7 @@ python3 bago ideas --detail 2
 Muestra la tarea W2 activa (si existe).
 
 ```bash
-python3 bago task
+bago task
 ```
 
 Las tareas se crean al aceptar una idea con `bago ideas --accept N`.
@@ -161,35 +150,34 @@ Las tareas se crean al aceptar una idea con `bago ideas --accept N`.
 ---
 
 #### `bago session`
-Abre una sesión de trabajo desde el handoff de la sesión anterior.
+Gestión del ciclo de sesión.
 
 ```bash
-python3 bago session
+bago session open     # abre sesión desde el handoff anterior
+bago session close    # cierra la sesión actual
+bago session harvest  # cosecha artefactos (protocolo W9)
+```
+
+---
+
+#### `bago flow`
+Gestión del workflow activo.
+
+```bash
+bago flow status      # ver workflow activo
+bago flow start W2    # activar un workflow
+bago flow done        # cerrar el workflow actual
 ```
 
 ---
 
 #### `bago workflow`
-Inspecciona los workflows disponibles o un workflow concreto.
+Inspecciona los workflows disponibles o uno concreto.
 
 ```bash
-# Ver todos los workflows
-python3 bago workflow
-
-# Inspeccionar uno concreto
-python3 bago workflow W2
+bago workflow         # ver todos los workflows
+bago workflow W2      # inspeccionar uno concreto
 ```
-
----
-
-#### `bago cosecha`
-Protocolo W9 de cierre de sesión: 3 preguntas rápidas que generan el artefacto de cierre.
-
-```bash
-python3 bago cosecha
-```
-
-Úsalo **al final de cada sesión** para que el contexto quede guardado y la siguiente sesión pueda retomarlo.
 
 ---
 
@@ -199,30 +187,21 @@ python3 bago cosecha
 Vista general del sistema: estado del pack, inventario y detector W9.
 
 ```bash
-python3 bago dashboard
+bago dashboard
 ```
 
 ---
 
-#### `bago efficiency`
-Métricas de eficiencia comparadas entre versiones del sistema.
-
-```bash
-python3 bago efficiency
-```
-
----
-
-#### `bago detector`
+#### `bago audit scan`
 Detecta si el contexto del repositorio ha cambiado desde la última sesión.
 
 ```bash
-python3 bago detector
+bago audit scan
 ```
 
 ---
 
-## 4. Los 10 workflows operativos
+## 4. Los 11 workflows operativos
 
 Los workflows son los "modos de trabajo" de BAGO. El sistema los recomienda automáticamente según el contexto, pero puedes elegir el tuyo.
 
@@ -238,6 +217,7 @@ Los workflows son los "modos de trabajo" de BAGO. El sistema los recomienda auto
 | **W7 · Foco de Sesión** | Sesión con objetivo único y bien delimitado *(recomendado para uso diario)* |
 | **W8 · Exploración** | Explorar el pack sin objetivo concreto previo |
 | **W9 · Cosecha** | Formalizar valor generado en sesión libre |
+| **W10 · Auditoría de Sinceridad** | Detectar afirmaciones sin evidencia en el historial |
 
 ### ¿Cuál usar en el día a día?
 
@@ -258,38 +238,38 @@ Los workflows son los "modos de trabajo" de BAGO. El sistema los recomienda auto
 
 ```bash
 # 1. ANTES DE EMPEZAR — verifica el sistema
-python3 bago validate
-python3 bago stability
+bago validate
+bago health
 
 # 2. DECIDE QUÉ HACER
-python3 bago ideas          # ver qué hay priorizado
-python3 bago task           # o retomar tarea activa
+bago status             # ver flujo activo y tarea pendiente
+bago ideas              # ver qué hay priorizado
 
 # 3. TRABAJA
 # Abre .bago/AGENT_START.md en tu agente de IA
 # El agente cargará el estado y sabrá dónde estás
 
 # 4. AL TERMINAR — registra el trabajo
-python3 bago cosecha        # 3 preguntas rápidas (≤5 min)
-python3 bago validate       # verifica que todo sigue bien
+bago session harvest    # cosecha artefactos (W9)
+bago validate           # verifica que todo sigue bien
 ```
 
 ### Flujo de una idea nueva → implementación
 
 ```bash
 # Ver ideas disponibles
-python3 bago ideas
+bago ideas
 
 # Aceptar la idea #1
-python3 bago ideas --accept 1
+bago ideas --accept 1
 
 # Ver la tarea creada
-python3 bago task
+bago task
 
 # Trabajar con tu agente de IA (señalar AGENT_START.md como contexto)
 
 # Al terminar, cosechar
-python3 bago cosecha
+bago session harvest
 ```
 
 ---
@@ -309,9 +289,7 @@ Lee .bago/AGENT_START.md antes de hacer nada. Luego procede.
 Si tienes instalada la extensión BAGO para Copilot CLI:
 
 ```bash
-# Instalar extensiones
-python3 bago extensions
-python3 bago setup
+bago setup
 ```
 
 ### Disparador automático `.bago/`
@@ -336,6 +314,8 @@ BAGO mantiene su estado en `.bago/state/`:
 - `global_state.json` — estado global (versión, health, inventario)
 - `ESTADO_BAGO_ACTUAL.md` — resumen en lenguaje natural del estado actual
 - `pending_w2_task.json` — tarea W2 activa (si existe)
+
+`.bago/state/` es **gitignored**. Las plantillas de estado limpio viven en `.bago/state.example/` (versionadas).
 
 ### Artefactos BAGO-CHG
 Cada cambio significativo genera un artefacto en `.bago/state/changes/`:
@@ -364,10 +344,7 @@ El manifiesto central del sistema. Define versión, rutas canónicas, contratos 
 ## 8. Preguntas frecuentes
 
 **¿Por qué `bago health` dice "initializing" pero `bago audit` muestra 80/100?**
-Son dos modos distintos de la misma herramienta. `bago health` es contextual: si no hay sesiones cerradas, muestra "initializing" para indicar que aún no hay historial. `bago audit` usa `--score-only` y calcula el score técnico del pack independientemente del historial. Ambos son correctos.
-
-**¿Qué son los 4 WARN de `bago stability`?**
-Son avisos de que el sandbox (smoke, vm, soak, matrix) no está disponible. Esto es **normal** en instalación pública o sin entorno de pruebas. Los validadores canónicos (manifest + state) deben estar en verde — si lo están, puedes trabajar con normalidad.
+Son dos modos distintos. `bago health` es contextual: si no hay sesiones cerradas, muestra "initializing" para indicar que aún no hay historial. `bago audit` calcula el score técnico del pack independientemente del historial. Ambos son correctos.
 
 **¿Debo ejecutar `bago validate` siempre?**
 Sí. `bago validate` regenera `CHECKSUMS.sha256` y `TREE.txt`. Ejecutarlo antes y después de cada sesión es una buena práctica. Sus cambios deben incluirse en cada commit.
@@ -376,7 +353,10 @@ Sí. `bago validate` regenera `CHECKSUMS.sha256` y `TREE.txt`. Ejecutarlo antes 
 Requiere un directorio `cleanversion/` con snapshots históricos del sistema. No está incluido en el repositorio público. Se usa internamente para comparar versiones anteriores del framework.
 
 **¿Puedo usar BAGO en cualquier repositorio?**
-Sí. Copia la carpeta `.bago/` y el script `bago` a la raíz de tu repo. Ejecuta `python3 bago validate` para verificar que todo funciona. Para que el agente de IA lo detecte automáticamente, añade el `AGENTS.md` descrito en la sección 6.
+Sí. Clona el repo con `git clone https://github.com/MarcValls/BAGO.git`, instala con `pip install -e .` y ejecuta `bago validate`. Para que el agente de IA lo detecte automáticamente, añade el `AGENTS.md` descrito en la sección 6.
+
+**¿Qué significa que un comando es "legacy"?**
+Los comandos legacy redirigen a su equivalente actual. Por ejemplo, `bago cosecha` redirige a `bago session harvest`. Funcionan, pero usa los equivalentes modernos para evitar deprecaciones futuras.
 
 ---
 
@@ -384,36 +364,38 @@ Sí. Copia la carpeta `.bago/` y el script `bago` a la raíz de tu repo. Ejecuta
 
 ```bash
 # DIAGNÓSTICO
-python3 bago health       → estado de salud (0–100)
-python3 bago validate     → integridad del sistema
-python3 bago audit        → auditoría completa
-python3 bago stability    → resumen de estabilidad
-python3 bago stale        → artefactos caducados
+bago health              → estado de salud (0–100)
+bago validate            → integridad del sistema
+bago audit full          → auditoría completa
+bago status              → flujo activo + tarea pendiente
+bago context stale       → artefactos caducados
 
 # TRABAJO
-python3 bago ideas        → ideas priorizadas
-python3 bago task         → tarea activa W2
-python3 bago session      → abrir sesión desde handoff
-python3 bago workflow     → inspeccionar workflows
+bago ideas               → ideas priorizadas
+bago task                → tarea activa W2
+bago session open        → abrir sesión desde handoff
+bago flow start W2       → activar workflow
+bago workflow            → inspeccionar workflows
 
-# AUTONOMÍA (nuevo en v3.1)
-python3 bago autonomous   → bucle autónomo SENSE/PLAN/ACT/LEARN
-python3 bago inbox add X  → añadir intent al inbox
-python3 bago inbox list   → ver intents pendientes
+# AUTONOMÍA
+bago autonomous --dry-run   → vista previa del bucle autónomo
+bago autonomous --yes       → ejecutar bucle SENSE/PLAN/ACT/LEARN
+bago inbox add <intent>     → añadir intent al inbox
+bago inbox list             → ver intents pendientes
 
 # CIERRE
-python3 bago cosecha      → cosechar sesión (W9)
+bago session harvest     → cosechar sesión (W9)
 
 # VISIÓN
-python3 bago dashboard    → vista general
-python3 bago efficiency   → métricas por versión
-python3 bago detector     → detector de drift
-python3 bago banner       → logo con gradiente RGB
+bago dashboard           → vista general
+bago audit scan          → detector de drift
+bago context map         → mapa del workspace
 
 # VER TODOS LOS COMANDOS
-python3 bago help
+bago help
 ```
 
 ---
 
-*BAGO v3.1 · Autonomy release · Mayo 2026*
+*BAGO v3.2-kernel · Mayo 2026*
+

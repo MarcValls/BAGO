@@ -237,7 +237,7 @@ def _self_test() -> None:
         fail("secret_scan:api_key_detected", f"findings={[(x.rule,x.message) for x in r2]}")
 
     # T3 — AWS key detectada
-    src3 = "key = 'AKIAIOSFODNN7REALKEY'\n"
+    src3 = "key = 'AKIAIOSFODNN7REALKEY'\n"  # noqa: test fixture
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
         f.write(src3); tmp3 = f.name
     r3 = scan_file(tmp3)
@@ -257,14 +257,14 @@ def _self_test() -> None:
         fail("secret_scan:placeholder_not_flagged", "CHANGEME fue flaggeado como secreto")
 
     # T5 — _obfuscate ofusca el valor
-    obf = _obfuscate('api_key = "AbCdEfGhIjKlMnOpQrStUvWx"')
+    obf = _obfuscate('api_key = "AbCdEfGhIjKlMnOpQrStUvWx"')  # noqa: test fixture
     if "***" in obf and "AbCdEf" in obf:
         ok("secret_scan:obfuscate_works")
     else:
         fail("secret_scan:obfuscate_works", f"obf={obf!r}")
 
     # T6 — clave privada PEM detectada
-    src6 = "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n"
+    src6 = "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n"  # noqa: test fixture
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
         f.write(src6); tmp6 = f.name
     r6 = scan_file(tmp6)

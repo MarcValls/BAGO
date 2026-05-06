@@ -1,159 +1,64 @@
-# 🚀 BAGO QUICKSTART — Empieza Ahora en 30 segundos
+# BAGO QUICKSTART — v3.2-kernel
 
-## Opción 1: CLI Interactivo (RECOMENDADO)
+> Guía rápida de arranque. Para documentación completa: ver `QUICKSTART.md` en la raíz del repo.
+
+---
+
+## Instalación
 
 ```bash
-cd C:\Marc_max_20gb
-powershell -ExecutionPolicy Bypass -File .bago\cli.ps1
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
+pip install -e .
 ```
 
-Verás un menú con opciones:
-- ✅ Analizar código
-- ✅ Crear AGENTS
-- ✅ Crear ROLES
-- ✅ Ver documentación
-
----
-
-## Opción 2: Ejecutar en Tu Proyecto Directamente
+## Verificación
 
 ```bash
-powershell -ExecutionPolicy Bypass -File C:\Marc_max_20gb\.bago\bago_interactive_demo.ps1 `
-  -ProjectPath "C:\Tu\Proyecto"
+bago validate   # GO manifest / GO state / GO pack
+bago health     # score de salud (initializing en instalación nueva)
 ```
 
-Resultado:
-- 📊 Issues detectados
-- 🎯 Veredictos de ROLES
-- 💡 Recomendaciones
-
----
-
-## Opción 3: Ver Demo Nuevamente
+## Primera sesión
 
 ```bash
-cd C:\Marc_max_20gb
-powershell -ExecutionPolicy Bypass -File .bago\bago_interactive_demo.ps1
+bago session open        # abre sesión con contexto del handoff anterior
+bago status              # flujo activo + tarea pendiente
+bago ideas               # ideas priorizadas para trabajar
 ```
 
-Analiza `typing-course/` automáticamente.
-
----
-
-## Opción 4: Leer Documentación
+## Cierre de sesión
 
 ```bash
-# Ver índice completo
-type .bago\INDEX.md
-
-# Ver resultados de demo
-type .bago\DEMO_RESULTS.md
-
-# Ver guía de uso
-type .bago\GUIDE_HOW_TO_USE.md
+bago session harvest     # cosecha artefactos (W9)
+bago validate            # verifica integridad antes de commit
 ```
 
----
+## Arranque del agente de IA
 
-## 🎯 Lo que BAGO hace
-
-Para **cada proyecto** que analices:
-
-### 1️⃣ AGENTS (Análisis en Paralelo)
-
-| Agent | Detecta |
-|-------|---------|
-| 🔒 Security | Vulnerabilidades XSS, HTTP inseguro, secrets |
-| ⚙️ Logic | TODOs, inconsistencias, null checks |
-| 👃 Smells | Global variables, funciones largas |
-| 🔍 Duplication | Código duplicado, lógica repetida |
-
-### 2️⃣ ROLES (Gobierno)
-
-| Role | Decide |
-|------|--------|
-| 🛡️ REVISOR_SEGURIDAD | ¿Es seguro? |
-| ⚡ REVISOR_PERFORMANCE | ¿Es eficiente? |
-| 👑 MAESTRO_BAGO | ¿Listo para producción? |
-
-### 3️⃣ Reporte
-
-- ✅ Hallazgos categorizados
-- 🎯 Veredictos de cada rol
-- 💡 Recomendaciones prioritarias
-- 🚀 Próximos pasos
-
----
-
-## 📊 Ejemplo Real: Typing Course
+Añade esta instrucción al inicio de cualquier sesión con tu agente:
 
 ```
-Input:  src/lesson.js (1 archivo, 1.8 KB)
-
-AGENTS:
-  🔒 Security: 2 issues
-  ⚙️ Logic: 1 issue
-  👃 Smells: 1 issue
-  🔍 Duplication: 1 issue
-
-ROLES:
-  🛡️ REVISOR_SEGURIDAD: ACCEPTED ✅
-  ⚡ REVISOR_PERFORMANCE: REVIEW NEEDED 🟡
-  👑 MAESTRO_BAGO: NOT READY 🔴
-
-Output: Recommendations + Próximos pasos
+Lee .bago/AGENT_START.md antes de hacer nada. Luego procede.
 ```
 
----
+## Workflows disponibles (W0–W10)
 
-## 💡 Tips
-
-1. **Ejecuta frecuentemente**
-   - Después de cada feature
-   - Antes de cada PR
-   - Después de refactoring
-
-2. **Lee recomendaciones**
-   - Está detectando problemas reales
-   - Impactarán tu código
-
-3. **Itera**
-   - Implementa cambios
-   - Re-ejecuta BAGO
-   - Repite hasta READY
-
-4. **Personaliza**
-   - Crea nuevos AGENTS
-   - Crea nuevos ROLES
-   - Adapta a tu equipo
+| Workflow | Cuándo |
+|---|---|
+| W0 · Sesión Libre | Exploración sin estructura |
+| W1 · Cold Start | Primera vez en el repo |
+| W2 · Implementación Controlada | Feature con tarea definida |
+| W3 · Refactor Sensible | Cambios estructurales de riesgo |
+| W4 · Debug Multicausa | Bug con varias causas posibles |
+| W5 · Cierre y Continuidad | Handoff de sesión |
+| W6 · Ideación Aplicada | Generación de ideas |
+| W7 · Foco de Sesión | Objetivo único (uso diario recomendado) |
+| W8 · Exploración | Investigación libre |
+| W9 · Cosecha | Formalizar artefactos de sesión libre |
+| W10 · Auditoría de Sinceridad | Detectar afirmaciones sin evidencia |
 
 ---
 
-## ❓ Qué Necesitas
+*BAGO v3.2-kernel · Ver `docs/GETTING_STARTED.md` para guía extendida.*
 
-- ✅ Windows (PowerShell)
-- ✅ Proyecto con código (.js, .ts, .py, etc)
-- ✅ Nada más (Python opcional)
-
----
-
-## 🎓 Próximos Pasos
-
-1. Ejecuta CLI: `powershell -File .bago\cli.ps1`
-2. Selecciona opción 1 (Analizar)
-3. Ingresa ruta a tu proyecto
-4. Lee recomendaciones
-5. ¡Mejora tu código!
-
----
-
-**Let's go! 🚀**
-
-```bash
-powershell -ExecutionPolicy Bypass -File C:\Marc_max_20gb\.bago\cli.ps1
-```
-
----
-
-Version: 1.0  
-BAGO: 2.5-stable

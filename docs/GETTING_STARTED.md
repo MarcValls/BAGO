@@ -1,4 +1,4 @@
-# Getting Started with BAGO
+# Getting Started with BAGO v3.2-kernel
 
 This guide walks you through your first BAGO-powered work session.
 
@@ -6,16 +6,26 @@ This guide walks you through your first BAGO-powered work session.
 
 ## Prerequisites
 
-- **Python 3.9+** (no pip dependencies required for core BAGO)
+- **Python 3.9+** (standard library only — no external dependencies)
 - **Git** (optional, but recommended)
 - An AI agent: GitHub Copilot CLI, Claude Code, or any LLM with file access
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
+pip install -e .          # installs 'bago' console script
+```
 
 ---
 
 ## Step 1 — Verify the installation
 
 ```bash
-python3 bago validate
+bago validate
 ```
 
 Expected output:
@@ -25,14 +35,14 @@ GO state
 GO pack
 ```
 
-If you see `KO`, run `python3 bago health` for diagnostics.
+If you see `KO`, run `bago health` for diagnostics.
 
 ---
 
 ## Step 2 — Check system health
 
 ```bash
-python3 bago health
+bago health
 ```
 
 BAGO health measures 5 dimensions:
@@ -66,13 +76,14 @@ Read .bago/AGENT_START.md first, then help me implement [feature].
 ## Step 4 — Choose a workflow
 
 ```bash
-python3 bago workflow
+bago workflow
 ```
 
 Or manually pick based on your task type:
 
 | If you want to... | Use |
 |---|---|
+| Explore freely (no structure) | `W0 · Free Session` |
 | Start a new project | `W1 · Cold Start` |
 | Implement a feature | `W2 · Controlled Implementation` |
 | Refactor existing code | `W3 · Sensitive Refactor` |
@@ -82,6 +93,7 @@ Or manually pick based on your task type:
 | Stay focused on one goal | `W7 · Session Focus` |
 | Explore something new | `W8 · Exploration` |
 | Harvest artifacts | `W9 · Cosecha` |
+| Audit for unverified claims | `W10 · Auditoría de Sinceridad` |
 
 ---
 
@@ -89,10 +101,10 @@ Or manually pick based on your task type:
 
 During a session:
 
-1. **Start**: `python3 bago session` → logs session start with context
-2. **Work**: Make changes, the agent records decisions and artifacts
-3. **Check**: `python3 bago stability` → full system check mid-session
-4. **Ideas**: `python3 bago ideas` → prioritized improvements to implement
+1. **Start**: `bago session open` → logs session start with context
+2. **Work**: Make changes; the agent records decisions and artifacts
+3. **Check**: `bago health` → full system check mid-session
+4. **Ideas**: `bago ideas` → prioritized improvements to implement
 
 ---
 
@@ -100,26 +112,25 @@ During a session:
 
 ```bash
 # Harvest artifacts and decisions
-python3 bago cosecha
+bago session harvest
 
 # Full audit of the session
-python3 bago audit
+bago audit full
 
 # Validate everything is consistent
-python3 bago validate
+bago validate
 ```
 
 ---
 
-## Step 7 — Track your evolution
+## Step 7 — Track your work
 
 After several sessions:
 
 ```bash
-python3 bago efficiency
+bago audit          # Review session trail
+bago context map    # Workspace overview
 ```
-
-This shows how your BAGO instance has grown across versions — commands, tools, docs, and a weighted efficiency index.
 
 ---
 
@@ -127,24 +138,25 @@ This shows how your BAGO instance has grown across versions — commands, tools,
 
 ### Daily work routine
 ```bash
-python3 bago stability      # Morning check
-python3 bago ideas          # Pick today's focus
+bago health             # Morning check
+bago status             # Active flow + pending task
+bago ideas              # Pick today's focus
 # ... work with AI agent ...
-python3 bago validate       # End-of-session check
+bago validate           # End-of-session check
 ```
 
 ### When something feels wrong
 ```bash
-python3 bago stale          # Check for stale tasks
-python3 bago detector       # Context drift detection
-python3 bago audit          # Full session audit
+bago context stale      # Check for stale tasks
+bago audit scan         # Context drift detection
+bago audit full         # Full session audit
 ```
 
 ### When you want to evolve BAGO
 ```bash
-python3 bago ideas          # See scored improvement ideas
+bago ideas              # See scored improvement ideas
 # Implement an idea
-python3 bago efficiency     # Measure the improvement
+bago health             # Measure system impact
 ```
 
 ---
@@ -155,14 +167,15 @@ python3 bago efficiency     # Measure the improvement
 .bago/
 ├── AGENT_START.md          ← Start here (for AI agent)
 ├── pack.json               ← System manifest
-├── state/
+├── state/                  ← Runtime state (gitignored)
 │   ├── global_state.json   ← Current system state
 │   ├── sessions/           ← Session records
 │   ├── changes/            ← BAGO-CHG artifacts
 │   └── evidences/          ← Evidence files
-├── tools/                  ← 30 Python utilities
-├── workflows/              ← 12 workflow protocols
-└── core/                   ← Protocols and constitution
+├── state.example/          ← Clean-install templates (versioned)
+├── tools/                  ← Python utilities
+├── workflows/              ← W0–W10 operational protocols
+└── core/                   ← Autonomous loop + core engine
 ```
 
 ---
@@ -173,8 +186,9 @@ python3 bago efficiency     # Measure the improvement
 
 **`Health: initializing`**: Normal for a fresh install. After the first full session it transitions to `stable`.
 
-**`Stale task detected`**: A task in `pending_w2_task.json` is older than 3 days. Clear with `python3 bago task --clear`.
+**`Stale task detected`**: A task in `pending_w2_task.json` is older than 3 days. Clear with `bago task --clear`.
 
 ---
 
-*More documentation in `.bago/docs/` — 74 reference files covering every aspect of BAGO.*
+*More documentation in `docs/` — see `ARCHITECTURE.md` and `COMMAND_AUDIT.md` for reference.*
+
