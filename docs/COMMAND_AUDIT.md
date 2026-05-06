@@ -1,4 +1,4 @@
-# BAGO Command Audit v3.1 — Clasificación completa
+# BAGO Command Audit v3.2-kernel — Clasificación completa
 
 
 Generado automáticamente desde tool_registry.py.

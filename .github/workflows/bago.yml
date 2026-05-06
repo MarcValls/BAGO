@@ -56,6 +56,9 @@ jobs:
           VALID_RISKS  = {'safe','mutating','dangerous'}
           VALID_STAB   = {'core','experimental','legacy','dangerous','internal'}
           VALID_POL    = {'required','optional','none'}
+          TOOLS_DIR    = Path('.bago/tools')
+          CORE_DIR     = Path('.bago/core')
+          SUPPORTS_DRY_RUN_ALLOWED = {'auto', 'autonomous'}
           errors = []
           for cmd, e in R.items():
               if not getattr(e,'module',''):              errors.append(f'{cmd}: no module')
@@ -66,6 +69,14 @@ jobs:
                   errors.append(f'{cmd}: deprecated but no see_also')
               if e.stability=='core' and e.preflight_policy!='required':
                   errors.append(f'{cmd}: core must have preflight_policy=required')
+              mod_name = getattr(e,'module','')
+              if mod_name and not getattr(e,'deprecated',False):
+                  mod_file = mod_name + '.py'
+                  if not (TOOLS_DIR / mod_file).exists() and not (CORE_DIR / mod_file).exists():
+                      errors.append(f'{cmd}: module file {mod_file!r} not found in tools/ or core/')
+              if getattr(e,'risk','') == 'dangerous' and getattr(e,'supports_dry_run',False):
+                  if cmd not in SUPPORTS_DRY_RUN_ALLOWED:
+                      errors.append(f'{cmd}: supports_dry_run=True but not in approved list {SUPPORTS_DRY_RUN_ALLOWED}')
           if errors:
               for err in errors: print(f'GATE-FAIL: {err}')
               sys.exit(1)

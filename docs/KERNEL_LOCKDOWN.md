@@ -2,7 +2,7 @@
 
 **Estado:** COMPLETADO ✅  
 **Inicio:** 2026-05-06  
-**Completado:** 2026-05-28  
+**Completado:** 2026-05-06  
 **Target release:** v3.2-kernel  
 **Rama:** kernel-lockdown (PRs individuales → main)
 

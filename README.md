@@ -77,9 +77,9 @@ These commands exist and may be useful, but they are **not contractual**:
 **Experimental (31):**
 
 `ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
-`find-tool` · `goals` · `habit` · `ideas` · `inbox` · `insights` · `llm` · `lsp`
+`find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp`
 `naming` · `next` · `reopen` · `repo` · `research` · `review` · `risk` · `rules`
-`select` · `sprint` · `types` · `why` · `workflow`
+`select` · `sprint` · `sprite-studio` · `types` · `why` · `workflow`
 
 ---
 
