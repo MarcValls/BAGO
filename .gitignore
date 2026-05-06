@@ -103,3 +103,4 @@ bago_matrix*.html
 .bago/state/pending_w2_task.json
 .bago/state/peers/
 .bago/state/ESTADO_BAGO_ACTUAL.md
+bago.egg-info/
