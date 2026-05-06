@@ -1,6 +1,6 @@
 # BAGO — Structured AI Work Framework
 
-[![BAGO Code Health](https://github.com/MarcValls/BAGO_v3.1/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO_v3.1/actions/workflows/bago.yml)
+[![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
 > **Version 3.1** · 83 CLI commands · 207 tools · 17 operational workflows · Clean-install state: `healthy`
 
@@ -27,9 +27,10 @@ This README is an **operational contract**. Historical benchmarks, marketing cla
 Primary installation method (editable install):
 
 ```bash
-git clone https://github.com/MarcValls/BAGO_v3.1.git
-cd BAGO_v3.1
-pip install -e .
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
+pip install -e .          # installs 'bago' console script
+# or: alias bago='python3 /path/to/bago'
 ```
 
 Minimal verification on a clean checkout:

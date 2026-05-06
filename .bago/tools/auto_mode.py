@@ -343,7 +343,7 @@ def _plan_fingerprint(steps: list) -> str:
     Dos planes idénticos → estado no cambió → loop estable (o atascado)."""
     actionable = [s["id"] for s in steps if s.get("cmd") not in (None, "dashboard")]
     raw = ",".join(actionable)
-    return hashlib.md5(raw.encode()).hexdigest()[:8]
+    return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:8]
 
 # ─── Formato ──────────────────────────────────────────────────────────────────
 W = 56

@@ -113,7 +113,7 @@ pyproject.toml
 ```bash
 # 1. instalación limpia
 tmpdir=$(mktemp -d)
-git clone https://github.com/MarcValls/BAGO_v3.1 "$tmpdir/bago"
+git clone https://github.com/MarcValls/BAGO "$tmpdir/bago"
 cd "$tmpdir/bago"
 pip install -e .
 

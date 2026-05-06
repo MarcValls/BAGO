@@ -61,7 +61,7 @@ class Finding:
 
 def _make_id(source: str, file: str, line: int, rule: str) -> str:
     key = f"{source}:{file}:{line}:{rule}"
-    return "FIND-" + hashlib.md5(key.encode()).hexdigest()[:8].upper()
+    return "FIND-" + hashlib.md5(key.encode(), usedforsecurity=False).hexdigest()[:8].upper()
 
 
 def _read_context(filepath: str, line: int, radius: int = 2) -> list:

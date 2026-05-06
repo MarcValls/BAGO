@@ -171,17 +171,18 @@ def _run_npm(runner: dict) -> tuple[bool, str]:
 
 def _run_pytest(runner: dict) -> tuple[bool, str]:
     """Run pytest. Returns (passed, summary)."""
+    import shlex
     pytest_cmd = which("pytest") or sys.executable + " -m pytest"
+    base = shlex.split(pytest_cmd) if " " in pytest_cmd else [pytest_cmd]
     try:
         r = subprocess.run(
-            [pytest_cmd, "--tb=no", "-q"],
+            base + ["--tb=no", "-q"],
             cwd=str(runner["cwd"]),
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             timeout=120,
-            shell=isinstance(pytest_cmd, str) and " " in pytest_cmd,
         )
         output = r.stdout.strip()
         last_line = output.splitlines()[-1] if output else f"exit {r.returncode}"
