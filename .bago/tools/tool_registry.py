@@ -64,6 +64,10 @@ class ToolEntry:
     scope: str = ""                       # Ámbito (framework|project|both) — inyectado desde _SCOPE_MAP
     agent: str = ""                       # Agente responsable — inyectado desde _AGENT_MAP
     subscribes: list[str] = field(default_factory=list)  # Eventos del bus a los que reacciona
+    # Kernel Lockdown (v3.2) — classification fields
+    stability: str = "experimental"       # "core"|"experimental"|"legacy"|"internal"|"dangerous"
+    risk: str = "safe"                    # "safe"|"mutating"|"dangerous"
+    preflight_policy: str = "optional"   # "required"|"optional"|"none"
 
 
 # ── Internal tools — excluded from guardian / manifest / integration_tests ────
@@ -749,7 +753,35 @@ for _cmd, _entry in REGISTRY.items():
     if not _entry.agent:
         _entry.agent = _AGENT_MAP.get(_cmd, "ORGANIZADOR")
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# ── Kernel Lockdown classification (v3.2) ─────────────────────────────────────
+# Applied as post-processing so existing ToolEntry definitions stay clean.
+
+_CORE_CMDS: frozenset[str] = frozenset({
+    "health", "audit", "status", "task", "session", "flow",
+    "project", "sync", "scope", "secrets", "next", "context",
+})
+_DANGEROUS_CMDS: frozenset[str] = frozenset({
+    "install", "autonomous", "orchestrate", "cabinet", "peer", "db", "auto",
+})
+_INTERNAL_CMDS: frozenset[str] = frozenset({
+    "banner", "hello", "hub", "start", "done",
+})
+
+for _cmd, _entry in REGISTRY.items():
+    if _entry.deprecated:
+        _entry.stability = "legacy"
+    elif _cmd in _CORE_CMDS:
+        _entry.stability = "core"
+        _entry.preflight_policy = "required"
+    elif _cmd in _DANGEROUS_CMDS:
+        _entry.stability = "dangerous"
+        _entry.risk = "dangerous"
+    elif _cmd in _INTERNAL_CMDS:
+        _entry.stability = "internal"
+        _entry.preflight_policy = "none"
+    # else: stability="experimental", risk="safe", preflight_policy="optional" (defaults)
+
+
 
 SCOPE_BADGE: dict[str, str] = {
     "framework": "🔵",
