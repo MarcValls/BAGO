@@ -88,3 +88,18 @@ whatsapp_config.json
 bago_matrix*.html
 .bago/docs/analysis/*.html
 .bago/docs/analysis/figures/
+
+# BAGO — runtime state (generated per-user, not part of distribution)
+# Template in .bago/state.example/ — copy to .bago/state/ on clean install
+.bago/state/bago.db
+.bago/state/health.json
+.bago/state/goals/
+.bago/state/sprints/
+.bago/state/sprint.json
+.bago/state/siembras.json
+.bago/state/implemented_ideas.json
+.bago/state/knowledge_index.json
+.bago/state/llm_config.json
+.bago/state/pending_w2_task.json
+.bago/state/peers/
+.bago/state/ESTADO_BAGO_ACTUAL.md
