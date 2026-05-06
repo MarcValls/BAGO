@@ -102,6 +102,8 @@ jobs:
             --severity-level high --confidence-level high \
             -x .bago/tools/integration_tests.py \
             -q || exit 1
+      - name: Secret scan (bago secrets)
+        run: python3 bago secrets --json || exit 1
 
   gate-tests:
     name: "[gate] pytest core tests"

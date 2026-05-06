@@ -120,13 +120,13 @@ Contract:
 - They **redirect** to current equivalents.
 - They are not developed further and may be removed in a future version.
 
-**Legacy (29):**
+**Legacy (28):**
 
 `check` · `code-quality` · `commit` · `consistency` · `cosecha` · `detector`
 `doctor` · `efficiency` · `git` · `heal` · `learn` · `map` · `pre-push`
 `project-init` · `project-link` · `project-state` · `project-unlink` · `promote`
 `repo-clone` · `repo-list` · `repo-switch` · `report` · `scan` · `session_close`
-`sincerity` · `stability` · `stale` · `v2` · `validate`
+`sincerity` · `stability` · `stale` · `v2`
 
 ---
 

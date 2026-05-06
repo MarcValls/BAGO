@@ -1,7 +1,8 @@
 # BAGO Kernel Lockdown — Operación activa
 
-**Estado:** EN PROGRESO  
+**Estado:** COMPLETADO ✅  
 **Inicio:** 2026-05-06  
+**Completado:** 2026-05-28  
 **Target release:** v3.2-kernel  
 **Rama:** kernel-lockdown (PRs individuales → main)
 
@@ -93,18 +94,18 @@ pyproject.toml
 
 ## Roadmap de PRs
 
-| PR | Nombre | Estado |
-|----|--------|--------|
-| PR-01 | kernel-freeze-baseline | ✅ EN PROGRESO |
-| PR-02 | registry-single-source-of-truth | ⬜ pendiente |
-| PR-03 | preflight-fail-closed | ⬜ pendiente |
-| PR-04 | command-risk-model | ⬜ pendiente |
-| PR-05 | clean-packaging-no-recursion | ⬜ pendiente |
-| PR-06 | runtime-state-boundary | ⬜ pendiente |
-| PR-07 | proper-python-package | ⬜ pendiente |
-| PR-08 | core-test-harness | ⬜ pendiente |
-| PR-09 | hard-ci-gates | ⬜ pendiente |
-| PR-10 | docs-core-truth | ⬜ pendiente |
+| PR | Nombre | Estado | Commit |
+|----|--------|--------|--------|
+| PR-01 | kernel-freeze-baseline | ✅ COMPLETADO | `c5fa826` |
+| PR-02 | registry-single-source-of-truth | ✅ COMPLETADO | `6e65f9e` |
+| PR-03 | preflight-fail-closed | ✅ COMPLETADO | `83a5ac3` |
+| PR-04 | command-risk-model | ✅ COMPLETADO | `c5c5db4` |
+| PR-05 | clean-packaging-no-recursion | ✅ COMPLETADO | `37a2ac8` |
+| PR-06 | runtime-state-boundary | ✅ COMPLETADO | `e3efc4e` |
+| PR-07 | proper-python-package | ✅ COMPLETADO | `7e03d37` |
+| PR-08 | core-test-harness | ✅ COMPLETADO | `0b3e8ee` |
+| PR-09 | hard-ci-gates | ✅ COMPLETADO | `91ef37c` |
+| PR-10 | docs-core-truth | ✅ COMPLETADO | `d9bd021` |
 
 ---
 
@@ -128,7 +129,7 @@ pytest
 # 4. pack
 python3 .bago/tools/build_pack.py --clean --out dist/
 unzip -l dist/*.zip | grep -v ".bago/dist"
-unzip -l dist/*.zip | grep -v ".bago/state/sessions"
+unzip -l dist/*.zip | grep ".bago/state/" && echo "ERROR: state/ in pack" || echo "OK"
 
 # 5. seguridad
 bago install        # debe pedir confirmación
@@ -138,6 +139,23 @@ bago autonomous --unsafe --dry-run
 # 6. CI
 git push            # falla si gates críticos fallan
 ```
+
+---
+
+## Post-lockdown: hallazgos resueltos (v3.2-kernel)
+
+Los siguientes problemas P0 fueron identificados en la reauditoría post-lockdown y resueltos antes de taggear `v3.2-kernel`:
+
+| # | Hallazgo | Fix |
+|---|---------|-----|
+| P0-1 | `validate` listado como legacy Y core simultáneamente | Eliminado `deprecated=True` del registry; añadido a `_CORE_CMDS` |
+| P0-2 | `next` en `_CORE_CMDS` pero experimental en README | Eliminado de `_CORE_CMDS`; queda como experimental |
+| P0-3 | `KERNEL_LOCKDOWN.md` desactualizado (PR-01 "en progreso") | Actualizado con todos los PR completados + commit SHAs |
+| P0-4 | Preflight con ruta fail-open vía fallback a `preflight.py` | Eliminado el fallback; fail-closed para core/dangerous si falta el engine |
+| P0-5 | `--dry-run` desbloqueaba comandos dangerous sin implementarlo | Añadido `supports_dry_run: bool` al registry; sólo `auto` y `autonomous` tienen `True` |
+| P0-6 | `validate_pack_contents.py` sólo bloqueaba `state/sessions`, no `state/` | `FORBIDDEN_PREFIXES` cambiado a `.bago/state/` completo |
+| P0-7 | `autonomous` e `inbox` bypasseaban `_dispatch` (sin preflight/session log) | Eliminadas ramas especiales; fluyen por `_dispatch` normal |
+| P0-8 | CI `gate-security` no ejecutaba `bago secrets` | Añadido paso `python3 bago secrets --json` al gate |
 
 ---
 

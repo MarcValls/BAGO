@@ -16,7 +16,6 @@ Requieren: test, preflight, documentación, salida clara.
 | `bago context` | bago_context | Contexto del workspace: detect | map | git | stale | safe |
 | `bago flow` | flow | Flowchart ASCII de workflows + gestión de estado activo (sta... | safe |
 | `bago health` | bago_health_router | Salud del framework: score | report | stability | efficiency... | safe |
-| `bago next` | bago_next | Meta-comando de ciclo mínimo: elige idea + acepta + inicia f... | safe |
 | `bago project` | project_memory | Memoria distribuida por proyecto: init | link | unlink | sta... | safe |
 | `bago scope` | scope_detector | Detecta scope (framework/project/both) de scripts Python por... | safe |
 | `bago secrets` | secret_scan | Escanea el repositorio buscando secretos y credenciales expu... | safe |
@@ -24,6 +23,7 @@ Requieren: test, preflight, documentación, salida clara.
 | `bago status` | flow | Estado actual: flujo activo, tarea pendiente y salud del sis... | safe |
 | `bago sync` | sync_pack_metadata | Regenera TREE.txt y CHECKSUMS | safe |
 | `bago task` | show_task | Muestra la tarea W2 pendiente | safe |
+| `bago validate` | validate_pack | Verifica el pack (solo lectura) | safe |
 
 ---
 
@@ -67,6 +67,7 @@ Pueden cambiar. No forman parte del quickstart. No bloquean instalación.
 | `bago llm` | bago_llm | Motor LLM local offline: modelos GGUF en pendrive via Ollama... | safe |
 | `bago lsp` | lsp_manager | Orquestación de Language Servers — registra y gestiona servi... | safe |
 | `bago naming` | naming_check | Lint de convenciones de nombres | safe |
+| `bago next` | bago_next | Meta-comando de ciclo mínimo: elige idea + acepta + inicia f... | safe |
 | `bago reopen` | bago_reopen | Reanuda sesión desde el último cierre sin reconstruir contex... | safe |
 | `bago repo` | bago_repo | Gestión de repositorios: clone | list | switch | safe |
 | `bago research` | research_orchestrator | Modo Research integrando GitHub Copilot CLI /research — inve... | safe |
@@ -128,7 +129,6 @@ Solo redirigen. No se desarrollan. Se eliminarán en versión futura.
 | `bago stability` | `bago health stability` | stability_summary |
 | `bago stale` | `bago context stale` | stale_detector |
 | `bago v2` | `bago session v2` | v2_close_checklist |
-| `bago validate` | `bago audit pack` | validate_pack |
 
 ---
 
@@ -138,9 +138,9 @@ Solo redirigen. No se desarrollan. Se eliminarán en versión futura.
 |-----------|---------|
 | core | 12 |
 | dangerous | 7 |
-| experimental | 30 |
+| experimental | 31 |
 | internal | 5 |
-| legacy | 29 |
+| legacy | 28 |
 | **TOTAL** | **83** |
 
 ### Duplicados detectados

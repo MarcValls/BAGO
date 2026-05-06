@@ -29,7 +29,7 @@ REQUIRED_ENTRIES = [
 
 FORBIDDEN_PREFIXES = [
     ".bago/dist/",
-    ".bago/state/sessions",
+    ".bago/state/",
     ".git/",
 ]
 

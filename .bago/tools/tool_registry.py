@@ -68,6 +68,7 @@ class ToolEntry:
     stability: str = "experimental"       # "core"|"experimental"|"legacy"|"internal"|"dangerous"
     risk: str = "safe"                    # "safe"|"mutating"|"dangerous"
     preflight_policy: str = "optional"   # "required"|"optional"|"none"
+    supports_dry_run: bool = False        # True → --dry-run is a valid safe bypass for dangerous
 
 
 # ── Internal tools — excluded from guardian / manifest / integration_tests ────
@@ -126,7 +127,6 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="validate", module="validate_pack",
         description="Verifica el pack (solo lectura)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "validate_pack.py"))],
-        deprecated=True, see_also="bago audit pack",
     ),
     "sync": ToolEntry(
         cmd="sync", module="sync_pack_metadata",
@@ -497,6 +497,7 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="auto", module="auto_mode",
         description="Modo automático: evalúa y actúa. --loop para bucle, --infinite para sin límite (Ctrl+C)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "auto_mode.py"))],
+        supports_dry_run=True,
     ),
     "sprint": ToolEntry(
         cmd="sprint", module="sprint_manager",
@@ -555,6 +556,7 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Loop autónomo BAGO: SENSE→PLAN→ACT→OBSERVE→LEARN→DECIDE [--dry-run] [--loop] [--unsafe]",
         preflight=[PreflightCheck("file", str(BAGO_ROOT / "core" / "autonomous_loop.py"))],
         agent="ARQUITECTO",
+        supports_dry_run=True,
     ),
     "inbox": ToolEntry(
         cmd="inbox", module="autonomous_loop",
@@ -758,7 +760,7 @@ for _cmd, _entry in REGISTRY.items():
 
 _CORE_CMDS: frozenset[str] = frozenset({
     "health", "audit", "status", "task", "session", "flow",
-    "project", "sync", "scope", "secrets", "next", "context",
+    "project", "sync", "scope", "secrets", "validate", "context",
 })
 _DANGEROUS_CMDS: frozenset[str] = frozenset({
     "install", "autonomous", "orchestrate", "cabinet", "peer", "db", "auto",
@@ -822,6 +824,7 @@ def get_commands() -> dict[str, list[str]]:
     """Returns COMMANDS-compatible dict for the bago script.
 
     Format: {"cmd": ["python3", "/path/to/module.py", ...extra_args]}
+    Searches TOOLS_DIR first, then BAGO_ROOT/core/ for modules (e.g. autonomous_loop).
     """
     _extra_args: dict[str, list[str]] = {
         "done":           ["--done"],
@@ -835,7 +838,10 @@ def get_commands() -> dict[str, list[str]]:
     }
     result = {}
     for name, entry in REGISTRY.items():
-        cmd = [PYTHON, str(TOOLS_DIR / f"{entry.module}.py")]
+        tools_path = TOOLS_DIR / f"{entry.module}.py"
+        core_path  = BAGO_ROOT / "core" / f"{entry.module}.py"
+        module_path = tools_path if tools_path.exists() else core_path
+        cmd = [PYTHON, str(module_path)]
         if name in _extra_args:
             cmd += _extra_args[name]
         result[name] = cmd
