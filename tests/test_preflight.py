@@ -28,10 +28,11 @@ def _entry(cmd: str, policy: str, risk: str = "safe", stability: str = "core") -
 # ── Tests ──────────────────────────────────────────────────────────────────────
 
 def test_preflight_none_policy_skips(capsys):
-    """policy=none: enforce() returns OK without running any check."""
-    result = enforce("dashboard", skip_preflight=False)
-    # Must not raise — None return is valid
-    assert result is None or result is not None
+    """policy=none: enforce() must not raise SystemExit."""
+    try:
+        enforce("dashboard", skip_preflight=False)
+    except SystemExit as exc:
+        pytest.fail(f"enforce() raised SystemExit for policy=none command: {exc}")
 
 
 def test_preflight_optional_continues_on_failure(tmp_path):

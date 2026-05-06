@@ -102,6 +102,15 @@ def _obfuscate(line: str) -> str:
     )[:100]
 
 
+# Allowlist explícita: solo estos comentarios exactos permiten ignorar una línea.
+# No usar "noqa" genérico — evitar bypass involuntario.
+_SCAN_ALLOWLIST = frozenset({
+    "# noqa: test fixture",
+    "# pragma: allowlist secret",
+    "# nosec: test fixture",
+})
+
+
 def scan_file(filepath: str) -> list[SecretFinding]:
     path = Path(filepath)
     if path.suffix in SKIP_EXTS:
@@ -115,10 +124,13 @@ def scan_file(filepath: str) -> list[SecretFinding]:
     lines = source.splitlines()
 
     for i, line in enumerate(lines, 1):
+        # Saltar líneas con allowlist explícita (solo comentarios exactos)
+        if any(marker in line for marker in _SCAN_ALLOWLIST):
+            continue
         # Saltar líneas que son comentarios de ejemplo o falsas alarmas comunes
         stripped = line.strip()
         if any(x in stripped.lower() for x in
-               ("example", "placeholder", "changeme", "your-", "your_", "<your", "${", "%(", "noqa")):
+               ("example", "placeholder", "changeme", "your-", "your_", "<your", "${", "%(")):
             continue
         # Saltar líneas en archivos de test (menos falsos positivos)
         if "test" in filepath.lower() and "password" in stripped.lower():

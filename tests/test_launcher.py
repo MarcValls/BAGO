@@ -41,11 +41,10 @@ def test_unknown_command_hints_doctor():
 
 
 def test_dangerous_command_blocked_without_flag():
-    """Dangerous command (install) must be blocked without --yes or --unsafe."""
+    """Dangerous command (install) must exit non-zero without --yes or --unsafe."""
     result = _run("install")
-    # Should fail or at minimum print a warning — not silently execute
-    assert result.returncode != 0 or "dangerous" in (result.stdout + result.stderr).lower(), \
-        "Dangerous command 'install' ran without protection flag"
+    assert result.returncode != 0, \
+        "Dangerous command 'install' must exit non-zero without protection flag"
 
 
 def test_dangerous_command_allowed_with_dry_run(tmp_path):

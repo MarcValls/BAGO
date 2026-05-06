@@ -221,6 +221,17 @@ def _run_preflight(cmd: str, skip: bool = False) -> None:
     except SystemExit:
         raise
     except Exception as exc:
+        mod = _load_registry_mod()
+        stability = "experimental"
+        if mod:
+            entry = getattr(mod, "REGISTRY", {}).get(cmd)
+            stability = getattr(entry, "stability", "experimental") if entry else "experimental"
+        if stability in ("core", "dangerous"):
+            print(
+                f"❌ preflight_engine crashed for '{cmd}' (stability={stability}): {exc}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         print(f"  ⚠  preflight_engine error: {exc}", file=sys.stderr)
 
 
