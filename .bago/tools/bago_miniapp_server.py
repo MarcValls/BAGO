@@ -289,7 +289,7 @@ class BAGOHandler(BaseHTTPRequestHandler):
 
         if path in ("/", "/index.html"):
             self.send_file(MINIAPP_DIR / "index.html", "text/html")
-        elif path == "/api/state":
+        elif path in ("/api/state", "/api/estado"):
             self.send_json(read_state())
         elif path == "/api/tareas":
             self.send_json({"tareas": load_tareas()})

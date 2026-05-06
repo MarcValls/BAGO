@@ -29,6 +29,7 @@ Comandos:
 import json
 import os
 import re
+import sys
 import subprocess
 import logging
 from pathlib import Path
@@ -1158,6 +1159,20 @@ def main():
 
     # Texto libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+    # Error handler global
+    async def on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        log.error(f"[ERROR] Update {update} caused error: {ctx.error}", exc_info=ctx.error)
+        if isinstance(update, Update) and update.effective_chat:
+            try:
+                await ctx.bot.send_message(
+                    update.effective_chat.id,
+                    f"⚠️ Error interno: `{type(ctx.error).__name__}`. El equipo ha sido notificado.",
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+    app.add_error_handler(on_error)
 
     log.info("✅ Bot v2 activo — esperando mensajes")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
