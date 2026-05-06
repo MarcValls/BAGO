@@ -59,18 +59,22 @@ def _list_aliases(aliases: dict) -> None:
     print()
     if not aliases:
         print(f"  {YELLOW('⚠')} Sin alias definidos.")
-        print(f"  Crea uno: {CYAN('bago alias --set NOMBRE \"bago test run\"')}")
+        _cmd_ex = 'bago alias --set NOMBRE "bago test run"'
+        print(f"  Crea uno: {CYAN(_cmd_ex)}")
         print()
         return
-    print(f"  {'ALIAS':<16} COMANDOS")
-    print(f"  {'─────':<16} ────────")
+    header = "ALIAS"
+    sep = "─────"
+    print(f"  {header:<16} COMANDOS")
+    print(f"  {sep:<16} ────────")
     for name, entry in sorted(aliases.items()):
         cmds = entry.get("commands", [])
         desc = entry.get("desc", "")
         cmd_str = "  →  ".join(cmds)[:60]
         print(f"  {BOLD(name):<16} {CYAN(cmd_str)}")
         if desc:
-            print(f"  {' '*16} {DIM(desc)}")
+            pad = " " * 16
+            print(f"  {pad} {DIM(desc)}")
     print()
     print(f"  Uso: {CYAN('bago alias --run NOMBRE')}")
     print()
@@ -79,7 +83,8 @@ def _list_aliases(aliases: dict) -> None:
 def _run_alias(name: str, aliases: dict) -> int:
     if name not in aliases:
         print(f"\n  {RED('❌')} Alias no encontrado: '{name}'")
-        print(f"  Alias disponibles: {', '.join(sorted(aliases.keys()))}\n")
+        available = ", ".join(sorted(aliases.keys()))
+        print(f"  Alias disponibles: {available}\n")
         return 1
 
     entry  = aliases[name]

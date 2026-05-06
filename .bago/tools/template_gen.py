@@ -328,7 +328,8 @@ def cmd_list() -> None:
     print()
     print(f"  Uso: {DIM('bago template NOMBRE [--name VALOR] [--app VALOR] [--out DIR]')}")
     print(f"       {DIM('bago template --show NOMBRE')}")
-    print(f"       {DIM('bago template --add NOMBRE \"contenido\"')}")
+    _tmpl_add_ex = 'bago template --add NOMBRE "contenido"'
+    print(f"       {DIM(_tmpl_add_ex)}")
     print()
 
 
