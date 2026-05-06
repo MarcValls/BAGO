@@ -1,5 +1,5 @@
 {
-  "bago_version": "3.2-kernel",
+  "bago_version": "3.3.0",
   "system_health": "ok",
   "sprint_status": {
     "active_workflow": {
@@ -38,7 +38,7 @@
     "health": "100/100",
     "integration_tests": "PASS — 40/41 checks passed, 1 skipped",
     "sincerity": "PASS — 0 errors / 0 warnings",
-    "stability": "GO — gates requeridos en verde; sandbox opcional no disponible",
+    "stability": "GO — all 8 gates green, v3.3.0",
     "tool_guardian": "PASS — 7/7 self-tests"
   },
   "guardian_findings": {
@@ -49,7 +49,7 @@
     "w001_no_routing": 0,
     "w002_no_docstring": 0,
     "priority_fix": "none — all tools OK",
-    "dead_ref": "intent_router.py references legacy-fix command (pending minor fix)"
+    "dead_ref": "none — legacy-fix removed in v3.3.0"
   },
   "unresolved": {
     "stashes": 0,
@@ -72,7 +72,7 @@
     ]
   },
   "notes": "2026-05-05: reparación total del core: bago status funciona, integration_tests no referencia funciones/tools ausentes, COMMANDS operativos salen de tool_registry, sincerity queda estricto en 0/0 y stability distingue sandbox opcional como SKIP.\n2026-05-05: cross-learning DERIVA↔BIANCA; sprints 288-292 BIANCA; trampas #14-#15 añadidas; project_patterns cross-learning; engine_learnings actualizado.\n2026-05-05 20:51 [TG]: bago puedes configurar BAGO bot como una miniapp de telegram\n2026-05-06: bump 2.6-taxonomy — 6-layer taxonomy + scope, 3 routers, 29 deprecated, bago help redesigned, scope_detector.py, sessions en BD.",
-  "updated_at": "2026-05-06T09:11:46.202124",
+  "updated_at": "2026-05-06T21:54:30.623390",
   "bago_knowledge": {
     "sequences_catalog": ".bago/knowledge/sequences_catalog.md",
     "sequences_count": 10,
@@ -249,6 +249,18 @@
         "learning_writer.py: auto-promote patterns (El Aprendiz)",
         "bago autonomous + bago inbox commands",
         "Bug fixes: audit_v2 health parse + stale_detector timezone"
+      ]
+    },
+    {
+      "version": "3.3.0",
+      "label": "structural",
+      "released": "2026-05-06",
+      "commit": "a8ba572",
+      "highlights": [
+        "feat(docs): generate_commands_doc.py + gate-docs CI — closes #1",
+        "feat(wheel): gate-wheel CI + test_wheel.py 18 tests — closes #2",
+        "fix(launcher): remove dead legacy-fix ref, registry-aware routing — closes #3",
+        "8 CI gates green, 48 tests passing"
       ]
     }
   ],
