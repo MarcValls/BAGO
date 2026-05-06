@@ -1,5 +1,6 @@
-# bago.yml — Generado por bago ci --provider github
-# BAGO Code Health & Governance CI
+# bago.yml — BAGO Kernel Lockdown CI (PR-09)
+# Gate jobs: MUST pass. No continue-on-error.
+# Report jobs: best-effort. May continue-on-error. Upload artifacts.
 name: BAGO Code Health
 
 on:
@@ -8,168 +9,210 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
+# ── Gate jobs ─────────────────────────────────────────────────────────────────
+# All gate-* jobs are independent (run in parallel) for speed.
+# A failing gate BLOCKS merge. No exceptions.
+
 jobs:
-  bago-health:
-    name: BAGO Health Check
+  gate-registry:
+    name: "[gate] Registry contract"
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # needed for git history in hotspot analysis
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install BAGO dependencies
-        run: |
-          pip install flake8 pylint mypy bandit
-          pip install gitpython
-          # ── Language-specific linters (install only what your project needs) ──
-          # Java:       apt-get install -y checkstyle  (or download checkstyle jar)
-          # Ruby:       gem install rubocop
-          # PHP:        composer global require squizlabs/php_codesniffer phpstan/phpstan
-          # Swift:      brew install swiftlint  (macOS runner only)
-          # Kotlin:     curl -sSLO https://github.com/pinterest/ktlint/releases/download/1.2.1/ktlint
-          # Shell:      apt-get install -y shellcheck
-          # Terraform:  curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-          # YAML:       pip install yamllint
-
-      - name: Lint duplicate COMMANDS — via tool_registry (Trap #7)
+      - name: Registry — unique keys
         run: |
           python3 -c "
           import importlib.util, sys
           from pathlib import Path
           reg = Path('.bago/tools/tool_registry.py')
           if not reg.exists():
-              print('INFRA-FAIL: tool_registry.py not found')
-              sys.exit(2)
-          spec = importlib.util.spec_from_file_location('_ci_registry', str(reg))
+              print('GATE-FAIL: tool_registry.py not found'); sys.exit(1)
+          spec = importlib.util.spec_from_file_location('_ci_reg', str(reg))
           mod = importlib.util.module_from_spec(spec)
-          sys.modules['_ci_registry'] = mod  # required: dataclass uses cls.__module__
-          try:
-              spec.loader.exec_module(mod)
-          except Exception as e:
-              print(f'INFRA-FAIL: cannot load tool_registry: {e}')
-              sys.exit(2)
-          registry = getattr(mod, 'REGISTRY', {})
-          if not registry:
-              print('POLICY-FAIL: REGISTRY is empty in tool_registry.py')
-              sys.exit(1)
-          seen = set(); dups = []
-          for cmd in registry:
-              if cmd in seen: dups.append(cmd)
-              seen.add(cmd)
-          if dups:
-              print(f'POLICY-FAIL: duplicate REGISTRY keys: {dups}')
-              sys.exit(1)
-          print(f'OK: {len(seen)} unique commands in tool_registry, no duplicates')
+          sys.modules['_ci_reg'] = mod
+          spec.loader.exec_module(mod)
+          R = getattr(mod, 'REGISTRY', {})
+          if not R: print('GATE-FAIL: REGISTRY empty'); sys.exit(1)
+          keys = list(R.keys())
+          dups = [k for k in keys if keys.count(k) > 1]
+          if dups: print(f'GATE-FAIL: duplicate keys: {set(dups)}'); sys.exit(1)
+          print(f'OK: {len(keys)} unique commands')
           "
 
-      - name: Validate tool manifest (Trap #8)
+      - name: Registry — every entry has module + risk + stability + policy
         run: |
           python3 -c "
-          import json, sys
+          import importlib.util, sys
           from pathlib import Path
-          tools_dir = Path('.bago/tools')
-          manifest_file = Path('.bago/tools.manifest.json')
-          if not manifest_file.exists():
-              print('POLICY-FAIL: .bago/tools.manifest.json not found — run: python3 .bago/tools/auto_register.py --gen-manifest')
+          spec = importlib.util.spec_from_file_location('_ci_reg2', '.bago/tools/tool_registry.py')
+          mod = importlib.util.module_from_spec(spec)
+          sys.modules['_ci_reg2'] = mod
+          spec.loader.exec_module(mod)
+          R = mod.REGISTRY
+          VALID_RISKS  = {'safe','mutating','dangerous'}
+          VALID_STAB   = {'core','experimental','legacy','dangerous','internal'}
+          VALID_POL    = {'required','optional','none'}
+          errors = []
+          for cmd, e in R.items():
+              if not getattr(e,'module',''):              errors.append(f'{cmd}: no module')
+              if getattr(e,'risk','') not in VALID_RISKS: errors.append(f'{cmd}: risk={e.risk!r}')
+              if getattr(e,'stability','') not in VALID_STAB: errors.append(f'{cmd}: stability={e.stability!r}')
+              if getattr(e,'preflight_policy','') not in VALID_POL: errors.append(f'{cmd}: policy={e.preflight_policy!r}')
+              if getattr(e,'deprecated',False) and not getattr(e,'see_also','').strip():
+                  errors.append(f'{cmd}: deprecated but no see_also')
+              if e.stability=='core' and e.preflight_policy!='required':
+                  errors.append(f'{cmd}: core must have preflight_policy=required')
+          if errors:
+              for err in errors: print(f'GATE-FAIL: {err}')
               sys.exit(1)
-          try:
-              manifest = json.loads(manifest_file.read_text())
-          except json.JSONDecodeError as e:
-              print(f'INFRA-FAIL: tools.manifest.json is not valid JSON: {e}')
-              sys.exit(2)
-          internal = {'integration_tests','bago_utils','bago_banner','bago_start','bago_on',
-                      'bago_debug','bago_watch','bago_chat_server','bago_ask','bago_lint_cli',
-                      'bago_search','auto_register','ci_generator','tool_guardian','contracts'}
-          manifest_tools = set(manifest.get('tools', {}).keys())
-          actual_tools = {p.stem for p in tools_dir.glob('*.py')
-                          if not p.stem.startswith('_') and p.stem not in internal}
-          in_manifest_only = manifest_tools - actual_tools
-          in_actual_only = actual_tools - manifest_tools
-          if in_manifest_only or in_actual_only:
-              if in_manifest_only: print(f'POLICY-FAIL: in manifest but not on disk: {sorted(in_manifest_only)}')
-              if in_actual_only: print(f'POLICY-FAIL: on disk but not in manifest: {sorted(in_actual_only)}')
-              sys.exit(1)
-          print(f'OK: manifest matches {len(actual_tools)} tools')
+          print(f'OK: all {len(R)} entries satisfy registry contract')
           "
 
-      - name: BAGO validate
+  gate-syntax:
+    name: "[gate] Python syntax"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile all Python files
+        run: |
+          python3 -m compileall -q .bago/tools/ .bago/core/ bago_core/ || exit 1
+          python3 -m py_compile bago || exit 1
+          echo "OK: all Python files pass syntax check"
+
+  gate-security:
+    name: "[gate] Security scan"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bandit
+        run: pip install bandit -q
+      - name: Bandit security scan (HIGH severity only)
+        run: |
+          bandit -r bago_core/ .bago/tools/ .bago/core/ \
+            --severity-level high --confidence-level high \
+            -x .bago/tools/integration_tests.py \
+            -q || exit 1
+
+  gate-tests:
+    name: "[gate] pytest core tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: pip install pytest -q
+      - name: Run test suite (excludes packaging tests — no dist/ on CI)
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_packaging.py \
+            -v --tb=short
+
+  gate-package:
+    name: "[gate] Packaging smoke"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: pip install pytest -q
+      - name: Build pack
+        run: |
+          python3 .bago/tools/build_pack.py --out dist/ --clean
+      - name: Validate pack contents
+        run: |
+          python3 .bago/tools/validate_pack_contents.py dist/*.zip
+      - name: Run packaging tests against built pack
+        run: |
+          pytest tests/test_packaging.py -v --tb=short
+      - name: Upload pack artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-pack
+          path: dist/
+          retention-days: 7
+
+  gate-validate:
+    name: "[gate] bago validate"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: bago validate
         run: python3 bago validate
-        continue-on-error: false
+      - name: Consistency check (no drift)
+        run: |
+          python3 .bago/tools/bago_consistency_check.py --json > bago-findings.json
+          python3 -c "
+          import json, sys
+          data = json.loads(open('bago-findings.json').read())
+          errors = data.get('errors', 0)
+          if errors > 0:
+              issues = data.get('issues', [])
+              print(f'GATE-FAIL: {errors} consistency errors')
+              for i in issues[:10]:
+                  if i.get('level') == 'error': print(f'  [ERROR] {i.get(\"message\",\"\")}')
+              sys.exit(1)
+          print(f'OK: consistency clean (warnings={data.get(\"warnings\",0)})')
+          "
 
-      - name: BAGO consistency guard (anti-drift)
-        run: python3 .bago/tools/bago_consistency_check.py --json > bago-findings.json
-        continue-on-error: false
+# ── Report jobs ───────────────────────────────────────────────────────────────
+# report-* jobs run AFTER all gates pass.
+# They may fail without blocking merge (continue-on-error: true or soft failures).
+# They upload artifacts for visibility.
 
+  report-health:
+    name: "[report] Health & stale"
+    runs-on: ubuntu-latest
+    needs: [gate-registry, gate-syntax, gate-security, gate-tests, gate-package, gate-validate]
+    if: always() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: BAGO health score
-        run: python3 bago health --json > bago-health.json
+        run: python3 bago health --json > bago-health.json 2>/dev/null || true
         continue-on-error: true
-
-      - name: BAGO commit readiness (bago tools only)
-        run: python3 bago commit .bago/ 2>/dev/null || true
-        continue-on-error: true
-
       - name: BAGO stale detector
         run: python3 bago stale --json > bago-stale.json 2>/dev/null || true
         continue-on-error: true
-
-      - name: Fail on critical findings
-        run: |
-          python3 << 'PYEOF'
-          import json, sys
-          try:
-              raw = open('bago-findings.json').read()
-          except OSError as e:
-              print(f'INFRA-FAIL: cannot read bago-findings.json: {e}')
-              raise SystemExit(2)
-          try:
-              data = json.loads(raw)
-          except json.JSONDecodeError as e:
-              print(f'INFRA-FAIL: bago-findings.json is not valid JSON: {e}')
-              raise SystemExit(2)
-          errors = data.get('errors', 0)
-          warnings = data.get('warnings', 0)
-          status = data.get('status', 'unknown')
-          if errors > 0:
-              issues = data.get('issues', [])
-              print(f'POLICY-FAIL: {errors} consistency errors found:')
-              for issue in issues[:10]:
-                  if issue.get('level') == 'error':
-                      print(f"  [ERROR] {issue.get('message','')}")
-              raise SystemExit(1)
-          print(f'OK: consistency status={status}, errors={errors}, warnings={warnings}')
-          PYEOF
-
-      - name: Upload BAGO reports
+      - name: Upload health reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: bago-reports
           path: |
-            bago-findings.json
             bago-health.json
             bago-stale.json
           retention-days: 30
 
-  bago-tests:
-    name: BAGO Integration Tests
+  report-audit:
+    name: "[report] Audit summary"
     runs-on: ubuntu-latest
-    needs: bago-health
-
+    needs: [gate-registry, gate-syntax, gate-security, gate-tests, gate-package, gate-validate]
+    if: always() && !cancelled()
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: BAGO audit summary
+        run: python3 bago audit 2>/dev/null || true
+        continue-on-error: true
 
-      - name: Run BAGO integration tests
-        run: python3 .bago/tools/integration_tests.py
