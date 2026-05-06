@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.2-kernel** · 83 CLI commands · 207 tools · 18 operational workflows · Clean-install state: `healthy`
+> **Version 3.3.0** · 84 CLI commands · 208 tools · 18 operational workflows · Clean-install state: `healthy`
 
 ---
 
@@ -210,4 +210,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*BAGO 3.2-kernel · Built with BAGO · May 2026*
+*BAGO 3.3.0 · Built with BAGO · May 2026*
