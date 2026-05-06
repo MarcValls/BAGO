@@ -96,16 +96,16 @@ pyproject.toml
 
 | PR | Nombre | Estado | Commit |
 |----|--------|--------|--------|
-| PR-01 | kernel-freeze-baseline | ✅ COMPLETADO | `c5fa826` |
-| PR-02 | registry-single-source-of-truth | ✅ COMPLETADO | `6e65f9e` |
-| PR-03 | preflight-fail-closed | ✅ COMPLETADO | `83a5ac3` |
-| PR-04 | command-risk-model | ✅ COMPLETADO | `c5c5db4` |
-| PR-05 | clean-packaging-no-recursion | ✅ COMPLETADO | `37a2ac8` |
-| PR-06 | runtime-state-boundary | ✅ COMPLETADO | `e3efc4e` |
-| PR-07 | proper-python-package | ✅ COMPLETADO | `7e03d37` |
-| PR-08 | core-test-harness | ✅ COMPLETADO | `0b3e8ee` |
-| PR-09 | hard-ci-gates | ✅ COMPLETADO | `91ef37c` |
-| PR-10 | docs-core-truth | ✅ COMPLETADO | `d9bd021` |
+| PR-01 | kernel-freeze-baseline | ✅ COMPLETADO | commit `c5fa826` |
+| PR-02 | registry-single-source-of-truth | ✅ COMPLETADO | commit `6e65f9e` |
+| PR-03 | preflight-fail-closed | ✅ COMPLETADO | commit `83a5ac3` |
+| PR-04 | command-risk-model | ✅ COMPLETADO | commit `c5c5db4` |
+| PR-05 | clean-packaging-no-recursion | ✅ COMPLETADO | commit `37a2ac8` |
+| PR-06 | runtime-state-boundary | ✅ COMPLETADO | commit `e3efc4e` |
+| PR-07 | proper-python-package | ✅ COMPLETADO | commit `7e03d37` |
+| PR-08 | core-test-harness | ✅ COMPLETADO | commit `0b3e8ee` |
+| PR-09 | hard-ci-gates | ✅ COMPLETADO | commit `91ef37c` |
+| PR-10 | docs-core-truth | ✅ COMPLETADO | commit `d9bd021` |
 
 ---
 
