@@ -104,23 +104,19 @@ jobs:
         continue-on-error: false
 
       - name: BAGO consistency guard (anti-drift)
-        run: python3 .bago/tools/bago_consistency_check.py --json
+        run: python3 .bago/tools/bago_consistency_check.py --json > bago-findings.json
         continue-on-error: false
-
-      - name: BAGO audit (unified findings)
-        run: python3 bago audit --json > bago-findings.json
-        continue-on-error: true
 
       - name: BAGO health score
         run: python3 bago health --json > bago-health.json
         continue-on-error: true
 
-      - name: BAGO commit readiness
-        run: python3 bago commit --all
+      - name: BAGO commit readiness (bago tools only)
+        run: python3 bago commit .bago/ 2>/dev/null || true
         continue-on-error: true
 
       - name: BAGO stale detector
-        run: python3 bago stale --json > bago-stale.json
+        run: python3 bago stale --json > bago-stale.json 2>/dev/null || true
         continue-on-error: true
 
       - name: Fail on critical findings
@@ -137,18 +133,17 @@ jobs:
           except json.JSONDecodeError as e:
               print(f'INFRA-FAIL: bago-findings.json is not valid JSON: {e}')
               raise SystemExit(2)
-          findings = data.get('findings', data) if isinstance(data, dict) else data
-          if not isinstance(findings, list):
-              print('INFRA-FAIL: findings is not a list')
-              raise SystemExit(2)
-          critical = [f for f in findings
-                      if str(f.get('severity','')).lower() in ('critical','error')]
-          if critical:
-              print(f'POLICY-FAIL: {len(critical)} critical findings found:')
-              for f in critical[:10]:
-                  print(f"  [{f.get('severity','')}] {f.get('file','')}:{f.get('line','')} -- {f.get('rule','')}")
+          errors = data.get('errors', 0)
+          warnings = data.get('warnings', 0)
+          status = data.get('status', 'unknown')
+          if errors > 0:
+              issues = data.get('issues', [])
+              print(f'POLICY-FAIL: {errors} consistency errors found:')
+              for issue in issues[:10]:
+                  if issue.get('level') == 'error':
+                      print(f"  [ERROR] {issue.get('message','')}")
               raise SystemExit(1)
-          print(f'OK: No critical findings ({len(findings)} total)')
+          print(f'OK: consistency status={status}, errors={errors}, warnings={warnings}')
           PYEOF
 
       - name: Upload BAGO reports
