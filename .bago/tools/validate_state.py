@@ -144,10 +144,14 @@ if last_evidence_id:
         errors.append(f"last_completed_evidence_id points to missing file: {last_evidence_id}")
 
 inventory = global_state.get("inventory", {})
-real_sessions = len(list(sessions_dir.glob("*.json")))
-real_changes = len(list(changes_dir.glob("*.json")))
-real_evidences = len(list(evidences_dir.glob("*.json")))
-if inventory:
+# Sessions/changes/evidences are local runtime data (not committed).
+# Skip filesystem count checks in CI where the working tree is a fresh checkout.
+import os as _os
+_in_ci = _os.environ.get("CI") == "true"
+if inventory and not _in_ci:
+    real_sessions = len(list(sessions_dir.glob("*.json")))
+    real_changes = len(list(changes_dir.glob("*.json")))
+    real_evidences = len(list(evidences_dir.glob("*.json")))
     if inventory.get("sessions") != real_sessions:
         errors.append(f"inventory.sessions mismatch: {inventory.get('sessions')} != {real_sessions}")
     if inventory.get("changes") != real_changes:
