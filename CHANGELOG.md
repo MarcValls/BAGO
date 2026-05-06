@@ -5,6 +5,55 @@ Format: `[version] — date · summary · efficiency index`
 
 ---
 
+## [3.3.0] — Structural — 2026-05-06 · Efficiency Index: 100/100
+
+### Summary
+Structural release closing all 3 v3.3 milestone issues. Adds auto-generated
+command reference, CI wheel gate, and cleans the dead `legacy-fix` launcher ref.
+All 8 gates green on main. 48 tests passing, 0 failures.
+
+### Issue #1 — P1: docs: generate COMMANDS.md from registry
+- `generate_commands_doc.py` (`.bago/tools/`) reads `tool_registry.py` and renders
+  a full human-readable `docs/COMMANDS.md` grouped by stability bucket.
+- New `gate-docs` CI job: runs generator in `--check` mode; fails if committed
+  `COMMANDS.md` differs from freshly generated output (stale guard).
+- Generator supports `--write`, `--check`, `--stdout`, `--test` modes.
+
+### Issue #2 — P1: wheel: verify and gate installable bago package
+- `tests/test_wheel.py` — 18 tests covering package structure, importability,
+  version alignment, launcher presence, and pyproject.toml contract.
+- New `gate-wheel` CI job: `pip install -e .` → smoke tests → `pytest tests/test_wheel.py`
+  → full wheel build → artifact upload.
+- Known limitation documented: standalone `pip install bago` (non-editable) requires
+  bundling the launcher — scoped for a future structural release.
+
+### Issue #3 — P2: launcher: refactor routing + fix dead legacy-fix ref
+- Removed dead `legacy-fix` command reference from `intent_router.py`.
+- Routing now uses registry-aware detection instead of a hardcoded legacy map.
+- `bago validate` and `gate-registry` remain clean.
+
+### CI gates status (all green)
+| Gate | Status |
+|------|--------|
+| gate-registry | ✅ |
+| gate-syntax | ✅ |
+| gate-security | ✅ |
+| gate-tests | ✅ |
+| gate-package | ✅ |
+| gate-validate | ✅ |
+| gate-docs | ✅ |
+| gate-wheel | ✅ |
+
+### Metrics
+| Metric | Value |
+|--------|-------|
+| Tests passing | 48 |
+| Tests xfailed | 1 (expected) |
+| Active commands | 51 |
+| CI jobs | 8 gates + 2 reports |
+
+---
+
 ## [2.6-taxonomy] — 2026-05-06 · Efficiency Index: 100/100
 
 ### Summary
