@@ -5,7 +5,7 @@
 
 BAGO_DIR   := .bago
 TOOLS      := $(BAGO_DIR)/tools
-DIST       := $(BAGO_DIR)/dist
+DIST       := dist
 VERSION    := $(shell python3 -c "import json; print(json.loads(open('$(BAGO_DIR)/pack.json').read())['version'])" 2>/dev/null || echo "unknown")
 TIMESTAMP  := $(shell date +%Y%m%d_%H%M%S)
 PACK_NAME  := BAGO_$(VERSION)_$(TIMESTAMP)
@@ -25,7 +25,7 @@ help:
 	@echo "  make validate   → valida manifest + state + pack"
 	@echo "  make pre-push   → ejecuta gate antes de publicar a remoto"
 	@echo "  make install-hooks → activa hooks versionados .githooks"
-	@echo "  make pack       → crea zip con timestamp en dist/"
+	@echo "  make pack       → crea zip limpio en dist/ (excluye dist/, state/, .git, __pycache__)"
 	@echo "  make deploy     → crea zip limpio sin historial (para nuevos proyectos)"
 	@echo "  make install    → instala alias 'bago' en $(SHELL_RC)"
 	@echo "  make uninstall  → elimina alias 'bago' de $(SHELL_RC)"
@@ -46,21 +46,13 @@ pre-push:
 install-hooks:
 	@git config core.hooksPath .githooks
 	@echo "  ✅ hooks Git activados: .githooks"
-
-# ─── Pack: regenera TREE+CHECKSUMS y crea zip ─────────────────────────────────
+# ─── Pack: build_pack.py — clean, reproducible, no recursive dist ─────────────
 pack:
 	@echo ""
-	@echo "  📦 Paso 1/4: sincronizando TREE.txt y CHECKSUMS.sha256..."
-	@python3 -c "from pathlib import Path; import hashlib; root = Path('.bago'); entries = sorted(str(p.relative_to(root)) + ('/' if p.is_dir() else '') for p in root.rglob('*')); (root/'TREE.txt').write_text('\n'.join(entries)+'\n'); lines = [f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(root)}' for p in sorted(root.rglob('*')) if p.is_file() and p.name != 'CHECKSUMS.sha256']; (root/'CHECKSUMS.sha256').write_text('\n'.join(lines)+'\n'); print('  OK')"
-	@echo "  📋 Paso 2/4: validando pack..."
+	@echo "  📋 Paso 1/2: validando pack..."
 	@python3 $(TOOLS)/validate_pack.py
-	@mkdir -p $(DIST)/source
-	@echo "  🗜  Paso 3/4: creando zip ..."
-	@cd .. && zip -r "$(shell pwd)/$(DIST)/source/$(PACK_NAME).zip" "$(notdir $(shell pwd))/.bago" "$(notdir $(shell pwd))/bago" "$(notdir $(shell pwd))/Makefile" --exclude "**/__pycache__/*" --exclude "**/*.pyc" -q
-	@echo "  🔄 Paso 4/4: actualizando TREE con el nuevo zip..."
-	@python3 -c "from pathlib import Path; import hashlib; root = Path('.bago'); entries = sorted(str(p.relative_to(root)) + ('/' if p.is_dir() else '') for p in root.rglob('*')); (root/'TREE.txt').write_text('\n'.join(entries)+'\n'); lines = [f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(root)}' for p in sorted(root.rglob('*')) if p.is_file() and p.name != 'CHECKSUMS.sha256']; (root/'CHECKSUMS.sha256').write_text('\n'.join(lines)+'\n'); print('  OK')"
-	@echo "  ✅ Pack creado: $(DIST)/source/$(PACK_NAME).zip"
-	@ls -lh "$(DIST)/source/$(PACK_NAME).zip"
+	@echo "  📦 Paso 2/2: creando zip limpio (excluye dist/, state/, __pycache__, .git)..."
+	@python3 $(TOOLS)/build_pack.py --out $(DIST)
 	@echo ""
 
 # ─── Instalar alias global ────────────────────────────────────────────────────
