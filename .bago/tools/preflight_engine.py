@@ -25,10 +25,14 @@ def _load_mod(path: Path, name: str):
     if spec is None:
         return None
     mod = importlib.util.module_from_spec(spec)
+    # Must register in sys.modules BEFORE exec_module so @dataclass can resolve
+    # cls.__module__ back to the live module (Python 3.11+ requirement).
+    sys.modules[name] = mod
     try:
         spec.loader.exec_module(mod)  # type: ignore[union-attr]
         return mod
     except Exception:
+        sys.modules.pop(name, None)
         return None
 
 

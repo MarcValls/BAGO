@@ -38,10 +38,21 @@ EXCLUDE_PREFIXES: list[str] = [
     ".bago/dist",
     ".bago/state",
     ".bago/ImageStudio",   # large bundled binary app — not part of BAGO core
+    ".bago/.models",       # LLM model blobs (GBs) — not distributable
+    ".bago/bin",           # Ollama/system binaries — platform-specific, not core
+    ".bago/snapshots",     # local snapshot zips — runtime artefacts
     ".git",
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
+    ".Spotlight-V100",     # macOS USB/disk metadata
+    ".fseventsd",          # macOS file-system events
+    ".Trashes",            # macOS trash
+    ".TemporaryItems",     # macOS temporary items
+    ".DocumentRevisions-V100",
+    "bago.egg-info",       # pip editable install metadata
+    "dist",                # output directory — never include in itself
+    "System Volume Information",  # Windows volume metadata
 ]
 EXCLUDE_SUFFIXES: list[str] = [
     "__pycache__",
@@ -89,12 +100,23 @@ def build(out_dir: Path, clean: bool = False, dry_run: bool = False) -> Path | N
         out_dir.mkdir(parents=True, exist_ok=True)
 
     # Collect files
+    # Dynamically exclude the output directory if it lives inside BAGO_ROOT
+    dynamic_excludes: list[str] = []
+    try:
+        rel_out = out_dir.resolve().relative_to(BAGO_ROOT)
+        dynamic_excludes.append(str(rel_out))
+    except ValueError:
+        pass  # out_dir is outside BAGO_ROOT — no need to exclude
+
     entries: list[Path] = []
     for path in sorted(BAGO_ROOT.rglob("*")):
         if not path.is_file():
             continue
         rel = path.relative_to(BAGO_ROOT)
         if _should_exclude(rel):
+            continue
+        rel_str = str(rel)
+        if any(rel_str == ex or rel_str.startswith(ex + "/") for ex in dynamic_excludes):
             continue
         entries.append(path)
 
@@ -108,10 +130,18 @@ def build(out_dir: Path, clean: bool = False, dry_run: bool = False) -> Path | N
         return None
 
     # Write zip
+    skipped = 0
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for path in entries:
             arcname = str(path.relative_to(BAGO_ROOT))
-            zf.write(path, arcname)
+            try:
+                zf.write(path, arcname)
+            except (FileNotFoundError, PermissionError) as exc:
+                print(f"  ⚠  Skipped (unavailable): {arcname} — {exc}", file=sys.stderr)
+                skipped += 1
+
+    if skipped:
+        print(f"  ⚠  Skipped {skipped} files (system/unavailable)")
 
     # Write sha256 manifest
     h = hashlib.sha256(zip_path.read_bytes()).hexdigest()
