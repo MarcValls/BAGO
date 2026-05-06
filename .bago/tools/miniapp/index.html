@@ -282,6 +282,12 @@ body {
       <div class="card"><div style="text-align:center;color:var(--muted);padding:20px">Cargando git...</div></div>
     </div>
   </div>
+  <!-- CARTERA -->
+  <div class="panel" id="panel-cartera">
+    <div class="scroll" id="cartera-content">
+      <div class="card"><div style="text-align:center;color:var(--muted);padding:20px">Cargando cartera...</div></div>
+    </div>
+  </div>
 </div>
 
 <div class="tabs">
@@ -296,6 +302,9 @@ body {
   </button>
   <button class="tab" onclick="switchTab('git')" id="tab-git">
     <span class="icon">🌿</span><span>Git</span>
+  </button>
+  <button class="tab" onclick="switchTab('cartera')" id="tab-cartera">
+    <span class="icon">💰</span><span>Cartera</span>
   </button>
 </div>
 
@@ -315,9 +324,10 @@ function switchTab(tab) {
   document.getElementById('panel-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
   currentTab = tab;
-  if (tab === 'dash')   loadDash();
-  if (tab === 'tareas') loadTareas();
-  if (tab === 'git')    loadGit();
+  if (tab === 'dash')    loadDash();
+  if (tab === 'tareas')  loadTareas();
+  if (tab === 'git')     loadGit();
+  if (tab === 'cartera') loadCartera();
 }
 
 function toast(msg, ms=2200) {
@@ -563,13 +573,56 @@ async function loadGit() {
   }
 }
 
+/* ── CARTERA ── */
+async function loadCartera() {
+  const el = document.getElementById('cartera-content');
+  el.innerHTML = `<div class="card"><div style="text-align:center;color:var(--muted);padding:20px">💰 Consultando precios...</div></div>`;
+  try {
+    const d = await fetch('/api/cartera').then(r => r.json());
+    if (!d.ok) { el.innerHTML = `<div class="card"><div style="color:var(--err)">Error: ${esc(d.error)}</div></div>`; return; }
+    const assets = (d.assets || []).map(a => {
+      const arrow = a.change_24h >= 0 ? '🟢' : '🔴';
+      const chg = a.change_24h != null ? ` (${a.change_24h > 0 ? '+' : ''}${a.change_24h.toFixed(1)}%)` : '';
+      const val = (a.value_eur || 0).toFixed(2);
+      const price = (a.price_eur || 0).toLocaleString('es', {maximumFractionDigits: 2});
+      return `<div class="stat-row">
+        <span class="stat-label">${arrow} ${esc(a.coin)}</span>
+        <span class="stat-val" style="font-size:11px;text-align:right">${esc(a.amount)} × ${price} EUR = <strong>${val} EUR</strong>${chg}</span>
+      </div>`;
+    }).join('');
+    const total = (d.total_eur || 0).toFixed(2);
+    const alerts = (d.alerts || []).map(a => `<div style="color:var(--warn);font-size:12px;padding:4px 0">⚠️ ${esc(a)}</div>`).join('');
+    el.innerHTML = `
+      <div class="card">
+        <div class="card-title">💰 Portfolio BAGO</div>
+        ${assets}
+        <div class="stat-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+          <span class="stat-label">Total</span>
+          <span class="stat-val"><strong>${total} EUR</strong></span>
+        </div>
+        ${alerts}
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(d.ts || '')}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Acciones</div>
+        <div class="quick-grid">
+          <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
+          <div class="qbtn" onclick="switchTab('dash')"><span class="qicon">🏠</span>Dashboard</div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">Usa /cartera add COIN AMOUNT en el bot para añadir activos</div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="card"><div style="color:var(--err)">Error cargando cartera: ${esc(String(e))}</div></div>`;
+  }
+}
+
 /* ── Init ── */
 async function init() {
   await loadTareas();
   loadDash();
 }
 init();
-setInterval(()=>{ if(currentTab==='dash') loadDash(); }, 20000);
+setInterval(()=>{ if(currentTab==='dash') loadDash(); if(currentTab==='cartera') loadCartera(); }, 30000);
 </script>
 </body>
 </html>

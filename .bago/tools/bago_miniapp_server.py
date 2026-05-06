@@ -301,6 +301,33 @@ class BAGOHandler(BaseHTTPRequestHandler):
                 "log":    run_git(["log", "--oneline", "-8"]),
                 "status": run_git(["status", "--short"]),
             })
+        elif path == "/api/cartera":
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).parent))
+            try:
+                from wallet_tracker import portfolio_summary, format_summary, check_alerts
+                data = portfolio_summary()
+                alerts = check_alerts(data)
+                assets = [
+                    {
+                        "coin":       p["symbol"],
+                        "amount":     p["amount"],
+                        "price_eur":  p["price"],
+                        "value_eur":  p["value"],
+                        "change_24h": p.get("change24", 0),
+                    }
+                    for p in data.get("positions", [])
+                ]
+                self.send_json({
+                    "ok":        True,
+                    "summary":   format_summary(data),
+                    "assets":    assets,
+                    "total_eur": data.get("total", 0),
+                    "alerts":    alerts,
+                    "ts":        data.get("updated", ""),
+                })
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)})
         elif path == "/health":
             self.send_json({"ok": True, "service": "bago-miniapp-v2"})
         else:
