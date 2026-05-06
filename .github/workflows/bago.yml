@@ -206,7 +206,9 @@ jobs:
       - name: Install in editable mode
         run: pip install -e . -q
       - name: Smoke test — bago --help
-        run: bago --help | grep -q "Comandos disponibles\|Available commands\|bago" || (echo "GATE-FAIL: bago --help produced no output" && exit 1)
+        run: |
+          bago --help | grep -q "Comandos disponibles\|Available commands\|bago" \
+            || (echo "GATE-FAIL - bago --help produced no output" && exit 1)
       - name: Smoke test — bago validate
         run: python3 bago validate
       - name: Run wheel packaging tests
