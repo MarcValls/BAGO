@@ -1,0 +1,9 @@
+
+BAGO Health Score: 100/100  🟢
+
+  ✅  Integridad              25/25   GO pack ✅
+  ✅  Disciplina workflow     20/20   roles_medios=1.1 (últimas 10 ses)
+  ✅  Captura decisiones      20/20   decisiones_medias=3.2 (últimas 10 ses)
+  ✅  Estado stale            15/15   Reporting limpio ✅
+  ✅  Consistencia inv.       20/20   Inventario reconciliado ✅
+
