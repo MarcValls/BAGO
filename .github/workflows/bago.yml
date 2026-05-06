@@ -125,7 +125,7 @@ jobs:
 
       - name: Fail on critical findings
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import json, sys
           try:
               raw = open('bago-findings.json').read()
@@ -146,10 +146,10 @@ jobs:
           if critical:
               print(f'POLICY-FAIL: {len(critical)} critical findings found:')
               for f in critical[:10]:
-                  print(f"  [{f.get('severity','')}] {f.get('file','')}:{f.get('line','')} — {f.get('rule','')}")
+                  print(f"  [{f.get('severity','')}] {f.get('file','')}:{f.get('line','')} -- {f.get('rule','')}")
               raise SystemExit(1)
           print(f'OK: No critical findings ({len(findings)} total)')
-          "
+          PYEOF
 
       - name: Upload BAGO reports
         uses: actions/upload-artifact@v4
