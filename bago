@@ -192,20 +192,35 @@ def _get_module_for_cmd(cmd: str) -> str:
     return cmd
 
 
-def _run_preflight(cmd: str) -> bool:
-    """Run registry preflight checks for cmd. Returns True if all pass."""
-    pf_path = TOOLS / "preflight.py"
-    if not pf_path.exists():
-        return True
-    spec = importlib.util.spec_from_file_location("_bago_preflight", str(pf_path))
+def _run_preflight(cmd: str, skip: bool = False) -> None:
+    """Enforce preflight policy for cmd via preflight_engine. Fail-closed for core commands."""
+    pfe_path = TOOLS / "preflight_engine.py"
+    if not pfe_path.exists():
+        # Engine missing — fall back to old behaviour for non-breaking compat
+        pf_path = TOOLS / "preflight.py"
+        if not pf_path.exists():
+            return
+        spec = importlib.util.spec_from_file_location("_bago_preflight", str(pf_path))
+        if spec is None:
+            return
+        mod = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(mod)
+            mod.run_from_registry(cmd, exit_on_fail=False)
+        except Exception:
+            pass
+        return
+    spec = importlib.util.spec_from_file_location("_bago_pfe", str(pfe_path))
     if spec is None:
-        return True
+        return
     mod = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(mod)
-        return mod.run_from_registry(cmd, exit_on_fail=False)
-    except Exception:
-        return True
+        mod.enforce(cmd, skip_preflight=skip)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        print(f"  ⚠  preflight_engine error: {exc}", file=sys.stderr)
 
 
 def _start_session(cmd: str, args: list) -> object:
@@ -225,7 +240,7 @@ def _start_session(cmd: str, args: list) -> object:
         return None
 
 
-def _dispatch(cmd: str, rest: list, preflight_only: bool = False) -> None:
+def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight: bool = False) -> None:
     """Dispatch a registered command with preflight + session logging + exit propagation."""
     # 0. Deprecation hint (non-blocking)
     if cmd in _DEPRECATED_MAP:
@@ -234,9 +249,8 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False) -> None:
         print(f"\033[33m{hint}\033[0m" if _USE_COLOR else hint)
         sys.stdout.flush()
 
-    # 1. Preflight
-    if not _run_preflight(cmd):
-        sys.exit(1)
+    # 1. Preflight (fail-closed via preflight_engine for core commands)
+    _run_preflight(cmd, skip=skip_preflight)
     if preflight_only:
         print(f"  ✅ Preflight OK para '{cmd}'")
         return
@@ -601,9 +615,10 @@ def main():
     elif cmd == "inbox":
         _cmd_inbox_launcher(rest)
     elif cmd in COMMANDS:
-        preflight_only = "--preflight" in rest
-        clean_rest = [a for a in rest if a != "--preflight"]
-        _dispatch(cmd, clean_rest, preflight_only=preflight_only)
+        preflight_only  = "--preflight" in rest
+        skip_preflight  = "--skip-preflight" in rest
+        clean_rest = [a for a in rest if a not in ("--preflight", "--skip-preflight")]
+        _dispatch(cmd, clean_rest, preflight_only=preflight_only, skip_preflight=skip_preflight)
     elif cmd in ("help", "--help", "-h"):
         subprocess.run(
             ["python3", str(TOOLS / "bago_banner.py"), "--mini"],
