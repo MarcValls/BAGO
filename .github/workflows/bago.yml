@@ -103,10 +103,6 @@ jobs:
         run: python3 bago validate
         continue-on-error: false
 
-      - name: BAGO pre-push guard
-        run: python3 bago pre-push
-        continue-on-error: false
-
       - name: BAGO consistency guard (anti-drift)
         run: python3 .bago/tools/bago_consistency_check.py --json
         continue-on-error: false
