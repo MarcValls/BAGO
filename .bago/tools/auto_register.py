@@ -3,7 +3,7 @@
 
 Cada tool nuevo requiere editar manualmente 3 archivos:
   1. integration_tests.py — añadir def test_X() + ALL_TESTS entry
-  2. bago script — añadir elif cmd == "..." routing
+  2. bago script — routing (v3.2-kernel+: via tool_registry, no injection needed)
   3. CHECKSUMS.sha256 — regen
 
 Este tool automatiza los 3 pasos. Solo necesitas el nombre del tool.
@@ -18,7 +18,11 @@ Uso:
     python3 auto_register.py --dry-run tool_name.py   # muestra qué haría
     python3 auto_register.py --test                   # self-tests
 
-Códigos: REG-I001 (registrado), REG-W001 (ya registrado), REG-E001 (error)
+Códigos:
+  REG-I001  Registrado (routing inyectado — modo legacy pre-v3.2)
+  REG-I002  Dispatch vía tool_registry (v3.2-kernel+); solo añadir a REGISTRY
+  REG-W001  Ya registrado
+  REG-E001  Error (no se pudo registrar)
 """
 import sys
 import re
@@ -104,17 +108,43 @@ def is_in_integration_tests(tool_file: str) -> bool:
 
 
 def is_in_bago_script(tool_file: str) -> bool:
-    """AST-based: verifies tool has routing in bago COMMANDS dict or elif chain."""
+    """Verifies tool has routing in bago COMMANDS dict, elif chain, or tool_registry (v3.2+).
+
+    Since v3.2-kernel, bago uses registry-based dispatch (_build_commands from tool_registry).
+    If the bago script references tool_registry, we check the REGISTRY directly.
+    Falls back to AST inspection for legacy elif-chain routing.
+    """
     import ast as _ast
     if not BAGO_SCRIPT.exists():
         return False
+
+    cmd = tool_file_to_cmd(tool_file)
+
+    # v3.2-kernel+: check tool_registry.REGISTRY (registry-based dispatch)
+    try:
+        src = BAGO_SCRIPT.read_text(encoding="utf-8")
+        if "_build_commands" in src or "tool_registry" in src:
+            import importlib.util as _ilu
+            reg_path = TOOLS_DIR / "tool_registry.py"
+            if reg_path.exists():
+                _spec = _ilu.spec_from_file_location("_ibs_reg", str(reg_path))
+                if _spec:
+                    _mod = _ilu.module_from_spec(_spec)
+                    import sys as _sys
+                    _sys.modules[_spec.name] = _mod
+                    _spec.loader.exec_module(_mod)
+                    if cmd in getattr(_mod, "REGISTRY", {}):
+                        return True
+    except Exception:
+        pass
+
+    # Legacy path: AST inspection for COMMANDS dict or elif-chain routing
     try:
         tree = _ast.parse(BAGO_SCRIPT.read_text(encoding="utf-8"))
     except SyntaxError:
         return False
-    cmd = tool_file_to_cmd(tool_file)
     for node in _ast.walk(tree):
-        # Check COMMANDS dict assignments
+        # Check COMMANDS dict assignments (literal dicts only)
         if isinstance(node, _ast.Assign):
             for target in node.targets:
                 if (isinstance(target, _ast.Name)
@@ -226,19 +256,28 @@ def register_in_integration_tests(tool_file: str, dry_run: bool = False) -> str:
 
 
 def register_in_bago_script(tool_file: str, description: str = "", dry_run: bool = False) -> str:
-    """Añade routing elif + help entry en el script bago."""
+    """Añade routing elif + help entry en el script bago.
+
+    Since v3.2-kernel, the bago launcher dispatches via tool_registry (COMMANDS
+    is built dynamically from REGISTRY). If neither legacy anchor exists,
+    the tool is handled automatically by the registry — no injection needed.
+    Returns REG-I002 in that case.
+    """
     if is_in_bago_script(tool_file):
         return "REG-W001"
     try:
         src = BAGO_SCRIPT.read_text(encoding="utf-8")
+
+        # v3.2-kernel+: launcher uses registry-based dispatch (_build_commands).
+        # If the bago script has _build_commands, injection is not needed.
+        if "_build_commands" in src or "tool_registry" in src:
+            return "REG-I002"  # Registry-based dispatch: tool is registered when added to REGISTRY.
+
         stem = tool_file_to_stem(tool_file)
         cmd = tool_file_to_cmd(tool_file)
 
-        # Routing block — insert before "elif cmd == "hotspot":"
+        # Legacy path (pre-v3.2): inject elif routing block.
         routing_anchor = '    elif cmd == "hotspot":'
-        if routing_anchor not in src:
-            # Try another anchor
-            routing_anchor = '    elif cmd == "legacy-fix":'
         if routing_anchor not in src:
             return "REG-E001"
 
@@ -249,15 +288,6 @@ def register_in_bago_script(tool_file: str, description: str = "", dry_run: bool
         )
 '''
         src = src.replace(routing_anchor, new_routing + routing_anchor)
-
-        # Help entry — find the last entry in the extra dict
-        desc = description or f"tool {stem}: ver --help para uso"
-        help_anchor = '"legacy-fix":'
-        if help_anchor in src:
-            insert_after = src.find(help_anchor)
-            eol = src.find("\n", insert_after)
-            new_help = f'\n                "{cmd}":        "{desc}",'
-            src = src[:eol] + new_help + src[eol:]
 
         if not dry_run:
             BAGO_SCRIPT.write_text(src, encoding="utf-8")
