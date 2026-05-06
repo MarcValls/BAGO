@@ -12,80 +12,106 @@ It works as a **persistent operational layer** alongside any AI agent (GitHub Co
 
 ---
 
-## ¿Qué resuelve? / What does it solve?
+## Installation
 
-| Problema / Problem | Sin BAGO / Without BAGO | Con BAGO / With BAGO |
+**Requirements:** Python 3.9+ · No external dependencies (standard library only)
+
+```bash
+git clone https://github.com/MarcValls/BAGO_v3.1.git
+cd BAGO_v3.1
+pip install -e .          # installs 'bago' console script
+# or: alias bago='python3 /path/to/bago'
+```
+
+Verify clean install:
+
+```bash
+bago validate
+bago health
+```
+
+---
+
+## Core Commands (stable)
+
+These 12 commands form the stable public interface. They are tested on every CI run and have a `preflight_policy=required` contract.
+
+| Command | Purpose |
+|---|---|
+| `bago health` | System health score (0–100) + stability report |
+| `bago status` | Active flow, pending task, current health |
+| `bago validate` | Consistency check: manifest + state + pack |
+| `bago audit` | Session audit trail (full \| pack \| scan \| commit \| push) |
+| `bago task` | Show/manage active W2 pending task |
+| `bago flow` | Workflow lifecycle: start \| done \| status \| reset |
+| `bago session` | Session lifecycle: open \| close \| harvest |
+| `bago project` | Distributed project memory: init \| link \| status |
+| `bago context` | Workspace context: detect \| map \| git \| stale |
+| `bago sync` | Regenerate TREE.txt and CHECKSUMS |
+| `bago scope` | Detect script scope (framework / project / both) |
+| `bago secrets` | Scan repository for exposed credentials |
+
+```bash
+# Minimum working session
+bago status               # what is the current state?
+bago flow start W2 "task description"
+# ... work ...
+bago flow done
+bago audit
+```
+
+---
+
+## Experimental Commands
+
+These commands work but may change. Not covered by CI gate-tests. Use with awareness.
+
+`ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
+`find-tool` · `goals` · `habit` · `ideas` · `inbox` · `insights` · `llm` · `lsp`
+`naming` · `next` · `reopen` · `repo` · `research` · `review` · `risk` · `rules`
+`select` · `sprint` · `types` · `why` · `workflow`
+
+---
+
+## Dangerous Commands
+
+These commands mutate state, spawn processes, or have irreversible effects.
+They require `--yes`, `--unsafe`, or explicit confirmation before executing.
+
+| Command | Description | Requires |
 |---|---|---|
-| Pérdida de contexto entre sesiones | El agente no recuerda el estado anterior | Estado persistente: la sesión arranca con contexto completo |
-| Arranques improvisados | El agente empieza sin rol ni protocolo | `bago health` + workflow selector antes de cada sesión |
-| Cambios sin rastro | Los cambios se hacen sin documentar | Cada cambio genera un artefacto BAGO-CHG con evidencia |
-| Deriva entre estado y código | El estado declarado no refleja la realidad | `bago validate` comprueba consistencia en tiempo real |
-| Ideas sin gestión | Las mejoras se pierden | `bago ideas` con selector de prioridad y registro de implementadas |
+| `auto` | Automatic evaluation + action loop | `--yes` |
+| `autonomous` | Full SENSE→PLAN→ACT→OBSERVE→LEARN loop | `--yes` |
+| `cabinet` | Multi-agent parallel orchestration | `--yes` |
+| `db` | Manage bago.db: ideas state, guardian history | `--yes` |
+| `install` | Auto-launch on pendrive insert (macOS/Linux) | `--unsafe` |
+| `orchestrate` | Multi-tool workflow sequencer | `--yes` |
+| `peer` | LAN peer-to-peer communication | `--unsafe` |
 
----
-
-## Capabilities at a glance
-
-```
-python3 bago health       # System health score (0–100)
-python3 bago validate     # Consistency check: manifest + state + pack
-python3 bago ideas        # Prioritized idea selector (scored 0–100)
-python3 bago task         # Active task management
-python3 bago stability    # Full stability report (smoke + VM + soak)
-python3 bago workflow     # Workflow inspector
-python3 bago efficiency   # Cross-version efficiency metrics
-python3 bago audit        # Session audit trail
-python3 bago dashboard    # System overview
-python3 bago cosecha      # Session harvest (artifacts + decisions)
-python3 bago session      # Session opener with context
-python3 bago detector     # Context drift detector
-python3 bago stale        # Stale task alert
-python3 bago sincerity    # Sincerity audit — detects unverified status claims
-python3 bago cabinet      # Multi-agent governance cabinet review
+```bash
+bago autonomous --dry-run       # safe: plan only, no mutations
+bago autonomous --yes           # run one autonomous cycle
+bago autonomous --loop --yes    # run until quiescent
 ```
 
 ---
 
-## Evolution — Proven Growth
+## Legacy Commands
 
-BAGO has been built using BAGO itself. The following data was collected with `python3 bago efficiency`:
+These commands are deprecated. They redirect to their current equivalents.
+Not developed further. Will be removed in a future version.
 
-| Version | CLI Commands | Tools | Docs | Workflows | Efficiency Index |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **2.3-clean** *(baseline)* | 10 | 19 | 68 | 12 | 78.6 |
-| **2.4-v2rc** *(Dynamic BAGO)* | 10 | 27 | 73 | 12 | 89.3 |
-| **2.5-stable** *(historic)* | **35** | **111** | **77** | **20** | **100.0** |
-| **3.1** *(current)* | **83** | **207** | — | **17** | **—** |
-
-**Growth up to 3.1** — measured by weighted index (commands ×0.30, tools ×0.35, docs ×0.20, workflows ×0.15).
-
-> Workflow count in the evolution table (12) includes all files in `.bago/workflows/`: 10 operational workflows + `WORKFLOW_MAESTRO_BAGO.md` + `WORKFLOWS_INDEX.md`.
-> The evolution table is **historical benchmark data** measured at each release date. For current health status, see the CI badge above or run `python3 bago health`. These numbers are not live — they reflect point-in-time snapshots and carry no guarantee about the current state of the codebase.
-
-### New in 3.1
-
-**New CLI commands:** `autonomous`, `inbox`
-
-**New core modules:** `autonomous_loop.py`, `learning_writer.py`
-
-**Architecture:** SENSE/PLAN/ACT/OBSERVE/LEARN/DECIDE loop · El Aprendiz (auto-pattern promotion) · BagoContext singleton · Tool-Agent Binding · Agent Dispatcher
-
-**Bug fixes:** audit_v2 health parse · stale_detector timezone TypeError
-
----
-
-### New in 2.5-stable
-
-**New CLI commands:** `efficiency`, `task`, `stability`, `session`, `sincerity`, `cabinet`
-
-**New tools:**
-`audit_v2.py` · `dashboard_v2.py` · `efficiency_meter.py` · `health_score.py` · `reconcile_state.py` · `session_opener.py` · `show_task.py` · `stale_detector.py` · `v2_close_checklist.py` · `vertice_activator.py` · `workflow_selector.py` · `sincerity_detector.py` · `cabinet_orchestrator.py`
+`check` · `code-quality` · `commit` · `consistency` · `cosecha` · `detector`
+`doctor` · `efficiency` · `git` · `heal` · `learn` · `map` · `pre-push`
+`project-init` · `project-link` · `project-state` · `project-unlink` · `promote`
+`repo-clone` · `repo-list` · `repo-switch` · `report` · `scan` · `session_close`
+`sincerity` · `stability` · `stale` · `v2` · `validate`
 
 ---
 
 ## Workflows
 
-BAGO ships with **11 operational workflows** (W0–W10) for different types of work, plus a master orchestration protocol (`WORKFLOW_MAESTRO_BAGO`) that routes between them automatically based on session context.
+BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration layer (`WORKFLOW_MAESTRO_BAGO`) that routes between them automatically.
 
 | Workflow | Purpose |
 |---|---|
@@ -101,84 +127,47 @@ BAGO ships with **11 operational workflows** (W0–W10) for different types of w
 | `W9 · Cosecha` | Artifact harvest and consolidation |
 | `W10 · Auditoría de Sinceridad` | Sincerity audit — detect unverified claims |
 
-> The `.bago/workflows/` directory also contains `WORKFLOW_MAESTRO_BAGO.md` (the orchestration layer) and `WORKFLOWS_INDEX.md` (reference index) — these are system-level protocols, not user-facing workflows.
+---
+
+## Runtime State
+
+BAGO separates **versionable code** from **runtime state**:
+
+```
+.bago/state/           ← runtime (gitignored except templates)
+  global_state.json    ← session, flow, health counters
+  sessions/            ← per-session artifacts
+  changes/             ← BAGO-CHG evidence records
+  evidences/           ← validation evidence
+
+.bago/state.example/   ← clean-install templates (versioned)
+```
+
+On a clean install, `bago validate` copies `state.example/` → `state/` automatically.
+State from previous sessions is never included in the distributable pack.
+
+Override paths:
+```bash
+BAGO_ROOT=/custom/path bago health
+BAGO_STATE_DIR=/tmp/state bago validate
+```
 
 ---
 
-## Quick Start
+## CI Guarantees
 
-> 📖 **New user?** See [QUICKSTART.md](QUICKSTART.md) for the full step-by-step guide in Spanish.
+The green badge means **all gate jobs pass**. Gate jobs fail hard (no `continue-on-error`):
 
-### Requirements
-- Python 3.9+
-- No external dependencies (standard library only for core)
+| Gate | What it checks |
+|---|---|
+| `gate-registry` | All 83 registry entries have valid `stability`, `risk`, `preflight_policy` |
+| `gate-syntax` | All Python modules compile without error |
+| `gate-security` | No `bandit` HIGH-severity findings |
+| `gate-tests` | All 36 core tests pass (`pytest tests/ --ignore=tests/test_packaging.py`) |
+| `gate-package` | Pack builds clean; no dist/, no state/, no binary blobs inside |
+| `gate-validate` | `bago validate` exits 0 on a clean checkout |
 
-### Installation
-
-```bash
-# Clone or download
-git clone https://github.com/MarcValls/bago-framework.git
-cd bago-framework
-
-# Verify the system
-python3 bago validate
-
-# Check current health status
-# On a clean install, the initial state is "initializing"
-python3 bago health
-```
-
-### First session
-
-```bash
-# 1. Check stability before working
-python3 bago stability
-
-# 2. See prioritized ideas
-python3 bago ideas
-
-# 3. Start working with a workflow
-# The agent will use .bago/AGENT_START.md as its entry point
-
-# 4. After work: audit and harvest
-python3 bago audit
-python3 bago cosecha
-```
-
-### Flujo de trabajo ideas → implementación
-
-El ciclo estándar para convertir ideas en trabajo registrado:
-
-```bash
-# 1. Ver ideas priorizadas (el scorer ajusta según contexto del sistema)
-bago ideas
-
-# 2. Aceptar una idea (la guarda en pending_w2_task.json y la registra)
-bago ideas --accept 2        # acepta la idea #2 de la lista
-
-# 3. Abrir el workflow de implementación con título descriptivo
-bago flow start W2 "Mejorar sistema de scoring dinámico"
-
-# 4. Trabajar... (commits, edits, etc.)
-
-# 5. Cerrar el workflow — registra la idea como implementada
-bago flow done
-
-# Verificar estado en cualquier momento
-bago flow status             # ⚠️ alerta si la task lleva >3 días sin cerrarse
-```
-
-> **Nota**: `bago ideas` ajusta prioridades según el workflow activo (`bago flow status`),
-> la salud del guardian (`bago guardian --trend`), y el historial de trabajo ya implementado.
-
-### Using with an AI agent
-
-Point your AI agent (GitHub Copilot, Claude, etc.) to `.bago/AGENT_START.md` as context. This file bootstraps the agent with the full operational state.
-
-```
-# In your AI agent prompt:
-Read .bago/AGENT_START.md first. Then proceed with the task.
-```
+Report jobs (`report-health`, `report-audit`) run after gates and upload artifacts but do not affect the badge.
 
 ---
 
@@ -187,46 +176,37 @@ Read .bago/AGENT_START.md first. Then proceed with the task.
 ```
 bago-framework/
 ├── bago                    ← CLI entry point (Python 3, no deps)
-├── Makefile                ← pack, validate, install targets
+├── bago_core/              ← pip-installable package (bago console script)
+├── pyproject.toml          ← pip install -e . support
+├── tests/                  ← 36 core tests (gate-tests CI)
 └── .bago/
     ├── pack.json           ← manifest + version
     ├── AGENT_START.md      ← AI agent entry point
-    ├── tools/              ← 32 Python tools
-    ├── workflows/          ← 10 operational workflows (W0–W9) + orchestration layer
-    ├── core/               ← BAGO constitution + protocols
-    ├── agents/             ← Agent definitions (MAESTRO, COPILOT_ALIADO)
-    ├── roles/              ← Role definitions (Architect, Implementor, Reviewer…)
-    ├── docs/               ← 77 documentation files
-    ├── templates/          ← Session templates
-    ├── prompts/            ← Bootstrap prompts
-    └── state/              ← Runtime state (sessions, changes, evidences)
+    ├── core/               ← preflight_engine, command_contract, runtime, paths
+    ├── tools/              ← tool modules + tool_registry (single source of truth)
+    ├── workflows/          ← W0–W10 + orchestration layer
+    ├── roles/              ← Role definitions (9 agents)
+    ├── state.example/      ← Clean-install templates
+    └── state/              ← Runtime state (gitignored)
 ```
 
-### Design principles
+### Using with an AI agent
 
-- **Balanceado** — Clarify objective, scope, risk, and constraints before acting
-- **Adaptativo** — Choose the right workflow for actual repo conditions
-- **Generativo** — Produce useful, traceable technical artifacts
-- **Organizativo** — Update state, summarize progress, leave continuity
+Point your AI agent (GitHub Copilot, Claude, etc.) to `.bago/AGENT_START.md` as context:
+
+```
+Read .bago/AGENT_START.md first. Then proceed with the task.
+```
 
 ---
 
-## Self-evolution
+## Known Limitations
 
-BAGO tracks its own growth. Every significant change is registered as a `BAGO-CHG` artifact with evidence. The `bago efficiency` command compares performance across versions.
-
-The public snapshot is intentionally distributed as a clean install. Runtime counters and health history begin to accumulate once the framework is used in real sessions.
-
----
-
-## Makefile targets
-
-```bash
-make validate    # Run all validators (manifest + state + pack)
-make pack        # Create distributable ZIP with timestamp
-make install     # Install 'bago' alias in ~/.zshrc / ~/.bashrc
-make clean       # Remove __pycache__ from .bago/
-```
+- `--dry-run` is implemented for `autonomous` and `auto`. Not all `mutating` commands support it yet.
+- `test_packaging.py` is excluded from `gate-tests` (runs separately in `gate-package` due to build time).
+- Legacy commands redirect but do not validate their arguments before redirecting.
+- Runtime state is in-memory for the event bus; events do not persist across process boundaries.
+- The pack builder excludes `.bago/.models/` (LLM blobs) and `.bago/bin/` (binaries) — these must be obtained separately for full autonomous functionality.
 
 ---
 
