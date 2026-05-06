@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO_v3.1/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO_v3.1/actions/workflows/bago.yml)
 
-> **Version 3.1** · 83 CLI commands · 203 tools · 17 operational workflows · Clean-install state: `healthy`
+> **Version 3.1** · 83 CLI commands · 204 tools · 17 operational workflows · Clean-install state: `healthy`
 
 ---
 
@@ -55,7 +55,7 @@ BAGO has been built using BAGO itself. The following data was collected with `py
 | **2.3-clean** *(baseline)* | 10 | 19 | 68 | 12 | 78.6 |
 | **2.4-v2rc** *(Dynamic BAGO)* | 10 | 27 | 73 | 12 | 89.3 |
 | **2.5-stable** *(historic)* | **35** | **111** | **77** | **20** | **100.0** |
-| **3.1** *(current)* | **83** | **203** | — | **17** | **—** |
+| **3.1** *(current)* | **83** | **204** | — | **17** | **—** |
 
 **Growth up to 3.1** — measured by weighted index (commands ×0.30, tools ×0.35, docs ×0.20, workflows ×0.15).
 
