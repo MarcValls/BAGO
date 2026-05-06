@@ -184,6 +184,17 @@ jobs:
           print(f'OK: consistency clean (warnings={data.get(\"warnings\",0)})')
           "
 
+  gate-docs:
+    name: "[gate] COMMANDS.md up to date"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify COMMANDS.md matches tool_registry.py
+        run: python3 .bago/tools/generate_commands_doc.py --check
+
 # ── Report jobs ───────────────────────────────────────────────────────────────
 # report-* jobs run AFTER all gates pass.
 # They may fail without blocking merge (continue-on-error: true or soft failures).
@@ -192,7 +203,7 @@ jobs:
   report-health:
     name: "[report] Health & stale"
     runs-on: ubuntu-latest
-    needs: [gate-registry, gate-syntax, gate-security, gate-tests, gate-package, gate-validate]
+    needs: [gate-registry, gate-syntax, gate-security, gate-tests, gate-package, gate-validate, gate-docs]
     if: always() && !cancelled()
     steps:
       - uses: actions/checkout@v4
@@ -218,7 +229,7 @@ jobs:
   report-audit:
     name: "[report] Audit summary"
     runs-on: ubuntu-latest
-    needs: [gate-registry, gate-syntax, gate-security, gate-tests, gate-package, gate-validate]
+    needs: [gate-registry, gate-syntax, gate-security, gate-tests, gate-package, gate-validate, gate-docs]
     if: always() && !cancelled()
     steps:
       - uses: actions/checkout@v4

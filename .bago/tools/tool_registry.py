@@ -128,6 +128,12 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Verifica el pack (solo lectura)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "validate_pack.py"))],
     ),
+    "docs": ToolEntry(
+        cmd="docs", module="generate_commands_doc",
+        description="Genera docs/COMMANDS.md desde tool_registry.py (fuente única de verdad)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "generate_commands_doc.py"))],
+        layer="calidad", scope="framework",
+    ),
     "sync": ToolEntry(
         cmd="sync", module="sync_pack_metadata",
         description="Regenera TREE.txt y CHECKSUMS",
