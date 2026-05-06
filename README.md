@@ -1,6 +1,6 @@
 # BAGO — Structured AI Work Framework
 
-[![BAGO Code Health](https://github.com/MarcValls/bago-framework/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/bago-framework/actions/workflows/bago.yml)
+[![BAGO Code Health](https://github.com/MarcValls/BAGO_v3.1/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO_v3.1/actions/workflows/bago.yml)
 
 > **Version 3.1** · 83 CLI commands · 203 tools · 17 operational workflows · Clean-install state: `healthy`
 
