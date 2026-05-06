@@ -32,7 +32,7 @@ All 8 gates green on main. 48 tests passing, 0 failures.
 - Routing now uses registry-aware detection instead of a hardcoded legacy map.
 - `bago validate` and `gate-registry` remain clean.
 
-### CI gates status (all green) — verified in Actions run #ci-hardening-0507
+### CI gates status — Actions run #ci-hardening-0507 (8 gates passed)
 | Gate | Status |
 |------|--------|
 | gate-registry | ✅ |
