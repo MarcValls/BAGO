@@ -6,24 +6,33 @@
 
 ---
 
-**BAGO** (Balanceado · Adaptativo · Generativo · Organizativo) is an operational framework that brings structure, traceability, and continuity to AI-assisted technical work.
+## 1. What BAGO is
 
-It works as a **persistent operational layer** alongside any AI agent (GitHub Copilot, Claude, GPT) — keeping context alive across sessions, enforcing structured workflows, and recording every decision and change.
+**BAGO** (Balanceado · Adaptativo · Generativo · Organizativo) is a persistent operational layer for AI-assisted technical work.
+
+It provides:
+- A **stable CLI surface** for day-to-day operation
+- **Operational workflows** (W0–W10) that constrain work into repeatable modes
+- A clear separation between **versioned code** and **runtime state**
+- **CI gates** that protect the public contract
+
+This README is an **operational contract**. Historical benchmarks, marketing claims, and changelog-style sections are intentionally excluded.
 
 ---
 
-## Installation
+## 2. Installation
 
 **Requirements:** Python 3.9+ · No external dependencies (standard library only)
+
+Primary installation method (editable install):
 
 ```bash
 git clone https://github.com/MarcValls/BAGO_v3.1.git
 cd BAGO_v3.1
-pip install -e .          # installs 'bago' console script
-# or: alias bago='python3 /path/to/bago'
+pip install -e .
 ```
 
-Verify clean install:
+Minimal verification on a clean checkout:
 
 ```bash
 bago validate
@@ -32,9 +41,14 @@ bago health
 
 ---
 
-## Core Commands (stable)
+## 3. Core commands (stable, CI-tested)
 
-These 12 commands form the stable public interface. They are tested on every CI run and have a `preflight_policy=required` contract.
+These 12 commands form the **stable public interface**.
+
+Contract:
+- They are expected to remain stable across patch releases.
+- They are covered by CI gate tests.
+- They follow a `preflight_policy=required` contract.
 
 | Command | Purpose |
 |---|---|
@@ -51,20 +65,15 @@ These 12 commands form the stable public interface. They are tested on every CI 
 | `bago scope` | Detect script scope (framework / project / both) |
 | `bago secrets` | Scan repository for exposed credentials |
 
-```bash
-# Minimum working session
-bago status               # what is the current state?
-bago flow start W2 "task description"
-# ... work ...
-bago flow done
-bago audit
-```
-
 ---
 
-## Experimental Commands
+## 4. Experimental commands (not part of the contract)
 
-These commands work but may change. Not covered by CI gate-tests. Use with awareness.
+These commands exist and may be useful, but they are **not contractual**:
+- Behavior and flags may change.
+- They are not covered by CI gate tests.
+
+**Experimental (30):**
 
 `ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
 `find-tool` · `goals` · `habit` · `ideas` · `inbox` · `insights` · `llm` · `lsp`
@@ -73,33 +82,44 @@ These commands work but may change. Not covered by CI gate-tests. Use with aware
 
 ---
 
-## Dangerous Commands
+## 5. Dangerous commands (requires explicit flags)
 
 These commands mutate state, spawn processes, or have irreversible effects.
-They require `--yes`, `--unsafe`, or explicit confirmation before executing.
 
-| Command | Description | Requires |
+Contract:
+- They must require an explicit opt-in flag (examples: `--yes`, `--unsafe`).
+- They must support safe exploration (`--dry-run`) when feasible.
+
+| Command | Description | Required flag(s) |
 |---|---|---|
 | `auto` | Automatic evaluation + action loop | `--yes` |
 | `autonomous` | Full SENSE→PLAN→ACT→OBSERVE→LEARN loop | `--yes` |
 | `cabinet` | Multi-agent parallel orchestration | `--yes` |
-| `db` | Manage bago.db: ideas state, guardian history | `--yes` |
+| `db` | Manage `bago.db` (ideas state, guardian history) | `--yes` |
 | `install` | Auto-launch on pendrive insert (macOS/Linux) | `--unsafe` |
 | `orchestrate` | Multi-tool workflow sequencer | `--yes` |
 | `peer` | LAN peer-to-peer communication | `--unsafe` |
 
+Examples:
+
 ```bash
-bago autonomous --dry-run       # safe: plan only, no mutations
-bago autonomous --yes           # run one autonomous cycle
-bago autonomous --loop --yes    # run until quiescent
+bago autonomous --dry-run
+bago autonomous --yes
+bago autonomous --loop --yes
 ```
 
 ---
 
-## Legacy Commands
+## 6. Legacy commands (deprecated, redirect-only)
 
-These commands are deprecated. They redirect to their current equivalents.
-Not developed further. Will be removed in a future version.
+These commands are deprecated.
+
+Contract:
+- They exist for compatibility.
+- They **redirect** to current equivalents.
+- They are not developed further and may be removed in a future version.
+
+**Legacy (29):**
 
 `check` · `code-quality` · `commit` · `consistency` · `cosecha` · `detector`
 `doctor` · `efficiency` · `git` · `heal` · `learn` · `map` · `pre-push`
@@ -109,9 +129,9 @@ Not developed further. Will be removed in a future version.
 
 ---
 
-## Workflows
+## 7. Workflows (W0–W10)
 
-BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration layer (`WORKFLOW_MAESTRO_BAGO`) that routes between them automatically.
+BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration layer that can route between them.
 
 | Workflow | Purpose |
 |---|---|
@@ -129,9 +149,9 @@ BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration la
 
 ---
 
-## Runtime State
+## 8. Runtime state (`state/` vs `state.example/`)
 
-BAGO separates **versionable code** from **runtime state**:
+BAGO separates **versioned code** from **runtime state**.
 
 ```
 .bago/state/           ← runtime (gitignored except templates)
@@ -143,10 +163,12 @@ BAGO separates **versionable code** from **runtime state**:
 .bago/state.example/   ← clean-install templates (versioned)
 ```
 
-On a clean install, `bago validate` copies `state.example/` → `state/` automatically.
-State from previous sessions is never included in the distributable pack.
+Contract:
+- On a clean install, `bago validate` copies `state.example/` → `state/`.
+- Runtime state is never included in the distributable pack.
 
 Override paths:
+
 ```bash
 BAGO_ROOT=/custom/path bago health
 BAGO_STATE_DIR=/tmp/state bago validate
@@ -154,55 +176,26 @@ BAGO_STATE_DIR=/tmp/state bago validate
 
 ---
 
-## CI Guarantees
+## 9. CI guarantees
 
-The green badge means **all gate jobs pass**. Gate jobs fail hard (no `continue-on-error`):
+The green badge means **all gate jobs pass**. Gate jobs fail hard (no `continue-on-error`).
 
-| Gate | What it checks |
+| Gate | What it verifies |
 |---|---|
 | `gate-registry` | All 83 registry entries have valid `stability`, `risk`, `preflight_policy` |
 | `gate-syntax` | All Python modules compile without error |
 | `gate-security` | No `bandit` HIGH-severity findings |
-| `gate-tests` | All 36 core tests pass (`pytest tests/ --ignore=tests/test_packaging.py`) |
+| `gate-tests` | Core test suite passes (`pytest tests/ --ignore=tests/test_packaging.py`) |
 | `gate-package` | Pack builds clean; no dist/, no state/, no binary blobs inside |
 | `gate-validate` | `bago validate` exits 0 on a clean checkout |
 
-Report jobs (`report-health`, `report-audit`) run after gates and upload artifacts but do not affect the badge.
+Non-gate report jobs may run after gates and upload artifacts, but do not affect the badge.
 
 ---
 
-## Architecture
+## 10. Known limitations (honest)
 
-```
-bago-framework/
-├── bago                    ← CLI entry point (Python 3, no deps)
-├── bago_core/              ← pip-installable package (bago console script)
-├── pyproject.toml          ← pip install -e . support
-├── tests/                  ← 36 core tests (gate-tests CI)
-└── .bago/
-    ├── pack.json           ← manifest + version
-    ├── AGENT_START.md      ← AI agent entry point
-    ├── core/               ← preflight_engine, command_contract, runtime, paths
-    ├── tools/              ← tool modules + tool_registry (single source of truth)
-    ├── workflows/          ← W0–W10 + orchestration layer
-    ├── roles/              ← Role definitions (9 agents)
-    ├── state.example/      ← Clean-install templates
-    └── state/              ← Runtime state (gitignored)
-```
-
-### Using with an AI agent
-
-Point your AI agent (GitHub Copilot, Claude, etc.) to `.bago/AGENT_START.md` as context:
-
-```
-Read .bago/AGENT_START.md first. Then proceed with the task.
-```
-
----
-
-## Known Limitations
-
-- `--dry-run` is implemented for `autonomous` and `auto`. Not all `mutating` commands support it yet.
+- `--dry-run` is implemented for `autonomous` and `auto`. Not all mutating commands support it yet.
 - `test_packaging.py` is excluded from `gate-tests` (runs separately in `gate-package` due to build time).
 - Legacy commands redirect but do not validate their arguments before redirecting.
 - Runtime state is in-memory for the event bus; events do not persist across process boundaries.
