@@ -221,6 +221,7 @@ def kb_menu_principal() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📁 Git Log",  callback_data="accion:git"),
          InlineKeyboardButton("📜 Logs",     callback_data="accion:logs")],
         [InlineKeyboardButton("💰 Cartera",  callback_data="accion:cartera"),
+         InlineKeyboardButton("🪂 Airdrops", callback_data="accion:airdrop"),
          InlineKeyboardButton("🌐 Mini App", callback_data="accion:app")],
     ])
 
@@ -738,6 +739,62 @@ async def cmd_cartera(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Error: {e}")
 
 
+
+async def cmd_airdrop(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Escanea TON wallet en busca de airdrops cobrables."""
+    if not await check_auth(update):
+        return
+    args = ctx.args  # ["set", "<ADDRESS>"] | ["scan"] | []
+
+    import sys as _sys
+    _sys.path.insert(0, str(TOOLS_DIR))
+    try:
+        from airdrop_scanner import (
+            scan_airdrops, format_airdrops,
+            get_ton_address, set_ton_address,
+        )
+    except ImportError as e:
+        await update.message.reply_text(f"❌ airdrop_scanner no disponible: {e}")
+        return
+
+    # Subcomando: set <ADDRESS>
+    if args and args[0] == "set" and len(args) >= 2:
+        address = args[1].strip()
+        set_ton_address(address)
+        await update.message.reply_text(f"✅ TON address guardada:\n`{address}`", parse_mode="Markdown")
+        return
+
+    # Subcomando: scan con address ad-hoc
+    scan_address = None
+    if args and args[0] != "set":
+        scan_address = args[0].strip()
+    else:
+        scan_address = get_ton_address()
+
+    if not scan_address:
+        await update.message.reply_text(
+            "🪂 *Airdrop Scanner*\n\n"
+            "No hay TON address configurada.\n"
+            "Usa: `/airdrop set <TU_TON_ADDRESS>`\n\n"
+            "Tu address TON la encuentras en:\n"
+            "Telegram → Wallet → Receive → TON address",
+            parse_mode="Markdown"
+        )
+        return
+
+    msg = await update.message.reply_text("🔍 Escaneando wallet TON…")
+    try:
+        data = scan_airdrops(scan_address)
+        text = format_airdrops(data)
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 Re-escanear", callback_data="accion:airdrop"),
+            InlineKeyboardButton("🏠 Menú",        callback_data="accion:menu"),
+        ]])
+        await msg.edit_text(text, reply_markup=kb)
+    except Exception as e:
+        await msg.edit_text(f"❌ Error escaneando: {e}")
+
+
 async def cmd_ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not await check_auth(update):
         return
@@ -764,7 +821,8 @@ async def cmd_ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "  /nota `<texto>` — guardar nota\n"
         "  /logs — últimos logs\n"
         "  /app — Mini App dashboard\n"
-        "  /cartera — portfolio crypto (add BTC 0.5 / alerta BTC 90000)\n\n"
+        "  /cartera — portfolio crypto (add BTC 0.5 / alerta BTC 90000)\n"
+        "  /airdrop — airdrops TON cobrables (set <ADDRESS> para configurar)\n\n"
         "_Texto libre: 'ideas', 'next', 'health', 'doctor', 'cosecha', 'estado', 'git'..._"
     )
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=kb_menu_principal())
@@ -976,6 +1034,28 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await q.edit_message_text(text, reply_markup=kb2)
         except Exception as e:
             await q.edit_message_text(f"❌ Error cartera: {e}")
+
+    elif data == "accion:airdrop":
+        await q.edit_message_text("🔍 Escaneando wallet TON…")
+        import sys as _sys
+        _sys.path.insert(0, str(TOOLS_DIR))
+        try:
+            from airdrop_scanner import scan_airdrops, format_airdrops, get_ton_address
+            address = get_ton_address()
+            if not address:
+                await q.edit_message_text(
+                    "🪂 No hay TON address configurada.\nUsa /airdrop set <ADDRESS>"
+                )
+            else:
+                data2 = scan_airdrops(address)
+                text2 = format_airdrops(data2)
+                kb2 = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔄 Re-escanear", callback_data="accion:airdrop"),
+                    InlineKeyboardButton("🏠 Menú",        callback_data="accion:menu"),
+                ]])
+                await q.edit_message_text(text2, reply_markup=kb2)
+        except Exception as e:
+            await q.edit_message_text(f"❌ Error airdrop: {e}")
 
     elif data == "accion:health":
         await q.edit_message_text("⚕️ Calculando health score...", parse_mode="Markdown")
@@ -1235,6 +1315,8 @@ def main():
     app.add_handler(CommandHandler("cartera",  cmd_cartera))
     app.add_handler(CommandHandler("wallet",   cmd_cartera))
     app.add_handler(CommandHandler("portfolio",cmd_cartera))
+    app.add_handler(CommandHandler("airdrop",  cmd_airdrop))
+    app.add_handler(CommandHandler("airdrops", cmd_airdrop))
 
     # Callbacks de botones inline
     app.add_handler(CallbackQueryHandler(on_callback))

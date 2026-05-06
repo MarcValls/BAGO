@@ -328,6 +328,29 @@ class BAGOHandler(BaseHTTPRequestHandler):
                 })
             except Exception as e:
                 self.send_json({"ok": False, "error": str(e)})
+        elif path == "/api/airdrops":
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).parent))
+            try:
+                from airdrop_scanner import scan_airdrops, format_airdrops, get_ton_address
+                address = get_ton_address()
+                if not address:
+                    self.send_json({"ok": False, "error": "no_address",
+                                    "message": "Configura tu TON address con /airdrop set <ADDRESS>"})
+                else:
+                    data = scan_airdrops(address)
+                    self.send_json({
+                        "ok":          True,
+                        "address":     address,
+                        "ton_balance": data.get("ton_balance", 0),
+                        "jettons":     data.get("jettons", []),
+                        "nfts":        data.get("nfts", []),
+                        "total_usd":   data.get("total_usd", 0),
+                        "ts":          data.get("ts", ""),
+                        "summary":     format_airdrops(data),
+                    })
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)})
         elif path == "/health":
             self.send_json({"ok": True, "service": "bago-miniapp-v2"})
         else:

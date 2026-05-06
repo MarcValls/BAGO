@@ -578,22 +578,29 @@ async function loadCartera() {
   const el = document.getElementById('cartera-content');
   el.innerHTML = `<div class="card"><div style="text-align:center;color:var(--muted);padding:20px">💰 Consultando precios...</div></div>`;
   try {
-    const d = await fetch('/api/cartera').then(r => r.json());
-    if (!d.ok) { el.innerHTML = `<div class="card"><div style="color:var(--err)">Error: ${esc(d.error)}</div></div>`; return; }
-    const assets = (d.assets || []).map(a => {
-      const arrow = a.change_24h >= 0 ? '🟢' : '🔴';
-      const chg = a.change_24h != null ? ` (${a.change_24h > 0 ? '+' : ''}${a.change_24h.toFixed(1)}%)` : '';
-      const val = (a.value_eur || 0).toFixed(2);
-      const price = (a.price_eur || 0).toLocaleString('es', {maximumFractionDigits: 2});
-      return `<div class="stat-row">
-        <span class="stat-label">${arrow} ${esc(a.coin)}</span>
-        <span class="stat-val" style="font-size:11px;text-align:right">${esc(a.amount)} × ${price} EUR = <strong>${val} EUR</strong>${chg}</span>
-      </div>`;
-    }).join('');
-    const total = (d.total_eur || 0).toFixed(2);
-    const alerts = (d.alerts || []).map(a => `<div style="color:var(--warn);font-size:12px;padding:4px 0">⚠️ ${esc(a)}</div>`).join('');
-    el.innerHTML = `
-      <div class="card">
+    // Fetch both in parallel
+    const [dc, da] = await Promise.all([
+      fetch('/api/cartera').then(r => r.json()).catch(() => ({ok: false, error: 'timeout'})),
+      fetch('/api/airdrops').then(r => r.json()).catch(() => ({ok: false})),
+    ]);
+
+    let html = '';
+
+    // Portfolio section
+    if (dc.ok) {
+      const assets = (dc.assets || []).map(a => {
+        const arrow = a.change_24h >= 0 ? '🟢' : '🔴';
+        const chg = a.change_24h != null ? ` (${a.change_24h > 0 ? '+' : ''}${a.change_24h.toFixed(1)}%)` : '';
+        const val = (a.value_eur || 0).toFixed(2);
+        const price = (a.price_eur || 0).toLocaleString('es', {maximumFractionDigits: 2});
+        return `<div class="stat-row">
+          <span class="stat-label">${arrow} ${esc(a.coin)}</span>
+          <span class="stat-val" style="font-size:11px;text-align:right">${esc(a.amount)} × ${price} EUR = <strong>${val} EUR</strong>${chg}</span>
+        </div>`;
+      }).join('');
+      const total = (dc.total_eur || 0).toFixed(2);
+      const alerts = (dc.alerts || []).map(a => `<div style="color:var(--warn);font-size:12px;padding:4px 0">⚠️ ${esc(a)}</div>`).join('');
+      html += `<div class="card">
         <div class="card-title">💰 Portfolio BAGO</div>
         ${assets}
         <div class="stat-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
@@ -601,18 +608,58 @@ async function loadCartera() {
           <span class="stat-val"><strong>${total} EUR</strong></span>
         </div>
         ${alerts}
-        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(d.ts || '')}</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Acciones</div>
-        <div class="quick-grid">
-          <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
-          <div class="qbtn" onclick="switchTab('dash')"><span class="qicon">🏠</span>Dashboard</div>
-        </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--muted)">Usa /cartera add COIN AMOUNT en el bot para añadir activos</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(dc.ts || '')}</div>
       </div>`;
+    } else {
+      html += `<div class="card"><div style="color:var(--err)">Error portfolio: ${esc(dc.error || '?')}</div></div>`;
+    }
+
+    // Airdrops section
+    if (da.ok) {
+      const jettons = (da.jettons || []).filter(j => !j.error);
+      const nfts    = (da.nfts || []);
+      const tonBal  = (da.ton_balance || 0).toFixed(4);
+      let jHtml = '';
+      if (jettons.length > 0) {
+        jHtml = jettons.slice(0, 10).map(j => {
+          const v = j.value_usd > 0.01 ? ` ≈ $${j.value_usd.toFixed(2)}` : '';
+          const badge = j.verified ? '✅' : '⚠️';
+          const claim = j.claim_url ? ` <a href="${esc(j.claim_url)}" style="color:var(--accent);font-size:10px">claim →</a>` : '';
+          return `<div class="stat-row"><span class="stat-label">${badge} ${esc(j.symbol)}</span><span class="stat-val" style="font-size:11px">${j.amount.toFixed(4)}${v}${claim}</span></div>`;
+        }).join('');
+      } else {
+        jHtml = `<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin tokens en esta wallet</div>`;
+      }
+      const nftHtml = nfts.length > 0
+        ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">🖼 NFTs: ${nfts.length} (${nfts.slice(0,3).map(n=>esc(n.collection)).join(', ')})</div>` : '';
+      html += `<div class="card">
+        <div class="card-title">🪂 Airdrops TON</div>
+        <div class="stat-row"><span class="stat-label">💎 TON</span><span class="stat-val">${tonBal}</span></div>
+        ${jHtml}
+        ${nftHtml}
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(da.ts || '')}</div>
+      </div>`;
+    } else if (da.error === 'no_address') {
+      html += `<div class="card">
+        <div class="card-title">🪂 Airdrops TON</div>
+        <div style="color:var(--muted);font-size:12px">No hay TON address configurada.<br>Usa <code>/airdrop set &lt;ADDRESS&gt;</code> en el bot.</div>
+      </div>`;
+    } else {
+      html += `<div class="card"><div style="color:var(--err)">Error airdrops: ${esc((da && da.error) || '?')}</div></div>`;
+    }
+
+    html += `<div class="card">
+      <div class="card-title">Acciones</div>
+      <div class="quick-grid">
+        <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
+        <div class="qbtn" onclick="switchTab('dash')"><span class="qicon">🏠</span>Dashboard</div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">/cartera add COIN AMT · /airdrop set TON_ADDR</div>
+    </div>`;
+
+    el.innerHTML = html;
   } catch(e) {
-    el.innerHTML = `<div class="card"><div style="color:var(--err)">Error cargando cartera: ${esc(String(e))}</div></div>`;
+    el.innerHTML = `<div class="card"><div style="color:var(--err)">Error: ${esc(String(e))}</div></div>`;
   }
 }
 
