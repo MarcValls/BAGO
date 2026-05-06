@@ -223,6 +223,40 @@ def _run_preflight(cmd: str, skip: bool = False) -> None:
         print(f"  ⚠  preflight_engine error: {exc}", file=sys.stderr)
 
 
+def _get_cmd_risk(cmd: str) -> str:
+    """Return risk level for cmd from tool_registry. Defaults to 'safe'."""
+    mod = _load_registry_mod()
+    if mod:
+        entry = getattr(mod, "REGISTRY", {}).get(cmd)
+        if entry:
+            return getattr(entry, "risk", "safe")
+    return "safe"
+
+
+def _check_risk(cmd: str, args: list) -> None:
+    """Enforce risk model for cmd. Dangerous commands require --yes, --unsafe, or --dry-run.
+
+    Dangerous commands without an explicit flag exit with a clear error.
+    --dry-run is always permitted (read-only preview, no mutations).
+    """
+    risk = _get_cmd_risk(cmd)
+    if risk != "dangerous":
+        return
+
+    if "--yes" in args or "--unsafe" in args or "--dry-run" in args:
+        return
+
+    print(
+        f"\n⚠️  Comando peligroso: bago {cmd}\n"
+        f"   Este comando puede modificar estado, datos o configuración de forma irreversible.\n"
+        f"   Para confirmar, añade: --yes\n"
+        f"   Para modo sin restricciones: --unsafe  (úsalo solo si sabes lo que haces)\n"
+        f"   Para vista previa sin ejecución: --dry-run\n",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
 def _start_session(cmd: str, args: list) -> object:
     """Start a session logger. Returns logger or None on failure."""
     sl_path = TOOLS / "session_logger.py"
@@ -254,6 +288,9 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
     if preflight_only:
         print(f"  ✅ Preflight OK para '{cmd}'")
         return
+
+    # 1b. Risk model: dangerous commands require --yes or --unsafe
+    _check_risk(cmd, rest)
 
     # 2. Start session log
     session = _start_session(cmd, rest)
@@ -611,6 +648,7 @@ def main():
     elif cmd == "registry":
         _cmd_registry()
     elif cmd == "autonomous":
+        _check_risk(cmd, rest)
         _cmd_autonomous(rest)
     elif cmd == "inbox":
         _cmd_inbox_launcher(rest)
