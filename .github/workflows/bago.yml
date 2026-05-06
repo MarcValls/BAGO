@@ -130,6 +130,7 @@ jobs:
         run: |
           pytest tests/ \
             --ignore=tests/test_packaging.py \
+            --ignore=tests/test_wheel.py \
             -v --tb=short
 
   gate-package:
