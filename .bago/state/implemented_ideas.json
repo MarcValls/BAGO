@@ -1,7 +1,7 @@
 {
   "implemented": [
     {
-      "title": "session_close_generator lee last_completed_workflow (con enriquecimiento)",
+      "title": "session_close_generator debe leer last_completed_workflow (enriquecimiento)",
       "slot": null,
       "done_at": "2026-05-07T15:12:09.766647+00:00"
     },
@@ -167,7 +167,7 @@
   "ideas_completed": [
     {
       "id": "session_close_uses_last_completed",
-      "title": "session_close_generator lee last_completed_workflow (con enriquecimiento)",
+      "title": "session_close_generator debe leer last_completed_workflow (enriquecimiento)",
       "date": "2026-05-07T15:12:09.766647+00:00",
       "session_close": "SESSION_CLOSE_20260507_151135.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
