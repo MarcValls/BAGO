@@ -570,6 +570,16 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(BAGO_ROOT / "core" / "autonomous_loop.py"))],
         agent="ORGANIZADOR",
     ),
+    "siembra": ToolEntry(
+        cmd="siembra", module="siembra_manager",
+        description="Gestión de siembras BAGO v3.0: create | list | update | diff | sync | status",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "siembra_manager.py"))],
+        layer="salud", scope="framework",
+        agent="ARQUITECTO",
+        stability="experimental",
+        risk="mutating",
+        supports_dry_run=False,
+    ),
 }
 
 
@@ -616,6 +626,7 @@ _LAYER_MAP: dict[str, str] = {
     "peer": "avanzado", "find-tool": "avanzado", "ask": "avanzado",
     "why": "avanzado", "research": "avanzado", "install": "avanzado",
     "hello": "avanzado", "git": "avanzado",
+    "siembra": "salud",
     "repo-clone": "salud", "repo-list": "salud", "repo-switch": "salud",
     "project-init": "salud", "project-link": "salud", "project-unlink": "salud",
     "project-state": "salud", "promote": "salud", "learn": "salud",
@@ -629,7 +640,7 @@ _SCOPE_MAP: dict[str, str] = {
     "doctor": "framework", "heal": "framework", "auto": "framework",
     "banner": "framework", "rules": "framework", "db": "framework",
     "cabinet": "framework", "install": "framework", "hello": "framework",
-    "report": "framework", "scope": "framework",
+    "report": "framework", "scope": "framework", "siembra": "framework",
     # project — opera sobre el proyecto activo
     "scan": "project", "review": "project", "commit": "project",
     "pre-push": "project", "secrets": "project", "debt": "project",
@@ -695,6 +706,7 @@ _AGENT_MAP: dict[str, str] = {
     "next":           "ARQUITECTO",
     "peer":           "ARQUITECTO",
     "hub":            "ARQUITECTO",
+    "siembra":        "ARQUITECTO",
     # GENERADOR — Generación de artefactos, reportes, imágenes
     "cosecha":       "GENERADOR",
     "image_gen":     "GENERADOR",
