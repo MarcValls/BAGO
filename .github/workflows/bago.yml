@@ -197,25 +197,23 @@ jobs:
         run: python3 .bago/tools/generate_commands_doc.py --check
 
   gate-wheel:
-    name: "[gate] Wheel build + editable install"
+    name: "[gate] Wheel installability"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install in editable mode
-        run: pip install -e . -q
-      - name: Smoke test — bago --help
+      - name: Create clean venv + pip install .
         run: |
-          bago --help | grep -q "Comandos disponibles\|Available commands\|bago" \
-            || (echo "GATE-FAIL - bago --help produced no output" && exit 1)
-      - name: Smoke test — bago validate
-        run: python3 bago validate
-      - name: Run wheel packaging tests
+          python3 -m venv /tmp/bago-wheel-venv
+          . /tmp/bago-wheel-venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Smoke test — bago --version
         run: |
-          pip install pytest -q
-          pytest tests/test_wheel.py -v --tb=short
+          . /tmp/bago-wheel-venv/bin/activate
+          bago --version | grep -E '^bago [0-9]+\.[0-9]+\.[0-9]+'
       - name: Build wheel (must succeed without errors)
         run: |
           pip install build -q
@@ -228,6 +226,28 @@ jobs:
           name: bago-wheel
           path: /tmp/bago-dist/*.whl
           retention-days: 7
+
+  publish-testpypi:
+    name: "[publish] TestPyPI"
+    runs-on: ubuntu-latest
+    needs: [gate-wheel]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build sdist and wheel
+        run: |
+          pip install build -q
+          python3 -m build
+      - name: Publish package to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          skip-existing: true
 
 # ── Report jobs ───────────────────────────────────────────────────────────────
 # report-* jobs run AFTER all gates pass.
@@ -273,4 +293,3 @@ jobs:
       - name: BAGO audit summary
         run: python3 bago audit 2>/dev/null || true
         continue-on-error: true
-

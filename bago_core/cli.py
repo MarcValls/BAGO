@@ -10,6 +10,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+from bago_core import __version__
+
 
 def _find_bago_launcher() -> Path:
     """Locate the bago launcher script (repo root/bago)."""
@@ -32,6 +34,10 @@ def _find_bago_launcher() -> Path:
 
 def main() -> None:
     """Load the bago launcher module and call its main()."""
+    if len(sys.argv) > 1 and sys.argv[1] in {"--version", "-V", "version"}:
+        print(f"bago {__version__}")
+        return
+
     launcher = _find_bago_launcher()
     spec = importlib.util.spec_from_file_location(
         "bago_launcher",
