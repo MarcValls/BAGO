@@ -172,6 +172,24 @@ def _prev_harvest_health() -> int | None:
     return candidates[0][1]
 
 
+def _regenerate_ideas_report() -> str | None:
+    """Regenera ideas_report.md llamando a sprint_summary._export_report().
+    Retorna la ruta del fichero generado, o None si falla.
+    """
+    try:
+        import importlib.util
+        sprint_summary = BAGO_ROOT / "tools" / "sprint_summary.py"
+        if not sprint_summary.exists():
+            return None
+        spec = importlib.util.spec_from_file_location("sprint_summary", sprint_summary)
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        out = mod._export_report()
+        return str(out)
+    except Exception:
+        return None
+
+
 def _detect_modified_files():
     """Intenta detectar ficheros recientes usando context_detector si existe."""
     detector = BAGO_ROOT / "tools" / "context_detector.py"
@@ -332,6 +350,7 @@ def run():
         print(f"    · {SESSIONS / (session_id + '.json')}")
         print(f"    · {CHANGES / (chg_id + '.json')}")
         print(f"    · {EVIDENCES / (evd_id + '.json')}")
+        print(f"    · {STATE_DIR / 'ideas_report.md'}  (regenerado)")
         print(f"\n  session:\n{json.dumps(session, indent=4, ensure_ascii=False)}")
         return
 
@@ -343,6 +362,9 @@ def run():
     (EVIDENCES / f"{evd_id}.json").write_text(
         json.dumps(evd,     indent=2, ensure_ascii=False))
     _sync_session_to_db(session)  # índice analítico en bago.db
+
+    # ── Regenerar informe de ideas ────────────────────────────────────────────
+    ideas_report_path = _regenerate_ideas_report()
 
     # ── Actualizar global_state ───────────────────────────────────────────────
     gs = _read_global_state()
@@ -366,6 +388,10 @@ def run():
     print(f"     · Sesión:   {session_id}")
     print(f"     · Cambio:   {chg_id}")
     print(f"     · Evidencia:{evd_id}")
+    if ideas_report_path:
+        print(f"     · Informe:  {Path(ideas_report_path).relative_to(BAGO_ROOT)}")
+    else:
+        print("     · Informe:  ⚠️  ideas_report.md no pudo regenerarse")
     print()
     print("  ⚠️  Recuerda regenerar TREE+CHECKSUMS:")
     print("     python3 .bago/tools/validate_pack.py  (después de regenerar)")
