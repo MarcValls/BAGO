@@ -182,3 +182,53 @@ SEÑAL detectada → revisar checklist → no viable → pending_review + contin
 4. Migrar unidad a unidad, build tras cada migración
 5. Solo eliminar código antiguo cuando TODAS las unidades estén migradas y build verde
 ```
+
+---
+
+### R-PROD-06 · Superficie Activa por Condición (SAC)
+
+**Origen:** Sesión 2026-05-07 — integración de `bago audit ast` en BAGO.
+
+**Principio base:** "Pit of Success" (Brad Abrams, Microsoft) — el sistema no espera a ser invocado. Cuando el entorno ya cumple las precondiciones naturales de una herramienta, BAGO reduce la fricción sugiriéndola proactivamente.
+
+**Definición:**
+
+> Cuando el estado del entorno activa las precondiciones de una herramienta de forma natural (sin que el usuario lo haya pedido), BAGO debe sugerirla con el comando exacto, no esperar a que el usuario recuerde que existe.
+
+**Diferencia con R-PROD-04 (knowledge/ como módulo core):**
+- R-PROD-04: guardar aprendizajes para que estén disponibles.
+- R-PROD-06: detectar cuándo aplicarlos y sugerirlos activamente.
+
+**Condiciones de activación (ejemplos canónicos):**
+
+| Condición detectada | Herramienta sugerida | Señal |
+|---|---|---|
+| Archivos `.py` modificados en commit | `bago audit ast` | `git diff --name-only` contiene `.py` |
+| Health score < 70 al arrancar | `bago audit full` | `bago start` → score bajo |
+| Tareas del sprint sin evidencia de test | `bago audit commit` | sprint activo + sin test files en diff |
+| Archivo > 800 líneas editado | revisar R-PROD-05 | `wc -l` supera umbral |
+| Tool nueva añadida a `.bago/tools/` | `bago audit pack` | `git status` detecta tool nueva |
+
+**Regla de formato:**
+La sugerencia siempre incluye el comando exacto a ejecutar:
+
+```
+→ Sugerencia SAC: has modificado archivos Python.
+  Considera: bago audit ast [directorio]
+  (Detecta asimetrías callback/async/fixtures/env sin coste extra)
+  Omitir: bago audit ast --skip
+```
+
+**Límites:**
+- La sugerencia NO bloquea ni interrumpe. Es informativa.
+- No se repite en la misma sesión para la misma condición.
+- No aplica en modo autonomo/daemon (solo en sesiones interactivas).
+
+**Implementación:**
+El módulo `bago_start.py` y los gates de commit/push son los puntos de inyección naturales.
+El detector de condición vive en `tools/bago_ast_audit.py` (función `run_audit`).
+
+**Anti-patrones:**
+- Sugerir sin dar el comando exacto → aumenta fricción.
+- Sugerir en cada operación → fatiga de sugerencias.
+- Bloquear si el usuario no acepta → viola principio de supervisión no ejecutiva (Canon §5).

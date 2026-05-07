@@ -72,8 +72,44 @@ def main() -> None:
         sys.exit(rc_accept)
     else:
         print("Ninguna idea aceptada. Usa `bago ideas --accept N` cuando quieras.")
-        sys.exit(0)
 
+    # ── SAC: Superficie Activa por Condición (R-PROD-06) ─────
+    # Si hay archivos .py modificados desde el último commit, sugerir audit ast
+    _sac_suggest_ast_if_needed(ROOT)
+
+    sys.exit(0)
+
+
+
+def _sac_suggest_ast_if_needed(root: Path) -> None:
+    """R-PROD-06 · Superficie Activa por Condición.
+    Sugiere 'bago audit ast' si hay archivos .py modificados sin auditar.
+    No bloquea, no se repite en la misma sesión."""
+    import subprocess as sp
+    # Archivos .py modificados (staged + unstaged) respecto al último commit
+    try:
+        r = sp.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True, text=True, cwd=str(root), timeout=5
+        )
+        py_files = [f for f in r.stdout.splitlines() if f.endswith(".py")]
+    except Exception:
+        return
+
+    if not py_files:
+        return
+
+    # Directorio único más común entre los archivos modificados
+    dirs = {str(Path(f).parent) for f in py_files}
+    target = sorted(dirs)[0] if len(dirs) == 1 else "."
+
+    print()
+    print("  ┌─ 💡 SAC · Sugerencia contextual (R-PROD-06) ───────────────")
+    print(f"  │  {len(py_files)} archivo(s) Python modificados sin auditar.")
+    print(f"  │  → bago audit ast {target}")
+    print("  │  (Detecta callbacks sin handler, async sin await, fixtures,")
+    print("  │   env vars sin fallback, estados inalcanzables y más)")
+    print("  └────────────────────────────────────────────────────────────")
 
 
 def _self_test():
