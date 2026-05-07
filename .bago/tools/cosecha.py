@@ -126,6 +126,205 @@ def _recent_ideas(n: int = 5) -> list[dict]:
         return []
 
 
+def _sprint_window_start() -> datetime | None:
+    """Devuelve el inicio de la ventana del 'sprint actual' para filtrar ideas.
+
+    Estrategia (en orden):
+      1. sprint.json::created_at si está activo.
+      2. último SPRINT-*.json con status != closed.
+      3. fallback: hace 7 días.
+    """
+    sprint_file = STATE_DIR / "sprint.json"
+    if sprint_file.exists():
+        try:
+            d = json.loads(sprint_file.read_text(encoding="utf-8"))
+            ts = d.get("created_at")
+            if ts:
+                return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    sprints_dir = STATE_DIR / "sprints"
+    if sprints_dir.is_dir():
+        candidates = []
+        for p in sprints_dir.glob("SPRINT-*.json"):
+            try:
+                d = json.loads(p.read_text(encoding="utf-8"))
+                if d.get("status") and d.get("status") != "closed" and d.get("created_at"):
+                    candidates.append(d["created_at"])
+            except Exception:
+                continue
+        if candidates:
+            candidates.sort(reverse=True)
+            try:
+                return datetime.fromisoformat(candidates[0].replace("Z", "+00:00"))
+            except Exception:
+                pass
+    # fallback: últimos 7 días
+    from datetime import timedelta as _td
+    return datetime.now(timezone.utc) - _td(days=7)
+
+
+def _sprint_ideas_full() -> list[dict]:
+    """Devuelve TODAS las ideas implementadas dentro de la ventana del sprint actual.
+
+    Combina entradas de los dos campos coexistentes en implemented_ideas.json:
+      · `implemented`        → {title, slot, done_at}
+      · `ideas_completed`    → {id, title, date, session_close, workflow, objetivo}
+
+    Filtra por fecha >= _sprint_window_start() y des-duplica por título.
+    """
+    path = STATE_DIR / "implemented_ideas.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    start = _sprint_window_start()
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    def _parse(ts):
+        if not ts:
+            return None
+        try:
+            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    # primero ideas_completed (más rico) — gana si hay duplicado
+    for item in (data.get("ideas_completed") or []):
+        ts = _parse(item.get("date"))
+        if ts is None or (start and ts < start):
+            continue
+        title = item.get("title", "?")
+        key = title.strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "title": title,
+            "date": item.get("date", ""),
+            "slot": item.get("slot"),
+            "workflow": item.get("workflow", ""),
+            "session_close": item.get("session_close", ""),
+            "objetivo": item.get("objetivo", ""),
+            "source": "ideas_completed",
+        })
+    # luego implemented (resumen) — añade lo que no estaba
+    for item in (data.get("implemented") or []):
+        ts = _parse(item.get("done_at"))
+        if ts is None or (start and ts < start):
+            continue
+        title = item.get("title", "?")
+        key = title.strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "title": title,
+            "date": item.get("done_at", ""),
+            "slot": item.get("slot"),
+            "workflow": "",
+            "session_close": "",
+            "objetivo": "",
+            "source": "implemented",
+        })
+    # ordenar más reciente primero
+    out.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return out
+
+
+def _render_sprint_ideas_md(
+    session_id: str,
+    ideas: list[dict],
+    sprint_start: datetime | None,
+    decision: str,
+    next_step: str,
+) -> str:
+    """Genera el markdown del artefacto sidecar de cosecha con ideas del sprint.
+    # COSECHA_SPRINT_IDEAS_ARTIFACT
+    """
+    now_local = datetime.now().strftime("%Y-%m-%d %H:%M")
+    start_str = sprint_start.astimezone().strftime("%Y-%m-%d %H:%M") if sprint_start else "—"
+    lines = [
+        f"# Cosecha {session_id} — Ideas del sprint",
+        "",
+        f"_Generado: {now_local} · ventana sprint desde: {start_str}_",
+        "",
+        f"**Decisión de la cosecha:** {decision or '—'}",
+        f"**Próximo paso:** {next_step or '—'}",
+        "",
+        f"## Ideas implementadas en el sprint actual ({len(ideas)})",
+        "",
+    ]
+    if not ideas:
+        lines.append("_(sin ideas implementadas en la ventana del sprint actual)_")
+        return "\n".join(lines) + "\n"
+    lines += [
+        "| # | Título | Workflow | Slot | Fecha | Cierre |",
+        "|---|--------|----------|------|-------|--------|",
+    ]
+    for i, idea in enumerate(ideas, 1):
+        title = (idea.get("title") or "?").replace("|", "\\|")
+        wf    = (idea.get("workflow") or "—")[:20]
+        slot  = idea.get("slot") if idea.get("slot") not in (None, "") else "—"
+        date  = (idea.get("date") or "")[:10] or "—"
+        sc    = (idea.get("session_close") or "—")[:35]
+        lines.append(f"| {i} | {title} | {wf} | {slot} | {date} | {sc} |")
+    # detalle de objetivos cuando exista
+    detailed = [i for i in ideas if (i.get("objetivo") or "").strip()]
+    if detailed:
+        lines += ["", "## Objetivos / detalle", ""]
+        for idea in detailed:
+            lines.append(f"### {idea.get('title','?')}")
+            lines.append("")
+            lines.append(f"- **Workflow:** {idea.get('workflow','—') or '—'}")
+            lines.append(f"- **Cierre:** {idea.get('session_close','—') or '—'}")
+            lines.append(f"- **Objetivo:** {idea.get('objetivo','').strip()}")
+            lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _self_test_sprint_ideas() -> int:
+    """Tests deterministas de las funciones nuevas (sin tocar disco).
+    # COSECHA_SPRINT_IDEAS_TESTS
+    """
+    fails: list[str] = []
+    # _sprint_window_start no debe fallar nunca
+    w = _sprint_window_start()
+    if w is None:
+        fails.append("_sprint_window_start devolvió None (esperado fallback)")
+    # _sprint_ideas_full debe devolver lista
+    items = _sprint_ideas_full()
+    if not isinstance(items, list):
+        fails.append("_sprint_ideas_full no retorna lista")
+    # render markdown vacío
+    md_empty = _render_sprint_ideas_md("SES-TEST", [], w, "d", "n")
+    if "sin ideas implementadas" not in md_empty:
+        fails.append("render vacío no contiene mensaje fallback")
+    # render con datos sintéticos
+    md_full = _render_sprint_ideas_md(
+        "SES-TEST",
+        [{
+            "title": "Idea X", "date": "2026-05-07T10:00:00+00:00",
+            "slot": None, "workflow": "W2", "session_close": "SC.md",
+            "objetivo": "hacer X", "source": "ideas_completed",
+        }],
+        w, "decisión", "siguiente"
+    )
+    for needle in ("# Cosecha SES-TEST", "Idea X", "W2", "## Objetivos"):
+        if needle not in md_full:
+            fails.append(f"render full no contiene: {needle}")
+    if fails:
+        for f in fails:
+            print("  FAIL:", f)
+        print(f"FAIL: {len(fails)} test(s)")
+        return 1
+    print("OK: 4/4 sprint-ideas tests")
+    return 0
+
+
 def _get_health_score() -> tuple[str, int]:
     """Captura el health score actual ejecutando health_score.py --score-only.
     # COSECHA_HEALTH_COMPARE_IMPLEMENTED
@@ -345,13 +544,32 @@ def run():
         "recorded_at": now
     }
 
+    # ── Sidecar markdown: ideas del sprint  # COSECHA_SPRINT_IDEAS_ARTIFACT ──
+    sprint_start = _sprint_window_start()
+    sprint_ideas = _sprint_ideas_full()
+    sprint_md_path = SESSIONS / f"COSECHA_{session_id}_ideas.md"
+    sprint_md_content = _render_sprint_ideas_md(
+        session_id, sprint_ideas, sprint_start, decision, next_step
+    )
+    # registrar el sidecar como artifact de la sesión
+    try:
+        rel_md = str(sprint_md_path.relative_to(BAGO_ROOT))
+    except ValueError:
+        rel_md = str(sprint_md_path)
+    if rel_md not in session["artifacts"]:
+        session["artifacts"].append(rel_md)
+
     if DRY_RUN:
         print("\n  [DRY-RUN] Se crearían:")
         print(f"    · {SESSIONS / (session_id + '.json')}")
         print(f"    · {CHANGES / (chg_id + '.json')}")
         print(f"    · {EVIDENCES / (evd_id + '.json')}")
+        print(f"    · {sprint_md_path}  (sidecar ideas del sprint, {len(sprint_ideas)} ideas)")
         print(f"    · {STATE_DIR / 'ideas_report.md'}  (regenerado)")
         print(f"\n  session:\n{json.dumps(session, indent=4, ensure_ascii=False)}")
+        print(f"\n  sidecar preview (primeras 20 líneas):")
+        for ln in sprint_md_content.splitlines()[:20]:
+            print(f"    {ln}")
         return
 
     # ── Escribir ficheros ─────────────────────────────────────────────────────
@@ -361,6 +579,7 @@ def run():
         json.dumps(chg,     indent=2, ensure_ascii=False))
     (EVIDENCES / f"{evd_id}.json").write_text(
         json.dumps(evd,     indent=2, ensure_ascii=False))
+    sprint_md_path.write_text(sprint_md_content, encoding="utf-8")
     _sync_session_to_db(session)  # índice analítico en bago.db
 
     # ── Regenerar informe de ideas ────────────────────────────────────────────
@@ -392,6 +611,7 @@ def run():
         print(f"     · Informe:  {Path(ideas_report_path).relative_to(BAGO_ROOT)}")
     else:
         print("     · Informe:  ⚠️  ideas_report.md no pudo regenerarse")
+    print(f"     · Sidecar:  {sprint_md_path.relative_to(BAGO_ROOT)}  ({len(sprint_ideas)} ideas)")
     print()
     print("  ⚠️  Recuerda regenerar TREE+CHECKSUMS:")
     print("     python3 .bago/tools/validate_pack.py  (después de regenerar)")
@@ -408,5 +628,5 @@ def _self_test():
 if __name__ == "__main__":
     if "--test" in sys.argv:
         _self_test()
-        raise SystemExit(0)
+        raise SystemExit(_self_test_sprint_ideas())
     run()
