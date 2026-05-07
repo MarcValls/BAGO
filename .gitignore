@@ -105,3 +105,4 @@ bago_matrix*.html
 .bago/state/ESTADO_BAGO_ACTUAL.md
 bago.egg-info/
 dist/
+.bago/state/findings/
