@@ -649,18 +649,71 @@ async function loadCartera() {
     }
 
     html += `<div class="card">
-      <div class="card-title">Acciones</div>
+      <div class="card-title">Acciones cartera</div>
       <div class="quick-grid">
+        <div class="qbtn" onclick="carteraAdd()"><span class="qicon">➕</span>Añadir</div>
+        <div class="qbtn" onclick="carteraRemove()"><span class="qicon">🗑</span>Quitar</div>
+        <div class="qbtn" onclick="carteraAlerta()"><span class="qicon">🔔</span>Alerta</div>
+        <div class="qbtn" onclick="connectTonWallet()"><span class="qicon">🔗</span>Conectar TON</div>
         <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
         <div class="qbtn" onclick="switchTab('dash')"><span class="qicon">🏠</span>Dashboard</div>
       </div>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">/cartera add COIN AMT · /airdrop set TON_ADDR</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">También disponibles en bot: /cartera add COIN AMT · /cartera alerta COIN PRICE</div>
     </div>`;
 
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div class="card"><div style="color:var(--err)">Error: ${esc(String(e))}</div></div>`;
   }
+}
+
+/* ── Acciones cartera (POST + reload) ── */
+async function carteraAdd() {
+  const coin = prompt('Moneda (BTC, ETH, TON, ...)');
+  if (!coin) return;
+  const amtStr = prompt(`Cantidad de ${coin.toUpperCase()}:`);
+  if (!amtStr) return;
+  const amount = parseFloat(amtStr);
+  if (!isFinite(amount) || amount <= 0) { alert('Cantidad inválida'); return; }
+  try {
+    const r = await fetch('/api/cartera/add', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({coin, amount})}).then(r=>r.json());
+    if (r.error) { alert('Error: ' + r.error); return; }
+    loadCartera();
+  } catch(e) { alert('Error: ' + e); }
+}
+
+async function carteraRemove() {
+  const coin = prompt('Moneda a quitar:');
+  if (!coin) return;
+  if (!confirm(`¿Quitar ${coin.toUpperCase()} del portfolio?`)) return;
+  try {
+    const r = await fetch('/api/cartera/remove', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({coin})}).then(r=>r.json());
+    if (r.error) { alert('Error: ' + r.error); return; }
+    if (r.removed === false) alert(`${coin.toUpperCase()} no estaba en el portfolio`);
+    loadCartera();
+  } catch(e) { alert('Error: ' + e); }
+}
+
+async function carteraAlerta() {
+  const coin = prompt('Moneda para alerta (BTC, ETH, ...):');
+  if (!coin) return;
+  const priceStr = prompt(`Avisar cuando ${coin.toUpperCase()} supere (EUR):`);
+  if (!priceStr) return;
+  const above = parseFloat(priceStr);
+  if (!isFinite(above) || above <= 0) { alert('Precio inválido'); return; }
+  try {
+    const r = await fetch('/api/cartera/alerta', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({coin, above})}).then(r=>r.json());
+    if (r.error) { alert('Error: ' + r.error); return; }
+    alert(`🔔 Alerta ${coin.toUpperCase()} > ${above} EUR creada`);
+  } catch(e) { alert('Error: ' + e); }
+}
+
+async function connectTonWallet() {
+  // TODO: TonConnect SDK — próximo bloque.
+  alert('TonConnect llegando en breve. Por ahora: /airdrop set <ADDRESS> en el bot.');
 }
 
 /* ── Init ── */

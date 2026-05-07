@@ -436,6 +436,55 @@ class BAGOHandler(BaseHTTPRequestHandler):
                 output = run_bago_cmd(cmd, 30)
             self.send_json({"output": output, "cmd": cmd})
 
+        elif path == "/api/cartera/add":
+            coin = (body.get("coin") or "").strip().upper()
+            try:
+                amount = float(body.get("amount"))
+            except (TypeError, ValueError):
+                self.send_json({"error": "amount inválido"}, 400); return
+            if not coin or amount <= 0:
+                self.send_json({"error": "coin/amount requeridos"}, 400); return
+            try:
+                from wallet_tracker import load_config as _lc, save_config as _sc
+            except ImportError as e:
+                self.send_json({"error": f"wallet_tracker: {e}"}, 500); return
+            cfg = _lc()
+            cfg.setdefault("wallet", {}).setdefault("holdings", {})[coin] = amount
+            _sc(cfg)
+            self.send_json({"ok": True, "coin": coin, "amount": amount})
+
+        elif path == "/api/cartera/remove":
+            coin = (body.get("coin") or "").strip().upper()
+            if not coin:
+                self.send_json({"error": "coin requerido"}, 400); return
+            try:
+                from wallet_tracker import load_config as _lc, save_config as _sc
+            except ImportError as e:
+                self.send_json({"error": f"wallet_tracker: {e}"}, 500); return
+            cfg = _lc()
+            holdings = cfg.setdefault("wallet", {}).setdefault("holdings", {})
+            existed = coin in holdings
+            holdings.pop(coin, None)
+            _sc(cfg)
+            self.send_json({"ok": True, "coin": coin, "removed": existed})
+
+        elif path == "/api/cartera/alerta":
+            coin = (body.get("coin") or "").strip().upper()
+            try:
+                above = float(body.get("above"))
+            except (TypeError, ValueError):
+                self.send_json({"error": "above inválido"}, 400); return
+            if not coin or above <= 0:
+                self.send_json({"error": "coin/above requeridos"}, 400); return
+            try:
+                from wallet_tracker import load_config as _lc, save_config as _sc
+            except ImportError as e:
+                self.send_json({"error": f"wallet_tracker: {e}"}, 500); return
+            cfg = _lc()
+            cfg.setdefault("wallet", {}).setdefault("alerts", []).append({"coin": coin, "above": above})
+            _sc(cfg)
+            self.send_json({"ok": True, "coin": coin, "above": above})
+
         else:
             self.send_response(404); self.end_headers()
 
