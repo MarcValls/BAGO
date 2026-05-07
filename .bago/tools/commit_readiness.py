@@ -384,4 +384,13 @@ if __name__ == "__main__":
 
     result = evaluate_files(files, strict=strict)
     print_report(result)
-    raise SystemExit(0 if result["status"] != "BLOCKED" else 1)
+    exit_code = 0 if result["status"] != "BLOCKED" else 1
+    try:
+        import importlib.util as _ilu
+        _ep = Path(__file__).parent / "bago_sac_engine.py"
+        _spec = _ilu.spec_from_file_location("bago_sac_engine", str(_ep))
+        _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+        _mod.sac_suggest("bago commit", exit_code=exit_code)
+    except Exception:
+        pass
+    raise SystemExit(exit_code)

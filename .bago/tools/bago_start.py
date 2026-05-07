@@ -74,42 +74,23 @@ def main() -> None:
         print("Ninguna idea aceptada. Usa `bago ideas --accept N` cuando quieras.")
 
     # ── SAC: Superficie Activa por Condición (R-PROD-06) ─────
-    # Si hay archivos .py modificados desde el último commit, sugerir audit ast
-    _sac_suggest_ast_if_needed(ROOT)
+    _sac_suggest("bago start", exit_code=0)
 
     sys.exit(0)
 
 
 
-def _sac_suggest_ast_if_needed(root: Path) -> None:
-    """R-PROD-06 · Superficie Activa por Condición.
-    Sugiere 'bago audit ast' si hay archivos .py modificados sin auditar.
-    No bloquea, no se repite en la misma sesión."""
-    import subprocess as sp
-    # Archivos .py modificados (staged + unstaged) respecto al último commit
+def _sac_suggest(trigger: str, exit_code: int = 0) -> None:
+    """R-PROD-06 · Superficie Activa por Condición — delega al engine central."""
     try:
-        r = sp.run(
-            ["git", "diff", "--name-only", "HEAD"],
-            capture_output=True, text=True, cwd=str(root), timeout=5
-        )
-        py_files = [f for f in r.stdout.splitlines() if f.endswith(".py")]
+        import importlib.util
+        engine_path = Path(__file__).parent / "bago_sac_engine.py"
+        spec = importlib.util.spec_from_file_location("bago_sac_engine", str(engine_path))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.sac_suggest(trigger, exit_code=exit_code)
     except Exception:
-        return
-
-    if not py_files:
-        return
-
-    # Directorio único más común entre los archivos modificados
-    dirs = {str(Path(f).parent) for f in py_files}
-    target = sorted(dirs)[0] if len(dirs) == 1 else "."
-
-    print()
-    print("  ┌─ 💡 SAC · Sugerencia contextual (R-PROD-06) ───────────────")
-    print(f"  │  {len(py_files)} archivo(s) Python modificados sin auditar.")
-    print(f"  │  → bago audit ast {target}")
-    print("  │  (Detecta callbacks sin handler, async sin await, fixtures,")
-    print("  │   env vars sin fallback, estados inalcanzables y más)")
-    print("  └────────────────────────────────────────────────────────────")
+        pass  # SAC nunca rompe el flujo principal
 
 
 def _self_test():
