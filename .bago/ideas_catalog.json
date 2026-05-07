@@ -113,6 +113,24 @@
         "Ventaja: cierra el punto ciego W10 detectado el 2026-05-07 — health 100/100 con triple desync real."
       ],
       "w2": "Añadir check en bago validate (o subscore disciplina_workflow de health) que compare pending_w2_task.status con el flow activo del banner; emitir warning si discrepan."
+    },
+    {
+      "id": "bago_recientes_paginated_log",
+      "priority": 71,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "Comando `bago recientes` lista eventos de las 2 fuentes ordenados temporalmente, con paginación interactiva [Enter]/[q].",
+      "title": "bago recientes — bitácora paginada de últimos trabajos",
+      "summary": "Comando agregador que muestra la timeline cruzada de sesiones, sprints, ideas implementadas y commits, paginada interactivamente.",
+      "detail": [
+        "ENTRADA: ejecutar `bago recientes` sin flow ni tarea activa.",
+        "SALIDA: lista cronológica unificada de eventos BAGO + commits git, paginada estilo `less` ([Enter] siguiente página, [q] salir, [j/k] navegación opcional).",
+        "FUENTES: dual mode — (a) `git log` cuando estamos en repo git, (b) BAGO portable log (.bago/state/sessions/, .bago/state/sprints/, implemented_ideas.json, session_close_*.md) siempre disponible.",
+        "VENTAJA: visibilidad inmediata de en qué se ha trabajado sin abrir 4 archivos distintos. Llena el hueco entre `bago last` (CLI runtime) y `bago sprint` (sólo el actual).",
+        "FILTROS opcionales: --type session|sprint|idea|push|all (default all), --since 2w, --json para tooling.",
+        "FUERA DE ALCANCE v1: edición desde la vista, búsqueda fuzzy, export a markdown."
+      ],
+      "w2": "Crear `.bago/tools/recientes_aggregator.py` (lee fuentes y normaliza a eventos {ts,type,scope,title,detail}), registrar `bago recientes` en `tool_registry.py`, regenerar `docs/COMMANDS.md`, añadir tests en `.bago/tests/`."
     }
   ],
   "slots": {
