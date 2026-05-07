@@ -13,10 +13,10 @@
     "pending_w2_task": "none — CHG-002 completed (guardian 0%→100%)",
     "last_completed_workflow": {
       "code": "W2",
-      "title": "session close limpia pending_w2_task con status=done",
-      "started": "2026-05-07T14:57:32.366958+00:00",
-      "ended": "2026-05-07T14:58:19.868307+00:00",
-      "duration": "0m"
+      "title": "session_close lee last_completed_workflow",
+      "started": "2026-05-07T15:01:53.132469+00:00",
+      "ended": "2026-05-07T15:04:59.234160+00:00",
+      "duration": "3m"
     }
   },
   "inventory": {
