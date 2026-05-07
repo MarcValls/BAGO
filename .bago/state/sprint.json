@@ -13,10 +13,10 @@
     "pending_w2_task": "none — CHG-002 completed (guardian 0%→100%)",
     "last_completed_workflow": {
       "code": "W2",
-      "title": "Cosecha con ideas del sprint",
-      "started": "2026-05-07T13:49:57.709109+00:00",
-      "ended": "2026-05-07T13:58:06.579625+00:00",
-      "duration": "8m"
+      "title": "W10: detectar desync task-done vs flow-activo",
+      "started": "2026-05-07T14:35:12.005215+00:00",
+      "ended": "2026-05-07T14:37:12.326997+00:00",
+      "duration": "2m"
     }
   },
   "inventory": {

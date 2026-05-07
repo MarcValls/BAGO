@@ -1,6 +1,11 @@
 {
   "implemented": [
     {
+      "title": "W10: detectar desync task-done vs flow-activo (bago health)",
+      "slot": null,
+      "done_at": "2026-05-07T14:37:25.069271+00:00"
+    },
+    {
       "title": "Cosecha con ideas del sprint — sidecar artefacto W9",
       "slot": null,
       "done_at": "2026-05-07T13:58:17.421227+00:00"
@@ -143,8 +148,16 @@
       "done_at": "2026-05-06T23:51:34.168389+00:00"
     }
   ],
-  "updated_at": "2026-05-07T13:58:17.421227+00:00",
+  "updated_at": "2026-05-07T14:37:25.069271+00:00",
   "ideas_completed": [
+    {
+      "id": "fallback_w10_flow_task_desync",
+      "title": "W10: detectar desync task-done vs flow-activo (bago health)",
+      "date": "2026-05-07T14:37:25.069271+00:00",
+      "session_close": "SESSION_CLOSE_20260507_143712.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "Subscore disciplina_workflow penaliza -5 cuando pending_w2_task.status=done coexiste con active_workflow!=null. Test 5/5. Detalle visible en bago health."
+    },
     {
       "id": "cosecha_ideas_sprint",
       "title": "Cosecha con ideas del sprint — sidecar artefacto W9",
@@ -170,5 +183,5 @@
       "objetivo": "Spec detallado en .bago/core/architecture/PADRE_SIEMBRA.md — 4 fases, 6 decisiones frozen, listo para implementar en v3.0"
     }
   ],
-  "last_updated": "2026-05-07T13:58:17.421227+00:00"
+  "last_updated": "2026-05-07T14:37:25.069271+00:00"
 }
