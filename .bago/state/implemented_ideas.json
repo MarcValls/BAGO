@@ -1,6 +1,11 @@
 {
   "implemented": [
     {
+      "title": "Cosecha con ideas del sprint — sidecar artefacto W9",
+      "slot": null,
+      "done_at": "2026-05-07T13:58:17.421227+00:00"
+    },
+    {
       "title": "bago recientes — bitácora paginada de últimos trabajos",
       "slot": null,
       "done_at": "2026-05-07T07:35:06.251752+00:00"
@@ -138,8 +143,16 @@
       "done_at": "2026-05-06T23:51:34.168389+00:00"
     }
   ],
-  "updated_at": "2026-05-07T07:35:06.251752+00:00",
+  "updated_at": "2026-05-07T13:58:17.421227+00:00",
   "ideas_completed": [
+    {
+      "id": "cosecha_ideas_sprint",
+      "title": "Cosecha con ideas del sprint — sidecar artefacto W9",
+      "date": "2026-05-07T13:58:17.421227+00:00",
+      "session_close": "SESSION_CLOSE_20260507_135806.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "Generar artefacto sidecar COSECHA_<SES>_ideas.md con tabla de ideas implementadas en la ventana del sprint actual + objetivos detallados, registrado como artifact de la sesión harvest"
+    },
     {
       "id": "bago_recientes_paginated_log",
       "title": "bago recientes — bitácora paginada de últimos trabajos",
@@ -157,5 +170,5 @@
       "objetivo": "Spec detallado en .bago/core/architecture/PADRE_SIEMBRA.md — 4 fases, 6 decisiones frozen, listo para implementar en v3.0"
     }
   ],
-  "last_updated": "2026-05-07T07:35:06.251752+00:00"
+  "last_updated": "2026-05-07T13:58:17.421227+00:00"
 }
