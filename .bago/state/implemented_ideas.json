@@ -1,6 +1,11 @@
 {
   "implemented": [
     {
+      "title": "session_close_generator lee last_completed_workflow (con enriquecimiento)",
+      "slot": null,
+      "done_at": "2026-05-07T15:12:09.766647+00:00"
+    },
+    {
       "title": "bago ideas debe filtrar las ideas ya implementadas (substring match)",
       "slot": null,
       "done_at": "2026-05-07T15:04:59.483924+00:00"
@@ -158,8 +163,16 @@
       "done_at": "2026-05-06T23:51:34.168389+00:00"
     }
   ],
-  "updated_at": "2026-05-07T15:04:59.483924+00:00",
+  "updated_at": "2026-05-07T15:12:09.766647+00:00",
   "ideas_completed": [
+    {
+      "id": "session_close_uses_last_completed",
+      "title": "session_close_generator lee last_completed_workflow (con enriquecimiento)",
+      "date": "2026-05-07T15:12:09.766647+00:00",
+      "session_close": "SESSION_CLOSE_20260507_151135.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "session_close_generator.generate() invoca _enrich_task_with_last_completed antes de renderizar. Si task vacía → sintetiza desde last_completed_workflow. Si task no encaja con last_completed (substring) y last_completed.ended > task.accepted_at → override. Tests 4/4 cubren todos los casos."
+    },
     {
       "id": "ideas_filter_already_implemented",
       "title": "bago ideas debe filtrar las ideas ya implementadas (substring match)",
@@ -223,7 +236,15 @@
       "session_close": "SESSION_CLOSE_20260507_150459.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
       "objetivo": "Las ideas cerradas hoy seguían en el catálogo como ranking-1, lo que confunde al selector y rompe la auto-coherencia ideación→implementación→catálogo."
+    },
+    {
+      "id": null,
+      "title": "session_close_generator lee last_completed_workflow",
+      "date": "2026-05-07T15:11:35.994766+00:00",
+      "session_close": "SESSION_CLOSE_20260507_151135.md",
+      "workflow": "W2",
+      "objetivo": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día."
     }
   ],
-  "last_updated": "2026-05-07T15:04:59.483924+00:00"
+  "last_updated": "2026-05-07T15:12:09.766647+00:00"
 }
