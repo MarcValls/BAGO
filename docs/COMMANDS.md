@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-07 06:50 UTC
+> Last generated: 2026-05-07 07:34 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 33 |
+| 🧪 Experimental | 34 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **52** |
+| **Total active** | **53** |
 
 ---
 
@@ -65,6 +65,7 @@ Actively developed. May change between minor versions.
 | `bago lsp` | Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código | 🔬 avanzado | safe | optional |
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | ▶️ ejecución | safe | optional |
+| `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | 📊 analítica | safe | optional |
 | `bago reopen` | Reanuda sesión desde el último cierre sin reconstruir contexto manualmente | ▶️ ejecución | safe | optional |
 | `bago repo` | Gestión de repositorios: clone \| list \| switch | 💚 salud | safe | optional |
 | `bago research` | Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada | 🔬 avanzado | safe | optional |

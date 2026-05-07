@@ -580,6 +580,16 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="mutating",
         supports_dry_run=False,
     ),
+    "recientes": ToolEntry(
+        cmd="recientes", module="recientes_cli",
+        description="Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "recientes_cli.py"))],
+        layer="analítica", scope="both",
+        agent="ORGANIZADOR",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
 }
 
 
@@ -627,6 +637,7 @@ _LAYER_MAP: dict[str, str] = {
     "why": "avanzado", "research": "avanzado", "install": "avanzado",
     "hello": "avanzado", "git": "avanzado",
     "siembra": "salud",
+    "recientes": "analítica",
     "repo-clone": "salud", "repo-list": "salud", "repo-switch": "salud",
     "project-init": "salud", "project-link": "salud", "project-unlink": "salud",
     "project-state": "salud", "promote": "salud", "learn": "salud",
@@ -656,6 +667,7 @@ _SCOPE_MAP: dict[str, str] = {
     "audit": "both", "context": "both", "repo": "both", "project": "both",
     "insights": "both", "habit": "both", "chronicle": "both",
     "dashboard": "both", "diff": "both", "status": "both",
+    "recientes": "both",
     "hub": "both", "llm": "both", "orchestrate": "both", "peer": "both",
     "find-tool": "both", "ask": "both", "why": "both", "research": "both",
     "detector": "both", "stale": "both", "map": "both",
@@ -740,6 +752,7 @@ _AGENT_MAP: dict[str, str] = {
     "project":       "ORGANIZADOR",
     "ask":           "ORGANIZADOR",
     "goals":         "ORGANIZADOR",
+    "recientes":     "ORGANIZADOR",
     # VALIDADOR — Salud, validación, diagnóstico
     "health":        "VALIDADOR",
     "audit":         "VALIDADOR",
