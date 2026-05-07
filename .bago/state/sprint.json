@@ -9,18 +9,14 @@
     "active": false
   },
   "sprint_status": {
-    "active_workflow": {
-      "code": "W2",
-      "title": "Velocidad de sprint en dashboard",
-      "started": "2026-05-05T09:23:11.183300+00:00"
-    },
+    "active_workflow": null,
     "pending_w2_task": "none — CHG-002 completed (guardian 0%→100%)",
     "last_completed_workflow": {
       "code": "W2",
-      "title": "Implementar mejoras BAGO",
-      "started": "2026-05-05T00:25:35.383605+00:00",
-      "ended": "2026-05-05T00:25:35.596344+00:00",
-      "duration": "0m"
+      "title": "Velocidad de sprint en dashboard",
+      "started": "2026-05-05T09:23:11.183300+00:00",
+      "ended": "2026-05-07T05:54:04.963910+00:00",
+      "duration": "44h30m"
     }
   },
   "inventory": {

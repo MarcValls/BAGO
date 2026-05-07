@@ -121,18 +121,28 @@
       "title": "Mostrar estado del catálogo en bago ideas",
       "slot": null,
       "done_at": "2026-05-05T13:20:59.175292+00:00"
+    },
+    {
+      "title": "Generar informe de ideas en cosecha",
+      "slot": null,
+      "done_at": "2026-05-06T23:38:33.284242+00:00"
+    },
+    {
+      "title": "Framework padre vs siembras de proyecto",
+      "slot": null,
+      "done_at": "2026-05-06T23:51:34.168389+00:00"
     }
   ],
-  "updated_at": "2026-05-05T13:20:59.175292+00:00",
+  "updated_at": "2026-05-07T01:47:35.988924+00:00",
   "ideas_completed": [
     {
       "id": null,
-      "title": "Mostrar estado del catálogo en bago ideas",
-      "date": "2026-05-05T13:20:59.275532+00:00",
-      "session_close": "SESSION_CLOSE_20260505_132059.md",
+      "title": "Framework padre vs siembras de proyecto",
+      "date": "2026-05-07T01:47:36.059430+00:00",
+      "session_close": "SESSION_CLOSE_20260507_014736.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "bago ideas --health muestra cuántas ideas están implementadas, bloqueadas y disponibles."
+      "objetivo": "Spec detallado en .bago/core/architecture/PADRE_SIEMBRA.md — 4 fases, 6 decisiones frozen, listo para implementar en v3.0"
     }
   ],
-  "last_updated": "2026-05-05T13:20:59.275558+00:00"
+  "last_updated": "2026-05-07T01:47:36.059445+00:00"
 }
