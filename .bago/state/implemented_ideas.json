@@ -1,6 +1,11 @@
 {
   "implemented": [
     {
+      "title": "session close limpia pending_w2_task con status=done",
+      "slot": null,
+      "done_at": "2026-05-07T14:59:36.294999+00:00"
+    },
+    {
       "title": "W10: detectar desync task-done vs flow-activo (bago health)",
       "slot": null,
       "done_at": "2026-05-07T14:37:25.069271+00:00"
@@ -148,8 +153,16 @@
       "done_at": "2026-05-06T23:51:34.168389+00:00"
     }
   ],
-  "updated_at": "2026-05-07T14:37:25.069271+00:00",
+  "updated_at": "2026-05-07T14:59:36.294999+00:00",
   "ideas_completed": [
+    {
+      "id": "session_close_clears_pending_task",
+      "title": "session close limpia pending_w2_task con status=done",
+      "date": "2026-05-07T14:59:36.294999+00:00",
+      "session_close": "SESSION_CLOSE_20260507_145857.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "session_close_generator.main() archiva pending_w2_task.json en .bago/state/archive/pending_w2_task/<TS>.json cuando status=done; tests 6/6."
+    },
     {
       "id": "fallback_w10_flow_task_desync",
       "title": "W10: detectar desync task-done vs flow-activo (bago health)",
@@ -181,7 +194,15 @@
       "session_close": "SESSION_CLOSE_20260507_014736.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
       "objetivo": "Spec detallado en .bago/core/architecture/PADRE_SIEMBRA.md — 4 fases, 6 decisiones frozen, listo para implementar en v3.0"
+    },
+    {
+      "id": null,
+      "title": "session close debe limpiar pending_w2_task con status=done",
+      "date": "2026-05-07T14:58:19.970288+00:00",
+      "session_close": "SESSION_CLOSE_20260507_145819.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "Tras bago session close, la pending_w2_task con status=done queda residual y bloquea bago session open siguiente."
     }
   ],
-  "last_updated": "2026-05-07T14:37:25.069271+00:00"
+  "last_updated": "2026-05-07T14:59:36.294999+00:00"
 }

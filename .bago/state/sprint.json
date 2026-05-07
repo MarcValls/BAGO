@@ -13,10 +13,10 @@
     "pending_w2_task": "none — CHG-002 completed (guardian 0%→100%)",
     "last_completed_workflow": {
       "code": "W2",
-      "title": "W10: detectar desync task-done vs flow-activo",
-      "started": "2026-05-07T14:35:12.005215+00:00",
-      "ended": "2026-05-07T14:37:12.326997+00:00",
-      "duration": "2m"
+      "title": "session close limpia pending_w2_task con status=done",
+      "started": "2026-05-07T14:57:32.366958+00:00",
+      "ended": "2026-05-07T14:58:19.868307+00:00",
+      "duration": "0m"
     }
   },
   "inventory": {

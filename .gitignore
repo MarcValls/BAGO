@@ -106,3 +106,4 @@ bago_matrix*.html
 bago.egg-info/
 dist/
 .bago/state/findings/
+.bago/state/archive/
