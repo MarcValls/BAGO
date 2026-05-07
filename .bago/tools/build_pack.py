@@ -64,12 +64,15 @@ EXCLUDE_SUFFIXES: list[str] = [
 
 
 def _should_exclude(rel: Path) -> bool:
-    rel_str = str(rel)
+    # Normalize to forward slashes for cross-platform comparison
+    rel_str = str(rel).replace("\\", "/")
     for prefix in EXCLUDE_PREFIXES:
-        if rel_str == prefix or rel_str.startswith(prefix + "/"):
+        norm_prefix = prefix.replace("\\", "/")
+        if rel_str == norm_prefix or rel_str.startswith(norm_prefix + "/"):
             return True
     for suffix in EXCLUDE_SUFFIXES:
-        if rel_str.endswith(suffix) or ("/" + suffix + "/") in rel_str:
+        norm_suffix = suffix.replace("\\", "/")
+        if rel_str.endswith(norm_suffix) or ("/" + norm_suffix + "/") in rel_str:
             return True
     return False
 
