@@ -545,12 +545,16 @@ async def cmd_health(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text("⚕️ Calculando health score...", parse_mode="Markdown")
     out = run_bago("health", timeout=20)
+    # SAC: si score bajo, sugerir audit full (Pit of Success R-PROD-06)
+    import re as _re
+    _m = _re.search(r"(\d+)/100", out)
+    sac_hint = "\n\n💡 *SAC* — Score bajo\\. Ejecuta: `bago audit full` para diagnosticar\\." if (_m and int(_m.group(1)) < 60) else ""
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("🔍 Doctor",   callback_data="accion:doctor"),
         InlineKeyboardButton("📊 Estado",   callback_data="accion:estado"),
         InlineKeyboardButton("🏠 Menú",     callback_data="accion:menu"),
     ]])
-    await update.message.reply_text(f"⚕️ *BAGO Health*\n\n```\n{out[:1800]}\n```", parse_mode="Markdown", reply_markup=kb)
+    await update.message.reply_text(f"⚕️ *BAGO Health*\n\n```\n{out[:1800]}\n```{sac_hint}", parse_mode="Markdown", reply_markup=kb)
 
 async def cmd_doctor(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Diagnóstico BAGO — detecta problemas en el sistema."""

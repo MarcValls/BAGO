@@ -62,7 +62,16 @@ def main():
         sys.exit(subprocess.call([PYTHON, str(script)] + args))
 
     script, extra = SUBCOMMANDS[sub]
-    sys.exit(subprocess.call([PYTHON, str(script)] + extra + args[1:]))
+    _code = subprocess.call([PYTHON, str(script)] + extra + args[1:])
+    try:
+        import importlib.util as _ilu
+        _ep = Path(__file__).parent / "bago_sac_engine.py"
+        _spec = _ilu.spec_from_file_location("bago_sac_engine", str(_ep))
+        _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+        _mod.sac_suggest("bago health", exit_code=_code)
+    except Exception:
+        pass
+    sys.exit(_code)
 
 if __name__ == "__main__":
     main()

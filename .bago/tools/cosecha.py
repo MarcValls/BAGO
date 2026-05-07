@@ -630,3 +630,12 @@ if __name__ == "__main__":
         _self_test()
         raise SystemExit(_self_test_sprint_ideas())
     run()
+    # SAC: sugerir cosecha si hay muchas tareas done sin cosecha
+    try:
+        import importlib.util as _ilu
+        _ep = __import__("pathlib").Path(__file__).parent / "bago_sac_engine.py"
+        _spec = _ilu.spec_from_file_location("bago_sac_engine", str(_ep))
+        _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+        _mod.sac_suggest("bago cosecha", exit_code=0)
+    except Exception:
+        pass

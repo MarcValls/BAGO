@@ -151,4 +151,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    _code = main()
+    try:
+        import importlib.util as _ilu
+        _ep = __import__("pathlib").Path(__file__).parent / "bago_sac_engine.py"
+        _spec = _ilu.spec_from_file_location("bago_sac_engine", str(_ep))
+        _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+        _mod.sac_suggest("bago pre-push", exit_code=_code)
+    except Exception:
+        pass
+    raise SystemExit(_code)
