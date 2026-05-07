@@ -245,6 +245,12 @@ jobs:
         run: |
           pip install build -q
           python3 -m build
+      - name: Verify TestPyPI token is configured
+        run: |
+          if [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
+            echo "GATE-FAIL: missing repository secret TEST_PYPI_API_TOKEN"
+            exit 1
+          fi
       - name: Publish package to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
