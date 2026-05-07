@@ -39,5 +39,7 @@ Conexión de wallet TON sin pegar address manual. Estilo mini-apps de trading de
 
 ## Limitación conocida
 
-- `tonconnect-manifest.json` debe servirse en HTTPS. En `localhost` el SDK falla. Por eso la dependencia de ngrok (ya integrado en `launch_miniapp.sh`).
+- **ngrok-free interpone una página de warning** (ERR_NGROK_6024) para User-Agents de navegador, lo que rompe el fetch del manifest si lo servimos desde ngrok. **Solución actual:** servir el manifest desde **GitHub raw** (`https://raw.githubusercontent.com/MarcValls/BAGO/main/.bago/tools/miniapp/tonconnect-manifest.json`). HTTPS estable, sin warning, sin auth.
+- **Trade-off:** cuando ngrok asigne URL nueva (al reiniciar `launch_miniapp.sh`), hay que **actualizar el campo `url` del manifest del repo y push**. El campo `url` se usa como identidad de la dApp en TonConnect (algunas wallets lo muestran al usuario). No coincidir con el dominio donde corre la app no rompe la conexión, pero es buena higiene mantenerlo sincronizado.
+- **Solución estable a medio plazo:** migrar de ngrok-free a `cloudflared tunnel` (URL custom estable gratis) o ngrok plan pago (custom domain).
 - `set_ton_address()` escribe a `notify_config.json`. Si el bot está corriendo, lee fresh cada `/airdrop`. No hay invalidación de caché entre miniapp y bot — están sincronizados a través del fichero.

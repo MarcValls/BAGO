@@ -736,7 +736,9 @@ async function connectTonWallet() {
   }
   try {
     if (!window._tcui) {
-      const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
+      // Manifest servido desde GitHub raw (sin ngrok browser-warning, HTTPS estable).
+      // Si ngrok URL cambia, actualizar tonconnect-manifest.json en el repo y push.
+      const manifestUrl = 'https://raw.githubusercontent.com/MarcValls/BAGO/main/.bago/tools/miniapp/tonconnect-manifest.json';
       window._tcui = new window.TON_CONNECT_UI.TonConnectUI({ manifestUrl });
       window._tcui.onStatusChange(async (wallet) => {
         if (wallet?.account?.address) {

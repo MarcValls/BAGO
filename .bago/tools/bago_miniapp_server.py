@@ -284,6 +284,13 @@ class BAGOHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+    def do_HEAD(self):
+        # Responde 200 sin body para HEAD (algunos clientes/proxies hacen HEAD
+        # antes del GET; evita 501 ruidosos en ngrok).
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
 
