@@ -413,7 +413,27 @@ def _cmd_session_history() -> None:
 
 def _cmd_telemetry(args: list) -> None:
     """Show local telemetry (App Insights equivalent, no cloud)."""
+    if "--web" in args:
+        web_path = TOOLS / "bago_telemetry_web.py"
+        if not web_path.exists():
+            print("  bago_telemetry_web.py no encontrado en", TOOLS)
+            return
+        web_extra: list[str] = []
+        if "--port" in args:
+            idx = args.index("--port")
+            if idx + 1 < len(args):
+                web_extra += ["--port", args[idx + 1]]
+        if "--no-open" in args:
+            web_extra.append("--no-open")
+        subprocess.run(["python3", str(web_path)] + web_extra,
+                       cwd=str(BAGO_ROOT.parent))
+        return
+
     if "--live" in args:
+        import sys as _sys
+        if not _sys.stdout.isatty():
+            print("⚠  No hay TTY — usa: bago telemetry --web")
+            return
         live_path = TOOLS / "bago_telemetry_live.py"
         if not live_path.exists():
             print("  bago_telemetry_live.py no encontrado en", TOOLS)
