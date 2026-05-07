@@ -246,8 +246,10 @@ jobs:
           pip install build -q
           python3 -m build
       - name: Verify TestPyPI token is configured
+        env:
+          TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
-          if [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
+          if [ -z "$TEST_PYPI_API_TOKEN" ]; then
             echo "GATE-FAIL: missing repository secret TEST_PYPI_API_TOKEN"
             exit 1
           fi
