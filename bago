@@ -40,7 +40,7 @@ Instalar como alias global:
 """
 
 import importlib.util
-import json, os, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys, time
 from pathlib import Path
 
 # Windows: forzar UTF-8 para emojis y caracteres especiales en terminal
@@ -301,6 +301,22 @@ def _start_session(cmd: str, args: list) -> object:
         return None
 
 
+def _load_telemetry() -> object:
+    """Load bago_telemetry module. Returns module or None on failure."""
+    tel_path = TOOLS / "bago_telemetry.py"
+    if not tel_path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("_bago_telemetry", str(tel_path))
+    if spec is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        return None
+
+
 def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight: bool = False) -> None:
     """Dispatch a registered command with preflight + session logging + exit propagation."""
     # 0. Deprecation hint (non-blocking)
@@ -319,8 +335,9 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
     # 1b. Risk model: dangerous commands require --yes or --unsafe
     _check_risk(cmd, rest)
 
-    # 2. Start session log
+    # 2. Start session log + telemetry
     session = _start_session(cmd, rest)
+    _tel = _load_telemetry()
 
     # 2b. Dispatcher: resolve agent + inject BAGO_AGENT into subprocess env (opt-in)
     _dispatch_ctx   = None
@@ -343,11 +360,13 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
 
     # 3. Execute
     run_env = {**os.environ, **dispatch_env} if dispatch_env else None
+    _t0 = time.monotonic()
     result = subprocess.run(
         COMMANDS[cmd] + rest,
         cwd=str(BAGO_ROOT.parent),
         env=run_env,
     )
+    _duration = time.monotonic() - _t0
 
     # 3b. Dispatcher: finalize (emit dispatch:after event, flush)
     if _DISPATCH_ENABLED and _dispatch_disp and _dispatch_entry is not None and _dispatch_ctx is not None:
@@ -357,7 +376,9 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
         except Exception:
             pass
 
-    # 4. Log result
+    # 4. Log result (session logger + telemetry)
+    if _tel:
+        _tel.track_command(cmd, args=rest, duration_s=_duration, exit_code=result.returncode)
     if session:
         if result.returncode == 0:
             session.success()
@@ -387,6 +408,16 @@ def _cmd_session_history() -> None:
         print("  session_logger.py no encontrado en", TOOLS)
         return
     subprocess.run(["python3", str(sl_path), "--history"],
+                   cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_telemetry(args: list) -> None:
+    """Show local telemetry (App Insights equivalent, no cloud)."""
+    tel_path = TOOLS / "bago_telemetry.py"
+    if not tel_path.exists():
+        print("  bago_telemetry.py no encontrado en", TOOLS)
+        return
+    subprocess.run(["python3", str(tel_path)] + args,
                    cwd=str(BAGO_ROOT.parent))
 
 
@@ -672,6 +703,8 @@ def main():
         _cmd_session_last(rest)
     elif cmd == "history":
         _cmd_session_history()
+    elif cmd == "telemetry":
+        _cmd_telemetry(rest)
     elif cmd == "registry":
         _cmd_registry()
     elif cmd in COMMANDS:
@@ -685,13 +718,13 @@ def main():
             cwd=str(BAGO_ROOT.parent)
         )
         print("  Comandos disponibles:")
-        print("    bago setup | extensions | versions | registry | last | history")
+        print("    bago setup | extensions | versions | registry | last | history | telemetry")
         for k in sorted(COMMANDS):
             print(f"    bago {k}")
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "help"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:
