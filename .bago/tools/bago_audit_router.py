@@ -14,6 +14,8 @@ Uso:
   bago audit heal          → auto-reparación de drift del toolchain
   bago audit quality       → orquesta agentes especializados de calidad
   bago audit purity        → chequeo estático: validate_* no escriben archivos
+  bago audit ast [DIR]     → análisis AST semántico: asimetrías declare/consume
+  bago audit ast --self    → análisis AST del propio BAGO
 """
 import subprocess, sys
 from pathlib import Path
@@ -31,6 +33,7 @@ SUBCOMMANDS = {
     "heal":    (TOOLS / "auto_heal.py",                  []),
     "quality": (TOOLS / "code_quality_orchestrator.py",  []),
     "purity":  (TOOLS / "check_validate_purity.py",      []),
+    "ast":     (TOOLS / "bago_ast_audit.py",             []),
 }
 
 DESCRIPTIONS = {
@@ -43,6 +46,7 @@ DESCRIPTIONS = {
     "heal":    "auto-reparación de drift del toolchain",
     "quality": "orquestador de agentes especializados de calidad",
     "purity":  "chequeo estático: validate_* no escriben archivos",
+    "ast":     "análisis AST semántico: callbacks, async, fixtures, env, estados…",
 }
 
 def _usage():
