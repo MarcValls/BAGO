@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-07 07:34 UTC
+> Last generated: 2026-05-07 22:10 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 34 |
+| 🧪 Experimental | 35 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **53** |
+| **Total active** | **54** |
 
 ---
 
@@ -77,6 +77,7 @@ Actively developed. May change between minor versions.
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | ▶️ ejecución | safe | optional |
 | `bago sprite-studio` | Generador de sprites BIANCA via Codex/HF sin API key, con galería browser | 🎨 visual | safe | optional |
 | `bago types` | Chequeo de tipos estáticos | 🔍 calidad | safe | optional |
+| `bago version` | Gestión de versiones beta/release: bump \| beta \| release \| tag \| commit \| sync-check | 🔬 avanzado | mutating | optional |
 | `bago why` | Explica qué hace un comando BAGO, cuándo usarlo y sus relaciones | 🔬 avanzado | safe | optional |
 | `bago workflow` | Selector de workflow (interactivo) | ▶️ ejecución | safe | optional |
 

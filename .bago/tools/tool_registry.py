@@ -155,6 +155,14 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Auditoría y calidad: full | pack | scan | commit | push | doctor | heal | quality | purity",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_audit_router.py"))],
     ),
+    "version": ToolEntry(
+        cmd="version", module="bago_version",
+        description="Gestión de versiones beta/release: bump | beta | release | tag | commit | sync-check",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_version.py"))],
+        stability="experimental",
+        risk="mutating",
+        preflight_policy="optional",
+    ),
     "workflow": ToolEntry(
         cmd="workflow", module="workflow_selector",
         description="Selector de workflow (interactivo)",
