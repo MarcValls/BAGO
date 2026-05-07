@@ -47,7 +47,9 @@
     "risk": "low | medium | high",
     "title": "Título corto de la idea",
     "summary": "Descripción de una línea",
-    "detail": ["Lista de líneas de contexto (entrada, salida, ventaja)"],
+    "detail": [
+      "Lista de líneas de contexto (entrada, salida, ventaja)"
+    ],
     "w2": "Siguiente paso concreto para implementar",
     "metric": "Criterio de éxito medible y verificable"
   },
@@ -96,6 +98,21 @@
         "Ventaja: facilita pasar de idea a decision sin leer de nuevo toda la lista."
       ],
       "w2": "Ajustar el texto final de `./ideas` sin alterar el ranking."
+    },
+    {
+      "id": "fallback_w10_flow_task_desync",
+      "priority": 72,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "bago validate o health detecta y reporta desync entre pending_w2_task.status==done y flow activo en banner.",
+      "title": "W10: detectar desync task-done vs flow-activo",
+      "summary": "Sincerity check: si pending_w2_task.json marca status=done pero el banner sigue mostrando ese flow como activo, es SUCCESS_WASHING interno. Validate/health debe avisar.",
+      "detail": [
+        "Entrada: pending_w2_task.json con status=done y un flow activo en sessions/global_state.",
+        "Salida: warning en bago validate (y/o resta de puntos en disciplina_workflow de health) cuando ambos coexisten.",
+        "Ventaja: cierra el punto ciego W10 detectado el 2026-05-07 — health 100/100 con triple desync real."
+      ],
+      "w2": "Añadir check en bago validate (o subscore disciplina_workflow de health) que compare pending_w2_task.status con el flow activo del banner; emitir warning si discrepan."
     }
   ],
   "slots": {
