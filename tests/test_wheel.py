@@ -121,7 +121,7 @@ def test_cli_version_flag_does_not_require_launcher(flag, monkeypatch, capsys):
     """`bago --version` / `bago -V` must work even without repo-root launcher."""
     import bago_core
     import bago_core.cli as cli
-    import importlib.util as importlib_util
+    import importlib.util
 
     monkeypatch.setattr(sys, "argv", ["bago", flag])
 
@@ -132,7 +132,7 @@ def test_cli_version_flag_does_not_require_launcher(flag, monkeypatch, capsys):
         raise AssertionError("spec_from_file_location() should not be called for version flags")
 
     monkeypatch.setattr(cli, "_find_bago_launcher", _unexpected_launcher_lookup)
-    monkeypatch.setattr(importlib_util, "spec_from_file_location", _unexpected_spec_lookup)
+    monkeypatch.setattr(importlib.util, "spec_from_file_location", _unexpected_spec_lookup)
     cli.main()
 
     assert capsys.readouterr().out.strip() == f"bago {bago_core.__version__}"
