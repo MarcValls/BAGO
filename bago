@@ -413,6 +413,19 @@ def _cmd_session_history() -> None:
 
 def _cmd_telemetry(args: list) -> None:
     """Show local telemetry (App Insights equivalent, no cloud)."""
+    if "--live" in args:
+        live_path = TOOLS / "bago_telemetry_live.py"
+        if not live_path.exists():
+            print("  bago_telemetry_live.py no encontrado en", TOOLS)
+            return
+        rate_args = []
+        if "--rate" in args:
+            idx = args.index("--rate")
+            if idx + 1 < len(args):
+                rate_args = ["--rate", args[idx + 1]]
+        subprocess.run(["python3", str(live_path)] + rate_args,
+                       cwd=str(BAGO_ROOT.parent))
+        return
     tel_path = TOOLS / "bago_telemetry.py"
     if not tel_path.exists():
         print("  bago_telemetry.py no encontrado en", TOOLS)
