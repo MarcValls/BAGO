@@ -359,6 +359,97 @@ def _draw_errors(win, stats: dict, scroll: int) -> None:
 
 _VIEW_LABELS = {"d": "dashboard", "s": "stats", "e": "errores"}
 
+def _build_fifo_string(stats: dict) -> str:
+    """Construye la cadena del ticker FIFO con los eventos más recientes."""
+    all_events = (stats["cmds"] + stats["errors"] + stats["custom"])
+    all_events.sort(key=lambda e: e.get("ts", ""))
+
+    parts: list[str] = []
+    for e in all_events[-60:]:  # máximo 60 eventos en el buffer
+        etype   = e.get("type", "?")
+        name    = e.get("name", "?")
+        metrics = e.get("metrics", {})
+        props   = e.get("properties", {})
+        ts      = e.get("ts", "")[:19][11:]  # HH:MM:SS
+
+        success = props.get("success")
+        if etype == "exception":
+            icon = "💥"
+        elif success is True:
+            icon = "✓"
+        elif success is False:
+            icon = "✗"
+        elif etype == "event":
+            icon = "◆"
+        else:
+            icon = "·"
+
+        dur = metrics.get("duration_s")
+        dur_s = f" {dur:.2f}s" if dur is not None else ""
+        parts.append(f"  {icon} {ts} {name}{dur_s}  ·")
+
+    if not parts:
+        return "  Sin eventos aún  ·  Ejecuta algún comando bago  ·"
+    # Duplicar para scroll continuo sin fin
+    base = "".join(parts) + "   "
+    return base * 4  # copia suficiente para scroll sin saltos
+
+
+def _draw_fifo_bar(win, ticker_str: str, pos: int) -> None:
+    """Dibuja la barra FIFO como ticker scrolling en la fila dada."""
+    h, w = win.getmaxyx()
+    if w <= 4:
+        return
+
+    # Fondo de la barra
+    try:
+        win.hline(0, 0, " ", w - 1, curses.color_pair(C_SEL))
+    except curses.error:
+        pass
+
+    label = " LIVE ▶ "
+    _safe_addstr(win, 0, 0, label, curses.color_pair(C_SEL) | curses.A_BOLD)
+
+    # Zona del ticker (tras el label)
+    ticker_x  = len(label)
+    ticker_w  = w - ticker_x - 1
+    if ticker_w <= 0:
+        return
+
+    # Extraer ventana del string (ciclo continuo)
+    slen = len(ticker_str)
+    if slen == 0:
+        return
+    pos  = pos % slen
+    # Necesitamos ticker_w caracteres a partir de pos (wrap-around)
+    if pos + ticker_w <= slen:
+        visible = ticker_str[pos: pos + ticker_w]
+    else:
+        visible = ticker_str[pos:] + ticker_str[: ticker_w - (slen - pos)]
+
+    # Colorear por token: verde para ✓, rojo para ✗/💥, amarillo para ◆
+    x = ticker_x
+    i = 0
+    while i < len(visible) and x < w - 1:
+        ch = visible[i]
+        if ch == "✓":
+            col = curses.color_pair(C_OK) | curses.A_BOLD
+        elif ch in ("✗", "💥"):
+            col = curses.color_pair(C_FAIL) | curses.A_BOLD
+        elif ch == "◆":
+            col = curses.color_pair(C_WARN) | curses.A_BOLD
+        elif ch == "·":
+            col = curses.color_pair(C_DIM)
+        else:
+            col = curses.color_pair(C_SEL)
+        try:
+            win.addstr(0, x, ch, col)
+        except curses.error:
+            pass
+        x += 1  # curses cuenta bytes, pero para ASCII/emoji simple funciona
+        i += 1
+
+
 def _draw_header(win, view: str, next_refresh: float) -> None:
     h, w = win.getmaxyx()
     now   = datetime.now().strftime("%H:%M:%S")
@@ -370,8 +461,8 @@ def _draw_header(win, view: str, next_refresh: float) -> None:
     _safe_addstr(win, 0, 0, left[:w-len(right)-1], curses.color_pair(C_HEADER) | curses.A_BOLD)
     _safe_addstr(win, 0, max(0, w - len(right) - 1), right, curses.color_pair(C_HEADER) | curses.A_BOLD)
 
-    # Tabs de vista
-    tabs_y = 1
+    # Tabs de vista (fila 2, debajo del ticker FIFO)
+    tabs_y = 2
     win.hline(tabs_y, 0, " ", w - 1, curses.color_pair(C_DIM))
     col = 1
     for key, label in _VIEW_LABELS.items():
@@ -406,12 +497,17 @@ def _live_main(stdscr, refresh_s: float) -> None:
     stdscr.nodelay(True)
     stdscr.keypad(True)
 
-    view     = "dashboard"
-    scroll   = 0
+    view         = "dashboard"
+    scroll       = 0
+    ticker_pos   = 0
+    ticker_str   = ""
+    ticker_frame = 0   # avanza 1 char cada TICKER_SPEED frames
+    TICKER_SPEED = 3   # a 50ms/frame → 1 char cada 150ms ≈ ticker cómodo
+
     events   = _load_events()
     stats    = _compute_stats(events)
+    ticker_str = _build_fifo_string(stats)
     next_ref = time.monotonic() + refresh_s
-    dirty    = True
 
     while True:
         # ── Lectura de tecla ──
@@ -423,41 +519,50 @@ def _live_main(stdscr, refresh_s: float) -> None:
         if key in (ord("q"), ord("Q"), 27):  # ESC
             break
         elif key == ord("d"):
-            view = "dashboard"; scroll = 0; dirty = True
+            view = "dashboard"; scroll = 0
         elif key == ord("s"):
-            view = "stats";     scroll = 0; dirty = True
+            view = "stats";     scroll = 0
         elif key == ord("e"):
-            view = "errores";   scroll = 0; dirty = True
+            view = "errores";   scroll = 0
         elif key == ord("r"):
-            next_ref = 0  # fuerza refresh inmediato
+            next_ref = 0
         elif key in (curses.KEY_UP, ord("k")):
-            scroll = max(0, scroll - 1); dirty = True
+            scroll = max(0, scroll - 1)
         elif key in (curses.KEY_DOWN, ord("j")):
-            scroll += 1; dirty = True
-        elif key == curses.KEY_RESIZE:
-            dirty = True
+            scroll += 1
 
-        # ── Refresh periódico ──
+        # ── Refresh periódico de datos ──
         now = time.monotonic()
         if now >= next_ref:
-            events   = _load_events()
-            stats    = _compute_stats(events)
-            next_ref = now + refresh_s
-            dirty    = True
+            events     = _load_events()
+            stats      = _compute_stats(events)
+            ticker_str = _build_fifo_string(stats)
+            next_ref   = now + refresh_s
 
-        if not dirty:
-            time.sleep(0.05)
-            continue
+        # ── Avance del ticker ──
+        ticker_frame += 1
+        if ticker_frame >= TICKER_SPEED:
+            ticker_frame = 0
+            ticker_pos  += 1
 
-        # ── Dibujo ──
+        # ── Dibujo (siempre, para animar el ticker) ──
         h, w = stdscr.getmaxyx()
         stdscr.erase()
 
+        # Fila 0: header
         _draw_header(stdscr, view, next_ref)
 
-        # Subventana de contenido (entre header+tabs y footer)
-        content_y = 2
+        # Fila 1: FIFO ticker
+        try:
+            ticker_win = stdscr.subwin(1, w, 1, 0)
+            _draw_fifo_bar(ticker_win, ticker_str, ticker_pos)
+        except curses.error:
+            pass
+
+        # Filas 3..h-2: contenido (content_y=3 porque fila 1=ticker, fila 2=tabs)
+        content_y = 3
         content_h = h - content_y - 1
+        total_scroll_items = 0
         if content_h > 2:
             try:
                 sub = stdscr.subwin(content_h, w, content_y, 0)
@@ -471,18 +576,14 @@ def _live_main(stdscr, refresh_s: float) -> None:
                     total_scroll_items = len(stats["errors"])
                     _draw_errors(sub, stats, scroll)
             except curses.error:
-                total_scroll_items = 0
-        else:
-            total_scroll_items = 0
+                pass
 
-        # Limitar scroll
         scroll = max(0, min(scroll, max(0, total_scroll_items - 1)))
 
         _draw_footer(stdscr, scroll, total_scroll_items)
 
         stdscr.noutrefresh()
         curses.doupdate()
-        dirty = False
         time.sleep(0.05)
 
 
