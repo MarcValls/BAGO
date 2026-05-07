@@ -220,7 +220,7 @@ body {
   <div class="header-logo">B</div>
   <div>
     <div class="header-title">BAGO</div>
-    <div class="header-sub">@bago_amtec_bot · v2</div>
+    <div class="header-sub" id="header-sub">—</div>
   </div>
   <div class="header-status">
     <div class="dot" id="status-dot"></div>
@@ -360,10 +360,18 @@ function now() {
 async function loadDash() {
   try {
     const s = await fetch('/api/state').then(r=>r.json());
-    const h = s.system_health || 'ok';
+    const h = s.system_health || 'unknown';
     const isOk = ['ok','healthy'].includes(h);
     document.getElementById('status-dot').className = 'dot' + (isOk ? '' : ' warn');
     document.getElementById('status-txt').textContent = h;
+
+    // Header sub: bot + versión reales (no hardcoded).
+    const hsub = document.getElementById('header-sub');
+    if (hsub) {
+      const bu = s.telegram_bot?.bot_username ? '@' + s.telegram_bot.bot_username : '';
+      const ver = s.bago_version ? 'v' + s.bago_version : '';
+      hsub.textContent = [bu, ver].filter(Boolean).join(' · ') || '—';
+    }
 
     const wf  = s.sprint_status?.active_workflow || {};
     const tg_ = s.telegram_bot || {};
@@ -376,7 +384,7 @@ async function loadDash() {
         <div class="card-title">Sistema</div>
         <div class="stat-row"><span class="stat-label">Health</span><span class="badge badge-${isOk?'ok':'warn'}">${esc(h)}</span></div>
         <div class="stat-row"><span class="stat-label">Versión</span><span class="stat-val">v${esc(s.bago_version||'?')}</span></div>
-        <div class="stat-row"><span class="stat-label">Bot</span><span class="stat-val">${esc(tg_.username||'@bago_amtec_bot')} ✅</span></div>
+        <div class="stat-row"><span class="stat-label">Bot</span><span class="stat-val">${tg_.bot_username ? '@' + esc(tg_.bot_username) + (tg_.status==='active' ? ' ✅' : ' ⚠') : '—'}</span></div>
         <div class="stat-row"><span class="stat-label">Commits</span><span class="stat-val">${esc(inv.commits||'?')}</span></div>
       </div>
       <div class="card">
@@ -671,8 +679,8 @@ async function loadCartera() {
         <div class="qbtn" onclick="carteraRemove()"><span class="qicon">🗑</span>Quitar</div>
         <div class="qbtn" onclick="carteraAlerta()"><span class="qicon">🔔</span>Alerta</div>
         <div class="qbtn" onclick="connectTonWallet()"><span class="qicon">🔗</span>Conectar TON</div>
+        <div class="qbtn" onclick="airdropScan()"><span class="qicon">🪂</span>Escanear airdrops</div>
         <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
-        <div class="qbtn" onclick="switchTab('dash')"><span class="qicon">🏠</span>Dashboard</div>
       </div>
       <div style="margin-top:8px;font-size:11px;color:var(--muted)">También disponibles en bot: /cartera add COIN AMT · /cartera alerta COIN PRICE</div>
     </div>`;
@@ -725,6 +733,46 @@ async function carteraAlerta() {
     if (r.error) { alert('Error: ' + r.error); return; }
     alert(`🔔 Alerta ${coin.toUpperCase()} > ${above} EUR creada`);
   } catch(e) { alert('Error: ' + e); }
+}
+
+async function airdropScan() {
+  // Réplica de /airdrop del bot, ejecutable desde la miniapp.
+  // Lanza un escaneo on-demand y muestra el summary formateado.
+  const el = document.getElementById('cartera-content');
+  const status = await fetch('/api/wallet/status').then(r=>r.json()).catch(()=>({connected:false}));
+  if (!status.connected) {
+    alert('Conecta primero una wallet TON con 🔗 Conectar TON.');
+    return;
+  }
+  // Render placeholder de loading sin tirar el resto de la UI
+  const old = el.innerHTML;
+  el.innerHTML = `<div class="card"><div style="text-align:center;color:var(--muted);padding:20px">🔍 Escaneando wallet TON…</div></div>` + old;
+  try {
+    const r = await fetch('/api/airdrops').then(r=>r.json());
+    if (!r.ok) {
+      el.innerHTML = old;
+      alert('Error escaneando: ' + (r.error || r.message || '?'));
+      return;
+    }
+    const summary = r.summary || '(sin salida)';
+    const short = (r.address || '').length > 12
+      ? `${r.address.slice(0,6)}…${r.address.slice(-4)}` : (r.address || '—');
+    el.innerHTML = `<div class="card">
+      <div class="card-title">🪂 Escaneo airdrops — ${esc(short)}</div>
+      <pre style="white-space:pre-wrap;font-size:11px;line-height:1.4;color:var(--text);background:var(--bg2);padding:10px;border-radius:6px;overflow-x:auto;margin:0">${esc(summary)}</pre>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(r.ts || '')}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Acciones</div>
+      <div class="quick-grid">
+        <div class="qbtn" onclick="airdropScan()"><span class="qicon">🔄</span>Re-escanear</div>
+        <div class="qbtn" onclick="loadCartera()"><span class="qicon">⬅️</span>Volver a cartera</div>
+      </div>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = old;
+    alert('Error: ' + e);
+  }
 }
 
 async function connectTonWallet() {
