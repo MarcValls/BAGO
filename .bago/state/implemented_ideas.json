@@ -1,6 +1,11 @@
 {
   "implemented": [
     {
+      "title": "bago recientes — bitácora paginada de últimos trabajos",
+      "slot": null,
+      "done_at": "2026-05-07T07:35:06.251752+00:00"
+    },
+    {
       "title": "Cierre automático de sesión",
       "slot": null,
       "done_at": "2026-05-05T08:55:54.908797+00:00"
@@ -133,8 +138,16 @@
       "done_at": "2026-05-06T23:51:34.168389+00:00"
     }
   ],
-  "updated_at": "2026-05-07T01:47:35.988924+00:00",
+  "updated_at": "2026-05-07T07:35:06.251752+00:00",
   "ideas_completed": [
+    {
+      "id": "bago_recientes_paginated_log",
+      "title": "bago recientes — bitácora paginada de últimos trabajos",
+      "date": "2026-05-07T07:35:06.251752+00:00",
+      "session_close": "SESSION_CLOSE_20260507_073451.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "Comando agregador timeline cruzado (sesiones+sprints+ideas+cierres+commits) con paginación interactiva"
+    },
     {
       "id": null,
       "title": "Framework padre vs siembras de proyecto",
@@ -144,5 +157,5 @@
       "objetivo": "Spec detallado en .bago/core/architecture/PADRE_SIEMBRA.md — 4 fases, 6 decisiones frozen, listo para implementar en v3.0"
     }
   ],
-  "last_updated": "2026-05-07T01:47:36.059445+00:00"
+  "last_updated": "2026-05-07T07:35:06.251752+00:00"
 }
