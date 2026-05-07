@@ -387,6 +387,26 @@ class BAGOHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": str(e)}); return
             self.send_json({"ok": True, "address": addr or None, "connected": bool(addr)})
 
+        elif path == "/api/airdrop/claimable":
+            # Lista airdrops reclamables para la address conectada.
+            try:
+                from airdrop_scanner import get_ton_address
+                from airdrop_protocols import scan_claimable, list_protocols
+                addr = get_ton_address()
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}); return
+            if not addr:
+                self.send_json({"ok": False, "error": "no_wallet",
+                                "protocols_known": len(list_protocols())})
+                return
+            try:
+                items = scan_claimable(addr)
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}); return
+            self.send_json({"ok": True, "address": addr,
+                            "claimable": items,
+                            "protocols_known": len(list_protocols())})
+
         else:
             self.send_response(404); self.end_headers()
 
@@ -550,6 +570,31 @@ class BAGOHandler(BaseHTTPRequestHandler):
             had = wallet.pop("ton_address", None)
             _sc(cfg)
             self.send_json({"ok": True, "was_connected": bool(had)})
+
+        elif path == "/api/airdrop/claim":
+            # Construye una Transaction para TonConnect sendTransaction().
+            # BAGO NO firma — solo propone. La wallet del usuario firma.
+            protocol_id = (body.get("protocol_id") or "").strip()
+            if not protocol_id:
+                self.send_json({"error": "protocol_id requerido"}, 400); return
+            try:
+                from airdrop_protocols import get_protocol, build_claim_transaction
+                proto = get_protocol(protocol_id)
+            except Exception as e:
+                self.send_json({"error": f"airdrop_protocols: {e}"}, 500); return
+            if not proto:
+                self.send_json({"error": f"protocolo no encontrado: {protocol_id}"}, 404); return
+            if proto.get("type") != "active":
+                self.send_json({"error": "protocolo passive: no requiere claim tx",
+                                "type": proto.get("type")}, 400); return
+            try:
+                tx = build_claim_transaction(proto)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500); return
+            self.send_json({"ok": True, "transaction": tx,
+                            "protocol": {"id": proto["id"],
+                                         "name": proto.get("name", proto["id"]),
+                                         "info_url": proto.get("info_url")}})
 
         else:
             self.send_response(404); self.end_headers()
