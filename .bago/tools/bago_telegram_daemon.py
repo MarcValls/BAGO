@@ -124,8 +124,10 @@ def save_tareas(tareas: list):
 
 def crear_tarea(titulo: str, proyecto: str = "general") -> dict:
     tareas = load_tareas()
+    # Usar timestamp para garantizar unicidad aunque se borren tareas
+    ts_id = datetime.now().strftime("%m%d%H%M%S")
     tarea = {
-        "id": f"tg-{len(tareas)+1:03d}",
+        "id": f"tg-{ts_id}",
         "titulo": titulo,
         "proyecto": proyecto,
         "status": "pendiente",
@@ -214,15 +216,17 @@ async def check_auth(update: Update) -> bool:
 # ── Teclados ──────────────────────────────────────────────────────────────────
 def kb_menu_principal() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Estado",   callback_data="accion:estado"),
-         InlineKeyboardButton("⚡ Sprint",   callback_data="accion:sprint")],
-        [InlineKeyboardButton("📋 Tareas",   callback_data="accion:tareas"),
-         InlineKeyboardButton("📝 Notas",    callback_data="accion:notas")],
-        [InlineKeyboardButton("📁 Git Log",  callback_data="accion:git"),
-         InlineKeyboardButton("📜 Logs",     callback_data="accion:logs")],
-        [InlineKeyboardButton("💰 Cartera",  callback_data="accion:cartera"),
-         InlineKeyboardButton("🪂 Airdrops", callback_data="accion:airdrop"),
-         InlineKeyboardButton("🌐 Mini App", callback_data="accion:app")],
+        [InlineKeyboardButton("📊 Estado",      callback_data="accion:estado"),
+         InlineKeyboardButton("⚡ Sprint",       callback_data="accion:sprint")],
+        [InlineKeyboardButton("📋 Tareas",       callback_data="accion:tareas"),
+         InlineKeyboardButton("📝 Notas",        callback_data="accion:notas")],
+        [InlineKeyboardButton("📁 Git Log",      callback_data="accion:git"),
+         InlineKeyboardButton("📜 Logs",         callback_data="accion:logs")],
+        [InlineKeyboardButton("💰 Cartera",      callback_data="accion:cartera"),
+         InlineKeyboardButton("🪂 Airdrops",     callback_data="accion:airdrop"),
+         InlineKeyboardButton("🌐 Mini App",     callback_data="accion:app")],
+        [InlineKeyboardButton("📈 Telemetría",   callback_data="accion:telemetria"),
+         InlineKeyboardButton("❓ Ayuda",         callback_data="accion:ayuda")],
     ])
 
 def kb_estado() -> InlineKeyboardMarkup:
@@ -795,7 +799,53 @@ async def cmd_airdrop(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ Error escaneando: {e}")
 
 
-async def cmd_ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def cmd_telemetria(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Muestra resumen de telemetría local BAGO."""
+    if not await check_auth(update):
+        return
+    events = _load_telemetry_events()
+    if not events:
+        await update.message.reply_text(
+            "📊 *Telemetría*\n\nSin datos aún.\nEjecuta `bago <cmd>` para generar eventos.",
+            parse_mode="Markdown"
+        )
+        return
+
+    cmds    = [e for e in events if e.get("type") == "command"]
+    errors  = [e for e in events if e.get("type") == "exception"]
+    ok_n    = sum(1 for e in cmds if e.get("properties", {}).get("success") is True)
+    fail_n  = sum(1 for e in cmds if e.get("properties", {}).get("success") is False)
+
+    # Top 3 comandos más usados
+    from collections import Counter
+    top = Counter(e.get("name", "?") for e in cmds).most_common(3)
+    top_str = "\n".join(f"  `{n}` × {c}" for n, c in top) if top else "  —"
+
+    # Último evento
+    last = events[-1] if events else None
+    last_str = f"`{last['name']}` ({last.get('type','?')}) — {str(last.get('ts',''))[:16]}" if last else "—"
+
+    # Duraciones
+    durs = [e["metrics"]["duration_s"] for e in cmds if e.get("metrics", {}).get("duration_s") is not None]
+    avg_dur = f"{sum(durs)/len(durs):.2f}s" if durs else "—"
+
+    msg = (
+        f"📊 *BAGO Telemetría*\n\n"
+        f"📦 Total eventos: `{len(events)}`\n"
+        f"⚡ Comandos: `{len(cmds)}` (✅ {ok_n} · ❌ {fail_n})\n"
+        f"💥 Excepciones: `{len(errors)}`\n"
+        f"⏱ Duración media: `{avg_dur}`\n\n"
+        f"🔝 *Top comandos:*\n{top_str}\n\n"
+        f"🕐 Último: {last_str}\n\n"
+        f"_Dashboard web: `bago telemetry --web`_"
+    )
+    kb = InlineKeyboardMarkup([[
+        InlineKeyboardButton("🔄 Refresh",  callback_data="accion:telemetria"),
+        InlineKeyboardButton("🏠 Menú",     callback_data="accion:menu"),
+    ]])
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=kb)
+
+
     if not await check_auth(update):
         return
     msg = (
@@ -822,8 +872,9 @@ async def cmd_ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "  /logs — últimos logs\n"
         "  /app — Mini App dashboard\n"
         "  /cartera — portfolio crypto (add BTC 0.5 / alerta BTC 90000)\n"
-        "  /airdrop — airdrops TON cobrables (set <ADDRESS> para configurar)\n\n"
-        "_Texto libre: 'ideas', 'next', 'health', 'doctor', 'cosecha', 'estado', 'git'..._"
+        "  /airdrop — airdrops TON cobrables (set <ADDRESS> para configurar)\n"
+        "  /telemetria — resumen de telemetría local BAGO\n\n"
+        "_Texto libre: 'ideas', 'next', 'health', 'doctor', 'cosecha', 'estado', 'git', 'telemetría'..._"
     )
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=kb_menu_principal())
 
@@ -1086,8 +1137,58 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     elif data == "accion:reparar":
         await q.edit_message_text("🔧 Iniciando reparación de health KOs...", parse_mode="Markdown")
-        fake_update = type('U', (), {'message': q.message, 'effective_user': q.from_user})()
+        # Construir fake_update con effective_chat para que check_auth funcione
+        fake_update = type('U', (), {
+            'message': q.message,
+            'effective_user': q.from_user,
+            'effective_chat': q.message.chat,
+        })()
         await cmd_reparar(fake_update, ctx)
+
+    elif data == "accion:telemetria":
+        events = _load_telemetry_events()
+        if not events:
+            await q.edit_message_text(
+                "📊 *Telemetría*\n\nSin datos aún.",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menú", callback_data="accion:menu")]])
+            )
+            return
+        from collections import Counter
+        cmds   = [e for e in events if e.get("type") == "command"]
+        errors = [e for e in events if e.get("type") == "exception"]
+        ok_n   = sum(1 for e in cmds if e.get("properties", {}).get("success") is True)
+        fail_n = sum(1 for e in cmds if e.get("properties", {}).get("success") is False)
+        top    = Counter(e.get("name", "?") for e in cmds).most_common(3)
+        top_str = "\n".join(f"  `{n}` × {c}" for n, c in top) if top else "  —"
+        last   = events[-1]
+        durs   = [e["metrics"]["duration_s"] for e in cmds if e.get("metrics", {}).get("duration_s") is not None]
+        avg_dur = f"{sum(durs)/len(durs):.2f}s" if durs else "—"
+        msg = (
+            f"📊 *BAGO Telemetría*\n\n"
+            f"📦 Total: `{len(events)}` · ⚡ Cmds: `{len(cmds)}` (✅{ok_n} ❌{fail_n})\n"
+            f"💥 Excepciones: `{len(errors)}` · ⏱ Avg: `{avg_dur}`\n\n"
+            f"🔝 *Top:*\n{top_str}\n\n"
+            f"🕐 Último: `{last.get('name','?')}` — {str(last.get('ts',''))[:16]}"
+        )
+        kb2 = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 Refresh", callback_data="accion:telemetria"),
+            InlineKeyboardButton("🏠 Menú",    callback_data="accion:menu"),
+        ]])
+        await q.edit_message_text(msg, parse_mode="Markdown", reply_markup=kb2)
+
+    elif data == "accion:ayuda":
+        msg = (
+            "🤖 *BAGO v2 — Comandos*\n\n"
+            "💡 `/ideas` · `/next` · `/health` · `/doctor`\n"
+            "📋 `/tarea` · `/tareas`\n"
+            "📊 `/menu` · `/estado` · `/sprint`\n"
+            "⚙️ `/hacer` · `/git` · `/nota` · `/logs`\n"
+            "💰 `/cartera` · `/airdrop`\n"
+            "📈 `/telemetria` — telemetría local\n"
+            "🌐 `/app` — Mini App"
+        )
+        await q.edit_message_text(msg, parse_mode="Markdown", reply_markup=kb_menu_principal())
 
     # ── completar:id ──────────────────────────────────────────────────────
     elif data.startswith("completar:"):
@@ -1169,7 +1270,7 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif re.search(r"\b(menu|menú|start|inicio)\b", tl):
         await update.message.reply_text("🤖 *BAGO — Menú*", parse_mode="Markdown", reply_markup=kb_menu_principal())
 
-    elif re.search(r"\b(estado|status|health|salud)\b", tl):
+    elif re.search(r"\b(estado|status)\b", tl):
         await _send_estado(update.effective_chat.id, ctx)
 
     elif re.search(r"\b(sprint|workflow|wf)\b", tl):
@@ -1207,6 +1308,9 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     elif re.search(r"\b(reparar|repair|fix|arreglar|sanar)\b", tl):
         await cmd_reparar(update, ctx)
+
+    elif re.search(r"\b(telemetr[íi]a|telemetry|stats?|métricas?|metricas?)\b", tl):
+        await cmd_telemetria(update, ctx)
 
     elif re.search(r"\b(nota|note|apunta|apuntar|recordar)\b", tl):
         # Si hay contenido después de la palabra clave, guardar directamente
@@ -1261,16 +1365,47 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=kb_menu_principal())
 
 
-# ── Notificación externa (sin asyncio) ───────────────────────────────────────
-def send_notification(token: str, chat_id: int, text: str):
-    """Envía mensaje vía HTTP directo. Para uso desde otros scripts."""
-    import requests
-    r = requests.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
-        timeout=15
+# ── Telemetría local ──────────────────────────────────────────────────────────
+def _load_telemetry_events() -> list:
+    _xdg = os.environ.get("XDG_DATA_HOME")
+    path = (
+        Path(_xdg) / "bago" / "telemetry" / "events.jsonl" if _xdg
+        else Path.home() / ".bago" / "telemetry" / "events.jsonl"
     )
-    return r.json()
+    if not path.exists():
+        return []
+    events: list = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    events.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    except OSError:
+        pass
+    return events
+
+
+def send_notification(token: str, chat_id: int, text: str) -> dict:
+    """Envía mensaje vía urllib. Para uso desde otros scripts sin asyncio."""
+    import urllib.request
+    import urllib.parse
+    url  = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = json.dumps({
+        "chat_id": chat_id, "text": text, "parse_mode": "Markdown"
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1311,12 +1446,15 @@ def main():
     app.add_handler(CommandHandler("doctor",  cmd_doctor))
     app.add_handler(CommandHandler("cosecha", cmd_cosecha))
     app.add_handler(CommandHandler("commit",  cmd_commit))
-    app.add_handler(CommandHandler("reparar",  cmd_reparar))
-    app.add_handler(CommandHandler("cartera",  cmd_cartera))
-    app.add_handler(CommandHandler("wallet",   cmd_cartera))
-    app.add_handler(CommandHandler("portfolio",cmd_cartera))
-    app.add_handler(CommandHandler("airdrop",  cmd_airdrop))
-    app.add_handler(CommandHandler("airdrops", cmd_airdrop))
+    app.add_handler(CommandHandler("reparar",   cmd_reparar))
+    app.add_handler(CommandHandler("cartera",   cmd_cartera))
+    app.add_handler(CommandHandler("wallet",    cmd_cartera))
+    app.add_handler(CommandHandler("portfolio", cmd_cartera))
+    app.add_handler(CommandHandler("airdrop",   cmd_airdrop))
+    app.add_handler(CommandHandler("airdrops",  cmd_airdrop))
+    app.add_handler(CommandHandler("telemetria",    cmd_telemetria))
+    app.add_handler(CommandHandler("telemetry",     cmd_telemetria))
+    app.add_handler(CommandHandler("stats",         cmd_telemetria))
 
     # Callbacks de botones inline
     app.add_handler(CallbackQueryHandler(on_callback))
