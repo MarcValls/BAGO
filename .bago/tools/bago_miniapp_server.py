@@ -353,6 +353,33 @@ class BAGOHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": str(e)})
         elif path == "/health":
             self.send_json({"ok": True, "service": "bago-miniapp-v2"})
+
+        elif path == "/tonconnect-manifest.json":
+            # Sirve manifest con URL dinámica (ngrok / Host header).
+            # # COSECHA_TONCONNECT
+            try:
+                manifest_path = MINIAPP_DIR / "tonconnect-manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                manifest = {"name": "BAGO", "iconUrl": ""}
+            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+            proto = self.headers.get("X-Forwarded-Proto") or ("https" if "ngrok" in host else "http")
+            if host:
+                manifest["url"] = f"{proto}://{host}"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(manifest, ensure_ascii=False).encode())
+
+        elif path == "/api/wallet/status":
+            try:
+                from airdrop_scanner import get_ton_address
+                addr = get_ton_address()
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}); return
+            self.send_json({"ok": True, "address": addr or None, "connected": bool(addr)})
+
         else:
             self.send_response(404); self.end_headers()
 
@@ -484,6 +511,38 @@ class BAGOHandler(BaseHTTPRequestHandler):
             cfg.setdefault("wallet", {}).setdefault("alerts", []).append({"coin": coin, "above": above})
             _sc(cfg)
             self.send_json({"ok": True, "coin": coin, "above": above})
+
+        elif path == "/api/wallet/connect":
+            # Recibe address (y opcionalmente ton_proof) tras TonConnect approve.
+            # # COSECHA_TONCONNECT
+            address = (body.get("address") or "").strip()
+            if not address or len(address) < 40:
+                self.send_json({"error": "address inválida"}, 400); return
+            try:
+                from airdrop_scanner import set_ton_address
+                set_ton_address(address)
+            except Exception as e:
+                self.send_json({"error": f"set_ton_address: {e}"}, 500); return
+            # ton_proof verification: TODO (no bloqueante para read-only airdrop scan).
+            ton_proof_present = bool(body.get("ton_proof"))
+            self.send_json({
+                "ok": True,
+                "address": address,
+                "ton_proof_verified": False,
+                "ton_proof_received": ton_proof_present,
+                "note": "ton_proof verification pending (read-only address use is safe).",
+            })
+
+        elif path == "/api/wallet/disconnect":
+            try:
+                from wallet_tracker import load_config as _lc, save_config as _sc
+            except ImportError as e:
+                self.send_json({"error": f"wallet_tracker: {e}"}, 500); return
+            cfg = _lc()
+            wallet = cfg.setdefault("wallet", {})
+            had = wallet.pop("ton_address", None)
+            _sc(cfg)
+            self.send_json({"ok": True, "was_connected": bool(had)})
 
         else:
             self.send_response(404); self.end_headers()

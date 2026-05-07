@@ -310,6 +310,9 @@ body {
 
 <div id="toast"></div>
 
+<!-- TonConnect UI SDK (CDN) -->
+<script src="https://unpkg.com/@tonconnect/ui@2/dist/tonconnect-ui.min.js"></script>
+
 <script>
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
@@ -640,10 +643,23 @@ async function loadCartera() {
         <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(da.ts || '')}</div>
       </div>`;
     } else if (da.error === 'no_address') {
-      html += `<div class="card">
-        <div class="card-title">🪂 Airdrops TON</div>
-        <div style="color:var(--muted);font-size:12px">No hay TON address configurada.<br>Usa <code>/airdrop set &lt;ADDRESS&gt;</code> en el bot.</div>
-      </div>`;
+      // Probar status oficial — puede haber address ya conectada por TonConnect
+      let st = null;
+      try { st = await fetch('/api/wallet/status').then(r=>r.json()); } catch(_){}
+      if (st && st.connected && st.address) {
+        const a = st.address;
+        const short = a.length > 12 ? `${a.slice(0,6)}…${a.slice(-4)}` : a;
+        html += `<div class="card">
+          <div class="card-title">🪂 Airdrops TON</div>
+          <div class="stat-row"><span class="stat-label">Wallet</span><span class="stat-val" style="font-size:11px">${esc(short)} ✅</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">Esperando primer escaneo. Pulsa Actualizar.</div>
+        </div>`;
+      } else {
+        html += `<div class="card">
+          <div class="card-title">🪂 Airdrops TON</div>
+          <div style="color:var(--muted);font-size:12px">No hay wallet conectada.<br>Pulsa <strong>🔗 Conectar TON</strong> abajo.</div>
+        </div>`;
+      }
     } else {
       html += `<div class="card"><div style="color:var(--err)">Error airdrops: ${esc((da && da.error) || '?')}</div></div>`;
     }
@@ -712,8 +728,47 @@ async function carteraAlerta() {
 }
 
 async function connectTonWallet() {
-  // TODO: TonConnect SDK — próximo bloque.
-  alert('TonConnect llegando en breve. Por ahora: /airdrop set <ADDRESS> en el bot.');
+  // Usa TonConnect UI SDK para conectar wallet sin pedir token al usuario.
+  // # COSECHA_TONCONNECT
+  if (!window.TON_CONNECT_UI) {
+    alert('TonConnect SDK no cargado. Comprueba conexión al CDN.');
+    return;
+  }
+  try {
+    if (!window._tcui) {
+      const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
+      window._tcui = new window.TON_CONNECT_UI.TonConnectUI({ manifestUrl });
+      window._tcui.onStatusChange(async (wallet) => {
+        if (wallet?.account?.address) {
+          const address = wallet.account.address;
+          const ton_proof = wallet.connectItems?.tonProof || null;
+          try {
+            const r = await fetch('/api/wallet/connect', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ address, ton_proof }),
+            }).then(r => r.json());
+            if (r.error) { alert('Error guardando wallet: ' + r.error); return; }
+            loadCartera();
+          } catch(e) { alert('Error: ' + e); }
+        } else {
+          // Disconnected from wallet side
+          try { await fetch('/api/wallet/disconnect', {method:'POST'}); } catch(_) {}
+          loadCartera();
+        }
+      });
+    }
+    if (window._tcui.connected) {
+      // Toggle: si ya conectado, ofrecer desconectar
+      if (confirm('Wallet ya conectada. ¿Desconectar?')) {
+        await window._tcui.disconnect();
+      }
+    } else {
+      await window._tcui.openModal();
+    }
+  } catch(e) {
+    alert('TonConnect error: ' + e.message);
+  }
 }
 
 /* ── Init ── */
