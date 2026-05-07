@@ -78,6 +78,21 @@ def load_ideas_from_db(feat: dict, extra_flags: dict) -> list[dict] | None:
 
     implemented_db = _load_implemented_titles_from_db() | load_implemented_titles()
 
+    def _is_implemented(catalog_title: str) -> bool:
+        """True si catalog_title coincide exacto O está contenido en algún
+        título de implemented (cubre sufijos añadidos al registrar).
+        # COSECHA_FILTER_IMPLEMENTED
+        """
+        n = _norm(catalog_title)
+        if not n:
+            return False
+        if n in implemented_db:
+            return True
+        for impl in implemented_db:
+            if n in impl:
+                return True
+        return False
+
     slot_seen: set[int] = set()
     result: list[dict] = []
 
@@ -88,8 +103,8 @@ def load_ideas_from_db(feat: dict, extra_flags: dict) -> list[dict] | None:
         blocks   = json.loads(idea.get("blocks")   or "[]")
         extra    = idea.get("extra_cond", "always")
 
-        # Filtrar ideas ya implementadas (doble fuente: JSON + DB) — normalizado
-        if _norm(idea["title"]) in implemented_db:
+        # Filtrar ideas ya implementadas (doble fuente: JSON + DB) — substring
+        if _is_implemented(idea["title"]):
             continue
 
         # Evaluar feature gates

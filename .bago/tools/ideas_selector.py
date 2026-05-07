@@ -22,6 +22,47 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / ".bago" / "state" / "bago.db"
+IMPLEMENTED_FILE = ROOT / ".bago" / "state" / "implemented_ideas.json"
+
+
+def _normalize_title(t: str) -> str:
+    """Normaliza título para comparación: lowercase + strip + collapse spaces."""
+    if not t:
+        return ""
+    return " ".join(str(t).lower().split())
+
+
+def _load_implemented_keys() -> tuple[set[str], set[str]]:
+    """Carga sets de (titles_normalizados, ids) desde implemented_ideas.json.
+
+    Soporta los dos campos coexistentes del schema:
+      · implemented      → [{title, slot, done_at}]
+      · ideas_completed  → [{id, title, date, ...}]
+
+    Retorna (titles_set, ids_set). Devuelve sets vacíos si el fichero no existe
+    o no se puede leer (no rompe el selector).
+    # COSECHA_FILTER_IMPLEMENTED
+    """
+    titles: set[str] = set()
+    ids: set[str] = set()
+    if not IMPLEMENTED_FILE.exists():
+        return titles, ids
+    try:
+        data = json.loads(IMPLEMENTED_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return titles, ids
+    for entry in (data.get("implemented") or []):
+        t = _normalize_title(entry.get("title"))
+        if t:
+            titles.add(t)
+    for entry in (data.get("ideas_completed") or []):
+        t = _normalize_title(entry.get("title"))
+        if t:
+            titles.add(t)
+        i = entry.get("id")
+        if i:
+            ids.add(str(i))
+    return titles, ids
 
 
 # ── Helpers de DB ────────────────────────────────────────────────────────────
@@ -87,6 +128,12 @@ def load_all_ideas() -> tuple[list[dict], dict[str, bool], dict[str, bool]]:
     """
     Carga TODAS las ideas de bago.db sin filtrar, evaluando disponibilidad.
     Devuelve (ideas, feat, extra_flags).
+
+    Las ideas que aparecen en implemented_ideas.json se marcan con
+    _status="implemented" y se EXCLUYEN del retorno por defecto. Esto
+    cierra el ciclo catálogo ↔ implemented y evita que ideas ya cerradas
+    sigan dominando el ranking.
+    # COSECHA_FILTER_IMPLEMENTED
     """
     feat = _detect_features()
     extra = _extra_flags(feat)
@@ -100,9 +147,27 @@ def load_all_ideas() -> tuple[list[dict], dict[str, bool], dict[str, bool]]:
     ).fetchall()
     conn.close()
 
+    impl_titles, impl_ids = _load_implemented_keys()
+
     ideas = []
     for row in rows:
         idea = dict(row)
+        # Excluir ideas ya implementadas (por id O por substring de título).
+        # Substring porque al registrar implementadas a veces se añaden
+        # sufijos ("— sidecar W9", "(bago health)", etc.) que rompen una
+        # comparación exacta. El catalog title es siempre más corto y está
+        # contenido en el implemented title, no al revés, así que aplicamos
+        # "catalog_title in implemented_title".
+        idea_id = str(idea.get("id") or "")
+        cat_title = _normalize_title(idea.get("title"))
+        is_implemented = (idea_id and idea_id in impl_ids)
+        if not is_implemented and cat_title:
+            for impl_title in impl_titles:
+                if cat_title in impl_title:
+                    is_implemented = True
+                    break
+        if is_implemented:
+            continue
         status, reason = _availability(idea, feat, extra)
         idea["_status"] = status    # "available" | "locked" | "conditional"
         idea["_reason"] = reason
@@ -424,10 +489,65 @@ def main() -> None:
 
 
 def _self_test():
-    """Autotest mínimo — verifica arranque limpio del módulo."""
+    """Autotest mínimo — verifica arranque limpio del módulo + filtro implemented."""
     from pathlib import Path as _P
+    import tempfile
     assert _P(__file__).exists(), "fichero no encontrado"
-    print("  1/1 tests pasaron")
+
+    # Tests del filtro implemented (sin tocar disco real)
+    fails: list[str] = []
+    global IMPLEMENTED_FILE
+    saved = IMPLEMENTED_FILE
+    try:
+        # Caso 1: fichero inexistente → sets vacíos, no rompe
+        IMPLEMENTED_FILE = _P("/tmp/__bago_does_not_exist__.json")
+        titles, ids = _load_implemented_keys()
+        if titles or ids:
+            fails.append("sin fichero debería dar sets vacíos")
+
+        # Caso 2: fichero válido con ambos campos
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({
+                "implemented": [{"title": "Idea A", "slot": None, "done_at": "x"}],
+                "ideas_completed": [{"id": "id_b", "title": "Idea B", "date": "y"}],
+            }, f)
+            tmp_path = f.name
+        IMPLEMENTED_FILE = _P(tmp_path)
+        titles, ids = _load_implemented_keys()
+        if "idea a" not in titles:
+            fails.append("título de implemented no normalizado al set")
+        if "idea b" not in titles:
+            fails.append("título de ideas_completed no en titles")
+        if "id_b" not in ids:
+            fails.append("id de ideas_completed no en ids")
+
+        # Caso 3: título con espacios y caps → normalizado
+        if _normalize_title("  Hola  Mundo  ") != "hola mundo":
+            fails.append("normalize falla con espacios múltiples")
+        if _normalize_title(None) != "":
+            fails.append("normalize None debería dar ''")
+
+        # Caso 4: JSON corrupto → sets vacíos, no rompe
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write("{not json}")
+            corrupt = f.name
+        IMPLEMENTED_FILE = _P(corrupt)
+        titles, ids = _load_implemented_keys()
+        if titles or ids:
+            fails.append("JSON corrupto debería dar sets vacíos")
+    finally:
+        IMPLEMENTED_FILE = saved
+        try: _P(tmp_path).unlink()
+        except Exception: pass
+        try: _P(corrupt).unlink()
+        except Exception: pass
+
+    if fails:
+        for f in fails:
+            print("  FAIL:", f)
+        print(f"FAIL: {len(fails)} test(s)")
+        raise SystemExit(1)
+    print("  1/1 base + 4/4 filter-implemented tests pasaron")
 
 if __name__ == "__main__":
     if "--test" in sys.argv:
