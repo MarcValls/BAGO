@@ -120,12 +120,13 @@ def load_tareas() -> list:
         return []
 
 def save_tareas(tareas: list):
+    TAREAS_PATH.parent.mkdir(parents=True, exist_ok=True)
     TAREAS_PATH.write_text(json.dumps(tareas, indent=2, ensure_ascii=False))
 
 def crear_tarea(titulo: str, proyecto: str = "general") -> dict:
     tareas = load_tareas()
     # Usar timestamp para garantizar unicidad aunque se borren tareas
-    ts_id = datetime.now().strftime("%m%d%H%M%S")
+    ts_id = datetime.now().strftime("%m%d%H%M%S%f")[:14]  # microseconds evitan colisión
     tarea = {
         "id": f"tg-{ts_id}",
         "titulo": titulo,
@@ -166,7 +167,7 @@ SAFE_CMDS = {
     "ls bago":      ["ls", str(BAGO_ROOT)],
     "cat state":    ["python3", "-c",
                      f"import json; d=json.load(open('{STATE_PATH}')); "
-                     f"print(json.dumps({{k:d[k] for k in list(d)[:8]}}, indent=2, ensure_ascii=False))[:800]"],
+                     f"print(json.dumps({{k:d[k] for k in list(d)[:8]}}, indent=2, ensure_ascii=False)[:800])"],
 }
 
 def run_safe(cmd_key: str) -> str:
@@ -193,7 +194,7 @@ def run_bago(cmd: str, args: list = None, timeout: int = 20) -> str:
         raw = (r.stdout or r.stderr or "sin salida").strip()
         clean = ANSI_RE.sub("", raw)
         # Quitar líneas vacías consecutivas
-        lines = [l for l in clean.splitlines() if l.strip() or True]
+        lines = [l for l in clean.splitlines() if l.strip()]
         return "\n".join(lines)[:2000]
     except subprocess.TimeoutExpired:
         return f"⏱ Timeout — `bago {cmd}` tardó más de {timeout}s"
@@ -1136,8 +1137,8 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text(f"🌾 *Cosecha*\n\n```\n{out[:1800]}\n```", parse_mode="Markdown", reply_markup=kb2)
 
     elif data == "accion:reparar":
-        await q.edit_message_text("🔧 Iniciando reparación de health KOs...", parse_mode="Markdown")
-        # Construir fake_update con effective_chat para que check_auth funcione
+        # cmd_reparar envía sus propios mensajes de progreso vía reply_text;
+        # no editamos aquí para evitar doble mensaje
         fake_update = type('U', (), {
             'message': q.message,
             'effective_user': q.from_user,
@@ -1234,6 +1235,10 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🏠 Menú",    callback_data="accion:menu"),
         ]])
         await q.edit_message_text(f"`{cmd}`\n\n```\n{out[:1400]}\n```", parse_mode="Markdown", reply_markup=kb)
+
+    else:
+        log.warning(f"[CALLBACK] Sin handler para: {data!r}")
+        await q.answer("⚠️ Acción no reconocida", show_alert=False)
 
 # ── Texto libre ───────────────────────────────────────────────────────────────
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
