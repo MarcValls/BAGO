@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.3.0** · 86 CLI commands · 218 tools · 18 operational workflows · Clean-install state: `healthy`
+> **Version 3.3.0** · 87 CLI commands · 221 tools · 18 operational workflows · Clean-install state: `healthy`
 
 ---
 

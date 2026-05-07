@@ -2,8 +2,12 @@
   "bago_version": "3.3.0",
   "system_health": "ok",
   "sprint_status": {
-    "active_workflow": null,
-    "pending_w2_task": "none \u2014 CHG-002 completed (guardian 0%\u2192100%)",
+    "active_workflow": {
+      "code": "W2",
+      "title": "TON wallet connect en BAGO app",
+      "started": "2026-05-07T22:13:04.991482+00:00"
+    },
+    "pending_w2_task": "none — CHG-002 completed (guardian 0%→100%)",
     "last_completed_workflow": {
       "code": "W2",
       "title": "session_close_generator lee last_completed_workflow",
@@ -20,7 +24,7 @@
     "last_commit_sha": "2564428",
     "last_commit_date": "2026-05-06T09:07:37+02:00",
     "last_commit_msg": "fix(health): reconciliar inventario sessions",
-    "session_closes": 0,
+    "session_closes": 3,
     "branch": "main",
     "last_commit": "e3cba7b feat(banner): gradiente RGB truecolor en logo BAGO"
   },
@@ -32,10 +36,10 @@
     "purity_check": "OK",
     "stale_detector": "OK",
     "health": "100/100",
-    "integration_tests": "PASS \u2014 40/41 checks passed, 1 skipped",
-    "sincerity": "PASS \u2014 0 errors / 0 warnings",
-    "stability": "GO \u2014 all 8 gates green, v3.3.0",
-    "tool_guardian": "PASS \u2014 7/7 self-tests"
+    "integration_tests": "PASS — 40/41 checks passed, 1 skipped",
+    "sincerity": "PASS — 0 errors / 0 warnings",
+    "stability": "GO — all 8 gates green, v3.3.0",
+    "tool_guardian": "PASS — 7/7 self-tests"
   },
   "guardian_findings": {
     "health_pct": 100,
@@ -44,12 +48,12 @@
     "e002_not_registered": 0,
     "w001_no_routing": 0,
     "w002_no_docstring": 0,
-    "priority_fix": "none \u2014 all tools OK",
-    "dead_ref": "none \u2014 legacy-fix removed in v3.3.0"
+    "priority_fix": "none — all tools OK",
+    "dead_ref": "none — legacy-fix removed in v3.3.0"
   },
   "unresolved": {
     "stashes": 0,
-    "note": "stash@{0} y stash@{1} descartados 2026-05-01 \u2014 cambios ya aplicados en commit 7967d86"
+    "note": "stash@{0} y stash@{1} descartados 2026-05-01 — cambios ya aplicados en commit 7967d86"
   },
   "knowledge_base": {
     "initialized": "2026-05-04",
@@ -67,14 +71,14 @@
       "canvas_architecture"
     ]
   },
-  "notes": "2026-05-05: reparaci\u00f3n total del core: bago status funciona, integration_tests no referencia funciones/tools ausentes, COMMANDS operativos salen de tool_registry, sincerity queda estricto en 0/0 y stability distingue sandbox opcional como SKIP.\n2026-05-05: cross-learning DERIVA\u2194BIANCA; sprints 288-292 BIANCA; trampas #14-#15 a\u00f1adidas; project_patterns cross-learning; engine_learnings actualizado.\n2026-05-05 20:51 [TG]: bago puedes configurar BAGO bot como una miniapp de telegram\n2026-05-06: bump 2.6-taxonomy \u2014 6-layer taxonomy + scope, 3 routers, 29 deprecated, bago help redesigned, scope_detector.py, sessions en BD.",
-  "updated_at": "2026-05-07T21:37:20.535383+00:00",
+  "notes": "2026-05-05: reparación total del core: bago status funciona, integration_tests no referencia funciones/tools ausentes, COMMANDS operativos salen de tool_registry, sincerity queda estricto en 0/0 y stability distingue sandbox opcional como SKIP.\n2026-05-05: cross-learning DERIVA↔BIANCA; sprints 288-292 BIANCA; trampas #14-#15 añadidas; project_patterns cross-learning; engine_learnings actualizado.\n2026-05-05 20:51 [TG]: bago puedes configurar BAGO bot como una miniapp de telegram\n2026-05-06: bump 2.6-taxonomy — 6-layer taxonomy + scope, 3 routers, 29 deprecated, bago help redesigned, scope_detector.py, sessions en BD.",
+  "updated_at": "2026-05-06T21:54:30.623390",
   "bago_knowledge": {
     "sequences_catalog": ".bago/knowledge/sequences_catalog.md",
     "sequences_count": 10,
     "bago_universe": ".bago/knowledge/bago_universe.md"
   },
-  "last_updated": "2026-05-08T00:55:41.156060",
+  "last_updated": "2026-05-04T23:46:30Z",
   "supervision": {
     "guia_vertice": ".bago/supervision/GUIA_VERTICE.md",
     "active": false
@@ -103,7 +107,7 @@
       "ntfy_status": "READY",
       "phone": "+34684798513",
       "added": "2026-05-05",
-      "note": "Instancia DEVELOPER creada autom\u00e1ticamente. Pendiente: escanear QR con WhatsApp del usuario",
+      "note": "Instancia DEVELOPER creada automáticamente. Pendiente: escanear QR con WhatsApp del usuario",
       "instance_authorized_at": "2026-05-05T20:14:00+02:00",
       "provider": "whatsapp",
       "status": "active"
@@ -162,7 +166,7 @@
       {
         "name": "bago_propose_tasks.mjs",
         "origin": "MarcValls/PANEL_ORQUESTADOR",
-        "description": "Auditor\u00eda auto de repo: git, TODOs, CI, archivos grandes"
+        "description": "Auditoría auto de repo: git, TODOs, CI, archivos grandes"
       },
       {
         "name": "bago_repo_audit.sh",
@@ -181,13 +185,13 @@
       }
     ],
     "repos_of_interest": {
-      "bago-framework": "Versi\u00f3n p\u00fablica BAGO v2.5 \u2014 30 tools, 12 workflows, 13 CLI (referencia)",
-      "PANEL_ORQUESTADOR": "Panel orquestaci\u00f3n TypeScript/Electron \u2014 terminal-agent REST + propose-tasks",
+      "bago-framework": "Versión pública BAGO v2.5 — 30 tools, 12 workflows, 13 CLI (referencia)",
+      "PANEL_ORQUESTADOR": "Panel orquestación TypeScript/Electron — terminal-agent REST + propose-tasks",
       "Genemaps_Regular_roots_genetics": "Scraper web completo (BS4+Playwright) + FastAPI backend + SQLite",
-      "INTELIA_Manager_TPV_V0.1.0": "TPV/POS TypeScript \u2014 sistema punto de venta",
-      "INTELIA_Manager_TPV": "TPV TypeScript con 6 issues abiertos \u2014 activo",
-      "microhorror-mvp": "Godot GDScript \u2014 juego terror",
-      "BIANCA_THE_GAME": "HTML game \u2014 BIANCA THE GAME"
+      "INTELIA_Manager_TPV_V0.1.0": "TPV/POS TypeScript — sistema punto de venta",
+      "INTELIA_Manager_TPV": "TPV TypeScript con 6 issues abiertos — activo",
+      "microhorror-mvp": "Godot GDScript — juego terror",
+      "BIANCA_THE_GAME": "HTML game — BIANCA THE GAME"
     }
   },
   "telegram_miniapp": {
@@ -204,7 +208,15 @@
     "chat_engine": "bago_responder_v2",
     "last_updated": "2026-05-05T21:30:31.218318"
   },
-  "last_session": "disc-superstar-style",
+  "last_session": {
+    "timestamp": "2026-05-05T21:30:31.218356",
+    "completed": [
+      "miniapp_v2_ui",
+      "miniapp_server_restart",
+      "chat_tabs_ui"
+    ],
+    "status": "done"
+  },
   "last_sync": "2026-05-05T21:43:15.902897",
   "health_score": {
     "score": 75,
@@ -245,14 +257,13 @@
       "released": "2026-05-06",
       "commit": "a8ba572",
       "highlights": [
-        "feat(docs): generate_commands_doc.py + gate-docs CI \u2014 closes #1",
-        "feat(wheel): gate-wheel CI + test_wheel.py 18 tests \u2014 closes #2",
-        "fix(launcher): remove dead legacy-fix ref, registry-aware routing \u2014 closes #3",
+        "feat(docs): generate_commands_doc.py + gate-docs CI — closes #1",
+        "feat(wheel): gate-wheel CI + test_wheel.py 18 tests — closes #2",
+        "fix(launcher): remove dead legacy-fix ref, registry-aware routing — closes #3",
         "8 CI gates green, 48 tests passing"
       ]
     }
   ],
   "mode": "autonomous",
-  "status": "stable",
-  "session_notes": "Disc SuperStar style track generado (127 BPM, D Major). Pipeline numpy\u2192WAV\u2192afplay validado. Issues: samples reales pendientes para mejorar calidad. SwitchAudioSource instalado. Onyx\u2192Built-in output fix documentado."
+  "status": "stable"
 }
