@@ -116,6 +116,28 @@ def test_cli_main_is_callable():
     assert callable(cli.main), "bago_core.cli.main is not callable"
 
 
+@pytest.mark.parametrize("flag", ["--version", "-V"])
+def test_cli_version_flag_does_not_require_launcher(flag, monkeypatch, capsys):
+    """`bago --version` / `bago -V` must work even without repo-root launcher."""
+    import bago_core
+    import bago_core.cli as cli
+    import importlib.util
+
+    monkeypatch.setattr(sys, "argv", ["bago", flag])
+
+    def _unexpected_launcher_lookup():
+        raise AssertionError("_find_bago_launcher() should not be called for version flags")
+
+    def _unexpected_spec_lookup(*_args, **_kwargs):
+        raise AssertionError("spec_from_file_location() should not be called for version flags")
+
+    monkeypatch.setattr(cli, "_find_bago_launcher", _unexpected_launcher_lookup)
+    monkeypatch.setattr(importlib.util, "spec_from_file_location", _unexpected_spec_lookup)
+    cli.main()
+
+    assert capsys.readouterr().out.strip() == f"bago {bago_core.__version__}"
+
+
 # ── T3: pyproject.toml contract ───────────────────────────────────────────────
 
 def test_pyproject_has_console_scripts():
