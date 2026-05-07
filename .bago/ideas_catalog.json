@@ -131,6 +131,81 @@
         "FUERA DE ALCANCE v1: edición desde la vista, búsqueda fuzzy, export a markdown."
       ],
       "w2": "Crear `.bago/tools/recientes_aggregator.py` (lee fuentes y normaliza a eventos {ts,type,scope,title,detail}), registrar `bago recientes` en `tool_registry.py`, regenerar `docs/COMMANDS.md`, añadir tests en `.bago/tests/`."
+    },
+    {
+      "id": "session_close_clears_pending_task",
+      "priority": 78,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "session close limpia pending_w2_task.json cuando status=done; session open siguiente no encuentra task done residual.",
+      "title": "session close debe limpiar pending_w2_task con status=done",
+      "summary": "Tras bago session close, la pending_w2_task con status=done queda residual y bloquea bago session open siguiente.",
+      "detail": [
+        "Entrada: bago session close ejecutado tras un cierre real (W9/W5).",
+        "Salida: pending_w2_task.json archivado o limpiado; session open siguiente arranca limpio.",
+        "Ventaja: rompe el bucle de 'task done residual' detectado por el W10 desync detector."
+      ],
+      "w2": "En .bago/tools/session_close_generator.py (o equivalente), tras escribir el SESSION_CLOSE_*.md, archivar/limpiar pending_w2_task.json cuando status=done."
+    },
+    {
+      "id": "ideas_filter_already_implemented",
+      "priority": 76,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "bago ideas no muestra ideas cuyo título o id aparezca en implemented_ideas.json (implemented o ideas_completed).",
+      "title": "bago ideas debe filtrar las ideas ya implementadas",
+      "summary": "Las ideas cerradas hoy seguían en el catálogo como ranking-1, lo que confunde al selector y rompe la auto-coherencia ideación→implementación→catálogo.",
+      "detail": [
+        "Entrada: ideas_catalog + implemented_ideas.json al construir el selector.",
+        "Salida: ideas implementadas se ocultan o se marcan como cerradas en bago ideas.",
+        "Ventaja: catálogo siempre refleja trabajo pendiente real, no histórico."
+      ],
+      "w2": "Cruzar ideas_selector con implemented_ideas.json (implemented + ideas_completed) por id O título normalizado y excluir/marcar coincidencias."
+    },
+    {
+      "id": "session_close_uses_last_completed",
+      "priority": 74,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "El artefacto SESSION_CLOSE_*.md refleja el workflow recién cerrado, no una pending_w2_task antigua.",
+      "title": "session_close_generator debe leer last_completed_workflow",
+      "summary": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día.",
+      "detail": [
+        "Entrada: global_state.sprint_status.last_completed_workflow disponible al cerrar sesión.",
+        "Salida: el artefacto recoge el workflow real del cierre.",
+        "Ventaja: el cierre cuenta la verdad del día, no un fantasma."
+      ],
+      "w2": "En session_close_generator.py, priorizar global_state.sprint_status.last_completed_workflow sobre pending_w2_task al rellenar la tabla 'Tarea completada'."
+    },
+    {
+      "id": "siembra_disambiguate_project_vs_ideas",
+      "priority": 70,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "El usuario distingue 'sembrar proyecto' (PADRE/SIEMBRA) de 'sembrar ideas' (catálogo) sin friction.",
+      "title": "Desambiguar bago siembra: proyecto vs ideas",
+      "summary": "El verbo 'siembra' está sobrecargado: bago siembra crea proyectos hijos, pero coloquialmente 'sembrar ideas' significa repoblar el catálogo. Friction UX vivida en sesión.",
+      "detail": [
+        "Entrada: usuario dice 'siembra ideas' esperando catálogo.",
+        "Salida: comando claro (bago ideas seed o bago seed-ideas) o subcomando (bago siembra ideas).",
+        "Ventaja: reduce momentos de 'no era esto' en el primer uso."
+      ],
+      "w2": "Añadir alias bago ideas seed que invoque la lógica de siembra de catálogo, o renombrar bago siembra → bago siembra project con alias retroactivo."
+    },
+    {
+      "id": "selector_show_sprint_progress",
+      "priority": 67,
+      "section": "respaldo",
+      "risk": "low",
+      "metric": "bago ideas muestra contador 'X/N' (ideas implementadas / objetivo del sprint) en el header.",
+      "title": "bago ideas: mostrar progreso del sprint en header",
+      "summary": "El banner ya muestra 'ideas: 29/42' pero el selector no propaga ese dato. Información disponible no aprovechada.",
+      "detail": [
+        "Entrada: contador de ideas implementadas + objetivo del sprint.",
+        "Salida: línea extra en el header de bago ideas con el progreso.",
+        "Ventaja: refuerza el sentido de avance al elegir la siguiente idea."
+      ],
+      "w2": "En ideas_selector.py, añadir una línea de header con 'progreso sprint: X/N' leyendo del mismo source que bago hello banner."
     }
   ],
   "slots": {
