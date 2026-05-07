@@ -25,8 +25,33 @@ SESSIONS_DIR  = STATE_DIR / "sessions"
 CHANGES_DIR   = STATE_DIR / "changes"
 EVIDENCES_DIR = STATE_DIR / "evidences"
 TASK_FILE     = STATE_DIR / "pending_w2_task.json"
+TASK_ARCHIVE  = STATE_DIR / "archive" / "pending_w2_task"
 IDEAS_FILE    = STATE_DIR / "implemented_ideas.json"
 GLOBAL_STATE  = STATE_DIR / "global_state.json"
+
+
+def _archive_pending_task_if_done(task_file: Path, task: dict | list | None) -> Path | None:
+    """Si la task tiene status='done', muévela al archivo y elimina el original.
+
+    # COSECHA_W10_DESYNC_DETECTOR (cierra el bucle: la idea
+    #  session_close_clears_pending_task ataca exactamente este flujo).
+
+    Retorna la ruta de archivo (o None si no se hizo nada).
+    """
+    if not isinstance(task, dict):
+        return None
+    status = (task.get("status") or "").lower()
+    if status != "done":
+        return None
+    if not task_file.exists():
+        return None
+    TASK_ARCHIVE.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    archived = TASK_ARCHIVE / f"pending_w2_task_{ts}.json"
+    # copia (no movimiento bruto) para preservar permisos y atomicidad
+    archived.write_text(task_file.read_text(encoding="utf-8"), encoding="utf-8")
+    task_file.unlink()
+    return archived
 
 
 def _resolve_sessions_dir() -> Path:
@@ -219,6 +244,15 @@ def main() -> int:
     task = _load_json(task_file) if task_file.exists() else {}
     result = generate(task=task, out_path=out_path)
     print(f"  📄 Artefacto de cierre generado: {result.relative_to(ROOT)}")
+    # Limpieza: si la task está done, archivarla para que session open
+    # siguiente arranque limpio (cierra desync W10 task-done ↔ flow-activo).
+    archived = _archive_pending_task_if_done(task_file, task)
+    if archived:
+        try:
+            rel = archived.relative_to(ROOT)
+        except ValueError:
+            rel = archived
+        print(f"  🗄️  Task done archivada: {rel}")
     return 0
 
 
@@ -266,11 +300,34 @@ def _self_test():
             generate(task=task, out_path=_P(tmp) / "close2.md")
             data2 = json.loads(tmp_ideas.read_text())
             assert len(data2.get("ideas_completed", [])) == 1, "duplicado registrado"
+
+            # Test 4: _archive_pending_task_if_done con task done → archiva y borra
+            global TASK_ARCHIVE
+            _orig_archive = TASK_ARCHIVE
+            TASK_ARCHIVE = _P(tmp) / "archive" / "pending_w2_task"
+            try:
+                tf = _P(tmp) / "pending_w2_task.json"
+                tf.write_text(json.dumps({"status": "done", "idea_title": "X"}))
+                archived = _archive_pending_task_if_done(tf, {"status": "done"})
+                assert archived is not None and archived.exists(), "no archivado"
+                assert not tf.exists(), "task original no eliminada"
+
+                # Test 5: _archive_pending_task_if_done con status != done → no-op
+                tf.write_text(json.dumps({"status": "pending"}))
+                res = _archive_pending_task_if_done(tf, {"status": "pending"})
+                assert res is None, "no debe archivar pending"
+                assert tf.exists(), "no debe borrar pending"
+
+                # Test 6: con None / no-dict → no-op
+                assert _archive_pending_task_if_done(tf, None) is None
+                assert _archive_pending_task_if_done(tf, "string") is None
+            finally:
+                TASK_ARCHIVE = _orig_archive
         finally:
             IDEAS_FILE = _orig
             STATE_DIR  = _orig_state
 
-    print("  3/3 tests pasaron")
+    print("  3/3 base + 3/3 archivado tests pasaron")
 
 
 if __name__ == "__main__":
