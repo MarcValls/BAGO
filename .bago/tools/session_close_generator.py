@@ -30,6 +30,76 @@ IDEAS_FILE    = STATE_DIR / "implemented_ideas.json"
 GLOBAL_STATE  = STATE_DIR / "global_state.json"
 
 
+def _load_last_completed_workflow() -> dict:
+    """Lee global_state.sprint_status.last_completed_workflow.
+
+    Retorna {} si no existe / no se puede leer / no es dict.
+    # COSECHA_SESSION_CLOSE_USES_LAST_COMPLETED
+    """
+    if not GLOBAL_STATE.exists():
+        return {}
+    try:
+        gs = json.loads(GLOBAL_STATE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    sprint = gs.get("sprint_status") or {}
+    last = sprint.get("last_completed_workflow") or {}
+    return last if isinstance(last, dict) else {}
+
+
+def _enrich_task_with_last_completed(task: dict) -> dict:
+    """Si la task está vacía o describe una idea distinta al último flow
+    cerrado, enriquece con datos de last_completed_workflow.
+
+    Reglas:
+      · Si task vacía → sintetiza una task mínima desde last_completed.
+      · Si task tiene idea_title pero NO contiene el title del last_completed
+        (ni viceversa) Y last_completed es más reciente que task.accepted_at
+        → reemplaza idea_title/workflow con los del last_completed (la idea
+        original quedó en otro contexto).
+      · En cualquier otro caso → task tal cual (task gana).
+    # COSECHA_SESSION_CLOSE_USES_LAST_COMPLETED
+    """
+    last = _load_last_completed_workflow()
+    if not last:
+        return task or {}
+    last_title = (last.get("title") or "").strip()
+    last_code  = (last.get("code")  or "").strip()
+    last_ended = last.get("ended")
+
+    # Caso A: sin task
+    if not task:
+        return {
+            "idea_title": last_title or "—",
+            "idea_index": "—",
+            "workflow":   last_code or "—",
+            "objetivo":   f"Cierre del workflow {last_code} ({last_title}).",
+            "alcance":    "—",
+            "metric":     "—",
+            "_source":    "last_completed_workflow",
+        }
+
+    # Caso B: task existe pero no encaja con last_completed
+    task_title = (task.get("idea_title") or task.get("title") or "").strip()
+    if task_title and last_title:
+        a = task_title.lower()
+        b = last_title.lower()
+        encaja = (a in b) or (b in a)
+        if not encaja:
+            # last_completed es más reciente → reemplaza
+            try:
+                accepted = task.get("accepted_at") or ""
+                if last_ended and accepted and last_ended > accepted:
+                    enriched = dict(task)
+                    enriched["idea_title"] = last_title
+                    enriched["workflow"]   = last_code or task.get("workflow", "—")
+                    enriched["_source"]    = "last_completed_workflow (override)"
+                    return enriched
+            except Exception:
+                pass
+    return task
+
+
 def _archive_pending_task_if_done(task_file: Path, task: dict | list | None) -> Path | None:
     """Si la task tiene status='done', muévela al archivo y elimina el original.
 
@@ -156,6 +226,13 @@ def generate(task: dict | None = None, out_path: Path | None = None) -> Path:
 
     if task is None:
         task = _load_json(TASK_FILE) or {}
+
+    # Enriquecer con last_completed_workflow cuando proceda. La task
+    # cargada de pending_w2_task.json puede ser stale (relicto de
+    # 'bago next' viejo) mientras que el flow REAL recin cerrado vive
+    # en sprint_status.last_completed_workflow.
+    # # COSECHA_SESSION_CLOSE_USES_LAST_COMPLETED
+    task = _enrich_task_with_last_completed(task)
 
     idea_title = task.get("idea_title", "—")
     idea_index = task.get("idea_index", "?")
@@ -327,11 +404,74 @@ def _self_test():
             IDEAS_FILE = _orig
             STATE_DIR  = _orig_state
 
-    print("  3/3 base + 3/3 archivado tests pasaron")
+    print("  3/3 base + 3/3 archivado + 4/4 enrich-last-completed tests pasaron")
+
+
+def _test_enrich_last_completed():
+    """Tests del enriquecimiento con last_completed_workflow.
+    # COSECHA_SESSION_CLOSE_USES_LAST_COMPLETED
+    """
+    import tempfile
+    from pathlib import Path as _P
+    fails: list[str] = []
+    global GLOBAL_STATE
+    saved = GLOBAL_STATE
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            gs_path = _P(td) / "global_state.json"
+            GLOBAL_STATE = gs_path
+
+            # Caso 1: sin global_state → task se devuelve tal cual
+            t = {"idea_title": "X", "workflow": "W2"}
+            r = _enrich_task_with_last_completed(t)
+            if r != t:
+                fails.append(f"sin gs debería devolver task; got {r!r}")
+
+            # Caso 2: task vacía + last_completed presente → sintetiza
+            gs_path.write_text(json.dumps({
+                "sprint_status": {"last_completed_workflow": {
+                    "code": "W2", "title": "feat XYZ",
+                    "started": "2026-05-07T10:00:00+00:00",
+                    "ended":   "2026-05-07T10:30:00+00:00",
+                }}
+            }))
+            r = _enrich_task_with_last_completed({})
+            if r.get("idea_title") != "feat XYZ" or r.get("workflow") != "W2":
+                fails.append(f"task vacía no sintetizada: {r}")
+            if r.get("_source") != "last_completed_workflow":
+                fails.append("sintetizada no marca _source")
+
+            # Caso 3: task encaja con last_completed (substring) → sin override
+            t = {
+                "idea_title": "feat XYZ",
+                "workflow": "W2",
+                "accepted_at": "2026-05-07T09:00:00+00:00",
+            }
+            r = _enrich_task_with_last_completed(t)
+            if r.get("_source") == "last_completed_workflow (override)":
+                fails.append("task que encaja no debe override")
+
+            # Caso 4: task no encaja Y last_completed es más reciente → override
+            t = {
+                "idea_title": "OTRA cosa",
+                "workflow": "W2",
+                "accepted_at": "2026-05-07T09:00:00+00:00",
+            }
+            r = _enrich_task_with_last_completed(t)
+            if r.get("idea_title") != "feat XYZ":
+                fails.append(f"override no aplicado: {r.get('idea_title')}")
+            if r.get("_source") != "last_completed_workflow (override)":
+                fails.append(f"override no marca _source: {r.get('_source')}")
+    finally:
+        GLOBAL_STATE = saved
+    if fails:
+        for f in fails: print("  FAIL:", f)
+        raise SystemExit(f"FAIL: {len(fails)}/4 enrich tests")
 
 
 if __name__ == "__main__":
     if "--test" in sys.argv:
         _self_test()
+        _test_enrich_last_completed()
         raise SystemExit(0)
     raise SystemExit(main())
