@@ -439,7 +439,7 @@ def _open_browser(url: str) -> None:
         elif sys.platform.startswith("linux"):
             subprocess.Popen(["xdg-open", url])
         elif sys.platform == "win32":
-            subprocess.Popen(["start", url], shell=True)
+            subprocess.Popen(["start", url], shell=True)  # nosec B602 — shell=True requerido por 'start' en Windows
     except Exception:
         pass
 
