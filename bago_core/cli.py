@@ -34,7 +34,7 @@ def _find_bago_launcher() -> Path:
 
 def main() -> None:
     """Load the bago launcher module and call its main()."""
-    if len(sys.argv) > 1 and sys.argv[1] in {"--version", "-V", "version"}:
+    if len(sys.argv) > 1 and sys.argv[1] in {"--version", "-V"}:
         print(f"bago {__version__}")
         return
 
