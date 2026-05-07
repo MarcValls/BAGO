@@ -49,8 +49,43 @@ def score_integridad() -> tuple[int, int, str]:
     return 0, 25, f"KO — {detail}"
 
 
+def _detect_w10_desync() -> tuple[bool, str]:
+    """W10 sincerity check: detecta desync task-done vs flow-activo.
+
+    Si pending_w2_task.json marca status='done' Y hay active_workflow != null
+    en global_state.sprint_status, es indisciplina de workflow:
+    la task quedó cerrada pero el flow no se cerró / no se limpió la task pending.
+
+    # COSECHA_W10_DESYNC_DETECTOR
+
+    Retorna: (desync_present: bool, detail: str)
+    """
+    pending_path = STATE / "pending_w2_task.json"
+    state_path   = STATE / "global_state.json"
+    if not pending_path.exists() or not state_path.exists():
+        return False, ""
+    try:
+        pending = json.loads(pending_path.read_text(encoding="utf-8"))
+        gstate  = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False, ""
+    task_status = (pending.get("status") or "").lower()
+    sprint_status = gstate.get("sprint_status") or {}
+    active = sprint_status.get("active_workflow")
+    # active puede ser None, string "none…" o dict {code,title,started}
+    has_active = bool(active) and isinstance(active, dict) and active.get("code")
+    if task_status == "done" and has_active:
+        title = pending.get("idea_title", "?")[:30]
+        wf_code = active.get("code", "?")
+        return True, f"⚠  desync W10: task done='{title}' ↔ flow activo {wf_code}"
+    return False, ""
+
+
 def score_disciplina_workflow() -> tuple[int, int, str]:
-    """roles_medios_últimas_10 ≤ 2.0 → 20, hasta 5.0 → proporcional, >5.0 → 0."""
+    """roles_medios_últimas_10 ≤ 2.0 → 20, hasta 5.0 → proporcional, >5.0 → 0.
+    Penalización -5 si W10 detecta desync task-done ↔ flow-activo.
+    # COSECHA_W10_DESYNC_DETECTOR
+    """
     sessions_dir = STATE / "sessions"
     if not sessions_dir.exists():
         return 10, 20, "Sin datos (asumido 10/20)"
@@ -90,7 +125,15 @@ def score_disciplina_workflow() -> tuple[int, int, str]:
         # Lineal entre 2.0 y 5.0
         pts = int(20 * (5.0 - avg) / 3.0)
 
-    return pts, 20, f"roles_medios={avg:.1f} (últimas {len(recent)} ses)"
+    detail = f"roles_medios={avg:.1f} (últimas {len(recent)} ses)"
+
+    # W10 desync penalty
+    desync, desync_detail = _detect_w10_desync()
+    if desync:
+        pts = max(0, pts - 5)
+        detail = f"{detail}  —  {desync_detail}"
+
+    return pts, 20, detail
 
 
 def score_captura_decisiones() -> tuple[int, int, str]:
@@ -273,6 +316,57 @@ def _self_test():
     """Autotest mínimo — verifica arranque limpio del módulo."""
     from pathlib import Path as _P
     assert _P(__file__).exists(), "fichero no encontrado"
+    # — W10 desync detector tests (puros, sin disco) —
+    import tempfile
+    fails: list[str] = []
+    global STATE
+    saved_STATE = STATE
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = _P(td)
+            STATE = tmp  # monkeypatch módulo-local
+            # Caso 1: sin ficheros → no desync
+            d, _ = _detect_w10_desync()
+            if d is not False:
+                fails.append("sin ficheros: debería ser False")
+            # Caso 2: task done + active_workflow dict → desync True
+            (tmp / "pending_w2_task.json").write_text(json.dumps({
+                "status": "done", "idea_title": "X"}))
+            (tmp / "global_state.json").write_text(json.dumps({
+                "sprint_status": {"active_workflow": {"code": "W2", "title": "t"}}}))
+            d, msg = _detect_w10_desync()
+            if not d:
+                fails.append("task=done + active=W2: debería ser True")
+            if "desync W10" not in msg:
+                fails.append(f"mensaje sin marcador 'desync W10': {msg!r}")
+            # Caso 3: task done pero active_workflow null → NO desync
+            (tmp / "global_state.json").write_text(json.dumps({
+                "sprint_status": {"active_workflow": None}}))
+            d, _ = _detect_w10_desync()
+            if d is not False:
+                fails.append("task=done + active=None: debería ser False")
+            # Caso 4: active_workflow es string (legado) → NO desync (no es dict válido)
+            (tmp / "global_state.json").write_text(json.dumps({
+                "sprint_status": {"active_workflow": "none — nada activo"}}))
+            d, _ = _detect_w10_desync()
+            if d is not False:
+                fails.append("active=string: debería ser False")
+            # Caso 5: task pending (status != done) + active dict → NO desync
+            (tmp / "pending_w2_task.json").write_text(json.dumps({
+                "status": "pending", "idea_title": "X"}))
+            (tmp / "global_state.json").write_text(json.dumps({
+                "sprint_status": {"active_workflow": {"code": "W2"}}}))
+            d, _ = _detect_w10_desync()
+            if d is not False:
+                fails.append("task=pending + active=W2: debería ser False")
+    finally:
+        STATE = saved_STATE
+    if fails:
+        for f in fails:
+            print("  FAIL:", f)
+        print(f"FAIL: {len(fails)}/5 W10 desync tests")
+        raise SystemExit(1)
+    print("  1/1 base + 5/5 W10 desync detector tests pasaron")
     print("  1/1 tests pasaron")
 
 if __name__ == "__main__":
