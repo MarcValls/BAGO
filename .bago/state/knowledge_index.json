@@ -1,14 +1,16 @@
 {
   "knowledge_base": {
     "initialized": "2026-05-04",
-    "files_count": 5,
-    "last_harvest": "2026-05-04",
+    "files_count": 7,
+    "last_harvest": "2026-05-08",
     "covers": [
       "abril_2026",
       "image_generation",
       "framework_traps",
       "project_patterns",
-      "tools_reference"
+      "tools_reference",
+      "windows_execution_patterns",
+      "windows_audio_setup"
     ]
   },
   "bago_knowledge": {
