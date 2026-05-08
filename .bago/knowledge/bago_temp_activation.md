@@ -19,21 +19,48 @@ La carpeta de trabajo real (`C:\Users\verny\BAGO`) **no se restaura**. BAGO sigu
 
 ---
 
-## Patrón de Activación Temporal
+## Patrón de Activación Temporal (con fallback)
 
 ```powershell
 $env:PATH += ";C:\Program Files\Git\cmd"
-$tmp = "C:\Users\verny\AppData\Local\Temp\bago_tmp"
+$BAGO_REPO   = "https://github.com/MarcValls/BAGO.git"
+$BAGO_RAR    = "$env:USERPROFILE\system_backup_05.rar"
+$BAGO_DEST   = "C:\Users\verny\BAGO"
+$tmp         = "C:\Users\verny\AppData\Local\Temp\bago_tmp"
 
-# 1. Clonar a temp
+# ── STEP 0: Verificar acceso a GitHub ─────────────────────────────────────────
+function Test-BAGORepoAccess {
+    $result = git ls-remote $BAGO_REPO HEAD 2>&1
+    return ($LASTEXITCODE -eq 0)
+}
+
+if (-not (Test-BAGORepoAccess)) {
+    Write-Warning "BAGO: GitHub no accesible. Evaluando fallback..."
+
+    # Fallback A: RAR disponible en disco → preguntar restauración completa
+    if (Test-Path $BAGO_RAR) {
+        Write-Warning "BAGO: RAR encontrado en $BAGO_RAR"
+        Write-Warning "Para restaurar BAGO completamente:"
+        Write-Warning "  1. Abre WinRAR"
+        Write-Warning "  2. Extrae $BAGO_RAR a C:\Users\verny\"
+        Write-Warning "  3. Contraseña: ver Escritorio\BAGO_KEY.txt"
+        Write-Warning "  4. Cuando GitHub vuelva, sincroniza con: git push origin main"
+    } else {
+        Write-Warning "BAGO: Sin acceso a GitHub y sin RAR local."
+        Write-Warning "No es posible la activación temporal. Comprueba conexión a internet."
+    }
+    return  # Salir — no continuar con el clone
+}
+
+# ── STEP 1: Clonar a temp ─────────────────────────────────────────────────────
 if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
-git clone https://github.com/MarcValls/BAGO.git $tmp 2>&1
+git clone $BAGO_REPO $tmp 2>&1
 
-# 2. --- HACER EL TRABAJO AQUÍ ---
+# ── STEP 2: HACER EL TRABAJO AQUÍ ────────────────────────────────────────────
 # Ejemplo: escribir un archivo de knowledge
 Set-Content "$tmp\.bago\knowledge\nuevo_aprendizaje.md" "contenido..."
 
-# 3. Commitear y pushear
+# ── STEP 3: Commitear y pushear ───────────────────────────────────────────────
 Set-Location $tmp
 git config user.email "bago@verny.local"
 git config user.name "BAGO"
@@ -41,7 +68,7 @@ git add -A
 git commit -m "learn: descripcion breve`n`nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 git push origin main
 
-# 4. Limpiar — BAGO vuelve a estar "off" en disco
+# ── STEP 4: Limpiar — BAGO vuelve a estar "off" en disco ─────────────────────
 Set-Location "C:\Users\verny"
 Remove-Item $tmp -Recurse -Force
 ```
@@ -52,7 +79,9 @@ Remove-Item $tmp -Recurse -Force
 
 | Situación | Acción |
 |---|---|
-| BAGO desactivado + necesita aprender algo | Activación temporal → clonar → escribir → push → limpiar |
+| BAGO desactivado + GitHub accesible | Activación temporal → clonar → escribir → push → limpiar |
+| BAGO desactivado + GitHub caído + RAR existe | Avisar al usuario con instrucciones de restauración desde RAR |
+| BAGO desactivado + GitHub caído + sin RAR | Avisar: sin opciones disponibles, verificar conexión |
 | BAGO desactivado + tarea normal (no knowledge) | Ejecutar sin activar, no clonar |
 | Usuario pide "restaura BAGO" | Restauración completa desde RAR (ver `bago_deactivation_procedure.md`) |
 | BAGO activo (carpeta existe) | Escribir directamente, no clonar |
@@ -78,3 +107,5 @@ if (Test-Path "C:\Users\verny\BAGO") {
 - La temp folder por defecto: `C:\Users\verny\AppData\Local\Temp\bago_tmp`
 - No restaurar el RAR para tareas de learning — es innecesario y lento
 - Esta sesión fue la primera vez que se usó este patrón (2026-05-08)
+- El fallback al RAR fue implementado el mismo día tras detectar el riesgo
+- `Test-BAGORepoAccess` usa `git ls-remote` — más rápido que un clone completo y no deja archivos
