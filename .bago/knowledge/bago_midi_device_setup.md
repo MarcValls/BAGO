@@ -1,29 +1,28 @@
 # BAGO como dispositivo MIDI — Aprendizaje
 
-## Estado actual (2026-05-08)
+## Estado actual (2026-05-08) ✅ RESUELTO
 
-### Instalado
+### Instalado y funcionando
 - loopMIDI v1.0.16.27 en `C:\Program Files (x86)\Tobias Erichsen\loopMIDI\`
 - teVirtualMIDI64.dll en `C:\Windows\System32\` ✓
-- Puerto "BAGO" creado en loopMIDI UI ✓
+- teVirtualMIDI64.sys en `C:\Windows\System32\drivers\` ✓
+- **Servicio `teVirtualMIDI` registrado y Running** ✓
+- Puerto "BAGO" creado en loopMIDI ✓
 
-### Problema bloqueante
-**El servicio kernel `teVirtualMIDI` NO está instalado como servicio de Windows.**
-Sin el servicio del kernel driver registrado, `virtualMIDICreatePortEx2` falla con error 1379.
-
-Causa: instalación de loopMIDI requiere **admin** para registrar el driver de kernel.
-El proceso actual corre sin admin → el driver no se instaló correctamente.
-
-### Solución pendiente (necesita admin una sola vez)
+### Cómo se instaló el driver (necesitó admin una sola vez)
 ```powershell
-# Ejecutar como administrador:
-pnputil /add-driver "C:\Program Files\Tobias Erichsen\teVirtualMIDI\teVirtualMIDI64.inf" /install
-
-# O reinstalar loopMIDI con RunAs:
-Start-Process "C:\Users\verny\AppData\Local\Temp\loopMIDI_setup\loopMIDISetup.exe" -Verb RunAs -Wait
+# Admin via UAC — registrar e iniciar el servicio kernel:
+sc.exe create teVirtualMIDI type= kernel start= auto binPath= "C:\Windows\System32\drivers\teVirtualMIDI64.sys" DisplayName= "teVirtualMIDI"
+sc.exe start teVirtualMIDI
+# Verificar: Get-Service teVirtualMIDI → Status: Running
 ```
 
-Después de instalar el driver correctamente, BAGO puede crear puertos MIDI sin admin:
+### Error que bloqueaba antes
+`virtualMIDICreatePortEx2` devolvía handle=0 con error 1379 porque el servicio kernel no estaba registrado.
+La instalación silenciosa de loopMIDI (`/S`) no instaló el driver automáticamente → había que registrarlo a mano con `sc.exe create`.
+
+### Uso sin admin (driver ya instalado):
+BAGO puede ahora crear puertos MIDI en cualquier sesión:
 ```powershell
 Add-Type @"
 using System; using System.Runtime.InteropServices;
