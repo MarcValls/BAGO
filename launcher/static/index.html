@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BAGO Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <span class="logo-icon">⬡</span>
+      <div>
+        <h1>BAGO Launcher</h1>
+        <span class="version">v3.3.0</span>
+      </div>
+    </div>
+    <div id="health-badge" class="badge badge-loading">cargando...</div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ── MAIN CONTENT ── -->
+    <main>
+
+      <!-- MODO DINÁMICO -->
+      <section class="auto-section">
+        <div class="auto-header">
+          <span class="auto-icon">🔮</span>
+          <div>
+            <h2>Modo Automático</h2>
+            <p>Describe tu tarea y BAGO elige el agente óptimo</p>
+          </div>
+        </div>
+        <div class="auto-input-row">
+          <input
+            id="task-input"
+            type="text"
+            placeholder="ej: necesito refactorizar la función de autenticación..."
+            autocomplete="off"
+          />
+          <button class="btn-auto" id="btn-route" onclick="routeTask()">
+            <span>Analizar</span> →
+          </button>
+        </div>
+        <div id="route-result" class="route-result hidden"></div>
+      </section>
+
+      <!-- AGENTES -->
+      <section class="agents-section">
+        <h2>O elige manualmente</h2>
+        <div id="agents-grid" class="agents-grid">
+          <div class="agent-card skeleton"></div>
+          <div class="agent-card skeleton"></div>
+          <div class="agent-card skeleton"></div>
+          <div class="agent-card skeleton"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ── SIDEBAR ── -->
+    <aside>
+      <div class="sidebar-block">
+        <h3>Estado BAGO</h3>
+        <div id="status-panel" class="status-panel">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line" style="width:70%"></div>
+          <div class="skeleton-line" style="width:85%"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-block">
+        <h3>Historial</h3>
+        <div id="history-list" class="history-list">
+          <span class="muted-text">Sin lanzamientos recientes</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="btn-refresh" onclick="loadAll()">↻ Actualizar</button>
+        <a href="https://github.com/MarcValls/BAGO" target="_blank" class="link-gh">GitHub ↗</a>
+      </div>
+    </aside>
+
+  </div><!-- /layout -->
+
+  <!-- ── MODAL ── -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-icon" id="modal-icon">🤖</div>
+      <h2 id="modal-title">Iniciando agente</h2>
+      <p id="modal-desc">Se abrirá una nueva terminal con el contexto BAGO listo.</p>
+
+      <div id="modal-model-row" class="modal-model-row hidden">
+        <label>Modelo:</label>
+        <select id="model-select"></select>
+      </div>
+
+      <div id="modal-task-row" class="modal-task-row">
+        <label>Objetivo de sesión (opcional):</label>
+        <input id="modal-task-input" type="text" placeholder="ej: implementar login JWT..." />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-primary" id="btn-confirm">🚀 Abrir Terminal</button>
+        <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TOAST ── -->
+  <div id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
