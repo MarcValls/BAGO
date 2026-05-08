@@ -1,194 +1,222 @@
-# Getting Started with BAGO v3.2-kernel
+# Primeros pasos con BAGO v3.3.0
 
-This guide walks you through your first BAGO-powered work session.
-
----
-
-## Prerequisites
-
-- **Python 3.9+** (standard library only — no external dependencies)
-- **Git** (optional, but recommended)
-- An AI agent: GitHub Copilot CLI, Claude Code, or any LLM with file access
+Esta guía te lleva desde la instalación hasta tu primera sesión de trabajo real.
 
 ---
 
-## Installation
+## Requisitos previos
+
+- **Python 3.9+** (solo stdlib estándar — sin dependencias externas)
+- **Git** (opcional, pero recomendado)
+- Un agente de IA: GitHub Copilot CLI, Claude Code, o cualquier LLM con acceso a archivos
+
+---
+
+## Instalación
+
+### Opción A — Desde el pendrive BAGO (recomendada si tienes el dispositivo)
+
+```bash
+bash /Volumes/BAGO/start.sh
+# O bien doble-click en /Volumes/BAGO/INICIAR_BAGO.command
+```
+
+### Opción B — Desde GitHub
 
 ```bash
 git clone https://github.com/MarcValls/BAGO.git
 cd BAGO
-pip install -e .          # installs 'bago' console script
+pip install -e .          # instala el script de consola 'bago'
 ```
 
 ---
 
-## Step 1 — Verify the installation
+## Paso 1 — Verificar la instalación
 
 ```bash
 bago validate
 ```
 
-Expected output:
+Salida esperada:
 ```
 GO manifest
 GO state
 GO pack
 ```
 
-If you see `KO`, run `bago health` for diagnostics.
+Si ves `KO`, ejecuta `bago health` para diagnóstico.
 
 ---
 
-## Step 2 — Check system health
+## Paso 2 — Comprobar la salud del sistema
 
 ```bash
 bago health
 ```
 
-BAGO health measures 5 dimensions:
+BAGO mide 5 dimensiones de salud:
 
-| Dimension | What it measures |
-|---|---|
-| Integridad | pack.json + validator consistency |
-| Disciplina workflow | Workflow usage per session |
-| Captura decisiones | Average decisions per session |
-| Estado stale | No stale tasks or outdated state |
-| Consistencia inventario | Declared inventory matches reality |
+| Dimensión | Qué mide |
+|-----------|---------|
+| Integridad | Consistencia entre `pack.json` y el validador |
+| Disciplina workflow | Uso de workflows por sesión |
+| Captura de decisiones | Media de decisiones registradas por sesión |
+| Estado stale | Sin tareas o estado obsoleto |
+| Consistencia inventario | El inventario declarado coincide con la realidad |
 
-A fresh installation shows `initializing`. After a few sessions, you'll see a score like `87/100 🟢`.
-
----
-
-## Step 3 — Bootstrap your AI agent
-
-Open `.bago/AGENT_START.md` — this is the entry point for any AI agent. It bootstraps the agent with:
-- The active workflow context
-- Current task and sprint status
-- Operational protocols
-
-**Example prompt to your AI agent:**
-```
-Read .bago/AGENT_START.md first, then help me implement [feature].
-```
+Una instalación nueva muestra `initializing`. Tras algunas sesiones verás `87/100 🟢`.
 
 ---
 
-## Step 4 — Choose a workflow
+## Paso 3 — Ver las ideas disponibles
+
+```bash
+bago ideas
+```
+
+Muestra las mejoras e iniciativas priorizadas disponibles para tu sesión. Es el punto de partida más productivo si no tienes un objetivo predefinido.
+
+---
+
+## Paso 4 — Iniciar el agente de IA con contexto BAGO
+
+Abre `.bago/AGENT_START.md` — es el punto de entrada para cualquier agente de IA. Proporciona:
+- El workflow activo
+- La tarea y estado del sprint actuales
+- Los protocolos operacionales
+
+**Prompt para tu agente de IA:**
+```
+Lee .bago/AGENT_START.md primero, luego ayúdame a implementar [feature].
+```
+
+---
+
+## Paso 5 — Elegir un workflow
 
 ```bash
 bago workflow
 ```
 
-Or manually pick based on your task type:
+O elige manualmente según el tipo de tarea:
 
-| If you want to... | Use |
-|---|---|
-| Explore freely (no structure) | `W0 · Free Session` |
-| Start a new project | `W1 · Cold Start` |
-| Implement a feature | `W2 · Controlled Implementation` |
-| Refactor existing code | `W3 · Sensitive Refactor` |
-| Debug a complex issue | `W4 · Multi-cause Debug` |
-| Wrap up a session | `W5 · Closure & Continuity` |
-| Generate new ideas | `W6 · Applied Ideation` |
-| Stay focused on one goal | `W7 · Session Focus` |
-| Explore something new | `W8 · Exploration` |
-| Harvest artifacts | `W9 · Cosecha` |
-| Audit for unverified claims | `W10 · Auditoría de Sinceridad` |
-
----
-
-## Step 5 — Work with BAGO discipline
-
-During a session:
-
-1. **Start**: `bago session open` → logs session start with context
-2. **Work**: Make changes; the agent records decisions and artifacts
-3. **Check**: `bago health` → full system check mid-session
-4. **Ideas**: `bago ideas` → prioritized improvements to implement
+| Si quieres... | Usa |
+|---------------|-----|
+| Explorar libremente (sin estructura) | `W0 · Sesión libre` |
+| Empezar un proyecto nuevo | `W1 · Boot frío` |
+| Implementar una feature | `W2 · Implementación controlada` |
+| Refactorizar código existente | `W3 · Refactor sensible` |
+| Depurar un problema complejo | `W4 · Debug multicausa` |
+| Cerrar una sesión correctamente | `W5 · Cierre y continuidad` |
+| Generar nuevas ideas | `W6 · Ideación aplicada` |
+| Mantener foco en un solo objetivo | `W7 · Foco de sesión` |
+| Explorar algo nuevo | `W8 · Exploración` |
+| Capturar artefactos / decisiones | `W9 · Cosecha` |
+| Auditar afirmaciones sin evidencia | `W10 · Auditoría de sinceridad` |
 
 ---
 
-## Step 6 — Close the session properly
+## Paso 6 — Trabajar con disciplina BAGO
+
+Durante una sesión:
+
+1. **Inicio**: `bago hello` → muestra contexto y siguiente paso sugerido
+2. **Trabajo**: El agente registra decisiones y artefactos en `.bago/state/`
+3. **Control**: `bago health` → comprobación del sistema a mitad de sesión
+4. **Ideas**: `bago ideas` → mejoras priorizadas para implementar
+
+---
+
+## Paso 7 — Cerrar la sesión correctamente
 
 ```bash
-# Harvest artifacts and decisions
-bago session harvest
+# Capturar decisiones y artefactos
+bago cosecha
 
-# Full audit of the session
-bago audit full
+# Auditoría completa de la sesión
+bago audit --json
 
-# Validate everything is consistent
+# Validar que todo es consistente
 bago validate
 ```
 
 ---
 
-## Step 7 — Track your work
+## Paso 8 — Seguimiento del trabajo
 
-After several sessions:
+Después de varias sesiones:
 
 ```bash
-bago audit          # Review session trail
-bago context map    # Workspace overview
+bago audit          # revisar el histórico de sesiones
+bago map            # mapa del workspace
+bago status         # estado del flujo activo
 ```
 
 ---
 
-## Common patterns
+## Patrones de uso frecuentes
 
-### Daily work routine
+### Rutina diaria
+
 ```bash
-bago health             # Morning check
-bago status             # Active flow + pending task
-bago ideas              # Pick today's focus
-# ... work with AI agent ...
-bago validate           # End-of-session check
+bago hello              # arranque — estado + siguiente paso
+bago ideas              # elegir el foco del día
+# ... trabajar con el agente de IA ...
+bago cosecha            # cierre — capturar decisiones
+bago validate           # verificación final
 ```
 
-### When something feels wrong
+### Cuando algo va mal
+
 ```bash
-bago context stale      # Check for stale tasks
-bago audit scan         # Context drift detection
-bago audit full         # Full session audit
+bago health             # diagnóstico general
+bago doctor             # diagnóstico con sugerencias
+bago doctor --fix       # autofix para problemas comunes
+bago sincerity          # detecta divergencia doc ↔ comportamiento real
 ```
 
-### When you want to evolve BAGO
+### Antes de un commit o release
+
 ```bash
-bago ideas              # See scored improvement ideas
-# Implement an idea
-bago health             # Measure system impact
+bago consistency        # guard anti-deriva
+bago validate           # integridad del pack
+bago sincerity          # ninguna afirmación sin evidencia
+bago health             # score final
 ```
 
 ---
 
-## File structure reference
+## Estructura de archivos
 
 ```
 .bago/
-├── AGENT_START.md          ← Start here (for AI agent)
-├── pack.json               ← System manifest
-├── state/                  ← Runtime state (gitignored)
-│   ├── global_state.json   ← Current system state
-│   ├── sessions/           ← Session records
-│   ├── changes/            ← BAGO-CHG artifacts
-│   └── evidences/          ← Evidence files
-├── state.example/          ← Clean-install templates (versioned)
-├── tools/                  ← Python utilities
-├── workflows/              ← W0–W10 operational protocols
-└── core/                   ← Autonomous loop + core engine
+├── AGENT_START.md          ← Punto de entrada para el agente IA
+├── pack.json               ← Manifiesto del sistema
+├── state/                  ← Estado en tiempo de ejecución (gitignored)
+│   ├── global_state.json   ← Estado actual del sistema
+│   ├── sessions/           ← Registros de sesión
+│   ├── changes/            ← Artefactos BAGO-CHG
+│   └── evidences/          ← Archivos de evidencia
+├── state.example/          ← Plantillas de instalación limpia (versionadas)
+├── tools/                  ← Utilidades Python (54 tools en v3.3.0)
+├── workflows/              ← Protocolos operacionales W0–W10
+└── core/                   ← Bucle autónomo + motor core
 ```
 
 ---
 
-## Troubleshooting
+## Resolución de problemas
 
-**`KO version mismatch`**: `pack.json` version and `global_state.json` `bago_version` must match.
+**`KO version mismatch`**: La versión en `pack.json` y `bago_version` en `global_state.json` deben coincidir.
 
-**`Health: initializing`**: Normal for a fresh install. After the first full session it transitions to `stable`.
+**`Health: initializing`**: Normal en una instalación nueva. Tras la primera sesión completa transiciona a `stable`.
 
-**`Stale task detected`**: A task in `pending_w2_task.json` is older than 3 days. Clear with `bago task --clear`.
+**`Stale task detected`**: Hay una tarea en `pending_w2_task.json` con más de 3 días de antigüedad. Limpia con `bago task --clear`.
+
+**Agente de IA ignora BAGO**: Indica explícitamente al agente: `"Lee .bago/state/global_state.json y continúa desde donde lo dejamos"`.
 
 ---
 
-*More documentation in `docs/` — see `ARCHITECTURE.md` and `COMMAND_AUDIT.md` for reference.*
+*Más documentación en `docs/` — ver `ARQUITECTURA.md`, `COMMANDS.md` y `SECUENCIAS.md` como referencia.*
 
+*BAGO v3.3.0 · Mayo 2026 · github.com/MarcValls/BAGO*
