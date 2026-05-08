@@ -23,12 +23,66 @@ OLLAMA_BIN   = BAGO_CORE / ".bago" / "bin" / "ollama-macos"
 OLLAMA_MODELS_DIR = BAGO_CORE / ".bago" / ".models"
 PORT         = 7430
 
+# ─── Model readers ────────────────────────────────────────────────────────────
+
+def _read_codex_models():
+    """Read available models and active model from Codex CLI config."""
+    home = Path.home()
+    active = "gpt-5.4"  # fallback
+
+    # Active model from config.toml
+    config = home / ".codex" / "config.toml"
+    if config.exists():
+        for line in config.read_text().splitlines():
+            if line.strip().startswith("model"):
+                active = line.split("=")[-1].strip().strip('"').strip("'")
+                break
+
+    # Available models from models_cache.json
+    cache = home / ".codex" / "models_cache.json"
+    models = []
+    if cache.exists():
+        try:
+            data = json.loads(cache.read_text())
+            for m in data.get("models", []):
+                slug = m.get("slug", "")
+                if slug:
+                    models.append(slug)
+        except Exception:
+            pass
+
+    # Ensure active model is first
+    if active in models:
+        models.remove(active)
+    models.insert(0, active)
+
+    return models or [active], active
+
+
+def _read_copilot_models():
+    """Read available models for GitHub Copilot CLI."""
+    home = Path.home()
+    # Copilot CLI doesn't expose a models list command; use known models
+    # but check settings.json for any configured model preference
+    known = ["gpt-4.1", "claude-sonnet-4", "gpt-5.5", "o3", "gpt-4.1-mini"]
+    settings = home / ".copilot" / "settings.json"
+    if settings.exists():
+        try:
+            data = json.loads(settings.read_text())
+            preferred = data.get("model") or data.get("defaultModel")
+            if preferred and preferred not in known:
+                known.insert(0, preferred)
+        except Exception:
+            pass
+    return known
+
+
 # ─── Agent detection ──────────────────────────────────────────────────────────
 
 def detect_agents():
     agents = []
 
-    # 1. GitHub Copilot
+    # 1. GitHub Copilot — modelos desde config Copilot CLI
     gh = shutil.which("gh")
     copilot_ok = False
     if gh:
@@ -38,6 +92,8 @@ def detect_agents():
             copilot_ok = r.returncode == 0
         except subprocess.TimeoutExpired:
             copilot_ok = True  # command exists but slow (network check)
+    # Leer modelos reales desde config Copilot CLI
+    copilot_models = _read_copilot_models()
     agents.append({
         "id": "copilot",
         "name": "BAGO Copilot",
@@ -47,23 +103,26 @@ def detect_agents():
         "available": copilot_ok,
         "reason": None if copilot_ok else "gh copilot no instalado",
         "install_url": "https://github.com/github/gh-copilot",
-        "models": ["github-copilot"],
+        "models": copilot_models,
         "strengths": ["código", "PR", "refactor", "tests", "git", "bug", "función", "implementar"],
     })
 
-    # 2. OpenAI Codex
+    # 2. OpenAI Codex — modelos desde models_cache.json y config.toml
     codex = shutil.which("codex")
+    codex_models, codex_active = _read_codex_models()
     agents.append({
         "id": "codex",
         "name": "BAGO Codex",
-        "subtitle": "OpenAI Codex CLI",
+        "subtitle": f"OpenAI Codex CLI · activo: {codex_active}",
         "icon": "⚡",
         "color": "#7c5ef7",
         "available": bool(codex),
         "reason": None if codex else "codex no instalado",
         "install_url": "https://github.com/openai/codex",
-        "models": ["o4-mini", "gpt-4o"],
-        "strengths": ["script", "archivo", "ejecutar", "automatizar", "pipeline", "api", "json"],
+        "models": codex_models,
+        "active_model": codex_active,
+        "strengths": ["script", "archivo", "ejecutar", "automatizar", "pipeline", "api", "json",
+                      "shell", "instala", "configura", "deploy", "servidor"],
     })
 
     # 3. Ollama (pendrive — local, sin internet)
