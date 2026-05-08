@@ -317,6 +317,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif path in ("/", ""):
             self.path = "/index.html"
             super().do_GET()
+        elif path == "/favicon.ico":
+            # Serve inline SVG favicon to avoid 404 noise
+            svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">\xe2\xac\xa1</text></svg>'
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(svg)))
+            self.end_headers()
+            self.wfile.write(svg)
         else:
             super().do_GET()
 

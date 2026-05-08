@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAGO — Cerebro 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #050a14;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+  #canvas-container { position: fixed; inset: 0; }
+
+  /* HUD top */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: linear-gradient(to bottom, rgba(5,10,20,0.95), transparent);
+    z-index: 10; pointer-events: none;
+  }
+  #hud-title {
+    display: flex; align-items: center; gap: 10px;
+  }
+  #hud-title h1 {
+    font-size: 1.1rem; font-weight: 700; letter-spacing: 0.12em;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #hud-title .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #34d399; box-shadow: 0 0 6px #34d399;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+  #hud-stats {
+    display: flex; gap: 20px; font-size: 0.72rem; color: #64748b;
+  }
+  #hud-stats span b { color: #94a3b8; }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed; pointer-events: none;
+    background: rgba(10,20,40,0.92);
+    border: 1px solid rgba(96,165,250,0.3);
+    border-radius: 10px; padding: 12px 16px;
+    min-width: 200px; max-width: 280px;
+    backdrop-filter: blur(8px);
+    z-index: 20;
+    transition: opacity 0.15s;
+    opacity: 0;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip h3 {
+    font-size: 0.88rem; font-weight: 700; margin-bottom: 4px;
+    color: #e2e8f0;
+  }
+  #tooltip .cat {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  #tooltip p { font-size: 0.75rem; color: #94a3b8; line-height: 1.45; }
+
+  /* Legend */
+  #legend {
+    position: fixed; bottom: 20px; left: 20px;
+    background: rgba(10,20,40,0.85);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px; padding: 12px 16px;
+    z-index: 10; font-size: 0.72rem;
+    backdrop-filter: blur(6px);
+  }
+  #legend h4 { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .leg-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; color: #94a3b8; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Controls hint */
+  #controls-hint {
+    position: fixed; bottom: 20px; right: 20px;
+    font-size: 0.68rem; color: #334155;
+    text-align: right; z-index: 10;
+    line-height: 1.7;
+  }
+
+  /* Back button */
+  #back-btn {
+    position: fixed; top: 14px; right: 20px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #94a3b8; font-size: 0.75rem;
+    padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; z-index: 10;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  #back-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+
+  /* Node info panel (click) */
+  #info-panel {
+    position: fixed; top: 60px; right: 20px;
+    width: 260px;
+    background: rgba(10,20,40,0.92);
+    border: 1px solid rgba(96,165,250,0.25);
+    border-radius: 12px; padding: 16px;
+    backdrop-filter: blur(10px);
+    z-index: 15;
+    transform: translateX(290px);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  #info-panel.open { transform: translateX(0); }
+  #info-panel h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+  #info-panel .cat { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; opacity: 0.7; }
+  #info-panel p { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; margin-bottom: 10px; }
+  #info-panel .connections { font-size: 0.72rem; color: #64748b; }
+  #info-panel .connections b { color: #475569; }
+  #panel-close {
+    position: absolute; top: 10px; right: 12px;
+    background: none; border: none; color: #475569;
+    font-size: 1.1rem; cursor: pointer;
+    line-height: 1;
+  }
+  #panel-close:hover { color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="hud">
+  <div id="hud-title">
+    <div class="dot"></div>
+    <h1>BAGO · CEREBRO 3D</h1>
+  </div>
+  <div id="hud-stats">
+    <span><b id="stat-nodes">0</b> nodos</span>
+    <span><b id="stat-edges">0</b> conexiones</span>
+    <span><b id="stat-fps">60</b> fps</span>
+  </div>
+</div>
+
+<a href="/" id="back-btn">← Launcher</a>
+
+<div id="tooltip">
+  <h3 id="tt-name"></h3>
+  <div class="cat" id="tt-cat"></div>
+  <p id="tt-desc"></p>
+</div>
+
+<div id="info-panel">
+  <button id="panel-close">×</button>
+  <h3 id="panel-name"></h3>
+  <div class="cat" id="panel-cat"></div>
+  <p id="panel-desc"></p>
+  <div class="connections" id="panel-conn"></div>
+</div>
+
+<div id="legend">
+  <h4>Categorías</h4>
+  <div class="leg-item"><div class="leg-dot" style="background:#60a5fa;box-shadow:0 0 5px #60a5fa"></div>Core</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#a78bfa;box-shadow:0 0 5px #a78bfa"></div>Workflows</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#34d399;box-shadow:0 0 5px #34d399"></div>Tools</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#fb923c;box-shadow:0 0 5px #fb923c"></div>Agents</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#f472b6;box-shadow:0 0 5px #f472b6"></div>State</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#fbbf24;box-shadow:0 0 5px #fbbf24"></div>Integrations</div>
+</div>
+
+<div id="controls-hint">
+  arrastrar · rotar<br>
+  scroll · zoom<br>
+  click · detalles
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── Data ────────────────────────────────────────────────────────────────────
+
+const CATEGORIES = {
+  core:         { color: 0x60a5fa, label: 'Core',         size: 1.4 },
+  workflow:     { color: 0xa78bfa, label: 'Workflow',      size: 1.0 },
+  tool:         { color: 0x34d399, label: 'Tool',          size: 0.85 },
+  agent:        { color: 0xfb923c, label: 'Agent',         size: 1.1 },
+  state:        { color: 0xf472b6, label: 'State',         size: 0.9 },
+  integration:  { color: 0xfbbf24, label: 'Integration',   size: 0.8 },
+};
+
+const NODES = [
+  // Core
+  { id:'bago-cli',     cat:'core',        name:'BAGO CLI',             desc:'Punto de entrada principal. `python3 bago <cmd>` enruta a 112 tools registradas.' },
+  { id:'bootstrap',    cat:'core',        name:'BOOTSTRAP.md',         desc:'Fuente de verdad del arranque. Define flujo estándar, criterios y comandos esenciales.' },
+  { id:'tool-registry',cat:'core',        name:'Tool Registry',        desc:'Registro central de 112 tools con routing, scope y categoría. Fuente de `bago help`.' },
+  { id:'scope-detect', cat:'core',        name:'Scope Detector',       desc:'Detecta contexto activo (framework / project / global) y filtra comandos disponibles.' },
+
+  // State
+  { id:'global-state', cat:'state',       name:'global_state.json',    desc:'Estado vivo del sprint: flujo activo, last_completed_workflow, health, inventario.' },
+  { id:'bago-db',      cat:'state',       name:'bago.db',              desc:'Fuente de verdad SQLite. Ideas (47), guardian_runs, implemented_ideas.' },
+  { id:'pending-task', cat:'state',       name:'pending_w2_task.json', desc:'Tarea W2 activa aceptada via `bago next`. Se archiva al cerrar con `bago task --done`.' },
+  { id:'knowledge',    cat:'state',       name:'Knowledge Base',       desc:'12 archivos .md en .bago/knowledge/. Trampas, patrones, learnings de BIANCA y DERIVA.' },
+
+  // Workflows
+  { id:'w1',  cat:'workflow', name:'W1 · Cold Start',      desc:'Arranque desde cero: bootstrap, estado, primera idea.' },
+  { id:'w2',  cat:'workflow', name:'W2 · Implementación',  desc:'Flujo principal de desarrollo. accept → implementa → health → done.' },
+  { id:'w3',  cat:'workflow', name:'W3 · Análisis',        desc:'Auditoría de repo o codebase antes de diseñar.' },
+  { id:'w4',  cat:'workflow', name:'W4 · Diseño',          desc:'Arquitectura y decisiones estructurales con captura obligatoria.' },
+  { id:'w5',  cat:'workflow', name:'W5 · Validación',      desc:'Batería de gates: health, sincerity, stability, guardian.' },
+  { id:'w6',  cat:'workflow', name:'W6 · Refactor',        desc:'Refactorización controlada con health ≥ 80% antes y después.' },
+  { id:'w7',  cat:'workflow', name:'W7 · Debug',           desc:'Diagnóstico estructurado con captura de causa raíz.' },
+  { id:'w8',  cat:'workflow', name:'W8 · Release',         desc:'Bump de versión, wheel, CI gates verdes, push.' },
+  { id:'w9',  cat:'workflow', name:'W9 · Cosecha',         desc:'Extrae aprendizajes de sesión y los promueve a knowledge base.' },
+
+  // Tools
+  { id:'guardian',     cat:'tool', name:'Tool Guardian',        desc:'Auto-test de las 112 tools. Detecta E001 (sin test), E002 (no registrada), W001, W002.' },
+  { id:'health',       cat:'tool', name:'bago health',          desc:'Score 0-100. Evalúa integridad, disciplina, decisiones, stale y consistencia.' },
+  { id:'sincerity',    cat:'tool', name:'Sincerity Detector',   desc:'Escanea 270 .md buscando absolutos sin evidencia. 0 errores = GO.' },
+  { id:'stability',    cat:'tool', name:'Stability Check',      desc:'8 gates verdes requeridos para release. Incluye wheel, docs y tests.' },
+  { id:'session-close',cat:'tool', name:'Session Close Gen.',   desc:'Genera SESSION_CLOSE_*.md al cerrar. Lee last_completed_workflow del sprint.' },
+  { id:'emit-ideas',   cat:'tool', name:'Emit Ideas',           desc:'Selector de ideas desde bago.db. Ranking contextual, 5-20 ideas, recomienda la top.' },
+  { id:'auto-loop',    cat:'tool', name:'Autonomous Loop',      desc:'SENSE/PLAN/ACT/OBSERVE/LEARN/DECIDE. Modo autónomo sin intervención humana.' },
+  { id:'learning-wr',  cat:'tool', name:'Learning Writer',      desc:'El Aprendiz: auto-promueve patrones a knowledge base tras cada sesión.' },
+  { id:'notify',       cat:'tool', name:'notify_bago',          desc:'Notificaciones multi-proveedor: WhatsApp (green-api), ntfy, Telegram.' },
+  { id:'audit',        cat:'tool', name:'bago audit',           desc:'Auditoría de repo: git state, TODOs, archivos grandes, CI status.' },
+
+  // Agents
+  { id:'copilot',      cat:'agent', name:'BAGO Copilot',   desc:'GitHub Copilot CLI. Ideal para código, PR, refactor, tests, git. Lanza terminal con contexto BAGO.' },
+  { id:'codex',        cat:'agent', name:'BAGO Codex',     desc:'OpenAI Codex CLI. Modelos o4-mini/gpt-4o. Fuerte en scripts, pipelines, JSON, APIs.' },
+  { id:'ollama',       cat:'agent', name:'BAGO Ollama',    desc:'Modelos locales desde pendrive. qwen2.5-coder:7b para código, llama3.2 para análisis.' },
+  { id:'claude-agent', cat:'agent', name:'BAGO Claude',    desc:'Claude CLI (placeholder). Razonamiento profundo, arquitectura, documentación.' },
+
+  // Integrations
+  { id:'telegram',     cat:'integration', name:'Telegram Bot',    desc:'bago_amtec_bot — 18 comandos, inline keyboards, task management, git ops. Puerto de control remoto.' },
+  { id:'whatsapp',     cat:'integration', name:'WhatsApp Daemon', desc:'green-api instancia 7107610433. Comandos: ping, estado, sprint, nota, notify.' },
+  { id:'github',       cat:'integration', name:'GitHub',          desc:'MarcValls/BAGO. pre-push guard: 9 gates antes de permitir push.' },
+  { id:'launcher',     cat:'integration', name:'Launcher Web',    desc:'Puerto 7430. Auto-routing dinámico: analiza tarea y elige agente óptimo.' },
+  { id:'miniapp',      cat:'integration', name:'Telegram MiniApp',desc:'Dashboard web en Telegram. Chat, tareas, git. bago_responder_v2 como engine.' },
+];
+
+const EDGES = [
+  // Core connections
+  ['bago-cli','bootstrap'],['bago-cli','tool-registry'],['bago-cli','scope-detect'],
+  ['bago-cli','global-state'],['bago-cli','bago-db'],
+  ['bootstrap','global-state'],['tool-registry','scope-detect'],
+
+  // State
+  ['global-state','bago-db'],['global-state','pending-task'],['global-state','knowledge'],
+  ['bago-db','emit-ideas'],
+
+  // Workflows → tools
+  ['w2','health'],['w2','session-close'],['w2','pending-task'],
+  ['w5','guardian'],['w5','sincerity'],['w5','stability'],
+  ['w8','stability'],['w8','github'],
+  ['w9','learning-wr'],['w9','knowledge'],
+  ['bago-cli','w1'],['bago-cli','w2'],['bago-cli','w3'],['bago-cli','w4'],
+  ['bago-cli','w5'],['bago-cli','w6'],['bago-cli','w7'],['bago-cli','w8'],['bago-cli','w9'],
+
+  // Tools
+  ['health','guardian'],['health','sincerity'],['health','stability'],
+  ['guardian','tool-registry'],['session-close','global-state'],['emit-ideas','bago-db'],
+  ['auto-loop','emit-ideas'],['auto-loop','learning-wr'],['learning-wr','knowledge'],
+  ['notify','telegram'],['notify','whatsapp'],
+  ['audit','github'],['audit','bago-db'],
+
+  // Agents
+  ['launcher','copilot'],['launcher','codex'],['launcher','ollama'],['launcher','claude-agent'],
+  ['copilot','bago-cli'],['codex','bago-cli'],['ollama','bago-cli'],
+
+  // Integrations
+  ['telegram','bago-cli'],['whatsapp','notify'],
+  ['github','bago-cli'],['miniapp','telegram'],
+];
+
+// ─── Three.js Setup ───────────────────────────────────────────────────────────
+
+const container = document.getElementById('canvas-container');
+const W = window.innerWidth, H = window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(W, H);
+renderer.setClearColor(0x050a14, 1);
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, W/H, 0.1, 2000);
+camera.position.set(0, 0, 120);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 30;
+controls.maxDistance = 300;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+
+// Ambient + point lights
+scene.add(new THREE.AmbientLight(0x111827, 3));
+const light1 = new THREE.PointLight(0x60a5fa, 60, 200);
+light1.position.set(40, 40, 40);
+scene.add(light1);
+const light2 = new THREE.PointLight(0xa78bfa, 40, 200);
+light2.position.set(-40, -20, -40);
+scene.add(light2);
+
+// Stars background
+(function addStars() {
+  const geo = new THREE.BufferGeometry();
+  const pts = new Float32Array(6000);
+  for (let i=0; i<pts.length; i++) pts[i] = (Math.random()-0.5)*1200;
+  geo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  const mat = new THREE.PointsMaterial({ color:0x334155, size:0.5, transparent:true, opacity:0.6 });
+  scene.add(new THREE.Points(geo, mat));
+})();
+
+// ─── Node placement with force-directed layout ────────────────────────────────
+
+const nodeMap = {};
+const nodeMeshes = [];
+
+// Initial random positions in a sphere
+NODES.forEach(n => {
+  const theta = Math.random() * Math.PI * 2;
+  const phi   = Math.acos(2 * Math.random() - 1);
+  const r     = 30 + Math.random() * 40;
+  n.pos = new THREE.Vector3(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.sin(phi) * Math.sin(theta),
+    r * Math.cos(phi)
+  );
+  n.vel = new THREE.Vector3();
+  nodeMap[n.id] = n;
+});
+
+// Build adjacency
+NODES.forEach(n => { n.neighbors = []; });
+EDGES.forEach(([a,b]) => {
+  if (nodeMap[a] && nodeMap[b]) {
+    nodeMap[a].neighbors.push(b);
+    nodeMap[b].neighbors.push(a);
+  }
+});
+
+// Force simulation (run 200 ticks offline)
+function runForces(ticks) {
+  const REPEL = 180, ATTRACT = 0.015, DAMP = 0.82, IDEAL = 22;
+  for (let t=0; t<ticks; t++) {
+    NODES.forEach(a => {
+      const f = new THREE.Vector3();
+      // Repulsion from all nodes
+      NODES.forEach(b => {
+        if (a===b) return;
+        const d = a.pos.clone().sub(b.pos);
+        const dist = Math.max(d.length(), 0.5);
+        d.normalize().multiplyScalar(REPEL / (dist * dist));
+        f.add(d);
+      });
+      // Attraction along edges
+      a.neighbors.forEach(bid => {
+        const b = nodeMap[bid];
+        if (!b) return;
+        const d = b.pos.clone().sub(a.pos);
+        const dist = d.length();
+        d.normalize().multiplyScalar(ATTRACT * (dist - IDEAL));
+        f.add(d);
+      });
+      // Center gravity
+      f.add(a.pos.clone().multiplyScalar(-0.002));
+      a.vel.add(f).multiplyScalar(DAMP);
+      a.pos.add(a.vel);
+    });
+  }
+}
+runForces(250);
+
+// Create node meshes
+NODES.forEach(n => {
+  const cat   = CATEGORIES[n.cat];
+  const size  = cat.size * (n.id === 'bago-cli' ? 1.6 : 1);
+  const geo   = new THREE.SphereGeometry(size, 20, 20);
+  const mat   = new THREE.MeshStandardMaterial({
+    color: cat.color, emissive: cat.color,
+    emissiveIntensity: 0.35, roughness: 0.3, metalness: 0.6,
+  });
+  const mesh  = new THREE.Mesh(geo, mat);
+  mesh.position.copy(n.pos);
+  mesh.userData = { node: n };
+  scene.add(mesh);
+  n.mesh = mesh;
+  nodeMeshes.push(mesh);
+
+  // Glow halo
+  const haloGeo = new THREE.SphereGeometry(size * 1.7, 12, 12);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: cat.color, transparent: true, opacity: 0.07, side: THREE.BackSide,
+  });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  mesh.add(halo);
+  n.halo = halo;
+  n.baseMat = mat;
+  n.haloMat = haloMat;
+  n.baseEmissive = 0.35;
+  n.baseHaloOpacity = 0.07;
+});
+
+// ─── Edges (lines) ────────────────────────────────────────────────────────────
+
+const edgeGroup = new THREE.Group();
+scene.add(edgeGroup);
+const edgeMeshes = [];
+
+function buildEdges() {
+  edgeGroup.clear();
+  edgeMeshes.length = 0;
+  EDGES.forEach(([aid, bid]) => {
+    const a = nodeMap[aid], b = nodeMap[bid];
+    if (!a || !b) return;
+    const points = [a.pos.clone(), b.pos.clone()];
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const mat = new THREE.LineBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.35 });
+    const line = new THREE.Line(geo, mat);
+    line.userData = { aid, bid };
+    edgeGroup.add(line);
+    edgeMeshes.push(line);
+  });
+}
+buildEdges();
+
+// Labels (sprites)
+function makeLabel(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 48;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,256,48);
+  ctx.font = 'bold 18px Segoe UI, sans-serif';
+  ctx.fillStyle = color || '#94a3b8';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, 128, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.75, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  const cat = CATEGORIES[NODES.find(n=>n.name===text)?.cat || 'core'];
+  sprite.scale.set(12, 2.3, 1);
+  return sprite;
+}
+
+NODES.forEach(n => {
+  const cat = CATEGORIES[n.cat];
+  const colorHex = '#' + cat.color.toString(16).padStart(6,'0');
+  const label = makeLabel(n.name, colorHex);
+  const sz = cat.size * (n.id==='bago-cli'?1.6:1);
+  label.position.copy(n.pos).add(new THREE.Vector3(0, sz + 2.2, 0));
+  scene.add(label);
+  n.label = label;
+  n.labelMat = label.material;
+});
+
+// ─── Raycaster / interaction ──────────────────────────────────────────────────
+
+const raycaster = new THREE.Raycaster();
+const mouse     = new THREE.Vector2(-9999, -9999);
+const tooltip   = document.getElementById('tooltip');
+const ttName    = document.getElementById('tt-name');
+const ttCat     = document.getElementById('tt-cat');
+const ttDesc    = document.getElementById('tt-desc');
+const infoPanel = document.getElementById('info-panel');
+const panelName = document.getElementById('panel-name');
+const panelCat  = document.getElementById('panel-cat');
+const panelDesc = document.getElementById('panel-desc');
+const panelConn = document.getElementById('panel-conn');
+
+let hoveredNode = null;
+let selectedNode = null;
+
+document.getElementById('panel-close').addEventListener('click', () => {
+  infoPanel.classList.remove('open');
+  if (selectedNode) resetHighlight(selectedNode);
+  selectedNode = null;
+  controls.autoRotate = true;
+});
+
+window.addEventListener('mousemove', e => {
+  mouse.x = (e.clientX / W) * 2 - 1;
+  mouse.y = -(e.clientY / H) * 2 + 1;
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top  = (e.clientY - 10) + 'px';
+});
+
+window.addEventListener('click', () => {
+  if (!hoveredNode) return;
+  const n = hoveredNode.userData.node;
+  selectedNode = hoveredNode;
+  controls.autoRotate = false;
+  // Animate camera toward node
+  const target = n.pos.clone();
+  controls.target.lerp(target, 1);
+
+  panelName.textContent = n.name;
+  panelCat.textContent  = CATEGORIES[n.cat].label;
+  panelCat.style.color  = '#' + CATEGORIES[n.cat].color.toString(16).padStart(6,'0');
+  panelDesc.textContent = n.desc;
+
+  const connected = n.neighbors.map(id => nodeMap[id]?.name).filter(Boolean);
+  panelConn.innerHTML = connected.length
+    ? `<b>Conectado con:</b><br>${connected.join(' · ')}`
+    : '';
+
+  infoPanel.classList.add('open');
+  highlightNode(hoveredNode);
+});
+
+function highlightNode(mesh) {
+  const n = mesh.userData.node;
+  n.baseMat.emissiveIntensity = 1.2;
+  n.haloMat.opacity = 0.3;
+  // Highlight edges
+  edgeMeshes.forEach(line => {
+    const { aid, bid } = line.userData;
+    if (aid === n.id || bid === n.id) {
+      line.material.color.setHex(CATEGORIES[n.cat].color);
+      line.material.opacity = 0.85;
+    }
+  });
+}
+
+function resetHighlight(mesh) {
+  const n = mesh.userData.node;
+  n.baseMat.emissiveIntensity = n.baseEmissive;
+  n.haloMat.opacity = n.baseHaloOpacity;
+  edgeMeshes.forEach(line => {
+    line.material.color.setHex(0x1e3a5f);
+    line.material.opacity = 0.35;
+  });
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+document.getElementById('stat-nodes').textContent = NODES.length;
+document.getElementById('stat-edges').textContent = EDGES.length;
+
+// ─── Animation loop ───────────────────────────────────────────────────────────
+
+let lastTime = performance.now();
+let frameCount = 0, fpsSample = 0;
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  controls.update();
+
+  // Hover detection
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(nodeMeshes);
+  const newHovered = hits.length > 0 ? hits[0].object : null;
+
+  if (newHovered !== hoveredNode) {
+    if (hoveredNode && hoveredNode !== selectedNode) resetHighlight(hoveredNode);
+    if (newHovered && newHovered !== selectedNode) highlightNode(newHovered);
+    hoveredNode = newHovered;
+  }
+
+  // Tooltip
+  if (hoveredNode) {
+    const n = hoveredNode.userData.node;
+    ttName.textContent = n.name;
+    ttCat.textContent  = CATEGORIES[n.cat].label;
+    ttCat.style.color  = '#' + CATEGORIES[n.cat].color.toString(16).padStart(6,'0');
+    ttDesc.textContent = n.desc;
+    tooltip.classList.add('visible');
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    tooltip.classList.remove('visible');
+    renderer.domElement.style.cursor = 'default';
+  }
+
+  // Pulse nodes
+  NODES.forEach((n, i) => {
+    const wave = Math.sin(t * 1.5 + i * 0.42) * 0.04 + 1;
+    n.mesh.scale.setScalar(wave);
+    // Sync label position
+    const cat = CATEGORIES[n.cat];
+    const sz = cat.size * (n.id==='bago-cli'?1.6:1) * wave;
+    n.label.position.copy(n.pos).add(new THREE.Vector3(0, sz + 2.2, 0));
+    // Label fade by distance to camera
+    const dist = camera.position.distanceTo(n.pos);
+    n.labelMat.opacity = Math.max(0, Math.min(0.85, (120 - dist) / 60));
+  });
+
+  // Light orbit
+  light1.position.x = Math.sin(t * 0.3) * 60;
+  light1.position.z = Math.cos(t * 0.3) * 60;
+
+  // FPS
+  frameCount++;
+  const now = performance.now();
+  if (now - lastTime > 500) {
+    fpsSample = Math.round(frameCount * 1000 / (now - lastTime));
+    document.getElementById('stat-fps').textContent = fpsSample;
+    frameCount = 0; lastTime = now;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+</script>
+</body>
+</html>
