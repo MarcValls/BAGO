@@ -20,6 +20,7 @@ STATIC_DIR   = LAUNCHER_DIR / "static"
 AGENTS_DIR   = LAUNCHER_DIR / "agents"
 STATE_FILE   = BAGO_CORE / ".bago" / "state" / "global_state.json"
 OLLAMA_BIN   = BAGO_CORE / ".bago" / "bin" / "ollama-macos"
+OLLAMA_MODELS_DIR = BAGO_CORE / ".bago" / ".models"
 PORT         = 7430
 
 # ─── Agent detection ──────────────────────────────────────────────────────────
@@ -69,14 +70,27 @@ def detect_agents():
     ollama_ok = OLLAMA_BIN.exists()
     ollama_models = []
     if ollama_ok:
-        try:
-            r = subprocess.run([str(OLLAMA_BIN), "list"],
-                               capture_output=True, text=True, timeout=5)
-            for line in r.stdout.strip().splitlines()[1:]:
-                if line.strip():
-                    ollama_models.append(line.split()[0])
-        except Exception:
-            pass
+        # Leer manifests del directorio de modelos del pendrive directamente
+        manifests_dir = OLLAMA_MODELS_DIR / "manifests" / "registry.ollama.ai" / "library"
+        if manifests_dir.exists():
+            for model_dir in sorted(manifests_dir.iterdir()):
+                for tag_file in sorted(model_dir.iterdir()):
+                    ollama_models.append(f"{model_dir.name}:{tag_file.name}")
+        # Fallback: preguntar al servidor si está corriendo
+        if not ollama_models:
+            try:
+                env = dict(__import__('os').environ, OLLAMA_MODELS=str(OLLAMA_MODELS_DIR))
+                r = subprocess.run([str(OLLAMA_BIN), "list"],
+                                   capture_output=True, text=True, timeout=5, env=env)
+                for line in r.stdout.strip().splitlines()[1:]:
+                    if line.strip():
+                        ollama_models.append(line.split()[0])
+            except Exception:
+                pass
+    # Preferir qwen2.5-coder:7b si está disponible (modelo más capaz del pendrive)
+    preferred = ["qwen2.5-coder:7b", "llama3.2:latest", "llama3.2:1b", "qwen2.5:0.5b"]
+    ollama_models_sorted = sorted(ollama_models, key=lambda m: next(
+        (i for i, p in enumerate(preferred) if m.startswith(p.split(":")[0])), 99))
     agents.append({
         "id": "ollama",
         "name": "BAGO Ollama",
@@ -86,8 +100,8 @@ def detect_agents():
         "available": ollama_ok,
         "reason": None if ollama_ok else "ollama-macos no encontrado",
         "install_url": "https://ollama.ai",
-        "models": ollama_models or (["qwen2.5:0.5b", "llama3.2:1b", "llama3.2:latest"] if ollama_ok else []),
-        "strengths": ["local", "privado", "sin internet", "rápido", "offline", "ideas", "brainstorm"],
+        "models": ollama_models_sorted or (["qwen2.5-coder:7b"] if ollama_ok else []),
+        "strengths": ["local", "privado", "sin internet", "rápido", "offline", "ideas", "brainstorm", "código", "coder"],
     })
 
     # 4. Claude CLI (placeholder)
@@ -116,7 +130,7 @@ ROUTING_RULES = [
     (["script", "archivo", "ejecutar", "automatizar", "pipeline", "api", "json", "bash", "python"],
      "codex", None, "Codex CLI es óptimo para scripts y automatización"),
     (["local", "privado", "sin internet", "offline", "rápido", "brainstorm", "idea", "notas"],
-     "ollama", "qwen2.5:0.5b", "Ollama local: sin internet, rápido y privado"),
+     "ollama", "qwen2.5-coder:7b", "Ollama local: sin internet, rápido y privado"),
     (["análisis", "redactar", "documento", "razonamiento", "largo", "complejo", "explica"],
      "claude", None, "Claude destaca en análisis profundo y redacción"),
 ]

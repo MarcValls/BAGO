@@ -4,7 +4,9 @@ export TERM_TITLE="BAGO-ollama"
 echo -ne "\033]0;BAGO-ollama\007"
 BAGO_CORE="/Volumes/bago_core"
 OLLAMA_BIN="$BAGO_CORE/.bago/bin/ollama-macos"
-MODEL="${BAGO_AGENT_MODEL:-llama3.2:latest}"
+OLLAMA_MODELS_DIR="$BAGO_CORE/.bago/.models"
+export OLLAMA_MODELS="$OLLAMA_MODELS_DIR"
+MODEL="${BAGO_AGENT_MODEL:-qwen2.5-coder:7b}"
 cd "$BAGO_CORE"
 
 clear
@@ -18,13 +20,16 @@ echo "  Modelo : $MODEL"
 echo "  Sin internet · Privado · Rápido"
 echo ""
 
-# Arrancar servidor ollama si no está corriendo
+# Arrancar servidor ollama si no está corriendo (con modelos del pendrive)
 if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-  echo "  Iniciando servidor Ollama..."
-  "$OLLAMA_BIN" serve > /tmp/bago_ollama.log 2>&1 &
+  echo "  Iniciando servidor Ollama (modelos del pendrive)..."
+  OLLAMA_MODELS="$OLLAMA_MODELS_DIR" "$OLLAMA_BIN" serve > /tmp/bago_ollama.log 2>&1 &
   OLLAMA_PID=$!
-  sleep 2
+  sleep 3
   echo "  Servidor listo (PID $OLLAMA_PID)"
+  echo ""
+else
+  echo "  Servidor Ollama ya activo"
   echo ""
 fi
 
@@ -40,15 +45,24 @@ fi
 echo "  ─────────────────────────────────────────"
 
 if [ -n "$BAGO_TASK" ]; then
-  PROMPT="$BAGO_CONTEXT Eres un asistente técnico operando bajo el framework BAGO. Tarea: $BAGO_TASK"
   echo "  Tarea  : $BAGO_TASK"
   echo ""
-  echo "  Iniciando sesión con $MODEL..."
-  echo ""
-  echo "$PROMPT" | "$OLLAMA_BIN" run "$MODEL"
-else
-  PROMPT="$BAGO_CONTEXT Eres un asistente técnico operando bajo el framework BAGO v3.3.0. Estás listo para ayudar. ¿Cuál es la tarea?"
-  echo "  Iniciando sesión con $MODEL..."
-  echo ""
-  echo "$PROMPT" | "$OLLAMA_BIN" run "$MODEL"
 fi
+
+# Mostrar contexto BAGO como referencia visible (no lo inyectamos como pipe)
+echo "  Contexto: BAGO v${BAGO_VERSION:-3.3.0} · modo ${BAGO_MODE:-autonomous}"
+echo ""
+echo "  Iniciando chat interactivo con $MODEL..."
+echo "  (escribe tu mensaje · /bye para salir)"
+echo "  ─────────────────────────────────────────"
+echo ""
+
+# Si hay tarea, la mostramos como primer mensaje sugerido
+if [ -n "$BAGO_TASK" ]; then
+  echo "  💡 Primer mensaje sugerido (cópialo y pulsa Enter):"
+  echo "     Estoy en BAGO v${BAGO_VERSION:-3.3.0}. Ayúdame a: $BAGO_TASK"
+  echo ""
+fi
+
+# Sesión interactiva limpia — ollama mantiene el TTY y el prompt >>>
+"$OLLAMA_BIN" run "$MODEL"
