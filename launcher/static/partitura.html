@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Taberna Galáctica — Trío de Tuba</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0d1a;
+    color: #e0e0ff;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #1a1a3e, #2a1a4e);
+    padding: 24px 40px;
+    border-bottom: 1px solid #4a4a8a;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  header h1 { font-size: 1.8rem; color: #a0a0ff; }
+  header p  { font-size: 0.85rem; color: #6060aa; margin-top: 4px; }
+  .badge {
+    background: #2a2a6a;
+    border: 1px solid #5a5aaa;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: #8080cc;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    padding: 16px 40px;
+    background: #0f0f22;
+    border-bottom: 1px solid #2a2a4a;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  button {
+    background: #2a2a6a;
+    color: #c0c0ff;
+    border: 1px solid #5a5aaa;
+    border-radius: 6px;
+    padding: 8px 18px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  button:hover { background: #3a3a8a; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .status { font-size: 0.8rem; color: #6060aa; margin-left: 8px; }
+  .score-container {
+    padding: 30px 40px;
+    overflow-x: auto;
+  }
+  canvas { display: block; margin: 0 auto; }
+  .info-box {
+    background: #1a1a3a;
+    border: 1px solid #3a3a6a;
+    border-radius: 8px;
+    padding: 20px 30px;
+    margin: 0 40px 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+  }
+  .info-item { text-align: center; }
+  .info-item .val { font-size: 1.4rem; color: #a0a0ff; font-weight: bold; }
+  .info-item .lbl { font-size: 0.75rem; color: #6060aa; margin-top: 4px; }
+  .download-links {
+    display: flex;
+    gap: 12px;
+    padding: 0 40px 30px;
+    flex-wrap: wrap;
+  }
+  .dl-btn {
+    background: #1a3a1a;
+    border: 1px solid #3a8a3a;
+    color: #80ff80;
+    border-radius: 6px;
+    padding: 8px 18px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+  }
+  .dl-btn:hover { background: #2a5a2a; }
+  #notation { margin: 0 auto; }
+  .voice-legend {
+    display: flex;
+    gap: 20px;
+    padding: 10px 40px;
+    font-size: 0.8rem;
+  }
+  .v1 { color: #ff9040; }
+  .v2 { color: #40b0ff; }
+  .v3 { color: #80ff80; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🎺 Taberna Galáctica</h1>
+    <p>Trío de Tuba/Eufonio — Sol Mayor — Swing 4/4</p>
+  </div>
+  <div style="margin-left:auto">
+    <span class="badge">Composición Original</span>
+    <span class="badge" style="margin-left:6px">BAGO</span>
+  </div>
+</header>
+
+<div class="controls">
+  <button id="btnPlay">▶ Reproducir</button>
+  <button id="btnStop" disabled>⏹ Parar</button>
+  <button id="btnRewind">⏮ Inicio</button>
+  <span class="status" id="statusMsg">Listo</span>
+</div>
+
+<div class="info-box">
+  <div class="info-item"><div class="val">G maj</div><div class="lbl">Tonalidad</div></div>
+  <div class="info-item"><div class="val">4/4</div><div class="lbl">Compás</div></div>
+  <div class="info-item"><div class="val">152</div><div class="lbl">BPM (Swing)</div></div>
+  <div class="info-item"><div class="val">26</div><div class="lbl">Compases</div></div>
+  <div class="info-item"><div class="val">3</div><div class="lbl">Voces</div></div>
+  <div class="info-item"><div class="val">AABA</div><div class="lbl">Forma</div></div>
+</div>
+
+<div class="voice-legend">
+  <span class="v1">● Tuba/Euf. I — Melodía (Sol Mayor, clave de sol)</span>
+  <span class="v2">● Tuba/Euf. II — Armonía (Sol Mayor, clave de sol)</span>
+  <span class="v3">● Tuba III — Bajo (Sol Mayor, clave de fa)</span>
+</div>
+
+<div class="score-container">
+  <div id="notation"></div>
+</div>
+
+<div class="download-links">
+  <a class="dl-btn" href="taberna_galactica.xml" download>⬇ Descargar MusicXML</a>
+  <a class="dl-btn" href="taberna_galactica.mid" download>⬇ Descargar MIDI</a>
+</div>
+
+<!-- VexFlow para notación musical -->
+<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+<script>
+const { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Barline, Annotation } = Vex.Flow;
+
+const container = document.getElementById('notation');
+const W = Math.min(window.innerWidth - 80, 1200);
+const staveW = 220;
+const marginLeft = 20;
+
+// ── DATOS DE LA PARTITURA ───────────────────────────────────────────────────
+// Cada voz: array de compases; cada compás: array de notas [keys, duration, accidentals?]
+// duration: 'q'=negra, 'h'=blanca, 'w'=redonda, '8'=corchea
+
+const voice1_bars = [
+  // A
+  [['d/5','q'],['g/5','q'],['b/5','8'],['a/5','8'],['g/5','q']],
+  [['e/5','h'],['d/5','q'],['c/5','q']],
+  [['b/4','q'],['d/5','q'],['g/5','q'],['f/5','q',['#']]],
+  [['g/5','w']],
+  [['c/5','q'],['e/5','q'],['g/5','q'],['a/5','q']],
+  [['b/5','h'],['a/5','q'],['g/5','q']],
+  [['f/5','q',['#']],['a/5','q'],['d/5','q'],['c/5','q']],
+  [['g/5','w']],
+  // B
+  [['b/5','q'],['a/5','q'],['g/5','q'],['f/5','q',['#']]],
+  [['e/5','h'],['d/5','h']],
+  [['c/5','q'],['e/5','q'],['g/5','q'],['a/5','q']],
+  [['f/5','w',['#']]],
+  [['b/5','q'],['a/5','q'],['g/5','q'],['e/5','q']],
+  [['d/5','q'],['f/5','q',['#']],['a/5','q'],['b/5','q']],
+  [['c/6','q'],['b/5','q'],['a/5','q'],['g/5','q']],
+  [['g/5','w']],
+  // A'
+  [['d/5','q'],['g/5','q'],['b/5','8'],['a/5','8'],['g/5','q']],
+  [['e/5','h'],['d/5','q'],['c/5','q']],
+  [['b/4','q'],['d/5','q'],['g/5','q'],['f/5','q',['#']]],
+  [['g/5','w']],
+  [['c/5','q'],['e/5','q'],['g/5','q'],['a/5','q']],
+  [['b/5','h'],['a/5','q'],['g/5','q']],
+  [['f/5','q',['#']],['a/5','q'],['d/5','q'],['c/5','q']],
+  [['g/5','h'],['b/4','r','h']],
+  // Coda
+  [['g/5','q'],['f/5','8',['#']],['g/5','8'],['f/5','q',['#']],['g/5','q']],
+  [['g/5','w']],
+];
+
+const voice2_bars = [
+  [['b/4','q'],['d/5','q'],['g/5','8'],['f/5','8',['#']],['e/5','q']],
+  [['c/5','h'],['b/4','q'],['a/4','q']],
+  [['g/4','q'],['b/4','q'],['d/5','q'],['c/5','q']],
+  [['b/4','w']],
+  [['a/4','q'],['c/5','q'],['e/5','q'],['f/5','q',['#']]],
+  [['g/5','h'],['f/5','q',['#']],['e/5','q']],
+  [['d/5','q'],['f/5','q',['#']],['a/4','q'],['g/4','q']],
+  [['b/4','w']],
+  [['g/5','q'],['f/5','q',['#']],['e/5','q'],['d/5','q']],
+  [['c/5','h'],['b/4','h']],
+  [['a/4','q'],['c/5','q'],['e/5','q'],['f/5','q',['#']]],
+  [['d/5','w']],
+  [['g/5','q'],['f/5','q',['#']],['e/5','q'],['c/5','q']],
+  [['b/4','q'],['d/5','q'],['f/5','q',['#']],['g/5','q']],
+  [['a/5','q'],['g/5','q'],['f/5','q',['#']],['e/5','q']],
+  [['e/5','w']],
+  [['b/4','q'],['d/5','q'],['g/5','8'],['f/5','8',['#']],['e/5','q']],
+  [['c/5','h'],['b/4','q'],['a/4','q']],
+  [['g/4','q'],['b/4','q'],['d/5','q'],['c/5','q']],
+  [['b/4','w']],
+  [['a/4','q'],['c/5','q'],['e/5','q'],['f/5','q',['#']]],
+  [['g/5','h'],['f/5','q',['#']],['e/5','q']],
+  [['d/5','q'],['f/5','q',['#']],['a/4','q'],['g/4','q']],
+  [['b/4','h'],['b/4','r','h']],
+  [['e/5','q'],['d/5','8',['#']],['e/5','8'],['d/5','q',['#']],['e/5','q']],
+  [['b/4','w']],
+];
+
+const voice3_bars = [
+  [['g/2','q'],['d/3','q'],['g/2','h']],
+  [['c/3','q'],['g/2','q'],['c/3','h']],
+  [['g/2','q'],['d/3','q'],['g/2','h']],
+  [['g/2','h'],['d/2','h']],
+  [['f/3','q'],['c/3','q'],['f/3','h']],
+  [['g/2','q'],['d/3','q'],['g/3','h']],
+  [['d/3','q'],['a/2','q'],['d/3','h']],
+  [['g/2','h'],['d/2','h']],
+  [['g/2','q'],['d/3','q'],['g/2','h']],
+  [['c/3','q'],['g/2','q'],['c/3','h']],
+  [['d/3','q'],['a/2','q'],['d/3','h']],
+  [['b/2','q'],['f/2','q',['#']],['b/2','h']],
+  [['g/2','q'],['d/3','q'],['g/2','h']],
+  [['d/3','q'],['a/2','q'],['d/3','h']],
+  [['g/2','q'],['d/3','q'],['c/3','q'],['b/2','q']],
+  [['c/3','h'],['g/2','h']],
+  [['g/2','q'],['d/3','q'],['g/2','h']],
+  [['c/3','q'],['g/2','q'],['c/3','h']],
+  [['g/2','q'],['d/3','q'],['g/2','h']],
+  [['g/2','h'],['d/2','h']],
+  [['f/3','q'],['c/3','q'],['f/3','h']],
+  [['g/2','q'],['d/3','q'],['g/3','h']],
+  [['d/3','q'],['a/2','q'],['d/3','h']],
+  [['g/2','h'],['b/2','r','h']],
+  [['g/2','q'],['d/3','8'],['g/2','8'],['d/3','q'],['g/2','q']],
+  [['g/2','w']],
+];
+
+// ── RENDER ──────────────────────────────────────────────────────────────────
+const BARS_PER_LINE = 4;
+const STAVE_H = 90;
+const VOICE_GAP = 10;
+const LINE_H = STAVE_H * 3 + VOICE_GAP * 2 + 30;
+const lines = Math.ceil(voice1_bars.length / BARS_PER_LINE);
+const TOTAL_H = lines * LINE_H + 60;
+
+const renderer = new Renderer(container, Renderer.Backends.SVG);
+renderer.resize(W, TOTAL_H);
+const ctx = renderer.getContext();
+ctx.setFont('Arial', 10);
+
+function makeNote(data, clef) {
+  const [keys, dur, accidentals] = data.length === 3 ? data : [data[0], data[1], null];
+  const isRest = keys === data[0] && dur === 'r' && data.length >= 3 && data[1] === 'r';
+  
+  let noteKeys, noteDur;
+  if (data[1] === 'r') {
+    // rest
+    noteKeys = ['b/4'];
+    noteDur = data[2] === 'h' ? 'hr' : (data[2] === 'w' ? 'wr' : 'qr');
+    const r = new StaveNote({ keys: noteKeys, duration: noteDur, clef });
+    return r;
+  }
+  
+  noteKeys = [keys];
+  noteDur = dur;
+  
+  const n = new StaveNote({ keys: noteKeys, duration: noteDur, clef });
+  if (accidentals) {
+    accidentals.forEach((acc, i) => n.addModifier(new Accidental(acc), i));
+  }
+  return n;
+}
+
+for (let line = 0; line < lines; line++) {
+  const y0 = line * LINE_H + 40;
+  const barStart = line * BARS_PER_LINE;
+  const barEnd = Math.min(barStart + BARS_PER_LINE, voice1_bars.length);
+  const numBars = barEnd - barStart;
+  const availW = W - marginLeft - 10;
+  const bw = availW / numBars;
+
+  for (let b = barStart; b < barEnd; b++) {
+    const bIdx = b - barStart;
+    const x = marginLeft + bIdx * bw;
+    const isFirst = b === 0;
+    const isFirstInLine = bIdx === 0;
+
+    // Tres pentagramas por línea
+    const y1 = y0;
+    const y2 = y0 + STAVE_H + VOICE_GAP;
+    const y3 = y0 + (STAVE_H + VOICE_GAP) * 2;
+
+    const stave1 = new Stave(x, y1, bw);
+    const stave2 = new Stave(x, y2, bw);
+    const stave3 = new Stave(x, y3, bw);
+
+    if (isFirstInLine) {
+      stave1.addClef('treble').addKeySignature('G');
+      stave2.addClef('treble').addKeySignature('G');
+      stave3.addClef('bass').addKeySignature('G');
+      if (b === 0) {
+        stave1.addTimeSignature('4/4');
+        stave2.addTimeSignature('4/4');
+        stave3.addTimeSignature('4/4');
+      }
+    }
+
+    stave1.setContext(ctx).draw();
+    stave2.setContext(ctx).draw();
+    stave3.setContext(ctx).draw();
+
+    // Notas Voice 1
+    try {
+      const notes1 = voice1_bars[b].map(d => makeNote(d, 'treble'));
+      const v1 = new Voice({ numBeats: 4, beatValue: 4 }).setStrict(false).addTickables(notes1);
+      new Formatter().joinVoices([v1]).format([v1], bw - (isFirstInLine ? 80 : 20));
+      v1.draw(ctx, stave1);
+    } catch(e) { console.warn('v1 bar', b, e.message); }
+
+    // Notas Voice 2
+    try {
+      const notes2 = voice2_bars[b].map(d => makeNote(d, 'treble'));
+      const v2 = new Voice({ numBeats: 4, beatValue: 4 }).setStrict(false).addTickables(notes2);
+      new Formatter().joinVoices([v2]).format([v2], bw - (isFirstInLine ? 80 : 20));
+      v2.draw(ctx, stave2);
+    } catch(e) { console.warn('v2 bar', b, e.message); }
+
+    // Notas Voice 3
+    try {
+      const notes3 = voice3_bars[b].map(d => makeNote(d, 'bass'));
+      const v3 = new Voice({ numBeats: 4, beatValue: 4 }).setStrict(false).addTickables(notes3);
+      new Formatter().joinVoices([v3]).format([v3], bw - (isFirstInLine ? 80 : 20));
+      v3.draw(ctx, stave3);
+    } catch(e) { console.warn('v3 bar', b, e.message); }
+  }
+
+  // Etiquetas de sección
+  const sectionLabels = { 0:'A', 8:'B', 16:"A'", 24:'Coda' };
+  for (let b = barStart; b < barEnd; b++) {
+    if (sectionLabels[b] !== undefined) {
+      const bIdx = b - barStart;
+      const x = marginLeft + bIdx * (W / BARS_PER_LINE);
+      ctx.save();
+      ctx.setFont('Arial', 11, 'bold');
+      ctx.fillStyle = '#8080ff';
+      ctx.fillText(sectionLabels[b], x + 2, y0 - 10);
+      ctx.restore();
+    }
+  }
+}
+
+// ── MIDI PLAYBACK ────────────────────────────────────────────────────────────
+let audioCtx = null;
+let midiData = null;
+
+document.getElementById('btnPlay').onclick = async () => {
+  try {
+    document.getElementById('statusMsg').textContent = 'Cargando MIDI...';
+    const resp = await fetch('taberna_galactica.mid');
+    const buf = await resp.arrayBuffer();
+    // Simple MIDI player usando Web Audio API
+    // Para reproducción completa descarga el archivo MIDI
+    document.getElementById('statusMsg').textContent = '✓ Descarga el MIDI para reproducirlo en tu app de música';
+    document.getElementById('btnPlay').disabled = false;
+  } catch(e) {
+    document.getElementById('statusMsg').textContent = 'Descarga el archivo MIDI ↓';
+  }
+};
+
+document.getElementById('btnRewind').onclick = () => {
+  document.getElementById('statusMsg').textContent = 'Listo';
+};
+</script>
+</body>
+</html>
