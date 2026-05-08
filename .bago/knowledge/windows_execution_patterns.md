@@ -135,7 +135,7 @@ Start-Process -FilePath "C:\ruta\script.bat" -Wait
 | Situación | Agente puede ejecutar |
 |-----------|----------------------|
 | `pwsh.exe` instalado | ✅ Todo: bat, exe, python, scripts |
-| `pwsh.exe` NO instalado | ❌ Nada — completamente bloqueado |
+| `pwsh.exe` NO instalado | ❌ Sin runtime — herramienta powershell inoperativa |
 
 **La herramienta `powershell` del agente requiere `pwsh.exe` (PowerShell 7+) como runtime.**
 

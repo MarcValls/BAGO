@@ -55,7 +55,7 @@ BAGO aspira a ser la capa estándar de gobernanza operacional para cualquier flu
 |-----------|-------|-------------|
 | P1 | `fw-dist-wheel` | Bundle del launcher en el wheel. `pip install bago` instala el script correctamente sin `pip install -e .` |
 | P1 | `fw-dry-run-all` | Implementar `--dry-run` en todos los comandos de riesgo `mutating` y `dangerous` |
-| P2 | `fw-padre-siembra` | PADRE/SIEMBRA: framework no replica completamente en proyectos. `scope=project` commands forman el seed |
+| P2 | `fw-padre-siembra` | PADRE/SIEMBRA: framework replica en exceso en proyectos hijo. `scope=project` commands forman el seed mínimo |
 | P2 | `fw-legacy-args` | Comandos legacy validan argumentos antes de redirigir |
 | P3 | `fw-windows-full` | Soporte completo Windows (actualmente parcial) |
 
@@ -73,7 +73,7 @@ Estas iniciativas están en el backlog pero **no tienen fecha comprometida**:
 
 ### PADRE/SIEMBRA (v5.0)
 
-El framework no debería replicarse completamente en cada proyecto. El modelo PADRE/SIEMBRA define:
+El framework tiende a replicarse en exceso en cada proyecto. El modelo PADRE/SIEMBRA propone:
 - **PADRE:** El framework BAGO como instalación central
 - **SIEMBRA:** Un subset mínimo (`scope=project` commands) que se "siembra" en cada proyecto
 

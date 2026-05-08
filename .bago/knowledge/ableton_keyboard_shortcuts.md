@@ -101,7 +101,7 @@ El puerto correcto del S49 es `Komplete Kontrol DAW - 4`, NO `Komplete Kontrol M
 ## GOTCHAS APRENDIDOS
 - `Tab` en Arrangement View cambia a Session View (y viceversa), no navega controles
 - El dropdown "MIDI From" requiere mouse o navegación Tab extensa
-- `Ctrl+Alt+I` = toggle I/O section (no siempre funciona si Ableton no tiene foco)
+- `Ctrl+Alt+I` = toggle I/O section (puede fallar si Ableton no tiene foco — verificar con click previo)
 - Click en área vacía de un track MIDI en Arrangement CREA un clip nuevo — mejor clickar en el HEADER del track (franja izquierda muy estrecha ~65px)
 - Para seleccionar track sin crear clip: clickar en la franja gris estrecha del header, NO en la zona de clips
 - Doble-click en clip MIDI abre el piano roll (clip editor), no el device chain

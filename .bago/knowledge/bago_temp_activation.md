@@ -40,7 +40,7 @@ if (-not (Test-BAGORepoAccess)) {
     # Fallback A: RAR disponible en disco → preguntar restauración completa
     if (Test-Path $BAGO_RAR) {
         Write-Warning "BAGO: RAR encontrado en $BAGO_RAR"
-        Write-Warning "Para restaurar BAGO completamente:"
+        Write-Warning "Para restaurar BAGO desde RAR:"
         Write-Warning "  1. Abre WinRAR"
         Write-Warning "  2. Extrae $BAGO_RAR a C:\Users\verny\"
         Write-Warning "  3. Contraseña: ver Escritorio\BAGO_KEY.txt"
