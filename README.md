@@ -150,7 +150,18 @@ BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration la
 
 ---
 
-## 8. Runtime state (`state/` vs `state.example/`)
+## 8. Domain workflows
+
+These documents capture specialized workflows that extend BAGO's operational guidance without changing the stable CLI contract.
+
+| Domain workflow | Purpose |
+|---|---|
+| [Music score transposition pipeline](docs/music-score-transposition-pipeline.md) | Parse or recognize a score, select a staff/voice/part/range, transpose only that target, and reconstruct the full score while preserving the rest. |
+| [Music score transposition operational workflow](.bago/workflows/music-score-transposition.md) | Operational checklist for classifying inputs, resolving musical ambiguity, choosing an OMR/structured-data route, and validating output honesty. |
+
+---
+
+## 9. Runtime state (`state/` vs `state.example/`)
 
 BAGO separates **versioned code** from **runtime state**.
 
@@ -177,7 +188,7 @@ BAGO_STATE_DIR=/tmp/state bago validate
 
 ---
 
-## 9. CI guarantees
+## 10. CI guarantees
 
 The green badge means **all gate jobs pass**. Gate jobs fail hard (no `continue-on-error`).
 
@@ -194,7 +205,7 @@ Non-gate report jobs may run after gates and upload artifacts, but do not affect
 
 ---
 
-## 10. Known limitations (honest)
+## 11. Known limitations (honest)
 
 - `--dry-run` is implemented for `autonomous` and `auto`. Not all mutating commands support it yet.
 - `test_packaging.py` is excluded from `gate-tests` (runs separately in `gate-package` due to build time).
