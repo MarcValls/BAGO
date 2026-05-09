@@ -18,223 +18,21 @@ LAUNCHER_DIR = Path(__file__).parent.resolve()
 BAGO_CORE    = LAUNCHER_DIR.parent
 STATIC_DIR   = LAUNCHER_DIR / "static"
 AGENTS_DIR   = LAUNCHER_DIR / "agents"
-STATE_FILE   = BAGO_CORE / ".bago" / "state" / "global_state.json"
-OLLAMA_BIN   = BAGO_CORE / ".bago" / "bin" / "ollama-macos"
-OLLAMA_MODELS_DIR = BAGO_CORE / ".bago" / ".models"
+STATE_DIR    = BAGO_CORE / ".bago" / "state"
+STATE_FILE   = STATE_DIR / "global_state.json"
 PORT         = 7430
 
-# ─── Model readers ────────────────────────────────────────────────────────────
+TOOLS_DIR = BAGO_CORE / ".bago" / "tools"
+if str(TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(TOOLS_DIR))
+import agent_router
 
-def _read_codex_models():
-    """Read available models and active model from Codex CLI config."""
-    home = Path.home()
-    active = "gpt-5.4"  # fallback
-
-    # Active model from config.toml
-    config = home / ".codex" / "config.toml"
-    if config.exists():
-        for line in config.read_text().splitlines():
-            if line.strip().startswith("model"):
-                active = line.split("=")[-1].strip().strip('"').strip("'")
-                break
-
-    # Available models from models_cache.json
-    cache = home / ".codex" / "models_cache.json"
-    models = []
-    if cache.exists():
-        try:
-            data = json.loads(cache.read_text())
-            for m in data.get("models", []):
-                slug = m.get("slug", "")
-                if slug:
-                    models.append(slug)
-        except Exception:
-            pass
-
-    # Ensure active model is first
-    if active in models:
-        models.remove(active)
-    models.insert(0, active)
-
-    return models or [active], active
-
-
-def _read_copilot_models():
-    """Read available models for GitHub Copilot CLI."""
-    home = Path.home()
-    # Copilot CLI doesn't expose a models list command; use known models
-    # but check settings.json for any configured model preference
-    known = ["gpt-4.1", "claude-sonnet-4", "gpt-5.5", "o3", "gpt-4.1-mini"]
-    settings = home / ".copilot" / "settings.json"
-    if settings.exists():
-        try:
-            data = json.loads(settings.read_text())
-            preferred = data.get("model") or data.get("defaultModel")
-            if preferred and preferred not in known:
-                known.insert(0, preferred)
-        except Exception:
-            pass
-    return known
-
-
-# ─── Agent detection ──────────────────────────────────────────────────────────
-
-def detect_agents():
-    agents = []
-
-    # 1. GitHub Copilot — modelos desde config Copilot CLI
-    gh = shutil.which("gh")
-    copilot_ok = False
-    if gh:
-        try:
-            r = subprocess.run(["gh", "copilot", "--version"],
-                               capture_output=True, text=True, timeout=4)
-            copilot_ok = r.returncode == 0
-        except subprocess.TimeoutExpired:
-            copilot_ok = True  # command exists but slow (network check)
-    # Leer modelos reales desde config Copilot CLI
-    copilot_models = _read_copilot_models()
-    agents.append({
-        "id": "copilot",
-        "name": "BAGO Copilot",
-        "subtitle": "GitHub Copilot CLI",
-        "icon": "🤖",
-        "color": "#4f8ef7",
-        "available": copilot_ok,
-        "reason": None if copilot_ok else "gh copilot no instalado",
-        "install_url": "https://github.com/github/gh-copilot",
-        "models": copilot_models,
-        "strengths": ["código", "PR", "refactor", "tests", "git", "bug", "función", "implementar"],
-    })
-
-    # 2. OpenAI Codex — modelos desde models_cache.json y config.toml
-    codex = shutil.which("codex")
-    codex_models, codex_active = _read_codex_models()
-    agents.append({
-        "id": "codex",
-        "name": "BAGO Codex",
-        "subtitle": f"OpenAI Codex CLI · activo: {codex_active}",
-        "icon": "⚡",
-        "color": "#7c5ef7",
-        "available": bool(codex),
-        "reason": None if codex else "codex no instalado",
-        "install_url": "https://github.com/openai/codex",
-        "models": codex_models,
-        "active_model": codex_active,
-        "strengths": ["script", "archivo", "ejecutar", "automatizar", "pipeline", "api", "json",
-                      "shell", "instala", "configura", "deploy", "servidor"],
-    })
-
-    # 3. Ollama (pendrive — local, sin internet)
-    ollama_ok = OLLAMA_BIN.exists()
-    ollama_models = []
-    if ollama_ok:
-        # Leer manifests del directorio de modelos del pendrive directamente
-        manifests_dir = OLLAMA_MODELS_DIR / "manifests" / "registry.ollama.ai" / "library"
-        if manifests_dir.exists():
-            for model_dir in sorted(manifests_dir.iterdir()):
-                for tag_file in sorted(model_dir.iterdir()):
-                    ollama_models.append(f"{model_dir.name}:{tag_file.name}")
-        # Fallback: preguntar al servidor si está corriendo
-        if not ollama_models:
-            try:
-                env = dict(__import__('os').environ, OLLAMA_MODELS=str(OLLAMA_MODELS_DIR))
-                r = subprocess.run([str(OLLAMA_BIN), "list"],
-                                   capture_output=True, text=True, timeout=5, env=env)
-                for line in r.stdout.strip().splitlines()[1:]:
-                    if line.strip():
-                        ollama_models.append(line.split()[0])
-            except Exception:
-                pass
-    # Preferir qwen2.5-coder:7b si está disponible (modelo más capaz del pendrive)
-    preferred = ["qwen2.5-coder:7b", "llama3.2:latest", "llama3.2:1b", "qwen2.5:0.5b"]
-    ollama_models_sorted = sorted(ollama_models, key=lambda m: next(
-        (i for i, p in enumerate(preferred) if m.startswith(p.split(":")[0])), 99))
-    agents.append({
-        "id": "ollama",
-        "name": "BAGO Ollama",
-        "subtitle": "Modelos locales (sin internet)",
-        "icon": "🦙",
-        "color": "#3ecf8e",
-        "available": ollama_ok,
-        "reason": None if ollama_ok else "ollama-macos no encontrado",
-        "install_url": "https://ollama.ai",
-        "models": ollama_models_sorted or (["qwen2.5-coder:7b"] if ollama_ok else []),
-        "strengths": ["local", "privado", "sin internet", "rápido", "offline", "ideas", "brainstorm", "código", "coder"],
-    })
-
-    # 4. Claude CLI (placeholder)
-    claude = shutil.which("claude")
-    agents.append({
-        "id": "claude",
-        "name": "BAGO Claude",
-        "subtitle": "Anthropic Claude CLI",
-        "icon": "🐚",
-        "color": "#f6ad55",
-        "available": bool(claude),
-        "reason": None if claude else "Claude CLI no instalado",
-        "install_url": "https://docs.anthropic.com/claude/docs/cli",
-        "models": ["claude-opus-4", "claude-sonnet-4"],
-        "strengths": ["análisis", "redactar", "documento", "razonamiento", "largo", "complejo"],
-    })
-
-    return agents
-
-# ─── Dynamic routing ──────────────────────────────────────────────────────────
-
-ROUTING_RULES = [
-    # (keywords, agent_id, model_hint, reason)
-    (["código", "code", "bug", "función", "test", "pr", "refactor", "commit", "git", "error"],
-     "copilot", None, "Copilot es ideal para tareas de código y revisión"),
-    (["script", "archivo", "ejecutar", "automatizar", "pipeline", "api", "json", "bash", "python"],
-     "codex", None, "Codex CLI es óptimo para scripts y automatización"),
-    (["local", "privado", "sin internet", "offline", "rápido", "brainstorm", "idea", "notas"],
-     "ollama", "qwen2.5-coder:7b", "Ollama local: sin internet, rápido y privado"),
-    (["análisis", "redactar", "documento", "razonamiento", "largo", "complejo", "explica"],
-     "claude", None, "Claude destaca en análisis profundo y redacción"),
-]
+# Single source of truth: launcher delegates routing and agent detection to
+# .bago/tools/agent_router.py, which is also used by `bago route`.
+detect_agents = agent_router.detect_agents
 
 def route_task(task: str, agents: list) -> dict:
-    task_lower = task.lower()
-    available = {a["id"]: a for a in agents if a["available"]}
-
-    if not available:
-        return {"agent": None, "reason": "Ningún agente disponible", "confidence": 0}
-
-    # Score each agent
-    scores = {aid: 0 for aid in available}
-    matched_reason = None
-    matched_model = None
-
-    for keywords, agent_id, model_hint, reason in ROUTING_RULES:
-        if agent_id not in available:
-            continue
-        hits = sum(1 for kw in keywords if kw in task_lower)
-        if hits > 0:
-            scores[agent_id] = scores.get(agent_id, 0) + hits * 10
-            if hits > 0 and scores[agent_id] >= max(scores.values()):
-                matched_reason = reason
-                matched_model  = model_hint
-
-    best_id = max(scores, key=scores.get) if any(scores.values()) else list(available.keys())[0]
-    best    = available[best_id]
-    confidence = min(100, scores.get(best_id, 0) * 5) if any(scores.values()) else 50
-
-    # Default model: first in list
-    model = matched_model or (best["models"][0] if best["models"] else None)
-
-    if not matched_reason:
-        matched_reason = f"{best['name']} es el agente disponible con mayor capacidad general"
-
-    return {
-        "agent": best_id,
-        "agent_name": best["name"],
-        "agent_icon": best["icon"],
-        "model": model,
-        "reason": matched_reason,
-        "confidence": confidence,
-        "all_scores": scores,
-    }
+    return agent_router.route_task(task, agents=agents, record=True)
 
 # ─── BAGO Status ──────────────────────────────────────────────────────────────
 
@@ -272,6 +70,39 @@ def bago_status():
 # ─── Terminal launcher ────────────────────────────────────────────────────────
 
 def open_terminal(script_path: str, env_vars: dict = None):
+    if sys.platform == "win32":
+        env_vars = env_vars or {}
+        env_prefix = ""
+        for key, value in env_vars.items():
+            safe = str(value).replace("'", "''")
+            env_prefix += f"$env:{key}='{safe}'; "
+        script = Path(script_path).name
+        agent_id = script.removesuffix(".sh")
+        task = env_vars.get("BAGO_TASK", "")
+        model = env_vars.get("BAGO_AGENT_MODEL", "")
+        if agent_id == "ollama":
+            if task:
+                cmd = f"{env_prefix}Set-Location '{BAGO_CORE}'; python .\\bago llm chat '{str(task).replace(chr(39), chr(39)+chr(39))}'; Read-Host 'Enter para cerrar'"
+            else:
+                cmd = f"{env_prefix}Set-Location '{BAGO_CORE}'; python .\\bago llm status; Read-Host 'Enter para cerrar'"
+        elif agent_id == "codex":
+            prompt = f"Lee .bago/state/global_state.json para contexto BAGO. Tarea: {task}" if task else ""
+            model_arg = f"--model '{str(model).replace(chr(39), chr(39)+chr(39))}'" if model else ""
+            prompt_arg = f"'{prompt.replace(chr(39), chr(39)+chr(39))}'" if prompt else ""
+            cmd = f"{env_prefix}Set-Location '{BAGO_CORE}'; codex {model_arg} {prompt_arg}; Read-Host 'Enter para cerrar'"
+        elif agent_id == "copilot":
+            prompt = f"Estoy usando BAGO. Ayudame a: {task}" if task else ""
+            if shutil.which("copilot"):
+                prompt_arg = f"-i '{prompt.replace(chr(39), chr(39)+chr(39))}'" if prompt else ""
+                cmd = f"{env_prefix}Set-Location '{BAGO_CORE}'; copilot {prompt_arg}; Read-Host 'Enter para cerrar'"
+            else:
+                prompt_arg = f"-- --prompt '{prompt.replace(chr(39), chr(39)+chr(39))}'" if prompt else ""
+                cmd = f"{env_prefix}Set-Location '{BAGO_CORE}'; gh copilot {prompt_arg}; Read-Host 'Enter para cerrar'"
+        else:
+            cmd = f"{env_prefix}Set-Location '{BAGO_CORE}'; python .\\bago route '{str(task).replace(chr(39), chr(39)+chr(39))}'; Read-Host 'Enter para cerrar'"
+        subprocess.Popen(["powershell", "-NoExit", "-Command", cmd])
+        return
+
     env_str = ""
     if env_vars:
         parts = [f"export {k}='{v}';" for k, v in env_vars.items()]

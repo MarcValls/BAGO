@@ -370,6 +370,14 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_llm.py"))],
     ),
+    "route": ToolEntry(
+        cmd="route", module="agent_router",
+        description="Router hibrido balanceado/adaptativo: decide entre Ollama local, Codex y Copilot",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "agent_router.py"))],
+        layer="avanzado",
+        scope="both",
+        agent="ARQUITECTO",
+    ),
     "doctor": ToolEntry(
         cmd="doctor", module="bago_doctor",
         description="Diagnóstico completo del entorno BAGO: Python, Git, Ollama, modelo LLM, espacio",
