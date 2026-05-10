@@ -258,8 +258,9 @@ jobs:
           warnings = data.get('warnings', 0)
           check_rc = int(os.environ.get('CHECK_RC', '0'))
           issues = data.get('issues', [])
+          max_issues_to_print = 20
           print(f'Consistency status: {data.get(\"status\", \"unknown\")} (errors={errors}, warnings={warnings}, rc={check_rc})')
-          for i in issues[:20]:
+          for i in issues[:max_issues_to_print]:
               sev = str(i.get('severity', i.get('level', 'info'))).upper()
               msg = i.get('message', '')
               chk = i.get('check', 'consistency')
@@ -321,14 +322,14 @@ jobs:
         continue-on-error: true
         run: |
           python3 -c "
-          import json
+          import json, sys
           from pathlib import Path
           json_rc = Path('bago-review-json.rc').read_text().strip() if Path('bago-review-json.rc').exists() else 'n/a'
           ci_rc = Path('bago-review-ci.rc').read_text().strip() if Path('bago-review-ci.rc').exists() else 'n/a'
           print(f'bago review rc(json)={json_rc} rc(ci)={ci_rc}')
           if not Path('bago-review.json').exists():
               print('Review JSON no generado')
-              raise SystemExit(0)
+              sys.exit(0)
           data = json.loads(Path('bago-review.json').read_text(encoding='utf-8'))
           verdict = data.get('verdict', {})
           if isinstance(verdict, dict):
