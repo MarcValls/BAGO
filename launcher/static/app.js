@@ -217,13 +217,18 @@ function renderLlmStatus(s) {
     badge.className   = `hdr-badge ${s.ollama_available ? 'badge-ok' : 'badge-err'}`;
   }
 
+  const errorRow = s.ollama_error
+    ? `<div class="status-row"><span class="status-key" style="color:var(--red)">Error</span><span class="status-value" style="color:var(--red);font-size:10px">${escHtml(s.ollama_error)}</span></div>`
+    : '';
+
   panel.innerHTML = `
     <div class="llm-panel-inner">
       <h3>LLM Local</h3>
       <div class="status-row"><span class="status-key">Estado</span><span class="status-value" style="color:${statusColor}">${statusText}</span></div>
-      <div class="status-row"><span class="status-key">Modelo</span><span class="status-value">${s.active_model || '—'}</span></div>
-      <div class="status-row"><span class="status-key">Servidor</span><span class="status-value" style="font-size:10px">${s.server_url}</span></div>
-      ${s.ollama_models.length ? `<div class="models-row" style="margin-top:8px">${s.ollama_models.map(m => `<span class="model-tag">${m}</span>`).join('')}</div>` : ''}
+      <div class="status-row"><span class="status-key">Modelo</span><span class="status-value">${escHtml(s.active_model || '—')}</span></div>
+      <div class="status-row"><span class="status-key">Servidor</span><span class="status-value" style="font-size:10px">${escHtml(s.server_url)}</span></div>
+      ${errorRow}
+      ${s.ollama_models.length ? `<div class="models-row" style="margin-top:8px">${s.ollama_models.map(m => `<span class="model-tag">${escHtml(m)}</span>`).join('')}</div>` : ''}
     </div>`;
 }
 
@@ -703,6 +708,7 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
     .replace(/\n/g, '<br>');
 }
 

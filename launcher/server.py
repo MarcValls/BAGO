@@ -31,8 +31,9 @@ PORT             = 7430
 
 # Keywords that classify a bago command as sensitive (require confirmation)
 _SENSITIVE_KW: frozenset[str] = frozenset({
-    "install", "deploy", "auto", "autonomous", "reset", "delete",
-    "remove", "drop", "db", "migrate", "destroy",
+    "install", "uninstall", "deploy", "auto", "autonomous", "reset", "delete",
+    "remove", "drop", "db", "migrate", "destroy", "prune", "clean", "purge",
+    "truncate", "exec", "rm",
 })
 
 TOOLS_DIR = BAGO_CORE / ".bago" / "tools"
@@ -220,6 +221,7 @@ def get_llm_status() -> dict:
     server_url = cfg.get("server_url", "http://127.0.0.1:11434")
     ollama_available = False
     ollama_models: list = []
+    ollama_error: str | None = None
     try:
         req = urllib.request.Request(
             f"{server_url}/api/tags",
@@ -229,8 +231,12 @@ def get_llm_status() -> dict:
             data = json.loads(resp.read())
             ollama_models = [m["name"] for m in data.get("models", [])]
             ollama_available = True
-    except Exception:
-        pass
+    except urllib.error.URLError as e:
+        ollama_error = f"No se puede conectar a Ollama: {e.reason}"
+    except TimeoutError:
+        ollama_error = "Timeout al conectar con Ollama (>3s)"
+    except Exception as e:
+        ollama_error = str(e)
 
     return {
         "engine": cfg.get("engine", "ollama"),
@@ -238,6 +244,7 @@ def get_llm_status() -> dict:
         "server_url": server_url,
         "ollama_available": ollama_available,
         "ollama_models": ollama_models,
+        "ollama_error": ollama_error,
     }
 
 
@@ -293,8 +300,8 @@ def bago_run(command: str, confirmed: bool = False) -> dict:
     sub_cmd = parts[0].lower()
     is_sensitive = sub_cmd in _SENSITIVE_KW
 
-    # Extra check: reject any arg containing shell-special characters
-    _SHELL_CHARS = set(";&|`$<>\\()")
+    # Reject args containing shell-special characters or control characters
+    _SHELL_CHARS = set(";&|`$<>\\()\n\r\t")
     for arg in parts:
         if any(ch in arg for ch in _SHELL_CHARS):
             return {"ok": False, "error": "Argumento contiene caracteres no permitidos"}
