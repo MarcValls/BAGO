@@ -798,7 +798,10 @@ def parse_sarif(output: str, root: str = "", strict: bool = False) -> list:
       tool.driver.name (lowercased) -> source (e.g. "codeql")
 
     strict=False keeps ingestion non-fatal for optional inputs and returns []
-    on invalid payloads; strict=True raises ValueError so callers can fail closed.
+    on invalid payloads.
+
+    Raises:
+        ValueError: If strict=True and the SARIF payload is invalid.
     """
     findings = []
     sev_map = {"error": "error", "warning": "warning", "note": "info", "none": "hint"}
