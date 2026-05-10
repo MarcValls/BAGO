@@ -69,6 +69,7 @@ class ToolEntry:
     risk: str = "safe"                    # "safe"|"mutating"|"dangerous"
     preflight_policy: str = "optional"   # "required"|"optional"|"none"
     supports_dry_run: bool = False        # True → --dry-run is a valid safe bypass for dangerous
+    layer_group: str = "core"             # "core"|"agents"|"ui"|"labs"
 
 
 # ── Internal tools — excluded from guardian / manifest / integration_tests ────
@@ -852,6 +853,39 @@ _DANGEROUS_CMDS: frozenset[str] = frozenset({
 _INTERNAL_CMDS: frozenset[str] = frozenset({
     "banner", "hello", "hub", "start", "done",
 })
+_LAYER_GROUP_MAP: dict[str, str] = {
+    # core public interface
+    "health": "core",
+    "status": "core",
+    "validate": "core",
+    "audit": "core",
+    "task": "core",
+    "flow": "core",
+    "session": "core",
+    "project": "core",
+    "context": "core",
+    "sync": "core",
+    "scope": "core",
+    "secrets": "core",
+    # agents
+    "llm": "agents",
+    "route": "agents",
+    "autonomous": "agents",
+    "auto": "agents",
+    "ask": "agents",
+    "research": "agents",
+    "chronicle": "agents",
+    # ui
+    "hub": "ui",
+    "dashboard": "ui",
+    "peer": "ui",
+    # labs
+    "image-studio": "labs",
+    "sprite-studio": "labs",
+    "image_gen": "labs",
+    "music": "labs",
+    "ableton-template": "labs",
+}
 
 for _cmd, _entry in REGISTRY.items():
     if _entry.deprecated:
@@ -866,6 +900,7 @@ for _cmd, _entry in REGISTRY.items():
         _entry.stability = "internal"
         _entry.preflight_policy = "none"
     # else: stability="experimental", risk="safe", preflight_policy="optional" (defaults)
+    _entry.layer_group = _LAYER_GROUP_MAP.get(_cmd, _entry.layer_group)
 
 
 

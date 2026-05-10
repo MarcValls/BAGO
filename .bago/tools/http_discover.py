@@ -1,5 +1,10 @@
 
-"""http_discover — Servidor HTTP de descubrimiento para conexiones BAGO en red local."""
+"""http_discover — Servidor HTTP de descubrimiento para conexiones BAGO en red local.
+
+⚠ Experimental:
+Este script hace bind en ``0.0.0.0`` (todas las interfaces) para facilitar pruebas LAN.
+Úsalo solo en redes de confianza y nunca como servicio expuesto a Internet.
+"""
 import http.server
 import socketserver
 import socket
@@ -8,6 +13,7 @@ import os
 
 LOG_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_http.log"
 IP_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_ip.txt"
+STABILITY = "experimental"
 
 class BAGOHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):

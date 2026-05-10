@@ -41,6 +41,7 @@ EXCLUDE_PREFIXES: list[str] = [
     ".bago/.models",       # LLM model blobs (GBs) — not distributable
     ".bago/bin",           # Ollama/system binaries — platform-specific, not core
     ".bago/snapshots",     # local snapshot zips — runtime artefacts
+    ".bago/knowledge",     # project/persona-specific knowledge base (not core contract)
     ".git",
     ".pytest_cache",
     ".mypy_cache",
