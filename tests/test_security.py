@@ -148,6 +148,24 @@ def test_mutating_http_handlers_do_not_use_wildcard_cors_without_guard():
     for rel_path, service in SERVICE_POLICY.items():
         if not service["mutating"]:
             continue
+        content = _read(rel_path)
+        assert not WILDCARD_CORS_RE.search(content), (
+            f"{rel_path}: uses wildcard CORS on a mutating handler"
+        )
+        for marker in service.get("cors_markers", ()):
+            assert marker in content, (
+                f"{rel_path}: missing CORS marker: {marker!r}"
+            )
+        for marker in service.get("auth_markers", ()):
+            assert marker in content, (
+                f"{rel_path}: missing auth marker: {marker!r}"
+            )
+
+
+def test_miniapp_requires_token_when_exposed_beyond_localhost():
+    content = _read(".bago/tools/bago_miniapp_server.py")
+    assert '_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}' in content
+    assert "SERVER_HOST not in _LOCAL_HOSTS and not AUTH_TOKEN" in content
 
 def test_peer_has_no_wildcard_cors_origin():
     content = _read(".bago/tools/peer_link.py")

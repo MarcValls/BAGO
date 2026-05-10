@@ -22,6 +22,7 @@ MINIAPP_DIR  = Path(__file__).parent / "miniapp"
 AUTH_TOKEN   = ""
 SERVER_HOST  = "127.0.0.1"
 SERVER_PORT  = 8080
+_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def read_state() -> dict:
@@ -651,6 +652,13 @@ def main():
     AUTH_TOKEN = (args.token or "").strip()
     SERVER_HOST = args.host.strip() or "127.0.0.1"
     SERVER_PORT = args.port
+    if SERVER_HOST not in _LOCAL_HOSTS and not AUTH_TOKEN:
+        print(
+            "[BAGO Mini App] ERROR: --token requerido cuando --host no es local. "
+            "Usa --token <secreto> para proteger los endpoints mutantes.",
+            flush=True,
+        )
+        raise SystemExit(1)
     print(f"[BAGO Mini App v2] http://{SERVER_HOST}:{SERVER_PORT}", flush=True)
     if AUTH_TOKEN:
         print("[BAGO Mini App v2] token auth enabled for mutating endpoints", flush=True)
