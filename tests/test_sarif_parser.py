@@ -168,6 +168,18 @@ def test_invalid_input_returns_empty(bad_input: str):
     assert parse_sarif(bad_input) == []
 
 
+@pytest.mark.parametrize("bad_input", [
+    "not json at all",
+    "",
+    "{}",
+    '{"version": "2.1.0"}',
+])
+def test_invalid_input_raises_in_strict_mode(bad_input: str):
+    """Entrada inválida en strict mode → ValueError observable por el caller."""
+    with pytest.raises(ValueError, match="Invalid SARIF input"):
+        parse_sarif(bad_input, strict=True)
+
+
 def test_file_uri_prefix_stripped():
     """URI file:// prefix se elimina del filepath resultante."""
     result = {

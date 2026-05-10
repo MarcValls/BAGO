@@ -787,7 +787,7 @@ def parse_yamllint(output: str, root: str = "") -> list:
     return findings
 
 
-def parse_sarif(output: str, root: str = "") -> list:
+def parse_sarif(output: str, root: str = "", strict: bool = False) -> list:
     """Parse SARIF 2.1.0 JSON output (e.g. from CodeQL or other SARIF-compliant tools).
 
     Maps:
@@ -796,31 +796,60 @@ def parse_sarif(output: str, root: str = "") -> list:
       location.physicalLocation  -> file/line/col
       result.level               -> severity (error→error, warning→warning, note→info, none→hint)
       tool.driver.name (lowercased) -> source (e.g. "codeql")
+
+    strict=False keeps ingestion non-fatal for optional inputs and returns []
+    on invalid payloads; strict=True raises ValueError so callers can fail closed.
     """
     findings = []
     sev_map = {"error": "error", "warning": "warning", "note": "info", "none": "hint"}
     try:
         data = json.loads(output)
-        for run in data.get("runs", []):
+        if not isinstance(data, dict):
+            raise TypeError("SARIF payload must be a JSON object")
+        runs = data.get("runs")
+        if not isinstance(runs, list):
+            raise KeyError("runs")
+        for run in runs:
+            if not isinstance(run, dict):
+                raise TypeError("SARIF run must be an object")
             tool_name = (
                 run.get("tool", {}).get("driver", {}).get("name", "sarif")
             ).lower()
-            for result in run.get("results", []):
+            results = run.get("results", [])
+            if not isinstance(results, list):
+                raise TypeError("SARIF results must be a list")
+            for result in results:
+                if not isinstance(result, dict):
+                    raise TypeError("SARIF result must be an object")
                 rule  = result.get("ruleId") or "sarif-rule"
-                msg   = result.get("message", {}).get("text", "")
+                message = result.get("message", {})
+                if not isinstance(message, dict):
+                    raise TypeError("SARIF message must be an object")
+                msg   = message.get("text", "")
                 level = result.get("level", "warning")
                 sev   = sev_map.get(level, "warning")
 
                 locations = result.get("locations", [])
+                if not isinstance(locations, list):
+                    raise TypeError("SARIF locations must be a list")
                 if locations:
-                    phys     = locations[0].get("physicalLocation", {})
+                    location = locations[0]
+                    if not isinstance(location, dict):
+                        raise TypeError("SARIF location must be an object")
+                    phys = location.get("physicalLocation", {})
+                    if not isinstance(phys, dict):
+                        raise TypeError("SARIF physicalLocation must be an object")
                     artifact = phys.get("artifactLocation", {})
+                    if not isinstance(artifact, dict):
+                        raise TypeError("SARIF artifactLocation must be an object")
                     filepath = artifact.get("uri", "")
                     if filepath.startswith("file://"):
                         filepath = filepath[7:]
                     if root and filepath.startswith(root):
                         filepath = filepath[len(root):].lstrip("/")
                     region = phys.get("region", {})
+                    if not isinstance(region, dict):
+                        raise TypeError("SARIF region must be an object")
                     line   = region.get("startLine", 0)
                     col    = region.get("startColumn", 0)
                 else:
@@ -835,8 +864,12 @@ def parse_sarif(output: str, root: str = "") -> list:
                     rule=rule, source=tool_name, message=msg,
                     context_lines=_read_context(filepath, line) if filepath else [],
                 ))
-    except (json.JSONDecodeError, TypeError, KeyError):
-        pass
+    except (json.JSONDecodeError, TypeError, KeyError) as exc:
+        if strict:
+            raise ValueError(f"Invalid SARIF input: {exc}") from exc
+        # Best-effort mode keeps optional ingestion non-fatal, but callers that
+        # must fail closed can opt into strict=True.
+        return []
     return findings
 
 
@@ -1556,7 +1589,14 @@ def run_tests():
     else:
         errors4 += 1; print(f"  FAIL: engine:parse_sarif_stable_id — {id_a} vs {id_b}")
 
-    total4 = 5; passed4 = total4 - errors4
+    # T26: strict=True hace observable un SARIF inválido
+    try:
+        parse_sarif("{}", strict=True)
+        errors4 += 1; print("  FAIL: engine:parse_sarif_strict_invalid")
+    except ValueError:
+        print("  OK: engine:parse_sarif_strict_invalid")
+
+    total4 = 6; passed4 = total4 - errors4
     print(f"\n  {passed4}/{total4} tests SARIF pasaron")
     if errors4: raise SystemExit(1)
 
