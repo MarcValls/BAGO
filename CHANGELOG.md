@@ -5,6 +5,25 @@ Format: `[version] — date · summary · efficiency index`
 
 ---
 
+## [3.4.0b1] — Beta — 2026-05-10 · Efficiency Index: 55/100
+
+### Summary
+Beta update to open the 3.4 cycle with scope frozen to release preparation only.
+No functional feature work is included in this tag candidate.
+
+### Key changes
+- Version bump aligned through the canonical flow: `3.3.0` → `3.4.0b1`.
+- Version files synchronized: `pyproject.toml` and `bago_core/__init__.py`.
+- Local validation executed before tagging:
+  - `python3 bago validate` ✅
+  - `python3 -m pytest tests/ -v --tb=short` ✅ (55 passed, 1 xfailed)
+
+### Scope guard
+- Confirmed no out-of-scope implementation changes; release scope is versioning +
+  changelog update for beta publication.
+
+---
+
 ## [3.3.0] — Structural — 2026-05-06 · Efficiency Index: 100/100
 
 ### Summary
