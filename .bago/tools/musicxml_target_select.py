@@ -185,14 +185,20 @@ def resolve_target(parts: list[PartInventory], target: str) -> TargetSelector:
 
     staff_match = re.search(r"(?:staff|pentagrama)\s*(\d+)", low)
     voice_match = re.search(r"(?:voice|voz)\s*(\d+)", low)
-    part_match = re.search(r"(?:part|parte)\s+([A-Za-z0-9_.-]+)", text)
+    part_match = re.search(r"(?:part|parte)\s+(.+?)(?:\s+(?:staff|voice|measures?|bars?|compases?)\b|$)", text, flags=re.I)
 
     if staff_match:
         selector.staff = int(staff_match.group(1))
         selector.hints.append(f"Explicit staff selector: staff {selector.staff}.")
     elif any(term in low for term in ["bottom", "lowest", "lower", "abajo", "inferior", "grave"]):
-        selector.staff = max_staff
-        selector.hints.append(f"Bottom/lowest target mapped to staff {max_staff}.")
+        single_staff_parts = all(part.staves == [1] for part in parts if part.staves)
+        if single_staff_parts and len(parts) > 1:
+            selector.part_ids = [parts[-1].id]
+            selector.staff = 1
+            selector.hints.append(f"Bottom/lowest target mapped to last part: {parts[-1].id}.")
+        else:
+            selector.staff = max_staff
+            selector.hints.append(f"Bottom/lowest target mapped to staff {max_staff}.")
     elif any(term in low for term in ["third staff", "3rd staff", "tercer pentagrama", "tercera linea", "tercera línea"]):
         selector.staff = 3
         selector.hints.append("Third-staff language mapped to staff 3.")
@@ -204,28 +210,37 @@ def resolve_target(parts: list[PartInventory], target: str) -> TargetSelector:
         selector.hints.append(f"Explicit voice selector: voice {selector.voice}.")
 
     if part_match:
-        wanted = part_match.group(1).lower()
-        matched = [part.id for part in parts if part.id.lower() == wanted or (part.name and wanted in part.name.lower())]
+        wanted_raw = part_match.group(1).strip().strip('"\'')
+        wanted = wanted_raw.lower()
+        exact = [
+            part.id for part in parts
+            if part.id.lower() == wanted or (part.name and part.name.lower() == wanted)
+        ]
+        matched = exact or [
+            part.id for part in parts
+            if part.name and wanted in part.name.lower()
+        ]
         if matched:
             selector.part_ids = matched
             selector.hints.append(f"Part selector matched: {', '.join(matched)}.")
         else:
-            selector.ambiguities.append(f"Requested part '{part_match.group(1)}' did not match any MusicXML part.")
+            selector.ambiguities.append(f"Requested part '{wanted_raw}' did not match any MusicXML part.")
 
     if any(term in low for term in ["bass clef", "clave de fa", "f clef"]):
-        bass_staffs: set[int] = set()
+        bass_targets: list[tuple[str, int]] = []
         for part in parts:
             for number, clef in part.clefs.items():
                 if clef.startswith("F"):
                     try:
-                        bass_staffs.add(int(number))
+                        bass_targets.append((part.id, int(number)))
                     except Exception:
-                        bass_staffs.add(1)
-        if len(bass_staffs) == 1 and selector.staff is None:
-            selector.staff = sorted(bass_staffs)[0]
-            selector.hints.append(f"Bass clef mapped to staff {selector.staff}.")
-        elif len(bass_staffs) > 1:
-            selector.ambiguities.append(f"Bass clef appears on multiple staves: {sorted(bass_staffs)}.")
+                        bass_targets.append((part.id, 1))
+        if len(bass_targets) == 1 and selector.staff is None and selector.part_ids is None:
+            selector.part_ids = [bass_targets[0][0]]
+            selector.staff = bass_targets[0][1]
+            selector.hints.append(f"Bass clef mapped to part {bass_targets[0][0]} staff {selector.staff}.")
+        elif len(bass_targets) > 1:
+            selector.ambiguities.append(f"Bass clef appears on multiple targets: {bass_targets}.")
         else:
             selector.hints.append("Bass clef mentioned, but no F clef was found in the MusicXML attributes.")
 

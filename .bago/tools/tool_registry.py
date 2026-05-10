@@ -309,6 +309,12 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Generador de imagenes PNG local sin API",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "image_gen.py"))],
     ),
+    "ableton-template": ToolEntry(
+        cmd="ableton-template", module="ableton_template",
+        description="Genera un scaffold de proyecto Ableton techno 4/4",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "ableton_template.py"))],
+        layer="visual", scope="project", agent="GENERADOR",
+    ),
     "code-quality": ToolEntry(
         cmd="code-quality", module="code_quality_orchestrator",
         description="Orquestador de calidad de código — ejecuta agentes especializados",
@@ -374,6 +380,24 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="llm", module="bago_llm",
         description="Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_llm.py"))],
+    ),
+    "music": ToolEntry(
+        cmd="music", module="bago_music",
+        description="Pipeline musical: plan, convert, inventory y etapas MusicXML honestas",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "bago_music.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "music_transpose_plan.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "music_to_musicxml_pipeline.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_target_select.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_transpose.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_validate.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_render.py")),
+        ],
+        layer="avanzado",
+        scope="both",
+        agent="ARQUITECTO",
+        stability="experimental",
+        risk="safe",
     ),
     "route": ToolEntry(
         cmd="route", module="agent_router",
@@ -490,6 +514,15 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Muestra el estado del proyecto actualmente vinculado",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
         deprecated=True, see_also="bago project state",
+    ),
+    "deactivate": ToolEntry(
+        cmd="deactivate", module="backup_manager",
+        description="Crea un archivo comprimido de desactivación y lo oculta en Windows",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "backup_manager.py"))],
+        layer="salud", scope="framework",
+        agent="VALIDADOR",
+        stability="experimental",
+        risk="mutating",
     ),
     "promote": ToolEntry(
         cmd="promote", module="project_memory",
@@ -662,7 +695,7 @@ _LAYER_MAP: dict[str, str] = {
     "recientes": "analítica",
     "repo-clone": "salud", "repo-list": "salud", "repo-switch": "salud",
     "project-init": "salud", "project-link": "salud", "project-unlink": "salud",
-    "project-state": "salud", "promote": "salud", "learn": "salud",
+    "project-state": "salud", "deactivate": "salud", "promote": "salud", "learn": "salud",
 }
 
 _SCOPE_MAP: dict[str, str] = {
@@ -696,7 +729,7 @@ _SCOPE_MAP: dict[str, str] = {
     "detector": "both", "stale": "both", "map": "both",
     "repo-clone": "both", "repo-list": "both", "repo-switch": "both",
     "project-init": "both", "project-link": "both", "project-unlink": "both",
-    "project-state": "both", "promote": "both", "learn": "both",
+    "project-state": "both", "deactivate": "both", "promote": "both", "learn": "both",
 }
 
 # ── Agent map — qué agente interno es responsable de cada comando ──────────────
@@ -771,6 +804,7 @@ _AGENT_MAP: dict[str, str] = {
     "repo-switch":   "ORGANIZADOR",
     "select":        "ORGANIZADOR",
     "project-state": "ORGANIZADOR",
+    "deactivate":    "VALIDADOR",
     "promote":       "ORGANIZADOR",
     "learn":         "ORGANIZADOR",
     "project":       "ORGANIZADOR",
@@ -888,6 +922,7 @@ def get_commands() -> dict[str, list[str]]:
         "project-link":   ["project-link"],
         "project-unlink": ["project-unlink"],
         "project-state":  ["project-state"],
+        "deactivate":     ["deactivate"],
         "promote":        ["promote"],
         "learn":          ["learn"],
     }

@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-10 01:43 UTC
+> Last generated: 2026-05-10 01:50 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 37 |
+| 🧪 Experimental | 39 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **56** |
+| **Total active** | **58** |
 
 ---
 
@@ -45,10 +45,12 @@ Actively developed. May change between minor versions.
 
 | Command | Description | Layer | Risk | Policy |
 |---------|-------------|-------|------|--------|
+| `bago ableton-template` | Genera un scaffold de proyecto Ableton techno 4/4 | 🎨 visual | safe | optional |
 | `bago ask` | Router lenguaje natural → tools BAGO | 🔬 avanzado | safe | optional |
 | `bago chronicle` | Sesión Chronicle integrando Copilot CLI /chronicle — historial de sesiones y recomendaciones | 📊 analítica | safe | optional |
 | `bago config-check` | Valida integridad de configs JSON en state/config/ y cruza con registry | 💚 salud | safe | optional |
 | `bago dashboard` | Muestra el dashboard del pack | 📊 analítica | safe | optional |
+| `bago deactivate` | Crea un archivo comprimido de desactivación y lo oculta en Windows | 💚 salud | mutating | optional |
 | `bago debt` | Ledger de deuda técnica — registra, prioriza y hace seguimiento | 🔍 calidad | safe | optional |
 | `bago deps` | Auditoría de dependencias (requirements/pyproject) | 🔍 calidad | safe | optional |
 | `bago diff` | Muestra ficheros modificados entre las últimas sesiones BAGO | 📊 analítica | safe | optional |
@@ -63,7 +65,7 @@ Actively developed. May change between minor versions.
 | `bago insights` | Análisis de patrones e insights del historial de sesiones BAGO | 📊 analítica | safe | optional |
 | `bago llm` | Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows) | 🔬 avanzado | safe | optional |
 | `bago lsp` | Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código | 🔬 avanzado | safe | optional |
-| `bago music` | Router del pipeline musical: plan \| convert \| run \| inventory \| transpose \| validate \| render | 🔬 avanzado | safe | optional |
+| `bago music` | Pipeline musical: plan, convert, inventory y etapas MusicXML honestas | 🔬 avanzado | safe | optional |
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | ▶️ ejecución | safe | optional |
 | `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | 📊 analítica | safe | optional |
