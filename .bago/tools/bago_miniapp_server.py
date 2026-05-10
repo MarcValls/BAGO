@@ -19,6 +19,9 @@ STATE_PATH   = BAGO_ROOT / ".bago/state/global_state.json"
 TAREAS_PATH  = BAGO_ROOT / ".bago/state/tareas_telegram.json"
 CHAT_PATH    = BAGO_ROOT / ".bago/state/chat_history.json"
 MINIAPP_DIR  = Path(__file__).parent / "miniapp"
+AUTH_TOKEN   = ""
+SERVER_HOST  = "127.0.0.1"
+SERVER_PORT  = 8080
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def read_state() -> dict:
@@ -251,11 +254,48 @@ class BAGOHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # silenciar logs HTTP verbosos
 
+    def _cors_origin(self) -> str:
+        return f"http://{SERVER_HOST}:{SERVER_PORT}"
+
+    def _write_cors_headers(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+    def _auth_ok(self) -> bool:
+        if not AUTH_TOKEN:
+            return True
+        raw = (self.headers.get("Authorization") or "").strip()
+        if raw == AUTH_TOKEN:
+            return True
+        if raw.lower().startswith("bearer "):
+            return raw[7:].strip() == AUTH_TOKEN
+        return False
+
+    def _requires_auth(self, path: str) -> bool:
+        if path in {
+            "/api/chat",
+            "/api/nota",
+            "/api/tarea",
+            "/api/tarea/completar",
+            "/api/tarea/borrar",
+            "/api/run",
+            "/api/cartera/add",
+            "/api/cartera/remove",
+            "/api/cartera/alerta",
+        }:
+            return True
+        if path.startswith("/api/wallet/"):
+            return True
+        if path.startswith("/api/airdrop/"):
+            return True
+        return False
+
     def send_json(self, data: dict, status: int = 200):
         body = json.dumps(data, ensure_ascii=False).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._write_cors_headers()
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -279,16 +319,14 @@ class BAGOHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self._write_cors_headers()
         self.end_headers()
 
     def do_HEAD(self):
         # Responde 200 sin body para HEAD (algunos clientes/proxies hacen HEAD
         # antes del GET; evita 501 ruidosos en ngrok).
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._write_cors_headers()
         self.end_headers()
 
     def do_GET(self):
@@ -375,7 +413,7 @@ class BAGOHandler(BaseHTTPRequestHandler):
                 manifest["url"] = f"{proto}://{host}"
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self._write_cors_headers()
             self.end_headers()
             self.wfile.write(json.dumps(manifest, ensure_ascii=False).encode())
 
@@ -412,6 +450,9 @@ class BAGOHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
+        if self._requires_auth(path) and not self._auth_ok():
+            self.send_json({"ok": False, "error": "unauthorized"}, 401)
+            return
         body = self.read_body()
 
         if path == "/api/chat":
@@ -603,9 +644,17 @@ class BAGOHandler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--token", default="")
     args = parser.parse_args()
-    print(f"[BAGO Mini App v2] http://localhost:{args.port}", flush=True)
-    server = HTTPServer(("0.0.0.0", args.port), BAGOHandler)
+    global AUTH_TOKEN, SERVER_HOST, SERVER_PORT
+    AUTH_TOKEN = (args.token or "").strip()
+    SERVER_HOST = args.host.strip() or "127.0.0.1"
+    SERVER_PORT = args.port
+    print(f"[BAGO Mini App v2] http://{SERVER_HOST}:{SERVER_PORT}", flush=True)
+    if AUTH_TOKEN:
+        print("[BAGO Mini App v2] token auth enabled for mutating endpoints", flush=True)
+    server = HTTPServer((SERVER_HOST, SERVER_PORT), BAGOHandler)
     try: server.serve_forever()
     except KeyboardInterrupt: print("\nParado.", flush=True)
 

@@ -12,6 +12,17 @@ Developer ──► BAGO CLI ──► AI Agent
            (persists)     (protocols)
 ```
 
+### Layer model (conceptual)
+
+```
+bago-core -> bago-agents -> bago-ui -> bago-labs
+```
+
+- **bago-core**: stable operational contract (health/status/validate/audit/task/flow/session/project/context/sync/scope/secrets)
+- **bago-agents**: orchestration and agent-facing tools (llm/route/autonomous/auto/ask/research/chronicle)
+- **bago-ui**: interface surfaces (hub/dashboard/peer serve)
+- **bago-labs**: domain and experimental tools (image/music/studio stack)
+
 ---
 
 ## Core components

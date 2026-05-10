@@ -63,6 +63,7 @@ LEGACY_COMMANDS: dict[str, list[str]] = {
     "health-report":                  ["python3", str(TOOLS / "health_report.py")],
     "health-score":                   ["python3", str(TOOLS / "health_score.py")],
     "html-export":                    ["python3", str(TOOLS / "html_export.py")],
+    # Experimental LAN helper; binds 0.0.0.0 by design for local-network discovery.
     "http-discover":                  ["python3", str(TOOLS / "http_discover.py")],
     "ideas-selector":                 ["python3", str(TOOLS / "ideas_selector.py")],
     "image-gen":                      ["python3", str(TOOLS / "image_gen.py")],

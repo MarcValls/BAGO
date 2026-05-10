@@ -153,7 +153,7 @@ def _store_message(msg: dict):
 
 # ── HTTP server ───────────────────────────────────────────────────────────────
 
-def _make_http_handler():
+def _make_http_handler(allowed_origin: str):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             ts = datetime.now().strftime("%H:%M:%S")
@@ -165,7 +165,7 @@ def _make_http_handler():
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
             self.end_headers()
             self.wfile.write(body)
 
@@ -219,9 +219,9 @@ def _make_http_handler():
 
         def do_OPTIONS(self):
             self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
 
     return Handler
@@ -230,7 +230,10 @@ def _make_http_handler():
 # ── UDP discovery ─────────────────────────────────────────────────────────────
 
 def _udp_responder():
-    """Listen for BAGO_DISCOVER broadcasts and respond with our info."""
+    """Listen for BAGO_DISCOVER broadcasts and respond with our info.
+
+    Bind to all interfaces on UDP by design because discovery is LAN broadcast-based.
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -454,14 +457,20 @@ def cmd_beacon(interval: float = 1.0, target_ip: str | None = None):
 
 # ── commands ──────────────────────────────────────────────────────────────────
 
-def cmd_serve(http_port: int = HTTP_PORT):
+def cmd_serve(http_port: int = HTTP_PORT, host: str = "127.0.0.1"):
+    global HTTP_PORT
+    HTTP_PORT = http_port
     my_ip = _local_ip()
+    allowed_origin = f"http://{host}:{http_port}"
     print(f"\n  ┌─────────────────────────────────────────────────────────┐")
     print(f"  │  📡  BAGO Peer Server                                   │")
     print(f"  └─────────────────────────────────────────────────────────┘")
     print(f"  IP local  : {CYAN(my_ip)}")
-    print(f"  HTTP API  : http://{my_ip}:{http_port}")
+    print(f"  HTTP API  : http://{host}:{http_port}")
     print(f"  UDP disco : puerto {UDP_PORT}  (broadcast)\n")
+    if host != "127.0.0.1":
+        print(f"  {YELLOW('⚠')} Modo LAN expuesto: host={host}")
+        print(f"  {YELLOW('⚠')} Solo úsalo en red de confianza.\n")
     print(f"  Esperando conexiones del MacBook...  Ctrl+C para detener.\n")
 
     # Start UDP discovery responder in background
@@ -469,7 +478,7 @@ def cmd_serve(http_port: int = HTTP_PORT):
     t.start()
 
     # Start HTTP server
-    server = HTTPServer(("0.0.0.0", http_port), _make_http_handler())
+    server = HTTPServer((host, http_port), _make_http_handler(allowed_origin))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -631,6 +640,7 @@ def main():
     # serve
     p_serve = sub.add_parser("serve", help="Start HTTP + UDP discovery server")
     p_serve.add_argument("--port", type=int, default=HTTP_PORT)
+    p_serve.add_argument("--host", default="127.0.0.1")
 
     # discover
     sub.add_parser("discover", help="Find BAGO peers on local network")
@@ -668,7 +678,7 @@ def main():
     args = parser.parse_args()
 
     if args.cmd == "serve":
-        cmd_serve(args.port)
+        cmd_serve(args.port, args.host)
     elif args.cmd == "discover":
         cmd_discover()
     elif args.cmd == "ping":

@@ -2,64 +2,56 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.3.0** · 87 CLI commands · 222 tools · 18 operational workflows · Clean-install state: `healthy`
+> **Version 3.4.0b1** · 91 CLI commands · 222 tools
+
+---
+
+## Quick start
+
+```bash
+bago validate     # verify clean install
+bago status       # active flow + pending task + health
+bago next         # pick highest-priority idea and open a task
+# <implement>
+bago health       # verify nothing broke
+bago done         # close task, record evidence
+bago audit full   # session audit trail
+```
 
 ---
 
 ## 1. What BAGO is
 
-**BAGO** (Balanceado · Adaptativo · Generativo · Organizativo) is a persistent operational layer for AI-assisted technical work.
+**BAGO** (Balanceado · Adaptativo · Generativo · Organizativo) is a **repo-local operating layer for AI-assisted development**.
 
-It provides:
-- A **stable CLI surface** for day-to-day operation
-- **Operational workflows** (W0–W10) that constrain work into repeatable modes
-- A clear separation between **versioned code** and **runtime state**
-- **CI gates** that protect the public contract
+It keeps:
+- persistent context,
+- workflow state,
+- and audit trail
+between agent sessions.
 
-This README is an **operational contract**. Historical benchmarks, marketing claims, and changelog-style sections are intentionally excluded.
+This README is an **operational contract**.
 
 ---
 
 ## 2. Installation
 
-**Requirements:** Python 3.9+ · No external dependencies (standard library only)
-
-Primary installation method (editable install, full framework mode):
+**Requirements:** Python 3.9+ · No external dependencies in core runtime (stdlib-only)
 
 ```bash
 git clone https://github.com/MarcValls/BAGO.git
 cd BAGO
-pip install -e .          # installs 'bago' console script
-# or: alias bago='python3 /path/to/bago'
-```
-
-PyPI installation (when a release is published):
-
-```bash
-pip install bago
-# pre-release builds (alpha/beta/rc):
-pip install --pre bago
-```
-
-> Current architecture is optimized for editable installs (`pip install -e .`) because the CLI delegates to the repo launcher.
-
-Minimal verification on a clean checkout:
-
-```bash
+pip install -e .
 bago validate
-bago health
 ```
+
+- Security model and reporting: [SECURITY.md](SECURITY.md)
 
 ---
 
 ## 3. Core commands (stable, CI-tested)
 
 These 12 commands form the **stable public interface**.
-
-Contract:
-- They are expected to remain stable across patch releases.
-- They are covered by CI gate tests.
-- They follow a `preflight_policy=required` contract.
 
 | Command | Purpose |
 |---|---|
@@ -78,28 +70,7 @@ Contract:
 
 ---
 
-## 4. Experimental commands (not part of the contract)
-
-These commands exist and may be useful, but they are **not contractual**:
-- Behavior and flags may change.
-- They are not covered by CI gate tests.
-
-**Experimental (32):**
-
-`ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
-`find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp` · `music`
-`naming` · `next` · `reopen` · `repo` · `research` · `review` · `risk` · `rules`
-`select` · `sprint` · `sprite-studio` · `types` · `why` · `workflow`
-
----
-
-## 5. Dangerous commands (requires explicit flags)
-
-These commands mutate state, spawn processes, or have irreversible effects.
-
-Contract:
-- They must require an explicit opt-in flag (examples: `--yes`, `--unsafe`).
-- They must support safe exploration (`--dry-run`) when feasible.
+## 4. Dangerous commands (requires explicit flags)
 
 | Command | Description | Required flag(s) |
 |---|---|---|
@@ -111,26 +82,9 @@ Contract:
 | `orchestrate` | Multi-tool workflow sequencer | `--yes` |
 | `peer` | LAN peer-to-peer communication | `--unsafe` |
 
-Examples:
-
-```bash
-bago autonomous --dry-run
-bago autonomous --yes
-bago autonomous --loop --yes
-```
-
 ---
 
-## 6. Legacy commands (deprecated, redirect-only)
-
-These commands are deprecated.
-
-Contract:
-- They exist for compatibility.
-- They **redirect** to current equivalents.
-- They are not developed further and may be removed in a future version.
-
-**Legacy (28):**
+## 5. Legacy commands (deprecated, redirect-only)
 
 `check` · `code-quality` · `commit` · `consistency` · `cosecha` · `detector`
 `doctor` · `efficiency` · `git` · `heal` · `learn` · `map` · `pre-push`
@@ -140,9 +94,18 @@ Contract:
 
 ---
 
+## 6. Experimental commands (not part of the contract)
+
+`ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
+`find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp` · `music`
+`naming` · `next` · `reopen` · `repo` · `research` · `review` · `risk` · `rules`
+`select` · `sprint` · `sprite-studio` · `types` · `why` · `workflow`
+
+---
+
 ## 7. Workflows (W0–W10)
 
-BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration layer that can route between them.
+BAGO ships with **11 operational workflows** (W0–W10).
 
 | Workflow | Purpose |
 |---|---|
@@ -162,12 +125,10 @@ BAGO ships with **11 operational workflows** (W0–W10) plus an orchestration la
 
 ## 8. Domain workflows
 
-These documents capture specialized workflows that extend BAGO's operational guidance without changing the stable CLI contract.
-
 | Domain workflow | Purpose |
 |---|---|
-| [Music score transposition pipeline](docs/music-score-transposition-pipeline.md) | Parse or recognize a score, select a staff/voice/part/range, transpose only that target, and reconstruct the full score while preserving the rest. |
-| [Music score transposition operational workflow](.bago/workflows/music-score-transposition.md) | Operational checklist for classifying inputs, resolving musical ambiguity, choosing an OMR/structured-data route, and validating output honesty. |
+| [Music score transposition pipeline](docs/music-score-transposition-pipeline.md) | Parse or recognize a score, select a target, transpose only that target, and reconstruct the full score. |
+| [Music score transposition operational workflow](.bago/workflows/music-score-transposition.md) | Operational checklist for route selection and validation honesty. |
 
 ---
 
@@ -175,53 +136,16 @@ These documents capture specialized workflows that extend BAGO's operational gui
 
 BAGO separates **versioned code** from **runtime state**.
 
-```
+```text
 .bago/state/           ← runtime (gitignored except templates)
-  global_state.json    ← session, flow, health counters
-  sessions/            ← per-session artifacts
-  changes/             ← BAGO-CHG evidence records
-  evidences/           ← validation evidence
-
 .bago/state.example/   ← clean-install templates (versioned)
-```
-
-Contract:
-- On a clean install, `bago validate` copies `state.example/` → `state/`.
-- Runtime state is never included in the distributable pack.
-
-Override paths:
-
-```bash
-BAGO_ROOT=/custom/path bago health
-BAGO_STATE_DIR=/tmp/state bago validate
 ```
 
 ---
 
 ## 10. CI guarantees
 
-The green badge means **all gate jobs pass**. Gate jobs fail hard (no `continue-on-error`).
-
-| Gate | What it verifies |
-|---|---|
-| `gate-registry` | All 83 registry entries have valid `stability`, `risk`, `preflight_policy` |
-| `gate-syntax` | All Python modules compile without error |
-| `gate-security` | No `bandit` HIGH-severity findings |
-| `gate-tests` | Core test suite passes (`pytest tests/ --ignore=tests/test_packaging.py`) |
-| `gate-package` | Pack builds clean; no dist/, no state/, no binary blobs inside |
-| `gate-validate` | `bago validate` exits 0 on a clean checkout |
-
-Non-gate report jobs may run after gates and upload artifacts, but do not affect the badge.
-
----
-
-## 11. Known limitations (honest)
-
-- `--dry-run` is implemented for `autonomous` and `auto`. Not all mutating commands support it yet.
-- `test_packaging.py` is excluded from `gate-tests` (runs separately in `gate-package` due to build time).
-- Legacy commands redirect but do not validate their arguments before redirecting.
-- Runtime state is in-memory for the event bus; events do not persist across process boundaries.
-- The pack builder excludes `.bago/.models/` (LLM blobs) and `.bago/bin/` (binaries) — these must be obtained separately for full autonomous functionality.
+A green badge means all **gate jobs** pass hard (no `continue-on-error`).
 
 ---
 
@@ -231,4 +155,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*BAGO 3.3.0 · Built with BAGO · May 2026*
+*BAGO 3.4.0b1 · Built with BAGO · May 2026*

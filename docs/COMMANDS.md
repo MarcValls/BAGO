@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-10 01:50 UTC
+> Last generated: 2026-05-10 12:29 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
