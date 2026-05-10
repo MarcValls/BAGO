@@ -24,7 +24,7 @@ This README is an **operational contract**. Historical benchmarks, marketing cla
 
 **Requirements:** Python 3.9+ · No external dependencies (standard library only)
 
-Primary installation method (editable install):
+Primary installation method (editable install, full framework mode):
 
 ```bash
 git clone https://github.com/MarcValls/BAGO.git
@@ -32,6 +32,16 @@ cd BAGO
 pip install -e .          # installs 'bago' console script
 # or: alias bago='python3 /path/to/bago'
 ```
+
+PyPI installation (when a release is published):
+
+```bash
+pip install bago
+# pre-release builds (alpha/beta/rc):
+pip install --pre bago
+```
+
+> Current architecture is optimized for editable installs (`pip install -e .`) because the CLI delegates to the repo launcher.
 
 Minimal verification on a clean checkout:
 

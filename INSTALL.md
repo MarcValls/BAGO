@@ -1,6 +1,6 @@
 # Guía de instalación · BAGO v3.1
 
-> Tiempo estimado: **5 minutos**. Sin dependencias externas — solo Python 3.9+.
+> Tiempo estimado: **5 minutos**. Requisito: Python 3.9+.
 
 ---
 
@@ -13,7 +13,18 @@
 | Terminal con UTF-8 | cualquiera | — |
 | Truecolor (opcional) | iTerm2, Windows Terminal | Para el gradiente del logo |
 
-BAGO usa **solo la librería estándar de Python**. No hay `pip install`.
+BAGO usa **solo la librería estándar de Python** en runtime.
+La forma recomendada de instalación para desarrollo es:
+
+```bash
+pip install -e .
+```
+
+Cuando haya releases publicados, también se podrá usar:
+
+```bash
+pip install bago
+```
 
 ---
 
