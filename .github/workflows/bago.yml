@@ -34,9 +34,9 @@ jobs:
           pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
           init_py = Path("bago_core/__init__.py").read_text(encoding="utf-8")
           readme = Path("README.md").read_text(encoding="utf-8")
-          p = re.search(r'^version\\s*=\\s*"([^"]+)"', pyproject, re.M)
-          i = re.search(r'^__version__\\s*=\\s*"([^"]+)"', init_py, re.M)
-          r = re.search(r"\\*\\*Version\\s+([^*]+)\\*\\*", readme)
+          p = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
+          i = re.search(r'^__version__\s*=\s*"([^"]+)"', init_py, re.M)
+          r = re.search(r"\*\*Version\s+([^*]+)\*\*", readme)
           if not (p and i and r):
             raise SystemExit("GATE-FAIL: missing version markers in pyproject/__init__/README")
           pv, iv, rv = p.group(1).strip(), i.group(1).strip(), r.group(1).strip()
