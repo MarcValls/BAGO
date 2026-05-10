@@ -10,6 +10,9 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
+permissions:
+  contents: read
+
 # ── Gate jobs ─────────────────────────────────────────────────────────────────
 # All gate-* jobs are independent (run in parallel) for speed.
 # A failing gate BLOCKS merge. No exceptions.
