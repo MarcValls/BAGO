@@ -228,19 +228,127 @@ jobs:
         run: python3 bago validate
       - name: Consistency check (no drift)
         run: |
+          set +e
           python3 .bago/tools/bago_consistency_check.py --json > bago-findings.json
+          CHECK_RC=$?
+          set -e
+          if [ ! -s bago-findings.json ]; then
+            python3 - <<'PY' > bago-findings.json
+          import json
+          payload = {
+              "status": "fail",
+              "errors": 1,
+              "warnings": 0,
+              "issues": [
+                  {
+                      "check": "consistency-check",
+                      "severity": "error",
+                      "message": "bago_consistency_check no generó salida JSON",
+                  }
+              ],
+          }
+          print(json.dumps(payload, ensure_ascii=False))
+          PY
+          fi
+          export CHECK_RC
           python3 -c "
-          import json, sys
+          import json, os, sys
           data = json.loads(open('bago-findings.json').read())
           errors = data.get('errors', 0)
-          if errors > 0:
-              issues = data.get('issues', [])
-              print(f'GATE-FAIL: {errors} consistency errors')
-              for i in issues[:10]:
-                  if i.get('level') == 'error': print(f'  [ERROR] {i.get(\"message\",\"\")}')
+          warnings = data.get('warnings', 0)
+          check_rc = int(os.environ.get('CHECK_RC', '0'))
+          issues = data.get('issues', [])
+          max_issues_to_print = 20
+          print(f'Consistency status: {data.get(\"status\", \"unknown\")} (errors={errors}, warnings={warnings}, rc={check_rc})')
+          for i in issues[:max_issues_to_print]:
+              sev = str(i.get('severity', i.get('level', 'info'))).upper()
+              msg = i.get('message', '')
+              chk = i.get('check', 'consistency')
+              print(f'  [{sev}] ({chk}) {msg}')
+          if check_rc != 0 or errors > 0:
+              print('GATE-FAIL: consistency drift detected')
               sys.exit(1)
-          print(f'OK: consistency clean (warnings={data.get(\"warnings\",0)})')
+          print(f'OK: consistency clean (warnings={warnings})')
           "
+      - name: Upload consistency findings
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bago-consistency-findings
+          path: bago-findings.json
+          retention-days: 30
+
+  report-review:
+    name: "[report] Review summary"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: [gate-version, gate-registry, gate-syntax, gate-security, gate-lint, gate-tests, gate-package, gate-validate, gate-docs, gate-layers, gate-wheel]
+    if: always() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Resolve review base ref
+        id: review-base
+        run: |
+          BASE_REF=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            BASE_REF="HEAD~1"
+          else
+            BASE_REF="HEAD"
+          fi
+          echo "base=${BASE_REF}" >> "$GITHUB_OUTPUT"
+          echo "Resolved base ref: ${BASE_REF}"
+      - name: Generate bago review JSON (changed-only)
+        continue-on-error: true
+        run: |
+          set +e
+          python3 bago review . --format json --changed-only --base "${{ steps.review-base.outputs.base }}" > bago-review.json
+          echo "$?" > bago-review-json.rc
+          set -e
+      - name: Generate bago review CI output (changed-only)
+        continue-on-error: true
+        run: |
+          set +e
+          python3 bago review . --ci --changed-only --base "${{ steps.review-base.outputs.base }}" > bago-review-ci.txt
+          echo "$?" > bago-review-ci.rc
+          set -e
+      - name: Summarize review schema
+        continue-on-error: true
+        run: |
+          python3 -c "
+          import json, sys
+          from pathlib import Path
+          json_rc = Path('bago-review-json.rc').read_text().strip() if Path('bago-review-json.rc').exists() else 'n/a'
+          ci_rc = Path('bago-review-ci.rc').read_text().strip() if Path('bago-review-ci.rc').exists() else 'n/a'
+          print(f'bago review rc(json)={json_rc} rc(ci)={ci_rc}')
+          if not Path('bago-review.json').exists():
+              print('Review JSON no generado')
+              sys.exit(0)
+          data = json.loads(Path('bago-review.json').read_text(encoding='utf-8'))
+          verdict = data.get('verdict', {})
+          if isinstance(verdict, dict):
+              print(f'schema={data.get(\"schema_version\")} verdict={verdict.get(\"id\")} mergeable={verdict.get(\"mergeable\")} score={data.get(\"score\")}')
+          else:
+              print(f'schema={data.get(\"schema_version\")} verdict_legacy={verdict!r} score={data.get(\"score\")}')
+          print(f'scanner_failures={data.get(\"scanner_failures\", 0)} total_findings={data.get(\"total_findings\", 0)}')
+          "
+      - name: Upload review artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bago-review-reports
+          path: |
+            bago-review.json
+            bago-review-ci.txt
+            bago-review-json.rc
+            bago-review-ci.rc
+          retention-days: 30
 
   gate-docs:
     name: "[gate] COMMANDS.md up to date"
