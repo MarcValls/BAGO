@@ -485,7 +485,13 @@ function renderRouteResult(data, task) {
 function showRouteJSON() {
   if (!lastRouteResult) return;
   const win = window.open('', '_blank', 'width=600,height=500');
-  win.document.write(`<pre style="background:#0d0f14;color:#e2e8f0;padding:20px;font-size:13px">${JSON.stringify(lastRouteResult, null, 2)}</pre>`);
+  if (!win) return;
+  const pre = win.document.createElement('pre');
+  pre.style.cssText = 'background:#0d0f14;color:#e2e8f0;padding:20px;font-size:13px;margin:0;min-height:100vh';
+  pre.textContent = JSON.stringify(lastRouteResult, null, 2);
+  win.document.body.style.margin = '0';
+  win.document.body.style.background = '#0d0f14';
+  win.document.body.appendChild(pre);
 }
 
 // Update the router visual flow panel
@@ -574,9 +580,9 @@ function initCerebro() {
   let animFrame;
 
   function draw() {
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = 'rgba(13,15,20,0)';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw edges
     edges.forEach(([a, b]) => {
@@ -630,16 +636,19 @@ function initCerebro() {
   });
   canvas.addEventListener('mouseleave', () => { hoveredNode = null; });
 
-  // Handle resize
+  // Handle resize: update W/H to the current canvas size before repositioning
   new ResizeObserver(() => {
     cancelAnimationFrame(animFrame);
-    canvas.width  = container.clientWidth;
-    canvas.height = container.clientHeight;
-    // Reposition nodes proportionally
-    nodes.forEach(n => {
-      n.x = (n.x / W) * canvas.width;
-      n.y = (n.y / H) * canvas.height;
-    });
+    const prevW = canvas.width;
+    const prevH = canvas.height;
+    canvas.width  = container.clientWidth  || prevW;
+    canvas.height = container.clientHeight || prevH;
+    if (prevW > 0 && prevH > 0) {
+      nodes.forEach(n => {
+        n.x = (n.x / prevW) * canvas.width;
+        n.y = (n.y / prevH) * canvas.height;
+      });
+    }
     draw();
   }).observe(container);
 }
@@ -654,15 +663,15 @@ async function sendLlmChat() {
   const messages = document.getElementById('llm-chat-messages');
   const btn      = document.getElementById('btn-llm-send');
 
-  // Show user message
-  messages.innerHTML += `<div class="chat-bubble chat-user">${escHtml(msg)}</div>`;
+  // Show user message using insertAdjacentHTML for better performance
+  messages.insertAdjacentHTML('beforeend', `<div class="chat-bubble chat-user">${escHtml(msg)}</div>`);
   input.value = '';
   btn.disabled = true;
   btn.textContent = 'Enviando…';
 
   // Thinking indicator
   const thinkId = 'think-' + Date.now();
-  messages.innerHTML += `<div class="chat-bubble chat-assistant thinking" id="${thinkId}">💭 Pensando…</div>`;
+  messages.insertAdjacentHTML('beforeend', `<div class="chat-bubble chat-assistant thinking" id="${thinkId}">💭 Pensando…</div>`);
   messages.scrollTop = messages.scrollHeight;
 
   try {
@@ -674,13 +683,13 @@ async function sendLlmChat() {
     const data = await res.json();
     document.getElementById(thinkId)?.remove();
     if (data.ok) {
-      messages.innerHTML += `<div class="chat-bubble chat-assistant">${escHtml(data.response)}</div>`;
+      messages.insertAdjacentHTML('beforeend', `<div class="chat-bubble chat-assistant">${escHtml(data.response)}</div>`);
     } else {
-      messages.innerHTML += `<div class="chat-bubble chat-error">❌ ${escHtml(data.error || 'Error al conectar')}</div>`;
+      messages.insertAdjacentHTML('beforeend', `<div class="chat-bubble chat-error">❌ ${escHtml(data.error || 'Error al conectar')}</div>`);
     }
   } catch {
     document.getElementById(thinkId)?.remove();
-    messages.innerHTML += `<div class="chat-bubble chat-error">❌ Error de conexión con Ollama</div>`;
+    messages.insertAdjacentHTML('beforeend', `<div class="chat-bubble chat-error">❌ Error de conexión con Ollama</div>`);
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Enviar →';

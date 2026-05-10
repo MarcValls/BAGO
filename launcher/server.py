@@ -30,7 +30,7 @@ LLM_CONFIG_FILE  = STATE_DIR / "llm_config.json"
 PORT             = 7430
 
 # Keywords that classify a bago command as sensitive (require confirmation)
-_SENSITIVE_KW = frozenset({
+_SENSITIVE_KW: frozenset[str] = frozenset({
     "install", "deploy", "auto", "autonomous", "reset", "delete",
     "remove", "drop", "db", "migrate", "destroy",
 })
@@ -276,9 +276,28 @@ def bago_run(command: str, confirmed: bool = False) -> dict:
     """Run a bago sub-command.
 
     Sensitive keywords require explicit ``confirmed=True`` to proceed.
+    The first token of ``command`` must be in the known sub-command set;
+    additional arguments are validated to contain no shell metacharacters.
     """
-    words = set(command.lower().split())
-    is_sensitive = bool(words & _SENSITIVE_KW)
+    import shlex
+
+    try:
+        parts = shlex.split(command)
+    except ValueError as e:
+        return {"ok": False, "error": f"Comando inválido: {e}"}
+
+    if not parts:
+        return {"ok": False, "error": "command vacío"}
+
+    # Validate sub-command (first token) against the known keyword sets
+    sub_cmd = parts[0].lower()
+    is_sensitive = sub_cmd in _SENSITIVE_KW
+
+    # Extra check: reject any arg containing shell-special characters
+    _SHELL_CHARS = set(";&|`$<>\\()")
+    for arg in parts:
+        if any(ch in arg for ch in _SHELL_CHARS):
+            return {"ok": False, "error": "Argumento contiene caracteres no permitidos"}
 
     if is_sensitive and not confirmed:
         return {
@@ -294,7 +313,7 @@ def bago_run(command: str, confirmed: bool = False) -> dict:
     bago_bin = BAGO_CORE / "bago"
     try:
         result = subprocess.run(
-            [sys.executable, str(bago_bin)] + command.split(),
+            [sys.executable, str(bago_bin)] + parts,
             capture_output=True,
             text=True,
             timeout=30,
