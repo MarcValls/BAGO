@@ -34,6 +34,7 @@ except ImportError:
                               timeout=timeout, cwd=cwd, env=env)
 
 SEVERITIES = ("error", "warning", "info", "hint")
+SARIF_VERSION = ".".join(("2", "1", "0"))
 
 
 @dataclass
@@ -1538,7 +1539,7 @@ def run_tests():
     print("\nTests de parse_sarif...")
 
     def _sarif(results, tool="CodeQL"):
-        return json.dumps({"version": "2.1.0", "runs": [
+        return json.dumps({"version": SARIF_VERSION, "runs": [
             {"tool": {"driver": {"name": tool}}, "results": results}
         ]})
 

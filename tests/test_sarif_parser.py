@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".bago" / "tools"))
-from findings_engine import Finding, parse_sarif  # noqa: E402
+from findings_engine import Finding, SARIF_VERSION, parse_sarif  # noqa: E402
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ from findings_engine import Finding, parse_sarif  # noqa: E402
 def _sarif(results: list, tool: str = "CodeQL") -> str:
     """Construye un SARIF mínimo serializado."""
     return json.dumps({
-        "version": "2.1.0",
+        "version": SARIF_VERSION,
         "runs": [
             {"tool": {"driver": {"name": tool}}, "results": results}
         ],
@@ -138,7 +138,7 @@ def test_stable_canonical_id():
 def test_multiple_runs_multiple_tools():
     """Múltiples runs (herramientas distintas) se parsean en findings separados."""
     sarif = json.dumps({
-        "version": "2.1.0",
+        "version": SARIF_VERSION,
         "runs": [
             {
                 "tool": {"driver": {"name": "CodeQL"}},
@@ -161,7 +161,7 @@ def test_multiple_runs_multiple_tools():
     "not json at all",
     "",
     "{}",
-    '{"version": "2.1.0"}',
+    json.dumps({"version": SARIF_VERSION}),
 ])
 def test_invalid_input_returns_empty(bad_input: str):
     """Entrada inválida o vacía → [] sin crash."""
