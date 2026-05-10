@@ -34,6 +34,7 @@ except ImportError:
                               timeout=timeout, cwd=cwd, env=env)
 
 SEVERITIES = ("error", "warning", "info", "hint")
+SARIF_VERSION = ".".join(("2", "1", "0"))
 
 
 @dataclass
@@ -787,6 +788,95 @@ def parse_yamllint(output: str, root: str = "") -> list:
     return findings
 
 
+def parse_sarif(output: str, root: str = "", strict: bool = False) -> list:
+    """Parse SARIF 2.1.0 JSON output (e.g. from CodeQL or other SARIF-compliant tools).
+
+    Maps:
+      result.ruleId              -> Finding.rule
+      result.message.text        -> Finding.message
+      location.physicalLocation  -> file/line/col
+      result.level               -> severity (error→error, warning→warning, note→info, none→hint)
+      tool.driver.name (lowercased) -> source (e.g. "codeql")
+
+    strict=False keeps ingestion non-fatal for optional inputs and returns []
+    on invalid payloads.
+
+    Raises:
+        ValueError: If strict=True and the SARIF payload is invalid.
+    """
+    findings = []
+    sev_map = {"error": "error", "warning": "warning", "note": "info", "none": "hint"}
+    try:
+        data = json.loads(output)
+        if not isinstance(data, dict):
+            raise TypeError("SARIF payload must be a JSON object")
+        runs = data.get("runs")
+        if not isinstance(runs, list):
+            raise KeyError("runs")
+        for run in runs:
+            if not isinstance(run, dict):
+                raise TypeError("SARIF run must be an object")
+            tool_name = (
+                run.get("tool", {}).get("driver", {}).get("name", "sarif")
+            ).lower()
+            results = run.get("results", [])
+            if not isinstance(results, list):
+                raise TypeError("SARIF results must be a list")
+            for result in results:
+                if not isinstance(result, dict):
+                    raise TypeError("SARIF result must be an object")
+                rule  = result.get("ruleId") or "sarif-rule"
+                message = result.get("message", {})
+                if not isinstance(message, dict):
+                    raise TypeError("SARIF message must be an object")
+                msg   = message.get("text", "")
+                level = result.get("level", "warning")
+                sev   = sev_map.get(level, "warning")
+
+                locations = result.get("locations", [])
+                if not isinstance(locations, list):
+                    raise TypeError("SARIF locations must be a list")
+                if locations:
+                    location = locations[0]
+                    if not isinstance(location, dict):
+                        raise TypeError("SARIF location must be an object")
+                    phys = location.get("physicalLocation", {})
+                    if not isinstance(phys, dict):
+                        raise TypeError("SARIF physicalLocation must be an object")
+                    artifact = phys.get("artifactLocation", {})
+                    if not isinstance(artifact, dict):
+                        raise TypeError("SARIF artifactLocation must be an object")
+                    filepath = artifact.get("uri", "")
+                    if filepath.startswith("file://"):
+                        filepath = filepath[7:]
+                    if root and filepath.startswith(root):
+                        filepath = filepath[len(root):].lstrip("/")
+                    region = phys.get("region", {})
+                    if not isinstance(region, dict):
+                        raise TypeError("SARIF region must be an object")
+                    line   = region.get("startLine", 0)
+                    col    = region.get("startColumn", 0)
+                else:
+                    filepath = ""
+                    line     = 0
+                    col      = 0
+
+                fid = _make_id(tool_name, filepath, line, rule)
+                findings.append(Finding(
+                    id=fid, severity=sev,
+                    file=filepath, line=line, col=col,
+                    rule=rule, source=tool_name, message=msg,
+                    context_lines=_read_context(filepath, line) if filepath else [],
+                ))
+    except (json.JSONDecodeError, TypeError, KeyError) as exc:
+        if strict:
+            raise ValueError(f"Invalid SARIF input: {exc}") from exc
+        # Best-effort mode keeps optional ingestion non-fatal, but callers that
+        # must fail closed can opt into strict=True.
+        return []
+    return findings
+
+
 # ─── Runner ─────────────────────────────────────────────────────────────────
 
 def run_linter(cmd: list, parser_fn, cwd: str = ".") -> tuple:
@@ -1443,6 +1533,76 @@ def run_tests():
     total3 = 10; passed3 = total3 - errors3
     print(f"\n  {passed3}/{total3} tests de parsers Fase 1-3 pasaron")
     if errors3: raise SystemExit(1)
+
+    # ── Tests SARIF/CodeQL ────────────────────────────────────────────────
+    errors4 = 0
+    print("\nTests de parse_sarif...")
+
+    def _sarif(results, tool="CodeQL"):
+        return json.dumps({"version": SARIF_VERSION, "runs": [
+            {"tool": {"driver": {"name": tool}}, "results": results}
+        ]})
+
+    def _loc_result(rule, msg, level, filepath, line, col=0):
+        return {"ruleId": rule, "message": {"text": msg}, "level": level,
+                "locations": [{"physicalLocation": {
+                    "artifactLocation": {"uri": filepath},
+                    "region": {"startLine": line, "startColumn": col},
+                }}]}
+
+    # T21: SARIF vacío → []
+    if parse_sarif(_sarif([])) == []:
+        print("  OK: engine:parse_sarif_empty")
+    else:
+        errors4 += 1; print("  FAIL: engine:parse_sarif_empty")
+
+    # T22: CodeQL error con file/line → Finding(source="codeql")
+    sarif22 = _sarif([_loc_result("py/sql-injection", "SQL injection", "error", "app/db.py", 42, 5)])
+    fs22 = parse_sarif(sarif22)
+    if (len(fs22) == 1 and fs22[0].source == "codeql" and fs22[0].rule == "py/sql-injection"
+            and fs22[0].file == "app/db.py" and fs22[0].line == 42 and fs22[0].severity == "error"):
+        print("  OK: engine:parse_sarif_codeql_finding")
+    else:
+        errors4 += 1; print(f"  FAIL: engine:parse_sarif_codeql_finding — {fs22}")
+
+    # T23: SARIF sin location → finding global, no crash
+    sarif23 = _sarif([{"ruleId": "py/global", "message": {"text": "global"}, "level": "warning", "locations": []}])
+    fs23 = parse_sarif(sarif23)
+    if len(fs23) == 1 and fs23[0].file == "" and fs23[0].line == 0:
+        print("  OK: engine:parse_sarif_no_location")
+    else:
+        errors4 += 1; print(f"  FAIL: engine:parse_sarif_no_location — {fs23}")
+
+    # T24: severity mapping (error→error, warning→warning, note→info, none→hint)
+    sev_cases = [("error","error"),("warning","warning"),("note","info"),("none","hint")]
+    sev_ok = all(
+        parse_sarif(_sarif([_loc_result(f"r-{sl}", "m", sl, "f.py", 1)]))[0].severity == es
+        for sl, es in sev_cases
+    )
+    if sev_ok:
+        print("  OK: engine:parse_sarif_severity_mapping")
+    else:
+        errors4 += 1; print("  FAIL: engine:parse_sarif_severity_mapping")
+
+    # T25: ID estable para misma ubicación/regla
+    r25 = _loc_result("py/injection", "msg", "error", "x.py", 10)
+    id_a = parse_sarif(_sarif([r25]))[0].id
+    id_b = parse_sarif(_sarif([r25]))[0].id
+    if id_a == id_b and id_a.startswith("FIND-"):
+        print("  OK: engine:parse_sarif_stable_id")
+    else:
+        errors4 += 1; print(f"  FAIL: engine:parse_sarif_stable_id — {id_a} vs {id_b}")
+
+    # T26: strict=True hace observable un SARIF inválido
+    try:
+        parse_sarif("{}", strict=True)
+        errors4 += 1; print("  FAIL: engine:parse_sarif_strict_invalid")
+    except ValueError:
+        print("  OK: engine:parse_sarif_strict_invalid")
+
+    total4 = 6; passed4 = total4 - errors4
+    print(f"\n  {passed4}/{total4} tests SARIF pasaron")
+    if errors4: raise SystemExit(1)
 
 
 if __name__ == "__main__":

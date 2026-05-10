@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-10 12:29 UTC
+> Last generated: 2026-05-10 15:48 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -72,7 +72,7 @@ Actively developed. May change between minor versions.
 | `bago reopen` | Reanuda sesión desde el último cierre sin reconstruir contexto manualmente | ▶️ ejecución | safe | optional |
 | `bago repo` | Gestión de repositorios: clone \| list \| switch | 💚 salud | safe | optional |
 | `bago research` | Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada | 🔬 avanzado | safe | optional |
-| `bago review` | Code review automatizado — analiza cambios y genera feedback | 🔍 calidad | safe | optional |
+| `bago review` | Code review automatizado fail-closed con estado explícito por scanner | 🔍 calidad | safe | optional |
 | `bago risk` | Matriz de riesgo del proyecto — evalúa impacto y probabilidad | 🔍 calidad | safe | optional |
 | `bago route` | Router hibrido balanceado/adaptativo: decide entre Ollama local, Codex y Copilot | 🔬 avanzado | safe | optional |
 | `bago rules` | Catálogo de reglas BAGO | 🔬 avanzado | safe | optional |

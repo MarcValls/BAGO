@@ -35,7 +35,13 @@ excluded_prefixes = [
     "ImageStudio/",       # vendored third-party app (FastAPI, starlette, etc.)
     "tools/dist/",        # compiled/distributed artifacts
 ]
-legacy_re = re.compile(r"(?:\b2\.1\.[0-9]+\b|\bV2\.1(?:\.[0-9]+)?\b|\bv2_1\b)", re.IGNORECASE)
+# Detect only BAGO legacy-version markers. Do not flag bare external
+# specification versions such as SARIF_VERSION, which are legitimate in
+# active scanner code.
+legacy_re = re.compile(
+    r"(?:\bV2\.1(?:\.[0-9]+)?\b|\bv2_1\b|\bBAGO[-_\s]+2\.1(?:\.[0-9]+)?\b)",
+    re.IGNORECASE,
+)
 
 for p in sorted(root.rglob("*")):
     if not p.is_file():

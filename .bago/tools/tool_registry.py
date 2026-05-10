@@ -588,7 +588,7 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
     "review": ToolEntry(
         cmd="review", module="code_review",
-        description="Code review automatizado — analiza cambios y genera feedback",
+        description="Code review automatizado fail-closed con estado explícito por scanner",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "code_review.py"))],
     ),
     "debt": ToolEntry(
