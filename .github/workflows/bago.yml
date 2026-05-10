@@ -27,21 +27,37 @@ jobs:
       - name: Registry — unique keys
         run: |
           python3 -c "
-          import importlib.util, sys
+          import ast, sys
           from pathlib import Path
           reg = Path('.bago/tools/tool_registry.py')
           if not reg.exists():
               print('GATE-FAIL: tool_registry.py not found'); sys.exit(1)
-          spec = importlib.util.spec_from_file_location('_ci_reg', str(reg))
-          mod = importlib.util.module_from_spec(spec)
-          sys.modules['_ci_reg'] = mod
-          spec.loader.exec_module(mod)
-          R = getattr(mod, 'REGISTRY', {})
-          if not R: print('GATE-FAIL: REGISTRY empty'); sys.exit(1)
-          keys = list(R.keys())
-          dups = [k for k in keys if keys.count(k) > 1]
-          if dups: print(f'GATE-FAIL: duplicate keys: {set(dups)}'); sys.exit(1)
-          print(f'OK: {len(keys)} unique commands')
+          tree = ast.parse(reg.read_text(encoding='utf-8'), filename=str(reg))
+          reg_dict = None
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Assign):
+                  for target in node.targets:
+                      if isinstance(target, ast.Name) and target.id == 'REGISTRY' and isinstance(node.value, ast.Dict):
+                          reg_dict = node.value
+              elif isinstance(node, ast.AnnAssign):
+                  if isinstance(node.target, ast.Name) and node.target.id == 'REGISTRY' and isinstance(node.value, ast.Dict):
+                      reg_dict = node.value
+          if reg_dict is None:
+              print('GATE-FAIL: REGISTRY literal not found'); sys.exit(1)
+          seen = {}
+          dups = []
+          for key in reg_dict.keys:
+              if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
+                  continue
+              if key.value in seen:
+                  dups.append(f'{key.value!r} (first line {seen[key.value]}, duplicate line {key.lineno})')
+              else:
+                  seen[key.value] = key.lineno
+          if dups:
+              print('GATE-FAIL: duplicate keys in REGISTRY literal:')
+              [print('  - ' + d) for d in dups]
+              sys.exit(1)
+          print(f'OK: {len(seen)} literal command keys with no duplicates')
           "
 
       - name: Registry — every entry has module + risk + stability + policy
