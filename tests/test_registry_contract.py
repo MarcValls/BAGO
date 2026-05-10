@@ -83,6 +83,14 @@ def _registry_legacy_cmds() -> set[str]:
     return {cmd for cmd, entry in REGISTRY.items() if entry.deprecated}
 
 
+def _registry_public_cmds() -> set[str]:
+    return {
+        cmd
+        for cmd, entry in REGISTRY.items()
+        if entry.stability in {"core", "experimental", "dangerous"}
+    }
+
+
 def test_registry_literal_has_no_duplicate_keys_ast():
     """Detect duplicate dict keys in REGISTRY literal before Python overwrites them."""
     report = analyze_registry_literal(REGISTRY_FILE)
@@ -132,5 +140,12 @@ def test_readme_legacy_commands_match_registry():
     )
 
 
-def test_readme_public_contract_matches_commands_doc_summary():
-    assert _readme_public_contract_counts() == _commands_doc_summary_counts()
+def test_readme_banner_metrics_match_registry():
+    text = README.read_text(encoding="utf-8")
+    m = re.search(
+        r"\*\*Version\s+([^*]+)\*\*\s+·\s+(\d+)\s+CLI commands\s+·\s+(\d+)\s+public commands",
+        text,
+    )
+    assert m, "README banner metrics line not found"
+    assert int(m.group(2)) == len(REGISTRY)
+    assert int(m.group(3)) == len(_registry_public_cmds())
