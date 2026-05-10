@@ -27,21 +27,23 @@ jobs:
       - name: Registry — unique keys
         run: |
           python3 -c "
-          import importlib.util, sys
+          import sys
           from pathlib import Path
+          sys.path.insert(0, '.bago/tools')
+          from registry_ast_contract import analyze_registry_literal
           reg = Path('.bago/tools/tool_registry.py')
           if not reg.exists():
               print('GATE-FAIL: tool_registry.py not found'); sys.exit(1)
-          spec = importlib.util.spec_from_file_location('_ci_reg', str(reg))
-          mod = importlib.util.module_from_spec(spec)
-          sys.modules['_ci_reg'] = mod
-          spec.loader.exec_module(mod)
-          R = getattr(mod, 'REGISTRY', {})
-          if not R: print('GATE-FAIL: REGISTRY empty'); sys.exit(1)
-          keys = list(R.keys())
-          dups = [k for k in keys if keys.count(k) > 1]
-          if dups: print(f'GATE-FAIL: duplicate keys: {set(dups)}'); sys.exit(1)
-          print(f'OK: {len(keys)} unique commands')
+          report = analyze_registry_literal(reg)
+          if report.non_string_key_lines:
+              print(f'GATE-FAIL: non-string REGISTRY keys at lines: {report.non_string_key_lines}')
+              sys.exit(1)
+          if report.duplicate_keys:
+              print('GATE-FAIL: duplicate keys in REGISTRY literal:')
+              for d in report.duplicate_keys:
+                  print('  - ' + d)
+              sys.exit(1)
+          print(f'OK: {report.literal_key_count} literal command keys with no duplicates')
           "
 
       - name: Registry — every entry has module + risk + stability + policy

@@ -273,11 +273,6 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Router lenguaje natural → tools BAGO",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "intent_router.py"))],
     ),
-    "music": ToolEntry(
-        cmd="music", module="bago_music",
-        description="Router del pipeline musical: plan | convert | run | inventory | transpose | validate | render",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_music.py"))],
-    ),
     "rules": ToolEntry(
         cmd="rules", module="rule_catalog",
         description="Catálogo de reglas BAGO",
