@@ -20,7 +20,7 @@ Static policy tests in `tests/test_security.py` fail when any of these guarantee
 
 | Command / entrypoint | Source | Default bind | Enforced notes |
 |---|---|---|---|
-| `python3 .bago/tools/bago_miniapp_server.py` | `.bago/tools/bago_miniapp_server.py` | `127.0.0.1` | Mutating routes must not use wildcard CORS; current implementation uses an explicit same-host origin and token hooks via `AUTH_TOKEN`. |
+| `python3 .bago/tools/bago_miniapp_server.py` | `.bago/tools/bago_miniapp_server.py` | `127.0.0.1` | Mutating routes must not use wildcard CORS; uses an explicit same-host origin and mandatory token auth on mutating endpoints when exposed beyond localhost (`--token` required if `--host` is not local). |
 | `bago peer serve` | `.bago/tools/peer_link.py` | `127.0.0.1` | Opt-in LAN via `--host`; CI requires the localhost default to remain and keeps this command documented as an intentional LAN-capable exception. |
 | `python3 .bago/tools/live_dashboard.py` | `.bago/tools/live_dashboard.py` | `localhost` | Read-only local dashboard; not allowed to drift to wildcard bind. |
 | `bago telemetry --web` | `.bago/tools/bago_telemetry_web.py` | `127.0.0.1` | Read-only local telemetry UI; not allowed to drift to wildcard bind. |
@@ -35,7 +35,7 @@ Documented exception mechanism:
 ## Threat model (short)
 
 1. **Miniapp server exposed to LAN**  
-   Mitigation: default bind `127.0.0.1`, restricted CORS, optional token auth on mutating endpoints.
+   Mitigation: default bind `127.0.0.1`, restricted CORS, mandatory token auth on mutating endpoints when `--host` is not a local address (startup aborts if no token is provided).
 
 2. **`bago peer serve` exposed to LAN**  
    By design this can be network-visible when configured with non-localhost host; use only on trusted networks.
