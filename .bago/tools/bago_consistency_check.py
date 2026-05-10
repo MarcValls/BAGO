@@ -27,6 +27,7 @@ TOOLS_DIR = Path(__file__).parent
 BAGO_ROOT = TOOLS_DIR.parent
 REPO_ROOT = BAGO_ROOT.parent
 README = REPO_ROOT / "README.md"
+COMMANDS_DOC = REPO_ROOT / "docs" / "COMMANDS.md"
 CI_GENERATOR = TOOLS_DIR / "ci_generator.py"
 TOOL_REGISTRY = TOOLS_DIR / "tool_registry.py"
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
@@ -50,41 +51,41 @@ def _extract_bago_commands_from_ci() -> list[str]:
     return list(dict.fromkeys(m.group(1) for m in pattern.finditer(source)))
 
 
-def _extract_readme_numbers() -> dict:
-    """Parse the version line in README and return CLI/tools/workflows counts."""
+def _extract_readme_public_contract() -> dict:
+    """Parse the public command contract line in README."""
     text = README.read_text(encoding="utf-8") if README.exists() else ""
     m = re.search(
-        r"Version\s+[\d.]+-\S+\s*·\s*(\d+)\s+CLI\s+commands\s*·\s*(\d+)\s+tools"
-        r"\s*·\s*(\d+)\s+operational\s+workflows",
+        r"Public command contract \(CI-checked\):\s*\*\*(\d+)\s+core\*\*\s*·\s*"
+        r"\*\*(\d+)\s+experimental\*\*\s*·\s*\*\*(\d+)\s+dangerous\*\*\s*·\s*"
+        r"\*\*(\d+)\s+legacy\*\*",
         text,
     )
     if not m:
         return {}
-    return {"cli": int(m.group(1)), "tools": int(m.group(2)), "workflows": int(m.group(3))}
+    return {
+        "core": int(m.group(1)),
+        "experimental": int(m.group(2)),
+        "dangerous": int(m.group(3)),
+        "legacy": int(m.group(4)),
+    }
 
 
-def _real_counts() -> dict:
-    """Compute real counts from disk."""
-    registry = _load_registry()
-    cli_count = len(registry)
-
-    # User-facing tools = .py files in tools/ minus internals
-    from importlib.util import spec_from_file_location, module_from_spec
-    spec = spec_from_file_location("_reg2", str(TOOL_REGISTRY))
-    mod = module_from_spec(spec)
-    sys.modules["_reg2"] = mod
-    spec.loader.exec_module(mod)
-    internal = mod.INTERNAL_TOOLS
-    user_tools = [
-        p for p in TOOLS_DIR.glob("*.py")
-        if not p.stem.startswith("_") and p.stem not in internal
-    ]
-
-    # Workflows: canonical + tactical
-    wf_dirs = [BAGO_ROOT / "core" / "workflows", BAGO_ROOT / "workflows"]
-    wf_count = sum(len(list(d.glob("*.md"))) for d in wf_dirs if d.exists())
-
-    return {"cli": cli_count, "tools": len(user_tools), "workflows": wf_count}
+def _extract_commands_doc_summary() -> dict:
+    """Parse the summary table in docs/COMMANDS.md."""
+    text = COMMANDS_DOC.read_text(encoding="utf-8") if COMMANDS_DOC.exists() else ""
+    patterns = {
+        "core": r"\|\s*⚙️\s+Core\s*\|\s*(\d+)\s*\|",
+        "experimental": r"\|\s*🧪\s+Experimental\s*\|\s*(\d+)\s*\|",
+        "dangerous": r"\|\s*⚠️\s+Dangerous\s*\|\s*(\d+)\s*\|",
+        "legacy": r"\|\s*🗄️\s+Legacy\s+\(deprecated\)\s*\|\s*(\d+)\s*\|",
+    }
+    counts: dict[str, int] = {}
+    for key, pattern in patterns.items():
+        m = re.search(pattern, text)
+        if not m:
+            return {}
+        counts[key] = int(m.group(1))
+    return counts
 
 
 def _extract_badge_workflow() -> str | None:
@@ -130,26 +131,33 @@ def check_preflight_paths(registry: dict) -> list[dict]:
     return issues
 
 
-def check_readme_numbers(registry: dict) -> list[dict]:
-    """README counts must match real registry/disk counts."""
+def check_readme_public_contract(registry: dict) -> list[dict]:
+    """README public contract counts must match docs/COMMANDS.md."""
     issues = []
-    readme_nums = _extract_readme_numbers()
-    if not readme_nums:
+    readme_counts = _extract_readme_public_contract()
+    if not readme_counts:
         issues.append({
-            "check": "readme-numbers",
-            "severity": "warning",
-            "message": "No se encontró la línea de versión con contadores en README.md",
+            "check": "readme-public-contract",
+            "severity": "error",
+            "message": "No se encontró la línea 'Public command contract (CI-checked)' en README.md",
         })
         return issues
-    real = _real_counts()
-    for key in ("cli", "tools", "workflows"):
-        if readme_nums.get(key) != real[key]:
+    doc_counts = _extract_commands_doc_summary()
+    if not doc_counts:
+        issues.append({
+            "check": "readme-public-contract",
+            "severity": "error",
+            "message": "No se pudo leer el resumen de docs/COMMANDS.md",
+        })
+        return issues
+    for key in ("core", "experimental", "dangerous", "legacy"):
+        if readme_counts.get(key) != doc_counts[key]:
             issues.append({
-                "check": "readme-numbers",
-                "severity": "warning",
+                "check": "readme-public-contract",
+                "severity": "error",
                 "message": (
-                    f"README dice {key}={readme_nums.get(key)} "
-                    f"pero el valor real es {real[key]}"
+                    f"README dice {key}={readme_counts.get(key)} "
+                    f"pero docs/COMMANDS.md dice {doc_counts[key]}"
                 ),
             })
     return issues
@@ -182,18 +190,25 @@ def check_badge_workflow_exists() -> list[dict]:
 # ── Fix helpers ───────────────────────────────────────────────────────────────
 
 def fix_readme_numbers() -> bool:
-    """Rewrite the version line in README with real counts."""
+    """Rewrite the README public contract line with docs/COMMANDS.md counts."""
     if not README.exists():
         print("README.md no encontrado")
         return False
-    real = _real_counts()
+    counts = _extract_commands_doc_summary()
+    if not counts:
+        print("No se pudo leer docs/COMMANDS.md")
+        return False
     text = README.read_text(encoding="utf-8")
     new_text = re.sub(
-        r"(Version\s+[\d.]+-\S+\s*·\s*)\d+(\s+CLI\s+commands\s*·\s*)\d+"
-        r"(\s+tools\s*·\s*)\d+(\s+operational\s+workflows)",
+        r"Public command contract \(CI-checked\):\s*\*\*\d+\s+core\*\*\s*·\s*"
+        r"\*\*\d+\s+experimental\*\*\s*·\s*\*\*\d+\s+dangerous\*\*\s*·\s*"
+        r"\*\*\d+\s+legacy\*\*",
         lambda m: (
-            f"{m.group(1)}{real['cli']}{m.group(2)}{real['tools']}"
-            f"{m.group(3)}{real['workflows']}{m.group(4)}"
+            "Public command contract (CI-checked): "
+            f"**{counts['core']} core** · "
+            f"**{counts['experimental']} experimental** · "
+            f"**{counts['dangerous']} dangerous** · "
+            f"**{counts['legacy']} legacy**"
         ),
         text,
     )
@@ -201,7 +216,11 @@ def fix_readme_numbers() -> bool:
         print("README ya está actualizado o no se encontró el patrón")
         return False
     README.write_text(new_text, encoding="utf-8")
-    print(f"✅ README actualizado: {real['cli']} CLI · {real['tools']} tools · {real['workflows']} workflows")
+    print(
+        "✅ README actualizado: "
+        f"{counts['core']} core · {counts['experimental']} experimental · "
+        f"{counts['dangerous']} dangerous · {counts['legacy']} legacy"
+    )
     return True
 
 
@@ -212,7 +231,7 @@ def run_all_checks() -> list[dict]:
     issues: list[dict] = []
     issues += check_ci_commands_in_registry(registry)
     issues += check_preflight_paths(registry)
-    issues += check_readme_numbers(registry)
+    issues += check_readme_public_contract(registry)
     issues += check_badge_workflow_exists()
     return issues
 
