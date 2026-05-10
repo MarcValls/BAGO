@@ -4,6 +4,8 @@
 
 > **Version 3.4.0b1** · 91 CLI commands · 58 public commands
 
+Public command contract (CI-checked): **12 core** · **39 experimental** · **7 dangerous** · **28 legacy**
+
 ---
 
 ## Quick start
