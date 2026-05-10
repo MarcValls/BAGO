@@ -10,17 +10,31 @@ import shutil
 import subprocess
 import sys
 import threading
+import urllib.error
 import urllib.parse
+import urllib.request
 import webbrowser
 from pathlib import Path
 
-LAUNCHER_DIR = Path(__file__).parent.resolve()
-BAGO_CORE    = LAUNCHER_DIR.parent
-STATIC_DIR   = LAUNCHER_DIR / "static"
-AGENTS_DIR   = LAUNCHER_DIR / "agents"
-STATE_DIR    = BAGO_CORE / ".bago" / "state"
-STATE_FILE   = STATE_DIR / "global_state.json"
-PORT         = 7430
+LAUNCHER_DIR     = Path(__file__).parent.resolve()
+BAGO_CORE        = LAUNCHER_DIR.parent
+STATIC_DIR       = LAUNCHER_DIR / "static"
+AGENTS_DIR       = LAUNCHER_DIR / "agents"
+STATE_DIR        = BAGO_CORE / ".bago" / "state"
+STATE_FILE       = STATE_DIR / "global_state.json"
+ROUTING_HISTORY  = STATE_DIR / "routing_history.jsonl"
+SESSIONS_DIR     = STATE_DIR / "sessions"
+PENDING_TASK     = STATE_DIR / "pending_w2_task.json"
+IDEAS_FILE       = STATE_DIR / "implemented_ideas.json"
+LLM_CONFIG_FILE  = STATE_DIR / "llm_config.json"
+PORT             = 7430
+
+# Keywords that classify a bago command as sensitive (require confirmation)
+_SENSITIVE_KW: frozenset[str] = frozenset({
+    "install", "uninstall", "deploy", "auto", "autonomous", "reset", "delete",
+    "remove", "drop", "db", "migrate", "destroy", "prune", "clean", "purge",
+    "truncate", "exec", "rm",
+})
 
 TOOLS_DIR = BAGO_CORE / ".bago" / "tools"
 if str(TOOLS_DIR) not in sys.path:
@@ -122,6 +136,206 @@ def launch_agent(agent_id: str, model: str = None, task: str = None):
     open_terminal(str(script), env)
     return {"ok": True, "agent": agent_id, "model": model}
 
+# ─── New API helpers ──────────────────────────────────────────────────────────
+
+def get_routing_history(limit: int = 50) -> list:
+    """Read last N entries from routing_history.jsonl (newest first)."""
+    if not ROUTING_HISTORY.exists():
+        return []
+    try:
+        raw = ROUTING_HISTORY.read_text(encoding="utf-8").strip()
+        if not raw:
+            return []
+        lines = raw.splitlines()
+        entries = []
+        for line in reversed(lines):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except Exception:
+                pass
+            if len(entries) >= limit:
+                break
+        return entries
+    except Exception:
+        return []
+
+
+def get_sessions(limit: int = 20) -> list:
+    """List recent session JSON files from the sessions directory."""
+    if not SESSIONS_DIR.exists():
+        return []
+    try:
+        files = sorted(
+            [f for f in SESSIONS_DIR.iterdir() if f.suffix == ".json"],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )[:limit]
+        result = []
+        for f in files:
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                data.setdefault("_file", f.name)
+                result.append(data)
+            except Exception:
+                result.append({"_file": f.name, "error": "parse error"})
+        return result
+    except Exception:
+        return []
+
+
+def get_pending_task() -> dict:
+    """Read pending W2 task state."""
+    if not PENDING_TASK.exists():
+        return {"status": "none"}
+    try:
+        return json.loads(PENDING_TASK.read_text(encoding="utf-8"))
+    except Exception:
+        return {"status": "error", "error": "parse error"}
+
+
+def get_ideas(limit: int = 30) -> list:
+    """Read implemented ideas list."""
+    if not IDEAS_FILE.exists():
+        return []
+    try:
+        data = json.loads(IDEAS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data[:limit]
+        return data.get("implemented", [])[:limit]
+    except Exception:
+        return []
+
+
+def get_llm_status() -> dict:
+    """Return LLM config + Ollama availability and model list."""
+    cfg: dict = {}
+    if LLM_CONFIG_FILE.exists():
+        try:
+            cfg = json.loads(LLM_CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    server_url = cfg.get("server_url", "http://127.0.0.1:11434")
+    ollama_available = False
+    ollama_models: list = []
+    ollama_error: str | None = None
+    try:
+        req = urllib.request.Request(
+            f"{server_url}/api/tags",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read())
+            ollama_models = [m["name"] for m in data.get("models", [])]
+            ollama_available = True
+    except urllib.error.URLError as e:
+        ollama_error = f"No se puede conectar a Ollama: {e.reason}"
+    except TimeoutError:
+        ollama_error = "Timeout al conectar con Ollama (>3s)"
+    except Exception as e:
+        ollama_error = str(e)
+
+    return {
+        "engine": cfg.get("engine", "ollama"),
+        "active_model": cfg.get("active_model", "qwen25-coder"),
+        "server_url": server_url,
+        "ollama_available": ollama_available,
+        "ollama_models": ollama_models,
+        "ollama_error": ollama_error,
+    }
+
+
+def llm_chat(message: str, model: str | None = None) -> dict:
+    """Send a prompt to the local Ollama instance and return the response."""
+    if not message.strip():
+        return {"ok": False, "error": "mensaje vacío"}
+
+    cfg: dict = {}
+    if LLM_CONFIG_FILE.exists():
+        try:
+            cfg = json.loads(LLM_CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    server_url   = cfg.get("server_url", "http://127.0.0.1:11434")
+    active_model = model or cfg.get("active_model", "qwen25-coder")
+    payload      = json.dumps(
+        {"model": active_model, "prompt": message, "stream": False}
+    ).encode()
+    try:
+        req = urllib.request.Request(
+            f"{server_url}/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+            return {"ok": True, "response": data.get("response", ""), "model": active_model}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def bago_run(command: str, confirmed: bool = False) -> dict:
+    """Run a bago sub-command.
+
+    Sensitive keywords require explicit ``confirmed=True`` to proceed.
+    The first token of ``command`` must be in the known sub-command set;
+    additional arguments are validated to contain no shell metacharacters.
+    """
+    import shlex
+
+    try:
+        parts = shlex.split(command)
+    except ValueError as e:
+        return {"ok": False, "error": f"Comando inválido: {e}"}
+
+    if not parts:
+        return {"ok": False, "error": "command vacío"}
+
+    # Validate sub-command (first token) against the known keyword sets
+    sub_cmd = parts[0].lower()
+    is_sensitive = sub_cmd in _SENSITIVE_KW
+
+    # Reject args containing shell-special characters or control characters
+    _SHELL_CHARS = set(";&|`$<>\\()\n\r\t")
+    for arg in parts:
+        if any(ch in arg for ch in _SHELL_CHARS):
+            return {"ok": False, "error": "Argumento contiene caracteres no permitidos"}
+
+    if is_sensitive and not confirmed:
+        return {
+            "ok": False,
+            "requires_confirmation": True,
+            "command": command,
+            "warning": (
+                "Esta acción puede modificar el sistema de forma irreversible. "
+                "Confirma para continuar."
+            ),
+        }
+
+    bago_bin = BAGO_CORE / "bago"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(bago_bin)] + parts,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(BAGO_CORE),
+        )
+        return {
+            "ok": result.returncode == 0,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 # ─── HTTP Handler ─────────────────────────────────────────────────────────────
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -145,6 +359,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json(detect_agents())
         elif path == "/api/status":
             self._json(bago_status())
+        elif path == "/api/routing-history":
+            self._json(get_routing_history())
+        elif path == "/api/sessions":
+            self._json(get_sessions())
+        elif path == "/api/task":
+            self._json(get_pending_task())
+        elif path == "/api/ideas":
+            self._json(get_ideas())
+        elif path == "/api/llm/status":
+            self._json(get_llm_status())
         elif path in ("/", ""):
             self.path = "/index.html"
             super().do_GET()
@@ -181,6 +405,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             agents = detect_agents()
             result = route_task(task, agents)
             self._json(result)
+
+        elif path == "/api/llm/chat":
+            message = body.get("message", "")
+            model   = body.get("model")
+            if not message.strip():
+                self._json({"ok": False, "error": "mensaje vacío"}, 400)
+                return
+            self._json(llm_chat(message, model))
+
+        elif path == "/api/bago/run":
+            command   = body.get("command", "")
+            confirmed = bool(body.get("confirmed", False))
+            if not command.strip():
+                self._json({"ok": False, "error": "command vacío"}, 400)
+                return
+            self._json(bago_run(command, confirmed))
 
         else:
             self._json({"error": "not found"}, 404)

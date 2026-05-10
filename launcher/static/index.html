@@ -3,92 +3,268 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO Launcher</title>
+  <title>BAGO Command Center</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header>
-    <div class="logo">
-      <span class="logo-icon">⬡</span>
+  <!-- ══════════════════════ HEADER ══════════════════════ -->
+  <header class="cc-header">
+    <div class="cc-logo">
+      <span class="cc-logo-icon">⬡</span>
       <div>
-        <h1>BAGO Launcher</h1>
-        <span class="version">v3.3.0</span>
+        <span class="cc-logo-name">BAGO</span>
+        <span class="cc-logo-sub">Command Center</span>
       </div>
     </div>
-    <div id="health-badge" class="badge badge-loading">cargando...</div>
+
+    <div class="cc-header-badges">
+      <div id="hdr-health" class="hdr-badge badge-loading">⬡ health…</div>
+      <div id="hdr-mode"   class="hdr-badge badge-mode">…</div>
+      <div id="hdr-agents" class="hdr-badge badge-agents">agentes…</div>
+    </div>
+
+    <div class="cc-header-actions">
+      <button class="btn-icon" title="Actualizar todo" onclick="loadAll()">↻</button>
+      <a href="brain.html" class="btn-icon" title="Cerebro 3D">🧠</a>
+      <a href="https://github.com/MarcValls/BAGO" target="_blank" class="btn-icon" title="GitHub">↗</a>
+    </div>
   </header>
 
-  <div class="layout">
+  <!-- ══════════════════════ APP LAYOUT ══════════════════════ -->
+  <div class="cc-layout">
 
-    <!-- ── MAIN CONTENT ── -->
-    <main>
+    <!-- ── SIDEBAR ────────────────────────────────────── -->
+    <nav class="cc-sidebar">
+      <div class="sidebar-tabs" role="tablist">
+        <button class="stab active" data-tab="s-estado"   onclick="switchSidebar('s-estado')">Estado</button>
+        <button class="stab"        data-tab="s-agentes"  onclick="switchSidebar('s-agentes')">Agentes</button>
+        <button class="stab"        data-tab="s-historial"onclick="switchSidebar('s-historial')">Historial</button>
+        <button class="stab"        data-tab="s-sesiones" onclick="switchSidebar('s-sesiones')">Sesiones</button>
+        <button class="stab"        data-tab="s-ideas"    onclick="switchSidebar('s-ideas')">Ideas</button>
+      </div>
 
-      <!-- MODO DINÁMICO -->
-      <section class="auto-section">
-        <div class="auto-header">
-          <span class="auto-icon">🔮</span>
-          <div>
-            <h2>Modo Balanceado Adaptativo</h2>
-            <p>Describe tu tarea y BAGO decide entre Ollama local, Codex o Copilot</p>
-          </div>
-        </div>
-        <div class="auto-input-row">
-          <input
-            id="task-input"
-            type="text"
-            placeholder="ej: necesito refactorizar la función de autenticación..."
-            autocomplete="off"
-          />
-          <button class="btn-auto" id="btn-route" onclick="routeTask()">
-            <span>Analizar</span> →
-          </button>
-        </div>
-        <div id="route-result" class="route-result hidden"></div>
-      </section>
-
-      <!-- AGENTES -->
-      <section class="agents-section">
-        <h2>O elige manualmente</h2>
-        <div id="agents-grid" class="agents-grid">
-          <div class="agent-card skeleton"></div>
-          <div class="agent-card skeleton"></div>
-          <div class="agent-card skeleton"></div>
-          <div class="agent-card skeleton"></div>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- ── SIDEBAR ── -->
-    <aside>
-      <div class="sidebar-block">
-        <h3>Estado BAGO</h3>
+      <!-- Estado -->
+      <div id="s-estado" class="stab-panel active">
         <div id="status-panel" class="status-panel">
           <div class="skeleton-line"></div>
           <div class="skeleton-line" style="width:70%"></div>
           <div class="skeleton-line" style="width:85%"></div>
         </div>
+        <div id="llm-status-panel" class="llm-panel"></div>
+        <div id="pending-task-panel" class="pending-task-panel"></div>
       </div>
 
-      <div class="sidebar-block">
-        <h3>Historial</h3>
-        <div id="history-list" class="history-list">
-          <span class="muted-text">Sin lanzamientos recientes</span>
+      <!-- Agentes -->
+      <div id="s-agentes" class="stab-panel">
+        <div id="sidebar-agents" class="sidebar-agents-list"></div>
+      </div>
+
+      <!-- Historial routing -->
+      <div id="s-historial" class="stab-panel">
+        <div id="routing-history-list" class="routing-history-list">
+          <span class="muted-text">Sin historial de routing</span>
         </div>
       </div>
 
-      <div class="sidebar-footer">
-        <button class="btn-refresh" onclick="loadAll()">↻ Actualizar</button>
-        <a href="brain.html" class="link-gh">🧠 Cerebro 3D</a>
-        <a href="partitura.html" class="link-gh">🎺 Taberna Galáctica</a>
-        <a href="https://github.com/MarcValls/BAGO" target="_blank" class="link-gh">GitHub ↗</a>
+      <!-- Sesiones -->
+      <div id="s-sesiones" class="stab-panel">
+        <div id="sessions-list" class="sessions-list">
+          <span class="muted-text">Sin sesiones</span>
+        </div>
       </div>
-    </aside>
 
-  </div><!-- /layout -->
+      <!-- Ideas implementadas -->
+      <div id="s-ideas" class="stab-panel">
+        <div id="ideas-list" class="ideas-list">
+          <span class="muted-text">Sin ideas implementadas</span>
+        </div>
+      </div>
+    </nav>
 
-  <!-- ── MODAL ── -->
+    <!-- ── MAIN PANEL ──────────────────────────────────── -->
+    <main class="cc-main">
+
+      <!-- Main tabs -->
+      <div class="main-tabs" role="tablist">
+        <button class="mtab active" data-tab="m-consola"  onclick="switchMain('m-consola')">🔮 Consola</button>
+        <button class="mtab"        data-tab="m-router"   onclick="switchMain('m-router')">🔀 Router Visual</button>
+        <button class="mtab"        data-tab="m-agentes"  onclick="switchMain('m-agentes')">🤖 Agentes</button>
+        <button class="mtab"        data-tab="m-cerebro"  onclick="switchMain('m-cerebro')">🧠 Cerebro</button>
+        <button class="mtab"        data-tab="m-llm"      onclick="switchMain('m-llm')">💬 LLM Chat</button>
+      </div>
+
+      <!-- ── CONSOLA ── -->
+      <div id="m-consola" class="mtab-panel active">
+        <div class="consola-section">
+          <div class="consola-header">
+            <span class="consola-icon">🔮</span>
+            <div>
+              <h2>Modo Balanceado Adaptativo</h2>
+              <p>Describe tu tarea y BAGO decide qué agente usar</p>
+            </div>
+          </div>
+
+          <!-- Modes selector -->
+          <div class="modes-row">
+            <button class="mode-btn" data-mode="local"     onclick="selectMode('local')">🏠 Local</button>
+            <button class="mode-btn active" data-mode="balanced" onclick="selectMode('balanced')">⚖️ Balanceado</button>
+            <button class="mode-btn" data-mode="powerful"  onclick="selectMode('powerful')">⚡ Potente</button>
+          </div>
+
+          <div class="consola-input-row">
+            <input
+              id="task-input"
+              type="text"
+              placeholder="¿Qué quieres hacer con BAGO?"
+              autocomplete="off"
+            />
+            <button class="btn-auto" id="btn-route" onclick="routeTask()">
+              Analizar →
+            </button>
+          </div>
+
+          <div id="route-result" class="route-result hidden"></div>
+
+          <!-- Force buttons (shown after routing) -->
+          <div id="force-buttons" class="force-buttons hidden">
+            <span class="force-label">Forzar agente:</span>
+            <button class="btn-force" onclick="forceAgent('ollama')">🦙 Ollama</button>
+            <button class="btn-force" onclick="forceAgent('codex')">⚡ Codex</button>
+            <button class="btn-force" onclick="forceAgent('copilot')">🤖 Copilot</button>
+          </div>
+        </div>
+
+        <!-- Launch history (local) -->
+        <div class="sidebar-block">
+          <h3>Últimos lanzamientos</h3>
+          <div id="history-list" class="history-list">
+            <span class="muted-text">Sin lanzamientos recientes</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ROUTER VISUAL ── -->
+      <div id="m-router" class="mtab-panel">
+        <div class="router-section">
+          <h2>Flujo de decisión del Router</h2>
+          <p class="muted-text" style="margin-bottom:20px">Visualización del pipeline de routing BAGO</p>
+
+          <div class="router-flow" id="router-flow">
+            <div class="rf-node rf-user">
+              <span class="rf-icon">👤</span>
+              <div class="rf-label">Usuario</div>
+            </div>
+            <div class="rf-arrow">→</div>
+            <div class="rf-node rf-guard" id="rf-guard">
+              <span class="rf-icon">🛡️</span>
+              <div class="rf-label">Guardarrailes</div>
+              <div class="rf-status" id="rf-guard-status">—</div>
+            </div>
+            <div class="rf-arrow">→</div>
+            <div class="rf-node rf-classifier" id="rf-classifier">
+              <span class="rf-icon">🧠</span>
+              <div class="rf-label">Clasificador local</div>
+              <div class="rf-status" id="rf-classifier-status">—</div>
+            </div>
+            <div class="rf-arrow">→</div>
+            <div class="rf-node rf-decision" id="rf-decision">
+              <span class="rf-icon">⚖️</span>
+              <div class="rf-label">Decisión</div>
+              <div class="rf-status" id="rf-decision-status">—</div>
+            </div>
+            <div class="rf-arrow">→</div>
+            <div class="rf-targets">
+              <div class="rf-node rf-target" id="rf-ollama">
+                <span class="rf-icon">🦙</span>
+                <div class="rf-label">Ollama</div>
+              </div>
+              <div class="rf-node rf-target" id="rf-codex">
+                <span class="rf-icon">⚡</span>
+                <div class="rf-label">Codex</div>
+              </div>
+              <div class="rf-node rf-target" id="rf-copilot">
+                <span class="rf-icon">🤖</span>
+                <div class="rf-label">Copilot</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="router-details" class="router-details hidden">
+            <h3>Última decisión</h3>
+            <div id="router-detail-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AGENTES ── -->
+      <div id="m-agentes" class="mtab-panel">
+        <div class="agents-panel">
+          <h2>Panel de Agentes</h2>
+          <p class="muted-text" style="margin-bottom:20px">Estado y control de todos los agentes disponibles</p>
+          <div id="agents-grid" class="agents-grid">
+            <div class="agent-card skeleton"></div>
+            <div class="agent-card skeleton"></div>
+            <div class="agent-card skeleton"></div>
+            <div class="agent-card skeleton"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CEREBRO BAGO ── -->
+      <div id="m-cerebro" class="mtab-panel">
+        <div class="cerebro-panel">
+          <h2>Cerebro BAGO</h2>
+          <p class="muted-text" style="margin-bottom:16px">Vista de relaciones entre componentes del sistema</p>
+          <div id="cerebro-container" class="cerebro-container">
+            <canvas id="cerebro-canvas"></canvas>
+          </div>
+          <div class="cerebro-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#4f8ef7"></span>Core</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#3ecf8e"></span>LLM</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#b794f4"></span>Estado</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#f6ad55"></span>Tools</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LLM CHAT ── -->
+      <div id="m-llm" class="mtab-panel">
+        <div class="llm-chat-panel">
+          <div class="llm-chat-header">
+            <h2>Chat con LLM local</h2>
+            <div id="llm-model-badge" class="hdr-badge badge-mode">Cargando…</div>
+          </div>
+          <div id="llm-chat-messages" class="llm-chat-messages">
+            <div class="chat-bubble chat-system">
+              💬 Habla directamente con el LLM local. Requiere Ollama en ejecución.
+            </div>
+          </div>
+          <div class="llm-chat-input-row">
+            <input
+              id="llm-chat-input"
+              type="text"
+              placeholder="Escribe tu mensaje…"
+              autocomplete="off"
+            />
+            <button class="btn-auto" id="btn-llm-send" onclick="sendLlmChat()">Enviar →</button>
+          </div>
+        </div>
+      </div>
+
+    </main><!-- /cc-main -->
+
+  </div><!-- /cc-layout -->
+
+  <!-- ══════════════════════ TIMELINE ══════════════════════ -->
+  <footer class="cc-timeline">
+    <span class="timeline-label">Timeline →</span>
+    <div id="timeline-events" class="timeline-events">
+      <span class="muted-text">Sin eventos recientes</span>
+    </div>
+  </footer>
+
+  <!-- ══════════════════════ MODAL LAUNCH ══════════════════════ -->
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-icon" id="modal-icon">🤖</div>
@@ -100,9 +276,9 @@
         <select id="model-select"></select>
       </div>
 
-      <div id="modal-task-row" class="modal-task-row">
+      <div class="modal-task-row">
         <label>Objetivo de sesión (opcional):</label>
-        <input id="modal-task-input" type="text" placeholder="ej: implementar login JWT..." />
+        <input id="modal-task-input" type="text" placeholder="ej: implementar login JWT…" />
       </div>
 
       <div class="modal-actions">
@@ -112,7 +288,23 @@
     </div>
   </div>
 
-  <!-- ── TOAST ── -->
+  <!-- ══════════════════════ MODAL CONFIRM SENSITIVE ══════════════════════ -->
+  <div id="sensitive-modal" class="modal-overlay hidden">
+    <div class="modal modal-sensitive">
+      <div class="modal-icon">⚠️</div>
+      <h2>Acción sensible</h2>
+      <p id="sensitive-warning"></p>
+      <div class="sensitive-cmd-box">
+        <code id="sensitive-cmd"></code>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-danger" id="btn-sensitive-confirm">Confirmar y ejecutar</button>
+        <button class="btn-secondary" onclick="closeSensitiveModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ TOAST ══════════════════════ -->
   <div id="toast"></div>
 
   <script src="app.js"></script>
