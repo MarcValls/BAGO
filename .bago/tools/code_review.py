@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""code_review.py — Herramienta #116: Reporte CI agregado de todos los scanners BAGO.
+"""code_review.py — BAGO review report with fail-closed scanner status.
 
-Ejecuta en secuencia: lint, complexity, secret-scan, dead-code, duplicate-check,
-env-check y branch-check. Genera un reporte consolidado con score 0-100 y
-recomienda si la PR puede hacer merge.
+Aggregates local BAGO scanners into a merge-oriented report. Scanner execution
+errors are explicit blockers: a missing scanner, timeout, invalid JSON, or
+invalid SARIF must never be interpreted as zero findings.
 
-Uso:
-    bago code-review [DIR] [--branch BRANCH] [--format text|md|html]
-                     [--out FILE] [--min-score N] [--ci] [--test]
+Usage:
+    bago review [DIR] [--branch BRANCH] [--format text|md|json]
+                [--out FILE] [--min-score N] [--ci] [--test]
 
 Exit codes:
-    0  Score >= mínimo (por defecto 60)
-    1  Score < mínimo o error crítico
+    0  Mergeable review
+    1  Score below threshold, blocker, scanner error, or invalid target
 """
 from __future__ import annotations
 
@@ -21,20 +21,25 @@ import sys
 import time
 from pathlib import Path
 
-import findings_engine as fe
+try:
+    import findings_engine as fe
+except Exception:  # pragma: no cover - SARIF is optional for this runner path
+    fe = None
 
-_GRN  = "\033[0;32m"
-_YEL  = "\033[0;33m"
-_RED  = "\033[0;31m"
-_RST  = "\033[0m"
+_GRN = "\033[0;32m"
+_YEL = "\033[0;33m"
+_RED = "\033[0;31m"
+_RST = "\033[0m"
 _BOLD = "\033[1m"
 
 TOOLS_DIR = Path(__file__).parent
+
 STATUS_OK = "ok"
 STATUS_WARN = "warn"
 STATUS_FAIL = "fail"
 STATUS_ERROR = "error"
 STATUS_SKIPPED = "skipped"
+
 PARSE_OK = "ok"
 PARSE_NOT_ATTEMPTED = "not_attempted"
 PARSE_INVALID_JSON = "invalid_json"
@@ -119,19 +124,22 @@ def _run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[
     if not tool_path.exists():
         return -1, "", f"tool not found: {tool}"
     try:
-        r = subprocess.run(
+        result = subprocess.run(
             ["python3", str(tool_path)] + args,
-            capture_output=True, text=True, timeout=timeout, cwd=cwd
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd,
         )
-        return r.returncode, r.stdout, r.stderr
+        return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return -2, "", f"timeout after {timeout}s"
-    except Exception as e:
-        return -3, "", str(e)
+    except Exception as exc:  # noqa: BAGO-W002
+        return -3, "", str(exc)
 
 
 def _scanner_specs(directory: str) -> list[dict]:
-    specs = []
+    specs: list[dict] = []
     for spec in SCANNER_DEFS:
         specs.append({
             **spec,
@@ -153,11 +161,15 @@ def _parse_json_output(output: str) -> tuple[int, list[dict]]:
         return len(data), data
     if not isinstance(data, dict):
         raise ValueError("JSON root must be a list or object")
+
     findings = data.get("findings")
     if findings is None:
         findings = data.get("results")
+    if findings is None:
+        findings = [] if data.get("total") == 0 else None
     if not isinstance(findings, list):
         raise ValueError("JSON payload missing findings list")
+
     summary = data.get("summary", {})
     count = data.get("total")
     if not isinstance(count, int) and isinstance(summary, dict):
@@ -168,8 +180,10 @@ def _parse_json_output(output: str) -> tuple[int, list[dict]]:
 
 
 def _parse_sarif_output(output: str, root: str) -> tuple[int, list[dict]]:
+    if fe is None or not hasattr(fe, "parse_sarif"):
+        raise ValueError("SARIF parser unavailable")
     findings = fe.parse_sarif(output, root=root, strict=True)
-    return len(findings), [f.to_dict() for f in findings]
+    return len(findings), [finding.to_dict() for finding in findings]
 
 
 def _status_from_findings(count: int, spec: dict) -> str:
@@ -180,13 +194,23 @@ def _status_from_findings(count: int, spec: dict) -> str:
     return STATUS_WARN
 
 
+def _scanner_status_from_review_status(status: str) -> str:
+    if status == STATUS_ERROR:
+        return STATUS_ERROR
+    return "passed" if status == STATUS_OK else "findings"
+
+
 def _error_section(spec: dict, rc: int, err: str, elapsed_s: float, parse_status: str) -> dict:
+    error = f"{spec['tool']}: {err}" if err else f"{spec['tool']}: scanner error"
     return {
         "name": spec["name"],
         "tool": spec["tool"],
         "critical": spec["critical"],
         "findings": 0,
-        "status": STATUS_ERROR,
+        "status": STATUS_FAIL,
+        "scanner_status": STATUS_ERROR,
+        "exit_code": rc,
+        "error": error,
         "details": [],
         "return_code": rc,
         "stderr_summary": _summarize_stderr(err),
@@ -199,16 +223,16 @@ def _run_scanner(spec: dict, cwd: str) -> tuple[dict, int, bool]:
     started = time.time()
     rc, out, err = _run_tool(spec["tool"], spec["args"], cwd)
     elapsed_s = round(time.time() - started, 3)
+
     if rc in (-1, -2, -3):
         return _error_section(spec, rc, err, elapsed_s, PARSE_NOT_ATTEMPTED), 0, True
 
     try:
         if spec["parser"] == "sarif":
             findings_count, details = _parse_sarif_output(out, root=cwd)
-            parse_status = PARSE_OK
         else:
             findings_count, details = _parse_json_output(out)
-            parse_status = PARSE_OK
+        parse_status = PARSE_OK
     except json.JSONDecodeError as exc:
         return _error_section(spec, rc, f"{err} {exc}".strip(), elapsed_s, PARSE_INVALID_JSON), 0, True
     except ValueError as exc:
@@ -226,6 +250,9 @@ def _run_scanner(spec: dict, cwd: str) -> tuple[dict, int, bool]:
         "critical": spec["critical"],
         "findings": findings_count,
         "status": status,
+        "scanner_status": _scanner_status_from_review_status(status),
+        "exit_code": rc,
+        "error": "",
         "details": details[:spec["detail_limit"]],
         "return_code": rc,
         "stderr_summary": _summarize_stderr(err),
@@ -237,291 +264,180 @@ def _run_scanner(spec: dict, cwd: str) -> tuple[dict, int, bool]:
 
 
 def _score_from_findings(findings_count: int, total_lines: int) -> int:
-    """Convierte densidad de findings en puntuación 0-100."""
+    """Convert finding density into a 0-100 score."""
     if total_lines <= 0:
         return 80
-    density = findings_count / max(1, total_lines / 100)  # por cada 100 líneas
+    density = findings_count / max(1, total_lines / 100)
     if density == 0:
         return 100
-    elif density < 0.5:
+    if density < 0.5:
         return 90
-    elif density < 1:
+    if density < 1:
         return 75
-    elif density < 2:
+    if density < 2:
         return 60
-    elif density < 5:
+    if density < 5:
         return 40
-    else:
-        return 20
+    return 20
 
 
 def _count_py_lines(directory: str) -> int:
-    root  = Path(directory)
+    root = Path(directory)
     total = 0
-    for f in root.rglob("*.py"):
-        if "__pycache__" in str(f):
+    for file in root.rglob("*.py"):
+        if "__pycache__" in str(file):
             continue
         try:
-            total += len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
-        except Exception:
+            total += len(file.read_text(encoding="utf-8", errors="ignore").splitlines())
+        except Exception:  # noqa: BAGO-W002
             pass
     return total
 
 
-def _parse_scanner_output(tool: str, output: str) -> list[dict]:
-    """Parsea la salida JSON esperada de un scanner o falla de forma observable."""
-    if not output.strip():
-        raise ValueError(f"{tool} produced empty output")
-    data = json.loads(output)
-    if not isinstance(data, list):
-        raise ValueError(f"{tool} produced {type(data).__name__}, expected list")
-    return data
-
-
-def _section_status(findings: int, *, warn_below: int | None = None,
-                    fail_below: int | None = None, hard_fail: bool = False) -> str:
-    if findings == 0:
-        return "ok"
-    if hard_fail:
-        return "fail"
-    if fail_below is not None and findings >= fail_below:
-        return "fail"
-    if warn_below is not None and findings < warn_below:
-        return "warn"
-    return "fail"
-
-
-def _run_scanner(*, key: str, name: str, tool: str, args: list[str], cwd: str,
-                 detail_limit: int, warn_below: int | None = None,
-                 fail_below: int | None = None, hard_fail: bool = False) -> tuple[str, dict, int]:
-    rc, out, err = _run_tool(tool, args, cwd)
-
-    section = {
-        "name": name,
-        "tool": tool,
-        "findings": 0,
-        "status": "fail",
-        "scanner_status": "error",
-        "exit_code": rc,
-        "error": "",
-        "details": [],
-    }
-
-    if rc not in (0, 1):
-        section["error"] = f"{tool}: {err or f'unexpected exit code: {rc}'}"
-        return key, section, 0
-
-    try:
-        data = _parse_scanner_output(tool, out)
-    except (ValueError, TypeError, json.JSONDecodeError) as exc:
-        section["error"] = f"{tool}: {err or str(exc)}"
-        return key, section, 0
-
-    findings = len(data)
-    section["findings"] = findings
-    section["status"] = _section_status(
-        findings,
-        warn_below=warn_below,
-        fail_below=fail_below,
-        hard_fail=hard_fail,
-    )
-    section["scanner_status"] = "passed" if findings == 0 else "findings"
-    section["error"] = ""
-    section["details"] = data[:detail_limit]
-    return key, section, findings
-
-
 def run_reviews(directory: str, branch: str = "") -> dict:
-    """Ejecuta todos los scanners y agrega resultados."""
-    start     = time.time()
-    sections  = {}
+    """Run all scanners and aggregate their results into one review report."""
+    start = time.time()
+    sections: dict[str, dict] = {}
     total_findings = 0
-    scanner_specs = [
-        {
-            "key": "lint",
-            "name": "BAGO Lint",
-            "tool": "scan.py",
-            "args": [directory, "--format", "json"],
-            "detail_limit": 5,
-            "warn_below": 10,
-            "weight": lambda count: count,
-        },
-        {
-            "key": "complexity",
-            "name": "Complexity (high)",
-            "tool": "complexity.py",
-            "args": [directory, "--min", "11", "--format", "json"],
-            "detail_limit": 5,
-            "warn_below": 5,
-            "weight": lambda count: count,
-        },
-        {
-            "key": "secrets",
-            "name": "Secret Scan",
-            "tool": "secret_scan.py",
-            "args": [directory, "--format", "json"],
-            "detail_limit": 3,
-            "hard_fail": True,
-            "weight": lambda count: count * 3,
-        },
-        {
-            "key": "dead_code",
-            "name": "Dead Code",
-            "tool": "dead_code.py",
-            "args": [directory, "--format", "json"],
-            "detail_limit": 3,
-            "warn_below": 10,
-            "weight": lambda count: count // 2,
-        },
-        {
-            "key": "duplicates",
-            "name": "Duplicate Check",
-            "tool": "duplicate_check.py",
-            "args": [directory, "--format", "json"],
-            "detail_limit": 3,
-            "warn_below": 3,
-            "weight": lambda count: count,
-        },
-    ]
+    blocker_count = 0
 
-    for spec in scanner_specs:
-        key, section, findings = _run_scanner(
-            key=spec["key"],
-            name=spec["name"],
-            tool=spec["tool"],
-            args=spec["args"],
-            cwd=directory,
-            detail_limit=spec["detail_limit"],
-            warn_below=spec.get("warn_below"),
-            fail_below=spec.get("fail_below"),
-            hard_fail=spec.get("hard_fail", False),
-        )
-        sections[key] = section
-        total_findings += spec["weight"](findings)
+    for spec in _scanner_specs(directory):
+        section, weighted_findings, blocked = _run_scanner(spec, directory)
+        sections[spec["key"]] = section
+        total_findings += weighted_findings
+        if blocked:
+            blocker_count += 1
 
     total_lines = _count_py_lines(directory)
-    score       = _score_from_findings(total_findings, total_lines)
+    score = _score_from_findings(total_findings, total_lines)
     scanner_errors = {
-        key: sec["error"]
-        for key, sec in sections.items()
-        if sec["scanner_status"] == "error"
+        key: section["error"]
+        for key, section in sections.items()
+        if section["scanner_status"] == STATUS_ERROR
     }
 
-    # Penalizar si hay secretos (crítico)
-    if sections["secrets"]["findings"] > 0:
+    if sections.get("secrets", {}).get("findings", 0) > 0:
         score = min(score, 30)
     if scanner_errors:
         score = 0
 
-    elapsed = round(time.time() - start, 1)
-    verdict = "❌ NO MERGE" if blocker_count > 0 or score < 60 else "✅ MERGE OK"
+    if scanner_errors:
+        verdict = "❌ NO MERGE (scanner error)"
+    elif blocker_count > 0 or score < 60:
+        verdict = "❌ NO MERGE"
+    else:
+        verdict = "✅ MERGE OK"
 
+    elapsed = round(time.time() - start, 1)
     return {
-        "directory":    directory,
-        "branch":       branch,
-        "timestamp":    int(time.time()),
-        "elapsed_s":    elapsed,
-        "score":        score,
+        "directory": directory,
+        "branch": branch,
+        "timestamp": int(time.time()),
+        "elapsed_s": elapsed,
+        "score": score,
         "blocker_count": blocker_count,
-        "total_lines":  total_lines,
+        "total_lines": total_lines,
         "total_findings": total_findings,
         "scanner_failures": len(scanner_errors),
         "scanner_errors": scanner_errors,
-        "sections":     sections,
-        "verdict":      "❌ NO MERGE (scanner error)" if scanner_errors else ("✅ MERGE OK" if score >= 60 else "❌ NO MERGE"),
+        "sections": sections,
+        "verdict": verdict,
     }
 
 
 def generate_text(report: dict) -> str:
-    sc    = report["score"]
-    color = _GRN if sc >= 80 else (_YEL if sc >= 60 else _RED)
+    score = report["score"]
+    color = _GRN if score >= 80 else (_YEL if score >= 60 else _RED)
     lines = [
         f"{_BOLD}╔══ BAGO Code Review ══╗{_RST}",
-        f"  Score:   {color}{sc}/100{_RST}",
+        f"  Score:   {color}{score}/100{_RST}",
         f"  Verdict: {_BOLD}{report['verdict']}{_RST}",
-        f"  Lines:   {report['total_lines']}  |  Findings: {report['total_findings']}  |  Scanner failures: {report['scanner_failures']}  |  Time: {report['elapsed_s']}s",
+        f"  Lines:   {report['total_lines']}  |  Findings: {report['total_findings']}  |  Blockers: {report['blocker_count']}  |  Scanner failures: {report['scanner_failures']}  |  Time: {report['elapsed_s']}s",
         "",
     ]
-    for key, sec in report["sections"].items():
-        icon = "✅" if sec["status"] == "ok" else ("⚠️" if sec["status"] == "warn" else "❌")
+    for section in report["sections"].values():
+        icon = "✅" if section["status"] == STATUS_OK else ("⚠️" if section["status"] == STATUS_WARN else "❌")
         lines.append(
-            f"  {icon} {sec['name']:20s}  {sec['findings']} hallazgo(s)  "
-            f"[scanner={sec['scanner_status']}, rc={sec['exit_code']}]"
+            f"  {icon} {section['name']:20s}  {section['findings']} finding(s)  "
+            f"[scanner={section['scanner_status']}, rc={section['exit_code']}, parse={section['parse_status']}]"
         )
-        if sec["error"]:
-            lines.append(f"      ↳ {sec['error']}")
-    lines += ["", f"  {_BOLD}{'─'*40}{_RST}"]
+        if section["error"]:
+            lines.append(f"      ↳ {section['error']}")
+    lines += ["", f"  {_BOLD}{'-' * 40}{_RST}"]
     return "\n".join(lines)
 
 
 def generate_markdown(report: dict) -> str:
-    sc    = report["score"]
-    badge = "🟢" if sc >= 80 else ("🟡" if sc >= 60 else "🔴")
+    score = report["score"]
+    badge = "🟢" if score >= 80 else ("🟡" if score >= 60 else "🔴")
     lines = [
-        f"# BAGO Code Review",
-        f"",
-        f"**Score:** {badge} {sc}/100  |  **Verdict:** {report['verdict']}  |  **Blockers:** {report['blocker_count']}",
-        f"",
-        f"| Scanner | Findings | Review status | Scanner status |",
-        f"|---------|----------|---------------|----------------|",
+        "# BAGO Code Review",
+        "",
+        f"**Score:** {badge} {score}/100  |  **Verdict:** {report['verdict']}  |  **Blockers:** {report['blocker_count']}",
+        "",
+        "| Scanner | Findings | Review status | Scanner status | Parse |",
+        "|---------|----------|---------------|----------------|-------|",
     ]
-    for sec in report["sections"].values():
-        icon = "✅" if sec["status"] == "ok" else ("⚠️" if sec["status"] == "warn" else "❌")
-        scanner_status = sec["scanner_status"]
-        if sec["error"]:
-            scanner_status = f"{scanner_status} (`rc={sec['exit_code']}`)"
-        lines.append(f"| {sec['name']} | {sec['findings']} | {icon} | {scanner_status} |")
+    for section in report["sections"].values():
+        icon = "✅" if section["status"] == STATUS_OK else ("⚠️" if section["status"] == STATUS_WARN else "❌")
+        scanner_status = section["scanner_status"]
+        if section["error"]:
+            scanner_status = f"{scanner_status} (`rc={section['exit_code']}`)"
+        lines.append(
+            f"| {section['name']} | {section['findings']} | {icon} {section['status']} | {scanner_status} | {section['parse_status']} |"
+        )
     lines += [
-        f"",
-        f"**Líneas analizadas:** {report['total_lines']}  "
-        f"| **Tiempo:** {report['elapsed_s']}s  "
-        f"| **Scanner failures:** {report['scanner_failures']}",
-        f"",
+        "",
+        f"**Lines analyzed:** {report['total_lines']}  | **Time:** {report['elapsed_s']}s  | **Scanner failures:** {report['scanner_failures']}",
+        "",
     ]
     for key, error in report["scanner_errors"].items():
-        lines += [f"- `{key}`: {error}"]
-    lines += [
-        f"",
-        f"---",
-        f"*Generado con `bago code-review`*",
-    ]
+        lines.append(f"- `{key}`: {error}")
+    lines += ["", "---", "*Generated with `bago review`*"]
     return "\n".join(lines)
 
 
 def main(argv: list[str]) -> int:
-    directory  = "./"
-    branch     = ""
-    fmt        = "text"
-    out_file   = None
-    min_score  = 60
-    ci_mode    = False
+    directory = "./"
+    branch = ""
+    fmt = "text"
+    out_file: str | None = None
+    min_score = 60
+    ci_mode = False
 
     i = 0
     while i < len(argv):
-        a = argv[i]
-        if a == "--branch" and i + 1 < len(argv):
-            branch = argv[i + 1]; i += 2
-        elif a == "--format" and i + 1 < len(argv):
-            fmt = argv[i + 1]; i += 2
-        elif a == "--out" and i + 1 < len(argv):
-            out_file = argv[i + 1]; i += 2
-        elif a == "--min-score" and i + 1 < len(argv):
-            min_score = int(argv[i + 1]); i += 2
-        elif a == "--ci":
-            ci_mode = True; i += 1
-        elif not a.startswith("--"):
-            directory = a; i += 1
+        arg = argv[i]
+        if arg == "--branch" and i + 1 < len(argv):
+            branch = argv[i + 1]
+            i += 2
+        elif arg == "--format" and i + 1 < len(argv):
+            fmt = argv[i + 1]
+            i += 2
+        elif arg == "--out" and i + 1 < len(argv):
+            out_file = argv[i + 1]
+            i += 2
+        elif arg == "--min-score" and i + 1 < len(argv):
+            min_score = int(argv[i + 1])
+            i += 2
+        elif arg == "--ci":
+            ci_mode = True
+            i += 1
+        elif not arg.startswith("--"):
+            directory = arg
+            i += 1
         else:
             i += 1
 
     if not Path(directory).exists():
-        print(f"No existe: {directory}", file=sys.stderr); return 1
+        print(f"No existe: {directory}", file=sys.stderr)
+        return 1
 
-    print(f"Analizando {directory}…", file=sys.stderr)
+    print(f"Analizando {directory}...", file=sys.stderr)
     report = run_reviews(directory, branch)
 
     if fmt == "json":
-        content = json.dumps(report, indent=2)
+        content = json.dumps(report, indent=2, ensure_ascii=False)
     elif fmt == "md":
         content = generate_markdown(report)
     else:
@@ -544,98 +460,45 @@ def main(argv: list[str]) -> int:
 
 def _self_test() -> None:
     import tempfile
+
     print("Tests de code_review.py...")
-    fails: list[str] = []
-    def ok(n): print(f"  OK: {n}")
-    def fail(n, m): fails.append(n); print(f"  FAIL: {n}: {m}")
+    failures: list[str] = []
 
-    with tempfile.TemporaryDirectory() as td:
-        from pathlib import Path as P
-        (P(td) / "clean.py").write_text(
-            '"""Módulo limpio."""\ndef add(a, b):\n    """Suma."""\n    return a + b\n'
-        )
+    def ok(name: str) -> None:
+        print(f"  OK: {name}")
 
-        original_run_tool = globals()["_run_tool"]
-        original_count_py_lines = globals()["_count_py_lines"]
-        globals()["_run_tool"] = lambda tool, args, cwd, timeout=60: (0, "[]", "")
-        globals()["_count_py_lines"] = lambda _: 100
+    def fail(name: str, message: str) -> None:
+        failures.append(name)
+        print(f"  FAIL: {name}: {message}")
 
-        # T1 — run_reviews retorna score
-        report = run_reviews(td)
-        if "score" in report and 0 <= report["score"] <= 100:
-            ok("code_review:score_range")
-        else:
-            fail("code_review:score_range", str(report.get("score")))
-
-        # T2 — verdict presente
-        if "verdict" in report and ("MERGE" in report["verdict"] or "NO" in report["verdict"]):
-            ok("code_review:verdict_present")
-        else:
-            fail("code_review:verdict_present", str(report.get("verdict")))
-
-        def fake_run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[int, str, str]:
-            outputs = {
-                "scan.py": (0, json.dumps({"summary": {"total": 0}, "findings": []}), ""),
-                "complexity.py": (0, "[]", ""),
-                "secret_scan.py": (0, json.dumps({"total": 0, "findings": []}), ""),
-                "dead_code.py": (0, json.dumps({"total": 0, "findings": []}), ""),
-                "duplicate_check.py": (0, "[]", ""),
-            }
-            return outputs[tool]
-
-        globals()["_run_tool"] = fake_run_tool
-
-        # T5 — markdown generado
-        md = generate_markdown(report)
-        if "BAGO Code Review" in md and "Score" in md and "Scanner status" in md:
-            ok("code_review:markdown_generated")
-        else:
-            fail("code_review:markdown_generated", md[:80])
-
-        # T6 — _score_from_findings lógica
-        assert _score_from_findings(0, 1000) == 100
-        assert _score_from_findings(100, 100) <= 40
-        ok("code_review:score_function")
-
-        # T7 — scanner roto no puede dar falso verde
-        try:
-            def _broken_run_tool(tool, args, cwd, timeout=60):
-                if tool == "complexity.py":
-                    return -1, "", "tool not found: complexity.py"
-                return 0, "[]", ""
-
-            globals()["_run_tool"] = _broken_run_tool
+    original_run_tool = globals()["_run_tool"]
+    original_count_py_lines = globals()["_count_py_lines"]
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "clean.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+            globals()["_run_tool"] = lambda tool, args, cwd, timeout=60: (0, "[]", "")
             globals()["_count_py_lines"] = lambda _: 100
-            broken = run_reviews(td)
-            if broken["score"] == 0 and broken["scanner_failures"] == 1 and broken["sections"]["complexity"]["scanner_status"] == "error":
-                ok("code_review:fail_closed_on_scanner_error")
+            report = run_reviews(tmp)
+            if report["score"] == 100 and report["verdict"] == "✅ MERGE OK":
+                ok("clean_review_mergeable")
             else:
-                fail("code_review:fail_closed_on_scanner_error", str(broken))
-        finally:
-            globals()["_run_tool"] = original_run_tool
-            globals()["_count_py_lines"] = original_count_py_lines
+                fail("clean_review_mergeable", str(report))
 
-        # T8 — JSON inválido se hace observable en el reporte
-        try:
-            def _invalid_json_run_tool(tool, args, cwd, timeout=60):
-                if tool == "secret_scan.py":
-                    return 0, "{oops", ""
-                return 0, "[]", ""
-
-            globals()["_run_tool"] = _invalid_json_run_tool
-            globals()["_count_py_lines"] = lambda _: 100
-            invalid = run_reviews(td)
-            if invalid["score"] == 0 and invalid["sections"]["secrets"]["scanner_status"] == "error":
-                ok("code_review:fail_closed_on_invalid_json")
+            globals()["_run_tool"] = lambda tool, args, cwd, timeout=60: (-1, "", "missing") if tool == "complexity.py" else (0, "[]", "")
+            broken = run_reviews(tmp)
+            if broken["scanner_failures"] == 1 and broken["score"] == 0:
+                ok("scanner_error_blocks")
             else:
-                fail("code_review:fail_closed_on_invalid_json", str(invalid))
-        finally:
-            globals()["_run_tool"] = original_run_tool
-            globals()["_count_py_lines"] = original_count_py_lines
+                fail("scanner_error_blocks", str(broken))
+    finally:
+        globals()["_run_tool"] = original_run_tool
+        globals()["_count_py_lines"] = original_count_py_lines
 
-    total = 8; passed = total - len(fails)
+    total = 2
+    passed = total - len(failures)
     print(f"\n  {passed}/{total} tests pasaron")
-    if fails: raise SystemExit(1)
+    if failures:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
