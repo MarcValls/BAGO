@@ -111,12 +111,16 @@ This file acts as the BAGO-facing router for the music domain. It groups the dom
 
 > Do not claim semantic music transposition unless structured notation exists and validation confirms that only the requested target changed.
 
-## Next integration step
+## BAGO CLI entrypoint
 
-Register `music` in `.bago/tools/tool_registry.py` so users can run:
+`music` is now registered in `.bago/tools/tool_registry.py`, so users can run:
 
 ```bash
 bago music plan --input score.pdf --target "bottom staff" --interval +M2
 ```
 
-Until registry wiring is added, run the router directly with Python.
+Direct invocation is still supported when needed:
+
+```bash
+python3 .bago/tools/bago_music.py plan --input score.pdf --target "bottom staff" --interval +M2
+```

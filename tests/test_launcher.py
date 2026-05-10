@@ -71,3 +71,11 @@ def test_deprecated_command_redirects():
     # This is a soft contract: warn if no hint found
     if not has_redirect:
         pytest.xfail("Deprecated command 'validate' did not print a redirection hint")
+
+
+def test_music_command_is_routable():
+    """The music router must be invokable from the main bago launcher."""
+    result = _run("music", "--help")
+    assert result.returncode == 0
+    combined = result.stdout + result.stderr
+    assert "plan" in combined and "convert" in combined and "run" in combined
