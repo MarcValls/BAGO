@@ -37,7 +37,7 @@ PyPI installation (when a release is published):
 
 ```bash
 pip install bago
-# beta builds:
+# pre-release builds (alpha/beta/rc):
 pip install --pre bago
 ```
 

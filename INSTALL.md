@@ -1,6 +1,6 @@
 # Guía de instalación · BAGO v3.1
 
-> Tiempo estimado: **5 minutos**. Dependencia base: Python 3.9+.
+> Tiempo estimado: **5 minutos**. Requisito: Python 3.9+.
 
 ---
 
