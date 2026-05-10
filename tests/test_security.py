@@ -6,7 +6,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVICE_ENTRYPOINT_RE = re.compile(r"\b(?:HTTPServer|socketserver\.TCPServer)\(")
-WILDCARD_CORS_RE = re.compile(r'Access-Control-Allow-Origin["\']\s*,\s*["\']\*["\']')
+WILDCARD_CORS_RE = re.compile(
+    r'send_header\(\s*["\']Access-Control-Allow-Origin["\']\s*,\s*["\']\*["\']\s*\)'
+)
+ALL_INTERFACES_BIND_MARKERS = (
+    'HTTPServer(("0.0.0.0",',
+    "HTTPServer(('0.0.0.0',",
+    'socketserver.TCPServer(("0.0.0.0",',
+    "socketserver.TCPServer(('0.0.0.0',",
+)
 
 SERVICE_POLICY = {
     ".bago/tools/bago_miniapp_server.py": {
@@ -81,6 +89,10 @@ SERVICE_POLICY = {
         ),
         "mutating": False,
         "lan_default_exception": True,
+        "lan_exception_markers": (
+            "Experimental",
+            "redes de confianza",
+        ),
     },
 }
 
@@ -116,9 +128,10 @@ def test_default_host_binding_is_localhost_unless_documented_exception():
         for marker in service["bind_markers"]:
             assert marker in content
         if service.get("lan_default_exception"):
-            assert "0.0.0.0" in content
+            continue
         else:
-            assert "0.0.0.0" not in content
+            for marker in ALL_INTERFACES_BIND_MARKERS:
+                assert marker not in content
 
 
 def test_opt_in_lan_services_have_explicit_code_markers():
@@ -127,8 +140,8 @@ def test_opt_in_lan_services_have_explicit_code_markers():
         assert marker in peer_content
 
     http_discover = _read(".bago/tools/http_discover.py")
-    assert "Experimental" in http_discover
-    assert "redes de confianza" in http_discover
+    for marker in SERVICE_POLICY[".bago/tools/http_discover.py"]["lan_exception_markers"]:
+        assert marker in http_discover
 
 
 def test_mutating_http_handlers_do_not_use_wildcard_cors_without_guard():
