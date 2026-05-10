@@ -10,6 +10,8 @@ Lanzar con:
 from __future__ import annotations
 
 import json
+import re
+import shlex
 import subprocess
 import sys
 import time
@@ -23,6 +25,9 @@ TOOLS_DIR  = Path(__file__).resolve().parent
 BAGO_ROOT  = TOOLS_DIR.parent
 STATE_DIR  = BAGO_ROOT / "state"
 PACK_JSON  = BAGO_ROOT / "pack.json"
+
+_SAFE_MODULE_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_SAFE_ARG_RE = re.compile(r"^[A-Za-z0-9._:/=+-]+$")
 IDEAS_JSON = BAGO_ROOT / "ideas_catalog.json"
 GLOBAL_STATE = STATE_DIR / "global_state.json"
 PYTHON     = sys.executable
@@ -179,11 +184,35 @@ def _run_tool(cmd_row: list, args_str: str) -> str:
     else:
         return "⚠️ Formato inesperado."
 
+    reg = _registry()
+    if (
+        not isinstance(module_name, str)
+        or not _SAFE_MODULE_RE.fullmatch(module_name)
+        or module_name not in {entry.module for entry in reg.values()}
+    ):
+        return "❌ Herramienta no permitida."
+
     script = TOOLS_DIR / f"{module_name}.py"
     if not script.exists():
         return f"❌ Archivo no encontrado: {script}"
 
-    extra = args_str.strip().split() if args_str.strip() else []
+    try:
+        parsed_args = shlex.split(args_str.strip()) if args_str.strip() else []
+    except ValueError:
+        return "❌ Argumentos inválidos."
+
+    extra: list[str] = []
+    for arg in parsed_args:
+        if not arg:
+            continue
+        if arg.startswith("-"):
+            if not _SAFE_ARG_RE.fullmatch(arg):
+                return f"❌ Argumento no permitido: {arg}"
+        else:
+            if not _SAFE_ARG_RE.fullmatch(arg):
+                return f"❌ Valor de argumento no permitido: {arg}"
+        extra.append(arg)
+
     cmd = [PYTHON, str(script)] + extra
 
     try:
