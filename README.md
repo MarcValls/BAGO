@@ -103,6 +103,29 @@ These commands form the **stable public interface**.
 
 ---
 
+## 6.1 Review reports (`bago review`)
+
+`bago review` is the canonical review entrypoint for local checks and PR-oriented reports.
+
+```bash
+# Local machine-readable report
+bago review . --format json
+
+# PR-friendly markdown artifact
+bago review . --format md --out bago-review.md
+
+# Review only files changed against a base ref
+bago review . --changed-only --base origin/main --format md
+
+# CI gate: stricter threshold + fail unless mergeable
+bago review . --ci --changed-only --base origin/main --format json
+
+# Include external SARIF / CodeQL findings in the same report
+bago review . --sarif results.sarif --format md --out bago-review.md
+```
+
+---
+
 ## 7. Workflows (W0–W10)
 
 BAGO ships with **11 operational workflows** (W0–W10).

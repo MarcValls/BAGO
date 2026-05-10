@@ -4,6 +4,10 @@
 Aggregates local BAGO scanners into a merge-oriented report. Scanner execution
 errors are explicit blockers: a missing scanner, timeout, invalid JSON, or
 invalid SARIF must never be interpreted as zero findings.
+"""code_review.py — Herramienta #116: reporte canónico de `bago review`.
+
+Agrega findings de scanners BAGO y, opcionalmente, resultados SARIF/CodeQL
+para producir un reporte confiable tanto en local como en CI.
 
 Usage:
     bago review [DIR] [--branch BRANCH] [--format text|md|json]
@@ -12,14 +16,19 @@ Usage:
 Exit codes:
     0  Mergeable review
     1  Score below threshold, blocker, scanner error, or invalid target
+    0  Veredicto mergeable, o review-required fuera de CI
+    1  Veredicto not-mergeable, error crítico o, en CI, cualquier veredicto
+       distinto de mergeable
 """
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 try:
     import findings_engine as fe
@@ -136,6 +145,22 @@ def _run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[
         return -2, "", f"timeout after {timeout}s"
     except Exception as exc:  # noqa: BAGO-W002
         return -3, "", str(exc)
+    except Exception as exc:  # pragma: no cover - defensive wrapper
+        return -3, "", str(exc)
+
+
+def _git(args: list[str], cwd: str) -> tuple[int, str, str]:
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=cwd,
+        )
+        return result.returncode, result.stdout.strip(), result.stderr.strip()
+    except Exception as exc:  # pragma: no cover - defensive wrapper
+        return -1, "", str(exc)
 
 
 def _scanner_specs(directory: str) -> list[dict]:
@@ -267,6 +292,9 @@ def _score_from_findings(findings_count: int, total_lines: int) -> int:
     """Convert finding density into a 0-100 score."""
     if total_lines <= 0:
         return 80
+    """Convierte densidad de findings ponderados en puntuación 0-100."""
+    if total_lines <= 0:
+        return 100 if findings_count == 0 else 80
     density = findings_count / max(1, total_lines / 100)
     if density == 0:
         return 100
@@ -286,11 +314,54 @@ def _count_py_lines(directory: str) -> int:
     total = 0
     for file in root.rglob("*.py"):
         if "__pycache__" in str(file):
+def _normalize_scope_path(filepath: str, scope_root: Path) -> str:
+    if not filepath:
+        return ""
+    raw = filepath.replace("\\", "/")
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        try:
+            return candidate.resolve().relative_to(scope_root.resolve()).as_posix()
+        except Exception:
+            return candidate.as_posix()
+    return candidate.as_posix().lstrip("./")
+
+
+def _read_text_file(filepath: Path) -> str:
+    return filepath.read_text(encoding="utf-8", errors="ignore")
+
+
+def _iter_scope_files(scope_root: Path, scope_files: list[str] | None = None):
+    if scope_files is not None:
+        for rel_path in scope_files:
+            candidate = (scope_root / rel_path).resolve()
+            if candidate.is_file():
+                yield candidate
+        return
+
+    if scope_root.is_file():
+        yield scope_root
+        return
+
+    skip_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build"}
+    for candidate in scope_root.rglob("*"):
+        if not candidate.is_file():
             continue
+        if skip_dirs.intersection(candidate.parts):
+            continue
+        yield candidate
+
+
+def _count_lines(scope_root: Path, scope_files: list[str] | None = None) -> int:
+    total = 0
+    for candidate in _iter_scope_files(scope_root, scope_files):
         try:
             total += len(file.read_text(encoding="utf-8", errors="ignore").splitlines())
         except Exception:  # noqa: BAGO-W002
             pass
+            total += len(_read_text_file(candidate).splitlines())
+        except Exception:
+            continue
     return total
 
 
@@ -348,6 +419,28 @@ def run_reviews(directory: str, branch: str = "") -> dict:
 def generate_text(report: dict) -> str:
     score = report["score"]
     color = _GRN if score >= 80 else (_YEL if score >= 60 else _RED)
+    return report
+
+
+def _verdict_icon(verdict: dict[str, Any]) -> str:
+    if verdict["id"] == "mergeable":
+        return "🟢"
+    if verdict["id"] == "review-required":
+        return "🟡"
+    return "🔴"
+
+
+def generate_text(report: dict[str, Any]) -> str:
+    verdict = report["verdict"]
+    score = report["score"]
+    color = _GRN if verdict["id"] == "mergeable" else (_YEL if verdict["id"] == "review-required" else _RED)
+    scope = report["scope"]
+    mode = report["mode"]
+    scope_note = (
+        f"{scope['file_count']} file(s) changed since {mode['base_ref']}"
+        if mode["changed_only"]
+        else f"{scope['file_count']} file(s) in scope"
+    )
     lines = [
         f"{_BOLD}╔══ BAGO Code Review ══╗{_RST}",
         f"  Score:   {color}{score}/100{_RST}",
@@ -370,6 +463,10 @@ def generate_text(report: dict) -> str:
 def generate_markdown(report: dict) -> str:
     score = report["score"]
     badge = "🟢" if score >= 80 else ("🟡" if score >= 60 else "🔴")
+def generate_markdown(report: dict[str, Any]) -> str:
+    verdict = report["verdict"]
+    scope = report["scope"]
+    mode = report["mode"]
     lines = [
         "# BAGO Code Review",
         "",
@@ -390,6 +487,8 @@ def generate_markdown(report: dict) -> str:
         "",
         f"**Lines analyzed:** {report['total_lines']}  | **Time:** {report['elapsed_s']}s  | **Scanner failures:** {report['scanner_failures']}",
         "",
+        "---",
+        f"*Generated with `{REVIEW_COMMAND}` · schema v{report['schema_version']}*",
     ]
     for key, error in report["scanner_errors"].items():
         lines.append(f"- `{key}`: {error}")
@@ -439,13 +538,43 @@ def main(argv: list[str]) -> int:
     if fmt == "json":
         content = json.dumps(report, indent=2, ensure_ascii=False)
     elif fmt == "md":
+
+def main(argv: list[str]) -> int:
+    args = _parse_args(argv)
+    if args.test:
+        _self_test()
+        return 0
+
+    scope_root = Path(args.directory).resolve()
+    if not scope_root.exists():
+        print(f"No existe: {args.directory}", file=sys.stderr)
+        return 1
+
+    min_score = args.min_score
+    if args.ci and min_score < CI_MIN_SCORE:
+        min_score = CI_MIN_SCORE
+
+    print(f"Analizando {scope_root} con {REVIEW_COMMAND}…", file=sys.stderr)
+    report = run_reviews(
+        str(scope_root),
+        args.branch,
+        min_score=min_score,
+        changed_only=args.changed_only,
+        base_ref=args.base,
+        ci=args.ci,
+        sarif_paths=args.sarif,
+    )
+
+    if args.format == "json":
+        content = json.dumps(report, indent=2, sort_keys=True)
+    elif args.format == "md":
         content = generate_markdown(report)
     else:
         content = generate_text(report)
 
-    if out_file:
-        Path(out_file).write_text(content, encoding="utf-8")
-        print(f"Guardado: {out_file}", file=sys.stderr)
+    if args.out:
+        Path(args.out).write_text(content, encoding="utf-8")
+        print(f"Guardado: {args.out}", file=sys.stderr)
     else:
         print(content)
 
@@ -460,6 +589,24 @@ def main(argv: list[str]) -> int:
 
 def _self_test() -> None:
     import tempfile
+
+    print("Tests de code_review.py...")
+    fails: list[str] = []
+
+    def ok(name: str) -> None:
+        print(f"  OK: {name}")
+
+        original_run_tool = _run_tool
+
+        def fake_run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[int, str, str]:
+            outputs = {
+                "scan.py": (0, json.dumps({"summary": {"total": 0}, "findings": []}), ""),
+                "complexity.py": (0, "[]", ""),
+                "secret_scan.py": (0, json.dumps({"total": 0, "findings": []}), ""),
+                "dead_code.py": (0, json.dumps({"total": 0, "findings": []}), ""),
+                "duplicate_check.py": (0, "[]", ""),
+            }
+            return outputs[tool]
 
     print("Tests de code_review.py...")
     failures: list[str] = []
@@ -498,11 +645,93 @@ def _self_test() -> None:
     passed = total - len(failures)
     print(f"\n  {passed}/{total} tests pasaron")
     if failures:
+        def fake_run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60):  # noqa: ARG001
+            findings = {
+                "scan.py": [],
+                "complexity.py": [],
+                "secret_scan.py": [],
+                "dead_code.py": [],
+                "duplicate_check.py": [],
+            }
+            return 0, json.dumps(findings.get(tool, [])), ""
+
+        original = globals()["_run_tool"]
+        globals()["_run_tool"] = fake_run_tool
+        try:
+            report = run_reviews(str(root))
+
+            if report["schema_version"] == 1 and report["command"] == REVIEW_COMMAND:
+                ok("code_review:schema")
+            else:
+                fail("code_review:schema", json.dumps(report, ensure_ascii=False)[:120])
+
+            if 0 <= report["score"] <= 100:
+                ok("code_review:score_range")
+            else:
+                fail("code_review:score_range", str(report.get("score")))
+
+            if report["verdict"]["id"] == "mergeable":
+                ok("code_review:verdict_model")
+            else:
+                fail("code_review:verdict_model", str(report.get("verdict")))
+
+            expected = {"lint", "complexity", "secrets", "dead_code", "duplicates"}
+            if expected <= set(report["sections"]):
+                ok("code_review:sections_complete")
+            else:
+                fail("code_review:sections_complete", f"missing={expected - set(report['sections'])}")
+
+            md = generate_markdown(report)
+            if "BAGO Review" in md and REVIEW_COMMAND in md:
+                ok("code_review:markdown_generated")
+            else:
+                fail("code_review:markdown_generated", md[:80])
+
+            assert _score_from_findings(0, 1000) == 100
+            assert _score_from_findings(100, 100) <= 40
+            ok("code_review:score_function")
+
+            rc_init, _, err_init = _git(["init"], td)
+            _git(["config", "user.email", "test@example.com"], td)
+            _git(["config", "user.name", "BAGO Test"], td)
+            if rc_init != 0:
+                fail("code_review:git_setup", err_init)
+            else:
+                _git(["add", "clean.py"], td)
+                _git(["commit", "-m", "base"], td)
+                (root / "changed.py").write_text("print('changed')\n", encoding="utf-8")
+                _git(["add", "changed.py"], td)
+                _git(["commit", "-m", "add changed"], td)
+                (root / "changed.py").write_text("print('changed again')\n", encoding="utf-8")
+
+                def diff_run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60):  # noqa: ARG001
+                    findings = {
+                        "scan.py": [
+                            {"file": "clean.py", "line": 1, "severity": "warning", "rule": "X1", "message": "old"},
+                            {"file": "changed.py", "line": 1, "severity": "warning", "rule": "X2", "message": "new"},
+                        ],
+                        "complexity.py": [],
+                        "secret_scan.py": [],
+                        "dead_code.py": [],
+                        "duplicate_check.py": [],
+                    }
+                    return 0, json.dumps(findings.get(tool, [])), ""
+
+                globals()["_run_tool"] = diff_run_tool
+                scoped = run_reviews(str(root), changed_only=True, base_ref="HEAD~1")
+                if scoped["scope"]["files"] == ["changed.py"] and scoped["total_findings"] == 1:
+                    ok("code_review:changed_only")
+                else:
+                    fail("code_review:changed_only", json.dumps(scoped["scope"]))
+        finally:
+            globals()["_run_tool"] = original
+
+    total = 7
+    passed = total - len(fails)
+    print(f"\n  {passed}/{total} tests pasaron")
+    if fails:
         raise SystemExit(1)
 
 
 if __name__ == "__main__":
-    if "--test" in sys.argv:
-        _self_test()
-    else:
-        raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(main(sys.argv[1:]))
