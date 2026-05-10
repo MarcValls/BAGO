@@ -78,103 +78,150 @@ def _count_py_lines(directory: str) -> int:
     return total
 
 
+def _parse_scanner_output(tool: str, output: str) -> list[dict]:
+    """Parsea la salida JSON esperada de un scanner o falla de forma observable."""
+    if not output.strip():
+        raise ValueError(f"{tool} produced empty output")
+    data = json.loads(output)
+    if not isinstance(data, list):
+        raise ValueError(f"{tool} produced {type(data).__name__}, expected list")
+    return data
+
+
+def _section_status(findings: int, *, warn_below: int | None = None,
+                    fail_below: int | None = None, hard_fail: bool = False) -> str:
+    if findings == 0:
+        return "ok"
+    if hard_fail:
+        return "fail"
+    if fail_below is not None and findings >= fail_below:
+        return "fail"
+    if warn_below is not None and findings < warn_below:
+        return "warn"
+    return "fail"
+
+
+def _run_scanner(*, key: str, name: str, tool: str, args: list[str], cwd: str,
+                 detail_limit: int, warn_below: int | None = None,
+                 fail_below: int | None = None, hard_fail: bool = False) -> tuple[str, dict, int]:
+    rc, out, err = _run_tool(tool, args, cwd)
+
+    section = {
+        "name": name,
+        "tool": tool,
+        "findings": 0,
+        "status": "fail",
+        "scanner_status": "error",
+        "exit_code": rc,
+        "error": "",
+        "details": [],
+    }
+
+    if rc not in (0, 1):
+        section["error"] = f"{tool}: {err or f'unexpected exit code: {rc}'}"
+        return key, section, 0
+
+    try:
+        data = _parse_scanner_output(tool, out)
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        section["error"] = f"{tool}: {err or str(exc)}"
+        return key, section, 0
+
+    findings = len(data)
+    section["findings"] = findings
+    section["status"] = _section_status(
+        findings,
+        warn_below=warn_below,
+        fail_below=fail_below,
+        hard_fail=hard_fail,
+    )
+    section["scanner_status"] = "passed" if findings == 0 else "findings"
+    section["error"] = ""
+    section["details"] = data[:detail_limit]
+    return key, section, findings
+
+
 def run_reviews(directory: str, branch: str = "") -> dict:
     """Ejecuta todos los scanners y agrega resultados."""
     start     = time.time()
     sections  = {}
     total_findings = 0
+    scanner_specs = [
+        {
+            "key": "lint",
+            "name": "BAGO Lint",
+            "tool": "scan.py",
+            "args": [directory, "--format", "json"],
+            "detail_limit": 5,
+            "warn_below": 10,
+            "weight": lambda count: count,
+        },
+        {
+            "key": "complexity",
+            "name": "Complexity (high)",
+            "tool": "complexity.py",
+            "args": [directory, "--min", "11", "--format", "json"],
+            "detail_limit": 5,
+            "warn_below": 5,
+            "weight": lambda count: count,
+        },
+        {
+            "key": "secrets",
+            "name": "Secret Scan",
+            "tool": "secret_scan.py",
+            "args": [directory, "--format", "json"],
+            "detail_limit": 3,
+            "hard_fail": True,
+            "weight": lambda count: count * 3,
+        },
+        {
+            "key": "dead_code",
+            "name": "Dead Code",
+            "tool": "dead_code.py",
+            "args": [directory, "--format", "json"],
+            "detail_limit": 3,
+            "warn_below": 10,
+            "weight": lambda count: count // 2,
+        },
+        {
+            "key": "duplicates",
+            "name": "Duplicate Check",
+            "tool": "duplicate_check.py",
+            "args": [directory, "--format", "json"],
+            "detail_limit": 3,
+            "warn_below": 3,
+            "weight": lambda count: count,
+        },
+    ]
 
-    # 1. BAGO lint
-    rc, out, err = _run_tool("scan.py", [directory, "--format", "json"], directory)
-    try:
-        lint_data   = json.loads(out) if out.strip() else []
-        lint_count  = len(lint_data)
-    except Exception:
-        lint_count  = 0
-        lint_data   = []
-    sections["lint"] = {
-        "name": "BAGO Lint",
-        "tool": "scan.py",
-        "findings": lint_count,
-        "status":   "ok" if lint_count == 0 else ("warn" if lint_count < 10 else "fail"),
-        "details":  lint_data[:5],
-    }
-    total_findings += lint_count
-
-    # 2. Complexity
-    rc2, out2, _ = _run_tool("complexity.py", [directory, "--min", "11", "--format", "json"], directory)
-    try:
-        cx_data = json.loads(out2) if out2.strip() else []
-        cx_high = len(cx_data)
-    except Exception:
-        cx_high = 0
-        cx_data = []
-    sections["complexity"] = {
-        "name": "Complexity (high)",
-        "tool": "complexity.py",
-        "findings": cx_high,
-        "status":   "ok" if cx_high == 0 else ("warn" if cx_high < 5 else "fail"),
-        "details":  cx_data[:5],
-    }
-    total_findings += cx_high
-
-    # 3. Secret scan
-    rc3, out3, _ = _run_tool("secret_scan.py", [directory, "--format", "json"], directory)
-    try:
-        sec_data  = json.loads(out3) if out3.strip() else []
-        sec_count = len(sec_data)
-    except Exception:
-        sec_count = 0
-        sec_data  = []
-    sections["secrets"] = {
-        "name": "Secret Scan",
-        "tool": "secret_scan.py",
-        "findings": sec_count,
-        "status":   "ok" if sec_count == 0 else "fail",  # secrets are always fail
-        "details":  sec_data[:3],
-    }
-    total_findings += sec_count * 3  # peso extra para secretos
-
-    # 4. Dead code
-    rc4, out4, _ = _run_tool("dead_code.py", [directory, "--format", "json"], directory)
-    try:
-        dc_data  = json.loads(out4) if out4.strip() else []
-        dc_count = len(dc_data)
-    except Exception:
-        dc_count = 0
-        dc_data  = []
-    sections["dead_code"] = {
-        "name": "Dead Code",
-        "tool": "dead_code.py",
-        "findings": dc_count,
-        "status":   "ok" if dc_count == 0 else ("warn" if dc_count < 10 else "fail"),
-        "details":  dc_data[:3],
-    }
-    total_findings += dc_count // 2  # peso menor
-
-    # 5. Duplicate check
-    rc5, out5, _ = _run_tool("duplicate_check.py", [directory, "--format", "json"], directory)
-    try:
-        dup_data  = json.loads(out5) if out5.strip() else []
-        dup_count = len(dup_data)
-    except Exception:
-        dup_count = 0
-        dup_data  = []
-    sections["duplicates"] = {
-        "name": "Duplicate Check",
-        "tool": "duplicate_check.py",
-        "findings": dup_count,
-        "status":   "ok" if dup_count == 0 else ("warn" if dup_count < 3 else "fail"),
-        "details":  dup_data[:3],
-    }
-    total_findings += dup_count
+    for spec in scanner_specs:
+        key, section, findings = _run_scanner(
+            key=spec["key"],
+            name=spec["name"],
+            tool=spec["tool"],
+            args=spec["args"],
+            cwd=directory,
+            detail_limit=spec["detail_limit"],
+            warn_below=spec.get("warn_below"),
+            fail_below=spec.get("fail_below"),
+            hard_fail=spec.get("hard_fail", False),
+        )
+        sections[key] = section
+        total_findings += spec["weight"](findings)
 
     total_lines = _count_py_lines(directory)
     score       = _score_from_findings(total_findings, total_lines)
+    scanner_errors = {
+        key: sec["error"]
+        for key, sec in sections.items()
+        if sec["scanner_status"] == "error"
+    }
 
     # Penalizar si hay secretos (crítico)
-    if sec_count > 0:
+    if sections["secrets"]["findings"] > 0:
         score = min(score, 30)
+    if scanner_errors:
+        score = 0
 
     elapsed = round(time.time() - start, 1)
 
@@ -186,8 +233,10 @@ def run_reviews(directory: str, branch: str = "") -> dict:
         "score":        score,
         "total_lines":  total_lines,
         "total_findings": total_findings,
+        "scanner_failures": len(scanner_errors),
+        "scanner_errors": scanner_errors,
         "sections":     sections,
-        "verdict":      "✅ MERGE OK" if score >= 60 else "❌ NO MERGE",
+        "verdict":      "❌ NO MERGE (scanner error)" if scanner_errors else ("✅ MERGE OK" if score >= 60 else "❌ NO MERGE"),
     }
 
 
@@ -198,12 +247,17 @@ def generate_text(report: dict) -> str:
         f"{_BOLD}╔══ BAGO Code Review ══╗{_RST}",
         f"  Score:   {color}{sc}/100{_RST}",
         f"  Verdict: {_BOLD}{report['verdict']}{_RST}",
-        f"  Lines:   {report['total_lines']}  |  Findings: {report['total_findings']}  |  Time: {report['elapsed_s']}s",
+        f"  Lines:   {report['total_lines']}  |  Findings: {report['total_findings']}  |  Scanner failures: {report['scanner_failures']}  |  Time: {report['elapsed_s']}s",
         "",
     ]
     for key, sec in report["sections"].items():
         icon = "✅" if sec["status"] == "ok" else ("⚠️" if sec["status"] == "warn" else "❌")
-        lines.append(f"  {icon} {sec['name']:20s}  {sec['findings']} hallazgo(s)")
+        lines.append(
+            f"  {icon} {sec['name']:20s}  {sec['findings']} hallazgo(s)  "
+            f"[scanner={sec['scanner_status']}, rc={sec['exit_code']}]"
+        )
+        if sec["error"]:
+            lines.append(f"      ↳ {sec['error']}")
     lines += ["", f"  {_BOLD}{'─'*40}{_RST}"]
     return "\n".join(lines)
 
@@ -216,16 +270,25 @@ def generate_markdown(report: dict) -> str:
         f"",
         f"**Score:** {badge} {sc}/100  |  **Verdict:** {report['verdict']}",
         f"",
-        f"| Scanner | Findings | Status |",
-        f"|---------|----------|--------|",
+        f"| Scanner | Findings | Review status | Scanner status |",
+        f"|---------|----------|---------------|----------------|",
     ]
     for sec in report["sections"].values():
         icon = "✅" if sec["status"] == "ok" else ("⚠️" if sec["status"] == "warn" else "❌")
-        lines.append(f"| {sec['name']} | {sec['findings']} | {icon} |")
+        scanner_status = sec["scanner_status"]
+        if sec["error"]:
+            scanner_status = f"{scanner_status} (`rc={sec['exit_code']}`)"
+        lines.append(f"| {sec['name']} | {sec['findings']} | {icon} | {scanner_status} |")
     lines += [
         f"",
         f"**Líneas analizadas:** {report['total_lines']}  "
-        f"| **Tiempo:** {report['elapsed_s']}s",
+        f"| **Tiempo:** {report['elapsed_s']}s  "
+        f"| **Scanner failures:** {report['scanner_failures']}",
+        f"",
+    ]
+    for key, error in report["scanner_errors"].items():
+        lines += [f"- `{key}`: {error}"]
+    lines += [
         f"",
         f"---",
         f"*Generado con `bago code-review`*",
@@ -293,6 +356,11 @@ def _self_test() -> None:
             '"""Módulo limpio."""\ndef add(a, b):\n    """Suma."""\n    return a + b\n'
         )
 
+        original_run_tool = globals()["_run_tool"]
+        original_count_py_lines = globals()["_count_py_lines"]
+        globals()["_run_tool"] = lambda tool, args, cwd, timeout=60: (0, "[]", "")
+        globals()["_count_py_lines"] = lambda _: 100
+
         # T1 — run_reviews retorna score
         report = run_reviews(td)
         if "score" in report and 0 <= report["score"] <= 100:
@@ -322,7 +390,7 @@ def _self_test() -> None:
 
         # T5 — markdown generado
         md = generate_markdown(report)
-        if "BAGO Code Review" in md and "Score" in md:
+        if "BAGO Code Review" in md and "Score" in md and "Scanner status" in md:
             ok("code_review:markdown_generated")
         else:
             fail("code_review:markdown_generated", md[:80])
@@ -332,7 +400,43 @@ def _self_test() -> None:
         assert _score_from_findings(100, 100) <= 40
         ok("code_review:score_function")
 
-    total = 6; passed = total - len(fails)
+        # T7 — scanner roto no puede dar falso verde
+        try:
+            def _broken_run_tool(tool, args, cwd, timeout=60):
+                if tool == "complexity.py":
+                    return -1, "", "tool not found: complexity.py"
+                return 0, "[]", ""
+
+            globals()["_run_tool"] = _broken_run_tool
+            globals()["_count_py_lines"] = lambda _: 100
+            broken = run_reviews(td)
+            if broken["score"] == 0 and broken["scanner_failures"] == 1 and broken["sections"]["complexity"]["scanner_status"] == "error":
+                ok("code_review:fail_closed_on_scanner_error")
+            else:
+                fail("code_review:fail_closed_on_scanner_error", str(broken))
+        finally:
+            globals()["_run_tool"] = original_run_tool
+            globals()["_count_py_lines"] = original_count_py_lines
+
+        # T8 — JSON inválido se hace observable en el reporte
+        try:
+            def _invalid_json_run_tool(tool, args, cwd, timeout=60):
+                if tool == "secret_scan.py":
+                    return 0, "{oops", ""
+                return 0, "[]", ""
+
+            globals()["_run_tool"] = _invalid_json_run_tool
+            globals()["_count_py_lines"] = lambda _: 100
+            invalid = run_reviews(td)
+            if invalid["score"] == 0 and invalid["sections"]["secrets"]["scanner_status"] == "error":
+                ok("code_review:fail_closed_on_invalid_json")
+            else:
+                fail("code_review:fail_closed_on_invalid_json", str(invalid))
+        finally:
+            globals()["_run_tool"] = original_run_tool
+            globals()["_count_py_lines"] = original_count_py_lines
+
+    total = 8; passed = total - len(fails)
     print(f"\n  {passed}/{total} tests pasaron")
     if fails: raise SystemExit(1)
 
