@@ -2,7 +2,11 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 91 CLI commands · 222 tools
+> **Version 3.4.0b1**
+>
+> Public command contract (CI-checked): **12 core** · **39 experimental** · **7 dangerous** · **28 legacy**
+>
+> Full auto-generated command reference: [`docs/COMMANDS.md`](docs/COMMANDS.md)
 
 ---
 
@@ -51,7 +55,7 @@ bago validate
 
 ## 3. Core commands (stable, CI-tested)
 
-These 12 commands form the **stable public interface**.
+These commands form the **stable public interface**.
 
 | Command | Purpose |
 |---|---|
@@ -96,10 +100,10 @@ These 12 commands form the **stable public interface**.
 
 ## 6. Experimental commands (not part of the contract)
 
-`ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
-`find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp` · `music`
-`naming` · `next` · `reopen` · `repo` · `research` · `review` · `risk` · `rules`
-`select` · `sprint` · `sprite-studio` · `types` · `why` · `workflow`
+`ableton-template` · `ask` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps` · `diff`
+`docs` · `find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp` · `music`
+`naming` · `next` · `recientes` · `reopen` · `repo` · `research` · `review` · `risk` · `route` · `rules`
+`select` · `siembra` · `sprint` · `sprite-studio` · `types` · `version` · `why` · `workflow`
 
 ---
 

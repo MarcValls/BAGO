@@ -5,9 +5,8 @@ Agrega findings de scanners BAGO y, opcionalmente, resultados SARIF/CodeQL
 para producir un reporte confiable tanto en local como en CI.
 
 Uso:
-    bago review [TARGET] [--branch BRANCH] [--format text|md|json]
-                [--out FILE] [--min-score N] [--changed-only] [--base REF]
-                [--ci] [--sarif FILE] [--test]
+    bago code-review [DIR] [--branch BRANCH] [--format text|md|html]
+                     [--out FILE] [--min-score N] [--ci] [--test]
 
 Exit codes:
     0  Veredicto mergeable, o review-required fuera de CI
@@ -24,30 +23,97 @@ import time
 from pathlib import Path
 from typing import Any
 
-from findings_engine import parse_sarif
+import findings_engine as fe
 
-_GRN = "\033[0;32m"
-_YEL = "\033[0;33m"
-_RED = "\033[0;31m"
-_DIM = "\033[2m"
-_RST = "\033[0m"
+_GRN  = "\033[0;32m"
+_YEL  = "\033[0;33m"
+_RED  = "\033[0;31m"
+_RST  = "\033[0m"
 _BOLD = "\033[1m"
 
 TOOLS_DIR = Path(__file__).parent
-REVIEW_COMMAND = "bago review"
-SCHEMA_VERSION = 1
-DEFAULT_MIN_SCORE = 60
-CI_MIN_SCORE = 80
-MAX_SCORE = 100
-SEVERITY_WEIGHTS = {"error": 3, "warning": 2, "info": 1, "hint": 1}
-TEXT_STATUS = {"ok": "OK", "warn": "WARN", "fail": "FAIL", "skipped": "SKIP"}
-CHECK_SPECS = [
-    {"id": "lint", "name": "BAGO Lint", "tool": "scan.py", "args": ["--format", "json"]},
-    {"id": "complexity", "name": "Complexity (high)", "tool": "complexity.py", "args": ["--min", "11", "--format", "json"]},
-    {"id": "secrets", "name": "Secret Scan", "tool": "secret_scan.py", "args": ["--json"]},
-    {"id": "dead_code", "name": "Dead Code", "tool": "dead_code.py", "args": ["--json"]},
-    {"id": "duplicates", "name": "Duplicate Check", "tool": "duplicate_check.py", "args": ["--format", "json"]},
-]
+STATUS_OK = "ok"
+STATUS_WARN = "warn"
+STATUS_FAIL = "fail"
+STATUS_ERROR = "error"
+STATUS_SKIPPED = "skipped"
+PARSE_OK = "ok"
+PARSE_NOT_ATTEMPTED = "not_attempted"
+PARSE_INVALID_JSON = "invalid_json"
+PARSE_INVALID_SARIF = "invalid_sarif"
+
+SCANNER_DEFS = (
+    {
+        "key": "lint",
+        "name": "BAGO Lint",
+        "tool": "scan.py",
+        "args": ["{directory}", "--quiet", "--format", "json"],
+        "parser": "json",
+        "critical": True,
+        "warn_threshold": 10,
+        "fail_threshold": 10,
+        "detail_limit": 5,
+        "score_multiplier": 1,
+        "score_divisor": 1,
+        "block_on_statuses": {STATUS_ERROR},
+    },
+    {
+        "key": "complexity",
+        "name": "Complexity (high)",
+        "tool": "complexity.py",
+        "args": ["{directory}", "--min", "11", "--format", "json"],
+        "parser": "json",
+        "critical": True,
+        "warn_threshold": 5,
+        "fail_threshold": 5,
+        "detail_limit": 5,
+        "score_multiplier": 1,
+        "score_divisor": 1,
+        "block_on_statuses": {STATUS_ERROR},
+    },
+    {
+        "key": "secrets",
+        "name": "Secret Scan",
+        "tool": "secret_scan.py",
+        "args": ["{directory}", "--json"],
+        "parser": "json",
+        "critical": True,
+        "warn_threshold": 1,
+        "fail_threshold": 1,
+        "detail_limit": 3,
+        "score_multiplier": 3,
+        "score_divisor": 1,
+        "block_on_statuses": {STATUS_FAIL, STATUS_ERROR},
+    },
+    {
+        "key": "dead_code",
+        "name": "Dead Code",
+        "tool": "dead_code.py",
+        "args": ["{directory}", "--json"],
+        "parser": "json",
+        "critical": True,
+        "warn_threshold": 10,
+        "fail_threshold": 10,
+        "detail_limit": 3,
+        "score_multiplier": 1,
+        "score_divisor": 2,
+        "block_on_statuses": {STATUS_ERROR},
+    },
+    {
+        "key": "duplicates",
+        "name": "Duplicate Check",
+        "tool": "duplicate_check.py",
+        "args": ["{directory}", "--format", "json"],
+        "parser": "json",
+        "critical": True,
+        "warn_threshold": 3,
+        "fail_threshold": 3,
+        "detail_limit": 3,
+        "score_multiplier": 1,
+        "score_divisor": 1,
+        "block_on_statuses": {STATUS_ERROR},
+    },
+)
 
 
 def _run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[int, str, str]:
@@ -81,6 +147,112 @@ def _git(args: list[str], cwd: str) -> tuple[int, str, str]:
         return result.returncode, result.stdout.strip(), result.stderr.strip()
     except Exception as exc:  # pragma: no cover - defensive wrapper
         return -1, "", str(exc)
+
+
+def _scanner_specs(directory: str) -> list[dict]:
+    specs = []
+    for spec in SCANNER_DEFS:
+        specs.append({
+            **spec,
+            "args": [directory if arg == "{directory}" else arg for arg in spec["args"]],
+        })
+    return specs
+
+
+def _summarize_stderr(stderr: str, limit: int = 200) -> str:
+    summary = " | ".join(line.strip() for line in stderr.splitlines() if line.strip())
+    return summary[:limit]
+
+
+def _parse_json_output(output: str) -> tuple[int, list[dict]]:
+    if not output.strip():
+        raise ValueError("empty output")
+    data = json.loads(output)
+    if isinstance(data, list):
+        return len(data), data
+    if not isinstance(data, dict):
+        raise ValueError("JSON root must be a list or object")
+    findings = data.get("findings")
+    if findings is None:
+        findings = data.get("results")
+    if not isinstance(findings, list):
+        raise ValueError("JSON payload missing findings list")
+    summary = data.get("summary", {})
+    count = data.get("total")
+    if not isinstance(count, int) and isinstance(summary, dict):
+        count = summary.get("total")
+    if not isinstance(count, int):
+        count = len(findings)
+    return count, findings
+
+
+def _parse_sarif_output(output: str, root: str) -> tuple[int, list[dict]]:
+    findings = fe.parse_sarif(output, root=root, strict=True)
+    return len(findings), [f.to_dict() for f in findings]
+
+
+def _status_from_findings(count: int, spec: dict) -> str:
+    if count <= 0:
+        return STATUS_OK
+    if count >= spec["fail_threshold"]:
+        return STATUS_FAIL
+    return STATUS_WARN
+
+
+def _error_section(spec: dict, rc: int, err: str, elapsed_s: float, parse_status: str) -> dict:
+    return {
+        "name": spec["name"],
+        "tool": spec["tool"],
+        "critical": spec["critical"],
+        "findings": 0,
+        "status": STATUS_ERROR,
+        "details": [],
+        "return_code": rc,
+        "stderr_summary": _summarize_stderr(err),
+        "elapsed_s": elapsed_s,
+        "parse_status": parse_status,
+    }
+
+
+def _run_scanner(spec: dict, cwd: str) -> tuple[dict, int, bool]:
+    started = time.time()
+    rc, out, err = _run_tool(spec["tool"], spec["args"], cwd)
+    elapsed_s = round(time.time() - started, 3)
+    if rc in (-1, -2, -3):
+        return _error_section(spec, rc, err, elapsed_s, PARSE_NOT_ATTEMPTED), 0, True
+
+    try:
+        if spec["parser"] == "sarif":
+            findings_count, details = _parse_sarif_output(out, root=cwd)
+            parse_status = PARSE_OK
+        else:
+            findings_count, details = _parse_json_output(out)
+            parse_status = PARSE_OK
+    except json.JSONDecodeError as exc:
+        return _error_section(spec, rc, f"{err} {exc}".strip(), elapsed_s, PARSE_INVALID_JSON), 0, True
+    except ValueError as exc:
+        parse_status = PARSE_INVALID_SARIF if spec["parser"] == "sarif" else PARSE_INVALID_JSON
+        return _error_section(spec, rc, f"{err} {exc}".strip(), elapsed_s, parse_status), 0, True
+
+    if rc not in (0, 1):
+        return _error_section(spec, rc, err or f"unexpected return code: {rc}", elapsed_s, parse_status), 0, True
+
+    status = _status_from_findings(findings_count, spec)
+    weighted_findings = (findings_count * spec["score_multiplier"]) // spec["score_divisor"]
+    section = {
+        "name": spec["name"],
+        "tool": spec["tool"],
+        "critical": spec["critical"],
+        "findings": findings_count,
+        "status": status,
+        "details": details[:spec["detail_limit"]],
+        "return_code": rc,
+        "stderr_summary": _summarize_stderr(err),
+        "elapsed_s": elapsed_s,
+        "parse_status": parse_status,
+    }
+    blocked = spec["critical"] and status in spec["block_on_statuses"]
+    return section, weighted_findings, blocked
 
 
 def _score_from_findings(findings_count: int, total_lines: int) -> int:
@@ -149,340 +321,38 @@ def _count_lines(scope_root: Path, scope_files: list[str] | None = None) -> int:
     return total
 
 
-def _severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:
-    counts = {"error": 0, "warning": 0, "info": 0, "hint": 0}
-    for finding in findings:
-        severity = str(finding.get("severity", "warning")).lower()
-        if severity not in counts:
-            severity = "warning"
-        counts[severity] += 1
-    return counts
+def run_reviews(directory: str, branch: str = "") -> dict:
+    """Ejecuta todos los scanners y agrega resultados."""
+    start     = time.time()
+    sections  = {}
+    total_findings = 0
+    blocker_count = 0
+
+    for spec in _scanner_specs(directory):
+        section, weighted_findings, blocked = _run_scanner(spec, directory)
+        sections[spec["key"]] = section
+        total_findings += weighted_findings
+        blocker_count += 1 if blocked else 0
 
 
-def _weighted_findings(findings: list[dict[str, Any]]) -> int:
-    counts = _severity_counts(findings)
-    return sum(counts[severity] * SEVERITY_WEIGHTS[severity] for severity in counts)
-
-
-def _filter_findings_to_scope(
-    findings: list[dict[str, Any]],
-    scope_root: Path,
-    scope_files: list[str] | None,
-) -> list[dict[str, Any]]:
-    if scope_files is None:
-        normalized = []
-        for finding in findings:
-            item = dict(finding)
-            item["file"] = _normalize_scope_path(str(item.get("file", "")), scope_root)
-            normalized.append(item)
-        return normalized
-
-    allowed = set(scope_files)
-    filtered: list[dict[str, Any]] = []
-    for finding in findings:
-        item = dict(finding)
-        rel_path = _normalize_scope_path(str(item.get("file", "")), scope_root)
-        item["file"] = rel_path
-        if rel_path in allowed:
-            filtered.append(item)
-    return filtered
-
-
-def _make_check(
-    *,
-    check_id: str,
-    name: str,
-    tool: str,
-    findings: list[dict[str, Any]],
-    error: str = "",
-    detail_limit: int = 5,
-) -> dict[str, Any]:
-    sev = _severity_counts(findings)
-    if sev["error"] > 0:
-        status = "fail"
-    elif findings:
-        status = "warn"
-    elif error:
-        status = "skipped"
-    else:
-        status = "ok"
-
-    return {
-        "id": check_id,
-        "name": name,
-        "tool": tool,
-        "status": status,
-        "findings": len(findings),
-        "by_severity": _severity_counts(findings),
-        "details": findings[:detail_limit],
-        "error": error,
-    }
-
-
-def _collect_tool_check(
-    spec: dict[str, Any],
-    scope_root: Path,
-    scope_files: list[str] | None = None,
-) -> dict[str, Any]:
-    target = str(scope_root)
-    cwd = str(scope_root if scope_root.is_dir() else scope_root.parent)
-    rc, out, err = _run_tool(spec["tool"], [target] + spec["args"], cwd)
-    if rc < 0:
-        return _make_check(
-            check_id=spec["id"],
-            name=spec["name"],
-            tool=spec["tool"],
-            findings=[],
-            error=err or f"failed to execute {spec['tool']}",
-        )
-    try:
-        raw_payload = json.loads(out) if out.strip() else []
-        if isinstance(raw_payload, dict):
-            raw_findings = raw_payload.get("findings", [])
-        else:
-            raw_findings = raw_payload
-        if not isinstance(raw_findings, list):
-            raise TypeError("JSON output does not contain a findings list")
-    except Exception as exc:
-        return _make_check(
-            check_id=spec["id"],
-            name=spec["name"],
-            tool=spec["tool"],
-            findings=[],
-            error=err or f"invalid JSON output: {exc}",
-        )
-
-    filtered = _filter_findings_to_scope(raw_findings, scope_root, scope_files)
-    return _make_check(
-        check_id=spec["id"],
-        name=spec["name"],
-        tool=spec["tool"],
-        findings=filtered,
-        error="" if rc == 0 else (err or f"rc={rc}"),
-    )
-
-
-def _collect_sarif_check(
-    scope_root: Path,
-    sarif_paths: list[str],
-    scope_files: list[str] | None = None,
-) -> dict[str, Any]:
-    findings: list[dict[str, Any]] = []
-    errors: list[str] = []
-    for sarif_path in sarif_paths:
-        candidate = Path(sarif_path)
-        if not candidate.exists():
-            errors.append(f"missing SARIF file: {sarif_path}")
-            continue
-        try:
-            parsed = parse_sarif(candidate.read_text(encoding="utf-8"), root=str(scope_root))
-            findings.extend([finding.to_dict() for finding in parsed])
-        except Exception as exc:
-            errors.append(f"{sarif_path}: {exc}")
-    filtered = _filter_findings_to_scope(findings, scope_root, scope_files)
-    return _make_check(
-        check_id="sarif",
-        name="SARIF / CodeQL",
-        tool="sarif",
-        findings=filtered,
-        error="; ".join(errors),
-    )
-
-
-def _resolve_scope_files(scope_root: Path, base_ref: str) -> list[str]:
-    git_cwd = str(scope_root if scope_root.is_dir() else scope_root.parent)
-    rc_root, repo_root_out, repo_root_err = _git(["rev-parse", "--show-toplevel"], git_cwd)
-    if rc_root != 0 or not repo_root_out:
-        raise ValueError(repo_root_err or "git root not found")
-
-    repo_root = Path(repo_root_out)
-    target_abs = scope_root.resolve()
-    if target_abs == repo_root:
-        rel_target = "."
-    else:
-        try:
-            rel_target = target_abs.relative_to(repo_root).as_posix()
-        except ValueError as exc:
-            raise ValueError(f"target fuera del repo git: {target_abs}") from exc
-
-    diff_args = ["diff", "--name-only", "--diff-filter=ACMR", f"{base_ref}...HEAD"]
-    if rel_target != ".":
-        diff_args.extend(["--", rel_target])
-    rc_diff, out_diff, err_diff = _git(diff_args, str(repo_root))
-    if rc_diff != 0:
-        raise ValueError(err_diff or f"no se pudo calcular diff contra {base_ref}")
-
-    scope_files: list[str] = []
-    for line in out_diff.splitlines():
-        changed = line.strip()
-        if not changed:
-            continue
-        changed_abs = (repo_root / changed).resolve()
-        if scope_root.is_file():
-            if changed_abs == target_abs:
-                scope_files.append(target_abs.name)
-            continue
-        try:
-            rel_path = changed_abs.relative_to(target_abs).as_posix()
-        except ValueError:
-            continue
-        if rel_path and changed_abs.exists():
-            scope_files.append(rel_path)
-    return sorted(set(scope_files))
-
-
-def _detect_branch(scope_root: Path, branch: str) -> str:
-    if branch:
-        return branch
-    git_cwd = str(scope_root if scope_root.is_dir() else scope_root.parent)
-    rc, out, _ = _git(["rev-parse", "--abbrev-ref", "HEAD"], git_cwd)
-    return out if rc == 0 else ""
-
-
-def _build_verdict(
-    *,
-    score: int,
-    min_score: int,
-    checks: list[dict[str, Any]],
-    total_findings: int,
-) -> dict[str, Any]:
-    blocking = sum(check["by_severity"]["error"] for check in checks)
-    warnings = sum(check["by_severity"]["warning"] for check in checks)
-    skipped = sum(1 for check in checks if check["status"] == "skipped")
-
-    if blocking > 0 or score < min_score:
-        verdict_id = "not-mergeable"
-        label = "NOT MERGEABLE"
-        mergeable = False
-        if blocking > 0:
-            reason = f"{blocking} blocking finding(s)"
-        else:
-            reason = f"score {score} below min-score {min_score}"
-    elif warnings > 0 or skipped > 0:
-        verdict_id = "review-required"
-        label = "REVIEW REQUIRED"
-        mergeable = False
-        if warnings > 0:
-            reason = f"{warnings} warning finding(s)"
-        else:
-            reason = f"{skipped} check(s) skipped"
-    else:
-        verdict_id = "mergeable"
-        label = "MERGEABLE"
-        mergeable = True
-        reason = "No blocking findings"
-
-    return {
-        "id": verdict_id,
-        "label": label,
-        "mergeable": mergeable,
-        "reason": reason,
-        "score": score,
-        "min_score": min_score,
-        "total_findings": total_findings,
-    }
-
-
-def run_reviews(
-    directory: str,
-    branch: str = "",
-    *,
-    min_score: int = DEFAULT_MIN_SCORE,
-    changed_only: bool = False,
-    base_ref: str = "origin/main",
-    ci: bool = False,
-    sarif_paths: list[str] | None = None,
-) -> dict[str, Any]:
-    """Ejecuta checks y construye un reporte estable para `bago review`."""
-    start = time.time()
-    scope_root = Path(directory).resolve()
-    scope_files: list[str] | None = None
-    scope_error = ""
-
-    if changed_only:
-        try:
-            scope_files = _resolve_scope_files(scope_root, base_ref)
-        except ValueError as exc:
-            scope_error = str(exc)
-            scope_files = []
-
-    checks = [_collect_tool_check(spec, scope_root, scope_files) for spec in CHECK_SPECS]
-    if sarif_paths:
-        checks.append(_collect_sarif_check(scope_root, sarif_paths, scope_files))
-
-    total_lines = _count_lines(scope_root, scope_files)
-    total_findings = sum(check["findings"] for check in checks)
-    weighted = sum(
-        check["by_severity"]["error"] * SEVERITY_WEIGHTS["error"]
-        + check["by_severity"]["warning"] * SEVERITY_WEIGHTS["warning"]
-        + check["by_severity"]["info"] * SEVERITY_WEIGHTS["info"]
-        + check["by_severity"]["hint"] * SEVERITY_WEIGHTS["hint"]
-        for check in checks
-    )
-    score = _score_from_findings(weighted, total_lines)
-    verdict = _build_verdict(score=score, min_score=min_score, checks=checks, total_findings=total_findings)
-
-    if scope_error:
-        verdict = {
-            "id": "not-mergeable",
-            "label": "NOT MERGEABLE",
-            "mergeable": False,
-            "reason": scope_error,
-            "score": score,
-            "min_score": min_score,
-            "total_findings": total_findings,
-        }
+    # Penalizar si hay secretos (crítico)
+    if sections.get("secrets", {}).get("findings", 0) > 0:
+        score = min(score, 30)
 
     elapsed = round(time.time() - start, 1)
-    by_severity = {
-        "error": sum(check["by_severity"]["error"] for check in checks),
-        "warning": sum(check["by_severity"]["warning"] for check in checks),
-        "info": sum(check["by_severity"]["info"] for check in checks),
-        "hint": sum(check["by_severity"]["hint"] for check in checks),
-    }
-    check_counts = {
-        "ok": sum(1 for check in checks if check["status"] == "ok"),
-        "warn": sum(1 for check in checks if check["status"] == "warn"),
-        "fail": sum(1 for check in checks if check["status"] == "fail"),
-        "skipped": sum(1 for check in checks if check["status"] == "skipped"),
-    }
-    scope_file_count = len(scope_files) if scope_files is not None else sum(1 for _ in _iter_scope_files(scope_root))
+    verdict = "❌ NO MERGE" if blocker_count > 0 or score < 60 else "✅ MERGE OK"
 
-    report = {
-        "schema_version": SCHEMA_VERSION,
-        "command": REVIEW_COMMAND,
-        "target": str(scope_root),
-        "branch": _detect_branch(scope_root, branch),
-        "timestamp": int(time.time()),
-        "elapsed_s": elapsed,
-        "score": score,
-        "total_lines": total_lines,
+    return {
+        "directory":    directory,
+        "branch":       branch,
+        "timestamp":    int(time.time()),
+        "elapsed_s":    elapsed,
+        "score":        score,
+        "blocker_count": blocker_count,
+        "total_lines":  total_lines,
         "total_findings": total_findings,
-        "mode": {
-            "ci": ci,
-            "changed_only": changed_only,
-            "base_ref": base_ref if changed_only else "",
-            "sarif_inputs": sarif_paths or [],
-        },
-        "scope": {
-            "root": str(scope_root),
-            "kind": "file" if scope_root.is_file() else "directory",
-            "files": scope_files or [],
-            "file_count": scope_file_count,
-        },
-        "summary": {
-            "score": score,
-            "max_score": MAX_SCORE,
-            "min_score": min_score,
-            "weighted_findings": weighted,
-            "total_findings": total_findings,
-            "by_severity": by_severity,
-            "checks": check_counts,
-        },
-        "checks": checks,
-        "sections": {check["id"]: check for check in checks},
-        "verdict": verdict,
-        "verdict_label": verdict["label"],
+        "sections":     sections,
+        "verdict":      verdict,
     }
     return report
 
@@ -507,24 +377,19 @@ def generate_text(report: dict[str, Any]) -> str:
         else f"{scope['file_count']} file(s) in scope"
     )
     lines = [
-        f"{_BOLD}╔══ BAGO Review ══╗{_RST}",
-        f"  Command: {REVIEW_COMMAND}",
-        f"  Score:   {color}{score}/{MAX_SCORE}{_RST}",
-        f"  Verdict: {_BOLD}{verdict['label']}{_RST} {_DIM}({verdict['reason']}){_RST}",
-        f"  Scope:   {scope_note}",
-        f"  Lines:   {report['total_lines']}  |  Findings: {report['total_findings']}  |  Time: {report['elapsed_s']}s",
+        f"{_BOLD}╔══ BAGO Code Review ══╗{_RST}",
+        f"  Score:   {color}{sc}/100{_RST}",
+        f"  Verdict: {_BOLD}{report['verdict']}{_RST}",
+        f"  Lines:   {report['total_lines']}  |  Findings: {report['total_findings']}  |  Blockers: {report['blocker_count']}  |  Time: {report['elapsed_s']}s",
         "",
     ]
-    for check in report["checks"]:
-        sev = check["by_severity"]
-        color = _GRN if check["status"] == "ok" else (_YEL if check["status"] == "warn" else (_RED if check["status"] == "fail" else _DIM))
+    for key, sec in report["sections"].items():
+        icon = "✅" if sec["status"] == STATUS_OK else ("⚠️" if sec["status"] == STATUS_WARN else ("⏭️" if sec["status"] == STATUS_SKIPPED else "❌"))
         lines.append(
-            f"  {color}{TEXT_STATUS[check['status']]:4s}{_RST} {check['name']:18s} "
-            f"findings={check['findings']} errors={sev['error']} warnings={sev['warning']}"
+            f"  {icon} {sec['name']:20s} findings={sec['findings']} status={sec['status']} "
+            f"rc={sec['return_code']} parse={sec['parse_status']} time={sec['elapsed_s']}s"
         )
-        if check["error"]:
-            lines.append(f"       {_DIM}{check['error']}{_RST}")
-    lines += ["", f"  {_BOLD}{'─' * 48}{_RST}"]
+    lines += ["", f"  {_BOLD}{'─'*40}{_RST}"]
     return "\n".join(lines)
 
 
@@ -533,46 +398,16 @@ def generate_markdown(report: dict[str, Any]) -> str:
     scope = report["scope"]
     mode = report["mode"]
     lines = [
-        "# BAGO Review",
-        "",
-        f"**Command:** `{REVIEW_COMMAND}`",
-        "",
-        f"**Verdict:** {_verdict_icon(verdict)} {verdict['label']}  |  **Score:** {report['score']}/{MAX_SCORE}  |  **Threshold:** {report['summary']['min_score']}",
-        "",
-        f"**Reason:** {verdict['reason']}",
-        "",
-        f"**Scope:** `{scope['root']}` · {scope['file_count']} file(s)"
-        + (f" changed since `{mode['base_ref']}`" if mode["changed_only"] else ""),
-        "",
-        "| Check | Status | Findings | Errors | Warnings | Notes |",
-        "|-------|--------|----------|--------|----------|-------|",
+        f"# BAGO Code Review",
+        f"",
+        f"**Score:** {badge} {sc}/100  |  **Verdict:** {report['verdict']}  |  **Blockers:** {report['blocker_count']}",
+        f"",
+        f"| Scanner | Findings | Status | RC | Parse |",
+        f"|---------|----------|--------|----|-------|",
     ]
-    for check in report["checks"]:
-        note = check["error"] or "—"
-        lines.append(
-            f"| {check['name']} | {TEXT_STATUS[check['status']]} | {check['findings']} | "
-            f"{check['by_severity']['error']} | {check['by_severity']['warning']} | {note} |"
-        )
-
-    interesting = []
-    for check in report["checks"]:
-        for finding in check["details"]:
-            interesting.append((finding.get("severity", "warning"), finding, check["name"]))
-
-    if interesting:
-        lines += [
-            "",
-            "## Top findings",
-            "",
-            "| Severity | Check | Rule | File | Line | Message |",
-            "|----------|-------|------|------|------|---------|",
-        ]
-        for severity, finding, check_name in interesting[:10]:
-            lines.append(
-                f"| {severity} | {check_name} | {finding.get('rule', '')} | "
-                f"{finding.get('file', '')} | {finding.get('line', 0)} | {finding.get('message', '')} |"
-            )
-
+    for sec in report["sections"].values():
+        icon = "✅" if sec["status"] == STATUS_OK else ("⚠️" if sec["status"] == STATUS_WARN else ("⏭️" if sec["status"] == STATUS_SKIPPED else "❌"))
+        lines.append(f"| {sec['name']} | {sec['findings']} | {sec['status']} {icon} | {sec['return_code']} | {sec['parse_status']} |")
     lines += [
         "",
         "---",
@@ -581,20 +416,31 @@ def generate_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("directory", nargs="?", default="./")
-    parser.add_argument("--branch", default="")
-    parser.add_argument("--format", choices=["text", "md", "json"], default="text")
-    parser.add_argument("--out", default=None)
-    parser.add_argument("--min-score", type=int, default=DEFAULT_MIN_SCORE)
-    parser.add_argument("--changed-only", action="store_true")
-    parser.add_argument("--base", default="origin/main")
-    parser.add_argument("--ci", action="store_true")
-    parser.add_argument("--sarif", action="append", default=[])
-    parser.add_argument("--test", action="store_true")
-    parser.add_argument("-h", "--help", action="help")
-    return parser.parse_args(argv)
+def main(argv: list[str]) -> int:
+    directory  = "./"
+    branch     = ""
+    fmt        = "text"
+    out_file   = None
+    min_score  = 60
+    ci_mode    = False
+
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--branch" and i + 1 < len(argv):
+            branch = argv[i + 1]; i += 2
+        elif a == "--format" and i + 1 < len(argv):
+            fmt = argv[i + 1]; i += 2
+        elif a == "--out" and i + 1 < len(argv):
+            out_file = argv[i + 1]; i += 2
+        elif a == "--min-score" and i + 1 < len(argv):
+            min_score = int(argv[i + 1]); i += 2
+        elif a == "--ci":
+            ci_mode = True; i += 1
+        elif not a.startswith("--"):
+            directory = a; i += 1
+        else:
+            i += 1
 
 
 def main(argv: list[str]) -> int:
@@ -636,9 +482,13 @@ def main(argv: list[str]) -> int:
     else:
         print(content)
 
-    if args.ci:
-        return 0 if report["verdict"]["mergeable"] else 1
-    return 0 if report["verdict"]["id"] != "not-mergeable" else 1
+    if report["blocker_count"] > 0:
+        return 1
+    if report["score"] < min_score:
+        return 1
+    if ci_mode and report["verdict"] != "✅ MERGE OK":
+        return 1
+    return 0
 
 
 def _self_test() -> None:
@@ -650,16 +500,61 @@ def _self_test() -> None:
     def ok(name: str) -> None:
         print(f"  OK: {name}")
 
-    def fail(name: str, message: str) -> None:
-        fails.append(name)
-        print(f"  FAIL: {name}: {message}")
+        original_run_tool = _run_tool
 
-    with tempfile.TemporaryDirectory() as td:
-        root = Path(td)
-        (root / "clean.py").write_text(
-            '"""Módulo limpio."""\ndef add(a, b):\n    """Suma."""\n    return a + b\n',
-            encoding="utf-8",
-        )
+        def fake_run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[int, str, str]:
+            outputs = {
+                "scan.py": (0, json.dumps({"summary": {"total": 0}, "findings": []}), ""),
+                "complexity.py": (0, "[]", ""),
+                "secret_scan.py": (0, json.dumps({"total": 0, "findings": []}), ""),
+                "dead_code.py": (0, json.dumps({"total": 0, "findings": []}), ""),
+                "duplicate_check.py": (0, "[]", ""),
+            }
+            return outputs[tool]
+
+        globals()["_run_tool"] = fake_run_tool
+
+        try:
+            # T1 — run_reviews retorna score
+            report = run_reviews(td)
+            if "score" in report and 0 <= report["score"] <= 100:
+                ok("code_review:score_range")
+            else:
+                fail("code_review:score_range", str(report.get("score")))
+
+            # T2 — verdict presente
+            if "verdict" in report and ("MERGE" in report["verdict"] or "NO" in report["verdict"]):
+                ok("code_review:verdict_present")
+            else:
+                fail("code_review:verdict_present", str(report.get("verdict")))
+
+            # T3 — sections contiene los 5 scanners
+            secs = set(report.get("sections", {}).keys())
+            expected = {"lint", "complexity", "secrets", "dead_code", "duplicates"}
+            if expected <= secs:
+                ok("code_review:sections_complete")
+            else:
+                fail("code_review:sections_complete", f"missing={expected - secs}")
+
+            # T4 — clean code da score alto
+            if report["score"] >= 60 and report["blocker_count"] == 0:
+                ok("code_review:clean_code_score")
+            else:
+                fail("code_review:clean_code_score", f"score={report['score']} blockers={report['blocker_count']}")
+
+            # T5 — markdown generado
+            md = generate_markdown(report)
+            if "BAGO Code Review" in md and "Blockers" in md:
+                ok("code_review:markdown_generated")
+            else:
+                fail("code_review:markdown_generated", md[:80])
+
+            # T6 — _score_from_findings lógica
+            assert _score_from_findings(0, 1000) == 100
+            assert _score_from_findings(100, 100) <= 40
+            ok("code_review:score_function")
+        finally:
+            globals()["_run_tool"] = original_run_tool
 
         def fake_run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60):  # noqa: ARG001
             findings = {
