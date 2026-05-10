@@ -74,10 +74,10 @@ These commands exist and may be useful, but they are **not contractual**:
 - Behavior and flags may change.
 - They are not covered by CI gate tests.
 
-**Experimental (31):**
+**Experimental (32):**
 
 `ask` · `chronicle` · `config-check` · `dashboard` · `debt` · `deps` · `diff`
-`find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp`
+`find-tool` · `goals` · `habit` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `lsp` · `music`
 `naming` · `next` · `reopen` · `repo` · `research` · `review` · `risk` · `rules`
 `select` · `sprint` · `sprite-studio` · `types` · `why` · `workflow`
 

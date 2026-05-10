@@ -273,6 +273,11 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Router lenguaje natural → tools BAGO",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "intent_router.py"))],
     ),
+    "music": ToolEntry(
+        cmd="music", module="bago_music",
+        description="Router del pipeline musical: plan | convert | run | inventory | transpose | validate | render",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_music.py"))],
+    ),
     "rules": ToolEntry(
         cmd="rules", module="rule_catalog",
         description="Catálogo de reglas BAGO",
@@ -650,6 +655,7 @@ _LAYER_MAP: dict[str, str] = {
     "llm": "avanzado", "lsp": "avanzado", "orchestrate": "avanzado",
     "cabinet": "avanzado", "rules": "avanzado", "db": "avanzado",
     "peer": "avanzado", "find-tool": "avanzado", "ask": "avanzado",
+    "music": "avanzado",
     "why": "avanzado", "research": "avanzado", "install": "avanzado",
     "hello": "avanzado", "git": "avanzado",
     "siembra": "salud",
@@ -675,6 +681,7 @@ _SCOPE_MAP: dict[str, str] = {
     "deps": "project", "code-quality": "project",
     "image-studio": "project", "sprite-studio": "project",
     "image_gen": "project", "lsp": "project", "git": "project",
+    "music": "project",
     # both — opera sobre el framework Y/O proyectos
     "start": "both", "next": "both", "ideas": "both", "select": "both",
     "session": "both", "task": "both", "done": "both", "flow": "both",
@@ -726,6 +733,7 @@ _AGENT_MAP: dict[str, str] = {
     "flow":           "ARQUITECTO",
     "cabinet":        "ARQUITECTO",
     "orchestrate":    "ARQUITECTO",
+    "music":          "ARQUITECTO",
     "repo-clone":     "ARQUITECTO",
     "llm":            "ARQUITECTO",
     "project-init":   "ARQUITECTO",

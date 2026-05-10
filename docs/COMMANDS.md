@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-07 22:10 UTC
+> Last generated: 2026-05-10 01:43 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 35 |
+| 🧪 Experimental | 37 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **54** |
+| **Total active** | **56** |
 
 ---
 
@@ -63,6 +63,7 @@ Actively developed. May change between minor versions.
 | `bago insights` | Análisis de patrones e insights del historial de sesiones BAGO | 📊 analítica | safe | optional |
 | `bago llm` | Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows) | 🔬 avanzado | safe | optional |
 | `bago lsp` | Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código | 🔬 avanzado | safe | optional |
+| `bago music` | Router del pipeline musical: plan \| convert \| run \| inventory \| transpose \| validate \| render | 🔬 avanzado | safe | optional |
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | ▶️ ejecución | safe | optional |
 | `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | 📊 analítica | safe | optional |
@@ -71,6 +72,7 @@ Actively developed. May change between minor versions.
 | `bago research` | Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada | 🔬 avanzado | safe | optional |
 | `bago review` | Code review automatizado — analiza cambios y genera feedback | 🔍 calidad | safe | optional |
 | `bago risk` | Matriz de riesgo del proyecto — evalúa impacto y probabilidad | 🔍 calidad | safe | optional |
+| `bago route` | Router hibrido balanceado/adaptativo: decide entre Ollama local, Codex y Copilot | 🔬 avanzado | safe | optional |
 | `bago rules` | Catálogo de reglas BAGO | 🔬 avanzado | safe | optional |
 | `bago select` | Selector interactivo de ideas por slot con plan de implementación | ▶️ ejecución | safe | optional |
 | `bago siembra` | Gestión de siembras BAGO v3.0: create \| list \| update \| diff \| sync \| status | 💚 salud | mutating | optional |
