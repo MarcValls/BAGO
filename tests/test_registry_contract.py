@@ -9,6 +9,7 @@ from tool_registry import REGISTRY
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 README = REPO_ROOT / "README.md"
+COMMANDS_DOC = REPO_ROOT / "docs" / "COMMANDS.md"
 REGISTRY_FILE = REPO_ROOT / ".bago" / "tools" / "tool_registry.py"
 
 
@@ -39,6 +40,39 @@ def _commands_from_table(section: str) -> set[str]:
 
 def _commands_from_inline_list(section: str) -> set[str]:
     return set(re.findall(r"`([a-z0-9_-]+)`", section))
+
+
+def _readme_public_contract_counts() -> dict[str, int]:
+    text = README.read_text(encoding="utf-8")
+    m = re.search(
+        r"Public command contract \(CI-checked\):\s*\*\*(\d+)\s+core\*\*\s*·\s*"
+        r"\*\*(\d+)\s+experimental\*\*\s*·\s*\*\*(\d+)\s+dangerous\*\*\s*·\s*"
+        r"\*\*(\d+)\s+legacy\*\*",
+        text,
+    )
+    assert m, "README public command contract line not found"
+    return {
+        "core": int(m.group(1)),
+        "experimental": int(m.group(2)),
+        "dangerous": int(m.group(3)),
+        "legacy": int(m.group(4)),
+    }
+
+
+def _commands_doc_summary_counts() -> dict[str, int]:
+    text = COMMANDS_DOC.read_text(encoding="utf-8")
+    patterns = {
+        "core": r"\|\s*⚙️\s+Core\s*\|\s*(\d+)\s*\|",
+        "experimental": r"\|\s*🧪\s+Experimental\s*\|\s*(\d+)\s*\|",
+        "dangerous": r"\|\s*⚠️\s+Dangerous\s*\|\s*(\d+)\s*\|",
+        "legacy": r"\|\s*🗄️\s+Legacy\s+\(deprecated\)\s*\|\s*(\d+)\s*\|",
+    }
+    counts: dict[str, int] = {}
+    for key, pattern in patterns.items():
+        m = re.search(pattern, text)
+        assert m, f"COMMANDS summary row not found for {key}"
+        counts[key] = int(m.group(1))
+    return counts
 
 
 def _registry_cmds_by_stability(stability: str) -> set[str]:
@@ -83,6 +117,16 @@ def test_readme_dangerous_commands_match_registry():
     assert readme_dangerous == registry_dangerous, (
         f"README dangerous mismatch: extra={sorted(readme_dangerous - registry_dangerous)}, "
         f"missing={sorted(registry_dangerous - readme_dangerous)}"
+    )
+
+
+def test_readme_experimental_commands_match_registry():
+    section = _readme_section("Experimental commands")
+    readme_experimental = _commands_from_inline_list(section)
+    registry_experimental = _registry_cmds_by_stability("experimental")
+    assert readme_experimental == registry_experimental, (
+        f"README experimental mismatch: extra={sorted(readme_experimental - registry_experimental)}, "
+        f"missing={sorted(registry_experimental - readme_experimental)}"
     )
 
 
