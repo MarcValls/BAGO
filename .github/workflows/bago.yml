@@ -64,9 +64,9 @@ jobs:
           from pathlib import Path
           sys.path.insert(0, '.bago/tools')
           from registry_ast_contract import analyze_registry_literal
-          reg = Path('.bago/tools/tool_registry.py')
+          reg = Path('.bago/tools/_registry_entries.py')
           if not reg.exists():
-              print('GATE-FAIL: tool_registry.py not found'); sys.exit(1)
+              print('GATE-FAIL: _registry_entries.py not found'); sys.exit(1)
           report = analyze_registry_literal(reg)
           if report.non_string_key_lines:
               print(f'GATE-FAIL: non-string REGISTRY keys at lines: {report.non_string_key_lines}')

@@ -46,9 +46,9 @@ if str(_TOOLS_DIR) not in sys.path:
 # ── Imports from sub-modules ───────────────────────────────────────────────────
 # Public re-exports — consumers import from tool_registry, not sub-modules.
 
-from _registry_models import PreflightCheck, ToolEntry          # noqa: E402
-from _registry_paths import BAGO_ROOT, PYTHON, REPO_ROOT, TOOLS_DIR  # noqa: E402
-from _registry_taxonomy import LAYERS, REGISTRY, SCOPE_BADGE   # noqa: E402
+from _registry_models import PreflightCheck, ToolEntry          # noqa: E402, F401
+from _registry_paths import BAGO_ROOT, PYTHON, REPO_ROOT, TOOLS_DIR  # noqa: E402, F401
+from _registry_taxonomy import LAYERS, REGISTRY, SCOPE_BADGE   # noqa: E402, F401
 
 # ── Internal tools — excluded from guardian / manifest / integration_tests ─────
 # Single canonical source; all other files should import this set.

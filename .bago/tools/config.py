@@ -284,7 +284,8 @@ def show_main(argv: list[str]) -> int:
     print(f"    Session:    {DIM(session_id[:20] + '...' if len(session_id) > 20 else session_id)}\n")
     task = info.get("task", {})
     if task.get("active"):
-        print(f"  {BOLD('Tarea activa:')}  {YELLOW(task['title'])}  {DIM(f'(prioridad {task['priority']})')}")
+        _priority = task.get('priority', '')
+        print(f"  {BOLD('Tarea activa:')}  {YELLOW(task['title'])}  {DIM(f'(prioridad {_priority})')}")
     else:
         print(f"  {BOLD('Tarea activa:')}  {DIM('ninguna')}")
     print()
