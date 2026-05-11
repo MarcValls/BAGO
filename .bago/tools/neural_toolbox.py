@@ -240,14 +240,18 @@ def _derive_profile(cmd: str, description: str, layer: str, scope: str) -> dict[
 def _score_tool(signal: dict[str, float], profile: dict[str, float]) -> float:
     """Calcula la afinidad entre un contexto y el perfil de una herramienta.
 
-    Función pura: dot-product normalizado. Retorna [0.0, 1.0].
+    Función pura: similitud coseno aproximada. Retorna [0.0, 1.0].
+    Normaliza por max(|signal|, |profile|) para penalizar herramientas con
+    muy pocos dominios frente a señales ricas en dimensiones.
     """
     if not signal or not profile:
         return 0.0
     dot = sum(signal.get(d, 0.0) * w for d, w in profile.items())
-    # Normalizar por la magnitud del perfil para no favorecer herramientas con muchos dominios
-    magnitude = sum(w for w in profile.values()) or 1.0
-    return min(dot / magnitude, 1.0)
+    # Normalización: penaliza coverage parcial — herramientas con pocos dominios
+    # no puntúan igual que las que cubren todo el espacio de señal
+    signal_mag = sum(signal.values()) or 1.0
+    profile_mag = sum(profile.values()) or 1.0
+    return min(dot / max(signal_mag, profile_mag), 1.0)
 
 
 def _activation_reasons(signal: dict[str, float], profile: dict[str, float]) -> list[str]:
