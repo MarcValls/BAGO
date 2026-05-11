@@ -165,6 +165,12 @@ Real projects built with BAGO workflows (W1 → W2 cycles, tracked via `bago ide
 |---|---|
 | [ISO_GAME](https://github.com/MarcValls/ISO_GAME) | Isometric game world pipeline in Python — A* pathfinding, pygame renderer, autotile, chunking, lighting. Built in 12 pipeline steps across W2 sessions. |
 | [BAGO_MUSIC_PIPELINE](https://github.com/MarcValls/BAGO_MUSIC_PIPELINE) | Music score pipeline — PDF/MIDI/MusicXML transposition engine, Karpovich + Disc Superstar synths, Ableton Live integration, MIDI device setup (loopMIDI + teVirtualMIDI). |
+| [BAGO_TELEGRAM_BOT](https://github.com/MarcValls/BAGO_TELEGRAM_BOT) | Full-featured Telegram bot — inline keyboards, task management, intent detection, MiniApp, WhatsApp + ntfy notifications. |
+| [BAGO_SPRITE_STUDIO](https://github.com/MarcValls/BAGO_SPRITE_STUDIO) | Procedural sprite generator for games — HF Spaces / Codex CLI backends, animation sheets, gallery. No API key required. |
+| [BAGO_WALLET_TRACKER](https://github.com/MarcValls/BAGO_WALLET_TRACKER) | Read-only crypto portfolio tracker + TON airdrop scanner. CoinGecko live prices, zero-custody model, stdlib only. |
+| [BAGO_NEURAL_FABRIC](https://github.com/MarcValls/BAGO_NEURAL_FABRIC) | Dynamic agent orchestration engine — SENSE/PLAN/ACT/OBSERVE/LEARN/DECIDE loop, dot-product tool activation, intent routing. |
+| [BAGO_WINDOWS_AUTOMATION](https://github.com/MarcValls/BAGO_WINDOWS_AUTOMATION) | Battle-tested Windows automation — Win32 mouse simulation, UAC auto-elevation, Task Scheduler, MIDI/ASIO audio setup. |
+| [BIANCA_THE_GAME](https://github.com/MarcValls/BIANCA_THE_GAME) | Narrative game engine — BIANCA: La Tejedora de Universos. 47 visual FX, procedural sprites, AudioManager (9 SFX), literary worlds. |
 
 ---
 
