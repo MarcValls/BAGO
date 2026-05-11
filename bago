@@ -858,6 +858,12 @@ def main():
             [sys.executable, str(TOOLS / "emit_ideas.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "agent":
+        # Multi-Agent Gateway — orquesta herramientas BAGO desde cualquier LLM
+        subprocess.run(
+            [sys.executable, str(BAGO_DIR / "agents" / "agent_gateway.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest

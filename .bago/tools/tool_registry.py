@@ -842,6 +842,26 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight_policy="optional",
         supports_dry_run=True,
     ),
+    # ── Multi-Agent Gateway ──────────────────────────────────────────────────
+    "agent": ToolEntry(
+        cmd="agent", module="agent_gateway",
+        description=(
+            "Multi-Agent Gateway: dispatch | list | status — "
+            "orquesta herramientas BAGO desde cualquier agente externo "
+            "(local, Ollama, MCP/Claude, Codex, cloud). "
+            "Adapters: local | ollama | mcp | codex | cloud"
+        ),
+        preflight=[
+            PreflightCheck("file", str(BAGO_ROOT / "agents" / "agent_gateway.py")),
+        ],
+        layer="infraestructura", scope="framework",
+        agent="ARQUITECTO",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=True,
+        layer_group="agents",
+    ),
 }
 
 
