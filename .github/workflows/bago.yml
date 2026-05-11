@@ -94,6 +94,7 @@ jobs:
           VALID_POL    = {'required','optional','none'}
           TOOLS_DIR    = Path('.bago/tools')
           CORE_DIR     = Path('.bago/core')
+          AGENTS_DIR   = Path('.bago/agents')
           SUPPORTS_DRY_RUN_ALLOWED = {'auto', 'autonomous'}
           errors = []
           for cmd, e in R.items():
@@ -108,8 +109,15 @@ jobs:
               mod_name = getattr(e,'module','')
               if mod_name and not getattr(e,'deprecated',False):
                   mod_file = mod_name + '.py'
-                  if not (TOOLS_DIR / mod_file).exists() and not (CORE_DIR / mod_file).exists():
-                      errors.append(f'{cmd}: module file {mod_file!r} not found in tools/ or core/')
+                  found = (
+                      (TOOLS_DIR / mod_file).exists()
+                      or (CORE_DIR / mod_file).exists()
+                      or (AGENTS_DIR / mod_file).exists()
+                      or (TOOLS_DIR / mod_name).is_dir()
+                      or (CORE_DIR / mod_name).is_dir()
+                  )
+                  if not found:
+                      errors.append(f'{cmd}: module {mod_name!r} not found in tools/, core/, or agents/')
               if getattr(e,'risk','') == 'dangerous' and getattr(e,'supports_dry_run',False):
                   if cmd not in SUPPORTS_DRY_RUN_ALLOWED:
                       errors.append(f'{cmd}: supports_dry_run=True but not in approved list {SUPPORTS_DRY_RUN_ALLOWED}')
