@@ -59,7 +59,7 @@ def _load_internal_tools_auto() -> set:
     return {
         "bago_utils.py", "bago_banner.py", "integration_tests.py",
         "tool_registry.py", "__init__.py", "auto_register.py",
-        "legacy_fixer.py", "preflight.py", "session_logger.py",
+        "legacy_fixer.py", "preflight_engine.py", "session_logger.py",
         "ci_generator.py", "tool_guardian.py", "contracts.py",
         "bago_start.py", "bago_on.py", "bago_debug.py",
     }
@@ -283,7 +283,7 @@ def register_in_bago_script(tool_file: str, description: str = "", dry_run: bool
 
         new_routing = f'''    elif cmd == "{cmd}":
         subprocess.run(
-            ["python3", str(TOOLS / "{stem}.py")] + rest,
+            [sys.executable, str(TOOLS / "{stem}.py")] + rest,
             cwd=str(BAGO_ROOT.parent)
         )
 '''

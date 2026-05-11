@@ -272,10 +272,42 @@ def _view_last(events: list[dict], n: int) -> None:
     print()
 
 
+# ── Subcommand launchers ───────────────────────────────────────────────────────
+
+def _launch_live(extra_args: list) -> None:
+    """Launch the curses live TUI viewer (bago_telemetry_live.py)."""
+    import subprocess
+    script = Path(__file__).parent / "bago_telemetry_live.py"
+    if not script.exists():
+        print("  ❌ bago_telemetry_live.py no encontrado.", file=sys.stderr)
+        sys.exit(1)
+    result = subprocess.run([sys.executable, str(script)] + extra_args)
+    sys.exit(result.returncode)
+
+
+def _launch_web(extra_args: list) -> None:
+    """Launch the HTTP web dashboard (bago_telemetry_web.py)."""
+    import subprocess
+    script = Path(__file__).parent / "bago_telemetry_web.py"
+    if not script.exists():
+        print("  ❌ bago_telemetry_web.py no encontrado.", file=sys.stderr)
+        sys.exit(1)
+    result = subprocess.run([sys.executable, str(script)] + extra_args)
+    sys.exit(result.returncode)
+
+
 # ── Entrypoint CLI ─────────────────────────────────────────────────────────────
 
 def main() -> None:
     args = sys.argv[1:]
+
+    # Subcommand dispatch: live TUI or web dashboard
+    if args and args[0] == "live":
+        _launch_live(args[1:])
+        return
+    if args and args[0] == "web":
+        _launch_web(args[1:])
+        return
 
     if "--clear" in args:
         events = _load_events()

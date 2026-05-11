@@ -134,7 +134,7 @@ def _run_tool(tool: str, args: list[str], cwd: str, timeout: int = 60) -> tuple[
         return -1, "", f"tool not found: {tool}"
     try:
         result = subprocess.run(
-            ["python3", str(tool_path)] + args,
+            [sys.executable, str(tool_path)] + args,
             capture_output=True,
             text=True,
             timeout=timeout,

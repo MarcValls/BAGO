@@ -61,7 +61,7 @@ _MACOS_SCRIPT = """\
 # bago_autolaunch.sh — lanzado por launchd cuando se monta el pendrive BAGO
 # Incluye debounce (30s) y protección contra doble apertura.
 
-DRIVE="/Volumes/{label}"
+DRIVE="/Volumes/{label}"  # noqa: HARDCODE
 LOG="$HOME/Library/Logs/BAGO/autolaunch.log"
 LOCK="$HOME/.bago_last_launch"
 mkdir -p "$(dirname "$LOG")"
@@ -351,7 +351,7 @@ while ($true) {{
             # Verificar que existe el shell
             if (Test-Path "$drive\.bago\tools\bago_shell.py") {{
                 # Detectar Python
-                $py = @("python3","python","py") | Where-Object {{ Get-Command $_ -ErrorAction SilentlyContinue }} | Select-Object -First 1
+                $py = @("python3","python","py") | Where-Object {{ Get-Command $_ -ErrorAction SilentlyContinue }} | Select-Object -First 1  # noqa: HARDCODE
                 if ($py) {{
                     Start-Process -FilePath "cmd.exe" -ArgumentList "/K title BAGO Shell && cd /d $drive && $py bago"
                 }}

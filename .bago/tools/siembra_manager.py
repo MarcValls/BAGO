@@ -19,6 +19,7 @@ Referencia de diseño: .bago/core/architecture/PADRE_SIEMBRA.md
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sqlite3
 import sys
@@ -52,7 +53,7 @@ SIEMBRA_TOOLS: list[str] = [
     "stale_detector.py", "sprint_summary.py", "bago_utils.py",
     "context_detector.py", "context_map.py", "git_context.py",
     "session_logger.py", "session_opener.py", "session_close_generator.py",
-    "tool_registry.py", "preflight.py",
+    "tool_registry.py", "preflight_engine.py",
 ]
 
 # Launcher mínimo que genera la siembra (template)
@@ -194,7 +195,18 @@ def _init_siembra_db(db_path: Path) -> None:
 
 def cmd_create(target_path: str) -> int:
     """Planta una siembra mínima en el directorio especificado."""
-    target = Path(target_path).resolve()
+    # Resolve relative paths from the user's original CWD, not BAGO's
+    user_cwd = os.environ.get("BAGO_USER_CWD", "")
+    if user_cwd and not Path(target_path).is_absolute():
+        target = (Path(user_cwd) / target_path).resolve()
+    else:
+        target = Path(target_path).resolve()
+
+    # Guard: never overwrite BAGO's own root
+    if target.resolve() == BAGO_ROOT.resolve():
+        print("  ❌ No puedes crear una siembra en el directorio raíz de BAGO.")
+        print("     Ejecuta el comando desde un proyecto externo.")
+        return 1
     if not target.exists():
         print(f"  ❌ Directorio no encontrado: {target}")
         return 1

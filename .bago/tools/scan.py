@@ -21,6 +21,7 @@ Uso:
 """
 
 import argparse, json, subprocess, sys
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -108,7 +109,7 @@ def run_scan(target: str, sources: Optional[list] = None,
 
         if "flake8" in linters:
             findings, err = fe.run_linter(
-                ["python3", "-m", "flake8", "--max-line-length=120",
+                [sys.executable, "-m", "flake8", "--max-line-length=120",
                  "--format=%(path)s:%(row)d:%(col)d: %(code)s %(text)s", target],
                 fe.parse_flake8, cwd=str(BAGO_ROOT.parent)
             )
@@ -117,7 +118,7 @@ def run_scan(target: str, sources: Optional[list] = None,
 
         if "pylint" in linters:
             findings, err = fe.run_linter(
-                ["python3", "-m", "pylint", "--output-format=json",
+                [sys.executable, "-m", "pylint", "--output-format=json",
                  "--disable=C0114,C0115,C0116,R0903", target],
                 fe.parse_pylint, cwd=str(BAGO_ROOT.parent)
             )
@@ -126,7 +127,7 @@ def run_scan(target: str, sources: Optional[list] = None,
 
         if "mypy" in linters:
             findings, err = fe.run_linter(
-                ["python3", "-m", "mypy", "--ignore-missing-imports",
+                [sys.executable, "-m", "mypy", "--ignore-missing-imports",
                  "--no-error-summary", target],
                 fe.parse_mypy, cwd=str(BAGO_ROOT.parent)
             )
@@ -135,7 +136,7 @@ def run_scan(target: str, sources: Optional[list] = None,
 
         if "bandit" in linters:
             findings, err = fe.run_linter(
-                ["python3", "-m", "bandit", "-r", "-f", "json", "-q", target],
+                [sys.executable, "-m", "bandit", "-r", "-f", "json", "-q", target],
                 fe.parse_bandit, cwd=str(BAGO_ROOT.parent)
             )
             if not err:

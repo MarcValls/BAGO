@@ -18,10 +18,14 @@ STATE_FILE = REPO_ROOT / ".bago" / "state" / "global_state.json"
 
 
 def _run(*args, timeout=60) -> subprocess.CompletedProcess:
+    env = {"PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+    import os
+    env = {**os.environ, **env}
     return subprocess.run(
         [sys.executable, LAUNCHER, *args],
         capture_output=True, text=True, timeout=timeout,
-        cwd=str(REPO_ROOT),
+        cwd=str(REPO_ROOT), encoding="utf-8", errors="replace",
+        env=env,
     )
 
 

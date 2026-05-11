@@ -94,7 +94,7 @@ def _run_alias(name: str, aliases: dict) -> int:
     for cmd in cmds:
         # Resolve "bago X" → "python bago X"
         if cmd.startswith("bago "):
-            parts = ["python", str(ROOT / "bago")] + cmd.split()[1:]
+            parts = [sys.executable, str(ROOT / "bago")] + cmd.split()[1:]
         else:
             parts = cmd.split()
 

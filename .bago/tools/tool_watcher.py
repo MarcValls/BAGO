@@ -59,7 +59,7 @@ def _load_internal_tools() -> set[str]:
     return {
         "bago_utils.py", "bago_banner.py", "integration_tests.py",
         "tool_registry.py", "__init__.py", "auto_register.py",
-        "legacy_fixer.py", "preflight.py", "session_logger.py",
+        "legacy_fixer.py", "preflight_engine.py", "session_logger.py",
         "ci_generator.py", "tool_guardian.py", "contracts.py",
     }
 

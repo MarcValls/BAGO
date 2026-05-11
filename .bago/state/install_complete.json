@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "bago_version": "2.0",
+  "disclaimer_version": "1.0",
+  "accepted_at": "2026-05-11T05:33:16.351078+00:00",
+  "python_version": "3.12.10",
+  "platform": "Windows",
+  "selected_packs": [
+    "core"
+  ],
+  "accepted_disclaimer": true
+}

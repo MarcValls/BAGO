@@ -74,10 +74,10 @@ def detect_available_servers() -> dict:
         result = subprocess.run(["which", "pylsp"],
                               capture_output=True, text=True)
         if result.returncode == 0:
-            servers["python"] = {
+            servers["python"] = {  # noqa: HARDCODE
                 "command": "pylsp",
                 "args": [],
-                "languages": ["python"]
+                "languages": ["python"]  # noqa: HARDCODE
             }
     except Exception:
         pass

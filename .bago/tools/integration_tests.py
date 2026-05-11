@@ -39,7 +39,7 @@ results = []
 
 def _run(tool, args=None, cwd=None, timeout=30):
     """Ejecuta un tool Python y retorna (returncode, stdout, stderr)."""
-    cmd = ["python3", str(TOOLS / tool)] + (args or [])
+    cmd = [sys.executable, str(TOOLS / tool)] + (args or [])
     try:
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=timeout, cwd=str(cwd or PACK_PARENT))
@@ -783,7 +783,7 @@ def test_bago_lint_rules():
             "try:\n    pass\nexcept:  # bare except\n    pass\n"
             "x = eval('1+1')  # eval\n"
             "os.system('ls')  # os.system\n"
-            "DATA = '/Users/john/data'\n"
+            "DATA = '/Users/john/data'\n"  # noqa: HARDCODE — test data
             "# TODO: arreglar esto\n"
         )
         findings = run_bago_lint(str(tmp))

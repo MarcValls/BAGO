@@ -29,6 +29,12 @@ import zipfile
 from pathlib import Path
 from datetime import datetime
 
+# Ensure UTF-8 output on Windows (cp1252 can't handle emoji)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 BAGO_ROOT = Path(__file__).parent.parent.parent  # repo root (parent of .bago/)
 BAGO_DIR  = BAGO_ROOT / ".bago"
@@ -41,7 +47,6 @@ EXCLUDE_PREFIXES: list[str] = [
     ".bago/.models",       # LLM model blobs (GBs) — not distributable
     ".bago/bin",           # Ollama/system binaries — platform-specific, not core
     ".bago/snapshots",     # local snapshot zips — runtime artefacts
-    ".bago/knowledge",     # project/persona-specific knowledge base (not core contract)
     ".git",
     ".pytest_cache",
     ".mypy_cache",

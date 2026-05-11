@@ -158,7 +158,7 @@ def _check_python_app(app_dir: Path) -> dict | None:
 
     return {
         "name":      app_dir.name,
-        "type":      "python",
+        "type":      "python",  # noqa: HARDCODE
         "status":    "ok" if has_venv else "no_venv",
         "declared":  declared,
         "installed": 0,

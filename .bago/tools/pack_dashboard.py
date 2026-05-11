@@ -19,12 +19,12 @@ def _count(folder):
 def _validate():
     try:
         r = subprocess.run(
-            ["python3", str(TOOLS / "validate_pack.py")],
+            [sys.executable, str(TOOLS / "validate_pack.py")],
             capture_output=True, text=True, cwd=ROOT.parent
         )
-        out = r.stdout.strip().splitlines()
+        out = (r.stdout + r.stderr).strip().splitlines()
         last = out[-1] if out else "?"
-        return "GO" if "GO pack" in last else f"KO ({last})"
+        return "GO" if "GO pack" in "\n".join(out) else f"KO ({last})"
     except Exception as e:
         return f"ERROR ({e})"
 

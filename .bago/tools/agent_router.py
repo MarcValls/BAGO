@@ -59,7 +59,7 @@ LOCAL_OK_KEYWORDS = {
 CODE_ASSIST_KEYWORDS = {
     "codigo", "código", "code", "bug", "funcion", "función", "test", "tests",
     "pr", "pull request", "refactor", "review", "revision", "revisión", "git",
-    "commit", "error", "debug", "typescript", "javascript", "python",
+    "commit", "error", "debug", "typescript", "javascript", "python"  # noqa: HARDCODE,
 }
 
 CODEX_KEYWORDS = {

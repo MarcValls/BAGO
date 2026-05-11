@@ -103,6 +103,7 @@ _CORS_ORIGIN     = os.environ.get("BAGO_HUB_ORIGIN", f"http://localhost:{os.envi
 DURABLE_TOPICS = {
     "user.message", "user.response",
     "tool.request", "tool.result",
+    "llm.request", "llm.response", "llm.tool_suggestion",
     "workflow.started", "workflow.completed", "workflow.failed",
     "system.node_up", "system.node_down", "system.bus_up",
 }

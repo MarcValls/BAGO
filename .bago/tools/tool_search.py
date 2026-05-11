@@ -68,6 +68,9 @@ _TOOL_REGISTRY_FALLBACK = [
     ("doctor",           "doctor",         "framework", "diagnóstico integral: JSONs, cross-refs sessions→cambios→evidencias, tools", ["DOC-E"], ["doctor", "diagnostico", "salud", "health", "json invalido", "cross ref"]),
     ("pre_commit_gen",   "pre-commit",     "workflow",  "genera .pre-commit-config.yaml con hooks BAGO optimizados", ["PCG-I"], ["pre commit", "hooks", "git hooks", "pre-commit.yaml"]),
     ("metrics_export",   "metrics-export", "analytics", "exporta métricas a JSON/CSV para dashboards externos", ["EXP-I"], ["exportar", "json", "csv", "dashboard", "metricas"]),
+    ("ableton_template", "ableton-template", "creative", "genera scaffold de proyecto Ableton techno 4/4 con carpetas, README y template.json", ["ABL-I001"], ["ableton", "live", "daw", "music", "musica", "techno", "track", "beats", "samples", "scaffold", "template", "proyecto musical", "produccion musical", "midi", "audio", "loop", "drums", "bass"]),
+    ("music_pipeline",   "music",          "creative",  "convierte, transpone y valida archivos MusicXML", ["MUS-I001", "MUS-E001"], ["musicxml", "transpose", "transponer", "partitura", "sheet music", "nota musical", "instrumento", "clave musical", "music"]),
+    ("advisor",          "advisor",        "ai",        "advisor LLM adaptativo: ask|next|explain|run|context — orienta con modelo local", ["ADV-I001"], ["advisor", "llm", "ask", "next", "orient", "orientar", "que hago", "siguiente paso", "explica", "pregunta", "asistente", "guia", "ia", "ai", "adaptive"]),
 ]
 
 TOOL_REGISTRY = _load_tool_catalog()

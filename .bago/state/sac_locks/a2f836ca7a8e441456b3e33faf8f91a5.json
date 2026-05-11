@@ -1,0 +1,8 @@
+{
+  "trigger": "bago start",
+  "condition_id": "start_py_modified",
+  "tool": "bago audit ast",
+  "cmd": "bago audit ast .",
+  "shown_at": "2026-05-11T05:46:14.477116+00:00",
+  "expires_at": "2026-05-11T09:46:14.477116+00:00"
+}

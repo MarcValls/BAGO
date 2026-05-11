@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "intents": [
     {
       "id": "security_check",
@@ -119,7 +119,6 @@
       "name": "Preparar para merge/PR",
       "triggers": [
         "merge",
-        "pr",
         "pull request",
         "commit",
         "push",
@@ -281,7 +280,7 @@
       ],
       "tools": [
         "tool-guardian",
-        "legacy-fix"
+        "auto-register"
       ],
       "description": "Detecta y auto-repara problemas del framework",
       "destructive": true
@@ -304,6 +303,66 @@
         "hotspot"
       ],
       "description": "Identifica archivos más cambiados = mayor riesgo",
+      "destructive": false
+    },
+    {
+      "id": "ableton_project",
+      "name": "Proyecto Ableton / Producción musical",
+      "triggers": [
+        "ableton",
+        "live",
+        "proyecto musical",
+        "proyecto de música",
+        "producción musical",
+        "produccion musical",
+        "music production",
+        "techno",
+        "track",
+        "beats",
+        "drums",
+        "bass",
+        "samples",
+        "scaffold musical",
+        "plantilla ableton",
+        "template ableton",
+        "daw",
+        "midi",
+        "audio",
+        "loop",
+        "arrangement",
+        "pista",
+        "quiero hacer música",
+        "quiero hacer musica"
+      ],
+      "tools": [
+        "ableton-template"
+      ],
+      "description": "Genera scaffold de proyecto Ableton techno (carpetas, README, template.json)",
+      "destructive": false
+    },
+    {
+      "id": "music_pipeline",
+      "name": "Pipeline musical (MusicXML / transposición)",
+      "triggers": [
+        "musicxml",
+        "transpos",
+        "transponer",
+        "transpose",
+        "nota musical",
+        "partitura",
+        "sheet music",
+        "score",
+        "clef",
+        "clave musical",
+        "instrumento",
+        "instrument",
+        "convert music",
+        "convertir música"
+      ],
+      "tools": [
+        "music"
+      ],
+      "description": "Convierte, transpone y valida archivos MusicXML",
       "destructive": false
     }
   ]

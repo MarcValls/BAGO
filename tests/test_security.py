@@ -20,7 +20,7 @@ SERVICE_POLICY = {
     ".bago/tools/bago_miniapp_server.py": {
         "command": "`python3 .bago/tools/bago_miniapp_server.py`",
         "bind_markers": (
-            'SERVER_HOST  = "127.0.0.1"',
+            'SERVER_HOST  = os.environ.get("BAGO_MINIAPP_HOST", "127.0.0.1")',
             'parser.add_argument("--host", default="127.0.0.1")',
         ),
         "doc_tokens": (

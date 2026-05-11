@@ -1,76 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-
-"""validate_manifest — Valida la coherencia del manifiesto pack.json del framework BAGO."""
+"""Compatibility shim — validate_manifest merged into validate.py (manifest subcommand)."""
+import subprocess, sys
 from pathlib import Path
-import json
-import sys
 
-root = Path(__file__).resolve().parents[1]
-manifest = root / "pack.json"
-state = root / "state/global_state.json"
-
-errors = []
-
-def load_json(path: Path):
-    return json.loads(path.read_text(encoding="utf-8"))
-
-data = load_json(manifest)
-global_state = load_json(state)
-
-def check_rel(label: str, relpath: str):
-    path = root / relpath
-    if not path.exists():
-        errors.append(f"{label}: missing -> {relpath}")
-
-if data.get("version") != global_state.get("bago_version"):
-    errors.append(
-        f"version mismatch: pack.json={data.get('version')} state={global_state.get('bago_version')}"
-    )
-
-for section in ("entrypoints", "contracts", "workflows", "governance", "docs", "bootstrap"):
-    for key, value in data.get(section, {}).items():
-        if isinstance(value, str):
-            if value.startswith("../"):
-                errors.append(f"{section}.{key}: forbidden relative escape -> {value}")
-            else:
-                check_rel(f"{section}.{key}", value)
-
-bootstrap_path = root / "core/workflows/workflow_bootstrap_repo_first.md"
-if bootstrap_path.exists():
-    wf_rel = data.get("workflows", {}).get("repo_bootstrap")
-    if wf_rel != "core/workflows/workflow_bootstrap_repo_first.md":
-        errors.append("workflows.repo_bootstrap missing or incorrect in pack.json")
-
-# Check: review_role must be a non-empty string
-review_role = data.get("review_role")
-if not isinstance(review_role, str) or not review_role.strip():
-    errors.append("pack.json: review_role must be a non-empty string")
-
-if errors:
-    print("KO")
-    for e in errors:
-        print(e)
-    sys.exit(1)
-
-print("GO manifest")
-
-def _self_test():
-    """Autotest mínimo — verifica arranque limpio del módulo."""
-    from pathlib import Path as _P
-
-# CHG-002: early --test exit (script-mode tool)
-if "--test" in sys.argv:
-    print("  1/1 tests pasaron")
-    raise SystemExit(0)
-
-    assert _P(__file__).exists(), "fichero no encontrado"
-    print("  1/1 tests pasaron")
-
-
-if __name__ == "__main__":
-    if "--test" in sys.argv:
-        _self_test()
-        raise SystemExit(0)
-    pass  # script-mode: top-level code runs directly
+result = subprocess.run(
+    [sys.executable, str(Path(__file__).parent / "validate.py"), "manifest"],
+    cwd=Path(__file__).parents[2],
+)
+sys.exit(result.returncode)

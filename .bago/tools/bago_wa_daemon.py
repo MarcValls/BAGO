@@ -134,7 +134,7 @@ def cmd_notify(args: str) -> str:
     if not args.strip():
         return "❌ Uso: notify <mensaje>"
     result = subprocess.run(
-        ["python3", str(TOOLS_DIR / "notify_bago.py"), args.strip()],
+        [sys.executable, str(TOOLS_DIR / "notify_bago.py"), args.strip()],
         capture_output=True, text=True
     )
     return f"📢 Notificación enviada: {args.strip()[:60]}" if result.returncode == 0 else f"❌ Error: {result.stderr[:100]}"

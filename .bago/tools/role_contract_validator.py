@@ -131,14 +131,14 @@ def parse_role_file(path: Path) -> RoleContract | None:
     section_map = {
         "entradas":       [],
         "salidas":        [],
-        "límites":        [],
-        "limites":        [],
-        "activación":     [],
-        "activacion":     [],
-        "no activación":  [],
-        "no activacion":  [],
-        "criterio de éxito": [],
-        "criterio de exito": [],
+        "límites":        [],  # noqa: SPANISH — tolerancia de ortografía intencional
+        "limites":        [],  # noqa: SPANISH
+        "activación":     [],  # noqa: SPANISH
+        "activacion":     [],  # noqa: SPANISH
+        "no activación":  [],  # noqa: SPANISH
+        "no activacion":  [],  # noqa: SPANISH
+        "criterio de éxito": [],  # noqa: SPANISH
+        "criterio de exito": [],  # noqa: SPANISH
     }
 
     current_section: str | None = None

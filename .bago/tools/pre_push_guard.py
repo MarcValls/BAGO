@@ -135,12 +135,12 @@ def main(argv: list[str] | None = None) -> int:
     checks = [
         check_clean_tree(),
         check_remote_state(fetch=args.remote),
-        check("bago validate", ["python3", "bago", "validate"], timeout=120),
-        check("bago health", ["python3", "bago", "health"], timeout=120),
-        check("bago sincerity --strict", ["python3", "bago", "sincerity", "--strict"], timeout=120),
-        check("bago stability", ["python3", "bago", "stability"], timeout=120),
-        check("tool_guardian --test", ["python3", ".bago/tools/tool_guardian.py", "--test"], timeout=120),
-        check("integration_tests", ["python3", ".bago/tools/integration_tests.py"], timeout=240),
+        check("bago validate", [sys.executable, "bago", "validate"], timeout=120),
+        check("bago health", [sys.executable, "bago", "health"], timeout=120),
+        check("bago sincerity --strict", [sys.executable, "bago", "sincerity", "--strict"], timeout=120),
+        check("bago stability", [sys.executable, "bago", "stability"], timeout=120),
+        check("tool_guardian --test", [sys.executable, ".bago/tools/tool_guardian.py", "--test"], timeout=120),
+        check("integration_tests", [sys.executable, ".bago/tools/integration_tests.py"], timeout=240),
     ]
 
     if all(checks):

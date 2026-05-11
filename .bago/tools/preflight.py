@@ -33,48 +33,6 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).parent
 
 
-# ── Dynamic tool resolver (no hardcoded paths) ────────────────────────────────
-
-def _find_tool_dynamic(stem: str) -> "Path | None":
-    """Locate a .py file by stem searching recursively from tools/.
-
-    Uses _bago_paths.find_tool() if available; falls back to rglob.
-    Returns None if not found. Never raises.
-    """
-    bago_paths_candidates = [
-        TOOLS_DIR / "_bago_paths.py",
-        *TOOLS_DIR.rglob("_bago_paths.py"),
-    ]
-    for bp in bago_paths_candidates:
-        if bp.exists():
-            try:
-                import importlib.util as _ilu
-                _spec = _ilu.spec_from_file_location("_bago_paths_pf", str(bp))
-                if _spec:
-                    _mod = _ilu.module_from_spec(_spec)
-                    _spec.loader.exec_module(_mod)  # type: ignore
-                    result = _mod.find_tool(stem)
-                    return result if result and result.exists() else None
-            except Exception:
-                break
-    # fallback: rglob from TOOLS_DIR parent (.bago/)
-    bago_root = TOOLS_DIR.parent
-    for found in bago_root.rglob(f"{stem}.py"):
-        if not found.name.startswith(".") and ".healer.bak" not in found.name:
-            return found
-    return None
-
-
-def _find_registry_dynamic() -> "Path | None":
-    """Find tool_registry.py recursively — survives reorganisation."""
-    direct = TOOLS_DIR / "tool_registry.py"
-    if direct.exists():
-        return direct
-    for found in TOOLS_DIR.parent.rglob("tool_registry.py"):
-        return found
-    return None
-
-
 # ── Result ────────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -100,24 +58,12 @@ class Preflight:
     def require_file(
         self, path: "str | Path", msg: str = "", severity: str = "error"
     ) -> "Preflight":
-        """Assert that a file or directory exists.
-
-        If the direct path doesn't exist, falls back to a recursive stem
-        search via _bago_paths.find_tool() so preflight checks stay valid
-        after files are reorganised into subdirectories.
-        """
+        """Assert that a file or directory exists."""
         p = Path(path)
         ok = p.exists()
-        resolved = p
-        if not ok:
-            resolved = _find_tool_dynamic(p.stem) or p
-            ok = resolved.exists()
         self._results.append(CheckResult(
             name=f"file:{p.name}", kind="file", passed=ok, severity=severity,
-            message=msg or (
-                f"✓ {resolved}" if ok
-                else f"✗ Archivo requerido no existe: {p}"
-            ),
+            message=msg or (f"✓ {p}" if ok else f"✗ Archivo requerido no existe: {p}"),
         ))
         return self
 
@@ -207,8 +153,8 @@ def run_from_registry(cmd: str, exit_on_fail: bool = True) -> bool:
     Safe no-op when tool_registry.py doesn't exist or has no entry for `cmd`.
     """
     import importlib.util
-    registry_path = _find_registry_dynamic()
-    if not registry_path:
+    registry_path = TOOLS_DIR / "tool_registry.py"
+    if not registry_path.exists():
         return True
 
     spec = importlib.util.spec_from_file_location("_tool_registry_pf", registry_path)

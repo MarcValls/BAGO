@@ -119,7 +119,7 @@ def _find_python_runners(project: Path) -> list[dict]:
         if cfg.exists():
             runners.append({
                 "type": "pytest",
-                "name": "python",
+                "name": "python",  # noqa: HARDCODE
                 "cwd": project,
                 "has_deps": bool(which("pytest")),
             })

@@ -176,7 +176,10 @@ def main(argv: list[str]) -> int:
     if argv[1] == "--test":
         return _self_test()
 
-    cmd = argv[1].lstrip("bago ").strip()
+    cmd = argv[1]
+    if cmd.startswith("bago "):
+        cmd = cmd[5:]
+    cmd = cmd.strip()
 
     registry = _load_registry()
     catalog  = _load_catalog()

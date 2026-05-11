@@ -9,6 +9,7 @@ Karpovich v4 — Instrumentos físicamente precisos
 """
 import numpy as np
 import soundfile as sf
+from pathlib import Path
 from scipy.signal import butter, sosfilt, lfilter
 
 SR = 44100
@@ -438,7 +439,7 @@ stereo = stereo/pk*0.95
 mono_=stereo.mean(axis=1); side_=(stereo[:,0]-stereo[:,1])/2
 w=20*np.log10(np.sqrt(np.mean(side_**2))+1e-9)-20*np.log10(np.sqrt(np.mean(mono_**2))+1e-9)
 
-out='/Users/INTELIA_Manager/Desktop/karpovich_v4_acoustic.wav'
+out = str(Path(__file__).parent.parent.parent / "karpovich_v4_acoustic.wav")
 sf.write(out, stereo, SR)
 print(f"✅ {out}")
 print(f"   Duración: {N/SR:.1f}s | BPM: {BPM} | Width: {w:+.1f} dB")

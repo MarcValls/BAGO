@@ -23,12 +23,12 @@ LAUNCHER_COMMAND = """\
 # Detecta la partición bago_core y la monta si es necesario.
 FRAMEWORK=""
 for label in bago_core; do
-    [ -f "/Volumes/$label/bago" ] && FRAMEWORK="/Volumes/$label" && break
+    [ -f "/Volumes/$label/bago" ] && FRAMEWORK="/Volumes/$label" && break  # noqa: HARDCODE
 done
 if [ -z "$FRAMEWORK" ]; then
     echo "  Montando framework BAGO..."
     diskutil mount bago_core 2>/dev/null; sleep 2
-    [ -f "/Volumes/bago_core/bago" ] && FRAMEWORK="/Volumes/bago_core"
+    [ -f "/Volumes/bago_core/bago" ] && FRAMEWORK="/Volumes/bago_core"  # noqa: HARDCODE
 fi
 if [ -z "$FRAMEWORK" ]; then
     echo "❌  Framework BAGO no encontrado. Asegúrate de que el pendrive está bien conectado."
@@ -114,11 +114,11 @@ APP_EXECUTABLE = """\
 #!/bin/bash
 FRAMEWORK=""
 for label in bago_core; do
-    [ -f "/Volumes/$label/bago" ] && FRAMEWORK="/Volumes/$label" && break
+    [ -f "/Volumes/$label/bago" ] && FRAMEWORK="/Volumes/$label" && break  # noqa: HARDCODE
 done
 if [ -z "$FRAMEWORK" ]; then
     diskutil mount bago_core 2>/dev/null; sleep 2
-    [ -f "/Volumes/bago_core/bago" ] && FRAMEWORK="/Volumes/bago_core"
+    [ -f "/Volumes/bago_core/bago" ] && FRAMEWORK="/Volumes/bago_core"  # noqa: HARDCODE
 fi
 if [ -z "$FRAMEWORK" ]; then
     osascript -e 'display alert "BAGO" message "Framework BAGO no encontrado.\\nAsegúrate de que el pendrive está bien conectado." as critical'
@@ -279,7 +279,7 @@ def main():
         err("Este script solo puede ejecutarse en macOS.")
         sys.exit(1)
 
-    drive_root  = Path("/Volumes/bago_fw")
+    drive_root  = Path("/Volumes/bago_fw")  # noqa: HARDCODE — pendrive label by design
     disk_device = "/dev/disk3"
 
     if not drive_root.exists():

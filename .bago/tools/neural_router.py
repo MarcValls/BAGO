@@ -8,6 +8,8 @@ El cerebro del ecosistema. Conecta nodos y ejecuta el arco reflejo completo:
   [personality enrichment] → user.context
       ↓
   [intent_router]  → intent.detected
+      ↓ (si no_match → fallback LLM)
+  [llm node]       → llm.request → llm.response (tool suggestions)
       ↓
   [tool_runner]    → tool.request → tool.result
       ↓
@@ -173,7 +175,74 @@ def resolve_intent(text: str, dry_run: bool = False) -> dict:
     }
 
 
-# ── Personality enrichment ─────────────────────────────────────────────────────
+def _request_llm_tool_suggest(
+    node,
+    text: str,
+    corr: str,
+    origin: str,
+    dry_run: bool,
+    timeout: float = 30.0,
+) -> list[str]:
+    """Ask the LLM node to suggest tools for `text`.
+
+    Emits `llm.request` (mode=tool_suggest) and waits up to `timeout` seconds
+    for `llm.tool_suggestion` or `llm.response`. Returns list of tool names.
+    Falls back to [] if the LLM node is not connected or times out.
+    """
+    import threading
+    result_holder: list[list[str]] = [[]]
+    event = threading.Event()
+
+    def on_llm_tool_suggestion(ev: dict) -> None:
+        if ev.get("correlation_id") == corr:
+            result_holder[0] = ev.get("payload", {}).get("tools", [])
+            event.set()
+
+    def on_llm_response(ev: dict) -> None:
+        # Fallback: parse tools from the response text if no tool_suggestion event
+        if ev.get("correlation_id") == corr and not event.is_set():
+            try:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(
+                    "_llm_node", str(TOOLS_DIR / "llm_node.py")
+                )
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                tools = mod.parse_tool_suggestions(ev.get("payload", {}).get("text", ""))
+                result_holder[0] = tools
+            except Exception:
+                pass
+            event.set()
+
+    # Register temporary listeners
+    node._handlers.setdefault("llm.tool_suggestion", []).append(on_llm_tool_suggestion)
+    node._handlers.setdefault("llm.response", []).append(on_llm_response)
+
+    try:
+        if dry_run:
+            return ["review", "health"]
+
+        node.emit("llm.request", {
+            "prompt": text,
+            "mode":   "tool_suggest",
+            "stream": False,
+        }, to="llm", correlation_id=corr)
+
+        event.wait(timeout=timeout)
+    finally:
+        try:
+            node._handlers.get("llm.tool_suggestion", []).remove(on_llm_tool_suggestion)
+        except ValueError:
+            pass
+        try:
+            node._handlers.get("llm.response", []).remove(on_llm_response)
+        except ValueError:
+            pass
+
+    return result_holder[0]
+
+
+
 
 def load_personality() -> dict:
     """Load user personality profile from state/."""
@@ -220,8 +289,11 @@ def make_router(dry_run: bool = False, verbose: bool = False):
     node = BusNode(
         "neural_router",
         role="supervisor",
-        capabilities=["intent-routing", "tool-dispatch", "personality-enrichment"],
+        capabilities=["intent-routing", "tool-dispatch", "personality-enrichment", "llm-fallback"],
     )
+
+    # Track which LLM nodes are registered on the bus
+    _llm_node_present: list[bool] = [False]
 
     @node.on("user.message")
     def handle_user_message(event: dict) -> None:
@@ -241,6 +313,38 @@ def make_router(dry_run: bool = False, verbose: bool = False):
 
         # 2. Resolve intent and run tools
         intent_result = resolve_intent(text, dry_run=dry_run)
+
+        # 2b. LLM fallback when intent is not recognized and LLM node is online
+        if intent_result["intent_id"] in ("no_match", "unknown") and _llm_node_present[0]:
+            _log(f"{DIM('→')} Intent no reconocida — consultando LLM node…")
+            suggested = _request_llm_tool_suggest(node, text, corr, origin, dry_run)
+            if suggested:
+                _log(f"{OK('→')} LLM sugiere tools: {', '.join(suggested)}")
+                # Execute suggested tools
+                results = []
+                if not dry_run:
+                    for tool_cmd in suggested:
+                        _log(f"▶ bago {tool_cmd}")
+                        r = run_tool(tool_cmd)
+                        results.append(r)
+                        icon = OK("✓") if r["ok"] else WARN("⚠")
+                        _log(f"{icon} {tool_cmd}  ({r['elapsed']}s)")
+                ok_count   = sum(1 for r in results if r["ok"])
+                fail_count = len(results) - ok_count
+                intent_result = {
+                    "intent_id":   "llm_suggested",
+                    "intent_name": "LLM Tool Suggestion",
+                    "tools":       suggested,
+                    "results":     results,
+                    "summary":     (
+                        f"[dry-run] LLM sugeriría: {' → '.join(suggested)}"
+                        if dry_run
+                        else f"✅ LLM → {ok_count}/{len(results)} tools OK"
+                        if fail_count == 0
+                        else f"⚠️ LLM → {fail_count} tool(s) con problemas"
+                    ),
+                    "ok": fail_count == 0,
+                }
 
         # 3. Emit intent.detected so other nodes can react
         node.emit("intent.detected", {
@@ -284,6 +388,16 @@ def make_router(dry_run: bool = False, verbose: bool = False):
         nid  = event.get("payload", {}).get("node_id", "?")
         role = event.get("payload", {}).get("role", "?")
         _log(f"⚡ Nodo conectado: {BOLD(nid)} [{role}]")
+        if nid == "llm":
+            _llm_node_present[0] = True
+            _log(f"{OK('→')} LLM fallback activado")
+
+    @node.on("system.node_down")
+    def handle_node_down(event: dict) -> None:
+        nid = event.get("payload", {}).get("node_id", "?")
+        if nid == "llm":
+            _llm_node_present[0] = False
+            _log(f"{WARN('⚠')} LLM node desconectado — fallback desactivado")
 
     @node.on("system.node_stale")
     def handle_node_stale(event: dict) -> None:

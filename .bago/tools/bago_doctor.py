@@ -51,7 +51,7 @@ def _check_python() -> CheckResult:
     v = sys.version_info
     ok = (v.major, v.minor) >= (3, 9)
     return {
-        "id": "python",
+        "id": "python",  # noqa: HARDCODE
         "label": "Python 3.9+",
         "ok": ok,
         "detail": f"{v.major}.{v.minor}.{v.micro}",
@@ -259,7 +259,7 @@ def main() -> int:
     print(f"  {DIM}{'─' * 44}{NC}")
     print()
 
-    critical = ["python", "bago_core"]
+    critical = ["python", "bago_core"]  # noqa: HARDCODE
     all_ok = True
     for r in checks:
         _print_result(r)

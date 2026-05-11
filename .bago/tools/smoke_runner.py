@@ -58,7 +58,7 @@ def run_smoke() -> dict:
     SMOKE_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.monotonic()
     result = subprocess.run(
-        ["python3", str(TESTS_TOOL)],
+        [sys.executable, str(TESTS_TOOL)],
         capture_output=True,
         text=True,
         cwd=str(ROOT),

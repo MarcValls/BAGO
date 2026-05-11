@@ -15,6 +15,7 @@ Uso:
     bago contract --test            → tests integrados
 """
 import argparse, json, subprocess
+import sys
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -60,7 +61,7 @@ def check_test_count(params: dict) -> tuple:
     min_pass = params.get("min", get_checker_default("test_count", "min") or 1)
     try:
         r = subprocess.run(
-            ["python3", str(TOOLS_DIR / "integration_tests.py")],
+            [sys.executable, str(TOOLS_DIR / "integration_tests.py")],
             capture_output=True, text=True, timeout=120
         )
         import re
@@ -87,7 +88,7 @@ def check_health_score(params: dict) -> tuple:
     min_score = params.get("min", get_checker_default("health_score", "min") or 90)
     try:
         r = subprocess.run(
-            ["python3", "bago", "health"],
+            [sys.executable, "bago", "health"],
             capture_output=True, text=True, cwd=str(BAGO_ROOT.parent), timeout=30
         )
         import re
@@ -104,7 +105,7 @@ def check_validate_go(params: dict) -> tuple:
     """Run bago validate and verify GO."""
     try:
         r = subprocess.run(
-            ["python3", "bago", "validate"],
+            [sys.executable, "bago", "validate"],
             capture_output=True, text=True, cwd=str(BAGO_ROOT.parent), timeout=30
         )
         ok = "GO" in r.stdout and "KO" not in r.stdout

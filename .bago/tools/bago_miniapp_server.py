@@ -63,7 +63,7 @@ def run_bago_cmd(cmd: str, timeout: int = 30) -> str:
     """Ejecuta `python3 <BAGO_ROOT>/bago <cmd>` y retorna stdout limpio."""
     try:
         r = subprocess.run(
-            ["python3", str(BAGO_ROOT / "bago"), cmd],
+            [sys.executable, str(BAGO_ROOT / "bago"), cmd],
             capture_output=True, text=True, timeout=timeout,
             cwd=str(BAGO_ROOT), stdin=subprocess.DEVNULL
         )

@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "bago_version": "2.0",
+  "disclaimer_version": "1.0",
+  "packs": {
+    "core": {
+      "label": "Core (requerido)",
+      "description": "Funciones esenciales del framework. Sin dependencias pip.",
+      "required": true,
+      "pip": [],
+      "binaries": ["git"],
+      "env": []
+    },
+    "advisor": {
+      "label": "Advisor — Asistente LLM adaptativo",
+      "description": "bago advisor ask — LLM orientativo con contexto del proyecto.",
+      "required": false,
+      "pip": [],
+      "binaries": ["ollama"],
+      "env": [],
+      "setup_note": "Descarga Ollama: https://ollama.com  •  Luego: ollama pull qwen2.5-coder:7b (~4 GB)"
+    },
+    "messaging": {
+      "label": "Mensajería (Telegram / WhatsApp / ntfy)",
+      "description": "Notificaciones, bots Telegram y alertas por WhatsApp.",
+      "required": false,
+      "pip": ["requests", "python-telegram-bot>=20.0"],
+      "binaries": [],
+      "env": ["BAGO_TG_TOKEN"],
+      "setup_note": "Crea un bot en @BotFather y añade el token a .bago/state/notify_config.json"
+    },
+    "music": {
+      "label": "Música / Ableton / MusicXML",
+      "description": "Síntesis de audio, análisis, exportación MusicXML para Ableton.",
+      "required": false,
+      "pip": ["numpy", "scipy", "soundfile", "music21"],
+      "binaries": [],
+      "env": []
+    },
+    "web": {
+      "label": "Web scraping / Gradio Hub",
+      "description": "Scraping con BeautifulSoup, panel Gradio y automatización web.",
+      "required": false,
+      "pip": ["requests", "beautifulsoup4", "gradio"],
+      "binaries": [],
+      "env": [],
+      "setup_note": "Playwright requiere paso extra tras instalar: python -m playwright install"
+    },
+    "vision": {
+      "label": "Imágenes / Sprites / Códigos QR",
+      "description": "Generación y edición de imágenes, sprites y códigos QR.",
+      "required": false,
+      "pip": ["numpy", "matplotlib", "Pillow", "qrcode"],
+      "binaries": [],
+      "env": []
+    },
+    "devtools": {
+      "label": "DevTools (CI, linting, LSP, análisis)",
+      "description": "gitpython, yamllint, pytest, ruff, bandit para entornos de desarrollo.",
+      "required": false,
+      "pip": ["gitpython", "yamllint", "pytest", "ruff", "bandit"],
+      "binaries": [],
+      "env": []
+    }
+  }
+}

@@ -178,7 +178,7 @@ SAFE_CMDS = {
     "git branch":   ["git", "-C", str(BAGO_ROOT), "branch", "-a"],
     "ls tools":     ["ls", str(TOOLS_DIR)],
     "ls bago":      ["ls", str(BAGO_ROOT)],
-    "cat state":    ["python3", "-c",
+    "cat state":    [sys.executable, "-c",
                      f"import json; d=json.load(open('{STATE_PATH}')); "
                      f"print(json.dumps({{k:d[k] for k in list(d)[:8]}}, indent=2, ensure_ascii=False)[:800])"],
 }
@@ -198,7 +198,7 @@ ANSI_RE = re.compile(r'\x1b\[[0-9;]*[mABCDEFGHJKSTfnsuhl]')
 
 def run_bago(cmd: str, args: list = None, timeout: int = 20) -> str:
     """Ejecuta un comando BAGO real y devuelve salida limpia (sin ANSI)."""
-    argv = ["python3", str(BAGO_ROOT / "bago"), cmd] + (args or [])
+    argv = [sys.executable, str(BAGO_ROOT / "bago"), cmd] + (args or [])
     try:
         r = subprocess.run(
             argv, capture_output=True, text=True,

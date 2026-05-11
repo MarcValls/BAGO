@@ -113,7 +113,7 @@ def _pack_version():
 def _validate():
     try:
         r = subprocess.run(
-            ["python3", str(TOOLS / "validate_pack.py")],
+            [sys.executable, str(TOOLS / "validate_pack.py")],
             capture_output=True, text=True, cwd=str(BAGO_ROOT.parent)
         )
         ok = any("GO pack" in l for l in r.stdout.splitlines())
@@ -142,7 +142,7 @@ def _active_scenarios():
 def _working_mode():
     try:
         r = subprocess.run(
-            ["python3", str(TOOLS / "repo_context_guard.py"), "check"],
+            [sys.executable, str(TOOLS / "repo_context_guard.py"), "check"],
             capture_output=True, text=True, cwd=str(BAGO_ROOT.parent)
         )
         data = json.loads(r.stdout)
@@ -272,25 +272,15 @@ def _health_score() -> tuple[str, int]:
 
 
 def _print_quick_action(active_task) -> None:
-    """
-    Muestra la acción concreta más útil ahora mismo (idea de entrada rápida).
-
-    Lógica:
-    - Si hay tarea activa (status != done): invita a continuar con `bago task`
-    - Si no hay tarea o está completada: invita a seleccionar ideas con `bago ideas`
-    """
-    label = CYAN("⚡ siguiente paso:")
+    """Muestra la acción concreta más útil ahora mismo."""
     if active_task is not None:
         _, tstatus, _stale = active_task
         if tstatus != "done":
-            hint = (GREEN("bago task") + DIM("  →  revisa los detalles de la tarea activa") +
-                    "  |  " + YELLOW("bago task --done") + DIM("  →  ciérrala al terminar"))
-            print(_box(INDENT + label + "  " + hint))
+            print(_box(INDENT + CYAN("⚡ siguiente:") + "  " + GREEN("bago task") + DIM("  →  ver tarea activa")))
+            print(_box(INDENT + "              " + YELLOW("bago task --done") + DIM("  →  cerrar tarea")))
             return
-    # Sin tarea activa
-    hint = (GREEN("bago ideas") + DIM("  →  ver ideas priorizadas  (acepta con ") +
-            CYAN("bago ideas --accept N") + DIM(")"))
-    print(_box(INDENT + label + "  " + hint))
+    print(_box(INDENT + CYAN("⚡ siguiente:") + "  " + GREEN("bago ideas") + DIM("  →  ver ideas priorizadas")))
+    print(_box(INDENT + "              " + CYAN("bago ideas --accept N") + DIM("  →  aceptar una")))
 
 
 # ─── Render ───────────────────────────────────────────────────────────────────

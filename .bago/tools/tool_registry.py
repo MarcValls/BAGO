@@ -76,7 +76,7 @@ class ToolEntry:
 # Single canonical source; all other files should import this set.
 INTERNAL_TOOLS: frozenset[str] = frozenset({
     "tool_registry",
-    "preflight",
+    "preflight_engine",
     "session_logger",
     "integration_tests",
     "bago_utils",
@@ -125,9 +125,9 @@ REGISTRY: dict[str, ToolEntry] = {
         deprecated=True, see_also="bago context detect",
     ),
     "validate": ToolEntry(
-        cmd="validate", module="validate_pack",
-        description="Verifica el pack (solo lectura)",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "validate_pack.py"))],
+        cmd="validate", module="validate",
+        description="Verifica el pack (manifiesto, estado, roles, ZIP) — subcomandos: manifest, state, contents",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "validate.py"))],
     ),
     "docs": ToolEntry(
         cmd="docs", module="generate_commands_doc",
@@ -147,14 +147,14 @@ REGISTRY: dict[str, ToolEntry] = {
         deprecated=True, see_also="bago audit purity",
     ),
     "health": ToolEntry(
-        cmd="health", module="bago_health_router",
+        cmd="health", module="health",
         description="Salud del framework: score | report | stability | efficiency | consistency | sincerity",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_health_router.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "health" / "__main__.py"))],
     ),
     "audit": ToolEntry(
-        cmd="audit", module="bago_audit_router",
+        cmd="audit", module="audit",
         description="Auditoría y calidad: full | pack | scan | commit | push | doctor | heal | quality | purity",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_audit_router.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "audit" / "__main__.py"))],
     ),
     "version": ToolEntry(
         cmd="version", module="bago_version",
@@ -193,9 +193,9 @@ REGISTRY: dict[str, ToolEntry] = {
         deprecated=True, see_also="bago health stability",
     ),
     "session": ToolEntry(
-        cmd="session", module="bago_session_router",
+        cmd="session", module="session",
         description="Ciclo de sesión: open | close | harvest | v2",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_session_router.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "session" / "__main__.py"))],
     ),
     "efficiency": ToolEntry(
         cmd="efficiency", module="efficiency_meter",
@@ -248,9 +248,9 @@ REGISTRY: dict[str, ToolEntry] = {
         deprecated=True, see_also="bago context map",
     ),
     "report": ToolEntry(
-        cmd="report", module="health_report",
+        cmd="report", module="health",
         description="Health report en Markdown",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "health_report.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "health" / "__main__.py"))],
         deprecated=True, see_also="bago health report",
     ),
     "commit": ToolEntry(
@@ -290,9 +290,9 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_banner.py"))],
     ),
     "session_close": ToolEntry(
-        cmd="session_close", module="session_close_generator",
+        cmd="session_close", module="session",
         description="Genera el informe de cierre de sesion BAGO",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "session_close_generator.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "session" / "__main__.py"))],
         deprecated=True, see_also="bago session close",
     ),
     "reopen": ToolEntry(
@@ -328,9 +328,9 @@ REGISTRY: dict[str, ToolEntry] = {
         deprecated=True, see_also="bago health consistency",
     ),
     "config-check": ToolEntry(
-        cmd="config-check", module="config_check",
+        cmd="config-check", module="config",
         description="Valida integridad de configs JSON en state/config/ y cruza con registry",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "config_check.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "config.py"))],
     ),
     "why": ToolEntry(
         cmd="why", module="why",
@@ -452,9 +452,9 @@ REGISTRY: dict[str, ToolEntry] = {
         deprecated=True, see_also="bago repo switch",
     ),
     "repo": ToolEntry(
-        cmd="repo", module="bago_repo",
+        cmd="repo", module="repo",
         description="Gestión de repositorios: clone | list | switch",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_repo.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "repo.py"))],
     ),
     "select": ToolEntry(
         cmd="select", module="ideas_selector",
@@ -606,6 +606,69 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Escanea el repositorio buscando secretos y credenciales expuestas",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "secret_scan.py"))],
     ),
+    "hardcode": ToolEntry(
+        cmd="hardcode", module="hardcode_detector",
+        description="Detecta datos hardcodeados que deberían ser dinámicos (rutas, intérpretes, versiones, puertos)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "hardcode_detector.py"))],
+        scope="framework",
+    ),
+    "spanish": ToolEntry(
+        cmd="spanish", module="spanish_audit",
+        description="Detecta inconsistencias ortográficas en español: tildes y singular/plural en claves y rutas",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "spanish_audit.py"))],
+        scope="framework",
+    ),
+    "toolsmith": ToolEntry(
+        cmd="toolsmith", module="toolsmith",
+        description="Agente dinámico de toolboxes: assign|sprint|agent|missing|create|catalog|listen — asigna cajas de herramientas por tarea y crea tools faltantes",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "toolsmith.py")),
+            PreflightCheck("file", str(BAGO_ROOT / "mcp" / "toolbox_catalog.json"),
+                           severity="warning", message="Catálogo toolbox_catalog.json no encontrado en .bago/mcp/"),
+        ],
+        layer="infraestructura", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
+    "llm-node": ToolEntry(
+        cmd="llm-node", module="llm_node",
+        description="Nodo LLM del Neural Bus: escucha llm.request, llama a Ollama con streaming, emite llm.chunk + llm.response. Modos: chat|tool_suggest|classify_intent",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "llm_node.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "bago_node.py")),
+        ],
+        layer="infraestructura", scope="framework",
+        agent="ARQUITECTO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=True,
+    ),
+    "advisor": ToolEntry(
+        cmd="advisor", module="bago_advisor",
+        description="Advisor LLM adaptativo: ask|next|explain|run|context|rubber-duck — orientación continua con modelo pequeño local",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "bago_advisor.py")),
+        ],
+        layer="infraestructura", scope="both",
+        agent="NAVEGADOR",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=True,
+    ),
+    "rubber-duck": ToolEntry(
+        cmd="rubber-duck", module="bago_rubber_duck",
+        description="Rubber duck debugging automático: repite qué hace el código, detecta pasos faltantes e inconsistencias — auto-trigger en toolsmith create",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "bago_rubber_duck.py")),
+        ],
+        layer="calidad", scope="both",
+        agent="ANALISTA",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
     # ── Autonomía real ────────────────────────────────────────────────────────
     "autonomous": ToolEntry(
         cmd="autonomous", module="autonomous_loop",
@@ -674,7 +737,7 @@ REGISTRY: dict[str, ToolEntry] = {
         ],
         layer="salud", scope="framework",
         agent="GUARDIAN",
-        stability="stable",
+        stability="experimental",
         risk="safe",
         supports_dry_run=True,
     ),
@@ -682,7 +745,7 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="npath", module="npath",
         description="Neural Path — grafo cognitivo versionado: branch/commit/merge/unmerge/split/recall/map",
         preflight=[
-            PreflightCheck("file", str(TOOLS_DIR / "npath.py")),
+            PreflightCheck("file", str(TOOLS_DIR / "npath" / "__main__.py")),
         ],
         layer="conocimiento", scope="framework",
         agent="MAESTRO_BAGO",
@@ -714,6 +777,7 @@ _LAYER_MAP: dict[str, str] = {
     "session_close": "ejecución",
     # CALIDAD
     "scan": "calidad", "review": "calidad", "commit": "calidad",
+    "hardcode": "calidad", "spanish": "calidad", "rubber-duck": "calidad",
     "pre-push": "calidad", "secrets": "calidad", "debt": "calidad",
     "risk": "calidad", "naming": "calidad", "types": "calidad",
     "deps": "calidad", "code-quality": "calidad",
@@ -1003,24 +1067,34 @@ def get_commands() -> dict[str, list[str]]:
         "project-link":   ["project-link"],
         "project-unlink": ["project-unlink"],
         "project-state":  ["project-state"],
+        "report":         ["report"],
+        "session_close":  ["close"],
         "deactivate":     ["deactivate"],
         "promote":        ["promote"],
         "learn":          ["learn"],
     }
 
     def _resolve_module(stem: str) -> Path:
-        """Return the first existing path for module stem, with rglob fallback."""
-        tools_path = TOOLS_DIR / f"{stem}.py"
-        if tools_path.exists():
-            return tools_path
-        core_path = BAGO_ROOT / "core" / f"{stem}.py"
-        if core_path.exists():
-            return core_path
-        # rglob fallback: finds the file even after reorganisation
-        hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
-        if hits:
-            return hits[0]
-        return tools_path  # return canonical path even if missing (error reported at runtime)
+        """Return the first existing path for module stem or package __main__.py."""
+        candidates = [
+            TOOLS_DIR / f"{stem}.py",
+            TOOLS_DIR / stem / "__main__.py",
+            BAGO_ROOT / "core" / f"{stem}.py",
+            BAGO_ROOT / "core" / stem / "__main__.py",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        file_hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
+        if file_hits:
+            return file_hits[0]
+
+        package_hits = [p for p in BAGO_ROOT.rglob("__main__.py") if p.parent.name == stem]
+        if package_hits:
+            return package_hits[0]
+
+        return TOOLS_DIR / f"{stem}.py"
 
     result = {}
     for name, entry in REGISTRY.items():
@@ -1107,7 +1181,7 @@ def _self_tests() -> None:
            "all cmd == key" if not mismatches else f"mismatches: {mismatches}")
 
     # T3: no duplicate modules except explicit public aliases
-    allowed_alias_modules = {"flow", "show_task", "project_memory", "autonomous_loop"}
+    allowed_alias_modules = {"flow", "show_task", "project_memory", "autonomous_loop", "health", "session"}
     modules = [e.module for e in REGISTRY.values()]
     dupes = {m for m in modules if modules.count(m) > 1 and m not in allowed_alias_modules}
     _check("T3:no-duplicate-modules", not dupes,
@@ -1129,7 +1203,7 @@ def _self_tests() -> None:
            f"{len(INTERNAL_TOOLS)} internal tools, all strings")
 
     # T6: new framework modules are in INTERNAL_TOOLS
-    new_mods = {"preflight", "session_logger", "tool_registry"}
+    new_mods = {"preflight_engine", "session_logger", "tool_registry"}
     ok = new_mods.issubset(INTERNAL_TOOLS)
     _check("T6:new-modules-in-internal", ok,
            f"{new_mods} ⊆ INTERNAL_TOOLS")

@@ -14,6 +14,13 @@ import re
 import sys
 from pathlib import Path
 
+# Fix UTF-8 output on Windows without requiring PYTHONIOENCODING env var
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # ─── Rutas ────────────────────────────────────────────────────────────────────
 BAGO_ROOT = Path(__file__).resolve().parent.parent
 STATE     = BAGO_ROOT / "state"

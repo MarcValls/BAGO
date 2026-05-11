@@ -556,7 +556,20 @@ def cmd_chat(message: str) -> int:
         _err(f"Error consultando el servidor: {e}")
         return 1
 
-# ── Self-test (tool_guardian) ─────────────────────────────────────────────────
+def cmd_node(argv: list[str]) -> int:
+    """Start the LLM Node — connects to Neural Bus and handles llm.request events."""
+    import importlib.util
+    node_script = TOOLS_DIR / "llm_node.py"
+    if not node_script.exists():
+        _err("llm_node.py no encontrado — asegúrate de tener BAGO actualizado")
+        return 1
+    spec = importlib.util.spec_from_file_location("llm_node", str(node_script))
+    mod  = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.main(argv)
+
+
+
 
 def _run_tests() -> None:
     results: list[tuple[str, bool, str]] = []
@@ -634,6 +647,8 @@ def _usage() -> None:
         ("start [ID]",     "Arranca el servidor Ollama"),
         ("stop",           "Detiene el servidor"),
         ("chat <mensaje>", "Consulta directa al LLM activo"),
+        ("node",           "Arranca el nodo LLM en el Neural Bus (llm.request handler)"),
+        ("node --dry-run", "Nodo LLM en modo simulación (sin Ollama)"),
     ]
     for cmd, desc in cmds:
         print(f"    {CYAN(f'bago llm {cmd:<20}')}  {desc}")
@@ -670,6 +685,9 @@ def main() -> int:
 
     if sub == "stop":
         return cmd_stop()
+
+    if sub == "node":
+        return cmd_node(args[1:])
 
     if sub == "chat":
         if len(args) < 2:

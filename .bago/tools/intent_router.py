@@ -91,7 +91,7 @@ INTENTS = [
         "id": "pre_merge",
         "name": "Preparar para merge/PR",
         "triggers": [
-            "merge", "pr", "pull request", "commit", "push", "producción",
+            "merge", "pull request", "commit", "push", "producción",
             "produccion", "production", "release", "listo", "ready",
             "puedo mergear", "puedo hacer merge", "puedo commitear",
             "está listo", "esta listo", "deploy",
@@ -181,6 +181,33 @@ INTENTS = [
         ],
         "tools": ["hotspot"],
         "description": "Identifica archivos más cambiados = mayor riesgo",
+        "destructive": False,
+    },
+    {
+        "id": "ableton_project",
+        "name": "Proyecto Ableton / Producción musical",
+        "triggers": [
+            "ableton", "live", "proyecto musical", "proyecto de música",
+            "producción musical", "produccion musical", "music production",
+            "techno", "track", "beats", "drums", "bass", "samples",
+            "scaffold musical", "plantilla ableton", "template ableton",
+            "daw", "midi", "audio", "loop", "arrangement", "pista",
+            "quiero hacer música", "quiero hacer musica",
+        ],
+        "tools": ["ableton-template"],
+        "description": "Genera scaffold de proyecto Ableton techno (carpetas, README, template.json)",
+        "destructive": False,
+    },
+    {
+        "id": "music_pipeline",
+        "name": "Pipeline musical (MusicXML / transposición)",
+        "triggers": [
+            "musicxml", "transpos", "transponer", "transpose", "nota musical",
+            "partitura", "sheet music", "score", "clef", "clave musical",
+            "instrumento", "instrument", "convert music", "convertir música",
+        ],
+        "tools": ["music"],
+        "description": "Convierte, transpone y valida archivos MusicXML",
         "destructive": False,
     },
 ]
@@ -347,6 +374,18 @@ def run_tests():
     ok6 = all(required.issubset(intent.keys()) for intent in loaded_intents)
     results.append(("intent_router:intents_schema_valid", ok6,
                      f"intents={len(loaded_intents)}"))
+
+    # Test 7: Ableton/music intent
+    intents = identify_intents("quiero hacer un proyecto en ableton")
+    ok7 = len(intents) > 0 and intents[0][1]["id"] == "ableton_project"
+    results.append(("intent_router:ableton_intent", ok7,
+                     f"top={intents[0][1]['id'] if intents else 'none'}"))
+
+    # Test 8: "pr" trigger no longer pollutes proyecto queries
+    intents = identify_intents("nuevo proyecto python sin PR aún")
+    ok8 = len(intents) == 0 or intents[0][1]["id"] != "pre_merge"
+    results.append(("intent_router:pr_no_false_positive", ok8,
+                     f"top={intents[0][1]['id'] if intents else 'none'}"))
 
     passed = sum(1 for _, ok, _ in results if ok)
     failed = sum(1 for _, ok, _ in results if not ok)

@@ -147,7 +147,7 @@ def _get_health_score() -> int:
     """Ejecuta health_score.py y extrae el score."""
     try:
         result = subprocess.run(
-            ["python3", str(BAGO_ROOT / "tools" / "health_score.py"), "--score-only"],
+            [sys.executable, str(BAGO_ROOT / "tools" / "health_score.py"), "--score-only"],
             capture_output=True, text=True, timeout=10,
             cwd=str(REPO_ROOT)
         )

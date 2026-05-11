@@ -4,39 +4,54 @@ bago — script de activación BAGO
 Muestra banner + gestiona comandos rápidos.
 
 Uso:
-  ./bago                    → banner + estado (o prompt de arranque si es template)
-  ./bago setup              → sincroniza repo_context + instala extensiones Copilot
-  ./bago extensions         → gestiona extensiones BAGO (.bago/extensions/)
-  ./bago versions           → lista todas las cleanversions disponibles
-  ./bago stability          → resumen único de estabilidad (smoke/VM/soak/validadores)
-  ./bago dashboard          → pack_dashboard.py
-  ./bago ideas              → emit_ideas.py
-  ./bago ideas --accept N   → acepta idea N y genera tarea W2
-  ./bago task               → muestra la tarea W2 pendiente
-  ./bago task --done        → marca la tarea como completada (registra en implemented_ideas.json)
-  ./bago session            → abre sesión W2 con preflight pre-rellenado desde handoff
-  ./bago session --dry      → muestra args del preflight sin ejecutar
-  ./bago efficiency         → medidor de eficiencia inter-versiones
-  ./bago cosecha            → cosecha.py
-  ./bago detector           → context_detector.py
-  ./bago validate           → validate_pack.py  (solo verifica)
-  ./bago sync               → sync_pack_metadata.py  (regenera TREE.txt y CHECKSUMS)
-  ./bago check              → check_validate_purity.py  (chequeo estático de pureza)
-  ./bago dashboard --full   → dashboard extendido
-  ./bago health             → health_score.py
-  ./bago audit              → audit_v2.py
-  ./bago workflow           → workflow_selector.py (interactivo)
-  ./bago stale              → stale_detector.py
-  ./bago sincerity          → sincerity_detector.py (centinela anti-sincofancía)
-  ./bago cabinet            → cabinet_orchestrator.py (gabinete unificado)
-  ./bago v2                 → v2_close_checklist.py
-  ./bago last               → muestra las últimas 5 sesiones ejecutadas
-  ./bago history            → estadísticas de todas las sesiones
-  ./bago registry           → lista de herramientas registradas en tool_registry.py
-  ./bago <cmd> --preflight  → verifica precondiciones sin ejecutar el comando
+  bago                    → shell interactivo BAGO
+  bago setup              → sincroniza repo_context + instala extensiones Copilot
+  bago extensions         → gestiona extensiones BAGO (.bago/extensions/)
+  bago versions           → lista todas las cleanversions disponibles
+  bago stability          → resumen único de estabilidad (smoke/VM/soak/validadores)
+  bago dashboard          → pack_dashboard.py
+  bago ideas              → emit_ideas.py
+  bago ideas --accept N   → acepta idea N y genera tarea W2
+  bago task               → muestra la tarea W2 pendiente
+  bago task --done        → marca la tarea como completada
+  bago session            → abre sesión W2 con preflight pre-rellenado
+  bago session --dry      → muestra args del preflight sin ejecutar
+  bago efficiency         → medidor de eficiencia inter-versiones
+  bago cosecha            → cosecha.py
+  bago detector           → context_detector.py
+  bago validate           → valida pack (manifest + state + pack)
+  bago sync               → sync_pack_metadata.py (regenera TREE.txt y CHECKSUMS)
+  bago health             → health_score.py
+  bago audit              → audit_v2.py
+  bago workflow           → workflow_selector.py (interactivo)
+  bago stale              → stale_detector.py
+  bago sincerity          → sincerity_detector.py
+  bago cabinet            → cabinet_orchestrator.py
+  bago v2                 → v2_close_checklist.py
+  bago last               → muestra las últimas 5 sesiones ejecutadas
+  bago history            → estadísticas de todas las sesiones
+  bago registry           → lista de herramientas registradas
+  bago neural [cmd]       → gestiona el Neural Bus SSE
+  bago heal-paths         → detecta y repara rutas rotas
+  bago npath [cmd]        → Neural Path cognitive graph
+  bago project init       → inicializa .bago/ en el proyecto actual
+  bago project link       → vincula el proyecto al framework
+  bago project state      → estado del proyecto vinculado
+  bago siembra create .   → planta una siembra (proyecto hijo) en el directorio actual
+  bago siembra list       → lista todas las siembras registradas
+  bago siembra ideas      → alias → bago ideas (catálogo W2, no confundir con proyectos)
+  bago seed-ideas         → alias explícito → bago ideas (siembra de catálogo)
+  bago <cmd> --preflight  → verifica precondiciones sin ejecutar el comando
+  bago wizard             → wizard de instalación (acepta contrato, instala packs)
+  bago wizard --reset     → borra marker y vuelve a ejecutar el wizard
+  bago wizard --status    → muestra estado de instalación
+  bago rubber-duck <file> → rubber duck debugging: repite qué hace el código
+  bago rubber-duck --last → analiza el último .py modificado
+  bago rubber-duck --watch → modo watch (polling, auto-analiza cambios)
+  bago help               → este mensaje
 
-Instalar como alias global:
-  echo 'alias bago="python3 $(pwd)/bago"' >> ~/.zshrc
+Instalar como alias global (Unix):
+  echo 'alias bago="$(which bago)"' >> ~/.zshrc
 """
 
 import importlib.util
@@ -359,7 +374,8 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
                 dispatch_env = {}
 
     # 3. Execute
-    run_env = {**os.environ, **dispatch_env} if dispatch_env else None
+    _user_cwd = os.getcwd()
+    run_env = {**os.environ, "BAGO_USER_CWD": _user_cwd, **dispatch_env}
     _t0 = time.monotonic()
     result = subprocess.run(
         COMMANDS[cmd] + rest,
@@ -397,7 +413,7 @@ def _cmd_session_last(args: list) -> None:
         print("  session_logger.py no encontrado en", TOOLS)
         return
     n = int(args[0]) if args and args[0].isdigit() else 5
-    subprocess.run(["python3", str(sl_path), "--last", str(n)],
+    subprocess.run([sys.executable, str(sl_path), "--last", str(n)],
                    cwd=str(BAGO_ROOT.parent))
 
 
@@ -407,7 +423,7 @@ def _cmd_session_history() -> None:
     if not sl_path.exists():
         print("  session_logger.py no encontrado en", TOOLS)
         return
-    subprocess.run(["python3", str(sl_path), "--history"],
+    subprocess.run([sys.executable, str(sl_path), "--history"],
                    cwd=str(BAGO_ROOT.parent))
 
 
@@ -425,7 +441,7 @@ def _cmd_telemetry(args: list) -> None:
                 web_extra += ["--port", args[idx + 1]]
         if "--no-open" in args:
             web_extra.append("--no-open")
-        subprocess.run(["python3", str(web_path)] + web_extra,
+        subprocess.run([sys.executable, str(web_path)] + web_extra,
                        cwd=str(BAGO_ROOT.parent))
         return
 
@@ -443,14 +459,14 @@ def _cmd_telemetry(args: list) -> None:
             idx = args.index("--rate")
             if idx + 1 < len(args):
                 rate_args = ["--rate", args[idx + 1]]
-        subprocess.run(["python3", str(live_path)] + rate_args,
+        subprocess.run([sys.executable, str(live_path)] + rate_args,
                        cwd=str(BAGO_ROOT.parent))
         return
     tel_path = TOOLS / "bago_telemetry.py"
     if not tel_path.exists():
         print("  bago_telemetry.py no encontrado en", TOOLS)
         return
-    subprocess.run(["python3", str(tel_path)] + args,
+    subprocess.run([sys.executable, str(tel_path)] + args,
                    cwd=str(BAGO_ROOT.parent))
 
 
@@ -460,7 +476,7 @@ def _cmd_registry() -> None:
     if not reg_path.exists():
         print("  tool_registry.py no encontrado en", TOOLS)
         return
-    subprocess.run(["python3", str(reg_path), "--list"],
+    subprocess.run([sys.executable, str(reg_path), "--list"],
                    cwd=str(BAGO_ROOT.parent))
 
 
@@ -479,7 +495,7 @@ def _cmd_neural(rest: list) -> None:
     if not neural:
         print("  ❌ bago_neural.py no encontrado en", TOOLS)
         return
-    subprocess.run(["python3", str(neural)] + rest, cwd=str(BAGO_ROOT.parent))
+    subprocess.run([sys.executable, str(neural)] + rest, cwd=str(BAGO_ROOT.parent))
 
 
 def _cmd_heal_paths(rest: list) -> None:
@@ -488,7 +504,7 @@ def _cmd_heal_paths(rest: list) -> None:
     if not healer:
         print("  ❌ path_healer.py no encontrado en", TOOLS)
         return
-    subprocess.run(["python3", str(healer)] + rest, cwd=str(BAGO_ROOT.parent))
+    subprocess.run([sys.executable, str(healer)] + rest, cwd=str(BAGO_ROOT.parent))
 
 
 def _cmd_npath_dispatch(rest: list) -> None:
@@ -617,12 +633,12 @@ def _scaffold_project(dest_input):
     _set_mode("project_active", dest / ".bago")
 
     subprocess.run(
-        ["python3", str(dest / "bago"), "setup"],
+        [sys.executable, str(dest / "bago"), "setup"],
         cwd=str(dest)
     )
 
     print(f"\n  ✅ Proyecto listo en: {dest}")
-    print(f"  ▶  cd \"{dest}\" && python3 bago\n")
+    print(f"  ▶  cd \"{dest}\" && bago\n")
     return True
 
 # ── Prompt de arranque ─────────────────────────────────────────────────────────
@@ -724,7 +740,7 @@ _SYNC_CMDS = frozenset({
 def _auto_sync(cwd=None):
     try:
         subprocess.run(
-            ["python3", str(TOOLS / "repo_context_guard.py"), "sync"],
+            [sys.executable, str(TOOLS / "repo_context_guard.py"), "sync"],
             cwd=str(cwd or BAGO_ROOT.parent),
             capture_output=True,
             timeout=5
@@ -737,6 +753,31 @@ def _auto_sync(cwd=None):
 def main():
     args = sys.argv[1:]
 
+    # ── First-run wizard ───────────────────────────────────────────────────────
+    # Fires on any first run (with or without args) unless bypassed.
+    # CI/BAGO_SKIP_WIZARD bypass is handled inside bago_wizard.py itself.
+    _wizard_marker = BAGO_ROOT / "state" / "install_complete.json"
+    _skip_wizard = (
+        "--skip-wizard" in args
+        or os.environ.get("CI")
+        or os.environ.get("BAGO_SKIP_WIZARD")
+    )
+    if not _wizard_marker.exists() and not _skip_wizard:
+        _wiz_path = TOOLS / "bago_wizard.py"
+        if _wiz_path.exists():
+            _wiz_result = subprocess.run(
+                [sys.executable, str(_wiz_path)],
+                cwd=str(BAGO_ROOT.parent),
+            )
+            if _wiz_result.returncode != 0:
+                sys.exit(_wiz_result.returncode)
+            if not args:
+                return  # No command given: wizard already showed banner, we're done
+            # With args: continue below to dispatch the requested command
+
+    # Remove --skip-wizard from args before dispatching
+    args = [a for a in args if a != "--skip-wizard"]
+
     # Prompt de primera ejecución (solo sin args y con TTY)
     if not args and sys.stdin.isatty() and _is_template_seed():
         result = _prompt_mode()
@@ -748,13 +789,13 @@ def main():
         if sys.stdin.isatty():
             # Shell interactivo persistente (como gh copilot)
             result = subprocess.run(
-                ["python3", str(TOOLS / "bago_shell.py")],
+                [sys.executable, str(TOOLS / "bago_shell.py")],
                 cwd=str(BAGO_ROOT.parent)
             )
             sys.exit(result.returncode)
         else:
             subprocess.run(
-                ["python3", str(TOOLS / "bago_banner.py")],
+                [sys.executable, str(TOOLS / "bago_banner.py")],
                 cwd=str(BAGO_ROOT.parent)
             )
         return
@@ -770,7 +811,7 @@ def main():
 
     if cmd == "setup":
         subprocess.run(
-            ["python3", str(TOOLS / "repo_context_guard.py"), "sync"],
+            [sys.executable, str(TOOLS / "repo_context_guard.py"), "sync"],
             cwd=str(BAGO_ROOT.parent)
         )
         _install_extensions()
@@ -792,6 +833,31 @@ def main():
         _cmd_heal_paths(rest)
     elif cmd == "npath":
         _cmd_npath_dispatch(rest)
+    elif cmd == "wizard":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_wizard.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd in ("rubber-duck", "rubber_duck"):
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_rubber_duck.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "siembra" and rest and rest[0].lower() in ("ideas", "idea", "seed", "semilla"):
+        # Disambiguation: "bago siembra ideas" → ideas catalog (emit_ideas.py)
+        # "bago siembra" alone = project management (siembra_manager.py)
+        print("  💡 Redirigiendo 'bago siembra ideas' → bago ideas (catálogo de ideas W2)")
+        print("     Tip: usa 'bago siembra' para gestionar proyectos hijo, 'bago ideas' para el catálogo.\n")
+        subprocess.run(
+            [sys.executable, str(TOOLS / "emit_ideas.py")] + rest[1:],
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd in ("seed-ideas", "semilla-ideas", "ideas-seed"):
+        # Alias explícito para sembrar catálogo de ideas
+        subprocess.run(
+            [sys.executable, str(TOOLS / "emit_ideas.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest
@@ -799,17 +865,17 @@ def main():
         _dispatch(cmd, clean_rest, preflight_only=preflight_only, skip_preflight=skip_preflight)
     elif cmd in ("help", "--help", "-h"):
         subprocess.run(
-            ["python3", str(TOOLS / "bago_banner.py"), "--mini"],
+            [sys.executable, str(TOOLS / "bago_banner.py"), "--mini"],
             cwd=str(BAGO_ROOT.parent)
         )
         print("  Comandos disponibles:")
-        print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath")
+        print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath | project | siembra | siembra ideas | wizard")
         for k in sorted(COMMANDS):
             print(f"    bago {k}")
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:

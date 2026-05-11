@@ -520,7 +520,7 @@ def cmd_info(ip: str):
         return
     os_icon = "🍎" if "darwin" in info.get("platform", "").lower() else "🪟"
     print(f"  {os_icon} {BOLD(info.get('hostname', '?'))}")
-    for k in ("ip", "platform", "python", "project", "ideas", "tools"):
+    for k in ("ip", "platform", "python", "project", "ideas", "tools"):  # noqa: HARDCODE
         print(f"     {k:<10}: {info.get(k, '?')}")
     print()
 

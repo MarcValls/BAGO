@@ -58,6 +58,17 @@ def _save_project_state(project_root: Path, data: dict) -> None:
     ctx = project_root / ".bago" / "state" / "context.json"
     ctx.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
+def _get_user_cwd() -> Path:
+    """Return the directory the user was in when they invoked bago."""
+    env_cwd = os.environ.get("BAGO_USER_CWD", "")
+    if env_cwd:
+        try:
+            return Path(env_cwd).resolve()
+        except Exception:
+            pass
+    return Path.cwd()
+
+
 def _current_project_root() -> Path | None:
     state = _load_global()
     root = state.get("current_project", {}).get("root")
@@ -65,7 +76,7 @@ def _current_project_root() -> Path | None:
 
 def _detect_project_from_cwd() -> Path | None:
     """Sube desde CWD buscando .bago/pack.json."""
-    p = Path.cwd()
+    p = _get_user_cwd()
     for _ in range(6):
         if (p / ".bago" / "pack.json").exists():
             return p
@@ -78,7 +89,7 @@ def _detect_project_from_cwd() -> Path | None:
 
 def cmd_project_init(args: list[str]) -> None:
     """Inicializa .bago/ en el directorio actual."""
-    target = Path(args[0]) if args else Path.cwd()
+    target = Path(args[0]).resolve() if args else _get_user_cwd()
 
     bago_dir = target / ".bago"
     if bago_dir.exists():
@@ -159,7 +170,7 @@ def cmd_project_link(args: list[str]) -> None:
             project_root = detected
         else:
             # Try CWD itself
-            project_root = Path.cwd()
+            project_root = _get_user_cwd()
 
     pack_file = project_root / ".bago" / "pack.json"
     if not pack_file.exists():
@@ -395,9 +406,13 @@ def cmd_learn(args: list[str]) -> None:
 
 COMMAND_MAP = {
     "project-init":   cmd_project_init,
+    "init":           cmd_project_init,   # alias: bago project init
     "project-link":   cmd_project_link,
+    "link":           cmd_project_link,   # alias: bago project link
     "project-unlink": cmd_project_unlink,
+    "unlink":         cmd_project_unlink, # alias: bago project unlink
     "project-state":  cmd_project_state,
+    "state":          cmd_project_state,  # alias: bago project state
     "promote":        cmd_promote,
     "learn":          cmd_learn,
 }
