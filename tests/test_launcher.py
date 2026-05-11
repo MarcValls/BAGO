@@ -18,11 +18,16 @@ LAUNCHER = str(Path(__file__).resolve().parent.parent / "bago")
 
 
 def _run(*args, timeout=30) -> subprocess.CompletedProcess:
+    import os
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     return subprocess.run(
         [sys.executable, LAUNCHER, *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
+        env=env,
     )
 
 

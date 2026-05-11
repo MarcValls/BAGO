@@ -68,7 +68,7 @@
     ]
   },
   "notes": "2026-05-05: reparación total del core: bago status funciona, integration_tests no referencia funciones/tools ausentes, COMMANDS operativos salen de tool_registry, sincerity queda estricto en 0/0 y stability distingue sandbox opcional como SKIP.\n2026-05-05: cross-learning DERIVA↔BIANCA; sprints 288-292 BIANCA; trampas #14-#15 añadidas; project_patterns cross-learning; engine_learnings actualizado.\n2026-05-05 20:51 [TG]: bago puedes configurar BAGO bot como una miniapp de telegram\n2026-05-06: bump 2.6-taxonomy — 6-layer taxonomy + scope, 3 routers, 29 deprecated, bago help redesigned, scope_detector.py, sessions en BD.",
-  "updated_at": "2026-05-11T04:19:30.659392+00:00",
+  "updated_at": "2026-05-11T08:02:31.128349+00:00",
   "bago_knowledge": {
     "sequences_catalog": ".bago/knowledge/sequences_catalog.md",
     "sequences_count": 10,
@@ -215,19 +215,18 @@
   },
   "last_sync": "2026-05-05T21:43:15.902897",
   "health_score": {
-    "score": 75,
+    "score": 100,
     "max": 100,
-    "color": "yellow",
-    "ko": [
-      "Integridad: legacy 2.1 ref en ImageStudio/_internal/fastapi/applications.py"
-    ],
+    "color": "green",
+    "ko": [],
     "ok": [
+      "Integridad 25/25",
       "Disciplina workflow 20/20",
       "Captura decisiones 20/20",
       "Estado stale 15/15",
       "Consistencia inv. 20/20"
     ],
-    "updated_at": "2026-05-05T21:43:15.902876"
+    "updated_at": "2026-05-11T08:02:31.128349+00:00"
   },
   "knowledge_index": {
     "promoted_count": 2,

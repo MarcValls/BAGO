@@ -26,7 +26,6 @@ Lives at: .bago/core/autonomous_loop.py
 from __future__ import annotations
 
 import argparse
-import fcntl
 import json
 import os
 import subprocess
@@ -36,6 +35,19 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# Cross-platform file locking
+try:
+    import fcntl as _fcntl  # Unix only
+    _HAS_FCNTL = True
+except ImportError:
+    _HAS_FCNTL = False  # Windows
+
+try:
+    import msvcrt as _msvcrt  # Windows only
+    _HAS_MSVCRT = True
+except ImportError:
+    _HAS_MSVCRT = False  # Unix
 
 # ── Path resolution ────────────────────────────────────────────────────────────
 _THIS_FILE   = Path(__file__).resolve()
@@ -197,16 +209,27 @@ def _run_tool(cmd: str, extra_args: list | None = None, timeout: int = TOOL_TIME
 # ── Single-instance lock ───────────────────────────────────────────────────────
 
 class _LoopLock:
-    """Non-blocking advisory lock — prevents two loops running simultaneously."""
+    """Non-blocking advisory lock — prevents two loops running simultaneously.
+
+    Cross-platform implementation:
+    - Unix: uses fcntl.flock (exclusive, non-blocking)
+    - Windows: uses atomic O_CREAT|O_EXCL lockfile (no msvcrt needed)
+    """
 
     def __init__(self) -> None:
         self._fd = None
+        self._lock_path: Path | None = None
 
     def acquire(self) -> bool:
         _LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if _HAS_FCNTL:
+            return self._acquire_unix()
+        return self._acquire_windows()
+
+    def _acquire_unix(self) -> bool:
         try:
             self._fd = open(_LOCK_FILE, "w")
-            fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _fcntl.flock(self._fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
             self._fd.write(f"{os.getpid()}\n{_now()}\n")
             self._fd.flush()
             return True
@@ -216,15 +239,34 @@ class _LoopLock:
                 self._fd = None
             return False
 
+    def _acquire_windows(self) -> bool:
+        """Atomic create-exclusive — if file exists, another loop is running."""
+        try:
+            fd = os.open(str(_LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w") as fh:
+                fh.write(f"{os.getpid()}\n{_now()}\n")
+            self._lock_path = _LOCK_FILE
+            return True
+        except FileExistsError:
+            return False
+        except OSError:
+            return False
+
     def release(self) -> None:
-        if self._fd:
+        if _HAS_FCNTL and self._fd:
             try:
-                fcntl.flock(self._fd, fcntl.LOCK_UN)
+                _fcntl.flock(self._fd, _fcntl.LOCK_UN)
                 self._fd.close()
                 _LOCK_FILE.unlink(missing_ok=True)
             except Exception:
                 pass
             self._fd = None
+        elif self._lock_path:
+            try:
+                self._lock_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            self._lock_path = None
 
 
 # ── Inbox ─────────────────────────────────────────────────────────────────────
