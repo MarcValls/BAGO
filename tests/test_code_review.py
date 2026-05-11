@@ -12,6 +12,7 @@ def test_run_reviews_exposes_explicit_scanner_statuses(monkeypatch, tmp_path):
         "secret_scan.py": "[]",
         "dead_code.py": "[]",
         "duplicate_check.py": "[]",
+        "placeholder_scan.py": '{"findings": [], "total": 0}',
     }
 
     monkeypatch.setattr(code_review, "_count_py_lines", lambda _: 100)

@@ -115,6 +115,21 @@ SCANNER_DEFS = (
         "block_on_statuses": {STATUS_ERROR},
         "supports_changed_only": True,
     },
+    {
+        "key": "placeholders",
+        "name": "Placeholder Scan",
+        "tool": "placeholder_scan.py",
+        "args": ["{directory}", "--json"],
+        "parser": "json",
+        "critical": False,
+        "warn_threshold": 1,
+        "fail_threshold": 10,
+        "detail_limit": 10,
+        "score_multiplier": 1,
+        "score_divisor": 2,
+        "block_on_statuses": {STATUS_ERROR},
+        "supports_changed_only": True,
+    },
 )
 
 

@@ -502,6 +502,12 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Code review automatizado fail-closed con estado explícito por scanner",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "code_review.py"))],
     ),
+    "placeholder_scan": ToolEntry(
+        cmd="placeholder_scan", module="placeholder_scan",
+        description="Detecta placeholders y datos ficticios en código Python (FAKE_DATE, STUB_RAISE, ELLIPSIS_BODY, TODO_COMMENT, PLACEHOLDER_STR)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "placeholder_scan.py"))],
+        layer="calidad", scope="framework",
+    ),
     "debt": ToolEntry(
         cmd="debt", module="debt_ledger",
         description="Ledger de deuda técnica — registra, prioriza y hace seguimiento",
