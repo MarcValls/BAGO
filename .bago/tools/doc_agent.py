@@ -149,9 +149,8 @@ def _check_readme(dry_run: bool, check_only: bool, auto_stage: bool) -> DocResul
     if check_only or dry_run:
         rc, out, err = _run([PYTHON, script, "--dry-run"])
         elapsed = time.monotonic() - t0
-        # readme_sync --dry-run imprime "README necesita actualización: SÍ" o ": NO"
-        needs = ": SÍ" in out or (": NO" not in out and "necesita" in out.lower())
-        if not needs:
+        # readme_sync --dry-run exit 0 = al día, exit 1 = hay cambios pendientes
+        if rc == 0:
             return DocResult(name, name, "ok", "Al día", elapsed)
         return DocResult(name, name, "outdated", "Necesita sincronización", elapsed)
 

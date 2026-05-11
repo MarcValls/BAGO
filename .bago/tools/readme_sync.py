@@ -316,7 +316,8 @@ if __name__ == "__main__":
         content = _README.read_text(encoding="utf-8") if _README.exists() else ""
         _, changed = apply_patches(content, m)
         print(f"  README necesita actualización: {'SÍ' if changed else 'NO'}")
-        sys.exit(0)
+        # Exit 1 si hay cambios pendientes (permite que callers usen exit-code)
+        sys.exit(1 if changed else 0)
 
     auto_stage = "--no-stage" not in sys.argv
     verbose    = "--quiet" not in sys.argv
