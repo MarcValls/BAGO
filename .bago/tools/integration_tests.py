@@ -23,7 +23,7 @@ Uso:
   python3 integration_tests.py --verbose
 """
 from __future__ import annotations
-import argparse, json, subprocess, tempfile
+import argparse, json, subprocess, sys, tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
