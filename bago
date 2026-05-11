@@ -870,6 +870,12 @@ def main():
             [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd in ("splash", "start", "inicio"):
+        # Pantalla de entrada gráfica BAGO
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_splash.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest
