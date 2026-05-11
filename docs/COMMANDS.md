@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-10 15:48 UTC
+> Last generated: 2026-05-11 05:39 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 39 |
+| 🧪 Experimental | 40 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **58** |
+| **Total active** | **59** |
 
 ---
 
@@ -83,6 +83,7 @@ Actively developed. May change between minor versions.
 | `bago types` | Chequeo de tipos estáticos | 🔍 calidad | safe | optional |
 | `bago version` | Gestión de versiones beta/release: bump \| beta \| release \| tag \| commit \| sync-check | 🔬 avanzado | mutating | optional |
 | `bago why` | Explica qué hace un comando BAGO, cuándo usarlo y sus relaciones | 🔬 avanzado | safe | optional |
+| `bago work_matrix` | Matriz de rutas de trabajo: qué agente y herramientas MCP usar según el tipo de tarea | 📊 analítica | safe | optional |
 | `bago workflow` | Selector de workflow (interactivo) | ▶️ ejecución | safe | optional |
 
 ---
