@@ -59,6 +59,7 @@ whatsapp_config.json
 # State privado (no versionar)
 .bago/state/chat_history.json
 .bago/state/tareas_telegram.json
+.bago/state/logs/
 
 # Backups y builds
 .bago/tools/*.bak
