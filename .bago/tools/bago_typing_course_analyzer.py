@@ -110,36 +110,119 @@ class TypingCourseAnalyzer:
         return issues
     
     def analyze_with_agent_logic(self, files):
-        """AGENT: Logic Checker - Busca errores lógicos."""
+        """AGENT: Logic Checker - Busca errores lógicos en JavaScript."""
         self.print_section("⚙️  AGENT: Logic Checker")
-        
+
+        import re
+
         issues = []
-        
+
         for filepath, content in files.items():
-            # TODO sin implementar
-            if "TODO:" in content:
-                todo_count = content.count("TODO")
+            lines = content.split("\n")
+
+            # 1. Loose equality: == / != en lugar de === / !==
+            for i, line in enumerate(lines, 1):
+                stripped = line.strip()
+                if re.search(r'[^=!<>]==[^=]|[^=!<>]!=[^=]', stripped):
+                    # Excluir comentarios y strings obvios
+                    if not stripped.startswith("//") and not stripped.startswith("*"):
+                        issues.append({
+                            "severity": "MEDIUM",
+                            "file": filepath,
+                            "line": i,
+                            "issue": f"Loose equality (== / !=) at line {i}: `{stripped[:60]}`",
+                            "recommendation": "Use strict equality (=== / !==) to avoid type coercion bugs",
+                        })
+
+            # 2. Código inalcanzable: sentencias después de return en el mismo bloque
+            in_function = False
+            found_return = False
+            brace_depth = 0
+            return_depth = 0
+            for i, line in enumerate(lines, 1):
+                stripped = line.strip()
+                brace_depth += stripped.count("{") - stripped.count("}")
+                if re.search(r'\bfunction\b', stripped):
+                    in_function = True
+                    found_return = False
+                    return_depth = brace_depth
+                if in_function and re.match(r'^return\b', stripped):
+                    found_return = True
+                    return_depth = brace_depth
+                elif found_return and brace_depth == return_depth:
+                    if stripped and not stripped.startswith("//") and not stripped.startswith("}"):
+                        issues.append({
+                            "severity": "HIGH",
+                            "file": filepath,
+                            "line": i,
+                            "issue": f"Unreachable code after return at line {i}: `{stripped[:60]}`",
+                            "recommendation": "Remove or reorder code; statements after return never execute",
+                        })
+                        found_return = False  # reportar solo el primero por función
+
+            # 3. Uso de var (hoisting inesperado)
+            var_lines = [
+                (i + 1, line.strip())
+                for i, line in enumerate(lines)
+                if re.match(r'\s*var\s+', line) and not line.strip().startswith("//")
+            ]
+            if var_lines:
                 issues.append({
                     "severity": "MEDIUM",
                     "file": filepath,
-                    "issue": f"{todo_count} TODO comments found",
-                    "recommendation": "Complete pending implementations"
+                    "line": var_lines[0][0],
+                    "issue": f"{len(var_lines)} use(s) of `var` (first at line {var_lines[0][0]}): hoisting can cause subtle bugs",
+                    "recommendation": "Replace `var` with `let` (mutable) or `const` (immutable)",
                 })
-            
-            # Retornos inconsistentes
+
+            # 4. Callback hell: más de 3 niveles de callbacks anidados
+            max_cb_depth = 0
+            cb_depth = 0
+            for line in lines:
+                cb_depth += line.count("function(") + line.count("=> {")
+                cb_depth -= line.count("}")
+                max_cb_depth = max(max_cb_depth, cb_depth)
+            if max_cb_depth > 3:
+                issues.append({
+                    "severity": "HIGH",
+                    "file": filepath,
+                    "line": None,
+                    "issue": f"Callback hell detected: nesting depth ≈ {max_cb_depth}",
+                    "recommendation": "Refactor using async/await or Promise chaining",
+                })
+
+            # 5. Posible null dereference: .property access sin null guard
+            for i, line in enumerate(lines, 1):
+                stripped = line.strip()
+                if re.search(r'\b\w+\.\w+\s*\(', stripped):
+                    if re.search(r'(getElement|querySelector|getElementById)\s*\(', stripped):
+                        if "&&" not in stripped and "?" not in stripped and "if" not in stripped:
+                            issues.append({
+                                "severity": "MEDIUM",
+                                "file": filepath,
+                                "line": i,
+                                "issue": f"Potential null dereference at line {i}: DOM query result used without null check",
+                                "recommendation": "Guard with `if (el)` or optional chaining `el?.method()`",
+                            })
+
+            # 6. Retornos inconsistentes (null vs undefined)
             if "return null" in content and "return undefined" in content:
                 issues.append({
                     "severity": "LOW",
                     "file": filepath,
-                    "issue": "Inconsistent return types (null vs undefined)",
-                    "recommendation": "Use consistent return type (prefer null or undefined)"
+                    "line": None,
+                    "issue": "Inconsistent return types: mixes `null` and `undefined`",
+                    "recommendation": "Pick one sentinel value; prefer `null` for intentional absence",
                 })
-        
+
         print(f"⚠️  Encontrados {len(issues)} problemas lógicos:\n")
         for issue in issues:
-            print(f"  • {issue['file']}: {issue['issue']}")
-            print(f"    Fix: {issue['recommendation']}\n")
-        
+            line_ref = f" (línea {issue['line']})" if issue.get("line") else ""
+            sev_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(issue["severity"], "•")
+            print(f"  {sev_icon} [{issue['severity']}] {issue['file']}{line_ref}")
+            print(f"     Issue: {issue['issue']}")
+            print(f"     Fix:   {issue['recommendation']}\n")
+
         self.findings["logic"] = issues
         return issues
     

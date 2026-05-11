@@ -42,54 +42,131 @@ Generado: {created_at}
 
 from pathlib import Path
 import ast
+import re
 import json
 import sys
 
+# Reglas configuradas al generar el agente
+RULES: list[str] = {rules_python_list}
+CATEGORY: str = "{category}"
+
+
 class {class_name}(ast.NodeVisitor):
     """Agente especializado: {name}."""
-    
+
     def __init__(self, filename: str):
         self.filename = filename
-        self.findings = []
-    
-    def analyze(self, node):
-        """Implementa análisis según reglas."""
-        # Este método debe ser específico según {category}
-        pass
+        self.findings: list[dict] = []
 
-def analyze_file(filepath: str) -> list:
-    """Analiza archivo."""
+    # ── AST visitors ────────────────────────────────────────────────────────
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Detecta funciones según reglas de la categoría."""
+        self._check_function(node)
+        self.generic_visit(node)
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Raise(self, node: ast.Raise) -> None:
+        """Detecta raises desnudos (sin mensaje)."""
+        if "bare_raise" in RULES or CATEGORY in ("quality", "logic"):
+            if node.exc is None:
+                self._add(node.lineno, "bare raise without exception object", "MEDIUM")
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        """Detecta except genéricos."""
+        if "bare_except" in RULES or CATEGORY in ("quality", "security"):
+            if node.type is None:
+                self._add(node.lineno, "bare except: catches all exceptions silently", "HIGH")
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        """Detecta llamadas peligrosas según categoría."""
+        if CATEGORY == "security":
+            dangerous = {{"eval", "exec", "compile", "__import__"}}
+            if isinstance(node.func, ast.Name) and node.func.id in dangerous:
+                self._add(node.lineno, f"dangerous call: {{node.func.id}}()", "CRITICAL")
+        self.generic_visit(node)
+
+    # ── Checks de texto ──────────────────────────────────────────────────────
+
+    def check_source(self, source: str) -> None:
+        """Checks basados en texto plano (complementa el AST)."""
+        lines = source.splitlines()
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            # Reglas por keyword
+            for rule in RULES:
+                if rule.startswith("pattern:"):
+                    pat = rule[len("pattern:"):]
+                    if re.search(pat, stripped):
+                        self._add(i, f"pattern match [{{pat}}]: {{stripped[:60]}}", "MEDIUM")
+                elif rule == "no_print" and re.match(r"^print\\s*\\(", stripped):
+                    self._add(i, "print() in production code", "LOW")
+                elif rule == "no_hardcoded_secrets":
+                    if re.search(r"(password|secret|api_key|token)\\s*=\\s*[\\x27\\x22].+", stripped, re.I):
+                        self._add(i, f"hardcoded secret at line {{i}}", "CRITICAL")
+                elif rule == "long_functions":
+                    pass  # handled via AST FunctionDef line count
+                elif rule == "no_global":
+                    if re.match(r"^global\\s+\\w", stripped):
+                        self._add(i, f"global variable declaration: {{stripped[:40]}}", "MEDIUM")
+
+    # ── Helpers ──────────────────────────────────────────────────────────────
+
+    def _check_function(self, node: ast.FunctionDef) -> None:
+        if "long_functions" in RULES or CATEGORY == "performance":
+            end = getattr(node, "end_lineno", node.lineno)
+            length = end - node.lineno
+            if length > 50:
+                self._add(node.lineno, f"function {{node.name!r}} is {{length}} lines (> 50)", "MEDIUM")
+        if "no_args_limit" not in RULES and CATEGORY in ("quality", "design"):
+            if len(node.args.args) > 7:
+                self._add(node.lineno, f"function {{node.name!r}} has {{len(node.args.args)}} args (> 7)", "MEDIUM")
+
+    def _add(self, line: int, msg: str, severity: str = "LOW") -> None:
+        self.findings.append({{"line": line, "message": msg, "severity": severity}})
+
+
+def analyze_file(filepath: str) -> list[dict]:
+    """Analiza un archivo Python con AST + checks de texto."""
     try:
         source = Path(filepath).read_text(encoding="utf-8", errors="ignore")
         tree = ast.parse(source)
-    except:
-        return []
-    
+    except SyntaxError:
+        return [{{"line": 1, "message": "SyntaxError: file could not be parsed", "severity": "HIGH", "file": filepath}}]
+    except Exception as e:
+        return [{{"line": 0, "message": str(e), "severity": "LOW", "file": filepath}}]
+
     analyzer = {class_name}(filepath)
-    # analyzer.visit(tree)  # Implement based on category
-    
+    analyzer.visit(tree)
+    analyzer.check_source(source)
+
     for finding in analyzer.findings:
         finding["file"] = filepath
-    
     return analyzer.findings
+
 
 def main(target_dir: str) -> int:
     """Análisis del directorio."""
-    findings = []
-    
+    findings: list[dict] = []
+
     for py_file in Path(target_dir).rglob("*.py"):
         if any(d in py_file.parts for d in {{"__pycache__", ".git", ".bago"}}):
             continue
         findings.extend(analyze_file(str(py_file)))
-    
+
     print(json.dumps({{
         "agent": "{name}",
         "category": "{category}",
+        "rules": RULES,
         "findings": findings,
-        "count": len(findings)
+        "count": len(findings),
     }}, indent=2))
-    
-    return 0
+
+    return 1 if any(f.get("severity") in ("CRITICAL", "HIGH") for f in findings) else 0
+
 
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "."
@@ -139,9 +216,10 @@ def create_agent(name: str, category: str, description: str, rules: list[str]) -
     # Genera clase name en CamelCase
     class_name = ''.join(word.capitalize() for word in name.split('_'))
     
-    # Genera rules list formateada
+    # Genera rules list formateada (docstring y Python literal)
     rules_list = '\n'.join(f"  - {rule}" for rule in rules)
-    
+    rules_python_list = repr(rules)
+
     # Genera código
     code = AGENT_TEMPLATE.format(
         name=name,
@@ -150,6 +228,7 @@ def create_agent(name: str, category: str, description: str, rules: list[str]) -
         class_name=class_name,
         rules_count=len(rules),
         rules_list=rules_list,
+        rules_python_list=rules_python_list,
         created_at=datetime.now(timezone.utc).isoformat()
     )
     
