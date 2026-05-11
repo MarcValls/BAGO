@@ -35,6 +35,17 @@
   --danger-hi:    #cc6666;
   --success:      #2e5e3e;
   --success-hi:   #66cc88;
+  /* ── Semantic action palette ── */
+  --primary:      #7c6fcd;
+  --primary-hi:   #a08fff;
+  --note-col:     #3a7bd5;
+  --note-hi:      #5a9bf5;
+  --mod-col:      #2d6b4a;
+  --mod-hi:       #3d9b6a;
+  --danger-col:   #8b3a3a;
+  --danger-hi2:   #cc5555;
+  --file-col:     #5a4a1a;
+  --file-hi:      #c8a840;
 }
 
 body {
@@ -84,19 +95,31 @@ body {
 /* ── TOOLBAR ────────────────────────────────── */
 #toolbar {
   background: var(--bg-panel);
-  padding: 7px 20px;
-  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
   border-bottom: 2px solid var(--bg-darkest);
   flex-shrink: 0;
 }
-.tb-sep { width: 1px; height: 30px; background: #2d2d5e; margin: 0 4px; }
-.tb-lbl { font-size: 9px; color: var(--text-lo); text-transform: uppercase; letter-spacing: .5px; }
+.tb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+}
+.tb-row:not(:last-child) {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tb-sep { width: 1px; height: 28px; background: #2d2d5e; margin: 0 4px; flex-shrink: 0; }
+.tb-lbl { font-size: 9px; color: var(--text-lo); text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; flex-shrink: 0; margin-right: 2px; }
+.tb-spacer { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
-/* Base button */
+/* ── Base button ── */
 .btn {
   background: var(--btn-bg); border: 1px solid var(--btn-border);
-  color: var(--text-mid); padding: 5px 11px; border-radius: 5px;
-  cursor: pointer; font-size: 13px;
+  color: var(--text-mid); padding: 5px 11px; border-radius: 6px;
+  cursor: pointer; font-size: 12px;
   display: flex; align-items: center; gap: 4px;
   transition: background .12s, border-color .12s, color .12s;
   white-space: nowrap; user-select: none;
@@ -105,20 +128,131 @@ body {
 .btn.active { background: var(--btn-active); border-color: var(--accent-hi); color: #fff;
               box-shadow: 0 0 8px rgba(100,100,255,.25); }
 
-/* Duration buttons */
-.dur { font-size: 19px; padding: 3px 9px; min-width: 38px; justify-content: center; }
+/* ── Tier 1: Primary action buttons ── */
+.btn-primary {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn-play-primary {
+  background: linear-gradient(135deg, #2a4a7f, #1a3a6f);
+  color: #88bbff;
+  border-color: #3a5a9f;
+}
+.btn-play-primary:hover { background: linear-gradient(135deg, #3a5a9f, #2a4a7f); color: #bbddff; }
+.btn-play-primary.active { background: linear-gradient(135deg, #1a3a7f, #0f2a5f); color: #ccddff; border-color: #5577cc; box-shadow: 0 0 12px rgba(80,120,220,.3); }
+.btn-export-primary {
+  background: linear-gradient(135deg, #1a5a3a, #0f3a25);
+  color: #77cc99;
+  border-color: #2a7a4a;
+}
+.btn-export-primary:hover { background: linear-gradient(135deg, #2a6a4a, #1a5a3a); color: #aaeebb; }
 
-/* Accidental buttons */
-.acc { font-size: 16px; min-width: 34px; justify-content: center; }
+/* ── Tier 2: Duration card buttons ── */
+.btn-dur {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  background: var(--btn-bg);
+  border: 2px solid var(--btn-border);
+  cursor: pointer;
+  transition: all 0.15s;
+  gap: 1px;
+  padding: 0;
+  user-select: none;
+  flex-shrink: 0;
+}
+.btn-dur .dur-symbol {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--note-hi);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.btn-dur .dur-name {
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-lo);
+  line-height: 1;
+}
+.btn-dur:hover  { background: rgba(58,123,213,0.18); border-color: var(--note-col); }
+.btn-dur.active { background: rgba(58,123,213,0.28); border-color: var(--note-hi);
+                  box-shadow: 0 0 10px rgba(58,123,213,0.35); }
+.btn-dur.active .dur-symbol { color: #fff; }
+.btn-dur.active .dur-name   { color: var(--note-hi); }
 
-/* Action variants */
+/* CSS note shapes for duration symbols */
+.ns-whole {
+  display: inline-block;
+  width: 16px; height: 11px;
+  border: 2.5px solid currentColor;
+  border-radius: 50%;
+}
+.ns-half {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2.5px solid currentColor;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent 50%, currentColor 50%);
+}
+.ns-quarter {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Tier 3: Modifier & accidental buttons ── */
+.btn-mod {
+  background: rgba(45,107,74,0.25);
+  border: 1px solid #2d6b4a;
+  color: #7dcca0;
+  padding: 5px 13px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn-mod:hover  { background: rgba(61,155,106,0.3); border-color: var(--mod-hi); color: #aaeebb; }
+.btn-mod.active { background: rgba(61,155,106,0.4); border-color: var(--mod-hi); color: #ccffdd;
+                  box-shadow: 0 0 8px rgba(61,155,106,0.35); }
+
+.btn-acc {
+  font-size: 16px;
+  min-width: 36px;
+  padding: 5px 10px;
+  justify-content: center;
+}
+
+/* Danger / file variants */
 .btn-danger  { background:#3a1e1e; border-color:#5e3030; color:#e08080; }
 .btn-danger:hover  { background:#552525; border-color:var(--danger-hi); color:#ffa0a0; }
-.btn-play    { background:#1e2a3e; border-color:#304060; color:#88aacc; }
-.btn-play:hover    { background:#253550; border-color:#5577aa; color:#bbddff; }
-.btn-play.active   { background:#223a66; border-color:#7799cc; color:#ccddff; }
-.btn-export  { background:#1e3228; border-color:#2e5040; color:#7abbaa; }
-.btn-export:hover  { background:#254535; border-color:#4a8865; color:#aaddbb; }
+.btn-file    { background: rgba(90,74,26,0.3); border-color:#5a4a1a; color:#c8a840; }
+.btn-file:hover    { background: rgba(90,74,26,0.5); border-color:var(--file-hi); color:#f0d060; }
+
+/* Legacy compat — keep .dur selector working for JS */
+.dur { /* handled by .btn-dur */ }
 
 /* ── SCORE WRAPPER ──────────────────────────── */
 #score-wrap {
@@ -196,13 +330,13 @@ body {
 }
 .st-item { display: flex; align-items: center; gap: 4px; }
 .st-val  { color: #9999ee; font-weight: 600; }
-.st-hint { margin-left: auto; font-size: 10px; color: #333355; }
+.st-hint { margin-left: auto; font-size: 10px; color: #666688; }
 
 /* ── SHORTCUT BAR ───────────────────────────── */
 #kbbar {
   background: #111125;
   padding: 4px 20px;
-  font-size: 10px; color: #333355;
+  font-size: 10px; color: #666688;
   display: flex; gap: 18px; flex-wrap: wrap;
   flex-shrink: 0;
 }
@@ -287,46 +421,69 @@ kbd {
 <!-- ── TOOLBAR ── -->
 <div id="toolbar">
 
-  <span class="tb-lbl">Duración</span>
+  <!-- Row 1: File operations + primary play/export actions -->
+  <div class="tb-row tb-row-1">
+    <button class="btn btn-file" onclick="document.getElementById('file-input').click()" title="Abrir archivo MusicXML (.xml, .musicxml)">📂 Abrir partitura</button>
+    <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
+    <button class="btn btn-file" onclick="loadMusicXML(EXAMPLE_SCORE)" title="Cargar ejemplo: Nostalgia en La menor — 3 voces, La menor, 3/4, Andante">📖 Ejemplo melancólico</button>
+    <div class="tb-spacer">
+      <button class="btn-primary btn-play-primary" id="btn-play"   onclick="togglePlay()"     title="Reproducir / Detener (Espacio)">▶ Reproducir</button>
+      <button class="btn-primary btn-export-primary" id="btn-export" onclick="exportMusicXML()" title="Exportar a MusicXML 3.1">↓ Exportar MusicXML</button>
+    </div>
+  </div>
 
-  <button class="btn dur" id="d-w"  onclick="setDur('w')"  title="Redonda — 4 tiempos (tecla 1)">𝅝</button>
-  <button class="btn dur" id="d-h"  onclick="setDur('h')"  title="Blanca — 2 tiempos (tecla 2)">𝅗𝅥</button>
-  <button class="btn dur active" id="d-q"  onclick="setDur('q')"  title="Negra — 1 tiempo (tecla 4)">♩</button>
-  <button class="btn dur" id="d-8"  onclick="setDur('8')"  title="Corchea — ½ tiempo (tecla 5)">♪</button>
-  <button class="btn dur" id="d-16" onclick="setDur('16')" title="Semicorchea — ¼ tiempo (tecla 6)">𝅘𝅥𝅯</button>
-  <button class="btn dur" id="d-32" onclick="setDur('32')" title="Fusa — ⅛ tiempo (tecla 7)">𝅘𝅥𝅰</button>
+  <!-- Row 2: Duration cards + modifier toggles -->
+  <div class="tb-row tb-row-2">
+    <span class="tb-lbl">Duración</span>
 
-  <div class="tb-sep"></div>
-  <span class="tb-lbl">Opciones</span>
+    <button class="btn-dur dur" id="d-w"  onclick="setDur('w')"  title="Redonda — 4 tiempos (tecla 1)">
+      <span class="dur-symbol"><span class="ns-whole"></span></span>
+      <span class="dur-name">Redonda</span>
+    </button>
+    <button class="btn-dur dur" id="d-h"  onclick="setDur('h')"  title="Blanca — 2 tiempos (tecla 2)">
+      <span class="dur-symbol"><span class="ns-half"></span></span>
+      <span class="dur-name">Blanca</span>
+    </button>
+    <button class="btn-dur dur active" id="d-q"  onclick="setDur('q')"  title="Negra — 1 tiempo (tecla 4)">
+      <span class="dur-symbol"><span class="ns-quarter"></span></span>
+      <span class="dur-name">Negra</span>
+    </button>
+    <button class="btn-dur dur" id="d-8"  onclick="setDur('8')"  title="Corchea — ½ tiempo (tecla 5)">
+      <span class="dur-symbol">♩</span>
+      <span class="dur-name">Corchea</span>
+    </button>
+    <button class="btn-dur dur" id="d-16" onclick="setDur('16')" title="Semicorchea — ¼ tiempo (tecla 6)">
+      <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">16</span>
+      <span class="dur-name">Semicorchea</span>
+    </button>
+    <button class="btn-dur dur" id="d-32" onclick="setDur('32')" title="Fusa — ⅛ tiempo (tecla 7)">
+      <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">32</span>
+      <span class="dur-name">Fusa</span>
+    </button>
 
-  <button class="btn" id="btn-dot"  onclick="toggleDot()"  title="Puntillo — suma 50% de duración (tecla .)">· Puntillo</button>
-  <button class="btn" id="btn-rest" onclick="toggleRest()" title="Silencio — pausa en lugar de nota (tecla R)">𝄽 Silencio</button>
+    <div class="tb-sep"></div>
 
-  <div class="tb-sep"></div>
-  <span class="tb-lbl">Alteraciones</span>
+    <button class="btn btn-mod" id="btn-dot"  onclick="toggleDot()"  title="Puntillo — suma 50% de duración (tecla .)">· Puntillo</button>
+    <button class="btn btn-mod" id="btn-rest" onclick="toggleRest()" title="Silencio — pausa en lugar de nota (tecla R)">𝄽 Silencio</button>
+  </div>
 
-  <button class="btn acc" id="a-sharp"   onclick="setAcc('#')" title="Sostenido ♯">♯</button>
-  <button class="btn acc" id="a-flat"    onclick="setAcc('b')" title="Bemol ♭">♭</button>
-  <button class="btn acc" id="a-natural" onclick="setAcc('n')" title="Becuadro ♮">♮</button>
+  <!-- Row 3: Accidentals + destructive actions + transpose -->
+  <div class="tb-row tb-row-3">
+    <span class="tb-lbl">Alteración</span>
 
-  <div class="tb-sep"></div>
+    <button class="btn acc btn-acc" id="a-sharp"   onclick="setAcc('#')" title="Sostenido ♯">♯ Sostenido</button>
+    <button class="btn acc btn-acc" id="a-flat"    onclick="setAcc('b')" title="Bemol ♭">♭ Bemol</button>
+    <button class="btn acc btn-acc" id="a-natural" onclick="setAcc('n')" title="Becuadro ♮">♮ Becuadro</button>
 
-  <button class="btn btn-danger" onclick="deleteLast()" title="Borrar última nota (Delete / Backspace)">⌫ Borrar</button>
-  <button class="btn btn-danger" onclick="clearAll()"   title="Borrar todo">✕ Limpiar todo</button>
+    <div class="tb-sep"></div>
 
-  <div class="tb-sep"></div>
+    <button class="btn btn-danger" onclick="deleteLast()" title="Borrar última nota (Delete / Backspace)">⌫ Borrar última</button>
+    <button class="btn btn-danger" onclick="clearAll()"   title="Borrar todo">✕ Limpiar todo</button>
 
-  <button class="btn btn-play"   id="btn-play"   onclick="togglePlay()"    title="Reproducir / Detener (Espacio)">▶ Reproducir</button>
-  <button class="btn btn-export" id="btn-export"  onclick="exportMusicXML()" title="Exportar a MusicXML 3.1">↓ MusicXML</button>
+    <div class="tb-sep"></div>
 
-  <div class="tb-sep"></div>
-
-  <button class="btn" onclick="document.getElementById('file-input').click()" title="Abrir archivo MusicXML (.xml, .musicxml)">📂 Abrir partitura</button>
-  <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
-
-  <button class="btn" id="btn-transpose" onclick="openTransposePanel()" title="Transponer notas seleccionadas" style="display:none">🎵 Transponer selección</button>
-
-  <button class="btn btn-export" onclick="loadMusicXML(EXAMPLE_SCORE)" title="Cargar ejemplo: Nostalgia en La menor — 3 voces, La menor, 3/4, Andante">📖 Ejemplo melancólico</button>
+    <button class="btn" id="btn-transpose" onclick="openTransposePanel()" title="Transponer notas seleccionadas" style="display:none">🎵 Transponer selección</button>
+  </div>
 
 </div>
 
@@ -863,6 +1020,12 @@ function addNote(pitch) {
     rest:   S.rest,
     dotted: S.dotted,
   });
+  // Auto-reset accidental after placement so next note is clean
+  if (S.acc) {
+    S.acc = null;
+    document.querySelectorAll('.acc').forEach(b => b.classList.remove('active'));
+    updateStatus();
+  }
   schedRender();
 }
 
