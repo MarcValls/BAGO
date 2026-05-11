@@ -27,10 +27,22 @@ Lee también:
 bago ideas          → qué hacer ahora (priorizado por contexto)
 < implementa >      → sigue el campo "siguiente paso" de la idea
 bago health         → verifica que no rompiste nada (debe ser ≥ 80%)
+< actualiza todos > → UPDATE todos SET status='done' para cada tarea completada
 bago task --done    → cierra la tarea y actualiza el estado
+< task_complete >   → solo DESPUÉS de actualizar los todos SQL
 ```
 
 Repite el ciclo. No implementes sin consultar `bago ideas` primero.
+
+> **Regla crítica de todos de sesión:**
+> Antes de llamar a `task_complete`, ejecuta SIEMPRE:
+> ```sql
+> SELECT id, title, status FROM todos WHERE status = 'in_progress';
+> -- Para cada uno completado:
+> UPDATE todos SET status = 'done' WHERE id = '<id>';
+> ```
+> Si hay `in_progress` que ya están implementados y verificados, márcalos `done`.
+> Llamar a `task_complete` con todos en `in_progress` es un **bug de estado**.
 
 ---
 
