@@ -10,7 +10,8 @@ from tool_registry import REGISTRY
 REPO_ROOT = Path(__file__).resolve().parent.parent
 README = REPO_ROOT / "README.md"
 COMMANDS_DOC = REPO_ROOT / "docs" / "COMMANDS.md"
-REGISTRY_FILE = REPO_ROOT / ".bago" / "tools" / "tool_registry.py"
+# REGISTRY dict literal lives in _registry_entries.py after modularization
+REGISTRY_FILE = REPO_ROOT / ".bago" / "tools" / "_registry_entries.py"
 
 
 def _readme_section(title_fragment: str) -> str:
