@@ -32,6 +32,8 @@ It keeps:
 - and audit trail
 between agent sessions.
 
+También incluye un modelo local-first de rutas cognitivas: el sistema de workflows está definido como grafo (`.bago/workflows/WORKFLOW_GRAPH.json`) y el estado se puede separar/fusionar por capas (`state_manager --split/--materialize`) sin borrar historial.
+
 This README is an **operational contract**.
 
 ---
