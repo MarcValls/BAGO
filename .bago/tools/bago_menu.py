@@ -50,7 +50,11 @@ def _read_context() -> dict:
     if gs_path.exists():
         try:
             data = json.loads(gs_path.read_text("utf-8"))
-            ctx["health"] = data.get("system_health", {}).get("overall_score", -1)
+            _hs = data.get("health_score", data.get("system_health", {}))
+            if isinstance(_hs, dict):
+                ctx["health"] = _hs.get("score", _hs.get("overall_score", -1))
+            elif isinstance(_hs, (int, float)):
+                ctx["health"] = int(_hs)
             aw = data.get("sprint_status", {}).get("active_workflow")
             if isinstance(aw, dict):
                 ctx["workflow"] = aw.get("title") or aw.get("code")

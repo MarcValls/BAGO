@@ -83,7 +83,11 @@ def _read_state() -> dict:
     if gs.exists():
         try:
             data = json.loads(gs.read_text(encoding="utf-8"))
-            snap["health"] = data.get("system_health", {}).get("overall_score", -1)
+            _hs = data.get("health_score", data.get("system_health", {}))
+            if isinstance(_hs, dict):
+                snap["health"] = _hs.get("score", _hs.get("overall_score", -1))
+            elif isinstance(_hs, (int, float)):
+                snap["health"] = int(_hs)
             aw = data.get("sprint_status", {}).get("active_workflow")
             if isinstance(aw, dict):
                 snap["workflow"] = aw.get("title") or aw.get("code")
