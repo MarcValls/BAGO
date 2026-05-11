@@ -1,5 +1,5 @@
 """
-bago splash — Pantalla de entrada gráfica BAGO
+bago splash - Pantalla de entrada grafica BAGO
 Uso: python bago splash
 """
 
@@ -11,6 +11,12 @@ import time
 import os
 from pathlib import Path
 
+# Forzar UTF-8 en Windows
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 # ── Rich ────────────────────────────────────────────────────────────────────
 try:
     from rich.console import Console
@@ -19,17 +25,22 @@ try:
     from rich.columns import Columns
     from rich.text import Text
     from rich.rule import Rule
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+    from rich.progress import Progress, SpinnerColumn, TextColumn
     from rich.align import Align
     from rich import box
     from rich.padding import Padding
-    from rich.live import Live
-    import rich.style
     HAS_RICH = True
 except ImportError:
     HAS_RICH = False
 
-console = Console()
+# ── Pyfiglet ─────────────────────────────────────────────────────────────────
+try:
+    import pyfiglet
+    HAS_FIGLET = True
+except ImportError:
+    HAS_FIGLET = False
+
+console = Console(force_terminal=True, highlight=False)
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,17 +48,24 @@ DB   = ROOT / ".bago" / "state" / "bago.db"
 GS   = ROOT / ".bago" / "state" / "global_state.json"
 REG  = ROOT / ".bago" / "tools" / "_registry_entries.py"
 
-# ── Logo ASCII ───────────────────────────────────────────────────────────────
-LOGO = r"""
-██████╗  █████╗  ██████╗  ██████╗
-██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗
-██████╔╝███████║██║  ███╗██║   ██║
-██╔══██╗██╔══██║██║   ██║██║   ██║
-██████╔╝██║  ██║╚██████╔╝╚██████╔╝
-╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝
+# ── Logo (ASCII puro, sin Unicode) ───────────────────────────────────────────
+LOGO_FALLBACK = r"""
+ ____    _    ____  ___
+|  _ \  / \  / ___|/ _ \
+| |_) |/ _ \| |  _| | | |
+|  _ </ ___ \ |_| | |_| |
+|____/_/   \_\____|\___/
 """
 
-TAGLINE = "B·alanceado  A·daptativo  G·enerativo  O·rganizativo"
+def _get_logo():
+    if HAS_FIGLET:
+        try:
+            return pyfiglet.figlet_format("BAGO", font="banner3")
+        except Exception:
+            pass
+    return LOGO_FALLBACK
+
+TAGLINE = "B.alanceado  A.daptativo  G.enerativo  O.rganizativo"
 
 # ── Data readers ─────────────────────────────────────────────────────────────
 
@@ -120,7 +138,7 @@ def _git_branch():
 # ── Render ────────────────────────────────────────────────────────────────────
 
 def _logo_panel():
-    logo_text = Text(LOGO, style="bold cyan", justify="center")
+    logo_text = Text(_get_logo(), style="bold cyan", justify="center")
     tag_text   = Text(TAGLINE, style="italic dim cyan", justify="center")
     combined   = Text.assemble(logo_text, "\n", tag_text)
     return Panel(
@@ -131,34 +149,32 @@ def _logo_panel():
 
 
 def _status_table(db, state, tools, branch, head):
-    active_wf  = state.get("active_workflow") or "— ninguno —"
+    active_wf  = state.get("active_workflow") or "ninguno"
     sprint     = state.get("sprint_name")     or "libre"
-    last_task  = state.get("last_task_title") or "—"
+    last_task  = state.get("last_task_title") or "-"
 
-    # ── Tabla izquierda: sistema ──────────────────────────────
     sys_tbl = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
     sys_tbl.add_column("clave", style="dim")
     sys_tbl.add_column("valor", style="bold")
 
     health_color = "green" if db["last_health"].replace("%","").isdigit() and int(db["last_health"].replace("%","")) >= 80 else "red"
 
-    sys_tbl.add_row("🧰 Herramientas",  f"[bold cyan]{tools}[/]")
-    sys_tbl.add_row("🧪 Tests",         f"[bold green]123/123 ✅[/]")
-    sys_tbl.add_row(f"❤️  Health",       f"[bold {health_color}]{db['last_health']}[/] · {db['last_date']}")
-    sys_tbl.add_row("🌿 Branch",        f"[bold yellow]{branch}[/]")
-    sys_tbl.add_row("📌 Commit",        f"[dim]{head}[/]")
+    sys_tbl.add_row("[cyan]Herramientas[/]",  f"[bold cyan]{tools}[/]")
+    sys_tbl.add_row("[green]Tests[/]",         f"[bold green]123/123 OK[/]")
+    sys_tbl.add_row("[red]Health[/]",          f"[bold {health_color}]{db['last_health']}[/]  {db['last_date']}")
+    sys_tbl.add_row("[yellow]Branch[/]",       f"[bold yellow]{branch}[/]")
+    sys_tbl.add_row("[dim]Commit[/]",          f"[dim]{head[:50]}[/]")
 
-    # ── Tabla derecha: estado BAGO ────────────────────────────
     bago_tbl = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
     bago_tbl.add_column("clave", style="dim")
     bago_tbl.add_column("valor", style="bold")
 
-    bago_tbl.add_row("💡 Ideas total",  str(db["total"]))
-    bago_tbl.add_row("✅ Done",         f"[green]{db['done']}[/]")
-    bago_tbl.add_row("📋 Disponibles",  str(db["available"]))
-    bago_tbl.add_row("🔄 Flujo activo", f"[yellow]{active_wf}[/]")
-    bago_tbl.add_row("🏃 Sprint",       sprint)
-    bago_tbl.add_row("📝 Última tarea", f"[dim]{last_task}[/]")
+    bago_tbl.add_row("[cyan]Ideas total[/]",   str(db["total"]))
+    bago_tbl.add_row("[green]Done[/]",         f"[green]{db['done']}[/]")
+    bago_tbl.add_row("[white]Disponibles[/]",  str(db["available"]))
+    bago_tbl.add_row("[yellow]Flujo activo[/]", f"[yellow]{active_wf}[/]")
+    bago_tbl.add_row("[white]Sprint[/]",        sprint)
+    bago_tbl.add_row("[dim]Ultima tarea[/]",   f"[dim]{last_task}[/]")
 
     return Panel(
         Columns([sys_tbl, bago_tbl], equal=True),
@@ -170,20 +186,20 @@ def _status_table(db, state, tools, branch, head):
 
 def _neural_panel():
     tbl = Table(box=box.SIMPLE, show_header=True, padding=(0, 2))
-    tbl.add_column("Módulo",     style="bold magenta")
-    tbl.add_column("Estado",     style="green")
-    tbl.add_column("Descripción", style="dim")
+    tbl.add_column("Modulo",      style="bold magenta")
+    tbl.add_column("Estado",      style="green")
+    tbl.add_column("Descripcion", style="dim")
 
-    tbl.add_row("neural_toolbox",  "✅ activo",      "#113 · motor de activación dinámica")
-    tbl.add_row("orchestrator",    "✅ activo",      "dynamic workflow por contexto")
-    tbl.add_row("neural_router",   "✅ activo",      "event bus SSE · puerto 6789")
-    tbl.add_row("intent_router",   "✅ activo",      "keyword → herramientas")
-    tbl.add_row("work_matrix",     "✅ activo",      "tipo de trabajo → agente")
-    tbl.add_row("validate (W10)",  "✅ activo",      "WARN-W010 desync detector")
+    tbl.add_row("neural_toolbox",  "[green]OK[/]",  "#113 motor de activacion dinamica")
+    tbl.add_row("orchestrator",    "[green]OK[/]",  "dynamic workflow por contexto")
+    tbl.add_row("neural_router",   "[green]OK[/]",  "event bus SSE puerto 6789")
+    tbl.add_row("intent_router",   "[green]OK[/]",  "keyword -> herramientas")
+    tbl.add_row("work_matrix",     "[green]OK[/]",  "tipo de trabajo -> agente")
+    tbl.add_row("validate (W10)",  "[green]OK[/]",  "WARN-W010 desync detector")
 
     return Panel(
         tbl,
-        title="[bold magenta]🧠 Neural Fabric[/]",
+        title="[bold magenta]Neural Fabric[/]",
         border_style="magenta",
         padding=(0, 2),
     )
@@ -195,10 +211,10 @@ def _commands_panel():
     tbl.add_column("uso",   style="dim")
 
     cmds = [
-        ("bago ideas",                    "qué implementar ahora (priorizado por contexto)"),
-        ("bago next",                     "acepta la próxima idea y abre W2"),
-        ("bago neural-toolbox --explain", "activa herramientas por contexto natural"),
-        ("bago orchestrate dynamic",      "workflow dinámico desde descripción"),
+        ("bago ideas",                    "que implementar ahora"),
+        ("bago next",                     "acepta la proxima idea y abre W2"),
+        ("bago neural-toolbox --explain", "activa herramientas por contexto"),
+        ("bago orchestrate dynamic",      "workflow dinamico desde descripcion"),
         ("bago health",                   "health check completo del sistema"),
         ("bago validate",                 "validar estado + W10 desync"),
         ("bago status",                   "contexto activo del sprint"),
@@ -209,7 +225,7 @@ def _commands_panel():
 
     return Panel(
         tbl,
-        title="[bold white]⚡ Comandos rápidos[/]",
+        title="[bold white]Comandos rapidos[/]",
         border_style="green",
         padding=(0, 1),
     )
@@ -218,14 +234,14 @@ def _commands_panel():
 def _version_bar(tools, branch):
     return Text.assemble(
         ("  v5-neural-fabric", "bold cyan"),
-        ("  ·  ", "dim"),
+        ("  |  ", "dim"),
         (f"{tools} herramientas", "cyan"),
-        ("  ·  ", "dim"),
-        ("123 tests", "green"),
-        ("  ·  ", "dim"),
+        ("  |  ", "dim"),
+        ("123 tests OK", "green"),
+        ("  |  ", "dim"),
         (f"branch: {branch}", "yellow"),
-        ("  ·  ", "dim"),
-        ("BAGO © Marc Valls", "dim"),
+        ("  |  ", "dim"),
+        ("BAGO by Marc Valls", "dim"),
         ("  \n", ""),
     )
 
@@ -276,7 +292,7 @@ def main():
     console.print()
     console.print(Rule("[bold cyan]Sistema listo[/]", style="cyan"))
     console.print(Padding(
-        Text("❯  bago ideas", style="bold cyan"),
+        Text(">  bago ideas", style="bold cyan"),
         (1, 4)
     ))
 
