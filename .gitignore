@@ -107,3 +107,6 @@ bago.egg-info/
 dist/
 .bago/state/findings/
 .bago/state/archive/
+
+# Runtime artifacts
+.bago/state/neural_events.jsonl
