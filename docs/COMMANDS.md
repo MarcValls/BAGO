@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 49 |
+| 🧪 Experimental | 57 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **58** |
+| **Total active** | **66** |
 
 ---
 
@@ -48,6 +48,9 @@ Actively developed. May change between minor versions.
 | `bago ableton-template` | Genera un scaffold de proyecto Ableton techno 4/4 | 🎨 visual | safe | optional |
 | `bago advisor` | Advisor LLM adaptativo: ask\|next\|explain\|run\|context\|rubber-duck — orientación continua con modelo pequeño local | 🔬 avanzado | safe | optional |
 | `bago ask` | Router lenguaje natural → tools BAGO | 🔬 avanzado | safe | optional |
+| `bago autonomy` | Reconciliación automática del flujo activo: aplica pasos seguros sin permiso, reporta el resto | ▶️ ejecución | mutating | optional |
+| `bago build-clean` | Elimina node_modules/dist/build para liberar espacio en disco. Dry-run por defecto. | 💚 salud | mutating | optional |
+| `bago build-run` | Ejecuta el proceso de build de las apps del proyecto (server, web, electron, raíz) | ▶️ ejecución | safe | optional |
 | `bago chronicle` | Sesión Chronicle integrando Copilot CLI /chronicle — historial de sesiones y recomendaciones | 📊 analítica | safe | optional |
 | `bago config-check` | Valida integridad de configs JSON en state/config/ y cruza con registry | 💚 salud | safe | optional |
 | `bago dashboard` | Muestra el dashboard del pack | 📊 analítica | safe | optional |
@@ -73,7 +76,11 @@ Actively developed. May change between minor versions.
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
 | `bago neural` | Neural Bus — servidor SSE de mensajes inter-agente (start/stop/status/nodes/map) | 🔬 avanzado | safe | optional |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | ▶️ ejecución | safe | optional |
+| `bago notify-bago` | Notificación BAGO universal: whatsapp (Green API), telegram, desktop | 🔬 avanzado | safe | optional |
+| `bago notify-desktop` | Envía notificaciones de escritorio (Windows toast via BurntToast PowerShell) | 🔬 avanzado | safe | optional |
+| `bago notify-whatsapp` | Notificación BAGO vía WhatsApp usando CallMeBot API | 🔬 avanzado | safe | optional |
 | `bago npath` | Neural Path — grafo cognitivo versionado: branch/commit/merge/unmerge/split/recall/map | 🔬 avanzado | safe | optional |
+| `bago preflight-check` | Pre-flight checks declarativos para herramientas BAGO: file/env/cmd conditions | 💚 salud | safe | optional |
 | `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | 📊 analítica | safe | optional |
 | `bago reopen` | Reanuda sesión desde el último cierre sin reconstruir contexto manualmente | ▶️ ejecución | safe | optional |
 | `bago repo` | Gestión de repositorios: clone \| list \| switch | 💚 salud | safe | optional |
@@ -85,6 +92,7 @@ Actively developed. May change between minor versions.
 | `bago rules` | Catálogo de reglas BAGO | 🔬 avanzado | safe | optional |
 | `bago select` | Selector interactivo de ideas por slot con plan de implementación | ▶️ ejecución | safe | optional |
 | `bago siembra` | Gestión de siembras BAGO v3.0: create \| list \| update \| diff \| sync \| status | 💚 salud | mutating | optional |
+| `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario | 📊 analítica | safe | optional |
 | `bago spanish` | Detecta inconsistencias ortográficas en español: tildes y singular/plural en claves y rutas | 🔍 calidad | safe | optional |
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | ▶️ ejecución | safe | optional |
 | `bago sprite-studio` | Generador de sprites BIANCA via Codex/HF sin API key, con galería browser | 🎨 visual | safe | optional |

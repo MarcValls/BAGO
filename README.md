@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 101 CLI commands · 68 public commands
+> **Version 3.4.0b1** · 109 CLI commands · 76 public commands
 
-Public command contract (CI-checked): **12 core** · **49 experimental** · **7 dangerous** · **28 legacy**
+Public command contract (CI-checked): **12 core** · **57 experimental** · **7 dangerous** · **28 legacy**
 
 ---
 
@@ -100,10 +100,10 @@ These commands form the **stable public interface**.
 
 ## 6. Experimental commands (not part of the contract)
 
-`ableton-template` · `advisor` · `ask` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps` · `diff`
+`ableton-template` · `advisor` · `ask` · `autonomy` · `build-clean` · `build-run` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps` · `diff`
 `docs` · `find-tool` · `goals` · `habit` · `hardcode` · `heal-paths` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `llm-node` · `lsp` · `music`
-`naming` · `neural` · `next` · `npath` · `recientes` · `reopen` · `repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules`
-`select` · `siembra` · `spanish` · `sprint` · `sprite-studio` · `toolsmith` · `types` · `version` · `why` · `work_matrix` · `workflow`
+`naming` · `neural` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `preflight-check` · `recientes` · `reopen` · `repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules`
+`select` · `siembra` · `snapshot` · `spanish` · `sprint` · `sprite-studio` · `toolsmith` · `types` · `version` · `why` · `work_matrix` · `workflow`
 
 ---
 
