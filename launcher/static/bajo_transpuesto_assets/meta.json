@@ -1,0 +1,114 @@
+[
+  {
+    "original": "p1_m1_3_bass.png",
+    "transposed": "p1_m1_3_bass_transposed.png",
+    "lines": [
+      1,
+      21,
+      41,
+      61,
+      81
+    ],
+    "spacing": 20.0,
+    "shift_px": 10,
+    "bars": 15
+  },
+  {
+    "original": "p1_m4_7_bass.png",
+    "transposed": "p1_m4_7_bass_transposed.png",
+    "lines": [
+      36,
+      55,
+      75,
+      95,
+      114
+    ],
+    "spacing": 19.5,
+    "shift_px": 10,
+    "bars": 22
+  },
+  {
+    "original": "p1_m8_11_bass.png",
+    "transposed": "p1_m8_11_bass_transposed.png",
+    "lines": [
+      80,
+      99,
+      119,
+      139,
+      159
+    ],
+    "spacing": 19.75,
+    "shift_px": 10,
+    "bars": 25
+  },
+  {
+    "original": "p1_m12_14_bass.png",
+    "transposed": "p1_m12_14_bass_transposed.png",
+    "lines": [
+      123,
+      143,
+      163,
+      183,
+      202
+    ],
+    "spacing": 19.75,
+    "shift_px": 10,
+    "bars": 17
+  },
+  {
+    "original": "p2_m15_18_bass.png",
+    "transposed": "p2_m15_18_bass_transposed.png",
+    "lines": [
+      97,
+      116,
+      135,
+      155,
+      175
+    ],
+    "spacing": 19.5,
+    "shift_px": 10,
+    "bars": 31
+  },
+  {
+    "original": "p2_m19_22_bass.png",
+    "transposed": "p2_m19_22_bass_transposed.png",
+    "lines": [
+      121,
+      140,
+      159,
+      179,
+      199
+    ],
+    "spacing": 19.5,
+    "shift_px": 10,
+    "bars": 40
+  },
+  {
+    "original": "p2_m23_25_bass.png",
+    "transposed": "p2_m23_25_bass_transposed.png",
+    "lines": [
+      74,
+      94,
+      114,
+      133,
+      153
+    ],
+    "spacing": 19.75,
+    "shift_px": 10,
+    "bars": 11
+  },
+  {
+    "original": "p2_coda_bass.png",
+    "transposed": "p2_coda_bass_transposed.png",
+    "lines": [
+      1,
+      21,
+      41,
+      60,
+      80
+    ],
+    "spacing": 19.75,
+    "shift_px": 10,
+    "bars": 4
+  }
+]
