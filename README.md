@@ -164,6 +164,7 @@ Real projects built with BAGO workflows (W1 → W2 cycles, tracked via `bago ide
 | Project | Description |
 |---|---|
 | [ISO_GAME](https://github.com/MarcValls/ISO_GAME) | Isometric game world pipeline in Python — A* pathfinding, pygame renderer, autotile, chunking, lighting. Built in 12 pipeline steps across W2 sessions. |
+| [BAGO_MUSIC_PIPELINE](https://github.com/MarcValls/BAGO_MUSIC_PIPELINE) | Music score pipeline — PDF/MIDI/MusicXML transposition engine, Karpovich + Disc Superstar synths, Ableton Live integration, MIDI device setup (loopMIDI + teVirtualMIDI). |
 
 ---
 
