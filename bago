@@ -864,6 +864,12 @@ def main():
             [sys.executable, str(BAGO_DIR / "agents" / "agent_gateway.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "seed":
+        # BAGO Seed — planta huella mínima en proyecto externo
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest

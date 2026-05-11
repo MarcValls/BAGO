@@ -862,6 +862,24 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=True,
         layer_group="agents",
     ),
+    # ── PADRE / SIEMBRA seed ─────────────────────────────────────────────────
+    "seed": ToolEntry(
+        cmd="seed", module="bago_seed",
+        description=(
+            "BAGO Seed — planta la huella mínima de BAGO en un proyecto externo: "
+            "crea .bago/pack.json + state/ + launcher y registra la siembra. "
+            "Subcomandos: [path] | --name | --dry-run | --list | --status"
+        ),
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "bago_seed.py")),
+        ],
+        layer="infraestructura", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="mutating",
+        preflight_policy="optional",
+        supports_dry_run=True,
+    ),
 }
 
 

@@ -52,6 +52,9 @@ addopts = "-v --tb=short"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+  "slow: marks tests that require external processes (venv creation, etc.) — deselect with -m 'not slow'",
+]
 
 [tool.ruff]
 line-length = 120

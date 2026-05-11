@@ -188,3 +188,61 @@ def test_known_limitation_wheel_only_install_documented():
         "bago_core/cli.py must document the editable-only limitation "
         "so future developers understand the constraint."
     )
+
+
+# ── T5: clean venv editable install ──────────────────────────────────────────
+
+@pytest.mark.slow
+def test_editable_install_in_clean_venv(tmp_path):
+    """
+    Validates that `pip install -e .` in a clean venv works and produces
+    a functional `bago --version` entrypoint.
+
+    Marked @pytest.mark.slow — skip with: pytest -m "not slow"
+    Requires internet or cached packages (pip + setuptools).
+    """
+    import subprocess
+    import sys
+
+    venv_dir = tmp_path / "venv"
+
+    # Create venv
+    r = subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_dir)],
+        capture_output=True, text=True, timeout=60,
+    )
+    if r.returncode != 0:
+        pytest.skip(f"venv creation failed: {r.stderr}")
+
+    # Find python in venv
+    if sys.platform == "win32":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+        venv_bago   = venv_dir / "Scripts" / "bago.exe"
+        venv_pip    = venv_dir / "Scripts" / "pip.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
+        venv_bago   = venv_dir / "bin" / "bago"
+        venv_pip    = venv_dir / "bin" / "pip"
+
+    # pip install -e . (editable)
+    r = subprocess.run(
+        [str(venv_pip), "install", "-e", str(REPO_ROOT), "--quiet"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=120,
+    )
+    if r.returncode != 0:
+        pytest.fail(f"pip install -e failed:\n{r.stdout}\n{r.stderr}")
+
+    # bago --version must work
+    r = subprocess.run(
+        [str(venv_python), "-m", "bago_core.cli", "--version"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=15, cwd=str(REPO_ROOT),
+    )
+    assert r.returncode == 0, (
+        f"bago --version in venv exited {r.returncode}:\n{r.stdout}\n{r.stderr}"
+    )
+    import bago_core
+    assert bago_core.__version__ in r.stdout, (
+        f"Version not found in output: {r.stdout!r}"
+    )
