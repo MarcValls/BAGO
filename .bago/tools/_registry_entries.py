@@ -290,21 +290,40 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
     "music": ToolEntry(
         cmd="music", module="bago_music",
-        description="Pipeline musical: plan, convert, inventory y etapas MusicXML honestas",
+        description=(
+            "Pipeline musical (MarcValls/BAGO_MUSIC_PIPELINE): "
+            "plan | convert | transpose | validate | render | run"
+        ),
         preflight=[
+            # Gate: router principal — error si falta
             PreflightCheck("file", str(TOOLS_DIR / "bago_music.py")),
-            PreflightCheck("file", str(TOOLS_DIR / "music_transpose_plan.py")),
-            PreflightCheck("file", str(TOOLS_DIR / "music_to_musicxml_pipeline.py")),
-            PreflightCheck("file", str(TOOLS_DIR / "musicxml_target_select.py")),
-            PreflightCheck("file", str(TOOLS_DIR / "musicxml_transpose.py")),
-            PreflightCheck("file", str(TOOLS_DIR / "musicxml_validate.py")),
-            PreflightCheck("file", str(TOOLS_DIR / "musicxml_render.py")),
+            # Módulos de pipeline (external repo synced) — warning para degradación elegante
+            PreflightCheck("file", str(TOOLS_DIR / "music_transpose_plan.py"),
+                           severity="warning",
+                           message="Módulo plan no encontrado — instala BAGO_MUSIC_PIPELINE o clona MarcValls/BAGO_MUSIC_PIPELINE"),
+            PreflightCheck("file", str(TOOLS_DIR / "music_to_musicxml_pipeline.py"),
+                           severity="warning",
+                           message="Módulo convert no encontrado — instala BAGO_MUSIC_PIPELINE o clona MarcValls/BAGO_MUSIC_PIPELINE"),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_target_select.py"),
+                           severity="warning",
+                           message="Módulo inventory no encontrado — instala BAGO_MUSIC_PIPELINE o clona MarcValls/BAGO_MUSIC_PIPELINE"),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_transpose.py"),
+                           severity="warning",
+                           message="Módulo transpose no encontrado — instala BAGO_MUSIC_PIPELINE o clona MarcValls/BAGO_MUSIC_PIPELINE"),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_validate.py"),
+                           severity="warning",
+                           message="Módulo validate no encontrado — instala BAGO_MUSIC_PIPELINE o clona MarcValls/BAGO_MUSIC_PIPELINE"),
+            PreflightCheck("file", str(TOOLS_DIR / "musicxml_render.py"),
+                           severity="warning",
+                           message="Módulo render no encontrado — instala BAGO_MUSIC_PIPELINE o clona MarcValls/BAGO_MUSIC_PIPELINE"),
         ],
         layer="avanzado",
-        scope="both",
+        scope="project",
         agent="ARQUITECTO",
         stability="experimental",
         risk="safe",
+        layer_group="labs",
+        preflight_policy="optional",
     ),
     "route": ToolEntry(
         cmd="route", module="agent_router",

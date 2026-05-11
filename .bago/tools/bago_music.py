@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """bago_music.py — BAGO music score pipeline router.
 
-This is the BAGO-facing tool entrypoint for music-score workflows.
+This is the BAGO-facing entrypoint for music-score workflows, integrated with
+the BAGO_MUSIC_PIPELINE project (github.com/MarcValls/BAGO_MUSIC_PIPELINE).
 
-It exposes the first operational subcommands:
+Canonical subcommands (Phase 0 — all operational):
 
-  python3 .bago/tools/bago_music.py plan ...
-  python3 .bago/tools/bago_music.py convert ...
-  python3 .bago/tools/bago_music.py run ...
+  python3 .bago/tools/bago_music.py plan      ...  # auditable transposition plan
+  python3 .bago/tools/bago_music.py convert   ...  # classify input + recover MusicXML
+  python3 .bago/tools/bago_music.py transpose ...  # transpose selected material
+  python3 .bago/tools/bago_music.py validate  ...  # validate target-only changes
+  python3 .bago/tools/bago_music.py render    ...  # render MusicXML → PDF/SVG/PNG
+  python3 .bago/tools/bago_music.py run       ...  # run all available pipeline stages
+  python3 .bago/tools/bago_music.py inventory ...  # inspect MusicXML structure
 
-The current implementation wires the existing planning and input-to-MusicXML
-conversion stages. Transposition, validation, and rendering subcommands are
-reserved and return honest "not implemented yet" messages until their dedicated
-modules exist.
+Pipeline modules are synced from MarcValls/BAGO_MUSIC_PIPELINE (pipeline/).
+If the local pipeline scripts are missing, install them by cloning:
+  git clone https://github.com/MarcValls/BAGO_MUSIC_PIPELINE ~/BAGO_MUSIC_PIPELINE
+  cp ~/BAGO_MUSIC_PIPELINE/pipeline/*.py /Volumes/bago_core/.bago/tools/
 
 Design rule:
   Never claim semantic music transposition unless the pipeline has structured

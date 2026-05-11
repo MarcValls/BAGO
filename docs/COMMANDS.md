@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-11 11:29 UTC
+> Last generated: 2026-05-11 17:03 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -73,7 +73,7 @@ Actively developed. May change between minor versions.
 | `bago llm` | Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows) | 🔬 avanzado | safe | optional |
 | `bago llm-node` | Nodo LLM del Neural Bus: escucha llm.request, llama a Ollama con streaming, emite llm.chunk + llm.response. Modos: chat\|tool_suggest\|classify_intent | • infraestructura | safe | optional |
 | `bago lsp` | Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código | 🔬 avanzado | safe | optional |
-| `bago music` | Pipeline musical: plan, convert, inventory y etapas MusicXML honestas | 🔬 avanzado | safe | optional |
+| `bago music` | Pipeline musical (MarcValls/BAGO_MUSIC_PIPELINE): plan \| convert \| transpose \| validate \| render \| run | 🔬 avanzado | safe | optional |
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
 | `bago neural` | Neural Bus — servidor SSE de mensajes inter-agente (start/stop/status/nodes/map) | • infraestructura | safe | optional |
 | `bago neural-toolbox` | Motor de activación dinámica de herramientas: convierte contexto en lenguaje natural en un toolbox adaptado. Perfiles derivados del registry, filtros scope/risk, feedback adaptativo. Subcomandos: --context \| --run \| --explain \| --json \| --dry-run | • core | safe | optional |
