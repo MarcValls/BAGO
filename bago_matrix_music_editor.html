@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BAGO Music Score Editor — Editor de Partitura</title>
-<script src="https://unpkg.com/vexflow/releases/vexflow-min.js"></script>
-<script src="https://unpkg.com/tone"></script>
+<!-- VexFlow 5.0.0 — local first, CDN fallback -->
+<script src="./vendor/vexflow.min.js"></script>
+<script>if(typeof VexFlow==='undefined'&&typeof Vex==='undefined'){document.write('<script src="https://unpkg.com/vexflow@5.0.0/build/cjs/vexflow.js"><\/script>')}</script>
+
+<!-- Tone.js — local first, CDN fallback -->
+<script src="./vendor/tone.min.js"></script>
+<script>if(typeof Tone==='undefined'){document.write('<script src="https://unpkg.com/tone"><\/script>')}</script>
 <style>
 /* ═══════════════════════════════════════════════════════════════════
    BAGO Music Score Editor — Styles
