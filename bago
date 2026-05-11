@@ -493,11 +493,20 @@ def _cmd_heal_paths(rest: list) -> None:
 
 def _cmd_npath_dispatch(rest: list) -> None:
     """bago npath <subcomando> ... — Neural Path versioned cognitive graph."""
+    # Prefer the package directory (npath/) over the legacy monolithic npath.py
+    npath_pkg = TOOLS / "npath"
+    if npath_pkg.is_dir() and (npath_pkg / "__main__.py").exists():
+        import sys as _sys
+        env = {**__import__("os").environ, "PYTHONPATH": str(TOOLS)}
+        subprocess.run([_sys.executable, str(npath_pkg)] + rest,
+                       cwd=str(BAGO_ROOT.parent), env=env)
+        return
     npath = _find_tool("npath")
     if not npath:
-        print("  ❌ npath.py no encontrado en", TOOLS)
+        print("  ❌ npath/ package ni npath.py encontrado en", TOOLS)
         return
-    subprocess.run(["python3", str(npath)] + rest, cwd=str(BAGO_ROOT.parent))
+    import sys as _sys
+    subprocess.run([_sys.executable, str(npath)] + rest, cwd=str(BAGO_ROOT.parent))
 
 
 # ── Extensiones Copilot CLI ────────────────────────────────────────────────────
