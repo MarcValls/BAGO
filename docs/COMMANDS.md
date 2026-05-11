@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-10 15:48 UTC
+> Last generated: 2026-05-11 07:29 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 57 |
+| 🧪 Experimental | 59 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **66** |
+| **Total active** | **78** |
 
 ---
 
@@ -35,7 +35,7 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago status` | Estado actual: flujo activo, tarea pendiente y salud del sistema | 📊 analítica | safe | required |
 | `bago sync` | Regenera TREE.txt y CHECKSUMS | 💚 salud | safe | required |
 | `bago task` | Muestra la tarea W2 pendiente | ▶️ ejecución | safe | required |
-| `bago validate` | Verifica el pack (solo lectura) | 💚 salud | safe | required |
+| `bago validate` | Verifica el pack (manifiesto, estado, roles, ZIP) — subcomandos: manifest, state, contents | 💚 salud | safe | required |
 
 ---
 
@@ -46,11 +46,12 @@ Actively developed. May change between minor versions.
 | Command | Description | Layer | Risk | Policy |
 |---------|-------------|-------|------|--------|
 | `bago ableton-template` | Genera un scaffold de proyecto Ableton techno 4/4 | 🎨 visual | safe | optional |
-| `bago advisor` | Advisor LLM adaptativo: ask\|next\|explain\|run\|context\|rubber-duck — orientación continua con modelo pequeño local | 🔬 avanzado | safe | optional |
+| `bago advisor` | Advisor LLM adaptativo: ask\|next\|explain\|run\|context\|rubber-duck — orientación continua con modelo pequeño local | • infraestructura | safe | optional |
+| `bago agent` | Multi-Agent Gateway: dispatch \| list \| status — orquesta herramientas BAGO desde cualquier agente externo (local, Ollama, MCP/Claude, Codex, cloud). Adapters: local \| ollama \| mcp \| codex \| cloud | • infraestructura | safe | optional |
 | `bago ask` | Router lenguaje natural → tools BAGO | 🔬 avanzado | safe | optional |
-| `bago autonomy` | Reconciliación automática del flujo activo: aplica pasos seguros sin permiso, reporta el resto | ▶️ ejecución | mutating | optional |
+| `bago autonomy` | Reconciliación automática del flujo activo: aplica pasos seguros sin permiso, reporta el resto. | ▶️ ejecución | mutating | optional |
 | `bago build-clean` | Elimina node_modules/dist/build para liberar espacio en disco. Dry-run por defecto. | 💚 salud | mutating | optional |
-| `bago build-run` | Ejecuta el proceso de build de las apps del proyecto (server, web, electron, raíz) | ▶️ ejecución | safe | optional |
+| `bago build-run` | Ejecuta el proceso de build de las apps del proyecto (server, web, electron, raíz). | ▶️ ejecución | safe | optional |
 | `bago chronicle` | Sesión Chronicle integrando Copilot CLI /chronicle — historial de sesiones y recomendaciones | 📊 analítica | safe | optional |
 | `bago config-check` | Valida integridad de configs JSON en state/config/ y cruza con registry | 💚 salud | safe | optional |
 | `bago dashboard` | Muestra el dashboard del pack | 📊 analítica | safe | optional |
@@ -70,17 +71,17 @@ Actively developed. May change between minor versions.
 | `bago inbox` | Inbox de tareas autónomas: add <intent> \| list \| clear | 🔬 avanzado | safe | optional |
 | `bago insights` | Análisis de patrones e insights del historial de sesiones BAGO | 📊 analítica | safe | optional |
 | `bago llm` | Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows) | 🔬 avanzado | safe | optional |
-| `bago llm-node` | Nodo LLM del Neural Bus: escucha llm.request, llama a Ollama con streaming, emite llm.chunk + llm.response | 🔬 avanzado | safe | optional |
+| `bago llm-node` | Nodo LLM del Neural Bus: escucha llm.request, llama a Ollama con streaming, emite llm.chunk + llm.response. Modos: chat\|tool_suggest\|classify_intent | • infraestructura | safe | optional |
 | `bago lsp` | Orquestación de Language Servers — registra y gestiona servidores LSP para inteligencia de código | 🔬 avanzado | safe | optional |
 | `bago music` | Pipeline musical: plan, convert, inventory y etapas MusicXML honestas | 🔬 avanzado | safe | optional |
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
-| `bago neural` | Neural Bus — servidor SSE de mensajes inter-agente (start/stop/status/nodes/map) | 🔬 avanzado | safe | optional |
+| `bago neural` | Neural Bus — servidor SSE de mensajes inter-agente (start/stop/status/nodes/map) | • infraestructura | safe | optional |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | ▶️ ejecución | safe | optional |
-| `bago notify-bago` | Notificación BAGO universal: whatsapp (Green API), telegram, desktop | 🔬 avanzado | safe | optional |
-| `bago notify-desktop` | Envía notificaciones de escritorio (Windows toast via BurntToast PowerShell) | 🔬 avanzado | safe | optional |
-| `bago notify-whatsapp` | Notificación BAGO vía WhatsApp usando CallMeBot API | 🔬 avanzado | safe | optional |
-| `bago npath` | Neural Path — grafo cognitivo versionado: branch/commit/merge/unmerge/split/recall/map | 🔬 avanzado | safe | optional |
-| `bago preflight-check` | Pre-flight checks declarativos para herramientas BAGO: file/env/cmd conditions | 💚 salud | safe | optional |
+| `bago notify-bago` | Notificación BAGO universal: whatsapp (Green API), telegram, desktop. | 🔬 avanzado | safe | optional |
+| `bago notify-desktop` | Envía notificaciones de escritorio (Windows toast via BurntToast PowerShell). | 🔬 avanzado | safe | optional |
+| `bago notify-whatsapp` | Notificación BAGO vía WhatsApp usando CallMeBot API. | 🔬 avanzado | safe | optional |
+| `bago npath` | Neural Path — grafo cognitivo versionado: branch/commit/merge/unmerge/split/recall/map | • conocimiento | safe | optional |
+| `bago preflight-check` | Pre-flight checks declarativos para herramientas BAGO: file/env/cmd conditions. | 💚 salud | safe | optional |
 | `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | 📊 analítica | safe | optional |
 | `bago reopen` | Reanuda sesión desde el último cierre sin reconstruir contexto manualmente | ▶️ ejecución | safe | optional |
 | `bago repo` | Gestión de repositorios: clone \| list \| switch | 💚 salud | safe | optional |
@@ -88,15 +89,16 @@ Actively developed. May change between minor versions.
 | `bago review` | Code review automatizado fail-closed con estado explícito por scanner | 🔍 calidad | safe | optional |
 | `bago risk` | Matriz de riesgo del proyecto — evalúa impacto y probabilidad | 🔍 calidad | safe | optional |
 | `bago route` | Router hibrido balanceado/adaptativo: decide entre Ollama local, Codex y Copilot | 🔬 avanzado | safe | optional |
-| `bago rubber-duck` | Rubber duck debugging automático: repite qué hace el código, detecta pasos faltantes e inconsistencias | 🔍 calidad | safe | optional |
+| `bago rubber-duck` | Rubber duck debugging automático: repite qué hace el código, detecta pasos faltantes e inconsistencias — auto-trigger en toolsmith create | 🔍 calidad | safe | optional |
 | `bago rules` | Catálogo de reglas BAGO | 🔬 avanzado | safe | optional |
+| `bago seed` | BAGO Seed — planta la huella mínima de BAGO en un proyecto externo: crea .bago/pack.json + state/ + launcher y registra la siembra. Subcomandos: [path] \| --name \| --dry-run \| --list \| --status | • infraestructura | mutating | optional |
 | `bago select` | Selector interactivo de ideas por slot con plan de implementación | ▶️ ejecución | safe | optional |
 | `bago siembra` | Gestión de siembras BAGO v3.0: create \| list \| update \| diff \| sync \| status | 💚 salud | mutating | optional |
-| `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario | 📊 analítica | safe | optional |
+| `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario. | 📊 analítica | safe | optional |
 | `bago spanish` | Detecta inconsistencias ortográficas en español: tildes y singular/plural en claves y rutas | 🔍 calidad | safe | optional |
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | ▶️ ejecución | safe | optional |
 | `bago sprite-studio` | Generador de sprites BIANCA via Codex/HF sin API key, con galería browser | 🎨 visual | safe | optional |
-| `bago toolsmith` | Agente dinámico de toolboxes: assign\|sprint\|agent\|missing\|create\|catalog\|listen — asigna cajas de herramientas por tarea y crea tools faltantes | 🔬 avanzado | safe | optional |
+| `bago toolsmith` | Agente dinámico de toolboxes: assign\|sprint\|agent\|missing\|create\|catalog\|listen — asigna cajas de herramientas por tarea y crea tools faltantes | • infraestructura | safe | optional |
 | `bago types` | Chequeo de tipos estáticos | 🔍 calidad | safe | optional |
 | `bago version` | Gestión de versiones beta/release: bump \| beta \| release \| tag \| commit \| sync-check | 🔬 avanzado | mutating | optional |
 | `bago why` | Explica qué hace un comando BAGO, cuándo usarlo y sus relaciones | 🔬 avanzado | safe | optional |

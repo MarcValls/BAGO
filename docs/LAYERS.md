@@ -1,12 +1,12 @@
 # BAGO — Layer map
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-10 12:29 UTC
+> Last generated: 2026-05-11 07:29 UTC
 
 | Layer | Commands |
 |---|---|
-| **bago-core** | `audit` · `cabinet` · `check` · `code-quality` · `commit` · `config-check` · `consistency` · `context` · `cosecha` · `db` · `deactivate` · `debt` · `deps` · `detector` · `diff` · `docs` · `doctor` · `efficiency` · `find-tool` · `flow` · `git` · `goals` · `habit` · `heal` · `health` · `ideas` · `inbox` · `insights` · `install` · `learn` · `lsp` · `map` · `naming` · `next` · `orchestrate` · `pre-push` · `project` · `project-init` · `project-link` · `project-state` · `project-unlink` · `promote` · `recientes` · `reopen` · `repo` · `repo-clone` · `repo-list` · `repo-switch` · `report` · `review` · `risk` · `rules` · `scan` · `scope` · `secrets` · `select` · `session` · `session_close` · `siembra` · `sincerity` · `sprint` · `stability` · `stale` · `status` · `sync` · `task` · `types` · `v2` · `validate` · `version` · `why` · `workflow` |
-| **bago-agents** | `ask` · `auto` · `autonomous` · `chronicle` · `llm` · `research` · `route` |
+| **bago-core** | `advisor` · `audit` · `autonomy` · `build-clean` · `build-run` · `cabinet` · `check` · `code-quality` · `commit` · `config-check` · `consistency` · `context` · `cosecha` · `db` · `deactivate` · `debt` · `deps` · `detector` · `diff` · `docs` · `doctor` · `efficiency` · `find-tool` · `flow` · `git` · `goals` · `habit` · `hardcode` · `heal` · `heal-paths` · `health` · `ideas` · `inbox` · `insights` · `install` · `learn` · `llm-node` · `lsp` · `map` · `naming` · `neural` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `orchestrate` · `pre-push` · `preflight-check` · `project` · `project-init` · `project-link` · `project-state` · `project-unlink` · `promote` · `recientes` · `reopen` · `repo` · `repo-clone` · `repo-list` · `repo-switch` · `report` · `review` · `risk` · `rubber-duck` · `rules` · `scan` · `scope` · `secrets` · `seed` · `select` · `session` · `session_close` · `siembra` · `sincerity` · `snapshot` · `spanish` · `sprint` · `stability` · `stale` · `status` · `sync` · `task` · `toolsmith` · `types` · `v2` · `validate` · `version` · `why` · `work_matrix` · `workflow` |
+| **bago-agents** | `agent` · `ask` · `auto` · `autonomous` · `chronicle` · `llm` · `research` · `route` |
 | **bago-ui** | `dashboard` · `peer` |
 | **bago-labs** | `ableton-template` · `image-studio` · `image_gen` · `music` · `sprite-studio` |
 

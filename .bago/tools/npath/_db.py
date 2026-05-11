@@ -160,7 +160,7 @@ def _short_id() -> str:
 
 
 def _node_id(branch: str, content: str) -> str:
-    digest = hashlib.sha1(f"{branch}:{content}:{time.time()}".encode()).hexdigest()[:8]
+    digest = hashlib.sha1(f"{branch}:{content}:{time.time()}".encode(), usedforsecurity=False).hexdigest()[:8]
     return f"n_{digest}"
 
 
