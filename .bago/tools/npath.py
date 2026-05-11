@@ -31,6 +31,13 @@ Uso:
   bago npath delete-node <node-id>          (lógico — soft delete)
   bago npath --test
 
+Integración Ollama (red de pensamiento local):
+  bago npath ollama-status
+  bago npath think <pregunta> [--branch <rama>] [--model <m>] [--commit]
+  bago npath reflect [<rama>] [--model <m>] [--commit]
+  bago npath suggest [<rama>] [--model <m>]
+  bago npath evolve  [--branch <rama>] [--nodes N] [--model <m>] [--no-commit]
+
 DB: .bago/state/npath.db
 """
 from __future__ import annotations
@@ -797,6 +804,342 @@ def cmd_delete_node(node_id: str) -> None:
     conn.close()
     print(YELLOW(f"○  Nodo '{node_id}' marcado como eliminado (soft delete — historia preservada)"))
 
+
+
+# ── Self-tests ─────────────────────────────────────────────────────────────────
+
+# ── Ollama integration ─────────────────────────────────────────────────────────
+# Subcomandos LLM que razonan sobre el grafo cognitivo:
+#   think   — LLM responde una pregunta con el grafo como contexto
+#   reflect — LLM resume el estado de una rama
+#   suggest — LLM propone qué hacer a continuación
+#   evolve  — LLM genera nuevos nodos y los commit automáticamente
+
+_OLLAMA_URL    = "http://localhost:11434"
+_DEFAULT_MODEL = "llama3"
+
+
+def _ollama_available() -> tuple[bool, list[str]]:
+    """Check if Ollama is running. Returns (available, list_of_models)."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"{_OLLAMA_URL}/api/tags", timeout=2) as r:
+            data = json.loads(r.read())
+        models = [m["name"] for m in data.get("models", [])]
+        return True, models
+    except Exception:
+        return False, []
+
+
+def _ollama_generate(
+    prompt: str,
+    model: str = _DEFAULT_MODEL,
+    system: str = "",
+    stream: bool = True,
+) -> str:
+    """Call Ollama /api/generate. Streams to stdout if stream=True. Returns full text."""
+    import urllib.request
+    payload: dict = {"model": model, "prompt": prompt, "stream": stream}
+    if system:
+        payload["system"] = system
+
+    data = json.dumps(payload).encode()
+    req  = urllib.request.Request(
+        f"{_OLLAMA_URL}/api/generate",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    full_text = ""
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            if stream:
+                print()
+                for line in r:
+                    if not line.strip():
+                        continue
+                    chunk = json.loads(line)
+                    token = chunk.get("response", "")
+                    print(token, end="", flush=True)
+                    full_text += token
+                    if chunk.get("done"):
+                        break
+                print()
+            else:
+                raw = json.loads(r.read())
+                full_text = raw.get("response", "")
+    except Exception as e:
+        print(RED(f"\n❌ Ollama error: {e}"))
+        print("   Asegúrate de que Ollama está corriendo: ollama serve")
+        return ""
+    return full_text.strip()
+
+
+def _build_graph_context(
+    branch: Optional[str] = None,
+    limit: int = 15,
+) -> str:
+    """Build a text representation of the graph for LLM context."""
+    conn = _connect()
+    current = _get_current_branch(conn)
+    target  = branch or current
+
+    branches_all = conn.execute(
+        "SELECT name, description, active FROM branches ORDER BY created_at"
+    ).fetchall()
+
+    if target == "all":
+        nodes = conn.execute(
+            "SELECT id, branch, content, type, weight, created_at FROM nodes"
+            " WHERE deleted=0 AND active=1 ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    else:
+        nodes = conn.execute(
+            "SELECT id, branch, content, type, weight, created_at FROM nodes"
+            " WHERE branch=? AND deleted=0 AND active=1 ORDER BY created_at DESC LIMIT ?",
+            (target, limit),
+        ).fetchall()
+
+    merges = conn.execute(
+        "SELECT id, sources, result_node FROM merges WHERE active=1"
+    ).fetchall()
+    conn.close()
+
+    lines = [
+        "# Estado del grafo cognitivo BAGO (npath)",
+        f"Rama activa: {current}",
+        "",
+        "## Ramas",
+    ]
+    for b in branches_all:
+        mark = "▶" if b["name"] == current else "○"
+        lines.append(f"  {mark} {b['name']}  {'activa' if b['active'] else 'inactiva'}  {b['description'] or ''}")
+
+    lines += ["", f"## Nodos recientes — rama: {target}", ""]
+    for n in nodes:
+        lines.append(
+            f"  [{n['id']}] branch={n['branch']} type={n['type'].upper()}"
+            f" weight={n['weight']:.1f} @{n['created_at'][:16]}"
+        )
+        lines.append(f"    {n['content']}")
+        lines.append("")
+
+    if merges:
+        lines += ["## Fusiones activas", ""]
+        for m in merges:
+            sources = ", ".join(json.loads(m["sources"]))
+            lines.append(f"  {m['id']}: {sources} → {m['result_node']}")
+
+    return "\n".join(lines)
+
+
+def _pick_model(model_arg: Optional[str]) -> Optional[str]:
+    """Resolve model: prefer explicit arg, then first available, then default."""
+    available, models = _ollama_available()
+    if not available:
+        return None
+    if model_arg:
+        for m in models:
+            if model_arg in m or m in model_arg:
+                return m
+        return model_arg
+    for preferred in ["llama3", "mistral", "gemma", "qwen", "phi"]:
+        for m in models:
+            if preferred in m.lower():
+                return m
+    return models[0] if models else _DEFAULT_MODEL
+
+
+def cmd_think(
+    query: str,
+    branch: Optional[str] = None,
+    model: Optional[str] = None,
+    do_commit: bool = False,
+    limit: int = 15,
+) -> None:
+    """Ask Ollama to reason about the graph + a question."""
+    resolved = _pick_model(model)
+    if resolved is None:
+        print(RED("❌ Ollama no disponible. Inicia con: ollama serve"))
+        return
+
+    ctx = _build_graph_context(branch=branch, limit=limit)
+    system = (
+        "Eres un asistente de pensamiento que razona sobre un grafo cognitivo versionado. "
+        "El grafo representa ideas, decisiones y memoria de un proyecto de software. "
+        "Responde de forma concisa y estructurada. No repitas el contexto."
+    )
+    prompt = f"{ctx}\n\n## Pregunta\n{query}"
+
+    print(f"\n  {DIM('Modelo:')} {CYAN(resolved)}  {DIM('Rama:')} {branch or '(actual)'}")
+    print(f"  {BOLD(query)}")
+    print("  " + "─" * 60)
+
+    answer = _ollama_generate(prompt, model=resolved, system=system, stream=True)
+
+    if do_commit and answer:
+        conn = _connect()
+        cur  = branch or _get_current_branch(conn)
+        conn.close()
+        nid = cmd_commit(
+            f"[think] {query[:60]}\n→ {answer[:300]}",
+            branch=cur, ntype="memory", weight=0.7,
+            metadata={"query": query, "model": resolved, "source": "ollama_think"},
+        )
+        print(f"\n  {DIM('Guardado como nodo:')} {CYAN(nid)}")
+
+
+def cmd_reflect(
+    branch: Optional[str] = None,
+    model: Optional[str] = None,
+    do_commit: bool = False,
+) -> None:
+    """Ask Ollama to summarize and reflect on a branch's state."""
+    resolved = _pick_model(model)
+    if resolved is None:
+        print(RED("❌ Ollama no disponible. Inicia con: ollama serve"))
+        return
+
+    conn = _connect()
+    cur  = branch or _get_current_branch(conn)
+    conn.close()
+
+    ctx = _build_graph_context(branch=cur, limit=20)
+    system = (
+        "Eres un asistente de reflexión cognitiva. Lee el estado de una trayectoria "
+        "de pensamiento y produce: (1) resumen en 2-3 frases, (2) patrones o temas "
+        "clave, (3) lo que falta o puede estar incompleto. Responde en español."
+    )
+    prompt = f"{ctx}\n\nGenera una reflexión estructurada sobre la rama '{cur}'."
+
+    print(f"\n  {DIM('Reflexión sobre:')} {CYAN(cur)}  {DIM('Modelo:')} {resolved}")
+    print("  " + "─" * 60)
+
+    answer = _ollama_generate(prompt, model=resolved, system=system, stream=True)
+
+    if do_commit and answer:
+        nid = cmd_commit(
+            f"[reflect] {answer[:300]}", branch=cur, ntype="memory", weight=0.75,
+            metadata={"source": "ollama_reflect", "model": resolved},
+        )
+        print(f"\n  {DIM('Guardado como nodo:')} {CYAN(nid)}")
+
+
+def cmd_suggest(
+    branch: Optional[str] = None,
+    model: Optional[str] = None,
+) -> None:
+    """Ask Ollama what next steps, nodes or branches to create."""
+    resolved = _pick_model(model)
+    if resolved is None:
+        print(RED("❌ Ollama no disponible. Inicia con: ollama serve"))
+        return
+
+    conn = _connect()
+    cur  = branch or _get_current_branch(conn)
+    conn.close()
+
+    ctx = _build_graph_context(branch=cur, limit=15)
+    system = (
+        "Eres un asistente de planificación cognitiva. Analiza el grafo y sugiere "
+        "acciones concretas en lista:\n"
+        "- Nuevos nodos a crear (contenido exacto y tipo)\n"
+        "- Posibles merges entre ramas\n"
+        "- Ramas nuevas a explorar\n"
+        "Sé específico y accionable. Responde en español."
+    )
+    prompt = f"{ctx}\n\n¿Qué debería hacer a continuación en la rama '{cur}'?"
+
+    print(f"\n  {DIM('Sugerencias para:')} {CYAN(cur)}  {DIM('Modelo:')} {resolved}")
+    print("  " + "─" * 60)
+    _ollama_generate(prompt, model=resolved, system=system, stream=True)
+
+
+def cmd_evolve(
+    branch: Optional[str] = None,
+    model: Optional[str] = None,
+    n_nodes: int = 3,
+    do_commit: bool = True,
+) -> None:
+    """Ask Ollama to generate N new nodes and optionally commit them."""
+    import re
+    resolved = _pick_model(model)
+    if resolved is None:
+        print(RED("❌ Ollama no disponible. Inicia con: ollama serve"))
+        return
+
+    conn = _connect()
+    cur  = branch or _get_current_branch(conn)
+    conn.close()
+
+    ctx = _build_graph_context(branch=cur, limit=12)
+    system = (
+        "Eres un generador de nodos cognitivos. Propones los siguientes nodos lógicos "
+        f"para una trayectoria de pensamiento. Responde SOLO con un JSON array de {n_nodes} "
+        "objetos, sin texto extra:\n"
+        '[{"content": "...", "type": "concept|memory|decision|hypothesis", "weight": 0.0-1.0}]'
+    )
+    prompt = f"{ctx}\n\nGenera los próximos {n_nodes} nodos para la rama '{cur}'."
+
+    print(f"\n  {DIM('Evolución de:')} {CYAN(cur)}  {DIM('Modelo:')} {resolved}  {DIM(f'({n_nodes} nodos)')}")
+    print("  " + "─" * 60)
+
+    raw = _ollama_generate(prompt, model=resolved, system=system, stream=False)
+    if not raw:
+        return
+
+    # Print raw for visibility
+    print(f"  {DIM('LLM response:')}")
+    print(f"  {raw[:200]}{'…' if len(raw) > 200 else ''}")
+    print()
+
+    json_match = re.search(r'\[.*?\]', raw, re.DOTALL)
+    if not json_match:
+        print(YELLOW("⚠  No se encontró JSON en la respuesta. Usa: bago npath think para respuestas libres."))
+        return
+
+    try:
+        proposed = json.loads(json_match.group())
+    except json.JSONDecodeError as e:
+        print(YELLOW(f"⚠  JSON inválido: {e}"))
+        return
+
+    committed = []
+    for node_def in proposed[:n_nodes]:
+        content = str(node_def.get("content", "")).strip()
+        ntype   = str(node_def.get("type", "concept")).strip()
+        weight  = float(node_def.get("weight", 0.6))
+        if not content:
+            continue
+        nid = (
+            cmd_commit(content, branch=cur, ntype=ntype, weight=weight,
+                       metadata={"source": "ollama_evolve", "model": resolved})
+            if do_commit else None
+        )
+        committed.append((content, ntype, weight, nid))
+
+    suffix = " y guardados" if do_commit else f"  {DIM('(sin --commit, no guardados)')}"
+    print(f"  {GREEN(f'✅ {len(committed)} nodo(s) generados')}{suffix}")
+    for content, ntype, weight, nid in committed:
+        nid_str = f"  {CYAN(nid)}" if nid else ""
+        print(f"  {YELLOW(ntype)}({weight:.1f}){nid_str}  {content[:70]}")
+
+
+def cmd_ollama_status() -> None:
+    """Show Ollama availability and loaded models."""
+    available, models = _ollama_available()
+    if not available:
+        print(RED("  ○ Ollama no disponible") + f"  {DIM('ollama serve')}")
+        return
+    print(GREEN("  ● Ollama activo") + f"  {DIM(_OLLAMA_URL)}")
+    if models:
+        print(f"  Modelos disponibles ({len(models)}):")
+        for m in models:
+            print(f"    - {CYAN(m)}")
+    else:
+        print(f"  Sin modelos instalados. Prueba: {DIM('ollama pull llama3')}")
+
 
 # ── Self-tests ─────────────────────────────────────────────────────────────────
 
@@ -1111,6 +1454,82 @@ def main(argv: list[str] | None = None) -> None:
     # ── test ──────────────────────────────────────────────────────────────────
     elif cmd == "--test":
         _run_tests()
+
+    # ── Ollama subcomandos ────────────────────────────────────────────────────
+    elif cmd == "think":
+        if not rest:
+            print(RED("❌ Uso: bago npath think <pregunta> [--branch <rama>] [--model <m>] [--commit]"))
+            sys.exit(1)
+        query    = rest[0]
+        branch   = None
+        model    = None
+        do_commit = False
+        i = 1
+        while i < len(rest):
+            if rest[i] == "--branch" and i + 1 < len(rest):
+                branch = rest[i + 1]; i += 2
+            elif rest[i] == "--model" and i + 1 < len(rest):
+                model = rest[i + 1]; i += 2
+            elif rest[i] == "--commit":
+                do_commit = True; i += 1
+            else:
+                i += 1
+        cmd_think(query, branch=branch, model=model, do_commit=do_commit)
+
+    elif cmd == "reflect":
+        branch    = None
+        model     = None
+        do_commit = False
+        i = 0
+        while i < len(rest):
+            if rest[i] == "--branch" and i + 1 < len(rest):
+                branch = rest[i + 1]; i += 2
+            elif rest[i] == "--model" and i + 1 < len(rest):
+                model = rest[i + 1]; i += 2
+            elif rest[i] == "--commit":
+                do_commit = True; i += 1
+            else:
+                branch = rest[i]; i += 1
+        cmd_reflect(branch=branch, model=model, do_commit=do_commit)
+
+    elif cmd == "suggest":
+        branch = None
+        model  = None
+        i = 0
+        while i < len(rest):
+            if rest[i] == "--branch" and i + 1 < len(rest):
+                branch = rest[i + 1]; i += 2
+            elif rest[i] == "--model" and i + 1 < len(rest):
+                model = rest[i + 1]; i += 2
+            else:
+                branch = rest[i]; i += 1
+        cmd_suggest(branch=branch, model=model)
+
+    elif cmd == "evolve":
+        branch    = None
+        model     = None
+        n_nodes   = 3
+        do_commit = True
+        i = 0
+        while i < len(rest):
+            if rest[i] == "--branch" and i + 1 < len(rest):
+                branch = rest[i + 1]; i += 2
+            elif rest[i] == "--model" and i + 1 < len(rest):
+                model = rest[i + 1]; i += 2
+            elif rest[i] == "--nodes" and i + 1 < len(rest):
+                try:
+                    n_nodes = int(rest[i + 1])
+                except ValueError:
+                    pass
+                i += 2
+            elif rest[i] == "--no-commit":
+                do_commit = False; i += 1
+            else:
+                i += 1
+        cmd_evolve(branch=branch, model=model, n_nodes=n_nodes, do_commit=do_commit)
+
+    elif cmd in ("ollama", "ollama-status"):
+        cmd_ollama_status()
 
     else:
         print(RED(f"❌ Subcomando desconocido: '{cmd}'"))
