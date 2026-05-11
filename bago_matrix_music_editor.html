@@ -206,6 +206,27 @@ kbd {
   padding: 1px 5px; border-radius: 3px; font-size: 10px;
   border: 1px solid #2d2d5e;
 }
+
+/* ── TRANSPOSE PANEL ────────────────────────────────── */
+#transpose-panel {
+  background: #181830;
+  border-bottom: 2px solid var(--bg-darkest);
+  padding: 8px 20px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  animation: slideDown .12s ease;
+}
+@keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+#transpose-panel .tp-label { color: var(--text-mid); font-size: 12px; white-space: nowrap; }
+#interval-select {
+  background: #121228; border: 1px solid #3a3a7e;
+  color: var(--text-hi); padding: 4px 10px; border-radius: 4px;
+  font-size: 12px; outline: none; cursor: pointer;
+}
+#interval-select:focus { border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -213,7 +234,7 @@ kbd {
 <!-- ── HEADER ── -->
 <div id="header">
   <h1>🎵 BAGO Music Score Editor</h1>
-  <span class="badge">v1.0 · Phase 7</span>
+  <span class="badge">v2.0 · Phase 7</span>
   <span class="badge" style="margin-left:auto;">Editor de Partituras · Single-file</span>
 </div>
 
@@ -293,6 +314,39 @@ kbd {
   <button class="btn btn-play"   id="btn-play"   onclick="togglePlay()"    title="Reproducir / Detener (Espacio)">▶ Reproducir</button>
   <button class="btn btn-export" id="btn-export"  onclick="exportMusicXML()" title="Exportar a MusicXML 3.1">↓ MusicXML</button>
 
+  <div class="tb-sep"></div>
+
+  <button class="btn" onclick="document.getElementById('file-input').click()" title="Abrir archivo MusicXML (.xml, .musicxml)">📂 Abrir partitura</button>
+  <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
+
+  <button class="btn" id="btn-transpose" onclick="openTransposePanel()" title="Transponer notas seleccionadas" style="display:none">🎵 Transponer selección</button>
+
+  <button class="btn btn-export" onclick="loadMusicXML(EXAMPLE_SCORE)" title="Cargar ejemplo: Nostalgia en La menor — 3 voces, La menor, 3/4, Andante">📖 Ejemplo melancólico</button>
+
+</div>
+
+<!-- ── TRANSPOSE PANEL ── -->
+<div id="transpose-panel">
+  <span class="tp-label">🎵 Transponer selección —</span>
+  <span class="tp-label">Intervalo:</span>
+  <select id="interval-select">
+    <option value="1">Subir +m2 (1 semitono)</option>
+    <option value="2" selected>Subir +M2 (1 tono)</option>
+    <option value="3">Subir +m3 (3ª menor)</option>
+    <option value="4">Subir +M3 (3ª mayor)</option>
+    <option value="5">Subir +P4 (4ª justa)</option>
+    <option value="7">Subir +P5 (5ª justa)</option>
+    <option value="12">Subir +P8 (octava)</option>
+    <option value="-1">Bajar −m2 (1 semitono)</option>
+    <option value="-2">Bajar −M2 (1 tono)</option>
+    <option value="-3">Bajar −m3 (3ª menor)</option>
+    <option value="-4">Bajar −M3 (3ª mayor)</option>
+    <option value="-5">Bajar −P4 (4ª justa)</option>
+    <option value="-7">Bajar −P5 (5ª justa)</option>
+    <option value="-12">Bajar −P8 (octava)</option>
+  </select>
+  <button class="btn" style="background:#2a4a2a;border-color:#4a8a4a;color:#88cc88;" onclick="applyTranspose()">✓ Aplicar</button>
+  <button class="btn" style="background:#3a1e1e;border-color:#5e3030;color:#e08080;" onclick="closeTransposePanel()">✕ Cancelar</button>
 </div>
 
 <!-- Floating note label -->
@@ -366,6 +420,8 @@ const S = {
 
   // Layout cache — filled during render
   staves:    [],          // [{stave, x, y, w}]
+  noteBoxes: [],          // [{noteIdx, x, y, w, h}] — hit boxes for click selection
+  selected:  new Set(),   // Set of selected note indices
 };
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────
@@ -480,6 +536,22 @@ function shiftOctave(vfPitch, delta) {
   return n + '/' + newOct;
 }
 
+// ─── MIDI / PITCH CONVERSION ───────────────────────────────────────
+
+const STEP_SEMITONES = { c:0, d:2, e:4, f:5, g:7, a:9, b:11 };
+const MIDI_STEP      = ['c','c','d','d','e','f','f','g','g','a','a','b'];
+const MIDI_ALTER     = [ 0,  1,  0,  1,  0,  0,  1,  0,  1,  0,  1,  0];
+
+function noteToMidi(step, octave, alter) {
+  return (parseInt(octave, 10) + 1) * 12 + (STEP_SEMITONES[step.toLowerCase()] || 0) + (alter || 0);
+}
+
+function midiToNote(midi) {
+  const pc  = ((midi % 12) + 12) % 12;
+  const oct = Math.floor(midi / 12) - 1;
+  return { step: MIDI_STEP[pc], octave: oct, alter: MIDI_ALTER[pc] };
+}
+
 // ─── MEASURE SPLITTING ─────────────────────────────────────────────
 
 function noteValue(note) {
@@ -521,7 +593,7 @@ function fillRests(remainder) {
 
 // ─── VEXFLOW NOTE BUILDER ──────────────────────────────────────────
 
-function makeVFNote(note) {
+function makeVFNote(note, noteIdx) {
   const keys     = note.rest ? ['b/4'] : [note.pitch];
   const duration = note.dur + (note.rest ? 'r' : '');
 
@@ -532,6 +604,10 @@ function makeVFNote(note) {
   }
   if (note.dotted) {
     VF.Dot.buildAndAttach([vn], { all_voices: true });
+  }
+  // Apply selection style (blue highlight)
+  if (noteIdx !== undefined && S.selected.has(noteIdx)) {
+    vn.setStyle({ fillStyle: '#4488ff', strokeStyle: '#4488ff' });
   }
   return vn;
 }
@@ -556,7 +632,8 @@ function doRender() {
   const vfc  = document.getElementById('vf-container');
   const wrap = document.getElementById('vf-area');
   vfc.innerHTML = '';
-  S.staves = [];
+  S.staves   = [];
+  S.noteBoxes = [];
 
   const hint = document.getElementById('empty-hint');
   hint.style.display = S.notes.length === 0 ? 'block' : 'none';
@@ -599,6 +676,7 @@ function doRender() {
     F:'F', Bb:'Bb', Am:'Am', Em:'Em',
   };
 
+  let noteStart = 0;
   measures.forEach((measure, i) => {
     const row = Math.floor(i / stavesPerRow);
     const col = i % stavesPerRow;
@@ -632,9 +710,10 @@ function doRender() {
     // Build VexFlow notes
     let vfNotes;
     try {
-      vfNotes = measure.map(makeVFNote);
+      vfNotes = measure.map((note, li) => makeVFNote(note, noteStart + li));
     } catch (err) {
       console.warn('VF note build error (measure', i, '):', err);
+      noteStart += measure.length;
       return;
     }
 
@@ -658,9 +737,21 @@ function doRender() {
       formatter.format([voice], w - 50);
 
       voice.draw(ctx, stave);
+
+      // Collect note hit boxes for click-to-select
+      measure.forEach((_, li) => {
+        try {
+          const vn = vfNotes[li];
+          const ax = typeof vn.getAbsoluteX === 'function' ? vn.getAbsoluteX() : null;
+          if (ax !== null && isFinite(ax)) {
+            S.noteBoxes.push({ noteIdx: noteStart + li, x: ax - 13, y: y - 22, w: 26, h: 82 });
+          }
+        } catch (_) {}
+      });
     } catch (err) {
       console.warn('VF format/draw error (measure', i, '):', err);
     }
+    noteStart += measure.length;
   });
 
   // Resize ghost canvas to match SVG
@@ -888,6 +979,14 @@ function onOverlayClick(e) {
   const svgX = e.clientX - svgRect.left;
   const svgY = e.clientY - svgRect.top;
 
+  // Check if click lands on an existing note → toggle selection
+  const hitIdx = findNoteAt(svgX, svgY);
+  if (hitIdx !== null) {
+    toggleNoteSelection(hitIdx);
+    return;
+  }
+
+  // No note hit → add new note at pitch position
   const staveInfo = getStaveAtSVGy(svgY);
   if (!staveInfo || svgX < staveInfo.x || svgX > staveInfo.x + staveInfo.w) return;
 
@@ -1075,6 +1174,318 @@ function esc(s) {
     .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
+// ─── NOTE SELECTION ────────────────────────────────────────────────
+
+function findNoteAt(svgX, svgY) {
+  for (const box of S.noteBoxes) {
+    if (svgX >= box.x && svgX <= box.x + box.w &&
+        svgY >= box.y && svgY <= box.y + box.h) {
+      return box.noteIdx;
+    }
+  }
+  return null;
+}
+
+function toggleNoteSelection(noteIdx) {
+  if (S.selected.has(noteIdx)) {
+    S.selected.delete(noteIdx);
+  } else {
+    S.selected.add(noteIdx);
+  }
+  updateTransposeBtn();
+  schedRender();
+}
+
+function updateTransposeBtn() {
+  const btn = document.getElementById('btn-transpose');
+  if (btn) btn.style.display = S.selected.size > 0 ? '' : 'none';
+}
+
+// ─── TRANSPOSE PANEL ───────────────────────────────────────────────
+
+function openTransposePanel() {
+  const panel = document.getElementById('transpose-panel');
+  if (panel) panel.style.display = 'flex';
+}
+
+function closeTransposePanel() {
+  const panel = document.getElementById('transpose-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+function applyTranspose() {
+  const sel   = document.getElementById('interval-select');
+  const delta = parseInt(sel ? sel.value : '2', 10);
+  if (isNaN(delta)) return;
+
+  S.notes.forEach((note, idx) => {
+    if (note.rest || !S.selected.has(idx)) return;
+    const [step, octStr] = note.pitch.split('/');
+    const octave  = parseInt(octStr, 10);
+    const curAlter = note.acc === '#' ? 1 : note.acc === 'b' ? -1 : 0;
+    const midi     = noteToMidi(step, octave, curAlter);
+    const { step: ns, octave: no, alter: na } = midiToNote(midi + delta);
+    note.pitch = ns + '/' + no;
+    note.acc   = na === 1 ? '#' : na === -1 ? 'b' : null;
+  });
+
+  S.selected.clear();
+  updateTransposeBtn();
+  closeTransposePanel();
+  schedRender();
+}
+
+// ─── MUSICXML IMPORT ───────────────────────────────────────────────
+
+function onFileLoad(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadMusicXML(ev.target.result);
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = ''; // allow re-loading same file
+}
+
+function loadMusicXML(xmlStr) {
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(xmlStr, 'application/xml');
+  const xmlErr = doc.querySelector('parsererror');
+  if (xmlErr) { alert('Error al parsear MusicXML:\n' + xmlErr.textContent.slice(0, 200)); return; }
+
+  // ── Metadata ──────────────────────────────────────────────────────
+  const movTitle  = doc.querySelector('movement-title');
+  const workTitle = doc.querySelector('work > work-title');
+  const creator   = doc.querySelector('creator[type="composer"]');
+  const titleStr  = (movTitle || workTitle)?.textContent?.trim() || 'Sin título';
+  const compStr   = creator?.textContent?.trim() || 'Compositor';
+
+  document.getElementById('m-title').value    = titleStr;
+  document.getElementById('m-composer').value = compStr;
+  S.title    = titleStr;
+  S.composer = compStr;
+  document.getElementById('sc-title').textContent    = titleStr;
+  document.getElementById('sc-composer').textContent = compStr;
+
+  // ── Time / Key / Clef from first <attributes> block ──────────────
+  const firstAttrs = doc.querySelector('measure attributes');
+  if (firstAttrs) {
+    const beats    = firstAttrs.querySelector('beats')?.textContent?.trim();
+    const beatType = firstAttrs.querySelector('beat-type')?.textContent?.trim();
+    if (beats && beatType) {
+      const ts = beats + '/' + beatType;
+      if (TIME_BEATS[ts]) {
+        S.timeSig = ts;
+        const tsel = document.getElementById('m-time');
+        if (tsel) tsel.value = ts;
+      }
+    }
+
+    const fifths = parseInt(firstAttrs.querySelector('fifths')?.textContent?.trim() ?? '0', 10);
+    const mode   = firstAttrs.querySelector('mode')?.textContent?.trim();
+    const FIFTHS_MAP = { '0':'C','1':'G','2':'D','3':'A','4':'E','5':'B','-1':'F','-2':'Bb' };
+    if (mode === 'minor' && fifths === 0) {
+      S.keySig = 'Am';
+      const ksel = document.getElementById('m-key'); if (ksel) ksel.value = 'Am';
+    } else {
+      const k = FIFTHS_MAP[String(fifths)];
+      if (k) { S.keySig = k; const ksel = document.getElementById('m-key'); if (ksel) ksel.value = k; }
+    }
+
+    const clefSign = firstAttrs.querySelector('clef sign')?.textContent?.trim();
+    if (clefSign === 'G') {
+      S.clef = 'treble'; document.getElementById('m-clef').value = 'treble';
+    } else if (clefSign === 'F') {
+      S.clef = 'bass';   document.getElementById('m-clef').value = 'bass';
+    }
+  }
+
+  // ── Parse notes from first <part> ────────────────────────────────
+  const TYPE_DUR = {
+    'whole':'w', 'half':'h', 'quarter':'q', 'eighth':'8', '16th':'16', '32nd':'32',
+  };
+  const firstPart = doc.querySelector('part');
+  if (!firstPart) { alert('No se encontró ninguna parte en el MusicXML.'); return; }
+
+  const notes = [];
+  firstPart.querySelectorAll('note').forEach(noteEl => {
+    if (noteEl.querySelector('chord')) return; // skip chord duplicates
+    const isRest = !!noteEl.querySelector('rest');
+    const typeEl = noteEl.querySelector('type');
+    const dotted = !!noteEl.querySelector('dot');
+    const dur    = TYPE_DUR[typeEl?.textContent?.trim()] ?? 'q';
+
+    if (isRest) {
+      notes.push({ pitch:'b/4', dur, acc:null, rest:true, dotted });
+    } else {
+      const stepEl  = noteEl.querySelector('pitch > step');
+      const octEl   = noteEl.querySelector('pitch > octave');
+      const alterEl = noteEl.querySelector('pitch > alter');
+      if (!stepEl || !octEl) return;
+      const step   = stepEl.textContent.trim().toLowerCase();
+      const octave = octEl.textContent.trim();
+      const alterV = alterEl ? Math.round(parseFloat(alterEl.textContent.trim())) : 0;
+      const acc    = alterV === 1 ? '#' : alterV === -1 ? 'b' : null;
+      notes.push({ pitch: step + '/' + octave, dur, acc, rest:false, dotted });
+    }
+  });
+
+  if (notes.length === 0) { alert('No se encontraron notas en el MusicXML.'); return; }
+
+  S.selected.clear();
+  S.notes = notes;
+  updateTransposeBtn();
+  schedRender();
+}
+
+// ─── EXAMPLE SCORE ─────────────────────────────────────────────────
+// "Nostalgia en La menor" — 3 voces, La menor, 3/4, Andante — 8 compases
+// Cadencia andaluza descendente (Am→G→F→E) x2, resolución.
+// Divisions = 2 per quarter. quarter=2, half=4, dotted-half=6.
+
+const EXAMPLE_SCORE = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN"
+  "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <movement-title>Nostalgia en La menor</movement-title>
+  <identification>
+    <creator type="composer">BAGO</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1"><part-name>Soprano</part-name></score-part>
+    <score-part id="P2"><part-name>Alto</part-name></score-part>
+    <score-part id="P3"><part-name>Bajo</part-name></score-part>
+  </part-list>
+  <!-- P1: Soprano — melodía lírica alta -->
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>A</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="6">
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="7">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="8">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+  <!-- P2: Alto — armonía en terceras/sextas bajo soprano -->
+  <part id="P2">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="6">
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="7">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="8">
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+  <!-- P3: Bajo — pedal + movimiento de raíz -->
+  <part id="P3">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="6">
+      <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="7">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="8">
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
 // ─── INITIALISATION ────────────────────────────────────────────────
 
 function init() {
@@ -1101,6 +1512,7 @@ function init() {
   // Initial render
   doRender();
   updateStatus(1);
+  updateTransposeBtn();
 
   console.log('%cBAGO Music Score Editor v1.0 — ready', 'color:#8888ff;font-weight:bold');
   console.log('VexFlow loaded:', VF ? '✓' : '✗');
