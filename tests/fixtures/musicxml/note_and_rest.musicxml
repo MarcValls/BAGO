@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<score-partwise>
+  <part-list>
+    <score-part id="P1"><part-name>Violin</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><voice>1</voice><staff>1</staff>
+      </note>
+      <note>
+        <rest/>
+        <duration>4</duration><voice>1</voice><staff>1</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>
