@@ -86,6 +86,8 @@ whatsapp_config.json
 
 # BAGO — HTML/SVG generados (se regeneran con bago matrix/dashboard)
 bago_matrix*.html
+# Excepción: herramientas permanentes que siguen la convención de nombre bago_matrix*
+!bago_matrix_music_editor.html
 .bago/docs/analysis/*.html
 .bago/docs/analysis/figures/
 
