@@ -678,6 +678,18 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         supports_dry_run=True,
     ),
+    "npath": ToolEntry(
+        cmd="npath", module="npath",
+        description="Neural Path — grafo cognitivo versionado: branch/commit/merge/unmerge/split/recall/map",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "npath.py")),
+        ],
+        layer="conocimiento", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
 }
 
 

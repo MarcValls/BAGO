@@ -491,6 +491,15 @@ def _cmd_heal_paths(rest: list) -> None:
     subprocess.run(["python3", str(healer)] + rest, cwd=str(BAGO_ROOT.parent))
 
 
+def _cmd_npath_dispatch(rest: list) -> None:
+    """bago npath <subcomando> ... — Neural Path versioned cognitive graph."""
+    npath = _find_tool("npath")
+    if not npath:
+        print("  ❌ npath.py no encontrado en", TOOLS)
+        return
+    subprocess.run(["python3", str(npath)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
 # ── Extensiones Copilot CLI ────────────────────────────────────────────────────
 
 def _install_extensions(bago_root=None, silent=False):
@@ -772,6 +781,8 @@ def main():
         _cmd_neural(rest)
     elif cmd == "heal-paths":
         _cmd_heal_paths(rest)
+    elif cmd == "npath":
+        _cmd_npath_dispatch(rest)
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest
@@ -783,13 +794,13 @@ def main():
             cwd=str(BAGO_ROOT.parent)
         )
         print("  Comandos disponibles:")
-        print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths")
+        print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath")
         for k in sorted(COMMANDS):
             print(f"    bago {k}")
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:
