@@ -113,3 +113,4 @@ dist/
 
 # Runtime artifacts
 .bago/state/neural_events.jsonl
+launcher/static/vendor/
