@@ -65,7 +65,7 @@ def analyze_dependencies() -> dict:
     if (repo_root / "requirements.txt").exists():
         try:
             deps["requirements_txt"] = (repo_root / "requirements.txt").read_text().strip().split('\n')
-        except:
+        except Exception:
             pass
     
     return {k: v for k, v in deps.items() if v is not None}
@@ -127,7 +127,7 @@ def list_research() -> None:
         try:
             data = load_json(res_file)
             print(f"  {data['id']:30} | {data['topic']}")
-        except:
+        except Exception:
             pass
     print()
 

@@ -35,7 +35,7 @@ def write_state(data: dict):
 def load_tareas() -> list:
     if not TAREAS_PATH.exists(): return []
     try: return json.loads(TAREAS_PATH.read_text())
-    except: return []
+    except Exception: return []
 
 def save_tareas(t: list):
     TAREAS_PATH.write_text(json.dumps(t, indent=2, ensure_ascii=False))
@@ -43,7 +43,7 @@ def save_tareas(t: list):
 def load_chat() -> list:
     if not CHAT_PATH.exists(): return []
     try: return json.loads(CHAT_PATH.read_text())
-    except: return []
+    except Exception: return []
 
 def save_chat(msgs: list):
     CHAT_PATH.write_text(json.dumps(msgs[-120:], indent=2, ensure_ascii=False))
@@ -316,7 +316,7 @@ class BAGOHandler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0))
         if n == 0: return {}
         try: return json.loads(self.rfile.read(n))
-        except: return {}
+        except Exception: return {}
 
     def do_OPTIONS(self):
         self.send_response(200)

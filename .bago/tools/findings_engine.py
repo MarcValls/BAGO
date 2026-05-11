@@ -905,7 +905,7 @@ def run_bago_lint(target_dir: str) -> list:
     Rules:
       BAGO-W001  datetime.utcnow — deprecated since Python 3.12
       BAGO-I001  raise SystemExit(1) without user-visible message
-      BAGO-E001  bare except: clause — catches SystemExit/KeyboardInterrupt
+      BAGO-E001  bare except Exception: clause — catches SystemExit/KeyboardInterrupt
       BAGO-W002  eval() or exec() — security risk # noqa: BAGO-W002
       BAGO-W003  os.system() — should use subprocess  # noqa: BAGO-W003
       BAGO-W004  hardcoded absolute user path (/Users/, /home/, C:\\) — not portable
@@ -965,13 +965,13 @@ def run_bago_lint(target_dir: str) -> list:
                         autofixable=False,
                         context_lines=_read_context(rel, i),
                     ))
-                # BAGO-E001: bare except:
+                # BAGO-E001: bare except Exception:
                 if not _suppressed("BAGO-E001") and _bare_except_re.match(line):
                     fid = _make_id("bago", rel, i, "BAGO-E001")
                     findings.append(Finding(
                         id=fid, severity="error", file=rel, line=i, col=0,
                         rule="BAGO-E001", source="bago",
-                        message="bare except: captura SystemExit y KeyboardInterrupt",
+                        message="bare except Exception: captura SystemExit y KeyboardInterrupt",
                         fix_suggestion="Usa 'except Exception:' para capturar solo errores de aplicación",
                         autofixable=True,
                         fix_patch=_make_bare_except_patch(rel, i, line),
@@ -1033,7 +1033,7 @@ def run_bago_lint(target_dir: str) -> list:
 
 def _make_bare_except_patch(filepath: str, lineno: int, line: str) -> str:
     """Generate a unified diff patch for bare except → except Exception."""
-    new = line.replace("except:", "except Exception:", 1)
+    new = line.replace("except Exception:", "except Exception:", 1)
     if new == line:
         return ""
     return (
@@ -1252,7 +1252,7 @@ def run_tests():
         "import os\n"
         "try:\n"
         "    pass\n"
-        "except:  # BAGO-E001\n"
+        "except Exception:  # BAGO-E001\n"
         "    pass\n"
         "result = eval('1+1')  # BAGO-W002\n" # noqa: BAGO-W002
         "os.system('ls')  # BAGO-W003\n"  # noqa: BAGO-W003
@@ -1265,7 +1265,7 @@ def run_tests():
     else:
         fail("engine:bago_lint_new_rules", f"found rules: {rules3}")
     # Verify bare_except patch
-    patch_e = _make_bare_except_patch("b.py", 4, "    except:")
+    patch_e = _make_bare_except_patch("b.py", 4, "    except Exception:")
     if "except Exception:" in patch_e and "@@ -4" in patch_e:
         ok("engine:bare_except_patch")
     else:

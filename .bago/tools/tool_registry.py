@@ -640,6 +640,20 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         supports_dry_run=False,
     ),
+    "work_matrix": ToolEntry(
+        cmd="work_matrix", module="work_matrix",
+        description="Matriz de rutas de trabajo: qué agente y herramientas MCP usar según el tipo de tarea",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "work_matrix.py")),
+            PreflightCheck("file", str(BAGO_ROOT / "mcp" / "agent_tool_matrix.json"),
+                           severity="warning", message="Matriz agent_tool_matrix.json no encontrada en .bago/mcp/"),
+        ],
+        layer="analítica", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
 }
 
 

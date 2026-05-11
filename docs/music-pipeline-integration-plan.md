@@ -436,7 +436,7 @@ Document these as optional extras, not hard install requirements for BAGO core.
 8. Add tests and fixtures.
 9. Integrate evidence reporting and sincerity language.
 
-## Definition of done
+## Criterios de Aceptación
 
 The integration is complete when this works:
 

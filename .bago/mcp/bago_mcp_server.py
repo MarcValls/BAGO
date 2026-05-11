@@ -210,6 +210,88 @@ DEFAULT_TOOLS: dict[str, dict[str, Any]] = {
             "additionalProperties": False,
         },
     },
+    # ── New tools: agent connections + matrix route ───────────────────────────
+    "bago_ideas": {
+        "cmd": "ideas",
+        "description": "Emite ideas priorizadas del backlog BAGO — qué implementar ahora.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    "bago_flow": {
+        "cmd": "flow",
+        "description": "Flujo activo BAGO: muestra workflow en curso, estado de tarea y flowchart ASCII.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["", "status", "list"],
+                    "default": "",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    "bago_route": {
+        "cmd": "route",
+        "description": "Router híbrido BAGO: decide entre Ollama local, Codex y Copilot para una tarea.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Descripción de la tarea a enrutar. Ejemplo: 'revisar código Python'.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    "bago_db": {
+        "cmd": "db",
+        "description": "Estado de bago.db: ideas disponibles, historial guardian y estado del sprint.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["", "status"],
+                    "default": "status",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    "bago_matrix": {
+        "cmd": "work_matrix",
+        "description": "Matriz de rutas de trabajo BAGO: qué agente y herramientas MCP usar según tipo de tarea.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Tipo de trabajo: code, quality, security, architecture, content, session, planning, debug, data, music, visual, research, coordination, adaptation.",
+                },
+                "agent": {
+                    "type": "string",
+                    "description": "Filtrar por agente: ANALISTA, ARQUITECTO, CENTINELA, GENERADOR, INICIADOR, ORGANIZADOR, ADAPTADOR, MAESTRO, GUIA.",
+                },
+                "list_types": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Si true, lista solo los tipos disponibles.",
+                },
+                "mcp_tools": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Si true, muestra el índice completo de herramientas MCP.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
 }
 
 SAFE_BAGO_COMMANDS = {
@@ -223,6 +305,11 @@ SAFE_BAGO_COMMANDS = {
     "why",
     "scope",
     "audit",
+    "ideas",
+    "flow",
+    "route",
+    "db",
+    "work_matrix",
 }
 
 BLOCKED_BAGO_COMMANDS = {
@@ -470,6 +557,36 @@ def _args_for_tool(tool_name: str, params: dict[str, Any]) -> tuple[str | None, 
         if command in BLOCKED_BAGO_COMMANDS:
             raise ValueError(f"bago_why blocked for dangerous/mutating command: {command}")
         return cmd, [command]
+
+    if tool_name == "bago_flow":
+        mode = str(params.get("mode", "") or "").strip()
+        if mode not in {"", "status", "list"}:
+            raise ValueError(f"Flow mode not allowed through MCP: {mode}")
+        return cmd, [mode] if mode else []
+
+    if tool_name == "bago_route":
+        task = str(params.get("task", "") or "").strip()
+        return cmd, ["--task", task, "--dry-run"] if task else ["--dry-run"]
+
+    if tool_name == "bago_db":
+        mode = str(params.get("mode", "status") or "status").strip()
+        if mode not in {"", "status"}:
+            raise ValueError(f"DB mode not allowed through MCP: {mode}")
+        return cmd, ["status"]
+
+    if tool_name == "bago_matrix":
+        args: list[str] = []
+        wtype = str(params.get("type", "") or "").strip()
+        agent = str(params.get("agent", "") or "").strip()
+        if bool(params.get("list_types", False)):
+            args.append("--list-types")
+        elif bool(params.get("mcp_tools", False)):
+            args.append("--mcp-tools")
+        elif wtype:
+            args.extend(["--type", wtype])
+        elif agent:
+            args.extend(["--agent", agent])
+        return cmd, args
 
     return cmd, []
 

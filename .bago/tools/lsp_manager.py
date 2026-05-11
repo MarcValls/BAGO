@@ -66,7 +66,7 @@ def detect_available_servers() -> dict:
                 "args": ["--stdio"],
                 "languages": ["typescript", "javascript"]
             }
-    except:
+    except Exception:
         pass
     
     # Python
@@ -79,7 +79,7 @@ def detect_available_servers() -> dict:
                 "args": [],
                 "languages": ["python"]
             }
-    except:
+    except Exception:
         pass
     
     # Go
@@ -92,7 +92,7 @@ def detect_available_servers() -> dict:
                 "args": ["serve"],
                 "languages": ["go"]
             }
-    except:
+    except Exception:
         pass
     
     # Rust
@@ -105,7 +105,7 @@ def detect_available_servers() -> dict:
                 "args": [],
                 "languages": ["rust"]
             }
-    except:
+    except Exception:
         pass
     
     return servers

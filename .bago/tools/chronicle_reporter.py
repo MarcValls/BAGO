@@ -33,7 +33,7 @@ def get_session_history() -> list:
             try:
                 session = load_json(session_file)
                 sessions.append(session)
-            except:
+            except Exception:
                 pass
     return sessions
 
@@ -51,7 +51,7 @@ def get_recent_changes() -> list:
                     "description": change.get("description", "?"),
                     "timestamp": change.get("timestamp", "?")
                 })
-            except:
+            except Exception:
                 pass
     return changes
 
@@ -70,7 +70,7 @@ def get_pending_tasks() -> list:
                 "title": w2_task.get("title", "?"),
                 "status": "pending"
             })
-        except:
+        except Exception:
             pass
     
     return pending

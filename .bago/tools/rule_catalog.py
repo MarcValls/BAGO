@@ -44,7 +44,7 @@ RULES: list[Rule] = [
         source="bago",
         title="Bare except clause",
         description=(
-            "La cláusula `except:` sin tipo captura `SystemExit` y "
+            "La cláusula `except Exception:` sin tipo captura `SystemExit` y "
             "`KeyboardInterrupt`, lo que impide interrumpir el programa con "
             "Ctrl-C y oculta errores inesperados."
         ),

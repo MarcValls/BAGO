@@ -103,7 +103,7 @@ def load_progress() -> dict:
     if PROGRESS_PATH.exists():
         try:
             return json.loads(PROGRESS_PATH.read_text())
-        except:
+        except Exception:
             pass
     return {}
 

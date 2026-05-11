@@ -26,7 +26,7 @@ def load_workspace_state():
     if WORKSPACE_STATE.exists():
         try:
             return json.loads(WORKSPACE_STATE.read_text(encoding="utf-8"))
-        except:
+        except Exception:
             pass
     return {"repositories": {}}
 
@@ -47,7 +47,7 @@ def get_repo_health(repo_path):
             return f"🟢 {health}"
         else:
             return f"⚪ {health}"
-    except:
+    except Exception:
         return "⚪ error"
 
 

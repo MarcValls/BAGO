@@ -54,7 +54,7 @@ def check_port(ip, port, timeout=1):
         result = sock.connect_ex((ip, port))
         sock.close()
         return result == 0
-    except:
+    except Exception:
         return False
 
 def scan_ports(ip):
