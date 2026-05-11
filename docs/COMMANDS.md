@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-11 07:29 UTC
+> Last generated: 2026-05-11 11:29 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 59 |
+| 🧪 Experimental | 61 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **78** |
+| **Total active** | **80** |
 
 ---
 
@@ -76,11 +76,13 @@ Actively developed. May change between minor versions.
 | `bago music` | Pipeline musical: plan, convert, inventory y etapas MusicXML honestas | 🔬 avanzado | safe | optional |
 | `bago naming` | Lint de convenciones de nombres | 🔍 calidad | safe | optional |
 | `bago neural` | Neural Bus — servidor SSE de mensajes inter-agente (start/stop/status/nodes/map) | • infraestructura | safe | optional |
+| `bago neural-toolbox` | Motor de activación dinámica de herramientas: convierte contexto en lenguaje natural en un toolbox adaptado. Perfiles derivados del registry, filtros scope/risk, feedback adaptativo. Subcomandos: --context \| --run \| --explain \| --json \| --dry-run | • core | safe | optional |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | ▶️ ejecución | safe | optional |
 | `bago notify-bago` | Notificación BAGO universal: whatsapp (Green API), telegram, desktop. | 🔬 avanzado | safe | optional |
 | `bago notify-desktop` | Envía notificaciones de escritorio (Windows toast via BurntToast PowerShell). | 🔬 avanzado | safe | optional |
 | `bago notify-whatsapp` | Notificación BAGO vía WhatsApp usando CallMeBot API. | 🔬 avanzado | safe | optional |
 | `bago npath` | Neural Path — grafo cognitivo versionado: branch/commit/merge/unmerge/split/recall/map | • conocimiento | safe | optional |
+| `bago placeholder_scan` | Detecta placeholders y datos ficticios en código Python (FAKE_DATE, STUB_RAISE, ELLIPSIS_BODY, TODO_COMMENT, PLACEHOLDER_STR) | 🔍 calidad | safe | optional |
 | `bago preflight-check` | Pre-flight checks declarativos para herramientas BAGO: file/env/cmd conditions. | 💚 salud | safe | optional |
 | `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | 📊 analítica | safe | optional |
 | `bago reopen` | Reanuda sesión desde el último cierre sin reconstruir contexto manualmente | ▶️ ejecución | safe | optional |
