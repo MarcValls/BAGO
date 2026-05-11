@@ -361,6 +361,11 @@ def validate_state(root: Path | None = None) -> int:
         except Exception:
             pass
 
+    # ── W010: Desync entre active_workflow y last_completed_workflow ─────────────
+    w010_warnings = check_w10_desync(global_state.get("sprint_status", {}))
+    for w in w010_warnings:
+        print(f"  {w}")
+
     if errors:
         print("KO")
         for e in errors:
@@ -369,6 +374,32 @@ def validate_state(root: Path | None = None) -> int:
 
     print("GO state")
     return 0
+
+
+def check_w10_desync(sprint_status: dict) -> list[str]:
+    """WARN-W010: detecta desync entre active_workflow y last_completed_workflow.
+
+    Condición: el mismo workflow está marcado como activo Y ya completado.
+    Esto indica que el flujo fue completado pero no se cerró correctamente.
+
+    Función pura: no modifica estado, no hace I/O. Retorna lista de warnings.
+    """
+    warnings: list[str] = []
+    active_wf = sprint_status.get("active_workflow")
+    last = sprint_status.get("last_completed_workflow") or {}
+    last_code = last.get("code") if isinstance(last, dict) else None
+
+    if (active_wf is not None
+            and last_code is not None
+            and active_wf == last_code):
+        title = last.get("title", "")
+        ended = last.get("ended", "")
+        warnings.append(
+            f"WARN-W010: active_workflow='{active_wf}' coincide con "
+            f"last_completed_workflow='{last_code}' ('{title}', ended={ended}) "
+            f"— el flujo parece completado pero active_workflow no fue limpiado"
+        )
+    return warnings
 
 
 # ── VALIDATE PACK (legacy version + roles checks) ─────────────────────────────

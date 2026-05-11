@@ -797,4 +797,21 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight_policy="optional",
         supports_dry_run=True,
     ),
+    # ── NEURAL FABRIC ─────────────────────────────────────────────────────────
+    "neural-toolbox": ToolEntry(
+        cmd="neural-toolbox", module="neural_toolbox",
+        description=(
+            "Motor de activación dinámica de herramientas: convierte contexto en lenguaje "
+            "natural en un toolbox adaptado. Perfiles derivados del registry, "
+            "filtros scope/risk, feedback adaptativo. "
+            "Subcomandos: --context | --run | --explain | --json | --dry-run"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "neural_toolbox.py"))],
+        layer="core", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=True,
+    ),
 }

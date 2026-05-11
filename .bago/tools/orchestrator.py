@@ -121,6 +121,54 @@ WORKFLOWS = {
 }
 
 
+def build_dynamic_workflow(context_text: str, threshold: float = 0.25, top_n: int = 5) -> dict:
+    """Construye un workflow dinámico desde texto de contexto usando NeuralToolbox.
+
+    Delega la selección de herramientas a neural_toolbox.NeuralToolbox.activate(),
+    que deriva perfiles del registry y filtra por scope/risk/deprecated.
+
+    Retorna un dict compatible con WORKFLOWS (mismo schema que workflows predefinidos).
+    """
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_neural_toolbox", str(BAGO_ROOT / "tools" / "neural_toolbox.py")
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        toolbox = mod.NeuralToolbox()
+        activations = toolbox.activate(context_text, threshold=threshold, top_n=top_n)
+    except Exception as e:
+        return {
+            "name": "Dynamic (error)",
+            "description": f"Error cargando NeuralToolbox: {e}",
+            "steps": [],
+            "success_msg": "⚠️  No se pudo construir el workflow dinámico",
+            "fail_msg": "❌ Error en NeuralToolbox",
+        }
+
+    steps = [
+        {
+            "cmd":      a.cmd,
+            "critical": False,
+            "label":    a.description[:40] or a.cmd,
+            "_score":   a.score,
+        }
+        for a in activations
+    ]
+
+    return {
+        "name": f"Dynamic — '{context_text[:40]}'",
+        "description": (
+            f"Workflow generado dinámicamente por NeuralToolbox "
+            f"({len(steps)} herramientas activadas, threshold={threshold})"
+        ),
+        "steps":       steps,
+        "success_msg": f"✅ Workflow dinámico completado ({len(steps)} herramientas)",
+        "fail_msg":    "⚠️  Algunas herramientas del workflow dinámico fallaron",
+    }
+
+
 def run_tool(cmd: str, dry_run: bool = False, timeout: int = 90) -> dict:
     """Ejecuta bago <cmd> y captura resultado."""
     start = time.time()
@@ -325,10 +373,24 @@ if __name__ == "__main__":
             raise SystemExit(1)
         raise SystemExit(run_adhoc(cmds, dry_run=dry_run, fail_fast=fail_fast))
 
+    # Dynamic workflow from natural language context
+    if clean_args[0] == "dynamic":
+        context = " ".join(clean_args[1:])
+        if not context:
+            print("  Uso: orchestrator.py dynamic \"texto describiendo el trabajo\"")
+            raise SystemExit(1)
+        wf = build_dynamic_workflow(context)
+        if not wf["steps"]:
+            print("  [ORC-W001] Sin herramientas activadas para este contexto.")
+            print("  Prueba con más palabras clave: security, lint, test, workflow...")
+            raise SystemExit(0)
+        result = run_workflow(wf, dry_run=dry_run, fail_fast=fail_fast, verbose=verbose)
+        raise SystemExit(1 if result["critical_failed"] else 0)
+
     workflow_name = clean_args[0]
     if workflow_name not in WORKFLOWS:
         print(f"  [ORC-E002] Workflow desconocido: '{workflow_name}'")
-        print(f"  Disponibles: {', '.join(WORKFLOWS.keys())}")
+        print(f"  Disponibles: {', '.join(WORKFLOWS.keys())} + dynamic")
         raise SystemExit(1)
 
     result = run_workflow(WORKFLOWS[workflow_name], dry_run=dry_run,
