@@ -463,6 +463,34 @@ def _cmd_registry() -> None:
     subprocess.run(["python3", str(reg_path), "--list"],
                    cwd=str(BAGO_ROOT.parent))
 
+
+def _find_tool(stem: str) -> "Path | None":
+    """Locate a tool by stem: TOOLS first, then rglob fallback."""
+    direct = TOOLS / f"{stem}.py"
+    if direct.exists():
+        return direct
+    hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
+    return hits[0] if hits else None
+
+
+def _cmd_neural(rest: list) -> None:
+    """bago neural [start|stop|status|nodes|map] — gestiona el Neural Bus SSE."""
+    neural = _find_tool("bago_neural")
+    if not neural:
+        print("  ❌ bago_neural.py no encontrado en", TOOLS)
+        return
+    subprocess.run(["python3", str(neural)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_heal_paths(rest: list) -> None:
+    """bago heal-paths [--watch] [--forget] — detecta y repara rutas rotas."""
+    healer = _find_tool("path_healer")
+    if not healer:
+        print("  ❌ path_healer.py no encontrado en", TOOLS)
+        return
+    subprocess.run(["python3", str(healer)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
 # ── Extensiones Copilot CLI ────────────────────────────────────────────────────
 
 def _install_extensions(bago_root=None, silent=False):
@@ -740,6 +768,10 @@ def main():
         _cmd_telemetry(rest)
     elif cmd == "registry":
         _cmd_registry()
+    elif cmd == "neural":
+        _cmd_neural(rest)
+    elif cmd == "heal-paths":
+        _cmd_heal_paths(rest)
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest
@@ -751,13 +783,13 @@ def main():
             cwd=str(BAGO_ROOT.parent)
         )
         print("  Comandos disponibles:")
-        print("    bago setup | extensions | versions | registry | last | history | telemetry")
+        print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths")
         for k in sorted(COMMANDS):
             print(f"    bago {k}")
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:

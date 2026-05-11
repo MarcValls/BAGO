@@ -654,6 +654,30 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         supports_dry_run=False,
     ),
+    "neural": ToolEntry(
+        cmd="neural", module="bago_neural",
+        description="Neural Bus — servidor SSE de mensajes inter-agente (start/stop/status/nodes/map)",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "bago_neural.py")),
+        ],
+        layer="infraestructura", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
+    "heal-paths": ToolEntry(
+        cmd="heal-paths", module="path_healer",
+        description="Detecta y repara rutas rotas tras reorganizaciones. Memoria persistente en state/.",
+        preflight=[
+            PreflightCheck("file", str(TOOLS_DIR / "path_healer.py")),
+        ],
+        layer="salud", scope="framework",
+        agent="GUARDIAN",
+        stability="stable",
+        risk="safe",
+        supports_dry_run=True,
+    ),
 }
 
 
@@ -957,7 +981,8 @@ def get_commands() -> dict[str, list[str]]:
     """Returns COMMANDS-compatible dict for the bago script.
 
     Format: {"cmd": ["python3", "/path/to/module.py", ...extra_args]}
-    Searches TOOLS_DIR first, then BAGO_ROOT/core/ for modules (e.g. autonomous_loop).
+    Searches TOOLS_DIR first, then BAGO_ROOT/core/, then rglob anywhere under
+    BAGO_ROOT as fallback (resilient to subdirectory reorganisation).
     """
     _extra_args: dict[str, list[str]] = {
         "done":           ["--done"],
@@ -970,11 +995,24 @@ def get_commands() -> dict[str, list[str]]:
         "promote":        ["promote"],
         "learn":          ["learn"],
     }
+
+    def _resolve_module(stem: str) -> Path:
+        """Return the first existing path for module stem, with rglob fallback."""
+        tools_path = TOOLS_DIR / f"{stem}.py"
+        if tools_path.exists():
+            return tools_path
+        core_path = BAGO_ROOT / "core" / f"{stem}.py"
+        if core_path.exists():
+            return core_path
+        # rglob fallback: finds the file even after reorganisation
+        hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
+        if hits:
+            return hits[0]
+        return tools_path  # return canonical path even if missing (error reported at runtime)
+
     result = {}
     for name, entry in REGISTRY.items():
-        tools_path = TOOLS_DIR / f"{entry.module}.py"
-        core_path  = BAGO_ROOT / "core" / f"{entry.module}.py"
-        module_path = tools_path if tools_path.exists() else core_path
+        module_path = _resolve_module(entry.module)
         cmd = [PYTHON, str(module_path)]
         if name in _extra_args:
             cmd += _extra_args[name]

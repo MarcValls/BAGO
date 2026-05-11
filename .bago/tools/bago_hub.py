@@ -403,6 +403,115 @@ bg,bosque mágico al atardecer,bg-small,forest_bg,escenarios
         btn_launch.click(launch_studio, inputs=port_box, outputs=status)
 
 
+# ── Tab: Neural Bus ────────────────────────────────────────────────────────────
+
+def _neural_status() -> str:
+    """Poll Neural Bus /nodes and return a markdown summary."""
+    import urllib.request
+    import os
+    port = int(os.environ.get("BAGO_NEURAL_PORT", 7865))
+    url  = f"http://127.0.0.1:{port}/nodes"
+    try:
+        with urllib.request.urlopen(url, timeout=1) as r:
+            data = json.loads(r.read())
+        nodes = data if isinstance(data, list) else data.get("nodes", [])
+        if not nodes:
+            return f"🟢 Neural Bus activo en puerto {port} — sin nodos conectados aún."
+        lines = [f"🟢 Neural Bus activo en puerto {port} — {len(nodes)} nodo(s):", ""]
+        for n in nodes:
+            if isinstance(n, dict):
+                nid  = n.get("id", n.get("node_id", "?"))
+                tags = ", ".join(n.get("tags", [])) or "—"
+                ts   = n.get("last_seen", n.get("registered_at", ""))[:19] if n.get("last_seen") or n.get("registered_at") else ""
+                lines.append(f"| `{nid}` | tags: {tags} | {ts} |")
+            else:
+                lines.append(f"- `{n}`")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"🔴 Neural Bus no responde en puerto {port}  _(bago neural start)_\n\n`{e}`"
+
+
+def _neural_map() -> str:
+    """Fetch /map from Neural Bus and return mermaid diagram."""
+    import urllib.request
+    import os
+    port = int(os.environ.get("BAGO_NEURAL_PORT", 7865))
+    url  = f"http://127.0.0.1:{port}/map"
+    try:
+        with urllib.request.urlopen(url, timeout=1) as r:
+            data = json.loads(r.read())
+        edges = data.get("edges", [])
+        nodes = data.get("nodes", [])
+        if not edges and not nodes:
+            return "```mermaid\ngraph LR\n    A[No hay nodos registrados]\n```"
+        lines = ["```mermaid", "graph LR"]
+        for n in nodes:
+            nid = (n.get("id") or n) if isinstance(n, dict) else n
+            lines.append(f'    {nid}["{nid}"]')
+        for e in edges:
+            if isinstance(e, (list, tuple)) and len(e) >= 2:
+                lines.append(f"    {e[0]} --> {e[1]}")
+            elif isinstance(e, dict):
+                src = e.get("from") or e.get("source", "?")
+                dst = e.get("to")   or e.get("target", "?")
+                lbl = e.get("topic", "")
+                if lbl:
+                    lines.append(f"    {src} -->|{lbl}| {dst}")
+                else:
+                    lines.append(f"    {src} --> {dst}")
+        lines.append("```")
+        return "\n".join(lines)
+    except Exception:
+        return "```mermaid\ngraph LR\n    A[Bus offline]\n```"
+
+
+def _tab_neural() -> None:
+    """Gradio tab: Neural Bus live monitor."""
+    import os
+    with gr.Column():
+        gr.Markdown("## 🧠 Neural Bus\nMonitor en tiempo real del bus de mensajes inter-agente.")
+
+        with gr.Row():
+            port_label = gr.Textbox(
+                value=f"Puerto: {os.environ.get('BAGO_NEURAL_PORT', '7865')}",
+                interactive=False, label="Configuración", scale=2
+            )
+            btn_start  = gr.Button("▶ Iniciar Neural Bus", variant="primary", scale=2)
+            btn_stop   = gr.Button("⏹ Detener", variant="secondary", scale=1)
+            btn_refresh = gr.Button("🔄 Actualizar", scale=1)
+
+        status_md = gr.Markdown(_neural_status())
+        map_md    = gr.Markdown(_neural_map())
+        log_box   = gr.Textbox(label="Resultado", interactive=False, lines=4, visible=False)
+
+        def do_start():
+            script = TOOLS_DIR / "bago_neural.py"
+            if not script.exists():
+                return gr.update(visible=True, value="❌ bago_neural.py no encontrado"), _neural_status(), _neural_map()
+            subprocess.Popen(
+                [PYTHON, str(script), "start"],
+                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0,
+                cwd=str(BAGO_ROOT),
+            )
+            time.sleep(1.5)
+            return gr.update(visible=True, value="▶ Neural Bus iniciado en segundo plano"), _neural_status(), _neural_map()
+
+        def do_stop():
+            script = TOOLS_DIR / "bago_neural.py"
+            if not script.exists():
+                return gr.update(visible=True, value="❌ bago_neural.py no encontrado"), _neural_status()
+            result = subprocess.run([PYTHON, str(script), "stop"], capture_output=True, text=True, cwd=str(BAGO_ROOT))
+            out = result.stdout.strip() or result.stderr.strip() or "Señal de parada enviada."
+            return gr.update(visible=True, value=out), _neural_status()
+
+        def do_refresh():
+            return _neural_status(), _neural_map()
+
+        btn_start.click(do_start, outputs=[log_box, status_md, map_md])
+        btn_stop.click(do_stop, outputs=[log_box, status_md])
+        btn_refresh.click(do_refresh, outputs=[status_md, map_md])
+
+
 # ── App principal ─────────────────────────────────────────────────────────────
 
 def build_app() -> gr.Blocks:
@@ -419,6 +528,8 @@ def build_app() -> gr.Blocks:
                 _tab_tools()
             with gr.TabItem("🎨 Image Studio"):
                 _tab_image_studio()
+            with gr.TabItem("🧠 Neural Bus"):
+                _tab_neural()
             with gr.TabItem("💡 Ideas"):
                 _tab_ideas()
             with gr.TabItem("📊 Estado"):
