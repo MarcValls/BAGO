@@ -46,6 +46,22 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "generate_commands_doc.py"))],
         layer="calidad", scope="framework",
     ),
+    "doc-agent": ToolEntry(
+        cmd="doc-agent", module="doc_agent",
+        description=(
+            "Agente de documentación: detecta y actualiza COMMANDS.md, LAYERS.md y README.md. "
+            "Subcomandos/flags: --check | --dry-run | --json | --only <doc> | --no-stage"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "doc_agent.py"))],
+        layer="calidad",
+        scope="framework",
+        agent="CENTINELA",
+        stability="core",
+        risk="mutating",
+        preflight_policy="required",
+        supports_dry_run=True,
+        layer_group="core",
+    ),
     "sync": ToolEntry(
         cmd="sync", module="sync_pack_metadata",
         description="Regenera TREE.txt y CHECKSUMS",

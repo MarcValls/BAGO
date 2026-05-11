@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-11 17:03 UTC
+> Last generated: 2026-05-11 17:50 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -10,11 +10,11 @@
 
 | Bucket | Count |
 |--------|-------|
-| ⚙️ Core | 12 |
+| ⚙️ Core | 13 |
 | 🧪 Experimental | 61 |
 | ⚠️ Dangerous | 7 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **80** |
+| **Total active** | **81** |
 
 ---
 
@@ -26,6 +26,7 @@ Stable commands. Pre-flight **required**. Always available.
 |---------|-------------|-------|------|--------|
 | `bago audit` | Auditoría y calidad: full \| pack \| scan \| commit \| push \| doctor \| heal \| quality \| purity | 💚 salud | safe | required |
 | `bago context` | Contexto del workspace: detect \| map \| git \| stale | 💚 salud | safe | required |
+| `bago doc-agent` | Agente de documentación: detecta y actualiza COMMANDS.md, LAYERS.md y README.md. Subcomandos/flags: --check \| --dry-run \| --json \| --only <doc> \| --no-stage | 🔍 calidad | mutating | required |
 | `bago flow` | Flowchart ASCII de workflows + gestión de estado activo (start/done/status) | ▶️ ejecución | safe | required |
 | `bago health` | Salud del framework: score \| report \| stability \| efficiency \| consistency \| sincerity | 💚 salud | safe | required |
 | `bago project` | Memoria distribuida por proyecto: init \| link \| unlink \| state \| learn \| promote | 💚 salud | safe | required |

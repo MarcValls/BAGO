@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 113 CLI commands · 80 public commands
+> **Version 3.4.0b1** · 114 CLI commands · 81 public commands
 
-Public command contract (CI-checked): **12 core** · **59 experimental** · **7 dangerous** · **28 legacy**
+Public command contract (CI-checked): **13 core** · **59 experimental** · **7 dangerous** · **28 legacy**
 
 ---
 
@@ -71,6 +71,7 @@ These commands form the **stable public interface**.
 | `bago sync` | Regenerate TREE.txt and CHECKSUMS |
 | `bago scope` | Detect script scope (framework / project / both) |
 | `bago secrets` | Scan repository for exposed credentials |
+| `bago doc-agent` | Documentation agent: detect and update COMMANDS.md, LAYERS.md, README |
 
 ---
 
