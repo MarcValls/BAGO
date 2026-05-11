@@ -157,9 +157,17 @@ BAGO ships with **11 operational workflows** (W0–W10).
 | [Music score transposition pipeline](docs/music-score-transposition-pipeline.md) | Parse or recognize a score, select a target, transpose only that target, and reconstruct the full score. |
 | [Music score transposition operational workflow](.bago/workflows/music-score-transposition.md) | Operational checklist for route selection and validation honesty. |
 
+## 9. Example projects
+
+Real projects built with BAGO workflows (W1 → W2 cycles, tracked via `bago ideas` + `bago next`):
+
+| Project | Description |
+|---|---|
+| [ISO_GAME](https://github.com/MarcValls/ISO_GAME) | Isometric game world pipeline in Python — A* pathfinding, pygame renderer, autotile, chunking, lighting. Built in 12 pipeline steps across W2 sessions. |
+
 ---
 
-## 9. Runtime state (`state/` vs `state.example/`)
+## 10. Runtime state (`state/` vs `state.example/`)
 
 BAGO separates **versioned code** from **runtime state**.
 
@@ -170,7 +178,7 @@ BAGO separates **versioned code** from **runtime state**.
 
 ---
 
-## 10. CI guarantees
+## 11. CI guarantees
 
 A green badge means all **gate jobs** pass hard (no `continue-on-error`).
 
