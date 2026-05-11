@@ -252,7 +252,15 @@
       "session_close": "SESSION_CLOSE_20260507_231540.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
       "objetivo": "Eliminar el paste manual de token TON en la BAGO app. Enlazar wallet de usuario estilo mini-apps de trading de Telegram (TonConnect protocol)."
+    },
+    {
+      "id": null,
+      "title": "session_close_generator debe leer last_completed_workflow",
+      "date": "2026-05-11T15:22:56.609560+00:00",
+      "session_close": "SESSION_CLOSE_20260511_152256.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día."
     }
   ],
-  "last_updated": "2026-05-07T23:15:40.325831+00:00"
+  "last_updated": "2026-05-11T15:22:56.609586+00:00"
 }
