@@ -15,13 +15,15 @@ from datetime import datetime
 import urllib.parse
 
 BAGO_ROOT    = Path(os.environ.get("BAGO_PADRE_PATH") or Path(__file__).parent.parent.parent)
-STATE_PATH   = BAGO_ROOT / ".bago/state/global_state.json"
-TAREAS_PATH  = BAGO_ROOT / ".bago/state/tareas_telegram.json"
-CHAT_PATH    = BAGO_ROOT / ".bago/state/chat_history.json"
+_STATE_DIR   = BAGO_ROOT / ".bago" / "state"
+_LOG_DIR     = _STATE_DIR / "logs"
+STATE_PATH   = _STATE_DIR / "global_state.json"
+TAREAS_PATH  = _STATE_DIR / "tareas_telegram.json"
+CHAT_PATH    = _STATE_DIR / "chat_history.json"
 MINIAPP_DIR  = Path(__file__).parent / "miniapp"
-AUTH_TOKEN   = ""
-SERVER_HOST  = "127.0.0.1"
-SERVER_PORT  = 8080
+AUTH_TOKEN   = os.environ.get("BAGO_MINIAPP_TOKEN", "")
+SERVER_HOST  = os.environ.get("BAGO_MINIAPP_HOST", "127.0.0.1")
+SERVER_PORT  = int(os.environ.get("BAGO_MINIAPP_PORT", 8080))
 _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -213,7 +215,7 @@ def bago_responder(texto: str) -> str:
     # ── Logs ─────────────────────────────────────────────────────────────────
     elif re.search(r"\b(log|logs|errores?|output)\b", tl):
         lines = []
-        for lf in ["/tmp/bago_telegram.log", "/tmp/bago_miniapp.log"]:
+        for lf in [_LOG_DIR / "telegram.log", _LOG_DIR / "miniapp.log"]:
             p = Path(lf)
             if p.exists():
                 tail = [l for l in p.read_text().splitlines() if "HTTP" not in l][-5:]

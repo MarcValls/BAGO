@@ -40,11 +40,35 @@ INTEGRATION_TESTS = TOOLS_DIR / "integration_tests.py"
 CHECKSUMS_FILE = BAGO_ROOT / "CHECKSUMS.sha256"
 GLOBAL_STATE = BAGO_ROOT / "state" / "global_state.json"
 
-INTERNAL_TOOLS = {
-    "bago_utils.py", "bago_banner.py", "integration_tests.py",
-    "tool_registry.py", "__init__.py", "auto_register.py", "legacy_fixer.py",
-    "auto_heal.py",
-}
+
+def _load_internal_tools() -> set:
+    """Load INTERNAL_TOOLS from tool_registry dynamically.
+
+    Falls back to a minimal safe set if tool_registry can't be imported.
+    Never hardcodes the list here — tool_registry is the single source of truth.
+    """
+    reg_path = TOOLS_DIR / "tool_registry.py"
+    if not reg_path.exists():
+        for found in BAGO_ROOT.rglob("tool_registry.py"):
+            reg_path = found
+            break
+    if not reg_path.exists():
+        return {"tool_registry", "auto_heal", "__init__"}
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location("_ah_registry", str(reg_path))
+        if _spec:
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)  # type: ignore
+            internal: frozenset = getattr(_mod, "INTERNAL_TOOLS", frozenset())
+            # Also include this file itself so it's never treated as a user tool
+            return set(internal) | {"auto_heal"}
+    except Exception:
+        pass
+    return {"tool_registry", "auto_heal", "__init__"}
+
+
+INTERNAL_TOOLS: set = _load_internal_tools()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -170,9 +194,18 @@ def diagnose_R005_dup_integration() -> dict:
 
 def repair_R001(dry_run: bool = False) -> dict:
     """Añade scaffold --test a tools legacy."""
+    # Find legacy_fixer.py dynamically — doesn't assume it's in tools/ root
+    fixer = TOOLS_DIR / "legacy_fixer.py"
+    if not fixer.exists():
+        for found in BAGO_ROOT.rglob("legacy_fixer.py"):
+            fixer = found
+            break
+    if not fixer.exists():
+        return {"id": "R001", "ok": False,
+                "output": "legacy_fixer.py no encontrado en el repo",
+                "code": "HEAL-W001"}
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "legacy_fixer.py"),
-         "--fix-all"] + (["--dry-run"] if dry_run else []),
+        [sys.executable, str(fixer), "--fix-all"] + (["--dry-run"] if dry_run else []),
         capture_output=True, text=True
     )
     ok = result.returncode == 0

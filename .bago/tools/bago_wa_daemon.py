@@ -28,10 +28,18 @@ from pathlib import Path
 from datetime import datetime
 
 # ── Config ──────────────────────────────────────────────────────────────────
-TOOLS_DIR = Path(__file__).parent
-CONFIG_PATH = TOOLS_DIR / "notify_config.json"
+TOOLS_DIR   = Path(__file__).parent
 _BAGO_ROOT  = Path(os.environ.get("BAGO_PADRE_PATH") or Path(__file__).parent.parent.parent)
-STATE_PATH  = _BAGO_ROOT / ".bago/state/global_state.json"
+_STATE_DIR  = _BAGO_ROOT / ".bago" / "state"
+STATE_PATH  = _STATE_DIR / "global_state.json"
+# Config lives in state/, not tools/ (tools/ is code, not data)
+CONFIG_PATH = _STATE_DIR / "notify_config.json"
+# Migrate from legacy tools/ location on first run
+_old_cfg = TOOLS_DIR / "notify_config.json"
+if _old_cfg.exists() and not CONFIG_PATH.exists():
+    import shutil as _sh
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+    _sh.copy2(str(_old_cfg), str(CONFIG_PATH))
 POLL_INTERVAL = 5   # segundos entre polls
 MAX_MSG_AGE   = 60  # ignorar mensajes más viejos que X segundos
 

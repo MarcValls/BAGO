@@ -46,18 +46,31 @@ from telegram.ext import (
 
 # ── Config ───────────────────────────────────────────────────────────────────
 TOOLS_DIR     = Path(__file__).parent
-CONFIG_PATH   = TOOLS_DIR / "notify_config.json"
 BAGO_ROOT     = Path(os.environ.get("BAGO_PADRE_PATH") or Path(__file__).parent.parent.parent)
-STATE_PATH    = BAGO_ROOT / ".bago/state/global_state.json"
-TAREAS_PATH   = BAGO_ROOT / ".bago/state/tareas_telegram.json"
-IDENTITY_PATH = TOOLS_DIR / "bago_identity.json"
+STATE_DIR     = BAGO_ROOT / ".bago" / "state"
+LOG_DIR       = STATE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+STATE_PATH    = STATE_DIR / "global_state.json"
+TAREAS_PATH   = STATE_DIR / "tareas_telegram.json"
+# Config files live in state/, not in tools/ (tools/ is code, not data)
+CONFIG_PATH   = STATE_DIR / "notify_config.json"
+IDENTITY_PATH = STATE_DIR / "bago_identity.json"
+# Legacy: migrate from old tools/ location on first run if needed
+for _old, _new in [
+    (TOOLS_DIR / "notify_config.json", CONFIG_PATH),
+    (TOOLS_DIR / "bago_identity.json", IDENTITY_PATH),
+]:
+    if _old.exists() and not _new.exists():
+        import shutil as _sh
+        _new.parent.mkdir(parents=True, exist_ok=True)
+        _sh.copy2(str(_old), str(_new))
 NOTIFY_CONFIG = str(CONFIG_PATH)
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("/tmp/bago_telegram.log"),
+        logging.FileHandler(str(LOG_DIR / "telegram.log")),
         logging.StreamHandler()
     ]
 )
@@ -365,7 +378,11 @@ async def cmd_git(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_logs(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not await check_auth(update):
         return
-    log_files = ["/tmp/bago_telegram.log", "/tmp/bago_miniapp.log", "/tmp/bago_wa_daemon.log"]
+    log_files = [
+        str(LOG_DIR / "telegram.log"),
+        str(LOG_DIR / "miniapp.log"),
+        str(LOG_DIR / "wa_daemon.log"),
+    ]
     lines = []
     for lf in log_files:
         p = Path(lf)
@@ -984,7 +1001,7 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text(msg, parse_mode="Markdown", reply_markup=kb_git())
 
     elif data == "accion:logs":
-        log_files = ["/tmp/bago_telegram.log", "/tmp/bago_miniapp.log"]
+        log_files = [str(LOG_DIR / "telegram.log"), str(LOG_DIR / "miniapp.log")]
         lines = []
         for lf in log_files:
             p = Path(lf)

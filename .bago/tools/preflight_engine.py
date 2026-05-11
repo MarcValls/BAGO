@@ -19,6 +19,21 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).parent
 
 
+def _find_sibling(stem: str) -> Path:
+    """Find a .py file by stem — direct first, rglob fallback.
+
+    This means preflight_engine.py keeps working if tool_registry.py
+    or preflight.py are moved to a subdirectory.
+    """
+    direct = TOOLS_DIR / f"{stem}.py"
+    if direct.exists():
+        return direct
+    for found in TOOLS_DIR.parent.rglob(f"{stem}.py"):
+        if not found.name.startswith(".") and ".healer.bak" not in found.name:
+            return found
+    return direct  # return non-existent path so callers get the same "missing" behaviour as before
+
+
 def _load_mod(path: Path, name: str):
     """Load a Python module from path without polluting sys.path."""
     spec = importlib.util.spec_from_file_location(name, str(path))
@@ -38,7 +53,7 @@ def _load_mod(path: Path, name: str):
 
 def _get_policy(cmd: str) -> str:
     """Return preflight_policy for cmd from tool_registry. Defaults to 'optional'."""
-    reg_path = TOOLS_DIR / "tool_registry.py"
+    reg_path = _find_sibling("tool_registry")
     if not reg_path.exists():
         return "optional"
     mod = _load_mod(reg_path, "_bago_pfe_registry")
@@ -52,7 +67,7 @@ def _get_policy(cmd: str) -> str:
 
 def _run_checks(cmd: str) -> bool:
     """Run preflight checks from preflight.py for cmd. Returns True on pass."""
-    pf_path = TOOLS_DIR / "preflight.py"
+    pf_path = _find_sibling("preflight")
     if not pf_path.exists():
         return False  # missing preflight — caller decides what to do
 
@@ -95,7 +110,7 @@ def enforce(cmd: str, skip_preflight: bool = False) -> None:
         # policy="optional" — honour skip
         return
 
-    pf_path = TOOLS_DIR / "preflight.py"
+    pf_path = _find_sibling("preflight")
     if not pf_path.exists():
         if policy == "required":
             print(
