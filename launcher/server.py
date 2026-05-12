@@ -27,7 +27,7 @@ SESSIONS_DIR     = STATE_DIR / "sessions"
 PENDING_TASK     = STATE_DIR / "pending_w2_task.json"
 IDEAS_FILE       = STATE_DIR / "implemented_ideas.json"
 LLM_CONFIG_FILE  = STATE_DIR / "llm_config.json"
-PORT             = 7430
+PORT             = int(os.environ.get("BAGO_PORT", 7430))
 
 # Keywords that classify a bago command as sensitive (require confirmation)
 _SENSITIVE_KW: frozenset[str] = frozenset({
