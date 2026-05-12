@@ -216,7 +216,7 @@
     "updated_at": "2026-05-11T08:02:31.128349+00:00"
   },
   "knowledge_index": {
-    "promoted_count": 28,
+    "promoted_count": 29,
     "last_promoted": "2026-05-12",
     "last_promoted_project": "unknown"
   },
@@ -257,14 +257,9 @@
   "last_completed_change_id": "BAGO-CHG-001",
   "last_completed_evidence_id": "BAGO-EVD-001",
   "spiral_loop": {
-    "last_cycle": 1,
-    "last_cycle_at": "2026-05-12T13:24:23.056129+00:00",
-    "total_radius": 1.3,
-    "last_gains": [],
-    "last_issues": [],
-    "validation": {
-      "validate": "GO",
-      "health": "100/100"
-    }
+    "current_radius": 1.3,
+    "cycles_completed": 1,
+    "last_cycle": "2026-05-12T13:24:23",
+    "last_health": 100
   }
 }
