@@ -1688,6 +1688,15 @@ def test_spiral_loop():
         _record("spiral_loop:test", FAIL, f"rc={rc} {out[-80:]}")
 
 
+def test_audit_state_pointers():
+    """audit_state_pointers.py: no hay punteros huérfanos ni campos derivados inconsistentes."""
+    rc, out, _ = _run("audit_state_pointers.py", [])
+    if rc == 0:
+        _record("audit_state_pointers:clean", PASS, out.strip() or "CLEAN")
+    else:
+        _record("audit_state_pointers:clean", FAIL, out.strip()[-120:])
+
+
 def test_suite_integrity():
     """ALL_TESTS no referencia funciones no definidas ni tools ausentes."""
     missing_functions = []
@@ -1758,6 +1767,7 @@ ALL_TESTS = [
     (45, "sync_pack_metadata", test_sync_pack_metadata),
     (46, "validate", test_validate),
     (47, "spiral_loop", test_spiral_loop),
+    (48, "audit_state_pointers", test_audit_state_pointers),
 ]
 
 
