@@ -66,7 +66,7 @@ def _load_registry() -> dict:
     if REGISTRY_FILE.exists():
         try:
             return json.loads(REGISTRY_FILE.read_text())
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             pass
     return {}
 
@@ -76,7 +76,7 @@ def _load_skill_state(skill_id: str) -> dict:
     if f.exists():
         try:
             return json.loads(f.read_text())
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             pass
     return {"cycles": [], "total_radius": 0.0}
 
@@ -93,7 +93,7 @@ def _load_skill_gradient(skill_id: str) -> dict:
     if f.exists():
         try:
             return json.loads(f.read_text())
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             pass
     return {"step_weights": {n: 1.0 for _, n in STEP_NAMES}, "last_delta": 0.0}
 
@@ -110,7 +110,7 @@ def _load_skill_episodic(skill_id: str) -> dict:
     if f.exists():
         try:
             return json.loads(f.read_text())
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             pass
     return {"episodes": []}
 

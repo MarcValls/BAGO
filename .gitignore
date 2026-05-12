@@ -115,3 +115,9 @@ dist/
 # Runtime artifacts
 .bago/state/neural_events.jsonl
 launcher/static/vendor/
+
+# BAGO — SEGURIDAD: state con datos privados/runtime (no versionar)
+# Use .bago/state/global_state.template.json como plantilla de referencia
+.bago/state/global_state.json
+.bago/state/private_state.json
+.bago/state/orchestrator/state.json

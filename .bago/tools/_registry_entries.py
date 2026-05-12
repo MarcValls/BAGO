@@ -333,6 +333,14 @@ REGISTRY: dict[str, ToolEntry] = {
         scope="both",
         agent="ARQUITECTO",
     ),
+    "setup": ToolEntry(
+        cmd="setup", module="setup_wizard",
+        stability="core",
+        description="Wizard de configuración inicial: notificaciones (Telegram/WhatsApp/ntfy), git hooks. --check | --reset | --clean-history",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "setup_wizard.py"))],
+        preflight_policy="required",
+        supports_dry_run=False,
+    ),
     "doctor": ToolEntry(
         cmd="doctor", module="bago_doctor",
         description="Diagnóstico completo del entorno BAGO: Python, Git, Ollama, modelo LLM, espacio",
@@ -501,6 +509,14 @@ REGISTRY: dict[str, ToolEntry] = {
         layer="avanzado",
         layer_group="core",
         agent="ORGANIZADOR",
+    ),
+    "orphans": ToolEntry(
+        cmd="orphans", module="orphan_detector",
+        stability="core",
+        description="Detector de módulos huérfanos: archivos .py en tools/ sin registro. --baseline | --fix | --strict",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "orphan_detector.py"))],
+        preflight_policy="required",
+        supports_dry_run=False,
     ),
     "spiral-agent": ToolEntry(
         cmd="spiral-agent", module="spiral_agent",

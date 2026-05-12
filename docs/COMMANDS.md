@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-12 16:18 UTC
+> Last generated: 2026-05-12 19:12 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -10,11 +10,11 @@
 
 | Bucket | Count |
 |--------|-------|
-| ⚙️ Core | 12 |
+| ⚙️ Core | 14 |
 | 🧪 Experimental | 63 |
 | ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **83** |
+| **Total active** | **85** |
 
 ---
 
@@ -28,10 +28,12 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago context` | Contexto del workspace: detect \| map \| git \| stale | 💚 salud | safe | required |
 | `bago flow` | Flowchart ASCII de workflows + gestión de estado activo (start/done/status) | ▶️ ejecución | safe | required |
 | `bago health` | Salud del framework: score \| report \| stability \| efficiency \| consistency \| sincerity | 💚 salud | safe | required |
+| `bago orphans` | Detector de módulos huérfanos: archivos .py en tools/ sin registro. --baseline \| --fix \| --strict | 🔬 avanzado | safe | required |
 | `bago project` | Memoria distribuida por proyecto: init \| link \| unlink \| state \| learn \| promote | 💚 salud | safe | required |
 | `bago scope` | Detecta scope (framework/project/both) de scripts Python por análisis estático | 💚 salud | safe | required |
 | `bago secrets` | Escanea el repositorio buscando secretos y credenciales expuestas | 🔍 calidad | safe | required |
 | `bago session` | Ciclo de sesión: open \| close \| harvest \| v2 | ▶️ ejecución | safe | required |
+| `bago setup` | Wizard de configuración inicial: notificaciones (Telegram/WhatsApp/ntfy), git hooks. --check \| --reset \| --clean-history | 🔬 avanzado | safe | required |
 | `bago status` | Estado actual: flujo activo, tarea pendiente y salud del sistema | 📊 analítica | safe | required |
 | `bago sync` | Regenera TREE.txt y CHECKSUMS | 💚 salud | safe | required |
 | `bago task` | Muestra la tarea W2 pendiente | ▶️ ejecución | safe | required |

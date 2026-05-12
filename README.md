@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 116 CLI commands · 83 public commands
+> **Version 3.4.0b1** · 118 CLI commands · 85 public commands
 
-Public command contract (CI-checked): **12 core** · **62 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **14 core** · **63 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -71,6 +71,8 @@ These commands form the **stable public interface**.
 | `bago sync` | Regenerate TREE.txt and CHECKSUMS |
 | `bago scope` | Detect script scope (framework / project / both) |
 | `bago secrets` | Scan repository for exposed credentials |
+| `bago setup` | First-time setup wizard: Telegram, WhatsApp, ntfy config |
+| `bago orphans` | Detect unregistered tool modules (orphan daemon) |
 
 ---
 

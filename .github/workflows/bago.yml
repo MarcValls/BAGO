@@ -159,11 +159,50 @@ jobs:
             -q || exit 1
       - name: Secret scan (bago secrets)
         run: python3 bago secrets --json || exit 1
+      - name: Secret pattern scan (hard patterns — cannot be bypassed with --no-verify)
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+          from pathlib import Path
+
+          PATTERNS = [
+              (r"\d{8,12}:AA[A-Za-z0-9_-]{30,}", "Telegram bot token"),
+              (r"https?://\d{4,5}\.api\.greenapi\.com", "WhatsApp Green API URL"),
+              (r"https://[a-z0-9-]+\.ngrok[-a-z]*\.(io|app|dev|free\.app)", "ngrok URL"),
+              (r'"phone"\s*:\s*"\+?\d{9,15}"', "Phone number in JSON"),
+          ]
+
+          # Only scan tracked files (not gitignored)
+          import subprocess
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+
+          found = False
+          for rel in tracked:
+              p = Path(rel)
+              if not p.exists() or p.stat().st_size > 500_000:
+                  continue
+              try:
+                  text = p.read_text(encoding="utf-8", errors="ignore")
+              except Exception:
+                  continue
+              for pattern, label in PATTERNS:
+                  if re.search(pattern, text):
+                      print(f"❌ SECRET in {rel}: {label}")
+                      found = True
+
+          if found:
+              print("\n🚨 Secretos detectados en archivos rastreados por git.")
+              print("   Ejecuta: bago setup --clean-history")
+              sys.exit(1)
+          else:
+              print("✅ Sin secretos detectados en archivos rastreados")
+          EOF
       - name: Note on dependency audit
         run: |
           # Core BAGO is stdlib-only. When adding third-party deps,
           # run pip-audit in this gate.
           echo "Info: pip-audit is enabled when external dependencies are introduced."
+
 
   gate-lint:
     name: "[gate] Ruff lint"

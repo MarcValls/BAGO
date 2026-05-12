@@ -101,7 +101,7 @@ class SpiralState:
         self.extra        = extra or {}
 
     @classmethod
-    def from_skill_result(cls, result: object) -> "SpiralState":
+    def from_skill_result(cls: "type[SpiralState]", result: object) -> "SpiralState":
         """Construye SpiralState desde un SkillResult."""
         return cls(
             entity_id=getattr(result, "skill_id", ""),
@@ -112,7 +112,7 @@ class SpiralState:
         )
 
     @classmethod
-    def from_dict(cls, d: dict) -> "SpiralState":
+    def from_dict(cls: "type[SpiralState]", d: dict) -> "SpiralState":
         return cls(
             entity_id=d.get("entity_id", d.get("skill_id", d.get("agent_id", ""))),
             phase=int(d.get("phase", 0)),

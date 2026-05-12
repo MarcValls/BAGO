@@ -101,7 +101,7 @@ def _load_cycles() -> dict:
     if SPIRAL.exists():
         try:
             return json.loads(SPIRAL.read_text())
-        except Exception:
+        except (json.JSONDecodeError, OSError, ValueError):
             pass
     return {"cycles": [], "current_cycle": None, "total_radius": 0.0}
 
@@ -114,7 +114,7 @@ def _save_cycles(data: dict) -> None:
 def _load_gs() -> dict:
     try:
         return json.loads(GS_FILE.read_text())
-    except Exception:
+    except (json.JSONDecodeError, OSError, ValueError):
         return {}
 
 
@@ -124,7 +124,7 @@ def _load_episodic() -> dict:
     if EPISODIC.exists():
         try:
             return json.loads(EPISODIC.read_text())
-        except Exception:
+        except (json.JSONDecodeError, OSError, ValueError):
             pass
     return {"episodes": [], "total_episodes": 0}
 
@@ -175,7 +175,7 @@ def _load_gradient(voice_id: str = "main") -> dict:
         try:
             data = json.loads(GRADIENT.read_text())
             return data.get(voice_id, _default_gradient())
-        except Exception:
+        except (json.JSONDecodeError, OSError, ValueError):
             pass
     return _default_gradient()
 
@@ -194,7 +194,7 @@ def _save_gradient(gdata: dict, voice_id: str = "main") -> None:
     if GRADIENT.exists():
         try:
             data = json.loads(GRADIENT.read_text())
-        except Exception:
+        except (json.JSONDecodeError, OSError, ValueError):
             pass
     data[voice_id] = gdata
     GRADIENT.write_text(json.dumps(data, indent=2, ensure_ascii=False))
@@ -547,7 +547,7 @@ def step_reflect(ctx: dict) -> dict:
             "validation":    ctx.get("validation", {}),
         }
         GS_FILE.write_text(json.dumps(gs, indent=2, ensure_ascii=False))
-    except Exception:
+    except (json.JSONDecodeError, OSError, ValueError):
         pass
 
     # IDEA 1: actualizar gradiente de aprendizaje
@@ -576,7 +576,7 @@ def step_reflect(ctx: dict) -> dict:
             pw[pid] = round(max(0.3, min(2.0, current + delta)), 3)
 
         _save_gradient(gradient, voice_id)
-    except Exception:
+    except (json.JSONDecodeError, OSError, ValueError):
         pass
 
     # IDEA 3: guardar episodio en memoria episódica
@@ -601,7 +601,7 @@ def step_reflect(ctx: dict) -> dict:
         }
         ep_data.setdefault("episodes", []).append(episode)
         _save_episodic(ep_data)
-    except Exception:
+    except (json.JSONDecodeError, OSError, ValueError):
         pass
 
     _print_step(10, "OK", f"Self-model + gradiente + memoria episódica actualizados · radio: {ctx.get('total_radius',0):.2f}")

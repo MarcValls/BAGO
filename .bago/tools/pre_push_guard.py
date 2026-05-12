@@ -106,30 +106,87 @@ def check_remote_state(fetch: bool) -> bool:
 def _auto_commit_runtime_state() -> None:
     """Commit runtime state files modified by bago commands (both doors).
 
-    Called BEFORE check_clean_tree (puerta de entrada) to clean up what the
-    PREVIOUS guard run left dirty, and AFTER all checks (puerta de salida) to
-    commit what THIS run's checks just modified — so the next push starts clean.
-
-    Files managed: global_state.json (updated by validate/health/sincerity).
+    NOTE: global_state.json is now gitignored (.gitignore) — this function
+    only commits other tracked runtime files (e.g. docs/COMMANDS.md auto-regen).
     """
     import subprocess as _sp
-    _gs_path = ROOT / ".bago" / "state" / "global_state.json"
-    try:
-        _diff = _sp.run(
-            ["git", "diff", "--name-only", str(_gs_path)],
-            capture_output=True, text=True, cwd=ROOT
-        )
-        if _gs_path.name in _diff.stdout:
-            _sp.run(["git", "add", str(_gs_path)], cwd=ROOT, check=True)
-            _sp.run(
-                ["git", "commit", "-m",
-                 "chore(state): auto-sync global_state (pre-push guard)\n\n"
-                 "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"],
-                cwd=ROOT, check=True, capture_output=True
-            )
-            print("  OK   global_state.json auto-commiteado")
-    except Exception as _e:
-        print(f"  WARN global_state auto-stage: {_e}")
+    # global_state.json is gitignored — skip it
+    # Nothing else to auto-commit for now
+    pass
+
+
+def check_secrets() -> bool:
+    """Scan tracked/staged files for known secret patterns."""
+    import re
+    import subprocess as _sp
+
+    SECRET_PATTERNS = [
+        # Telegram bot tokens: 123456789:AAB...
+        (r"\d{8,12}:AA[A-Za-z0-9_-]{30,}", "Telegram bot token"),
+        # WhatsApp Green API instance IDs (7-digit numbers in API URLs)
+        (r"https?://\d{4,5}\.api\.greenapi\.com", "WhatsApp Green API URL"),
+        # ngrok URLs
+        (r"https://[a-z0-9-]+\.ngrok[-a-z]*\.(io|app|dev|free\.app)", "ngrok URL"),
+        # Private phone numbers in international format inside JSON
+        (r'["\']phone["\']\s*:\s*["\'][+]?\d{9,15}["\']', "Phone number in JSON"),
+        # Email inside whatsapp_daemon structure
+        (r'["\']email["\']\s*:\s*["\'][^"\'@]+@[^"\']+["\']', "Email in config"),
+    ]
+
+    # Get list of files staged for this commit / tracked files that changed
+    result = _sp.run(
+        ["git", "diff", "--cached", "--name-only"],
+        capture_output=True, text=True, cwd=ROOT
+    )
+    staged = result.stdout.strip().splitlines()
+
+    # Also check files that are tracked and differ from HEAD
+    result2 = _sp.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        capture_output=True, text=True, cwd=ROOT
+    )
+    staged += result2.stdout.strip().splitlines()
+    staged = list(set(staged))  # deduplicate
+
+    found_secrets: list[tuple[str, str, str]] = []
+    for rel_path in staged:
+        abs_path = ROOT / rel_path
+        if not abs_path.exists() or abs_path.stat().st_size > 1_000_000:
+            continue
+        try:
+            text = abs_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        for pattern, label in SECRET_PATTERNS:
+            if re.search(pattern, text):
+                found_secrets.append((rel_path, label, pattern))
+
+    if found_secrets:
+        print("  FAIL secrets detectados en archivos rastreados:")
+        for path, label, _ in found_secrets:
+            print(f"       ❌ {path} → {label}")
+        print("       💡 Verifica: bago setup --clean-history")
+        return False
+
+    print("  OK   secret scan — sin secretos detectados")
+    return True
+
+
+def check_orphans() -> bool:
+    """Check for new orphan modules (not in baseline)."""
+    orphan_tool = ROOT / ".bago" / "tools" / "orphan_detector.py"
+    if not orphan_tool.exists():
+        print("  SKIP orphan check (orphan_detector.py no encontrado)")
+        return True
+    rc, out = run([sys.executable, str(orphan_tool), "--strict"], timeout=30)
+    if rc == 0:
+        print(f"  OK   orphan check — {out.strip()}")
+        return True
+    print("  FAIL orphan check — nuevos módulos sin registrar:")
+    for line in out.splitlines()[:10]:
+        print(f"       {line}")
+    print("       💡 Ejecuta: bago orphans --baseline  o  bago orphans --fix")
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -162,12 +219,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  WARN readme_sync: {_e}")
 
     # ── Auto-stage global_state.json si fue modificado por runs anteriores ───
-    # bago validate/health/sincerity actualizan knowledge_index.promoted_count,
-    # lo que deja global_state.json sucio tras cada ejecución del guard.
-    # Lo auto-stageamos y commiteamos aquí para que clean_tree pase.
+    # global_state.json es ahora gitignored — solo notificamos
     _auto_commit_runtime_state()
 
     checks = [
+        check_secrets(),
+        check_orphans(),
         check_clean_tree(),
         check_remote_state(fetch=args.remote),
         check("bago validate", [sys.executable, "bago", "validate"], timeout=120),
@@ -177,12 +234,6 @@ def main(argv: list[str] | None = None) -> int:
         check("tool_guardian --test", [sys.executable, ".bago/tools/tool_guardian.py", "--test"], timeout=120),
         check("integration_tests", [sys.executable, ".bago/tools/integration_tests.py"], timeout=240),
     ]
-
-    # ── Puerta de salida: commit el estado que los checks acaban de modificar ──
-    # bago validate/health/sincerity/stability actualizan global_state.json
-    # durante esta ejecución del guard. Si no lo commiteamos aquí, el PRÓXIMO
-    # push fallará check_clean_tree antes de llegar al auto-commit de entrada.
-    _auto_commit_runtime_state()
 
     if all(checks):
         print("\nDECISION: GO - push permitido.")
