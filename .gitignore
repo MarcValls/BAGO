@@ -29,6 +29,7 @@ desktop.ini
 .bago/state/llm_server.pid
 .bago/state/bago_context.log
 .bago/state/events.jsonl
+.bago/state/routing_history.jsonl
 
 # BAGO — session data (private)
 .bago/state/sessions/
