@@ -132,6 +132,29 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as _e:
         print(f"  WARN readme_sync: {_e}")
 
+    # ── Auto-stage global_state.json si fue modificado por runs anteriores ───
+    # bago validate/health/sincerity actualizan knowledge_index.promoted_count,
+    # lo que deja global_state.json sucio tras cada ejecución del guard.
+    # Lo auto-stageamos y commiteamos aquí para que clean_tree pase.
+    _gs_path = ROOT / ".bago" / "state" / "global_state.json"
+    try:
+        import subprocess as _sp
+        _diff = _sp.run(
+            ["git", "diff", "--name-only", str(_gs_path)],
+            capture_output=True, text=True, cwd=ROOT
+        )
+        if _gs_path.name in _diff.stdout:
+            _sp.run(["git", "add", str(_gs_path)], cwd=ROOT, check=True)
+            _sp.run(
+                ["git", "commit", "-m",
+                 "chore(state): auto-sync global_state (pre-push guard)\n\n"
+                 "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"],
+                cwd=ROOT, check=True, capture_output=True
+            )
+            print("  OK   global_state.json auto-commiteado")
+    except Exception as _e:
+        print(f"  WARN global_state auto-stage: {_e}")
+
     checks = [
         check_clean_tree(),
         check_remote_state(fetch=args.remote),
