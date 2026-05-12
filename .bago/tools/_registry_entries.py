@@ -492,6 +492,16 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "spiral_loop.py"))],
         supports_dry_run=True,
     ),
+    "skill": ToolEntry(
+        cmd="skill", module="skill_engine",
+        stability="experimental",
+        description="Skill Layer (Fractal AGI nivel-2): mini-spirals de 3-6 pasos. list | run <id> | status",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "skill_engine.py"))],
+        supports_dry_run=True,
+        layer="avanzado",
+        layer_group="core",
+        agent="ORGANIZADOR",
+    ),
     "sprint": ToolEntry(
         cmd="sprint", module="sprint_manager",
         description="Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo",

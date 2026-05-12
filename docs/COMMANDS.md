@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-12 14:19 UTC
+> Last generated: 2026-05-12 15:56 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 61 |
+| 🧪 Experimental | 62 |
 | ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **81** |
+| **Total active** | **82** |
 
 ---
 
@@ -96,6 +96,7 @@ Actively developed. May change between minor versions.
 | `bago seed` | BAGO Seed — planta la huella mínima de BAGO en un proyecto externo: crea .bago/pack.json + state/ + launcher y registra la siembra. Subcomandos: [path] \| --name \| --dry-run \| --list \| --status | • infraestructura | mutating | optional |
 | `bago select` | Selector interactivo de ideas por slot con plan de implementación | ▶️ ejecución | safe | optional |
 | `bago siembra` | Gestión de siembras BAGO v3.0: create \| list \| update \| diff \| sync \| status | 💚 salud | mutating | optional |
+| `bago skill` | Skill Layer (Fractal AGI nivel-2): mini-spirals de 3-6 pasos. list \| run <id> \| status | 🔬 avanzado | safe | optional |
 | `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario. | 📊 analítica | safe | optional |
 | `bago spanish` | Detecta inconsistencias ortográficas en español: tildes y singular/plural en claves y rutas | 🔍 calidad | safe | optional |
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | ▶️ ejecución | safe | optional |
