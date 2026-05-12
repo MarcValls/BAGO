@@ -502,6 +502,16 @@ REGISTRY: dict[str, ToolEntry] = {
         layer_group="core",
         agent="ORGANIZADOR",
     ),
+    "spiral-agent": ToolEntry(
+        cmd="spiral-agent", module="spiral_agent",
+        stability="experimental",
+        description="Agent Layer (Fractal AGI nivel-1): BagoAgents con skills dinámicas. spawn | list | run <id> | kill | status",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "spiral_agent.py"))],
+        supports_dry_run=True,
+        layer="avanzado",
+        layer_group="core",
+        agent="ORGANIZADOR",
+    ),
     "sprint": ToolEntry(
         cmd="sprint", module="sprint_manager",
         description="Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo",

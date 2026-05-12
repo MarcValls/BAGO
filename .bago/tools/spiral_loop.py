@@ -874,10 +874,215 @@ def cmd_history() -> int:
     return 0
 
 
+# ── cmd_orchestrate — Nivel-0 consciente de N agentes ─────────
+
+def cmd_orchestrate(status_only: bool = False) -> int:
+    """Ciclo orquestador nivel-0: gestiona BagoAgents y calcula armonía global.
+
+    bago spiral --orchestrate            → ejecuta ciclo orquestador
+    bago spiral --orchestrate --status   → muestra estado multi-nivel sin ejecutar
+    """
+    # Importación diferida para no romper el módulo en ausencia del Sprint 2
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(TOOLS))
+        from harmony_gate import HarmonyGate, SpiralState
+        from spiral_agent import (
+            BagoAgent,
+            AgentResult,
+            agent_from_registry,
+            list_agents,
+            load_agents_registry,
+        )
+        _HG_AVAILABLE = True
+    except ImportError:
+        _HG_AVAILABLE = False
+
+    if not _HG_AVAILABLE:
+        print("❌  Sprint 2 no disponible. Instala spiral_agent.py y harmony_gate.py.")
+        return 1
+
+    # ── OBSERVE: estado actual del sistema ────────────────────
+    gs = {}
+    if GS_FILE.exists():
+        try:
+            gs = json.loads(GS_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    cycles_data  = _load_cycles()
+    agent_list   = list_agents()
+    active_agents = [a for a in agent_list if a["active"]]
+
+    # ── Modo --status: solo mostrar estado ────────────────────
+    if status_only:
+        return _orchestrate_status(active_agents, cycles_data, gs)
+
+    # ── DETECT: identificar agentes activos y sus skills ──────
+    n_agents    = len(active_agents)
+    total_radius = cycles_data.get("total_radius", 0.0)
+    health_raw   = gs.get("health_score", 0)
+    health_score = health_raw.get("score", health_raw) if isinstance(health_raw, dict) else health_raw
+
+    print()
+    print(f"  {BOLD}{CYN}╔══ BAGO Orchestrator — Nivel 0 ════════════════════════╗{RST}")
+    print(f"  {BOLD}{CYN}║  {n_agents} agentes activos · radio acumulado {total_radius:.2f} · health {health_score}{RST}  {BOLD}{CYN}║{RST}")
+    print(f"  {BOLD}{CYN}╚════════════════════════════════════════════════════════╝{RST}")
+    print()
+
+    if not active_agents:
+        print(f"  {YEL}⚠️  Sin agentes activos. Usa: bago spiral-agent spawn <id>{RST}")
+        return 0
+
+    # ── ACT: ejecutar ciclo de cada agente ────────────────────
+    gate         = HarmonyGate(threshold=0.6)
+    agent_results: list[AgentResult] = []
+    agent_states:  list[SpiralState] = []
+
+    for a_info in active_agents:
+        agent = agent_from_registry(a_info["id"])
+        if agent is None:
+            continue
+        print(f"  ⬡ Ciclo agente '{a_info['id']}' (fase {a_info['phase']})…")
+        result = agent.run()
+        agent_results.append(result)
+        agent_states.append(agent.spiral_state)
+        m = {"GO": "🟢", "WARN": "🟡", "FAIL": "🔴"}.get(result.validate, "⚪")
+        print(f"    {m} {result.validate}  r+{result.radius_gained:.3f}")
+
+    # ── VALIDATE: harmony score global ────────────────────────
+    go_count     = sum(1 for r in agent_results if r.validate == "GO")
+    global_harmony = round(go_count / max(len(agent_results), 1), 3)
+
+    # Harmony cross-scores entre agentes usando HarmonyGate
+    cross_scores: list[float] = []
+    for i, sa in enumerate(agent_states):
+        for j, sb in enumerate(agent_states):
+            if i < j:
+                cross_scores.append(gate.score(sa, sb))
+    gate_harmony = round(sum(cross_scores) / len(cross_scores), 3) if cross_scores else 0.5
+
+    # ── RECORD: persistir estado del orquestador ──────────────
+    orch_state_file = STATE / "orchestrator" / "state.json"
+    orch_state_file.parent.mkdir(parents=True, exist_ok=True)
+    orch_state: dict = {}
+    if orch_state_file.exists():
+        try:
+            orch_state = json.loads(orch_state_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    orch_cycles = orch_state.get("cycles", 0) + 1
+    orch_state.update({
+        "cycles":           orch_cycles,
+        "n_agents_active":  n_agents,
+        "global_harmony":   global_harmony,
+        "gate_harmony":     gate_harmony,
+        "last_validates":   {r.agent_id: r.validate for r in agent_results},
+        "updated_at":       datetime.now(timezone.utc).isoformat(),
+    })
+    orch_state_file.write_text(json.dumps(orch_state, indent=2))
+
+    # Actualizar state_vector nivel-0 con dimensiones del orquestador
+    cycles_data["n_agents_active"]  = n_agents
+    cycles_data["global_harmony"]   = global_harmony
+    cycles_data["gate_harmony"]     = gate_harmony
+    cycles_data["orch_cycles"]      = orch_cycles
+    _save_cycles(cycles_data)
+
+    # ── REFLECT: resumen ──────────────────────────────────────
+    print()
+    _orchestrate_status(active_agents, cycles_data, gs, agent_results=agent_results)
+
+    h_col = GRN if global_harmony >= 0.67 else (YEL if global_harmony >= 0.33 else RED)
+    rc = 0 if global_harmony >= 0.67 else 1
+    print(f"  {BOLD}Harmony global: {h_col}{global_harmony:.3f}{RST}  "
+          f"({go_count}/{len(agent_results)} agentes GO)  "
+          f"{'✅ Armonioso' if rc == 0 else '⚠️  Disonante'}")
+    print()
+    return rc
+
+
+def _orchestrate_status(
+    active_agents: list[dict],
+    cycles_data: dict,
+    gs: dict,
+    agent_results: "list | None" = None,
+) -> int:
+    """Muestra el estado multi-nivel del orquestador."""
+    try:
+        from harmony_gate import HarmonyGate, SpiralState
+        from spiral_agent import agent_from_registry, load_agents_registry
+    except ImportError:
+        print("  Sprint 2 no disponible.")
+        return 1
+
+    gate = HarmonyGate(threshold=0.6)
+
+    # Cargar estado orquestador
+    orch_file = STATE / "orchestrator" / "state.json"
+    orch = {}
+    if orch_file.exists():
+        try:
+            orch = json.loads(orch_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    total_radius   = cycles_data.get("total_radius", 0.0)
+    health_raw     = gs.get("health_score", 0)
+    health         = health_raw.get("score", health_raw) if isinstance(health_raw, dict) else health_raw
+    global_harmony = orch.get("global_harmony", 0.0)
+    gate_harmony   = orch.get("gate_harmony", 0.0)
+    orch_cycles    = orch.get("cycles", 0)
+
+    print()
+    print(f"  {BOLD}{CYN}BAGO Orchestrator — Estado{RST}")
+    print(f"  {'─'*52}")
+    print(f"  Nivel-0  : radio {total_radius:.2f}  ·  health {health}/100  ·  ciclos orq. {orch_cycles}")
+    print(f"  Agentes  : {len(active_agents)} activos  ·  harmony global {global_harmony:.3f}  ·  gate {gate_harmony:.3f}")
+
+    if not active_agents:
+        print(f"\n  (Sin agentes activos)\n")
+        return 0
+
+    print()
+    for a in active_agents:
+        result = None
+        if agent_results:
+            result = next((r for r in agent_results if r.agent_id == a["id"]), None)
+
+        val   = (result.validate if result else a.get("last_validate", "—"))
+        r_val = (result.radius_gained if result else a.get("total_radius", 0.0))
+        m     = {"GO": "🟢", "WARN": "🟡", "FAIL": "🔴"}.get(val, "⚪")
+        skills_str = ", ".join(a["skills"]) or "(ninguna)"
+
+        print(f"  ┌─ {a['id']:<18} (fase {a['phase']:<3}) ─── {m}{val:<5} r={r_val:.2f} ─┐")
+        print(f"  │  skills: {skills_str}")
+
+        # Harmony con el agente siguiente (circular)
+        ag = agent_from_registry(a["id"])
+        if ag:
+            ss = ag.spiral_state
+            all_agents = [agent_from_registry(x["id"]) for x in active_agents if x["id"] != a["id"]]
+            for other in all_agents:
+                if other:
+                    s = gate.score(ss, other.spiral_state)
+                    bar = "🟢" if s >= 0.6 else "🔴"
+                    print(f"  │  harmony↔{other.agent_id:<16}: {s:.3f} {bar}")
+
+        print(f"  └{'─'*50}┘")
+
+    print()
+    return 0
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 def main() -> int:
     args = sys.argv[1:]
+    if "--orchestrate" in args:
+        status_only = "--status" in args
+        return cmd_orchestrate(status_only=status_only)
     if "--status" in args:
         return cmd_status()
     if "--history" in args:

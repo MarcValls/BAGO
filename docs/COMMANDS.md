@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-12 15:56 UTC
+> Last generated: 2026-05-12 16:18 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -11,10 +11,10 @@
 | Bucket | Count |
 |--------|-------|
 | ⚙️ Core | 12 |
-| 🧪 Experimental | 62 |
+| 🧪 Experimental | 63 |
 | ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **82** |
+| **Total active** | **83** |
 
 ---
 
@@ -99,6 +99,7 @@ Actively developed. May change between minor versions.
 | `bago skill` | Skill Layer (Fractal AGI nivel-2): mini-spirals de 3-6 pasos. list \| run <id> \| status | 🔬 avanzado | safe | optional |
 | `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario. | 📊 analítica | safe | optional |
 | `bago spanish` | Detecta inconsistencias ortográficas en español: tildes y singular/plural en claves y rutas | 🔍 calidad | safe | optional |
+| `bago spiral-agent` | Agent Layer (Fractal AGI nivel-1): BagoAgents con skills dinámicas. spawn \| list \| run <id> \| kill \| status | 🔬 avanzado | safe | optional |
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | ▶️ ejecución | safe | optional |
 | `bago sprite-studio` | Generador de sprites BIANCA via Codex/HF sin API key, con galería browser | 🎨 visual | safe | optional |
 | `bago toolsmith` | Agente dinámico de toolboxes: assign\|sprint\|agent\|missing\|create\|catalog\|listen — asigna cajas de herramientas por tarea y crea tools faltantes | • infraestructura | safe | optional |

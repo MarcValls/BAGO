@@ -1,0 +1,13 @@
+{
+  "cycles": 15,
+  "n_agents_active": 4,
+  "global_harmony": 0.25,
+  "gate_harmony": 0.311,
+  "last_validates": {
+    "agent_tools": "WARN",
+    "agent_tests": "GO",
+    "agent_docs": "WARN",
+    "agent_ops": "WARN"
+  },
+  "updated_at": "2026-05-12T16:27:54.236796+00:00"
+}
