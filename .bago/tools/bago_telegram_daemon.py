@@ -214,6 +214,75 @@ def run_bago(cmd: str, args: list = None, timeout: int = 20) -> str:
     except Exception as e:
         return f"Error ejecutando bago {cmd}: {e}"
 
+# ── Security: allowlist + sanitizer ─────────────────────────────────────────
+#   run_bago() always receives a hardcoded literal command — user input never
+#   flows into it directly.  ALLOWED_COMMANDS documents the permitted surface;
+#   sanitize_command() strips shell metacharacters before any future dynamic use.
+
+ALLOWED_COMMANDS: set = {
+    "status", "health", "validate", "audit", "ideas", "next",
+    "doctor", "cosecha", "commit", "sync", "context", "session",
+    "flow", "task", "scope", "secrets", "orphans",
+}
+
+_SHELL_DANGER_RE = re.compile(r'[;&|`$<>\\"\']')
+
+def sanitize_command(cmd: str) -> str:
+    """Strip shell metacharacters from a command string.
+
+    Returns a sanitized version safe to use as a single-token argument.
+    The caller is responsible for checking the result against ALLOWED_COMMANDS.
+    """
+    clean = _SHELL_DANGER_RE.sub("", cmd).strip()
+    return clean
+
+
+# ── Public helpers (testable, non-async) ─────────────────────────────────────
+
+_INTENT_PATTERNS: list = [
+    (re.compile(r"\b(ping|test)\b"),                          "ping"),
+    (re.compile(r"\b(menu|menú|start|inicio)\b"),             "menu"),
+    (re.compile(r"\b(estado|status)\b"),                      "status"),
+    (re.compile(r"\b(sprint|workflow|wf)\b"),                 "sprint"),
+    (re.compile(r"\b(git|commit|branch|rama)\b"),             "git"),
+    (re.compile(r"\b(tareas|tasks|pendiente|todo)\b"),        "tareas"),
+    (re.compile(r"\b(ideas?|idea)\b"),                        "ideas"),
+    (re.compile(r"\b(next|siguiente|próxima|proxima)\b"),     "next"),
+    (re.compile(r"\b(health|salud|score)\b"),                 "health"),
+    (re.compile(r"\b(tarea|task|hacer|create|crea)\b"),       "crear_tarea"),
+    (re.compile(r"\b(nota|note|apunta|apuntar|recordar)\b"),  "nota"),
+    (re.compile(r"\b(ayuda|help|comandos|qué puedes)\b"),     "ayuda"),
+]
+
+def detect_intent(text: str) -> str:
+    """Return the intent label for a free-text message (lowercase)."""
+    tl = text.lower()
+    for pattern, intent in _INTENT_PATTERNS:
+        if pattern.search(tl):
+            return intent
+    return "unknown"
+
+
+def format_estado(state: dict) -> str:
+    """Format a BAGO state dict into a human-readable Telegram message."""
+    v      = state.get("bago_version", "?")
+    health = state.get("system_health", state.get("health_score", {}).get("score", "?"))
+    wf     = state.get("sprint_status", {}).get("active_workflow") or {}
+    wf_str = f"{wf.get('code','?')} — {wf.get('title','?')}" if wf else "ninguno"
+    guardian = state.get("guardian_findings", {}).get("status", "?")
+    return (
+        f"🤖 BAGO v{v}\n"
+        f"⚕️ Health: {health}\n"
+        f"⚡ Workflow: {wf_str}\n"
+        f"🛡 Guardian: {guardian}"
+    )
+
+
+def make_main_keyboard():
+    """Return the main inline keyboard markup (alias for kb_menu_principal)."""
+    return kb_menu_principal()
+
+
 # ── Autenticación ─────────────────────────────────────────────────────────────
 async def check_auth(update: Update) -> bool:
     owner = get_owner_id()
