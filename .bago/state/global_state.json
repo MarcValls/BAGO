@@ -62,14 +62,14 @@
       "canvas_architecture"
     ]
   },
-  "notes": "Sesión cerrada: spiral_loop implementado, 146 tests OK, push a GitHub d79140b. Radio acumulado: 1.30",
+  "notes": "Sesión spiral AGI completada (bago spiral operativo, radio 1.30). Estado referenciado: SES-HARVEST-2026-05-11-001.",
   "updated_at": "2026-05-11T15:43:22.858062+00:00",
   "bago_knowledge": {
     "sequences_catalog": ".bago/knowledge/sequences_catalog.md",
     "sequences_count": 10,
     "bago_universe": ".bago/knowledge/bago_universe.md"
   },
-  "last_updated": "2026-05-12T13:37:22.995641+00:00",
+  "last_updated": "2026-05-12T13:43:25.820156+00:00",
   "supervision": {
     "guia_vertice": ".bago/supervision/GUIA_VERTICE.md",
     "active": false
@@ -216,7 +216,7 @@
     "updated_at": "2026-05-11T08:02:31.128349+00:00"
   },
   "knowledge_index": {
-    "promoted_count": 8,
+    "promoted_count": 17,
     "last_promoted": "2026-05-12",
     "last_promoted_project": "unknown"
   },
@@ -250,11 +250,11 @@
   "status": "stable",
   "last_completed_session_id": "SES-HARVEST-2026-05-11-001",
   "last_completed_workflow": "w9_cosecha",
-  "last_completed_task_type": "spiral_agi_loop",
+  "last_completed_task_type": "harvest",
   "last_completed_roles": [
     "role_auditor"
   ],
-  "last_completed_change_id": "BAGO-CHG-SPIRAL-001",
+  "last_completed_change_id": "BAGO-CHG-001",
   "last_completed_evidence_id": "BAGO-EVD-001",
   "spiral_loop": {
     "last_cycle": 1,
