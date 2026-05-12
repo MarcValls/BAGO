@@ -626,7 +626,11 @@ def _scaffold_project(dest_input):
 
     shutil.copytree(str(BAGO_ROOT), str(dest / ".bago"))
     shutil.copy2(str(src / "bago"), str(dest / "bago"))
-    os.chmod(str(dest / "bago"), 0o755)
+    if sys.platform != "win32":
+        os.chmod(str(dest / "bago"), 0o755)
+    # Windows: copiar bago.cmd para que `bago` sea invocable desde CMD/PowerShell
+    if sys.platform == "win32" and (src / "bago.cmd").exists():
+        shutil.copy2(str(src / "bago.cmd"), str(dest / "bago.cmd"))
     if (src / "Makefile").exists():
         shutil.copy2(str(src / "Makefile"), str(dest / "Makefile"))
 
