@@ -103,6 +103,35 @@ def check_remote_state(fetch: bool) -> bool:
     return True
 
 
+def _auto_commit_runtime_state() -> None:
+    """Commit runtime state files modified by bago commands (both doors).
+
+    Called BEFORE check_clean_tree (puerta de entrada) to clean up what the
+    PREVIOUS guard run left dirty, and AFTER all checks (puerta de salida) to
+    commit what THIS run's checks just modified — so the next push starts clean.
+
+    Files managed: global_state.json (updated by validate/health/sincerity).
+    """
+    import subprocess as _sp
+    _gs_path = ROOT / ".bago" / "state" / "global_state.json"
+    try:
+        _diff = _sp.run(
+            ["git", "diff", "--name-only", str(_gs_path)],
+            capture_output=True, text=True, cwd=ROOT
+        )
+        if _gs_path.name in _diff.stdout:
+            _sp.run(["git", "add", str(_gs_path)], cwd=ROOT, check=True)
+            _sp.run(
+                ["git", "commit", "-m",
+                 "chore(state): auto-sync global_state (pre-push guard)\n\n"
+                 "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"],
+                cwd=ROOT, check=True, capture_output=True
+            )
+            print("  OK   global_state.json auto-commiteado")
+    except Exception as _e:
+        print(f"  WARN global_state auto-stage: {_e}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Gate pre-push BAGO")
     parser.add_argument("--remote", action="store_true", help="Ejecuta git fetch --prune antes de comparar upstream.")
@@ -136,24 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     # bago validate/health/sincerity actualizan knowledge_index.promoted_count,
     # lo que deja global_state.json sucio tras cada ejecución del guard.
     # Lo auto-stageamos y commiteamos aquí para que clean_tree pase.
-    _gs_path = ROOT / ".bago" / "state" / "global_state.json"
-    try:
-        import subprocess as _sp
-        _diff = _sp.run(
-            ["git", "diff", "--name-only", str(_gs_path)],
-            capture_output=True, text=True, cwd=ROOT
-        )
-        if _gs_path.name in _diff.stdout:
-            _sp.run(["git", "add", str(_gs_path)], cwd=ROOT, check=True)
-            _sp.run(
-                ["git", "commit", "-m",
-                 "chore(state): auto-sync global_state (pre-push guard)\n\n"
-                 "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"],
-                cwd=ROOT, check=True, capture_output=True
-            )
-            print("  OK   global_state.json auto-commiteado")
-    except Exception as _e:
-        print(f"  WARN global_state auto-stage: {_e}")
+    _auto_commit_runtime_state()
 
     checks = [
         check_clean_tree(),
@@ -165,6 +177,12 @@ def main(argv: list[str] | None = None) -> int:
         check("tool_guardian --test", [sys.executable, ".bago/tools/tool_guardian.py", "--test"], timeout=120),
         check("integration_tests", [sys.executable, ".bago/tools/integration_tests.py"], timeout=240),
     ]
+
+    # ── Puerta de salida: commit el estado que los checks acaban de modificar ──
+    # bago validate/health/sincerity/stability actualizan global_state.json
+    # durante esta ejecución del guard. Si no lo commiteamos aquí, el PRÓXIMO
+    # push fallará check_clean_tree antes de llegar al auto-commit de entrada.
+    _auto_commit_runtime_state()
 
     if all(checks):
         print("\nDECISION: GO - push permitido.")
