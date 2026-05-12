@@ -485,6 +485,13 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "auto_mode.py"))],
         supports_dry_run=True,
     ),
+    "spiral": ToolEntry(
+        cmd="spiral", module="spiral_loop",
+        stability="dangerous",
+        description="Bucle espiral cromático (Shepard Loop): 12 pasos de auto-redescrición AGI. --execute para actuar, --status, --history",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "spiral_loop.py"))],
+        supports_dry_run=True,
+    ),
     "sprint": ToolEntry(
         cmd="sprint", module="sprint_manager",
         description="Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo",

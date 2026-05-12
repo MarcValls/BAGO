@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 113 CLI commands · 80 public commands
+> **Version 3.4.0b1** · 114 CLI commands · 81 public commands
 
-Public command contract (CI-checked): **12 core** · **61 experimental** · **7 dangerous** · **28 legacy**
+Public command contract (CI-checked): **12 core** · **61 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -85,6 +85,7 @@ These commands form the **stable public interface**.
 | `install` | Auto-launch on pendrive insert (macOS/Linux) | `--unsafe` |
 | `orchestrate` | Multi-tool workflow sequencer | `--yes` |
 | `peer` | LAN peer-to-peer communication | `--unsafe` |
+| `spiral` | Bucle espiral cromático: 12 pasos de auto-redescripción AGI | `--execute` |
 
 ---
 

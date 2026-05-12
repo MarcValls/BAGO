@@ -1679,6 +1679,15 @@ def test_validate():
         _record("validate:test", FAIL, f"rc={rc} {out[-80:]}")
 
 
+def test_spiral_loop():
+    """spiral_loop.py --test pasa sin errores."""
+    rc, out, _ = _run("spiral_loop.py", ["--test"])
+    if rc == 0:
+        _record("spiral_loop:test", PASS, out.strip() or "ok")
+    else:
+        _record("spiral_loop:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
 def test_suite_integrity():
     """ALL_TESTS no referencia funciones no definidas ni tools ausentes."""
     missing_functions = []
@@ -1748,6 +1757,7 @@ ALL_TESTS = [
     (44, "show_task", test_show_task),
     (45, "sync_pack_metadata", test_sync_pack_metadata),
     (46, "validate", test_validate),
+    (47, "spiral_loop", test_spiral_loop),
 ]
 
 

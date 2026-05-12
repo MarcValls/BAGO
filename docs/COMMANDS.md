@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-11 17:03 UTC
+> Last generated: 2026-05-12 13:27 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -12,9 +12,9 @@
 |--------|-------|
 | ⚙️ Core | 12 |
 | 🧪 Experimental | 61 |
-| ⚠️ Dangerous | 7 |
+| ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **80** |
+| **Total active** | **81** |
 
 ---
 
@@ -122,6 +122,7 @@ High-impact commands. Require `--confirm` or `--dry-run`.
 | `bago install` | Auto-lanzamiento al insertar el pendrive (macOS/Linux/Windows/Android/iPad) | 🔬 avanzado | **dangerous** | optional |
 | `bago orchestrate` | Orquestador de workflows multi-tool en secuencia con condiciones | 🔬 avanzado | **dangerous** | optional |
 | `bago peer` | Comunicacion peer-to-peer LAN (serve/discover/ping/send/chat) | 🔬 avanzado | **dangerous** | optional |
+| `bago spiral` | Bucle espiral cromático (Shepard Loop): 12 pasos de auto-redescrición AGI. --execute para actuar, --status, --history | 🔬 avanzado | **dangerous** | optional |
 
 ---
 
