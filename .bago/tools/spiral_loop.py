@@ -92,6 +92,10 @@ CHROMA_COLORS = [
 ]
 
 
+EPISODIC = STATE / "episodic_memory.json"
+GRADIENT = STATE / "gradient_signal.json"
+
+
 # ── Estado de ciclos ──────────────────────────────────────────
 def _load_cycles() -> dict:
     if SPIRAL.exists():
@@ -112,6 +116,88 @@ def _load_gs() -> dict:
         return json.loads(GS_FILE.read_text())
     except Exception:
         return {}
+
+
+# ── IDEA 3: Memoria episódica (hipocampo) ─────────────────────
+
+def _load_episodic() -> dict:
+    if EPISODIC.exists():
+        try:
+            return json.loads(EPISODIC.read_text())
+        except Exception:
+            pass
+    return {"episodes": [], "total_episodes": 0}
+
+
+def _save_episodic(data: dict) -> None:
+    STATE.mkdir(parents=True, exist_ok=True)
+    data["total_episodes"] = len(data.get("episodes", []))
+    EPISODIC.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+
+def _compute_fingerprint(issues: list, gains: list, sv: dict) -> list[str]:
+    """Genera etiquetas de fingerprint para búsqueda episódica."""
+    tags = []
+    health = sv.get("C", 100)
+    if isinstance(health, (int, float)):
+        if health < 80:   tags.append("health<80")
+        elif health < 95: tags.append("health<95")
+        else:             tags.append("health=100")
+    drift = sv.get("Ds", 0)
+    if drift > 5:  tags.append("high-drift")
+    elif drift > 0: tags.append("low-drift")
+    else:           tags.append("no-drift")
+    if any("regresión" in i for i in issues): tags.append("regression")
+    if any("health" in i for i in issues):    tags.append("health-regression")
+    if any("tools" in str(g) for g in gains): tags.append("tools-added")
+    if sv.get("Gs", 1) == 0: tags.append("validate-fail")
+    if sv.get("Gs", 1) == 1: tags.append("validate-ok")
+    return tags
+
+
+def _search_similar_episodes(fingerprint: list[str], limit: int = 3) -> list[dict]:
+    """Busca episodios pasados con fingerprint similar (≥2 tags en común)."""
+    data = _load_episodic()
+    scored = []
+    for ep in data.get("episodes", []):
+        ep_fp = set(ep.get("fingerprint", []))
+        overlap = len(set(fingerprint) & ep_fp)
+        if overlap >= 2:
+            scored.append((overlap, ep))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [ep for _, ep in scored[:limit]]
+
+
+# ── IDEA 1: Gradiente de aprendizaje ─────────────────────────
+
+def _load_gradient(voice_id: str = "main") -> dict:
+    if GRADIENT.exists():
+        try:
+            data = json.loads(GRADIENT.read_text())
+            return data.get(voice_id, _default_gradient())
+        except Exception:
+            pass
+    return _default_gradient()
+
+
+def _default_gradient() -> dict:
+    return {
+        "step_weights":     {s[1]: 1.0 for s in STEPS},
+        "proposal_weights": {},
+        "last_gradient":    {"health_delta": 0.0, "radius_delta": 0.0, "validate_pass": True},
+    }
+
+
+def _save_gradient(gdata: dict, voice_id: str = "main") -> None:
+    STATE.mkdir(parents=True, exist_ok=True)
+    data: dict = {}
+    if GRADIENT.exists():
+        try:
+            data = json.loads(GRADIENT.read_text())
+        except Exception:
+            pass
+    data[voice_id] = gdata
+    GRADIENT.write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def _bago(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
@@ -192,7 +278,7 @@ def step_compare(ctx: dict) -> dict:
 
 
 def step_detect(ctx: dict) -> dict:
-    """D# — Detectar drift y regresiones."""
+    """D# — Detectar drift, regresiones y recuperar memoria episódica."""
     diff = ctx.get("diff", {})
     delta = diff.get("delta", {})
     issues = []
@@ -213,10 +299,22 @@ def step_detect(ctx: dict) -> dict:
     ctx["issues"] = issues
     ctx["gains"]  = gains
 
+    # IDEA 3: fingerprint + búsqueda episódica
+    sv_partial = {
+        "C":  ctx.get("observations", {}).get("health_score", 100),
+        "Ds": float(len(delta)),
+        "Gs": 1.0,  # aún no validado — valor neutro
+    }
+    fingerprint = _compute_fingerprint(issues, gains, sv_partial)
+    ctx["fingerprint"] = fingerprint
+    similar = _search_similar_episodes(fingerprint)
+    ctx["similar_episodes"] = similar
+
+    mem_note = f" · {len(similar)} episodios similares en memoria" if similar else ""
     if issues:
-        _print_step(3, "WARN", f"{len(issues)} regresiones: {issues[0] if issues else ''}")
+        _print_step(3, "WARN", f"{len(issues)} regresiones: {issues[0] if issues else ''}{mem_note}")
     else:
-        _print_step(3, "OK", f"0 regresiones · {len(gains)} mejoras detectadas")
+        _print_step(3, "OK", f"0 regresiones · {len(gains)} mejoras{mem_note}")
     return ctx
 
 
@@ -254,17 +352,44 @@ def step_propose(ctx: dict) -> dict:
     })
 
     ctx["proposals"] = proposals
-    _print_step(4, "OK", f"{len(proposals)} propuestas generadas")
+
+    # IDEA 3: si hay episodios similares, añadir propuesta basada en resolución pasada
+    similar = ctx.get("similar_episodes", [])
+    for i, ep in enumerate(similar[:2]):
+        res = ep.get("resolution", "")
+        if res and res != "—":
+            proposals.append({
+                "id": f"P_MEM{i:02d}", "priority": "medium",
+                "title": f"[Memoria] Patrón conocido: {res[:60]}",
+                "action": f"Revisitar resolución del ciclo #{ep.get('cycle','?')}: {res}",
+                "radius_gain": 0.15,
+                "_from_memory": True,
+            })
+
+    ctx["proposals"] = proposals
+    _print_step(4, "OK", f"{len(proposals)} propuestas generadas" + (f" ({len(similar)} de memoria)" if similar else ""))
     return ctx
 
 
 def step_select(ctx: dict) -> dict:
-    """F — Filtrar propuestas."""
-    # Selección automática: solo high + medium priority, radius_gain >= 0.2
-    selected = [p for p in ctx.get("proposals", [])
-                if p.get("priority") in ("high", "medium") and p.get("radius_gain", 0) >= 0.2]
+    """F — Filtrar propuestas con gradiente de aprendizaje (IDEA 1)."""
+    proposals  = ctx.get("proposals", [])
+    gradient   = _load_gradient(ctx.get("_voice_id", "main"))
+    pw         = gradient.get("proposal_weights", {})
+
+    # Cada propuesta tiene un score base + ajuste del gradiente
+    def _score(p: dict) -> float:
+        base = {"high": 3.0, "medium": 2.0, "low": 1.0}.get(p.get("priority","low"), 1.0)
+        base += p.get("radius_gain", 0)
+        base *= pw.get(p.get("id",""), 1.0)   # ajuste aprendido
+        return base
+
+    ranked   = sorted(proposals, key=_score, reverse=True)
+    selected = [p for p in ranked
+                if p.get("priority") in ("high", "medium") and p.get("radius_gain", 0) >= 0.15]
     ctx["selected"] = selected
-    _print_step(5, "OK", f"{len(selected)}/{len(ctx.get('proposals',[]))} propuestas seleccionadas")
+    ctx["_gradient"] = gradient
+    _print_step(5, "OK", f"{len(selected)}/{len(proposals)} propuestas seleccionadas (gradient-weighted)")
     return ctx
 
 
@@ -316,8 +441,71 @@ def step_validate(ctx: dict) -> dict:
     return ctx
 
 
+def _compute_state_vector(ctx: dict) -> dict:
+    """IDEA 4 — Vector de estado 12D: cada nota = una dimensión medible.
+
+    C  → health_score       : salud del sistema (0-100)
+    C# → test_count         : número de tests en suite
+    D  → tools_count        : herramientas registradas
+    D# → drift_magnitude    : número de campos que cambiaron respecto al ciclo anterior
+    E  → proposals_count    : propuestas generadas en E
+    F  → selected_count     : propuestas seleccionadas en F
+    F# → plan_complexity    : acciones en el plan (F#)
+    G  → act_executed       : 1.0 si ACT real, 0.0 si dry-run
+    G# → validate_pass      : 1.0 si GO, 0.0 si FAIL
+    A  → records_written    : siempre 1.0 (este ciclo)
+    A# → self_model_delta   : campos del self_description que cambiaron
+    B  → radius_gained      : radio acumulado este ciclo
+    """
+    desc  = ctx.get("self_description", {})
+    diff  = ctx.get("diff", {})
+    val   = ctx.get("validation", {})
+
+    health = desc.get("health", 0)
+    if isinstance(health, str):
+        try: health = float(health.rstrip("%"))
+        except Exception: health = 0.0
+
+    # test_count: intentar leer de pytest cache o simplemente usar tools_count proxy
+    try:
+        import re
+        pytest_ini = (ROOT / "pyproject.toml").read_text()
+        m = re.search(r"(\d+) passed", pytest_ini)
+        test_count = float(m.group(1)) if m else 0.0
+    except Exception:
+        test_count = 0.0
+
+    drift_mag = float(len(diff.get("delta", {})))
+    proposals = ctx.get("proposals", [])
+    selected  = ctx.get("selected", [])
+    plan      = ctx.get("plan", [])
+    prev      = ctx.get("previous_cycle")
+    prev_desc = (prev or {}).get("self_description", {}) if prev else {}
+    model_delta = float(sum(1 for k in desc if desc.get(k) != prev_desc.get(k)))
+
+    radius_gained = sum(p.get("radius_gain", 0) for p in selected)
+
+    vector = {
+        "C":  health,
+        "Cs": test_count,
+        "D":  float(desc.get("tools_count", 0)),
+        "Ds": drift_mag,
+        "E":  float(len(proposals)),
+        "F":  float(len(selected)),
+        "Fs": float(len(plan)),
+        "G":  1.0 if ctx.get("acted") else 0.0,
+        "Gs": 1.0 if val.get("validate") == "GO" else 0.0,
+        "A":  1.0,
+        "As": model_delta,
+        "B":  radius_gained,
+    }
+    ctx["state_vector"] = vector
+    return vector
+
+
 def step_record(ctx: dict) -> dict:
     """A — Escribir artefacto del ciclo."""
+    state_vector = _compute_state_vector(ctx)
     cycle_record = {
         "cycle_number":    ctx["cycle_number"],
         "timestamp":       ctx["timestamp"],
@@ -329,6 +517,7 @@ def step_record(ctx: dict) -> dict:
         "selected":        ctx.get("selected", []),
         "validation":      ctx.get("validation", {}),
         "radius_earned":   sum(p.get("radius_gain",0) for p in ctx.get("selected",[])),
+        "state_vector":    state_vector,
     }
     # Guardar en spiral_cycles.json
     data = _load_cycles()
@@ -343,21 +532,79 @@ def step_record(ctx: dict) -> dict:
 
 
 def step_reflect(ctx: dict) -> dict:
-    """A# — Actualizar self-model en global_state."""
+    """A# — Actualizar self-model, gradiente y memoria episódica (IDEAS 1+3)."""
+    voice_id = ctx.get("_voice_id", "main")
+
+    # Actualizar global_state
     try:
         gs = _load_gs()
         gs["spiral_loop"] = {
-            "last_cycle":       ctx["cycle_number"],
-            "last_cycle_at":    ctx["timestamp"],
-            "total_radius":     ctx["total_radius"],
-            "last_gains":       ctx.get("gains", []),
-            "last_issues":      ctx.get("issues", []),
-            "validation":       ctx.get("validation", {}),
+            "last_cycle":    ctx["cycle_number"],
+            "last_cycle_at": ctx["timestamp"],
+            "total_radius":  ctx["total_radius"],
+            "last_gains":    ctx.get("gains", []),
+            "last_issues":   ctx.get("issues", []),
+            "validation":    ctx.get("validation", {}),
         }
         GS_FILE.write_text(json.dumps(gs, indent=2, ensure_ascii=False))
-        _print_step(10, "OK", f"Self-model actualizado · radio total: {ctx['total_radius']:.2f}")
-    except Exception as e:
-        _print_step(10, "WARN", f"No se pudo actualizar global_state: {e}")
+    except Exception:
+        pass
+
+    # IDEA 1: actualizar gradiente de aprendizaje
+    try:
+        gradient  = ctx.get("_gradient") or _load_gradient(voice_id)
+        sv        = ctx.get("state_vector", {})
+        prev_cy   = ctx.get("previous_cycle")
+        prev_sv   = (prev_cy or {}).get("state_vector", {}) if prev_cy else {}
+        h_delta   = float(sv.get("C", 0)) - float(prev_sv.get("C", sv.get("C", 0)))
+        r_delta   = float(sv.get("B", 0))
+        v_pass    = ctx.get("validation", {}).get("validate") == "GO"
+
+        gradient["last_gradient"] = {
+            "health_delta": round(h_delta, 2),
+            "radius_delta": round(r_delta, 3),
+            "validate_pass": v_pass,
+        }
+        # Actualizar pesos de propuestas seleccionadas (Hebb: seleccionada + validación OK → sube)
+        pw = gradient.setdefault("proposal_weights", {})
+        for p in ctx.get("selected", []):
+            pid = p.get("id", "")
+            if not pid: continue
+            current = pw.get(pid, 1.0)
+            # Si validación pasó → refuerza; si no → penaliza levemente
+            delta = +0.05 if v_pass else -0.03
+            pw[pid] = round(max(0.3, min(2.0, current + delta)), 3)
+
+        _save_gradient(gradient, voice_id)
+    except Exception:
+        pass
+
+    # IDEA 3: guardar episodio en memoria episódica
+    try:
+        ep_data = _load_episodic()
+        sv      = ctx.get("state_vector", {})
+        fp      = _compute_fingerprint(ctx.get("issues",[]), ctx.get("gains",[]), sv)
+        # Resolución: qué se seleccionó como acción principal
+        selected = ctx.get("selected", [])
+        resolution = selected[0]["title"] if selected else "—"
+        episode = {
+            "cycle":        ctx["cycle_number"],
+            "at":           ctx["timestamp"],
+            "voice":        voice_id,
+            "fingerprint":  fp,
+            "issues":       ctx.get("issues", []),
+            "gains":        ctx.get("gains", []),
+            "resolution":   resolution,
+            "radius_gain":  ctx.get("radius_earned", 0),
+            "state_vector": sv,
+            "validate_ok":  ctx.get("validation", {}).get("validate") == "GO",
+        }
+        ep_data.setdefault("episodes", []).append(episode)
+        _save_episodic(ep_data)
+    except Exception:
+        pass
+
+    _print_step(10, "OK", f"Self-model + gradiente + memoria episódica actualizados · radio: {ctx.get('total_radius',0):.2f}")
     return ctx
 
 
@@ -402,6 +649,152 @@ def _print_header(cycle_n: int, radius: float) -> None:
     print()
 
 
+# ── IDEA 2: Polifonía — 3 voces en desfase de fase ───────────
+
+# Definición de las 3 voces: id, fase, foco, descripción
+VOICES = {
+    "A_tools": {
+        "id":    "A_tools",
+        "phase": 0,
+        "focus": "tools",
+        "color": "\033[92m",   # verde
+        "label": "A·TOOLS",
+        "description": "Foco: salud de herramientas — conteo, warnings del guardian, legacy",
+    },
+    "B_tests": {
+        "id":    "B_tests",
+        "phase": 4,
+        "focus": "tests",
+        "color": "\033[94m",   # azul
+        "label": "B·TESTS",
+        "description": "Foco: suite de tests — cobertura, nuevos, regresiones",
+    },
+    "C_docs": {
+        "id":    "C_docs",
+        "phase": 8,
+        "focus": "docs",
+        "color": "\033[95m",   # magenta
+        "label": "C·DOCS",
+        "description": "Foco: documentación — COMMANDS.md, README, consistencia",
+    },
+}
+
+
+def _load_voice_cycles(voice_id: str) -> dict:
+    """Carga o inicializa el estado de ciclos de una voz específica."""
+    data = _load_cycles()
+    voices = data.setdefault("voices", {})
+    if voice_id not in voices:
+        voices[voice_id] = {"cycles": [], "total_radius": 0.0, "phase": VOICES[voice_id]["phase"]}
+    return data
+
+
+def _save_voice_cycle(data: dict, voice_id: str, cycle_record: dict, radius_earned: float) -> dict:
+    """Guarda un ciclo completado en el historial de la voz y en el historial global."""
+    data.setdefault("voices", {}).setdefault(voice_id, {"cycles": [], "total_radius": 0.0})
+    data["voices"][voice_id]["cycles"].append(cycle_record)
+    data["voices"][voice_id]["total_radius"] = round(
+        data["voices"][voice_id]["total_radius"] + radius_earned, 4
+    )
+    # También añade al historial global con tag de voz
+    tagged = dict(cycle_record)
+    tagged["_voice"] = voice_id
+    data.setdefault("cycles", []).append(tagged)
+    data["total_radius"] = round(data.get("total_radius", 0) + radius_earned, 4)
+    _save_cycles(data)
+    return data
+
+
+def cmd_run_voice(voice_id: str, execute: bool = False) -> tuple[int, dict]:
+    """Ejecuta un ciclo completo para UNA voz. Retorna (rc, ctx)."""
+    voice = VOICES.get(voice_id)
+    if not voice:
+        print(f"❌ Voz desconocida: {voice_id}. Disponibles: {list(VOICES)}")
+        return 1, {}
+
+    data    = _load_voice_cycles(voice_id)
+    v_cycles = data["voices"][voice_id]["cycles"]
+    v_radius = data["voices"][voice_id]["total_radius"]
+
+    vc = voice["color"]
+    print()
+    print(f"  {BOLD}{vc}┌─ Voz {voice['label']} (fase +{voice['phase']}) ─{'─'*32}┐{RST}")
+    print(f"  {vc}│  {voice['description']}{RST}")
+    print(f"  {vc}│  Ciclos: {len(v_cycles)}  ·  Radio: {v_radius:.2f}{RST}")
+    print(f"  {BOLD}{vc}└{'─'*55}┘{RST}")
+    print()
+
+    step_fns = [
+        step_observe, step_describe, step_compare, step_detect,
+        step_propose, step_select, step_plan,
+        lambda ctx: step_act(ctx, execute),
+        step_validate, step_record, step_reflect, step_rest,
+    ]
+
+    # Rotar la lista de pasos según la fase (offset) de la voz
+    phase   = voice["phase"]
+    rotated = step_fns[phase:] + step_fns[:phase]
+
+    ctx: dict = {
+        "_voice_id":      voice_id,
+        "_voice_phase":   phase,
+        "_prev_v_cycles": v_cycles,
+    }
+    # Inyectar ciclo anterior de esta voz (no del global)
+    if v_cycles:
+        ctx["_voice_previous_cycle"] = v_cycles[-1]
+
+    for i, fn in enumerate(rotated):
+        step_idx = (phase + i) % 12
+        try:
+            ctx = fn(ctx)
+        except Exception as e:
+            _print_step(step_idx, "ERR", f"[{voice['label']}] {str(e)[:70]}")
+
+    return 0, ctx
+
+
+def cmd_run_polyphony(execute: bool = False) -> int:
+    """Ejecuta las 3 voces en desfase y calcula harmony_score."""
+    print()
+    print(f"  {BOLD}{CYN}╔══ BAGO Spiral Loop — POLIFONÍA ═══════════════════════╗{RST}")
+    print(f"  {BOLD}{CYN}║  3 voces · fases 0·4·8 · sincronización en G# VALIDATE║{RST}")
+    print(f"  {BOLD}{CYN}╚════════════════════════════════════════════════════════╝{RST}")
+    print()
+
+    results: dict[str, dict] = {}
+    for vid in ["A_tools", "B_tests", "C_docs"]:
+        rc, ctx = cmd_run_voice(vid, execute=execute)
+        results[vid] = {"rc": rc, "ctx": ctx}
+
+    # ── Harmony score: sincronización en G# (validate) ────────
+    passes   = sum(1 for r in results.values() if r["ctx"].get("validation", {}).get("validate") == "GO")
+    harmony  = round(passes / len(VOICES), 2)
+
+    # Guardar harmony en spiral_cycles.json
+    data = _load_cycles()
+    data["harmony_score"] = harmony
+    data["last_polyphony_at"] = datetime.now(timezone.utc).isoformat()
+    _save_cycles(data)
+
+    # Resumen polifónico
+    print()
+    print(f"  {BOLD}{CYN}╔══ BAGO Polifonía — Resumen ════════════════════════════╗{RST}")
+    for vid, res in results.items():
+        v    = VOICES[vid]
+        val  = res["ctx"].get("validation", {}).get("validate", "?")
+        rad  = res["ctx"].get("radius_earned", 0)
+        col  = GRN if val == "GO" else RED
+        print(f"  {BOLD}{v['color']}║  {v['label']:8s}{RST}  validate={col}{val}{RST}  +{rad:.2f}r")
+    h_col = GRN if harmony >= 0.67 else (YEL if harmony >= 0.33 else RED)
+    print(f"  {BOLD}{CYN}║{RST}")
+    print(f"  {BOLD}{CYN}║  Harmony score: {h_col}{harmony:.2f}{RST}{BOLD}{CYN}  ({passes}/{len(VOICES)} voces en GO)  {RST}")
+    print(f"  {BOLD}{CYN}╚════════════════════════════════════════════════════════╝{RST}")
+    print()
+
+    return 0 if harmony >= 0.67 else 1
+
+
 # ── Comandos ──────────────────────────────────────────────────
 
 def cmd_run(execute: bool = False, only_step: int = None) -> int:
@@ -443,6 +836,15 @@ def cmd_status() -> int:
         last = cycles[-1]
         print(f"  Último ciclo       : #{last['cycle_number']} · {last['timestamp'][:19]}")
         print(f"  Último health      : {last.get('validation',{}).get('health','?')}")
+        sv = last.get("state_vector")
+        if sv:
+            print(f"\n  {BOLD}Vector de estado (último ciclo):{RST}")
+            notes = ["C","Cs","D","Ds","E","F","Fs","G","Gs","A","As","B"]
+            names = ["health","tests","tools","drift","proposals","selected","plan","act","validate","record","model_Δ","radius+"]
+            for note, name in zip(notes, names):
+                val = sv.get(note, 0)
+                bar = "█" * int(min(val, 20) / 2) if isinstance(val, (int,float)) and val > 0 else "·"
+                print(f"    {DIM}{note:2s} {name:12s}{RST} {BOLD}{val:6.1f}{RST}  {CYN}{bar}{RST}")
     else:
         print(f"  {DIM}Primer ciclo aún no ejecutado{RST}")
     print()
@@ -480,6 +882,19 @@ def main() -> int:
         return cmd_status()
     if "--history" in args:
         return cmd_history()
+    if "--polyphony" in args:
+        execute = "--execute" in args
+        return cmd_run_polyphony(execute=execute)
+    if "--voice" in args:
+        idx = args.index("--voice")
+        try:
+            voice_id = args[idx + 1]
+        except IndexError:
+            print(f"❌ --voice requiere un ID: {list(VOICES)}")
+            return 1
+        execute = "--execute" in args
+        rc, _ = cmd_run_voice(voice_id, execute=execute)
+        return rc
 
     only_step = None
     if "--step" in args:
