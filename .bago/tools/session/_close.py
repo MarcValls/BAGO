@@ -214,8 +214,45 @@ def _register_idea_done(task: dict, session_close_file: str) -> None:
         pass  # Never break close flow over this
 
 
+def _find_existing_session_close(sessions_dir: Path) -> Path | None:
+    """Busca un SESSION_CLOSE existente para la sesión o día actual.
+
+    Prioridad:
+      1. SESSION_CLOSE vinculado al active_session_id en global_state
+      2. SESSION_CLOSE creado hoy (mismo prefijo de fecha YYYYMMDD)
+
+    Si existe → devuelve la ruta para actualizar en lugar de crear nuevo.
+    Si no existe → devuelve None (crear nuevo).
+    """
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    # Prioridad 1: sesión activa explícita
+    try:
+        gs = json.loads(GLOBAL_STATE.read_text(encoding="utf-8"))
+        active_id = gs.get("active_session_id")
+        if active_id:
+            candidate = sessions_dir / f"SESSION_CLOSE_{active_id}.md"
+            if candidate.exists():
+                return candidate
+    except Exception:
+        pass
+
+    # Prioridad 2: mismo día calendario
+    existing = sorted(sessions_dir.glob(f"SESSION_CLOSE_{today}_*.md"))
+    if existing:
+        return existing[-1]  # el más reciente del día
+
+    return None
+
+
 def generate(task: dict | None = None, out_path: Path | None = None) -> Path:
-    """Genera el artefacto de cierre y devuelve la ruta del archivo creado."""
+    """Genera o actualiza el artefacto de cierre y devuelve su ruta.
+
+    Deduplicación: si ya existe un SESSION_CLOSE para la sesión activa o
+    para el día actual, actualiza ese archivo en lugar de crear uno nuevo.
+    Esto evita la acumulación patológica de N archivos por día cuando se
+    llama desde 'bago task --done' repetidamente.
+    """
     # Project-aware sessions dir
     sessions_dir = _resolve_sessions_dir()
     sessions_dir.mkdir(parents=True, exist_ok=True)
@@ -227,10 +264,7 @@ def generate(task: dict | None = None, out_path: Path | None = None) -> Path:
     if task is None:
         task = _load_json(TASK_FILE) or {}
 
-    # Enriquecer con last_completed_workflow cuando proceda. La task
-    # cargada de pending_w2_task.json puede ser stale (relicto de
-    # 'bago next' viejo) mientras que el flow REAL recin cerrado vive
-    # en sprint_status.last_completed_workflow.
+    # Enriquecer con last_completed_workflow cuando proceda.
     # # COSECHA_SESSION_CLOSE_USES_LAST_COMPLETED
     task = _enrich_task_with_last_completed(task)
 
@@ -294,7 +328,11 @@ _Generado automáticamente por `session_close_generator.py`_
 """
 
     if out_path is None:
-        out_path = sessions_dir / f"SESSION_CLOSE_{ts}.md"
+        existing = _find_existing_session_close(sessions_dir)
+        if existing:
+            out_path = existing  # actualiza el artefacto del día/sesión actual
+        else:
+            out_path = sessions_dir / f"SESSION_CLOSE_{ts}.md"
 
     out_path.write_text(content, encoding="utf-8")
     _register_idea_done(task, out_path.name)
