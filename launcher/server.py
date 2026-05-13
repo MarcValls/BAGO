@@ -58,6 +58,109 @@ detect_agents = agent_router.detect_agents
 def route_task(task: str, agents: list) -> dict:
     return agent_router.route_task(task, agents=agents, record=True)
 
+# ─── Music Pipeline API ───────────────────────────────────────────────────────
+
+import tempfile
+
+def _run_pipeline(script_name: str, args: list[str]) -> tuple[int, str, str]:
+    """Run a pipeline script from TOOLS_DIR, return (returncode, stdout, stderr)."""
+    script = str(TOOLS_DIR / script_name)
+    result = subprocess.run(
+        [sys.executable, script] + args,
+        capture_output=True, text=True, timeout=30,
+        cwd=str(TOOLS_DIR),
+    )
+    return result.returncode, result.stdout, result.stderr
+
+def music_inventory(body: dict) -> dict:
+    xml = body.get("xml", "")
+    target = body.get("target", "unspecified")
+    if not xml.strip():
+        return {"ok": False, "error": "xml requerido"}
+    with tempfile.NamedTemporaryFile(suffix=".xml", mode="w", delete=False) as f:
+        f.write(xml)
+        tmp_in = f.name
+    try:
+        rc, stdout, stderr = _run_pipeline("musicxml_target_select.py", [
+            "--input", tmp_in, "--target", target, "--json",
+        ])
+        if rc != 0:
+            return {"ok": False, "error": stderr or "pipeline error"}
+        return {"ok": True, "inventory": json.loads(stdout)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    finally:
+        Path(tmp_in).unlink(missing_ok=True)
+
+def music_transpose(body: dict) -> dict:
+    xml = body.get("xml", "")
+    target = body.get("target", "all")
+    semitones = body.get("semitones")
+    interval = body.get("interval")
+    if not xml.strip():
+        return {"ok": False, "error": "xml requerido"}
+    if semitones is None and not interval:
+        return {"ok": False, "error": "semitones o interval requerido"}
+    with tempfile.NamedTemporaryFile(suffix=".xml", mode="w", delete=False) as f:
+        f.write(xml)
+        tmp_in = f.name
+    with tempfile.NamedTemporaryFile(suffix=".xml", mode="w", delete=False) as f:
+        tmp_out = f.name
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        tmp_report = f.name
+    try:
+        args = ["--input", tmp_in, "--output", tmp_out, "--target", target, "--json",
+                "--report", tmp_report]
+        if interval:
+            args += ["--interval", interval]
+        elif semitones is not None:
+            args += ["--semitones", str(semitones)]
+        rc, stdout, stderr = _run_pipeline("musicxml_transpose.py", args)
+        if rc != 0:
+            return {"ok": False, "error": stderr or stdout or "transpose error"}
+        result_xml = Path(tmp_out).read_text(encoding="utf-8") if Path(tmp_out).exists() else ""
+        report = {}
+        if Path(tmp_report).exists():
+            try:
+                report = json.loads(Path(tmp_report).read_text())
+            except Exception:
+                pass
+        return {"ok": True, "xml": result_xml, "report": report}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    finally:
+        for p in [tmp_in, tmp_out, tmp_report]:
+            Path(p).unlink(missing_ok=True)
+
+def music_validate(body: dict) -> dict:
+    original = body.get("original", "")
+    transposed = body.get("transposed", "")
+    target = body.get("target", "all")
+    semitones = body.get("semitones", 0)
+    if not original.strip() or not transposed.strip():
+        return {"ok": False, "error": "original y transposed requeridos"}
+    with tempfile.NamedTemporaryFile(suffix=".xml", mode="w", delete=False) as f:
+        f.write(original)
+        tmp_orig = f.name
+    with tempfile.NamedTemporaryFile(suffix=".xml", mode="w", delete=False) as f:
+        f.write(transposed)
+        tmp_trans = f.name
+    try:
+        rc, stdout, stderr = _run_pipeline("musicxml_validate.py", [
+            "--original", tmp_orig, "--transposed", tmp_trans,
+            "--target", target, "--semitones", str(semitones), "--json",
+        ])
+        if rc not in (0, 1):  # rc=1 = warnings but not fatal
+            return {"ok": False, "error": stderr or "validate error"}
+        data = json.loads(stdout) if stdout.strip() else {}
+        data["passed"] = (rc == 0)
+        return {"ok": True, **data}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    finally:
+        for p in [tmp_orig, tmp_trans]:
+            Path(p).unlink(missing_ok=True)
+
 # ─── BAGO Status ──────────────────────────────────────────────────────────────
 
 def bago_status():
@@ -483,6 +586,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._json({"ok": False, "error": "command vacío"}, 400)
                 return
             self._json(bago_run(command, confirmed))
+
+        elif path == "/api/music/inventory":
+            self._json(music_inventory(body))
+
+        elif path == "/api/music/transpose":
+            self._json(music_transpose(body))
+
+        elif path == "/api/music/validate":
+            self._json(music_validate(body))
 
         else:
             self._json({"error": "not found"}, 404)

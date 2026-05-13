@@ -2,19 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BAGO Music Score Editor — Editor de Partitura</title>
-<!-- VexFlow 5.0.0 — local first, CDN fallback -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BAGO Music — Mobile Score Editor</title>
 <script src="./vendor/vexflow.min.js"></script>
-<script>if(typeof VexFlow==='undefined'&&typeof Vex==='undefined'){document.write('<script src="https://unpkg.com/vexflow@5.0.0/build/cjs/vexflow.js"><\/script>')}</script>
-
-<!-- Tone.js — local first, CDN fallback -->
 <script src="./vendor/tone.min.js"></script>
-<script>if(typeof Tone==='undefined'){document.write('<script src="https://unpkg.com/tone"><\/script>')}</script>
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   BAGO Music Score Editor — Styles
-═══════════════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -35,7 +27,6 @@
   --danger-hi:    #cc6666;
   --success:      #2e5e3e;
   --success-hi:   #66cc88;
-  /* ── Semantic action palette ── */
   --primary:      #7c6fcd;
   --primary-hi:   #a08fff;
   --note-col:     #3a7bd5;
@@ -46,160 +37,337 @@
   --danger-hi2:   #cc5555;
   --file-col:     #5a4a1a;
   --file-hi:      #c8a840;
+  --header-h: 44px;
+  --status-h: 40px;
+  --toolbar-gap: 12px;
 }
 
+html, body { min-height: 100%; }
 body {
-  background: #eef0f4;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, #0f1222 0%, #141833 100%);
   color: var(--text-hi);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
 }
 
-/* ── HEADER ─────────────────────────────────── */
+button, input, select {
+  font: inherit;
+}
+button, .btn, .btn-primary, .btn-secondary, .btn-mod, .dir-btn, .interval-chip {
+  min-height: 44px;
+}
+button { border: 0; background: none; color: inherit; }
+button, select { outline: none; }
+[hidden] { display: none !important; }
+
 #header {
-  background: var(--bg-dark);
-  padding: 0 20px;
-  height: 44px;
+  height: var(--header-h);
+  background: rgba(15, 18, 34, .96);
+  border-bottom: 1px solid rgba(255,255,255,.06);
   display: flex;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.4);
-  flex-shrink: 0;
-  z-index: 50;
+  gap: 8px;
+  padding: 0 12px;
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  backdrop-filter: blur(14px);
 }
-#header h1 { font-size: 15px; font-weight: 700; letter-spacing: .5px; color: #ddd8f0; }
-#header .badge {
-  font-size: 10px; background: #2a2a55; color: #8888cc;
-  padding: 2px 8px; border-radius: 10px; letter-spacing: .5px;
+#header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: #f2f1ff;
+  white-space: nowrap;
+}
+#header #sel-pill { margin-left: auto; }
+.badge, #sel-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.badge-version { background: rgba(124,111,205,.18); color: #cec6ff; border-color: rgba(160,143,255,.32); }
+.badge-offline { background: rgba(90,74,26,.24); color: #f2d57d; border-color: rgba(200,168,64,.45); }
+.badge-pipeline { background: rgba(46,94,62,.28); color: #9ce0b1; border-color: rgba(102,204,136,.45); }
+#sel-pill {
+  background: rgba(58,123,213,.22);
+  color: #b7d4ff;
+  border-color: rgba(90,155,245,.35);
 }
 
-/* ── METADATA BAR ───────────────────────────── */
-#meta-bar {
-  background: var(--bg-darker);
-  padding: 6px 20px;
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  border-bottom: 1px solid #1a2a4a;
+#step-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 10px 12px;
+  background: rgba(22, 33, 62, .96);
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  position: sticky;
+  top: var(--header-h);
+  z-index: 90;
 }
-#meta-bar label { color: var(--text-lo); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
-#meta-bar input, #meta-bar select {
-  background: #121228; border: 1px solid #2a2a55;
-  color: var(--text-hi); padding: 3px 8px; border-radius: 4px;
-  font-size: 12px; outline: none;
-  transition: border-color .15s;
+#step-bar::-webkit-scrollbar { display: none; }
+.step {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  color: var(--text-lo);
+  border: 1px solid rgba(255,255,255,.08);
+  font-size: 12px;
 }
-#meta-bar input:focus, #meta-bar select:focus { border-color: var(--accent); }
-.meta-g { display: flex; align-items: center; gap: 5px; }
+.step.active {
+  color: #dcd8ff;
+  border-color: rgba(160,143,255,.35);
+}
+.step.current {
+  background: rgba(124,111,205,.28);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(160,143,255,.22) inset;
+}
 
-/* ── TOOLBAR ────────────────────────────────── */
-#toolbar {
-  background: var(--bg-panel);
+#score-wrap {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  padding: 14px 12px calc(var(--status-h) + 176px);
+  scroll-padding-bottom: 220px;
+}
+body[data-state="empty"] #score-wrap {
+  padding-bottom: calc(var(--status-h) + 28px);
+}
+body[data-state="result"] #score-wrap {
+  padding-bottom: calc(var(--status-h) + 96px);
+}
+
+#empty-drop,
+#score-container {
+  width: 100%;
+}
+#empty-drop {
+  display: none;
+  min-height: calc(100vh - var(--header-h) - var(--status-h) - 72px);
+  border: 2px dashed rgba(160,143,255,.22);
+  border-radius: 24px;
+  background: radial-gradient(circle at top, rgba(124,111,205,.12), rgba(22,33,62,.72));
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 18px;
+  gap: 14px;
+}
+body[data-state="empty"] #score-container { display: none; }
+body[data-state="empty"] #empty-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+body[data-state="loaded"] #empty-drop,
+body[data-state="selected"] #empty-drop,
+body[data-state="result"] #empty-drop { display: none; }
+body[data-state="empty"] #float-toolbar,
+body[data-state="result"] #float-toolbar { display: none; }
+body[data-state="empty"] #step-bar { display: none; }
+
+.drop-icon {
+  width: 88px;
+  height: 88px;
+  border-radius: 28px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.06);
+  font-size: 42px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.drop-title { font-size: 24px; font-weight: 700; color: #f4f5ff; }
+.drop-sub { color: #a7a9c9; font-size: 14px; }
+
+#recent-list {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 0;
-  border-bottom: 2px solid var(--bg-darkest);
-  flex-shrink: 0;
+  gap: 8px;
+  margin-top: 4px;
 }
-.tb-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 20px;
+.recent-item {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--text-mid);
+  text-align: left;
 }
-.tb-row:not(:last-child) {
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-.tb-sep { width: 1px; height: 28px; background: #2d2d5e; margin: 0 4px; flex-shrink: 0; }
-.tb-lbl { font-size: 9px; color: var(--text-lo); text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; flex-shrink: 0; margin-right: 2px; }
-.tb-spacer { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.recent-item strong { display: block; color: var(--text-hi); }
+.recent-item small { color: var(--text-lo); }
 
-/* ── Base button ── */
-.btn {
-  background: var(--btn-bg); border: 1px solid var(--btn-border);
-  color: var(--text-mid); padding: 5px 11px; border-radius: 6px;
-  cursor: pointer; font-size: 12px;
-  display: flex; align-items: center; gap: 4px;
-  transition: background .12s, border-color .12s, color .12s;
-  white-space: nowrap; user-select: none;
+#score-container {
+  background: #fff;
+  border-radius: 22px;
+  color: #1a1a2e;
+  box-shadow: 0 18px 48px rgba(0,0,0,.28);
+  overflow: hidden;
+  min-height: 360px;
+  position: relative;
 }
-.btn:hover  { background: var(--btn-hover); border-color: var(--accent); color: #fff; }
-.btn.active { background: var(--btn-active); border-color: var(--accent-hi); color: #fff;
-              box-shadow: 0 0 8px rgba(100,100,255,.25); }
-
-/* ── Tier 1: Primary action buttons ── */
-.btn-primary {
-  height: 38px;
-  padding: 0 18px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  transition: all 0.15s;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
+body[data-state="result"] #score-container {
+  box-shadow: 0 0 0 2px rgba(124,111,205,.22), 0 20px 56px rgba(0,0,0,.32);
+}
+#score-header {
+  text-align: center;
+  padding: 22px 16px 0;
   user-select: none;
 }
-.btn-play-primary {
-  background: linear-gradient(135deg, #2a4a7f, #1a3a6f);
-  color: #88bbff;
-  border-color: #3a5a9f;
+.sc-title { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+.sc-composer { font-size: 13px; color: #666; margin-top: 4px; }
+#vf-area {
+  position: relative;
+  min-height: 220px;
+  padding: 0 0 16px;
 }
-.btn-play-primary:hover { background: linear-gradient(135deg, #3a5a9f, #2a4a7f); color: #bbddff; }
-.btn-play-primary.active { background: linear-gradient(135deg, #1a3a7f, #0f2a5f); color: #ccddff; border-color: #5577cc; box-shadow: 0 0 12px rgba(80,120,220,.3); }
-.btn-export-primary {
-  background: linear-gradient(135deg, #1a5a3a, #0f3a25);
-  color: #77cc99;
-  border-color: #2a7a4a;
+#vf-container { display: block; min-height: 160px; }
+#ghost-canvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+  z-index: 5;
 }
-.btn-export-primary:hover { background: linear-gradient(135deg, #2a6a4a, #1a5a3a); color: #aaeebb; }
+#hit-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  z-index: 10;
+}
+#empty-hint {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #b3b6c4;
+  pointer-events: none;
+  z-index: 2;
+  line-height: 1.7;
+}
 
-/* ── Tier 2: Duration card buttons ── */
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-mod,
+.dir-btn,
+.interval-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: .16s ease;
+  user-select: none;
+}
+.btn {
+  padding: 0 14px;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text-mid);
+}
+.btn:hover, .btn:focus-visible,
+.btn-primary:hover, .btn-primary:focus-visible,
+.btn-secondary:hover, .btn-secondary:focus-visible,
+.btn-mod:hover, .btn-mod:focus-visible,
+.dir-btn:hover, .dir-btn:focus-visible,
+.interval-chip:hover, .interval-chip:focus-visible {
+  transform: translateY(-1px);
+}
+.btn.active {
+  background: var(--btn-active);
+  border-color: var(--accent-hi);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(100,100,255,.22);
+}
+.btn-primary {
+  width: 100%;
+  padding: 0 18px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-hi));
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.08);
+  font-weight: 700;
+}
+.btn-secondary {
+  width: 100%;
+  padding: 0 18px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #d7d9ef;
+}
+.btn-open { max-width: 280px; }
+.btn-danger { background:#3a1e1e; border-color:#5e3030; color:#f0a0a0; }
+.btn-play { background: linear-gradient(135deg, #2a4a7f, #1a3a6f); color: #c8ddff; border-color: #4567a8; }
+.btn-play.active { background: linear-gradient(135deg, #1a3a7f, #0f2a5f); color: #fff; }
+.btn-mod {
+  padding: 0 14px;
+  background: rgba(45,107,74,0.25);
+  border: 1px solid #2d6b4a;
+  color: #7dcca0;
+}
+.btn-mod.active {
+  background: rgba(61,155,106,0.42);
+  border-color: var(--mod-hi);
+  color: #effff6;
+}
+.btn-acc { min-width: 44px; font-size: 18px; }
+
 .btn-dur {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
+  min-width: 64px;
+  min-height: 74px;
+  padding: 6px 8px;
+  border-radius: 14px;
   background: var(--btn-bg);
-  border: 2px solid var(--btn-border);
-  cursor: pointer;
-  transition: all 0.15s;
-  gap: 1px;
-  padding: 0;
-  user-select: none;
-  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,.09);
+  color: var(--text-mid);
+  gap: 4px;
+  flex: 1 1 0;
 }
-.btn-dur .dur-symbol {
-  font-size: 18px;
-  line-height: 1;
-  color: var(--note-hi);
+.btn-dur.active {
+  background: rgba(58,123,213,.28);
+  border-color: var(--note-hi);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(58,123,213,.24);
+}
+.dur-symbol {
+  min-height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  color: var(--note-hi);
+  font-size: 18px;
 }
-.btn-dur .dur-name {
-  font-size: 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+.dur-name {
+  font-size: 11px;
   color: var(--text-lo);
-  line-height: 1;
+  line-height: 1.1;
 }
-.btn-dur:hover  { background: rgba(58,123,213,0.18); border-color: var(--note-col); }
-.btn-dur.active { background: rgba(58,123,213,0.28); border-color: var(--note-hi);
-                  box-shadow: 0 0 10px rgba(58,123,213,0.35); }
+.btn-dur.active .dur-name,
 .btn-dur.active .dur-symbol { color: #fff; }
-.btn-dur.active .dur-name   { color: var(--note-hi); }
+.dur { }
 
-/* CSS note shapes for duration symbols */
 .ns-whole {
   display: inline-block;
   width: 16px; height: 11px;
@@ -220,371 +388,678 @@ body {
   background: currentColor;
 }
 
-/* ── Tier 3: Modifier & accidental buttons ── */
-.btn-mod {
-  background: rgba(45,107,74,0.25);
-  border: 1px solid #2d6b4a;
-  color: #7dcca0;
-  padding: 5px 13px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex; align-items: center; gap: 4px;
-  transition: all 0.15s;
-  white-space: nowrap;
-  user-select: none;
+#float-toolbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--status-h);
+  background: rgba(30,30,63,.98);
+  border-top: 1px solid rgba(255,255,255,.06);
+  box-shadow: 0 -8px 24px rgba(0,0,0,.28);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 80;
 }
-.btn-mod:hover  { background: rgba(61,155,106,0.3); border-color: var(--mod-hi); color: #aaeebb; }
-.btn-mod.active { background: rgba(61,155,106,0.4); border-color: var(--mod-hi); color: #ccffdd;
-                  box-shadow: 0 0 8px rgba(61,155,106,0.35); }
-
-.btn-acc {
-  font-size: 16px;
-  min-width: 36px;
-  padding: 5px 10px;
-  justify-content: center;
+.ft-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
-
-/* Danger / file variants */
-.btn-danger  { background:#3a1e1e; border-color:#5e3030; color:#e08080; }
-.btn-danger:hover  { background:#552525; border-color:var(--danger-hi); color:#ffa0a0; }
-.btn-file    { background: rgba(90,74,26,0.3); border-color:#5a4a1a; color:#c8a840; }
-.btn-file:hover    { background: rgba(90,74,26,0.5); border-color:var(--file-hi); color:#f0d060; }
-
-/* Legacy compat — keep .dur selector working for JS */
-.dur { /* handled by .btn-dur */ }
-
-/* ── SCORE WRAPPER ──────────────────────────── */
-#score-wrap {
-  flex: 1; padding: 24px 32px;
-  overflow-y: auto;
-}
-#score-container {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 3px 24px rgba(0,0,0,.18);
-  position: relative;
-  overflow: hidden;
-  min-height: 320px;
-}
-#score-header {
-  text-align: center;
-  padding: 22px 20px 0;
-  user-select: none;
-}
-#score-header .sc-title    { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-#score-header .sc-composer { font-size: 13px; color: #666; margin-top: 3px; }
-
-/* The area where VexFlow renders */
-#vf-area {
-  position: relative;
-  min-height: 160px;
-  padding-bottom: 24px;
-}
-#vf-container { display: block; }
-
-/* Ghost note canvas — absolute over vf-area */
-#ghost-canvas {
-  position: absolute; top: 0; left: 0;
-  pointer-events: none;
-  z-index: 5;
+.ft-row + .ft-row { margin-top: 8px; }
+.ft-row::-webkit-scrollbar { display: none; }
+.ft-sep {
+  width: 1px;
+  min-width: 1px;
+  background: rgba(255,255,255,.08);
+  margin: 0 2px;
 }
 
-/* Hover/click overlay */
-#hit-overlay {
-  position: absolute; top: 0; left: 0;
-  width: 100%; height: 100%;
-  cursor: crosshair;
-  z-index: 10;
+#sel-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--status-h) + 136px);
+  background: linear-gradient(135deg, rgba(124,111,205,.98), rgba(160,143,255,.98));
+  color: white;
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 85;
+  box-shadow: 0 12px 28px rgba(73,63,132,.38);
+}
+#sel-desc { flex: 1; font-size: 14px; }
+#sel-bar .btn-primary { width: auto; min-width: 144px; background: rgba(255,255,255,.14); }
+
+#statusbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--status-h);
+  background: rgba(15,18,34,.98);
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  color: var(--text-lo);
+  font-size: 11px;
+  z-index: 100;
+  backdrop-filter: blur(16px);
+}
+.st-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.st-item.st-extra { display: none; }
+.st-val { color: #aeb4ff; font-weight: 600; }
+.st-mode { margin-left: auto; }
+.st-hint {
+  display: none;
+  margin-left: auto;
+  color: #7479a8;
+  text-align: right;
 }
 
-/* Empty state hint */
-#empty-hint {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: #bbb; font-size: 14px; text-align: center;
-  pointer-events: none; z-index: 2;
-  line-height: 1.8;
-}
-
-/* ── NOTE TOOLTIP ───────────────────────────── */
 #tooltip {
   position: fixed;
   background: var(--bg-dark);
   color: #aaddff;
   border: 1px solid var(--accent);
-  padding: 4px 10px; border-radius: 6px;
-  font-size: 13px; font-weight: 700;
-  pointer-events: none; z-index: 9999;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 160;
   display: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
 }
 
-/* ── STATUS BAR ─────────────────────────────── */
-#statusbar {
-  background: var(--bg-dark);
-  padding: 5px 20px;
-  font-size: 11px; color: var(--text-lo);
-  display: flex; gap: 20px; align-items: center;
-  flex-shrink: 0;
+.bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 18px 18px 0 0;
+  background: var(--bg-panel);
+  border: 1px solid rgba(255,255,255,.07);
+  transform: translateY(100%);
+  transition: transform .25s ease;
+  z-index: 100;
+  padding: 10px 14px calc(22px + env(safe-area-inset-bottom, 0px));
+  max-height: min(82vh, 720px);
+  overflow-y: auto;
+  box-shadow: 0 -18px 48px rgba(0,0,0,.38);
 }
-.st-item { display: flex; align-items: center; gap: 4px; }
-.st-val  { color: #9999ee; font-weight: 600; }
-.st-hint { margin-left: auto; font-size: 10px; color: #666688; }
-
-/* ── SHORTCUT BAR ───────────────────────────── */
-#kbbar {
-  background: #111125;
-  padding: 4px 20px;
-  font-size: 10px; color: #666688;
-  display: flex; gap: 18px; flex-wrap: wrap;
-  flex-shrink: 0;
+.bottom-sheet.open { transform: translateY(0); }
+.sheet-handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.22);
+  margin: 0 auto 10px;
 }
-kbd {
-  background: #1e1e3a; color: #7777bb;
-  padding: 1px 5px; border-radius: 3px; font-size: 10px;
-  border: 1px solid #2d2d5e;
-}
-
-/* ── TRANSPOSE PANEL ────────────────────────────────── */
-#transpose-panel {
-  background: #181830;
-  border-bottom: 2px solid var(--bg-darkest);
-  padding: 8px 20px;
-  display: none;
+.sheet-header {
+  display: flex;
   align-items: center;
   gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.sheet-header h3 { font-size: 18px; color: #f4f5ff; }
+.sheet-header button {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+}
+#sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 99;
+  display: none;
+}
+
+.part-card, .target-card, .stat-row, .warn-item, .meta-chip {
+  border-radius: 14px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.part-card {
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.part-name { font-weight: 700; color: #f1f2ff; }
+.part-meta { margin-top: 4px; color: var(--text-mid); font-size: 13px; }
+.sheet-meta-row {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+#meta-bar {
+  display: grid;
+  gap: 10px;
+}
+.meta-g {
+  display: grid;
+  gap: 6px;
+}
+#meta-bar label {
+  color: var(--text-lo);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+#meta-bar input,
+#meta-bar select,
+#custom-semitones {
+  width: 100%;
+  min-height: 44px;
+  background: #121228;
+  border: 1px solid #2a2a55;
+  color: var(--text-hi);
+  padding: 0 12px;
+  border-radius: 12px;
+}
+#parts-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.meta-chip {
+  padding: 10px 12px;
+  color: var(--text-mid);
+  font-size: 13px;
+}
+.meta-chip strong { display: block; color: #f3f4ff; font-size: 14px; }
+
+#kb-shortcuts {
+  margin-top: 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  overflow: hidden;
+}
+#kb-shortcuts summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px;
+  font-weight: 600;
+  color: #f4f5ff;
+}
+#kb-shortcuts summary::-webkit-details-marker { display: none; }
+#kbbar {
+  display: grid;
+  gap: 8px;
+  padding: 0 14px 14px;
+  color: var(--text-mid);
+  font-size: 12px;
+}
+#kbbar span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
-  flex-shrink: 0;
-  animation: slideDown .12s ease;
 }
-@keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-#transpose-panel .tp-label { color: var(--text-mid); font-size: 12px; white-space: nowrap; }
-#interval-select {
-  background: #121228; border: 1px solid #3a3a7e;
-  color: var(--text-hi); padding: 4px 10px; border-radius: 4px;
-  font-size: 12px; outline: none; cursor: pointer;
+kbd {
+  background: #1e1e3a;
+  color: #cfd3ff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid #2d2d5e;
+  font-size: 11px;
 }
-#interval-select:focus { border-color: var(--accent); }
+
+.direction-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.dir-btn {
+  flex: 1;
+  border-radius: 12px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--text-mid);
+}
+.dir-btn.active {
+  background: rgba(124,111,205,.26);
+  border-color: rgba(160,143,255,.4);
+  color: #fff;
+}
+.interval-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.interval-chip {
+  padding: 0 10px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--text-mid);
+}
+.interval-chip.active {
+  background: rgba(58,123,213,.26);
+  border-color: rgba(90,155,245,.42);
+  color: white;
+}
+#custom-wrap { display: none; margin-bottom: 12px; }
+#custom-wrap.show { display: block; }
+#interval-preview {
+  margin-bottom: 12px;
+  color: #d5d8f9;
+  font-weight: 700;
+}
+.honesty-note { color: var(--text-mid); font-size: 13px; margin-bottom: 14px; }
+.btn-apply, .btn-export { width: 100%; }
+
+#result-badge, .chip, .badge-ok, .badge-local, .badge-warn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.badge-ok { background: rgba(46,94,62,.28); color: #9fe2b7; border: 1px solid rgba(102,204,136,.35); }
+.badge-local { background: rgba(90,74,26,.24); color: #f0d98f; border: 1px solid rgba(200,168,64,.35); }
+.badge-warn { background: rgba(126,46,46,.25); color: #ffb2b2; border: 1px solid rgba(204,102,102,.3); }
+#result-stats {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat-row {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stat-row span { color: var(--text-mid); }
+.stat-row strong { color: #fff; }
+.warn-item {
+  padding: 12px 14px;
+  color: #ffd9a8;
+  margin-bottom: 8px;
+}
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+#pipeline-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.chip { background: rgba(255,255,255,.06); color: var(--text-mid); border: 1px solid rgba(255,255,255,.08); }
+.chip-ok { background: rgba(46,94,62,.22); color: #9fe2b7; border-color: rgba(102,204,136,.24); }
+.chip-gray { background: rgba(255,255,255,.04); color: #868ab3; }
+
+#processing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  background: rgba(7, 10, 20, .72);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: white;
+}
+.proc-spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: rgba(124,111,205,.18);
+  border: 1px solid rgba(160,143,255,.35);
+  font-size: 28px;
+  animation: spinPulse 1s ease-in-out infinite;
+}
+@keyframes spinPulse {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: .7; }
+  50% { transform: scale(1.08) rotate(180deg); opacity: 1; }
+}
+.proc-text { color: #e6e8ff; font-size: 15px; }
+.proc-error {
+  max-width: 320px;
+  padding: 14px 16px;
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(126,46,46,.36);
+  border: 1px solid rgba(204,102,102,.35);
+}
+
+@media (min-width: 768px) {
+  #score-wrap { padding: 18px 18px calc(var(--status-h) + 192px); }
+  #empty-drop { min-height: 520px; }
+  #meta-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .result-actions { flex-direction: row; }
+  .result-actions > * { flex: 1; }
+  .st-item.st-extra, .st-hint { display: inline-flex; }
+  .st-mode { margin-left: 0; }
+}
+
+@media (min-width: 1024px) {
+  #header { padding: 0 16px; }
+  #step-bar {
+    position: fixed;
+    top: 0;
+    left: 280px;
+    right: 16px;
+    height: var(--header-h);
+    padding: 0;
+    background: transparent;
+    border-bottom: 0;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+  #step-bar .step { pointer-events: auto; }
+  #score-wrap {
+    padding: 132px 456px calc(var(--status-h) + 24px) 16px;
+  }
+  body[data-state="empty"] #score-wrap { padding: 92px 456px calc(var(--status-h) + 24px) 16px; }
+  body[data-state="result"] #score-wrap { padding: 132px 456px calc(var(--status-h) + 24px) 16px; }
+  #float-toolbar {
+    top: calc(var(--header-h) + 12px);
+    bottom: auto;
+    left: 16px;
+    right: 456px;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 18px;
+    box-shadow: 0 14px 32px rgba(0,0,0,.22);
+    padding: 12px 14px;
+  }
+  .ft-row { overflow: visible; flex-wrap: wrap; }
+  .btn-dur { min-width: 84px; flex: 0 0 auto; }
+  #sel-bar {
+    left: auto;
+    right: 468px;
+    bottom: auto;
+    top: calc(var(--header-h) + 136px);
+    width: 360px;
+  }
+  #statusbar { padding: 0 16px; }
+  .bottom-sheet {
+    top: calc(var(--header-h) + 12px);
+    bottom: calc(var(--status-h) + 12px);
+    left: auto;
+    right: 16px;
+    width: 420px;
+    max-height: none;
+    border-radius: 22px;
+    transform: translateX(110%);
+    padding-bottom: 18px;
+  }
+  .bottom-sheet.open { transform: translateX(0); }
+  .sheet-handle { display: none; }
+  .interval-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
 </style>
 </head>
-<body>
+<body data-state="empty">
+  <div id="header">
+    <h1>🎵 BAGO Music</h1>
+    <span id="version-badge" class="badge badge-version">v3.0 · Mobile</span>
+    <span id="mode-badge" class="badge badge-offline">🔧 Offline</span>
+    <span id="sel-pill" hidden>0 notas</span>
+  </div>
 
-<!-- ── HEADER ── -->
-<div id="header">
-  <h1>🎵 BAGO Music Score Editor</h1>
-  <span class="badge">v2.0 · Phase 7</span>
-  <span class="badge" style="margin-left:auto;">Editor de Partituras · Single-file</span>
-</div>
+  <div id="step-bar" hidden>
+    <span class="step active" data-step="1">① Abrir</span>
+    <span class="step" data-step="2">② Partitura</span>
+    <span class="step" data-step="3">③ Transponer</span>
+    <span class="step" data-step="4">④ Resultado</span>
+  </div>
 
-<!-- ── METADATA BAR ── -->
-<div id="meta-bar">
-  <div class="meta-g">
-    <label>Título</label>
-    <input type="text" id="m-title" value="Mi Composición" style="width:155px" oninput="onMeta()">
-  </div>
-  <div class="meta-g">
-    <label>Compositor</label>
-    <input type="text" id="m-composer" value="Compositor" style="width:120px" oninput="onMeta()">
-  </div>
-  <div class="meta-g">
-    <label>Clave</label>
-    <select id="m-clef" onchange="onMeta()">
-      <option value="treble">Sol (Treble)</option>
-      <option value="bass">Fa (Bass)</option>
-    </select>
-  </div>
-  <div class="meta-g">
-    <label>Compás</label>
-    <select id="m-time" onchange="onMeta()">
-      <option value="4/4">4/4</option>
-      <option value="3/4">3/4</option>
-      <option value="2/4">2/4</option>
-      <option value="6/8">6/8</option>
-    </select>
-  </div>
-  <div class="meta-g">
-    <label>Armadura</label>
-    <select id="m-key" onchange="onMeta()">
-      <option value="C">Do Mayor (C)</option>
-      <option value="G">Sol Mayor (G) ♯</option>
-      <option value="D">Re Mayor (D) ♯♯</option>
-      <option value="A">La Mayor (A) ♯♯♯</option>
-      <option value="F">Fa Mayor (F) ♭</option>
-      <option value="Bb">Sib Mayor (Bb) ♭♭</option>
-      <option value="Am">La menor (Am)</option>
-      <option value="Em">Mi menor (Em) ♯</option>
-    </select>
-  </div>
-</div>
-
-<!-- ── TOOLBAR ── -->
-<div id="toolbar">
-
-  <!-- Row 1: File operations + primary play/export actions -->
-  <div class="tb-row tb-row-1">
-    <button class="btn btn-file" onclick="document.getElementById('file-input').click()" title="Abrir archivo MusicXML (.xml, .musicxml)">📂 Abrir partitura</button>
-    <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
-    <button class="btn btn-file" onclick="loadMusicXML(EXAMPLE_SCORE)" title="Cargar ejemplo: Nostalgia en La menor — 3 voces, La menor, 3/4, Andante">📖 Ejemplo melancólico</button>
-    <div class="tb-spacer">
-      <button class="btn-primary btn-play-primary" id="btn-play"   onclick="togglePlay()"     title="Reproducir / Detener (Espacio)">▶ Reproducir</button>
-      <button class="btn-primary btn-export-primary" id="btn-export" onclick="exportMusicXML()" title="Exportar a MusicXML 3.1">↓ Exportar MusicXML</button>
+  <div id="score-wrap">
+    <div id="empty-drop">
+      <div class="drop-icon">🎵</div>
+      <div class="drop-title">Abre una partitura</div>
+      <div class="drop-sub">.xml · .musicxml · file:/// compatible</div>
+      <button class="btn-primary btn-open" onclick="document.getElementById('file-input').click()">📂 Abrir archivo</button>
+      <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
+      <button class="btn-secondary" onclick="loadMusicXML(EXAMPLE_SCORE)">📖 Ejemplo melancólico</button>
+      <div id="recent-list"></div>
     </div>
-  </div>
 
-  <!-- Row 2: Duration cards + modifier toggles -->
-  <div class="tb-row tb-row-2">
-    <span class="tb-lbl">Duración</span>
-
-    <button class="btn-dur dur" id="d-w"  onclick="setDur('w')"  title="Redonda — 4 tiempos (tecla 1)">
-      <span class="dur-symbol"><span class="ns-whole"></span></span>
-      <span class="dur-name">Redonda</span>
-    </button>
-    <button class="btn-dur dur" id="d-h"  onclick="setDur('h')"  title="Blanca — 2 tiempos (tecla 2)">
-      <span class="dur-symbol"><span class="ns-half"></span></span>
-      <span class="dur-name">Blanca</span>
-    </button>
-    <button class="btn-dur dur active" id="d-q"  onclick="setDur('q')"  title="Negra — 1 tiempo (tecla 4)">
-      <span class="dur-symbol"><span class="ns-quarter"></span></span>
-      <span class="dur-name">Negra</span>
-    </button>
-    <button class="btn-dur dur" id="d-8"  onclick="setDur('8')"  title="Corchea — ½ tiempo (tecla 5)">
-      <span class="dur-symbol">♩</span>
-      <span class="dur-name">Corchea</span>
-    </button>
-    <button class="btn-dur dur" id="d-16" onclick="setDur('16')" title="Semicorchea — ¼ tiempo (tecla 6)">
-      <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">16</span>
-      <span class="dur-name">Semicorchea</span>
-    </button>
-    <button class="btn-dur dur" id="d-32" onclick="setDur('32')" title="Fusa — ⅛ tiempo (tecla 7)">
-      <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">32</span>
-      <span class="dur-name">Fusa</span>
-    </button>
-
-    <div class="tb-sep"></div>
-
-    <button class="btn btn-mod" id="btn-dot"  onclick="toggleDot()"  title="Puntillo — suma 50% de duración (tecla .)">· Puntillo</button>
-    <button class="btn btn-mod" id="btn-rest" onclick="toggleRest()" title="Silencio — pausa en lugar de nota (tecla R)">𝄽 Silencio</button>
-  </div>
-
-  <!-- Row 3: Accidentals + destructive actions + transpose -->
-  <div class="tb-row tb-row-3">
-    <span class="tb-lbl">Alteración</span>
-
-    <button class="btn acc btn-acc" id="a-sharp"   onclick="setAcc('#')" title="Sostenido ♯">♯ Sostenido</button>
-    <button class="btn acc btn-acc" id="a-flat"    onclick="setAcc('b')" title="Bemol ♭">♭ Bemol</button>
-    <button class="btn acc btn-acc" id="a-natural" onclick="setAcc('n')" title="Becuadro ♮">♮ Becuadro</button>
-
-    <div class="tb-sep"></div>
-
-    <button class="btn btn-danger" onclick="deleteLast()" title="Borrar última nota (Delete / Backspace)">⌫ Borrar última</button>
-    <button class="btn btn-danger" onclick="clearAll()"   title="Borrar todo">✕ Limpiar todo</button>
-
-    <div class="tb-sep"></div>
-
-    <button class="btn" id="btn-transpose" onclick="openTransposePanel()" title="Transponer notas seleccionadas" style="display:none">🎵 Transponer selección</button>
-  </div>
-
-</div>
-
-<!-- ── TRANSPOSE PANEL ── -->
-<div id="transpose-panel">
-  <span class="tp-label">🎵 Transponer selección —</span>
-  <span class="tp-label">Intervalo:</span>
-  <select id="interval-select">
-    <option value="1">Subir +m2 (1 semitono)</option>
-    <option value="2" selected>Subir +M2 (1 tono)</option>
-    <option value="3">Subir +m3 (3ª menor)</option>
-    <option value="4">Subir +M3 (3ª mayor)</option>
-    <option value="5">Subir +P4 (4ª justa)</option>
-    <option value="7">Subir +P5 (5ª justa)</option>
-    <option value="12">Subir +P8 (octava)</option>
-    <option value="-1">Bajar −m2 (1 semitono)</option>
-    <option value="-2">Bajar −M2 (1 tono)</option>
-    <option value="-3">Bajar −m3 (3ª menor)</option>
-    <option value="-4">Bajar −M3 (3ª mayor)</option>
-    <option value="-5">Bajar −P4 (4ª justa)</option>
-    <option value="-7">Bajar −P5 (5ª justa)</option>
-    <option value="-12">Bajar −P8 (octava)</option>
-  </select>
-  <button class="btn" style="background:#2a4a2a;border-color:#4a8a4a;color:#88cc88;" onclick="applyTranspose()">✓ Aplicar</button>
-  <button class="btn" style="background:#3a1e1e;border-color:#5e3030;color:#e08080;" onclick="closeTransposePanel()">✕ Cancelar</button>
-</div>
-
-<!-- Floating note label -->
-<div id="tooltip"></div>
-
-<!-- ── SCORE AREA ── -->
-<div id="score-wrap">
-  <div id="score-container">
-    <div id="score-header">
-      <div class="sc-title"    id="sc-title">Mi Composición</div>
-      <div class="sc-composer" id="sc-composer">Compositor</div>
-    </div>
-    <div id="vf-area">
-      <div id="vf-container"></div>
-      <canvas id="ghost-canvas"></canvas>
-      <div id="hit-overlay"></div>
-      <div id="empty-hint">
-        🎵 Haz clic aquí para colocar notas<br>
-        <small>Selecciona duración en la barra de herramientas</small>
+    <div id="score-container">
+      <div id="score-header">
+        <div class="sc-title" id="sc-title">Mi Composición</div>
+        <div class="sc-composer" id="sc-composer">Compositor</div>
+      </div>
+      <div id="vf-area">
+        <div id="vf-container"></div>
+        <canvas id="ghost-canvas"></canvas>
+        <div id="hit-overlay"></div>
+        <div id="empty-hint">🎵 Haz clic aquí para colocar notas<br><small>Selecciona duración en la barra flotante</small></div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ── STATUS BAR ── -->
-<div id="statusbar">
-  <div class="st-item">Notas: <span class="st-val" id="st-n">0</span></div>
-  <div class="st-item">Compases: <span class="st-val" id="st-m">1</span></div>
-  <div class="st-item">Duración: <span class="st-val" id="st-d">Negra (♩)</span></div>
-  <div class="st-item">Alteración: <span class="st-val" id="st-a">—</span></div>
-  <div class="st-item">Modo: <span class="st-val" id="st-mode">Nota</span></div>
-  <span class="st-hint">Teclado numérico para duración · clic en pentagrama para añadir nota</span>
-</div>
+  <div id="float-toolbar">
+    <div class="ft-row">
+      <button class="btn-dur dur active" id="d-q" onclick="setDur('q')">
+        <span class="dur-symbol"><span class="ns-quarter"></span></span>
+        <span class="dur-name">Negra</span>
+      </button>
+      <button class="btn-dur dur" id="d-w" onclick="setDur('w')">
+        <span class="dur-symbol"><span class="ns-whole"></span></span>
+        <span class="dur-name">Redonda</span>
+      </button>
+      <button class="btn-dur dur" id="d-h" onclick="setDur('h')">
+        <span class="dur-symbol"><span class="ns-half"></span></span>
+        <span class="dur-name">Blanca</span>
+      </button>
+      <button class="btn-dur dur" id="d-8" onclick="setDur('8')">
+        <span class="dur-symbol">♪</span>
+        <span class="dur-name">Corchea</span>
+      </button>
+      <button class="btn-dur dur" id="d-16" onclick="setDur('16')">
+        <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">16</span>
+        <span class="dur-name">Semicorchea</span>
+      </button>
+      <button class="btn-dur dur" id="d-32" onclick="setDur('32')">
+        <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">32</span>
+        <span class="dur-name">Fusa</span>
+      </button>
+      <div class="ft-sep"></div>
+      <button class="btn-mod" id="btn-dot" onclick="toggleDot()">· Puntillo</button>
+      <button class="btn-mod" id="btn-rest" onclick="toggleRest()">𝄽 Silencio</button>
+    </div>
+    <div class="ft-row">
+      <button class="btn btn-acc acc" id="a-sharp" onclick="setAcc('#')">♯</button>
+      <button class="btn btn-acc acc" id="a-flat" onclick="setAcc('b')">♭</button>
+      <button class="btn btn-acc acc" id="a-natural" onclick="setAcc('n')">♮</button>
+      <div class="ft-sep"></div>
+      <button class="btn btn-danger" onclick="deleteLast()">⌫</button>
+      <button class="btn btn-danger" onclick="clearAll()">✕</button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn" id="btn-transpose" hidden onclick="showTransposeSheet()">🎵 Selección</button>
+        <button class="btn" onclick="showPartsSheet()">≡ Partes</button>
+        <button class="btn btn-play" id="btn-play" onclick="togglePlay()">▶</button>
+      </div>
+    </div>
+  </div>
 
-<!-- ── KEYBOARD SHORTCUTS ── -->
-<div id="kbbar">
-  <span><kbd>1</kbd> Redonda</span>
-  <span><kbd>2</kbd> Blanca</span>
-  <span><kbd>4</kbd> Negra</span>
-  <span><kbd>5</kbd> Corchea</span>
-  <span><kbd>6</kbd> Semicorchea</span>
-  <span><kbd>7</kbd> Fusa</span>
-  <span><kbd>R</kbd> Silencio</span>
-  <span><kbd>.</kbd> Puntillo</span>
-  <span><kbd>↑</kbd><kbd>↓</kbd> Sube/baja octava (última nota)</span>
-  <span><kbd>Del</kbd> Borrar última</span>
-  <span><kbd>Espacio</kbd> Reproducir</span>
-</div>
+  <div id="sel-bar" hidden>
+    <span id="sel-desc">0 notas seleccionadas</span>
+    <button class="btn-primary" onclick="showTransposeSheet()">🎵 Transponer →</button>
+  </div>
 
-<!-- ══════════════════════════════════════════════════════════════════
-     JAVASCRIPT ENGINE
-══════════════════════════════════════════════════════════════════ -->
+  <div id="statusbar">
+    <span class="st-item">Notas: <span class="st-val" id="st-n">0</span></span>
+    <span class="st-item">Compases: <span class="st-val" id="st-m">1</span></span>
+    <span class="st-item st-extra">Duración: <span class="st-val" id="st-d">Negra (♩)</span></span>
+    <span class="st-item st-extra">Alteración: <span class="st-val" id="st-a">—</span></span>
+    <span class="st-item st-mode">Modo: <span class="st-val" id="st-mode">Nota</span></span>
+    <span class="st-hint" id="st-hint">clic para añadir nota</span>
+  </div>
+
+  <div id="sheet-parts" class="bottom-sheet" hidden>
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3>Estructura de la partitura</h3>
+      <button onclick="hideSheet('sheet-parts')">✕</button>
+    </div>
+    <div id="parts-content"></div>
+    <div class="sheet-meta-row">
+      <div id="meta-bar">
+        <div class="meta-g">
+          <label>Título</label>
+          <input type="text" id="m-title" value="Mi Composición" oninput="onMeta()">
+        </div>
+        <div class="meta-g">
+          <label>Compositor</label>
+          <input type="text" id="m-composer" value="Compositor" oninput="onMeta()">
+        </div>
+        <div class="meta-g">
+          <label>Clave</label>
+          <select id="m-clef" onchange="onMeta()">
+            <option value="treble">Sol (Treble)</option>
+            <option value="bass">Fa (Bass)</option>
+          </select>
+        </div>
+        <div class="meta-g">
+          <label>Compás</label>
+          <select id="m-time" onchange="onMeta()">
+            <option value="4/4">4/4</option>
+            <option value="3/4">3/4</option>
+            <option value="2/4">2/4</option>
+            <option value="6/8">6/8</option>
+          </select>
+        </div>
+        <div class="meta-g">
+          <label>Armadura</label>
+          <select id="m-key" onchange="onMeta()">
+            <option value="C">Do Mayor (C)</option>
+            <option value="G">Sol Mayor (G) ♯</option>
+            <option value="D">Re Mayor (D) ♯♯</option>
+            <option value="A">La Mayor (A) ♯♯♯</option>
+            <option value="F">Fa Mayor (F) ♭</option>
+            <option value="Bb">Sib Mayor (Bb) ♭♭</option>
+            <option value="Am">La menor (Am)</option>
+            <option value="Em">Mi menor (Em) ♯</option>
+          </select>
+        </div>
+      </div>
+      <div id="parts-summary"></div>
+      <details id="kb-shortcuts">
+        <summary>Atajos de teclado</summary>
+        <div id="kbbar">
+          <span><kbd>1</kbd> Redonda</span>
+          <span><kbd>2</kbd> Blanca</span>
+          <span><kbd>4</kbd> Negra</span>
+          <span><kbd>5</kbd> Corchea</span>
+          <span><kbd>6</kbd> Semicorchea</span>
+          <span><kbd>7</kbd> Fusa</span>
+          <span><kbd>R</kbd> Silencio</span>
+          <span><kbd>.</kbd> Puntillo</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> Sube/baja octava</span>
+          <span><kbd>Del</kbd> Borrar última</span>
+          <span><kbd>Espacio</kbd> Reproducir</span>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div id="sheet-transpose" class="bottom-sheet" hidden>
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3>Transponer selección</h3>
+      <button onclick="hideSheet('sheet-transpose')">✕</button>
+    </div>
+    <div id="target-summary"></div>
+    <div class="direction-toggle">
+      <button id="dir-up" class="dir-btn active" onclick="setDirection(1)">▲ Subir</button>
+      <button id="dir-dn" class="dir-btn" onclick="setDirection(-1)">▼ Bajar</button>
+    </div>
+    <div class="interval-grid"></div>
+    <div id="custom-wrap">
+      <label for="custom-semitones" style="display:block;color:var(--text-lo);font-size:12px;margin-bottom:6px;">Semitonos custom</label>
+      <input id="custom-semitones" type="number" value="2" min="-24" max="24" oninput="updateIntervalPreview()">
+    </div>
+    <div id="interval-preview">= +2 semitonos</div>
+    <p class="honesty-note">ℹ️ Silencios y duraciones no se modifican.</p>
+    <button class="btn-primary btn-apply" onclick="applyTransposeMain()">▶ Aplicar</button>
+  </div>
+
+  <div id="sheet-result" class="bottom-sheet" hidden>
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span id="result-badge" class="badge-local">🔧 Transposición local</span>
+      <button onclick="hideSheet('sheet-result')">✕</button>
+    </div>
+    <div id="result-stats"></div>
+    <div id="result-warnings"></div>
+    <div class="result-actions">
+      <button class="btn" onclick="backToEdit()">← Volver a editar</button>
+      <button class="btn-primary btn-export" onclick="exportMusicXML()">↓ Exportar MusicXML</button>
+    </div>
+    <div id="pipeline-chips"></div>
+  </div>
+
+  <div id="tooltip"></div>
+  <div id="sheet-backdrop" style="display:none"></div>
+
 <script>
 'use strict';
 
-// ─── VexFlow handle (filled on load) ───────────────────────────────
 let VF = null;
 
-// ─── APPLICATION STATE ─────────────────────────────────────────────
 const S = {
-  notes:     [],          // Array of note objects
-  dur:       'q',         // Current duration key
-  acc:       null,        // Current accidental: null | '#' | 'b' | 'n'
-  rest:      false,       // Rest mode
-  dotted:    false,       // Dotted note
+  notes:     [],
+  dur:       'q',
+  acc:       null,
+  rest:      false,
+  dotted:    false,
   title:     'Mi Composición',
   composer:  'Compositor',
   clef:      'treble',
   timeSig:   '4/4',
   keySig:    'C',
-
-  // Layout cache — filled during render
-  staves:    [],          // [{stave, x, y, w}]
-  noteBoxes: [],          // [{noteIdx, x, y, w, h}] — hit boxes for click selection
-  selected:  new Set(),   // Set of selected note indices
+  staves:    [],
+  noteBoxes: [],
+  selected:  new Set(),
+  xmlDoc:    null,
+  xmlMode:   'compose',
+  launcher:  false,
+  launcherUrl: 'http://localhost:7430',
+  transDir:  1,
+  transInterval: 'M2',
+  lastReport: null,
 };
+
+const DIATONIC_INTERVALS = {
+  P1:[0,0], m2:[1,1], M2:[2,1], m3:[3,2], M3:[4,2],
+  P4:[5,3], A4:[6,3], d5:[6,4], P5:[7,4],
+  m6:[8,5], M6:[9,5], m7:[10,6], M7:[11,6], P8:[12,7],
+};
+const DIATONIC_STEPS = ['c','d','e','f','g','a','b'];
+const STEP_TO_IDX = {c:0,d:1,e:2,f:3,g:4,a:5,b:6};
+
+function transposePitchDiatonic(step, octave, alter, semitones) {
+  const midi = noteToMidi(step, octave, alter);
+  const newMidi = midi + semitones;
+  const pc = ((newMidi % 12) + 12) % 12;
+  const newOct = Math.floor(newMidi / 12) - 1;
+  const SHARP_MAP = {0:['c',0],1:['c',1],2:['d',0],3:['d',1],4:['e',0],
+    5:['f',0],6:['f',1],7:['g',0],8:['g',1],9:['a',0],10:['a',1],11:['b',0]};
+  const [ns, na] = SHARP_MAP[pc];
+  return { step: ns, octave: newOct, alter: na };
+}
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────
 
@@ -993,7 +1468,6 @@ function onMeta() {
   document.getElementById('sc-composer').textContent = S.composer;
   schedRender();
 }
-
 // ─── NOTE ENTRY (click on staff) ───────────────────────────────────
 
 function getStaveAtSVGy(svgY) {
@@ -1028,7 +1502,6 @@ function addNote(pitch) {
   }
   schedRender();
 }
-
 // ─── HOVER & GHOST NOTE ────────────────────────────────────────────
 
 let _hoverAF = null;
@@ -1161,7 +1634,6 @@ function onOverlayClick(e) {
   const pitch = svgYtoPitch(svgY, staveInfo.y);
   addNote(pitch);
 }
-
 // ─── TOOLTIP ───────────────────────────────────────────────────────
 
 function showTooltip(x, y, text) {
@@ -1172,7 +1644,6 @@ function showTooltip(x, y, text) {
 function hideTooltip() {
   document.getElementById('tooltip').style.display = 'none';
 }
-
 // ─── KEYBOARD SHORTCUTS ────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
@@ -1204,7 +1675,6 @@ function shiftLastOctave(delta) {
     schedRender();
   }
 }
-
 // ─── AUDIO PLAYBACK (Tone.js) ──────────────────────────────────────
 
 let isPlaying = false;
@@ -1259,7 +1729,6 @@ function stopPlay() {
   document.getElementById('btn-play').textContent = '▶ Reproducir';
   document.getElementById('btn-play').classList.remove('active');
 }
-
 // ─── MUSICXML EXPORT ───────────────────────────────────────────────
 
 function exportMusicXML() {
@@ -1342,8 +1811,6 @@ function esc(s) {
     .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
-// ─── NOTE SELECTION ────────────────────────────────────────────────
-
 function findNoteAt(svgX, svgY) {
   for (const box of S.noteBoxes) {
     if (svgX >= box.x && svgX <= box.x + box.w &&
@@ -1365,62 +1832,57 @@ function toggleNoteSelection(noteIdx) {
 }
 
 function updateTransposeBtn() {
+  const n = S.selected.size;
   const btn = document.getElementById('btn-transpose');
-  if (btn) btn.style.display = S.selected.size > 0 ? '' : 'none';
+  const selBar = document.getElementById('sel-bar');
+  const selPill = document.getElementById('sel-pill');
+  const selDesc = document.getElementById('sel-desc');
+  if (btn) btn.hidden = (n === 0);
+  selBar.hidden = (n === 0);
+  selPill.hidden = (n === 0);
+  selPill.textContent = n + ' nota' + (n !== 1 ? 's' : '');
+  if (selDesc) selDesc.textContent = n + ' nota' + (n !== 1 ? 's' : '') + ' seleccionada' + (n !== 1 ? 's' : '');
+  if (n > 0) setState('selected');
+  else if (document.body.dataset.state === 'selected') setState(S.notes.length ? 'loaded' : 'empty');
 }
 
-// ─── TRANSPOSE PANEL ───────────────────────────────────────────────
-
 function openTransposePanel() {
-  const panel = document.getElementById('transpose-panel');
-  if (panel) panel.style.display = 'flex';
+  showTransposeSheet();
 }
 
 function closeTransposePanel() {
-  const panel = document.getElementById('transpose-panel');
-  if (panel) panel.style.display = 'none';
+  hideSheet('sheet-transpose');
 }
 
 function applyTranspose() {
-  const sel   = document.getElementById('interval-select');
-  const delta = parseInt(sel ? sel.value : '2', 10);
-  if (isNaN(delta)) return;
-
-  S.notes.forEach((note, idx) => {
-    if (note.rest || !S.selected.has(idx)) return;
-    const [step, octStr] = note.pitch.split('/');
-    const octave  = parseInt(octStr, 10);
-    const curAlter = note.acc === '#' ? 1 : note.acc === 'b' ? -1 : 0;
-    const midi     = noteToMidi(step, octave, curAlter);
-    const { step: ns, octave: no, alter: na } = midiToNote(midi + delta);
-    note.pitch = ns + '/' + no;
-    note.acc   = na === 1 ? '#' : na === -1 ? 'b' : null;
-  });
-
-  S.selected.clear();
-  updateTransposeBtn();
-  closeTransposePanel();
-  schedRender();
+  applyTransposeMain();
 }
-
-// ─── MUSICXML IMPORT ───────────────────────────────────────────────
 
 function onFileLoad(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => loadMusicXML(ev.target.result);
+  reader.onload = ev => {
+    const xmlText = ev.target.result;
+    storeRecentScore(file.name, xmlText);
+    loadMusicXML(xmlText);
+  };
   reader.readAsText(file, 'UTF-8');
-  e.target.value = ''; // allow re-loading same file
+  e.target.value = '';
 }
 
 function loadMusicXML(xmlStr) {
+  const rawDoc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+  const rawErr = rawDoc.querySelector('parsererror');
+  if (rawErr) { alert('Error al parsear MusicXML:\n' + rawErr.textContent.slice(0, 200)); return; }
+  S.xmlDoc = rawDoc;
+  S.xmlMode = 'edit';
+
   const parser = new DOMParser();
   const doc    = parser.parseFromString(xmlStr, 'application/xml');
   const xmlErr = doc.querySelector('parsererror');
   if (xmlErr) { alert('Error al parsear MusicXML:\n' + xmlErr.textContent.slice(0, 200)); return; }
 
-  // ── Metadata ──────────────────────────────────────────────────────
   const movTitle  = doc.querySelector('movement-title');
   const workTitle = doc.querySelector('work > work-title');
   const creator   = doc.querySelector('creator[type="composer"]');
@@ -1434,7 +1896,6 @@ function loadMusicXML(xmlStr) {
   document.getElementById('sc-title').textContent    = titleStr;
   document.getElementById('sc-composer').textContent = compStr;
 
-  // ── Time / Key / Clef from first <attributes> block ──────────────
   const firstAttrs = doc.querySelector('measure attributes');
   if (firstAttrs) {
     const beats    = firstAttrs.querySelector('beats')?.textContent?.trim();
@@ -1467,7 +1928,6 @@ function loadMusicXML(xmlStr) {
     }
   }
 
-  // ── Parse notes from first <part> ────────────────────────────────
   const TYPE_DUR = {
     'whole':'w', 'half':'h', 'quarter':'q', 'eighth':'8', '16th':'16', '32nd':'32',
   };
@@ -1476,7 +1936,7 @@ function loadMusicXML(xmlStr) {
 
   const notes = [];
   firstPart.querySelectorAll('note').forEach(noteEl => {
-    if (noteEl.querySelector('chord')) return; // skip chord duplicates
+    if (noteEl.querySelector('chord')) return;
     const isRest = !!noteEl.querySelector('rest');
     const typeEl = noteEl.querySelector('type');
     const dotted = !!noteEl.querySelector('dot');
@@ -1501,14 +1961,431 @@ function loadMusicXML(xmlStr) {
 
   S.selected.clear();
   S.notes = notes;
+  if (xmlStr === EXAMPLE_SCORE) storeRecentScore('Ejemplo melancólico', EXAMPLE_SCORE);
   updateTransposeBtn();
   schedRender();
+  renderPartsContent();
+  renderMetaSummary();
+  setState('loaded');
 }
 
-// ─── EXAMPLE SCORE ─────────────────────────────────────────────────
-// "Nostalgia en La menor" — 3 voces, La menor, 3/4, Andante — 8 compases
-// Cadencia andaluza descendente (Am→G→F→E) x2, resolución.
-// Divisions = 2 per quarter. quarter=2, half=4, dotted-half=6.
+async function detectLauncher() {
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 1500);
+    const r = await fetch(`${S.launcherUrl}/api/status`, { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (r.ok) {
+      S.launcher = true;
+      const badge = document.getElementById('mode-badge');
+      badge.textContent = '🔗 Pipeline';
+      badge.className = 'badge badge-pipeline';
+    }
+  } catch(_) {
+    S.launcher = false;
+    const badge = document.getElementById('mode-badge');
+    badge.textContent = '🔧 Offline';
+    badge.className = 'badge badge-offline';
+  }
+}
+
+function applyTransposeMain() {
+  const semitones = getSemitonesFromUI();
+  if (S.launcher) {
+    applyTransposePipeline(semitones);
+  } else {
+    applyTransposeLocal(semitones);
+  }
+}
+
+function applyTransposeLocal(semitones) {
+  const intervalName = getIntervalName();
+  let changed = 0, unchanged = 0;
+
+  if (S.xmlDoc && S.xmlMode === 'edit') {
+    let noteIdx = -1;
+    S.xmlDoc.querySelectorAll('note').forEach((noteEl) => {
+      if (noteEl.querySelector('chord')) return;
+      if (noteEl.querySelector('rest')) { unchanged++; return; }
+      noteIdx += 1;
+      const stepEl = noteEl.querySelector('pitch > step');
+      const octEl  = noteEl.querySelector('pitch > octave');
+      let altEl    = noteEl.querySelector('pitch > alter');
+      if (!stepEl || !octEl) { unchanged++; return; }
+      if (S.selected.size > 0 && !S.selected.has(noteIdx)) { unchanged++; return; }
+
+      const step   = stepEl.textContent.trim().toLowerCase();
+      const octave = parseInt(octEl.textContent.trim(), 10);
+      const alter  = altEl ? Math.round(parseFloat(altEl.textContent.trim())) : 0;
+      const result = transposePitchDiatonic(step, octave, alter, semitones);
+
+      stepEl.textContent = result.step.toUpperCase();
+      octEl.textContent  = String(result.octave);
+      if (result.alter !== 0) {
+        if (!altEl) {
+          const a = S.xmlDoc.createElement('alter');
+          a.textContent = String(result.alter);
+          noteEl.querySelector('pitch').appendChild(a);
+          altEl = a;
+        } else {
+          altEl.textContent = String(result.alter);
+        }
+      } else if (altEl) {
+        altEl.remove();
+      }
+      changed++;
+    });
+
+    const serialized = new XMLSerializer().serializeToString(S.xmlDoc);
+    S.notes = [];
+    loadMusicXML(serialized);
+  } else {
+    S.notes.forEach((note, idx) => {
+      if (note.rest || (S.selected.size > 0 && !S.selected.has(idx))) { unchanged++; return; }
+      const [st, octStr] = note.pitch.split('/');
+      const oct = parseInt(octStr, 10);
+      const curAlter = note.acc === '#' ? 1 : note.acc === 'b' ? -1 : 0;
+      const r = transposePitchDiatonic(st, oct, curAlter, semitones);
+      note.pitch = r.step + '/' + r.octave;
+      note.acc   = r.alter === 1 ? '#' : r.alter === -1 ? 'b' : null;
+      changed++;
+    });
+    schedRender();
+  }
+
+  S.lastReport = {
+    mode: 'local',
+    interval: intervalName,
+    semitones,
+    changed,
+    unchanged,
+    validated: false,
+    warnings: S.launcher ? [] : ['Transposición local — sin validación de pipeline BAGO'],
+  };
+
+  S.selected.clear();
+  updateTransposeBtn();
+  hideSheet('sheet-transpose');
+  showResultSheet();
+}
+
+async function applyTransposePipeline(semitones) {
+  showProcessing(true);
+  let ok = false;
+  try {
+    const xmlStr = S.xmlDoc
+      ? new XMLSerializer().serializeToString(S.xmlDoc)
+      : buildMusicXML();
+
+    const intervalName = getIntervalName();
+    const target = buildTargetString();
+
+    const r = await fetch(`${S.launcherUrl}/api/music/transpose`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ xml: xmlStr, target, semitones, interval: intervalName }),
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Pipeline error');
+
+    const parsedXml = new DOMParser().parseFromString(data.xml, 'application/xml');
+    if (parsedXml.querySelector('parsererror')) throw new Error('XML inválido devuelto por el pipeline');
+    S.xmlDoc = parsedXml;
+    S.xmlMode = 'edit';
+    S.notes = [];
+    S.selected.clear();
+    loadMusicXML(data.xml);
+
+    const vr = await fetch(`${S.launcherUrl}/api/music/validate`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ original: xmlStr, transposed: data.xml, target, semitones }),
+    });
+    const vdata = await vr.json();
+
+    S.lastReport = { mode: 'pipeline', ...data.report, ...vdata, validated: vdata.passed };
+    showResultSheet();
+    ok = true;
+  } catch(err) {
+    showProcessingError(err.message);
+  } finally {
+    if (ok) showProcessing(false);
+  }
+}
+
+function setState(name) {
+  document.body.dataset.state = name;
+  const steps = {empty:0, loaded:2, selected:3, result:4};
+  document.querySelectorAll('.step').forEach((s,i) => {
+    s.classList.toggle('active', i < (steps[name] || 1));
+    s.classList.toggle('current', i === (steps[name] || 1) - 1);
+  });
+  document.getElementById('step-bar').hidden = (name === 'empty');
+}
+
+function showPartsSheet()    { showSheet('sheet-parts'); renderPartsContent(); renderMetaSummary(); }
+function showTransposeSheet(){ showSheet('sheet-transpose'); renderTransposeContent(); }
+function showResultSheet()   { setState('result'); showSheet('sheet-result'); renderResultContent(); }
+function backToEdit()        { hideSheet('sheet-result'); setState(S.notes.length ? 'loaded' : 'empty'); }
+
+function showSheet(id) {
+  ['sheet-parts','sheet-transpose','sheet-result'].forEach(sid => {
+    if (sid !== id && !document.getElementById(sid).hidden) hideSheet(sid, true);
+  });
+  document.getElementById('sheet-backdrop').style.display = 'block';
+  const el = document.getElementById(id);
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('open'));
+}
+
+function hideSheet(id, immediate) {
+  const el = document.getElementById(id);
+  if (!el || el.hidden) return;
+  el.classList.remove('open');
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    el.hidden = true;
+    const anyOpen = ['sheet-parts','sheet-transpose','sheet-result']
+      .some(sid => !document.getElementById(sid).hidden && document.getElementById(sid).classList.contains('open'));
+    if (!anyOpen) document.getElementById('sheet-backdrop').style.display = 'none';
+  };
+  if (immediate) finish();
+  else {
+    el.addEventListener('transitionend', finish, {once:true});
+    setTimeout(finish, 320);
+  }
+}
+
+function renderPartsContent() {
+  const cont = document.getElementById('parts-content');
+  if (!S.xmlDoc) {
+    cont.innerHTML = '<p class="part-meta">No hay partitura cargada.</p>';
+    return;
+  }
+  const parts = Array.from(S.xmlDoc.querySelectorAll('score-part'));
+  cont.innerHTML = parts.map(p => {
+    const id = p.getAttribute('id');
+    const name = p.querySelector('part-name')?.textContent || id;
+    const partEl = S.xmlDoc.querySelector(`part[id="${id}"]`);
+    const measures = partEl ? partEl.querySelectorAll('measure').length : '?';
+    const notes = partEl ? Array.from(partEl.querySelectorAll('note')).filter(n => !n.querySelector('rest')).length : '?';
+    return `<div class="part-card">
+      <div class="part-name">${esc(name)}</div>
+      <div class="part-meta">${measures} compases · ${notes} notas</div>
+    </div>`;
+  }).join('') || '<p class="part-meta">No hay estructura disponible.</p>';
+}
+
+function renderMetaSummary() {
+  const host = document.getElementById('parts-summary');
+  if (!host) return;
+  host.innerHTML = [
+    ['Título', S.title || 'Sin título'],
+    ['Compositor', S.composer || 'Compositor'],
+    ['Clave', S.clef === 'treble' ? 'Sol' : 'Fa'],
+    ['Compás', S.timeSig],
+    ['Armadura', S.keySig],
+    ['Modo', S.launcher ? 'Pipeline BAGO' : 'Local JS'],
+  ].map(([label, value]) => `<div class="meta-chip"><strong>${esc(value)}</strong>${label}</div>`).join('');
+}
+
+function renderResultContent() {
+  const r = S.lastReport;
+  if (!r) return;
+  const badge = document.getElementById('result-badge');
+  badge.textContent = r.validated ? '✅ Válido · Pipeline BAGO' :
+    (r.mode === 'pipeline' ? '⚠️ Con advertencias' : '🔧 Transposición local');
+  badge.className = r.validated ? 'badge-ok' : (r.mode === 'local' ? 'badge-local' : 'badge-warn');
+
+  document.getElementById('result-stats').innerHTML = `
+    <div class="stat-row"><span>Notas transpuestas</span><strong>${r.changed ?? 0}</strong></div>
+    <div class="stat-row"><span>Sin cambio</span><strong>${r.unchanged ?? 0}</strong></div>
+    <div class="stat-row"><span>Intervalo</span><strong>${esc(r.interval || getIntervalName())}</strong></div>
+  `;
+
+  const chips = ['inventory','transpose','validate'];
+  document.getElementById('pipeline-chips').innerHTML = chips.map(c =>
+    `<span class="chip ${r.mode === 'pipeline' ? 'chip-ok' : 'chip-gray'}">${c.toUpperCase()} ${r.mode === 'pipeline' ? '✓' : '—'}</span>`
+  ).join('');
+
+  const warns = document.getElementById('result-warnings');
+  warns.innerHTML = (r.warnings || []).map(w => `<div class="warn-item">⚠️ ${esc(w)}</div>`).join('');
+}
+
+function getIntervalName() {
+  const sign = S.transDir > 0 ? '+' : '-';
+  return sign + S.transInterval;
+}
+
+function getSemitonesFromUI() {
+  if (S.transInterval === 'custom') {
+    const raw = parseInt(document.getElementById('custom-semitones')?.value || '2', 10);
+    return (isNaN(raw) ? 2 : Math.abs(raw || 0)) * S.transDir;
+  }
+  const entry = DIATONIC_INTERVALS[S.transInterval];
+  return entry ? entry[0] * S.transDir : 2 * S.transDir;
+}
+
+function setDirection(d) {
+  S.transDir = d;
+  document.getElementById('dir-up').classList.toggle('active', d > 0);
+  document.getElementById('dir-dn').classList.toggle('active', d < 0);
+  updateIntervalPreview();
+}
+
+function setIntervalChip(interval) {
+  S.transInterval = interval;
+  document.querySelectorAll('.interval-chip').forEach(b =>
+    b.classList.toggle('active', b.dataset.interval === interval));
+  document.getElementById('custom-wrap').classList.toggle('show', interval === 'custom');
+  updateIntervalPreview();
+}
+
+function updateIntervalPreview() {
+  const s = getSemitonesFromUI();
+  document.getElementById('interval-preview').textContent =
+    `= ${s > 0 ? '+' : ''}${s} semitono${Math.abs(s) !== 1 ? 's' : ''}`;
+}
+
+function renderTransposeContent() {
+  const ts = document.getElementById('target-summary');
+  if (S.selected.size > 0) {
+    ts.innerHTML = `<div class="target-card" style="padding:14px;margin-bottom:12px;">Selección: <strong>${S.selected.size} notas</strong></div>`;
+  } else {
+    ts.innerHTML = `<div class="target-card" style="padding:14px;margin-bottom:12px;">Toda la partitura · <strong>${S.notes.length} notas</strong></div>`;
+  }
+
+  const intervals = ['m2','M2','m3','M3','P4','P5','P8'];
+  const grid = document.querySelector('.interval-grid');
+  grid.innerHTML = intervals.map(iv =>
+    `<button class="interval-chip btn ${iv === S.transInterval ? 'active' : ''}"
+     data-interval="${iv}" onclick="setIntervalChip('${iv}')">${iv}</button>`
+  ).join('') +
+  `<button class="interval-chip btn ${S.transInterval === 'custom' ? 'active' : ''}"
+   data-interval="custom" onclick="setIntervalChip('custom')">Custom</button>`;
+
+  document.getElementById('custom-wrap').classList.toggle('show', S.transInterval === 'custom');
+  updateIntervalPreview();
+}
+
+function buildTargetString() {
+  if (S.selected.size === 0) return 'all';
+  return `notes:${Array.from(S.selected).join(',')}`;
+}
+
+function showProcessing(on) {
+  let overlay = document.getElementById('processing-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'processing-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '<div class="proc-spinner">◆</div><div class="proc-text">Aplicando pipeline…</div>';
+  overlay.style.display = on ? 'flex' : 'none';
+}
+
+function showProcessingError(msg) {
+  let overlay = document.getElementById('processing-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'processing-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div class="proc-error">❌ ${esc(msg)}</div><button class="btn" onclick="document.getElementById('processing-overlay').style.display='none'">Cerrar</button>`;
+  overlay.style.display = 'flex';
+}
+
+function storeRecentScore(name, xml) {
+  try {
+    const key = 'bago-music-recents';
+    const items = JSON.parse(localStorage.getItem(key) || '[]').filter(Boolean);
+    const next = [{ name, xml, savedAt: Date.now() }, ...items.filter(i => i.xml !== xml)].slice(0, 4);
+    localStorage.setItem(key, JSON.stringify(next));
+    renderRecentList();
+  } catch (_) {}
+}
+
+function renderRecentList() {
+  const host = document.getElementById('recent-list');
+  if (!host) return;
+  try {
+    const items = JSON.parse(localStorage.getItem('bago-music-recents') || '[]');
+    if (!items.length) {
+      host.innerHTML = '';
+      return;
+    }
+    host.innerHTML = items.map((item, idx) => `
+      <button class="recent-item" onclick='loadRecentScore(${idx})'>
+        <strong>${esc(item.name || 'Reciente')}</strong>
+        <small>${new Date(item.savedAt || Date.now()).toLocaleString()}</small>
+      </button>
+    `).join('');
+  } catch (_) {
+    host.innerHTML = '';
+  }
+}
+
+function loadRecentScore(idx) {
+  try {
+    const items = JSON.parse(localStorage.getItem('bago-music-recents') || '[]');
+    const item = items[idx];
+    if (item?.xml) loadMusicXML(item.xml);
+  } catch (_) {}
+}
+
+function syncAfterEdit() {
+  renderPartsContent();
+  renderMetaSummary();
+  if (S.notes.length === 0 && !S.xmlDoc) setState('empty');
+  else if (document.body.dataset.state !== 'result' && S.selected.size === 0) setState('loaded');
+}
+
+const _addNote = addNote;
+addNote = function(pitch) {
+  _addNote(pitch);
+  S.xmlMode = 'compose';
+  S.xmlDoc = null;
+  syncAfterEdit();
+};
+
+const _deleteLast = deleteLast;
+deleteLast = function() {
+  _deleteLast();
+  if (S.notes.length === 0) {
+    S.selected.clear();
+    updateTransposeBtn();
+    S.xmlMode = 'compose';
+    S.xmlDoc = null;
+  }
+  syncAfterEdit();
+};
+
+const _clearAll = clearAll;
+clearAll = function() {
+  _clearAll();
+  if (S.notes.length === 0) {
+    S.selected.clear();
+    updateTransposeBtn();
+    S.xmlDoc = null;
+    S.xmlMode = 'compose';
+    S.lastReport = null;
+    syncAfterEdit();
+  }
+};
+
+const _onMeta = onMeta;
+onMeta = function() {
+  _onMeta();
+  renderMetaSummary();
+};
+
+function onOverlayTouchStart(e) {
+  const t = e.touches && e.touches[0];
+  if (!t) return;
+  onOverlayClick({ clientX: t.clientX, clientY: t.clientY });
+}
 
 const EXAMPLE_SCORE = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN"
@@ -1654,38 +2531,40 @@ const EXAMPLE_SCORE = `<?xml version="1.0" encoding="UTF-8"?>
   </part>
 </score-partwise>`;
 
-// ─── INITIALISATION ────────────────────────────────────────────────
-
-function init() {
-  // Resolve VexFlow global (handles both Vex.Flow and VexFlow)
-  if (typeof Vex !== 'undefined' && Vex.Flow) {
-    VF = Vex.Flow;
-  } else if (typeof VexFlow !== 'undefined') {
-    VF = VexFlow;
-  } else {
-    document.getElementById('empty-hint').innerHTML =
-      '⚠️ VexFlow no se pudo cargar.<br><small>Comprueba tu conexión a internet y recarga la página.</small>';
+async function init() {
+  if (typeof Vex !== 'undefined' && Vex.Flow) VF = Vex.Flow;
+  else if (typeof VexFlow !== 'undefined') VF = VexFlow;
+  else {
+    document.getElementById('empty-drop').innerHTML += '<p style="color:#ffb3b3">⚠️ VexFlow no cargado</p>';
     return;
   }
 
-  // Wire up hover overlay
   const overlay = document.getElementById('hit-overlay');
   overlay.addEventListener('mousemove',  onOverlayMove);
   overlay.addEventListener('mouseleave', onOverlayLeave);
   overlay.addEventListener('click',      onOverlayClick);
-
-  // Window resize → re-render
+  overlay.addEventListener('touchstart', onOverlayTouchStart, {passive:true});
   window.addEventListener('resize', schedRender);
 
-  // Initial render
+  setState('empty');
   doRender();
   updateStatus(1);
   updateTransposeBtn();
+  renderMetaSummary();
+  renderRecentList();
 
-  console.log('%cBAGO Music Score Editor v1.0 — ready', 'color:#8888ff;font-weight:bold');
-  console.log('VexFlow loaded:', VF ? '✓' : '✗');
+  detectLauncher();
+
+  document.getElementById('sheet-backdrop').addEventListener('click', () => {
+    if (!document.getElementById('sheet-result').hidden) {
+      backToEdit();
+      return;
+    }
+    ['sheet-parts','sheet-transpose','sheet-result'].forEach(id => {
+      if (!document.getElementById(id).hidden) hideSheet(id);
+    });
+  });
 }
-
 window.addEventListener('load', init);
 </script>
 </body>
