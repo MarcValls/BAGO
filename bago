@@ -14,6 +14,10 @@ Uso:
   bago ideas --accept N   → acepta idea N y genera tarea W2
   bago task               → muestra la tarea W2 pendiente
   bago task --done        → marca la tarea como completada
+  bago task --assign ANALISTA → asigna la tarea activa a un agente
+  bago assign list-agents → lista agentes/roles disponibles
+  bago assign pending     → ideas sin agente asignado
+  bago assign assigned    → ideas con agente asignado
   bago session            → abre sesión W2 con preflight pre-rellenado
   bago session --dry      → muestra args del preflight sin ejecutar
   bago efficiency         → medidor de eficiencia inter-versiones
@@ -893,6 +897,12 @@ def main():
             [sys.executable, str(TOOLS / "agent_model_manager.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "assign":
+        # Asignación de tareas a agentes/roles CAP
+        subprocess.run(
+            [sys.executable, str(TOOLS / "task_assign.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
     elif cmd == "seed":
         # BAGO Seed — planta huella mínima en proyecto externo
         subprocess.run(
@@ -944,7 +954,7 @@ def main():
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas", "assign"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:

@@ -42,6 +42,12 @@ def _display(task: dict) -> None:
     print(f"  Prioridad : {task.get('priority', '—')}")
     print(f"  Workflow  : {task.get('workflow', '—')}")
     print(f"  Aceptada  : {task.get('accepted_at', '—')}")
+    # ── CAP assignment (si existe) ────────────────────────────────────────────
+    agent  = task.get("agent")
+    voices = task.get("voices")
+    if agent:
+        voice_str = f"  ·  voces: {voices}" if voices else ""
+        print(f"  Agente    : {agent}{voice_str}")
     print()
     print(f"  Objetivo   : {task.get('objetivo', '—')}")
     print(f"  Alcance    : {task.get('alcance', '—')}")
@@ -63,8 +69,9 @@ def _display(task: dict) -> None:
     print(f"  Siguiente paso: {task.get('siguiente_paso', '—')}")
     print()
     print("  Comandos:")
-    print("    bago task --done   → marcar completada")
-    print("    bago task --clear  → limpiar tarea")
+    print("    bago task --done            → marcar completada")
+    print("    bago task --assign ANALISTA → asignar a agente")
+    print("    bago task --clear           → limpiar tarea")
     print()
 
 
@@ -127,7 +134,43 @@ def _generate_session_close(task: dict) -> Path | None:
         return None
 
 
-def _reopen_from_continuity() -> int:
+def _assign_to_agent(task: dict, agent_ids: list[str]) -> int:
+    """Asigna la tarea activa (pending_w2_task.json + ideas DB) a agente(s)."""
+    import importlib.util
+    tool_path = Path(__file__).parent / "task_assign.py"
+    if not tool_path.exists():
+        print("  ⚠  task_assign.py no encontrado. Asignando sólo en JSON.")
+        task["agent"] = agent_ids[0]
+        if len(agent_ids) > 1:
+            task["voices"] = ",".join(agent_ids)
+        TASK_FILE.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+        return 0
+
+    spec = importlib.util.spec_from_file_location("task_assign", str(tool_path))
+    mod  = importlib.util.module_from_spec(spec)          # type: ignore[arg-type]
+    spec.loader.exec_module(mod)                           # type: ignore[union-attr]
+
+    idea_id = task.get("idea_id") or task.get("id") or task.get("idea_index")
+    if not idea_id:
+        print("  ⚠  La tarea no tiene idea_id. Solo actualizo el JSON.")
+        task["agent"] = agent_ids[0]
+        if len(agent_ids) > 1:
+            task["voices"] = ",".join(agent_ids)
+        TASK_FILE.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+        return 0
+
+    rc = mod.cmd_assign(str(idea_id), agent_ids)
+
+    # Actualizar también el JSON en memoria
+    if rc == 0:
+        task["agent"] = agent_ids[0]
+        if len(agent_ids) > 1:
+            task["voices"] = ",".join(agent_ids)
+        TASK_FILE.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+    return rc
+
+
+
     """
     Muestra el artefacto de la última sesión cerrada para retomar el contexto.
     Ayuda a reactivar la sesión sin reconstruir contexto manualmente.
@@ -207,6 +250,21 @@ def main() -> int:
     done   = "--done"   in args
     reopen = "--reopen" in args
 
+    # ── --assign <agent> [agent2] [agent3] ───────────────────────────────────
+    assign_agents: list[str] = []
+    if "--assign" in args:
+        idx = args.index("--assign")
+        # Collect all following positional args (not starting with --)
+        for a in args[idx + 1:]:
+            if a.startswith("--"):
+                break
+            assign_agents.append(a)
+        if not assign_agents:
+            print("  ✗ --assign requiere al menos un agente.")
+            print("    Uso: bago task --assign ANALISTA [ARQUITECTO]")
+            print("    Ver agentes: bago assign list-agents")
+            return 1
+
     if reopen:
         return _reopen_from_continuity()
 
@@ -225,6 +283,10 @@ def main() -> int:
         print("     Acepta una idea con: bago ideas --accept N")
         print()
         return 0
+
+    # ── Asignación a agente ──────────────────────────────────────────────────
+    if assign_agents:
+        return _assign_to_agent(task, assign_agents)
 
     if done:
         task["status"] = "done"

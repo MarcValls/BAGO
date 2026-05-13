@@ -225,6 +225,56 @@ def _load_intents() -> list:
     return INTENTS
 
 
+# ── CAP voice-role mapping ─────────────────────────────────────────────────
+# Mapa de intención → roles sugeridos por ShepardCycle.
+# El Orquestador selecciona voces complementarias, nunca solapadas, máx 3.
+_INTENT_VOICES: dict = {
+    "security_check":        ["SECURITY_REVIEWER", "ANALISTA"],
+    "quality_check":         ["ANALISTA", "VALIDADOR"],
+    "merge_readiness":       ["VALIDADOR", "ANALISTA"],
+    "architecture_review":   ["ARQUITECTO", "ANALISTA"],
+    "performance_check":     ["PERFORMANCE_REVIEWER", "ANALISTA"],
+    "release_prep":          ["ORGANIZADOR", "VALIDADOR"],
+    "bago_fix":              ["ANALISTA", "ORGANIZADOR"],
+    "context_sync":          ["ORGANIZADOR"],
+    "test_run":              ["VALIDADOR"],
+    "docs":                  ["GENERADOR"],
+    "ux_review":             ["UX_REVIEWER", "ANALISTA"],
+    "integration_check":     ["INTEGRATOR", "ARQUITECTO"],
+}
+
+
+def _cap_activate_voices(intent_id: str, task_desc: str, dry_run: bool = False) -> None:
+    """
+    ShepardCycle: activa las voces (roles) CAP apropiadas para la intención.
+    Llamada silenciosamente al enrutar — no interrumpe el flujo principal.
+    """
+    voices = _INTENT_VOICES.get(intent_id, [])
+    if not voices:
+        return
+    try:
+        import importlib.util
+        vc_path = Path(__file__).parent / "voice_conductor.py"
+        if not vc_path.exists():
+            return
+        spec = importlib.util.spec_from_file_location("voice_conductor", str(vc_path))
+        mod  = importlib.util.module_from_spec(spec)          # type: ignore
+        spec.loader.exec_module(mod)                           # type: ignore
+
+        cycle = mod.VoiceConductor()
+        activated = cycle.activate_voices(
+            task=task_desc,
+            available_roles=voices,
+        )
+        if activated and not dry_run:
+            gate_state = cycle._state.get("gate", "PUERTA_CERRADA")
+            print(f"\n  🎼 CAP·ShepardCycle → {' + '.join(activated)}"
+                  + f"  [{gate_state}]")
+    except Exception:
+        # CAP activation is non-critical — never crash intent routing
+        pass
+
+
 def tokenize(text: str) -> list:
     return re.findall(r'\w+', text.lower())
 
@@ -318,6 +368,9 @@ def cmd_route(query: str, dry_run: bool = False, yes: bool = False, verbose: boo
         print("\n  Alternativas:")
         for s, intent in intents[1:]:
             print(f"    • {intent['name']} (score={s})")
+
+    # ── CAP: ShepardCycle activa voces según intención ───────────────────────
+    _cap_activate_voices(best.get("id", ""), query, dry_run=dry_run)
 
     execute_intent(best, dry_run=dry_run, confirm_destructive=not yes)
     return 0

@@ -110,8 +110,13 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
     "task": ToolEntry(
         cmd="task", module="show_task",
-        description="Muestra la tarea W2 pendiente",
+        description="Muestra la tarea W2 pendiente. --done | --assign <agente> | --clear",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "show_task.py"))],
+    ),
+    "assign": ToolEntry(
+        cmd="assign", module="task_assign",
+        description="Asigna tareas a agentes/roles. list-agents | assign <id> <agente> | pending | assigned",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "task_assign.py"))],
     ),
     "stability": ToolEntry(
         cmd="stability", module="stability_summary",
