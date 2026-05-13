@@ -542,7 +542,228 @@ _LIVE_LOADERS: dict[str, callable] = {
     "setup":             _ld_install,
     "install":           _ld_install,
     "state-manager":     _ld_state_manager,
+    # Análisis de código
+    "code-metrics":      lambda _: _ld_code_metrics(_),
+    "code-search":       lambda _: _ld_code_search(_),
+    "lint-runner":       lambda _: _ld_lint_runner(_),
+    "rubber-duck":       lambda _: _ld_rubber_duck(_),
+    "naming":            lambda _: _ld_code_meta(_),
+    "hardcode":          lambda _: _ld_code_meta(_),
+    "secrets":           lambda _: _ld_code_meta(_),
+    "toolsmith":         lambda _: _ld_toolsmith(_),
+    "route":             lambda _: _ld_route(_),
+    # Workspace & repos
+    "repo-clone":        lambda _: _ld_repo_clone(_),
+    "repo-list":         lambda _: _ld_repo_list(_),
+    "repo-switch":       lambda _: _ld_repo_switch(_),
+    "map":               lambda _: _ld_map(_),
+    # Informes
+    "work_matrix":       lambda _: _ld_work_matrix(_),
+    "docs":              lambda _: _ld_docs(_),
+    "chronicle":         lambda _: _ld_chronicle(_),
+    # Config & entorno
+    "alias-manager":     lambda _: _ld_alias_manager(_),
+    "env-manager":       lambda _: _ld_env_manager(_),
+    "personality-panel": lambda _: _ld_personality(_),
+    # Infraestructura
+    "net-scan":          lambda _: _ld_net(_),
+    "ping-server":       lambda _: _ld_net(_),
+    "notify-desktop":    lambda _: _ld_notify_desktop(_),
+    "build-clean":       lambda _: _ld_build_clean(_),
+    "build-run":         lambda _: _ld_build_run(_),
 }
+
+# ── FINAL 24 LOADERS (filesystem / code analysis) ────────────────────────────
+
+def _ld_code_metrics(_: str) -> list[str]:
+    py  = len(list(ROOT.rglob("*.py")))
+    ts  = len(list(ROOT.rglob("*.ts"))) + len(list(ROOT.rglob("*.js")))
+    dirs = sum(1 for d in ROOT.iterdir() if d.is_dir() and not d.name.startswith("."))
+    return [
+        f"  Archivos .py: {py}   JS/TS: {ts}",
+        f"  Directorios top-level: {dirs}",
+    ]
+
+def _ld_code_search(_: str) -> list[str]:
+    rc = _jread(STATE / "repo_context.json")
+    proj = rc.get("project_name", str(ROOT.name))
+    py   = len(list(ROOT.rglob("*.py")))
+    return [
+        f"  Proyecto: {proj}   ({py} archivos .py indexables)",
+        f"  Uso: bago code-search <patrón>",
+    ]
+
+def _ld_lint_runner(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    val = gs.get("last_validation", {})
+    date = str(val.get("date", "—"))[:16]
+    py   = len(list(ROOT.rglob("*.py")))
+    return [
+        f"  Última validación: {date}   ({py} archivos a analizar)",
+        f"  Ejecuta: bago lint-runner para informe completo",
+    ]
+
+def _ld_rubber_duck(_: str) -> list[str]:
+    rows = _dbq("SELECT title FROM ideas WHERE status='active' LIMIT 1")
+    task = rows[0][0][:55] if rows else "sin tarea activa"
+    return [
+        f"  Tarea activa: {task}",
+        f"  El duck escuchará y hará las preguntas correctas.",
+    ]
+
+def _ld_code_meta(_: str) -> list[str]:
+    py = len(list(ROOT.rglob("*.py")))
+    rc = _jread(STATE / "repo_context.json")
+    return [
+        f"  Proyecto: {rc.get('project_name', ROOT.name)}   {py} archivos .py",
+        f"  Análisis estático: sin estado previo almacenado",
+    ]
+
+def _ld_toolsmith(_: str) -> list[str]:
+    ag   = _jread(STATE / "agents_registry.json")
+    tools = {k: v for k, v in ag.items() if not k.startswith("_")} if isinstance(ag, dict) else {}
+    tools_dir = Path(__file__).parent
+    n_tools = len(list(tools_dir.glob("*.py")))
+    return [
+        f"  Tools en .bago/tools/: {n_tools}",
+        f"  Agentes: {len(tools)}   → {', '.join(list(tools.keys())[:3])}",
+    ]
+
+def _ld_route(_: str) -> list[str]:
+    f = STATE / "routing_history.jsonl"
+    if not f.exists():
+        return ["  Sin historial de enrutamiento."]
+    lines = f.read_text(errors="ignore").strip().splitlines()
+    try:
+        last = json.loads(lines[-1])
+        return [
+            f"  Eventos: {len(lines)}   Último agente: {last.get('agent','—')}",
+            f"  Modelo: {last.get('model','—')}   Confianza: {last.get('confidence','?')}%",
+        ]
+    except Exception:
+        return [f"  Eventos de routing: {len(lines)}"]
+
+def _ld_repo_clone(_: str) -> list[str]:
+    rc = _jread(STATE / "repo_context.json")
+    return [
+        f"  Workspace: {ROOT.parent}",
+        f"  Proyecto actual: {rc.get('project_name', ROOT.name)}",
+    ]
+
+def _ld_repo_list(_: str) -> list[str]:
+    ws   = ROOT.parent
+    repos = [d.name for d in ws.iterdir() if d.is_dir() and (d / ".git").exists()][:6]
+    return [
+        f"  Repos git en {ws.name}/: {len(repos)}",
+        "  " + "  ".join(repos[:4]) if repos else "  (ninguno encontrado)",
+    ]
+
+def _ld_repo_switch(_: str) -> list[str]:
+    rc = _jread(STATE / "repo_context.json")
+    head_f = ROOT / ".git" / "HEAD"
+    branch = "—"
+    if head_f.exists():
+        h = head_f.read_text().strip()
+        branch = h.replace("ref: refs/heads/", "") if h.startswith("ref:") else h[:7]
+    return [
+        f"  Repo actual: {rc.get('project_name', ROOT.name)}   Branch: {branch}",
+        f"  Modo: {rc.get('working_mode','—')}",
+    ]
+
+def _ld_map(_: str) -> list[str]:
+    dirs = [d.name for d in ROOT.iterdir() if d.is_dir() and not d.name.startswith(".")][:6]
+    py   = len(list(ROOT.rglob("*.py")))
+    return [
+        f"  Directorios: {', '.join(dirs[:5])}",
+        f"  Total .py: {py}",
+    ]
+
+def _ld_work_matrix(_: str) -> list[str]:
+    avail = _dbq("SELECT COUNT(*) FROM ideas WHERE status='available'")
+    act   = _dbq("SELECT COUNT(*) FROM ideas WHERE status='active'")
+    impl  = _dbq("SELECT COUNT(*) FROM ideas WHERE status='implemented'")
+    rows  = _dbq("SELECT COUNT(*) FROM sessions")
+    return [
+        f"  Ideas: {avail[0][0] if avail else '?'} disp · {act[0][0] if act else '?'} act · {impl[0][0] if impl else '?'} impl",
+        f"  Sesiones totales: {rows[0][0] if rows else '?'}",
+    ]
+
+def _ld_docs(_: str) -> list[str]:
+    docs = ROOT / "docs"
+    if not docs.exists():
+        return ["  No hay directorio docs/."]
+    files = list(docs.rglob("*.*"))
+    mds   = [f for f in files if f.suffix == ".md"]
+    return [
+        f"  Docs: {len(files)} archivos   {len(mds)} Markdown",
+        "  " + "  ".join(f.name[:20] for f in mds[:3]),
+    ]
+
+def _ld_chronicle(_: str) -> list[str]:
+    rows = _dbq("SELECT session_id, created_at FROM sessions ORDER BY created_at DESC LIMIT 2")
+    total = _dbq("SELECT COUNT(*) FROM sessions")
+    lines = [f"  Sesiones registradas: {total[0][0] if total else '?'}"]
+    for r in rows:
+        lines.append(f"  ▷  {r[0]}  {r[1][:16]}")
+    return lines
+
+def _ld_alias_manager(_: str) -> list[str]:
+    config_dir = ROOT / "config"
+    alias_files = list(config_dir.glob("alias*")) if config_dir.exists() else []
+    bago_config = Path(__file__).parent.parent / "config"
+    alias_files += list(bago_config.glob("alias*")) if bago_config.exists() else []
+    if not alias_files:
+        return ["  Sin archivos de alias configurados.", "  Usa bago alias-manager para gestionar aliases."]
+    return [f"  Archivos alias: {len(alias_files)}   → {alias_files[0].name}"]
+
+def _ld_env_manager(_: str) -> list[str]:
+    env_files = list(ROOT.glob(".env*")) + list(ROOT.glob("**/.env"))
+    return [
+        f"  Archivos .env encontrados: {len(env_files)}",
+        "  " + "  ".join(f.name for f in env_files[:4]) if env_files else "  (ninguno)",
+    ]
+
+def _ld_personality(_: str) -> list[str]:
+    gs = _jread(STATE / "global_state.json")
+    ver = gs.get("bago_version", "—")
+    return [
+        f"  Identidad BAGO v{ver}",
+        "  Configura nombre, tono y preferencias de la IA.",
+    ]
+
+def _ld_net(_: str) -> list[str]:
+    cfg = _jread(STATE / "llm_config.json")
+    return [
+        f"  LLM server: {cfg.get('server_url','—')}",
+        f"  Motor: {cfg.get('engine','—')}",
+    ]
+
+def _ld_notify_desktop(_: str) -> list[str]:
+    import platform
+    sys_info = platform.system()
+    return [
+        f"  Plataforma: {sys_info}",
+        "  Notificaciones de escritorio via osascript (macOS) o notify-send (Linux)",
+    ]
+
+def _ld_build_clean(_: str) -> list[str]:
+    caches = list(ROOT.rglob("__pycache__"))
+    pyc    = list(ROOT.rglob("*.pyc"))
+    return [
+        f"  Directorios __pycache__: {len(caches)}",
+        f"  Archivos .pyc: {len(pyc)}   → bago build-clean para eliminar",
+    ]
+
+def _ld_build_run(_: str) -> list[str]:
+    rc   = _jread(STATE / "repo_context.json")
+    proj = rc.get("project_name", ROOT.name)
+    has_setup = (ROOT / "pyproject.toml").exists() or (ROOT / "setup.py").exists()
+    has_pkg   = (ROOT / "package.json").exists()
+    tipo = "Python" if has_setup else ("Node.js" if has_pkg else "desconocido")
+    return [
+        f"  Proyecto: {proj}   Tipo: {tipo}",
+        "  Ejecuta el proyecto en modo dev/producción.",
+    ]
 
 def _live_data(cmd: str, long_desc: str) -> list[str]:
     """Devuelve líneas de preview: datos live si hay loader, sino descripción wrapeada."""
@@ -1020,6 +1241,30 @@ def main() -> None:
         sys.exit(1)
 
     _startup_sequence()
+
+    # ── Elección de modo: manual vs asistente ──────────────────────────────
+    import importlib.util as _ilu
+    _chat_mod = None
+    try:
+        _spec = _ilu.spec_from_file_location("bago_chat", Path(__file__).parent / "bago_chat.py")
+        _chat_mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_chat_mod)
+    except Exception:
+        pass
+
+    choice = "manual"
+    if _chat_mod:
+        try:
+            choice = curses.wrapper(_chat_mod._startup_choice_curses)
+        except Exception:
+            choice = "manual"
+
+    if choice == "asistente" and _chat_mod:
+        try:
+            curses.wrapper(_chat_mod._chat_curses)
+        except Exception:
+            pass
+        sys.exit(0)
 
     result = curses.wrapper(_draw)
 
