@@ -79,6 +79,7 @@
     "MAESTRO_BAGO"
   ],
   "max_active_roles": 3,
+  "conductor": ".bago/tools/voice_conductor.py",
   "review_role": "role_vertice",
   "review_policy": "solo_con_evidencia",
   "sensitive_changes_require_human_validation": true,

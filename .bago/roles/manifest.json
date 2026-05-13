@@ -4,18 +4,22 @@
       "family": "gobierno",
       "name": "maestro_bago",
       "file": "gobierno/MAESTRO_BAGO.md",
+      "description": "Líder visible. Único punto de contacto con el usuario. Recibe petición, decide delegación, entrega resultado final integrado.",
       "created": "2026-04-28T00:00:00Z",
       "status": "active",
-      "version": "3.1",
+      "version": "3.0-conductor",
+      "conductor": "tools/voice_conductor.py",
       "tools": []
     },
     "role_government_orquestador_central": {
       "family": "gobierno",
       "name": "orquestador_central",
       "file": "gobierno/ORQUESTADOR_CENTRAL.md",
+      "description": "Director interno. Clasifica tarea, selecciona voces, enforcea máx 3 simultáneas (PUERTA_CERRADA), señaliza PUERTA_ABIERTA al completar.",
       "created": "2026-04-28T00:00:00Z",
       "status": "active",
-      "version": "3.1",
+      "version": "3.0-conductor",
+      "conductor": "tools/voice_conductor.py",
       "tools": []
     },
     "role_production_analista": {
