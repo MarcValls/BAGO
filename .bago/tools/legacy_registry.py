@@ -145,3 +145,14 @@ LEGACY_COMMANDS: dict[str, list[str]] = {
     "workflow-navigator":             ["python3", str(TOOLS / "workflow_navigator.py")],
     "workflow-selector":              ["python3", str(TOOLS / "workflow_selector.py")],
 }
+
+# ── ESTADO DEL INVENTARIO ────────────────────────────────────────────────────
+# Promovidos al registry activo (ver _registry_entries.py, bloque LEGACY PROMOVIDOS):
+#   alias-manager, artifact-counter, code-metrics, code-search,
+#   env-manager, focus-mode, git-status, html-export, lint-runner,
+#   log-viewer, net-scan, personality-panel, ping-server, project-summary,
+#   script-runner, search-history, state-manager, template-gen,
+#   weekly-report, workflow-navigator
+# Entradas eliminadas por .py inexistente:
+#   (ninguna — todos los 125 archivos .py referenciados existen en .bago/tools/)
+# Restantes como referencia histórica: 125 entradas
