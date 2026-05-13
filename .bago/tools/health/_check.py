@@ -150,6 +150,56 @@ def check_tools():
             _line(OK, "Todas las herramientas registradas en tool_registry.py")
 
 
+def check_orphans():
+    """Detecta huérfanos de archivo, registry y ruta."""
+    print("\n  \033[1m👻 Huérfanos\033[0m")
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "orphan_shield",
+            Path(__file__).resolve().parents[1] / "orphan_shield.py"
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        r = _mod.scan_all()
+        nf = len(r["file_orphans"])
+        nr = len(r["registry_orphans"])
+        nd = len(r["undocumented_tools"])
+        icon = FAIL if (nf + nr) > 10 else (WARN if (nf + nr) > 0 else OK)
+        _line(icon, f"Archivo: {nf} · Registry: {nr} · Sin doc: {nd}")
+        for o in r["registry_orphans"][:3]:
+            _line(FAIL, f"Registry roto: {o}")
+        for o in r["file_orphans"][:3]:
+            _line(WARN, f"Sin registrar: {o}")
+    except Exception as e:
+        _line(WARN, f"orphan_shield no disponible ({e})")
+
+
+def check_file_sizes():
+    """Anti-monolito: detecta archivos .py > umbral en .bago/tools/."""
+    print("\n  \033[1m📏 Anti-monolito\033[0m")
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "file_size_guard",
+            Path(__file__).resolve().parents[1] / "file_size_guard.py"
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        r = _mod.scan()
+        nc, nw = len(r["crit"]), len(r["warn"])
+        _line(OK if nc == 0 else FAIL,
+              f"{r['total']} archivos escaneados — {r['clean']} OK · {nw} WARN · {nc} CRIT")
+        for name, lines in r["crit"]:
+            _line(FAIL, f"Monolito: {name}", f"{lines} líneas")
+        for name, lines in r["warn"][:3]:
+            _line(WARN, f"Vigilar: {name}", f"{lines} líneas")
+        if nw > 3:
+            _line(INFO, f"... y {nw - 3} más en zona WARN")
+    except Exception as e:
+        _line(WARN, f"Anti-monolito no disponible ({e})")
+
+
 def check_git():
     print("\n  \033[1m🌿 Git\033[0m")
     git_dir = PROJECT_ROOT / ".git"
@@ -185,6 +235,8 @@ def main(argv=None) -> int:
     check_ports()
     check_bago_db()
     check_tools()
+    check_orphans()
+    check_file_sizes()
     check_git()
 
     print("\n  ─────────────────────────────────────────────────────────")

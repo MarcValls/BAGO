@@ -38,6 +38,56 @@ This README is an **operational contract**.
 
 ---
 
+## 🔁 El Bucle de Shepard
+
+> *Un tono de Shepard sube infinitamente sin llegar nunca al límite. BAGO funciona igual.*
+
+El **Bucle de Shepard** es el meta-ciclo que mantiene el framework en mejora continua. Cada iteración parece subir, y siempre sube — porque nunca para.
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│   SCAN ──▶ ALERT ──▶ REMEDIATE ──▶ VERIFY      │
+│     ▲                                  │        │
+│     └──────── EVOLVE ◀─────────────────┘        │
+│                                                 │
+│  SCAN:      orphan_shield · file_size_guard     │
+│  ALERT:     guardian_findings · health_score    │
+│  REMEDIATE: heal · promote · cosecha · merge    │
+│  VERIFY:    validate · sincerity · stability    │
+│  EVOLVE:    siembra · spiral · autonomous       │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+Cada nodo del bucle tiene su herramienta:
+
+| Fase | Comando | Script |
+|------|---------|--------|
+| SCAN | `bago orphan-shield` | `orphan_shield.py` |
+| SCAN | `bago size-check` | `file_size_guard.py` |
+| ALERT | `bago health` | `health/` |
+| ALERT | `bago stale` | `stale_detector.py` |
+| REMEDIATE | `bago heal` | `auto_heal.py` |
+| REMEDIATE | `bago cosecha` | `cosecha.py` |
+| VERIFY | `bago validate` | `validate.py` |
+| VERIFY | `bago sincerity` | `sincerity_detector.py` |
+| EVOLVE | `bago siembra` | `siembra_manager.py` |
+| EVOLVE | `bago spiral` | `spiral_loop.py` |
+| EVOLVE | `bago autonomous` | `autonomous_loop.py` |
+
+El bucle se ejecuta automáticamente en el pre-push hook y en el guardian nocturno. También puedes lanzarlo manualmente:
+
+```bash
+bago health monolith    # SCAN: monolitos
+bago orphan-shield      # SCAN: huérfanos
+bago health             # ALERT: score global
+bago validate           # VERIFY: integridad
+bago autonomous         # EVOLVE: ciclo autónomo
+```
+
+---
+
 ## 2. Installation
 
 **Requirements:** Python 3.9+ · No external dependencies in core runtime (stdlib-only)

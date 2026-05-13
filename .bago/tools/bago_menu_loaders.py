@@ -648,6 +648,25 @@ def _ld_build_run(_: str) -> list[str]:
         "  Ejecuta el proyecto en modo dev/producción.",
     ]
 
+
+def _ld_orphan_shield(_: str) -> list[str]:
+    ob = _jread(STATE / "orphan_baseline.json")
+    known = ob.get("count", len(ob.get("known_orphans", [])))
+    return [
+        f"  Huérfanos baseline conocidos: {known}",
+        f"  Ejecuta para detectar nuevos huérfanos de archivo/registry/ruta",
+    ]
+
+
+def _ld_doc_index(_: str) -> list[str]:
+    docs_dir = ROOT / "docs"
+    docs = list(docs_dir.glob("*.md")) if docs_dir.exists() else []
+    return [
+        f"  Documentos en docs/: {len(docs)}",
+        f"  Ejecuta para ver cobertura: qué tools están documentados",
+    ]
+
+
 # ── DISPATCHER ───────────────────────────────────────────────────────────────
 
 # Dispatcher: cmd → loader function
@@ -741,6 +760,8 @@ _LIVE_LOADERS: dict[str, callable] = {
     "notify-desktop":    _ld_notify_desktop,
     "build-clean":       _ld_build_clean,
     "build-run":         _ld_build_run,
+    "orphan-shield":     _ld_orphan_shield,
+    "doc-index":         _ld_doc_index,
 }
 
 

@@ -58,6 +58,8 @@ MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("stability", "Informe de estabilidad",      "Tendencia histórica del health score con alertas de regresión"),
         ("siembra",   "Semillas de mejora",          "Registra aprendizajes de la sesión como semillas para ideas futuras"),
         ("heal",      "Reparar inconsistencias",     "Auto-repair de problemas detectados por health/validate"),
+        ("orphan-shield", "Escudo anti-huérfanos",   "Detecta 4 tipos de artefactos huérfanos: archivos, registry, rutas, docs"),
+        ("doc-index",     "Índice documental",       "Índice reverso: qué documentos cubren qué herramientas"),
     ]),
     ("🔍  Análisis de código", [
         ("code-metrics", "Métricas del código",      "Complejidad ciclomática, duplicaciones, líneas por módulo"),

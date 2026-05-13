@@ -21,6 +21,9 @@ EXTERNAL_SUBCOMMANDS = {
     "efficiency": TOOLS / "efficiency_meter.py",
     "consistency": TOOLS / "bago_consistency_check.py",
     "sincerity": TOOLS / "sincerity_detector.py",
+    "monolith": TOOLS / "file_size_guard.py",
+    "orphans": TOOLS / "orphan_shield.py",
+    "doc-index": TOOLS / "doc_index.py",
 }
 
 DESCRIPTIONS = {
@@ -30,6 +33,9 @@ DESCRIPTIONS = {
     "efficiency": "ratio de eficiencia inter-versiones",
     "consistency": "anti-drift: registry/CI/README coherentes",
     "sincerity": "detecta sincofancía y promesas vacías en docs",
+    "monolith": "detecta archivos .py > 800 líneas candidatos a dividir",
+    "orphans": "detecta huérfanos de archivo, registry, rutas y docs",
+    "doc-index": "índice de cobertura documental: qué docs cubren qué tools",
 }
 
 def _usage() -> None:

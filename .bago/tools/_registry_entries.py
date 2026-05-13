@@ -950,6 +950,38 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=False,
         layer_group="core",
     ),
+    "orphan-shield": ToolEntry(
+        cmd="orphan-shield", module="orphan_shield",
+        description=(
+            "Detecta 4 tipos de huérfanos: archivos .py no registrados, "
+            "entradas de registry sin archivo, comandos del router sin registry "
+            "y tools sin cobertura documental."
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "orphan_shield.py"))],
+        layer="calidad", scope="framework",
+        agent="CENTINELA",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
+    "doc-index": ToolEntry(
+        cmd="doc-index", module="doc_index",
+        description=(
+            "Índice reverso de cobertura documental: qué documentos en docs/ "
+            "cubren qué herramientas. Detecta tools sin documentar y permite "
+            "añadir anotaciones @covers a los .md."
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "doc_index.py"))],
+        layer="calidad", scope="framework",
+        agent="CENTINELA",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
     # ── SESIÓN / WORKSPACE ────────────────────────────────────────────────────
     "workspace-select": ToolEntry(
         cmd="workspace-select", module="workspace_selector",
