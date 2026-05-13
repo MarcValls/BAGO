@@ -327,6 +327,31 @@ def _cmd_list() -> int:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def _startup_sequence() -> None:
+    """Ejecuta el arranque mínimo antes de mostrar el menú:
+    - workspace_selector: elige modo si no está ya configurado
+    - record_project: registra este proyecto como reciente
+    Solo en TTY interactivo; silencioso si los módulos no están disponibles.
+    """
+    tools = Path(__file__).parent
+    try:
+        import importlib.util as ilu
+
+        def _load(name: str):
+            spec = ilu.spec_from_file_location(name, tools / f"{name}.py")
+            mod = ilu.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod
+
+        ws = _load("workspace_selector")
+        ws.select(skip_if_set=True)
+
+        rp = _load("recent_projects")
+        rp.record_project()
+    except Exception:
+        pass  # Nunca bloquear el arranque del menú
+
+
 def main() -> None:
     args = sys.argv[1:]
 
@@ -336,6 +361,8 @@ def main() -> None:
     if not sys.stdout.isatty():
         print("bago menu requiere un terminal interactivo. Usa --list para salida de texto.")
         sys.exit(1)
+
+    _startup_sequence()
 
     result = curses.wrapper(_draw)
 
