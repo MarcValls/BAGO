@@ -935,6 +935,21 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=False,
         layer_group="core",
     ),
+    "size-check": ToolEntry(
+        cmd="size-check", module="file_size_guard",
+        description=(
+            "Detecta archivos .py en .bago/tools/ con más de 400 líneas "
+            "y los reporta como monolitos candidatos a dividir."
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "file_size_guard.py"))],
+        layer="calidad", scope="framework",
+        agent="CENTINELA",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
     # ── SESIÓN / WORKSPACE ────────────────────────────────────────────────────
     "workspace-select": ToolEntry(
         cmd="workspace-select", module="workspace_selector",
