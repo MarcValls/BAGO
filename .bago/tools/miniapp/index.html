@@ -8,22 +8,21 @@
 <style>
 :root {
   --bg:      #0c0c0c;
+  --bg2:     #101010;
   --surface: #141414;
   --card:    #1c1c1c;
   --border:  #2a2a2a;
   --accent:  #00d4aa;
   --accent2: #0099ff;
   --text:    #e8e8e8;
-  --muted:   #777;
+  --muted:   #666;
   --ok:      #22c55e;
   --warn:    #f59e0b;
   --err:     #ef4444;
-  --user-bubble: #00d4aa;
-  --bago-bubble: #1e1e1e;
   --tab-h:   56px;
   --header-h:52px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; overflow: hidden; }
 body {
   background: var(--bg);
@@ -33,74 +32,65 @@ body {
   display: flex;
   flex-direction: column;
 }
+button, input { font: inherit; }
+
+/* ── Header ── */
 .header {
   height: var(--header-h);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  gap: 10px;
-  flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 10px; flex-shrink: 0;
 }
 .header-logo {
-  width: 32px; height: 32px;
-  background: var(--accent);
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 900; color: #000;
-  flex-shrink: 0;
+  font-weight: 900; font-size: 16px; color: #000; flex-shrink: 0;
 }
-.header-title { font-size: 17px; font-weight: 700; color: var(--accent); }
-.header-sub   { font-size: 10px; color: var(--muted); }
+.header-title { font-weight: 700; font-size: 15px; letter-spacing: -.2px; }
+.header-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
 .header-status {
-  margin-left: auto;
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: var(--muted);
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
 }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
 .dot.warn { background: var(--warn); }
+.dot.err  { background: var(--err); }
+
+/* ── Tabs ── */
 .tabs {
   height: var(--tab-h);
   background: var(--surface);
   border-top: 1px solid var(--border);
-  display: flex;
-  flex-shrink: 0;
-  order: 99;
+  display: flex; flex-shrink: 0;
 }
 .tab {
-  flex: 1;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 3px;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 10px;
-  transition: color .2s;
-  border: none; background: none;
-  padding: 0;
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  border: none; background: none; color: var(--muted);
+  font-size: 10px; cursor: pointer; padding: 4px 0;
+  transition: color .15s;
 }
 .tab .icon { font-size: 20px; }
 .tab.active { color: var(--accent); }
+
+/* ── Content / Panels ── */
 .content {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
+  flex: 1; min-height: 0; position: relative; overflow: hidden;
 }
 .panel {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  overflow: hidden;
+  display: none; flex-direction: column;
+  position: absolute; inset: 0;
 }
 .panel.active { display: flex; }
 .scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
+  flex: 1; overflow-y: auto; padding: 10px 12px 12px;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ── Cards ── */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -109,67 +99,82 @@ body {
   margin-bottom: 10px;
 }
 .card-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--muted);
-  margin-bottom: 10px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin-bottom: 10px;
 }
 .stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
 }
 .stat-row:last-child { border-bottom: none; }
 .stat-label { color: var(--muted); font-size: 12px; }
 .stat-val   { font-weight: 600; font-size: 13px; }
 .badge { padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.badge-ok   { background: #052; color: var(--ok); }
-.badge-warn { background: #320; color: var(--warn); }
+.badge-ok   { background: rgba(34,197,94,.12); color: var(--ok); }
+.badge-warn { background: rgba(245,158,11,.12); color: var(--warn); }
 .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qbtn {
-  padding: 12px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 13px;
-  cursor: pointer;
-  text-align: center;
+  padding: 12px 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 12px; cursor: pointer; text-align: center;
   transition: background .15s;
 }
 .qbtn:active { background: var(--border); }
 .qbtn .qicon { font-size: 22px; display: block; margin-bottom: 4px; }
-/* CMD Panel */
-.cmd-section { padding: 10px 12px 4px; flex-shrink: 0; }
-.cmd-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
+
+/* ── Accordion ── */
+.acc { margin-bottom: 8px; }
+.acc-hd {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; user-select: none; transition: background .15s;
+}
+.acc-hd:active { background: #252525; }
+.acc-hd.open { border-radius: 10px 10px 0 0; border-bottom-color: var(--bg); }
+.acc-icon  { font-size: 18px; flex-shrink: 0; line-height: 1; }
+.acc-label { flex: 1; font-size: 13px; font-weight: 600; }
+.acc-count { font-size: 11px; color: var(--muted); background: rgba(255,255,255,.06); padding: 2px 7px; border-radius: 20px; }
+.acc-chev  { color: var(--muted); font-size: 11px; transition: transform .22s ease; flex-shrink: 0; }
+.acc-hd.open .acc-chev { transform: rotate(90deg); }
+.acc-bd {
+  max-height: 0; overflow: hidden; transition: max-height .28s cubic-bezier(.4,0,.2,1);
+  background: var(--card); border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 10px 10px;
+}
+.acc-bd.open { max-height: 1000px; }
+.acc-inner { padding: 10px 12px 14px; }
+
+/* ── CMD buttons ── */
 .cmd-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+.cmd-grid:last-child { margin-bottom: 0; }
 .cmd-btn {
   padding: 10px 4px; border-radius: 10px;
-  border: 1px solid var(--border); background: var(--card); color: var(--text);
+  border: 1px solid var(--border); background: var(--bg2); color: var(--text);
   font-size: 11px; cursor: pointer; text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   transition: all .15s; font-family: inherit;
 }
-.cmd-btn:active { background: var(--accent); color: #000; border-color: var(--accent); }
+.cmd-btn:active { background: rgba(0,212,170,.15); border-color: var(--accent); color: var(--accent); }
 .cmd-btn.running { border-color: var(--accent); color: var(--accent); animation: pulse 1s infinite; }
-.cmd-btn.hero { background: rgba(0,212,170,.12); border-color: var(--accent); color: var(--accent); }
+.cmd-btn.hero { background: rgba(0,212,170,.1); border-color: var(--accent); color: var(--accent); }
 .cmd-btn .ci { font-size: 20px; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+/* ── Terminal ── */
+.term-block { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .term-header {
-  padding: 6px 12px; background: #0f0f0f;
+  padding: 6px 12px; background: #0a0a0a;
   border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px;
   font-family: monospace; font-size: 11px; color: var(--muted);
   flex-shrink: 0;
 }
 .term-out {
-  flex: 1; overflow-y: auto; padding: 10px 12px;
+  height: 160px; overflow-y: auto; padding: 10px 12px;
   font-family: 'Menlo', 'Courier New', monospace; font-size: 12px; line-height: 1.6;
-  background: #070707; white-space: pre-wrap; word-break: break-word; color: #c9c9c9;
-  -webkit-overflow-scrolling: touch;
+  background: #060606; white-space: pre-wrap; word-break: break-word; color: #c9c9c9;
+  -webkit-overflow-scrolling: touch; flex-shrink: 0;
 }
 .t-cmd  { color: var(--accent); font-weight: 700; }
 .t-ok   { color: var(--ok); }
@@ -187,23 +192,25 @@ body {
 }
 .cmd-input-bar input:focus { border-color: var(--accent); }
 .cmd-run-btn { padding: 7px 14px; border-radius: 8px; background: var(--accent); border: none; color: #000; font-weight: 700; cursor: pointer; font-size: 14px; }
-/* TAREAS */
+
+/* ── Tareas ── */
 .tarea-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .tarea-item:last-child { border-bottom: none; }
 .tarea-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .2s; }
-.tarea-check:hover { border-color: var(--ok); }
-.tarea-check.done { background: var(--ok); border-color: var(--ok); }
+.tarea-check:active { border-color: var(--ok); }
+.tarea-check.done { background: var(--ok); border-color: var(--ok); color: #000; font-size: 12px; }
 .tarea-body { flex: 1; min-width: 0; }
 .tarea-titulo { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tarea-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
 .tarea-del { color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px; flex-shrink: 0; }
 .tarea-del:active { color: var(--err); }
-.proj-tag { display: inline-block; padding: 1px 6px; background: rgba(0,212,170,.15); color: var(--accent); border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; }
+.proj-tag { display: inline-block; padding: 1px 6px; background: rgba(0,212,170,.12); color: var(--accent); border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; }
 .add-tarea-bar { padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 8px; flex-shrink: 0; }
 .add-tarea-bar input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; padding: 8px 12px; outline: none; }
 .add-tarea-bar input:focus { border-color: var(--accent); }
 .add-tarea-bar button { padding: 8px 14px; border-radius: 8px; background: var(--accent); border: none; color: #000; font-weight: 700; cursor: pointer; font-size: 16px; }
-/* GIT */
+
+/* ── Git ── */
 .git-log-line { font-family: monospace; font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: baseline; }
 .git-log-line:last-child { border-bottom: none; }
 .git-hash { color: var(--accent); flex-shrink: 0; }
@@ -211,11 +218,13 @@ body {
 .git-status-line { font-family: monospace; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
 .git-status-line:last-child { border-bottom: none; }
 .git-mod { color: var(--warn); } .git-add { color: var(--ok); } .git-del { color: var(--err); }
-/* Toast */
+
+/* ── Toast ── */
 #toast { position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 7px 18px; border-radius: 20px; font-weight: 600; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; white-space: nowrap; }
 </style>
 </head>
 <body>
+
 <div class="header">
   <div class="header-logo">B</div>
   <div>
@@ -229,43 +238,131 @@ body {
 </div>
 
 <div class="content">
-  <!-- DASHBOARD -->
+
+  <!-- ── DASHBOARD ── -->
   <div class="panel active" id="panel-dash">
     <div class="scroll" id="dash-scroll">
       <div class="card"><div style="text-align:center;color:var(--muted);padding:20px">Cargando...</div></div>
     </div>
   </div>
-  <!-- CMD -->
+
+  <!-- ── CMD ── -->
   <div class="panel" id="panel-cmd">
-    <div class="cmd-section">
-      <div class="cmd-section-title">BAGO Core</div>
-      <div class="cmd-grid">
-        <button class="cmd-btn hero" id="btn-start"   onclick="runCmd('start')">  <span class="ci">🚀</span><span>START</span></button>
-        <button class="cmd-btn"      id="btn-health"  onclick="runCmd('health')"> <span class="ci">💚</span><span>Health</span></button>
-        <button class="cmd-btn"      id="btn-ideas"   onclick="runCmd('ideas')">  <span class="ci">💡</span><span>Ideas</span></button>
-        <button class="cmd-btn"      id="btn-next"    onclick="runCmd('next')">   <span class="ci">⏭️</span><span>Next</span></button>
+    <div class="scroll" id="cmd-scroll">
+
+      <!-- Acordeón 1: Core -->
+      <div class="acc">
+        <div class="acc-hd open" id="acc-hd-core" onclick="toggleAcc('core')">
+          <span class="acc-icon">⚡</span>
+          <span class="acc-label">BAGO Core</span>
+          <span class="acc-chev">▶</span>
+        </div>
+        <div class="acc-bd open" id="acc-bd-core">
+          <div class="acc-inner">
+            <div class="cmd-grid">
+              <button class="cmd-btn hero" id="btn-start"  onclick="runCmd('start')"> <span class="ci">🚀</span><span>START</span></button>
+              <button class="cmd-btn" id="btn-health" onclick="runCmd('health')"><span class="ci">💚</span><span>Health</span></button>
+              <button class="cmd-btn" id="btn-ideas"  onclick="runCmd('ideas')"> <span class="ci">💡</span><span>Ideas</span></button>
+              <button class="cmd-btn" id="btn-next"   onclick="runCmd('next')">  <span class="ci">⏭️</span><span>Next</span></button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="cmd-grid">
-        <button class="cmd-btn"      id="btn-doctor"  onclick="runCmd('doctor')"> <span class="ci">🩺</span><span>Doctor</span></button>
-        <button class="cmd-btn"      id="btn-reparar" onclick="runCmd('reparar')"><span class="ci">🔧</span><span>Reparar</span></button>
-        <button class="cmd-btn"      id="btn-cosecha" onclick="runCmd('cosecha')"><span class="ci">🌾</span><span>Cosecha</span></button>
-        <button class="cmd-btn"      id="btn-commit"  onclick="runCmd('commit')"> <span class="ci">📦</span><span>Commit</span></button>
+
+      <!-- Acordeón 2: Sesión & Git -->
+      <div class="acc">
+        <div class="acc-hd" id="acc-hd-sesion" onclick="toggleAcc('sesion')">
+          <span class="acc-icon">🔄</span>
+          <span class="acc-label">Sesión & Git</span>
+          <span class="acc-chev">▶</span>
+        </div>
+        <div class="acc-bd" id="acc-bd-sesion">
+          <div class="acc-inner">
+            <div class="cmd-grid">
+              <button class="cmd-btn" id="btn-commit"  onclick="runCmd('commit')"> <span class="ci">📦</span><span>Commit</span></button>
+              <button class="cmd-btn" id="btn-cosecha" onclick="runCmd('cosecha')"><span class="ci">🌾</span><span>Cosecha</span></button>
+              <button class="cmd-btn" id="btn-push"    onclick="runCmd('push')">   <span class="ci">⬆️</span><span>Push</span></button>
+              <button class="cmd-btn" id="btn-log"     onclick="runCmd('log')">    <span class="ci">📜</span><span>Log</span></button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <!-- Acordeón 3: Diagnóstico -->
+      <div class="acc">
+        <div class="acc-hd" id="acc-hd-diag" onclick="toggleAcc('diag')">
+          <span class="acc-icon">🩺</span>
+          <span class="acc-label">Diagnóstico</span>
+          <span class="acc-chev">▶</span>
+        </div>
+        <div class="acc-bd" id="acc-bd-diag">
+          <div class="acc-inner">
+            <div class="cmd-grid">
+              <button class="cmd-btn" id="btn-doctor"    onclick="runCmd('doctor')">   <span class="ci">🩺</span><span>Doctor</span></button>
+              <button class="cmd-btn" id="btn-reparar"   onclick="runCmd('reparar')">  <span class="ci">🔧</span><span>Reparar</span></button>
+              <button class="cmd-btn" id="btn-validate"  onclick="runCmd('validate')"> <span class="ci">✅</span><span>Validate</span></button>
+              <button class="cmd-btn" id="btn-benchmark" onclick="runCmd('benchmark')"><span class="ci">⏱️</span><span>Bench</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acordeón 4: Workflow -->
+      <div class="acc">
+        <div class="acc-hd" id="acc-hd-workflow" onclick="toggleAcc('workflow')">
+          <span class="acc-icon">📋</span>
+          <span class="acc-label">Workflow</span>
+          <span class="acc-chev">▶</span>
+        </div>
+        <div class="acc-bd" id="acc-bd-workflow">
+          <div class="acc-inner">
+            <div class="cmd-grid">
+              <button class="cmd-btn" id="btn-route"     onclick="runCmd('route')">    <span class="ci">🗺️</span><span>Route</span></button>
+              <button class="cmd-btn" id="btn-sincerity" onclick="runCmd('sincerity')"><span class="ci">🔍</span><span>Sincerity</span></button>
+              <button class="cmd-btn" id="btn-plan"      onclick="runCmd('plan')">     <span class="ci">📝</span><span>Plan</span></button>
+              <button class="cmd-btn" id="btn-status"    onclick="runCmd('status')">   <span class="ci">📊</span><span>Status</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acordeón 5: Music -->
+      <div class="acc">
+        <div class="acc-hd" id="acc-hd-music" onclick="toggleAcc('music')">
+          <span class="acc-icon">🎵</span>
+          <span class="acc-label">Music Pipeline</span>
+          <span class="acc-chev">▶</span>
+        </div>
+        <div class="acc-bd" id="acc-bd-music">
+          <div class="acc-inner">
+            <div class="cmd-grid">
+              <button class="cmd-btn" id="btn-music"          onclick="runCmd('music')">         <span class="ci">🎵</span><span>Music</span></button>
+              <button class="cmd-btn" id="btn-music-validate" onclick="runCmd('music validate')"><span class="ci">🎼</span><span>Validar</span></button>
+              <button class="cmd-btn" id="btn-music-transpose" onclick="runCmd('music transpose')"><span class="ci">🎹</span><span>Transponer</span></button>
+              <button class="cmd-btn" id="btn-music-help"     onclick="runCmd('music help')">    <span class="ci">❓</span><span>Help</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #cmd-scroll -->
+
+    <!-- Terminal fija debajo de los acordeones -->
     <div class="term-header">
-      <span id="term-dot" style="color:var(--muted)">●</span>
-      <span id="term-title" style="flex:1">listo</span>
-      <button onclick="clearTerm()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 4px">✕ clear</button>
+      <span class="dot" id="term-dot" style="background:var(--muted)"></span>
+      <span id="term-title" style="flex:1;color:var(--muted)">listo</span>
+      <button onclick="clearTerm()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 4px">✕</button>
     </div>
     <div class="term-out" id="term-out"><span class="t-dim">Pulsa un comando para ejecutarlo...\n</span></div>
     <div class="cmd-input-bar">
       <span class="cmd-prompt">$</span>
-      <input id="cmd-input" type="text" placeholder="health · ideas · next · doctor · cosecha ..."
+      <input id="cmd-input" type="text" placeholder="health · ideas · next · cosecha ..."
         onkeydown="if(event.key==='Enter')runCustomCmd()">
       <button class="cmd-run-btn" onclick="runCustomCmd()">▶</button>
     </div>
   </div>
-  <!-- TAREAS -->
+
+  <!-- ── TAREAS ── -->
   <div class="panel" id="panel-tareas">
     <div class="scroll" id="tareas-list">
       <div class="card"><div style="text-align:center;color:var(--muted);padding:20px">Cargando...</div></div>
@@ -276,19 +373,22 @@ body {
       <button onclick="addTarea()">+</button>
     </div>
   </div>
-  <!-- GIT -->
+
+  <!-- ── GIT ── -->
   <div class="panel" id="panel-git">
     <div class="scroll" id="git-content">
       <div class="card"><div style="text-align:center;color:var(--muted);padding:20px">Cargando git...</div></div>
     </div>
   </div>
-  <!-- CARTERA -->
+
+  <!-- ── CARTERA ── -->
   <div class="panel" id="panel-cartera">
     <div class="scroll" id="cartera-content">
       <div class="card"><div style="text-align:center;color:var(--muted);padding:20px">Cargando cartera...</div></div>
     </div>
   </div>
-</div>
+
+</div><!-- end .content -->
 
 <div class="tabs">
   <button class="tab active" onclick="switchTab('dash')" id="tab-dash">
@@ -310,10 +410,11 @@ body {
 
 <div id="toast"></div>
 
-<!-- TonConnect UI SDK (CDN) -->
+<!-- TonConnect UI SDK -->
 <script src="https://unpkg.com/@tonconnect/ui@2/dist/tonconnect-ui.min.js"></script>
 
 <script>
+/* ── Telegram WebApp ── */
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
@@ -321,6 +422,48 @@ let currentTab  = 'dash';
 let tareasData  = [];
 let cmdRunning  = false;
 
+/* ── Accordion ── */
+const _accState = JSON.parse(localStorage.getItem('bago_acc') || '{"core":true}');
+
+function toggleAcc(id) {
+  const hd = document.getElementById('acc-hd-' + id);
+  const bd = document.getElementById('acc-bd-' + id);
+  if (!hd || !bd) return;
+  const nowOpen = hd.classList.toggle('open');
+  bd.classList.toggle('open', nowOpen);
+  _accState[id] = nowOpen;
+  localStorage.setItem('bago_acc', JSON.stringify(_accState));
+}
+
+// Restore saved accordion state on load
+function restoreAcc() {
+  for (const [id, open] of Object.entries(_accState)) {
+    const hd = document.getElementById('acc-hd-' + id);
+    const bd = document.getElementById('acc-bd-' + id);
+    if (!hd || !bd) continue;
+    hd.classList.toggle('open', !!open);
+    bd.classList.toggle('open', !!open);
+  }
+}
+
+// Build accordion HTML (used by JS-rendered panels)
+function makeAcc(id, icon, label, innerHtml, countBadge='') {
+  const open = !!_accState[id];
+  const badge = countBadge ? `<span class="acc-count">${countBadge}</span>` : '';
+  return `<div class="acc">
+    <div class="acc-hd ${open?'open':''}" id="acc-hd-${id}" onclick="toggleAcc('${id}')">
+      <span class="acc-icon">${icon}</span>
+      <span class="acc-label">${label}</span>
+      ${badge}
+      <span class="acc-chev">▶</span>
+    </div>
+    <div class="acc-bd ${open?'open':''}" id="acc-bd-${id}">
+      <div class="acc-inner">${innerHtml}</div>
+    </div>
+  </div>`;
+}
+
+/* ── Tabs ── */
 function switchTab(tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -333,25 +476,16 @@ function switchTab(tab) {
   if (tab === 'cartera') loadCartera();
 }
 
+/* ── Helpers ── */
 function toast(msg, ms=2200) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.opacity = '1';
   setTimeout(() => t.style.opacity = '0', ms);
 }
-
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-function md(text) {
-  return esc(text)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br>');
-}
-
 function now() {
   return new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
 }
@@ -365,7 +499,6 @@ async function loadDash() {
     document.getElementById('status-dot').className = 'dot' + (isOk ? '' : ' warn');
     document.getElementById('status-txt').textContent = h;
 
-    // Header sub: bot + versión reales (no hardcoded).
     const hsub = document.getElementById('header-sub');
     if (hsub) {
       const bu = s.telegram_bot?.bot_username ? '@' + s.telegram_bot.bot_username : '';
@@ -373,38 +506,42 @@ async function loadDash() {
       hsub.textContent = [bu, ver].filter(Boolean).join(' · ') || '—';
     }
 
-    const wf  = s.sprint_status?.active_workflow || {};
-    const tg_ = s.telegram_bot || {};
-    const inv = s.inventory || {};
+    const wf    = s.sprint_status?.active_workflow || {};
+    const tgBot = s.telegram_bot || {};
+    const inv   = s.inventory || {};
     const notes = (s.notes||'').split('\n').filter(Boolean).reverse().slice(0,5);
     const pending = tareasData.filter(t=>t.status==='pendiente').length;
 
-    document.getElementById('dash-scroll').innerHTML = `
-      <div class="card">
-        <div class="card-title">Sistema</div>
-        <div class="stat-row"><span class="stat-label">Health</span><span class="badge badge-${isOk?'ok':'warn'}">${esc(h)}</span></div>
-        <div class="stat-row"><span class="stat-label">Versión</span><span class="stat-val">v${esc(s.bago_version||'?')}</span></div>
-        <div class="stat-row"><span class="stat-label">Bot</span><span class="stat-val">${tg_.bot_username ? '@' + esc(tg_.bot_username) + (tg_.status==='active' ? ' ✅' : ' ⚠') : '—'}</span></div>
-        <div class="stat-row"><span class="stat-label">Commits</span><span class="stat-val">${esc(inv.commits||'?')}</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Sprint activo</div>
-        <div class="stat-row"><span class="stat-label">Workflow</span><span class="stat-val"><code>${esc(wf.code||'—')}</code></span></div>
-        <div class="stat-row"><span class="stat-label">Título</span><span class="stat-val" style="font-size:11px;text-align:right;max-width:60%">${esc(wf.title||'—')}</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Acciones rápidas</div>
-        <div class="quick-grid">
-          <div class="qbtn" onclick="switchTab('cmd');runCmd('health')"><span class="qicon">💚</span>Health</div>
-          <div class="qbtn" onclick="switchTab('tareas')"><span class="qicon">📋</span>Tareas (${pending})</div>
-          <div class="qbtn" onclick="switchTab('git')"><span class="qicon">🌿</span>Git</div>
-          <div class="qbtn" onclick="switchTab('cmd')"><span class="qicon">⚡</span>CMD</div>
-        </div>
-      </div>
-      ${notes.length ? `<div class="card"><div class="card-title">Notas recientes</div>${notes.map(n=>`<div class="stat-row"><span style="font-size:12px;color:var(--muted)">${esc(n.slice(0,80))}</span></div>`).join('')}</div>` : ''}
-    `;
+    const sysHtml = `
+      <div class="stat-row"><span class="stat-label">Health</span><span class="badge badge-${isOk?'ok':'warn'}">${esc(h)}</span></div>
+      <div class="stat-row"><span class="stat-label">Versión</span><span class="stat-val">v${esc(s.bago_version||'?')}</span></div>
+      <div class="stat-row"><span class="stat-label">Bot</span><span class="stat-val">${tgBot.bot_username?'@'+esc(tgBot.bot_username)+(tgBot.status==='active'?' ✅':' ⚠'):'—'}</span></div>
+      <div class="stat-row"><span class="stat-label">Commits</span><span class="stat-val">${esc(inv.commits||'?')}</span></div>`;
+
+    const sprintHtml = `
+      <div class="stat-row"><span class="stat-label">Workflow</span><span class="stat-val"><code>${esc(wf.code||'—')}</code></span></div>
+      <div class="stat-row"><span class="stat-label">Título</span><span class="stat-val" style="font-size:11px;text-align:right;max-width:60%">${esc(wf.title||'—')}</span></div>`;
+
+    const quickHtml = `<div class="quick-grid">
+      <div class="qbtn" onclick="switchTab('cmd');runCmd('health')"><span class="qicon">💚</span>Health</div>
+      <div class="qbtn" onclick="switchTab('tareas')"><span class="qicon">📋</span>Tareas (${pending})</div>
+      <div class="qbtn" onclick="switchTab('git')"><span class="qicon">🌿</span>Git</div>
+      <div class="qbtn" onclick="switchTab('cmd')"><span class="qicon">⚡</span>CMD</div>
+    </div>`;
+
+    const notesHtml = notes.length
+      ? notes.map(n=>`<div class="stat-row"><span style="font-size:12px;color:var(--muted)">${esc(n.slice(0,80))}</span></div>`).join('')
+      : `<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin notas recientes</div>`;
+
+    document.getElementById('dash-scroll').innerHTML =
+      makeAcc('dash-sys',    '🖥️', 'Sistema',        `<div style="padding:0">${sysHtml}</div>`, '', ) +
+      makeAcc('dash-sprint', '🏃', 'Sprint activo',  `<div style="padding:0">${sprintHtml}</div>`) +
+      makeAcc('dash-quick',  '⚡', 'Acciones rápidas', quickHtml, '') +
+      (notes.length ? makeAcc('dash-notes', '📝', 'Notas recientes', `<div style="padding:0">${notesHtml}</div>`) : '');
+
+    restoreAcc();
   } catch(e) {
-    document.getElementById('dash-scroll').innerHTML = `<div class="card"><div style="color:var(--err)">Error cargando estado</div></div>`;
+    document.getElementById('dash-scroll').innerHTML = `<div class="card"><div style="color:var(--err)">Error cargando estado: ${esc(String(e))}</div></div>`;
   }
 }
 
@@ -414,19 +551,16 @@ function termAppend(html) {
   el.innerHTML += html;
   el.scrollTop = el.scrollHeight;
 }
-
 function termSet(html) {
   const el = document.getElementById('term-out');
   el.innerHTML = html;
   el.scrollTop = el.scrollHeight;
 }
-
 function clearTerm() {
   termSet('<span class="t-dim">Terminal limpiada.\n</span>');
   document.getElementById('term-title').textContent = 'listo';
-  document.getElementById('term-dot').style.color = 'var(--muted)';
+  document.getElementById('term-dot').style.background = 'var(--muted)';
 }
-
 function colorizeOutput(text) {
   return text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -445,10 +579,11 @@ async function runCmd(cmd) {
   if (cmdRunning) return;
   cmdRunning = true;
   switchTab('cmd');
-  const btn = document.getElementById('btn-' + cmd);
+  const safeId = cmd.replace(/\s+/g,'-');
+  const btn = document.getElementById('btn-' + safeId) || document.getElementById('btn-' + cmd);
   if (btn) btn.classList.add('running');
-  document.getElementById('term-dot').style.color = 'var(--accent)';
-  document.getElementById('term-title').textContent = `ejecutando: bago ${cmd} ...`;
+  document.getElementById('term-dot').style.background = 'var(--accent)';
+  document.getElementById('term-title').textContent = `bago ${cmd} …`;
   termSet(`<span class="t-cmd">$ bago ${cmd}</span>\n<span class="t-dim">ejecutando...</span>`);
   try {
     const r = await fetch('/api/run', {
@@ -459,10 +594,10 @@ async function runCmd(cmd) {
     const out = data.output || data.error || '(sin salida)';
     termSet(`<span class="t-cmd">$ bago ${cmd}</span>\n${colorizeOutput(out)}\n`);
     document.getElementById('term-title').textContent = `bago ${cmd} — ok`;
-    document.getElementById('term-dot').style.color = 'var(--ok)';
+    document.getElementById('term-dot').style.background = 'var(--ok)';
   } catch(e) {
-    termSet(`<span class="t-cmd">$ bago ${cmd}</span>\n<span class="t-err">Error de conexión: ${e.message}</span>\n`);
-    document.getElementById('term-dot').style.color = 'var(--err)';
+    termSet(`<span class="t-cmd">$ bago ${cmd}</span>\n<span class="t-err">Error: ${esc(e.message)}</span>\n`);
+    document.getElementById('term-dot').style.background = 'var(--err)';
     document.getElementById('term-title').textContent = 'error';
   } finally {
     cmdRunning = false;
@@ -491,35 +626,60 @@ async function loadTareas() {
 
 function renderTareas() {
   const pendientes = tareasData.filter(t=>t.status==='pendiente');
-  const hechas     = tareasData.filter(t=>t.status==='hecho').slice(-3);
+  const hechas     = tareasData.filter(t=>t.status==='hecho').slice(-5).reverse();
   const el = document.getElementById('tareas-list');
+
   if (!tareasData.length) {
     el.innerHTML = `<div class="card"><div style="text-align:center;padding:30px;color:var(--muted)"><div style="font-size:40px;margin-bottom:12px">📋</div><div>Sin tareas</div><div style="font-size:12px;margin-top:6px">Escribe abajo para añadir</div></div></div>`;
     return;
   }
+
+  // Group pending by project
+  const byProj = {};
+  pendientes.forEach(t => {
+    const p = t.proyecto || 'general';
+    if (!byProj[p]) byProj[p] = [];
+    byProj[p].push(t);
+  });
+
+  const tareaHtml = (t) => `
+    <div class="tarea-item" id="tr-${esc(t.id)}">
+      <div class="tarea-check" onclick="completarTarea('${esc(t.id)}')"></div>
+      <div class="tarea-body">
+        <div class="tarea-titulo">${esc(t.titulo)}</div>
+        <div class="tarea-meta">${esc(t.id)} · ${esc((t.created_at||'').slice(0,10))}</div>
+      </div>
+      <div class="tarea-del" onclick="borrarTarea('${esc(t.id)}')">🗑</div>
+    </div>`;
+
   let html = '';
-  if (pendientes.length) {
-    html += `<div class="card"><div class="card-title">Pendientes (${pendientes.length})</div>${pendientes.map(t=>`
-      <div class="tarea-item" id="tr-${t.id}">
-        <div class="tarea-check" onclick="completarTarea('${t.id}')"></div>
-        <div class="tarea-body">
-          <div class="tarea-titulo">${t.proyecto!=='general'?`<span class="proj-tag">${esc(t.proyecto.toUpperCase())}</span>`:''}${esc(t.titulo)}</div>
-          <div class="tarea-meta">${esc(t.id)} · ${esc((t.created_at||'').slice(0,10))}</div>
-        </div>
-        <div class="tarea-del" onclick="borrarTarea('${t.id}')">🗑</div>
-      </div>`).join('')}</div>`;
+
+  if (pendientes.length === 0) {
+    html += `<div class="card"><div style="color:var(--ok);text-align:center;padding:12px">✅ Todas las tareas completadas</div></div>`;
+  } else {
+    for (const [proj, items] of Object.entries(byProj)) {
+      const projLabel = proj === 'general' ? '📋 General' : `<span class="proj-tag">${esc(proj.toUpperCase())}</span>`;
+      const accId = 'tarea-proj-' + proj;
+      // Default: open if only one project, or if saved open
+      if (!(_accState[accId] !== undefined)) _accState[accId] = true;
+      html += makeAcc(accId, '', projLabel, items.map(tareaHtml).join(''), String(items.length));
+    }
   }
+
   if (hechas.length) {
-    html += `<div class="card"><div class="card-title">Completadas</div>${hechas.reverse().map(t=>`
-      <div class="tarea-item" style="opacity:.5">
+    const doneHtml = hechas.map(t=>`
+      <div class="tarea-item" style="opacity:.45">
         <div class="tarea-check done">✓</div>
         <div class="tarea-body">
           <div class="tarea-titulo" style="text-decoration:line-through">${esc(t.titulo)}</div>
           <div class="tarea-meta">${esc(t.id)}</div>
         </div>
-      </div>`).join('')}</div>`;
+      </div>`).join('');
+    html += makeAcc('tarea-done', '✅', 'Completadas', doneHtml, String(hechas.length));
   }
+
   el.innerHTML = html;
+  restoreAcc();
 }
 
 async function addTarea() {
@@ -542,7 +702,7 @@ async function addTarea() {
 
 async function completarTarea(id) {
   const el = document.getElementById('tr-'+id);
-  if (el) el.style.opacity = '.4';
+  if (el) el.style.opacity = '.35';
   await fetch('/api/tarea/completar', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({id})
@@ -564,23 +724,47 @@ async function borrarTarea(id) {
 async function loadGit() {
   try {
     const g = await fetch('/api/git').then(r=>r.json());
+
     const logLines = (g.log||'').split('\n').filter(Boolean).map(l=>{
       const sp = l.indexOf(' ');
-      const hash = l.slice(0,sp); const msg = l.slice(sp+1);
+      const hash = l.slice(0,sp), msg = l.slice(sp+1);
       return `<div class="git-log-line"><span class="git-hash">${esc(hash)}</span><span class="git-msg">${esc(msg)}</span></div>`;
     }).join('');
+
     const statusLines = (g.status||'').split('\n').filter(Boolean).map(l=>{
       const code = l.slice(0,2).trim();
       const cls  = code==='M'?'git-mod':code==='A'?'git-add':code==='D'?'git-del':'';
       return `<div class="git-status-line"><span class="${cls}">${esc(l.slice(0,2))}</span><span>${esc(l.slice(3))}</span></div>`;
     }).join('');
-    document.getElementById('git-content').innerHTML = `
-      <div class="card"><div class="card-title">Rama activa</div><div style="font-family:monospace;font-size:15px;color:var(--accent);padding:4px 0">🌿 ${esc(g.branch||'?')}</div></div>
-      ${statusLines?`<div class="card"><div class="card-title">Cambios pendientes</div>${statusLines}</div>`:`<div class="card"><div style="color:var(--ok);font-size:13px">✅ Sin cambios pendientes</div></div>`}
-      <div class="card"><div class="card-title">Últimos commits</div>${logLines||'<div style="color:var(--muted)">Sin commits</div>'}</div>
-      <div style="padding:4px 0"><button class="qbtn" style="width:100%" onclick="loadGit()">🔄 Refresh</button></div>`;
+
+    const statusCount = (g.status||'').split('\n').filter(Boolean).length;
+
+    const branchHtml = `<div style="font-family:monospace;font-size:16px;color:var(--accent);padding:6px 0">🌿 ${esc(g.branch||'?')}</div>`;
+
+    const pendingHtml = statusLines
+      ? statusLines
+      : `<div style="color:var(--ok);font-size:13px">✅ Sin cambios pendientes</div>`;
+
+    const actionsHtml = `<div class="quick-grid">
+      <div class="qbtn" onclick="runCmd('commit')"><span class="qicon">📦</span>Commit</div>
+      <div class="qbtn" onclick="runCmd('push')"><span class="qicon">⬆️</span>Push</div>
+      <div class="qbtn" onclick="runCmd('cosecha')"><span class="qicon">🌾</span>Cosecha</div>
+      <div class="qbtn" onclick="loadGit()"><span class="qicon">🔄</span>Refresh</div>
+    </div>`;
+
+    document.getElementById('git-content').innerHTML =
+      makeAcc('git-branch',  '🌿', 'Rama activa',         branchHtml) +
+      makeAcc('git-status',  '📄', 'Cambios pendientes',  pendingHtml, statusCount > 0 ? String(statusCount) : '') +
+      makeAcc('git-log',     '📜', 'Últimos commits',     logLines || '<div style="color:var(--muted)">Sin commits</div>') +
+      makeAcc('git-actions', '⚡', 'Acciones rápidas',   actionsHtml);
+
+    // Default: branch and status open, log closed
+    if (_accState['git-branch'] === undefined) _accState['git-branch'] = true;
+    if (_accState['git-status'] === undefined) _accState['git-status'] = true;
+    if (_accState['git-log']    === undefined) _accState['git-log']    = false;
+    restoreAcc();
   } catch(e) {
-    document.getElementById('git-content').innerHTML = `<div class="card"><div style="color:var(--err)">Error cargando git</div></div>`;
+    document.getElementById('git-content').innerHTML = `<div class="card"><div style="color:var(--err)">Error cargando git: ${esc(String(e))}</div></div>`;
   }
 }
 
@@ -589,15 +773,13 @@ async function loadCartera() {
   const el = document.getElementById('cartera-content');
   el.innerHTML = `<div class="card"><div style="text-align:center;color:var(--muted);padding:20px">💰 Consultando precios...</div></div>`;
   try {
-    // Fetch both in parallel
     const [dc, da] = await Promise.all([
       fetch('/api/cartera').then(r => r.json()).catch(() => ({ok: false, error: 'timeout'})),
       fetch('/api/airdrops').then(r => r.json()).catch(() => ({ok: false})),
     ]);
 
-    let html = '';
-
-    // Portfolio section
+    // Portfolio HTML
+    let portfolioHtml = '';
     if (dc.ok) {
       const assets = (dc.assets || []).map(a => {
         const arrow = a.change_24h >= 0 ? '🟢' : '🔴';
@@ -611,111 +793,78 @@ async function loadCartera() {
       }).join('');
       const total = (dc.total_eur || 0).toFixed(2);
       const alerts = (dc.alerts || []).map(a => `<div style="color:var(--warn);font-size:12px;padding:4px 0">⚠️ ${esc(a)}</div>`).join('');
-      html += `<div class="card">
-        <div class="card-title">💰 Portfolio BAGO</div>
-        ${assets}
+      portfolioHtml = `${assets}
         <div class="stat-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
           <span class="stat-label">Total</span>
           <span class="stat-val"><strong>${total} EUR</strong></span>
-        </div>
-        ${alerts}
-        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(dc.ts || '')}</div>
-      </div>`;
+        </div>${alerts}
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(dc.ts || '')}</div>`;
     } else {
-      html += `<div class="card"><div style="color:var(--err)">Error portfolio: ${esc(dc.error || '?')}</div></div>`;
+      portfolioHtml = `<div style="color:var(--err)">Error: ${esc(dc.error || '?')}</div>`;
     }
 
-    // Airdrops section
+    // Airdrops HTML
+    let airdropHtml = '';
     if (da.ok) {
       const jettons = (da.jettons || []).filter(j => !j.error);
-      const nfts    = (da.nfts || []);
+      const nfts    = da.nfts || [];
       const tonBal  = (da.ton_balance || 0).toFixed(4);
-      let jHtml = '';
-      if (jettons.length > 0) {
-        jHtml = jettons.slice(0, 10).map(j => {
-          const v = j.value_usd > 0.01 ? ` ≈ $${j.value_usd.toFixed(2)}` : '';
-          const badge = j.verified ? '✅' : '⚠️';
-          const claim = j.claim_url ? ` <a href="${esc(j.claim_url)}" style="color:var(--accent);font-size:10px">claim →</a>` : '';
-          return `<div class="stat-row"><span class="stat-label">${badge} ${esc(j.symbol)}</span><span class="stat-val" style="font-size:11px">${j.amount.toFixed(4)}${v}${claim}</span></div>`;
-        }).join('');
-      } else {
-        jHtml = `<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin tokens en esta wallet</div>`;
-      }
-      const nftHtml = nfts.length > 0
-        ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">🖼 NFTs: ${nfts.length} (${nfts.slice(0,3).map(n=>esc(n.collection)).join(', ')})</div>` : '';
-      html += `<div class="card">
-        <div class="card-title">🪂 Airdrops TON</div>
-        <div class="stat-row"><span class="stat-label">💎 TON</span><span class="stat-val">${tonBal}</span></div>
-        ${jHtml}
-        ${nftHtml}
-        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(da.ts || '')}</div>
-      </div>`;
+      const jHtml = jettons.length > 0
+        ? jettons.slice(0,10).map(j => {
+            const v = j.value_usd > 0.01 ? ` ≈ $${j.value_usd.toFixed(2)}` : '';
+            const badge = j.verified ? '✅' : '⚠️';
+            const claim = j.claim_url ? ` <a href="${esc(j.claim_url)}" style="color:var(--accent);font-size:10px">claim →</a>` : '';
+            return `<div class="stat-row"><span class="stat-label">${badge} ${esc(j.symbol)}</span><span class="stat-val" style="font-size:11px">${j.amount.toFixed(4)}${v}${claim}</span></div>`;
+          }).join('')
+        : `<div style="color:var(--muted);font-size:12px;padding:4px 0">Sin tokens en esta wallet</div>`;
+      const nftHtml = nfts.length > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">🖼 NFTs: ${nfts.length}</div>` : '';
+      airdropHtml = `<div class="stat-row"><span class="stat-label">💎 TON</span><span class="stat-val">${tonBal}</span></div>${jHtml}${nftHtml}
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(da.ts || '')}</div>`;
     } else if (da.error === 'no_address') {
-      // Probar status oficial — puede haber address ya conectada por TonConnect
-      let st = null;
-      try { st = await fetch('/api/wallet/status').then(r=>r.json()); } catch(_){}
-      if (st && st.connected && st.address) {
-        const a = st.address;
-        const short = a.length > 12 ? `${a.slice(0,6)}…${a.slice(-4)}` : a;
-        html += `<div class="card">
-          <div class="card-title">🪂 Airdrops TON</div>
-          <div class="stat-row"><span class="stat-label">Wallet</span><span class="stat-val" style="font-size:11px">${esc(short)} ✅</span></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Esperando primer escaneo. Pulsa Actualizar.</div>
-        </div>`;
-      } else {
-        html += `<div class="card">
-          <div class="card-title">🪂 Airdrops TON</div>
-          <div style="color:var(--muted);font-size:12px">No hay wallet conectada.<br>Pulsa <strong>🔗 Conectar TON</strong> abajo.</div>
-        </div>`;
-      }
+      airdropHtml = `<div style="color:var(--muted);font-size:12px">No hay wallet conectada.<br>Pulsa <strong>🔗 Conectar TON</strong> abajo.</div>`;
     } else {
-      html += `<div class="card"><div style="color:var(--err)">Error airdrops: ${esc((da && da.error) || '?')}</div></div>`;
+      airdropHtml = `<div style="color:var(--err)">Error: ${esc((da && da.error) || '?')}</div>`;
     }
 
-    // Airdrops reclamables (solo se muestra si hay items — cero datos ficticios)
+    // Reclamables
+    let claimHtml = '';
     try {
       const cl = await fetch('/api/airdrop/claimable').then(r=>r.json()).catch(()=>null);
       if (cl && cl.ok && Array.isArray(cl.claimable) && cl.claimable.length > 0) {
-        const items = cl.claimable.map(it => {
-          const isPassive = it.type === 'passive';
-          const btn = isPassive
-            ? `<span class="badge badge-ok" style="font-size:10px">esperando entrega</span>`
-            : `<button onclick="claimAirdrop('${esc(it.protocol_id)}', '${esc(it.name)}')" style="background:var(--accent);color:#000;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600">💰 Reclamar</button>`;
-          const link = it.info_url ? `<a href="${esc(it.info_url)}" target="_blank" style="color:var(--muted);font-size:10px;margin-left:6px">info ↗</a>` : '';
-          return `<div class="stat-row" style="flex-wrap:wrap;gap:6px">
-            <span class="stat-label">${esc(it.name)}${link}</span>
-            <span class="stat-val" style="font-size:11px">${it.amount != null ? esc(String(it.amount)) : ''} ${btn}</span>
-          </div>`;
+        claimHtml = cl.claimable.map(it => {
+          const btn = it.type === 'passive'
+            ? `<span class="badge badge-ok" style="font-size:10px">pendiente entrega</span>`
+            : `<button onclick="claimAirdrop('${esc(it.protocol_id)}','${esc(it.name)}')" style="background:var(--accent);color:#000;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600">💰 Reclamar</button>`;
+          const link = it.info_url ? `<a href="${esc(it.info_url)}" target="_blank" style="color:var(--muted);font-size:10px;margin-left:4px">info ↗</a>` : '';
+          return `<div class="stat-row"><span class="stat-label">${esc(it.name)}${link}</span><span class="stat-val">${it.amount!=null?esc(String(it.amount)):''} ${btn}</span></div>`;
         }).join('');
-        html += `<div class="card">
-          <div class="card-title">💰 Airdrops reclamables (${cl.claimable.length})</div>
-          ${items}
-          <div style="font-size:10px;color:var(--muted);margin-top:6px">BAGO propone, tú firmas en tu wallet.</div>
-        </div>`;
       }
-      // Si no hay reclamables o catalog vacío: NADA. No mentimos.
-    } catch(_) { /* silencio: no contaminar UI */ }
+    } catch(_) {}
 
-    html += `<div class="card">
-      <div class="card-title">Acciones cartera</div>
-      <div class="quick-grid">
-        <div class="qbtn" onclick="carteraAdd()"><span class="qicon">➕</span>Añadir</div>
-        <div class="qbtn" onclick="carteraRemove()"><span class="qicon">🗑</span>Quitar</div>
-        <div class="qbtn" onclick="carteraAlerta()"><span class="qicon">🔔</span>Alerta</div>
-        <div class="qbtn" onclick="connectTonWallet()"><span class="qicon">🔗</span>Conectar TON</div>
-        <div class="qbtn" onclick="airdropScan()"><span class="qicon">🪂</span>Escanear airdrops</div>
-        <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
-      </div>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">También disponibles en bot: /cartera add COIN AMT · /cartera alerta COIN PRICE</div>
+    const actionsHtml = `<div class="quick-grid">
+      <div class="qbtn" onclick="carteraAdd()"><span class="qicon">➕</span>Añadir</div>
+      <div class="qbtn" onclick="carteraRemove()"><span class="qicon">🗑</span>Quitar</div>
+      <div class="qbtn" onclick="carteraAlerta()"><span class="qicon">🔔</span>Alerta</div>
+      <div class="qbtn" onclick="connectTonWallet()"><span class="qicon">🔗</span>Conectar TON</div>
+      <div class="qbtn" onclick="airdropScan()"><span class="qicon">🪂</span>Escanear</div>
+      <div class="qbtn" onclick="loadCartera()"><span class="qicon">🔄</span>Actualizar</div>
     </div>`;
 
-    el.innerHTML = html;
+    el.innerHTML =
+      makeAcc('cart-portfolio', '💰', 'Portfolio BAGO',    portfolioHtml) +
+      makeAcc('cart-airdrops',  '🪂', 'Airdrops TON',      airdropHtml) +
+      (claimHtml ? makeAcc('cart-claim', '💰', 'Reclamables', claimHtml, '!') : '') +
+      makeAcc('cart-actions',   '⚙️', 'Acciones',          actionsHtml);
+
+    if (_accState['cart-portfolio'] === undefined) _accState['cart-portfolio'] = true;
+    if (_accState['cart-airdrops']  === undefined) _accState['cart-airdrops']  = false;
+    restoreAcc();
   } catch(e) {
     el.innerHTML = `<div class="card"><div style="color:var(--err)">Error: ${esc(String(e))}</div></div>`;
   }
 }
 
-/* ── Acciones cartera (POST + reload) ── */
+/* ── Acciones cartera ── */
 async function carteraAdd() {
   const coin = prompt('Moneda (BTC, ETH, TON, ...)');
   if (!coin) return;
@@ -760,14 +909,11 @@ async function carteraAlerta() {
 }
 
 async function claimAirdrop(protocolId, displayName) {
-  // Construye TX en server, la pasa a TonConnect, el usuario firma en su wallet.
   if (!window._tcui || !window._tcui.connected) {
     alert('Conecta primero la wallet con 🔗 Conectar TON.');
     return;
   }
-  if (!confirm(`Reclamar airdrop de ${displayName}?\n\nBAGO va a proponer la transacción. Tú la firmarás en tu wallet (Telegram Wallet / Tonkeeper).`)) {
-    return;
-  }
+  if (!confirm(`Reclamar airdrop de ${displayName}?\n\nBAGO va a proponer la transacción. Tú la firmarás en tu wallet.`)) return;
   let r;
   try {
     r = await fetch('/api/airdrop/claim', {method:'POST',
@@ -776,70 +922,40 @@ async function claimAirdrop(protocolId, displayName) {
   } catch(e) { alert('Error: ' + e); return; }
   if (r.error || !r.transaction) { alert('Error: ' + (r.error || 'sin transaction')); return; }
   try {
-    const result = await window._tcui.sendTransaction(r.transaction);
-    // result.boc = BOC firmado, ya enviado por la wallet a la red.
-    alert(`✅ Transacción enviada para ${displayName}.\n\nEspera 1-2 bloques (~10s) y pulsa Actualizar para ver el balance.`);
+    await window._tcui.sendTransaction(r.transaction);
+    alert(`✅ Transacción enviada para ${displayName}.\n\nEspera 1-2 bloques y pulsa Actualizar.`);
     setTimeout(loadCartera, 12000);
   } catch(e) {
-    // Usuario rechazó o error de wallet — no es bug nuestro.
-    if (String(e).toLowerCase().includes('reject')) {
-      console.log('Usuario canceló firma');
-    } else {
-      alert('Wallet error: ' + (e.message || e));
-    }
+    if (!String(e).toLowerCase().includes('reject')) alert('Wallet error: ' + (e.message || e));
   }
 }
 
-async function airdropScan() {  // Réplica de /airdrop del bot, ejecutable desde la miniapp.
-  // Lanza un escaneo on-demand y muestra el summary formateado.
+async function airdropScan() {
   const el = document.getElementById('cartera-content');
   const status = await fetch('/api/wallet/status').then(r=>r.json()).catch(()=>({connected:false}));
-  if (!status.connected) {
-    alert('Conecta primero una wallet TON con 🔗 Conectar TON.');
-    return;
-  }
-  // Render placeholder de loading sin tirar el resto de la UI
+  if (!status.connected) { alert('Conecta primero una wallet TON con 🔗 Conectar TON.'); return; }
   const old = el.innerHTML;
   el.innerHTML = `<div class="card"><div style="text-align:center;color:var(--muted);padding:20px">🔍 Escaneando wallet TON…</div></div>` + old;
   try {
     const r = await fetch('/api/airdrops').then(r=>r.json());
-    if (!r.ok) {
-      el.innerHTML = old;
-      alert('Error escaneando: ' + (r.error || r.message || '?'));
-      return;
-    }
-    const summary = r.summary || '(sin salida)';
-    const short = (r.address || '').length > 12
-      ? `${r.address.slice(0,6)}…${r.address.slice(-4)}` : (r.address || '—');
+    if (!r.ok) { el.innerHTML = old; alert('Error: ' + (r.error||r.message||'?')); return; }
+    const short = (r.address||'').length > 12 ? `${r.address.slice(0,6)}…${r.address.slice(-4)}` : (r.address||'—');
     el.innerHTML = `<div class="card">
-      <div class="card-title">🪂 Escaneo airdrops — ${esc(short)}</div>
-      <pre style="white-space:pre-wrap;font-size:11px;line-height:1.4;color:var(--text);background:var(--bg2);padding:10px;border-radius:6px;overflow-x:auto;margin:0">${esc(summary)}</pre>
-      <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(r.ts || '')}</div>
+      <div class="card-title">🪂 Escaneo — ${esc(short)}</div>
+      <pre style="white-space:pre-wrap;font-size:11px;line-height:1.4;color:var(--text);background:var(--bg);padding:10px;border-radius:6px;overflow-x:auto;margin:0">${esc(r.summary||'(sin salida)')}</pre>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">${esc(r.ts||'')}</div>
     </div>
-    <div class="card">
-      <div class="card-title">Acciones</div>
-      <div class="quick-grid">
-        <div class="qbtn" onclick="airdropScan()"><span class="qicon">🔄</span>Re-escanear</div>
-        <div class="qbtn" onclick="loadCartera()"><span class="qicon">⬅️</span>Volver a cartera</div>
-      </div>
-    </div>`;
-  } catch(e) {
-    el.innerHTML = old;
-    alert('Error: ' + e);
-  }
+    <div class="card"><div class="quick-grid">
+      <div class="qbtn" onclick="airdropScan()"><span class="qicon">🔄</span>Re-escanear</div>
+      <div class="qbtn" onclick="loadCartera()"><span class="qicon">⬅️</span>Cartera</div>
+    </div></div>`;
+  } catch(e) { el.innerHTML = old; alert('Error: ' + e); }
 }
 
 async function connectTonWallet() {
-  // Usa TonConnect UI SDK para conectar wallet sin pedir token al usuario.
-  // # COSECHA_TONCONNECT
-  if (!window.TON_CONNECT_UI) {
-    alert('TonConnect SDK no cargado. Comprueba conexión al CDN.');
-    return;
-  }
+  if (!window.TON_CONNECT_UI) { alert('TonConnect SDK no cargado.'); return; }
   try {
     if (!window._tcui) {
-      // Manifest servido desde GitHub raw (sin ngrok browser-warning, HTTPS estable).
-      // Si ngrok URL cambia, actualizar tonconnect-manifest.json en el repo y push.
       const manifestUrl = 'https://raw.githubusercontent.com/MarcValls/BAGO/main/.bago/tools/miniapp/tonconnect-manifest.json';
       window._tcui = new window.TON_CONNECT_UI.TonConnectUI({ manifestUrl });
       window._tcui.onStatusChange(async (wallet) => {
@@ -847,36 +963,29 @@ async function connectTonWallet() {
           const address = wallet.account.address;
           const ton_proof = wallet.connectItems?.tonProof || null;
           try {
-            const r = await fetch('/api/wallet/connect', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ address, ton_proof }),
-            }).then(r => r.json());
+            const r = await fetch('/api/wallet/connect', {method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ address, ton_proof })}).then(r=>r.json());
             if (r.error) { alert('Error guardando wallet: ' + r.error); return; }
             loadCartera();
           } catch(e) { alert('Error: ' + e); }
         } else {
-          // Disconnected from wallet side
           try { await fetch('/api/wallet/disconnect', {method:'POST'}); } catch(_) {}
           loadCartera();
         }
       });
     }
     if (window._tcui.connected) {
-      // Toggle: si ya conectado, ofrecer desconectar
-      if (confirm('Wallet ya conectada. ¿Desconectar?')) {
-        await window._tcui.disconnect();
-      }
+      if (confirm('Wallet ya conectada. ¿Desconectar?')) await window._tcui.disconnect();
     } else {
       await window._tcui.openModal();
     }
-  } catch(e) {
-    alert('TonConnect error: ' + e.message);
-  }
+  } catch(e) { alert('TonConnect error: ' + e.message); }
 }
 
 /* ── Init ── */
 async function init() {
+  restoreAcc();
   await loadTareas();
   loadDash();
 }
