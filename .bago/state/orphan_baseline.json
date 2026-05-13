@@ -1,6 +1,7 @@
 {
-  "generated_at": "2026-05-12T18:59:55.820969+00:00",
+  "generated_at": "2026-05-13T07:19:50.558302+00:00",
   "known_orphans": [
+    "agent_model_manager",
     "airdrop_protocols",
     "airdrop_scanner",
     "alias_manager",
@@ -89,7 +90,6 @@
     "neural_router",
     "notify",
     "open_file",
-    "orphan_detector",
     "outdated_check",
     "personality_panel",
     "ping_server",

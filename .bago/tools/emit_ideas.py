@@ -124,6 +124,7 @@ def load_ideas_from_db(feat: dict, extra_flags: dict) -> list[dict] | None:
 
         # Convertir al formato que espera el resto del código
         result.append({
+            "id":       idea.get("id", ""),
             "priority": idea["priority"],
             "section":  idea["section"],
             "risk":     idea["risk"],
@@ -856,7 +857,7 @@ _INTENT_TO_SECTION: dict[str, str] = {
 }
 
 
-def parse_args(argv: list[str]) -> tuple[int | None, bool, bool, bool, str | None, bool, bool]:
+def parse_args(argv: list[str]) -> tuple[int | str | None, bool, bool, bool, str | None, bool, bool]:
     detail_index = None
     accept = False
     select = False
@@ -904,14 +905,16 @@ def parse_args(argv: list[str]) -> tuple[int | None, bool, bool, bool, str | Non
             continue
         if arg == "--detail":
             if idx + 1 >= len(argv):
-                raise SystemExit("--detail requires a numeric idea index")
-            detail_index = int(argv[idx + 1])
+                raise SystemExit("--detail requires a numeric idea index or idea ID")
+            raw = argv[idx + 1]
+            detail_index = int(raw) if raw.isdigit() else raw
             idx += 2
             continue
         if arg == "--accept":
             if idx + 1 >= len(argv):
-                raise SystemExit("--accept requires a numeric idea index")
-            detail_index = int(argv[idx + 1])
+                raise SystemExit("--accept requires a numeric idea index or idea ID")
+            raw = argv[idx + 1]
+            detail_index = int(raw) if raw.isdigit() else raw
             accept = True
             idx += 2
             continue
@@ -1347,6 +1350,17 @@ def main() -> int:
         else:
             print("→ No hay ideas disponibles. Revisa el backlog o añade más al catálogo.")
         return 0
+
+    # ── Resolver ID string → posición numérica ───────────────────────────────
+    if isinstance(detail_index, str):
+        idea_id = detail_index
+        resolved = next(
+            (i + 1 for i, idea in enumerate(ideas) if idea.get("id") == idea_id),
+            None,
+        )
+        if resolved is None:
+            raise SystemExit(f"Idea ID '{idea_id}' no encontrada en las ideas disponibles")
+        detail_index = resolved
 
     if detail_index < 1 or detail_index > len(ideas):
         raise SystemExit(f"Invalid idea index: {detail_index}")

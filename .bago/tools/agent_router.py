@@ -185,7 +185,36 @@ def _read_codex_models() -> tuple[list[str], str]:
 
 
 def _read_copilot_models() -> list[str]:
-    known = ["gpt-4.1", "claude-sonnet-4", "gpt-5.5", "o3", "gpt-4.1-mini"]
+    # Modelos disponibles en Copilot CLI (actualizado 2026-05)
+    known = [
+        "claude-sonnet-4.6",
+        "claude-sonnet-4.5",
+        "claude-haiku-4.5",
+        "claude-opus-4.7",
+        "gpt-5.5",
+        "gpt-5.4",
+        "gpt-5.3-codex",
+        "gpt-5.2-codex",
+        "gpt-5.2",
+        "gpt-5.4-mini",
+        "gpt-5-mini",
+        "gpt-4.1",
+        # Internal / extended
+        "claude-opus-4.7-1m-internal",
+        "claude-opus-4.7-high",
+        "claude-opus-4.7-xhigh",
+        "claude-opus-4.6",
+        "claude-opus-4.6-fast",
+        "claude-opus-4.6-1m",
+        "claude-opus-4.5",
+    ]
+    # Leer también desde llm_config.json si tiene modelos adicionales
+    extra: list[str] = []
+    for group in _read_json(CFG_FILE, {}).get("available_models", {}).values():
+        for m in group:
+            if m not in known:
+                extra.append(m)
+    # Preferencia del usuario desde settings
     settings = Path.home() / ".copilot" / "settings.json"
     if settings.exists():
         try:
@@ -195,7 +224,24 @@ def _read_copilot_models() -> list[str]:
                 known.insert(0, preferred)
         except Exception:
             pass
-    return known
+    return known + extra
+
+
+def load_agent_model(agent_id: str) -> str | None:
+    """Devuelve el modelo configurado para un agente BAGO específico.
+
+    Prioridad:
+      1. Campo 'model' en agents_registry.json para ese agente.
+      2. Clave 'agent_models.<agent_id>' en llm_config.json.
+      3. None (el router elegirá el modelo por defecto).
+    """
+    registry_path = STATE_DIR / "agents_registry.json"
+    registry = _read_json(registry_path, {})
+    agent = registry.get(agent_id)
+    if isinstance(agent, dict) and agent.get("model"):
+        return agent["model"]
+    cfg = _read_json(CFG_FILE, {})
+    return cfg.get("agent_models", {}).get(agent_id)
 
 
 def _ollama_models(ollama_bin: Path | None) -> list[str]:
