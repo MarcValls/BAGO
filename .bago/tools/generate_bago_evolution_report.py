@@ -6,273 +6,34 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
-from collections import Counter, defaultdict
+import sys
+from collections import Counter
 from pathlib import Path
-from zoneinfo import ZoneInfo
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _evolution_collectors import (
+    MADRID,
+    UTC,
+    build_markdown_report,
+    collect_json_records,
+    counts_by_day,
+    esc,
+    load_json,
+    parse_iso,
+)
+from _evolution_renderers import (
+    build_activity_by_day_svg,
+    grouped_bar_chart,
+    heatmap_chart,
+    simple_bar_chart,
+    timeline_chart,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "docs" / "analysis"
 FIG_DIR = OUT_DIR / "figures"
-MADRID = ZoneInfo("Europe/Madrid")
-UTC = dt.timezone.utc
-
-
-def parse_iso(ts: str) -> dt.datetime:
-    if ts.endswith("Z"):
-        ts = ts[:-1] + "+00:00"
-    return dt.datetime.fromisoformat(ts)
-
-
-def fmt_local(ts: str) -> str:
-    return parse_iso(ts).astimezone(MADRID).strftime("%Y-%m-%d %H:%M")
-
-
-def fmt_utc(ts: str) -> str:
-    return parse_iso(ts).astimezone(UTC).strftime("%Y-%m-%d %H:%M")
-
-
-def load_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def esc(value: object) -> str:
-    return (
-        str(value)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
-
-
-def svg_template(title: str, width: int, height: int, body: str) -> str:
-    return f"""<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}'>
-<style>
-text {{ font-family: Menlo, Consolas, monospace; fill: #0f172a; }}
-.axis {{ stroke: #64748b; stroke-width: 1; }}
-.grid {{ stroke: #cbd5e1; stroke-width: 1; stroke-dasharray: 3 3; }}
-.title {{ font-size: 17px; font-weight: 700; }}
-.label {{ font-size: 11px; }}
-.small {{ font-size: 10px; }}
-</style>
-<rect x='0' y='0' width='{width}' height='{height}' fill='#f8fafc'/>
-<text x='20' y='26' class='title'>{esc(title)}</text>
-{body}
-</svg>
-"""
-
-
-def write_svg(path: Path, svg: str) -> None:
-    path.write_text(svg, encoding="utf-8")
-
-
-def simple_bar_chart(labels, values, title, y_label, out_path: Path, color="#2563eb") -> None:
-    width, height = 980, 420
-    left, right, top, bottom = 70, 30, 52, 80
-    cw = width - left - right
-    ch = height - top - bottom
-    n = max(1, len(values))
-    ymax = max(values) if values else 1
-    ymax = ymax if ymax > 0 else 1
-    bar_w = cw / n * 0.68
-    step = cw / n
-    body = []
-    for i in range(6):
-        yv = ymax * i / 5
-        y = top + ch - (yv / ymax) * ch
-        body.append(f"<line x1='{left}' y1='{y:.2f}' x2='{left+cw}' y2='{y:.2f}' class='grid' />")
-        body.append(f"<text x='8' y='{y+4:.2f}' class='label'>{yv:.1f}</text>")
-    for i, (label, value) in enumerate(zip(labels, values)):
-        x = left + i * step + (step - bar_w) / 2
-        h = (value / ymax) * ch if ymax else 0
-        y = top + ch - h
-        body.append(
-            f"<rect x='{x:.2f}' y='{y:.2f}' width='{bar_w:.2f}' height='{h:.2f}' fill='{color}' rx='3'/>"
-        )
-        body.append(
-            f"<text x='{x + bar_w/2:.2f}' y='{top+ch+16:.2f}' text-anchor='middle' class='label'>{esc(label)}</text>"
-        )
-        body.append(
-            f"<text x='{x + bar_w/2:.2f}' y='{y-6:.2f}' text-anchor='middle' class='label'>{value:.1f}</text>"
-        )
-    body.extend(
-        [
-            f"<line x1='{left}' y1='{top+ch}' x2='{left+cw}' y2='{top+ch}' class='axis' />",
-            f"<line x1='{left}' y1='{top}' x2='{left}' y2='{top+ch}' class='axis' />",
-            f"<text x='{width/2:.0f}' y='{height-12}' text-anchor='middle' class='label'>{esc(y_label)}</text>",
-            f"<text x='14' y='{top-8}' class='label'>valor</text>",
-        ]
-    )
-    write_svg(out_path, svg_template(title, width, height, "\n".join(body)))
-
-
-def grouped_bar_chart(groups, categories, values, title, out_path: Path) -> None:
-    width, height = 980, 440
-    left, right, top, bottom = 80, 30, 55, 95
-    cw = width - left - right
-    ch = height - top - bottom
-    max_total = max(sum(values[g].get(cat, 0) for cat in categories) for g in groups) if groups else 1
-    max_total = max_total if max_total > 0 else 1
-    group_w = cw / max(1, len(groups))
-    bar_w = group_w * 0.55
-    palette = ["#1d4ed8", "#0f766e", "#c2410c", "#7c3aed", "#b91c1c", "#0369a1"]
-    body = []
-    for i in range(6):
-        yv = max_total * i / 5
-        y = top + ch - (yv / max_total) * ch
-        body.append(f"<line x1='{left}' y1='{y:.2f}' x2='{left+cw}' y2='{y:.2f}' class='grid' />")
-        body.append(f"<text x='8' y='{y+4:.2f}' class='label'>{yv:.1f}</text>")
-
-    for gi, group in enumerate(groups):
-        x_center = left + gi * group_w + group_w / 2
-        x = x_center - bar_w / 2
-        y_cursor = top + ch
-        total = sum(values[group].get(cat, 0) for cat in categories)
-        for ci, cat in enumerate(categories):
-            val = values[group].get(cat, 0)
-            h = (val / max_total) * ch if max_total else 0
-            y = y_cursor - h
-            if val > 0:
-                body.append(
-                    f"<rect x='{x:.2f}' y='{y:.2f}' width='{bar_w:.2f}' height='{h:.2f}' fill='{palette[ci % len(palette)]}' rx='2'/>"
-                )
-            y_cursor = y
-        body.append(
-            f"<text x='{x_center:.2f}' y='{top+ch+16:.2f}' text-anchor='middle' class='label'>{esc(group)}</text>"
-        )
-        body.append(
-            f"<text x='{x_center:.2f}' y='{top+ch+32:.2f}' text-anchor='middle' class='small'>{total}</text>"
-        )
-
-    legend_x = left
-    legend_y = height - 30
-    for ci, cat in enumerate(categories):
-        x = legend_x + ci * 150
-        body.append(f"<rect x='{x}' y='{legend_y-10}' width='12' height='12' fill='{palette[ci % len(palette)]}' rx='2'/>")
-        body.append(f"<text x='{x+18}' y='{legend_y}' class='label'>{esc(cat)}</text>")
-
-    body.extend(
-        [
-            f"<line x1='{left}' y1='{top+ch}' x2='{left+cw}' y2='{top+ch}' class='axis' />",
-            f"<line x1='{left}' y1='{top}' x2='{left}' y2='{top+ch}' class='axis' />",
-            f"<text x='{width/2:.0f}' y='{height-12}' text-anchor='middle' class='label'>fase</text>",
-        ]
-    )
-    write_svg(out_path, svg_template(title, width, height, "\n".join(body)))
-
-
-def timeline_chart(clusters, title, out_path: Path) -> None:
-    width, height = 1180, 420
-    left, right, top, bottom = 145, 30, 55, 80
-    cw = width - left - right
-    ch = height - top - bottom
-    t0 = min(c["start"] for c in clusters)
-    t1 = max(c["end"] for c in clusters)
-    span = (t1 - t0).total_seconds() or 1
-    row_h = ch / max(1, len(clusters))
-    body = []
-
-    for i in range(6):
-        frac = i / 5
-        x = left + frac * cw
-        body.append(f"<line x1='{x:.2f}' y1='{top}' x2='{x:.2f}' y2='{top+ch}' class='grid' />")
-        tick_t = t0 + dt.timedelta(seconds=span * frac)
-        body.append(
-            f"<text x='{x:.2f}' y='{top+ch+18}' text-anchor='middle' class='small'>{tick_t.strftime('%d/%m %H:%M')}</text>"
-        )
-
-    for idx, c in enumerate(clusters):
-        y = top + idx * row_h + row_h * 0.25
-        h = row_h * 0.5
-        x1 = left + ((c["start"] - t0).total_seconds() / span) * cw
-        x2 = left + ((c["end"] - t0).total_seconds() / span) * cw
-        body.append(f"<rect x='{x1:.2f}' y='{y:.2f}' width='{max(3, x2-x1):.2f}' height='{h:.2f}' fill='#0f766e' rx='4'/>")
-        label = (
-            f"{c['label']} | {c['run_count']} corridas | "
-            f"{round(c['duration_s'],1)} s | {c['requests']} req"
-        )
-        body.append(f"<text x='{left-10}' y='{y + h*0.72:.2f}' text-anchor='end' class='label'>{esc(label)}</text>")
-        body.append(
-            f"<text x='{x1+4:.2f}' y='{y - 4:.2f}' class='small'>{c['start_local']}</text>"
-        )
-
-    body.extend(
-        [
-            f"<line x1='{left}' y1='{top+ch}' x2='{left+cw}' y2='{top+ch}' class='axis' />",
-            f"<line x1='{left}' y1='{top}' x2='{left}' y2='{top+ch}' class='axis' />",
-            f"<text x='{width/2:.0f}' y='{height-12}' text-anchor='middle' class='label'>tiempo</text>",
-        ]
-    )
-    write_svg(out_path, svg_template(title, width, height, "\n".join(body)))
-
-
-def heatmap_chart(rows, cols, values, title, out_path: Path) -> None:
-    width, height = 1180, 520
-    left, right, top, bottom = 160, 40, 70, 90
-    cw = width - left - right
-    ch = height - top - bottom
-    row_h = ch / max(1, len(rows))
-    col_w = cw / max(1, len(cols))
-    max_value = max((values.get(r, {}).get(c, 0) for r in rows for c in cols), default=1)
-    max_value = max_value if max_value > 0 else 1
-    body = []
-
-    def fill_for(v: int) -> str:
-        # Simple blue-green ramp without external dependencies.
-        if v <= 0:
-            return "#e2e8f0"
-        ratio = v / max_value
-        if ratio < 0.25:
-            return "#c7f9cc"
-        if ratio < 0.5:
-            return "#86efac"
-        if ratio < 0.75:
-            return "#34d399"
-        return "#0f766e"
-
-    for i in range(6):
-        frac = i / 5
-        x = left + frac * cw
-        body.append(f"<line x1='{x:.2f}' y1='{top}' x2='{x:.2f}' y2='{top+ch}' class='grid' />")
-    for i, row in enumerate(rows):
-        y = top + i * row_h
-        body.append(f"<line x1='{left}' y1='{y:.2f}' x2='{left+cw}' y2='{y:.2f}' class='grid' />")
-        body.append(f"<text x='{left-12}' y='{y + row_h*0.68:.2f}' text-anchor='end' class='label'>{esc(row)}</text>")
-        for j, col in enumerate(cols):
-            v = values.get(row, {}).get(col, 0)
-            x = left + j * col_w
-            fill = fill_for(v)
-            body.append(
-                f"<rect x='{x:.2f}' y='{y:.2f}' width='{col_w:.2f}' height='{row_h:.2f}' fill='{fill}' stroke='#ffffff' stroke-width='1'/>"
-            )
-            if v > 0:
-                body.append(
-                    f"<text x='{x + col_w/2:.2f}' y='{y + row_h/2 + 4:.2f}' text-anchor='middle' class='label'>{v}</text>"
-                )
-    for j, col in enumerate(cols):
-        x = left + j * col_w + col_w / 2
-        body.append(f"<text x='{x:.2f}' y='{top-10}' text-anchor='middle' class='small'>{esc(col)}</text>")
-
-    body.extend(
-        [
-            f"<line x1='{left}' y1='{top+ch}' x2='{left+cw}' y2='{top+ch}' class='axis' />",
-            f"<line x1='{left}' y1='{top}' x2='{left}' y2='{top+ch}' class='axis' />",
-            f"<text x='{width/2:.0f}' y='{height-12}' text-anchor='middle' class='label'>fecha local (Europe/Madrid)</text>",
-        ]
-    )
-    write_svg(out_path, svg_template(title, width, height, "\n".join(body)))
-
-
-def phase_task_mix_chart(early_counts, late_counts, title, out_path: Path) -> None:
-    phases = ["inicio", "ahora"]
-    categories = ["system_change", "project_bootstrap", "analysis", "repository_audit", "execution"]
-    values = {
-        "inicio": early_counts,
-        "ahora": late_counts,
-    }
-    grouped_bar_chart(phases, categories, values, title, out_path)
 
 
 def build_html_report(
@@ -534,18 +295,6 @@ def build_html_report(
 """
 
 
-def counts_by_day(records, ts_field: str, tz: ZoneInfo):
-    counts = defaultdict(int)
-    for r in records:
-        ts = parse_iso(r[ts_field]).astimezone(tz).date().isoformat()
-        counts[ts] += 1
-    return dict(sorted(counts.items()))
-
-
-def collect_json_records(folder: Path):
-    return [load_json(p) for p in sorted(folder.glob("*.json"))]
-
-
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     FIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -595,53 +344,7 @@ def main() -> int:
         }
         for day in all_days
     }
-    # Build grouped bar chart as three stacked categories per day.
-    # We render it as stacked bars for readability.
-    width, height = 1180, 440
-    left, right, top, bottom = 80, 30, 55, 100
-    cw = width - left - right
-    ch = height - top - bottom
-    max_total = max(sum(v.values()) for v in day_values.values()) if day_values else 1
-    max_total = max_total if max_total > 0 else 1
-    day_step = cw / max(1, len(all_days))
-    bar_w = day_step * 0.56
-    palette = {"sessions": "#1d4ed8", "changes": "#0f766e", "evidences": "#c2410c"}
-    body = []
-    for i in range(6):
-        yv = max_total * i / 5
-        y = top + ch - (yv / max_total) * ch
-        body.append(f"<line x1='{left}' y1='{y:.2f}' x2='{left+cw}' y2='{y:.2f}' class='grid' />")
-        body.append(f"<text x='8' y='{y+4:.2f}' class='label'>{yv:.1f}</text>")
-    for i, day in enumerate(all_days):
-        x = left + i * day_step + (day_step - bar_w) / 2
-        y_cursor = top + ch
-        total = 0
-        for cat in ("sessions", "changes", "evidences"):
-            val = day_values[day][cat]
-            total += val
-            h = (val / max_total) * ch if max_total else 0
-            y = y_cursor - h
-            if val > 0:
-                body.append(
-                    f"<rect x='{x:.2f}' y='{y:.2f}' width='{bar_w:.2f}' height='{h:.2f}' fill='{palette[cat]}' rx='2'/>"
-                )
-            y_cursor = y
-        body.append(f"<text x='{x + bar_w/2:.2f}' y='{top+ch+16:.2f}' text-anchor='middle' class='label'>{day}</text>")
-        body.append(f"<text x='{x + bar_w/2:.2f}' y='{top+ch+31:.2f}' text-anchor='middle' class='small'>{total}</text>")
-    body.extend(
-        [
-            f"<rect x='{left}' y='{height-32}' width='12' height='12' fill='{palette['sessions']}' rx='2'/>",
-            f"<text x='{left+18}' y='{height-22}' class='label'>sessions</text>",
-            f"<rect x='{left+120}' y='{height-32}' width='12' height='12' fill='{palette['changes']}' rx='2'/>",
-            f"<text x='{left+138}' y='{height-22}' class='label'>changes</text>",
-            f"<rect x='{left+240}' y='{height-32}' width='12' height='12' fill='{palette['evidences']}' rx='2'/>",
-            f"<text x='{left+258}' y='{height-22}' class='label'>evidences</text>",
-            f"<line x1='{left}' y1='{top+ch}' x2='{left+cw}' y2='{top+ch}' class='axis' />",
-            f"<line x1='{left}' y1='{top}' x2='{left}' y2='{top+ch}' class='axis' />",
-            f"<text x='{width/2:.0f}' y='{height-12}' text-anchor='middle' class='label'>fecha local (Europe/Madrid)</text>",
-        ]
-    )
-    write_svg(FIG_DIR / "activity_by_day.svg", svg_template("Actividad diaria del sistema", width, height, "\n".join(body)))
+    build_activity_by_day_svg(all_days, day_values, FIG_DIR / "activity_by_day.svg")
 
     today_session_count = sum(1 for s in sessions if parse_iso(s["created_at"]).astimezone(MADRID).date() == today_local)
     today_change_count = sum(1 for c in changes if parse_iso(c["created_at"]).astimezone(MADRID).date() == today_local)
@@ -735,151 +438,23 @@ def main() -> int:
     phase_role_late = sorted({r for s in late_sessions for r in s.get("roles_activated", [])})
 
     report_path = OUT_DIR / "BAGO_EVOLUCION_SISTEMA.md"
-    report = f"""# Evolución del sistema BAGO
-
-Este informe compara la fase inicial de corrección y migración con el estado operativo actual del repositorio.
-
-## Fuentes
-
-- [state/metrics/metrics_snapshot.json]({ROOT / "state/metrics/metrics_snapshot.json"})
-- [state/global_state.json]({ROOT / "state/global_state.json"})
-- [state/sessions/]({ROOT / "state/sessions"})
-- [state/changes/]({ROOT / "state/changes"})
-- [state/evidences/]({ROOT / "state/evidences"})
-- [state/metrics/runs/]({ROOT / "state/metrics/runs"})
-
-## Lectura ejecutiva
-
-Al principio, BAGO trabajaba como un sistema de corrección y preservación canónica:
-
-- centrado en `system_change`,
-- con roles amplios y generales,
-- con prioridad en migración, validación y consolidación documental,
-- y con poca variedad de tipos de tarea.
-
-Ahora trabaja como un sistema operativo más maduro:
-
-- tiene `project_bootstrap`, `analysis`, `repository_audit` y `execution` además de `system_change`,
-- separa mejor los roles por función,
-- conserva trazabilidad de cambio, evidencia y estado,
-- y ejecuta corridas autónomas de stress con ventanas temporales medibles.
-
-## Métricas comparativas
-
-| Métrica | Inicio | Ahora |
-| --- | ---:| ---:|
-| Snapshot documental mínimo | {start_corpus} artefactos | {current_corpus} artefactos |
-| Sesiones nativas visibles | {metrics_snapshot["native_sessions_completed"]} | {current_state["inventory"]["sessions"]} |
-| Sesiones migradas preservadas | {metrics_snapshot["migrated_sessions_count"]} | 4 preservadas en `state/migrated_sessions/` |
-| Cambios migrados/validados | {metrics_snapshot["migrated_changes_count"] + metrics_snapshot["validated_changes"]} | {current_state["inventory"]["changes"]} |
-| Evidencias registradas | no consolidado en snapshot inicial | {current_state["inventory"]["evidences"]} |
-| Integridad del pack | {metrics_snapshot["pack_integrity_last_check"].upper()} | {current_state["last_validation"]["pack"]} / {current_state["last_validation"]["state"]} / {current_state["last_validation"]["manifest"]} |
-
-## Métricas de hoy
-
-Hoy local: **{today_local.strftime("%d/%m/%Y")}**.
-
-| Métrica | Valor |
-| --- | ---: |
-| Sesiones de hoy | {today_session_count} |
-| Cambios de hoy | {today_change_count} |
-| Evidencias de hoy | {today_evidence_count} |
-| Corridas autónomas de hoy | {len(today_run_summaries)} |
-| Solicitudes de hoy en `metrics/runs` | {sum(int(r.get("total_requests", 0)) for r in today_run_summaries)} |
-
-Si hoy no aparece actividad, significa que el árbol visible no contiene registros fechados en el día local del entorno.
-
-## Cómo trabajaba al principio
-
-Rango base del arranque: **11/04/2026**.
-
-- La sesión dominante era `system_change`.
-- El trabajo giraba alrededor de corrección del pack, migración histórica y oficialización canónica.
-- La mezcla de roles era más generalista:
-  - `{", ".join(phase_role_early) if phase_role_early else "n/a"}`
-- La actividad se concentró en pocas ventanas de alta densidad documental.
-
-## Cómo trabaja ahora
-
-Rango visible del estado actual: **14/04/2026-15/04/2026** en el árbol local, con `global_state.json` actualizado al **17/04/2026 19:35 UTC**.
-
-- La sesión incluye tareas más especializadas.
-- La mezcla de trabajo se diversifica:
-  - `{", ".join(phase_role_late) if phase_role_late else "n/a"}`
-- El sistema ya no solo corrige canon:
-  - arranca repo,
-  - audita,
-  - ejecuta,
-  - evalúa,
-  - reconstruye,
-  - y consolida.
-
-## Actividad por día
-
-![Actividad diaria](figures/activity_by_day.svg)
-
-## Cambio de mezcla de trabajo
-
-![Mezcla por fase](figures/session_mix_by_phase.svg)
-
-| Fase | system_change | project_bootstrap | analysis | repository_audit | execution | Total |
-| --- | ---:| ---:| ---:| ---:| ---:| ---:|
-| Inicio | {early_counts.get("system_change", 0)} | {early_counts.get("project_bootstrap", 0)} | {early_counts.get("analysis", 0)} | {early_counts.get("repository_audit", 0)} | {early_counts.get("execution", 0)} | {sum(early_counts.values())} |
-| Ahora | {late_counts.get("system_change", 0)} | {late_counts.get("project_bootstrap", 0)} | {late_counts.get("analysis", 0)} | {late_counts.get("repository_audit", 0)} | {late_counts.get("execution", 0)} | {sum(late_counts.values())} |
-
-## Evolución de tipos de trabajo
-
-![Tipos de trabajo por día](figures/task_type_evolution.svg)
-
-## Crecimiento del corpus
-
-![Crecimiento del corpus](figures/corpus_growth.svg)
-
-## Ventanas de trabajo autónomo
-
-Las corridas de `state/metrics/runs/` sí traen duración real y permiten medir trabajo autónomo continuo.
-
-![Ventanas autónomas](figures/runs_clusters.svg)
-
-| Bloque | Inicio local | Fin local | Duración activa | Solicitudes | Corridas |
-| --- | --- | --- | ---:| ---:| ---:|
-"""
-    for cluster in cluster_rows:
-        report += f"| {cluster['label']} | {cluster['start'].astimezone(MADRID).strftime('%d/%m %H:%M')} | {cluster['end'].astimezone(MADRID).strftime('%d/%m %H:%M')} | {cluster['duration_s']:.3f}s | {cluster['requests']} | {cluster['run_count']} |\n"
-    report += """
-
-## Diagramas
-
-### Evolución funcional
-
-```mermaid
-flowchart LR
-  A["Corrección y migración"] --> B["Endurecimiento estructural"]
-  B --> C["Performance y release"]
-  C --> D["Bootstrap repo-first"]
-  D --> E["Evaluación y reconstrucción"]
-  E --> F["Operación estable"]
-```
-
-### Ciclo autónomo
-
-```mermaid
-stateDiagram-v2
-  [*] --> Session
-  Session --> Change
-  Change --> Evidence
-  Evidence --> GlobalState
-  GlobalState --> NextSession
-  NextSession --> Session
-```
-
-## Observaciones
-
-- Snapshot canónico de referencia: {state_ref_day.strftime("%d/%m/%Y")} desde `global_state.updated_at`.
-- El árbol local visible tiene menos archivos que `global_state.json` anticipa en su inventario. Eso sugiere que el estado canónico va por delante de esta copia del árbol.
-- La evolución principal no es solo de volumen; es de especialización y de capacidad para cerrar ciclos de trabajo con evidencias y validación.
-"""
-    report_path.write_text(report, encoding="utf-8")
+    report_path.write_text(build_markdown_report(
+        today_local=today_local,
+        state_ref_day=state_ref_day,
+        start_corpus=start_corpus,
+        current_corpus=current_corpus,
+        metrics_snapshot=metrics_snapshot,
+        current_state=current_state,
+        today_session_count=today_session_count,
+        today_change_count=today_change_count,
+        today_evidence_count=today_evidence_count,
+        today_run_summaries=today_run_summaries,
+        early_counts=early_counts,
+        late_counts=late_counts,
+        phase_role_early=phase_role_early,
+        phase_role_late=phase_role_late,
+        cluster_rows=cluster_rows,
+    ), encoding="utf-8")
 
     html_path = OUT_DIR / "BAGO_EVOLUCION_SISTEMA.html"
     html_path.write_text(build_html_report(
