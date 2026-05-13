@@ -1,15 +1,17 @@
 # BAGO — Contrato Público de API
 
 > **Versión**: 3.4.0b1 · Actualizado: Mayo 2026  
-> Este documento describe la interfaz estable de BAGO: comandos CLI garantizados
-> y endpoints JSON del launcher. Los elementos marcados ⚠️ requieren flags explícitos.
+> Este documento describe la interfaz de referencia de BAGO: comandos CLI
+> con estabilidad `core` y endpoints JSON del launcher.
+> Los elementos marcados ⚠️ requieren flags explícitos.
 
 ---
 
-## 1. Comandos CLI — Contrato Estable (Core)
+## 1. Comandos CLI — Estabilidad Core
 
-Los 14 comandos `core` son la interfaz pública garantizada. Se comprueban en cada
-CI run (gate-wheel) y no cambian entre versiones minor.
+Los 14 comandos con `stability = "core"` en `tool_registry.py` constituyen
+la interfaz de referencia del sistema. Se verifican en cada CI run (gate-wheel)
+y se evita cambiarlos entre versiones minor.
 
 | Comando | Uso principal | Salida esperada |
 |---------|--------------|-----------------|
@@ -28,11 +30,11 @@ CI run (gate-wheel) y no cambian entre versiones minor.
 | `bago orphans` | Detecta módulos sin registro en tool_registry | Lista + recuento |
 | `bago scope` | Detecta scope de scripts Python | `framework / project / both` |
 
-### Contrato de exit codes
+### Exit codes de referencia (comportamiento observado)
 
 | Código | Significado |
 |--------|-------------|
-| `0` | OK — operación completada sin errores |
+| `0` | Proceso terminó normalmente |
 | `1` | Error lógico (validación fallida, estado inválido) |
 | `2` | Error de uso (argumento no reconocido) |
 | `130` | Interrumpido por el usuario (Ctrl+C) |
@@ -57,10 +59,10 @@ Sin ella, muestran una advertencia y salen con código `1`.
 
 ---
 
-## 3. Comandos experimentales — Contrato no garantizado
+## 3. Comandos experimentales — Estabilidad no core
 
 Los 63 comandos `experimental` pueden cambiar, renombrarse o eliminarse entre versiones.
-No se incluyen en el contrato estable. Ver `docs/COMMANDS.md` para la lista completa.
+No se incluyen en la interfaz de referencia. Ver `docs/COMMANDS.md` para la lista completa.
 
 Para usarlos:
 ```bash
@@ -281,7 +283,7 @@ HTTP 400: { "error": "JSON inválido" }
 
 ## 6. Versionado y compatibilidad
 
-- La API del launcher es **interna** — no se garantiza estabilidad entre versiones major.
-- Los 14 comandos `core` CLI son el único **contrato público garantizado**.
+- La API del launcher es **interna** — puede cambiar entre versiones major.
+- Los 14 comandos `core` CLI son la interfaz de referencia del sistema (ver `tool_registry.py`).
 - El campo `version` en `/api/status` refleja `pyproject.toml → version`.
 - Los cambios en endpoints se documentan en `CHANGELOG.md`.
