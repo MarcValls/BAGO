@@ -23,7 +23,7 @@ def _cmd_list() -> int:
         print()
         print(c("1;33", f"  {group_name}"))
         print(c("2", "  " + "─" * 52))
-        for cmd, short, _ in cmds:
+        for cmd, short, *_ in cmds:
             print(f"  {c('1;32', f'bago {cmd}'):<35}  {c('2', short)}")
     print()
     return 0
