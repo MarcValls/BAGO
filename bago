@@ -924,6 +924,12 @@ def main():
             [sys.executable, str(TOOLS / "task_assign.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "benchmark":
+        # Banco de pruebas de eficiencia BAGO
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_benchmark.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
     elif cmd == "seed":
         # BAGO Seed — planta huella mínima en proyecto externo
         subprocess.run(

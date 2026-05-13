@@ -118,6 +118,11 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Asigna tareas a agentes/roles. list-agents | assign <id> <agente> | pending | assigned",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "task_assign.py"))],
     ),
+    "benchmark": ToolEntry(
+        cmd="benchmark", module="bago_benchmark",
+        description="Banco de pruebas de eficiencia BAGO (10 min). --duration N | --suite fast|full | --json",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_benchmark.py"))],
+    ),
     "stability": ToolEntry(
         cmd="stability", module="stability_summary",
         description="Resumen de estabilidad del pack",

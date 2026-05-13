@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 120 CLI commands · 87 public commands
+> **Version 3.4.0b1** · 121 CLI commands · 88 public commands
 
 Public command contract (CI-checked): **15 core** · **64 experimental** · **8 dangerous** · **28 legacy**
 
@@ -104,7 +104,7 @@ These commands form the **stable public interface**.
 
 ## 6. Experimental commands (not part of the contract)
 
-`ableton-template` · `advisor` · `agent` · `ask` · `assign` · `autonomy` · `build-clean` · `build-run` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps`
+`ableton-template` · `advisor` · `agent` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps`
 `diff` · `docs` · `find-tool` · `goals` · `habit` · `hardcode` · `heal-paths` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `llm-node`
 `lsp` · `music` · `naming` · `neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `placeholder_scan` · `preflight-check` · `recientes` · `reopen`
 `repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `seed` · `select` · `siembra` · `skill` · `snapshot` · `spanish` · `spiral-agent`
