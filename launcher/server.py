@@ -7,6 +7,7 @@ import http.server
 import json
 import os
 import shutil
+import ssl
 import subprocess
 import sys
 import threading
@@ -15,6 +16,22 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from pathlib import Path
+
+
+def _ssl_ctx() -> ssl.SSLContext:
+    """Return a working SSL context — tries certifi, then system store."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        pass
+    try:
+        return ssl.create_default_context()
+    except Exception:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
 
 LAUNCHER_DIR     = Path(__file__).parent.resolve()
 BAGO_CORE        = LAUNCHER_DIR.parent
@@ -27,7 +44,23 @@ SESSIONS_DIR     = STATE_DIR / "sessions"
 PENDING_TASK     = STATE_DIR / "pending_w2_task.json"
 IDEAS_FILE       = STATE_DIR / "implemented_ideas.json"
 LLM_CONFIG_FILE  = STATE_DIR / "llm_config.json"
+SECRETS_FILE     = Path.home() / ".bago_secrets.json"
 PORT             = int(os.environ.get("BAGO_PORT", 7430))
+
+# ── Auto-load secrets from ~/.bago_secrets.json (without overwriting env) ────
+def _load_secrets_to_env() -> None:
+    """Load API keys from ~/.bago_secrets.json into os.environ (if not already set)."""
+    if not SECRETS_FILE.exists():
+        return
+    try:
+        secrets = json.loads(SECRETS_FILE.read_text(encoding="utf-8"))
+        for k, v in secrets.items():
+            if k and v and k not in os.environ:
+                os.environ[k] = v
+    except Exception:
+        pass
+
+_load_secrets_to_env()
 
 # Auth token for mutating POST endpoints.
 # Set BAGO_TOKEN env var to enable. If unset, auth is disabled (dev mode).
@@ -349,8 +382,27 @@ def _resolve_model_tag(model_id: str, cfg: dict) -> str:
     return model_id
 
 
+def _get_ollama_endpoint(model_tag: str, cfg: dict, local_models: list[str]) -> tuple[str, dict]:
+    """Return (server_url, headers) for a given model tag.
+
+    Routes to local Ollama if model is installed locally, otherwise to
+    Ollama cloud (api.ollama.com) using OLLAMA_API_KEY env var.
+    """
+    if model_tag in local_models:
+        return cfg.get("server_url", "http://127.0.0.1:11434"), {"Content-Type": "application/json"}
+
+    cloud_cfg = cfg.get("ollama_cloud", {})
+    cloud_url = cloud_cfg.get("server_url", "https://api.ollama.com")
+    key_env   = cloud_cfg.get("api_key_env", "OLLAMA_API_KEY")
+    api_key   = os.environ.get(key_env, "")
+    headers   = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return cloud_url, headers
+
+
 def get_llm_status() -> dict:
-    """Return LLM config + Ollama availability and model list."""
+    """Return LLM config + local and cloud Ollama availability."""
     cfg: dict = {}
     if LLM_CONFIG_FILE.exists():
         try:
@@ -359,6 +411,8 @@ def get_llm_status() -> dict:
             pass
 
     server_url = cfg.get("server_url", "http://127.0.0.1:11434")
+
+    # ── Local Ollama ────────────────────────────────────────────────────────
     ollama_available = False
     ollama_models: list = []
     ollama_error: str | None = None
@@ -378,23 +432,50 @@ def get_llm_status() -> dict:
     except Exception as e:
         ollama_error = str(e)
 
-    active_model = _resolve_model_tag(cfg.get("active_model", "qwen2.5-coder:7b"), cfg)
-    session_start = _resolve_model_tag(
-        cfg.get("session_start_model", active_model), cfg
-    )
+    # ── Ollama Cloud ────────────────────────────────────────────────────────
+    cloud_cfg = cfg.get("ollama_cloud", {})
+    cloud_url = cloud_cfg.get("server_url", "https://api.ollama.com")
+    key_env   = cloud_cfg.get("api_key_env", "OLLAMA_API_KEY")
+    api_key   = os.environ.get(key_env, "")
+    cloud_available = False
+    cloud_models: list = []
+    cloud_error: str | None = None
+    try:
+        cloud_headers = {"Content-Type": "application/json"}
+        if api_key:
+            cloud_headers["Authorization"] = f"Bearer {api_key}"
+        req2 = urllib.request.Request(f"{cloud_url}/api/tags", headers=cloud_headers)
+        with urllib.request.urlopen(req2, timeout=5, context=_ssl_ctx()) as resp2:
+            data2 = json.loads(resp2.read())
+            cloud_models = [m["name"] for m in data2.get("models", [])]
+            cloud_available = True
+    except Exception as e:
+        cloud_error = str(e)
+
+    active_model  = _resolve_model_tag(cfg.get("active_model", "qwen2.5-coder:7b"), cfg)
+    session_start = _resolve_model_tag(cfg.get("session_start_model", active_model), cfg)
     return {
-        "engine": cfg.get("engine", "ollama"),
-        "active_model": active_model,
+        "engine":              cfg.get("engine", "ollama"),
+        "active_model":        active_model,
         "session_start_model": session_start,
-        "server_url": server_url,
-        "ollama_available": ollama_available,
-        "ollama_models": ollama_models,
-        "ollama_error": ollama_error,
+        "server_url":          server_url,
+        "ollama_available":    ollama_available,
+        "ollama_models":       ollama_models,
+        "ollama_error":        ollama_error,
+        "cloud_available":     cloud_available,
+        "cloud_models":        cloud_models,
+        "cloud_error":         cloud_error,
+        "cloud_url":           cloud_url,
+        "cloud_key_configured": bool(api_key),
     }
 
 
 def llm_chat(message: str, model: str | None = None) -> dict:
-    """Send a prompt to the local Ollama instance and return the response."""
+    """Send a prompt to Ollama (local or cloud) based on model availability.
+
+    Routing: if the resolved model tag is installed locally → local Ollama.
+    Otherwise → Ollama cloud (api.ollama.com) with OLLAMA_API_KEY.
+    """
     if not message.strip():
         return {"ok": False, "error": "mensaje vacío"}
 
@@ -405,21 +486,35 @@ def llm_chat(message: str, model: str | None = None) -> dict:
         except Exception:
             pass
 
-    server_url   = cfg.get("server_url", "http://127.0.0.1:11434")
+    # Resolve tag and get local models list
     active_model = _resolve_model_tag(model or cfg.get("active_model", "qwen2.5-coder:7b"), cfg)
-    payload      = json.dumps(
-        {"model": active_model, "prompt": message, "stream": False}
-    ).encode()
+    local_models: list[str] = []
+    try:
+        server_url_local = cfg.get("server_url", "http://127.0.0.1:11434")
+        req_tags = urllib.request.Request(
+            f"{server_url_local}/api/tags",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req_tags, timeout=2) as r:
+            local_models = [m["name"] for m in json.loads(r.read()).get("models", [])]
+    except Exception:
+        pass
+
+    server_url, headers = _get_ollama_endpoint(active_model, cfg, local_models)
+    engine = "local" if active_model in local_models else "cloud"
+
+    payload = json.dumps({"model": active_model, "prompt": message, "stream": False}).encode()
     try:
         req = urllib.request.Request(
             f"{server_url}/api/generate",
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        ctx = None if engine == "local" else _ssl_ctx()
+        with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
             data = json.loads(resp.read())
-            return {"ok": True, "response": data.get("response", ""), "model": active_model}
+            return {"ok": True, "response": data.get("response", ""), "model": active_model, "engine": engine}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

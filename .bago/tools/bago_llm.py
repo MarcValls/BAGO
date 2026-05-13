@@ -665,6 +665,8 @@ def _usage() -> None:
     print()
     print("  Subcomandos:")
     cmds = [
+        ("setup",          "Asistente de configuración de proveedores LLM"),
+        ("setup --status", "Estado de todos los proveedores"),
         ("status",         "Estado del motor (por defecto)"),
         ("models",         "Catálogo de modelos disponibles"),
         ("download [ID]",  "Descarga un modelo al pendrive"),
@@ -709,6 +711,21 @@ def main() -> int:
 
     if sub == "stop":
         return cmd_stop()
+
+    if sub == "setup":
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "bago_llm_setup", str(TOOLS_DIR / "bago_llm_setup.py")
+        )
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            sub2 = args[1] if len(args) > 1 else ""
+            if sub2 == "--status" or sub2 == "status":
+                return mod.cmd_status()
+            return mod.cmd_setup()
+        _err("bago_llm_setup.py no encontrado")
+        return 1
 
     if sub == "node":
         return cmd_node(args[1:])

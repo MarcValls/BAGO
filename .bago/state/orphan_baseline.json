@@ -1,7 +1,8 @@
 {
-  "generated_at": "2026-05-13T08:21:05.746672+00:00",
+  "generated_at": "2026-05-13T09:29:25.752070+00:00",
   "known_orphans": [
     "agent_model_manager",
+    "agent_static_guard",
     "airdrop_protocols",
     "airdrop_scanner",
     "alias_manager",
@@ -14,6 +15,7 @@
     "bago_bs4_playwright_ref",
     "bago_config",
     "bago_health_router",
+    "bago_llm_setup",
     "bago_menu",
     "bago_miniapp_server",
     "bago_node",
@@ -142,5 +144,5 @@
     "workflow_navigator",
     "workspace_selector"
   ],
-  "count": 140
+  "count": 142
 }

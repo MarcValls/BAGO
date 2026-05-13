@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "timestamp": "2026-05-13T08:40:43.371713+00:00",
+    "duration_s": 30.2,
+    "suite_size": 6,
+    "bago_version": "3.3.0"
+  },
+  "summary": {
+    "total_runs": 18,
+    "total_ok": 18,
+    "total_failures": 0,
+    "success_rate_pct": 100.0,
+    "throughput_rpm": 35.72,
+    "efficiency_score": 85.6
+  },
+  "commands": {
+    "health": {
+      "runs": 6,
+      "success_rate": 100.0,
+      "avg_s": 2.302,
+      "min_s": 2.197,
+      "max_s": 2.418,
+      "p95_s": 2.35,
+      "target_s": 2.0,
+      "throughput_rpm": 26.1,
+      "avg_output_bytes": 399,
+      "efficiency_score": 77.0,
+      "status": "OK"
+    },
+    "validate": {
+      "runs": 5,
+      "success_rate": 100.0,
+      "avg_s": 1.914,
+      "min_s": 1.778,
+      "max_s": 2.288,
+      "p95_s": 1.857,
+      "target_s": 2.0,
+      "throughput_rpm": 31.4,
+      "avg_output_bytes": 78,
+      "efficiency_score": 80.9,
+      "status": "OK"
+    },
+    "status": {
+      "runs": 2,
+      "success_rate": 100.0,
+      "avg_s": 0.379,
+      "min_s": 0.332,
+      "max_s": 0.427,
+      "p95_s": 0.332,
+      "target_s": 1.0,
+      "throughput_rpm": 158.1,
+      "avg_output_bytes": 129,
+      "efficiency_score": 92.4,
+      "status": "OK"
+    },
+    "registry": {
+      "runs": 2,
+      "success_rate": 100.0,
+      "avg_s": 0.298,
+      "min_s": 0.295,
+      "max_s": 0.301,
+      "p95_s": 0.295,
+      "target_s": 1.5,
+      "throughput_rpm": 201.5,
+      "avg_output_bytes": 15086,
+      "efficiency_score": 96.0,
+      "status": "OK"
+    },
+    "start_quiet": {
+      "runs": 2,
+      "success_rate": 100.0,
+      "avg_s": 2.692,
+      "min_s": 2.296,
+      "max_s": 3.087,
+      "p95_s": 2.296,
+      "target_s": 3.0,
+      "throughput_rpm": 22.3,
+      "avg_output_bytes": 903,
+      "efficiency_score": 82.1,
+      "status": "OK"
+    },
+    "guard_audit": {
+      "runs": 1,
+      "success_rate": 100.0,
+      "avg_s": 0.108,
+      "min_s": 0.108,
+      "max_s": 0.108,
+      "p95_s": 0.108,
+      "target_s": 1.0,
+      "throughput_rpm": 556.1,
+      "avg_output_bytes": 226,
+      "efficiency_score": 97.8,
+      "status": "OK"
+    }
+  }
+}
