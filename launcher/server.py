@@ -194,6 +194,164 @@ def music_validate(body: dict) -> dict:
         for p in [tmp_orig, tmp_trans]:
             Path(p).unlink(missing_ok=True)
 
+def music_transcribe(body: dict) -> dict:
+    """Pitch-detect audio (base64 WAV/PCM) → list of notes.
+
+    Input JSON: { "audio_b64": "<base64>", "format": "wav"|"f32le",
+                  "sample_rate": 44100, "min_duration_ms": 150 }
+    Output JSON: { "ok": true, "notes": [{"name":"C4","midi":60,"start_ms":0,"dur_ms":320}, ...] }
+
+    Uses aubio when available; falls back to stdlib FFT (less accurate).
+    """
+    import base64
+    import struct
+    import math
+
+    audio_b64 = body.get("audio_b64", "")
+    fmt       = body.get("format", "wav")       # "wav" | "f32le"
+    sr        = int(body.get("sample_rate", 44100))
+    min_dur   = int(body.get("min_duration_ms", 150))
+
+    if not audio_b64:
+        return {"ok": False, "error": "audio_b64 requerido"}
+
+    try:
+        raw = base64.b64decode(audio_b64)
+    except Exception as e:
+        return {"ok": False, "error": f"base64 inválido: {e}"}
+
+    # Parse samples
+    if fmt == "wav":
+        # Read WAV header to find PCM data
+        try:
+            # Find "data" chunk
+            idx = raw.index(b"data")
+            data_size = struct.unpack_from("<I", raw, idx + 4)[0]
+            pcm_raw = raw[idx + 8: idx + 8 + data_size]
+            # WAV header: channels at byte 22, sample_rate at 24, bit_depth at 34
+            channels   = struct.unpack_from("<H", raw, 22)[0]
+            sr         = struct.unpack_from("<I", raw, 24)[0]
+            bit_depth  = struct.unpack_from("<H", raw, 34)[0]
+            if bit_depth == 16:
+                n = len(pcm_raw) // 2
+                samples = [struct.unpack_from("<h", pcm_raw, i * 2)[0] / 32768.0 for i in range(n)]
+                if channels > 1:  # downmix to mono
+                    samples = [sum(samples[i:i+channels]) / channels for i in range(0, n, channels)]
+            elif bit_depth == 32:
+                n = len(pcm_raw) // 4
+                samples = [struct.unpack_from("<f", pcm_raw, i * 4)[0] for i in range(n)]
+                if channels > 1:
+                    samples = [sum(samples[i:i+channels]) / channels for i in range(0, n, channels)]
+            else:
+                return {"ok": False, "error": f"WAV bit_depth {bit_depth} no soportado"}
+        except (ValueError, struct.error) as e:
+            return {"ok": False, "error": f"WAV parse error: {e}"}
+    elif fmt == "f32le":
+        n = len(raw) // 4
+        samples = [struct.unpack_from("<f", raw, i * 4)[0] for i in range(n)]
+    else:
+        return {"ok": False, "error": f"format '{fmt}' no soportado; usa wav o f32le"}
+
+    if not samples:
+        return {"ok": True, "notes": [], "method": "empty"}
+
+    # Try aubio first (best quality)
+    try:
+        import aubio  # type: ignore
+        import numpy as np  # type: ignore
+        arr = np.array(samples, dtype=np.float32)
+        hop = 512
+        buf = 2048
+        pitch_o = aubio.pitch("yin", buf, hop, sr)
+        pitch_o.set_unit("Hz")
+        pitch_o.set_silence(-40)
+        onset_o = aubio.onset("default", buf, hop, sr)
+        onsets_ms: list[int] = []
+        freqs: list[float] = []
+        for i in range(0, len(arr) - hop, hop):
+            chunk = arr[i:i + hop]
+            if len(chunk) < hop:
+                chunk = np.pad(chunk, (0, hop - len(chunk)))
+            onset_o(chunk)
+            if onset_o.get_last_onset() > 0:
+                onsets_ms.append(int(i * 1000 / sr))
+            freqs.append(float(pitch_o(chunk)[0]))
+        method = "aubio"
+    except ImportError:
+        # Stdlib FFT fallback: frame-by-frame autocorrelation
+        hop = 1024
+        freqs = []
+        onsets_ms = []
+        prev_rms = 0.0
+        for i in range(0, len(samples) - hop, hop):
+            frame = samples[i:i + hop]
+            rms = math.sqrt(sum(s*s for s in frame) / len(frame))
+            if rms > 0.015 and prev_rms < 0.008:
+                onsets_ms.append(int(i * 1000 / sr))
+            prev_rms = rms
+            # Autocorrelation pitch detection
+            if rms < 0.01:
+                freqs.append(0.0)
+                continue
+            n = len(frame)
+            corr = [sum(frame[j] * frame[j+lag] for j in range(n-lag)) for lag in range(n//2)]
+            d = 0
+            while d < len(corr) - 1 and corr[d] >= corr[d+1]:
+                d += 1
+            max_v, max_i = max((v, idx) for idx, v in enumerate(corr[d:], d))
+            freqs.append(sr / max_i if max_v > corr[0] * 0.45 and max_i > 0 else 0.0)
+        method = "stdlib_fft"
+
+    # Group consecutive frames into notes
+    PC_MAP = {0:"C",1:"C#",2:"D",3:"D#",4:"E",5:"F",6:"F#",7:"G",8:"G#",9:"A",10:"A#",11:"B"}
+
+    def freq_to_midi(f: float) -> int | None:
+        if f < 60 or f > 1600:
+            return None
+        return round(12 * math.log2(f / 440) + 69)
+
+    notes: list[dict] = []
+    frame_ms = hop * 1000 / sr
+    current_midi: int | None = None
+    note_start_ms: int = 0
+
+    for fi, freq in enumerate(freqs):
+        midi = freq_to_midi(freq)
+        t_ms = int(fi * frame_ms)
+        if midi != current_midi:
+            if current_midi is not None:
+                dur = t_ms - note_start_ms
+                if dur >= min_dur:
+                    pc = current_midi % 12
+                    oct = current_midi // 12 - 1
+                    notes.append({
+                        "name":     PC_MAP[pc] + str(oct),
+                        "midi":     current_midi,
+                        "start_ms": note_start_ms,
+                        "dur_ms":   dur,
+                        "pc":       pc,
+                        "octave":   oct,
+                    })
+            current_midi = midi
+            note_start_ms = t_ms
+
+    # Last note
+    if current_midi is not None:
+        dur = int(len(freqs) * frame_ms) - note_start_ms
+        if dur >= min_dur:
+            pc = current_midi % 12
+            oct = current_midi // 12 - 1
+            notes.append({
+                "name":     PC_MAP[pc] + str(oct),
+                "midi":     current_midi,
+                "start_ms": note_start_ms,
+                "dur_ms":   dur,
+                "pc":       pc,
+                "octave":   oct,
+            })
+
+    return {"ok": True, "notes": notes, "method": method, "total_ms": int(len(samples) * 1000 / sr)}
+
 # ─── BAGO Status ──────────────────────────────────────────────────────────────
 
 def bago_status():
@@ -690,6 +848,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         elif path == "/api/music/validate":
             self._json(music_validate(body))
+
+        elif path == "/api/music/transcribe":
+            self._json(music_transcribe(body))
 
         else:
             self._json({"error": "not found"}, 404)

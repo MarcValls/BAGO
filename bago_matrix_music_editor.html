@@ -40,17 +40,22 @@
   --header-h: 44px;
   --status-h: 40px;
   --toolbar-gap: 12px;
+  --toolbar-space: 180px;
+  --ears-space: 220px;
+  --result-space: 80px;
+  --score-pad-bottom: calc(var(--status-h) + 16px);
 }
 
-html, body { min-height: 100%; }
+html, body { height: 100%; }
 body {
   background: linear-gradient(180deg, #0f1222 0%, #141833 100%);
   color: var(--text-hi);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
   overflow: hidden;
+  --score-pad-bottom: calc(var(--status-h) + 16px);
 }
 
 button, input, select {
@@ -143,17 +148,19 @@ button, select { outline: none; }
 
 #score-wrap {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   position: relative;
-  padding: 14px 12px calc(var(--status-h) + 176px);
-  scroll-padding-bottom: 220px;
+  padding: 14px 12px var(--score-pad-bottom);
+  scroll-padding-bottom: var(--score-pad-bottom);
 }
-body[data-state="empty"] #score-wrap {
-  padding-bottom: calc(var(--status-h) + 28px);
-}
-body[data-state="result"] #score-wrap {
-  padding-bottom: calc(var(--status-h) + 96px);
-}
+body[data-state="empty"] { --score-pad-bottom: calc(var(--status-h) + 16px); }
+body[data-state="loaded"],
+body[data-state="selected"] { --score-pad-bottom: calc(var(--status-h) + var(--toolbar-space) + 20px); }
+body[data-state="recording"] { --score-pad-bottom: calc(var(--status-h) + var(--ears-space) + 20px); }
+body[data-state="result"] { --score-pad-bottom: calc(var(--status-h) + var(--result-space)); }
 
 #empty-drop,
 #score-container {
@@ -177,7 +184,8 @@ body[data-state="loaded"] #empty-drop,
 body[data-state="selected"] #empty-drop,
 body[data-state="result"] #empty-drop { display: none; }
 body[data-state="empty"] #float-toolbar,
-body[data-state="result"] #float-toolbar { display: none; }
+body[data-state="result"] #float-toolbar,
+body[data-state="recording"] #float-toolbar { display: none; }
 body[data-state="empty"] #step-bar { display: none; }
 
 .drop-icon {
@@ -218,7 +226,8 @@ body[data-state="empty"] #step-bar { display: none; }
   border-radius: 22px;
   color: #1a1a2e;
   box-shadow: 0 18px 48px rgba(0,0,0,.28);
-  overflow: hidden;
+  overflow-x: visible;
+  overflow-y: visible;
   min-height: 360px;
   position: relative;
 }
@@ -230,14 +239,17 @@ body[data-state="result"] #score-container {
   padding: 22px 16px 0;
   user-select: none;
 }
-.sc-title { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+.sc-title { font-size: 22px; font-weight: 700; color: #1a1a2e; cursor: pointer; }
 .sc-composer { font-size: 13px; color: #666; margin-top: 4px; }
 #vf-area {
   position: relative;
   min-height: 220px;
   padding: 0 0 16px;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
-#vf-container { display: block; min-height: 160px; }
+#vf-container { display: inline-block; min-width: 100%; min-height: 160px; vertical-align: top; }
 #ghost-canvas {
   position: absolute;
   inset: 0 auto auto 0;
@@ -432,6 +444,98 @@ body[data-state="result"] #score-container {
 }
 #sel-desc { flex: 1; font-size: 14px; }
 #sel-bar .btn-primary { width: auto; min-width: 144px; background: rgba(255,255,255,.14); }
+
+#btn-mic.recording {
+  color: #ff5555;
+  animation: mic-pulse 1s infinite ease-in-out;
+}
+@keyframes mic-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,85,85,.5); }
+  50% { box-shadow: 0 0 0 8px rgba(255,85,85,0); }
+}
+body[data-state="recording"] #sel-bar { display: none; }
+
+#ears-panel {
+  display: none;
+  position: fixed;
+  bottom: var(--status-h);
+  left: 0; right: 0;
+  background: rgba(8,4,22,.97);
+  border-top: 2px solid rgba(255,60,60,.55);
+  backdrop-filter: blur(16px);
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 82;
+}
+body[data-state="recording"] #ears-panel { display: flex; }
+
+#ears-wave {
+  width: 100%;
+  max-width: 480px;
+  height: 52px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.03);
+}
+#ears-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+#ears-note {
+  font-size: 64px;
+  font-weight: 900;
+  color: #ff6666;
+  letter-spacing: -3px;
+  line-height: 1;
+  transition: color .1s;
+  font-family: 'Georgia', serif;
+}
+#ears-note.flash { color: #44ff88; }
+#ears-freq { font-size: 13px; color: var(--text-lo); }
+#ears-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  max-width: 480px;
+}
+.ears-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-mid);
+  flex-shrink: 0;
+}
+.ears-btn-add {
+  flex: 1;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.ears-btn-stop {
+  min-height: 44px;
+  padding: 0 16px;
+}
+#ears-log {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 24px;
+}
+.ears-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(68,255,136,.15);
+  border: 1px solid rgba(68,255,136,.3);
+  color: #44ff88;
+  font-size: 11px;
+}
 
 #statusbar {
   position: fixed;
@@ -742,8 +846,13 @@ kbd {
   border: 1px solid rgba(204,102,102,.35);
 }
 
+@media (max-width: 479px) {
+  .dur-name { display: none; }
+  .btn-dur { min-width: 44px; min-height: 52px; }
+}
+
 @media (min-width: 768px) {
-  #score-wrap { padding: 18px 18px calc(var(--status-h) + 192px); }
+  #score-wrap { padding: 18px 18px var(--score-pad-bottom); }
   #empty-drop { min-height: 520px; }
   #meta-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .result-actions { flex-direction: row; }
@@ -771,7 +880,10 @@ kbd {
     padding: 132px 456px calc(var(--status-h) + 24px) 16px;
   }
   body[data-state="empty"] #score-wrap { padding: 92px 456px calc(var(--status-h) + 24px) 16px; }
+  body[data-state="loaded"] #score-wrap,
+  body[data-state="selected"] #score-wrap,
   body[data-state="result"] #score-wrap { padding: 132px 456px calc(var(--status-h) + 24px) 16px; }
+  body[data-state="recording"] #score-wrap { padding: 132px 456px calc(var(--status-h) + var(--ears-space) + 20px) 16px; }
   #float-toolbar {
     top: calc(var(--header-h) + 12px);
     bottom: auto;
@@ -822,6 +934,7 @@ kbd {
     <span class="step" data-step="2">② Partitura</span>
     <span class="step" data-step="3">③ Transponer</span>
     <span class="step" data-step="4">④ Resultado</span>
+    <span class="step" data-step="5">⑤ Escucha</span>
   </div>
 
   <div id="score-wrap">
@@ -884,6 +997,7 @@ kbd {
       <button class="btn btn-acc acc" id="a-flat" onclick="setAcc('b')">♭</button>
       <button class="btn btn-acc acc" id="a-natural" onclick="setAcc('n')">♮</button>
       <div class="ft-sep"></div>
+      <button class="btn btn-mic" id="btn-mic" onclick="Ears.toggle()" title="Tararear notas (M)">🎤</button>
       <button class="btn btn-danger" onclick="deleteLast()">⌫</button>
       <button class="btn btn-danger" onclick="clearAll()">✕</button>
       <div style="margin-left:auto;display:flex;gap:8px;">
@@ -897,6 +1011,23 @@ kbd {
   <div id="sel-bar" hidden>
     <span id="sel-desc">0 notas seleccionadas</span>
     <button class="btn-primary" onclick="showTransposeSheet()">🎵 Transponer →</button>
+  </div>
+
+  <div id="ears-panel">
+    <canvas id="ears-wave" width="320" height="52"></canvas>
+    <div id="ears-display">
+      <div id="ears-note">—</div>
+      <div id="ears-freq"></div>
+    </div>
+    <div id="ears-controls">
+      <label class="ears-label">
+        <input type="checkbox" id="ears-auto-chk" onchange="Ears.autoAdd=this.checked">
+        Auto-add (400ms)
+      </label>
+      <button class="btn-primary ears-btn-add" id="ears-add-btn" onclick="Ears.addCurrent()">＋ Añadir</button>
+      <button class="btn btn-danger ears-btn-stop" onclick="Ears.stop()">■ Detener</button>
+    </div>
+    <div id="ears-log"></div>
   </div>
 
   <div id="statusbar">
@@ -1275,15 +1406,13 @@ function doRender() {
   const hint = document.getElementById('empty-hint');
   hint.style.display = S.notes.length === 0 ? 'block' : 'none';
 
-  const containerW = document.getElementById('score-container').clientWidth || 960;
+  const scoreBox   = document.getElementById('score-container');
+  const containerW = scoreBox.clientWidth || 960;
   const PAD        = 24;          // left/right padding inside SVG
   const ROW_H      = 100;         // vertical space per row
   const Y0         = 10;          // top margin in SVG
-  const CLEF_EXTRA = 60;          // extra width for clef on first stave
-
-  const availW      = containerW - PAD * 2;
-  const stavesPerRow = Math.max(1, Math.floor(availW / 280));
-  const staveW       = Math.floor(availW / stavesPerRow);
+  const MOBILE_W   = 640;
+  const minStaveW  = containerW < MOBILE_W ? 280 : 260;
 
   // Build measure list — always keep at least one, always add an empty trailing measure
   const measures = splitMeasures(S.notes, S.timeSig);
@@ -1296,12 +1425,21 @@ function doRender() {
     }
   }
 
+  const enableWideScroll = containerW < MOBILE_W && measures.length > 2;
+  const stavesPerRow = enableWideScroll
+    ? measures.length
+    : Math.max(1, Math.floor((containerW - PAD * 2) / minStaveW));
+  const rendererW = enableWideScroll
+    ? Math.max(containerW, PAD * 2 + measures.length * minStaveW)
+    : containerW;
+  const availW = rendererW - PAD * 2;
+  const staveW = Math.max(minStaveW, Math.floor(availW / stavesPerRow));
   const numRows  = Math.ceil(measures.length / stavesPerRow);
   const totalH   = Y0 + numRows * (ROW_H + 30) + 20;
 
   // Create renderer
   const renderer = new VF.Renderer(vfc, VF.Renderer.Backends.SVG);
-  renderer.resize(containerW, totalH);
+  renderer.resize(rendererW, totalH);
   const ctx = renderer.getContext();
 
   const { num: numBeats, val: beatVal } = TIME_BEATS[S.timeSig] || { num:4, val:4 };
@@ -1394,10 +1532,15 @@ function doRender() {
   // Resize ghost canvas to match SVG
   const svgEl = vfc.querySelector('svg');
   const gc    = document.getElementById('ghost-canvas');
-  if (svgEl) {
-    gc.width  = svgEl.clientWidth  || containerW;
-    gc.height = svgEl.clientHeight || totalH;
-  }
+  const hit = document.getElementById('hit-overlay');
+  const svgW = svgEl ? (svgEl.clientWidth || rendererW) : rendererW;
+  const svgH = svgEl ? (svgEl.clientHeight || totalH) : totalH;
+  gc.width = svgW;
+  gc.height = svgH;
+  gc.style.width = svgW + 'px';
+  gc.style.height = svgH + 'px';
+  hit.style.width = svgW + 'px';
+  hit.style.height = svgH + 'px';
 
   updateStatus(measures.length);
 }
@@ -1486,16 +1629,17 @@ function svgYtoPitch(svgY, staveY) {
   return getStepPitch(step, S.clef);
 }
 
-function addNote(pitch) {
+function addNote(pitch, explicitAcc) {
+  const directPitchInput = arguments.length > 1;
   S.notes.push({
     pitch:  pitch,
     dur:    S.dur,
-    acc:    S.rest ? null : S.acc,
-    rest:   S.rest,
+    acc:    directPitchInput ? explicitAcc : (S.rest ? null : S.acc),
+    rest:   directPitchInput ? false : S.rest,
     dotted: S.dotted,
   });
   // Auto-reset accidental after placement so next note is clean
-  if (S.acc) {
+  if (!directPitchInput && S.acc) {
     S.acc = null;
     document.querySelectorAll('.acc').forEach(b => b.classList.remove('active'));
     updateStatus();
@@ -1644,26 +1788,236 @@ function showTooltip(x, y, text) {
 function hideTooltip() {
   document.getElementById('tooltip').style.display = 'none';
 }
+// ─── EARS (MIC → NOTES) ───────────────────────────────────────────
+
+const Ears = {
+  ctx: null, analyser: null, stream: null,
+  buf: null,             // Float32Array de 2048
+  active: false,
+  autoAdd: false,
+  holdMs: 400,           // ms de holding antes de auto-add
+  lastNote: null,
+  lastNoteT: 0,
+  prevState: 'empty',    // estado antes de grabar (para restaurar)
+  logCount: 0,
+
+  toggle() {
+    this.active ? this.stop() : this.start();
+  },
+
+  async start() {
+    if (this.active) return;
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch(e) {
+      alert('Micrófono no disponible: ' + (e.message || e));
+      return;
+    }
+    this.ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize      = 2048;
+    this.analyser.smoothingTimeConstant = 0.1;
+    this.buf      = new Float32Array(this.analyser.fftSize);
+
+    const src = this.ctx.createMediaStreamSource(this.stream);
+    src.connect(this.analyser);
+
+    this.active = true;
+    this.logCount = 0;
+    this.lastNote = null;
+    this.lastNoteT = 0;
+    this.prevState = document.body.dataset.state || 'empty';
+    setState('recording');
+    document.getElementById('btn-mic').classList.add('recording');
+    document.getElementById('ears-log').innerHTML = '';
+
+    this._loop();
+    this._drawWave();
+  },
+
+  stop() {
+    this.active = false;
+    this.stream?.getTracks().forEach(t => t.stop());
+    this.ctx?.close().catch(()=>{});
+    this.ctx = null; this.analyser = null; this.stream = null;
+    document.getElementById('btn-mic').classList.remove('recording');
+    document.getElementById('ears-note').textContent = '—';
+    document.getElementById('ears-freq').textContent = '';
+    setState(S.notes.length > 0 ? 'loaded' : this.prevState);
+  },
+
+  _loop() {
+    if (!this.active) return;
+    this.analyser.getFloatTimeDomainData(this.buf);
+    const freq = this._detect(this.buf, this.ctx.sampleRate);
+    this._update(freq);
+    requestAnimationFrame(() => this._loop());
+  },
+
+  _drawWave() {
+    if (!this.active) return;
+    const canvas = document.getElementById('ears-wave');
+    if (!canvas || !this.analyser) { requestAnimationFrame(() => this._drawWave()); return; }
+    const ctx2 = canvas.getContext('2d');
+    const w = canvas.offsetWidth || 320;
+    const h = canvas.offsetHeight || 52;
+    canvas.width = w; canvas.height = h;
+
+    const tmp = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(tmp);
+
+    ctx2.clearRect(0, 0, w, h);
+    ctx2.fillStyle = 'rgba(8,4,22,1)';
+    ctx2.fillRect(0, 0, w, h);
+
+    ctx2.beginPath();
+    ctx2.strokeStyle = 'rgba(180,80,255,.85)';
+    ctx2.lineWidth = 1.5;
+    const sliceW = w / tmp.length;
+    let x = 0;
+    for (let i = 0; i < tmp.length; i++) {
+      const y = ((tmp[i] + 1) / 2) * h;
+      i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx2.stroke();
+    requestAnimationFrame(() => this._drawWave());
+  },
+
+  _detect(buf, sr) {
+    let rms = 0;
+    for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / buf.length);
+    if (rms < 0.012) return -1;
+
+    const n = buf.length;
+    const corr = new Float32Array(n);
+    for (let lag = 0; lag < n; lag++) {
+      let s = 0;
+      for (let i = 0; i < n - lag; i++) s += buf[i] * buf[i + lag];
+      corr[lag] = s;
+    }
+
+    let d = 0;
+    while (d < n - 1 && corr[d] >= corr[d + 1]) d++;
+
+    let maxV = -Infinity, maxI = d;
+    for (let i = d; i < n; i++) {
+      if (corr[i] > maxV) { maxV = corr[i]; maxI = i; }
+    }
+
+    if (maxV < corr[0] * 0.45) return -1;
+
+    if (maxI > 0 && maxI < n - 1) {
+      const a = (corr[maxI - 1] + corr[maxI + 1] - 2 * corr[maxI]) / 2;
+      const b = (corr[maxI + 1] - corr[maxI - 1]) / 2;
+      if (a < 0) maxI = maxI - b / (2 * a);
+    }
+
+    const freq = sr / maxI;
+    return (freq >= 60 && freq <= 1600) ? freq : -1;
+  },
+
+  _freqToName(freq) {
+    if (freq < 0) return null;
+    const midi = Math.round(12 * Math.log2(freq / 440) + 69);
+    const PC_NAME = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const pc  = ((midi % 12) + 12) % 12;
+    const oct = Math.floor(midi / 12) - 1;
+    return { midi, name: PC_NAME[pc] + oct, pc, oct };
+  },
+
+  _update(freq) {
+    const noteEl = document.getElementById('ears-note');
+    const freqEl = document.getElementById('ears-freq');
+    const info = this._freqToName(freq);
+
+    if (!info) {
+      if (noteEl) noteEl.textContent = '—';
+      if (freqEl) freqEl.textContent = '';
+      this.lastNote = null;
+      return;
+    }
+
+    if (noteEl) noteEl.textContent = info.name;
+    if (freqEl) freqEl.textContent = Math.round(freq) + ' Hz';
+
+    if (this.autoAdd) {
+      const now = Date.now();
+      if (info.name !== this.lastNote) {
+        this.lastNote  = info.name;
+        this.lastNoteT = now;
+      } else if (now - this.lastNoteT >= this.holdMs) {
+        this._addMidi(info.midi);
+        this.lastNoteT = now + 999999;
+      }
+    }
+  },
+
+  addCurrent() {
+    if (!this.analyser) return;
+    const tmp = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(tmp);
+    const freq = this._detect(tmp, this.ctx.sampleRate);
+    const info = this._freqToName(freq);
+    if (!info) return;
+    this._addMidi(info.midi);
+  },
+
+  _addMidi(midi) {
+    const PC_STEP = ['c','c','d','d','e','f','f','g','g','a','a','b'];
+    const PC_ACC  = [null,'#',null,'#',null,null,'#',null,'#',null,'#',null];
+    const pc  = ((midi % 12) + 12) % 12;
+    const oct = Math.floor(midi / 12) - 1;
+    const step = PC_STEP[pc];
+    const acc  = PC_ACC[pc];
+    const pitch = step + '/' + oct;
+
+    addNote(pitch, acc);
+    schedRender();
+
+    const noteEl = document.getElementById('ears-note');
+    if (noteEl) {
+      noteEl.classList.add('flash');
+      setTimeout(() => noteEl.classList.remove('flash'), 180);
+    }
+
+    const PC_NAME = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const noteName = PC_NAME[pc] + oct;
+    this.logCount++;
+    const log = document.getElementById('ears-log');
+    if (log) {
+      if (log.children.length > 20) log.removeChild(log.firstChild);
+      const chip = document.createElement('span');
+      chip.className = 'ears-chip';
+      chip.textContent = noteName;
+      log.appendChild(chip);
+      log.scrollLeft = log.scrollWidth;
+    }
+  },
+};
+
 // ─── KEYBOARD SHORTCUTS ────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-  switch (e.key) {
-    case '1': setDur('w');  break;
-    case '2': setDur('h');  break;
-    case '4': setDur('q');  break;
-    case '5': setDur('8');  break;
-    case '6': setDur('16'); break;
-    case '7': setDur('32'); break;
-    case 'r': case 'R': toggleRest(); break;
-    case '.': toggleDot(); break;
+  switch (e.code || e.key) {
+    case 'Digit1': case '1': setDur('w');  break;
+    case 'Digit2': case '2': setDur('h');  break;
+    case 'Digit4': case '4': setDur('q');  break;
+    case 'Digit5': case '5': setDur('8');  break;
+    case 'Digit6': case '6': setDur('16'); break;
+    case 'Digit7': case '7': setDur('32'); break;
+    case 'KeyR': case 'r': case 'R': toggleRest(); break;
+    case 'Period': case '.': toggleDot(); break;
     case 'Delete': case 'Backspace': deleteLast(); break;
-    case ' ':
+    case 'Space': case ' ':
       e.preventDefault(); togglePlay(); break;
     case 'ArrowUp':
       e.preventDefault(); shiftLastOctave(+1); break;
     case 'ArrowDown':
       e.preventDefault(); shiftLastOctave(-1); break;
+    case 'KeyM': Ears.toggle(); break;
   }
 });
 
@@ -1837,11 +2191,13 @@ function updateTransposeBtn() {
   const selBar = document.getElementById('sel-bar');
   const selPill = document.getElementById('sel-pill');
   const selDesc = document.getElementById('sel-desc');
+  const recording = document.body.dataset.state === 'recording';
   if (btn) btn.hidden = (n === 0);
   selBar.hidden = (n === 0);
   selPill.hidden = (n === 0);
   selPill.textContent = n + ' nota' + (n !== 1 ? 's' : '');
   if (selDesc) selDesc.textContent = n + ' nota' + (n !== 1 ? 's' : '') + ' seleccionada' + (n !== 1 ? 's' : '');
+  if (recording) return;
   if (n > 0) setState('selected');
   else if (document.body.dataset.state === 'selected') setState(S.notes.length ? 'loaded' : 'empty');
 }
@@ -2115,10 +2471,11 @@ async function applyTransposePipeline(semitones) {
 
 function setState(name) {
   document.body.dataset.state = name;
-  const steps = {empty:0, loaded:2, selected:3, result:4};
+  const steps = {empty:0, loaded:2, selected:3, result:4, recording:5};
+  const stepIdx = steps[name] || 1;
   document.querySelectorAll('.step').forEach((s,i) => {
-    s.classList.toggle('active', i < (steps[name] || 1));
-    s.classList.toggle('current', i === (steps[name] || 1) - 1);
+    s.classList.toggle('active', i < stepIdx);
+    s.classList.toggle('current', i === stepIdx - 1);
   });
   document.getElementById('step-bar').hidden = (name === 'empty');
 }
@@ -2338,13 +2695,14 @@ function loadRecentScore(idx) {
 function syncAfterEdit() {
   renderPartsContent();
   renderMetaSummary();
+  if (document.body.dataset.state === 'recording') return;
   if (S.notes.length === 0 && !S.xmlDoc) setState('empty');
   else if (document.body.dataset.state !== 'result' && S.selected.size === 0) setState('loaded');
 }
 
 const _addNote = addNote;
-addNote = function(pitch) {
-  _addNote(pitch);
+addNote = function(pitch, explicitAcc) {
+  _addNote(pitch, explicitAcc);
   S.xmlMode = 'compose';
   S.xmlDoc = null;
   syncAfterEdit();
@@ -2545,6 +2903,20 @@ async function init() {
   overlay.addEventListener('click',      onOverlayClick);
   overlay.addEventListener('touchstart', onOverlayTouchStart, {passive:true});
   window.addEventListener('resize', schedRender);
+
+  document.getElementById('sc-title').addEventListener('click', function() {
+    const v = prompt('Título de la obra:', this.textContent);
+    if (v !== null) {
+      this.textContent = v;
+      S.title = v;
+      document.getElementById('m-title').value = v;
+      renderMetaSummary();
+    }
+  });
+
+  if (!navigator.mediaDevices) {
+    document.getElementById('btn-mic').style.display = 'none';
+  }
 
   setState('empty');
   doRender();
