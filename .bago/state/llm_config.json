@@ -34,6 +34,26 @@
     }
   },
 
+  "openclaw": {
+    "_comment": "OpenClaw gateway local — inferencia vía CLI 'openclaw infer model run'",
+    "gateway_url":     "http://127.0.0.1:18789",
+    "gateway_health":  "http://127.0.0.1:18789/health",
+    "cli_bin":         "openclaw",
+    "default_model":   "github-copilot/claude-opus-4.7",
+    "curated": {
+      "claude": [
+        "github-copilot/claude-opus-4.7",
+        "github-copilot/claude-sonnet-4.6",
+        "github-copilot/claude-haiku-4.5"
+      ],
+      "gpt": [
+        "github-copilot/gpt-5.5",
+        "github-copilot/gpt-5.4",
+        "github-copilot/gpt-4.1"
+      ]
+    }
+  },
+
   "available_models": {
     "local": {
       "qwen25-coder":  { "ollama_tag": "qwen2.5-coder:7b",  "size_mb": 4466, "best_for": "Código Python/BAGO — modelo principal offline" },
@@ -60,6 +80,6 @@
     "agent_ops":   "claude-opus-4.7"
   },
 
-  "model_preference": ["local", "ollama_cloud", "copilot", "internal"],
-  "_comment_preference": "local (offline, sin coste) → ollama_cloud (suscripción) → copilot (cloud)."
+  "model_preference": ["local", "ollama_cloud", "openclaw", "copilot", "internal"],
+  "_comment_preference": "local (offline) → ollama_cloud (suscripción) → openclaw (gateway local) → copilot (cloud)."
 }

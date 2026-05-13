@@ -183,6 +183,28 @@ def _check_anthropic(api_key: str) -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)[:120]}
 
+def _check_openclaw() -> dict:
+    """Check if OpenClaw gateway is running locally."""
+    if not shutil.which("openclaw"):
+        return {"ok": False, "error": "openclaw no instalado"}
+    try:
+        cfg: dict = {}
+        if LLM_CFG.exists():
+            cfg = json.loads(LLM_CFG.read_text(encoding="utf-8"))
+        health_url = cfg.get("openclaw", {}).get(
+            "gateway_health", "http://127.0.0.1:18789/health"
+        )
+        model = cfg.get("openclaw", {}).get(
+            "default_model", "github-copilot/claude-opus-4.7"
+        )
+        with urllib.request.urlopen(health_url, timeout=2) as r:
+            data = json.loads(r.read())
+            if data.get("ok"):
+                return {"ok": True, "url": health_url.replace("/health", ""), "model": model}
+            return {"ok": False, "error": "gateway no responde ok"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:80]}
+
 def _check_github_copilot() -> dict:
     if not shutil.which("gh"):
         return {"ok": False, "error": "gh CLI no instalado"}
@@ -234,6 +256,15 @@ _PROVIDERS = [
         "url":      "https://console.anthropic.com/settings/keys",
         "desc":     "Claude Sonnet, Haiku, Opus — análisis de código y razonamiento",
         "priority": 4,
+    },
+    {
+        "id":       "OPENCLAW",
+        "name":     "OpenClaw",
+        "env_var":  None,
+        "check":    None,   # handled specially via gateway health
+        "url":      "https://docs.openclaw.ai",
+        "desc":     "Gateway local de agentes — acceso a Copilot, Claude, GPT via CLI",
+        "priority": 5,
     },
     {
         "id":       "GITHUB_COPILOT",
@@ -308,7 +339,22 @@ def cmd_status(verbose: bool = True) -> int:
 
     _sep()
 
-    # 5. GitHub Copilot
+    # 5. OpenClaw
+    r = _check_openclaw()
+    results["OPENCLAW"] = r
+    status = OK("✓ gateway activo") if r["ok"] else WARN("no activo")
+    print(f"  {'●'} {BOLD('OpenClaw')}" + f"  ·  {status}")
+    if r["ok"]:
+        _info(f"Modelo: {r.get('model', '?')}  ·  gateway {r.get('url','')}")
+    else:
+        if verbose:
+            _info(f"Instala: {CYAN('npm install -g openclaw')}")
+            _info(f"Configura: {CYAN('openclaw onboard')}")
+            _info(f"Inicia gateway: {CYAN('openclaw gateway start')}")
+
+    _sep()
+
+    # 6. GitHub Copilot
     r = _check_github_copilot()
     results["GITHUB_COPILOT"] = r
     status = OK("✓ autenticado") if r["ok"] else WARN("no autenticado")
@@ -452,8 +498,24 @@ def cmd_setup() -> int:
             print(f"\r  {ERR('✗ Error:')} {r['error']}")
             _info("Clave no guardada")
 
+    # ── OpenClaw ──────────────────────────────────────────────────────────────
+    print(f"\n  {BOLD('5. OpenClaw')} {DIM('— gateway local de agentes')}")
+    _sep()
+    r = _check_openclaw()
+    if r["ok"]:
+        _ok(f"Gateway activo  ·  {r.get('model','?')}")
+        _info(f"Puerto: {r.get('url','http://127.0.0.1:18789')}")
+    else:
+        _warn(f"{r['error']}")
+        if not shutil.which("openclaw"):
+            _info(f"Instala: {CYAN('npm install -g openclaw')}")
+            _info(f"Docs: {BLUE('https://docs.openclaw.ai')}")
+        else:
+            _info(f"Configura: {CYAN('openclaw onboard')}")
+            _info(f"Inicia gateway: {CYAN('openclaw gateway start --detach')}")
+
     # ── GitHub Copilot ────────────────────────────────────────────────────────
-    print(f"\n  {BOLD('5. GitHub Copilot')} {DIM('— via gh CLI')}")
+    print(f"\n  {BOLD('6. GitHub Copilot')} {DIM('— via gh CLI')}")
     _sep()
     r = _check_github_copilot()
     if r["ok"]:

@@ -610,6 +610,19 @@ def get_llm_status() -> dict:
     except Exception as e:
         cloud_error = str(e)
 
+    # ── OpenClaw ────────────────────────────────────────────────────────────
+    oc_cfg = cfg.get("openclaw", {})
+    oc_health_url = oc_cfg.get("gateway_health", "http://127.0.0.1:18789/health")
+    oc_available = False
+    oc_default_model = oc_cfg.get("default_model", "github-copilot/claude-opus-4.7")
+    oc_error: str | None = None
+    try:
+        with urllib.request.urlopen(oc_health_url, timeout=2) as resp_oc:
+            hdata = json.loads(resp_oc.read())
+            oc_available = hdata.get("ok", False)
+    except Exception as e:
+        oc_error = str(e)
+
     active_model  = _resolve_model_tag(cfg.get("active_model", "qwen2.5-coder:7b"), cfg)
     session_start = _resolve_model_tag(cfg.get("session_start_model", active_model), cfg)
     return {
@@ -625,7 +638,33 @@ def get_llm_status() -> dict:
         "cloud_error":         cloud_error,
         "cloud_url":           cloud_url,
         "cloud_key_configured": bool(api_key),
+        "openclaw_available":  oc_available,
+        "openclaw_model":      oc_default_model,
+        "openclaw_error":      oc_error,
     }
+
+
+def _llm_chat_openclaw(message: str, model: str, cfg: dict) -> dict:
+    """Run inference via openclaw CLI gateway (subprocess)."""
+    import shlex
+    oc_cfg = cfg.get("openclaw", {})
+    cli = oc_cfg.get("cli_bin", "openclaw")
+    if not shutil.which(cli):
+        return {"ok": False, "error": "openclaw no encontrado en PATH"}
+    cmd = [cli, "infer", "model", "run", "--json", "--prompt", message, "--model", model]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        raw = result.stdout.strip()
+        if not raw:
+            return {"ok": False, "error": result.stderr.strip() or "sin respuesta"}
+        data = json.loads(raw)
+        outputs = data.get("outputs", [])
+        text = outputs[0].get("text", "") if outputs else ""
+        return {"ok": True, "response": text, "model": model, "engine": "openclaw"}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "timeout openclaw (>120s)"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 def llm_chat(message: str, model: str | None = None) -> dict:
@@ -657,6 +696,10 @@ def llm_chat(message: str, model: str | None = None) -> dict:
             local_models = [m["name"] for m in json.loads(r.read()).get("models", [])]
     except Exception:
         pass
+
+    # Routing: if model uses provider/model format → openclaw gateway
+    if "/" in active_model:
+        return _llm_chat_openclaw(message, active_model, cfg)
 
     server_url, headers = _get_ollama_endpoint(active_model, cfg, local_models)
     engine = "local" if active_model in local_models else "cloud"
