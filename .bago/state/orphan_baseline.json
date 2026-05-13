@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-13T07:19:50.558302+00:00",
+  "generated_at": "2026-05-13T08:21:05.746672+00:00",
   "known_orphans": [
     "agent_model_manager",
     "airdrop_protocols",
@@ -17,6 +17,7 @@
     "bago_menu",
     "bago_miniapp_server",
     "bago_node",
+    "bago_presence",
     "bago_repartition",
     "bago_repo",
     "bago_sac_engine",
@@ -134,11 +135,12 @@
     "validate_pack_contents",
     "validate_state",
     "vertice_activator",
+    "voice_conductor",
     "wallet_tracker",
     "watch_files",
     "weekly_report",
     "workflow_navigator",
     "workspace_selector"
   ],
-  "count": 138
+  "count": 140
 }
