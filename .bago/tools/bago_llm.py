@@ -106,6 +106,30 @@ CATALOG: dict[str, dict] = {
         "best_for":   "Code completion, alternativa a Qwen",
         "recommended": False,
     },
+    "llama32": {
+        "label":      "Llama 3.2 (latest)",
+        "size_gb":    1.9,
+        "min_ram_gb": 4,
+        "ollama_tag": "llama3.2:latest",
+        "best_for":   "Instrucciones, resúmenes, uso general",
+        "recommended": False,
+    },
+    "llama32-1b": {
+        "label":      "Llama 3.2 1B",
+        "size_gb":    1.3,
+        "min_ram_gb": 2,
+        "ollama_tag": "llama3.2:1b",
+        "best_for":   "Clasificación rápida, tareas muy ligeras",
+        "recommended": False,
+    },
+    "qwen25-mini": {
+        "label":      "Qwen 2.5 0.5B",
+        "size_gb":    0.4,
+        "min_ram_gb": 1,
+        "ollama_tag": "qwen2.5:0.5b",
+        "best_for":   "Ultra-rápido, confirmaciones simples, RAM mínima",
+        "recommended": False,
+    },
 }
 
 # ── Sistema ───────────────────────────────────────────────────────────────────

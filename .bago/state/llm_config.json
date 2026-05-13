@@ -1,8 +1,19 @@
 {
-  "active_model": "qwen25-coder",
   "engine": "ollama",
   "server_url": "http://127.0.0.1:11434",
+
+  "active_model": "qwen2.5-coder:7b",
+  "session_start_model": "qwen2.5-coder:7b",
+
+  "_comment_session_start": "Modelo usado al abrir sesión (bago session open / bago hello). Debe ser local.",
+
   "available_models": {
+    "local": {
+      "qwen25-coder":  { "ollama_tag": "qwen2.5-coder:7b",  "size_mb": 4466, "best_for": "Código, análisis BAGO — modelo principal" },
+      "llama32":       { "ollama_tag": "llama3.2:latest",    "size_mb": 1925, "best_for": "Instrucciones, resúmenes, uso general" },
+      "llama32-1b":    { "ollama_tag": "llama3.2:1b",        "size_mb": 1259, "best_for": "Clasificación rápida, tareas ligeras" },
+      "qwen25-mini":   { "ollama_tag": "qwen2.5:0.5b",       "size_mb":  379, "best_for": "Ultra-rápido, confirmaciones simples" }
+    },
     "copilot": [
       "claude-sonnet-4.6",
       "claude-sonnet-4.5",
@@ -27,10 +38,15 @@
       "claude-opus-4.5"
     ]
   },
+
   "agent_models": {
     "agent_tools": "claude-sonnet-4.6",
     "agent_tests": "claude-haiku-4.5",
-    "agent_docs": "claude-sonnet-4.6",
-    "agent_ops": "claude-opus-4.7"
-  }
+    "agent_docs":  "claude-sonnet-4.6",
+    "agent_ops":   "claude-opus-4.7"
+  },
+
+  "model_preference": ["local", "copilot", "internal"],
+
+  "_comment_preference": "Orden de preferencia: local primero, cloud como fallback cuando el contexto lo requiere."
 }

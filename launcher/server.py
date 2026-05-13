@@ -219,6 +219,33 @@ def get_ideas(limit: int = 30) -> list:
         return []
 
 
+def _resolve_model_tag(model_id: str, cfg: dict) -> str:
+    """Resolve a short model alias to its full Ollama tag.
+
+    Checks cfg["available_models"]["local"] first, then CATALOG in bago_llm.py
+    (imported lazily to avoid hard dependency). Returns model_id unchanged if
+    no mapping is found (it may already be a full tag like 'qwen2.5-coder:7b').
+    """
+    local_models = cfg.get("available_models", {}).get("local", {})
+    if model_id in local_models:
+        return local_models[model_id].get("ollama_tag", model_id)
+    # Fallback: try importing bago_llm CATALOG
+    try:
+        import importlib.util, sys as _sys
+        spec = importlib.util.spec_from_file_location(
+            "bago_llm", str(BAGO_CORE / ".bago" / "tools" / "bago_llm.py")
+        )
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            catalog = getattr(mod, "CATALOG", {})
+            if model_id in catalog:
+                return catalog[model_id].get("ollama_tag", model_id)
+    except Exception:
+        pass
+    return model_id
+
+
 def get_llm_status() -> dict:
     """Return LLM config + Ollama availability and model list."""
     cfg: dict = {}
@@ -248,9 +275,14 @@ def get_llm_status() -> dict:
     except Exception as e:
         ollama_error = str(e)
 
+    active_model = _resolve_model_tag(cfg.get("active_model", "qwen2.5-coder:7b"), cfg)
+    session_start = _resolve_model_tag(
+        cfg.get("session_start_model", active_model), cfg
+    )
     return {
         "engine": cfg.get("engine", "ollama"),
-        "active_model": cfg.get("active_model", "qwen25-coder"),
+        "active_model": active_model,
+        "session_start_model": session_start,
         "server_url": server_url,
         "ollama_available": ollama_available,
         "ollama_models": ollama_models,
@@ -271,7 +303,7 @@ def llm_chat(message: str, model: str | None = None) -> dict:
             pass
 
     server_url   = cfg.get("server_url", "http://127.0.0.1:11434")
-    active_model = model or cfg.get("active_model", "qwen25-coder")
+    active_model = _resolve_model_tag(model or cfg.get("active_model", "qwen2.5-coder:7b"), cfg)
     payload      = json.dumps(
         {"model": active_model, "prompt": message, "stream": False}
     ).encode()
