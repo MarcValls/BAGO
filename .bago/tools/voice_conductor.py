@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
 """
-voice_conductor.py — Motor de voces del ORQUESTADOR_CENTRAL.
+voice_conductor.py — CAP · Continuous Ascent Protocol
 
-Gestiona la activación secuencial de roles (voces) bajo PUERTA CERRADA,
-enforceando el límite de MAX_CONCURRENT = 3 voces simultáneas y
-señalizando PUERTA_ABIERTA cuando el trabajo está completo.
+Basado en el principio ShepardCycle (Shepard, 1964): capas de voces
+con envolventes desfasadas crean ilusión de progreso continuo. El
+sistema siempre avanza porque hay voces entrando y saliendo en overlap
+controlado, nunca más de 3 simultáneas.
+
+El límite de 3 no es una restricción técnica — es un principio de
+coherencia perceptual: con >3 voces simultáneas el sistema pierde
+identidad individual en cada voz (contrapunto polifónico). La misma
+razón por la que Bach raramente supera 4 voces en una fuga.
+
+Componentes:
+  ShepardCycle  motor de voces — selección, overlap, rotación de roles
+  ShepardGate   mecanismo de puertas — CERRADA (trabajo) / ABIERTA (entrega)
+
+Referencia: Shepard, R. N. (1964). Circularity in judgments of relative pitch.
+            Journal of the Acoustical Society of America, 36(12), 2346–2353.
 
 Uso CLI:
   python voice_conductor.py status
@@ -39,10 +52,12 @@ _WORKFLOW   = _BAGO / "state" / "config" / "workflow_guidance.json"
 # Constants
 # ---------------------------------------------------------------------------
 
+# ShepardCycle — límite de voces simultáneas (principio CAP)
 MAX_CONCURRENT: int = 3
 
-DOOR_CLOSED = "PUERTA_CERRADA"
-DOOR_OPEN   = "PUERTA_ABIERTA"
+# ShepardGate — estados del mecanismo de puertas
+DOOR_CLOSED = "PUERTA_CERRADA"   # ShepardGate: trabajo interno
+DOOR_OPEN   = "PUERTA_ABIERTA"   # ShepardGate: entrega a MAESTRO
 
 
 # ---------------------------------------------------------------------------
@@ -117,11 +132,11 @@ def _max_from_pack() -> int:
 
 class VoiceConductor:
     """
-    Motor de voces del ORQUESTADOR_CENTRAL.
+    ShepardCycle — motor de voces del CAP (Continuous Ascent Protocol).
 
     Enforcea el límite de MAX_CONCURRENT voces activas simultáneas,
-    gestiona el ciclo PUERTA_CERRADA → PUERTA_ABIERTA y persiste el
-    estado en conductor_state.json.
+    gestiona el ciclo ShepardGate (PUERTA_CERRADA → PUERTA_ABIERTA)
+    y persiste el estado en conductor_state.json.
     """
 
     MAX_CONCURRENT: int = MAX_CONCURRENT
