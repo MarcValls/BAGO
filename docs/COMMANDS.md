@@ -26,6 +26,7 @@ Stable commands. Pre-flight **required**. Always available.
 |---------|-------------|-------|------|--------|
 | `bago audit` | Auditoría y calidad: full \| pack \| scan \| commit \| push \| doctor \| heal \| quality \| purity | 💚 salud | safe | required |
 | `bago context` | Contexto del workspace: detect \| map \| git \| stale | 💚 salud | safe | required |
+| `bago doc-agent` | Agente de documentación: detecta y actualiza COMMANDS.md, LAYERS.md y README.md. Subcomandos/flags: --check \| --dry-run \| --json \| --only <doc> \| --no-stage | 🔍 calidad | mutating | required |
 | `bago flow` | Flowchart ASCII de workflows + gestión de estado activo (start/done/status) | ▶️ ejecución | safe | required |
 | `bago health` | Salud del framework: score \| report \| stability \| efficiency \| consistency \| sincerity | 💚 salud | safe | required |
 | `bago orphans` | Detector de módulos huérfanos: archivos .py en tools/ sin registro. --baseline \| --fix \| --strict | 🔬 avanzado | safe | required |
