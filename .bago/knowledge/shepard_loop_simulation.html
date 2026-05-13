@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>El Bucle de Shepard — Aplicado a Sí Mismo · 2026-05-13</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 40px 20px 20px;
+    position: relative;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    letter-spacing: 0.2em;
+    color: #c084fc;
+    text-shadow: 0 0 30px #c084fc88;
+  }
+  header p { color: #666; font-size: 0.75rem; margin-top: 8px; letter-spacing: 0.1em; }
+
+  /* ── SPIRAL CANVAS ── */
+  #spiral-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  canvas#spiral { display: block; }
+
+  /* ── PHASE RING ── */
+  .phases {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 10px auto;
+    max-width: 700px;
+  }
+  .phase {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    border-top: 2px solid #222;
+    transition: all 0.4s ease;
+    cursor: default;
+    position: relative;
+  }
+  .phase .icon { font-size: 1.4rem; display: block; }
+  .phase .name { font-size: 0.65rem; letter-spacing: 0.1em; margin-top: 4px; opacity: 0.6; }
+  .phase .cmd  { font-size: 0.55rem; color: #555; margin-top: 2px; }
+  .phase.active { border-top-color: var(--c); }
+  .phase.active .icon { filter: drop-shadow(0 0 8px var(--c)); }
+  .phase.active .name { opacity: 1; color: var(--c); }
+
+  /* ── TIMELINE ── */
+  .timeline {
+    max-width: 820px;
+    margin: 20px auto;
+    padding: 0 20px;
+  }
+  .timeline h2 {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: #555;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .event {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 6px;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    align-items: flex-start;
+  }
+  .event.visible { opacity: 1; transform: translateX(0); }
+  .event .time { font-size: 0.6rem; color: #444; min-width: 42px; padding-top: 2px; }
+  .event .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--c, #555);
+    margin-top: 4px; flex-shrink: 0;
+    box-shadow: 0 0 6px var(--c, #555);
+  }
+  .event .text { font-size: 0.68rem; color: #aaa; line-height: 1.4; }
+  .event .hash { font-size: 0.55rem; color: #444; }
+
+  /* ── METRICS BAR ── */
+  .metrics {
+    max-width: 820px;
+    margin: 20px auto;
+    padding: 0 20px 40px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .metric {
+    background: #111;
+    border: 1px solid #1e1e2e;
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    transition: border-color 0.4s;
+  }
+  .metric.lit { border-color: var(--c); box-shadow: 0 0 12px var(--c)22; }
+  .metric .val {
+    font-size: 2rem; font-weight: bold;
+    color: var(--c, #555);
+    display: block;
+    transition: all 0.4s;
+  }
+  .metric .lbl { font-size: 0.6rem; color: #555; letter-spacing: 0.1em; margin-top: 4px; }
+
+  /* ── FOOTER NOTE ── */
+  .note {
+    text-align: center;
+    font-size: 0.6rem;
+    color: #333;
+    padding-bottom: 30px;
+    letter-spacing: 0.15em;
+  }
+  .note span { color: #c084fc66; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔁 El Bucle de Shepard — Aplicado a Sí Mismo</h1>
+  <p>2026-05-13 · 14:17 → 14:57 · BAGO /Volumes/bago_core</p>
+</header>
+
+<!-- SPIRAL CANVAS -->
+<div id="spiral-wrap">
+  <canvas id="spiral" width="500" height="260"></canvas>
+</div>
+
+<!-- PHASE INDICATORS -->
+<div class="phases">
+  <div class="phase" data-phase="0" style="--c:#f87171">
+    <span class="icon">🔍</span>
+    <span class="name">SCAN</span>
+    <span class="cmd">bago health monolith</span>
+  </div>
+  <div class="phase" data-phase="1" style="--c:#fb923c">
+    <span class="icon">🚨</span>
+    <span class="name">ALERT</span>
+    <span class="cmd">health check → ✗ CRIT</span>
+  </div>
+  <div class="phase" data-phase="2" style="--c:#facc15">
+    <span class="icon">🔧</span>
+    <span class="name">REMEDIATE</span>
+    <span class="cmd">4 agentes paralelos</span>
+  </div>
+  <div class="phase" data-phase="3" style="--c:#4ade80">
+    <span class="icon">✅</span>
+    <span class="name">VERIFY</span>
+    <span class="cmd">bago validate → GO</span>
+  </div>
+  <div class="phase" data-phase="4" style="--c:#c084fc">
+    <span class="icon">🧬</span>
+    <span class="name">EVOLVE</span>
+    <span class="cmd">learned_lessons LL-001</span>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<div class="timeline">
+  <h2>▸ Registro real de la operación</h2>
+
+  <div class="event" data-phase="0" style="--c:#f87171">
+    <span class="time">14:17</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">file_size_guard detecta <strong>9 archivos CRIT</strong> (&gt;800L) en .bago/tools/</div>
+      <div class="hash">8c515a4 · fix(file_size_guard): restaura API scan() — trigger del ciclo</div>
+    </div>
+  </div>
+
+  <div class="event" data-phase="1" style="--c:#fb923c">
+    <span class="time">14:21</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">bago health check muestra <strong>9 × ✗ Monolito</strong> con nombres y líneas exactas</div>
+      <div class="hash">findings_engine(1612) · telegram_daemon(1579) · spiral_loop(1118) · ...</div>
+    </div>
+  </div>
+
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:22</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">Lanzados <strong>3 agentes BAGO en paralelo</strong> — batches balanceados por tamaño</div>
+      <div class="hash">split-batch-1 (4309L) · split-batch-2 (2746L) · split-batch-3 (2489L)</div>
+    </div>
+  </div>
+
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:28</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">path_healer → _healer_discovery + _healer_memory <span style="color:#666">(commit 4430126)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:29</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">findings_engine → _findings_model + _parsers + _bago_lint <span style="color:#666">(ab4a22c)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:29</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">code_review 816L → <strong>73L orquestador</strong> (−91%) <span style="color:#666">(7e9dcf4)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:31</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">bago_rubber_duck → _duck_collector + _duck_analyzer <span style="color:#666">(29e50a7)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:33</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">bago_telegram_daemon 1579L → 416L + _telegram_handlers + _telegram_ui <span style="color:#666">(7ac144a)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:34</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">generate_bago_evolution_report → _evolution_collectors + _renderers <span style="color:#666">(2e9b5a1)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:37</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">bago_neural 917L → 243L + _neural_bus + _neural_nodes <span style="color:#666">(a8857fa)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:40</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">spiral_loop 1118L → 298L + _spiral_state + _spiral_phases <span style="color:#666">(c72f6e2)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:42</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">wizard_tab 903L → 490L + _wizard_contract + _wizard_widgets <span style="color:#666">(1b37227)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:44</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">⚠ _telegram_handlers(1233L) y _spiral_phases(843L) aún en CRIT — <strong>2º nivel</strong> lanzado</div>
+      <div class="hash">split-level2: agente dedicado a módulos privados reincidentes</div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:56</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">_telegram_handlers → cmd_a(342L) + cmd_b(416L) + hub(542L) <span style="color:#666">(4f4fd9e)</span></div>
+    </div>
+  </div>
+  <div class="event" data-phase="2" style="--c:#facc15">
+    <span class="time">14:56</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">_spiral_phases → _spiral_steps(537L) + phases(346L) <span style="color:#666">(0c40622)</span></div>
+    </div>
+  </div>
+
+  <div class="event" data-phase="3" style="--c:#4ade80">
+    <span class="time">14:57</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text"><strong>0 CRIT · 328 archivos · 312 OK</strong> — validate GO manifest · GO state · GO pack</div>
+      <div class="hash">11 commits refactor + 24 módulos privados creados · 0 funcionalidad perdida</div>
+    </div>
+  </div>
+
+  <div class="event" data-phase="4" style="--c:#c084fc">
+    <span class="time">14:57</span>
+    <span class="dot"></span>
+    <div>
+      <div class="text">learned_lessons.md creado — <strong>LL-001</strong>: patrón orquestación en espiral capturado</div>
+      <div class="hash">61abd41 · El bucle aprende de sí mismo para la próxima vuelta</div>
+    </div>
+  </div>
+</div>
+
+<!-- METRICS -->
+<div class="metrics">
+  <div class="metric" data-metric="monolitos" style="--c:#f87171">
+    <span class="val" id="m-monolitos">0</span>
+    <span class="lbl">MONOLITOS ELIMINADOS</span>
+  </div>
+  <div class="metric" data-metric="modulos" style="--c:#facc15">
+    <span class="val" id="m-modulos">0</span>
+    <span class="lbl">MÓDULOS PRIVADOS CREADOS</span>
+  </div>
+  <div class="metric" data-metric="commits" style="--c:#4ade80">
+    <span class="val" id="m-commits">0</span>
+    <span class="lbl">COMMITS ATÓMICOS</span>
+  </div>
+  <div class="metric" data-metric="crit" style="--c:#c084fc">
+    <span class="val" id="m-crit">9</span>
+    <span class="lbl">CRIT FINALES</span>
+  </div>
+</div>
+
+<div class="note">
+  Como el tono de Shepard — siempre asciende, nunca termina.<br>
+  <span>SCAN → ALERT → REMEDIATE → VERIFY → EVOLVE → ↑ (de nuevo)</span>
+</div>
+
+<script>
+// ── SPIRAL CANVAS ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('spiral');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const cx = W / 2, cy = H / 2;
+
+const PHASES = [
+  { name: 'SCAN',      color: '#f87171' },
+  { name: 'ALERT',     color: '#fb923c' },
+  { name: 'REMEDIATE', color: '#facc15' },
+  { name: 'VERIFY',    color: '#4ade80' },
+  { name: 'EVOLVE',    color: '#c084fc' },
+];
+
+let t = 0;
+let activePhase = -1;
+
+function drawSpiral(progress) {
+  ctx.clearRect(0, 0, W, H);
+
+  const turns = 3.5;
+  const maxR = Math.min(W, H) * 0.44;
+  const minR = 18;
+  const steps = 800;
+
+  // Draw spiral path (faded)
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const frac = i / steps;
+    const angle = frac * turns * Math.PI * 2 - Math.PI / 2;
+    const r = minR + (maxR - minR) * frac;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#1e1e2e';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Draw animated progress along spiral
+  const drawSteps = Math.floor(steps * Math.min(progress, 1));
+  if (drawSteps > 1) {
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#f87171');
+    grad.addColorStop(0.25, '#fb923c');
+    grad.addColorStop(0.45, '#facc15');
+    grad.addColorStop(0.7, '#4ade80');
+    grad.addColorStop(1, '#c084fc');
+
+    ctx.beginPath();
+    for (let i = 0; i <= drawSteps; i++) {
+      const frac = i / steps;
+      const angle = frac * turns * Math.PI * 2 - Math.PI / 2;
+      const r = minR + (maxR - minR) * frac;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Glowing dot at current position
+    const frac = drawSteps / steps;
+    const angle = frac * turns * Math.PI * 2 - Math.PI / 2;
+    const r = minR + (maxR - minR) * frac;
+    const dotX = cx + r * Math.cos(angle);
+    const dotY = cy + r * Math.sin(angle);
+
+    // current phase index
+    const phaseIdx = Math.floor(frac * 5) % 5;
+    const phaseColor = PHASES[phaseIdx].color;
+
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = phaseColor;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = phaseColor;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Update active phase
+    if (phaseIdx !== activePhase) {
+      activePhase = phaseIdx;
+      updatePhases(phaseIdx);
+    }
+  }
+
+  // Phase labels at phase boundaries on spiral
+  PHASES.forEach((ph, i) => {
+    const frac = (i + 0.5) / 5;
+    const angle = frac * turns * Math.PI * 2 - Math.PI / 2;
+    const r = minR + (maxR - minR) * frac;
+    const lx = cx + r * Math.cos(angle);
+    const ly = cy + r * Math.sin(angle);
+
+    const lit = progress * 5 > i;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+    ctx.fillStyle = lit ? ph.color : '#1e1e2e';
+    if (lit) { ctx.shadowBlur = 10; ctx.shadowColor = ph.color; }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = lit ? ph.color : '#333';
+    ctx.textAlign = 'center';
+    ctx.fillText(ph.name, lx, ly - 10);
+  });
+
+  // Center label
+  ctx.font = 'bold 11px monospace';
+  ctx.fillStyle = '#c084fc88';
+  ctx.textAlign = 'center';
+  ctx.fillText('♾ BAGO', cx, cy + 4);
+}
+
+// ── PHASE HIGHLIGHTS ───────────────────────────────────────────────────────
+function updatePhases(idx) {
+  document.querySelectorAll('.phase').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+}
+
+// ── TIMELINE REVEAL ────────────────────────────────────────────────────────
+const events = document.querySelectorAll('.event');
+let revealedCount = 0;
+
+function revealNextEvent() {
+  if (revealedCount < events.length) {
+    events[revealedCount].classList.add('visible');
+    revealedCount++;
+  }
+}
+
+// ── COUNTER ANIMATION ─────────────────────────────────────────────────────
+function animateCounter(el, target, duration) {
+  let start = null;
+  const from = parseInt(el.textContent) || 0;
+  function step(ts) {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / duration, 1);
+    el.textContent = Math.round(from + (target - from) * p);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── MAIN LOOP ──────────────────────────────────────────────────────────────
+const TOTAL_DURATION = 12000; // 12s full spiral
+let startTime = null;
+let lastReveal = 0;
+const revealInterval = TOTAL_DURATION / (events.length + 2);
+
+let metricsTriggered = false;
+
+function animate(ts) {
+  if (!startTime) startTime = ts;
+  const elapsed = ts - startTime;
+  const progress = Math.min(elapsed / TOTAL_DURATION, 1);
+
+  drawSpiral(progress);
+
+  // Reveal timeline events progressively
+  if (elapsed - lastReveal > revealInterval) {
+    revealNextEvent();
+    lastReveal = elapsed;
+  }
+
+  // Trigger metric counters at 70%
+  if (progress > 0.7 && !metricsTriggered) {
+    metricsTriggered = true;
+    document.querySelectorAll('.metric').forEach(m => m.classList.add('lit'));
+    animateCounter(document.getElementById('m-monolitos'), 9, 1500);
+    animateCounter(document.getElementById('m-modulos'), 24, 2000);
+    animateCounter(document.getElementById('m-commits'), 11, 1800);
+    animateCounter(document.getElementById('m-crit'), 0, 1200);
+  }
+
+  if (progress < 1) {
+    requestAnimationFrame(animate);
+  } else {
+    // Reveal any remaining events
+    events.forEach(e => e.classList.add('visible'));
+    updatePhases(4);
+    // Loop spiral subtly
+    loopSpiral();
+  }
+}
+
+function loopSpiral() {
+  // After completion, animate the dot continuously
+  let lt = null;
+  function loop(ts) {
+    if (!lt) lt = ts;
+    const p = ((ts - lt) % 8000) / 8000;
+    drawSpiral(1); // keep spiral full
+    // just pulse the center
+    const pulse = 0.5 + 0.5 * Math.sin(ts * 0.002);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8 + pulse * 4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(192, 132, 252, ${0.3 + pulse * 0.3})`;
+    ctx.shadowBlur = 20 + pulse * 10;
+    ctx.shadowColor = '#c084fc';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(animate);
+
+// Ensure all events revealed after animation
+setTimeout(() => {
+  events.forEach(e => e.classList.add('visible'));
+}, TOTAL_DURATION + 1000);
+</script>
+</body>
+</html>
