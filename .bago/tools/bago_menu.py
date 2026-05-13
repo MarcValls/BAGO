@@ -20,14 +20,219 @@ Uso:
 from __future__ import annotations
 
 import curses
+import json
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-BAGO = ROOT / ".bago"
+ROOT  = Path(__file__).resolve().parent.parent.parent
+BAGO  = ROOT / ".bago"
+STATE = BAGO / "state"
+DB    = STATE / "bago.db"
 
-# ── Jerarquía de menú — basada en el flujo real de trabajo BAGO ───────────────
+
+# ── Live data loaders ─────────────────────────────────────────────────────────
+# Cada loader recibe el cmd y devuelve list[str] para mostrar en el preview.
+# Deben ser RÁPIDOS (solo lectura de ficheros locales, sin subprocess).
+
+def _jread(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+def _dbq(sql: str, params: tuple = ()) -> list:
+    if not DB.exists():
+        return []
+    try:
+        con = sqlite3.connect(str(DB), timeout=1)
+        rows = con.execute(sql, params).fetchall()
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+def _ld_health(_: str) -> list[str]:
+    gs = _jread(STATE / "global_state.json")
+    score = gs.get("health_score", {}).get("last_score", "—")
+    ts    = gs.get("health_score", {}).get("last_run", "")[:16].replace("T", " ")
+    inv   = gs.get("inventory", {})
+    return [
+        f"  Score actual: {score}/100   última ejecución: {ts or '—'}",
+        f"  Sesiones: {inv.get('sessions','?')}   Comandos en registry: {inv.get('commands','?')}",
+        f"  Sub-opciones: score · report · stability · efficiency · consistency · sincerity",
+    ]
+
+def _ld_ideas(_: str) -> list[str]:
+    avail   = _dbq("SELECT COUNT(*) FROM ideas WHERE status='available'")
+    active  = _dbq("SELECT COUNT(*) FROM ideas WHERE status='active'")
+    impl    = _dbq("SELECT COUNT(*) FROM ideas WHERE status='implemented'")
+    top     = _dbq("SELECT title, priority FROM ideas WHERE status='available' ORDER BY priority DESC LIMIT 2")
+    lines   = [f"  Disponibles: {avail[0][0] if avail else '?'}   Activas: {active[0][0] if active else '?'}   Implementadas: {impl[0][0] if impl else '?'}"]
+    for row in top:
+        lines.append(f"  ↳ [{row[1]}] {row[0][:55]}")
+    return lines
+
+def _ld_task(_: str) -> list[str]:
+    rows = _dbq("SELECT title, status FROM ideas WHERE status='active' LIMIT 3")
+    if not rows:
+        return ["  No hay tarea activa en este momento."]
+    lines = ["  Tareas activas:"]
+    for r in rows:
+        lines.append(f"  ▶  {r[0][:60]}")
+    return lines
+
+def _ld_next(_: str) -> list[str]:
+    rows = _dbq("SELECT title, priority FROM ideas WHERE status='available' ORDER BY priority DESC LIMIT 1")
+    if not rows:
+        return ["  No hay ideas disponibles en el backlog."]
+    return [
+        f"  Próxima idea top (prioridad {rows[0][1]}):",
+        f"  ▶  {rows[0][0][:60]}",
+    ]
+
+def _ld_status(_: str) -> list[str]:
+    gs   = _jread(STATE / "global_state.json")
+    rc   = _jread(STATE / "repo_context.json")
+    wf   = gs.get("active_workflow", {}).get("name", "—")
+    sp   = gs.get("active_sprint",   {}).get("name", "—")
+    mode = rc.get("working_mode", "—")
+    sess = gs.get("last_session", {}).get("session_id", "—")
+    rows = _dbq("SELECT COUNT(*) FROM ideas WHERE status='active'")
+    return [
+        f"  Workflow: {wf}   Sprint: {sp}",
+        f"  Modo: {mode}   Última sesión: {sess}",
+        f"  Tareas activas: {rows[0][0] if rows else '?'}",
+    ]
+
+def _ld_sprint(_: str) -> list[str]:
+    gs = _jread(STATE / "global_state.json")
+    sp = gs.get("active_sprint", {})
+    impl = _dbq("SELECT COUNT(*) FROM ideas WHERE status='implemented'")
+    avail = _dbq("SELECT COUNT(*) FROM ideas WHERE status='available'")
+    return [
+        f"  Sprint: {sp.get('name', '—')}",
+        f"  Implementadas: {impl[0][0] if impl else '?'}   En backlog: {avail[0][0] if avail else '?'}",
+    ]
+
+def _ld_devmode(_: str) -> list[str]:
+    rc   = _jread(STATE / "repo_context.json")
+    mode = rc.get("working_mode", "—")
+    desc = {"self": "Developer → vista framework completa, todos los comandos",
+            "user": "User → vista project-first limpia, comandos esenciales"}.get(mode, mode)
+    return [f"  Modo activo: {mode}", f"  {desc}"]
+
+def _ld_workspace(_: str) -> list[str]:
+    rc  = _jread(STATE / "repo_context.json")
+    return [
+        f"  Modo: {rc.get('working_mode', '—')}",
+        f"  Proyecto: {rc.get('project_name', '—')}",
+        f"  Branch: {rc.get('git_branch', '—')}",
+    ]
+
+def _ld_recent(_: str) -> list[str]:
+    rp = []
+    try:
+        rp = json.loads((STATE / "recent_projects.json").read_text())
+    except Exception:
+        pass
+    if not rp:
+        return ["  No hay proyectos recientes registrados."]
+    lines = ["  Proyectos recientes:"]
+    for p in rp[:4]:
+        name = p.get("name") or Path(p.get("path", "?")).name
+        lines.append(f"  ▷  {name}  — {p.get('path', '')[:45]}")
+    return lines
+
+def _ld_git(_: str) -> list[str]:
+    # Lee .git/HEAD directamente (sin subprocess)
+    head_f = ROOT / ".git" / "HEAD"
+    branch = "—"
+    if head_f.exists():
+        head = head_f.read_text().strip()
+        branch = head.replace("ref: refs/heads/", "") if head.startswith("ref:") else head[:7]
+    # Último commit
+    commit = "—"
+    try:
+        log_f = ROOT / ".git" / "logs" / "HEAD"
+        if log_f.exists():
+            last = log_f.read_text().strip().splitlines()[-1]
+            commit = last.split("\t")[-1][:55] if "\t" in last else last[-55:]
+    except Exception:
+        pass
+    return [f"  Branch: {branch}", f"  Último commit: {commit}"]
+
+def _ld_snapshot(_: str) -> list[str]:
+    snaps = sorted((STATE / "snapshots").glob("*.json")) if (STATE / "snapshots").exists() else []
+    if not snaps:
+        return ["  No hay snapshots guardados aún."]
+    last = snaps[-1]
+    return [
+        f"  Snapshots disponibles: {len(snaps)}",
+        f"  Último: {last.stem[:50]}",
+        f"  Sub-opciones: (comparar) · --list · --ideas · --tools · --json",
+    ]
+
+def _ld_validate(_: str) -> list[str]:
+    gs = _jread(STATE / "global_state.json")
+    ts = gs.get("updated_at", "")[:16].replace("T", " ")
+    return [
+        f"  Última actualización del estado: {ts or '—'}",
+        f"  Sub-opciones: (completo) · manifest · state · contents",
+    ]
+
+def _ld_sessions(_: str) -> list[str]:
+    rows = _dbq("SELECT session_id, created_at FROM sessions ORDER BY created_at DESC LIMIT 3")
+    gs   = _jread(STATE / "global_state.json")
+    total = gs.get("inventory", {}).get("sessions", "?")
+    lines = [f"  Total sesiones registradas: {total}"]
+    for r in rows:
+        lines.append(f"  ▷  {r[0]}  {r[1][:16]}")
+    return lines
+
+# Dispatcher: cmd → loader function
+_LIVE_LOADERS: dict[str, callable] = {
+    "health":           _ld_health,
+    "ideas":            _ld_ideas,
+    "task":             _ld_task,
+    "next":             _ld_next,
+    "assign":           _ld_task,
+    "status":           _ld_status,
+    "sprint":           _ld_sprint,
+    "devmode":          _ld_devmode,
+    "workspace-select": _ld_workspace,
+    "recent-projects":  _ld_recent,
+    "git":              _ld_git,
+    "git-status":       _ld_git,
+    "snapshot":         _ld_snapshot,
+    "validate":         _ld_validate,
+    "hello":            _ld_status,
+}
+
+def _live_data(cmd: str, long_desc: str) -> list[str]:
+    """Devuelve líneas de preview: datos live si hay loader, sino descripción wrapeada."""
+    loader = _LIVE_LOADERS.get(cmd)
+    if loader:
+        try:
+            return loader(cmd)
+        except Exception:
+            pass
+    # Fallback: word-wrap de long_desc
+    words = long_desc.split()
+    line, lines = "", []
+    for word in words:
+        if len(line) + len(word) + 1 > 56:
+            lines.append(line)
+            line = word
+        else:
+            line = (line + " " + word).strip()
+    if line:
+        lines.append(line)
+    return ["  " + l for l in lines[:3]]
+
+
+
 # Cada entrada: (nombre_grupo, [(cmd, descripción_corta, descripción_larga)])
 MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
     ("🚀  Sesión", [
@@ -264,6 +469,8 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
     focus        = "sidebar"
     scroll_cmd   = 0
     result: str | None = None
+    _prev_key    = None   # (group, cmd_idx) — cache key para live_data
+    _cached_live: list[str] = []
 
     while True:
         stdscr.clear()
@@ -274,6 +481,13 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
         list_area = h - PREVIEW_H - 3
 
         group_name, cmds = MENU[active_group]
+
+        # Recarga live_data solo cuando cambia la selección
+        _cur_key = (active_group, active_cmd)
+        if _cur_key != _prev_key and 0 <= active_cmd < len(cmds):
+            entry = cmds[active_cmd]
+            _cached_live = _live_data(entry[0], entry[2])
+            _prev_key = _cur_key
 
         # ── Header ───────────────────────────────────────────────────────────
         right = f" {active_group + 1}/{len(MENU)} · {group_name.split('  ', 1)[-1]} "
@@ -348,20 +562,18 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
         prev_y = h - PREVIEW_H - 1
         stdscr.addstr(prev_y, list_x, "─" * (list_w - 1), curses.color_pair(2))
         if 0 <= active_cmd < len(cmds):
-            cmd, short, long_desc = cmds[active_cmd]
-            stdscr.addstr(prev_y + 1, list_x + 1, f"bago {cmd}", curses.color_pair(8) | curses.A_BOLD)
-            words = long_desc.split()
-            line, lines = "", []
-            for word in words:
-                if len(line) + len(word) + 1 > list_w - 4:
-                    lines.append(line)
-                    line = word
-                else:
-                    line = (line + " " + word).strip()
-            if line:
-                lines.append(line)
-            for li, ln in enumerate(lines[:3]):
-                stdscr.addstr(prev_y + 2 + li, list_x + 3, ln[:list_w - 4], curses.color_pair(6))
+            entry = cmds[active_cmd]
+            cmd_name = entry[0]
+            has_opts = len(entry) > 3 and entry[3]
+            opts_hint = "  [opciones ▸]" if has_opts else ""
+            stdscr.addstr(prev_y + 1, list_x + 1,
+                          f"bago {cmd_name}{opts_hint}"[:list_w - 2],
+                          curses.color_pair(8) | curses.A_BOLD)
+            for li, ln in enumerate(_cached_live[:PREVIEW_H - 2]):
+                try:
+                    stdscr.addstr(prev_y + 2 + li, list_x + 1, ln[:list_w - 2], curses.color_pair(6))
+                except curses.error:
+                    pass
 
         # ── Footer ────────────────────────────────────────────────────────────
         footer = "  ↑↓ navegar  →/Tab: lista  ←: grupos  Enter: ejecutar  q: salir  "
