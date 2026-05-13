@@ -40,7 +40,14 @@ MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("recent-projects",  "Proyectos recientes",          "Historial de repos visitados con sesiones e ideas implementadas"),
     ]),
     ("💡  Ideas", [
-        ("ideas",   "Ver backlog priorizado",       "Lista ideas ordenadas por contexto, sprint y urgencia"),
+        ("ideas",   "Ver backlog priorizado",       "Lista ideas ordenadas por contexto, sprint y urgencia", [
+            ("",           "(lista)",      "Muestra las top 5-20 ideas priorizadas por contexto (predeterminado)"),
+            ("--select",   "--select",     "Selector interactivo del backlog con navegación"),
+            ("--baseline", "--baseline",   "Solo ideas de bajo riesgo, estables y probadas"),
+            ("--export",   "--export",     "Exporta snapshot de ideas a .bago/state/ideas_snapshot.md"),
+            ("--health",   "--health",     "Estadísticas del catálogo: total, por estado, por intención"),
+            ("--all",      "--all",        "Muestra ideas de todos los proyectos (ignora filtro devmode)"),
+        ]),
         ("cosecha", "Capturar nueva idea",          "Registra una idea nueva en bago.db con título, contexto y prioridad"),
         ("next",    "Aceptar idea top como tarea",  "Shortcut: toma la idea #1 y la convierte en tarea activa"),
         ("assign",  "Asignar idea a tarea",         "Convierte una idea específica en la tarea activa del sprint"),
@@ -59,8 +66,20 @@ MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("scope",    "Scope de la tarea",    "Define qué archivos/módulos están en scope para esta tarea"),
     ]),
     ("✅  Calidad & Salud", [
-        ("health",    "Score de salud 0-100",        "5 dimensiones: integridad, disciplina, decisiones, stale, consistencia"),
-        ("validate",  "Validación completa",         "GO/FAIL en manifest, state y pack — ejecutar antes de cada commit"),
+        ("health",    "Score de salud 0-100",        "5 dimensiones: integridad, disciplina, decisiones, stale, consistencia", [
+            ("",            "score",       "Score 0-100 ponderado (predeterminado)"),
+            ("report",      "report",      "Reporte completo Markdown/HTML con todos los checks"),
+            ("stability",   "stability",   "Diagnóstico completo de estabilidad del workspace"),
+            ("efficiency",  "efficiency",  "Ratio de eficiencia inter-versiones del framework"),
+            ("consistency", "consistency", "Anti-drift: verifica que registry/CI/README son coherentes"),
+            ("sincerity",   "sincerity",   "Detecta promesas vacías y sycofancía en docs y sesiones"),
+        ]),
+        ("validate",  "Validación completa",         "GO/FAIL en manifest, state y pack — ejecutar antes de cada commit", [
+            ("",         "(completo)",  "Validación completa: manifest + state + pack (predeterminado)"),
+            ("manifest", "manifest",    "Solo valida pack.json contra global_state.json"),
+            ("state",    "state",       "Solo valida coherencia de global_state.json y sesiones"),
+            ("contents", "contents",    "Valida un ZIP de pack distribuible (pack_contents)"),
+        ]),
         ("audit",     "Auditoría de sesión",         "Trail completo: roles, contratos, evidencias, decisiones"),
         ("stale",     "Detectar estado obsoleto",    "Encuentra workflows abandonados, tareas huérfanas, state desincronizado"),
         ("sincerity", "Detector de promesas vacías", "Analiza si el agente cumplió lo que prometió en la sesión"),
@@ -101,7 +120,13 @@ MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
     ("📊  Informes & Conocimiento", [
         ("weekly-report",  "Informe semanal",       "Resumen de la semana: ideas implementadas, salud, velocidad"),
         ("recientes",      "Actividad reciente",    "Commits, sesiones e ideas de los últimos N días"),
-        ("snapshot",       "Snapshot del estado",   "Captura y compara snapshots del estado del sistema"),
+        ("snapshot",       "Snapshot del estado",   "Captura y compara snapshots del estado del sistema", [
+            ("",        "(comparar)",  "Compara los dos últimos snapshots (predeterminado)"),
+            ("--list",  "--list",      "Lista todos los snapshots guardados con fecha y tamaño"),
+            ("--ideas", "--ideas",     "Compara solo la sección de ideas entre snapshots"),
+            ("--tools", "--tools",     "Compara solo la sección de herramientas entre snapshots"),
+            ("--json",  "--json",      "Salida de la comparación en formato JSON"),
+        ]),
         ("dashboard",      "Panel principal",       "Dashboard interactivo con todas las métricas del sistema"),
         ("work_matrix",    "Matriz de trabajo",     "Visualiza el trabajo por agente, capa y tipo de tarea"),
         ("search-history", "Búsqueda en historial", "Busca en el historial completo de sesiones BAGO"),
@@ -131,6 +156,82 @@ MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
 
 SIDEBAR_W = 20
 PREVIEW_H = 6
+
+
+# ── Sub-opciones modal ────────────────────────────────────────────────────────
+
+def _draw_subopts(stdscr: "curses._CursesWindow", cmd: str,
+                  opts: list[tuple[str, str, str]]) -> str | None:
+    """Modal centrado para elegir sub-opción/flag de un comando.
+    opts: [(args_a_añadir, etiqueta_corta, descripción)]
+    Devuelve el comando completo elegido o None si se cancela.
+    """
+    h, w = stdscr.getmaxyx()
+    lbl_w = max(len(o[1]) for o in opts) + 2
+    title = f" bago {cmd} — elige una opción "
+    modal_w = min(max(len(title) + 4, lbl_w + 50), w - 4)
+    modal_h = len(opts) + 6
+    my = max(1, (h - modal_h) // 2)
+    mx = max(1, (w - modal_w) // 2)
+    sel = 0
+
+    while True:
+        # Fondo semitransparente (sobreescribe área del modal)
+        for row in range(my, min(my + modal_h, h - 1)):
+            try:
+                stdscr.addstr(row, mx, " " * (modal_w - 1), curses.color_pair(6))
+            except curses.error:
+                pass
+
+        # Borde
+        try:
+            stdscr.addstr(my, mx, "┌" + title + "─" * max(0, modal_w - len(title) - 2) + "┐",
+                          curses.color_pair(4) | curses.A_BOLD)
+            for row in range(my + 1, my + modal_h - 1):
+                stdscr.addstr(row, mx, "│", curses.color_pair(4))
+                stdscr.addstr(row, mx + modal_w - 1, "│", curses.color_pair(4))
+            footer_row = my + modal_h - 2
+            foot = "  ↑↓ elegir · Enter ejecutar · Esc cancelar"
+            stdscr.addstr(footer_row, mx + 1, foot[:modal_w - 2], curses.color_pair(4))
+            stdscr.addstr(my + modal_h - 1, mx,
+                          "└" + "─" * (modal_w - 2) + "┘", curses.color_pair(4))
+        except curses.error:
+            pass
+
+        # Opciones
+        for i, (args, label, desc) in enumerate(opts):
+            row = my + 2 + i
+            if row >= my + modal_h - 2:
+                break
+            full = f"bago {cmd} {args}".strip()
+            if i == sel:
+                bar = f" ▶  {label:<{lbl_w}}  {desc}"
+                try:
+                    stdscr.addstr(row, mx + 1, bar[:modal_w - 2].ljust(modal_w - 2),
+                                  curses.color_pair(3) | curses.A_BOLD)
+                except curses.error:
+                    pass
+            else:
+                try:
+                    stdscr.addstr(row, mx + 4, f"{label:<{lbl_w}}", curses.color_pair(5))
+                    desc_x = mx + 4 + lbl_w + 2
+                    stdscr.addstr(row, desc_x, desc[:mx + modal_w - desc_x - 2],
+                                  curses.color_pair(2))
+                except curses.error:
+                    pass
+
+        stdscr.refresh()
+        key = stdscr.getch()
+
+        if key == 27:               # Esc → cancelar
+            return None
+        elif key == curses.KEY_DOWN:
+            sel = (sel + 1) % len(opts)
+        elif key == curses.KEY_UP:
+            sel = (sel - 1) % len(opts)
+        elif key in (10, 13):       # Enter → ejecutar
+            args = opts[sel][0]
+            return f"bago {cmd} {args}".strip()
 
 
 # ── Colores ───────────────────────────────────────────────────────────────────
@@ -301,8 +402,18 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
                 scroll_cmd = 0
                 focus = "list"
             elif key in (10, 13):
-                result = f"bago {cmds[active_cmd][0]}"
-                break
+                entry = cmds[active_cmd]
+                cmd_name = entry[0]
+                opts = entry[3] if len(entry) > 3 else None
+                if opts:
+                    chosen = _draw_subopts(stdscr, cmd_name, opts)
+                    if chosen:
+                        result = chosen
+                        break
+                    # Esc en modal → volver al menú sin ejecutar
+                else:
+                    result = f"bago {cmd_name}"
+                    break
 
     return result
 
@@ -381,9 +492,13 @@ def _self_test() -> None:
     for group_name, cmds in MENU:
         assert cmds, f"Grupo '{group_name}' sin comandos"
         for entry in cmds:
-            assert len(entry) == 3, f"Entrada malformada en '{group_name}': {entry}"
+            assert len(entry) in (3, 4), f"Entrada malformada en '{group_name}': {entry}"
+            if len(entry) == 4 and entry[3]:
+                for opt in entry[3]:
+                    assert len(opt) == 3, f"Sub-opción malformada en '{entry[0]}': {opt}"
     total = sum(len(c) for _, c in MENU)
-    print(f"  3/3 tests pasaron  ({len(MENU)} grupos, {total} entradas de menú)")
+    opts_count = sum(1 for _, c in MENU for e in c if len(e) > 3 and e[3])
+    print(f"  3/3 tests pasaron  ({len(MENU)} grupos, {total} entradas, {opts_count} con sub-opciones)")
 
 
 if __name__ == "__main__":
