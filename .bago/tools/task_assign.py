@@ -16,6 +16,7 @@ Uso CLI:
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import sqlite3
 import sys
@@ -32,15 +33,28 @@ _LLM_CFG   = _STATE / "llm_config.json"
 
 MAX_VOICES = 3  # ShepardCycle: nunca > 3 voces simultáneas
 
-# ── Colores ────────────────────────────────────────────────────────────────
+# ── BAGO Presence ─────────────────────────────────────────────────────────
+try:
+    _bp_spec = importlib.util.spec_from_file_location(
+        "bago_presence", _HERE / "bago_presence.py"
+    )
+    _bp_mod = importlib.util.module_from_spec(_bp_spec)      # type: ignore
+    _bp_spec.loader.exec_module(_bp_mod)                      # type: ignore
+    bp = _bp_mod.bp
+except Exception:
+    class _NullBP:
+        def __getattr__(self, _): return lambda *a, **k: None
+    bp = _NullBP()  # type: ignore
+
+# ── Colores (fallback para compat si bp no disponible) ─────────────────────
 _TTY = sys.stdout.isatty()
 def _c(code: str, t: str) -> str: return f"\033[{code}m{t}\033[0m" if _TTY else t
-BOLD   = lambda t: _c("1", t)
-GREEN  = lambda t: _c("1;32", t)
-YELLOW = lambda t: _c("1;33", t)
-CYAN   = lambda t: _c("1;36", t)
-RED    = lambda t: _c("1;31", t)
-DIM    = lambda t: _c("2", t)
+BOLD    = lambda t: _c("1",    t)
+GREEN   = lambda t: _c("1;32", t)
+YELLOW  = lambda t: _c("1;33", t)
+CYAN    = lambda t: _c("1;36", t)
+RED     = lambda t: _c("1;31", t)
+DIM     = lambda t: _c("2",    t)
 MAGENTA = lambda t: _c("1;35", t)
 
 # ── Iconos por categoría ───────────────────────────────────────────────────
@@ -157,7 +171,7 @@ def _unassign(con: sqlite3.Connection, idea_id: str) -> None:
 
 def cmd_list_agents() -> int:
     agents = _available_agents()
-    print(BOLD("\n🤖 Agentes y roles disponibles para asignación\n"))
+    bp.assign_agents_header()
 
     functional = {k: v for k, v in agents.items() if v["type"] == "agent"}
     roles = {k: v for k, v in agents.items() if v["type"] == "role"}
@@ -174,7 +188,7 @@ def cmd_list_agents() -> int:
             print(f"    {info['icon']} {YELLOW(rid):<20} {info['description'][:50]}")
 
     print()
-    print(DIM(f"  ShepardCycle: máx {MAX_VOICES} voces simultáneas"))
+    bp.think(f"ShepardCycle: máx {MAX_VOICES} voces simultáneas")
     print()
     return 0
 
@@ -208,11 +222,8 @@ def cmd_assign(idea_id: str, agent_ids: list[str]) -> int:
 
     _assign(con, idea_id, resolved)
 
-    label = " + ".join(YELLOW(a) for a in resolved)
-    print(GREEN(f"✓ Idea #{idea_id} asignada → {label}"))
-    print(DIM(f"  «{idea['title'][:60]}»"))
-    if len(resolved) > 1:
-        print(DIM(f"  ShepardCycle: {len(resolved)} voces activadas"))
+    bp.assign_confirm(idea_id, resolved)
+    print(f"  {DIM(chr(171))}{DIM(idea['title'][:60])}{DIM(chr(187))}")
     return 0
 
 
@@ -256,7 +267,7 @@ def cmd_pending() -> int:
     if not rows:
         print(GREEN("✓ Todas las ideas disponibles tienen agente asignado."))
         return 0
-    print(BOLD(f"\n📋 Ideas sin agente asignado ({len(rows)})\n"))
+    bp.assign_pending_header(len(rows))
     for r in rows:
         print(f"  {DIM(str(r[0])):<30} [{r[2]:>3}] {r[1][:55]}")
     print()

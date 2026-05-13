@@ -30,11 +30,25 @@ Uso CLI:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# ── BAGO Presence (visual identity) — optional, never crashes ──────────────
+try:
+    _bp_spec = importlib.util.spec_from_file_location(
+        "bago_presence", Path(__file__).parent / "bago_presence.py"
+    )
+    _bp_mod = importlib.util.module_from_spec(_bp_spec)      # type: ignore
+    _bp_spec.loader.exec_module(_bp_mod)                      # type: ignore
+    bp = _bp_mod.bp
+except Exception:
+    class _NullBP:
+        def __getattr__(self, _): return lambda *a, **k: None
+    bp = _NullBP()  # type: ignore
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -200,9 +214,11 @@ class VoiceConductor:
         if not selected:
             return []
 
-        # Activar
+        # Activar — presencia visual BAGO
         current_active.extend(selected)
         self._state["active_voices"] = current_active
+        gate = self._state.get("gate", DOOR_CLOSED)
+        bp.cap_voices(selected, gate=gate)
 
         # Registrar en historial
         self._state.setdefault("history", []).append({
@@ -392,15 +408,12 @@ class VoiceConductor:
 
 def _print_status(conductor: VoiceConductor) -> None:
     s = conductor.status()
-    door_emoji = "🔓" if s["door"] == DOOR_OPEN else "🔒"
-    print(f"{door_emoji} Puerta:       {s['door']}")
-    print(f"🎤 Voces activas: {s['active_count']} / {s['limit']}")
+    bp.act("ORQUESTADOR", f"ShepardGate: {s['door']}  ·  voces: {s['active_count']}/{s['limit']}")
     if s["active_voices"]:
         for v in s["active_voices"]:
-            print(f"   · {v}")
+            bp.voice_line(v, indent=2)
     else:
-        print("   (ninguna)")
-    print(f"🕐 Actualizado:   {s['last_updated']}")
+        bp.voice_line("(ninguna voz activa)", indent=2)
 
 
 def _print_list(conductor: VoiceConductor) -> None:

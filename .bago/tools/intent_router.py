@@ -24,10 +24,24 @@ import re
 import subprocess
 from functools import lru_cache
 from pathlib import Path
+import importlib.util
 
 BAGO_ROOT = Path(__file__).parent.parent
 TOOLS_DIR = Path(__file__).parent
 PROJECT_ROOT = BAGO_ROOT.parent
+
+# ── BAGO Presence — visual identity, never crashes ───────────────────────────
+try:
+    _bp_spec = importlib.util.spec_from_file_location(
+        "bago_presence", TOOLS_DIR / "bago_presence.py"
+    )
+    _bp_mod = importlib.util.module_from_spec(_bp_spec)      # type: ignore
+    _bp_spec.loader.exec_module(_bp_mod)                      # type: ignore
+    bp = _bp_mod.bp
+except Exception:
+    class _NullBP:
+        def __getattr__(self, _): return lambda *a, **k: None
+    bp = _NullBP()  # type: ignore
 BAGO_SCRIPT = PROJECT_ROOT / "bago"
 
 
@@ -268,8 +282,7 @@ def _cap_activate_voices(intent_id: str, task_desc: str, dry_run: bool = False) 
         )
         if activated and not dry_run:
             gate_state = cycle._state.get("gate", "PUERTA_CERRADA")
-            print(f"\n  🎼 CAP·ShepardCycle → {' + '.join(activated)}"
-                  + f"  [{gate_state}]")
+            bp.cap_voices(activated, gate=gate_state)
     except Exception:
         # CAP activation is non-critical — never crash intent routing
         pass
@@ -360,9 +373,10 @@ def cmd_route(query: str, dry_run: bool = False, yes: bool = False, verbose: boo
     score, best = intents[0]
     confidence = "INT-I001" if score >= 20 else "INT-I002"
 
-    print(f"\n  [{confidence}] Intención identificada: {best['name']}")
-    print(f"  {best['description']}")
-    print(f"  Tools a ejecutar: {' → '.join(best['tools'])}")
+    bp.act("MAESTRO", f"recibiendo: {query[:60]}")
+    bp.act("ORQUESTADOR", f"[{confidence}] intención: {best['name']}")
+    bp.think(best["description"])
+    bp.think(f"tools: {' → '.join(best['tools'])}")
 
     if len(intents) > 1 and verbose:
         print("\n  Alternativas:")

@@ -11,6 +11,7 @@ Uso:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sqlite3
 import sys
@@ -21,6 +22,19 @@ ROOT             = Path(__file__).resolve().parents[2]
 TASK_FILE        = ROOT / ".bago" / "state" / "pending_w2_task.json"
 IMPLEMENTED_FILE = ROOT / ".bago" / "state" / "implemented_ideas.json"
 DB_PATH          = ROOT / ".bago" / "state" / "bago.db"
+
+# ── BAGO Presence ─────────────────────────────────────────────────────────────
+try:
+    _bp_spec = importlib.util.spec_from_file_location(
+        "bago_presence", ROOT / ".bago" / "tools" / "bago_presence.py"
+    )
+    _bp_mod = importlib.util.module_from_spec(_bp_spec)      # type: ignore
+    _bp_spec.loader.exec_module(_bp_mod)                      # type: ignore
+    bp = _bp_mod.bp
+except Exception:
+    class _NullBP:
+        def __getattr__(self, _): return lambda *a, **k: None
+    bp = _NullBP()  # type: ignore
 
 
 def _load() -> dict | None:
@@ -33,12 +47,10 @@ def _load() -> dict | None:
 
 
 def _display(task: dict) -> None:
-    status_icon = "✅" if task.get("status") == "done" else "⏳"
-    print()
-    print("  ┌──────────────────────────────────────────────────────────┐")
-    print(f"  │  BAGO · Tarea W2 pendiente  {status_icon}                          │")
-    print("  └──────────────────────────────────────────────────────────┘")
-    print(f"  Idea #{task.get('idea_index', '?')}: {task.get('idea_title', '—')}")
+    done = task.get("status") == "done"
+    idea_id = task.get("idea_index", "?")
+    title = task.get("idea_title", "—")
+    bp.task_header(title, idea_id=idea_id, done=done)
     print(f"  Prioridad : {task.get('priority', '—')}")
     print(f"  Workflow  : {task.get('workflow', '—')}")
     print(f"  Aceptada  : {task.get('accepted_at', '—')}")

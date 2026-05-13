@@ -81,6 +81,26 @@ CORE      = BAGO_ROOT / "core"
 _USE_COLOR = sys.stdout.isatty()
 def GREEN(t):  return f"\033[1;32m{t}\033[0m" if _USE_COLOR else t
 
+# ── BAGO Presence (lazy-loaded, never crashes) ────────────────────────────────
+_bp = None
+
+def _load_bp():
+    global _bp
+    if _bp is not None:
+        return _bp
+    try:
+        _spec = importlib.util.spec_from_file_location(
+            "bago_presence", TOOLS / "bago_presence.py"
+        )
+        _mod = importlib.util.module_from_spec(_spec)   # type: ignore
+        _spec.loader.exec_module(_mod)                   # type: ignore
+        _bp = _mod.bp
+    except Exception:
+        class _NullBP:
+            def __getattr__(self, _): return lambda *a, **k: None
+        _bp = _NullBP()  # type: ignore
+    return _bp
+
 # ── Agent Dispatcher (v3.0) — opt-in via BAGO_DISPATCH=1 ─────────────────────
 # When disabled: zero overhead. When enabled: adds BAGO_AGENT to subprocess env
 # and emits dispatch:before / dispatch:after events to events.jsonl.
@@ -400,6 +420,7 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
     _user_cwd = os.getcwd()
     run_env = {**os.environ, "BAGO_USER_CWD": _user_cwd, **dispatch_env}
     _t0 = time.monotonic()
+    _load_bp().dispatch_header(cmd)
     result = subprocess.run(
         COMMANDS[cmd] + rest,
         cwd=str(BAGO_ROOT.parent),
