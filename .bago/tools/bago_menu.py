@@ -191,23 +191,357 @@ def _ld_sessions(_: str) -> list[str]:
         lines.append(f"  ▷  {r[0]}  {r[1][:16]}")
     return lines
 
+# ── NEW LOADERS ──────────────────────────────────────────────────────────────
+
+def _ld_done(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    wf  = gs.get("sprint_status", {}).get("last_completed_workflow", {})
+    impl = _dbq("SELECT COUNT(*) FROM ideas WHERE status='implemented'")
+    name = wf.get("title") or wf.get("name") or "—"
+    dur  = wf.get("duration", "") or ""
+    return [
+        f"  Último workflow completado: {str(name)[:55]}",
+        f"  Duración: {dur or '—'}   Ideas implementadas total: {impl[0][0] if impl else '?'}",
+    ]
+
+def _ld_workflow(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    sp  = gs.get("sprint_status", {})
+    act = sp.get("active_workflow") or "— ninguno activo"
+    last = sp.get("last_completed_workflow", {})
+    last_name = last.get("title") or last.get("name") or "—"
+    return [
+        f"  Activo: {str(act)[:58]}",
+        f"  Último completado: {str(last_name)[:52]}",
+    ]
+
+def _ld_goals(_: str) -> list[str]:
+    gdir  = STATE / "goals"
+    files = sorted(gdir.glob("*.json")) if gdir.exists() else []
+    if not files:
+        return ["  No hay goals registrados."]
+    lines = [f"  Goals registrados: {len(files)}"]
+    for f in files[:3]:
+        try:
+            g = json.loads(f.read_text())
+            status = g.get("status", "?")
+            lines.append(f"  [{status[:4]}] {g.get('title','?')[:52]}")
+        except Exception:
+            lines.append(f"  ▷  {f.stem}")
+    return lines
+
+def _ld_audit(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    val = gs.get("last_validation", {})
+    date  = str(val.get("date", "—"))[:16]
+    sinc  = val.get("sincerity", "—")
+    stab  = val.get("stability", "—")
+    gf    = gs.get("guardian_findings", {})
+    warn  = gf.get("warnings", "?")
+    return [
+        f"  Última validación: {date}",
+        f"  Sincerity: {sinc}   Stability: {stab}",
+        f"  Warnings detectados: {warn}",
+    ]
+
+def _ld_stale(_: str) -> list[str]:
+    gs   = _jread(STATE / "global_state.json")
+    ob   = _jread(STATE / "orphan_baseline.json")
+    gf   = gs.get("guardian_findings", {})
+    warn = gf.get("warnings", "?")
+    last = gf.get("last_run", "—")[:10]
+    orp  = ob.get("total", ob.get("count", "?")) if isinstance(ob, dict) else "?"
+    return [
+        f"  Warnings activos: {warn}   Última revisión: {last}",
+        f"  Huérfanos baseline: {orp}",
+    ]
+
+def _ld_sincerity(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    val = gs.get("last_validation", {})
+    result = val.get("sincerity", "—")
+    date   = str(val.get("date", "—"))[:16]
+    return [
+        f"  Resultado sincerity: {result}",
+        f"  Validación del: {date}",
+    ]
+
+def _ld_stability(_: str) -> list[str]:
+    gs   = _jread(STATE / "global_state.json")
+    val  = gs.get("last_validation", {})
+    sl   = gs.get("spiral_loop", {})
+    stab = val.get("stability", "—")
+    cycle = sl.get("last_cycle", "?")
+    radius = sl.get("total_radius", "?")
+    return [
+        f"  Stability: {stab}   Espiral ciclo: {cycle}  radio: {radius}",
+        f"  Validado el: {str(val.get('date','—'))[:16]}",
+    ]
+
+def _ld_heal(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    gf  = gs.get("guardian_findings", {})
+    hp  = gf.get("health_pct", "—")
+    warn = gf.get("warnings", "?")
+    crit = gf.get("critical_errors", 0)
+    return [
+        f"  Health: {hp}%   Errores críticos: {crit}",
+        f"  Warnings activos: {warn}   → ejecuta heal para remediar",
+    ]
+
+def _ld_inbox(_: str) -> list[str]:
+    data  = _jread(STATE / "inbox.json")
+    tasks = data.get("tasks", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+    n = len(tasks)
+    if not tasks:
+        return ["  Inbox vacío — no hay tareas pendientes."]
+    lines = [f"  Tareas en inbox: {n}"]
+    for t in tasks[:3]:
+        title = (t.get("title") or t.get("text") or str(t))[:55] if isinstance(t, dict) else str(t)[:55]
+        lines.append(f"  ▷  {title}")
+    return lines
+
+def _ld_siembra(_: str) -> list[str]:
+    data = _jread(STATE / "siembras.json")
+    seeds = data.get("siembras", []) if isinstance(data, dict) else []
+    n = len(seeds)
+    return [
+        f"  Siembras/aprendizajes registrados: {n}",
+        f"  Padre: {data.get('padre', '—') if isinstance(data, dict) else '—'}",
+    ]
+
+def _ld_llm(_: str) -> list[str]:
+    cfg = _jread(STATE / "llm_config.json")
+    return [
+        f"  Motor: {cfg.get('engine','—')}   Modelo activo: {cfg.get('active_model','—')}",
+        f"  Servidor: {cfg.get('server_url','—')}",
+    ]
+
+def _ld_autonomous(_: str) -> list[str]:
+    a = _jread(STATE / "autonomous_state.json")
+    ts = str(a.get("last_cycle_ts", "—"))[:16].replace("T", " ")
+    return [
+        f"  Estado: {a.get('status','—')}   Decisión: {a.get('last_decision','—')}",
+        f"  Ciclos: {a.get('cycle_count','?')}   Estabilidad: {a.get('stable_count','?')}   Último: {ts}",
+    ]
+
+def _ld_agents(_: str) -> list[str]:
+    ag = _jread(STATE / "agents_registry.json")
+    agents = {k: v for k, v in ag.items() if not k.startswith("_")} if isinstance(ag, dict) else {}
+    n = len(agents)
+    names = ", ".join(list(agents.keys())[:4])
+    return [
+        f"  Agentes registrados: {n}",
+        f"  {names}",
+    ]
+
+def _ld_neural(_: str) -> list[str]:
+    f = STATE / "neural_events.jsonl"
+    if not f.exists():
+        return ["  No hay eventos neurales registrados."]
+    lines_raw = f.read_text(errors="ignore").strip().splitlines()
+    n = len(lines_raw)
+    last_type = "—"
+    try:
+        last_type = json.loads(lines_raw[-1]).get("event_type", "—")
+    except Exception:
+        pass
+    return [
+        f"  Eventos neurales: {n}",
+        f"  Último tipo: {last_type}",
+    ]
+
+def _ld_version(_: str) -> list[str]:
+    gs = _jread(STATE / "global_state.json")
+    ver = gs.get("bago_version", "—")
+    hist = gs.get("version_history", [])
+    lines = [f"  Versión BAGO: {ver}"]
+    for v in reversed(hist[-2:]):
+        lines.append(f"  v{v.get('version','?')} [{v.get('label','?')}] — {v.get('released','?')}")
+    return lines
+
+def _ld_notify(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    nb  = gs.get("tools", {}).get("notify_bago", {})
+    return [
+        f"  Proveedor: {nb.get('active_provider','—')}   Estado: {nb.get('status','—')}",
+        f"  Teléfono: {nb.get('phone','—')}",
+    ]
+
+def _ld_dashboard(_: str) -> list[str]:
+    gs   = _jread(STATE / "global_state.json")
+    gf   = gs.get("guardian_findings", {})
+    inv  = gs.get("inventory", {})
+    avail = _dbq("SELECT COUNT(*) FROM ideas WHERE status='available'")
+    act   = _dbq("SELECT COUNT(*) FROM ideas WHERE status='active'")
+    return [
+        f"  Health: {gf.get('health_pct','?')}%   Warnings: {gf.get('warnings','?')}",
+        f"  Sesiones: {inv.get('sessions','?')}   Cmds: {inv.get('commands','?')}",
+        f"  Ideas: {avail[0][0] if avail else '?'} disponibles, {act[0][0] if act else '?'} activas",
+    ]
+
+def _ld_cosecha(_: str) -> list[str]:
+    gs = _jread(STATE / "global_state.json")
+    kb = gs.get("knowledge_base", {})
+    impl = _dbq("SELECT COUNT(*) FROM ideas WHERE status='implemented'")
+    return [
+        f"  Ficheros knowledge: {kb.get('files_count','?')}   Última: {kb.get('last_harvest','—')}",
+        f"  Ideas cosechadas (implementadas): {impl[0][0] if impl else '?'}",
+    ]
+
+def _ld_promote(_: str) -> list[str]:
+    rows = _dbq("SELECT title, priority FROM ideas WHERE status='available' ORDER BY priority DESC LIMIT 3")
+    avail = _dbq("SELECT COUNT(*) FROM ideas WHERE status='available'")
+    lines = [f"  Ideas disponibles para promover: {avail[0][0] if avail else '?'}"]
+    for r in rows:
+        lines.append(f"  [{r[1]}] {r[0][:55]}")
+    return lines
+
+def _ld_reopen(_: str) -> list[str]:
+    rows  = _dbq("SELECT title FROM ideas WHERE status='implemented' ORDER BY rowid DESC LIMIT 2")
+    impl  = _dbq("SELECT COUNT(*) FROM ideas WHERE status='implemented'")
+    lines = [f"  Ideas implementadas (reabrir→disponible): {impl[0][0] if impl else '?'}"]
+    for r in rows:
+        lines.append(f"  ▷  {r[0][:60]}")
+    return lines
+
+def _ld_context(_: str) -> list[str]:
+    rc  = _jread(STATE / "repo_context.json")
+    gs  = _jread(STATE / "global_state.json")
+    proj = gs.get("active_project", rc.get("project_name", "—"))
+    return [
+        f"  Proyecto: {proj}   Modo: {rc.get('working_mode','—')}",
+        f"  Branch: {rc.get('git_branch','—')}   Tipo: {rc.get('project_type','—')}",
+    ]
+
+def _ld_project(_: str) -> list[str]:
+    gs  = _jread(STATE / "global_state.json")
+    rc  = _jread(STATE / "repo_context.json")
+    proj = gs.get("active_project", rc.get("project_name", "—"))
+    return [
+        f"  Proyecto activo: {proj}",
+        f"  Modo: {rc.get('working_mode','—')}   Branch: {rc.get('git_branch','—')}",
+    ]
+
+def _ld_deps(_: str) -> list[str]:
+    dm   = _jread(STATE / "deps_manifest.json")
+    packs = dm.get("packs", {})
+    names = ", ".join(list(packs.keys())[:5])
+    return [
+        f"  Versión BAGO manifest: {dm.get('bago_version','—')}",
+        f"  Packs ({len(packs)}): {names}",
+    ]
+
+def _ld_install(_: str) -> list[str]:
+    ic  = _jread(STATE / "install_complete.json")
+    ts  = str(ic.get("accepted_at", "—"))[:16].replace("T", " ")
+    return [
+        f"  BAGO v{ic.get('bago_version','?')} instalado en {ts}",
+        f"  Python: {ic.get('python_version','—')}   Plataforma: {ic.get('platform','—')}",
+    ]
+
+def _ld_state_manager(_: str) -> list[str]:
+    files = list(STATE.iterdir()) if STATE.exists() else []
+    jsons = sum(1 for f in files if f.suffix == ".json")
+    dbs   = sum(1 for f in files if f.suffix == ".db")
+    return [
+        f"  Archivos de estado: {len(files)} total ({jsons} JSON, {dbs} DB)",
+        f"  Directorio: {STATE}",
+    ]
+
+def _ld_weekly(_: str) -> list[str]:
+    rows = _dbq(
+        "SELECT session_id, created_at FROM sessions "
+        "WHERE created_at >= date('now','-7 days') ORDER BY created_at DESC LIMIT 3"
+    )
+    sprints_dir = STATE / "sprints"
+    scount = len(list(sprints_dir.glob("*.json"))) if sprints_dir.exists() else 0
+    lines = [f"  Sesiones esta semana: {len(rows)}   Sprints archivados: {scount}"]
+    for r in rows:
+        lines.append(f"  ▷  {r[0]}  {r[1][:16]}")
+    return lines
+
+def _ld_advisor(_: str) -> list[str]:
+    f = STATE / "advisor_context.jsonl"
+    if not f.exists():
+        return ["  No hay contexto de advisor registrado."]
+    lines_raw = f.read_text(errors="ignore").strip().splitlines()
+    return [f"  Entradas de contexto advisor: {len(lines_raw)}"]
+
+def _ld_scope(_: str) -> list[str]:
+    rc  = _jread(STATE / "repo_context.json")
+    gs  = _jread(STATE / "global_state.json")
+    proj = gs.get("active_project", rc.get("project_name", "—"))
+    act  = _dbq("SELECT COUNT(*) FROM ideas WHERE status='active'")
+    return [
+        f"  Scope: {proj}   Modo: {rc.get('working_mode','—')}",
+        f"  Tareas activas en scope: {act[0][0] if act else '?'}",
+    ]
+
+# ── DISPATCHER ───────────────────────────────────────────────────────────────
+
 # Dispatcher: cmd → loader function
 _LIVE_LOADERS: dict[str, callable] = {
-    "health":           _ld_health,
-    "ideas":            _ld_ideas,
-    "task":             _ld_task,
-    "next":             _ld_next,
-    "assign":           _ld_task,
-    "status":           _ld_status,
-    "sprint":           _ld_sprint,
-    "devmode":          _ld_devmode,
-    "workspace-select": _ld_workspace,
-    "recent-projects":  _ld_recent,
-    "git":              _ld_git,
-    "git-status":       _ld_git,
-    "snapshot":         _ld_snapshot,
-    "validate":         _ld_validate,
-    "hello":            _ld_status,
+    # Existing
+    "health":            _ld_health,
+    "ideas":             _ld_ideas,
+    "task":              _ld_task,
+    "next":              _ld_next,
+    "assign":            _ld_task,
+    "status":            _ld_status,
+    "sprint":            _ld_sprint,
+    "devmode":           _ld_devmode,
+    "workspace-select":  _ld_workspace,
+    "recent-projects":   _ld_recent,
+    "git":               _ld_git,
+    "git-status":        _ld_git,
+    "snapshot":          _ld_snapshot,
+    "validate":          _ld_validate,
+    "hello":             _ld_status,
+    # Sesión & workflow
+    "start":             _ld_status,
+    "done":              _ld_done,
+    "workflow":          _ld_workflow,
+    "flow":              _ld_workflow,
+    "goals":             _ld_goals,
+    "scope":             _ld_scope,
+    # Calidad & salud
+    "audit":             _ld_audit,
+    "stale":             _ld_stale,
+    "sincerity":         _ld_sincerity,
+    "stability":         _ld_stability,
+    "heal":              _ld_heal,
+    # Ideas & backlog
+    "select":            _ld_ideas,
+    "promote":           _ld_promote,
+    "reopen":            _ld_reopen,
+    "inbox":             _ld_inbox,
+    "cosecha":           _ld_cosecha,
+    # Sesiones & informes
+    "sessions":          _ld_sessions,
+    "search-history":    _ld_sessions,
+    "recientes":         _ld_sessions,
+    "weekly-report":     _ld_weekly,
+    "dashboard":         _ld_dashboard,
+    # Agentes & IA
+    "agent":             _ld_agents,
+    "autonomous":        _ld_autonomous,
+    "neural":            _ld_neural,
+    "neural-toolbox":    _ld_neural,
+    "llm":               _ld_llm,
+    "advisor":           _ld_advisor,
+    # Workspace & context
+    "project":           _ld_project,
+    "context":           _ld_context,
+    # Infraestructura & config
+    "siembra":           _ld_siembra,
+    "seed":              _ld_siembra,
+    "version":           _ld_version,
+    "notify-bago":       _ld_notify,
+    "deps":              _ld_deps,
+    "setup":             _ld_install,
+    "install":           _ld_install,
+    "state-manager":     _ld_state_manager,
 }
 
 def _live_data(cmd: str, long_desc: str) -> list[str]:
