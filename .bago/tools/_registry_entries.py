@@ -918,6 +918,23 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight_policy="optional",
         supports_dry_run=True,
     ),
+    # ── MENÚ INTERACTIVO ──────────────────────────────────────────────────────
+    "menu": ToolEntry(
+        cmd="menu", module="bago_menu",
+        description=(
+            "Menú interactivo jerárquico de comandos BAGO (curses). "
+            "Sidebar de 10 grupos por flujo de trabajo + lista + preview. "
+            "Uso: bago menu  |  bago menu --list  (no interactivo)"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_menu.py"))],
+        layer="ejecución", scope="both",
+        agent="MAESTRO_BAGO",
+        stability="stable",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
     # ── SESIÓN / WORKSPACE ────────────────────────────────────────────────────
     "workspace-select": ToolEntry(
         cmd="workspace-select", module="workspace_selector",
