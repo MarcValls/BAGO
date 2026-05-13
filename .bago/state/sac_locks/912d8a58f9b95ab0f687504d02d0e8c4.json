@@ -3,6 +3,6 @@
   "condition_id": "cosecha_no_test_evidence",
   "tool": "bago audit commit",
   "cmd": "bago audit commit",
-  "shown_at": "2026-05-11T15:43:25.401432+00:00",
-  "expires_at": "2026-05-11T19:43:25.401432+00:00"
+  "shown_at": "2026-05-13T11:22:29.259751+00:00",
+  "expires_at": "2026-05-13T15:22:29.259751+00:00"
 }

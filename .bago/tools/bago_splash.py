@@ -73,8 +73,23 @@ def _read_db():
     if not DB.exists():
         return {"total": 0, "done": 0, "available": 0, "last_health": "—", "last_date": "—"}
     conn = sqlite3.connect(str(DB))
-    total = conn.execute("SELECT COUNT(*) FROM ideas").fetchone()[0]
-    done  = conn.execute("SELECT COUNT(*) FROM ideas WHERE status='done'").fetchone()[0]
+    gs = _read_global_state()
+    devmode = gs.get("devmode", False)
+    active_project = gs.get("active_project")
+
+    if devmode or not active_project:
+        total = conn.execute("SELECT COUNT(*) FROM ideas").fetchone()[0]
+        done  = conn.execute("SELECT COUNT(*) FROM ideas WHERE status='done'").fetchone()[0]
+    else:
+        total = conn.execute(
+            "SELECT COUNT(*) FROM ideas WHERE project=? OR (project IS NULL AND source != 'catalog')",
+            (active_project,)
+        ).fetchone()[0]
+        done = conn.execute(
+            "SELECT COUNT(*) FROM ideas WHERE status='done' AND (project=? OR (project IS NULL AND source != 'catalog'))",
+            (active_project,)
+        ).fetchone()[0]
+
     run   = conn.execute(
         "SELECT health, date FROM guardian_runs ORDER BY date DESC LIMIT 1"
     ).fetchone()

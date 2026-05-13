@@ -59,18 +59,46 @@ def _load_implemented_titles_from_db() -> set[str]:
         return set()
 
 
+def _project_filter_clause() -> tuple[str, list]:
+    """Returns (WHERE clause fragment, params) to filter ideas by active_project.
+
+    In user mode (devmode=false): filter to active_project only.
+    In developer mode (devmode=true): no filter (show all ideas).
+    Also respects --all flag via BAGO_IDEAS_ALL env var.
+    """
+    import os
+    if os.environ.get("BAGO_IDEAS_ALL") == "1":
+        return "", []
+    try:
+        gs_file = ROOT / ".bago" / "state" / "global_state.json"
+        gs = json.loads(gs_file.read_text(encoding="utf-8"))
+        if gs.get("devmode", False):
+            return "", []
+        project = gs.get("active_project")
+        if project:
+            return " AND (project = ? OR project IS NULL AND source != 'catalog')", [project]
+    except Exception:
+        pass
+    return "", []
+
+
 def load_ideas_from_db(feat: dict, extra_flags: dict) -> list[dict] | None:
     """
     Carga ideas desde bago.db aplicando condiciones de features y extra_cond.
     Devuelve None si la BD no existe (fallback a código hardcodeado).
     Para cada slot numérico elige la idea de mayor generación cuyas condiciones pasen.
+    En modo usuario filtra por active_project.
     """
     if not _db_available():
         return None
     try:
         conn = _db_conn()
+        proj_clause, proj_params = _project_filter_clause()
         rows = conn.execute(
-            "SELECT * FROM ideas WHERE status = 'available' ORDER BY slot NULLS LAST, generation DESC, priority DESC"
+            "SELECT * FROM ideas WHERE status = 'available'"
+            + proj_clause
+            + " ORDER BY slot NULLS LAST, generation DESC, priority DESC",
+            proj_params,
         ).fetchall()
         conn.close()
     except Exception:
@@ -286,13 +314,19 @@ def _apply_dynamic_score(ideas: list[dict]) -> list[dict]:
 
 
 def load_fallback_from_db() -> list[dict]:
-    """Carga ideas de respaldo (sin slot) desde la BD para rellenar hasta MIN_IDEAS."""
+    """Carga ideas de respaldo (sin slot) desde la BD para rellenar hasta MIN_IDEAS.
+    En modo usuario filtra por active_project.
+    """
     if not _db_available():
         return []
     try:
         conn = _db_conn()
+        proj_clause, proj_params = _project_filter_clause()
         rows = conn.execute(
-            "SELECT * FROM ideas WHERE slot IS NULL AND status = 'available' ORDER BY priority DESC"
+            "SELECT * FROM ideas WHERE slot IS NULL AND status = 'available'"
+            + proj_clause
+            + " ORDER BY priority DESC",
+            proj_params,
         ).fetchall()
         conn.close()
         implemented_db = _load_implemented_titles_from_db() | load_implemented_titles()
@@ -872,15 +906,21 @@ def parse_args(argv: list[str]) -> tuple[int | str | None, bool, bool, bool, str
         if arg in {"-h", "--help"}:
             print(
                 "Usage: emit_ideas.py [--detail N] [--accept N] [--select] [--baseline] "
-                "[--intent TYPE] [--export] [--health]\n\n"
+                "[--intent TYPE] [--export] [--health] [--all]\n\n"
                 "Show 5 to 20 contextual ideas prioritized by stability. Use --detail "
                 "to expand a selected idea, --accept to mark it ready for W2, "
                 "--select for the interactive slot selector, --baseline for "
                 "low-risk ideas only, --intent to filter by type "
                 "(implementar, depurar, cerrar, respaldo), --export to write "
-                "ideas_snapshot.md to .bago/state/, or --health to show catalog stats."
+                "ideas_snapshot.md to .bago/state/, --health to show catalog stats, "
+                "or --all to show ideas from all projects (ignores devmode filter)."
             )
             raise SystemExit(0)
+        if arg == "--all":
+            import os as _os
+            _os.environ["BAGO_IDEAS_ALL"] = "1"
+            idx += 1
+            continue
         if arg == "--select":
             select = True
             idx += 1

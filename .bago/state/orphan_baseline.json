@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-13T10:38:31+00:00",
+  "generated_at": "2026-05-13T12:16:33.876549+00:00",
   "known_orphans": [
     "agent_model_manager",
     "agent_static_guard",
@@ -11,10 +11,13 @@
     "bago_ast_audit",
     "bago_audit_router",
     "bago_bs4_playwright_ref",
+    "bago_chat",
     "bago_config",
     "bago_health_router",
     "bago_llm_setup",
-    "bago_menu",
+    "bago_menu_data",
+    "bago_menu_loaders",
+    "bago_menu_ui",
     "bago_miniapp_server",
     "bago_node",
     "bago_presence",
@@ -122,6 +125,5 @@
     "wallet_tracker",
     "watch_files"
   ],
-  "count": 120,
-  "note": "workspace_selector y recent_projects integrados en bago_start.py (2026-05-13) | 2026-05-14: 20 huérfanos promovidos al registry activo (_registry_entries.py, bloque LEGACY PROMOVIDOS)"
+  "count": 123
 }
