@@ -48,6 +48,10 @@ Uso:
   bago rubber-duck <file> → rubber duck debugging: repite qué hace el código
   bago rubber-duck --last → analiza el último .py modificado
   bago rubber-duck --watch → modo watch (polling, auto-analiza cambios)
+  bago model list         → lista agentes y sus modelos asignados
+  bago model models       → lista todos los modelos disponibles
+  bago model get <id>     → obtiene el modelo de un agente
+  bago model set <id> <m> → asigna modelo a un agente (ej: bago model set agent_ops claude-opus-4.7)
   bago help               → este mensaje
 
 Instalar como alias global (Unix):
@@ -881,6 +885,12 @@ def main():
         # Multi-Agent Gateway — orquesta herramientas BAGO desde cualquier LLM
         subprocess.run(
             [sys.executable, str(BAGO_DIR / "agents" / "agent_gateway.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "model":
+        # Gestión dinámica de modelos por agente
+        subprocess.run(
+            [sys.executable, str(TOOLS / "agent_model_manager.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
     elif cmd == "seed":
