@@ -1,0 +1,37 @@
+{
+  "episodes": [
+    {
+      "cycle": 2,
+      "at": "2026-05-12T21:11:55.765399+00:00",
+      "voice": "main",
+      "fingerprint": [
+        "health=100",
+        "low-drift",
+        "tools-added",
+        "validate-ok"
+      ],
+      "issues": [],
+      "gains": [
+        "➕ 6 tools nuevos"
+      ],
+      "resolution": "Reducir warnings del guardian (438 activos)",
+      "radius_gain": 0.3,
+      "state_vector": {
+        "C": 100,
+        "Cs": 0.0,
+        "D": 243.0,
+        "Ds": 4.0,
+        "E": 2.0,
+        "F": 1.0,
+        "Fs": 1.0,
+        "G": 0.0,
+        "Gs": 1.0,
+        "A": 1.0,
+        "As": 4.0,
+        "B": 0.3
+      },
+      "validate_ok": true
+    }
+  ],
+  "total_episodes": 1
+}
