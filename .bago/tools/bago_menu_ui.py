@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import curses
+import json
 import subprocess
 import sys
 
@@ -9,6 +10,33 @@ from bago_menu_loaders import ROOT, STATE, _live_data
 
 SIDEBAR_W = 20
 PREVIEW_H = 6
+
+# GAP-1: grupos visibles solo en devmode (hidden from user mode)
+_DEV_ONLY_GROUPS: frozenset[str] = frozenset({
+    "✅  Calidad & Salud",
+    "🔍  Análisis de código",
+    "🤖  Agentes & IA",
+    "🛠️  Infraestructura",
+})
+
+
+def _is_devmode() -> bool:
+    try:
+        gs = json.loads((STATE / "global_state.json").read_text(encoding="utf-8"))
+        return bool(gs.get("devmode", False))
+    except Exception:
+        return False
+
+
+def _active_menu() -> list:
+    """Return MENU filtered by devmode. Dev sees all; user sees user-facing groups only."""
+    if _is_devmode():
+        return MENU
+    return [
+        (name, cmds) for name, cmds in MENU
+        if name.split("  ", 1)[-1] not in {g.split("  ", 1)[-1] for g in _DEV_ONLY_GROUPS}
+        and name not in _DEV_ONLY_GROUPS
+    ]
 
 
 # ── Sub-opciones modal ────────────────────────────────────────────────────────
@@ -112,6 +140,9 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
     _init_colors()
     curses.curs_set(0)
 
+    # GAP-1: filter menu based on devmode at draw time
+    menu = _active_menu()
+
     active_group = 0
     active_cmd   = 0
     focus        = "sidebar"
@@ -128,7 +159,7 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
         list_w    = w - list_x - 1
         list_area = h - PREVIEW_H - 3
 
-        group_name, cmds = MENU[active_group]
+        group_name, cmds = menu[active_group]
 
         # Recarga live_data solo cuando cambia la selección
         _cur_key = (active_group, active_cmd)
@@ -138,7 +169,8 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
             _prev_key = _cur_key
 
         # ── Header ───────────────────────────────────────────────────────────
-        right = f" {active_group + 1}/{len(MENU)} · {group_name.split('  ', 1)[-1]} "
+        mode_tag = " DEV" if _is_devmode() else " USR"
+        right = f"{mode_tag} · {active_group + 1}/{len(menu)} · {group_name.split('  ', 1)[-1]} "
         stdscr.addstr(0, 0, " " * (w - 1), curses.color_pair(9))
         stdscr.addstr(0, 2, "BAGO", curses.color_pair(9) | curses.A_BOLD)
         stdscr.addstr(0, 7, "· Menú de Comandos", curses.color_pair(9))
@@ -148,7 +180,7 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
             pass
 
         # ── Sidebar de grupos ─────────────────────────────────────────────────
-        for i, (gname, _) in enumerate(MENU):
+        for i, (gname, _) in enumerate(menu):
             y = 2 + i
             if y >= h - PREVIEW_H - 2:
                 break
@@ -173,7 +205,8 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
 
         # ── Lista de comandos ─────────────────────────────────────────────────
         visible = cmds[scroll_cmd: scroll_cmd + list_area]
-        for i, (cmd, short, _) in enumerate(visible):
+        for i, entry in enumerate(visible):
+            cmd, short = entry[0], entry[1]
             abs_i = scroll_cmd + i
             y = 3 + i
             if y >= h - PREVIEW_H - 1:
@@ -236,11 +269,11 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
             break
         elif focus == "sidebar":
             if key == curses.KEY_DOWN:
-                active_group = (active_group + 1) % len(MENU)
+                active_group = (active_group + 1) % len(menu)
                 active_cmd = 0
                 scroll_cmd = 0
             elif key == curses.KEY_UP:
-                active_group = (active_group - 1) % len(MENU)
+                active_group = (active_group - 1) % len(menu)
                 active_cmd = 0
                 scroll_cmd = 0
             elif key in (ord('\t'), curses.KEY_RIGHT, 10, 13):
@@ -257,7 +290,7 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
             elif key == curses.KEY_LEFT:
                 focus = "sidebar"
             elif key == ord('\t'):
-                active_group = (active_group + 1) % len(MENU)
+                active_group = (active_group + 1) % len(menu)
                 active_cmd = 0
                 scroll_cmd = 0
                 focus = "list"

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import curses
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 from bago_menu_data import MENU
 from bago_menu_loaders import ROOT, STATE, _LIVE_LOADERS, _live_data
-from bago_menu_ui import _draw
+from bago_menu_ui import _active_menu, _draw
 
 
 # ── Modo --list (no interactivo) ──────────────────────────────────────────────
@@ -19,7 +20,9 @@ def _cmd_list() -> int:
     def c(code: str, text: str) -> str:
         return f"\033[{code}m{text}\033[0m" if use_color else text
 
-    for group_name, cmds in MENU:
+    # GAP-1: filter by devmode
+    effective_menu = _active_menu()
+    for group_name, cmds in effective_menu:
         print()
         print(c("1;33", f"  {group_name}"))
         print(c("2", "  " + "─" * 52))
@@ -32,10 +35,10 @@ def _cmd_list() -> int:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def _startup_sequence() -> None:
-    """Ejecuta el arranque mínimo antes de mostrar el menú:
-    - workspace_selector: elige modo si no está ya configurado
-    - record_project: registra este proyecto como reciente
-    Solo en TTY interactivo; silencioso si los módulos no están disponibles.
+    """Arranque mínimo antes del menú: workspace_selector + record_project.
+
+    GAP-2: En user mode con workspace='self', añade hint para configurar
+    un proyecto externo, pero no bloquea el arranque.
     """
     tools = Path(__file__).parent
     try:
@@ -48,12 +51,30 @@ def _startup_sequence() -> None:
             return mod
 
         ws = _load("workspace_selector")
-        ws.select(skip_if_set=True)
+        ctx = ws._load_context()
+        devmode = _is_devmode()
+
+        # GAP-2: user mode with workspace pointing at framework → show hint
+        if not devmode and ctx.get("working_mode") == "self":
+            print("\n  💡  Workspace activo: framework BAGO (self)")
+            print("  Para trabajar en un proyecto externo: bago workspace-select\n")
+            ws.select(skip_if_set=False)   # let them re-choose
+        else:
+            ws.select(skip_if_set=True)
 
         rp = _load("recent_projects")
         rp.record_project()
     except Exception:
         pass  # Nunca bloquear el arranque del menú
+
+
+def _is_devmode() -> bool:
+    """Read devmode from global_state.json."""
+    try:
+        gs = (STATE / "global_state.json")
+        return bool(__import__("json").loads(gs.read_text(encoding="utf-8")).get("devmode", False))
+    except Exception:
+        return False
 
 
 def main() -> None:
@@ -78,19 +99,26 @@ def main() -> None:
     except Exception:
         pass
 
-    choice = "manual"
-    if _chat_mod:
-        try:
-            choice = curses.wrapper(_chat_mod._startup_choice_curses)
-        except Exception:
-            choice = "manual"
+    # GAP-3: loop so ESC from chat returns to M/A choice
+    while True:
+        choice = "manual"
+        if _chat_mod:
+            try:
+                choice = curses.wrapper(_chat_mod._startup_choice_curses)
+            except Exception:
+                choice = "manual"
 
-    if choice == "asistente" and _chat_mod:
-        try:
-            curses.wrapper(_chat_mod._chat_curses)
-        except Exception:
-            pass
-        sys.exit(0)
+        if choice == "asistente" and _chat_mod:
+            try:
+                result = curses.wrapper(_chat_mod._chat_curses)
+            except Exception:
+                result = None
+            if result == "back":
+                continue   # re-show M/A choice
+            sys.exit(0)
+
+        # Manual mode
+        break
 
     result = curses.wrapper(_draw)
 

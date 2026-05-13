@@ -117,7 +117,8 @@ def _run_bago_cmd(cmd: str) -> str:
         return f"[Error ejecutando bago {cmd}: {e}]"
 
 
-def _chat_curses(stdscr: "curses._CursesWindow") -> None:
+def _chat_curses(stdscr: "curses._CursesWindow") -> str:
+    """Chat TUI. Returns 'back' if user presses ESC on empty input (go back to M/A choice)."""
     curses.curs_set(1)
     curses.use_default_colors()
     curses.init_pair(1, curses.COLOR_CYAN,    -1)   # header / separadores
@@ -142,7 +143,7 @@ def _chat_curses(stdscr: "curses._CursesWindow") -> None:
     push("╔══  BAGO Chat  ══════════════════════════════════════╗", 1)
     push("  Pregunta cualquier cosa sobre BAGO o tu proyecto.", 3)
     push("  /cmd <nombre>  →  ejecutar comando bago", 3)
-    push("  ESC durante respuesta → cancelar · ESC vacío → salir", 3)
+    push("  ESC durante respuesta → cancelar · ESC vacío → volver al menú", 3)
     push("╚═════════════════════════════════════════════════════╝", 1)
 
     input_buf = ""
@@ -187,8 +188,8 @@ def _chat_curses(stdscr: "curses._CursesWindow") -> None:
         # ── Teclado ────────────────────────────────────────────────────────
         key = stdscr.getch()
 
-        if key == 27:                              # ESC → salir
-            break
+        if key == 27:                              # ESC → volver al menú M/A
+            return "back"
 
         elif key in (curses.KEY_BACKSPACE, 127, 8):
             input_buf = input_buf[:-1]
@@ -271,9 +272,13 @@ def _chat_curses(stdscr: "curses._CursesWindow") -> None:
         elif 32 <= key <= 126:
             input_buf += chr(key)
 
+    return "back"  # break (typed 'salir') → back to M/A choice
+
 
 def _startup_choice_curses(stdscr: "curses._CursesWindow") -> str:
-    """Pantalla de elección: 'M' → menu manual, 'A' → chat asistente."""
+    """Pantalla de elección: 'M' → menu manual, 'A' → chat asistente.
+    Pre-selecciona según devmode: developer→Manual, user→Asistente.
+    """
     curses.curs_set(0)
     curses.use_default_colors()
     curses.init_pair(1, curses.COLOR_CYAN,   -1)
@@ -282,7 +287,13 @@ def _startup_choice_curses(stdscr: "curses._CursesWindow") -> str:
     curses.init_pair(4, curses.COLOR_WHITE,  -1)
 
     options = ["manual", "asistente"]
-    sel = 0
+    # GAP-4: pre-select based on devmode
+    # developer → Manual (sel=0), user → Asistente (sel=1)
+    try:
+        _gs = json.loads((STATE / "global_state.json").read_text(encoding="utf-8"))
+        sel = 0 if _gs.get("devmode", False) else 1
+    except Exception:
+        sel = 0
 
     while True:
         h, w = stdscr.getmaxyx()
