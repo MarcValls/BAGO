@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """BAGO Chat — TUI de chat con LLM local (Ollama) integrado al estado BAGO."""
 from __future__ import annotations
-import curses, json, pathlib, subprocess, sys, textwrap, urllib.request, urllib.error
+import curses, json, pathlib, subprocess, sys, textwrap, threading, time
+import urllib.request, urllib.error
 
 ROOT  = pathlib.Path(__file__).parents[2]
 STATE = ROOT / ".bago" / "state"
@@ -62,11 +63,15 @@ def _pick_model(text: str, cfg: dict) -> str:
     return cfg.get("active_model", "qwen2.5-coder:7b")
 
 
-def _ollama_chat(messages: list[dict], model: str, server_url: str) -> str:
+def _ollama_chat(messages: list[dict], model: str, server_url: str,
+                 stop_event: threading.Event | None = None) -> str:
+    """Llama a Ollama con stream=True para no bloquear.
+    stop_event: si se activa, cierra la conexión y devuelve el texto parcial.
+    """
     payload = json.dumps({
         "model": model,
         "messages": messages,
-        "stream": False,
+        "stream": True,
     }).encode()
     req = urllib.request.Request(
         f"{server_url}/api/chat",
@@ -75,9 +80,22 @@ def _ollama_chat(messages: list[dict], model: str, server_url: str) -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read())
-            return data.get("message", {}).get("content", "")
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            full = ""
+            for raw_line in resp:
+                if stop_event and stop_event.is_set():
+                    break
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                    full += chunk.get("message", {}).get("content", "")
+                    if chunk.get("done"):
+                        break
+                except json.JSONDecodeError:
+                    continue
+            return full
     except urllib.error.URLError as e:
         return f"[Ollama no disponible — {e.reason}]"
     except Exception as e:
@@ -124,11 +142,10 @@ def _chat_curses(stdscr: "curses._CursesWindow") -> None:
     push("╔══  BAGO Chat  ══════════════════════════════════════╗", 1)
     push("  Pregunta cualquier cosa sobre BAGO o tu proyecto.", 3)
     push("  /cmd <nombre>  →  ejecutar comando bago", 3)
-    push("  ESC / 'salir'  →  volver al menú principal", 3)
+    push("  ESC durante respuesta → cancelar · ESC vacío → salir", 3)
     push("╚═════════════════════════════════════════════════════╝", 1)
 
     input_buf = ""
-    thinking  = False
 
     while True:
         h, w = stdscr.getmaxyx()
@@ -160,12 +177,6 @@ def _chat_curses(stdscr: "curses._CursesWindow") -> None:
                           input_buf[:w - len(prompt_tag) - 1])
         except curses.error:
             pass
-
-        if thinking:
-            try:
-                stdscr.addstr(HIST_H + 2, 0, "  ⏳ Pensando...", curses.color_pair(3))
-            except curses.error:
-                pass
 
         try:
             stdscr.move(HIST_H + 1, min(len(prompt_tag) + len(input_buf), w - 2))
@@ -202,23 +213,60 @@ def _chat_curses(stdscr: "curses._CursesWindow") -> None:
                 push("─" * 40, 1)
                 continue
 
-            # ── Llamada al LLM ─────────────────────────────────────────────
-            model    = _pick_model(user_text, cfg)
+            # ── Llamada al LLM (threaded — no bloquea la UI) ──────────────
+            model      = _pick_model(user_text, cfg)
             messages.append({"role": "user", "content": user_text})
-            thinking = True
-            stdscr.refresh()
+            thinking   = True
+            _stop_evt  = threading.Event()
+            _llm_result: list[str] = []
 
-            response = _ollama_chat(messages, model, server_url)
-            thinking = False
+            def _llm_worker() -> None:
+                r = _ollama_chat(messages, model, server_url, _stop_evt)
+                _llm_result.append(r)
 
-            if response:
-                messages.append({"role": "assistant", "content": response})
-                push(f"BAGO [{model[:20]}]:", 5)
-                for ln in textwrap.wrap(response, max(w - 4, 20)):
-                    push(f"  {ln}", 4)
+            _llm_thread = threading.Thread(target=_llm_worker, daemon=True)
+            _llm_thread.start()
+
+            # Spinner animado mientras el LLM procesa — ESC cancela
+            _SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+            _spin_i   = 0
+            stdscr.nodelay(True)
+            while _llm_thread.is_alive():
+                k = stdscr.getch()
+                if k == 27:                            # ESC → cancelar
+                    _stop_evt.set()
+                    _llm_thread.join(timeout=3)
+                    push("  [cancelado por usuario]", 6)
+                    thinking = False
+                    stdscr.nodelay(False)
+                    push("─" * 40, 1)
+                    break
+                h2, w2 = stdscr.getmaxyx()
+                HIST_H2 = h2 - 3 - 1
+                spin_ch = _SPINNER[_spin_i % len(_SPINNER)]
+                try:
+                    stdscr.addstr(HIST_H2 + 2, 0,
+                                  f"  {spin_ch} Pensando... (ESC cancela)",
+                                  curses.color_pair(3))
+                    stdscr.refresh()
+                except curses.error:
+                    pass
+                _spin_i += 1
+                curses.napms(100)
             else:
-                push("  [sin respuesta del modelo]", 6)
-            push("─" * 40, 1)
+                stdscr.nodelay(False)
+                thinking = False
+
+            if not _stop_evt.is_set():
+                response = _llm_result[0] if _llm_result else ""
+                if response:
+                    messages.append({"role": "assistant", "content": response})
+                    push(f"BAGO [{model[:20]}]:", 5)
+                    for ln in textwrap.wrap(response, max(w - 4, 20)):
+                        push(f"  {ln}", 4)
+                else:
+                    push("  [sin respuesta del modelo]", 6)
+                push("─" * 40, 1)
 
         elif 32 <= key <= 126:
             input_buf += chr(key)
