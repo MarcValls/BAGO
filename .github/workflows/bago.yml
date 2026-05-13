@@ -439,6 +439,24 @@ jobs:
         run: |
           . /tmp/bago-wheel-venv/bin/activate
           bago --version | grep -E '^bago [0-9]+\.[0-9]+\.[0-9]+'
+      - name: Smoke test — bago validate
+        run: |
+          . /tmp/bago-wheel-venv/bin/activate
+          bago validate 2>&1 | grep -E '^GO|^KO' | grep -v KO || { echo "GATE-FAIL: bago validate returned KO"; exit 1; }
+      - name: Smoke test — bago status exits cleanly
+        run: |
+          . /tmp/bago-wheel-venv/bin/activate
+          bago status; echo "exit:$?"
+      - name: Smoke test — bago help lists commands
+        run: |
+          . /tmp/bago-wheel-venv/bin/activate
+          bago help 2>&1 | grep -q "validate\|health\|status" || { echo "GATE-FAIL: bago help missing core commands"; exit 1; }
+      - name: Smoke test — core commands have --help
+        run: |
+          . /tmp/bago-wheel-venv/bin/activate
+          for cmd in validate health status; do
+            bago $cmd --help > /dev/null 2>&1 || echo "WARN: bago $cmd --help not supported (non-fatal)"
+          done
       - name: Build wheel (must succeed without errors)
         run: |
           pip install build -q

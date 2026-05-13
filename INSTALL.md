@@ -1,4 +1,4 @@
-# Guía de instalación · BAGO v3.1
+# Guía de instalación · BAGO v3.4.0b1
 
 > Tiempo estimado: **5 minutos**. Requisito: Python 3.9+.
 
@@ -31,8 +31,8 @@ pip install bago
 ## 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/MarcValls/bago-framework.git
-cd bago-framework
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
 ```
 
 ---
@@ -136,7 +136,7 @@ Un `AGENTS.md` de ejemplo está incluido en este repositorio.
 bago validate     # integridad del sistema (debe ser GO)
 bago health       # score de salud (0–100)
 bago audit        # auditoría completa
-bago help         # lista los 83 comandos disponibles
+bago help         # lista los 85 comandos públicos disponibles
 ```
 
 ---
@@ -174,5 +174,5 @@ bago-framework/
 
 ---
 
-*BAGO v3.1 · Autonomy release · Mayo 2026*
-*83 comandos CLI · 14 roles · 17 workflows · 100/100 health*
+*BAGO v3.4.0b1 · Structured AI Work Framework · Mayo 2026*
+*85 comandos públicos (14 core · 63 experimental · 8 dangerous · 28 legacy) · 13 roles · 11 workflows · 100/100 health*

@@ -29,6 +29,16 @@ IDEAS_FILE       = STATE_DIR / "implemented_ideas.json"
 LLM_CONFIG_FILE  = STATE_DIR / "llm_config.json"
 PORT             = int(os.environ.get("BAGO_PORT", 7430))
 
+# Auth token for mutating POST endpoints.
+# Set BAGO_TOKEN env var to enable. If unset, auth is disabled (dev mode).
+_BAGO_TOKEN: str | None = os.environ.get("BAGO_TOKEN") or None
+
+# POST endpoints that mutate state and require token auth (when BAGO_TOKEN is set)
+_MUTATING_PATHS: frozenset[str] = frozenset({
+    "/api/launch",
+    "/api/bago/run",
+})
+
 # Keywords that classify a bago command as sensitive (require confirmation)
 _SENSITIVE_KW: frozenset[str] = frozenset({
     "install", "uninstall", "deploy", "auto", "autonomous", "reset", "delete",
@@ -346,11 +356,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if args and str(args[1]) not in ("200", "304"):
             super().log_message(fmt, *args)
 
+    def _check_token(self) -> bool:
+        """Return True if request is authorized for mutating endpoints.
+
+        Authorization is only enforced when BAGO_TOKEN is set.
+        Reads token from 'X-BAGO-Token' header.
+        """
+        if _BAGO_TOKEN is None:
+            return True  # dev mode: no token required
+        provided = self.headers.get("X-BAGO-Token", "")
+        return provided == _BAGO_TOKEN
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-BAGO-Token")
         self.end_headers()
 
     def do_GET(self):
@@ -390,6 +411,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(length)) if length else {}
         except json.JSONDecodeError:
             self._json({"error": "JSON inválido"}, 400)
+            return
+
+        # Auth check for mutating endpoints
+        if path in _MUTATING_PATHS and not self._check_token():
+            self._json({"error": "Unauthorized — X-BAGO-Token requerido"}, 401)
             return
 
         if path == "/api/launch":
@@ -442,10 +468,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 def main():
     url = f"http://localhost:{PORT}"
+    auth_status = f"🔒 token auth ON  (X-BAGO-Token)" if _BAGO_TOKEN else "🔓 token auth OFF (dev mode)"
     print(f"""
 ╔══════════════════════════════════════════╗
 ║  BAGO Launcher v1.0  ·  modo dinámico   ║
-║  {url}                    ║
+║  {url:<38}║
+║  {auth_status:<38}║
 ╚══════════════════════════════════════════╝
   Ctrl+C para detener
 """)

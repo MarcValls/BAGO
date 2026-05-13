@@ -341,6 +341,21 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
         print(f"\033[33m{hint}\033[0m" if _USE_COLOR else hint)
         sys.stdout.flush()
 
+    # 0b. Experimental perimeter warning (non-blocking, suppressible with BAGO_LABS=1)
+    if os.environ.get("BAGO_LABS", "0") != "1":
+        reg = _load_registry_mod()
+        if reg:
+            entry = getattr(reg, "REGISTRY", {}).get(cmd)
+            stability = getattr(entry, "stability", "core") if entry else "core"
+            if stability == "experimental":
+                warn = (
+                    f"  ⚗️  [experimental] 'bago {cmd}' no forma parte del contrato estable.\n"
+                    f"      Puede cambiar o desaparecer sin aviso. "
+                    f"Suprime este aviso con BAGO_LABS=1."
+                )
+                print(f"\033[33m{warn}\033[0m" if _USE_COLOR else warn)
+                sys.stdout.flush()
+
     # 1. Preflight (fail-closed via preflight_engine for core commands)
     _run_preflight(cmd, skip=skip_preflight)
     if preflight_only:
@@ -890,10 +905,32 @@ def main():
             [sys.executable, str(TOOLS / "bago_banner.py"), "--mini"],
             cwd=str(BAGO_ROOT.parent)
         )
-        print("  Comandos disponibles:")
-        print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath | project | siembra | siembra ideas | wizard")
-        for k in sorted(COMMANDS):
-            print(f"    bago {k}")
+        # Build grouped help output
+        reg = _load_registry_mod()
+        if reg and hasattr(reg, "REGISTRY"):
+            core_cmds       = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "core")
+            dangerous_cmds  = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "dangerous")
+            exp_cmds        = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "experimental")
+            legacy_cmds     = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "legacy")
+            print("  ⚙️  Core (contrato estable):")
+            for k in core_cmds:
+                print(f"    bago {k}")
+            print()
+            print("  ⚠️  Dangerous (requieren --yes):")
+            for k in dangerous_cmds:
+                print(f"    bago {k}")
+            print()
+            print(f"  ⚗️  Experimental ({len(exp_cmds)} comandos — fuera del contrato, aviso al ejecutar):")
+            print(f"    " + " | ".join(exp_cmds[:12]) + (" | …" if len(exp_cmds) > 12 else ""))
+            print(f"    Usa BAGO_LABS=1 para suprimir avisos. Ver docs/API_CONTRACT.md para la lista completa.")
+            print()
+            print(f"  🗄️  Legacy (deprecated, {len(legacy_cmds)} — redirigen al equivalente actual):")
+            print(f"    " + " | ".join(legacy_cmds[:8]) + (" | …" if len(legacy_cmds) > 8 else ""))
+        else:
+            print("  Comandos disponibles:")
+            print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath | project | siembra | siembra ideas | wizard")
+            for k in sorted(COMMANDS):
+                print(f"    bago {k}")
         print()
     else:
         import difflib
