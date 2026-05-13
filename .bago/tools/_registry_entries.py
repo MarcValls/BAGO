@@ -885,6 +885,22 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight_policy="optional",
         supports_dry_run=True,
     ),
+    # ── DEVELOPER MODE ────────────────────────────────────────────────────────
+    "devmode": ToolEntry(
+        cmd="devmode", module="bago_devmode",
+        description=(
+            "Alterna entre modo usuario (project-first) y modo desarrollador (framework-visible). "
+            "Subcomandos: --enable | --disable | --status | --info"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_devmode.py"))],
+        layer="configuración", scope="both",
+        agent="MAESTRO_BAGO",
+        stability="core",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
     # ── NEURAL FABRIC ─────────────────────────────────────────────────────────
     "neural-toolbox": ToolEntry(
         cmd="neural-toolbox", module="neural_toolbox",
@@ -901,5 +917,39 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         preflight_policy="optional",
         supports_dry_run=True,
+    ),
+    # ── SESIÓN / WORKSPACE ────────────────────────────────────────────────────
+    "workspace-select": ToolEntry(
+        cmd="workspace-select", module="workspace_selector",
+        description=(
+            "Selector de espacio de trabajo: elige entre framework (self), "
+            "directorio padre o ruta/repo externo. Persiste en repo_context.json. "
+            "Se invoca automáticamente al arrancar si no hay workspace configurado. "
+            "Uso: bago workspace-select  |  opciones: --json --plain"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "workspace_selector.py"))],
+        layer="configuración", scope="both",
+        agent="MAESTRO_BAGO",
+        stability="stable",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
+    "recent-projects": ToolEntry(
+        cmd="recent-projects", module="recent_projects",
+        description=(
+            "Historial de proyectos BAGO recientes: repos visitados, ideas implementadas, "
+            "sesiones. Se alimenta automáticamente al arrancar. "
+            "Uso: bago recent-projects  |  uso interno: --record"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "recent_projects.py"))],
+        layer="configuración", scope="both",
+        agent="MAESTRO_BAGO",
+        stability="stable",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
     ),
 }

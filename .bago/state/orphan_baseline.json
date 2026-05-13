@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-13T09:29:25.752070+00:00",
+  "generated_at": "2026-05-13T10:29:08+00:00",
   "known_orphans": [
     "agent_model_manager",
     "agent_static_guard",
@@ -103,7 +103,6 @@
     "project_init",
     "project_summary",
     "readme_sync",
-    "recent_projects",
     "recientes_aggregator",
     "reconcile_state",
     "registry_ast_contract",
@@ -141,8 +140,8 @@
     "wallet_tracker",
     "watch_files",
     "weekly_report",
-    "workflow_navigator",
-    "workspace_selector"
+    "workflow_navigator"
   ],
-  "count": 142
+  "count": 140,
+  "note": "workspace_selector y recent_projects integrados en bago_start.py (2026-05-13)"
 }

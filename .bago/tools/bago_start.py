@@ -36,6 +36,24 @@ BAGO  = ROOT / ".bago"
 TOOLS = BAGO / "tools"
 STATE = BAGO / "state"
 
+
+def _is_devmode() -> bool:
+    """Returns True if global_state has devmode=true."""
+    try:
+        gs = json.loads((STATE / "global_state.json").read_text(encoding="utf-8"))
+        return bool(gs.get("devmode", False))
+    except Exception:
+        return False
+
+
+def _active_project() -> str:
+    """Returns active_project from global_state, or '(ninguno)'."""
+    try:
+        gs = json.loads((STATE / "global_state.json").read_text(encoding="utf-8"))
+        return gs.get("active_project") or "(ninguno)"
+    except Exception:
+        return "(ninguno)"
+
 # ── Presence ──────────────────────────────────────────────────────────────────
 def _load_bp():
     try:
@@ -120,6 +138,32 @@ def _step_load_state(state: dict) -> None:
 
 # ── Paso 3: Health ────────────────────────────────────────────────────────────
 
+def _step_workspace() -> None:
+    """Muestra el selector de workspace si aún no está configurado."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "workspace_selector", TOOLS / "workspace_selector.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.select(skip_if_set=True)
+    except Exception:
+        pass
+
+
+def _step_record_project() -> None:
+    """Registra el proyecto activo en recent_projects.json."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "recent_projects", TOOLS / "recent_projects.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.record_project()
+    except Exception:
+        pass
+
+
 def _step_health() -> int:
     bp.act("AUDITOR_CANONICO", "verificando salud del sistema")
 
@@ -163,7 +207,30 @@ def _step_cap(conductor: dict) -> None:
         bp.gate_change(gate)
 
 
-# ── Paso 5: Panel resumen ─────────────────────────────────────────────────────
+# ── Paso 5 (user mode): Panel proyecto ───────────────────────────────────────
+
+def _step_project_panel(state: dict, task: dict | None) -> None:
+    """Project-first panel for user mode (devmode=false)."""
+    project = state.get("active_project") or _active_project()
+    sprint  = state.get("sprint_status", {})
+    wf      = sprint.get("active_workflow") if isinstance(sprint, dict) else None
+
+    bp.voice_enter(project.upper(), gate="ACTIVO")
+
+    if wf:
+        bp.voice_line(f"Workflow activo : {wf}")
+    if task:
+        done  = task.get("status") == "done"
+        icon  = "✅" if done else "⏳"
+        title = task.get("idea_title") or task.get("title", "?")
+        bp.voice_line(f"Tarea activa    : {icon} {title[:55]}")
+    else:
+        bp.voice_line("Tarea activa    : (ninguna — acepta una idea abajo)")
+
+    bp.voice_exit()
+
+
+# ── Paso 5 (dev mode): Panel sistema completo ─────────────────────────────────
 
 def _step_panel(state: dict, conductor: dict, task: dict | None) -> None:
     bp.voice_enter("SISTEMA", gate="ACTIVO")
@@ -205,18 +272,24 @@ def _step_panel(state: dict, conductor: dict, task: dict | None) -> None:
 
 # ── Paso 6: Ideas top ─────────────────────────────────────────────────────────
 
-def _step_ideas() -> int:
+def _step_ideas(devmode: bool = False) -> int:
     bp.act("GENERADOR", "consultando ideas priorizadas")
     print()
-    rc, _ = _run([sys.executable, str(TOOLS / "emit_ideas.py"), "--top", "3"], silent=False)
+    cmd = [sys.executable, str(TOOLS / "emit_ideas.py")]
+    if devmode:
+        cmd.append("--all")
+    rc, _ = _run(cmd, silent=False)
     return rc
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    auto  = "--auto"  in sys.argv
-    quiet = "--quiet" in sys.argv
+    auto    = "--auto"  in sys.argv
+    quiet   = "--quiet" in sys.argv
+    dev_arg = "--dev"   in sys.argv   # force dev view regardless of devmode flag
+
+    devmode = dev_arg or _is_devmode()
 
     # Cargar datos sin bloquear
     state     = _load_state()
@@ -225,17 +298,26 @@ def main() -> None:
 
     # ── Secuencia de arranque ─────────────────────────────────────────────────
     _step_header(state)
-    _step_load_state(state)
-    _step_health()
-    _step_cap(conductor)
-    _step_panel(state, conductor, task)
+    _step_workspace()       # selector dev/user workspace (solo si no está configurado)
+    _step_record_project()  # registra proyecto actual → alimenta recent_projects.json
+
+    if devmode:
+        # Developer mode: full system view (original behaviour)
+        _step_load_state(state)
+        _step_health()
+        _step_cap(conductor)
+        _step_panel(state, conductor, task)
+    else:
+        # User mode: project-first, clean view
+        _step_health()
+        _step_project_panel(state, task)
 
     if quiet:
         bp.act("MAESTRO", "arranque silencioso — usa bago ideas para ver tareas")
         sys.exit(0)
 
     # ── Ideas y prompt ────────────────────────────────────────────────────────
-    rc_ideas = _step_ideas()
+    rc_ideas = _step_ideas(devmode=devmode)
     if rc_ideas != 0:
         bp.act("AUDITOR_CANONICO", "gate no pasa — repara el baseline primero")
         sys.exit(rc_ideas)
