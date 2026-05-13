@@ -500,7 +500,7 @@ def _self_test():
     saved = IMPLEMENTED_FILE
     try:
         # Caso 1: fichero inexistente → sets vacíos, no rompe
-        IMPLEMENTED_FILE = _P("/tmp/__bago_does_not_exist__.json")
+        IMPLEMENTED_FILE = Path(tempfile.gettempdir()) / "__bago_does_not_exist__.json"
         titles, ids = _load_implemented_keys()
         if titles or ids:
             fails.append("sin fichero debería dar sets vacíos")

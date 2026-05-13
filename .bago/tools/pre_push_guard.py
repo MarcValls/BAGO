@@ -103,6 +103,92 @@ def check_remote_state(fetch: bool) -> bool:
     return True
 
 
+def _auto_commit_runtime_state() -> None:
+    """Commit runtime state files modified by bago commands (both doors).
+
+    NOTE: global_state.json is now gitignored (.gitignore) — this function
+    only commits other tracked runtime files (e.g. docs/COMMANDS.md auto-regen).
+    """
+    import subprocess as _sp
+    # global_state.json is gitignored — skip it
+    # Nothing else to auto-commit for now
+    pass
+
+
+def check_secrets() -> bool:
+    """Scan tracked/staged files for known secret patterns."""
+    import re
+    import subprocess as _sp
+
+    SECRET_PATTERNS = [
+        # Telegram bot tokens: 123456789:AAB...
+        (r"\d{8,12}:AA[A-Za-z0-9_-]{30,}", "Telegram bot token"),
+        # WhatsApp Green API instance IDs (7-digit numbers in API URLs)
+        (r"https?://\d{4,5}\.api\.greenapi\.com", "WhatsApp Green API URL"),
+        # ngrok URLs
+        (r"https://[a-z0-9-]+\.ngrok[-a-z]*\.(io|app|dev|free\.app)", "ngrok URL"),
+        # Private phone numbers in international format inside JSON
+        (r'["\']phone["\']\s*:\s*["\'][+]?\d{9,15}["\']', "Phone number in JSON"),
+        # Email inside whatsapp_daemon structure
+        (r'["\']email["\']\s*:\s*["\'][^"\'@]+@[^"\']+["\']', "Email in config"),
+    ]
+
+    # Get list of files staged for this commit / tracked files that changed
+    result = _sp.run(
+        ["git", "diff", "--cached", "--name-only"],
+        capture_output=True, text=True, cwd=ROOT
+    )
+    staged = result.stdout.strip().splitlines()
+
+    # Also check files that are tracked and differ from HEAD
+    result2 = _sp.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        capture_output=True, text=True, cwd=ROOT
+    )
+    staged += result2.stdout.strip().splitlines()
+    staged = list(set(staged))  # deduplicate
+
+    found_secrets: list[tuple[str, str, str]] = []
+    for rel_path in staged:
+        abs_path = ROOT / rel_path
+        if not abs_path.exists() or abs_path.stat().st_size > 1_000_000:
+            continue
+        try:
+            text = abs_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        for pattern, label in SECRET_PATTERNS:
+            if re.search(pattern, text):
+                found_secrets.append((rel_path, label, pattern))
+
+    if found_secrets:
+        print("  FAIL secrets detectados en archivos rastreados:")
+        for path, label, _ in found_secrets:
+            print(f"       ❌ {path} → {label}")
+        print("       💡 Verifica: bago setup --clean-history")
+        return False
+
+    print("  OK   secret scan — sin secretos detectados")
+    return True
+
+
+def check_orphans() -> bool:
+    """Check for new orphan modules (not in baseline)."""
+    orphan_tool = ROOT / ".bago" / "tools" / "orphan_detector.py"
+    if not orphan_tool.exists():
+        print("  SKIP orphan check (orphan_detector.py no encontrado)")
+        return True
+    rc, out = run([sys.executable, str(orphan_tool), "--strict"], timeout=30)
+    if rc == 0:
+        print(f"  OK   orphan check — {out.strip()}")
+        return True
+    print("  FAIL orphan check — nuevos módulos sin registrar:")
+    for line in out.splitlines()[:10]:
+        print(f"       {line}")
+    print("       💡 Ejecuta: bago orphans --baseline  o  bago orphans --fix")
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Gate pre-push BAGO")
     parser.add_argument("--remote", action="store_true", help="Ejecuta git fetch --prune antes de comparar upstream.")
@@ -132,7 +218,13 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as _e:
         print(f"  WARN readme_sync: {_e}")
 
+    # ── Auto-stage global_state.json si fue modificado por runs anteriores ───
+    # global_state.json es ahora gitignored — solo notificamos
+    _auto_commit_runtime_state()
+
     checks = [
+        check_secrets(),
+        check_orphans(),
         check_clean_tree(),
         check_remote_state(fetch=args.remote),
         check("bago validate", [sys.executable, "bago", "validate"], timeout=120),

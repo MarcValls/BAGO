@@ -1,6 +1,6 @@
 /* BAGO Command Center — app.js */
 
-const API = 'http://localhost:7430';
+const API = window.location.origin;
 let agentsData = [];
 let launchHistory = JSON.parse(localStorage.getItem('bago_history') || '[]');
 let pendingLaunch = null;          // { agent, models }
@@ -18,6 +18,7 @@ async function loadAll() {
     loadSessions(),
     loadIdeas(),
     loadLlmStatus(),
+    loadPendingTask(),
   ]);
   renderHistory();
   renderTimeline();
@@ -260,10 +261,14 @@ function renderPendingTask(t) {
 
 // ─── Routing History ─────────────────────────────────────────────────────────
 
+// Avoid double-fetch: reuse routing-history data already loaded by loadRoutingHistory
+let _cachedRoutingEntries = [];
+
 async function loadRoutingHistory() {
   try {
     const res  = await fetch(`${API}/api/routing-history`);
     const data = await res.json();
+    _cachedRoutingEntries = data;
     renderRoutingHistory(data);
   } catch {
     document.getElementById('routing-history-list').innerHTML =
@@ -281,7 +286,7 @@ function renderRoutingHistory(entries) {
     <h3 style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Routing History</h3>
     ${entries.map(e => `
       <div class="rh-item">
-        <div class="rh-task">${(e.task || e.input || '?').slice(0, 40)}…</div>
+        <div class="rh-task">${((s => s.length > 40 ? s.slice(0, 40) + '…' : s)(e.task || e.input || '?'))}</div>
         <div class="rh-meta">
           <span class="rh-agent">${e.agent || e.recommended_agent || '?'}</span>
           <span class="rh-conf">${e.confidence || e.score || '?'}%</span>
@@ -359,31 +364,26 @@ function renderIdeas(ideas) {
 
 // ─── Timeline ────────────────────────────────────────────────────────────────
 
-async function renderTimeline() {
+function renderTimeline() {
   const container = document.getElementById('timeline-events');
-  try {
-    const res     = await fetch(`${API}/api/routing-history`);
-    const entries = await res.json();
-    if (!entries.length) {
-      container.innerHTML = '<span class="muted-text">Sin eventos recientes</span>';
-      return;
-    }
-    container.innerHTML = entries.slice(0, 12).map(e => {
-      const agentIcon = { ollama: '🦙', codex: '⚡', copilot: '🤖', claude: '🧠' }[e.agent] || '❓';
-      const time = (e.timestamp || e.ts || '').slice(11, 16) || '—';
-      const task = (e.task || e.input || '').slice(0, 30);
-      const conf = e.confidence || e.score || '?';
-      return `
-        <div class="timeline-event">
-          <span class="tl-icon">${agentIcon}</span>
-          <span class="tl-task">${task}</span>
-          <span class="tl-conf">${conf}%</span>
-          <span class="tl-time">${time}</span>
-        </div>`;
-    }).join('');
-  } catch {
-    container.innerHTML = '<span class="muted-text">Sin eventos</span>';
+  const entries = _cachedRoutingEntries;
+  if (!entries.length) {
+    container.innerHTML = '<span class="muted-text">Sin eventos recientes</span>';
+    return;
   }
+  container.innerHTML = entries.slice(0, 12).map(e => {
+    const agentIcon = { ollama: '🦙', codex: '⚡', copilot: '🤖', claude: '🧠' }[e.agent] || '❓';
+    const time = (e.timestamp || e.ts || '').slice(11, 16) || '—';
+    const task = (e.task || e.input || '').slice(0, 30);
+    const conf = e.confidence || e.score || '?';
+    return `
+      <div class="timeline-event">
+        <span class="tl-icon">${agentIcon}</span>
+        <span class="tl-task">${task}</span>
+        <span class="tl-conf">${conf}%</span>
+        <span class="tl-time">${time}</span>
+      </div>`;
+  }).join('');
 }
 
 // ─── Dynamic routing ─────────────────────────────────────────────────────────
@@ -475,7 +475,7 @@ function renderRouteResult(data, task) {
       </div>
       <div class="route-actions">
         <button class="btn-primary" style="font-size:13px;padding:9px 16px"
-          onclick="openModal('${data.agent}', '${(task || '').replace(/'/g, '')}', '${(data.model || '').replace(/'/g, '')}')">
+          onclick="openModalFromRoute()">
           🚀 Iniciar ${data.agent_name || data.agent}
         </button>
         <button class="btn-secondary" style="font-size:12px;padding:8px 14px"
@@ -485,6 +485,13 @@ function renderRouteResult(data, task) {
 
   // Show force buttons
   document.getElementById('force-buttons').classList.remove('hidden');
+}
+
+function openModalFromRoute() {
+  if (!lastRouteResult) return;
+  const d = lastRouteResult;
+  const taskInput = document.getElementById('task-input');
+  openModal(d.agent, taskInput ? taskInput.value.trim() : '', d.model || '');
 }
 
 function showRouteJSON() {
@@ -842,6 +849,13 @@ function showToast(msg, type = 'success') {
 // ─── Event listeners ─────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Escape key closes any open modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closeSensitiveModal();
+    }
+  });
   // Enter to route
   document.getElementById('task-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') routeTask();

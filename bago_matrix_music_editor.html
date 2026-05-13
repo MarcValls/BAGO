@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAGO Music Score Editor — Editor de Partitura</title>
+<!-- VexFlow 5.0.0 — local first, CDN fallback -->
+<script src="./vendor/vexflow.min.js"></script>
+<script>if(typeof VexFlow==='undefined'&&typeof Vex==='undefined'){document.write('<script src="https://unpkg.com/vexflow@5.0.0/build/cjs/vexflow.js"><\/script>')}</script>
+
+<!-- Tone.js — local first, CDN fallback -->
+<script src="./vendor/tone.min.js"></script>
+<script>if(typeof Tone==='undefined'){document.write('<script src="https://unpkg.com/tone"><\/script>')}</script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   BAGO Music Score Editor — Styles
+═══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-dark:      #1a1a2e;
+  --bg-darker:    #16213e;
+  --bg-darkest:   #0f3460;
+  --bg-panel:     #1e1e3f;
+  --accent:       #6666cc;
+  --accent-hi:    #8888ff;
+  --text-hi:      #e0e0ff;
+  --text-mid:     #9999bb;
+  --text-lo:      #555577;
+  --btn-bg:       #2d2d5e;
+  --btn-border:   #3d3d7e;
+  --btn-hover:    #3a3a7a;
+  --btn-active:   #4a4ab0;
+  --danger:       #7e2e2e;
+  --danger-hi:    #cc6666;
+  --success:      #2e5e3e;
+  --success-hi:   #66cc88;
+  /* ── Semantic action palette ── */
+  --primary:      #7c6fcd;
+  --primary-hi:   #a08fff;
+  --note-col:     #3a7bd5;
+  --note-hi:      #5a9bf5;
+  --mod-col:      #2d6b4a;
+  --mod-hi:       #3d9b6a;
+  --danger-col:   #8b3a3a;
+  --danger-hi2:   #cc5555;
+  --file-col:     #5a4a1a;
+  --file-hi:      #c8a840;
+}
+
+body {
+  background: #eef0f4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  color: var(--text-hi);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ─────────────────────────────────── */
+#header {
+  background: var(--bg-dark);
+  padding: 0 20px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.4);
+  flex-shrink: 0;
+  z-index: 50;
+}
+#header h1 { font-size: 15px; font-weight: 700; letter-spacing: .5px; color: #ddd8f0; }
+#header .badge {
+  font-size: 10px; background: #2a2a55; color: #8888cc;
+  padding: 2px 8px; border-radius: 10px; letter-spacing: .5px;
+}
+
+/* ── METADATA BAR ───────────────────────────── */
+#meta-bar {
+  background: var(--bg-darker);
+  padding: 6px 20px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  border-bottom: 1px solid #1a2a4a;
+}
+#meta-bar label { color: var(--text-lo); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
+#meta-bar input, #meta-bar select {
+  background: #121228; border: 1px solid #2a2a55;
+  color: var(--text-hi); padding: 3px 8px; border-radius: 4px;
+  font-size: 12px; outline: none;
+  transition: border-color .15s;
+}
+#meta-bar input:focus, #meta-bar select:focus { border-color: var(--accent); }
+.meta-g { display: flex; align-items: center; gap: 5px; }
+
+/* ── TOOLBAR ────────────────────────────────── */
+#toolbar {
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-bottom: 2px solid var(--bg-darkest);
+  flex-shrink: 0;
+}
+.tb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+}
+.tb-row:not(:last-child) {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tb-sep { width: 1px; height: 28px; background: #2d2d5e; margin: 0 4px; flex-shrink: 0; }
+.tb-lbl { font-size: 9px; color: var(--text-lo); text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; flex-shrink: 0; margin-right: 2px; }
+.tb-spacer { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ── Base button ── */
+.btn {
+  background: var(--btn-bg); border: 1px solid var(--btn-border);
+  color: var(--text-mid); padding: 5px 11px; border-radius: 6px;
+  cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; gap: 4px;
+  transition: background .12s, border-color .12s, color .12s;
+  white-space: nowrap; user-select: none;
+}
+.btn:hover  { background: var(--btn-hover); border-color: var(--accent); color: #fff; }
+.btn.active { background: var(--btn-active); border-color: var(--accent-hi); color: #fff;
+              box-shadow: 0 0 8px rgba(100,100,255,.25); }
+
+/* ── Tier 1: Primary action buttons ── */
+.btn-primary {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn-play-primary {
+  background: linear-gradient(135deg, #2a4a7f, #1a3a6f);
+  color: #88bbff;
+  border-color: #3a5a9f;
+}
+.btn-play-primary:hover { background: linear-gradient(135deg, #3a5a9f, #2a4a7f); color: #bbddff; }
+.btn-play-primary.active { background: linear-gradient(135deg, #1a3a7f, #0f2a5f); color: #ccddff; border-color: #5577cc; box-shadow: 0 0 12px rgba(80,120,220,.3); }
+.btn-export-primary {
+  background: linear-gradient(135deg, #1a5a3a, #0f3a25);
+  color: #77cc99;
+  border-color: #2a7a4a;
+}
+.btn-export-primary:hover { background: linear-gradient(135deg, #2a6a4a, #1a5a3a); color: #aaeebb; }
+
+/* ── Tier 2: Duration card buttons ── */
+.btn-dur {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  background: var(--btn-bg);
+  border: 2px solid var(--btn-border);
+  cursor: pointer;
+  transition: all 0.15s;
+  gap: 1px;
+  padding: 0;
+  user-select: none;
+  flex-shrink: 0;
+}
+.btn-dur .dur-symbol {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--note-hi);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.btn-dur .dur-name {
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-lo);
+  line-height: 1;
+}
+.btn-dur:hover  { background: rgba(58,123,213,0.18); border-color: var(--note-col); }
+.btn-dur.active { background: rgba(58,123,213,0.28); border-color: var(--note-hi);
+                  box-shadow: 0 0 10px rgba(58,123,213,0.35); }
+.btn-dur.active .dur-symbol { color: #fff; }
+.btn-dur.active .dur-name   { color: var(--note-hi); }
+
+/* CSS note shapes for duration symbols */
+.ns-whole {
+  display: inline-block;
+  width: 16px; height: 11px;
+  border: 2.5px solid currentColor;
+  border-radius: 50%;
+}
+.ns-half {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2.5px solid currentColor;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent 50%, currentColor 50%);
+}
+.ns-quarter {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Tier 3: Modifier & accidental buttons ── */
+.btn-mod {
+  background: rgba(45,107,74,0.25);
+  border: 1px solid #2d6b4a;
+  color: #7dcca0;
+  padding: 5px 13px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn-mod:hover  { background: rgba(61,155,106,0.3); border-color: var(--mod-hi); color: #aaeebb; }
+.btn-mod.active { background: rgba(61,155,106,0.4); border-color: var(--mod-hi); color: #ccffdd;
+                  box-shadow: 0 0 8px rgba(61,155,106,0.35); }
+
+.btn-acc {
+  font-size: 16px;
+  min-width: 36px;
+  padding: 5px 10px;
+  justify-content: center;
+}
+
+/* Danger / file variants */
+.btn-danger  { background:#3a1e1e; border-color:#5e3030; color:#e08080; }
+.btn-danger:hover  { background:#552525; border-color:var(--danger-hi); color:#ffa0a0; }
+.btn-file    { background: rgba(90,74,26,0.3); border-color:#5a4a1a; color:#c8a840; }
+.btn-file:hover    { background: rgba(90,74,26,0.5); border-color:var(--file-hi); color:#f0d060; }
+
+/* Legacy compat — keep .dur selector working for JS */
+.dur { /* handled by .btn-dur */ }
+
+/* ── SCORE WRAPPER ──────────────────────────── */
+#score-wrap {
+  flex: 1; padding: 24px 32px;
+  overflow-y: auto;
+}
+#score-container {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 3px 24px rgba(0,0,0,.18);
+  position: relative;
+  overflow: hidden;
+  min-height: 320px;
+}
+#score-header {
+  text-align: center;
+  padding: 22px 20px 0;
+  user-select: none;
+}
+#score-header .sc-title    { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+#score-header .sc-composer { font-size: 13px; color: #666; margin-top: 3px; }
+
+/* The area where VexFlow renders */
+#vf-area {
+  position: relative;
+  min-height: 160px;
+  padding-bottom: 24px;
+}
+#vf-container { display: block; }
+
+/* Ghost note canvas — absolute over vf-area */
+#ghost-canvas {
+  position: absolute; top: 0; left: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Hover/click overlay */
+#hit-overlay {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  cursor: crosshair;
+  z-index: 10;
+}
+
+/* Empty state hint */
+#empty-hint {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #bbb; font-size: 14px; text-align: center;
+  pointer-events: none; z-index: 2;
+  line-height: 1.8;
+}
+
+/* ── NOTE TOOLTIP ───────────────────────────── */
+#tooltip {
+  position: fixed;
+  background: var(--bg-dark);
+  color: #aaddff;
+  border: 1px solid var(--accent);
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 13px; font-weight: 700;
+  pointer-events: none; z-index: 9999;
+  display: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+
+/* ── STATUS BAR ─────────────────────────────── */
+#statusbar {
+  background: var(--bg-dark);
+  padding: 5px 20px;
+  font-size: 11px; color: var(--text-lo);
+  display: flex; gap: 20px; align-items: center;
+  flex-shrink: 0;
+}
+.st-item { display: flex; align-items: center; gap: 4px; }
+.st-val  { color: #9999ee; font-weight: 600; }
+.st-hint { margin-left: auto; font-size: 10px; color: #666688; }
+
+/* ── SHORTCUT BAR ───────────────────────────── */
+#kbbar {
+  background: #111125;
+  padding: 4px 20px;
+  font-size: 10px; color: #666688;
+  display: flex; gap: 18px; flex-wrap: wrap;
+  flex-shrink: 0;
+}
+kbd {
+  background: #1e1e3a; color: #7777bb;
+  padding: 1px 5px; border-radius: 3px; font-size: 10px;
+  border: 1px solid #2d2d5e;
+}
+
+/* ── TRANSPOSE PANEL ────────────────────────────────── */
+#transpose-panel {
+  background: #181830;
+  border-bottom: 2px solid var(--bg-darkest);
+  padding: 8px 20px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  animation: slideDown .12s ease;
+}
+@keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+#transpose-panel .tp-label { color: var(--text-mid); font-size: 12px; white-space: nowrap; }
+#interval-select {
+  background: #121228; border: 1px solid #3a3a7e;
+  color: var(--text-hi); padding: 4px 10px; border-radius: 4px;
+  font-size: 12px; outline: none; cursor: pointer;
+}
+#interval-select:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div id="header">
+  <h1>🎵 BAGO Music Score Editor</h1>
+  <span class="badge">v2.0 · Phase 7</span>
+  <span class="badge" style="margin-left:auto;">Editor de Partituras · Single-file</span>
+</div>
+
+<!-- ── METADATA BAR ── -->
+<div id="meta-bar">
+  <div class="meta-g">
+    <label>Título</label>
+    <input type="text" id="m-title" value="Mi Composición" style="width:155px" oninput="onMeta()">
+  </div>
+  <div class="meta-g">
+    <label>Compositor</label>
+    <input type="text" id="m-composer" value="Compositor" style="width:120px" oninput="onMeta()">
+  </div>
+  <div class="meta-g">
+    <label>Clave</label>
+    <select id="m-clef" onchange="onMeta()">
+      <option value="treble">Sol (Treble)</option>
+      <option value="bass">Fa (Bass)</option>
+    </select>
+  </div>
+  <div class="meta-g">
+    <label>Compás</label>
+    <select id="m-time" onchange="onMeta()">
+      <option value="4/4">4/4</option>
+      <option value="3/4">3/4</option>
+      <option value="2/4">2/4</option>
+      <option value="6/8">6/8</option>
+    </select>
+  </div>
+  <div class="meta-g">
+    <label>Armadura</label>
+    <select id="m-key" onchange="onMeta()">
+      <option value="C">Do Mayor (C)</option>
+      <option value="G">Sol Mayor (G) ♯</option>
+      <option value="D">Re Mayor (D) ♯♯</option>
+      <option value="A">La Mayor (A) ♯♯♯</option>
+      <option value="F">Fa Mayor (F) ♭</option>
+      <option value="Bb">Sib Mayor (Bb) ♭♭</option>
+      <option value="Am">La menor (Am)</option>
+      <option value="Em">Mi menor (Em) ♯</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── TOOLBAR ── -->
+<div id="toolbar">
+
+  <!-- Row 1: File operations + primary play/export actions -->
+  <div class="tb-row tb-row-1">
+    <button class="btn btn-file" onclick="document.getElementById('file-input').click()" title="Abrir archivo MusicXML (.xml, .musicxml)">📂 Abrir partitura</button>
+    <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
+    <button class="btn btn-file" onclick="loadMusicXML(EXAMPLE_SCORE)" title="Cargar ejemplo: Nostalgia en La menor — 3 voces, La menor, 3/4, Andante">📖 Ejemplo melancólico</button>
+    <div class="tb-spacer">
+      <button class="btn-primary btn-play-primary" id="btn-play"   onclick="togglePlay()"     title="Reproducir / Detener (Espacio)">▶ Reproducir</button>
+      <button class="btn-primary btn-export-primary" id="btn-export" onclick="exportMusicXML()" title="Exportar a MusicXML 3.1">↓ Exportar MusicXML</button>
+    </div>
+  </div>
+
+  <!-- Row 2: Duration cards + modifier toggles -->
+  <div class="tb-row tb-row-2">
+    <span class="tb-lbl">Duración</span>
+
+    <button class="btn-dur dur" id="d-w"  onclick="setDur('w')"  title="Redonda — 4 tiempos (tecla 1)">
+      <span class="dur-symbol"><span class="ns-whole"></span></span>
+      <span class="dur-name">Redonda</span>
+    </button>
+    <button class="btn-dur dur" id="d-h"  onclick="setDur('h')"  title="Blanca — 2 tiempos (tecla 2)">
+      <span class="dur-symbol"><span class="ns-half"></span></span>
+      <span class="dur-name">Blanca</span>
+    </button>
+    <button class="btn-dur dur active" id="d-q"  onclick="setDur('q')"  title="Negra — 1 tiempo (tecla 4)">
+      <span class="dur-symbol"><span class="ns-quarter"></span></span>
+      <span class="dur-name">Negra</span>
+    </button>
+    <button class="btn-dur dur" id="d-8"  onclick="setDur('8')"  title="Corchea — ½ tiempo (tecla 5)">
+      <span class="dur-symbol">♩</span>
+      <span class="dur-name">Corchea</span>
+    </button>
+    <button class="btn-dur dur" id="d-16" onclick="setDur('16')" title="Semicorchea — ¼ tiempo (tecla 6)">
+      <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">16</span>
+      <span class="dur-name">Semicorchea</span>
+    </button>
+    <button class="btn-dur dur" id="d-32" onclick="setDur('32')" title="Fusa — ⅛ tiempo (tecla 7)">
+      <span class="dur-symbol" style="font-size:13px;font-weight:700;color:inherit;">32</span>
+      <span class="dur-name">Fusa</span>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <button class="btn btn-mod" id="btn-dot"  onclick="toggleDot()"  title="Puntillo — suma 50% de duración (tecla .)">· Puntillo</button>
+    <button class="btn btn-mod" id="btn-rest" onclick="toggleRest()" title="Silencio — pausa en lugar de nota (tecla R)">𝄽 Silencio</button>
+  </div>
+
+  <!-- Row 3: Accidentals + destructive actions + transpose -->
+  <div class="tb-row tb-row-3">
+    <span class="tb-lbl">Alteración</span>
+
+    <button class="btn acc btn-acc" id="a-sharp"   onclick="setAcc('#')" title="Sostenido ♯">♯ Sostenido</button>
+    <button class="btn acc btn-acc" id="a-flat"    onclick="setAcc('b')" title="Bemol ♭">♭ Bemol</button>
+    <button class="btn acc btn-acc" id="a-natural" onclick="setAcc('n')" title="Becuadro ♮">♮ Becuadro</button>
+
+    <div class="tb-sep"></div>
+
+    <button class="btn btn-danger" onclick="deleteLast()" title="Borrar última nota (Delete / Backspace)">⌫ Borrar última</button>
+    <button class="btn btn-danger" onclick="clearAll()"   title="Borrar todo">✕ Limpiar todo</button>
+
+    <div class="tb-sep"></div>
+
+    <button class="btn" id="btn-transpose" onclick="openTransposePanel()" title="Transponer notas seleccionadas" style="display:none">🎵 Transponer selección</button>
+  </div>
+
+</div>
+
+<!-- ── TRANSPOSE PANEL ── -->
+<div id="transpose-panel">
+  <span class="tp-label">🎵 Transponer selección —</span>
+  <span class="tp-label">Intervalo:</span>
+  <select id="interval-select">
+    <option value="1">Subir +m2 (1 semitono)</option>
+    <option value="2" selected>Subir +M2 (1 tono)</option>
+    <option value="3">Subir +m3 (3ª menor)</option>
+    <option value="4">Subir +M3 (3ª mayor)</option>
+    <option value="5">Subir +P4 (4ª justa)</option>
+    <option value="7">Subir +P5 (5ª justa)</option>
+    <option value="12">Subir +P8 (octava)</option>
+    <option value="-1">Bajar −m2 (1 semitono)</option>
+    <option value="-2">Bajar −M2 (1 tono)</option>
+    <option value="-3">Bajar −m3 (3ª menor)</option>
+    <option value="-4">Bajar −M3 (3ª mayor)</option>
+    <option value="-5">Bajar −P4 (4ª justa)</option>
+    <option value="-7">Bajar −P5 (5ª justa)</option>
+    <option value="-12">Bajar −P8 (octava)</option>
+  </select>
+  <button class="btn" style="background:#2a4a2a;border-color:#4a8a4a;color:#88cc88;" onclick="applyTranspose()">✓ Aplicar</button>
+  <button class="btn" style="background:#3a1e1e;border-color:#5e3030;color:#e08080;" onclick="closeTransposePanel()">✕ Cancelar</button>
+</div>
+
+<!-- Floating note label -->
+<div id="tooltip"></div>
+
+<!-- ── SCORE AREA ── -->
+<div id="score-wrap">
+  <div id="score-container">
+    <div id="score-header">
+      <div class="sc-title"    id="sc-title">Mi Composición</div>
+      <div class="sc-composer" id="sc-composer">Compositor</div>
+    </div>
+    <div id="vf-area">
+      <div id="vf-container"></div>
+      <canvas id="ghost-canvas"></canvas>
+      <div id="hit-overlay"></div>
+      <div id="empty-hint">
+        🎵 Haz clic aquí para colocar notas<br>
+        <small>Selecciona duración en la barra de herramientas</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── STATUS BAR ── -->
+<div id="statusbar">
+  <div class="st-item">Notas: <span class="st-val" id="st-n">0</span></div>
+  <div class="st-item">Compases: <span class="st-val" id="st-m">1</span></div>
+  <div class="st-item">Duración: <span class="st-val" id="st-d">Negra (♩)</span></div>
+  <div class="st-item">Alteración: <span class="st-val" id="st-a">—</span></div>
+  <div class="st-item">Modo: <span class="st-val" id="st-mode">Nota</span></div>
+  <span class="st-hint">Teclado numérico para duración · clic en pentagrama para añadir nota</span>
+</div>
+
+<!-- ── KEYBOARD SHORTCUTS ── -->
+<div id="kbbar">
+  <span><kbd>1</kbd> Redonda</span>
+  <span><kbd>2</kbd> Blanca</span>
+  <span><kbd>4</kbd> Negra</span>
+  <span><kbd>5</kbd> Corchea</span>
+  <span><kbd>6</kbd> Semicorchea</span>
+  <span><kbd>7</kbd> Fusa</span>
+  <span><kbd>R</kbd> Silencio</span>
+  <span><kbd>.</kbd> Puntillo</span>
+  <span><kbd>↑</kbd><kbd>↓</kbd> Sube/baja octava (última nota)</span>
+  <span><kbd>Del</kbd> Borrar última</span>
+  <span><kbd>Espacio</kbd> Reproducir</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JAVASCRIPT ENGINE
+══════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ─── VexFlow handle (filled on load) ───────────────────────────────
+let VF = null;
+
+// ─── APPLICATION STATE ─────────────────────────────────────────────
+const S = {
+  notes:     [],          // Array of note objects
+  dur:       'q',         // Current duration key
+  acc:       null,        // Current accidental: null | '#' | 'b' | 'n'
+  rest:      false,       // Rest mode
+  dotted:    false,       // Dotted note
+  title:     'Mi Composición',
+  composer:  'Compositor',
+  clef:      'treble',
+  timeSig:   '4/4',
+  keySig:    'C',
+
+  // Layout cache — filled during render
+  staves:    [],          // [{stave, x, y, w}]
+  noteBoxes: [],          // [{noteIdx, x, y, w, h}] — hit boxes for click selection
+  selected:  new Set(),   // Set of selected note indices
+};
+
+// ─── CONSTANTS ─────────────────────────────────────────────────────
+
+// Duration fractional value (1 = whole note)
+const DUR_VAL = { w:1, h:1/2, q:1/4, '8':1/8, '16':1/16, '32':1/32 };
+
+// Duration label info
+const DUR_INFO = {
+  w:   { label:'Redonda',     sym:'𝅝',   vf:'w'  },
+  h:   { label:'Blanca',      sym:'𝅗𝅥',   vf:'h'  },
+  q:   { label:'Negra',       sym:'♩',  vf:'q'  },
+  '8': { label:'Corchea',     sym:'♪',  vf:'8'  },
+  '16':{ label:'Semicorchea', sym:'𝅘𝅥𝅯', vf:'16' },
+  '32':{ label:'Fusa',        sym:'𝅘𝅥𝅰', vf:'32' },
+};
+
+// Time signature → beats info for VexFlow Voice
+const TIME_BEATS = {
+  '4/4': { num:4, val:4 },
+  '3/4': { num:3, val:4 },
+  '2/4': { num:2, val:4 },
+  '6/8': { num:6, val:8 },
+};
+
+// Time signature → measure length in whole-note fractions
+const TIME_MLEN = { '4/4':1, '3/4':3/4, '2/4':1/2, '6/8':3/4 };
+
+// ─── TREBLE CLEF PITCH TABLE ───────────────────────────────────────
+// Index 0 = highest note in table, descending diatonically.
+// TREBLE_TOP_IDX = the index where 'f/5' (top staff line) lives.
+// step = (mouseY - topLineY) / 5  →  index = TREBLE_TOP_IDX + step
+const TREBLE = [
+  'e/7','d/7','c/7','b/6','a/6','g/6','f/6',
+  'e/6','d/6','c/6','b/5','a/5','g/5',
+  'f/5',  // ← TREBLE_TOP_IDX = 13  (top staff line in treble clef)
+  'e/5','d/5','c/5',
+  'b/4','a/4','g/4','f/4',
+  'e/4',  // ← bottom staff line (index 21)
+  'd/4','c/4','b/3','a/3','g/3','f/3','e/3','d/3','c/3','b/2',
+];
+const TREBLE_TOP = 13;
+
+// ─── BASS CLEF PITCH TABLE ─────────────────────────────────────────
+// Top staff line in bass clef = A3  (BASS_TOP_IDX)
+const BASS = [
+  'e/5','d/5','c/5','b/4','a/4','g/4','f/4','e/4','d/4','c/4',
+  'b/3','a/3','g/3',
+  'a/3',  // ← BASS_TOP_IDX = 13  (top staff line in bass clef)
+  'g/3','f/3','e/3','d/3','c/3',
+  'b/2','a/2',
+  'g/2',  // ← bottom staff line (index 21)
+  'f/2','e/2','d/2','c/2','b/1','a/1','g/1',
+];
+// Bass clef: top line = A3
+// VexFlow line 0 → A3
+const BASS_TOP = 13;
+
+// Correct mapping: regenerate both tables properly
+// For treble: descending from C7 to B2, where F5 is at index TREBLE_TOP
+// For bass:   descending from E5 to G1, where A3 is at index BASS_TOP
+
+function buildPitchTable(topNote, topOctave, topIdx, length) {
+  const DIATONIC = ['c','d','e','f','g','a','b'];
+  const noteIdx = DIATONIC.indexOf(topNote);
+  const table = [];
+  for (let i = 0; i < length; i++) {
+    const descent = i - topIdx; // negative = above top, positive = below
+    // Each step descends by 1 diatonic note
+    // noteIdx - descent gives us the new note index (mod 7, octave adjusted)
+    const raw = noteIdx - descent;
+    const ni  = ((raw % 7) + 7) % 7;
+    const oct = topOctave + Math.floor(raw / 7);
+    table.push(DIATONIC[ni] + '/' + oct);
+  }
+  return table;
+}
+
+const TREBLE_TABLE = buildPitchTable('f', 5, TREBLE_TOP, 32);
+const BASS_TABLE   = buildPitchTable('a', 3, BASS_TOP,   30);
+
+// ─── PITCH UTILITIES ───────────────────────────────────────────────
+
+function getStepPitch(step, clef) {
+  if (clef === 'treble') {
+    const idx = TREBLE_TOP + step;
+    return TREBLE_TABLE[Math.max(0, Math.min(idx, TREBLE_TABLE.length - 1))];
+  } else {
+    const idx = BASS_TOP + step;
+    return BASS_TABLE[Math.max(0, Math.min(idx, BASS_TABLE.length - 1))];
+  }
+}
+
+function noteName(vfPitch) {
+  // 'c/4' → 'C4'
+  const [n, o] = vfPitch.split('/');
+  return n.toUpperCase() + o;
+}
+
+function pitchToTone(vfPitch, acc) {
+  // 'c/4' + '#' → 'C#4',  'b/4' + 'b' → 'Bb4'
+  const [n, o] = vfPitch.split('/');
+  const a = acc === '#' ? '#' : acc === 'b' ? 'b' : '';
+  return n.toUpperCase() + a + o;
+}
+
+// Shift a VexFlow pitch by N octaves
+function shiftOctave(vfPitch, delta) {
+  const [n, o] = vfPitch.split('/');
+  const newOct = parseInt(o, 10) + delta;
+  if (newOct < 0 || newOct > 8) return vfPitch;
+  return n + '/' + newOct;
+}
+
+// ─── MIDI / PITCH CONVERSION ───────────────────────────────────────
+
+const STEP_SEMITONES = { c:0, d:2, e:4, f:5, g:7, a:9, b:11 };
+const MIDI_STEP      = ['c','c','d','d','e','f','f','g','g','a','a','b'];
+const MIDI_ALTER     = [ 0,  1,  0,  1,  0,  0,  1,  0,  1,  0,  1,  0];
+
+function noteToMidi(step, octave, alter) {
+  return (parseInt(octave, 10) + 1) * 12 + (STEP_SEMITONES[step.toLowerCase()] || 0) + (alter || 0);
+}
+
+function midiToNote(midi) {
+  const pc  = ((midi % 12) + 12) % 12;
+  const oct = Math.floor(midi / 12) - 1;
+  return { step: MIDI_STEP[pc], octave: oct, alter: MIDI_ALTER[pc] };
+}
+
+// ─── MEASURE SPLITTING ─────────────────────────────────────────────
+
+function noteValue(note) {
+  return DUR_VAL[note.dur] * (note.dotted ? 1.5 : 1);
+}
+
+function splitMeasures(notes, timeSig) {
+  const mlen = TIME_MLEN[timeSig] || 1;
+  const measures = [];
+  let cur = [], beats = 0;
+
+  for (const note of notes) {
+    const val = noteValue(note);
+    if (beats + val > mlen + 1e-6) {
+      if (cur.length) measures.push(cur);
+      cur = [note]; beats = val;
+    } else {
+      cur.push(note); beats += val;
+      if (Math.abs(beats - mlen) < 1e-6) {
+        measures.push(cur); cur = []; beats = 0;
+      }
+    }
+  }
+  if (cur.length) measures.push(cur);
+  return measures;
+}
+
+// Fill a partial measure remainder with rest durations
+function fillRests(remainder) {
+  const durs = ['w','h','q','8','16','32'];
+  const out = [];
+  let rem = remainder;
+  for (const d of durs) {
+    const v = DUR_VAL[d];
+    while (rem >= v - 1e-6) { out.push(d); rem -= v; }
+  }
+  return out;
+}
+
+// ─── VEXFLOW NOTE BUILDER ──────────────────────────────────────────
+
+function makeVFNote(note, noteIdx) {
+  const keys     = note.rest ? ['b/4'] : [note.pitch];
+  const duration = note.dur + (note.rest ? 'r' : '');
+
+  const vn = new VF.StaveNote({ clef: S.clef, keys, duration });
+
+  if (!note.rest && note.acc) {
+    vn.addModifier(new VF.Accidental(note.acc), 0);
+  }
+  if (note.dotted) {
+    VF.Dot.buildAndAttach([vn], { all_voices: true });
+  }
+  // Apply selection style (blue highlight)
+  if (noteIdx !== undefined && S.selected.has(noteIdx)) {
+    vn.setStyle({ fillStyle: '#4488ff', strokeStyle: '#4488ff' });
+  }
+  return vn;
+}
+
+function makeGhostRest(dur) {
+  const vn = new VF.StaveNote({ clef: S.clef, keys: ['b/4'], duration: dur + 'r' });
+  vn.setStyle({ fillStyle: 'rgba(0,0,0,0)', strokeStyle: 'rgba(0,0,0,0)' });
+  return vn;
+}
+
+// ─── RENDER ────────────────────────────────────────────────────────
+
+let renderTimer = null;
+function schedRender() {
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(doRender, 16);
+}
+
+function doRender() {
+  if (!VF) return;
+
+  const vfc  = document.getElementById('vf-container');
+  const wrap = document.getElementById('vf-area');
+  vfc.innerHTML = '';
+  S.staves   = [];
+  S.noteBoxes = [];
+
+  const hint = document.getElementById('empty-hint');
+  hint.style.display = S.notes.length === 0 ? 'block' : 'none';
+
+  const containerW = document.getElementById('score-container').clientWidth || 960;
+  const PAD        = 24;          // left/right padding inside SVG
+  const ROW_H      = 100;         // vertical space per row
+  const Y0         = 10;          // top margin in SVG
+  const CLEF_EXTRA = 60;          // extra width for clef on first stave
+
+  const availW      = containerW - PAD * 2;
+  const stavesPerRow = Math.max(1, Math.floor(availW / 280));
+  const staveW       = Math.floor(availW / stavesPerRow);
+
+  // Build measure list — always keep at least one, always add an empty trailing measure
+  const measures = splitMeasures(S.notes, S.timeSig);
+  if (measures.length === 0) measures.push([]);
+  const lastBeats = measures[measures.length - 1].reduce((s, n) => s + noteValue(n), 0);
+  if (Math.abs(lastBeats - (TIME_MLEN[S.timeSig] || 1)) < 1e-6 || lastBeats > 0) {
+    // If last measure is full or has notes, add an empty one for entry
+    if (Math.abs(lastBeats - (TIME_MLEN[S.timeSig] || 1)) < 1e-6) {
+      measures.push([]);
+    }
+  }
+
+  const numRows  = Math.ceil(measures.length / stavesPerRow);
+  const totalH   = Y0 + numRows * (ROW_H + 30) + 20;
+
+  // Create renderer
+  const renderer = new VF.Renderer(vfc, VF.Renderer.Backends.SVG);
+  renderer.resize(containerW, totalH);
+  const ctx = renderer.getContext();
+
+  const { num: numBeats, val: beatVal } = TIME_BEATS[S.timeSig] || { num:4, val:4 };
+  const mlen = TIME_MLEN[S.timeSig] || 1;
+
+  // Key sig VexFlow name
+  const VF_KEY = {
+    C:'C', G:'G', D:'D', A:'A', E:'E', B:'B',
+    F:'F', Bb:'Bb', Am:'Am', Em:'Em',
+  };
+
+  let noteStart = 0;
+  measures.forEach((measure, i) => {
+    const row = Math.floor(i / stavesPerRow);
+    const col = i % stavesPerRow;
+    const isFirstMeasure = (i === 0);
+    const isFirstInRow   = (col === 0);
+
+    const x = PAD + col * staveW;
+    const y = Y0 + row * (ROW_H + 30);
+    const w = staveW - 2;
+
+    const stave = new VF.Stave(x, y, w);
+
+    // Clef on every row start
+    if (isFirstInRow) stave.addClef(S.clef);
+    // Time sig + key sig on first measure only
+    if (isFirstMeasure) {
+      stave.addTimeSignature(S.timeSig);
+      const vfKey = VF_KEY[S.keySig];
+      if (vfKey && vfKey !== 'C' && vfKey !== 'Am') {
+        try { stave.addKeySignature(vfKey); } catch(_) {}
+      }
+    }
+
+    stave.setContext(ctx).draw();
+
+    // Cache stave position for click/hover mapping
+    S.staves.push({ stave, x, y, w, row, col });
+
+    if (measure.length === 0) return;
+
+    // Build VexFlow notes
+    let vfNotes;
+    try {
+      vfNotes = measure.map((note, li) => makeVFNote(note, noteStart + li));
+    } catch (err) {
+      console.warn('VF note build error (measure', i, '):', err);
+      noteStart += measure.length;
+      return;
+    }
+
+    // Pad partial measure with invisible rests for correct layout
+    const used = measure.reduce((s, n) => s + noteValue(n), 0);
+    const rem  = mlen - used;
+    if (rem > 1e-6 && rem < mlen) {
+      fillRests(rem).forEach(d => {
+        try { vfNotes.push(makeGhostRest(d)); } catch(_) {}
+      });
+    }
+
+    // Voice + format + draw
+    try {
+      const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatVal });
+      voice.setMode(VF.Voice.Mode.SOFT);
+      voice.addTickables(vfNotes);
+
+      const formatter = new VF.Formatter();
+      formatter.joinVoices([voice]);
+      formatter.format([voice], w - 50);
+
+      voice.draw(ctx, stave);
+
+      // Collect note hit boxes for click-to-select
+      measure.forEach((_, li) => {
+        try {
+          const vn = vfNotes[li];
+          const ax = typeof vn.getAbsoluteX === 'function' ? vn.getAbsoluteX() : null;
+          if (ax !== null && isFinite(ax)) {
+            S.noteBoxes.push({ noteIdx: noteStart + li, x: ax - 13, y: y - 22, w: 26, h: 82 });
+          }
+        } catch (_) {}
+      });
+    } catch (err) {
+      console.warn('VF format/draw error (measure', i, '):', err);
+    }
+    noteStart += measure.length;
+  });
+
+  // Resize ghost canvas to match SVG
+  const svgEl = vfc.querySelector('svg');
+  const gc    = document.getElementById('ghost-canvas');
+  if (svgEl) {
+    gc.width  = svgEl.clientWidth  || containerW;
+    gc.height = svgEl.clientHeight || totalH;
+  }
+
+  updateStatus(measures.length);
+}
+
+// ─── STATUS BAR ────────────────────────────────────────────────────
+
+function updateStatus(mCount) {
+  document.getElementById('st-n').textContent = S.notes.length;
+  document.getElementById('st-m').textContent = mCount ?? 1;
+  const d = DUR_INFO[S.dur] || DUR_INFO.q;
+  document.getElementById('st-d').textContent = d.label + ' (' + d.sym + ')' + (S.dotted ? ' ·' : '');
+  const aMap = { '#':'♯ Sostenido', b:'♭ Bemol', n:'♮ Becuadro' };
+  document.getElementById('st-a').textContent = S.acc ? aMap[S.acc] : '—';
+  document.getElementById('st-mode').textContent = S.rest ? 'Silencio' : 'Nota';
+}
+
+// ─── TOOLBAR ACTIONS ───────────────────────────────────────────────
+
+function setDur(d) {
+  S.dur = d;
+  document.querySelectorAll('.dur').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('d-' + d);
+  if (el) el.classList.add('active');
+  updateStatus();
+}
+
+function toggleDot() {
+  S.dotted = !S.dotted;
+  document.getElementById('btn-dot').classList.toggle('active', S.dotted);
+  updateStatus();
+}
+
+function toggleRest() {
+  S.rest = !S.rest;
+  document.getElementById('btn-rest').classList.toggle('active', S.rest);
+  updateStatus();
+}
+
+function setAcc(a) {
+  S.acc = (S.acc === a) ? null : a;
+  const ids = { '#':'a-sharp', b:'a-flat', n:'a-natural' };
+  document.querySelectorAll('.acc').forEach(b => b.classList.remove('active'));
+  if (S.acc) {
+    const el = document.getElementById(ids[S.acc]);
+    if (el) el.classList.add('active');
+  }
+  updateStatus();
+}
+
+function deleteLast() {
+  if (S.notes.length > 0) { S.notes.pop(); schedRender(); }
+}
+
+function clearAll() {
+  if (S.notes.length === 0) return;
+  if (confirm('¿Borrar todas las notas de la partitura?')) {
+    S.notes = []; schedRender();
+  }
+}
+
+function onMeta() {
+  S.title    = document.getElementById('m-title').value;
+  S.composer = document.getElementById('m-composer').value;
+  S.clef     = document.getElementById('m-clef').value;
+  S.timeSig  = document.getElementById('m-time').value;
+  S.keySig   = document.getElementById('m-key').value;
+  document.getElementById('sc-title').textContent    = S.title;
+  document.getElementById('sc-composer').textContent = S.composer;
+  schedRender();
+}
+
+// ─── NOTE ENTRY (click on staff) ───────────────────────────────────
+
+function getStaveAtSVGy(svgY) {
+  for (const s of S.staves) {
+    const topY = s.y - 20;   // allow 2 ledger spaces above
+    const botY = s.y + 60;   // 4 lines × 10px + ledger below
+    if (svgY >= topY && svgY <= botY) return s;
+  }
+  return null;
+}
+
+function svgYtoPitch(svgY, staveY) {
+  // top staff line is at staveY in SVG coords
+  const relY = svgY - staveY;
+  const step = Math.round(relY / 5); // 5px per diatonic step
+  return getStepPitch(step, S.clef);
+}
+
+function addNote(pitch) {
+  S.notes.push({
+    pitch:  pitch,
+    dur:    S.dur,
+    acc:    S.rest ? null : S.acc,
+    rest:   S.rest,
+    dotted: S.dotted,
+  });
+  // Auto-reset accidental after placement so next note is clean
+  if (S.acc) {
+    S.acc = null;
+    document.querySelectorAll('.acc').forEach(b => b.classList.remove('active'));
+    updateStatus();
+  }
+  schedRender();
+}
+
+// ─── HOVER & GHOST NOTE ────────────────────────────────────────────
+
+let _hoverAF = null;
+
+function onOverlayMove(e) {
+  if (_hoverAF) cancelAnimationFrame(_hoverAF);
+  _hoverAF = requestAnimationFrame(() => _processHover(e));
+}
+
+function _processHover(e) {
+  const vfc = document.getElementById('vf-container');
+  const svg = vfc.querySelector('svg');
+  if (!svg || S.staves.length === 0) { hideGhost(); hideTooltip(); return; }
+
+  const svgRect = svg.getBoundingClientRect();
+  const svgX = e.clientX - svgRect.left;
+  const svgY = e.clientY - svgRect.top;
+
+  const staveInfo = getStaveAtSVGy(svgY);
+  if (!staveInfo || svgX < staveInfo.x || svgX > staveInfo.x + staveInfo.w) {
+    hideGhost(); hideTooltip(); return;
+  }
+
+  const pitch = svgYtoPitch(svgY, staveInfo.y);
+  const relY  = svgY - staveInfo.y;
+  const step  = Math.round(relY / 5);
+  const snapSvgY = staveInfo.y + step * 5;
+
+  // Ghost canvas draw
+  const gc  = document.getElementById('ghost-canvas');
+  const gcc = gc.getContext('2d');
+  gcc.clearRect(0, 0, gc.width, gc.height);
+
+  // Convert SVG coords → canvas coords
+  const canvasRect = gc.getBoundingClientRect();
+  const cx = e.clientX - canvasRect.left;
+  const cy = snapSvgY + svgRect.top - canvasRect.top;
+
+  if (S.rest) {
+    // Draw rest symbol placeholder
+    gcc.save();
+    gcc.globalAlpha = 0.5;
+    gcc.fillStyle = '#778899';
+    gcc.fillRect(cx - 8, cy - 4, 16, 8);
+    gcc.restore();
+  } else {
+    // Draw note head oval
+    gcc.save();
+    gcc.globalAlpha = 0.45;
+    gcc.fillStyle   = '#4455cc';
+    gcc.strokeStyle = '#2233aa';
+    gcc.lineWidth   = 1;
+    gcc.beginPath();
+    gcc.ellipse(cx, cy, 8, 5.5, -0.25, 0, Math.PI * 2);
+    gcc.fill(); gcc.stroke();
+    // Stem (for non-whole notes)
+    if (S.dur !== 'w') {
+      gcc.strokeStyle = '#4455cc'; gcc.lineWidth = 1.5;
+      gcc.beginPath(); gcc.moveTo(cx + 7, cy); gcc.lineTo(cx + 7, cy - 32);
+      gcc.stroke();
+    }
+    // Ledger lines if needed (above or below staff)
+    drawGhostLedger(gcc, staveInfo, svgRect, canvasRect, cx, cy, step);
+    gcc.restore();
+  }
+
+  // Tooltip
+  const accSym = S.acc === '#' ? '♯' : S.acc === 'b' ? '♭' : S.acc === 'n' ? '♮' : '';
+  showTooltip(e.clientX + 16, e.clientY - 36,
+    S.rest ? '𝄽 Silencio' : (noteName(pitch) + accSym));
+}
+
+function drawGhostLedger(gcc, staveInfo, svgRect, canvasRect, cx, cy, step) {
+  // step < 0 = above top line, step > 8 = below bottom line
+  if (step >= -1 && step <= 9) return;
+  gcc.strokeStyle = '#4455cc'; gcc.lineWidth = 1;
+
+  function ledgerAt(svgLy) {
+    const lcy = svgLy + svgRect.top - canvasRect.top;
+    gcc.beginPath();
+    gcc.moveTo(cx - 11, lcy); gcc.lineTo(cx + 11, lcy);
+    gcc.stroke();
+  }
+
+  if (step < -1) {
+    // Above: ledger lines at even steps (-2, -4, -6…)
+    for (let s = -2; s >= step; s -= 2) {
+      ledgerAt(staveInfo.y + s * 5);
+    }
+  }
+  if (step > 9) {
+    // Below: ledger lines at even steps (10, 12…)
+    for (let s = 10; s <= step; s += 2) {
+      ledgerAt(staveInfo.y + s * 5);
+    }
+  }
+}
+
+function hideGhost() {
+  const gc = document.getElementById('ghost-canvas');
+  if (gc) {
+    const gcc = gc.getContext('2d');
+    gcc.clearRect(0, 0, gc.width, gc.height);
+  }
+}
+
+function onOverlayLeave() { hideGhost(); hideTooltip(); }
+
+function onOverlayClick(e) {
+  if (S.staves.length === 0) return;
+  const vfc = document.getElementById('vf-container');
+  const svg = vfc.querySelector('svg');
+  if (!svg) return;
+
+  const svgRect = svg.getBoundingClientRect();
+  const svgX = e.clientX - svgRect.left;
+  const svgY = e.clientY - svgRect.top;
+
+  // Check if click lands on an existing note → toggle selection
+  const hitIdx = findNoteAt(svgX, svgY);
+  if (hitIdx !== null) {
+    toggleNoteSelection(hitIdx);
+    return;
+  }
+
+  // No note hit → add new note at pitch position
+  const staveInfo = getStaveAtSVGy(svgY);
+  if (!staveInfo || svgX < staveInfo.x || svgX > staveInfo.x + staveInfo.w) return;
+
+  const pitch = svgYtoPitch(svgY, staveInfo.y);
+  addNote(pitch);
+}
+
+// ─── TOOLTIP ───────────────────────────────────────────────────────
+
+function showTooltip(x, y, text) {
+  const t = document.getElementById('tooltip');
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+  t.textContent = text; t.style.display = 'block';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// ─── KEYBOARD SHORTCUTS ────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  switch (e.key) {
+    case '1': setDur('w');  break;
+    case '2': setDur('h');  break;
+    case '4': setDur('q');  break;
+    case '5': setDur('8');  break;
+    case '6': setDur('16'); break;
+    case '7': setDur('32'); break;
+    case 'r': case 'R': toggleRest(); break;
+    case '.': toggleDot(); break;
+    case 'Delete': case 'Backspace': deleteLast(); break;
+    case ' ':
+      e.preventDefault(); togglePlay(); break;
+    case 'ArrowUp':
+      e.preventDefault(); shiftLastOctave(+1); break;
+    case 'ArrowDown':
+      e.preventDefault(); shiftLastOctave(-1); break;
+  }
+});
+
+function shiftLastOctave(delta) {
+  if (S.notes.length === 0) return;
+  const last = S.notes[S.notes.length - 1];
+  if (!last.rest) {
+    last.pitch = shiftOctave(last.pitch, delta);
+    schedRender();
+  }
+}
+
+// ─── AUDIO PLAYBACK (Tone.js) ──────────────────────────────────────
+
+let isPlaying = false;
+let synth     = null;
+let stopTimer = null;
+
+const DUR_TONE = { w:'1n', h:'2n', q:'4n', '8':'8n', '16':'16n', '32':'32n' };
+
+async function togglePlay() {
+  if (isPlaying) { stopPlay(); return; }
+  if (S.notes.length === 0) return;
+
+  try { await Tone.start(); } catch (_) {}
+
+  if (!synth) {
+    synth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'triangle' },
+      envelope:   { attack:0.02, decay:0.1, sustain:0.5, release:0.6 },
+      volume:     -6,
+    }).toDestination();
+  }
+
+  isPlaying = true;
+  document.getElementById('btn-play').textContent = '⏹ Detener';
+  document.getElementById('btn-play').classList.add('active');
+
+  Tone.Transport.bpm.value = 84;
+
+  let t = Tone.now() + 0.1;
+  let totalMs = 0;
+
+  for (const note of S.notes) {
+    const toneDur = DUR_TONE[note.dur] || '4n';
+    let secLen = Tone.Time(toneDur).toSeconds();
+    if (note.dotted) secLen *= 1.5;
+
+    if (!note.rest) {
+      const pitch = pitchToTone(note.pitch, note.acc);
+      try { synth.triggerAttackRelease(pitch, secLen * 0.88, t); } catch (_) {}
+    }
+    t        += secLen;
+    totalMs  += secLen * 1000;
+  }
+
+  stopTimer = setTimeout(stopPlay, totalMs + 300);
+}
+
+function stopPlay() {
+  isPlaying = false;
+  if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+  if (synth) { try { synth.releaseAll(); } catch (_) {} }
+  document.getElementById('btn-play').textContent = '▶ Reproducir';
+  document.getElementById('btn-play').classList.remove('active');
+}
+
+// ─── MUSICXML EXPORT ───────────────────────────────────────────────
+
+function exportMusicXML() {
+  if (S.notes.length === 0) { alert('No hay notas para exportar.'); return; }
+  const xml  = buildMusicXML();
+  const blob = new Blob([xml], { type:'application/xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'composicion.xml'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function buildMusicXML() {
+  const DIVISIONS = 64; // per quarter note
+  const DUR_DIV = { w:256, h:128, q:64, '8':32, '16':16, '32':8 };
+  const DUR_TYPE = { w:'whole', h:'half', q:'quarter', '8':'eighth', '16':'16th', '32':'32nd' };
+  const KEY_FIFTHS = {
+    C:0, G:1, D:2, A:3, E:4, B:5, F:-1, Bb:-2, Eb:-3, Ab:-4, Am:0, Em:-1,
+  };
+  const { num: numBeats, val: beatVal } = TIME_BEATS[S.timeSig] || { num:4, val:4 };
+  const measures = splitMeasures(S.notes, S.timeSig);
+  if (!measures.length) measures.push([]);
+
+  let measureXML = '';
+  measures.forEach((m, mi) => {
+    let notesXML = '';
+    for (const note of m) {
+      let divs = DUR_DIV[note.dur] || 64;
+      if (note.dotted) divs = Math.round(divs * 1.5);
+      const type = DUR_TYPE[note.dur] || 'quarter';
+      const dot  = note.dotted ? '<dot/>' : '';
+
+      if (note.rest) {
+        notesXML += `\n        <note><rest/><duration>${divs}</duration><type>${type}</type>${dot}</note>`;
+      } else {
+        const [step, oct] = note.pitch.split('/');
+        const alter = note.acc === '#' ? '<alter>1</alter>' : note.acc === 'b' ? '<alter>-1</alter>' : '';
+        const accTag = note.acc && note.acc !== 'n'
+          ? `<accidental>${note.acc === '#' ? 'sharp' : 'flat'}</accidental>` : '';
+        notesXML += `
+        <note>
+          <pitch><step>${step.toUpperCase()}</step>${alter}<octave>${oct}</octave></pitch>
+          <duration>${divs}</duration><type>${type}</type>${dot}${accTag}
+        </note>`;
+      }
+    }
+    const attrs = mi === 0 ? `
+        <attributes>
+          <divisions>${DIVISIONS}</divisions>
+          <key><fifths>${KEY_FIFTHS[S.keySig] ?? 0}</fifths></key>
+          <time><beats>${numBeats}</beats><beat-type>${beatVal}</beat-type></time>
+          <clef><sign>${S.clef === 'treble' ? 'G' : 'F'}</sign><line>${S.clef === 'treble' ? '2' : '4'}</line></clef>
+        </attributes>` : '';
+    measureXML += `\n      <measure number="${mi + 1}">${attrs}${notesXML}\n      </measure>`;
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN"
+  "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <work><work-title>${esc(S.title)}</work-title></work>
+  <identification>
+    <creator type="composer">${esc(S.composer)}</creator>
+    <encoding>
+      <software>BAGO Music Score Editor v1.0</software>
+      <encoding-date>${new Date().toISOString().slice(0,10)}</encoding-date>
+    </encoding>
+  </identification>
+  <part-list>
+    <score-part id="P1"><part-name>${esc(S.title)}</part-name></score-part>
+  </part-list>
+  <part id="P1">${measureXML}
+  </part>
+</score-partwise>`;
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+// ─── NOTE SELECTION ────────────────────────────────────────────────
+
+function findNoteAt(svgX, svgY) {
+  for (const box of S.noteBoxes) {
+    if (svgX >= box.x && svgX <= box.x + box.w &&
+        svgY >= box.y && svgY <= box.y + box.h) {
+      return box.noteIdx;
+    }
+  }
+  return null;
+}
+
+function toggleNoteSelection(noteIdx) {
+  if (S.selected.has(noteIdx)) {
+    S.selected.delete(noteIdx);
+  } else {
+    S.selected.add(noteIdx);
+  }
+  updateTransposeBtn();
+  schedRender();
+}
+
+function updateTransposeBtn() {
+  const btn = document.getElementById('btn-transpose');
+  if (btn) btn.style.display = S.selected.size > 0 ? '' : 'none';
+}
+
+// ─── TRANSPOSE PANEL ───────────────────────────────────────────────
+
+function openTransposePanel() {
+  const panel = document.getElementById('transpose-panel');
+  if (panel) panel.style.display = 'flex';
+}
+
+function closeTransposePanel() {
+  const panel = document.getElementById('transpose-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+function applyTranspose() {
+  const sel   = document.getElementById('interval-select');
+  const delta = parseInt(sel ? sel.value : '2', 10);
+  if (isNaN(delta)) return;
+
+  S.notes.forEach((note, idx) => {
+    if (note.rest || !S.selected.has(idx)) return;
+    const [step, octStr] = note.pitch.split('/');
+    const octave  = parseInt(octStr, 10);
+    const curAlter = note.acc === '#' ? 1 : note.acc === 'b' ? -1 : 0;
+    const midi     = noteToMidi(step, octave, curAlter);
+    const { step: ns, octave: no, alter: na } = midiToNote(midi + delta);
+    note.pitch = ns + '/' + no;
+    note.acc   = na === 1 ? '#' : na === -1 ? 'b' : null;
+  });
+
+  S.selected.clear();
+  updateTransposeBtn();
+  closeTransposePanel();
+  schedRender();
+}
+
+// ─── MUSICXML IMPORT ───────────────────────────────────────────────
+
+function onFileLoad(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadMusicXML(ev.target.result);
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = ''; // allow re-loading same file
+}
+
+function loadMusicXML(xmlStr) {
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(xmlStr, 'application/xml');
+  const xmlErr = doc.querySelector('parsererror');
+  if (xmlErr) { alert('Error al parsear MusicXML:\n' + xmlErr.textContent.slice(0, 200)); return; }
+
+  // ── Metadata ──────────────────────────────────────────────────────
+  const movTitle  = doc.querySelector('movement-title');
+  const workTitle = doc.querySelector('work > work-title');
+  const creator   = doc.querySelector('creator[type="composer"]');
+  const titleStr  = (movTitle || workTitle)?.textContent?.trim() || 'Sin título';
+  const compStr   = creator?.textContent?.trim() || 'Compositor';
+
+  document.getElementById('m-title').value    = titleStr;
+  document.getElementById('m-composer').value = compStr;
+  S.title    = titleStr;
+  S.composer = compStr;
+  document.getElementById('sc-title').textContent    = titleStr;
+  document.getElementById('sc-composer').textContent = compStr;
+
+  // ── Time / Key / Clef from first <attributes> block ──────────────
+  const firstAttrs = doc.querySelector('measure attributes');
+  if (firstAttrs) {
+    const beats    = firstAttrs.querySelector('beats')?.textContent?.trim();
+    const beatType = firstAttrs.querySelector('beat-type')?.textContent?.trim();
+    if (beats && beatType) {
+      const ts = beats + '/' + beatType;
+      if (TIME_BEATS[ts]) {
+        S.timeSig = ts;
+        const tsel = document.getElementById('m-time');
+        if (tsel) tsel.value = ts;
+      }
+    }
+
+    const fifths = parseInt(firstAttrs.querySelector('fifths')?.textContent?.trim() ?? '0', 10);
+    const mode   = firstAttrs.querySelector('mode')?.textContent?.trim();
+    const FIFTHS_MAP = { '0':'C','1':'G','2':'D','3':'A','4':'E','5':'B','-1':'F','-2':'Bb' };
+    if (mode === 'minor' && fifths === 0) {
+      S.keySig = 'Am';
+      const ksel = document.getElementById('m-key'); if (ksel) ksel.value = 'Am';
+    } else {
+      const k = FIFTHS_MAP[String(fifths)];
+      if (k) { S.keySig = k; const ksel = document.getElementById('m-key'); if (ksel) ksel.value = k; }
+    }
+
+    const clefSign = firstAttrs.querySelector('clef sign')?.textContent?.trim();
+    if (clefSign === 'G') {
+      S.clef = 'treble'; document.getElementById('m-clef').value = 'treble';
+    } else if (clefSign === 'F') {
+      S.clef = 'bass';   document.getElementById('m-clef').value = 'bass';
+    }
+  }
+
+  // ── Parse notes from first <part> ────────────────────────────────
+  const TYPE_DUR = {
+    'whole':'w', 'half':'h', 'quarter':'q', 'eighth':'8', '16th':'16', '32nd':'32',
+  };
+  const firstPart = doc.querySelector('part');
+  if (!firstPart) { alert('No se encontró ninguna parte en el MusicXML.'); return; }
+
+  const notes = [];
+  firstPart.querySelectorAll('note').forEach(noteEl => {
+    if (noteEl.querySelector('chord')) return; // skip chord duplicates
+    const isRest = !!noteEl.querySelector('rest');
+    const typeEl = noteEl.querySelector('type');
+    const dotted = !!noteEl.querySelector('dot');
+    const dur    = TYPE_DUR[typeEl?.textContent?.trim()] ?? 'q';
+
+    if (isRest) {
+      notes.push({ pitch:'b/4', dur, acc:null, rest:true, dotted });
+    } else {
+      const stepEl  = noteEl.querySelector('pitch > step');
+      const octEl   = noteEl.querySelector('pitch > octave');
+      const alterEl = noteEl.querySelector('pitch > alter');
+      if (!stepEl || !octEl) return;
+      const step   = stepEl.textContent.trim().toLowerCase();
+      const octave = octEl.textContent.trim();
+      const alterV = alterEl ? Math.round(parseFloat(alterEl.textContent.trim())) : 0;
+      const acc    = alterV === 1 ? '#' : alterV === -1 ? 'b' : null;
+      notes.push({ pitch: step + '/' + octave, dur, acc, rest:false, dotted });
+    }
+  });
+
+  if (notes.length === 0) { alert('No se encontraron notas en el MusicXML.'); return; }
+
+  S.selected.clear();
+  S.notes = notes;
+  updateTransposeBtn();
+  schedRender();
+}
+
+// ─── EXAMPLE SCORE ─────────────────────────────────────────────────
+// "Nostalgia en La menor" — 3 voces, La menor, 3/4, Andante — 8 compases
+// Cadencia andaluza descendente (Am→G→F→E) x2, resolución.
+// Divisions = 2 per quarter. quarter=2, half=4, dotted-half=6.
+
+const EXAMPLE_SCORE = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN"
+  "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <movement-title>Nostalgia en La menor</movement-title>
+  <identification>
+    <creator type="composer">BAGO</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1"><part-name>Soprano</part-name></score-part>
+    <score-part id="P2"><part-name>Alto</part-name></score-part>
+    <score-part id="P3"><part-name>Bajo</part-name></score-part>
+  </part-list>
+  <!-- P1: Soprano — melodía lírica alta -->
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>A</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="6">
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="7">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="8">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+  <!-- P2: Alto — armonía en terceras/sextas bajo soprano -->
+  <part id="P2">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="6">
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="7">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="8">
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+  <!-- P3: Bajo — pedal + movimiento de raíz -->
+  <part id="P3">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="6">
+      <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="7">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>quarter</type></note>
+    </measure>
+    <measure number="8">
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>6</duration><type>half</type><dot/></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+// ─── INITIALISATION ────────────────────────────────────────────────
+
+function init() {
+  // Resolve VexFlow global (handles both Vex.Flow and VexFlow)
+  if (typeof Vex !== 'undefined' && Vex.Flow) {
+    VF = Vex.Flow;
+  } else if (typeof VexFlow !== 'undefined') {
+    VF = VexFlow;
+  } else {
+    document.getElementById('empty-hint').innerHTML =
+      '⚠️ VexFlow no se pudo cargar.<br><small>Comprueba tu conexión a internet y recarga la página.</small>';
+    return;
+  }
+
+  // Wire up hover overlay
+  const overlay = document.getElementById('hit-overlay');
+  overlay.addEventListener('mousemove',  onOverlayMove);
+  overlay.addEventListener('mouseleave', onOverlayLeave);
+  overlay.addEventListener('click',      onOverlayClick);
+
+  // Window resize → re-render
+  window.addEventListener('resize', schedRender);
+
+  // Initial render
+  doRender();
+  updateStatus(1);
+  updateTransposeBtn();
+
+  console.log('%cBAGO Music Score Editor v1.0 — ready', 'color:#8888ff;font-weight:bold');
+  console.log('VexFlow loaded:', VF ? '✓' : '✗');
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>

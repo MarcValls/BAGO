@@ -72,6 +72,7 @@ INTERNAL_TOOLS: frozenset[str] = frozenset({
     "bago_search",
     "legacy_fixer",
     "bago_config",
+    "audit_state_pointers",
     # registry sub-modules (private, not user-facing tools)
     "_registry_paths",
     "_registry_models",

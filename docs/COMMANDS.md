@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-11 17:50 UTC
+> Last generated: 2026-05-12 19:12 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -10,11 +10,11 @@
 
 | Bucket | Count |
 |--------|-------|
-| ⚙️ Core | 13 |
-| 🧪 Experimental | 61 |
-| ⚠️ Dangerous | 7 |
+| ⚙️ Core | 14 |
+| 🧪 Experimental | 63 |
+| ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **81** |
+| **Total active** | **85** |
 
 ---
 
@@ -29,10 +29,12 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago doc-agent` | Agente de documentación: detecta y actualiza COMMANDS.md, LAYERS.md y README.md. Subcomandos/flags: --check \| --dry-run \| --json \| --only <doc> \| --no-stage | 🔍 calidad | mutating | required |
 | `bago flow` | Flowchart ASCII de workflows + gestión de estado activo (start/done/status) | ▶️ ejecución | safe | required |
 | `bago health` | Salud del framework: score \| report \| stability \| efficiency \| consistency \| sincerity | 💚 salud | safe | required |
+| `bago orphans` | Detector de módulos huérfanos: archivos .py en tools/ sin registro. --baseline \| --fix \| --strict | 🔬 avanzado | safe | required |
 | `bago project` | Memoria distribuida por proyecto: init \| link \| unlink \| state \| learn \| promote | 💚 salud | safe | required |
 | `bago scope` | Detecta scope (framework/project/both) de scripts Python por análisis estático | 💚 salud | safe | required |
 | `bago secrets` | Escanea el repositorio buscando secretos y credenciales expuestas | 🔍 calidad | safe | required |
 | `bago session` | Ciclo de sesión: open \| close \| harvest \| v2 | ▶️ ejecución | safe | required |
+| `bago setup` | Wizard de configuración inicial: notificaciones (Telegram/WhatsApp/ntfy), git hooks. --check \| --reset \| --clean-history | 🔬 avanzado | safe | required |
 | `bago status` | Estado actual: flujo activo, tarea pendiente y salud del sistema | 📊 analítica | safe | required |
 | `bago sync` | Regenera TREE.txt y CHECKSUMS | 💚 salud | safe | required |
 | `bago task` | Muestra la tarea W2 pendiente | ▶️ ejecución | safe | required |
@@ -97,8 +99,10 @@ Actively developed. May change between minor versions.
 | `bago seed` | BAGO Seed — planta la huella mínima de BAGO en un proyecto externo: crea .bago/pack.json + state/ + launcher y registra la siembra. Subcomandos: [path] \| --name \| --dry-run \| --list \| --status | • infraestructura | mutating | optional |
 | `bago select` | Selector interactivo de ideas por slot con plan de implementación | ▶️ ejecución | safe | optional |
 | `bago siembra` | Gestión de siembras BAGO v3.0: create \| list \| update \| diff \| sync \| status | 💚 salud | mutating | optional |
+| `bago skill` | Skill Layer (Fractal AGI nivel-2): mini-spirals de 3-6 pasos. list \| run <id> \| status | 🔬 avanzado | safe | optional |
 | `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario. | 📊 analítica | safe | optional |
 | `bago spanish` | Detecta inconsistencias ortográficas en español: tildes y singular/plural en claves y rutas | 🔍 calidad | safe | optional |
+| `bago spiral-agent` | Agent Layer (Fractal AGI nivel-1): BagoAgents con skills dinámicas. spawn \| list \| run <id> \| kill \| status | 🔬 avanzado | safe | optional |
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | ▶️ ejecución | safe | optional |
 | `bago sprite-studio` | Generador de sprites BIANCA via Codex/HF sin API key, con galería browser | 🎨 visual | safe | optional |
 | `bago toolsmith` | Agente dinámico de toolboxes: assign\|sprint\|agent\|missing\|create\|catalog\|listen — asigna cajas de herramientas por tarea y crea tools faltantes | • infraestructura | safe | optional |
@@ -123,6 +127,7 @@ High-impact commands. Require `--confirm` or `--dry-run`.
 | `bago install` | Auto-lanzamiento al insertar el pendrive (macOS/Linux/Windows/Android/iPad) | 🔬 avanzado | **dangerous** | optional |
 | `bago orchestrate` | Orquestador de workflows multi-tool en secuencia con condiciones | 🔬 avanzado | **dangerous** | optional |
 | `bago peer` | Comunicacion peer-to-peer LAN (serve/discover/ping/send/chat) | 🔬 avanzado | **dangerous** | optional |
+| `bago spiral` | Bucle espiral cromático (Shepard Loop): 12 pasos de auto-redescrición AGI. --execute para actuar, --status, --history | 🔬 avanzado | **dangerous** | optional |
 
 ---
 

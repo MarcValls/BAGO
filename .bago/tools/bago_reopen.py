@@ -239,7 +239,7 @@ def _self_test() -> None:
     # Test 2: _find_latest_close returns None when no sessions dir
     global SESSIONS_DIR
     _orig = SESSIONS_DIR
-    SESSIONS_DIR = _P("/tmp/bago_test_empty_sessions_xyz")
+    SESSIONS_DIR = Path(tempfile.gettempdir()) / "bago_test_empty_sessions_xyz"
     try:
         result = _find_latest_close()
         assert result is None, "expected None for missing dir"

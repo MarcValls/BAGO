@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 114 CLI commands · 81 public commands
+> **Version 3.4.0b1** · 118 CLI commands · 85 public commands
 
-Public command contract (CI-checked): **13 core** · **59 experimental** · **7 dangerous** · **28 legacy**
+Public command contract (CI-checked): **14 core** · **63 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -71,7 +71,8 @@ These commands form the **stable public interface**.
 | `bago sync` | Regenerate TREE.txt and CHECKSUMS |
 | `bago scope` | Detect script scope (framework / project / both) |
 | `bago secrets` | Scan repository for exposed credentials |
-| `bago doc-agent` | Documentation agent: detect and update COMMANDS.md, LAYERS.md, README |
+| `bago setup` | First-time setup wizard: Telegram, WhatsApp, ntfy config |
+| `bago orphans` | Detect unregistered tool modules (orphan daemon) |
 
 ---
 
@@ -86,6 +87,7 @@ These commands form the **stable public interface**.
 | `install` | Auto-launch on pendrive insert (macOS/Linux) | `--unsafe` |
 | `orchestrate` | Multi-tool workflow sequencer | `--yes` |
 | `peer` | LAN peer-to-peer communication | `--unsafe` |
+| `spiral` | Bucle espiral cromático: 12 pasos de auto-redescripción AGI | `--execute` |
 
 ---
 
@@ -104,7 +106,7 @@ These commands form the **stable public interface**.
 `ableton-template` · `advisor` · `agent` · `ask` · `autonomy` · `build-clean` · `build-run` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps` · `diff`
 `docs` · `find-tool` · `goals` · `habit` · `hardcode` · `heal-paths` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `llm-node` · `lsp` · `music`
 `naming` · `neural` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `preflight-check` · `recientes` · `reopen` · `repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules`
-`select` · `seed` · `siembra` · `snapshot` · `spanish` · `sprint` · `sprite-studio` · `toolsmith` · `types` · `version` · `why` · `work_matrix` · `workflow` · `placeholder_scan` · `neural-toolbox`
+`select` · `seed` · `siembra` · `skill` · `snapshot` · `spanish` · `spiral-agent` · `sprint` · `sprite-studio` · `toolsmith` · `types` · `version` · `why` · `work_matrix` · `workflow` · `placeholder_scan` · `neural-toolbox`
 
 ---
 

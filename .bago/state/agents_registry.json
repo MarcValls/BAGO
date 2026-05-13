@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Registro de BagoAgents activos — cada agente es una espiral nivel-1",
+    "phase_design": "Fases desfasadas por terceras mayores (4 semitonos): 0·4·8 y 2 (adicional)",
+    "skill_ref": ".bago/state/skill_registry.json"
+  },
+  "agent_tools": {
+    "phase": 0,
+    "skills": ["code_review"],
+    "category": "tools",
+    "description": "Agente de herramientas y revisión de código",
+    "active": true
+  },
+  "agent_tests": {
+    "phase": 4,
+    "skills": ["test_runner"],
+    "category": "tests",
+    "description": "Agente de ejecución y validación de tests",
+    "active": true
+  },
+  "agent_docs": {
+    "phase": 8,
+    "skills": ["doc_writer"],
+    "category": "docs",
+    "description": "Agente de documentación y generación de contenido",
+    "active": true
+  },
+  "agent_ops": {
+    "phase": 2,
+    "skills": ["code_review", "doc_writer"],
+    "category": "ops",
+    "description": "Agente de operaciones con cobertura cruzada",
+    "active": true
+  }
+}

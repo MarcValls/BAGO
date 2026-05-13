@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 """tool_guardian.py — Herramienta #125: Guardian de coherencia del framework BAGO.
 
-Detecta tools en .bago/tools/ que no cumplen los estándares del framework:
+Detecta tools en .bago/tools/ que no cumplen los estándares del framework.
 
-    GUARD-E001  Tool sin flag --test implementado
-    GUARD-E002  Tool sin registro en integration_tests.py
+Reglas y severidad por tier de estabilidad:
+─────────────────────────────────────────────────────────────────
+  Tier       Stability          E001  E002  Health%
+  ─────────  ─────────────────  ────  ────  ───────
+  required   core | dangerous   ERR   ERR   sí
+  suggested  experimental       WARN  WARN  no
+  exempt     internal | legacy  —     —     no
+─────────────────────────────────────────────────────────────────
+
+    GUARD-E001  Tool (required) sin flag --test implementado
+    GUARD-E002  Tool (required) sin registro en integration_tests.py
     GUARD-W001  Tool sin routing en bago script
     GUARD-W002  Tool sin docstring de módulo
     GUARD-I001  Tool correctamente integrado (informativo)
 
-Es la herramienta que BAGO necesita para validarse a sí mismo.
-Nació de la experiencia real: 47+ tools sin tests registrados en esta sesión.
+La salud (health_pct) mide únicamente los tools tier=required.
+Los tools experimental aparecen como warnings, internal/legacy no se auditan.
 
 Uso:
     bago tool-guardian [--format text|md|json]
@@ -69,6 +78,59 @@ def _load_internal_tools() -> frozenset:
     })
 
 INTERNAL_TOOLS = _load_internal_tools()
+
+# ─── Registry stability lookup ────────────────────────────────────────────────
+
+def _load_registry_stabilities() -> dict[str, str]:
+    """Return {module_stem: stability} from tool_registry. Falls back to empty dict."""
+    import importlib.util
+    reg_path = TOOLS_DIR / "tool_registry.py"
+    if not reg_path.exists():
+        return {}
+    spec = importlib.util.spec_from_file_location("_guardian_reg2", str(reg_path))
+    if not spec:
+        return {}
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        import sys as _sys
+        _sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        registry = getattr(mod, "REGISTRY", {})
+        result: dict[str, str] = {}
+        for _cmd, entry in registry.items():
+            # Use module field as the file stem; fall back to command name
+            module_stem = getattr(entry, "module", _cmd) or _cmd
+            stab = getattr(entry, "stability", "experimental")
+            # A module may be referenced by multiple commands (e.g. flow/status)
+            # Keep strictest: required > suggested > exempt
+            existing = result.get(module_stem, "suggested")
+            if stab in _REQUIRED_STABILITIES:
+                result[module_stem] = stab
+            elif stab in _EXEMPT_STABILITIES and existing not in _REQUIRED_STABILITIES:
+                result[module_stem] = stab
+            else:
+                result.setdefault(module_stem, stab)
+        return result
+    except Exception:
+        return {}
+    finally:
+        import sys as _sys
+        _sys.modules.pop(spec.name, None)
+
+
+_REQUIRED_STABILITIES  = frozenset({"core", "dangerous"})
+_SUGGESTED_STABILITIES = frozenset({"experimental"})
+_EXEMPT_STABILITIES    = frozenset({"internal", "legacy"})
+
+
+def _tool_tier(stem: str, stabilities: dict[str, str]) -> str:
+    """Return 'required', 'suggested', or 'exempt' for a tool stem."""
+    stab = stabilities.get(stem, "experimental")
+    if stab in _REQUIRED_STABILITIES:
+        return "required"
+    if stab in _EXEMPT_STABILITIES:
+        return "exempt"
+    return "suggested"  # experimental or unknown
 
 
 def _get_all_tools() -> list[Path]:
@@ -178,57 +240,73 @@ def analyze(tools: list[Path] = None) -> list[dict]:
     if tools is None:
         tools = _get_all_tools()
 
+    stabilities = _load_registry_stabilities()
     findings: list[dict] = []
     for tool in tools:
+        tier        = _tool_tier(tool.stem, stabilities)
+        if tier == "exempt":
+            continue  # internal / legacy — no auditamos
+
         has_test    = _has_test_flag(tool)
         in_integ    = _is_in_integration(tool)
         in_bago     = _is_in_bago_script(tool)
         has_docstr  = _has_module_docstring(tool)
 
+        # E001 / E002: error para required, warning para suggested
         if not has_test:
+            sev = "error" if tier == "required" else "warning"
             findings.append({
-                "rule": "GUARD-E001", "severity": "error",
-                "file": str(tool), "tool": tool.stem,
+                "rule": "GUARD-E001", "severity": sev,
+                "file": str(tool), "tool": tool.stem, "tier": tier,
                 "message": f"'{tool.name}' sin flag --test implementado",
             })
         if not in_integ:
+            sev = "error" if tier == "required" else "warning"
             findings.append({
-                "rule": "GUARD-E002", "severity": "error",
-                "file": str(tool), "tool": tool.stem,
+                "rule": "GUARD-E002", "severity": sev,
+                "file": str(tool), "tool": tool.stem, "tier": tier,
                 "message": f"'{tool.name}' no registrado en integration_tests.py",
             })
         if not in_bago:
             findings.append({
                 "rule": "GUARD-W001", "severity": "warning",
-                "file": str(tool), "tool": tool.stem,
+                "file": str(tool), "tool": tool.stem, "tier": tier,
                 "message": f"'{tool.name}' sin routing en bago script",
             })
         if not has_docstr:
             findings.append({
                 "rule": "GUARD-W002", "severity": "warning",
-                "file": str(tool), "tool": tool.stem,
+                "file": str(tool), "tool": tool.stem, "tier": tier,
                 "message": f"'{tool.name}' sin docstring de módulo",
             })
         if has_test and in_integ and in_bago and has_docstr:
             findings.append({
                 "rule": "GUARD-I001", "severity": "info",
-                "file": str(tool), "tool": tool.stem,
+                "file": str(tool), "tool": tool.stem, "tier": tier,
                 "message": f"'{tool.name}' correctamente integrado ✅",
             })
     return findings
 
 
 def _summary(findings: list[dict]) -> dict:
-    tools    = _get_all_tools()
-    errors   = [f for f in findings if f["severity"] == "error"]
-    warnings = [f for f in findings if f["severity"] == "warning"]
-    ok_tools = {f["tool"] for f in findings if f["rule"] == "GUARD-I001"}
+    all_tools    = _get_all_tools()
+    stabilities  = _load_registry_stabilities()
+    # Health is measured on required tools only (core + dangerous)
+    required     = [t for t in all_tools if _tool_tier(t.stem, stabilities) == "required"]
+    errors       = [f for f in findings if f["severity"] == "error"]
+    warnings     = [f for f in findings if f["severity"] == "warning"]
+    ok_tools     = {f["tool"] for f in findings if f["rule"] == "GUARD-I001"}
+    # Required tool is OK if it has no E001/E002 errors (warnings don't block health)
+    error_tools  = {f["tool"] for f in findings if f["severity"] == "error"}
+    req_ok       = sum(1 for t in required if t.stem not in error_tools)
     return {
-        "total_tools":    len(tools),
-        "fully_ok":       len(ok_tools),
-        "total_errors":   len(errors),
-        "total_warnings": len(warnings),
-        "health_pct":     round(len(ok_tools) / max(1, len(tools)) * 100),
+        "total_tools":      len(all_tools),
+        "required_tools":   len(required),
+        "required_ok":      req_ok,
+        "fully_ok":         len(ok_tools),
+        "total_errors":     len(errors),
+        "total_warnings":   len(warnings),
+        "health_pct":       round(req_ok / max(1, len(required)) * 100),
     }
 
 
@@ -237,15 +315,16 @@ def generate_text(findings: list[dict]) -> str:
     color  = _GRN if s["health_pct"] >= 80 else (_YEL if s["health_pct"] >= 50 else _RED)
     lines  = [
         f"{_BOLD}Tool Guardian — Estado del framework BAGO{_RST}",
-        f"  {color}Salud: {s['health_pct']}%{_RST}  "
-        f"({s['fully_ok']}/{s['total_tools']} tools OK  "
+        f"  {color}Salud (required): {s['health_pct']}%{_RST}  "
+        f"({s['required_ok']}/{s['required_tools']} required OK  "
+        f"| {s['fully_ok']}/{s['total_tools']} total  "
         f"E:{s['total_errors']}  W:{s['total_warnings']})",
         "",
     ]
     errors   = [f for f in findings if f["severity"] == "error"]
     warnings = [f for f in findings if f["severity"] == "warning"]
     if errors:
-        lines.append(f"  {_RED}Errores críticos:{_RST}")
+        lines.append(f"  {_RED}Errores críticos (core/dangerous):{_RST}")
         for f in errors:
             lines.append(f"    [{f['rule']}] {f['message']}")
     if warnings:
@@ -284,8 +363,8 @@ def _record_run(s: dict) -> None:
     import datetime as _dt
     date     = _dt.datetime.now(_dt.timezone.utc).isoformat()
     health   = s["health_pct"]
-    ok       = s["fully_ok"]
-    total    = s["total_tools"]
+    ok       = s.get("required_ok", s["fully_ok"])
+    total    = s.get("required_tools", s["total_tools"])
     errors   = s["total_errors"]
     warnings = s["total_warnings"]
     try:

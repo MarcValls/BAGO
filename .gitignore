@@ -29,6 +29,7 @@ desktop.ini
 .bago/state/llm_server.pid
 .bago/state/bago_context.log
 .bago/state/events.jsonl
+.bago/state/routing_history.jsonl
 
 # BAGO — session data (private)
 .bago/state/sessions/
@@ -59,6 +60,7 @@ whatsapp_config.json
 # State privado (no versionar)
 .bago/state/chat_history.json
 .bago/state/tareas_telegram.json
+.bago/state/logs/
 
 # Backups y builds
 .bago/tools/*.bak
@@ -86,6 +88,8 @@ whatsapp_config.json
 
 # BAGO — HTML/SVG generados (se regeneran con bago matrix/dashboard)
 bago_matrix*.html
+# Excepción: herramientas permanentes que siguen la convención de nombre bago_matrix*
+!bago_matrix_music_editor.html
 .bago/docs/analysis/*.html
 .bago/docs/analysis/figures/
 
@@ -110,3 +114,11 @@ dist/
 
 # Runtime artifacts
 .bago/state/neural_events.jsonl
+launcher/static/vendor/
+
+# BAGO — SEGURIDAD: state con datos privados/runtime (no versionar)
+# Use .bago/state/global_state.template.json como plantilla de referencia
+.bago/state/global_state.json
+.bago/state/private_state.json
+.bago/state/orchestrator/state.json
+projects/tragaperras_bot/.env

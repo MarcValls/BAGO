@@ -1,0 +1,20 @@
+{
+  "code_review": {
+    "steps": [2, 3, 4, 5, 6],
+    "phase": 2,
+    "category": "tools",
+    "description": "Análisis de calidad de código: detecta drift, propone mejoras, genera plan"
+  },
+  "test_runner": {
+    "steps": [0, 8, 9, 10, 11],
+    "phase": 0,
+    "category": "tests",
+    "description": "Ciclo de validación: observa estado, valida suite de tests, registra y refleja"
+  },
+  "doc_writer": {
+    "steps": [3, 4, 5, 11],
+    "phase": 3,
+    "category": "docs",
+    "description": "Ciclo de documentación: detecta gaps, propone docs, selecciona y descansa"
+  }
+}

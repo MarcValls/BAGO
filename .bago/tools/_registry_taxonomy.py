@@ -215,7 +215,7 @@ _CORE_CMDS: frozenset[str] = frozenset({
     "project", "sync", "scope", "secrets", "validate", "context",
 })
 _DANGEROUS_CMDS: frozenset[str] = frozenset({
-    "install", "autonomous", "orchestrate", "cabinet", "peer", "db", "auto",
+    "install", "autonomous", "orchestrate", "cabinet", "peer", "db", "auto", "spiral",
 })
 _INTERNAL_CMDS: frozenset[str] = frozenset({
     "banner", "hello", "hub", "start", "done",

@@ -1580,6 +1580,123 @@ def _tools_referenced_by(fn) -> set[str]:
     return refs
 
 
+def test_auto_mode():
+    """auto_mode.py --test pasa sin errores."""
+    rc, out, _ = _run("auto_mode.py", ["--test"])
+    if rc == 0:
+        _record("auto_mode:test", PASS, out.strip() or "ok")
+    else:
+        _record("auto_mode:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_bago_context():
+    """bago_context.py --test pasa sin errores."""
+    rc, out, _ = _run("bago_context.py", ["--test"])
+    if rc == 0:
+        _record("bago_context:test", PASS, out.strip() or "ok")
+    else:
+        _record("bago_context:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_bago_db():
+    """bago_db.py --test pasa sin errores."""
+    rc, out, _ = _run("bago_db.py", ["--test"])
+    if rc == 0:
+        _record("bago_db:test", PASS, out.strip() or "ok")
+    else:
+        _record("bago_db:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_bago_install():
+    """bago_install.py --test pasa sin errores."""
+    rc, out, _ = _run("bago_install.py", ["--test"])
+    if rc == 0:
+        _record("bago_install:test", PASS, out.strip() or "ok")
+    else:
+        _record("bago_install:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_cabinet_orchestrator():
+    """cabinet_orchestrator.py --test pasa sin errores."""
+    rc, out, _ = _run("cabinet_orchestrator.py", ["--test"])
+    if rc == 0:
+        _record("cabinet_orchestrator:test", PASS, out.strip() or "ok")
+    else:
+        _record("cabinet_orchestrator:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_peer_link():
+    """peer_link.py --test pasa sin errores."""
+    rc, out, _ = _run("peer_link.py", ["--test"])
+    if rc == 0:
+        _record("peer_link:test", PASS, out.strip() or "ok")
+    else:
+        _record("peer_link:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_project_memory():
+    """project_memory.py --test pasa sin errores."""
+    rc, out, _ = _run("project_memory.py", ["--test"])
+    if rc == 0:
+        _record("project_memory:test", PASS, out.strip() or "ok")
+    else:
+        _record("project_memory:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_scope_detector():
+    """scope_detector.py --test pasa sin errores."""
+    rc, out, _ = _run("scope_detector.py", ["--test"])
+    if rc == 0:
+        _record("scope_detector:test", PASS, out.strip() or "ok")
+    else:
+        _record("scope_detector:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_show_task():
+    """show_task.py --test pasa sin errores."""
+    rc, out, _ = _run("show_task.py", ["--test"])
+    if rc == 0:
+        _record("show_task:test", PASS, out.strip() or "ok")
+    else:
+        _record("show_task:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_sync_pack_metadata():
+    """sync_pack_metadata.py --test pasa sin errores."""
+    rc, out, _ = _run("sync_pack_metadata.py", ["--test"])
+    if rc == 0:
+        _record("sync_pack_metadata:test", PASS, out.strip() or "ok")
+    else:
+        _record("sync_pack_metadata:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_validate():
+    """validate.py --test pasa sin errores."""
+    rc, out, _ = _run("validate.py", ["--test"])
+    if rc == 0:
+        _record("validate:test", PASS, out.strip() or "ok")
+    else:
+        _record("validate:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_spiral_loop():
+    """spiral_loop.py --test pasa sin errores."""
+    rc, out, _ = _run("spiral_loop.py", ["--test"])
+    if rc == 0:
+        _record("spiral_loop:test", PASS, out.strip() or "ok")
+    else:
+        _record("spiral_loop:test", FAIL, f"rc={rc} {out[-80:]}")
+
+
+def test_audit_state_pointers():
+    """audit_state_pointers.py: no hay punteros huérfanos ni campos derivados inconsistentes."""
+    rc, out, _ = _run("audit_state_pointers.py", [])
+    if rc == 0:
+        _record("audit_state_pointers:clean", PASS, out.strip() or "CLEAN")
+    else:
+        _record("audit_state_pointers:clean", FAIL, out.strip()[-120:])
+
+
 def test_suite_integrity():
     """ALL_TESTS no referencia funciones no definidas ni tools ausentes."""
     missing_functions = []
@@ -1638,6 +1755,19 @@ ALL_TESTS = [
     (33, "chronicle_reporter", test_chronicle_reporter),
     (34, "lsp_manager", test_lsp_manager),
     (35, "pre_push_guard", test_pre_push_guard),
+    (36, "auto_mode", test_auto_mode),
+    (37, "bago_context", test_bago_context),
+    (38, "bago_db", test_bago_db),
+    (39, "bago_install", test_bago_install),
+    (40, "cabinet_orchestrator", test_cabinet_orchestrator),
+    (41, "peer_link", test_peer_link),
+    (42, "project_memory", test_project_memory),
+    (43, "scope_detector", test_scope_detector),
+    (44, "show_task", test_show_task),
+    (45, "sync_pack_metadata", test_sync_pack_metadata),
+    (46, "validate", test_validate),
+    (47, "spiral_loop", test_spiral_loop),
+    (48, "audit_state_pointers", test_audit_state_pointers),
 ]
 
 
