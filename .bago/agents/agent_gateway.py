@@ -35,17 +35,28 @@ from pathlib import Path
 from typing import Any, Iterator
 
 # ── Path resolution ────────────────────────────────────────────────────────────
-_THIS = Path(__file__).resolve()
-_AGENTS_DIR = _THIS.parent
-_BAGO_DIR   = _AGENTS_DIR.parent
-_BAGO_ROOT  = Path(os.environ.get("BAGO_PADRE_PATH") or _BAGO_DIR.parent)
-_BAGO_BIN   = _BAGO_ROOT / "bago"
-_STATE_DIR  = _BAGO_DIR / "state"
-_TOOLS_DIR  = _BAGO_DIR / "tools"
+_THIS        = Path(__file__).resolve()
+_AGENTS_DIR  = _THIS.parent                                      # motor estático
+_BAGO_DIR    = _AGENTS_DIR.parent
+_BAGO_ROOT   = Path(os.environ.get("BAGO_PADRE_PATH") or _BAGO_DIR.parent)
+_BAGO_BIN    = _BAGO_ROOT / "bago"
+_STATE_DIR   = _BAGO_DIR / "state"
+_TOOLS_DIR   = _BAGO_DIR / "tools"
+_DYN_AGENTS  = _STATE_DIR / "agents"                             # agentes dinámicos
 
-for _p in [str(_TOOLS_DIR), str(_AGENTS_DIR)]:
+for _p in [str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS)]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+# ── Static Guard — separación motor / dinámica ───────────────────────────────
+import importlib.util as _ilu
+try:
+    _gs = _ilu.spec_from_file_location("agent_static_guard", _TOOLS_DIR / "agent_static_guard.py")
+    _gm = _ilu.module_from_spec(_gs)   # type: ignore
+    _gs.loader.exec_module(_gm)         # type: ignore
+    _guard = _gm.guard
+except Exception:
+    _guard = None  # type: ignore
 
 # ── Allowlist de intenciones ───────────────────────────────────────────────────
 
@@ -605,6 +616,14 @@ def main() -> int:
             icon = "✅" if info["available"] else "❌"
             print(f"  {icon} {name:<12} | {info['cost_hint']:<15} | {info['supported_intents']} intenciones")
         print(f"\nTotal llamadas registradas: {st['total_calls']}")
+        # ── Mostrar separación motor / dinámica ───────────────────────────────
+        if _guard:
+            audit = _guard.audit()
+            print(f"\n  Motor estático  (.bago/agents/):       {audit['static_roles']} roles")
+            print(f"  Agentes dinámicos (.bago/state/agents/): {audit['dynamic_count']} agentes")
+            if audit["contaminated"]:
+                print(f"  ⚠  Contaminación detectada: {len(audit['contaminated'])} archivo(s)")
+                print(f"     Ejecuta: python agent_static_guard.py --fix")
         return 0
 
     if args.cmd == "list":

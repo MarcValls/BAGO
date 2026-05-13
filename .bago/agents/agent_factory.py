@@ -8,9 +8,13 @@ Sistema que CREA dinámicamente agentes especializados bajo demanda.
 Si solicitás: "detecta bugs de seguridad"
   1. Factory verifica si existe agente
   2. Si NO existe → LO CREA automáticamente
-  3. Lo guarda permanentemente en .bago/agents/
+  3. Lo guarda en .bago/state/agents/  ← DINÁMICO, nunca en .bago/agents/
   4. Lo ejecuta
   5. Próximas veces: reutiliza existente
+
+Separación motor / dinámica:
+  .bago/agents/        ← MOTOR ESTÁTICO (este archivo es parte del motor)
+  .bago/state/agents/  ← SALIDA DINÁMICA (aquí van los agentes generados)
 
 BAGO = Gestor de especialistas bajo demanda
 Factory = Generador de especialistas
@@ -20,10 +24,23 @@ Agents = Especialistas persistentes
 from pathlib import Path
 import json
 import sys
+import importlib.util
 from datetime import datetime, timezone
 
-AGENTS_DIR = Path(__file__).resolve().parents[1] / "agents"
-AGENTS_MANIFEST = AGENTS_DIR / "manifest.json"
+_HERE      = Path(__file__).resolve().parent
+_BAGO      = _HERE.parent
+
+# ── Guard: separación estático/dinámico ──────────────────────────────────────
+_guard_spec = importlib.util.spec_from_file_location(
+    "agent_static_guard", _BAGO / "tools" / "agent_static_guard.py"
+)
+_guard_mod = importlib.util.module_from_spec(_guard_spec)   # type: ignore
+_guard_spec.loader.exec_module(_guard_mod)                   # type: ignore
+guard = _guard_mod.guard
+
+# Rutas: motor siempre estático, outputs siempre dinámicos
+AGENTS_DIR      = _BAGO / "agents"                  # motor (solo lectura)
+AGENTS_MANIFEST = guard.dynamic_manifest()          # dinámico
 
 # Template universal para generar agentes
 AGENT_TEMPLATE = '''#!/usr/bin/env python3
@@ -175,20 +192,18 @@ if __name__ == "__main__":
 
 
 def load_manifest() -> dict:
-    """Carga manifest de agentes."""
-    if AGENTS_MANIFEST.exists():
-        return json.loads(AGENTS_MANIFEST.read_text(encoding="utf-8"))
-    return {"agents": {}, "created": datetime.now(timezone.utc).isoformat()}
+    """Carga manifest de agentes (dinámico)."""
+    return guard.load_manifest()
 
 
 def save_manifest(manifest: dict):
-    """Guarda manifest."""
-    AGENTS_MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    """Guarda manifest (en state/agents/, nunca en agents/)."""
+    guard.save_manifest(manifest)
 
 
 def agent_exists(name: str) -> bool:
-    """Verifica si agente existe."""
-    return (AGENTS_DIR / f"{name}.py").exists()
+    """Verifica si agente dinámico existe en state/agents/."""
+    return guard.dynamic_path(name).exists()
 
 
 def create_agent(name: str, category: str, description: str, rules: list[str]) -> bool:
@@ -232,12 +247,12 @@ def create_agent(name: str, category: str, description: str, rules: list[str]) -
         created_at=datetime.now(timezone.utc).isoformat()
     )
     
-    # Guarda archivo
-    agent_path = AGENTS_DIR / f"{name}.py"
+    # Guarda archivo en directorio DINÁMICO (nunca en el motor estático)
+    agent_path = guard.dynamic_path(name)
     try:
         agent_path.write_text(code, encoding="utf-8")
         agent_path.chmod(0o755)
-        print(f"✅ Agente creado: {name}")
+        print(f"✅ Agente creado: {name}  →  {agent_path}")
     except Exception as e:
         print(f"❌ Error creando agente: {e}", file=sys.stderr)
         return False
