@@ -73,7 +73,7 @@ def bago_status():
             "mode":         state.get("mode", "?"),
             "health":       health_score,
             "active_flow":  (state.get("sprint_status") or {}).get("active_workflow") or state.get("active_flow") or "ninguno",
-            "ideas_count":  len(state.get("ideas", [])),
+            "ideas_count":  len(get_ideas()),
             "last_w2":      ((state.get("sprint_status") or {}).get("last_completed_workflow") or {}).get("title", "?"),
             "last_session": state.get("last_session_date") or state.get("updated_at", "?"),
             "project":      state.get("project", "bago-core"),
@@ -386,7 +386,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
         length = int(self.headers.get("Content-Length", 0))
-        body   = json.loads(self.rfile.read(length)) if length else {}
+        try:
+            body = json.loads(self.rfile.read(length)) if length else {}
+        except json.JSONDecodeError:
+            self._json({"error": "JSON inválido"}, 400)
+            return
 
         if path == "/api/launch":
             agent = body.get("agent")
