@@ -835,9 +835,9 @@ def main():
 
     if not args:
         if sys.stdin.isatty():
-            # Shell interactivo persistente (como gh copilot)
+            # Menú principal interactivo (curses TUI)
             result = subprocess.run(
-                [sys.executable, str(TOOLS / "bago_shell.py")],
+                [sys.executable, str(TOOLS / "bago_menu.py")],
                 cwd=str(BAGO_ROOT.parent)
             )
             sys.exit(result.returncode)
@@ -936,12 +936,13 @@ def main():
             [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
-    elif cmd in ("splash", "start", "inicio"):
-        # Pantalla de entrada gráfica BAGO
-        subprocess.run(
-            [sys.executable, str(TOOLS / "bago_splash.py")] + rest,
+    elif cmd in ("splash", "start", "inicio", "menu"):
+        # Menú principal interactivo BAGO (curses TUI)
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "bago_menu.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+        sys.exit(result.returncode)
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest
