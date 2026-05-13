@@ -7,30 +7,43 @@
   },
   "agent_tools": {
     "phase": 0,
-    "skills": ["code_review"],
+    "skills": [
+      "code_review"
+    ],
     "category": "tools",
     "description": "Agente de herramientas y revisión de código",
-    "active": true
+    "active": true,
+    "model": "claude-sonnet-4.6"
   },
   "agent_tests": {
     "phase": 4,
-    "skills": ["test_runner"],
+    "skills": [
+      "test_runner"
+    ],
     "category": "tests",
     "description": "Agente de ejecución y validación de tests",
-    "active": true
+    "active": true,
+    "model": "claude-haiku-4.5"
   },
   "agent_docs": {
     "phase": 8,
-    "skills": ["doc_writer"],
+    "skills": [
+      "doc_writer"
+    ],
     "category": "docs",
     "description": "Agente de documentación y generación de contenido",
-    "active": true
+    "active": true,
+    "model": "claude-sonnet-4.6"
   },
   "agent_ops": {
     "phase": 2,
-    "skills": ["code_review", "doc_writer"],
+    "skills": [
+      "code_review",
+      "doc_writer"
+    ],
     "category": "ops",
     "description": "Agente de operaciones con cobertura cruzada",
-    "active": true
+    "active": true,
+    "model": "claude-opus-4.7"
   }
 }

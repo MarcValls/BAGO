@@ -260,7 +260,15 @@
       "session_close": "SESSION_CLOSE_20260511_152256.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
       "objetivo": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día."
+    },
+    {
+      "id": null,
+      "title": "Clasificador automático de workflow (W0-W10) con sklearn",
+      "date": "2026-05-13T07:18:25.289789+00:00",
+      "session_close": "SESSION_CLOSE_20260513_071825.md",
+      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
+      "objetivo": "Entrenar un clasificador LogisticRegression/RandomForest sobre las 59 sesiones existentes para predecir qué workflow (W0-W10) activar dado el contexto actual. Features: tipo de archivos modificados, keywords de la tarea, hora, health score. Integrar en bago workflow como recomendación automática."
     }
   ],
-  "last_updated": "2026-05-11T15:22:56.609586+00:00"
+  "last_updated": "2026-05-13T07:18:25.291570+00:00"
 }

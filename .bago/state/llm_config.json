@@ -1,5 +1,36 @@
 {
   "active_model": "qwen25-coder",
   "engine": "ollama",
-  "server_url": "http://127.0.0.1:11434"
+  "server_url": "http://127.0.0.1:11434",
+  "available_models": {
+    "copilot": [
+      "claude-sonnet-4.6",
+      "claude-sonnet-4.5",
+      "claude-haiku-4.5",
+      "claude-opus-4.7",
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.3-codex",
+      "gpt-5.2-codex",
+      "gpt-5.2",
+      "gpt-5.4-mini",
+      "gpt-5-mini",
+      "gpt-4.1"
+    ],
+    "internal": [
+      "claude-opus-4.7-1m-internal",
+      "claude-opus-4.7-high",
+      "claude-opus-4.7-xhigh",
+      "claude-opus-4.6",
+      "claude-opus-4.6-fast",
+      "claude-opus-4.6-1m",
+      "claude-opus-4.5"
+    ]
+  },
+  "agent_models": {
+    "agent_tools": "claude-sonnet-4.6",
+    "agent_tests": "claude-haiku-4.5",
+    "agent_docs": "claude-sonnet-4.6",
+    "agent_ops": "claude-opus-4.7"
+  }
 }
