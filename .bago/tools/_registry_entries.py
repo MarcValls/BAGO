@@ -982,6 +982,24 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=False,
         layer_group="core",
     ),
+    "canon": ToolEntry(
+        cmd="canon", module="bago_canon",
+        description=(
+            "Bucle de Shepard: 4 modos x 3 voces · DETECT→DIAGNOSE→VERIFY→EVOLVE. "
+            "Orquesta el ciclo completo de salud del framework. "
+            "Modos: MODULAR (monolitos), SCAN (huerfanos/doc), "
+            "CREATE (integracion), EVOLVE (lecciones). "
+            "Uso: bago canon [--mode M] [--voice N] [--loop] [--json]"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_canon.py"))],
+        layer="calidad", scope="framework",
+        agent="CENTINELA",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="optional",
+        supports_dry_run=False,
+        layer_group="core",
+    ),
     # ── SESIÓN / WORKSPACE ────────────────────────────────────────────────────
     "workspace-select": ToolEntry(
         cmd="workspace-select", module="workspace_selector",

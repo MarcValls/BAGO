@@ -667,6 +667,31 @@ def _ld_doc_index(_: str) -> list[str]:
     ]
 
 
+
+def _ld_canon(_: str) -> list[str]:
+    import json
+    from pathlib import Path
+    log_path = Path(__file__).resolve().parent.parent / 'state' / 'canon_log.json'
+    if log_path.exists():
+        try:
+            log = json.loads(log_path.read_text())
+            cycles = log.get('cycles', 0)
+            last = log.get('last_run', 'nunca')[:16].replace('T',' ')
+            bases = log.get('baselines', {})
+            warn = bases.get('MODULAR', {}).get('warn_count', '?')
+            undoc = bases.get('SCAN', {}).get('undoc_count', '?')
+            return [
+                f'  Ciclos completados: {cycles} · último: {last}',
+                f'  MODULAR: {warn} WARN  SCAN: {undoc} sin doc',
+            ]
+        except Exception:
+            pass
+    return [
+        '  Bucle de Shepard: 4 modos x 3 voces',
+        '  Sin ciclos registrados aún — ejecuta para iniciar',
+    ]
+
+
 # ── DISPATCHER ───────────────────────────────────────────────────────────────
 
 # Dispatcher: cmd → loader function
@@ -762,6 +787,7 @@ _LIVE_LOADERS: dict[str, callable] = {
     "build-run":         _ld_build_run,
     "orphan-shield":     _ld_orphan_shield,
     "doc-index":         _ld_doc_index,
+    "canon":             _ld_canon,
 }
 
 

@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 121 CLI commands · 88 public commands
+> **Version 3.4.0b1** · 149 CLI commands · 113 public commands
 
-Public command contract (CI-checked): **15 core** · **64 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **16 core** · **89 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -124,6 +124,7 @@ These commands form the **stable public interface**.
 | `bago setup` | First-time setup wizard: Telegram, WhatsApp, ntfy config |
 | `bago orphans` | Detect unregistered tool modules (orphan daemon) |
 | `bago doc-agent` | Documentation agent: update COMMANDS.md, LAYERS.md, README |
+| `bago devmode` | Toggle developer mode: unlock advanced tools and preflight checks |
 
 ---
 
@@ -154,11 +155,12 @@ These commands form the **stable public interface**.
 
 ## 6. Experimental commands (not part of the contract)
 
-`ableton-template` · `advisor` · `agent` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `chronicle` · `config-check` · `dashboard` · `deactivate` · `debt` · `deps`
-`diff` · `docs` · `find-tool` · `goals` · `habit` · `hardcode` · `heal-paths` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `llm` · `llm-node`
-`lsp` · `music` · `naming` · `neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `placeholder_scan` · `preflight-check` · `recientes` · `reopen`
-`repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `seed` · `select` · `siembra` · `skill` · `snapshot` · `spanish` · `spiral-agent`
-`sprint` · `sprite-studio` · `toolsmith` · `types` · `version` · `why` · `work_matrix` · `workflow`
+`ableton-template` · `advisor` · `agent` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
+`config-check` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
+`heal-paths` · `html-export` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `lint-runner` · `llm` · `llm-node` · `log-viewer` · `lsp` · `music` · `naming` · `net-scan`
+`neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `orphan-shield` · `personality-panel` · `ping-server` · `placeholder_scan` · `preflight-check` · `project-summary` · `recientes` · `reopen`
+`repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `script-runner` · `search-history` · `seed` · `select` · `siembra` · `size-check` · `skill` · `snapshot`
+`spanish` · `spiral-agent` · `sprint` · `sprite-studio` · `state-manager` · `template-gen` · `toolsmith` · `types` · `version` · `weekly-report` · `why` · `work_matrix` · `workflow` · `workflow-navigator`
 
 ---
 

@@ -60,6 +60,7 @@ MENU: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("heal",      "Reparar inconsistencias",     "Auto-repair de problemas detectados por health/validate"),
         ("orphan-shield", "Escudo anti-huérfanos",   "Detecta 4 tipos de artefactos huérfanos: archivos, registry, rutas, docs"),
         ("doc-index",     "Índice documental",       "Índice reverso: qué documentos cubren qué herramientas"),
+        ("canon",          "Bucle de Shepard",         "4 modos x 3 voces: MODULAR/SCAN/CREATE/EVOLVE · ciclo completo de salud"),
     ]),
     ("🔍  Análisis de código", [
         ("code-metrics", "Métricas del código",      "Complejidad ciclomática, duplicaciones, líneas por módulo"),
