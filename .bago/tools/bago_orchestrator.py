@@ -265,14 +265,15 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
     mode = select_mode(auto_rules, providers_available, mode_name)
     mode_config = modes.get(mode, modes.get("offline", {}))
 
-    # 3. Encontrar regla de routing por tarea
+    # 3. Encontrar regla de routing por tarea (mejor coincidencia)
     text = task.lower()
     route = None
+    best_hits = 0
     for rule in routing.get("rules", []):
         hits = sum(1 for kw in rule.get("keywords", []) if kw.lower() in text)
-        if hits >= 1:
+        if hits > best_hits:
+            best_hits = hits
             route = rule
-            break
 
     # 4. Encontrar preferencia de tarea
     task_type = None
@@ -338,8 +339,8 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
             s += 15
 
         # Clasificar tarea
-        complex_tasks = ["code_complex", "code_frontier", "review_deep", "music_edit", "long_context", "music_analysis", "code_edits"]
-        simple_tasks = ["code_fast", "brainstorm", "music_render", "brainstorm_offline"]
+        complex_tasks = ["code_complex", "code_frontier", "review_deep", "music_edit", "long_context", "music_analysis", "code_edits", "review_complex", "music_long_context"]
+        simple_tasks = ["code_fast", "brainstorm", "music_render", "brainstorm_offline", "music_render_preview"]
 
         if env["in_codex"]:
             # En Codex CLI: tareas SIMPLES -> Ollama local gratis obligatorio
