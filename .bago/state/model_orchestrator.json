@@ -23,7 +23,7 @@
     },
     "estandar": {
       "description": "Todos excepto créditos OpenAI. Usa suscripción Ollama Cloud si es necesario.",
-      "allowed_providers": ["ollama-local", "ollama-cloud", "copilot"],
+      "allowed_providers": ["ollama-local", "ollama-cloud", "copilot", "codex"],
       "default_model": "qwen25-coder",
       "fallback_chain": ["qwen25-coder", "claude-sonnet-4.6", "gpt-5.4", "kimi-k2-1t"]
     },
@@ -73,3 +73,4 @@
     ]
   }
 }
+

@@ -13,6 +13,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import subprocess
 import sys
@@ -28,24 +29,174 @@ def _read_json(path: Path) -> dict:
         return {}
 
 
-def _check_provider(name: str, cmd: str) -> bool:
-    """Ejecuta health check de un proveedor."""
+def _detect_codex_env() -> dict:
+    """Detecta si estamos ejecutando dentro de Codex CLI."""
+    env = {
+        "in_codex": False,
+        "in_copilot": False,
+        "codex_model": None,
+        "codex_config": None,
+    }
+    # Detectar Codex CLI
+    codex_config = Path.home() / ".codex" / "config.toml"
+    if codex_config.exists():
+        env["in_codex"] = True
+        env["codex_config"] = str(codex_config)
+        # Leer modelo activo
+        try:
+            for line in codex_config.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("model"):
+                    env["codex_model"] = line.split("=")[-1].strip().strip('"').strip("'")
+                    break
+        except Exception:
+            pass
+    # Detectar Copilot CLI
+    copilot_settings = Path.home() / ".copilot" / "settings.json"
+    if copilot_settings.exists():
+        env["in_copilot"] = True
+    return env
+
+
+def _check_provider(name: str, cmd: str = "") -> bool:
+    """Ejecuta health check robusto de un proveedor."""
     try:
-        if "curl" in cmd:
-            result = subprocess.run(cmd.split(), capture_output=True, timeout=5)
-            return result.returncode == 0
+        if name == "ollama-local":
+            # Verificar que ollama responde y tiene modelos
+            r = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
+            if r.returncode == 0 and r.stdout.strip():
+                return True
+            # Fallback: probar curl al endpoint
+            r2 = subprocess.run("curl -s http://127.0.0.1:11434/api/tags".split(), capture_output=True, timeout=3)
+            return r2.returncode == 0 and b"models" in r2.stdout
+
+        elif name == "ollama-cloud":
+            # Verificar conexión a API Ollama cloud
+            r = subprocess.run("curl -s https://api.ollama.com/v1/models".split(), capture_output=True, timeout=5)
+            return r.returncode == 0 and (b"models" in r.stdout or b"data" in r.stdout)
+
+        elif name == "copilot":
+            # Verificar gh copilot
+            r = subprocess.run("gh copilot --version".split(), capture_output=True, timeout=5)
+            if r.returncode == 0:
+                return True
+            # Fallback: verificar gh auth
+            r2 = subprocess.run("gh auth status".split(), capture_output=True, timeout=5)
+            return r2.returncode == 0 and b"Logged in" in r2.stdout
+
+        elif name == "codex":
+            # Verificar codex CLI
+            r = subprocess.run("codex --version".split(), capture_output=True, timeout=5)
+            if r.returncode == 0:
+                return True
+            # Fallback: verificar config de codex
+            codex_config = Path.home() / ".codex" / "config.toml"
+            return codex_config.exists()
+
+        elif name == "openclaw":
+            r = subprocess.run("openclaw --version".split(), capture_output=True, timeout=3)
+            return r.returncode == 0
+
         else:
-            result = subprocess.run(cmd.split(), capture_output=True, timeout=5)
-            return result.returncode == 0
+            if cmd:
+                r = subprocess.run(cmd.split(), capture_output=True, timeout=5)
+                return r.returncode == 0
+            return False
     except Exception:
         return False
 
 
+def _list_ollama_models() -> list[str]:
+    """Lista modelos disponibles en Ollama local."""
+    try:
+        r = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
+        if r.returncode != 0:
+            return []
+        models = []
+        for line in r.stdout.strip().split("\n")[1:]:  # Skip header
+            parts = line.split()
+            if parts:
+                models.append(parts[0])
+        return models
+    except Exception:
+        return []
+
+
+def _detect_chain() -> dict:
+    """Detecta la cadena de acceso: Codex -> Copilot -> Ollama -> Cloud."""
+    chain = {
+        "codex": False,
+        "copilot": False,
+        "ollama_local": False,
+        "ollama_cloud": False,
+        "chain_access": [],
+    }
+
+    # Paso 1: ¿Estamos en Codex CLI?
+    codex_config = Path.home() / ".codex" / "config.toml"
+    chain["codex"] = codex_config.exists()
+
+    # Paso 2: ¿Tenemos Copilot?
+    try:
+        r = subprocess.run("gh copilot --version".split(), capture_output=True, timeout=3)
+        chain["copilot"] = r.returncode == 0
+    except Exception:
+        pass
+
+    # Paso 3: ¿Ollama local?
+    try:
+        r = subprocess.run(["ollama", "list"], capture_output=True, timeout=3)
+        chain["ollama_local"] = r.returncode == 0
+    except Exception:
+        pass
+
+    # Paso 4: ¿Ollama cloud? (requiere API key)
+    ollama_key = os.environ.get("OLLAMA_API_KEY")
+    chain["ollama_cloud"] = bool(ollama_key)
+
+    # Construir cadena de acceso
+    access = []
+    if chain["codex"]:
+        access.append("codex")
+    if chain["copilot"]:
+        access.append("copilot")
+    if chain["ollama_local"]:
+        access.append("ollama-local")
+    if chain["ollama_cloud"]:
+        access.append("ollama-cloud")
+    chain["chain_access"] = access
+
+    return chain
+
+
 def detect_providers(providers: dict, health_checks: dict) -> dict:
-    """Detecta qué proveedores están disponibles."""
+    """Detecta que proveedores estan disponibles via health checks + cadena."""
     available = {}
+    chain = _detect_chain()
+    env = _detect_codex_env()
+
+    # Health checks robustos
     for name, cmd in health_checks.items():
         available[name] = _check_provider(name, cmd)
+
+    # Si estamos en Codex CLI, codex siempre esta disponible
+    if env["in_codex"]:
+        available["codex"] = True
+
+    # Si tenemos Ollama local, listar modelos disponibles
+    if available.get("ollama-local", False):
+        ollama_models = _list_ollama_models()
+        if not ollama_models:
+            available["ollama-local"] = False  # Ollama corriendo pero sin modelos
+
+    # Cadena de acceso: desde Codex podemos acceder a todo
+    if chain["codex"] and chain["copilot"]:
+        # Tenemos acceso a GitHub Copilot desde Codex
+        available["copilot"] = True
+
+    # Log de cadena
+    if chain["chain_access"]:
+        print(f"  Cadena de acceso: {' -> '.join(chain['chain_access'])}")
+
     return available
 
 
@@ -69,6 +220,31 @@ def select_mode(auto_rules: list, providers_available: dict, args_mode: str | No
     if all([ollama_local, ollama_cloud, copilot, codex]):
         return "full"
     return "offline"  # fallback seguro
+
+
+def get_available_models() -> list[dict]:
+    """Devuelve lista de modelos realmente disponibles."""
+    health_script = Path(__file__).parent / "bago_health_check.py"
+    if not health_script.exists():
+        return []
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("bago_health_check", health_script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    health = mod.full_health_check()
+
+    models = []
+    for provider, status in health.items():
+        if not status["available"]:
+            continue
+        for m in status.get("models", []):
+            models.append({
+                "name": m["name"],
+                "provider": provider,
+                "active": m.get("active", False),
+                "size": m.get("size", ""),
+            })
+    return models
 
 
 def orchestrate(task: str, mode_name: str | None = None) -> dict:
@@ -110,16 +286,38 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
     # 5. Filtrar modelos por modo (allowed_providers)
     allowed = set(mode_config.get("allowed_providers", []))
     candidates = []
+
+    # Obtener modelos reales de Ollama si esta disponible
+    ollama_real_models = _list_ollama_models() if providers_available.get("ollama-local") else []
+
     for prov_name, prov in providers_data.get("providers", {}).items():
         if prov_name not in allowed:
             continue
         if not providers_available.get(prov_name, False):
             continue
         for model_name, model in prov.get("models", {}).items():
+            wire_name = model.get("wire_name", model_name)
+            # Para Ollama local, verificar que el modelo realmente esta descargado
+            if prov_name == "ollama-local":
+                found = False
+                wire_base = wire_name.split(":")[0]  # qwen2.5-coder
+                for m in ollama_real_models:
+                    m_base = m.split(":")[0]  # qwen2.5
+                    # Coincidencia exacta
+                    if wire_name == m:
+                        found = True
+                        break
+                    # Coincidencia por familia solo si comparten nombre base principal
+                    # qwen2.5-coder debe coincidir con qwen2.5-coder, NO con qwen2.5
+                    if wire_base == m_base:
+                        found = True
+                        break
+                if not found:
+                    continue  # Modelo no descargado en Ollama
             candidates.append({
                 "name": model_name,
                 "provider": prov_name,
-                "wire_name": model.get("wire_name", model_name),
+                "wire_name": wire_name,
                 "cost": model.get("cost", "unknown"),
                 "best_for": model.get("best_for", ""),
                 "tokens": model.get("max_prompt_tokens", 0),
@@ -129,23 +327,54 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
     # 6. Scorear candidatos
     def score(c):
         s = 0
-        # Coste: menor es mejor
+        env = _detect_codex_env()
+
+        # Coste: menor es mejor (peso reducido para no dominar todo)
         cost_order = {"free": 0, "included": 1, "subscription": 2, "openai_credits": 3}
-        s += (3 - cost_order.get(c["cost"], 3)) * 10
+        s += (3 - cost_order.get(c["cost"], 3)) * 6
+
         # Preferencia de tarea
         if task_type and c["name"] in task_prefs.get(task_type, {}).get("models", []):
-            s += 25
-        # Complejidad de tarea: si es compleja, penalizar modelos mini
-        complex_tasks = ["code_complex", "code_frontier", "review_deep", "music_edit", "long_context"]
-        simple_tasks = ["code_fast", "brainstorm", "music_render"]
-        if task_type in complex_tasks:
-            if "mini" in c["name"] or c["size_mb"] < 1000:
-                s -= 15  # Penalizar mini para tareas complejas
-            else:
-                s += 10  # Bonus para modelos grandes
-        if task_type in simple_tasks:
-            if "mini" in c["name"] or c["size_mb"] < 1000:
-                s += 15  # Bonus para mini en tareas simples
+            s += 15
+
+        # Clasificar tarea
+        complex_tasks = ["code_complex", "code_frontier", "review_deep", "music_edit", "long_context", "music_analysis", "code_edits"]
+        simple_tasks = ["code_fast", "brainstorm", "music_render", "brainstorm_offline"]
+
+        if env["in_codex"]:
+            # En Codex CLI: tareas SIMPLES -> Ollama local gratis obligatorio
+            if task_type in simple_tasks:
+                if c["provider"] == "ollama-local" and c["cost"] == "free":
+                    s += 80  # Inmenso bonus: ahorrar créditos para simples
+                if c["provider"] == "codex":
+                    s -= 30  # Penalizar Codex para simples
+
+            # En Codex CLI: tareas COMPLEJAS -> Codex, el MÁS BARATO adecuado
+            if task_type in complex_tasks:
+                if c["provider"] == "codex":
+                    s += 20
+                    # Preferir gpt-5.4 o gpt-5.3-codex sobre gpt-5.5
+                    if c["name"] == "gpt-5.4":
+                        s += 15
+                    if c["name"] == "gpt-5.3-codex":
+                        s += 12
+                    if c["name"] == "gpt-5.4-mini":
+                        s += 8
+                    if c["name"] == "gpt-5.5":
+                        s -= 8   # Penalizar frontier innecesariamente
+                if c["provider"] == "ollama-local":
+                    s -= 30  # Penalizar local para complejas
+
+        else:
+            # Fuera de Codex: reglas normales
+            if task_type in complex_tasks:
+                if "mini" in c["name"] or c["size_mb"] < 1000:
+                    s -= 15
+                else:
+                    s += 10
+            if task_type in simple_tasks:
+                if "mini" in c["name"] or c["size_mb"] < 1000:
+                    s += 15
         return s
 
     candidates.sort(key=score, reverse=True)
@@ -179,7 +408,12 @@ def print_orchestration(task: str, mode: str | None = None) -> None:
         print(f"     Proveedores: {result['providers_available']}")
         return
 
+    env = _detect_codex_env()
     print(f"\n  BAGO Orchestrator")
+    if env["in_codex"]:
+        print(f"  Entorno:    Codex CLI (modelo activo: {env.get('codex_model', 'desconocido')})")
+    if env["in_copilot"]:
+        print(f"  Entorno:    Copilot CLI detectado")
     print(f"  {'-'*46}")
     print(f"  Tarea:      {result['task']}")
     print(f"  Modo:       {result['mode']}")
@@ -211,3 +445,4 @@ if __name__ == "__main__":
         print()
     else:
         print_orchestration(args.task, args.mode)
+
