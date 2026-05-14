@@ -259,7 +259,7 @@ switch ($command) {
     "status" { Show-Status }
     "launch" { if ($rest[0]) { Launch-Model -model $rest[0] } else { Launch-Orchestrated -task ($rest -join " ") } }
     "install" { Install-Component -component (if ($rest[0]) { $rest[0] } else { "qwen25-coder" }) }
-    "sync" { Sync-USB -direction (if ($rest[0]) { $rest[0] } else { "auto" }) }
+    "sync" { $dir = if ($rest[0]) { $rest[0] } else { "auto" }; Sync-USB -direction $dir }
     "locate" { Detect-Source }
     default {
         Write-Host @"
@@ -284,5 +284,6 @@ Ejemplos:
 "@ -ForegroundColor White
     }
 }
+
 
 
