@@ -1,4 +1,4 @@
-@echo off
-REM bago.cmd — Windows wrapper for the BAGO framework launcher
-REM Usage: bago [command] [args...]
-python "%~dp0bago" %*
+﻿@echo off
+:: bago.cmd — BAGO Launcher para Windows (wrapper de bago.ps1)
+:: Instalar en PATH: C:\Users\{user}\BAGO\ o C:\Program Files\BAGO\
+powershell -ExecutionPolicy Bypass -File "%~dp0bago.ps1" %*

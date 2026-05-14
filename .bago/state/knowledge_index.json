@@ -1,7 +1,7 @@
 {
   "knowledge_base": {
     "initialized": "2026-05-04",
-    "files_count": 38,
+    "files_count": 39,
     "last_harvest": "2026-05-14",
     "covers": [
       "ableton",
@@ -189,6 +189,11 @@
         "source": "github.com/NorthwoodsSoftware/GoJS",
         "license": "commercial",
         "relevance": "mind_map_editor"
+      },
+      "BAGO_H_architecture.md": {
+        "topic": "architecture",
+        "type": "spec",
+        "scope": "framework"
       }
     }
   },
