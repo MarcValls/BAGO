@@ -72,7 +72,7 @@ function Show-Status {
     }
 
     # Modelos
-    $providersFile = Join-Path $script:PRIMARY "..\state\model_providers.json"
+    $providersFile = Join-Path $script:PRIMARY "state\model_providers.json"
     if (Test-Path $providersFile) {
         $providers = Get-Content $providersFile | ConvertFrom-Json
         $localModels = $providers.providers."ollama-local".models.PSObject.Properties.Name -join ", "
@@ -84,10 +84,60 @@ function Show-Status {
     Write-Host ""
 }
 
-function Launch-Model {
-    param([string]$model = "qwen25-coder")
+function Show-Models {
     Detect-Source
-    $providersFile = Join-Path $script:PRIMARY "..\state\model_providers.json"
+    $providersFile = Join-Path $script:PRIMARY "state\model_providers.json"
+    if (-not (Test-Path $providersFile)) {
+        Write-Host "No se encontró model_providers.json" -ForegroundColor Red
+        return
+    }
+    $providers = Get-Content $providersFile | ConvertFrom-Json
+
+    Write-Host ""
+    Write-Host "  Modelos disponibles en BAGO" -ForegroundColor White
+    Write-Host "  " + ("-" * 50) -ForegroundColor DarkGray
+
+    foreach ($provName in $providers.providers.PSObject.Properties.Name) {
+        $prov = $providers.providers.$provName
+        $color = switch ($provName) {
+            "ollama-local" { "Green" }
+            "ollama-cloud" { "Cyan" }
+            "copilot"      { "Yellow" }
+            "codex"        { "Magenta" }
+            default        { "White" }
+        }
+        Write-Host "  [$provName]" -ForegroundColor $color
+        foreach ($mName in $prov.models.PSObject.Properties.Name) {
+            $m = $prov.models.$mName
+            $size = if ($m.size_mb) { " ($($m.size_mb)MB)" } else { "" }
+            $cost = $m.cost
+            $costColor = switch ($cost) {
+                "free"         { "Green" }
+                "included"     { "Yellow" }
+                "subscription" { "Cyan" }
+                "openai_credits" { "Magenta" }
+                default        { "White" }
+            }
+            Write-Host "    $mName$size — $($m.best_for) " -NoNewline -ForegroundColor White
+            Write-Host "[$cost]" -ForegroundColor $costColor
+        }
+    }
+    Write-Host ""
+    Write-Host "  Uso: BAGO launch <modelo>" -ForegroundColor DarkGray
+    Write-Host "  Ej:  BAGO launch qwen25-mini   ← rápido, gratis, local" -ForegroundColor DarkGray
+    Write-Host "       BAGO launch gpt-5.4-mini   ← rápido, créditos OpenAI" -ForegroundColor DarkGray
+    Write-Host "       BAGO launch claude-sonnet-4.6 ← review, incluido en Copilot" -ForegroundColor DarkGray
+    Write-Host ""
+}
+
+function Launch-Model {
+    param([string]$model)
+    if (-not $model -or $model -eq "--list" -or $model -eq "-l") {
+        Show-Models
+        return
+    }
+    Detect-Source
+    $providersFile = Join-Path $script:PRIMARY "state\model_providers.json"
     $providers = Get-Content $providersFile | ConvertFrom-Json -ErrorAction SilentlyContinue
 
     # Buscar modelo en providers
@@ -95,20 +145,21 @@ function Launch-Model {
     foreach ($provName in $providers.providers.PSObject.Properties.Name) {
         $prov = $providers.providers.$provName
         if ($prov.models.PSObject.Properties.Name -contains $model) {
-            $found = @{ Provider = $provName; Model = $model; WireName = $prov.models.$model.wire_name }
+            $found = @{ Provider = $provName; Model = $model; WireName = $prov.models.$model.wire_name; BestFor = $prov.models.$model.best_for; Cost = $prov.models.$model.cost }
             break
         }
     }
 
     if (-not $found) {
-        Write-Host "Modelo '$model' no encontrado. Modelos disponibles:" -ForegroundColor Red
-        foreach ($provName in $providers.providers.PSObject.Properties.Name) {
-            Write-Host "  $provName`: $($providers.providers.$provName.models.PSObject.Properties.Name -join ', ')" -ForegroundColor Yellow
-        }
+        Write-Host "Modelo '$model' no encontrado." -ForegroundColor Red
+        Show-Models
         exit 1
     }
 
-    Write-Host "Lanzando: $($found.Model) via $($found.Provider)" -ForegroundColor Green
+    $costWarn = ""
+    if ($found.Cost -eq "openai_credits") { $costWarn = " (consume créditos OpenAI)" }
+    if ($found.Cost -eq "subscription") { $costWarn = " (requiere suscripción Ollama Cloud)" }
+    Write-Host "Lanzando: $($found.Model) [$($found.BestFor)] via $($found.Provider)$costWarn" -ForegroundColor Green
 
     switch ($found.Provider) {
         "ollama-local" {
@@ -116,12 +167,18 @@ function Launch-Model {
             Write-Host "  ollama run $tag" -ForegroundColor DarkGray
             ollama run $tag
         }
+        "ollama-cloud" {
+            $tag = $found.WireName
+            Write-Host "  ollama run $tag  (cloud)" -ForegroundColor DarkGray
+            # Requiere OLLAMA_API_KEY
+            ollama run $tag
+        }
         "codex" {
             Write-Host "  codex --model $($found.Model)" -ForegroundColor DarkGray
             codex --model $($found.Model)
         }
         "copilot" {
-            Write-Host "  gh copilot suggest ..." -ForegroundColor DarkGray
+            Write-Host "  gh copilot suggest --model $($found.Model)" -ForegroundColor DarkGray
             gh copilot --version
         }
         default {
@@ -175,7 +232,7 @@ $rest = $args[1..($args.Length-1)]
 
 switch ($command) {
     "status" { Show-Status }
-    "launch" { Launch-Model -model (if ($rest[0]) { $rest[0] } else { "qwen25-coder" }) }
+    "launch" { Launch-Model -model $rest[0] }
     "install" { Install-Component -component (if ($rest[0]) { $rest[0] } else { "qwen25-coder" }) }
     "sync" { Sync-USB -direction (if ($rest[0]) { $rest[0] } else { "auto" }) }
     "locate" { Detect-Source }
@@ -187,7 +244,8 @@ Uso: BAGO <comando> [args]
 
 Comandos:
   BAGO status              → Estado de BAGO y fuente de verdad
-  BAGO launch [modelo]     → Lanza modelo (default: qwen25-coder)
+  BAGO launch              → Lista todos los modelos disponibles
+  BAGO launch [modelo]     → Lanza modelo (ej: qwen25-mini, gpt-5.4-mini, claude-sonnet-4.6)
   BAGO install [modelo]    → Instala modelo o herramienta
   BAGO sync [--to-usb|--from-usb] → Sincroniza con pendrive
   BAGO locate              → Detecta fuente de verdad
@@ -200,3 +258,5 @@ Ejemplos:
 "@ -ForegroundColor White
     }
 }
+
+
