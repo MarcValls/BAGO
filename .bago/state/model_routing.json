@@ -1,0 +1,79 @@
+﻿{
+  "version": "2026-05-14",
+  "rules": [
+    {
+      "id": "music_analysis",
+      "keywords": ["partitura", "score", "musicxml", "transponer", "transpose", "arreglo", "arrangement", "nota", "compas", "clave", "armadura", "midi", "musescore", "audiveris", "omr"],
+      "provider": "codex",
+      "model": "gpt-5.3-codex",
+      "reason": "Tarea musical con manipulación de estructuras (XML, Python). Codex para edits seguros."
+    },
+    {
+      "id": "music_review",
+      "keywords": ["revisar partitura", "corregir notas", "review score", "diff music", "pr partitura"],
+      "provider": "copilot",
+      "model": "claude-sonnet-4.6",
+      "reason": "Revisión de partitura sin edits — Copilot para code review rápido."
+    },
+    {
+      "id": "music_long_context",
+      "keywords": ["analizar partitura completa", "repo entero", "score completo", "bago completo", "contexto masivo"],
+      "provider": "ollama-cloud",
+      "model": "kimi-k2-1t",
+      "reason": "Contexto >500K tokens. Kimi K2 1T tokens."
+    },
+    {
+      "id": "music_render_preview",
+      "keywords": ["render", "preview", "pdf", "svg", "png", "visualizar partitura", "exportar partitura"],
+      "provider": "local",
+      "model": "qwen25-coder",
+      "reason": "Render local sin coste. Qwen coder maneja Python + XML."
+    },
+    {
+      "id": "code_edits",
+      "keywords": ["editar", "edita", "modifica", "implementar", "ejecutar", "tests", "multi_file", "install", "deploy", "script", "pipeline"],
+      "provider": "codex",
+      "model": "gpt-5.4",
+      "reason": "Edición de archivos + ejecución. Codex con control del repo."
+    },
+    {
+      "id": "code_frontier",
+      "keywords": ["arquitectura", "router", "diseño sistema", "complex reasoning", "refactor grande"],
+      "provider": "codex",
+      "model": "gpt-5.5",
+      "reason": "Razonamiento profundo. GPT-5.5 frontier."
+    },
+    {
+      "id": "review_pr",
+      "keywords": ["pr", "pull request", "review", "diff", "riesgo", "code review"],
+      "provider": "copilot",
+      "model": "claude-sonnet-4.6",
+      "reason": "Revisión de código. Mejor code review del catálogo."
+    },
+    {
+      "id": "review_complex",
+      "keywords": ["auditoría", "audit", "security", "secrets", "risk"],
+      "provider": "copilot",
+      "model": "claude-opus-4.7",
+      "reason": "Auditoría profunda. Claude Opus para reasoning complejo."
+    },
+    {
+      "id": "brainstorm_offline",
+      "keywords": ["idea", "ideas", "brainstorm", "plan", "resumen", "offline", "explicame", "explica"],
+      "provider": "local",
+      "model": "qwen25-coder",
+      "reason": "Brainstorming offline sin coste."
+    },
+    {
+      "id": "fast_confirm",
+      "keywords": ["confirmar", "si/no", "rapido", "classifica", "etiqueta"],
+      "provider": "local",
+      "model": "qwen25-mini",
+      "reason": "Ultra-rápido, confirmaciones simples."
+    }
+  ],
+  "fallback": {
+    "provider": "codex",
+    "model": "gpt-5.4"
+  }
+}
