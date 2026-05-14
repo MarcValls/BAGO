@@ -88,6 +88,18 @@ MULTIFILE_HINTS = {
     "repo completo", "monorepo", "frontend y backend", "full stack",
 }
 
+MUSIC_KEYWORDS = {
+    "partitura", "score", "musicxml", "transponer", "transpose", "arreglo",
+    "arrangement", "nota", "compas", "compás", "clave", "armadura", "midi",
+    "musescore", "audiveris", "omr", "render", "partituras", "scores",
+    "tonalidad", "semitonos", "semitonos", "intervalo", "voz", "instrumento",
+    "bajo", "piano", "guitarra", "violin", "flauta", "clarinete", "saxo",
+    "trompeta", "mayor", "menor", "tono", "tempo", "bpm", "ritmo",
+    "melodia", "armonia", "acorde", "escala", "modo",
+}
+
+ROUTING_FILE = STATE_DIR / "model_routing.json"
+
 
 @dataclass
 class Agent:
@@ -124,6 +136,28 @@ def _read_json(path: Path, fallback):
     except Exception:
         pass
     return fallback
+
+
+def _select_model_for_task(task: str) -> dict | None:
+    text = task.lower()
+    rules = _read_json(ROUTING_FILE, {}).get("rules", [])
+    for rule in rules:
+        keywords = rule.get("keywords", [])
+        hits = sum(1 for kw in keywords if kw.lower() in text)
+        if hits >= 1:
+            return {
+                "provider": rule.get("provider"),
+                "model": rule.get("model"),
+                "reason": rule.get("reason"),
+                "rule_id": rule.get("id"),
+            }
+    fallback = _read_json(ROUTING_FILE, {}).get("fallback", {})
+    return {
+        "provider": fallback.get("provider", "codex"),
+        "model": fallback.get("model", "gpt-5.4"),
+        "reason": "Fallback: ninguna regla coincide.",
+        "rule_id": "fallback",
+    }
 
 
 def load_policy() -> dict:
@@ -375,6 +409,7 @@ def _signals(task: str) -> dict:
         "escalation_hits": _count_hits(text, ESCALATION_KEYWORDS),
         "review_hits": _count_hits(text, REVIEW_KEYWORDS),
         "multifile": any(hint in text for hint in MULTIFILE_HINTS),
+        "music_hits": _count_hits(text, MUSIC_KEYWORDS),
     }
 
 
@@ -385,15 +420,31 @@ def _scores(available: dict, policy: dict, sig: dict) -> dict:
         if agent_id == local_id:
             scores[agent_id] += sig["local_hits"] * 12 + (10 if policy.get("local_first") else 0)
         elif agent_id == "copilot":
-            scores[agent_id] += sig["code_hits"] * 12 + sig["review_hits"] * 14 + sig["escalation_hits"] * 5
+            scores[agent_id] += sig["code_hits"] * 12 + sig["review_hits"] * 14 + sig["escalation_hits"] * 5 + sig["music_hits"] * 6
         elif agent_id == "codex":
-            scores[agent_id] += sig["codex_hits"] * 14 + sig["escalation_hits"] * 8 + (25 if sig["multifile"] else 0)
+            scores[agent_id] += sig["codex_hits"] * 14 + sig["escalation_hits"] * 8 + (25 if sig["multifile"] else 0) + sig["music_hits"] * 10
+        elif agent_id == "ollama-cloud":
+            scores[agent_id] += sig["music_hits"] * 4 + sig["escalation_hits"] * 6
     return scores
 
 
 def _hard_route(available: dict, policy: dict, sig: dict) -> dict | None:
     local_id = policy.get("local_agent", "ollama")
     scores = _scores(available, policy, sig)
+
+    # Music tasks -> codex for safe file editing
+    if sig["music_hits"] >= 1:
+        agent_id = "codex" if "codex" in available else ("copilot" if "copilot" in available else None)
+        if agent_id:
+            agent = available[agent_id]
+            route = _select_model_for_task(policy.get("_task", ""))
+            model = route["model"] if route and route["model"] in agent.get("models", []) else _agent_model(agent)
+            return _decision(
+                agent, agent_id, model, "hard_guardrail",
+                "Tarea musical detectada (partituras, transposiciÃ³n, arreglos). Se escala a agente con control de archivos.",
+                88 if agent_id == "codex" else 75, scores, policy,
+                _available_chain(available, [local_id, agent_id]),
+            )
 
     if sig["review_hits"] >= 1:
         agent_id = "copilot" if "copilot" in available else ("codex" if "codex" in available else None)
@@ -564,6 +615,7 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
     agents = agents or detect_agents()
     available = {agent["id"]: agent for agent in agents if agent.get("available")}
     policy = load_policy()
+    policy["_task"] = task
     if use_classifier is not None:
         policy["local_classifier"] = use_classifier
 
@@ -591,7 +643,9 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
 
 def _fallback_route(available: dict, policy: dict, sig: dict, scores: dict) -> dict:
     local_id = policy.get("local_agent", "ollama")
-    if local_id in available and policy.get("local_first"):
+    force_cloud = sig["music_hits"] >= 1 or sig["review_hits"] >= 1 or sig["codex_hits"] >= 1 or sig["escalation_hits"] >= 1 or sig["code_hits"] >= 1
+
+    if not force_cloud and local_id in available and policy.get("local_first"):
         agent = available[local_id]
         return _decision(
             agent, local_id, _agent_model(agent, "qwen2.5-coder:7b"), "rules_fallback",
@@ -603,8 +657,8 @@ def _fallback_route(available: dict, policy: dict, sig: dict, scores: dict) -> d
     agent = available[best_id]
     return _decision(
         agent, best_id, _agent_model(agent), "rules_fallback",
-        "Mejor agente disponible por reglas deterministas.",
-        60, scores, policy, [best_id],
+        "Mejor agente disponible por reglas deterministas." + (" (override local por tarea especializada)" if force_cloud else ""),
+        75 if force_cloud else 60, scores, policy, [best_id],
     )
 
 
