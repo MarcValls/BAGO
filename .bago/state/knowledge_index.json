@@ -1,7 +1,7 @@
 {
   "knowledge_base": {
     "initialized": "2026-05-04",
-    "files_count": 39,
+    "files_count": 40,
     "last_harvest": "2026-05-14",
     "covers": [
       "ableton",
@@ -193,6 +193,11 @@
       "BAGO_H_architecture.md": {
         "topic": "architecture",
         "type": "spec",
+        "scope": "framework"
+      },
+      "bago_orchestrator_learned.md": {
+        "topic": "orchestration",
+        "type": "learned",
         "scope": "framework"
       }
     }

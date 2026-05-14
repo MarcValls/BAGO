@@ -84,6 +84,31 @@ function Show-Status {
     Write-Host ""
 }
 
+function Launch-Orchestrated {
+    param([string]$task)
+    if (-not $task) {
+        $task = Read-Host "Describe tu tarea (ej: transponer partitura, revisar codigo, brainstorm ideas)"
+    }
+    Detect-Source
+    $orchScript = Join-Path $script:PRIMARY "tools\bago_orchestrator.py"
+    if (Test-Path $orchScript) {
+        $result = python $orchScript "$task"
+        Write-Host $result -ForegroundColor White
+        # Extract model from output
+        $model = ($result | Select-String "Modelo:\s+(\S+)").Matches.Groups[1].Value
+        if ($model) {
+            Write-Host ""
+            $confirm = Read-Host "Lanzar $model? [S/n]"
+            if ($confirm -ne "n" -and $confirm -ne "N") {
+                Launch-Model -model $model
+            }
+        }
+    } else {
+        Write-Host "Orquestador no encontrado. Listando modelos disponibles..." -ForegroundColor Yellow
+        Show-Models
+    }
+}
+
 function Show-Models {
     Detect-Source
     $providersFile = Join-Path $script:PRIMARY "state\model_providers.json"
@@ -232,7 +257,7 @@ $rest = $args[1..($args.Length-1)]
 
 switch ($command) {
     "status" { Show-Status }
-    "launch" { Launch-Model -model $rest[0] }
+    "launch" { if ($rest[0]) { Launch-Model -model $rest[0] } else { Launch-Orchestrated -task ($rest -join " ") } }
     "install" { Install-Component -component (if ($rest[0]) { $rest[0] } else { "qwen25-coder" }) }
     "sync" { Sync-USB -direction (if ($rest[0]) { $rest[0] } else { "auto" }) }
     "locate" { Detect-Source }
@@ -244,8 +269,9 @@ Uso: BAGO <comando> [args]
 
 Comandos:
   BAGO status              → Estado de BAGO y fuente de verdad
-  BAGO launch              → Lista todos los modelos disponibles
-  BAGO launch [modelo]     → Lanza modelo (ej: qwen25-mini, gpt-5.4-mini, claude-sonnet-4.6)
+  BAGO launch              → Orquestador: pregunta tarea y selecciona modelo optimo
+  BAGO launch [modelo]     → Lanza modelo especifico
+  BAGO launch --auto [tarea] → Orquesta directamente sin preguntar
   BAGO install [modelo]    → Instala modelo o herramienta
   BAGO sync [--to-usb|--from-usb] → Sincroniza con pendrive
   BAGO locate              → Detecta fuente de verdad
