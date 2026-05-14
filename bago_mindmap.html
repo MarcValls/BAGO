@@ -1,276 +1,262 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>BAGO — Espiral Infinita</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAGO Mind Map — Context Flow</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#04060f; overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; }
-  canvas { display:block; }
-  #tooltip {
-    position:fixed; display:none;
-    background:rgba(4,6,15,0.95); border:1px solid rgba(255,255,255,0.08);
-    padding:10px 16px; border-radius:10px; font-size:12px;
-    pointer-events:none; max-width:260px; line-height:1.7;
-  }
-  #hud {
-    position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
-    color:rgba(255,255,255,0.15); font-size:11px; letter-spacing:2px;
-  }
+:root {
+  --bg: #0a0a0f; --surface: #141420; --card: #1e1e30;
+  --border: #2a2a40; --accent: #00d4aa; --accent2: #0099ff; --accent3: #a855f7;
+  --text: #e8e8f0; --muted: #8888a0; --warn: #f59e0b; --err: #ef4444; --ok: #22c55e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px; min-height: 100vh; overflow-x: auto;
+}
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(180deg, var(--bg) 80%, transparent);
+  padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+}
+.header h1 { font-size: 18px; font-weight: 800; }
+.header .subtitle { font-size: 11px; color: var(--muted); }
+
+#mindmap { position: relative; width: 2400px; height: 1400px; }
+
+.node {
+  position: absolute; padding: 10px 16px; border-radius: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  cursor: pointer; transition: all .2s; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+}
+.node:hover { transform: scale(1.05); border-color: var(--accent); box-shadow: 0 0 20px rgba(0,212,170,.15); }
+.node.entry { background: linear-gradient(135deg, #1a3a2e, #0f2a1e); border-color: var(--ok); color: var(--ok); }
+.node.router { background: linear-gradient(135deg, #1a2a4e, #0f1a3e); border-color: var(--accent2); color: var(--accent2); }
+.node.agent { background: linear-gradient(135deg, #2a1a4e, #1a0f3e); border-color: var(--accent3); color: var(--accent3); }
+.node.tool { background: linear-gradient(135deg, #2a2a1e, #1a1a0e); border-color: var(--warn); color: var(--warn); }
+.node.model { background: linear-gradient(135deg, #1e2a1e, #0f1a0f); border-color: var(--ok); color: var(--ok); }
+.node.provider { background: linear-gradient(135deg, #1e1e2a, #0f0f1a); border-color: var(--muted); color: var(--muted); }
+.node.output { background: linear-gradient(135deg, #3a1a2e, #2a0f1e); border-color: var(--err); color: var(--err); }
+
+.node .icon { font-size: 14px; }
+
+.connection {
+  position: absolute; height: 2px; background: var(--border);
+  transform-origin: left center; z-index: 1;
+}
+.connection.active { background: linear-gradient(90deg, var(--accent), var(--accent2)); height: 2px; }
+
+.label-path {
+  position: absolute; background: var(--bg); padding: 2px 8px;
+  border-radius: 4px; font-size: 10px; color: var(--muted);
+  border: 1px solid var(--border); z-index: 5;
+}
+
+.panel {
+  position: fixed; right: -400px; top: 0; width: 380px; height: 100vh;
+  background: var(--surface); border-left: 1px solid var(--border);
+  padding: 20px; overflow-y: auto; transition: right .3s; z-index: 200;
+}
+.panel.open { right: 0; }
+.panel h2 { font-size: 16px; margin-bottom: 12px; }
+.panel pre { background: var(--bg); padding: 12px; border-radius: 8px;
+  font-size: 11px; overflow-x: auto; border: 1px solid var(--border); }
+.panel .close { position: absolute; top: 12px; right: 12px; cursor: pointer; font-size: 18px; }
+
+.legend {
+  position: fixed; bottom: 16px; left: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px; font-size: 11px; z-index: 100;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="tooltip"></div>
-<div id="hud">BAGO · escala cromática · espiral infinita</div>
+<div class="header">
+  <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-size:18px">🧠</div>
+  <div>
+    <h1>BAGO Mind Map</h1>
+    <div class="subtitle">Contexto de entrada → Router → Agente → Rol → Herramientas → Modelo → Salida</div>
+  </div>
+</div>
+
+<div id="mindmap"></div>
+
+<div class="panel" id="panel">
+  <div class="close" onclick="closePanel()">×</div>
+  <h2 id="panel-title">Detalle</h2>
+  <div id="panel-content"></div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Entrada/Salida</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Router</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div>Agente/Rol</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Herramienta</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Modelo</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div>Provider</div>
+</div>
+
 <script>
-// ═══════════════════════════════════════════════════════════
-// BAGO — Infinite Chromatic Spiral
-//
-// Principio: espiral de Arquímedes + bucle de Shepard.
-// r(t, θ) = r_min + (r_max - r_min) * frac(θ/2π + t)
-//
-// Cada vuelta = 1 octava. 12 posiciones = 12 semitonos.
-// Los nodos nacen en el centro y mueren en el borde,
-// mientras copias idénticas emergen detrás.
-// El bucle nunca termina.
-// ═══════════════════════════════════════════════════════════
+const nodes = [
+  // ENTRADA
+  { id: 'in-user', label: '👤 Usuario', x: 50, y: 200, cls: 'entry', detail: 'Prompt del usuario: tarea, contexto, preferencias' },
+  { id: 'in-repo', label: '📁 Repo BAGO', x: 50, y: 280, cls: 'entry', detail: 'Estructura del repo: .bago/, pipeline/, docs/' },
+  { id: 'in-history', label: '📜 Historial', x: 50, y: 360, cls: 'entry', detail: 'routing_history.jsonl — decisiones previas' },
+  { id: 'in-knowledge', label: '📚 Knowledge', x: 50, y: 440, cls: 'entry', detail: '.bago/knowledge/ — 37 archivos indexados' },
+  { id: 'in-agents', label: '🤖 Agentes', x: 50, y: 520, cls: 'entry', detail: 'agents_registry.json — 9 agentes BAGO' },
 
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
-const tip    = document.getElementById('tooltip');
+  // ROUTER
+  { id: 'router-main', label: '🎯 Router Dinámico', x: 300, y: 360, cls: 'router', detail: 'bago_dynamic_router.py — 5 dimensiones' },
+  { id: 'router-signals', label: '🔍 Señales', x: 300, y: 260, cls: 'router', detail: '_signals(): local_hits, code_hits, music_hits, review_hits, codex_hits, escalation_hits' },
+  { id: 'router-rules', label: '📋 Reglas', x: 300, y: 460, cls: 'router', detail: 'model_routing.json — 10 reglas tarea→modelo' },
+  { id: 'router-matrix', label: '🔗 Matrix', x: 300, y: 540, cls: 'router', detail: 'agent_tool_matrix.json — agentes × herramientas' },
 
-let W = window.innerWidth, H = window.innerHeight;
-canvas.width = W; canvas.height = H;
-window.addEventListener('resize', () => {
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W; canvas.height = H;
-});
+  // TASK TYPES
+  { id: 'type-music', label: '🎵 Música', x: 500, y: 200, cls: 'router', detail: 'partitura, score, musicxml, transpose, arreglo' },
+  { id: 'type-code', label: '💻 Código', x: 500, y: 280, cls: 'router', detail: 'editar, implementar, tests, deploy' },
+  { id: 'type-review', label: '👁️ Review', x: 500, y: 360, cls: 'router', detail: 'PR, diff, code review, auditoría' },
+  { id: 'type-debug', label: '🐛 Debug', x: 500, y: 440, cls: 'router', detail: 'error, bug, fix, exception' },
+  { id: 'type-content', label: '✍️ Contenido', x: 500, y: 520, cls: 'router', detail: 'explicar, resumen, brainstorm, plan' },
 
-// ── Cromática ─────────────────────────────────────────────
-const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const COLORS = [
-  '#ff2255','#ff5533','#ff9900','#ffcc00',
-  '#aadd00','#22cc66','#00bbaa','#0099ee',
-  '#3355ff','#7722ee','#cc22dd','#ff1177',
+  // AGENTES
+  { id: 'agent-maestro', label: '👑 MAESTRO_BAGO', x: 700, y: 140, cls: 'agent', detail: 'Coordinador central — bago_status, bago_flow' },
+  { id: 'agent-analista', label: '🔬 ANALISTA', x: 700, y: 220, cls: 'agent', detail: 'Análisis de código — bago_review, bago_audit' },
+  { id: 'agent-arquitecto', label: '🏗️ ARQUITECTO', x: 700, y: 300, cls: 'agent', detail: 'Diseño sistema — bago_route, bago_scope' },
+  { id: 'agent-centinela', label: '🛡️ CENTINELA', x: 700, y: 380, cls: 'agent', detail: 'Seguridad — bago_secrets, bago_risk' },
+  { id: 'agent-generador', label: '✨ GENERADOR', x: 700, y: 460, cls: 'agent', detail: 'Documentación — bago_context, bago_why' },
+  { id: 'agent-iniciador', label: '🚀 INICIADOR', x: 700, y: 540, cls: 'agent', detail: 'Start session — bago_ideas, bago_db' },
+  { id: 'agent-organizador', label: '📋 ORGANIZADOR', x: 700, y: 620, cls: 'agent', detail: 'Entregables — bago_flow, bago_status' },
+
+  // ROLES + HERRAMIENTAS
+  { id: 'tool-status', label: 'bago_status', x: 900, y: 120, cls: 'tool', detail: 'Estado del framework — MAESTRO, INICIADOR' },
+  { id: 'tool-review', label: 'bago_review', x: 900, y: 170, cls: 'tool', detail: 'Code review — ANALISTA' },
+  { id: 'tool-audit', label: 'bago_audit', x: 900, y: 220, cls: 'tool', detail: 'Auditoría readonly — ANALISTA, CENTINELA' },
+  { id: 'tool-route', label: 'bago_route', x: 900, y: 270, cls: 'tool', detail: 'Router Ollama/Codex/Copilot — ARQUITECTO' },
+  { id: 'tool-scope', label: 'bago_scope', x: 900, y: 320, cls: 'tool', detail: 'Detectar scope — ARQUITECTO, ANALISTA' },
+  { id: 'tool-secrets', label: 'bago_secrets', x: 900, y: 370, cls: 'tool', detail: 'Scan credenciales — CENTINELA' },
+  { id: 'tool-risk', label: 'bago_risk', x: 900, y: 420, cls: 'tool', detail: 'Matriz de riesgo — CENTINELA' },
+  { id: 'tool-context', label: 'bago_context', x: 900, y: 470, cls: 'tool', detail: 'Contexto workspace — GENERADOR, ARQUITECTO' },
+  { id: 'tool-ideas', label: 'bago_ideas', x: 900, y: 520, cls: 'tool', detail: 'Ideas priorizadas — INICIADOR' },
+  { id: 'tool-flow', label: 'bago_flow', x: 900, y: 570, cls: 'tool', detail: 'Workflow activo — MAESTRO, ORGANIZADOR' },
+  { id: 'tool-matrix', label: 'bago_matrix', x: 900, y: 620, cls: 'tool', detail: 'Matriz de rutas — ALL' },
+
+  // PROVIDERS
+  { id: 'prov-local', label: '🏠 Ollama Local', x: 1100, y: 140, cls: 'provider', detail: 'qwen25-coder (7b), llama32, qwen25-mini — gratis, offline' },
+  { id: 'prov-cloud', label: '☁️ Ollama Cloud', x: 1100, y: 220, cls: 'provider', detail: 'kimi-k2-1t (1T tokens), devstral-2, deepseek-v3 — suscripción' },
+  { id: 'prov-copilot', label: '🧑‍✈️ GitHub Copilot', x: 1100, y: 340, cls: 'provider', detail: 'claude-sonnet-4.6, claude-opus-4.7, gpt-5.5 — incluido' },
+  { id: 'prov-codex', label: '🧪 OpenAI Codex', x: 1100, y: 460, cls: 'provider', detail: 'gpt-5.5, gpt-5.4, gpt-5.3-codex, gpt-5.2 — créditos OpenAI' },
+
+  // MODELOS
+  { id: 'model-gpt55', label: 'gpt-5.5', x: 1350, y: 100, cls: 'model', detail: 'Frontier — 128K ctx, reasoning medium→xhigh, complejo' },
+  { id: 'model-gpt54', label: 'gpt-5.4', x: 1350, y: 160, cls: 'model', detail: 'Everyday — 128K ctx, default xhigh, code edits' },
+  { id: 'model-gpt53', label: 'gpt-5.3-codex', x: 1350, y: 220, cls: 'model', detail: 'Coding optimized — 128K ctx, medium reasoning, música' },
+  { id: 'model-gpt52', label: 'gpt-5.2', x: 1350, y: 280, cls: 'model', detail: 'Long agents — 128K ctx, medium, running agents' },
+  { id: 'model-claude47', label: 'claude-opus-4.7', x: 1350, y: 370, cls: 'model', detail: 'Complex reasoning — 200K ctx, auditoría profunda' },
+  { id: 'model-claude46', label: 'claude-sonnet-4.6', x: 1350, y: 430, cls: 'model', detail: 'Code review — 200K ctx, mejor code review' },
+  { id: 'model-qwen', label: 'qwen25-coder', x: 1350, y: 520, cls: 'model', detail: 'Local — 32K ctx, Python/XML, offline, gratis' },
+  { id: 'model-kimi', label: 'kimi-k2-1t', x: 1350, y: 600, cls: 'model', detail: '1T tokens — contexto masivo, análisis repo completo' },
+
+  // SALIDA
+  { id: 'out-code', label: '💾 Archivos', x: 1600, y: 200, cls: 'output', detail: 'Edits aplicados, nuevos archivos, commits' },
+  { id: 'out-docs', label: '📄 Documentación', x: 1600, y: 280, cls: 'output', detail: 'Markdown generado, guías, specs' },
+  { id: 'out-music', label: '🎼 Partituras', x: 1600, y: 360, cls: 'output', detail: 'MusicXML transpuesto, renders, previews' },
+  { id: 'out-analysis', label: '📊 Análisis', x: 1600, y: 440, cls: 'output', detail: 'Reportes, auditorías, matrices de riesgo' },
+  { id: 'out-learn', label: '📚 Aprendizaje', x: 1600, y: 520, cls: 'output', detail: 'Knowledge base actualizada, lessons learned' },
+  { id: 'out-session', label: '🔄 Continuidad', x: 1600, y: 600, cls: 'output', detail: 'Chronicle, estado de sesión, próximos pasos' },
 ];
 
-// ── Nodos BAGO (12 semitonos) ─────────────────────────────
-const NODES = [
-  { note:0,  label:'KERNEL',   sub:'global_state · sessions · changes · bago.db' },
-  { note:1,  label:'CLI',      sub:'113 comandos · 12 core · 7 dangerous · 61 exp' },
-  { note:2,  label:'GUARDIAN', sub:'100% required · 14/14 · tier-based health' },
-  { note:3,  label:'FLOWS',    sub:'12 protocolos · Balanceado·Adaptativo·Gen·Org' },
-  { note:4,  label:'AGENTS',   sub:'Ollama · Codex · Copilot · agent_router' },
-  { note:5,  label:'CALIDAD',  sub:'146 tests · sincerity · validate · pre-push' },
-  { note:6,  label:'HARDWARE', sub:'30GB pendrive · 2 particiones · BAGO.app' },
-  { note:7,  label:'LABS',     sub:'Music · VexFlow · Image Studio · Tablet' },
-  { note:8,  label:'STATE',    sub:'global_state.json · bago.db · sessions/' },
-  { note:9,  label:'SECURITY', sub:'secret_scan · localhost · no CORS wildcards' },
-  { note:10, label:'CI',       sub:'GitHub Actions · 7 gates · consistency check' },
-  { note:11, label:'DOCS',     sub:'COMMANDS.md · LAYERS.md · README contract' },
+const edges = [
+  // Entrada → Router
+  ['in-user','router-main'], ['in-repo','router-main'], ['in-history','router-main'],
+  ['in-knowledge','router-main'], ['in-agents','router-main'],
+  ['in-knowledge','router-matrix'], ['in-agents','router-matrix'],
+  // Router interno
+  ['router-main','router-signals'], ['router-main','router-rules'], ['router-main','router-matrix'],
+  // Router → Tipos
+  ['router-signals','type-music'], ['router-signals','type-code'], ['router-signals','type-review'],
+  ['router-signals','type-debug'], ['router-signals','type-content'],
+  ['router-rules','type-music'], ['router-rules','type-code'],
+  // Tipos → Agentes
+  ['type-music','agent-generador'], ['type-code','agent-arquitecto'],
+  ['type-review','agent-analista'], ['type-debug','agent-analista'],
+  ['type-content','agent-generador'], ['type-music','agent-maestro'],
+  ['type-code','agent-centinela'], ['type-review','agent-centinela'],
+  // Agentes → Herramientas
+  ['agent-maestro','tool-status'], ['agent-analista','tool-review'],
+  ['agent-analista','tool-audit'], ['agent-arquitecto','tool-route'],
+  ['agent-arquitecto','tool-scope'], ['agent-centinela','tool-secrets'],
+  ['agent-centinela','tool-risk'], ['agent-generador','tool-context'],
+  ['agent-iniciador','tool-ideas'], ['agent-organizador','tool-flow'],
+  ['agent-maestro','tool-matrix'],
+  // Herramientas → Providers
+  ['tool-status','prov-local'], ['tool-review','prov-copilot'],
+  ['tool-audit','prov-copilot'], ['tool-route','prov-codex'],
+  ['tool-scope','prov-codex'], ['tool-secrets','prov-local'],
+  ['tool-risk','prov-copilot'], ['tool-context','prov-codex'],
+  ['tool-ideas','prov-local'], ['tool-flow','prov-local'],
+  ['tool-matrix','prov-cloud'],
+  // Providers → Modelos
+  ['prov-local','model-qwen'], ['prov-cloud','model-kimi'],
+  ['prov-copilot','model-claude46'], ['prov-copilot','model-claude47'],
+  ['prov-codex','model-gpt55'], ['prov-codex','model-gpt54'],
+  ['prov-codex','model-gpt53'], ['prov-codex','model-gpt52'],
+  // Modelos → Salida
+  ['model-gpt53','out-music'], ['model-gpt54','out-code'],
+  ['model-claude46','out-analysis'], ['model-claude47','out-analysis'],
+  ['model-qwen','out-docs'], ['model-kimi','out-learn'],
+  ['model-gpt55','out-code'], ['model-gpt52','out-session'],
 ];
 
-// ── Parámetros de la espiral ──────────────────────────────
-const TURNS   = 3.5;      // vueltas visibles simultáneamente
-const SPEED   = 0.018;    // velocidad de avance (rad/frame · 60fps)
-const R_MIN   = 28;       // radio mínimo (centro)
-const R_MAX   = () => Math.min(W, H) * 0.46;
-
-let phase = 0;            // fase global acumulada (en vueltas)
-
-// ── Cámara ────────────────────────────────────────────────
-let cam = { x:0, y:0, scale:1 };
-let drag = false, lastM = null;
-canvas.addEventListener('mousedown', e => { drag=true; lastM={x:e.clientX,y:e.clientY}; });
-canvas.addEventListener('mouseup',   () => drag=false);
-canvas.addEventListener('mouseleave',() => drag=false);
-canvas.addEventListener('mousemove', e => {
-  if(drag && lastM) {
-    cam.x += e.clientX - lastM.x;
-    cam.y += e.clientY - lastM.y;
-    lastM = {x:e.clientX, y:e.clientY};
-  }
-  showTooltip(e);
-});
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  cam.scale = Math.min(Math.max(cam.scale*(e.deltaY<0?1.1:0.9), 0.3), 3);
-},{passive:false});
-
-// ── Tooltip ───────────────────────────────────────────────
-function showTooltip(e) {
-  const mx = (e.clientX - W/2 - cam.x) / cam.scale;
-  const my = (e.clientY - H/2 - cam.y) / cam.scale;
-  let found = null;
-  getVisibleNodes().forEach(vn => {
-    const dx = mx - vn.x, dy = my - vn.y;
-    if(Math.hypot(dx,dy) < vn.r + 8) found = vn;
+function render() {
+  const map = document.getElementById('mindmap');
+  // Render edges
+  edges.forEach(([from, to]) => {
+    const n1 = nodes.find(n => n.id === from);
+    const n2 = nodes.find(n => n.id === to);
+    if (!n1 || !n2) return;
+    const dx = n2.x - n1.x;
+    const dy = n2.y - n1.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const div = document.createElement('div');
+    div.className = 'connection';
+    div.style.left = (n1.x + 60) + 'px';
+    div.style.top = (n1.y + 15) + 'px';
+    div.style.width = (len - 60) + 'px';
+    div.style.transform = 'rotate(' + angle + 'deg)';
+    map.appendChild(div);
   });
-  if(found) {
-    tip.style.display='block';
-    tip.style.left=(e.clientX+16)+'px';
-    tip.style.top =(e.clientY-24)+'px';
-    tip.innerHTML=`<span style="color:${found.color};font-weight:700">${found.label}</span>
-      &nbsp;<span style="color:#333;font-size:10px">${found.noteLabel}</span><br>
-      <span style="color:#556;font-size:11px">${found.sub}</span>`;
-  } else { tip.style.display='none'; }
-}
-
-// ── Posición en espiral ───────────────────────────────────
-// θ en radianes desde 0 hacia arriba; fase en vueltas [0..TURNS]
-function spiralXY(theta_rad) {
-  // theta_rad = ángulo total recorrido (puede ser > 2π)
-  const totalAngle = TURNS * Math.PI * 2;
-  const t = (theta_rad % totalAngle) / totalAngle; // 0..1 dentro del rango visible
-  const r = R_MIN + (R_MAX() - R_MIN) * Math.pow(t, 0.8);
-  // Ángulo en pantalla: empezamos arriba (-π/2) y giramos antihorario
-  const screenAngle = theta_rad - Math.PI/2;
-  return { x: Math.cos(screenAngle)*r, y: Math.sin(screenAngle)*r, r, t };
-}
-
-// ── Nodos visibles en este frame ─────────────────────────
-let _visibleCache = [];
-function getVisibleNodes() { return _visibleCache; }
-
-function computeVisibleNodes() {
-  _visibleCache = [];
-  // Para cada nodo (12 semitonos), calculamos cuántas "octavas" son visibles
-  // y creamos una instancia por cada una
-  NODES.forEach(node => {
-    // posición base del nodo en la espiral = nota/12 de vuelta + octavas enteras
-    // La fase global desplaza todo
-    for(let octave = -1; octave <= TURNS + 1; octave++) {
-      const baseAngle = (node.note / 12 + octave - phase) * Math.PI * 2;
-      if(baseAngle < -Math.PI*0.5 || baseAngle > TURNS * Math.PI * 2 + Math.PI) continue;
-      const pos = spiralXY(baseAngle);
-      if(pos.t < 0 || pos.t > 1) continue;
-      // Opacidad: fade-in al nacer (centro), fade-out al morir (borde)
-      const alpha = pos.t < 0.08
-        ? pos.t / 0.08
-        : pos.t > 0.88
-          ? (1 - pos.t) / 0.12
-          : 1.0;
-      // Tamaño crece con el radio
-      const r = 10 + pos.r * 0.055;
-      _visibleCache.push({
-        ...node,
-        x: pos.x, y: pos.y, r, alpha,
-        t: pos.t,
-        color: COLORS[node.note],
-        noteLabel: NOTES[node.note],
-      });
-    }
+  // Render nodes
+  nodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'node ' + n.cls;
+    div.style.left = n.x + 'px';
+    div.style.top = n.y + 'px';
+    div.innerHTML = '<span class="icon">' + n.label.split(' ')[0] + '</span>' + n.label.split(' ').slice(1).join(' ');
+    div.onclick = () => showDetail(n);
+    map.appendChild(div);
   });
 }
 
-// ── Dibujar la espiral de fondo ───────────────────────────
-function drawSpiral() {
-  const steps = 1200;
-  const totalAngle = TURNS * Math.PI * 2;
-  ctx.lineWidth = 1;
-  for(let i=1; i<=steps; i++) {
-    const t0 = (i-1)/steps, t1 = i/steps;
-    const a0 = t0 * totalAngle, a1 = t1 * totalAngle;
-    const p0 = spiralXY(a0), p1 = spiralXY(a1);
-    // Color cromático según posición angular
-    const noteF = ((a0 / (Math.PI*2)) % 1) * 12;
-    const ni = Math.floor(noteF) % 12;
-    const nf = noteF - Math.floor(noteF);
-    // Interpolar color entre nota actual y siguiente
-    const c1 = hexToRgb(COLORS[ni]);
-    const c2 = hexToRgb(COLORS[(ni+1)%12]);
-    const r = Math.round(c1[0]*(1-nf)+c2[0]*nf);
-    const g = Math.round(c1[1]*(1-nf)+c2[1]*nf);
-    const b = Math.round(c1[2]*(1-nf)+c2[2]*nf);
-    // Opacidad: fade bordes
-    const alpha = t0 < 0.05 ? t0/0.05 : t0 > 0.90 ? (1-t0)/0.10 : 1;
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-    ctx.strokeStyle = `rgba(${r},${g},${b},${0.18*alpha})`;
-    ctx.stroke();
-  }
+function showDetail(n) {
+  document.getElementById('panel-title').textContent = n.label;
+  document.getElementById('panel-content').innerHTML =
+    '<p style="color:var(--muted);margin-bottom:12px;font-size:12px">' + n.detail + '</p>' +
+    '<pre>' + JSON.stringify(n, null, 2) + '</pre>';
+  document.getElementById('panel').classList.add('open');
 }
 
-// ── Dibujar nodos ─────────────────────────────────────────
-function drawNode(vn) {
-  const {x,y,r,alpha,color,label,noteLabel,t} = vn;
-  if(alpha <= 0) return;
-  const a = alpha;
-
-  // Glow
-  const glow = ctx.createRadialGradient(x,y,r*0.2, x,y,r*3);
-  glow.addColorStop(0, hexRgba(color, 0.22*a));
-  glow.addColorStop(1, 'transparent');
-  ctx.beginPath(); ctx.arc(x,y,r*3,0,Math.PI*2);
-  ctx.fillStyle=glow; ctx.fill();
-
-  // Círculo
-  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
-  const fill = ctx.createRadialGradient(x,y,0, x,y,r);
-  fill.addColorStop(0, hexRgba(color, 0.20*a));
-  fill.addColorStop(1, hexRgba(color, 0.05*a));
-  ctx.fillStyle=fill; ctx.fill();
-  ctx.strokeStyle = hexRgba(color, 0.7*a);
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-
-  // Nota (encima del círculo)
-  ctx.fillStyle = hexRgba(color, 0.45*a);
-  ctx.font = `${Math.max(7, r*0.55)}px monospace`;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(noteLabel, x, y - r - 7);
-
-  // Label
-  ctx.fillStyle = hexRgba(color, 0.9*a);
-  ctx.font = `bold ${Math.max(8, r*0.65)}px 'Segoe UI',sans-serif`;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(label, x, y);
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
 }
 
-// ── Centro tonal ──────────────────────────────────────────
-function drawCenter() {
-  // Punto de origen de la espiral — todas las notas convergen aquí
-  for(let i=0; i<12; i++) {
-    const a = (phase*12 + i) / 12 * Math.PI*2;
-    const pulse = (Math.sin(Date.now()*0.002 + i*Math.PI*2/12)+1)*0.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, R_MIN * (0.6 + pulse*0.4), 0, Math.PI*2);
-    ctx.strokeStyle = hexRgba(COLORS[i], 0.07 + pulse*0.08);
-    ctx.lineWidth=1; ctx.stroke();
-  }
-  ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fill();
-}
-
-// ── Helpers ───────────────────────────────────────────────
-function hexToRgb(hex) {
-  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
-}
-function hexRgba(hex, a) {
-  const [r,g,b] = hexToRgb(hex);
-  return `rgba(${r},${g},${b},${a.toFixed(3)})`;
-}
-
-// ── Loop ──────────────────────────────────────────────────
-function frame() {
-  ctx.clearRect(0,0,W,H);
-  ctx.save();
-  ctx.translate(W/2 + cam.x, H/2 + cam.y);
-  ctx.scale(cam.scale, cam.scale);
-
-  phase += SPEED / (Math.PI*2);  // avanza fracción de vuelta por frame
-
-  computeVisibleNodes();
-  drawSpiral();
-  drawCenter();
-  // Ordenar por tamaño (los pequeños = fondo, los grandes = frente)
-  [..._visibleCache].sort((a,b)=>a.r-b.r).forEach(drawNode);
-
-  ctx.restore();
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
+render();
 </script>
 </body>
 </html>
