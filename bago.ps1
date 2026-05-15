@@ -22,42 +22,182 @@ $script:PRIMARY = $null
 $script:SECONDARY = $null
 
 function Detect-Source {
-    $usbExists = Test-Path $usbBago -PathType Container
+    # Buscar .bago en unidades removibles (USB real)
+    $usbReal = $null
+    try {
+        $drives = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=2" | Select-Object -ExpandProperty DeviceID
+        foreach ($d in $drives) {
+            $cand = Join-Path ($d.TrimEnd(':') + ':\') '.bago'
+            if (Test-Path $cand -PathType Container) { $usbReal = $cand; break }
+        }
+    } catch {}
+
+    # Fallback: directorio padre del script si es removible
+    $exeDir = Split-Path -Parent $PSScriptRoot
+    $usbBago = Join-Path $exeDir '.bago'
+    $pcBago = Join-Path $env:USERPROFILE 'BAGO\.bago'
+    $pcDocs = Join-Path $env:USERPROFILE 'Documents\BAGO\.bago'
+
+    $usbExists = if ($usbReal) { $true } else { Test-Path $usbBago -PathType Container }
+    $usbPath = if ($usbReal) { $usbReal } else { $usbBago }
+
     $pcExists = Test-Path $pcBago -PathType Container
     $docsExists = Test-Path $pcDocs -PathType Container
-
     $pcPath = if ($pcExists) { $pcBago } elseif ($docsExists) { $pcDocs } else { $null }
 
     $isRemovable = $false
     try {
-        $drive = (Split-Path -Qualifier $exeDir).TrimEnd(":")
+        $drive = (Split-Path -Qualifier $exeDir).TrimEnd(':')
         if ($drive) {
-            $driveInfo = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$drive`:" -ErrorAction SilentlyContinue
+            $driveInfo = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID=':" -ErrorAction SilentlyContinue
             $isRemovable = ($driveInfo.DriveType -eq 2)
         }
     } catch {}
 
-    if ($usbExists -and $pcPath) {
-        $script:SOURCE = "both"
+    if ($usbReal -and $pcPath) {
+        $script:SOURCE = 'both'
         $script:PRIMARY = $pcPath
-        $script:SECONDARY = $usbBago
-        Write-Host "Fuente de verdad: $pcPath (PC). USB como backup: $usbBago" -ForegroundColor Green
+        $script:SECONDARY = $usbReal
+        Write-Host "Fuente de verdad: $pcPath (PC). USB: $usbReal" -ForegroundColor Green
+    } elseif ($usbReal) {
+        $script:SOURCE = 'usb'
+        $script:PRIMARY = $usbReal
+        Write-Host "Fuente de verdad: $usbReal (PENDRIVE)" -ForegroundColor Cyan
     } elseif ($usbExists -and $isRemovable) {
-        $script:SOURCE = "usb"
-        $script:PRIMARY = $usbBago
-        Write-Host "Fuente de verdad: $usbBago (PENDRIVE)" -ForegroundColor Cyan
+        $script:SOURCE = 'usb'
+        $script:PRIMARY = $usbPath
+        Write-Host "Fuente de verdad: $usbPath (PENDRIVE)" -ForegroundColor Cyan
     } elseif ($usbExists) {
-        $script:SOURCE = "usb"
-        $script:PRIMARY = $usbBago
-        Write-Host "Fuente de verdad: $usbBago (DIRECTORIO LOCAL)" -ForegroundColor Cyan
+        $script:SOURCE = 'usb'
+        $script:PRIMARY = $usbPath
+        Write-Host "Fuente de verdad: $usbPath (DIRECTORIO LOCAL)" -ForegroundColor Cyan
     } elseif ($pcPath) {
-        $script:SOURCE = "pc"
+        $script:SOURCE = 'pc'
         $script:PRIMARY = $pcPath
         Write-Host "Fuente de verdad: $pcPath (PC INSTALADO)" -ForegroundColor Green
     } else {
-        $script:SOURCE = "none"
-        Write-Host "BAGO no detectado. Ejecuta: BAGO install" -ForegroundColor Red
+        $script:SOURCE = 'none'
+        Write-Host 'BAGO no detectado. Ejecuta: BAGO install' -ForegroundColor Red
         exit 1
+    }
+}
+
+function Find-Gh {
+    $gh = Get-Command gh -ErrorAction SilentlyContinue
+    if ($gh) { return $gh.Source }
+    $known = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\GitHub CLI\gh.exe"),
+        "C:\Program Files\GitHub CLI\gh.exe"
+    )
+    foreach ($p in $known) {
+        if (Test-Path $p) { return $p }
+    }
+    return $null
+}
+
+function Invoke-GhSilently {
+    param([string]$prompt, [int]$timeoutSec = 25)
+    $gh = Find-Gh
+    if (-not $gh) { return @{ success = $false; output = ""; error = "gh no encontrado" } }
+    $out = [System.IO.Path]::GetTempFileName()
+    $err = [System.IO.Path]::GetTempFileName()
+    $proc = Start-Process -FilePath $gh -ArgumentList 'copilot','--','-p',$prompt,'--silent','--allow-all-tools','--stream','off' -RedirectStandardOutput $out -RedirectStandardError $err -WindowStyle Hidden -PassThru
+    $exited = $proc.WaitForExit($timeoutSec * 1000)
+    if (-not $exited) { $proc.Kill(); $proc.WaitForExit() }
+    $stdout = Get-Content $out -Raw -ErrorAction SilentlyContinue
+    $stderr = Get-Content $err -Raw -ErrorAction SilentlyContinue
+    Remove-Item $out -ErrorAction SilentlyContinue
+    Remove-Item $err -ErrorAction SilentlyContinue
+    $success = ($proc.ExitCode -eq 0) -and ($stdout.Trim().Length -gt 0)
+    return @{ success = $success; output = $stdout.Trim(); error = $stderr.Trim(); exitCode = $proc.ExitCode }
+}
+
+function Invoke-BagoPipeline {
+    param([string]$task)
+    Detect-Source
+    Write-Host ""
+    Write-Host "  [BAGO Pipeline] Orquestando en segundo plano..." -ForegroundColor Magenta
+    Write-Host "  Tarea: $task" -ForegroundColor White
+    Write-Host ""
+
+    $pipelineScript = Join-Path $script:PRIMARY "tools\bago_pipeline.py"
+    if (-not (Test-Path $pipelineScript)) {
+        Write-Host "  ERROR: No se encuentra bago_pipeline.py" -ForegroundColor Red
+        return
+    }
+
+    # Pre-router rapido para ajustar timeout segun tipo de tarea
+    $taskType = "default"
+    $execTimeout = 40
+    $reviewTimeout = 30
+    try {
+        $routerOut = python -c "import sys; sys.path.insert(0, r'$($script:PRIMARY)\tools'); from bago_dynamic_router import dynamic_route; print(dynamic_route(r'$task')['task_type'])" 2>$null
+        if ($routerOut) { $taskType = $routerOut.Trim() }
+        switch ($taskType) {
+            "content"      { $execTimeout = 20;  $reviewTimeout = 15 }
+            "brainstorm"   { $execTimeout = 20;  $reviewTimeout = 15 }
+            "music"        { $execTimeout = 90;  $reviewTimeout = 60 }
+            "code"         { $execTimeout = 50;  $reviewTimeout = 35 }
+            "debug"        { $execTimeout = 45;  $reviewTimeout = 30 }
+            "quality"      { $execTimeout = 40;  $reviewTimeout = 30 }
+            "architecture" { $execTimeout = 60;  $reviewTimeout = 45 }
+            "coordination" { $execTimeout = 35;  $reviewTimeout = 25 }
+            default        { $execTimeout = 40;  $reviewTimeout = 30 }
+        }
+    } catch {}
+    $fallbackTimeout = 60
+    $jobTimeout = $execTimeout + $reviewTimeout + $fallbackTimeout + 20
+    Write-Host "  Tipo detectado: $taskType | Timeouts: exec=${execTimeout}s review=${reviewTimeout}s job=${jobTimeout}s" -ForegroundColor DarkGray
+    Write-Host ""
+
+    $outputFile = [System.IO.Path]::GetTempFileName()
+    $job = Start-Job -ScriptBlock {
+        param($script, $task, $output)
+        & python "$script" "$task" --output "$output"
+    } -ArgumentList $pipelineScript, $task, $outputFile
+    $job | Wait-Job -Timeout $jobTimeout | Out-Null
+    if ($job.State -eq 'Running') {
+        Write-Host "  WARN Pipeline timeout (${jobTimeout}s). Matando job..." -ForegroundColor Yellow
+        $job | Stop-Job
+    }
+    $job | Receive-Job | Out-Null
+    Remove-Job $job -ErrorAction SilentlyContinue
+
+    if (Test-Path $outputFile) {
+        $result = Get-Content $outputFile -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
+        Remove-Item $outputFile -ErrorAction SilentlyContinue
+    } else {
+        $result = $null
+    }
+
+    if ($result) {
+        Write-Host "  [Fase 1/4] Router -> $($result.provider) | $($result.model) | confianza $($result.confidence)%" -ForegroundColor Cyan
+        Write-Host "  [Fase 2/4] Ejecutor principal -> $($result.phases.executor.success)" -ForegroundColor Cyan
+        Write-Host "  [Fase 3/4] Reviewer -> $($result.phases.reviewer.success)" -ForegroundColor Cyan
+        Write-Host "  [Fase 4/4] Consenso -> $(if ($result.contract_valid) {'VALIDO'} else {'CON ISSUES'})" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  OUTPUT PRINCIPAL:" -ForegroundColor White
+        $result.output -split "`n" | Select-Object -First 8 | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+        Write-Host ""
+        Write-Host "  REVIEW:" -ForegroundColor Yellow
+        $result.review -split "`n" | Select-Object -First 4 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        Write-Host ""
+        Write-Host "  Duracion: $($result.duration_ms)ms | Contract: $($result.contract_valid)" -ForegroundColor Green
+    } else {
+        Write-Host "  ERROR: No se pudo obtener resultado del pipeline" -ForegroundColor Red
+    }
+    Write-Host ""
+}
+function Show-Banner {
+    Detect-Source
+    $bannerScript = Join-Path $script:PRIMARY "tools\\bago_banner.py"
+    if (Test-Path $bannerScript) {
+        python $bannerScript
+    } else {
+        Write-Host ""
+        Write-Host '  BAGO Framework v2026.05' -ForegroundColor Cyan
+        Write-Host '  Balanceado · Adaptativo · Generativo · Organizativo' -ForegroundColor DarkGray
+        Write-Host ""
     }
 }
 
@@ -188,7 +328,39 @@ function Launch-Model {
             Write-Host "  gh copilot suggest --model $($found.Model)" -ForegroundColor DarkGray
             gh copilot --version
         }
-        default {
+        "assets" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isCasino) {
+            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
+            Write-Host "  Detectado: $($ctx.path)" -ForegroundColor DarkGray
+            exit 1
+        }
+        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_assets.py"
+        python $script --project-dir $($ctx.path)
+    }
+    "deploy" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isCasino) {
+            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
+            exit 1
+        }
+        $port = if ($rest[0]) { $rest[0] } else { 8080 }
+        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_deploy.py"
+        python $script --project-dir $($ctx.path) --port $port
+    }
+    "balance" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isCasino) {
+            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
+            exit 1
+        }
+        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_balance.py"
+        python $script --project-dir $($ctx.path)
+    }
+    default {
             Write-Host "Provider '$($found.Provider)' no implementado aún." -ForegroundColor Yellow
         }
     }
@@ -277,7 +449,39 @@ function Install-Component {
             Write-Host "Copilot CLI se instala vía gh:" -ForegroundColor Cyan
             Write-Host "  gh extension install github/gh-copilot" -ForegroundColor White
         }
-        default {
+        "assets" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isCasino) {
+            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
+            Write-Host "  Detectado: $($ctx.path)" -ForegroundColor DarkGray
+            exit 1
+        }
+        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_assets.py"
+        python $script --project-dir $($ctx.path)
+    }
+    "deploy" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isCasino) {
+            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
+            exit 1
+        }
+        $port = if ($rest[0]) { $rest[0] } else { 8080 }
+        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_deploy.py"
+        python $script --project-dir $($ctx.path) --port $port
+    }
+    "balance" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isCasino) {
+            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
+            exit 1
+        }
+        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_balance.py"
+        python $script --project-dir $($ctx.path)
+    }
+    default {
             Write-Host "Componente desconocido: $component" -ForegroundColor Red
             Write-Host "Ejecuta 'BAGO install' para ver opciones" -ForegroundColor Yellow
         }
@@ -394,19 +598,224 @@ function Repo-Sync {
     git push origin main 2>$null
     Write-Host "✓ Progresos sincronizados con GitHub" -ForegroundColor Green
 }
+function Detect-ProjectContext {
+    $cwd = Get-Location
+    $files = Get-ChildItem $cwd -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+    $hasCasino = ($files -contains 'slot_engine.py') -or ($files -contains 'bot.py') -or ($files -contains 'casino.db')
+    $hasPython = ($files -contains 'requirements.txt') -or ($files -contains 'server.py') -or ($files -contains 'app.py') -or (Test-Path (Join-Path $cwd '__init__.py'))
+    $hasNode = ($files -contains 'package.json')
+    $hasWeb = ($files -contains 'index.html') -and (-not $hasPython) -and (-not $hasNode)
+    $isProject = $hasCasino -or $hasPython -or $hasNode -or $hasWeb -or (Test-Path (Join-Path $cwd '.git')) -or (Test-Path (Join-Path $cwd 'README.md'))
+    
+    $type = if ($hasCasino) { 'casino' } elseif ($hasPython) { 'python' } elseif ($hasNode) { 'node' } elseif ($hasWeb) { 'web' } else { 'generic' }
+    
+    return @{ 
+        isProject = $isProject; 
+        type = $type; 
+        path = $cwd;
+        files = $files;
+    }
+}
+
+function Build-Project {
+    param([string]$projectType, [string]$projectPath)
+    Write-Host "  [Build] Tipo: $projectType" -ForegroundColor Cyan
+    switch ($projectType) {
+        'casino' {
+            $script = Join-Path $script:PRIMARY "tools\pipeline_casino_assets.py"
+            python $script --project-dir $projectPath
+        }
+        'python' {
+            Write-Host "  Python project: instalando dependencias..." -ForegroundColor DarkGray
+            $req = Join-Path $projectPath 'requirements.txt'
+            if (Test-Path $req) { pip install -r $req 2>$null }
+            Write-Host "  OK" -ForegroundColor Green
+        }
+        'node' {
+            Write-Host "  Node project: npm install..." -ForegroundColor DarkGray
+            Push-Location $projectPath; npm install 2>$null; Pop-Location
+            Write-Host "  OK" -ForegroundColor Green
+        }
+        'web' {
+            Write-Host "  Web project: no build necesario" -ForegroundColor DarkGray
+        }
+        default {
+            Write-Host "  Proyecto generico: no hay build definido" -ForegroundColor Yellow
+        }
+    }
+}
+
+function Test-Project {
+    param([string]$projectType, [string]$projectPath)
+    Write-Host "  [Test] Ejecutando tests..." -ForegroundColor Cyan
+    $hasTests = (Test-Path (Join-Path $projectPath 'tests')) -or (Test-Path (Join-Path $projectPath 'test'))
+    if (-not $hasTests) {
+        Write-Host "  No se encontraron tests/" -ForegroundColor Yellow
+        return
+    }
+    switch ($projectType) {
+        'casino' {
+            Push-Location $projectPath; python -m pytest tests/ -v --tb=short 2>$null; Pop-Location
+        }
+        'python' {
+            if (Test-Path (Join-Path $projectPath 'pytest.ini')) {
+                Push-Location $projectPath; python -m pytest -v --tb=short 2>$null; Pop-Location
+            } else {
+                Push-Location $projectPath; python -m unittest discover -s tests -v 2>$null; Pop-Location
+            }
+        }
+        'node' {
+            Push-Location $projectPath; npm test 2>$null; Pop-Location
+        }
+        default {
+            Write-Host "  Tests no configurados para este tipo" -ForegroundColor Yellow
+        }
+    }
+}
+
+function Lint-Project {
+    param([string]$projectType, [string]$projectPath)
+    Write-Host "  [Lint] Analisis de calidad..." -ForegroundColor Cyan
+    switch ($projectType) {
+        'casino' {
+            Push-Location $projectPath; Get-ChildItem -Filter *.py | ForEach-Object { python -m py_compile $_.FullName 2>$null }; Pop-Location
+            Write-Host "  Sintaxis OK" -ForegroundColor Green
+        }
+        'python' {
+            Push-Location $projectPath; Get-ChildItem -Filter *.py | ForEach-Object { python -m py_compile $_.FullName 2>$null }; Pop-Location
+            Write-Host "  Sintaxis OK" -ForegroundColor Green
+        }
+        'node' {
+            Push-Location $projectPath; npm run lint 2>$null; Pop-Location
+        }
+        default {
+            Write-Host "  Lint no configurado" -ForegroundColor Yellow
+        }
+    }
+}
+
+function Deploy-Project {
+    param([string]$projectType, [string]$projectPath, [int]$port)
+    Write-Host "  [Deploy] Desplegando..." -ForegroundColor Cyan
+    switch ($projectType) {
+        'casino' {
+            $script = Join-Path $script:PRIMARY "tools\pipeline_casino_deploy.py"
+            python $script --project-dir $projectPath --port $port
+        }
+        'python' {
+            $server = Join-Path $projectPath 'server.py'
+            if (Test-Path $server) {
+                Start-Process python -ArgumentList $server -WindowStyle Hidden
+                Write-Host "  Server arrancado" -ForegroundColor Green
+            } else {
+                Write-Host "  No se encontro server.py" -ForegroundColor Red
+            }
+        }
+        'node' {
+            Set-Location $projectPath; Start-Process npm -ArgumentList 'start' -WindowStyle Hidden; Set-Location -
+            Write-Host "  npm start ejecutado" -ForegroundColor Green
+        }
+        'web' {
+            Write-Host "  Abre index.html en navegador" -ForegroundColor Green
+        }
+        default {
+            Write-Host "  Deploy no configurado para este tipo" -ForegroundColor Yellow
+        }
+    }
+}
+
+function Run-Project {
+    param([string]$projectType, [string]$projectPath)
+    Write-Host "  [Run] Ejecutando en modo dev..." -ForegroundColor Cyan
+    switch ($projectType) {
+        'casino' {
+            $bot = Join-Path $projectPath 'bot.py'
+            if (Test-Path $bot) { python $bot }
+            else { Write-Host "  No se encontro bot.py" -ForegroundColor Red }
+        }
+        'python' {
+            $main = Join-Path $projectPath 'main.py'
+            if (Test-Path $main) { python $main }
+            else { Write-Host "  No se encontro main.py" -ForegroundColor Red }
+        }
+        'node' {
+            Set-Location $projectPath; npm start; Set-Location -
+        }
+        'web' {
+            $index = Join-Path $projectPath 'index.html'
+            if (Test-Path $index) { Start-Process $index }
+        }
+        default {
+            Write-Host "  Run no configurado para este tipo" -ForegroundColor Yellow
+        }
+    }
+}
+
+function Clean-Project {
+    param([string]$projectType, [string]$projectPath)
+    Write-Host "  [Clean] Limpiando artefactos..." -ForegroundColor Cyan
+    $patterns = @('__pycache__', '*.pyc', '.pytest_cache', 'node_modules', 'dist', 'build')
+    foreach ($pat in $patterns) {
+        Get-ChildItem $projectPath -Recurse -Filter $pat -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "  OK" -ForegroundColor Green
+}
+
+function Reset-Db {
+    param([string]$projectType, [string]$projectPath)
+    Write-Host "  [DB-Reset] Resetear estado..." -ForegroundColor Cyan
+    switch ($projectType) {
+        'casino' {
+            $db = Join-Path $projectPath 'casino.db'
+            if (Test-Path $db) {
+                Remove-Item $db -Force
+                Write-Host "  DB eliminada: $db" -ForegroundColor Yellow
+            }
+            $dbScript = Join-Path $projectPath 'db.py'
+            if (Test-Path $dbScript) {
+                python -c "import sys; sys.path.insert(0, '$projectPath'); import db" 2>$null
+                Write-Host "  DB reinicializada" -ForegroundColor Green
+            }
+        }
+        default {
+            $dbs = Get-ChildItem $projectPath -Filter '*.db' -ErrorAction SilentlyContinue
+            if ($dbs) {
+                $dbs | Remove-Item -Force
+                Write-Host "  DBs eliminadas: $($dbs.Name -join ', ')" -ForegroundColor Yellow
+            } else {
+                Write-Host "  No hay DBs que resetear" -ForegroundColor DarkGray
+            }
+        }
+    }
+}
 
 # === Main ===
+
+# Banner al iniciar
+if ($args.Count -eq 0) { Show-Banner }
 $command = $args[0]
 $rest = $args[1..($args.Length-1)]
 
 switch ($command) {
-    "status" { Show-Status }
+    "status" { Show-Banner; Show-Status }
+    "inventory" {
+        Detect-Source
+        $invScript = Join-Path $script:PRIMARY "tools\bago_inventory.py"
+        if ($rest[0]) {
+            python $invScript --suggest $rest[0]
+        } else {
+            python $invScript
+        }
+    }
     "launch" {
         if ($rest[0]) {
             Launch-Model -model $rest[0]
         } else {
             Launch-Orchestrated -task ($rest -join " ")
         }
+    }
+    "pipeline" {
+        Invoke-BagoPipeline -task ($rest -join " ")
     }
     "install" { Install-Component -component $rest[0] }
     "sync" { $dir = if ($rest[0]) { $rest[0] } else { "auto" }; Sync-USB -direction $dir }
@@ -420,16 +829,93 @@ switch ($command) {
             }
         }
     }
+    "build" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        Build-Project -projectType $ctx.type -projectPath $ctx.path
+    }
+    "test" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        Test-Project -projectType $ctx.type -projectPath $ctx.path
+    }
+    "lint" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        Lint-Project -projectType $ctx.type -projectPath $ctx.path
+    }
+    "deploy" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        $port = if ($rest[0]) { [int]$rest[0] } else { 8080 }
+        Deploy-Project -projectType $ctx.type -projectPath $ctx.path -port $port
+    }
+    "run" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        Run-Project -projectType $ctx.type -projectPath $ctx.path
+    }
+    "clean" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        Clean-Project -projectType $ctx.type -projectPath $ctx.path
+    }
+    "db-reset" {
+        Detect-Source
+        $ctx = Detect-ProjectContext
+        if (-not $ctx.isProject) { Write-Host "ERROR: No estas en un proyecto" -ForegroundColor Red; exit 1 }
+        Reset-Db -projectType $ctx.type -projectPath $ctx.path
+    }
+    "ideas" {
+        Detect-Source
+        $ideasScript = Join-Path $script:PRIMARY "tools\emit_ideas.py"
+        $ideasArgs = if ($args.Length -gt 1) { $args[1..($args.Length-1)] } else { @() }
+        if ($ideasArgs.Count -gt 0) { python $ideasScript @ideasArgs } else { python $ideasScript }
+    }
+    "telegram" {
+        Detect-Source
+        $bridgeScript = Join-Path $script:PRIMARY "tools\bago_telegram_bridge.py"
+        $action = if ($rest.Count -gt 0) { $rest[0] } else { "start" }
+        switch ($action) {
+            "start" {
+                Write-Host "Iniciando bridge Telegram..." -ForegroundColor Cyan
+                Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -File $bridgeScript" -WindowStyle Hidden
+                Write-Host "✓ Bridge iniciado en segundo plano" -ForegroundColor Green
+            }
+            "stop" {
+                Get-Process python | Where-Object { $_.CommandLine -like "*bago_telegram_bridge*" } | Stop-Process -Force
+                Write-Host "✓ Bridge detenido" -ForegroundColor Green
+            }
+            "status" {
+                $procs = Get-Process python | Where-Object { $_.CommandLine -like "*bago_telegram_bridge*" }
+                if ($procs) { Write-Host "✓ Bridge activo" -ForegroundColor Green } else { Write-Host "✗ Bridge inactivo" -ForegroundColor Red }
+            }
+            default { Write-Host "Uso: BAGO telegram [start|stop|status]" -ForegroundColor Yellow }
+        }
+    }
+    "apk" {
+        Detect-Source
+        $monitorScript = Join-Path $script:PRIMARY "tools\bago_music_apk_monitor.py"
+        python $monitorScript
+    }
     default {
         Write-Host @"
 BAGO Launcher v2026.05
 
 Uso: BAGO <comando> [args]
 
-Comandos:
+Comandos globales:
   BAGO status              → Estado de BAGO y fuente de verdad
-  BAGO launch              → Orquestador: pregunta tarea y selecciona modelo óptimo
-  BAGO launch [modelo]     → Lanza modelo específico
+  BAGO inventory [tipo]    → Descubre herramientas, roles y workflows existentes
+  BAGO launch              → Orquestador: pregunta tarea y selecciona modelo optimo
+  BAGO launch [modelo]     → Lanza modelo especifico
+  BAGO pipeline [tarea]    → Ejecuta pipeline de 4 fases en segundo plano
   BAGO install             → Lista componentes disponibles
   BAGO install [modelo]    → Instala modelo o herramienta
   BAGO sync [--to-usb|--from-usb] → Sincroniza con pendrive
@@ -437,13 +923,31 @@ Comandos:
   BAGO repo init           → Crea repo Git para progresos
   BAGO repo sync           → Sube progresos a GitHub
 
+Comandos de proyecto (desde directorio del proyecto):
+  BAGO build               → Construye/genera artefactos del proyecto
+  BAGO test                → Ejecuta tests
+  BAGO lint                → Analisis de calidad
+  BAGO deploy [puerto]     → Despliega/arranca servidor
+  BAGO run                 → Ejecuta en modo desarrollo
+  BAGO clean               → Limpia artefactos generados
+  BAGO db-reset            → Resetea base de datos
+  BAGO ideas [args]        → Emite ideas contextuales del catalogo
+  BAGO build --target apk|electron|docker  → Build multiplataforma
+  BAGO ideas [args]        → Emite ideas contextuales del catalogo
+  BAGO apk                 → Monitorizar build APK y enviar por Telegram
+  BAGO ideas [args]        → Emite ideas contextuales del catalogo
+  BAGO telegram [start|stop|status] → Bridge de Telegram bidireccional
+
 Ejemplos:
   BAGO launch
   BAGO launch qwen25-coder
   BAGO install qwen25-mini
-  BAGO sync --to-usb
-  BAGO contribute
+  BAGO build
+  BAGO deploy 8080
+  BAGO test
+  BAGO db-reset
 "@ -ForegroundColor White
     }
 }
+
 

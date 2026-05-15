@@ -7,6 +7,8 @@ luego PIL para añadir fondos con gradiente, bordes metálicos y glow.
 Resultado: 7 PNGs de 110x110 en static/symbols/ + sprite sheet.
 """
 from __future__ import annotations
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 import math
 import os
 import struct

@@ -21,6 +21,17 @@ from pathlib import Path
 
 STATE_DIR = Path(__file__).resolve().parents[1] / "state"
 
+# === Router dinámico integrado ===
+_router_path = Path(__file__).parent / "bago_dynamic_router.py"
+_dynamic_route = None
+if _router_path.exists():
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location("bago_dynamic_router", _router_path)
+    _router_mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_router_mod)
+    _dynamic_route = _router_mod.dynamic_route
+# ==================================
+
 
 def _read_json(path: Path) -> dict:
     try:
@@ -265,6 +276,29 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
     mode = select_mode(auto_rules, providers_available, mode_name)
     mode_config = modes.get(mode, modes.get("offline", {}))
 
+    # 0. Consultar router dinámico primero (reglas explícitas de model_routing.json)
+    router_model = None
+    router_provider = None
+    router_reason = None
+    if _dynamic_route:
+        try:
+            agents_for_router = []
+            for p_name, p_avail in providers_available.items():
+                if p_avail:
+                    p_models = []
+                    p_data = providers_data.get("providers", {}).get(p_name, {})
+                    for m_name in p_data.get("models", {}).keys():
+                        p_models.append(m_name)
+                    agent_id = p_name.replace("ollama-local", "ollama").replace("ollama-cloud", "ollama-cloud")
+                    agents_for_router.append({"id": agent_id, "available": True, "models": p_models})
+            route = _dynamic_route(task, agents_for_router)
+            if route.get("confidence", 0) >= 85 and route.get("rule_id") != "fallback":
+                router_model = route.get("model")
+                router_provider = route.get("provider")
+                router_reason = route.get("reason")
+        except Exception:
+            pass
+
     # 3. Encontrar regla de routing por tarea (mejor coincidencia)
     text = task.lower()
     route = None
@@ -388,6 +422,24 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
         }
 
     best = candidates[0]
+    # Si el router dinámico dio un modelo específico con alta confianza, forzarlo si está disponible
+    if router_model:
+        for c in candidates:
+            if c["name"] == router_model and (not router_provider or c["provider"] == router_provider):
+                best = c
+                break
+        else:
+            for c in candidates:
+                if c["name"] == router_model:
+                    best = c
+                    break
+
+    reason = f"Modo: {mode}. Mejor score por coste y disponibilidad."
+    if router_reason and router_model:
+        reason = f"Router dinámico: {router_reason}"
+    elif task_type:
+        reason += f" Tarea: {task_type}"
+
     return {
         "task": task,
         "mode": mode,
@@ -395,7 +447,7 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
         "provider": best["provider"],
         "wire_name": best["wire_name"],
         "cost": best["cost"],
-        "reason": f"Modo: {mode}. Mejor score por coste y disponibilidad." + (f" Tarea: {task_type}" if task_type else ""),
+        "reason": reason,
         "alternatives": [c["name"] for c in candidates[1:4]],
         "providers_available": providers_available,
         "candidates_count": len(candidates),
@@ -418,7 +470,8 @@ def print_orchestration(task: str, mode: str | None = None) -> None:
     print(f"  {'-'*46}")
     print(f"  Tarea:      {result['task']}")
     print(f"  Modo:       {result['mode']}")
-    print(f"  Modelo:     {result['model']} [{result['provider']}]")
+    print(f"  Agente:     {result['provider']}")
+    print(f"  Modelo:     {result['model']}")
     print(f"  Wire:       {result['wire_name']}")
     print(f"  Coste:      {result['cost']}")
     print(f"  Razón:      {result['reason']}")
@@ -446,4 +499,8 @@ if __name__ == "__main__":
         print()
     else:
         print_orchestration(args.task, args.mode)
+
+
+
+
 

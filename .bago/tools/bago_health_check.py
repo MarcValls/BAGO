@@ -71,15 +71,24 @@ def check_codex() -> dict:
     }
 
 
-def check_copilot() -> dict:
+def check_copilot():
     """Verifica acceso a GitHub Copilot CLI."""
+    gh_cmd = "gh"
+    # Buscar gh en rutas conocidas
+    known_paths = [
+        Path.home() / "AppData" / "Local" / "Programs" / "GitHub CLI" / "gh.exe",
+        Path("C:/Program Files/GitHub CLI/gh.exe"),
+    ]
+    for p in known_paths:
+        if p.exists():
+            gh_cmd = str(p)
+            break
     try:
         result = subprocess.run(
-            ["gh", "copilot", "--version"],
+            [gh_cmd, "copilot", "--version"],
             capture_output=True, text=True, timeout=5
         )
         available = result.returncode == 0
-        # Modelos disponibles en Copilot
         copilot_models = [
             "claude-sonnet-4.6", "claude-opus-4.7",
             "gpt-5.5", "gpt-5.4", "gpt-5.4-mini",
@@ -94,6 +103,7 @@ def check_copilot() -> dict:
         return {"available": False, "models": [], "reason": "gh CLI no instalado"}
     except Exception as e:
         return {"available": False, "models": [], "reason": str(e)}
+
 
 
 def check_ollama_cloud() -> dict:
@@ -123,6 +133,38 @@ def full_health_check() -> dict:
     }
 
 
+
+def get_installable_models():
+    """Devuelve modelos en catalogo que NO estan disponibles actualmente."""
+    providers_data = json.loads(
+        Path(__file__).resolve().parents[1].joinpath("state", "model_providers.json").read_text(encoding="utf-8-sig")
+    )
+    health = full_health_check()
+
+    available = set()
+    for prov_name, status in health.items():
+        if status["available"]:
+            for m in status["models"]:
+                available.add((prov_name, m["name"]))
+
+    installable = []
+    for prov_name, prov in providers_data.get("providers", {}).items():
+        for model_name, model in prov.get("models", {}).items():
+            if (prov_name, model_name) not in available:
+                installable.append({
+                    "provider": prov_name,
+                    "model": model_name,
+                    "wire_name": model.get("wire_name", model_name),
+                    "best_for": model.get("best_for", ""),
+                    "cost": model.get("cost", "unknown"),
+                    "size_mb": model.get("size_mb", 0),
+                })
+
+    cost_order = {"free": 0, "included": 1, "subscription": 2, "openai_credits": 3}
+    installable.sort(key=lambda x: cost_order.get(x["cost"], 99))
+    return installable
+
+
 def print_health() -> None:
     health = full_health_check()
     print("\n  BAGO Health Check — Modelos Disponibles")
@@ -148,6 +190,19 @@ def print_health() -> None:
     print(f"\n  Total modelos listos: {len(usable)}")
     if usable:
         print(f"  Top 5: {', '.join(usable[:5])}")
+    # Sugerencias de instalacion
+    installable = get_installable_models()
+    if installable:
+        print("  Modelos instalables (no disponibles):")
+        free = [m for m in installable if m["cost"] == "free"]
+        included = [m for m in installable if m["cost"] == "included"]
+        other = [m for m in installable if m["cost"] not in ("free", "included")]
+        for m in free[:3] + included[:3] + other[:2]:
+            size = " (" + str(m["size_mb"]) + "MB)" if m["size_mb"] else ""
+            print("    [" + m["provider"] + "] " + m["model"] + size + " - " + m["best_for"] + " [" + m["cost"] + "]")
+        if len(installable) > 8:
+            print("    ... y " + str(len(installable)-8) + " mas. Ejecuta: BAGO install")
+
     print()
 
 

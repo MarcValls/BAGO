@@ -1,946 +1,946 @@
-{
-  "_comment": "Catálogo de ideas BAGO. Edita este archivo para modificar o añadir ideas sin tocar código Python.",
-  "_guide": {
-    "cómo_añadir_un_slot_nuevo": [
-      "1. Elige un número de slot libre (verifica en db_init.py _SLOT_CONDITIONS los ya usados).",
-      "2. Añade la condición en db_init.py _SLOT_CONDITIONS: ('N', gen): {requires, blocks, extra_cond}.",
-      "3. Añade la entrada en detect_implemented_features() en emit_ideas.py para el bloqueo.",
-      "4. Crea la entrada en la sección 'slots' de este archivo con el formato siguiente.",
-      "5. Ejecuta: python bago db reset-ideas   para sembrar el nuevo slot en bago.db."
-    ],
-    "formato_de_slot": {
-      "N": {
-        "generations": [
-          {
-            "id": "feature_flag_name",
-            "generation": 1,
-            "condition": "feat.REQUIRES and not feat.BLOCKS",
-            "priority": 70,
-            "section": "contextuales",
-            "risk": "low",
-            "title": "Título corto de la idea",
-            "summary": "Descripción de una línea de qué aporta.",
-            "detail": [
-              "Entrada: estado actual del sistema.",
-              "Salida: resultado observable tras implementar.",
-              "Ventaja: por qué vale la pena implementarlo."
-            ],
-            "metric": "Criterio de éxito medible y verificable.",
-            "w2": "Siguiente paso concreto. Incluir sentinel # FEATURE_IMPLEMENTED si aplica."
-          }
-        ]
-      }
-    },
-    "convenciones": {
-      "ids": "Usar el nombre del feature flag como id (ej: 'velocity_in_dashboard').",
-      "sentinels": "Si la feature se detecta via cadena en código, añadir # FEATURE_NAME_IMPLEMENTED como comentario en el archivo modificado.",
-      "risk": "low = cambio seguro sin romper flujos; medium = requiere validación; high = toca flujos críticos.",
-      "generaciones": "Gen 1 = idea inicial. Gen 2+ = mejoras que requieren gen anterior implementada."
-    }
-  },
-  "_schema": {
-    "id": "Identificador único de la idea (snake_case)",
-    "slot": "Slot al que pertenece (1-16). Ideas del mismo slot compiten entre sí según condiciones.",
-    "generation": "Generación dentro del slot (1=primera, 2=segunda, 3=tercera). Controla cuándo aparece.",
-    "priority": "Score de prioridad (0-100). Mayor = más arriba.",
-    "section": "contextuales | respaldo",
-    "risk": "low | medium | high",
-    "title": "Título corto de la idea",
-    "summary": "Descripción de una línea",
-    "detail": [
-      "Lista de líneas de contexto (entrada, salida, ventaja)"
-    ],
-    "w2": "Siguiente paso concreto para implementar",
-    "metric": "Criterio de éxito medible y verificable"
-  },
-  "fallback": [
-    {
-      "id": "fallback_readme_align",
-      "priority": 66,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "README y selector describen la misma ruta de arranque.",
-      "title": "Alinear README con selector",
-      "summary": "Hacer que la entrada humana y el selector de ideas expliquen el mismo recorrido sin ambiguedades.",
-      "detail": [
-        "Entrada: README y comandos cortos del pack.",
-        "Salida: navegacion coherente entre ideas, WF y arranque.",
-        "Ventaja: reduce la friccion en el primer paso de cada sesion."
-      ],
-      "w2": "Actualizar la documentacion de entrada sin tocar la logica del selector."
-    },
-    {
-      "id": "fallback_selector_range",
-      "priority": 64,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "El selector siempre publica el rango 5-20 sin desviaciones.",
-      "title": "Reforzar rango del selector",
-      "summary": "Hacer explicito el limite de 5 a 20 ideas en la salida del selector.",
-      "detail": [
-        "Entrada: enumeracion actual del selector.",
-        "Salida: reglas de cantidad visibles para el usuario.",
-        "Ventaja: evita listas demasiado cortas o excesivas."
-      ],
-      "w2": "Codificar el rango de salida en el selector y verificarlo con una ejecucion real."
-    },
-    {
-      "id": "fallback_compact_recomend",
-      "priority": 62,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "La recomendacion final queda en una sola accion explícita.",
-      "title": "Compactar recomendacion final",
-      "summary": "Reducir la friccion del final del selector con una recomendacion mas directa.",
-      "detail": [
-        "Entrada: salida de ideas ya ordenadas.",
-        "Salida: siguiente paso corto y visible.",
-        "Ventaja: facilita pasar de idea a decision sin leer de nuevo toda la lista."
-      ],
-      "w2": "Ajustar el texto final de `./ideas` sin alterar el ranking."
-    },
-    {
-      "id": "fallback_w10_flow_task_desync",
-      "priority": 72,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "bago validate o health detecta y reporta desync entre pending_w2_task.status==done y flow activo en banner.",
-      "title": "W10: detectar desync task-done vs flow-activo",
-      "summary": "Sincerity check: si pending_w2_task.json marca status=done pero el banner sigue mostrando ese flow como activo, es SUCCESS_WASHING interno. Validate/health debe avisar.",
-      "detail": [
-        "Entrada: pending_w2_task.json con status=done y un flow activo en sessions/global_state.",
-        "Salida: warning en bago validate (y/o resta de puntos en disciplina_workflow de health) cuando ambos coexisten.",
-        "Ventaja: cierra el punto ciego W10 detectado el 2026-05-07 — health 100/100 con triple desync real."
-      ],
-      "w2": "Añadir check en bago validate (o subscore disciplina_workflow de health) que compare pending_w2_task.status con el flow activo del banner; emitir warning si discrepan."
-    },
-    {
-      "id": "bago_recientes_paginated_log",
-      "priority": 71,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "Comando `bago recientes` lista eventos de las 2 fuentes ordenados temporalmente, con paginación interactiva [Enter]/[q].",
-      "title": "bago recientes — bitácora paginada de últimos trabajos",
-      "summary": "Comando agregador que muestra la timeline cruzada de sesiones, sprints, ideas implementadas y commits, paginada interactivamente.",
-      "detail": [
-        "ENTRADA: ejecutar `bago recientes` sin flow ni tarea activa.",
-        "SALIDA: lista cronológica unificada de eventos BAGO + commits git, paginada estilo `less` ([Enter] siguiente página, [q] salir, [j/k] navegación opcional).",
-        "FUENTES: dual mode — (a) `git log` cuando estamos en repo git, (b) BAGO portable log (.bago/state/sessions/, .bago/state/sprints/, implemented_ideas.json, session_close_*.md) siempre disponible.",
-        "VENTAJA: visibilidad inmediata de en qué se ha trabajado sin abrir 4 archivos distintos. Llena el hueco entre `bago last` (CLI runtime) y `bago sprint` (sólo el actual).",
-        "FILTROS opcionales: --type session|sprint|idea|push|all (default all), --since 2w, --json para tooling.",
-        "FUERA DE ALCANCE v1: edición desde la vista, búsqueda fuzzy, export a markdown."
-      ],
-      "w2": "Crear `.bago/tools/recientes_aggregator.py` (lee fuentes y normaliza a eventos {ts,type,scope,title,detail}), registrar `bago recientes` en `tool_registry.py`, regenerar `docs/COMMANDS.md`, añadir tests en `.bago/tests/`."
-    },
-    {
-      "id": "session_close_clears_pending_task",
-      "priority": 78,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "session close limpia pending_w2_task.json cuando status=done; session open siguiente no encuentra task done residual.",
-      "title": "session close debe limpiar pending_w2_task con status=done",
-      "summary": "Tras bago session close, la pending_w2_task con status=done queda residual y bloquea bago session open siguiente.",
-      "detail": [
-        "Entrada: bago session close ejecutado tras un cierre real (W9/W5).",
-        "Salida: pending_w2_task.json archivado o limpiado; session open siguiente arranca limpio.",
-        "Ventaja: rompe el bucle de 'task done residual' detectado por el W10 desync detector."
-      ],
-      "w2": "En .bago/tools/session_close_generator.py (o equivalente), tras escribir el SESSION_CLOSE_*.md, archivar/limpiar pending_w2_task.json cuando status=done."
-    },
-    {
-      "id": "ideas_filter_already_implemented",
-      "priority": 76,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "bago ideas no muestra ideas cuyo título o id aparezca en implemented_ideas.json (implemented o ideas_completed).",
-      "title": "bago ideas debe filtrar las ideas ya implementadas",
-      "summary": "Las ideas cerradas hoy seguían en el catálogo como ranking-1, lo que confunde al selector y rompe la auto-coherencia ideación→implementación→catálogo.",
-      "detail": [
-        "Entrada: ideas_catalog + implemented_ideas.json al construir el selector.",
-        "Salida: ideas implementadas se ocultan o se marcan como cerradas en bago ideas.",
-        "Ventaja: catálogo siempre refleja trabajo pendiente real, no histórico."
-      ],
-      "w2": "Cruzar ideas_selector con implemented_ideas.json (implemented + ideas_completed) por id O título normalizado y excluir/marcar coincidencias."
-    },
-    {
-      "id": "session_close_uses_last_completed",
-      "priority": 74,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "El artefacto SESSION_CLOSE_*.md refleja el workflow recién cerrado, no una pending_w2_task antigua.",
-      "title": "session_close_generator debe leer last_completed_workflow",
-      "summary": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día.",
-      "detail": [
-        "Entrada: global_state.sprint_status.last_completed_workflow disponible al cerrar sesión.",
-        "Salida: el artefacto recoge el workflow real del cierre.",
-        "Ventaja: el cierre cuenta la verdad del día, no un fantasma."
-      ],
-      "w2": "En session_close_generator.py, priorizar global_state.sprint_status.last_completed_workflow sobre pending_w2_task al rellenar la tabla 'Tarea completada'."
-    },
-    {
-      "id": "siembra_disambiguate_project_vs_ideas",
-      "priority": 70,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "El usuario distingue 'sembrar proyecto' (PADRE/SIEMBRA) de 'sembrar ideas' (catálogo) sin friction.",
-      "title": "Desambiguar bago siembra: proyecto vs ideas",
-      "summary": "El verbo 'siembra' está sobrecargado: bago siembra crea proyectos hijos, pero coloquialmente 'sembrar ideas' significa repoblar el catálogo. Friction UX vivida en sesión.",
-      "detail": [
-        "Entrada: usuario dice 'siembra ideas' esperando catálogo.",
-        "Salida: comando claro (bago ideas seed o bago seed-ideas) o subcomando (bago siembra ideas).",
-        "Ventaja: reduce momentos de 'no era esto' en el primer uso."
-      ],
-      "w2": "Añadir alias bago ideas seed que invoque la lógica de siembra de catálogo, o renombrar bago siembra → bago siembra project con alias retroactivo."
-    },
-    {
-      "id": "selector_show_sprint_progress",
-      "priority": 67,
-      "section": "respaldo",
-      "risk": "low",
-      "metric": "bago ideas muestra contador 'X/N' (ideas implementadas / objetivo del sprint) en el header.",
-      "title": "bago ideas: mostrar progreso del sprint en header",
-      "summary": "El banner ya muestra 'ideas: 29/42' pero el selector no propaga ese dato. Información disponible no aprovechada.",
-      "detail": [
-        "Entrada: contador de ideas implementadas + objetivo del sprint.",
-        "Salida: línea extra en el header de bago ideas con el progreso.",
-        "Ventaja: refuerza el sentido de avance al elegir la siguiente idea."
-      ],
-      "w2": "En ideas_selector.py, añadir una línea de header con 'progreso sprint: X/N' leyendo del mismo source que bago hello banner."
-    }
-  ],
-  "slots": {
-    "1": {
-      "generations": [
-        {
-          "id": "handoff_w2",
-          "generation": 1,
-          "condition": "not feat.handoff_w2",
-          "priority": 90,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El handoff incluye objetivo, alcance, no alcance, archivos y validación mínima.",
-          "title": "Handoff idea -> W2",
-          "summary": "Añadir una plantilla de salida que convierta una idea seleccionada en tarea lista para implementar con alcance, archivos y validación.",
-          "detail": [
-            "Entrada: una idea elegida tras revisar el selector.",
-            "Salida: objetivo, alcance, archivos candidatos y validación mínima.",
-            "Ventaja: reduce la fricción entre ideación e implementación."
-          ],
-          "w2": "Pasar la idea elegida a W2 con un alcance pequeño y un criterio de salida claro."
-        },
-        {
-          "id": "session_opener_from_task",
-          "generation": 2,
-          "condition": "feat.handoff_w2 and not feat.session_opener",
-          "priority": 90,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "bago session lee pending_w2_task.json y lanza session_preflight con objetivo, roles y artefactos pre-rellenados.",
-          "title": "Opener de sesión desde task",
-          "summary": "Añadir `bago session` que lee el handoff aceptado y abre la sesión W2 con preflight pre-rellenado, evitando trabajo manual.",
-          "detail": [
-            "Entrada: pending_w2_task.json con objetivo, archivos y validación.",
-            "Salida: llamada a session_preflight.py con los datos del handoff.",
-            "Ventaja: elimina el paso manual de copiar datos del handoff al preflight."
-          ],
-          "w2": "Implementar bago session en el script raíz delegando en session_preflight.py."
-        },
-        {
-          "id": "auto_session_close",
-          "generation": 3,
-          "condition": "feat.handoff_w2 and feat.session_opener",
-          "priority": 90,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "bago task --done genera y guarda automáticamente el artefacto de cierre de sesión.",
-          "title": "Cierre automático de sesión",
-          "summary": "Al marcar la tarea como done, generar automáticamente el artefacto de cierre con resumen de cambios y evidencias.",
-          "detail": [
-            "Entrada: tarea W2 completada (pending_w2_task.json con status=done).",
-            "Salida: artefacto de cierre con resumen, CHG/EVD generados y estado actualizado.",
-            "Ventaja: elimina el paso manual de redactar el cierre después de implementar."
-          ],
-          "w2": "Extender show_task.py --done para llamar al generador de cierre de sesión."
-        }
-      ]
-    },
-    "2": {
-      "generations": [
-        {
-          "id": "stability_summary",
-          "generation": 1,
-          "condition": "not feat.stability_cmd",
-          "priority": 86,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El resumen incluye estado de smoke, VM y soak en un único bloque.",
-          "title": "Resumen único de estabilidad",
-          "summary": "Consolidar smoke, VM y soak en un informe corto para decidir si una idea nueva compite con estabilidad antes de tocar código.",
-          "detail": [
-            "Entrada: los últimos reports del sandbox.",
-            "Salida: un resumen de salud operacional para decidir si conviene proponer cambios.",
-            "Ventaja: evita idear sobre una base ya inestable."
-          ],
-          "w2": "Si el resumen está en verde, permitir avanzar a una idea concreta."
-        },
-        {
-          "id": "banner_shows_task",
-          "generation": 2,
-          "condition": "feat.stability_cmd and not feat.banner_shows_task",
-          "priority": 86,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El banner muestra el estado de la tarea W2 activa (título + estado) si pending_w2_task.json existe.",
-          "title": "Banner muestra task activa",
-          "summary": "Mostrar en el banner de BAGO si hay una tarea W2 pendiente o completada, para visibilidad inmediata al arrancar.",
-          "detail": [
-            "Entrada: pending_w2_task.json si existe.",
-            "Salida: línea extra en el banner con título y estado (⏳/✅).",
-            "Ventaja: el usuario sabe al abrir BAGO si tiene trabajo en curso."
-          ],
-          "w2": "Leer pending_w2_task.json en bago_banner.py y añadir línea condicional al banner."
-        },
-        {
-          "id": "stale_task_alert",
-          "generation": 3,
-          "condition": "feat.stability_cmd and feat.banner_shows_task",
-          "priority": 86,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "bago stability y el banner alertan si la task lleva más de 3 días sin completarse.",
-          "title": "Alerta de task obsoleta",
-          "summary": "Si pending_w2_task.json lleva más de 3 días sin marcarse done, mostrar aviso en banner y en bago stability.",
-          "detail": [
-            "Entrada: pending_w2_task.json con campo accepted_at.",
-            "Salida: aviso visual (⚠️) en banner y en stability cuando la task supera 3 días.",
-            "Ventaja: evita que tareas abiertas queden olvidadas."
-          ],
-          "w2": "Añadir lógica de antigüedad en bago_banner.py y stability_summary.py."
-        }
-      ]
-    },
-    "3": {
-      "generations": [
-        {
-          "id": "safe_gate",
-          "generation": 1,
-          "condition": "not feat.gate_in_code and stable_reports",
-          "priority": 84,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "Ninguna idea avanza si validate_pack/validate_state/smoke no están en verde.",
-          "title": "Gate seguro antes de implementar",
-          "summary": "Bloquear sugerencias nuevas si validate_pack, validate_state o smoke no están en verde.",
-          "detail": [
-            "Entrada: validadores canónicos y smoke del sandbox.",
-            "Salida: permiso o bloqueo para seguir ideando e implementar.",
-            "Ventaja: protege la estabilidad antes de abrir trabajo nuevo."
-          ],
-          "w2": "Si el gate pasa, la idea elegida puede convertirse en W2."
-        },
-        {
-          "id": "impl_registry",
-          "generation": 2,
-          "condition": "feat.gate_in_code and not feat.impl_registry",
-          "priority": 84,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El selector no repite una idea marcada como implementada en implemented_ideas.json.",
-          "title": "Registro de ideas implementadas",
-          "summary": "Guardar en estado qué ideas ya fueron implementadas para que el selector evolucione en lugar de repetirlas en cada sesión.",
-          "detail": [
-            "Entrada: lista de ideas aceptadas e implementadas.",
-            "Salida: archivo .bago/state/implemented_ideas.json con IDs y fechas.",
-            "Ventaja: el selector siempre propone trabajo nuevo, no repetido."
-          ],
-          "w2": "Crear implemented_ideas.json y leerlo en emit_ideas para filtrar ideas ya hechas."
-        },
-        {
-          "id": "dynamic_scoring",
-          "generation": 3,
-          "condition": "feat.impl_registry",
-          "priority": 84,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El scoring de ideas sube cuando la feature que proponen no está en implemented_ideas.json.",
-          "title": "Scoring dinámico por registro",
-          "summary": "Ajustar la prioridad de las ideas en función de si la feature que proponen ya fue implementada, incrementando el score de las que aportan trabajo nuevo.",
-          "detail": [
-            "Entrada: implemented_ideas.json con historial de ideas completadas.",
-            "Salida: ideas reordenadas priorizando trabajo genuinamente nuevo.",
-            "Ventaja: el selector se vuelve más preciso con el tiempo."
-          ],
-          "w2": "Leer implemented_ideas.json en emit_ideas y aplicar penalización de score a ideas similares ya hechas."
-        }
-      ]
-    },
-    "4": {
-      "generations": [
-        {
-          "id": "intent_selector",
-          "generation": 1,
-          "condition": "matrix and matrix.get('status') == 'pass'",
-          "priority": 82,
-          "section": "contextuales",
-          "risk": "medium",
-          "metric": "WF responde por intención y reduce navegación manual.",
-          "title": "Selector por intención",
-          "summary": "Extender WF para filtrar ideas y workflows por intención, por ejemplo idea, implementar, depurar o cerrar.",
-          "detail": [
-            "Entrada: intención del usuario.",
-            "Salida: selector más fino para aterrizar al workflow correcto.",
-            "Ventaja: evita navegar manualmente cuando la intención ya está clara."
-          ],
-          "w2": "Usar la intención seleccionada para orientar la tarea siguiente."
-        }
-      ]
-    },
-    "5": {
-      "generations": [
-        {
-          "id": "baseline_ideas",
-          "generation": 1,
-          "condition": "baseline_clean_mode",
-          "priority": 78,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "Cada idea aceptada declara una mejora medible en trazabilidad u operación.",
-          "title": "Ideas orientadas a baseline",
-          "summary": "Proponer solo cambios que mantengan el baseline limpio y generen un incremento medible en trazabilidad u operacion.",
-          "detail": [
-            "Entrada: baseline limpio y estable.",
-            "Salida: ideas pequeñas con mejora mensurable.",
-            "Ventaja: alinea la ideación con la continuidad del pack."
-          ],
-          "w2": "Seleccionar una idea que preserve el baseline y tenga bajo riesgo."
-        }
-      ]
-    },
-    "6": {
-      "generations": [
-        {
-          "id": "reopen_from_continuity",
-          "generation": 1,
-          "condition": "sections.get('cierre de sesión')",
-          "priority": 74,
-          "section": "contextuales",
-          "risk": "medium",
-          "metric": "Reapertura evita reconstrucción manual y reduce pasos de arranque.",
-          "title": "Reabrir desde continuidad",
-          "summary": "Añadir un modo para reactivar la sesión desde el cierre actual sin reconstruir contexto manualmente.",
-          "detail": [
-            "Entrada: cierre de sesión ya escrito en estado.",
-            "Salida: reanudación más rápida sin perder contexto.",
-            "Ventaja: mantiene continuidad de trabajo entre sesiones."
-          ],
-          "w2": "Si se acepta, convertirlo en una mejora pequeña y segura de continuidad."
-        }
-      ]
-    },
-    "7": {
-      "generations": [
-        {
-          "id": "quick_repo_entry",
-          "generation": 1,
-          "condition": "repo_lines > 0",
-          "priority": 70,
-          "section": "contextuales",
-          "risk": "medium",
-          "metric": "La primera decisión del usuario llega a una acción en un paso.",
-          "title": "Entrada rápida del repo",
-          "summary": "Conectar ideas con README y WF para que la primera decisión del usuario vaya a una acción concreta sin leer toda la canonica.",
-          "detail": [
-            "Entrada: comandos cortos y selector de workflows.",
-            "Salida: menos fricción para abrir ideas o W2.",
-            "Ventaja: mejora la usabilidad diaria del repo."
-          ],
-          "w2": "Promover la idea seleccionada a una tarea corta y directa."
-        }
-      ]
-    },
-    "8": {
-      "generations": [
-        {
-          "id": "improve_ranking",
-          "generation": 1,
-          "condition": "always",
-          "priority": 68,
-          "section": "contextuales",
-          "risk": "medium",
-          "metric": "El ranking refleja señales de estado actual y reduce recomendaciones estáticas.",
-          "title": "Mejorar ranking de ideas",
-          "summary": "Ajustar el scoring para reflejar señales del estado actual y evitar prioridades estáticas que oculten trabajo real.",
-          "detail": [
-            "Entrada: estado BAGO, salud de reports y workflow activo.",
-            "Salida: orden de ideas más sensible al contexto operativo.",
-            "Ventaja: reduce sesgos de ranking y evita ciclos de recomendación."
-          ],
-          "w2": "Implementar un ranking contextual acotado y validarlo con ejemplos reales del estado."
-        }
-      ]
-    },
-    "9": {
-      "generations": [
-        {
-          "id": "progress_counter",
-          "generation": 1,
-          "condition": "feat.impl_registry and not feat.progress_in_banner",
-          "priority": 83,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El banner muestra 'X ideas implementadas' con el recuento actualizado en cada ejecución.",
-          "title": "Contador de progreso en banner",
-          "summary": "Añadir una línea al banner de BAGO que muestre cuántas ideas del catálogo han sido implementadas, dando visibilidad del avance.",
-          "detail": [
-            "Entrada: implemented_ideas.json con la lista de ideas completadas.",
-            "Salida: línea en el banner: 'ideas: 7 implementadas'.",
-            "Ventaja: el usuario ve su progreso sin necesidad de comandos extra."
-          ],
-          "w2": "Leer implemented_ideas.json en bago_banner.py y añadir línea de progreso junto al resto del estado."
-        },
-        {
-          "id": "catalog_health_report",
-          "generation": 2,
-          "condition": "feat.progress_in_banner",
-          "priority": 78,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "bago stability incluye estado del catálogo: ideas disponibles y porcentaje implementado.",
-          "title": "Estado del catálogo en stability",
-          "summary": "Añadir un bloque de salud del catálogo de ideas al informe de stability, mostrando cuántas ideas quedan disponibles.",
-          "detail": [
-            "Entrada: bago.db con ideas disponibles + implemented_ideas.json.",
-            "Salida: sección 'catálogo' en stability con N ideas disponibles / M implementadas.",
-            "Ventaja: incluye la salud del pipeline de ideas dentro del informe de estabilidad."
-          ],
-          "w2": "Añadir función catalog_status() en stability_summary.py que lea DB e implemented_ideas.json."
-        }
-      ]
-    },
-    "10": {
-      "generations": [
-        {
-          "id": "session_close_counter",
-          "generation": 1,
-          "condition": "has_session_close and not feat.session_closes_counted",
-          "priority": 81,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "global_state.json refleja el número real de sesiones cerradas tras cada cosecha.",
-          "title": "Sesiones reales en global_state",
-          "summary": "Contar los artefactos session_close_*.md existentes y actualizar el campo 'sessions' en global_state.json para que health score y scoring reflejen el historial real.",
-          "detail": [
-            "Entrada: archivos session_close_*.md en .bago/state/.",
-            "Salida: global_state.json con sessions = número real de cierres.",
-            "Ventaja: desbloquea el health score real y mejora el scoring dinámico de ideas."
-          ],
-          "w2": "Añadir función sync_session_count() en show_task.py o bago_banner.py que cuente session_close_*.md y actualice global_state."
-        },
-        {
-          "id": "health_from_sessions",
-          "generation": 2,
-          "condition": "feat.session_closes_counted",
-          "priority": 76,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "health_score devuelve 'green' o 'yellow' (no 'initializing') cuando hay sesiones cerradas e ideas implementadas.",
-          "title": "Health score desde historial",
-          "summary": "Mejorar health_score.py para calcular un estado real basado en sesiones cerradas e ideas implementadas, eliminando el estado 'initializing' cuando hay historial.",
-          "detail": [
-            "Entrada: global_state.json con sessions > 0 e implemented_ideas.json.",
-            "Salida: health = 'green' si sessions > 0 y ideas implementadas > 0.",
-            "Ventaja: el sistema reporta salud real en lugar de 'initializing' para siempre."
-          ],
-          "w2": "Modificar health_score.py para leer sessions e implemented count antes de emitir 'initializing'."
-        }
-      ]
-    },
-    "11": {
-      "generations": [
-        {
-          "id": "cosecha_post_task_prompt",
-          "generation": 1,
-          "condition": "feat.handoff_w2 and not feat.cosecha_post_task",
-          "priority": 79,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "Tras bago task --done, el usuario recibe un recordatorio explícito de ejecutar bago cosecha.",
-          "title": "Recordatorio de cosecha tras tarea",
-          "summary": "Al cerrar una tarea con bago task --done, mostrar un recordatorio visible para ejecutar bago cosecha y no perder el artefacto de sesión.",
-          "detail": [
-            "Entrada: show_task.py --done cierra la tarea.",
-            "Salida: mensaje final '→ Ahora corre: bago cosecha'.",
-            "Ventaja: cierra el ciclo tarea→cosecha sin que el usuario lo recuerde manualmente."
-          ],
-          "w2": "Añadir print final en show_task.py --done con la sugerencia de cosecha."
-        },
-        {
-          "id": "cosecha_summary_with_ideas",
-          "generation": 2,
-          "condition": "feat.cosecha_post_task and feat.impl_registry",
-          "priority": 74,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El artefacto de cosecha incluye la lista de ideas implementadas en la sesión.",
-          "title": "Cosecha con ideas del sprint",
-          "summary": "Incluir en el artefacto de cosecha (W9) un resumen de las ideas implementadas durante la sesión, cerrando el ciclo ideas→implementación→evidencia.",
-          "detail": [
-            "Entrada: implemented_ideas.json y el artefacto de cierre de tarea.",
-            "Salida: sección 'ideas del sprint' en el artefacto W9.",
-            "Ventaja: trazabilidad completa desde idea hasta evidencia de cosecha."
-          ],
-          "w2": "Modificar el protocolo W9 (cosecha) para leer implemented_ideas.json e incluir las ideas recientes."
-        }
-      ]
-    },
-    "12": {
-      "generations": [
-        {
-          "id": "catalog_exhaustion_handled",
-          "generation": 1,
-          "condition": "feat.impl_registry and not feat.catalog_exhaustion_handled",
-          "priority": 72,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "Cuando quedan < 5 ideas, el selector muestra un mensaje de acción con pasos concretos para añadir más.",
-          "title": "Guía de renovación al agotar catálogo",
-          "summary": "Mejorar el mensaje de advertencia cuando el catálogo tiene menos de MIN_IDEAS, añadiendo instrucciones concretas para añadir nuevas ideas.",
-          "detail": [
-            "Entrada: selector detecta < 5 ideas disponibles.",
-            "Salida: mensaje con pasos: edita ideas_catalog.json → bago db reset-ideas → bago ideas.",
-            "Ventaja: el usuario sabe exactamente qué hacer cuando el catálogo se agota."
-          ],
-          "w2": "Actualizar el bloque de advertencia en emit_ideas.py para incluir los pasos de renovación."
-        },
-        {
-          "id": "auto_renew_catalog",
-          "generation": 2,
-          "condition": "feat.catalog_exhaustion_handled and feat.impl_registry",
-          "priority": 80,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "bago ideas reconstruye la DB automáticamente cuando queda por debajo de MIN_IDEAS, sin intervención manual.",
-          "title": "Autorenovación del catálogo",
-          "summary": "Cuando el selector detecta menos de MIN_IDEAS ideas disponibles, reconstruir la base de datos automáticamente desde ideas_catalog.json para descubrir nuevas generaciones.",
-          "detail": [
-            "Entrada: selector detecta < 5 ideas después de filtrar implementadas.",
-            "Salida: DB reconstruida → ideas actualizadas en la misma ejecución.",
-            "Ventaja: el ciclo de trabajo no se interrumpe por catálogo agotado."
-          ],
-          "w2": "Añadir función _auto_renew_catalog() en emit_ideas.py que llame a db_init.reset_ideas() y recargue automáticamente."
-        }
-      ]
-    },
-    "13": {
-      "generations": [
-        {
-          "id": "dashboard_shows_ideas",
-          "generation": 1,
-          "condition": "feat.progress_in_banner and not feat.dashboard_shows_ideas",
-          "priority": 77,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "bago dashboard incluye un bloque con el resumen de ideas implementadas y disponibles en el catálogo.",
-          "title": "Dashboard con progreso de ideas",
-          "summary": "Añadir un bloque al pack_dashboard.py que muestre el estado del catálogo: ideas implementadas, disponibles y porcentaje de avance.",
-          "detail": [
-            "Entrada: implemented_ideas.json + bago.db.",
-            "Salida: sección 'Ideas' en el dashboard con contadores y barra de progreso.",
-            "Ventaja: visión global del pipeline de ideas directamente desde el dashboard."
-          ],
-          "w2": "Añadir función ideas_summary() en pack_dashboard.py que lea DB e implemented_ideas.json."
-        },
-        {
-          "id": "dashboard_ideas_history",
-          "generation": 2,
-          "condition": "feat.dashboard_shows_ideas",
-          "priority": 71,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El dashboard muestra las últimas 5 ideas implementadas con fecha.",
-          "title": "Historial de ideas en dashboard",
-          "summary": "Extender el bloque de ideas en el dashboard con el historial de las últimas ideas implementadas y sus fechas.",
-          "detail": [
-            "Entrada: implemented_ideas.json ordenado por done_at.",
-            "Salida: lista de últimas 5 ideas con fecha en el dashboard.",
-            "Ventaja: trazabilidad de trabajo sin necesidad de abrir archivos de estado."
-          ],
-          "w2": "Extender ideas_summary() en pack_dashboard.py para incluir historial reciente."
-        }
-      ]
-    },
-    "14": {
-      "generations": [
-        {
-          "id": "sprint_summary_auto",
-          "generation": 1,
-          "condition": "feat.impl_registry and feat.cosecha_post_task and not feat.sprint_summary_auto",
-          "priority": 76,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "Tras completar 3 o más ideas, bago genera automáticamente un resumen de sprint con las ideas del ciclo.",
-          "title": "Resumen automático de sprint",
-          "summary": "Generar un resumen de sprint cuando se han implementado N ideas consecutivas, cerrando el ciclo con un artefacto de evidencia del batch.",
-          "detail": [
-            "Entrada: implemented_ideas.json con N ideas nuevas desde el último resumen.",
-            "Salida: archivo sprint_summary_YYYYMMDD.md en .bago/state/.",
-            "Ventaja: documenta automáticamente el trabajo del sprint sin esfuerzo manual."
-          ],
-          "w2": "Añadir función generate_sprint_summary() que detecte N ideas nuevas y genere el artefacto."
-        }
-      ]
-    },
-    "15": {
-      "generations": [
-        {
-          "id": "custom_ideas_cli",
-          "generation": 1,
-          "condition": "feat.impl_registry and not feat.custom_ideas_cli",
-          "priority": 69,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El usuario puede añadir una idea personalizada desde CLI y aparece en el selector en la siguiente ejecución.",
-          "title": "Ideas personalizadas por CLI",
-          "summary": "Añadir un comando para que el usuario pueda registrar una idea propia directamente desde la línea de comandos, sin editar el JSON manualmente.",
-          "detail": [
-            "Entrada: bago ideas --add 'Título' 'Descripción'.",
-            "Salida: idea añadida a ideas_catalog.json en slot user y disponible en el selector.",
-            "Ventaja: ciclo de feedback inmediato sin fricción de edición de archivo."
-          ],
-          "w2": "Añadir subcomando --add en emit_ideas.py que escriba a ideas_catalog.json en slot 'user'."
-        }
-      ]
-    },
-    "16": {
-      "generations": [
-        {
-          "id": "health_score_real",
-          "generation": 1,
-          "condition": "feat.session_closes_counted and not feat.health_score_real",
-          "priority": 83,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "health_score.py devuelve 'green'/'yellow' en lugar de 'initializing' cuando hay sesiones e ideas implementadas.",
-          "title": "Health score real desde historial",
-          "summary": "Mejorar health_score.py para calcular salud real basada en session_closes e ideas implementadas, eliminando el estado 'initializing' permanente.",
-          "detail": [
-            "Entrada: global_state.json con session_closes > 0 e implemented_ideas.json.",
-            "Salida: system_health = 'green' si session_closes > 0 y impl > 0, 'yellow' si parcial.",
-            "Ventaja: el banner y el dashboard reflejan la salud real del sistema."
-          ],
-          "w2": "Modificar health_score.py para leer session_closes e implemented count antes de emitir 'initializing'."
-        }
-      ]
-    },
-    "17": {
-      "generations": [
-        {
-          "id": "sprint_velocity",
-          "generation": 1,
-          "condition": "feat.sprint_summary_auto and not feat.sprint_velocity",
-          "priority": 82,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El resumen de sprint muestra ideas/día y estimación del próximo sprint.",
-          "title": "Velocidad de sprint",
-          "summary": "Calcular y mostrar la velocidad media de implementación (ideas/día) en sprint_summary.py.",
-          "detail": [
-            "Entrada: done_at de implemented_ideas.json para las ideas del sprint.",
-            "Salida: línea de velocidad en sprint_summary_NN.md (ideas/día).",
-            "Ventaja: permite estimar cuándo se completará el próximo sprint."
-          ],
-          "w2": "Modificar _generate_sprint() en sprint_summary.py para calcular días transcurridos e ideas/día."
-        }
-      ]
-    },
-    "18": {
-      "generations": [
-        {
-          "id": "health_in_banner",
-          "generation": 1,
-          "condition": "feat.health_score_real and feat.progress_in_banner and not feat.health_in_banner",
-          "priority": 78,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El banner BAGO muestra el semáforo de health (🟢/🟡/🔴) junto al contador de ideas.",
-          "title": "Health score en banner",
-          "summary": "Incluir el semáforo del health score en el banner BAGO, junto al progreso de ideas.",
-          "detail": [
-            "Entrada: health_score.py --score-only.",
-            "Salida: banner con '🟢 80' visible en cada arranque.",
-            "Ventaja: estado del sistema visible sin ejecutar comandos adicionales."
-          ],
-          "w2": "Añadir llamada a health_score.py --score-only en _progress_counter() de bago_banner.py e incluir en la línea de ideas."
-        }
-      ]
-    },
-    "19": {
-      "generations": [
-        {
-          "id": "cosecha_health_compare",
-          "generation": 1,
-          "condition": "feat.cosecha_sprint_ideas and feat.health_score_real and not feat.cosecha_health_compare",
-          "priority": 74,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "La cosecha registra el health score actual en el EVD para trazabilidad de evolución.",
-          "title": "Health score en cosecha",
-          "summary": "Incluir el health score actual en el artefacto de cosecha para trazabilidad de evolución por sprint.",
-          "detail": [
-            "Entrada: health_score.py --score-only al inicio de run() en cosecha.py.",
-            "Salida: campo 'health_at_harvest' en EVD y session.",
-            "Ventaja: trazabilidad completa de la evolución del sistema por sprint."
-          ],
-          "w2": "Añadir llamada a health_score.py --score-only al inicio de run() en cosecha.py e incluir en EVD."
-        }
-      ]
-    },
-    "20": {
-      "generations": [
-        {
-          "id": "ideas_export",
-          "generation": 1,
-          "condition": "feat.impl_registry and feat.sprint_summary_auto and not feat.ideas_exportable",
-          "priority": 70,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El comando 'bago sprint --export' genera state/ideas_report.md con todas las ideas implementadas agrupadas por sprint.",
-          "title": "Exportar historial de ideas",
-          "summary": "Generar un informe markdown completo con todas las ideas implementadas, agrupadas por sprint.",
-          "detail": [
-            "Entrada: implemented_ideas.json + sprint_summary_*.md.",
-            "Salida: state/ideas_report.md con tabla completa.",
-            "Ventaja: artefacto único para revisar el progreso total del proyecto BAGO."
-          ],
-          "w2": "Añadir flag --export en sprint_summary.py que genere ideas_report.md consolidado."
-        }
-      ]
-    },
-    "21": {
-      "generations": [
-        {
-          "id": "catalog_guide_added",
-          "generation": 1,
-          "condition": "feat.impl_registry and not feat.catalog_guide_added",
-          "priority": 65,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "ideas_catalog.json incluye sección '_guide' con plantilla de slot completo.",
-          "title": "Guía de extensión del catálogo",
-          "summary": "Añadir una sección '_guide' en ideas_catalog.json con plantilla de slot completo para facilitar la adición de nuevos slots.",
-          "detail": [
-            "Entrada: ideas_catalog.json actual.",
-            "Salida: sección '_guide' con ejemplo de slot, generaciones y condiciones.",
-            "Ventaja: reduce fricción al expandir el catálogo con nuevas ideas."
-          ],
-          "w2": "Añadir sección '_guide' en ideas_catalog.json con plantilla de slot comentada."
-        }
-      ]
-    },
-    "22": {
-      "generations": [
-        {
-          "id": "velocity_in_dashboard",
-          "generation": 1,
-          "condition": "feat.sprint_velocity and not feat.velocity_in_dashboard",
-          "priority": 80,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El dashboard muestra la velocidad media de los últimos sprints completados.",
-          "title": "Velocidad de sprint en dashboard",
-          "summary": "Añadir una fila de velocidad media (ideas/día) al dashboard, calculada desde los sprint summaries.",
-          "detail": [
-            "Entrada: sprint_summary_*.md en state/.",
-            "Salida: fila '  Velocidad:  X.X ideas/día (media N sprints)' en el dashboard.",
-            "Ventaja: métrica de ritmo visible sin ejecutar comandos adicionales."
-          ],
-          "w2": "Añadir _sprint_velocity_avg() en pack_dashboard.py que lea sprint_summary_*.md y calcule media con sentinel # VELOCITY_IN_DASHBOARD_IMPLEMENTED."
-        }
-      ]
-    },
-    "23": {
-      "generations": [
-        {
-          "id": "cosecha_health_trend",
-          "generation": 1,
-          "condition": "feat.cosecha_health_compare and not feat.cosecha_health_trend",
-          "priority": 76,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "La cosecha detecta si el health score subió/bajó respecto a la cosecha anterior.",
-          "title": "Tendencia de health entre cosechas",
-          "summary": "Comparar el health score de la cosecha actual con la anterior para mostrar tendencia (↑/↓/=).",
-          "detail": [
-            "Entrada: campo 'health_at_harvest' de las últimas dos sesiones harvest.",
-            "Salida: indicador de tendencia '↑ +5 pts' o '↓ -10 pts' en el resumen de cosecha.",
-            "Ventaja: feedback inmediato sobre si el sistema mejoró entre sesiones."
-          ],
-          "w2": "Añadir _prev_harvest_health() en cosecha.py que lea la última sesión harvest y compare con el score actual. Agregar sentinel # COSECHA_HEALTH_TREND_IMPLEMENTED."
-        }
-      ]
-    },
-    "24": {
-      "generations": [
-        {
-          "id": "full_sprint_in_stability",
-          "generation": 1,
-          "condition": "feat.health_in_banner and feat.sprint_velocity and not feat.full_sprint_in_stability",
-          "priority": 72,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "stability_summary muestra el sprint actual (ideas completadas, velocidad y health) en un único bloque.",
-          "title": "Resumen de sprint en stability",
-          "summary": "Añadir un bloque de sprint al informe de stability: ideas completadas, velocidad y health score actuales.",
-          "detail": [
-            "Entrada: implemented_ideas.json + health_score.py --score-only + sprint_summary stats.",
-            "Salida: sección 'Sprint actual' en stability_summary con 3 métricas.",
-            "Ventaja: la vista de estabilidad queda completa con el contexto de desarrollo."
-          ],
-          "w2": "Añadir _sprint_block() en stability_summary.py con sentinel # FULL_SPRINT_IN_STABILITY_IMPLEMENTED."
-        }
-      ]
-    },
-    "25": {
-      "generations": [
-        {
-          "id": "banner_compact_mode",
-          "generation": 1,
-          "condition": "feat.health_in_banner and not feat.banner_compact_mode",
-          "priority": 68,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El modo '--mini' del banner muestra health + ideas en una sola línea compacta.",
-          "title": "Modo compacto del banner",
-          "summary": "Hacer que 'bago --mini' muestre solo la línea de estado con health + ideas en formato compacto.",
-          "detail": [
-            "Entrada: health score + n_impl/n_total.",
-            "Salida: 'BAGO v2.5 | 🟢 80 | 22/35 ideas | 2026-04-30'.",
-            "Ventaja: vista rápida sin salida de pantalla completa."
-          ],
-          "w2": "Modificar print_banner(mini=True) en bago_banner.py para emitir una línea compacta con health + ideas. Agregar sentinel # BANNER_COMPACT_MODE_IMPLEMENTED."
-        }
-      ]
-    },
-    "26": {
-      "generations": [
-        {
-          "id": "dashboard_export_link",
-          "generation": 1,
-          "condition": "feat.ideas_exportable and not feat.dashboard_export_link",
-          "priority": 64,
-          "section": "contextuales",
-          "risk": "low",
-          "metric": "El dashboard muestra si existe ideas_report.md y su fecha de generación.",
-          "title": "Enlace a informe de ideas en dashboard",
-          "summary": "Añadir al dashboard una fila que indique si existe state/ideas_report.md y cuándo fue generado.",
-          "detail": [
-            "Entrada: state/ideas_report.md (si existe).",
-            "Salida: fila '  Informe:  ideas_report.md  (2026-04-30)' en el panel de ideas.",
-            "Ventaja: acceso rápido al informe completo sin ejecutar bago sprint --export."
-          ],
-          "w2": "Añadir comprobación de state/ideas_report.md en main() de pack_dashboard.py con sentinel # DASHBOARD_EXPORT_LINK_IMPLEMENTED."
-        }
-      ]
-    }
-  }
+﻿{
+    "_comment":  "CatÃ¡logo de ideas BAGO. Edita este archivo para modificar o aÃ±adir ideas sin tocar cÃ³digo Python.",
+    "_guide":  {
+                   "cÃ³mo_aÃ±adir_un_slot_nuevo":  [
+                                                       "1. Elige un nÃºmero de slot libre (verifica en db_init.py _SLOT_CONDITIONS los ya usados).",
+                                                       "2. AÃ±ade la condiciÃ³n en db_init.py _SLOT_CONDITIONS: (\u0027N\u0027, gen): {requires, blocks, extra_cond}.",
+                                                       "3. AÃ±ade la entrada en detect_implemented_features() en emit_ideas.py para el bloqueo.",
+                                                       "4. Crea la entrada en la secciÃ³n \u0027slots\u0027 de este archivo con el formato siguiente.",
+                                                       "5. Ejecuta: python bago db reset-ideas   para sembrar el nuevo slot en bago.db."
+                                                   ],
+                   "formato_de_slot":  {
+                                           "N":  {
+                                                     "generations":  [
+                                                                         {
+                                                                             "id":  "feature_flag_name",
+                                                                             "generation":  1,
+                                                                             "condition":  "feat.REQUIRES and not feat.BLOCKS",
+                                                                             "priority":  70,
+                                                                             "section":  "contextuales",
+                                                                             "risk":  "low",
+                                                                             "title":  "TÃ­tulo corto de la idea",
+                                                                             "summary":  "DescripciÃ³n de una lÃ­nea de quÃ© aporta.",
+                                                                             "detail":  [
+                                                                                            "Entrada: estado actual del sistema.",
+                                                                                            "Salida: resultado observable tras implementar.",
+                                                                                            "Ventaja: por quÃ© vale la pena implementarlo."
+                                                                                        ],
+                                                                             "metric":  "Criterio de Ã©xito medible y verificable.",
+                                                                             "w2":  "Siguiente paso concreto. Incluir sentinel # FEATURE_IMPLEMENTED si aplica."
+                                                                         }
+                                                                     ]
+                                                 }
+                                       },
+                   "convenciones":  {
+                                        "ids":  "Usar el nombre del feature flag como id (ej: \u0027velocity_in_dashboard\u0027).",
+                                        "sentinels":  "Si la feature se detecta via cadena en cÃ³digo, aÃ±adir # FEATURE_NAME_IMPLEMENTED como comentario en el archivo modificado.",
+                                        "risk":  "low = cambio seguro sin romper flujos; medium = requiere validaciÃ³n; high = toca flujos crÃ­ticos.",
+                                        "generaciones":  "Gen 1 = idea inicial. Gen 2+ = mejoras que requieren gen anterior implementada."
+                                    }
+               },
+    "_schema":  {
+                    "id":  "Identificador Ãºnico de la idea (snake_case)",
+                    "slot":  "Slot al que pertenece (1-16). Ideas del mismo slot compiten entre sÃ­ segÃºn condiciones.",
+                    "generation":  "GeneraciÃ³n dentro del slot (1=primera, 2=segunda, 3=tercera). Controla cuÃ¡ndo aparece.",
+                    "priority":  "Score de prioridad (0-100). Mayor = mÃ¡s arriba.",
+                    "section":  "contextuales | respaldo",
+                    "risk":  "low | medium | high",
+                    "title":  "TÃ­tulo corto de la idea",
+                    "summary":  "DescripciÃ³n de una lÃ­nea",
+                    "detail":  [
+                                   "Lista de lÃ­neas de contexto (entrada, salida, ventaja)"
+                               ],
+                    "w2":  "Siguiente paso concreto para implementar",
+                    "metric":  "Criterio de Ã©xito medible y verificable"
+                },
+    "fallback":  [
+                     {
+                         "id":  "fallback_readme_align",
+                         "priority":  66,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "README y selector describen la misma ruta de arranque.",
+                         "title":  "Alinear README con selector",
+                         "summary":  "Hacer que la entrada humana y el selector de ideas expliquen el mismo recorrido sin ambiguedades.",
+                         "detail":  [
+                                        "Entrada: README y comandos cortos del pack.",
+                                        "Salida: navegacion coherente entre ideas, WF y arranque.",
+                                        "Ventaja: reduce la friccion en el primer paso de cada sesion."
+                                    ],
+                         "w2":  "Actualizar la documentacion de entrada sin tocar la logica del selector."
+                     },
+                     {
+                         "id":  "fallback_selector_range",
+                         "priority":  64,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "El selector siempre publica el rango 5-20 sin desviaciones.",
+                         "title":  "Reforzar rango del selector",
+                         "summary":  "Hacer explicito el limite de 5 a 20 ideas en la salida del selector.",
+                         "detail":  [
+                                        "Entrada: enumeracion actual del selector.",
+                                        "Salida: reglas de cantidad visibles para el usuario.",
+                                        "Ventaja: evita listas demasiado cortas o excesivas."
+                                    ],
+                         "w2":  "Codificar el rango de salida en el selector y verificarlo con una ejecucion real."
+                     },
+                     {
+                         "id":  "fallback_compact_recomend",
+                         "priority":  62,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "La recomendacion final queda en una sola accion explÃ­cita.",
+                         "title":  "Compactar recomendacion final",
+                         "summary":  "Reducir la friccion del final del selector con una recomendacion mas directa.",
+                         "detail":  [
+                                        "Entrada: salida de ideas ya ordenadas.",
+                                        "Salida: siguiente paso corto y visible.",
+                                        "Ventaja: facilita pasar de idea a decision sin leer de nuevo toda la lista."
+                                    ],
+                         "w2":  "Ajustar el texto final de `./ideas` sin alterar el ranking."
+                     },
+                     {
+                         "id":  "fallback_w10_flow_task_desync",
+                         "priority":  72,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "bago validate o health detecta y reporta desync entre pending_w2_task.status==done y flow activo en banner.",
+                         "title":  "W10: detectar desync task-done vs flow-activo",
+                         "summary":  "Sincerity check: si pending_w2_task.json marca status=done pero el banner sigue mostrando ese flow como activo, es SUCCESS_WASHING interno. Validate/health debe avisar.",
+                         "detail":  [
+                                        "Entrada: pending_w2_task.json con status=done y un flow activo en sessions/global_state.",
+                                        "Salida: warning en bago validate (y/o resta de puntos en disciplina_workflow de health) cuando ambos coexisten.",
+                                        "Ventaja: cierra el punto ciego W10 detectado el 2026-05-07 â€” health 100/100 con triple desync real."
+                                    ],
+                         "w2":  "AÃ±adir check en bago validate (o subscore disciplina_workflow de health) que compare pending_w2_task.status con el flow activo del banner; emitir warning si discrepan."
+                     },
+                     {
+                         "id":  "bago_recientes_paginated_log",
+                         "priority":  71,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "Comando `bago recientes` lista eventos de las 2 fuentes ordenados temporalmente, con paginaciÃ³n interactiva [Enter]/[q].",
+                         "title":  "bago recientes â€” bitÃ¡cora paginada de Ãºltimos trabajos",
+                         "summary":  "Comando agregador que muestra la timeline cruzada de sesiones, sprints, ideas implementadas y commits, paginada interactivamente.",
+                         "detail":  [
+                                        "ENTRADA: ejecutar `bago recientes` sin flow ni tarea activa.",
+                                        "SALIDA: lista cronolÃ³gica unificada de eventos BAGO + commits git, paginada estilo `less` ([Enter] siguiente pÃ¡gina, [q] salir, [j/k] navegaciÃ³n opcional).",
+                                        "FUENTES: dual mode â€” (a) `git log` cuando estamos en repo git, (b) BAGO portable log (.bago/state/sessions/, .bago/state/sprints/, implemented_ideas.json, session_close_*.md) siempre disponible.",
+                                        "VENTAJA: visibilidad inmediata de en quÃ© se ha trabajado sin abrir 4 archivos distintos. Llena el hueco entre `bago last` (CLI runtime) y `bago sprint` (sÃ³lo el actual).",
+                                        "FILTROS opcionales: --type session|sprint|idea|push|all (default all), --since 2w, --json para tooling.",
+                                        "FUERA DE ALCANCE v1: ediciÃ³n desde la vista, bÃºsqueda fuzzy, export a markdown."
+                                    ],
+                         "w2":  "Crear `.bago/tools/recientes_aggregator.py` (lee fuentes y normaliza a eventos {ts,type,scope,title,detail}), registrar `bago recientes` en `tool_registry.py`, regenerar `docs/COMMANDS.md`, aÃ±adir tests en `.bago/tests/`."
+                     },
+                     {
+                         "id":  "session_close_clears_pending_task",
+                         "priority":  78,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "session close limpia pending_w2_task.json cuando status=done; session open siguiente no encuentra task done residual.",
+                         "title":  "session close debe limpiar pending_w2_task con status=done",
+                         "summary":  "Tras bago session close, la pending_w2_task con status=done queda residual y bloquea bago session open siguiente.",
+                         "detail":  [
+                                        "Entrada: bago session close ejecutado tras un cierre real (W9/W5).",
+                                        "Salida: pending_w2_task.json archivado o limpiado; session open siguiente arranca limpio.",
+                                        "Ventaja: rompe el bucle de \u0027task done residual\u0027 detectado por el W10 desync detector."
+                                    ],
+                         "w2":  "En .bago/tools/session_close_generator.py (o equivalente), tras escribir el SESSION_CLOSE_*.md, archivar/limpiar pending_w2_task.json cuando status=done."
+                     },
+                     {
+                         "id":  "ideas_filter_already_implemented",
+                         "priority":  76,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "bago ideas no muestra ideas cuyo tÃ­tulo o id aparezca en implemented_ideas.json (implemented o ideas_completed).",
+                         "title":  "bago ideas debe filtrar las ideas ya implementadas",
+                         "summary":  "Las ideas cerradas hoy seguÃ­an en el catÃ¡logo como ranking-1, lo que confunde al selector y rompe la auto-coherencia ideaciÃ³nâ†’implementaciÃ³nâ†’catÃ¡logo.",
+                         "detail":  [
+                                        "Entrada: ideas_catalog + implemented_ideas.json al construir el selector.",
+                                        "Salida: ideas implementadas se ocultan o se marcan como cerradas en bago ideas.",
+                                        "Ventaja: catÃ¡logo siempre refleja trabajo pendiente real, no histÃ³rico."
+                                    ],
+                         "w2":  "Cruzar ideas_selector con implemented_ideas.json (implemented + ideas_completed) por id O tÃ­tulo normalizado y excluir/marcar coincidencias."
+                     },
+                     {
+                         "id":  "session_close_uses_last_completed",
+                         "priority":  74,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "El artefacto SESSION_CLOSE_*.md refleja el workflow reciÃ©n cerrado, no una pending_w2_task antigua.",
+                         "title":  "session_close_generator debe leer last_completed_workflow",
+                         "summary":  "El SESSION_CLOSE.md generado al cerrar sesiÃ³n sigue refiriÃ©ndose a la pending_w2_task vieja (Padre/Siembra) en lugar del Ãºltimo flow cerrado del dÃ­a.",
+                         "detail":  [
+                                        "Entrada: global_state.sprint_status.last_completed_workflow disponible al cerrar sesiÃ³n.",
+                                        "Salida: el artefacto recoge el workflow real del cierre.",
+                                        "Ventaja: el cierre cuenta la verdad del dÃ­a, no un fantasma."
+                                    ],
+                         "w2":  "En session_close_generator.py, priorizar global_state.sprint_status.last_completed_workflow sobre pending_w2_task al rellenar la tabla \u0027Tarea completada\u0027."
+                     },
+                     {
+                         "id":  "siembra_disambiguate_project_vs_ideas",
+                         "priority":  70,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "El usuario distingue \u0027sembrar proyecto\u0027 (PADRE/SIEMBRA) de \u0027sembrar ideas\u0027 (catÃ¡logo) sin friction.",
+                         "title":  "Desambiguar bago siembra: proyecto vs ideas",
+                         "summary":  "El verbo \u0027siembra\u0027 estÃ¡ sobrecargado: bago siembra crea proyectos hijos, pero coloquialmente \u0027sembrar ideas\u0027 significa repoblar el catÃ¡logo. Friction UX vivida en sesiÃ³n.",
+                         "detail":  [
+                                        "Entrada: usuario dice \u0027siembra ideas\u0027 esperando catÃ¡logo.",
+                                        "Salida: comando claro (bago ideas seed o bago seed-ideas) o subcomando (bago siembra ideas).",
+                                        "Ventaja: reduce momentos de \u0027no era esto\u0027 en el primer uso."
+                                    ],
+                         "w2":  "AÃ±adir alias bago ideas seed que invoque la lÃ³gica de siembra de catÃ¡logo, o renombrar bago siembra â†’ bago siembra project con alias retroactivo."
+                     },
+                     {
+                         "id":  "selector_show_sprint_progress",
+                         "priority":  67,
+                         "section":  "respaldo",
+                         "risk":  "low",
+                         "metric":  "bago ideas muestra contador \u0027X/N\u0027 (ideas implementadas / objetivo del sprint) en el header.",
+                         "title":  "bago ideas: mostrar progreso del sprint en header",
+                         "summary":  "El banner ya muestra \u0027ideas: 29/42\u0027 pero el selector no propaga ese dato. InformaciÃ³n disponible no aprovechada.",
+                         "detail":  [
+                                        "Entrada: contador de ideas implementadas + objetivo del sprint.",
+                                        "Salida: lÃ­nea extra en el header de bago ideas con el progreso.",
+                                        "Ventaja: refuerza el sentido de avance al elegir la siguiente idea."
+                                    ],
+                         "w2":  "En ideas_selector.py, aÃ±adir una lÃ­nea de header con \u0027progreso sprint: X/N\u0027 leyendo del mismo source que bago hello banner."
+                     }
+                 ],
+    "slots":  {
+                  "1":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "handoff_w2",
+                                                    "generation":  1,
+                                                    "condition":  "not feat.handoff_w2",
+                                                    "priority":  90,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "El handoff incluye objetivo, alcance, no alcance, archivos y validaciÃ³n mÃ­nima.",
+                                                    "title":  "Handoff idea -\u003e W2",
+                                                    "summary":  "AÃ±adir una plantilla de salida que convierta una idea seleccionada en tarea lista para implementar con alcance, archivos y validaciÃ³n.",
+                                                    "detail":  [
+                                                                   "Entrada: una idea elegida tras revisar el selector.",
+                                                                   "Salida: objetivo, alcance, archivos candidatos y validaciÃ³n mÃ­nima.",
+                                                                   "Ventaja: reduce la fricciÃ³n entre ideaciÃ³n e implementaciÃ³n."
+                                                               ],
+                                                    "w2":  "Pasar la idea elegida a W2 con un alcance pequeÃ±o y un criterio de salida claro."
+                                                },
+                                                {
+                                                    "id":  "session_opener_from_task",
+                                                    "generation":  2,
+                                                    "condition":  "feat.handoff_w2 and not feat.session_opener",
+                                                    "priority":  90,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "bago session lee pending_w2_task.json y lanza session_preflight con objetivo, roles y artefactos pre-rellenados.",
+                                                    "title":  "Opener de sesiÃ³n desde task",
+                                                    "summary":  "AÃ±adir `bago session` que lee el handoff aceptado y abre la sesiÃ³n W2 con preflight pre-rellenado, evitando trabajo manual.",
+                                                    "detail":  [
+                                                                   "Entrada: pending_w2_task.json con objetivo, archivos y validaciÃ³n.",
+                                                                   "Salida: llamada a session_preflight.py con los datos del handoff.",
+                                                                   "Ventaja: elimina el paso manual de copiar datos del handoff al preflight."
+                                                               ],
+                                                    "w2":  "Implementar bago session en el script raÃ­z delegando en session_preflight.py."
+                                                },
+                                                {
+                                                    "id":  "auto_session_close",
+                                                    "generation":  3,
+                                                    "condition":  "feat.handoff_w2 and feat.session_opener",
+                                                    "priority":  90,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "bago task --done genera y guarda automÃ¡ticamente el artefacto de cierre de sesiÃ³n.",
+                                                    "title":  "Cierre automÃ¡tico de sesiÃ³n",
+                                                    "summary":  "Al marcar la tarea como done, generar automÃ¡ticamente el artefacto de cierre con resumen de cambios y evidencias.",
+                                                    "detail":  [
+                                                                   "Entrada: tarea W2 completada (pending_w2_task.json con status=done).",
+                                                                   "Salida: artefacto de cierre con resumen, CHG/EVD generados y estado actualizado.",
+                                                                   "Ventaja: elimina el paso manual de redactar el cierre despuÃ©s de implementar."
+                                                               ],
+                                                    "w2":  "Extender show_task.py --done para llamar al generador de cierre de sesiÃ³n."
+                                                }
+                                            ]
+                        },
+                  "2":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "stability_summary",
+                                                    "generation":  1,
+                                                    "condition":  "not feat.stability_cmd",
+                                                    "priority":  86,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "El resumen incluye estado de smoke, VM y soak en un Ãºnico bloque.",
+                                                    "title":  "Resumen Ãºnico de estabilidad",
+                                                    "summary":  "Consolidar smoke, VM y soak en un informe corto para decidir si una idea nueva compite con estabilidad antes de tocar cÃ³digo.",
+                                                    "detail":  [
+                                                                   "Entrada: los Ãºltimos reports del sandbox.",
+                                                                   "Salida: un resumen de salud operacional para decidir si conviene proponer cambios.",
+                                                                   "Ventaja: evita idear sobre una base ya inestable."
+                                                               ],
+                                                    "w2":  "Si el resumen estÃ¡ en verde, permitir avanzar a una idea concreta."
+                                                },
+                                                {
+                                                    "id":  "banner_shows_task",
+                                                    "generation":  2,
+                                                    "condition":  "feat.stability_cmd and not feat.banner_shows_task",
+                                                    "priority":  86,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "El banner muestra el estado de la tarea W2 activa (tÃ­tulo + estado) si pending_w2_task.json existe.",
+                                                    "title":  "Banner muestra task activa",
+                                                    "summary":  "Mostrar en el banner de BAGO si hay una tarea W2 pendiente o completada, para visibilidad inmediata al arrancar.",
+                                                    "detail":  [
+                                                                   "Entrada: pending_w2_task.json si existe.",
+                                                                   "Salida: lÃ­nea extra en el banner con tÃ­tulo y estado (â³/âœ…).",
+                                                                   "Ventaja: el usuario sabe al abrir BAGO si tiene trabajo en curso."
+                                                               ],
+                                                    "w2":  "Leer pending_w2_task.json en bago_banner.py y aÃ±adir lÃ­nea condicional al banner."
+                                                },
+                                                {
+                                                    "id":  "stale_task_alert",
+                                                    "generation":  3,
+                                                    "condition":  "feat.stability_cmd and feat.banner_shows_task",
+                                                    "priority":  86,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "bago stability y el banner alertan si la task lleva mÃ¡s de 3 dÃ­as sin completarse.",
+                                                    "title":  "Alerta de task obsoleta",
+                                                    "summary":  "Si pending_w2_task.json lleva mÃ¡s de 3 dÃ­as sin marcarse done, mostrar aviso en banner y en bago stability.",
+                                                    "detail":  [
+                                                                   "Entrada: pending_w2_task.json con campo accepted_at.",
+                                                                   "Salida: aviso visual (âš ï¸) en banner y en stability cuando la task supera 3 dÃ­as.",
+                                                                   "Ventaja: evita que tareas abiertas queden olvidadas."
+                                                               ],
+                                                    "w2":  "AÃ±adir lÃ³gica de antigÃ¼edad en bago_banner.py y stability_summary.py."
+                                                }
+                                            ]
+                        },
+                  "3":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "safe_gate",
+                                                    "generation":  1,
+                                                    "condition":  "not feat.gate_in_code and stable_reports",
+                                                    "priority":  84,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "Ninguna idea avanza si validate_pack/validate_state/smoke no estÃ¡n en verde.",
+                                                    "title":  "Gate seguro antes de implementar",
+                                                    "summary":  "Bloquear sugerencias nuevas si validate_pack, validate_state o smoke no estÃ¡n en verde.",
+                                                    "detail":  [
+                                                                   "Entrada: validadores canÃ³nicos y smoke del sandbox.",
+                                                                   "Salida: permiso o bloqueo para seguir ideando e implementar.",
+                                                                   "Ventaja: protege la estabilidad antes de abrir trabajo nuevo."
+                                                               ],
+                                                    "w2":  "Si el gate pasa, la idea elegida puede convertirse en W2."
+                                                },
+                                                {
+                                                    "id":  "impl_registry",
+                                                    "generation":  2,
+                                                    "condition":  "feat.gate_in_code and not feat.impl_registry",
+                                                    "priority":  84,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "El selector no repite una idea marcada como implementada en implemented_ideas.json.",
+                                                    "title":  "Registro de ideas implementadas",
+                                                    "summary":  "Guardar en estado quÃ© ideas ya fueron implementadas para que el selector evolucione en lugar de repetirlas en cada sesiÃ³n.",
+                                                    "detail":  [
+                                                                   "Entrada: lista de ideas aceptadas e implementadas.",
+                                                                   "Salida: archivo .bago/state/implemented_ideas.json con IDs y fechas.",
+                                                                   "Ventaja: el selector siempre propone trabajo nuevo, no repetido."
+                                                               ],
+                                                    "w2":  "Crear implemented_ideas.json y leerlo en emit_ideas para filtrar ideas ya hechas."
+                                                },
+                                                {
+                                                    "id":  "dynamic_scoring",
+                                                    "generation":  3,
+                                                    "condition":  "feat.impl_registry",
+                                                    "priority":  84,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "El scoring de ideas sube cuando la feature que proponen no estÃ¡ en implemented_ideas.json.",
+                                                    "title":  "Scoring dinÃ¡mico por registro",
+                                                    "summary":  "Ajustar la prioridad de las ideas en funciÃ³n de si la feature que proponen ya fue implementada, incrementando el score de las que aportan trabajo nuevo.",
+                                                    "detail":  [
+                                                                   "Entrada: implemented_ideas.json con historial de ideas completadas.",
+                                                                   "Salida: ideas reordenadas priorizando trabajo genuinamente nuevo.",
+                                                                   "Ventaja: el selector se vuelve mÃ¡s preciso con el tiempo."
+                                                               ],
+                                                    "w2":  "Leer implemented_ideas.json en emit_ideas y aplicar penalizaciÃ³n de score a ideas similares ya hechas."
+                                                }
+                                            ]
+                        },
+                  "4":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "intent_selector",
+                                                    "generation":  1,
+                                                    "condition":  "matrix and matrix.get(\u0027status\u0027) == \u0027pass\u0027",
+                                                    "priority":  82,
+                                                    "section":  "contextuales",
+                                                    "risk":  "medium",
+                                                    "metric":  "WF responde por intenciÃ³n y reduce navegaciÃ³n manual.",
+                                                    "title":  "Selector por intenciÃ³n",
+                                                    "summary":  "Extender WF para filtrar ideas y workflows por intenciÃ³n, por ejemplo idea, implementar, depurar o cerrar.",
+                                                    "detail":  [
+                                                                   "Entrada: intenciÃ³n del usuario.",
+                                                                   "Salida: selector mÃ¡s fino para aterrizar al workflow correcto.",
+                                                                   "Ventaja: evita navegar manualmente cuando la intenciÃ³n ya estÃ¡ clara."
+                                                               ],
+                                                    "w2":  "Usar la intenciÃ³n seleccionada para orientar la tarea siguiente."
+                                                }
+                                            ]
+                        },
+                  "5":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "baseline_ideas",
+                                                    "generation":  1,
+                                                    "condition":  "baseline_clean_mode",
+                                                    "priority":  78,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "Cada idea aceptada declara una mejora medible en trazabilidad u operaciÃ³n.",
+                                                    "title":  "Ideas orientadas a baseline",
+                                                    "summary":  "Proponer solo cambios que mantengan el baseline limpio y generen un incremento medible en trazabilidad u operacion.",
+                                                    "detail":  [
+                                                                   "Entrada: baseline limpio y estable.",
+                                                                   "Salida: ideas pequeÃ±as con mejora mensurable.",
+                                                                   "Ventaja: alinea la ideaciÃ³n con la continuidad del pack."
+                                                               ],
+                                                    "w2":  "Seleccionar una idea que preserve el baseline y tenga bajo riesgo."
+                                                }
+                                            ]
+                        },
+                  "6":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "reopen_from_continuity",
+                                                    "generation":  1,
+                                                    "condition":  "sections.get(\u0027cierre de sesiÃ³n\u0027)",
+                                                    "priority":  74,
+                                                    "section":  "contextuales",
+                                                    "risk":  "medium",
+                                                    "metric":  "Reapertura evita reconstrucciÃ³n manual y reduce pasos de arranque.",
+                                                    "title":  "Reabrir desde continuidad",
+                                                    "summary":  "AÃ±adir un modo para reactivar la sesiÃ³n desde el cierre actual sin reconstruir contexto manualmente.",
+                                                    "detail":  [
+                                                                   "Entrada: cierre de sesiÃ³n ya escrito en estado.",
+                                                                   "Salida: reanudaciÃ³n mÃ¡s rÃ¡pida sin perder contexto.",
+                                                                   "Ventaja: mantiene continuidad de trabajo entre sesiones."
+                                                               ],
+                                                    "w2":  "Si se acepta, convertirlo en una mejora pequeÃ±a y segura de continuidad."
+                                                }
+                                            ]
+                        },
+                  "7":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "quick_repo_entry",
+                                                    "generation":  1,
+                                                    "condition":  "repo_lines \u003e 0",
+                                                    "priority":  70,
+                                                    "section":  "contextuales",
+                                                    "risk":  "medium",
+                                                    "metric":  "La primera decisiÃ³n del usuario llega a una acciÃ³n en un paso.",
+                                                    "title":  "Entrada rÃ¡pida del repo",
+                                                    "summary":  "Conectar ideas con README y WF para que la primera decisiÃ³n del usuario vaya a una acciÃ³n concreta sin leer toda la canonica.",
+                                                    "detail":  [
+                                                                   "Entrada: comandos cortos y selector de workflows.",
+                                                                   "Salida: menos fricciÃ³n para abrir ideas o W2.",
+                                                                   "Ventaja: mejora la usabilidad diaria del repo."
+                                                               ],
+                                                    "w2":  "Promover la idea seleccionada a una tarea corta y directa."
+                                                }
+                                            ]
+                        },
+                  "8":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "improve_ranking",
+                                                    "generation":  1,
+                                                    "condition":  "always",
+                                                    "priority":  68,
+                                                    "section":  "contextuales",
+                                                    "risk":  "medium",
+                                                    "metric":  "El ranking refleja seÃ±ales de estado actual y reduce recomendaciones estÃ¡ticas.",
+                                                    "title":  "Mejorar ranking de ideas",
+                                                    "summary":  "Ajustar el scoring para reflejar seÃ±ales del estado actual y evitar prioridades estÃ¡ticas que oculten trabajo real.",
+                                                    "detail":  [
+                                                                   "Entrada: estado BAGO, salud de reports y workflow activo.",
+                                                                   "Salida: orden de ideas mÃ¡s sensible al contexto operativo.",
+                                                                   "Ventaja: reduce sesgos de ranking y evita ciclos de recomendaciÃ³n."
+                                                               ],
+                                                    "w2":  "Implementar un ranking contextual acotado y validarlo con ejemplos reales del estado."
+                                                }
+                                            ]
+                        },
+                  "9":  {
+                            "generations":  [
+                                                {
+                                                    "id":  "progress_counter",
+                                                    "generation":  1,
+                                                    "condition":  "feat.impl_registry and not feat.progress_in_banner",
+                                                    "priority":  83,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "El banner muestra \u0027X ideas implementadas\u0027 con el recuento actualizado en cada ejecuciÃ³n.",
+                                                    "title":  "Contador de progreso en banner",
+                                                    "summary":  "AÃ±adir una lÃ­nea al banner de BAGO que muestre cuÃ¡ntas ideas del catÃ¡logo han sido implementadas, dando visibilidad del avance.",
+                                                    "detail":  [
+                                                                   "Entrada: implemented_ideas.json con la lista de ideas completadas.",
+                                                                   "Salida: lÃ­nea en el banner: \u0027ideas: 7 implementadas\u0027.",
+                                                                   "Ventaja: el usuario ve su progreso sin necesidad de comandos extra."
+                                                               ],
+                                                    "w2":  "Leer implemented_ideas.json en bago_banner.py y aÃ±adir lÃ­nea de progreso junto al resto del estado."
+                                                },
+                                                {
+                                                    "id":  "catalog_health_report",
+                                                    "generation":  2,
+                                                    "condition":  "feat.progress_in_banner",
+                                                    "priority":  78,
+                                                    "section":  "contextuales",
+                                                    "risk":  "low",
+                                                    "metric":  "bago stability incluye estado del catÃ¡logo: ideas disponibles y porcentaje implementado.",
+                                                    "title":  "Estado del catÃ¡logo en stability",
+                                                    "summary":  "AÃ±adir un bloque de salud del catÃ¡logo de ideas al informe de stability, mostrando cuÃ¡ntas ideas quedan disponibles.",
+                                                    "detail":  [
+                                                                   "Entrada: bago.db con ideas disponibles + implemented_ideas.json.",
+                                                                   "Salida: secciÃ³n \u0027catÃ¡logo\u0027 en stability con N ideas disponibles / M implementadas.",
+                                                                   "Ventaja: incluye la salud del pipeline de ideas dentro del informe de estabilidad."
+                                                               ],
+                                                    "w2":  "AÃ±adir funciÃ³n catalog_status() en stability_summary.py que lea DB e implemented_ideas.json."
+                                                }
+                                            ]
+                        },
+                  "10":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "session_close_counter",
+                                                     "generation":  1,
+                                                     "condition":  "has_session_close and not feat.session_closes_counted",
+                                                     "priority":  81,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "global_state.json refleja el nÃºmero real de sesiones cerradas tras cada cosecha.",
+                                                     "title":  "Sesiones reales en global_state",
+                                                     "summary":  "Contar los artefactos session_close_*.md existentes y actualizar el campo \u0027sessions\u0027 en global_state.json para que health score y scoring reflejen el historial real.",
+                                                     "detail":  [
+                                                                    "Entrada: archivos session_close_*.md en .bago/state/.",
+                                                                    "Salida: global_state.json con sessions = nÃºmero real de cierres.",
+                                                                    "Ventaja: desbloquea el health score real y mejora el scoring dinÃ¡mico de ideas."
+                                                                ],
+                                                     "w2":  "AÃ±adir funciÃ³n sync_session_count() en show_task.py o bago_banner.py que cuente session_close_*.md y actualice global_state."
+                                                 },
+                                                 {
+                                                     "id":  "health_from_sessions",
+                                                     "generation":  2,
+                                                     "condition":  "feat.session_closes_counted",
+                                                     "priority":  76,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "health_score devuelve \u0027green\u0027 o \u0027yellow\u0027 (no \u0027initializing\u0027) cuando hay sesiones cerradas e ideas implementadas.",
+                                                     "title":  "Health score desde historial",
+                                                     "summary":  "Mejorar health_score.py para calcular un estado real basado en sesiones cerradas e ideas implementadas, eliminando el estado \u0027initializing\u0027 cuando hay historial.",
+                                                     "detail":  [
+                                                                    "Entrada: global_state.json con sessions \u003e 0 e implemented_ideas.json.",
+                                                                    "Salida: health = \u0027green\u0027 si sessions \u003e 0 y ideas implementadas \u003e 0.",
+                                                                    "Ventaja: el sistema reporta salud real en lugar de \u0027initializing\u0027 para siempre."
+                                                                ],
+                                                     "w2":  "Modificar health_score.py para leer sessions e implemented count antes de emitir \u0027initializing\u0027."
+                                                 }
+                                             ]
+                         },
+                  "11":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "cosecha_post_task_prompt",
+                                                     "generation":  1,
+                                                     "condition":  "feat.handoff_w2 and not feat.cosecha_post_task",
+                                                     "priority":  79,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "Tras bago task --done, el usuario recibe un recordatorio explÃ­cito de ejecutar bago cosecha.",
+                                                     "title":  "Recordatorio de cosecha tras tarea",
+                                                     "summary":  "Al cerrar una tarea con bago task --done, mostrar un recordatorio visible para ejecutar bago cosecha y no perder el artefacto de sesiÃ³n.",
+                                                     "detail":  [
+                                                                    "Entrada: show_task.py --done cierra la tarea.",
+                                                                    "Salida: mensaje final \u0027â†’ Ahora corre: bago cosecha\u0027.",
+                                                                    "Ventaja: cierra el ciclo tareaâ†’cosecha sin que el usuario lo recuerde manualmente."
+                                                                ],
+                                                     "w2":  "AÃ±adir print final en show_task.py --done con la sugerencia de cosecha."
+                                                 },
+                                                 {
+                                                     "id":  "cosecha_summary_with_ideas",
+                                                     "generation":  2,
+                                                     "condition":  "feat.cosecha_post_task and feat.impl_registry",
+                                                     "priority":  74,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El artefacto de cosecha incluye la lista de ideas implementadas en la sesiÃ³n.",
+                                                     "title":  "Cosecha con ideas del sprint",
+                                                     "summary":  "Incluir en el artefacto de cosecha (W9) un resumen de las ideas implementadas durante la sesiÃ³n, cerrando el ciclo ideasâ†’implementaciÃ³nâ†’evidencia.",
+                                                     "detail":  [
+                                                                    "Entrada: implemented_ideas.json y el artefacto de cierre de tarea.",
+                                                                    "Salida: secciÃ³n \u0027ideas del sprint\u0027 en el artefacto W9.",
+                                                                    "Ventaja: trazabilidad completa desde idea hasta evidencia de cosecha."
+                                                                ],
+                                                     "w2":  "Modificar el protocolo W9 (cosecha) para leer implemented_ideas.json e incluir las ideas recientes."
+                                                 }
+                                             ]
+                         },
+                  "12":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "catalog_exhaustion_handled",
+                                                     "generation":  1,
+                                                     "condition":  "feat.impl_registry and not feat.catalog_exhaustion_handled",
+                                                     "priority":  72,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "Cuando quedan \u003c 5 ideas, el selector muestra un mensaje de acciÃ³n con pasos concretos para aÃ±adir mÃ¡s.",
+                                                     "title":  "GuÃ­a de renovaciÃ³n al agotar catÃ¡logo",
+                                                     "summary":  "Mejorar el mensaje de advertencia cuando el catÃ¡logo tiene menos de MIN_IDEAS, aÃ±adiendo instrucciones concretas para aÃ±adir nuevas ideas.",
+                                                     "detail":  [
+                                                                    "Entrada: selector detecta \u003c 5 ideas disponibles.",
+                                                                    "Salida: mensaje con pasos: edita ideas_catalog.json â†’ bago db reset-ideas â†’ bago ideas.",
+                                                                    "Ventaja: el usuario sabe exactamente quÃ© hacer cuando el catÃ¡logo se agota."
+                                                                ],
+                                                     "w2":  "Actualizar el bloque de advertencia en emit_ideas.py para incluir los pasos de renovaciÃ³n."
+                                                 },
+                                                 {
+                                                     "id":  "auto_renew_catalog",
+                                                     "generation":  2,
+                                                     "condition":  "feat.catalog_exhaustion_handled and feat.impl_registry",
+                                                     "priority":  80,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "bago ideas reconstruye la DB automÃ¡ticamente cuando queda por debajo de MIN_IDEAS, sin intervenciÃ³n manual.",
+                                                     "title":  "AutorenovaciÃ³n del catÃ¡logo",
+                                                     "summary":  "Cuando el selector detecta menos de MIN_IDEAS ideas disponibles, reconstruir la base de datos automÃ¡ticamente desde ideas_catalog.json para descubrir nuevas generaciones.",
+                                                     "detail":  [
+                                                                    "Entrada: selector detecta \u003c 5 ideas despuÃ©s de filtrar implementadas.",
+                                                                    "Salida: DB reconstruida â†’ ideas actualizadas en la misma ejecuciÃ³n.",
+                                                                    "Ventaja: el ciclo de trabajo no se interrumpe por catÃ¡logo agotado."
+                                                                ],
+                                                     "w2":  "AÃ±adir funciÃ³n _auto_renew_catalog() en emit_ideas.py que llame a db_init.reset_ideas() y recargue automÃ¡ticamente."
+                                                 }
+                                             ]
+                         },
+                  "13":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "dashboard_shows_ideas",
+                                                     "generation":  1,
+                                                     "condition":  "feat.progress_in_banner and not feat.dashboard_shows_ideas",
+                                                     "priority":  77,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "bago dashboard incluye un bloque con el resumen de ideas implementadas y disponibles en el catÃ¡logo.",
+                                                     "title":  "Dashboard con progreso de ideas",
+                                                     "summary":  "AÃ±adir un bloque al pack_dashboard.py que muestre el estado del catÃ¡logo: ideas implementadas, disponibles y porcentaje de avance.",
+                                                     "detail":  [
+                                                                    "Entrada: implemented_ideas.json + bago.db.",
+                                                                    "Salida: secciÃ³n \u0027Ideas\u0027 en el dashboard con contadores y barra de progreso.",
+                                                                    "Ventaja: visiÃ³n global del pipeline de ideas directamente desde el dashboard."
+                                                                ],
+                                                     "w2":  "AÃ±adir funciÃ³n ideas_summary() en pack_dashboard.py que lea DB e implemented_ideas.json."
+                                                 },
+                                                 {
+                                                     "id":  "dashboard_ideas_history",
+                                                     "generation":  2,
+                                                     "condition":  "feat.dashboard_shows_ideas",
+                                                     "priority":  71,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El dashboard muestra las Ãºltimas 5 ideas implementadas con fecha.",
+                                                     "title":  "Historial de ideas en dashboard",
+                                                     "summary":  "Extender el bloque de ideas en el dashboard con el historial de las Ãºltimas ideas implementadas y sus fechas.",
+                                                     "detail":  [
+                                                                    "Entrada: implemented_ideas.json ordenado por done_at.",
+                                                                    "Salida: lista de Ãºltimas 5 ideas con fecha en el dashboard.",
+                                                                    "Ventaja: trazabilidad de trabajo sin necesidad de abrir archivos de estado."
+                                                                ],
+                                                     "w2":  "Extender ideas_summary() en pack_dashboard.py para incluir historial reciente."
+                                                 }
+                                             ]
+                         },
+                  "14":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "sprint_summary_auto",
+                                                     "generation":  1,
+                                                     "condition":  "feat.impl_registry and feat.cosecha_post_task and not feat.sprint_summary_auto",
+                                                     "priority":  76,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "Tras completar 3 o mÃ¡s ideas, bago genera automÃ¡ticamente un resumen de sprint con las ideas del ciclo.",
+                                                     "title":  "Resumen automÃ¡tico de sprint",
+                                                     "summary":  "Generar un resumen de sprint cuando se han implementado N ideas consecutivas, cerrando el ciclo con un artefacto de evidencia del batch.",
+                                                     "detail":  [
+                                                                    "Entrada: implemented_ideas.json con N ideas nuevas desde el Ãºltimo resumen.",
+                                                                    "Salida: archivo sprint_summary_YYYYMMDD.md en .bago/state/.",
+                                                                    "Ventaja: documenta automÃ¡ticamente el trabajo del sprint sin esfuerzo manual."
+                                                                ],
+                                                     "w2":  "AÃ±adir funciÃ³n generate_sprint_summary() que detecte N ideas nuevas y genere el artefacto."
+                                                 }
+                                             ]
+                         },
+                  "15":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "custom_ideas_cli",
+                                                     "generation":  1,
+                                                     "condition":  "feat.impl_registry and not feat.custom_ideas_cli",
+                                                     "priority":  69,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El usuario puede aÃ±adir una idea personalizada desde CLI y aparece en el selector en la siguiente ejecuciÃ³n.",
+                                                     "title":  "Ideas personalizadas por CLI",
+                                                     "summary":  "AÃ±adir un comando para que el usuario pueda registrar una idea propia directamente desde la lÃ­nea de comandos, sin editar el JSON manualmente.",
+                                                     "detail":  [
+                                                                    "Entrada: bago ideas --add \u0027TÃ­tulo\u0027 \u0027DescripciÃ³n\u0027.",
+                                                                    "Salida: idea aÃ±adida a ideas_catalog.json en slot user y disponible en el selector.",
+                                                                    "Ventaja: ciclo de feedback inmediato sin fricciÃ³n de ediciÃ³n de archivo."
+                                                                ],
+                                                     "w2":  "AÃ±adir subcomando --add en emit_ideas.py que escriba a ideas_catalog.json en slot \u0027user\u0027."
+                                                 }
+                                             ]
+                         },
+                  "16":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "health_score_real",
+                                                     "generation":  1,
+                                                     "condition":  "feat.session_closes_counted and not feat.health_score_real",
+                                                     "priority":  83,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "health_score.py devuelve \u0027green\u0027/\u0027yellow\u0027 en lugar de \u0027initializing\u0027 cuando hay sesiones e ideas implementadas.",
+                                                     "title":  "Health score real desde historial",
+                                                     "summary":  "Mejorar health_score.py para calcular salud real basada en session_closes e ideas implementadas, eliminando el estado \u0027initializing\u0027 permanente.",
+                                                     "detail":  [
+                                                                    "Entrada: global_state.json con session_closes \u003e 0 e implemented_ideas.json.",
+                                                                    "Salida: system_health = \u0027green\u0027 si session_closes \u003e 0 y impl \u003e 0, \u0027yellow\u0027 si parcial.",
+                                                                    "Ventaja: el banner y el dashboard reflejan la salud real del sistema."
+                                                                ],
+                                                     "w2":  "Modificar health_score.py para leer session_closes e implemented count antes de emitir \u0027initializing\u0027."
+                                                 }
+                                             ]
+                         },
+                  "17":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "sprint_velocity",
+                                                     "generation":  1,
+                                                     "condition":  "feat.sprint_summary_auto and not feat.sprint_velocity",
+                                                     "priority":  82,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El resumen de sprint muestra ideas/dÃ­a y estimaciÃ³n del prÃ³ximo sprint.",
+                                                     "title":  "Velocidad de sprint",
+                                                     "summary":  "Calcular y mostrar la velocidad media de implementaciÃ³n (ideas/dÃ­a) en sprint_summary.py.",
+                                                     "detail":  [
+                                                                    "Entrada: done_at de implemented_ideas.json para las ideas del sprint.",
+                                                                    "Salida: lÃ­nea de velocidad en sprint_summary_NN.md (ideas/dÃ­a).",
+                                                                    "Ventaja: permite estimar cuÃ¡ndo se completarÃ¡ el prÃ³ximo sprint."
+                                                                ],
+                                                     "w2":  "Modificar _generate_sprint() en sprint_summary.py para calcular dÃ­as transcurridos e ideas/dÃ­a."
+                                                 }
+                                             ]
+                         },
+                  "18":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "health_in_banner",
+                                                     "generation":  1,
+                                                     "condition":  "feat.health_score_real and feat.progress_in_banner and not feat.health_in_banner",
+                                                     "priority":  78,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El banner BAGO muestra el semÃ¡foro de health (ðŸŸ¢/ðŸŸ¡/ðŸ”´) junto al contador de ideas.",
+                                                     "title":  "Health score en banner",
+                                                     "summary":  "Incluir el semÃ¡foro del health score en el banner BAGO, junto al progreso de ideas.",
+                                                     "detail":  [
+                                                                    "Entrada: health_score.py --score-only.",
+                                                                    "Salida: banner con \u0027ðŸŸ¢ 80\u0027 visible en cada arranque.",
+                                                                    "Ventaja: estado del sistema visible sin ejecutar comandos adicionales."
+                                                                ],
+                                                     "w2":  "AÃ±adir llamada a health_score.py --score-only en _progress_counter() de bago_banner.py e incluir en la lÃ­nea de ideas."
+                                                 }
+                                             ]
+                         },
+                  "19":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "cosecha_health_compare",
+                                                     "generation":  1,
+                                                     "condition":  "feat.cosecha_sprint_ideas and feat.health_score_real and not feat.cosecha_health_compare",
+                                                     "priority":  74,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "La cosecha registra el health score actual en el EVD para trazabilidad de evoluciÃ³n.",
+                                                     "title":  "Health score en cosecha",
+                                                     "summary":  "Incluir el health score actual en el artefacto de cosecha para trazabilidad de evoluciÃ³n por sprint.",
+                                                     "detail":  [
+                                                                    "Entrada: health_score.py --score-only al inicio de run() en cosecha.py.",
+                                                                    "Salida: campo \u0027health_at_harvest\u0027 en EVD y session.",
+                                                                    "Ventaja: trazabilidad completa de la evoluciÃ³n del sistema por sprint."
+                                                                ],
+                                                     "w2":  "AÃ±adir llamada a health_score.py --score-only al inicio de run() en cosecha.py e incluir en EVD."
+                                                 }
+                                             ]
+                         },
+                  "20":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "ideas_export",
+                                                     "generation":  1,
+                                                     "condition":  "feat.impl_registry and feat.sprint_summary_auto and not feat.ideas_exportable",
+                                                     "priority":  70,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El comando \u0027bago sprint --export\u0027 genera state/ideas_report.md con todas las ideas implementadas agrupadas por sprint.",
+                                                     "title":  "Exportar historial de ideas",
+                                                     "summary":  "Generar un informe markdown completo con todas las ideas implementadas, agrupadas por sprint.",
+                                                     "detail":  [
+                                                                    "Entrada: implemented_ideas.json + sprint_summary_*.md.",
+                                                                    "Salida: state/ideas_report.md con tabla completa.",
+                                                                    "Ventaja: artefacto Ãºnico para revisar el progreso total del proyecto BAGO."
+                                                                ],
+                                                     "w2":  "AÃ±adir flag --export en sprint_summary.py que genere ideas_report.md consolidado."
+                                                 }
+                                             ]
+                         },
+                  "21":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "catalog_guide_added",
+                                                     "generation":  1,
+                                                     "condition":  "feat.impl_registry and not feat.catalog_guide_added",
+                                                     "priority":  65,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "ideas_catalog.json incluye secciÃ³n \u0027_guide\u0027 con plantilla de slot completo.",
+                                                     "title":  "GuÃ­a de extensiÃ³n del catÃ¡logo",
+                                                     "summary":  "AÃ±adir una secciÃ³n \u0027_guide\u0027 en ideas_catalog.json con plantilla de slot completo para facilitar la adiciÃ³n de nuevos slots.",
+                                                     "detail":  [
+                                                                    "Entrada: ideas_catalog.json actual.",
+                                                                    "Salida: secciÃ³n \u0027_guide\u0027 con ejemplo de slot, generaciones y condiciones.",
+                                                                    "Ventaja: reduce fricciÃ³n al expandir el catÃ¡logo con nuevas ideas."
+                                                                ],
+                                                     "w2":  "AÃ±adir secciÃ³n \u0027_guide\u0027 en ideas_catalog.json con plantilla de slot comentada."
+                                                 }
+                                             ]
+                         },
+                  "22":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "velocity_in_dashboard",
+                                                     "generation":  1,
+                                                     "condition":  "feat.sprint_velocity and not feat.velocity_in_dashboard",
+                                                     "priority":  80,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El dashboard muestra la velocidad media de los Ãºltimos sprints completados.",
+                                                     "title":  "Velocidad de sprint en dashboard",
+                                                     "summary":  "AÃ±adir una fila de velocidad media (ideas/dÃ­a) al dashboard, calculada desde los sprint summaries.",
+                                                     "detail":  [
+                                                                    "Entrada: sprint_summary_*.md en state/.",
+                                                                    "Salida: fila \u0027  Velocidad:  X.X ideas/dÃ­a (media N sprints)\u0027 en el dashboard.",
+                                                                    "Ventaja: mÃ©trica de ritmo visible sin ejecutar comandos adicionales."
+                                                                ],
+                                                     "w2":  "AÃ±adir _sprint_velocity_avg() en pack_dashboard.py que lea sprint_summary_*.md y calcule media con sentinel # VELOCITY_IN_DASHBOARD_IMPLEMENTED."
+                                                 }
+                                             ]
+                         },
+                  "23":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "cosecha_health_trend",
+                                                     "generation":  1,
+                                                     "condition":  "feat.cosecha_health_compare and not feat.cosecha_health_trend",
+                                                     "priority":  76,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "La cosecha detecta si el health score subiÃ³/bajÃ³ respecto a la cosecha anterior.",
+                                                     "title":  "Tendencia de health entre cosechas",
+                                                     "summary":  "Comparar el health score de la cosecha actual con la anterior para mostrar tendencia (â†‘/â†“/=).",
+                                                     "detail":  [
+                                                                    "Entrada: campo \u0027health_at_harvest\u0027 de las Ãºltimas dos sesiones harvest.",
+                                                                    "Salida: indicador de tendencia \u0027â†‘ +5 pts\u0027 o \u0027â†“ -10 pts\u0027 en el resumen de cosecha.",
+                                                                    "Ventaja: feedback inmediato sobre si el sistema mejorÃ³ entre sesiones."
+                                                                ],
+                                                     "w2":  "AÃ±adir _prev_harvest_health() en cosecha.py que lea la Ãºltima sesiÃ³n harvest y compare con el score actual. Agregar sentinel # COSECHA_HEALTH_TREND_IMPLEMENTED."
+                                                 }
+                                             ]
+                         },
+                  "24":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "full_sprint_in_stability",
+                                                     "generation":  1,
+                                                     "condition":  "feat.health_in_banner and feat.sprint_velocity and not feat.full_sprint_in_stability",
+                                                     "priority":  72,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "stability_summary muestra el sprint actual (ideas completadas, velocidad y health) en un Ãºnico bloque.",
+                                                     "title":  "Resumen de sprint en stability",
+                                                     "summary":  "AÃ±adir un bloque de sprint al informe de stability: ideas completadas, velocidad y health score actuales.",
+                                                     "detail":  [
+                                                                    "Entrada: implemented_ideas.json + health_score.py --score-only + sprint_summary stats.",
+                                                                    "Salida: secciÃ³n \u0027Sprint actual\u0027 en stability_summary con 3 mÃ©tricas.",
+                                                                    "Ventaja: la vista de estabilidad queda completa con el contexto de desarrollo."
+                                                                ],
+                                                     "w2":  "AÃ±adir _sprint_block() en stability_summary.py con sentinel # FULL_SPRINT_IN_STABILITY_IMPLEMENTED."
+                                                 }
+                                             ]
+                         },
+                  "25":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "banner_compact_mode",
+                                                     "generation":  1,
+                                                     "condition":  "feat.health_in_banner and not feat.banner_compact_mode",
+                                                     "priority":  68,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El modo \u0027--mini\u0027 del banner muestra health + ideas en una sola lÃ­nea compacta.",
+                                                     "title":  "Modo compacto del banner",
+                                                     "summary":  "Hacer que \u0027bago --mini\u0027 muestre solo la lÃ­nea de estado con health + ideas en formato compacto.",
+                                                     "detail":  [
+                                                                    "Entrada: health score + n_impl/n_total.",
+                                                                    "Salida: \u0027BAGO v2.5 | ðŸŸ¢ 80 | 22/35 ideas | 2026-04-30\u0027.",
+                                                                    "Ventaja: vista rÃ¡pida sin salida de pantalla completa."
+                                                                ],
+                                                     "w2":  "Modificar print_banner(mini=True) en bago_banner.py para emitir una lÃ­nea compacta con health + ideas. Agregar sentinel # BANNER_COMPACT_MODE_IMPLEMENTED."
+                                                 }
+                                             ]
+                         },
+                  "26":  {
+                             "generations":  [
+                                                 {
+                                                     "id":  "dashboard_export_link",
+                                                     "generation":  1,
+                                                     "condition":  "feat.ideas_exportable and not feat.dashboard_export_link",
+                                                     "priority":  64,
+                                                     "section":  "contextuales",
+                                                     "risk":  "low",
+                                                     "metric":  "El dashboard muestra si existe ideas_report.md y su fecha de generaciÃ³n.",
+                                                     "title":  "Enlace a informe de ideas en dashboard",
+                                                     "summary":  "AÃ±adir al dashboard una fila que indique si existe state/ideas_report.md y cuÃ¡ndo fue generado.",
+                                                     "detail":  [
+                                                                    "Entrada: state/ideas_report.md (si existe).",
+                                                                    "Salida: fila \u0027  Informe:  ideas_report.md  (2026-04-30)\u0027 en el panel de ideas.",
+                                                                    "Ventaja: acceso rÃ¡pido al informe completo sin ejecutar bago sprint --export."
+                                                                ],
+                                                     "w2":  "AÃ±adir comprobaciÃ³n de state/ideas_report.md en main() de pack_dashboard.py con sentinel # DASHBOARD_EXPORT_LINK_IMPLEMENTED."
+                                                 }
+                                             ]
+                         }
+              }
 }

@@ -1,3 +1,6 @@
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
+
 """
 Servidor HTTP para Casino BAGO Mini App.
 - Sirve index.html y assets estáticos

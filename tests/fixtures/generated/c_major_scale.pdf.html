@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>c_major_scale — BAGO PDF Export</title>
+<script src="https://unpkg.com/vexflow/releases/vexflow-min.js"></script>
+<style>
+  @page { size: A4 landscape; margin: 15mm; }
+  @media print {
+    body { background: white; }
+    .no-print { display: none; }
+    #score { box-shadow: none; border: none; }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+  .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); padding: 30px; }
+  h1 { font-size: 22px; margin-bottom: 8px; color: #222; }
+  .meta { font-size: 13px; color: #666; margin-bottom: 20px; }
+  #score { border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; min-height: 300px; }
+  .btn-bar { margin-top: 20px; display: flex; gap: 10px; }
+  button { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn-primary { background: #00d4aa; color: white; }
+  .btn-secondary { background: #eee; color: #333; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎼 c_major_scale</h1>
+  <div class="meta">Generado por BAGO Music Pipeline — 8 notas</div>
+  <div id="score"></div>
+  <div class="btn-bar no-print">
+    <button class="btn-primary" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+    <button class="btn-secondary" onclick="window.close()">ERROR Cerrar</button>
+  </div>
+</div>
+<script>
+  const notes = [{"keys": ["C/4"], "duration": "q", "type": "quarter"}, {"keys": ["D/4"], "duration": "q", "type": "quarter"}, {"keys": ["E/4"], "duration": "q", "type": "quarter"}, {"keys": ["F/4"], "duration": "q", "type": "quarter"}, {"keys": ["G/4"], "duration": "q", "type": "quarter"}, {"keys": ["A/4"], "duration": "q", "type": "quarter"}, {"keys": ["B/4"], "duration": "q", "type": "quarter"}, {"keys": ["C/5"], "duration": "q", "type": "quarter"}];
+  const VF = Vex.Flow;
+  const div = document.getElementById('score');
+  const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+  renderer.resize(840, 400);
+  const context = renderer.getContext();
+  const stave = new VF.Stave(10, 40, 800);
+  stave.addClef('treble').addTimeSignature('4/4');
+  stave.setContext(context).draw();
+
+  const vfNotes = notes.map(n => new VF.StaveNote({clef: 'treble', keys: n.keys, duration: n.duration}));
+  const voice = new VF.Voice({num_beats: 4, beat_value: 4});
+  voice.addTickables(vfNotes);
+  new VF.Formatter().joinVoices([voice]).format([voice], 700);
+  voice.draw(context, stave);
+</script>
+</body>
+</html>

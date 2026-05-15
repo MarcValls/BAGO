@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8'?>
+<score-partwise>
+  <part-list>
+    <score-part id="P1"><part-name>Bass</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <key><fifths>4</fifths><mode>major</mode></key>
+      </attributes>
+      <note>
+        <pitch><step>E</step><octave>2</octave></pitch>
+        <duration>4</duration><voice>1</voice><staff>1</staff>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>2</octave></pitch>
+        <duration>4</duration><voice>1</voice><staff>1</staff>
+      </note>
+    </measure>
+    <measure number="2">
+      <note>
+        <pitch><step>A</step><octave>2</octave></pitch>
+        <duration>4</duration><voice>1</voice><staff>1</staff>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>3</octave></pitch>
+        <duration>4</duration><voice>1</voice><staff>1</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>
