@@ -25,31 +25,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from bago import (CredentialManager, load_providers, load_routing,
                   BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
 from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
-
-# ── Rutas para la barra de estado ─────────────────────────────────────────────
-_FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
-
-def _topbar_prompt(route_mode: str) -> FormattedText:
-    """Genera la línea de estado superior + el prompt en una FormattedText."""
-    cols = _shutil.get_terminal_size((80, 24)).columns
-    cwd  = Path.cwd()
-    # Izquierda: ruta del framework
-    left = f"  {_FW_ROOT}"
-    # Derecha: nombre del proyecto + ruta actual
-    right_full = f"{cwd.name}  ·  {cwd}  "
-    right_short = f"{cwd.name}  "
-    right = right_full if len(left) + len(right_full) + 2 <= cols else right_short
-    pad = max(1, cols - len(left) - len(right))
-    bar = (left + " " * pad + right)[:cols]
-    return FormattedText([
-        ("class:statusbar", bar),
-        ("", "\n"),
-        ("class:prompt", f"[BAGO|{route_mode}] > "),
-    ])
-
-def _bottom_bar() -> FormattedText:
-    cols = _shutil.get_terminal_size((80, 24)).columns
-    return [("class:statusbar", "─" * cols)]
 from bago.providers import auto_detect_provider, get_default_model, route_by_task
 from bago.ui import show_response
 
@@ -65,6 +40,29 @@ except ImportError as e:
 
 from bago.completer import BagoCompleter
 import shutil as _shutil
+
+# ── Rutas para la barra de estado ─────────────────────────────────────────────
+_FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
+
+def _topbar_prompt(route_mode: str) -> FormattedText:
+    """Línea de estado superior (fw path | project) + prompt."""
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    cwd  = Path.cwd()
+    left = f"  {_FW_ROOT}"
+    right_full = f"{cwd.name}  ·  {cwd}  "
+    right_short = f"{cwd.name}  "
+    right = right_full if len(left) + len(right_full) + 2 <= cols else right_short
+    pad = max(1, cols - len(left) - len(right))
+    bar = (left + " " * pad + right)[:cols]
+    return FormattedText([
+        ("class:statusbar", bar),
+        ("", "\n"),
+        ("class:prompt", f"[BAGO|{route_mode}] > "),
+    ])
+
+def _bottom_bar() -> list:
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    return [("class:statusbar", "─" * cols)]
 
 def _startup_choice_curses(stdscr):
     """Curses UI: lets user choose Manual or Asistente mode. Returns 'manual' or 'asistente'."""
@@ -201,9 +199,10 @@ def main():
     # Estilo del popup de autocompletado
     completion_style = Style.from_dict({
         "prompt":                  "bold cyan",
-        "statusbar":               "bg:#0d1117 #4a5568",
-        "bottom-toolbar":          "bg:#0d1117 #4a5568",
-        # popup
+        # barras superior e inferior — alto contraste
+        "statusbar":               "bg:#1e2a3a #7aa2f7 bold",
+        "bottom-toolbar":          "bg:#1e2a3a #7aa2f7",
+        # popup autocompletado
         "completion-menu":                  "bg:#1a1a2e #e0e0e0",
         "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
         "completion-menu.completion.current": "bg:#00aaff #000000 bold",
