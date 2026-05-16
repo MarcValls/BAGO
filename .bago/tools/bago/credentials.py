@@ -147,6 +147,45 @@ class CredentialManager:
                     active.append(info["bago_provider"])
         return active
 
+    def login_choices(self):
+        """Devuelve lista (name, label) con estado plain-text para _menu_pick."""
+        active = self.active_bago_providers()
+        out = []
+        for name, info in self.PROVIDERS.items():
+            bp = info["bago_provider"]
+            ok = bp in active
+            mark = "\u2713" if ok else "\u00b7"  # ✓ · 
+            if name == "github":
+                tok = os.environ.get("GITHUB_TOKEN", "")
+                state = f"{tok[:8]}..." if tok else "sin credencial"
+            elif name == "openai":
+                k = os.environ.get("OPENAI_API_KEY", "")
+                if k:
+                    state = f"API key {k[:4]}\u2026" if len(k) > 4 else "API key"
+                elif ok:
+                    state = "codex login (GPT Plus)"
+                else:
+                    state = "sin credencial"
+            elif name == "ollama":
+                state = "activo" if ok else "no disponible"
+            elif name == "ollama_cloud":
+                k = os.environ.get("OLLAMA_CLOUD_API_KEY", "")
+                if k:
+                    state = f"API key {k[:4]}\u2026" if len(k) > 4 else "API key"
+                elif ok:
+                    state = "ollama signin"
+                else:
+                    state = "sin credencial"
+            elif name == "opencode":
+                state = self._creds.get("opencode_via") or "sin auth"
+            else:
+                env_key = info.get("env")
+                val = os.environ.get(env_key, "") if env_key else ""
+                state = (f"{val[:4]}\u2026" if len(val) > 4 else "activo") if val else "sin credencial"
+            label = f"{name:<14} {mark}  {state:<26}  {info['desc']}"
+            out.append((name, label))
+        return out
+
     def status_table(self):
         t = Table(box=box.SIMPLE, show_header=True, header_style="bold")
         t.add_column("Provider"); t.add_column("Estado"); t.add_column("Descripcion")

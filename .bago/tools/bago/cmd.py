@@ -12,6 +12,7 @@ from .menus import (
     _cmd_auto,
     _cmd_config,
     _cmd_framework,
+    _cmd_login,
     _cmd_memory,
     _cmd_mode,
     _cmd_projects,
@@ -35,8 +36,7 @@ def cmd(line, session):
         console.print(HELP)
     elif v == "/login":
         if not a:
-            console.print(Panel(session.creds.status_table(),
-                                title="[bold]Providers BAGO[/bold]", box=box.ROUNDED))
+            _cmd_login(session)          # picker navegable con flechas
         else:
             result = session.creds.do_login(a)
             console.print(f"  {result}")
@@ -76,10 +76,13 @@ def cmd(line, session):
         active = ", ".join(session.creds.active_bago_providers()) or "ninguno"
         temp_tag  = " [yellow][TEMP][/yellow]" if session.temp_mode else ""
         auto_tag  = f" [green]AUTONOMO[/green] ({session.auto_confirm})" if session.autonomous else ""
+        route = session.last_route or {}
         console.print(Panel(
             f"Modelo:      {session.model_name} ({session.provider}){auto_tag}\n"
             f"Wire:        {session.wire_name}\n"
             f"Modo:        {session.orch_mode}{temp_tag}\n"
+            f"Routing:     {route.get('mode','manual').upper()} → {route.get('model', session.model_name)} ({route.get('provider', session.provider)})\n"
+            f"Motivo:      {route.get('reason','—')}\n"
             f"Historial:   {len(session.history)-1} mensajes\n"
             f"Switches:    {session.switches}\n"
             f"Tiempo:      {elapsed}\n"

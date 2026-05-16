@@ -2,7 +2,26 @@
 from rich import box
 from rich.panel import Panel
 
-from ..ui import console, _menu_action, _menu_confirm, _menu_select, pi
+from ..ui import console, _menu_action, _menu_confirm, _menu_pick, _menu_select, pi
+
+
+def _cmd_login(session):
+    """
+    /login sin argumento: picker navegable de providers con estado inline.
+    Flecha arriba/abajo para navegar, Enter para seleccionar, Esc para salir.
+    """
+    while True:
+        choices = session.creds.login_choices()
+        provider = _menu_pick(
+            "Login / Providers BAGO",
+            "Selecciona provider para registrar o verificar:",
+            choices,
+        )
+        if provider is None:
+            return
+        result = session.creds.do_login(provider)
+        console.print(f"  {result}")
+
 
 def _cmd_auth(session):
     """Superset de /login: estado, login, revoke, futuro sign-up."""

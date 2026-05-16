@@ -1,6 +1,6 @@
 
 from .agents import _cmd_agents
-from .auth import _cmd_auth
+from .auth import _cmd_auth, _cmd_login
 from .auto import _cmd_auto
 from .config import _cmd_config
 from .framework import _cmd_framework
