@@ -161,7 +161,8 @@
     }
   ],
   "fallback": {
-    "provider": "codex",
-    "model": "gpt-5.4"
+    "provider": "ollama-local",
+    "model": "qwen25-mini",
+    "reason": "Local-first: sin regla especifica, usar modelo local disponible"
   }
 }

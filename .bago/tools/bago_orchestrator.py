@@ -401,15 +401,25 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
                     s -= 30  # Penalizar local para complejas
 
         else:
-            # Fuera de Codex: reglas normales
+            # Fuera de Codex: LOCAL FIRST — priorizar local salvo tarea compleja
+            if c["provider"] == "ollama-local":
+                s += 50   # bonus base: siempre intentar local primero
+            if c["provider"] in ("codex", "copilot", "anthropic") and task_type not in complex_tasks:
+                s -= 25   # penalizar cloud para tareas que no lo requieren
             if task_type in complex_tasks:
-                if "mini" in c["name"] or c["size_mb"] < 1000:
+                if c["provider"] == "ollama-local" and (c["size_mb"] < 1000 or "mini" in c["name"]):
+                    s -= 20  # modelos locales pequeños no aptos para complejo
+                if c["provider"] in ("codex", "copilot"):
+                    s += 20  # cloud necesario para complejo: revertir penalización
+                if "mini" in c["name"] and c["provider"] != "ollama-local":
                     s -= 15
                 else:
                     s += 10
             if task_type in simple_tasks:
+                if c["provider"] == "ollama-local":
+                    s += 15   # local + tarea simple = máxima preferencia
                 if "mini" in c["name"] or c["size_mb"] < 1000:
-                    s += 15
+                    s += 10
         return s
 
     candidates.sort(key=score, reverse=True)

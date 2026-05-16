@@ -13,8 +13,10 @@ def load_routing():
     except: return {"rules": [], "fallback": {"provider": "codex", "model": "gpt-5.4"}}
 
 # ── Routing & strategy ─────────────────────────────────────────────────────────
-def route_by_task(task, routing, providers):
-    """Count-based routing: picks the rule with most keyword hits (same logic as bago_orchestrator)."""
+def route_by_task(task, routing, providers, current_provider=None):
+    """Count-based routing: picks the rule with most keyword hits (same logic as bago_orchestrator).
+    LOCAL FIRST: si no hay ninguna regla que coincida y ya estamos en local, no cambiar.
+    """
     tl = task.lower()
     best_rule = None
     best_hits = 0
@@ -30,8 +32,16 @@ def route_by_task(task, routing, providers):
         model = best_rule["model"]
         wire  = providers.get(prov, {}).get("models", {}).get(model, {}).get("wire_name", model)
         return model, wire, prov, best_kw
-    fb = routing.get("fallback", {})
-    return fb.get("model", "gpt-5.4"), fb.get("model", "gpt-5.4"), fb.get("provider", "codex"), None
+    # LOCAL FIRST: sin regla coincidente → quedarse en local si ya estamos ahí
+    if current_provider in ("ollama-local", "ollama-cloud"):
+        mods = providers.get(current_provider, {}).get("models", {})
+        if mods:
+            first = next(iter(mods))
+            wire = mods[first].get("wire_name", first)
+            return first, wire, current_provider, None
+    # Fallback de config (debe apuntar a local por defecto)
+    fb = routing.get("fallback", {"provider": "ollama-local", "model": "qwen25-mini"})
+    return fb.get("model", "qwen25-mini"), fb.get("model", "qwen25-mini"), fb.get("provider", "ollama-local"), None
 
 def detect_strategy(text, active_providers):
     """
@@ -103,7 +113,8 @@ def resolve_litellm(provider, wire_name):
 
 def auto_detect_provider(creds, providers):
     active = creds.active_bago_providers()
-    for preferred in ("copilot", "codex", "ollama-local", "anthropic", "ollama-cloud"):
+    # LOCAL FIRST: preferir ollama-local si está disponible, luego cloud copilot/codex
+    for preferred in ("ollama-local", "copilot", "codex", "anthropic", "ollama-cloud"):
         if preferred in active and preferred in providers:
             return preferred
-    return next((name for name in providers if name in active), next(iter(providers), "codex"))
+    return next((name for name in providers if name in active), next(iter(providers), "ollama-local"))

@@ -1,6 +1,8 @@
 
 import datetime
+import importlib.util
 import json
+from pathlib import Path
 
 from .constants import BAGO_SYSTEM, SESSIONS_DIR
 from .providers import (
@@ -29,6 +31,23 @@ class BagoSession:
         self.temp_mode  = False  # sesion temporal (no escribe en disco automaticamente)
         self.orch_mode  = "estandar"  # offline|economico|estandar|full
         self.sync_after = "continuar"  # continuar|repliegue|letargo
+        self.last_route = {
+            "mode": "manual",
+            "provider": provider,
+            "model": model_name,
+            "reason": "inicio de sesión",
+        }
+
+    def _load_orchestrator(self):
+        path = Path(__file__).resolve().parents[1] / "bago_orchestrator.py"
+        if not path.exists():
+            return None
+        spec = importlib.util.spec_from_file_location("bago_orchestrator_runtime", path)
+        if not spec or not spec.loader:
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
 
     @property
     def litellm_info(self): return resolve_litellm(self.provider, self.wire_name)
@@ -50,12 +69,34 @@ class BagoSession:
         old = self.model_name
         self.provider, self.model_name, self.wire_name = prov, name, wire
         self.switches += 1
+        self.last_route = {"mode": "manual", "provider": prov, "model": name, "reason": f"switch manual desde {old}"}
         if silent: return None
-        return f"Cambiado: {old} → {name} ({prov}) | {len(self.history)-1} msgs mantenidos"
+        return f"Cambiado: {old} -> {name} ({prov}) | {len(self.history)-1} msgs mantenidos"
 
     def auto_route(self, user_input):
+        """Routing automatico via orquestador; fallback por keyword si falla."""
+        orch = self._load_orchestrator()
+        if orch:
+            try:
+                result = orch.orchestrate(user_input, self.orch_mode)
+                model = result.get("model")
+                provider = result.get("provider")
+                reason = result.get("reason", "orquestador")
+                if model and provider and model != self.model_name:
+                    wire = result.get("wire_name", model)
+                    old = self.model_name
+                    self.provider, self.model_name, self.wire_name = provider, model, wire
+                    self.switches += 1
+                    self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
+                    return True, f"auto-orchestrator [{self.orch_mode}]: {old} -> {model} ({provider})"
+                if model and provider:
+                    self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
+                    return False, f"auto-orchestrator mantiene {model} ({provider})"
+            except Exception:
+                pass
+
         """Routing por keyword: cambia al modelo mas adecuado para esta tarea."""
-        name, wire, prov, kw = route_by_task(user_input, self.routing, self.providers)
+        name, wire, prov, kw = route_by_task(user_input, self.routing, self.providers, self.provider)
         if name and name != self.model_name:
             # Verificar que el provider tiene credenciales
             active = self.creds.active_bago_providers()
@@ -63,7 +104,9 @@ class BagoSession:
                 old = self.model_name
                 self.provider, self.model_name, self.wire_name = prov, name, wire
                 self.switches += 1
-                return True, f"auto-route [{kw}]: {old} → {name}"
+                self.last_route = {"mode": "auto", "provider": prov, "model": name, "reason": f"keyword:{kw}"}
+                return True, f"auto-route [{kw}]: {old} -> {name}"
+        self.last_route = {"mode": "auto", "provider": self.provider, "model": self.model_name, "reason": "sin cambio"}
         return False, None
 
     def save(self):
