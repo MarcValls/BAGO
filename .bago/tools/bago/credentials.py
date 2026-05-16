@@ -14,18 +14,41 @@ from .ui import console
 class CredentialManager:
     """Gestiona credenciales de todos los proveedores. /login para registrar."""
     PROVIDERS = {
-        "github":    {"env": "GITHUB_TOKEN",    "bago_provider": "copilot",
-                      "desc": "GitHub Copilot", "login_type": "gh_cli"},
-        "openai":    {"env": "OPENAI_API_KEY",  "bago_provider": "codex",
-                      "desc": "OpenAI / GPT Plus (sin API key si tienes Plus)",
+        # ── Proveedores originales ──────────────────────────────────────────
+        "github":    {"env": "GITHUB_TOKEN",         "bago_provider": "copilot",
+                      "desc": "GitHub Copilot",       "login_type": "gh_cli"},
+        "openai":    {"env": "OPENAI_API_KEY",        "bago_provider": "codex",
+                      "desc": "OpenAI / GPT Plus (codex login o API key)",
                       "login_type": "openai_cli"},
-        "anthropic": {"env": "ANTHROPIC_API_KEY","bago_provider": "anthropic",
-                      "desc": "Anthropic / Claude", "login_type": "api_key"},
-        "ollama":    {"env": None,              "bago_provider": "ollama-local",
+        "anthropic": {"env": "ANTHROPIC_API_KEY",     "bago_provider": "anthropic",
+                      "desc": "Anthropic Claude / Claw (API key)",
+                      "login_type": "api_key",
+                      "url": "https://console.anthropic.com/keys"},
+        "ollama":    {"env": None,                    "bago_provider": "ollama-local",
                       "desc": "Ollama local (sin clave)", "login_type": "service"},
+        # ── Proveedores nuevos ─────────────────────────────────────────────
+        "ollama_cloud": {"env": "OLLAMA_CLOUD_API_KEY", "bago_provider": "ollama-cloud",
+                         "desc": "Ollama Cloud (api.ollama.com — modelos en la nube)",
+                         "login_type": "api_key",
+                         "url": "https://ollama.com/settings/api"},
+        "opencode":  {"env": None,                    "bago_provider": "opencode",
+                      "desc": "OpenCode AI (asistente de codigo con IA)",
+                      "login_type": "opencode_cli"},
+        "openrouter":{"env": "OPENROUTER_API_KEY",    "bago_provider": "openrouter",
+                      "desc": "OpenRouter — Hermes, Mixtral, Llama, DeepSeek y mas",
+                      "login_type": "api_key",
+                      "url": "https://openrouter.ai/keys"},
     }
-    ALIASES = {"gpt":"openai","codex":"openai","claude":"anthropic","claw":"anthropic",
-               "copilot":"github","gh":"github","local":"ollama"}
+    ALIASES = {
+        "gpt": "openai", "codex": "openai",
+        "claude": "anthropic", "claw": "anthropic",
+        "copilot": "github", "gh": "github",
+        "local": "ollama",
+        "hermes": "openrouter",   # Hermes vía OpenRouter
+        "mixtral": "openrouter",  # otros modelos via OpenRouter
+        "llama": "openrouter",
+        "cloud": "ollama_cloud",
+    }
 
     def __init__(self):
         self._creds = {}
@@ -109,9 +132,11 @@ class CredentialManager:
                 if self._ollama_ok():
                     active.append("ollama-local")
             elif name == "openai":
-                # Activo si: API key en env, O codex CLI autenticado
                 if (os.environ.get("OPENAI_API_KEY") or self._codex_authed()):
                     active.append("codex")
+            elif name == "opencode":
+                if self._creds.get("opencode_via"):
+                    active.append("opencode")
             else:
                 env_key = info.get("env")
                 if env_key and os.environ.get(env_key):
@@ -132,10 +157,12 @@ class CredentialManager:
                     status = f"[green]✓ API key {masked}[/green]"
                 elif self._codex_authed():
                     status = "[green]✓ codex login (GPT Plus)[/green]"
-                elif self._chatgpt_authed():
-                    status = "[green]✓ chatgpt login (GPT Plus)[/green]"
                 else:
                     status = "[red]✗ sin credencial[/red]"
+            elif name == "opencode":
+                via = self._creds.get("opencode_via")
+                status = (f"[green]✓ {via}[/green]" if via
+                          else "[red]✗ no instalado / sin auth[/red]")
             else:
                 env_key = info.get("env")
                 val = os.environ.get(env_key, "") if env_key else ""
@@ -145,7 +172,7 @@ class CredentialManager:
                 else:
                     status = "[red]✗ sin credencial[/red]"
             t.add_row(name, status, info["desc"])
-        t.add_row("[dim]/login <provider>[/dim]","","[dim]para registrar[/dim]")
+        t.add_row("[dim]/login <provider>[/dim]", "", "[dim]para registrar[/dim]")
         return t
 
     def do_login(self, alias):
@@ -194,11 +221,50 @@ class CredentialManager:
                 return "[green]✓ OpenAI API key guardada.[/green]"
 
         elif ltype == "api_key":
-            key = pt_prompt(f"{info['desc']} API Key: ", is_password=True).strip()
+            url = info.get("url", "")
+            url_hint = f"[dim]Obtén tu clave en: {url}[/dim]\n" if url else ""
+            console.print(url_hint + f"[bold]{info['desc']}[/bold]")
+            key = pt_prompt(f"API Key: ", is_password=True).strip()
             if not key:
                 return "Cancelado."
             self.set(name, key)
-            return f"[green]✓ {info['desc']} API key guardada.[/green]"
+            return f"[green]✓ {info['desc']} — API key guardada.[/green]"
+
+        elif ltype == "opencode_cli":
+            # Verificar si opencode está instalado
+            try:
+                subprocess.check_output(["opencode", "--version"],
+                                         stderr=subprocess.DEVNULL, timeout=5)
+                opencode_ok = True
+            except Exception:
+                opencode_ok = False
+
+            if not opencode_ok:
+                console.print(
+                    "[bold yellow]OpenCode no está instalado.[/bold yellow]\n"
+                    "[dim]Instala con:[/dim]  npm install -g opencode-ai\n"
+                    "[dim]Más info:[/dim]    https://opencode.ai\n"
+                )
+                install = pt_prompt("¿Instalar ahora? [s/n]: ").strip().lower()
+                if install == "s":
+                    console.print("[dim]Ejecutando npm install -g opencode-ai...[/dim]")
+                    r = subprocess.run(["npm", "install", "-g", "opencode-ai"])
+                    if r.returncode != 0:
+                        return "[red]Instalación fallida. Instala manualmente: npm install -g opencode-ai[/red]"
+                    console.print("[green]✓ opencode instalado.[/green]")
+                else:
+                    return "Cancelado. Instala opencode manualmente."
+
+            console.print("[dim]Ejecutando opencode auth login...[/dim]")
+            result = subprocess.run(["opencode", "auth", "login"])
+            if result.returncode == 0:
+                self._creds["opencode_via"] = "opencode_login"
+                self._save()
+                return "[green]✓ OpenCode autenticado.[/green]"
+            # Si el comando auth no existe, intentar solo ejecutarlo
+            self._creds["opencode_via"] = "opencode_installed"
+            self._save()
+            return "[green]✓ OpenCode instalado y marcado como activo.[/green]"
 
         elif ltype == "service":
             if self._ollama_ok():

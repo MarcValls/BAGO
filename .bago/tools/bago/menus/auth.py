@@ -25,12 +25,15 @@ def _cmd_auth(session):
 
         elif sel == "login":
             providers_choices = [
-                ("github",    "GitHub Copilot  (gh auth login)"),
-                ("gpt",       "GPT / OpenAI  (codex login o API key)"),
-                ("anthropic", "Anthropic Claude  (API key)"),
-                ("ollama",    "Ollama local  (verificar que esta corriendo)"),
+                ("github",       "GitHub Copilot            (gh auth login)"),
+                ("openai",       "GPT / OpenAI              (codex login o API key)"),
+                ("anthropic",    "Anthropic Claude / Claw   (API key)"),
+                ("ollama",       "Ollama local              (verificar servicio)"),
+                ("ollama_cloud", "Ollama Cloud              (API key — api.ollama.com)"),
+                ("opencode",     "OpenCode AI               (CLI — instala si es necesario)"),
+                ("openrouter",   "OpenRouter / Hermes       (API key — acceso a +200 modelos)"),
             ]
-            provider = _menu_select("Login", "Selecciona provider:", providers_choices)
+            provider = _menu_select("Login", "Selecciona provider a registrar:", providers_choices)
             if provider:
                 result = session.creds.do_login(provider)
                 console.print(f"  {result}")
