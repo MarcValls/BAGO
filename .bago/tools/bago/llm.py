@@ -45,6 +45,69 @@ def _last_assistant(history: list) -> str:
             return msg["content"]
     return ""
 
+# ── Escalado por saturación de contexto ───────────────────────────────────────
+_CTX_KEYWORDS = (
+    "context", "token", "length exceeded", "too long", "maximum context",
+    "context_length", "context window", "max_tokens", "sequence length",
+    "input is too long", "prompt is too long", "reduce your prompt",
+)
+
+def _is_ctx_overflow(exc) -> bool:
+    msg = str(exc).lower()
+    return any(kw in msg for kw in _CTX_KEYWORDS)
+
+def _model_size_score(name: str) -> int:
+    """Tamano aproximado segun nombre del modelo (mayor = mas contexto/capacidad)."""
+    n = name.lower()
+    if any(x in n for x in ("0.5b", "1b", "mini")):   return 1
+    if any(x in n for x in ("2b", "3b")):               return 2
+    if any(x in n for x in ("7b", "8b")):               return 3
+    if "coder" in n and not any(x in n for x in ("14b","32b","72b")): return 3
+    if any(x in n for x in ("13b", "14b")):             return 4
+    if any(x in n for x in ("30b", "32b", "34b")):      return 5
+    if any(x in n for x in ("70b", "72b")):             return 6
+    return 3  # desconocido → medio
+
+# Orden de providers local→cloud para escalado
+_ESCALATE_PROV_ORDER = ("ollama-local", "ollama-cloud", "copilot", "codex", "anthropic")
+
+def _escalate_model(session) -> tuple[str, str, str] | None:
+    """
+    Devuelve (model_name, wire_name, provider) del siguiente modelo ligeramente
+    mas grande disponible. Busca primero en el mismo provider, luego en el siguiente.
+    Retorna None si no hay nada mas grande.
+    """
+    cur_score = _model_size_score(session.model_name)
+    active = session.creds.active_bago_providers()
+
+    def _candidates_in(prov_name):
+        if prov_name not in active:
+            return []
+        prov_data = session.providers.get(prov_name, {})
+        out = []
+        for mn, md in prov_data.get("models", {}).items():
+            s = _model_size_score(mn)
+            if s > cur_score:
+                out.append((s, mn, md.get("wire_name", mn), prov_name))
+        return sorted(out)  # menor score > cur primero
+
+    # 1. Mismo provider
+    cands = _candidates_in(session.provider)
+    if cands:
+        _, mn, wn, pn = cands[0]
+        return mn, wn, pn
+
+    # 2. Siguiente provider en el orden de escalado
+    cur_idx = next((i for i, p in enumerate(_ESCALATE_PROV_ORDER)
+                    if p == session.provider), -1)
+    for pn in _ESCALATE_PROV_ORDER[cur_idx + 1:]:
+        cands = _candidates_in(pn)
+        if not cands:
+            # Cualquier modelo del provider siguiente
+            prov_data = session.providers.get(pn, {})
+            for mn, md in prov_data.get("models", {}).items():
+                return mn, md.get("wire_name", mn), pn
+    return None
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _llm_call(lm, kw, messages):
@@ -182,7 +245,7 @@ def chat(session, user_input):
         text = _dedup_paragraphs(text)
 
         # ── Capa 2: si la respuesta es casi igual a la anterior, reintentar ─
-        prev = _last_assistant(session.history[:-1])  # historial SIN el user actual
+        prev = _last_assistant(session.history[:-1])
         if prev and _jaccard(text, prev) >= _REPEAT_THRESHOLD:
             console.print("  [dim yellow]⚠ respuesta repetitiva detectada — reintentando con mayor profundidad...[/dim yellow]")
             anti_repeat = (
@@ -208,6 +271,41 @@ def chat(session, user_input):
             "reason": session.last_route.get("reason", "single"),
         }
         return text
+
     except Exception as e:
         session.history.pop()
+
+        # ── Escalado por saturación de contexto ────────────────────────────
+        if _is_ctx_overflow(e):
+            escalation = _escalate_model(session)
+            if escalation:
+                new_model, new_wire, new_prov = escalation
+                old_model = session.model_name
+                c_old = COLORS.get(session.provider, "white")
+                c_new = COLORS.get(new_prov, "white")
+                console.print(
+                    f"  [dim yellow]⚡ contexto saturado ({old_model}) "
+                    f"→ escalando a [{c_new}]{new_model}[/{c_new}] ({new_prov})[/dim yellow]"
+                )
+                session.provider    = new_prov
+                session.model_name  = new_model
+                session.wire_name   = new_wire
+                session.switches   += 1
+                session.last_route  = {
+                    "mode": "auto", "provider": new_prov, "model": new_model,
+                    "reason": f"ctx-overflow escalation desde {old_model}",
+                }
+                # Reintentar con el nuevo modelo
+                session.history.append({"role":"user","content":user_input})
+                lm2, kw2 = session.litellm_info
+                try:
+                    with console.status(f"[dim]{new_model}...[/dim]", spinner="dots"):
+                        text2 = _llm_call(lm2, kw2, session.history)
+                    text2 = _dedup_paragraphs(text2)
+                    session.history.append({"role":"assistant","content": text2})
+                    return text2
+                except Exception as e2:
+                    session.history.pop()
+                    raise RuntimeError(str(e2))
+
         raise RuntimeError(str(e))
