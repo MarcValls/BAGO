@@ -279,6 +279,22 @@ function Show-Models {
     Write-Host ""
 }
 
+function Get-BestModelForProvider {
+    param([string]$providerName, $providers)
+    # Selecciona el primer modelo del provider (prioridad: el orden en model_providers.json)
+    $prov = $providers.providers.$providerName
+    if (-not $prov) { return $null }
+    $firstModel = $prov.models.PSObject.Properties | Select-Object -First 1
+    if (-not $firstModel) { return $null }
+    return @{
+        Provider = $providerName
+        Model    = $firstModel.Name
+        WireName = $firstModel.Value.wire_name
+        BestFor  = $firstModel.Value.best_for
+        Cost     = $firstModel.Value.cost
+    }
+}
+
 function Launch-Model {
     param([string]$model)
     if (-not $model) {
@@ -288,6 +304,59 @@ function Launch-Model {
     Detect-Source
     $providersFile = Join-Path $script:PRIMARY "..\state\model_providers.json"
     $providers = Get-Content $providersFile | ConvertFrom-Json -ErrorAction SilentlyContinue
+
+    # === SHORTCUTS DE PROVIDER ===
+    # "BAGO launch copilot" → Codex CLI con el mejor modelo copilot registrado
+    if ($model -eq "copilot") {
+        $found = Get-BestModelForProvider -providerName "copilot" -providers $providers
+        if (-not $found) { Write-Host "No hay modelos copilot registrados." -ForegroundColor Red; exit 1 }
+        Write-Host "Lanzando Copilot CLI en modo BAGO → codex -m $($found.WireName)" -ForegroundColor Yellow
+        Write-Host "  Modelo: $($found.Model) [$($found.BestFor)] | Coste: incluido" -ForegroundColor DarkGray
+        Write-Host "  Router BAGO activo: cambia modelo con /model <nombre> dentro de codex" -ForegroundColor DarkGray
+        Write-Host ""
+        codex -m $($found.WireName)
+        return
+    }
+
+    # "BAGO launch codex" → Codex CLI con el mejor modelo codex/OpenAI registrado
+    if ($model -eq "codex") {
+        $found = Get-BestModelForProvider -providerName "codex" -providers $providers
+        if (-not $found) { Write-Host "No hay modelos codex registrados." -ForegroundColor Red; exit 1 }
+        Write-Host "Lanzando Codex CLI en modo BAGO → codex -m $($found.WireName)" -ForegroundColor Magenta
+        Write-Host "  Modelo: $($found.Model) [$($found.BestFor)] | Coste: créditos OpenAI" -ForegroundColor DarkGray
+        Write-Host "  Router BAGO activo: cambia modelo con /model <nombre> dentro de codex" -ForegroundColor DarkGray
+        Write-Host ""
+        codex -m $($found.WireName)
+        return
+    }
+
+    # "BAGO launch ollama" → Codex CLI con modelo local Ollama INSTALADO
+    if ($model -eq "ollama") {
+        # Detectar qué modelos están realmente instalados en Ollama
+        $ollamaList = (ollama list 2>$null) -join "`n"
+        $prov = $providers.providers.'ollama-local'
+        $found = $null
+        foreach ($m in $prov.models.PSObject.Properties) {
+            $wireName = $m.Value.wire_name
+            $baseTag  = $wireName -replace ':.*', ''
+            if ($ollamaList -match [regex]::Escape($baseTag)) {
+                $found = @{ Provider = 'ollama-local'; Model = $m.Name; WireName = $wireName; BestFor = $m.Value.best_for; Cost = 'free' }
+                break
+            }
+        }
+        if (-not $found) {
+            Write-Host "Ningun modelo BAGO instalado en Ollama." -ForegroundColor Red
+            Write-Host "  Instala con: BAGO install qwen25-mini" -ForegroundColor DarkGray
+            ollama list 2>$null
+            exit 1
+        }
+        Write-Host "Lanzando Codex CLI con Ollama local → codex -p ollama-launch -m $($found.WireName)" -ForegroundColor Green
+        Write-Host "  Modelo: $($found.Model) [$($found.BestFor)] | Coste: gratis (local)" -ForegroundColor DarkGray
+        Write-Host ""
+        codex -p ollama-launch -m $($found.WireName)
+        return
+    }
+    # === FIN SHORTCUTS ===
 
     $found = $null
     foreach ($provName in $providers.providers.PSObject.Properties.Name) {
@@ -300,6 +369,7 @@ function Launch-Model {
 
     if (-not $found) {
         Write-Host "Modelo '$model' no encontrado." -ForegroundColor Red
+        Write-Host "  Shortcuts de provider: BAGO launch copilot | codex | ollama" -ForegroundColor DarkGray
         Show-Models
         exit 1
     }
@@ -325,8 +395,8 @@ function Launch-Model {
             codex --model $($found.Model)
         }
         "copilot" {
-            Write-Host "  gh copilot suggest --model $($found.Model)" -ForegroundColor DarkGray
-            gh copilot --version
+            Write-Host "  codex -m $($found.WireName)" -ForegroundColor DarkGray
+            codex -m $($found.WireName)
         }
         "assets" {
         Detect-Source
@@ -915,6 +985,9 @@ Comandos globales:
   BAGO inventory [tipo]    → Descubre herramientas, roles y workflows existentes
   BAGO launch              → Orquestador: pregunta tarea y selecciona modelo optimo
   BAGO launch [modelo]     → Lanza modelo especifico
+  BAGO launch copilot      → Codex CLI con mejor modelo Copilot (incluido)
+  BAGO launch codex        → Codex CLI con mejor modelo Codex (créditos OpenAI)
+  BAGO launch ollama       → Codex CLI con Ollama local (gratis, offline)
   BAGO pipeline [tarea]    → Ejecuta pipeline de 4 fases en segundo plano
   BAGO install             → Lista componentes disponibles
   BAGO install [modelo]    → Instala modelo o herramienta
