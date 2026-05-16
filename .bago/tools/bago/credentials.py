@@ -28,8 +28,8 @@ class CredentialManager:
                       "desc": "Ollama local (sin clave)", "login_type": "service"},
         # ── Proveedores nuevos ─────────────────────────────────────────────
         "ollama_cloud": {"env": "OLLAMA_CLOUD_API_KEY", "bago_provider": "ollama-cloud",
-                         "desc": "Ollama Cloud (api.ollama.com — modelos en la nube)",
-                         "login_type": "api_key",
+                         "desc": "Ollama Cloud (ollama.com — signin o API key)",
+                         "login_type": "ollama_cloud",
                          "url": "https://ollama.com/settings/api"},
         "opencode":  {"env": None,                    "bago_provider": "opencode",
                       "desc": "OpenCode AI (asistente de codigo con IA)",
@@ -131,6 +131,10 @@ class CredentialManager:
             if name == "ollama":
                 if self._ollama_ok():
                     active.append("ollama-local")
+            elif name == "ollama_cloud":
+                if (os.environ.get("OLLAMA_CLOUD_API_KEY") or
+                        self._creds.get("ollama_cloud_via") == "ollama_signin"):
+                    active.append("ollama-cloud")
             elif name == "openai":
                 if (os.environ.get("OPENAI_API_KEY") or self._codex_authed()):
                     active.append("codex")
@@ -157,6 +161,15 @@ class CredentialManager:
                     status = f"[green]✓ API key {masked}[/green]"
                 elif self._codex_authed():
                     status = "[green]✓ codex login (GPT Plus)[/green]"
+                else:
+                    status = "[red]✗ sin credencial[/red]"
+            elif name == "ollama_cloud":
+                if os.environ.get("OLLAMA_CLOUD_API_KEY"):
+                    k = os.environ["OLLAMA_CLOUD_API_KEY"]
+                    masked = k[:4] + "…" + k[-4:] if len(k) > 8 else "●●●"
+                    status = f"[green]✓ API key {masked}[/green]"
+                elif self._creds.get("ollama_cloud_via") == "ollama_signin":
+                    status = "[green]✓ ollama signin (cuenta ollama.com)[/green]"
                 else:
                     status = "[red]✗ sin credencial[/red]"
             elif name == "opencode":
@@ -229,6 +242,29 @@ class CredentialManager:
                 return "Cancelado."
             self.set(name, key)
             return f"[green]✓ {info['desc']} — API key guardada.[/green]"
+
+        elif ltype == "ollama_cloud":
+            console.print(
+                "[bold]Ollama Cloud — elige método:[/bold]\n"
+                "  [yellow]1[/yellow]  ollama signin  (login con tu cuenta ollama.com)\n"
+                "  [yellow]2[/yellow]  API key        (desde ollama.com/settings/api)\n"
+            )
+            choice = pt_prompt("Opción [1/2]: ").strip()
+            if choice == "1":
+                console.print("[dim]Ejecutando ollama signin...[/dim]")
+                result = subprocess.run(["ollama", "signin"])
+                if result.returncode == 0:
+                    self._creds["ollama_cloud_via"] = "ollama_signin"
+                    self._save()
+                    return "[green]✓ Ollama Cloud autenticado con ollama signin.[/green]"
+                return "[red]ollama signin fallido. Prueba la opción 2 con API key.[/red]"
+            else:
+                console.print("[dim]Obtén tu clave en: https://ollama.com/settings/api[/dim]")
+                key = pt_prompt("Ollama Cloud API Key: ", is_password=True).strip()
+                if not key:
+                    return "Cancelado."
+                self.set("ollama_cloud", key)
+                return "[green]✓ Ollama Cloud API key guardada.[/green]"
 
         elif ltype == "opencode_cli":
             # Verificar si opencode está instalado
