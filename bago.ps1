@@ -310,11 +310,11 @@ function Launch-Model {
     if ($model -eq "copilot") {
         $found = Get-BestModelForProvider -providerName "copilot" -providers $providers
         if (-not $found) { Write-Host "No hay modelos copilot registrados." -ForegroundColor Red; exit 1 }
-        Write-Host "Lanzando Copilot CLI en modo BAGO → codex -m $($found.WireName)" -ForegroundColor Yellow
-        Write-Host "  Modelo: $($found.Model) [$($found.BestFor)] | Coste: incluido" -ForegroundColor DarkGray
-        Write-Host "  Router BAGO activo: cambia modelo con /model <nombre> dentro de codex" -ForegroundColor DarkGray
+        Write-Host "Lanzando BAGO Chat — provider: copilot | modelo: $($found.Model)" -ForegroundColor Yellow
+        Write-Host "  Comandos: /switch /models /status /save /clear /help" -ForegroundColor DarkGray
         Write-Host ""
-        codex -m $($found.WireName)
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider copilot
         return
     }
 
@@ -322,11 +322,11 @@ function Launch-Model {
     if ($model -eq "codex") {
         $found = Get-BestModelForProvider -providerName "codex" -providers $providers
         if (-not $found) { Write-Host "No hay modelos codex registrados." -ForegroundColor Red; exit 1 }
-        Write-Host "Lanzando Codex CLI en modo BAGO → codex -m $($found.WireName)" -ForegroundColor Magenta
-        Write-Host "  Modelo: $($found.Model) [$($found.BestFor)] | Coste: créditos OpenAI" -ForegroundColor DarkGray
-        Write-Host "  Router BAGO activo: cambia modelo con /model <nombre> dentro de codex" -ForegroundColor DarkGray
+        Write-Host "Lanzando BAGO Chat — provider: codex | modelo: $($found.Model)" -ForegroundColor Magenta
+        Write-Host "  Comandos: /switch /models /status /save /clear /help" -ForegroundColor DarkGray
         Write-Host ""
-        codex -m $($found.WireName)
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider codex
         return
     }
 
@@ -350,10 +350,11 @@ function Launch-Model {
             ollama list 2>$null
             exit 1
         }
-        Write-Host "Lanzando Codex CLI con Ollama local → codex -p ollama-launch -m $($found.WireName)" -ForegroundColor Green
-        Write-Host "  Modelo: $($found.Model) [$($found.BestFor)] | Coste: gratis (local)" -ForegroundColor DarkGray
+        Write-Host "Lanzando BAGO Chat — provider: ollama-local | modelo: $($found.Model)" -ForegroundColor Green
+        Write-Host "  Comandos: /switch /models /status /save /clear /help" -ForegroundColor DarkGray
         Write-Host ""
-        codex -p ollama-launch -m $($found.WireName)
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider ollama
         return
     }
     # === FIN SHORTCUTS ===
