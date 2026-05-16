@@ -71,14 +71,53 @@ def _model_size_score(name: str) -> int:
 # Orden de providers local→cloud para escalado
 _ESCALATE_PROV_ORDER = ("ollama-local", "ollama-cloud", "copilot", "codex", "anthropic")
 
-def _escalate_model(session) -> tuple[str, str, str] | None:
+# Señales de tarea → provider cloud ideal
+_TASK_CLOUD_HINTS = {
+    "codex":      ("codigo","code","funcion","function","clase","class","script","api",
+                   "test","algoritmo","algorithm","refactor","debug","error","bug",
+                   "implementa","implement","build","compile"),
+    "copilot":    ("explica","analiza","diseña","arquitectura","razona","razonamiento",
+                   "estrategia","planifica","documenta","explain","analyze","design",
+                   "architecture","reason","strategy","plan","document","compare",
+                   "cual es mejor","pros","contras","decision"),
+    "anthropic":  ("redacta","escribe","resume","traduce","creative","write","summarize",
+                   "translate","draft","articulo","essay","narrativa"),
+}
+
+def _deduce_cloud_provider(history: list, user_input: str, active: list) -> str:
     """
-    Devuelve (model_name, wire_name, provider) del siguiente modelo ligeramente
-    mas grande disponible. Busca primero en el mismo provider, luego en el siguiente.
-    Retorna None si no hay nada mas grande.
+    Deduce el mejor provider cloud para la tarea combinando el input actual
+    y los ultimos mensajes del usuario en el historial.
+    """
+    # Texto de contexto: ultimos 4 mensajes de usuario + input actual
+    ctx_msgs = [m["content"] for m in history if m.get("role") == "user"][-4:]
+    ctx = " ".join(ctx_msgs + [user_input]).lower()
+
+    scores: dict[str, int] = {p: 0 for p in _TASK_CLOUD_HINTS}
+    for prov, keywords in _TASK_CLOUD_HINTS.items():
+        scores[prov] = sum(1 for kw in keywords if kw in ctx)
+
+    # Elegir el mejor que tenga credenciales activas
+    cloud_order = ("codex", "copilot", "anthropic")
+    for prov in sorted(cloud_order, key=lambda p: -scores.get(p, 0)):
+        if prov in active and prov in _TASK_CLOUD_HINTS:
+            return prov
+    # Fallback: primer cloud disponible
+    for prov in cloud_order:
+        if prov in active:
+            return prov
+    return "copilot"
+
+def _escalate_model(session, user_input: str = "") -> tuple[str, str, str] | None:
+    """
+    Escalado por saturacion de contexto:
+    1. Busca modelo mas grande en el MISMO provider (local)
+    2. Si local está agotado → deduce el mejor cloud para la tarea y salta allí
+    Retorna (model_name, wire_name, provider) o None.
     """
     cur_score = _model_size_score(session.model_name)
     active = session.creds.active_bago_providers()
+    local_provs = ("ollama-local", "ollama-cloud")
 
     def _candidates_in(prov_name):
         if prov_name not in active:
@@ -89,24 +128,36 @@ def _escalate_model(session) -> tuple[str, str, str] | None:
             s = _model_size_score(mn)
             if s > cur_score:
                 out.append((s, mn, md.get("wire_name", mn), prov_name))
-        return sorted(out)  # menor score > cur primero
+        return sorted(out)
 
-    # 1. Mismo provider
-    cands = _candidates_in(session.provider)
-    if cands:
-        _, mn, wn, pn = cands[0]
-        return mn, wn, pn
+    def _any_model_in(prov_name):
+        if prov_name not in active:
+            return None
+        prov_data = session.providers.get(prov_name, {})
+        for mn, md in prov_data.get("models", {}).items():
+            return mn, md.get("wire_name", mn), prov_name
+        return None
 
-    # 2. Siguiente provider en el orden de escalado
-    cur_idx = next((i for i, p in enumerate(_ESCALATE_PROV_ORDER)
-                    if p == session.provider), -1)
-    for pn in _ESCALATE_PROV_ORDER[cur_idx + 1:]:
+    # ── Fase 1: escalar dentro de providers locales ───────────────────────
+    for pn in local_provs:
         cands = _candidates_in(pn)
-        if not cands:
-            # Cualquier modelo del provider siguiente
-            prov_data = session.providers.get(pn, {})
-            for mn, md in prov_data.get("models", {}).items():
-                return mn, md.get("wire_name", mn), pn
+        if cands:
+            _, mn, wn, p = cands[0]
+            return mn, wn, p
+        if pn != session.provider:
+            r = _any_model_in(pn)
+            if r:
+                return r
+
+    # ── Fase 2: local agotado → mejor cloud para la tarea deducida ───────
+    cloud_prov = _deduce_cloud_provider(session.history, user_input, active)
+    prov_data  = session.providers.get(cloud_prov, {})
+    models     = prov_data.get("models", {})
+    if models:
+        # Modelo de mayor score en ese provider cloud
+        best = max(models.items(), key=lambda kv: _model_size_score(kv[0]))
+        mn, md = best
+        return mn, md.get("wire_name", mn), cloud_prov
     return None
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -277,15 +328,16 @@ def chat(session, user_input):
 
         # ── Escalado por saturación de contexto ────────────────────────────
         if _is_ctx_overflow(e):
-            escalation = _escalate_model(session)
+            escalation = _escalate_model(session, user_input)
             if escalation:
                 new_model, new_wire, new_prov = escalation
                 old_model = session.model_name
-                c_old = COLORS.get(session.provider, "white")
                 c_new = COLORS.get(new_prov, "white")
+                is_cloud = new_prov not in ("ollama-local", "ollama-cloud")
+                tag = "☁ cloud" if is_cloud else "⬆ local"
                 console.print(
                     f"  [dim yellow]⚡ contexto saturado ({old_model}) "
-                    f"→ escalando a [{c_new}]{new_model}[/{c_new}] ({new_prov})[/dim yellow]"
+                    f"→ {tag}: [{c_new}]{new_model}[/{c_new}] ({new_prov})[/dim yellow]"
                 )
                 session.provider    = new_prov
                 session.model_name  = new_model
