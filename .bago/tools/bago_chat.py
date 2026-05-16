@@ -4,6 +4,19 @@
 import argparse, sys
 from pathlib import Path
 
+# ── Activar VT/ANSI en Windows CMD lo antes posible ──────────────────────────
+if sys.platform == "win32":
+    try:
+        import ctypes as _ct
+        _k = _ct.windll.kernel32
+        _h = _k.GetStdHandle(-11)
+        _m = _ct.c_ulong(0)
+        if _k.GetConsoleMode(_h, _ct.byref(_m)):
+            _k.SetConsoleMode(_h, _m.value | 0x0004)
+    except Exception:
+        pass
+# ─────────────────────────────────────────────────────────────────────────────
+
 from rich import box
 from rich.panel import Panel
 

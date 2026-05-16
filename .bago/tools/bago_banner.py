@@ -20,14 +20,32 @@ for _s in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
+def _enable_win_vt() -> bool:
+    """Activa ANSI VT processing en Windows CMD. Devuelve True si tuvo éxito."""
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        handle = k32.GetStdHandle(-11)          # STD_OUTPUT_HANDLE
+        mode   = ctypes.c_ulong(0)
+        if k32.GetConsoleMode(handle, ctypes.byref(mode)):
+            # ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+            return bool(k32.SetConsoleMode(handle, mode.value | 0x0004))
+    except Exception:
+        pass
+    return False
+
+_VT_OK = _enable_win_vt()   # intento en import-time
+
 # ─── Rutas ────────────────────────────────────────────────────────────────────
 BAGO_ROOT = Path(__file__).resolve().parent.parent
 STATE     = BAGO_ROOT / "state"
 TOOLS     = BAGO_ROOT / "tools"
 
 # ─── Colores ANSI ─────────────────────────────────────────────────────────────
-# Auto-plain si no es TTY o se pasa --plain
-USE_COLOR     = sys.stdout.isatty() and "--plain" not in sys.argv
+# Auto-plain si no es TTY/VT o se pasa --plain
+USE_COLOR     = (sys.stdout.isatty() or _VT_OK) and "--plain" not in sys.argv
 USE_TRUECOLOR = USE_COLOR and os.environ.get("COLORTERM", "").lower() in ("truecolor", "24bit")
 
 def _c(code, text):
