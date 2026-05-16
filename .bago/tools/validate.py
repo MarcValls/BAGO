@@ -127,9 +127,18 @@ def validate_state(root: Path | None = None) -> int:
 
     errors: list[str] = []
 
+    state_path = root / "state" / "global_state.json"
+    if not state_path.exists():
+        # Runtime state is gitignored; skip state validation in CI environments.
+        if _os.environ.get("GITHUB_ACTIONS") == "true":
+            print("GO state (skipped — no runtime state in CI)")
+            return 0
+        print(f"KO\nmissing file: {state_path}")
+        return 1
+
     try:
         pack         = json.loads((root / "pack.json").read_text(encoding="utf-8"))
-        global_state = json.loads((root / "state" / "global_state.json").read_text(encoding="utf-8"))
+        global_state = json.loads(state_path.read_text(encoding="utf-8"))
     except FileNotFoundError as e:
         print(f"KO\nmissing file: {e}")
         return 1

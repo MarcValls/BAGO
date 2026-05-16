@@ -426,7 +426,7 @@ def orchestrate(task: str, mode_name: str | None = None) -> dict:
 
     if not candidates:
         return {
-            "error": "No hay modelos disponibles para el modo '$mode'",
+            "error": f"No hay modelos disponibles para el modo '{mode}'",
             "mode": mode,
             "providers_available": providers_available,
         }
