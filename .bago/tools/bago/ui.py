@@ -42,6 +42,8 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
+import threading
+
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import FormattedTextControl, Layout, HSplit, Window
@@ -68,7 +70,67 @@ def show_response(text, model_name, provider, label=None):
 pi = lambda m: console.print(f"[dim cyan]  {m}[/dim cyan]")
 pe = lambda m: console.print(f"[bold red]  X {m}[/bold red]")
 
-def banner(session):
+
+class CtrlCGuard:
+    """
+    Protección contra Ctrl+C accidental en el REPL principal de BAGO.
+
+    Comportamiento:
+      1ª pulsación  → avisa que copiar = clic derecho; pide 2 más para salir.
+      2ª pulsación  → avisa que queda 1 pulsación para salir.
+      3ª pulsación  → devuelve True → el caller termina.
+
+    El contador se resetea si pasan más de TIMEOUT segundos sin nueva pulsación.
+    """
+    TIMEOUT = 3.0   # segundos entre pulsaciones para considerarlas "seguidas"
+
+    _W  = "\033[1;33m"   # amarillo negrita
+    _R  = "\033[1;31m"   # rojo negrita
+    _D  = "\033[2m"      # dim
+    _X  = "\033[0m"      # reset
+
+    def __init__(self):
+        self._count = 0
+        self._timer: threading.Timer | None = None
+
+    def _reset(self):
+        self._count = 0
+        self._timer = None
+
+    def _restart_timer(self):
+        if self._timer:
+            self._timer.cancel()
+        self._timer = threading.Timer(self.TIMEOUT, self._reset)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def press(self) -> bool:
+        """
+        Llama en cada KeyboardInterrupt del REPL.
+        Devuelve True sólo en la 3ª pulsación consecutiva (el caller debe salir).
+        """
+        self._count += 1
+        self._restart_timer()
+
+        if self._count == 1:
+            print(
+                f"\n{self._W}  ℹ  Para COPIAR usa clic derecho "
+                f"(o Ctrl+Shift+C en terminales que lo soporten).{self._X}\n"
+                f"{self._D}     Pulsa Ctrl+C dos veces más seguidas para salir de BAGO.{self._X}"
+            )
+            return False
+        elif self._count == 2:
+            print(
+                f"\n{self._R}  ⚠  Una pulsación más de Ctrl+C para salir de BAGO.{self._X}"
+            )
+            return False
+        else:
+            if self._timer:
+                self._timer.cancel()
+            print(f"\n{self._R}  🛑  Saliendo de BAGO...{self._X}")
+            return True
+
+
     active = session.creds.active_bago_providers()
     c = COLORS.get(session.provider, "white")
     providers_str = "  ".join(f"[{'green' if p in active else 'red'}]{p}[/{'green' if p in active else 'red'}]"

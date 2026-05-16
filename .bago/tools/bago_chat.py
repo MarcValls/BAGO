@@ -10,7 +10,7 @@ from rich.panel import Panel
 sys.path.insert(0, str(Path(__file__).parent))
 
 from bago import (CredentialManager, load_providers, load_routing,
-                  BagoSession, cmd, chat, console, pi, pe, banner)
+                  BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
 from bago.constants import BAGO_SYSTEM, USER_BAGO
 from bago.providers import auto_detect_provider, get_default_model, route_by_task
 from bago.ui import show_response
@@ -171,12 +171,18 @@ def main():
         key_bindings=kb,
     )
 
+    ctrl_c = CtrlCGuard()
     while True:
         try:
             route_mode = _prompt_indicator(session)
             line = pt.prompt(f"[{session.provider}:{session.model_name}|{route_mode}] > ").strip()
-        except (KeyboardInterrupt, EOFError):
+        except EOFError:
             console.print("\n[dim]BAGO terminado.[/dim]"); break
+        except KeyboardInterrupt:
+            if ctrl_c.press():
+                console.print("[dim]BAGO terminado.[/dim]")
+                break
+            continue
         if not line: continue
         if line.startswith("/"):
             if not cmd(line, session): break
