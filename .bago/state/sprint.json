@@ -9,7 +9,11 @@
     "active": false
   },
   "sprint_status": {
-    "active_workflow": null,
+    "active_workflow": {
+      "code": "W2",
+      "title": "APK musica: flujo arreglo usuario",
+      "started": "2026-05-16T00:49:31.938994+00:00"
+    },
     "pending_w2_task": "none — CHG-002 completed (guardian 0%→100%)",
     "last_completed_workflow": {
       "code": "W2",

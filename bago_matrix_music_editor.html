@@ -941,9 +941,9 @@ kbd {
     <div id="empty-drop">
       <div class="drop-icon">🎵</div>
       <div class="drop-title">Abre una partitura</div>
-      <div class="drop-sub">.xml · .musicxml · file:/// compatible</div>
+      <div class="drop-sub">MusicXML, PDF o imagen. PDF/imagen requieren launcher activo.</div>
       <button class="btn-primary btn-open" onclick="document.getElementById('file-input').click()">📂 Abrir archivo</button>
-      <input type="file" id="file-input" accept=".xml,.musicxml" style="display:none" onchange="onFileLoad(event)">
+      <input type="file" id="file-input" accept=".xml,.musicxml,.mxl,.pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp" style="display:none" onchange="onFileLoad(event)">
       <button class="btn-secondary" onclick="loadMusicXML(EXAMPLE_SCORE)">📖 Ejemplo melancólico</button>
       <div id="recent-list"></div>
     </div>
@@ -2214,16 +2214,65 @@ function applyTranspose() {
   applyTransposeMain();
 }
 
-function onFileLoad(e) {
+function extname(name='') {
+  const i = name.lastIndexOf('.');
+  return i >= 0 ? name.slice(i).toLowerCase() : '';
+}
+
+function isStructuredScoreFile(name='') {
+  return ['.xml', '.musicxml', '.mxl'].includes(extname(name));
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function onFileLoad(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const xmlText = ev.target.result;
-    storeRecentScore(file.name, xmlText);
-    loadMusicXML(xmlText);
-  };
-  reader.readAsText(file, 'UTF-8');
+
+  if (isStructuredScoreFile(file.name)) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const xmlText = ev.target.result;
+      storeRecentScore(file.name, xmlText);
+      loadMusicXML(xmlText);
+    };
+    reader.readAsText(file, 'UTF-8');
+    e.target.value = '';
+    return;
+  }
+
+  if (!S.launcher) {
+    alert('PDF e imagen requieren BAGO Launcher activo.');
+    e.target.value = '';
+    return;
+  }
+
+  try {
+    showProcessing(true);
+    const file_b64 = arrayBufferToBase64(await file.arrayBuffer());
+    const r = await fetch(`${S.launcherUrl}/api/music/convert`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ filename: file.name, file_b64 }),
+    });
+    const data = await r.json();
+    if (!data.ok || !data.xml) {
+      throw new Error(data.plan?.warnings?.[0] || data.message || data.error || 'No se pudo convertir');
+    }
+    storeRecentScore(data.filename || file.name, data.xml);
+    loadMusicXML(data.xml);
+    showProcessing(false);
+  } catch (err) {
+    showProcessingError(err.message);
+  }
   e.target.value = '';
 }
 
