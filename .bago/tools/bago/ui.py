@@ -1,3 +1,42 @@
+"""
+╔══════════════════════════════════════════════════════════════════════════════╗
+║               BAGO  —  REGLAS OBLIGATORIAS DE MENÚS / UI                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  REGLA 1 — Widget correcto para cada tipo de interacción:                  ║
+║   · Una opción de N (radio/pick)     →  _menu_pick()                       ║
+║   · Opciones ON/OFF + acciones       →  _toggle_menu()                     ║
+║   · Varias de N (checkbox)           →  _menu_multiselect()                ║
+║   · Confirmación Sí / No             →  _menu_confirm()                    ║
+║   · Entrada de texto libre           →  _menu_input()                      ║
+║   · Botones de acción directa        →  _menu_action()                     ║
+║                                                                              ║
+║  REGLA 2 — Botones OK/Cancelar SOLO en multi-select:                       ║
+║   Botones "Aceptar"/"Cancelar" únicamente cuando el usuario puede marcar   ║
+║   múltiples ítems.  En single-select: seleccionar = aceptar.  Sin botones. ║
+║                                                                              ║
+║  REGLA 3 — Un único camino de salida:                                      ║
+║   Nunca duplicar la salida con ítem "__exit__" Y botón Cancelar.           ║
+║   Solo un mecanismo: Esc / C-c.                                             ║
+║                                                                              ║
+║  REGLA 4 — Esc siempre = atrás / cancelar:                                 ║
+║   Todo menú vincula "escape" y "c-c" al handler de cancelación.            ║
+║   Esc nunca ejecuta ni guarda nada.                                         ║
+║                                                                              ║
+║  REGLA 5 — Toggles ON/OFF usan _toggle_menu (nunca _menu_pick):            ║
+║   Space / Enter en toggle  →  conmuta EN SITIO sin cerrar el menú.         ║
+║   Enter en ítem acción     →  cierra y ejecuta.                             ║
+║   Esc                      →  cierra devolviendo estado actual.             ║
+║                                                                              ║
+║  REGLA 6 — Sin bucles implícitos en el widget:                             ║
+║   Seleccionar una opción cierra el menú.  Si el llamador necesita          ║
+║   un bucle (ej. config con sub-menús), lo controla él con while True.      ║
+║                                                                              ║
+║  REGLA 7 — Hint de teclas siempre visible al pie del menú:                 ║
+║   Formato:  "Arriba/Abajo navegar   [tecla específica]   Esc volver"       ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+"""
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
