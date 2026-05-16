@@ -131,6 +131,7 @@ class CtrlCGuard:
             return True
 
 
+def banner(session):
     active = session.creds.active_bago_providers()
     c = COLORS.get(session.provider, "white")
     providers_str = "  ".join(f"[{'green' if p in active else 'red'}]{p}[/{'green' if p in active else 'red'}]"
