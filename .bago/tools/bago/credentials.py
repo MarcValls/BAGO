@@ -109,9 +109,8 @@ class CredentialManager:
                 if self._ollama_ok():
                     active.append("ollama-local")
             elif name == "openai":
-                # Activo si: API key en env, O codex CLI autenticado, O chatgpt CLI autenticado
-                if (os.environ.get("OPENAI_API_KEY") or
-                        self._codex_authed() or self._chatgpt_authed()):
+                # Activo si: API key en env, O codex CLI autenticado
+                if (os.environ.get("OPENAI_API_KEY") or self._codex_authed()):
                     active.append("codex")
             else:
                 env_key = info.get("env")
@@ -169,35 +168,25 @@ class CredentialManager:
                 return f"Token obtenido pero no guardado: {e}"
 
         elif ltype == "openai_cli":
-            # GPT Plus: intentar auth via codex CLI o chatgpt CLI (sin API key)
+            # GPT Plus: codex CLI (sin API key) o API key manual
             console.print(
                 "[bold]OpenAI / GPT — elige método:[/bold]\n"
-                "  [yellow]1[/yellow]  codex login    (GPT Plus — abre navegador, sin API key)\n"
-                "  [yellow]2[/yellow]  chatgpt login  (ChatGPT app — abre navegador)\n"
-                "  [yellow]3[/yellow]  API key        (pegar clave manual)\n"
+                "  [yellow]1[/yellow]  codex login  (GPT Plus — abre navegador, sin API key)\n"
+                "  [yellow]2[/yellow]  API key      (pegar clave desde platform.openai.com)\n"
             )
-            choice = pt_prompt("Opción [1/2/3]: ").strip()
+            choice = pt_prompt("Opción [1/2]: ").strip()
 
             if choice == "1":
-                console.print("[dim]Ejecutando codex login...[/dim]")
+                console.print("[dim]Ejecutando codex login (abre navegador para autenticar)...[/dim]")
                 result = subprocess.run(["codex", "login"])
                 if result.returncode == 0:
-                    # Marcar que codex está autenticado (sin guardar key en credentials.json)
                     self._creds["openai_via"] = "codex_login"
                     self._save()
                     return "[green]✓ Codex CLI autenticado (GPT Plus activo)[/green]"
-                return "[red]codex login fallido.[/red]"
+                return "[red]codex login fallido. Prueba la opción 2 con API key.[/red]"
 
-            elif choice == "2":
-                console.print("[dim]Ejecutando chatgpt...[/dim]")
-                result = subprocess.run(["chatgpt"])
-                if result.returncode == 0:
-                    self._creds["openai_via"] = "chatgpt_login"
-                    self._save()
-                    return "[green]✓ ChatGPT CLI autenticado (GPT Plus activo)[/green]"
-                return "[red]chatgpt login fallido.[/red]"
-
-            else:  # opción 3 o cualquier otra: API key manual
+            else:  # opción 2 o cualquier otra: API key manual
+                console.print("[dim]Obtén tu clave en: https://platform.openai.com/api-keys[/dim]")
                 key = pt_prompt("OpenAI API Key: ", is_password=True).strip()
                 if not key:
                     return "Cancelado."
