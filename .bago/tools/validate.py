@@ -45,6 +45,7 @@ BAGO_DIR = ROOT / ".bago"
 
 def validate_manifest(root: Path | None = None) -> int:
     """Valida pack.json contra global_state.json. Returns 0=GO, 1=KO."""
+    import os as _os
     if root is None:
         root = BAGO_DIR
     manifest_path = root / "pack.json"
@@ -53,8 +54,7 @@ def validate_manifest(root: Path | None = None) -> int:
     errors: list[str] = []
 
     try:
-        data         = json.loads(manifest_path.read_text(encoding="utf-8"))
-        global_state = json.loads(state_path.read_text(encoding="utf-8"))
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
     except FileNotFoundError as e:
         print(f"KO\nmissing file: {e}")
         return 1
@@ -62,10 +62,17 @@ def validate_manifest(root: Path | None = None) -> int:
         print(f"KO\ninvalid JSON: {e}")
         return 1
 
-    if data.get("version") != global_state.get("bago_version"):
-        errors.append(
-            f"version mismatch: pack.json={data.get('version')} state={global_state.get('bago_version')}"
-        )
+    # Runtime state is gitignored — skip version cross-check on CI
+    if state_path.exists():
+        try:
+            global_state = json.loads(state_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            print(f"KO\ninvalid JSON: {e}")
+            return 1
+        if data.get("version") != global_state.get("bago_version"):
+            errors.append(
+                f"version mismatch: pack.json={data.get('version')} state={global_state.get('bago_version')}"
+            )
 
     for section in ("entrypoints", "contracts", "workflows", "governance", "docs", "bootstrap"):
         for key, value in data.get(section, {}).items():
