@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 149 CLI commands · 117 public commands
+> **Version 3.4.0b1** · 150 CLI commands · 117 public commands
 
 Public command contract (CI-checked): **20 core** · **89 experimental** · **8 dangerous** · **28 legacy**
 
