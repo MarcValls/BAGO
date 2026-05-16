@@ -1,6 +1,6 @@
 # `bago launch` — Manual de Usuario
 
-> **BAGO — A.M. TECHNOLOGIES**  
+> **BAGO CLI — A.M. TECHNOLOGIES**  
 > Comando core · stability: `core` · preflight: `required`
 
 ---
@@ -42,9 +42,11 @@ bago launch --task "revisar código" # Pre-ruta la sesión por tipo de tarea
 Al ejecutar `bago launch`, aparece el splash de activación:
 
 ```
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░░░░░░░░█████████████████████░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░░░░██████▓▓▓▓▓████████████▓▓▓▓▓██░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░█████████████████████░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░█▓▓▓▓▓████████████████▓▓▓▓▓██░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░██████▓▓▓▓▓████████████▓▓▓▓▓███████░░░░░░░░░░░░░
 ░░░░░░░░░░░██████████▓▓▓▓▓████████▓▓▓▓▓███████████░░░░░░░░░░░
 ░░░░░░░░░██████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓███████████████░░░░░░░░░
 ░░░░░░░░█████████████████▓▓▓▓▓▓▓▓▓▓██████████████████░░░░░░░░
@@ -57,11 +59,20 @@ Al ejecutar `bago launch`, aparece el splash de activación:
 ░░░███████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓████████████░░░
 ░░████████████████████▓▓▓▓▓▓████▓▓▓▓▓▓█████████████████████░░
 ░░░██████████████████▓▓▓▓▓▓▓████▓▓▓▓▓▓▓███████████████████░░░
-░░░░███████████████████▓▓▓▓▓▓██▓▓▓▓▓▓▓████████████████████░░░░
-░░░░░███████████████████▓▓██▓▓▓▓▓▓██▓▓████████████████████░░░░
+░░░███████████████████▓▓▓▓▓▓▓██▓▓▓▓▓▓▓████████████████████░░░
+░░░████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████████████████████░░░
+░░░░███████████████████▓▓██▓▓▓▓▓▓██▓▓████████████████████░░░░
+░░░░████████████████████▓▓██▓▓▓▓██▓▓█████████████████████░░░░
+░░░░░███████████████████▓▓▓██▓▓██▓▓▓████████████████████░░░░░
 ░░░░░░██████████████████▓▓▓██████▓▓▓███████████████████░░░░░░
 ░░░░░░░░█████████████████▓▓▓████▓▓▓██████████████████░░░░░░░░
+░░░░░░░░░█████████████████▓▓▓██▓▓▓██████████████████░░░░░░░░░
 ░░░░░░░░░░░████████████████▓▓▓▓▓▓█████████████████░░░░░░░░░░░
+░░░░░░░░░░░░░███████████████▓▓▓▓████████████████░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░████████████▓▓▓▓█████████████░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░█████████▓▓██████████░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
               ██████╗  █████╗  ██████╗  ██████╗
               ██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗
@@ -70,17 +81,8 @@ Al ejecutar `bago launch`, aparece el splash de activación:
               ██████╔╝██║  ██║╚██████╔╝╚██████╔╝
               ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝
 
-              ⣾  INICIANDO DESDE EL DISPOSITIVO BAGO...
+              ✔  INICIANDO DESDE EL DISPOSITIVO BAGO...
 ```
-
-**Colores del splash:**
-| Símbolo | Color | Significado |
-|---------|-------|-------------|
-| `░` | Verde dim | Fondo / espacio vacío |
-| `▓` | Cyan | Tonos medios del logo |
-| `█` | Blanco brillante | Estructura sólida del robot |
-| Logo BAGO | Gradiente cyan→azul | Nombre del framework |
-| Spinner `⣾⣽⣻⢿⡿⣟⣯⣷` | Cyan | Progreso de inicialización |
 
 El spinner gira hasta **10 segundos** mientras se cargan providers y credenciales.
 
@@ -91,48 +93,52 @@ El spinner gira hasta **10 segundos** mientras se cargan providers y credenciale
 Tras el splash aparece el **banner de sesión**:
 
 ```
-+--------------------------------------------------------+
-| BAGO — Orquestador Central  ·  A.M. TECHNOLOGIES       |
-| Motor: qwen2.5:14b (ollama-local)  |  Routing: AUTO    |
-| Providers: copilot  ollama-local  ollama-cloud  codex  |
-| Escalado automático: local → local-grande → cloud      |
-| /help para comandos   /login para providers            |
-+--------------------------------------------------------+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ BAGO CLI  v3.3.0  ·  A.M. TECHNOLOGIES                                      │
+│ Motor: qwen25-coder (ollama-local)                                           │
+│ Providers: copilot  codex  ollama-local  ollama-cloud                       │
+│                                                                              │
+│ Modo: ESTÁNDAR   AUTONOMO: OFF   PLAN: OFF   BRAINSTORM: OFF                │
+│ Routing: AUTO → qwen25-coder / ollama-local  "inicio de sesión"             │
+│ Escalado automático: local → local-grande → cloud                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+  /  menú
 ```
 
 #### Anatomía del banner
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  BAGO — Orquestador Central  ·  A.M. TECHNOLOGIES       │  ← Identidad
-│                                                         │
-│  Motor: qwen2.5:14b (ollama-local)  |  Routing: AUTO   │  ← Motor interno
-│  │       │             │                   │            │
-│  │       │             │                   └─ AUTO / MANUAL / CHAIN / ENSEMBLE
-│  │       │             └─ Provider activo
-│  │       └─ Modelo subyacente (trabajador interno de BAGO)
-│  └─ Campo dim — el usuario ve BAGO, no el modelo
-│                                                         │
-│  Providers: copilot  ollama-local  ollama-cloud  codex  │  ← Estado conexiones
-│  │           verde=activo    rojo=sin credenciales       │
-│                                                         │
-│  Escalado automático: local → local-grande → cloud      │  ← Política escalado
-└─────────────────────────────────────────────────────────┘
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ BAGO CLI  v3.3.0  ·  A.M. TECHNOLOGIES                   ← Versión + marca  │
+│                                                                              │
+│ Motor: qwen25-coder (ollama-local)                        ← Motor interno    │
+│        │              │                                                      │
+│        │              └─ Provider activo                                     │
+│        └─ Modelo subyacente (trabajador de BAGO, nunca expuesto al usuario)  │
+│                                                                              │
+│ Providers: copilot  codex  ollama-local  ollama-cloud     ← Estado conexión  │
+│            verde=activo    rojo=sin credenciales                             │
+│                                                                              │
+│ Modo: ESTÁNDAR  AUTONOMO: OFF  PLAN: OFF  BRAINSTORM: OFF ← Modos activos    │
+│                                                                              │
+│ Routing: AUTO → qwen25-coder / ollama-local               ← Traza decisión  │
+│          │      │               │                                            │
+│          │      │               └─ Provider elegido                          │
+│          │      └─ Modelo elegido                                            │
+│          └─ Estrategia: AUTO / CHAIN / ENSEMBLE / MANUAL                    │
+│                                                                              │
+│ Escalado automático: local → local-grande → cloud         ← Política escape  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+  /  menú                                                   ← Acceso al menú
 ```
 
-**Campo "Motor"** (dim, interno):
-- Muestra qué motor de IA está trabajando actualmente
-- El usuario no habla con él directamente — es un trabajador de BAGO
-- Puede cambiar dinámicamente según la tarea (escalado automático)
-
-**Campo "Routing":**
-| Valor | Significado |
-|-------|-------------|
-| `AUTO` | BAGO elige el motor automáticamente según la tarea |
-| `MANUAL` | El usuario ha fijado un modelo con `/switch` |
-| `CHAIN` | Pipeline secuencial activo (modelo A → modelo B) |
-| `ENSEMBLE` | Consulta paralela a varios modelos |
-| `AUTO:A` | Auto + modo autónomo activado |
+**Modos:**
+| Modo | Activación | Descripción |
+|------|-----------|-------------|
+| `ESTÁNDAR` | default | Balance calidad/coste |
+| `AUTÓNOMO` | `/auto` | Sin confirmaciones |
+| `PLAN` | `/plan` | Razona y propone antes de actuar |
+| `BRAINSTORM` | `/brainstorm` | Expande ideas sin restricciones |
 
 **Providers** (colores):
 | Color | Estado |
@@ -140,15 +146,24 @@ Tras el splash aparece el **banner de sesión**:
 | 🟢 Verde | Provider activo con credenciales válidas |
 | 🔴 Rojo | Sin credenciales / no disponible |
 
+**Routing trace:** muestra la última decisión de BAGO — estrategia + modelo elegido + motivo.
+
 ---
 
-### 3 · REPL conversacional
-
-Tras el banner, BAGO abre el REPL:
+### 3 · Barras de contexto + REPL
 
 ```
-[BAGO|AUTO] >
+  C:\...\BAGO                              BAGO  ·  C:\Users\...\BAGO
+[BAGO|AUTO] > _
+──────────────────────────────────────────────────────────────────────
 ```
+
+| Zona | Descripción |
+|------|-------------|
+| **Barra superior izquierda** | Ruta del framework BAGO |
+| **Barra superior derecha** | Nombre + ruta del proyecto activo (cwd) |
+| **Prompt** `[BAGO\|modo]` | Indicador del modo de routing |
+| **Barra inferior** `─────` | Separador visual bajo la zona de escritura |
 
 #### Anatomía del prompt
 
@@ -156,14 +171,13 @@ Tras el banner, BAGO abre el REPL:
 [BAGO|AUTO] >
   │     │
   │     └─ Modo de routing actual:
-  │          AUTO      = routing automático
-  │          MANUAL    = modelo fijo por el usuario
-  │          CHAIN     = pipeline multi-modelo
+  │          AUTO      = BAGO elige motor automáticamente
+  │          MANUAL    = modelo fijo por el usuario (/switch)
+  │          CHAIN     = pipeline secuencial activo
   │          ENSEMBLE  = paralelo multi-modelo
-  │          AUTO:A    = autónomo activo
+  │          AUTO:A    = auto + modo autónomo activo
   │
-  └─ Siempre "BAGO" — el usuario habla con el orquestador,
-     nunca directamente con el modelo subyacente
+  └─ Siempre "BAGO" — el usuario habla con el orquestador
 ```
 
 ---
@@ -173,28 +187,24 @@ Tras el banner, BAGO abre el REPL:
 ```
 [BAGO|AUTO] > ¿Cómo optimizo esta función Python?
 
-  ╔══ BAGO — analizando tarea... ══╗
-  ║  → Deduce: tarea de código      ║
-  ║  → Selecciona: qwen2.5-coder    ║
-  ║  → Estrategia: SINGLE (local)   ║
-  ╚════════════════════════════════╝
+  → Deduce: tarea de código
+  → Selecciona: qwen2.5-coder (ollama-local)
+  → Estrategia: SINGLE
 
-╭─ BAGO  vía qwen2.5-coder/ollama-local ──────────────────╮
-│                                                          │
-│  Para optimizar la función, considera:                   │
-│  1. Usa list comprehensions en lugar de bucles for...    │
-│  ...                                                     │
-│                                                          │
-╰──────────────────────────────────────────────────────────╯
+╭─ BAGO  vía qwen2.5-coder/ollama-local ──────────────────────────╮
+│                                                                  │
+│  Para optimizar la función, considera:                           │
+│  1. Usa list comprehensions en lugar de bucles for...            │
+│  ...                                                             │
+│                                                                  │
+╰──────────────────────────────────────────────────────────────────╯
 ```
 
-**La respuesta aparece siempre bajo el título `BAGO`** con el motor en texto dim.
+La respuesta aparece siempre bajo el título `BAGO` con el motor en texto dim.
 
 ---
 
 ## Escalado automático de contexto
-
-BAGO implementa escalado automático cuando el contexto se satura:
 
 ```
 local (pequeño)
@@ -206,15 +216,8 @@ cloud (mejor para la tarea deducida)
 
 | Fase | Lógica |
 |------|--------|
-| **Fase 1** | Busca un modelo más grande en Ollama local (por nombre: 7b→14b→32b…) |
-| **Fase 2** | Si local está agotado, deduce el mejor cloud según la tarea y salta a él |
-
-**Deducción del cloud por tarea:**
-| Provider | Activado por palabras clave |
-|----------|----------------------------|
-| `codex` | código, función, clase, script, API, test, bug, refactor… |
-| `copilot` | explica, analiza, diseña, arquitectura, razonamiento, estrategia… |
-| `anthropic` | redacta, escribe, resume, traduce, artículo, ensayo… |
+| **Fase 1** | Busca modelo más grande en Ollama local (7b→14b→32b…) |
+| **Fase 2** | Deduce el mejor cloud según la tarea y salta a él |
 
 ---
 
@@ -226,36 +229,17 @@ cloud (mejor para la tarea deducida)
 | `--model <m>` | Usa un modelo concreto | `--model qwen2.5:14b` |
 | `--task <t>` | Pre-ruta por tipo de tarea | `--task "revisar código"` |
 
-Sin flags, BAGO **autodetecta** el mejor provider disponible según credenciales activas.
-
-**Prioridad de autodetección:**
-```
-1. ollama-local   (si Ollama está corriendo)
-2. copilot        (si hay credenciales GitHub)
-3. codex          (si hay API key OpenAI)
-4. anthropic      (si hay API key Anthropic)
-```
-
 ---
 
 ## Providers soportados
 
-| Provider | Identificador | Modelos típicos | Requiere |
-|----------|--------------|-----------------|---------|
-| Ollama Local | `ollama-local` | qwen2.5, llama3, mistral, codestral… | Ollama corriendo |
-| Ollama Cloud | `ollama-cloud` | Modelos remotos vía Ollama API | URL + key |
-| GitHub Copilot | `copilot` | GPT-4o, o3-mini | `gh auth login` |
-| OpenAI / Codex | `codex` | gpt-4, o1, codex… | `OPENAI_API_KEY` |
-| Anthropic | `anthropic` | claude-3.5-sonnet… | `ANTHROPIC_API_KEY` |
-
-Para añadir credenciales:
-```bash
-/login            # menú interactivo
-/login github     # activa Copilot vía gh CLI
-/login ollama     # verifica Ollama local
-/login openai     # añade API key OpenAI
-/login anthropic  # añade API key Anthropic
-```
+| Provider | Identificador | Requiere |
+|----------|--------------|---------|
+| Ollama Local | `ollama-local` | Ollama corriendo |
+| Ollama Cloud | `ollama-cloud` | URL + key |
+| GitHub Copilot | `copilot` | `gh auth login` |
+| OpenAI / Codex | `codex` | `OPENAI_API_KEY` |
+| Anthropic | `anthropic` | `ANTHROPIC_API_KEY` |
 
 ---
 
@@ -264,25 +248,10 @@ Para añadir credenciales:
 | Método | Comportamiento |
 |--------|----------------|
 | `/exit` | Salida limpia |
-| `Ctrl+C` × 1 | Aviso: "Para copiar usa clic derecho" |
-| `Ctrl+C` × 2 | Aviso: "Una pulsación más para salir" |
-| `Ctrl+C` × 3 | Salida: "Saliendo de BAGO..." |
+| `Ctrl+C` × 1 | "Para copiar usa clic derecho" |
+| `Ctrl+C` × 2 | "Una pulsación más para salir" |
+| `Ctrl+C` × 3 | "Saliendo de BAGO..." |
 | `Ctrl+D` (EOF) | Salida inmediata |
-
-> **¿Por qué 3×Ctrl+C?** En terminales Windows, Ctrl+C interrumpe texto seleccionado.  
-> BAGO protege contra salidas accidentales con el `CtrlCGuard`.
-
----
-
-## Modos de routing disponibles
-
-| Modo | Activación | Descripción |
-|------|-----------|-------------|
-| `AUTO` | Default | BAGO elige motor + estrategia automáticamente |
-| `MANUAL` | `/autoroute off` o `/switch <modelo>` | El usuario controla el motor |
-| `CHAIN` | `/chain m1->m2: prompt` | Pipeline: m1 genera, m2 refina |
-| `ENSEMBLE` | `/ensemble m1 m2: prompt` | Paralelo: varios motores, BAGO sintetiza |
-| `AUTÓNOMO` | `/auto` | BAGO actúa sin confirmaciones (requiere `/auto` primero) |
 
 ---
 
@@ -294,4 +263,4 @@ Para añadir credenciales:
 
 ---
 
-*Auto-documentado · BAGO framework · A.M. TECHNOLOGIES*
+*Auto-documentado · BAGO CLI · A.M. TECHNOLOGIES*
