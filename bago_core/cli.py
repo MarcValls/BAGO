@@ -21,6 +21,7 @@ def _find_bago_launcher() -> Path:
     candidates = [
         here.parent / "bago",           # editable install (repo root)
         here / ".." / "bago",           # another relative path
+        Path.cwd() / "bago",            # non-editable install run from repo dir
     ]
     for p in candidates:
         resolved = p.resolve()
@@ -28,7 +29,8 @@ def _find_bago_launcher() -> Path:
             return resolved
     raise FileNotFoundError(
         "Cannot find 'bago' launcher. "
-        "Ensure you installed with `pip install -e .` from the repo root."
+        "Ensure you installed with `pip install -e .` from the repo root, "
+        "or run from the repo directory."
     )
 
 
