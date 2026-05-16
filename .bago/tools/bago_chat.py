@@ -78,6 +78,7 @@ def get_default_model(provider_name, providers):
     return k, models[k].get("wire_name", k), provider_name
 
 def route_by_task(task, routing, providers):
+    """Devuelve (model, wire, provider) para la tarea dada según las reglas de routing."""
     tl = task.lower()
     for rule in routing.get("rules", []):
         for kw in rule.get("keywords", []):
@@ -85,9 +86,10 @@ def route_by_task(task, routing, providers):
                 prov  = rule["provider"]
                 model = rule["model"]
                 wire  = providers.get(prov,{}).get("models",{}).get(model,{}).get("wire_name", model)
-                return model, wire, prov
+                matched_kw = kw
+                return model, wire, prov, matched_kw
     fb = routing.get("fallback", {})
-    return fb.get("model","gpt-5.4"), fb.get("model","gpt-5.4"), fb.get("provider","codex")
+    return fb.get("model","gpt-5.4"), fb.get("model","gpt-5.4"), fb.get("provider","codex"), None
 
 # ── Sesion ────────────────────────────────────────────────────────────────────
 class BagoSession:
@@ -100,11 +102,12 @@ class BagoSession:
         self.started_at = datetime.datetime.now()
         self.providers  = load_providers()
         self.routing    = load_routing()
+        self.autoroute  = True   # routing automatico por mensaje activo por defecto
 
     @property
     def litellm_info(self): return resolve_litellm(self.provider, self.wire_name)
 
-    def switch_model(self, target):
+    def switch_model(self, target, silent=False):
         shortcuts = {"copilot":"copilot","codex":"codex",
                      "ollama":"ollama-local","ollama-local":"ollama-local","ollama-cloud":"ollama-cloud"}
         if target in shortcuts:
@@ -115,7 +118,19 @@ class BagoSession:
         old = self.model_name
         self.provider, self.model_name, self.wire_name = prov, name, wire
         self.switches += 1
+        if silent: return None
         return f"Cambiado: {old} -> {name} ({prov}) | {len(self.history)-1} msgs mantenidos"
+
+    def auto_route(self, user_input):
+        """Analiza el mensaje y cambia al modelo mas adecuado si difiere del actual.
+        Devuelve (switched: bool, reason: str|None)."""
+        name, wire, prov, kw = route_by_task(user_input, self.routing, self.providers)
+        if name and name != self.model_name:
+            old = self.model_name
+            self.provider, self.model_name, self.wire_name = prov, name, wire
+            self.switches += 1
+            return True, f"→ auto-route [{kw}] : {old} → {name} ({prov})"
+        return False, None
 
     def _find(self, name):
         for pn, pd in self.providers.items():
@@ -166,12 +181,25 @@ pe = lambda m: console.print(f"[bold red]  x {m}[/bold red]")
 HELP = """[bold]Comandos BAGO Chat:[/bold]
   [yellow]/switch <modelo|provider>[/yellow]  Cambia modelo SIN perder historial
     Ej: /switch copilot  /switch codex  /switch ollama  /switch gpt-5.4
+
+  [bold cyan]Multi-modelo:[/bold cyan]
+  [yellow]/chain modelo1->modelo2: prompt[/yellow]
+    Pipeline secuencial — cada modelo refina la respuesta del anterior
+    Ej: /chain codex->copilot: escribe y explica un algoritmo de búsqueda binaria
+
+  [yellow]/ensemble modelo1 modelo2: prompt[/yellow]
+    Paralelo — todos responden a la vez, el activo sintetiza lo mejor
+    Ej: /ensemble codex copilot: cuál es la mejor forma de manejar errores en Python
+
+  [yellow]/autoroute on|off[/yellow]  Routing automático por mensaje (default: on)
   [yellow]/models[/yellow]    Lista todos los modelos del registry BAGO
-  [yellow]/status[/yellow]    Estado: modelo, provider, msgs en memoria, tiempo
+  [yellow]/status[/yellow]    Estado: modelo, provider, msgs, tiempo, auto-route
   [yellow]/save[/yellow]      Guarda la sesion en ~/.bago/sessions/
   [yellow]/clear[/yellow]     Limpia historial (mantiene sistema BAGO)
   [yellow]/help[/yellow]      Esta ayuda
   [yellow]/exit[/yellow]      Salir (tambien Ctrl+D)
+
+[dim]Auto-routing: el orquestador analiza cada mensaje y usa el modelo óptimo para esa tarea.[/dim]
 """
 
 def cmd(line, session):
@@ -195,8 +223,44 @@ def cmd(line, session):
         console.print(Panel(
             f"Modelo:    {session.model_name}\nProvider:  {session.provider}\n"
             f"Wire:      {session.wire_name}\nHistorial: {len(session.history)-1} mensajes\n"
-            f"Switches:  {session.switches}\nTiempo:    {elapsed}",
+            f"Switches:  {session.switches}\nTiempo:    {elapsed}\n"
+            f"Auto-route: {'ON' if session.autoroute else 'OFF'}",
             title="[bold]Estado[/bold]", box=box.ROUNDED))
+    elif v == "/chain":
+        # /chain model1->model2->model3: prompt
+        if ":" not in a:
+            pe("Uso: /chain modelo1->modelo2: tu pregunta aquí")
+            pe("  Ej: /chain codex->copilot: escribe y explica este algoritmo")
+        else:
+            chain_part, prompt_part = a.split(":", 1)
+            models = [m.strip() for m in chain_part.split("->") if m.strip()]
+            prompt_part = prompt_part.strip()
+            if len(models) < 2 or not prompt_part:
+                pe("Necesitas al menos 2 modelos y un prompt. Ej: /chain codex->copilot: explica X")
+            else:
+                pi(f"Chain: {' → '.join(models)}")
+                chain_models(session, models, prompt_part)
+    elif v == "/ensemble":
+        # /ensemble model1 model2 model3: prompt
+        if ":" not in a:
+            pe("Uso: /ensemble modelo1 modelo2: tu pregunta aquí")
+        else:
+            models_part, prompt_part = a.split(":", 1)
+            models = [m.strip() for m in models_part.split() if m.strip()]
+            prompt_part = prompt_part.strip()
+            if len(models) < 2 or not prompt_part:
+                pe("Necesitas al menos 2 modelos y un prompt.")
+            else:
+                pi(f"Ensemble: {', '.join(models)}")
+                ensemble_models(session, models, prompt_part)
+    elif v == "/autoroute":
+        state = a.lower() if a else ""
+        if state == "off":
+            session.autoroute = False
+            pi("Auto-routing DESACTIVADO — el modelo no cambiará automáticamente.")
+        else:
+            session.autoroute = True
+            pi("Auto-routing ACTIVADO — el orquestador elegirá el modelo por tarea.")
     elif v == "/save":
         pi(f"Guardado: {session.save()}")
     elif v == "/clear":
@@ -206,8 +270,151 @@ def cmd(line, session):
         pe(f"Comando desconocido: {v}  —  /help")
     return True
 
+# ── Multi-model strategies ────────────────────────────────────────────────────
+def _call_model(session, target, messages):
+    """Llama a un modelo específico sin modificar el historial principal."""
+    old_p, old_m, old_w = session.provider, session.model_name, session.wire_name
+    session.switch_model(target, silent=True)
+    lm, kw = session.litellm_info
+    try:
+        r = litellm.completion(model=lm, messages=messages, **kw)
+        return r.choices[0].message.content, session.model_name, session.provider
+    finally:
+        # Restaurar modelo original (el switch en chain/ensemble es temporal por paso)
+        session.provider, session.model_name, session.wire_name = old_p, old_m, old_w
+
+def chain_models(session, model_sequence, prompt):
+    """Pipeline secuencial: cada modelo ve la respuesta del anterior y la refina.
+    Al final añade la respuesta definitiva al historial compartido."""
+    context = list(session.history)  # copia del historial actual
+    draft = prompt
+    steps = []
+
+    for i, target in enumerate(model_sequence):
+        step_num = i + 1
+        is_last  = (i == len(model_sequence) - 1)
+
+        if i == 0:
+            msgs = context + [{"role":"user","content": draft}]
+            role_hint = "Responde con detalle."
+        else:
+            prev_text = steps[-1]["text"]
+            role_hint = (
+                "A continuación tienes una respuesta preliminar de otro modelo. "
+                "Revisala, corrige errores y mejórala. Mantén lo que esté bien.\n\n"
+                f"RESPUESTA ANTERIOR:\n{prev_text}\n\n"
+                f"PREGUNTA ORIGINAL: {prompt}"
+            )
+            msgs = [{"role":"system","content": BAGO_SYSTEM},
+                    {"role":"user","content": role_hint}]
+
+        old_m = session.model_name
+        session.switch_model(target, silent=True)
+        lm, kw = session.litellm_info
+        c = COLORS.get(session.provider, "white")
+        label = f"paso {step_num}/{len(model_sequence)}: {session.model_name}"
+
+        with console.status(f"[dim {c}]{label} ...[/dim {c}]", spinner="dots"):
+            try:
+                r = litellm.completion(model=lm, messages=msgs, **kw)
+                text = r.choices[0].message.content
+            except Exception as e:
+                text = f"[ERROR en {session.model_name}: {e}]"
+
+        steps.append({"model": session.model_name, "provider": session.provider, "text": text})
+
+        if not is_last:
+            # Mostrar borrador intermedio (colapsado)
+            console.print(f"  [{c}]✓ {session.model_name}[/{c}] [dim]({len(text)} chars) → siguiente modelo...[/dim]")
+        else:
+            # Respuesta final completa
+            try:    content = Markdown(text)
+            except: content = text
+            title = f"[bold]CHAIN final[/bold] [{c}]{session.model_name}[/{c}]"
+            console.print(Panel(content, title=title, border_style=c, box=box.ROUNDED))
+            # Añadir al historial compartido
+            session.history.append({"role":"user","content": prompt})
+            session.history.append({"role":"assistant","content": text})
+
+    # Dejar el modelo en el último de la cadena
+    return steps
+
+def ensemble_models(session, model_list, prompt):
+    """Paralelo: varios modelos responden al mismo prompt. El usuario ve todas las respuestas.
+    Se añade al historial solo la síntesis (o la mejor si no hay modelo de síntesis)."""
+    import concurrent.futures
+
+    context = list(session.history) + [{"role":"user","content": prompt}]
+    results = {}
+
+    def call_one(target):
+        old_p, old_m, old_w = session.provider, session.model_name, session.wire_name
+        session.switch_model(target, silent=True)
+        lm, kw = session.litellm_info
+        mn, pv = session.model_name, session.provider
+        session.provider, session.model_name, session.wire_name = old_p, old_m, old_w
+        try:
+            r = litellm.completion(model=lm, messages=context, **kw)
+            return mn, pv, r.choices[0].message.content
+        except Exception as e:
+            return mn, pv, f"[ERROR: {e}]"
+
+    console.print(f"  [dim]Consultando {len(model_list)} modelos en paralelo...[/dim]")
+    with concurrent.futures.ThreadPoolExecutor() as ex:
+        futures = {ex.submit(call_one, t): t for t in model_list}
+        for f in concurrent.futures.as_completed(futures):
+            mn, pv, text = f.result()
+            results[mn] = {"provider": pv, "text": text}
+            c = COLORS.get(pv, "white")
+            try:    content = Markdown(text)
+            except: content = text
+            console.print(Panel(content, title=f"[{c}]{mn}[/{c}]", border_style=c, box=box.ROUNDED))
+
+    # Si hay 2+ resultados, ofrecer síntesis con el modelo activo
+    if len(results) >= 2:
+        pi(f"Sintetizando con {session.model_name}...")
+        drafts = "\n\n".join(
+            f"[{mn}]:\n{d['text']}" for mn, d in results.items()
+        )
+        synth_prompt = (
+            f"Tienes las siguientes respuestas de distintos modelos para: '{prompt}'\n\n"
+            f"{drafts}\n\n"
+            "Sintetiza lo mejor de cada una en una respuesta única, coherente y completa."
+        )
+        lm, kw = session.litellm_info
+        with console.status(f"[dim]{session.model_name} sintetizando...[/dim]", spinner="dots"):
+            try:
+                r = litellm.completion(model=lm, messages=[
+                    {"role":"system","content": BAGO_SYSTEM},
+                    {"role":"user","content": synth_prompt}
+                ], **kw)
+                final = r.choices[0].message.content
+            except Exception as e:
+                final = list(results.values())[0]["text"]  # fallback: primera respuesta
+        c = COLORS.get(session.provider, "white")
+        try:    content = Markdown(final)
+        except: content = final
+        console.print(Panel(content, title=f"[bold]SÍNTESIS[/bold] [{c}]{session.model_name}[/{c}]",
+                            border_style="bold white", box=box.DOUBLE))
+        session.history.append({"role":"user","content": prompt})
+        session.history.append({"role":"assistant","content": final})
+    else:
+        mn, d = next(iter(results.items()))
+        session.history.append({"role":"user","content": prompt})
+        session.history.append({"role":"assistant","content": d["text"]})
+
+    return results
+
 # ── Chat ──────────────────────────────────────────────────────────────────────
 def chat(session, user_input):
+    """Envía mensaje al modelo activo. Si auto-routing está activo, puede cambiar modelo antes."""
+    # Auto-routing: analizar tarea y cambiar modelo si hay uno mejor
+    if session.autoroute:
+        switched, reason = session.auto_route(user_input)
+        if switched:
+            c = COLORS.get(session.provider, "white")
+            console.print(f"  [dim {c}]{reason}[/dim {c}]")
+
     session.history.append({"role":"user","content":user_input})
     lm, kw = session.litellm_info
     try:
