@@ -1,7 +1,7 @@
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import Layout, HSplit, Window
+from prompt_toolkit.layout import FormattedTextControl, Layout, HSplit, Window
 from prompt_toolkit.shortcuts import button_dialog, checkboxlist_dialog, input_dialog, yes_no_dialog
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import Frame, Label, RadioList
@@ -19,7 +19,7 @@ def show_response(text, model_name, provider, label=None):
     c = COLORS.get(provider, "white")
     try:    content = Markdown(text)
     except: content = text
-    title = label or f"[{c}]{model_name}[/{c}] · [dim]{provider}[/dim]"
+    title = label or f"[{c}]{model_name}[/{c}] . [dim]{provider}[/dim]"
     console.print(Panel(content, title=title, border_style=c, box=box.ROUNDED))
 
 pi = lambda m: console.print(f"[dim cyan]  {m}[/dim cyan]")
@@ -53,17 +53,22 @@ _MENU_STYLE = Style.from_dict({
     "radio-list":         "bg:#1e1e2e fg:#cdd6f4",
     "radio-selected":     "fg:#a6e3a1 bold",
     "label":              "bg:#1e1e2e fg:#6c7086",
+    # conmutadores
+    "toggle.on":          "bg:ansibrightgreen fg:ansiblack bold",
+    "toggle.off":         "bg:#444444 fg:#888888",
+    "toggle.cursor":      "fg:#89b4fa bold",
 })
 
+# ---------------------------------------------------------------------------
+# _menu_pick — seleccion unica instantanea (sin botones)
+# ---------------------------------------------------------------------------
 
 def _menu_pick(title: str, text: str, values: list):
     """
-    Menu de seleccion unica — SIN botones.
-    Seleccionar una opcion con Enter la acepta de inmediato.
-    Esc / Ctrl-C cancela y devuelve None.
-
-    Usar para TODO menú radiolist (una opcion de N).
-    Para seleccion multiple usar _menu_multiselect.
+    Menu de seleccion unica.
+    Enter sobre un item => acepta inmediatamente.
+    Esc / Ctrl-C => cancela (devuelve None).
+    Sin botones OK/Cancelar.
     """
     if not values:
         return None
@@ -80,7 +85,7 @@ def _menu_pick(title: str, text: str, values: list):
     @kb.add("escape", eager=True)
     @kb.add("c-c", eager=True)
     def _cancel(event):
-        event.app.exit()  # _result queda None
+        event.app.exit()
 
     layout = Layout(
         Frame(
@@ -104,22 +109,163 @@ def _menu_pick(title: str, text: str, values: list):
         full_screen=False,
         mouse_support=True,
     )
-
     try:
         app.run()
     except Exception:
         pass
-
     return _result[0]
 
 
+# ---------------------------------------------------------------------------
+# _toggle_menu — panel con conmutadores ON/OFF y acciones
+# ---------------------------------------------------------------------------
+
+def _toggle_menu(title: str, text: str, items: list):
+    """
+    Panel que mezcla conmutadores ON/OFF y acciones normales.
+
+    Formato de items:
+      {"type": "toggle", "key": "k", "label": "Etiqueta", "value": True/False}
+      {"type": "action", "key": "k", "label": "Etiqueta"}
+      {"type": "sep"}   -- separador visual
+
+    Teclas:
+      Arriba / Abajo (o j/k) : navegar
+      Espacio                 : conmutar toggle (sin cerrar menu)
+      Enter  en toggle        : conmutar (sin cerrar)
+      Enter  en accion        : cerrar y devolver accion
+      Esc / Ctrl-C            : cerrar (devuelve action=None)
+
+    Devuelve:
+      {"action": key_o_None, "toggles": {key: bool_actual, ...}}
+    """
+    if not items:
+        return {"action": None, "toggles": {}}
+
+    # Estado mutable de los toggles
+    state = {
+        item["key"]: bool(item.get("value", False))
+        for item in items if item.get("type") == "toggle"
+    }
+
+    # Indices navegables (excluye separadores)
+    nav_idx = [i for i, it in enumerate(items) if it.get("type") != "sep"]
+    focus = [0]  # posicion en nav_idx
+
+    result = {"action": None, "toggles": {}}
+
+    def current_item():
+        return items[nav_idx[focus[0]]]
+
+    # --- Renderizado ---
+    def render():
+        out = []
+        for i, item in enumerate(items):
+            itype = item.get("type", "action")
+
+            if itype == "sep":
+                out += [("class:label", "  "), ("class:label", "-" * 40 + "\n")]
+                continue
+
+            is_focused = (i == nav_idx[focus[0]])
+
+            if is_focused:
+                out.append(("class:toggle.cursor", " >> "))
+            else:
+                out.append(("", "    "))
+
+            if itype == "toggle":
+                val = state[item["key"]]
+                if val:
+                    out.append(("class:toggle.on",  " ON  "))
+                else:
+                    out.append(("class:toggle.off", " OFF "))
+                out.append(("", "  "))
+
+            lbl = item.get("label", "")
+            if is_focused:
+                out.append(("bold", lbl + "\n"))
+            else:
+                out.append(("", lbl + "\n"))
+
+        return out
+
+    content = FormattedTextControl(render, focusable=True)
+    win = Window(content=content, dont_extend_height=True)
+
+    kb = KeyBindings()
+
+    @kb.add("up",   eager=True)
+    @kb.add("k",    eager=True)
+    def _up(event):
+        focus[0] = max(0, focus[0] - 1)
+        event.app.invalidate()
+
+    @kb.add("down", eager=True)
+    @kb.add("j",    eager=True)
+    def _down(event):
+        focus[0] = min(len(nav_idx) - 1, focus[0] + 1)
+        event.app.invalidate()
+
+    def _do_toggle(event):
+        item = current_item()
+        if item.get("type") == "toggle":
+            state[item["key"]] = not state[item["key"]]
+            event.app.invalidate()
+        else:
+            result["action"]  = item["key"]
+            result["toggles"] = dict(state)
+            event.app.exit()
+
+    @kb.add("space", eager=True)
+    def _space(event): _do_toggle(event)
+
+    @kb.add("enter", eager=True)
+    def _enter(event): _do_toggle(event)
+
+    @kb.add("escape", eager=True)
+    @kb.add("c-c",    eager=True)
+    def _cancel(event):
+        result["action"]  = None
+        result["toggles"] = dict(state)
+        event.app.exit()
+
+    layout = Layout(
+        Frame(
+            HSplit([
+                Label(f" {text}"),
+                Window(height=1),
+                win,
+                Window(height=1),
+                Label(" Arriba/Abajo navegar   Espacio/Enter conmutar o seleccionar   Esc volver",
+                      style="class:label"),
+            ]),
+            title=f" {title} ",
+            style="class:dialog",
+        ),
+        focused_element=win,
+    )
+
+    app = Application(
+        layout=layout,
+        key_bindings=kb,
+        style=_MENU_STYLE,
+        full_screen=False,
+        mouse_support=True,
+    )
+    try:
+        app.run()
+    except Exception:
+        pass
+    return result
+
+
+# ---------------------------------------------------------------------------
+# _menu_multiselect — checkboxlist (varios de N, con botones)
+# ---------------------------------------------------------------------------
+
 def _menu_multiselect(title: str, text: str, values: list, defaults: list = None):
-    """
-    Menu de seleccion multiple (checkboxlist).
-    SI tiene botones Aceptar/Cancelar porque el usuario marca
-    varias opciones antes de confirmar el conjunto.
-    Devuelve lista de valores seleccionados, o None si cancela.
-    """
+    """Checkboxlist: el usuario marca varias opciones y confirma con Aceptar."""
     try:
         return checkboxlist_dialog(
             title=title, text=text,
@@ -133,8 +279,7 @@ def _menu_multiselect(title: str, text: str, values: list, defaults: list = None
         return None
 
 
-# Alias de compatibilidad — los menus existentes que llamen _menu_select
-# usaran la nueva logica instantanea.
+# Alias de compatibilidad
 def _menu_select(title, text, values, cancel_label=None, ok_label=None):
     return _menu_pick(title, text, values)
 
