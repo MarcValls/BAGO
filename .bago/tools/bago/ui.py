@@ -47,7 +47,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import FormattedTextControl, Layout, HSplit, Window
 from prompt_toolkit.shortcuts import button_dialog, checkboxlist_dialog, input_dialog, yes_no_dialog
 from prompt_toolkit.styles import Style
-from prompt_toolkit.widgets import Frame, Label, RadioList
+from prompt_toolkit.widgets import Frame, Label
 from rich import box
 from rich.console import Console
 from rich.markdown import Markdown
@@ -90,12 +90,15 @@ _MENU_STYLE = Style.from_dict({
     "dialog":             "bg:#1e1e2e",
     "dialog.body":        "bg:#1e1e2e fg:#cdd6f4",
     "dialog frame.label": "fg:#89b4fa bold",
-    "frame.border":       "fg:#313244",
+    "frame.border":       "fg:#45475a",
     "button":             "bg:#313244 fg:#cdd6f4",
     "button.focused":     "bg:#89b4fa fg:#1e1e2e bold",
-    "radio-list":         "bg:#1e1e2e fg:#cdd6f4",
-    "radio-selected":     "fg:#a6e3a1 bold",
     "label":              "bg:#1e1e2e fg:#6c7086",
+    # _menu_pick — contraste por fila
+    "pick.cursor":        "fg:#89b4fa bold",          # '>>' azul brillante
+    "pick.focused":       "bg:#313244 fg:#cdf4a1 bold",  # fila activa: fondo + texto claro
+    "pick.item":          "fg:#585b70",               # filas inactivas: gris tenue
+    "pick.sep":           "fg:#313244",               # separador
     # conmutadores
     "toggle.on":          "bg:ansibrightgreen fg:ansiblack bold",
     "toggle.off":         "bg:#444444 fg:#888888",
@@ -103,30 +106,68 @@ _MENU_STYLE = Style.from_dict({
 })
 
 # ---------------------------------------------------------------------------
-# _menu_pick — seleccion unica instantanea (sin botones)
+# _menu_pick — seleccion unica con contraste visual completo
 # ---------------------------------------------------------------------------
 
 def _menu_pick(title: str, text: str, values: list):
     """
-    Menu de seleccion unica.
+    Menu de seleccion unica con cursor y contraste por fila.
+    values: lista de (key, label)  o  None como separador ("sep", "──...")
     Enter sobre un item => acepta inmediatamente.
     Esc / Ctrl-C => cancela (devuelve None).
-    Sin botones OK/Cancelar.
+    Sin botones OK/Cancelar.  (R1 / R2)
     """
     if not values:
         return None
 
-    radio = RadioList(values=values)
-    _result = [None]
+    # Índices navegables (excluye separadores marcados como None en key)
+    nav_idx = [i for i, v in enumerate(values) if v[0] is not None]
+    if not nav_idx:
+        return None
+
+    focus = [0]   # posición dentro de nav_idx
+    result = [None]
+
+    def render():
+        out = []
+        for i, (key, label) in enumerate(values):
+            # Separador
+            if key is None:
+                out.append(("class:pick.sep", f"    {label}\n"))
+                continue
+            is_focused = (i == nav_idx[focus[0]])
+            if is_focused:
+                out.append(("class:pick.cursor", " >> "))
+                out.append(("class:pick.focused", f" {label} \n"))
+            else:
+                out.append(("", "    "))
+                out.append(("class:pick.item", f" {label} \n"))
+        return out
+
+    content = FormattedTextControl(render, focusable=True)
+    win = Window(content=content, dont_extend_height=True)
+
     kb = KeyBindings()
+
+    @kb.add("up",   eager=True)
+    @kb.add("k",    eager=True)
+    def _up(event):
+        focus[0] = max(0, focus[0] - 1)
+        event.app.invalidate()
+
+    @kb.add("down", eager=True)
+    @kb.add("j",    eager=True)
+    def _down(event):
+        focus[0] = min(len(nav_idx) - 1, focus[0] + 1)
+        event.app.invalidate()
 
     @kb.add("enter", eager=True)
     def _accept(event):
-        _result[0] = radio.current_value
+        result[0] = values[nav_idx[focus[0]]][0]
         event.app.exit()
 
     @kb.add("escape", eager=True)
-    @kb.add("c-c", eager=True)
+    @kb.add("c-c",    eager=True)
     def _cancel(event):
         event.app.exit()
 
@@ -135,14 +176,15 @@ def _menu_pick(title: str, text: str, values: list):
             HSplit([
                 Label(f" {text}"),
                 Window(height=1),
-                radio,
+                win,
                 Window(height=1),
-                Label(" Arriba/Abajo navegar   Enter seleccionar   Esc volver",
+                Label(" ↑/↓  navegar    Enter  seleccionar    Esc  volver",
                       style="class:label"),
             ]),
             title=f" {title} ",
             style="class:dialog",
-        )
+        ),
+        focused_element=win,
     )
 
     app = Application(
@@ -156,7 +198,7 @@ def _menu_pick(title: str, text: str, values: list):
         app.run()
     except Exception:
         pass
-    return _result[0]
+    return result[0]
 
 
 # ---------------------------------------------------------------------------
