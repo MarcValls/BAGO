@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 149 CLI commands · 113 public commands
+> **Version 3.4.0b1** · 149 CLI commands · 116 public commands
 
 Public command contract (CI-checked): **16 core** · **89 experimental** · **8 dangerous** · **28 legacy**
 
@@ -125,6 +125,9 @@ These commands form the **stable public interface**.
 | `bago orphans` | Detect unregistered tool modules (orphan daemon) |
 | `bago doc-agent` | Documentation agent: update COMMANDS.md, LAYERS.md, README |
 | `bago devmode` | Toggle developer mode: unlock advanced tools and preflight checks |
+| `bago menu` | Interactive hierarchical command menu (curses UI) |
+| `bago workspace-select` | Select active workspace: framework / parent dir / external repo |
+| `bago recent-projects` | History of recent BAGO projects and sessions |
 
 ---
 

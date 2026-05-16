@@ -1,4 +1,4 @@
-﻿"""_registry_entries.py â€” Canonical REGISTRY dict of all BAGO tools.
+"""_registry_entries.py â€” Canonical REGISTRY dict of all BAGO tools.
 
 This is the single source of truth for tool definitions.
 Add new tools here; auto_register.py will append entries automatically.
