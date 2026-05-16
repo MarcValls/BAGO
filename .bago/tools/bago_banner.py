@@ -152,7 +152,55 @@ LOGO_BOT = [
 ]
 
 
-# ─── Caja ─────────────────────────────────────────────────────────────────────
+# ─── Splash animado ───────────────────────────────────────────────────────────
+# Frames de un medallón girando (círculo de Braille — 8 frames)
+_SPINNER = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]
+_SPINNER_PLAIN = ["|", "/", "-", "\\"]  # fallback ASCII
+
+def print_splash(max_seconds: float = 10.0) -> None:
+    """
+    Muestra el face art + logo BAGO con un medallón girando en la última línea.
+    Se detiene sola tras max_seconds segundos y devuelve control al llamador.
+    """
+    import time
+
+    # Limpiar pantalla y mover cursor al inicio
+    print("\033[2J\033[H", end="", flush=True)
+
+    _render_face_art()
+    _print_text_logo()
+
+    spinner  = _SPINNER if USE_COLOR else _SPINNER_PLAIN
+    msg      = "INICIANDO DESDE EL DISPOSITIVO BAGO..."
+    indent   = "              "
+    start    = time.monotonic()
+    i        = 0
+    interval = 0.08   # segundos por frame
+
+    # Reserva la línea del spinner
+    print()
+    try:
+        while True:
+            elapsed = time.monotonic() - start
+            if elapsed >= max_seconds:
+                break
+            frame = spinner[i % len(spinner)]
+            if USE_COLOR:
+                line = f"{indent}\033[1;36m{frame}\033[0m  \033[1;36m{msg}\033[0m"
+            else:
+                line = f"{indent}{frame}  {msg}"
+            # Sobreescribe la misma línea con \r
+            print(f"\r{line}", end="", flush=True)
+            i += 1
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Deja el cursor en una línea limpia
+        print(f"\r{indent}{'✔' if USE_COLOR else '*'}  {_c('2', msg)}", flush=True)
+        print()
+
+
 BOX_INNER = 56  # caracteres visibles entre los bordes ║ y ║
 
 def _strip_ansi(s):

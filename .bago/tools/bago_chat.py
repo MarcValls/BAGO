@@ -141,6 +141,19 @@ def main():
             name, wire, prov = "sin-modelo", "sin-modelo", "none"
 
     session = BagoSession(prov, name, wire, creds)
+
+    # ── Splash animado: face art + medallón girando (solo en TTY interactivo) ──
+    if sys.stdout.isatty():
+        try:
+            import importlib.util as _ilu
+            _spec = _ilu.spec_from_file_location(
+                "bago_banner", Path(__file__).parent / "bago_banner.py")
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            _mod.print_splash(max_seconds=10)
+        except Exception:
+            pass   # si falla, continúa sin splash
+
     banner(session)
 
     hist_file = USER_BAGO / "state" / "chat_input_history.txt"
