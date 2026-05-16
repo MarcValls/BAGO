@@ -34,7 +34,7 @@ class BagoSession:
         self.brainstorm = False  # modo brainstorm: expande ideas sin restricciones
         self.sync_after = "continuar"  # continuar|repliegue|letargo
         self.last_route = {
-            "mode": "manual",
+            "mode": "auto",
             "provider": provider,
             "model": model_name,
             "reason": "inicio de sesión",

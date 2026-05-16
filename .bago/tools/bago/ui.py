@@ -43,6 +43,7 @@
 """
 
 import threading
+import shutil as _shutil
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
@@ -72,7 +73,9 @@ def show_response(text, model_name, provider, label=None):
             via = f"  [dim]vía {model_name}/{provider}[/dim]"
         title = f"[bold cyan]BAGO[/bold cyan]{via}"
         border = "cyan"
-    console.print(Panel(content, title=title, border_style=border, box=box.ROUNDED))
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    width = max(60, min(cols - 2, 120))
+    console.print(Panel(content, title=title, border_style=border, box=box.ROUNDED, width=width))
 
 pi = lambda m: console.print(f"[dim cyan]  {m}[/dim cyan]")
 pe = lambda m: console.print(f"[bold red]  X {m}[/bold red]")
