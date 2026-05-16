@@ -149,14 +149,14 @@ def banner(session):
             f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})  |  "
             f"Routing: {session.last_route.get('mode','manual').upper()}[/dim]\n"
             f"Providers: {providers_str}\n"
-            "[dim]Escalado automático: local → local-grande → cloud[/dim]\n"
-            "[dim]/help para comandos   /login para providers[/dim]",
+            "[dim]Escalado automático: local → local-grande → cloud[/dim]",
             box=box.ROUNDED, border_style="cyan", width=82))
+        console.print("[dim]  [bold cyan]/[/bold cyan]  abrir menú[/dim]")
     except Exception:
         print(f"\n=== BAGO — Orquestador Central · A.M. TECHNOLOGIES ===")
         print(f"Motor: {session.model_name} ({session.provider})")
         print(f"Providers: {', '.join(COLORS.keys())}")
-        print("Escalado automático activo | /help para comandos\n")
+        print("Escalado automático activo | / para menú\n")
 
 
 _MENU_STYLE = Style.from_dict({
