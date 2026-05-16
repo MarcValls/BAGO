@@ -10,11 +10,11 @@
 
 | Bucket | Count |
 |--------|-------|
-| ⚙️ Core | 19 |
+| ⚙️ Core | 20 |
 | 🧪 Experimental | 89 |
 | ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **116** |
+| **Total active** | **117** |
 
 ---
 
@@ -30,6 +30,7 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago doc-agent` | Agente de documentaciÃ³n: detecta y actualiza COMMANDS.md, LAYERS.md y README.md. Subcomandos/flags: --check \| --dry-run \| --json \| --only <doc> \| --no-stage | 🔍 calidad | mutating | required |
 | `bago flow` | Flowchart ASCII de workflows + gestiÃ³n de estado activo (start/done/status) | ▶️ ejecución | safe | required |
 | `bago health` | Salud del framework: score \| report \| stability \| efficiency \| consistency \| sincerity | 💚 salud | safe | required |
+| `bago launch` | BAGO — interfaz conversacional principal. El usuario habla con BAGO; BAGO orquesta todos los agentes y modelos internamente. Escalado automático: local → local-grande → cloud según contexto. Uso: bago launch \| --provider <p> \| --model <m> \| --task <tarea> | • interfaz | safe | required |
 | `bago menu` | MenÃº interactivo jerÃ¡rquico de comandos BAGO (curses). Sidebar de 10 grupos por flujo de trabajo + lista + preview. Uso: bago menu  \|  bago menu --list  (no interactivo) | • ejecuciÃ³n | safe | required |
 | `bago orphans` | Detector de mÃ³dulos huÃ©rfanos: archivos .py en tools/ sin registro. --baseline \| --fix \| --strict | 🔬 avanzado | safe | required |
 | `bago project` | Memoria distribuida por proyecto: init \| link \| unlink \| state \| learn \| promote | 💚 salud | safe | required |

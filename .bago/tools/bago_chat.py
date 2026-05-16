@@ -201,7 +201,7 @@ def main():
     while True:
         try:
             route_mode = _prompt_indicator(session)
-            line = pt.prompt(f"[{session.provider}:{session.model_name}|{route_mode}] > ").strip()
+            line = pt.prompt(f"[BAGO|{route_mode}] > ").strip()
         except EOFError:
             console.print("\n[dim]BAGO terminado.[/dim]"); break
         except KeyboardInterrupt:

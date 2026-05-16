@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 149 CLI commands · 116 public commands
+> **Version 3.4.0b1** · 149 CLI commands · 117 public commands
 
-Public command contract (CI-checked): **19 core** · **89 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **20 core** · **89 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -109,6 +109,7 @@ These commands form the **stable public interface**.
 
 | Command | Purpose |
 |---|---|
+| `bago launch` | **Main entry point** — talk to BAGO; BAGO orchestrates all agents internally |
 | `bago health` | System health score (0–100) + stability report |
 | `bago status` | Active flow, pending task, current health |
 | `bago validate` | Consistency check: manifest + state + pack |

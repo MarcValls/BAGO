@@ -61,11 +61,18 @@ console = Console(force_terminal=True, highlight=False, markup=True,
                   safe_box=True, emoji=False)
 
 def show_response(text, model_name, provider, label=None):
-    c = COLORS.get(provider, "white")
     try:    content = Markdown(text)
     except: content = text
-    title = label or f"[{c}]{model_name}[/{c}] . [dim]{provider}[/dim]"
-    console.print(Panel(content, title=title, border_style=c, box=box.ROUNDED))
+    if label:
+        title = label
+        border = COLORS.get(provider, "cyan")
+    else:
+        via = ""
+        if model_name and model_name not in ("BAGO", "sin-modelo", ""):
+            via = f"  [dim]vía {model_name}/{provider}[/dim]"
+        title = f"[bold cyan]BAGO[/bold cyan]{via}"
+        border = "cyan"
+    console.print(Panel(content, title=title, border_style=border, box=box.ROUNDED))
 
 pi = lambda m: console.print(f"[dim cyan]  {m}[/dim cyan]")
 pe = lambda m: console.print(f"[bold red]  X {m}[/bold red]")
@@ -138,15 +145,17 @@ def banner(session):
                                for p in COLORS)
     try:
         console.print(Panel(
-            f"[bold {c}]BAGO Orchestrator HUB[/bold {c}]  >>  [{c}]{session.model_name}[/{c}] ({session.provider})\n"
-            f"[dim]Routing: {session.last_route.get('mode','manual').upper()} | motivo: {session.last_route.get('reason','--')}[/dim]\n"
+            f"[bold cyan]BAGO — Orquestador Central[/bold cyan]\n"
+            f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})  |  "
+            f"Routing: {session.last_route.get('mode','manual').upper()}[/dim]\n"
             f"Providers: {providers_str}\n"
-            "[dim]Modo automatico activo | /help para comandos   /login para registrar providers[/dim]",
-            box=box.ASCII, border_style=c))
+            "[dim]Escalado automático: local → local-grande → cloud  |  /help para comandos   /login para providers[/dim]",
+            box=box.ASCII, border_style="cyan"))
     except Exception:
-        print(f"\n=== BAGO Orchestrator HUB === [{session.model_name}] ({session.provider})")
+        print(f"\n=== BAGO — Orquestador Central ===")
+        print(f"Motor: {session.model_name} ({session.provider})")
         print(f"Providers: {', '.join(COLORS.keys())}")
-        print("Modo automatico activo | /help para comandos\n")
+        print("Escalado automático activo | /help para comandos\n")
 
 
 _MENU_STYLE = Style.from_dict({

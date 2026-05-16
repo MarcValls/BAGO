@@ -446,6 +446,21 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Generador de assets visuales coherentes (sprites, botones, fondos, iconos, tiles, banners) con perfil de proyecto",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "image_studio.py"))],
     ),
+    "launch": ToolEntry(
+        cmd="launch", module="bago_chat",
+        description=(
+            "BAGO — interfaz conversacional principal. El usuario habla con BAGO; "
+            "BAGO orquesta todos los agentes y modelos internamente. "
+            "Escalado automático: local → local-grande → cloud según contexto. "
+            "Uso: bago launch  |  --provider <p>  |  --model <m>  |  --task <tarea>"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_chat.py"))],
+        layer="interfaz", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="core",
+        risk="safe",
+        preflight_policy="required",
+    ),
     "hub": ToolEntry(
         cmd="hub", module="bago_hub",
         description="BAGO Hub â€” interfaz central Gradio con dashboard, herramientas, Image Studio e ideas",
