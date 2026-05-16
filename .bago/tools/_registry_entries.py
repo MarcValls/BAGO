@@ -1,4 +1,4 @@
-"""_registry_entries.py â€” Canonical REGISTRY dict of all BAGO tools.
+﻿"""_registry_entries.py â€” Canonical REGISTRY dict of all BAGO tools.
 
 This is the single source of truth for tool definitions.
 Add new tools here; auto_register.py will append entries automatically.
@@ -517,14 +517,14 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="auto", module="auto_mode",
         description="Modo automÃ¡tico: evalÃºa y actÃºa. --loop para bucle, --infinite para sin lÃ­mite (Ctrl+C)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "auto_mode.py"))],
-        supports_dry_run=True,
+        supports_dry_run=False,
     ),
     "spiral": ToolEntry(
         cmd="spiral", module="spiral_loop",
         stability="dangerous",
         description="Bucle espiral cromÃ¡tico (Shepard Loop): 12 pasos de auto-redescriciÃ³n AGI. --execute para actuar, --status, --history",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "spiral_loop.py"))],
-        supports_dry_run=True,
+        supports_dry_run=False,
     ),
     "skill": ToolEntry(
         cmd="skill", module="skill_engine",
@@ -897,7 +897,7 @@ REGISTRY: dict[str, ToolEntry] = {
         agent="MAESTRO_BAGO",
         stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -931,7 +931,7 @@ REGISTRY: dict[str, ToolEntry] = {
         agent="MAESTRO_BAGO",
         stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -1014,7 +1014,7 @@ REGISTRY: dict[str, ToolEntry] = {
         agent="MAESTRO_BAGO",
         stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -1030,7 +1030,7 @@ REGISTRY: dict[str, ToolEntry] = {
         agent="MAESTRO_BAGO",
         stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),

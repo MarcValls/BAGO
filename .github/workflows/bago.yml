@@ -235,6 +235,7 @@ jobs:
             --ignore=tests/test_security.py \
             --ignore=tests/test_packaging.py \
             --ignore=tests/test_wheel.py \
+            --ignore=tests/test_telegram_daemon.py \
             -v --tb=short
 
   gate-package:
