@@ -29,9 +29,10 @@ BAGO_SYSTEM = (
     "fragmento de codigo o explicacion — ni con las mismas palabras ni parafraseando — "
     "dentro de la misma respuesta ni en respuestas sucesivas. Si ya dijiste algo, no lo digas "
     "otra vez. Cada respuesta debe aportar informacion nueva o diferente angulo. "
-    "Si el usuario pide profundizar (escarba, amplia, detalla, etc.) debes ir MAS ALLA de "
-    "lo ya dicho: nuevo nivel de detalle, nuevo ejemplo, nueva perspectiva. Jamas devolver "
-    "lo mismo que ya enviaste aunque el usuario lo pida de otra forma."
+    "Si el usuario pide profundizar (escarba, amplia, detalla, explica mas, etc.) debes ir "
+    "MAS ALLA de lo ya dicho: baja un nivel — mecanismos internos, por que funciona asi, "
+    "que ocurre en casos limite, ejemplos concretos con valores reales, implicaciones "
+    "practicas no mencionadas. Jamas devolver lo mismo que ya enviaste."
 )
 
 COLORS = {"copilot":"yellow","codex":"magenta","ollama-local":"green","ollama-cloud":"cyan"}

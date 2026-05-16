@@ -184,12 +184,16 @@ def chat(session, user_input):
         # ── Capa 2: si la respuesta es casi igual a la anterior, reintentar ─
         prev = _last_assistant(session.history[:-1])  # historial SIN el user actual
         if prev and _jaccard(text, prev) >= _REPEAT_THRESHOLD:
-            console.print("  [dim yellow]⚠ respuesta repetitiva detectada — reintentando...[/dim yellow]")
+            console.print("  [dim yellow]⚠ respuesta repetitiva detectada — reintentando con mayor profundidad...[/dim yellow]")
             anti_repeat = (
-                "IMPORTANTE: Tu respuesta anterior fue casi identica a la previa. "
-                "No repitas nada de lo ya dicho. Aporta informacion NUEVA: diferente "
-                "nivel de detalle, ejemplos concretos distintos, otra perspectiva. "
-                f"Mensaje del usuario: {user_input}"
+                "ALERTA: Tu respuesta fue casi identica a la anterior. Esto no es aceptable. "
+                "Debes profundizar REALMENTE. Para esta nueva respuesta:\n"
+                "1. No copies ni parafrasees nada de lo ya dicho.\n"
+                "2. Baja un nivel mas: mecanismos internos, por que funciona asi, que pasa si falla.\n"
+                "3. Da ejemplos CONCRETOS y ESPECIFICOS (valores reales, rutas reales, codigo real).\n"
+                "4. Explica implicaciones practicas que no se mencionaron antes.\n"
+                "5. Si hay alternativas o casos limite, describelos ahora.\n"
+                f"Pregunta original del usuario: {user_input}"
             )
             msgs_retry = session.history[:-1] + [{"role":"user","content":anti_repeat}]
             with console.status(f"[dim]{session.model_name} (anti-rep)...[/dim]", spinner="dots"):
