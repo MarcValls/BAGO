@@ -29,7 +29,14 @@ def _cmd_auto(session):
             ],
         )
 
-        # Aplicar cambios de los toggles
+        action = result["action"]
+
+        # R4/R5: Esc (action is None) = descartar cambios, salir
+        if action is None:
+            break
+
+        # Solo aplicar cambios de toggles cuando el usuario elige una accion
+        # (no en Esc — ver R4: Esc no guarda nada)
         if result["toggles"].get("autonomous") != session.autonomous:
             session.autonomous = result["toggles"]["autonomous"]
             pi(f"Modo autonomo: {'ACTIVADO' if session.autonomous else 'DESACTIVADO'}")
@@ -41,12 +48,7 @@ def _cmd_auto(session):
             session.autoroute = result["toggles"]["autoroute"]
             pi(f"Auto-routing: {'ACTIVADO' if session.autoroute else 'DESACTIVADO'}")
 
-        action = result["action"]
-
-        if action is None:
-            break
-
-        elif action == "confirm":
+        if action == "confirm":
             level = _menu_pick(
                 "Nivel de autonomia",
                 f"Nivel actual: {confirm_txt}\n\n"

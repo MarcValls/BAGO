@@ -19,14 +19,18 @@ diálogo en BAGO. El código fuente canónico está en
 
 ---
 
-## REGLA 2 — Botones OK/Cancelar SOLO en multi-select
+## REGLA 2 — Cuándo usar botones explícitos
 
-Los botones "Aceptar"/"Cancelar" solo aparecen en `_menu_multiselect`,
-donde el usuario puede marcar varias opciones y necesita confirmación
-explícita.
+| Widget | Botones | Motivo |
+|---|---|---|
+| `_menu_pick` | ❌ No | Elegir ítem = acción inmediata |
+| `_menu_multiselect` | ✅ Aceptar / Cancelar | El usuario marca N ítems; necesita confirmación |
+| `_menu_confirm` | ✅ Sí / No | Decisión binaria irreversible; ambas opciones igual de visibles |
+| `_toggle_menu` | ❌ No | Los toggles se confirman al salir con Esc o eligiendo una acción |
+| `_menu_input` | ✅ OK / Cancel | Entrada de texto libre; necesita confirmación |
 
-En **single-select** (`_menu_pick`): seleccionar el ítem = aceptar.
-**Sin botones.**
+> En `_menu_pick` y `_toggle_menu` no hay botones porque la interacción
+> es suficientemente explícita con Enter / Esc.
 
 ---
 
@@ -37,10 +41,15 @@ lista **y** un botón Cancelar al mismo tiempo. Un solo mecanismo: `Esc` / `C-c`
 
 ---
 
-## REGLA 4 — Esc siempre = atrás / cancelar
+## REGLA 4 — Esc siempre = atrás / sin ejecutar
 
 Todo widget vincula `"escape"` y `"c-c"` (con `eager=True`) al handler de
-cancelación que sale **sin ejecutar ni guardar nada**.
+cancelación que **cierra sin ejecutar ninguna acción**.
+
+> **Aclaración vs R5**: en `_toggle_menu`, Esc devuelve el estado actual de
+> los toggles pero la decisión de aplicarlos o descartarlos es **del llamador**.
+> La convención BAGO es: **Esc = descartar cambios**. El llamador no aplica
+> `result["toggles"]` si `result["action"] is None`.
 
 ---
 
@@ -48,19 +57,33 @@ cancelación que sale **sin ejecutar ni guardar nada**.
 
 Nunca usar `_menu_pick` para valores booleanos.
 
-| Tecla | Comportamiento |
+**Vocabulario diferenciado** (evita ambigüedad con R2/R6):
+
+| Término | Significado |
 |---|---|
-| `Space` / `Enter` sobre toggle | Conmuta ON⟷OFF **en sitio**, sin cerrar |
-| `Enter` sobre ítem acción | Cierra y devuelve `{"action": key, "toggles": {...}}` |
-| `Esc` | Cierra devolviendo estado actual de todos los toggles |
+| **elegir** | Seleccionar un ítem de acción → cierra el menú |
+| **conmutar** | Cambiar el estado ON/OFF de un toggle → NO cierra |
+
+| Tecla | Sobre toggle | Sobre ítem acción |
+|---|---|---|
+| `Space` | Conmuta ON⟷OFF (no cierra) | — |
+| `Enter` | Conmuta ON⟷OFF (no cierra) | Elige → cierra, devuelve acción |
+| `Esc` | — | Cierra sin elegir ninguna acción |
+
+> Esc devuelve `result["action"] = None`. El llamador **descarta** los
+> cambios de toggles cuando `action is None` (ver R4).
 
 ---
 
 ## REGLA 6 — Sin bucles implícitos en el widget
 
-Seleccionar una opción cierra el menú. Si el llamador necesita un bucle
-(por ejemplo, `/config` con sub-menús encadenados), lo controla él con un
-`while True` explícito. El widget no hace loops internos.
+**Elegir** una acción cierra el menú. **Conmutar** un toggle no cierra
+(solo actualiza el estado visual en sitio — no es un "loop", es edición
+in-place).
+
+Si el llamador necesita volver al menú después de ejecutar una sub-acción
+(por ejemplo, `/config` → nivel de confirmación → volver a config), lo
+controla con un `while True` explícito. El widget no hace loops internos.
 
 ---
 
