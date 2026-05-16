@@ -1,4 +1,4 @@
-# BAGO — Structured AI Work Framework
+# BAGO CLI — Orquestador de IA · A.M. TECHNOLOGIES
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
@@ -8,13 +8,43 @@ Public command contract (CI-checked): **20 core** · **89 experimental** · **8 
 
 ---
 
-## Quick start
+## 🚀 Empieza aquí
+
+```bash
+bago launch       # abre el chat con BAGO — orquestador central
+```
+
+```
+             ██████╗  █████╗  ██████╗  ██████╗
+             ██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗
+             ██████╔╝███████║██║  ███╗██║   ██║
+             ██╔══██╗██╔══██║██║   ██║██║   ██║
+             ██████╔╝██║  ██║╚██████╔╝╚██████╔╝
+             ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝
+
+             ⣾  INICIANDO DESDE EL DISPOSITIVO BAGO...
+```
+
+`bago launch` abre la **interfaz conversacional** donde el usuario habla directamente con **BAGO**.  
+BAGO orquesta todos los modelos de IA internamente — el usuario nunca habla con los modelos directamente.
+
+```bash
+bago launch                        # autodetecta provider
+bago launch --provider copilot     # fuerza GitHub Copilot
+bago launch --provider ollama      # fuerza Ollama local
+bago launch --model qwen2.5:14b    # modelo específico
+```
+
+> **📖 Documentación completa:** [`docs/BAGO_LAUNCH.md`](docs/BAGO_LAUNCH.md) · [`docs/SLASH_MENU.md`](docs/SLASH_MENU.md)
+
+---
+
+## Otros comandos frecuentes
 
 ```bash
 bago validate     # verify clean install
 bago status       # active flow + pending task + health
 bago next         # pick highest-priority idea and open a task
-# <implement>
 bago health       # verify nothing broke
 bago done         # close task, record evidence
 bago audit full   # session audit trail
@@ -22,15 +52,25 @@ bago audit full   # session audit trail
 
 ---
 
-## 1. What BAGO is
+## 1. Qué es BAGO CLI
 
-**BAGO** (Balanceado · Adaptativo · Generativo · Organizativo) is a **repo-local operating layer for AI-assisted development**.
+**BAGO CLI** (Balanceado · Adaptativo · Generativo · Organizativo) es una **interfaz de línea de comandos para desarrollo asistido por IA**, desarrollada por **A.M. TECHNOLOGIES**.
 
-It keeps:
-- persistent context,
-- workflow state,
-- and audit trail
-between agent sessions.
+El comando principal es `bago launch`:
+
+```
+El usuario  ──►  BAGO  ──►  [Qwen / GPT / Claude / Llama / ...]
+                  ▲                        │
+                  └────────────────────────┘
+              BAGO recibe, decide y responde
+```
+
+Todos los modelos de IA son **motores internos** del framework. El usuario siempre habla con **BAGO**.
+
+Además del chat, BAGO CLI incluye:
+- contexto persistente entre sesiones,
+- estado de workflow y audit trail,
+- 150 comandos especializados para desarrollo.
 
 También incluye un modelo local-first de rutas cognitivas: el sistema de workflows está definido como grafo (`.bago/workflows/WORKFLOW_GRAPH.json`) y el estado se puede separar/fusionar por capas (`state_manager --split/--materialize`) sin borrar historial.
 
