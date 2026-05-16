@@ -149,8 +149,9 @@ def banner(session):
             f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})  |  "
             f"Routing: {session.last_route.get('mode','manual').upper()}[/dim]\n"
             f"Providers: {providers_str}\n"
-            "[dim]Escalado automático: local → local-grande → cloud  |  /help para comandos   /login para providers[/dim]",
-            box=box.ASCII, border_style="cyan"))
+            "[dim]Escalado automático: local → local-grande → cloud[/dim]\n"
+            "[dim]/help para comandos   /login para providers[/dim]",
+            box=box.ROUNDED, border_style="cyan", width=82))
     except Exception:
         print(f"\n=== BAGO — Orquestador Central · A.M. TECHNOLOGIES ===")
         print(f"Motor: {session.model_name} ({session.provider})")
