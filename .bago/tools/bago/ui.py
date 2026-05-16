@@ -55,7 +55,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from .constants import COLORS
+from .constants import COLORS, BAGO_VERSION
 
 console = Console(force_terminal=True, highlight=False, markup=True,
                   safe_box=True, emoji=False)
@@ -141,22 +141,51 @@ class CtrlCGuard:
 def banner(session):
     active = session.creds.active_bago_providers()
     c = COLORS.get(session.provider, "white")
-    providers_str = "  ".join(f"[{'green' if p in active else 'red'}]{p}[/{'green' if p in active else 'red'}]"
-                               for p in COLORS)
+    providers_str = "  ".join(
+        f"[{'green' if p in active else 'red'}]{p}[/{'green' if p in active else 'red'}]"
+        for p in COLORS
+    )
+
+    # ── Modos activos ──────────────────────────────────────────────────────────
+    def _flag(label, on, on_color="cyan"):
+        if on:
+            return f"[bold {on_color}]{label}[/bold {on_color}]"
+        return f"[dim]{label}: OFF[/dim]"
+
+    modo_str  = f"[bold]{session.orch_mode.upper()}[/bold]"
+    auto_str  = _flag("AUTONOMO", session.autonomous, "yellow")
+    plan_str  = _flag("PLAN", session.plan_mode, "magenta")
+    brain_str = _flag("BRAINSTORM", session.brainstorm, "green")
+
+    # ── Traza de routing ───────────────────────────────────────────────────────
+    rt = session.last_route or {}
+    rt_mode   = rt.get("mode", "manual").upper()
+    rt_model  = rt.get("model", session.model_name)
+    rt_prov   = rt.get("provider", session.provider)
+    rt_reason = rt.get("reason", "—")
+    routing_line = (
+        f"[dim]Routing: [bold]{rt_mode}[/bold] "
+        f"→ [{c}]{rt_model}[/{c}] / {rt_prov}  "
+        f"[italic]\"{rt_reason}\"[/italic][/dim]"
+    )
+
     try:
         console.print(Panel(
-            f"[bold cyan]BAGO — Orquestador Central  ·  A.M. TECHNOLOGIES[/bold cyan]\n"
-            f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})  |  "
-            f"Routing: {session.last_route.get('mode','manual').upper()}[/dim]\n"
+            f"[bold cyan]BAGO CLI  v{BAGO_VERSION}[/bold cyan]  [dim]·  A.M. TECHNOLOGIES[/dim]\n"
+            f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})[/dim]\n"
             f"Providers: {providers_str}\n"
-            "[dim]Escalado automático: local → local-grande → cloud[/dim]",
+            f"\n"
+            f"Modo: {modo_str}   {auto_str}   {plan_str}   {brain_str}\n"
+            f"{routing_line}\n"
+            f"[dim]Escalado automático: local → local-grande → cloud[/dim]",
             box=box.ROUNDED, border_style="cyan", width=82))
         console.print("[dim]  [bold cyan]/[/bold cyan]  menú[/dim]")
     except Exception:
-        print(f"\n=== BAGO — Orquestador Central · A.M. TECHNOLOGIES ===")
+        print(f"\n=== BAGO CLI v{BAGO_VERSION} · A.M. TECHNOLOGIES ===")
         print(f"Motor: {session.model_name} ({session.provider})")
-        print(f"Providers: {', '.join(COLORS.keys())}")
-        print("Escalado automático activo | / para menú\n")
+        print(f"Modo: {session.orch_mode.upper()} | Autónomo: {session.autonomous} | Plan: {session.plan_mode} | Brainstorm: {session.brainstorm}")
+        print(f"Routing: {rt_mode} → {rt_model} ({rt_prov}) — {rt_reason}")
+        print("/ para menú\n")
 
 
 _MENU_STYLE = Style.from_dict({

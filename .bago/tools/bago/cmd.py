@@ -83,11 +83,13 @@ def cmd(line, session):
         active = ", ".join(session.creds.active_bago_providers()) or "ninguno"
         temp_tag  = " [yellow][TEMP][/yellow]" if session.temp_mode else ""
         auto_tag  = f" [green]AUTONOMO[/green] ({session.auto_confirm})" if session.autonomous else ""
+        plan_tag  = " [magenta]PLAN[/magenta]" if session.plan_mode else ""
+        brain_tag = " [green]BRAINSTORM[/green]" if session.brainstorm else ""
         route = session.last_route or {}
         console.print(Panel(
             f"Modelo:      {session.model_name} ({session.provider}){auto_tag}\n"
             f"Wire:        {session.wire_name}\n"
-            f"Modo:        {session.orch_mode}{temp_tag}\n"
+            f"Modo:        {session.orch_mode}{temp_tag}{plan_tag}{brain_tag}\n"
             f"Routing:     {route.get('mode','manual').upper()} → {route.get('model', session.model_name)} ({route.get('provider', session.provider)})\n"
             f"Motivo:      {route.get('reason','—')}\n"
             f"Historial:   {len(session.history)-1} mensajes\n"
@@ -138,6 +140,16 @@ def cmd(line, session):
     # ── Modo del orquestador ──────────────────────────────────────────────────
     elif v == "/mode":
         _cmd_mode(session)
+
+    # ── Modos conversacionales ────────────────────────────────────────────────
+    elif v == "/plan":
+        session.plan_mode = not session.plan_mode
+        state = "[bold magenta]ACTIVADO[/bold magenta]" if session.plan_mode else "[dim]DESACTIVADO[/dim]"
+        pi(f"Modo PLAN: {state}  — BAGO razonará y propondrá un plan antes de actuar.")
+    elif v == "/brainstorm":
+        session.brainstorm = not session.brainstorm
+        state = "[bold green]ACTIVADO[/bold green]" if session.brainstorm else "[dim]DESACTIVADO[/dim]"
+        pi(f"Modo BRAINSTORM: {state}  — BAGO expandirá ideas sin restricciones de acción.")
 
     # ── Sincronizacion + repliegue/letargo ────────────────────────────────────
     elif v == "/sync":

@@ -30,6 +30,8 @@ class BagoSession:
         self.auto_max_iter = 10
         self.temp_mode  = False  # sesion temporal (no escribe en disco automaticamente)
         self.orch_mode  = "estandar"  # offline|economico|estandar|full
+        self.plan_mode  = False  # modo plan: razona y propone antes de actuar
+        self.brainstorm = False  # modo brainstorm: expande ideas sin restricciones
         self.sync_after = "continuar"  # continuar|repliegue|letargo
         self.last_route = {
             "mode": "manual",

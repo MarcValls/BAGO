@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import json as _json
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 SCRIPT_DIR = PACKAGE_DIR.parent
@@ -8,6 +9,14 @@ BAGO_DIR = SCRIPT_DIR.parent
 BAGO_REPO_ROOT = BAGO_DIR.parent
 STATE_DIR = BAGO_DIR / "state"
 USER_BAGO = Path.home() / ".bago"
+
+def _bago_version() -> str:
+    try:
+        return _json.loads((BAGO_DIR / "pack.json").read_text(encoding="utf-8")).get("version", "?")
+    except Exception:
+        return "?"
+
+BAGO_VERSION = _bago_version()
 SESSIONS_DIR = USER_BAGO / "sessions"
 CRED_FILE = USER_BAGO / "credentials.json"
 PROVIDERS_FILE  = STATE_DIR / "model_providers.json"
