@@ -48,10 +48,12 @@ _MENU_STYLE = Style.from_dict({
     "radio-selected":    "fg:#a6e3a1 bold",
 })
 
-def _menu_select(title, text, values, cancel_label="Cancelar"):
+def _menu_select(title, text, values, cancel_label="← Volver", ok_label="▶ Aceptar"):
     try:
         return radiolist_dialog(title=title, text=text,
-                                values=values, cancel_text=cancel_label,
+                                values=values,
+                                ok_text=ok_label,
+                                cancel_text=cancel_label,
                                 style=_MENU_STYLE).run()
     except Exception:
         return None

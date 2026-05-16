@@ -33,12 +33,11 @@ def _cmd_config(session):
             ("sync_after",  f"Post-sync:           [cyan]{cfg.get('sync_after','continuar')}[/cyan]"),
             ("temp_mode",   f"Sesion temporal:     [cyan]{cfg.get('temp_mode', False)}[/cyan]"),
             ("apply",       "[bold green]Aplicar y guardar configuracion[/bold green]"),
-            ("__exit__",    "Volver sin guardar"),
         ]
         field = _menu_select("BAGO / Config",
                              "Configuracion global (se guarda en ~/.bago/bago_chat_config.json):",
                              choices)
-        if field is None or field == "__exit__": break
+        if field is None: break
 
         if field == "apply":
             _save_config(cfg)

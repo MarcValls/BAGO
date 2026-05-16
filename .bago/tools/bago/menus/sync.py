@@ -13,11 +13,10 @@ def _cmd_sync(session):
             ("sync_usb",     "Sincronizar con USB  (mirror knowledge + state)"),
             ("sync_both",    "Sincronizar con GitHub Y USB"),
             ("after_sync",   f"Comportamiento post-sync: [cyan]{session.sync_after}[/cyan]"),
-            ("__exit__",     "Volver"),
         ]
         sel = _menu_select("BAGO / Sync",
                            "Sincronizacion de estado y conocimiento:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel in ("sync_git", "sync_both"):
             _sync_git(session)

@@ -15,10 +15,9 @@ def _cmd_auth(session):
             ("revoke",   "Revocar credencial guardada"),
             ("refresh",  "Refresh tokens (actualizar)"),
             ("signup",   "[dim]Sign-up nuevo proveedor  (proximamente)[/dim]"),
-            ("__exit__", "Volver"),
         ]
         sel = _menu_select("BAGO / Auth", "Gestion de autenticacion y providers:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "status":
             console.print(Panel(session.creds.status_table(),
@@ -41,9 +40,8 @@ def _cmd_auth(session):
             if not cred_keys:
                 pi("No hay credenciales guardadas."); continue
             choices_r = [(k, f"{k}: {str(session.creds._creds[k])[:30]}...") for k in cred_keys]
-            choices_r.append(("__cancel__", "Cancelar"))
             key = _menu_select("Revocar", "Que credencial revocar?", choices_r)
-            if key and key != "__cancel__":
+            if key:
                 if _menu_confirm("Revocar", f"Eliminar '{key}' de credentials.json?"):
                     del session.creds._creds[key]
                     session.creds._save()
@@ -55,4 +53,4 @@ def _cmd_auth(session):
             pi(f"Providers activos ahora: {', '.join(active) or 'ninguno'}")
 
         elif sel == "signup":
-            _menu_action("Proximamente", "Sign-up de nuevos proveedores en desarrollo.\nPor ahora usa /auth -> Login -> API key.", [("OK","ok")])
+            _menu_action("Proximamente", "Sign-up de nuevos proveedores en desarrollo.\nPor ahora usa /auth -> Login -> API key.", [("Cerrar","ok")])

@@ -19,10 +19,9 @@ def _cmd_framework(session):
             ("ideas",       "Ideas de mejora  (anotar + asistido por LM)"),
             ("history",     "Historia de sprints  (sprint_summary_*.md)"),
             ("evolve",      "[bold cyan]Modo evolutivo[/bold cyan]  (disenyo iterativo asistido por LM)"),
-            ("__exit__",    "Volver"),
         ]
         sel = _menu_select("BAGO / Framework", "Vista evolutiva del framework BAGO:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "sprint":
             _fw_sprint()
@@ -63,7 +62,7 @@ def _fw_sprint():
         lines.append(f"  Sessions: {inv.get('sessions','?')} | Changes: {inv.get('changes','?')} | Commits: {inv.get('commits','?')}")
         lines.append(f"  Ultimo commit: {inv.get('last_commit_sha','?')} — {str(inv.get('last_commit_msg',''))[:60]}")
 
-    _menu_action("Sprint / Workflow Activo", "\n".join(lines), [("OK","ok")])
+    _menu_action("Sprint / Workflow Activo", "\n".join(lines), [("Cerrar","ok")])
 
 def _fw_health():
     h = _load_json(_STATE_DIR / "health.json")
@@ -91,7 +90,7 @@ def _fw_health():
     ]
     if g.get("dead_ref"):
         lines.append(f"  [yellow]Dead ref:[/yellow] {g['dead_ref']}")
-    _menu_action("Framework Health Check", "\n".join(lines), [("OK","ok")])
+    _menu_action("Framework Health Check", "\n".join(lines), [("Cerrar","ok")])
 
 def _fw_components():
     agents   = {k: v for k, v in _load_json(_STATE_DIR / "agents_registry.json").items() if k != "_meta"}
@@ -116,7 +115,7 @@ def _fw_components():
         f"",
         f"[bold]Routing fallback:[/bold] {routing.get('fallback',{}).get('provider','?')} / {routing.get('fallback',{}).get('model','?')}",
     ]
-    _menu_action("Mapa de Componentes BAGO", "\n".join(lines), [("OK","ok")])
+    _menu_action("Mapa de Componentes BAGO", "\n".join(lines), [("Cerrar","ok")])
 
 def _fw_ideas(session):
     ideas_file = _STATE_DIR / "implemented_ideas.json"
@@ -128,10 +127,9 @@ def _fw_ideas(session):
             ("list",    f"Ver ideas implementadas  ({len(implemented) if isinstance(implemented, list) else len(implemented)} ideas)"),
             ("add_lm",  "Anadir idea asistida por LM  (describe el objetivo, el LM propone)"),
             ("add_raw", "Anadir idea manualmente"),
-            ("__exit__","Volver"),
         ]
         sel = _menu_select("Framework / Ideas", "Gestion de ideas de mejora:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "list":
             if isinstance(implemented, list):
@@ -144,12 +142,11 @@ def _fw_ideas(session):
             for i, e in enumerate(entries):
                 label = e.get("idea", e.get("title", str(e)[:60]))[:70] if isinstance(e, dict) else str(e)[:70]
                 ideas_choices.append((str(i), label))
-            ideas_choices.append(("__exit__","Volver"))
             sel2 = _menu_select("Ideas implementadas", f"{len(entries)} ideas:", ideas_choices)
-            if sel2 and sel2 != "__exit__":
+            if sel2:
                 e = entries[int(sel2)] if isinstance(implemented, list) else entries[int(sel2)]
                 info = "\n".join(f"{k}: {v}" for k, v in e.items()) if isinstance(e, dict) else str(e)
-                _menu_action("Idea", info[:500], [("OK","ok")])
+                _menu_action("Idea", info[:500], [("Cerrar","ok")])
 
         elif sel == "add_lm":
             objetivo = _menu_input("Idea (LM asistido)", "Describe el objetivo o mejora que quieres para el framework:")
@@ -164,7 +161,7 @@ def _fw_ideas(session):
             try:
                 lm, kw = session.litellm_info
                 resp = _llm_call(lm, kw, [{"role":"user","content":prompt_idea}])
-                _menu_action("Propuesta del LM", resp[:800], [("OK","ok")])
+                _menu_action("Propuesta del LM", resp[:800], [("Cerrar","ok")])
             except Exception as e:
                 pe(f"Error LM: {e}")
 
@@ -188,14 +185,13 @@ def _fw_history():
     if not summaries:
         pi("No hay summaries de sprint guardados."); return
     choices = [(str(f), f.name) for f in summaries]
-    choices.append(("__exit__", "Volver"))
     while True:
         sel = _menu_select("Historial de Sprints", f"{len(summaries)} sprint summaries:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
         try:
             content = Path(sel).read_text(encoding="utf-8-sig")
             preview = content[:800] + ("\n...(truncado)" if len(content) > 800 else "")
-            _menu_action(Path(sel).name, preview, [("OK","ok")])
+            _menu_action(Path(sel).name, preview, [("Cerrar","ok")])
         except Exception as e:
             pe(str(e))
 

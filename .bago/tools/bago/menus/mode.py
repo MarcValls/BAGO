@@ -12,12 +12,11 @@ def _cmd_mode(session):
         marker = " [bold green]<<[/bold green]" if name == session.orch_mode else ""
         desc = m.get("description", "")[:60]
         choices.append((name, f"{name:<12}  {desc}{marker}"))
-    choices.append(("__exit__", "Volver sin cambiar"))
 
     sel = _menu_select("BAGO / Modo Orquestador",
                        f"Modo actual: [cyan]{session.orch_mode}[/cyan]\n"
                        "Selecciona el modo de operacion:", choices)
-    if sel is None or sel == "__exit__": return
+    if sel is None: return
 
     session.orch_mode = sel
     m = modes.get(sel, {})

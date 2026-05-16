@@ -12,9 +12,9 @@ def _cmd_skills(arg):
             choices = [(name,
                         f"{name}  |  cat:{sk.get('category','?')}  |  {sk.get('description','')[:50]}")
                        for name, sk in data.items()]
-            choices += [("__add__", "+ Crear nueva skill"), ("__exit__", "Salir")]
+            choices += [("__add__", "+ Crear nueva skill")]
             sel = _menu_select("BAGO / Skills", "Selecciona una skill:", choices)
-            if sel is None or sel == "__exit__": break
+            if sel is None: break
             if sel == "__add__":
                 _skills_create(data); data = _load_json(SKILLS_FILE); continue
             direct = sel

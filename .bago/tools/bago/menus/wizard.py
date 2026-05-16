@@ -241,7 +241,6 @@ def _wizard_review_dict(title, d, skip_keys=None):
                 editable.append((k, f"{k} = {v}"))
         editable += [
             ("__confirm__", "✓ Confirmar y guardar"),
-            ("__cancel__",  "✗ Cancelar"),
         ]
 
         field = _menu_select(
@@ -249,7 +248,7 @@ def _wizard_review_dict(title, d, skip_keys=None):
             "Revisa los campos generados por el LM.\nSelecciona uno para editar o confirma:",
             editable)
 
-        if field is None or field == "__cancel__":
+        if field is None:
             return None
         if field == "__confirm__":
             return d

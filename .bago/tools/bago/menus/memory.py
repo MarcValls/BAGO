@@ -16,10 +16,9 @@ def _cmd_memory(session):
             ("episodic",  "Memoria episodica  (episodic_memory.json)"),
             ("search",    "Buscar en el conocimiento"),
             ("add_note",  "Anadir nota al conocimiento"),
-            ("__exit__",  "Volver"),
         ]
         sel = _menu_select("BAGO / Memoria", "Gestion de memoria y conocimiento:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "knowledge":
             _memory_knowledge(knowledge_dir)
@@ -39,14 +38,13 @@ def _memory_knowledge(kdir):
     files = sorted(kdir.glob("*.md"), key=lambda f: f.name)
     if not files: pi("No hay archivos de conocimiento."); return
     choices = [(str(f), f.name) for f in files]
-    choices.append(("__exit__", "Volver"))
     while True:
         sel = _menu_select("Knowledge base", f"{len(files)} archivos:", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
         try:
             content = Path(sel).read_text(encoding="utf-8-sig")
             preview = content[:800] + ("\n...(truncado)" if len(content) > 800 else "")
-            _menu_action(Path(sel).name, preview, [("OK","ok")])
+            _menu_action(Path(sel).name, preview, [("Cerrar","ok")])
         except Exception as e:
             pe(str(e))
 
@@ -59,12 +57,11 @@ def _memory_episodic(epis_file):
         label = e.get("summary", e.get("event", str(e)[:60]))
         ts    = e.get("timestamp", e.get("date", ""))[:10]
         choices.append((str(i), f"{ts}  {label[:70]}"))
-    choices.append(("__exit__", "Volver"))
     sel = _menu_select("Memoria episodica", f"{len(entries)} entradas:", choices)
-    if sel and sel != "__exit__":
+    if sel:
         e = entries[int(sel)]
         info = "\n".join(f"{k}: {v}" for k, v in e.items() if not isinstance(v, dict))
-        _menu_action("Entrada episodica", info[:600], [("OK","ok")])
+        _menu_action("Entrada episodica", info[:600], [("Cerrar","ok")])
 
 def _memory_search(kdir, query):
     results = []
@@ -81,7 +78,6 @@ def _memory_search(kdir, query):
     if not results:
         pi(f"Sin resultados para '{query}'."); return
     choices = [(f"{n}||{s}", f"[cyan]{n}[/cyan]  ...{s}...") for n, s in results[:20]]
-    choices.append(("__exit__", "Cerrar"))
     _menu_select(f"Busqueda: '{query}'", f"{len(results)} archivos con coincidencias:", choices)
 
 def _memory_add_note(kdir):

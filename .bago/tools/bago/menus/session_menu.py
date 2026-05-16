@@ -17,10 +17,9 @@ def _cmd_session(session):
             ("save_now",  "Guardar sesion ahora"),
             ("export",    "Exportar sesion como Markdown"),
             ("toggle_temp", f"Modo {'DISCO (desactivar temporal)' if session.temp_mode else 'TEMPORAL (activar)'}"),
-            ("__exit__",  "Volver"),
         ]
         sel = _menu_select("BAGO / Sesion", f"Sesion activa: {len(session.history)-1} msgs  |  modo: {temp_label}", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "toggle_temp":
             session.temp_mode = not session.temp_mode
@@ -64,10 +63,9 @@ def _session_list():
             choices.append((str(f), f"{ts}  [{model}]  {msgs} msgs"))
         except Exception:
             choices.append((str(f), f.name))
-    choices.append(("__exit__", "Cerrar"))
     sel = _menu_select("Sesiones guardadas", "Sesiones recientes (las 20 ultimas):", choices)
-    if sel and sel != "__exit__":
-        _menu_action(f"Sesion: {Path(sel).name}", f"Ruta: {sel}", [("OK","ok")])
+    if sel:
+        _menu_action(f"Sesion: {Path(sel).name}", f"Ruta: {sel}", [("Cerrar","ok")])
 
 def _session_load(session):
     sdir = SESSIONS_DIR
@@ -84,9 +82,8 @@ def _session_load(session):
             choices.append((str(f), f"{ts}  [{model}]  {msgs} msgs"))
         except Exception:
             choices.append((str(f), f.name))
-    choices.append(("__cancel__", "Cancelar"))
     sel = _menu_select("Cargar sesion", "Selecciona una sesion:", choices)
-    if not sel or sel == "__cancel__": return
+    if not sel: return
     try:
         d = json.loads(Path(sel).read_text(encoding="utf-8-sig"))
         hist = d.get("history", [])

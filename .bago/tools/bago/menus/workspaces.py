@@ -42,11 +42,10 @@ def _cmd_workspaces(session):
             n_projs = len([p for p in _load_projects().get("projects", []) if p.get("workspace_id") == w["id"]])
             choices.append((w["id"], f"{w['name']:<20}  {desc}  [{n_projs} proyectos]{marker}"))
         choices.append(("__new__",  "[green]+ Nuevo workspace[/green]"))
-        choices.append(("__exit__", "Volver"))
 
         title_line = f"Workspace activo: [cyan]{_ws_active(wdata)['name'] if _ws_active(wdata) else 'ninguno'}[/cyan]"
         sel = _menu_select("BAGO / Workspaces", title_line, choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "__new__":
             _ws_create(wdata)

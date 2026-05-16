@@ -15,11 +15,10 @@ def _cmd_routing(arg):
         choices += [
             ("__add__",      "+ Aniadir regla"),
             ("__fallback__", f"* Fallback: {fb.get('provider','?')} / {fb.get('model','?')}"),
-            ("__exit__",     "Salir"),
         ]
         sel = _menu_select("BAGO / Routing Matrix",
                            "Selecciona una regla (flechas + Enter):", choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "__add__":
             _routing_add(data); continue

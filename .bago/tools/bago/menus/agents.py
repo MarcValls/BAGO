@@ -14,9 +14,9 @@ def _cmd_agents(arg):
                         f"{'[ON]' if ag.get('active') else '[--]'} {name}  |  "
                         f"{ag.get('model','?')}  |  {', '.join(ag.get('skills',[]))}")
                        for name, ag in agents.items()]
-            choices += [("__add__", "+ Crear nuevo agente"), ("__exit__", "Salir")]
+            choices += [("__add__", "+ Crear nuevo agente")]
             sel = _menu_select("BAGO / Agentes", "Selecciona un agente:", choices)
-            if sel is None or sel == "__exit__": break
+            if sel is None: break
             if sel == "__add__":
                 _agents_create(data, agents)
                 data = _load_json(AGENTS_FILE)

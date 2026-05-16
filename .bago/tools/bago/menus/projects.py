@@ -69,10 +69,9 @@ def _cmd_projects_in_ws(ws_id, ws_name):
         if others and ws_id:
             choices.append(("__others__", f"[dim]Ver proyectos de otros workspaces ({len(others)})[/dim]"))
         choices.append(("__new__",  "[green]+ Nuevo proyecto[/green]"))
-        choices.append(("__exit__", "Volver"))
 
         sel = _menu_select(f"BAGO / Proyectos", header, choices)
-        if sel is None or sel == "__exit__": break
+        if sel is None: break
 
         if sel == "__new__":
             _proj_create(ws_id)
@@ -108,9 +107,8 @@ def _proj_list_all(pdata):
     for p in pdata["projects"]:
         ws_id = p.get("workspace_id") or "—"
         choices.append((p["id"], f"{p['name']:<22}  [ws:{ws_id}]  {p.get('status','?')}"))
-    choices.append(("__exit__", "Cerrar"))
     sel = _menu_select("Todos los proyectos", f"{len(pdata['projects'])} proyectos en total:", choices)
-    if sel and sel != "__exit__":
+    if sel:
         _proj_detail(sel)
 
 def _proj_detail(proj_id):
@@ -169,9 +167,8 @@ def _proj_detail(proj_id):
             wdata = _load_workspaces()
             ws_choices = [(w["id"], w["name"]) for w in wdata.get("workspaces", [])]
             ws_choices.append(("__none__", "Sin workspace"))
-            ws_choices.append(("__cancel__", "Cancelar"))
             new_ws = _menu_select("Reasignar", "Selecciona workspace destino:", ws_choices)
-            if new_ws and new_ws not in ("__cancel__",):
+            if new_ws:
                 p["workspace_id"] = None if new_ws == "__none__" else new_ws
                 _save_projects(pdata)
                 pi(f"Proyecto reasignado a workspace: {new_ws}")
