@@ -1,5 +1,6 @@
 
 import concurrent.futures
+import re
 
 import litellm
 
@@ -9,6 +10,42 @@ from .ui import console, pe, pi, show_response
 
 litellm.suppress_debug_info = True
 litellm.set_verbose = False
+
+# ── Anti-repetición ────────────────────────────────────────────────────────────
+def _jaccard(a: str, b: str) -> float:
+    """Similitud Jaccard por palabras (0–1). Rapido, sin dependencias."""
+    if not a or not b:
+        return 0.0
+    wa, wb = set(a.lower().split()), set(b.lower().split())
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / len(wa | wb)
+
+def _dedup_paragraphs(text: str) -> str:
+    """Elimina parrafos/bloques duplicados dentro de una misma respuesta."""
+    blocks = re.split(r'\n{2,}', text)
+    seen, out = [], []
+    for blk in blocks:
+        key = blk.strip()
+        if not key:
+            continue
+        # Comprobar similitud con los ultimos 8 bloques vistos
+        if any(_jaccard(key, s) > 0.82 for s in seen[-8:]):
+            continue
+        seen.append(key)
+        out.append(blk)
+    return "\n\n".join(out)
+
+_REPEAT_THRESHOLD = 0.72   # Jaccard entre respuestas sucesivas
+
+def _last_assistant(history: list) -> str:
+    """Ultimo mensaje del asistente en el historial."""
+    for msg in reversed(history):
+        if msg.get("role") == "assistant":
+            return msg["content"]
+    return ""
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _llm_call(lm, kw, messages):
     r = litellm.completion(model=lm, messages=messages, **kw)
@@ -116,6 +153,9 @@ def chat(session, user_input):
         if switched:
             c = COLORS.get(session.provider, "white")
             console.print(f"  [dim {c}]{reason}[/dim {c}]")
+        elif reason:
+            c = COLORS.get(session.provider, "white")
+            console.print(f"  [dim {c}]{reason}[/dim {c}]")
 
         # Paso 2: detectar estrategia optima
         active = session.creds.active_bago_providers()
@@ -137,7 +177,32 @@ def chat(session, user_input):
     try:
         with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
             text = _llm_call(lm, kw, session.history)
+
+        # ── Capa 1: eliminar bloques repetidos dentro de la respuesta ──────
+        text = _dedup_paragraphs(text)
+
+        # ── Capa 2: si la respuesta es casi igual a la anterior, reintentar ─
+        prev = _last_assistant(session.history[:-1])  # historial SIN el user actual
+        if prev and _jaccard(text, prev) >= _REPEAT_THRESHOLD:
+            console.print("  [dim yellow]⚠ respuesta repetitiva detectada — reintentando...[/dim yellow]")
+            anti_repeat = (
+                "IMPORTANTE: Tu respuesta anterior fue casi identica a la previa. "
+                "No repitas nada de lo ya dicho. Aporta informacion NUEVA: diferente "
+                "nivel de detalle, ejemplos concretos distintos, otra perspectiva. "
+                f"Mensaje del usuario: {user_input}"
+            )
+            msgs_retry = session.history[:-1] + [{"role":"user","content":anti_repeat}]
+            with console.status(f"[dim]{session.model_name} (anti-rep)...[/dim]", spinner="dots"):
+                text = _llm_call(lm, kw, msgs_retry)
+            text = _dedup_paragraphs(text)
+
         session.history.append({"role":"assistant","content": text})
+        session.last_route = {
+            "mode": "auto" if session.autoroute else "manual",
+            "provider": session.provider,
+            "model": session.model_name,
+            "reason": session.last_route.get("reason", "single"),
+        }
         return text
     except Exception as e:
         session.history.pop()
