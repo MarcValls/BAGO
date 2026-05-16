@@ -20,8 +20,12 @@ try:
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
     from prompt_toolkit.styles import Style
+    from prompt_toolkit.formatted_text import HTML
+    from prompt_toolkit.key_binding import KeyBindings
 except ImportError as e:
     print(f"ERROR: {e}"); sys.exit(1)
+
+from bago.completer import BagoCompleter
 
 def _startup_choice_curses(stdscr):
     """Curses UI: lets user choose Manual or Asistente mode. Returns 'manual' or 'asistente'."""
@@ -108,13 +112,36 @@ def main():
 
     hist_file = USER_BAGO / "state" / "chat_input_history.txt"
     hist_file.parent.mkdir(parents=True, exist_ok=True)
-    pt = PromptSession(history=FileHistory(str(hist_file)),
-                       auto_suggest=AutoSuggestFromHistory(),
-                       style=Style.from_dict({"prompt":"bold cyan"}))
+
+    # Estilo del popup de autocompletado
+    completion_style = Style.from_dict({
+        "prompt":                  "bold cyan",
+        # popup
+        "completion-menu":                  "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion.current": "bg:#00aaff #000000 bold",
+        "completion-menu.meta":             "bg:#111133 #888888",
+        "completion-menu.meta.completion.current": "bg:#0055aa #cccccc",
+        "scrollbar.background":             "bg:#1a1a2e",
+        "scrollbar.button":                 "bg:#00aaff",
+    })
+
+    # Key binding: Tab para abrir completado incluso con buffer vacío (solo '/')
+    kb = KeyBindings()
+
+    pt = PromptSession(
+        history=FileHistory(str(hist_file)),
+        auto_suggest=AutoSuggestFromHistory(),
+        style=completion_style,
+        completer=BagoCompleter(),
+        complete_while_typing=True,   # popup aparece al escribir '/'
+        key_bindings=kb,
+    )
 
     while True:
         try:
-            line = pt.prompt(f"[{session.model_name}] > ").strip()
+            route_mode = (session.last_route or {}).get("mode", "manual").upper()
+            line = pt.prompt(f"[{session.provider}:{session.model_name}|{route_mode}] > ").strip()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]BAGO terminado.[/dim]"); break
         if not line: continue
