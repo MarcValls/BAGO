@@ -4,6 +4,7 @@ from .auth import _cmd_auth, _cmd_login
 from .auto import _cmd_auto
 from .config import _cmd_config
 from .framework import _cmd_framework
+from .main_menu import _cmd_main_menu
 from .memory import _cmd_memory
 from .mode import _cmd_mode
 from .projects import _cmd_projects

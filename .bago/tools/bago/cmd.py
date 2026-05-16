@@ -13,6 +13,7 @@ from .menus import (
     _cmd_config,
     _cmd_framework,
     _cmd_login,
+    _cmd_main_menu,
     _cmd_memory,
     _cmd_mode,
     _cmd_projects,
@@ -32,6 +33,12 @@ def cmd(line, session):
 
     if v == "/exit":
         console.print("[dim]BAGO Chat terminado.[/dim]"); return False
+
+    # ── Menú principal navegable ──────────────────────────────────────────────
+    elif v == "/":
+        selected = _cmd_main_menu(session)
+        if selected:
+            return cmd(selected, session)   # ejecuta el comando elegido
     elif v == "/help":
         console.print(HELP)
     elif v == "/login":
