@@ -10,8 +10,9 @@ STATE_DIR = BAGO_DIR / "state"
 USER_BAGO = Path.home() / ".bago"
 SESSIONS_DIR = USER_BAGO / "sessions"
 CRED_FILE = USER_BAGO / "credentials.json"
-PROVIDERS_FILE = STATE_DIR / "model_providers.json"
-ROUTING_FILE = STATE_DIR / "model_routing.json"
+PROVIDERS_FILE  = STATE_DIR / "model_providers.json"
+ROUTING_FILE    = STATE_DIR / "model_routing.json"
+TOOLBOXES_DIR   = STATE_DIR / "toolboxes"
 ORCH_FILE = STATE_DIR / "model_orchestrator.json"
 
 BAGO_SYSTEM = (
@@ -68,11 +69,14 @@ HELP = """[bold]BAGO Orchestrator HUB — Comandos:[/bold]
   [yellow]/routing fallback <provider> <model>[/yellow]  Cambiar fallback
   [yellow]/routing move <id> up|down[/yellow]        Reordenar prioridad
 
-  [bold cyan]Fabrica de piezas BAGO (asistida por LM):[/bold cyan]
+  [bold cyan]Fábrica de artefactos BAGO (asistida por LM):[/bold cyan]
   [yellow]/new[/yellow]  (alias: /wizard, /fabrica)
-    Abre el wizard: describes en lenguaje natural lo que necesitas,
-    el LM genera la definicion completa, tu la revisas campo a campo y guardas.
-    Tipos de pieza: Agente | Skill | Modo/Rol | Regla routing | Preferencia tarea
+    Wizard: describes en lenguaje natural, el LM genera la definición completa.
+    7 tipos de artefacto organizados en 3 categorías:
+      🧠 INTELIGENCIA : Agente · Skill
+      ⚡ SPRINT/NEURAL : Nodo Neural (toolbox de sprint)
+      🔀 ORQUESTACIÓN : Regla routing · Preferencia tarea · Modo orquestador
+      🔧 HERRAMIENTAS : Tool Python (genera script con main() listo)
 
   [bold cyan]Roles / Modos del orquestador:[/bold cyan]
   [yellow]/roles[/yellow]                            Ver modos (offline/economico/estandar/full)
