@@ -1,13 +1,27 @@
 ﻿#!/usr/bin/env pwsh
 # bago.ps1 — BAGO Launcher para Windows
 # Uso: BAGO <comando> [args]
-#   BAGO launch [modelo]     ← lanza modelo o orquesta
-#   BAGO install [modelo]    ← instala modelo o herramienta
-#   BAGO status              ← estado de BAGO
-#   BAGO sync [--to-usb|--from-usb]  ← sincroniza con pendrive
-#   BAGO contribute          ← genera informe de aprendizaje
-#   BAGO repo init           ← crea repo Git para progresos
-#   BAGO repo sync           ← sube progresos
+#
+#   ── Chat / IA ────────────────────────────────
+#   bago launch              → BAGO Chat REPL (auto-detecta provider)
+#   bago chat                → alias de launch
+#   bago copilot             → fuerza provider GitHub Copilot
+#   bago codex / bago gpt    → fuerza provider Codex/OpenAI
+#   bago claude              → fuerza provider Anthropic
+#   bago ollama              → fuerza modelo local Ollama
+#   bago menu                → menú curses de navegación
+#
+#   ── Framework ────────────────────────────────
+#   bago status              → estado de BAGO
+#   bago install [component] → instala componente o modelo
+#   bago sync [--to-usb|--from-usb] → sincroniza con pendrive
+#   bago inventory           → inventario de herramientas
+#   bago pipeline <tarea>    → ejecuta pipeline multi-modelo
+#
+#   ── Proyectos ─────────────────────────────────
+#   bago build / test / lint / run / deploy / clean
+#   bago ideas               → genera ideas de evolución
+#   bago repo init | sync    → gestión de repositorio Git
 
 $ErrorActionPreference = "Stop"
 
@@ -891,6 +905,47 @@ switch ($command) {
             python $chatScript
         }
     }
+    # Alias corto: "bago chat" == "bago launch"
+    "chat" {
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        if ($rest[0]) { python $chatScript --provider $rest[0] } else { python $chatScript }
+    }
+
+    # Alias copilot/codex/gpt: "bago copilot" == "bago launch copilot"
+    "copilot" {
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider copilot
+    }
+    "codex" {
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider codex
+    }
+    "gpt" {
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider codex
+    }
+    "claude" {
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider anthropic
+    }
+    "ollama" {
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+        python $chatScript --provider ollama-local
+    }
+
+    # Menú curses de navegación
+    "menu" {
+        Detect-Source
+        $menuScript = Join-Path $script:PRIMARY "tools\bago_menu.py"
+        python $menuScript
+    }
+
     "pipeline" {
         Invoke-BagoPipeline -task ($rest -join " ")
     }
