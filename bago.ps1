@@ -879,10 +879,16 @@ switch ($command) {
         }
     }
     "launch" {
+        # BAGO launch  → abre el chat REPL multi-modelo (orquestador)
+        # El orquestador enruta internamente a copilot/codex/ollama según la tarea
+        Detect-Source
+        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
         if ($rest[0]) {
-            Launch-Model -model $rest[0]
+            # Si se pasa un argumento (p.ej. "BAGO launch codex"), se lo pasamos como provider
+            # pero el usuario deberia simplemente escribir "BAGO launch" y dejar que el orquestador decida
+            python $chatScript --provider $rest[0]
         } else {
-            Launch-Orchestrated -task ($rest -join " ")
+            python $chatScript
         }
     }
     "pipeline" {

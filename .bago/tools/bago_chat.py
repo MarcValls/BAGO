@@ -221,10 +221,25 @@ def chat(session, user_input):
         raise RuntimeError(str(e))
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+def auto_detect_provider(providers):
+    """Elige el mejor provider disponible sin intervención del usuario."""
+    import subprocess
+    if os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"):
+        return "copilot"
+    try:
+        out = subprocess.check_output(["ollama", "list"], text=True, stderr=subprocess.DEVNULL)
+        for mn, md in providers.get("ollama-local", {}).get("models", {}).items():
+            base = md.get("wire_name","").split(":")[0]
+            if base and base in out:
+                return "ollama-local"
+    except Exception:
+        pass
+    return "codex"
+
 def main():
     p = argparse.ArgumentParser(description="BAGO Chat — Multi-modelo REPL")
-    p.add_argument("--provider", default="copilot",
-                   choices=["copilot","codex","ollama","ollama-local","ollama-cloud"])
+    p.add_argument("--provider", default="",
+                   choices=["","copilot","codex","ollama","ollama-local","ollama-cloud"])
     p.add_argument("--model", default="")
     p.add_argument("--task",  default="")
     args = p.parse_args()
@@ -233,7 +248,7 @@ def main():
     routing   = load_routing()
 
     if args.model:
-        name, wire, prov = "", "", args.provider
+        name, wire, prov = "", "", args.provider or "codex"
         for pn, pd in providers.items():
             if args.model in pd.get("models", {}):
                 name, wire, prov = args.model, pd["models"][args.model].get("wire_name", args.model), pn
@@ -246,9 +261,12 @@ def main():
     else:
         pm = {"copilot":"copilot","codex":"codex","ollama":"ollama-local",
               "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud"}
-        name, wire, prov = get_default_model(pm.get(args.provider, args.provider), providers)
+        chosen = pm.get(args.provider, "") or auto_detect_provider(providers)
+        if not args.provider:
+            pi(f"Provider detectado automáticamente: {chosen}")
+        name, wire, prov = get_default_model(chosen, providers)
         if not name:
-            console.print(f"[red]No hay modelos para '{args.provider}'.[/red]"); sys.exit(1)
+            console.print(f"[red]No hay modelos para '{chosen}'.[/red]"); sys.exit(1)
 
     session = BagoSession(prov, name, wire)
     banner(session)
