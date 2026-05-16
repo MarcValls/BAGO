@@ -14,16 +14,24 @@ def load_routing():
 
 # ── Routing & strategy ─────────────────────────────────────────────────────────
 def route_by_task(task, routing, providers):
+    """Count-based routing: picks the rule with most keyword hits (same logic as bago_orchestrator)."""
     tl = task.lower()
+    best_rule = None
+    best_hits = 0
+    best_kw = None
     for rule in routing.get("rules", []):
-        for kw in rule.get("keywords", []):
-            if kw.lower() in tl:
-                prov  = rule["provider"]
-                model = rule["model"]
-                wire  = providers.get(prov,{}).get("models",{}).get(model,{}).get("wire_name", model)
-                return model, wire, prov, kw
+        hits = sum(1 for kw in rule.get("keywords", []) if kw.lower() in tl)
+        if hits > best_hits:
+            best_hits = hits
+            best_rule = rule
+            best_kw = next((kw for kw in rule.get("keywords", []) if kw.lower() in tl), None)
+    if best_rule:
+        prov  = best_rule["provider"]
+        model = best_rule["model"]
+        wire  = providers.get(prov, {}).get("models", {}).get(model, {}).get("wire_name", model)
+        return model, wire, prov, best_kw
     fb = routing.get("fallback", {})
-    return fb.get("model","gpt-5.4"), fb.get("model","gpt-5.4"), fb.get("provider","codex"), None
+    return fb.get("model", "gpt-5.4"), fb.get("model", "gpt-5.4"), fb.get("provider", "codex"), None
 
 def detect_strategy(text, active_providers):
     """

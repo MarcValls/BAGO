@@ -12,6 +12,7 @@ SESSIONS_DIR = USER_BAGO / "sessions"
 CRED_FILE = USER_BAGO / "credentials.json"
 PROVIDERS_FILE = STATE_DIR / "model_providers.json"
 ROUTING_FILE = STATE_DIR / "model_routing.json"
+ORCH_FILE = STATE_DIR / "model_orchestrator.json"
 
 BAGO_SYSTEM = (
     "Eres BAGO (Balanced Adaptive Generative Organizer), un framework de desarrollo "

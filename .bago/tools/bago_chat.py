@@ -23,6 +23,44 @@ try:
 except ImportError as e:
     print(f"ERROR: {e}"); sys.exit(1)
 
+def _startup_choice_curses(stdscr):
+    """Curses UI: lets user choose Manual or Asistente mode. Returns 'manual' or 'asistente'."""
+    import curses
+    curses.curs_set(0)
+    stdscr.clear()
+    choices = ["Manual (bago menu)", "Asistente BAGO (chat IA)"]
+    sel = 0
+    while True:
+        stdscr.clear()
+        h, w = stdscr.getmaxyx()
+        title = "BAGO — Elige modo"
+        stdscr.addstr(2, max(0, (w - len(title)) // 2), title, curses.A_BOLD)
+        for i, c in enumerate(choices):
+            attr = curses.A_REVERSE if i == sel else curses.A_NORMAL
+            stdscr.addstr(4 + i, max(0, (w - len(c)) // 2), c, attr)
+        stdscr.addstr(h - 2, 2, "↑↓ Mover  Enter Seleccionar  q Salir", curses.A_DIM)
+        stdscr.refresh()
+        key = stdscr.getch()
+        if key in (curses.KEY_UP, ord('k')) and sel > 0:
+            sel -= 1
+        elif key in (curses.KEY_DOWN, ord('j')) and sel < len(choices) - 1:
+            sel += 1
+        elif key in (curses.KEY_ENTER, 10, 13):
+            return "asistente" if sel == 1 else "manual"
+        elif key in (ord('q'), 27):
+            return "manual"
+
+
+def _chat_curses(stdscr):
+    """Launches the prompt_toolkit REPL from inside a curses context. Returns None or 'back'."""
+    import curses
+    curses.endwin()   # Release curses so prompt_toolkit can take over the terminal
+    try:
+        main()
+    except SystemExit:
+        pass
+    return None
+
 def main():
     p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
     p.add_argument("--provider", default="")
