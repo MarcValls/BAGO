@@ -24,7 +24,32 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from bago import (CredentialManager, load_providers, load_routing,
                   BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
-from bago.constants import BAGO_SYSTEM, USER_BAGO
+from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
+
+# ── Rutas para la barra de estado ─────────────────────────────────────────────
+_FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
+
+def _topbar_prompt(route_mode: str) -> FormattedText:
+    """Genera la línea de estado superior + el prompt en una FormattedText."""
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    cwd  = Path.cwd()
+    # Izquierda: ruta del framework
+    left = f"  {_FW_ROOT}"
+    # Derecha: nombre del proyecto + ruta actual
+    right_full = f"{cwd.name}  ·  {cwd}  "
+    right_short = f"{cwd.name}  "
+    right = right_full if len(left) + len(right_full) + 2 <= cols else right_short
+    pad = max(1, cols - len(left) - len(right))
+    bar = (left + " " * pad + right)[:cols]
+    return FormattedText([
+        ("class:statusbar", bar),
+        ("", "\n"),
+        ("class:prompt", f"[BAGO|{route_mode}] > "),
+    ])
+
+def _bottom_bar() -> FormattedText:
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    return [("class:statusbar", "─" * cols)]
 from bago.providers import auto_detect_provider, get_default_model, route_by_task
 from bago.ui import show_response
 
@@ -33,12 +58,13 @@ try:
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
     from prompt_toolkit.styles import Style
-    from prompt_toolkit.formatted_text import HTML
+    from prompt_toolkit.formatted_text import FormattedText, HTML
     from prompt_toolkit.key_binding import KeyBindings
 except ImportError as e:
     print(f"ERROR: {e}"); sys.exit(1)
 
 from bago.completer import BagoCompleter
+import shutil as _shutil
 
 def _startup_choice_curses(stdscr):
     """Curses UI: lets user choose Manual or Asistente mode. Returns 'manual' or 'asistente'."""
@@ -175,6 +201,8 @@ def main():
     # Estilo del popup de autocompletado
     completion_style = Style.from_dict({
         "prompt":                  "bold cyan",
+        "statusbar":               "bg:#0d1117 #4a5568",
+        "bottom-toolbar":          "bg:#0d1117 #4a5568",
         # popup
         "completion-menu":                  "bg:#1a1a2e #e0e0e0",
         "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
@@ -201,7 +229,10 @@ def main():
     while True:
         try:
             route_mode = _prompt_indicator(session)
-            line = pt.prompt(f"[BAGO|{route_mode}] > ").strip()
+            line = pt.prompt(
+                message=lambda: _topbar_prompt(_prompt_indicator(session)),
+                bottom_toolbar=_bottom_bar,
+            ).strip()
         except EOFError:
             console.print("\n[dim]BAGO terminado.[/dim]"); break
         except KeyboardInterrupt:

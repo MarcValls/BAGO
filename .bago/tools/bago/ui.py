@@ -151,7 +151,7 @@ def banner(session):
             f"Providers: {providers_str}\n"
             "[dim]Escalado automático: local → local-grande → cloud[/dim]",
             box=box.ROUNDED, border_style="cyan", width=82))
-        console.print("[dim]  [bold cyan]/[/bold cyan]  abrir menú[/dim]")
+        console.print("[dim]  [bold cyan]/[/bold cyan]  menú[/dim]")
     except Exception:
         print(f"\n=== BAGO — Orquestador Central · A.M. TECHNOLOGIES ===")
         print(f"Motor: {session.model_name} ({session.provider})")
