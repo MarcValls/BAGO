@@ -65,6 +65,39 @@ def _chat_curses(stdscr):
         pass
     return None
 
+
+def _prompt_indicator(session) -> str:
+    """
+    Construye el indicador de modo que aparece en el prompt.
+
+    Lógica de prioridad:
+      1. Si el último mensaje fue enrutado (chain/ensemble/single con motivo)
+         → muestra ese modo en mayúsculas
+      2. Si autoroute está ON pero aún no hay routing (arranque)
+         → muestra AUTO
+      3. Si autoroute está OFF
+         → muestra MANUAL
+
+    Extras que se añaden al final:
+      · A  = modo autónomo activo
+    """
+    last = session.last_route or {}
+    last_mode = last.get("mode", "")
+
+    if last_mode and last_mode != "manual":
+        # Un routing real ocurrió: CHAIN, ENSEMBLE, SINGLE...
+        indicator = last_mode.upper()
+    elif session.autoroute:
+        indicator = "AUTO"
+    else:
+        indicator = "MANUAL"
+
+    if session.autonomous:
+        indicator += ":A"   # :A = Autónomo
+
+    return indicator
+
+
 def main():
     p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
     p.add_argument("--provider", default="")
@@ -140,7 +173,7 @@ def main():
 
     while True:
         try:
-            route_mode = (session.last_route or {}).get("mode", "manual").upper()
+            route_mode = _prompt_indicator(session)
             line = pt.prompt(f"[{session.provider}:{session.model_name}|{route_mode}] > ").strip()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]BAGO terminado.[/dim]"); break
