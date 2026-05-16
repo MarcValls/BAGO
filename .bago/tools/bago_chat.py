@@ -60,13 +60,14 @@ class CredentialManager:
         "github":    {"env": "GITHUB_TOKEN",    "bago_provider": "copilot",
                       "desc": "GitHub Copilot", "login_type": "gh_cli"},
         "openai":    {"env": "OPENAI_API_KEY",  "bago_provider": "codex",
-                      "desc": "OpenAI / Codex", "login_type": "api_key"},
+                      "desc": "OpenAI / GPT Plus (sin API key si tienes Plus)",
+                      "login_type": "openai_cli"},
         "anthropic": {"env": "ANTHROPIC_API_KEY","bago_provider": "anthropic",
                       "desc": "Anthropic / Claude", "login_type": "api_key"},
         "ollama":    {"env": None,              "bago_provider": "ollama-local",
                       "desc": "Ollama local (sin clave)", "login_type": "service"},
     }
-    ALIASES = {"gpt":"openai","claude":"anthropic","claw":"anthropic",
+    ALIASES = {"gpt":"openai","codex":"openai","claude":"anthropic","claw":"anthropic",
                "copilot":"github","gh":"github","local":"ollama"}
 
     def __init__(self):
@@ -112,6 +113,37 @@ class CredentialManager:
         except Exception:
             return False
 
+    def _codex_authed(self):
+        """True si codex CLI tiene sesión activa (GPT Plus sin API key)."""
+        # Marcador guardado por /login openai opción 1
+        if self._creds.get("openai_via") in ("codex_login", "chatgpt_login"):
+            return True
+        try:
+            codex_state = Path.home() / ".codex"
+            for f in codex_state.glob("*.json"):
+                try:
+                    data = json.loads(f.read_text())
+                    if data.get("accessToken") or data.get("token") or data.get("auth"):
+                        return True
+                except Exception:
+                    pass
+            return False
+        except Exception:
+            return False
+
+    def _chatgpt_authed(self):
+        """True si chatgpt CLI tiene sesión activa."""
+        chatgpt_dir = Path.home() / "AppData" / "Roaming" / "chatgpt"
+        for pattern in ["*.json", "config*", "auth*"]:
+            for f in chatgpt_dir.glob(pattern) if chatgpt_dir.exists() else []:
+                try:
+                    data = json.loads(f.read_text())
+                    if data.get("accessToken") or data.get("token"):
+                        return True
+                except Exception:
+                    pass
+        return False
+
     def active_bago_providers(self):
         """Devuelve lista de bago_provider strings que tienen credenciales activas."""
         active = []
@@ -119,6 +151,11 @@ class CredentialManager:
             if name == "ollama":
                 if self._ollama_ok():
                     active.append("ollama-local")
+            elif name == "openai":
+                # Activo si: API key en env, O codex CLI autenticado, O chatgpt CLI autenticado
+                if (os.environ.get("OPENAI_API_KEY") or
+                        self._codex_authed() or self._chatgpt_authed()):
+                    active.append("codex")
             else:
                 env_key = info.get("env")
                 if env_key and os.environ.get(env_key):
@@ -132,6 +169,17 @@ class CredentialManager:
             if name == "ollama":
                 ok = self._ollama_ok()
                 status = "[green]✓ activo[/green]" if ok else "[red]✗ no disponible[/red]"
+            elif name == "openai":
+                if os.environ.get("OPENAI_API_KEY"):
+                    k = os.environ["OPENAI_API_KEY"]
+                    masked = k[:4] + "…" + k[-4:] if len(k) > 8 else "●●●"
+                    status = f"[green]✓ API key {masked}[/green]"
+                elif self._codex_authed():
+                    status = "[green]✓ codex login (GPT Plus)[/green]"
+                elif self._chatgpt_authed():
+                    status = "[green]✓ chatgpt login (GPT Plus)[/green]"
+                else:
+                    status = "[red]✗ sin credencial[/red]"
             else:
                 env_key = info.get("env")
                 val = os.environ.get(env_key, "") if env_key else ""
@@ -162,6 +210,42 @@ class CredentialManager:
                 return f"[green]✓ GitHub token guardado ({token[:4]}…{token[-4:]})[/green]"
             except Exception as e:
                 return f"Token obtenido pero no guardado: {e}"
+
+        elif ltype == "openai_cli":
+            # GPT Plus: intentar auth via codex CLI o chatgpt CLI (sin API key)
+            console.print(
+                "[bold]OpenAI / GPT — elige método:[/bold]\n"
+                "  [yellow]1[/yellow]  codex login    (GPT Plus — abre navegador, sin API key)\n"
+                "  [yellow]2[/yellow]  chatgpt login  (ChatGPT app — abre navegador)\n"
+                "  [yellow]3[/yellow]  API key        (pegar clave manual)\n"
+            )
+            choice = pt_prompt("Opción [1/2/3]: ").strip()
+
+            if choice == "1":
+                console.print("[dim]Ejecutando codex login...[/dim]")
+                result = subprocess.run(["codex", "login"])
+                if result.returncode == 0:
+                    # Marcar que codex está autenticado (sin guardar key en credentials.json)
+                    self._creds["openai_via"] = "codex_login"
+                    self._save()
+                    return "[green]✓ Codex CLI autenticado (GPT Plus activo)[/green]"
+                return "[red]codex login fallido.[/red]"
+
+            elif choice == "2":
+                console.print("[dim]Ejecutando chatgpt...[/dim]")
+                result = subprocess.run(["chatgpt"])
+                if result.returncode == 0:
+                    self._creds["openai_via"] = "chatgpt_login"
+                    self._save()
+                    return "[green]✓ ChatGPT CLI autenticado (GPT Plus activo)[/green]"
+                return "[red]chatgpt login fallido.[/red]"
+
+            else:  # opción 3 o cualquier otra: API key manual
+                key = pt_prompt("OpenAI API Key: ", is_password=True).strip()
+                if not key:
+                    return "Cancelado."
+                self.set("openai", key)
+                return "[green]✓ OpenAI API key guardada.[/green]"
 
         elif ltype == "api_key":
             key = pt_prompt(f"{info['desc']} API Key: ", is_password=True).strip()
@@ -368,10 +452,12 @@ HELP = """[bold]BAGO Orchestrator HUB — Comandos:[/bold]
   [bold cyan]Providers y credenciales:[/bold cyan]
   [yellow]/login[/yellow]              Ver estado de todos los providers
   [yellow]/login github[/yellow]       Login con GitHub (usa gh CLI) → activa Copilot
-  [yellow]/login openai[/yellow]       Añadir API Key de OpenAI → activa Codex/GPT
+  [yellow]/login gpt[/yellow]          Login GPT Plus (codex login / chatgpt / API key)
+  [yellow]/login openai[/yellow]       Alias de /login gpt
+  [yellow]/login codex[/yellow]        Alias de /login gpt
   [yellow]/login anthropic[/yellow]    Añadir API Key de Anthropic → activa Claude
   [yellow]/login ollama[/yellow]       Verificar Ollama local
-  (aliases: gpt, claude, claw, copilot, gh, local)
+  (aliases: gpt, codex, claude, claw, copilot, gh, local)
 
   [bold cyan]Control de modelo:[/bold cyan]
   [yellow]/switch <modelo>[/yellow]    Forzar modelo manualmente (sin perder historial)
