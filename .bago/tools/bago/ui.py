@@ -145,14 +145,14 @@ def banner(session):
                                for p in COLORS)
     try:
         console.print(Panel(
-            f"[bold cyan]BAGO — Orquestador Central[/bold cyan]\n"
+            f"[bold cyan]BAGO — Orquestador Central  ·  A.M. TECHNOLOGIES[/bold cyan]\n"
             f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})  |  "
             f"Routing: {session.last_route.get('mode','manual').upper()}[/dim]\n"
             f"Providers: {providers_str}\n"
             "[dim]Escalado automático: local → local-grande → cloud  |  /help para comandos   /login para providers[/dim]",
             box=box.ASCII, border_style="cyan"))
     except Exception:
-        print(f"\n=== BAGO — Orquestador Central ===")
+        print(f"\n=== BAGO — Orquestador Central · A.M. TECHNOLOGIES ===")
         print(f"Motor: {session.model_name} ({session.provider})")
         print(f"Providers: {', '.join(COLORS.keys())}")
         print("Escalado automático activo | /help para comandos\n")
