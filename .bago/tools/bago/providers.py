@@ -106,6 +106,19 @@ _COPILOT_MODEL_MAP = {
     "claude-3-haiku":    "gpt-4o-mini",
 }
 
+# Modelos ficticios de BAGO → nombres reales de OpenAI
+_CODEX_MODEL_MAP = {
+    "gpt-5.5":       "gpt-4o",
+    "gpt-5.4":       "gpt-4o",
+    "gpt-5.3-codex": "gpt-4o",
+    "gpt-5.3":       "gpt-4o",
+    "gpt-5.2-codex": "gpt-4o",
+    "gpt-5.2":       "gpt-4o-mini",
+    "gpt-5.4-mini":  "gpt-4o-mini",
+    "gpt-5-mini":    "gpt-4o-mini",
+    "gpt-5.1":       "gpt-4o-mini",
+}
+
 # ── LiteLLM resolver ───────────────────────────────────────────────────────────
 def resolve_litellm(provider, wire_name):
     if provider in ("ollama-local", "ollama-cloud"):
@@ -120,6 +133,10 @@ def resolve_litellm(provider, wire_name):
                 "api_key": token,
             }
         return wire_name, {}
+    if provider in ("codex", "openai"):
+        # Nombres internos de BAGO → modelos reales de OpenAI
+        mapped = _CODEX_MODEL_MAP.get(wire_name, wire_name)
+        return mapped, {}
     return wire_name, {}
 
 
