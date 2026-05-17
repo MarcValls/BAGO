@@ -141,14 +141,8 @@ def _wasp_line(line: str, y: int, intensity: float = 1.0) -> str:
     return "".join(out)
 
 def _draw_logo(start_row: int, logo_col: int, intensity: float = 1.0):
-    """Dibuja el logo BAGO con la avispa a su izquierda."""
+    """Dibuja solo el logo BAGO (la avispa se gestiona por separado)."""
     out = sys.stdout.write
-    wasp_col = max(1, logo_col - WASP_W - 2)
-    # Offset vertical para centrar la avispa (7 líneas) frente al logo (6 líneas)
-    wasp_offset = max(0, (LOGO_H - WASP_H) // 2)
-    for i, line in enumerate(WASP_ART):
-        rendered = _wasp_line(line, i, intensity)
-        out(_goto(start_row + wasp_offset + i, wasp_col) + rendered)
     for i, line in enumerate(LOGO):
         rendered = _logo_line(line, i, intensity)
         out(_goto(start_row + i, logo_col) + rendered)
@@ -196,16 +190,15 @@ def play(fast: bool = False, skip: bool = False) -> None:
 def _animate(fast: bool = False) -> None:
     cols, rows = _term_size()
 
-    # Calcular posiciones centradas
-    # Bloque visual: avispa+logo en la misma franja (max de ambos en altura)
-    block_w   = WASP_W + 2 + LOGO_W        # avispa + gap + logo BAGO
-    block_h   = max(LOGO_H, WASP_H)
-    total_h   = block_h + 3 + len(BOOT_MSGS) + 3
-    start_row = max(3, (rows - total_h) // 2)
-    # Logo BAGO centrado respecto al bloque completo
-    logo_col  = max(WASP_W + 3, (cols - block_w) // 2 + WASP_W + 3)
-    bee_row   = start_row - 2           # fila de vuelo: encima del logo
-    tag_row   = start_row + block_h + 1
+    # Layout vertical: medallón (avispa) centrado arriba → logo BAGO centrado abajo
+    total_h   = WASP_H + 1 + LOGO_H + 3 + len(BOOT_MSGS) + 3
+    start_row = max(2, (rows - total_h) // 2)
+    wasp_row  = start_row
+    logo_row  = start_row + WASP_H + 1
+    wasp_col  = max(1, (cols - WASP_W) // 2 + 1)
+    logo_col  = max(1, (cols - LOGO_W) // 2 + 1)
+    bee_row   = wasp_row - 2          # fila de vuelo: encima del medallón
+    tag_row   = logo_row + LOGO_H + 1
     msg_row   = tag_row + 2
     act_row   = msg_row + len(BOOT_MSGS) + 1
 
@@ -213,79 +206,73 @@ def _animate(fast: bool = False) -> None:
     out(HIDE_CURSOR + CLEAR)
     sys.stdout.flush()
 
-    # ── 1. REVEAL: logo BAGO + avispa aparecen línea a línea ────────────────
-    wasp_col   = max(1, logo_col - WASP_W - 2)
-    wasp_offset = max(0, (LOGO_H - WASP_H) // 2)
-    reveal_lines = max(LOGO_H, WASP_H)
-    for i in range(reveal_lines):
-        # Avispa (azul)
-        if i < WASP_H:
-            wline = _wasp_line(WASP_ART[i], i, intensity=1.0)
-            if USE_COLOR:
-                out(_goto(start_row + wasp_offset + i, wasp_col) +
-                    f"\033[1;34m{'─' * WASP_W}\033[0m")
-                sys.stdout.flush()
-                time.sleep(0.012 if not fast else 0.0)
-            out(_goto(start_row + wasp_offset + i, wasp_col) + wline)
-        # Logo BAGO
-        if i < LOGO_H:
-            rline = _logo_line(LOGO[i], i, intensity=1.0)
-            if USE_COLOR:
-                out(_goto(start_row + i, logo_col) +
-                    f"\033[1;96m{'─' * LOGO_W}\033[0m")
-                sys.stdout.flush()
-                time.sleep(0.018 if not fast else 0.0)
-            out(_goto(start_row + i, logo_col) + rline)
+    # ── 1. REVEAL: medallón avispa línea a línea ─────────────────────────────
+    for i, line in enumerate(WASP_ART):
+        rendered = _wasp_line(line, i, intensity=1.0)
+        if USE_COLOR:
+            out(_goto(wasp_row + i, wasp_col) +
+                f"\033[1;34m{'─' * WASP_W}\033[0m")
+            sys.stdout.flush()
+            time.sleep(0.018 if not fast else 0.0)
+        out(_goto(wasp_row + i, wasp_col) + rendered)
         sys.stdout.flush()
         time.sleep(0.04 if not fast else 0.002)
 
-    # ── 2. AVISPA VOLANDO de izquierda a derecha ─────────────────────────────
+    # ── 2. REVEAL: logo BAGO línea a línea ───────────────────────────────────
+    for i, line in enumerate(LOGO):
+        rendered = _logo_line(line, i, intensity=1.0)
+        if USE_COLOR:
+            out(_goto(logo_row + i, logo_col) +
+                f"\033[1;96m{'─' * LOGO_W}\033[0m")
+            sys.stdout.flush()
+            time.sleep(0.018 if not fast else 0.001)
+        out(_goto(logo_row + i, logo_col) + rendered)
+        sys.stdout.flush()
+        time.sleep(0.04 if not fast else 0.002)
+
+    # ── 3. AVISPA VOLANDO (encima del medallón, entra desde izquierda) ────────
     if not fast:
-        # La avispa entra por la izquierda y vuela hasta quedar a la izquierda del logo
-        bee_target_col = logo_col - 3
-        fly_steps = max(10, bee_target_col)
-        step_size = max(1, bee_target_col // fly_steps)
+        bee_target_col = wasp_col + WASP_W // 2
+        fly_steps  = max(10, bee_target_col)
+        step_size  = max(1, bee_target_col // fly_steps)
         frame = 0
         for col in range(1, bee_target_col + 1, step_size):
             _draw_bee(bee_row, col, frame, trail_len=min(col, 5), cols=cols)
             frame += 1
             time.sleep(0.025)
-        # Llega y da un pequeño rebote
         for bounce in [bee_target_col + 1, bee_target_col - 1, bee_target_col]:
             _draw_bee(bee_row, bounce, frame, trail_len=3, cols=cols)
             frame += 1
             time.sleep(0.05)
-        # Hovering (bate las alas 3 veces)
         for flap in range(6):
             _draw_bee(bee_row, bee_target_col, flap, trail_len=0, cols=cols)
             time.sleep(0.08)
 
-    # ── 3. PULSO (respiración de color) ──────────────────────────────────────
+    # ── 4. PULSO (respiración de color en logo BAGO) ──────────────────────────
     if not fast:
         steps = 8
         for _pulse in range(2):
             for step in range(steps):
-                _draw_logo(start_row, logo_col, intensity=1.0 - 0.5 * step / steps)
+                _draw_logo(logo_row, logo_col, intensity=1.0 - 0.5 * step / steps)
                 time.sleep(0.022)
             for step in range(steps):
-                _draw_logo(start_row, logo_col, intensity=0.5 + 0.5 * step / steps)
+                _draw_logo(logo_row, logo_col, intensity=0.5 + 0.5 * step / steps)
                 time.sleep(0.022)
-        _draw_logo(start_row, logo_col, intensity=1.0)
+        _draw_logo(logo_row, logo_col, intensity=1.0)
 
-    # ── 4. TAGLINE ───────────────────────────────────────────────────────────
+    # ── 5. TAGLINE ───────────────────────────────────────────────────────────
     tag_col = max(1, (cols - len(TAGLINE)) // 2 + 1)
     if USE_COLOR:
         tag_rendered = f"\033[2;36m{TAGLINE}\033[0m"
     else:
         tag_rendered = TAGLINE
     out(_goto(tag_row, tag_col) + tag_rendered)
-    # Limpiar la fila de vuelo de la avispa
     if not fast:
         _clear_bee_row(bee_row, cols)
     sys.stdout.flush()
     time.sleep(0.12 if not fast else 0.01)
 
-    # ── 5. BOOT MESSAGES con spinner ─────────────────────────────────────────
+    # ── 6. BOOT MESSAGES con spinner ─────────────────────────────────────────
     spinner  = _SPIN if USE_COLOR else _SPIN_PLN
     spin_idx = 0
     msg_col  = max(1, (cols - len(max(BOOT_MSGS, key=len)) - 6) // 2 + 1)
@@ -309,7 +296,7 @@ def _animate(fast: bool = False) -> None:
         out(_goto(row, msg_col) + CLEAR_LINE + " " * (msg_col - 1) + done)
         sys.stdout.flush()
 
-    # ── 6. ◉ ◆ BAGO — ACTIVO ──────────────────────────────────────────────────
+    # ── 7. ◉ ◆ BAGO — ACTIVO ──────────────────────────────────────────────────
     active_msg = "◉  ◆  BAGO — ACTIVO"
     act_col    = max(1, (cols - len(active_msg)) // 2 + 1)
     if USE_COLOR:
@@ -319,7 +306,6 @@ def _animate(fast: bool = False) -> None:
     out(_goto(act_row, act_col) + active_rendered)
     sys.stdout.flush()
     time.sleep(0.6 if not fast else 0.05)
-    # Pequeño parpadeo final
     if not fast:
         for _ in range(2):
             out(_goto(act_row, act_col) + " " * len(active_msg))
