@@ -20,15 +20,30 @@ def _cmd_list() -> int:
     def c(code: str, text: str) -> str:
         return f"\033[{code}m{text}\033[0m" if use_color else text
 
-    # GAP-1: filter by devmode
+    def dim(t: str) -> str:  return c("2", t)
+    def bold(t: str) -> str: return c("1", t)
+    def grn(t: str) -> str:  return c("1;32", t)
+    def cyn(t: str) -> str:  return c("1;36", t)
+    def yel(t: str) -> str:  return c("1;33", t)
+    def mag(t: str) -> str:  return c("35", t)
+
     effective_menu = _active_menu()
     for group_name, cmds in effective_menu:
         print()
-        print(c("1;33", f"  {group_name}"))
-        print(c("2", "  " + "─" * 52))
-        for cmd, short, *_ in cmds:
-            print(f"  {c('1;32', f'bago {cmd}'):<35}  {c('2', short)}")
-    print()
+        print(yel(f"  {group_name}"))
+        print(dim("  " + "─" * 56))
+        for entry in cmds:
+            cmd, short = entry[0], entry[1]
+            long_desc  = entry[2] if len(entry) > 2 else ""
+            has_opts   = len(entry) > 3 and entry[3]
+            opts_hint  = dim("  [+opciones]") if has_opts else ""
+            # Para agentes, extraer shortcut si está en el descriptor largo
+            shortcut = ""
+            if "Shortcuts:" in long_desc:
+                sc_part = long_desc.split("Shortcuts:")[-1].strip()
+                shortcut = "  " + mag(sc_part.split(".")[0].strip())
+            print(f"  {grn(f'bago {cmd}'):<36}{dim(short)}{shortcut}{opts_hint}")
+        print()
     return 0
 
 
@@ -133,7 +148,7 @@ def main() -> None:
 
 
 def _self_test() -> None:
-    assert len(MENU) == 10, f"Se esperaban 10 grupos, hay {len(MENU)}"
+    assert len(MENU) == 11, f"Se esperaban 11 grupos, hay {len(MENU)}"
     for group_name, cmds in MENU:
         assert cmds, f"Grupo '{group_name}' sin comandos"
         for entry in cmds:

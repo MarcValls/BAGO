@@ -16,6 +16,7 @@ _DEV_ONLY_GROUPS: frozenset[str] = frozenset({
     "✅  Calidad & Salud",
     "🔍  Análisis de código",
     "🤖  Agentes & IA",
+    "🧠  Campo & Reactor",
     "🛠️  Infraestructura",
 })
 
