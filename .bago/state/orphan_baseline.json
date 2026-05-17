@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-17T17:26:02.307590+00:00",
+  "generated_at": "2026-05-17T17:35:08.057575+00:00",
   "known_orphans": [
     "_duck_analyzer",
     "_duck_collector",
@@ -42,6 +42,7 @@
     "bago_health_router",
     "bago_intro",
     "bago_inventory",
+    "bago_learning_audit",
     "bago_llm_setup",
     "bago_locate",
     "bago_menu_data",
@@ -166,5 +167,5 @@
     "wallet_tracker",
     "watch_files"
   ],
-  "count": 164
+  "count": 165
 }
