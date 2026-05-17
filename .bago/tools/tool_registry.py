@@ -18,7 +18,7 @@ Uso:
 Arquitectura interna (sub-módulos privados en el mismo directorio):
     _registry_paths.py    — constantes de ruta (TOOLS_DIR, BAGO_ROOT, PYTHON)
     _registry_models.py   — dataclasses PreflightCheck + ToolEntry
-    _registry_entries.py  — dict REGISTRY con las 111 entradas de herramientas
+    _registry_entries.py  — dict REGISTRY con las 123 entradas de herramientas
     _registry_taxonomy.py — mapas layer/scope/agent + post-procesado de entradas
 """
 from __future__ import annotations

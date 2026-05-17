@@ -3,7 +3,7 @@
 This is the single source of truth for tool definitions.
 Add new tools here; auto_register.py will append entries automatically.
 
-Internal module: import via tool_registry, not directly.
+Internal module: import vía tool_registry, not directly.
 """
 from __future__ import annotations
 
@@ -22,18 +22,6 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="ideas", module="emit_ideas",
         description="Emite ideas W2",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "emit_ideas.py"))],
-    ),
-    "cosecha": ToolEntry(
-        cmd="cosecha", module="cosecha",
-        description="Cosecha de artefactos del proyecto",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "cosecha.py"))],
-        deprecated=True, see_also="bago session harvest",
-    ),
-    "detector": ToolEntry(
-        cmd="detector", module="context_detector",
-        description="Detector de contexto del repo",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "context_detector.py"))],
-        deprecated=True, see_also="bago context detect",
     ),
     "validate": ToolEntry(
         cmd="validate", module="validate",
@@ -67,12 +55,6 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Regenera TREE.txt y CHECKSUMS",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "sync_pack_metadata.py"))],
     ),
-    "check": ToolEntry(
-        cmd="check", module="check_validate_purity",
-        description="Chequeo estático de pureza",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "check_validate_purity.py"))],
-        deprecated=True, see_also="bago audit purity",
-    ),
     "health": ToolEntry(
         cmd="health", module="health",
         description="Salud del framework: score | report | stability | efficiency | consistency | sincerity",
@@ -96,18 +78,6 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Selector de workflow (interactivo)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "workflow_selector.py"))],
     ),
-    "stale": ToolEntry(
-        cmd="stale", module="stale_detector",
-        description="Detecta tools obsoletas o sin mantenimiento",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "stale_detector.py"))],
-        deprecated=True, see_also="bago context stale",
-    ),
-    "v2": ToolEntry(
-        cmd="v2", module="v2_close_checklist",
-        description="Checklist de cierre v2",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "v2_close_checklist.py"))],
-        deprecated=True, see_also="bago session v2",
-    ),
     "task": ToolEntry(
         cmd="task", module="show_task",
         description="Muestra la tarea W2 pendiente. --done | --assign <agente> | --clear",
@@ -123,28 +93,10 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Banco de pruebas de eficiencia BAGO (10 min). --duration N | --suite fast|full | --json",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_benchmark.py"))],
     ),
-    "stability": ToolEntry(
-        cmd="stability", module="stability_summary",
-        description="Resumen de estabilidad del pack",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "stability_summary.py"))],
-        deprecated=True, see_also="bago health stability",
-    ),
     "session": ToolEntry(
         cmd="session", module="session",
         description="Ciclo de sesión: open | close | harvest | v2",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "session" / "__main__.py"))],
-    ),
-    "efficiency": ToolEntry(
-        cmd="efficiency", module="efficiency_meter",
-        description="Medidor de eficiencia inter-versiones",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "efficiency_meter.py"))],
-        deprecated=True, see_also="bago health efficiency",
-    ),
-    "sincerity": ToolEntry(
-        cmd="sincerity", module="sincerity_detector",
-        description="Centinela de sinceridad: detecta sincofancía en docs .md",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "sincerity_detector.py"))],
-        deprecated=True, see_also="bago health sincerity",
     ),
     "scope": ToolEntry(
         cmd="scope", module="scope_detector",
@@ -157,12 +109,6 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "cabinet_orchestrator.py"))],
     ),
     # ── Importadas desde BAGO_CAJAFISICA (evaluadas OK, cubren gaps reales) ──
-    "git": ToolEntry(
-        cmd="git", module="git_context",
-        description="Contexto git (log/diff/brief) para workflows",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "git_context.py"))],
-        deprecated=True, see_also="bago context git",
-    ),
     "deps": ToolEntry(
         cmd="deps", module="dep_audit",
         description="Auditoría de dependencias (requirements/pyproject)",
@@ -177,24 +123,6 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="types", module="type_check",
         description="Chequeo de tipos estáticos",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "type_check.py"))],
-    ),
-    "map": ToolEntry(
-        cmd="map", module="context_map",
-        description="Mapa de contexto del repositorio",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "context_map.py"))],
-        deprecated=True, see_also="bago context map",
-    ),
-    "report": ToolEntry(
-        cmd="report", module="health",
-        description="Health report en Markdown",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "health" / "__main__.py"))],
-        deprecated=True, see_also="bago health report",
-    ),
-    "commit": ToolEntry(
-        cmd="commit", module="commit_readiness",
-        description="Evaluación de preparación para commit",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "commit_readiness.py"))],
-        deprecated=True, see_also="bago audit commit",
     ),
     "flow": ToolEntry(
         cmd="flow", module="flow",
@@ -226,12 +154,6 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Muestra el banner animado de BAGO con estado actual",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_banner.py"))],
     ),
-    "session_close": ToolEntry(
-        cmd="session_close", module="session",
-        description="Genera el informe de cierre de sesion BAGO",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "session" / "__main__.py"))],
-        deprecated=True, see_also="bago session close",
-    ),
     "reopen": ToolEntry(
         cmd="reopen", module="bago_reopen",
         description="Reanuda sesión desde el último cierre sin reconstruir contexto manualmente",
@@ -247,22 +169,6 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Genera un scaffold de proyecto Ableton techno 4/4",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "ableton_template.py"))],
         layer="visual", scope="project", agent="GENERADOR",
-    ),
-    "code-quality": ToolEntry(
-        cmd="code-quality", module="code_quality_orchestrator",
-        description="Orquestador de calidad de código — ejecuta agentes especializados",
-        preflight=[
-            PreflightCheck("file", str(TOOLS_DIR / "code_quality_orchestrator.py")),
-            PreflightCheck("file", str(BAGO_ROOT / "agents" / "ANALISTA_Contexto.md"),
-                           severity="warning", message="Agente ANALISTA_Contexto no encontrado en .bago/agents/"),
-        ],
-        deprecated=True, see_also="bago audit quality",
-    ),
-    "consistency": ToolEntry(
-        cmd="consistency", module="bago_consistency_check",
-        description="Guard anti-drift: valida CI, preflight, README y badge del framework",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_consistency_check.py"))],
-        deprecated=True, see_also="bago health consistency",
     ),
     "config-check": ToolEntry(
         cmd="config-check", module="config",
@@ -311,7 +217,7 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
     "llm": ToolEntry(
         cmd="llm", module="bago_llm",
-        description="Motor LLM local offline: modelos GGUF en pendrive via Ollama (macOS/Linux/Windows)",
+        description="Motor LLM local offline: modelos GGUF en pendrive vía Ollama (macOS/Linux/Windows)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_llm.py"))],
     ),
     "music": ToolEntry(
@@ -367,12 +273,6 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight_policy="required",
         supports_dry_run=False,
     ),
-    "doctor": ToolEntry(
-        cmd="doctor", module="bago_doctor",
-        description="Diagnóstico completo del entorno BAGO: Python, Git, Ollama, modelo LLM, espacio",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_doctor.py"))],
-        deprecated=True, see_also="bago audit doctor",
-    ),
     "research": ToolEntry(
         cmd="research", module="research_orchestrator",
         description="Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada",
@@ -397,24 +297,6 @@ REGISTRY: dict[str, ToolEntry] = {
             PreflightCheck("file", str(BAGO_ROOT / "state")),
         ],
     ),
-    "repo-clone": ToolEntry(
-        cmd="repo-clone", module="repo_clone",
-        description="Clona repositorios GitHub en workspace con auto-BAGO setup",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "repo_clone.py"))],
-        deprecated=True, see_also="bago repo clone",
-    ),
-    "repo-list": ToolEntry(
-        cmd="repo-list", module="repo_list",
-        description="Lista repositorios clonados en workspace con estado",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "repo_list.py"))],
-        deprecated=True, see_also="bago repo list",
-    ),
-    "repo-switch": ToolEntry(
-        cmd="repo-switch", module="repo_switch",
-        description="Cambia contexto activo entre repositorios del workspace",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "repo_switch.py"))],
-        deprecated=True, see_also="bago repo switch",
-    ),
     "repo": ToolEntry(
         cmd="repo", module="repo",
         description="Gestión de repositorios: clone | list | switch",
@@ -430,15 +312,9 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Entrada rápida al repo: health + top ideas + aceptar tarea activa",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_start.py"))],
     ),
-    "pre-push": ToolEntry(
-        cmd="pre-push", module="pre_push_guard",
-        description="Gate de sincronizacion remota: bloquea pushes con BAGO roto",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "pre_push_guard.py"))],
-        deprecated=True, see_also="bago audit push",
-    ),
     "sprite-studio": ToolEntry(
         cmd="sprite-studio", module="sprite_studio",
-        description="Generador de sprites BIANCA via Codex/HF sin API key, con galería browser",
+        description="Generador de sprites BIANCA vía Codex/HF sin API key, con galería browser",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "sprite_studio.py"))],
     ),
     "image-studio": ToolEntry(
@@ -446,34 +322,25 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Generador de assets visuales coherentes (sprites, botones, fondos, iconos, tiles, banners) con perfil de proyecto",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "image_studio.py"))],
     ),
+    "launch": ToolEntry(
+        cmd="launch", module="bago_chat",
+        description=(
+            "BAGO — interfaz conversacional principal. El usuario habla con BAGO; "
+            "BAGO orquesta todos los agentes y modelos internamente. "
+            "Escalado automático: local → local-grande → cloud según contexto. "
+            "Uso: bago launch  |  --provider <p>  |  --model <m>  |  --task <tarea>"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_chat.py"))],
+        layer="visual", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="core",
+        risk="safe",
+        preflight_policy="required",
+    ),
     "hub": ToolEntry(
         cmd="hub", module="bago_hub",
         description="BAGO Hub — interfaz central Gradio con dashboard, herramientas, Image Studio e ideas",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_hub.py"))],
-    ),
-    "project-init": ToolEntry(
-        cmd="project-init", module="project_memory",
-        description="Inicializa .bago/ local en el directorio del proyecto actual",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
-        deprecated=True, see_also="bago project init",
-    ),
-    "project-link": ToolEntry(
-        cmd="project-link", module="project_memory",
-        description="Vincula el proyecto al framework (sesiones se guardan en el proyecto)",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
-        deprecated=True, see_also="bago project link",
-    ),
-    "project-unlink": ToolEntry(
-        cmd="project-unlink", module="project_memory",
-        description="Desvincula el proyecto — sesiones vuelven al framework",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
-        deprecated=True, see_also="bago project unlink",
-    ),
-    "project-state": ToolEntry(
-        cmd="project-state", module="project_memory",
-        description="Muestra el estado del proyecto actualmente vinculado",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
-        deprecated=True, see_also="bago project state",
     ),
     "deactivate": ToolEntry(
         cmd="deactivate", module="backup_manager",
@@ -483,18 +350,6 @@ REGISTRY: dict[str, ToolEntry] = {
         agent="VALIDADOR",
         stability="experimental",
         risk="mutating",
-    ),
-    "promote": ToolEntry(
-        cmd="promote", module="project_memory",
-        description="Promueve un aprendizaje del proyecto al knowledge del framework",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
-        deprecated=True, see_also="bago project promote",
-    ),
-    "learn": ToolEntry(
-        cmd="learn", module="project_memory",
-        description="Guarda un aprendizaje en learnings.md del proyecto vinculado",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "project_memory.py"))],
-        deprecated=True, see_also="bago project learn",
     ),
     "project": ToolEntry(
         cmd="project", module="project_memory",
@@ -507,24 +362,18 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_context.py"))],
     ),
     # ── Migradas desde CAJAFISICA (v3.0) ──────────────────────────────────────
-    "heal": ToolEntry(
-        cmd="heal", module="auto_heal",
-        description="Auto-detecta y repara problemas del framework de forma segura y trazable",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "auto_heal.py"))],
-        deprecated=True, see_also="bago audit heal",
-    ),
     "auto": ToolEntry(
         cmd="auto", module="auto_mode",
         description="Modo automático: evalúa y actúa. --loop para bucle, --infinite para sin límite (Ctrl+C)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "auto_mode.py"))],
-        supports_dry_run=True,
+        supports_dry_run=False,
     ),
     "spiral": ToolEntry(
         cmd="spiral", module="spiral_loop",
         stability="dangerous",
         description="Bucle espiral cromático (Shepard Loop): 12 pasos de auto-redescrición AGI. --execute para actuar, --status, --history",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "spiral_loop.py"))],
-        supports_dry_run=True,
+        supports_dry_run=False,
     ),
     "skill": ToolEntry(
         cmd="skill", module="skill_engine",
@@ -579,12 +428,6 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Orquestador de workflows multi-tool en secuencia con condiciones",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "orchestrator.py"))],
     ),
-    "scan": ToolEntry(
-        cmd="scan", module="scan",
-        description="Escaneo de calidad de código: hallazgos, severidad, autofixable",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "scan.py"))],
-        deprecated=True, see_also="bago audit scan",
-    ),
     "review": ToolEntry(
         cmd="review", module="code_review",
         description="Code review automatizado fail-closed con estado explícito por scanner",
@@ -631,7 +474,7 @@ REGISTRY: dict[str, ToolEntry] = {
             PreflightCheck("file", str(BAGO_ROOT / "mcp" / "toolbox_catalog.json"),
                            severity="warning", message="Catálogo toolbox_catalog.json no encontrado en .bago/mcp/"),
         ],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -644,7 +487,7 @@ REGISTRY: dict[str, ToolEntry] = {
             PreflightCheck("file", str(TOOLS_DIR / "llm_node.py")),
             PreflightCheck("file", str(TOOLS_DIR / "bago_node.py")),
         ],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="ARQUITECTO",
         stability="experimental",
         risk="safe",
@@ -656,7 +499,7 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[
             PreflightCheck("file", str(TOOLS_DIR / "bago_advisor.py")),
         ],
-        layer="infraestructura", scope="both",
+        layer="avanzado", scope="both",
         agent="NAVEGADOR",
         stability="experimental",
         risk="safe",
@@ -728,7 +571,7 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[
             PreflightCheck("file", str(TOOLS_DIR / "bago_neural.py")),
         ],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -752,7 +595,7 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[
             PreflightCheck("file", str(TOOLS_DIR / "npath" / "__main__.py")),
         ],
-        layer="conocimiento", scope="framework",
+        layer="analítica", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -783,7 +626,7 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
     "notify-desktop": ToolEntry(
         cmd="notify-desktop", module="notifier",
-        description="Envía notificaciones de escritorio (Windows toast via BurntToast PowerShell).",
+        description="Envía notificaciones de escritorio (Windows toast vía BurntToast PowerShell).",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "notifier.py"))],
         layer="avanzado", scope="framework",
         agent="ORGANIZADOR",
@@ -859,7 +702,7 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[
             PreflightCheck("file", str(BAGO_ROOT / "agents" / "agent_gateway.py")),
         ],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="ARQUITECTO",
         stability="experimental",
         risk="safe",
@@ -878,7 +721,7 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[
             PreflightCheck("file", str(TOOLS_DIR / "bago_seed.py")),
         ],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="mutating",
@@ -893,11 +736,11 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: --enable | --disable | --status | --info"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_devmode.py"))],
-        layer="configuración", scope="both",
+        layer="avanzado", scope="both",
         agent="MAESTRO_BAGO",
         stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -911,7 +754,7 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: --context | --run | --explain | --json | --dry-run"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "neural_toolbox.py"))],
-        layer="core", scope="framework",
+        layer="salud", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -929,9 +772,9 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_menu.py"))],
         layer="ejecución", scope="both",
         agent="MAESTRO_BAGO",
-        stability="stable",
+        stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -987,8 +830,8 @@ REGISTRY: dict[str, ToolEntry] = {
         description=(
             "Bucle de Shepard: 4 modos x 3 voces · DETECT→DIAGNOSE→VERIFY→EVOLVE. "
             "Orquesta el ciclo completo de salud del framework. "
-            "Modos: MODULAR (monolitos), SCAN (huerfanos/doc), "
-            "CREATE (integracion), EVOLVE (lecciones). "
+            "Modos: MODULAR (monolitos), SCAN (huérfanos/doc), "
+            "CREATE (integración), EVOLVE (lecciones). "
             "Uso: bago canon [--mode M] [--voice N] [--loop] [--json]"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_canon.py"))],
@@ -1010,11 +853,11 @@ REGISTRY: dict[str, ToolEntry] = {
             "Uso: bago workspace-select  |  opciones: --json --plain"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "workspace_selector.py"))],
-        layer="configuración", scope="both",
+        layer="avanzado", scope="both",
         agent="MAESTRO_BAGO",
-        stability="stable",
+        stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -1026,11 +869,11 @@ REGISTRY: dict[str, ToolEntry] = {
             "Uso: bago recent-projects  |  uso interno: --record"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "recent_projects.py"))],
-        layer="configuración", scope="both",
+        layer="avanzado", scope="both",
         agent="MAESTRO_BAGO",
-        stability="stable",
+        stability="core",
         risk="safe",
-        preflight_policy="optional",
+        preflight_policy="required",
         supports_dry_run=False,
         layer_group="core",
     ),
@@ -1043,7 +886,7 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: --list | --set <nombre> <cmd> | --run <nombre> | --del <nombre> | --show <nombre>"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "alias_manager.py"))],
-        layer="configuración", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -1072,7 +915,7 @@ REGISTRY: dict[str, ToolEntry] = {
         description=(
             "Métricas de código: líneas de código, conteo de archivos y tipos por app. "
             "Excluye node_modules, dist, build y archivos de lock. "
-            "Soporta filtros de extensión y configuración via bago_config."
+            "Soporta filtros de extensión y configuración vía bago_config."
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "code_metrics.py"))],
         layer="analítica", scope="project",
@@ -1107,10 +950,10 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: list [-v] | table | diff [app] | check | set <app> KEY=value | setup"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "env_manager.py"))],
-        layer="configuración", scope="project",
+        layer="avanzado", scope="project",
         agent="MAESTRO_BAGO",
         stability="experimental",
-        risk="moderate",
+        risk="mutating",
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
@@ -1139,7 +982,7 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: --log N (últimos N commits) | --short (una línea) | --diff"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "git_status.py"))],
-        layer="infraestructura", scope="project",
+        layer="avanzado", scope="project",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -1174,7 +1017,7 @@ REGISTRY: dict[str, ToolEntry] = {
         layer="calidad", scope="project",
         agent="MAESTRO_BAGO",
         stability="experimental",
-        risk="moderate",
+        risk="mutating",
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
@@ -1203,10 +1046,10 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: --scan (ARP de red local) | --watch (monitoriza cambios) | --adapters"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "net_scan.py"))],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
-        risk="moderate",
+        risk="mutating",
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
@@ -1219,7 +1062,7 @@ REGISTRY: dict[str, ToolEntry] = {
             "Configura estilo, idioma y vocabulario preferido de los agentes."
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "personality_panel.py"))],
-        layer="configuración", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -1270,7 +1113,7 @@ REGISTRY: dict[str, ToolEntry] = {
         layer="ejecución", scope="project",
         agent="MAESTRO_BAGO",
         stability="experimental",
-        risk="moderate",
+        risk="mutating",
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
@@ -1283,7 +1126,7 @@ REGISTRY: dict[str, ToolEntry] = {
             "Uso: bago search-history <término> [término2 ...]"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "search_history.py"))],
-        layer="conocimiento", scope="framework",
+        layer="analítica", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
         risk="safe",
@@ -1299,10 +1142,10 @@ REGISTRY: dict[str, ToolEntry] = {
             "Subcomandos: --status | --materialize | --split | --read <sección> | --test"
         ),
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "state_manager.py"))],
-        layer="infraestructura", scope="framework",
+        layer="avanzado", scope="framework",
         agent="MAESTRO_BAGO",
         stability="experimental",
-        risk="moderate",
+        risk="mutating",
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
@@ -1318,7 +1161,7 @@ REGISTRY: dict[str, ToolEntry] = {
         layer="ejecución", scope="project",
         agent="MAESTRO_BAGO",
         stability="experimental",
-        risk="moderate",
+        risk="mutating",
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
@@ -1354,5 +1197,23 @@ REGISTRY: dict[str, ToolEntry] = {
         preflight_policy="optional",
         supports_dry_run=False,
         layer_group="tools",
+    ),
+    "create": ToolEntry(
+        cmd="create", module="creation_mode",
+        description=(
+            "BAGO modo creaci\u00f3n: layout 3 paneles tipo Copilot. "
+            "Panel izquierdo: sesiones + personalizaciones. "
+            "Panel central: \u00e1rea de trabajo + input hito. "
+            "Panel derecho: cambios git / archivos. "
+            "Flags: --once (render \u00fanico) | --tab cambios|archivos"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "creation_mode.py"))],
+        layer="visual", scope="both",
+        agent="ORGANIZADOR",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="none",
+        supports_dry_run=False,
+        layer_group="ui",
     ),
 }
