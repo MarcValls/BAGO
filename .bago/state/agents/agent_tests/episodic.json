@@ -1,155 +1,5 @@
 [
   {
-    "cycle": 89,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:18:11.248240+00:00"
-  },
-  {
-    "cycle": 90,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:18:13.746729+00:00"
-  },
-  {
-    "cycle": 91,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:18:15.723774+00:00"
-  },
-  {
-    "cycle": 92,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:18:17.665346+00:00"
-  },
-  {
-    "cycle": 93,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:18:19.632215+00:00"
-  },
-  {
-    "cycle": 94,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:49.912561+00:00"
-  },
-  {
-    "cycle": 95,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:51.909956+00:00"
-  },
-  {
-    "cycle": 96,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:53.819393+00:00"
-  },
-  {
-    "cycle": 97,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:55.645028+00:00"
-  },
-  {
-    "cycle": 98,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:57.563389+00:00"
-  },
-  {
     "cycle": 99,
     "radius_gained": 0,
     "validate": "GO",
@@ -748,5 +598,155 @@
       "category:tests"
     ],
     "timestamp": "2026-05-13T14:39:39.653803+00:00"
+  },
+  {
+    "cycle": 139,
+    "radius_gained": 0,
+    "validate": "GO",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:GO",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:GO",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-16T16:39:58.666691+00:00"
+  },
+  {
+    "cycle": 140,
+    "radius_gained": 0,
+    "validate": "GO",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:GO",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:GO",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-16T16:39:59.895491+00:00"
+  },
+  {
+    "cycle": 141,
+    "radius_gained": 0,
+    "validate": "GO",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:GO",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:GO",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-16T16:40:01.143876+00:00"
+  },
+  {
+    "cycle": 142,
+    "radius_gained": 0,
+    "validate": "GO",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:GO",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:GO",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-16T16:40:02.336915+00:00"
+  },
+  {
+    "cycle": 143,
+    "radius_gained": 0,
+    "validate": "GO",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:GO",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:GO",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-16T16:40:03.530389+00:00"
+  },
+  {
+    "cycle": 144,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:32.719977+00:00"
+  },
+  {
+    "cycle": 145,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:38.879429+00:00"
+  },
+  {
+    "cycle": 146,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:45.085767+00:00"
+  },
+  {
+    "cycle": 147,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:51.377891+00:00"
+  },
+  {
+    "cycle": 148,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:57.603287+00:00"
   }
 ]

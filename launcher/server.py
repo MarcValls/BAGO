@@ -94,6 +94,9 @@ def route_task(task: str, agents: list) -> dict:
 # ─── Music Pipeline API ───────────────────────────────────────────────────────
 
 import tempfile
+import base64
+
+import music_to_musicxml_pipeline
 
 def _run_pipeline(script_name: str, args: list[str]) -> tuple[int, str, str]:
     """Run a pipeline script from TOOLS_DIR, return (returncode, stdout, stderr)."""
@@ -193,6 +196,73 @@ def music_validate(body: dict) -> dict:
     finally:
         for p in [tmp_orig, tmp_trans]:
             Path(p).unlink(missing_ok=True)
+
+def music_convert(body: dict) -> dict:
+    filename = body.get("filename", "score")
+    file_b64 = body.get("file_b64", "")
+    if not file_b64:
+        return {"ok": False, "error": "file_b64 requerido"}
+
+    suffix = Path(filename).suffix or ".bin"
+    try:
+        raw = base64.b64decode(file_b64)
+    except Exception as e:
+        return {"ok": False, "error": f"base64 inválido: {e}"}
+
+    with tempfile.TemporaryDirectory(prefix="bago_music_convert_") as tmpdir:
+        tmp_root = Path(tmpdir)
+        input_path = tmp_root / f"input{suffix}"
+        out_dir = tmp_root / "out"
+        try:
+            input_path.write_bytes(raw)
+            plan = music_to_musicxml_pipeline.build_plan(str(input_path), str(out_dir))
+
+            if not plan.can_execute:
+                return {
+                    "ok": False,
+                    "stage": "plan",
+                    "message": "Conversión no ejecutable en este entorno",
+                    "plan": {
+                        "kind": plan.kind,
+                        "route": plan.route,
+                        "can_execute": plan.can_execute,
+                        "selected_tool": plan.selected_tool,
+                        "warnings": plan.warnings,
+                        "steps": plan.steps,
+                    },
+                }
+
+            result = music_to_musicxml_pipeline.execute_plan(plan, str(out_dir))
+            if not result.success:
+                return {
+                    "ok": False,
+                    "stage": "execute",
+                    "message": "La conversión falló",
+                    "plan": {
+                        "kind": plan.kind,
+                        "route": plan.route,
+                        "warnings": plan.warnings,
+                    },
+                    "stderr": result.stderr,
+                }
+
+            xml_path = Path(plan.output_musicxml)
+            if not xml_path.exists():
+                return {"ok": False, "error": "No se generó MusicXML"}
+
+            return {
+                "ok": True,
+                "xml": xml_path.read_text(encoding="utf-8", errors="ignore"),
+                "filename": xml_path.name,
+                "stage": "execute",
+                "plan": {
+                    "kind": plan.kind,
+                    "route": plan.route,
+                    "warnings": plan.warnings,
+                },
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
 def music_transcribe(body: dict) -> dict:
     """Pitch-detect audio (base64 WAV/PCM) → list of notes.
@@ -821,6 +891,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json(get_ideas())
         elif path == "/api/llm/status":
             self._json(get_llm_status())
+        elif path in ("/bago_score_transposer.html", "/bago_matrix_music_editor.html"):
+            target = BAGO_CORE / path.lstrip("/")
+            if not target.exists():
+                self._json({"error": "not found"}, 404)
+                return
+            body = target.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif path in ("/", ""):
             self.path = "/index.html"
             super().do_GET()
@@ -892,6 +973,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/music/validate":
             self._json(music_validate(body))
 
+        elif path == "/api/music/convert":
+            self._json(music_convert(body))
+
         elif path == "/api/music/transcribe":
             self._json(music_transcribe(body))
 
@@ -911,15 +995,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 def main():
     url = f"http://localhost:{PORT}"
-    auth_status = f"🔒 token auth ON  (X-BAGO-Token)" if _BAGO_TOKEN else "🔓 token auth OFF (dev mode)"
-    print(f"""
-╔══════════════════════════════════════════╗
-║  BAGO Launcher v1.0  ·  modo dinámico   ║
-║  {url:<38}║
-║  {auth_status:<38}║
-╚══════════════════════════════════════════╝
-  Ctrl+C para detener
-""")
+    auth_status = "token auth ON  (X-BAGO-Token)" if _BAGO_TOKEN else "token auth OFF (dev mode)"
+    banner = (
+        "\n"
+        "+------------------------------------------+\n"
+        "|  BAGO Launcher v1.0 · modo dinamico      |\n"
+        f"|  {url:<38}|\n"
+        f"|  {auth_status:<38}|\n"
+        "+------------------------------------------+\n"
+        "  Ctrl+C para detener\n"
+    )
+    print(banner)
     threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     server = http.server.HTTPServer(("localhost", PORT), Handler)
     try:

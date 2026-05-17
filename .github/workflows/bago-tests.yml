@@ -1,0 +1,62 @@
+﻿name: BAGO Brutal Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Ollama (stub)
+        run: echo "Ollama stub for CI"
+      - name: Run BAGO unit tests
+        shell: pwsh
+        run: |
+          cd 
+          python tests/test_bago_brutal_metas.py
+      - name: Run BAGO integration tests
+        shell: pwsh
+        run: |
+          cd 
+          python tests/test_bago_integracion.py
+      - name: Run router tests
+        run: |
+          cd 
+          python .bago/tools/bago_dynamic_router.py
+      - name: Run orchestrator tests
+        run: |
+          cd 
+          python .bago/tools/bago_orchestrator.py --check
+
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run BAGO unit tests
+        run: |
+          cd 
+          python tests/test_bago_brutal_metas.py
+      - name: Run BAGO integration tests
+        run: |
+          cd 
+          python tests/test_bago_integracion.py
+      - name: Run router tests
+        run: |
+          cd 
+          python .bago/tools/bago_dynamic_router.py
+      - name: Run orchestrator tests
+        run: |
+          cd 
+          python .bago/tools/bago_orchestrator.py --check

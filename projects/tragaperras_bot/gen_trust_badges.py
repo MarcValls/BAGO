@@ -5,6 +5,8 @@ Trust badges con estilo Neo-Vegas Cyber (consistente con gen_ui.py).
 No requiere macOS — solo Pillow.
 """
 from __future__ import annotations
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 import math
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont

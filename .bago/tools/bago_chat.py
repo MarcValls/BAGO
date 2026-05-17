@@ -1,357 +1,333 @@
+
 #!/usr/bin/env python3
-"""BAGO Chat — TUI de chat con LLM local (Ollama) integrado al estado BAGO."""
-from __future__ import annotations
-import curses, json, pathlib, subprocess, sys, textwrap, threading, time
-import urllib.request, urllib.error
+"""BAGO Orchestrator HUB — Entry point"""
+import argparse, sys
+from pathlib import Path
 
-ROOT  = pathlib.Path(__file__).parents[2]
-STATE = ROOT / ".bago" / "state"
-
-
-def _jread(p: pathlib.Path) -> dict:
+# ── Activar VT/ANSI en Windows CMD lo antes posible ──────────────────────────
+if sys.platform == "win32":
     try:
-        return json.loads(p.read_text())
+        import ctypes as _ct
+        _k = _ct.windll.kernel32
+        _h = _k.GetStdHandle(-11)
+        _m = _ct.c_ulong(0)
+        if _k.GetConsoleMode(_h, _ct.byref(_m)):
+            _k.SetConsoleMode(_h, _m.value | 0x0004)
     except Exception:
-        return {}
+        pass
+# ─────────────────────────────────────────────────────────────────────────────
 
+from rich import box
+from rich.panel import Panel
 
-def _dbq(sql: str) -> list:
-    try:
-        import sqlite3
-        con = sqlite3.connect(STATE / "bago.db")
-        rows = con.execute(sql).fetchall()
-        con.close()
-        return rows
-    except Exception:
-        return []
+sys.path.insert(0, str(Path(__file__).parent))
 
+from bago import (CredentialManager, load_providers, load_routing,
+                  BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
+from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
+from bago.providers import auto_detect_provider, get_default_model, route_by_task
+from bago.ui import show_response
 
-def _build_system_prompt() -> str:
-    gs  = _jread(STATE / "global_state.json")
-    rc  = _jread(STATE / "repo_context.json")
-    gf  = gs.get("guardian_findings", {})
-    inv = gs.get("inventory", {})
-    act   = _dbq("SELECT COUNT(*) FROM ideas WHERE status='active'")
-    avail = _dbq("SELECT COUNT(*) FROM ideas WHERE status='available'")
-    proj  = gs.get("active_project", rc.get("project_name", ROOT.name))
-    return (
-        "Eres el asistente de BAGO, un framework de productividad para desarrolladores "
-        "montado en pendrive.\n\n"
-        f"Estado actual:\n"
-        f"- Proyecto: {proj}  Modo: {rc.get('working_mode','—')}  Branch: {rc.get('git_branch','—')}\n"
-        f"- Health: {gf.get('health_pct','?')}%  Warnings: {gf.get('warnings','?')}\n"
-        f"- Sesiones: {inv.get('sessions','?')}  Comandos registry: {inv.get('commands','?')}\n"
-        f"- Ideas activas: {act[0][0] if act else '?'}  Disponibles: {avail[0][0] if avail else '?'}\n"
-        f"- BAGO v{gs.get('bago_version','?')}\n\n"
-        "Cuando el usuario escriba /cmd <nombre>, indica que ejecutes ese comando BAGO.\n"
-        "Sé conciso y útil. Responde en el idioma del usuario (español/inglés)."
-    )
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import FileHistory
+    from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+    from prompt_toolkit.styles import Style
+    from prompt_toolkit.formatted_text import FormattedText, HTML
+    from prompt_toolkit.key_binding import KeyBindings
+except ImportError as e:
+    print(f"ERROR: {e}"); sys.exit(1)
 
+from bago.completer import BagoCompleter
+import shutil as _shutil
 
-def _load_config() -> dict:
-    return _jread(STATE / "llm_config.json")
+import time as _time
 
+# ── Rutas para la barra de estado ─────────────────────────────────────────────
+_FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
 
-def _pick_model(text: str, cfg: dict) -> str:
-    """Selecciona modelo según intención detectada en el texto."""
-    agent_models = cfg.get("agent_models", {})
-    t = text.lower()
-    if any(k in t for k in ("código", "code", "python", "bug", "error", "función", "class", "import")):
-        return agent_models.get("chat_coding") or cfg.get("active_model", "qwen2.5-coder:7b")
-    if any(k in t for k in ("planifica", "plan", "sprint", "workflow", "objetivo", "estrategia")):
-        return agent_models.get("chat_planning") or cfg.get("active_model", "qwen2.5-coder:7b")
-    return cfg.get("active_model", "qwen2.5-coder:7b")
+# Frames de la avispa asiática ASCII para la barra (alterna al refrescar el prompt)
+_BEE_FRAMES = ["╱◉╲ ", "─◉─ ", "╲◉╱ ", "─◉─ "]
 
+def _bee_tick() -> str:
+    """Frame actual de la abeja según el tiempo (cambia cada ~0.5s)."""
+    return _BEE_FRAMES[int(_time.monotonic() * 2) % len(_BEE_FRAMES)]
 
-def _ollama_chat(messages: list[dict], model: str, server_url: str,
-                 stop_event: threading.Event | None = None) -> str:
-    """Llama a Ollama con stream=True para no bloquear.
-    stop_event: si se activa, cierra la conexión y devuelve el texto parcial.
-    """
-    payload = json.dumps({
-        "model": model,
-        "messages": messages,
-        "stream": True,
-    }).encode()
-    req = urllib.request.Request(
-        f"{server_url}/api/chat",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            full = ""
-            for raw_line in resp:
-                if stop_event and stop_event.is_set():
-                    break
-                line = raw_line.strip()
-                if not line:
-                    continue
-                try:
-                    chunk = json.loads(line)
-                    full += chunk.get("message", {}).get("content", "")
-                    if chunk.get("done"):
-                        break
-                except json.JSONDecodeError:
-                    continue
-            return full
-    except urllib.error.URLError as e:
-        return f"[Ollama no disponible — {e.reason}]"
-    except Exception as e:
-        return f"[Error: {e}]"
+def _topbar_prompt(route_mode: str) -> FormattedText:
+    """Barra de estado superior: abeja animada + ◆ BAGO + path + cwd."""
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    cwd  = Path.cwd()
+    bee  = _bee_tick()
+    # Avispa ASCII + badge: todos caracteres simples (ancho 1 cada uno)
+    badge = f"{bee}◆ BAGO"
+    sep   = "  │  "
+    left  = f" {badge}{sep}{_FW_ROOT}"
+    left_display_w = len(left)          # todos char ancho 1, sin corrección
+    right_full  = f"{cwd.name}  ·  {cwd}  "
+    right_short = f"{cwd.name}  "
+    right = right_full if left_display_w + len(right_full) + 2 <= cols else right_short
+    pad = max(1, cols - left_display_w - len(right))
+    bar = (left + " " * pad + right)[:cols]
+    return FormattedText([
+        ("class:statusbar", bar),
+        ("", "\n"),
+        ("class:prompt", f"[BAGO|{route_mode}] > "),
+    ])
 
+def _bottom_bar() -> list:
+    cols = _shutil.get_terminal_size((80, 24)).columns
+    return [("class:statusbar", "─" * cols)]
 
-def _run_bago_cmd(cmd: str) -> str:
-    bago = ROOT / "bago"
-    try:
-        result = subprocess.run(
-            [sys.executable, str(bago)] + cmd.split(),
-            capture_output=True, text=True, timeout=20,
-        )
-        out = (result.stdout + result.stderr).strip()
-        return out or "OK (sin salida)"
-    except subprocess.TimeoutExpired:
-        return "[timeout — comando tardó más de 20s]"
-    except Exception as e:
-        return f"[Error ejecutando bago {cmd}: {e}]"
-
-
-def _chat_curses(stdscr: "curses._CursesWindow") -> str:
-    """Chat TUI. Returns 'back' if user presses ESC on empty input (go back to M/A choice)."""
-    curses.curs_set(1)
-    curses.use_default_colors()
-    curses.init_pair(1, curses.COLOR_CYAN,    -1)   # header / separadores
-    curses.init_pair(2, curses.COLOR_GREEN,   -1)   # usuario / prompt
-    curses.init_pair(3, curses.COLOR_YELLOW,  -1)   # sistema / hints
-    curses.init_pair(4, curses.COLOR_WHITE,   -1)   # texto normal
-    curses.init_pair(5, curses.COLOR_MAGENTA, -1)   # asistente
-    curses.init_pair(6, curses.COLOR_RED,     -1)   # errores
-
-    cfg        = _load_config()
-    server_url = cfg.get("server_url", "http://127.0.0.1:11434")
-    messages: list[dict] = [{"role": "system", "content": _build_system_prompt()}]
-
-    # Líneas de historial: (texto, color_pair)
-    history: list[tuple[str, int]] = []
-
-    def push(text: str, pair: int = 4) -> None:
-        h, w = stdscr.getmaxyx()
-        for ln in (textwrap.wrap(text, max(w - 2, 20)) or [""]):
-            history.append((ln, pair))
-
-    push("╔══  BAGO Chat  ══════════════════════════════════════╗", 1)
-    push("  Pregunta cualquier cosa sobre BAGO o tu proyecto.", 3)
-    push("  /cmd <nombre>  →  ejecutar comando bago", 3)
-    push("  ESC durante respuesta → cancelar · ESC vacío → volver al menú", 3)
-    push("╚═════════════════════════════════════════════════════╝", 1)
-
-    input_buf = ""
-
-    while True:
-        h, w = stdscr.getmaxyx()
-        INPUT_H = 3
-        HIST_H  = h - INPUT_H - 1
-
-        stdscr.erase()
-
-        # ── Historial ──────────────────────────────────────────────────────
-        start = max(0, len(history) - HIST_H)
-        for row_i, (line, pair) in enumerate(history[start:]):
-            try:
-                stdscr.addstr(row_i, 0, line[:w - 1], curses.color_pair(pair))
-            except curses.error:
-                pass
-
-        # ── Separador ──────────────────────────────────────────────────────
-        try:
-            stdscr.addstr(HIST_H, 0, "─" * (w - 1), curses.color_pair(1))
-        except curses.error:
-            pass
-
-        # ── Input ──────────────────────────────────────────────────────────
-        model_name  = _pick_model(input_buf, cfg)
-        prompt_tag  = f"[{model_name[:18]}] › "
-        try:
-            stdscr.addstr(HIST_H + 1, 0, prompt_tag, curses.color_pair(2))
-            stdscr.addstr(HIST_H + 1, len(prompt_tag),
-                          input_buf[:w - len(prompt_tag) - 1])
-        except curses.error:
-            pass
-
-        try:
-            stdscr.move(HIST_H + 1, min(len(prompt_tag) + len(input_buf), w - 2))
-        except curses.error:
-            pass
-        stdscr.refresh()
-
-        # ── Teclado ────────────────────────────────────────────────────────
-        key = stdscr.getch()
-
-        if key == 27:                              # ESC → volver al menú M/A
-            return "back"
-
-        elif key in (curses.KEY_BACKSPACE, 127, 8):
-            input_buf = input_buf[:-1]
-
-        elif key in (curses.KEY_ENTER, 10, 13):
-            user_text = input_buf.strip()
-            input_buf = ""
-            if not user_text:
-                continue
-            if user_text.lower() in ("salir", "exit", "quit", "q", ":q"):
-                break
-
-            push(f"Tú: {user_text}", 2)
-
-            # ── Modo comando /cmd ──────────────────────────────────────────
-            if user_text.startswith("/cmd "):
-                bago_cmd = user_text[5:].strip()
-                push(f"▶  bago {bago_cmd}", 3)
-                out = _run_bago_cmd(bago_cmd)
-                for ln in out.splitlines()[:12]:
-                    push(f"   {ln}", 4)
-                push("─" * 40, 1)
-                continue
-
-            # ── Llamada al LLM (threaded — no bloquea la UI) ──────────────
-            model      = _pick_model(user_text, cfg)
-            messages.append({"role": "user", "content": user_text})
-            thinking   = True
-            _stop_evt  = threading.Event()
-            _llm_result: list[str] = []
-
-            def _llm_worker() -> None:
-                r = _ollama_chat(messages, model, server_url, _stop_evt)
-                _llm_result.append(r)
-
-            _llm_thread = threading.Thread(target=_llm_worker, daemon=True)
-            _llm_thread.start()
-
-            # Spinner animado mientras el LLM procesa — ESC cancela
-            _SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-            _spin_i   = 0
-            stdscr.nodelay(True)
-            while _llm_thread.is_alive():
-                k = stdscr.getch()
-                if k == 27:                            # ESC → cancelar
-                    _stop_evt.set()
-                    _llm_thread.join(timeout=3)
-                    push("  [cancelado por usuario]", 6)
-                    thinking = False
-                    stdscr.nodelay(False)
-                    push("─" * 40, 1)
-                    break
-                h2, w2 = stdscr.getmaxyx()
-                HIST_H2 = h2 - 3 - 1
-                spin_ch = _SPINNER[_spin_i % len(_SPINNER)]
-                try:
-                    stdscr.addstr(HIST_H2 + 2, 0,
-                                  f"  {spin_ch} Pensando... (ESC cancela)",
-                                  curses.color_pair(3))
-                    stdscr.refresh()
-                except curses.error:
-                    pass
-                _spin_i += 1
-                curses.napms(100)
-            else:
-                stdscr.nodelay(False)
-                thinking = False
-
-            if not _stop_evt.is_set():
-                response = _llm_result[0] if _llm_result else ""
-                if response:
-                    messages.append({"role": "assistant", "content": response})
-                    push(f"BAGO [{model[:20]}]:", 5)
-                    for ln in textwrap.wrap(response, max(w - 4, 20)):
-                        push(f"  {ln}", 4)
-                else:
-                    push("  [sin respuesta del modelo]", 6)
-                push("─" * 40, 1)
-
-        elif 32 <= key <= 126:
-            input_buf += chr(key)
-
-    return "back"  # break (typed 'salir') → back to M/A choice
-
-
-def _startup_choice_curses(stdscr: "curses._CursesWindow") -> str:
-    """Pantalla de elección: 'M' → menu manual, 'A' → chat asistente.
-    Pre-selecciona según devmode: developer→Manual, user→Asistente.
-    """
+def _startup_choice_curses(stdscr):
+    """Curses UI: lets user choose Manual or Asistente mode. Returns 'manual' or 'asistente'."""
+    import curses
     curses.curs_set(0)
-    curses.use_default_colors()
-    curses.init_pair(1, curses.COLOR_CYAN,   -1)
-    curses.init_pair(2, curses.COLOR_GREEN,  -1)
-    curses.init_pair(3, curses.COLOR_YELLOW, -1)
-    curses.init_pair(4, curses.COLOR_WHITE,  -1)
+    if curses.has_colors():
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_CYAN,  -1)          # title / badge
+        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)   # selected row
+        curses.init_pair(3, curses.COLOR_WHITE, -1)           # normal row
+        curses.init_pair(4, curses.COLOR_BLACK, -1)           # dim / border
 
-    options = ["manual", "asistente"]
-    # GAP-4: pre-select based on devmode
-    # developer → Manual (sel=0), user → Asistente (sel=1)
-    try:
-        _gs = json.loads((STATE / "global_state.json").read_text(encoding="utf-8"))
-        sel = 0 if _gs.get("devmode", False) else 1
-    except Exception:
-        sel = 0
+    choices = [
+        ("manual",     "  ⚙  Manual      bago menu",     "Navega el menú interactivo"),
+        ("asistente",  "  🤖  Asistente   chat IA",       "Habla directamente con BAGO"),
+    ]
+    sel = 0
 
-    while True:
+    BOX_W = 46
+
+    def draw():
+        stdscr.clear()
         h, w = stdscr.getmaxyx()
-        stdscr.erase()
+        cx = max(0, (w - BOX_W) // 2)
+        cy = max(0, (h - 10) // 2)
 
-        # Caja centrada
-        box_w = min(54, w - 4)
-        box_h = 10
-        y0 = max(0, (h - box_h) // 2)
-        x0 = max(0, (w - box_w) // 2)
+        # ── Badge BAGO ────────────────────────────────────────────
+        badge = "◆ BAGO — Elige modo de inicio"
+        bx = max(0, (w - len(badge)) // 2)
+        if curses.has_colors():
+            stdscr.addstr(cy, bx, badge, curses.color_pair(1) | curses.A_BOLD)
+        else:
+            stdscr.addstr(cy, bx, badge, curses.A_BOLD)
 
-        def _safe(row: int, col: int, text: str, pair: int = 4) -> None:
+        # ── Box border ────────────────────────────────────────────
+        border_attr = curses.color_pair(4) if curses.has_colors() else curses.A_DIM
+        top_line = "┌" + "─" * (BOX_W - 2) + "┐"
+        bot_line = "└" + "─" * (BOX_W - 2) + "┘"
+        try:
+            stdscr.addstr(cy + 2, cx, top_line, border_attr)
+            for row in range(len(choices) * 2 + 1):
+                stdscr.addstr(cy + 3 + row, cx, "│" + " " * (BOX_W - 2) + "│", border_attr)
+            stdscr.addstr(cy + 3 + len(choices) * 2 + 1, cx, bot_line, border_attr)
+        except curses.error:
+            pass
+
+        # ── Choices ───────────────────────────────────────────────
+        for i, (key, label, hint) in enumerate(choices):
+            row_y = cy + 3 + i * 2 + 1
+            if i == sel:
+                attr = curses.color_pair(2) | curses.A_BOLD if curses.has_colors() else curses.A_REVERSE | curses.A_BOLD
+                marker = "▶"
+            else:
+                attr = curses.color_pair(3) if curses.has_colors() else curses.A_NORMAL
+                marker = " "
             try:
-                stdscr.addstr(y0 + row, x0, text[:box_w], curses.color_pair(pair))
+                entry = f" {marker} {label:<{BOX_W - 6}} "
+                stdscr.addstr(row_y, cx + 1, entry[:BOX_W - 2], attr)
+            except curses.error:
+                pass
+            # Hint below
+            hint_attr = curses.color_pair(4) if curses.has_colors() else curses.A_DIM
+            try:
+                stdscr.addstr(row_y + 1, cx + 5, hint, hint_attr)
             except curses.error:
                 pass
 
-        _safe(0, 0, "╔" + "═" * (box_w - 2) + "╗", 1)
-        _safe(1, 0, "║" + "  BAGO  — ¿Cómo quieres trabajar?".center(box_w - 2) + "║", 1)
-        _safe(2, 0, "╠" + "═" * (box_w - 2) + "╣", 1)
-
-        labels = [
-            ("M", "Manual",    "Menú TUI completo — tú eliges los comandos"),
-            ("A", "Asistente", "Chat con IA — pregunta, delega, ejecuta"),
-        ]
-        for i, (key, name, desc) in enumerate(labels):
-            row  = 4 + i * 2
-            mark = "▶ " if i == sel else "  "
-            pair = 2 if i == sel else 4
-            _safe(row, 0, f"║  {mark}[{key}] {name:<10}  {desc:<28}║", pair)
-
-        _safe(8, 0, "╠" + "═" * (box_w - 2) + "╣", 1)
-        _safe(9, 0, "║" + "  ↑↓ navegar · Enter / M / A elegir · ESC cancelar".center(box_w - 2) + "║", 3)
+        # ── Footer ────────────────────────────────────────────────
+        footer = " ↑/↓  Mover    Enter  Confirmar    q  Salir "
+        fy = min(h - 1, cy + 3 + len(choices) * 2 + 3)
+        fx = max(0, (w - len(footer)) // 2)
+        hint_attr = curses.color_pair(4) if curses.has_colors() else curses.A_DIM
+        try:
+            stdscr.addstr(fy, fx, footer, hint_attr)
+        except curses.error:
+            pass
 
         stdscr.refresh()
+
+    while True:
+        draw()
         key = stdscr.getch()
-
-        if key in (curses.KEY_UP,):
-            sel = (sel - 1) % 2
-        elif key in (curses.KEY_DOWN,):
-            sel = (sel + 1) % 2
-        elif key in (ord("m"), ord("M")):
-            return "manual"
-        elif key in (ord("a"), ord("A")):
-            return "asistente"
+        if key in (curses.KEY_UP, ord('k')) and sel > 0:
+            sel -= 1
+        elif key in (curses.KEY_DOWN, ord('j')) and sel < len(choices) - 1:
+            sel += 1
         elif key in (curses.KEY_ENTER, 10, 13):
-            return options[sel]
-        elif key == 27:       # ESC → defecto manual
+            return choices[sel][0]
+        elif key in (ord('q'), 27):
             return "manual"
 
 
-def run_chat() -> None:
-    """Punto de entrada para el modo chat."""
-    if not sys.stdout.isatty():
-        print("bago chat requiere un terminal interactivo.")
-        sys.exit(1)
-    curses.wrapper(_chat_curses)
+def _chat_curses(stdscr):
+    """Launches the prompt_toolkit REPL from inside a curses context. Returns None or 'back'."""
+    import curses
+    curses.endwin()   # Release curses so prompt_toolkit can take over the terminal
+    try:
+        main()
+    except SystemExit:
+        pass
+    return None
 
+
+def _prompt_indicator(session) -> str:
+    """
+    Construye el indicador de modo que aparece en el prompt.
+
+    Lógica de prioridad:
+      1. Si el último mensaje fue enrutado (chain/ensemble/single con motivo)
+         → muestra ese modo en mayúsculas
+      2. Si autoroute está ON pero aún no hay routing (arranque)
+         → muestra AUTO
+      3. Si autoroute está OFF
+         → muestra MANUAL
+
+    Extras que se añaden al final:
+      · A  = modo autónomo activo
+    """
+    last = session.last_route or {}
+    last_mode = last.get("mode", "")
+
+    if last_mode and last_mode != "manual":
+        # Un routing real ocurrió: CHAIN, ENSEMBLE, SINGLE...
+        indicator = last_mode.upper()
+    elif session.autoroute:
+        indicator = "AUTO"
+    else:
+        indicator = "MANUAL"
+
+    if session.autonomous:
+        indicator += ":A"   # :A = Autónomo
+
+    return indicator
+
+
+def main():
+    p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
+    p.add_argument("--provider", default="")
+    p.add_argument("--model", default="")
+    p.add_argument("--task",  default="")
+    args = p.parse_args()
+
+    creds     = CredentialManager()
+    providers = load_providers()
+    routing   = load_routing()
+
+    if args.model:
+        # Modelo explicito
+        name, wire, prov = None, None, args.provider or "codex"
+        for pn, pd in providers.items():
+            if args.model in pd.get("models", {}):
+                name, wire, prov = args.model, pd["models"][args.model].get("wire_name", args.model), pn
+                break
+        if not name:
+            console.print(f"[red]Modelo '{args.model}' no encontrado.[/red]"); sys.exit(1)
+    elif args.task:
+        name, wire, prov, _ = route_by_task(args.task, routing, providers)
+        pi(f"Router BAGO → {name} ({prov}) para: {args.task}")
+    else:
+        pm = {"copilot":"copilot","codex":"codex","ollama":"ollama-local",
+              "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud","anthropic":"anthropic"}
+        chosen = pm.get(args.provider, "") or auto_detect_provider(creds, providers)
+        if not args.provider:
+            pi(f"Provider detectado: {chosen}")
+        name, wire, prov = get_default_model(chosen, providers)
+        if not name:
+            # Ningun provider activo — pedir login
+            console.print(Panel(
+                "[bold yellow]No hay providers activos.[/bold yellow]\n"
+                "Usa [yellow]/login github[/yellow] para Copilot, "
+                "[yellow]/login openai[/yellow] para GPT, "
+                "[yellow]/login anthropic[/yellow] para Claude, "
+                "[yellow]/login ollama[/yellow] para local.",
+                title="BAGO — Login requerido", box=box.ROUNDED, border_style="yellow"))
+            # Abrir el chat igualmente para que puedan hacer /login
+            name, wire, prov = "sin-modelo", "sin-modelo", "none"
+
+    session = BagoSession(prov, name, wire, creds)
+
+    # ── Animación de inicio estilo Copilot ────────────────────────────────────
+    if sys.stdout.isatty():
+        try:
+            import importlib.util as _ilu
+            _spec = _ilu.spec_from_file_location(
+                "bago_intro", Path(__file__).parent / "bago_intro.py")
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            _mod.play()
+        except Exception:
+            pass   # si falla, continúa sin animación
+
+    banner(session)
+
+    hist_file = USER_BAGO / "state" / "chat_input_history.txt"
+    hist_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Estilo del popup de autocompletado
+    completion_style = Style.from_dict({
+        "prompt":                  "bold cyan",
+        # barras superior e inferior — alto contraste
+        "statusbar":               "bg:#1e2a3a #7aa2f7 bold",
+        "bottom-toolbar":          "bg:#1e2a3a #7aa2f7",
+        # popup autocompletado
+        "completion-menu":                  "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion.current": "bg:#00aaff #000000 bold",
+        "completion-menu.meta":             "bg:#111133 #888888",
+        "completion-menu.meta.completion.current": "bg:#0055aa #cccccc",
+        "scrollbar.background":             "bg:#1a1a2e",
+        "scrollbar.button":                 "bg:#00aaff",
+    })
+
+    # Key binding: Tab para abrir completado incluso con buffer vacío (solo '/')
+    kb = KeyBindings()
+
+    pt = PromptSession(
+        history=FileHistory(str(hist_file)),
+        auto_suggest=AutoSuggestFromHistory(),
+        style=completion_style,
+        completer=BagoCompleter(),
+        complete_while_typing=True,   # popup aparece al escribir '/'
+        key_bindings=kb,
+    )
+
+    ctrl_c = CtrlCGuard()
+    while True:
+        try:
+            route_mode = _prompt_indicator(session)
+            line = pt.prompt(
+                message=lambda: _topbar_prompt(_prompt_indicator(session)),
+                bottom_toolbar=_bottom_bar,
+            ).strip()
+        except EOFError:
+            console.print("\n[dim]BAGO terminado.[/dim]"); break
+        except KeyboardInterrupt:
+            if ctrl_c.press():
+                console.print("[dim]BAGO terminado.[/dim]")
+                break
+            continue
+        if not line: continue
+        if line.startswith("/"):
+            if not cmd(line, session): break
+            continue
+        try:
+            result = chat(session, line)
+            if result:   # None = ya mostrado por chain/ensemble
+                show_response(result, session.model_name, session.provider)
+        except RuntimeError as e:
+            pe(str(e))
+            console.print("[dim]  Prueba /login para registrar providers o /switch para cambiar modelo.[/dim]")
 
 if __name__ == "__main__":
-    run_chat()
+    main()

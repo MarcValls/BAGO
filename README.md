@@ -1,20 +1,50 @@
-# BAGO — Structured AI Work Framework
+# BAGO CLI — Orquestador de IA · A.M. TECHNOLOGIES
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 126 CLI commands · 121 public commands
+> **Version 3.4.0b1** · 158 CLI commands · 125 public commands
 
-Public command contract (CI-checked): **20 core** · **91 experimental** · **8 dangerous** · **0 legacy**
+Public command contract (CI-checked): **9 core** · **146 experimental** · **1 dangerous** · **0 legacy**
 
 ---
 
-## Quick start
+## 🚀 Empieza aquí
+
+```bash
+bago launch       # abre el chat con BAGO — orquestador central
+```
+
+```
+             ██████╗  █████╗  ██████╗  ██████╗
+             ██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗
+             ██████╔╝███████║██║  ███╗██║   ██║
+             ██╔══██╗██╔══██║██║   ██║██║   ██║
+             ██████╔╝██║  ██║╚██████╔╝╚██████╔╝
+             ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝
+
+             ⣾  INICIANDO DESDE EL DISPOSITIVO BAGO...
+```
+
+`bago launch` abre la **interfaz conversacional** donde el usuario habla directamente con **BAGO**.  
+BAGO orquesta todos los modelos de IA internamente — el usuario nunca habla con los modelos directamente.
+
+```bash
+bago launch                        # autodetecta provider
+bago launch --provider copilot     # fuerza GitHub Copilot
+bago launch --provider ollama      # fuerza Ollama local
+bago launch --model qwen2.5:14b    # modelo específico
+```
+
+> **📖 Documentación completa:** [`docs/BAGO_LAUNCH.md`](docs/BAGO_LAUNCH.md) · [`docs/SLASH_MENU.md`](docs/SLASH_MENU.md)
+
+---
+
+## Otros comandos frecuentes
 
 ```bash
 bago validate     # verify clean install
 bago status       # active flow + pending task + health
 bago next         # pick highest-priority idea and open a task
-# <implement>
 bago health       # verify nothing broke
 bago done         # close task, record evidence
 bago audit full   # session audit trail
@@ -22,15 +52,25 @@ bago audit full   # session audit trail
 
 ---
 
-## 1. What BAGO is
+## 1. Qué es BAGO CLI
 
-**BAGO** (Balanceado · Adaptativo · Generativo · Organizativo) is a **repo-local operating layer for AI-assisted development**.
+**BAGO CLI** (Balanceado · Adaptativo · Generativo · Organizativo) es una **interfaz de línea de comandos para desarrollo asistido por IA**, desarrollada por **A.M. TECHNOLOGIES**.
 
-It keeps:
-- persistent context,
-- workflow state,
-- and audit trail
-between agent sessions.
+El comando principal es `bago launch`:
+
+```
+El usuario  ──►  BAGO  ──►  [Qwen / GPT / Claude / Llama / ...]
+                  ▲                        │
+                  └────────────────────────┘
+              BAGO recibe, decide y responde
+```
+
+Todos los modelos de IA son **motores internos** del framework. El usuario siempre habla con **BAGO**.
+
+Además del chat, BAGO CLI incluye:
+- contexto persistente entre sesiones,
+- estado de workflow y audit trail,
+- 150 comandos especializados para desarrollo.
 
 También incluye un modelo local-first de rutas cognitivas: el sistema de workflows está definido como grafo (`.bago/workflows/WORKFLOW_GRAPH.json`) y el estado se puede separar/fusionar por capas (`state_manager --split/--materialize`) sin borrar historial.
 
@@ -109,6 +149,7 @@ These commands form the **stable public interface**.
 
 | Command | Purpose |
 |---|---|
+| `bago launch` | **Main entry point** — talk to BAGO; BAGO orchestrates all agents internally |
 | `bago health` | System health score (0–100) + stability report |
 | `bago status` | Active flow, pending task, current health |
 | `bago validate` | Consistency check: manifest + state + pack |
@@ -125,10 +166,11 @@ These commands form the **stable public interface**.
 | `bago orphans` | Detect unregistered tool modules (orphan daemon) |
 | `bago doc-agent` | Documentation agent: update COMMANDS.md, LAYERS.md, README |
 | `bago devmode` | Toggle developer mode: unlock advanced tools and preflight checks |
+| `bago self` | BAGO introspection: identity, version, capabilities |
 | `bago launch` | Launch BAGO daemon or background services |
-| `bago menu` | Interactive BAGO main menu |
-| `bago recent-projects` | List recently active BAGO projects |
-| `bago workspace-select` | Select active workspace context |
+| `bago menu` | Interactive hierarchical command menu (curses UI) |
+| `bago workspace-select` | Select active workspace: framework / parent dir / external repo |
+| `bago recent-projects` | History of recent BAGO projects and sessions |
 
 ---
 
@@ -149,18 +191,18 @@ These commands form the **stable public interface**.
 
 ## 5. Legacy commands (deprecated, redirect-only)
 
-All deprecated commands have been removed from the registry. There are no legacy redirects.
+`check` · `code-quality` · `commit` · `consistency` · `cosecha` · `detector` · `doctor` · `efficiency` · `git` · `heal` · `learn` · `map` · `pre-push` · `project-init` · `project-link` · `project-state` · `project-unlink` · `promote` · `repo-clone` · `repo-list` · `repo-switch` · `report` · `scan` · `session_close` · `sincerity` · `stability` · `stale` · `v2`
 
 ---
 
 ## 6. Experimental commands (not part of the contract)
 
-`ableton-template` · `advisor` · `agent` · `agent-config` · `gateway` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
+`ableton-template` · `advisor` · `agent` · `agent-config` · `gateway` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `boot` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
 - `music-saas` — CLI para BAGO Music SaaS (status/dev/webhook/test/open/build/config)
-`config-check` · `create` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
+`config-check` · `create` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `field` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
 `heal-paths` · `html-export` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `lint-runner` · `llm` · `llm-node` · `log-viewer` · `lsp` · `music` · `naming` · `net-scan`
 `neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `orphan-shield` · `personality-panel` · `ping-server` · `placeholder_scan` · `preflight-check` · `project-summary` · `recientes` · `reopen`
-`repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `script-runner` · `search-history` · `seed` · `select` · `siembra` · `size-check` · `skill` · `snapshot`
+`repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `safeguard` · `script-runner` · `search-history` · `seed` · `select` · `siembra` · `size-check` · `skill` · `snapshot`
 `spanish` · `spiral-agent` · `sprint` · `sprite-studio` · `state-manager` · `template-gen` · `toolsmith` · `types` · `version` · `weekly-report` · `why` · `work_matrix` · `workflow` · `workflow-navigator`
 
 ---

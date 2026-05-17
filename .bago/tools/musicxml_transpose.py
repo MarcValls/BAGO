@@ -47,6 +47,7 @@ class TransposeReport:
     changed_notes: int = 0
     untouched_notes: int = 0
     skipped_rests: int = 0
+    changed_key_sigs: int = 0
     warnings: list[str] = field(default_factory=list)
     changes: list[NoteChange] = field(default_factory=list)
 
@@ -107,6 +108,29 @@ def pitch_label(pitch: ET.Element) -> str:
     return f"{step}{acc}{octave}"
 
 
+def fifths_delta_for_semitones(semitone_delta: int) -> int:
+    """Return the circle-of-fifths delta corresponding to a semitone transposition.
+
+    Each semitone maps to 7 positions on the circle of fifths (mod 12), normalized
+    to the range [-6, 6] so that the result uses the closest key spelling.
+    Examples: -2 semitones (M2 down, E→D) → -2; +7 semitones (P5 up, C→G) → +1.
+    """
+    raw = (semitone_delta * 7) % 12
+    return raw - 12 if raw > 6 else raw
+
+
+def measure_in_range(measure_number: str, selector: target_select.TargetSelector) -> bool:
+    try:
+        m_num = int(measure_number)
+    except Exception:
+        return True
+    if selector.measure_start is not None and m_num < selector.measure_start:
+        return False
+    if selector.measure_end is not None and m_num > selector.measure_end:
+        return False
+    return True
+
+
 def note_matches(note: ET.Element, part_id: str, measure_number: str, selector: target_select.TargetSelector) -> bool:
     if selector.part_ids and part_id not in selector.part_ids:
         return False
@@ -137,6 +161,7 @@ def transpose_file(input_path: str, output_path: str, target: str, interval: str
         raise ValueError("Target is ambiguous: " + "; ".join(selector.ambiguities))
 
     interval_label, semitone_delta, _ = parse_interval(interval, semitones)
+    key_delta = fifths_delta_for_semitones(semitone_delta)
     tree = ET.parse(input_path)
     root = tree.getroot()
     report = TransposeReport(
@@ -149,10 +174,41 @@ def transpose_file(input_path: str, output_path: str, target: str, interval: str
     if selector.ambiguities:
         report.warnings.extend(selector.ambiguities)
 
+    # Key signatures are per-part in MusicXML and must be updated when the whole
+    # part (or all parts) is transposed. When only a specific staff is selected
+    # within a multi-staff part, the key is shared across staves so we skip it.
+    update_key_sigs = selector.staff is None
+
     for part in target_select.direct_children(root, "part"):
         part_id = part.attrib.get("id", "unknown")
+        if selector.part_ids and part_id not in selector.part_ids:
+            for measure in target_select.direct_children(part, "measure"):
+                for note in target_select.direct_children(measure, "note"):
+                    if child(note, "rest") is not None:
+                        report.skipped_rests += 1
+                    else:
+                        report.untouched_notes += 1
+            continue
         for measure in target_select.direct_children(part, "measure"):
             measure_number = measure.attrib.get("number", "")
+            if not measure_in_range(measure_number, selector):
+                continue
+
+            # Update key signatures for this measure when appropriate.
+            if update_key_sigs:
+                for attributes in target_select.direct_children(measure, "attributes"):
+                    for key_elem in target_select.direct_children(attributes, "key"):
+                        fifths_text = child_text(key_elem, "fifths")
+                        if fifths_text is not None:
+                            try:
+                                new_fifths = int(fifths_text) + key_delta
+                                set_child_text(key_elem, "fifths", str(new_fifths))
+                                report.changed_key_sigs += 1
+                            except ValueError:
+                                report.warnings.append(
+                                    f"Could not parse <fifths> value '{fifths_text}' in measure {measure_number}."
+                                )
+
             for note in target_select.direct_children(measure, "note"):
                 if child(note, "rest") is not None:
                     report.skipped_rests += 1
@@ -213,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
             print(payload, end="")
         else:
             print(f"Changed notes: {report.changed_notes}")
+            print(f"Changed key signatures: {report.changed_key_sigs}")
             print(f"Output: {report.output_path}")
             if args.report:
                 print(f"Report: {args.report}")

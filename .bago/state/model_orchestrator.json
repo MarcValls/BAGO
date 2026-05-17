@@ -1,0 +1,76 @@
+﻿{
+  "version": "2026-05-14",
+  "name": "BAGO Model Orchestrator",
+  "description": "BAGO selecciona modelo automaticamente segun disponibilidad, coste, contexto y tarea",
+
+  "priority": {
+    "cost": ["free", "included", "subscription", "openai_credits"],
+    "_comment": "Prioridad de coste: gratis primero, luego incluido, suscripcion, créditos"
+  },
+
+  "modes": {
+    "offline": {
+      "description": "Solo modelos locales Ollama. Sin internet, sin coste.",
+      "allowed_providers": ["ollama-local"],
+      "default_model": "qwen25-coder",
+      "fallback_chain": ["qwen25-coder", "llama32", "llama32-1b", "qwen25-mini"]
+    },
+    "economico": {
+      "description": "Locales gratis + Copilot incluido. Sin créditos OpenAI.",
+      "allowed_providers": ["ollama-local", "copilot"],
+      "default_model": "qwen25-coder",
+      "fallback_chain": ["qwen25-coder", "llama32", "claude-sonnet-4.6", "gpt-5.4-mini"]
+    },
+    "estandar": {
+      "description": "Todos excepto créditos OpenAI. Usa suscripción Ollama Cloud si es necesario.",
+      "allowed_providers": ["ollama-local", "ollama-cloud", "copilot", "codex"],
+      "default_model": "qwen25-coder",
+      "fallback_chain": ["qwen25-coder", "claude-sonnet-4.6", "gpt-5.4", "kimi-k2-1t"]
+    },
+    "full": {
+      "description": "Todos los modelos disponibles. Créditos OpenAI permitidos.",
+      "allowed_providers": ["ollama-local", "ollama-cloud", "copilot", "codex"],
+      "default_model": "gpt-5.4",
+      "fallback_chain": ["gpt-5.4", "claude-sonnet-4.6", "qwen25-coder", "gpt-5.4-mini"]
+    }
+  },
+
+  "context_thresholds": {
+    "_comment": "Cuando el prompt supera estos tokens, escalar a modelo con más contexto",
+    "32k": { "providers": ["ollama-local"], "models": ["qwen25-coder", "llama32", "llama32-1b"] },
+    "128k": { "providers": ["ollama-local", "copilot", "codex"], "models": ["gpt-5.4", "claude-sonnet-4.6", "gpt-5.5"] },
+    "500k": { "providers": ["ollama-cloud"], "models": ["kimi-k2-1t"] },
+    "1m": { "providers": ["ollama-cloud"], "models": ["kimi-k2-1t"] }
+  },
+
+  "task_preference": {
+    "code_fast":     { "models": ["gpt-5.4-mini", "qwen25-mini", "llama32-1b"], "reason": "Rápido, barato, confirmaciones" },
+    "code_complex":  { "models": ["gpt-5.3-codex", "qwen25-coder", "devstral-2"], "reason": "Optimizado para código" },
+    "code_frontier": { "models": ["gpt-5.5", "claude-opus-4.7"], "reason": "Razonamiento profundo" },
+    "review_quick":  { "models": ["claude-sonnet-4.6", "gpt-5.4-mini"], "reason": "Code review rápido" },
+    "review_deep":   { "models": ["claude-opus-4.7", "gpt-5.5"], "reason": "Auditoría completa" },
+    "brainstorm":    { "models": ["qwen25-coder", "llama32", "qwen25-mini"], "reason": "Gratis, offline, ideas" },
+    "music_edit":    { "models": ["gpt-5.3-codex", "qwen25-coder"], "reason": "Código + XML/Partituras" },
+    "music_render":  { "models": ["qwen25-coder", "qwen25-mini"], "reason": "Local, render sin coste" },
+    "long_context":  { "models": ["kimi-k2-1t", "gpt-5.2"], "reason": "1M o 128K tokens" },
+    "agent_long":    { "models": ["gpt-5.2", "gpt-5.4"], "reason": "Agentes de larga duración" }
+  },
+
+  "health_checks": {
+    "ollama-local": "curl -s http://127.0.0.1:11434/api/tags",
+    "ollama-cloud": "curl -s https://api.ollama.com/v1/models",
+    "copilot": "gh copilot --version",
+    "codex": "codex --version"
+  },
+
+  "auto_mode_selection": {
+    "_comment": "BAGO detecta modo automáticamente si no se especifica",
+    "rules": [
+      { "if": "ollama_running AND NOT internet", "mode": "offline" },
+      { "if": "ollama_running AND internet AND NOT codex_auth", "mode": "economico" },
+      { "if": "ollama_running AND internet AND codex_auth", "mode": "estandar" },
+      { "if": "all_providers_available", "mode": "full" }
+    ]
+  }
+}
+

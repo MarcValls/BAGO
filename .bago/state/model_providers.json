@@ -1,0 +1,220 @@
+{
+  "version": "2026-05-14",
+  "providers": {
+    "ollama-local": {
+      "type": "ollama",
+      "base_url": "http://127.0.0.1:11434",
+      "auth": "none",
+      "models": {
+        "qwen25-coder": {
+          "wire_name": "qwen2.5-coder:7b",
+          "size_mb": 4466,
+          "max_prompt_tokens": 32768,
+          "max_output_tokens": 8192,
+          "best_for": "code_python",
+          "cost": "free"
+        },
+        "llama32": {
+          "wire_name": "llama3.2:latest",
+          "size_mb": 1925,
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 8192,
+          "best_for": "general",
+          "cost": "free"
+        },
+        "llama32-1b": {
+          "wire_name": "llama3.2:1b",
+          "size_mb": 1259,
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 4096,
+          "best_for": "classification",
+          "cost": "free"
+        },
+        "qwen25-mini": {
+          "wire_name": "qwen2.5:0.5b",
+          "size_mb": 379,
+          "max_prompt_tokens": 32000,
+          "max_output_tokens": 4096,
+          "best_for": "fast_confirmations",
+          "cost": "free"
+        },
+        "bago-local": {
+          "wire_name": "marcvallssanvictor/BAGO",
+          "best_for": "boot phrases, project summary, session continuity, BAGO-style responses, local reasoning, reactor low-cost observe loop",
+          "not_for": "unverified code writes, dangerous autonomous mutations, final validation",
+          "cost": "free",
+          "privacy": "local",
+          "risk": "medium",
+          "locality": 1.0,
+          "role": "bago_native_model",
+          "requires": [
+            "ollama",
+            "ollama pull marcvallssanvictor/BAGO"
+          ]
+        }
+      }
+    },
+    "ollama-cloud": {
+      "type": "ollama",
+      "base_url": "https://api.ollama.com",
+      "auth": "api_key_env:OLLAMA_API_KEY",
+      "models": {
+        "devstral-2": {
+          "wire_name": "devstral-2:123b",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 8192,
+          "best_for": "code",
+          "cost": "subscription"
+        },
+        "qwen3-coder-480b": {
+          "wire_name": "qwen3-coder:480b",
+          "max_prompt_tokens": 256000,
+          "max_output_tokens": 8192,
+          "best_for": "code",
+          "cost": "subscription"
+        },
+        "deepseek-v3-671b": {
+          "wire_name": "deepseek-v3.1:671b",
+          "max_prompt_tokens": 64000,
+          "max_output_tokens": 8192,
+          "best_for": "reasoning",
+          "cost": "subscription"
+        },
+        "kimi-k2-1t": {
+          "wire_name": "kimi-k2:1t",
+          "max_prompt_tokens": 1000000,
+          "max_output_tokens": 8192,
+          "best_for": "long_context",
+          "cost": "subscription",
+          "note": "NOT available in Copilot CLI — use via Ollama only"
+        }
+      }
+    },
+    "copilot": {
+      "type": "copilot",
+      "base_url": "https://api.github.com",
+      "auth": "github_token",
+      "models": {
+        "claude-sonnet-4.6": {
+          "wire_name": "claude-sonnet-4.6",
+          "max_prompt_tokens": 200000,
+          "max_output_tokens": 8192,
+          "best_for": "code_review",
+          "cost": "included"
+        },
+        "claude-opus-4.7": {
+          "wire_name": "claude-opus-4.7",
+          "max_prompt_tokens": 200000,
+          "max_output_tokens": 8192,
+          "best_for": "complex_reasoning",
+          "cost": "included"
+        },
+        "gpt-5.5": {
+          "wire_name": "gpt-5.5",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "best_for": "frontier",
+          "cost": "included"
+        },
+        "gpt-5.4": {
+          "wire_name": "gpt-5.4",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "best_for": "everyday",
+          "cost": "included"
+        },
+        "gpt-5.4-mini": {
+          "wire_name": "gpt-5.4-mini",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "best_for": "fast",
+          "cost": "included"
+        },
+        "gpt-5.3-codex": {
+          "wire_name": "gpt-5.3-codex",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "best_for": "coding",
+          "cost": "included"
+        },
+        "gpt-5.2": {
+          "wire_name": "gpt-5.2",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 8192,
+          "best_for": "long_agents",
+          "cost": "included"
+        }
+      }
+    },
+    "codex": {
+      "type": "codex",
+      "base_url": "https://api.openai.com",
+      "auth": "openai_key",
+      "models": {
+        "gpt-5.5": {
+          "wire_name": "gpt-5.5",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "default_reasoning": "medium",
+          "best_for": "complex_coding",
+          "cost": "openai_credits"
+        },
+        "gpt-5.4": {
+          "wire_name": "gpt-5.4",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "default_reasoning": "xhigh",
+          "best_for": "everyday_coding",
+          "cost": "openai_credits"
+        },
+        "gpt-5.4-mini": {
+          "wire_name": "gpt-5.4-mini",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "default_reasoning": "medium",
+          "best_for": "fast_coding",
+          "cost": "openai_credits"
+        },
+        "gpt-5.3-codex": {
+          "wire_name": "gpt-5.3-codex",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "default_reasoning": "medium",
+          "best_for": "coding_optimized",
+          "cost": "openai_credits"
+        },
+        "gpt-5.2": {
+          "wire_name": "gpt-5.2",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 8192,
+          "default_reasoning": "medium",
+          "best_for": "long_running",
+          "cost": "openai_credits"
+        }
+      }
+    }
+  },
+  "router_rules": {
+    "local_first": [
+      "explain",
+      "summarize",
+      "plan",
+      "brainstorm",
+      "small_snippet"
+    ],
+    "copilot_first": [
+      "pr_review",
+      "diff_review",
+      "code_review",
+      "research"
+    ],
+    "codex_first": [
+      "edit_files",
+      "run_commands",
+      "tests",
+      "multi_file",
+      "install",
+      "deploy"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """agent_router.py - Router hibrido local/Codex/Copilot para BAGO.
 
 Modo recomendado: balanced + adaptive.
@@ -51,14 +51,14 @@ DEFAULT_POLICY: dict = {
 LOCAL_OK_KEYWORDS = {
     "explica", "explicar", "explain", "resumen", "resume", "summarize",
     "idea", "ideas", "brainstorm", "pregunta", "duda", "concepto",
-    "compara", "plan", "planifica", "notas", "pseudocodigo", "pseudocódigo",
+    "compara", "plan", "planifica", "notas", "pseudocodigo", "pseudocÃ³digo",
     "snippet", "ejemplo", "local", "privado", "offline", "sin internet",
-    "rapido", "rápido",
+    "rapido", "rÃ¡pido",
 }
 
 CODE_ASSIST_KEYWORDS = {
-    "codigo", "código", "code", "bug", "funcion", "función", "test", "tests",
-    "pr", "pull request", "refactor", "review", "revision", "revisión", "git",
+    "codigo", "cÃ³digo", "code", "bug", "funcion", "funciÃ³n", "test", "tests",
+    "pr", "pull request", "refactor", "review", "revision", "revisiÃ³n", "git",
     "commit", "error", "debug", "typescript", "javascript", "python"  # noqa: HARDCODE,
 }
 
@@ -67,7 +67,7 @@ CODEX_KEYWORDS = {
     "modificar", "implementar", "implementa", "ejecutar", "ejecuta",
     "automatizar", "pipeline", "api", "json", "bash", "powershell",
     "instala", "instalar", "configura", "deploy", "servidor", "repo",
-    "proyecto", "tests", "migracion", "migración",
+    "proyecto", "tests", "migracion", "migraciÃ³n",
 }
 
 ESCALATION_KEYWORDS = {
@@ -75,11 +75,11 @@ ESCALATION_KEYWORDS = {
     "implementa", "implementar", "crea", "crear", "borra", "borrar",
     "ejecuta", "ejecutar", "instala", "instalar", "arregla", "arreglar",
     "fix", "debug", "falla", "fallo", "error", "test", "tests", "commit",
-    "merge", "deploy", "produccion", "producción",
+    "merge", "deploy", "produccion", "producciÃ³n",
 }
 
 REVIEW_KEYWORDS = {
-    "pr", "pull request", "review", "revision", "revisión", "revisa",
+    "pr", "pull request", "review", "revision", "revisiÃ³n", "revisa",
     "riesgo", "riesgos", "diff", "cambios", "comentarios",
 }
 
@@ -87,6 +87,18 @@ MULTIFILE_HINTS = {
     "varios archivos", "multiarchivo", "todo el proyecto", "toda la app",
     "repo completo", "monorepo", "frontend y backend", "full stack",
 }
+
+MUSIC_KEYWORDS = {
+    "partitura", "score", "musicxml", "transponer", "transpose", "arreglo",
+    "arrangement", "nota", "compas", "compás", "clave", "armadura", "midi",
+    "musescore", "audiveris", "omr", "render", "partituras", "scores",
+    "tonalidad", "semitonos", "semitonos", "intervalo", "voz", "instrumento",
+    "bajo", "piano", "guitarra", "violin", "flauta", "clarinete", "saxo",
+    "trompeta", "mayor", "menor", "tono", "tempo", "bpm", "ritmo",
+    "melodia", "armonia", "acorde", "escala", "modo",
+}
+
+ROUTING_FILE = STATE_DIR / "model_routing.json"
 
 
 @dataclass
@@ -126,6 +138,28 @@ def _read_json(path: Path, fallback):
     return fallback
 
 
+def _select_model_for_task(task: str) -> dict | None:
+    text = task.lower()
+    rules = _read_json(ROUTING_FILE, {}).get("rules", [])
+    for rule in rules:
+        keywords = rule.get("keywords", [])
+        hits = sum(1 for kw in keywords if kw.lower() in text)
+        if hits >= 1:
+            return {
+                "provider": rule.get("provider"),
+                "model": rule.get("model"),
+                "reason": rule.get("reason"),
+                "rule_id": rule.get("id"),
+            }
+    fallback = _read_json(ROUTING_FILE, {}).get("fallback", {})
+    return {
+        "provider": fallback.get("provider", "codex"),
+        "model": fallback.get("model", "gpt-5.4"),
+        "reason": "Fallback: ninguna regla coincide.",
+        "rule_id": "fallback",
+    }
+
+
 def load_policy() -> dict:
     cfg = _read_json(CFG_FILE, {})
     policy = dict(DEFAULT_POLICY)
@@ -157,7 +191,31 @@ def _ollama_bin() -> Path | None:
     return None
 
 
+
+def _read_provider_models(provider: str) -> list[str]:
+    """Lee modelos desde model_providers.json."""
+    providers_file = Path(__file__).parents[2] / "state" / "model_providers.json"
+    models: list[str] = []
+    if providers_file.exists():
+        try:
+            data = json.loads(providers_file.read_text(encoding="utf-8"))
+            provider_data = data.get("providers", {}).get(provider, {})
+            models = list(provider_data.get("models", {}).keys())
+        except Exception:
+            pass
+    return models
+
+
 def _read_codex_models() -> tuple[list[str], str]:
+    """Lee modelos Codex desde provider_registry + config local."""
+    models = _read_provider_models("codex")
+    if not models:
+        # Fallback hardcoded (actualizado 2026-05-14)
+        models = [
+            "gpt-5.5", "gpt-5.4", "gpt-5.4-mini",
+            "gpt-5.3-codex", "gpt-5.2"
+        ]
+
     home = Path.home()
     active = "gpt-5.4"
     config = home / ".codex" / "config.toml"
@@ -168,13 +226,12 @@ def _read_codex_models() -> tuple[list[str], str]:
                 break
 
     cache = home / ".codex" / "models_cache.json"
-    models: list[str] = []
     if cache.exists():
         try:
             data = json.loads(cache.read_text(encoding="utf-8"))
             for model in data.get("models", []):
                 slug = model.get("slug", "")
-                if slug:
+                if slug and slug not in models:
                     models.append(slug)
         except Exception:
             pass
@@ -185,55 +242,34 @@ def _read_codex_models() -> tuple[list[str], str]:
 
 
 def _read_copilot_models() -> list[str]:
-    # Modelos disponibles en Copilot CLI (actualizado 2026-05)
-    known = [
-        "claude-sonnet-4.6",
-        "claude-sonnet-4.5",
-        "claude-haiku-4.5",
-        "claude-opus-4.7",
-        "gpt-5.5",
-        "gpt-5.4",
-        "gpt-5.3-codex",
-        "gpt-5.2-codex",
-        "gpt-5.2",
-        "gpt-5.4-mini",
-        "gpt-5-mini",
-        "gpt-4.1",
-        # Internal / extended
-        "claude-opus-4.7-1m-internal",
-        "claude-opus-4.7-high",
-        "claude-opus-4.7-xhigh",
-        "claude-opus-4.6",
-        "claude-opus-4.6-fast",
-        "claude-opus-4.6-1m",
-        "claude-opus-4.5",
-    ]
-    # Leer también desde llm_config.json si tiene modelos adicionales
-    extra: list[str] = []
-    for group in _read_json(CFG_FILE, {}).get("available_models", {}).values():
-        for m in group:
-            if m not in known:
-                extra.append(m)
+    """Modelos disponibles en Copilot CLI — leídos desde provider_registry."""
+    models = _read_provider_models("copilot")
+    if not models:
+        # Fallback hardcoded (actualizado 2026-05-14)
+        models = [
+            "claude-sonnet-4.6", "claude-opus-4.7",
+            "gpt-5.5", "gpt-5.4", "gpt-5.4-mini",
+            "gpt-5.3-codex", "gpt-5.2"
+        ]
     # Preferencia del usuario desde settings
     settings = Path.home() / ".copilot" / "settings.json"
     if settings.exists():
         try:
             data = json.loads(settings.read_text(encoding="utf-8"))
             preferred = data.get("model") or data.get("defaultModel")
-            if preferred and preferred not in known:
-                known.insert(0, preferred)
+            if preferred and preferred in models:
+                models.remove(preferred)
+                models.insert(0, preferred)
         except Exception:
             pass
-    return known + extra
-
-
+    return models
 def load_agent_model(agent_id: str) -> str | None:
-    """Devuelve el modelo configurado para un agente BAGO específico.
+    """Devuelve el modelo configurado para un agente BAGO especÃ­fico.
 
     Prioridad:
       1. Campo 'model' en agents_registry.json para ese agente.
       2. Clave 'agent_models.<agent_id>' en llm_config.json.
-      3. None (el router elegirá el modelo por defecto).
+      3. None (el router elegirÃ¡ el modelo por defecto).
     """
     registry_path = STATE_DIR / "agents_registry.json"
     registry = _read_json(registry_path, {})
@@ -300,7 +336,7 @@ def detect_agents() -> list[dict]:
             id="copilot",
             name="BAGO Copilot",
             subtitle="GitHub Copilot CLI",
-            icon="🤖",
+            icon="ðŸ¤–",
             color="#4f8ef7",
             available=copilot_ok,
             reason=copilot_reason,
@@ -310,8 +346,8 @@ def detect_agents() -> list[dict]:
         Agent(
             id="codex",
             name="BAGO Codex",
-            subtitle=f"OpenAI Codex CLI · activo: {codex_active}",
-            icon="⚡",
+            subtitle=f"OpenAI Codex CLI Â· activo: {codex_active}",
+            icon="âš¡",
             color="#7c5ef7",
             available=bool(codex),
             reason=None if codex else "codex no instalado",
@@ -323,7 +359,7 @@ def detect_agents() -> list[dict]:
             id="ollama",
             name="BAGO Ollama",
             subtitle="Modelos locales (sin internet)",
-            icon="◉",
+            icon="â—‰",
             color="#3ecf8e",
             available=bool(ollama_bin),
             reason=None if ollama_bin else "Ollama no instalado o no encontrado",
@@ -334,7 +370,7 @@ def detect_agents() -> list[dict]:
             id="claude",
             name="BAGO Claude",
             subtitle="Anthropic Claude CLI",
-            icon="◆",
+            icon="â—†",
             color="#f6ad55",
             available=bool(claude),
             reason=None if claude else "Claude CLI no instalado",
@@ -373,6 +409,7 @@ def _signals(task: str) -> dict:
         "escalation_hits": _count_hits(text, ESCALATION_KEYWORDS),
         "review_hits": _count_hits(text, REVIEW_KEYWORDS),
         "multifile": any(hint in text for hint in MULTIFILE_HINTS),
+        "music_hits": _count_hits(text, MUSIC_KEYWORDS),
     }
 
 
@@ -383,9 +420,11 @@ def _scores(available: dict, policy: dict, sig: dict) -> dict:
         if agent_id == local_id:
             scores[agent_id] += sig["local_hits"] * 12 + (10 if policy.get("local_first") else 0)
         elif agent_id == "copilot":
-            scores[agent_id] += sig["code_hits"] * 12 + sig["review_hits"] * 14 + sig["escalation_hits"] * 5
+            scores[agent_id] += sig["code_hits"] * 12 + sig["review_hits"] * 14 + sig["escalation_hits"] * 5 + sig["music_hits"] * 6
         elif agent_id == "codex":
-            scores[agent_id] += sig["codex_hits"] * 14 + sig["escalation_hits"] * 8 + (25 if sig["multifile"] else 0)
+            scores[agent_id] += sig["codex_hits"] * 14 + sig["escalation_hits"] * 8 + (25 if sig["multifile"] else 0) + sig["music_hits"] * 10
+        elif agent_id == "ollama-cloud":
+            scores[agent_id] += sig["music_hits"] * 4 + sig["escalation_hits"] * 6
     return scores
 
 
@@ -393,13 +432,27 @@ def _hard_route(available: dict, policy: dict, sig: dict) -> dict | None:
     local_id = policy.get("local_agent", "ollama")
     scores = _scores(available, policy, sig)
 
+    # Music tasks -> codex for safe file editing
+    if sig["music_hits"] >= 1:
+        agent_id = "codex" if "codex" in available else ("copilot" if "copilot" in available else None)
+        if agent_id:
+            agent = available[agent_id]
+            route = _select_model_for_task(policy.get("_task", ""))
+            model = route["model"] if route and route["model"] in agent.get("models", []) else _agent_model(agent)
+            return _decision(
+                agent, agent_id, model, "hard_guardrail",
+                "Tarea musical detectada (partituras, transposiciÃ³n, arreglos). Se escala a agente con control de archivos.",
+                88 if agent_id == "codex" else 75, scores, policy,
+                _available_chain(available, [local_id, agent_id]),
+            )
+
     if sig["review_hits"] >= 1:
         agent_id = "copilot" if "copilot" in available else ("codex" if "codex" in available else None)
         if agent_id:
             agent = available[agent_id]
             return _decision(
                 agent, agent_id, _agent_model(agent), "hard_guardrail",
-                "Revisión/PR/diff detectado; se escala fuera del modelo local.",
+                "RevisiÃ³n/PR/diff detectado; se escala fuera del modelo local.",
                 92 if agent_id == "copilot" else 84, scores, policy,
                 _available_chain(available, [local_id, agent_id]),
             )
@@ -415,7 +468,7 @@ def _hard_route(available: dict, policy: dict, sig: dict) -> dict | None:
             agent = available[agent_id]
             return _decision(
                 agent, agent_id, _agent_model(agent), "hard_guardrail",
-                "Cambios, ejecución, tests, instalación o multiarchivo requieren agente con control del repo.",
+                "Cambios, ejecuciÃ³n, tests, instalaciÃ³n o multiarchivo requieren agente con control del repo.",
                 90 if agent_id == "codex" else 78, scores, policy,
                 _available_chain(available, [local_id, agent_id]),
             )
@@ -562,6 +615,7 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
     agents = agents or detect_agents()
     available = {agent["id"]: agent for agent in agents if agent.get("available")}
     policy = load_policy()
+    policy["_task"] = task
     if use_classifier is not None:
         policy["local_classifier"] = use_classifier
 
@@ -589,7 +643,9 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
 
 def _fallback_route(available: dict, policy: dict, sig: dict, scores: dict) -> dict:
     local_id = policy.get("local_agent", "ollama")
-    if local_id in available and policy.get("local_first"):
+    force_cloud = sig["music_hits"] >= 1 or sig["review_hits"] >= 1 or sig["codex_hits"] >= 1 or sig["escalation_hits"] >= 1 or sig["code_hits"] >= 1
+
+    if not force_cloud and local_id in available and policy.get("local_first"):
         agent = available[local_id]
         return _decision(
             agent, local_id, _agent_model(agent, "qwen2.5-coder:7b"), "rules_fallback",
@@ -601,8 +657,8 @@ def _fallback_route(available: dict, policy: dict, sig: dict, scores: dict) -> d
     agent = available[best_id]
     return _decision(
         agent, best_id, _agent_model(agent), "rules_fallback",
-        "Mejor agente disponible por reglas deterministas.",
-        60, scores, policy, [best_id],
+        "Mejor agente disponible por reglas deterministas." + (" (override local por tarea especializada)" if force_cloud else ""),
+        75 if force_cloud else 60, scores, policy, [best_id],
     )
 
 
@@ -712,3 +768,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

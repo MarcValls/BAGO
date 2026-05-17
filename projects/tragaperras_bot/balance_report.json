@@ -1,0 +1,68 @@
+{
+  "pipeline": "casino_balance",
+  "project": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\projects\\tragaperras_bot",
+  "success": true,
+  "rtp_theory": 0.9496,
+  "rtp_empirical_100k": 0.9468,
+  "rtp_empirical_1m": 0.952,
+  "dgoj_compliant": true,
+  "paytable": [
+    {
+      "symbol": "🍒",
+      "name": "cereza",
+      "weight": 60,
+      "multiplier": 4,
+      "prob_triple": 0.216,
+      "rtp_contribution": 0.864
+    },
+    {
+      "symbol": "🍋",
+      "name": "limon",
+      "weight": 20,
+      "multiplier": 8,
+      "prob_triple": 0.008,
+      "rtp_contribution": 0.064
+    },
+    {
+      "symbol": "🍊",
+      "name": "naranja",
+      "weight": 10,
+      "multiplier": 15,
+      "prob_triple": 0.001,
+      "rtp_contribution": 0.015
+    },
+    {
+      "symbol": "🍇",
+      "name": "uvas",
+      "weight": 5,
+      "multiplier": 30,
+      "prob_triple": 0.000125,
+      "rtp_contribution": 0.00375
+    },
+    {
+      "symbol": "⭐",
+      "name": "estrella",
+      "weight": 3,
+      "multiplier": 80,
+      "prob_triple": 2.7e-05,
+      "rtp_contribution": 0.00216
+    },
+    {
+      "symbol": "💎",
+      "name": "diamante",
+      "weight": 1.5,
+      "multiplier": 200,
+      "prob_triple": 3.37e-06,
+      "rtp_contribution": 0.000675
+    },
+    {
+      "symbol": "7️⃣",
+      "name": "siete",
+      "weight": 0.5,
+      "multiplier": 500,
+      "prob_triple": 1.3e-07,
+      "rtp_contribution": 6.3e-05
+    }
+  ],
+  "total_duration_ms": 10687
+}

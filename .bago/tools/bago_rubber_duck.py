@@ -77,7 +77,8 @@ def watch(watch_dir: Path) -> None:
                     except FileNotFoundError:
                         continue
                     if stable_mtime == mtime:
-                        print(f"\n{YELLOW(f'  ● [{time.strftime("%H:%M:%S")}] Cambio detectado: {path.name}')}")
+                        _ts = time.strftime("%H:%M:%S")
+                        print(f"\n{YELLOW(f'  ● [{_ts}] Cambio detectado: {path.name}')}")
                         analyze(path)
     except KeyboardInterrupt:
         print(f"\n{DIM('  [RD] Watch mode detenido.')}")

@@ -20,14 +20,32 @@ for _s in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
+def _enable_win_vt() -> bool:
+    """Activa ANSI VT processing en Windows CMD. Devuelve True si tuvo éxito."""
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        handle = k32.GetStdHandle(-11)          # STD_OUTPUT_HANDLE
+        mode   = ctypes.c_ulong(0)
+        if k32.GetConsoleMode(handle, ctypes.byref(mode)):
+            # ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+            return bool(k32.SetConsoleMode(handle, mode.value | 0x0004))
+    except Exception:
+        pass
+    return False
+
+_VT_OK = _enable_win_vt()   # intento en import-time
+
 # ─── Rutas ────────────────────────────────────────────────────────────────────
 BAGO_ROOT = Path(__file__).resolve().parent.parent
 STATE     = BAGO_ROOT / "state"
 TOOLS     = BAGO_ROOT / "tools"
 
 # ─── Colores ANSI ─────────────────────────────────────────────────────────────
-# Auto-plain si no es TTY o se pasa --plain
-USE_COLOR     = sys.stdout.isatty() and "--plain" not in sys.argv
+# Auto-plain si no es TTY/VT o se pasa --plain
+USE_COLOR     = (sys.stdout.isatty() or _VT_OK) and "--plain" not in sys.argv
 USE_TRUECOLOR = USE_COLOR and os.environ.get("COLORTERM", "").lower() in ("truecolor", "24bit")
 
 def _c(code, text):
@@ -71,6 +89,73 @@ def _gradient_line(line: str, y: int, height: int) -> str:
             out.append(_rgb(r, g, b, ch))
     return "".join(out)
 
+# ─── Face Art — logo splash BAGO (robot face) ────────────────────────────────
+FACE_ART = [
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░█████████████████████░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░█▓▓▓▓▓████████████████▓▓▓▓▓██░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░██████▓▓▓▓▓████████████▓▓▓▓▓███████░░░░░░░░░░░░░",
+    "░░░░░░░░░░░██████████▓▓▓▓▓████████▓▓▓▓▓███████████░░░░░░░░░░░",
+    "░░░░░░░░░██████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓███████████████░░░░░░░░░",
+    "░░░░░░░░█████████████████▓▓▓▓▓▓▓▓▓▓██████████████████░░░░░░░░",
+    "░░░░░░██████████████████▓██▓▓▓▓▓▓██▓███████████████████░░░░░░",
+    "░░░░░█▓▓▓██████████████▓▓▓███▓▓███▓▓▓██████████████▓▓▓██░░░░░",
+    "░░░░█▓▓▓▓▓▓▓▓▓▓█████████▓▓▓█▓▓▓▓█▓▓▓█████████▓▓▓▓▓▓▓▓▓▓██░░░░",
+    "░░░░█▓▓▓▓█████▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓█████▓▓▓▓██░░░░",
+    "░░░█▓▓▓▓█████████████▓▓▓▓██████████▓▓▓▓█████████████▓▓▓▓██░░░",
+    "░░░▓▓▓▓▓▓▓▓▓▓▓▓▓████████▓▓▓▓▓▓▓▓▓▓▓▓████████▓▓▓▓▓▓▓▓▓▓▓▓▓█░░░",
+    "░░░███████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓████████████░░░",
+    "░░████████████████████▓▓▓▓▓▓████▓▓▓▓▓▓█████████████████████░░",
+    "░░░██████████████████▓▓▓▓▓▓▓████▓▓▓▓▓▓▓███████████████████░░░",
+    "░░░███████████████████▓▓▓▓▓▓▓██▓▓▓▓▓▓▓████████████████████░░░",
+    "░░░████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████████████████████░░░",
+    "░░░░███████████████████▓▓██▓▓▓▓▓▓██▓▓████████████████████░░░░",
+    "░░░░████████████████████▓▓██▓▓▓▓██▓▓█████████████████████░░░░",
+    "░░░░░███████████████████▓▓▓██▓▓██▓▓▓████████████████████░░░░░",
+    "░░░░░░██████████████████▓▓▓██████▓▓▓███████████████████░░░░░░",
+    "░░░░░░░░█████████████████▓▓▓████▓▓▓██████████████████░░░░░░░░",
+    "░░░░░░░░░█████████████████▓▓▓██▓▓▓██████████████████░░░░░░░░░",
+    "░░░░░░░░░░░████████████████▓▓▓▓▓▓█████████████████░░░░░░░░░░░",
+    "░░░░░░░░░░░░░███████████████▓▓▓▓████████████████░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░████████████▓▓▓▓█████████████░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░█████████▓▓██████████░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+]
+
+def _render_face_art() -> None:
+    """Renderiza el face art con 3 niveles de brillo ANSI."""
+    if not USE_COLOR:
+        for line in FACE_ART:
+            print(line)
+        return
+    for line in FACE_ART:
+        out = []
+        for ch in line:
+            if ch == "░":
+                out.append(f"\033[2;32m{ch}\033[0m")    # dim verde oscuro
+            elif ch == "▓":
+                out.append(f"\033[0;36m{ch}\033[0m")    # cyan medio
+            elif ch == "█":
+                out.append(f"\033[1;37m{ch}\033[0m")    # blanco brillante
+            else:
+                out.append(ch)
+        print("".join(out))
+
+
+def _print_text_logo() -> None:
+    """Imprime el logo BAGO en texto grande, centrado, con gradiente."""
+    logo_lines = LOGO_TOP + LOGO_BOT
+    total = len(logo_lines)
+    print()
+    LOGO_INDENT = "              "
+    for y, line in enumerate(logo_lines):
+        print(LOGO_INDENT + _gradient_line(line, y, total))
+    print()
+
+
+
 # ─── Logo (sin espacios leading — se añaden fuera del ANSI) ───────────────────
 # Dividido en top (cyan) y bottom (azul)
 LOGO_TOP = [
@@ -84,7 +169,56 @@ LOGO_BOT = [
     "╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ",
 ]
 
-# ─── Caja ─────────────────────────────────────────────────────────────────────
+
+# ─── Splash animado ───────────────────────────────────────────────────────────
+# Frames de un medallón girando (círculo de Braille — 8 frames)
+_SPINNER = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]
+_SPINNER_PLAIN = ["|", "/", "-", "\\"]  # fallback ASCII
+
+def print_splash(max_seconds: float = 10.0) -> None:
+    """
+    Muestra el face art + logo BAGO con un medallón girando en la última línea.
+    Se detiene sola tras max_seconds segundos y devuelve control al llamador.
+    """
+    import time
+
+    # Limpiar pantalla y mover cursor al inicio
+    print("\033[2J\033[H", end="", flush=True)
+
+    _render_face_art()
+    _print_text_logo()
+
+    spinner  = _SPINNER if USE_COLOR else _SPINNER_PLAIN
+    msg      = "INICIANDO DESDE EL DISPOSITIVO BAGO..."
+    indent   = "              "
+    start    = time.monotonic()
+    i        = 0
+    interval = 0.08   # segundos por frame
+
+    # Reserva la línea del spinner
+    print()
+    try:
+        while True:
+            elapsed = time.monotonic() - start
+            if elapsed >= max_seconds:
+                break
+            frame = spinner[i % len(spinner)]
+            if USE_COLOR:
+                line = f"{indent}\033[1;36m{frame}\033[0m  \033[1;36m{msg}\033[0m"
+            else:
+                line = f"{indent}{frame}  {msg}"
+            # Sobreescribe la misma línea con \r
+            print(f"\r{line}", end="", flush=True)
+            i += 1
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Deja el cursor en una línea limpia
+        print(f"\r{indent}{'✔' if USE_COLOR else '*'}  {_c('2', msg)}", flush=True)
+        print()
+
+
 BOX_INNER = 56  # caracteres visibles entre los bordes ║ y ║
 
 def _strip_ansi(s):
@@ -315,6 +449,13 @@ def print_banner(mini=False):
         return
 
     print()
+    # ── Splash: face art + logo texto + iniciando ─────────────────────────────
+    _render_face_art()
+    _print_text_logo()
+    iniciando = "INICIANDO DESDE EL DISPOSITIVO BAGO..."
+    print(f"              {_c('1;36', iniciando)}")
+    print()
+
     print(TOP)
 
     # ── Logo con gradiente RGB ────────────────────────────────────────────────

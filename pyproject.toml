@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bago"
 version = "3.4.0b1"
-description = "BAGO — Structured AI-assisted development framework"
+description = "BAGO Ã¢â‚¬â€ Structured AI-assisted development framework"
 requires-python = ">=3.9"
 readme = "README.md"
 license = "MIT"
@@ -53,9 +53,10 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-  "slow: marks tests that require external processes (venv creation, etc.) — deselect with -m 'not slow'",
+  "slow: marks tests that require external processes (venv creation, etc.) Ã¢â‚¬â€ deselect with -m 'not slow'",
 ]
 
 [tool.ruff]
+extend-ignore = ["RUF100"]
 line-length = 120
 target-version = "py39"

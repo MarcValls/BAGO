@@ -1,13 +1,19 @@
 {
-  "cycles": 138,
-  "n_agents_active": 4,
-  "global_harmony": 0.25,
-  "gate_harmony": 0.311,
+  "cycles": 148,
+  "n_agents_active": 10,
+  "global_harmony": 0.0,
+  "gate_harmony": 0.253,
   "last_validates": {
     "agent_tools": "WARN",
-    "agent_tests": "GO",
+    "agent_tests": "WARN",
     "agent_docs": "WARN",
-    "agent_ops": "WARN"
+    "agent_ops": "WARN",
+    "agent_coder": "WARN",
+    "agent_planner": "WARN",
+    "agent_debugger": "WARN",
+    "agent_architect": "WARN",
+    "agent_refactor": "WARN",
+    "agent_git": "WARN"
   },
-  "updated_at": "2026-05-13T14:39:39.704506+00:00"
+  "updated_at": "2026-05-17T13:28:02.919146+00:00"
 }

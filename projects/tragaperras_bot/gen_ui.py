@@ -15,6 +15,8 @@ Activos generados en static/ui/:
   panel_jackpot.png    430×932  overlay jackpot (negro+neón dorado)
 """
 from __future__ import annotations
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 import math, os, random, subprocess, sys, io
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
