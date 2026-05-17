@@ -2,19 +2,24 @@
 """
 gateway.py — BAGO Messaging Gateway
 
-Configura, arranca y monitoriza canales de mensajería como puerta de entrada
-a BAGO desde Telegram, WhatsApp, Discord, Slack, Signal, Email, SMS y más.
+Plataformas soportadas (España-first + Utopia P2P):
+  WhatsApp   Green API REST              [#1 España, 80%]
+  Telegram   Bot API oficial             [#2 España, 19%]
+  Signal     signal-cli local            [privacidad E2E]
+  Email      SMTP estándar               [universal]
+  ntfy       push HTTP auto-hospedable   [dev-friendly]
+  Utopia P2P API local 1984 Group LP     [cifrado P2P descentralizado]
 
 Subcomandos:
-    install     TUI selector de plataformas → wizard de configuración
-    status      Estado de todos los canales configurados
-    start       Arranca los daemons activos
-    stop        Para los daemons activos
-    test        Envía mensaje de prueba por cada canal configurado
+    install   TUI selector → wizard de configuración por plataforma
+    status    Estado de todos los canales configurados
+    start     Arranca los daemons activos (Telegram, WhatsApp)
+    stop      Para los daemons activos
+    test      Envía mensaje de prueba por cada canal configurado
 
 Uso:
-    python3 gateway.py              → muestra status + menú
-    python3 gateway.py install      → selector de plataformas
+    python3 gateway.py              → status
+    python3 gateway.py install      → selector TUI
     python3 gateway.py status       → tabla de estado
     python3 gateway.py start        → arranca daemons
     python3 gateway.py test         → test de conexión
@@ -25,11 +30,13 @@ from __future__ import annotations
 import json
 import os
 import signal
+import smtplib
 import sys
 import subprocess
 import termios
 import tty
 import urllib.request
+from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 
@@ -48,23 +55,87 @@ CONFIG  = STATE / "gateway_config.json"
 
 console = Console()
 
-# ── Platform catalog ─────────────────────────────────────────────────────────
+# ── Platform catalog — España-first + Utopia P2P ─────────────────────────────
 PLATFORMS: list[dict[str, Any]] = [
-    {"id": "telegram",   "icon": "📱", "name": "Telegram",              "fields": [("token", "Bot Token (@BotFather)", True), ("chat_id", "Chat ID", False)]},
-    {"id": "whatsapp",   "icon": "📲", "name": "WhatsApp",              "fields": [("instance_id", "Green API Instance ID", False), ("api_token", "API Token", True), ("phone", "Tu número (+34…)", False)]},
-    {"id": "discord",    "icon": "🎮", "name": "Discord",               "fields": [("webhook_url", "Webhook URL", True)]},
-    {"id": "slack",      "icon": "💼", "name": "Slack",                 "fields": [("webhook_url", "Webhook URL", True)]},
-    {"id": "signal",     "icon": "📡", "name": "Signal",                "fields": [("phone", "Número registrado", False), ("signal_cli", "Ruta signal-cli", False)]},
-    {"id": "email",      "icon": "📧", "name": "Email",                 "fields": [("smtp_host", "SMTP Host", False), ("smtp_port", "Puerto", False), ("user", "Usuario", False), ("password", "Contraseña", True), ("to", "Destinatario", False)]},
-    {"id": "sms",        "icon": "📱", "name": "SMS (Twilio)",          "fields": [("account_sid", "Account SID", False), ("auth_token", "Auth Token", True), ("from_number", "Número Twilio", False), ("to_number", "Destinatario", False)]},
-    {"id": "matrix",     "icon": "🔐", "name": "Matrix",                "fields": [("homeserver", "Homeserver URL", False), ("token", "Access Token", True), ("room_id", "Room ID", False)]},
-    {"id": "mattermost", "icon": "💬", "name": "Mattermost",            "fields": [("webhook_url", "Incoming Webhook URL", True)]},
-    {"id": "ntfy",       "icon": "🔔", "name": "ntfy (push)",           "fields": [("server", "Servidor (https://ntfy.sh)", False), ("topic", "Topic", False)]},
-    {"id": "teams",      "icon": "💼", "name": "Microsoft Teams",       "fields": [("webhook_url", "Webhook URL", True)]},
-    {"id": "gchat",      "icon": "💬", "name": "Google Chat",           "fields": [("webhook_url", "Webhook URL", True)]},
-    {"id": "line",       "icon": "💚", "name": "LINE",                  "fields": [("token", "Channel Access Token", True)]},
-    {"id": "irc",        "icon": "💬", "name": "IRC",                   "fields": [("server", "Servidor IRC", False), ("port", "Puerto", False), ("nick", "Nick", False), ("channel", "Canal (#bago)", False)]},
-    {"id": "simplex",    "icon": "🔒", "name": "SimpleX Chat",          "fields": [("server_url", "SimpleX server URL", False)]},
+    {
+        "id": "whatsapp",
+        "icon": "📲",
+        "name": "WhatsApp",
+        "badge": "#1 España · 80%",
+        "help": "Requiere cuenta Green API (green-api.com) — plan gratuito disponible.",
+        "fields": [
+            ("instance_id", "Instance ID (ej. 1101XXXXXXXX)", False),
+            ("api_token",   "API Token",                      True),
+            ("phone",       "Número destino (+34XXXXXXXXX)",  False),
+        ],
+    },
+    {
+        "id": "telegram",
+        "icon": "✈️ ",
+        "name": "Telegram",
+        "badge": "#2 España · 19%",
+        "help": "Crea un bot en @BotFather. Obtén tu chat_id con @userinfobot.",
+        "fields": [
+            ("token",   "Bot Token (ej. 7123456789:AAF…)", True),
+            ("chat_id", "Chat ID (ej. -100XXXXXXXXXX)",    False),
+        ],
+    },
+    {
+        "id": "signal",
+        "icon": "📡",
+        "name": "Signal",
+        "badge": "Privacidad · E2E",
+        "help": "Requiere signal-cli instalado. https://github.com/AsamK/signal-cli",
+        "fields": [
+            ("phone",      "Número registrado (+34…)",           False),
+            ("signal_cli", "Ruta signal-cli (o 'signal-cli')",   False),
+            ("recipient",  "Número destinatario (+34…)",         False),
+        ],
+    },
+    {
+        "id": "email",
+        "icon": "📧",
+        "name": "Email",
+        "badge": "Universal",
+        "help": "Funciona con Gmail (App Password), Outlook, cualquier SMTP.",
+        "fields": [
+            ("smtp_host", "SMTP Host (ej. smtp.gmail.com)",    False),
+            ("smtp_port", "Puerto (587=TLS / 465=SSL)",        False),
+            ("user",      "Usuario (tu email)",                False),
+            ("password",  "Contraseña / App Password",         True),
+            ("to",        "Destinatario",                      False),
+        ],
+    },
+    {
+        "id": "ntfy",
+        "icon": "🔔",
+        "name": "ntfy",
+        "badge": "Push · self-host",
+        "help": "ntfy.sh es gratuito y open source. Instala la app en móvil.",
+        "fields": [
+            ("server", "Servidor (ej. https://ntfy.sh)",    False),
+            ("topic",  "Topic secreto (ej. bago-mi-clave)", False),
+        ],
+    },
+    {
+        "id": "utopia",
+        "icon": "🔐",
+        "name": "Utopia P2P",
+        "badge": "1984 Group LP · Cifrado P2P",
+        "help": (
+            "Requiere el cliente Utopia corriendo localmente (https://u.is).\n"
+            "  1. Instala Utopia desde https://u.is\n"
+            "  2. Activa la API: Ajustes → API (puerto 22091 por defecto)\n"
+            "  3. Copia el Token que genera el cliente\n"
+            "  4. Obtén la Public Key del destinatario desde su perfil"
+        ),
+        "fields": [
+            ("host",      "Host API (ej. localhost)",           False),
+            ("port",      "Puerto API (ej. 22091)",             False),
+            ("token",     "API Token (desde cliente Utopia)",   True),
+            ("recipient", "Public Key del destinatario",        False),
+        ],
+    },
 ]
 
 _PLATFORM_BY_ID = {p["id"]: p for p in PLATFORMS}
@@ -165,10 +236,14 @@ def _install_tui(cfg: dict) -> dict:
             pid = p["id"]
             configured = _is_configured(cfg, pid)
             marker = "✅" if configured else "○"
-            badge  = " (configurado)" if configured else " (no configurado)"
+            badge  = p.get("badge", "")
+            state  = "configurado" if configured else "no configurado"
             style  = "bold cyan on grey23" if i == sel else ("green" if configured else "dim")
             prefix = "❯ " if i == sel else "  "
-            console.print(f"  {prefix}{marker} {p['icon']} {p['name']:<28}", badge, style=style)
+            console.print(
+                f"  {prefix}{marker} {p['icon']} {p['name']:<22} [dim]{badge}[/]  [{'green' if configured else 'dim'}]({state})[/]",
+                style=style,
+            )
 
         key = _getch()
         if key in ("\x1b[A", "k") and sel > 0:
@@ -189,11 +264,17 @@ def _configure_platform(cfg: dict, platform: dict) -> dict:
     existing = cfg.get(pid, {})
 
     console.clear()
+    badge = platform.get("badge", "")
+    help_text = platform.get("help", "")
     console.print(Panel(
-        Text(f"Configurar {platform['icon']} {platform['name']}", style="bold cyan"),
-        subtitle="Deja vacío para mantener el valor actual • Ctrl+C para cancelar",
+        Text(f"{platform['icon']} {platform['name']}  [{badge}]", style="bold cyan"),
+        subtitle="Deja vacío para mantener el valor actual  •  Ctrl+C para cancelar",
         border_style="cyan",
     ))
+    if help_text:
+        for line in help_text.splitlines():
+            console.print(f"  [dim]{line}[/]")
+        console.print()
 
     new_vals: dict[str, str] = {}
     try:
@@ -238,6 +319,17 @@ def _verify_platform(pid: str, data: dict) -> bool | None:
                 body = json.loads(r.read())
                 return body.get("ok", False)
 
+        elif pid == "whatsapp":
+            # Green API: verificar que la instancia está activa
+            iid   = data.get("instance_id", "")
+            token = data.get("api_token", "")
+            if not iid or not token:
+                return False
+            url = f"https://api.green-api.com/waInstance{iid}/getStateInstance/{token}"
+            with urllib.request.urlopen(url, timeout=8) as r:
+                body = json.loads(r.read())
+                return body.get("stateInstance") == "authorized"
+
         elif pid == "ntfy":
             server = data.get("server", "https://ntfy.sh").rstrip("/")
             topic  = data.get("topic", "bago-test")
@@ -249,19 +341,35 @@ def _verify_platform(pid: str, data: dict) -> bool | None:
             with urllib.request.urlopen(req, timeout=8):
                 return True
 
-        elif pid in ("discord", "slack", "mattermost", "teams", "gchat"):
-            url = data.get("webhook_url", "")
-            if not url:
+        elif pid == "utopia":
+            # Utopia P2P: llama a getSystemInfo para verificar API activa
+            host  = data.get("host", "localhost")
+            port  = data.get("port", "22091")
+            token = data.get("token", "")
+            if not token:
                 return False
-            payload = json.dumps({"text": "🤖 BAGO gateway test"}).encode()
-            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=8) as r:
-                return r.status < 400
+            url = f"http://{host}:{port}/api/v1/getSystemInfo"
+            req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                body = json.loads(r.read())
+                return body.get("result") is not None
+
+        elif pid == "email":
+            host = data.get("smtp_host", "")
+            port = int(data.get("smtp_port", "587") or "587")
+            user = data.get("user", "")
+            pwd  = data.get("password", "")
+            if not all([host, user, pwd]):
+                return False
+            with smtplib.SMTP(host, port, timeout=8) as s:
+                s.starttls()
+                s.login(user, pwd)
+            return True
 
     except Exception:
         return False
 
-    return None  # no verifier for this platform
+    return None  # no verifier disponible para esta plataforma
 
 
 # ── Send via configured channels ──────────────────────────────────────────────
@@ -294,14 +402,55 @@ def _send_one(pid: str, data: dict, message: str) -> bool:
             with urllib.request.urlopen(req, timeout=8) as r:
                 return r.status == 200
 
-        elif pid in ("discord", "slack", "mattermost", "teams", "gchat"):
-            url = data.get("webhook_url", "")
-            if not url:
+        elif pid == "whatsapp":
+            # Green API send message
+            iid   = data.get("instance_id", "")
+            token = data.get("api_token", "")
+            phone = data.get("phone", "").lstrip("+")
+            if not all([iid, token, phone]):
                 return False
-            payload = json.dumps({"text": message, "content": message}).encode()
-            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=8) as r:
-                return r.status < 400
+            url = f"https://api.green-api.com/waInstance{iid}/sendMessage/{token}"
+            payload = json.dumps({
+                "chatId": f"{phone}@c.us",
+                "message": message,
+            }).encode()
+            req = urllib.request.Request(
+                url, data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as r:
+                body = json.loads(r.read())
+                return "idMessage" in body
+
+        elif pid == "signal":
+            cli       = data.get("signal_cli", "signal-cli")
+            phone     = data.get("phone", "")
+            recipient = data.get("recipient", "")
+            if not all([phone, recipient]):
+                return False
+            result = subprocess.run(
+                [cli, "-u", phone, "send", "-m", message, recipient],
+                capture_output=True, timeout=15,
+            )
+            return result.returncode == 0
+
+        elif pid == "email":
+            host = data.get("smtp_host", "")
+            port = int(data.get("smtp_port", "587") or "587")
+            user = data.get("user", "")
+            pwd  = data.get("password", "")
+            to   = data.get("to", "")
+            if not all([host, user, pwd, to]):
+                return False
+            msg = MIMEText(message, "plain", "utf-8")
+            msg["Subject"] = "🤖 BAGO"
+            msg["From"]    = user
+            msg["To"]      = to
+            with smtplib.SMTP(host, port, timeout=10) as s:
+                s.starttls()
+                s.login(user, pwd)
+                s.sendmail(user, [to], msg.as_string())
+            return True
 
         elif pid == "ntfy":
             server = data.get("server", "https://ntfy.sh").rstrip("/")
@@ -313,6 +462,31 @@ def _send_one(pid: str, data: dict, message: str) -> bool:
             )
             with urllib.request.urlopen(req, timeout=8):
                 return True
+
+        elif pid == "utopia":
+            # Utopia P2P — REST API local (1984 Group LP)
+            host      = data.get("host", "localhost")
+            port      = data.get("port", "22091")
+            token     = data.get("token", "")
+            recipient = data.get("recipient", "")
+            if not token or not recipient:
+                return False
+            payload = json.dumps({
+                "to":      recipient,
+                "message": message,
+                "isText":  True,
+            }).encode()
+            req = urllib.request.Request(
+                f"http://{host}:{port}/api/v1/sendInstantMessage",
+                data=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=8) as r:
+                body = json.loads(r.read())
+                return body.get("result") is not None
 
     except Exception:
         pass
