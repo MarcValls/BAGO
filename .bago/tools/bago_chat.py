@@ -47,7 +47,7 @@ import time as _time
 _FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
 
 # Frames de la avispa asiática ASCII para la barra (alterna al refrescar el prompt)
-_BEE_FRAMES = [">≡ᗑ≡< ", ">─ᗑ─< ", ">≡ᗑ≡< ", ">=ᗑ=< "]
+_BEE_FRAMES = ["╱◉╲ ", "─◉─ ", "╲◉╱ ", "─◉─ "]
 
 def _bee_tick() -> str:
     """Frame actual de la abeja según el tiempo (cambia cada ~0.5s)."""
