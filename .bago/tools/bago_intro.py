@@ -70,30 +70,69 @@ LOGO_W  = max(len(l) for l in LOGO)
 LOGO_H  = len(LOGO)
 TAGLINE = "Balanceado · Adaptativo · Generativo · Organizativo"
 
-# ── Logo de la avispa (pixel art → ASCII) ────────────────────────────────────
-# Basado en el emblema: avispa asiática azul sobre círculo blanco
-# Vista cenital: antenas, cabeza, alas extendidas, abdomen segmentado, aguijón
-WASP_ART = [
-    r"   ╲  ╱    ",   # antenas (divergen hacia arriba)
-    r"  ─(◉)─    ",   # cabeza + raíz de antenas
-    r" ╱══════╲  ",   # tórax + arranque de alas
-    r"╪═══════╪  ",   # alas extendidas al máximo
-    r" ╲══════╱  ",   # tórax inferior
-    r"   │██│    ",   # abdomen
-    r"   └─▼─┘   ",   # aguijón
+# ── Medallón pixel art (avispa azul en círculo teal) ─────────────────────────
+# Cada carácter = 1 unidad de píxel → se renderiza como 2 espacios coloreados
+#   '.' fuera del círculo  (terminal bg transparente)
+#   'O' borde del círculo  (verde oscuro / teal)
+#   ' ' interior blanco    (gris muy claro)
+#   'W' cuerpo avispa      (azul del pixel art)
+_MED = [
+    "...OOOOOOOOOOOOOOOOOO...",   # arco superior
+    "..OO                OO..",
+    ".O    W          W    O.",   # antenas
+    ".O      W      W      O.",
+    ".O       WWWWWWW       O.",  # cabeza
+    ".O      WWWWWWWWW      O.",  # tórax
+    ".O   WWWWWWWWWWWWWWW   O.",  # alas arranque
+    "OO  WWWWWWWWWWWWWWWWW  OO",  # alas máximo vuelo
+    ".O   WWWWWWWWWWWWWWW   O.",  # alas inferiores
+    ".O      WWWWWWWWW      O.",  # tórax inferior
+    ".O        WWWWW        O.",  # abdomen superior
+    ".O         WWW         O.",  # abdomen medio
+    ".O          W          O.",  # aguijón superior
+    "..OO                OO..",
+    "...OOOOOOOOOOOOOOOOOO...",   # arco inferior
 ]
-WASP_W = max(len(l) for l in WASP_ART)
-WASP_H = len(WASP_ART)   # 7 líneas — se centra verticalmente junto al logo
+_MED_PX_W = len(_MED[0])    # píxeles de ancho (24)
+MED_W     = _MED_PX_W * 2   # columnas de terminal (48)
+MED_H     = len(_MED)        # filas (15)
+
+# WASP_W / WASP_H: aliases para compatibilidad
+WASP_W = MED_W
+WASP_H = MED_H
+
+# Colores del medallón (truecolor + fallback 256)
+if USE_TC:
+    _C_BORDER = "\033[48;2;0;85;75m"       # teal oscuro del borde
+    _C_BG     = "\033[48;2;230;232;230m"   # blanco interior
+    _C_WASP   = "\033[48;2;40;115;195m"    # azul del pixel art
+else:
+    _C_BORDER = "\033[42m"   # verde (256)
+    _C_BG     = "\033[107m"  # blanco brillante (256)
+    _C_WASP   = "\033[44m"   # azul (256)
+_C_RST = "\033[0m"
+
+def _render_med_row(row_str: str) -> str:
+    """Convierte una fila del mapa pixel en caracteres de terminal coloreados."""
+    buf = []
+    for ch in row_str:
+        if   ch == '.': buf.append("  ")
+        elif ch == 'O': buf.append(f"{_C_BORDER}  {_C_RST}")
+        elif ch == ' ': buf.append(f"{_C_BG}  {_C_RST}")
+        elif ch == 'W': buf.append(f"{_C_WASP}  {_C_RST}")
+        else:           buf.append("  ")
+    return "".join(buf)
+
+def _draw_medallion(start_row: int, col: int) -> None:
+    """Renderiza el medallón completo en su posición."""
+    out = sys.stdout.write
+    for r, row_str in enumerate(_MED):
+        out(_goto(start_row + r, col) + _render_med_row(row_str))
+    sys.stdout.flush()
 
 # ── Avispa volando (animación de vuelo — una línea) ───────────────────────────
-#   ◉ = cuerpo/tórax  ╱╲ = alas en distintas posiciones
-BEE_FRAMES = [
-    r"╱\◉/╲",   # alas arriba
-    r"──◉──",   # alas horizontal
-    r"╲/◉\╱",   # alas abajo
-    r"──◉──",   # alas horizontal
-]
-BEE_TRAIL = ["·", "·", " "]   # estela de vuelo
+BEE_FRAMES = [r"╱\◉/╲", r"──◉──", r"╲/◉\╱", r"──◉──"]
+BEE_TRAIL  = ["·", "·", " "]
 
 # ── Spinner ───────────────────────────────────────────────────────────────────
 _SPIN     = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]
@@ -190,14 +229,16 @@ def play(fast: bool = False, skip: bool = False) -> None:
 def _animate(fast: bool = False) -> None:
     cols, rows = _term_size()
 
-    # Layout vertical: medallón (avispa) centrado arriba → logo BAGO centrado abajo
-    total_h   = WASP_H + 1 + LOGO_H + 3 + len(BOOT_MSGS) + 3
+    # Layout vertical: medallón pixel art centrado arriba → logo BAGO centrado abajo
+    # Si el terminal es pequeño (<35 filas), compactar medallón
+    use_full_med = rows >= 35
+    med_h   = MED_H if use_full_med else 7
+    total_h = med_h + 1 + LOGO_H + 3 + len(BOOT_MSGS) + 3
     start_row = max(2, (rows - total_h) // 2)
+
     wasp_row  = start_row
-    logo_row  = start_row + WASP_H + 1
-    wasp_col  = max(1, (cols - WASP_W) // 2 + 1)
+    logo_row  = start_row + med_h + 1
     logo_col  = max(1, (cols - LOGO_W) // 2 + 1)
-    bee_row   = wasp_row - 2          # fila de vuelo: encima del medallón
     tag_row   = logo_row + LOGO_H + 1
     msg_row   = tag_row + 2
     act_row   = msg_row + len(BOOT_MSGS) + 1
@@ -206,17 +247,44 @@ def _animate(fast: bool = False) -> None:
     out(HIDE_CURSOR + CLEAR)
     sys.stdout.flush()
 
-    # ── 1. REVEAL: medallón avispa línea a línea ─────────────────────────────
-    for i, line in enumerate(WASP_ART):
-        rendered = _wasp_line(line, i, intensity=1.0)
-        if USE_COLOR:
-            out(_goto(wasp_row + i, wasp_col) +
-                f"\033[1;34m{'─' * WASP_W}\033[0m")
+    # ── 1. REVEAL: medallón pixel art línea a línea ───────────────────────────
+    if use_full_med:
+        med_display_w = MED_W
+        wasp_col = max(1, (cols - med_display_w) // 2 + 1)
+        for i, row_str in enumerate(_MED):
+            # Línea de scan antes del reveal
+            if USE_COLOR and not fast:
+                out(_goto(wasp_row + i, wasp_col) +
+                    f"\033[1;36m{'──' * _MED_PX_W}\033[0m")
+                sys.stdout.flush()
+                time.sleep(0.012)
+            out(_goto(wasp_row + i, wasp_col) + _render_med_row(row_str))
             sys.stdout.flush()
-            time.sleep(0.018 if not fast else 0.0)
-        out(_goto(wasp_row + i, wasp_col) + rendered)
-        sys.stdout.flush()
-        time.sleep(0.04 if not fast else 0.002)
+            time.sleep(0.035 if not fast else 0.001)
+    else:
+        # Fallback compacto para terminales pequeños
+        _WASP_COMPACT = [
+            r"   ╲  ╱   ",
+            r"  ─(◉)─   ",
+            r" ╱══════╲  ",
+            r" ╪═══════╪ ",
+            r" ╲══════╱  ",
+            r"   │██│    ",
+            r"   └─▼─┘   ",
+        ]
+        compact_w = max(len(l) for l in _WASP_COMPACT)
+        wasp_col = max(1, (cols - compact_w) // 2 + 1)
+        for i, line in enumerate(_WASP_COMPACT):
+            if USE_COLOR:
+                r2 = int(26 + 10 * i / 7)
+                g2 = int(106 + 30 * i / 7)
+                b2 = int(191 + 40 * i / 7)
+                rendered = f"\033[38;2;{r2};{g2};{b2}m{line}\033[0m"
+            else:
+                rendered = line
+            out(_goto(wasp_row + i, wasp_col) + rendered)
+            sys.stdout.flush()
+            time.sleep(0.04 if not fast else 0.002)
 
     # ── 2. REVEAL: logo BAGO línea a línea ───────────────────────────────────
     for i, line in enumerate(LOGO):
@@ -230,25 +298,7 @@ def _animate(fast: bool = False) -> None:
         sys.stdout.flush()
         time.sleep(0.04 if not fast else 0.002)
 
-    # ── 3. AVISPA VOLANDO (encima del medallón, entra desde izquierda) ────────
-    if not fast:
-        bee_target_col = wasp_col + WASP_W // 2
-        fly_steps  = max(10, bee_target_col)
-        step_size  = max(1, bee_target_col // fly_steps)
-        frame = 0
-        for col in range(1, bee_target_col + 1, step_size):
-            _draw_bee(bee_row, col, frame, trail_len=min(col, 5), cols=cols)
-            frame += 1
-            time.sleep(0.025)
-        for bounce in [bee_target_col + 1, bee_target_col - 1, bee_target_col]:
-            _draw_bee(bee_row, bounce, frame, trail_len=3, cols=cols)
-            frame += 1
-            time.sleep(0.05)
-        for flap in range(6):
-            _draw_bee(bee_row, bee_target_col, flap, trail_len=0, cols=cols)
-            time.sleep(0.08)
-
-    # ── 4. PULSO (respiración de color en logo BAGO) ──────────────────────────
+    # ── 3. PULSO (respiración de color en logo BAGO) ──────────────────────────
     if not fast:
         steps = 8
         for _pulse in range(2):
@@ -260,19 +310,17 @@ def _animate(fast: bool = False) -> None:
                 time.sleep(0.022)
         _draw_logo(logo_row, logo_col, intensity=1.0)
 
-    # ── 5. TAGLINE ───────────────────────────────────────────────────────────
+    # ── 4. TAGLINE ───────────────────────────────────────────────────────────
     tag_col = max(1, (cols - len(TAGLINE)) // 2 + 1)
     if USE_COLOR:
         tag_rendered = f"\033[2;36m{TAGLINE}\033[0m"
     else:
         tag_rendered = TAGLINE
     out(_goto(tag_row, tag_col) + tag_rendered)
-    if not fast:
-        _clear_bee_row(bee_row, cols)
     sys.stdout.flush()
     time.sleep(0.12 if not fast else 0.01)
 
-    # ── 6. BOOT MESSAGES con spinner ─────────────────────────────────────────
+    # ── 5. BOOT MESSAGES con spinner ─────────────────────────────────────────
     spinner  = _SPIN if USE_COLOR else _SPIN_PLN
     spin_idx = 0
     msg_col  = max(1, (cols - len(max(BOOT_MSGS, key=len)) - 6) // 2 + 1)
