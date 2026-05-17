@@ -61,6 +61,16 @@ class BagoSession:
         if name in shortcuts:
             r = best_model_for_provider(shortcuts[name], self.providers)
             if r: return r
+        # Handle "provider/model" format (e.g. "copilot/gpt-4o")
+        if "/" in name:
+            pref, mname = name.split("/", 1)
+            for pn, pd in self.providers.items():
+                if pn == pref and mname in pd.get("models", {}):
+                    return mname, pd["models"][mname].get("wire_name", mname), pn
+            # Provider matched but model not in registry — try as-is
+            for pn, pd in self.providers.items():
+                if pn == pref:
+                    return mname, mname, pn
         for pn, pd in self.providers.items():
             if name in pd.get("models", {}):
                 return name, pd["models"][name].get("wire_name", name), pn

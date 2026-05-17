@@ -50,7 +50,18 @@ def cmd(line, session):
             result = session.creds.do_login(a)
             console.print(f"  {result}")
     elif v == "/switch":
-        if not a: pe("Uso: /switch <modelo|provider>")
+        if not a:
+            # Interactive model picker
+            from .ui import _menu_pick
+            rows = []
+            for pn, pd in session.providers.items():
+                rows.append((None, f"── {pn} ──"))
+                for mn in pd.get("models", {}):
+                    rows.append((f"{pn}/{mn}", f"  {mn}  [{pn}]"))
+            chosen = _menu_pick("/switch — Elegir modelo", "Selecciona un modelo:", rows)
+            if chosen:
+                msg = session.switch_model(chosen)
+                pi(msg)
         else:
             msg = session.switch_model(a)
             pi(msg)
@@ -206,7 +217,7 @@ def cmd(line, session):
             _model    = _ag.get("model", session.model_name)
             _provider = _ag.get("provider", session.provider)
             _sysprompt = _ag.get("system_prompt", "")
-            # Switch model/provider
+            # Switch model/provider (provider/model format now supported by _find_model)
             try:
                 msg = session.switch_model(f"{_provider}/{_model}")
             except Exception:
@@ -217,8 +228,13 @@ def cmd(line, session):
             pi(f"[bold cyan]Agente activado:[/bold cyan] {_aname}  |  {_model} ({_provider})")
             pi(f"Skills: {', '.join(_ag.get('skills', []))}")
             if a:
-                # prompt inline: process it immediately as a message
-                return True
+                # Inline prompt: send immediately to the LLM
+                from .llm import chat as _chat
+                result = _chat(session, a)
+                if result:
+                    from .ui import show_response as _show
+                    _show(result, session.model_name, session.provider)
+            return True
         else:
             pe(f"Desconocido: {v}  —  /help")
     return True

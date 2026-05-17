@@ -491,7 +491,7 @@ def _menu_input(title, text, default=""):
 def _menu_confirm(title, text):
     try:
         return yes_no_dialog(title=title, text=text,
-                             yes_text="Si",
+                             yes_text="Sí",
                              no_text="No",
                              style=_MENU_STYLE).run()
     except Exception:
