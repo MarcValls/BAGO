@@ -475,6 +475,48 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         preflight_policy="required",
     ),
+    "field": ToolEntry(
+        cmd="field", module="bago_field",
+        description=(
+            "BAGO Field — Escáner del campo magnético de modelos/providers. "
+            "Detecta disponibilidad, genera matriz de campo y gestiona bago-local. "
+            "Uso: bago field [scan|status|pull <model>|calibrate <model>]"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_field.py"))],
+        layer="sistema", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="required",
+    ),
+    "boot": ToolEntry(
+        cmd="boot", module="bago_boot",
+        description=(
+            "BAGO Boot Examiner — Arranca BAGO de forma examinada: detecta proyecto, "
+            "escanea campo de modelos, verifica safeguards y fabrica frases-operador. "
+            "Uso: bago boot [examine|status|phrases]"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_boot.py"))],
+        layer="sistema", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        preflight_policy="required",
+    ),
+    "safeguard": ToolEntry(
+        cmd="safeguard", module="bago_safeguard",
+        description=(
+            "BAGO Safeguard Panel — Gestiona los 4 genes de protección del sistema: "
+            "identity, safety_contract, kill_switch_policy, project_boundary. "
+            "Uso: bago safeguard [status|explain <gene>|set <gene> <state>|history]"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_safeguard.py"))],
+        layer="sistema", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="moderate",
+        preflight_policy="required",
+    ),
     "hub": ToolEntry(
         cmd="hub", module="bago_hub",
         description="BAGO Hub â€” interfaz central Gradio con dashboard, herramientas, Image Studio e ideas",

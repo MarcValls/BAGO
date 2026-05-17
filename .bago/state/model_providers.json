@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "2026-05-14",
   "providers": {
     "ollama-local": {
@@ -37,6 +37,20 @@
           "max_output_tokens": 4096,
           "best_for": "fast_confirmations",
           "cost": "free"
+        },
+        "bago-local": {
+          "wire_name": "marcvallssanvictor/BAGO",
+          "best_for": "boot phrases, project summary, session continuity, BAGO-style responses, local reasoning, reactor low-cost observe loop",
+          "not_for": "unverified code writes, dangerous autonomous mutations, final validation",
+          "cost": "free",
+          "privacy": "local",
+          "risk": "medium",
+          "locality": 1.0,
+          "role": "bago_native_model",
+          "requires": [
+            "ollama",
+            "ollama pull marcvallssanvictor/BAGO"
+          ]
         }
       }
     },
@@ -181,8 +195,26 @@
     }
   },
   "router_rules": {
-    "local_first": ["explain", "summarize", "plan", "brainstorm", "small_snippet"],
-    "copilot_first": ["pr_review", "diff_review", "code_review", "research"],
-    "codex_first": ["edit_files", "run_commands", "tests", "multi_file", "install", "deploy"]
+    "local_first": [
+      "explain",
+      "summarize",
+      "plan",
+      "brainstorm",
+      "small_snippet"
+    ],
+    "copilot_first": [
+      "pr_review",
+      "diff_review",
+      "code_review",
+      "research"
+    ],
+    "codex_first": [
+      "edit_files",
+      "run_commands",
+      "tests",
+      "multi_file",
+      "install",
+      "deploy"
+    ]
   }
 }
