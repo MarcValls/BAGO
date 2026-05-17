@@ -55,6 +55,7 @@ class BagoSession:
     def litellm_info(self): return resolve_litellm(self.provider, self.wire_name)
 
     def _find_model(self, name):
+        from .providers import _CODEX_MODEL_MAP, _COPILOT_MODEL_MAP
         shortcuts = {"copilot":"copilot","codex":"codex","ollama":"ollama-local",
                      "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud","anthropic":"anthropic"}
         if name in shortcuts:
@@ -63,6 +64,15 @@ class BagoSession:
         for pn, pd in self.providers.items():
             if name in pd.get("models", {}):
                 return name, pd["models"][name].get("wire_name", name), pn
+        # Nombres ficticios gpt-5.x / claude-* → buscar en provider disponible
+        if name in _CODEX_MODEL_MAP:
+            for pref in ("codex", "openai", "copilot"):
+                if pref in self.providers:
+                    return name, _CODEX_MODEL_MAP[name], pref
+        if name in _COPILOT_MODEL_MAP:
+            for pref in ("copilot",):
+                if pref in self.providers:
+                    return name, _COPILOT_MODEL_MAP[name], pref
         return None, None, None
 
     def switch_model(self, target, silent=False):

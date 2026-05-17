@@ -136,6 +136,18 @@ def resolve_litellm(provider, wire_name):
     if provider in ("codex", "openai"):
         # Nombres internos de BAGO → modelos reales de OpenAI
         mapped = _CODEX_MODEL_MAP.get(wire_name, wire_name)
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        if api_key:
+            return mapped, {"api_key": api_key}
+        # Sin OPENAI_API_KEY → redirigir a copilot (GitHub Models) si hay token
+        gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+        if gh_token:
+            # GitHub Models solo tiene gpt-4o/gpt-4o-mini
+            safe = "gpt-4o-mini" if "mini" in mapped else "gpt-4o"
+            return f"openai/{safe}", {
+                "api_base": "https://models.inference.ai.azure.com",
+                "api_key": gh_token,
+            }
         return mapped, {}
     return wire_name, {}
 
