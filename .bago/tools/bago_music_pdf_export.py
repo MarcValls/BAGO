@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_music_pdf_export.py — Exporta MusicXML a PDF-ready HTML autocontenido.
 
 Estrategia:

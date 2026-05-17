@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_inventory.py — Descubre y cataloga todas las capacidades reutilizables de BAGO.
 
 Escanea:

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """pipeline_casino_balance.py — Pipeline Balance de Juego para Casino BAGO.
 
 Fases:

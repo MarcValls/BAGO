@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_copilot_bridge.py — Lanza GitHub Copilot desde CLI via web o VS Code."""
 import sys
 import subprocess

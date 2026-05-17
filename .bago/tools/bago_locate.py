@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_locate.py — Detecta la fuente de verdad de BAGO.
 
 Jerarquía:

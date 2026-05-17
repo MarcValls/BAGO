@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_health_check.py — Verifica disponibilidad real de cada modelo.
 
 No solo verifica si el proveedor responde, sino qué modelos específicos

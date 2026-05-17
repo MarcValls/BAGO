@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """BAGO Electron Packager — Empaqueta web app como app de escritorio
 
 Uso:

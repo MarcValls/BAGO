@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """agent_router.py - Router hibrido local/Codex/Copilot para BAGO.
 
 Modo recomendado: balanced + adaptive.

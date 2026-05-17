@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """pipeline_casino_assets.py — Pipeline Assets Visuales para Casino BAGO.
 
 Orquesta:

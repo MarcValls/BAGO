@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """BAGO Telegram Daemon — polling real de mensajes + ejecución de comandos"""
 import json, os, sys, subprocess, time, threading, re
 from pathlib import Path

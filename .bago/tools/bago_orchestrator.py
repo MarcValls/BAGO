@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_orchestrator.py — Selecciona modelo óptimo según tarea, disponibilidad y coste.
 
 Integra:

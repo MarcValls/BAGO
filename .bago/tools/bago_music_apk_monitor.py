@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """BAGO Music — monitor APK build + send Telegram notification"""
 import json, os, sys, time, subprocess
 import requests

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """pipeline_casino_deploy.py — Pipeline Deploy Seguro para Casino BAGO.
 
 Fases:

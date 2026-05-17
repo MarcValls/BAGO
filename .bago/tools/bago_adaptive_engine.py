@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_adaptive_engine.py — Motor BAGO Balanceado Adaptativo (B/A).
 
 Principios:

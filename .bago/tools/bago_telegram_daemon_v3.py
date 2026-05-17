@@ -1,4 +1,4 @@
-﻿import requests, subprocess, time, threading, os
+import requests, subprocess, time, threading, os
 from pathlib import Path
 from datetime import datetime
 

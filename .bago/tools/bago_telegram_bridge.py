@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """BAGO Telegram Bridge — recibe mensajes de Telegram y ejecuta comandos BAGO"""
 import json, os, sys, subprocess, time, threading, re
 from pathlib import Path

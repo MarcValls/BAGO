@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """bago_dynamic_router.py — Dynamic router: Task → Type → Agent → Role → Tools → Model.
 
 Integrates:
