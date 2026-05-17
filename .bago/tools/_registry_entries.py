@@ -368,9 +368,9 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=False,
     ),
     "doctor": ToolEntry(
-        cmd="doctor", module="bago_doctor",
+        cmd="doctor", module="doctor",
         description="DiagnÃ³stico completo del entorno BAGO: Python, Git, Ollama, modelo LLM, espacio",
-        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_doctor.py"))],
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "doctor.py"))],
         deprecated=True, see_also="bago audit doctor",
     ),
     "research": ToolEntry(

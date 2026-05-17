@@ -236,7 +236,7 @@ function Show-Status {
     }
 
     # Health check
-    $healthScript = Join-Path $script:PRIMARY "..\tools\bago_health_check.py"
+    $healthScript = Join-Path $script:PRIMARY "..\tools\health_check.py"
     if (Test-Path $healthScript) {
         Write-Host ""
         Write-Host "  Health Check:" -ForegroundColor White

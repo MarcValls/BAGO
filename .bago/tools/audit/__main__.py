@@ -20,7 +20,7 @@ EXTERNAL_SUBCOMMANDS = {
     "scan": TOOLS / "scan.py",
     "commit": TOOLS / "commit_readiness.py",
     "push": TOOLS / "pre_push_guard.py",
-    "doctor": TOOLS / "bago_doctor.py",
+    "doctor": TOOLS / "doctor.py",
     "heal": TOOLS / "auto_heal.py",
     "quality": TOOLS / "code_quality_orchestrator.py",
     "purity": TOOLS / "check_validate_purity.py",

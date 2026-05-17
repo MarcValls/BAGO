@@ -41,7 +41,7 @@ class BagoSession:
         }
 
     def _load_orchestrator(self):
-        path = Path(__file__).resolve().parents[1] / "bago_orchestrator.py"
+        path = Path(__file__).resolve().parents[1] / "orchestrator.py"
         if not path.exists():
             return None
         spec = importlib.util.spec_from_file_location("bago_orchestrator_runtime", path)
