@@ -37,12 +37,13 @@
 | BAGO       | Framework de orquestación y launcher        | BAGO launch "tarea"      |
 | Agente     | Proveedor/entidad de ejecución              | codex, copilot, ollama     |
 | Modelo     | LLM específico dentro del agente            | gpt-5.4, claude-sonnet    |
-| Router     | Componente BAGO que clasifica la tarea      | bago_dynamic_router.py     |
-| Orquestador| Componente BAGO que elige agente+modelo      | bago_orchestrator.py       |
+| Router     | Componente BAGO que clasifica la tarea      | bago_dynamic_router.py / intent_router.py |
+| Router de agentes | Componente BAGO que decide proveedor y modelo | agent_router.py / `bago route` |
+| Orquestador| Componente BAGO que ejecuta workflows multi-tool | orchestrator.py       |
 | Launcher   | Componente BAGO que ejecuta                 | bago.ps1 / bago.cmd        |
 | Tarea      | Input del usuario                           | "transponer partitura"     |
 | Rol        | Perfil BAGO asignado a la tarea             | GENERADOR_Contenido        |
-| Tools      | Herramientas BAGO recomendadas              | bago_orchestrator, etc     |
+| Tools      | Herramientas BAGO recomendadas              | tool_registry.py / `bago ask` |
 
 ## Regla de oro
 

@@ -41,7 +41,7 @@
       "description": "Score de salud, reportes, estabilidad, eficiencia y consistencia del framework",
       "tags": ["health", "monitoring", "score"],
       "cli_cmds": ["health", "doctor", "heal-paths", "stability", "efficiency", "consistency"],
-      "scripts": ["health/__main__.py", "health/_score.py", "health/_report.py", "health/_check.py", "bago_doctor.py", "path_healer.py", "stability_summary.py", "efficiency_meter.py", "bago_consistency_check.py", "bago_health_router.py"],
+      "scripts": ["health/__main__.py", "health/_score.py", "health/_report.py", "health/_check.py", "path_healer.py", "stability_summary.py", "efficiency_meter.py", "bago_consistency_check.py", "bago_health_router.py"],
       "when_to_use": "Al inicio de sesión, antes de releases, cuando algo falla inesperadamente"
     },
 

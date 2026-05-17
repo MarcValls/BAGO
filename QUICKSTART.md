@@ -397,5 +397,5 @@ bago help
 
 ---
 
-*BAGO v3.4.0b1 · Mayo 2026 · 85 comandos públicos · 14 core · 63 experimental · 8 dangerous · 28 legacy*
+*BAGO v3.4.0b1 · Mayo 2026 · 126 comandos públicos · 38 core · 80 experimental · 8 dangerous · 28 legacy*
 

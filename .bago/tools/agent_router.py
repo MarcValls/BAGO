@@ -51,14 +51,14 @@ DEFAULT_POLICY: dict = {
 LOCAL_OK_KEYWORDS = {
     "explica", "explicar", "explain", "resumen", "resume", "summarize",
     "idea", "ideas", "brainstorm", "pregunta", "duda", "concepto",
-    "compara", "plan", "planifica", "notas", "pseudocodigo", "pseudocÃ³digo",
+    "compara", "plan", "planifica", "notas", "pseudocodigo", "pseudocódigo",
     "snippet", "ejemplo", "local", "privado", "offline", "sin internet",
-    "rapido", "rÃ¡pido",
+    "rapido", "rápido",
 }
 
 CODE_ASSIST_KEYWORDS = {
-    "codigo", "cÃ³digo", "code", "bug", "funcion", "funciÃ³n", "test", "tests",
-    "pr", "pull request", "refactor", "review", "revision", "revisiÃ³n", "git",
+    "codigo", "código", "code", "bug", "funcion", "función", "test", "tests",
+    "pr", "pull request", "refactor", "review", "revision", "revisión", "git",
     "commit", "error", "debug", "typescript", "javascript", "python"  # noqa: HARDCODE,
 }
 
@@ -67,7 +67,7 @@ CODEX_KEYWORDS = {
     "modificar", "implementar", "implementa", "ejecutar", "ejecuta",
     "automatizar", "pipeline", "api", "json", "bash", "powershell",
     "instala", "instalar", "configura", "deploy", "servidor", "repo",
-    "proyecto", "tests", "migracion", "migraciÃ³n",
+    "proyecto", "tests", "migracion", "migración",
 }
 
 ESCALATION_KEYWORDS = {
@@ -75,11 +75,11 @@ ESCALATION_KEYWORDS = {
     "implementa", "implementar", "crea", "crear", "borra", "borrar",
     "ejecuta", "ejecutar", "instala", "instalar", "arregla", "arreglar",
     "fix", "debug", "falla", "fallo", "error", "test", "tests", "commit",
-    "merge", "deploy", "produccion", "producciÃ³n",
+    "merge", "deploy", "produccion", "producción",
 }
 
 REVIEW_KEYWORDS = {
-    "pr", "pull request", "review", "revision", "revisiÃ³n", "revisa",
+    "pr", "pull request", "review", "revision", "revisión", "revisa",
     "riesgo", "riesgos", "diff", "cambios", "comentarios",
 }
 
@@ -264,12 +264,12 @@ def _read_copilot_models() -> list[str]:
             pass
     return models
 def load_agent_model(agent_id: str) -> str | None:
-    """Devuelve el modelo configurado para un agente BAGO especÃ­fico.
+    """Devuelve el modelo configurado para un agente BAGO específico.
 
     Prioridad:
       1. Campo 'model' en agents_registry.json para ese agente.
       2. Clave 'agent_models.<agent_id>' en llm_config.json.
-      3. None (el router elegirÃ¡ el modelo por defecto).
+      3. None (el router elegirá el modelo por defecto).
     """
     registry_path = STATE_DIR / "agents_registry.json"
     registry = _read_json(registry_path, {})
@@ -336,7 +336,7 @@ def detect_agents() -> list[dict]:
             id="copilot",
             name="BAGO Copilot",
             subtitle="GitHub Copilot CLI",
-            icon="ðŸ¤–",
+            icon="🤖",
             color="#4f8ef7",
             available=copilot_ok,
             reason=copilot_reason,
@@ -346,8 +346,8 @@ def detect_agents() -> list[dict]:
         Agent(
             id="codex",
             name="BAGO Codex",
-            subtitle=f"OpenAI Codex CLI Â· activo: {codex_active}",
-            icon="âš¡",
+            subtitle=f"OpenAI Codex CLI · activo: {codex_active}",
+            icon="⚡",
             color="#7c5ef7",
             available=bool(codex),
             reason=None if codex else "codex no instalado",
@@ -359,7 +359,7 @@ def detect_agents() -> list[dict]:
             id="ollama",
             name="BAGO Ollama",
             subtitle="Modelos locales (sin internet)",
-            icon="â—‰",
+            icon="◉",
             color="#3ecf8e",
             available=bool(ollama_bin),
             reason=None if ollama_bin else "Ollama no instalado o no encontrado",
@@ -370,7 +370,7 @@ def detect_agents() -> list[dict]:
             id="claude",
             name="BAGO Claude",
             subtitle="Anthropic Claude CLI",
-            icon="â—†",
+            icon="◆",
             color="#f6ad55",
             available=bool(claude),
             reason=None if claude else "Claude CLI no instalado",
@@ -441,7 +441,7 @@ def _hard_route(available: dict, policy: dict, sig: dict) -> dict | None:
             model = route["model"] if route and route["model"] in agent.get("models", []) else _agent_model(agent)
             return _decision(
                 agent, agent_id, model, "hard_guardrail",
-                "Tarea musical detectada (partituras, transposiciÃ³n, arreglos). Se escala a agente con control de archivos.",
+                "Tarea musical detectada (partituras, transposición, arreglos). Se escala a agente con control de archivos.",
                 88 if agent_id == "codex" else 75, scores, policy,
                 _available_chain(available, [local_id, agent_id]),
             )
@@ -452,7 +452,7 @@ def _hard_route(available: dict, policy: dict, sig: dict) -> dict | None:
             agent = available[agent_id]
             return _decision(
                 agent, agent_id, _agent_model(agent), "hard_guardrail",
-                "RevisiÃ³n/PR/diff detectado; se escala fuera del modelo local.",
+                "Revisión/PR/diff detectado; se escala fuera del modelo local.",
                 92 if agent_id == "copilot" else 84, scores, policy,
                 _available_chain(available, [local_id, agent_id]),
             )
@@ -468,7 +468,7 @@ def _hard_route(available: dict, policy: dict, sig: dict) -> dict | None:
             agent = available[agent_id]
             return _decision(
                 agent, agent_id, _agent_model(agent), "hard_guardrail",
-                "Cambios, ejecuciÃ³n, tests, instalaciÃ³n o multiarchivo requieren agente con control del repo.",
+                "Cambios, ejecución, tests, instalación o multiarchivo requieren agente con control del repo.",
                 90 if agent_id == "codex" else 78, scores, policy,
                 _available_chain(available, [local_id, agent_id]),
             )

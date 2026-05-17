@@ -34,20 +34,24 @@ A single Python script with no external dependencies. Routes commands to tools i
 ```
 python3 bago <command>
 
-Commands: dashboard · ideas · cosecha · detector · validate
-          health · audit · workflow · stale · task
-          stability · session · efficiency
+Commands: launch · validate · status · health · audit · flow · task
+          session · project · context · pack-cache · doc-agent
+          plus registry-routed experimental, dangerous and legacy aliases
 ```
 
-### 2. Tools (`/tools/` — 30 Python files)
+### 2. Tools (`.bago/tools/` — registry-routed modules)
 
-Each tool is a standalone Python module invoked by the CLI. Key tools:
+BAGO routes every public command through `.bago/tools/tool_registry.py`, backed by
+`_registry_entries.py`. Current registry contract: **159** entries total:
+**38 core**, **80 experimental**, **8 dangerous**, **28 legacy**, **5 internal**.
+Key operational tools:
 
 | Tool | Purpose |
 |---|---|
 | `health_score.py` | 5-dimension composite health (0–100) |
 | `efficiency_meter.py` | Cross-version capability comparison |
 | `emit_ideas.py` | Scored idea selector with priority ranking |
+| `pack_cache_db.py` | SQLite read cache derived from `.bago/pack.json` |
 | `show_task.py` | Task lifecycle manager |
 | `stability_summary.py` | Full system stability report |
 | `workflow_selector.py` | Context-aware workflow recommendation |
@@ -56,7 +60,7 @@ Each tool is a standalone Python module invoked by the CLI. Key tools:
 | `validate_pack.py` | Pack consistency validator |
 | `stale_detector.py` | Detects stale tasks (>3 days) |
 
-### 3. Workflows (`/workflows/` — 12 protocols)
+### 3. Workflows (`.bago/workflows/` — 11 protocols)
 
 Structured work protocols for different task types. Each workflow defines:
 - **Pre-conditions**: what must be true before starting
@@ -95,13 +99,13 @@ Role definitions used during sessions: Architect, Implementor, Reviewer, Vértic
 ### Session lifecycle
 
 ```
-bago stability
+bago health
      │
      ▼
 (check state, health, stale)
      │
      ▼
-bago workflow / bago task
+bago flow / bago task
      │
      ▼
 AI agent reads AGENT_START.md
@@ -110,7 +114,7 @@ AI agent reads AGENT_START.md
 Work: decisions + artifacts logged
      │
      ▼
-bago cosecha → harvest artifacts
+bago session harvest → harvest artifacts
      │
      ▼
 bago validate → consistency check

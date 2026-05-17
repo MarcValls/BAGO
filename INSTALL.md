@@ -136,7 +136,7 @@ Un `AGENTS.md` de ejemplo está incluido en este repositorio.
 bago validate     # integridad del sistema (debe ser GO)
 bago health       # score de salud (0–100)
 bago audit        # auditoría completa
-bago help         # lista los 85 comandos públicos disponibles
+bago help         # lista los 126 comandos públicos disponibles
 ```
 
 ---
@@ -175,4 +175,4 @@ bago-framework/
 ---
 
 *BAGO v3.4.0b1 · Structured AI Work Framework · Mayo 2026*
-*85 comandos públicos (14 core · 63 experimental · 8 dangerous · 28 legacy) · 13 roles · 11 workflows · 100/100 health*
+*126 comandos públicos (38 core · 80 experimental · 8 dangerous · 28 legacy) · 13 roles · 11 workflows · 100/100 health*

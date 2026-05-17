@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 158 CLI commands · 125 public commands
+> **Version 3.4.0b1** · 159 CLI commands · 126 public commands
 
-Public command contract (CI-checked): **9 core** · **146 experimental** · **1 dangerous** · **0 legacy**
+Public command contract (CI-checked): **38 core** · **80 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -35,7 +35,7 @@ bago launch --provider ollama      # fuerza Ollama local
 bago launch --model qwen2.5:14b    # modelo específico
 ```
 
-> **📖 Documentación completa:** [`docs/BAGO_LAUNCH.md`](docs/BAGO_LAUNCH.md) · [`docs/SLASH_MENU.md`](docs/SLASH_MENU.md)
+> **📖 Documentación completa:** [`docs/BAGO_LAUNCH.md`](docs/BAGO_LAUNCH.md) · [`docs/SLASH_MENU.md`](docs/SLASH_MENU.md) · [`docs/CONTRACTS.md`](docs/CONTRACTS.md)
 
 ---
 
@@ -70,7 +70,7 @@ Todos los modelos de IA son **motores internos** del framework. El usuario siemp
 Además del chat, BAGO CLI incluye:
 - contexto persistente entre sesiones,
 - estado de workflow y audit trail,
-- 150 comandos especializados para desarrollo.
+- 159 comandos registrados para desarrollo.
 
 También incluye un modelo local-first de rutas cognitivas: el sistema de workflows está definido como grafo (`.bago/workflows/WORKFLOW_GRAPH.json`) y el estado se puede separar/fusionar por capas (`state_manager --split/--materialize`) sin borrar historial.
 
@@ -164,6 +164,7 @@ These commands form the **stable public interface**.
 | `bago secrets` | Scan repository for exposed credentials |
 | `bago setup` | First-time setup wizard: Telegram, WhatsApp, ntfy config |
 | `bago orphans` | Detect unregistered tool modules (orphan daemon) |
+| `bago pack-cache` | Hybrid SQLite cache for `.bago/pack.json` |
 | `bago doc-agent` | Documentation agent: update COMMANDS.md, LAYERS.md, README |
 | `bago devmode` | Toggle developer mode: unlock advanced tools and preflight checks |
 | `bago self` | BAGO introspection: identity, version, capabilities |
@@ -193,14 +194,14 @@ These commands form the **stable public interface**.
 
 | Command | Description | Required flag(s) |
 |---|---|---|
-| `auto` | Automatic evaluation + action loop | `--yes` |
-| `autonomous` | Full SENSE→PLAN→ACT→OBSERVE→LEARN loop | `--yes` |
-| `cabinet` | Multi-agent parallel orchestration | `--yes` |
-| `db` | Manage `bago.db` (ideas state, guardian history) | `--yes` |
-| `install` | Auto-launch on pendrive insert (macOS/Linux) | `--unsafe` |
-| `orchestrate` | Multi-tool workflow sequencer | `--yes` |
-| `peer` | LAN peer-to-peer communication | `--unsafe` |
-| `spiral` | Bucle espiral cromático: 12 pasos de auto-redescripción AGI | `--execute` |
+| `auto` | Automatic evaluation + action loop | `--yes` or `--unsafe` |
+| `autonomous` | Full SENSE→PLAN→ACT→OBSERVE→LEARN loop | `--yes` or `--unsafe` |
+| `cabinet` | Multi-agent parallel orchestration | `--yes` or `--unsafe` |
+| `db` | Manage `bago.db` (ideas state, guardian history) | `--yes` or `--unsafe` |
+| `install` | Auto-launch on pendrive insert (macOS/Linux) | `--yes` or `--unsafe` |
+| `orchestrate` | Multi-tool workflow sequencer | `--yes` or `--unsafe` |
+| `peer` | LAN peer-to-peer communication | `--yes` or `--unsafe` |
+| `spiral` | Bucle espiral cromático: 12 pasos de auto-redescripción AGI | `--yes` or `--unsafe` |
 
 ---
 
@@ -212,7 +213,7 @@ These commands form the **stable public interface**.
 
 ## 6. Experimental commands (not part of the contract)
 
-Usa `BAGO_LABS=1` para suprimir avisos. Ver `docs/API_CONTRACT.md` para la lista completa.
+Usa `BAGO_LABS=1` para suprimir avisos. Ver `docs/COMMANDS.md` para la lista completa generada desde el registry.
 
 **MOTOR** — `agent` · `agent-config` · `alias-manager` · `assign` · `autonomy` · `boot` · `build-run` · `canon` · `create` · `field` · `gateway` · `llm` · `llm-node` · `lsp` · `music-saas` · `neural` · `neural-toolbox` · `safeguard` · `script-runner` · `select` · `skill` · `spiral-agent` · `toolsmith` · `workflow-navigator`
 

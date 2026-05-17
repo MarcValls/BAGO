@@ -33,15 +33,16 @@ BAGO detecta proveedores disponibles y elige el modo mas restrictivo posible.
 
 ## Comandos
 ```bash
-BAGO launch                              # Orquestador interactivo
-BAGO launch qwen25-coder                 # Modelo específico
-BAGO launch --auto "transponer partitura" # Orquesta directamente
-python .bago/tools/bago_orchestrator.py --check  # Ver disponibilidad
+bago launch                              # interfaz conversacional principal
+bago launch --model qwen2.5-coder:7b     # modelo específico
+bago launch --task "transponer partitura" # ruta directa desde una tarea
+bago route --task "transponer partitura"  # consulta/decisión de routing
 ```
 
 ## Archivos
 - `.bago/state/model_orchestrator.json` — política de orquestación
-- `.bago/tools/bago_orchestrator.py` — implementación
+- `.bago/tools/agent_router.py` — routing proveedor/modelo
+- `.bago/tools/orchestrator.py` — workflows multi-tool y memoria de routing
 - `.bago/state/model_providers.json` — catálogo de modelos
 - `.bago/state/model_routing.json` — reglas por tarea
 

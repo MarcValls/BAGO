@@ -9,26 +9,22 @@
 
 ## 1. Comandos CLI — Estabilidad Core
 
-Los 14 comandos con `stability = "core"` en `tool_registry.py` constituyen
-la interfaz de referencia del sistema. Se verifican en cada CI run (gate-wheel)
-y se evita cambiarlos entre versiones minor.
+Los 38 comandos con `stability = "core"` en `.bago/tools/tool_registry.py`
+constituyen la interfaz pública estable del sistema. El registry es la fuente de
+verdad; `docs/COMMANDS.md` y el README deben derivarse o validarse contra él.
 
-| Comando | Uso principal | Salida esperada |
-|---------|--------------|-----------------|
-| `bago validate` | Verifica integridad del pack | `GO manifest / GO state / GO pack` |
-| `bago status` | Estado: flujo activo + tarea pendiente + health | JSON/texto legible |
-| `bago health` | Score de salud 0–100 + informe | `🟢 N/100` o `initializing` en instalación nueva |
-| `bago audit` | Auditoría completa: pack, inventario, calidad | `[1] INTEGRIDAD ✅ …` |
-| `bago session` | Ciclo de sesión: `open` / `close` / `harvest` | Texto de confirmación |
-| `bago flow` | Flowchart + gestión de workflow activo | `start <W>` / `done` / `status` |
-| `bago task` | Tarea W2 activa | JSON inline o "sin tarea activa" |
-| `bago context` | Contexto workspace: `detect` / `map` / `git` / `stale` | Texto/JSON |
-| `bago sync` | Regenera TREE.txt y CHECKSUMS.sha256 | `OK sync` |
-| `bago project` | Memoria de proyecto: `init` / `link` / `state` | Texto |
-| `bago setup` | Wizard de configuración inicial | Interactivo |
-| `bago secrets` | Escáner de secretos y credenciales | `PASS / FAIL + lista` |
-| `bago orphans` | Detecta módulos sin registro en tool_registry | Lista + recuento |
-| `bago scope` | Detecta scope de scripts Python | `framework / project / both` |
+Core actual:
+
+`advisor`, `ask`, `audit`, `context`, `dashboard`, `devmode`, `diff`,
+`doc-agent`, `docs`, `flow`, `goals`, `health`, `ideas`, `launch`, `menu`,
+`next`, `orphans`, `pack-cache`, `project`, `recent-projects`, `review`,
+`risk`, `route`, `scope`, `secrets`, `self`, `session`, `setup`, `snapshot`,
+`sprint`, `status`, `sync`, `task`, `validate`, `version`, `why`, `workflow`,
+`workspace-select`.
+
+El contrato no promete estabilidad de salida byte-a-byte: sí promete nombre del
+comando, semántica principal, exit codes razonables y que el comando resuelva por
+el dispatcher sin rutas rotas.
 
 ### Exit codes de referencia (comportamiento observado)
 
@@ -43,25 +39,25 @@ y se evita cambiarlos entre versiones minor.
 
 ## 2. Comandos peligrosos — Requieren confirmación explícita
 
-Los 8 comandos `dangerous` requieren la flag `--yes` o `--confirm` para ejecutarse.
+Los 8 comandos `dangerous` requieren la flag `--yes` o `--unsafe` para ejecutarse.
 Sin ella, muestran una advertencia y salen con código `1`.
 
 | Comando | Acción peligrosa | Flag requerida |
 |---------|-----------------|----------------|
-| `bago autonomous` | Loop autónomo SENSE→PLAN→ACT→LEARN | `--yes` |
-| `bago auto` | Modo automático con evaluación y acción | `--yes` |
-| `bago db` | Gestión de bago.db (reset / init destructivo) | `--confirm` |
-| `bago install` | Auto-lanzamiento al insertar pendrive | `--confirm` |
-| `bago cabinet` | Orquestación de agentes en paralelo | `--yes` |
-| `bago orchestrate` | Workflows multi-tool en secuencia | `--yes` |
-| `bago peer` | Comunicación P2P LAN | `--confirm` |
-| `bago spiral` | Bucle espiral de auto-redescripción | `--yes` |
+| `bago autonomous` | Loop autónomo SENSE→PLAN→ACT→LEARN | `--yes` o `--unsafe` |
+| `bago auto` | Modo automático con evaluación y acción | `--yes` o `--unsafe` |
+| `bago db` | Gestión de bago.db (reset / init destructivo) | `--yes` o `--unsafe` |
+| `bago install` | Auto-lanzamiento al insertar pendrive | `--yes` o `--unsafe` |
+| `bago cabinet` | Orquestación de agentes en paralelo | `--yes` o `--unsafe` |
+| `bago orchestrate` | Workflows multi-tool en secuencia | `--yes` o `--unsafe` |
+| `bago peer` | Comunicación P2P LAN | `--yes` o `--unsafe` |
+| `bago spiral` | Bucle espiral de auto-redescripción | `--yes` o `--unsafe` |
 
 ---
 
 ## 3. Comandos experimentales — Estabilidad no core
 
-Los 63 comandos `experimental` pueden cambiar, renombrarse o eliminarse entre versiones.
+Los 80 comandos `experimental` pueden cambiar, renombrarse o eliminarse entre versiones.
 No se incluyen en la interfaz de referencia. Ver `docs/COMMANDS.md` para la lista completa.
 
 Para usarlos:
@@ -284,6 +280,6 @@ HTTP 400: { "error": "JSON inválido" }
 ## 6. Versionado y compatibilidad
 
 - La API del launcher es **interna** — puede cambiar entre versiones major.
-- Los 14 comandos `core` CLI son la interfaz de referencia del sistema (ver `tool_registry.py`).
-- El campo `version` en `/api/status` refleja `pyproject.toml → version`.
+- Los 38 comandos `core` CLI son la interfaz de referencia del sistema (ver `.bago/tools/tool_registry.py`).
+- El campo `version` debe estar alineado entre `pyproject.toml`, `.bago/pack.json` y `.bago/state/global_state.json`.
 - Los cambios en endpoints se documentan en `CHANGELOG.md`.

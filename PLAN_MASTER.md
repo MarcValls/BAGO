@@ -13,7 +13,7 @@
 - Desinstalador clean
 
 #### 1.3 Health Check completo [HECHO]
-- bago_health_check.py: modelos REALMENTE disponibles
+- `bago health` / `bago audit doctor`: modelos REALMENTE disponibles
 - Ollama list, Codex config.toml, Copilot gh, Ollama Cloud API key
 
 ### FASE 2: ORQUESTACION (en progreso)
@@ -23,7 +23,7 @@
 - Cruza model_routing.json + agent_tool_matrix.json
 
 #### 2.2 Orquestador de modelos [HECHO]
-- bago_orchestrator.py: selecciona modelo óptimo por coste/tarea
+- `agent_router.py` / `bago route`: selecciona proveedor y modelo por coste/tarea
 - Modos: offline, económico, estándar, full
 - En Codex CLI: simples → Ollama gratis, complejas → Codex barato
 

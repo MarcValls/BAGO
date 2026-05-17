@@ -30,7 +30,7 @@ OUT_PATH = REPO_ROOT / "docs" / "COMMANDS.md"
 _SECTIONS: list[tuple[str, str, str]] = [
     ("core",         "⚙️ Core",         "Stable commands. Pre-flight **required**. Always available."),
     ("experimental", "🧪 Experimental", "Actively developed. May change between minor versions."),
-    ("dangerous",    "⚠️ Dangerous",    "High-impact commands. Require `--confirm` or `--dry-run`."),
+    ("dangerous",    "⚠️ Dangerous",    "High-impact commands. Require `--yes` or `--unsafe`; `--dry-run` is accepted only when declared by the command."),
     ("legacy",       "🗄️ Legacy",       "Deprecated. Use the indicated replacement instead."),
 ]
 
@@ -160,7 +160,7 @@ def generate(registry: dict) -> str:
     # ── Footer ────────────────────────────────────────────────────────────────
     parts.append("## Notes\n")
     parts.append("- **Policy** — preflight enforcement: `required` (always runs) · `optional` (skipped with `--skip-preflight`) · `none`")
-    parts.append("- **Risk** — `safe` (read-only) · `mutating` (writes state) · `**dangerous**` (destructive, needs `--confirm`)")
+    parts.append("- **Risk** — `safe` (read-only) · `mutating` (writes state) · `**dangerous**` (destructive or high-impact, needs `--yes` or `--unsafe`)")
     parts.append("- **Legacy** commands still execute but print a deprecation hint. They will be removed in v4.0.")
     parts.append("- Run `bago help <cmd>` for per-command usage.")
     parts.append("")

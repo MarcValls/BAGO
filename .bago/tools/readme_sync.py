@@ -47,7 +47,7 @@ def _load_pack() -> dict:
 
 
 def _cmd_count() -> int:
-    """Count public commands from REGISTRY."""
+    """Count all registered commands from REGISTRY."""
     try:
         if str(_TOOLS) not in sys.path:
             sys.path.insert(0, str(_TOOLS))
@@ -55,6 +55,23 @@ def _cmd_count() -> int:
         return len(REGISTRY)
     except Exception:
         return 0
+
+
+def _registry_counts() -> dict[str, int]:
+    """Count commands by public stability bucket from REGISTRY."""
+    counts = {"core": 0, "experimental": 0, "dangerous": 0, "legacy": 0, "public": 0}
+    try:
+        if str(_TOOLS) not in sys.path:
+            sys.path.insert(0, str(_TOOLS))
+        from tool_registry import REGISTRY  # type: ignore
+        for entry in REGISTRY.values():
+            if entry.stability in counts:
+                counts[entry.stability] += 1
+            if entry.stability in {"core", "experimental", "dangerous"}:
+                counts["public"] += 1
+    except Exception:
+        pass
+    return counts
 
 
 def _tool_file_count() -> int:
@@ -79,12 +96,18 @@ def collect_metrics() -> dict:
     pack     = _load_pack()
     version  = state.get("bago_version", "unknown")
     cmds     = _cmd_count()
+    registry_counts = _registry_counts()
     tools    = _tool_file_count()
     wflows   = _workflow_count(pack)
     month_yr = _month_year()
     return {
         "version":         version,
         "cmd_count":       cmds,
+        "public_count":    registry_counts["public"],
+        "core_count":      registry_counts["core"],
+        "experimental_count": registry_counts["experimental"],
+        "dangerous_count": registry_counts["dangerous"],
+        "legacy_count":    registry_counts["legacy"],
         "tool_count":      tools,
         "workflow_count":  wflows,
         "month_year":      month_yr,
@@ -124,17 +147,39 @@ def apply_patches(content: str, metrics: dict) -> tuple[str, bool]:
     original = content
     v  = metrics["version"]
     c  = metrics["cmd_count"]
+    public = metrics["public_count"]
+    core = metrics["core_count"]
+    experimental = metrics["experimental_count"]
+    dangerous = metrics["dangerous_count"]
+    legacy = metrics["legacy_count"]
     t  = metrics["tool_count"]
     w  = metrics["workflow_count"]
     my = metrics["month_year"]
 
     # 1. Version header line
+    public_header_pattern = re.compile(
+        r"^(> \*\*Version )[^\*]+(\*\* · )\d+ CLI commands · \d+ public commands$",
+        re.MULTILINE,
+    )
+    public_header_new = f"> **Version {v}** · {c} CLI commands · {public} public commands"
+    content = public_header_pattern.sub(public_header_new, content)
+
     header_pattern = re.compile(
         r"^(> \*\*Version )[^\*]+(\*\* · )\d+ CLI commands · \d+ tools · \d+ operational workflows · Clean-install state: `.+`$",
         re.MULTILINE,
     )
     header_new = f"> **Version {v}** · {c} CLI commands · {t} tools · {w} operational workflows · Clean-install state: `healthy`"
     content = header_pattern.sub(header_new, content)
+
+    contract_pattern = re.compile(
+        r"^Public command contract \(CI-checked\): \*\*\d+ core\*\* · \*\*\d+ experimental\*\* · \*\*\d+ dangerous\*\* · \*\*\d+ legacy\*\*$",
+        re.MULTILINE,
+    )
+    contract_new = (
+        f"Public command contract (CI-checked): **{core} core** · "
+        f"**{experimental} experimental** · **{dangerous} dangerous** · **{legacy} legacy**"
+    )
+    content = contract_pattern.sub(contract_new, content)
 
     # 2. Evolution table — mark old *(current)* rows as historical, add/update v row
     # Find the current-marked row
@@ -280,6 +325,11 @@ some content
     metrics = {
         "version": "3.1",
         "cmd_count": 83,
+        "public_count": 70,
+        "core_count": 14,
+        "experimental_count": 48,
+        "dangerous_count": 8,
+        "legacy_count": 13,
         "tool_count": 202,
         "workflow_count": 17,
         "month_year": "May 2026",
