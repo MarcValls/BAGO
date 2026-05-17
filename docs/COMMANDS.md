@@ -136,7 +136,7 @@ Actively developed. May change between minor versions.
 | `bago template-gen` | Genera archivos de proyecto desde plantillas predefinidas (component, hook, api-route, test, etc.). Variables: {{PROJECT}}, {{APP}}, {{NAME}}, {{DATE}}, {{AUTHOR}}. Subcomandos: --list \| --show <nombre> \| --add <nombre> \| --out <dir> | • ejecuciÃ³n | mutating | optional |
 | `bago toolsmith` | Agente dinÃ¡mico de toolboxes: assign\|sprint\|agent\|missing\|create\|catalog\|listen â€” asigna cajas de herramientas por tarea y crea tools faltantes | • infraestructura | safe | optional |
 | `bago types` | Chequeo de tipos estÃ¡ticos | 🔍 calidad | safe | optional |
-| `bago version` | GestiÃ³n de versiones beta/release: bump \| beta \| release \| tag \| commit \| sync-check | 🔬 avanzado | mutating | optional |
+| `bago version` | GestiÃ³n de versiones beta/release: bump \| beta \| release \| tag \| commit \| sync-check \| sync-state | 🔬 avanzado | mutating | optional |
 | `bago weekly-report` | Informe semanal de actividad BAGO: ideas implementadas, sesiones y velocidad. Por defecto Ãºltimos 7 dÃ­as. Genera resumen Markdown. Subcomandos: --days N \| --save (guarda en .bago/state/reports/) | • analÃ­tica | safe | optional |
 | `bago why` | Explica quÃ© hace un comando BAGO, cuÃ¡ndo usarlo y sus relaciones | 🔬 avanzado | safe | optional |
 | `bago work_matrix` | Matriz de rutas de trabajo: quÃ© agente y herramientas MCP usar segÃºn el tipo de tarea | • analÃ­tica | safe | optional |

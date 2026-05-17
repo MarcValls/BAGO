@@ -16,10 +16,12 @@ Uso:
     bago version tag [--push]      # crea tag anotado v<ver> (con --push lo sube)
     bago version commit            # git commit "chore(version): bump to <ver>"
     bago version sync-check        # verifica que ambos archivos coinciden
+    bago version sync-state        # sincroniza .bago/state/global_state.json con versión actual
     bago version --self-test       # autotest
 """
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -30,6 +32,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[2]   # raíz del repo
 _PYPROJECT = _ROOT / "pyproject.toml"
 _INIT = _ROOT / "bago_core" / "__init__.py"
+_GLOBAL_STATE = _ROOT / ".bago" / "state" / "global_state.json"
 
 # Patrones de versión PEP 440 (subset: X.Y.Z o X.Y.ZbN)
 _STABLE_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
@@ -316,6 +319,40 @@ def cmd_sync_check() -> int:
     return 1
 
 
+def cmd_sync_state() -> int:
+    """Sincroniza global_state.bago_version con la versión canónica."""
+    pyv = _read_pyproject_version()
+    initv = _read_init_version()
+    if pyv != initv:
+        print("  ❌ No se puede sincronizar estado: pyproject y __init__ están desalineados.")
+        print(f"     pyproject.toml    : {pyv}")
+        print(f"     bago_core/__init__: {initv}")
+        print("  Ejecuta primero: bago version sync-check")
+        return 1
+
+    if not _GLOBAL_STATE.exists():
+        print(f"  ❌ No existe {_GLOBAL_STATE}")
+        return 1
+
+    try:
+        data = json.loads(_GLOBAL_STATE.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("global_state no es un objeto JSON")
+    except Exception as e:
+        print(f"  ❌ Error leyendo global_state.json: {e}")
+        return 1
+
+    old = str(data.get("bago_version", "")).strip()
+    data["bago_version"] = pyv
+    _GLOBAL_STATE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    if old == pyv:
+        print(f"  ✅ global_state ya estaba sincronizado en {pyv}")
+    else:
+        print(f"  ✅ global_state sincronizado: {old or '(vacío)'} → {pyv}")
+    return 0
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -354,6 +391,9 @@ def main() -> int:
 
     if sub == "sync-check":
         return cmd_sync_check()
+
+    if sub == "sync-state":
+        return cmd_sync_state()
 
     print(f"  Subcomando desconocido: {sub!r}")
     print("  Usa 'bago version --help' para ver opciones.")
