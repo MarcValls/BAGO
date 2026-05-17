@@ -101,6 +101,7 @@ _LAYER_MAP: dict[str, str] = {
     "banner": "visual",
     "agent-config": "visual",
     "gateway":      "visual",
+    "music-saas":   "visual",
     "create": "visual",
     "html-export": "visual",
     "hub": "visual",

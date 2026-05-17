@@ -1218,6 +1218,20 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
 
 
+
+    "music-saas": ToolEntry(
+        cmd="music-saas",
+        module=".bago.tools.music_saas",
+        description="CLI para BAGO Music SaaS — status, dev server, Telegram webhook, GitHub Actions build",
+        preflight=[],
+        schema="[status|dev|webhook <url>|test|open [tool]|build|config]",
+        layer="visual",
+        scope="global",
+        agent="ops",
+        stability="experimental",
+        risk="safe",
+        layer_group="ui",
+    ),
     "gateway": ToolEntry(
         cmd="gateway",
         module=".bago.tools.gateway",
@@ -1228,7 +1242,7 @@ REGISTRY: dict[str, ToolEntry] = {
         scope="global",
         agent="ops",
         stability="experimental",
-        risk="low",
+        risk="safe",
         layer_group="ui",
     ),
     "agent-config": ToolEntry(
