@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 149 CLI commands · 113 public commands
+> **Version 3.4.0b1** · 123 CLI commands · 118 public commands
 
-Public command contract (CI-checked): **16 core** · **89 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **20 core** · **90 experimental** · **8 dangerous** · **0 legacy**
 
 ---
 
@@ -125,6 +125,10 @@ These commands form the **stable public interface**.
 | `bago orphans` | Detect unregistered tool modules (orphan daemon) |
 | `bago doc-agent` | Documentation agent: update COMMANDS.md, LAYERS.md, README |
 | `bago devmode` | Toggle developer mode: unlock advanced tools and preflight checks |
+| `bago launch` | Launch BAGO daemon or background services |
+| `bago menu` | Interactive BAGO main menu |
+| `bago recent-projects` | List recently active BAGO projects |
+| `bago workspace-select` | Select active workspace context |
 
 ---
 
@@ -145,18 +149,14 @@ These commands form the **stable public interface**.
 
 ## 5. Legacy commands (deprecated, redirect-only)
 
-`check` · `code-quality` · `commit` · `consistency` · `cosecha` · `detector`
-`doctor` · `efficiency` · `git` · `heal` · `learn` · `map` · `pre-push`
-`project-init` · `project-link` · `project-state` · `project-unlink` · `promote`
-`repo-clone` · `repo-list` · `repo-switch` · `report` · `scan` · `session_close`
-`sincerity` · `stability` · `stale` · `v2`
+All deprecated commands have been removed from the registry. There are no legacy redirects.
 
 ---
 
 ## 6. Experimental commands (not part of the contract)
 
 `ableton-template` · `advisor` · `agent` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
-`config-check` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
+`config-check` · `create` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
 `heal-paths` · `html-export` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `lint-runner` · `llm` · `llm-node` · `log-viewer` · `lsp` · `music` · `naming` · `net-scan`
 `neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `orphan-shield` · `personality-panel` · `ping-server` · `placeholder_scan` · `preflight-check` · `project-summary` · `recientes` · `reopen`
 `repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `script-runner` · `search-history` · `seed` · `select` · `siembra` · `size-check` · `skill` · `snapshot`
