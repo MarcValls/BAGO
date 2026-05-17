@@ -62,7 +62,15 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/chain m1->m2: prompt[/yellow]    Pipeline: m1 genera, m2 refina
   [yellow]/ensemble m1 m2: prompt[/yellow]  Paralelo + sintesis automatica
 
-  [bold cyan]Agentes:[/bold cyan]
+  [bold cyan]Atajos de agente (activan el agente y cambian el modelo):[/bold cyan]
+  [yellow]/code[/yellow]  [dim]o[/dim] [yellow]/impl[/yellow]  [dim]o[/dim] [yellow]/write[/yellow]    → agent_coder    (gpt-4o · copilot)
+  [yellow]/sprint[/yellow]  [dim]o[/dim] [yellow]/backlog[/yellow]  [dim]o[/dim] [yellow]/roadmap[/yellow]  → agent_planner  (gpt-4o · copilot)
+  [yellow]/debug[/yellow]  [dim]o[/dim] [yellow]/fix[/yellow]  [dim]o[/dim] [yellow]/error[/yellow]    → agent_debugger (qwen25-coder · local)
+  [yellow]/arch[/yellow]  [dim]o[/dim] [yellow]/design[/yellow]  [dim]o[/dim] [yellow]/sistema[/yellow]  → agent_architect (gpt-4o · copilot)
+  [yellow]/refactor[/yellow]  [dim]o[/dim] [yellow]/clean[/yellow]  [dim]o[/dim] [yellow]/mejora[/yellow]  → agent_refactor  (qwen25-coder · local)
+  [yellow]/git[/yellow]  [dim]o[/dim] [yellow]/commit[/yellow]  [dim]o[/dim] [yellow]/pr[/yellow]      → agent_git      (qwen25-coder · local)
+
+  [bold cyan]Agentes (gestión):[/bold cyan]
   [yellow]/agents[/yellow]                           Listar todos los agentes
   [yellow]/agents <nombre>[/yellow]                  Ver detalle de un agente
   [yellow]/agents add <nombre>[/yellow]              Crear agente nuevo

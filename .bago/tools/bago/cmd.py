@@ -56,24 +56,35 @@ def cmd(line, session):
             pi(msg)
     elif v == "/chain":
         if ":" not in a:
-            pe("Uso: /chain modelo1->modelo2: prompt")
+            # Modo interactivo: pedir modelos y prompt
+            from .ui import _menu_input, _menu_select
+            pi("[dim]Ejemplo: qwen25-coder->gpt-4o[/dim]")
+            modelos_str = _menu_input("/chain — modelos", "Modelos (m1->m2->...):", default="qwen25-coder->gpt-4o")
+            if not modelos_str: pe("Cancelado."); return True
+            prompt_txt = _menu_input("/chain — prompt", "Prompt a encadenar:")
+            if not prompt_txt: pe("Cancelado."); return True
+            a = f"{modelos_str}:{prompt_txt}"
+        chain_part, prompt_part = a.split(":", 1)
+        models = [m.strip() for m in chain_part.split("->") if m.strip()]
+        if len(models) < 2 or not prompt_part.strip():
+            pe("Necesitas al menos 2 modelos y un prompt.")
         else:
-            chain_part, prompt_part = a.split(":", 1)
-            models = [m.strip() for m in chain_part.split("->") if m.strip()]
-            if len(models) < 2 or not prompt_part.strip():
-                pe("Necesitas al menos 2 modelos y un prompt.")
-            else:
-                run_chain(session, models, prompt_part.strip())
+            run_chain(session, models, prompt_part.strip())
     elif v == "/ensemble":
         if ":" not in a:
-            pe("Uso: /ensemble modelo1 modelo2: prompt")
+            from .ui import _menu_input
+            pi("[dim]Ejemplo: qwen25-coder gpt-4o[/dim]")
+            modelos_str = _menu_input("/ensemble — modelos", "Modelos (m1 m2 ...):", default="qwen25-coder gpt-4o")
+            if not modelos_str: pe("Cancelado."); return True
+            prompt_txt = _menu_input("/ensemble — prompt", "Prompt para todos:")
+            if not prompt_txt: pe("Cancelado."); return True
+            a = f"{modelos_str}:{prompt_txt}"
+        mp, pp = a.split(":", 1)
+        models = [m.strip() for m in mp.split() if m.strip()]
+        if len(models) < 2 or not pp.strip():
+            pe("Necesitas al menos 2 modelos y un prompt.")
         else:
-            mp, pp = a.split(":", 1)
-            models = [m.strip() for m in mp.split() if m.strip()]
-            if len(models) < 2 or not pp.strip():
-                pe("Necesitas al menos 2 modelos y un prompt.")
-            else:
-                run_ensemble(session, models, pp.strip())
+            run_ensemble(session, models, pp.strip())
     elif v == "/autoroute":
         session.autoroute = a.lower() != "off"
         state = "ACTIVADO (auto single/chain/ensemble)" if session.autoroute else "DESACTIVADO"
