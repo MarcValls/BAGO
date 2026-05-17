@@ -70,65 +70,66 @@ LOGO_W  = max(len(l) for l in LOGO)
 LOGO_H  = len(LOGO)
 TAGLINE = "Balanceado · Adaptativo · Generativo · Organizativo"
 
-# ── Medallón pixel art (avispa azul en círculo teal) ─────────────────────────
-# Cada carácter = 1 unidad de píxel → se renderiza como 2 espacios coloreados
-#   '.' fuera del círculo  (terminal bg transparente)
-#   'O' borde del círculo  (verde oscuro / teal)
-#   ' ' interior blanco    (gris muy claro)
-#   'W' cuerpo avispa      (azul del pixel art)
-_MED = [
-    "...OOOOOOOOOOOOOOOOOO...",   # arco superior
-    "..OO                OO..",
-    ".O    W          W    O.",   # antenas
-    ".O      W      W      O.",
-    ".O       WWWWWWW       O.",  # cabeza
-    ".O      WWWWWWWWW      O.",  # tórax
-    ".O   WWWWWWWWWWWWWWW   O.",  # alas arranque
-    "OO  WWWWWWWWWWWWWWWWW  OO",  # alas máximo vuelo
-    ".O   WWWWWWWWWWWWWWW   O.",  # alas inferiores
-    ".O      WWWWWWWWW      O.",  # tórax inferior
-    ".O        WWWWW        O.",  # abdomen superior
-    ".O         WWW         O.",  # abdomen medio
-    ".O          W          O.",  # aguijón superior
-    "..OO                OO..",
-    "...OOOOOOOOOOOOOOOOOO...",   # arco inferior
+# ── Medallón ASCII art (avispa — caracteres ░▓█) ─────────────────────────────
+# ░ = fondo  │  ▓ = cuerpo medio  │  █ = cuerpo sólido
+WASP_ART = [
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░█████████████████████░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░█▓▓▓▓▓████████████████▓▓▓▓▓██░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░██████▓▓▓▓▓████████████▓▓▓▓▓███████░░░░░░░░░░░░░",
+    "░░░░░░░░░░░██████████▓▓▓▓▓████████▓▓▓▓▓███████████░░░░░░░░░░░",
+    "░░░░░░░░░██████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓███████████████░░░░░░░░░",
+    "░░░░░░░░█████████████████▓▓▓▓▓▓▓▓▓▓██████████████████░░░░░░░░",
+    "░░░░░░██████████████████▓██▓▓▓▓▓▓██▓███████████████████░░░░░░",
+    "░░░░░█▓▓▓██████████████▓▓▓███▓▓███▓▓▓██████████████▓▓▓██░░░░░",
+    "░░░░█▓▓▓▓▓▓▓▓▓▓█████████▓▓▓█▓▓▓▓█▓▓▓█████████▓▓▓▓▓▓▓▓▓▓██░░░░",
+    "░░░░█▓▓▓▓█████▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓█████▓▓▓▓██░░░░",
+    "░░░█▓▓▓▓█████████████▓▓▓▓██████████▓▓▓▓█████████████▓▓▓▓██░░░",
+    "░░░▓▓▓▓▓▓▓▓▓▓▓▓▓████████▓▓▓▓▓▓▓▓▓▓▓▓████████▓▓▓▓▓▓▓▓▓▓▓▓▓█░░░",
+    "░░░███████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓████████████░░░",
+    "░░████████████████████▓▓▓▓▓▓████▓▓▓▓▓▓█████████████████████░░",
+    "░░░██████████████████▓▓▓▓▓▓▓████▓▓▓▓▓▓▓███████████████████░░░",
+    "░░░███████████████████▓▓▓▓▓▓▓██▓▓▓▓▓▓▓████████████████████░░░",
+    "░░░████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████████████████████░░░",
+    "░░░░███████████████████▓▓██▓▓▓▓▓▓██▓▓████████████████████░░░░",
+    "░░░░████████████████████▓▓██▓▓▓▓██▓▓█████████████████████░░░░",
+    "░░░░░███████████████████▓▓▓██▓▓██▓▓▓████████████████████░░░░░",
+    "░░░░░░██████████████████▓▓▓██████▓▓▓███████████████████░░░░░░",
+    "░░░░░░░░█████████████████▓▓▓████▓▓▓██████████████████░░░░░░░░",
+    "░░░░░░░░░█████████████████▓▓▓██▓▓▓██████████████████░░░░░░░░░",
+    "░░░░░░░░░░░████████████████▓▓▓▓▓▓█████████████████░░░░░░░░░░░",
+    "░░░░░░░░░░░░░███████████████▓▓▓▓████████████████░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░████████████▓▓▓▓█████████████░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░█████████▓▓██████████░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
 ]
-_MED_PX_W = len(_MED[0])    # píxeles de ancho (24)
-MED_W     = _MED_PX_W * 2   # columnas de terminal (48)
-MED_H     = len(_MED)        # filas (15)
+WASP_W = max(len(l) for l in WASP_ART)
+WASP_H = len(WASP_ART)
 
-# WASP_W / WASP_H: aliases para compatibilidad
-WASP_W = MED_W
-WASP_H = MED_H
-
-# Colores del medallón (truecolor + fallback 256)
+# Colores para el ASCII art (truecolor + fallback)
 if USE_TC:
-    _C_BORDER = "\033[48;2;0;85;75m"       # teal oscuro del borde
-    _C_BG     = "\033[48;2;230;232;230m"   # blanco interior
-    _C_WASP   = "\033[48;2;40;115;195m"    # azul del pixel art
+    _C_LIGHT  = "\033[38;2;60;60;80m"      # ░ — fondo oscuro
+    _C_MED    = "\033[38;2;40;115;195m"    # ▓ — azul medio
+    _C_SOLID  = "\033[38;2;220;235;255m"   # █ — blanco/azul claro
 else:
-    _C_BORDER = "\033[42m"   # verde (256)
-    _C_BG     = "\033[107m"  # blanco brillante (256)
-    _C_WASP   = "\033[44m"   # azul (256)
+    _C_LIGHT  = "\033[2;37m"
+    _C_MED    = "\033[34m"
+    _C_SOLID  = "\033[1;37m"
 _C_RST = "\033[0m"
 
-def _render_med_row(row_str: str) -> str:
-    """Convierte una fila del mapa pixel en caracteres de terminal coloreados."""
+def _wasp_line_color(line: str, y: int, intensity: float = 1.0) -> str:
+    """Colorea una línea del ASCII art de la avispa."""
+    if not USE_COLOR:
+        return line
     buf = []
-    for ch in row_str:
-        if   ch == '.': buf.append("  ")
-        elif ch == 'O': buf.append(f"{_C_BORDER}  {_C_RST}")
-        elif ch == ' ': buf.append(f"{_C_BG}  {_C_RST}")
-        elif ch == 'W': buf.append(f"{_C_WASP}  {_C_RST}")
-        else:           buf.append("  ")
+    for ch in line:
+        if   ch == "░": buf.append(f"{_C_LIGHT}{ch}{_C_RST}")
+        elif ch == "▓": buf.append(f"{_C_MED}{ch}{_C_RST}")
+        elif ch == "█": buf.append(f"{_C_SOLID}{ch}{_C_RST}")
+        else:           buf.append(ch)
     return "".join(buf)
-
-def _draw_medallion(start_row: int, col: int) -> None:
-    """Renderiza el medallón completo en su posición."""
-    out = sys.stdout.write
-    for r, row_str in enumerate(_MED):
-        out(_goto(start_row + r, col) + _render_med_row(row_str))
-    sys.stdout.flush()
 
 # ── Avispa volando (animación de vuelo — una línea) ───────────────────────────
 BEE_FRAMES = [r"╱\◉/╲", r"──◉──", r"╲/◉\╱", r"──◉──"]
@@ -164,20 +165,8 @@ def _logo_line(line: str, y: int, intensity: float = 1.0) -> str:
     return "".join(out)
 
 def _wasp_line(line: str, y: int, intensity: float = 1.0) -> str:
-    """Renderiza una línea del logo de la avispa en azul (como el pixel art)."""
-    if not USE_COLOR:
-        return line
-    # Azul del pixel art: R=26 G=106 B=191, con variación sutil por fila
-    out = []
-    for ch in line:
-        if ch == " ":
-            out.append(" ")
-        else:
-            r = int(max(0, min(255, (26  + 10 * y / max(1, WASP_H)) * intensity)))
-            g = int(max(0, min(255, (106 + 30 * y / max(1, WASP_H)) * intensity)))
-            b = int(max(0, min(255, (191 + 40 * y / max(1, WASP_H)) * intensity)))
-            out.append(f"{_rgb(r,g,b)}{ch}{RST}")
-    return "".join(out)
+    """Alias para compatibilidad — delega en _wasp_line_color."""
+    return _wasp_line_color(line, y, intensity)
 
 def _draw_logo(start_row: int, logo_col: int, intensity: float = 1.0):
     """Dibuja solo el logo BAGO (la avispa se gestiona por separado)."""
@@ -229,15 +218,13 @@ def play(fast: bool = False, skip: bool = False) -> None:
 def _animate(fast: bool = False) -> None:
     cols, rows = _term_size()
 
-    # Layout vertical: medallón pixel art centrado arriba → logo BAGO centrado abajo
-    # Si el terminal es pequeño (<35 filas), compactar medallón
-    use_full_med = rows >= 35
-    med_h   = MED_H if use_full_med else 7
-    total_h = med_h + 1 + LOGO_H + 3 + len(BOOT_MSGS) + 3
-    start_row = max(2, (rows - total_h) // 2)
+    # Layout vertical: avispa ASCII art centrada arriba → logo BAGO centrado abajo
+    total_h   = WASP_H + 1 + LOGO_H + 3 + len(BOOT_MSGS) + 3
+    start_row = max(1, (rows - total_h) // 2)
 
     wasp_row  = start_row
-    logo_row  = start_row + med_h + 1
+    wasp_col  = max(1, (cols - WASP_W) // 2 + 1)
+    logo_row  = start_row + WASP_H + 1
     logo_col  = max(1, (cols - LOGO_W) // 2 + 1)
     tag_row   = logo_row + LOGO_H + 1
     msg_row   = tag_row + 2
@@ -247,44 +234,12 @@ def _animate(fast: bool = False) -> None:
     out(HIDE_CURSOR + CLEAR)
     sys.stdout.flush()
 
-    # ── 1. REVEAL: medallón pixel art línea a línea ───────────────────────────
-    if use_full_med:
-        med_display_w = MED_W
-        wasp_col = max(1, (cols - med_display_w) // 2 + 1)
-        for i, row_str in enumerate(_MED):
-            # Línea de scan antes del reveal
-            if USE_COLOR and not fast:
-                out(_goto(wasp_row + i, wasp_col) +
-                    f"\033[1;36m{'──' * _MED_PX_W}\033[0m")
-                sys.stdout.flush()
-                time.sleep(0.012)
-            out(_goto(wasp_row + i, wasp_col) + _render_med_row(row_str))
-            sys.stdout.flush()
-            time.sleep(0.035 if not fast else 0.001)
-    else:
-        # Fallback compacto para terminales pequeños
-        _WASP_COMPACT = [
-            r"   ╲  ╱   ",
-            r"  ─(◉)─   ",
-            r" ╱══════╲  ",
-            r" ╪═══════╪ ",
-            r" ╲══════╱  ",
-            r"   │██│    ",
-            r"   └─▼─┘   ",
-        ]
-        compact_w = max(len(l) for l in _WASP_COMPACT)
-        wasp_col = max(1, (cols - compact_w) // 2 + 1)
-        for i, line in enumerate(_WASP_COMPACT):
-            if USE_COLOR:
-                r2 = int(26 + 10 * i / 7)
-                g2 = int(106 + 30 * i / 7)
-                b2 = int(191 + 40 * i / 7)
-                rendered = f"\033[38;2;{r2};{g2};{b2}m{line}\033[0m"
-            else:
-                rendered = line
-            out(_goto(wasp_row + i, wasp_col) + rendered)
-            sys.stdout.flush()
-            time.sleep(0.04 if not fast else 0.002)
+    # ── 1. REVEAL: avispa ASCII art línea a línea ────────────────────────────
+    for i, line in enumerate(WASP_ART):
+        rendered = _wasp_line_color(line, i)
+        out(_goto(wasp_row + i, wasp_col) + rendered)
+        sys.stdout.flush()
+        time.sleep(0.025 if not fast else 0.001)
 
     # ── 2. REVEAL: logo BAGO línea a línea ───────────────────────────────────
     for i, line in enumerate(LOGO):
