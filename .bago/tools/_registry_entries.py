@@ -1216,4 +1216,12 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=False,
         layer_group="ui",
     ),
+
+    "agent-config": ToolEntry(
+        cmd="agent-config",
+        module="agent_config",
+        description="Configurador de agentes BAGO: TUI interactivo (Agentes, Habilidades, Instrucciones, MCP, Complementos)",
+        stability="experimental",
+        layer_group="ui",
+    ),
 }

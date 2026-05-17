@@ -99,6 +99,7 @@ _LAYER_MAP: dict[str, str] = {
     # VISUAL
     "ableton-template": "visual",
     "banner": "visual",
+    "agent-config": "visual",
     "create": "visual",
     "html-export": "visual",
     "hub": "visual",
@@ -240,6 +241,7 @@ _SCOPE_MAP: dict[str, str] = {
     "find-tool": "both",
     "flow": "both",
     "focus-mode": "both",
+    "agent-config": "both",
     "goals": "both",
     "habit": "both",
     "create": "both",
@@ -360,6 +362,7 @@ _AGENT_MAP: dict[str, str] = {
     # ORGANIZADOR — Sprint, workflow, sesión, estado, repos, DB
     "ask": "ORGANIZADOR",
     "assign": "ORGANIZADOR",
+    "agent-config": "ORGANIZADOR",
     "benchmark": "ORGANIZADOR",
     "build-run": "ORGANIZADOR",
     "create": "ORGANIZADOR",
