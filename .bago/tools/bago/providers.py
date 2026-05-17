@@ -1,6 +1,7 @@
 
 import json
 import os
+from pathlib import Path
 
 from .constants import PROVIDERS_FILE, ROUTING_FILE
 
@@ -120,6 +121,21 @@ _CODEX_MODEL_MAP = {
 }
 
 # ── LiteLLM resolver ───────────────────────────────────────────────────────────
+def _codex_access_token():
+    """Lee el access_token OAuth de ~/.codex/auth.json (ChatGPT Plus, sin API key)."""
+    try:
+        auth_file = Path.home() / ".codex" / "auth.json"
+        if auth_file.exists():
+            data = json.loads(auth_file.read_text())
+            # Estructura: {"tokens": {"access_token": "..."}}
+            tok = (data.get("tokens") or {}).get("access_token") or data.get("access_token")
+            if tok:
+                return tok
+    except Exception:
+        pass
+    return None
+
+# ── LiteLLM resolver ───────────────────────────────────────────────────────────
 def resolve_litellm(provider, wire_name):
     if provider in ("ollama-local", "ollama-cloud"):
         return f"ollama/{wire_name}", {"api_base": "http://127.0.0.1:11434"}
@@ -134,21 +150,23 @@ def resolve_litellm(provider, wire_name):
             }
         return wire_name, {}
     if provider in ("codex", "openai"):
-        # Nombres internos de BAGO → modelos reales de OpenAI
-        mapped = _CODEX_MODEL_MAP.get(wire_name, wire_name)
+        # Prioridad 1: API key explícita
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if api_key:
-            return mapped, {"api_key": api_key}
-        # Sin OPENAI_API_KEY → redirigir a copilot (GitHub Models) si hay token
+            return wire_name, {"api_key": api_key}
+        # Prioridad 2: OAuth token de Codex CLI (ChatGPT Plus, sin API key)
+        codex_token = _codex_access_token()
+        if codex_token:
+            return wire_name, {"api_key": codex_token}
+        # Prioridad 3: fallback a GitHub Models (copilot) si hay GH token
         gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if gh_token:
-            # GitHub Models solo tiene gpt-4o/gpt-4o-mini
-            safe = "gpt-4o-mini" if "mini" in mapped else "gpt-4o"
+            safe = "gpt-4o-mini" if "mini" in wire_name else "gpt-4o"
             return f"openai/{safe}", {
                 "api_base": "https://models.inference.ai.azure.com",
                 "api_key": gh_token,
             }
-        return mapped, {}
+        return wire_name, {}
     return wire_name, {}
 
 
