@@ -5,11 +5,11 @@ bago_intro.py — Animación de inicio estilo Copilot para BAGO
 Secuencia:
   1. Limpia pantalla
   2. Logo BAGO aparece línea a línea (efecto scan descendente)
-  3. Abeja vuela de izquierda a derecha, aterriza junto al logo
+  3. Avispa vuela de izquierda a derecha, aterriza junto al logo
   4. Pulso de color (respiración 2 ciclos)
-  5. Tagline aparece debajo con la abeja
+  5. Tagline aparece debajo con la avispa
   6. Mensajes de arranque con spinner → ✓
-  7. "🐝 ◆ BAGO — ACTIVO" centrado en verde
+  7. ">≡ᗑ≡< ◆ BAGO — ACTIVO" centrado en verde
   8. Reset terminal → devuelve control
 
 Uso directo:
@@ -68,15 +68,18 @@ LOGO = [
 ]
 LOGO_W  = max(len(l) for l in LOGO)
 LOGO_H  = len(LOGO)
-TAGLINE = "🐝  Balanceado · Adaptativo · Generativo · Organizativo"
+TAGLINE = ">≡ᗑ≡<  Balanceado · Adaptativo · Generativo · Organizativo"
 
-# ── Abeja ASCII frames ────────────────────────────────────────────────────────
-# Cuerpo de la abeja volando (alas arriba/abajo)
+# ── Avispa asiática ASCII frames (Vespa mandarinia) ──────────────────────────
+#   ᗑ  = cabeza/tórax vista desde arriba
+#   ≡/═ = alas (venas alares)
+#   ∧∨  = posición de las alas (arriba/abajo)
+#   > < = aguijón / mandíbulas
 BEE_FRAMES = [
-    r" /\🐝/\ ",   # alas arriba
-    r"  _🐝_  ",   # alas centro
-    r" \/🐝\/ ",   # alas abajo
-    r"  _🐝_  ",   # alas centro
+    r"  ∧═ᗑ═∧  ",   # alas arriba (vuelo ascendente)
+    r"  ─═ᗑ═─  ",   # alas horizontales (vuelo recto)
+    r"  ∨═ᗑ═∨  ",   # alas abajo (vuelo descendente)
+    r"  ─═ᗑ═─  ",   # alas horizontales
 ]
 BEE_TRAIL = ["·", "·", " "]   # estela de vuelo
 
@@ -253,8 +256,8 @@ def _animate(fast: bool = False) -> None:
         out(_goto(row, msg_col) + CLEAR_LINE + " " * (msg_col - 1) + done)
         sys.stdout.flush()
 
-    # ── 6. 🐝 ◆ BAGO — ACTIVO ─────────────────────────────────────────────────
-    active_msg = "🐝  ◆  BAGO — ACTIVO"
+    # ── 6. >≡ᗑ≡< ◆ BAGO — ACTIVO ──────────────────────────────────────────────
+    active_msg = ">≡ᗑ≡<  ◆  BAGO — ACTIVO"
     act_col    = max(1, (cols - len(active_msg)) // 2 + 1)
     if USE_COLOR:
         active_rendered = f"\033[1;32m{active_msg}\033[0m"
@@ -275,14 +278,14 @@ def _animate(fast: bool = False) -> None:
     # El finally en play() limpia pantalla y restaura terminal
 
 
-# ── Badge para barra de estado (animado con reloj) ────────────────────────────
-# Los frames del ala se usan cuando la barra se refresca (al escribir)
-_BEE_BAR_FRAMES = ["🐝 ", " 🐝", "🐝 ", " 🐝"]
+# ── Badge avispa asiática para barra de estado (animado con reloj) ───────────
+# ᗑ = cuerpo/tórax; ≡ = alas abiertas; ─ = alas plegadas; > < = mandíbulas
+_BEE_BAR_FRAMES = [">≡ᗑ≡< ", ">─ᗑ─< ", ">≡ᗑ≡< ", ">=ᗑ=< "]
 
 def bee_badge(tick: int = 0) -> str:
-    """Retorna el badge con la abeja para la barra de estado. tick=int(time*2)%4."""
-    bee = _BEE_BAR_FRAMES[tick % len(_BEE_BAR_FRAMES)]
-    return f"{bee}◆ BAGO"
+    """Retorna el badge con la avispa para la barra de estado. tick=int(time*2)%4."""
+    wasp = _BEE_BAR_FRAMES[tick % len(_BEE_BAR_FRAMES)]
+    return f"{wasp}◆ BAGO"
 
 
 # ── Ejecución directa ─────────────────────────────────────────────────────────
