@@ -139,6 +139,15 @@ pip install -e .
 bago validate
 ```
 
+**Windows CMD**
+
+```cmd
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
+py -m pip install -e .
+bago validate
+```
+
 - Security model and reporting: [SECURITY.md](SECURITY.md)
 
 ---
