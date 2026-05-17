@@ -41,6 +41,7 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago setup` | Wizard de configuraciÃ³n inicial: notificaciones (Telegram/WhatsApp/ntfy), git hooks. --check \| --reset \| --clean-history | 🔬 avanzado | safe | required |
 | `bago status` | Estado actual: flujo activo, tarea pendiente y salud del sistema | 📊 analítica | safe | required |
 | `bago sync` | Regenera TREE.txt y CHECKSUMS | 💚 salud | safe | required |
+| `bago pack-cache` | Cache híbrida de pack en SQLite: sync \| check \| status | • infraestructura | safe | required |
 | `bago task` | Muestra la tarea W2 pendiente. --done \| --assign <agente> \| --clear | ▶️ ejecución | safe | required |
 | `bago validate` | Verifica el pack (manifiesto, estado, roles, ZIP) â€” subcomandos: manifest, state, contents | 💚 salud | safe | required |
 | `bago workspace-select` | Selector de espacio de trabajo: elige entre framework (self), directorio padre o ruta/repo externo. Persiste en repo_context.json. Se invoca automÃ¡ticamente al arrancar si no hay workspace configurado. Uso: bago workspace-select  \|  opciones: --json --plain | • configuraciÃ³n | safe | required |

@@ -67,6 +67,13 @@ REGISTRY: dict[str, ToolEntry] = {
         description="Regenera TREE.txt y CHECKSUMS",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "sync_pack_metadata.py"))],
     ),
+    "pack-cache": ToolEntry(
+        cmd="pack-cache", module="pack_cache_db",
+        description="Cache híbrida pack.json -> bago.db (sync | check | status)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "pack_cache_db.py"))],
+        layer="infraestructura", scope="framework", agent="ARQUITECTO",
+        stability="core", risk="safe",
+    ),
     "check": ToolEntry(
         cmd="check", module="check_validate_purity",
         description="Chequeo estÃ¡tico de pureza",
