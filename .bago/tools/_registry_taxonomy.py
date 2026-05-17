@@ -100,6 +100,7 @@ _LAYER_MAP: dict[str, str] = {
     "ableton-template": "visual",
     "banner": "visual",
     "agent-config": "visual",
+    "gateway":      "visual",
     "create": "visual",
     "html-export": "visual",
     "hub": "visual",

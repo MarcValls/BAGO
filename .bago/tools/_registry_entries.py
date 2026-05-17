@@ -1217,6 +1217,20 @@ REGISTRY: dict[str, ToolEntry] = {
         layer_group="ui",
     ),
 
+
+    "gateway": ToolEntry(
+        cmd="gateway",
+        module=".bago.tools.gateway",
+        description="Gateway de mensajería unificado: Telegram, WhatsApp, Discord, Slack, Signal, Email, SMS y más",
+        preflight=["config"],
+        schema="[install|status|start|stop|test]",
+        layer="visual",
+        scope="global",
+        agent="ops",
+        stability="experimental",
+        risk="low",
+        layer_group="ui",
+    ),
     "agent-config": ToolEntry(
         cmd="agent-config",
         module="agent_config",

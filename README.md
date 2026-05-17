@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0b1** · 124 CLI commands · 119 public commands
+> **Version 3.4.0b1** · 125 CLI commands · 120 public commands
 
 Public command contract (CI-checked): **20 core** · **91 experimental** · **8 dangerous** · **0 legacy**
 
@@ -155,7 +155,7 @@ All deprecated commands have been removed from the registry. There are no legacy
 
 ## 6. Experimental commands (not part of the contract)
 
-`ableton-template` · `advisor` · `agent` · `agent-config` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
+`ableton-template` · `advisor` · `agent` · `agent-config` · `gateway` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
 `config-check` · `create` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
 `heal-paths` · `html-export` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `lint-runner` · `llm` · `llm-node` · `log-viewer` · `lsp` · `music` · `naming` · `net-scan`
 `neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `orphan-shield` · `personality-panel` · `ping-server` · `placeholder_scan` · `preflight-check` · `project-summary` · `recientes` · `reopen`
