@@ -297,4 +297,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*BAGO 3.4.0b1 · Built with BAGO · May 2026*
+*BAGO unknown · Built with BAGO · May 2026*
