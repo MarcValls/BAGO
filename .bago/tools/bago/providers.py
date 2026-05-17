@@ -95,6 +95,17 @@ def best_model_for_provider(prov_name, providers):
     name, wire, prov = get_default_model(prov_name, providers)
     return (name, wire, prov) if name else None
 
+# Modelos Claude no disponibles en GitHub Models → se redirigen a gpt-4o
+_COPILOT_MODEL_MAP = {
+    "claude-sonnet-4.6": "gpt-4o",
+    "claude-sonnet-4.5": "gpt-4o",
+    "claude-opus-4.7":   "gpt-4o",
+    "claude-opus-4.5":   "gpt-4o",
+    "claude-3-5-sonnet": "gpt-4o",
+    "claude-3-opus":     "gpt-4o",
+    "claude-3-haiku":    "gpt-4o-mini",
+}
+
 # ── LiteLLM resolver ───────────────────────────────────────────────────────────
 def resolve_litellm(provider, wire_name):
     if provider in ("ollama-local", "ollama-cloud"):
@@ -102,7 +113,9 @@ def resolve_litellm(provider, wire_name):
     if provider == "copilot":
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if token:
-            return f"openai/{wire_name}", {
+            # GitHub Models no soporta Claude: redirigir al equivalente disponible
+            mapped = _COPILOT_MODEL_MAP.get(wire_name, wire_name)
+            return f"openai/{mapped}", {
                 "api_base": "https://models.inference.ai.azure.com",
                 "api_key": token,
             }
