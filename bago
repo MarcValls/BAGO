@@ -421,11 +421,16 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
     run_env = {**os.environ, "BAGO_USER_CWD": _user_cwd, **dispatch_env}
     _t0 = time.monotonic()
     _load_bp().dispatch_header(cmd)
-    result = subprocess.run(
-        COMMANDS[cmd] + rest,
-        cwd=str(BAGO_ROOT.parent),
-        env=run_env,
-    )
+    try:
+        result = subprocess.run(
+            COMMANDS[cmd] + rest,
+            cwd=str(BAGO_ROOT.parent),
+            env=run_env,
+        )
+    except KeyboardInterrupt:
+        import sys as _sys
+        print("\n\033[2m⚡ Interrumpido.\033[0m", file=_sys.stderr)
+        _sys.exit(130)
     _duration = time.monotonic() - _t0
 
     # 3b. Dispatcher: finalize (emit dispatch:after event, flush)

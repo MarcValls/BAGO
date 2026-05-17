@@ -325,6 +325,8 @@ def main():
             result = chat(session, line)
             if result:   # None = ya mostrado por chain/ensemble
                 show_response(result, session.model_name, session.provider)
+        except KeyboardInterrupt:
+            console.print("\n[dim yellow]⚡ Interrumpido — modelo cancelado. Escribe tu siguiente mensaje.[/dim yellow]")
         except RuntimeError as e:
             pe(str(e))
             console.print("[dim]  Prueba /login para registrar providers o /switch para cambiar modelo.[/dim]")
