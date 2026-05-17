@@ -909,7 +909,7 @@ def main():
     elif cmd == "agent":
         # Multi-Agent Gateway — orquesta herramientas BAGO desde cualquier LLM
         subprocess.run(
-            [sys.executable, str(BAGO_DIR / "agents" / "agent_gateway.py")] + rest,
+            [sys.executable, str(BAGO_ROOT / "agents" / "agent_gateway.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
     elif cmd == "model":

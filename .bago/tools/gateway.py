@@ -565,6 +565,11 @@ def _show_status(cfg: dict) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
+    if args and args[0] in {"-h", "--help", "help"}:
+        console.print("Uso: bago gateway [install|status|start|stop|test] [--once]")
+        console.print("\nDescripción: gateway unificado de mensajería para WhatsApp, Telegram, Signal, Email, ntfy y Utopia P2P.")
+        raise SystemExit(0)
+
     subcmd = args[0] if args else "status"
     once   = "--once" in args
 

@@ -4,155 +4,165 @@ Imports REGISTRY from _registry_entries and mutates entries in-place
 to inject layer, scope, agent, stability, and layer_group metadata.
 
 Internal module: import vía tool_registry, not directly.
+
+Modelo cognitivo BAGO — Bucle Shepard (4 capas):
+  MOTOR      — orquesta el ciclo: routing, agentes, ejecución
+  CONSUMO    — percibe el entorno: lectura, detección, input
+  MEMORIA    — persiste el estado: historial, conocimiento, métricas
+  GENERACION — produce artefactos: output, código, reportes, notificaciones
+  DOMINIO    — herramientas de dominio específico (música, visual, etc.)
 """
 from __future__ import annotations
 
 from _registry_entries import REGISTRY  # noqa: F401 — re-exported
 
-# ── Taxonomía de capas ─────────────────────────────────────────────────────────
+# ── Taxonomía de capas — Modelo cognitivo BAGO ─────────────────────────────────
 
 LAYERS: dict[str, dict] = {
-    "ejecución": {"icon": "⚡", "label": "EJECUCIÓN",  "desc": "ejecutar y avanzar trabajo activo"},
-    "calidad":   {"icon": "🔍", "label": "CALIDAD",    "desc": "calidad de código del proyecto"},
-    "salud":     {"icon": "💚", "label": "SALUD",      "desc": "salud y mantenimiento del framework"},
-    "analítica": {"icon": "📊", "label": "ANALÍTICA",  "desc": "métricas, insights y patrones"},
-    "visual":    {"icon": "🎨", "label": "VISUAL",     "desc": "generación de assets e interfaces"},
-    "avanzado":  {"icon": "🔧", "label": "AVANZADO",   "desc": "herramientas avanzadas e integraciones"},
+    "motor":      {"icon": "⚙️",  "label": "MOTOR",      "desc": "orquestación del ciclo: routing, agentes, ejecución"},
+    "consumo":    {"icon": "👁️",  "label": "CONSUMO",    "desc": "percepción del entorno: lectura, detección, input"},
+    "memoria":    {"icon": "🧠",  "label": "MEMORIA",    "desc": "estado persistente: historial, conocimiento, métricas"},
+    "generacion": {"icon": "✨",  "label": "GENERACIÓN", "desc": "artefactos: output, código, reportes, notificaciones"},
+    "dominio":    {"icon": "🎨",  "label": "DOMINIO",    "desc": "herramientas de dominio específico"},
 }
 
 _LAYER_MAP: dict[str, str] = {
-    # EJECUCIÓN
-    "auto": "ejecución",
-    "autonomy": "ejecución",
-    "build-run": "ejecución",
-    "done": "ejecución",
-    "flow": "ejecución",
-    "focus-mode": "ejecución",
-    "goals": "ejecución",
-    "ideas": "ejecución",
-    "log-viewer": "ejecución",
-    "menu": "ejecución",
-    "next": "ejecución",
-    "reopen": "ejecución",
-    "script-runner": "ejecución",
-    "select": "ejecución",
-    "session": "ejecución",
-    "sprint": "ejecución",
-    "start": "ejecución",
-    "task": "ejecución",
-    "template-gen": "ejecución",
-    "workflow": "ejecución",
-    # CALIDAD
-    "canon": "calidad",
-    "code-search": "calidad",
-    "debt": "calidad",
-    "deps": "calidad",
-    "doc-agent": "calidad",
-    "doc-index": "calidad",
-    "docs": "calidad",
-    "hardcode": "calidad",
-    "lint-runner": "calidad",
-    "naming": "calidad",
-    "orphan-shield": "calidad",
-    "orphans": "calidad",
-    "placeholder_scan": "calidad",
-    "review": "calidad",
-    "risk": "calidad",
-    "rubber-duck": "calidad",
-    "secrets": "calidad",
-    "size-check": "calidad",
-    "spanish": "calidad",
-    "types": "calidad",
-    # SALUD
-    "audit": "salud",
-    "build-clean": "salud",
-    "config-check": "salud",
-    "context": "salud",
-    "deactivate": "salud",
-    "heal-paths": "salud",
-    "health": "salud",
-    "neural-toolbox": "salud",
-    "ping-server": "salud",
-    "preflight-check": "salud",
-    "project": "salud",
-    "repo": "salud",
-    "scope": "salud",
-    "siembra": "salud",
-    "sync": "salud",
-    "validate": "salud",
-    # ANALÍTICA
-    "artifact-counter": "analítica",
-    "chronicle": "analítica",
-    "code-metrics": "analítica",
-    "dashboard": "analítica",
-    "diff": "analítica",
-    "habit": "analítica",
-    "insights": "analítica",
-    "project-summary": "analítica",
-    "recent-projects": "analítica",
-    "recientes": "analítica",
-    "search-history": "analítica",
-    "snapshot": "analítica",
-    "status": "analítica",
-    "weekly-report": "analítica",
-    "work_matrix": "analítica",
-    # VISUAL
-    "ableton-template": "visual",
-    "banner": "visual",
-    "agent-config": "visual",
-    "gateway":      "visual",
-    "music-saas":   "visual",
-    "create": "visual",
-    "html-export": "visual",
-    "hub": "visual",
-    "image-studio": "visual",
-    "image_gen": "visual",
-    "launch": "visual",
-    "sprite-studio": "visual",
-    # AVANZADO
-    "advisor": "avanzado",
-    "agent": "avanzado",
-    "alias-manager": "avanzado",
-    "ask": "avanzado",
-    "assign": "avanzado",
-    "autonomous": "avanzado",
-    "benchmark": "avanzado",
-    "cabinet": "avanzado",
-    "db": "avanzado",
-    "devmode": "avanzado",
-    "env-manager": "avanzado",
-    "find-tool": "avanzado",
-    "git-status": "avanzado",
-    "hello": "avanzado",
-    "inbox": "avanzado",
-    "install": "avanzado",
-    "llm": "avanzado",
-    "llm-node": "avanzado",
-    "lsp": "avanzado",
-    "music": "avanzado",
-    "net-scan": "avanzado",
-    "neural": "avanzado",
-    "notify-bago": "avanzado",
-    "notify-desktop": "avanzado",
-    "notify-whatsapp": "avanzado",
-    "npath": "avanzado",
-    "orchestrate": "avanzado",
-    "peer": "avanzado",
-    "personality-panel": "avanzado",
-    "research": "avanzado",
-    "route": "avanzado",
-    "rules": "avanzado",
-    "seed": "avanzado",
-    "setup": "avanzado",
-    "skill": "avanzado",
-    "spiral": "avanzado",
-    "spiral-agent": "avanzado",
-    "state-manager": "avanzado",
-    "toolsmith": "avanzado",
-    "version": "avanzado",
-    "why": "avanzado",
-    "workflow-navigator": "avanzado",
-    "workspace-select": "avanzado",
+    # ── MOTOR — orquesta el bucle Shepard ─────────────────────────────────────
+    "agent":            "motor",
+    "agent-config":     "motor",
+    "alias-manager":    "motor",
+    "assign":           "motor",
+    "auto":             "motor",
+    "autonomous":       "motor",
+    "autonomy":         "motor",
+    "boot":             "motor",
+    "build-run":        "motor",
+    "cabinet":          "motor",
+    "canon":            "motor",   # bucle Shepard propiamente dicho
+    "create":           "motor",
+    "done":             "motor",
+    "field":            "motor",
+    "flow":             "motor",
+    "gateway":          "motor",
+    "install":          "motor",
+    "llm":              "motor",
+    "llm-node":         "motor",
+    "lsp":              "motor",
+    "menu":             "motor",
+    "neural":           "motor",
+    "neural-toolbox":   "motor",
+    "next":             "motor",
+    "orchestrate":      "motor",
+    "peer":             "motor",
+    "route":            "motor",
+    "safeguard":        "motor",
+    "script-runner":    "motor",
+    "select":           "motor",
+    "skill":            "motor",
+    "spiral":           "motor",
+    "spiral-agent":     "motor",
+    "start":            "motor",
+    "toolsmith":        "motor",
+    "workflow":         "motor",
+    "workflow-navigator":"motor",
+    # ── CONSUMO — percibe el entorno ───────────────────────────────────────────
+    "ask":              "consumo",
+    "code-metrics":     "consumo",
+    "code-search":      "consumo",
+    "config-check":     "consumo",
+    "context":          "consumo",
+    "deps":             "consumo",
+    "diff":             "consumo",
+    "doc-index":        "consumo",
+    "env-manager":      "consumo",
+    "find-tool":        "consumo",
+    "git-status":       "consumo",
+    "hardcode":         "consumo",
+    "inbox":            "consumo",
+    "lint-runner":      "consumo",
+    "log-viewer":       "consumo",
+    "naming":           "consumo",
+    "net-scan":         "consumo",
+    "orphan-shield":    "consumo",
+    "orphans":          "consumo",
+    "ping-server":      "consumo",
+    "placeholder_scan": "consumo",
+    "preflight-check":  "consumo",
+    "repo":             "consumo",
+    "scope":            "consumo",
+    "search-history":   "consumo",
+    "secrets":          "consumo",
+    "size-check":       "consumo",
+    "spanish":          "consumo",
+    "types":            "consumo",
+    # ── MEMORIA — persiste y recuerda ─────────────────────────────────────────
+    "artifact-counter": "memoria",
+    "audit":            "memoria",
+    "benchmark":        "memoria",
+    "chronicle":        "memoria",
+    "dashboard":        "memoria",
+    "dashboard-risks":  "memoria",
+    "debt":             "memoria",
+    "devmode":          "memoria",
+    "focus-mode":       "memoria",
+    "goals":            "memoria",
+    "habit":            "memoria",
+    "health":           "memoria",
+    "ideas":            "memoria",
+    "insights":         "memoria",
+    "npath":            "memoria",
+    "project":          "memoria",
+    "project-summary":  "memoria",
+    "recent-projects":  "memoria",
+    "recientes":        "memoria",
+    "reopen":           "memoria",
+    "risk":             "memoria",
+    "session":          "memoria",
+    "siembra":          "memoria",
+    "snapshot":         "memoria",
+    "sprint":           "memoria",
+    "state-manager":    "memoria",
+    "status":           "memoria",
+    "sync":             "memoria",
+    "task":             "memoria",
+    "validate":         "memoria",
+    "version":          "memoria",
+    "weekly-report":    "memoria",
+    "work_matrix":      "memoria",
+    "workspace-select": "memoria",
+    # ── GENERACIÓN — produce artefactos ───────────────────────────────────────
+    "advisor":          "generacion",
+    "build-clean":      "generacion",
+    "deactivate":       "generacion",
+    "doc-agent":        "generacion",
+    "docs":             "generacion",
+    "heal-paths":       "generacion",
+    "html-export":      "generacion",
+    "notify-bago":      "generacion",
+    "notify-desktop":   "generacion",
+    "notify-whatsapp":  "generacion",
+    "personality-panel":"generacion",
+    "research":         "generacion",
+    "review":           "generacion",
+    "rubber-duck":      "generacion",
+    "rules":            "generacion",
+    "seed":             "generacion",
+    "setup":            "generacion",
+    "template-gen":     "generacion",
+    "why":              "generacion",
+    # ── DOMINIO — herramientas de dominio específico ──────────────────────────
+    "ableton-template": "dominio",
+    "banner":           "dominio",
+    "hub":              "dominio",
+    "image-studio":     "dominio",
+    "image_gen":        "dominio",
+    "launch":           "dominio",
+    "music":            "dominio",
+    "music-saas":       "dominio",
+    "sprite-studio":    "dominio",
+    # internal helpers
+    "hello":            "motor",
+    "self":             "motor",   # autoreparación del framework
 }
 
 _SCOPE_MAP: dict[str, str] = {
@@ -431,8 +441,8 @@ _AGENT_MAP: dict[str, str] = {
 # ── Inject layer + scope + agent into each REGISTRY entry ─────────────────────
 
 for _cmd, _entry in REGISTRY.items():
-    if not _entry.layer:
-        _entry.layer = _LAYER_MAP.get(_cmd, "avanzado")
+    # Layer: _LAYER_MAP always wins; fallback to existing value or "motor"
+    _entry.layer = _LAYER_MAP.get(_cmd) or _entry.layer or "motor"
     if not _entry.scope:
         _entry.scope = _SCOPE_MAP.get(_cmd, "both")
     if not _entry.agent:
@@ -441,8 +451,26 @@ for _cmd, _entry in REGISTRY.items():
 # ── Kernel Lockdown classification (v3.2) ─────────────────────────────────────
 
 _CORE_CMDS: frozenset[str] = frozenset({
+    # Contrato estable original
     "health", "audit", "status", "task", "session", "flow",
     "project", "sync", "scope", "secrets", "validate", "context",
+    # Graduados de experimental — bucle cognitivo esencial
+    "ask",       # CONSUMO: router lenguaje natural → BAGO
+    "ideas",     # MEMORIA: núcleo del loop de trabajo
+    "sprint",    # MEMORIA: gestión de sprints
+    "goals",     # MEMORIA: objetivos del proyecto
+    "dashboard", # MEMORIA: estado del pack
+    "route",     # MOTOR: routing LLM híbrido
+    "review",    # GENERACIÓN: code review automatizado
+    "docs",      # GENERACIÓN: genera documentación
+    "version",   # MEMORIA: gestión de versiones
+    "workflow",  # MOTOR: selector de flujo
+    "next",      # MOTOR: meta-ciclo mínimo
+    "advisor",   # GENERACIÓN: LLM adaptativo
+    "snapshot",  # MEMORIA: comparación de estados
+    "why",       # GENERACIÓN: explica comandos
+    "diff",      # CONSUMO: cambios entre sesiones
+    "risk",      # MEMORIA: matriz de riesgo
 })
 _DANGEROUS_CMDS: frozenset[str] = frozenset({
     "install", "autonomous", "orchestrate", "cabinet", "peer", "db", "auto", "spiral",

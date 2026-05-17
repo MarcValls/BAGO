@@ -1459,7 +1459,7 @@ REGISTRY: dict[str, ToolEntry] = {
     ),
     "gateway": ToolEntry(
         cmd="gateway",
-        module=".bago.tools.gateway",
+        module="gateway",
         description="Messaging gateway unificado: WhatsApp, Telegram, Signal, Email, ntfy, Utopia P2P",
         preflight=[],
         schema="[list|setup <platform>|send <platform> <msg>|verify <platform>]",
@@ -1473,7 +1473,7 @@ REGISTRY: dict[str, ToolEntry] = {
 
     "music-saas": ToolEntry(
         cmd="music-saas",
-        module=".bago.tools.music_saas",
+        module="music_saas",
         description="CLI para BAGO Music SaaS — status, dev server, Telegram webhook, GitHub Actions build",
         preflight=[],
         schema="[status|dev|webhook <url>|test|open [tool]|build|config]",

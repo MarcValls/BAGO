@@ -167,10 +167,25 @@ These commands form the **stable public interface**.
 | `bago doc-agent` | Documentation agent: update COMMANDS.md, LAYERS.md, README |
 | `bago devmode` | Toggle developer mode: unlock advanced tools and preflight checks |
 | `bago self` | BAGO introspection: identity, version, capabilities |
-| `bago launch` | Launch BAGO daemon or background services |
 | `bago menu` | Interactive hierarchical command menu (curses UI) |
 | `bago workspace-select` | Select active workspace: framework / parent dir / external repo |
 | `bago recent-projects` | History of recent BAGO projects and sessions |
+| `bago ask` | Natural language router → BAGO tools (CONSUMO) |
+| `bago ideas` | W2 ideas loop — central to the BAGO workflow (MEMORIA) |
+| `bago sprint` | Sprint management: create, list, close (MEMORIA) |
+| `bago goals` | Project objectives with progress tracking (MEMORIA) |
+| `bago dashboard` | Pack dashboard: health, velocity, risks (MEMORIA) |
+| `bago route` | Hybrid LLM router: local ↔ cloud (MOTOR) |
+| `bago review` | Automated fail-closed code review (GENERACIÓN) |
+| `bago docs` | Generate COMMANDS.md from registry (GENERACIÓN) |
+| `bago version` | Version management: bump \| beta \| release \| tag (MEMORIA) |
+| `bago workflow` | Interactive workflow selector (MOTOR) |
+| `bago next` | Meta-cycle: pick top idea + open task (MOTOR) |
+| `bago advisor` | Adaptive LLM advisor: ask \| next \| explain \| run (GENERACIÓN) |
+| `bago snapshot` | Compare two BAGO state snapshots (MEMORIA) |
+| `bago why` | Explain what a BAGO command does and when to use it (GENERACIÓN) |
+| `bago diff` | Show files modified between last BAGO sessions (CONSUMO) |
+| `bago risk` | Project risk matrix: impact × probability (MEMORIA) |
 
 ---
 
@@ -197,13 +212,17 @@ These commands form the **stable public interface**.
 
 ## 6. Experimental commands (not part of the contract)
 
-`ableton-template` · `advisor` · `agent` · `agent-config` · `gateway` · `alias-manager` · `artifact-counter` · `ask` · `assign` · `autonomy` · `benchmark` · `boot` · `build-clean` · `build-run` · `canon` · `chronicle` · `code-metrics` · `code-search`
-- `music-saas` — CLI para BAGO Music SaaS (status/dev/webhook/test/open/build/config)
-`config-check` · `create` · `dashboard` · `deactivate` · `debt` · `deps` · `diff` · `doc-index` · `docs` · `env-manager` · `field` · `find-tool` · `focus-mode` · `git-status` · `goals` · `habit` · `hardcode`
-`heal-paths` · `html-export` · `ideas` · `image-studio` · `image_gen` · `inbox` · `insights` · `lint-runner` · `llm` · `llm-node` · `log-viewer` · `lsp` · `music` · `naming` · `net-scan`
-`neural` · `neural-toolbox` · `next` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `npath` · `orphan-shield` · `personality-panel` · `ping-server` · `placeholder_scan` · `preflight-check` · `project-summary` · `recientes` · `reopen`
-`repo` · `research` · `review` · `risk` · `route` · `rubber-duck` · `rules` · `safeguard` · `script-runner` · `search-history` · `seed` · `select` · `siembra` · `size-check` · `skill` · `snapshot`
-`spanish` · `spiral-agent` · `sprint` · `sprite-studio` · `state-manager` · `template-gen` · `toolsmith` · `types` · `version` · `weekly-report` · `why` · `work_matrix` · `workflow` · `workflow-navigator`
+Usa `BAGO_LABS=1` para suprimir avisos. Ver `docs/API_CONTRACT.md` para la lista completa.
+
+**MOTOR** — `agent` · `agent-config` · `alias-manager` · `assign` · `autonomy` · `boot` · `build-run` · `canon` · `create` · `field` · `gateway` · `llm` · `llm-node` · `lsp` · `music-saas` · `neural` · `neural-toolbox` · `safeguard` · `script-runner` · `select` · `skill` · `spiral-agent` · `toolsmith` · `workflow-navigator`
+
+**CONSUMO** — `code-metrics` · `code-search` · `config-check` · `deps` · `doc-index` · `env-manager` · `find-tool` · `git-status` · `hardcode` · `inbox` · `lint-runner` · `log-viewer` · `naming` · `net-scan` · `orphan-shield` · `ping-server` · `placeholder_scan` · `preflight-check` · `repo` · `search-history` · `size-check` · `spanish` · `types`
+
+**MEMORIA** — `artifact-counter` · `benchmark` · `chronicle` · `debt` · `focus-mode` · `habit` · `insights` · `npath` · `project-summary` · `recientes` · `reopen` · `siembra` · `state-manager` · `weekly-report` · `work_matrix`
+
+**GENERACIÓN** — `build-clean` · `deactivate` · `heal-paths` · `html-export` · `image-studio` · `image_gen` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `personality-panel` · `research` · `rubber-duck` · `rules` · `seed` · `sprite-studio` · `template-gen`
+
+**DOMINIO** — `ableton-template` · `music`
 
 ---
 
