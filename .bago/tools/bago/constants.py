@@ -105,6 +105,8 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/auth[/yellow]       Auth + providers (superset de /login)
   [yellow]/auto[/yellow]       Modo autonomo y nivel de confirmaciones
   [yellow]/mode[/yellow]       Cambio rapido del modo del orquestador
+  [yellow]/plan[/yellow]       Alterna modo PLAN (proponer plan antes de actuar)
+  [yellow]/brainstorm[/yellow] Alterna modo BRAINSTORM (expansion libre de ideas)
   [yellow]/sync[/yellow]       Sincronizar GitHub/USB + post-sync (repliegue/letargo)
   [yellow]/memory[/yellow]     Base de conocimiento + memoria episodica
   [yellow]/config[/yellow]     Configuracion global persistente

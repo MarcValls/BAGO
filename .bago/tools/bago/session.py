@@ -118,6 +118,7 @@ class BagoSession:
         path.write_text(json.dumps({
             "started_at": self.started_at.isoformat(), "provider": self.provider,
             "model": self.model_name, "switches": self.switches,
+            "plan_mode": self.plan_mode, "brainstorm": self.brainstorm,
             "messages": len(self.history)-1, "history": self.history,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         return str(path)

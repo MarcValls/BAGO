@@ -31,6 +31,8 @@ BAGO_COMMANDS: dict[str, str] = {
     "/auth":        "Auth avanzada + providers (superset de /login)",
     "/auto":        "Modo autónomo on/off + nivel de confirmaciones",
     "/mode":        "Cambio rápido del modo del orquestador",
+    "/plan":        "Alternar modo PLAN (plan antes de ejecutar)",
+    "/brainstorm":  "Alternar modo BRAINSTORM (expansión libre de ideas)",
     "/sync":        "Sincronizar GitHub/USB + post-sync",
     "/memory":      "Base de conocimiento + memoria episódica",
     "/config":      "Configuración global persistente",
@@ -136,7 +138,7 @@ _ICONS: dict[str, str] = {
     "/switch": "🔀", "/models": "📋", "/autoroute": "⚙", "/chain": "⛓", "/ensemble": "🔗",
     "/agents": "🤖", "/skills": "⚡", "/roles": "🎭", "/routing": "🗺", "/new": "✨",
     "/wizard": "✨", "/fabrica": "✨",
-    "/session": "💾", "/auto": "🤖", "/mode": "🎛", "/sync": "🔄",
+    "/session": "💾", "/auto": "🤖", "/mode": "🎛", "/plan": "🧭", "/brainstorm": "💡", "/sync": "🔄",
     "/memory": "🧠", "/config": "⚙", "/framework": "🏗", "/workspaces": "📁", "/projects": "📂",
     "/status": "📊", "/save": "💾", "/clear": "🧹", "/help": "❓", "/exit": "🚪",
 }

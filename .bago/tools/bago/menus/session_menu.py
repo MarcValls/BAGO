@@ -93,6 +93,8 @@ def _session_load(session):
             session.history = hist
             if d.get("model") and d.get("provider"):
                 session.switch_model(d["model"], silent=True)
+            session.plan_mode = bool(d.get("plan_mode", False))
+            session.brainstorm = bool(d.get("brainstorm", False))
             pi(f"Sesion cargada: {len(hist)-1} mensajes.")
     except Exception as e:
         pe(f"Error cargando sesion: {e}")
