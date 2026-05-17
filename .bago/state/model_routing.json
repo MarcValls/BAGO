@@ -2,6 +2,121 @@
   "version": "2026-05-14",
   "rules": [
     {
+      "id": "coding_write",
+      "keywords": [
+        "escribe código",
+        "implementa función",
+        "implementa clase",
+        "crea módulo",
+        "nueva función",
+        "nuevo endpoint",
+        "implementa feature",
+        "write code",
+        "implement"
+      ],
+      "provider": "copilot",
+      "model": "gpt-4o",
+      "agent": "agent_coder",
+      "reason": "Escritura de código nuevo — agent_coder con gpt-4o"
+    },
+    {
+      "id": "coding_local",
+      "keywords": [
+        "escribe script",
+        "crea script",
+        "función python",
+        "función js",
+        "snippet",
+        "código rápido"
+      ],
+      "provider": "ollama-local",
+      "model": "qwen25-coder",
+      "agent": "agent_coder",
+      "reason": "Código simple/rápido — local con qwen25-coder"
+    },
+    {
+      "id": "planning_sprint",
+      "keywords": [
+        "plan sprint",
+        "planifica sprint",
+        "backlog",
+        "roadmap",
+        "prioriza tareas",
+        "organiza proyecto",
+        "desglose tareas",
+        "planning"
+      ],
+      "provider": "copilot",
+      "model": "gpt-4o",
+      "agent": "agent_planner",
+      "reason": "Planificación de sprint/roadmap — agent_planner con gpt-4o"
+    },
+    {
+      "id": "debug_error",
+      "keywords": [
+        "traceback",
+        "error en",
+        "exception",
+        "AttributeError",
+        "TypeError",
+        "ValueError",
+        "ModuleNotFoundError",
+        "arregla el error",
+        "bug en"
+      ],
+      "provider": "ollama-local",
+      "model": "qwen25-coder",
+      "agent": "agent_debugger",
+      "reason": "Debugging local rápido — agent_debugger con qwen25-coder"
+    },
+    {
+      "id": "architecture_design",
+      "keywords": [
+        "diseña arquitectura",
+        "arquitectura del sistema",
+        "diagrama de arquitectura",
+        "diseño del sistema",
+        "api design",
+        "estructura del proyecto"
+      ],
+      "provider": "copilot",
+      "model": "gpt-4o",
+      "agent": "agent_architect",
+      "reason": "Diseño arquitectónico — agent_architect con gpt-4o"
+    },
+    {
+      "id": "refactor_code",
+      "keywords": [
+        "refactoriza",
+        "refactor este",
+        "mejora este código",
+        "limpia el código",
+        "elimina deuda",
+        "aplica SOLID",
+        "simplifica esto"
+      ],
+      "provider": "ollama-local",
+      "model": "qwen25-coder",
+      "agent": "agent_refactor",
+      "reason": "Refactoring local — agent_refactor con qwen25-coder"
+    },
+    {
+      "id": "git_ops",
+      "keywords": [
+        "genera commit",
+        "mensaje de commit",
+        "crea pr",
+        "pull request",
+        "analiza diff",
+        "resuelve conflicto",
+        "estrategia git"
+      ],
+      "provider": "ollama-local",
+      "model": "qwen25-coder",
+      "agent": "agent_git",
+      "reason": "Operaciones Git — agent_git local"
+    },
+    {
       "id": "music_long_context",
       "keywords": [
         "analizar partitura completa",

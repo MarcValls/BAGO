@@ -1,5 +1,7 @@
 
 import datetime
+import json
+from pathlib import Path
 
 from rich import box
 from rich.panel import Panel
@@ -176,5 +178,36 @@ def cmd(line, session):
         _cmd_projects(session)
 
     else:
-        pe(f"Desconocido: {v}  —  /help")
+        # ── Atajos de agente (/code /debug /arch /sprint /refactor /git …) ────
+        _agents_file = Path(__file__).resolve().parents[3] / "state" / "agents_registry.json"
+        try:
+            _agents_data = json.loads(_agents_file.read_text(encoding="utf-8-sig"))
+            _agent_by_shortcut = {}
+            for _aname, _ag in _agents_data.items():
+                if _aname.startswith("_"): continue
+                for _s in _ag.get("shortcuts", []):
+                    _agent_by_shortcut[_s.lower()] = (_aname, _ag)
+        except Exception:
+            _agent_by_shortcut = {}
+
+        if v in _agent_by_shortcut:
+            _aname, _ag = _agent_by_shortcut[v]
+            _model    = _ag.get("model", session.model_name)
+            _provider = _ag.get("provider", session.provider)
+            _sysprompt = _ag.get("system_prompt", "")
+            # Switch model/provider
+            try:
+                msg = session.switch_model(f"{_provider}/{_model}")
+            except Exception:
+                msg = session.switch_model(_model)
+            # Override system message in history
+            if _sysprompt and session.history:
+                session.history[0] = {"role": "system", "content": _sysprompt}
+            pi(f"[bold cyan]Agente activado:[/bold cyan] {_aname}  |  {_model} ({_provider})")
+            pi(f"Skills: {', '.join(_ag.get('skills', []))}")
+            if a:
+                # prompt inline: process it immediately as a message
+                return True
+        else:
+            pe(f"Desconocido: {v}  —  /help")
     return True

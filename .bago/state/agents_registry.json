@@ -13,7 +13,7 @@
     "category": "tools",
     "description": "Agente de herramientas y revisión de código",
     "active": true,
-    "model": "claude-sonnet-4.6"
+    "model": "gpt-4o"
   },
   "agent_tests": {
     "phase": 4,
@@ -23,7 +23,7 @@
     "category": "tests",
     "description": "Agente de ejecución y validación de tests",
     "active": true,
-    "model": "claude-haiku-4.5"
+    "model": "qwen25-coder"
   },
   "agent_docs": {
     "phase": 8,
@@ -33,7 +33,7 @@
     "category": "docs",
     "description": "Agente de documentación y generación de contenido",
     "active": true,
-    "model": "claude-sonnet-4.6"
+    "model": "gpt-4o"
   },
   "agent_ops": {
     "phase": 2,
@@ -44,6 +44,163 @@
     "category": "ops",
     "description": "Agente de operaciones con cobertura cruzada",
     "active": true,
-    "model": "claude-opus-4.7"
+    "model": "gpt-4o"
+  },
+  "agent_coder": {
+    "phase": 6,
+    "skills": [
+      "code_writer",
+      "refactor"
+    ],
+    "category": "coding",
+    "description": "Agente de codificación: implementa features, escribe módulos y refactoriza código",
+    "active": true,
+    "model": "gpt-4o",
+    "provider": "copilot",
+    "system_prompt": "Eres un experto programador senior. Tu trabajo es escribir código limpio, funcional y bien documentado. Siempre incluye: imports necesarios, manejo de errores, y al menos un ejemplo de uso. Responde en español salvo que el código lo requiera en inglés.",
+    "shortcuts": [
+      "/code",
+      "/impl",
+      "/write"
+    ],
+    "routing_keywords": [
+      "escribe código",
+      "implementa",
+      "crea función",
+      "nuevo módulo",
+      "feature",
+      "código para"
+    ]
+  },
+  "agent_planner": {
+    "phase": 10,
+    "skills": [
+      "planner"
+    ],
+    "category": "planning",
+    "description": "Agente de planificación: sprints, roadmaps, backlogs y desglose de tareas",
+    "active": true,
+    "model": "gpt-4o",
+    "provider": "copilot",
+    "system_prompt": "Eres un experto en gestión de proyectos y planificación técnica. Descompones objetivos en tareas concretas, priorizas por impacto/esfuerzo, y produces planes accionables con estimaciones realistas. Usa formato estructurado: título, objetivo, tareas numeradas, dependencias y criterios de aceptación. Responde siempre en español.",
+    "shortcuts": [
+      "/plan",
+      "/sprint",
+      "/backlog",
+      "/roadmap"
+    ],
+    "routing_keywords": [
+      "plan",
+      "planifica",
+      "sprint",
+      "roadmap",
+      "backlog",
+      "tareas",
+      "organiza proyecto"
+    ]
+  },
+  "agent_debugger": {
+    "phase": 1,
+    "skills": [
+      "debugger"
+    ],
+    "category": "debugging",
+    "description": "Agente de debugging: analiza errores, causa raíz y genera fix con test de regresión",
+    "active": true,
+    "model": "qwen25-coder",
+    "provider": "ollama-local",
+    "system_prompt": "Eres un experto en depuración de software. Ante cualquier error: 1) Identifica la causa raíz exacta, 2) Explica por qué ocurre, 3) Proporciona el código corregido, 4) Sugiere un test para evitar la regresión. Sé conciso y técnico. Responde en español.",
+    "shortcuts": [
+      "/debug",
+      "/fix",
+      "/error"
+    ],
+    "routing_keywords": [
+      "error",
+      "bug",
+      "falla",
+      "traceback",
+      "excepción",
+      "crash",
+      "no funciona",
+      "arregla"
+    ]
+  },
+  "agent_architect": {
+    "phase": 3,
+    "skills": [
+      "architect"
+    ],
+    "category": "architecture",
+    "description": "Agente de arquitectura: diseña sistemas, APIs, estructuras de datos y toma decisiones técnicas",
+    "active": true,
+    "model": "gpt-4o",
+    "provider": "copilot",
+    "system_prompt": "Eres un arquitecto de software senior. Diseñas sistemas escalables, mantenibles y bien estructurados. Cuando propones una arquitectura: justifica las decisiones técnicas, menciona trade-offs, y proporciona la estructura de directorios/módulos. Usa diagramas en texto (ASCII o Mermaid) cuando sea útil. Responde en español.",
+    "shortcuts": [
+      "/arch",
+      "/design",
+      "/sistema"
+    ],
+    "routing_keywords": [
+      "arquitectura",
+      "diseña sistema",
+      "estructura proyecto",
+      "api design",
+      "diagrama",
+      "diseño técnico"
+    ]
+  },
+  "agent_refactor": {
+    "phase": 5,
+    "skills": [
+      "refactor",
+      "code_review"
+    ],
+    "category": "coding",
+    "description": "Agente de refactoring: mejora código existente, elimina deuda técnica, aplica patrones SOLID",
+    "active": true,
+    "model": "qwen25-coder",
+    "provider": "ollama-local",
+    "system_prompt": "Eres un experto en refactorización de código. Tu objetivo es mejorar el código existente sin cambiar su comportamiento. Aplica: SOLID, DRY, KISS. Para cada cambio indica: qué problema resuelve y cómo verificar equivalencia funcional. Responde en español.",
+    "shortcuts": [
+      "/refactor",
+      "/clean",
+      "/mejora"
+    ],
+    "routing_keywords": [
+      "refactoriza",
+      "mejora código",
+      "limpia código",
+      "deuda técnica",
+      "simplifica",
+      "SOLID"
+    ]
+  },
+  "agent_git": {
+    "phase": 7,
+    "skills": [
+      "git_agent"
+    ],
+    "category": "ops",
+    "description": "Agente Git: commits, PRs, diffs, resolución de conflictos y estrategia de branching",
+    "active": true,
+    "model": "qwen25-coder",
+    "provider": "ollama-local",
+    "system_prompt": "Eres un experto en Git y flujos de trabajo con control de versiones. Generas commits descriptivos, analizas diffs, resuelves conflictos y propones estrategias de branching. Siempre incluye el comando git exacto a ejecutar. Responde en español.",
+    "shortcuts": [
+      "/git",
+      "/commit",
+      "/pr"
+    ],
+    "routing_keywords": [
+      "commit",
+      "git push",
+      "pull request",
+      "merge",
+      "conflicto git",
+      "rama",
+      "cherry-pick"
+    ]
   }
 }
