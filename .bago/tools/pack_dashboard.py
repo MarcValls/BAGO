@@ -231,9 +231,9 @@ def main():
         report_row = f"  Informe ideas:  state/ideas_report.md  ({report_date})"
         print(f"║{report_row:<54}║")
     print("╠══════════════════════════════════════════════════════╣")
-    lc = g.get("last_completed_session_id", "—")
+    lc = g.get("last_completed_session_id") or "—"
     print(f"║  Última sesión: {lc:<37}║")
-    print(f"║  Workflow:      {g.get('last_completed_workflow','—'):<37}║")
+    print(f"║  Workflow:      {g.get('last_completed_workflow') or '—':<37}║")
     active = g.get("active_session_id") or "—"
     print(f"║  Activa ahora:  {active:<37}║")
     print("╚══════════════════════════════════════════════════════╝")
