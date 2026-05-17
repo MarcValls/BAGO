@@ -57,6 +57,9 @@ def _sync_git(session):
             full_msg = f"{msg}\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
             r2 = sp.run(["git", "-C", str(bago_root), "commit", "-m", full_msg],
                         capture_output=True, text=True)
+            # Pull remoto antes de push para evitar "fetch first"
+            sp.run(["git", "-C", str(bago_root), "pull", "--rebase", "--autostash"],
+                   capture_output=True, text=True)
             r3 = sp.run(["git", "-C", str(bago_root), "push"],
                         capture_output=True, text=True)
             ok = r3.returncode == 0
@@ -74,13 +77,36 @@ def _sync_git(session):
 
 def _sync_usb():
     """Detecta y sincroniza con USB si esta disponible."""
-    import subprocess as sp
-    # Buscar drives extraibles con estructura BAGO
+    import subprocess as sp, shutil, platform
     usb_candidates = []
-    for letter in "DEFGHIJKLMNOPQRSTUVWXYZ":
-        p = Path(f"{letter}:\\BAGO\\.bago")
-        if p.exists():
-            usb_candidates.append(p.parent)
+
+    # macOS — buscar en /Volumes/
+    if platform.system() == "Darwin":
+        for vol in Path("/Volumes").iterdir():
+            p = vol / "BAGO" / ".bago"
+            if p.exists():
+                usb_candidates.append(p.parent)
+            # también acepta la raíz del volumen si tiene .bago/ directamente
+            p2 = vol / ".bago"
+            if p2.exists() and vol not in usb_candidates:
+                usb_candidates.append(vol)
+
+    # Linux — buscar en /media/ y /run/media/
+    elif platform.system() == "Linux":
+        for base in [Path("/media"), Path("/run/media")]:
+            if base.exists():
+                for vol in base.rglob("BAGO/.bago"):
+                    usb_candidates.append(vol.parent)
+                for vol in base.rglob(".bago"):
+                    if vol.parent not in usb_candidates:
+                        usb_candidates.append(vol.parent)
+
+    # Windows — letras de unidad
+    else:
+        for letter in "DEFGHIJKLMNOPQRSTUVWXYZ":
+            p = Path(f"{letter}:\\BAGO\\.bago")
+            if p.exists():
+                usb_candidates.append(p.parent)
 
     if not usb_candidates:
         pe("No se encontro ningun USB con BAGO. Conecta el pendrive e intenta de nuevo.")
@@ -101,7 +127,6 @@ def _sync_usb():
             dst.mkdir(parents=True, exist_ok=True)
             for f in src.glob("*"):
                 if f.is_file():
-                    import shutil
                     shutil.copy2(f, dst / f.name)
                     synced += 1
 
