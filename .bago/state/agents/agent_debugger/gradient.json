@@ -1,5 +1,5 @@
 {
-  "agent_id": "agent_ops",
+  "agent_id": "agent_debugger",
   "step_weights": [
     1.0,
     1.0,
@@ -16,5 +16,5 @@
   ],
   "last_harmony": 0.0,
   "last_validate": "WARN",
-  "updated_at": "2026-05-17T13:27:57.612798+00:00"
+  "updated_at": "2026-05-17T13:28:00.624671+00:00"
 }

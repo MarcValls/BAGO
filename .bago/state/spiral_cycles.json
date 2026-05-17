@@ -299,8 +299,8 @@
   ],
   "current_cycle": null,
   "total_radius": 1.6,
-  "n_agents_active": 4,
-  "global_harmony": 0.25,
-  "gate_harmony": 0.311,
-  "orch_cycles": 143
+  "n_agents_active": 10,
+  "global_harmony": 0.0,
+  "gate_harmony": 0.253,
+  "orch_cycles": 148
 }

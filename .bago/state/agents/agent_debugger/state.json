@@ -1,0 +1,8 @@
+{
+  "agent_id": "agent_debugger",
+  "phase": 1,
+  "cycles": 5,
+  "total_radius": 0.0,
+  "last_validate": "WARN",
+  "updated_at": "2026-05-17T13:28:00.624290+00:00"
+}

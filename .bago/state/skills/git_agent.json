@@ -1,0 +1,40 @@
+{
+  "cycles": [
+    {
+      "at": "2026-05-17T13:27:37.287573+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:43.468711+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:49.692461+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:55.950555+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:28:02.214730+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    }
+  ],
+  "total_radius": 0.0
+}

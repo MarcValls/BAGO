@@ -1,80 +1,5 @@
 [
   {
-    "cycle": 94,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:49.912561+00:00"
-  },
-  {
-    "cycle": 95,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:51.909956+00:00"
-  },
-  {
-    "cycle": 96,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:53.819393+00:00"
-  },
-  {
-    "cycle": 97,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:55.645028+00:00"
-  },
-  {
-    "cycle": 98,
-    "radius_gained": 0,
-    "validate": "GO",
-    "fingerprint": [
-      "agent:agent_tests",
-      "validate:GO",
-      "phase:4",
-      "category:tests",
-      "skill:test_runner",
-      "validate:GO",
-      "category:tests"
-    ],
-    "timestamp": "2026-05-13T09:23:57.563389+00:00"
-  },
-  {
     "cycle": 99,
     "radius_gained": 0,
     "validate": "GO",
@@ -748,5 +673,80 @@
       "category:tests"
     ],
     "timestamp": "2026-05-16T16:40:03.530389+00:00"
+  },
+  {
+    "cycle": 144,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:32.719977+00:00"
+  },
+  {
+    "cycle": 145,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:38.879429+00:00"
+  },
+  {
+    "cycle": 146,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:45.085767+00:00"
+  },
+  {
+    "cycle": 147,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:51.377891+00:00"
+  },
+  {
+    "cycle": 148,
+    "radius_gained": 0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_tests",
+      "validate:WARN",
+      "phase:4",
+      "category:tests",
+      "skill:test_runner",
+      "validate:WARN",
+      "category:tests"
+    ],
+    "timestamp": "2026-05-17T13:27:57.603287+00:00"
   }
 ]
