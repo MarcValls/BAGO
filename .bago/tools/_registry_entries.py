@@ -461,6 +461,20 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         preflight_policy="required",
     ),
+    "self": ToolEntry(
+        cmd="self", module="bago_selfrepair",
+        description=(
+            "BAGO Self-Repair — BAGO se centra en sí mismo y repara sus propios fallos. "
+            "Dos modos: autoreparación (--auto) y manual (menú interactivo). "
+            "Uso: bago self | --auto | --list | --regenerate | --error 'descripción'"
+        ),
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_selfrepair.py"))],
+        layer="sistema", scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="core",
+        risk="safe",
+        preflight_policy="required",
+    ),
     "hub": ToolEntry(
         cmd="hub", module="bago_hub",
         description="BAGO Hub â€” interfaz central Gradio con dashboard, herramientas, Image Studio e ideas",
