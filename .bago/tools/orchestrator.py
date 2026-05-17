@@ -42,6 +42,9 @@ BAGO_ROOT = Path(__file__).parent.parent
 PROJECT_ROOT = BAGO_ROOT.parent
 BAGO_SCRIPT = PROJECT_ROOT / "bago"
 SPIRAL_LOG = BAGO_ROOT / "logs" / "routing_spiral_memory.jsonl"
+SPHERE_STATE = BAGO_ROOT / "logs" / "routing_sphere_state.json"
+VOICE_LABELS = ("v1_reasoning", "v2_prepare", "v3_execute")
+SPHERE_SLOTS = 24
 
 
 WORKFLOWS = {
@@ -197,14 +200,92 @@ def run_tool(cmd: str, dry_run: bool = False, timeout: int = 90) -> dict:
         return {"cmd": cmd, "rc": 1, "output": str(e), "elapsed": 0.0}
 
 
+def _load_recent_spiral_events(limit: int = 80) -> list[dict]:
+    if not SPIRAL_LOG.exists():
+        return []
+    try:
+        lines = SPIRAL_LOG.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return []
+    out: list[dict] = []
+    for ln in lines[-limit:]:
+        try:
+            out.append(json.loads(ln))
+        except Exception:
+            continue
+    return out
+
+
+def _resolve_context_for_cmd(cmd: str) -> dict | None:
+    """Busca contexto previo útil para el comando en memoria espiral."""
+    events = _load_recent_spiral_events(limit=160)
+    for ev in reversed(events):
+        voices = ev.get("voices", {})
+        v1 = voices.get("v1_reasoning", {})
+        if v1.get("cmd") == cmd:
+            return {
+                "source": "spiral",
+                "last_ts": ev.get("ts"),
+                "workflow": ev.get("workflow"),
+                "harmonic_score": ev.get("validation", {}).get("harmonic_score"),
+            }
+    return None
+
+
+def _load_sphere_state() -> dict:
+    if not SPHERE_STATE.exists():
+        return {
+            "schema": "bago.routing-sphere.v1",
+            "cursor": 0,
+            "slots": SPHERE_SLOTS,
+            "memory": {},
+        }
+    try:
+        return json.loads(SPHERE_STATE.read_text(encoding="utf-8"))
+    except Exception:
+        return {
+            "schema": "bago.routing-sphere.v1",
+            "cursor": 0,
+            "slots": SPHERE_SLOTS,
+            "memory": {},
+        }
+
+
+def _save_sphere_state(state: dict) -> None:
+    SPHERE_STATE.parent.mkdir(parents=True, exist_ok=True)
+    SPHERE_STATE.write_text(json.dumps(state, ensure_ascii=True, indent=2), encoding="utf-8")
+
+
+def _compute_voice_positions(base_slot: int, slots: int) -> dict:
+    """3 voces desfasadas 120 grados sobre la esfera discreta."""
+    offsets = (0, slots // 3, (2 * slots) // 3)
+    return {
+        VOICE_LABELS[i]: (base_slot + offsets[i]) % slots
+        for i in range(3)
+    }
+
+
 def _project_context_snapshot(workflow_name: str, cmd: str) -> dict:
     """Voz 1: razonamiento de la petición dentro del contexto actual."""
+    previous = _resolve_context_for_cmd(cmd)
+    if previous is None:
+        context_status = "created"
+        context_payload = {
+            "source": "synthetic",
+            "reason": "no habia contexto previo; se crea contexto base",
+        }
+    else:
+        context_status = "reused"
+        context_payload = previous
+
     return {
         "workflow": workflow_name,
         "cmd": cmd,
         "project_root": str(PROJECT_ROOT),
         "bago_script": str(BAGO_SCRIPT),
         "context_hint": f"{workflow_name}:{cmd}",
+        "context_status": context_status,
+        "context": context_payload,
     }
 
 
@@ -246,6 +327,15 @@ def _harmonic_validation(voice1: dict, voice2: dict, voice3: dict, step_index: i
     }
 
 
+def _memory_action_for_step(voice1: dict, harmony: dict, result: dict) -> str:
+    """Decide acción de memoria: write, rewrite o delete."""
+    if voice1.get("context_status") == "created":
+        return "write"
+    if int(result.get("rc", 1)) == 0 and harmony.get("aligned"):
+        return "rewrite"
+    return "delete"
+
+
 def _append_spiral_event(event: dict) -> None:
     """Persistencia append-only de memoria de enrutamiento."""
     SPIRAL_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -265,13 +355,37 @@ def _record_spiral_triplet(workflow_name: str, step_num: int, total: int,
         "dry_run": result.get("output", "").startswith("[DRY]"),
     }
     harmony = _harmonic_validation(voice1, voice2, voice3, step_num)
+    action = _memory_action_for_step(voice1, harmony, result)
+
+    sphere = _load_sphere_state()
+    slots = int(sphere.get("slots", SPHERE_SLOTS)) or SPHERE_SLOTS
+    cursor = int(sphere.get("cursor", 0))
+    positions = _compute_voice_positions(cursor, slots)
+    memory = sphere.setdefault("memory", {})
+    if action == "delete":
+        memory.pop(step["cmd"], None)
+    else:
+        memory[step["cmd"]] = {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "workflow": workflow_name,
+            "action": action,
+            "harmonic_score": harmony.get("harmonic_score", 0.0),
+        }
+    sphere["cursor"] = (cursor + 1) % slots
+    _save_sphere_state(sphere)
 
     event = {
         "ts": datetime.now(timezone.utc).isoformat(),
-        "schema": "bago.spiral-routing.v1",
+        "schema": "bago.spiral-routing.v2",
         "workflow": workflow_name,
         "step": step_num,
         "total_steps": total,
+        "sphere": {
+            "slot": cursor,
+            "voice_positions": positions,
+            "action": action,
+            "slots": slots,
+        },
         "voices": {
             "v1_reasoning": voice1,
             "v2_prepare": voice2,
