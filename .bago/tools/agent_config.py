@@ -106,9 +106,10 @@ class NavSection:
 
 # ── Carga de datos ────────────────────────────────────────────────────────────
 def _load_agents() -> list[ConfigItem]:
+    """Agentes: BagoAgents (usuarios configurables) + Roles (definiciones) + Analizadores (scripts)."""
     items: list[ConfigItem] = []
 
-    # BagoAgents desde state/agents_registry.json
+    # ── BagoAgents — ejecutables con modelo y skills ──
     reg_f = _STATE / "agents_registry.json"
     if reg_f.exists():
         try:
@@ -116,49 +117,71 @@ def _load_agents() -> list[ConfigItem]:
             for k, v in reg.items():
                 if k == "_meta" or not isinstance(v, dict):
                     continue
+                skills_list = ", ".join(v.get("skills", [])) or "—"
                 items.append(ConfigItem(
                     name=k,
                     description=v.get("description", ""),
                     scope="usuario",
                     active=v.get("active", True),
-                    detail=f"Model: {v.get('model','?')}  Phase: {v.get('phase','?')}  Skills: {v.get('skills',[])}",
+                    detail=(
+                        f"Modelo: {v.get('model','?')}  "
+                        f"Categoría: {v.get('category','?')}  "
+                        f"Skills: {skills_list}"
+                    ),
                     icon="◎" if v.get("active") else "○",
                 ))
         except Exception:
             pass
 
-    # Roles desde .bago/agents/*.md
+    # ── Roles — personas/modos del framework ──
     if _AGENTS_DIR.exists():
         for md in sorted(_AGENTS_DIR.glob("*.md")):
-            name = md.stem
-            if name in ("README",):
+            if md.stem in ("README",):
                 continue
             try:
                 lines = md.read_text(encoding="utf-8").splitlines()
                 desc = ""
-                for line in lines[1:6]:
-                    if line.strip() and not line.startswith("#") and not line.startswith(">"):
-                        desc = line.strip()
-                        break
-                    if line.startswith(">"):
-                        desc = line.lstrip("> ").strip()
-                        break
+                for line in lines[1:8]:
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith("#"):
+                        desc = stripped.lstrip(">► ").strip()
+                        if len(desc) > 10:
+                            break
             except Exception:
                 desc = ""
             items.append(ConfigItem(
-                name=name,
-                description=desc[:80],
+                name=md.stem,
+                description=desc[:78],
                 scope="sistema",
+                detail=f"Definición: {md.name}",
                 icon="≡",
+            ))
+
+    # ── Analizadores — scripts Python en .bago/agents/ ──
+    if _AGENTS_DIR.exists():
+        for py in sorted(_AGENTS_DIR.glob("*.py")):
+            if py.stem.startswith("_") or py.stem in ("agent_factory", "agent_gateway"):
+                continue
+            try:
+                first_line = py.read_text(encoding="utf-8").splitlines()[0]
+                desc = first_line.lstrip("#! ").strip()[:78]
+            except Exception:
+                desc = py.stem
+            items.append(ConfigItem(
+                name=py.stem,
+                description=desc,
+                scope="integrado",
+                detail=f"Script: {py.name}",
+                icon="⚙",
             ))
 
     return items
 
 
 def _load_skills() -> list[ConfigItem]:
+    """Habilidades: skills reales del agente (ciclos de código, test, doc).
+    Solo skill_registry.json — las herramientas CLI van en su propia sección."""
     items: list[ConfigItem] = []
-
-    # Skill registry
     sk_f = _STATE / "skill_registry.json"
     if sk_f.exists():
         try:
@@ -166,55 +189,132 @@ def _load_skills() -> list[ConfigItem]:
             for k, v in sk.items():
                 if k == "_meta":
                     continue
-                desc = v.get("description", "") if isinstance(v, dict) else str(v)
+                if isinstance(v, dict):
+                    desc = v.get("description", "")[:78]
+                    detail = (
+                        f"Categoría: {v.get('category','?')}  "
+                        f"Fase: {v.get('phase','?')}  "
+                        f"Pasos: {v.get('steps',[])}"
+                    )
+                else:
+                    desc = str(v)[:78]
+                    detail = ""
                 items.append(ConfigItem(
                     name=k,
-                    description=desc[:80],
+                    description=desc,
                     scope="usuario",
+                    detail=detail or desc,
                     icon="⊡",
                 ))
         except Exception:
             pass
-
-    # Tool registry — agrupadas por layer
-    try:
-        sys.path.insert(0, str(_HERE))
-        from tool_registry import REGISTRY  # type: ignore
-        for cmd, entry in sorted(REGISTRY.items()):
-            items.append(ConfigItem(
-                name=cmd,
-                description=getattr(entry, "description", "")[:70],
-                scope="integrado",
-                active=not getattr(entry, "deprecated", False),
-                detail=f"Layer: {getattr(entry,'layer','?')}  Scope: {getattr(entry,'scope','?')}",
-                icon="⊡",
-            ))
-    except Exception:
-        pass
-
     return items
 
 
-def _load_instructions() -> list[ConfigItem]:
+def _load_tools() -> list[ConfigItem]:
+    """Herramientas: 124 comandos CLI del tool_registry, agrupados por layer_group."""
     items: list[ConfigItem] = []
-    for md in sorted(_BAGO.glob("*.md")):
-        name = md.stem
+    try:
+        sys.path.insert(0, str(_HERE))
+        from tool_registry import REGISTRY  # type: ignore
+
+        # scope según layer_group
+        group_scope = {
+            "core":   "integrado",
+            "ui":     "usuario",
+            "agents": "sistema",
+            "labs":   "integrado",
+            "tools":  "integrado",
+        }
+        group_icons = {
+            "core":   "◆",
+            "ui":     "◈",
+            "agents": "◎",
+            "labs":   "⚗",
+            "tools":  "⚙",
+        }
+        for cmd, entry in sorted(REGISTRY.items()):
+            lg = getattr(entry, "layer_group", "core")
+            items.append(ConfigItem(
+                name=cmd,
+                description=getattr(entry, "description", "")[:68],
+                scope=group_scope.get(lg, "integrado"),
+                active=not getattr(entry, "deprecated", False),
+                detail=(
+                    f"Layer: {getattr(entry,'layer','?')}  "
+                    f"Stability: {getattr(entry,'stability','?')}  "
+                    f"Risk: {getattr(entry,'risk','safe')}"
+                ),
+                icon=group_icons.get(lg, "◆"),
+            ))
+    except Exception:
+        pass
+    return items
+
+
+# Instrucciones que son directivas para el agente (no documentación)
+_INSTRUCTION_FILES = {
+    "BOOTSTRAP.md",
+    "AGENT_START.md",
+    "START_AGENT.md",
+}
+# Instrucciones en .bago/agents/ (roles del copilot)
+_INSTRUCTION_AGENT_FILES = {
+    "COPILOT_ALIADO_BAGO.md",
+}
+
+
+def _load_instructions() -> list[ConfigItem]:
+    """Instrucciones: solo archivos que definen comportamiento del agente.
+    Excluye documentación, demos, changelogs y deployment guides."""
+    items: list[ConfigItem] = []
+
+    # Instrucciones principales en .bago/
+    for fname in sorted(_INSTRUCTION_FILES):
+        md = _BAGO / fname
+        if not md.exists():
+            continue
         try:
-            first_line = md.read_text(encoding="utf-8").splitlines()[0].lstrip("# ").strip()
-            desc = first_line[:80]
+            lines = md.read_text(encoding="utf-8").splitlines()
+            title = next((l.lstrip("# ").strip() for l in lines if l.startswith("#")), fname)
+            desc = title[:78]
         except Exception:
-            desc = ""
-        scope = "usuario" if name in ("BOOTSTRAP", "AGENT_START", "START_AGENT") else "sistema"
+            desc = fname
         items.append(ConfigItem(
-            name=md.name,
+            name=fname,
             description=desc,
-            scope=scope,
+            scope="usuario",
+            detail=f"Ruta: .bago/{fname}",
             icon="≡",
         ))
+
+    # Instrucciones de rol en .bago/agents/
+    for fname in sorted(_INSTRUCTION_AGENT_FILES):
+        md = _AGENTS_DIR / fname
+        if not md.exists():
+            continue
+        try:
+            lines = md.read_text(encoding="utf-8").splitlines()
+            desc = next(
+                (l.strip().lstrip(">► ") for l in lines[1:10]
+                 if l.strip() and not l.startswith("#")),
+                ""
+            )[:78]
+        except Exception:
+            desc = fname
+        items.append(ConfigItem(
+            name=fname,
+            description=desc,
+            scope="sistema",
+            detail=f"Ruta: .bago/agents/{fname}",
+            icon="≡",
+        ))
+
     return items
 
 
 def _load_mcp() -> list[ConfigItem]:
+    """Servidores MCP: extensiones con extension.mjs (protocolo MCP)."""
     items: list[ConfigItem] = []
     if _EXT_DIR.exists():
         for ext in sorted(_EXT_DIR.iterdir()):
@@ -227,28 +327,33 @@ def _load_mcp() -> list[ConfigItem]:
                         if line.startswith("//") and "—" in line:
                             first_comment = line.lstrip("/ ").strip()
                             break
-                    desc = first_comment[:80] or ext.name
+                    desc = first_comment[:78] or ext.name
                 except Exception:
                     desc = ext.name
                 items.append(ConfigItem(
                     name=ext.name,
                     description=desc,
                     scope="usuario",
+                    detail=f"Protocolo: MCP  Archivo: extension.mjs",
                     icon="⊞",
                 ))
     return items
 
 
 def _load_extensions() -> list[ConfigItem]:
+    """Complementos: directorios de extensión en .bago/extensions/."""
     items: list[ConfigItem] = []
     if _EXT_DIR.exists():
         for ext in sorted(_EXT_DIR.iterdir()):
-            files = list(ext.iterdir())
-            desc = f"{len(files)} archivo(s)"
+            if not ext.is_dir():
+                continue
+            files = [f.name for f in ext.iterdir()]
+            desc = f"{len(files)} archivo(s): {', '.join(files[:3])}"
             items.append(ConfigItem(
                 name=ext.name,
-                description=desc,
+                description=desc[:78],
                 scope="usuario",
+                detail=f"Ruta: .bago/extensions/{ext.name}/",
                 icon="⊕",
             ))
     return items
@@ -257,6 +362,7 @@ def _load_extensions() -> list[ConfigItem]:
 def _build_sections() -> list[NavSection]:
     agents   = _load_agents()
     skills   = _load_skills()
+    tools    = _load_tools()
     instrs   = _load_instructions()
     mcp      = _load_mcp()
     exts     = _load_extensions()
@@ -264,6 +370,7 @@ def _build_sections() -> list[NavSection]:
     return [
         NavSection("agentes",      "Agentes",       "◎", agents),
         NavSection("habilidades",  "Habilidades",   "⊡", skills),
+        NavSection("herramientas", "Herramientas",  "⚙", tools),
         NavSection("instrucciones","Instrucciones",  "≡", instrs),
         NavSection("mcp",          "Servidores MCP","⊞", mcp),
         NavSection("complementos", "Complementos",  "⊕", exts),
@@ -475,11 +582,12 @@ def _render_list(state: UIState) -> Panel:
     else:
         sec = state.current_section
         descs = {
-            "agentes":       "Agentes BAGO coordinan herramientas y flujos de trabajo.",
-            "habilidades":   "Habilidades (skills) disponibles en el framework BAGO.",
-            "instrucciones": "Archivos de instrucción que guían el comportamiento del agente.",
-            "mcp":           "Servidores MCP permiten al agente usar herramientas externas.",
-            "complementos":  "Extensiones y complementos instalados en BAGO.",
+            "agentes":       "Agentes BAGO: BagoAgents configurables, Roles del framework y Analizadores de código.",
+            "habilidades":   "Skills reales del agente: ciclos de código (code_review), tests (test_runner) y docs (doc_writer).",
+            "herramientas":  "124 herramientas CLI del framework BAGO, agrupadas por categoría funcional.",
+            "instrucciones": "Archivos de instrucción que definen el comportamiento del agente (BOOTSTRAP, AGENT_START…).",
+            "mcp":           "Servidores MCP: permiten al agente usar servicios externos vía protocolo MCP.",
+            "complementos":  "Complementos y extensiones instaladas en .bago/extensions/.",
         }
         t.append(f"  {descs.get(sec.key,'')}\n", style=C_DIM)
 
@@ -606,7 +714,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Configurador de agentes BAGO")
     parser.add_argument("--once", action="store_true", help="Render único, no interactivo")
     parser.add_argument("--section", default="agentes",
-                        choices=["agentes","habilidades","instrucciones","mcp","complementos"],
+                        choices=["agentes","habilidades","herramientas","instrucciones","mcp","complementos"],
                         help="Sección inicial")
     args = parser.parse_args()
 
