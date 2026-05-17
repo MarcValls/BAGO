@@ -1,4 +1,4 @@
-﻿{
+{
     "engine":  "ollama",
     "server_url":  "http://127.0.0.1:11434",
     "active_model":  "qwen2.5-coder:7b",

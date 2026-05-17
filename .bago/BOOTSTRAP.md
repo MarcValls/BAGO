@@ -11,7 +11,7 @@ Para cambiar el comportamiento de inicio, edita **solo este archivo**.
 Al iniciar, ejecuta en orden:
 
 ```bash
-python3 bago db status      # ideas disponibles + guardian runs
+python3 bago db status --yes  # ideas disponibles + guardian runs
 python3 bago hello --quick  # estado resumido: flujo, tarea, salud
 ```
 
@@ -65,7 +65,7 @@ Repite el ciclo. No implementes sin consultar `bago ideas` primero.
 | `python3 bago status` | Para entender el contexto actual |
 | `python3 bago health` | Después de cada cambio significativo |
 | `python3 bago task --done` | Al terminar una tarea |
-| `python3 bago db status` | Para ver el estado de bago.db |
+| `python3 bago db status --yes` | Para ver el estado de bago.db |
 
 ---
 
