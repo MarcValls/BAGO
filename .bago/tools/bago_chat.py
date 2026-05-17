@@ -41,21 +41,34 @@ except ImportError as e:
 from bago.completer import BagoCompleter
 import shutil as _shutil
 
+import time as _time
+
 # ── Rutas para la barra de estado ─────────────────────────────────────────────
 _FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
 
+# Frames de la abeja para la barra (alterna al refrescar el prompt)
+_BEE_FRAMES = ["🐝 ", " 🐝", "🐝 ", " 🐝"]
+
+def _bee_tick() -> str:
+    """Frame actual de la abeja según el tiempo (cambia cada ~0.5s)."""
+    return _BEE_FRAMES[int(_time.monotonic() * 2) % len(_BEE_FRAMES)]
+
 def _topbar_prompt(route_mode: str) -> FormattedText:
-    """Línea de estado superior con mini badge ◆ BAGO + path + cwd."""
+    """Barra de estado superior: abeja animada + ◆ BAGO + path + cwd."""
     cols = _shutil.get_terminal_size((80, 24)).columns
     cwd  = Path.cwd()
-    badge = "◆ BAGO"
+    bee  = _bee_tick()
+    # Abeja + badge: "🐝 ◆ BAGO" — anchura fija para evitar saltos de layout
+    badge = f"{bee}◆ BAGO"
     sep   = "  │  "
     left  = f" {badge}{sep}{_FW_ROOT}"
+    # El emoji 🐝 ocupa 2 cols en terminal; compensar con -1 en medida de ancho
+    left_display_w = len(left) + 1   # +1 por el emoji doble-ancho
     right_full  = f"{cwd.name}  ·  {cwd}  "
     right_short = f"{cwd.name}  "
-    right = right_full if len(left) + len(right_full) + 2 <= cols else right_short
-    pad = max(1, cols - len(left) - len(right))
-    bar = (left + " " * pad + right)[:cols]
+    right = right_full if left_display_w + len(right_full) + 2 <= cols else right_short
+    pad = max(1, cols - left_display_w - len(right))
+    bar = (left + " " * pad + right)[:cols + 1]  # +1 por el emoji
     return FormattedText([
         ("class:statusbar", bar),
         ("", "\n"),
