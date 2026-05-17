@@ -45,11 +45,13 @@ import shutil as _shutil
 _FW_ROOT = str(BAGO_DIR.parent)   # repo root: C:\...\BAGO
 
 def _topbar_prompt(route_mode: str) -> FormattedText:
-    """Línea de estado superior (fw path | project) + prompt."""
+    """Línea de estado superior con mini badge ◆ BAGO + path + cwd."""
     cols = _shutil.get_terminal_size((80, 24)).columns
     cwd  = Path.cwd()
-    left = f"  {_FW_ROOT}"
-    right_full = f"{cwd.name}  ·  {cwd}  "
+    badge = "◆ BAGO"
+    sep   = "  │  "
+    left  = f" {badge}{sep}{_FW_ROOT}"
+    right_full  = f"{cwd.name}  ·  {cwd}  "
     right_short = f"{cwd.name}  "
     right = right_full if len(left) + len(right_full) + 2 <= cols else right_short
     pad = max(1, cols - len(left) - len(right))
@@ -179,17 +181,17 @@ def main():
 
     session = BagoSession(prov, name, wire, creds)
 
-    # ── Splash animado: face art + medallón girando (solo en TTY interactivo) ──
+    # ── Animación de inicio estilo Copilot ────────────────────────────────────
     if sys.stdout.isatty():
         try:
             import importlib.util as _ilu
             _spec = _ilu.spec_from_file_location(
-                "bago_banner", Path(__file__).parent / "bago_banner.py")
+                "bago_intro", Path(__file__).parent / "bago_intro.py")
             _mod = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)
-            _mod.print_splash(max_seconds=10)
+            _mod.play()
         except Exception:
-            pass   # si falla, continúa sin splash
+            pass   # si falla, continúa sin animación
 
     banner(session)
 
