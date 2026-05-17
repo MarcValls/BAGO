@@ -457,7 +457,7 @@ function Launch-Orchestrated {
         $task = Read-Host "Describe tu tarea (ej: transponer partitura, revisar código, brainstorm ideas)"
     }
     Detect-Source
-    $orchScript = Join-Path $script:PRIMARY "tools\bago_orchestrator.py"
+    $orchScript = Join-Path $script:PRIMARY "tools\orchestrator.py"
     if (Test-Path $orchScript) {
         $result = python $orchScript "$task"
         Write-Host $result -ForegroundColor White

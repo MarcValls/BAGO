@@ -1,7 +1,7 @@
 {
   "version": 1,
   "generated_by": "auto_register.py --gen-manifest",
-  "tool_count": 170,
+  "tool_count": 169,
   "tools": {
     "alias_manager": {
       "file": "alias_manager.py",
@@ -67,11 +67,6 @@
       "file": "bago_diff.py",
       "sha256": "ecd6fdf98cb16bf787d9b6984cdb54705c36158240e2f670ed95848d056c1f70",
       "cmd": "bago-diff"
-    },
-    "bago_doctor": {
-      "file": "bago_doctor.py",
-      "sha256": "a9ede4c1733e2ff86074b4c962d71925ebcc8bc0f04faef21474accb11ab08bd",
-      "cmd": "bago-doctor"
     },
     "bago_health_router": {
       "file": "bago_health_router.py",
