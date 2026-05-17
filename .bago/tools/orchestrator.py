@@ -24,19 +24,24 @@ Uso:
     python3 orchestrator.py --list               # lista workflows
     python3 orchestrator.py --dry-run preprod    # previsualiza sin ejecutar
     python3 orchestrator.py --fail-fast preprod  # para en el primer error
+    python3 orchestrator.py preprod              # registra memoria espiral 3 voces
+    python3 orchestrator.py --no-spiral preprod  # desactiva memoria espiral
     python3 orchestrator.py --test               # self-tests
 
 Códigos: ORC-I001 (workflow OK), ORC-W001 (tool con warnings),
          ORC-E001 (tool falló), ORC-E002 (workflow desconocido)
 """
+import json
 import sys
 import time
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 BAGO_ROOT = Path(__file__).parent.parent
 PROJECT_ROOT = BAGO_ROOT.parent
 BAGO_SCRIPT = PROJECT_ROOT / "bago"
+SPIRAL_LOG = BAGO_ROOT / "logs" / "routing_spiral_memory.jsonl"
 
 
 WORKFLOWS = {
@@ -192,6 +197,91 @@ def run_tool(cmd: str, dry_run: bool = False, timeout: int = 90) -> dict:
         return {"cmd": cmd, "rc": 1, "output": str(e), "elapsed": 0.0}
 
 
+def _project_context_snapshot(workflow_name: str, cmd: str) -> dict:
+    """Voz 1: razonamiento de la petición dentro del contexto actual."""
+    return {
+        "workflow": workflow_name,
+        "cmd": cmd,
+        "project_root": str(PROJECT_ROOT),
+        "bago_script": str(BAGO_SCRIPT),
+        "context_hint": f"{workflow_name}:{cmd}",
+    }
+
+
+def _prepare_artifacts_snapshot(cmd: str, critical: bool, timeout: int) -> dict:
+    """Voz 2: preparación de entorno y artefactos antes de ejecutar."""
+    tool_path = BAGO_ROOT / "tools" / f"{cmd}.py"
+    return {
+        "cmd": cmd,
+        "critical": critical,
+        "timeout": timeout,
+        "tool_exists": tool_path.exists(),
+        "tool_path": str(tool_path),
+        "manifest_exists": (BAGO_ROOT / "tools.manifest.json").exists(),
+        "bago_exists": BAGO_SCRIPT.exists(),
+    }
+
+
+def _harmonic_validation(voice1: dict, voice2: dict, voice3: dict, step_index: int) -> dict:
+    """Valida alineación entre voces con un offset tipo bucle Shepard."""
+    detune_cycle = [0, 7, -5]
+    detune = detune_cycle[(step_index - 1) % len(detune_cycle)]
+
+    aligned = True
+    if voice1.get("cmd") != voice2.get("cmd"):
+        aligned = False
+    if voice2.get("cmd") != voice3.get("cmd"):
+        aligned = False
+    if not voice2.get("bago_exists", False):
+        aligned = False
+
+    # Armonía simple: base 1.0 cuando todo alinea, con caída por código de salida.
+    rc = int(voice3.get("rc", 1))
+    score = 1.0 if aligned and rc == 0 else (0.66 if aligned else 0.33)
+
+    return {
+        "aligned": aligned,
+        "detune_cents": detune,
+        "harmonic_score": score,
+    }
+
+
+def _append_spiral_event(event: dict) -> None:
+    """Persistencia append-only de memoria de enrutamiento."""
+    SPIRAL_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with SPIRAL_LOG.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=True) + "\n")
+
+
+def _record_spiral_triplet(workflow_name: str, step_num: int, total: int,
+                           step: dict, result: dict, timeout: int) -> None:
+    """Registra las 3 voces + validación armónica para un paso."""
+    voice1 = _project_context_snapshot(workflow_name, step["cmd"])
+    voice2 = _prepare_artifacts_snapshot(step["cmd"], step["critical"], timeout)
+    voice3 = {
+        "cmd": result["cmd"],
+        "rc": result["rc"],
+        "elapsed": result.get("elapsed", 0.0),
+        "dry_run": result.get("output", "").startswith("[DRY]"),
+    }
+    harmony = _harmonic_validation(voice1, voice2, voice3, step_num)
+
+    event = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "schema": "bago.spiral-routing.v1",
+        "workflow": workflow_name,
+        "step": step_num,
+        "total_steps": total,
+        "voices": {
+            "v1_reasoning": voice1,
+            "v2_prepare": voice2,
+            "v3_execute": voice3,
+        },
+        "validation": harmony,
+    }
+    _append_spiral_event(event)
+
+
 def print_step_header(step_num: int, total: int, label: str, cmd: str):
     pct = int(step_num / total * 100)
     bar_len = 20
@@ -218,7 +308,7 @@ def print_step_result(result: dict, critical: bool):
 
 
 def run_workflow(workflow: dict, dry_run: bool = False, fail_fast: bool = False,
-                 verbose: bool = False) -> dict:
+                 verbose: bool = False, spiral: bool = True, timeout: int = 90) -> dict:
     steps = workflow["steps"]
     total = len(steps)
     step_results = []
@@ -231,9 +321,12 @@ def run_workflow(workflow: dict, dry_run: bool = False, fail_fast: bool = False,
 
     for i, step in enumerate(steps, 1):
         print_step_header(i, total, step["label"], step["cmd"])
-        result = run_tool(step["cmd"], dry_run=dry_run)
+        result = run_tool(step["cmd"], dry_run=dry_run, timeout=timeout)
         print_step_result(result, step["critical"])
         step_results.append({**step, **result})
+
+        if spiral:
+            _record_spiral_triplet(workflow["name"], i, total, step, result, timeout)
 
         if result["rc"] != 0 and step["critical"]:
             critical_failed = True
@@ -358,6 +451,7 @@ if __name__ == "__main__":
     dry_run = "--dry-run" in args
     fail_fast = "--fail-fast" in args
     verbose = "--verbose" in args or "-v" in args
+    spiral = "--no-spiral" not in args
 
     clean_args = [a for a in args if not a.startswith("--")]
 
@@ -384,7 +478,13 @@ if __name__ == "__main__":
             print("  [ORC-W001] Sin herramientas activadas para este contexto.")
             print("  Prueba con más palabras clave: security, lint, test, workflow...")
             raise SystemExit(0)
-        result = run_workflow(wf, dry_run=dry_run, fail_fast=fail_fast, verbose=verbose)
+        result = run_workflow(
+            wf,
+            dry_run=dry_run,
+            fail_fast=fail_fast,
+            verbose=verbose,
+            spiral=spiral,
+        )
         raise SystemExit(1 if result["critical_failed"] else 0)
 
     workflow_name = clean_args[0]
@@ -393,6 +493,11 @@ if __name__ == "__main__":
         print(f"  Disponibles: {', '.join(WORKFLOWS.keys())} + dynamic")
         raise SystemExit(1)
 
-    result = run_workflow(WORKFLOWS[workflow_name], dry_run=dry_run,
-                          fail_fast=fail_fast, verbose=verbose)
+    result = run_workflow(
+        WORKFLOWS[workflow_name],
+        dry_run=dry_run,
+        fail_fast=fail_fast,
+        verbose=verbose,
+        spiral=spiral,
+    )
     raise SystemExit(1 if result["critical_failed"] else 0)

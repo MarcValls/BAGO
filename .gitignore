@@ -123,3 +123,4 @@ launcher/static/vendor/
 .bago/state/orchestrator/state.json
 projects/tragaperras_bot/.env
 .bago/config/github_token.txt
+.bago/logs/
