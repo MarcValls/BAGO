@@ -31,6 +31,10 @@ Esta carpeta contiene utilidades ligeras para verificar que el pack no se rompe 
   detecta si `.bago/` está operando sobre un repo distinto al contexto anterior.
   Si hay `new` o `mismatch`, obliga a arrancar por `W1/repo-first`
   para evitar bucles de estado heredado.
+- `bago_learning_audit.py`:
+  audita la trazabilidad de aprendizaje por proyecto en `state/`
+  (ideas por proyecto, sesiones con/si campo de proyecto,
+  calidad del `knowledge_index` y warnings de indexación).
 
 ## Filosofía
 
