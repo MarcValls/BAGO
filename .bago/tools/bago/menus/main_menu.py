@@ -42,14 +42,10 @@ _ENTRIES = [
 
     # ── 5 · Modos ────────────────────────────────────────────────────
     (None,          "  ── Modos ──────────────────────────────────────"),
-    # · eje generativo · cómo el LM produce texto
-    (None,          "      · generativo ·"),
-    ("/mode",       "🎛   /mode  — offline · eco · full · standard"),
-    # · eje de ejecución · cómo BAGO actúa en la conversación
-    (None,          "      · ejecucion ·"),
-    ("/auto",       "🌀  /auto  — bucle  (+ balanceado · adaptativo)"),
-    ("/plan",       "📐  /plan  — razonar y proponer antes de actuar"),
-    ("/brainstorm", "💡  /brainstorm  — explorar ideas sin restricciones"),
+    ("/mode",       "🎛   Modo generativo  — offline · eco · full · standard"),
+    ("/auto",       "🌀  Modo autonomo  — bucle (balanceado · adaptativo · never · always)"),
+    ("/plan",       "📐  Modo PLAN  — razonar y proponer antes de actuar"),
+    ("/brainstorm", "💡  Modo BRAINSTORM  — explorar ideas sin restricciones"),
 
     # ── 6 · Sesion & Configuracion ───────────────────────────────────
     (None,          "  ── Sesion & Configuracion ─────────────────────"),

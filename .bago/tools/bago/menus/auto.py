@@ -2,9 +2,10 @@
 from ..ui import _menu_input, _menu_pick, _toggle_menu, pe, pi
 
 _CONFIRM_LABELS = {
-    "never":  "Completamente autonomo (nunca pide confirmacion)",
-    "smart":  "Inteligente (solo en acciones de alto riesgo)",
-    "always": "Conservador (confirma cada accion antes de ejecutar)",
+    "never":      "Completamente autonomo (nunca pide confirmacion)",
+    "adaptativo": "Adaptativo (ajusta autonomia segun contexto y riesgo)",
+    "balanceado": "Balanceado (equilibra autonomia y supervision)",
+    "always":     "Conservador (confirma cada accion antes de ejecutar)",
 }
 
 def _cmd_auto(session):
