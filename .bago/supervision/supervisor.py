@@ -70,6 +70,7 @@ class AgentReport:
     artifact: str
     on_failure: str
     blocker: bool = False
+    cascade_triggered: bool = False   # marcado por upstream failure
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -95,6 +96,7 @@ class SupervisionReport:
                     "artifact": a.artifact,
                     "on_failure": a.on_failure,
                     "blocker": a.blocker,
+                    "cascade_triggered": a.cascade_triggered,
                     "timestamp": a.timestamp,
                 }
                 for a in self.agents
@@ -105,15 +107,16 @@ class SupervisionReport:
 # ── GuardianAgent ──────────────────────────────────────────────────────────────
 class GuardianAgent:
     def __init__(self, definition: dict, dry_run: bool = False) -> None:
-        self.name       = definition["agent"]
-        self.mission    = definition.get("mission", "")
-        self.gate       = definition.get("gate", "")
-        self.on_failure = definition.get("on_failure", "warn")
-        self.artifact   = (definition.get("writes") or [""])[0]
-        self.sense_cmd  = definition.get("sense", "")
-        self.act_cmd    = definition.get("act", "")
-        self.observe_cmd= definition.get("observe", "")
-        self.dry_run    = dry_run
+        self.name        = definition["agent"]
+        self.mission     = definition.get("mission", "")
+        self.gate        = definition.get("gate", "")
+        self.on_failure  = definition.get("on_failure", "warn")
+        self.artifact    = (definition.get("writes") or [""])[0]
+        self.sense_cmd   = definition.get("sense", "")
+        self.act_cmd     = definition.get("act", "")
+        self.observe_cmd = definition.get("observe", "")
+        self.learn_cmd   = definition.get("learn_cmd", "")   # comando extra en LEARN
+        self.dry_run     = dry_run
 
     @staticmethod
     def _is_executable_cmd(cmd: str) -> bool:
@@ -169,28 +172,64 @@ class GuardianAgent:
         return ObserveResult(agent=self.name, passed=True, output="no observe cmd configured")
 
     def learn(self, observe: ObserveResult) -> None:
-        """Actualiza el artefacto con el timestamp del último scan."""
+        """Actualiza el artefacto con historial acumulativo de ejecuciones."""
         artifact_path = SUPERVISION_DIR / self.artifact.replace(".bago/supervision/", "")
         if not artifact_path.exists() or not artifact_path.suffix == ".json":
+            # Artefacto .md — si hay learn_cmd, lo ejecutamos igual
+            if self.learn_cmd and not self.dry_run:
+                self._run(self.learn_cmd)
             return
         try:
             data = json.loads(artifact_path.read_text(encoding="utf-8"))
-            data["last_run"] = datetime.now().isoformat()
-            data["overall"] = "green" if observe.passed else "red"
-            artifact_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        except Exception:
-            pass  # artefacto no JSON (ej. .md) — no actualizar
+            now  = datetime.now().isoformat()
 
-    def run_cycle(self) -> AgentReport:
-        """Ejecuta el ciclo completo SENSE→PLAN→ACT→OBSERVE→LEARN."""
+            # Actualizar campos inmediatos
+            data["last_run"] = now
+            data["overall"]  = "green" if observe.passed else "red"
+
+            # ── Memoria acumulativa: run_history ─────────────────────────────
+            history_entry = {
+                "timestamp": now,
+                "passed":    observe.passed,
+                "summary":   observe.output[:200] if observe.output else "ok",
+            }
+            data.setdefault("run_history", []).append(history_entry)
+            # Mantener solo los últimos 30 registros
+            if len(data["run_history"]) > 30:
+                data["run_history"] = data["run_history"][-30:]
+
+            artifact_path.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception:
+            pass  # no bloquear el ciclo por fallo de escritura
+
+        # ── learn_cmd extra (ej. harvest xfails) ─────────────────────────────
+        if self.learn_cmd and not self.dry_run:
+            self._run(self.learn_cmd)
+
+    def run_cycle(self, upstream_failed: bool = False) -> AgentReport:
+        """Ejecuta el ciclo completo SENSE→PLAN→ACT→OBSERVE→LEARN.
+
+        upstream_failed: si un agente anterior con block_release fue red,
+                         se fuerza re-sense aunque el estado previo fuera green.
+        """
         try:
             sense_r   = self.sense()
+            # Cascada: si upstream falló, escalamos a drift aunque sense sea ok
+            if upstream_failed and not sense_r.drift_detected:
+                sense_r = SenseResult(
+                    agent=self.name,
+                    output=f"[cascade] upstream blocker → forced re-sense\n{sense_r.output}",
+                    return_code=sense_r.return_code,
+                    drift_detected=True,
+                )
             plan_r    = self.plan(sense_r)
             act_r     = self.act(plan_r)
             observe_r = self.observe()
             self.learn(observe_r)
 
-            if plan_r.action == "pass" and observe_r.passed:
+            if plan_r.action == "pass" and observe_r.passed and not upstream_failed:
                 status, blocker = "green", False
                 message = "OK"
             elif self.on_failure == "block_release":
@@ -207,6 +246,7 @@ class GuardianAgent:
                 artifact=self.artifact,
                 on_failure=self.on_failure,
                 blocker=blocker,
+                cascade_triggered=upstream_failed,
             )
         except Exception as exc:
             return AgentReport(
@@ -255,6 +295,7 @@ class Supervisor:
 
         reports: list[AgentReport] = []
         sorted_agents = sorted(loop_def.get("agents", []), key=lambda a: a["order"])
+        upstream_blocker_active = False  # cascada: se activa si algún block_release falla
 
         for entry in sorted_agents:
             agent_name = entry["agent"]
@@ -268,11 +309,14 @@ class Supervisor:
                 ))
                 continue
             guardian = GuardianAgent(definition, dry_run=self.dry_run)
-            report   = guardian.run_cycle()
+            report   = guardian.run_cycle(upstream_failed=upstream_blocker_active)
             # Override on_failure from loop if specified
             if entry.get("on_failure"):
                 report.on_failure = entry["on_failure"]
                 report.blocker    = (entry["on_failure"] == "block_release" and report.status == "red")
+            # Activar cascada si este agente es bloqueante y falló
+            if report.blocker and report.status == "red":
+                upstream_blocker_active = True
             reports.append(report)
 
         blockers     = [r for r in reports if r.blocker]
