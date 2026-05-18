@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from rich import box
 from rich.panel import Panel
-from rich.table import Table
 
 from ..providers import KNOWN_PROVIDERS_CATALOG, scan_provider_health, update_scan_history
 from ..ui import console
@@ -74,7 +73,6 @@ def _cmd_scan(session) -> None:
     pot_lines: list[str] = []
     for pname, info in potentially:
         label    = info.get("label", pname)
-        desc     = info.get("description", "")
         setup    = info.get("setup", "")
         requires = info.get("requires", "")
         detail   = info.get("detail", "")

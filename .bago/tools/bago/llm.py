@@ -310,7 +310,7 @@ def run_ensemble(session, model_list, prompt):
                 final = _llm_call(lm, kw, [{"role":"system","content":BAGO_SYSTEM},
                                             {"role":"user","content":synth}],
                                   session=session)
-            except Exception as e:
+            except Exception:
                 final = next(iter(results.values()))["text"]
         show_response(final, session.model_name, session.provider,
                       label=f"[bold]✦ SÍNTESIS[/bold] [{COLORS.get(session.provider,'white')}]{session.model_name}[/{COLORS.get(session.provider,'white')}]")

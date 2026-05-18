@@ -16,3 +16,24 @@ from .skills import _cmd_skills
 from .sync import _cmd_sync
 from .wizard import _cmd_wizard
 from .workspaces import _cmd_workspaces
+
+__all__ = [
+    "_cmd_agents",
+    "_cmd_auth",
+    "_cmd_login",
+    "_cmd_auto",
+    "_cmd_config",
+    "_cmd_framework",
+    "_cmd_generative",
+    "_cmd_main_menu",
+    "_cmd_memory",
+    "_cmd_projects",
+    "_cmd_roles",
+    "_cmd_routing",
+    "_cmd_scan",
+    "_cmd_session",
+    "_cmd_skills",
+    "_cmd_sync",
+    "_cmd_wizard",
+    "_cmd_workspaces",
+]

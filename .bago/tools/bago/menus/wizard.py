@@ -1,7 +1,6 @@
 
 import json
 import datetime
-from pathlib import Path
 
 from ..constants import SCRIPT_DIR, TOOLBOXES_DIR
 from ..llm import _llm_call
@@ -136,7 +135,7 @@ Esquema requerido:
   "default_model": "<modelo>",
   "fallback_chain": ["<modelo1>", "<modelo2>", ...]
 }
-Modos existentes (no duplicar): offline, economico, estandar, full.
+Modos existentes (no duplicar): offline, eco, standard, full, auto.
 Providers disponibles: ollama-local, ollama-cloud, copilot, codex, anthropic, local.
 Modelos: qwen2.5:0.5b, claude-sonnet-4.6, claude-opus-4.7, gpt-5.4, gpt-5.5,
          gpt-5.3-codex, gpt-5.4-mini, kimi-k2-1t.
@@ -180,7 +179,7 @@ _WIZARD_CATEGORIES = [
     ("🔀  ORQUESTACIÓN", [
         ("routing",     "Regla de routing   — keywords → provider/modelo"),
         ("task_pref",   "Preferencia tarea  — tipo de tarea → modelos recomendados"),
-        ("role",        "Modo orquestador   — offline / economico / custom"),
+        ("role",        "Modo orquestador   — offline / eco / standard / full / auto"),
     ]),
     ("🔧  HERRAMIENTAS", [
         ("tool",        "Tool Python        — script con main() listo para usar"),

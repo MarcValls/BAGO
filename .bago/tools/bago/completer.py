@@ -28,7 +28,7 @@ BAGO_COMMANDS: dict[str, str] = {
     # -- Modos
     "/generative":  "[Modo] Modo generativo: offline / eco / standard / full / auto",
     "/gen":         "[Modo] Alias de /generative",
-    "/mode":        "[Modo] Alias de /generative",
+    "/mode":        "[Modo] Alias legacy de /generative",
     "/auto":        "[Modo] Modo autonomo — bucle: balanceado / adaptativo",
     "/plan":        "[Modo] Modo PLAN — razonar y proponer antes de actuar",
     "/brainstorm":  "[Modo] Modo BRAINSTORM — explorar ideas sin restricciones",
@@ -81,8 +81,8 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
     "/roles": [
         ("tasks",     "Ver preferencias por tipo de tarea"),
         ("offline",   "Detalle modo offline"),
-        ("economico", "Detalle modo económico"),
-        ("estandar",  "Detalle modo estándar"),
+        ("eco",       "Detalle modo eco"),
+        ("standard",  "Detalle modo standard"),
         ("full",      "Detalle modo full (todos los modelos)"),
     ],
     "/routing": [

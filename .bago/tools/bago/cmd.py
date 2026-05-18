@@ -69,7 +69,7 @@ def cmd(line, session):
     elif v == "/chain":
         if ":" not in a:
             # Modo interactivo: pedir modelos y prompt
-            from .ui import _menu_input, _menu_select
+            from .ui import _menu_input
             pi("[dim]Ejemplo: qwen25-coder->gpt-4o[/dim]")
             modelos_str = _menu_input("/chain — modelos", "Modelos (m1->m2->...):", default="qwen25-coder->gpt-4o")
             if not modelos_str: pe("Cancelado."); return True

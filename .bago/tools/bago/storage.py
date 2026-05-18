@@ -9,6 +9,18 @@ SKILLS_FILE  = STATE_DIR / "skill_registry.json"
 ROUTING_FILE_P = ROUTING_FILE   # alias for backward compat — same file, one definition
 _STATE_DIR   = STATE_DIR
 
+__all__ = [
+    "AGENTS_FILE",
+    "SKILLS_FILE",
+    "ORCH_FILE",
+    "ROUTING_FILE_P",
+    "STATE_DIR",
+    "TOOLBOXES_DIR",
+    "_STATE_DIR",
+    "_load_json",
+    "_save_json",
+]
+
 def _load_json(p):
     try:
         # utf-8-sig handles BOM produced by some Windows editors

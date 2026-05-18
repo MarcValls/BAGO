@@ -9,7 +9,6 @@ from rich import box
 from rich.table import Table
 
 from ..constants import ACCOUNTS_FILE, CRED_FILE
-from ..ui import console
 from .accounts import AccountManager
 from .login_flows import LoginFlowsMixin
 

@@ -55,8 +55,9 @@ def _cmd_auto(session):
                 f"Nivel actual: {confirm_txt}\n\n"
                 "Cuando debe BAGO pedir confirmacion al usuario?",
                 [
-                    ("never",  "Nunca       -- decisiones completamente autonomas"),
-                    ("smart",  "Inteligente -- solo ante acciones irreversibles o de riesgo"),
+                    ("never", "Nunca       -- decisiones completamente autonomas"),
+                    ("adaptativo", "Adaptativo  -- ajusta autonomia segun contexto y riesgo"),
+                    ("balanceado", "Balanceado  -- equilibrio entre autonomia y supervision"),
                     ("always", "Siempre     -- confirmar cada paso antes de ejecutar"),
                 ],
             )

@@ -251,13 +251,14 @@ Los roles definen el perfil de comportamiento de BAGO.
 | Modo | Descripción |
 |------|-------------|
 | `offline` | Solo modelos locales, sin cloud |
-| `economico` | Minimiza coste — prefiere modelos pequeños |
-| `estandar` | Balance calidad/coste (default) |
+| `eco` | Minimiza coste — prioriza modelos rápidos y baratos |
+| `standard` | Balance calidad/coste (default) |
 | `full` | Máxima calidad, sin restricciones de coste |
+| `auto` | BAGO decide según contexto y complejidad |
 
 ```
-[BAGO|AUTO] > /mode
-→ Selecciona modo: estandar ✔
+[BAGO|AUTO] > /generative
+→ Selecciona modo: standard ✔   (/mode sigue siendo alias)
 ```
 
 ---
@@ -280,7 +281,7 @@ Los roles definen el perfil de comportamiento de BAGO.
 ╭─ Estado BAGO ───────────────────────────────────────────────╮
 │  Modelo:      qwen2.5:14b (ollama-local)                   │
 │  Wire:        qwen2.5:14b                                   │
-│  Modo:        estandar                                      │
+│  Modo:        standard                                      │
 │  Routing:     AUTO → qwen2.5-coder (ollama-local)          │
 │  Motivo:      tarea de código detectada                     │
 │  Historial:   12 mensajes                                   │
@@ -319,7 +320,7 @@ BAGO puede actuar sin pedir confirmaciones.
 ┌─ Modo autónomo BAGO ─────────────────────────────────────────┐
 │                                                              │
 │  >> [ ON ] Modo autónomo         (actualmente OFF)          │
-│     [ SMART ] Confirmaciones     (always / smart / never)   │
+│     [ ADAPTATIVO ] Confirmaciones (always / adaptativo / balanceado / never) │
 │     Máx. iteraciones: 10                                    │
 │                                                              │
 │  ─────────────────────────────────────────────────          │
@@ -332,7 +333,8 @@ BAGO puede actuar sin pedir confirmaciones.
 | Nivel de confirmación | Comportamiento |
 |----------------------|----------------|
 | `always` | Siempre pide confirmación |
-| `smart` | Solo para acciones de riesgo (default) |
+| `adaptativo` | Ajusta la autonomía según contexto y riesgo (default) |
+| `balanceado` | Equilibra autonomía y supervisión |
 | `never` | Sin confirmaciones — máxima autonomía |
 
 ---
@@ -395,7 +397,7 @@ AGENTES & SKILLS
 ROUTING
   /routing             → matriz reglas
   /roles               → modos orquestador
-  /mode                → cambio rápido modo
+  /generative          → cambio rápido modo (/mode es alias)
 
 SESIÓN
   /status              → estado completo

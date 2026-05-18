@@ -52,11 +52,11 @@ def _sync_git(session):
     with console.status("[dim cyan]Sincronizando con GitHub...[/dim cyan]", spinner="dots"):
         try:
             import subprocess as sp
-            r1 = sp.run(["git", "-C", str(bago_root), "add", "-A"],
-                        capture_output=True, text=True)
+            sp.run(["git", "-C", str(bago_root), "add", "-A"],
+                   capture_output=True, text=True)
             full_msg = f"{msg}\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-            r2 = sp.run(["git", "-C", str(bago_root), "commit", "-m", full_msg],
-                        capture_output=True, text=True)
+            sp.run(["git", "-C", str(bago_root), "commit", "-m", full_msg],
+                   capture_output=True, text=True)
             # Pull remoto antes de push para evitar "fetch first"
             sp.run(["git", "-C", str(bago_root), "pull", "--rebase", "--autostash"],
                    capture_output=True, text=True)
@@ -77,7 +77,7 @@ def _sync_git(session):
 
 def _sync_usb():
     """Detecta y sincroniza con USB si esta disponible."""
-    import subprocess as sp, shutil, platform
+    import shutil, platform
     usb_candidates = []
 
     # macOS — buscar en /Volumes/

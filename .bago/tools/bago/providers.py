@@ -281,7 +281,7 @@ def discover_ollama_url(timeout: int = 2) -> "str | None":
 
     Devuelve la URL base funcional o None si no se encuentra.
     """
-    import shutil, sys
+    import sys
 
     candidates: list[str] = []
 
@@ -642,7 +642,7 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             if e.code == 403:
                 return {"ok": False, "detail": f"API key sin permisos (403)"}
             return {"ok": True, "detail": f"API key ...{key[-4:]}  (HTTP {e.code})"}
-        except Exception as e:
+        except Exception:
             # Si falla la red pero hay key, asumimos ok (sin ping)
             return {"ok": True, "detail": f"API key ...{key[-4:]}  (sin conexion)"}
 
