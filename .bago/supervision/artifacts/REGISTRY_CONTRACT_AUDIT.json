@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "Auditoría del registry — coherencia de contratos por herramienta",
-  "last_run": "2026-05-18T18:08:11.603617",
+  "last_run": "2026-05-18T23:02:56.855020",
   "total_commands": null,
   "dangerous_commands": null,
   "core_commands": null,
@@ -12,5 +12,32 @@
   "gate": "all core and dangerous commands must have preflight + self_test",
   "on_failure": "warn",
   "checked_by": "contract_auditor",
-  "tool": "python .bago/tools/tool_guardian.py"
+  "tool": "python .bago/tools/tool_guardian.py",
+  "run_history": [
+    {
+      "timestamp": "2026-05-18T18:25:43.390231",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T19:11:34.154831",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T19:18:18.886403",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T22:53:43.113192",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T23:02:56.855020",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    }
+  ]
 }

@@ -18,7 +18,6 @@ from .menus import (
     _cmd_main_menu,
     _cmd_memory,
     _cmd_generative,
-    _cmd_mode,
     _cmd_projects,
     _cmd_roles,
     _cmd_routing,

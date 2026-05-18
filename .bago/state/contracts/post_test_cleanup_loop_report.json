@@ -1,0 +1,18 @@
+{
+  "loop": "post_test_cleanup_loop",
+  "timestamp": "2026-05-18T23:07:43.610048",
+  "has_blockers": false,
+  "blockers_summary": "",
+  "agents": [
+    {
+      "agent": "state_sandbox_agent",
+      "status": "green",
+      "message": "OK",
+      "artifact": ".bago/supervision/artifacts/TEST_ISOLATION_POLICY.md",
+      "on_failure": "warn",
+      "blocker": false,
+      "cascade_triggered": false,
+      "timestamp": "2026-05-18T23:07:43.610025"
+    }
+  ]
+}
