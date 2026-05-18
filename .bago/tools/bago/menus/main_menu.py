@@ -27,8 +27,7 @@ _ENTRIES = [
     ("/switch",     "🔀  Cambiar modelo activo"),
     ("/autoroute",  "⚙   Auto-routing ON/OFF"),
     ("/routing",    "🗺   Matriz de enrutamiento  — ver y editar reglas"),
-    ("/roles",      "🎭  Modos del orquestador  — offline · eco · full"),
-    ("/mode",       "🎛   Cambio rápido de modo"),
+    ("/roles",      "🎭  Roles del orquestador  — definir comportamiento"),
 
     # ── 3 · Agentes & Skills ─────────────────────────────────────────
     (None,          "  ── Agentes & Skills ───────────────────────────"),
@@ -45,6 +44,7 @@ _ENTRIES = [
     (None,          "  ── Modos de conversación ──────────────────────"),
     ("/plan",       "📐  Modo PLAN  — razonar y proponer antes de actuar"),
     ("/brainstorm", "💡  Modo BRAINSTORM  — explorar ideas sin restricciones"),
+    ("/mode",       "🎛   Modo generativo  — offline · eco · full · standard"),
     ("/auto",       "🌀  Modo AUTONOMO  — bucle sin confirmaciones"),
 
     # ── 6 · Sesion & Configuracion ───────────────────────────────────
