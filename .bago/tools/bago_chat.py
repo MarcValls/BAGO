@@ -541,15 +541,26 @@ def main():
         "scrollbar.button":                 "bg:#00aaff",
     })
 
-    # Key binding: Tab para abrir completado incluso con buffer vacío (solo '/')
+    # Key binding: '/' con buffer vacío → abre menú navegable inmediatamente
     kb = KeyBindings()
+
+    @kb.add("/")
+    def _slash_trigger(event):
+        buf = event.app.current_buffer
+        if not buf.text:
+            # Buffer vacío: submit "/" directamente → cmd() abrirá _cmd_main_menu
+            buf.text = "/"
+            buf.validate_and_handle()
+        else:
+            # Buffer con texto: insertar '/' normalmente
+            buf.insert_text("/")
 
     pt = PromptSession(
         history=FileHistory(str(hist_file)),
         auto_suggest=AutoSuggestFromHistory(),
         style=completion_style,
         completer=BagoCompleter(),
-        complete_while_typing=True,   # popup aparece al escribir '/'
+        complete_while_typing=True,
         key_bindings=kb,
     )
 
