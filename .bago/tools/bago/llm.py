@@ -122,6 +122,30 @@ def _model_size_score(name: str) -> int:
     if any(x in n for x in ("70b", "72b")):             return 6
     return 3  # desconocido → medio
 
+
+def _ollama_fallback_model(missing_model: str) -> "tuple[str | None, list[str]]":
+    """Busca modelos Ollama disponibles y elige el mejor sustituto.
+
+    Returns:
+        (fallback_name, all_available) — fallback_name es None si no hay ninguno.
+    """
+    from .providers import ollama_probe
+    probe = ollama_probe()
+    available = probe.get("models", [])
+    if not available:
+        return None, []
+    # Preferir modelos coder si el original era coder
+    is_coder = "coder" in missing_model.lower()
+    scored = sorted(
+        available,
+        key=lambda m: (
+            (1 if is_coder and "coder" in m.lower() else 0),
+            _model_size_score(m),
+        ),
+        reverse=True,
+    )
+    return scored[0], available
+
 # Orden de providers local→cloud para escalado
 _ESCALATE_PROV_ORDER = ("ollama-local", "ollama-cloud", "copilot", "codex", "anthropic")
 
@@ -216,21 +240,59 @@ def _escalate_model(session, user_input: str = "") -> tuple[str, str, str] | Non
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
-    """Llamada a LiteLLM. Si se pasa session, registra tokens automáticamente."""
-    r = litellm.completion(model=lm, messages=messages, **kw)
-    text = r.choices[0].message.content
-    # ── Token tracking ────────────────────────────────────────────────────────
-    if session is not None:
-        usage = getattr(r, "usage", None)
-        if usage:
-            prov = _provider or session.provider
-            mdl  = _model or session.model_name
-            session.record_tokens(
-                prov, mdl,
-                getattr(usage, "prompt_tokens", 0) or 0,
-                getattr(usage, "completion_tokens", 0) or 0,
+    """Llamada a LiteLLM con fallback automatico si el modelo Ollama no existe."""
+    def _do_call(lm_name, kw_args):
+        r = litellm.completion(model=lm_name, messages=messages, **kw_args)
+        text = r.choices[0].message.content
+        if session is not None:
+            usage = getattr(r, "usage", None)
+            if usage:
+                prov = _provider or session.provider
+                mdl  = _model or session.model_name
+                session.record_tokens(
+                    prov, mdl,
+                    getattr(usage, "prompt_tokens", 0) or 0,
+                    getattr(usage, "completion_tokens", 0) or 0,
+                )
+        return text
+
+    try:
+        return _do_call(lm, kw)
+    except Exception as exc:
+        is_missing, missing_name = _is_ollama_model_not_found(exc)
+        if not is_missing:
+            raise  # otro tipo de error → propagar normal
+
+        # ── Modelo Ollama no instalado: buscar alternativa ────────────────────
+        fallback, available = _ollama_fallback_model(missing_name or lm)
+
+        if fallback:
+            # Construir el wire name para litellm (ollama/modelo)
+            fallback_wire = f"ollama/{fallback}" if not fallback.startswith("ollama/") else fallback
+            pi(
+                f"[yellow]⚠  Modelo '[bold]{missing_name or lm}[/bold]' no instalado.[/yellow]\n"
+                f"   Disponibles: {', '.join(available)}\n"
+                f"   Usando [bold cyan]{fallback}[/bold cyan] como sustituto."
             )
-    return text
+            try:
+                return _do_call(fallback_wire, kw)
+            except Exception as exc2:
+                # El fallback también falló — informar y re-lanzar
+                pe(
+                    f"El sustituto '{fallback}' también falló: {exc2}\n"
+                    f"Modelos disponibles en Ollama: {available or 'ninguno'}\n"
+                    f"Prueba: ollama pull qwen2.5-coder:7b"
+                )
+                raise exc2
+        else:
+            # No hay ningún modelo Ollama instalado
+            pe(
+                f"[bold red]Modelo '{missing_name or lm}' no encontrado y no hay modelos Ollama instalados.[/bold red]\n"
+                f"Ollama está corriendo pero sin modelos descargados.\n"
+                f"Solución: [bold]ollama pull qwen2.5-coder:7b[/bold]  (~4 GB)\n"
+                f"O usa /switch para cambiar a un provider cloud (copilot, codex)."
+            )
+            raise
 
 def run_chain(session, model_sequence, prompt, silent_route=True):
     """Pipeline secuencial. Solo la respuesta final va al historial compartido."""
