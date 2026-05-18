@@ -40,12 +40,16 @@ _ENTRIES = [
     ("/chain",      "⛓   Pipeline  — m1 genera, m2 refina"),
     ("/ensemble",   "🔗  Paralelo + síntesis  — varios modelos a la vez"),
 
-    # ── 5 · Modos de conversación ─────────────────────────────────────
-    (None,          "  ── Modos de conversación ──────────────────────"),
-    ("/plan",       "📐  Modo PLAN  — razonar y proponer antes de actuar"),
-    ("/brainstorm", "💡  Modo BRAINSTORM  — explorar ideas sin restricciones"),
-    ("/mode",       "🎛   Modo generativo  — offline · eco · full · standard"),
-    ("/auto",       "🌀  Modo AUTONOMO  — bucle sin confirmaciones"),
+    # ── 5 · Modos ────────────────────────────────────────────────────
+    (None,          "  ── Modos ──────────────────────────────────────"),
+    # · eje generativo · cómo el LM produce texto
+    (None,          "      · generativo ·"),
+    ("/mode",       "🎛   /mode  — offline · eco · full · standard"),
+    # · eje de ejecución · cómo BAGO actúa en la conversación
+    (None,          "      · ejecucion ·"),
+    ("/auto",       "🌀  /auto  — bucle  (+ balanceado · adaptativo)"),
+    ("/plan",       "📐  /plan  — razonar y proponer antes de actuar"),
+    ("/brainstorm", "💡  /brainstorm  — explorar ideas sin restricciones"),
 
     # ── 6 · Sesion & Configuracion ───────────────────────────────────
     (None,          "  ── Sesion & Configuracion ─────────────────────"),
