@@ -9,44 +9,47 @@ from prompt_toolkit.completion import Completer, Completion
 # ── Catálogo completo de comandos ─────────────────────────────────────────────
 
 BAGO_COMMANDS: dict[str, str] = {
-    # Credenciales / providers
-    "/login":       "Providers y credenciales (github · gpt · anthropic · ollama)",
-    # Modelos
-    "/switch":      "Cambiar modelo activo: /switch <modelo|provider>",
-    "/models":      "Listar todos los modelos disponibles",
-    "/scan":        "Scan completo: disponibles · potenciales · missing + historial",
-    "/autoroute":   "Auto-routing on/off",
-    # Multi-modelo
-    "/chain":       "Pipeline de modelos: /chain m1->m2: prompt",
-    "/ensemble":    "Paralelo + síntesis: /ensemble m1 m2: prompt",
-    # Artefactos
-    "/agents":      "Gestión de agentes BAGO",
-    "/skills":      "Gestión de skills",
-    "/roles":       "Modos/roles del orquestador",
-    "/routing":     "Matriz de enrutamiento",
-    "/new":         "Fábrica de artefactos (wizard LM) — 7 tipos",
-    "/wizard":      "Alias de /new",
-    "/fabrica":     "Alias de /new",
-    # Modos conversacionales
-    "/plan":        "Modo PLAN on/off — razonar antes de actuar",
-    "/brainstorm":  "Modo BRAINSTORM on/off — explorar ideas sin filtros",
-    # Sesión
-    "/session":     "Gestión de sesión (temporal · disco · letargo · repliegue)",
-    "/auto":        "Modo autónomo on/off + nivel de confirmaciones",
-    "/mode":        "Cambio rápido del modo del orquestador",
-    "/sync":        "Sincronizar GitHub/USB + post-sync",
-    "/memory":      "Base de conocimiento + memoria episódica",
-    "/config":      "Configuración global persistente",
-    # Framework
-    "/framework":   "Vista evolutiva del framework BAGO",
-    "/workspaces":  "Gestión de workspaces",
-    "/projects":    "Gestión de proyectos (dentro del workspace activo)",
-    # Utilidades
-    "/status":      "Estado de la sesión actual",
-    "/save":        "Guardar sesión en disco",
-    "/clear":       "Limpiar historial de chat",
-    "/help":        "Mostrar ayuda completa",
-    "/exit":        "Salir de BAGO",
+    # -- Providers & Login
+    "/scan":        "[Providers] Scan: disponibles · potenciales · missing + tokens",
+    "/login":       "[Providers] Registrar y gestionar cuentas de providers",
+    "/models":      "[Providers] Listar todos los modelos disponibles",
+    # -- Modelo & Routing
+    "/switch":      "[Routing] Cambiar modelo activo: /switch <modelo|provider>",
+    "/autoroute":   "[Routing] Auto-routing on/off",
+    "/routing":     "[Routing] Matriz de enrutamiento — ver y editar reglas",
+    "/roles":       "[Routing] Roles del orquestador — definir comportamiento",
+    # -- Agentes & Skills
+    "/new":         "[Agentes] Crear artefacto — wizard asistido por LM",
+    "/agents":      "[Agentes] Ver / crear / editar / activar agentes",
+    "/skills":      "[Agentes] Ver / crear / editar skills",
+    # -- Multi-modelo
+    "/chain":       "[Multi] Pipeline: m1 genera, m2 refina",
+    "/ensemble":    "[Multi] Paralelo + sintesis — varios modelos a la vez",
+    # -- Modos
+    "/generative":  "[Modo] Modo generativo: offline / eco / standard / full / auto",
+    "/gen":         "[Modo] Alias de /generative",
+    "/mode":        "[Modo] Alias de /generative",
+    "/auto":        "[Modo] Modo autonomo — bucle: balanceado / adaptativo",
+    "/plan":        "[Modo] Modo PLAN — razonar y proponer antes de actuar",
+    "/brainstorm":  "[Modo] Modo BRAINSTORM — explorar ideas sin restricciones",
+    # -- Sesion & Config
+    "/session":     "[Sesion] Gestion de sesion (temporal · disco · letargo · repliegue)",
+    "/sync":        "[Sesion] Sincronizar GitHub/USB + post-sync",
+    "/memory":      "[Sesion] Memoria y conocimiento",
+    "/config":      "[Sesion] Configuracion global persistente",
+    # -- Workspace & Proyectos
+    "/framework":   "[Workspace] Vista evolutiva del framework BAGO",
+    "/workspaces":  "[Workspace] Gestion de workspaces",
+    "/projects":    "[Workspace] Gestion de proyectos (dentro del workspace activo)",
+    # -- Utilidades
+    "/help":        "[Util] Mostrar ayuda completa con descripcion de comandos",
+    "/clear":       "[Util] Limpiar historial de chat",
+    "/status":      "[Util] Estado de la sesion actual",
+    "/save":        "[Util] Guardar sesion en disco",
+    "/exit":        "[Util] Salir de BAGO",
+    # Aliases legacy
+    "/wizard":      "[Alias] Alias de /new",
+    "/fabrica":     "[Alias] Alias de /new",
 }
 
 # Sub-comandos por comando (se activan al escribir, ej: "/agents ")
@@ -100,12 +103,19 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
         ("off",  "Desactivar modo autónomo"),
         ("full", "Autónomo total: sin confirmaciones"),
     ],
+    "/generative": [
+        ("offline",  "Solo modelos locales — sin red"),
+        ("eco",      "Modelos economicos — rapido y barato"),
+        ("standard", "Balance coste/calidad (por defecto)"),
+        ("full",     "Todos los modelos — maxima calidad"),
+        ("auto",     "BAGO decide segun contexto y complejidad"),
+    ],
     "/mode": [
-        ("manual",    "Modo manual: tú eliges el modelo"),
-        ("offline",   "Solo modelos locales (Ollama)"),
-        ("economico", "Prioriza modelos baratos"),
-        ("estandar",  "Balance coste/calidad"),
-        ("full",      "Todos los modelos disponibles"),
+        ("offline",  "Solo modelos locales — sin red"),
+        ("eco",      "Modelos economicos — rapido y barato"),
+        ("standard", "Balance coste/calidad (por defecto)"),
+        ("full",     "Todos los modelos — maxima calidad"),
+        ("auto",     "BAGO decide segun contexto y complejidad"),
     ],
     "/sync": [
         ("to-usb",   "Copiar estado al USB"),
@@ -133,15 +143,16 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# Icono por categoría (se muestra junto a la descripción)
+# Icono por categoria (se muestra junto a la descripcion)
 _ICONS: dict[str, str] = {
-    "/login": "🔑", "/auth": "🔑",
-    "/switch": "🔀", "/models": "📋", "/autoroute": "⚙", "/chain": "⛓", "/ensemble": "🔗",
-    "/agents": "🤖", "/skills": "⚡", "/roles": "🎭", "/routing": "🗺", "/new": "✨",
-    "/wizard": "✨", "/fabrica": "✨",
-    "/session": "💾", "/auto": "🤖", "/mode": "🎛", "/sync": "🔄",
-    "/memory": "🧠", "/config": "⚙", "/framework": "🏗", "/workspaces": "📁", "/projects": "📂",
-    "/status": "📊", "/save": "💾", "/clear": "🧹", "/help": "❓", "/exit": "🚪",
+    "/login": ">>", "/auth": ">>",
+    "/switch": "->", "/models": "=", "/autoroute": "*", "/chain": "+", "/ensemble": "+",
+    "/agents": "~", "/skills": "~", "/roles": "~", "/routing": "~", "/new": "+",
+    "/wizard": "+", "/fabrica": "+",
+    "/session": "=", "/auto": "~", "/mode": "~", "/generative": "~", "/gen": "~", "/sync": ">>",
+    "/memory": "~", "/config": "=", "/framework": "=", "/workspaces": "=", "/projects": "=",
+    "/status": "=", "/save": "=", "/clear": "x", "/help": "?", "/exit": "x",
+    "/scan": ">>", "/plan": "~", "/brainstorm": "~",
 }
 
 
@@ -164,6 +175,9 @@ class BagoCompleter(Completer):
         # ── Completando el comando principal ──────────────────────────────────
         if len(parts) == 1:
             typed = parts[0]
+            # "/" solo -> no mostrar popup; Enter abre el menu navegable (/cmd_main_menu)
+            if typed == "/":
+                return
             for cmd, desc in BAGO_COMMANDS.items():
                 if cmd.startswith(typed):
                     icon = _ICONS.get(cmd, "  ")
