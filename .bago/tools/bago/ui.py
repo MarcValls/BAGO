@@ -220,7 +220,7 @@ _MENU_STYLE = Style.from_dict({
     "pick.cursor":        "fg:#89b4fa bold",          # '>>' azul brillante
     "pick.focused":       "bg:#313244 fg:#cdf4a1 bold",  # fila activa: fondo + texto claro
     "pick.item":          "fg:#585b70",               # filas inactivas: gris tenue
-    "pick.sep":           "fg:#313244",               # separador
+    "pick.sep":           "fg:#6c7086",               # separador — visible en dark y light
     # conmutadores
     "toggle.on":          "bg:ansibrightgreen fg:ansiblack bold",
     "toggle.off":         "bg:#444444 fg:#888888",

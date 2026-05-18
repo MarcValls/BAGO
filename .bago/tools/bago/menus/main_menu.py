@@ -4,62 +4,67 @@ menus/main_menu.py — Menú principal de BAGO.
 Se abre escribiendo "/" solo en el REPL.
 Agrupa todos los comandos por categoría; navegable con ↑↓ + Enter.
 
-Reglas:
-  · Sin duplicados: cada comando aparece UNA sola vez.
-  · Sin emojis repetidos dentro de la misma sección.
-  · Ordenado por frecuencia de uso dentro de cada grupo.
+Reglas de renderizado multiplataforma:
+  · Separadores SIN emoji en los guiones (emoji es 2 cols en Mac → desalinea ─)
+  · Emoji solo en ítems, seguido de 2 espacios
+  · Cada comando aparece UNA sola vez
+  · Ordenado por frecuencia de uso dentro de cada grupo
 """
 
 from ..ui import _menu_pick
 
-# (key, label)  ─  key=None → separador visual
+# (key, label)  ─  key=None → separador visual (no navegable)
 _ENTRIES = [
-    # ── IA & Modelos ────────────────────────────────────────────────
-    (None,          "─── 🤖  IA & Modelos ─────────────────────────"),
-    ("/login",      "🔑  Login / Providers"),
+
+    # ── 1 · Providers & Login ────────────────────────────────────────
+    (None,          "  ── Providers & Login ─────────────────────────"),
+    ("/scan",       "🔍  Scan  — disponibles · potenciales · missing + tokens"),
+    ("/login",      "🔑  Login / Providers  — registrar y gestionar cuentas"),
+    ("/models",     "📋  Modelos disponibles"),
+
+    # ── 2 · Modelo & Routing ─────────────────────────────────────────
+    (None,          "  ── Modelo & Routing ───────────────────────────"),
     ("/switch",     "🔀  Cambiar modelo activo"),
-    ("/models",     "📋  Ver modelos disponibles"),
-    ("/scan",       "🔍  Scan completo: disponibles · potenciales · missing"),
-    ("/status",     "📊  Estado de providers (salud en vivo)"),
     ("/autoroute",  "⚙   Auto-routing ON/OFF"),
+    ("/routing",    "🗺   Matriz de enrutamiento  — ver y editar reglas"),
+    ("/roles",      "🎭  Modos del orquestador  — offline · eco · full"),
+    ("/mode",       "🎛   Cambio rápido de modo"),
 
-    # ── Modos de conversación ────────────────────────────────────────
-    (None,          "─── 🧠  Modos de conversación ────────────────"),
-    ("/plan",       "📐  Modo PLAN  (razonar antes de actuar)"),
-    ("/brainstorm", "💡  Modo BRAINSTORM  (explorar sin filtros)"),
-    ("/mode",       "🎛   Modo del orquestador  (offline · full…)"),
-    ("/auto",       "🌀  Modo autónomo  (bucle sin confirmaciones)"),
+    # ── 3 · Agentes & Skills ─────────────────────────────────────────
+    (None,          "  ── Agentes & Skills ───────────────────────────"),
+    ("/new",        "✨  Crear artefacto  — wizard asistido por LM"),
+    ("/agents",     "🤖  Agentes  — ver · crear · editar · activar"),
+    ("/skills",     "⚡  Skills  — ver · crear · editar"),
 
-    # ── Multi-modelo ─────────────────────────────────────────────────
-    (None,          "─── ⛓  Multi-modelo ──────────────────────────"),
-    ("/chain",      "⛓   Pipeline de modelos  (chain)"),
-    ("/ensemble",   "🔗  Paralelo + síntesis   (ensemble)"),
+    # ── 4 · Estrategias multi-modelo ─────────────────────────────────
+    (None,          "  ── Estrategias multi-modelo ───────────────────"),
+    ("/chain",      "⛓   Pipeline  — m1 genera, m2 refina"),
+    ("/ensemble",   "🔗  Paralelo + síntesis  — varios modelos a la vez"),
 
-    # ── Herramientas & Artefactos ────────────────────────────────────
-    (None,          "─── 🛠   Herramientas & Artefactos ────────────"),
-    ("/new",        "✨  Crear artefacto  (wizard LM)"),
-    ("/agents",     "🤖  Agentes BAGO"),
-    ("/skills",     "⚡  Skills"),
-    ("/roles",      "🎭  Roles / modos del orquestador"),
-    ("/routing",    "🗺   Matriz de enrutamiento"),
+    # ── 5 · Modos de conversación ─────────────────────────────────────
+    (None,          "  ── Modos de conversación ──────────────────────"),
+    ("/plan",       "📐  Modo PLAN  — razonar y proponer antes de actuar"),
+    ("/brainstorm", "💡  Modo BRAINSTORM  — explorar ideas sin restricciones"),
+    ("/auto",       "🌀  Modo AUTONOMO  — bucle sin confirmaciones"),
 
-    # ── Sesión & Sistema ─────────────────────────────────────────────
-    (None,          "─── 💾  Sesión & Sistema ──────────────────────"),
-    ("/session",    "💾  Gestión de sesión  (ver · guardar · cargar)"),
-    ("/sync",       "🔄  Sincronizar GitHub / USB"),
+    # ── 6 · Sesion & Configuracion ───────────────────────────────────
+    (None,          "  ── Sesion & Configuracion ─────────────────────"),
+    ("/status",     "📊  Estado actual  — modelo · routing · tokens · salud"),
+    ("/session",    "💾  Gestion de sesion  — guardar · cargar · repliegue"),
+    ("/sync",       "🔄  Sincronizar  — GitHub · USB"),
     ("/memory",     "🧠  Memoria y conocimiento"),
-    ("/config",     "⚙   Configuración global"),
+    ("/config",     "⚙   Configuracion global"),
 
-    # ── Workspace ────────────────────────────────────────────────────
-    (None,          "─── 📁  Workspace ────────────────────────────"),
-    ("/framework",  "🏗   Framework evolutivo"),
+    # ── 7 · Workspace & Proyectos ────────────────────────────────────
+    (None,          "  ── Workspace & Proyectos ──────────────────────"),
+    ("/framework",  "🏗   Framework evolutivo  — sprint · health · componentes"),
     ("/workspaces", "📁  Workspaces"),
     ("/projects",   "📂  Proyectos"),
 
-    # ── Utilidades ───────────────────────────────────────────────────
-    (None,          "─── 🔧  Utilidades ───────────────────────────"),
+    # ── 8 · Utilidades ───────────────────────────────────────────────
+    (None,          "  ── Utilidades ─────────────────────────────────"),
+    ("/help",       "❓  Ayuda  — todos los comandos con descripcion"),
     ("/clear",      "🧹  Limpiar historial de chat"),
-    ("/help",       "❓  Ayuda y comandos"),
 ]
 
 
@@ -69,9 +74,8 @@ def _cmd_main_menu(session) -> str | None:
     Devuelve la línea de comando seleccionada (p.ej. '/login')
     o None si el usuario canceló con Esc.
     """
-    result = _menu_pick(
-        "BAGO  /  Menú principal",
-        "↑↓ navegar   Enter seleccionar   Esc volver",
+    return _menu_pick(
+        "BAGO  /  Menu principal",
+        "  ↑↓  navegar    Enter  seleccionar    Esc  volver",
         _ENTRIES,
     )
-    return result
