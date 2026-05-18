@@ -26,7 +26,7 @@ class BagoSession:
         self.creds      = creds
         self.autoroute  = True   # routing + estrategia automaticos por defecto
         self.autonomous = False  # modo autonomo (sin confirmaciones)
-        self.auto_confirm = "smart"  # always | smart | never
+        self.auto_confirm = "adaptativo"  # never | adaptativo | balanceado | always
         self.auto_max_iter = 10
         self.temp_mode  = False  # sesion temporal (no escribe en disco automaticamente)
         self.orch_mode  = "standard"  # offline|eco|standard|full|auto
