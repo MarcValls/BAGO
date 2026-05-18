@@ -215,35 +215,42 @@ def _fw_evolve(session):
     ]
     fw_context = "\n".join(context_lines)
 
-    evolve_system = (
-        "Eres el implementador del framework BAGO, un orquestador multi-modelo adaptativo. "
-        "Tu rol es IMPLEMENTAR directamente los cambios que el usuario pide: escribir código completo y funcional, "
-        "modificar ficheros existentes, crear nuevos componentes.\n\n"
+    # Dos system prompts: uno para planear, otro para implementar
+    _PLAN_SYSTEM = (
+        "Eres el arquitecto evolucionario del framework BAGO, un orquestador multi-modelo adaptativo. "
+        "Tu rol es guiar el diseño iterativo: proponer mejoras, detectar gaps, sugerir nuevas piezas "
+        "(agentes/skills/routing/modos) y conectar las necesidades del usuario con la arquitectura existente. "
+        "Propón cambios concretos y accionables. Cuando el usuario esté satisfecho con el plan elegirá 'Implementar'.\n\n"
+        f"Estado actual del framework:\n{fw_context}"
+    )
+    _IMPL_SYSTEM = (
+        "Eres el implementador del framework BAGO. El usuario aprobó el plan: ahora IMPLEMENTA.\n"
         "REGLAS ESTRICTAS:\n"
-        "1. Cuando el usuario diga 'implementa', 'confirmo', 'aplica', 'hazlo', 'ejecuta' o similar: "
-        "genera INMEDIATAMENTE el código completo listo para guardar. NO hagas más preguntas ni resúmenes.\n"
-        "2. Cada fichero a crear o modificar va en un bloque de código con la ruta como comentario en la primera línea: "
-        "```python\n# ruta/al/fichero.py\n<código completo>\n```\n"
-        "3. Si un fichero ya existe y solo hay que modificar parte, muestra SOLO el fragmento con contexto suficiente "
-        "para ubicarlo, precedido de `# EDIT: ruta/fichero.py`.\n"
-        "4. Tras el código, escribe UNA línea de resumen con qué ficheros creaste/modificaste.\n"
-        "5. NUNCA generes planes, listas de pasos ni preguntas de confirmación si el usuario ya confirmó.\n\n"
+        "1. Genera INMEDIATAMENTE el código completo listo para guardar. NO hagas resúmenes ni planes.\n"
+        "2. Cada fichero va en un bloque de código con la ruta como comentario en la primera línea:\n"
+        "   ```python\n   # ruta/al/fichero.py\n   <código completo>\n   ```\n"
+        "3. Si solo hay que modificar parte de un fichero existente, usa `# EDIT: ruta/fichero.py` "
+        "y muestra el fragmento con contexto suficiente para ubicarlo.\n"
+        "4. Tras los bloques de código, escribe UNA línea de resumen de qué ficheros creaste/modificaste.\n"
+        "5. CERO planes, CERO preguntas, CERO confirmaciones — solo código.\n\n"
         f"Estado actual del framework:\n{fw_context}"
     )
 
     console.print(Panel(
         f"[bold cyan]Modo Evolutivo BAGO[/bold cyan]\n"
-        f"[dim]El LM implementa cambios directamente en el framework.\n"
-        f"Describe la mejora → confirma → el LM genera codigo → se escribe a disco.\n"
+        f"[dim]Diseña con el LM y cuando el plan te convenza elige [bold]Implementar[/bold].\n"
+        f"El LM generara codigo completo que se puede escribir a disco directamente.\n"
         f"/exit para salir.[/dim]",
         box=box.ROUNDED))
 
-    evolve_history = [{"role": "system", "content": evolve_system}]
+    evolve_history = [{"role": "system", "content": _PLAN_SYSTEM}]
+    mode = "plan"  # "plan" | "impl"
 
     while True:
         try:
             from prompt_toolkit import prompt as pt_prompt
-            user_in = pt_prompt("[framework] > ").strip()
+            prefix = "[framework|IMPL] > " if mode == "impl" else "[framework] > "
+            user_in = pt_prompt(prefix).strip()
         except (EOFError, KeyboardInterrupt):
             break
         if not user_in or user_in.lower() in ("/exit", "/salir", "exit", "salir"):
@@ -257,35 +264,61 @@ def _fw_evolve(session):
             evolve_history.append({"role": "assistant", "content": resp})
             console.print(Panel(resp, title=f"[dim]{session.model_name}[/dim]", box=box.SIMPLE))
 
-            # Detectar bloques de código con ruta en primera línea: ```lang\n# ruta/fichero.ext
+            # Detectar bloques de código con ruta en primera línea
             code_blocks = re.findall(
                 r"```(?:python|js|json|yaml|toml|sh|bash|text|)\n(# (?:EDIT: )?(.+?)\n([\s\S]*?))```",
                 resp
             )
+
+            # Menú de acción tras cada respuesta
+            action_choices = []
             if code_blocks:
-                pi(f"[bold]Se detectaron {len(code_blocks)} fichero(s) en la respuesta.[/bold]")
-                for full_block, raw_path, code_body in code_blocks:
-                    is_edit = raw_path.startswith("EDIT: ")
-                    clean_path = raw_path.replace("EDIT: ", "").strip()
-                    # Resolver ruta relativa a TOOLS_DIR o absoluta
-                    target = Path(clean_path) if Path(clean_path).is_absolute() else TOOLS_DIR / clean_path
-                    action_label = "EDITAR (fragment)" if is_edit else "CREAR/SOBRESCRIBIR"
-                    pi(f"  {action_label}: [bold]{target}[/bold]")
+                action_choices.append(("write",   f"Escribir {len(code_blocks)} fichero(s) a disco"))
+                action_choices.append(("review",  "Revisar ficheros uno a uno antes de escribir"))
+            if mode == "plan":
+                action_choices.append(("impl",    "[bold green]Implementar[/bold green]  — pedir codigo completo al LM"))
+            else:
+                action_choices.append(("plan",    "Volver a modo planificacion"))
+            action_choices.append(("continue", "Seguir adaptando el plan  (escribir al LM)"))
 
-                sel_write = _menu_select(
-                    "Escribir ficheros",
-                    f"El LM generó {len(code_blocks)} fichero(s). ¿Qué hacemos?",
-                    [
-                        ("write",  "Escribir todos a disco ahora"),
-                        ("review", "Revisar uno a uno antes de escribir"),
-                        ("skip",   "No escribir nada (solo ver el código)"),
-                    ]
+            sel_action = _menu_select("Modo Evolutivo", "¿Que hacemos ahora?", action_choices)
+
+            if sel_action == "write" and code_blocks:
+                _write_evolve_files(code_blocks)
+            elif sel_action == "review" and code_blocks:
+                _review_evolve_files(code_blocks)
+            elif sel_action == "impl":
+                # Cambia a modo implementación: inyecta nuevo system prompt y pide código
+                mode = "impl"
+                evolve_history[0] = {"role": "system", "content": _IMPL_SYSTEM}
+                evolve_history.append({"role": "user", "content": "Implementa ahora el plan acordado. Genera el código completo."})
+                with console.status(f"[dim]{session.model_name} (implementando)...[/dim]", spinner="dots"):
+                    impl_resp = _llm_call(lm, kw, evolve_history)
+                evolve_history.append({"role": "assistant", "content": impl_resp})
+                console.print(Panel(impl_resp, title=f"[dim]{session.model_name} — IMPLEMENTACION[/dim]", box=box.SIMPLE))
+                impl_blocks = re.findall(
+                    r"```(?:python|js|json|yaml|toml|sh|bash|text|)\n(# (?:EDIT: )?(.+?)\n([\s\S]*?))```",
+                    impl_resp
                 )
-
-                if sel_write == "write":
-                    _write_evolve_files(code_blocks)
-                elif sel_write == "review":
-                    _review_evolve_files(code_blocks)
+                if impl_blocks:
+                    sel2 = _menu_select(
+                        "Escribir implementacion",
+                        f"Se generaron {len(impl_blocks)} fichero(s). ¿Escribir a disco?",
+                        [
+                            ("write",  "Escribir todos a disco"),
+                            ("review", "Revisar uno a uno"),
+                            ("skip",   "No escribir"),
+                        ]
+                    )
+                    if sel2 == "write":
+                        _write_evolve_files(impl_blocks)
+                    elif sel2 == "review":
+                        _review_evolve_files(impl_blocks)
+            elif sel_action == "plan":
+                mode = "plan"
+                evolve_history[0] = {"role": "system", "content": _PLAN_SYSTEM}
+                pi("Volviendo a modo planificacion.")
+            # sel_action == "continue" → loop continúa, el usuario escribe al LM
 
         except Exception as e:
             pe(f"Error LM: {e}")
