@@ -142,13 +142,23 @@ def _cmd_scan(session) -> None:
     total_ok = len(available)
     total_all = len(KNOWN_PROVIDERS_CATALOG)
 
+    # ── Sección 4: CUENTAS REGISTRADAS ───────────────────────────────────────
+    am = getattr(getattr(session, "creds", None), "account_manager", None)
+    if am and am.accounts:
+        acct_lines = am.summary_lines()
+        acct_section = "\n".join(acct_lines)
+    else:
+        acct_section = "  [dim]Sin cuentas multi — usa [yellow]/login add <provider>[/yellow] para agregar[/dim]"
+
     body = (
         f"[bold green]── DISPONIBLES ({total_ok}/{total_all})[/bold green]\n"
         f"{avail_section}\n\n"
         f"[bold yellow]── POTENCIALMENTE DISPONIBLES[/bold yellow]\n"
         f"{pot_section}\n\n"
         f"[bold red]── MISSING (estuvieron activos)[/bold red]\n"
-        f"{miss_section}"
+        f"{miss_section}\n\n"
+        f"[bold cyan]── CUENTAS REGISTRADAS[/bold cyan]\n"
+        f"{acct_section}"
     )
 
     console.print(Panel(

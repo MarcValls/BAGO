@@ -409,6 +409,13 @@ KNOWN_PROVIDERS_CATALOG: dict[str, dict] = {
         "requires":    "ANTHROPIC_API_KEY",
         "type":        "cloud",
     },
+    "gemini": {
+        "label":       "Google Gemini",
+        "description": "Gemini 2.0 Flash, Gemini 1.5 Pro — multimodal, contexto largo",
+        "setup":       "Obtén API key gratuita en https://aistudio.google.com/app/apikey",
+        "requires":    "GEMINI_API_KEY",
+        "type":        "cloud",
+    },
     "openrouter": {
         "label":       "OpenRouter",
         "description": "Acceso unificado a 200+ modelos (Mistral, Llama, Gemini…)",
@@ -604,6 +611,41 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             return {"ok": False, "detail": "sin ANTHROPIC_API_KEY"}
         return {"ok": True, "detail": f"API key ...{key[-4:]}"}
 
+    def _check_gemini():
+        key = os.environ.get("GEMINI_API_KEY", "")
+        if not key:
+            return {"ok": False, "detail": "sin GEMINI_API_KEY — https://aistudio.google.com"}
+        # Ping ligero al endpoint de modelos de Google
+        try:
+            req = urllib.request.Request(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={key}&pageSize=5",
+                headers={"User-Agent": "BAGO-CLI"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+                models_raw = data.get("models", [])
+                model_names = [
+                    m.get("name", "").replace("models/", "")
+                    for m in models_raw
+                    if m.get("name")
+                ]
+                n = len(model_names)
+                sample = ", ".join(model_names[:3]) if model_names else "..."
+                return {
+                    "ok":     True,
+                    "detail": f"API key ...{key[-4:]}  ({sample}{'…' if n >= 3 else ''})",
+                    "models": model_names,
+                }
+        except urllib.error.HTTPError as e:
+            if e.code == 400:
+                return {"ok": False, "detail": f"API key invalida (400)"}
+            if e.code == 403:
+                return {"ok": False, "detail": f"API key sin permisos (403)"}
+            return {"ok": True, "detail": f"API key ...{key[-4:]}  (HTTP {e.code})"}
+        except Exception as e:
+            # Si falla la red pero hay key, asumimos ok (sin ping)
+            return {"ok": True, "detail": f"API key ...{key[-4:]}  (sin conexion)"}
+
     def _check_openrouter():
         key = os.environ.get("OPENROUTER_API_KEY", "")
         if not key:
@@ -669,10 +711,11 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         "github-models":  _check_github_models,
         "codex":          _check_codex,
         "anthropic":      _check_anthropic,
+        "gemini":         _check_gemini,
         "openrouter":     _check_openrouter,
     }
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as pool:
         futures = {prov: pool.submit(fn) for prov, fn in _checks.items()}
         for prov, fut in futures.items():
             try:

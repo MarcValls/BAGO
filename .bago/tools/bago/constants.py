@@ -21,6 +21,7 @@ SESSIONS_DIR = USER_BAGO / "sessions"
 CRED_FILE = USER_BAGO / "credentials.json"
 PROVIDERS_FILE    = STATE_DIR / "model_providers.json"
 ROUTING_FILE      = STATE_DIR / "model_routing.json"
+ACCOUNTS_FILE     = USER_BAGO / "accounts.json"
 SCAN_HISTORY_FILE = STATE_DIR / "scan_history.json"
 TOKEN_LOG_FILE    = USER_BAGO / "token_log.json"
 TOOLBOXES_DIR   = STATE_DIR / "toolboxes"
@@ -47,13 +48,19 @@ COLORS = {"copilot":"yellow","codex":"magenta","ollama-local":"green","ollama-cl
 HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
   [bold cyan]Providers y credenciales:[/bold cyan]
-  [yellow]/login[/yellow]              Ver estado de todos los providers
-  [yellow]/login github[/yellow]       Login con GitHub (usa gh CLI) -> activa Copilot
-  [yellow]/login gpt[/yellow]          Login GPT Plus (codex login / chatgpt / API key)
-  [yellow]/login openai[/yellow]       Alias de /login gpt
-  [yellow]/login codex[/yellow]        Alias de /login gpt
-  [yellow]/login anthropic[/yellow]    Añadir API Key de Anthropic -> activa Claude
-  [yellow]/login ollama[/yellow]       Verificar Ollama local
+  [yellow]/login[/yellow]                        Ver estado de todos los providers
+  [yellow]/login github[/yellow]                 Login con GitHub (usa gh CLI) → activa Copilot + Models
+  [yellow]/login gpt[/yellow]                    Login GPT Plus (codex login / API key)
+  [yellow]/login anthropic[/yellow]              Añadir API Key de Anthropic → activa Claude
+  [yellow]/login gemini[/yellow]                 Añadir API Key de Google Gemini
+  [yellow]/login openrouter[/yellow]             Añadir API Key de OpenRouter
+  [yellow]/login ollama[/yellow]                 Verificar Ollama local
+
+  [bold cyan]Multi-cuenta (varias suscripciones por provider):[/bold cyan]
+  [yellow]/login add <provider> [nombre][/yellow]  Agregar cuenta nueva (ej: /login add github Trabajo)
+  [yellow]/login list[/yellow]                     Ver todas las cuentas registradas
+  [yellow]/login switch <id>[/yellow]              Activar una cuenta (ej: /login switch github-2)
+  [yellow]/login remove <id>[/yellow]              Eliminar una cuenta
 
   [bold cyan]Control de modelo:[/bold cyan]
   [yellow]/switch <modelo>[/yellow]    Forzar modelo manualmente (sin perder historial)

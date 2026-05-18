@@ -207,9 +207,9 @@ class TestScanHistory:
         assert missing["ollama-local"]["last_models"] == models
 
     def test_known_providers_catalog_complete(self):
-        """El catálogo incluye los 7 providers conocidos."""
+        """El catálogo incluye los 8 providers conocidos."""
         from bago.providers import KNOWN_PROVIDERS_CATALOG
-        expected = {"ollama-local", "ollama-cloud", "copilot", "github-models", "codex", "anthropic", "openrouter"}
+        expected = {"ollama-local", "ollama-cloud", "copilot", "github-models", "codex", "anthropic", "gemini", "openrouter"}
         assert set(KNOWN_PROVIDERS_CATALOG.keys()) == expected
 
     def test_catalog_entries_have_required_fields(self):
