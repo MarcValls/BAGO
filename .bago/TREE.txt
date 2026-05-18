@@ -421,6 +421,8 @@ snapshots/bago_snapshot_20260517_235735.zip
 snapshots/bago_snapshot_20260517_235736.zip
 snapshots/bago_snapshot_20260518_001134.zip
 snapshots/bago_snapshot_20260518_001139.zip
+snapshots/bago_snapshot_20260518_002645.zip
+snapshots/bago_snapshot_20260518_002646.zip
 sprite_studio/
 state.example/
 state.example/changes/
@@ -592,6 +594,7 @@ state/research/RES-2026-05-17-1917.json
 state/research/RES-2026-05-17-2309.json
 state/research/RES-2026-05-17-2358.json
 state/research/RES-2026-05-18-0012.json
+state/research/RES-2026-05-18-0027.json
 state/sac_locks/
 state/sac_locks/912d8a58f9b95ab0f687504d02d0e8c4.json
 state/sac_locks/a2f836ca7a8e441456b3e33faf8f91a5.json

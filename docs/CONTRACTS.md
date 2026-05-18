@@ -152,8 +152,10 @@ Reglas:
 - Docs históricas: deben declararse históricas o archivarse, no mezclarse con contrato actual.
 - State runtime: no se corrige a mano salvo migración explícita.
 
-Estado: rutas operativas corregidas. Exenciones actuales: `.bago/audits/*` y algunos
-snapshots en `.bago/state/*` conservan nombres legacy como evidencia histórica.
+Estado: rutas operativas corregidas. La documentación histórica de `.bago/CLI_v3_*`,
+tablet, demos y factories queda reunida en `.bago/archive/`. Exenciones actuales:
+`.bago/audits/*` y algunos snapshots en `.bago/state/*` conservan nombres legacy
+como evidencia histórica.
 
 ## 12. Contrato de testing y gates
 
@@ -181,5 +183,4 @@ Pendientes antes de estable:
 - Permitir self-tests seguros para comandos dangerous sin abrir ejecución real.
 - Aislar `bago neural --test` de state persistente.
 - Migrar o archivar tests legacy que apuntan a módulos retirados.
-- Declarar explícitamente como archivo histórico los documentos `.bago/CLI_v3_*`.
 - Decidir si los snapshots de `.bago/state/` se migran o quedan como evidencia inmutable.
