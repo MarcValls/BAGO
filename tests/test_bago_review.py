@@ -10,15 +10,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".bago" / "tools"))
 import code_review  # noqa: E402
 
-# La API interna de code_review cambió en v3.4.0 (refactor modular).
-# Marcar tests que usan la API vieja como xfail hasta migración.
-pytestmark = pytest.mark.xfail(
+_LEGACY_API = pytest.mark.xfail(
     reason="code_review API interna cambió en v3.4.0 (_run_tool/_git eliminados). "
            "Migrar al nuevo contrato de code_review antes del siguiente ciclo.",
     strict=False,
 )
 
 
+@_LEGACY_API
 def test_run_reviews_emits_stable_schema(tmp_path, monkeypatch):
     """El reporte JSON mantiene un esquema estable y canónico."""
     target = tmp_path / "sample.py"
@@ -47,6 +46,7 @@ def test_run_reviews_emits_stable_schema(tmp_path, monkeypatch):
     assert "lint" in report["sections"]
 
 
+@_LEGACY_API
 def test_changed_only_limits_scope_to_files_since_base(tmp_path, monkeypatch):
     """`--changed-only --base` filtra findings al diff contra la base."""
     repo = tmp_path
