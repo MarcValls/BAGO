@@ -197,6 +197,8 @@ def _fw_history():
 
 def _fw_evolve(session):
     """Modo evolutivo: disenyo iterativo del framework asistido por LM."""
+    import re
+
     # Contexto del framework para el LM
     agents   = {k: v for k, v in _load_json(_STATE_DIR / "agents_registry.json").items() if k != "_meta"}
     skills   = _load_json(_STATE_DIR / "skill_registry.json")
@@ -214,17 +216,26 @@ def _fw_evolve(session):
     fw_context = "\n".join(context_lines)
 
     evolve_system = (
-        "Eres el arquitecto evolucionario del framework BAGO, un orquestador multi-modelo adaptativo. "
-        "Tu rol es guiar el desarrollo iterativo del framework: proponer mejoras, detectar gaps, "
-        "sugerir nuevas piezas (agentes/skills/routing/modos), y conectar las necesidades del usuario "
-        "con la arquitectura existente. Siempre propones cambios concretos y accionables.\n\n"
+        "Eres el implementador del framework BAGO, un orquestador multi-modelo adaptativo. "
+        "Tu rol es IMPLEMENTAR directamente los cambios que el usuario pide: escribir código completo y funcional, "
+        "modificar ficheros existentes, crear nuevos componentes.\n\n"
+        "REGLAS ESTRICTAS:\n"
+        "1. Cuando el usuario diga 'implementa', 'confirmo', 'aplica', 'hazlo', 'ejecuta' o similar: "
+        "genera INMEDIATAMENTE el código completo listo para guardar. NO hagas más preguntas ni resúmenes.\n"
+        "2. Cada fichero a crear o modificar va en un bloque de código con la ruta como comentario en la primera línea: "
+        "```python\n# ruta/al/fichero.py\n<código completo>\n```\n"
+        "3. Si un fichero ya existe y solo hay que modificar parte, muestra SOLO el fragmento con contexto suficiente "
+        "para ubicarlo, precedido de `# EDIT: ruta/fichero.py`.\n"
+        "4. Tras el código, escribe UNA línea de resumen con qué ficheros creaste/modificaste.\n"
+        "5. NUNCA generes planes, listas de pasos ni preguntas de confirmación si el usuario ya confirmó.\n\n"
         f"Estado actual del framework:\n{fw_context}"
     )
 
     console.print(Panel(
         f"[bold cyan]Modo Evolutivo BAGO[/bold cyan]\n"
-        f"[dim]El LM conoce el estado del framework y te ayuda a evolucionar cada pieza.\n"
-        f"Escribe tu objetivo, problema o mejora. /exit para salir.[/dim]",
+        f"[dim]El LM implementa cambios directamente en el framework.\n"
+        f"Describe la mejora → confirma → el LM genera codigo → se escribe a disco.\n"
+        f"/exit para salir.[/dim]",
         box=box.ROUNDED))
 
     evolve_history = [{"role": "system", "content": evolve_system}]
@@ -245,7 +256,79 @@ def _fw_evolve(session):
                 resp = _llm_call(lm, kw, evolve_history)
             evolve_history.append({"role": "assistant", "content": resp})
             console.print(Panel(resp, title=f"[dim]{session.model_name}[/dim]", box=box.SIMPLE))
+
+            # Detectar bloques de código con ruta en primera línea: ```lang\n# ruta/fichero.ext
+            code_blocks = re.findall(
+                r"```(?:python|js|json|yaml|toml|sh|bash|text|)\n(# (?:EDIT: )?(.+?)\n([\s\S]*?))```",
+                resp
+            )
+            if code_blocks:
+                pi(f"[bold]Se detectaron {len(code_blocks)} fichero(s) en la respuesta.[/bold]")
+                for full_block, raw_path, code_body in code_blocks:
+                    is_edit = raw_path.startswith("EDIT: ")
+                    clean_path = raw_path.replace("EDIT: ", "").strip()
+                    # Resolver ruta relativa a TOOLS_DIR o absoluta
+                    target = Path(clean_path) if Path(clean_path).is_absolute() else TOOLS_DIR / clean_path
+                    action_label = "EDITAR (fragment)" if is_edit else "CREAR/SOBRESCRIBIR"
+                    pi(f"  {action_label}: [bold]{target}[/bold]")
+
+                sel_write = _menu_select(
+                    "Escribir ficheros",
+                    f"El LM generó {len(code_blocks)} fichero(s). ¿Qué hacemos?",
+                    [
+                        ("write",  "Escribir todos a disco ahora"),
+                        ("review", "Revisar uno a uno antes de escribir"),
+                        ("skip",   "No escribir nada (solo ver el código)"),
+                    ]
+                )
+
+                if sel_write == "write":
+                    _write_evolve_files(code_blocks)
+                elif sel_write == "review":
+                    _review_evolve_files(code_blocks)
+
         except Exception as e:
             pe(f"Error LM: {e}")
 
     pi("Saliendo del modo evolutivo.")
+
+
+def _write_evolve_files(code_blocks):
+    """Escribe los ficheros generados por el LM a disco."""
+    import re
+    written = []
+    for _, raw_path, code_body in code_blocks:
+        is_edit = raw_path.startswith("EDIT: ")
+        clean_path = raw_path.replace("EDIT: ", "").strip()
+        target = Path(clean_path) if Path(clean_path).is_absolute() else TOOLS_DIR / clean_path
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(code_body, encoding="utf-8")
+            written.append(str(target))
+            pi(f"  [green]OK[/green] {target}")
+        except Exception as e:
+            pe(f"  Error escribiendo {target}: {e}")
+    if written:
+        pi(f"[bold green]{len(written)} fichero(s) escritos.[/bold green]")
+
+
+def _review_evolve_files(code_blocks):
+    """Revisa y escribe ficheros uno a uno con confirmación."""
+    for _, raw_path, code_body in code_blocks:
+        is_edit = raw_path.startswith("EDIT: ")
+        clean_path = raw_path.replace("EDIT: ", "").strip()
+        target = Path(clean_path) if Path(clean_path).is_absolute() else TOOLS_DIR / clean_path
+        preview = code_body[:600] + ("\n...(truncado)" if len(code_body) > 600 else "")
+        action_label = "EDITAR" if is_edit else "CREAR"
+        sel = _menu_select(
+            f"{action_label}: {clean_path}",
+            f"[dim]{preview}[/dim]",
+            [("yes", "Escribir este fichero"), ("no", "Saltar")]
+        )
+        if sel == "yes":
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(code_body, encoding="utf-8")
+                pi(f"  [green]OK[/green] {target}")
+            except Exception as e:
+                pe(f"  Error: {e}")
