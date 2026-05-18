@@ -26,6 +26,7 @@ SCAN_HISTORY_FILE = STATE_DIR / "scan_history.json"
 TOKEN_LOG_FILE    = USER_BAGO / "token_log.json"
 TOOLBOXES_DIR   = STATE_DIR / "toolboxes"
 ORCH_FILE = STATE_DIR / "model_orchestrator.json"
+SYNC_REMOTES_FILE = STATE_DIR / "sync_remotes.json"
 
 BAGO_SYSTEM = (
     "REGLA 1 (INVIOLABLE): Tu nombre es BAGO. NUNCA uses otro nombre. "
@@ -107,7 +108,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [dim]─── 5 · SESION, MEMORIA & CONFIGURACION ───────────────────────────────[/dim]
 
   [yellow]/session[/yellow]    Gestionar sesion (guardar en disco, cargar, repliegue, letargo)
-  [yellow]/sync[/yellow]       Sincronizar con GitHub y/o USB (push + mirror)
+  [yellow]/sync[/yellow]       Sincronizar repositorios (GitHub/GitLab/Codeberg/custom), USB y snapshot nube
   [yellow]/memory[/yellow]     Base de conocimiento y memoria episodica
   [yellow]/auto[/yellow]       Modo autonomo y nivel de confirmaciones requeridas
   [yellow]/config[/yellow]     Configuracion global persistente

@@ -34,7 +34,7 @@ BAGO_COMMANDS: dict[str, str] = {
     "/brainstorm":  "[Modo] Modo BRAINSTORM — explorar ideas sin restricciones",
     # -- Sesion & Config
     "/session":     "[Sesion] Gestion de sesion (temporal · disco · letargo · repliegue)",
-    "/sync":        "[Sesion] Sincronizar GitHub/USB + post-sync",
+    "/sync":        "[Sesion] Sincronizar GitHub/GitLab/Codeberg/USB + snapshot nube",
     "/memory":      "[Sesion] Memoria y conocimiento",
     "/config":      "[Sesion] Configuracion global persistente",
     # -- Workspace & Proyectos
