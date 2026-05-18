@@ -1,11 +1,13 @@
 """Tests para el flujo de recuperación de errores Ollama."""
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / ".bago" / "tools"))
 
 from bago.llm import _is_ollama_model_not_found, _is_ollama_unreachable
+from bago.providers import ollama_probe
 
 
 class TestIsOllamaModelNotFound:
@@ -60,3 +62,100 @@ class TestIsOllamaUnreachable:
     def test_model_not_found_not_unreachable(self):
         msg = "OllamaException - {\"error\":\"model 'qwen2.5-coder:7b' not found\"}"
         assert _is_ollama_unreachable(Exception(msg)) is False
+
+
+class TestOllamaProbe:
+    def test_probe_running_with_models(self):
+        """Simula Ollama activo con modelos."""
+        fake_response = b'{"models":[{"name":"qwen2.5-coder:7b"},{"name":"llama3:8b"}]}'
+
+        class FakeCtx:
+            def read(self):
+                return fake_response
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        with patch("urllib.request.urlopen", return_value=FakeCtx()):
+            result = ollama_probe()
+
+        assert result["running"] is True
+        assert "qwen2.5-coder:7b" in result["models"]
+        assert "llama3:8b" in result["models"]
+        assert result["error"] is None
+
+    def test_probe_not_running(self):
+        """Simula Ollama no disponible."""
+        import urllib.error
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("Connection refused")):
+            result = ollama_probe()
+
+        assert result["running"] is False
+        assert result["models"] == []
+        assert result["error"] is not None
+
+    def test_probe_running_no_models(self):
+        """Simula Ollama activo pero sin modelos."""
+        fake_response = b'{"models":[]}'
+
+        class FakeCtx:
+            def read(self):
+                return fake_response
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        with patch("urllib.request.urlopen", return_value=FakeCtx()):
+            result = ollama_probe()
+
+        assert result["running"] is True
+        assert result["models"] == []
+
+
+class TestSkipProviders:
+    """Tests para la lógica de exclusión de providers en auto_route."""
+
+    def _make_session(self, provider="ollama-local", model="qwen25-coder", wire="qwen2.5-coder:7b"):
+        """Crea una BagoSession mínima para pruebas."""
+        from bago.session import BagoSession
+        creds = MagicMock()
+        creds.active_bago_providers.return_value = ["ollama-local", "copilot"]
+        providers = {
+            "ollama-local": {"models": {"qwen25-coder": {"wire_name": "qwen2.5-coder:7b"}}},
+            "copilot":      {"models": {"claude-sonnet-4.6": {"wire_name": "claude-sonnet-4.6"}}},
+        }
+        routing = {}
+        with patch("bago.session.load_providers", return_value=providers), \
+             patch("bago.session.load_routing", return_value=routing):
+            session = BagoSession(provider, model, wire, creds)
+        return session
+
+    def test_skip_providers_initialized_empty(self):
+        session = self._make_session()
+        assert hasattr(session, "skip_providers")
+        assert isinstance(session.skip_providers, set)
+        assert len(session.skip_providers) == 0
+
+    def test_skip_providers_blocks_auto_route(self):
+        """Si ollama-local está en skip_providers, auto_route no debe volver a él."""
+        session = self._make_session(provider="copilot", model="claude-sonnet-4.6", wire="claude-sonnet-4.6")
+        session.skip_providers.add("ollama-local")
+
+        # Simular que el orquestador sugiere volver a ollama-local
+        fake_orch = MagicMock()
+        fake_orch.orchestrate.return_value = {
+            "model": "qwen25-coder",
+            "provider": "ollama-local",
+            "wire_name": "qwen2.5-coder:7b",
+            "reason": "coding task",
+        }
+        with patch.object(session, "_load_orchestrator", return_value=fake_orch):
+            switched, reason = session.auto_route("escribe una función python")
+
+        # No debe haber cambiado a ollama-local
+        assert session.provider != "ollama-local"
+
+    def test_skip_providers_discard_restores_routing(self):
+        """Al limpiar skip_providers, el routing vuelve a funcionar."""
+        session = self._make_session(provider="copilot", model="claude-sonnet-4.6", wire="claude-sonnet-4.6")
+        session.skip_providers.add("ollama-local")
+        session.skip_providers.discard("ollama-local")
+        assert "ollama-local" not in session.skip_providers
