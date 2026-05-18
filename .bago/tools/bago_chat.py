@@ -25,7 +25,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from bago import (CredentialManager, load_providers, load_routing,
                   BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
 from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
-from bago.providers import auto_detect_provider, get_default_model, route_by_task
+from bago.providers import auto_detect_provider, get_default_model, route_by_task, ollama_probe, ollama_pull
+from bago.llm import _is_ollama_model_not_found, _is_ollama_unreachable
 from bago.ui import show_response
 
 try:
@@ -213,6 +214,159 @@ def _prompt_indicator(session) -> str:
     return indicator
 
 
+# ── Flujo de recuperación Ollama ───────────────────────────────────────────────
+
+def _ollama_recovery_flow(session, model_name: str) -> bool:
+    """Recuperación interactiva cuando Ollama no tiene el modelo o no está activo.
+
+    Retorna True si la sesión queda lista para reintentar la llamada LLM.
+    """
+    from bago.ui import _menu_select, _menu_input
+    from bago.menus.auth import _cmd_login
+
+    # ── 1. Probar Ollama ───────────────────────────────────────────────────────
+    base_url = "http://127.0.0.1:11434"
+    probe = ollama_probe(base_url)
+
+    if not probe["running"]:
+        console.print(
+            f"\n  [yellow]⚠  Ollama no responde en [bold]{base_url}[/bold][/yellow]"
+        )
+        choices = [
+            ("custom_url", "Sí — introduzco la URL donde está corriendo"),
+            ("install",    "No — quiero arrancar / instalar Ollama"),
+            ("other",      "Usar otro provider"),
+        ]
+        sel = _menu_select(
+            "Ollama inaccesible",
+            "¿Sabes si Ollama está instalado en una URL diferente?",
+            choices,
+        )
+
+        if sel == "custom_url":
+            url = _menu_input(
+                "URL de Ollama",
+                "Introduce la URL base de Ollama:",
+                default="http://localhost:11434",
+            )
+            if url:
+                probe2 = ollama_probe(url.strip())
+                if probe2["running"]:
+                    base_url = url.strip()
+                    probe = probe2
+                    console.print(f"  [green]✔ Ollama encontrado en {base_url}[/green]")
+                else:
+                    pe(f"No se pudo conectar a Ollama en {url}")
+                    sel = "other"
+            else:
+                sel = "other"
+
+        if sel == "install":
+            console.print(
+                "\n  [cyan]Para instalar Ollama visita:[/cyan] https://ollama.com/download\n"
+                "  Una vez instalado, ejecuta en otra terminal:\n"
+                f"    [bold]ollama serve[/bold]\n"
+                f"    [bold]ollama pull {model_name or 'qwen2.5-coder:7b'}[/bold]\n"
+                "  Luego vuelve a BAGO y escribe tu mensaje.\n"
+            )
+            return False
+
+        if sel == "other" or not probe["running"]:
+            return _fallback_to_other_provider(session)
+
+    # ── 2. Ollama activo: ver qué modelos hay ──────────────────────────────────
+    available = probe["models"]
+
+    if not model_name:
+        model_name = session.wire_name or "qwen2.5-coder:7b"
+
+    # Modelo ya disponible (puede que la prueba anterior lo cargó)
+    if any(model_name in m or m.startswith(model_name.split(":")[0]) for m in available):
+        console.print(f"  [green]✔ Modelo '{model_name}' encontrado. Reintentando...[/green]")
+        return True
+
+    if available:
+        console.print(
+            f"\n  [yellow]⚠  Modelo [bold]{model_name}[/bold] no instalado.[/yellow]\n"
+            f"  Modelos disponibles en Ollama: [cyan]{', '.join(available[:8])}[/cyan]"
+        )
+        choices_rows = [(m, m) for m in available[:8]]
+        choices_rows += [
+            ("install", f"Instalar '{model_name}' ahora  (ollama pull)"),
+            ("other",   "Usar otro provider"),
+        ]
+        sel = _menu_select(
+            "Modelo no encontrado",
+            f"¿Qué hacemos con '{model_name}'?",
+            choices_rows,
+        )
+        if sel == "install":
+            return _do_ollama_pull(model_name, base_url, session)
+        elif sel == "other":
+            return _fallback_to_other_provider(session)
+        else:
+            # Cambiar al modelo seleccionado
+            pi(f"Cambiando a {sel}...")
+            session.wire_name = sel
+            session.model_name = sel.split(":")[0]
+            return True
+    else:
+        # Ollama activo pero vacío
+        console.print(
+            f"\n  [yellow]⚠  Ollama está activo pero no tiene modelos instalados.[/yellow]"
+        )
+        choices = [
+            ("install", f"Instalar '{model_name}'  (ollama pull)"),
+            ("other",   "Usar otro provider"),
+        ]
+        sel = _menu_select(
+            "Sin modelos en Ollama",
+            "¿Qué deseas hacer?",
+            choices,
+        )
+        if sel == "install":
+            return _do_ollama_pull(model_name, base_url, session)
+        return _fallback_to_other_provider(session)
+
+
+def _do_ollama_pull(model_name: str, base_url: str, session) -> bool:
+    """Descarga el modelo y, si tiene éxito, actualiza la sesión."""
+    console.print(f"\n  [cyan]⬇  Descargando [bold]{model_name}[/bold]...[/cyan]\n")
+    ok = ollama_pull(model_name, base_url)
+    if ok:
+        console.print(f"\n  [green]✔ Modelo '{model_name}' instalado correctamente.[/green]")
+        session.wire_name = model_name
+        return True
+    else:
+        pe(f"No se pudo instalar '{model_name}'.")
+        return _fallback_to_other_provider(session)
+
+
+def _fallback_to_other_provider(session) -> bool:
+    """Si hay otros providers activos, cambia; si no, redirige a /login."""
+    from bago.menus.auth import _cmd_login
+
+    active = session.creds.active_bago_providers()
+    other = [p for p in active if p not in ("ollama-local", "ollama-cloud")]
+
+    if other:
+        prov = other[0]
+        from bago.providers import get_default_model
+        name, wire, _ = get_default_model(prov, session.providers)
+        if name:
+            old = session.model_name
+            session.provider, session.model_name, session.wire_name = prov, name, wire
+            pi(f"Cambiando a {name} ({prov}) — el modelo Ollama no está disponible.")
+            return True
+
+    console.print(
+        "\n  [yellow]No hay providers alternativos activos.[/yellow]\n"
+        "  Abriendo pantalla de registro de providers...\n"
+    )
+    _cmd_login(session)
+    return False
+
+
 def main():
     p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
     p.add_argument("--provider", default="")
@@ -328,6 +482,22 @@ def main():
         except KeyboardInterrupt:
             console.print("\n[dim yellow]⚡ Interrumpido — modelo cancelado. Escribe tu siguiente mensaje.[/dim yellow]")
         except RuntimeError as e:
+            is_not_found, ol_model = _is_ollama_model_not_found(e)
+            is_unreachable = _is_ollama_unreachable(e)
+            if is_not_found or is_unreachable:
+                recovered = _ollama_recovery_flow(
+                    session,
+                    ol_model or session.wire_name or "",
+                )
+                if recovered:
+                    # Reintentar el mismo mensaje con el modelo/provider nuevo
+                    try:
+                        result = chat(session, line)
+                        if result:
+                            show_response(result, session.model_name, session.provider)
+                    except RuntimeError as e2:
+                        pe(str(e2))
+                    continue
             pe(str(e))
             console.print("[dim]  Prueba /login para registrar providers o /switch para cambiar modelo.[/dim]")
 

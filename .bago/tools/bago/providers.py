@@ -178,3 +178,90 @@ def auto_detect_provider(creds, providers):
         if preferred in active and preferred in providers:
             return preferred
     return next((name for name in providers if name in active), next(iter(providers), "ollama-local"))
+
+
+# ── Ollama probe & pull ────────────────────────────────────────────────────────
+
+def ollama_probe(base_url: str = "http://127.0.0.1:11434") -> dict:
+    """Comprueba si Ollama está activo y qué modelos tiene instalados.
+
+    Returns:
+        {
+          "running":  bool,
+          "url":      str,
+          "models":   [str, ...],   # nombres de modelos disponibles
+          "error":    str | None,   # mensaje de error si no corre
+        }
+    """
+    import urllib.request
+    import urllib.error
+    try:
+        with urllib.request.urlopen(f"{base_url}/api/tags", timeout=3) as r:
+            data = json.loads(r.read())
+        models = [m["name"] for m in data.get("models", [])]
+        return {"running": True, "url": base_url, "models": models, "error": None}
+    except urllib.error.URLError as e:
+        return {"running": False, "url": base_url, "models": [], "error": str(e.reason)}
+    except Exception as e:
+        return {"running": False, "url": base_url, "models": [], "error": str(e)}
+
+
+def ollama_pull(model_name: str, base_url: str = "http://127.0.0.1:11434") -> bool:
+    """Descarga un modelo con `ollama pull`. Muestra progreso en consola.
+
+    Returns True si tuvo éxito, False si falló.
+    """
+    import subprocess, shutil
+    cli = shutil.which("ollama")
+    if not cli:
+        # Intentar via API directamente si no hay CLI
+        return _ollama_pull_api(model_name, base_url)
+
+    try:
+        proc = subprocess.Popen(
+            [cli, "pull", model_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace",
+        )
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                print(f"  {line}", flush=True)
+        proc.wait()
+        return proc.returncode == 0
+    except Exception as e:
+        print(f"  ❌ Error ejecutando ollama pull: {e}")
+        return False
+
+
+def _ollama_pull_api(model_name: str, base_url: str) -> bool:
+    """Fallback: llama a POST /api/pull cuando el CLI de Ollama no está en PATH."""
+    import urllib.request
+    import json as _json
+    payload = _json.dumps({"name": model_name, "stream": True}).encode()
+    req = urllib.request.Request(
+        f"{base_url}/api/pull",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=600) as r:
+            for raw_line in r:
+                if not raw_line.strip():
+                    continue
+                try:
+                    chunk = _json.loads(raw_line)
+                    status = chunk.get("status", "")
+                    if status:
+                        print(f"  {status}", flush=True)
+                    if chunk.get("error"):
+                        print(f"  ❌ {chunk['error']}")
+                        return False
+                except Exception:
+                    pass
+        return True
+    except Exception as e:
+        print(f"  ❌ API pull error: {e}")
+        return False

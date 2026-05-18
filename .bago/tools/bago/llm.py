@@ -56,6 +56,29 @@ def _is_ctx_overflow(exc) -> bool:
     msg = str(exc).lower()
     return any(kw in msg for kw in _CTX_KEYWORDS)
 
+# ── Detección de errores Ollama ────────────────────────────────────────────────
+_OLLAMA_UNREACHABLE_SIGNALS = (
+    "connection refused", "cannot connect", "failed to connect",
+    "connectionrefused", "remotedisconnected", "apiconnectionerror",
+    "connect call failed", "cannot connect to host",
+)
+
+def _is_ollama_model_not_found(exc) -> "tuple[bool, str]":
+    """Detecta 'OllamaException: model X not found'. Devuelve (True, model_name)."""
+    import re as _re
+    msg = str(exc)
+    low = msg.lower()
+    if "not found" in low and ("ollama" in low or "model" in low):
+        m = _re.search(r"model ['\"]?([a-zA-Z0-9_.:\-/]+)['\"]? not found", msg, _re.IGNORECASE)
+        model_name = m.group(1) if m else ""
+        return True, model_name
+    return False, ""
+
+def _is_ollama_unreachable(exc) -> bool:
+    """Detecta que Ollama no está corriendo o no es alcanzable."""
+    low = str(exc).lower()
+    return any(sig in low for sig in _OLLAMA_UNREACHABLE_SIGNALS) and "ollama" in low
+
 def _model_size_score(name: str) -> int:
     """Tamano aproximado segun nombre del modelo (mayor = mas contexto/capacidad)."""
     n = name.lower()
