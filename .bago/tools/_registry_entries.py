@@ -71,6 +71,7 @@ REGISTRY: dict[str, ToolEntry] = {
         cmd="pack-cache", module="pack_cache_db",
         description="Cache híbrida pack.json -> bago.db (sync | check | status)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "pack_cache_db.py"))],
+        preflight_policy="required",
         layer="infraestructura", scope="framework", agent="ARQUITECTO",
         stability="core", risk="safe",
     ),

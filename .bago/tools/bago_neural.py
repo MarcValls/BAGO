@@ -98,59 +98,90 @@ from _neural_nodes import (
 # ── Self-tests ─────────────────────────────────────────────────────────────────
 
 def _self_test() -> int:
-    results = []
+    """Self-test para Neural Bus.
 
-    # Test 1: make_event structure
-    ev = _make_event("test_node", "test.event", {"key": "val"})
-    ok1 = all(k in ev for k in ["id", "ts", "from", "to", "topic", "payload", "durable"])
-    results.append(("make_event_structure", ok1, f"keys={list(ev.keys())}"))
+    Usa un directorio temporal para STATE_DIR — no deja rastro en .bago/state/.
+    Compatible con el Contrato §2 (ningún test debe dejar ruido persistente en state).
+    """
+    import importlib
+    import tempfile
 
-    # Test 2: topic_matches
-    cases = [
-        ("*", "anything", True),
-        ("user.*", "user.message", True),
-        ("user.*", "tool.result", False),
-        ("user.*", "user", True),
-        ("system.health", "system.health", True),
-        ("system.health", "system.node_up", False),
-    ]
-    ok2 = all(_topic_matches(p, t) == exp for p, t, exp in cases)
-    results.append(("topic_matches", ok2, f"{len(cases)} cases"))
+    with tempfile.TemporaryDirectory(prefix="bago_neural_test_") as tmpdir:
+        # Redirect neural bus state to tmpdir for the duration of the test
+        os.environ["BAGO_NEURAL_STATE_DIR"] = tmpdir
 
-    # Test 3: store_event
-    before = len(_events_buffer)
-    _store_event(_make_event("test", "test.store", {}, durable=False))
-    ok3 = len(_events_buffer) == before + 1
-    results.append(("store_event", ok3, f"buffer={len(_events_buffer)}"))
+        # Force reload of _neural_bus so it picks up the new STATE_DIR
+        import sys as _sys
+        mods_to_reload = [m for m in _sys.modules if "_neural_bus" in m]
+        for m in mods_to_reload:
+            del _sys.modules[m]
+        # Also reload our own imports from _neural_bus
+        try:
+            from _neural_bus import (
+                _make_event, _topic_matches, _store_event, _events_buffer,
+                get_recent_events, register_node, get_nodes, heartbeat_node,
+                _get_or_create_token,
+            )
+        except ImportError:
+            print("  ❌ No se pudo importar _neural_bus en modo test")
+            return 1
 
-    # Test 4: durable flag auto-set
-    ev_durable = _make_event("x", "user.message", {})
-    ev_ephemeral = _make_event("x", "system.health", {})
-    ok4 = ev_durable["durable"] and not ev_ephemeral["durable"]
-    results.append(("durable_auto_flag", ok4, f"user.msg={ev_durable['durable']} sys.health={ev_ephemeral['durable']}"))
+        results = []
 
-    # Test 5: get_recent_events limit
-    for i in range(20):
-        _store_event(_make_event("test", "test.bulk", {"i": i}, durable=False))
-    events = get_recent_events(limit=5)
-    ok5 = len(events) <= 5
-    results.append(("get_recent_limit", ok5, f"got={len(events)}"))
+        # Test 1: make_event structure
+        ev = _make_event("test_node", "test.event", {"key": "val"})
+        ok1 = all(k in ev for k in ["id", "ts", "from", "to", "topic", "payload", "durable"])
+        results.append(("make_event_structure", ok1, f"keys={list(ev.keys())}"))
 
-    # Test 6: register node
-    register_node("test_node_abc", {"role": "test", "capabilities": ["testing"]})
-    nodes = get_nodes()
-    ok6 = "test_node_abc" in nodes and nodes["test_node_abc"]["role"] == "test"
-    results.append(("register_node", ok6, f"nodes={len(nodes)}"))
+        # Test 2: topic_matches
+        cases = [
+            ("*", "anything", True),
+            ("user.*", "user.message", True),
+            ("user.*", "tool.result", False),
+            ("user.*", "user", True),
+            ("system.health", "system.health", True),
+            ("system.health", "system.node_up", False),
+        ]
+        ok2 = all(_topic_matches(p, t) == exp for p, t, exp in cases)
+        results.append(("topic_matches", ok2, f"{len(cases)} cases"))
 
-    # Test 7: heartbeat_node
-    heartbeat_node("test_node_abc")
-    ok7 = get_nodes().get("test_node_abc", {}).get("status") == "active"
-    results.append(("heartbeat_node", ok7, ""))
+        # Test 3: store_event
+        before = len(_events_buffer)
+        _store_event(_make_event("test", "test.store", {}, durable=False))
+        ok3 = len(_events_buffer) == before + 1
+        results.append(("store_event", ok3, f"buffer={len(_events_buffer)}"))
 
-    # Test 8: token file
-    token = _get_or_create_token()
-    ok8 = isinstance(token, str) and len(token) >= 16
-    results.append(("token_generation", ok8, f"len={len(token)}"))
+        # Test 4: durable flag auto-set
+        ev_durable = _make_event("x", "user.message", {})
+        ev_ephemeral = _make_event("x", "system.health", {})
+        ok4 = ev_durable["durable"] and not ev_ephemeral["durable"]
+        results.append(("durable_auto_flag", ok4, f"user.msg={ev_durable['durable']} sys.health={ev_ephemeral['durable']}"))
+
+        # Test 5: get_recent_events limit
+        for i in range(20):
+            _store_event(_make_event("test", "test.bulk", {"i": i}, durable=False))
+        events = get_recent_events(limit=5)
+        ok5 = len(events) <= 5
+        results.append(("get_recent_limit", ok5, f"got={len(events)}"))
+
+        # Test 6: register node
+        register_node("test_node_abc", {"role": "test", "capabilities": ["testing"]})
+        nodes = get_nodes()
+        ok6 = "test_node_abc" in nodes and nodes["test_node_abc"]["role"] == "test"
+        results.append(("register_node", ok6, f"nodes={len(nodes)}"))
+
+        # Test 7: heartbeat_node
+        heartbeat_node("test_node_abc")
+        ok7 = get_nodes().get("test_node_abc", {}).get("status") == "active"
+        results.append(("heartbeat_node", ok7, ""))
+
+        # Test 8: token file
+        token = _get_or_create_token()
+        ok8 = isinstance(token, str) and len(token) >= 16
+        results.append(("token_generation", ok8, f"len={len(token)}"))
+
+    # tmpdir is cleaned up here — no side effects on .bago/state/
+    del os.environ["BAGO_NEURAL_STATE_DIR"]
 
     passed = sum(1 for _, ok, _ in results if ok)
     failed_list = [n for n, ok, _ in results if not ok]

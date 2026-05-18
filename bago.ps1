@@ -26,7 +26,7 @@
 $ErrorActionPreference = "Stop"
 
 # === Detección de fuente de verdad ===
-$exeDir = Split-Path -Parent $PSScriptRoot
+$exeDir = $PSScriptRoot
 $usbBago = Join-Path $exeDir ".bago"
 $pcBago = Join-Path $env:USERPROFILE "BAGO\.bago"
 $pcDocs = Join-Path $env:USERPROFILE "Documents\BAGO\.bago"
@@ -46,8 +46,8 @@ function Detect-Source {
         }
     } catch {}
 
-    # Fallback: directorio padre del script si es removible
-    $exeDir = Split-Path -Parent $PSScriptRoot
+    # Directorio del script (donde está bago.ps1, junto a .bago/)
+    $exeDir = $PSScriptRoot
     $usbBago = Join-Path $exeDir '.bago'
     $pcBago = Join-Path $env:USERPROFILE 'BAGO\.bago'
     $pcDocs = Join-Path $env:USERPROFILE 'Documents\BAGO\.bago'

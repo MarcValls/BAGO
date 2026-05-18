@@ -360,6 +360,58 @@ def _load_telemetry() -> object:
         return None
 
 
+def _run_self_test(cmd: str, args: list) -> None:
+    """Run a module's _self_test() without passing through the dangerous guard.
+
+    Safe bypass: --self-test only calls the module's internal _self_test()
+    function directly. It does NOT execute the command's real logic.
+    Any module that exposes a _self_test() function can be tested this way.
+    """
+    # Resolve module from registry
+    mod_path: "Path | None" = None
+    reg = _load_registry_mod()
+    if reg:
+        entry = getattr(reg, "REGISTRY", {}).get(cmd)
+        if entry:
+            module_name = getattr(entry, "module", None)
+            if module_name:
+                mod_path = _find_tool(module_name)
+
+    if mod_path is None:
+        print(f"  ✗ No se encontró el módulo para '{cmd}'", file=sys.stderr)
+        sys.exit(1)
+
+    spec = importlib.util.spec_from_file_location(f"_bago_selftest_{cmd}", str(mod_path))
+    if spec is None:
+        print(f"  ✗ No se pudo cargar el módulo para '{cmd}'", file=sys.stderr)
+        sys.exit(1)
+    selftest_mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(selftest_mod)
+    except Exception as exc:
+        print(f"  ✗ Error al cargar el módulo '{cmd}': {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    self_test_fn = getattr(selftest_mod, "_self_test", None)
+    if self_test_fn is None:
+        print(
+            f"  ⚠️  El módulo '{cmd}' no expone _self_test().\n"
+            f"     Añade una función `def _self_test(): ...` en el módulo para habilitar este modo.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"  🔬 Running self-test for '{cmd}' (safe mode, no real execution)...")
+    try:
+        result = self_test_fn()
+        if result is not None:
+            print(result)
+        print(f"  ✅ Self-test OK para '{cmd}'")
+    except Exception as exc:
+        print(f"  ✗ Self-test FAILED para '{cmd}': {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight: bool = False) -> None:
     """Dispatch a registered command with preflight + session logging + exit propagation."""
     # 0. Deprecation hint (non-blocking)
@@ -391,6 +443,11 @@ def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight
         return
 
     # 1b. Risk model: dangerous commands require --yes or --unsafe
+    # Exception: --self-test flag invokes the module's _self_test() directly,
+    # bypassing the dangerous guard (read-only capability check, no state mutation).
+    if "--self-test" in rest:
+        _run_self_test(cmd, rest)
+        return
     _check_risk(cmd, rest)
 
     # 2. Start session log + telemetry

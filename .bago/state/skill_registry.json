@@ -48,7 +48,13 @@
     ],
     "output": "código Python/JS/TS/bash listo para usar con tests básicos incluidos",
     "active": true,
-    "category": "coding"
+    "category": "coding",
+    "steps": [
+      1,
+      2,
+      3
+    ],
+    "phase": 1
   },
   "planner": {
     "description": "Planificación de sprints, roadmaps y backlogs: descompone objetivos en tareas concretas y priorizadas",
@@ -64,7 +70,14 @@
     ],
     "output": "plan estructurado con tareas, dependencias y estimaciones",
     "active": true,
-    "category": "planning"
+    "category": "planning",
+    "steps": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "phase": 3
   },
   "debugger": {
     "description": "Depuración y resolución de errores: analiza traceback, identifica causa raíz y genera fix",
@@ -81,7 +94,13 @@
     ],
     "output": "causa raíz identificada + código corregido + test para evitar regresión",
     "active": true,
-    "category": "debugging"
+    "category": "debugging",
+    "steps": [
+      1,
+      2,
+      3
+    ],
+    "phase": 1
   },
   "architect": {
     "description": "Diseño de sistemas: arquitectura, diagramas, decisiones técnicas, APIs y estructuras de datos",
@@ -96,7 +115,13 @@
     ],
     "output": "diagrama de arquitectura + decisiones técnicas justificadas + estructura de módulos",
     "active": true,
-    "category": "architecture"
+    "category": "architecture",
+    "steps": [
+      1,
+      2,
+      3
+    ],
+    "phase": 1
   },
   "refactor": {
     "description": "Refactorización de código existente: mejora legibilidad, elimina deuda técnica, aplica patrones",
@@ -111,7 +136,13 @@
     ],
     "output": "código refactorizado con explicación de cambios y verificación de equivalencia funcional",
     "active": true,
-    "category": "coding"
+    "category": "coding",
+    "steps": [
+      1,
+      2,
+      3
+    ],
+    "phase": 1
   },
   "git_agent": {
     "description": "Operaciones Git: commits, PRs, diffs, conflictos, ramas, cherry-pick y estrategia de branching",
@@ -128,6 +159,12 @@
     ],
     "output": "comandos git con mensaje de commit descriptivo + análisis del diff",
     "active": true,
-    "category": "ops"
+    "category": "ops",
+    "steps": [
+      1,
+      2,
+      3
+    ],
+    "phase": 3
   }
 }

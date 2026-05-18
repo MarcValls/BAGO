@@ -1,7 +1,7 @@
 {
   "id": "bago_amtec",
   "name": "BAGO",
-  "version": "3.4.0b1",
+  "version": "3.4.0",
   "encoding": "UTF-8",
   "manifest": "pack.json",
   "description": "Sistema operativo de trabajo técnico para programación y generación compleja.",
@@ -301,5 +301,5 @@
     "TREE.txt",
     "CHECKSUMS.sha256"
   ],
-  "released_at": "2026-05-06"
+  "released_at": "2026-05-18"
 }

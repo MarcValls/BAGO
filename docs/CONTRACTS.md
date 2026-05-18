@@ -25,7 +25,7 @@ El bootstrap debe resolver rutas reales, no rutas recordadas. El estado de
 arranque puede registrar snapshots, pero no debe usarse como fuente canónica de
 estructura si contradice el repo actual.
 
-Estado: implementado, con deuda menor en snapshots históricos de `.bago/state/`.
+Estado: implementado. Los snapshots históricos en `.bago/state/agents/` y `.bago/state/skills/` son evidencia inmutable. Se conservan como registro de ejecución. No requieren migración.
 
 ## 2. Contrato de estado y memoria
 
@@ -35,7 +35,7 @@ es runtime local. La memoria derivada puede cachearse, pero no reemplaza la fuen
 Regla: ningún test debe dejar ruido persistente en state salvo que el objetivo del
 test sea validar migraciones de estado.
 
-Estado: funcional. Deuda abierta: `bago neural --test` aún toca estado runtime.
+Estado: funcional. Los snapshots históricos en `.bago/state/` son evidencia inmutable. Se conservan como registro de ejecución. No requieren migración. Deuda abierta: `bago neural --test` aún toca estado runtime.
 
 ## 3. Contrato CLI y registry
 
@@ -183,4 +183,4 @@ Pendientes antes de estable:
 - Permitir self-tests seguros para comandos dangerous sin abrir ejecución real.
 - Aislar `bago neural --test` de state persistente.
 - Migrar o archivar tests legacy que apuntan a módulos retirados.
-- Decidir si los snapshots de `.bago/state/` se migran o quedan como evidencia inmutable.
+- Decidir si los snapshots de `.bago/state/` se migran o quedan como evidencia inmutable. **Resuelto (v3.4.0): los snapshots son evidencia inmutable — se conservan, no se migran.**

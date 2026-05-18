@@ -300,7 +300,7 @@
   "current_cycle": null,
   "total_radius": 1.6,
   "n_agents_active": 10,
-  "global_harmony": 0.0,
-  "gate_harmony": 0.253,
-  "orch_cycles": 148
+  "global_harmony": 0.1,
+  "gate_harmony": 0.269,
+  "orch_cycles": 173
 }

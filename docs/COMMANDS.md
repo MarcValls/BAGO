@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-17 23:44 UTC
+> Last generated: 2026-05-18 15:01 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -41,7 +41,7 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago menu` | Menú interactivo jerárquico de comandos BAGO (curses). Sidebar de 10 grupos por flujo de trabajo + lista + preview. Uso: bago menu  \|  bago menu --list  (no interactivo) | • motor | safe | required |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | • motor | safe | required |
 | `bago orphans` | Detector de módulos huérfanos: archivos .py en tools/ sin registro. --baseline \| --fix \| --strict | • consumo | safe | required |
-| `bago pack-cache` | Cache híbrida pack.json -> bago.db (sync \| check \| status) | • infraestructura | safe | optional |
+| `bago pack-cache` | Cache híbrida pack.json -> bago.db (sync \| check \| status) | • infraestructura | safe | required |
 | `bago project` | Memoria distribuida por proyecto: init \| link \| unlink \| state \| learn \| promote | • memoria | safe | required |
 | `bago recent-projects` | Historial de proyectos BAGO recientes: repos visitados, ideas implementadas, sesiones. Se alimenta automáticamente al arrancar. Uso: bago recent-projects  \|  uso interno: --record | • memoria | safe | required |
 | `bago review` | Code review automatizado fail-closed con estado explícito por scanner | • generacion | safe | required |

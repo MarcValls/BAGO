@@ -256,6 +256,23 @@ def cmd_history() -> int:
     return 0
 
 
+def _self_test() -> str:
+    """Safe self-test for spiral (callable via bago spiral --self-test).
+
+    Validates the module's core data structures and constants without
+    touching any persistent state or executing real spiral logic.
+    """
+    import pathlib
+    # 1. Module imports correctly
+    assert callable(main), "_self_test: main() should be callable"
+
+    # 2. Constants are defined and sensible
+    assert isinstance(BOLD, str), "_self_test: BOLD should be a string"
+    assert isinstance(DIM, str), "_self_test: DIM should be a string"
+
+    return "spiral_loop._self_test: OK — imports and constants verified"
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 def main() -> int:

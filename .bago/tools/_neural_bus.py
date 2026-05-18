@@ -11,7 +11,7 @@ from typing import Callable, Dict, List, Optional, Set
 # ── Paths ──────────────────────────────────────────────────────────────────────
 TOOLS_DIR = Path(__file__).resolve().parent
 BAGO_ROOT = TOOLS_DIR.parent
-STATE_DIR = BAGO_ROOT / "state"
+STATE_DIR = Path(os.environ.get("BAGO_NEURAL_STATE_DIR", str(BAGO_ROOT / "state")))
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 BUS_LOG        = STATE_DIR / "neural_bus.jsonl"

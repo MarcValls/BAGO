@@ -36,8 +36,11 @@ def test_get_root_env_override(monkeypatch, tmp_path):
     assert get_root() == fake_root
 
 
-def test_get_state_dir_default():
+def test_get_state_dir_default(monkeypatch):
     """Default state dir is <root>/.bago/state."""
+    # Explicitly unset BAGO_STATE_DIR to test the true default
+    # (test_findings_engine.py sets this env var at module level for isolation)
+    monkeypatch.delenv("BAGO_STATE_DIR", raising=False)
     root = get_root()
     expected = root / ".bago" / "state"
     assert get_state_dir() == expected
