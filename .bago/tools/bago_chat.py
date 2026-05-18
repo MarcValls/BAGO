@@ -255,6 +255,9 @@ def _ollama_recovery_flow(session, model_name: str) -> bool:
                     base_url = url.strip()
                     probe = probe2
                     console.print(f"  [green]✔ Ollama encontrado en {base_url}[/green]")
+                    # Ollama accesible: limpiar exclusión
+                    session.skip_providers.discard("ollama-local")
+                    session.skip_providers.discard("ollama-cloud")
                 else:
                     pe(f"No se pudo conectar a Ollama en {url}")
                     sel = "other"
@@ -336,6 +339,9 @@ def _do_ollama_pull(model_name: str, base_url: str, session) -> bool:
     if ok:
         console.print(f"\n  [green]✔ Modelo '{model_name}' instalado correctamente.[/green]")
         session.wire_name = model_name
+        # Ollama vuelve a estar disponible: limpiar exclusión
+        session.skip_providers.discard("ollama-local")
+        session.skip_providers.discard("ollama-cloud")
         return True
     else:
         pe(f"No se pudo instalar '{model_name}'.")
@@ -345,6 +351,9 @@ def _do_ollama_pull(model_name: str, base_url: str, session) -> bool:
 def _fallback_to_other_provider(session) -> bool:
     """Si hay otros providers activos, cambia; si no, redirige a /login."""
     from bago.menus.auth import _cmd_login
+
+    # Marcar Ollama como no disponible para que autoroute no vuelva a él
+    session.skip_providers.update({"ollama-local", "ollama-cloud"})
 
     active = session.creds.active_bago_providers()
     other = [p for p in active if p not in ("ollama-local", "ollama-cloud")]

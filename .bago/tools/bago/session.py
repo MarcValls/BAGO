@@ -39,6 +39,8 @@ class BagoSession:
             "model": model_name,
             "reason": "inicio de sesión",
         }
+        # Providers temporalmente excluidos del autoroute (e.g. Ollama caído)
+        self.skip_providers: set = set()
 
     def _load_orchestrator(self):
         path = Path(__file__).resolve().parents[1] / "orchestrator.py"
@@ -105,13 +107,15 @@ class BagoSession:
                 provider = result.get("provider")
                 reason = result.get("reason", "orquestador")
                 if model and provider and model != self.model_name:
-                    wire = result.get("wire_name", model)
-                    old = self.model_name
-                    self.provider, self.model_name, self.wire_name = provider, model, wire
-                    self.switches += 1
-                    self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
-                    return True, f"auto-orchestrator [{self.orch_mode}]: {old} -> {model} ({provider})"
-                if model and provider:
+                    # No cambiar a un provider excluido temporalmente
+                    if provider not in self.skip_providers:
+                        wire = result.get("wire_name", model)
+                        old = self.model_name
+                        self.provider, self.model_name, self.wire_name = provider, model, wire
+                        self.switches += 1
+                        self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
+                        return True, f"auto-orchestrator [{self.orch_mode}]: {old} -> {model} ({provider})"
+                if model and provider and provider not in self.skip_providers:
                     self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
                     return False, f"auto-orchestrator mantiene {model} ({provider})"
             except Exception:
@@ -120,9 +124,9 @@ class BagoSession:
         """Routing por keyword: cambia al modelo mas adecuado para esta tarea."""
         name, wire, prov, kw = route_by_task(user_input, self.routing, self.providers, self.provider)
         if name and name != self.model_name:
-            # Verificar que el provider tiene credenciales
+            # Verificar que el provider tiene credenciales y no está excluido
             active = self.creds.active_bago_providers()
-            if prov in active or any(prov in a for a in active):
+            if prov not in self.skip_providers and (prov in active or any(prov in a for a in active)):
                 old = self.model_name
                 self.provider, self.model_name, self.wire_name = prov, name, wire
                 self.switches += 1
