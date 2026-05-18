@@ -42,8 +42,8 @@ _ENTRIES = [
 
     # ── 5 · Modos ────────────────────────────────────────────────────
     (None,          "  ── Modos ──────────────────────────────────────"),
-    ("/mode",       "🎛   Modo generativo  — offline · eco · full · standard"),
-    ("/auto",       "🌀  Modo autonomo  — bucle (balanceado · adaptativo · never · always)"),
+    ("/generative", "🎛   Modo generativo  — offline · eco · standard · full · auto"),
+    ("/auto",       "🌀  Modo autonomo  — bucle · nivel: balanceado · adaptativo · never · always"),
     ("/plan",       "📐  Modo PLAN  — razonar y proponer antes de actuar"),
     ("/brainstorm", "💡  Modo BRAINSTORM  — explorar ideas sin restricciones"),
 

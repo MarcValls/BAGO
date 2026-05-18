@@ -69,7 +69,8 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/switch <modelo>[/yellow]                     Forzar modelo puntualmente (sin perder historial)
   [yellow]/autoroute on|off[/yellow]                    Routing automatico basado en tipo de tarea
   [yellow]/models[/yellow]                              Listar todos los modelos disponibles
-  [yellow]/mode[/yellow]                                Cambiar modo global (offline/economico/estandar/full)
+  [yellow]/generative[/yellow] [dim]|[/dim] [yellow]/gen[/yellow]               Modo generativo: offline · eco · standard · full · auto
+  [yellow]/mode[/yellow]                                (alias de /generative)
   [yellow]/roles[/yellow]                               Ver modos del orquestador y preferencias por tarea
   [yellow]/roles tasks[/yellow]                         Ver que modelo se usa para cada tipo de tarea
   [yellow]/routing[/yellow]                             Ver y editar la matriz de enrutamiento completa

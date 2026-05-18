@@ -29,7 +29,7 @@ class BagoSession:
         self.auto_confirm = "smart"  # always | smart | never
         self.auto_max_iter = 10
         self.temp_mode  = False  # sesion temporal (no escribe en disco automaticamente)
-        self.orch_mode  = "estandar"  # offline|economico|estandar|full
+        self.orch_mode  = "standard"  # offline|eco|standard|full|auto
         self.plan_mode  = False  # modo plan: razona y propone antes de actuar
         self.brainstorm = False  # modo brainstorm: expande ideas sin restricciones
         self.sync_after = "continuar"  # continuar|repliegue|letargo
@@ -130,12 +130,44 @@ class BagoSession:
         if silent: return None
         return f"Cambiado: {old} -> {name} ({prov}) | {len(self.history)-1} msgs mantenidos"
 
+    def _resolve_generative_mode(self, user_input: str) -> str:
+        """
+        Cuando orch_mode == 'auto', elige dinamicamente el nivel generativo
+        adecuado para este turno de la espiral segun complejidad del input
+        y providers disponibles.
+
+        Escala: offline < eco < standard < full
+        """
+        if self.orch_mode != "auto":
+            return self.orch_mode
+
+        active = self.creds.active_bago_providers()
+        words  = len(user_input.split())
+
+        # Indicadores de tarea compleja: codigo, archivos, analisis
+        complex_kw = ("refactor", "implementa", "analiza", "debug", "explica",
+                      "migra", "crea", "genera", "test", "arquitectura",
+                      "implement", "analyze", "create", "generate", "refactor")
+        is_complex = words > 60 or any(k in user_input.lower() for k in complex_kw)
+
+        # Sin providers cloud disponibles → no puede usar full
+        cloud_ok = any(p in active for p in ("copilot", "codex", "anthropic", "gemini", "openrouter"))
+
+        if is_complex and cloud_ok:
+            return "full"
+        if is_complex:
+            return "standard"
+        if words < 10 and not is_complex:
+            return "eco"
+        return "standard"
+
     def auto_route(self, user_input):
         """Routing automatico via orquestador; fallback por keyword si falla."""
+        effective_mode = self._resolve_generative_mode(user_input)
         orch = self._load_orchestrator()
         if orch:
             try:
-                result = orch.orchestrate(user_input, self.orch_mode)
+                result = orch.orchestrate(user_input, effective_mode)
                 model = result.get("model")
                 provider = result.get("provider")
                 reason = result.get("reason", "orquestador")
@@ -146,8 +178,9 @@ class BagoSession:
                         old = self.model_name
                         self.provider, self.model_name, self.wire_name = provider, model, wire
                         self.switches += 1
+                        mode_tag = f"{self.orch_mode}→{effective_mode}" if self.orch_mode == "auto" else self.orch_mode
                         self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
-                        return True, f"auto-orchestrator [{self.orch_mode}]: {old} -> {model} ({provider})"
+                        return True, f"auto-orchestrator [{mode_tag}]: {old} -> {model} ({provider})"
                 if model and provider and provider not in self.skip_providers:
                     self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
                     return False, f"auto-orchestrator mantiene {model} ({provider})"

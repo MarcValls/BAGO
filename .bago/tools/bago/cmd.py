@@ -17,6 +17,7 @@ from .menus import (
     _cmd_login,
     _cmd_main_menu,
     _cmd_memory,
+    _cmd_generative,
     _cmd_mode,
     _cmd_projects,
     _cmd_roles,
@@ -194,9 +195,13 @@ def cmd(line, session):
     elif v == "/auto":
         _cmd_auto(session)
 
-    # ── Modo del orquestador ──────────────────────────────────────────────────
+    # ── Modo generativo ───────────────────────────────────────────────────────
+    elif v in ("/generative", "/gen"):
+        _cmd_generative(session)
+
+    # ── Modo del orquestador (alias legacy) ───────────────────────────────────
     elif v == "/mode":
-        _cmd_mode(session)
+        _cmd_generative(session)
 
     # ── Modos conversacionales ────────────────────────────────────────────────
     elif v == "/plan":
