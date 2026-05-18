@@ -79,6 +79,37 @@ def _is_ollama_unreachable(exc) -> bool:
     low = str(exc).lower()
     return any(sig in low for sig in _OLLAMA_UNREACHABLE_SIGNALS) and "ollama" in low
 
+
+# ── Detección de errores en providers cloud (copilot, codex, anthropic…) ───────
+_CLOUD_AUTH_SIGNALS = (
+    "authenticationerror", "401", "unauthorized", "invalid token",
+    "authentication failed", "auth_error", "invalid_api_key",
+    "permissiondeniederror", "permission denied", "forbidden",
+    "invalid credentials",
+)
+_CLOUD_CONN_SIGNALS = (
+    "connection timed out", "timed out", "connecttimeout",
+    "read timed out", "remotedisconnected", "servicesunavailable",
+    "503", "502", "overloaded", "apiconnectionerror",
+)
+
+def _is_cloud_auth_error(exc) -> bool:
+    """Detecta errores de autenticación en providers cloud (no Ollama)."""
+    low = str(exc).lower()
+    if "ollama" in low:
+        return False
+    return any(sig in low for sig in _CLOUD_AUTH_SIGNALS)
+
+def _is_cloud_connection_error(exc) -> bool:
+    """Detecta errores de conexión/timeout en providers cloud (no Ollama)."""
+    low = str(exc).lower()
+    if "ollama" in low:
+        return False
+    # Solo si hay señal de conexión Y NO es un modelo-not-found de Ollama
+    if "not found" in low and "model" in low:
+        return False
+    return any(sig in low for sig in _CLOUD_CONN_SIGNALS)
+
 def _model_size_score(name: str) -> int:
     """Tamano aproximado segun nombre del modelo (mayor = mas contexto/capacidad)."""
     n = name.lower()

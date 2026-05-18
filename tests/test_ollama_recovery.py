@@ -6,7 +6,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / ".bago" / "tools"))
 
-from bago.llm import _is_ollama_model_not_found, _is_ollama_unreachable
+from bago.llm import (_is_ollama_model_not_found, _is_ollama_unreachable,
+                      _is_cloud_auth_error, _is_cloud_connection_error)
 from bago.providers import ollama_probe
 
 
@@ -159,3 +160,52 @@ class TestSkipProviders:
         session.skip_providers.add("ollama-local")
         session.skip_providers.discard("ollama-local")
         assert "ollama-local" not in session.skip_providers
+
+
+class TestCloudErrorDetectors:
+    """Tests para _is_cloud_auth_error y _is_cloud_connection_error."""
+
+    # ── Auth errors ───────────────────────────────────────────────────────────
+    def test_auth_401_copilot(self):
+        msg = "litellm.AuthenticationError: 401 Unauthorized - Invalid token for copilot"
+        assert _is_cloud_auth_error(Exception(msg)) is True
+
+    def test_auth_invalid_api_key(self):
+        msg = "AuthenticationError: invalid_api_key - The API key provided is incorrect."
+        assert _is_cloud_auth_error(Exception(msg)) is True
+
+    def test_auth_forbidden(self):
+        msg = "PermissionDeniedError: 403 forbidden - Access denied"
+        assert _is_cloud_auth_error(Exception(msg)) is True
+
+    def test_auth_does_not_match_ollama_unreachable(self):
+        # Mensaje de Ollama → no debe ser detectado como cloud auth error
+        msg = "OllamaException - 401 cannot connect to ollama host"
+        assert _is_cloud_auth_error(Exception(msg)) is False
+
+    def test_auth_no_false_positive_context(self):
+        msg = "context length exceeded: token count too long"
+        assert _is_cloud_auth_error(Exception(msg)) is False
+
+    # ── Connection errors ─────────────────────────────────────────────────────
+    def test_conn_timeout_copilot(self):
+        msg = "APIConnectionError: Connection timed out reaching models.inference.ai.azure.com"
+        assert _is_cloud_connection_error(Exception(msg)) is True
+
+    def test_conn_read_timeout(self):
+        msg = "ReadTimeoutError: Read timed out waiting for response from anthropic"
+        assert _is_cloud_connection_error(Exception(msg)) is True
+
+    def test_conn_503_overloaded(self):
+        msg = "ServiceUnavailable: 503 overloaded — please retry"
+        assert _is_cloud_connection_error(Exception(msg)) is True
+
+    def test_conn_does_not_match_ollama(self):
+        # Timeout hacia Ollama → no es cloud connection error
+        msg = "APIConnectionError: OllamaException - Connection timed out on ollama host"
+        assert _is_cloud_connection_error(Exception(msg)) is False
+
+    def test_conn_no_false_positive_not_found(self):
+        # "model not found" no es un error de conexión
+        msg = "model 'gpt-5' not found in registry"
+        assert _is_cloud_connection_error(Exception(msg)) is False

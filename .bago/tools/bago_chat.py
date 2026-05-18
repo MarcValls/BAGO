@@ -26,7 +26,8 @@ from bago import (CredentialManager, load_providers, load_routing,
                   BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
 from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
 from bago.providers import auto_detect_provider, get_default_model, route_by_task, ollama_probe, ollama_pull, scan_provider_health, discover_ollama_url
-from bago.llm import _is_ollama_model_not_found, _is_ollama_unreachable
+from bago.llm import (_is_ollama_model_not_found, _is_ollama_unreachable,
+                      _is_cloud_auth_error, _is_cloud_connection_error)
 from bago.ui import show_response
 
 try:
@@ -376,6 +377,50 @@ def _fallback_to_other_provider(session) -> bool:
     return False
 
 
+def _cloud_recovery_flow(session, exc) -> bool:
+    """Recovery para errores de autenticación o conexión en providers cloud.
+
+    Muestra el motivo, marca el provider como no disponible y
+    intenta cambiar a otro; si no hay ninguno, abre /login.
+    Retorna True si la sesión queda lista para reintentar.
+    """
+    from bago.menus.auth import _cmd_login
+
+    prov = session.provider
+    if _is_cloud_auth_error(exc):
+        console.print(
+            f"\n  [yellow]⚠  Autenticación fallida en [bold]{prov}[/bold][/yellow]\n"
+            f"  Token inválido o expirado. Ejecuta [cyan]/login {prov}[/cyan] para renovar."
+        )
+    else:
+        console.print(
+            f"\n  [yellow]⚠  Sin conexión con [bold]{prov}[/bold][/yellow]\n"
+            f"  Comprueba tu acceso a internet o el estado del servicio."
+        )
+
+    # Excluir el provider actual del routing
+    session.skip_providers.add(prov)
+
+    active = session.creds.active_bago_providers()
+    other = [p for p in active if p not in session.skip_providers]
+
+    if other:
+        new_prov = other[0]
+        from bago.providers import get_default_model
+        name, wire, _ = get_default_model(new_prov, session.providers)
+        if name:
+            session.provider, session.model_name, session.wire_name = new_prov, name, wire
+            pi(f"Cambiando a {name} ({new_prov}) — {prov} no disponible.")
+            return True
+
+    console.print(
+        "\n  [yellow]No hay providers alternativos disponibles.[/yellow]\n"
+        "  Abriendo pantalla de registro de providers...\n"
+    )
+    _cmd_login(session)
+    return False
+
+
 def main():
     p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
     p.add_argument("--provider", default="")
@@ -450,18 +495,28 @@ def main():
     if _health_future:
         try:
             _health = _health_future.result(timeout=4)
-            # Si Ollama fue descubierto en una URL no estándar → limpiar skip
-            _ol = _health.get("ollama-local", {})
-            if _ol.get("ok") and _ol.get("url"):
-                session.skip_providers.discard("ollama-local")
-                session.skip_providers.discard("ollama-cloud")
-            # Si Ollama está en rojo y es el provider activo → marcar skip
-            elif not _ol.get("ok") and session.provider in ("ollama-local", "ollama-cloud"):
-                session.skip_providers.update({"ollama-local", "ollama-cloud"})
+            # Actualizar skip_providers para TODOS los providers según resultado real
+            _active_creds = session.creds.active_bago_providers()
+            for _pname, _phdata in _health.items():
+                if _phdata.get("ok"):
+                    session.skip_providers.discard(_pname)
+                else:
+                    # Solo excluir si el provider tiene credenciales pero falló la verificación
+                    # (no excluir providers sin key — esos ya no aparecen en active_bago_providers)
+                    if _pname in _active_creds or _pname in ("ollama-local", "ollama-cloud"):
+                        session.skip_providers.add(_pname)
             # Re-imprimir banner con colores reales
             console.print()
             banner(session, health=_health)
             session._last_health = _health   # guardar para /status
+            # Si todos los providers están en rojo → aviso proactivo
+            _all_red = all(not v.get("ok") for v in _health.values())
+            if _all_red:
+                console.print(
+                    "\n  [bold yellow]⚠  Ningún provider disponible.[/bold yellow]\n"
+                    "  Usa [cyan]/login[/cyan] para configurar un provider "
+                    "o ejecuta [cyan]ollama serve[/cyan] si tienes Ollama instalado."
+                )
         except Exception:
             pass
     else:
@@ -538,10 +593,18 @@ def main():
                         if result:
                             show_response(result, session.model_name, session.provider)
                     except RuntimeError as e2:
-                        pe(str(e2))
+                        # Segundo nivel: detectar si el retry falló por otro tipo de error
+                        if _is_cloud_auth_error(e2) or _is_cloud_connection_error(e2):
+                            _cloud_recovery_flow(session, e2)
+                        else:
+                            pe(str(e2))
+                            console.print("[dim]  Usa /switch para cambiar de modelo o /login para reconfigurar.[/dim]")
                     continue
-            pe(str(e))
-            console.print("[dim]  Prueba /login para registrar providers o /switch para cambiar modelo.[/dim]")
+            elif _is_cloud_auth_error(e) or _is_cloud_connection_error(e):
+                _cloud_recovery_flow(session, e)
+            else:
+                pe(str(e))
+                console.print("[dim]  Prueba /login para registrar providers o /switch para cambiar modelo.[/dim]")
 
 if __name__ == "__main__":
     main()
