@@ -144,6 +144,10 @@ def scan_file(py_file: Path, stem_index: dict[str, Path], mem: Memory) -> list[P
     for line_no, line in enumerate(source.splitlines(), start=1):
         for compiled_pat, kind, var_name in patterns:
             for match in compiled_pat.finditer(line):
+                suffix = line[match.end(): match.end() + 32]
+                if re.match(r"\s*\)*\s*\.\s*(exists|is_file|is_dir)\s*\(", suffix):
+                    continue
+
                 groups = [group for group in match.groups() if group and re.match(r"^[a-zA-Z0-9_\-]+$", group)]
                 if not groups:
                     continue

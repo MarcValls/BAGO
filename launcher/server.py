@@ -36,6 +36,7 @@ def _ssl_ctx() -> ssl.SSLContext:
 LAUNCHER_DIR     = Path(__file__).parent.resolve()
 BAGO_CORE        = LAUNCHER_DIR.parent
 STATIC_DIR       = LAUNCHER_DIR / "static"
+TOOLS_STATIC_DIR = BAGO_CORE / "web_tools"
 AGENTS_DIR       = LAUNCHER_DIR / "agents"
 STATE_DIR        = BAGO_CORE / ".bago" / "state"
 STATE_FILE       = STATE_DIR / "global_state.json"
@@ -892,7 +893,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/llm/status":
             self._json(get_llm_status())
         elif path in ("/bago_score_transposer.html", "/bago_matrix_music_editor.html"):
-            target = BAGO_CORE / path.lstrip("/")
+            target = TOOLS_STATIC_DIR / path.lstrip("/")
             if not target.exists():
                 self._json({"error": "not found"}, 404)
                 return

@@ -6,7 +6,7 @@ Este tool detecta inconsistencias en el framework y aplica reparaciones
 automáticas de forma segura y trazable.
 
 Reparaciones disponibles:
-  R001  Tools sin --test → scaffold auto-generado (via legacy_fixer)
+    R001  Tools sin --test → reportado para reparación manual
   R002  Tools sin routing en bago → detectado y reportado (manual)
   R003  CHECKSUMS desactualizados → regenerados automáticamente
   R004  global_state.json desincronizado → tool_count actualizado
@@ -28,7 +28,6 @@ import ast
 import re
 import json
 import hashlib
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -193,26 +192,12 @@ def diagnose_R005_dup_integration() -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def repair_R001(dry_run: bool = False) -> dict:
-    """Añade scaffold --test a tools legacy."""
-    # Find legacy_fixer.py dynamically — doesn't assume it's in tools/ root
-    fixer = TOOLS_DIR / "legacy_fixer.py"
-    if not fixer.exists():
-        for found in BAGO_ROOT.rglob("legacy_fixer.py"):
-            fixer = found
-            break
-    if not fixer.exists():
-        return {"id": "R001", "ok": False,
-                "output": "legacy_fixer.py no encontrado en el repo",
-                "code": "HEAL-W001"}
-    result = subprocess.run(
-        [sys.executable, str(fixer), "--fix-all"] + (["--dry-run"] if dry_run else []),
-        capture_output=True, text=True
-    )
-    ok = result.returncode == 0
+    """R001 queda como diagnóstico; no hay reparación automática segura."""
     return {
-        "id": "R001", "ok": ok,
-        "output": result.stdout or result.stderr,
-        "code": "HEAL-I001" if ok else "HEAL-E001",
+        "id": "R001",
+        "ok": False,
+        "output": "R001 no tiene reparación automática activa; añade --test de forma manual o con toolsmith.",
+        "code": "HEAL-W001",
     }
 
 
