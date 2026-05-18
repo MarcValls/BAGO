@@ -1492,4 +1492,26 @@ REGISTRY: dict[str, ToolEntry] = {
         risk="safe",
         layer_group="ui",
     ),
+    # ── SUPERVISION LAYER ─────────────────────────────────────────────────────
+    "supervision": ToolEntry(
+        cmd="supervision",
+        module="supervision.supervisor",
+        description=(
+            "BAGO Supervision Layer — capa de guardianes sistémicos. "
+            "Convierte fallos recurrentes en agentes con memoria, artefacto y contrato. "
+            "Subcomandos: run [--loop pre_release|post_test_cleanup|legacy_decay|contract_drift] "
+            "| status | check <agente> | report [--json] [--loop]"
+        ),
+        preflight=[
+            PreflightCheck("file", str(BAGO_ROOT / "supervision" / "supervisor.py")),
+        ],
+        layer="calidad",
+        scope="framework",
+        agent="GUIA_VERTICE",
+        stability="core",
+        risk="safe",
+        preflight_policy="required",
+        supports_dry_run=True,
+        layer_group="core",
+    ),
 }

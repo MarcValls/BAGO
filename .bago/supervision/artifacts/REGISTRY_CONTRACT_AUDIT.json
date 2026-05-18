@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "description": "Auditoría del registry — coherencia de contratos por herramienta",
+  "last_run": "2026-05-18T18:08:11.603617",
+  "total_commands": null,
+  "dangerous_commands": null,
+  "core_commands": null,
+  "experimental_commands": null,
+  "issues": [],
+  "health_pct": null,
+  "overall": "green",
+  "gate": "all core and dangerous commands must have preflight + self_test",
+  "on_failure": "warn",
+  "checked_by": "contract_auditor",
+  "tool": "python .bago/tools/tool_guardian.py"
+}

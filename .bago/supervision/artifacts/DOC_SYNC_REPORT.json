@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "description": "Estado de sincronización docs↔código — última auditoría",
+  "last_run": "2026-05-18T18:08:11.739364",
+  "overall": "green",
+  "checks": [
+    {
+      "doc": "docs/COMMANDS.md",
+      "generator": "python .bago/tools/generate_commands_doc.py --check",
+      "status": "pending_scan",
+      "drift_summary": null
+    },
+    {
+      "doc": "docs/LAYERS.md",
+      "generator": "python .bago/tools/generate_layers_doc.py --check",
+      "status": "pending_scan",
+      "drift_summary": null
+    },
+    {
+      "doc": "README.md",
+      "generator": "python .bago/tools/readme_sync.py --dry-run",
+      "status": "pending_scan",
+      "drift_summary": null
+    }
+  ],
+  "gate": "docs must reflect registry within 1 version",
+  "on_failure": "warn",
+  "checked_by": "doc_sync_agent"
+}

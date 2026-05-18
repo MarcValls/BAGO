@@ -1,0 +1,35 @@
+{
+  "loop": "contract_drift_loop",
+  "timestamp": "2026-05-18T18:08:11.739745",
+  "has_blockers": false,
+  "blockers_summary": "",
+  "agents": [
+    {
+      "agent": "release_guardian",
+      "status": "green",
+      "message": "OK",
+      "artifact": ".bago/supervision/artifacts/VERSION_CONTRACT.json",
+      "on_failure": "warn",
+      "blocker": false,
+      "timestamp": "2026-05-18T18:07:54.462177"
+    },
+    {
+      "agent": "contract_auditor",
+      "status": "yellow",
+      "message": "\u001b[1mTool Guardian â€” Estado del framework BAGO\u001b[0m\n  \u001b[0;33mSalud (required): 51%\u001b[0m  (21/41 required OK  | 0/291 total  E:29  W:640)\n\n  \u001b[0;31mErrores crÃ­ticos (core/dangerous):\u001b[0m\n    [GUARD-E002] 'agent_router.py' no registrado en integration_tests.py\n    [GUARD-E002] 'bago_advisor.py' no reg",
+      "artifact": ".bago/supervision/artifacts/REGISTRY_CONTRACT_AUDIT.json",
+      "on_failure": "warn",
+      "blocker": false,
+      "timestamp": "2026-05-18T18:08:11.603971"
+    },
+    {
+      "agent": "doc_sync_agent",
+      "status": "yellow",
+      "message": "GATE-FAIL: docs/COMMANDS.md is out of date with tool_registry.py\nFix: python3 .bago/tools/generate_commands_doc.py && git add docs/COMMANDS.md",
+      "artifact": ".bago/supervision/artifacts/DOC_SYNC_REPORT.json",
+      "on_failure": "warn",
+      "blocker": false,
+      "timestamp": "2026-05-18T18:08:11.739730"
+    }
+  ]
+}

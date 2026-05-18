@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "description": "Mapa de tests legacy — estado de migración",
+  "last_scanned": null,
+  "summary": {"total": 6, "done": 0, "xfail": 6, "needs_migration": 0},
+  "tests": [
+    {
+      "file": "tests/test_bago_brutal.py",
+      "status": "xfail",
+      "reason": "Imports a módulos legacy — cobertura en test_bago_brutal_metas.py",
+      "coverage_by": "tests/test_bago_brutal_metas.py",
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_bago_framework.py",
+      "status": "xfail",
+      "reason": "Framework internals refactored en v3.4 — sin módulo equivalente directo",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_bago_integracion.py",
+      "status": "xfail",
+      "reason": "Tests de integración apuntan a módulos renombrados en v3.4",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_bago_review.py",
+      "status": "xfail",
+      "reason": "Requiere LLM externo activo — no disponible en CI",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_code_review.py",
+      "status": "xfail",
+      "reason": "Code review module refactored",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_telegram_daemon.py",
+      "status": "xfail",
+      "reason": "Requiere Telegram token activo — solo en entorno configurado",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    }
+  ]
+}

@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.0** · 159 CLI commands · 126 public commands
+> **Version 3.4.0** · 160 CLI commands · 127 public commands
 
-Public command contract (CI-checked): **38 core** · **80 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **39 core** · **80 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -159,6 +159,7 @@ These commands form the **stable public interface**.
 | `bago session` | Session lifecycle: open \| close \| harvest |
 | `bago project` | Distributed project memory: init \| link \| status |
 | `bago context` | Workspace context: detect \| map \| git \| stale |
+| `bago supervision` | BAGO Supervision Layer — guardianes sistémicos: versiones, tests, docs, registry |
 | `bago sync` | Regenerate TREE.txt and CHECKSUMS |
 | `bago scope` | Detect script scope (framework / project / both) |
 | `bago secrets` | Scan repository for exposed credentials |

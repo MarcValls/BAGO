@@ -30,6 +30,7 @@ from pathlib import Path
 # ── Rutas canónicas ───────────────────────────────────────────────────────────
 
 _ROOT = Path(__file__).resolve().parents[2]   # raíz del repo
+BAGO_ROOT = _ROOT / ".bago"
 _PYPROJECT = _ROOT / "pyproject.toml"
 _INIT = _ROOT / "bago_core" / "__init__.py"
 _GLOBAL_STATE = _ROOT / ".bago" / "state" / "global_state.json"
@@ -174,6 +175,19 @@ def _to_release(ver: str) -> str:
     return f"{v['major']}.{v['minor']}.{v['patch']}"
 
 
+def _run_supervision_gate() -> bool:
+    """Corre el pre_release_loop de supervision. Devuelve True si OK."""
+    supervisor_py = BAGO_ROOT / "supervision" / "supervisor.py"
+    if not supervisor_py.exists():
+        return True  # supervision layer no instalada — skip
+    result = subprocess.run(
+        [sys.executable, str(supervisor_py), "run", "--loop", "pre_release"],
+        capture_output=False,
+        cwd=str(BAGO_ROOT.parent),
+    )
+    return result.returncode == 0
+
+
 # ── Comandos ──────────────────────────────────────────────────────────────────
 
 def cmd_status() -> int:
@@ -232,14 +246,22 @@ def cmd_beta() -> int:
     return 0
 
 
-def cmd_release() -> int:
+def cmd_release(dry_run: bool = False) -> int:
     ver = _read_pyproject_version()
     new_ver = _to_release(ver)
     print(f"  Release: {ver} → {new_ver}")
-    _write_version(new_ver)
-    print(f"  ✅ Archivos actualizados. Próximos pasos:")
-    print(f"     bago version commit")
-    print(f"     bago version tag --push")
+    if not dry_run:
+        print("🔍 Ejecutando Supervision Gate (pre_release_loop)...")
+        if not _run_supervision_gate():
+            print("❌ Supervision Gate bloqueó el release. Revisa bago supervision status")
+            sys.exit(1)
+        print("✅ Supervision Gate: OK")
+        _write_version(new_ver)
+        print(f"  ✅ Archivos actualizados. Próximos pasos:")
+        print(f"     bago version commit")
+        print(f"     bago version tag --push")
+    else:
+        print("  🧪 Dry-run: no se escribieron cambios.")
     return 0
 
 
@@ -380,7 +402,7 @@ def main() -> int:
         return cmd_beta()
 
     if sub == "release":
-        return cmd_release()
+        return cmd_release(dry_run=("--dry-run" in args[1:]))
 
     if sub == "commit":
         return cmd_commit()

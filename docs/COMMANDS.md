@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-18 15:01 UTC
+> Last generated: 2026-05-18 16:12 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -10,11 +10,11 @@
 
 | Bucket | Count |
 |--------|-------|
-| ⚙️ Core | 38 |
+| ⚙️ Core | 39 |
 | 🧪 Experimental | 80 |
 | ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **126** |
+| **Total active** | **127** |
 
 ---
 
@@ -55,6 +55,7 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago snapshot` | Compara dos snapshots de estado BAGO: diferencias en tools, ideas e inventario. | • memoria | safe | required |
 | `bago sprint` | Gestor de sprints BAGO — crear, listar, cerrar sprints de trabajo | • memoria | safe | required |
 | `bago status` | Estado actual: flujo activo, tarea pendiente y salud del sistema | • memoria | safe | required |
+| `bago supervision` | BAGO Supervision Layer — capa de guardianes sistémicos. Convierte fallos recurrentes en agentes con memoria, artefacto y contrato. Subcomandos: run [--loop pre_release\|post_test_cleanup\|legacy_decay\|contract_drift] \| status \| check <agente> \| report [--json] [--loop] | 🔍 calidad | safe | required |
 | `bago sync` | Regenera TREE.txt y CHECKSUMS | • memoria | safe | required |
 | `bago task` | Muestra la tarea W2 pendiente. --done \| --assign <agente> \| --clear | • memoria | safe | required |
 | `bago validate` | Verifica el pack (manifiesto, estado, roles, ZIP) — subcomandos: manifest, state, contents | • memoria | safe | required |

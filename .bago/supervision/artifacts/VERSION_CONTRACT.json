@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "description": "Contrato de sincronización de versiones BAGO. Las 5 fuentes de verdad deben coincidir.",
+  "expected_version": "3.4.0",
+  "last_checked": null,
+  "status": "pending_scan",
+  "sources": [
+    {
+      "id": "pyproject",
+      "path": "pyproject.toml",
+      "key": "tool.poetry.version",
+      "current": null
+    },
+    {
+      "id": "init_py",
+      "path": "bago_core/__init__.py",
+      "key": "__version__",
+      "current": null
+    },
+    {
+      "id": "pack_json",
+      "path": ".bago/pack.json",
+      "key": "version",
+      "current": null
+    },
+    {
+      "id": "global_state",
+      "path": ".bago/state/global_state.json",
+      "key": "bago_version",
+      "current": null
+    },
+    {
+      "id": "git_tag",
+      "path": "git",
+      "key": "latest_tag",
+      "current": null
+    }
+  ],
+  "gate": "all sources must match expected_version",
+  "on_failure": "block_release",
+  "checked_by": "release_guardian",
+  "last_run": "2026-05-18T18:07:54.461744",
+  "overall": "green"
+}

@@ -1,0 +1,25 @@
+{
+  "agent": "release_guardian",
+  "version": "1.0.0",
+  "role": "GUIA_VERTICE",
+  "mission": "Garantizar que las 5 fuentes de versión están sincronizadas antes de marcar un release",
+  "reads": [
+    "pyproject.toml",
+    "bago_core/__init__.py",
+    ".bago/pack.json",
+    ".bago/state/global_state.json",
+    "git tags"
+  ],
+  "writes": [
+    ".bago/supervision/artifacts/VERSION_CONTRACT.json"
+  ],
+  "tools": ["bago_version.py", "git"],
+  "gate": "all 5 version sources must match",
+  "on_failure": "block_release",
+  "loop": "pre_release_loop",
+  "sense": "python .bago/tools/bago_version.py sync-check",
+  "plan": "compare all sources against VERSION_CONTRACT.json expected_version",
+  "act": "report drift or block release",
+  "observe": "re-run sync-check after any correction",
+  "learn": "update VERSION_CONTRACT.json with last_checked + status"
+}
