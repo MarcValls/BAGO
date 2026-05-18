@@ -87,11 +87,19 @@ class CredentialManager:
         self._save()
 
     def _ollama_ok(self):
+        """Detecta si Ollama está disponible buscando en múltiples ubicaciones."""
         try:
-            subprocess.check_output(["ollama", "list"], stderr=subprocess.DEVNULL, timeout=4)
-            return True
+            from .providers import discover_ollama_url
+            url = discover_ollama_url(timeout=2)
+            return url is not None
         except Exception:
-            return False
+            # Fallback: CLI directo
+            import subprocess
+            try:
+                subprocess.check_output(["ollama", "list"], stderr=subprocess.DEVNULL, timeout=4)
+                return True
+            except Exception:
+                return False
 
     def _codex_authed(self):
         """True si codex CLI tiene sesión activa (GPT Plus sin API key)."""

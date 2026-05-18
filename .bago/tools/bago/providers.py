@@ -265,3 +265,196 @@ def _ollama_pull_api(model_name: str, base_url: str) -> bool:
     except Exception as e:
         print(f"  ❌ API pull error: {e}")
         return False
+
+
+# ── Ollama discovery ───────────────────────────────────────────────────────────
+
+def discover_ollama_url(timeout: int = 2) -> "str | None":
+    """Busca Ollama en el PC probando múltiples ubicaciones y puertos.
+
+    Orden de búsqueda:
+      1. Variable de entorno OLLAMA_HOST
+      2. Puerto por defecto localhost:11434
+      3. Puertos alternativos comunes
+      4. (Windows) LOCALAPPDATA\\Programs\\Ollama — si el ejecutable existe pero
+         el servicio no responde, se intenta arrancarlo brevemente
+
+    Devuelve la URL base funcional o None si no se encuentra.
+    """
+    import shutil, sys
+
+    candidates: list[str] = []
+
+    # 1. Variable de entorno
+    host_env = os.environ.get("OLLAMA_HOST", "").strip()
+    if host_env:
+        candidates.append(host_env if host_env.startswith("http") else f"http://{host_env}")
+
+    # 2. Puerto por defecto
+    candidates += [
+        "http://127.0.0.1:11434",
+        "http://localhost:11434",
+    ]
+
+    # 3. Puertos alternativos
+    candidates += [
+        "http://127.0.0.1:11435",
+        "http://127.0.0.1:8080",
+    ]
+
+    # Probar en orden (deduplicado)
+    seen: set = set()
+    for url in candidates:
+        if url in seen:
+            continue
+        seen.add(url)
+        result = ollama_probe(url)
+        if result["running"]:
+            # Guardar URL descubierta en env para uso posterior
+            os.environ["OLLAMA_HOST"] = url
+            return url
+
+    # 4. (Windows) Si el ejecutable existe pero no responde, intentar arrancarlo
+    if sys.platform == "win32":
+        _try_start_ollama_windows()
+        # Volver a probar la URL por defecto tras arranque
+        for url in ["http://127.0.0.1:11434", "http://localhost:11434"]:
+            result = ollama_probe(url)
+            if result["running"]:
+                os.environ["OLLAMA_HOST"] = url
+                return url
+
+    return None
+
+
+def _try_start_ollama_windows():
+    """Intenta arrancar el servidor Ollama en Windows si el exe existe."""
+    import subprocess, shutil, time
+
+    # Localizar ollama.exe
+    cli = shutil.which("ollama")
+    if not cli:
+        # Buscar en ubicaciones conocidas de Windows
+        localapp = os.environ.get("LOCALAPPDATA", "")
+        candidates_win = [
+            os.path.join(localapp, "Programs", "Ollama", "ollama.exe"),
+            os.path.join(localapp, "ollama", "ollama.exe"),
+            r"C:\Program Files\Ollama\ollama.exe",
+        ]
+        for p in candidates_win:
+            if os.path.isfile(p):
+                cli = p
+                break
+
+    if not cli:
+        return
+
+    try:
+        subprocess.Popen(
+            [cli, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=0x00000008,   # DETACHED_PROCESS en Windows
+        )
+        time.sleep(2)  # dar tiempo a que arranque
+    except Exception:
+        pass
+
+
+# ── Provider health scan ───────────────────────────────────────────────────────
+
+def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
+    """Verifica la disponibilidad real de cada provider registrado.
+
+    Realiza chequeos en paralelo con un timeout corto. Para providers cloud
+    (copilot, codex, anthropic) comprueba credenciales + un ping HTTP ligero.
+    Para Ollama ejecuta discover_ollama_url() y ollama_probe().
+
+    Devuelve:
+        {
+          "provider_name": {
+            "ok":      bool,
+            "detail":  str,         # descripción del estado
+            "models":  [str, ...],  # solo para Ollama
+          },
+          ...
+        }
+    """
+    import concurrent.futures, urllib.request, urllib.error
+
+    results: dict = {}
+
+    def _check_ollama():
+        url = discover_ollama_url(timeout=timeout)
+        if url:
+            probe = ollama_probe(url)
+            n = len(probe["models"])
+            detail = f"{url} — {n} modelos" if n else f"{url} — sin modelos instalados"
+            return {"ok": True, "detail": detail, "models": probe["models"], "url": url}
+        return {"ok": False, "detail": "no encontrado en ninguna ubicación", "models": [], "url": None}
+
+    def _check_copilot():
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+        if not token:
+            return {"ok": False, "detail": "sin GITHUB_TOKEN"}
+        try:
+            req = urllib.request.Request(
+                "https://api.github.com/user",
+                headers={"Authorization": f"token {token}", "User-Agent": "BAGO-CLI"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+                login = data.get("login", "?")
+                return {"ok": True, "detail": f"@{login}"}
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                return {"ok": False, "detail": "token inválido (401)"}
+            return {"ok": True, "detail": f"HTTP {e.code}"}
+        except Exception as e:
+            return {"ok": False, "detail": str(e)[:60]}
+
+    def _check_codex():
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        if not api_key:
+            # Verificar auth codex CLI
+            codex_dir = Path.home() / ".codex"
+            if codex_dir.exists():
+                for f in codex_dir.glob("*.json"):
+                    try:
+                        d = json.loads(f.read_text())
+                        if d.get("accessToken") or d.get("token"):
+                            return {"ok": True, "detail": "codex CLI autenticado"}
+                    except Exception:
+                        pass
+            return {"ok": False, "detail": "sin OPENAI_API_KEY ni codex auth"}
+        return {"ok": True, "detail": f"API key ...{api_key[-4:]}"}
+
+    def _check_anthropic():
+        key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not key:
+            return {"ok": False, "detail": "sin ANTHROPIC_API_KEY"}
+        return {"ok": True, "detail": f"API key ...{key[-4:]}"}
+
+    def _check_openrouter():
+        key = os.environ.get("OPENROUTER_API_KEY", "")
+        if not key:
+            return {"ok": False, "detail": "sin OPENROUTER_API_KEY"}
+        return {"ok": True, "detail": f"API key ...{key[-4:]}"}
+
+    _checks = {
+        "ollama-local": _check_ollama,
+        "copilot":      _check_copilot,
+        "codex":        _check_codex,
+        "anthropic":    _check_anthropic,
+        "openrouter":   _check_openrouter,
+    }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {prov: pool.submit(fn) for prov, fn in _checks.items()}
+        for prov, fut in futures.items():
+            try:
+                results[prov] = fut.result(timeout=timeout + 1)
+            except Exception as e:
+                results[prov] = {"ok": False, "detail": f"error: {e}"}
+
+    return results

@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from bago import (CredentialManager, load_providers, load_routing,
                   BagoSession, cmd, chat, console, pi, pe, banner, CtrlCGuard)
 from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
-from bago.providers import auto_detect_provider, get_default_model, route_by_task, ollama_probe, ollama_pull
+from bago.providers import auto_detect_provider, get_default_model, route_by_task, ollama_probe, ollama_pull, scan_provider_health, discover_ollama_url
 from bago.llm import _is_ollama_model_not_found, _is_ollama_unreachable
 from bago.ui import show_response
 
@@ -432,7 +432,40 @@ def main():
         except Exception:
             pass   # si falla, continúa sin animación
 
+    # ── Health scan en paralelo (no bloquea el arranque) ──────────────────────
+    import concurrent.futures as _cf
+    _health_future = None
+    try:
+        _health_executor = _cf.ThreadPoolExecutor(max_workers=1, thread_name_prefix="bago_health")
+        _health_future = _health_executor.submit(
+            scan_provider_health, creds, providers, 3
+        )
+    except Exception:
+        pass
+
+    # Mostrar banner inicial (sin health — aparece rápido)
     banner(session)
+
+    # Esperar resultado del health scan (máx 4s) y actualizar el banner
+    if _health_future:
+        try:
+            _health = _health_future.result(timeout=4)
+            # Si Ollama fue descubierto en una URL no estándar → limpiar skip
+            _ol = _health.get("ollama-local", {})
+            if _ol.get("ok") and _ol.get("url"):
+                session.skip_providers.discard("ollama-local")
+                session.skip_providers.discard("ollama-cloud")
+            # Si Ollama está en rojo y es el provider activo → marcar skip
+            elif not _ol.get("ok") and session.provider in ("ollama-local", "ollama-cloud"):
+                session.skip_providers.update({"ollama-local", "ollama-cloud"})
+            # Re-imprimir banner con colores reales
+            console.print()
+            banner(session, health=_health)
+            session._last_health = _health   # guardar para /status
+        except Exception:
+            pass
+    else:
+        session._last_health = None
 
     hist_file = USER_BAGO / "state" / "chat_input_history.txt"
     hist_file.parent.mkdir(parents=True, exist_ok=True)

@@ -103,13 +103,37 @@ def cmd(line, session):
     elif v == "/models":
         console.print(Panel(session.models_table(), title="[bold]Registry BAGO[/bold]", box=box.SIMPLE))
     elif v == "/status":
+        from .providers import scan_provider_health
+        console.print("[dim]  Escaneando providers...[/dim]")
+        health = scan_provider_health(session.creds, session.providers, timeout=3)
+        session._last_health = health
+
         elapsed = str(datetime.datetime.now()-session.started_at).split(".")[0]
-        active = ", ".join(session.creds.active_bago_providers()) or "ninguno"
+        route = session.last_route or {}
         temp_tag  = " [yellow][TEMP][/yellow]" if session.temp_mode else ""
         auto_tag  = f" [green]AUTONOMO[/green] ({session.auto_confirm})" if session.autonomous else ""
         plan_tag  = " [magenta]PLAN[/magenta]" if session.plan_mode else ""
         brain_tag = " [green]BRAINSTORM[/green]" if session.brainstorm else ""
-        route = session.last_route or {}
+
+        # ── Tabla de providers ────────────────────────────────────────────────
+        prov_lines = []
+        for pname, h in health.items():
+            if h.get("ok"):
+                col = "yellow" if (pname == "ollama-local" and not h.get("models")) else "green"
+                dot = f"[{col}]●[/{col}]"
+                detail = h.get("detail", "OK")
+                if pname == "ollama-local" and h.get("models"):
+                    detail += f" | modelos: {', '.join(h['models'][:3])}"
+                    if len(h.get("models", [])) > 3:
+                        detail += f" +{len(h['models'])-3} más"
+            else:
+                dot = "[red]●[/red]"
+                detail = h.get("detail", "no disponible")
+            prov_lines.append(f"  {dot} [bold]{pname:<14}[/bold]  [dim]{detail}[/dim]")
+
+        prov_panel = "\n".join(prov_lines) if prov_lines else "  (sin datos)"
+        skip = ", ".join(session.skip_providers) if session.skip_providers else "ninguno"
+
         console.print(Panel(
             f"Modelo:      {session.model_name} ({session.provider}){auto_tag}\n"
             f"Wire:        {session.wire_name}\n"
@@ -119,10 +143,10 @@ def cmd(line, session):
             f"Historial:   {len(session.history)-1} mensajes\n"
             f"Switches:    {session.switches}\n"
             f"Tiempo:      {elapsed}\n"
-            f"Auto-route:  {'ON' if session.autoroute else 'OFF'}\n"
-            f"Post-sync:   {session.sync_after}\n"
-            f"Providers:   {active}",
+            f"Auto-route:  {'ON' if session.autoroute else 'OFF'}  |  Skip: {skip}\n"
+            f"\n[bold]Providers — estado en vivo:[/bold]\n{prov_panel}",
             title="[bold]Estado BAGO[/bold]", box=box.ROUNDED))
+
     elif v == "/save":
         pi(f"Guardado: {session.save()}")
     elif v == "/clear":

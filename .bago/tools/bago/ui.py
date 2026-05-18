@@ -141,13 +141,30 @@ class CtrlCGuard:
             return True
 
 
-def banner(session):
+def banner(session, health: "dict | None" = None):
     active = session.creds.active_bago_providers()
     c = COLORS.get(session.provider, "white")
-    providers_str = "  ".join(
-        f"[{'green' if p in active else 'red'}]{p}[/{'green' if p in active else 'red'}]"
-        for p in COLORS
-    )
+
+    # ── Indicadores de provider con color real ────────────────────────────────
+    def _provider_badge(p: str) -> str:
+        if health:
+            h = health.get(p, {})
+            if h.get("ok"):
+                col = "green"
+                detail = h.get("detail", "")
+                # Para Ollama sin modelos: amarillo
+                if p == "ollama-local" and not h.get("models"):
+                    col = "yellow"
+                suffix = f" [dim]{detail}[/dim]" if detail else ""
+                return f"[{col}]●[/{col}] [{col}]{p}[/{col}]{suffix}"
+            else:
+                return f"[red]●[/red] [red]{p}[/red]"
+        else:
+            col = "green" if p in active else "red"
+            return f"[{col}]●[/{col}] [{col}]{p}[/{col}]"
+
+    prov_keys = list(COLORS.keys())
+    badges = "  ".join(_provider_badge(p) for p in prov_keys)
 
     # ── Modos activos ──────────────────────────────────────────────────────────
     def _flag(label, on, on_color="cyan"):
@@ -176,7 +193,7 @@ def banner(session):
         console.print(Panel(
             f"[bold cyan]BAGO CLI  v{BAGO_VERSION}[/bold cyan]  [dim]·  A.M. TECHNOLOGIES[/dim]\n"
             f"[dim]Motor: [{c}]{session.model_name}[/{c}] ({session.provider})[/dim]\n"
-            f"Providers: {providers_str}\n"
+            f"{badges}\n"
             f"\n"
             f"Modo: {modo_str}   {auto_str}   {plan_str}   {brain_str}\n"
             f"{routing_line}\n"
