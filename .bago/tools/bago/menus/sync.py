@@ -217,96 +217,346 @@ def _sync_git(session):
         _post_sync(session)
 
 
-# ── Snapshot a nube (send.cm) ─────────────────────────────────────────────────
+# ── Cloud versioning (send.cm) ────────────────────────────────────────────────
+# Esquema de versionado:
+#   bago_v3.4.0_20260519_1234.zip  ← snapshot versionado
+#   bago_manifest.json             ← índice de versiones con URLs
+#   install_bago.py                ← script autónomo de instalación
+#
+# El manifest se sube también a send.cm. Su URL se guarda localmente.
+# Con eso cualquier persona puede instalar BAGO sin GitHub:
+#   python install_bago.py --from https://send.cm/xxxxx
+#
+# El manifest NO es infinito: se mantienen hasta MAX_CLOUD_VERSIONS entradas.
+# Las antiguas se eliminan del registro local (send.cm no tiene API de borrado
+# en cuentas free, pero los links simplemente dejan de listarse en el manifest).
 
-def _sync_cloud_snapshot():
-    """Crea un zip del framework y lo sube a send.cm. Devuelve link compartible."""
-    try:
-        import requests
-    except ImportError:
-        pe("El paquete 'requests' no está instalado. Ejecuta: pip install requests"); return
+_CLOUD_VERSIONS_FILE = None   # se resuelve en runtime para evitar importación circular
+_MAX_CLOUD_VERSIONS  = 10
 
-    # Leer API key guardada
+
+def _cloud_versions_file() -> Path:
+    from ..constants import USER_BAGO
+    return USER_BAGO / "cloud_versions.json"
+
+
+def _load_cloud_manifest() -> dict:
+    f = _cloud_versions_file()
+    if f.exists():
+        try:
+            return json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {"versions": [], "manifest_url": ""}
+
+
+def _save_cloud_manifest(manifest: dict):
+    f = _cloud_versions_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _sendcm_api_key() -> str:
+    """Lee la API key de send.cm desde credentials.json. La pide si no existe."""
     from ..constants import USER_BAGO
     cred_file = USER_BAGO / "credentials.json"
-    api_key = ""
     try:
         creds = json.loads(cred_file.read_text(encoding="utf-8"))
-        api_key = creds.get("sendcm", {}).get("api_key", "")
+        key = creds.get("sendcm", {}).get("api_key", "")
+        if key:
+            return key
     except Exception:
         pass
 
-    if not api_key:
-        api_key = _menu_input(
-            "send.cm API Key",
-            "Introduce tu API key de send.cm (se guarda en credentials.json):",
-            default=""
-        )
-        if not api_key:
-            pe("Sin API key — operación cancelada."); return
-        # Guardar
-        try:
-            creds = {}
-            if cred_file.exists():
-                creds = json.loads(cred_file.read_text(encoding="utf-8"))
-            creds.setdefault("sendcm", {})["api_key"] = api_key
-            cred_file.write_text(json.dumps(creds, indent=2, ensure_ascii=False), encoding="utf-8")
-            pi("API key guardada en credentials.json")
-        except Exception as e:
-            pe(f"No se pudo guardar la API key: {e}")
+    key = _menu_input(
+        "send.cm API Key",
+        "Introduce tu API key de send.cm (regístrate en https://send.cm):",
+        default=""
+    )
+    if not key:
+        return ""
+    try:
+        creds = {}
+        if cred_file.exists():
+            creds = json.loads(cred_file.read_text(encoding="utf-8"))
+        creds.setdefault("sendcm", {})["api_key"] = key
+        cred_file.write_text(json.dumps(creds, indent=2, ensure_ascii=False), encoding="utf-8")
+        pi("API key guardada en credentials.json")
+    except Exception as e:
+        pe(f"No se pudo guardar la API key: {e}")
+    return key
 
-    # Crear zip
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-    zip_path = Path.home() / f"bago_snapshot_{ts}.zip"
+
+def _sendcm_upload(api_key: str, file_path: Path, label: str = "") -> str:
+    """Sube un fichero a send.cm y devuelve la URL de descarga (o '' si falla)."""
+    import requests
+    try:
+        r = requests.get(
+            "https://send.cm/api/upload/server",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=10
+        )
+        r.raise_for_status()
+        upload_url = r.json()["data"]["upload_url"]
+    except Exception as e:
+        pe(f"send.cm: error obteniendo servidor de upload: {e}"); return ""
+
+    desc = label or file_path.name
+    with console.status(f"[dim cyan]Subiendo {desc}...[/dim cyan]", spinner="dots"):
+        try:
+            with open(file_path, "rb") as fh:
+                up = requests.post(
+                    upload_url,
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    files={"file": (file_path.name, fh)},
+                    timeout=300
+                )
+            up.raise_for_status()
+            data = up.json()
+            return data.get("data", {}).get("url") or data.get("url", "")
+        except Exception as e:
+            pe(f"send.cm: error en upload: {e}"); return ""
+
+
+def _generate_install_script(manifest_url: str) -> str:
+    """Genera el contenido de install_bago.py — script autónomo de instalación."""
+    return f'''\
+#!/usr/bin/env python3
+"""
+install_bago.py — Instalador autónomo de BAGO
+Descarga la version especificada (o la mas reciente) desde send.cm
+y la extrae en el directorio actual.
+
+Uso:
+  python install_bago.py                         # ultima version
+  python install_bago.py --version v3.4.0        # version concreta
+  python install_bago.py --from URL              # URL directa al zip
+  python install_bago.py --manifest URL          # manifest alternativo
+  python install_bago.py --list                  # listar versiones
+"""
+
+import argparse, json, os, sys, urllib.request, zipfile
+from pathlib import Path
+
+MANIFEST_URL = "{manifest_url}"
+
+
+def fetch_json(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=30) as r:
+        return json.loads(r.read().decode())
+
+
+def download(url: str, dest: Path):
+    print(f"  Descargando {{url[:70]}}...")
+    with urllib.request.urlopen(url, timeout=300) as r, open(dest, "wb") as f:
+        total = int(r.headers.get("Content-Length", 0))
+        done  = 0
+        while chunk := r.read(65536):
+            f.write(chunk)
+            done += len(chunk)
+            if total:
+                pct = done * 100 // total
+                print(f"\\r  {{pct:3d}}% {{done // 1048576}} MB / {{total // 1048576}} MB", end="", flush=True)
+    print()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Instalador BAGO desde send.cm")
+    parser.add_argument("--manifest", default=MANIFEST_URL, help="URL del manifest JSON")
+    parser.add_argument("--from",    dest="direct_url",    help="URL directa al zip")
+    parser.add_argument("--version", default="",           help="Version a instalar (ej: v3.4.0)")
+    parser.add_argument("--list",    action="store_true",  help="Listar versiones disponibles")
+    parser.add_argument("--dest",    default=".",          help="Directorio de instalacion")
+    args = parser.parse_args()
+
+    # Manifest
+    if not args.direct_url:
+        if not args.manifest:
+            print("ERROR: No hay manifest URL. Proporciona --manifest URL o --from URL")
+            sys.exit(1)
+        print(f"Leyendo manifest: {{args.manifest}}")
+        try:
+            manifest = fetch_json(args.manifest)
+        except Exception as e:
+            print(f"ERROR leyendo manifest: {{e}}"); sys.exit(1)
+
+        versions = manifest.get("versions", [])
+        if not versions:
+            print("Sin versiones en el manifest."); sys.exit(1)
+
+        if args.list:
+            print("\\nVersiones disponibles en BAGO cloud:")
+            for v in versions:
+                print(f"  {{v['version']:12}}  {{v['date'][:10]}}  {{v['size_mb']:.1f}} MB  {{v['url']}}")
+            sys.exit(0)
+
+        if args.version:
+            entry = next((v for v in versions if v["version"] == args.version), None)
+            if not entry:
+                print(f"Version {{args.version}} no encontrada."); sys.exit(1)
+        else:
+            entry = versions[-1]
+            print(f"Ultima version: {{entry['version']}} ({{entry['date'][:10]}})")
+
+        download_url = entry["url"]
+        fname        = f"bago_{{entry['version']}}.zip"
+    else:
+        download_url = args.direct_url
+        fname        = "bago_download.zip"
+
+    dest_dir = Path(args.dest).resolve()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = dest_dir / fname
+
+    print(f"\\nInstalando BAGO en: {{dest_dir}}")
+    download(download_url, zip_path)
+
+    print("  Extrayendo...")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(dest_dir)
+    zip_path.unlink()
+
+    print(f"\\n✅  BAGO instalado en {{dest_dir}}")
+    print("   Ejecuta:  python .bago/tools/bago_chat.py")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def _sync_cloud_snapshot():
+    """Sube snapshot versionado a send.cm, actualiza manifest y genera install_bago.py."""
+    try:
+        import requests  # noqa: F401
+    except ImportError:
+        pe("El paquete 'requests' no está instalado. Ejecuta: pip install requests"); return
+
+    api_key = _sendcm_api_key()
+    if not api_key:
+        return
+
+    # Submenú: qué hacer
+    action = _menu_select(
+        "BAGO Cloud (send.cm)",
+        "¿Qué quieres hacer?",
+        [
+            ("upload",   "Subir nueva versión  (zip + actualizar manifest)"),
+            ("list",     "Ver versiones en el manifest local"),
+            ("install",  "Generar script install_bago.py con manifest actual"),
+            ("show_url", "Mostrar URL del manifest actual"),
+        ]
+    )
+    if action is None:
+        return
+
+    manifest = _load_cloud_manifest()
+
+    if action == "list":
+        versions = manifest.get("versions", [])
+        if not versions:
+            pi("No hay versiones en el manifest local todavía.")
+        else:
+            console.print("\n[bold]Versiones BAGO en cloud:[/bold]")
+            for v in versions:
+                console.print(f"  [cyan]{v['version']:14}[/cyan]  {v['date'][:10]}  "
+                               f"{v.get('size_mb', 0):.1f} MB  [dim]{v['url']}[/dim]")
+            if manifest.get("manifest_url"):
+                console.print(f"\n  [dim]Manifest: {manifest['manifest_url']}[/dim]")
+        return
+
+    if action == "show_url":
+        url = manifest.get("manifest_url", "")
+        if url:
+            console.print(f"\n  Manifest URL: [bold cyan]{url}[/bold cyan]")
+            console.print(f"  [dim]Comparte para instalar con: python install_bago.py --manifest {url}[/dim]")
+        else:
+            pi("Todavía no se ha subido ningún manifest. Sube una versión primero.")
+        return
+
+    if action == "install":
+        manifest_url = manifest.get("manifest_url", "")
+        script = _generate_install_script(manifest_url)
+        out = BAGO_REPO_ROOT / "install_bago.py"
+        out.write_text(script, encoding="utf-8")
+        pi(f"Script generado: {out}")
+        if manifest_url:
+            console.print(f"  [dim]Uso: python install_bago.py  (manifest precargado)[/dim]")
+        else:
+            console.print(f"  [yellow]⚠  Manifest URL vacía — sube una versión primero.[/yellow]")
+        return
+
+    # action == "upload"
+    from ..constants import BAGO_VERSION
+    ts  = datetime.datetime.now()
+    tag = f"v{BAGO_VERSION}"
+    zip_name = f"bago_{tag}_{ts.strftime('%Y%m%d_%H%M')}.zip"
+    zip_path = Path.home() / zip_name
+
+    # Crear zip (excluye .git y __pycache__)
     with console.status("[dim]Comprimiendo framework...[/dim]", spinner="dots"):
         try:
+            exclude = {".git", "__pycache__", ".pytest_cache"}
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 for f in BAGO_REPO_ROOT.rglob("*"):
-                    if f.is_file() and ".git" not in f.parts:
+                    if f.is_file() and not any(p in exclude for p in f.parts):
                         zf.write(f, f.relative_to(BAGO_REPO_ROOT))
             size_mb = zip_path.stat().st_size / 1_048_576
         except Exception as e:
             pe(f"Error creando zip: {e}"); return
 
-    pi(f"Snapshot creado: {zip_path.name} ({size_mb:.1f} MB)")
+    pi(f"Snapshot: {zip_name} ({size_mb:.1f} MB)")
 
-    # Obtener servidor de upload
-    with console.status("[dim]Conectando a send.cm...[/dim]", spinner="dots"):
-        try:
-            r = requests.get(
-                "https://send.cm/api/upload/server",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=10
-            )
-            r.raise_for_status()
-            upload_url = r.json()["data"]["upload_url"]
-        except Exception as e:
-            pe(f"Error obteniendo servidor de upload: {e}")
-            zip_path.unlink(missing_ok=True)
-            return
-
-    # Subir
-    with console.status("[dim cyan]Subiendo snapshot a send.cm...[/dim cyan]", spinner="dots"):
-        try:
-            with open(zip_path, "rb") as fh:
-                up = requests.post(
-                    upload_url,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    files={"file": (zip_path.name, fh)},
-                    timeout=120
-                )
-            up.raise_for_status()
-            data = up.json()
-            download_url = data.get("data", {}).get("url") or data.get("url", "?")
-        except Exception as e:
-            pe(f"Error en upload: {e}")
-            zip_path.unlink(missing_ok=True)
-            return
-
+    # Subir zip
+    dl_url = _sendcm_upload(api_key, zip_path, zip_name)
     zip_path.unlink(missing_ok=True)
-    pi(f"[green]✓ Snapshot subido:[/green]")
-    console.print(f"  [bold cyan]{download_url}[/bold cyan]")
-    console.print(f"  [dim]Comparte este link para que alguien descargue BAGO[/dim]")
+    if not dl_url:
+        return
+    pi(f"[green]✓[/green] Zip subido: {dl_url}")
+
+    # Actualizar manifest local
+    versions = manifest.get("versions", [])
+    versions.append({
+        "version": tag,
+        "date":    ts.isoformat(),
+        "size_mb": round(size_mb, 2),
+        "url":     dl_url,
+        "name":    zip_name,
+    })
+    # Mantener solo MAX_CLOUD_VERSIONS entradas
+    if len(versions) > _MAX_CLOUD_VERSIONS:
+        versions = versions[-_MAX_CLOUD_VERSIONS:]
+    manifest["versions"] = versions
+
+    # Generar y subir manifest JSON
+    manifest_tmp = Path.home() / "bago_manifest.json"
+    manifest_tmp.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    manifest_url = _sendcm_upload(api_key, manifest_tmp, "bago_manifest.json")
+    manifest_tmp.unlink(missing_ok=True)
+
+    if manifest_url:
+        manifest["manifest_url"] = manifest_url
+        pi(f"[green]✓[/green] Manifest subido: {manifest_url}")
+    else:
+        pi("[yellow]⚠  Manifest no subido, pero el zip sí está disponible.[/yellow]")
+
+    _save_cloud_manifest(manifest)
+
+    # Regenerar install_bago.py con la nueva manifest_url
+    script = _generate_install_script(manifest.get("manifest_url", ""))
+    install_out = BAGO_REPO_ROOT / "install_bago.py"
+    install_out.write_text(script, encoding="utf-8")
+    pi(f"install_bago.py actualizado → {install_out}")
+
+    console.print(f"\n[bold green]✅ BAGO {tag} disponible en cloud[/bold green]")
+    console.print(f"  Zip:      [cyan]{dl_url}[/cyan]")
+    if manifest_url:
+        console.print(f"  Manifest: [cyan]{manifest_url}[/cyan]")
+        console.print(f"\n  [dim]Para instalar desde cero en otra máquina:[/dim]")
+        console.print(f"  [bold]python install_bago.py --manifest {manifest_url}[/bold]")
+        console.print(f"  [dim]o simplemente: python install_bago.py  (si el script ya tiene la URL)[/dim]")
 
 
 # ── USB ───────────────────────────────────────────────────────────────────────
@@ -378,7 +628,7 @@ def _cmd_sync(session):
             ("sync_usb",     "Sincronizar con USB  (mirror knowledge + state)"),
             ("sync_both",    "Sincronizar con repositorios Y USB"),
             ("manage_repos", "Gestionar repositorios  (GitHub / GitLab / Codeberg / custom)"),
-            ("cloud_snap",   "Exportar snapshot a nube  (send.cm — link compartible)"),
+            ("cloud_snap",   "Cloud send.cm  — subir versión / listar / instalar desde cero"),
             ("after_sync",   f"Comportamiento post-sync: [cyan]{session.sync_after}[/cyan]"),
         ]
         sel = _menu_select("BAGO / Sync",
