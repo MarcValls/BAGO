@@ -207,9 +207,9 @@ class TestScanHistory:
         assert missing["ollama-local"]["last_models"] == models
 
     def test_known_providers_catalog_complete(self):
-        """El catálogo incluye los 6 providers conocidos."""
+        """El catálogo incluye los 7 providers conocidos."""
         from bago.providers import KNOWN_PROVIDERS_CATALOG
-        expected = {"ollama-local", "ollama-cloud", "copilot", "codex", "anthropic", "openrouter"}
+        expected = {"ollama-local", "ollama-cloud", "copilot", "github-models", "codex", "anthropic", "openrouter"}
         assert set(KNOWN_PROVIDERS_CATALOG.keys()) == expected
 
     def test_catalog_entries_have_required_fields(self):
@@ -219,3 +219,213 @@ class TestScanHistory:
         for pname, entry in KNOWN_PROVIDERS_CATALOG.items():
             missing_fields = required - set(entry.keys())
             assert not missing_fields, f"{pname} falta: {missing_fields}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _check_codex — detección ChatGPT OAuth / API key / CLI sin login
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCheckCodex:
+    """Tests para la detección de credenciales del provider codex/OpenAI."""
+
+    def test_api_key_detected(self, monkeypatch, tmp_path):
+        """OPENAI_API_KEY → ok=True con 4 últimos dígitos."""
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test1234")
+        # codex_dir vacío para no mezclar con OAuth
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["codex"]["ok"] is True
+        assert "1234" in result["codex"]["detail"]
+
+    def test_oauth_token_detected(self, monkeypatch, tmp_path):
+        """~/.codex/auth.json con tokens.access_token → ok=True, ChatGPT OAuth."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir()
+        (codex_dir / "auth.json").write_text(json.dumps({
+            "tokens": {"access_token": "chatgpt-oauth-token-xyz"},
+            "user": {"email": "marc@example.com"},
+        }))
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["codex"]["ok"] is True
+        assert "OAuth" in result["codex"]["detail"] or "oauth" in result["codex"]["detail"].lower()
+
+    def test_alternative_token_keys(self, monkeypatch, tmp_path):
+        """~/.codex/auth.json con clave access_token directa → ok=True."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir()
+        (codex_dir / "auth.json").write_text(json.dumps({
+            "access_token": "direct-token-abc",
+        }))
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        # El access_token directo es recogido por _codex_access_token() o el fallback
+        assert result["codex"]["ok"] is True
+
+    def test_cli_installed_no_login(self, monkeypatch, tmp_path):
+        """codex CLI instalado pero sin auth.json → ok=False con mensaje de login."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        # ~/.codex no existe
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        import shutil as _shutil
+        real_which = _shutil.which
+
+        def mock_which(name, *a, **kw):
+            if name == "codex":
+                return "/usr/local/bin/codex"
+            return real_which(name, *a, **kw)
+
+        monkeypatch.setattr("shutil.which", mock_which)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["codex"]["ok"] is False
+        assert "login" in result["codex"]["detail"].lower()
+
+    def test_nothing_available(self, monkeypatch, tmp_path):
+        """Sin API key, sin auth.json, sin CLI → ok=False con instrucciones."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        import shutil as _shutil
+        real_which = _shutil.which
+
+        def mock_which(name, *a, **kw):
+            if name == "codex":
+                return None
+            return real_which(name, *a, **kw)
+
+        monkeypatch.setattr("shutil.which", mock_which)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["codex"]["ok"] is False
+        # Debe mencionar cómo instalar codex o cómo obtener API key
+        detail = result["codex"]["detail"].lower()
+        assert "api" in detail or "codex" in detail or "openai" in detail
+
+    def test_api_key_takes_priority_over_oauth(self, monkeypatch, tmp_path):
+        """Si hay OPENAI_API_KEY Y auth.json, API key gana."""
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-prioritykey9999")
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir()
+        (codex_dir / "auth.json").write_text(json.dumps({
+            "tokens": {"access_token": "should-not-be-used"},
+        }))
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["codex"]["ok"] is True
+        assert "9999" in result["codex"]["detail"]
+        assert "OAuth" not in result["codex"]["detail"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _check_github_models — detección GitHub Models (servicio separado de Copilot)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCheckGitHubModels:
+    """Tests para el provider github-models (models.github.ai)."""
+
+    def test_no_token_returns_not_ok(self, monkeypatch):
+        """Sin GITHUB_TOKEN → ok=False con instrucción de login."""
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["github-models"]["ok"] is False
+        assert "gh auth login" in result["github-models"]["detail"] or \
+               "GITHUB_TOKEN" in result["github-models"]["detail"]
+
+    def test_valid_token_with_mock_catalog(self, monkeypatch):
+        """Token válido + catálogo HTTP 200 → ok=True con lista de modelos."""
+        import urllib.request
+        import json as _json
+
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_testtoken123")
+
+        catalog = [
+            {"id": "openai/gpt-4.1"},
+            {"id": "openai/gpt-4o"},
+            {"id": "meta/llama-3-70b"},
+            {"id": "mistral/mistral-large"},
+        ]
+
+        class _FakeResponse:
+            def read(self):
+                return _json.dumps(catalog).encode()
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                pass
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: _FakeResponse())
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["github-models"]["ok"] is True
+        assert result["github-models"]["models"] == [
+            "openai/gpt-4.1", "openai/gpt-4o", "meta/llama-3-70b", "mistral/mistral-large"
+        ]
+        assert "4 modelos" in result["github-models"]["detail"]
+
+    def test_http_401_returns_not_ok(self, monkeypatch):
+        """Token inválido (401) → ok=False con mensaje claro."""
+        import urllib.request, urllib.error
+
+        monkeypatch.setenv("GITHUB_TOKEN", "invalid-token")
+
+        def _raise_401(*a, **kw):
+            raise urllib.error.HTTPError(None, 401, "Unauthorized", {}, None)
+
+        monkeypatch.setattr(urllib.request, "urlopen", _raise_401)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["github-models"]["ok"] is False
+        assert "401" in result["github-models"]["detail"]
+
+    def test_http_403_returns_not_ok(self, monkeypatch):
+        """403 → ok=False (cuenta sin permisos)."""
+        import urllib.request, urllib.error
+
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_nopermissions")
+
+        def _raise_403(*a, **kw):
+            raise urllib.error.HTTPError(None, 403, "Forbidden", {}, None)
+
+        monkeypatch.setattr(urllib.request, "urlopen", _raise_403)
+
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        assert result["github-models"]["ok"] is False
+        assert "403" in result["github-models"]["detail"]
+
+    def test_github_models_in_catalog(self):
+        """github-models aparece en el catalogo de providers conocidos."""
+        from bago.providers import KNOWN_PROVIDERS_CATALOG
+        assert "github-models" in KNOWN_PROVIDERS_CATALOG
+        entry = KNOWN_PROVIDERS_CATALOG["github-models"]
+        assert entry["openai_compat"] is True
+        assert "models.github.ai" in entry["endpoint"]
+
+    def test_github_models_separate_from_copilot(self, monkeypatch):
+        """github-models y copilot son checks independientes en el resultado."""
+        from bago import providers as pmod
+        result = pmod.scan_provider_health(None, providers={})
+        # Ambos deben estar presentes como claves separadas
+        assert "github-models" in result
+        assert "copilot" in result
+        # No deben ser el mismo objeto
+        assert result["github-models"] is not result["copilot"]

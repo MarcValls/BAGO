@@ -379,17 +379,27 @@ KNOWN_PROVIDERS_CATALOG: dict[str, dict] = {
         "type":        "local",
     },
     "copilot": {
-        "label":       "GitHub Copilot / GitHub Models",
-        "description": "GPT-4o y más via GitHub Models — gratis con cuenta GitHub",
-        "setup":       "Ejecuta `gh auth login` en la terminal",
-        "requires":    "gh CLI autenticado → GITHUB_TOKEN o GH_TOKEN",
+        "label":       "GitHub Copilot",
+        "description": "Code completion y chat IA en el IDE — requiere suscripcion Copilot activa",
+        "setup":       "Activa GitHub Copilot en github.com/settings/copilot + `gh auth login`",
+        "requires":    "Suscripcion GitHub Copilot (Free/Pro/Business) + GITHUB_TOKEN",
         "type":        "cloud",
+    },
+    "github-models": {
+        "label":       "GitHub Models",
+        "description": "GPT-4.1, Llama 3, Mistral, DeepSeek y mas — GRATIS con cualquier cuenta GitHub (rate-limited)",
+        "setup":       "Solo necesitas `gh auth login` — disponible para toda cuenta GitHub sin pago extra",
+        "requires":    "GITHUB_TOKEN o GH_TOKEN (cualquier cuenta GitHub valida)",
+        "type":        "cloud",
+        "endpoint":    "https://models.github.ai/inference",
+        "catalog":     "https://models.github.ai/catalog/models",
+        "openai_compat": True,
     },
     "codex": {
         "label":       "OpenAI / Codex CLI",
-        "description": "GPT-4o via API OpenAI o Codex CLI (ChatGPT Plus)",
-        "setup":       "Obtén API key en https://platform.openai.com o instala Codex CLI",
-        "requires":    "OPENAI_API_KEY o codex CLI autenticado",
+        "description": "GPT-4o via API OpenAI o ChatGPT Plus (sin API key, via codex login)",
+        "setup":       "Opción A: export OPENAI_API_KEY=sk-...  |  Opción B: npm i -g @openai/codex && codex login",
+        "requires":    "OPENAI_API_KEY  o  codex CLI autenticado con cuenta ChatGPT Plus",
         "type":        "cloud",
     },
     "anthropic": {
@@ -519,20 +529,74 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             return {"ok": False, "detail": str(e)[:60]}
 
     def _check_codex():
+        import shutil
+
+        # ── 1. API key explícita (máxima prioridad) ───────────────────────────
         api_key = os.environ.get("OPENAI_API_KEY", "")
-        if not api_key:
-            # Verificar auth codex CLI
-            codex_dir = Path.home() / ".codex"
-            if codex_dir.exists():
-                for f in codex_dir.glob("*.json"):
-                    try:
-                        d = json.loads(f.read_text())
-                        if d.get("accessToken") or d.get("token"):
-                            return {"ok": True, "detail": "codex CLI autenticado"}
-                    except Exception:
-                        pass
-            return {"ok": False, "detail": "sin OPENAI_API_KEY ni codex auth"}
-        return {"ok": True, "detail": f"API key ...{api_key[-4:]}"}
+        if api_key:
+            return {"ok": True, "detail": f"API key ...{api_key[-4:]}", "auth": "api_key"}
+
+        # ── 2. OAuth token de ChatGPT Plus via codex CLI ──────────────────────
+        # _codex_access_token() lee ~/.codex/auth.json → tokens.access_token
+        oauth_token = _codex_access_token()
+        if oauth_token:
+            # Detectar si es sesión activa comprobando el fichero de auth
+            auth_file = Path.home() / ".codex" / "auth.json"
+            user_hint = ""
+            try:
+                data = json.loads(auth_file.read_text())
+                user = (
+                    data.get("user", {}).get("email")
+                    or data.get("user", {}).get("name")
+                    or data.get("email")
+                    or data.get("name")
+                    or ""
+                )
+                if user:
+                    user_hint = f" ({user})"
+            except Exception:
+                pass
+            return {
+                "ok":    True,
+                "detail": f"ChatGPT OAuth{user_hint}",
+                "auth":   "chatgpt_oauth",
+            }
+
+        # ── 3. Leer otros ficheros en ~/.codex/ con estructuras alternativas ──
+        codex_dir = Path.home() / ".codex"
+        if codex_dir.exists():
+            for f in codex_dir.glob("*.json"):
+                try:
+                    d = json.loads(f.read_text())
+                    # Claves alternativas que distintas versiones del CLI usan
+                    tok = (
+                        d.get("access_token")
+                        or d.get("accessToken")
+                        or d.get("token")
+                        or (d.get("tokens") or {}).get("access_token")
+                        or (d.get("auth") or {}).get("access_token")
+                    )
+                    if tok:
+                        return {"ok": True, "detail": "codex CLI autenticado", "auth": "codex_cli"}
+                except Exception:
+                    pass
+
+        # ── 4. CLI instalado pero sin login ───────────────────────────────────
+        cli = shutil.which("codex")
+        if cli:
+            return {
+                "ok":     False,
+                "detail": "codex CLI instalado pero sin login — ejecuta: codex login",
+                "auth":   "none",
+                "cli":    cli,
+            }
+
+        # ── 5. Nada disponible ────────────────────────────────────────────────
+        return {
+            "ok":     False,
+            "detail": "sin OPENAI_API_KEY ni codex CLI — instala: npm i -g @openai/codex",
+            "auth":   "none",
+        }
 
     def _check_anthropic():
         key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -546,15 +610,69 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             return {"ok": False, "detail": "sin OPENROUTER_API_KEY"}
         return {"ok": True, "detail": f"API key ...{key[-4:]}"}
 
+    def _check_github_models():
+        """Verifica acceso a GitHub Models (gratis para toda cuenta GitHub).
+
+        GitHub Models es DIFERENTE de GitHub Copilot:
+        - No requiere suscripcion Copilot
+        - API 100% compatible con OpenAI
+        - Endpoint: https://models.github.ai/inference
+        - Catalogo: https://models.github.ai/catalog/models
+        """
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+        if not token:
+            return {"ok": False, "detail": "sin GITHUB_TOKEN — ejecuta: gh auth login"}
+
+        try:
+            req = urllib.request.Request(
+                "https://models.github.ai/catalog/models",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept":        "application/vnd.github+json",
+                    "User-Agent":    "BAGO-CLI",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+                # Catalogo devuelve lista de modelos con campo "id" o nombre
+                models_raw = data if isinstance(data, list) else data.get("models", [])
+                # Extraer IDs legibles (ej: "openai/gpt-4.1" → "gpt-4.1")
+                model_ids = []
+                for m in models_raw:
+                    mid = m.get("id") or m.get("name") or ""
+                    if mid:
+                        model_ids.append(mid)
+                n = len(model_ids)
+                sample = ", ".join(model_ids[:3])
+                suffix = f" (+{n-3} mas)" if n > 3 else ""
+                return {
+                    "ok":     True,
+                    "detail": f"{n} modelos disponibles: {sample}{suffix}",
+                    "models": model_ids,
+                    "tier":   "free" if n > 0 else "unknown",
+                }
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                return {"ok": False, "detail": "token invalido (401) — re-ejecuta: gh auth login"}
+            if e.code == 403:
+                return {"ok": False, "detail": f"acceso denegado (403) — cuenta sin permisos GitHub Models"}
+            if e.code == 404:
+                # API puede no estar disponible en esta region / endpoint cambio
+                return {"ok": False, "detail": f"endpoint no encontrado (404) — verifica models.github.ai"}
+            return {"ok": False, "detail": f"HTTP {e.code} desde models.github.ai"}
+        except Exception as e:
+            return {"ok": False, "detail": f"error al conectar con models.github.ai: {str(e)[:60]}"}
+
     _checks = {
-        "ollama-local": _check_ollama,
-        "copilot":      _check_copilot,
-        "codex":        _check_codex,
-        "anthropic":    _check_anthropic,
-        "openrouter":   _check_openrouter,
+        "ollama-local":   _check_ollama,
+        "copilot":        _check_copilot,
+        "github-models":  _check_github_models,
+        "codex":          _check_codex,
+        "anthropic":      _check_anthropic,
+        "openrouter":     _check_openrouter,
     }
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         futures = {prov: pool.submit(fn) for prov, fn in _checks.items()}
         for prov, fut in futures.items():
             try:
