@@ -47,94 +47,81 @@ COLORS = {"copilot":"yellow","codex":"magenta","ollama-local":"green","ollama-cl
 
 HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
-  [bold cyan]Providers y credenciales:[/bold cyan]
-  [yellow]/login[/yellow]                        Ver estado de todos los providers
-  [yellow]/login github[/yellow]                 Login con GitHub (usa gh CLI) → activa Copilot + Models
-  [yellow]/login gpt[/yellow]                    Login GPT Plus (codex login / API key)
-  [yellow]/login anthropic[/yellow]              Añadir API Key de Anthropic → activa Claude
-  [yellow]/login gemini[/yellow]                 Añadir API Key de Google Gemini
-  [yellow]/login openrouter[/yellow]             Añadir API Key de OpenRouter
-  [yellow]/login ollama[/yellow]                 Verificar Ollama local
+  [dim]─── 1 · PROVIDERS & CREDENCIALES ── conectar APIs y gestionar accesos ───[/dim]
 
-  [bold cyan]Multi-cuenta (varias suscripciones por provider):[/bold cyan]
-  [yellow]/login add <provider> [nombre][/yellow]  Agregar cuenta nueva (ej: /login add github Trabajo)
-  [yellow]/login list[/yellow]                     Ver todas las cuentas registradas
-  [yellow]/login switch <id>[/yellow]              Activar una cuenta (ej: /login switch github-2)
-  [yellow]/login remove <id>[/yellow]              Eliminar una cuenta
+  [yellow]/login[/yellow]                               Ver estado de todos los providers
+  [yellow]/login github[/yellow]                        Login GitHub → activa Copilot + GitHub Models
+  [yellow]/login gpt[/yellow]                           Login GPT Plus (codex login) o API key OpenAI
+  [yellow]/login anthropic[/yellow]                     Guardar API Key → activa Claude
+  [yellow]/login gemini[/yellow]                        Guardar API Key → activa Gemini Flash/Pro
+  [yellow]/login openrouter[/yellow]                    Guardar API Key → acceso a 200+ modelos
+  [yellow]/login ollama[/yellow]                        Verificar Ollama local (sin credencial)
+  [yellow]/scan[/yellow]                                Scan completo: disponibles · potenciales · missing · tokens
 
-  [bold cyan]Control de modelo:[/bold cyan]
-  [yellow]/switch <modelo>[/yellow]    Forzar modelo manualmente (sin perder historial)
-  [yellow]/autoroute on|off[/yellow]   Routing+estrategia automaticos (default: on)
-  [yellow]/models[/yellow]             Lista todos los modelos disponibles
-  [yellow]/scan[/yellow]               Scan completo: disponibles · potenciales · missing + tokens
+  [dim]  Multi-cuenta — varias suscripciones del mismo provider:[/dim]
+  [yellow]/login add <provider> [nombre][/yellow]       Agregar cuenta  (ej: /login add github Trabajo)
+  [yellow]/login list[/yellow]                          Ver todas las cuentas registradas
+  [yellow]/login switch <id>[/yellow]                   Activar cuenta  (ej: /login switch github-2)
+  [yellow]/login remove <id>[/yellow]                   Eliminar cuenta
 
-  [bold cyan]Estrategias multi-modelo (normalmente auto):[/bold cyan]
-  [yellow]/chain m1->m2: prompt[/yellow]    Pipeline: m1 genera, m2 refina
-  [yellow]/ensemble m1 m2: prompt[/yellow]  Paralelo + sintesis automatica
+  [dim]─── 2 · MODELO & ROUTING ── cómo BAGO decide qué modelo usar ─────────[/dim]
 
-  [bold cyan]Atajos de agente (activan el agente y cambian el modelo):[/bold cyan]
-  [yellow]/code[/yellow]  [dim]o[/dim] [yellow]/impl[/yellow]  [dim]o[/dim] [yellow]/write[/yellow]    → agent_coder    (gpt-4o · copilot)
-  [yellow]/sprint[/yellow]  [dim]o[/dim] [yellow]/backlog[/yellow]  [dim]o[/dim] [yellow]/roadmap[/yellow]  → agent_planner  (gpt-4o · copilot)
-  [yellow]/debug[/yellow]  [dim]o[/dim] [yellow]/fix[/yellow]  [dim]o[/dim] [yellow]/error[/yellow]    → agent_debugger (qwen25-coder · local)
-  [yellow]/arch[/yellow]  [dim]o[/dim] [yellow]/design[/yellow]  [dim]o[/dim] [yellow]/sistema[/yellow]  → agent_architect (gpt-4o · copilot)
-  [yellow]/refactor[/yellow]  [dim]o[/dim] [yellow]/clean[/yellow]  [dim]o[/dim] [yellow]/mejora[/yellow]  → agent_refactor  (qwen25-coder · local)
-  [yellow]/git[/yellow]  [dim]o[/dim] [yellow]/commit[/yellow]  [dim]o[/dim] [yellow]/pr[/yellow]      → agent_git      (qwen25-coder · local)
+  [yellow]/switch <modelo>[/yellow]                     Forzar modelo puntualmente (sin perder historial)
+  [yellow]/autoroute on|off[/yellow]                    Routing automatico basado en tipo de tarea
+  [yellow]/models[/yellow]                              Listar todos los modelos disponibles
+  [yellow]/mode[/yellow]                                Cambiar modo global (offline/economico/estandar/full)
+  [yellow]/roles[/yellow]                               Ver modos del orquestador y preferencias por tarea
+  [yellow]/roles tasks[/yellow]                         Ver que modelo se usa para cada tipo de tarea
+  [yellow]/routing[/yellow]                             Ver y editar la matriz de enrutamiento completa
+  [yellow]/routing add <id> provider=X model=Y keywords=K[/yellow]  Crear regla
+  [yellow]/routing del <id>[/yellow]  · [yellow]/routing move <id> up|down[/yellow]    Eliminar · Reordenar
 
-  [bold cyan]Agentes (gestión):[/bold cyan]
-  [yellow]/agents[/yellow]                           Listar todos los agentes
-  [yellow]/agents <nombre>[/yellow]                  Ver detalle de un agente
-  [yellow]/agents add <nombre>[/yellow]              Crear agente nuevo
-  [yellow]/agents toggle <nombre>[/yellow]           Activar / desactivar agente
-  [yellow]/agents set <nombre> <campo> <val>[/yellow]   Editar campo
-  [yellow]/agents del <nombre>[/yellow]              Eliminar agente
+  [dim]  Estrategias manuales (normalmente el orquestador las aplica solo):[/dim]
+  [yellow]/chain m1->m2: prompt[/yellow]                Pipeline: m1 genera, m2 refina
+  [yellow]/ensemble m1 m2: prompt[/yellow]              Paralelo: ambos responden, se sintetizan
 
-  [bold cyan]Skills:[/bold cyan]
-  [yellow]/skills[/yellow]                           Listar todas las skills
-  [yellow]/skills <nombre>[/yellow]                  Ver detalle de una skill
-  [yellow]/skills add <nombre>[/yellow]              Crear skill nueva
-  [yellow]/skills set <nombre> <campo> <val>[/yellow]   Editar campo
-  [yellow]/skills del <nombre>[/yellow]              Eliminar skill
+  [dim]─── 3 · AGENTES & SKILLS ── unidades de inteligencia especializadas ───[/dim]
 
-  [bold cyan]Routing (matriz de enrutamiento):[/bold cyan]
-  [yellow]/routing[/yellow]                          Ver matriz completa
-  [yellow]/routing <id>[/yellow]                     Ver regla concreta
-  [yellow]/routing add <id> provider=X model=Y keywords=K reason=R[/yellow]
-  [yellow]/routing del <id>[/yellow]                 Eliminar regla
-  [yellow]/routing fallback <provider> <model>[/yellow]  Cambiar fallback
-  [yellow]/routing move <id> up|down[/yellow]        Reordenar prioridad
+  [dim]  Atajos rapidos — activan el agente correcto y cambian el modelo:[/dim]
+  [yellow]/code[/yellow]  [dim]·[/dim] [yellow]/impl[/yellow]  [dim]·[/dim] [yellow]/write[/yellow]          → agent_coder      (copilot)
+  [yellow]/sprint[/yellow]  [dim]·[/dim] [yellow]/backlog[/yellow]  [dim]·[/dim] [yellow]/roadmap[/yellow]      → agent_planner    (copilot)
+  [yellow]/debug[/yellow]  [dim]·[/dim] [yellow]/fix[/yellow]  [dim]·[/dim] [yellow]/error[/yellow]          → agent_debugger   (ollama-local)
+  [yellow]/arch[/yellow]  [dim]·[/dim] [yellow]/design[/yellow]  [dim]·[/dim] [yellow]/sistema[/yellow]        → agent_architect  (copilot)
+  [yellow]/refactor[/yellow]  [dim]·[/dim] [yellow]/clean[/yellow]  [dim]·[/dim] [yellow]/mejora[/yellow]      → agent_refactor   (ollama-local)
+  [yellow]/git[/yellow]  [dim]·[/dim] [yellow]/commit[/yellow]  [dim]·[/dim] [yellow]/pr[/yellow]            → agent_git        (ollama-local)
 
-  [bold cyan]Fábrica de artefactos BAGO (asistida por LM):[/bold cyan]
-  [yellow]/new[/yellow]  (alias: /wizard, /fabrica)
-    Wizard: describes en lenguaje natural, el LM genera la definición completa.
-    7 tipos de artefacto organizados en 3 categorías:
-      🧠 INTELIGENCIA : Agente · Skill
-      ⚡ SPRINT/NEURAL : Nodo Neural (toolbox de sprint)
-      🔀 ORQUESTACIÓN : Regla routing · Preferencia tarea · Modo orquestador
-      🔧 HERRAMIENTAS : Tool Python (genera script con main() listo)
+  [dim]  Gestion de agentes y skills:[/dim]
+  [yellow]/agents[/yellow]  · [yellow]/agents <nombre>[/yellow]                 Listar · Ver detalle
+  [yellow]/agents add <nombre>[/yellow]  · [yellow]/agents del <nombre>[/yellow]      Crear · Eliminar
+  [yellow]/agents toggle <nombre>[/yellow]  · [yellow]/agents set <nombre> <campo> <val>[/yellow]
+  [yellow]/skills[/yellow]  · [yellow]/skills <nombre>[/yellow]                  Listar · Ver detalle
+  [yellow]/skills add <nombre>[/yellow]  · [yellow]/skills del <nombre>[/yellow]       Crear · Eliminar
 
-  [bold cyan]Roles / Modos del orquestador:[/bold cyan]
-  [yellow]/roles[/yellow]                            Ver modos (offline/economico/estandar/full)
-  [yellow]/roles <modo>[/yellow]                     Detalle de un modo
-  [yellow]/roles tasks[/yellow]                      Ver preferencias por tipo de tarea
-  [yellow]/roles tasks <tarea>[/yellow]              Ver tarea concreta
+  [dim]─── 4 · FABRICA DE ARTEFACTOS ── crea elementos BAGO con el LM ────────[/dim]
 
-  [bold cyan]Sesion, Auth, Auto, Modo, Sync, Memoria, Config:[/bold cyan]
-  [yellow]/session[/yellow]    Gestion de sesion (temporal/disco, load, repliegue, letargo)
-  [yellow]/auth[/yellow]       Auth + providers (superset de /login)
-  [yellow]/auto[/yellow]       Modo autonomo y nivel de confirmaciones
-  [yellow]/mode[/yellow]       Cambio rapido del modo del orquestador
-  [yellow]/sync[/yellow]       Sincronizar GitHub/USB + post-sync (repliegue/letargo)
-  [yellow]/memory[/yellow]     Base de conocimiento + memoria episodica
+  [yellow]/new[/yellow]  [dim](alias: /wizard · /fabrica)[/dim]
+    Describes en lenguaje natural → el LM genera la definicion completa.
+    Tipos: [cyan]Agente[/cyan] · [cyan]Skill[/cyan] · [cyan]Nodo Neural[/cyan] · [cyan]Regla routing[/cyan] · [cyan]Preferencia tarea[/cyan] · [cyan]Modo orquestador[/cyan] · [cyan]Tool Python[/cyan]
+
+  [dim]─── 5 · SESION, MEMORIA & CONFIGURACION ───────────────────────────────[/dim]
+
+  [yellow]/session[/yellow]    Gestionar sesion (guardar en disco, cargar, repliegue, letargo)
+  [yellow]/sync[/yellow]       Sincronizar con GitHub y/o USB (push + mirror)
+  [yellow]/memory[/yellow]     Base de conocimiento y memoria episodica
+  [yellow]/auto[/yellow]       Modo autonomo y nivel de confirmaciones requeridas
   [yellow]/config[/yellow]     Configuracion global persistente
+  [yellow]/auth[/yellow]       Auth completa — superset de /login
 
-  [bold cyan]Framework y Proyectos:[/bold cyan]
-  [yellow]/framework[/yellow]  Vista evolutiva del framework BAGO (sprint, health, ideas, componentes)
-  [yellow]/workspaces[/yellow] Gestion de workspaces (un workspace contiene muchos proyectos)
-  [yellow]/projects[/yellow]   Gestion de proyectos (dentro del workspace activo)
+  [dim]─── 6 · FRAMEWORK & PROYECTOS ── vista macro del sistema ─────────────[/dim]
 
-  [bold cyan]Sesion:[/bold cyan]
-  [yellow]/status[/yellow]   Estado actual   [yellow]/save[/yellow]  Guardar sesion
-  [yellow]/clear[/yellow]    Limpiar historial   [yellow]/exit[/yellow]  Salir
+  [yellow]/framework[/yellow]  Vista evolutiva de BAGO (sprint, health, ideas, componentes)
+  [yellow]/workspaces[/yellow] Gestion de workspaces (contiene varios proyectos)
+  [yellow]/projects[/yellow]   Gestion de proyectos dentro del workspace activo
+
+  [dim]─── SESION RAPIDA ───────────────────────────────────────────────────────[/dim]
+
+  [yellow]/status[/yellow]  Estado actual    [yellow]/save[/yellow]  Guardar sesion
+  [yellow]/clear[/yellow]   Limpiar historial  [yellow]/exit[/yellow]  Salir
 
 [dim]El orquestador decide automaticamente que modelo/s usar y con que estrategia.[/dim]
 """
