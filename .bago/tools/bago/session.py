@@ -41,6 +41,39 @@ class BagoSession:
         }
         # Providers temporalmente excluidos del autoroute (e.g. Ollama caído)
         self.skip_providers: set = set()
+        # Token counter: {provider: {model: {"in": int, "out": int, "calls": int}}}
+        self.token_log: dict = {}
+
+    # ── Token tracking ────────────────────────────────────────────────────────
+    def record_tokens(self, provider: str, model: str, tokens_in: int, tokens_out: int):
+        """Registra tokens de entrada/salida para proveedor y modelo."""
+        p = self.token_log.setdefault(provider, {})
+        m = p.setdefault(model, {"in": 0, "out": 0, "calls": 0})
+        m["in"]    += max(0, tokens_in or 0)
+        m["out"]   += max(0, tokens_out or 0)
+        m["calls"] += 1
+
+    def tokens_summary(self) -> str:
+        """Resumen formateado de tokens usados en la sesión."""
+        if not self.token_log:
+            return "  (sin llamadas registradas aún)"
+        lines = []
+        total_in = total_out = total_calls = 0
+        for prov, models in self.token_log.items():
+            for mdl, t in models.items():
+                ti, to, tc = t["in"], t["out"], t["calls"]
+                lines.append(
+                    f"  {prov}/{mdl:<28}  "
+                    f"↑{ti:>7,} in   ↓{to:>7,} out   ×{tc} llamadas"
+                )
+                total_in    += ti
+                total_out   += to
+                total_calls += tc
+        lines.append(
+            f"  {'TOTAL':<34}  "
+            f"↑{total_in:>7,} in   ↓{total_out:>7,} out   ×{total_calls} llamadas"
+        )
+        return "\n".join(lines)
 
     def _load_orchestrator(self):
         path = Path(__file__).resolve().parents[1] / "orchestrator.py"

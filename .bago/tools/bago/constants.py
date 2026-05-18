@@ -19,8 +19,10 @@ def _bago_version() -> str:
 BAGO_VERSION = _bago_version()
 SESSIONS_DIR = USER_BAGO / "sessions"
 CRED_FILE = USER_BAGO / "credentials.json"
-PROVIDERS_FILE  = STATE_DIR / "model_providers.json"
-ROUTING_FILE    = STATE_DIR / "model_routing.json"
+PROVIDERS_FILE    = STATE_DIR / "model_providers.json"
+ROUTING_FILE      = STATE_DIR / "model_routing.json"
+SCAN_HISTORY_FILE = STATE_DIR / "scan_history.json"
+TOKEN_LOG_FILE    = USER_BAGO / "token_log.json"
 TOOLBOXES_DIR   = STATE_DIR / "toolboxes"
 ORCH_FILE = STATE_DIR / "model_orchestrator.json"
 
@@ -57,6 +59,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/switch <modelo>[/yellow]    Forzar modelo manualmente (sin perder historial)
   [yellow]/autoroute on|off[/yellow]   Routing+estrategia automaticos (default: on)
   [yellow]/models[/yellow]             Lista todos los modelos disponibles
+  [yellow]/scan[/yellow]               Scan completo: disponibles · potenciales · missing + tokens
 
   [bold cyan]Estrategias multi-modelo (normalmente auto):[/bold cyan]
   [yellow]/chain m1->m2: prompt[/yellow]    Pipeline: m1 genera, m2 refina

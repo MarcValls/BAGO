@@ -215,9 +215,22 @@ def _escalate_model(session, user_input: str = "") -> tuple[str, str, str] | Non
     return None
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _llm_call(lm, kw, messages):
+def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
+    """Llamada a LiteLLM. Si se pasa session, registra tokens automáticamente."""
     r = litellm.completion(model=lm, messages=messages, **kw)
-    return r.choices[0].message.content
+    text = r.choices[0].message.content
+    # ── Token tracking ────────────────────────────────────────────────────────
+    if session is not None:
+        usage = getattr(r, "usage", None)
+        if usage:
+            prov = _provider or session.provider
+            mdl  = _model or session.model_name
+            session.record_tokens(
+                prov, mdl,
+                getattr(usage, "prompt_tokens", 0) or 0,
+                getattr(usage, "completion_tokens", 0) or 0,
+            )
+    return text
 
 def run_chain(session, model_sequence, prompt, silent_route=True):
     """Pipeline secuencial. Solo la respuesta final va al historial compartido."""
@@ -247,7 +260,7 @@ def run_chain(session, model_sequence, prompt, silent_route=True):
         step_label = f"paso {i+1}/{len(model_sequence)}: {name}"
         with console.status(f"[dim {c}]{step_label}...[/dim {c}]", spinner="dots"):
             try:
-                text = _llm_call(lm, kw, msgs)
+                text = _llm_call(lm, kw, msgs, session=session, _provider=prov, _model=name)
             except Exception as e:
                 text = f"[ERROR {name}: {e}]"
 
@@ -272,7 +285,7 @@ def run_ensemble(session, model_list, prompt):
         if not name: return None, None, f"'{target}' no encontrado"
         lm, kw = resolve_litellm(prov, wire)
         try:
-            text = _llm_call(lm, kw, context)
+            text = _llm_call(lm, kw, context, session=session, _provider=prov, _model=name)
             return name, prov, text
         except Exception as e:
             return name, prov, f"[ERROR: {e}]"
@@ -295,7 +308,8 @@ def run_ensemble(session, model_list, prompt):
         with console.status(f"[dim]{session.model_name} sintetizando...[/dim]", spinner="dots"):
             try:
                 final = _llm_call(lm, kw, [{"role":"system","content":BAGO_SYSTEM},
-                                            {"role":"user","content":synth}])
+                                            {"role":"user","content":synth}],
+                                  session=session)
             except Exception as e:
                 final = next(iter(results.values()))["text"]
         show_response(final, session.model_name, session.provider,
@@ -344,7 +358,7 @@ def chat(session, user_input):
     lm, kw = session.litellm_info
     try:
         with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
-            text = _llm_call(lm, kw, session.history)
+            text = _llm_call(lm, kw, session.history, session=session)
 
         # ── Capa 1: eliminar bloques repetidos dentro de la respuesta ──────
         text = _dedup_paragraphs(text)
@@ -365,7 +379,7 @@ def chat(session, user_input):
             )
             msgs_retry = session.history[:-1] + [{"role":"user","content":anti_repeat}]
             with console.status(f"[dim]{session.model_name} (anti-rep)...[/dim]", spinner="dots"):
-                text = _llm_call(lm, kw, msgs_retry)
+                text = _llm_call(lm, kw, msgs_retry, session=session)
             text = _dedup_paragraphs(text)
 
         session.history.append({"role":"assistant","content": text})
@@ -406,7 +420,8 @@ def chat(session, user_input):
                 lm2, kw2 = session.litellm_info
                 try:
                     with console.status(f"[dim]{new_model}...[/dim]", spinner="dots"):
-                        text2 = _llm_call(lm2, kw2, session.history)
+                        text2 = _llm_call(lm2, kw2, session.history,
+                                          session=session, _provider=new_prov, _model=new_model)
                     text2 = _dedup_paragraphs(text2)
                     session.history.append({"role":"assistant","content": text2})
                     return text2

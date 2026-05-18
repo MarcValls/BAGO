@@ -14,6 +14,7 @@ BAGO_COMMANDS: dict[str, str] = {
     # Modelos
     "/switch":      "Cambiar modelo activo: /switch <modelo|provider>",
     "/models":      "Listar todos los modelos disponibles",
+    "/scan":        "Scan completo: disponibles · potenciales · missing + historial",
     "/autoroute":   "Auto-routing on/off",
     # Multi-modelo
     "/chain":       "Pipeline de modelos: /chain m1->m2: prompt",

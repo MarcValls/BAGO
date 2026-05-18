@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from .constants import PROVIDERS_FILE, ROUTING_FILE
+from .constants import PROVIDERS_FILE, ROUTING_FILE, SCAN_HISTORY_FILE
 
 def load_providers():
     try:   return json.loads(PROVIDERS_FILE.read_text(encoding="utf-8-sig"))["providers"]
@@ -359,6 +359,111 @@ def _try_start_ollama_windows():
         time.sleep(2)  # dar tiempo a que arranque
     except Exception:
         pass
+
+
+# ── Catálogo universal de providers conocidos ─────────────────────────────────
+
+KNOWN_PROVIDERS_CATALOG: dict[str, dict] = {
+    "ollama-local": {
+        "label":       "Ollama (local)",
+        "description": "Modelos LLM privados en tu máquina — sin coste, sin internet",
+        "setup":       "Descarga desde https://ollama.com y ejecuta `ollama pull <modelo>`",
+        "requires":    "Ollama instalado + al menos un modelo descargado",
+        "type":        "local",
+    },
+    "ollama-cloud": {
+        "label":       "Ollama (remoto)",
+        "description": "Ollama en un servidor remoto, VM o Raspberry Pi",
+        "setup":       "Configura la variable de entorno OLLAMA_HOST=http://<ip>:<puerto>",
+        "requires":    "OLLAMA_HOST apuntando a una instancia Ollama remota",
+        "type":        "local",
+    },
+    "copilot": {
+        "label":       "GitHub Copilot / GitHub Models",
+        "description": "GPT-4o y más via GitHub Models — gratis con cuenta GitHub",
+        "setup":       "Ejecuta `gh auth login` en la terminal",
+        "requires":    "gh CLI autenticado → GITHUB_TOKEN o GH_TOKEN",
+        "type":        "cloud",
+    },
+    "codex": {
+        "label":       "OpenAI / Codex CLI",
+        "description": "GPT-4o via API OpenAI o Codex CLI (ChatGPT Plus)",
+        "setup":       "Obtén API key en https://platform.openai.com o instala Codex CLI",
+        "requires":    "OPENAI_API_KEY o codex CLI autenticado",
+        "type":        "cloud",
+    },
+    "anthropic": {
+        "label":       "Anthropic Claude",
+        "description": "Claude 3.5 Sonnet, Claude Opus — razonamiento avanzado",
+        "setup":       "Obtén API key en https://console.anthropic.com",
+        "requires":    "ANTHROPIC_API_KEY",
+        "type":        "cloud",
+    },
+    "openrouter": {
+        "label":       "OpenRouter",
+        "description": "Acceso unificado a 200+ modelos (Mistral, Llama, Gemini…)",
+        "setup":       "Obtén API key gratuita en https://openrouter.ai",
+        "requires":    "OPENROUTER_API_KEY",
+        "type":        "cloud",
+    },
+}
+
+
+# ── Historial de scans (MISSING detector) ─────────────────────────────────────
+
+def update_scan_history(health: dict) -> dict:
+    """Actualiza el fichero de historial de scans y devuelve providers MISSING.
+
+    Un provider es MISSING si:
+      - Estuvo disponible (ok=True) en algún scan anterior
+      - Y en el scan actual NO está ok
+
+    Devuelve:
+        { "provider_name": {"last_ok": ISO, "last_models": [...]}, ... }
+    """
+    import datetime as _dt
+
+    now = _dt.datetime.now().isoformat()
+
+    # Cargar historial previo
+    history: dict = {}
+    if SCAN_HISTORY_FILE.exists():
+        try:
+            history = json.loads(SCAN_HISTORY_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            history = {}
+
+    providers_hist: dict = history.get("providers", {})
+
+    # Actualizar historial con el scan actual
+    for pname, hdata in health.items():
+        entry = providers_hist.setdefault(pname, {"first_seen": now})
+        if hdata.get("ok"):
+            entry["last_ok"]     = now
+            entry["last_models"] = hdata.get("models", [])
+            entry.setdefault("first_seen", now)
+
+    # Guardar historial actualizado
+    history["last_scan"]  = now
+    history["providers"]  = providers_hist
+    SCAN_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SCAN_HISTORY_FILE.write_text(
+        json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    # Determinar MISSING: tuvo ok alguna vez pero ahora no está ok
+    missing: dict = {}
+    for pname, phist in providers_hist.items():
+        if not phist.get("last_ok"):
+            continue  # nunca estuvo disponible → no es MISSING, es simplemente no configurado
+        current = health.get(pname, {})
+        if not current.get("ok"):
+            missing[pname] = {
+                "last_ok":     phist["last_ok"],
+                "last_models": phist.get("last_models", []),
+            }
+
+    return missing
 
 
 # ── Provider health scan ───────────────────────────────────────────────────────

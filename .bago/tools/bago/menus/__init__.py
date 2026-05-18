@@ -10,6 +10,7 @@ from .mode import _cmd_mode
 from .projects import _cmd_projects
 from .roles import _cmd_roles
 from .routing import _cmd_routing
+from .scan import _cmd_scan
 from .session_menu import _cmd_session
 from .skills import _cmd_skills
 from .sync import _cmd_sync

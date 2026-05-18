@@ -21,6 +21,7 @@ from .menus import (
     _cmd_projects,
     _cmd_roles,
     _cmd_routing,
+    _cmd_scan,
     _cmd_session,
     _cmd_skills,
     _cmd_sync,
@@ -134,6 +135,9 @@ def cmd(line, session):
         prov_panel = "\n".join(prov_lines) if prov_lines else "  (sin datos)"
         skip = ", ".join(session.skip_providers) if session.skip_providers else "ninguno"
 
+        # ── Tokens de la sesión ───────────────────────────────────────────────
+        tokens_section = f"\n[bold]Tokens esta sesión:[/bold]\n{session.tokens_summary()}"
+
         console.print(Panel(
             f"Modelo:      {session.model_name} ({session.provider}){auto_tag}\n"
             f"Wire:        {session.wire_name}\n"
@@ -144,8 +148,13 @@ def cmd(line, session):
             f"Switches:    {session.switches}\n"
             f"Tiempo:      {elapsed}\n"
             f"Auto-route:  {'ON' if session.autoroute else 'OFF'}  |  Skip: {skip}\n"
-            f"\n[bold]Providers — estado en vivo:[/bold]\n{prov_panel}",
+            f"\n[bold]Providers — estado en vivo:[/bold]\n{prov_panel}"
+            f"{tokens_section}",
             title="[bold]Estado BAGO[/bold]", box=box.ROUNDED))
+
+    # ── Scan completo de providers y modelos ──────────────────────────────────
+    elif v == "/scan":
+        _cmd_scan(session)
 
     elif v == "/save":
         pi(f"Guardado: {session.save()}")

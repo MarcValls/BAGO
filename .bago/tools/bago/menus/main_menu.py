@@ -19,6 +19,7 @@ _ENTRIES = [
     ("/login",      "🔑  Login / Providers"),
     ("/switch",     "🔀  Cambiar modelo activo"),
     ("/models",     "📋  Ver modelos disponibles"),
+    ("/scan",       "🔍  Scan completo: disponibles · potenciales · missing"),
     ("/status",     "📊  Estado de providers (salud en vivo)"),
     ("/autoroute",  "⚙   Auto-routing ON/OFF"),
 
