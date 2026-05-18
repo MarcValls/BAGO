@@ -26,9 +26,11 @@ BAGO_COMMANDS: dict[str, str] = {
     "/new":         "Fábrica de artefactos (wizard LM) — 7 tipos",
     "/wizard":      "Alias de /new",
     "/fabrica":     "Alias de /new",
+    # Modos conversacionales
+    "/plan":        "Modo PLAN on/off — razonar antes de actuar",
+    "/brainstorm":  "Modo BRAINSTORM on/off — explorar ideas sin filtros",
     # Sesión
     "/session":     "Gestión de sesión (temporal · disco · letargo · repliegue)",
-    "/auth":        "Auth avanzada + providers (superset de /login)",
     "/auto":        "Modo autónomo on/off + nivel de confirmaciones",
     "/mode":        "Cambio rápido del modo del orquestador",
     "/sync":        "Sincronizar GitHub/USB + post-sync",
