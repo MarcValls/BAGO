@@ -17,54 +17,54 @@ from ..ui import _menu_pick
 _ENTRIES = [
 
     # ── 1 · Providers & Login ────────────────────────────────────────
-    (None,          "  ── Providers & Login ─────────────────────────"),
-    ("/scan",       "🔍  Scan  — disponibles · potenciales · missing + tokens"),
-    ("/login",      "🔑  Login / Providers  — registrar y gestionar cuentas"),
-    ("/models",     "📋  Modelos disponibles"),
+    (None,          "  -- Providers & Login --------------------------"),
+    ("/scan",       "  Scan  -- disponibles / potenciales / missing + tokens"),
+    ("/login",      "  Login / Providers  -- registrar y gestionar cuentas"),
+    ("/models",     "  Modelos disponibles"),
 
     # ── 2 · Modelo & Routing ─────────────────────────────────────────
-    (None,          "  ── Modelo & Routing ───────────────────────────"),
-    ("/switch",     "🔀  Cambiar modelo activo"),
-    ("/autoroute",  "⚙   Auto-routing ON/OFF"),
-    ("/routing",    "🗺   Matriz de enrutamiento  — ver y editar reglas"),
-    ("/roles",      "🎭  Roles del orquestador  — definir comportamiento"),
+    (None,          "  -- Modelo & Routing ---------------------------"),
+    ("/switch",     "  Cambiar modelo activo"),
+    ("/autoroute",  "  Auto-routing ON/OFF"),
+    ("/routing",    "  Matriz de enrutamiento  -- ver y editar reglas"),
+    ("/roles",      "  Roles del orquestador  -- definir comportamiento"),
 
     # ── 3 · Agentes & Skills ─────────────────────────────────────────
-    (None,          "  ── Agentes & Skills ───────────────────────────"),
-    ("/new",        "✨  Crear artefacto  — wizard asistido por LM"),
-    ("/agents",     "🤖  Agentes  — ver · crear · editar · activar"),
-    ("/skills",     "⚡  Skills  — ver · crear · editar"),
+    (None,          "  -- Agentes & Skills ---------------------------"),
+    ("/new",        "  Crear artefacto  -- wizard asistido por LM"),
+    ("/agents",     "  Agentes  -- ver / crear / editar / activar"),
+    ("/skills",     "  Skills  -- ver / crear / editar"),
 
     # ── 4 · Estrategias multi-modelo ─────────────────────────────────
-    (None,          "  ── Estrategias multi-modelo ───────────────────"),
-    ("/chain",      "⛓   Pipeline  — m1 genera, m2 refina"),
-    ("/ensemble",   "🔗  Paralelo + síntesis  — varios modelos a la vez"),
+    (None,          "  -- Estrategias multi-modelo -------------------"),
+    ("/chain",      "  Pipeline  -- m1 genera, m2 refina"),
+    ("/ensemble",   "  Paralelo + sintesis  -- varios modelos a la vez"),
 
     # ── 5 · Modos ────────────────────────────────────────────────────
-    (None,          "  ── Modos ──────────────────────────────────────"),
-    ("/generative", "🎛   Modo generativo  — offline · eco · standard · full · auto"),
-    ("/auto",       "🌀  Modo autonomo  — bucle · nivel: balanceado · adaptativo · never · always"),
-    ("/plan",       "📐  Modo PLAN  — razonar y proponer antes de actuar"),
-    ("/brainstorm", "💡  Modo BRAINSTORM  — explorar ideas sin restricciones"),
+    (None,          "  -- Modos --------------------------------------"),
+    ("/generative", "  Modo generativo  -- offline / eco / standard / full / auto"),
+    ("/auto",       "  Modo autonomo  -- bucle: balanceado / adaptativo"),
+    ("/plan",       "  Modo PLAN  -- razonar y proponer antes de actuar"),
+    ("/brainstorm", "  Modo BRAINSTORM  -- explorar ideas sin restricciones"),
 
     # ── 6 · Sesion & Configuracion ───────────────────────────────────
-    (None,          "  ── Sesion & Configuracion ─────────────────────"),
-    ("/status",     "📊  Estado actual  — modelo · routing · tokens · salud"),
-    ("/session",    "💾  Gestion de sesion  — guardar · cargar · repliegue"),
-    ("/sync",       "🔄  Sincronizar  — GitHub · USB"),
-    ("/memory",     "🧠  Memoria y conocimiento"),
-    ("/config",     "⚙   Configuracion global"),
+    (None,          "  -- Sesion & Configuracion ---------------------"),
+    ("/status",     "  Estado actual  -- modelo / routing / tokens / salud"),
+    ("/session",    "  Gestion de sesion  -- guardar / cargar / repliegue"),
+    ("/sync",       "  Sincronizar  -- GitHub / USB"),
+    ("/memory",     "  Memoria y conocimiento"),
+    ("/config",     "  Configuracion global"),
 
     # ── 7 · Workspace & Proyectos ────────────────────────────────────
-    (None,          "  ── Workspace & Proyectos ──────────────────────"),
-    ("/framework",  "🏗   Framework evolutivo  — sprint · health · componentes"),
-    ("/workspaces", "📁  Workspaces"),
-    ("/projects",   "📂  Proyectos"),
+    (None,          "  -- Workspace & Proyectos ----------------------"),
+    ("/framework",  "  Framework evolutivo  -- sprint / health / componentes"),
+    ("/workspaces", "  Workspaces"),
+    ("/projects",   "  Proyectos"),
 
     # ── 8 · Utilidades ───────────────────────────────────────────────
-    (None,          "  ── Utilidades ─────────────────────────────────"),
-    ("/help",       "❓  Ayuda  — todos los comandos con descripcion"),
-    ("/clear",      "🧹  Limpiar historial de chat"),
+    (None,          "  -- Utilidades ---------------------------------"),
+    ("/help",       "  Ayuda  -- todos los comandos con descripcion"),
+    ("/clear",      "  Limpiar historial de chat"),
 ]
 
 
