@@ -5,7 +5,7 @@ from rich import box
 from rich.panel import Panel
 
 from ..constants import TOOLS_DIR
-from ..llm import _llm_call
+from ..llm import _llm_call, OllamaNoModelAvailable
 from ..storage import ORCH_FILE, _STATE_DIR, _load_json, _save_json
 from ..ui import console, _menu_action, _menu_input, _menu_select, pe, pi
 
@@ -320,6 +320,33 @@ def _fw_evolve(session):
                 pi("Volviendo a modo planificacion.")
             # sel_action == "continue" → loop continúa, el usuario escribe al LM
 
+        except OllamaNoModelAvailable as e:
+            console.print(Panel(
+                f"[bold red]🚨 Sin modelo disponible[/bold red]\n\n"
+                f"  Modelo [cyan]{e.missing}[/cyan] no instalado.\n"
+                f"  [dim]Intentados: {', '.join(e.tried) or 'ninguno'}[/dim]\n\n"
+                f"  [yellow]Opciones:[/yellow]\n"
+                f"   • Instala un modelo: [cyan]ollama pull qwen2.5-coder:7b[/cyan]\n"
+                f"   • Configura credenciales: [cyan]/login[/cyan]\n"
+                f"   • Cambia de proveedor:   [cyan]/switch[/cyan]",
+                title="Modo Evolutivo — Sin Modelo",
+                border_style="red",
+                expand=False,
+            ))
+            sel_recover = _menu_select(
+                "Sin modelo",
+                "¿Qué hacemos?",
+                [
+                    ("pull",  "Intentar instalar qwen2.5-coder:7b ahora"),
+                    ("exit",  "Salir del modo evolutivo"),
+                ],
+            )
+            if sel_recover == "pull":
+                from ..providers import ollama_pull
+                ollama_pull("qwen2.5-coder:7b")
+                pi("Si la instalación tuvo éxito, vuelve a escribir tu mensaje.")
+            else:
+                break
         except Exception as e:
             pe(f"Error LM: {e}")
 

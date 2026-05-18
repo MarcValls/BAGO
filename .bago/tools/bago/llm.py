@@ -11,6 +11,19 @@ from .ui import console, pe, pi, show_response
 litellm.suppress_debug_info = True
 litellm.set_verbose = False
 
+
+class OllamaNoModelAvailable(RuntimeError):
+    """Se lanza cuando no hay ningun modelo Ollama disponible y la cadena de
+    fallback (local → copilot → codex) se ha agotado por completo.
+    El bucle del REPL la captura y redirige a la pantalla de instalacion."""
+    def __init__(self, missing: str, tried: list[str]):
+        self.missing = missing
+        self.tried   = tried
+        super().__init__(
+            f"Modelo '{missing}' no instalado. "
+            f"Alternativas intentadas: {', '.join(tried) or 'ninguna'}."
+        )
+
 # ── Anti-repetición ────────────────────────────────────────────────────────────
 def _jaccard(a: str, b: str) -> float:
     """Similitud Jaccard por palabras (0–1). Rapido, sin dependencias."""
@@ -124,17 +137,12 @@ def _model_size_score(name: str) -> int:
 
 
 def _ollama_fallback_model(missing_model: str) -> "tuple[str | None, list[str]]":
-    """Busca modelos Ollama disponibles y elige el mejor sustituto.
-
-    Returns:
-        (fallback_name, all_available) — fallback_name es None si no hay ninguno.
-    """
+    """Busca modelos Ollama locales disponibles y elige el mejor sustituto."""
     from .providers import ollama_probe
     probe = ollama_probe()
     available = probe.get("models", [])
     if not available:
         return None, []
-    # Preferir modelos coder si el original era coder
     is_coder = "coder" in missing_model.lower()
     scored = sorted(
         available,
@@ -145,6 +153,64 @@ def _ollama_fallback_model(missing_model: str) -> "tuple[str | None, list[str]]"
         reverse=True,
     )
     return scored[0], available
+
+
+# Equivalencias local → cloud para escalado de "model not found"
+# Clave: score de tamanyo  →  (copilot_model, codex_model)
+_CLOUD_EQUIV = {
+    0: ("gpt-4o-mini", "gpt-4o-mini"),  # desconocido
+    1: ("gpt-4o-mini", "gpt-4o-mini"),  # 0.5b-1b
+    2: ("gpt-4o-mini", "gpt-4o-mini"),  # 2b-3b
+    3: ("gpt-4o",      "gpt-4o"),       # 7b-8b (default)
+    4: ("gpt-4o",      "gpt-4o"),       # 13b-14b
+    5: ("gpt-4o",      "gpt-4o"),       # 30b-34b
+    6: ("gpt-4o",      "gpt-4o"),       # 70b+
+}
+
+def _build_escalation_chain(missing_model: str) -> "list[tuple[str,dict,str]]":
+    """
+    Construye la cadena de fallback completa para cuando un modelo Ollama no existe:
+      1. Otros modelos Ollama locales instalados
+      2. copilot (GitHub Models) con equivalente por tamanyo
+      3. codex (OpenAI / Codex CLI OAuth) con equivalente
+
+    Devuelve lista de (lm_wire, kw_dict, label_para_usuario).
+    """
+    from .providers import ollama_probe, resolve_litellm
+    import os
+
+    chain: list[tuple[str, dict, str]] = []
+    score = _model_size_score(missing_model)
+
+    # ── 1. Ollama local: otros modelos instalados ─────────────────────────
+    fallback_local, available = _ollama_fallback_model(missing_model)
+    if fallback_local:
+        wire = f"ollama/{fallback_local}"
+        chain.append((wire, {"api_base": "http://127.0.0.1:11434"}, f"ollama-local / {fallback_local}"))
+
+    # ── 2. copilot: GitHub Models ─────────────────────────────────────────
+    gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+    if gh_token:
+        copilot_model = _CLOUD_EQUIV.get(score, _CLOUD_EQUIV[3])[0]
+        chain.append((
+            f"openai/{copilot_model}",
+            {"api_base": "https://models.inference.ai.azure.com", "api_key": gh_token},
+            f"copilot / {copilot_model}",
+        ))
+
+    # ── 3. codex: OpenAI API key o Codex CLI OAuth ────────────────────────
+    from .providers import _codex_access_token
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    codex_token = openai_key or _codex_access_token()
+    if codex_token:
+        codex_model = _CLOUD_EQUIV.get(score, _CLOUD_EQUIV[3])[1]
+        chain.append((
+            codex_model,
+            {"api_key": codex_token},
+            f"codex / {codex_model}",
+        ))
+
+    return chain, available
 
 # Orden de providers local→cloud para escalado
 _ESCALATE_PROV_ORDER = ("ollama-local", "ollama-cloud", "copilot", "codex", "anthropic")
@@ -263,36 +329,35 @@ def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
         if not is_missing:
             raise  # otro tipo de error → propagar normal
 
-        # ── Modelo Ollama no instalado: buscar alternativa ────────────────────
-        fallback, available = _ollama_fallback_model(missing_name or lm)
+        # ── Modelo Ollama no instalado: escalar por la cadena ────────────────
+        target = missing_name or lm
+        chain, available = _build_escalation_chain(target)
 
-        if fallback:
-            # Construir el wire name para litellm (ollama/modelo)
-            fallback_wire = f"ollama/{fallback}" if not fallback.startswith("ollama/") else fallback
-            pi(
-                f"[yellow]⚠  Modelo '[bold]{missing_name or lm}[/bold]' no instalado.[/yellow]\n"
-                f"   Disponibles: {', '.join(available)}\n"
-                f"   Usando [bold cyan]{fallback}[/bold cyan] como sustituto."
-            )
+        if not chain:
+            raise OllamaNoModelAvailable(target, [])
+
+        pi(f"[yellow]⚠  Modelo [bold]{target}[/bold] no instalado.[/yellow]")
+        if available:
+            pi(f"   Ollama local tiene: {', '.join(available)}")
+
+        last_exc = exc
+        for lm_wire, kw_fallback, label in chain:
+            pi(f"   → Intentando [bold cyan]{label}[/bold cyan]...")
             try:
-                return _do_call(fallback_wire, kw)
-            except Exception as exc2:
-                # El fallback también falló — informar y re-lanzar
-                pe(
-                    f"El sustituto '{fallback}' también falló: {exc2}\n"
-                    f"Modelos disponibles en Ollama: {available or 'ninguno'}\n"
-                    f"Prueba: ollama pull qwen2.5-coder:7b"
-                )
-                raise exc2
-        else:
-            # No hay ningún modelo Ollama instalado
-            pe(
-                f"[bold red]Modelo '{missing_name or lm}' no encontrado y no hay modelos Ollama instalados.[/bold red]\n"
-                f"Ollama está corriendo pero sin modelos descargados.\n"
-                f"Solución: [bold]ollama pull qwen2.5-coder:7b[/bold]  (~4 GB)\n"
-                f"O usa /switch para cambiar a un provider cloud (copilot, codex)."
-            )
-            raise
+                result = _do_call(lm_wire, kw_fallback)
+                pi(f"   [green]✓ Respondiendo con {label}[/green]")
+                return result
+            except Exception as exc_fb:
+                pi(f"   [dim red]✗ {label}: {type(exc_fb).__name__}[/dim red]")
+                last_exc = exc_fb
+
+        tried_labels = [l for _, _, l in chain]
+        pe(
+            f"[bold red]🚨 Sin modelo disponible.[/bold red]\n"
+            f"  Cadena intentada: {', '.join(tried_labels) or 'ninguna'}\n"
+            f"  Instala un modelo: ollama pull qwen2.5-coder:7b"
+        )
+        raise OllamaNoModelAvailable(target, tried_labels)
 
 def run_chain(session, model_sequence, prompt, silent_route=True):
     """Pipeline secuencial. Solo la respuesta final va al historial compartido."""

@@ -27,7 +27,8 @@ from bago import (CredentialManager, load_providers, load_routing,
 from bago.constants import BAGO_SYSTEM, USER_BAGO, BAGO_DIR
 from bago.providers import auto_detect_provider, get_default_model, route_by_task, ollama_probe, ollama_pull, scan_provider_health, discover_ollama_url
 from bago.llm import (_is_ollama_model_not_found, _is_ollama_unreachable,
-                      _is_cloud_auth_error, _is_cloud_connection_error)
+                      _is_cloud_auth_error, _is_cloud_connection_error,
+                      OllamaNoModelAvailable)
 from bago.ui import show_response
 
 try:
@@ -590,6 +591,19 @@ def main():
         except KeyboardInterrupt:
             console.print("\n[dim yellow]⚡ Interrumpido — modelo cancelado. Escribe tu siguiente mensaje.[/dim yellow]")
         except RuntimeError as e:
+            # ── Sin modelo disponible: cadena agotada → pantalla de instalación ──
+            if isinstance(e, OllamaNoModelAvailable):
+                console.print(Panel(
+                    f"[bold red]🚨 EMERGENCIA: Sin modelo disponible[/bold red]\n\n"
+                    f"  El modelo [cyan]{e.missing}[/cyan] no está instalado\n"
+                    f"  y todos los fallbacks fallaron.\n\n"
+                    f"  [dim]Intentados: {', '.join(e.tried) or 'ninguno'}[/dim]",
+                    title="BAGO — Sin Modelo",
+                    border_style="red",
+                    expand=False,
+                ))
+                _ollama_recovery_flow(session, e.missing)
+                continue
             is_not_found, ol_model = _is_ollama_model_not_found(e)
             is_unreachable = _is_ollama_unreachable(e)
             if is_not_found or is_unreachable:
