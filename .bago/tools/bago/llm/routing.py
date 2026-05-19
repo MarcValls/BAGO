@@ -144,7 +144,8 @@ def _escalate_model(session, user_input: str = "") -> "tuple[str, str, str] | No
     Retorna (model_name, wire_name, provider) o None.
     """
     cur_score = _model_size_score(session.model_name)
-    active    = session.creds.active_bago_providers()
+    active    = [p for p in session.creds.active_bago_providers()
+                 if p not in getattr(session, "skip_providers", set())]
     local_provs = ("ollama-local", "ollama-cloud")
 
     def _candidates_in(prov_name):
@@ -194,7 +195,8 @@ def _cloud_escalation_for_quality(session, user_input: str) -> "tuple[str, str, 
     Prioriza cualquier cloud activo sobre Ollama.
     Retorna (model_name, wire_name, provider) o None si no hay cloud.
     """
-    active = session.creds.active_bago_providers()
+    active = [p for p in session.creds.active_bago_providers()
+              if p not in getattr(session, "skip_providers", set())]
     cloud_prov = _deduce_cloud_provider(session.history, user_input, active)
     prov_data  = session.providers.get(cloud_prov, {})
     models     = prov_data.get("models", {})
@@ -203,3 +205,69 @@ def _cloud_escalation_for_quality(session, user_input: str) -> "tuple[str, str, 
         mn, md = best
         return mn, md.get("wire_name", mn), cloud_prov
     return None
+
+
+def _best_model_for_provider_task(session, provider: str, user_input: str) -> "tuple[str, str, str] | None":
+    """Elige modelo dentro de un provider, prefiriendo coder para tareas de código."""
+    pdata = session.providers.get(provider, {})
+    models = pdata.get("models", {})
+    if not models:
+        return None
+    try:
+        from ..providers import _looks_like_local_code_task
+        wants_code = _looks_like_local_code_task(user_input)
+    except Exception:
+        wants_code = False
+
+    items = list(models.items())
+    if wants_code:
+        code_items = [
+            (mn, md) for mn, md in items
+            if "coder" in mn.lower()
+            or "codex" in mn.lower()
+            or "code" in str(md.get("best_for", "")).lower()
+            or "coding" in str(md.get("best_for", "")).lower()
+        ]
+        if code_items:
+            items = code_items
+
+    mn, md = max(items, key=lambda kv: _model_size_score(kv[0]))
+    return mn, md.get("wire_name", mn), provider
+
+
+def _provider_error_fallbacks(session, user_input: str, failed_provider: str) -> list[tuple[str, str, str]]:
+    """Candidatos de fallback tras auth/quota/rate-limit/conexión.
+
+    Login, cuota y permisos son estados separados: un provider autenticado puede
+    quedar degradado por billing/rate-limit y se excluye sólo para esta sesión.
+    """
+    active = [
+        p for p in session.creds.active_bago_providers()
+        if p != failed_provider and p not in getattr(session, "skip_providers", set())
+    ]
+    try:
+        from ..providers import _looks_like_local_code_task
+        local_code = _looks_like_local_code_task(user_input)
+    except Exception:
+        local_code = False
+
+    if local_code:
+        priority = (
+            "ollama-local", "ollama-cloud", "copilot", "github-models",
+            "codex", "anthropic", "gemini", "openrouter",
+        )
+    else:
+        priority = (
+            "copilot", "ollama-cloud", "ollama-local", "github-models",
+            "codex", "anthropic", "gemini", "openrouter",
+        )
+
+    ordered = [p for p in priority if p in active]
+    ordered.extend(p for p in active if p not in ordered)
+
+    out: list[tuple[str, str, str]] = []
+    for prov in ordered:
+        candidate = _best_model_for_provider_task(session, prov, user_input)
+        if candidate:
+            out.append(candidate)
+    return out

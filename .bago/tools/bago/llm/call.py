@@ -1,15 +1,39 @@
 """bago.llm.call — Llamada a LiteLLM con fallback automático por modelo Ollama."""
 
-import litellm
+import logging
+import os
+
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+try:
+    if os.environ.get("BAGO_NO_LITELLM", "0") == "1":
+        raise ModuleNotFoundError("litellm disabled by BAGO_NO_LITELLM=1")
+    import litellm
+except ModuleNotFoundError as exc:
+    litellm = None
+    _LITELLM_IMPORT_ERROR = exc
+else:
+    _LITELLM_IMPORT_ERROR = None
 
 from ..constants import BAGO_SYSTEM
+from ..providers import resolve_litellm
 from ..ui import pe, pi
 
-from .errors import OllamaNoModelAvailable, _is_ollama_model_not_found
-from .routing import _build_escalation_chain
+from .errors import OllamaNoModelAvailable, _is_ollama_model_not_found, classify_provider_error
+from .routing import _build_escalation_chain, _provider_error_fallbacks
 
-litellm.suppress_debug_info = True
-litellm.set_verbose = False
+if litellm is not None:
+    litellm.suppress_debug_info = True
+    litellm.set_verbose = False
+
+
+def _require_litellm() -> None:
+    if litellm is not None:
+        return
+    detail = f" ({_LITELLM_IMPORT_ERROR})" if _LITELLM_IMPORT_ERROR else ""
+    raise RuntimeError(
+        "litellm no está instalado y BAGO no puede llamar a modelos LLM en este equipo"
+        f"{detail}. Instala la dependencia con: python -m pip install litellm"
+    )
 
 
 def _parse_chain_label(label: str) -> "tuple[str, str]":
@@ -31,6 +55,7 @@ def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
     no contra el modelo original que falló.
     """
     def _do_call(lm_name, kw_args, *, prov_override=None, mdl_override=None):
+        _require_litellm()
         r = litellm.completion(model=lm_name, messages=messages, **kw_args)
         text = r.choices[0].message.content
         if session is not None:
@@ -50,7 +75,53 @@ def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
     except Exception as exc:
         is_missing, missing_name = _is_ollama_model_not_found(exc)
         if not is_missing:
-            raise  # otro tipo de error → propagar normal
+            if session is None:
+                raise  # sin sesión no podemos degradar ni reintentar
+
+            failed_provider = _provider or session.provider
+            failed_model = _model or session.model_name
+            reason = classify_provider_error(exc, model=lm)
+            if reason not in {"quota", "auth", "connection", "ollama_connection"}:
+                raise
+
+            session.mark_provider_degraded(failed_provider, exc, model=failed_model)
+            fallbacks = _provider_error_fallbacks(session, messages[-1].get("content", ""), failed_provider)
+            if not fallbacks:
+                raise
+
+            pi(
+                f"[yellow]⚠  {failed_provider}/{failed_model} degradado por {reason}; "
+                "probando fallback...[/yellow]"
+            )
+            last_exc = exc
+            for fb_model, fb_wire, fb_provider in fallbacks:
+                lm_fb, kw_fb = resolve_litellm(fb_provider, fb_wire)
+                try:
+                    pi(f"   → fallback [bold cyan]{fb_provider}/{fb_model}[/bold cyan]")
+                    text = _do_call(
+                        lm_fb, kw_fb,
+                        prov_override=fb_provider,
+                        mdl_override=fb_model,
+                    )
+                    session.provider = fb_provider
+                    session.model_name = fb_model
+                    session.wire_name = fb_wire
+                    session.switches += 1
+                    session.last_route = {
+                        "mode": "auto",
+                        "provider": fb_provider,
+                        "model": fb_model,
+                        "reason": f"fallback-{reason} desde {failed_provider}/{failed_model}",
+                    }
+                    pi(f"   [green]✓ usando {fb_provider}/{fb_model}[/green]")
+                    return text
+                except Exception as exc_fb:
+                    fb_reason = classify_provider_error(exc_fb, model=lm_fb)
+                    if fb_reason in {"quota", "auth", "connection", "ollama_connection"}:
+                        session.mark_provider_degraded(fb_provider, exc_fb, model=fb_model)
+                    pi(f"   [dim red]✗ {fb_provider}/{fb_model}: {type(exc_fb).__name__}[/dim red]")
+                    last_exc = exc_fb
+            raise last_exc
 
         # Modelo Ollama no instalado: recorrer cadena de escalado
         target = missing_name or lm

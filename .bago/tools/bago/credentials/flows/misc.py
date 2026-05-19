@@ -3,10 +3,12 @@
 import subprocess
 from pathlib import Path
 
-from prompt_toolkit import prompt as pt_prompt
-
-from ...ui import console
+from ...ui import console, _stdin_prompt
 from ..accounts import AccountManager
+
+
+def pt_prompt(text: str, is_password: bool = False) -> str:
+    return _stdin_prompt(text, is_password=is_password)
 
 
 def flow_api_key(mgr, name: str, info: dict) -> str:

@@ -83,6 +83,19 @@ _SIMPLE_GREETING = re.compile(
 
 # Detectar URLs en el mensaje del usuario
 _URL_PATTERN = re.compile(r'https?://\S+|www\.\S+')
+_WEB_INTENT_PATTERN = re.compile(
+    r"(?i)\b("
+    r"abre|abrir|visita|visitar|consulta|consultar|navega|navegar|busca|buscar|"
+    r"lee|leer|descarga|descargar|fetch|open|visit|browse|search|read|download"
+    r")\b"
+)
+_PASTED_STATUS_PATTERN = re.compile(
+    r"(?i)("
+    r"ratelimiterror|quota|billing|/status|context window|weekly limit|5h limit|"
+    r"visit https://chatgpt\.com|docs/guides/error-codes|openai codex|"
+    r"directory:|permissions:|session:"
+    r")"
+)
 
 
 def _contains_url(text: str) -> bool:
@@ -98,6 +111,7 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
     is_simple_greeting = bool(_SIMPLE_GREETING.match(user_input.strip()))
     resp_words  = len(response.split())
     q_words     = len(user_input.split())
+    resp_low    = response.lower()
 
     # 1. Respuesta vacía o extremadamente corta para pregunta sustantiva
     if resp_words < 8 and q_words > 6 and not is_simple_greeting:
@@ -106,7 +120,6 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
     # 2. El modelo admite no poder acceder a internet — solo relevante si el
     #    usuario mencionó una URL; evita falsos positivos en respuestas de POO, etc.
     if _contains_url(user_input):
-        resp_low = response.lower()
         for sig in _NO_INTERNET_SIGNALS:
             if sig in resp_low:
                 return True, "modelo admite no poder acceder a internet/URL"
@@ -136,7 +149,12 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
 
 
 def _needs_cloud_for_url(user_input: str, session) -> bool:
-    """True si el mensaje contiene URLs y el modelo actual es local."""
+    """True si hay URL + intención real de navegación y el modelo actual es local."""
     if not _contains_url(user_input):
         return False
-    return session.provider in ("ollama-local", "ollama-cloud")
+    if session.provider not in ("ollama-local", "ollama-cloud"):
+        return False
+    # Texto pegado de status/error: la URL es evidencia, no una petición web.
+    if _PASTED_STATUS_PATTERN.search(user_input):
+        return False
+    return bool(_WEB_INTENT_PATTERN.search(user_input))

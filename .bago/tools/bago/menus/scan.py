@@ -15,6 +15,16 @@ from ..providers import KNOWN_PROVIDERS_CATALOG, scan_provider_health, update_sc
 from ..ui import console
 
 
+def _auth_quota_line(info: dict) -> str:
+    auth = info.get("auth_detail")
+    quota = info.get("quota_detail")
+    if not auth and not quota:
+        return ""
+    auth = auth or "no comprobado"
+    quota = quota or "no comprobada"
+    return f"    [dim]└ auth: {auth}  |  cuota/gasto: {quota}[/dim]"
+
+
 def _cmd_scan(session) -> None:
     """Ejecuta el scan completo y muestra el estado de providers y modelos."""
     console.print("[dim]  Escaneando providers (puede tardar 3-4 s)...[/dim]")
@@ -62,6 +72,9 @@ def _cmd_scan(session) -> None:
                 + (f" +{len(reg_models)-4} más" if len(reg_models) > 4 else "")
                 + "[/dim]"
             )
+        aq = _auth_quota_line(info)
+        if aq:
+            avail_lines.append(aq)
 
     avail_section = (
         "\n".join(avail_lines)
@@ -90,6 +103,9 @@ def _cmd_scan(session) -> None:
             pot_lines.append(f"    [dim]└ requiere: {requires}[/dim]")
         if setup:
             pot_lines.append(f"    [dim]└ setup:    {setup}[/dim]")
+        aq = _auth_quota_line(info)
+        if aq:
+            pot_lines.append(aq)
 
     pot_section = (
         "\n".join(pot_lines)

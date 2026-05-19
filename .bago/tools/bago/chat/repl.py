@@ -1,13 +1,22 @@
 """bago.chat.repl — PromptSession setup y bucle REPL principal."""
 
 import sys
+import os
 from pathlib import Path
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.styles import Style
-from prompt_toolkit.key_binding import KeyBindings
+_PROMPT_TOOLKIT_AVAILABLE = os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "0") != "1"
+try:
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        raise ModuleNotFoundError("prompt_toolkit disabled by BAGO_NO_PROMPT_TOOLKIT=1")
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import FileHistory
+    from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+    from prompt_toolkit.styles import Style
+    from prompt_toolkit.key_binding import KeyBindings
+except ModuleNotFoundError:
+    _PROMPT_TOOLKIT_AVAILABLE = False
+    PromptSession = object
+    FileHistory = AutoSuggestFromHistory = Style = KeyBindings = None
 
 from bago import cmd, chat, console, pe, CtrlCGuard
 from bago.constants import USER_BAGO
@@ -16,54 +25,108 @@ from bago.llm import (
     _is_cloud_auth_error, _is_cloud_connection_error,
     OllamaNoModelAvailable,
 )
-from bago.completer import BagoCompleter
 from bago.tumba import tumba_add, tumba_has_placeholder, tumba_substitute
 from bago.ui import show_response
 
 from rich.panel import Panel
 
-from .statusbar import _topbar_prompt, _bottom_bar, _prompt_indicator
+if _PROMPT_TOOLKIT_AVAILABLE:
+    from .statusbar import _topbar_prompt, _bottom_bar, _prompt_indicator
+else:
+    def _prompt_indicator(session) -> str:
+        last = session.last_route or {}
+        last_mode = last.get("mode", "")
+        if last_mode and last_mode != "manual":
+            indicator = last_mode.upper()
+        elif session.autoroute:
+            indicator = "AUTO"
+        else:
+            indicator = "MANUAL"
+        if session.autonomous:
+            indicator += ":A"
+        if session.tumba_mode:
+            indicator += " TUMBA"
+        return indicator
+
+    def _topbar_prompt(route_mode: str) -> str:
+        return f"[BAGO|{route_mode}] > "
+
+    def _bottom_bar() -> str:
+        return ""
 from .recovery import _ollama_recovery_flow, _cloud_recovery_flow
 
 
-_COMPLETION_STYLE = Style.from_dict({
-    "prompt":                  "bold cyan",
-    "statusbar":               "bg:#1e2a3a #7aa2f7 bold",
-    "bottom-toolbar":          "bg:#1e2a3a #7aa2f7",
-    "completion-menu":                  "bg:#1a1a2e #e0e0e0",
-    "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
-    "completion-menu.completion.current": "bg:#00aaff #000000 bold",
-    "completion-menu.meta":             "bg:#111133 #888888",
-    "completion-menu.meta.completion.current": "bg:#0055aa #cccccc",
-    "scrollbar.background":             "bg:#1a1a2e",
-    "scrollbar.button":                 "bg:#00aaff",
-})
+if _PROMPT_TOOLKIT_AVAILABLE:
+    _COMPLETION_STYLE = Style.from_dict({
+        "prompt":                  "bold cyan",
+        "statusbar":               "bg:#1e2a3a #7aa2f7 bold",
+        "bottom-toolbar":          "bg:#1e2a3a #7aa2f7",
+        "completion-menu":                  "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
+        "completion-menu.completion.current": "bg:#00aaff #000000 bold",
+        "completion-menu.meta":             "bg:#111133 #888888",
+        "completion-menu.meta.completion.current": "bg:#0055aa #cccccc",
+        "scrollbar.background":             "bg:#1a1a2e",
+        "scrollbar.button":                 "bg:#00aaff",
+    })
+else:
+    _COMPLETION_STYLE = None
+
+
+class _SimplePromptSession:
+    """Fallback REPL session sin prompt_toolkit."""
+    def prompt(self, message=None, bottom_toolbar=None):
+        if callable(message):
+            m = message()
+        else:
+            m = message
+        if not isinstance(m, str):
+            m = "[BAGO] > "
+        return input(m)
 
 
 def build_prompt_session() -> PromptSession:
     """Crea y devuelve el PromptSession con historia, estilo y keybindings."""
-    hist_file = USER_BAGO / "state" / "chat_input_history.txt"
-    hist_file.parent.mkdir(parents=True, exist_ok=True)
+    global _PROMPT_TOOLKIT_AVAILABLE
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        console.print(
+            "[yellow]prompt_toolkit no instalado: usando REPL básico.[/yellow]\n"
+            "[dim]Instala prompt_toolkit para autocompletado y barra avanzada.[/dim]"
+        )
+        return _SimplePromptSession()
 
-    kb = KeyBindings()
+    try:
+        from bago.completer import BagoCompleter
 
-    @kb.add("/")
-    def _slash_trigger(event):
-        buf = event.app.current_buffer
-        if not buf.text:
-            buf.text = "/"
-            buf.validate_and_handle()
-        else:
-            buf.insert_text("/")
+        hist_file = USER_BAGO / "state" / "chat_input_history.txt"
+        hist_file.parent.mkdir(parents=True, exist_ok=True)
 
-    return PromptSession(
-        history=FileHistory(str(hist_file)),
-        auto_suggest=AutoSuggestFromHistory(),
-        style=_COMPLETION_STYLE,
-        completer=BagoCompleter(),
-        complete_while_typing=True,
-        key_bindings=kb,
-    )
+        kb = KeyBindings()
+
+        @kb.add("/")
+        def _slash_trigger(event):
+            buf = event.app.current_buffer
+            if not buf.text:
+                buf.text = "/"
+                buf.validate_and_handle()
+            else:
+                buf.insert_text("/")
+
+        return PromptSession(
+            history=FileHistory(str(hist_file)),
+            auto_suggest=AutoSuggestFromHistory(),
+            style=_COMPLETION_STYLE,
+            completer=BagoCompleter(),
+            complete_while_typing=True,
+            key_bindings=kb,
+        )
+    except Exception as exc:
+        _PROMPT_TOOLKIT_AVAILABLE = False
+        console.print(
+            f"[yellow]prompt_toolkit no disponible en esta consola ({type(exc).__name__}); "
+            "usando REPL básico.[/yellow]"
+        )
+        return _SimplePromptSession()
 
 
 def run_repl(session, pt: PromptSession) -> None:
@@ -71,10 +134,13 @@ def run_repl(session, pt: PromptSession) -> None:
     ctrl_c = CtrlCGuard()
     while True:
         try:
-            line = pt.prompt(
-                message=lambda: _topbar_prompt(_prompt_indicator(session)),
-                bottom_toolbar=_bottom_bar,
-            ).strip()
+            if _PROMPT_TOOLKIT_AVAILABLE:
+                line = pt.prompt(
+                    message=lambda: _topbar_prompt(_prompt_indicator(session)),
+                    bottom_toolbar=_bottom_bar,
+                ).strip()
+            else:
+                line = pt.prompt(message=f"[BAGO|{_prompt_indicator(session)}] > ").strip()
         except EOFError:
             console.print("\n[dim]BAGO terminado.[/dim]")
             break

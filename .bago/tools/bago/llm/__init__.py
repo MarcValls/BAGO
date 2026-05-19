@@ -11,8 +11,10 @@ from .errors import (
     _is_ctx_overflow,
     _is_cloud_auth_error,
     _is_cloud_connection_error,
+    _is_cloud_quota_error,
     _is_ollama_model_not_found,
     _is_ollama_unreachable,
+    classify_provider_error,
 )
 
 # ── Calidad ───────────────────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ from .routing import (
     _deduce_cloud_provider,
     _escalate_model,
     _cloud_escalation_for_quality,
+    _provider_error_fallbacks,
 )
 
 # ── Llamada de bajo nivel ─────────────────────────────────────────────────────
@@ -54,8 +57,10 @@ __all__ = [
     "_is_ctx_overflow",
     "_is_cloud_auth_error",
     "_is_cloud_connection_error",
+    "_is_cloud_quota_error",
     "_is_ollama_model_not_found",
     "_is_ollama_unreachable",
+    "classify_provider_error",
     # quality
     "_jaccard",
     "_dedup_paragraphs",
@@ -74,6 +79,7 @@ __all__ = [
     "_deduce_cloud_provider",
     "_escalate_model",
     "_cloud_escalation_for_quality",
+    "_provider_error_fallbacks",
     # call
     "_llm_call",
     # strategies

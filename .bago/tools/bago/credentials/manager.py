@@ -185,11 +185,11 @@ class CredentialManager(LoginFlowsMixin):
         """Detecta si Ollama está disponible buscando en múltiples ubicaciones."""
         try:
             from ..providers import discover_ollama_url
-            return discover_ollama_url(timeout=2) is not None
+            return discover_ollama_url(timeout=0.5) is not None
         except Exception:
             try:
                 subprocess.check_output(
-                    ["ollama", "list"], stderr=subprocess.DEVNULL, timeout=4
+                    ["ollama", "list"], stderr=subprocess.DEVNULL, timeout=1
                 )
                 return True
             except Exception:
@@ -301,19 +301,24 @@ class CredentialManager(LoginFlowsMixin):
         """Tabla Rich con el estado de todos los providers."""
         t = Table(box=box.SIMPLE, show_header=True, header_style="bold")
         t.add_column("Provider")
-        t.add_column("Estado")
+        t.add_column("Login/Auth")
+        t.add_column("Cuota/Gasto")
         t.add_column("Descripcion")
         for name, info in self.PROVIDERS.items():
+            quota = "[dim]no comprobada[/dim]"
             if name == "ollama":
                 ok = self._ollama_ok()
                 status = "[green]✓ activo[/green]" if ok else "[red]✗ no disponible[/red]"
+                quota = "[green]sin gasto API[/green]"
             elif name == "openai":
                 k = os.environ.get("OPENAI_API_KEY", "")
                 if k:
                     masked = f"{k[:4]}…{k[-4:]}" if len(k) > 8 else "●●●"
                     status = f"[green]✓ API key {masked}[/green]"
+                    quota = "[yellow]billing/cuota API no verificada[/yellow]"
                 elif self._codex_authed():
                     status = "[green]✓ codex login (GPT Plus)[/green]"
+                    quota = "[yellow]separado de OpenAI API[/yellow]"
                 else:
                     status = "[red]✗ sin credencial[/red]"
             elif name == "ollama_cloud":
@@ -321,8 +326,10 @@ class CredentialManager(LoginFlowsMixin):
                 if k:
                     masked = f"{k[:4]}…{k[-4:]}" if len(k) > 8 else "●●●"
                     status = f"[green]✓ API key {masked}[/green]"
+                    quota = "[yellow]cuota Ollama Cloud no verificada[/yellow]"
                 elif self._creds.get("ollama_cloud_via") == "ollama_signin":
                     status = "[green]✓ ollama signin (cuenta ollama.com)[/green]"
+                    quota = "[yellow]separado de login[/yellow]"
                 else:
                     status = "[red]✗ sin credencial[/red]"
             elif name == "opencode":
@@ -334,8 +341,10 @@ class CredentialManager(LoginFlowsMixin):
                 if val:
                     masked = f"{val[:4]}…{val[-4:]}" if len(val) > 8 else "●●●"
                     status = f"[green]✓ {masked}[/green]"
+                    if name == "github":
+                        quota = "[yellow]GitHub/Copilot API separado[/yellow]"
                 else:
                     status = "[red]✗ sin credencial[/red]"
-            t.add_row(name, status, info["desc"])
-        t.add_row("[dim]/login <provider>[/dim]", "", "[dim]para registrar[/dim]")
+            t.add_row(name, status, quota, info["desc"])
+        t.add_row("[dim]/login <provider>[/dim]", "", "", "[dim]para registrar[/dim]")
         return t

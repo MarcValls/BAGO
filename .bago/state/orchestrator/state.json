@@ -1,5 +1,5 @@
 {
-  "cycles": 288,
+  "cycles": 413,
   "n_agents_active": 10,
   "global_harmony": 0.1,
   "gate_harmony": 0.269,
@@ -15,5 +15,5 @@
     "agent_refactor": "WARN",
     "agent_git": "WARN"
   },
-  "updated_at": "2026-05-18T21:07:16.002912+00:00"
+  "updated_at": "2026-05-19T03:52:03.457431+00:00"
 }

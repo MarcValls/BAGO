@@ -1,15 +1,42 @@
 from __future__ import annotations
 
-import curses
 import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from bago_menu_data import MENU
 from bago_menu_loaders import ROOT, STATE, _LIVE_LOADERS, _live_data
-from bago_menu_ui import _active_menu, _draw
+
+
+_DEV_ONLY_GROUPS: frozenset[str] = frozenset({
+    "✅  Calidad & Salud",
+    "🔍  Análisis de código",
+    "🤖  Agentes & IA",
+    "🧠  Campo & Reactor",
+    "🛠️  Infraestructura",
+})
+
+
+def _active_menu() -> list:
+    """Return MENU filtered by devmode without importing curses UI helpers."""
+    try:
+        gs = json.loads((STATE / "global_state.json").read_text(encoding="utf-8"))
+        if bool(gs.get("devmode", False)):
+            return MENU
+    except Exception:
+        pass
+    hidden = {g.split("  ", 1)[-1] for g in _DEV_ONLY_GROUPS}
+    return [
+        (name, cmds) for name, cmds in MENU
+        if name.split("  ", 1)[-1] not in hidden and name not in _DEV_ONLY_GROUPS
+    ]
 
 
 # ── Modo --list (no interactivo) ──────────────────────────────────────────────
@@ -97,6 +124,15 @@ def main() -> None:
 
     if "--list" in args:
         sys.exit(_cmd_list())
+
+    try:
+        import curses
+    except ModuleNotFoundError:
+        print("bago menu requiere curses, no disponible en este Python de Windows.")
+        print("Usa `bago menu --list` o instala windows-curses en el entorno de BAGO.")
+        sys.exit(1)
+
+    from bago_menu_ui import _draw
 
     if not sys.stdout.isatty():
         print("bago menu requiere un terminal interactivo. Usa --list para salida de texto.")

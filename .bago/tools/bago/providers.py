@@ -14,6 +14,57 @@ def load_routing():
     except: return {"rules": [], "fallback": {"provider": "codex", "model": "gpt-5.4"}}
 
 # ── Routing & strategy ─────────────────────────────────────────────────────────
+_PROVIDER_ALIASES = {
+    "local": "ollama-local",
+    "ollama": "ollama-local",
+    "openai": "codex",
+}
+
+_LOCAL_CODE_KEYWORDS = (
+    "codigo", "código", "code", "script", "funcion", "función", "function",
+    "clase", "class", "refactor", "debug", "bug", "error", "traceback",
+    "test", "tests", "pytest", "edita", "editar", "modifica", "modificar",
+    "implementa", "implementar", "implement", "shell", "repo", "archivo",
+    "pipeline",
+)
+
+_CLOUD_REQUIRED_KEYWORDS = (
+    "repo completo", "contexto masivo", "bago completo", "long context",
+    "auditoria", "auditoría", "security", "seguridad", "vulnerabilidad",
+    "pr", "pull request", "code review", "review",
+)
+
+
+def _normalize_provider_name(provider) -> str:
+    return _PROVIDER_ALIASES.get((provider or "").strip(), provider or "")
+
+
+def _looks_like_local_code_task(text: str) -> bool:
+    tl = text.lower()
+    if any(k in tl for k in _CLOUD_REQUIRED_KEYWORDS):
+        return False
+    return any(k in tl for k in _LOCAL_CODE_KEYWORDS)
+
+
+def _best_ollama_coder(providers: dict) -> "tuple[str, str, str] | None":
+    """Mejor modelo coder Ollama disponible en el registry local/cloud."""
+    for prov in ("ollama-local", "ollama-cloud"):
+        models = providers.get(prov, {}).get("models", {})
+        if not models:
+            continue
+        coder = [
+            (mn, md.get("wire_name", mn))
+            for mn, md in models.items()
+            if "coder" in mn.lower() or "code" in str(md.get("best_for", "")).lower()
+        ]
+        if coder:
+            mn, wire = coder[0]
+            return mn, wire, prov
+        mn, md = next(iter(models.items()))
+        return mn, md.get("wire_name", mn), prov
+    return None
+
+
 def route_by_task(task, routing, providers, current_provider=None):
     """Count-based routing: picks the rule with most keyword hits (same logic as bago_orchestrator).
     LOCAL FIRST: si no hay ninguna regla que coincida y ya estamos en local, no cambiar.
@@ -29,20 +80,34 @@ def route_by_task(task, routing, providers, current_provider=None):
             best_rule = rule
             best_kw = next((kw for kw in rule.get("keywords", []) if kw.lower() in tl), None)
     if best_rule:
-        prov  = best_rule["provider"]
+        if _looks_like_local_code_task(task):
+            local = _best_ollama_coder(providers)
+            if local:
+                name, wire, prov = local
+                return name, wire, prov, best_kw
+        prov  = _normalize_provider_name(best_rule["provider"])
         model = best_rule["model"]
         wire  = providers.get(prov, {}).get("models", {}).get(model, {}).get("wire_name", model)
         return model, wire, prov, best_kw
     # LOCAL FIRST: sin regla coincidente → quedarse en local si ya estamos ahí
+    current_provider = _normalize_provider_name(current_provider)
     if current_provider in ("ollama-local", "ollama-cloud"):
         mods = providers.get(current_provider, {}).get("models", {})
         if mods:
             first = next(iter(mods))
             wire = mods[first].get("wire_name", first)
             return first, wire, current_provider, None
+    if _looks_like_local_code_task(task):
+        local = _best_ollama_coder(providers)
+        if local:
+            name, wire, prov = local
+            return name, wire, prov, None
     # Fallback de config (debe apuntar a local por defecto)
     fb = routing.get("fallback", {"provider": "ollama-local", "model": "qwen25-mini"})
-    return fb.get("model", "qwen25-mini"), fb.get("model", "qwen25-mini"), fb.get("provider", "ollama-local"), None
+    fb_provider = _normalize_provider_name(fb.get("provider", "ollama-local"))
+    fb_model = fb.get("model", "qwen25-mini")
+    fb_wire = providers.get(fb_provider, {}).get("models", {}).get(fb_model, {}).get("wire_name", fb_model)
+    return fb_model, fb_wire, fb_provider, None
 
 def detect_strategy(text, active_providers):
     """
@@ -56,6 +121,11 @@ def detect_strategy(text, active_providers):
         return "single", []
 
     tl = text.lower()
+    if _looks_like_local_code_task(text):
+        preferred = ("ollama-local", "ollama-cloud", "copilot", "codex", "anthropic")
+        ordered = [p for p in preferred if p in active_providers]
+        ordered.extend(p for p in active_providers if p not in ordered)
+        active_providers = ordered
 
     # Senales de cadena: creacion + revision en la misma peticion
     creates  = any(w in tl for w in ["escrib","crea","genera","implementa","construye",
@@ -137,8 +207,22 @@ def _codex_access_token():
 
 # ── LiteLLM resolver ───────────────────────────────────────────────────────────
 def resolve_litellm(provider, wire_name):
-    if provider in ("ollama-local", "ollama-cloud"):
-        return f"ollama/{wire_name}", {"api_base": "http://127.0.0.1:11434"}
+    provider = _normalize_provider_name(provider)
+    if provider == "ollama-local":
+        return f"ollama/{wire_name}", {"api_base": os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")}
+    if provider == "ollama-cloud":
+        providers = load_providers()
+        pdata = providers.get("ollama-cloud", {})
+        api_base = (
+            os.environ.get("OLLAMA_CLOUD_BASE_URL")
+            or pdata.get("base_url")
+            or "https://api.ollama.com"
+        )
+        api_key = os.environ.get("OLLAMA_CLOUD_API_KEY") or os.environ.get("OLLAMA_API_KEY", "")
+        kw = {"api_base": api_base}
+        if api_key:
+            kw["api_key"] = api_key
+        return f"ollama/{wire_name}", kw
     if provider == "copilot":
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if token:
@@ -177,12 +261,12 @@ def auto_detect_provider(creds, providers):
     for preferred in ("ollama-local", "copilot", "codex", "anthropic", "ollama-cloud"):
         if preferred in active and preferred in providers:
             return preferred
-    return next((name for name in providers if name in active), next(iter(providers), "ollama-local"))
+    return next((name for name in providers if name in active), "none")
 
 
 # ── Ollama probe & pull ────────────────────────────────────────────────────────
 
-def ollama_probe(base_url: str = "http://127.0.0.1:11434") -> dict:
+def ollama_probe(base_url: str = "http://127.0.0.1:11434", timeout: float = 3) -> dict:
     """Comprueba si Ollama está activo y qué modelos tiene instalados.
 
     Returns:
@@ -196,12 +280,14 @@ def ollama_probe(base_url: str = "http://127.0.0.1:11434") -> dict:
     import urllib.request
     import urllib.error
     try:
-        with urllib.request.urlopen(f"{base_url}/api/tags", timeout=3) as r:
+        with urllib.request.urlopen(f"{base_url}/api/tags", timeout=timeout) as r:
             data = json.loads(r.read())
         models = [m["name"] for m in data.get("models", [])]
         return {"running": True, "url": base_url, "models": models, "error": None}
     except urllib.error.URLError as e:
         return {"running": False, "url": base_url, "models": [], "error": str(e.reason)}
+    except OSError as e:
+        return {"running": False, "url": base_url, "models": [], "error": str(e)}
     except Exception as e:
         return {"running": False, "url": base_url, "models": [], "error": str(e)}
 
@@ -308,7 +394,7 @@ def discover_ollama_url(timeout: int = 2) -> "str | None":
         if url in seen:
             continue
         seen.add(url)
-        result = ollama_probe(url)
+        result = ollama_probe(url, timeout=timeout)
         if result["running"]:
             # Guardar URL descubierta en env para uso posterior
             os.environ["OLLAMA_HOST"] = url
@@ -319,7 +405,7 @@ def discover_ollama_url(timeout: int = 2) -> "str | None":
         _try_start_ollama_windows()
         # Volver a probar la URL por defecto tras arranque
         for url in ["http://127.0.0.1:11434", "http://localhost:11434"]:
-            result = ollama_probe(url)
+            result = ollama_probe(url, timeout=timeout)
             if result["running"]:
                 os.environ["OLLAMA_HOST"] = url
                 return url
@@ -373,9 +459,9 @@ KNOWN_PROVIDERS_CATALOG: dict[str, dict] = {
     },
     "ollama-cloud": {
         "label":       "Ollama (remoto)",
-        "description": "Ollama en un servidor remoto, VM o Raspberry Pi",
-        "setup":       "Configura la variable de entorno OLLAMA_HOST=http://<ip>:<puerto>",
-        "requires":    "OLLAMA_HOST apuntando a una instancia Ollama remota",
+        "description": "Ollama Cloud o un servidor Ollama remoto",
+        "setup":       "Configura OLLAMA_CLOUD_API_KEY/OLLAMA_API_KEY o OLLAMA_CLOUD_BASE_URL",
+        "requires":    "API key de Ollama Cloud o URL remota compatible",
         "type":        "local",
     },
     "copilot": {
@@ -512,13 +598,28 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             probe = ollama_probe(url)
             n = len(probe["models"])
             detail = f"{url} — {n} modelos" if n else f"{url} — sin modelos instalados"
-            return {"ok": True, "detail": detail, "models": probe["models"], "url": url}
-        return {"ok": False, "detail": "no encontrado en ninguna ubicación", "models": [], "url": None}
+            return {
+                "ok": True, "detail": detail, "models": probe["models"], "url": url,
+                "auth_ok": True, "auth_detail": "sin auth: local",
+                "quota_ok": True, "quota_detail": "sin gasto API",
+                "channel": "ollama_local",
+            }
+        return {
+            "ok": False, "detail": "no encontrado en ninguna ubicación", "models": [], "url": None,
+            "auth_ok": None, "auth_detail": "no aplica",
+            "quota_ok": True, "quota_detail": "sin gasto API",
+            "channel": "ollama_local",
+        }
 
     def _check_copilot():
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if not token:
-            return {"ok": False, "detail": "sin GITHUB_TOKEN"}
+            return {
+                "ok": False, "detail": "sin GITHUB_TOKEN",
+                "auth_ok": False, "auth_detail": "sin login/token GitHub",
+                "quota_ok": None, "quota_detail": "no comprobada sin auth",
+                "channel": "github_copilot",
+            }
         try:
             req = urllib.request.Request(
                 "https://api.github.com/user",
@@ -527,13 +628,40 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read())
                 login = data.get("login", "?")
-                return {"ok": True, "detail": f"@{login}"}
+                return {
+                    "ok": True,
+                    "detail": f"login @{login} | cuota Copilot/GitHub no verificada",
+                    "auth_ok": True,
+                    "auth_detail": f"GitHub @{login}",
+                    "quota_ok": None,
+                    "quota_detail": "login no garantiza Copilot/API quota",
+                    "channel": "github_copilot",
+                }
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                return {"ok": False, "detail": "token inválido (401)"}
-            return {"ok": True, "detail": f"HTTP {e.code}"}
+                return {
+                    "ok": False, "detail": "token inválido (401)",
+                    "auth_ok": False, "auth_detail": "token inválido",
+                    "quota_ok": None, "quota_detail": "no comprobada",
+                    "channel": "github_copilot",
+                }
+            quota_block = e.code in (403, 429)
+            return {
+                "ok": not quota_block,
+                "detail": f"HTTP {e.code}",
+                "auth_ok": True,
+                "auth_detail": "token aceptado por GitHub",
+                "quota_ok": False if quota_block else None,
+                "quota_detail": "rate limit/permisos GitHub" if quota_block else "no comprobada",
+                "channel": "github_copilot",
+            }
         except Exception as e:
-            return {"ok": False, "detail": str(e)[:60]}
+            return {
+                "ok": False, "detail": str(e)[:60],
+                "auth_ok": None, "auth_detail": "no comprobado",
+                "quota_ok": None, "quota_detail": "no comprobada",
+                "channel": "github_copilot",
+            }
 
     def _check_codex():
         import shutil
@@ -541,7 +669,16 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         # ── 1. API key explícita (máxima prioridad) ───────────────────────────
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if api_key:
-            return {"ok": True, "detail": f"API key ...{api_key[-4:]}", "auth": "api_key"}
+            return {
+                "ok": True,
+                "detail": f"API key ...{api_key[-4:]} | cuota API no verificada",
+                "auth": "api_key",
+                "auth_ok": True,
+                "auth_detail": f"OpenAI API key ...{api_key[-4:]}",
+                "quota_ok": None,
+                "quota_detail": "cuota/billing se confirma en la llamada real",
+                "channel": "openai_api",
+            }
 
         # ── 2. OAuth token de ChatGPT Plus via codex CLI ──────────────────────
         # _codex_access_token() lee ~/.codex/auth.json → tokens.access_token
@@ -565,8 +702,13 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
                 pass
             return {
                 "ok":    True,
-                "detail": f"ChatGPT OAuth{user_hint}",
+                "detail": f"ChatGPT/Codex OAuth login{user_hint} | no es credito API",
                 "auth":   "chatgpt_oauth",
+                "auth_ok": True,
+                "auth_detail": f"ChatGPT/Codex OAuth{user_hint}",
+                "quota_ok": None,
+                "quota_detail": "login ChatGPT/Codex separado de OpenAI API billing",
+                "channel": "chatgpt_codex_login",
             }
 
         # ── 3. Leer otros ficheros en ~/.codex/ con estructuras alternativas ──
@@ -584,7 +726,16 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
                         or (d.get("auth") or {}).get("access_token")
                     )
                     if tok:
-                        return {"ok": True, "detail": "codex CLI autenticado", "auth": "codex_cli"}
+                        return {
+                            "ok": True,
+                            "detail": "codex CLI autenticado | no es credito API",
+                            "auth": "codex_cli",
+                            "auth_ok": True,
+                            "auth_detail": "codex CLI autenticado",
+                            "quota_ok": None,
+                            "quota_detail": "separado de OpenAI API billing",
+                            "channel": "chatgpt_codex_login",
+                        }
                 except Exception:
                     pass
 
@@ -596,6 +747,11 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
                 "detail": "codex CLI instalado pero sin login — ejecuta: codex login",
                 "auth":   "none",
                 "cli":    cli,
+                "auth_ok": False,
+                "auth_detail": "sin login Codex/OpenAI",
+                "quota_ok": None,
+                "quota_detail": "no comprobada sin auth",
+                "channel": "openai_api",
             }
 
         # ── 5. Nada disponible ────────────────────────────────────────────────
@@ -603,6 +759,36 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             "ok":     False,
             "detail": "sin OPENAI_API_KEY ni codex CLI — instala: npm i -g @openai/codex",
             "auth":   "none",
+            "auth_ok": False,
+            "auth_detail": "sin OpenAI API key ni Codex login",
+            "quota_ok": None,
+            "quota_detail": "no comprobada sin auth",
+            "channel": "openai_api",
+        }
+
+    def _check_ollama_cloud():
+        key = os.environ.get("OLLAMA_CLOUD_API_KEY") or os.environ.get("OLLAMA_API_KEY", "")
+        base_url = os.environ.get("OLLAMA_CLOUD_BASE_URL", "https://api.ollama.com")
+        if not key:
+            return {
+                "ok": False,
+                "detail": "sin OLLAMA_CLOUD_API_KEY/OLLAMA_API_KEY",
+                "auth_ok": False,
+                "auth_detail": "sin API key Ollama Cloud",
+                "quota_ok": None,
+                "quota_detail": "no comprobada sin auth",
+                "channel": "ollama_cloud_api",
+                "url": base_url,
+            }
+        return {
+            "ok": True,
+            "detail": f"API key ...{key[-4:]} | cuota Ollama Cloud no verificada",
+            "auth_ok": True,
+            "auth_detail": f"Ollama Cloud API key ...{key[-4:]}",
+            "quota_ok": None,
+            "quota_detail": "se confirma en la llamada real",
+            "channel": "ollama_cloud_api",
+            "url": base_url,
         }
 
     def _check_anthropic():
@@ -663,7 +849,12 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         """
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if not token:
-            return {"ok": False, "detail": "sin GITHUB_TOKEN — ejecuta: gh auth login"}
+            return {
+                "ok": False, "detail": "sin GITHUB_TOKEN — ejecuta: gh auth login",
+                "auth_ok": False, "auth_detail": "sin login/token GitHub",
+                "quota_ok": None, "quota_detail": "no comprobada sin auth",
+                "channel": "github_models_api",
+            }
 
         try:
             req = urllib.request.Request(
@@ -689,24 +880,56 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
                 suffix = f" (+{n-3} mas)" if n > 3 else ""
                 return {
                     "ok":     True,
-                    "detail": f"{n} modelos disponibles: {sample}{suffix}",
+                    "detail": f"{n} modelos disponibles: {sample}{suffix} | cuota API no verificada",
                     "models": model_ids,
                     "tier":   "free" if n > 0 else "unknown",
+                    "auth_ok": True,
+                    "auth_detail": "token GitHub aceptado",
+                    "quota_ok": None,
+                    "quota_detail": "GitHub Models rate limit separado del login",
+                    "channel": "github_models_api",
                 }
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                return {"ok": False, "detail": "token invalido (401) — re-ejecuta: gh auth login"}
+                return {
+                    "ok": False, "detail": "token invalido (401) — re-ejecuta: gh auth login",
+                    "auth_ok": False, "auth_detail": "token inválido",
+                    "quota_ok": None, "quota_detail": "no comprobada",
+                    "channel": "github_models_api",
+                }
             if e.code == 403:
-                return {"ok": False, "detail": f"acceso denegado (403) — cuenta sin permisos GitHub Models"}
+                return {
+                    "ok": False, "detail": f"acceso denegado (403) — permisos/rate limit GitHub Models",
+                    "auth_ok": True, "auth_detail": "token GitHub aceptado",
+                    "quota_ok": False, "quota_detail": "sin permisos o rate limit GitHub Models",
+                    "channel": "github_models_api",
+                }
             if e.code == 404:
                 # API puede no estar disponible en esta region / endpoint cambio
-                return {"ok": False, "detail": f"endpoint no encontrado (404) — verifica models.github.ai"}
-            return {"ok": False, "detail": f"HTTP {e.code} desde models.github.ai"}
+                return {
+                    "ok": False, "detail": f"endpoint no encontrado (404) — verifica models.github.ai",
+                    "auth_ok": True, "auth_detail": "token GitHub aceptado",
+                    "quota_ok": None, "quota_detail": "endpoint no disponible",
+                    "channel": "github_models_api",
+                }
+            return {
+                "ok": False, "detail": f"HTTP {e.code} desde models.github.ai",
+                "auth_ok": True, "auth_detail": "token GitHub aceptado",
+                "quota_ok": False if e.code == 429 else None,
+                "quota_detail": "rate limit GitHub Models" if e.code == 429 else "no comprobada",
+                "channel": "github_models_api",
+            }
         except Exception as e:
-            return {"ok": False, "detail": f"error al conectar con models.github.ai: {str(e)[:60]}"}
+            return {
+                "ok": False, "detail": f"error al conectar con models.github.ai: {str(e)[:60]}",
+                "auth_ok": None, "auth_detail": "no comprobado",
+                "quota_ok": None, "quota_detail": "no comprobada",
+                "channel": "github_models_api",
+            }
 
     _checks = {
         "ollama-local":   _check_ollama,
+        "ollama-cloud":   _check_ollama_cloud,
         "copilot":        _check_copilot,
         "github-models":  _check_github_models,
         "codex":          _check_codex,
@@ -715,7 +938,7 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         "openrouter":     _check_openrouter,
     }
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         futures = {prov: pool.submit(fn) for prov, fn in _checks.items()}
         for prov, fut in futures.items():
             try:

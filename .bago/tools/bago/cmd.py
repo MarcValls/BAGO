@@ -141,9 +141,17 @@ def cmd(line, session):
                 dot = "[red]●[/red]"
                 detail = h.get("detail", "no disponible")
             prov_lines.append(f"  {dot} [bold]{pname:<14}[/bold]  [dim]{detail}[/dim]")
+            auth_detail = h.get("auth_detail")
+            quota_detail = h.get("quota_detail")
+            if auth_detail or quota_detail:
+                prov_lines.append(
+                    f"      [dim]auth: {auth_detail or 'no comprobado'}"
+                    f"  |  cuota/gasto: {quota_detail or 'no comprobada'}[/dim]"
+                )
 
         prov_panel = "\n".join(prov_lines) if prov_lines else "  (sin datos)"
         skip = ", ".join(session.skip_providers) if session.skip_providers else "ninguno"
+        degraded_section = f"\n[bold]Providers degradados en runtime:[/bold]\n{session.degraded_summary()}"
 
         # ── Tokens de la sesión ───────────────────────────────────────────────
         tokens_section = f"\n[bold]Tokens esta sesión:[/bold]\n{session.tokens_summary()}"
@@ -165,6 +173,7 @@ def cmd(line, session):
             f"Tiempo:      {elapsed}\n"
             f"Auto-route:  {'ON' if session.autoroute else 'OFF'}  |  Skip: {skip}\n"
             f"\n[bold]Providers — estado en vivo:[/bold]\n{prov_panel}"
+            f"{degraded_section}"
             f"{tokens_section}"
             f"{hw_section}",
             title="[bold]Estado BAGO[/bold]", box=box.ROUNDED))
@@ -337,7 +346,10 @@ def cmd(line, session):
                 if not slots:
                     pi(f"[red]Provider '{prov}' no tiene schema. Usa /tumba schema para ver disponibles.[/red]")
                 else:
-                    from prompt_toolkit import prompt as pt_prompt
+                    try:
+                        from prompt_toolkit import prompt as pt_prompt
+                    except ModuleNotFoundError:
+                        from .ui import _stdin_prompt as pt_prompt
                     keys = tumba_list()
                     miss = missing_slots(prov, keys)
                     if not miss:

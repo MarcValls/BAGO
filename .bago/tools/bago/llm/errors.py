@@ -75,6 +75,12 @@ _CLOUD_CONN_SIGNALS = (
     "read timed out", "remotedisconnected", "servicesunavailable",
     "503", "502", "overloaded", "apiconnectionerror",
 )
+_CLOUD_QUOTA_SIGNALS = (
+    "ratelimiterror", "rate limit", "rate_limit", "too many requests",
+    "quota", "exceeded your current quota", "insufficient_quota",
+    "billing", "credits", "credit balance", "payment required",
+    "usage limit", "resource_exhausted", "429",
+)
 
 def _is_cloud_auth_error(exc) -> bool:
     """Detecta errores de autenticación en providers cloud (no Ollama)."""
@@ -91,3 +97,29 @@ def _is_cloud_connection_error(exc) -> bool:
     if "not found" in low and "model" in low:
         return False
     return any(sig in low for sig in _CLOUD_CONN_SIGNALS)
+
+
+def _is_cloud_quota_error(exc) -> bool:
+    """Detecta cuota, billing o rate-limit en providers cloud (no Ollama)."""
+    low = str(exc).lower()
+    if "ollama" in low:
+        return False
+    return any(sig in low for sig in _CLOUD_QUOTA_SIGNALS)
+
+
+def classify_provider_error(exc, *, model: str = "") -> str:
+    """Clasifica errores para status/fallback sin mezclar auth con cuota."""
+    is_missing, _ = _is_ollama_model_not_found(exc)
+    if is_missing:
+        return "ollama_model_missing"
+    if _is_ollama_unreachable(exc, model=model):
+        return "ollama_connection"
+    if _is_ctx_overflow(exc):
+        return "context"
+    if _is_cloud_quota_error(exc):
+        return "quota"
+    if _is_cloud_auth_error(exc):
+        return "auth"
+    if _is_cloud_connection_error(exc):
+        return "connection"
+    return "unknown"

@@ -2,6 +2,7 @@
 #!/usr/bin/env python3
 """BAGO Orchestrator HUB — Entry point (thin glue)"""
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -17,6 +18,15 @@ if sys.platform == "win32":
     except Exception:
         pass
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Forzar UTF-8 para evitar crashes en consolas Windows con CP1252.
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("PYTHONUTF8", "1")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 sys.path.insert(0, str(Path(__file__).parent))
 

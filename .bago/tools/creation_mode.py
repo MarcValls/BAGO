@@ -60,6 +60,9 @@ try:
     from prompt_toolkit.formatted_text import HTML
     _HAS_PROMPT_TOOLKIT = True
 except ImportError:
+    PromptSession = None
+    Style = None
+    HTML = None
     _HAS_PROMPT_TOOLKIT = False
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
@@ -414,12 +417,11 @@ def _run_interactive(tab: str = "cambios") -> int:
         ":task":      "ver tarea activa",
     }
 
-    pt_style = Style.from_dict({
-        "prompt":       "#5555ff bold",
-        "rprompt":      "#666666",
-    })
-
     if _HAS_PROMPT_TOOLKIT:
+        pt_style = Style.from_dict({
+            "prompt":       "#5555ff bold",
+            "rprompt":      "#666666",
+        })
         session: PromptSession = PromptSession(
             history=None,
             style=pt_style,

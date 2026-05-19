@@ -1,10 +1,17 @@
 """bago.chat.statusbar — barra de estado superior/inferior y prompt indicator."""
 
+import os
 import shutil as _shutil
 import time as _time
 from pathlib import Path
 
-from prompt_toolkit.formatted_text import FormattedText
+try:
+    if os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "0") == "1":
+        raise ModuleNotFoundError("prompt_toolkit disabled by BAGO_NO_PROMPT_TOOLKIT=1")
+    from prompt_toolkit.formatted_text import FormattedText
+except ModuleNotFoundError:
+    def FormattedText(parts):
+        return parts
 
 from ..constants import BAGO_DIR
 

@@ -6,21 +6,14 @@ Se mezcla con CredentialManager mediante herencia múltiple.
 
 import subprocess
 
-from prompt_toolkit import prompt as pt_prompt
-
 from ..ui import console
 from .accounts import AccountManager
-from .flows import (
-    flow_github,
-    flow_openai,
-    flow_ollama_cloud,
-    flow_ollama_service,
-    flow_opencode,
-    flow_gittoken,
-    flow_api_key,
-    flow_huggingface,
-    flow_sendcm,
-)
+from ..ui import _stdin_prompt
+
+
+def pt_prompt(text: str, is_password: bool = False) -> str:
+    """Prompt compatible con prompt_toolkit, con fallback a input/getpass."""
+    return _stdin_prompt(text, is_password=is_password)
 
 
 class LoginFlowsMixin:
@@ -149,32 +142,41 @@ class LoginFlowsMixin:
         return f"[red]Tipo de login '{ltype}' no reconocido.[/red]"
 
     def _flow_github(self) -> str:
+        from .flows.github import flow_github
         return flow_github(self)
 
     def _flow_openai(self) -> str:
+        from .flows.openai import flow_openai
         return flow_openai(self)
 
     def _flow_api_key(self, name: str, info: dict) -> str:
+        from .flows.misc import flow_api_key
         return flow_api_key(self, name, info)
 
     def _flow_ollama_cloud(self) -> str:
+        from .flows.ollama import flow_ollama_cloud
         return flow_ollama_cloud(self)
 
     def _flow_opencode(self) -> str:
+        from .flows.ollama import flow_opencode
         return flow_opencode(self)
 
     def _flow_ollama_service(self) -> str:
+        from .flows.ollama import flow_ollama_service
         return flow_ollama_service(self)
 
     def _flow_gittoken(self, provider: str, label: str,
                        verify_url: str, auth_header: str,
                        prefix: str = "") -> str:
+        from .flows.git import flow_gittoken
         return flow_gittoken(self, provider, label, verify_url, auth_header, prefix)
 
     def _flow_huggingface(self) -> str:
+        from .flows.misc import flow_huggingface
         return flow_huggingface(self)
 
     def _flow_sendcm(self) -> str:
+        from .flows.misc import flow_sendcm
         return flow_sendcm(self)
 
     # ── Wizard de nueva cuenta ───────────────────────────────────────────────
@@ -201,7 +203,10 @@ class LoginFlowsMixin:
 
         if provider == "github":
             console.print("[dim]Ejecutando gh auth login...[/dim]")
-            result = subprocess.run(["gh", "auth", "login"])
+            try:
+                result = subprocess.run(["gh", "auth", "login"])
+            except FileNotFoundError:
+                return "[red]gh CLI no encontrado. Instalalo desde https://cli.github.com y reintenta.[/red]"
             if result.returncode != 0:
                 return "[red]gh auth login fallido.[/red]"
             try:
@@ -220,7 +225,22 @@ class LoginFlowsMixin:
             )
             choice = pt_prompt("Opción [1/2]: ").strip()
             if choice == "1":
-                result = subprocess.run(["codex", "login"])
+                try:
+                    result = subprocess.run(["codex", "login"])
+                except FileNotFoundError:
+                    console.print("[yellow]codex no esta instalado.[/yellow]")
+                    ans = pt_prompt("Install codex CLI now? [y/n]: ").strip().lower()
+                    if ans in ("y", "yes", "s", "si"):
+                        console.print("[dim]Installing @openai/codex via npm...[/dim]")
+                        try:
+                            r = subprocess.run(["npm", "install", "-g", "@openai/codex"])
+                            if r.returncode != 0:
+                                return "[red]npm install failed. Install manually: npm install -g @openai/codex[/red]"
+                            result = subprocess.run(["codex", "login"])
+                        except FileNotFoundError:
+                            return "[red]npm not found. Install Node.js then: npm install -g @openai/codex[/red]"
+                    else:
+                        return "Cancelled. Use option 2 (API key) or install codex manually."
                 if result.returncode == 0:
                     account_id = am.add("openai", label, "__codex_oauth__", "oauth", make_active=True)
                     return f"[green]✓ Cuenta añadida: {account_id} — {label} (codex OAuth)[/green]"

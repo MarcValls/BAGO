@@ -25,6 +25,8 @@ def _preemptive_cloud_escalation(session, user_input: str) -> bool:
 
     Retorna True si se escaló.
     """
+    if not _needs_cloud_for_url(user_input, session):
+        return False
     escalation = _cloud_escalation_for_quality(session, user_input)
     if not escalation:
         return False
@@ -109,7 +111,10 @@ def chat(session, user_input, *, history_input: str | None = None):
         _preemptive_cloud_escalation(session, user_input)
 
         # ── Paso 3: detectar estrategia ───────────────────────────────────────
-        active = session.creds.active_bago_providers()
+        active = [
+            p for p in session.creds.active_bago_providers()
+            if p not in getattr(session, "skip_providers", set())
+        ]
         strategy, providers_for_strategy = detect_strategy(user_input, active)
 
         if strategy == "chain" and len(providers_for_strategy) >= 2:

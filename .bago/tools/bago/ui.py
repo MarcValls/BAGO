@@ -45,18 +45,35 @@
 import re
 import threading
 import shutil as _shutil
+import getpass
+import os
 
 
 def _strip_rich(text: str) -> str:
     """Elimina etiquetas de markup Rich de un string para usarlo en prompt_toolkit."""
     return re.sub(r"\[/?[^\[\]]*\]", "", text)
 
-from prompt_toolkit.application import Application
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import FormattedTextControl, Layout, HSplit, Window
-from prompt_toolkit.shortcuts import button_dialog, checkboxlist_dialog, input_dialog, yes_no_dialog
-from prompt_toolkit.styles import Style
-from prompt_toolkit.widgets import Frame, Label
+_PROMPT_TOOLKIT_AVAILABLE = os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "0") != "1"
+try:
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        raise ModuleNotFoundError("prompt_toolkit disabled by BAGO_NO_PROMPT_TOOLKIT=1")
+    from prompt_toolkit.application import Application
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.layout import FormattedTextControl, Layout, HSplit, Window
+    from prompt_toolkit.shortcuts import button_dialog, checkboxlist_dialog, input_dialog, yes_no_dialog
+    from prompt_toolkit.styles import Style
+    from prompt_toolkit.widgets import Frame, Label
+except ModuleNotFoundError:
+    _PROMPT_TOOLKIT_AVAILABLE = False
+    Application = KeyBindings = FormattedTextControl = Layout = HSplit = Window = None
+    button_dialog = checkboxlist_dialog = input_dialog = yes_no_dialog = None
+    Frame = Label = None
+
+    class Style:
+        @staticmethod
+        def from_dict(data):
+            return data
+
 from rich import box
 from rich.console import Console
 from rich.markdown import Markdown
@@ -66,6 +83,28 @@ from .constants import COLORS, BAGO_VERSION
 
 console = Console(force_terminal=True, highlight=False, markup=True,
                   safe_box=True, emoji=False)
+
+_PT_FALLBACK_WARNED = False
+
+
+def _warn_prompt_toolkit_fallback():
+    global _PT_FALLBACK_WARNED
+    if _PT_FALLBACK_WARNED:
+        return
+    _PT_FALLBACK_WARNED = True
+    console.print(
+        "[yellow]prompt_toolkit no instalado. Usando UI básica por texto.[/yellow]\n"
+        "[dim]Para experiencia completa: pip install prompt_toolkit[/dim]"
+    )
+
+
+def _stdin_prompt(label: str, is_password: bool = False) -> str:
+    try:
+        if is_password:
+            return getpass.getpass(label)
+        return input(label)
+    except (EOFError, KeyboardInterrupt):
+        return ""
 
 def show_response(text, model_name, provider, label=None):
     try:    content = Markdown(text)
@@ -248,6 +287,25 @@ def _menu_pick(title: str, text: str, values: list):
     if not values:
         return None
 
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        rows = [(k, _strip_rich(lbl)) for k, lbl in values if k is not None]
+        if not rows:
+            return None
+        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+        for idx, (_, lbl) in enumerate(rows, start=1):
+            console.print(f"  {idx}. {lbl}")
+        raw = _stdin_prompt("Selecciona número (Enter cancela): ").strip()
+        if not raw:
+            return None
+        try:
+            pos = int(raw)
+        except ValueError:
+            return None
+        if pos < 1 or pos > len(rows):
+            return None
+        return rows[pos - 1][0]
+
     # Índices navegables (excluye separadores marcados como None en key)
     nav_idx = [i for i, v in enumerate(values) if v[0] is not None]
     if not nav_idx:
@@ -361,6 +419,38 @@ def _toggle_menu(title: str, text: str, items: list):
         item["key"]: bool(item.get("value", False))
         for item in items if item.get("type") == "toggle"
     }
+
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        while True:
+            console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+            options = []
+            idx = 1
+            for item in items:
+                itype = item.get("type", "action")
+                if itype == "sep":
+                    continue
+                label = _strip_rich(item.get("label", ""))
+                if itype == "toggle":
+                    label = f"[{'ON' if state[item['key']] else 'OFF'}] {label}"
+                console.print(f"  {idx}. {label}")
+                options.append(item)
+                idx += 1
+            console.print("  q. salir")
+            raw = _stdin_prompt("Elige opción: ").strip().lower()
+            if not raw or raw == "q":
+                return {"action": None, "toggles": dict(state)}
+            try:
+                pos = int(raw)
+            except ValueError:
+                continue
+            if pos < 1 or pos > len(options):
+                continue
+            selected = options[pos - 1]
+            if selected.get("type") == "toggle":
+                state[selected["key"]] = not state[selected["key"]]
+                continue
+            return {"action": selected.get("key"), "toggles": dict(state)}
 
     # Indices navegables (excluye separadores)
     nav_idx = [i for i, it in enumerate(items) if it.get("type") != "sep"]
@@ -480,6 +570,29 @@ def _toggle_menu(title: str, text: str, items: list):
 
 def _menu_multiselect(title: str, text: str, values: list, defaults: list = None):
     """Checkboxlist: el usuario marca varias opciones y confirma con Aceptar."""
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        rows = list(values or [])
+        if not rows:
+            return []
+        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+        for idx, (_, lbl) in enumerate(rows, start=1):
+            console.print(f"  {idx}. {_strip_rich(lbl)}")
+        raw = _stdin_prompt("Números separados por coma (Enter cancela): ").strip()
+        if not raw:
+            return None
+        out = []
+        for tok in raw.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                pos = int(tok)
+            except ValueError:
+                continue
+            if 1 <= pos <= len(rows):
+                out.append(rows[pos - 1][0])
+        return out
     try:
         return checkboxlist_dialog(
             title=title, text=text,
@@ -499,6 +612,24 @@ def _menu_select(title, text, values, cancel_label=None, ok_label=None):
 
 
 def _menu_action(title, text, buttons):
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        rows = list(buttons or [])
+        if not rows:
+            return None
+        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+        for idx, (lbl, _) in enumerate(rows, start=1):
+            console.print(f"  {idx}. {_strip_rich(lbl)}")
+        raw = _stdin_prompt("Selecciona número (Enter cancela): ").strip()
+        if not raw:
+            return None
+        try:
+            pos = int(raw)
+        except ValueError:
+            return None
+        if pos < 1 or pos > len(rows):
+            return None
+        return rows[pos - 1][1]
     try:
         return button_dialog(title=title, text=text,
                              buttons=buttons, style=_MENU_STYLE).run()
@@ -506,6 +637,13 @@ def _menu_action(title, text, buttons):
         return None
 
 def _menu_input(title, text, default=""):
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+        raw = _stdin_prompt(f"[{default}] > " if default else "> ")
+        if raw == "":
+            return default
+        return raw
     try:
         return input_dialog(title=title, text=text,
                             default=default, style=_MENU_STYLE).run()
@@ -513,6 +651,11 @@ def _menu_input(title, text, default=""):
         return None
 
 def _menu_confirm(title, text):
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+        raw = _stdin_prompt("¿Sí/No? [s/N]: ").strip().lower()
+        return raw in ("s", "si", "y", "yes")
     try:
         return yes_no_dialog(title=title, text=text,
                              yes_text="Sí",

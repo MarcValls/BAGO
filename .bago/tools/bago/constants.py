@@ -1,4 +1,5 @@
 
+import os
 from pathlib import Path
 import json as _json
 
@@ -8,7 +9,14 @@ TOOLS_DIR = SCRIPT_DIR
 BAGO_DIR = SCRIPT_DIR.parent
 BAGO_REPO_ROOT = BAGO_DIR.parent
 STATE_DIR = BAGO_DIR / "state"
-USER_BAGO = Path.home() / ".bago"
+def _resolve_user_bago() -> Path:
+    portable_home = os.environ.get("BAGO_USER_HOME") or os.environ.get("BAGO_USER_DIR")
+    if portable_home:
+        return Path(portable_home).expanduser().resolve()
+    return Path.home() / ".bago"
+
+
+USER_BAGO = _resolve_user_bago()
 
 def _bago_version() -> str:
     try:

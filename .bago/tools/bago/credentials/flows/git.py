@@ -6,9 +6,11 @@ Soporta dos métodos:
   2. Email + contraseña → genera token por API (solo Gitea/Codeberg)
 """
 
-from prompt_toolkit import prompt as pt_prompt
+from ...ui import console, _stdin_prompt
 
-from ...ui import console
+
+def pt_prompt(text: str, is_password: bool = False) -> str:
+    return _stdin_prompt(text, is_password=is_password)
 
 
 def flow_gittoken(

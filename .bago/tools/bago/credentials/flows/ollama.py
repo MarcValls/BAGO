@@ -4,9 +4,11 @@ import os
 import shutil
 import subprocess
 
-from prompt_toolkit import prompt as pt_prompt
+from ...ui import console, _stdin_prompt
 
-from ...ui import console
+
+def pt_prompt(text: str, is_password: bool = False) -> str:
+    return _stdin_prompt(text, is_password=is_password)
 
 
 def _resolve(cmd: str) -> str | None:
@@ -32,7 +34,10 @@ def flow_ollama_cloud(mgr) -> str:
     choice = pt_prompt("Opción [1/2]: ").strip()
     if choice == "1":
         console.print("[dim]Ejecutando ollama signin...[/dim]")
-        result = subprocess.run(["ollama", "signin"])
+        try:
+            result = subprocess.run(["ollama", "signin"])
+        except FileNotFoundError:
+            return "[red]ollama no encontrado. Instalalo desde https://ollama.com y reintenta.[/red]"
         if result.returncode == 0:
             mgr._creds["ollama_cloud_via"] = "ollama_signin"
             mgr._save()

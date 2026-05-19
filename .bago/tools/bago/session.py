@@ -13,6 +13,7 @@ from .providers import (
     resolve_litellm,
     route_by_task,
 )
+from .llm.errors import classify_provider_error
 
 class BagoSession:
     def __init__(self, provider, model_name, wire_name, creds):
@@ -43,6 +44,8 @@ class BagoSession:
         }
         # Providers temporalmente excluidos del autoroute (e.g. Ollama caído)
         self.skip_providers: set = set()
+        # Providers degradados en runtime: auth/quota/connection separados de login.
+        self.degraded_providers: dict = {}
         # Token counter: {provider: {model: {"in": int, "out": int, "calls": int}}}
         self.token_log: dict = {}
         self._token_lock = threading.Lock()  # audit-3: protege record_tokens() en ensemble
@@ -84,6 +87,42 @@ class BagoSession:
             f"  {'TOTAL':<34}  "
             f"↑{total_in:>7,} in   ↓{total_out:>7,} out   ×{total_calls} llamadas"
         )
+        return "\n".join(lines)
+
+    def mark_provider_degraded(self, provider: str, exc, *, model=None) -> str:
+        """Marca un provider como degradado y lo excluye temporalmente del autoroute."""
+        reason = classify_provider_error(exc, model=model or "")
+        detail = str(exc).replace("\n", " ")[:220]
+        if provider:
+            self.skip_providers.add(provider)
+            self.degraded_providers[provider] = {
+                "reason": reason,
+                "model": model or self.model_name,
+                "detail": detail,
+                "at": datetime.datetime.now().isoformat(timespec="seconds"),
+            }
+        return reason
+
+    def clear_provider_degraded(self, provider: str) -> None:
+        self.skip_providers.discard(provider)
+        self.degraded_providers.pop(provider, None)
+
+    def degraded_summary(self) -> str:
+        if not self.degraded_providers:
+            return "  (ninguno)"
+        lines = []
+        labels = {
+            "quota": "cuota/billing/rate-limit",
+            "auth": "auth/permisos",
+            "connection": "conexion",
+            "ollama_connection": "ollama inaccesible",
+            "ollama_model_missing": "modelo ollama ausente",
+            "context": "contexto saturado",
+        }
+        for prov, data in self.degraded_providers.items():
+            reason = labels.get(data.get("reason"), data.get("reason", "unknown"))
+            model = data.get("model", "?")
+            lines.append(f"  {prov}/{model}: {reason}")
         return "\n".join(lines)
 
     def _load_orchestrator(self):
@@ -161,7 +200,7 @@ class BagoSession:
         if self.orch_mode != "auto":
             return self.orch_mode
 
-        active = self.creds.active_bago_providers()
+        active = [p for p in self.creds.active_bago_providers() if p not in self.skip_providers]
         words  = len(user_input.split())
 
         # Indicadores de tarea compleja: codigo, archivos, analisis
@@ -211,7 +250,7 @@ class BagoSession:
         name, wire, prov, kw = route_by_task(user_input, self.routing, self.providers, self.provider)
         if name and name != self.model_name:
             # Verificar que el provider tiene credenciales y no está excluido
-            active = self.creds.active_bago_providers()
+            active = [p for p in self.creds.active_bago_providers() if p not in self.skip_providers]
             if prov not in self.skip_providers and prov in active:
                 old = self.model_name
                 self.provider, self.model_name, self.wire_name = prov, name, wire

@@ -160,7 +160,12 @@ def _fw_ideas(session):
             pi("Consultando al LM para estructurar la idea...")
             try:
                 lm, kw = session.litellm_info
-                resp = _llm_call(lm, kw, [{"role":"user","content":prompt_idea}])
+                resp = _llm_call(
+                    lm, kw, [{"role":"user","content":prompt_idea}],
+                    session=session,
+                    _provider=session.provider,
+                    _model=session.model_name,
+                )
                 _menu_action("Propuesta del LM", resp[:800], [("Cerrar","ok")])
             except Exception as e:
                 pe(f"Error LM: {e}")
@@ -248,7 +253,10 @@ def _fw_evolve(session):
 
     while True:
         try:
-            from prompt_toolkit import prompt as pt_prompt
+            try:
+                from prompt_toolkit import prompt as pt_prompt
+            except ModuleNotFoundError:
+                from ..ui import _stdin_prompt as pt_prompt
             prefix = "[framework|IMPL] > " if mode == "impl" else "[framework] > "
             user_in = pt_prompt(prefix).strip()
         except (EOFError, KeyboardInterrupt):
@@ -260,7 +268,12 @@ def _fw_evolve(session):
         lm, kw = session.litellm_info
         try:
             with console.status(f"[dim]{session.model_name} (modo evolutivo)...[/dim]", spinner="dots"):
-                resp = _llm_call(lm, kw, evolve_history)
+                resp = _llm_call(
+                    lm, kw, evolve_history,
+                    session=session,
+                    _provider=session.provider,
+                    _model=session.model_name,
+                )
             evolve_history.append({"role": "assistant", "content": resp})
             console.print(Panel(resp, title=f"[dim]{session.model_name}[/dim]", box=box.SIMPLE))
 
@@ -293,7 +306,12 @@ def _fw_evolve(session):
                 evolve_history[0] = {"role": "system", "content": _IMPL_SYSTEM}
                 evolve_history.append({"role": "user", "content": "Implementa ahora el plan acordado. Genera el código completo."})
                 with console.status(f"[dim]{session.model_name} (implementando)...[/dim]", spinner="dots"):
-                    impl_resp = _llm_call(lm, kw, evolve_history)
+                    impl_resp = _llm_call(
+                        lm, kw, evolve_history,
+                        session=session,
+                        _provider=session.provider,
+                        _model=session.model_name,
+                    )
                 evolve_history.append({"role": "assistant", "content": impl_resp})
                 console.print(Panel(impl_resp, title=f"[dim]{session.model_name} — IMPLEMENTACION[/dim]", box=box.SIMPLE))
                 impl_blocks = re.findall(

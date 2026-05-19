@@ -18,7 +18,7 @@ from ..model_catalog import (
     enrich_with_installed, enrich_with_compat, get_gems,
 )
 from ..providers import ollama_probe, ollama_pull
-from ..ui import _menu_pick
+from ..ui import _menu_pick, _stdin_prompt
 
 console = Console()
 
@@ -261,7 +261,10 @@ def cmd_catalog(session=None) -> None:
                             f"  [red]⚠  Este modelo NO es compatible con tu hardware "
                             f"({entry.compat_reason})[/red]"
                         )
-                        from prompt_toolkit import prompt as pt_prompt
+                        try:
+                            from prompt_toolkit import prompt as pt_prompt
+                        except ModuleNotFoundError:
+                            pt_prompt = _stdin_prompt
                         ans = pt_prompt("  ¿Continuar de todas formas? [s/N]: ").strip().lower()
                         if ans not in ("s", "si", "sí", "y", "yes"):
                             continue
@@ -304,7 +307,10 @@ def cmd_catalog(session=None) -> None:
             if tag:
                 entry = next((m for m in CATALOG if m.ollama_tag == tag), None)
                 if entry and not entry.installed:
-                    from prompt_toolkit import prompt as pt_prompt
+                    try:
+                        from prompt_toolkit import prompt as pt_prompt
+                    except ModuleNotFoundError:
+                        pt_prompt = _stdin_prompt
                     ans = pt_prompt(f"  {tag} no está instalado. ¿Instalar ahora? [s/N]: ").strip().lower()
                     if ans in ("s", "si", "sí", "y", "yes"):
                         ollama_pull(tag)

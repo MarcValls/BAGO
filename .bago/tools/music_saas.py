@@ -4,7 +4,8 @@ Delegata a cli.py del repo clonado o usa la API remota configurada.
 """
 
 from __future__ import annotations
-import os, sys, json, subprocess, urllib.request, urllib.error
+import importlib.util
+import os, sys, json, shutil, subprocess, urllib.request, urllib.error
 from pathlib import Path
 
 REPO_URL  = "https://github.com/MarcValls/bago-music-saas"
@@ -41,6 +42,13 @@ def _token() -> str:
 
 def _api_url() -> str:
     return os.environ.get("BAGO_MUSIC_URL", _load_cfg().get("api_url", ""))
+
+def _clone_dir() -> Path:
+    return Path(os.environ.get("BAGO_MUSIC_SAAS_DIR") or (Path.home() / "bago-music-saas"))
+
+def _missing_tool(tool: str, hint: str) -> None:
+    print(f"✗  No se encuentra '{tool}' en este equipo.", file=sys.stderr)
+    print(f"   {hint}", file=sys.stderr)
 
 
 # ── subcommands ──────────────────────────────────────────────────────────────
@@ -86,15 +94,33 @@ def cmd_status() -> None:
 
 def cmd_dev() -> None:
     """Clone repo (if needed) and start local server."""
-    clone_dir = Path.home() / "bago-music-saas"
+    clone_dir = _clone_dir()
+    git = shutil.which("git")
     if not clone_dir.exists():
+        if not git:
+            _missing_tool(
+                "git",
+                "Instala Git o clona el repo manualmente en "
+                f"{clone_dir}: https://git-scm.com/download/win",
+            )
+            sys.exit(2)
         print(f"Clonando en {clone_dir}…")
-        r = subprocess.run(["git", "clone", REPO_URL, str(clone_dir)])
+        r = subprocess.run([git, "clone", REPO_URL, str(clone_dir)])
         if r.returncode != 0:
             print("Error al clonar el repo.", file=sys.stderr)
             sys.exit(1)
     else:
-        subprocess.run(["git", "-C", str(clone_dir), "pull", "--ff-only"])
+        if git:
+            subprocess.run([git, "-C", str(clone_dir), "pull", "--ff-only"])
+        else:
+            print("⚠  git no encontrado; se omite actualización del repo local.")
+
+    if importlib.util.find_spec("uvicorn") is None:
+        _missing_tool(
+            "uvicorn",
+            "Instala las dependencias del SaaS con: python -m pip install uvicorn fastapi",
+        )
+        sys.exit(2)
 
     env = os.environ.copy()
     env.setdefault("BAGO_TELEGRAM_TOKEN", _token() or "PLACEHOLDER")
@@ -239,6 +265,8 @@ def cmd_plans() -> None:
 
 def main(args: list[str] | None = None) -> None:
     argv = (args or sys.argv)[1:]
+    if argv and argv[0].lower() in ("music-saas", "music_saas"):
+        argv = argv[1:]
     if not argv or argv[0] in ("-h", "--help", "help"):
         print(_HELP)
         return

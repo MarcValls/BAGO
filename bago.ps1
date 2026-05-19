@@ -60,19 +60,32 @@ function Detect-Source {
     $pcPath = if ($pcExists) { $pcBago } elseif ($docsExists) { $pcDocs } else { $null }
 
     $isRemovable = $false
+    $runningFromUsb = $false
     try {
         $drive = (Split-Path -Qualifier $exeDir).TrimEnd(':')
         if ($drive) {
-            $driveInfo = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID=':" -ErrorAction SilentlyContinue
+            $driveInfo = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='${drive}:'" -ErrorAction SilentlyContinue
             $isRemovable = ($driveInfo.DriveType -eq 2)
+        }
+        $scriptDrive = (Split-Path -Qualifier $exeDir).TrimEnd('\')
+        $usbDrive = (Split-Path -Qualifier $usbPath).TrimEnd('\')
+        if ($usbExists -and $scriptDrive -and $usbDrive) {
+            $runningFromUsb = ($scriptDrive.ToUpperInvariant() -eq $usbDrive.ToUpperInvariant())
         }
     } catch {}
 
     if ($usbReal -and $pcPath) {
-        $script:SOURCE = 'both'
-        $script:PRIMARY = $pcPath
-        $script:SECONDARY = $usbReal
-        Write-Host "Fuente de verdad: $pcPath (PC). USB: $usbReal" -ForegroundColor Green
+        if ($runningFromUsb) {
+            $script:SOURCE = 'both'
+            $script:PRIMARY = $usbPath
+            $script:SECONDARY = $pcPath
+            Write-Host "Fuente de verdad: $usbPath (USB primaria). PC: $pcPath" -ForegroundColor Cyan
+        } else {
+            $script:SOURCE = 'both'
+            $script:PRIMARY = $pcPath
+            $script:SECONDARY = $usbReal
+            Write-Host "Fuente de verdad: $pcPath (PC). USB: $usbReal" -ForegroundColor Green
+        }
     } elseif ($usbReal) {
         $script:SOURCE = 'usb'
         $script:PRIMARY = $usbReal
@@ -93,6 +106,12 @@ function Detect-Source {
         $script:SOURCE = 'none'
         Write-Host 'BAGO no detectado. Ejecuta: BAGO install' -ForegroundColor Red
         exit 1
+    }
+
+    if ($script:PRIMARY) {
+        $portableUserHome = Join-Path $script:PRIMARY 'user'
+        New-Item -ItemType Directory -Path $portableUserHome -Force | Out-Null
+        $env:BAGO_USER_HOME = $portableUserHome
     }
 }
 
@@ -245,235 +264,6 @@ function Show-Status {
     }
 
     Write-Host ""
-}
-
-function Show-Models {
-    Detect-Source
-    $providersFile = Join-Path $script:PRIMARY "..\state\model_providers.json"
-    if (-not (Test-Path $providersFile)) {
-        Write-Host "No se encontró model_providers.json" -ForegroundColor Red
-        return
-    }
-    $providers = Get-Content $providersFile | ConvertFrom-Json
-
-    Write-Host ""
-    Write-Host "  Modelos disponibles en BAGO" -ForegroundColor White
-    Write-Host "  " + ("-" * 50) -ForegroundColor DarkGray
-
-    foreach ($provName in $providers.providers.PSObject.Properties.Name) {
-        $prov = $providers.providers.$provName
-        $color = switch ($provName) {
-            "ollama-local" { "Green" }
-            "ollama-cloud" { "Cyan" }
-            "copilot"      { "Yellow" }
-            "codex"        { "Magenta" }
-            default        { "White" }
-        }
-        Write-Host "  [$provName]" -ForegroundColor $color
-        foreach ($mName in $prov.models.PSObject.Properties.Name) {
-            $m = $prov.models.$mName
-            $size = if ($m.size_mb) { " ($($m.size_mb)MB)" } else { "" }
-            $cost = $m.cost
-            $costColor = switch ($cost) {
-                "free"         { "Green" }
-                "included"     { "Yellow" }
-                "subscription" { "Cyan" }
-                "openai_credits" { "Magenta" }
-                default        { "White" }
-            }
-            Write-Host "    $mName$size — $($m.best_for) " -NoNewline -ForegroundColor White
-            Write-Host "[$cost]" -ForegroundColor $costColor
-        }
-    }
-    Write-Host ""
-    Write-Host "  Uso: BAGO launch <modelo>" -ForegroundColor DarkGray
-    Write-Host "  Ej:  BAGO launch qwen25-mini   ← rápido, gratis, local" -ForegroundColor DarkGray
-    Write-Host "       BAGO launch gpt-5.4-mini   ← rápido, créditos OpenAI" -ForegroundColor DarkGray
-    Write-Host "       BAGO launch claude-sonnet-4.6 ← review, incluido en Copilot" -ForegroundColor DarkGray
-    Write-Host ""
-}
-
-function Get-BestModelForProvider {
-    param([string]$providerName, $providers)
-    # Selecciona el primer modelo del provider (prioridad: el orden en model_providers.json)
-    $prov = $providers.providers.$providerName
-    if (-not $prov) { return $null }
-    $firstModel = $prov.models.PSObject.Properties | Select-Object -First 1
-    if (-not $firstModel) { return $null }
-    return @{
-        Provider = $providerName
-        Model    = $firstModel.Name
-        WireName = $firstModel.Value.wire_name
-        BestFor  = $firstModel.Value.best_for
-        Cost     = $firstModel.Value.cost
-    }
-}
-
-function Launch-Model {
-    param([string]$model)
-    if (-not $model) {
-        Show-Models
-        return
-    }
-    Detect-Source
-    $providersFile = Join-Path $script:PRIMARY "..\state\model_providers.json"
-    $providers = Get-Content $providersFile | ConvertFrom-Json -ErrorAction SilentlyContinue
-
-    # === SHORTCUTS DE PROVIDER ===
-    # "BAGO launch copilot" → Codex CLI con el mejor modelo copilot registrado
-    if ($model -eq "copilot") {
-        $found = Get-BestModelForProvider -providerName "copilot" -providers $providers
-        if (-not $found) { Write-Host "No hay modelos copilot registrados." -ForegroundColor Red; exit 1 }
-        Write-Host "Lanzando BAGO Chat — provider: copilot | modelo: $($found.Model)" -ForegroundColor Yellow
-        Write-Host "  Comandos: /switch /models /status /save /clear /help" -ForegroundColor DarkGray
-        Write-Host ""
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider copilot
-        return
-    }
-
-    # "BAGO launch codex" → Codex CLI con el mejor modelo codex/OpenAI registrado
-    if ($model -eq "codex") {
-        $found = Get-BestModelForProvider -providerName "codex" -providers $providers
-        if (-not $found) { Write-Host "No hay modelos codex registrados." -ForegroundColor Red; exit 1 }
-        Write-Host "Lanzando BAGO Chat — provider: codex | modelo: $($found.Model)" -ForegroundColor Magenta
-        Write-Host "  Comandos: /switch /models /status /save /clear /help" -ForegroundColor DarkGray
-        Write-Host ""
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider codex
-        return
-    }
-
-    # "BAGO launch ollama" → Codex CLI con modelo local Ollama INSTALADO
-    if ($model -eq "ollama") {
-        # Detectar qué modelos están realmente instalados en Ollama
-        $ollamaList = (ollama list 2>$null) -join "`n"
-        $prov = $providers.providers.'ollama-local'
-        $found = $null
-        foreach ($m in $prov.models.PSObject.Properties) {
-            $wireName = $m.Value.wire_name
-            $baseTag  = $wireName -replace ':.*', ''
-            if ($ollamaList -match [regex]::Escape($baseTag)) {
-                $found = @{ Provider = 'ollama-local'; Model = $m.Name; WireName = $wireName; BestFor = $m.Value.best_for; Cost = 'free' }
-                break
-            }
-        }
-        if (-not $found) {
-            Write-Host "Ningun modelo BAGO instalado en Ollama." -ForegroundColor Red
-            Write-Host "  Instala con: BAGO install qwen25-mini" -ForegroundColor DarkGray
-            ollama list 2>$null
-            exit 1
-        }
-        Write-Host "Lanzando BAGO Chat — provider: ollama-local | modelo: $($found.Model)" -ForegroundColor Green
-        Write-Host "  Comandos: /switch /models /status /save /clear /help" -ForegroundColor DarkGray
-        Write-Host ""
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider ollama
-        return
-    }
-    # === FIN SHORTCUTS ===
-
-    $found = $null
-    foreach ($provName in $providers.providers.PSObject.Properties.Name) {
-        $prov = $providers.providers.$provName
-        if ($prov.models.PSObject.Properties.Name -contains $model) {
-            $found = @{ Provider = $provName; Model = $model; WireName = $prov.models.$model.wire_name; BestFor = $prov.models.$model.best_for; Cost = $prov.models.$model.cost }
-            break
-        }
-    }
-
-    if (-not $found) {
-        Write-Host "Modelo '$model' no encontrado." -ForegroundColor Red
-        Write-Host "  Shortcuts de provider: BAGO launch copilot | codex | ollama" -ForegroundColor DarkGray
-        Show-Models
-        exit 1
-    }
-
-    $costWarn = ""
-    if ($found.Cost -eq "openai_credits") { $costWarn = " (consume créditos OpenAI)" }
-    if ($found.Cost -eq "subscription") { $costWarn = " (requiere suscripción Ollama Cloud)" }
-    Write-Host "Lanzando: $($found.Model) [$($found.BestFor)] via $($found.Provider)$costWarn" -ForegroundColor Green
-
-    switch ($found.Provider) {
-        "ollama-local" {
-            $tag = $found.WireName
-            Write-Host "  ollama run $tag" -ForegroundColor DarkGray
-            ollama run $tag
-        }
-        "ollama-cloud" {
-            $tag = $found.WireName
-            Write-Host "  ollama run $tag (cloud)" -ForegroundColor DarkGray
-            ollama run $tag
-        }
-        "codex" {
-            Write-Host "  codex --model $($found.Model)" -ForegroundColor DarkGray
-            codex --model $($found.Model)
-        }
-        "copilot" {
-            Write-Host "  codex -m $($found.WireName)" -ForegroundColor DarkGray
-            codex -m $($found.WireName)
-        }
-        "assets" {
-        Detect-Source
-        $ctx = Detect-ProjectContext
-        if (-not $ctx.isCasino) {
-            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
-            Write-Host "  Detectado: $($ctx.path)" -ForegroundColor DarkGray
-            exit 1
-        }
-        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_assets.py"
-        python $script --project-dir $($ctx.path)
-    }
-    "deploy" {
-        Detect-Source
-        $ctx = Detect-ProjectContext
-        if (-not $ctx.isCasino) {
-            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
-            exit 1
-        }
-        $port = if ($rest[0]) { $rest[0] } else { 8080 }
-        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_deploy.py"
-        python $script --project-dir $($ctx.path) --port $port
-    }
-    "balance" {
-        Detect-Source
-        $ctx = Detect-ProjectContext
-        if (-not $ctx.isCasino) {
-            Write-Host "ERROR: No estas en un proyecto Casino BAGO" -ForegroundColor Red
-            exit 1
-        }
-        $script = Join-Path $script:PRIMARY "tools\pipeline_casino_balance.py"
-        python $script --project-dir $($ctx.path)
-    }
-    default {
-            Write-Host "Provider '$($found.Provider)' no implementado aún." -ForegroundColor Yellow
-        }
-    }
-}
-
-function Launch-Orchestrated {
-    param([string]$task)
-    if (-not $task) {
-        $task = Read-Host "Describe tu tarea (ej: transponer partitura, revisar código, brainstorm ideas)"
-    }
-    Detect-Source
-    $orchScript = Join-Path $script:PRIMARY "tools\orchestrator.py"
-    if (Test-Path $orchScript) {
-        $result = python $orchScript "$task"
-        Write-Host $result -ForegroundColor White
-        # Extract model from output
-        $model = ($result | Select-String "Modelo:\s+(\S+)").Matches.Groups[1].Value
-        if ($model) {
-            Write-Host ""
-            $confirm = Read-Host "Lanzar $model? [S/n]"
-            if ($confirm -ne "n" -and $confirm -ne "N") {
-                Launch-Model -model $model
-            }
-        }
-    } else {
-        Write-Host "Orquestador no encontrado. Listando modelos disponibles..." -ForegroundColor Yellow
-        Show-Models
-    }
 }
 
 function Install-Component {
@@ -874,10 +664,66 @@ function Reset-Db {
     }
 }
 
+function Invoke-BagoChat {
+    param(
+        [string]$Provider = "",
+        [string[]]$RawArgs = @()
+    )
+    Detect-Source
+    $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
+
+    if ($Provider) {
+        python $chatScript --provider $Provider
+        return
+    }
+
+    if ($RawArgs -and $RawArgs.Count -gt 0) {
+        if ($RawArgs[0].StartsWith("-")) {
+            python $chatScript @RawArgs
+        } else {
+            python $chatScript --provider $RawArgs[0]
+        }
+        return
+    }
+
+    python $chatScript
+}
+
+function Invoke-BagoMenu {
+    param([string[]]$RawArgs = @())
+    Detect-Source
+    $menuScript = Join-Path $script:PRIMARY "tools\bago_menu.py"
+    if ($RawArgs -and $RawArgs.Count -gt 0) {
+        python $menuScript @RawArgs
+    } else {
+        python $menuScript
+    }
+}
+
+function Invoke-CanonicalEntry {
+    param(
+        [string]$From = "launch",
+        [string]$Provider = "",
+        [string[]]$RawArgs = @()
+    )
+    if ($From -and $From -ne "launch") {
+        Write-Host "Alias '$From' redirigido a entrada canónica: BAGO launch" -ForegroundColor DarkYellow
+    }
+    if ($Provider) {
+        Invoke-BagoChat -Provider $Provider
+    } else {
+        Invoke-BagoChat -RawArgs @($RawArgs)
+    }
+}
+
 # === Main ===
 
-# Banner al iniciar
-if ($args.Count -eq 0) { Show-Banner }
+# Sin argumentos: entrar directamente por la puerta canónica.
+if ($args.Count -eq 0) {
+    Show-Banner
+    Invoke-CanonicalEntry -From "default"
+    exit $LASTEXITCODE
+}
 $command = $args[0]
 $rest = $args[1..($args.Length-1)]
 
@@ -893,57 +739,39 @@ switch ($command) {
         }
     }
     "launch" {
-        # BAGO launch  → abre el chat REPL multi-modelo (orquestador)
-        # El orquestador enruta internamente a copilot/codex/ollama según la tarea
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        if ($rest[0]) {
-            # Si se pasa un argumento (p.ej. "BAGO launch codex"), se lo pasamos como provider
-            # pero el usuario deberia simplemente escribir "BAGO launch" y dejar que el orquestador decida
-            python $chatScript --provider $rest[0]
-        } else {
-            python $chatScript
-        }
+        # Entrada canónica de la app.
+        Invoke-CanonicalEntry -From "launch" -RawArgs @($rest)
     }
     # Alias corto: "bago chat" == "bago launch"
     "chat" {
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        if ($rest[0]) { python $chatScript --provider $rest[0] } else { python $chatScript }
+        Invoke-CanonicalEntry -From "chat" -RawArgs @($rest)
     }
 
     # Alias copilot/codex/gpt: "bago copilot" == "bago launch copilot"
     "copilot" {
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider copilot
+        Invoke-CanonicalEntry -From "copilot" -Provider "copilot"
     }
     "codex" {
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider codex
+        Invoke-CanonicalEntry -From "codex" -Provider "codex"
     }
     "gpt" {
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider codex
+        Invoke-CanonicalEntry -From "gpt" -Provider "codex"
     }
     "claude" {
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider anthropic
+        Invoke-CanonicalEntry -From "claude" -Provider "anthropic"
     }
     "ollama" {
-        Detect-Source
-        $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
-        python $chatScript --provider ollama-local
+        Invoke-CanonicalEntry -From "ollama" -Provider "ollama-local"
     }
 
-    # Menú curses de navegación
+    # Compatibilidad: `bago menu --list` sigue disponible.
+    # El modo interactivo principal se centraliza en `bago launch`.
     "menu" {
-        Detect-Source
-        $menuScript = Join-Path $script:PRIMARY "tools\bago_menu.py"
-        python $menuScript
+        if ($rest -and $rest[0] -eq "--list") {
+            Invoke-BagoMenu -RawArgs @($rest)
+        } else {
+            Invoke-CanonicalEntry -From "menu"
+        }
     }
 
     "pipeline" {
@@ -1037,15 +865,33 @@ switch ($command) {
         python $monitorScript
     }
     default {
+        # Fallback: delegar comandos no implementados en este launcher
+        # al launcher Python canónico (repo-root/bago), que cubre todo
+        # el registro de tools BAGO.
+        if ($command) {
+            Detect-Source
+            $pythonLauncher = Join-Path (Split-Path $script:PRIMARY -Parent) "bago"
+            if (Test-Path $pythonLauncher) {
+                $forwardArgs = @($command)
+                if ($rest) { $forwardArgs += $rest }
+                & python $pythonLauncher @forwardArgs
+                exit $LASTEXITCODE
+            }
+        }
+
         Write-Host @"
 BAGO Launcher v2026.05
 
 Uso: BAGO <comando> [args]
 
+Entrada canónica de la app:
+  BAGO launch
+
 Comandos globales:
   BAGO status              → Estado de BAGO y fuente de verdad
   BAGO inventory [tipo]    → Descubre herramientas, roles y workflows existentes
   BAGO launch              → Orquestador: pregunta tarea y selecciona modelo optimo
+  BAGO chat/menu/...       → aliases de compatibilidad (redirigen a launch)
   BAGO launch [modelo]     → Lanza modelo especifico
   BAGO launch copilot      → Codex CLI con mejor modelo Copilot (incluido)
   BAGO launch codex        → Codex CLI con mejor modelo Codex (créditos OpenAI)
@@ -1082,6 +928,7 @@ Ejemplos:
   BAGO test
   BAGO db-reset
 "@ -ForegroundColor White
+        exit 1
     }
 }
 

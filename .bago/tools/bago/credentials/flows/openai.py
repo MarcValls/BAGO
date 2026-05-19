@@ -2,9 +2,11 @@
 
 import subprocess
 
-from prompt_toolkit import prompt as pt_prompt
+from ...ui import console, _stdin_prompt
 
-from ...ui import console
+
+def pt_prompt(text: str, is_password: bool = False) -> str:
+    return _stdin_prompt(text, is_password=is_password)
 
 
 def flow_openai(mgr) -> str:
@@ -17,7 +19,22 @@ def flow_openai(mgr) -> str:
     choice = pt_prompt("Opción [1/2]: ").strip()
     if choice == "1":
         console.print("[dim]Ejecutando codex login (abre navegador)...[/dim]")
-        result = subprocess.run(["codex", "login"])
+        try:
+            result = subprocess.run(["codex", "login"])
+        except FileNotFoundError:
+            console.print("[yellow]codex no esta instalado.[/yellow]")
+            ans = pt_prompt("Install codex CLI now? [y/n]: ").strip().lower()
+            if ans in ("y", "yes", "s", "si"):
+                console.print("[dim]Installing @openai/codex via npm...[/dim]")
+                try:
+                    r = subprocess.run(["npm", "install", "-g", "@openai/codex"])
+                    if r.returncode != 0:
+                        return "[red]npm install failed. Install manually: npm install -g @openai/codex[/red]"
+                    result = subprocess.run(["codex", "login"])
+                except FileNotFoundError:
+                    return "[red]npm not found. Install Node.js then: npm install -g @openai/codex[/red]"
+            else:
+                return "Cancelled. Use option 2 (API key) or install codex manually."
         if result.returncode == 0:
             mgr._creds["openai_via"] = "codex_login"
             mgr._save()

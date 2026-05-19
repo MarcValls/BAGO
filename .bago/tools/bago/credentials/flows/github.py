@@ -2,9 +2,11 @@
 
 import subprocess
 
-from prompt_toolkit import prompt as pt_prompt
+from ...ui import console, _stdin_prompt
 
-from ...ui import console
+
+def pt_prompt(text: str, is_password: bool = False) -> str:
+    return _stdin_prompt(text, is_password=is_password)
 
 
 def flow_github(mgr) -> str:
@@ -49,7 +51,10 @@ def flow_github(mgr) -> str:
         return f"[green]✓ GitHub PAT guardado  (@{user}  {token[:4]}…{token[-4:]})[/green]"
 
     # Opción 2: gh auth login
-    result = subprocess.run(["gh", "auth", "login"])
+    try:
+        result = subprocess.run(["gh", "auth", "login"])
+    except FileNotFoundError:
+        return "[red]gh CLI no encontrado. Instalalo desde https://cli.github.com y reintenta.[/red]"
     if result.returncode != 0:
         return "Login GitHub fallido."
     try:
