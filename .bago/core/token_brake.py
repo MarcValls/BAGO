@@ -200,7 +200,17 @@ class TokenBrake:
         return True, "OK"
 
     def record_call(self, provider: str, tokens_used: int, model: str = "", meta: dict | None = None):
-        """Record actual token usage."""
+        """Record actual token usage with rich metadata for analytics.
+
+        Meta fields supported:
+          - retry: bool — this was a retry after failure
+          - error: bool — call failed entirely
+          - truncated: bool — response was cut off
+          - drift_detected: bool — prompt desacopled from task
+          - noise_score: float 0-1 — irrelevant tokens ratio
+          - latency_ms: int — response time
+          - prompt_tokens: int — input tokens (vs completion tokens)
+        """
         record = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "provider": provider,
