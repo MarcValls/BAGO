@@ -40,6 +40,9 @@ class ModelEntry:
     gem_reason: str = ""      # por qué es una joya
     url: str = ""             # página/paper de referencia
     installed: bool = False   # se rellena en runtime
+    # Compatibilidad HW (se rellena en runtime por hw_probe)
+    compat_level: str = ""    # "ok" | "warn" | "no" | ""
+    compat_reason: str = ""   # explicación breve
 
 
 # ─── Catálogo ─────────────────────────────────────────────────────────────────
@@ -418,3 +421,14 @@ def by_tag(tag: str) -> Optional[ModelEntry]:
         if m.ollama_tag == tag or m.ollama_tag.split(":")[0] == tag_base:
             return m
     return None
+
+
+def enrich_with_compat(hw=None) -> None:
+    """Calcula y guarda la compatibilidad HW para cada modelo del catálogo."""
+    from .hw_probe import model_compat, probe_hardware
+    if hw is None:
+        hw = probe_hardware()
+    for entry in CATALOG:
+        c = model_compat(entry.size_gb, hw)
+        entry.compat_level  = c.level
+        entry.compat_reason = c.reason
