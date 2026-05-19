@@ -32,6 +32,7 @@ class BagoSession:
         self.orch_mode  = "standard"  # offline|eco|standard|full|auto
         self.plan_mode  = False  # modo plan: razona y propone antes de actuar
         self.brainstorm = False  # modo brainstorm: expande ideas sin restricciones
+        self.tumba_mode = False  # modo tumba: copia secretos sin enviárselos al LLM
         self.sync_after = "continuar"  # continuar|repliegue|letargo
         self.last_route = {
             "mode": "auto",
@@ -43,6 +44,8 @@ class BagoSession:
         self.skip_providers: set = set()
         # Token counter: {provider: {model: {"in": int, "out": int, "calls": int}}}
         self.token_log: dict = {}
+        # HW info (se rellena en bago_chat.py tras el probe de inicio)
+        self.hw = None
 
     # ── Token tracking ────────────────────────────────────────────────────────
     def record_tokens(self, provider: str, model: str, tokens_in: int, tokens_out: int):

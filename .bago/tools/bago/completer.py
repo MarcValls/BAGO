@@ -33,6 +33,7 @@ BAGO_COMMANDS: dict[str, str] = {
     "/auto":        "[Modo] Modo autonomo — bucle: balanceado / adaptativo",
     "/plan":        "[Modo] Modo PLAN — razonar y proponer antes de actuar",
     "/brainstorm":  "[Modo] Modo BRAINSTORM — explorar ideas sin restricciones",
+    "/tumba":       "[Modo] Modo TUMBA — copiar secretos sin enviárselos al LLM",
     # -- Sesion & Config
     "/session":     "[Sesion] Gestion de sesion (temporal · disco · letargo · repliegue)",
     "/sync":        "[Sesion] Sincronizar GitHub/GitLab/Codeberg/USB + snapshot nube",
@@ -111,6 +112,14 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
         ("full",     "Todos los modelos — maxima calidad"),
         ("auto",     "BAGO decide segun contexto y complejidad"),
     ],
+    "/tumba": [
+        ("list",    "Ver claves guardadas (sin mostrar valores)"),
+        ("listar",  "Alias de list"),
+        ("del",     "Eliminar clave: /tumba del NombreClave"),
+        ("rm",      "Alias de del"),
+        ("clear",   "Vaciar la tumba completa"),
+        ("vaciar",  "Alias de clear"),
+    ],
     "/mode": [
         ("offline",  "Solo modelos locales — sin red"),
         ("eco",      "Modelos economicos — rapido y barato"),
@@ -153,7 +162,7 @@ _ICONS: dict[str, str] = {
     "/session": "=", "/auto": "~", "/mode": "~", "/generative": "~", "/gen": "~", "/sync": ">>",
     "/memory": "~", "/config": "=", "/framework": "=", "/workspaces": "=", "/projects": "=",
     "/status": "=", "/save": "=", "/clear": "x", "/help": "?", "/exit": "x",
-    "/scan": ">>", "/plan": "~", "/brainstorm": "~",
+    "/scan": ">>", "/plan": "~", "/brainstorm": "~", "/tumba": "x",
 }
 
 

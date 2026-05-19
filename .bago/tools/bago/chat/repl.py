@@ -17,6 +17,7 @@ from bago.llm import (
     OllamaNoModelAvailable,
 )
 from bago.completer import BagoCompleter
+from bago.tumba import tumba_add, tumba_has_placeholder, tumba_substitute
 from bago.ui import show_response
 
 from rich.panel import Panel
@@ -89,6 +90,20 @@ def run_repl(session, pt: PromptSession) -> None:
             if not cmd(line, session):
                 break
             continue
+
+        # ── Modo Tumba: copia el contenido sin enviarlo al LLM ───────────────
+        if session.tumba_mode:
+            ok, name, msg = tumba_add(line)
+            console.print(msg)
+            continue
+
+        # ── Sustituir {{placeholders}} de la tumba antes de enviar al LLM ───
+        if tumba_has_placeholder(line):
+            substituted, used = tumba_substitute(line)
+            if used:
+                keys_str = ", ".join(f"[bold]{k}[/bold]" for k in used)
+                console.print(f"  [dim cyan]🪦 Tumba: insertando {keys_str}[/dim cyan]")
+                line = substituted
 
         try:
             result = chat(session, line)

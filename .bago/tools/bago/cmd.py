@@ -113,6 +113,7 @@ def cmd(line, session):
         cmd_catalog(session)
     elif v == "/status":
         from .providers import scan_provider_health
+        from .hw_probe import hw_summary_lines
         console.print("[dim]  Escaneando providers...[/dim]")
         health = scan_provider_health(session.creds, session.providers, timeout=3)
         session._last_health = health
@@ -123,6 +124,7 @@ def cmd(line, session):
         auto_tag  = f" [green]AUTONOMO[/green] ({session.auto_confirm})" if session.autonomous else ""
         plan_tag  = " [magenta]PLAN[/magenta]" if session.plan_mode else ""
         brain_tag = " [green]BRAINSTORM[/green]" if session.brainstorm else ""
+        tumba_tag = " [red]🪦 TUMBA[/red]" if session.tumba_mode else ""
 
         # ── Tabla de providers ────────────────────────────────────────────────
         prov_lines = []
@@ -146,10 +148,16 @@ def cmd(line, session):
         # ── Tokens de la sesión ───────────────────────────────────────────────
         tokens_section = f"\n[bold]Tokens esta sesión:[/bold]\n{session.tokens_summary()}"
 
+        # ── Hardware ──────────────────────────────────────────────────────────
+        hw_section = ""
+        if session.hw:
+            hw_lines = hw_summary_lines(session.hw)
+            hw_section = "\n[bold]Hardware:[/bold]\n" + "\n".join(hw_lines)
+
         console.print(Panel(
             f"Modelo:      {session.model_name} ({session.provider}){auto_tag}\n"
             f"Wire:        {session.wire_name}\n"
-            f"Modo:        {session.orch_mode}{temp_tag}{plan_tag}{brain_tag}\n"
+            f"Modo:        {session.orch_mode}{temp_tag}{plan_tag}{brain_tag}{tumba_tag}\n"
             f"Routing:     {route.get('mode','manual').upper()} → {route.get('model', session.model_name)} ({route.get('provider', session.provider)})\n"
             f"Motivo:      {route.get('reason','—')}\n"
             f"Historial:   {len(session.history)-1} mensajes\n"
@@ -157,7 +165,8 @@ def cmd(line, session):
             f"Tiempo:      {elapsed}\n"
             f"Auto-route:  {'ON' if session.autoroute else 'OFF'}  |  Skip: {skip}\n"
             f"\n[bold]Providers — estado en vivo:[/bold]\n{prov_panel}"
-            f"{tokens_section}",
+            f"{tokens_section}"
+            f"{hw_section}",
             title="[bold]Estado BAGO[/bold]", box=box.ROUNDED))
 
     # ── Scan completo de providers y modelos ──────────────────────────────────
@@ -219,6 +228,44 @@ def cmd(line, session):
         session.brainstorm = not session.brainstorm
         state = "[bold green]ACTIVADO[/bold green]" if session.brainstorm else "[dim]DESACTIVADO[/dim]"
         pi(f"Modo BRAINSTORM: {state}  — BAGO expandirá ideas sin restricciones de acción.")
+
+    # ── Modo Tumba ────────────────────────────────────────────────────────────
+    elif v == "/tumba":
+        from .tumba import tumba_list, tumba_delete, tumba_clear
+        if a in ("list", "ls", "listar"):
+            keys = tumba_list()
+            if not keys:
+                pi("🪦 Tumba vacía.")
+            else:
+                pi("[bold]🪦 Claves en tumba:[/bold] (los valores nunca se muestran)")
+                for i, k in enumerate(keys, 1):
+                    console.print(f"  {i:>2}. [bold cyan]{k}[/bold cyan]  →  {{{{{k}}}}}")
+        elif a.startswith("del ") or a.startswith("rm "):
+            name = a.split(None, 1)[1].strip()
+            console.print(tumba_delete(name))
+        elif a in ("clear", "limpiar", "vaciar"):
+            n = tumba_clear()
+            pi(f"🪦 Tumba vaciada — {n} entradas eliminadas.")
+        else:
+            # Toggle del modo
+            session.tumba_mode = not session.tumba_mode
+            if session.tumba_mode:
+                console.print(Panel(
+                    "[bold yellow]🪦 MODO TUMBA ACTIVADO[/bold yellow]\n\n"
+                    "  Lo que escribas [bold]NO[/bold] se enviará al LLM.\n"
+                    "  En su lugar se copia al archivo de secretos.\n\n"
+                    "  [bold]Formato:[/bold]  [cyan]Nombre clave: valor secreto[/cyan]\n"
+                    "  [bold]Ejemplo:[/bold]  [cyan]Api Telegram: 7834920:ABCxyz...[/cyan]\n\n"
+                    "  Para usar el valor en un mensaje normal:\n"
+                    "    [cyan]Configura el bot con la {{Api Telegram}}[/cyan]\n\n"
+                    "  [dim]Escribe /tumba de nuevo para desactivar.[/dim]\n"
+                    "  [dim]Escribe /tumba list para ver claves guardadas.[/dim]",
+                    title="[bold red]🪦 TUMBA[/bold red]",
+                    border_style="red",
+                    expand=False,
+                ))
+            else:
+                pi("🪦 Modo TUMBA [dim]DESACTIVADO[/dim] — volviendo al chat normal.")
 
     # ── Sincronizacion + repliegue/letargo ────────────────────────────────────
     elif v == "/sync":

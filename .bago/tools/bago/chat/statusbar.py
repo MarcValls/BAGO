@@ -67,4 +67,7 @@ def _prompt_indicator(session) -> str:
     if session.autonomous:
         indicator += ":A"
 
+    if session.tumba_mode:
+        indicator += " 🪦"
+
     return indicator
