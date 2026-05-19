@@ -7,7 +7,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / ".bago" / "tools"))
 
 from bago.llm import (_is_ollama_model_not_found, _is_ollama_unreachable,
-                      _is_cloud_auth_error, _is_cloud_connection_error)
+                      _is_cloud_auth_error, _is_cloud_connection_error,
+                      _is_cloud_quota_error, classify_provider_error,
+                      _needs_cloud_for_url)
 from bago.providers import ollama_probe
 
 
@@ -209,3 +211,97 @@ class TestCloudErrorDetectors:
         # "model not found" no es un error de conexión
         msg = "model 'gpt-5' not found in registry"
         assert _is_cloud_connection_error(Exception(msg)) is False
+
+    # ── Quota/rate-limit/billing ─────────────────────────────────────────────
+    def test_quota_openai_message(self):
+        msg = (
+            "litellm.RateLimitError: OpenAIException - You exceeded your current quota, "
+            "please check your plan and billing details"
+        )
+        assert _is_cloud_quota_error(Exception(msg)) is True
+        assert classify_provider_error(Exception(msg)) == "quota"
+
+    def test_quota_does_not_match_ollama(self):
+        msg = "OllamaException - 429 cannot connect to ollama host"
+        assert _is_cloud_quota_error(Exception(msg)) is False
+
+    def test_classify_auth(self):
+        msg = "AuthenticationError: invalid_api_key"
+        assert classify_provider_error(Exception(msg)) == "auth"
+
+
+class TestUrlEscalationIntent:
+    def _session_stub(self, provider="ollama-local"):
+        s = MagicMock()
+        s.provider = provider
+        return s
+
+    def test_pasted_status_url_does_not_force_cloud(self):
+        text = (
+            "Visit https://chatgpt.com/codex/settings/usage\n"
+            "X litellm.RateLimitError: You exceeded your current quota\n"
+            "5h limit: 99% left"
+        )
+        assert _needs_cloud_for_url(text, self._session_stub()) is False
+
+    def test_explicit_browse_url_forces_cloud(self):
+        text = "consulta https://example.com y resume el contenido"
+        assert _needs_cloud_for_url(text, self._session_stub()) is True
+
+    def test_url_on_cloud_provider_does_not_reescalate(self):
+        text = "consulta https://example.com"
+        assert _needs_cloud_for_url(text, self._session_stub(provider="copilot")) is False
+
+
+class TestProviderFallbackCall:
+    def _make_session(self):
+        from bago.session import BagoSession
+
+        creds = MagicMock()
+        creds.active_bago_providers.return_value = ["codex", "ollama-local"]
+        providers = {
+            "codex": {"models": {"gpt-5.5": {"wire_name": "gpt-5.5"}}},
+            "ollama-local": {"models": {"qwen25-coder": {"wire_name": "qwen2.5-coder:7b"}}},
+        }
+        with patch("bago.session.load_providers", return_value=providers), \
+             patch("bago.session.load_routing", return_value={}):
+            return BagoSession("codex", "gpt-5.5", "gpt-5.5", creds)
+
+    def test_quota_error_degrades_provider_and_uses_ollama_fallback(self):
+        from bago.llm.call import _llm_call
+
+        session = self._make_session()
+
+        class _Msg:
+            content = "fallback ok"
+
+        class _Choice:
+            message = _Msg()
+
+        class _Response:
+            choices = [_Choice()]
+            usage = None
+
+        calls = []
+
+        def fake_completion(model, messages, **kwargs):
+            calls.append(model)
+            if len(calls) == 1:
+                raise Exception("RateLimitError: exceeded your current quota; check billing details")
+            return _Response()
+
+        with patch("bago.llm.call.litellm.completion", side_effect=fake_completion):
+            text = _llm_call(
+                "gpt-5.5",
+                {},
+                [{"role": "user", "content": "implementa codigo local"}],
+                session=session,
+                _provider="codex",
+                _model="gpt-5.5",
+            )
+
+        assert text == "fallback ok"
+        assert "codex" in session.skip_providers
+        assert session.degraded_providers["codex"]["reason"] == "quota"
+        assert session.provider == "ollama-local"
+        assert calls == ["gpt-5.5", "ollama/qwen2.5-coder:7b"]

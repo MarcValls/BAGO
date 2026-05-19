@@ -17,7 +17,7 @@ function Info($msg) { Write-Host "       $msg" -ForegroundColor Cyan }
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
-Write-Host "  BAGO Framework — Instalador v3.4.0b1" -ForegroundColor White
+Write-Host "  BAGO Framework — Instalador v3.4.1" -ForegroundColor White
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
 Write-Host ""
 
@@ -51,10 +51,10 @@ Info "Instalando dependencias Python..."
 Ok "Dependencias instaladas"
 
 # ── global_state.json ─────────────────────────────────────────
-$tmpl  = "$InstallDir\.bago\state\global_state.template.json"
+$tmpl  = "$InstallDir\.bago\templates\global_state.clean.json"
 $state = "$InstallDir\.bago\state\global_state.json"
 if (-not (Test-Path $state) -and (Test-Path $tmpl)) {
-  Copy-Item $tmpl $state
+  & $pyCmd "$InstallDir\.bago\tools\bootstrap_state.py" "$InstallDir"
   Ok "global_state.json creado"
 }
 
@@ -76,11 +76,11 @@ if ($content -match "function bago") {
 
 # ── Validar instalación ───────────────────────────────────────
 Info "Validando instalación..."
-$result = & $pyCmd "$InstallDir\bago" validate 2>&1
-if ($result -match "GO manifest") {
+& $pyCmd "$InstallDir\bago" validate
+if ($LASTEXITCODE -eq 0) {
   Ok "bago validate → OK"
 } else {
-  Warn "validate devolvió KO — ejecuta: $pyCmd $InstallDir\bago doctor"
+  Err "bago validate → KO. Instalación abortada."
 }
 
 # ── Resumen ───────────────────────────────────────────────────
@@ -97,3 +97,4 @@ Write-Host "    1) Recarga el perfil:  . `$PROFILE" -ForegroundColor Yellow
 Write-Host "    2) Lanza BAGO:         bago launch" -ForegroundColor Yellow
 Write-Host "    3) Verifica estado:    bago health" -ForegroundColor Yellow
 Write-Host ""
+

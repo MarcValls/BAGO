@@ -509,6 +509,16 @@ def validate_contents(zip_path: Path) -> list[str]:
     try:
         with zipfile.ZipFile(zip_path) as zf:
             names = zf.namelist()
+            # Normalize single root folder in ZIP (e.g. BAGO-3.4.0/.bago/pack.json -> .bago/pack.json)
+            root_prefix = None
+            if names:
+                first = names[0]
+                if "/" in first:
+                    candidate = first.split("/")[0] + "/"
+                    if all(n.startswith(candidate) or n == candidate.rstrip("/") for n in names):
+                        root_prefix = candidate
+            if root_prefix:
+                names = [n[len(root_prefix):] if n.startswith(root_prefix) else n for n in names]
             for name in names:
                 for prefix in _FORBIDDEN_ZIP_PREFIXES:
                     if name.startswith(prefix) or "/" + prefix in name:

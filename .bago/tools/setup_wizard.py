@@ -19,7 +19,7 @@ from pathlib import Path
 _TOOLS = Path(__file__).resolve().parent
 _STATE = _TOOLS.parent / "state"
 _GLOBAL_STATE = _STATE / "global_state.json"
-_TEMPLATE = _STATE / "global_state.template.json"
+_TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "global_state.clean.json"
 _NOTIFY_CONFIG = _STATE / "notify_config.json"
 
 _NOTIFY_TEMPLATE = {

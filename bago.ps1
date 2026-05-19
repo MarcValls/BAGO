@@ -94,6 +94,12 @@ function Detect-Source {
         Write-Host 'BAGO no detectado. Ejecuta: BAGO install' -ForegroundColor Red
         exit 1
     }
+
+    if ($script:PRIMARY) {
+        $portableUserHome = Join-Path $script:PRIMARY 'user'
+        New-Item -ItemType Directory -Path $portableUserHome -Force | Out-Null
+        $env:BAGO_USER_HOME = $portableUserHome
+    }
 }
 
 function Find-Gh {

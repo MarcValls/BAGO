@@ -332,7 +332,7 @@ def render_insights(insights: list, as_json: bool, top_n: int = 0):
         print(json.dumps([i.to_dict() for i in insights], indent=2, ensure_ascii=False))
         return
 
-    ICONS = {"HIGH": "🔴", "MED": "🟡", "LOW": "��"}
+    ICONS = {"HIGH": "🔴", "MED": "🟡", "LOW": "🟢"}
     CAT_COLORS = {
         "PRODUCCION": "\033[32m",
         "PATRON": "\033[36m",

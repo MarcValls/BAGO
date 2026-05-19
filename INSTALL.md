@@ -1,4 +1,4 @@
-# Guía de instalación · BAGO v3.4.0b1
+# Guía de instalación · BAGO v3.4.1
 
 > Tiempo estimado: **5 minutos**. Requisito: Python 3.9+.
 
@@ -174,5 +174,5 @@ bago-framework/
 
 ---
 
-*BAGO v3.4.0b1 · Structured AI Work Framework · Mayo 2026*
+*BAGO v3.4.1 · Structured AI Work Framework · Mayo 2026*
 *126 comandos públicos (38 core · 80 experimental · 8 dangerous · 28 legacy) · 13 roles · 11 workflows · 100/100 health*

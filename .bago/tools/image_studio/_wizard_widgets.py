@@ -23,7 +23,7 @@ def build_quickstart_section() -> dict:
         tpl_radio = gr.Radio(
             choices=TPL_CHOICES,
             value="platformer_2d",
-            label="��  Tipo de proyecto",
+            label="🚀  Tipo de proyecto",
         )
         qs_desc = gr.Textbox(
             label="✏️  Describe tu proyecto (2-3 líneas) — la IA hace el resto",
@@ -325,3 +325,4 @@ def build_export_section() -> dict:
         "out_manifest": out_manifest,
         "status_out": status_out,
     }
+

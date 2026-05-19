@@ -31,7 +31,7 @@ done
 
 echo ""
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-echo -e "${BOLD}  BAGO Framework — Instalador v3.4.0b1${RESET}"
+echo -e "${BOLD}  BAGO Framework — Instalador v3.4.1${RESET}"
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo ""
 
@@ -63,10 +63,10 @@ python3 -m pip install --quiet litellm rich prompt_toolkit 2>/dev/null || \
 ok "Dependencias instaladas"
 
 # ── global_state.json ────────────────────────────────────────
-TMPL="$INSTALL_DIR/.bago/state/global_state.template.json"
+TMPL="$INSTALL_DIR/.bago/templates/global_state.clean.json"
 STATE="$INSTALL_DIR/.bago/state/global_state.json"
 if [[ ! -f "$STATE" && -f "$TMPL" ]]; then
-  cp "$TMPL" "$STATE"
+  python3 "$INSTALL_DIR/.bago/tools/bootstrap_state.py" "$INSTALL_DIR"
   ok "global_state.json creado"
 fi
 
@@ -97,10 +97,10 @@ fi
 
 # ── Validar instalación ──────────────────────────────────────
 info "Validando instalación..."
-if python3 "$INSTALL_DIR/bago" validate 2>&1 | grep -qE "GO manifest|GO state"; then
+if python3 "$INSTALL_DIR/bago" validate; then
   ok "bago validate → OK"
 else
-  warn "validate devolvió KO — ejecuta: python3 $INSTALL_DIR/bago doctor"
+  err "bago validate → KO. Instalación abortada."
 fi
 
 # ── Resumen ──────────────────────────────────────────────────
@@ -117,3 +117,4 @@ echo -e "    1) Recarga tu shell:  ${YELLOW}source $SHELL_RC${RESET}"
 echo -e "    2) Lanza BAGO:        ${YELLOW}bago launch${RESET}"
 echo -e "    3) Verifica estado:   ${YELLOW}bago health${RESET}"
 echo ""
+

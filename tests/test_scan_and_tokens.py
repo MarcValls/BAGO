@@ -103,6 +103,16 @@ class TestTokenTracking:
         summary = session.tokens_summary()
         assert "3" in summary   # 3 llamadas
 
+    def test_mark_provider_degraded_separates_quota_from_auth(self):
+        session = _make_session()
+        exc = Exception("RateLimitError: exceeded your current quota; check billing details")
+        reason = session.mark_provider_degraded("codex", exc, model="gpt-5.5")
+
+        assert reason == "quota"
+        assert "codex" in session.skip_providers
+        assert session.degraded_providers["codex"]["reason"] == "quota"
+        assert "cuota" in session.degraded_summary()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Scan history — update_scan_history
@@ -221,6 +231,39 @@ class TestScanHistory:
             assert not missing_fields, f"{pname} falta: {missing_fields}"
 
 
+class TestRoutingLocalFirst:
+    def test_code_rule_prefers_ollama_coder_over_codex(self):
+        from bago.providers import route_by_task
+
+        providers = {
+            "ollama-local": {"models": {"qwen25-coder": {"wire_name": "qwen2.5-coder:7b"}}},
+            "codex": {"models": {"gpt-5.5": {"wire_name": "gpt-5.5"}}},
+        }
+        routing = {
+            "rules": [
+                {"keywords": ["implementa"], "provider": "codex", "model": "gpt-5.5"}
+            ],
+            "fallback": {"provider": "ollama-local", "model": "qwen25-coder"},
+        }
+
+        model, wire, provider, _ = route_by_task("implementa un script local", routing, providers)
+
+        assert provider == "ollama-local"
+        assert model == "qwen25-coder"
+        assert wire == "qwen2.5-coder:7b"
+
+    def test_strategy_orders_ollama_first_for_local_code(self):
+        from bago.providers import detect_strategy
+
+        strategy, providers = detect_strategy(
+            "implementa el script y luego revisa el codigo",
+            ["copilot", "codex", "ollama-local"],
+        )
+
+        assert strategy == "chain"
+        assert providers[0] == "ollama-local"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # _check_codex — detección ChatGPT OAuth / API key / CLI sin login
 # ─────────────────────────────────────────────────────────────────────────────
@@ -238,6 +281,9 @@ class TestCheckCodex:
         result = pmod.scan_provider_health(None, providers={})
         assert result["codex"]["ok"] is True
         assert "1234" in result["codex"]["detail"]
+        assert result["codex"]["auth_ok"] is True
+        assert result["codex"]["quota_ok"] is None
+        assert "cuota" in result["codex"]["quota_detail"]
 
     def test_oauth_token_detected(self, monkeypatch, tmp_path):
         """~/.codex/auth.json con tokens.access_token → ok=True, ChatGPT OAuth."""
@@ -254,6 +300,8 @@ class TestCheckCodex:
         result = pmod.scan_provider_health(None, providers={})
         assert result["codex"]["ok"] is True
         assert "OAuth" in result["codex"]["detail"] or "oauth" in result["codex"]["detail"].lower()
+        assert result["codex"]["channel"] == "chatgpt_codex_login"
+        assert "separado" in result["codex"]["quota_detail"]
 
     def test_alternative_token_keys(self, monkeypatch, tmp_path):
         """~/.codex/auth.json con clave access_token directa → ok=True."""
@@ -347,6 +395,8 @@ class TestCheckGitHubModels:
         assert result["github-models"]["ok"] is False
         assert "gh auth login" in result["github-models"]["detail"] or \
                "GITHUB_TOKEN" in result["github-models"]["detail"]
+        assert result["github-models"]["auth_ok"] is False
+        assert result["github-models"]["quota_ok"] is None
 
     def test_valid_token_with_mock_catalog(self, monkeypatch):
         """Token válido + catálogo HTTP 200 → ok=True con lista de modelos."""
@@ -379,6 +429,9 @@ class TestCheckGitHubModels:
             "openai/gpt-4.1", "openai/gpt-4o", "meta/llama-3-70b", "mistral/mistral-large"
         ]
         assert "4 modelos" in result["github-models"]["detail"]
+        assert result["github-models"]["auth_ok"] is True
+        assert result["github-models"]["quota_ok"] is None
+        assert "separado" in result["github-models"]["quota_detail"]
 
     def test_http_401_returns_not_ok(self, monkeypatch):
         """Token inválido (401) → ok=False con mensaje claro."""

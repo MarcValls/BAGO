@@ -11,6 +11,7 @@ Cobertura:
 """
 
 import json
+import importlib
 import os
 import sys
 import tempfile
@@ -22,6 +23,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parent.parent / ".bago" / "tools"))
 
 from bago.credentials import AccountManager
+import bago.constants as bago_constants
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -234,6 +236,22 @@ class TestAccountManagerEnvAndMigration(unittest.TestCase):
         accs = self.am.accounts_for("anthropic")
         self.assertEqual(len(accs), 1)
         self.assertEqual(accs[0]["credential"], "sk-ant-env")
+
+    def test_user_bago_env_override(self):
+        tmp = Path(tempfile.mkdtemp())
+        original_home = os.environ.get("BAGO_USER_HOME")
+        try:
+            os.environ["BAGO_USER_HOME"] = str(tmp)
+            constants = importlib.reload(bago_constants)
+            self.assertEqual(constants.USER_BAGO, tmp.resolve())
+            self.assertEqual(constants.CRED_FILE, tmp.resolve() / "credentials.json")
+            self.assertEqual(constants.ACCOUNTS_FILE, tmp.resolve() / "accounts.json")
+        finally:
+            if original_home is None:
+                os.environ.pop("BAGO_USER_HOME", None)
+            else:
+                os.environ["BAGO_USER_HOME"] = original_home
+            importlib.reload(bago_constants)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
