@@ -55,16 +55,8 @@ class AccountManager:
                 self._data = {"accounts": [], "active": {}}
 
     def _save(self):
-        self._file.parent.mkdir(parents=True, exist_ok=True)
-        self._file.write_text(
-            json.dumps(self._data, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        try:
-            import stat
-            self._file.chmod(stat.S_IRUSR | stat.S_IWUSR)
-        except Exception:
-            pass
+        from ._atomic import atomic_write_json
+        atomic_write_json(self._file, self._data, indent=2, ensure_ascii=False)
 
     # ── Queries ─────────────────────────────────────────────────────────────────
 

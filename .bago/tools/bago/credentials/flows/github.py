@@ -23,7 +23,7 @@ def flow_github(mgr) -> str:
         if not token:
             return "Cancelado."
         try:
-            import urllib.request, json as _json
+            import urllib.request, urllib.error, json as _json
             req = urllib.request.Request(
                 "https://api.github.com/user",
                 headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
@@ -31,8 +31,13 @@ def flow_github(mgr) -> str:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 user = _json.loads(resp.read())["login"]
             console.print(f"  [green]✓ Verificado: @{user}[/green]")
+        except urllib.error.HTTPError as e:
+            return f"[red]✗ Token GitHub rechazado (HTTP {e.code}). Revisa permisos/expiración. No guardado.[/red]"
+        except urllib.error.URLError:
+            console.print("  [yellow]⚠  Sin conexión a api.github.com — guardando sin verificar.[/yellow]")
+            user = "?"
         except Exception:
-            console.print("  [yellow]⚠  No se pudo verificar el token (sin conexión), guardando de todas formas.[/yellow]")
+            console.print("  [yellow]⚠  No se pudo verificar el token, guardando de todas formas.[/yellow]")
             user = "?"
         mgr.set("github", token)
         existing = mgr._accounts.accounts_for("github")

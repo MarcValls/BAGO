@@ -17,42 +17,125 @@ class CredentialManager(LoginFlowsMixin):
     """Gestiona credenciales de todos los proveedores. /login para registrar."""
 
     PROVIDERS = {
+        # ── LLM / AI providers ────────────────────────────────────────────────
         "github":      {"env": "GITHUB_TOKEN",         "bago_provider": "copilot",
-                        "desc": "GitHub Copilot",       "login_type": "gh_cli"},
+                        "desc": "GitHub Copilot / Models",
+                        "login_type": "github",
+                        "group": "llm"},
         "openai":      {"env": "OPENAI_API_KEY",        "bago_provider": "codex",
-                        "desc": "OpenAI / GPT Plus (codex login o API key)",
-                        "login_type": "openai_cli"},
+                        "desc": "OpenAI / GPT Plus",
+                        "login_type": "openai_cli",
+                        "group": "llm"},
         "anthropic":   {"env": "ANTHROPIC_API_KEY",     "bago_provider": "anthropic",
-                        "desc": "Anthropic Claude / Claw (API key)",
+                        "desc": "Anthropic Claude",
                         "login_type": "api_key",
-                        "url": "https://console.anthropic.com/keys"},
-        "ollama":      {"env": None,                    "bago_provider": "ollama-local",
-                        "desc": "Ollama local (sin clave)", "login_type": "service"},
+                        "url": "https://console.anthropic.com/keys",
+                        "group": "llm"},
         "gemini":      {"env": "GEMINI_API_KEY",        "bago_provider": "gemini",
-                        "desc": "Google Gemini (Gemini 2.0, Flash, Pro...)",
+                        "desc": "Google Gemini (Flash, Pro...)",
                         "login_type": "api_key",
-                        "url": "https://aistudio.google.com/app/apikey"},
-        "ollama_cloud":{"env": "OLLAMA_CLOUD_API_KEY",  "bago_provider": "ollama-cloud",
-                        "desc": "Ollama Cloud (ollama.com — signin o API key)",
-                        "login_type": "ollama_cloud",
-                        "url": "https://ollama.com/settings/api"},
-        "opencode":    {"env": None,                    "bago_provider": "opencode",
-                        "desc": "OpenCode AI (asistente de codigo con IA)",
-                        "login_type": "opencode_cli"},
+                        "url": "https://aistudio.google.com/app/apikey",
+                        "group": "llm"},
+        "groq":        {"env": "GROQ_API_KEY",          "bago_provider": "groq",
+                        "desc": "Groq — inferencia ultra-rapida (Llama, Mistral...)",
+                        "login_type": "api_key",
+                        "url": "https://console.groq.com/keys",
+                        "group": "llm"},
+        "mistral":     {"env": "MISTRAL_API_KEY",       "bago_provider": "mistral",
+                        "desc": "Mistral AI (Mistral Large, Codestral...)",
+                        "login_type": "api_key",
+                        "url": "https://console.mistral.ai/api-keys",
+                        "group": "llm"},
+        "together":    {"env": "TOGETHER_API_KEY",      "bago_provider": "together",
+                        "desc": "Together AI (Llama, Qwen, DBRX, +100 modelos)",
+                        "login_type": "api_key",
+                        "url": "https://api.together.ai/settings/api-keys",
+                        "group": "llm"},
+        "deepseek":    {"env": "DEEPSEEK_API_KEY",      "bago_provider": "deepseek",
+                        "desc": "DeepSeek (V3, R1 — razonamiento)",
+                        "login_type": "api_key",
+                        "url": "https://platform.deepseek.com/api_keys",
+                        "group": "llm"},
+        "xai":         {"env": "XAI_API_KEY",           "bago_provider": "xai",
+                        "desc": "xAI Grok (Grok-2, Grok Vision)",
+                        "login_type": "api_key",
+                        "url": "https://console.x.ai",
+                        "group": "llm"},
+        "perplexity":  {"env": "PPLX_API_KEY",          "bago_provider": "perplexity",
+                        "desc": "Perplexity (sonar — busqueda en tiempo real)",
+                        "login_type": "api_key",
+                        "url": "https://www.perplexity.ai/settings/api",
+                        "group": "llm"},
+        "cohere":      {"env": "COHERE_API_KEY",        "bago_provider": "cohere",
+                        "desc": "Cohere (Command R+, Embed...)",
+                        "login_type": "api_key",
+                        "url": "https://dashboard.cohere.com/api-keys",
+                        "group": "llm"},
+        "replicate":   {"env": "REPLICATE_API_TOKEN",   "bago_provider": "replicate",
+                        "desc": "Replicate (modelos open-source en la nube)",
+                        "login_type": "api_key",
+                        "url": "https://replicate.com/account/api-tokens",
+                        "group": "llm"},
+        "huggingface": {"env": "HF_TOKEN",              "bago_provider": "huggingface",
+                        "desc": "Hugging Face (Inference API + Hub)",
+                        "login_type": "huggingface",
+                        "url": "https://huggingface.co/settings/tokens",
+                        "group": "llm"},
         "openrouter":  {"env": "OPENROUTER_API_KEY",    "bago_provider": "openrouter",
-                        "desc": "OpenRouter — Hermes, Mixtral, Llama, DeepSeek y mas",
+                        "desc": "OpenRouter (+200 modelos, un solo endpoint)",
                         "login_type": "api_key",
-                        "url": "https://openrouter.ai/keys"},
+                        "url": "https://openrouter.ai/keys",
+                        "group": "llm"},
+        # ── Ollama ────────────────────────────────────────────────────────────
+        "ollama":      {"env": None,                    "bago_provider": "ollama-local",
+                        "desc": "Ollama local (sin clave)",
+                        "login_type": "service",
+                        "group": "llm"},
+        "ollama_cloud":{"env": "OLLAMA_CLOUD_API_KEY",  "bago_provider": "ollama-cloud",
+                        "desc": "Ollama Cloud (ollama.com)",
+                        "login_type": "ollama_cloud",
+                        "url": "https://ollama.com/settings/api",
+                        "group": "llm"},
+        "opencode":    {"env": None,                    "bago_provider": "opencode",
+                        "desc": "OpenCode AI (CLI)",
+                        "login_type": "opencode_cli",
+                        "group": "llm"},
+        # ── Repositorios de código ────────────────────────────────────────────
+        "gitlab":      {"env": "GITLAB_TOKEN",          "bago_provider": None,
+                        "desc": "GitLab (token o email+password sin navegador)",
+                        "login_type": "gitlab",
+                        "url": "https://gitlab.com/-/user_settings/personal_access_tokens",
+                        "group": "repo"},
+        "codeberg":    {"env": "CODEBERG_TOKEN",        "bago_provider": None,
+                        "desc": "Codeberg (Gitea API — token o email+password)",
+                        "login_type": "codeberg",
+                        "url": "https://codeberg.org/user/settings/applications",
+                        "group": "repo"},
+        # ── Almacenamiento cloud ───────────────────────────────────────────────
+        "sendcm":      {"env": None,                    "bago_provider": None,
+                        "desc": "send.cm (email+password — sin navegador)",
+                        "login_type": "sendcm",
+                        "group": "cloud"},
     }
 
     ALIASES = {
-        "gpt": "openai", "codex": "openai",
+        # LLM
+        "gpt": "openai", "codex": "openai", "chatgpt": "openai",
         "claude": "anthropic", "claw": "anthropic",
         "copilot": "github", "gh": "github",
+        "google": "gemini", "flash": "gemini", "bard": "gemini",
         "local": "ollama",
-        "google": "gemini", "flash": "gemini",
-        "hermes": "openrouter", "mixtral": "openrouter", "llama": "openrouter",
         "cloud": "ollama_cloud",
+        "hermes": "openrouter", "mixtral": "openrouter", "llama": "openrouter",
+        "grok": "xai",
+        "pplx": "perplexity",
+        "hf": "huggingface",
+        "ds": "deepseek",
+        # Repos
+        "gl": "gitlab",
+        "cb": "codeberg", "forgejo": "codeberg",
+        # Cloud
+        "send": "sendcm",
     }
 
     def __init__(self):
@@ -77,13 +160,8 @@ class CredentialManager(LoginFlowsMixin):
                 self._creds = {}
 
     def _save(self):
-        CRED_FILE.parent.mkdir(parents=True, exist_ok=True)
-        CRED_FILE.write_text(json.dumps(self._creds, indent=2), encoding="utf-8")
-        try:
-            import stat
-            CRED_FILE.chmod(stat.S_IRUSR | stat.S_IWUSR)
-        except Exception:
-            pass
+        from ._atomic import atomic_write_json
+        atomic_write_json(CRED_FILE, self._creds, indent=2, ensure_ascii=True)
 
     def _apply_env(self):
         """Exporta credenciales guardadas como variables de entorno si no existen."""
@@ -165,6 +243,8 @@ class CredentialManager(LoginFlowsMixin):
             elif name == "opencode":
                 if self._creds.get("opencode_via"):
                     active.append("opencode")
+            elif name == "sendcm":
+                pass  # sendcm no es un proveedor LLM, no va en active_bago_providers
             else:
                 env_key = info.get("env")
                 if env_key and os.environ.get(env_key):
@@ -176,7 +256,8 @@ class CredentialManager(LoginFlowsMixin):
         active = self.active_bago_providers()
         out = []
         for name, info in self.PROVIDERS.items():
-            ok = info["bago_provider"] in active
+            bp = info.get("bago_provider")
+            ok = (bp in active) if bp else False
             mark = "✓" if ok else "·"
             if name == "github":
                 tok = os.environ.get("GITHUB_TOKEN", "")
@@ -201,6 +282,14 @@ class CredentialManager(LoginFlowsMixin):
                     state = "sin credencial"
             elif name == "opencode":
                 state = self._creds.get("opencode_via") or "sin auth"
+            elif name == "sendcm":
+                token = self._creds.get("sendcm", {}).get("api_key", "")
+                email = self._creds.get("sendcm", {}).get("email", "")
+                if token:
+                    state = f"✓ {email}" if email else f"token {token[:6]}…"
+                    mark = "✓"
+                else:
+                    state = "sin credencial"
             else:
                 env_key = info.get("env")
                 val = os.environ.get(env_key, "") if env_key else ""

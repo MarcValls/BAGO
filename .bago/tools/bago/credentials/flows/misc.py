@@ -60,7 +60,7 @@ def flow_huggingface(mgr) -> str:
         return "Cancelado."
 
     try:
-        import urllib.request, json as _json
+        import urllib.request, urllib.error, json as _json
         req = urllib.request.Request(
             "https://huggingface.co/api/whoami-v2",
             headers={"Authorization": f"Bearer {token}"},
@@ -69,9 +69,14 @@ def flow_huggingface(mgr) -> str:
             data = _json.loads(resp.read())
             username = data.get("name") or data.get("login") or "?"
         console.print(f"  [green]✓ Verificado: @{username}[/green]")
+    except urllib.error.HTTPError as e:
+        return f"[red]✗ Token Hugging Face rechazado (HTTP {e.code}). No guardado.[/red]"
+    except urllib.error.URLError:
+        username = "?"
+        console.print("  [yellow]⚠  Sin conexión, guardando sin verificar.[/yellow]")
     except Exception:
         username = "?"
-        console.print("  [yellow]⚠  No verificado (sin conexión), guardando de todas formas.[/yellow]")
+        console.print("  [yellow]⚠  No verificado, guardando de todas formas.[/yellow]")
 
     mgr.set("huggingface", token)
     return f"[green]✓ Hugging Face token guardado (@{username}  {token[:6]}…)[/green]"

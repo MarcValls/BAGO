@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """BAGO Telegram Daemon — polling real de mensajes + ejecución de comandos"""
-import json, os, sys, subprocess, time, threading, re
+import html, json, os, sys, subprocess, time, threading, re
 from pathlib import Path
 from datetime import datetime
 
 import requests
 
-TOKEN = os.environ.get("BAGO_TELEGRAM_TOKEN", "")
-API_URL = f"https://api.telegram.org/bot{TOKEN}"
+TOKEN = os.environ.get("BAGO_TELEGRAM_TOKEN", "").strip()
+API_URL = f"https://api.telegram.org/bot{TOKEN}" if TOKEN else ""
 BAGO_DIR = Path.home() / "BAGO"
 LOG_FILE = Path.home() / ".bago" / "state" / "logs" / "telegram_daemon.log"
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -90,6 +90,16 @@ def make_main_keyboard():
     ]
     return InlineKeyboardMarkup(rows)
 
+_LOG_SAFE = re.compile(r'[\x00-\x1f\x7f]')
+
+
+def _safe_log(s: str, limit: int = 200) -> str:
+    """Strip control chars + truncate. Prevents log injection / line splitting."""
+    if not isinstance(s, str):
+        s = str(s)
+    return _LOG_SAFE.sub("?", s)[:limit]
+
+
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
@@ -150,8 +160,8 @@ def process_message(msg):
         return
 
     user = (msg.get("from") or {}).get("first_name", "Usuario")
-    
-    log(f"MSG de {user} ({chat_id}): {text}")
+
+    log(f"MSG de {_safe_log(user, 40)} ({chat_id}): {_safe_log(text)}")
     
     if text.startswith("/start"):
         send_message(
@@ -176,9 +186,10 @@ def process_message(msg):
         return
     
     # Ejecutar comando BAGO
-    send_message(f"⚡ Ejecutando: <code>BAGO {text}</code>...", chat_id)
+    safe_text = html.escape(text)
+    send_message(f"⚡ Ejecutando: <code>BAGO {safe_text}</code>...", chat_id)
     result = execute_bago(text)
-    send_message(f"<pre>{result}</pre>", chat_id)
+    send_message(f"<pre>{html.escape(result)}</pre>", chat_id)
 
 def poll_loop():
     global OFFSET, RUNNING
@@ -214,4 +225,16 @@ def poll_loop():
     log("[DAEMON] Detenido")
 
 if __name__ == "__main__":
+    if not TOKEN:
+        sys.stderr.write(
+            "[FATAL] BAGO_TELEGRAM_TOKEN no definido. "
+            "Exporta el token antes de lanzar el daemon.\n"
+        )
+        sys.exit(1)
+    if not ALLOWED_CHAT_IDS:
+        sys.stderr.write(
+            "[FATAL] BAGO_TELEGRAM_ALLOWED_CHAT_IDS vacío o no definido. "
+            "Por seguridad el daemon se niega a arrancar sin allowlist.\n"
+        )
+        sys.exit(1)
     poll_loop()

@@ -139,7 +139,7 @@ def run_repl(session, pt: PromptSession) -> None:
                 )
                 if recovered:
                     try:
-                        result = chat(session, line)
+                        result = chat(session, llm_input, history_input=line)
                         if result:
                             show_response(result, session.model_name, session.provider)
                     except RuntimeError as exc2:

@@ -87,6 +87,7 @@ def flow_gittoken(
             return "Cancelado."
 
     # Verificar token
+    import urllib.error
     try:
         req = urllib.request.Request(
             verify_url,
@@ -101,8 +102,14 @@ def flow_gittoken(
                 or "?"
             )
         console.print(f"  [green]✓ Verificado: @{username}[/green]")
+    except urllib.error.HTTPError as e:
+        return f"[red]✗ Token {label} rechazado (HTTP {e.code}). No guardado.[/red]"
+    except urllib.error.URLError:
+        username = "?"
+        console.print(f"  [yellow]⚠  Sin conexión, guardando sin verificar.[/yellow]")
     except Exception:
-        console.print(f"  [yellow]⚠  Token no verificado (sin conexión), guardando de todas formas.[/yellow]")
+        username = "?"
+        console.print(f"  [yellow]⚠  Token no verificado, guardando de todas formas.[/yellow]")
 
     # Guardar
     env_key = mgr.PROVIDERS.get(provider, {}).get("env")
