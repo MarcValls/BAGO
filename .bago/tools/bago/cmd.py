@@ -231,8 +231,16 @@ def cmd(line, session):
 
     # ── Modo Tumba ────────────────────────────────────────────────────────────
     elif v == "/tumba":
-        from .tumba import tumba_list, tumba_delete, tumba_clear
-        if a in ("list", "ls", "listar"):
+        from .tumba import tumba_list, tumba_delete, tumba_clear, tumba_add
+        from .tumba_schema import (
+            get_slots, all_providers, missing_slots, all_by_group, provider_group,
+        )
+
+        sub_parts = a.split(None, 1)
+        sub = sub_parts[0].lower() if sub_parts else ""
+        sub_arg = sub_parts[1].strip() if len(sub_parts) > 1 else ""
+
+        if sub in ("list", "ls", "listar"):
             keys = tumba_list()
             if not keys:
                 pi("🪦 Tumba vacía.")
@@ -240,14 +248,161 @@ def cmd(line, session):
                 pi("[bold]🪦 Claves en tumba:[/bold] (los valores nunca se muestran)")
                 for i, k in enumerate(keys, 1):
                     console.print(f"  {i:>2}. [bold cyan]{k}[/bold cyan]  →  {{{{{k}}}}}")
-        elif a.startswith("del ") or a.startswith("rm "):
-            name = a.split(None, 1)[1].strip()
-            console.print(tumba_delete(name))
-        elif a in ("clear", "limpiar", "vaciar"):
+
+        elif sub.startswith("del") or sub.startswith("rm"):
+            name = sub_arg or (a.split(None, 1)[1].strip() if " " in a else "")
+            if name:
+                console.print(tumba_delete(name))
+            else:
+                pi("[red]Uso: /tumba del <nombre>[/red]")
+
+        elif sub in ("clear", "limpiar", "vaciar"):
             n = tumba_clear()
             pi(f"🪦 Tumba vaciada — {n} entradas eliminadas.")
+
+        elif sub == "schema":
+            # /tumba schema [provider]  — muestra slots de un provider o todos los grupos
+            if sub_arg:
+                prov = sub_arg.lower()
+                slots = get_slots(prov)
+                if not slots:
+                    providers_str = ", ".join(all_providers())
+                    pi(f"[red]Provider '{prov}' no tiene schema predefinido.[/red]\n"
+                       f"  Disponibles: {providers_str}")
+                else:
+                    from rich.table import Table
+                    t = Table(title=f"🪦 Schema tumba — [bold]{prov}[/bold]",
+                              box=box.ROUNDED, show_lines=True)
+                    t.add_column("Clave tumba", style="bold cyan", no_wrap=True)
+                    t.add_column("Env var", style="dim")
+                    t.add_column("Req.", justify="center")
+                    t.add_column("Formato", style="yellow")
+                    t.add_column("Descripción")
+                    for s in slots:
+                        req = "[green]✓[/green]" if s["required"] else "[dim]opt[/dim]"
+                        env = s["env"] or "[dim]—[/dim]"
+                        t.add_row(s["name"], env, req, s["format"], s["desc"])
+                    console.print(t)
+                    keys = tumba_list()
+                    miss = missing_slots(prov, keys)
+                    if miss:
+                        req_miss = [m for m in miss if m["required"]]
+                        opt_miss = [m for m in miss if not m["required"]]
+                        if req_miss:
+                            console.print(
+                                f"\n  [red]⚠  Faltan {len(req_miss)} slots requeridos:[/red] "
+                                + ", ".join(f"[bold]{m['name']}[/bold]" for m in req_miss)
+                            )
+                        if opt_miss:
+                            console.print(
+                                f"  [dim]Opcionales sin llenar: "
+                                + ", ".join(m["name"] for m in opt_miss) + "[/dim]"
+                            )
+                    else:
+                        console.print(
+                            f"\n  [green]✓ Todos los slots de {prov} están en la tumba.[/green]"
+                        )
+            else:
+                # Mostrar catálogo completo por grupos
+                by_group = all_by_group()
+                _GROUP_LABELS = {
+                    "llm":       "🤖 LLM / IA",
+                    "repo":      "📦 Repositorios",
+                    "cloud":     "☁️  Cloud/Storage",
+                    "messaging": "💬 Mensajería/Bots",
+                    "payments":  "💳 Pagos",
+                    "infra":     "🏗️  Infraestructura",
+                    "database":  "🗄️  Bases de datos",
+                    "email":     "📧 Email/SMS",
+                    "devops":    "🔧 DevOps",
+                    "pm":        "📋 Gestión de proyectos",
+                }
+                pi("[bold]🪦 Providers con schema tumba predefinido:[/bold]")
+                for group, members in by_group.items():
+                    label = _GROUP_LABELS.get(group, group)
+                    prov_list = "  ".join(f"[cyan]{p}[/cyan]" for p in members)
+                    console.print(f"  {label}:  {prov_list}")
+                console.print(
+                    "\n  [dim]/tumba schema <provider>  — ver slots detallados[/dim]\n"
+                    "  [dim]/tumba fill <provider>    — rellenar slots en modo tumba[/dim]"
+                )
+
+        elif sub == "fill":
+            # /tumba fill <provider>  — activa tumba y guía slot por slot
+            if not sub_arg:
+                pi("[red]Uso: /tumba fill <provider>  (ej: /tumba fill telegram)[/red]")
+            else:
+                prov = sub_arg.lower()
+                slots = get_slots(prov)
+                if not slots:
+                    pi(f"[red]Provider '{prov}' no tiene schema. Usa /tumba schema para ver disponibles.[/red]")
+                else:
+                    from prompt_toolkit import prompt as pt_prompt
+                    keys = tumba_list()
+                    miss = missing_slots(prov, keys)
+                    if not miss:
+                        pi(f"[green]✓ Todos los slots de [bold]{prov}[/bold] ya están en la tumba.[/green]")
+                    else:
+                        console.print(Panel(
+                            f"[bold yellow]🪦 TUMBA FILL — {prov.upper()}[/bold yellow]\n\n"
+                            f"  Rellenando [bold]{len(miss)}[/bold] slots.\n"
+                            f"  Los valores se copian directamente — el LLM NO los verá nunca.\n\n"
+                            f"  [dim]Pulsa Enter sin valor para saltar un slot.[/dim]",
+                            title=f"[bold red]🪦 FILL: {prov}[/bold red]",
+                            border_style="red",
+                            expand=False,
+                        ))
+                        saved = 0
+                        for slot in miss:
+                            req_label = "[red]*[/red]" if slot["required"] else "[dim]opt[/dim]"
+                            console.print(
+                                f"\n  {req_label} [bold cyan]{slot['name']}[/bold cyan]\n"
+                                f"     [dim]{slot['desc']}[/dim]\n"
+                                f"     [dim]Formato: {slot['format']}[/dim]"
+                                + (f"\n     [dim]Obtener en: {slot['url']}[/dim]" if slot["url"] else "")
+                            )
+                            try:
+                                val = pt_prompt(
+                                    f"  {slot['name']}: ",
+                                    is_password=True,
+                                ).strip()
+                            except (KeyboardInterrupt, EOFError):
+                                pi("\n[dim]Fill cancelado.[/dim]")
+                                break
+                            if not val:
+                                console.print("  [dim]→ Saltado[/dim]")
+                                continue
+                            line = f"{slot['name']}: {val}"
+                            ok, name, msg = tumba_add(line)
+                            console.print(msg)
+                            if ok:
+                                saved += 1
+                        console.print(
+                            f"\n  [green]✓ {saved} slots guardados para [bold]{prov}[/bold].[/green]\n"
+                            f"  [dim]Usa {{{{slot name}}}} en tus mensajes para insertar el valor.[/dim]"
+                        )
+
+        elif sub == "check":
+            # /tumba check <provider>  — estado rápido de slots
+            if not sub_arg:
+                pi("[red]Uso: /tumba check <provider>[/red]")
+            else:
+                prov = sub_arg.lower()
+                slots = get_slots(prov)
+                if not slots:
+                    pi(f"[red]Provider '{prov}' no tiene schema predefinido.[/red]")
+                else:
+                    keys = set(tumba_list())
+                    pi(f"[bold]🪦 Estado tumba — {prov}:[/bold]")
+                    for slot in slots:
+                        present = slot["name"] in keys
+                        status = "[green]✓ guardado[/green]" if present else (
+                            "[red]✗ FALTA[/red]" if slot["required"] else "[dim]— opcional[/dim]"
+                        )
+                        console.print(f"  {status}  [cyan]{slot['name']}[/cyan]")
+
         else:
-            # Toggle del modo
+            # Toggle del modo tumba
             session.tumba_mode = not session.tumba_mode
             if session.tumba_mode:
                 console.print(Panel(
@@ -255,11 +410,16 @@ def cmd(line, session):
                     "  Lo que escribas [bold]NO[/bold] se enviará al LLM.\n"
                     "  En su lugar se copia al archivo de secretos.\n\n"
                     "  [bold]Formato:[/bold]  [cyan]Nombre clave: valor secreto[/cyan]\n"
-                    "  [bold]Ejemplo:[/bold]  [cyan]Api Telegram: 7834920:ABCxyz...[/cyan]\n\n"
+                    "  [bold]Ejemplo:[/bold]  [cyan]Telegram Bot Token: 1234567:ABCxyz...[/cyan]\n\n"
                     "  Para usar el valor en un mensaje normal:\n"
-                    "    [cyan]Configura el bot con la {{Api Telegram}}[/cyan]\n\n"
-                    "  [dim]Escribe /tumba de nuevo para desactivar.[/dim]\n"
-                    "  [dim]Escribe /tumba list para ver claves guardadas.[/dim]",
+                    "    [cyan]Configura el bot con el {{Telegram Bot Token}}[/cyan]\n\n"
+                    "  [dim]Subcomandos disponibles:[/dim]\n"
+                    "  [dim]  /tumba list              — ver claves guardadas[/dim]\n"
+                    "  [dim]  /tumba fill <provider>   — rellenar slots de un provider[/dim]\n"
+                    "  [dim]  /tumba schema [provider] — ver slots predefinidos[/dim]\n"
+                    "  [dim]  /tumba check <provider>  — estado de slots por provider[/dim]\n"
+                    "  [dim]  /tumba del <nombre>      — eliminar una clave[/dim]\n"
+                    "  [dim]  /tumba                   — desactivar modo tumba[/dim]",
                     title="[bold red]🪦 TUMBA[/bold red]",
                     border_style="red",
                     expand=False,

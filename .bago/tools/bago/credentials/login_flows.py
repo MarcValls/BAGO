@@ -460,7 +460,7 @@ class LoginFlowsMixin:
         self.set("huggingface", token)
         return f"[green]✓ Hugging Face token guardado (@{username}  {token[:6]}…)[/green]"
 
-
+    def _flow_sendcm(self) -> str:
         """Login a send.cm por email+contraseña — sin navegador, todo en el REPL."""
         console.print(
             "[bold]send.cm — login directo por API[/bold]\n"
