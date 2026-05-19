@@ -5,12 +5,22 @@ Se mezcla con CredentialManager mediante herencia múltiple.
 """
 
 import subprocess
-from pathlib import Path
 
 from prompt_toolkit import prompt as pt_prompt
 
 from ..ui import console
 from .accounts import AccountManager
+from .flows import (
+    flow_github,
+    flow_openai,
+    flow_ollama_cloud,
+    flow_ollama_service,
+    flow_opencode,
+    flow_gittoken,
+    flow_api_key,
+    flow_huggingface,
+    flow_sendcm,
+)
 
 
 class LoginFlowsMixin:
@@ -139,381 +149,33 @@ class LoginFlowsMixin:
         return f"[red]Tipo de login '{ltype}' no reconocido.[/red]"
 
     def _flow_github(self) -> str:
-        """GitHub: PAT directo (sin navegador) o gh auth login (abre browser)."""
-        console.print(
-            "[bold]GitHub — elige método:[/bold]\n"
-            "  [yellow]1[/yellow]  Personal Access Token  (pegar token — sin navegador)\n"
-            "  [yellow]2[/yellow]  gh auth login          (flujo OAuth — puede abrir navegador)\n"
-        )
-        choice = pt_prompt("Opción [1/2]: ").strip()
-
-        if choice == "1":
-            console.print("[dim]Genera tu token en: GitHub → Settings → Developer settings → Personal access tokens[/dim]")
-            console.print("[dim]Permisos mínimos recomendados: repo, read:org, gist[/dim]")
-            token = pt_prompt("GitHub Personal Access Token: ", is_password=True).strip()
-            if not token:
-                return "Cancelado."
-            # Verificar token contra API de GitHub
-            try:
-                import urllib.request, json as _json
-                req = urllib.request.Request(
-                    "https://api.github.com/user",
-                    headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-                )
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    user = _json.loads(resp.read())["login"]
-                console.print(f"  [green]✓ Verificado: @{user}[/green]")
-            except Exception:
-                console.print("  [yellow]⚠  No se pudo verificar el token (sin conexión), guardando de todas formas.[/yellow]")
-                user = "?"
-            self.set("github", token)
-            existing = self._accounts.accounts_for("github")
-            if existing:
-                self._accounts.update(existing[0]["id"], credential=token)
-            else:
-                self._accounts.add("github", f"GitHub @{user}", token, "token")
-            self._accounts.apply_active_credentials()
-            return f"[green]✓ GitHub PAT guardado  (@{user}  {token[:4]}…{token[-4:]})[/green]"
-
-        # Opción 2: gh auth login
-        result = subprocess.run(["gh", "auth", "login"])
-        if result.returncode != 0:
-            return "Login GitHub fallido."
-        try:
-            token = subprocess.check_output(["gh", "auth", "token"], text=True).strip()
-            self.set("github", token)
-            existing = self._accounts.accounts_for("github")
-            if existing:
-                self._accounts.update(existing[0]["id"], credential=token)
-            else:
-                self._accounts.add("github", "GitHub Personal", token, "token")
-            self._accounts.apply_active_credentials()
-            return f"[green]✓ GitHub token guardado ({token[:4]}…{token[-4:]})[/green]"
-        except Exception as e:
-            return f"Token obtenido pero no guardado: {e}"
+        return flow_github(self)
 
     def _flow_openai(self) -> str:
-        console.print(
-            "[bold]OpenAI / GPT — elige método:[/bold]\n"
-            "  [yellow]1[/yellow]  codex login  (GPT Plus — abre navegador, sin API key)\n"
-            "  [yellow]2[/yellow]  API key      (pegar clave desde platform.openai.com)\n"
-        )
-        choice = pt_prompt("Opción [1/2]: ").strip()
-        if choice == "1":
-            console.print("[dim]Ejecutando codex login (abre navegador)...[/dim]")
-            result = subprocess.run(["codex", "login"])
-            if result.returncode == 0:
-                self._creds["openai_via"] = "codex_login"
-                self._save()
-                return "[green]✓ Codex CLI autenticado (GPT Plus activo)[/green]"
-            return "[red]codex login fallido. Prueba la opción 2 con API key.[/red]"
-        else:
-            console.print("[dim]Obtén tu clave en: https://platform.openai.com/api-keys[/dim]")
-            key = pt_prompt("OpenAI API Key: ", is_password=True).strip()
-            if not key:
-                return "Cancelado."
-            self.set("openai", key)
-            existing = self._accounts.accounts_for("openai")
-            if existing:
-                self._accounts.update(existing[0]["id"], credential=key)
-            else:
-                self._accounts.add("openai", "OpenAI Principal", key, "api_key")
-            self._accounts.apply_active_credentials()
-            return "[green]✓ OpenAI API key guardada.[/green]"
+        return flow_openai(self)
 
     def _flow_api_key(self, name: str, info: dict) -> str:
-        url = info.get("url", "")
-        if url:
-            console.print(f"[dim]Obtén tu clave en: {url}[/dim]")
-        console.print(f"[bold]{info['desc']}[/bold]")
-        key = pt_prompt("API Key: ", is_password=True).strip()
-        if not key:
-            return "Cancelado."
-        self.set(name, key)
-        am_provider = self._bago_to_am_provider(name)
-        if am_provider in AccountManager.PROVIDER_ENV:
-            existing = self._accounts.accounts_for(am_provider)
-            if existing:
-                self._accounts.update(existing[0]["id"], credential=key)
-            else:
-                self._accounts.add(am_provider, info["desc"], key, "api_key")
-            self._accounts.apply_active_credentials()
-        return f"[green]✓ {info['desc']} — API key guardada.[/green]"
+        return flow_api_key(self, name, info)
 
     def _flow_ollama_cloud(self) -> str:
-        console.print(
-            "[bold]Ollama Cloud — elige método:[/bold]\n"
-            "  [yellow]1[/yellow]  ollama signin  (login con tu cuenta ollama.com)\n"
-            "  [yellow]2[/yellow]  API key        (desde ollama.com/settings/api)\n"
-        )
-        choice = pt_prompt("Opción [1/2]: ").strip()
-        if choice == "1":
-            console.print("[dim]Ejecutando ollama signin...[/dim]")
-            result = subprocess.run(["ollama", "signin"])
-            if result.returncode == 0:
-                self._creds["ollama_cloud_via"] = "ollama_signin"
-                self._save()
-                return "[green]✓ Ollama Cloud autenticado con ollama signin.[/green]"
-            return "[red]ollama signin fallido. Prueba la opción 2 con API key.[/red]"
-        else:
-            console.print("[dim]Obtén tu clave en: https://ollama.com/settings/api[/dim]")
-            key = pt_prompt("Ollama Cloud API Key: ", is_password=True).strip()
-            if not key:
-                return "Cancelado."
-            self.set("ollama_cloud", key)
-            existing = self._accounts.accounts_for("ollama_cloud")
-            if existing:
-                self._accounts.update(existing[0]["id"], credential=key)
-            else:
-                self._accounts.add("ollama_cloud", "Ollama Cloud", key, "api_key")
-            self._accounts.apply_active_credentials()
-            return "[green]✓ Ollama Cloud API key guardada.[/green]"
+        return flow_ollama_cloud(self)
 
     def _flow_opencode(self) -> str:
-        try:
-            subprocess.check_output(
-                ["opencode", "--version"], stderr=subprocess.DEVNULL, timeout=5
-            )
-            opencode_ok = True
-        except Exception:
-            opencode_ok = False
-
-        if not opencode_ok:
-            console.print(
-                "[bold yellow]OpenCode no está instalado.[/bold yellow]\n"
-                "[dim]Instala con:[/dim]  npm install -g opencode-ai\n"
-                "[dim]Más info:[/dim]    https://opencode.ai\n"
-            )
-            if pt_prompt("¿Instalar ahora? [s/n]: ").strip().lower() == "s":
-                console.print("[dim]Ejecutando npm install -g opencode-ai...[/dim]")
-                r = subprocess.run(["npm", "install", "-g", "opencode-ai"])
-                if r.returncode != 0:
-                    return "[red]Instalación fallida. Instala manualmente: npm install -g opencode-ai[/red]"
-                console.print("[green]✓ opencode instalado.[/green]")
-            else:
-                return "Cancelado. Instala opencode manualmente."
-
-        console.print("[dim]Ejecutando opencode auth login...[/dim]")
-        result = subprocess.run(["opencode", "auth", "login"])
-        if result.returncode == 0:
-            self._creds["opencode_via"] = "opencode_login"
-            self._save()
-            return "[green]✓ OpenCode autenticado.[/green]"
-        self._creds["opencode_via"] = "opencode_installed"
-        self._save()
-        return "[green]✓ OpenCode instalado y marcado como activo.[/green]"
+        return flow_opencode(self)
 
     def _flow_ollama_service(self) -> str:
-        if self._ollama_ok():
-            try:
-                out = subprocess.check_output(
-                    ["ollama", "list"], text=True, stderr=subprocess.DEVNULL
-                )
-                console.print(out)
-                return "[green]✓ Ollama activo y disponible.[/green]"
-            except Exception:
-                pass
-        return "[red]Ollama no disponible. Instala desde https://ollama.com[/red]"
+        return flow_ollama_service(self)
 
     def _flow_gittoken(self, provider: str, label: str,
                        verify_url: str, auth_header: str,
                        prefix: str = "") -> str:
-        """Flujo genérico para repos con token (GitLab, Codeberg/Gitea, etc).
-        Opción 1: pegar token directamente (sin navegador).
-        Opción 2: email + password → API genera token (sin navegador).
-        """
-        import urllib.request, json as _json, urllib.parse
-
-        console.print(
-            f"[bold]{label} — elige método:[/bold]\n"
-            f"  [yellow]1[/yellow]  Personal Access Token  (pegar token — sin navegador)\n"
-            f"  [yellow]2[/yellow]  Email + contraseña     (BAGO genera token por API — sin navegador)\n"
-        )
-        choice = pt_prompt("Opción [1/2]: ").strip()
-
-        if choice == "2":
-            # Obtener token por API con email+password (Gitea / GitLab)
-            base = verify_url.rsplit("/", 2)[0]  # https://codeberg.org
-            email = pt_prompt(f"Email {label}: ").strip()
-            if not email:
-                return "Cancelado."
-            password = pt_prompt("Contraseña: ", is_password=True).strip()
-            if not password:
-                return "Cancelado."
-            token_name = "bago_token"
-            # Gitea API: POST /api/v1/users/{user}/tokens
-            # GitLab no soporta password→token por API pública (solo PAT UI)
-            if "codeberg" in verify_url or "gitea" in verify_url:
-                # Buscar username primero
-                try:
-                    import base64 as _b64
-                    cred = _b64.b64encode(f"{email}:{password}".encode()).decode()
-                    req = urllib.request.Request(
-                        f"{base}/api/v1/user",
-                        headers={"Authorization": f"Basic {cred}", "Accept": "application/json"},
-                    )
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        username = _json.loads(resp.read())["login"]
-                    # Crear token de acceso
-                    payload = _json.dumps({"name": token_name}).encode()
-                    req2 = urllib.request.Request(
-                        f"{base}/api/v1/users/{username}/tokens",
-                        data=payload,
-                        headers={
-                            "Authorization": f"Basic {cred}",
-                            "Content-Type": "application/json",
-                        },
-                        method="POST",
-                    )
-                    with urllib.request.urlopen(req2, timeout=10) as resp2:
-                        data = _json.loads(resp2.read())
-                    token = data.get("sha1") or data.get("token") or ""
-                    if not token:
-                        return f"[red]No se pudo obtener token de {label}: {data}[/red]"
-                    console.print(f"  [green]✓ Token generado para @{username}[/green]")
-                except Exception as e:
-                    return f"[red]Error generando token en {label}: {e}[/red]"
-            else:
-                # GitLab no permite crear PAT por password API — pedir manualmente
-                console.print(f"  [yellow]{label} no permite crear tokens por contraseña vía API.[/yellow]")
-                console.print(f"  [dim]Ve a: {self.PROVIDERS.get(provider, {}).get('url', '')}[/dim]")
-                token = pt_prompt(f"{label} Personal Access Token: ", is_password=True).strip()
-                if not token:
-                    return "Cancelado."
-        else:
-            url = self.PROVIDERS.get(provider, {}).get("url", "")
-            if url:
-                console.print(f"[dim]Genera tu token en: {url}[/dim]")
-            token = pt_prompt(f"{label} Token: ", is_password=True).strip()
-            if not token:
-                return "Cancelado."
-
-        # Verificar token
-        try:
-            req = urllib.request.Request(
-                verify_url,
-                headers={auth_header: f"{prefix}{token}", "Accept": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                user_data = _json.loads(resp.read())
-                username = user_data.get("username") or user_data.get("login") or user_data.get("name") or "?"
-            console.print(f"  [green]✓ Verificado: @{username}[/green]")
-        except Exception:
-            username = "?"
-            console.print(f"  [yellow]⚠  Token no verificado (sin conexión), guardando de todas formas.[/yellow]")
-
-        # Guardar en creds + variable de entorno
-        env_key = self.PROVIDERS.get(provider, {}).get("env")
-        if env_key:
-            import os
-            os.environ[env_key] = token
-        self._creds.setdefault(provider, {})["token"] = token
-        self._creds[provider]["username"] = username
-        self._save()
-        return f"[green]✓ {label} autenticado: @{username}  ({token[:4]}…{token[-4:]})[/green]"
+        return flow_gittoken(self, provider, label, verify_url, auth_header, prefix)
 
     def _flow_huggingface(self) -> str:
-        """Hugging Face: pegar token o usar huggingface-cli login."""
-        console.print(
-            "[bold]Hugging Face — elige método:[/bold]\n"
-            "  [yellow]1[/yellow]  Token directo     (pegar token — sin navegador)\n"
-            "  [yellow]2[/yellow]  huggingface-cli   (si está instalado)\n"
-        )
-        choice = pt_prompt("Opción [1/2]: ").strip()
-
-        if choice == "2":
-            try:
-                result = subprocess.run(["huggingface-cli", "login"])
-                if result.returncode == 0:
-                    # Leer token del cache de HF
-                    hf_cache = Path.home() / ".cache" / "huggingface" / "token"
-                    if hf_cache.exists():
-                        token = hf_cache.read_text().strip()
-                        self.set("huggingface", token)
-                        return f"[green]✓ Hugging Face autenticado via CLI[/green]"
-                    return "[green]✓ Hugging Face CLI login OK[/green]"
-                return "[red]huggingface-cli login fallido.[/red]"
-            except FileNotFoundError:
-                console.print("  [yellow]huggingface-cli no encontrado. Usando opción 1.[/yellow]")
-
-        console.print("[dim]Genera tu token en: https://huggingface.co/settings/tokens[/dim]")
-        console.print("[dim]Tipo recomendado: 'read' para inferencia, 'write' para subir modelos[/dim]")
-        token = pt_prompt("Hugging Face Token (hf_...): ", is_password=True).strip()
-        if not token:
-            return "Cancelado."
-
-        # Verificar
-        try:
-            import urllib.request, json as _json
-            req = urllib.request.Request(
-                "https://huggingface.co/api/whoami-v2",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = _json.loads(resp.read())
-                username = data.get("name") or data.get("login") or "?"
-            console.print(f"  [green]✓ Verificado: @{username}[/green]")
-        except Exception:
-            username = "?"
-            console.print("  [yellow]⚠  No verificado (sin conexión), guardando de todas formas.[/yellow]")
-
-        self.set("huggingface", token)
-        return f"[green]✓ Hugging Face token guardado (@{username}  {token[:6]}…)[/green]"
+        return flow_huggingface(self)
 
     def _flow_sendcm(self) -> str:
-        """Login a send.cm por email+contraseña — sin navegador, todo en el REPL."""
-        console.print(
-            "[bold]send.cm — login directo por API[/bold]\n"
-            "[dim]  No necesitas abrir el navegador. Introduce tus credenciales de send.cm.[/dim]\n"
-            "[dim]  Regístrate gratis en https://send.cm si aún no tienes cuenta.[/dim]\n"
-        )
-
-        # Comprobar si ya hay token guardado
-        existing = self._creds.get("sendcm", {}).get("api_key", "")
-        if existing:
-            console.print(f"  [dim]Token actual: {existing[:6]}…{existing[-4:]}[/dim]")
-            overwrite = pt_prompt("¿Reemplazar token existente? [s/N]: ").strip().lower()
-            if overwrite not in ("s", "si", "sí", "y", "yes"):
-                return "[dim]Login cancelado — token existente conservado.[/dim]"
-
-        email = pt_prompt("Email send.cm: ").strip()
-        if not email:
-            return "Cancelado."
-        password = pt_prompt("Contraseña: ", is_password=True).strip()
-        if not password:
-            return "Cancelado."
-
-        try:
-            import urllib.request, urllib.parse, json as _json
-            payload = _json.dumps({"email": email, "password": password}).encode()
-            req = urllib.request.Request(
-                "https://send.cm/api/v2/login",
-                data=payload,
-                headers={"Content-Type": "application/json", "Accept": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = _json.loads(resp.read().decode())
-        except Exception as e:
-            return f"[red]Error de conexión con send.cm: {e}[/red]"
-
-        # La API devuelve token en data.token o data.api_key según versión
-        token = (
-            data.get("data", {}).get("token")
-            or data.get("data", {}).get("api_key")
-            or data.get("token")
-            or data.get("api_key")
-            or ""
-        )
-        if not token:
-            msg = data.get("message") or data.get("error") or str(data)
-            return f"[red]Login fallido: {msg}[/red]"
-
-        # Guardar en credentials.json
-        self._creds.setdefault("sendcm", {})["api_key"] = token
-        self._creds["sendcm"]["email"] = email
-        self._save()
-        return f"[green]✓ send.cm autenticado: {email}  (token {token[:6]}…{token[-4:]})[/green]"
+        return flow_sendcm(self)
 
     # ── Wizard de nueva cuenta ───────────────────────────────────────────────
 
