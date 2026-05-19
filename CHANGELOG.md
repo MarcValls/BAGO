@@ -1,3 +1,19 @@
+## [3.4.3] — Stable — 2026-05-19 · Prompt Router con Metricas de Senal
+
+### Novedades
+- **Prompt Router** (`.bago/core/prompt_router.py`): el prompt se adapta como un router WiFi segun la calidad de senal del contexto.
+  - **Banda 2.4g**: modo amplio, mucho contexto, construccion acumulativa.
+  - **Banda 5g**: modo estrecho, rapido, enfocado, menos tokens.
+  - **Canales**: `identity` (reanclar), `context` (reforzar), `specialization` (profundo), `routing` (filtrar).
+  - **Hz**: frecuencia de actualizacion del prompt (1-5 ciclos).
+  - **Interferencia**: tokens irrelevantes que distorsionan.
+  - **Desacoplamiento**: el prompt ya no se alinea con la tarea real.
+- **Metricas de senal**: `coherence_score`, `noise_level`, `token_pressure`, `drift_detected`, `task_urgency`.
+- **Capa de routing dinamica**: se anade automaticamente al prompt con instrucciones adaptativas.
+- **Behaviors en .embed.json**: cada rol declara `drift_patterns`, `force_include`, `force_exclude`, `strategy`, `ordering`.
+
+---
+
 ## [3.4.2] — Stable — 2026-05-19 · Roles con Codigo Embebido Indexado
 
 ### Novedades
