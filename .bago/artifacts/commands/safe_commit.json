@@ -1,0 +1,9 @@
+{
+  "content": "git diff --cached --quiet || { git status --short && read -p 'Commit message: ' msg && git commit -m \"$msg\"; }",
+  "shell": "bash",
+  "tags": [
+    "git",
+    "safety",
+    "commit"
+  ]
+}

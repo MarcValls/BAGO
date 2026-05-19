@@ -68,6 +68,13 @@ for _p in [str(_CORE), str(_TOOLS_DIR)]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+# ── Spiral Prompt Builder (optional) ───────────────────────────────────────
+try:
+    from spiral_prompt_builder import SpiralPromptBuilder
+    _HAS_PROMPT_BUILDER = True
+except ImportError:
+    _HAS_PROMPT_BUILDER = False
+
 # ── Safe imports ──────────────────────────────────────────────────────────────
 try:
     from bago_context import get_context as _get_ctx
@@ -157,6 +164,17 @@ _GOAL_AGENT: dict[str, str] = {}
 for _agent, _goals in COMPETENCIES.items():
     for _goal in _goals:
         _GOAL_AGENT[_goal] = _agent
+
+# Map agent names to role_ids for spiral prompt builder
+AGENT_TO_ROLE: dict[str, str] = {
+    "ARQUITECTO": "role_production_architect",
+    "VALIDADOR": "role_supervision_sentinel",
+    "ANALISTA": "role_production_analyst",
+    "ORGANIZADOR": "role_production_organizer",
+    "GENERADOR": "role_production_generator",
+    "MAESTRO_BAGO": "role_government_maestro",
+    "ORQUESTADOR": "role_government_orchestrator",
+}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -409,6 +427,31 @@ class AutonomousLoop:
 
     # ── PLAN ───────────────────────────────────────────────────────────────────
 
+    def _attach_spiral_prompts(self, goals: list[dict]) -> list[dict]:
+        """Attach spiral-generated prompts to each goal if a role embed exists."""
+        if not _HAS_PROMPT_BUILDER:
+            return goals
+        try:
+            builder = SpiralPromptBuilder(str(_BAGO_ROOT))
+            spiral_state = json.loads((_STATE_DIR / "spiral_cycles.json").read_text(encoding="utf-8")) if (_STATE_DIR / "spiral_cycles.json").exists() else {}
+            cycle = len(spiral_state.get("cycles", [])) + 1
+            radius = spiral_state.get("total_radius", 1.0)
+            for g in goals:
+                agent = g.get("agent", "")
+                role_id = AGENT_TO_ROLE.get(agent)
+                if role_id:
+                    g["spiral_prompt"] = builder.build(
+                        role_id=role_id,
+                        cycle=cycle,
+                        radius=radius,
+                        task_type=g.get("goal", ""),
+                        history_summary=f"goal={g['goal']}, agent={agent}",
+                    )
+        except Exception as exc:
+            if self.verbose:
+                print(f"   [spiral-prompt] skip: {exc}")
+        return goals
+
     def plan(self, state: dict) -> list[dict]:
         """
         Map state → ordered list of goal dicts.
@@ -469,6 +512,7 @@ class AutonomousLoop:
                 g["skip_reason"] = "mutating tool skipped (use --unsafe to enable)"
             result.append(g)
 
+        result = self._attach_spiral_prompts(result)
         return result
 
     # ── ACT ────────────────────────────────────────────────────────────────────

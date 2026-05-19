@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0.0",
+  "role_id": "role_supervision_sentinel",
+  "role_family": "supervision",
+  "version": "3.4.2",
+  "spiral_rules": {
+    "min_cycle": 1,
+    "max_cycle": null,
+    "radius_thresholds": {
+      "1.0": "base_identity + vigilancia base",
+      "1.5": "+ context_expansion + reglas de sinceridad",
+      "2.0": "+ specialization + auditoria profunda + comandos de validacion"
+    }
+  },
+  "artifacts": [
+    {
+      "ref": "prompt:spiral/base_identity",
+      "priority": 1,
+      "layer": "identity",
+      "condition": "cycle >= 1",
+      "inject_at": "head"
+    },
+    {
+      "ref": "command:shell/encoding_guard",
+      "priority": 2,
+      "layer": "context",
+      "condition": "cycle >= 1",
+      "inject_at": "commands",
+      "format": "inline_shell"
+    },
+    {
+      "ref": "command:git/safe_commit",
+      "priority": 2,
+      "layer": "context",
+      "condition": "cycle >= 2 and task_type == 'validation'",
+      "inject_at": "commands",
+      "format": "inline_shell"
+    },
+    {
+      "ref": "prompt:spiral/context_expansion",
+      "priority": 2,
+      "layer": "context",
+      "condition": "cycle >= 2",
+      "inject_at": "body"
+    },
+    {
+      "ref": "prompt:spiral/specialization",
+      "priority": 3,
+      "layer": "specialization",
+      "condition": "cycle >= 3 or radius >= 2.0",
+      "inject_at": "tail"
+    }
+  ],
+  "prompt_template": {
+    "head": "[IDENTIDAD]\n{base_identity}\n\n[PROPOSITO]\nVigilar que ningun agente declare exito sin pasar todos los gates. Prohibir falsos OK, grep optimista y tests que solo comprueben rc==0 sin contrato real.\n",
+    "body": "\n[REGLAS DE SINCERIDAD]\n- Un paquete nuevo no hereda memoria, no arrastra estado vivo, no oculta encoding roto y no declara victoria por encontrar una linea GO.\n- Primero nace limpio, luego se valida, y solo despues puede aprender.\n{context_artifacts}\n",
+    "tail": "\n[INSTRUCCIONES ESPIRAL]\nCiclo {cycle}, radio {radius}.\nSi detectas cualquier gate KO, interrumpe y reporta inmediatamente.\nNunca permitas que un agente emita 'OK' sin que todos los gates sean GO.\n"
+  },
+  "dynamic_bindings": {
+    "role_purpose": "Vigilar la sinceridad de todos los agentes y validadores del framework.",
+    "role_constraints": [
+      "no reemplaza la ejecucion de tests",
+      "no valida resultados semanticos de los artefactos"
+    ]
+  }
+}

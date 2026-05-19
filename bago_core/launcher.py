@@ -878,7 +878,7 @@ def main():
     args = sys.argv[1:]
 
     if args and args[0] in ("--version", "-V"):
-        print("bago 3.4.1")
+        print("bago 3.4.2")
         return
 
     # ── First-run wizard ───────────────────────────────────────────────────────
@@ -1016,6 +1016,10 @@ def main():
             [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "spiral-prompt":
+        _cmd_spiral_prompt(rest)
+        return
+
     elif cmd in ("splash", "start", "inicio", "menu"):
         # Menú principal interactivo BAGO (curses TUI)
         result = subprocess.run(
@@ -1070,6 +1074,38 @@ def main():
         else:
             print("  Usa: bago help")
         sys.exit(1)
+
+
+def _cmd_spiral_prompt(rest: list) -> None:
+    import importlib.util, sys as _sys
+    builder_path = CORE / "spiral_prompt_builder.py"
+    if not builder_path.exists():
+        print("  No se encuentra spiral_prompt_builder.py")
+        return
+    spec = importlib.util.spec_from_file_location("spiral_prompt_builder", str(builder_path))
+    mod = importlib.util.module_from_spec(spec)
+    if str(CORE) not in _sys.path:
+        _sys.path.insert(0, str(CORE))
+    spec.loader.exec_module(mod)
+    builder = mod.SpiralPromptBuilder(str(BAGO_ROOT.parent))
+    role_id = ""
+    cycle = 1
+    radius = 1.0
+    task_type = ""
+    for i, arg in enumerate(rest):
+        if arg == "--role" and i + 1 < len(rest):
+            role_id = rest[i + 1]
+        elif arg == "--cycle" and i + 1 < len(rest):
+            cycle = int(rest[i + 1])
+        elif arg == "--radius" and i + 1 < len(rest):
+            radius = float(rest[i + 1])
+        elif arg == "--task-type" and i + 1 < len(rest):
+            task_type = rest[i + 1]
+    if not role_id:
+        print("  Uso: bago spiral-prompt --role ROLE [--cycle N] [--radius R] [--task-type T]")
+        return
+    prompt = builder.build(role_id=role_id, cycle=cycle, radius=radius, task_type=task_type)
+    print(prompt)
 
 
 def _cmd_autonomous(rest: list) -> None:

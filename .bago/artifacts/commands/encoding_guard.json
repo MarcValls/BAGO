@@ -1,0 +1,9 @@
+{
+  "content": "python3 .bago/tools/encoding_guard.py . && echo 'GO encoding' || echo 'KO encoding'",
+  "shell": "bash",
+  "tags": [
+    "encoding",
+    "validation",
+    "guard"
+  ]
+}

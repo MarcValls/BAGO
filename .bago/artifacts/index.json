@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0.0",
+  "artifacts": {
+    "snippet:python/error_handling": {
+      "type": "snippet",
+      "format": "python",
+      "tags": [
+        "python",
+        "error-handling",
+        "robustness"
+      ],
+      "description": "Patron de manejo de errores con fallback chain",
+      "source": "snippets/error_handling.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "snippet:python/registry_lookup": {
+      "type": "snippet",
+      "format": "python",
+      "tags": [
+        "python",
+        "registry",
+        "dispatch"
+      ],
+      "description": "Lookup dinamico en registro de herramientas",
+      "source": "snippets/registry_lookup.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "command:git/safe_commit": {
+      "type": "command",
+      "format": "shell",
+      "tags": [
+        "git",
+        "safety",
+        "commit"
+      ],
+      "description": "Commit con verificacion previa de estado",
+      "source": "commands/git_safe.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "command:shell/encoding_guard": {
+      "type": "command",
+      "format": "shell",
+      "tags": [
+        "encoding",
+        "validation",
+        "guard"
+      ],
+      "description": "Ejecutar encoding_guard.py antes de commit",
+      "source": "commands/encoding_guard.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "description:architecture/patterns": {
+      "type": "description",
+      "format": "markdown",
+      "tags": [
+        "architecture",
+        "patterns",
+        "design"
+      ],
+      "description": "Coleccion de patrones arquitectonicos aplicables",
+      "source": "descriptions/arch_patterns.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "description:governance/decision_log": {
+      "type": "description",
+      "format": "markdown",
+      "tags": [
+        "governance",
+        "decisions",
+        "logging"
+      ],
+      "description": "Formato para registrar decisiones arquitectonicas",
+      "source": "descriptions/decision_log.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "prompt:spiral/base_identity": {
+      "type": "prompt",
+      "format": "text",
+      "tags": [
+        "spiral",
+        "identity",
+        "base"
+      ],
+      "description": "Prompt base de identidad para cualquier rol en espiral",
+      "source": "prompts/base_identity.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "prompt:spiral/context_expansion": {
+      "type": "prompt",
+      "format": "text",
+      "tags": [
+        "spiral",
+        "context",
+        "expansion"
+      ],
+      "description": "Capa de expansion contextual para ciclos >= 2",
+      "source": "prompts/context_expansion.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    },
+    "prompt:spiral/specialization": {
+      "type": "prompt",
+      "format": "text",
+      "tags": [
+        "spiral",
+        "specialization",
+        "deep"
+      ],
+      "description": "Capa de especializacion profunda para ciclos >= 3",
+      "source": "prompts/specialization.json",
+      "size": 0,
+      "created": "2026-05-19T00:00:00Z"
+    }
+  }
+}

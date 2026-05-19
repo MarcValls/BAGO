@@ -1,0 +1,14 @@
+{
+  "content": "\n--- CAPA DE ESPECIALIZACION (Ciclo {cycle}, radio {radius}) ---\nEsta capa se activa cuando el ciclo >= 3 o el radio > 2.0.\nIncluye patrones profundos, snippets de codigo, y comandos especificos del dominio.\nArtfactos especializados:\n{specialized_artifacts}\n",
+  "format": "text",
+  "tags": [
+    "spiral",
+    "specialization",
+    "deep"
+  ],
+  "placeholders": [
+    "cycle",
+    "radius",
+    "specialized_artifacts"
+  ]
+}

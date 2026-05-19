@@ -1,0 +1,9 @@
+{
+  "content": "## Patrones Arquitectonicos BAGO\n\n- **Fail-Closed**: Si un componente no puede verificar su entrada, rechaza en lugar de asumir.\n- **Lazy-Load**: Los modulos pesados se cargan solo cuando se invocan.\n- **Single Source of Truth**: Los comandos disponibles vienen exclusivamente de tool_registry.\n- **Spiral Accumulation**: Cada ciclo añade contexto sin reemplazar el anterior.",
+  "format": "markdown",
+  "tags": [
+    "architecture",
+    "patterns",
+    "design"
+  ]
+}
