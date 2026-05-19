@@ -44,13 +44,30 @@ def _cmd_auth(session):
 
         elif sel == "login":
             providers_choices = [
-                ("github",       "GitHub Copilot            (gh auth login)"),
-                ("openai",       "GPT / OpenAI              (codex login o API key)"),
-                ("anthropic",    "Anthropic Claude / Claw   (API key)"),
-                ("ollama",       "Ollama local              (verificar servicio)"),
-                ("ollama_cloud", "Ollama Cloud              (API key — api.ollama.com)"),
-                ("opencode",     "OpenCode AI               (CLI — instala si es necesario)"),
-                ("openrouter",   "OpenRouter / Hermes       (API key — acceso a +200 modelos)"),
+                # ── LLM / IA ──
+                ("github",       "GitHub Copilot / Models   (PAT sin navegador o gh auth)"),
+                ("openai",       "OpenAI / GPT Plus          (API key o codex login)"),
+                ("anthropic",    "Anthropic Claude            (API key — sin navegador)"),
+                ("gemini",       "Google Gemini               (API key — sin navegador)"),
+                ("groq",         "Groq — inferencia rapida    (API key — sin navegador)"),
+                ("mistral",      "Mistral AI                  (API key — sin navegador)"),
+                ("together",     "Together AI +100 modelos    (API key — sin navegador)"),
+                ("deepseek",     "DeepSeek V3 / R1            (API key — sin navegador)"),
+                ("xai",          "xAI Grok                    (API key — sin navegador)"),
+                ("perplexity",   "Perplexity sonar            (API key — sin navegador)"),
+                ("cohere",       "Cohere Command R+           (API key — sin navegador)"),
+                ("replicate",    "Replicate open-source       (API key — sin navegador)"),
+                ("huggingface",  "Hugging Face                (token — sin navegador)"),
+                ("openrouter",   "OpenRouter +200 modelos     (API key — sin navegador)"),
+                # ── Ollama ──
+                ("ollama",       "Ollama local                (sin clave — verificar)"),
+                ("ollama_cloud", "Ollama Cloud                (API key o ollama signin)"),
+                ("opencode",     "OpenCode AI CLI             (instala si necesario)"),
+                # ── Repositorios ──
+                ("gitlab",       "GitLab                      (token o email+pass — sin nav.)"),
+                ("codeberg",     "Codeberg / Forgejo          (token o email+pass — sin nav.)"),
+                # ── Almacenamiento ──
+                ("sendcm",       "send.cm                     (email+contraseña — sin nav.)"),
             ]
             provider = _menu_select("Login", "Selecciona provider a registrar:", providers_choices)
             if provider:

@@ -13,6 +13,7 @@ BAGO_COMMANDS: dict[str, str] = {
     "/scan":        "[Providers] Scan: disponibles · potenciales · missing + tokens",
     "/login":       "[Providers] Registrar y gestionar cuentas de providers",
     "/models":      "[Providers] Listar todos los modelos disponibles",
+    "/catalog":     "[Providers] Catálogo de modelos locales — instalar, comparar, joyas ocultas ✨",
     # -- Modelo & Routing
     "/switch":      "[Routing] Cambiar modelo activo: /switch <modelo|provider>",
     "/autoroute":   "[Routing] Auto-routing on/off",

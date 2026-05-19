@@ -2,6 +2,7 @@
 from .agents import _cmd_agents
 from .auth import _cmd_auth, _cmd_login
 from .auto import _cmd_auto
+from .catalog import cmd_catalog
 from .config import _cmd_config
 from .framework import _cmd_framework
 from .generative import _cmd_generative
@@ -22,6 +23,7 @@ __all__ = [
     "_cmd_auth",
     "_cmd_login",
     "_cmd_auto",
+    "cmd_catalog",
     "_cmd_config",
     "_cmd_framework",
     "_cmd_generative",

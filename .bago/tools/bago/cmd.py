@@ -12,6 +12,7 @@ from .menus import (
     _cmd_agents,
     _cmd_auth,
     _cmd_auto,
+    cmd_catalog,
     _cmd_config,
     _cmd_framework,
     _cmd_login,
@@ -52,15 +53,20 @@ def cmd(line, session):
             console.print(f"  {result}")
     elif v == "/switch":
         if not a:
-            # Interactive model picker
+            # Interactive model picker — incluye acceso al catálogo
             from .ui import _menu_pick
-            rows = []
+            rows = [
+                ("__catalog__", "✨ Explorar catálogo de modelos (instalar / comparar)"),
+                (None, "── Modelos activos ──"),
+            ]
             for pn, pd in session.providers.items():
-                rows.append((None, f"── {pn} ──"))
+                rows.append((None, f"  [{pn}]"))
                 for mn in pd.get("models", {}):
-                    rows.append((f"{pn}/{mn}", f"  {mn}  [{pn}]"))
+                    rows.append((f"{pn}/{mn}", f"    {mn}"))
             chosen = _menu_pick("/switch — Elegir modelo", "Selecciona un modelo:", rows)
-            if chosen:
+            if chosen == "__catalog__":
+                cmd_catalog(session)
+            elif chosen:
                 msg = session.switch_model(chosen)
                 pi(msg)
         else:
@@ -103,6 +109,8 @@ def cmd(line, session):
         pi(f"Auto-routing: {state}")
     elif v == "/models":
         console.print(Panel(session.models_table(), title="[bold]Registry BAGO[/bold]", box=box.SIMPLE))
+    elif v == "/catalog":
+        cmd_catalog(session)
     elif v == "/status":
         from .providers import scan_provider_health
         console.print("[dim]  Escaneando providers...[/dim]")
