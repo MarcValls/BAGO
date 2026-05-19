@@ -9,8 +9,15 @@ from ..ui import console, pe, pi, show_response
 from .call import _llm_call
 
 
-def run_chain(session, model_sequence, prompt, silent_route=True):
-    """Pipeline secuencial. Solo la respuesta final va al historial compartido."""
+def run_chain(session, model_sequence, prompt, silent_route=True, *, history_input: str | None = None):
+    """Pipeline secuencial. Solo la respuesta final va al historial compartido.
+
+    Args:
+        prompt:        texto que ve el LLM (con secretos de tumba ya sustituidos).
+        history_input: texto que se guarda en history (con {{placeholders}}).
+                       Si None, se usa prompt (compat hacia atrás).
+    """
+    history_msg = history_input if history_input is not None else prompt
     context   = list(session.history)
     prev_text = None
 
@@ -46,15 +53,21 @@ def run_chain(session, model_sequence, prompt, silent_route=True):
 
         if is_last:
             show_response(text, name, prov, label=f"[bold]✓ CHAIN FINAL[/bold] [{c}]{name}[/{c}]")
-            session.history.append({"role": "user", "content": prompt})
+            session.history.append({"role": "user", "content": history_msg})
             session.history.append({"role": "assistant", "content": text})
             session.provider, session.model_name, session.wire_name = prov, name, wire
         else:
             console.print(f"  [{c}]✓ {name}[/{c}] [dim]→ refinando con siguiente modelo...[/dim]")
 
 
-def run_ensemble(session, model_list, prompt):
-    """Paralelo: todos los modelos responden; el modelo activo sintetiza."""
+def run_ensemble(session, model_list, prompt, *, history_input: str | None = None):
+    """Paralelo: todos los modelos responden; el modelo activo sintetiza.
+
+    Args:
+        prompt:        texto que ve el LLM (con secretos sustituidos).
+        history_input: texto que se guarda en history (con {{placeholders}}).
+    """
+    history_msg = history_input if history_input is not None else prompt
     context = list(session.history) + [{"role": "user", "content": prompt}]
     results: dict = {}
 
@@ -101,9 +114,9 @@ def run_ensemble(session, model_list, prompt):
             final, session.model_name, session.provider,
             label=f"[bold]✦ SÍNTESIS[/bold] [{c}]{session.model_name}[/{c}]",
         )
-        session.history.append({"role": "user",      "content": prompt})
+        session.history.append({"role": "user",      "content": history_msg})
         session.history.append({"role": "assistant", "content": final})
     elif results:
         _, d = next(iter(results.items()))
-        session.history.append({"role": "user",      "content": prompt})
+        session.history.append({"role": "user",      "content": history_msg})
         session.history.append({"role": "assistant", "content": d["text"]})

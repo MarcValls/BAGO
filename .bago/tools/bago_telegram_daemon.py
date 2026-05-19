@@ -12,6 +12,29 @@ BAGO_DIR = Path.home() / "BAGO"
 LOG_FILE = Path.home() / ".bago" / "state" / "logs" / "telegram_daemon.log"
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
+
+def _parse_allowed_chat_ids() -> set:
+    """Parse BAGO_TELEGRAM_ALLOWED_CHAT_IDS env var → set of int chat_ids.
+
+    Formato: '123,456,-100789' (separados por coma). Vacío = lista vacía (rechaza todo).
+    """
+    raw = os.environ.get("BAGO_TELEGRAM_ALLOWED_CHAT_IDS", "").strip()
+    if not raw:
+        return set()
+    result = set()
+    for tok in raw.split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        try:
+            result.add(int(tok))
+        except ValueError:
+            pass
+    return result
+
+
+ALLOWED_CHAT_IDS = _parse_allowed_chat_ids()
+
 OFFSET = 0
 RUNNING = True
 
@@ -112,8 +135,21 @@ def execute_bago(cmd):
 def process_message(msg):
     global OFFSET
     text = msg.get("text", "").strip()
-    chat_id = msg["chat"]["id"]
-    user = msg["from"].get("first_name", "Usuario")
+    chat = msg.get("chat") or {}
+    chat_id = chat.get("id")
+    if chat_id is None:
+        log("[SEC] mensaje sin chat.id — ignorado")
+        return
+
+    # ── Security: allowlist de chat_id ──────────────────────────────────────
+    if not ALLOWED_CHAT_IDS:
+        log(f"[SEC] BAGO_TELEGRAM_ALLOWED_CHAT_IDS vacío — rechazando chat_id={chat_id}")
+        return
+    if chat_id not in ALLOWED_CHAT_IDS:
+        log(f"[SEC] chat_id={chat_id} no autorizado — ignorado")
+        return
+
+    user = (msg.get("from") or {}).get("first_name", "Usuario")
     
     log(f"MSG de {user} ({chat_id}): {text}")
     

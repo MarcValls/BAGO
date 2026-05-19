@@ -114,12 +114,12 @@ def chat(session, user_input, *, history_input: str | None = None):
 
         if strategy == "chain" and len(providers_for_strategy) >= 2:
             console.print(f"  [dim]⛓ chain auto: {' → '.join(providers_for_strategy)}[/dim]")
-            run_chain(session, providers_for_strategy, user_input)
+            run_chain(session, providers_for_strategy, user_input, history_input=history_msg)
             return None
 
         if strategy == "ensemble" and len(providers_for_strategy) >= 2:
             console.print(f"  [dim]◈ ensemble auto: {', '.join(providers_for_strategy)}[/dim]")
-            run_ensemble(session, providers_for_strategy, user_input)
+            run_ensemble(session, providers_for_strategy, user_input, history_input=history_msg)
             return None
 
     # ── Estrategia single (o autoroute desactivado) ───────────────────────────
@@ -200,7 +200,7 @@ def chat(session, user_input, *, history_input: str | None = None):
                     "mode": "auto", "provider": new_prov, "model": new_model,
                     "reason": f"ctx-overflow escalation desde {old_model}",
                 }
-                session.history.append({"role": "user", "content": user_input})
+                session.history.append({"role": "user", "content": history_msg})
                 lm2, kw2 = session.litellm_info
                 try:
                     with console.status(f"[dim]{new_model}...[/dim]", spinner="dots"):
