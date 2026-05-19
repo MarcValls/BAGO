@@ -1,0 +1,111 @@
+{
+  "schema_version": "1.0.0",
+  "bago_version": "3.4.1",
+  "install_id": null,
+  "created_at": null,
+  "updated_at": null,
+  "mode": "clean_install",
+  "status": "initialized",
+  "system_health": "unknown",
+  "active_session_id": null,
+  "active_task_type": null,
+  "active_roles": [],
+  "active_workflows": [],
+  "last_completed_session_id": null,
+  "last_completed_task_type": null,
+  "last_completed_workflow": null,
+  "last_completed_roles": [],
+  "last_completed_change_id": null,
+  "last_completed_evidence_id": null,
+  "sprint_status": {
+    "active_workflow": null,
+    "pending_w2_task": "none",
+    "last_completed_workflow": null
+  },
+  "inventory": {
+    "sessions": 0,
+    "changes": 0,
+    "evidences": 0,
+    "commits": "0",
+    "branch": "main"
+  },
+  "last_validation": {
+    "validate_manifest": "KO",
+    "validate_state": "KO",
+    "validate_pack": "KO",
+    "date": null,
+    "health": "unknown"
+  },
+  "guardian_findings": {
+    "calibration": "tier-based",
+    "health_pct": 0,
+    "required_ok": 0,
+    "required_tools": 0,
+    "total_tools": 0,
+    "critical_errors": 0,
+    "warnings": 0,
+    "last_run": null,
+    "status": "UNKNOWN"
+  },
+  "health_score": {
+    "score": 0,
+    "max": 100,
+    "color": "grey",
+    "status": "unknown"
+  },
+  "providers": {
+    "ollama": {
+      "status": "unconfigured",
+      "model": null
+    },
+    "copilot": {
+      "status": "unconfigured",
+      "model": null
+    },
+    "openai": {
+      "status": "unconfigured",
+      "model": null
+    }
+  },
+  "integrations": {
+    "whatsapp_daemon": {
+      "status": "inactive",
+      "instance_id": "__CONFIGURE_WITH_bago_setup__",
+      "email": "__CONFIGURE_WITH_bago_setup__",
+      "launchd": "com.bago.wa_daemon",
+      "log": "/tmp/bago_wa_daemon.log",
+      "activated_at": null,
+      "commands": []
+    },
+    "telegram_bot": {
+      "status": "inactive",
+      "bot_username": "__CONFIGURE_WITH_bago_setup__",
+      "bot_name": "BAGO Bot",
+      "launchd": "com.bago.telegram_daemon",
+      "log": "/tmp/bago_telegram.log",
+      "activated_at": null,
+      "commands": [],
+      "version": "1.0",
+      "features": []
+    },
+    "telegram_miniapp": {
+      "version": "1.0",
+      "server_pid": null,
+      "port": 8080,
+      "ngrok_url": "__CONFIGURE_WITH_bago_setup__",
+      "features": [],
+      "chat_engine": "telegram",
+      "last_updated": null
+    }
+  },
+  "spiral_loop": {
+    "current_radius": 1.0,
+    "cycles_completed": 0,
+    "last_cycle": null,
+    "last_health": null
+  },
+  "unresolved": {
+    "stashes": 0,
+    "note": ""
+  }
+}

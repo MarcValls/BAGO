@@ -1,4 +1,4 @@
-# Manual de usuario · BAGO v3.4.0b1
+# Manual de usuario · BAGO v3.4.1
 
 > Para quien instala BAGO por primera vez y quiere entender cómo usarlo en su día a día.
 
@@ -397,5 +397,5 @@ bago help
 
 ---
 
-*BAGO v3.4.0b1 · Mayo 2026 · 126 comandos públicos · 38 core · 80 experimental · 8 dangerous · 28 legacy*
+*BAGO v3.4.1 · Mayo 2026 · 126 comandos públicos · 38 core · 80 experimental · 8 dangerous · 28 legacy*
 

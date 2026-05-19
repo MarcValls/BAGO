@@ -134,7 +134,7 @@ def verdict(on: dict, off: dict):
     print()
 
     if delta_useful > 0.5 and delta_roles > 0.3:
-        print("  �� .bago/ON gana — más artefactos Y más foco.")
+        print("  🏆 .bago/ON gana — más artefactos Y más foco.")
     elif delta_useful > 0.5:
         print("  🏆 .bago/ON gana en producción de artefactos.")
     elif delta_roles > 0.5:
@@ -193,3 +193,4 @@ if __name__ == "__main__":
         _self_test()
         raise SystemExit(0)
     main()
+
