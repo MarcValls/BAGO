@@ -1,3 +1,17 @@
+## [3.4.2] — Stable — 2026-05-19 · Roles con Codigo Embebido Indexado
+
+### Novedades
+- **Roles con codigo embebido indexado**: cada rol ahora tiene un `.embed.json` que declara artefactos indexados (snippets, comandos, descripciones, prompts) con condiciones de activacion.
+- **Artefact Repository** (`.bago/artifacts/`): repositorio central indexado por `index.json` con fragmentos de codigo, comandos shell, textos descriptivos y plantillas de prompt.
+- **Spiral Prompt Builder** (`.bago/core/spiral_prompt_builder.py`): constructor de prompts en espiral progresiva. El prompt se monta capa por capa segun el ciclo y radio:
+  - Ciclo 1: identidad + proposito + prioridad 1
+  - Ciclo 2+: contexto + patrones arquitectonicos
+  - Ciclo 3+: especializacion + snippets profundos + comandos
+- **Integracion con autonomous_loop**: cada goal recibe `spiral_prompt` generado dinamicamente segun agente y estado de espiral.
+- **Comando CLI**: `bago spiral-prompt --role ROLE --cycle N --radius R --task-type T`
+
+---
+
 ## [3.4.1] — Stable — 2026-05-19 · Contrato de Instalación Limpia
 
 **Disculpen los contratiempos de la versión anterior.** Esta release corrige todos los fallos del paquete v3.4.0 relacionados con el contrato de instalación limpia, encoding y validación sincera.
