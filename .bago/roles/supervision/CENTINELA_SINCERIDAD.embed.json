@@ -62,5 +62,18 @@
       "no reemplaza la ejecucion de tests",
       "no valida resultados semanticos de los artefactos"
     ]
+  },
+  "behaviors": {
+    "drift_patterns": [
+      "false_ok",
+      "fake_go",
+      "optimistic_grep"
+    ],
+    "force_include": [
+      "command:shell/encoding_guard"
+    ],
+    "force_exclude": [],
+    "strategy": "layered",
+    "ordering": "priority"
   }
 }

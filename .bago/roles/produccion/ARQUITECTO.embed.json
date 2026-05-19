@@ -82,5 +82,16 @@
       "no reemplaza el analisis si falta comprension del contexto",
       "no valida en solitario"
     ]
+  },
+  "behaviors": {
+    "drift_patterns": [
+      "generic",
+      "unclear",
+      "contradiction"
+    ],
+    "force_include": [],
+    "force_exclude": [],
+    "strategy": "greedy",
+    "ordering": "priority"
   }
 }

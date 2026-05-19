@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# BAGO One-Click Installer v3.4.2
+# BAGO One-Click Installer v3.4.3
 # Uso:
-#   curl -fsSL https://github.com/MarcValls/BAGO/releases/download/v3.4.2/install-bago.sh | bash
+#   curl -fsSL https://github.com/MarcValls/BAGO/releases/download/v3.4.3/install-bago.sh | bash
 #   O descarga install-bago.sh, chmod +x install-bago.sh, ./install-bago.sh
 
 set -euo pipefail
 
 REPO="https://github.com/MarcValls/BAGO"
-ZIP_URL="$REPO/releases/download/v3.4.2/BAGO-3.4.1.zip"
+ZIP_URL="$REPO/releases/download/v3.4.3/BAGO-3.4.1.zip"
 INSTALL_DIR="$HOME/BAGO"
 TMP_ZIP="/tmp/BAGO-3.4.1.zip"
 
@@ -18,7 +18,7 @@ info(){ echo -e "${CYAN}[..]${RESET} $*"; }
 
 echo ""
 echo "==========================================="
-echo "  BAGO Framework v3.4.2 — Instalador Rapido"
+echo "  BAGO Framework v3.4.3 — Instalador Rapido"
 echo "==========================================="
 echo ""
 
@@ -83,7 +83,7 @@ if [[ -f "$SHELL_RC" ]] && grep -q "alias bago=" "$SHELL_RC" 2>/dev/null; then
     ok "Alias bago ya existe en $SHELL_RC"
 else
     echo "" >> "$SHELL_RC"
-    echo "# BAGO Framework v3.4.2" >> "$SHELL_RC"
+    echo "# BAGO Framework v3.4.3" >> "$SHELL_RC"
     echo "$ALIAS_LINE" >> "$SHELL_RC"
     ok "Alias anadido a $SHELL_RC"
 fi
@@ -91,7 +91,7 @@ fi
 # --- Resumen ---
 echo ""
 echo "==========================================="
-echo -e "  ${GREEN}BAGO v3.4.2 instalado correctamente${RESET}"
+echo -e "  ${GREEN}BAGO v3.4.3 instalado correctamente${RESET}"
 echo "==========================================="
 echo ""
 echo -e "  Directorio: ${CYAN}$BAGO_ROOT${RESET}"

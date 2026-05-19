@@ -878,7 +878,7 @@ def main():
     args = sys.argv[1:]
 
     if args and args[0] in ("--version", "-V"):
-        print("bago 3.4.2")
+        print("bago 3.4.3")
         return
 
     # ── First-run wizard ───────────────────────────────────────────────────────

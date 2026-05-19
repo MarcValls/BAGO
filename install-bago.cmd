@@ -1,13 +1,13 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-:: BAGO One-Click Installer v3.4.2
+:: BAGO One-Click Installer v3.4.3
 :: Doble click para instalar. Requiere Python 3.9+.
 
-title BAGO Installer v3.4.2
+title BAGO Installer v3.4.3
 echo.
 echo  ===========================================
-echo   BAGO Framework v3.4.2 ? Instalador Rapido
+echo   BAGO Framework v3.4.3 ? Instalador Rapido
 echo  ===========================================
 echo.
 
@@ -35,7 +35,7 @@ for /f "tokens=2" %%v in ('%PY_CMD% --version') do set "PY_VER=%%v"
 echo  [OK] Python: !PY_VER!
 
 :: --- Download ---
-set "ZIP_URL=https://github.com/MarcValls/BAGO/releases/download/v3.4.2/BAGO-3.4.1.zip"
+set "ZIP_URL=https://github.com/MarcValls/BAGO/releases/download/v3.4.3/BAGO-3.4.1.zip"
 set "INSTALL_DIR=%USERPROFILE%\BAGO"
 set "ZIP_FILE=%TEMP%\BAGO-3.4.1.zip"
 
@@ -110,7 +110,7 @@ if exist "%PS_PROFILE%" (
     findstr /C:"function bago" "%PS_PROFILE%" >nul 2>&1
     if !errorlevel! neq 0 (
         echo. >> "%PS_PROFILE%"
-        echo # BAGO Framework v3.4.2 >> "%PS_PROFILE%"
+        echo # BAGO Framework v3.4.3 >> "%PS_PROFILE%"
         echo function bago { ^& %PY_CMD% "%BAGO_ROOT%\bago" @args } >> "%PS_PROFILE%"
         echo  [OK] Alias anadido al perfil PowerShell
     ) else (
@@ -127,7 +127,7 @@ echo  [OK] Comando rapido creado: %BAGO_CMD%
 :: --- Resumen ---
 echo.
 echo  ===========================================
-echo   BAGO v3.4.2 instalado correctamente
+echo   BAGO v3.4.3 instalado correctamente
 echo  ===========================================
 echo.
 echo   Directorio: %BAGO_ROOT%
