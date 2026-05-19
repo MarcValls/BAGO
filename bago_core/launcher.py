@@ -878,7 +878,7 @@ def main():
     args = sys.argv[1:]
 
     if args and args[0] in ("--version", "-V"):
-        print("bago 3.4.3")
+        print("bago 3.4.4")
         return
 
     # ── First-run wizard ───────────────────────────────────────────────────────
@@ -1016,6 +1016,10 @@ def main():
             [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "token-brake":
+        _cmd_token_brake(rest)
+        return
+
     elif cmd == "spiral-prompt":
         _cmd_spiral_prompt(rest)
         return
@@ -1074,6 +1078,15 @@ def main():
         else:
             print("  Usa: bago help")
         sys.exit(1)
+
+
+def _cmd_token_brake(rest: list) -> None:
+    import subprocess, sys as _sys
+    brake_path = CORE / "token_brake.py"
+    if not brake_path.exists():
+        print("  No se encuentra token_brake.py")
+        return
+    subprocess.run([_sys.executable, str(brake_path), "--bago-root", str(BAGO_ROOT.parent)] + rest, cwd=str(BAGO_ROOT.parent))
 
 
 def _cmd_spiral_prompt(rest: list) -> None:

@@ -17,7 +17,7 @@ function Info($msg) { Write-Host "       $msg" -ForegroundColor Cyan }
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
-Write-Host "  BAGO Framework — Instalador v3.4.3" -ForegroundColor White
+Write-Host "  BAGO Framework — Instalador v3.4.4" -ForegroundColor White
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
 Write-Host ""
 
