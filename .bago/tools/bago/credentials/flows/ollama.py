@@ -1,10 +1,25 @@
 """bago.credentials.flows.ollama — Flujos de login para Ollama local/cloud y OpenCode."""
 
+import os
+import shutil
 import subprocess
 
 from prompt_toolkit import prompt as pt_prompt
 
 from ...ui import console
+
+
+def _resolve(cmd: str) -> str | None:
+    """Resuelve un binario respetando shims de Windows (npm.cmd, opencode.cmd…)."""
+    path = shutil.which(cmd)
+    if path:
+        return path
+    if os.name == "nt":
+        for ext in (".cmd", ".bat", ".exe"):
+            path = shutil.which(cmd + ext)
+            if path:
+                return path
+    return None
 
 
 def flow_ollama_cloud(mgr) -> str:
@@ -54,13 +69,16 @@ def flow_ollama_service(mgr) -> str:
 
 def flow_opencode(mgr) -> str:
     """OpenCode AI: instala si no está, luego opencode auth login."""
-    try:
-        subprocess.check_output(
-            ["opencode", "--version"], stderr=subprocess.DEVNULL, timeout=5
-        )
-        opencode_ok = True
-    except Exception:
-        opencode_ok = False
+    opencode_bin = _resolve("opencode")
+    opencode_ok = False
+    if opencode_bin:
+        try:
+            subprocess.check_output(
+                [opencode_bin, "--version"], stderr=subprocess.DEVNULL, timeout=5
+            )
+            opencode_ok = True
+        except Exception:
+            opencode_ok = False
 
     if not opencode_ok:
         console.print(
@@ -69,16 +87,31 @@ def flow_opencode(mgr) -> str:
             "[dim]Más info:[/dim]    https://opencode.ai\n"
         )
         if pt_prompt("¿Instalar ahora? [s/n]: ").strip().lower() == "s":
+            npm_bin = _resolve("npm")
+            if not npm_bin:
+                return (
+                    "[red]npm no encontrado en PATH. Instala Node.js "
+                    "(https://nodejs.org) y vuelve a intentarlo.[/red]"
+                )
             console.print("[dim]Ejecutando npm install -g opencode-ai...[/dim]")
-            r = subprocess.run(["npm", "install", "-g", "opencode-ai"])
+            try:
+                r = subprocess.run([npm_bin, "install", "-g", "opencode-ai"])
+            except FileNotFoundError:
+                return "[red]No se pudo ejecutar npm. Instala manualmente: npm install -g opencode-ai[/red]"
             if r.returncode != 0:
                 return "[red]Instalación fallida. Instala manualmente: npm install -g opencode-ai[/red]"
             console.print("[green]✓ opencode instalado.[/green]")
+            opencode_bin = _resolve("opencode")
+            if not opencode_bin:
+                return "[yellow]opencode instalado pero no encontrado en PATH. Reabre la terminal e intenta de nuevo.[/yellow]"
         else:
             return "Cancelado. Instala opencode manualmente."
 
     console.print("[dim]Ejecutando opencode auth login...[/dim]")
-    result = subprocess.run(["opencode", "auth", "login"])
+    try:
+        result = subprocess.run([opencode_bin, "auth", "login"])
+    except FileNotFoundError:
+        return "[red]No se pudo ejecutar opencode. Reabre la terminal e intenta de nuevo.[/red]"
     if result.returncode == 0:
         mgr._creds["opencode_via"] = "opencode_login"
         mgr._save()
