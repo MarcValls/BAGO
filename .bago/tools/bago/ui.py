@@ -42,8 +42,14 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
+import re
 import threading
 import shutil as _shutil
+
+
+def _strip_rich(text: str) -> str:
+    """Elimina etiquetas de markup Rich de un string para usarlo en prompt_toolkit."""
+    return re.sub(r"\[/?[^\[\]]*\]", "", text)
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
@@ -253,17 +259,18 @@ def _menu_pick(title: str, text: str, values: list):
     def render():
         out = []
         for i, (key, label) in enumerate(values):
+            clean = _strip_rich(label)
             # Separador
             if key is None:
-                out.append(("class:pick.sep", f"    {label}\n"))
+                out.append(("class:pick.sep", f"    {clean}\n"))
                 continue
             is_focused = (i == nav_idx[focus[0]])
             if is_focused:
                 out.append(("class:pick.cursor", " >> "))
-                out.append(("class:pick.focused", f" {label} \n"))
+                out.append(("class:pick.focused", f" {clean} \n"))
             else:
                 out.append(("", "    "))
-                out.append(("class:pick.item", f" {label} \n"))
+                out.append(("class:pick.item", f" {clean} \n"))
         return out
 
     content = FormattedTextControl(render, focusable=True)
@@ -296,7 +303,7 @@ def _menu_pick(title: str, text: str, values: list):
     layout = Layout(
         Frame(
             HSplit([
-                Label(f" {text}"),
+                Label(f" {_strip_rich(text)}"),
                 Window(height=1),
                 win,
                 Window(height=1),
@@ -389,7 +396,7 @@ def _toggle_menu(title: str, text: str, items: list):
                     out.append(("class:toggle.off", " OFF "))
                 out.append(("", "  "))
 
-            lbl = item.get("label", "")
+            lbl = _strip_rich(item.get("label", ""))
             if is_focused:
                 out.append(("bold", lbl + "\n"))
             else:
@@ -440,7 +447,7 @@ def _toggle_menu(title: str, text: str, items: list):
     layout = Layout(
         Frame(
             HSplit([
-                Label(f" {text}"),
+                Label(f" {_strip_rich(text)}"),
                 Window(height=1),
                 win,
                 Window(height=1),
