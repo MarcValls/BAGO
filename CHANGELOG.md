@@ -1,3 +1,17 @@
+## [3.4.4] — Stable — 2026-05-19 · Token Brake: Freno de Tokens para Providers API
+
+### Problema resuelto
+GitHub Copilot en modo login no tiene freno de tokens: pago a mes vencido sin limite de consumo.
+
+### Solucion
+- **Token Brake** (.bago/core/token_brake.py): freno de tokens que controla consumo por provider y periodo.
+- **Copilot login**: deshabilitado por defecto.
+- **API models** (openai, etc.): habilitados con limites diarios/mensuales/por-llamada.
+- **Ollama local**: habilitado sin limites (sin coste).
+- **CLI**: ago token-brake status|disable|enable|set-limit|allow|record|reset.
+
+---
+
 ## [3.4.3] — Stable — 2026-05-19 · Prompt Router con Metricas de Senal
 
 ### Novedades
