@@ -79,8 +79,13 @@ def _quality_cloud_retry(session, user_input: str, reason: str) -> "str | None":
         return None
 
 
-def chat(session, user_input):
+def chat(session, user_input, *, history_input: str | None = None):
     """Orquestador principal — decide modelo, estrategia y calidad de respuesta.
+
+    Args:
+        user_input:    Texto que ve el LLM (puede tener secretos de tumba sustituidos).
+        history_input: Texto que se guarda en history (conserva {{placeholders}} de tumba).
+                       Si None, se usa user_input para ambos.
 
     Flujo:
       1. Auto-routing por keywords
@@ -91,6 +96,8 @@ def chat(session, user_input):
       6. Post-call: quality guard → si basura → escalar + reintentar
       7. Escalado por saturación de contexto
     """
+    # La entrada que va a history conserva {{placeholders}} para no filtrar secretos
+    history_msg = history_input if history_input is not None else user_input
     if session.autoroute:
         # ── Paso 1: routing por keyword ───────────────────────────────────────
         switched, reason = session.auto_route(user_input)
@@ -116,7 +123,8 @@ def chat(session, user_input):
             return None
 
     # ── Estrategia single (o autoroute desactivado) ───────────────────────────
-    session.history.append({"role": "user", "content": user_input})
+    # history_msg conserva {{placeholders}} para no filtrar secretos al disco
+    session.history.append({"role": "user", "content": history_msg})
     lm, kw = session.litellm_info
     try:
         with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
@@ -162,6 +170,11 @@ def chat(session, user_input):
             "reason":   session.last_route.get("reason", "single"),
         }
         return text
+
+    except (KeyboardInterrupt, SystemExit):
+        # audit-1: evitar que el user turn quede huérfano en history sin respuesta
+        session.history.pop()
+        raise
 
     except Exception as e:
         session.history.pop()

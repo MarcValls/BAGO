@@ -98,15 +98,16 @@ def run_repl(session, pt: PromptSession) -> None:
             continue
 
         # ── Sustituir {{placeholders}} de la tumba antes de enviar al LLM ───
+        llm_input = line   # lo que ve el LLM (puede tener secretos sustituidos)
         if tumba_has_placeholder(line):
             substituted, used = tumba_substitute(line)
             if used:
                 keys_str = ", ".join(f"[bold]{k}[/bold]" for k in used)
                 console.print(f"  [dim cyan]🪦 Tumba: insertando {keys_str}[/dim cyan]")
-                line = substituted
+                llm_input = substituted  # el LLM ve el valor; history conserva {{key}}
 
         try:
-            result = chat(session, line)
+            result = chat(session, llm_input, history_input=line)
             if result:
                 show_response(result, session.model_name, session.provider)
         except KeyboardInterrupt:

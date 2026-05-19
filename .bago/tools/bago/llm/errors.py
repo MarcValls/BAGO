@@ -48,10 +48,18 @@ def _is_ollama_model_not_found(exc) -> "tuple[bool, str]":
         return True, model_name
     return False, ""
 
-def _is_ollama_unreachable(exc) -> bool:
-    """Detecta que Ollama no está corriendo o no es alcanzable."""
+def _is_ollama_unreachable(exc, *, model: str = "") -> bool:
+    """Detecta que Ollama no está corriendo o no es alcanzable.
+
+    audit-8: ya no exige 'ollama' en el mensaje de error — un ConnectionRefused
+    puro sobre un modelo ollama:// también se trata como Ollama inalcanzable.
+    """
     low = str(exc).lower()
-    return any(sig in low for sig in _OLLAMA_UNREACHABLE_SIGNALS) and "ollama" in low
+    conn_fail = any(sig in low for sig in _OLLAMA_UNREACHABLE_SIGNALS)
+    if not conn_fail:
+        return False
+    # Contexto Ollama: mención explícita O el modelo inicia con 'ollama/'
+    return "ollama" in low or model.startswith("ollama/")
 
 
 # ── Errores providers cloud ────────────────────────────────────────────────────

@@ -103,11 +103,13 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
     if resp_words < 8 and q_words > 6 and not is_simple_greeting:
         return True, f"respuesta demasiado corta ({resp_words} palabras)"
 
-    # 2. El modelo admite explícitamente no poder acceder a internet
-    resp_low = response.lower()
-    for sig in _NO_INTERNET_SIGNALS:
-        if sig in resp_low:
-            return True, "modelo admite no poder acceder a internet/URL"
+    # 2. El modelo admite no poder acceder a internet — solo relevante si el
+    #    usuario mencionó una URL; evita falsos positivos en respuestas de POO, etc.
+    if _contains_url(user_input):
+        resp_low = response.lower()
+        for sig in _NO_INTERNET_SIGNALS:
+            if sig in resp_low:
+                return True, "modelo admite no poder acceder a internet/URL"
 
     # 3. Patrones de evasión / redirección cuando la pregunta es sustantiva
     if not is_simple_greeting and q_words > 4:

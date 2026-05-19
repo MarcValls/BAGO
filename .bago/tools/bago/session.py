@@ -2,6 +2,7 @@
 import datetime
 import importlib.util
 import json
+import threading
 from pathlib import Path
 
 from .constants import BAGO_SYSTEM, SESSIONS_DIR
@@ -44,17 +45,24 @@ class BagoSession:
         self.skip_providers: set = set()
         # Token counter: {provider: {model: {"in": int, "out": int, "calls": int}}}
         self.token_log: dict = {}
+        self._token_lock = threading.Lock()  # audit-3: protege record_tokens() en ensemble
         # HW info (se rellena en bago_chat.py tras el probe de inicio)
         self.hw = None
+        # audit-10: caché del orquestador externo (evita reimportar en cada mensaje)
+        self._orch_mod = None
+        self._orch_mtime: float = 0.0
 
     # ── Token tracking ────────────────────────────────────────────────────────
     def record_tokens(self, provider: str, model: str, tokens_in: int, tokens_out: int):
-        """Registra tokens de entrada/salida para proveedor y modelo."""
-        p = self.token_log.setdefault(provider, {})
-        m = p.setdefault(model, {"in": 0, "out": 0, "calls": 0})
-        m["in"]    += max(0, tokens_in or 0)
-        m["out"]   += max(0, tokens_out or 0)
-        m["calls"] += 1
+        """Registra tokens de entrada/salida para proveedor y modelo.
+        Thread-safe: protegido por _token_lock para uso desde run_ensemble().
+        """
+        with self._token_lock:   # audit-3: sin lock había race condition en ensemble
+            p = self.token_log.setdefault(provider, {})
+            m = p.setdefault(model, {"in": 0, "out": 0, "calls": 0})
+            m["in"]    += max(0, tokens_in or 0)
+            m["out"]   += max(0, tokens_out or 0)
+            m["calls"] += 1
 
     def tokens_summary(self) -> str:
         """Resumen formateado de tokens usados en la sesión."""
@@ -79,14 +87,23 @@ class BagoSession:
         return "\n".join(lines)
 
     def _load_orchestrator(self):
+        """Carga el orquestador externo con caché por mtime — audit-10."""
         path = Path(__file__).resolve().parents[1] / "orchestrator.py"
         if not path.exists():
             return None
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            return None
+        if self._orch_mod is not None and mtime == self._orch_mtime:
+            return self._orch_mod  # hit: devolver módulo cacheado
         spec = importlib.util.spec_from_file_location("bago_orchestrator_runtime", path)
         if not spec or not spec.loader:
             return None
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
+        self._orch_mod   = mod
+        self._orch_mtime = mtime
         return mod
 
     @property
@@ -195,7 +212,7 @@ class BagoSession:
         if name and name != self.model_name:
             # Verificar que el provider tiene credenciales y no está excluido
             active = self.creds.active_bago_providers()
-            if prov not in self.skip_providers and (prov in active or any(prov in a for a in active)):
+            if prov not in self.skip_providers and prov in active:
                 old = self.model_name
                 self.provider, self.model_name, self.wire_name = prov, name, wire
                 self.switches += 1
@@ -208,6 +225,12 @@ class BagoSession:
         SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
         ts   = self.started_at.strftime("%Y-%m-%d_%H-%M-%S")
         path = SESSIONS_DIR / f"bago_chat_{ts}.json"
+        # audit-7: evitar sobrescritura silenciosa si coincide el timestamp
+        if path.exists():
+            suffix = 2
+            while path.exists():
+                path = SESSIONS_DIR / f"bago_chat_{ts}_{suffix}.json"
+                suffix += 1
         path.write_text(json.dumps({
             "started_at": self.started_at.isoformat(), "provider": self.provider,
             "model": self.model_name, "switches": self.switches,

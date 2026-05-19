@@ -38,9 +38,25 @@ def _load() -> dict:
 
 
 def _save(data: dict) -> None:
-    """Guarda el archivo tumba."""
+    """Guarda el archivo tumba de forma atómica con permisos 0o600."""
+    import os, tempfile
     _TUMBA_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _TUMBA_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    # Escritura atómica: escribir en temporal y renombrar
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        dir=_TUMBA_FILE.parent, prefix=".tumba_tmp_", suffix=".json"
+    )
+    try:
+        with os.fdopen(tmp_fd, "wb") as fh:
+            fh.write(payload)
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, _TUMBA_FILE)  # atómico en POSIX y Windows ≥ NTFS
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 # ── API pública ───────────────────────────────────────────────────────────────
