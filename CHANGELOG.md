@@ -1,3 +1,27 @@
+## [3.4.1] — Stable — 2026-05-19 · Contrato de Instalación Limpia
+
+**Disculpen los contratiempos de la versión anterior.** Esta release corrige todos los fallos del paquete v3.4.0 relacionados con el contrato de instalación limpia, encoding y validación sincera.
+
+### Correcciones
+- **P0.1** — Plantilla única: `.bago/templates/global_state.clean.json` reemplaza las plantillas divergentes. Se inyecta versión desde `pack.json` durante instalación.
+- **P0.2** — ZIP sin estado vivo: `.bago/state/` y `.bago/bin/` excluidos del paquete distribuible. El instalador crea estado limpio con `bootstrap_state.py`.
+- **P0.3** — Instaladores sinceros: `install.sh` e `install.ps1` usan códigos de salida en lugar de grep optimista. Abortan si cualquier gate es KO.
+- **P0.4** — Encoding: corregido mojibake en `pyproject.toml`, `insights.py`, `competition_report.py`, `_wizard_widgets.py` y `EJEMPLO_INTERACCION_COMPLETA.md`.
+- **P0.5** — Encoding Guard: nuevo gate `.bago/tools/encoding_guard.py` que bloquea el paquete si hay `U+FFFD` o secuencias mojibake.
+- **P0.6** — Validate contents normaliza ZIP: acepta carpeta raíz única (`BAGO-3.4.1/...`) y normaliza rutas antes de validar.
+- **P0.7** — Modo repo + paquete: `bago_core/cli.py` ahora usa `bago_core.launcher` empaquetado. Añadido `MANIFEST.in` para incluir `.bago/` en el wheel.
+
+### Verificación de release
+```
+python3 .bago/tools/encoding_guard.py .                          → GO encoding
+python3 .bago/tools/validate.py contents dist/BAGO-3.4.1.zip    → Pack is clean
+python3 bago validate                                             → exit 0
+python3 bago --version                                            → bago 3.4.1
+python3 bago health --quick                                       → Pack integrity GO
+```
+
+---
+
 # CHANGELOG
 
 All notable changes to BAGO are documented here.
