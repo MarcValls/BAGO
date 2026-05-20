@@ -73,7 +73,7 @@ _ENTRIES = [
     ("!audit",      "  audit  -- auditoria de contratos"),
     ("!version",    "  version  -- verificar truth lock"),
     ("!autonomous", "  autonomous  -- ciclo autonomo (dry-run)"),
-    ("!git dirty",  "  git dirty  -- estado del repo"),
+    ("!git-dirty",  "  git dirty  -- estado del repo"),
     ("!test",       "  test  -- pytest suite"),
     ("!encoding",   "  encoding  -- guardia UTF-8"),
     ("!census",     "  census  -- catalogo de herramientas"),
@@ -143,5 +143,6 @@ def _cmd_main_menu(session) -> str | None:
                 return sub
             continue
         return selected
+
 
 

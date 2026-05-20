@@ -1027,6 +1027,26 @@ def main():
             [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "validate":
+        subprocess.run([sys.executable, str(TOOLS / "validate.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "health":
+        subprocess.run([sys.executable, str(TOOLS / "health_score.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "audit":
+        subprocess.run([sys.executable, str(TOOLS / "audit_v2.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "version":
+        subprocess.run([sys.executable, str(TOOLS / "version_truth.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "autonomous":
+        subprocess.run([sys.executable, str(CORE / "autonomous_loop.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "git-dirty":
+        subprocess.run([sys.executable, str(TOOLS / "git_dirty_guard.py"), "--json"] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "test":
+        subprocess.run([sys.executable, "-m", "pytest", str(BAGO_ROOT.parent / "tests")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "encoding":
+        subprocess.run([sys.executable, str(TOOLS / "encoding_guard.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "census":
+        subprocess.run([sys.executable, str(TOOLS / "tool_registry.py"), "--list"] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "map":
+        subprocess.run([sys.executable, str(TOOLS / "context_map.py")] + rest, cwd=str(BAGO_ROOT.parent))
     elif cmd == "prompt-router":
         subprocess.run(
             [sys.executable, str(CORE / "prompt_router.py")] + rest,
@@ -1247,6 +1267,7 @@ def _cmd_inbox_launcher(rest: list) -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

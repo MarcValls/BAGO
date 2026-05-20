@@ -627,6 +627,24 @@ def cmd(line, session):
     elif v == "/projects":
         _cmd_projects(session)
 
+    # Comandos del sistema BAGO (desde menu / con !)
+    elif v.startswith("!"):
+        import subprocess, sys as _sys2, shlex
+        sys_cmd = v[1:] + (" " + a if a else "")
+        sys_cmd_norm = sys_cmd.replace("git-dirty", "git dirty")
+        console.print(f"  [dim]ejecutando: bago {sys_cmd_norm}[/dim]")
+        bago_root = Path(__file__).resolve().parents[3]
+        try:
+            proc = subprocess.run(
+                [_sys2.executable, str(bago_root / "bago")] + shlex.split(sys_cmd_norm),
+                capture_output=True, text=True, cwd=str(bago_root), timeout=120,
+            )
+            if proc.stdout: console.print(proc.stdout)
+            if proc.stderr: console.print(f"[red]{proc.stderr}[/red]")
+            if proc.returncode != 0: console.print(f"[red]rc={proc.returncode}[/red]")
+        except Exception as exc:
+            pe(f"Error ejecutando bago {sys_cmd_norm}: {exc}")
+
     else:
         # ── Atajos de agente (/code /debug /arch /sprint /refactor /git …) ────
         _agents_file = Path(__file__).resolve().parents[3] / "state" / "agents_registry.json"

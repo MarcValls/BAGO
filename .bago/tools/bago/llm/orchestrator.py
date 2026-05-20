@@ -132,20 +132,13 @@ def chat(session, user_input, *, history_input: str | None = None):
     # === MODO BRAINSTORM: forzar analisis real (v3.5) ===
     if getattr(session, "brainstorm", False):
         brainstorm_prompt = (
-            "[MODO BRAINSTORM ACTIVO] Resultado CONCRETO obligatorio:
-"
-            "1. ANALISIS: Identifica minimo 3 aspectos concretos.
-"
-            "2. GENERACION: Propón minimo 2 soluciones implementables con codigo real.
-"
-            "3. EVIDENCIA: Cada afirmacion con ejemplo especifico.
-"
-            "4. PROHIBIDO: vaguedades, depends, podria ser.
-"
-            "5. FORMATO: listas, codigo real, rutas absolutas, valores concretos.
-"
-            f"TAREA: {history_msg}
-"
+            "[MODO BRAINSTORM ACTIVO] Resultado CONCRETO obligatorio:\\n"
+            "1. ANALISIS: Identifica minimo 3 aspectos concretos.\\n"
+            "2. GENERACION: Propón minimo 2 soluciones implementables con codigo real.\\n"
+            "3. EVIDENCIA: Cada afirmacion con ejemplo especifico.\\n"
+            "4. PROHIBIDO: vaguedades, depends, podria ser.\\n"
+            "5. FORMATO: listas, codigo real, rutas absolutas, valores concretos.\\n"
+            f"TAREA: {history_msg}\\n"
         )
         session.history.append({"role": "user", "content": brainstorm_prompt})
     else:
