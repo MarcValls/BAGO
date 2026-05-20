@@ -629,38 +629,25 @@ def cmd(line, session):
 
     # Comandos del sistema BAGO (desde menu / con !)
     elif v.startswith("!"):
-        import subprocess, sys as _sys2, shlex, threading, time
+        import subprocess, sys as _sys2, shlex
         sys_cmd = v[1:] + (" " + a if a else "")
         sys_cmd_norm = sys_cmd.replace("git-dirty", "git dirty")
         console.print(f"  [dim]ejecutando: bago {sys_cmd_norm}[/dim]")
         bago_root = Path(__file__).resolve().parents[3]
         try:
-            proc = subprocess.Popen(
+            proc = subprocess.run(
                 [_sys2.executable, str(bago_root / "bago")] + shlex.split(sys_cmd_norm),
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                cwd=str(bago_root), encoding="utf-8", errors="replace",
+                capture_output=True, text=True, cwd=str(bago_root),
+                timeout=30, encoding="utf-8", errors="replace",
             )
-            # Stream output in real time so user sees progress
-            def _stream(pipe, prefix=""):
-                for line in iter(pipe.readline, ""):
-                    if line:
-                        console.print(prefix + line.rstrip())
-                pipe.close()
-            t_out = threading.Thread(target=_stream, args=(proc.stdout, "  "), daemon=True)
-            t_err = threading.Thread(target=_stream, args=(proc.stderr, "  [red]"), daemon=True)
-            t_out.start(); t_err.start()
-            try:
-                rc = proc.wait(timeout=60)
-            except KeyboardInterrupt:
-                proc.terminate()
-                console.print("  [yellow]Comando interrumpido por usuario[/yellow]")
-                rc = -1
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                console.print("  [red]Timeout (60s). Comando abortado.[/red]")
-                rc = -1
-            if rc != 0 and rc != -1:
-                console.print(f"  [red]rc={rc}[/red]")
+            if proc.stdout:
+                console.print(proc.stdout)
+            if proc.stderr:
+                console.print(f"[red]{proc.stderr}[/red]")
+            if proc.returncode != 0:
+                console.print(f"[red]rc={proc.returncode}[/red]")
+        except subprocess.TimeoutExpired:
+            console.print("  [red]Timeout (30s). Comando abortado.[/red]")
         except Exception as exc:
             pe(f"Error ejecutando bago {sys_cmd_norm}: {exc}")
 

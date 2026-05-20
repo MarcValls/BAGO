@@ -1029,6 +1029,8 @@ def main():
         )
     elif cmd == "validate":
         subprocess.run([sys.executable, str(TOOLS / "validate.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "validate-goal":
+        subprocess.run([sys.executable, str(TOOLS / "goal_validator.py")] + rest, cwd=str(BAGO_ROOT.parent))
     elif cmd == "health":
         subprocess.run([sys.executable, str(TOOLS / "health_score.py")] + rest, cwd=str(BAGO_ROOT.parent))
     elif cmd == "audit":
