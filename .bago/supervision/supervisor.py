@@ -21,6 +21,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+# -- UTF-8 guard (Windows cp1252 safety) ----------------------------------------
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # ── Rutas ──────────────────────────────────────────────────────────────────────
 SUPERVISION_DIR = Path(__file__).parent
 AGENTS_DIR      = SUPERVISION_DIR / "agents"
