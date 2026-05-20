@@ -107,5 +107,6 @@
   "unresolved": {
     "stashes": 0,
     "note": ""
-  }
+  },
+  "harmonic_mode": "production_monitor"
 }

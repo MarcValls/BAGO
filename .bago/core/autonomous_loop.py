@@ -371,12 +371,14 @@ class AutonomousLoop:
         max_cycles: int  = MAX_CYCLES_DEFAULT,
         verbose:    bool = False,
         ascii_mode: bool = False,
+        manual_mode: str | None = None,
     ) -> None:
         self.dry_run    = dry_run
         self.unsafe     = unsafe
         self.max_cycles = max_cycles
         self.verbose    = verbose
         self.ascii_mode = ascii_mode
+        self.manual_mode = manual_mode
 
         self.ctx     = _get_ctx() if _HAS_CTX else None
         self.learner = LearningWriter(self.ctx) if _HAS_LEARNER else None
@@ -501,10 +503,14 @@ class AutonomousLoop:
         Applies learning context to skip/prioritize goals.
         """
         goals: list[dict] = []
-        # --- Harmonic mode auto-selection -----------------------------------
-        harmonic_mode = self._select_harmonic_mode(state)
+        # --- Harmonic mode selection -----------------------------------------
+        if self.manual_mode:
+            harmonic_mode = self.manual_mode
+        else:
+            harmonic_mode = self._select_harmonic_mode(state)
         if self.verbose:
             print(f"   [harmonic] mode={harmonic_mode}")
+        self._persist_harmonic_mode(harmonic_mode)
 
         learn_ctx = self.learner.get_context_for_planning() if self.learner else {}
         skip_goals: set = learn_ctx.get("skip_goals", set())
@@ -792,6 +798,18 @@ class AutonomousLoop:
 
     # ── State persistence ──────────────────────────────────────────────────────
 
+
+    def _persist_harmonic_mode(self, mode: str) -> None:
+        if self.dry_run:
+            return
+        gs = _STATE_DIR / "global_state.json"
+        try:
+            data = json.loads(gs.read_text(encoding="utf-8")) if gs.exists() else {}
+            data["harmonic_mode"] = mode
+            _atomic_write(gs, data)
+        except Exception:
+            pass
+
     def _save_state(self, decision: str) -> None:
         data = {
             "status":           decision.lower(),
@@ -902,6 +920,8 @@ def _parse() -> argparse.Namespace:
     p.add_argument("--verbose",    action="store_true")
     p.add_argument("--json",       action="store_true")
     p.add_argument("--ascii",      action="store_true", help="Force ASCII-only output")
+    p.add_argument("--mode",       type=str, default=None, choices=list(HARMONIC_MODES.values()),
+                     help="Override harmonic mode manually")
     # inbox subcommand passthrough
     p.add_argument("--inbox",      nargs=argparse.REMAINDER, default=None)
     args, _ = p.parse_known_args()
@@ -921,6 +941,7 @@ if __name__ == "__main__":
         max_cycles = _args.max_cycles,
         verbose    = _args.verbose,
         ascii_mode = _args.ascii,
+        manual_mode= _args.mode,
     )
 
     if _args.json:
