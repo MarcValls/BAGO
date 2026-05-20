@@ -161,6 +161,22 @@ COMPETENCIES: dict[str, dict[str, dict]] = {
 
 # Map goal -> default agent
 _GOAL_AGENT: dict[str, str] = {}
+# -- Harmonic orchestration modes (auto-selected by sense) --------------------
+HARMONIC_MODES: dict[str, str] = {
+    "STABLE_VERIFIED": "production_monitor",
+    "CLEAN_INSTALL":   "clean_install",
+    "BLOCKED":         "crisis_recovery",
+    "RD_SPIRAL":       "rd_spiral",
+}
+
+# Auto-transition rules: state key -> (threshold, mode_if_below, mode_if_above)
+HARMONIC_RULES: list[tuple[str, Any, str, str]] = [
+    ("health", 80, "crisis_recovery", "production_monitor"),
+    ("pack_ok", True, "crisis_recovery", "clean_install"),
+    ("version_truth", True, "crisis_recovery", "production_monitor"),
+    ("git_dirty", False, "crisis_recovery", "production_monitor"),
+    ("audit_status", "GO", "crisis_recovery", "production_monitor"),
+]
 for _agent, _goals in COMPETENCIES.items():
     for _goal in _goals:
         _GOAL_AGENT[_goal] = _agent
@@ -459,12 +475,36 @@ class AutonomousLoop:
                 print(f"   [spiral-prompt] skip: {exc}")
         return goals
 
+    def _select_harmonic_mode(self, state: dict) -> str:
+        """Auto-select harmonic mode from sensor state."""
+        for key, threshold, mode_bad, mode_good in HARMONIC_RULES:
+            val = state.get(key)
+            if val is None:
+                continue
+            if isinstance(threshold, bool):
+                if val != threshold:
+                    return HARMONIC_MODES.get("BLOCKED", "crisis_recovery")
+            elif isinstance(threshold, (int, float)):
+                if val < threshold:
+                    return HARMONIC_MODES.get("BLOCKED", "crisis_recovery")
+            else:
+                if val != threshold:
+                    return HARMONIC_MODES.get("BLOCKED", "crisis_recovery")
+        # All checks passed
+        if state.get("inbox_tasks"):
+            return HARMONIC_MODES.get("RD_SPIRAL", "rd_spiral")
+        return HARMONIC_MODES.get("STABLE_VERIFIED", "production_monitor")
+
     def plan(self, state: dict) -> list[dict]:
         """
         Map state -> ordered list of goal dicts.
         Applies learning context to skip/prioritize goals.
         """
         goals: list[dict] = []
+        # --- Harmonic mode auto-selection -----------------------------------
+        harmonic_mode = self._select_harmonic_mode(state)
+        if self.verbose:
+            print(f"   [harmonic] mode={harmonic_mode}")
 
         learn_ctx = self.learner.get_context_for_planning() if self.learner else {}
         skip_goals: set = learn_ctx.get("skip_goals", set())
