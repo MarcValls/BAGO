@@ -66,6 +66,19 @@ _ENTRIES = [
     ("__all_cmds__","  > Todos los comandos BAGO..."),
 
     # ── 9 · Utilidades ───────────────────────────────────────────────
+        # -- 10 . Sistema BAGO (v3.5) ----------------------------------
+    (None,          "  -- Sistema BAGO -------------------------------"),
+    ("!validate",   "  validate  -- manifest + state + pack"),
+    ("!health",     "  health  -- salud del sistema"),
+    ("!audit",      "  audit  -- auditoria de contratos"),
+    ("!version",    "  version  -- verificar truth lock"),
+    ("!autonomous", "  autonomous  -- ciclo autonomo (dry-run)"),
+    ("!git dirty",  "  git dirty  -- estado del repo"),
+    ("!test",       "  test  -- pytest suite"),
+    ("!encoding",   "  encoding  -- guardia UTF-8"),
+    ("!census",     "  census  -- catalogo de herramientas"),
+    ("!map",        "  map  -- mapa del sistema"),
+
     (None,          "  -- Utilidades ---------------------------------"),
     ("/help",       "  Ayuda  -- todos los comandos con descripcion"),
     ("/clear",      "  Limpiar historial de chat"),
@@ -125,3 +138,4 @@ def _cmd_main_menu(session) -> str | None:
                 return sub
             continue
         return selected
+
