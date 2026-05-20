@@ -118,6 +118,11 @@ class CredentialManager(LoginFlowsMixin):
                         "group": "cloud"},
     }
 
+    # ── Modo API-only (v3.5) ────────────────────────────────────────────────
+    # Si True: desactiva login interactivo, usa solo API keys con freno de tokens
+    API_ONLY_MODE: bool = False
+    API_ONLY_MAX_TOKENS_PER_CALL: int = 10000
+    API_ONLY_MAX_MONTHLY_USD: float = 50.0
     ALIASES = {
         # LLM
         "gpt": "openai", "codex": "openai", "chatgpt": "openai",
@@ -348,4 +353,3 @@ class CredentialManager(LoginFlowsMixin):
             t.add_row(name, status, quota, info["desc"])
         t.add_row("[dim]/login <provider>[/dim]", "", "", "[dim]para registrar[/dim]")
         return t
-
