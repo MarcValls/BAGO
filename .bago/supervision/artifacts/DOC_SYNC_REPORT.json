@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "Estado de sincronización docs↔código — última auditoría",
-  "last_run": "2026-05-19T04:01:54.506612",
+  "last_run": "2026-05-20T15:25:18.163559",
   "overall": "green",
   "checks": [
     {
@@ -119,6 +119,21 @@
     },
     {
       "timestamp": "2026-05-19T04:01:54.506612",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:25.822164",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:51.510824",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:25:18.163559",
       "passed": true,
       "summary": "SKIP: non-executable directive"
     }

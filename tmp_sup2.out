@@ -1,0 +1,8 @@
+
+✅ Loop: contract_drift_loop  [2026-05-20T15:24:51]
+  ✅ release_guardian                 OK
+  ⚠️  contract_auditor                 [1mTool Guardian — Estado del framework BAGO[0m
+  [0;31mS
+  ⚠️  doc_sync_agent                   GATE-FAIL: docs/COMMANDS.md is out of date with tool_registr
+
+🟢 Todos los gates pasaron.

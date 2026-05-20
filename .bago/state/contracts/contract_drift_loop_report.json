@@ -1,6 +1,6 @@
 {
   "loop": "contract_drift_loop",
-  "timestamp": "2026-05-19T04:01:54.506997",
+  "timestamp": "2026-05-20T15:25:18.164120",
   "has_blockers": false,
   "blockers_summary": "",
   "agents": [
@@ -12,27 +12,27 @@
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-19T04:01:37.786816"
+      "timestamp": "2026-05-20T15:25:01.334961"
     },
     {
       "agent": "contract_auditor",
       "status": "yellow",
-      "message": "\u001b[1mTool Guardian — Estado del framework BAGO\u001b[0m\n  \u001b[0;33mSalud (required): 51%\u001b[0m  (21/41 required OK  | 0/291 total  E:29  W:640)\n\n  \u001b[0;31mErrores críticos (core/dangerous):\u001b[0m\n    [GUARD-E002] 'agent_router.py' no registrado en integration_tests.py\n    [GUARD-E002] 'bago_advisor.py' no regist",
+      "message": "\u001b[1mTool Guardian — Estado del framework BAGO\u001b[0m\n  \u001b[0;31mSalud (required): 46%\u001b[0m  (21/46 required OK  | 0/299 total  E:39  W:660)\n\n  \u001b[0;31mErrores críticos (core/dangerous):\u001b[0m\n    [GUARD-E002] 'agent_router.py' no registrado en integration_tests.py\n    [GUARD-E001] 'autonomous_integrity.py' s",
       "artifact": ".bago/supervision/artifacts/REGISTRY_CONTRACT_AUDIT.json",
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-19T04:01:54.384775"
+      "timestamp": "2026-05-20T15:25:18.010100"
     },
     {
       "agent": "doc_sync_agent",
-      "status": "green",
-      "message": "OK",
+      "status": "yellow",
+      "message": "GATE-FAIL: docs/COMMANDS.md is out of date with tool_registry.py\nFix: python3 .bago/tools/generate_commands_doc.py && git add docs/COMMANDS.md",
       "artifact": ".bago/supervision/artifacts/DOC_SYNC_REPORT.json",
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-19T04:01:54.506974"
+      "timestamp": "2026-05-20T15:25:18.164109"
     }
   ]
 }

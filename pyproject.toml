@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bago"
-version = "3.5.0b1"
+version = "3.4.6"
 description = "BAGO — Structured AI-assisted development framework"
 requires-python = ">=3.9"
 readme = "README.md"

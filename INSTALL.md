@@ -1,6 +1,6 @@
 # BAGO Framework v3.5.0b1 - Installation Guide
 
-Version: 3.5.0b1
+Version: 3.4.6
 
 ## Quick Install (pip)
 

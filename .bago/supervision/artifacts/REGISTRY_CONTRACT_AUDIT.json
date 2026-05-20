@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "Auditoría del registry — coherencia de contratos por herramienta",
-  "last_run": "2026-05-19T04:01:54.384331",
+  "last_run": "2026-05-20T15:25:18.009655",
   "total_commands": null,
   "dangerous_commands": null,
   "core_commands": null,
@@ -106,6 +106,21 @@
     },
     {
       "timestamp": "2026-05-19T04:01:54.384331",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:25.679184",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:51.360518",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:25:18.009655",
       "passed": true,
       "summary": "SKIP: non-executable directive"
     }

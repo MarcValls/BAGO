@@ -39,7 +39,7 @@
   "gate": "all sources must match expected_version",
   "on_failure": "block_release",
   "checked_by": "release_guardian",
-  "last_run": "2026-05-19T04:01:37.786228",
+  "last_run": "2026-05-20T15:25:01.334444",
   "overall": "green",
   "run_history": [
     {
@@ -134,6 +134,21 @@
     },
     {
       "timestamp": "2026-05-19T04:01:37.786228",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:09.266188",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:34.572049",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:25:01.334444",
       "passed": true,
       "summary": "SKIP: non-executable directive"
     }
