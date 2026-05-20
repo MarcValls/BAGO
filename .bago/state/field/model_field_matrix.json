@@ -2,7 +2,7 @@
   "_meta": {
     "version": "1.0",
     "description": "Matriz de campo BAGO: posición relativa de cada modelo/provider en el campo magnético del sistema.",
-    "last_scan": "2026-05-17T13:28:35.524627",
+    "last_scan": "2026-05-19T22:53:51.473502",
     "scan_by": "bago field scan"
   },
   "poles": {

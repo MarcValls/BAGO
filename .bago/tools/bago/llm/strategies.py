@@ -17,6 +17,20 @@ def run_chain(session, model_sequence, prompt, silent_route=True, *, history_inp
         history_input: texto que se guarda en history (con {{placeholders}}).
                        Si None, se usa prompt (compat hacia atrás).
     """
+
+    # ── Pre-flight gate: abort if any model in the chain is unavailable ────────
+    unavailable = []
+    for t in model_sequence:
+        n, _, _ = session._find_model(t)
+        if not n:
+            unavailable.append(t)
+    if unavailable:
+        pe(f"[bold red]CHAIN ABORTADO[/bold red]: {len(unavailable)} modelo(s) no disponible(s).")
+        pe("  Cadena solicitada: " + " -> ".join(model_sequence))
+        pe("  Faltan: " + ", ".join(unavailable))
+        pe("  Usa /models para ver disponibles o /switch para cambiar.")
+        return  # abort; nothing is mutated (history stays intact)
+
     history_msg = history_input if history_input is not None else prompt
     context   = list(session.history)
     prev_text = None
@@ -67,6 +81,19 @@ def run_ensemble(session, model_list, prompt, *, history_input: str | None = Non
         prompt:        texto que ve el LLM (con secretos sustituidos).
         history_input: texto que se guarda en history (con {{placeholders}}).
     """
+
+    # ── Pre-flight gate: abort if all models in ensemble are unavailable ───────
+    unavailable = []
+    for t in model_list:
+        n, _, _ = session._find_model(t)
+        if not n:
+            unavailable.append(t)
+    if len(unavailable) == len(model_list):
+        pe(f"[bold red]ENSEMBLE ABORTADO[/bold red]: ningun modelo disponible.")
+        pe("  Solicitados: " + ", ".join(model_list))
+        pe("  Usa /models para ver disponibles o /switch para cambiar.")
+        return
+
     history_msg = history_input if history_input is not None else prompt
     context = list(session.history) + [{"role": "user", "content": prompt}]
     results: dict = {}

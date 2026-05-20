@@ -14,8 +14,8 @@
           "best_for": "code_python",
           "cost": "free"
         },
-        "llama32": {
-          "wire_name": "llama3.2:latest",
+        "llama3.2": {
+          "wire_name": "llama3.2:3b",
           "size_mb": 1925,
           "max_prompt_tokens": 128000,
           "max_output_tokens": 8192,
@@ -218,3 +218,6 @@
     ]
   }
 }
+
+
+

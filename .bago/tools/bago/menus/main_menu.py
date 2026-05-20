@@ -61,11 +61,50 @@ _ENTRIES = [
     ("/workspaces", "  Workspaces"),
     ("/projects",   "  Proyectos"),
 
-    # ── 8 · Utilidades ───────────────────────────────────────────────
+    # ── 8 · Framework BAGO ─────────────────────────────────────────
+    (None,          "  -- Framework BAGO (160 cmds) ------------------"),
+    ("__all_cmds__","  > Todos los comandos BAGO..."),
+
+    # ── 9 · Utilidades ───────────────────────────────────────────────
     (None,          "  -- Utilidades ---------------------------------"),
     ("/help",       "  Ayuda  -- todos los comandos con descripcion"),
     ("/clear",      "  Limpiar historial de chat"),
 ]
+
+
+def _all_cmds_menu(session) -> str | None:
+    import importlib.util
+    reg_path = Path(__file__).resolve().parents[2] / "tool_registry.py"
+    entries = [("__back__", "  ↩  Volver al menú principal")]
+    if reg_path.exists():
+        try:
+            spec = importlib.util.spec_from_file_location("_tr_menu", str(reg_path))
+            mod = importlib.util.module_from_spec(spec)
+            sys.path.insert(0, str(reg_path.parent))
+            spec.loader.exec_module(mod)
+            registry = getattr(mod, "REGISTRY", {})
+            stabs = {"core": [], "dangerous": [], "experimental": [], "legacy": [], "internal": []}
+            for name, entry in sorted(registry.items()):
+                stab = getattr(entry, "stability", "unknown")
+                stabs.setdefault(stab, []).append(entry)
+            for stab in ("core", "dangerous", "experimental", "legacy", "internal"):
+                if not stabs.get(stab):
+                    continue
+                entries.append((None, f"  -- {stab.upper()} ({len(stabs[stab])}) ---"))
+                for e in sorted(stabs[stab], key=lambda x: x.cmd):
+                    desc = (getattr(e, "description", "") or "")[:45]
+                    label = f"  /{e.cmd}  -- {desc}" if desc else f"  /{e.cmd}"
+                    entries.append((f"/{e.cmd}", label))
+        except Exception:
+            pass
+    chosen = _menu_pick(
+        "BAGO  /  Todos los comandos",
+        "  ↑↓  navegar    Enter  seleccionar    Esc  volver",
+        entries,
+    )
+    if chosen == "__back__":
+        return None
+    return chosen
 
 
 def _cmd_main_menu(session) -> str | None:
@@ -74,8 +113,15 @@ def _cmd_main_menu(session) -> str | None:
     Devuelve la línea de comando seleccionada (p.ej. '/login')
     o None si el usuario canceló con Esc.
     """
-    return _menu_pick(
-        "BAGO  /  Menu principal",
-        "  ↑↓  navegar    Enter  seleccionar    Esc  volver",
-        _ENTRIES,
-    )
+    while True:
+        selected = _menu_pick(
+            "BAGO  /  Menu principal",
+            "  ↑↓  navegar    Enter  seleccionar    Esc  volver",
+            _ENTRIES,
+        )
+        if selected == "__all_cmds__":
+            sub = _all_cmds_menu(session)
+            if sub:
+                return sub
+            continue
+        return selected

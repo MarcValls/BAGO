@@ -139,18 +139,22 @@ def get_commands() -> dict[str, list[str]]:
             BAGO_ROOT / "core" / f"{stem}.py",
             BAGO_ROOT / "core" / stem / "__main__.py",
         ]
+        if "." in stem:
+            dotted = stem.replace(".", os.sep)
+            candidates += [
+                TOOLS_DIR / f"{dotted}.py",
+                BAGO_ROOT / f"{dotted}.py",
+                BAGO_ROOT / "core" / f"{dotted}.py",
+            ]
         for candidate in candidates:
             if candidate.exists():
                 return candidate
-
         file_hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
         if file_hits:
             return file_hits[0]
-
         package_hits = [p for p in BAGO_ROOT.rglob("__main__.py") if p.parent.name == stem]
         if package_hits:
             return package_hits[0]
-
         return TOOLS_DIR / f"{stem}.py"
 
     result = {}

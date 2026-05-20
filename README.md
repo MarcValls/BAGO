@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.1** · 160 CLI commands · 127 public commands
+> **Version 3.5.0b1** · 165 CLI commands · 132 public commands
 
 Public command contract (CI-checked): **39 core** · **80 experimental** · **8 dangerous** · **28 legacy**
 
@@ -181,6 +181,11 @@ These commands form the **stable public interface**.
 | `bago review` | Automated fail-closed code review (GENERACIÓN) |
 | `bago docs` | Generate COMMANDS.md from registry (GENERACIÓN) |
 | `bago version` | Version management: bump \| beta \| release \| tag (MEMORIA) |
+| `bago version-check` | Version Truth Lock: check | sync <ver> | audit --json |
+| `bago bootstrap-state` | Bootstrap clean runtime state from template |
+| `bago git-dirty` | Detect git dirty state: --json |
+| `bago test` | Run pytest suite |
+| `bago integrity` | Full integrity sensor sweep: --json |
 | `bago workflow` | Interactive workflow selector (MOTOR) |
 | `bago next` | Meta-cycle: pick top idea + open task (MOTOR) |
 | `bago advisor` | Adaptive LLM advisor: ask \| next \| explain \| run (GENERACIÓN) |
@@ -318,4 +323,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*BAGO 3.4.1 · Built with BAGO · May 2026*
+*BAGO 3.4.4 · Built with BAGO · May 2026*

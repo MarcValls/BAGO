@@ -520,3 +520,7 @@ de que la arquitectura de origen es compatible con la de destino.
 | FX patterns | `ctx.globalAlpha / shadowBlur` | Mismos contratos | ✅ SÍ copiar |
 | BAGO state | `.bago/state/global_state.json` | `.bago/state/global_state.json` | ✅ SÍ copiar |
 - [2026-05-05] [test_project] Las entidades fantasma deben usar caching de 200ms para evitar flicker
+- [2026-05-19] [unknown] --help
+- [2026-05-19] [unknown] --help
+- [2026-05-19] [unknown] --help
+- [2026-05-19] [unknown] --help

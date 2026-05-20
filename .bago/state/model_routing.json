@@ -14,8 +14,7 @@
         "write code",
         "implement"
       ],
-      "provider": "copilot",
-      "model": "gpt-4o",
+      "provider": "ollama-local", "model": "llama3.2",
       "agent": "agent_coder",
       "reason": "Escritura de código nuevo — agent_coder con gpt-4o"
     },
@@ -29,8 +28,8 @@
         "snippet",
         "código rápido"
       ],
-      "provider": "ollama-local",
-      "model": "qwen25-coder",
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
       "agent": "agent_coder",
       "reason": "Código simple/rápido — local con qwen25-coder"
     },
@@ -46,8 +45,7 @@
         "desglose tareas",
         "planning"
       ],
-      "provider": "copilot",
-      "model": "gpt-4o",
+      "provider": "ollama-local", "model": "llama3.2",
       "agent": "agent_planner",
       "reason": "Planificación de sprint/roadmap — agent_planner con gpt-4o"
     },
@@ -64,8 +62,8 @@
         "arregla el error",
         "bug en"
       ],
-      "provider": "ollama-local",
-      "model": "qwen25-coder",
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
       "agent": "agent_debugger",
       "reason": "Debugging local rápido — agent_debugger con qwen25-coder"
     },
@@ -79,8 +77,7 @@
         "api design",
         "estructura del proyecto"
       ],
-      "provider": "copilot",
-      "model": "gpt-4o",
+      "provider": "ollama-local", "model": "llama3.2",
       "agent": "agent_architect",
       "reason": "Diseño arquitectónico — agent_architect con gpt-4o"
     },
@@ -95,8 +92,8 @@
         "aplica SOLID",
         "simplifica esto"
       ],
-      "provider": "ollama-local",
-      "model": "qwen25-coder",
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
       "agent": "agent_refactor",
       "reason": "Refactoring local — agent_refactor con qwen25-coder"
     },
@@ -111,8 +108,8 @@
         "resuelve conflicto",
         "estrategia git"
       ],
-      "provider": "ollama-local",
-      "model": "qwen25-coder",
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
       "agent": "agent_git",
       "reason": "Operaciones Git — agent_git local"
     },
@@ -143,7 +140,7 @@
         "score"
       ],
       "provider": "local",
-      "model": "qwen25-coder",
+      "model": "qwen2.5-coder:7b",
       "reason": "Render local sin coste. Qwen coder maneja Python + XML."
     },
     {
@@ -155,8 +152,7 @@
         "diff music",
         "pr partitura"
       ],
-      "provider": "copilot",
-      "model": "claude-sonnet-4.6",
+      "provider": "ollama-local", "model": "llama3.2",
       "reason": "Revisión de partitura sin edits — Copilot para code review rápido."
     },
     {
@@ -224,8 +220,7 @@
         "riesgo",
         "code review"
       ],
-      "provider": "copilot",
-      "model": "claude-sonnet-4.6",
+      "provider": "ollama-local", "model": "llama3.2",
       "reason": "Revisión de código. Mejor code review del catálogo."
     },
     {
@@ -258,7 +253,7 @@
         "explica"
       ],
       "provider": "local",
-      "model": "qwen25-coder",
+      "model": "qwen2.5-coder:7b",
       "reason": "Brainstorming offline sin coste."
     },
     {
@@ -271,13 +266,19 @@
         "etiqueta"
       ],
       "provider": "local",
-      "model": "qwen25-mini",
+      "model": "llama3.2",
       "reason": "Ultra-rápido, confirmaciones simples."
     }
   ],
   "fallback": {
-    "provider": "ollama-local",
-    "model": "qwen25-mini",
+    "provider": "ollama-local", "model": "llama3.2",
     "reason": "Local-first: sin regla especifica, usar modelo local disponible"
   }
 }
+
+
+
+
+
+
+

@@ -2,7 +2,7 @@
 """
 autonomous_loop.py — BAGO Real Autonomy Loop
 
-Ciclo: SENSE → PLAN → ACT → OBSERVE → LEARN → DECIDE
+Ciclo: SENSE -> PLAN -> ACT -> OBSERVE -> LEARN -> DECIDE
 
 El sistema funciona sin presencia humana:
 - Evalúa el estado real del framework cada ciclo
@@ -15,11 +15,11 @@ Invocación:
   python3 autonomous_loop.py [--dry-run] [--loop] [--unsafe] [--max-cycles N] [--verbose]
 
 Desde el launcher bago:
-  bago autonomous              → un ciclo
-  bago autonomous --loop       → hasta quiescente
-  bago autonomous --dry-run    → muestra plan sin ejecutar
-  bago inbox add "health"      → añade tarea al inbox
-  bago inbox list              → lista inbox actual
+  bago autonomous              -> un ciclo
+  bago autonomous --loop       -> hasta quiescente
+  bago autonomous --dry-run    -> muestra plan sin ejecutar
+  bago inbox add "health"      -> añade tarea al inbox
+  bago inbox list              -> lista inbox actual
 
 Lives at: .bago/core/autonomous_loop.py
 """
@@ -90,7 +90,7 @@ except ImportError:
 
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-STABLE_THRESHOLD = 2     # cycles with no delta → quiescent
+STABLE_THRESHOLD = 2     # cycles with no delta -> quiescent
 MAX_CYCLES_DEFAULT = 15
 TOOL_TIMEOUT       = 60  # seconds per tool subprocess
 
@@ -159,7 +159,7 @@ COMPETENCIES: dict[str, dict[str, dict]] = {
     },
 }
 
-# Map goal → default agent
+# Map goal -> default agent
 _GOAL_AGENT: dict[str, str] = {}
 for _agent, _goals in COMPETENCIES.items():
     for _goal in _goals:
@@ -214,7 +214,7 @@ def _run_tool(cmd: str, extra_args: list | None = None, timeout: int = TOOL_TIME
     args = [sys.executable, str(_BAGO_BIN), cmd] + (extra_args or [])
     try:
         r = subprocess.run(
-            args, capture_output=True, text=True,
+            args, capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout, cwd=str(_BAGO_ROOT),
         )
         return r.returncode, (r.stdout + r.stderr)
@@ -338,7 +338,7 @@ class AutonomousLoop:
     """
     BAGO Real Autonomy Loop.
 
-    Runs a SENSE → PLAN → ACT → OBSERVE → LEARN → DECIDE cycle.
+    Runs a SENSE -> PLAN -> ACT -> OBSERVE -> LEARN -> DECIDE cycle.
     Terminates when quiescent (no actionable delta for STABLE_THRESHOLD cycles).
 
     Parameters:
@@ -354,11 +354,13 @@ class AutonomousLoop:
         unsafe:     bool = False,
         max_cycles: int  = MAX_CYCLES_DEFAULT,
         verbose:    bool = False,
+        ascii_mode: bool = False,
     ) -> None:
         self.dry_run    = dry_run
         self.unsafe     = unsafe
         self.max_cycles = max_cycles
         self.verbose    = verbose
+        self.ascii_mode = ascii_mode
 
         self.ctx     = _get_ctx() if _HAS_CTX else None
         self.learner = LearningWriter(self.ctx) if _HAS_LEARNER else None
@@ -384,6 +386,11 @@ class AutonomousLoop:
             "stale_count": 0,
             "inbox_tasks": self.inbox.pending(),
             "ts":          _now(),
+            "version_truth": False,
+            "git_dirty":   True,
+            "audit_ok":    False,
+            "tests_ok":    False,
+            "encoding_ok": True,
         }
 
         # Health score — direct import for speed
@@ -454,7 +461,7 @@ class AutonomousLoop:
 
     def plan(self, state: dict) -> list[dict]:
         """
-        Map state → ordered list of goal dicts.
+        Map state -> ordered list of goal dicts.
         Applies learning context to skip/prioritize goals.
         """
         goals: list[dict] = []
@@ -478,7 +485,7 @@ class AutonomousLoop:
         # P1: Pack integrity
         if not state["pack_ok"]:
             goals.append(_goal("full_check", "VALIDADOR", 1,
-                               "pack integrity failure → audit required"))
+                               "pack integrity failure -> audit required"))
 
         # P2: Health below threshold
         elif state["health"] >= 0 and state["health"] < 60:
@@ -537,14 +544,14 @@ class AutonomousLoop:
                 continue
 
             if self.verbose:
-                print(f"    ▶ [{goal['agent']}] bago {tool} …", flush=True)
+                print(f"    ▶ [{goal['agent']}] bago {tool} ...", flush=True)
 
             rc, output = _run_tool(tool)
             results.append({"cmd": tool, "rc": rc, "output": output[:2000]})
 
             if self.verbose:
                 icon = "✅" if rc == 0 else "❌"
-                print(f"    {icon} {tool} → rc={rc}", flush=True)
+                print(f"    {icon} {tool} -> rc={rc}", flush=True)
 
             # Short-circuit on blocking failure
             if rc != 0 and not goal.get("mutating"):
@@ -622,12 +629,11 @@ class AutonomousLoop:
 
     def decide(self, plan: list[dict], state_before: dict, state_after: dict) -> str:
         """
-        Return: CONTINUE | STABLE | MAX_CYCLES
+        Return: CONTINUE | STABLE_VERIFIED | STABLE_UNVERIFIED | MAX_CYCLES
 
-        Quiescent when:
-        - No actionable goals remain (except summary)
-        - Inbox is empty
-        - No health/pack delta between cycles
+        Quiescence truth (v3.5):
+        STABLE_VERIFIED only when all integrity gates pass.
+        STABLE_UNVERIFIED when quiescent but integrity not confirmed.
         """
         actionable = [
             g for g in plan
@@ -646,7 +652,17 @@ class AutonomousLoop:
             self._stable_count = 0
 
         if self._stable_count >= STABLE_THRESHOLD:
-            return "STABLE"
+            integrity = (
+                state_after.get("version_truth", False) and
+                state_after.get("audit_ok", False) and
+                state_after.get("encoding_ok", False) and
+                state_after.get("tests_ok", False)
+            )
+            git_clean = not state_after.get("git_dirty", True)
+            if integrity and git_clean:
+                return "STABLE_VERIFIED"
+            else:
+                return "STABLE_UNVERIFIED"
 
         if len(self._cycle_history) >= self.max_cycles:
             return "MAX_CYCLES"
@@ -656,16 +672,16 @@ class AutonomousLoop:
     # ── Single cycle ───────────────────────────────────────────────────────────
 
     def run_cycle(self, cycle_n: int) -> tuple[str, dict]:
-        """Run one full SENSE→PLAN→ACT→OBSERVE→LEARN→DECIDE cycle."""
+        """Run one full SENSE->PLAN->ACT->OBSERVE->LEARN->DECIDE cycle."""
         self._log(f"── Ciclo {cycle_n} ──────────────────────────────────")
 
         # SENSE
-        self._log("  SENSE …")
+        self._log("  SENSE ...")
         state_before = self.sense()
         self._print_state(state_before)
 
         # PLAN
-        self._log("  PLAN …")
+        self._log("  PLAN ...")
         plan = self.plan(state_before)
         self._print_plan(plan)
 
@@ -716,8 +732,10 @@ class AutonomousLoop:
                 if decision == "DRY_RUN_DONE":
                     print("\n  [dry-run completado — no se ejecutó ninguna herramienta]")
                     break
-                if decision == "STABLE":
-                    print(f"\n  ✅ BAGO quiescente — sistema estable (ciclo {cycle})")
+                if decision == "STABLE_VERIFIED":
+                    print(f"\n  [OK] BAGO estable — integridad confirmada (ciclo {cycle})")
+                elif decision == "STABLE_UNVERIFIED":
+                    print(f"\n  [WARN] BAGO detenido — plan repetido, pero integridad NO confirmada (ciclo {cycle})")
                     break
                 if decision == "MAX_CYCLES":
                     print(f"\n  ⚠️  Límite de {self.max_cycles} ciclos alcanzado")
@@ -752,40 +770,44 @@ class AutonomousLoop:
     # ── Display helpers ────────────────────────────────────────────────────────
 
     def _log(self, msg: str) -> None:
-        print(msg, flush=True)
+        safe = msg.encode(sys.stdout.encoding or "utf-8", "replace").decode(sys.stdout.encoding or "utf-8")
+        try:
+            print(safe, flush=True)
+        except UnicodeEncodeError:
+            print(msg.encode("ascii", "replace").decode("ascii"), flush=True)
         if self.ctx:
             self.ctx.log("info", msg, tool="autonomous")
 
     def _print_header(self, loop_mode: bool) -> None:
-        mode = "bucle continuo" if loop_mode else "ciclo único"
+        mode = "bucle continuo" if loop_mode else "ciclo unico"
         flags = []
         if self.dry_run: flags.append("dry-run")
         if self.unsafe:  flags.append("unsafe")
         flag_str = f"  [{', '.join(flags)}]" if flags else ""
         print()
-        print("╔════════════════════════════════════════════╗")
-        print("║  BAGO · Autonomía Real                     ║")
-        print(f"╠════════════════════════════════════════════╣")
-        print(f"║  Modo:    {mode:<34}║")
-        print(f"║  Máx:     {self.max_cycles} ciclos{' ' * (28 - len(str(self.max_cycles)))}║")
+        print("+---------------------------------------------+")
+        print("|  BAGO · Autonomia Real                      |")
+        print("+---------------------------------------------+")
+        print(f"|  Modo:    {mode:<35}|")
+        print(f"|  Max:     {self.max_cycles} ciclos{' ' * (27 - len(str(self.max_cycles)))}|")
         if flags:
-            print(f"║  Flags:   {', '.join(flags):<34}║")
-        print("╚════════════════════════════════════════════╝")
+            print(f"|  Flags:   {', '.join(flags):<35}|")
+        print("+---------------------------------------------+")
         print()
 
     def _print_state(self, state: dict) -> None:
         h = state.get("health", -1)
-        h_icon = "🟢" if h >= 80 else ("🟡" if h >= 60 else "🔴")
-        pack = "✅" if state.get("pack_ok") else "❌"
+        h_icon = "OK" if h >= 80 else ("WARN" if h >= 60 else "KO")
+        pack = "OK" if state.get("pack_ok") else "KO"
         stale = state.get("stale_count", 0)
         inbox = len(state.get("inbox_tasks", []))
-        print(f"  Estado → health={h_icon} {h}/100  pack={pack}  "
+        print(f"  Estado -> health={h_icon} {h}/100  pack={pack}  "
               f"stale={stale}  inbox={inbox}", flush=True)
 
     def _print_plan(self, plan: list[dict]) -> None:
         active = [g for g in plan if not g.get("skip")]
         skipped = [g for g in plan if g.get("skip")]
-        print(f"  Plan   → {len(active)} objetivos activos"
+        print(f"  Plan   -> {len(active)} objetivos activos"
               + (f", {len(skipped)} saltados" if skipped else ""))
         for g in active:
             print(f"    • [{g['agent']}] {g['goal']} ({', '.join(g['tools'])}) — {g['reason']}")
@@ -839,6 +861,7 @@ def _parse() -> argparse.Namespace:
     p.add_argument("--max-cycles", type=int, default=MAX_CYCLES_DEFAULT)
     p.add_argument("--verbose",    action="store_true")
     p.add_argument("--json",       action="store_true")
+    p.add_argument("--ascii",      action="store_true", help="Force ASCII-only output")
     # inbox subcommand passthrough
     p.add_argument("--inbox",      nargs=argparse.REMAINDER, default=None)
     args, _ = p.parse_known_args()
@@ -857,6 +880,7 @@ if __name__ == "__main__":
         unsafe     = _args.unsafe,
         max_cycles = _args.max_cycles,
         verbose    = _args.verbose,
+        ascii_mode = _args.ascii,
     )
 
     if _args.json:

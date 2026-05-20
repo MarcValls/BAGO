@@ -56,6 +56,9 @@ Uso:
   bago model models       → lista todos los modelos disponibles
   bago model get <id>     → obtiene el modelo de un agente
   bago model set <id> <m> → asigna modelo a un agente (ej: bago model set agent_ops claude-opus-4.7)
+  bago serve              → arranca el servidor API BAGO
+  bago bot telegram       → arranca el bot de Telegram
+  bago bot utopia         → arranca el cliente Utopia
   bago help               → este mensaje
 
 Instalar como alias global (Unix):
@@ -76,9 +79,11 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 
 _launcher_path = Path(__file__).resolve()
 _bago_core_dir = _launcher_path.parent
+_user_active = Path.home() / ".bago" / "active" / ".bago"
 _candidate_roots = [
     _bago_core_dir.parent / ".bago",     # repo mode: <root>/.bago
     _bago_core_dir / ".bago",            # package mode: .bago inside bago_core
+    _user_active,                          # global install: ~/.bago/active/.bago
 ]
 BAGO_ROOT = None
 for cand in _candidate_roots:
@@ -601,14 +606,20 @@ def _cmd_registry() -> None:
 
 
 def _find_tool(stem: str) -> "Path | None":
-    """Locate a tool by stem: TOOLS first, then rglob fallback."""
+    """Locate a tool by stem: TOOLS first, then rglob fallback.
+    Supports dotted module names (e.g. supervision.supervisor)."""
     direct = TOOLS / f"{stem}.py"
     if direct.exists():
         return direct
+    if "." in stem:
+        dotted = TOOLS / f"{stem.replace(".", os.sep)}.py"
+        if dotted.exists():
+            return dotted
+        dotted2 = BAGO_ROOT / f"{stem.replace(".", os.sep)}.py"
+        if dotted2.exists():
+            return dotted2
     hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
     return hits[0] if hits else None
-
-
 def _cmd_neural(rest: list) -> None:
     """bago neural [start|stop|status|nodes|map] — gestiona el Neural Bus SSE."""
     neural = _find_tool("bago_neural")
@@ -1035,6 +1046,31 @@ def main():
             cwd=str(BAGO_ROOT.parent),
         )
         sys.exit(result.returncode)
+    elif cmd == "serve":
+        tools_dir = str(TOOLS)
+        env = dict(os.environ, PYTHONPATH=tools_dir)
+        subprocess.run(
+            [sys.executable, "-m", "bago.api.server"] + rest,
+            cwd=str(BAGO_ROOT.parent),
+            env=env,
+        )
+    elif cmd == "bot":
+        tools_dir = str(TOOLS)
+        env = dict(os.environ, PYTHONPATH=tools_dir)
+        if rest and rest[0].lower() == "telegram":
+            subprocess.run(
+                [sys.executable, "-m", "bago.api.services.telegram_bot"],
+                cwd=str(BAGO_ROOT.parent),
+                env=env,
+            )
+        elif rest and rest[0].lower() == "utopia":
+            subprocess.run(
+                [sys.executable, "-m", "bago.api.services.utopia_bot"],
+                cwd=str(BAGO_ROOT.parent),
+                env=env,
+            )
+        else:
+            print("  Uso: bago bot telegram | bago bot utopia")
     elif cmd in COMMANDS:
         preflight_only  = "--preflight" in rest
         skip_preflight  = "--skip-preflight" in rest

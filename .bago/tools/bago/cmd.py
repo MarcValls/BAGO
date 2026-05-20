@@ -439,6 +439,170 @@ def cmd(line, session):
             else:
                 pi("🪦 Modo TUMBA [dim]DESACTIVADO[/dim] — volviendo al chat normal.")
 
+
+    # ── Bots de mensajeria ─────────────────────────────────────────────────────
+    elif v == "/bot":
+        parts = a.split(None, 1) if a else []
+        bot_name = parts[0].lower() if parts else ""
+        bot_arg = parts[1].strip() if len(parts) > 1 else ""
+
+        if not bot_name:
+            console.print(Panel(
+                "[bold]Bots de mensajeria BAGO[/bold]\n\n"
+                "  [cyan]/bot telegram start[/cyan]  — Arrancar bot de Telegram\n"
+                "  [cyan]/bot telegram stop[/cyan]   — Detener bot de Telegram\n"
+                "  [cyan]/bot telegram status[/cyan] — Estado del bot\n"
+                "  [cyan]/bot utopia start[/cyan]    — Arrancar cliente Utopia\n"
+                "  [cyan]/bot utopia stop[/cyan]     — Detener cliente Utopia\n"
+                "  [cyan]/bot utopia status[/cyan]   — Estado del cliente\n\n"
+                "  [dim]Telegram: crea un bot con @BotFather y exporta TELEGRAM_BOT_TOKEN[/dim]\n"
+                "  [dim]Utopia: habilita API en Utopia client y exporta UTOPIA_TOKEN[/dim]",
+                title="BAGO Bots",
+                border_style="cyan",
+                expand=False,
+            ))
+        elif bot_name == "telegram":
+            import subprocess, sys as _sys2
+            if bot_arg == "start":
+                token = session.creds.get("telegram", {}).get("token", "") or _sys2.environ.get("TELEGRAM_BOT_TOKEN", "")
+                if not token:
+                    pe("No hay token de Telegram. Guardalo con /tumba o exporta TELEGRAM_BOT_TOKEN")
+                else:
+                    env = dict(_sys2.environ, TELEGRAM_BOT_TOKEN=token)
+                    proc = subprocess.Popen(
+                        [_sys2.executable, "-m", "bago.api.services.telegram_bot"],
+                        cwd=str(Path(__file__).resolve().parents[2]),
+                        env=env,
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _sys2.platform == "win32" else 0,
+                    )
+                    console.print(f"  [green]Telegram bot arrancado[/green] (PID {proc.pid})")
+                    console.print("  [dim]Busca tu bot en Telegram y envia /start[/dim]")
+            elif bot_arg == "stop":
+                console.print("  [yellow]Para detener el bot, busca el PID y mata el proceso.[/yellow]")
+            elif bot_arg == "status":
+                try:
+                    import urllib.request
+                    req = urllib.request.Request("http://127.0.0.1:11439/", method="GET")
+                    with urllib.request.urlopen(req, timeout=2) as resp:
+                        data = resp.read()
+                        console.print("  [green]Telegram bot: ONLINE[/green]")
+                except Exception:
+                    console.print("  [red]Telegram bot: OFFLINE[/red]")
+            else:
+                pi("Uso: /bot telegram start|stop|status")
+        elif bot_name == "utopia":
+            import subprocess, sys as _sys2
+            if bot_arg == "start":
+                proc = subprocess.Popen(
+                    [_sys2.executable, "-m", "bago.api.services.utopia_bot"],
+                    cwd=str(Path(__file__).resolve().parents[2]),
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _sys2.platform == "win32" else 0,
+                )
+                console.print(f"  [green]Utopia bot arrancado[/green] (PID {proc.pid})")
+            elif bot_arg == "stop":
+                console.print("  [yellow]Para detener el bot, busca el PID y mata el proceso.[/yellow]")
+            elif bot_arg == "status":
+                console.print("  [dim]Verificando conexion Utopia...[/dim]")
+                try:
+                    import urllib.request, json as _json
+                    req = urllib.request.Request(f"http://127.0.0.1:22824/api/1.0/getSystemInformation", method="POST")
+                    with urllib.request.urlopen(req, timeout=3) as resp:
+                        _json.loads(resp.read())
+                        console.print("  [green]Utopia client: ONLINE[/green]")
+                except Exception:
+                    console.print("  [red]Utopia client: OFFLINE o no accesible[/red]")
+            else:
+                pi("Uso: /bot utopia start|stop|status")
+        else:
+            pe(f"Bot desconocido: {bot_name}. Usa telegram o utopia")
+
+    # ── Informes por bot ───────────────────────────────────────────────────────
+    elif v == "/informe":
+        if not a.strip():
+            pi("Uso: /informe <asunto> — Genera un informe y lo envia por el bot activo")
+            pi("Ejemplo: /informe resumen de actividad de hoy")
+        else:
+            from .api.bridge import api_chat
+            console.print("  [dim]Generando informe...[/dim]")
+            try:
+                result = api_chat(
+                    messages=[{"role": "user", "content": f"Genera un informe detallado sobre: {a.strip()}"}],
+                    system="Eres un asistente de reportes. Genera informes claros, estructurados y concisos.",
+                )
+                informe = result.get("content", "")
+                console.print(Panel(informe, title="[bold]Informe BAGO[/bold]", border_style="green", expand=False))
+                console.print("  [dim]Para enviar por Telegram o Utopia, copia el texto.[/dim]")
+            except Exception as e:
+                pe(f"Error generando informe: {e}")
+
+    # ── API server ──────────────────────────────────────────────────────────────
+    elif v == "/serve":
+        import subprocess, sys as _sys
+        port = a.strip() if a.strip() else "11435"
+        try:
+            port_int = int(port)
+        except ValueError:
+            pe(f"Puerto invalido: {port}")
+            return True
+        pi(f"[cyan]Arrancando BAGO API en puerto {port_int}...[/cyan]")
+        try:
+            proc = subprocess.Popen(
+                [_sys.executable, "-m", "bago.api.server", "--port", str(port_int)],
+                cwd=str(Path(__file__).resolve().parents[2]),
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _sys.platform == "win32" else 0,
+            )
+            console.print(f"  [green]BAGO API arrancado[/green] (PID {proc.pid}, puerto {port_int})")
+            console.print(f"  [dim]Endpoints: http://127.0.0.1:{port_int}/docs[/dim]")
+            console.print(f"  [dim]Usa /api on para enrutar chat via API[/dim]")
+        except Exception as exc:
+            pe(f"Error arrancando API: {exc}")
+    elif v == "/api":
+        from .api.bridge import set_mode, get_mode, detect_mode, api_health
+        if not a.strip():
+            mode = get_mode()
+            h = api_health()
+            score = h.get("score", 0)
+            status = "[green]online[/green]" if score > 0 else "[red]offline[/red]"
+            console.print(Panel(
+                "[bold]Modo API BAGO[/bold]\n\n"
+                f"  Modo actual: [cyan]{mode}[/cyan]\n"
+                f"  Servidor: {status} (score: {score})\n\n"
+                "  [dim]Usa /api on|off|hybrid|status para cambiar[/dim]",
+                title="BAGO API",
+                border_style="cyan",
+                expand=False,
+            ))
+        elif a.strip().lower() == "on":
+            set_mode("api")
+            pi("Modo API: [green]ACTIVADO[/green] — chat via HTTP API")
+        elif a.strip().lower() == "off":
+            set_mode("direct")
+            pi("Modo API: [yellow]DESACTIVADO[/yellow] — chat directo")
+        elif a.strip().lower() == "hybrid":
+            set_mode("hybrid")
+            pi("Modo API: [cyan]HIBRIDO[/cyan] — intenta API primero, cae a directo")
+        elif a.strip().lower() == "status":
+            from .api.bridge import api_health, api_tags, api_services
+            h = api_health()
+            t = api_tags()
+            s = api_services()
+            providers_list = ""
+            for svc, info in s.items():
+                avail = "[green]OK[/green]" if info.get("available") else "[red]DOWN[/red]"
+                providers_list += f"\n    {svc}: {avail} (:{info.get('port', '?')})"
+            models_count = len(t.get("models", []))
+            console.print(Panel(
+                "[bold]Estado API BAGO[/bold]\n\n"
+                f"  Health score: {h.get('score', 0)}\n"
+                f"  Modelos disponibles: {models_count}\n"
+                f"  Servicios:{providers_list or ' (sin datos)'}",
+                title="BAGO API Status",
+                border_style="cyan",
+                expand=False,
+            ))
+        else:
+            pi(f"Opcion desconocida: {a.strip()}. Usa on|off|hybrid|status")
+
     # ── Sincronizacion + repliegue/letargo ────────────────────────────────────
     elif v == "/sync":
         _cmd_sync(session)
@@ -502,3 +666,4 @@ def cmd(line, session):
         else:
             pe(f"Desconocido: {v}  —  /help")
     return True
+

@@ -53,7 +53,7 @@ def get_mode() -> str:
     if GLOBAL_STATE.exists():
         gs = json.loads(GLOBAL_STATE.read_text(encoding="utf-8"))
         notes = gs.get("notes", "").lower()
-        last_type = gs.get("last_completed_task_type", "").lower()
+        last_type = (gs.get("last_completed_task_type") or "").lower()
         if "self" in notes or "bago" in notes or "cajafisica" in notes:
             return "self"
         if "system_change" in last_type or "system" in last_type:

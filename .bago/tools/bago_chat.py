@@ -35,17 +35,31 @@ from bago.chat.repl import build_prompt_session, run_repl
 
 
 def main():
-    p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
-    p.add_argument("--provider", default="")
-    p.add_argument("--model",    default="")
-    p.add_argument("--task",     default="")
-    args = p.parse_args()
+        p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
+        p.add_argument("--provider", default="")
+        p.add_argument("--model",    default="")
+        p.add_argument("--task",     default="")
+        p.add_argument("--api",      action="store_true", help="Arrancar con modo API activado")
+        args = p.parse_args()
 
-    session = resolve_session(args)
-    run_startup_tasks(session)
-    pt = build_prompt_session()
-    run_repl(session, pt)
+        # Detectar y arrancar API si --api
+        if args.api:
+            import subprocess, time
+            from bago.api.bridge import set_mode
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "bago.api.server"],
+                cwd=str(Path(__file__).resolve().parent),
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+            )
+            print(f"  BAGO API arrancado (PID {proc.pid}, puerto 11435)")
+            print(f"  Endpoints: http://127.0.0.1:11435/docs")
+            time.sleep(2)
+            set_mode("api")
 
+        session = resolve_session(args)
+        run_startup_tasks(session)
+        pt = build_prompt_session()
+        run_repl(session, pt)
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-17T13:28:35.527859",
+  "timestamp": "2026-05-19T22:53:51.482767",
   "project": {
-    "cwd": "/Users/INTELIA_Manager/BAGO",
+    "cwd": "C:\\Users\\AMTEC_Terminal_1º\\BAGO",
     "is_git": true,
     "repo_name": "BAGO",
     "branch": "main",
@@ -9,23 +9,23 @@
     "has_pyproject": true,
     "has_packagejson": false,
     "top_files": [
+      "AGENTS.md",
       "CHANGELOG.md",
-      "LICENSE",
-      "Makefile",
-      "PLAN_MASTER.md",
-      "_add_findgh.py",
-      "_add_pipeline.py",
-      "_final_pipeline.py",
-      "_test_job.ps1",
+      "apks_extra",
+      "bago",
+      "bago-framework.code-workspace",
       "bago.cmd",
-      "bago_matrix_music_editor.html",
-      "launcher",
-      "projects"
+      "bago.egg-info",
+      "bago.ico",
+      "bago.ps1",
+      "bago_core",
+      "build",
+      "cmd"
     ],
     "project_type": "python",
-    "repo_root": "/Users/INTELIA_Manager/BAGO"
+    "repo_root": "C:/Users/AMTEC_Terminal_1º/BAGO"
   },
-  "readme_summary": "# BAGO CLI — Orquestador de IA · A.M. TECHNOLOGIES\n\n[![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)\n\n> **Version 3.4.0b1** · 150 CLI commands · 117 public commands\n\nPublic command contract (CI-checked): **20 core** · **89 experimental** · **8 dangerous** · **28 legacy**\n\n---\n\n## 🚀 Empieza aquí\n\n```bash\nbago launch       # abre el chat con BAGO — orquestador central\n```\n\n```\n             ██",
+  "readme_summary": "# BAGO CLI — Orquestador de IA · A.M. TECHNOLOGIES\n\n[![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)\n\n> **Version 3.4.4** · 160 CLI commands · 127 public commands\n\nPublic command contract (CI-checked): **39 core** · **80 experimental** · **8 dangerous** · **28 legacy**\n\n---\n\n## 🚀 Empieza aquí\n\n```bash\nbago launch       # abre el chat con BAGO — orquestador central\n```\n\n```\n             ████",
   "field_summary": "Nodos disponibles: codex; Polo local: bago-local; Polo código: codex/gpt-5.4",
   "safeguards_summary": {
     "identity": "ON",

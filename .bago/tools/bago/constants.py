@@ -128,9 +128,17 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/workspaces[/yellow] Gestion de workspaces (contiene varios proyectos)
   [yellow]/projects[/yellow]   Gestion de proyectos dentro del workspace activo
 
+  [dim]─── BOTS DE MENSAJERIA ────────────────────────────────────────────────[/dim]
+
+  [yellow]/bot[/yellow]                                 Estado y gestion de bots
+  [yellow]/bot telegram start|stop|status[/yellow]       Bot de Telegram
+  [yellow]/bot utopia start|stop|status[/yellow]         Cliente Utopia
+  [yellow]/informe <asunto>[/yellow]                    Genera informe via BAGO API
+
   [dim]─── SESION RAPIDA ───────────────────────────────────────────────────────[/dim]
 
   [yellow]/status[/yellow]  Estado actual    [yellow]/save[/yellow]  Guardar sesion
+  [yellow]/serve[/yellow]  Arrancar API BAGO  [yellow]/api[/yellow]   Modo API (on/off/hybrid/status)
   [yellow]/clear[/yellow]   Limpiar historial  [yellow]/exit[/yellow]  Salir
 
 [dim]El orquestador decide automaticamente que modelo/s usar y con que estrategia.[/dim]

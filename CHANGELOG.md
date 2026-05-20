@@ -1,3 +1,13 @@
+## [3.4.5] — Stable — 2026-05-19 · Token Analytics
+
+### Novedades
+- **Token Analytics** (.bago/core/token_analytics.py): desglose de tokens por proveedor, modelo y evolucion del sistema.
+- **Tokens derrochados**: heuristicas de desperdicio (retry, truncated, drift, error, noise).
+- **Evolucion temporal**: eficiencia y derroche dia a dia.
+- **Metadata en record_call**: retry, error, truncated, drift_detected, noise_score, latency_ms.
+
+---
+
 ## [3.4.4] — Stable — 2026-05-19 · Token Brake: Freno de Tokens para Providers API
 
 ### Problema resuelto

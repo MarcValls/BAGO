@@ -18,7 +18,7 @@ except ModuleNotFoundError:
     PromptSession = object
     FileHistory = AutoSuggestFromHistory = Style = KeyBindings = None
 
-from bago import cmd, chat, console, pe, CtrlCGuard
+from bago import cmd, console, pe, CtrlCGuard
 from bago.constants import USER_BAGO
 from bago.llm import (
     _is_ollama_model_not_found, _is_ollama_unreachable,
@@ -27,6 +27,7 @@ from bago.llm import (
 )
 from bago.tumba import tumba_add, tumba_has_placeholder, tumba_substitute
 from bago.ui import show_response
+from bago.api.bridge import chat_bridge
 
 from rich.panel import Panel
 
@@ -173,7 +174,7 @@ def run_repl(session, pt: PromptSession) -> None:
                 llm_input = substituted  # el LLM ve el valor; history conserva {{key}}
 
         try:
-            result = chat(session, llm_input, history_input=line)
+            result = chat_bridge(session, llm_input, history_input=line)
             if result:
                 show_response(result, session.model_name, session.provider)
         except KeyboardInterrupt:
@@ -205,7 +206,7 @@ def run_repl(session, pt: PromptSession) -> None:
                 )
                 if recovered:
                     try:
-                        result = chat(session, llm_input, history_input=line)
+                        result = chat_bridge(session, llm_input, history_input=line)
                         if result:
                             show_response(result, session.model_name, session.provider)
                     except RuntimeError as exc2:
@@ -226,3 +227,4 @@ def run_repl(session, pt: PromptSession) -> None:
                     "[dim]  Prueba /login para registrar providers "
                     "o /switch para cambiar modelo.[/dim]"
                 )
+

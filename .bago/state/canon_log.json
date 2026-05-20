@@ -1,38 +1,38 @@
 {
-  "cycles": 5,
-  "last_run": "2026-05-13T14:22:31.072126+00:00",
+  "cycles": 6,
+  "last_run": "2026-05-19T20:54:04.751397+00:00",
   "baselines": {
     "MODULAR": {
-      "warn_count": 17,
-      "crit_count": 0,
-      "pressure": 1417,
-      "top": "_findings_parsers.py",
-      "delta": 0
+      "warn_count": 25,
+      "crit_count": 2,
+      "pressure": 2408,
+      "top": "providers.py",
+      "delta": -8
     },
     "SCAN": {
-      "route_orphans": 38,
-      "undoc_count": 127,
+      "route_orphans": 0,
+      "undoc_count": 137,
       "coverage_pct": 0.0,
       "priority1_count": 0,
-      "delta_undoc": 0,
+      "delta_undoc": -10,
       "delta_cov": 0.0
     },
     "CREATE": {
-      "registry_count": 146,
-      "menu_count": 77,
-      "unmapped_count": 69,
+      "registry_count": 158,
+      "menu_count": 76,
+      "unmapped_count": 88,
       "health_fns": 8,
-      "delta": 0
+      "delta": -19
     },
     "EVOLVE": {
-      "ts": "2026-05-13T14:20:48.109909+00:00",
-      "warn_files": 17,
-      "crit_files": 0,
-      "monolith_pressure": 1417,
-      "undoc_tools": 127,
+      "ts": "2026-05-19T20:54:03.541306+00:00",
+      "warn_files": 25,
+      "crit_files": 2,
+      "monolith_pressure": 2408,
+      "undoc_tools": 137,
       "coverage_pct": 0.0,
-      "route_orphans": 38,
-      "unmapped_cmds": 69,
+      "route_orphans": 0,
+      "unmapped_cmds": 88,
       "health_fns": 8
     }
   }

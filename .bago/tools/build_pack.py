@@ -47,6 +47,7 @@ EXCLUDE_PREFIXES: list[str] = [
     ".bago/.models",       # LLM model blobs (GBs) — not distributable
     ".bago/bin",           # Ollama/system binaries — platform-specific, not core
     ".bago/snapshots",     # local snapshot zips — runtime artefacts
+    ".bago/docs/migration/legacy",  # legacy docs with very long filenames (Windows MAX_PATH)
     ".git",
     ".pytest_cache",
     ".mypy_cache",
@@ -67,6 +68,21 @@ EXCLUDE_SUFFIXES: list[str] = [
     ".DS_Store",
     ".gitkeep",
 ]
+
+# ── Safety guards (PR-06: anti recursive-zip / disk-fill) ────────────────────
+MAX_ZIP_SIZE_MB = 100   # abort if output exceeds this (MB)
+WARN_EXISTING_MB = 50   # warn if existing files in out_dir exceed this (MB)
+
+def _scan_for_oversized(out_dir: Path) -> list[Path]:
+    """Return existing files in out_dir larger than WARN_EXISTING_MB."""
+    found = []
+    if not out_dir.exists():
+        return found
+    for f in out_dir.iterdir():
+        if f.is_file() and f.stat().st_size > WARN_EXISTING_MB * 1_048_576:
+            found.append(f)
+    return found
+
 
 
 def _should_exclude(rel: Path) -> bool:
@@ -99,6 +115,31 @@ def build(out_dir: Path, clean: bool = False, dry_run: bool = False) -> Path | N
     pack_name = f"BAGO_{version}_{timestamp}"
     zip_path  = out_dir / f"{pack_name}.zip"
     sha_path  = out_dir / f"{pack_name}.sha256"
+
+    # ── Pre-flight: detect existing oversized files (recursive zip bomb) ──────
+    oversized = _scan_for_oversized(out_dir)
+    if oversized:
+        print(f"  [bold red]🚨 GUARDIA ACTIVADA[/bold red]", file=sys.stderr)
+        print(f"  Detectados {len(oversized)} archivo(s) gigantesco(s) en {out_dir}:", file=sys.stderr)
+        for f in oversized:
+            gb = f.stat().st_size / 1_073_741_824
+            print(f"    • {f.name}  ({gb:.1f} GB)", file=sys.stderr)
+        print("  Esto suele indicar un ZIP recursivo (el ZIP se incluye a si mismo).", file=sys.stderr)
+        print("  Borra el archivo corrupto manualmente y reconstruye.", file=sys.stderr)
+        sys.exit(1)
+
+    # ── Guard: ensure output ZIP path itself will not be included ───────────────
+    abs_root = BAGO_ROOT.resolve()
+    abs_out  = out_dir.resolve()
+    abs_zip  = zip_path.resolve()
+    if abs_zip.is_relative_to(abs_root):
+        # Must be excluded; verify dynamic_excludes will catch it
+        rel_zip = abs_zip.relative_to(abs_root)
+        if not _should_exclude(rel_zip.parent):
+            print(f"  [bold red]🚨 ABORTADO[/bold red]: output ZIP path {zip_path} lives inside source tree", file=sys.stderr)
+            print("     and its parent is NOT in EXCLUDE_PREFIXES.", file=sys.stderr)
+            sys.exit(1)
+
 
     if clean and out_dir.exists():
         if not dry_run:
@@ -157,6 +198,16 @@ def build(out_dir: Path, clean: bool = False, dry_run: bool = False) -> Path | N
     sha_path.write_text(f"{h}  {zip_path.name}\n")
 
     size_mb = zip_path.stat().st_size / 1_048_576
+
+    # ── Post-build guard: verify ZIP is not absurdly large ────────────────────
+    if size_mb > MAX_ZIP_SIZE_MB:
+        print(f"  [bold red]🚨 ZIP DEMASIADO GRANDE[/bold red]: {size_mb:.1f} MB > {MAX_ZIP_SIZE_MB} MB", file=sys.stderr)
+        print("  Posible causa: inclusion recursiva (ZIP dentro de ZIP).", file=sys.stderr)
+        print(f"  Eliminando ZIP corrupto: {zip_path}", file=sys.stderr)
+        zip_path.unlink(missing_ok=True)
+        sha_path.unlink(missing_ok=True)
+        sys.exit(1)
+
     print(f"  ✅ {zip_path}  ({size_mb:.1f} MB)")
     print(f"  🔑 {sha_path}")
     return zip_path
