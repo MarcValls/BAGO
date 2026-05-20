@@ -283,28 +283,89 @@ def _menu_pick(title: str, text: str, values: list):
     Enter sobre un item => acepta inmediatamente.
     Esc / Ctrl-C => cancela (devuelve None).
     Sin botones OK/Cancelar.  (R1 / R2)
+
+    MODO PESTAÑAS (tipo BIOS): se activa automáticamente cuando hay más
+    de 15 items navegables. Los separadores (key=None) delimitan pestañas.
+    Tab/Shift+Tab cambia de pestaña. Flechas navegan dentro.
     """
     if not values:
         return None
 
+    # --- Preprocesar: separar en pestañas por grupos delimitados por None ---
+    tabs = []
+    current_tab = []
+    tab_labels = []
+    for key, label in values:
+        if key is None:
+            # Separador = delimitador de pestaña
+            if current_tab:
+                # Usar el texto del separador como título de pestaña
+                tab_title = _strip_rich(label).strip("- ─")
+                if not tab_title:
+                    tab_title = f"Grupo {len(tabs)+1}"
+                tab_labels.append(tab_title)
+                tabs.append(current_tab)
+                current_tab = []
+        else:
+            current_tab.append((key, label))
+    if current_tab:
+        tab_labels.append(f"Grupo {len(tabs)+1}")
+        tabs.append(current_tab)
+
+    # Si solo hay 1 tab o pocos items, comportamiento clásico
+    use_tabs = len(tabs) > 1 and sum(len(t) for t in tabs) > 15
+
     if not _PROMPT_TOOLKIT_AVAILABLE:
         _warn_prompt_toolkit_fallback()
-        rows = [(k, _strip_rich(lbl)) for k, lbl in values if k is not None]
-        if not rows:
-            return None
-        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
-        for idx, (_, lbl) in enumerate(rows, start=1):
-            console.print(f"  {idx}. {lbl}")
-        raw = _stdin_prompt("Selecciona número (Enter cancela): ").strip()
-        if not raw:
-            return None
-        try:
-            pos = int(raw)
-        except ValueError:
-            return None
-        if pos < 1 or pos > len(rows):
-            return None
-        return rows[pos - 1][0]
+        if use_tabs:
+            console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+            for ti, (tlabel, trows) in enumerate(zip(tab_labels, tabs), start=1):
+                console.print(f"\n[bold cyan]── {ti}. {tlabel} ──[/bold cyan]")
+                for idx, (_, lbl) in enumerate(trows, start=1):
+                    console.print(f"  {idx}. {_strip_rich(lbl)}")
+            raw = _stdin_prompt("Pestaña número (Enter cancela): ").strip()
+            if not raw:
+                return None
+            try:
+                tpos = int(raw)
+            except ValueError:
+                return None
+            if tpos < 1 or tpos > len(tabs):
+                return None
+            rows = tabs[tpos - 1]
+            if not rows:
+                return None
+            raw = _stdin_prompt("Ítem número (Enter cancela): ").strip()
+            if not raw:
+                return None
+            try:
+                ipos = int(raw)
+            except ValueError:
+                return None
+            if ipos < 1 or ipos > len(rows):
+                return None
+            return rows[ipos - 1][0]
+        else:
+            rows = [(k, _strip_rich(lbl)) for k, lbl in values if k is not None]
+            if not rows:
+                return None
+            console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+            for idx, (_, lbl) in enumerate(rows, start=1):
+                console.print(f"  {idx}. {lbl}")
+            raw = _stdin_prompt("Selecciona número (Enter cancela): ").strip()
+            if not raw:
+                return None
+            try:
+                pos = int(raw)
+            except ValueError:
+                return None
+            if pos < 1 or pos > len(rows):
+                return None
+            return rows[pos - 1][0]
+
+    # --- Modo prompt_toolkit ---
+    if use_tabs:
+        return _menu_pick_tabs(title, text, tab_labels, tabs)
 
     # Índices navegables (excluye separadores marcados como None en key)
     nav_idx = [i for i, v in enumerate(values) if v[0] is not None]
@@ -366,6 +427,127 @@ def _menu_pick(title: str, text: str, values: list):
                 win,
                 Window(height=1),
                 Label(" ↑/↓  navegar    Enter  seleccionar    Esc  volver",
+                      style="class:label"),
+            ]),
+            title=f" {title} ",
+            style="class:dialog",
+        ),
+        focused_element=win,
+    )
+
+    app = Application(
+        layout=layout,
+        key_bindings=kb,
+        style=_MENU_STYLE,
+        full_screen=False,
+        mouse_support=True,
+    )
+    try:
+        app.run()
+    except Exception:
+        pass
+    return result[0]
+
+
+def _menu_pick_tabs(title: str, text: str, tab_labels: list, tabs: list):
+    """Modo pestañas tipo BIOS para menus grandes."""
+    active_tab = [0]
+    focus = [0]   # posición dentro de la pestaña activa
+    result = [None]
+
+    def render_tab_bar():
+        out = []
+        out.append(("", "  "))
+        for ti, tlabel in enumerate(tab_labels):
+            if ti == active_tab[0]:
+                out.append(("class:pick.focused", f" ┌─ {tlabel} ─┐ "))
+            else:
+                out.append(("class:pick.item", f"  {tlabel}  "))
+            if ti < len(tab_labels) - 1:
+                out.append(("class:pick.sep", "│"))
+        out.append(("", "\n"))
+        return out
+
+    def render_items():
+        out = []
+        current = tabs[active_tab[0]]
+        for fi, (key, label) in enumerate(current):
+            clean = _strip_rich(label)
+            is_focused = (fi == focus[0])
+            if is_focused:
+                out.append(("class:pick.cursor", " >> "))
+                out.append(("class:pick.focused", f" {clean} \n"))
+            else:
+                out.append(("", "    "))
+                out.append(("class:pick.item", f" {clean} \n"))
+        return out
+
+    def render():
+        return render_tab_bar() + render_items()
+
+    content = FormattedTextControl(render, focusable=True)
+    win = Window(content=content, dont_extend_height=True)
+
+    kb = KeyBindings()
+
+    @kb.add("up", eager=True)
+    @kb.add("k",  eager=True)
+    def _up(event):
+        focus[0] = max(0, focus[0] - 1)
+        event.app.invalidate()
+
+    @kb.add("down", eager=True)
+    @kb.add("j", eager=True)
+    def _down(event):
+        current = tabs[active_tab[0]]
+        focus[0] = min(len(current) - 1, focus[0] + 1)
+        event.app.invalidate()
+
+    @kb.add("tab", eager=True)
+    def _next_tab(event):
+        active_tab[0] = (active_tab[0] + 1) % len(tabs)
+        focus[0] = 0
+        event.app.invalidate()
+
+    @kb.add("s-tab", eager=True)
+    def _prev_tab(event):
+        active_tab[0] = (active_tab[0] - 1) % len(tabs)
+        focus[0] = 0
+        event.app.invalidate()
+
+    @kb.add("right", eager=True)
+    @kb.add("l", eager=True)
+    def _right(event):
+        active_tab[0] = (active_tab[0] + 1) % len(tabs)
+        focus[0] = 0
+        event.app.invalidate()
+
+    @kb.add("left", eager=True)
+    @kb.add("h", eager=True)
+    def _left(event):
+        active_tab[0] = (active_tab[0] - 1) % len(tabs)
+        focus[0] = 0
+        event.app.invalidate()
+
+    @kb.add("enter", eager=True)
+    def _accept(event):
+        current = tabs[active_tab[0]]
+        result[0] = current[focus[0]][0]
+        event.app.exit()
+
+    @kb.add("escape", eager=True)
+    @kb.add("c-c", eager=True)
+    def _cancel(event):
+        event.app.exit()
+
+    layout = Layout(
+        Frame(
+            HSplit([
+                Label(f" {_strip_rich(text)}"),
+                Window(height=1),
+                win,
+                Window(height=1),
+                Label(" ←/→  pestaña    ↑/↓  item    Enter  seleccionar    Esc  volver",
                       style="class:label"),
             ]),
             title=f" {title} ",
