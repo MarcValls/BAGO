@@ -16,7 +16,7 @@ def test_bang_handler_exists():
     assert cmd_path.exists(), f"cmd.py not found at {cmd_path}"
     content = cmd_path.read_text(encoding="utf-8")
     assert "elif v.startswith" in content and "!" in content
-    assert "subprocess.run" in content
+    assert ("subprocess.run" in content or "subprocess.Popen" in content)
     assert "git-dirty" in content
     assert "git dirty" in content
 

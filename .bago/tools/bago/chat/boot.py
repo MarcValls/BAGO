@@ -92,32 +92,33 @@ def run_startup_tasks(session: BagoSession) -> None:
     except Exception:
         pass
 
-    # Mostrar banner inmediato (sin esperar el health)
-    banner(session)
-
-    # ── Resultado health scan ─────────────────────────────────────────────────
+    # -- Resultado health scan --------------------------------------------------
+    _health = None
     if _health_future:
         try:
-            _health = _health_future.result(timeout=4)
-            _active_creds = session.creds.active_bago_providers()
-            for _pname, _phdata in _health.items():
-                if _phdata.get("ok"):
-                    session.skip_providers.discard(_pname)
-                elif _pname in _active_creds or _pname in ("ollama-local", "ollama-cloud"):
-                    session.skip_providers.add(_pname)
-            console.print()
-            banner(session, health=_health)
-            session._last_health = _health
-            if all(not v.get("ok") for v in _health.values()):
-                console.print(
-                    "\n  [bold yellow]⚠  Ningún provider disponible.[/bold yellow]\n"
-                    "  Usa [cyan]/login[/cyan] para configurar un provider "
-                    "o ejecuta [cyan]ollama serve[/cyan] si tienes Ollama instalado."
-                )
+            _health = _health_future.result(timeout=0.5)
         except Exception:
-            pass
+            _health = None
+
+    if _health is not None:
+        _active_creds = session.creds.active_bago_providers()
+        for _pname, _phdata in _health.items():
+            if _phdata.get("ok"):
+                session.skip_providers.discard(_pname)
+            elif _pname in _active_creds or _pname in ("ollama-local", "ollama-cloud"):
+                session.skip_providers.add(_pname)
+        banner(session, health=_health)
+        session._last_health = _health
+        if all(not v.get("ok") for v in _health.values()):
+            console.print(
+                "\n  [bold yellow]⚠  Ningún provider disponible.[/bold yellow]\n"
+                "  Usa [cyan]/login[/cyan] para configurar un provider "
+                "o ejecuta [cyan]ollama serve[/cyan] si tienes Ollama instalado."
+            )
     else:
+        banner(session)
         session._last_health = None
+
 
     # ── Resultado HW probe ────────────────────────────────────────────────────
     if _hw_future:
