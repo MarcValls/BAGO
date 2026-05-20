@@ -1,0 +1,26 @@
+{
+  "role_id": "test_role",
+  "name": "Test Role",
+  "description": "A test role",
+  "system_prompt": "You are a test role.",
+  "artifacts": [
+    {
+      "id": "art1",
+      "type": "text",
+      "content": "Some content",
+      "source": "local",
+      "checksum": "9c6609fc5111405e"
+    }
+  ],
+  "spiral_index": {
+    "init": [
+      "art1"
+    ],
+    "build": [
+      "art1"
+    ]
+  },
+  "dynamic_code": "",
+  "prompt_builders": [],
+  "preferred_band": "5g"
+}

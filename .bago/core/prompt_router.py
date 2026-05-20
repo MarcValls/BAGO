@@ -337,3 +337,41 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ── v3.5: Cálculo de eficiencia por configuración ────────────────────────────
+
+def compute_efficiency(band: str, metrics: SignalMetrics) -> dict:
+    """Calcula eficiencia de la configuración para esta situación."""
+    # Aprovechamiento del contexto
+    if band == "2.4g":
+        available = 32000
+        speed = 0.4
+    elif band == "5g":
+        available = 8192
+        speed = 0.7
+    else:
+        available = 2048
+        speed = 1.0
+    
+    needed = metrics.context_depth * 1000
+    utilization = min(needed / available, 1.0) if available > 0 else 0
+    waste = max(0, 1.0 - utilization)
+    
+    # Riesgo de desacoplamiento
+    if metrics.drift_detected:
+        decoupling_risk = 0.8
+    elif metrics.noise_level > 0.4:
+        decoupling_risk = 0.5
+    else:
+        decoupling_risk = 0.1
+    
+    return {
+        "band": band,
+        "utilization_pct": round(utilization * 100, 1),
+        "waste_pct": round(waste * 100, 1),
+        "speed_factor": speed,
+        "decoupling_risk": decoupling_risk,
+        "efficiency_score": round((utilization * speed * (1 - decoupling_risk)) * 100, 1),
+        "recommendation": "OK" if decoupling_risk < 0.5 else "REDUCE_DEPTH",
+    }

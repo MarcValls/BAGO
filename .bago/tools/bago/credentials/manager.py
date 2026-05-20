@@ -348,3 +348,4 @@ class CredentialManager(LoginFlowsMixin):
             t.add_row(name, status, quota, info["desc"])
         t.add_row("[dim]/login <provider>[/dim]", "", "", "[dim]para registrar[/dim]")
         return t
+

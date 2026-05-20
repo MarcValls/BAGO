@@ -1027,6 +1027,24 @@ def main():
             [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
+    elif cmd == "prompt-router":
+        subprocess.run(
+            [sys.executable, str(CORE / "prompt_router.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "role-spiral":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "role_embedded.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "model-gate":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "model_gate.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "api-only":
+        print("  API-only: toggle con bago api-only on|off")
+        print("  Desactiva login interactivo, usa solo API keys con freno de tokens")
     elif cmd == "token-analytics":
         _cmd_token_analytics(rest)
         return
@@ -1131,7 +1149,7 @@ def _cmd_token_analytics(rest: list) -> None:
 
 def _cmd_token_brake(rest: list) -> None:
     import subprocess, sys as _sys
-    brake_path = CORE / "token_brake.py"
+    brake_path = TOOLS / "token_brake.py"
     if not brake_path.exists():
         print("  No se encuentra token_brake.py")
         return
@@ -1229,3 +1247,6 @@ def _cmd_inbox_launcher(rest: list) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+

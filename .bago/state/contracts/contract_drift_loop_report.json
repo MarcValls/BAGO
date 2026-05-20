@@ -1,6 +1,6 @@
 {
   "loop": "contract_drift_loop",
-  "timestamp": "2026-05-20T15:44:59.508654",
+  "timestamp": "2026-05-20T16:19:04.383670",
   "has_blockers": false,
   "blockers_summary": "",
   "agents": [
@@ -12,17 +12,17 @@
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-20T15:44:42.914438"
+      "timestamp": "2026-05-20T16:18:47.624491"
     },
     {
       "agent": "contract_auditor",
       "status": "yellow",
-      "message": "\u001b[1mTool Guardian — Estado del framework BAGO\u001b[0m\n  \u001b[0;31mSalud (required): 46%\u001b[0m  (21/46 required OK  | 0/300 total  E:39  W:663)\n\n  \u001b[0;31mErrores críticos (core/dangerous):\u001b[0m\n    [GUARD-E002] 'agent_router.py' no registrado en integration_tests.py\n    [GUARD-E001] 'autonomous_integrity.py' s",
+      "message": "\u001b[1mTool Guardian — Estado del framework BAGO\u001b[0m\n  \u001b[0;31mSalud (required): 46%\u001b[0m  (21/46 required OK  | 0/301 total  E:39  W:666)\n\n  \u001b[0;31mErrores críticos (core/dangerous):\u001b[0m\n    [GUARD-E002] 'agent_router.py' no registrado en integration_tests.py\n    [GUARD-E001] 'autonomous_integrity.py' s",
       "artifact": ".bago/supervision/artifacts/REGISTRY_CONTRACT_AUDIT.json",
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-20T15:44:59.365353"
+      "timestamp": "2026-05-20T16:19:04.241000"
     },
     {
       "agent": "doc_sync_agent",
@@ -32,7 +32,7 @@
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-20T15:44:59.508630"
+      "timestamp": "2026-05-20T16:19:04.383660"
     }
   ]
 }

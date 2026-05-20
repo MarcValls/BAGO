@@ -1,0 +1,34 @@
+{
+  "role_id": "grow_role",
+  "name": "Grow Role",
+  "description": "Grows with cycles",
+  "system_prompt": "Base prompt.",
+  "artifacts": [
+    {
+      "id": "a1",
+      "type": "text",
+      "content": "Content 1",
+      "source": "local",
+      "checksum": "cd56d06409d269db"
+    },
+    {
+      "id": "a2",
+      "type": "text",
+      "content": "Content 2",
+      "source": "local",
+      "checksum": "1b8707533d362a48"
+    }
+  ],
+  "spiral_index": {
+    "init": [
+      "a1"
+    ],
+    "build": [
+      "a1",
+      "a2"
+    ]
+  },
+  "dynamic_code": "",
+  "prompt_builders": [],
+  "preferred_band": "5g"
+}

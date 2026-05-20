@@ -78,6 +78,11 @@ _ENTRIES = [
     ("!encoding",   "  encoding  -- guardia UTF-8"),
     ("!census",     "  census  -- catalogo de herramientas"),
     ("!map",        "  map  -- mapa del sistema"),
+    ("!prompt-router", "  prompt-router  -- router de prompts WiFi"),
+    ("!role-spiral",   "  role-spiral  -- roles en espiral"),
+    ("!model-gate",    "  model-gate  -- fallback entre modelos"),
+    ("!token-analytics", "  token-analytics  -- tracking de tokens"),
+    ("!api-only",      "  api-only  -- modo solo API"),
 
     (None,          "  -- Utilidades ---------------------------------"),
     ("/help",       "  Ayuda  -- todos los comandos con descripcion"),
@@ -138,4 +143,5 @@ def _cmd_main_menu(session) -> str | None:
                 return sub
             continue
         return selected
+
 

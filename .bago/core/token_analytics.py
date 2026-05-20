@@ -295,3 +295,30 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ── v3.5: TokenBudget para tracking con freno de tokens ─────────────────────
+
+from dataclasses import dataclass
+
+@dataclass
+class TokenBudget:
+    """Budget mensual por proveedor con cálculo de % usado."""
+    provider: str
+    budget_monthly_usd: float
+    price_per_1k_in: float
+    price_per_1k_out: float
+    used_in_1k: float = 0.0
+    used_out_1k: float = 0.0
+    
+    def pct_used(self) -> float:
+        cost_in = self.used_in_1k * self.price_per_1k_in
+        cost_out = self.used_out_1k * self.price_per_1k_out
+        total = cost_in + cost_out
+        if self.budget_monthly_usd <= 0: return 0.0
+        return round((total / self.budget_monthly_usd) * 100, 2)
+    
+    def remaining_usd(self) -> float:
+        cost_in = self.used_in_1k * self.price_per_1k_in
+        cost_out = self.used_out_1k * self.price_per_1k_out
+        return round(self.budget_monthly_usd - cost_in - cost_out, 4)
