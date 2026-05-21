@@ -1611,4 +1611,14 @@ REGISTRY: dict[str, ToolEntry] = {
         supports_dry_run=True,
         preflight_policy="required",
     ),
+    "issues": ToolEntry(
+        cmd="issues", module="bago_issues",
+        description="Gestiona issues de GitHub asignados a BAGO (label bago): list, show, take, close, create",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_issues.py"))],
+        layer="core", scope="framework",
+        agent="PLANIFICADOR",
+        stability="core",
+        risk="safe",
+        supports_dry_run=False,
+    ),
 }
