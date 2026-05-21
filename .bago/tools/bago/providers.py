@@ -279,6 +279,10 @@ def ollama_probe(base_url: str = "http://127.0.0.1:11434", timeout: float = 3) -
     """
     import urllib.request
     import urllib.error
+    import socket
+    # Forzar timeout de socket global brevemente para que Ctrl+C funcione mejor en Windows
+    old_default = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(timeout)
     try:
         with urllib.request.urlopen(f"{base_url}/api/tags", timeout=timeout) as r:
             data = json.loads(r.read())
@@ -290,6 +294,8 @@ def ollama_probe(base_url: str = "http://127.0.0.1:11434", timeout: float = 3) -
         return {"running": False, "url": base_url, "models": [], "error": str(e)}
     except Exception as e:
         return {"running": False, "url": base_url, "models": [], "error": str(e)}
+    finally:
+        socket.setdefaulttimeout(old_default)
 
 
 def ollama_pull(model_name: str, base_url: str = "http://127.0.0.1:11434") -> bool:
@@ -355,7 +361,7 @@ def _ollama_pull_api(model_name: str, base_url: str) -> bool:
 
 # ── Ollama discovery ───────────────────────────────────────────────────────────
 
-def discover_ollama_url(timeout: int = 2) -> "str | None":
+def discover_ollama_url(timeout: float = 1.0) -> "str | None":
     """Busca Ollama en el PC probando múltiples ubicaciones y puertos.
 
     Orden de búsqueda:
@@ -394,7 +400,12 @@ def discover_ollama_url(timeout: int = 2) -> "str | None":
         if url in seen:
             continue
         seen.add(url)
-        result = ollama_probe(url, timeout=timeout)
+        try:
+            result = ollama_probe(url, timeout=timeout)
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            continue
         if result["running"]:
             # Guardar URL descubierta en env para uso posterior
             os.environ["OLLAMA_HOST"] = url
@@ -442,7 +453,15 @@ def _try_start_ollama_windows():
             stderr=subprocess.DEVNULL,
             creationflags=0x00000008,   # DETACHED_PROCESS en Windows
         )
-        time.sleep(2)  # dar tiempo a que arranque
+        # Retry no bloqueante: probar cada 0.3s hasta 3 intentos
+        for _ in range(3):
+            time.sleep(0.3)
+            try:
+                import urllib.request
+                with urllib.request.urlopen(f"http://127.0.0.1:11434/api/tags", timeout=0.5):
+                    break
+            except Exception:
+                pass
     except Exception:
         pass
 

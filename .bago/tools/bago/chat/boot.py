@@ -83,10 +83,11 @@ def run_startup_tasks(session: BagoSession) -> None:
 
     # ── Health scan + HW probe en paralelo ───────────────────────────────────
     _health_future = _hw_future = None
+    _executor = None
     try:
         _executor = _cf.ThreadPoolExecutor(max_workers=2, thread_name_prefix="bago_startup")
         _health_future = _executor.submit(
-            scan_provider_health, session.creds, session.providers, 3
+            scan_provider_health, session.creds, session.providers, 2
         )
         _hw_future = _executor.submit(probe_hardware)
     except Exception:
@@ -96,7 +97,12 @@ def run_startup_tasks(session: BagoSession) -> None:
     _health = None
     if _health_future:
         try:
-            _health = _health_future.result(timeout=0.5)
+            _health = _health_future.result(timeout=5)
+        except KeyboardInterrupt:
+            _health = None
+            if _executor:
+                _executor.shutdown(wait=False, cancel_futures=True)
+            raise
         except Exception:
             _health = None
 
@@ -125,6 +131,10 @@ def run_startup_tasks(session: BagoSession) -> None:
         try:
             hw = _hw_future.result(timeout=5)
             session.hw = hw
+        except KeyboardInterrupt:
+            if _executor:
+                _executor.shutdown(wait=False, cancel_futures=True)
+            raise
             try:
                 from bago.model_catalog import enrich_with_compat
                 enrich_with_compat(hw)
