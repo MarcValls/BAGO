@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 STATE_DIR = ROOT / ".bago" / "state"
 DB_PATH = STATE_DIR / "bago.db"
 
@@ -132,22 +132,21 @@ def check_bago_db():
 
 def check_tools():
     print("\n  \033[1m🔧 Herramientas BAGO\033[0m")
-    tools_dir = ROOT / ".bago" / "tools"
-    tool_files = list(tools_dir.glob("*.py"))
-    exclude = {"tool_registry.py", "db_init.py", "idea_gen.py", "validate.py",
-               "bago_core.py", "__init__.py", "emit_ideas.py"}
-    tools = [f for f in tool_files if f.name not in exclude]
-    _line(OK, f"{len(tools)} herramientas registradas")
+    try:
+        from tool_registry import REGISTRY, get_commands
+    except Exception as exc:
+        _line(WARN, f"tool_registry no disponible ({exc})")
+        return
 
-    # Check tool_registry imports
-    reg = tools_dir / "tool_registry.py"
-    if reg.exists():
-        reg_text = reg.read_text(encoding="utf-8")
-        missing = [t.stem for t in tools if t.stem not in reg_text]
-        if missing:
-            _line(WARN, f"No registradas en tool_registry: {', '.join(missing[:5])}")
-        else:
-            _line(OK, "Todas las herramientas registradas en tool_registry.py")
+    commands = get_commands()
+    missing_public = sorted(
+        name for name, argv in commands.items()
+        if len(argv) < 2 or not Path(argv[1]).exists()
+    )
+    if missing_public:
+        _line(WARN, f"Faltan comandos públicos: {', '.join(missing_public[:5])}")
+    else:
+        _line(OK, f"{len(REGISTRY)} comandos públicos con implementación presente")
 
 
 def check_orphans():

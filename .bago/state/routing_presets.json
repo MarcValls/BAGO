@@ -1,0 +1,62 @@
+{
+  "balanced": {
+    "description": "Balance general entre coste, velocidad y calidad.",
+    "orch_mode": "standard",
+    "provider_order": [
+      "ollama-local",
+      "copilot",
+      "codex",
+      "ollama-cloud"
+    ],
+    "contract_loop": {
+      "enabled": true,
+      "max_iter": 3,
+      "min_score": 0.84
+    }
+  },
+  "local-first": {
+    "description": "Prioriza local y solo escala fuera si falla o no alcanza contrato.",
+    "orch_mode": "eco",
+    "provider_order": [
+      "ollama-local",
+      "ollama-cloud",
+      "copilot",
+      "codex"
+    ],
+    "contract_loop": {
+      "enabled": true,
+      "max_iter": 2,
+      "min_score": 0.78
+    }
+  },
+  "review-heavy": {
+    "description": "Genera y luego revisa con modelos de mayor criterio.",
+    "orch_mode": "full",
+    "provider_order": [
+      "copilot",
+      "codex",
+      "ollama-local",
+      "ollama-cloud"
+    ],
+    "contract_loop": {
+      "enabled": true,
+      "max_iter": 4,
+      "min_score": 0.88
+    }
+  },
+  "contract-strict": {
+    "description": "No cierra hasta acercarse al contrato objetivo; mas iteraciones.",
+    "orch_mode": "full",
+    "provider_order": [
+      "codex",
+      "copilot",
+      "ollama-local",
+      "ollama-cloud"
+    ],
+    "contract_loop": {
+      "enabled": true,
+      "max_iter": 6,
+      "min_score": 1.0
+    }
+  }
+}

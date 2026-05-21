@@ -32,7 +32,7 @@
     ],
     "category": "docs",
     "description": "Agente de documentación y generación de contenido",
-    "active": true,
+    "active": false,
     "model": "gpt-4o"
   },
   "agent_ops": {

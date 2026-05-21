@@ -14,7 +14,9 @@
 #   ── Framework ────────────────────────────────
 #   bago status              → estado de BAGO
 #   bago install [component] → instala componente o modelo
-#   bago sync [--to-usb|--from-usb] → sincroniza con pendrive
+#   bago sync [--to-usb|--from-usb|knowledge] → sincroniza con pendrive o knowledge repo
+#   bago knowledge [sync|pull|push|status] → sincroniza con bago-knowledge
+#   bago dev refresh-engine [--with-knowledge|--without-knowledge] → reconstruye el motor limpio
 #   bago inventory           → inventario de herramientas
 #   bago pipeline <tarea>    → ejecuta pipeline multi-modelo
 #
@@ -24,6 +26,7 @@
 #   bago repo init | sync    → gestión de repositorio Git
 
 $ErrorActionPreference = "Stop"
+$env:PYTHONDONTWRITEBYTECODE = "1"
 
 # === Detección de fuente de verdad ===
 $exeDir = $PSScriptRoot
@@ -58,6 +61,14 @@ function Detect-Source {
     $pcExists = Test-Path $pcBago -PathType Container
     $docsExists = Test-Path $pcDocs -PathType Container
     $pcPath = if ($pcExists) { $pcBago } elseif ($docsExists) { $pcDocs } else { $null }
+    $installedRoot = Join-Path $env:ProgramFiles 'BAGO'
+    $installedManifest = Join-Path $exeDir 'runtime_contract.json'
+    $isInstalledRuntime = $false
+    try {
+        $exeResolved = [System.IO.Path]::GetFullPath($exeDir).TrimEnd('\')
+        $installedResolved = [System.IO.Path]::GetFullPath($installedRoot).TrimEnd('\')
+        $isInstalledRuntime = (Test-Path $installedManifest -PathType Leaf) -or $exeResolved.Equals($installedResolved, [System.StringComparison]::OrdinalIgnoreCase)
+    } catch {}
 
     $isRemovable = $false
     $runningFromUsb = $false
@@ -74,7 +85,18 @@ function Detect-Source {
         }
     } catch {}
 
-    if ($usbReal -and $pcPath) {
+    if ($usbExists -and $isInstalledRuntime) {
+        $script:SOURCE = 'installed'
+        $script:PRIMARY = $usbBago
+        if ($env:BAGO_ALLOW_DEV_SECONDARY -eq "1") {
+            if ($pcPath -and ($pcPath.ToUpperInvariant() -ne $usbBago.ToUpperInvariant())) {
+                $script:SECONDARY = $pcPath
+            } elseif ($usbReal -and ($usbReal.ToUpperInvariant() -ne $usbBago.ToUpperInvariant())) {
+                $script:SECONDARY = $usbReal
+            }
+        }
+        Write-Host "Fuente de verdad: $usbBago (INSTALADO)" -ForegroundColor Green
+    } elseif ($usbReal -and $pcPath) {
         if ($runningFromUsb) {
             $script:SOURCE = 'both'
             $script:PRIMARY = $usbPath
@@ -97,7 +119,12 @@ function Detect-Source {
     } elseif ($usbExists) {
         $script:SOURCE = 'usb'
         $script:PRIMARY = $usbPath
-        Write-Host "Fuente de verdad: $usbPath (DIRECTORIO LOCAL)" -ForegroundColor Cyan
+        if ($pcPath) {
+            $script:SECONDARY = $pcPath
+            Write-Host "Fuente de verdad: $usbPath (DIRECTORIO LOCAL). PC: $pcPath" -ForegroundColor Cyan
+        } else {
+            Write-Host "Fuente de verdad: $usbPath (DIRECTORIO LOCAL)" -ForegroundColor Cyan
+        }
     } elseif ($pcPath) {
         $script:SOURCE = 'pc'
         $script:PRIMARY = $pcPath
@@ -109,7 +136,11 @@ function Detect-Source {
     }
 
     if ($script:PRIMARY) {
-        $portableUserHome = Join-Path $script:PRIMARY 'user'
+        $portableUserHome = if ($env:ProgramData) {
+            Join-Path $env:ProgramData 'BAGO\user'
+        } else {
+            Join-Path $script:PRIMARY 'user'
+        }
         New-Item -ItemType Directory -Path $portableUserHome -Force | Out-Null
         $env:BAGO_USER_HOME = $portableUserHome
     }
@@ -245,7 +276,7 @@ function Show-Status {
         Write-Host "  Secundaria: $($script:SECONDARY)" -ForegroundColor Cyan
     }
 
-    $providersFile = Join-Path $script:PRIMARY "..\state\model_providers.json"
+    $providersFile = Join-Path $script:PRIMARY "state\model_providers.json"
     if (Test-Path $providersFile) {
         $providers = Get-Content $providersFile | ConvertFrom-Json
         $localModels = $providers.providers."ollama-local".models.PSObject.Properties.Name -join ", "
@@ -255,7 +286,7 @@ function Show-Status {
     }
 
     # Health check
-    $healthScript = Join-Path $script:PRIMARY "..\tools\health_check.py"
+    $healthScript = Join-Path $script:PRIMARY "tools\health_check.py"
     if (Test-Path $healthScript) {
         Write-Host ""
         Write-Host "  Health Check:" -ForegroundColor White
@@ -390,6 +421,112 @@ function Sync-USB {
         robocopy $stateDst $stateSrc /MIR /XD .git /NJH /NJS /NP
     }
     Write-Host "Sincronización completa." -ForegroundColor Green
+}
+
+function Sync-Knowledge {
+    param([string[]]$RawArgs = @())
+    Detect-Source
+    $knowledgeScript = Join-Path $script:PRIMARY "tools\knowledge_sync.py"
+    if (-not (Test-Path $knowledgeScript)) {
+        Write-Host "No se encontro knowledge_sync.py en $knowledgeScript" -ForegroundColor Red
+        return
+    }
+    if (-not $RawArgs -or $RawArgs.Count -eq 0) {
+        $RawArgs = @("sync")
+    }
+    python $knowledgeScript @RawArgs
+}
+
+function Get-EngineProfile {
+    $installedManifest = Join-Path $env:ProgramFiles "BAGO\runtime_contract.json"
+    if (Test-Path $installedManifest) {
+        try {
+            $manifest = Get-Content -Raw -LiteralPath $installedManifest | ConvertFrom-Json
+            if ($manifest.PSObject.Properties.Name -contains "install_profile" -and $manifest.install_profile) {
+                return [string]$manifest.install_profile
+            }
+            if ($manifest.PSObject.Properties.Name -contains "knowledge_included") {
+                return if ($manifest.knowledge_included) { "with-knowledge" } else { "without-knowledge" }
+            }
+        } catch {}
+    }
+
+    $sourceContract = Join-Path $PSScriptRoot "docs\runtime_contract.json"
+    if (Test-Path $sourceContract) {
+        try {
+            $contract = Get-Content -Raw -LiteralPath $sourceContract | ConvertFrom-Json
+            if ($contract.PSObject.Properties.Name -contains "publication") {
+                $publication = $contract.publication
+                if ($publication.PSObject.Properties.Name -contains "default_profile" -and $publication.default_profile) {
+                    return [string]$publication.default_profile
+                }
+            }
+        } catch {}
+    }
+
+    return "with-knowledge"
+}
+
+function Refresh-Engine {
+    param([string[]]$RawArgs = @())
+
+    $profile = Get-EngineProfile
+    foreach ($arg in $RawArgs) {
+        switch ($arg.ToLowerInvariant()) {
+            "--with-knowledge" { $profile = "with-knowledge" }
+            "--without-knowledge" { $profile = "without-knowledge" }
+            "--help" {
+                Write-Host ""
+                Write-Host "  Uso: BAGO dev refresh-engine [--with-knowledge|--without-knowledge]" -ForegroundColor Yellow
+                Write-Host "  Reinstala el motor limpio y lo valida al final." -ForegroundColor DarkGray
+                Write-Host ""
+                return
+            }
+            default {
+                if ($arg) {
+                    Write-Host "  Argumento no reconocido: $arg" -ForegroundColor Red
+                    Write-Host "  Uso: BAGO dev refresh-engine [--with-knowledge|--without-knowledge]" -ForegroundColor Yellow
+                    return
+                }
+            }
+        }
+    }
+
+    $installer = Join-Path $PSScriptRoot "install.ps1"
+    if (-not (Test-Path $installer)) {
+        Write-Host "No se encontro install.ps1 en $installer" -ForegroundColor Red
+        return
+    }
+
+    $installArgs = @()
+    if ($profile -eq "without-knowledge") {
+        $installArgs += "-NoKnowledge"
+    }
+
+    Write-Host ""
+    Write-Host "  BAGO Dev · Refresh Engine" -ForegroundColor White
+    Write-Host ("  " + ("-" * 42)) -ForegroundColor DarkGray
+    Write-Host "  Perfil: $profile" -ForegroundColor Cyan
+    Write-Host "  Motor destino: $env:ProgramFiles\BAGO" -ForegroundColor Cyan
+    Write-Host ""
+
+    & $installer @installArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    $installedBago = Join-Path $env:ProgramFiles "BAGO\bago.cmd"
+    if (Test-Path $installedBago) {
+        Write-Host ""
+        Write-Host "  Validando motor instalado..." -ForegroundColor Cyan
+        & $installedBago validate
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    }
+
+    Write-Host ""
+    Write-Host "  ✓ Motor refrescado y validado" -ForegroundColor Green
 }
 
 function Contribute {
@@ -778,7 +915,30 @@ switch ($command) {
         Invoke-BagoPipeline -task ($rest -join " ")
     }
     "install" { Install-Component -component $rest[0] }
-    "sync" { $dir = if ($rest[0]) { $rest[0] } else { "auto" }; Sync-USB -direction $dir }
+    "sync" {
+        if ($rest -and $rest[0] -eq "knowledge") {
+            $knowledgeArgs = @()
+            if ($rest.Count -gt 1) {
+                $knowledgeArgs = $rest[1..($rest.Count-1)]
+            }
+            Sync-Knowledge -RawArgs $knowledgeArgs
+        } else {
+            $dir = if ($rest[0]) { $rest[0] } else { "auto" }
+            Sync-USB -direction $dir
+        }
+    }
+    "knowledge" { Sync-Knowledge -RawArgs $rest }
+    "dev" {
+        if ($rest -and $rest[0] -eq "refresh-engine") {
+            $refreshArgs = @()
+            if ($rest.Count -gt 1) {
+                $refreshArgs = $rest[1..($rest.Count-1)]
+            }
+            Refresh-Engine -RawArgs $refreshArgs
+        } else {
+            Write-Host "Uso: BAGO dev refresh-engine [--with-knowledge|--without-knowledge]" -ForegroundColor Yellow
+        }
+    }
     "contribute" { Contribute }
     "repo" {
         switch ($rest[0]) {
@@ -870,11 +1030,19 @@ switch ($command) {
         # el registro de tools BAGO.
         if ($command) {
             Detect-Source
-            $pythonLauncher = Join-Path (Split-Path $script:PRIMARY -Parent) "bago"
-            if (Test-Path $pythonLauncher) {
+            $root = Split-Path $script:PRIMARY -Parent
+            $candidate = Join-Path $root "bago"
+            $coreLauncher = Join-Path $root "bago_core\launcher.py"
+            if (Test-Path $candidate -PathType Leaf) {
                 $forwardArgs = @($command)
                 if ($rest) { $forwardArgs += $rest }
-                & python $pythonLauncher @forwardArgs
+                & python $candidate @forwardArgs
+                exit $LASTEXITCODE
+            }
+            if (Test-Path $coreLauncher -PathType Leaf) {
+                $forwardArgs = @($command)
+                if ($rest) { $forwardArgs += $rest }
+                & python $coreLauncher @forwardArgs
                 exit $LASTEXITCODE
             }
         }

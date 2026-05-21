@@ -83,6 +83,9 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/roles[/yellow]                               Ver modos del orquestador y preferencias por tarea
   [yellow]/roles tasks[/yellow]                         Ver que modelo se usa para cada tipo de tarea
   [yellow]/routing[/yellow]                             Ver y editar la matriz de enrutamiento completa
+  [yellow]/route-graph --task "<tarea>"[/yellow]         Grafo ASCII: analizador → estrategia → cadena → gate de contrato
+  [yellow]/preset list|show|apply <nombre>[/yellow]      Presets estaticos de routing/contrato
+  [yellow]/contract show|set <texto>|clear[/yellow]      Contrato de salida que BAGO debe cumplir
   [yellow]/routing add <id> provider=X model=Y keywords=K[/yellow]  Crear regla
   [yellow]/routing del <id>[/yellow]  · [yellow]/routing move <id> up|down[/yellow]    Eliminar · Reordenar
 
@@ -120,6 +123,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/memory[/yellow]     Base de conocimiento y memoria episodica
   [yellow]/auto[/yellow]       Modo autonomo y nivel de confirmaciones requeridas
   [yellow]/config[/yellow]     Configuracion global persistente
+  [yellow]/restart[/yellow]    Reiniciar BAGO y recargar runtime/modulos
   [yellow]/auth[/yellow]       Auth completa — superset de /login
 
   [dim]─── 6 · FRAMEWORK & PROYECTOS ── vista macro del sistema ─────────────[/dim]

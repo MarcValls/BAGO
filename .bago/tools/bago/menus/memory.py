@@ -5,6 +5,12 @@ from pathlib import Path
 from ..storage import _load_json
 from ..ui import _menu_action, _menu_input, _menu_select, pe, pi
 
+
+def _markdown_files(root: Path):
+    if not root.exists():
+        return []
+    return sorted(root.rglob("*.md"), key=lambda f: f.relative_to(root).as_posix())
+
 def _cmd_memory(session):
     """Memoria episodica y base de conocimiento."""
     knowledge_dir = Path(__file__).parent.parent / "knowledge"
@@ -12,7 +18,7 @@ def _cmd_memory(session):
 
     while True:
         choices = [
-            ("knowledge", f"Base de conocimiento  ({len(list(knowledge_dir.glob('*.md')))} archivos)"),
+            ("knowledge", f"Base de conocimiento  ({len(_markdown_files(knowledge_dir))} archivos)"),
             ("episodic",  "Memoria episodica  (episodic_memory.json)"),
             ("search",    "Buscar en el conocimiento"),
             ("add_note",  "Anadir nota al conocimiento"),
@@ -35,9 +41,9 @@ def _cmd_memory(session):
             _memory_add_note(knowledge_dir)
 
 def _memory_knowledge(kdir):
-    files = sorted(kdir.glob("*.md"), key=lambda f: f.name)
+    files = _markdown_files(kdir)
     if not files: pi("No hay archivos de conocimiento."); return
-    choices = [(str(f), f.name) for f in files]
+    choices = [(str(f), f.relative_to(kdir).as_posix()) for f in files]
     while True:
         sel = _menu_select("Knowledge base", f"{len(files)} archivos:", choices)
         if sel is None: break
@@ -65,14 +71,14 @@ def _memory_episodic(epis_file):
 
 def _memory_search(kdir, query):
     results = []
-    for f in kdir.glob("*.md"):
+    for f in _markdown_files(kdir):
         try:
             content = f.read_text(encoding="utf-8-sig").lower()
             if query in content:
                 # Encontrar contexto
                 idx = content.index(query)
                 snippet = content[max(0,idx-60):idx+120].replace("\n", " ")
-                results.append((f.name, snippet))
+                results.append((f.relative_to(kdir).as_posix(), snippet))
         except Exception:
             pass
     if not results:
@@ -87,6 +93,7 @@ def _memory_add_note(kdir):
     if not content: return
     slug = title.lower().replace(" ", "_").replace("/","_")[:40]
     ts   = datetime.datetime.now().strftime("%Y-%m-%d")
-    fpath = kdir / f"nota_{slug}_{ts}.md"
+    fpath = kdir / "topics" / f"note_{slug}_{ts}.md"
+    fpath.parent.mkdir(parents=True, exist_ok=True)
     fpath.write_text(f"# {title}\n\n> Fecha: {ts}\n\n{content}\n", encoding="utf-8")
     pi(f"Nota guardada: {fpath.name}")

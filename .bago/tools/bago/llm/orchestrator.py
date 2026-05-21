@@ -10,7 +10,7 @@ Integra:
 """
 
 from ..constants import COLORS
-from ..providers import detect_strategy, resolve_litellm
+from ..providers import detect_strategy, resolve_litellm, best_model_for_provider
 from ..ui import console, pi
 
 from .call import _llm_call
@@ -18,6 +18,99 @@ from .errors import _is_ctx_overflow
 from .quality import _dedup_paragraphs, _jaccard, _last_assistant, _needs_cloud_for_url, _REPEAT_THRESHOLD, _response_is_garbage
 from .routing import _cloud_escalation_for_quality, _escalate_model
 from .strategies import run_chain, run_ensemble
+from ..routing_runtime import active_settings, resolve_contract, validate_contract
+
+
+
+def _contract_candidate_targets(session) -> list[str]:
+    settings = active_settings()
+    preset = settings.get("preset", {})
+    order = [f"{session.provider}/{session.model_name}"]
+    active = [
+        p for p in session.creds.active_bago_providers()
+        if p not in getattr(session, "skip_providers", set())
+    ]
+    for prov in preset.get("provider_order", []):
+        if prov in active:
+            best = best_model_for_provider(prov, session.providers)
+            if best:
+                order.append(f"{prov}/{best[0]}")
+            else:
+                order.append(prov)
+    dedup = []
+    seen = set()
+    for item in order:
+        if item not in seen:
+            seen.add(item)
+            dedup.append(item)
+    return dedup
+
+
+def _contract_prompt(user_input: str, contract_text: str, draft: str, unmet: list[str], iteration: int, max_iter: int) -> str:
+    if not draft:
+        return (
+            f"TAREA ORIGINAL:\n{user_input}\n\n"
+            f"CONTRATO OBLIGATORIO:\n{contract_text}\n\n"
+            "Devuelve una respuesta final que cumpla estrictamente el contrato. "
+            "Si alguna parte del contrato no aplica, dilo dentro de la salida final sin romper el formato pedido."
+        )
+    unmet_block = "\n".join(f"- {u}" for u in unmet) if unmet else "- mejora claridad y ajuste"
+    return (
+        f"ITERACION {iteration}/{max_iter} DEL BUCLE DE CONTRATO.\n"
+        f"TAREA ORIGINAL:\n{user_input}\n\n"
+        f"CONTRATO OBLIGATORIO:\n{contract_text}\n\n"
+        f"BORRADOR ACTUAL:\n{draft}\n\n"
+        f"DESAJUSTES DETECTADOS:\n{unmet_block}\n\n"
+        "Reescribe la respuesta completa para que cumpla el contrato mejor que el borrador. "
+        "No expliques el proceso; devuelve solo la salida final."
+    )
+
+
+def _run_contract_loop(session, user_input: str, history_msg: str, contract_text: str) -> str | None:
+    if not getattr(session, "contract_loop_enabled", False):
+        return None
+    targets = _contract_candidate_targets(session)
+    if not targets:
+        return None
+
+    best_text = None
+    best_validation = {"ok": False, "score": 0.0, "unmet": ["sin validacion"]}
+    prev_text = ""
+    max_iter = max(1, int(getattr(session, "contract_max_iter", 3)))
+
+    for idx in range(max_iter):
+        target = targets[min(idx, len(targets) - 1)]
+        name, wire, prov = session._find_model(target)
+        if not name:
+            continue
+        lm, kw = resolve_litellm(prov, wire)
+        prompt = _contract_prompt(user_input, contract_text, prev_text, best_validation.get("unmet", []), idx + 1, max_iter)
+        msgs = session.history + [{"role": "user", "content": prompt}]
+        with console.status(f"[dim]{name} contract-loop {idx+1}/{max_iter}...[/dim]", spinner="dots"):
+            text = _llm_call(lm, kw, msgs, session=session, _provider=prov, _model=name)
+        validation = validate_contract(contract_text, text)
+        session.last_contract_report = validation
+        session.last_route = {
+            "mode": "auto" if session.autoroute else "manual",
+            "provider": prov,
+            "model": name,
+            "reason": f"contract-loop {idx+1}/{max_iter} score={validation.get('score')}",
+        }
+        prev_text = text
+        if validation.get("score", 0.0) >= best_validation.get("score", 0.0):
+            best_text = text
+            best_validation = validation
+            session.provider, session.model_name, session.wire_name = prov, name, wire
+        if validation.get("ok"):
+            session.history.append({"role": "user", "content": history_msg})
+            session.history.append({"role": "assistant", "content": text})
+            return text
+
+    if best_text is not None:
+        session.history.append({"role": "user", "content": history_msg})
+        session.history.append({"role": "assistant", "content": best_text})
+        return best_text
+    return None
 
 
 def _preemptive_cloud_escalation(session, user_input: str) -> bool:
@@ -100,6 +193,8 @@ def chat(session, user_input, *, history_input: str | None = None):
     """
     # La entrada que va a history conserva {{placeholders}} para no filtrar secretos
     history_msg = history_input if history_input is not None else user_input
+    contract_text = resolve_contract(history_msg, getattr(session, "output_contract", ""))
+
     if session.autoroute:
         # ── Paso 1: routing por keyword ───────────────────────────────────────
         switched, reason = session.auto_route(user_input)
@@ -116,6 +211,11 @@ def chat(session, user_input, *, history_input: str | None = None):
             if p not in getattr(session, "skip_providers", set())
         ]
         strategy, providers_for_strategy = detect_strategy(user_input, active)
+
+        if contract_text and getattr(session, "contract_loop_enabled", False):
+            contract_result = _run_contract_loop(session, user_input, history_msg, contract_text)
+            if contract_result is not None:
+                return contract_result
 
         if strategy == "chain" and len(providers_for_strategy) >= 2:
             console.print(f"  [dim]⛓ chain auto: {' → '.join(providers_for_strategy)}[/dim]")
@@ -232,5 +332,7 @@ def chat(session, user_input, *, history_input: str | None = None):
                     raise RuntimeError(str(e2))
 
         raise RuntimeError(str(e))
+
+
 
 

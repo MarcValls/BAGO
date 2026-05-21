@@ -1,72 +1,45 @@
-# BAGO Knowledge Base
+# BAGO Knowledge
 
-> **Directorio de conocimiento** del framework BAGO.
-> Contiene aprendizajes, patrones y referencias extraídas de sesiones reales.
->
-> **Iniciado:** 2026-05-04
-> **Framework:** BAGO v2.5-stable
-> **Mantenedor:** MAESTRO_BAGO
+Memoria operativa sincronizable del BAGO local.
 
----
+Este directorio es la capa de conocimiento que puede reflejarse 1:1 con
+`MarcValls/bago-knowledge` usando la misma estructura de archivos.
 
-## Índice de archivos
+## Layout canónico
 
-| Archivo | Contenido | Última actualización |
-|---------|-----------|----------------------|
-| `april_2026_arc.md` | Arco completo de Abril 2026 — proyectos, decisiones, lecciones | 2026-05-04 |
-| `image_generation_guide.md` | Guía T2I en macOS M1 — todos los métodos probados, Codex CLI, Diffusers | 2026-05-04 |
-| `framework_traps.md` | 13 trampas identificadas en el framework BAGO — auditoría crítica Apr 23 | 2026-05-04 |
-| `project_patterns.md` | Patrones extraídos de proyectos Abril-Mayo 2026 | 2026-05-04 |
-| `tools_reference.md` | Referencia rápida de los 126 tools en `.bago/tools/` | 2026-05-04 |
-| `windows_execution_patterns.md` | Patrones ejecución Windows: BAT auto-elevante, pwsh, UAC | 2026-05-08 |
-| `windows_audio_setup.md` | Setup studio verny: driver KK MK2, fix Ableton 11 VST scan | 2026-05-08 |
+- `manifest.json` como índice y contrato.
+- `topics/` como superficie canónica de memoria.
+- `examples/` para planes, prompts y casos reproducibles.
+- `schemas/` para validación de contratos.
+- `assets/` para diagramas ligeros y mapas.
 
----
+## Regla de trabajo
 
-## Cómo usar este directorio
+- `MD` para conocimiento humano.
+- `JSON` para contrato e índice.
+- `YAML` para planes y ejemplos.
+- `SVG` para diagramas.
 
-### Lectura rápida
-```
-README.md         ← estás aquí (índice)
-april_2026_arc.md ← contexto histórico de lo que pasó en Abril
-framework_traps.md ← CRÍTICO — leer antes de tocar el framework
-project_patterns.md ← patrones reutilizables para nuevos proyectos
-image_generation_guide.md ← guía técnica generación de imágenes
-tools_reference.md ← qué tool usar para cada problema
-```
+## Regla de compatibilidad
 
-### Política de actualización
-- Cada `W9_COSECHA` al final de sprint debe producir un `harvest_YYYY-MM.md`
-- Este README se actualiza con cada nuevo archivo añadido
-- Los archivos de este directorio son **append-only** excepto `README.md`
-- No modificar archivos pasados — crear nuevos (ej: `may_2026_arc.md`)
+Todo lo que vaya a sincronizarse con GitHub debe vivir en rutas estables y
+canónicas. El contenido legacy puede quedarse como referencia, pero la edición
+activa debe apuntar a `topics/`, `examples/`, `schemas/` y `assets/`.
 
----
+## Publicación
 
-## Convención de nombres
+El contrato de publicación de BAGO vive como conocimiento operativo en:
 
-```
-{mes}_{año}_arc.md          ← arco mensual
-{tema}_guide.md             ← guía técnica reutilizable
-{tema}_patterns.md          ← catálogo de patrones
-framework_traps.md          ← auditorías del framework (único, actualizable)
-tools_reference.md          ← referencia de tools (único, actualizable)
-harvest_{YYYY-MM}.md        ← cosecha de sesión específica
-```
+- `topics/publication-contract.md`
+- `examples/publication_profiles.yml`
 
----
+La regla es simple: el runtime base no cambia entre perfiles; solo cambia si la
+memoria sincronizable `knowledge/` se monta o no en la instalación limpia.
 
-## Estado del knowledge base
+## Motor limpio
 
-```
-Archivos:     7
-Período:      Abril 2026 — presente
-Proyectos:    PANDAMIEN, BAGO evolution, TPV, NIGHTFRAME, TEST_BAGO_03, BIANCA, STUDIO_VERNY
-Trampas:      13 identificadas (5 Alta, 6 Media, 2 Baja-Media)
-Tools ref:    126 tools catalogados
-Audio setup:  driver KK MK2 v5.0.0.57, Ableton 11 fix VST scan (2026-05-08)
-```
+El motor instalado debe poder regenerarse sin tocar el workspace de desarrollo:
 
----
-
-*Generado por BAGO MAESTRO · 2026-05-04*
+- `bago dev refresh-engine` reconstruye `C:\Program Files\BAGO`
+- el motor se valida al final del refresh
+- la fuente de verdad sigue siendo el workspace fuente, no el runtime instalado

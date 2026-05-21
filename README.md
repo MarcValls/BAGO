@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.6 · 165 CLI commands · 132 public commands
+> **Version 3.4.6** · 170 CLI commands · 137 public commands
 
-Public command contract (CI-checked): **39 core** · **80 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **44 core** · **85 experimental** · **8 dangerous** · **28 legacy**
 
 ---
 
@@ -221,7 +221,7 @@ These commands form the **stable public interface**.
 
 Usa `BAGO_LABS=1` para suprimir avisos. Ver `docs/COMMANDS.md` para la lista completa generada desde el registry.
 
-**MOTOR** — `agent` · `agent-config` · `alias-manager` · `assign` · `autonomy` · `boot` · `build-run` · `canon` · `create` · `field` · `gateway` · `llm` · `llm-node` · `lsp` · `music-saas` · `neural` · `neural-toolbox` · `safeguard` · `script-runner` · `select` · `skill` · `spiral-agent` · `toolsmith` · `workflow-navigator`
+**MOTOR** — `agent` · `agent-config` · `alias-manager` · `assign` · `autonomy` · `boot` · `build-run` · `canon` · `contract` · `create` · `field` · `gateway` · `llm` · `llm-node` · `lsp` · `music-saas` · `neural` · `neural-toolbox` · `preset` · `restart` · `route-graph` · `safeguard` · `script-runner` · `select` · `skill` · `spiral-agent` · `toolsmith` · `update` · `workflow-navigator`
 
 **CONSUMO** — `code-metrics` · `code-search` · `config-check` · `deps` · `doc-index` · `env-manager` · `find-tool` · `git-status` · `hardcode` · `inbox` · `lint-runner` · `log-viewer` · `naming` · `net-scan` · `orphan-shield` · `ping-server` · `placeholder_scan` · `preflight-check` · `repo` · `search-history` · `size-check` · `spanish` · `types`
 

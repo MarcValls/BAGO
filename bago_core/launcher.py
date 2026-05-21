@@ -27,6 +27,7 @@ Uso:
   bago sync               → sync_pack_metadata.py (regenera TREE.txt y CHECKSUMS)
   bago health             → health_score.py
   bago audit              → audit_v2.py
+  bago dev refresh-engine → reinstala el motor limpio desde el workspace
   bago workflow           → workflow_selector.py (interactivo)
   bago stale              → stale_detector.py
   bago sincerity          → sincerity_detector.py
@@ -69,6 +70,9 @@ import importlib.util
 import json, os, shutil, subprocess, sys, time
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+
 # Windows: forzar UTF-8 para emojis y caracteres especiales en terminal
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     try:
@@ -95,7 +99,14 @@ if BAGO_ROOT is None:
 TOOLS     = BAGO_ROOT / "tools"
 CORE      = BAGO_ROOT / "core"
 
-os.environ.setdefault("BAGO_USER_HOME", str(BAGO_ROOT / "user"))
+def _default_user_home() -> Path:
+    if sys.platform == "win32":
+        program_data = os.environ.get("ProgramData")
+        if program_data:
+            return Path(program_data) / "BAGO" / "user"
+    return BAGO_ROOT / "user"
+
+os.environ.setdefault("BAGO_USER_HOME", str(_default_user_home()))
 
 _USE_COLOR = sys.stdout.isatty()
 def GREEN(t):  return f"\033[1;32m{t}\033[0m" if _USE_COLOR else t
@@ -305,6 +316,20 @@ def _get_cmd_risk(cmd: str) -> str:
         if entry:
             return getattr(entry, "risk", "safe")
     return "safe"
+
+
+def _requires_registry_safety(cmd: str) -> bool:
+    """True when a command must not bypass registry preflight/risk handling."""
+    mod = _load_registry_mod()
+    if not mod:
+        return False
+    entry = getattr(mod, "REGISTRY", {}).get(cmd)
+    if not entry:
+        return False
+    return (
+        getattr(entry, "risk", "safe") in ("mutating", "dangerous")
+        or getattr(entry, "stability", "core") == "dangerous"
+    )
 
 
 def _check_risk(cmd: str, args: list) -> None:
@@ -656,6 +681,101 @@ def _cmd_npath_dispatch(rest: list) -> None:
     subprocess.run([_sys.executable, str(npath)] + rest, cwd=str(BAGO_ROOT.parent))
 
 
+def _resolve_engine_profile() -> str:
+    """Return the publication profile to preserve when refreshing the engine."""
+    candidates: list[Path] = []
+    program_files = os.environ.get("ProgramFiles")
+    if program_files:
+        candidates.append(Path(program_files) / "BAGO" / "runtime_contract.json")
+    candidates.append(BAGO_ROOT.parent / "runtime_contract.json")
+    candidates.append(BAGO_ROOT.parent / "docs" / "runtime_contract.json")
+
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        profile = data.get("install_profile")
+        if profile:
+            return str(profile)
+        if "knowledge_included" in data:
+            return "with-knowledge" if data["knowledge_included"] else "without-knowledge"
+        publication = data.get("publication")
+        if isinstance(publication, dict):
+            default = publication.get("default_profile")
+            if default:
+                return str(default)
+    return "with-knowledge"
+
+
+def _cmd_dev(rest: list) -> None:
+    """bago dev refresh-engine [--with-knowledge|--without-knowledge]."""
+    if not rest or rest[0] != "refresh-engine":
+        print("  Uso: bago dev refresh-engine [--with-knowledge|--without-knowledge]")
+        return
+
+    if sys.platform != "win32":
+        print("  refresh-engine solo está soportado en Windows.")
+        return
+
+    profile = _resolve_engine_profile()
+    for arg in rest[1:]:
+        low = str(arg).lower()
+        if low == "--with-knowledge":
+            profile = "with-knowledge"
+        elif low == "--without-knowledge":
+            profile = "without-knowledge"
+        elif low in ("-h", "--help"):
+            print("  Uso: bago dev refresh-engine [--with-knowledge|--without-knowledge]")
+            print("  Reinstala el motor limpio y lo valida al final.")
+            return
+        else:
+            print(f"  Argumento no reconocido: {arg}")
+            print("  Uso: bago dev refresh-engine [--with-knowledge|--without-knowledge]")
+            return
+
+    installer = BAGO_ROOT.parent / "install.ps1"
+    if not installer.exists():
+        print(f"  ❌ install.ps1 no encontrado en {installer}")
+        return
+
+    powershell = shutil.which("powershell") or shutil.which("pwsh")
+    if not powershell:
+        print("  ❌ No se encontró PowerShell para ejecutar install.ps1")
+        return
+
+    install_cmd = [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(installer)]
+    if profile == "without-knowledge":
+        install_cmd.append("-NoKnowledge")
+
+    print()
+    print("  BAGO Dev · Refresh Engine")
+    print("  " + "-" * 42)
+    print(f"  Perfil: {profile}")
+    print(f"  Motor destino: {BAGO_ROOT.parent}")
+    print()
+
+    result = subprocess.run(install_cmd, cwd=str(BAGO_ROOT.parent))
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+    installed_launcher = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "BAGO" / "bago.ps1"
+    if installed_launcher.exists():
+        print()
+        print("  Validando motor instalado...")
+        validation = subprocess.run(
+            [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(installed_launcher), "validate"],
+            cwd=str(BAGO_ROOT.parent),
+        )
+        if validation.returncode != 0:
+            sys.exit(validation.returncode)
+
+    print()
+    print("  ✓ Motor refrescado y validado")
+
+
 # ── Extensiones Copilot CLI ────────────────────────────────────────────────────
 
 def _install_extensions(bago_root=None, silent=False):
@@ -941,6 +1061,18 @@ def main():
 
     cmd = args[0].lower()
     rest = args[1:]
+    preflight_only = "--preflight" in rest
+    skip_preflight = "--skip-preflight" in rest
+    clean_rest = [a for a in rest if a not in ("--preflight", "--skip-preflight")]
+
+    if cmd in COMMANDS and (preflight_only or _requires_registry_safety(cmd)):
+        _dispatch(
+            cmd,
+            clean_rest,
+            preflight_only=preflight_only,
+            skip_preflight=skip_preflight,
+        )
+        return
 
     # Only run auto-sync for commands that need fresh context.
     # Avoids writing repo_context.json (git-tracked generated_artifact) on
@@ -972,6 +1104,8 @@ def main():
         _cmd_heal_paths(rest)
     elif cmd == "npath":
         _cmd_npath_dispatch(rest)
+    elif cmd == "dev":
+        _cmd_dev(rest)
     elif cmd == "wizard":
         subprocess.run(
             [sys.executable, str(TOOLS / "bago_wizard.py")] + rest,
@@ -1112,9 +1246,6 @@ def main():
         else:
             print("  Uso: bago bot telegram | bago bot utopia")
     elif cmd in COMMANDS:
-        preflight_only  = "--preflight" in rest
-        skip_preflight  = "--skip-preflight" in rest
-        clean_rest = [a for a in rest if a not in ("--preflight", "--skip-preflight")]
         _dispatch(cmd, clean_rest, preflight_only=preflight_only, skip_preflight=skip_preflight)
     elif cmd in ("help", "--help", "-h"):
         subprocess.run(

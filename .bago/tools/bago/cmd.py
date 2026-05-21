@@ -30,6 +30,37 @@ from .menus import (
     _cmd_workspaces,
 )
 from .ui import console, pe, pi
+from .routing_runtime import apply_preset, clear_contract, load_presets, set_contract
+
+
+def _paths() -> tuple[Path, Path, Path]:
+    here = Path(__file__).resolve()
+    tools_dir = here.parents[1]
+    bago_dir = here.parents[2]
+    root_dir = here.parents[3]
+    return root_dir, bago_dir, tools_dir
+
+
+def _launcher_args(command_line: str) -> list[str]:
+    import shlex
+    import sys as _sys
+
+    root_dir, _, _ = _paths()
+    py_launcher = root_dir / "bago"
+    core_launcher = root_dir / "bago_core" / "launcher.py"
+    args = shlex.split(command_line)
+    if py_launcher.exists():
+        return [_sys.executable, str(py_launcher)] + args
+    if core_launcher.exists():
+        return [_sys.executable, str(core_launcher)] + args
+    cmd_launcher = root_dir / "bago.cmd"
+    return [str(cmd_launcher)] + args
+
+
+def _registry_path() -> Path:
+    _, _, tools_dir = _paths()
+    return tools_dir / "tool_registry.py"
+
 
 def cmd(line, session):
     parts = line.strip().split(None, 1)
@@ -611,6 +642,59 @@ def cmd(line, session):
     elif v == "/memory":
         _cmd_memory(session)
 
+    elif v == "/restart":
+        import subprocess, sys as _sys2
+        bago_chat = Path(__file__).resolve().parents[2] / "bago_chat.py"
+        subprocess.Popen([_sys2.executable, str(bago_chat)], cwd=str(Path(__file__).resolve().parents[3]), creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _sys2.platform == "win32" else 0)
+        pi("Reiniciando BAGO...")
+        return False
+
+    elif v == "/contract":
+        sub_parts = a.split(None, 1) if a else []
+        sub = sub_parts[0].lower() if sub_parts else "show"
+        sub_arg = sub_parts[1] if len(sub_parts) > 1 else ""
+        if sub in ("show", "status"):
+            text = getattr(session, "output_contract", "") or "(sin contrato activo)"
+            console.print(Panel(text, title="Contrato activo", border_style="cyan", expand=False))
+        elif sub in ("set", "usar"):
+            if not sub_arg:
+                pe("Uso: /contract set <texto del contrato>")
+            else:
+                set_contract(sub_arg, source="explicit")
+                session.refresh_runtime()
+                pi("Contrato activo actualizado.")
+        elif sub in ("clear", "off"):
+            clear_contract()
+            session.refresh_runtime()
+            pi("Contrato activo eliminado.")
+        else:
+            pe("Uso: /contract show | /contract set <texto> | /contract clear")
+
+    elif v == "/preset":
+        sub_parts = a.split(None, 1) if a else []
+        sub = sub_parts[0].lower() if sub_parts else "show"
+        sub_arg = sub_parts[1].strip() if len(sub_parts) > 1 else ""
+        presets = load_presets()
+        if sub in ("show", "status"):
+            current = getattr(session, "routing_preset", "balanced")
+            info = presets.get(current, {})
+            console.print(Panel(f"Preset: {current}\n\n{info.get('description', '')}", title="Preset activo", border_style="cyan", expand=False))
+        elif sub == "list":
+            for name, info in presets.items():
+                console.print(f"  [cyan]{name}[/cyan]  [dim]{info.get('description', '')}[/dim]")
+        elif sub in ("apply", "use"):
+            if not sub_arg:
+                pe("Uso: /preset apply <nombre>")
+            else:
+                try:
+                    apply_preset(sub_arg)
+                except KeyError:
+                    pe(f"Preset desconocido: {sub_arg}")
+                else:
+                    session.refresh_runtime()
+                    pi(f"Preset activo: {sub_arg}")
+        else:
+            pe("Uso: /preset show | /preset list | /preset apply <nombre>")
     # ── Configuracion global ──────────────────────────────────────────────────
     elif v == "/config":
         _cmd_config(session)
@@ -629,15 +713,14 @@ def cmd(line, session):
 
     # Comandos del sistema BAGO (desde menu / con !)
     elif v.startswith("!"):
-        import subprocess, sys as _sys2, shlex
+        import subprocess
         sys_cmd = v[1:] + (" " + a if a else "")
         sys_cmd_norm = sys_cmd.replace("git-dirty", "git dirty")
         console.print(f"  [dim]ejecutando: bago {sys_cmd_norm}[/dim]")
-        bago_root = Path(__file__).resolve().parents[3]
         try:
             proc = subprocess.run(
-                [_sys2.executable, str(bago_root / "bago")] + shlex.split(sys_cmd_norm),
-                capture_output=True, text=True, cwd=str(bago_root),
+                _launcher_args(sys_cmd_norm),
+                capture_output=True, text=True, cwd=str(_paths()[0]),
                 timeout=30, encoding="utf-8", errors="replace",
             )
             if proc.stdout:
@@ -652,8 +735,37 @@ def cmd(line, session):
             pe(f"Error ejecutando bago {sys_cmd_norm}: {exc}")
 
     else:
+        if v.startswith("/"):
+            reg_cmd = v[1:]
+            try:
+                import importlib.util, subprocess, sys as _sys2
+                reg_path = _registry_path()
+                if reg_path.exists():
+                    spec = importlib.util.spec_from_file_location("_bago_repl_registry", str(reg_path))
+                    mod = importlib.util.module_from_spec(spec)
+                    _sys2.modules[spec.name] = mod
+                    spec.loader.exec_module(mod)
+                    registry = getattr(mod, "REGISTRY", {})
+                    if reg_cmd in registry:
+                        sys_cmd_norm = reg_cmd + (" " + a if a else "")
+                        console.print(f"  [dim]ejecutando: bago {sys_cmd_norm}[/dim]")
+                        proc = subprocess.run(
+                            _launcher_args(sys_cmd_norm),
+                            capture_output=True, text=True, cwd=str(_paths()[0]),
+                            timeout=30, encoding="utf-8", errors="replace",
+                        )
+                        if proc.stdout:
+                            console.print(proc.stdout)
+                        if proc.stderr:
+                            console.print(f"[red]{proc.stderr}[/red]")
+                        if proc.returncode != 0:
+                            console.print(f"[red]rc={proc.returncode}[/red]")
+                        return True
+            except Exception as exc:
+                pe(f"Error ejecutando {v}: {exc}")
+                return True
         # ── Atajos de agente (/code /debug /arch /sprint /refactor /git …) ────
-        _agents_file = Path(__file__).resolve().parents[3] / "state" / "agents_registry.json"
+        _agents_file = _paths()[1] / "state" / "agents_registry.json"
         try:
             _agents_data = json.loads(_agents_file.read_text(encoding="utf-8-sig"))
             _agent_by_shortcut = {}
@@ -690,5 +802,7 @@ def cmd(line, session):
         else:
             pe(f"Desconocido: {v}  —  /help")
     return True
+
+
 
 

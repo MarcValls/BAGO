@@ -1,12 +1,11 @@
 {
-  "cycles": 607,
-  "n_agents_active": 10,
-  "global_harmony": 0.1,
-  "gate_harmony": 0.269,
+  "cycles": 627,
+  "n_agents_active": 9,
+  "global_harmony": 0.111,
+  "gate_harmony": 0.268,
   "last_validates": {
     "agent_tools": "WARN",
     "agent_tests": "GO",
-    "agent_docs": "WARN",
     "agent_ops": "WARN",
     "agent_coder": "WARN",
     "agent_planner": "WARN",
@@ -15,5 +14,5 @@
     "agent_refactor": "WARN",
     "agent_git": "WARN"
   },
-  "updated_at": "2026-05-20T13:17:51.265840+00:00"
+  "updated_at": "2026-05-21T18:52:39.863170+00:00"
 }

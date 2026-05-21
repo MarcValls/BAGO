@@ -295,23 +295,22 @@ def _menu_pick(title: str, text: str, values: list):
     tabs = []
     current_tab = []
     tab_labels = []
+    current_label = None
     for key, label in values:
         if key is None:
-            # Separador = delimitador de pestaña
-            if current_tab:
-                # Usar el texto del separador como título de pestaña
-                tab_title = _strip_rich(label).strip("- ─")
-                if not tab_title:
-                    tab_title = f"Grupo {len(tabs)+1}"
-                tab_labels.append(tab_title)
+            next_label = _strip_rich(label).strip("- ─")
+            if not next_label:
+                next_label = f"Grupo {len(tabs)+1}"
+            if current_label is not None and current_tab:
+                tab_labels.append(current_label)
                 tabs.append(current_tab)
                 current_tab = []
+            current_label = next_label
         else:
             current_tab.append((key, label))
     if current_tab:
-        tab_labels.append(f"Grupo {len(tabs)+1}")
+        tab_labels.append(current_label or f"Grupo {len(tabs)+1}")
         tabs.append(current_tab)
-
     # Si solo hay 1 tab o pocos items, comportamiento clásico
     use_tabs = len(tabs) > 1 and sum(len(t) for t in tabs) > 15
 

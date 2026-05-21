@@ -18,7 +18,10 @@ BAGO_COMMANDS: dict[str, str] = {
     "/switch":      "[Routing] Cambiar modelo activo: /switch <modelo|provider>",
     "/autoroute":   "[Routing] Auto-routing on/off",
     "/routing":     "[Routing] Matriz de enrutamiento — ver y editar reglas",
+    "/route-graph": "[Routing] Grafo ASCII del routing, modelos candidatos y gate de contrato",
     "/roles":       "[Routing] Roles del orquestador — definir comportamiento",
+    "/preset":      "[Routing] Presets estaticos del runtime: list | show | apply",
+    "/contract":    "[Routing] Contrato activo de salida: show | set | clear",
     # -- Agentes & Skills
     "/new":         "[Agentes] Crear artefacto — wizard asistido por LM",
     "/agents":      "[Agentes] Ver / crear / editar / activar agentes",
@@ -39,6 +42,7 @@ BAGO_COMMANDS: dict[str, str] = {
     "/sync":        "[Sesion] Sincronizar GitHub/GitLab/Codeberg/USB + snapshot nube",
     "/memory":      "[Sesion] Memoria y conocimiento",
     "/config":      "[Sesion] Configuracion global persistente",
+    "/restart":     "[Sesion] Reiniciar BAGO y recargar runtime/modulos",
     # -- Workspace & Proyectos
     "/framework":   "[Workspace] Vista evolutiva del framework BAGO",
     "/workspaces":  "[Workspace] Gestion de workspaces",
@@ -92,6 +96,25 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
         ("del",      "Eliminar regla"),
         ("move",     "Reordenar prioridad: move <id> up|down"),
         ("fallback", "Cambiar fallback: fallback <provider> <model>"),
+    ],
+    "/route-graph": [
+        ("--list-presets", "Listar presets del grafo/routing"),
+        ("--task ", "Renderizar grafo para una tarea concreta"),
+        ("--json", "Emitir el grafo y decision en JSON"),
+        ("--preset contract-strict", "Usar preset contract-strict"),
+    ],
+    "/preset": [
+        ("list", "Listar presets disponibles"),
+        ("show", "Ver preset activo"),
+        ("apply balanced", "Activar preset balanced"),
+        ("apply local-first", "Activar preset local-first"),
+        ("apply review-heavy", "Activar preset review-heavy"),
+        ("apply contract-strict", "Activar preset contract-strict"),
+    ],
+    "/contract": [
+        ("show", "Ver contrato activo"),
+        ("set ", "Fijar contrato explicito"),
+        ("clear", "Eliminar contrato activo"),
     ],
     "/session": [
         ("temporal", "Activar modo sesión temporal (no escribe en disco)"),
@@ -173,6 +196,7 @@ _ICONS: dict[str, str] = {
     "/agents": "~", "/skills": "~", "/roles": "~", "/routing": "~", "/new": "+",
     "/wizard": "+", "/fabrica": "+",
     "/session": "=", "/auto": "~", "/mode": "~", "/generative": "~", "/gen": "~", "/sync": ">>",
+    "/route-graph": "=", "/preset": "=", "/contract": "=", "/restart": "x",
     "/memory": "~", "/config": "=", "/framework": "=", "/workspaces": "=", "/projects": "=",
     "/status": "=", "/save": "=", "/clear": "x", "/help": "?", "/exit": "x",
     "/scan": ">>", "/plan": "~", "/brainstorm": "~", "/tumba": "x",

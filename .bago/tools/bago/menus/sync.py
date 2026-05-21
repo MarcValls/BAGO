@@ -3,11 +3,44 @@ import datetime
 import json
 import shutil
 import subprocess as sp
+import sys
 import zipfile
 from pathlib import Path
 
 from ..constants import BAGO_DIR, BAGO_REPO_ROOT, BAGO_SYSTEM, SYNC_REMOTES_FILE
 from ..ui import console, _menu_input, _menu_select, pe, pi
+
+
+def _mirror_tree(src: Path, dst: Path) -> int:
+    """Copy a directory tree preserving relative structure."""
+    copied = 0
+    if not src.exists():
+        return copied
+    for item in src.rglob("*"):
+        rel = item.relative_to(src)
+        target = dst / rel
+        if item.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(item, target)
+        copied += 1
+    return copied
+
+
+def _sync_knowledge(action: str = "sync") -> None:
+    """Sync the canonical knowledge tree with the local bago-knowledge repo."""
+    script = BAGO_DIR / "tools" / "knowledge_sync.py"
+    if not script.exists():
+        pe(f"No se encontro knowledge_sync.py en {script}")
+        return
+    r = sp.run([sys.executable, str(script), action], capture_output=True, text=True)
+    out = (r.stdout or "").strip()
+    err = (r.stderr or "").strip()
+    if r.returncode == 0:
+        pi(out or f"Knowledge sync OK ({action})")
+    else:
+        pe(err or out or f"knowledge sync fallo con codigo {r.returncode}")
 
 # ── Gestión de repositorios remotos ────────────────────────────────────────────
 
@@ -601,13 +634,8 @@ def _sync_usb():
     dst_state     = usb / ".bago" / "state"
 
     synced = 0
-    for src, dst in [(src_knowledge, dst_knowledge), (src_state, dst_state)]:
-        if src.exists():
-            dst.mkdir(parents=True, exist_ok=True)
-            for f in src.glob("*"):
-                if f.is_file():
-                    shutil.copy2(f, dst / f.name)
-                    synced += 1
+    synced += _mirror_tree(src_knowledge, dst_knowledge)
+    synced += _mirror_tree(src_state, dst_state)
 
     pi(f"USB sync OK: {synced} archivos copiados a {usb}")
 
@@ -625,6 +653,7 @@ def _cmd_sync(session):
         )
         choices = [
             ("sync_git",     f"Sincronizar con repositorios  ({repo_label})"),
+            ("sync_knowledge", "Sincronizar knowledge con repo local"),
             ("sync_usb",     "Sincronizar con USB  (mirror knowledge + state)"),
             ("sync_both",    "Sincronizar con repositorios Y USB"),
             ("manage_repos", "Gestionar repositorios  (GitHub / GitLab / Codeberg / custom)"),
@@ -638,6 +667,9 @@ def _cmd_sync(session):
 
         if sel in ("sync_git", "sync_both"):
             _sync_git(session)
+
+        if sel == "sync_knowledge":
+            _sync_knowledge("sync")
 
         if sel in ("sync_usb", "sync_both"):
             _sync_usb()

@@ -11,7 +11,12 @@ Reglas de renderizado multiplataforma:
   · Ordenado por frecuencia de uso dentro de cada grupo
 """
 
+import sys
+from pathlib import Path
 from ..ui import _menu_pick
+
+
+
 
 # (key, label)  ─  key=None → separador visual (no navegable)
 _ENTRIES = [
@@ -27,7 +32,10 @@ _ENTRIES = [
     ("/switch",     "  Cambiar modelo activo"),
     ("/autoroute",  "  Auto-routing ON/OFF"),
     ("/routing",    "  Matriz de enrutamiento  -- ver y editar reglas"),
+    ("/route-graph --task \"analizar routing actual\"", "  Grafo de routing  -- nodos, cadena y gate de contrato"),
     ("/roles",      "  Roles del orquestador  -- definir comportamiento"),
+    ("/preset list","  Presets estaticos  -- balanced / local-first / review-heavy / contract-strict"),
+    ("/contract show","  Contrato de salida  -- ver el contrato activo"),
 
     # ── 3 · Agentes & Skills ─────────────────────────────────────────
     (None,          "  -- Agentes & Skills ---------------------------"),
@@ -68,6 +76,9 @@ _ENTRIES = [
     # ── 9 · Utilidades ───────────────────────────────────────────────
         # -- 10 . Sistema BAGO (v3.5) ----------------------------------
     (None,          "  -- Sistema BAGO -------------------------------"),
+    ("/restart",    "  Reiniciar BAGO  -- recargar runtime y modulos"),
+    ("!update",     "  update  -- buscar versiones nuevas y reparar entorno"),
+    ("__all_cmds__","  > Catalogo completo de comandos..."),
     ("!validate",   "  validate  -- manifest + state + pack"),
     ("!health",     "  health  -- salud del sistema"),
     ("!audit",      "  audit  -- auditoria de contratos"),
@@ -101,18 +112,18 @@ def _all_cmds_menu(session) -> str | None:
             sys.path.insert(0, str(reg_path.parent))
             spec.loader.exec_module(mod)
             registry = getattr(mod, "REGISTRY", {})
-            stabs = {"core": [], "dangerous": [], "experimental": [], "legacy": [], "internal": []}
+            stabs = {"core": [], "dangerous": [], "experimental": [], "legacy": [], "internal": [], "unknown": []}
             for name, entry in sorted(registry.items()):
                 stab = getattr(entry, "stability", "unknown")
                 stabs.setdefault(stab, []).append(entry)
-            for stab in ("core", "dangerous", "experimental", "legacy", "internal"):
+            for stab in ("core", "dangerous", "experimental", "legacy", "internal", "unknown"):
                 if not stabs.get(stab):
                     continue
                 entries.append((None, f"  -- {stab.upper()} ({len(stabs[stab])}) ---"))
                 for e in sorted(stabs[stab], key=lambda x: x.cmd):
                     desc = (getattr(e, "description", "") or "")[:45]
                     label = f"  /{e.cmd}  -- {desc}" if desc else f"  /{e.cmd}"
-                    entries.append((f"/{e.cmd}", label))
+                    entries.append((f"!{e.cmd}", label))
         except Exception:
             pass
     chosen = _menu_pick(
@@ -143,6 +154,9 @@ def _cmd_main_menu(session) -> str | None:
                 return sub
             continue
         return selected
+
+
+
 
 
 

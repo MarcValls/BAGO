@@ -1,305 +1,5 @@
 [
   {
-    "cycle": 420,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:11:22.108470+00:00"
-  },
-  {
-    "cycle": 421,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:11:57.270135+00:00"
-  },
-  {
-    "cycle": 422,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:11:58.795999+00:00"
-  },
-  {
-    "cycle": 423,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:00.142487+00:00"
-  },
-  {
-    "cycle": 424,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:01.679123+00:00"
-  },
-  {
-    "cycle": 425,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:03.322405+00:00"
-  },
-  {
-    "cycle": 426,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:15.012971+00:00"
-  },
-  {
-    "cycle": 427,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:16.532320+00:00"
-  },
-  {
-    "cycle": 428,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:17.908037+00:00"
-  },
-  {
-    "cycle": 429,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:19.220369+00:00"
-  },
-  {
-    "cycle": 430,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:20.609145+00:00"
-  },
-  {
-    "cycle": 431,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:46.569739+00:00"
-  },
-  {
-    "cycle": 432,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:48.053899+00:00"
-  },
-  {
-    "cycle": 433,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:49.736079+00:00"
-  },
-  {
-    "cycle": 434,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:51.399335+00:00"
-  },
-  {
-    "cycle": 435,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:12:53.001156+00:00"
-  },
-  {
-    "cycle": 436,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:13:05.574423+00:00"
-  },
-  {
-    "cycle": 437,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:13:06.907927+00:00"
-  },
-  {
-    "cycle": 438,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:13:08.304416+00:00"
-  },
-  {
-    "cycle": 439,
-    "radius_gained": 0.0,
-    "validate": "WARN",
-    "fingerprint": [
-      "agent:agent_debugger",
-      "validate:WARN",
-      "phase:1",
-      "category:debugging",
-      "skill:debugger",
-      "validate:WARN",
-      "category:debugging"
-    ],
-    "timestamp": "2026-05-20T13:13:08.350727+00:00"
-  },
-  {
     "cycle": 440,
     "radius_gained": 0.0,
     "validate": "WARN",
@@ -748,5 +448,305 @@
       "category:debugging"
     ],
     "timestamp": "2026-05-20T13:17:51.195803+00:00"
+  },
+  {
+    "cycle": 470,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:18:34.519869+00:00"
+  },
+  {
+    "cycle": 471,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:18:35.911014+00:00"
+  },
+  {
+    "cycle": 472,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:18:37.300585+00:00"
+  },
+  {
+    "cycle": 473,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:18:38.707314+00:00"
+  },
+  {
+    "cycle": 474,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:18:40.126232+00:00"
+  },
+  {
+    "cycle": 475,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:24:34.565161+00:00"
+  },
+  {
+    "cycle": 476,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:24:35.949004+00:00"
+  },
+  {
+    "cycle": 477,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:24:37.348415+00:00"
+  },
+  {
+    "cycle": 478,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:24:38.752060+00:00"
+  },
+  {
+    "cycle": 479,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:24:40.152077+00:00"
+  },
+  {
+    "cycle": 480,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:27:55.612500+00:00"
+  },
+  {
+    "cycle": 481,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:27:57.024484+00:00"
+  },
+  {
+    "cycle": 482,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:27:58.394739+00:00"
+  },
+  {
+    "cycle": 483,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:27:59.822921+00:00"
+  },
+  {
+    "cycle": 484,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T17:28:01.214483+00:00"
+  },
+  {
+    "cycle": 485,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T18:52:34.160920+00:00"
+  },
+  {
+    "cycle": 486,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T18:52:35.572640+00:00"
+  },
+  {
+    "cycle": 487,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T18:52:36.958064+00:00"
+  },
+  {
+    "cycle": 488,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T18:52:38.378074+00:00"
+  },
+  {
+    "cycle": 489,
+    "radius_gained": 0.0,
+    "validate": "WARN",
+    "fingerprint": [
+      "agent:agent_debugger",
+      "validate:WARN",
+      "phase:1",
+      "category:debugging",
+      "skill:debugger",
+      "validate:WARN",
+      "category:debugging"
+    ],
+    "timestamp": "2026-05-21T18:52:39.771701+00:00"
   }
 ]

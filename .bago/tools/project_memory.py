@@ -30,11 +30,149 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 FRAMEWORK_ROOT  = Path(__file__).resolve().parents[2]   # bago_core
 FRAMEWORK_STATE = FRAMEWORK_ROOT / ".bago" / "state"
 FRAMEWORK_KB    = FRAMEWORK_ROOT / ".bago" / "knowledge"
+KNOWLEDGE_TOPICS = FRAMEWORK_KB / "topics"
+KNOWLEDGE_EXAMPLES = FRAMEWORK_KB / "examples"
+KNOWLEDGE_SCHEMAS = FRAMEWORK_KB / "schemas"
+KNOWLEDGE_ASSETS = FRAMEWORK_KB / "assets"
 GLOBAL_STATE    = FRAMEWORK_STATE / "global_state.json"
-PATTERNS_FILE   = FRAMEWORK_KB / "project_patterns.md"
+PATTERNS_FILE   = KNOWLEDGE_TOPICS / "project-patterns.md"
+LEGACY_PATTERNS_FILE = FRAMEWORK_KB / "project_patterns.md"
+
+
+def _seed_knowledge_layout(kdir: Path) -> None:
+    """Create the syncable knowledge layout if it is missing."""
+    for subdir in ("topics", "examples", "schemas", "assets"):
+        (kdir / subdir).mkdir(parents=True, exist_ok=True)
+
+    manifest = kdir / "manifest.json"
+    if not manifest.exists():
+        manifest.write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "repo": "MarcValls/bago-knowledge",
+                    "purpose": "Memoria local sincronizable del proyecto BAGO.",
+                    "policy": {
+                        "source_of_truth": [
+                            "README.md",
+                            "manifest.json",
+                            "topics/index.md"
+                        ],
+                        "canonical_formats": ["md", "json", "yml", "yaml", "svg"],
+                        "binary_policy": "SVG first; binarios solo si aportan evidencia visual."
+                    },
+                    "layout": {
+                        "topics": "topics/",
+                        "examples": "examples/",
+                        "schemas": "schemas/",
+                        "assets": "assets/",
+                    },
+                    "topics": [
+                        {"id": "image-generation", "path": "topics/image-generation.md", "status": "stable"},
+                        {"id": "transposition", "path": "topics/transposition.md", "status": "stable"},
+                        {"id": "knowledge-curation", "path": "topics/knowledge-curation.md", "status": "stable"},
+                        {"id": "release-gates", "path": "topics/release-gates.md", "status": "stable"},
+                        {"id": "project-patterns", "path": "topics/project-patterns.md", "status": "stable"},
+                        {"id": "learned-lessons", "path": "topics/learned-lessons.md", "status": "stable"},
+                        {"id": "sync-protocol", "path": "topics/sync-protocol.md", "status": "stable"},
+                    ],
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+    readme = kdir / "README.md"
+    if not readme.exists():
+        readme.write_text(
+            "# BAGO Knowledge\n\n"
+            "Memoria operativa sincronizable con `MarcValls/bago-knowledge`.\n\n"
+            "- `topics/` para conocimiento canónico.\n"
+            "- `examples/` para planes y casos reproducibles.\n"
+            "- `schemas/` para validar el contrato.\n"
+            "- `assets/` para diagramas y mapas ligeros.\n\n",
+            encoding="utf-8",
+        )
+
+    topics_index = kdir / "topics" / "index.md"
+    if not topics_index.exists():
+        topics_index.write_text(
+            "# Knowledge Index\n\n"
+            "Índice canónico del conocimiento local sincronizable.\n\n"
+            "- `image-generation`\n"
+            "- `transposition`\n"
+            "- `knowledge-curation`\n"
+            "- `release-gates`\n"
+            "- `project-patterns`\n"
+            "- `learned-lessons`\n"
+            "- `sync-protocol`\n",
+            encoding="utf-8",
+        )
+
+    topic_templates = {
+        "image-generation.md": "# Generación de imágenes\n\n",
+        "transposition.md": "# Transposición musical\n\n",
+        "knowledge-curation.md": "# Curación de conocimiento\n\n",
+        "release-gates.md": "# Release gates\n\n",
+        "project-patterns.md": "# Project patterns\n\n",
+        "learned-lessons.md": "# Learned lessons\n\n",
+        "sync-protocol.md": "# Sync protocol\n\n",
+    }
+    for name, header in topic_templates.items():
+        fpath = kdir / "topics" / name
+        if not fpath.exists():
+            fpath.write_text(
+                f"{header}\n"
+                "_Plantilla canónica del knowledge syncable. Reemplázala con contenido real._\n",
+                encoding="utf-8",
+            )
+
+    example_files = {
+        "knowledge-sync.yml": "sync:\n  mode: path-mirror\n  source: .bago/knowledge\n  target: MarcValls/bago-knowledge\n",
+    }
+    for name, content in example_files.items():
+        fpath = kdir / "examples" / name
+        if not fpath.exists():
+            fpath.write_text(content, encoding="utf-8")
+
+    schema_file = kdir / "schemas" / "manifest.schema.json"
+    if not schema_file.exists():
+        schema_file.write_text(
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "type": "object",
+                    "required": ["schema", "repo", "purpose", "policy"],
+                    "properties": {
+                        "schema": {"type": "integer"},
+                        "repo": {"type": "string"},
+                        "purpose": {"type": "string"},
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    asset_file = kdir / "assets" / "knowledge-map.svg"
+    if not asset_file.exists():
+        asset_file.write_text(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='180'>"
+            "<rect width='100%' height='100%' fill='#111'/>"
+            "<text x='16' y='48' fill='#fff' font-size='18'>BAGO Knowledge</text>"
+            "<text x='16' y='78' fill='#9cf' font-size='12'>topics / examples / schemas / assets</text>"
+            "</svg>",
+            encoding="utf-8",
+        )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,7 +240,7 @@ def cmd_project_init(args: list[str]) -> None:
 
     # Crear estructura
     (bago_dir / "state" / "sessions").mkdir(parents=True, exist_ok=True)
-    (bago_dir / "knowledge").mkdir(parents=True, exist_ok=True)
+    _seed_knowledge_layout(bago_dir / "knowledge")
 
     # pack.json — config del proyecto
     pack = {
@@ -150,7 +288,11 @@ def cmd_project_init(args: list[str]) -> None:
     print(f"    state/sessions/    ← historial de sesiones (local)")
     print(f"    state/learnings.md ← aprendizajes para promover")
     print(f"    state/tasks.json   ← tareas del proyecto")
-    print(f"    knowledge/         ← conocimiento específico del proyecto")
+    print(f"    knowledge/         ← memoria sincronizable del proyecto")
+    print(f"      topics/          ← conocimiento canónico")
+    print(f"      examples/        ← ejemplos y planes")
+    print(f"      schemas/         ← validación")
+    print(f"      assets/          ← diagramas ligeros")
     print()
     print("  Siguiente paso: `bago project-link` para redirigir sesiones aquí.")
 
@@ -244,7 +386,7 @@ def cmd_project_state(args: list[str]) -> None:
         learnings = [l for l in text.splitlines() if l.startswith("- ")]
 
     kb_dir   = project_root / ".bago" / "knowledge"
-    kb_files = list(kb_dir.glob("*.md")) if kb_dir.exists() else []
+    kb_files = list(kb_dir.rglob("*.md")) if kb_dir.exists() else []
 
     sep = "─" * 48
     print(f"\n🗂  Proyecto activo: {cp['name']}")
@@ -295,14 +437,18 @@ def cmd_promote(args: list[str]) -> None:
     cp = state.get("current_project", {})
     project_name = cp.get("name", "unknown")
 
-    # Ensure patterns file exists
+    # Ensure canonical patterns file exists (migrate legacy root file if needed)
     FRAMEWORK_KB.mkdir(parents=True, exist_ok=True)
+    PATTERNS_FILE.parent.mkdir(parents=True, exist_ok=True)
     if not PATTERNS_FILE.exists():
-        PATTERNS_FILE.write_text(
-            "# Project Patterns — Cross-project Learnings\n\n"
-            "_Aprendizajes promovidos desde proyectos individuales al framework._\n\n",
-            encoding="utf-8"
-        )
+        if LEGACY_PATTERNS_FILE.exists():
+            PATTERNS_FILE.write_text(LEGACY_PATTERNS_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            PATTERNS_FILE.write_text(
+                "# Project Patterns — Cross-project Learnings\n\n"
+                "_Aprendizajes promovidos desde proyectos individuales al framework._\n\n",
+                encoding="utf-8"
+            )
 
     # Append to framework knowledge
     ts   = datetime.now(timezone.utc).strftime("%Y-%m-%d")

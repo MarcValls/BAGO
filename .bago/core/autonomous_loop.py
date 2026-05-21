@@ -851,6 +851,10 @@ class AutonomousLoop:
         if flags:
             print(f"|  Flags:   {', '.join(flags):<35}|")
         print("+---------------------------------------------+")
+        if self.dry_run:
+            print("  [dry-run] planning only; no tools will execute.")
+        elif not self.unsafe:
+            print("  [safe-mode] dangerous/mutating actions blocked; use --unsafe or --yes to enable.")
         print()
 
     def _print_state(self, state: dict) -> None:

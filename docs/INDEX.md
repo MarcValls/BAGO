@@ -35,6 +35,9 @@
 | Fichero | Contenido |
 |---------|-----------|
 | `ARCHITECTURE.md` | Agentes, workflows, estructura interna del framework |
+| `RUNTIME_CONTRACT.md` | Frontera runtime/dev del instalador limpio y política de prune |
+| `PUBLISH_CONTRACT.md` | Perfiles de publicación, comandos canónicos de instalación y sync knowledge |
+| `ENGINE_CONTRACT.md` | Contrato para mantener el motor limpio durante el desarrollo |
 | `COMMANDS.md` | Referencia completa de los 54 comandos (auto-generado) |
 | `COMMAND_AUDIT.md` | Auditoría de comandos: estado, cobertura, CHG pendientes |
 | `KERNEL_LOCKDOWN.md` | Decisiones de diseño congeladas — no abrir sin consenso |
@@ -73,11 +76,11 @@ INDEX.md → COMMANDS.md → SECUENCIAS.md → COMMAND_AUDIT.md
 ## Estado del knowledge base
 
 ```
-Documentos:      13 (7 técnicos + 4 usuario + 2 estrategia)
-Versión BAGO:    3.3.0
-Última revisión: 2026-05-08
+Documentos:      16
+Versión BAGO:    3.4.0b1
+Última revisión: 2026-05-21
 Fuentes:         bago_universe.md, sequences_catalog.md, framework_traps.md,
-                 april_2026_arc.md, project_patterns.md (knowledge base GitHub)
+                 april_2026_arc.md, topics/project-patterns.md (knowledge base GitHub)
 ```
 
 ---

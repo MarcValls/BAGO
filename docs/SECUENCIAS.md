@@ -284,7 +284,7 @@ chflags nohidden /Volumes/<DESTINO>/BAGO/.bago
 defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder
 
 # 4. Inyectar knowledge bases
-cp ~/.bago/knowledge/*.md /Volumes/<DESTINO>/BAGO/.bago/knowledge/ 2>/dev/null || true
+rsync -a ~/.bago/knowledge/ /Volumes/<DESTINO>/BAGO/.bago/knowledge/ 2>/dev/null || true
 
 # 5. Verificar integridad en destino
 cd /Volumes/<DESTINO>/BAGO && python3 bago validate

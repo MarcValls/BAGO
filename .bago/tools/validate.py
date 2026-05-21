@@ -41,6 +41,30 @@ ROOT     = Path(__file__).resolve().parents[2]
 BAGO_DIR = ROOT / ".bago"
 
 
+def _load_clean_runtime_contract(root: Path) -> dict | None:
+    """Return the clean-runtime contract when validating an installed runtime."""
+    contract_path = root.parent / "runtime_contract.json"
+    if not contract_path.exists():
+        return None
+    try:
+        data = json.loads(contract_path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError:
+        return None
+    if data.get("contract_id") != "bago.runtime.clean-install":
+        return None
+    return data
+
+
+def _is_pruned_by_clean_runtime_contract(contract: dict | None, relpath: str) -> bool:
+    if not contract:
+        return False
+    first = relpath.replace("\\", "/").split("/", 1)[0]
+    tree = contract.get("tree", {})
+    pruned = set(tree.get("move_out_of_clean_install", []))
+    pruned.update(tree.get("remove_from_clean_install", []))
+    return first in pruned
+
+
 # ── VALIDATE MANIFEST ─────────────────────────────────────────────────────────
 
 def validate_manifest(root: Path | None = None) -> int:
@@ -50,6 +74,7 @@ def validate_manifest(root: Path | None = None) -> int:
         root = BAGO_DIR
     manifest_path = root / "pack.json"
     state_path    = root / "state" / "global_state.json"
+    runtime_contract = _load_clean_runtime_contract(root)
 
     errors: list[str] = []
 
@@ -79,7 +104,7 @@ def validate_manifest(root: Path | None = None) -> int:
             if isinstance(value, str):
                 if value.startswith("../"):
                     errors.append(f"{section}.{key}: forbidden relative escape -> {value}")
-                elif not (root / value).exists():
+                elif not (root / value).exists() and not _is_pruned_by_clean_runtime_contract(runtime_contract, value):
                     errors.append(f"{section}.{key}: missing -> {value}")
 
     bootstrap_path = root / "core/workflows/workflow_bootstrap_repo_first.md"

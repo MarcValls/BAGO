@@ -1,4 +1,4 @@
 @echo off
-REM BAGO Quick Installer
-REM Version: 3.4.6
-... (placeholder)
+setlocal
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" %*
+exit /b %ERRORLEVEL%

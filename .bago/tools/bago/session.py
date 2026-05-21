@@ -14,6 +14,7 @@ from .providers import (
     route_by_task,
 )
 from .llm.errors import classify_provider_error
+from .routing_runtime import active_settings
 
 class BagoSession:
     def __init__(self, provider, model_name, wire_name, creds):
@@ -54,6 +55,7 @@ class BagoSession:
         # audit-10: caché del orquestador externo (evita reimportar en cada mensaje)
         self._orch_mod = None
         self._orch_mtime: float = 0.0
+        self.refresh_runtime()
 
     # ── Token tracking ────────────────────────────────────────────────────────
     def record_tokens(self, provider: str, model: str, tokens_in: int, tokens_out: int):
@@ -145,6 +147,19 @@ class BagoSession:
         self._orch_mtime = mtime
         return mod
 
+
+    def refresh_runtime(self):
+        settings = active_settings()
+        preset = settings.get("preset", {})
+        runtime = settings.get("runtime", {})
+        loop_cfg = preset.get("contract_loop", {})
+        self.routing_preset = settings.get("preset_name", "balanced")
+        self.contract_loop_enabled = bool(loop_cfg.get("enabled", True))
+        self.contract_max_iter = int(loop_cfg.get("max_iter", 3))
+        self.contract_min_score = float(loop_cfg.get("min_score", 0.84))
+        self.output_contract = (runtime.get("contract") or {}).get("text", "")
+        self.last_contract_report = {"ok": True, "score": 1.0, "unmet": []}
+        return settings
     @property
     def litellm_info(self): return resolve_litellm(self.provider, self.wire_name)
 
@@ -287,3 +302,5 @@ class BagoSession:
                 act = " ← ACTIVO" if mn == self.model_name else ""
                 lines.append(f"    {mn:<30} {md.get('best_for',''):<25} {md.get('cost','')}{act}")
         return "\n".join(lines)
+
+

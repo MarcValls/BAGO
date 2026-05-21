@@ -1,0 +1,108 @@
+{
+  "status": "GO",
+  "goal_id": "G_2026-05-20_launch_investigation",
+  "goal_description": "Investigar a fondo bago launch y arreglar bugs criticos",
+  "timestamp": "2026-05-20T17:13:52.817334+00:00",
+  "checks_total": 12,
+  "checks_go": 12,
+  "checks_ko": 0,
+  "checks_unknown": 0,
+  "details": [
+    {
+      "name": "tests_P0_P1_P2",
+      "type": "test_pass",
+      "status": "GO",
+      "expected": "passed",
+      "actual": "rc=0",
+      "detail": ""
+    },
+    {
+      "name": "banner_unico",
+      "type": "command_output",
+      "status": "GO",
+      "expected": null,
+      "actual": "[Errno 2] No such file or directory: 'bago.py'",
+      "detail": ""
+    },
+    {
+      "name": "cmd_py_sintaxis",
+      "type": "test_pass",
+      "status": "GO",
+      "expected": "OK",
+      "actual": "rc=0",
+      "detail": ""
+    },
+    {
+      "name": "boot_py_sintaxis",
+      "type": "test_pass",
+      "status": "GO",
+      "expected": "OK",
+      "actual": "rc=0",
+      "detail": ""
+    },
+    {
+      "name": "ui_py_sintaxis",
+      "type": "test_pass",
+      "status": "GO",
+      "expected": "OK",
+      "actual": "rc=0",
+      "detail": ""
+    },
+    {
+      "name": "autonomous_loop_sintaxis",
+      "type": "test_pass",
+      "status": "GO",
+      "expected": "OK",
+      "actual": "rc=0",
+      "detail": ""
+    },
+    {
+      "name": "harmonic_mode_en_template",
+      "type": "string_in_file",
+      "status": "GO",
+      "expected": null,
+      "actual": "found=True",
+      "detail": ""
+    },
+    {
+      "name": "manual_mode_en_loop",
+      "type": "string_in_file",
+      "status": "GO",
+      "expected": null,
+      "actual": "found=True",
+      "detail": ""
+    },
+    {
+      "name": "persist_harmonic_en_loop",
+      "type": "string_in_file",
+      "status": "GO",
+      "expected": null,
+      "actual": "found=True",
+      "detail": ""
+    },
+    {
+      "name": "menu_tabs_funcion",
+      "type": "string_in_file",
+      "status": "GO",
+      "expected": null,
+      "actual": "found=True",
+      "detail": ""
+    },
+    {
+      "name": "reporte_investigacion",
+      "type": "file_exists",
+      "status": "GO",
+      "expected": null,
+      "actual": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\.bago\\state\\reports\\launch_investigation_report.md",
+      "detail": ""
+    },
+    {
+      "name": "goal_validator_existe",
+      "type": "file_exists",
+      "status": "GO",
+      "expected": null,
+      "actual": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\.bago\\tools\\goal_validator.py",
+      "detail": ""
+    }
+  ]
+}

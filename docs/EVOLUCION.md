@@ -1,7 +1,7 @@
 # BAGO — Evolución del Framework
 
 > Síntesis de aprendizajes de 26 instancias + 58 sesiones · propuestas de evolución v4.0+  
-> Fuente: framework_traps.md, project_patterns.md, april_2026_arc.md, bago_universe.md
+> Fuente: framework_traps.md, topics/project-patterns.md, april_2026_arc.md, bago_universe.md
 
 ---
 
@@ -131,7 +131,7 @@ bago map --show-canvas-type    # nuevo flag: muestra BIANCA vs DERIVA vs custom
 
 ---
 
-## Patrones a incorporar (de project_patterns.md)
+## Patrones a incorporar (de topics/project-patterns.md)
 
 ### P-001 · Datos canónicos, nunca hardcoded
 
@@ -230,7 +230,7 @@ Propuesta: pipeline automático de extracción.
 
 ```bash
 bago harvest --to-knowledge   # nuevo: convierte cosecha de sesión en entrada de knowledge
-bago knowledge --sync         # sincroniza knowledge local con GitHub remote
+bago knowledge sync            # sincroniza knowledge local con el repo GitHub
 ```
 
 ---
@@ -317,4 +317,4 @@ Extraídas de `april_2026_arc.md` (10 lecciones verificadas):
 ---
 
 *BAGO v3.3.0 → v4.0 · Documento de evolución · 2026-05-08*  
-*Fuente: framework_traps.md (15 trampas), project_patterns.md, april_2026_arc.md (10 lecciones)*
+*Fuente: framework_traps.md (15 trampas), topics/project-patterns.md, april_2026_arc.md (10 lecciones)*

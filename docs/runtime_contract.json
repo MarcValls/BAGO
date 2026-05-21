@@ -1,0 +1,149 @@
+{
+    "schema": 1,
+    "contract_id": "bago.runtime.clean-install",
+    "contract_version": "1.0.0",
+    "description": "Clean-install policy that separates runtime, mutable state, syncable knowledge, and development residue.",
+    "targets": {
+        "install_root": "C:\\Program Files\\BAGO",
+        "runtime_root": ".bago",
+        "user_home": "C:\\ProgramData\\BAGO\\user"
+    },
+    "root": {
+        "keep": [
+            ".bago",
+            "bago.cmd",
+            "bago.ps1",
+            "bago.ico",
+            "bago_core",
+            "LICENSE",
+            "README.md",
+            "INSTALL.md",
+            "CHANGELOG.md",
+            "QUICKSTART.md",
+            "install.ps1",
+            "runtime_contract.json",
+            "smoke-test.ps1"
+        ]
+    },
+    "tree": {
+        "keep": [
+            ".llama",
+            ".models",
+            "agents",
+            "assets",
+            "bin",
+            "config",
+            "core",
+            "extensions",
+            "knowledge",
+            "manifests",
+            "mcp",
+            "prompts",
+            "roles",
+            "state",
+            "supervision",
+            "templates",
+            "tools",
+            "workflows",
+            "pack.json",
+            "tools.manifest.json",
+            "AGENT_START.md",
+            "BOOTSTRAP.md",
+            "TREE.txt",
+            "CHECKSUMS.sha256"
+        ],
+        "move_out_of_clean_install": [
+            "README.md",
+            "INDEX.md",
+            "QUICKSTART.md",
+            "docs",
+            "examples",
+            "monitor",
+            "reports",
+            "audits",
+            "archive",
+            "state.example"
+        ],
+        "remove_from_clean_install": [
+            "tests",
+            "sprite_studio",
+            ".gitignore",
+            "__pycache__"
+        ]
+    },
+    "state": {
+        "keep_dirs": [
+            "sessions",
+            "changes",
+            "evidences",
+            "reports",
+            "config"
+        ],
+        "reset_dirs": [
+            "reports",
+            "sac_locks"
+        ],
+        "prune_file_patterns": [
+            "*.jsonl",
+            "*.db",
+            "contribution_*.md",
+            "install_complete.json",
+            "benchmark_last.json",
+            "experimental_command_test_results.json",
+            "scan_history.json",
+            "recent_projects.json",
+            "neural_token.txt",
+            "path_healer_memory.json",
+            "orphan_baseline.json",
+            "self_state.json",
+            "canon_log.json",
+            "conductor_state.json",
+            "goal_validation_*.json"
+        ]
+    },
+    "policy": {
+        "runtime_only": true,
+        "source_of_truth": "docs/runtime_contract.json",
+        "generated_manifest": "runtime_contract.json"
+    },
+    "publication": {
+        "default_profile": "with-knowledge",
+        "profiles": {
+            "with-knowledge": {
+                "installer": "install-with-knowledge.ps1",
+                "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-with-knowledge.ps1",
+                "knowledge_included": true
+            },
+            "without-knowledge": {
+                "installer": "install-without-knowledge.ps1",
+                "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-without-knowledge.ps1",
+                "knowledge_included": false
+            }
+        },
+        "base_installer": {
+            "installer": "install.ps1",
+            "command_with_knowledge": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install.ps1",
+            "command_without_knowledge": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install.ps1 -NoKnowledge"
+        }
+    },
+    "knowledge": {
+        "source": ".bago/knowledge",
+        "remote_repo": "https://github.com/MarcValls/bago-knowledge",
+        "sync_mode": "path-mirror",
+        "canonical_layout": [
+            "README.md",
+            "manifest.json",
+            "topics/index.md",
+            "topics/image-generation.md",
+            "topics/transposition.md",
+            "topics/knowledge-curation.md",
+            "topics/release-gates.md",
+            "topics/project-patterns.md",
+            "topics/learned-lessons.md",
+            "topics/sync-protocol.md",
+            "examples/",
+            "schemas/",
+            "assets/"
+        ]
+    }
+}

@@ -35,6 +35,11 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 _HERE   = Path(__file__).resolve()
 _TOOLS  = _HERE.parent
@@ -44,7 +49,8 @@ _STATE  = _BAGO / "state"
 _KNOWLEDGE = _BAGO / "knowledge"
 
 CANON_LOG = _STATE / "canon_log.json"
-LESSONS_FILE = _KNOWLEDGE / "learned_lessons.md"
+LESSONS_FILE = _KNOWLEDGE / "topics" / "learned-lessons.md"
+LEGACY_LESSONS_FILE = _KNOWLEDGE / "learned_lessons.md"
 
 # ── Canon timing ───────────────────────────────────────────────────────────────
 VOICE_DELAY = 0.4   # seconds between voice entries
@@ -556,8 +562,17 @@ def _append_lesson(snap: dict, prev: dict, cycle: int) -> None:
         f"**Patrón:** El Bucle de Shepard avanza sin retornar al mismo estado.\n"
         f"La mejora incremental es la invariante del sistema.\n"
     )
-    if LESSONS_FILE.exists():
-        LESSONS_FILE.write_text(LESSONS_FILE.read_text() + entry)
+    LESSONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not LESSONS_FILE.exists():
+        if LEGACY_LESSONS_FILE.exists():
+            LESSONS_FILE.write_text(LEGACY_LESSONS_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            LESSONS_FILE.write_text(
+                "# Learned Lessons\n\n"
+                "_Registro canónico de lecciones aprendidas del BAGO local._\n",
+                encoding="utf-8",
+            )
+    LESSONS_FILE.write_text(LESSONS_FILE.read_text(encoding="utf-8") + entry, encoding="utf-8")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

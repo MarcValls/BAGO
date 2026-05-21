@@ -166,6 +166,58 @@ no pueden formar parte del gate estable hasta migrarse o archivarse.
 Estado: gate principal recuperado para registry/docs. Deuda abierta: migrar o retirar
 tests legacy (`test_bago_framework.py`, `test_bago_brutal.py`, `test_bago_integracion.py`).
 
+## 13. Contrato de instalación limpia, runtime y knowledge
+
+La frontera entre runtime y residuos de desarrollo se define por
+`docs/runtime_contract.json`. Ese archivo es la fuente de verdad que consume
+`install.ps1` para decidir qué se conserva en una instalación limpia y qué se
+pruna o se redirige fuera de `C:\Program Files\BAGO`.
+
+Reglas:
+
+- `C:\Program Files\BAGO` contiene bootstrap, runtime y evidencia generada del
+  instalador, no el árbol de desarrollo completo.
+- `C:\ProgramData\BAGO\user` contiene el estado mutable del usuario.
+- `C:\Program Files\BAGO\.bago\knowledge` contiene la memoria sincronizable y
+  compatible con `MarcValls/bago-knowledge`.
+- El instalador se publica en dos perfiles: `install-with-knowledge.ps1` y
+  `install-without-knowledge.ps1`.
+- El contrato de publicación canónico vive en `docs/PUBLISH_CONTRACT.md`.
+- Comandos canónicos de instalación:
+
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install-with-knowledge.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install-without-knowledge.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -NoKnowledge
+  ```
+- `docs/runtime_contract.json` manda sobre la lista de keep/prune del instalador.
+- `C:\Program Files\BAGO\runtime_contract.json` es el manifiesto generado de la
+  instalación aplicada; documenta qué se conservó y qué se eliminó.
+- El layout canónico de conocimiento es `README.md`, `manifest.json`,
+  `topics/`, `examples/`, `schemas/` y `assets/`.
+- Si el contrato fuente no se puede leer, el instalador usa un fallback embebido,
+  pero la intención contractual sigue siendo la misma.
+
+Estado: implementado en el instalador limpio. La documentación de alto nivel y el
+manifiesto generado quedan separados por diseño.
+
+## 14. Contrato de motor limpio durante desarrollo
+
+El motor instalado debe permanecer limpio y regenerable mientras el desarrollo
+ocurre fuera de `C:\Program Files\BAGO`.
+
+Reglas:
+
+- `C:\Program Files\BAGO` es un artefacto reconstruible, no un workspace.
+- El workspace de desarrollo vive en el repo fuente.
+- `bago dev refresh-engine` reinstala el motor desde `install.ps1`.
+- El perfil publicado se conserva salvo override explícito:
+  `--with-knowledge` o `--without-knowledge`.
+- Tras refrescar, el motor debe validarse antes de darlo por bueno.
+
+Estado: contrato nuevo, alineado con `docs/ENGINE_CONTRACT.md`.
+
 ## Fallos auditados
 
 Corregidos en este corte:

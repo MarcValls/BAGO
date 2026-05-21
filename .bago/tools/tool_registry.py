@@ -73,6 +73,9 @@ INTERNAL_TOOLS: frozenset[str] = frozenset({
     "legacy_fixer",
     "bago_config",
     "audit_state_pointers",
+    "agent_model_manager",
+    "agent_static_guard",
+    "health_check",
     # registry sub-modules (private, not user-facing tools)
     "_registry_paths",
     "_registry_models",

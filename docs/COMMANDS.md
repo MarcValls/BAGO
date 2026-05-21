@@ -1,7 +1,7 @@
 # BAGO — Command Reference
 
 > **Auto-generated** from `tool_registry.py`. Do not edit manually.
-> Last generated: 2026-05-18 16:12 UTC
+> Last generated: 2026-05-21 17:22 UTC
 >
 > Source of truth: `.bago/tools/tool_registry.py`
 > Generator: `.bago/tools/generate_commands_doc.py`
@@ -10,11 +10,11 @@
 
 | Bucket | Count |
 |--------|-------|
-| ⚙️ Core | 39 |
-| 🧪 Experimental | 80 |
+| ⚙️ Core | 44 |
+| 🧪 Experimental | 85 |
 | ⚠️ Dangerous | 8 |
 | 🗄️ Legacy (deprecated) | 28 |
-| **Total active** | **127** |
+| **Total active** | **137** |
 
 ---
 
@@ -27,6 +27,7 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago advisor` | Advisor LLM adaptativo: ask\|next\|explain\|run\|context\|rubber-duck — orientación continua con modelo pequeño local | • generacion | safe | required |
 | `bago ask` | Router lenguaje natural → tools BAGO | • consumo | safe | required |
 | `bago audit` | Auditoría y calidad: full \| pack \| scan \| commit \| push \| doctor \| heal \| quality \| purity | • memoria | safe | required |
+| `bago bootstrap-state` | Bootstrap clean runtime state from template | • infraestructura | mutating | required |
 | `bago context` | Contexto del workspace: detect \| map \| git \| stale | • consumo | safe | required |
 | `bago dashboard` | Muestra el dashboard del pack | • memoria | safe | required |
 | `bago devmode` | Alterna entre modo usuario (project-first) y modo desarrollador (framework-visible). Subcomandos: --enable \| --disable \| --status \| --info | • memoria | safe | required |
@@ -34,9 +35,11 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago doc-agent` | Agente de documentación: detecta y actualiza COMMANDS.md, LAYERS.md y README.md. Subcomandos/flags: --check \| --dry-run \| --json \| --only <doc> \| --no-stage | • generacion | mutating | required |
 | `bago docs` | Genera docs/COMMANDS.md desde tool_registry.py (fuente única de verdad) | • generacion | safe | required |
 | `bago flow` | Flowchart ASCII de workflows + gestión de estado activo (start/done/status) | • motor | safe | required |
+| `bago git-dirty` | Detect git dirty state: --json | 🔍 calidad | safe | required |
 | `bago goals` | Gestor de objetivos del pack con seguimiento de progreso | • memoria | safe | required |
 | `bago health` | Salud del framework: score \| report \| stability \| efficiency \| consistency \| sincerity | • memoria | safe | required |
 | `bago ideas` | Emite ideas W2 | • memoria | safe | required |
+| `bago integrity` | Full integrity sensor sweep: --json | 🔍 calidad | safe | required |
 | `bago launch` | BAGO — interfaz conversacional principal. El usuario habla con BAGO; BAGO orquesta todos los agentes y modelos internamente. Escalado automático: local → local-grande → cloud según contexto. Uso: bago launch  \|  --provider <p>  \|  --model <m>  \|  --task <tarea> | • dominio | safe | required |
 | `bago menu` | Menú interactivo jerárquico de comandos BAGO (curses). Sidebar de 10 grupos por flujo de trabajo + lista + preview. Uso: bago menu  \|  bago menu --list  (no interactivo) | • motor | safe | required |
 | `bago next` | Meta-comando de ciclo mínimo: elige idea + acepta + inicia flujo en un paso | • motor | safe | required |
@@ -58,8 +61,10 @@ Stable commands. Pre-flight **required**. Always available.
 | `bago supervision` | BAGO Supervision Layer — capa de guardianes sistémicos. Convierte fallos recurrentes en agentes con memoria, artefacto y contrato. Subcomandos: run [--loop pre_release\|post_test_cleanup\|legacy_decay\|contract_drift] \| status \| check <agente> \| report [--json] [--loop] | 🔍 calidad | safe | required |
 | `bago sync` | Regenera TREE.txt y CHECKSUMS | • memoria | safe | required |
 | `bago task` | Muestra la tarea W2 pendiente. --done \| --assign <agente> \| --clear | • memoria | safe | required |
+| `bago test` | Run pytest suite | 🔍 calidad | safe | required |
 | `bago validate` | Verifica el pack (manifiesto, estado, roles, ZIP) — subcomandos: manifest, state, contents | • memoria | safe | required |
 | `bago version` | Gestión de versiones beta/release: bump \| beta \| release \| tag \| commit \| sync-check | • memoria | mutating | required |
+| `bago version-check` | Version Truth Lock: check \| sync <ver> \| audit --json | 🔍 calidad | safe | required |
 | `bago why` | Explica qué hace un comando BAGO, cuándo usarlo y sus relaciones | • generacion | safe | required |
 | `bago workflow` | Selector de workflow (interactivo) | • motor | safe | required |
 | `bago workspace-select` | Selector de espacio de trabajo: elige entre framework (self), directorio padre o ruta/repo externo. Persiste en repo_context.json. Se invoca automáticamente al arrancar si no hay workspace configurado. Uso: bago workspace-select  \|  opciones: --json --plain | • memoria | safe | required |
@@ -88,6 +93,7 @@ Actively developed. May change between minor versions.
 | `bago code-metrics` | Métricas de código: líneas de código, conteo de archivos y tipos por app. Excluye node_modules, dist, build y archivos de lock. Soporta filtros de extensión y configuración via bago_config. | • consumo | safe | optional |
 | `bago code-search` | Busca texto o patrones en el código fuente del proyecto. Sin dependencias externas. Excluye node_modules/dist/build. Subcomandos: --regex \| -i (case-insensitive) \| --ext ts,py \| --files \| --count | • consumo | safe | optional |
 | `bago config-check` | Valida integridad de configs JSON en state/config/ y cruza con registry | • consumo | safe | optional |
+| `bago contract` | Gestiona el contrato de salida: show \| set <texto> \| clear \| infer --task | • motor | safe | optional |
 | `bago create` | BAGO modo creación: layout 3 paneles tipo Copilot. Panel izquierdo: sesiones + personalizaciones. Panel central: área de trabajo + input hito. Panel derecho: cambios git / archivos. Flags: --once (render único) \| --tab cambios\|archivos | • motor | safe | optional |
 | `bago deactivate` | Crea un archivo comprimido de desactivación y lo oculta en Windows | • generacion | mutating | optional |
 | `bago debt` | Ledger de deuda técnica — registra, prioriza y hace seguimiento | • memoria | safe | optional |
@@ -127,11 +133,14 @@ Actively developed. May change between minor versions.
 | `bago ping-server` | Verifica que el servidor local responde vía HTTP. Muestra status, latencia y errores. Lee la URL desde apps/server/.env. Subcomandos: --url <URL> \| --path <endpoint> \| --watch (ping cada 5s) | • consumo | safe | optional |
 | `bago placeholder_scan` | Detecta placeholders y datos ficticios en código Python (FAKE_DATE, STUB_RAISE, ELLIPSIS_BODY, TODO_COMMENT, PLACEHOLDER_STR) | • consumo | safe | optional |
 | `bago preflight-check` | Pre-flight checks declarativos para herramientas BAGO: file/env/cmd conditions. | • consumo | safe | optional |
+| `bago preset` | Gestiona presets estaticos del runtime: list \| show \| apply <nombre> | • motor | safe | optional |
 | `bago project-summary` | Dashboard ejecutivo del proyecto: ideas implementadas, herramientas, tamaño en disco, estado de git y todos pendientes. Fuente única de verdad para el estado actual del proyecto. | • memoria | safe | optional |
 | `bago recientes` | Bitácora paginada de últimos trabajos: sesiones, sprints, ideas, cierres y commits ordenados cronológicamente | • memoria | safe | optional |
 | `bago reopen` | Reanuda sesión desde el último cierre sin reconstruir contexto manualmente | • memoria | safe | optional |
 | `bago repo` | Gestión de repositorios: clone \| list \| switch | • consumo | safe | optional |
 | `bago research` | Modo Research integrando GitHub Copilot CLI /research — investigación temática estructurada | • generacion | safe | optional |
+| `bago restart` | Reinicia la consola de BAGO y recarga el runtime activo | • motor | safe | optional |
+| `bago route-graph` | Muestra el routing como grafo ASCII de nodos, cadena de modelos y gate de contrato | • motor | safe | optional |
 | `bago rubber-duck` | Rubber duck debugging automático: repite qué hace el código, detecta pasos faltantes e inconsistencias — auto-trigger en toolsmith create | • generacion | safe | optional |
 | `bago rules` | Catálogo de reglas BAGO | • generacion | safe | optional |
 | `bago safeguard` | BAGO Safeguard Panel — Gestiona los 4 genes de protección del sistema: identity, safety_contract, kill_switch_policy, project_boundary. Uso: bago safeguard [status\|explain <gene>\|set <gene> <state>\|history] | • motor | mutating | required |
@@ -149,6 +158,7 @@ Actively developed. May change between minor versions.
 | `bago template-gen` | Genera archivos de proyecto desde plantillas predefinidas (component, hook, api-route, test, etc.). Variables: {{PROJECT}}, {{APP}}, {{NAME}}, {{DATE}}, {{AUTHOR}}. Subcomandos: --list \| --show <nombre> \| --add <nombre> \| --out <dir> | • generacion | mutating | optional |
 | `bago toolsmith` | Agente dinámico de toolboxes: assign\|sprint\|agent\|missing\|create\|catalog\|listen — asigna cajas de herramientas por tarea y crea tools faltantes | • motor | safe | optional |
 | `bago types` | Chequeo de tipos estáticos | • consumo | safe | optional |
+| `bago update` | Busca versiones nuevas, actualiza componentes conocidos y repara incompatibilidades del entorno | • motor | mutating | optional |
 | `bago weekly-report` | Informe semanal de actividad BAGO: ideas implementadas, sesiones y velocidad. Por defecto últimos 7 días. Genera resumen Markdown. Subcomandos: --days N \| --save (guarda en .bago/state/reports/) | • memoria | safe | optional |
 | `bago work_matrix` | Matriz de rutas de trabajo: qué agente y herramientas MCP usar según el tipo de tarea | • memoria | safe | optional |
 | `bago workflow-navigator` | Navegador de workflows BAGO: sugiere el workflow más adecuado dado el contexto actual. Lee WORKFLOW_GRAPH.json y el estado del sistema. Subcomandos: --from <workflow> \| --list \| --graph \| --test | • motor | safe | optional |

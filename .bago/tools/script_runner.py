@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -93,9 +94,10 @@ def cmd_exec(scripts: list[dict], index: int):
     print(f"\n  ▶  {CYAN(s['app'])} › {BOLD(s['name'])}")
     print(f"     {DIM(s['cmd'])}\n")
 
+    pnpm_cmd = shutil.which("pnpm") or "pnpm"
     try:
         proc = subprocess.run(
-            ["pnpm", "run", s["name"]],
+            [pnpm_cmd, "run", s["name"]],
             cwd=s["cwd"],
         )
         sys.exit(proc.returncode)
