@@ -63,7 +63,7 @@ def cmd_show(number: int) -> None:
     print()
 
 
-def cmd_take(number: int) -> None:
+def cmd_take(number: int, agent: str = "codex") -> None:
     rc, out = _gh([
         "issue", "view", str(number),
         "--repo", REPO,
@@ -78,7 +78,11 @@ def cmd_take(number: int) -> None:
         labels.append("bago-in-progress")
     _gh(["issue", "edit", str(number), "--repo", REPO, "--add-label", "bago-in-progress"])
     _gh(["issue", "edit", str(number), "--repo", REPO, "--remove-label", "bago"])
+    # Comentar asignación automática
+    comment = f"Asignado a BAGO agente {agent}. Branch sugerida: fix/bago-{number}"
+    _gh(["issue", "comment", str(number), "--repo", REPO, "--body", comment])
     print(f"  ✓ Issue #{number} en progreso: {it['title'][:50]}")
+    print(f"    Agente: {agent}")
     print(f"    Branch sugerida: fix/bago-{number}")
 
 
@@ -114,6 +118,7 @@ def main():
 
     p_take = sub.add_parser("take", help="Marcar issue como en progreso")
     p_take.add_argument("number", type=int)
+    p_take.add_argument("--agent", "-a", default="codex", help="Agente BAGO asignado (default: codex)")
 
     p_close = sub.add_parser("close", help="Cerrar issue con comentario opcional")
     p_close.add_argument("number", type=int)
@@ -130,7 +135,7 @@ def main():
     elif args.cmd == "show":
         cmd_show(args.number)
     elif args.cmd == "take":
-        cmd_take(args.number)
+        cmd_take(args.number, args.agent)
     elif args.cmd == "close":
         cmd_close(args.number, args.comment)
     elif args.cmd == "create":
