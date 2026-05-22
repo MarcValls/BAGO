@@ -717,11 +717,16 @@ def cmd(line, session):
         sys_cmd = v[1:] + (" " + a if a else "")
         sys_cmd_norm = sys_cmd.replace("git-dirty", "git dirty")
         console.print(f"  [dim]ejecutando: bago {sys_cmd_norm}[/dim]")
+        # Longer timeout for update/autonomous commands
+        _timeout = 600 if any(kw in sys_cmd_norm for kw in ("update", "autonomous", "cosecha", "heal")) else 30
+        # Auto --yes for update in non-interactive mode
+        if "update" in sys_cmd_norm and "--yes" not in sys_cmd_norm:
+            sys_cmd_norm = sys_cmd_norm + " --yes"
         try:
             proc = subprocess.run(
                 _launcher_args(sys_cmd_norm),
                 capture_output=True, text=True, cwd=str(_paths()[0]),
-                timeout=30, encoding="utf-8", errors="replace",
+                timeout=_timeout, encoding="utf-8", errors="replace",
             )
             if proc.stdout:
                 console.print(proc.stdout)
