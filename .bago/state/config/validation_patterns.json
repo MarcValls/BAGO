@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "secret_patterns": [
+    [
+      "(?i)(api[_\\-]?key|secret|password|passwd|token|auth[_\\-]?key)\\s*=\\s*[\"\\'][^\"\\']{8,}[\"\\']",
+      "CR-E002",
+      "credencial hardcoded"
+    ],
+    [
+      "(?i)(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36,}|glpat-[a-zA-Z0-9\\-_]{20,})",
+      "CR-E002",
+      "token hardcoded"
+    ],
+    [
+      "(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)",
+      "CR-W002",
+      "IP hardcoded"
+    ]
+  ],
+  "max_file_size_bytes": 524288
+}

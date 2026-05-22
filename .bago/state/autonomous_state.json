@@ -1,0 +1,40 @@
+{
+  "status": "continue",
+  "cycle_count": 1,
+  "last_cycle_ts": "2026-05-21T17:26:28.544842+00:00",
+  "last_decision": "CONTINUE",
+  "stable_count": 1,
+  "last_health": -1,
+  "history_tail": [
+    {
+      "cycle": 0,
+      "ts": "2026-05-21T17:26:28.544828+00:00",
+      "state": {
+        "health": 80,
+        "pack_ok": true,
+        "stale_count": 1,
+        "inbox_tasks": [],
+        "ts": "2026-05-21T17:26:26.331688+00:00",
+        "version_truth": false,
+        "git_dirty": true,
+        "audit_ok": false,
+        "tests_ok": false,
+        "encoding_ok": true
+      },
+      "plan_size": 1,
+      "observations": [
+        {
+          "goal": "summary",
+          "agent": "ORGANIZADOR",
+          "success": true,
+          "delta_health": 0,
+          "signals": [],
+          "tools_run": [
+            "dashboard"
+          ]
+        }
+      ],
+      "decision": "CONTINUE"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Safeguards del sistema BAGO. Los 4 genes protegen identidad, contrato de seguridad, kill-switch y límites de proyecto.",
+    "last_modified": null,
+    "modified_by": null
+  },
+  "reactor": {
+    "state": "OFF",
+    "states": ["OFF", "ARMED", "ACTIVE", "QUARANTINE", "KILLED"],
+    "description": "Estado del Reactor Kernel. OFF = desactivado por defecto.",
+    "armed_at": null,
+    "active_at": null,
+    "killed_at": null,
+    "kill_reason": null
+  },
+  "genes": {
+    "identity": {
+      "state": "ON",
+      "states": ["ON", "SOFT_OFF", "OFF", "BROKEN"],
+      "description": "Protege la identidad operativa de BAGO. Si OFF, el sistema puede actuar sin marco de referencia propio.",
+      "consequences_if_off": [
+        "BAGO puede aceptar instrucciones sin validar su coherencia interna",
+        "Riesgo de prompt injection sin barrera de identidad",
+        "El reactor puede operar sin anclaje de rol"
+      ],
+      "changed_at": null,
+      "changed_by": null
+    },
+    "safety_contract": {
+      "state": "ON",
+      "states": ["ON", "SOFT_OFF", "OFF", "BROKEN"],
+      "description": "Contrato de operación segura. Si OFF, se permite autonomía sin validación previa.",
+      "consequences_if_off": [
+        "El reactor puede ejecutar acciones peligrosas sin confirmación",
+        "El Prompt Genome puede mutar prompts en vivo sin revisión",
+        "Snapshots y rollback pueden omitirse"
+      ],
+      "changed_at": null,
+      "changed_by": null
+    },
+    "kill_switch_policy": {
+      "state": "ON",
+      "states": ["ON", "SOFT_OFF", "OFF", "BROKEN"],
+      "description": "Garantiza que el kill-switch siempre funciona. Si OFF, el reactor puede ignorar señales de parada.",
+      "consequences_if_off": [
+        "CRÍTICO: el reactor puede no responder a bago reactor kill",
+        "Autonomía infinita real sin mecanismo de parada",
+        "Bucles sin límite máximo de iteraciones"
+      ],
+      "changed_at": null,
+      "changed_by": null
+    },
+    "project_boundary": {
+      "state": "ON",
+      "states": ["ON", "SOFT_OFF", "OFF", "BROKEN"],
+      "description": "Limita el scope del sistema al proyecto/directorio activo. Si OFF, puede actuar fuera del contexto del proyecto.",
+      "consequences_if_off": [
+        "BAGO puede modificar archivos fuera del proyecto activo",
+        "El reactor puede acceder a rutas del sistema no autorizadas",
+        "El Prompt Genome puede mutar prompts de otros contextos"
+      ],
+      "changed_at": null,
+      "changed_by": null
+    }
+  },
+  "history": []
+}

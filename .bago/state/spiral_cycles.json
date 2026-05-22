@@ -1,0 +1,306 @@
+{
+  "cycles": [
+    {
+      "cycle_number": 1,
+      "timestamp": "2026-05-12T13:24:23.056129+00:00",
+      "self_description": {
+        "cycle": 1,
+        "at": "2026-05-12T13:24:23.056129+00:00",
+        "version": "3.3.0",
+        "health": 100,
+        "guardian": 100,
+        "last_session": "SES-HARVEST-2026-05-11-001",
+        "last_change": "BAGO-CHG-001",
+        "tools_count": 237,
+        "state_keys": [
+          "bago_version",
+          "system_health",
+          "sprint_status",
+          "inventory",
+          "last_validation",
+          "guardian_findings",
+          "unresolved",
+          "knowledge_base",
+          "notes",
+          "updated_at",
+          "bago_knowledge",
+          "last_updated",
+          "supervision",
+          "sync_status",
+          "tools",
+          "sprites_bianca",
+          "whatsapp_daemon",
+          "telegram_bot",
+          "github_repos_scan",
+          "telegram_miniapp",
+          "last_session",
+          "last_sync",
+          "health_score",
+          "knowledge_index",
+          "version_history",
+          "mode",
+          "status",
+          "last_completed_session_id",
+          "last_completed_workflow",
+          "last_completed_task_type",
+          "last_completed_roles",
+          "last_completed_change_id",
+          "last_completed_evidence_id"
+        ]
+      },
+      "diff": {
+        "type": "genesis",
+        "delta": {},
+        "note": "Primer ciclo — no hay referencia anterior"
+      },
+      "issues": [],
+      "gains": [],
+      "proposals": [
+        {
+          "id": "P001",
+          "priority": "medium",
+          "title": "Reducir warnings del guardian (438 activos)",
+          "action": "Auditar experimental tools más usados y añadir --test + integration",
+          "radius_gain": 0.3
+        },
+        {
+          "id": "P000",
+          "priority": "high",
+          "title": "Establecer baseline del bucle espiral",
+          "action": "Primer ciclo completo — guardar self_description como referencia",
+          "radius_gain": 1.0
+        },
+        {
+          "id": "P_NEXT",
+          "priority": "low",
+          "title": "Próxima vuelta: revisar tools legacy (28 activos)",
+          "action": "Evaluar si algún legacy puede promover a experimental o eliminar",
+          "radius_gain": 0.2
+        }
+      ],
+      "selected": [
+        {
+          "id": "P001",
+          "priority": "medium",
+          "title": "Reducir warnings del guardian (438 activos)",
+          "action": "Auditar experimental tools más usados y añadir --test + integration",
+          "radius_gain": 0.3
+        },
+        {
+          "id": "P000",
+          "priority": "high",
+          "title": "Establecer baseline del bucle espiral",
+          "action": "Primer ciclo completo — guardar self_description como referencia",
+          "radius_gain": 1.0
+        }
+      ],
+      "validation": {
+        "validate": "GO",
+        "health": "100/100"
+      },
+      "radius_earned": 1.3
+    },
+    {
+      "cycle_number": 2,
+      "timestamp": "2026-05-12T21:11:55.765399+00:00",
+      "self_description": {
+        "cycle": 2,
+        "at": "2026-05-12T21:11:55.765399+00:00",
+        "version": "3.3.0",
+        "health": 100,
+        "guardian": 100,
+        "last_session": "SES-HARVEST-2026-05-11-001",
+        "last_change": "BAGO-CHG-001",
+        "tools_count": 243,
+        "state_keys": [
+          "bago_version",
+          "system_health",
+          "sprint_status",
+          "inventory",
+          "last_validation",
+          "guardian_findings",
+          "unresolved",
+          "knowledge_base",
+          "notes",
+          "updated_at",
+          "bago_knowledge",
+          "last_updated",
+          "supervision",
+          "sync_status",
+          "tools",
+          "sprites_bianca",
+          "whatsapp_daemon",
+          "telegram_bot",
+          "github_repos_scan",
+          "telegram_miniapp",
+          "last_session",
+          "last_sync",
+          "health_score",
+          "knowledge_index",
+          "version_history",
+          "mode",
+          "status",
+          "last_completed_session_id",
+          "last_completed_workflow",
+          "last_completed_task_type",
+          "last_completed_roles",
+          "last_completed_change_id",
+          "last_completed_evidence_id",
+          "spiral_loop",
+          "session_status"
+        ]
+      },
+      "diff": {
+        "type": "evolution",
+        "delta": {
+          "cycle": {
+            "before": 1,
+            "after": 2
+          },
+          "at": {
+            "before": "2026-05-12T13:24:23.056129+00:00",
+            "after": "2026-05-12T21:11:55.765399+00:00"
+          },
+          "state_keys": {
+            "before": [
+              "bago_version",
+              "system_health",
+              "sprint_status",
+              "inventory",
+              "last_validation",
+              "guardian_findings",
+              "unresolved",
+              "knowledge_base",
+              "notes",
+              "updated_at",
+              "bago_knowledge",
+              "last_updated",
+              "supervision",
+              "sync_status",
+              "tools",
+              "sprites_bianca",
+              "whatsapp_daemon",
+              "telegram_bot",
+              "github_repos_scan",
+              "telegram_miniapp",
+              "last_session",
+              "last_sync",
+              "health_score",
+              "knowledge_index",
+              "version_history",
+              "mode",
+              "status",
+              "last_completed_session_id",
+              "last_completed_workflow",
+              "last_completed_task_type",
+              "last_completed_roles",
+              "last_completed_change_id",
+              "last_completed_evidence_id"
+            ],
+            "after": [
+              "bago_version",
+              "system_health",
+              "sprint_status",
+              "inventory",
+              "last_validation",
+              "guardian_findings",
+              "unresolved",
+              "knowledge_base",
+              "notes",
+              "updated_at",
+              "bago_knowledge",
+              "last_updated",
+              "supervision",
+              "sync_status",
+              "tools",
+              "sprites_bianca",
+              "whatsapp_daemon",
+              "telegram_bot",
+              "github_repos_scan",
+              "telegram_miniapp",
+              "last_session",
+              "last_sync",
+              "health_score",
+              "knowledge_index",
+              "version_history",
+              "mode",
+              "status",
+              "last_completed_session_id",
+              "last_completed_workflow",
+              "last_completed_task_type",
+              "last_completed_roles",
+              "last_completed_change_id",
+              "last_completed_evidence_id",
+              "spiral_loop",
+              "session_status"
+            ]
+          },
+          "tools_count": {
+            "before": 237,
+            "after": 243
+          }
+        },
+        "changed_keys": [
+          "cycle",
+          "at",
+          "state_keys",
+          "tools_count"
+        ]
+      },
+      "issues": [],
+      "gains": [
+        "➕ 6 tools nuevos"
+      ],
+      "proposals": [
+        {
+          "id": "P001",
+          "priority": "medium",
+          "title": "Reducir warnings del guardian (438 activos)",
+          "action": "Auditar experimental tools más usados y añadir --test + integration",
+          "radius_gain": 0.3
+        },
+        {
+          "id": "P_NEXT",
+          "priority": "low",
+          "title": "Próxima vuelta: revisar tools legacy (28 activos)",
+          "action": "Evaluar si algún legacy puede promover a experimental o eliminar",
+          "radius_gain": 0.2
+        }
+      ],
+      "selected": [
+        {
+          "id": "P001",
+          "priority": "medium",
+          "title": "Reducir warnings del guardian (438 activos)",
+          "action": "Auditar experimental tools más usados y añadir --test + integration",
+          "radius_gain": 0.3
+        }
+      ],
+      "validation": {
+        "validate": "GO",
+        "health": "100/100"
+      },
+      "radius_earned": 0.3,
+      "state_vector": {
+        "C": 100,
+        "Cs": 0.0,
+        "D": 243.0,
+        "Ds": 4.0,
+        "E": 2.0,
+        "F": 1.0,
+        "Fs": 1.0,
+        "G": 0.0,
+        "Gs": 1.0,
+        "A": 1.0,
+        "As": 4.0,
+        "B": 0.3
+      }
+    }
+  ],
+  "current_cycle": null,
+  "total_radius": 1.6,
+  "n_agents_active": 9,
+  "global_harmony": 0.111,
+  "gate_harmony": 0.268,
+  "orch_cycles": 627
+}

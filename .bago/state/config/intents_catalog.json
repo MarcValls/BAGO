@@ -1,0 +1,369 @@
+{
+  "version": "1.1",
+  "intents": [
+    {
+      "id": "security_check",
+      "name": "Auditoría de seguridad",
+      "triggers": [
+        "secret",
+        "secreto",
+        "password",
+        "passwd",
+        "contraseña",
+        "token",
+        "api key",
+        "hardcode",
+        "hardcoded",
+        "credencial",
+        "credentials",
+        "seguridad",
+        "security",
+        "vulnerable",
+        "vulnerabilidad",
+        "cve",
+        "inject",
+        "inyección",
+        "xss",
+        "sql injection"
+      ],
+      "tools": [
+        "secret-scan",
+        "dep-audit"
+      ],
+      "description": "Escanea secretos hardcodeados y dependencias vulnerables",
+      "destructive": false
+    },
+    {
+      "id": "quality_check",
+      "name": "Calidad de código",
+      "triggers": [
+        "calidad",
+        "quality",
+        "lint",
+        "estilo",
+        "style",
+        "pep8",
+        "imports",
+        "import",
+        "unused",
+        "no usad",
+        "línea larga",
+        "linea larga",
+        "legibilidad",
+        "limpio",
+        "clean"
+      ],
+      "tools": [
+        "lint",
+        "naming-check",
+        "doc-coverage"
+      ],
+      "description": "Analiza calidad: estilo, naming y documentación",
+      "destructive": false
+    },
+    {
+      "id": "complexity_check",
+      "name": "Complejidad y refactoring",
+      "triggers": [
+        "complej",
+        "complex",
+        "largo",
+        "large",
+        "grande",
+        "refactor",
+        "función larga",
+        "funcion larga",
+        "demasiado",
+        "too long",
+        "cognitiv",
+        "ciclomát",
+        "ciclomatico",
+        "cyclomatic",
+        "difícil de leer",
+        "dificil de leer",
+        "difícil de entender"
+      ],
+      "tools": [
+        "complexity",
+        "refactor"
+      ],
+      "description": "Detecta complejidad alta y sugiere refactoring",
+      "destructive": false
+    },
+    {
+      "id": "dead_code",
+      "name": "Código muerto",
+      "triggers": [
+        "muerto",
+        "dead",
+        "dead code",
+        "no usado",
+        "no se usa",
+        "unused",
+        "variable no usada",
+        "función no llamada",
+        "import sin usar",
+        "eliminar",
+        "limpiar código",
+        "clean up"
+      ],
+      "tools": [
+        "dead-code",
+        "duplicate-check"
+      ],
+      "description": "Detecta código muerto y bloques duplicados",
+      "destructive": false
+    },
+    {
+      "id": "pre_merge",
+      "name": "Preparar para merge/PR",
+      "triggers": [
+        "merge",
+        "pull request",
+        "commit",
+        "push",
+        "producción",
+        "produccion",
+        "production",
+        "release",
+        "listo",
+        "ready",
+        "puedo mergear",
+        "puedo hacer merge",
+        "puedo commitear",
+        "está listo",
+        "esta listo",
+        "deploy"
+      ],
+      "tools": [
+        "commit-ready",
+        "ci-report"
+      ],
+      "description": "Evalúa si el código está listo para merge/producción",
+      "destructive": false
+    },
+    {
+      "id": "types_check",
+      "name": "Type hints y anotaciones",
+      "triggers": [
+        "tipo",
+        "type",
+        "type hint",
+        "anotacion",
+        "anotación",
+        "mypy",
+        "tipado",
+        "sin tipo",
+        "untyped",
+        "any"
+      ],
+      "tools": [
+        "type-check"
+      ],
+      "description": "Verifica anotaciones de tipo en funciones y métodos",
+      "destructive": false
+    },
+    {
+      "id": "deps_check",
+      "name": "Dependencias y librerías",
+      "triggers": [
+        "dependencia",
+        "dependency",
+        "requirements",
+        "pip",
+        "package",
+        "paquete",
+        "librería",
+        "libreria",
+        "version",
+        "versión",
+        "actualizar",
+        "upgrade",
+        "obsoleto",
+        "deprecated"
+      ],
+      "tools": [
+        "dep-audit"
+      ],
+      "description": "Audita dependencias en requirements.txt / pyproject.toml",
+      "destructive": false
+    },
+    {
+      "id": "docs_check",
+      "name": "Documentación",
+      "triggers": [
+        "documentaci",
+        "docstring",
+        "readme",
+        "doc",
+        "docs",
+        "sin documentar",
+        "sin docs",
+        "falta documentación",
+        "badge",
+        "enlace roto",
+        "broken link"
+      ],
+      "tools": [
+        "doc-coverage",
+        "readme-check"
+      ],
+      "description": "Verifica docstrings y README",
+      "destructive": false
+    },
+    {
+      "id": "framework_health",
+      "name": "Salud del framework BAGO",
+      "triggers": [
+        "bago",
+        "framework",
+        "tool guardian",
+        "guardian",
+        "salud",
+        "health",
+        "coherencia",
+        "coherente",
+        "integrado",
+        "sin test",
+        "sin routing",
+        "sin registro",
+        "registro",
+        "herramienta",
+        "herramientas"
+      ],
+      "tools": [
+        "tool-guardian"
+      ],
+      "description": "Valida coherencia interna del framework BAGO",
+      "destructive": false
+    },
+    {
+      "id": "full_audit",
+      "name": "Auditoría completa",
+      "triggers": [
+        "todo",
+        "completo",
+        "full",
+        "audit",
+        "auditoría",
+        "auditoria",
+        "reporte completo",
+        "full report",
+        "todo el proyecto",
+        "análisis completo",
+        "analisis completo",
+        "revisar todo"
+      ],
+      "tools": [
+        "ci-report"
+      ],
+      "description": "Reporte CI completo: 10 scanners, score 0-100",
+      "destructive": false
+    },
+    {
+      "id": "self_heal",
+      "name": "Auto-reparación del framework",
+      "triggers": [
+        "reparar",
+        "repair",
+        "arreglar",
+        "fix",
+        "corregir",
+        "auto",
+        "automático",
+        "automatico",
+        "self",
+        "heal",
+        "integrar tool",
+        "registrar tool",
+        "añadir test"
+      ],
+      "tools": [
+        "tool-guardian",
+        "auto-register"
+      ],
+      "description": "Detecta y auto-repara problemas del framework",
+      "destructive": true
+    },
+    {
+      "id": "hotspot_analysis",
+      "name": "Archivos de alto riesgo",
+      "triggers": [
+        "hotspot",
+        "riesgo",
+        "risk",
+        "cambio frecuente",
+        "más cambiado",
+        "inestable",
+        "unstable",
+        "git history",
+        "historial"
+      ],
+      "tools": [
+        "hotspot"
+      ],
+      "description": "Identifica archivos más cambiados = mayor riesgo",
+      "destructive": false
+    },
+    {
+      "id": "ableton_project",
+      "name": "Proyecto Ableton / Producción musical",
+      "triggers": [
+        "ableton",
+        "live",
+        "proyecto musical",
+        "proyecto de música",
+        "producción musical",
+        "produccion musical",
+        "music production",
+        "techno",
+        "track",
+        "beats",
+        "drums",
+        "bass",
+        "samples",
+        "scaffold musical",
+        "plantilla ableton",
+        "template ableton",
+        "daw",
+        "midi",
+        "audio",
+        "loop",
+        "arrangement",
+        "pista",
+        "quiero hacer música",
+        "quiero hacer musica"
+      ],
+      "tools": [
+        "ableton-template"
+      ],
+      "description": "Genera scaffold de proyecto Ableton techno (carpetas, README, template.json)",
+      "destructive": false
+    },
+    {
+      "id": "music_pipeline",
+      "name": "Pipeline musical (MusicXML / transposición)",
+      "triggers": [
+        "musicxml",
+        "transpos",
+        "transponer",
+        "transpose",
+        "nota musical",
+        "partitura",
+        "sheet music",
+        "score",
+        "clef",
+        "clave musical",
+        "instrumento",
+        "instrument",
+        "convert music",
+        "convertir música"
+      ],
+      "tools": [
+        "music"
+      ],
+      "description": "Convierte, transpone y valida archivos MusicXML",
+      "destructive": false
+    }
+  ]
+}

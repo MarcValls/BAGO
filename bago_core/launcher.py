@@ -1,0 +1,1406 @@
+#!/usr/bin/env python3
+"""
+bago — script de activación BAGO
+Muestra banner + gestiona comandos rápidos.
+
+Uso:
+  bago                    → shell interactivo BAGO
+  bago setup              → sincroniza repo_context + instala extensiones Copilot
+  bago extensions         → gestiona extensiones BAGO (.bago/extensions/)
+  bago versions           → lista todas las cleanversions disponibles
+  bago stability          → resumen único de estabilidad (smoke/VM/soak/validadores)
+  bago dashboard          → pack_dashboard.py
+  bago ideas              → emit_ideas.py
+  bago ideas --accept N   → acepta idea N y genera tarea W2
+  bago task               → muestra la tarea W2 pendiente
+  bago task --done        → marca la tarea como completada
+  bago task --assign ANALISTA → asigna la tarea activa a un agente
+  bago assign list-agents → lista agentes/roles disponibles
+  bago assign pending     → ideas sin agente asignado
+  bago assign assigned    → ideas con agente asignado
+  bago session            → abre sesión W2 con preflight pre-rellenado
+  bago session --dry      → muestra args del preflight sin ejecutar
+  bago efficiency         → medidor de eficiencia inter-versiones
+  bago cosecha            → cosecha.py
+  bago detector           → context_detector.py
+  bago validate           → valida pack (manifest + state + pack)
+  bago sync               → sync_pack_metadata.py (regenera TREE.txt y CHECKSUMS)
+  bago health             → health_score.py
+  bago audit              → audit_v2.py
+  bago dev refresh-engine → reinstala el motor limpio desde el workspace
+  bago workflow           → workflow_selector.py (interactivo)
+  bago stale              → stale_detector.py
+  bago sincerity          → sincerity_detector.py
+  bago cabinet            → cabinet_orchestrator.py
+  bago v2                 → v2_close_checklist.py
+  bago last               → muestra las últimas 5 sesiones ejecutadas
+  bago history            → estadísticas de todas las sesiones
+  bago registry           → lista de herramientas registradas
+  bago neural [cmd]       → gestiona el Neural Bus SSE
+  bago heal-paths         → detecta y repara rutas rotas
+  bago npath [cmd]        → Neural Path cognitive graph
+  bago project init       → inicializa .bago/ en el proyecto actual
+  bago project link       → vincula el proyecto al framework
+  bago project state      → estado del proyecto vinculado
+  bago siembra create .   → planta una siembra (proyecto hijo) en el directorio actual
+  bago siembra list       → lista todas las siembras registradas
+  bago siembra ideas      → alias → bago ideas (catálogo W2, no confundir con proyectos)
+  bago seed-ideas         → alias explícito → bago ideas (siembra de catálogo)
+  bago <cmd> --preflight  → verifica precondiciones sin ejecutar el comando
+  bago wizard             → wizard de instalación (acepta contrato, instala packs)
+  bago wizard --reset     → borra marker y vuelve a ejecutar el wizard
+  bago wizard --status    → muestra estado de instalación
+  bago rubber-duck <file> → rubber duck debugging: repite qué hace el código
+  bago rubber-duck --last → analiza el último .py modificado
+  bago rubber-duck --watch → modo watch (polling, auto-analiza cambios)
+  bago model list         → lista agentes y sus modelos asignados
+  bago model models       → lista todos los modelos disponibles
+  bago model get <id>     → obtiene el modelo de un agente
+  bago model set <id> <m> → asigna modelo a un agente (ej: bago model set agent_ops claude-opus-4.7)
+  bago serve              → arranca el servidor API BAGO
+  bago bot telegram       → arranca el bot de Telegram
+  bago bot utopia         → arranca el cliente Utopia
+  bago help               → este mensaje
+
+Instalar como alias global (Unix):
+  echo 'alias bago="$(which bago)"' >> ~/.zshrc
+"""
+
+import importlib.util
+import json, os, shutil, subprocess, sys, time
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+
+# Windows: forzar UTF-8 para emojis y caracteres especiales en terminal
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass  # Python < 3.7
+
+_launcher_path = Path(__file__).resolve()
+_bago_core_dir = _launcher_path.parent
+_user_active = Path.home() / ".bago" / "active" / ".bago"
+_candidate_roots = [
+    _bago_core_dir.parent / ".bago",     # repo mode: <root>/.bago
+    _bago_core_dir / ".bago",            # package mode: .bago inside bago_core
+    _user_active,                          # global install: ~/.bago/active/.bago
+]
+BAGO_ROOT = None
+for cand in _candidate_roots:
+    if (cand / "pack.json").exists() or (cand / "tools").exists():
+        BAGO_ROOT = cand
+        break
+if BAGO_ROOT is None:
+    BAGO_ROOT = _bago_core_dir.parent / ".bago"
+TOOLS     = BAGO_ROOT / "tools"
+CORE      = BAGO_ROOT / "core"
+
+def _default_user_home() -> Path:
+    if sys.platform == "win32":
+        program_data = os.environ.get("ProgramData")
+        if program_data:
+            return Path(program_data) / "BAGO" / "user"
+    return BAGO_ROOT / "user"
+
+os.environ.setdefault("BAGO_USER_HOME", str(_default_user_home()))
+
+_USE_COLOR = sys.stdout.isatty()
+def GREEN(t):  return f"\033[1;32m{t}\033[0m" if _USE_COLOR else t
+
+# ── BAGO Presence (lazy-loaded, never crashes) ────────────────────────────────
+_bp = None
+
+def _load_bp():
+    global _bp
+    if _bp is not None:
+        return _bp
+    try:
+        _spec = importlib.util.spec_from_file_location(
+            "bago_presence", TOOLS / "bago_presence.py"
+        )
+        _mod = importlib.util.module_from_spec(_spec)   # type: ignore
+        _spec.loader.exec_module(_mod)                   # type: ignore
+        _bp = _mod.bp
+    except Exception:
+        class _NullBP:
+            def __getattr__(self, _): return lambda *a, **k: None
+        _bp = _NullBP()  # type: ignore
+    return _bp
+
+# ── Agent Dispatcher (v3.0) — opt-in via BAGO_DISPATCH=1 ─────────────────────
+# When disabled: zero overhead. When enabled: adds BAGO_AGENT to subprocess env
+# and emits dispatch:before / dispatch:after events to events.jsonl.
+_DISPATCH_ENABLED = os.environ.get("BAGO_DISPATCH", "0") == "1"
+_dispatcher_mod   = None   # lazy-loaded below if enabled
+
+def _load_dispatcher():
+    """Lazy-load agent_dispatcher from .bago/core/ when first needed."""
+    global _dispatcher_mod
+    if _dispatcher_mod is not None:
+        return _dispatcher_mod
+    disp_path = CORE / "agent_dispatcher.py"
+    if not disp_path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("_bago_agent_dispatcher", str(disp_path))
+    if spec is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    # agent_dispatcher imports bago_context — ensure it can find it
+    if str(CORE) not in sys.path:
+        sys.path.insert(0, str(CORE))
+    try:
+        spec.loader.exec_module(mod)
+        _dispatcher_mod = mod
+        return mod
+    except Exception:
+        sys.modules.pop(spec.name, None)
+        return None
+
+
+_context_mod = None   # lazy-loaded below if dispatch enabled
+
+def _load_context():
+    """Lazy-load bago_context from .bago/core/ and return a BagoContext singleton."""
+    global _context_mod
+    ctx_path = CORE / "bago_context.py"
+    if not ctx_path.exists():
+        return None
+    if _context_mod is None:
+        spec = importlib.util.spec_from_file_location("_bago_context", str(ctx_path))
+        if spec is None:
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        if str(CORE) not in sys.path:
+            sys.path.insert(0, str(CORE))
+        try:
+            spec.loader.exec_module(mod)
+            _context_mod = mod
+        except Exception:
+            sys.modules.pop(spec.name, None)
+            return None
+    try:
+        return _context_mod.get_context()
+    except Exception:
+        return None
+
+
+# ── Tool registry — single source of truth ────────────────────────────────────
+
+def _load_registry_mod():
+    """Load tool_registry module via importlib (avoids sys.path pollution)."""
+    registry_path = TOOLS / "tool_registry.py"
+    if not registry_path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("_bago_tool_registry", str(registry_path))
+    if spec is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    # Registrar en sys.modules ANTES de exec_module: Python 3.13 + @dataclass
+    # requiere que cls.__module__ sea resoluble via sys.modules.get().
+    sys.modules[spec.name] = mod
+    try:
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        sys.modules.pop(spec.name, None)
+        return None
+
+
+def _build_commands() -> dict:
+    """Return COMMANDS dict from tool_registry (single source of truth).
+
+    Fail-closed: if registry is unavailable, raise so the user gets a clear
+    error instead of silently running an outdated hardcoded fallback.
+    See .bago/tools/legacy_registry.py for the historical command list.
+    """
+    mod = _load_registry_mod()
+    if mod and hasattr(mod, "get_commands"):
+        try:
+            return mod.get_commands()
+        except Exception as exc:
+            print(f"❌ tool_registry.get_commands() failed: {exc}", file=sys.stderr)
+            print("   Run: python3 bago doctor", file=sys.stderr)
+            sys.exit(1)
+    print("❌ tool_registry.py unavailable — cannot build command table.", file=sys.stderr)
+    print("   Run: python3 bago doctor", file=sys.stderr)
+    sys.exit(1)
+
+COMMANDS = _build_commands()
+
+
+def _build_deprecated_map() -> dict[str, str]:
+    mod = _load_registry_mod()
+    if mod and hasattr(mod, "get_deprecated_map"):
+        try:
+            return mod.get_deprecated_map()
+        except Exception:
+            pass
+    return {}
+
+
+_DEPRECATED_MAP = _build_deprecated_map()
+
+# Legacy command list moved to .bago/tools/legacy_registry.py (PR-02 Kernel Lockdown).
+# Active commands come exclusively from tool_registry.REGISTRY via COMMANDS above.
+
+
+# ── Dispatcher — preflight + session log + exit-code propagation ───────────────
+
+def _get_module_for_cmd(cmd: str) -> str:
+    """Return the module stem for a command (for session logging)."""
+    mod = _load_registry_mod()
+    if mod:
+        entry = getattr(mod, "REGISTRY", {}).get(cmd)
+        if entry:
+            return entry.module
+    cmd_list = COMMANDS.get(cmd, [])
+    if len(cmd_list) >= 2:
+        return Path(cmd_list[-1]).stem
+    return cmd
+
+
+def _run_preflight(cmd: str, skip: bool = False) -> None:
+    """Enforce preflight policy for cmd via preflight_engine. Fail-closed for core/dangerous commands."""
+    pfe_path = TOOLS / "preflight_engine.py"
+    if not pfe_path.exists():
+        # Engine missing — fail-closed for core and dangerous, warning for others
+        mod = _load_registry_mod()
+        if mod:
+            entry = getattr(mod, "REGISTRY", {}).get(cmd)
+            stability = getattr(entry, "stability", "experimental") if entry else "experimental"
+            if stability in ("core", "dangerous"):
+                print(
+                    f"❌ preflight_engine.py missing — cannot run '{cmd}' (stability={stability}).\n"
+                    f"   Reinstall BAGO or restore .bago/tools/preflight_engine.py",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            else:
+                print(f"  ⚠  preflight_engine.py missing — skipping preflight for '{cmd}'", file=sys.stderr)
+        return
+    spec = importlib.util.spec_from_file_location("_bago_pfe", str(pfe_path))
+    if spec is None:
+        return
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        mod.enforce(cmd, skip_preflight=skip)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        mod = _load_registry_mod()
+        stability = "experimental"
+        if mod:
+            entry = getattr(mod, "REGISTRY", {}).get(cmd)
+            stability = getattr(entry, "stability", "experimental") if entry else "experimental"
+        if stability in ("core", "dangerous"):
+            print(
+                f"❌ preflight_engine crashed for '{cmd}' (stability={stability}): {exc}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"  ⚠  preflight_engine error: {exc}", file=sys.stderr)
+
+
+def _get_cmd_risk(cmd: str) -> str:
+    """Return risk level for cmd from tool_registry. Defaults to 'safe'."""
+    mod = _load_registry_mod()
+    if mod:
+        entry = getattr(mod, "REGISTRY", {}).get(cmd)
+        if entry:
+            return getattr(entry, "risk", "safe")
+    return "safe"
+
+
+def _requires_registry_safety(cmd: str) -> bool:
+    """True when a command must not bypass registry preflight/risk handling."""
+    mod = _load_registry_mod()
+    if not mod:
+        return False
+    entry = getattr(mod, "REGISTRY", {}).get(cmd)
+    if not entry:
+        return False
+    return (
+        getattr(entry, "risk", "safe") in ("mutating", "dangerous")
+        or getattr(entry, "stability", "core") == "dangerous"
+    )
+
+
+def _check_risk(cmd: str, args: list) -> None:
+    """Enforce risk model for cmd. Dangerous commands require --yes or --unsafe.
+
+    --dry-run is only a safe bypass if the command declares supports_dry_run=True in the registry.
+    Dangerous commands without an explicit flag exit with a clear error.
+    """
+    risk = _get_cmd_risk(cmd)
+    if risk != "dangerous":
+        return
+
+    if "--yes" in args or "--unsafe" in args:
+        return
+
+    if "--dry-run" in args:
+        mod = _load_registry_mod()
+        if mod:
+            entry = getattr(mod, "REGISTRY", {}).get(cmd)
+            if getattr(entry, "supports_dry_run", False):
+                return
+        print(
+            f"\n⚠️  Comando peligroso: bago {cmd}\n"
+            f"   --dry-run no está implementado para este comando.\n"
+            f"   Para confirmar, añade: --yes\n"
+            f"   Para modo sin restricciones: --unsafe  (úsalo solo si sabes lo que haces)\n",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(
+        f"\n⚠️  Comando peligroso: bago {cmd}\n"
+        f"   Este comando puede modificar estado, datos o configuración de forma irreversible.\n"
+        f"   Para confirmar, añade: --yes\n"
+        f"   Para modo sin restricciones: --unsafe  (úsalo solo si sabes lo que haces)\n"
+        f"   Para vista previa sin ejecución: --dry-run  (si está soportado)\n",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+def _start_session(cmd: str, args: list) -> object:
+    """Start a session logger. Returns logger or None on failure."""
+    sl_path = TOOLS / "session_logger.py"
+    if not sl_path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("_bago_session_logger", str(sl_path))
+    if spec is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        module = _get_module_for_cmd(cmd)
+        return mod.SessionLogger(cmd, args, module)
+    except Exception:
+        return None
+
+
+def _load_telemetry() -> object:
+    """Load bago_telemetry module. Returns module or None on failure."""
+    tel_path = TOOLS / "bago_telemetry.py"
+    if not tel_path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("_bago_telemetry", str(tel_path))
+    if spec is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        return None
+
+
+def _run_self_test(cmd: str, args: list) -> None:
+    """Run a module's _self_test() without passing through the dangerous guard.
+
+    Safe bypass: --self-test only calls the module's internal _self_test()
+    function directly. It does NOT execute the command's real logic.
+    Any module that exposes a _self_test() function can be tested this way.
+    """
+    # Resolve module from registry
+    mod_path: "Path | None" = None
+    reg = _load_registry_mod()
+    if reg:
+        entry = getattr(reg, "REGISTRY", {}).get(cmd)
+        if entry:
+            module_name = getattr(entry, "module", None)
+            if module_name:
+                mod_path = _find_tool(module_name)
+
+    if mod_path is None:
+        print(f"  ✗ No se encontró el módulo para '{cmd}'", file=sys.stderr)
+        sys.exit(1)
+
+    spec = importlib.util.spec_from_file_location(f"_bago_selftest_{cmd}", str(mod_path))
+    if spec is None:
+        print(f"  ✗ No se pudo cargar el módulo para '{cmd}'", file=sys.stderr)
+        sys.exit(1)
+    selftest_mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(selftest_mod)
+    except Exception as exc:
+        print(f"  ✗ Error al cargar el módulo '{cmd}': {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    self_test_fn = getattr(selftest_mod, "_self_test", None)
+    if self_test_fn is None:
+        print(
+            f"  ⚠️  El módulo '{cmd}' no expone _self_test().\n"
+            f"     Añade una función `def _self_test(): ...` en el módulo para habilitar este modo.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"  🔬 Running self-test for '{cmd}' (safe mode, no real execution)...")
+    try:
+        result = self_test_fn()
+        if result is not None:
+            print(result)
+        print(f"  ✅ Self-test OK para '{cmd}'")
+    except Exception as exc:
+        print(f"  ✗ Self-test FAILED para '{cmd}': {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _dispatch(cmd: str, rest: list, preflight_only: bool = False, skip_preflight: bool = False) -> None:
+    """Dispatch a registered command with preflight + session logging + exit propagation."""
+    # 0. Deprecation hint (non-blocking)
+    if cmd in _DEPRECATED_MAP:
+        see = _DEPRECATED_MAP[cmd]
+        hint = f"  ⚠️  '{cmd}' está deprecated → usa: {see}"
+        print(f"\033[33m{hint}\033[0m" if _USE_COLOR else hint)
+        sys.stdout.flush()
+
+    # 0b. Experimental perimeter warning (non-blocking, suppressible with BAGO_LABS=1)
+    if os.environ.get("BAGO_LABS", "0") != "1":
+        reg = _load_registry_mod()
+        if reg:
+            entry = getattr(reg, "REGISTRY", {}).get(cmd)
+            stability = getattr(entry, "stability", "core") if entry else "core"
+            if stability == "experimental":
+                warn = (
+                    f"  ⚗️  [experimental] 'bago {cmd}' no forma parte del contrato estable.\n"
+                    f"      Puede cambiar o desaparecer sin aviso. "
+                    f"Suprime este aviso con BAGO_LABS=1."
+                )
+                print(f"\033[33m{warn}\033[0m" if _USE_COLOR else warn)
+                sys.stdout.flush()
+
+    # 1. Preflight (fail-closed via preflight_engine for core commands)
+    _run_preflight(cmd, skip=skip_preflight)
+    if preflight_only:
+        print(f"  ✅ Preflight OK para '{cmd}'")
+        return
+
+    # 1b. Risk model: dangerous commands require --yes or --unsafe
+    # Exception: --self-test flag invokes the module's _self_test() directly,
+    # bypassing the dangerous guard (read-only capability check, no state mutation).
+    if "--self-test" in rest:
+        _run_self_test(cmd, rest)
+        return
+    _check_risk(cmd, rest)
+
+    # 2. Start session log + telemetry
+    session = _start_session(cmd, rest)
+    _tel = _load_telemetry()
+
+    # 2b. Dispatcher: resolve agent + inject BAGO_AGENT into subprocess env (opt-in)
+    _dispatch_ctx   = None
+    _dispatch_disp  = None
+    _dispatch_entry = None
+    dispatch_env: dict = {}
+    if _DISPATCH_ENABLED:
+        reg = _load_registry_mod()
+        if reg and hasattr(reg, "REGISTRY"):
+            _dispatch_entry = reg.REGISTRY.get(cmd)
+        _dispatch_ctx  = _load_context()
+        _dispatch_disp = _load_dispatcher()
+        if _dispatch_disp and _dispatch_entry is not None and _dispatch_ctx is not None:
+            try:
+                dispatch_env = _dispatch_disp.prepare_dispatch(
+                    _dispatch_ctx, cmd, _dispatch_entry
+                )
+            except Exception:
+                dispatch_env = {}
+
+    # 3. Execute
+    _user_cwd = os.getcwd()
+    run_env = {**os.environ, "BAGO_USER_CWD": _user_cwd, **dispatch_env}
+    _t0 = time.monotonic()
+    _load_bp().dispatch_header(cmd)
+    try:
+        result = subprocess.run(
+            COMMANDS[cmd] + rest,
+            cwd=str(BAGO_ROOT.parent),
+            env=run_env,
+        )
+    except KeyboardInterrupt:
+        import sys as _sys
+        print("\n\033[2m⚡ Interrumpido.\033[0m", file=_sys.stderr)
+        _sys.exit(130)
+    _duration = time.monotonic() - _t0
+
+    # 3b. Dispatcher: finalize (emit dispatch:after event, flush)
+    if _DISPATCH_ENABLED and _dispatch_disp and _dispatch_entry is not None and _dispatch_ctx is not None:
+        _agent_name = getattr(_dispatch_entry, "agent", "") or "ORGANIZADOR"
+        try:
+            _dispatch_disp.finalize_dispatch(_dispatch_ctx, cmd, _agent_name, result.returncode)
+        except Exception:
+            pass
+
+    # 4. Log result (session logger + telemetry)
+    if _tel:
+        _tel.track_command(cmd, args=rest, duration_s=_duration, exit_code=result.returncode)
+    if session:
+        if result.returncode == 0:
+            session.success()
+        else:
+            session.failure(exit_code=result.returncode)
+
+    # 5. Propagate exit code (was previously swallowed)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
+def _cmd_session_last(args: list) -> None:
+    """Show last N sessions via session_logger.py."""
+    sl_path = TOOLS / "session_logger.py"
+    if not sl_path.exists():
+        print("  session_logger.py no encontrado en", TOOLS)
+        return
+    n = int(args[0]) if args and args[0].isdigit() else 5
+    subprocess.run([sys.executable, str(sl_path), "--last", str(n)],
+                   cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_session_history() -> None:
+    """Show session history via session_logger.py."""
+    sl_path = TOOLS / "session_logger.py"
+    if not sl_path.exists():
+        print("  session_logger.py no encontrado en", TOOLS)
+        return
+    subprocess.run([sys.executable, str(sl_path), "--history"],
+                   cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_telemetry(args: list) -> None:
+    """Show local telemetry (App Insights equivalent, no cloud)."""
+    if "--web" in args:
+        web_path = TOOLS / "bago_telemetry_web.py"
+        if not web_path.exists():
+            print("  bago_telemetry_web.py no encontrado en", TOOLS)
+            return
+        web_extra: list[str] = []
+        if "--port" in args:
+            idx = args.index("--port")
+            if idx + 1 < len(args):
+                web_extra += ["--port", args[idx + 1]]
+        if "--no-open" in args:
+            web_extra.append("--no-open")
+        subprocess.run([sys.executable, str(web_path)] + web_extra,
+                       cwd=str(BAGO_ROOT.parent))
+        return
+
+    if "--live" in args:
+        import sys as _sys
+        if not _sys.stdout.isatty():
+            print("⚠  No hay TTY — usa: bago telemetry --web")
+            return
+        live_path = TOOLS / "bago_telemetry_live.py"
+        if not live_path.exists():
+            print("  bago_telemetry_live.py no encontrado en", TOOLS)
+            return
+        rate_args = []
+        if "--rate" in args:
+            idx = args.index("--rate")
+            if idx + 1 < len(args):
+                rate_args = ["--rate", args[idx + 1]]
+        subprocess.run([sys.executable, str(live_path)] + rate_args,
+                       cwd=str(BAGO_ROOT.parent))
+        return
+    tel_path = TOOLS / "bago_telemetry.py"
+    if not tel_path.exists():
+        print("  bago_telemetry.py no encontrado en", TOOLS)
+        return
+    subprocess.run([sys.executable, str(tel_path)] + args,
+                   cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_registry() -> None:
+    """Show tool registry listing."""
+    reg_path = TOOLS / "tool_registry.py"
+    if not reg_path.exists():
+        print("  tool_registry.py no encontrado en", TOOLS)
+        return
+    subprocess.run([sys.executable, str(reg_path), "--list"],
+                   cwd=str(BAGO_ROOT.parent))
+
+
+def _find_tool(stem: str) -> "Path | None":
+    """Locate a tool by stem: TOOLS first, then rglob fallback.
+    Supports dotted module names (e.g. supervision.supervisor)."""
+    direct = TOOLS / f"{stem}.py"
+    if direct.exists():
+        return direct
+    if "." in stem:
+        dotted = TOOLS / f"{stem.replace(".", os.sep)}.py"
+        if dotted.exists():
+            return dotted
+        dotted2 = BAGO_ROOT / f"{stem.replace(".", os.sep)}.py"
+        if dotted2.exists():
+            return dotted2
+    hits = list(BAGO_ROOT.rglob(f"{stem}.py"))
+    return hits[0] if hits else None
+def _cmd_neural(rest: list) -> None:
+    """bago neural [start|stop|status|nodes|map] — gestiona el Neural Bus SSE."""
+    neural = _find_tool("bago_neural")
+    if not neural:
+        print("  ❌ bago_neural.py no encontrado en", TOOLS)
+        return
+    subprocess.run([sys.executable, str(neural)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_heal_paths(rest: list) -> None:
+    """bago heal-paths [--watch] [--forget] — detecta y repara rutas rotas."""
+    healer = _find_tool("path_healer")
+    if not healer:
+        print("  ❌ path_healer.py no encontrado en", TOOLS)
+        return
+    subprocess.run([sys.executable, str(healer)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_npath_dispatch(rest: list) -> None:
+    """bago npath <subcomando> ... — Neural Path versioned cognitive graph."""
+    # Prefer the package directory (npath/) over the legacy monolithic npath.py
+    npath_pkg = TOOLS / "npath"
+    if npath_pkg.is_dir() and (npath_pkg / "__main__.py").exists():
+        import sys as _sys
+        env = {**__import__("os").environ, "PYTHONPATH": str(TOOLS)}
+        subprocess.run([_sys.executable, str(npath_pkg)] + rest,
+                       cwd=str(BAGO_ROOT.parent), env=env)
+        return
+    npath = _find_tool("npath")
+    if not npath:
+        print("  ❌ npath/ package ni npath.py encontrado en", TOOLS)
+        return
+    import sys as _sys
+    subprocess.run([_sys.executable, str(npath)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
+def _resolve_engine_profile() -> str:
+    """Return the publication profile to preserve when refreshing the engine."""
+    candidates: list[Path] = []
+    program_files = os.environ.get("ProgramFiles")
+    if program_files:
+        candidates.append(Path(program_files) / "BAGO" / "runtime_contract.json")
+    candidates.append(BAGO_ROOT.parent / "runtime_contract.json")
+    candidates.append(BAGO_ROOT.parent / "docs" / "runtime_contract.json")
+
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        profile = data.get("install_profile")
+        if profile:
+            return str(profile)
+        if "knowledge_included" in data:
+            return "with-knowledge" if data["knowledge_included"] else "without-knowledge"
+        publication = data.get("publication")
+        if isinstance(publication, dict):
+            default = publication.get("default_profile")
+            if default:
+                return str(default)
+    return "with-knowledge"
+
+
+def _cmd_dev(rest: list) -> None:
+    """bago dev refresh-engine [--with-knowledge|--without-knowledge]."""
+    if not rest or rest[0] != "refresh-engine":
+        print("  Uso: bago dev refresh-engine [--with-knowledge|--without-knowledge]")
+        return
+
+    if sys.platform != "win32":
+        print("  refresh-engine solo está soportado en Windows.")
+        return
+
+    profile = _resolve_engine_profile()
+    for arg in rest[1:]:
+        low = str(arg).lower()
+        if low == "--with-knowledge":
+            profile = "with-knowledge"
+        elif low == "--without-knowledge":
+            profile = "without-knowledge"
+        elif low in ("-h", "--help"):
+            print("  Uso: bago dev refresh-engine [--with-knowledge|--without-knowledge]")
+            print("  Reinstala el motor limpio y lo valida al final.")
+            return
+        else:
+            print(f"  Argumento no reconocido: {arg}")
+            print("  Uso: bago dev refresh-engine [--with-knowledge|--without-knowledge]")
+            return
+
+    installer = BAGO_ROOT.parent / "install.ps1"
+    if not installer.exists():
+        print(f"  ❌ install.ps1 no encontrado en {installer}")
+        return
+
+    powershell = shutil.which("powershell") or shutil.which("pwsh")
+    if not powershell:
+        print("  ❌ No se encontró PowerShell para ejecutar install.ps1")
+        return
+
+    install_cmd = [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(installer)]
+    if profile == "without-knowledge":
+        install_cmd.append("-NoKnowledge")
+
+    print()
+    print("  BAGO Dev · Refresh Engine")
+    print("  " + "-" * 42)
+    print(f"  Perfil: {profile}")
+    print(f"  Motor destino: {BAGO_ROOT.parent}")
+    print()
+
+    result = subprocess.run(install_cmd, cwd=str(BAGO_ROOT.parent))
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+    installed_launcher = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "BAGO" / "bago.ps1"
+    if installed_launcher.exists():
+        print()
+        print("  Validando motor instalado...")
+        validation = subprocess.run(
+            [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(installed_launcher), "validate"],
+            cwd=str(BAGO_ROOT.parent),
+        )
+        if validation.returncode != 0:
+            sys.exit(validation.returncode)
+
+    print()
+    print("  ✓ Motor refrescado y validado")
+
+
+# ── Extensiones Copilot CLI ────────────────────────────────────────────────────
+
+def _install_extensions(bago_root=None, silent=False):
+    """Copia .bago/extensions/*/extension.mjs → .github/extensions/*/extension.mjs"""
+    src_base  = (bago_root or BAGO_ROOT) / "extensions"
+    repo_root = (bago_root or BAGO_ROOT).parent
+    dest_base = repo_root / ".github" / "extensions"
+
+    if not src_base.exists():
+        if not silent:
+            print("  ℹ  No hay extensiones en .bago/extensions/")
+        return []
+
+    installed = []
+    for ext_dir in sorted(src_base.iterdir()):
+        src_file = ext_dir / "extension.mjs"
+        if not src_file.exists():
+            continue
+        dest_dir  = dest_base / ext_dir.name
+        dest_file = dest_dir / "extension.mjs"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src_file), str(dest_file))
+        installed.append(ext_dir.name)
+
+    if installed and not silent:
+        for name in installed:
+            print(f"  🔌 Extensión instalada: {name}")
+    return installed
+
+def _cmd_extensions():
+    """Lista extensiones disponibles e instala si hay cambios."""
+    src_base = BAGO_ROOT / "extensions"
+    if not src_base.exists() or not any(src_base.iterdir()):
+        print("  No hay extensiones BAGO en .bago/extensions/")
+        return
+
+    print()
+    print("  ┌──────────────────────────────────────────────┐")
+    print("  │  BAGO · Extensiones Copilot CLI              │")
+    print("  └──────────────────────────────────────────────┘")
+    for ext_dir in sorted(src_base.iterdir()):
+        if (ext_dir / "extension.mjs").exists():
+            dest = BAGO_ROOT.parent / ".github" / "extensions" / ext_dir.name / "extension.mjs"
+            status = "✅ instalada" if dest.exists() else "⚠️  pendiente"
+            print(f"  🔌 {ext_dir.name:30s} {status}")
+    print()
+    print("  Reinstalar: bago setup")
+    print()
+
+# ── Helpers de estado ──────────────────────────────────────────────────────────
+
+def _read_state(bago_root=None):
+    f = (bago_root or BAGO_ROOT) / "state" / "global_state.json"
+    if not f.exists():
+        return {}
+    with open(f) as fh:
+        return json.load(fh)
+
+def _write_state(state, bago_root=None):
+    f = (bago_root or BAGO_ROOT) / "state" / "global_state.json"
+    with open(f, "w") as fh:
+        json.dump(state, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+
+def _set_mode(mode, bago_root=None):
+    s = _read_state(bago_root)
+    s["distribution_mode"] = mode
+    _write_state(s, bago_root)
+
+def _is_template_seed():
+    return _read_state().get("distribution_mode") == "template_seed"
+
+# ── Scaffold de proyecto nuevo ─────────────────────────────────────────────────
+
+def _scaffold_project(dest_input):
+    src = BAGO_ROOT.parent
+    dest = Path(dest_input.strip()).expanduser().resolve() if dest_input.strip() else src
+
+    if dest == src:
+        _set_mode("project_active")
+        _auto_sync(src)
+        _install_extensions(silent=True)
+        print(f"\n  ✅ Proyecto inicializado en: {dest}\n")
+        return True
+
+    try:
+        dest.relative_to(src)
+        print("  ⚠  El destino no puede estar dentro del directorio fuente.")
+        return False
+    except ValueError:
+        pass
+
+    if dest.exists() and any(dest.iterdir()):
+        print(f"  ⚠  El directorio ya existe y no está vacío:\n     {dest}")
+        return False
+
+    print(f"\n  📦 Copiando pack a: {dest}")
+    dest.mkdir(parents=True, exist_ok=True)
+
+    shutil.copytree(str(BAGO_ROOT), str(dest / ".bago"))
+    shutil.copy2(str(src / "bago"), str(dest / "bago"))
+    if sys.platform != "win32":
+        os.chmod(str(dest / "bago"), 0o755)
+    # Windows: copiar bago.cmd para que `bago` sea invocable desde CMD/PowerShell
+    if sys.platform == "win32" and (src / "bago.cmd").exists():
+        shutil.copy2(str(src / "bago.cmd"), str(dest / "bago.cmd"))
+    if (src / "Makefile").exists():
+        shutil.copy2(str(src / "Makefile"), str(dest / "Makefile"))
+
+    _set_mode("project_active", dest / ".bago")
+
+    subprocess.run(
+        [sys.executable, str(dest / "bago"), "setup"],
+        cwd=str(dest)
+    )
+
+    print(f"\n  ✅ Proyecto listo en: {dest}")
+    print(f"  ▶  cd \"{dest}\" && bago\n")
+    return True
+
+# ── Prompt de arranque ─────────────────────────────────────────────────────────
+
+def _prompt_mode():
+    """Mostrado la primera vez que se ejecuta una cleanversion."""
+    print()
+    print("  ┌─────────────────────────────────────────────┐")
+    print("  │  BAGO · Primera ejecución                   │")
+    print("  ├─────────────────────────────────────────────┤")
+    print("  │  [1] Evolucionar el framework BAGO          │")
+    print("  │  [2] Iniciar un proyecto nuevo              │")
+    print("  └─────────────────────────────────────────────┘")
+    print()
+
+    try:
+        choice = input("  Elige [1/2]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        sys.exit(0)
+
+    if choice == "1":
+        _set_mode("framework_host")
+        print("\n  ✅ Modo framework activado.\n")
+        return "banner"
+
+    elif choice == "2":
+        default = str(BAGO_ROOT.parent)
+        print(f"\n  Ruta del proyecto nuevo")
+        print(f"  (Enter = directorio actual: {default})")
+        try:
+            dest_input = input("  > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(0)
+        return "done" if _scaffold_project(dest_input) else "error"
+
+    else:
+        print("\n  Opción no válida. Usa 1 o 2.\n")
+        return "invalid"
+
+# ── bago versions ─────────────────────────────────────────────────────────────
+
+def _cmd_versions():
+    """Lista todas las cleanversions encontradas junto al script."""
+    cv_dir = Path(__file__).resolve().parent.parent / "cleanversion"
+    if not cv_dir.exists():
+        cv_dir = Path(__file__).resolve().parent / "cleanversion"
+    if not cv_dir.exists():
+        print("  No se encontró directorio cleanversion/")
+        return
+
+    entries = sorted(d for d in cv_dir.iterdir() if d.is_dir() and not d.name.startswith('.'))
+    if not entries:
+        print("  No hay cleanversions.")
+        return
+
+    print()
+    print("  ┌─────────────────────────────────────────────────────────────┐")
+    print("  │  BAGO · Cleanversions disponibles                          │")
+    print("  └─────────────────────────────────────────────────────────────┘")
+
+    for d in entries:
+        info_file  = d / "VERSION_INFO.json"
+        state_file = d / ".bago" / "state" / "global_state.json"
+
+        info  = json.loads(info_file.read_text())  if info_file.exists()  else {}
+        state = json.loads(state_file.read_text()) if state_file.exists() else {}
+
+        chg_dir   = d / ".bago" / "state" / "changes"
+        chg_count = len(list(chg_dir.glob("BAGO-CHG-*.json"))) if chg_dir.exists() else 0
+
+        slug   = info.get("slug", d.name)
+        name   = info.get("display_name", "—")
+        desc   = info.get("description", "")
+        mode   = state.get("distribution_mode") or "—"
+        script = info.get("bago_script", "—")
+        notes  = info.get("notes", "")
+
+        print()
+        print(f"  📦 {slug}")
+        print(f"     {name}")
+        print(f"     {desc}")
+        print(f"     mode={mode} | CHG={chg_count} | bago={script}")
+        if notes:
+            print(f"     💡 {notes}")
+
+    print()
+
+# ── Auto-sync silencioso ───────────────────────────────────────────────────────
+
+# Commands that need fresh repo context — only these trigger _auto_sync().
+# Read-only / diagnostic commands must NOT write repo_context.json on every run
+# (it is a git-tracked generated_artifact and causes permanent git status noise).
+_SYNC_CMDS = frozenset({
+    "setup", "session", "cosecha", "audit", "dashboard", "detector", "task",
+})
+
+def _auto_sync(cwd=None):
+    try:
+        subprocess.run(
+            [sys.executable, str(TOOLS / "repo_context_guard.py"), "sync"],
+            cwd=str(cwd or BAGO_ROOT.parent),
+            capture_output=True,
+            timeout=5
+        )
+    except Exception:
+        pass
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main():
+    args = sys.argv[1:]
+
+    if args and args[0] in ("--version", "-V"):
+        print("bago 3.4.5")
+        return
+
+    # ── First-run wizard ───────────────────────────────────────────────────────
+    # Fires on any first run (with or without args) unless bypassed.
+    # CI/BAGO_SKIP_WIZARD bypass is handled inside bago_wizard.py itself.
+    _wizard_marker = BAGO_ROOT / "state" / "install_complete.json"
+    _skip_wizard = (
+        "--skip-wizard" in args
+        or os.environ.get("CI")
+        or os.environ.get("BAGO_SKIP_WIZARD")
+    )
+    if not _wizard_marker.exists() and not _skip_wizard:
+        _wiz_path = TOOLS / "bago_wizard.py"
+        if _wiz_path.exists():
+            _wiz_result = subprocess.run(
+                [sys.executable, str(_wiz_path)],
+                cwd=str(BAGO_ROOT.parent),
+            )
+            if _wiz_result.returncode != 0:
+                sys.exit(_wiz_result.returncode)
+            if not args:
+                return  # No command given: wizard already showed banner, we're done
+            # With args: continue below to dispatch the requested command
+
+    # Remove --skip-wizard from args before dispatching
+    args = [a for a in args if a != "--skip-wizard"]
+
+    # Prompt de primera ejecución (solo sin args y con TTY)
+    if not args and sys.stdin.isatty() and _is_template_seed():
+        result = _prompt_mode()
+        if result in ("done", "error", "invalid"):
+            sys.exit(1 if result == "error" else 0)
+        # result == "banner" → continúa al banner normal
+
+    if not args:
+        if sys.stdin.isatty():
+            # Menú principal interactivo (curses TUI)
+            result = subprocess.run(
+                [sys.executable, str(TOOLS / "bago_menu.py")],
+                cwd=str(BAGO_ROOT.parent)
+            )
+            sys.exit(result.returncode)
+        else:
+            subprocess.run(
+                [sys.executable, str(TOOLS / "bago_banner.py")],
+                cwd=str(BAGO_ROOT.parent)
+            )
+        return
+
+    cmd = args[0].lower()
+    rest = args[1:]
+    preflight_only = "--preflight" in rest
+    skip_preflight = "--skip-preflight" in rest
+    clean_rest = [a for a in rest if a not in ("--preflight", "--skip-preflight")]
+
+    if cmd in COMMANDS and (preflight_only or _requires_registry_safety(cmd)):
+        _dispatch(
+            cmd,
+            clean_rest,
+            preflight_only=preflight_only,
+            skip_preflight=skip_preflight,
+        )
+        return
+
+    # Only run auto-sync for commands that need fresh context.
+    # Avoids writing repo_context.json (git-tracked generated_artifact) on
+    # every bago invocation (bago help, bago health, etc. were dirtying git status).
+    if cmd in _SYNC_CMDS:
+        _auto_sync()
+
+    if cmd == "setup":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "repo_context_guard.py"), "sync"],
+            cwd=str(BAGO_ROOT.parent)
+        )
+        _install_extensions()
+    elif cmd == "extensions":
+        _cmd_extensions()
+    elif cmd == "versions":
+        _cmd_versions()
+    elif cmd == "last":
+        _cmd_session_last(rest)
+    elif cmd == "history":
+        _cmd_session_history()
+    elif cmd == "telemetry":
+        _cmd_telemetry(rest)
+    elif cmd == "registry":
+        _cmd_registry()
+    elif cmd == "neural":
+        _cmd_neural(rest)
+    elif cmd == "heal-paths":
+        _cmd_heal_paths(rest)
+    elif cmd == "npath":
+        _cmd_npath_dispatch(rest)
+    elif cmd == "dev":
+        _cmd_dev(rest)
+    elif cmd == "wizard":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_wizard.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd in ("rubber-duck", "rubber_duck"):
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_rubber_duck.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "siembra" and rest and rest[0].lower() in ("ideas", "idea", "seed", "semilla"):
+        # Disambiguation: "bago siembra ideas" → ideas catalog (emit_ideas.py)
+        # "bago siembra" alone = project management (siembra_manager.py)
+        print("  💡 Redirigiendo 'bago siembra ideas' → bago ideas (catálogo de ideas W2)")
+        print("     Tip: usa 'bago siembra' para gestionar proyectos hijo, 'bago ideas' para el catálogo.\n")
+        subprocess.run(
+            [sys.executable, str(TOOLS / "emit_ideas.py")] + rest[1:],
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd in ("seed-ideas", "semilla-ideas", "ideas-seed"):
+        # Alias explícito para sembrar catálogo de ideas
+        subprocess.run(
+            [sys.executable, str(TOOLS / "emit_ideas.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "agent":
+        # Multi-Agent Gateway — orquesta herramientas BAGO desde cualquier LLM
+        subprocess.run(
+            [sys.executable, str(BAGO_ROOT / "agents" / "agent_gateway.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "model":
+        # Gestión dinámica de modelos por agente
+        subprocess.run(
+            [sys.executable, str(TOOLS / "agent_model_manager.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "assign":
+        # Asignación de tareas a agentes/roles CAP
+        subprocess.run(
+            [sys.executable, str(TOOLS / "task_assign.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "benchmark":
+        # Banco de pruebas de eficiencia BAGO
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_benchmark.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "seed":
+        # BAGO Seed — planta huella mínima en proyecto externo
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_seed.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "validate":
+        subprocess.run([sys.executable, str(TOOLS / "validate.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "validate-goal":
+        subprocess.run([sys.executable, str(TOOLS / "goal_validator.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "health":
+        subprocess.run([sys.executable, str(TOOLS / "health_score.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "audit":
+        subprocess.run([sys.executable, str(TOOLS / "audit_v2.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "version":
+        subprocess.run([sys.executable, str(TOOLS / "version_truth.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "autonomous":
+        subprocess.run([sys.executable, str(CORE / "autonomous_loop.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "git-dirty":
+        subprocess.run([sys.executable, str(TOOLS / "git_dirty_guard.py"), "--json"] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "test":
+        subprocess.run([sys.executable, "-m", "pytest", str(BAGO_ROOT.parent / "tests")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "encoding":
+        subprocess.run([sys.executable, str(TOOLS / "encoding_guard.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "census":
+        subprocess.run([sys.executable, str(TOOLS / "tool_registry.py"), "--list"] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "map":
+        subprocess.run([sys.executable, str(TOOLS / "context_map.py")] + rest, cwd=str(BAGO_ROOT.parent))
+    elif cmd == "prompt-router":
+        subprocess.run(
+            [sys.executable, str(CORE / "prompt_router.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "role-spiral":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "role_embedded.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "model-gate":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "model_gate.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "api-only":
+        print("  API-only: toggle con bago api-only on|off")
+        print("  Desactiva login interactivo, usa solo API keys con freno de tokens")
+    elif cmd == "token-analytics":
+        _cmd_token_analytics(rest)
+        return
+
+    elif cmd == "token-brake":
+        _cmd_token_brake(rest)
+        return
+
+    elif cmd == "spiral-prompt":
+        _cmd_spiral_prompt(rest)
+        return
+
+    elif cmd in ("splash", "start", "inicio", "menu"):
+        # Menú principal interactivo BAGO (curses TUI)
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "bago_menu.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+        sys.exit(result.returncode)
+    elif cmd == "serve":
+        tools_dir = str(TOOLS)
+        env = dict(os.environ, PYTHONPATH=tools_dir)
+        subprocess.run(
+            [sys.executable, "-m", "bago.api.server"] + rest,
+            cwd=str(BAGO_ROOT.parent),
+            env=env,
+        )
+    elif cmd == "bot":
+        tools_dir = str(TOOLS)
+        env = dict(os.environ, PYTHONPATH=tools_dir)
+        if rest and rest[0].lower() == "telegram":
+            subprocess.run(
+                [sys.executable, "-m", "bago.api.services.telegram_bot"],
+                cwd=str(BAGO_ROOT.parent),
+                env=env,
+            )
+        elif rest and rest[0].lower() == "utopia":
+            subprocess.run(
+                [sys.executable, "-m", "bago.api.services.utopia_bot"],
+                cwd=str(BAGO_ROOT.parent),
+                env=env,
+            )
+        else:
+            print("  Uso: bago bot telegram | bago bot utopia")
+    elif cmd in COMMANDS:
+        _dispatch(cmd, clean_rest, preflight_only=preflight_only, skip_preflight=skip_preflight)
+    elif cmd in ("help", "--help", "-h"):
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_banner.py"), "--mini"],
+            cwd=str(BAGO_ROOT.parent)
+        )
+        # Build grouped help output
+        reg = _load_registry_mod()
+        if reg and hasattr(reg, "REGISTRY"):
+            core_cmds       = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "core")
+            dangerous_cmds  = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "dangerous")
+            exp_cmds        = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "experimental")
+            legacy_cmds     = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "legacy")
+            print("  ⚙️  Core (contrato estable):")
+            for k in core_cmds:
+                print(f"    bago {k}")
+            print()
+            print("  ⚠️  Dangerous (requieren --yes):")
+            for k in dangerous_cmds:
+                print(f"    bago {k}")
+            print()
+            print(f"  ⚗️  Experimental ({len(exp_cmds)} comandos — fuera del contrato, aviso al ejecutar):")
+            print(f"    " + " | ".join(exp_cmds[:12]) + (" | …" if len(exp_cmds) > 12 else ""))
+            print(f"    Usa BAGO_LABS=1 para suprimir avisos. Ver docs/API_CONTRACT.md para la lista completa.")
+            print()
+            print(f"  🗄️  Legacy (deprecated, {len(legacy_cmds)} — redirigen al equivalente actual):")
+            print(f"    " + " | ".join(legacy_cmds[:8]) + (" | …" if len(legacy_cmds) > 8 else ""))
+        else:
+            print("  Comandos disponibles:")
+            print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath | project | siembra | siembra ideas | wizard")
+            for k in sorted(COMMANDS):
+                print(f"    bago {k}")
+        print()
+    else:
+        import difflib
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas", "assign"]
+        suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
+        print(f"  Comando desconocido: '{cmd}'")
+        if suggestions:
+            print(f"  ¿Quisiste decir: {GREEN(suggestions[0])}?  →  bago {suggestions[0]}")
+        else:
+            print("  Usa: bago help")
+        sys.exit(1)
+
+
+def _cmd_token_analytics(rest: list) -> None:
+    import subprocess, sys as _sys
+    analytics_path = CORE / "token_analytics.py"
+    if not analytics_path.exists():
+        print("  No se encuentra token_analytics.py")
+        return
+    subprocess.run([_sys.executable, str(analytics_path), "--bago-root", str(BAGO_ROOT.parent)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_token_brake(rest: list) -> None:
+    import subprocess, sys as _sys
+    brake_path = TOOLS / "token_brake.py"
+    if not brake_path.exists():
+        print("  No se encuentra token_brake.py")
+        return
+    subprocess.run([_sys.executable, str(brake_path), "--bago-root", str(BAGO_ROOT.parent)] + rest, cwd=str(BAGO_ROOT.parent))
+
+
+def _cmd_spiral_prompt(rest: list) -> None:
+    import importlib.util, sys as _sys
+    builder_path = CORE / "spiral_prompt_builder.py"
+    if not builder_path.exists():
+        print("  No se encuentra spiral_prompt_builder.py")
+        return
+    spec = importlib.util.spec_from_file_location("spiral_prompt_builder", str(builder_path))
+    mod = importlib.util.module_from_spec(spec)
+    if str(CORE) not in _sys.path:
+        _sys.path.insert(0, str(CORE))
+    spec.loader.exec_module(mod)
+    builder = mod.SpiralPromptBuilder(str(BAGO_ROOT.parent))
+    role_id = ""
+    cycle = 1
+    radius = 1.0
+    task_type = ""
+    for i, arg in enumerate(rest):
+        if arg == "--role" and i + 1 < len(rest):
+            role_id = rest[i + 1]
+        elif arg == "--cycle" and i + 1 < len(rest):
+            cycle = int(rest[i + 1])
+        elif arg == "--radius" and i + 1 < len(rest):
+            radius = float(rest[i + 1])
+        elif arg == "--task-type" and i + 1 < len(rest):
+            task_type = rest[i + 1]
+    if not role_id:
+        print("  Uso: bago spiral-prompt --role ROLE [--cycle N] [--radius R] [--task-type T]")
+        return
+    prompt = builder.build(role_id=role_id, cycle=cycle, radius=radius, task_type=task_type)
+    print(prompt)
+
+
+def _cmd_autonomous(rest: list) -> None:
+    """bago autonomous [--dry-run] [--loop] [--unsafe] [--max-cycles N] [--verbose] [--json]"""
+    import importlib.util, sys as _sys
+    _loop_path = CORE / "autonomous_loop.py"
+    if not _loop_path.exists():
+        print("  ❌ No se encuentra autonomous_loop.py en .bago/core/")
+        return
+    spec = importlib.util.spec_from_file_location("autonomous_loop", str(_loop_path))
+    mod  = importlib.util.module_from_spec(spec)
+    if str(CORE) not in _sys.path:
+        _sys.path.insert(0, str(CORE))
+    spec.loader.exec_module(mod)
+
+    if "--json" in rest:
+        # JSON sense+plan snapshot
+        from io import StringIO
+        import json
+        loop = mod.AutonomousLoop(
+            dry_run    = "--dry-run" in rest,
+            unsafe     = "--unsafe" in rest,
+            max_cycles = int(rest[rest.index("--max-cycles") + 1]) if "--max-cycles" in rest else mod.MAX_CYCLES_DEFAULT,
+            verbose    = "--verbose" in rest,
+        )
+        state = loop.sense()
+        plan  = loop.plan(state)
+        print(json.dumps({
+            "state": {k: v for k, v in state.items() if k != "inbox_tasks"},
+            "inbox_count": len(state.get("inbox_tasks", [])),
+            "plan": [{"goal": g["goal"], "agent": g["agent"], "skip": g.get("skip", False),
+                       "reason": g["reason"]} for g in plan],
+        }, indent=2, ensure_ascii=False))
+        return
+
+    loop = mod.AutonomousLoop(
+        dry_run    = "--dry-run" in rest,
+        unsafe     = "--unsafe" in rest,
+        max_cycles = int(rest[rest.index("--max-cycles") + 1]) if "--max-cycles" in rest else mod.MAX_CYCLES_DEFAULT,
+        verbose    = "--verbose" in rest,
+    )
+    loop.run(loop_mode="--loop" in rest)
+
+
+def _cmd_inbox_launcher(rest: list) -> None:
+    """bago inbox [add <intent>] [list] [clear]"""
+    import importlib.util, sys as _sys
+    _loop_path = CORE / "autonomous_loop.py"
+    if not _loop_path.exists():
+        print("  ❌ No se encuentra autonomous_loop.py en .bago/core/")
+        return
+    spec = importlib.util.spec_from_file_location("autonomous_loop", str(_loop_path))
+    mod  = importlib.util.module_from_spec(spec)
+    if str(CORE) not in _sys.path:
+        _sys.path.insert(0, str(CORE))
+    spec.loader.exec_module(mod)
+    mod.cmd_inbox(rest)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+

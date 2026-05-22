@@ -1,0 +1,18 @@
+{
+  "sprint_id": "SPRINT-002",
+  "name": "SPRINT 180 FASE 2",
+  "goal": "Fase 2: export HTML/CSV, live monitor, integration tests",
+  "status": "closed",
+  "tags": [
+    "framework",
+    "tools",
+    "sprint180",
+    "fase2"
+  ],
+  "sessions": [],
+  "artifacts": [],
+  "decisions": [],
+  "created_at": "2026-04-21T21:13:27.202498+00:00",
+  "closed_at": "2026-04-21T21:21:08.433731+00:00",
+  "summary": "Sprint 180 Fase 2: export HTML/CSV, watch monitor, integration tests 22/22. BAGO salud=100."
+}

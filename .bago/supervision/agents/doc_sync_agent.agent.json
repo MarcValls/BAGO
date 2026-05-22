@@ -1,0 +1,24 @@
+{
+  "agent": "doc_sync_agent",
+  "version": "1.0.0",
+  "role": "CENTINELA_SINCERIDAD",
+  "mission": "Detectar deriva entre documentación y código — docs deben reflejar el registry",
+  "reads": [
+    "docs/COMMANDS.md",
+    "docs/LAYERS.md",
+    "README.md",
+    ".bago/tools/_registry_entries.py"
+  ],
+  "writes": [
+    ".bago/supervision/artifacts/DOC_SYNC_REPORT.json"
+  ],
+  "tools": ["generate_commands_doc.py", "generate_layers_doc.py", "readme_sync.py"],
+  "gate": "docs must reflect registry — no drift allowed on core commands",
+  "on_failure": "warn",
+  "loop": "contract_drift_loop",
+  "sense": "python .bago/tools/generate_commands_doc.py --check",
+  "plan": "parse drift output and categorize by severity",
+  "act": "run doc_agent.py --dry-run to preview regeneration",
+  "observe": "re-check after doc regeneration",
+  "learn": "update DOC_SYNC_REPORT.json with last_run + per-doc status"
+}

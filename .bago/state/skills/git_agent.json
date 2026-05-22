@@ -1,0 +1,145 @@
+{
+  "cycles": [
+    {
+      "at": "2026-05-17T13:27:37.287573+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:43.468711+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:49.692461+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:55.950555+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:28:02.214730+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:45:48.553299+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:45:56.347249+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:46:04.707426+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:46:12.509149+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:46:21.397833+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:28.058963+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:30.470129+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:32.858052+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:35.243707+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:37.647802+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:53:36.996175+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:53:42.045594+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:53:47.105771+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:53:52.197509+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:53:57.290323+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    }
+  ],
+  "total_radius": 0.0
+}

@@ -1,0 +1,208 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "description": "Matriz canónica BAGO: tipos de trabajo → agentes → herramientas MCP + CLI",
+    "source": ".bago/mcp/agent_tool_matrix.json",
+    "updated": "2026-05-11"
+  },
+
+  "agents": {
+    "MAESTRO_BAGO": {
+      "role": "Coordinador central de sesión y orquestador de agentes",
+      "file": ".bago/agents/MAESTRO_BAGO.md",
+      "primary_tools": ["bago_status", "bago_flow", "bago_cabinet"],
+      "secondary_tools": ["bago_route", "bago_health", "bago_matrix"],
+      "cli_cmds": ["status", "flow", "cabinet", "route", "health"]
+    },
+    "ANALISTA_Contexto": {
+      "role": "Análisis de código, calidad y revisión técnica",
+      "file": ".bago/agents/ANALISTA_Contexto.md",
+      "primary_tools": ["bago_review", "bago_audit", "bago_scope"],
+      "secondary_tools": ["bago_health", "bago_context", "bago_matrix"],
+      "cli_cmds": ["review", "audit", "scope", "health"]
+    },
+    "ARQUITECTO_Soluciones": {
+      "role": "Diseño de arquitectura, routing y estructura del sistema",
+      "file": ".bago/agents/ARQUITECTO_Soluciones.md",
+      "primary_tools": ["bago_route", "bago_context", "bago_scope"],
+      "secondary_tools": ["bago_status", "bago_flow", "bago_matrix"],
+      "cli_cmds": ["route", "context", "scope", "flow", "lsp"]
+    },
+    "CENTINELA_SINCERIDAD": {
+      "role": "Seguridad, detección de secretos y auditoría de riesgo",
+      "file": ".bago/agents/CENTINELA_SINCERIDAD.md",
+      "primary_tools": ["bago_secrets", "bago_risk", "bago_audit"],
+      "secondary_tools": ["bago_review", "bago_health", "bago_validate"],
+      "cli_cmds": ["secrets", "risk", "audit scan", "review"]
+    },
+    "GENERADOR_Contenido": {
+      "role": "Generación de documentación, contenido y assets",
+      "file": ".bago/agents/GENERADOR_Contenido.md",
+      "primary_tools": ["bago_context", "bago_status", "bago_why"],
+      "secondary_tools": ["bago_registry", "bago_validate", "bago_matrix"],
+      "cli_cmds": ["context", "why", "docs", "status"]
+    },
+    "INICIADOR_MAESTRO": {
+      "role": "Inicio de sesiones, selección de ideas y arranque de tareas",
+      "file": ".bago/agents/INICIADOR_MAESTRO.md",
+      "primary_tools": ["bago_ideas", "bago_db", "bago_status"],
+      "secondary_tools": ["bago_flow", "bago_health", "bago_matrix"],
+      "cli_cmds": ["ideas", "next", "start", "db status", "hello"]
+    },
+    "ORGANIZADOR_Entregables": {
+      "role": "Seguimiento de entregables, sprints y cierre de tareas",
+      "file": ".bago/agents/ORGANIZADOR_Entregables.md",
+      "primary_tools": ["bago_flow", "bago_status", "bago_health"],
+      "secondary_tools": ["bago_ideas", "bago_audit", "bago_matrix"],
+      "cli_cmds": ["flow", "status", "sprint", "goals", "done"]
+    },
+    "ADAPTADOR_PROYECTO": {
+      "role": "Adaptación al proyecto activo, validación y contexto local",
+      "file": ".bago/agents/ADAPTADOR_PROYECTO.md",
+      "primary_tools": ["bago_validate", "bago_context", "bago_scope"],
+      "secondary_tools": ["bago_health", "bago_db", "bago_matrix"],
+      "cli_cmds": ["validate", "context", "scope", "project"]
+    },
+    "GUIA_VERTICE": {
+      "role": "Guía de activación de vértices y flujos no lineales",
+      "file": ".bago/agents/GUIA_VERTICE.md",
+      "primary_tools": ["bago_flow", "bago_route", "bago_why"],
+      "secondary_tools": ["bago_status", "bago_matrix"],
+      "cli_cmds": ["flow", "route", "why", "workflow"]
+    }
+  },
+
+  "work_types": {
+    "code": {
+      "label": "Escritura y edición de código",
+      "agent": "ANALISTA_Contexto",
+      "mcp_tools": ["bago_review", "bago_scope", "bago_audit", "bago_context"],
+      "cli_cmds": ["review", "scope", "audit quality", "context"],
+      "risk": "safe",
+      "description": "Escribir funciones, módulos, tests o refactorizar código existente"
+    },
+    "quality": {
+      "label": "Calidad y revisión de código",
+      "agent": "ANALISTA_Contexto",
+      "mcp_tools": ["bago_review", "bago_audit", "bago_health", "bago_validate"],
+      "cli_cmds": ["review", "audit quality", "health", "validate"],
+      "risk": "safe",
+      "description": "Linting, code review automatizado, chequeo de calidad"
+    },
+    "security": {
+      "label": "Seguridad y detección de riesgos",
+      "agent": "CENTINELA_SINCERIDAD",
+      "mcp_tools": ["bago_secrets", "bago_risk", "bago_audit"],
+      "cli_cmds": ["secrets", "risk", "audit scan"],
+      "risk": "safe",
+      "description": "Escaneo de secretos, análisis de vulnerabilidades, matriz de riesgo"
+    },
+    "architecture": {
+      "label": "Diseño de arquitectura y routing",
+      "agent": "ARQUITECTO_Soluciones",
+      "mcp_tools": ["bago_route", "bago_context", "bago_scope", "bago_flow"],
+      "cli_cmds": ["route", "context map", "scope", "flow"],
+      "risk": "safe",
+      "description": "Decisiones de diseño, routing entre agentes/LLMs, análisis de estructura"
+    },
+    "content": {
+      "label": "Documentación y generación de contenido",
+      "agent": "GENERADOR_Contenido",
+      "mcp_tools": ["bago_context", "bago_why", "bago_registry", "bago_status"],
+      "cli_cmds": ["context", "why", "docs", "status"],
+      "risk": "safe",
+      "description": "Generar o actualizar docs, READMEs, comentarios, contenido textual"
+    },
+    "session": {
+      "label": "Inicio y cierre de sesión",
+      "agent": "INICIADOR_MAESTRO",
+      "mcp_tools": ["bago_ideas", "bago_db", "bago_status", "bago_health"],
+      "cli_cmds": ["hello", "start", "db status", "session open", "session close"],
+      "risk": "safe",
+      "description": "Abrir/cerrar sesión BAGO, revisar estado inicial, elegir tarea"
+    },
+    "planning": {
+      "label": "Planificación e ideas",
+      "agent": "INICIADOR_MAESTRO",
+      "mcp_tools": ["bago_ideas", "bago_flow", "bago_status"],
+      "cli_cmds": ["ideas", "next", "sprint", "goals", "flow"],
+      "risk": "safe",
+      "description": "Seleccionar ideas, gestionar sprints, definir objetivos"
+    },
+    "debug": {
+      "label": "Diagnóstico y reparación",
+      "agent": "MAESTRO_BAGO",
+      "mcp_tools": ["bago_health", "bago_audit", "bago_validate", "bago_status"],
+      "cli_cmds": ["health", "audit doctor", "validate", "audit heal"],
+      "risk": "safe",
+      "description": "Diagnosticar problemas del framework, reparar estado, health check"
+    },
+    "data": {
+      "label": "Estado y base de datos",
+      "agent": "ORGANIZADOR_Entregables",
+      "mcp_tools": ["bago_db", "bago_status", "bago_flow"],
+      "cli_cmds": ["db status", "status", "flow", "session harvest"],
+      "risk": "safe",
+      "description": "Consultar bago.db, revisar historial, estado de ideas y guardian"
+    },
+    "music": {
+      "label": "Pipeline musical y MusicXML",
+      "agent": "ARQUITECTO_Soluciones",
+      "mcp_tools": ["bago_context", "bago_status", "bago_health"],
+      "cli_cmds": ["music plan", "music convert", "music validate", "music render"],
+      "risk": "safe",
+      "description": "Transposición, conversión y validación de partituras MusicXML"
+    },
+    "visual": {
+      "label": "Assets visuales e imágenes",
+      "agent": "GENERADOR_Contenido",
+      "mcp_tools": ["bago_context", "bago_status"],
+      "cli_cmds": ["image-studio", "sprite-studio", "image_gen"],
+      "risk": "safe",
+      "description": "Generación de sprites, imágenes, assets para proyectos"
+    },
+    "research": {
+      "label": "Investigación y análisis temático",
+      "agent": "ANALISTA_Contexto",
+      "mcp_tools": ["bago_context", "bago_why", "bago_registry", "bago_scope"],
+      "cli_cmds": ["research", "chronicle", "context", "why"],
+      "risk": "safe",
+      "description": "Investigación estructurada, análisis de patterns, chronicle de sesiones"
+    },
+    "coordination": {
+      "label": "Coordinación multi-agente",
+      "agent": "MAESTRO_BAGO",
+      "mcp_tools": ["bago_cabinet", "bago_route", "bago_flow", "bago_status"],
+      "cli_cmds": ["cabinet", "route", "flow", "orchestrate"],
+      "risk": "safe",
+      "description": "Orquestar múltiples agentes en paralelo, decisiones de routing"
+    },
+    "adaptation": {
+      "label": "Adaptación al proyecto activo",
+      "agent": "ADAPTADOR_PROYECTO",
+      "mcp_tools": ["bago_validate", "bago_context", "bago_scope", "bago_health"],
+      "cli_cmds": ["validate", "context detect", "scope", "project state"],
+      "risk": "safe",
+      "description": "Adaptar BAGO al proyecto, vincular contexto, validar integridad"
+    }
+  },
+
+  "mcp_tools_index": {
+    "bago_status":   { "cmd": "status",   "layer": "ejecución",  "agents": ["MAESTRO_BAGO", "INICIADOR_MAESTRO", "ORGANIZADOR_Entregables"] },
+    "bago_health":   { "cmd": "health",   "layer": "salud",      "agents": ["MAESTRO_BAGO", "ANALISTA_Contexto", "CENTINELA_SINCERIDAD"] },
+    "bago_validate": { "cmd": "validate", "layer": "calidad",    "agents": ["ADAPTADOR_PROYECTO", "CENTINELA_SINCERIDAD"] },
+    "bago_context":  { "cmd": "context",  "layer": "analítica",  "agents": ["ARQUITECTO_Soluciones", "ADAPTADOR_PROYECTO", "GENERADOR_Contenido"] },
+    "bago_secrets":  { "cmd": "secrets",  "layer": "calidad",    "agents": ["CENTINELA_SINCERIDAD"] },
+    "bago_review":   { "cmd": "review",   "layer": "calidad",    "agents": ["ANALISTA_Contexto"] },
+    "bago_risk":     { "cmd": "risk",     "layer": "analítica",  "agents": ["CENTINELA_SINCERIDAD"] },
+    "bago_why":      { "cmd": "why",      "layer": "analítica",  "agents": ["GENERADOR_Contenido", "GUIA_VERTICE"] },
+    "bago_scope":    { "cmd": "scope",    "layer": "analítica",  "agents": ["ARQUITECTO_Soluciones", "ANALISTA_Contexto", "ADAPTADOR_PROYECTO"] },
+    "bago_audit":    { "cmd": "audit",    "layer": "calidad",    "agents": ["ANALISTA_Contexto", "CENTINELA_SINCERIDAD", "MAESTRO_BAGO"] },
+    "bago_registry": { "cmd": null,       "layer": "analítica",  "agents": ["GENERADOR_Contenido", "GUIA_VERTICE"] },
+    "bago_ideas":    { "cmd": "ideas",    "layer": "ejecución",  "agents": ["INICIADOR_MAESTRO", "ORGANIZADOR_Entregables"] },
+    "bago_flow":     { "cmd": "flow",     "layer": "ejecución",  "agents": ["MAESTRO_BAGO", "ARQUITECTO_Soluciones", "GUIA_VERTICE", "ORGANIZADOR_Entregables"] },
+    "bago_route":    { "cmd": "route",    "layer": "avanzado",   "agents": ["ARQUITECTO_Soluciones", "MAESTRO_BAGO", "GUIA_VERTICE"] },
+    "bago_db":       { "cmd": "db",       "layer": "ejecución",  "agents": ["INICIADOR_MAESTRO", "ORGANIZADOR_Entregables", "ADAPTADOR_PROYECTO"] },
+    "bago_matrix":   { "cmd": "work_matrix", "layer": "analítica", "agents": ["ALL"] }
+  }
+}

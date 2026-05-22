@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-05-22T04:55:33.473928",
+  "services": {
+    "ollama": {
+      "host": "127.0.0.1",
+      "port": 11434,
+      "status": "available",
+      "name": "ollama",
+      "type": "local-llm",
+      "version": "0.24.0",
+      "models": [
+        "qwen2.5-coder:0.5b"
+      ]
+    }
+  },
+  "available": [
+    "ollama"
+  ],
+  "missing": [
+    "copilot",
+    "openai-api",
+    "vllm",
+    "anthropic",
+    "lmstudio",
+    "codex"
+  ],
+  "unidentified_ports": []
+}

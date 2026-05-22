@@ -1,0 +1,282 @@
+{
+  "version": "2026-05-14",
+  "rules": [
+    {
+      "id": "coding_local",
+      "keywords": [
+        "escribe script",
+        "crea script",
+        "función python",
+        "función js",
+        "snippet",
+        "código rápido"
+      ],
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
+      "agent": "agent_coder",
+      "reason": "Código simple/rápido — local con qwen25-coder"
+    },
+    {
+      "id": "coding_write",
+      "keywords": [
+        "escribe código",
+        "implementa función",
+        "implementa clase",
+        "crea módulo",
+        "nueva función",
+        "nuevo endpoint",
+        "implementa feature",
+        "write code",
+        "implement"
+      ],
+      "provider": "ollama-local",
+      "model": "llama3.2",
+      "agent": "agent_coder",
+      "reason": "Escritura de código nuevo — agent_coder con gpt-4o"
+    },
+    {
+      "id": "planning_sprint",
+      "keywords": [
+        "plan sprint",
+        "planifica sprint",
+        "backlog",
+        "roadmap",
+        "prioriza tareas",
+        "organiza proyecto",
+        "desglose tareas",
+        "planning"
+      ],
+      "provider": "ollama-local",
+      "model": "llama3.2",
+      "agent": "agent_planner",
+      "reason": "Planificación de sprint/roadmap — agent_planner con gpt-4o"
+    },
+    {
+      "id": "debug_error",
+      "keywords": [
+        "traceback",
+        "error en",
+        "exception",
+        "AttributeError",
+        "TypeError",
+        "ValueError",
+        "ModuleNotFoundError",
+        "arregla el error",
+        "bug en"
+      ],
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
+      "agent": "agent_debugger",
+      "reason": "Debugging local rápido — agent_debugger con qwen25-coder"
+    },
+    {
+      "id": "architecture_design",
+      "keywords": [
+        "diseña arquitectura",
+        "arquitectura del sistema",
+        "diagrama de arquitectura",
+        "diseño del sistema",
+        "api design",
+        "estructura del proyecto"
+      ],
+      "provider": "ollama-local",
+      "model": "llama3.2",
+      "agent": "agent_architect",
+      "reason": "Diseño arquitectónico — agent_architect con gpt-4o"
+    },
+    {
+      "id": "refactor_code",
+      "keywords": [
+        "refactoriza",
+        "refactor este",
+        "mejora este código",
+        "limpia el código",
+        "elimina deuda",
+        "aplica SOLID",
+        "simplifica esto"
+      ],
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
+      "agent": "agent_refactor",
+      "reason": "Refactoring local — agent_refactor con qwen25-coder"
+    },
+    {
+      "id": "git_ops",
+      "keywords": [
+        "genera commit",
+        "mensaje de commit",
+        "crea pr",
+        "pull request",
+        "analiza diff",
+        "resuelve conflicto",
+        "estrategia git"
+      ],
+      "provider": "copilot",
+      "model": "qwen2.5-coder:7b",
+      "agent": "agent_git",
+      "reason": "Operaciones Git — agent_git local"
+    },
+    {
+      "id": "music_long_context",
+      "keywords": [
+        "analizar partitura completa",
+        "repo entero",
+        "score completo",
+        "bago completo",
+        "contexto masivo",
+        "repo completo"
+      ],
+      "provider": "ollama-cloud",
+      "model": "kimi-k2-1t",
+      "reason": "Contexto >500K tokens. Kimi K2 1T tokens."
+    },
+    {
+      "id": "music_render_preview",
+      "keywords": [
+        "render",
+        "preview",
+        "pdf",
+        "svg",
+        "png",
+        "visualizar partitura",
+        "exportar partitura",
+        "score"
+      ],
+      "provider": "local",
+      "model": "qwen2.5-coder:7b",
+      "reason": "Render local sin coste. Qwen coder maneja Python + XML."
+    },
+    {
+      "id": "music_review",
+      "keywords": [
+        "revisar partitura",
+        "corregir notas",
+        "review score",
+        "diff music",
+        "pr partitura"
+      ],
+      "provider": "ollama-local",
+      "model": "llama3.2",
+      "reason": "Revisión de partitura sin edits — Copilot para code review rápido."
+    },
+    {
+      "id": "music_analysis",
+      "keywords": [
+        "partitura",
+        "score",
+        "musicxml",
+        "transponer",
+        "transpose",
+        "arreglo",
+        "arrangement",
+        "nota",
+        "compas",
+        "clave",
+        "armadura",
+        "midi",
+        "musescore",
+        "audiveris",
+        "omr"
+      ],
+      "provider": "codex",
+      "model": "gpt-5.3-codex",
+      "reason": "Tarea musical con manipulación de estructuras (XML, Python). Codex para edits seguros."
+    },
+    {
+      "id": "code_edits",
+      "keywords": [
+        "editar",
+        "edita",
+        "modifica",
+        "implementar",
+        "ejecutar",
+        "tests",
+        "multi_file",
+        "install",
+        "deploy",
+        "script",
+        "pipeline"
+      ],
+      "provider": "codex",
+      "model": "gpt-5.4",
+      "reason": "Edición de archivos + ejecución. Codex con control del repo."
+    },
+    {
+      "id": "code_frontier",
+      "keywords": [
+        "arquitectura",
+        "router",
+        "diseño sistema",
+        "complex reasoning",
+        "refactor grande"
+      ],
+      "provider": "codex",
+      "model": "gpt-5.5",
+      "reason": "Razonamiento profundo. GPT-5.5 frontier."
+    },
+    {
+      "id": "review_pr",
+      "keywords": [
+        "pr",
+        "pull request",
+        "review",
+        "diff",
+        "riesgo",
+        "code review"
+      ],
+      "provider": "ollama-local",
+      "model": "llama3.2",
+      "reason": "Revisión de código. Mejor code review del catálogo."
+    },
+    {
+      "id": "review_complex",
+      "keywords": [
+        "revisar",
+        "auditoria",
+        "auditoría",
+        "audit",
+        "security",
+        "secrets",
+        "risk",
+        "seguridad",
+        "vulnerabilidad"
+      ],
+      "provider": "copilot",
+      "model": "claude-opus-4.7",
+      "reason": "Auditoría profunda. Claude Opus para reasoning complejo."
+    },
+    {
+      "id": "brainstorm_offline",
+      "keywords": [
+        "idea",
+        "ideas",
+        "brainstorm",
+        "plan",
+        "resumen",
+        "offline",
+        "explicame",
+        "explica"
+      ],
+      "provider": "local",
+      "model": "qwen2.5-coder:7b",
+      "reason": "Brainstorming offline sin coste."
+    },
+    {
+      "id": "fast_confirm",
+      "keywords": [
+        "confirmar",
+        "si/no",
+        "rapido",
+        "classifica",
+        "etiqueta"
+      ],
+      "provider": "local",
+      "model": "llama3.2",
+      "reason": "Ultra-rápido, confirmaciones simples."
+    }
+  ],
+  "fallback": {
+    "provider": "ollama-local",
+    "model": "llama3.2"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "comment": "Catálogo de protocolos de airdrop reconocidos por BAGO. Para añadir uno nuevo, completar todos los campos required. BAGO nunca firma transacciones por el usuario — solo construye y propone, el usuario firma en su wallet.",
+  "protocols": []
+}

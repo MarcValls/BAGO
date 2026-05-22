@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "role_map": {
+    "system_change": [
+      "role_architect",
+      "role_validator"
+    ],
+    "analysis": [
+      "role_auditor",
+      "role_organizer"
+    ],
+    "execution": [
+      "role_executor",
+      "role_validator"
+    ],
+    "sprint": [
+      "role_organizer",
+      "role_vertice"
+    ],
+    "project_bootstrap": [
+      "role_architect",
+      "role_organizer"
+    ]
+  },
+  "protocol_artifacts": [
+    "CHECKSUMS.sha256",
+    "TREE.txt",
+    "state/changes",
+    "state/evidences",
+    "state/sessions"
+  ],
+  "verbs_es": [
+    "crear",
+    "actualizar",
+    "corregir",
+    "migrar",
+    "añadir",
+    "eliminar",
+    "refactorizar",
+    "documentar",
+    "validar",
+    "analizar",
+    "implementar",
+    "generar",
+    "registrar",
+    "cerrar",
+    "optimizar",
+    "diseñar"
+  ]
+}

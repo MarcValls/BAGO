@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "exclude_dirs": [
+    ".bago",
+    ".git",
+    ".next",
+    ".turbo",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+    "out"
+  ],
+  "include_exts": [
+    ".env",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".py",
+    ".ts",
+    ".tsx",
+    ".yaml",
+    ".yml"
+  ],
+  "todo_patterns": {
+    "TODO": "(?i)\\bTODO\\b",
+    "FIXME": "(?i)\\bFIXME\\b",
+    "HACK": "(?i)\\bHACK\\b",
+    "XXX": "(?i)\\bXXX\\b",
+    "OPTIMIZE": "(?i)\\bOPTIMIZE\\b",
+    "NOTE": "(?i)\\bNOTE\\b"
+  },
+  "label_colors": {
+    "FIXME": "\u001b[31m",
+    "TODO": "\u001b[33m",
+    "HACK": "\u001b[35m",
+    "XXX": "\u001b[31m",
+    "OPTIMIZE": "\u001b[36m",
+    "NOTE": "\u001b[2m"
+  },
+  "search_exclude_dirs": [
+    ".bago",
+    ".git",
+    ".next",
+    ".turbo",
+    "__pycache__",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+    "out"
+  ],
+  "search_exts": [
+    ".css",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".py",
+    ".scss",
+    ".sql",
+    ".ts",
+    ".tsx",
+    ".yaml",
+    ".yml"
+  ],
+  "metrics_exclude_dirs": [
+    ".bago",
+    ".git",
+    ".next",
+    ".vite",
+    "__pycache__",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules"
+  ],
+  "metrics_exclude_exts": [
+    ".lock",
+    ".map",
+    ".min.css",
+    ".min.js"
+  ],
+  "metrics_source_exts": [
+    ".cjs",
+    ".css",
+    ".html",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".mjs",
+    ".mts",
+    ".py",
+    ".scss",
+    ".sh",
+    ".toml",
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".yaml",
+    ".yml"
+  ]
+}

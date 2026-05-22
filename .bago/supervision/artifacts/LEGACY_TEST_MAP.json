@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0",
+  "description": "Mapa de tests legacy — estado de migración",
+  "last_scanned": "2026-05-18T18:23:56.766880",
+  "summary": {
+    "total": 7,
+    "xfail": 4,
+    "skip": 3,
+    "migrated": 0,
+    "needs_migration": 1,
+    "done": 0
+  },
+  "tests": [
+    {
+      "file": "tests/test_bago_brutal.py",
+      "status": "skip",
+      "reason": "bago_orchestrator retirado en v3.4.0 — reemplazado por orchestrator.py. Migrar este test al nuevo módulo antes del siguiente ciclo.",
+      "coverage_by": "tests/test_bago_brutal_metas.py",
+      "action": "keep_xfail",
+      "since_version": "3.4.0",
+      "migrated_at": "2026-05-18T18:22:39.402086",
+      "updated_at": "2026-05-18T18:23:56.766880"
+    },
+    {
+      "file": "tests/test_bago_framework.py",
+      "status": "skip",
+      "reason": "bago_orchestrator retirado en v3.4.0 — reemplazado por orchestrator.py. Migrar este test al nuevo módulo antes del siguiente ciclo.",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0",
+      "migrated_at": "2026-05-18T18:22:39.402086",
+      "updated_at": "2026-05-18T18:23:56.766880"
+    },
+    {
+      "file": "tests/test_bago_integracion.py",
+      "status": "skip",
+      "reason": "bago_orchestrator retirado en v3.4.0 — reemplazado por orchestrator.py. Migrar este test al nuevo módulo antes del siguiente ciclo.",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0",
+      "migrated_at": "2026-05-18T18:22:39.402086",
+      "updated_at": "2026-05-18T18:23:56.766880"
+    },
+    {
+      "file": "tests/test_bago_review.py",
+      "status": "xfail",
+      "reason": "Requiere LLM externo activo — no disponible en CI",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_code_review.py",
+      "status": "xfail",
+      "reason": "Code review module refactored",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_telegram_daemon.py",
+      "status": "xfail",
+      "reason": "Requiere Telegram token activo — solo en entorno configurado",
+      "coverage_by": null,
+      "action": "keep_xfail",
+      "since_version": "3.4.0"
+    },
+    {
+      "file": "tests/test_bago_brutal_metas.py",
+      "status": "xfail",
+      "reason": "bago_orchestrator retirado en v3.4.0 — reemplazado por orchestrator.py. Migrar este test al nuevo módulo antes del siguiente ciclo.",
+      "coverage_by": null,
+      "action": "needs_review",
+      "since_version": "auto",
+      "discovered_at": "2026-05-18T18:23:56.766880"
+    }
+  ],
+  "overall": "yellow",
+  "exception_log": [
+    {
+      "timestamp": "2026-05-18T18:22:39.402086",
+      "new_found": [],
+      "disappeared": [
+        "tests/test_bago_brutal.py",
+        "tests/test_bago_framework.py",
+        "tests/test_bago_integracion.py"
+      ],
+      "total_xfail": 3,
+      "total_skip": 0,
+      "status": "migrated"
+    },
+    {
+      "timestamp": "2026-05-18T18:23:56.766880",
+      "new_found": [
+        "tests/test_bago_brutal_metas.py"
+      ],
+      "disappeared": [],
+      "total_xfail": 4,
+      "total_skip": 3,
+      "status": "new_found"
+    }
+  ]
+}

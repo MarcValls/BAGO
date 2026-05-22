@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.env
+*.log
+sessions/
+token_log.json
+.bago/state/health.json
+proyectos/
+tmp/

@@ -1,0 +1,46 @@
+{
+  "sprint_id": "SPRINT-001",
+  "name": "SPRINT 180 - Artefactos Framework",
+  "goal": "Crear 7 herramientas utiles para BAGO en sesion 180min",
+  "status": "closed",
+  "tags": [
+    "framework",
+    "tools",
+    "sprint180"
+  ],
+  "sessions": [],
+  "artifacts": [],
+  "decisions": [],
+  "created_at": "2026-04-21T20:51:56.909756+00:00",
+  "closed_at": "2026-04-21T21:12:23.143525+00:00",
+  "summary": "Sprint 180 completado: 7 herramientas entregadas. 32/32 tests OK. BAGO-CHG-070 registrado. Health=100/100.",
+  "items": {
+    "changes": [
+      "BAGO-CHG-070"
+    ],
+    "artifacts": [
+      "tools/sprint_manager.py",
+      "tools/bago_search.py",
+      "tools/timeline.py",
+      "tools/report_generator.py",
+      "tools/metrics_trends.py",
+      "tools/doctor.py",
+      "tools/git_context.py"
+    ],
+    "sessions": []
+  },
+  "deliverables": {
+    "tools": 7,
+    "tests_passed": 32,
+    "tests_total": 32,
+    "commands_added": [
+      "sprint",
+      "search",
+      "timeline",
+      "report",
+      "metrics",
+      "doctor",
+      "git"
+    ]
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "cycles": [
+    {
+      "at": "2026-05-17T13:27:32.733809+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:38.891840+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:45.102381+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:51.392441+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T13:27:57.615736+00:00",
+      "validate": "WARN",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:45:42.860588+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:45:50.657807+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:45:58.440290+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:46:06.702797+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-17T18:46:14.833086+00:00",
+      "validate": "GO",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:26.401306+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:28.797774+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:31.216193+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:33.596229+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    },
+    {
+      "at": "2026-05-18T14:44:35.978774+00:00",
+      "validate": "FAIL",
+      "radius": 0,
+      "issues": [],
+      "description": {}
+    }
+  ],
+  "total_radius": 0.0
+}

@@ -1,0 +1,124 @@
+{
+  "version": "1.0",
+  "description": "Guía contextual por workflow BAGO. Editable sin tocar código.",
+  "workflows": {
+    "W1": {
+      "purpose": "Arrancar desde un repo desconocido y dejar un contexto util.",
+      "context": [
+        "Estructura real del repo",
+        "Stack detectado",
+        "Entradas canónicas del proyecto",
+        "Estado actual frente al árbol real"
+      ],
+      "questions": [
+        "Que objetivo técnico tiene prioridad ahora?",
+        "Que partes del repo ya están claras y cuales no?",
+        "Hay restricciones de seguridad, tiempo o alcance?"
+      ],
+      "prerequisites": [
+        "Leer README raíz y la entrada .bago",
+        "Listar archivos y detectar stack",
+        "Contrastar estado con repo real"
+      ],
+      "verify": "Queda un objetivo inicial claro y un siguiente paso útil sin ambigüedad."
+    },
+    "W2": {
+      "purpose": "Implementar una tarea técnica sin dispersion ni perdida de trazabilidad.",
+      "context": [
+        "Objetivo concreto",
+        "Alcance y no alcance",
+        "Archivos afectados",
+        "Validación esperada"
+      ],
+      "questions": [
+        "Que cambio exacto hay que hacer?",
+        "Que no debe cambiar?",
+        "Como se valida que funciono?"
+      ],
+      "prerequisites": [
+        "Aclarar objetivo",
+        "Identificar archivos y contratos",
+        "Definir criterio de salida"
+      ],
+      "verify": "La tarea entra en una implementación pequeña, acotada y verificable."
+    },
+    "W3": {
+      "purpose": "Refactorizar sin romper contratos ni introducir deriva.",
+      "context": [
+        "Contratos afectados",
+        "Riesgo de regresión",
+        "Límites del refactor"
+      ],
+      "questions": [
+        "Que contrato no puede romperse?",
+        "Que parte conviene aislar primero?",
+        "Hay validación humana requerida?"
+      ],
+      "prerequisites": [
+        "Inventariar contratos",
+        "Marcar alcance del refactor",
+        "Preparar validación"
+      ],
+      "verify": "El refactor queda delimitado y no altera el comportamiento esperado."
+    },
+    "W4": {
+      "purpose": "Investigar y resolver fallos donde hay varias causas plausibles.",
+      "context": [
+        "Síntomas observados",
+        "Hipótesis en competencia",
+        "Evidencia reproducible"
+      ],
+      "questions": [
+        "Cual es el síntoma exacto?",
+        "Que hipótesis tienen sentido primero?",
+        "Que prueba mínima discrimina mejor?"
+      ],
+      "prerequisites": [
+        "Capturar error exacto",
+        "Reproducir el fallo",
+        "Reducir superficie de búsqueda"
+      ],
+      "verify": "Se identifica una causa probable y una corrección mínima comprobable."
+    },
+    "W5": {
+      "purpose": "Dejar la sesión retocable y retomable.",
+      "context": [
+        "Objetivo vigente",
+        "Trabajo hecho",
+        "Pendientes",
+        "Decisiones congeladas"
+      ],
+      "questions": [
+        "Que queda pendiente de forma concreta?",
+        "Que no se debe reabrir?",
+        "Cual es el siguiente paso si se retoma?"
+      ],
+      "prerequisites": [
+        "Resumir lo ejecutado",
+        "Anotar lo pendiente",
+        "Congelar decisiones"
+      ],
+      "verify": "La sesión puede retomarse sin reconstruir contexto manualmente."
+    },
+    "W6": {
+      "purpose": "Analizar el repo y proponer ideas contextualizadas, priorizadas por implementabilidad y estabilidad.",
+      "context": [
+        "Estado BAGO",
+        "Reports del sandbox",
+        "Baseline operativo",
+        "Puntos de entrada del repo"
+      ],
+      "questions": [
+        "Que ideas entran en contexto sin romper estabilidad?",
+        "Que idea es la mas pequeña y útil?",
+        "Conviene detalle o ya se puede aceptar?"
+      ],
+      "prerequisites": [
+        "Leer el estado y los reports",
+        "Verificar que la base está estable",
+        "Ordenar ideas por riesgo y coste"
+      ],
+      "verify": "Se obtiene una idea concreta lista para pasar a W2 o se rechaza por riesgo."
+    }
+  }
+}

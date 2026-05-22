@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Shepard Infinito — 3 Voces · BAGO</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  background: #05050a;
+  color: #e0e0e0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  width: 100%; min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════ SPIRAL ZONE ══════════════════════════════ */
+#spiral-zone {
+  position: relative;
+  width: 100%;
+  flex: 0 0 auto;
+}
+#spiral-canvas {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+}
+
+/* controls overlay */
+#controls {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 8px; align-items: center;
+  pointer-events: all;
+}
+.btn {
+  background: rgba(5,5,10,0.85);
+  border: 1px solid #1e1e3a;
+  color: #444;
+  font-family: inherit;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+.btn:hover { border-color: #555; color: #888; }
+.btn.active { border-color: var(--c,#c084fc); color: var(--c,#c084fc);
+  box-shadow: 0 0 10px var(--c,#c084fc)44; }
+
+#speed-wrap { display:flex; align-items:center; gap:6px; }
+#speed-wrap label { font-size:0.52rem; color:#2a2a3e; letter-spacing:0.1em; }
+#speed { width:64px; accent-color:#c084fc; }
+
+#phase-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 0.55rem; letter-spacing: 0.3em;
+  color: #c084fc; opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+  text-align: center;
+}
+#phase-center.show { opacity: 0.45; }
+
+/* HUD top */
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px; pointer-events: none;
+}
+.hud-title { font-size:0.6rem; letter-spacing:0.18em; color:#1e1e2e; }
+.hud-voices { display:flex; gap:14px; }
+.hv { font-size:0.55rem; letter-spacing:0.1em; color:#222;
+      display:flex; align-items:center; gap:5px; transition: color 0.3s; }
+.hv .d { width:6px;height:6px;border-radius:50%; background:var(--c); }
+.hv.lit { color: var(--c); }
+
+/* ══════════════════════════════ BOTTOM ZONE ══════════════════════════════ */
+#bottom {
+  width: 100%;
+  max-width: 740px;
+  padding: 0 20px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* waveform */
+#waveform-wrap { width: 100%; margin-top: 8px; }
+#waveform { display:block; width:100%; }
+
+/* phase bars */
+.phase-bar {
+  display: flex; gap: 4px;
+  margin-top: 4px;
+}
+.phase-seg {
+  flex:1; height:3px; border-radius:2px;
+  background: #111;
+  transition: background 0.35s, box-shadow 0.35s;
+}
+.phase-seg.lit { background: var(--c); box-shadow: 0 0 5px var(--c); }
+
+/* voice cards */
+.voices {
+  display: flex; gap: 16px;
+  margin-top: 12px;
+}
+.voice-card {
+  flex:1; border:1px solid #111; border-radius:10px;
+  padding:12px 10px; min-width:0;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.voice-card.pulse { border-color:var(--c); box-shadow:0 0 14px var(--c)22; }
+.voice-card .badge {
+  font-size:0.58rem; letter-spacing:0.12em; color:var(--c);
+  margin-bottom:5px; display:flex; align-items:center; gap:5px;
+}
+.badge .dot {
+  width:6px;height:6px;border-radius:50%;
+  background:var(--c); box-shadow:0 0 7px var(--c);
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.voice-card .files { list-style:none; margin-top:3px; }
+.voice-card .files li {
+  font-size:0.58rem; color:#333; padding:2px 0;
+  transition:color 0.4s;
+  display:flex; justify-content:space-between;
+}
+.voice-card .files li.done { color:var(--c); }
+.lines { font-size:0.52rem; color:#222; }
+.files li.done .lines { color:var(--c); opacity:0.5; }
+.voice-card .status {
+  margin-top:7px; font-size:0.57rem; color:#222;
+  border-top:1px solid #111; padding-top:5px;
+  transition: color 0.4s;
+}
+.voice-card.pulse .status { color:var(--c); }
+
+.foot {
+  text-align:center; font-size:0.52rem; color:#1a1a2a;
+  padding-top:14px; letter-spacing:0.12em; line-height:1.8;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SPIRAL ZONE ══════════════════════════════════════════════════════ -->
+<div id="spiral-zone">
+  <canvas id="spiral-canvas"></canvas>
+
+  <div id="hud">
+    <span class="hud-title">◈ SHEPARD INFINITO · BAGO 2026-05-13</span>
+    <div class="hud-voices">
+      <div class="hv lit" id="hv1" style="--c:#60a5fa"><span class="d"></span>BATCH-1</div>
+      <div class="hv lit" id="hv2" style="--c:#a78bfa"><span class="d"></span>BATCH-2</div>
+      <div class="hv lit" id="hv3" style="--c:#34d399"><span class="d"></span>BATCH-3</div>
+    </div>
+  </div>
+
+  <div id="phase-center"></div>
+
+  <div id="controls">
+    <div id="speed-wrap">
+      <label>VEL</label>
+      <input type="range" id="speed" min="0.2" max="4" step="0.1" value="1">
+    </div>
+    <button class="btn" id="btn-overlay" style="--c:#c084fc">⊕ SUPERPONER</button>
+    <button class="btn" id="btn-solo1"   style="--c:#60a5fa">① SOLO</button>
+    <button class="btn" id="btn-solo2"   style="--c:#a78bfa">② SOLO</button>
+    <button class="btn" id="btn-solo3"   style="--c:#34d399">③ SOLO</button>
+    <button class="btn" id="btn-blend"               >⊞ BLEND</button>
+    <button class="btn" id="btn-audio"   style="--c:#c084fc">♪ TONO</button>
+  </div>
+</div>
+
+<!-- ══ BOTTOM ZONE ════════════════════════════════════════════════════== -->
+<div id="bottom">
+
+  <!-- WAVEFORM -->
+  <div id="waveform-wrap">
+    <canvas id="waveform" height="62"></canvas>
+  </div>
+
+  <!-- PHASE BARS -->
+  <div class="phase-bar" id="pb1">
+    <div class="phase-seg" data-v="0" data-i="0" style="--c:#f87171"></div>
+    <div class="phase-seg" data-v="0" data-i="1" style="--c:#fb923c"></div>
+    <div class="phase-seg" data-v="0" data-i="2" style="--c:#facc15"></div>
+    <div class="phase-seg" data-v="0" data-i="3" style="--c:#4ade80"></div>
+    <div class="phase-seg" data-v="0" data-i="4" style="--c:#c084fc"></div>
+  </div>
+  <div class="phase-bar" style="margin-top:3px">
+    <div class="phase-seg" data-v="1" data-i="0" style="--c:#f87171"></div>
+    <div class="phase-seg" data-v="1" data-i="1" style="--c:#fb923c"></div>
+    <div class="phase-seg" data-v="1" data-i="2" style="--c:#facc15"></div>
+    <div class="phase-seg" data-v="1" data-i="3" style="--c:#4ade80"></div>
+    <div class="phase-seg" data-v="1" data-i="4" style="--c:#c084fc"></div>
+  </div>
+  <div class="phase-bar" style="margin-top:3px">
+    <div class="phase-seg" data-v="2" data-i="0" style="--c:#f87171"></div>
+    <div class="phase-seg" data-v="2" data-i="1" style="--c:#fb923c"></div>
+    <div class="phase-seg" data-v="2" data-i="2" style="--c:#facc15"></div>
+    <div class="phase-seg" data-v="2" data-i="3" style="--c:#4ade80"></div>
+    <div class="phase-seg" data-v="2" data-i="4" style="--c:#c084fc"></div>
+  </div>
+
+  <!-- VOICE CARDS -->
+  <div class="voices">
+    <div class="voice-card pulse" id="vc0" style="--c:#60a5fa">
+      <div class="badge"><span class="dot"></span>BATCH-1 · 14:22→14:40</div>
+      <ul class="files">
+        <li data-v="0" data-i="0"><span>findings_engine.py</span><span class="lines">1612L</span></li>
+        <li data-v="0" data-i="1"><span>telegram_daemon.py</span><span class="lines">1579L</span></li>
+        <li data-v="0" data-i="2"><span>spiral_loop.py</span><span class="lines">1118L</span></li>
+      </ul>
+      <div class="status" id="st0">▸ iniciando…</div>
+    </div>
+    <div class="voice-card pulse" id="vc1" style="--c:#a78bfa">
+      <div class="badge"><span class="dot"></span>BATCH-2 · 14:22→14:42</div>
+      <ul class="files">
+        <li data-v="1" data-i="0"><span>evolution_report.py</span><span class="lines">926L</span></li>
+        <li data-v="1" data-i="1"><span>bago_neural.py</span><span class="lines">917L</span></li>
+        <li data-v="1" data-i="2"><span>wizard_tab.py</span><span class="lines">903L</span></li>
+      </ul>
+      <div class="status" id="st1">▸ iniciando…</div>
+    </div>
+    <div class="voice-card pulse" id="vc2" style="--c:#34d399">
+      <div class="badge"><span class="dot"></span>BATCH-3 · 14:22→14:33</div>
+      <ul class="files">
+        <li data-v="2" data-i="0"><span>path_healer.py</span><span class="lines">871L</span></li>
+        <li data-v="2" data-i="1"><span>code_review.py</span><span class="lines">816L</span></li>
+        <li data-v="2" data-i="2"><span>rubber_duck.py</span><span class="lines">802L</span></li>
+      </ul>
+      <div class="status" id="st2">▸ iniciando…</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Cada voz ejecuta READ → IDENTIFY → SPLIT → VERIFY → COMMIT · desfasadas 120°<br>
+    Cuando una termina, las otras siguen — nunca hay silencio
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+const VOICES = [
+  { id:0, color:'#60a5fa', offset:0.00 },
+  { id:1, color:'#a78bfa', offset:1/3  },
+  { id:2, color:'#34d399', offset:2/3  },
+];
+const PHASE_COLORS = ['#f87171','#fb923c','#facc15','#4ade80','#c084fc'];
+const PHASE_NAMES  = ['SCAN','ALERT','REMEDIATE','VERIFY','EVOLVE'];
+const PHASE_STEPS  = ['READ','IDENTIFY','SPLIT','VERIFY','COMMIT'];
+const FILE_DONE    = [[0.25,0.55,0.82],[0.35,0.60,0.88],[0.22,0.42,0.62]];
+
+// ── SPIRAL CANVAS ──────────────────────────────────────────────
+const sc = document.getElementById('spiral-canvas');
+const sx = sc.getContext('2d');
+let SW, SH;
+
+function resizeSpiral() {
+  SW = sc.width  = sc.parentElement.clientWidth;
+  SH = sc.height = Math.round(SW * 0.46);
+  sc.style.height = SH + 'px';
+  updatePositions();
+}
+
+let overlaid = false, blendMode = false, soloVoice = -1, speedMul = 1;
+
+const SEP = [], OVL = {};
+function updatePositions() {
+  SEP[0] = { x: SW*0.22, y: SH*0.52 };
+  SEP[1] = { x: SW*0.50, y: SH*0.52 };
+  SEP[2] = { x: SW*0.78, y: SH*0.52 };
+  OVL.x = SW/2; OVL.y = SH*0.52;
+  VOICES.forEach((v,i) => {
+    if (!v.pos) v.pos = { ...SEP[i] };
+    v.target = overlaid ? {...OVL} : {...SEP[i]};
+  });
+}
+window.addEventListener('resize', resizeSpiral);
+resizeSpiral();
+VOICES.forEach((v,i) => { v.pos = {...SEP[i]}; v.target = {...SEP[i]}; v.alpha = 1; });
+
+const TURNS = 4, INST = 6;
+
+function drawSpiral(v, t) {
+  const maxR = Math.min(SW, SH) * (overlaid ? 0.40 : 0.17);
+  const minR = 5;
+  sx.save();
+  if (blendMode) sx.globalCompositeOperation = 'screen';
+
+  for (let inst = 0; inst < INST; inst++) {
+    const iPhase = ((t/9000 + inst/INST) % 1);
+    const bell   = Math.exp(-4 * Math.pow(iPhase - 0.5, 2));
+    const ia     = bell * v.alpha * 0.85;
+    if (ia < 0.01) continue;
+
+    const steps = 480;
+    sx.beginPath();
+    let mv = false;
+    for (let s = 0; s <= steps; s++) {
+      const f = s / steps;
+      const a = f * TURNS * Math.PI * 2 - Math.PI/2;
+      const r = minR + (maxR - minR) * ((f + iPhase) % 1);
+      const x = v.pos.x + r * Math.cos(a + v.offset*Math.PI*2 + t*0.00028);
+      const y = v.pos.y + r * Math.sin(a + v.offset*Math.PI*2 + t*0.00028);
+      mv ? sx.lineTo(x,y) : (sx.moveTo(x,y), mv=true);
+    }
+    sx.strokeStyle = v.color;
+    sx.lineWidth   = 2.2;
+    sx.globalAlpha = ia;
+    sx.stroke();
+  }
+
+  // Phase dots
+  const inst0 = (t/9000) % 1;
+  for (let p = 0; p < 5; p++) {
+    const pf  = (p+0.5)/5;
+    const r   = minR + (maxR-minR) * ((pf+inst0)%1);
+    const bell= Math.exp(-4*Math.pow(((pf+inst0)%1)-0.5,2));
+    if (bell < 0.08) continue;
+    const a   = pf*TURNS*Math.PI*2 - Math.PI/2;
+    const ra  = a + v.offset*Math.PI*2 + t*0.00028;
+    const px  = v.pos.x + r*Math.cos(ra);
+    const py  = v.pos.y + r*Math.sin(ra);
+    sx.globalAlpha = bell * v.alpha * 0.85;
+    sx.beginPath(); sx.arc(px, py, 3.5, 0, Math.PI*2);
+    sx.fillStyle = PHASE_COLORS[p];
+    sx.shadowBlur = 8; sx.shadowColor = PHASE_COLORS[p];
+    sx.fill(); sx.shadowBlur = 0;
+  }
+
+  // Center dot
+  sx.globalAlpha = v.alpha * 0.5;
+  sx.beginPath(); sx.arc(v.pos.x, v.pos.y, 3, 0, Math.PI*2);
+  sx.fillStyle = v.color; sx.shadowBlur = 10; sx.shadowColor = v.color;
+  sx.fill(); sx.shadowBlur = 0;
+
+  if (!overlaid) {
+    sx.globalAlpha = v.alpha * 0.3;
+    sx.font = '9px monospace'; sx.fillStyle = v.color; sx.textAlign = 'center';
+    sx.fillText(['BATCH-1','BATCH-2','BATCH-3'][v.id], v.pos.x, v.pos.y + maxR + 16);
+  }
+
+  sx.globalAlpha = 1;
+  sx.globalCompositeOperation = 'source-over';
+  sx.restore();
+}
+
+// ── WAVEFORM ───────────────────────────────────────────────────
+const wfc = document.getElementById('waveform');
+const wfx = wfc.getContext('2d');
+
+function resizeWaveform() {
+  wfc.width = wfc.parentElement.clientWidth;
+}
+window.addEventListener('resize', resizeWaveform);
+resizeWaveform();
+
+function drawWaveform(t) {
+  const W = wfc.width, H = wfc.height;
+  wfx.fillStyle = '#07070d';
+  wfx.fillRect(0, 0, W, H);
+
+  VOICES.forEach(v => {
+    const vis = soloVoice === -1 || soloVoice === v.id;
+    wfx.beginPath();
+    for (let x = 0; x <= W; x++) {
+      const f = x / W;
+      const amp = 18 * Math.sin(f * Math.PI);
+      const y = H/2 + amp * Math.sin(f*3*Math.PI*2 + t*0.004 + v.offset*Math.PI*2);
+      x === 0 ? wfx.moveTo(x,y) : wfx.lineTo(x,y);
+    }
+    wfx.strokeStyle = v.color;
+    wfx.lineWidth   = 1.8;
+    wfx.globalAlpha = vis ? 0.75 : 0.1;
+    wfx.stroke();
+  });
+
+  // Sum
+  wfx.beginPath();
+  for (let x = 0; x <= W; x++) {
+    const f = x / W;
+    let s = 0;
+    VOICES.forEach(v => {
+      const vis = soloVoice === -1 || soloVoice === v.id;
+      if (!vis) return;
+      s += 7 * Math.sin(f*Math.PI) * Math.sin(f*3*Math.PI*2 + t*0.004 + v.offset*Math.PI*2);
+    });
+    x===0 ? wfx.moveTo(x, H/2+s) : wfx.lineTo(x, H/2+s);
+  }
+  wfx.strokeStyle = '#fff'; wfx.lineWidth = 0.8; wfx.globalAlpha = 0.12; wfx.stroke();
+  wfx.globalAlpha = 1;
+}
+
+// ── PHASE BARS + CARDS ─────────────────────────────────────────
+function updateBottom(loopT, dur) {
+  const lp = loopT / dur;
+  VOICES.forEach((v,vi) => {
+    const vp  = (lp + v.offset) % 1;
+    const phi = Math.min(Math.floor(vp*5), 4);
+    const vis = soloVoice === -1 || soloVoice === vi;
+
+    document.querySelectorAll(`.phase-seg[data-v="${vi}"]`).forEach(s => {
+      s.classList.toggle('lit', parseInt(s.dataset.i) <= phi && vis);
+    });
+
+    const vc = document.getElementById(`vc${vi}`);
+    vc.classList.toggle('pulse', vis);
+
+    document.getElementById(`st${vi}`).textContent =
+      vis ? `▸ ${PHASE_STEPS[phi]}  [${Math.round(vp*100)}%]` : '— muted';
+
+    document.querySelectorAll(`li[data-v="${vi}"]`).forEach((li,fi) => {
+      li.classList.toggle('done', vp >= FILE_DONE[vi][fi] && vis);
+    });
+
+    // HUD legend
+    const hv = document.getElementById(`hv${vi+1}`);
+    hv.classList.toggle('lit', vis);
+  });
+
+  // Phase center label
+  if (overlaid) {
+    const phi = Math.min(Math.floor(lp*5), 4);
+    const el  = document.getElementById('phase-center');
+    el.textContent  = PHASE_NAMES[phi];
+    el.style.color  = PHASE_COLORS[phi];
+    el.classList.add('show');
+  } else {
+    document.getElementById('phase-center').classList.remove('show');
+  }
+}
+
+// ── MAIN LOOP ──────────────────────────────────────────────────
+const DUR = 24000;
+let t0 = null;
+function frame(ts) {
+  if (!t0) t0 = ts;
+  const t   = (ts - t0) * speedMul;
+  const lt  = t % DUR;
+
+  sx.fillStyle = 'rgba(5,5,10,0.16)';
+  sx.fillRect(0,0,SW,SH);
+
+  VOICES.forEach((v,i) => {
+    const vis = soloVoice === -1 || soloVoice === i;
+    v.alpha += ((vis ? 1 : 0) - v.alpha) * 0.07;
+    v.pos.x += (v.target.x - v.pos.x) * 0.055;
+    v.pos.y += (v.target.y - v.pos.y) * 0.055;
+    drawSpiral(v, t);
+  });
+
+  drawWaveform(t);
+  updateBottom(lt, DUR);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ── CONTROLS ──────────────────────────────────────────────────
+function syncTargets() {
+  VOICES.forEach((v,i) => {
+    v.target = overlaid ? {...OVL} : {...SEP[i]};
+  });
+}
+
+document.getElementById('btn-overlay').addEventListener('click', function() {
+  overlaid = !overlaid;
+  this.classList.toggle('active', overlaid);
+  this.textContent = overlaid ? '⊗ SEPARAR' : '⊕ SUPERPONER';
+  soloVoice = -1;
+  [1,2,3].forEach(n => document.getElementById(`btn-solo${n}`).classList.remove('active'));
+  syncTargets();
+});
+
+[1,2,3].forEach(n => {
+  document.getElementById(`btn-solo${n}`).addEventListener('click', function() {
+    const i = n-1;
+    soloVoice = soloVoice === i ? -1 : i;
+    [1,2,3].forEach(m => document.getElementById(`btn-solo${m}`).classList.remove('active'));
+    if (soloVoice !== -1) this.classList.add('active');
+  });
+});
+
+document.getElementById('btn-blend').addEventListener('click', function() {
+  blendMode = !blendMode;
+  this.classList.toggle('active', blendMode);
+  this.textContent = blendMode ? '⊞ NORMAL' : '⊞ BLEND';
+});
+
+document.getElementById('speed').addEventListener('input', function() {
+  speedMul = parseFloat(this.value);
+});
+
+sc.addEventListener('dblclick', () => document.getElementById('btn-overlay').click());
+
+// ── AUDIO ─────────────────────────────────────────────────────
+let aCtx = null, aNodes = [], audioOn = false;
+
+function startAudio() {
+  aCtx = new (window.AudioContext || window.webkitAudioContext)();
+  aNodes = [];
+  const master = aCtx.createGain();
+  master.gain.setValueAtTime(0.11, aCtx.currentTime);
+  master.connect(aCtx.destination);
+
+  const bases = [82.4, 82.4*Math.pow(2,1/3), 82.4*Math.pow(2,2/3)];
+  VOICES.forEach((v,vi) => {
+    const vg = aCtx.createGain();
+    vg.gain.setValueAtTime(0.33, aCtx.currentTime);
+    vg.connect(master);
+    for (let oct = 0; oct < 6; oct++) {
+      const osc = aCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(bases[vi]*Math.pow(2,oct), aCtx.currentTime);
+      const eg = aCtx.createGain();
+      eg.gain.setValueAtTime(Math.exp(-0.5*Math.pow((oct-3)/(6/3.5),2)), aCtx.currentTime);
+      osc.connect(eg); eg.connect(vg); osc.start();
+      aNodes.push({ osc, eg, vg, base: bases[vi], oct, vi });
+    }
+  });
+
+  let gb = aCtx.currentTime;
+  (function glide() {
+    if (!audioOn) return;
+    const ratio = Math.pow(2, (aCtx.currentTime-gb)/14);
+    aNodes.forEach(n => {
+      const vis = soloVoice === -1 || soloVoice === n.vi;
+      n.vg.gain.setTargetAtTime(vis ? 0.33 : 0.03, aCtx.currentTime, 0.2);
+      const f = n.base*Math.pow(2,n.oct)*ratio;
+      if (f > 4000) { n.base /= 2; gb = aCtx.currentTime; }
+      else n.osc.frequency.setValueAtTime(f, aCtx.currentTime);
+    });
+    setTimeout(glide, 60);
+  })();
+}
+
+function stopAudio() {
+  aNodes.forEach(n => { try{n.osc.stop()}catch(e){} });
+  aNodes = [];
+  if (aCtx) { aCtx.close(); aCtx = null; }
+}
+
+document.getElementById('btn-audio').addEventListener('click', function() {
+  audioOn = !audioOn;
+  this.classList.toggle('active', audioOn);
+  this.textContent = audioOn ? '■ MUTE' : '♪ TONO';
+  audioOn ? startAudio() : stopAudio();
+});
+</script>
+</body>
+</html>

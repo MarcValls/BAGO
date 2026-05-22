@@ -1,0 +1,51 @@
+{
+  "sprint_id": "SPRINT-007",
+  "name": "SPRINT — Intelligence & Observability",
+  "version": "3.0",
+  "status": "open",
+  "created_at": "2026-04-23T01:21:28.242160+00:00",
+  "updated_at": "2026-04-23T02:23:13.902094+00:00",
+  "goals": [
+    "Cockpit hotspots: mostrar datos reales de complejidad (fix _hotspots() list vs dict)",
+    "Cockpit risk: exponer categorías reales de risk_matrix (fix section_risks)",
+    "Cockpit sprint: mostrar progreso % con barra visual",
+    "Ideas selector: añadir ideas contextuales basadas en estado real (debt>0, risk>0)",
+    "Crear sesión autonomous-001 para registrar trabajo del loop autónomo",
+    "Tests: +5 tests para bugs corregidos (hotspot, section_risks, sprint progress)",
+    "Debt ledger: ejecutar scan real y mostrar 23.9h/€1912 en cockpit",
+    "Risk matrix: ejecutar scan real y mostrar exposición 243.6 (CRÍTICA)",
+    "SPRINT-006: cerrar y abrir SPRINT-007 con objetivos nuevos",
+    "Mantener 102/102 integration tests (o más)"
+  ],
+  "sessions": [
+    "SES-HARVEST-2026-04-23-001"
+  ],
+  "evidence_refs": [],
+  "goals_completed": [
+    "Cockpit hotspots: mostrar datos reales de complejidad (fix _hotspots() list vs dict) ✅",
+    "Cockpit risk: exponer categorías reales de risk_matrix (fix section_risks) ✅",
+    "Cockpit sprint: mostrar progreso % con barra visual ✅",
+    "Ideas selector: añadir ideas contextuales basadas en estado real (debt>0, risk>0) ✅",
+    "Crear sesión autonomous-001 y 002 para registrar trabajo del loop autónomo ✅",
+    "Tests: +15 tests nuevos (tests 95-104: detector, ideas, dashboard, sprint) ✅",
+    "sys.exit() → raise SystemExit(): 175 reemplazos en 86 tools ✅",
+    "CHG-100 milestone: hito de gobernanza superado (chg=104) 🏆 ✅",
+    "Docs: TOOLS_INDEX.md (135 tools) + WORKFLOWS_REFERENCE.md (W0-W9) ✅",
+    "session-commit-link: 6 sesiones con commits vinculados ✅",
+    "IDEAS_BACKLOG.json: historial persistente de ideas ✅",
+    "detector CLEAN: cero señales activas ✅",
+    "CHG coverage 100%: 135/135 tools con registro ✅"
+  ],
+  "goals_metrics": {
+    "tests": "119/119",
+    "chg": 108,
+    "sys_exit_fixed": 175,
+    "health": "100/100",
+    "detector": "CLEAN",
+    "docs_added": [
+      "TOOLS_INDEX.md",
+      "WORKFLOWS_REFERENCE.md"
+    ],
+    "chg_coverage": "135/135 (100%)"
+  }
+}

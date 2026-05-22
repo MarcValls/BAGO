@@ -1,0 +1,156 @@
+"""bago.llm.call — Llamada a LiteLLM con fallback automático por modelo Ollama."""
+
+import logging
+import os
+
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+try:
+    if os.environ.get("BAGO_NO_LITELLM", "0") == "1":
+        raise ModuleNotFoundError("litellm disabled by BAGO_NO_LITELLM=1")
+    import litellm
+except ModuleNotFoundError as exc:
+    litellm = None
+    _LITELLM_IMPORT_ERROR = exc
+else:
+    _LITELLM_IMPORT_ERROR = None
+
+from ..constants import BAGO_SYSTEM
+from ..providers import resolve_litellm
+from ..ui import pe, pi
+
+from .errors import OllamaNoModelAvailable, _is_ollama_model_not_found, classify_provider_error
+from .routing import _build_escalation_chain, _provider_error_fallbacks
+
+if litellm is not None:
+    litellm.suppress_debug_info = True
+    litellm.set_verbose = False
+
+
+def _require_litellm() -> None:
+    if litellm is not None:
+        return
+    detail = f" ({_LITELLM_IMPORT_ERROR})" if _LITELLM_IMPORT_ERROR else ""
+    raise RuntimeError(
+        "litellm no está instalado y BAGO no puede llamar a modelos LLM en este equipo"
+        f"{detail}. Instala la dependencia con: python -m pip install litellm"
+    )
+
+
+def _parse_chain_label(label: str) -> "tuple[str, str]":
+    """Extrae (provider, model) del label 'provider / model' de la cadena de fallback."""
+    if " / " in label:
+        prov, mdl = label.split(" / ", 1)
+        return prov.strip(), mdl.strip()
+    return label, label
+
+
+def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
+    """Llamada a LiteLLM con fallback automático si el modelo Ollama no existe.
+
+    Si el modelo no está instalado, recorre la cadena:
+      otros Ollama locales → copilot → codex
+    antes de lanzar OllamaNoModelAvailable.
+
+    audit-4: los tokens se registran contra el provider/model real que responde,
+    no contra el modelo original que falló.
+    """
+    def _do_call(lm_name, kw_args, *, prov_override=None, mdl_override=None):
+        _require_litellm()
+        r = litellm.completion(model=lm_name, messages=messages, **kw_args)
+        text = r.choices[0].message.content
+        if session is not None:
+            usage = getattr(r, "usage", None)
+            if usage:
+                prov = prov_override or _provider or session.provider
+                mdl  = mdl_override  or _model  or session.model_name
+                session.record_tokens(
+                    prov, mdl,
+                    getattr(usage, "prompt_tokens", 0) or 0,
+                    getattr(usage, "completion_tokens", 0) or 0,
+                )
+        return text
+
+    try:
+        return _do_call(lm, kw)
+    except Exception as exc:
+        is_missing, missing_name = _is_ollama_model_not_found(exc)
+        if not is_missing:
+            if session is None:
+                raise  # sin sesión no podemos degradar ni reintentar
+
+            failed_provider = _provider or session.provider
+            failed_model = _model or session.model_name
+            reason = classify_provider_error(exc, model=lm)
+            if reason not in {"quota", "auth", "connection", "ollama_connection"}:
+                raise
+
+            session.mark_provider_degraded(failed_provider, exc, model=failed_model)
+            fallbacks = _provider_error_fallbacks(session, messages[-1].get("content", ""), failed_provider)
+            if not fallbacks:
+                raise
+
+            pi(
+                f"[yellow]⚠  {failed_provider}/{failed_model} degradado por {reason}; "
+                "probando fallback...[/yellow]"
+            )
+            last_exc = exc
+            for fb_model, fb_wire, fb_provider in fallbacks:
+                lm_fb, kw_fb = resolve_litellm(fb_provider, fb_wire)
+                try:
+                    pi(f"   → fallback [bold cyan]{fb_provider}/{fb_model}[/bold cyan]")
+                    text = _do_call(
+                        lm_fb, kw_fb,
+                        prov_override=fb_provider,
+                        mdl_override=fb_model,
+                    )
+                    session.provider = fb_provider
+                    session.model_name = fb_model
+                    session.wire_name = fb_wire
+                    session.switches += 1
+                    session.last_route = {
+                        "mode": "auto",
+                        "provider": fb_provider,
+                        "model": fb_model,
+                        "reason": f"fallback-{reason} desde {failed_provider}/{failed_model}",
+                    }
+                    pi(f"   [green]✓ usando {fb_provider}/{fb_model}[/green]")
+                    return text
+                except Exception as exc_fb:
+                    fb_reason = classify_provider_error(exc_fb, model=lm_fb)
+                    if fb_reason in {"quota", "auth", "connection", "ollama_connection"}:
+                        session.mark_provider_degraded(fb_provider, exc_fb, model=fb_model)
+                    pi(f"   [dim red]✗ {fb_provider}/{fb_model}: {type(exc_fb).__name__}[/dim red]")
+                    last_exc = exc_fb
+            raise last_exc
+
+        # Modelo Ollama no instalado: recorrer cadena de escalado
+        target = missing_name or lm
+        chain, available = _build_escalation_chain(target)
+
+        if not chain:
+            raise OllamaNoModelAvailable(target, [])
+
+        pi(f"[yellow]⚠  Modelo [bold]{target}[/bold] no instalado.[/yellow]")
+        if available:
+            pi(f"   Ollama local tiene: {', '.join(available)}")
+
+        last_exc = exc
+        for lm_wire, kw_fallback, label in chain:
+            pi(f"   → Intentando [bold cyan]{label}[/bold cyan]...")
+            fb_prov, fb_mdl = _parse_chain_label(label)
+            try:
+                result = _do_call(lm_wire, kw_fallback,
+                                  prov_override=fb_prov, mdl_override=fb_mdl)
+                pi(f"   [green]✓ Respondiendo con {label}[/green]")
+                return result
+            except Exception as exc_fb:
+                pi(f"   [dim red]✗ {label}: {type(exc_fb).__name__}[/dim red]")
+                last_exc = exc_fb
+
+        tried_labels = [lbl for _, _, lbl in chain]
+        pe(
+            f"[bold red]🚨 Sin modelo disponible.[/bold red]\n"
+            f"  Cadena intentada: {', '.join(tried_labels) or 'ninguna'}\n"
+            f"  Instala un modelo: ollama pull qwen2.5-coder:7b"
+        )
+        raise OllamaNoModelAvailable(target, tried_labels)

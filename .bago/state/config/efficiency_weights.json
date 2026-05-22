@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "description": "Pesos para el Índice de Eficiencia BAGO",
+  "weights": {
+    "tools": 0.35,
+    "commands": 0.3,
+    "docs": 0.2,
+    "workflows": 0.15
+  }
+}

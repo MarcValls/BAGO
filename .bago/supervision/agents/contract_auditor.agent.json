@@ -1,0 +1,23 @@
+{
+  "agent": "contract_auditor",
+  "version": "1.0.0",
+  "role": "GUIA_VERTICE",
+  "mission": "Mantener la coherencia del registry — cada tool debe tener preflight, descripción y cobertura",
+  "reads": [
+    ".bago/tools/_registry_entries.py",
+    ".bago/tools/tool_guardian.py",
+    ".bago/supervision/artifacts/REGISTRY_CONTRACT_AUDIT.json"
+  ],
+  "writes": [
+    ".bago/supervision/artifacts/REGISTRY_CONTRACT_AUDIT.json"
+  ],
+  "tools": ["tool_guardian.py", "orphan_shield.py"],
+  "gate": "tool_guardian health >= 95% for core + dangerous tier",
+  "on_failure": "warn",
+  "loop": "contract_drift_loop",
+  "sense": "python .bago/tools/tool_guardian.py",
+  "plan": "compare health% against gate threshold",
+  "act": "report GUARD-E001/E002/W001/W002 violations",
+  "observe": "re-run tool_guardian after any fixes",
+  "learn": "update REGISTRY_CONTRACT_AUDIT.json with health_pct + issues"
+}

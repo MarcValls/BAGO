@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "description": "Catálogo declarativo de tipos de checker disponibles para contratos BAGO. Cada entrada describe el tipo, su función, sus parámetros esperados y los valores por defecto. El dispatch real (tipo → función Python) vive en contracts.py.",
+  "checkers": [
+    {
+      "type": "test_count",
+      "description": "Ejecuta integration_tests.py y verifica que passed >= min y failed == 0.",
+      "params": {
+        "min": {"type": "integer", "default": 1, "description": "Mínimo de tests que deben pasar"}
+      }
+    },
+    {
+      "type": "file_exists",
+      "description": "Verifica que uno o más archivos existan en el filesystem.",
+      "params": {
+        "files": {"type": "array", "default": [], "description": "Lista de rutas absolutas o relativas al repo root"}
+      }
+    },
+    {
+      "type": "health_score",
+      "description": "Ejecuta bago health y verifica que el score >= min.",
+      "params": {
+        "min": {"type": "integer", "default": 90, "description": "Score mínimo aceptable sobre 100"}
+      }
+    },
+    {
+      "type": "validate_go",
+      "description": "Ejecuta bago validate y verifica que el resultado sea GO (sin KO).",
+      "params": {}
+    },
+    {
+      "type": "tools_count",
+      "description": "Verifica que el número de archivos .py en .bago/tools/ >= min.",
+      "params": {
+        "min": {"type": "integer", "default": 80, "description": "Mínimo de tools Python esperados"}
+      }
+    },
+    {
+      "type": "routing_count",
+      "description": "Verifica que tool_registry.py tenga >= min comandos únicos registrados.",
+      "params": {
+        "min": {"type": "integer", "default": 10, "description": "Mínimo de comandos únicos en el registry"}
+      }
+    },
+    {
+      "type": "file_not_contains",
+      "description": "Verifica que ningún archivo que coincida con el glob contenga el patrón prohibido.",
+      "params": {
+        "glob":    {"type": "string", "default": ".bago/tools/*.py", "description": "Glob relativo al repo root"},
+        "pattern": {"type": "string", "default": "utcnow()", "description": "Patrón de texto prohibido"}
+      }
+    },
+    {
+      "type": "snapshot_exists",
+      "description": "Verifica que exista al menos un SNAP-*.json posterior a una fecha.",
+      "params": {
+        "since": {"type": "string", "default": "", "description": "ISO8601 — solo snapshots después de esta fecha"}
+      }
+    },
+    {
+      "type": "sprint_open",
+      "description": "Verifica que exista al menos un sprint con status open o active.",
+      "params": {}
+    },
+    {
+      "type": "chg_count",
+      "description": "Verifica que el número de archivos CHG en state/changes/ >= min.",
+      "params": {
+        "min": {"type": "integer", "default": 77, "description": "Mínimo de CHG registrados"}
+      }
+    }
+  ]
+}

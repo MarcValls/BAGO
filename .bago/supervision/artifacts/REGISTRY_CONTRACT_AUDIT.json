@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "description": "Auditoría del registry — coherencia de contratos por herramienta",
+  "last_run": "2026-05-20T16:19:04.240580",
+  "total_commands": null,
+  "dangerous_commands": null,
+  "core_commands": null,
+  "experimental_commands": null,
+  "issues": [],
+  "health_pct": null,
+  "overall": "green",
+  "gate": "all core and dangerous commands must have preflight + self_test",
+  "on_failure": "warn",
+  "checked_by": "contract_auditor",
+  "tool": "python .bago/tools/tool_guardian.py",
+  "run_history": [
+    {
+      "timestamp": "2026-05-18T18:25:43.390231",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T19:11:34.154831",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T19:18:18.886403",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T22:53:43.113192",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-18T23:02:56.855020",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T00:03:22.696900",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T01:00:40.098818",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T01:03:13.856568",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T01:12:21.638335",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T01:22:30.196587",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T01:36:40.455479",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T01:40:48.892236",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T02:47:47.752034",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T03:06:49.851951",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T03:18:42.271487",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T03:24:09.670599",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T03:32:36.080640",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T03:42:45.326075",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-19T04:01:54.384331",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:25.679184",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:24:51.360518",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:25:18.009655",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T15:44:59.364731",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-20T16:19:04.240580",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    }
+  ]
+}
