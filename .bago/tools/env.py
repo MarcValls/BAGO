@@ -450,7 +450,7 @@ def _install_npm() -> None:
                     print(f"  {GREEN('✅ npm v' + ver + ' disponible')}")
                 print(f"  {DIM('Reinicia la terminal para usar npm en nuevas sesiones.')}")
                 return
-            print(f"  {YELLOW('\u26a0 winget falló, intentando descarga directa...')}")
+            print("  " + YELLOW("winget fallo, intentando descarga directa..."))
         print(f"  {CYAN('→')} Descargando Node.js LTS...")
         try:
             arch = os.environ.get("PROCESSOR_ARCHITECTURE", "AMD64")
