@@ -381,7 +381,8 @@ def cmd_route(router: ModelRouter, prompt: str, provider: str = "", mode: str = 
     print(f"  Reason:    {result.get('reason', 'auto')}")
     fb = result.get("fallback_chain", [])
     if fb:
-        print(f"  Fallback:  {' \u2192 '.join(fb)}")
+        fallback = " -> ".join(fb)
+        print(f"  Fallback:  {fallback}")
     print()
 
     # Show mode options

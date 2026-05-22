@@ -83,7 +83,7 @@ def main():
     print()
     print(render_prompt_router(reports))
     print()
-    print(f"Efficiency Score: {metrics["efficiency_score"]}/100")
+    print(f"Efficiency Score: {metrics['efficiency_score']}/100")
     if metrics["total_collisions"] == 0 and metrics["max_load"] <= 2:
         print("GO harmonic_orchestration")
     else:

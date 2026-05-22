@@ -201,10 +201,10 @@ def _find_tool(stem: str) -> "Path | None":
     if direct.exists():
         return direct
     if "." in stem:
-        dotted = TOOLS / f"{stem.replace(".", os.sep)}.py"
+        dotted = TOOLS / f"{stem.replace('.', os.sep)}.py"
         if dotted.exists():
             return dotted
-        dotted2 = BAGO_ROOT / f"{stem.replace(".", os.sep)}.py"
+        dotted2 = BAGO_ROOT / f"{stem.replace('.', os.sep)}.py"
         if dotted2.exists():
             return dotted2
     hits = list(BAGO_ROOT.rglob(f"{stem}.py"))

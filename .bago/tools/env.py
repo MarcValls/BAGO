@@ -427,7 +427,7 @@ def _install_missing(name: str) -> None:
     if name == "npm":
         _install_npm()
     else:
-        print(f"  {YELLOW('\u26a0  Instalación autom\u00e1tica no disponible para ' + name)}")
+        print(f"  {YELLOW('Aviso: instalacion automatica no disponible para ' + name)}")
         print(f"  Consulta la documentación para instalar {name}.")
 
 
