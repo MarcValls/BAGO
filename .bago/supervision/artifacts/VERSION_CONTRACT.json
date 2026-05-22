@@ -39,7 +39,7 @@
   "gate": "all sources must match expected_version",
   "on_failure": "block_release",
   "checked_by": "release_guardian",
-  "last_run": "2026-05-21T23:39:14.836825",
+  "last_run": "2026-05-21T23:52:21.790565",
   "overall": "green",
   "run_history": [
     {
@@ -169,6 +169,11 @@
     },
     {
       "timestamp": "2026-05-21T23:39:14.836825",
+      "passed": true,
+      "summary": "SKIP: non-executable directive"
+    },
+    {
+      "timestamp": "2026-05-21T23:52:21.790565",
       "passed": true,
       "summary": "SKIP: non-executable directive"
     }

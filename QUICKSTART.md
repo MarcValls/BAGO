@@ -1,6 +1,6 @@
 # BAGO Framework v3.5.0b1 - Quick Start
 
-Version: 3.4.6
+Version: 3.5.0
 
 ## First Commands
 

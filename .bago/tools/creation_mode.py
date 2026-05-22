@@ -196,7 +196,7 @@ def _panel_left(sessions: list[dict], gs: dict, agents: list[str], tools_count: 
     t = Text()
 
     # Sección: Sesiones recientes
-    workflow = gs.get("sprint_status", {}).get("active_workflow", {})
+    workflow = (gs.get("sprint_status") or {}).get("active_workflow") or {}
     active_title = workflow.get("title", "")
 
     if sessions:
@@ -231,7 +231,7 @@ def _panel_left(sessions: list[dict], gs: dict, agents: list[str], tools_count: 
         ("◎", "Agentes",       f"{len(agents)} activos"),
         ("⊡", "Habilidades",   f"{tools_count} tools"),
         ("≡", "Instrucciones", "BOOTSTRAP.md"),
-        ("⇌", "Flujos",        workflow.get("code", "W2") if workflow else "—"),
+        ("⇌", "Flujos",        workflow.get("code", "W2")),
         ("⚙", "Tools",         ".bago/tools/"),
         ("⊕", "Extensiones",   ".bago/extensions/"),
     ]
@@ -252,7 +252,7 @@ def _panel_left(sessions: list[dict], gs: dict, agents: list[str], tools_count: 
 def _panel_center(gs: dict, active_task: dict | None, last_input: str = "") -> Panel:
     t = Text()
 
-    workflow = gs.get("sprint_status", {}).get("active_workflow", {})
+    workflow = (gs.get("sprint_status") or {}).get("active_workflow") or {}
 
     if workflow:
         t.append("\n")
