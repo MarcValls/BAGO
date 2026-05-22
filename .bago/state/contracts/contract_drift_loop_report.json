@@ -1,18 +1,18 @@
 {
   "loop": "contract_drift_loop",
-  "timestamp": "2026-05-21T23:52:35.833081",
+  "timestamp": "2026-05-22T09:53:49.528610",
   "has_blockers": false,
   "blockers_summary": "",
   "agents": [
     {
       "agent": "release_guardian",
-      "status": "green",
-      "message": "OK",
+      "status": "red",
+      "message": "❌ DESYNC:\n     pyproject.toml   : 3.4.6\n     bago_core/__init__: 3.5.0\n  Para sincronizar: edita uno de los dos y vuelve a ejecutar.",
       "artifact": ".bago/supervision/artifacts/VERSION_CONTRACT.json",
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-21T23:52:21.791032"
+      "timestamp": "2026-05-22T09:53:35.750059"
     },
     {
       "agent": "contract_auditor",
@@ -22,7 +22,7 @@
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-21T23:52:35.700129"
+      "timestamp": "2026-05-22T09:53:49.375297"
     },
     {
       "agent": "doc_sync_agent",
@@ -32,7 +32,7 @@
       "on_failure": "warn",
       "blocker": false,
       "cascade_triggered": false,
-      "timestamp": "2026-05-21T23:52:35.833056"
+      "timestamp": "2026-05-22T09:53:49.528598"
     }
   ]
 }
