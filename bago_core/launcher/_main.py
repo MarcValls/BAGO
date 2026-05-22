@@ -38,15 +38,17 @@ def main():
     args = sys.argv[1:]
 
     if args and args[0] in ("--version", "-V"):
-        print("bago 3.4.5")
+        print("bago 3.5.0")
         return
 
     # ── First-run wizard ───────────────────────────────────────────────────────
     # Fires on any first run (with or without args) unless bypassed.
     # CI/BAGO_SKIP_WIZARD bypass is handled inside bago_wizard.py itself.
     _wizard_marker = BAGO_ROOT / "state" / "install_complete.json"
+    _wizard_safe_commands = {"validate", "health", "status", "help", "--help", "-h"}
     _skip_wizard = (
         "--skip-wizard" in args
+        or (bool(args) and args[0] in _wizard_safe_commands)
         or os.environ.get("CI")
         or os.environ.get("BAGO_SKIP_WIZARD")
     )

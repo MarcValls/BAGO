@@ -161,9 +161,9 @@ def validate_state(root: Path | None = None) -> int:
 
     state_path = root / "state" / "global_state.json"
     if not state_path.exists():
-        # Runtime state is gitignored; skip state validation in CI environments.
-        if _os.environ.get("GITHUB_ACTIONS") == "true":
-            print("GO state (skipped — no runtime state in CI)")
+        # Runtime state is gitignored in clean installs and source checkouts.
+        if _os.environ.get("GITHUB_ACTIONS") == "true" or _load_clean_runtime_contract(root):
+            print("GO state (skipped — no runtime state)")
             return 0
         print(f"KO\nmissing file: {state_path}")
         return 1
