@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import secrets
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -247,9 +249,17 @@ def diff_main(argv: list[str]) -> int:
 
 def _run(cmd: list[str], timeout: int = 5) -> tuple[int, str]:
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        use_shell = sys.platform == "win32" and cmd[0].endswith(".cmd")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=use_shell)
         return result.returncode, (result.stdout + result.stderr).strip()
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        if sys.platform == "win32" and not cmd[0].endswith(".cmd"):
+            try:
+                cmd_win = [cmd[0] + ".cmd"] + cmd[1:]
+                result = subprocess.run(cmd_win, capture_output=True, text=True, timeout=timeout)
+                return result.returncode, (result.stdout + result.stderr).strip()
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                pass
         return 1, ""
 
 
@@ -273,8 +283,25 @@ def _check_node() -> dict:
 
 
 def _check_npm() -> dict:
-    code, out = _run(["npm", "--version"])
-    return {"name": "npm", "status": "ok", "detail": f"v{out}"} if code == 0 else {"name": "npm", "status": "error", "detail": "no encontrado", "fix": "Instala npm (viene con Node.js)"}
+    npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
+    code, out = _run([npm_cmd, "--version"])
+    if code == 0:
+        return {"name": "npm", "status": "ok", "detail": f"v{out}", "installable": False}
+    return {
+        "name": "npm",
+        "status": "error",
+        "detail": "no encontrado",
+        "fix": "Instala npm (viene con Node.js)",
+        "installable": True,
+        "install_hint": (
+            "npm gestiona paquetes JavaScript/TypeScript. Lo necesitas si:\n"
+            "  - Desarrollas proyectos web con React, Vite, Next.js...\n"
+            "  - Quieres usar 'bago serve' o el servidor API local\n"
+            "  - Trabajas con proyectos que tienen package.json\n"
+            "  - Necesitas instalar dependencias con npm install\n\n"
+            "  Si solo usas Python, puedes omitirlo."
+        ),
+    }
 
 
 def _check_python() -> dict:
@@ -370,7 +397,104 @@ def diagnostic_main(argv: list[str]) -> int:
         print(f"  {RED(f'❌  {errors} error(es) · {warnings} advertencia(s).')}\n")
     else:
         print(f"  {YELLOW(f'⚠  {warnings} advertencia(s). Entorno funcional.')}\n")
+
+    # Interactive install prompt for missing tools
+    installable = [c for c in checks if c.get("installable") and c["status"] == "error"]
+    if installable and "--json" not in argv:
+        for item in installable:
+            name = item["name"]
+            hint = item.get("install_hint", "")
+            print(f"\n  {BOLD('Instalar ' + name + '?')} [y/N]")
+            if hint:
+                for line in hint.splitlines():
+                    print(f"  {DIM(line)}")
+            try:
+                answer = input("  -> ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                answer = ""
+            if answer in {"y", "yes", "s", "si"}:
+                _install_missing(name)
+            else:
+                print(f"  {DIM(name + ': omitido. Puedes instalarlo más tarde con: bago env check')}")
+                print()
     return 1 if errors else (2 if warnings else 0)
+
+
+def _install_missing(name: str) -> None:
+    """Install missing tool via winget (Windows) or brew/apt (macOS/Linux)."""
+    print(f"\n  {BOLD('Instalando ' + name + '...')}")
+    if name == "npm":
+        _install_npm()
+    else:
+        print(f"  {YELLOW('\u26a0  Instalación autom\u00e1tica no disponible para ' + name)}")
+        print(f"  Consulta la documentación para instalar {name}.")
+
+
+def _install_npm() -> None:
+    """Install npm via Node.js using winget or direct download."""
+    if sys.platform == "win32":
+        winget = shutil.which("winget")
+        if winget:
+            print(f"  {CYAN('→')} Usando winget para instalar Node.js LTS (incluye npm)...")
+            rc = subprocess.run(
+                [winget, "install", "OpenJS.NodeJS.LTS", "--accept-package-agreements", "--accept-source-agreements"],
+                capture_output=True, text=True, timeout=300,
+            )
+            if rc.returncode == 0:
+                print(f"  {GREEN('✅ Node.js + npm instalado via winget')}")
+                _refresh_path()
+                npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
+                code, ver = _run([npm_cmd, "--version"])
+                if code == 0:
+                    print(f"  {GREEN('✅ npm v' + ver + ' disponible')}")
+                print(f"  {DIM('Reinicia la terminal para usar npm en nuevas sesiones.')}")
+                return
+            print(f"  {YELLOW('\u26a0 winget falló, intentando descarga directa...')}")
+        print(f"  {CYAN('→')} Descargando Node.js LTS...")
+        try:
+            arch = os.environ.get("PROCESSOR_ARCHITECTURE", "AMD64")
+            arch_suffix = "x64" if "64" in arch else "x86"
+            msi_url = f"https://nodejs.org/dist/v22.16.0/node-v22.16.0-{arch_suffix}.msi"
+            msi_path = Path.home() / "Downloads" / "node-latest.msi"
+            print(f"  {DIM('Descargando: ' + msi_url)}")
+            urllib.request.urlretrieve(msi_url, str(msi_path))
+            print(f"  {GREEN('✅')} Descargado en: {msi_path}")
+            print(f"  {BOLD('Ejecuta el instalador para completar la instalación:')}")
+            print(f"  {CYAN(str(msi_path))}")
+            os.startfile(str(msi_path))
+        except Exception as exc:
+            print(f"  {RED('❌')} No se pudo descargar: {exc}")
+            print(f"  {BOLD('Instala Node.js manualmente desde:')} https://nodejs.org")
+    else:
+        brew = shutil.which("brew")
+        if brew:
+            print(f"  {CYAN('→')} Usando Homebrew...")
+            subprocess.run([brew, "install", "node"], timeout=300)
+        else:
+            print(f"  {BOLD('Instala Node.js manualmente desde:')} https://nodejs.org")
+
+
+def _refresh_path() -> None:
+    """Refresh PATH in current process after install (Windows)."""
+    if sys.platform != "win32":
+        return
+    try:
+        import winreg
+        for key_path in [
+            (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+            (winreg.HKEY_CURRENT_USER, r"Environment"),
+        ]:
+            try:
+                key = winreg.OpenKey(key_path[0], key_path[1], 0, winreg.KEY_READ)
+                path_val = winreg.QueryValueEx(key, "Path")[0]
+                os.environ["PATH"] = path_val + ";" + os.environ.get("PATH", "")
+                winreg.CloseKey(key)
+            except Exception:
+                pass
+    except ImportError:
+        pass
+
 
 
 def _detect_type(key: str, example_val: str) -> str:
