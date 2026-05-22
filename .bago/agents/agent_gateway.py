@@ -31,8 +31,18 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator
+import threading
+
+# Prompt adapter para transformar prompts al dialecto de cada modelo
+import importlib.util as _ilu2
+_pa_spec = _ilu2.spec_from_file_location("_prompt_adapter", str(_TOOLS_DIR / "prompt_adapter.py"))
+_pa_mod = _ilu2.module_from_spec(_pa_spec)  # type: ignore
+_pa_spec.loader.exec_module(_pa_mod)  # type: ignore
+PromptAdapter = _pa_mod.PromptAdapter
+_prompt_adapter = PromptAdapter()
 
 # ── Path resolution ────────────────────────────────────────────────────────────
 _THIS        = Path(__file__).resolve()
@@ -165,6 +175,55 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# ── Cache LRU con TTL para herramientas de solo lectura ──────────────────────
+
+_READONLY_TTL_SECONDS = 60
+_run_bago_cache: dict[str, tuple[str, float]] = {}
+_run_bago_lock = threading.Lock()
+
+
+def _cached_run_bago(*args: str, timeout: int = 30, dry_run: bool = False) -> tuple[int, str]:
+    """Cachea resultados de _run_bago para intents readonly (TTL 60s)."""
+    cache_key = " ".join(args) + f"|t={timeout}"
+    now = time.time()
+    with _run_bago_lock:
+        cached = _run_bago_cache.get(cache_key)
+        if cached and (now - cached[1]) < _READONLY_TTL_SECONDS:
+            return 0, f"[CACHED {int(now - cached[1])}s ago]\n" + cached[0]
+        rc, out = _run_bago(*args, timeout=timeout, dry_run=dry_run)
+        if rc == 0 and not dry_run:
+            _run_bago_cache[cache_key] = (out, now)
+        return rc, out
+
+
+def invalidate_bago_cache() -> None:
+    """Invalida manualmente la cache de _run_bago."""
+    with _run_bago_lock:
+        _run_bago_cache.clear()
+
+
+# ── Batch execution para múltiples requests readonly ─────────────────────────
+
+def _batch_run_bago(requests: list[tuple[str, ...]], timeout: int = 30,
+                    max_workers: int = 4) -> list[tuple[int, str]]:
+    """Ejecuta múltiples comandos bago en paralelo (solo para readonly)."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    results_map: dict[int, tuple[int, str]] = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {
+            ex.submit(_cached_run_bago, *req, timeout=timeout): idx
+            for idx, req in enumerate(requests)
+        }
+        for fut in as_completed(futures):
+            idx = futures[fut]
+            try:
+                results_map[idx] = fut.result()
+            except Exception as exc:
+                results_map[idx] = (-1, f"[BATCH ERROR] {exc}")
+    return [results_map[i] for i in range(len(requests))]
+
+
+
 def _run_bago(*args: str, timeout: int = 30, dry_run: bool = False) -> tuple[int, str]:
     """Run `bago <args>` and return (returncode, combined_output)."""
     cmd = [sys.executable, str(_BAGO_BIN), *args]
@@ -231,7 +290,11 @@ class LocalAdapter(BaseAgentAdapter):
         extra = list(request.payload.get("args") or [])
         if request.intent in DANGEROUS_INTENTS and not request.unsafe:
             extra = ["--dry-run"] + extra
-        rc, out = _run_bago(*cmd, *extra, timeout=request.timeout)
+        # Usar cache para intents readonly (evita re-ejecuciones redundantes)
+        if request.intent in READONLY_INTENTS:
+            rc, out = _cached_run_bago(*cmd, *extra, timeout=request.timeout, dry_run=request.dry_run)
+        else:
+            rc, out = _run_bago(*cmd, *extra, timeout=request.timeout)
         return AgentResult(
             success=(rc == 0),
             intent=request.intent,
@@ -297,14 +360,23 @@ class OllamaAdapter(BaseAgentAdapter):
             return AgentResult(False, request.intent, self.name,
                                error="Ollama no disponible. Usa 'bago llm start' para iniciarlo.")
 
-        # Construir prompt para que el LLM decida qué bago tool usar
-        prompt = (
-            f"Eres BAGO AI. Intención recibida: '{request.intent}'.\n"
-            f"Contexto: {json.dumps(request.context, ensure_ascii=False)}\n"
-            f"Payload extra: {json.dumps(request.payload, ensure_ascii=False)}\n"
-            f"Responde SOLO con el comando bago a ejecutar (sin 'bago' delante), "
-            f"o 'direct' si la intención ya está mapeada. Ejemplo: 'health --report'"
-        )
+        # Adaptar prompt al formato óptimo para modelos open source (meta family)
+        system = "Eres BAGO AI, un orquestador de herramientas de línea de comandos."
+        task = (f"Intención recibida: '{request.intent}'. "
+                f"Responde SOLO con el comando bago a ejecutar (sin 'bago' delante), "
+                f"o 'direct' si la intención ya está mapeada. Ejemplo: 'health --report'")
+        context = json.dumps({"context": request.context, "payload": request.payload}, ensure_ascii=False)
+        adapted = _prompt_adapter.adapt_prompt(self.model, system=system, task=task, context=context)
+
+        # Construir prompt final con system + user adaptado
+        prompt_parts = []
+        if adapted.get("system"):
+            prompt_parts.append(adapted["system"])
+        prompt_parts.append(adapted["user"])
+        if adapted.get("assistant_prefix"):
+            prompt_parts.append(adapted["assistant_prefix"])
+        prompt = "\n\n".join(prompt_parts)
+
         llm_response = self._call_ollama(prompt, timeout=request.timeout)
 
         # Si dice 'direct' o no es parseable, usar mapeo directo
@@ -544,6 +616,39 @@ class AgentGateway:
 
         self._emit_event("agent.result" if result.success else "agent.error", request, result=result)
         return result
+
+    def batch_dispatch(self, requests: list[AgentRequest], max_workers: int = 4) -> list[AgentResult]:
+        """Ejecuta múltiples requests en paralelo (solo readonly soportado en batch).
+
+        Los intents mutating/dangerous se ejecutan secuencialmente al final
+        para garantizar orden y consistencia.
+        """
+        readonly_reqs = [(i, r) for i, r in enumerate(requests) if r.intent in READONLY_INTENTS]
+        mutating_reqs = [(i, r) for i, r in enumerate(requests) if r.intent not in READONLY_INTENTS]
+
+        results: list[AgentResult | None] = [None] * len(requests)
+
+        # Ejecutar readonly en paralelo
+        if readonly_reqs:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            with ThreadPoolExecutor(max_workers=min(len(readonly_reqs), max_workers)) as ex:
+                futures = {ex.submit(self.dispatch, req): idx for idx, req in readonly_reqs}
+                for fut in as_completed(futures):
+                    idx = futures[fut]
+                    try:
+                        results[idx] = fut.result()
+                    except Exception as exc:
+                        req = requests[idx]
+                        results[idx] = AgentResult(
+                            False, req.intent, req.adapter_name,
+                            error=f"[BATCH ERROR] {exc}"
+                        )
+
+        # Ejecutar mutating/dangerous secuencialmente
+        for idx, req in mutating_reqs:
+            results[idx] = self.dispatch(req)
+
+        return results  # type: ignore[return-value]
 
     def _emit_event(self, event_type: str, request: AgentRequest,
                     error: str = "", result: AgentResult | None = None) -> None:

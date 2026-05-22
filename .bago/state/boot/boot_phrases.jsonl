@@ -1,5 +1,0 @@
-{"phrase": "Proyecto activo: BAGO (python), rama: main.", "anchor": "project_context", "force": 1.0, "operation": "anclar", "generated_at": "2026-05-19T22:53:51.482552", "generated_by": "boot_examiner"}
-{"phrase": "Repositorio git detectado. Respetar rama activa antes de cualquier cambio.", "anchor": "git_state", "force": 0.9, "operation": "bloquear", "generated_at": "2026-05-19T22:53:51.482552", "generated_by": "boot_examiner"}
-{"phrase": "Modelos disponibles: codex. Usar local primero cuando sea posible.", "anchor": "field_state", "force": 0.85, "operation": "enfocar", "generated_at": "2026-05-19T22:53:51.482552", "generated_by": "boot_examiner"}
-{"phrase": "bago-local no instalado. Instalar con: bago field pull bago-local.", "anchor": "bago_local_node", "force": 0.6, "operation": "sugerir", "generated_at": "2026-05-19T22:53:51.482552", "generated_by": "boot_examiner"}
-{"phrase": "El reactor está OFF; no ejecutar autonomía infinita sin activación explícita.", "anchor": "reactor_state", "force": 1.0, "operation": "bloquear", "generated_at": "2026-05-19T22:53:51.482552", "generated_by": "boot_examiner"}

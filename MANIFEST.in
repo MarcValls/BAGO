@@ -1,5 +1,0 @@
-recursive-include .bago *
-recursive-exclude .bago/state *
-recursive-exclude .bago *.pyc
-recursive-exclude .bago __pycache__
-global-exclude *.pyc *.pyo __pycache__ .DS_Store

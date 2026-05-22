@@ -135,8 +135,12 @@ def main() -> None:
     from bago_menu_ui import _draw
 
     if not sys.stdout.isatty():
-        print("bago menu requiere un terminal interactivo. Usa --list para salida de texto.")
-        sys.exit(1)
+        # Modo no-interactivo: banner + catálogo completo
+        banner = Path(__file__).parent / "bago_banner.py"
+        if banner.exists():
+            subprocess.run([sys.executable, str(banner), "--mini"])
+        _cmd_list()
+        sys.exit(0)
 
     _startup_sequence()
 

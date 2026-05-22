@@ -56,7 +56,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "name":     "GitHub App Private Key",
             "env":      "GITHUB_APP_PRIVATE_KEY",
             "desc":     "Clave privada PEM de la GitHub App (solo si usas GitHub Apps).",
-            "format":   "-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----",
+            "format":   "PEM private key from the GitHub App settings",
             "required": False,
             "url":      "https://github.com/settings/apps",
         },
@@ -600,7 +600,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "env":      "FIREBASE_PRIVATE_KEY",
             "desc":     "Clave privada RSA de la cuenta de servicio Firebase. "
                         "Del archivo JSON descargado desde la consola.",
-            "format":   "-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----",
+            "format":   "PEM private key from the downloaded service account JSON",
             "required": True,
             "url":      "https://console.firebase.google.com/project/_/settings/serviceaccounts",
         },
@@ -621,7 +621,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "env":      "MONGODB_URI",
             "desc":     "Connection string de MongoDB Atlas o instancia propia. "
                         "Incluye usuario, contraseña y host. Tratar como secreto.",
-            "format":   "mongodb+srv://usuario:contraseña@cluster.mongodb.net/database",
+            "format":   "MongoDB URI with user, password, host and database",
             "required": True,
             "url":      "https://cloud.mongodb.com",
         },
@@ -633,7 +633,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "env":      "DATABASE_URL",
             "desc":     "Connection string de PostgreSQL. Incluye usuario, contraseña, "
                         "host y base de datos.",
-            "format":   "postgresql://usuario:contraseña@host:5432/database",
+            "format":   "PostgreSQL URI with user, password, host and database",
             "required": True,
             "url":      "",
         },

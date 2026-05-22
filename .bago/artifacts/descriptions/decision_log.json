@@ -1,9 +1,0 @@
-{
-  "content": "## Formato de Decision Arquitectonica\n\n- **Contexto**: Por que se toma la decision\n- **Alternativas**: Opciones consideradas y descartadas\n- **Decision**: La opcion elegida\n- **Consecuencias**: Impactos positivos y riesgos\n- **Reversible**: Si/no, y bajo que condiciones",
-  "format": "markdown",
-  "tags": [
-    "governance",
-    "decisions",
-    "logging"
-  ]
-}

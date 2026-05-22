@@ -4,37 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bago"
-version = "3.4.6"
-description = "BAGO — Structured AI-assisted development framework"
+version = "3.5.0"
+description = "BAGO CLI runtime with music and image generation projects"
 requires-python = ">=3.9"
 readme = "README.md"
 license = "MIT"
-authors = [
-  {name = "Marc Valls"}
-]
-keywords = ["bago", "autonomous", "framework", "ai", "productivity"]
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Environment :: Console",
-  "Intended Audience :: Developers",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Topic :: Software Development",
-  "Topic :: Software Development :: Libraries",
-  "Topic :: Software Development :: Quality Assurance",
-  "Topic :: Utilities",
-]
+authors = [{name = "Marc Valls"}]
 
 [project.urls]
 Homepage = "https://github.com/MarcValls/BAGO"
 Repository = "https://github.com/MarcValls/BAGO"
 Issues = "https://github.com/MarcValls/BAGO/issues"
-Changelog = "https://github.com/MarcValls/BAGO/blob/main/CHANGELOG.md"
 
 [project.scripts]
 bago = "bago_core.cli:main"
@@ -46,18 +26,3 @@ py-modules = []
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["bago_core*"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-v --tb=short"
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-markers = [
-  "slow: marks tests that require external processes (venv creation, etc.) — deselect with -m 'not slow'",
-]
-
-[tool.ruff]
-extend-ignore = ["RUF100"]
-line-length = 120
-target-version = "py39"

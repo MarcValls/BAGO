@@ -1,4 +1,0 @@
-# Dependencias base para entorno BAGO en Unix/macOS.
-# Mantener este archivo como fuente de verdad para INICIAR_BAGO.command.
-requests>=2.31.0
-certifi>=2024.2.2

@@ -20,7 +20,7 @@ from bago_core.launcher._config import (
 )
 
 from bago_core.launcher._preflight import _run_preflight, _check_risk, _requires_registry_safety
-from bago_core.launcher._preflight import _run_preflight, _check_risk, _requires_registry_safety, _start_session, _load_telemetry, _run_self_test
+from bago_core.launcher._preflight import _run_preflight, _check_risk, _requires_registry_safety, _start_session, _load_telemetry, _run_self_test, _detect_session_mode, _persist_session_mode
 from bago_core.launcher._dispatch import _dispatch, _cmd_session_last, _cmd_session_history, _cmd_telemetry, _cmd_registry, _find_tool, _cmd_neural, _cmd_heal_paths, _cmd_npath_dispatch
 from bago_core.launcher._dev import _cmd_dev, _install_extensions, _cmd_extensions, _read_state, _write_state, _set_mode, _is_template_seed, _scaffold_project, _prompt_mode, _cmd_versions, _resolve_engine_profile, _auto_sync
 from bago_core.launcher._cmds import _cmd_token_analytics, _cmd_token_brake, _cmd_spiral_prompt, _cmd_autonomous, _cmd_inbox_launcher, _cmd_router
@@ -32,6 +32,9 @@ _SYNC_CMDS = frozenset({
     "setup", "session", "cosecha", "audit", "dashboard", "detector", "task",
 })
 def main():
+    # Deteccion de modo de sesion para agentes
+    _persist_session_mode(_detect_session_mode())
+
     args = sys.argv[1:]
 
     if args and args[0] in ("--version", "-V"):
@@ -243,6 +246,34 @@ def main():
         _cmd_spiral_prompt(rest)
         return
 
+    elif cmd == "music":
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "bago_music.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+        sys.exit(result.returncode)
+
+    elif cmd in ("image_gen", "image-gen"):
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "image_gen.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+        sys.exit(result.returncode)
+
+    elif cmd == "image-studio":
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "image_studio.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+        sys.exit(result.returncode)
+
+    elif cmd == "sprite-studio":
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "sprite_studio.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+        sys.exit(result.returncode)
+
     elif cmd in ("splash", "start", "inicio", "menu"):
         # Menú principal interactivo BAGO (curses TUI)
         result = subprocess.run(
@@ -283,7 +314,7 @@ def main():
             cwd=str(BAGO_ROOT.parent)
         )
         # Build grouped help output
-        reg = _load_registry_mod()
+        reg = load_registry_mod()
         if reg and hasattr(reg, "REGISTRY"):
             core_cmds       = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "core")
             dangerous_cmds  = sorted(k for k,v in reg.REGISTRY.items() if v.stability == "dangerous")
@@ -311,7 +342,7 @@ def main():
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas", "assign"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas", "assign", "music", "image_gen", "image-studio", "sprite-studio"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:

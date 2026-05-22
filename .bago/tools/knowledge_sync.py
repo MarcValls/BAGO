@@ -12,8 +12,8 @@ Uso:
   python knowledge_sync.py sync
   python knowledge_sync.py sync --repo C:\\path\\to\\bago-knowledge
 
-Por defecto, `sync` copia runtime -> repo local y luego hace commit/push si el
-repo es un git repo y tiene `origin`.
+Por defecto, `sync` hace pull si el runtime no tiene knowledge montado; si ya
+existe un runtime con manifest, copia runtime -> repo y hace commit/push.
 """
 
 from __future__ import annotations
@@ -255,6 +255,12 @@ def cmd_push(runtime_root: Path, repo_root: Path) -> int:
     return _git_sync(repo_root, commit_prefix="sync: bago-knowledge")
 
 
+def cmd_sync(runtime_root: Path, repo_root: Path) -> int:
+    if not (runtime_root / "manifest.json").exists() and (repo_root / "manifest.json").exists():
+        return cmd_pull(runtime_root, repo_root)
+    return cmd_push(runtime_root, repo_root)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else list(argv)
     parser = argparse.ArgumentParser(description="Sincroniza el knowledge canónico de BAGO")
@@ -275,8 +281,10 @@ def main(argv: list[str] | None = None) -> int:
         return _status(runtime_root, repo_root)
     if parsed.action == "pull":
         return cmd_pull(runtime_root, repo_root)
-    if parsed.action in ("push", "sync"):
+    if parsed.action == "push":
         return cmd_push(runtime_root, repo_root)
+    if parsed.action == "sync":
+        return cmd_sync(runtime_root, repo_root)
 
     return 0
 

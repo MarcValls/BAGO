@@ -1,0 +1,113 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Plantillas de prompt optimizadas por familia de modelo. Cada familia tiene delimitadores, estructura system/user y preferencias de formato.",
+    "families": [
+      "openai",
+      "anthropic",
+      "google",
+      "meta"
+    ]
+  },
+  "families": {
+    "openai": {
+      "name": "OpenAI (GPT-4, GPT-4o, o1, o3)",
+      "system_prompt_enabled": true,
+      "system_prompt_powerful": true,
+      "preferred_delimiters": {
+        "context": "### Contexto\\n{context}\\n### Instrucción",
+        "document": "### Documento\\n{document}"
+      },
+      "markdown_lover": true,
+      "chain_of_thought": "Razona paso a paso antes de responder.",
+      "json_mode": "response_format: { type: 'json_object' }",
+      "few_shot_format": "bloques de texto plano con separadores ---",
+      "role_wrapper": "system: Eres un {rol}. {reglas}\\nuser: {tarea}\\n\\n{contexto}",
+      "assistant_prefix": null,
+      "special_tokens": {},
+      "notes": "Separar claramente system (personalidad, reglas) de user (tarea). Adora encabezados, listas y JSON schema."
+    },
+    "anthropic": {
+      "name": "Anthropic (Claude 3/3.5 Opus/Sonnet/Haiku)",
+      "system_prompt_enabled": true,
+      "system_prompt_powerful": false,
+      "preferred_delimiters": {
+        "context": "<document>{context}</document>",
+        "instructions": "<instructions>{instructions}</instructions>",
+        "answer": "<answer>{answer}</answer>"
+      },
+      "markdown_lover": true,
+      "chain_of_thought": "<thinking>Piensa paso a paso aquí.</thinking>",
+      "json_mode": "Responde únicamente dentro de <answer></answer> en JSON válido.",
+      "few_shot_format": "XML con etiquetas <example></example>",
+      "role_wrapper": "<instructions>\\nEres un {rol}. {reglas}\\nTarea: {tarea}\\n</instructions>\\n\\n<document>{contexto}</document>",
+      "assistant_prefix": "<answer>",
+      "special_tokens": {
+        "thinking_open": "<thinking>",
+        "thinking_close": "</thinking>",
+        "answer_open": "<answer>",
+        "answer_close": "</answer>"
+      },
+      "notes": "Extremadamente sensible a etiquetas XML. Prefiere <instructions>, <document>, <answer>. El system prompt a veces es mejor integrarlo en user."
+    },
+    "google": {
+      "name": "Google (Gemini 1.5 Pro/Flash)",
+      "system_prompt_enabled": true,
+      "system_prompt_powerful": false,
+      "preferred_delimiters": {
+        "context": "**Contexto**\\n{context}",
+        "task": "**Tarea**\\n{task}"
+      },
+      "markdown_lover": true,
+      "chain_of_thought": "Piensa paso a paso:",
+      "json_mode": "Responde en formato JSON válido.",
+      "few_shot_format": "bloques directos sin metacaracteres complejos",
+      "role_wrapper": "systemInstruction: Eres un {rol}. {reglas}\\nuser: {tarea}\\n\\n{contexto}",
+      "assistant_prefix": null,
+      "special_tokens": {},
+      "notes": "Instrucciones directas y concisas. A veces ignora system si no es explícito. Mejor poner rol en el turno de usuario. Multimodal nativo."
+    },
+    "meta": {
+      "name": "Meta / Open Source (Llama 3, Mistral, Qwen, DeepSeek)",
+      "system_prompt_enabled": true,
+      "system_prompt_powerful": true,
+      "preferred_delimiters": {
+        "context": "### Contexto\\n{context}\\n### Tarea",
+        "document": "[DOCUMENTO]\\n{document}\\n[/DOCUMENTO]"
+      },
+      "markdown_lover": false,
+      "chain_of_thought": "Paso 1... Paso 2... Paso 3...",
+      "json_mode": "Responde EXACTAMENTE en JSON. No añadas texto fuera del JSON.",
+      "few_shot_format": "formato estricto con tokens especiales del chat template",
+      "role_wrapper": "system: Cutting Knowledge Date: {fecha}\\nToday Date: {fecha}\\n\\n{rol}. {reglas}\\nuser: {tarea}\\n\\n{contexto}\\n\\nRecuerda: {tarea}",
+      "assistant_prefix": null,
+      "special_tokens": {
+        "system": "<<SYS>>",
+        "system_close": "<</SYS>>",
+        "inst_open": "[INST]",
+        "inst_close": "[/INST]"
+      },
+      "notes": "Template de chat obligatorio si es local. Repetir la tarea al final del prompt. Few-shot con exactitud de formato. Atención más débil al final del contexto: instrucción principal al PRINCIPIO."
+    }
+  },
+  "model_to_family": {
+    "gpt-4o": "openai",
+    "gpt-4o-mini": "openai",
+    "gpt-4-turbo": "openai",
+    "o3-mini": "openai",
+    "o1": "openai",
+    "claude-3-5-sonnet": "anthropic",
+    "claude-3-opus": "anthropic",
+    "claude-3-haiku": "anthropic",
+    "gemini-2.0-flash": "google",
+    "gemini-1.5-pro": "google",
+    "gemini-1.5-flash": "google",
+    "deepseek-chat": "meta",
+    "llama3-70b": "meta",
+    "llama3-8b": "meta",
+    "qwen2.5-72b": "meta",
+    "qwen2.5-coder": "meta",
+    "mixtral-8x22b": "meta",
+    "mistral-large": "meta"
+  }
+}

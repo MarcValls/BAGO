@@ -23,6 +23,14 @@ _STATE_DIR     = _BAGO_DIR / "state"
 _LLM_CFG       = _STATE_DIR / "llm_config.json"
 _AGENTS_REG    = _STATE_DIR / "agents_registry.json"
 
+# ── Prompt Adapter (familia de modelo para formato óptimo) ───────────────────
+import importlib.util as _ilu_pa
+_pa_spec = _ilu_pa.spec_from_file_location("_prompt_adapter", str(_TOOLS_DIR / "prompt_adapter.py"))
+_pa_mod = _ilu_pa.module_from_spec(_pa_spec)  # type: ignore
+_pa_spec.loader.exec_module(_pa_mod)  # type: ignore
+PromptAdapter = _pa_mod.PromptAdapter
+_prompt_adapter = PromptAdapter()
+
 # ── Colores ───────────────────────────────────────────────────────────────────
 _USE_COLOR = sys.stdout.isatty()
 
@@ -128,8 +136,8 @@ def cmd_list(_args: argparse.Namespace) -> int:
         return 0
 
     print(BOLD("\n🤖 BAGO Agents — Modelos asignados\n"))
-    print(f"  {'ID':<18} {'CATEGORÍA':<10} {'MODELO':<30} {'ESTADO'}")
-    print("  " + "─" * 72)
+    print(f"  {'ID':<18} {'CATEGORÍA':<10} {'MODELO':<28} {'FAMILIA':<10} {'ESTADO'}")
+    print("  " + "─" * 86)
 
     for agent_id, info in sorted(agents.items()):
         cat  = info.get("category", "")
@@ -138,7 +146,8 @@ def cmd_list(_args: argparse.Namespace) -> int:
         model_from_cfg = agent_models_cfg.get(agent_id, "")
         model = model_from_reg or model_from_cfg or DIM("(sin asignar)")
         active = GREEN("activo") if info.get("active") else DIM("inactivo")
-        print(f"  {CYAN(agent_id):<27} {icon} {cat:<9} {YELLOW(model):<39} {active}")
+        family = _prompt_adapter.family(model) if model and model != DIM("(sin asignar)") else "—"
+        print(f"  {CYAN(agent_id):<27} {icon} {cat:<9} {YELLOW(model):<37} {DIM(family):<10} {active}")
 
     print()
     print(DIM(f"  Config: {_LLM_CFG}"))

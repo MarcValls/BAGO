@@ -35,6 +35,7 @@ import json
 import sys
 import time
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,11 +53,11 @@ WORKFLOWS = {
         "name": "Pre-Producción",
         "description": "Valida que el código esté listo para producción",
         "steps": [
-            {"cmd": "commit-ready", "critical": True,  "label": "Preparación para commit"},
-            {"cmd": "lint",         "critical": False, "label": "Calidad y estilo"},
-            {"cmd": "secret-scan",  "critical": True,  "label": "Secretos hardcodeados"},
-            {"cmd": "type-check",   "critical": False, "label": "Type hints"},
-            {"cmd": "ci-report",    "critical": False, "label": "Reporte CI unificado"},
+            {"cmd": "commit-ready", "critical": True,  "label": "Preparación para commit", "phase": 1},
+            {"cmd": "secret-scan",  "critical": True,  "label": "Secretos hardcodeados",   "phase": 1},
+            {"cmd": "lint",         "critical": False, "label": "Calidad y estilo",        "phase": 2},
+            {"cmd": "type-check",   "critical": False, "label": "Type hints",              "phase": 2},
+            {"cmd": "ci-report",    "critical": False, "label": "Reporte CI unificado",    "phase": 3},
         ],
         "success_msg": "✅ Código listo para producción",
         "fail_msg": "❌ No está listo para producción — revisa los errores críticos",
@@ -65,9 +66,9 @@ WORKFLOWS = {
         "name": "Auditoría de Seguridad",
         "description": "Escaneo completo de superficie de ataque",
         "steps": [
-            {"cmd": "secret-scan", "critical": True,  "label": "Secretos hardcodeados"},
-            {"cmd": "dep-audit",   "critical": True,  "label": "Dependencias vulnerables"},
-            {"cmd": "api-check",   "critical": False, "label": "Contratos de API"},
+            {"cmd": "secret-scan", "critical": True,  "label": "Secretos hardcodeados",    "phase": 1},
+            {"cmd": "dep-audit",   "critical": True,  "label": "Dependencias vulnerables", "phase": 1},
+            {"cmd": "api-check",   "critical": False, "label": "Contratos de API",         "phase": 2},
         ],
         "success_msg": "✅ Sin vulnerabilidades detectadas",
         "fail_msg": "❌ Vulnerabilidades encontradas — revisar antes de deploy",
@@ -76,12 +77,12 @@ WORKFLOWS = {
         "name": "Calidad Completa",
         "description": "Análisis integral de calidad del código",
         "steps": [
-            {"cmd": "lint",         "critical": False, "label": "Estilo y linting"},
-            {"cmd": "complexity",   "critical": False, "label": "Complejidad ciclomática"},
-            {"cmd": "dead-code",    "critical": False, "label": "Código muerto"},
-            {"cmd": "naming-check", "critical": False, "label": "Convenciones de nombres"},
-            {"cmd": "doc-coverage", "critical": False, "label": "Cobertura de docstrings"},
-            {"cmd": "dup-check",    "critical": False, "label": "Bloques duplicados"},
+            {"cmd": "lint",         "critical": False, "label": "Estilo y linting",         "phase": 1},
+            {"cmd": "complexity",   "critical": False, "label": "Complejidad ciclomática",  "phase": 1},
+            {"cmd": "dead-code",    "critical": False, "label": "Código muerto",            "phase": 1},
+            {"cmd": "naming-check", "critical": False, "label": "Convenciones de nombres",  "phase": 1},
+            {"cmd": "doc-coverage", "critical": False, "label": "Cobertura de docstrings",  "phase": 1},
+            {"cmd": "dup-check",    "critical": False, "label": "Bloques duplicados",       "phase": 1},
         ],
         "success_msg": "✅ Calidad aceptable",
         "fail_msg": "⚠️  Problemas de calidad detectados",
@@ -112,16 +113,16 @@ WORKFLOWS = {
         "name": "Auditoría Completa",
         "description": "Todos los scanners (puede tardar varios minutos)",
         "steps": [
-            {"cmd": "lint",          "critical": False, "label": "Linting"},
-            {"cmd": "complexity",    "critical": False, "label": "Complejidad"},
-            {"cmd": "dead-code",     "critical": False, "label": "Código muerto"},
-            {"cmd": "secret-scan",   "critical": True,  "label": "Secretos"},
-            {"cmd": "dep-audit",     "critical": True,  "label": "Dependencias"},
-            {"cmd": "type-check",    "critical": False, "label": "Type hints"},
-            {"cmd": "naming-check",  "critical": False, "label": "Nombres"},
-            {"cmd": "doc-coverage",  "critical": False, "label": "Docs"},
-            {"cmd": "readme-check",  "critical": False, "label": "README"},
-            {"cmd": "ci-report",     "critical": False, "label": "CI Report"},
+            {"cmd": "lint",          "critical": False, "label": "Linting",       "phase": 1},
+            {"cmd": "complexity",    "critical": False, "label": "Complejidad",   "phase": 1},
+            {"cmd": "dead-code",     "critical": False, "label": "Código muerto", "phase": 1},
+            {"cmd": "naming-check",  "critical": False, "label": "Nombres",       "phase": 1},
+            {"cmd": "doc-coverage",  "critical": False, "label": "Docs",          "phase": 1},
+            {"cmd": "readme-check",  "critical": False, "label": "README",        "phase": 1},
+            {"cmd": "secret-scan",   "critical": True,  "label": "Secretos",      "phase": 2},
+            {"cmd": "dep-audit",     "critical": True,  "label": "Dependencias",  "phase": 2},
+            {"cmd": "type-check",    "critical": False, "label": "Type hints",    "phase": 3},
+            {"cmd": "ci-report",     "critical": False, "label": "CI Report",     "phase": 3},
         ],
         "success_msg": "✅ Auditoría completa — sin errores críticos",
         "fail_msg": "❌ Errores críticos detectados",
@@ -421,34 +422,83 @@ def print_step_result(result: dict, critical: bool):
             print(f"     {line}")
 
 
+def _run_step(step: dict, dry_run: bool, timeout: int, workflow_name: str,
+              step_num: int, total: int, spiral: bool) -> dict:
+    """Helper para ejecutar un paso y registrar espiral (thread-safe)."""
+    print_step_header(step_num, total, step["label"], step["cmd"])
+    result = run_tool(step["cmd"], dry_run=dry_run, timeout=timeout)
+    print_step_result(result, step["critical"])
+    if spiral:
+        _record_spiral_triplet(workflow_name, step_num, total, step, result, timeout)
+    return {**step, **result, "_step_num": step_num}
+
+
 def run_workflow(workflow: dict, dry_run: bool = False, fail_fast: bool = False,
-                 verbose: bool = False, spiral: bool = True, timeout: int = 90) -> dict:
+                 verbose: bool = False, spiral: bool = True, timeout: int = 90,
+                 max_workers: int = 4) -> dict:
     steps = workflow["steps"]
     total = len(steps)
     step_results = []
     critical_failed = False
 
+    # Detectar fases: si algun step tiene 'phase', agrupar por phase.
+    # Si no hay phases, comportamiento secuencial (phase = index).
+    has_phases = any("phase" in s for s in steps)
+    if has_phases:
+        from itertools import groupby
+        sorted_steps = sorted(enumerate(steps, 1), key=lambda x: x[1].get("phase", x[0]))
+        phases = []
+        for phase_key, group in groupby(sorted_steps, key=lambda x: x[1].get("phase", x[0])):
+            phases.append(list(group))
+    else:
+        phases = [[(i, s)] for i, s in enumerate(steps, 1)]
+
     print(f"\n  {'━' * 54}")
     print(f"  BAGO Orchestrator — {workflow['name']}")
     print(f"  {workflow['description']}")
+    if has_phases:
+        print(f"  Fases: {len(phases)}  (pasos paralelos por fase)")
     print(f"  {'━' * 54}")
 
-    for i, step in enumerate(steps, 1):
-        print_step_header(i, total, step["label"], step["cmd"])
-        result = run_tool(step["cmd"], dry_run=dry_run, timeout=timeout)
-        print_step_result(result, step["critical"])
-        step_results.append({**step, **result})
+    for phase_idx, phase_steps in enumerate(phases, 1):
+        if has_phases:
+            print(f"\n  ▶ Fase {phase_idx}/{len(phases)} — {len(phase_steps)} paso(s)")
 
-        if spiral:
-            _record_spiral_triplet(workflow["name"], i, total, step, result, timeout)
-
-        if result["rc"] != 0 and step["critical"]:
-            critical_failed = True
-            if fail_fast:
-                print(f"\n  [ORC-E001] ⚡ FAIL-FAST: paso crítico falló. Abortando.")
+        if len(phase_steps) == 1 or not has_phases:
+            (step_num, step) = phase_steps[0]
+            result = _run_step(step, dry_run, timeout, workflow["name"],
+                               step_num, total, spiral)
+            step_results.append(result)
+            if result["rc"] != 0 and result["critical"]:
+                critical_failed = True
+                if fail_fast:
+                    print(f"\n  [ORC-E001] ⚡ FAIL-FAST: paso crítico falló. Abortando.")
+                    break
+        else:
+            phase_results = []
+            with ThreadPoolExecutor(max_workers=min(len(phase_steps), max_workers)) as ex:
+                futures = {
+                    ex.submit(_run_step, step, dry_run, timeout, workflow["name"],
+                              step_num, total, spiral): (step_num, step)
+                    for step_num, step in phase_steps
+                }
+                for fut in as_completed(futures):
+                    result = fut.result()
+                    phase_results.append(result)
+                    if result["rc"] != 0 and result["critical"]:
+                        critical_failed = True
+                        if fail_fast:
+                            print(f"\n  [ORC-E001] ⚡ FAIL-FAST: paso crítico falló. Abortando.")
+                            for f in futures:
+                                if not f.done():
+                                    f.cancel()
+                            break
+            step_results.extend(phase_results)
+            if critical_failed and fail_fast:
                 break
 
-    # Summary
+    step_results.sort(key=lambda r: r["_step_num"])
+
     print(f"\n  {'━' * 54}")
     passed = sum(1 for r in step_results if r["rc"] == 0)
     failed = sum(1 for r in step_results if r["rc"] != 0)
@@ -471,7 +521,7 @@ def run_workflow(workflow: dict, dry_run: bool = False, fail_fast: bool = False,
         "workflow": workflow["name"],
         "passed": passed, "failed": failed,
         "critical_failed": critical_failed,
-        "steps": step_results,
+        "steps": [{k: v for k, v in r.items() if not k.startswith("_")} for r in step_results],
     }
 
 

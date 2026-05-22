@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>BAGO Score — Partituras & Transposición</title>
+<style>
+:root {
+  --bg:      #0c0c0c;
+  --bg2:     #101010;
+  --surface: #141414;
+  --card:    #1c1c1c;
+  --border:  #2a2a2a;
+  --accent:  #00d4aa;
+  --accent2: #0099ff;
+  --accent3: #a855f7;
+  --text:    #e8e8e8;
+  --muted:   #666;
+  --ok:      #22c55e;
+  --warn:    #f59e0b;
+  --err:     #ef4444;
+  --header-h: 52px;
+  --status-h: 38px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px; display: flex; flex-direction: column;
+}
+button, input, select { font: inherit; }
+
+/* ── Header ── */
+.header {
+  height: var(--header-h); flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 10px;
+}
+.header-logo {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: grid; place-items: center; font-size: 18px;
+}
+.header-info { flex: 1; min-width: 0; }
+.header-title { font-weight: 700; font-size: 15px; }
+.header-sub   { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header-pill {
+  flex-shrink: 0; padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; border: 1px solid transparent;
+  background: rgba(0,212,170,.1); color: var(--accent); border-color: rgba(0,212,170,.25);
+}
+.header-pill.offline { background: rgba(245,158,11,.1); color: var(--warn); border-color: rgba(245,158,11,.25); }
+
+/* ── Status bar ── */
+.status-bar {
+  height: var(--status-h); flex-shrink: 0;
+  background: #0a0a0a; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 0; overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.status-bar::-webkit-scrollbar { display: none; }
+.step-dot {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px;
+  padding: 0 12px; height: 100%; font-size: 11px; color: var(--muted);
+  border-right: 1px solid var(--border); white-space: nowrap; cursor: pointer;
+  transition: color .15s;
+}
+.step-dot .step-num {
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; background: var(--border); color: var(--muted);
+  flex-shrink: 0; transition: all .2s;
+}
+.step-dot.done .step-num  { background: var(--ok); color: #000; }
+.step-dot.active .step-num { background: var(--accent); color: #000; }
+.step-dot.active { color: var(--accent); }
+.step-dot.done   { color: var(--ok); }
+
+/* ── Main scroll ── */
+.main { flex: 1; overflow-y: auto; padding: 10px 12px 80px; -webkit-overflow-scrolling: touch; }
+
+/* ── Card ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px; margin-bottom: 10px;
+}
+.card-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin-bottom: 10px;
+}
+.stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-label { color: var(--muted); font-size: 12px; }
+.stat-val   { font-weight: 600; font-size: 13px; }
+.badge { padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-ok   { background: rgba(34,197,94,.12);  color: var(--ok); }
+.badge-warn { background: rgba(245,158,11,.12); color: var(--warn); }
+.badge-err  { background: rgba(239,68,68,.12);  color: var(--err); }
+
+/* ── Accordion ── */
+.acc { margin-bottom: 8px; }
+.acc-hd {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; cursor: pointer; user-select: none;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; transition: background .15s;
+}
+.acc-hd:active { background: #252525; }
+.acc-hd.open { border-radius: 10px 10px 0 0; border-bottom-color: var(--bg); }
+.acc-icon  { font-size: 18px; flex-shrink: 0; line-height: 1; }
+.acc-label { flex: 1; font-size: 13px; font-weight: 600; }
+.acc-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 20px;
+  background: rgba(0,212,170,.1); color: var(--accent);
+  border: 1px solid rgba(0,212,170,.2);
+}
+.acc-badge.done { background: rgba(34,197,94,.12); color: var(--ok); border-color: rgba(34,197,94,.25); }
+.acc-badge.warn { background: rgba(245,158,11,.12); color: var(--warn); border-color: rgba(245,158,11,.25); }
+.acc-chev { color: var(--muted); font-size: 11px; transition: transform .22s ease; flex-shrink: 0; }
+.acc-hd.open .acc-chev { transform: rotate(90deg); }
+.acc-bd {
+  max-height: 0; overflow: hidden; transition: max-height .3s cubic-bezier(.4,0,.2,1);
+  background: var(--card); border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 10px 10px;
+}
+.acc-bd.open { max-height: 2000px; }
+.acc-inner { padding: 12px 14px 16px; }
+
+/* ── Drop zone ── */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: 14px;
+  padding: 32px 20px; text-align: center; cursor: pointer;
+  transition: all .2s; background: var(--bg2); margin-bottom: 12px;
+}
+.drop-zone.over { border-color: var(--accent); background: rgba(0,212,170,.05); }
+.drop-icon { font-size: 40px; margin-bottom: 12px; }
+.drop-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.drop-sub   { font-size: 12px; color: var(--muted); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: 10px; cursor: pointer; font-weight: 600;
+  font-size: 13px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); transition: all .15s; -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+.btn:active { opacity: .75; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: transparent; color: #000; width: 100%;
+}
+.btn-secondary { width: 100%; }
+.btn-sm { min-height: 36px; padding: 6px 14px; font-size: 12px; border-radius: 8px; }
+.btn-danger { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.25); color: var(--err); }
+.btn.loading { opacity: .6; pointer-events: none; }
+.btn.disabled { opacity: .4; pointer-events: none; }
+
+/* ── Part chips ── */
+.parts-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.part-chip {
+  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size: 12px;
+  border: 1px solid var(--border); background: var(--bg2); color: var(--muted);
+  transition: all .15s; display: flex; align-items: center; gap: 6px;
+}
+.part-chip .pi { font-size: 16px; }
+.part-chip:active, .part-chip.active {
+  border-color: var(--accent); background: rgba(0,212,170,.1); color: var(--accent);
+}
+
+/* ── Interval chips ── */
+.interval-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.iv-chip {
+  padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  font-weight: 700; border: 1px solid var(--border); background: var(--bg2); color: var(--muted);
+  transition: all .15s; min-height: 38px; font-family: monospace;
+}
+.iv-chip:active { background: rgba(0,212,170,.15); border-color: var(--accent); color: var(--accent); }
+.iv-chip.active { background: rgba(0,212,170,.2); border-color: var(--accent); color: var(--accent); font-weight: 900; }
+.iv-chip.neg { background: rgba(0,153,255,.08); }
+.iv-chip.neg:active, .iv-chip.neg.active { background: rgba(0,153,255,.2); border-color: var(--accent2); color: var(--accent2); }
+
+/* ── Semitones control ── */
+.semi-control { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.semi-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg2); font-size: 22px; cursor: pointer; display: grid; place-items: center; flex-shrink: 0; transition: all .15s; color: var(--text); }
+.semi-btn:active { background: rgba(0,212,170,.15); border-color: var(--accent); }
+.semi-display {
+  flex: 1; text-align: center; font-size: 32px; font-weight: 900;
+  font-family: monospace; color: var(--accent);
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 6px 0; line-height: 1.2;
+}
+.semi-display.neg { color: var(--accent2); }
+.semi-display.zero { color: var(--muted); }
+.semi-label { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
+input[type=range] {
+  width: 100%; height: 6px; border-radius: 3px; cursor: pointer; margin-bottom: 4px;
+  -webkit-appearance: none; background: var(--border); outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: 2px solid #000;
+}
+
+/* ── Validation ── */
+.val-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.val-card {
+  padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--bg2); text-align: center;
+}
+.val-num  { font-size: 28px; font-weight: 900; font-family: monospace; line-height: 1; }
+.val-lbl  { font-size: 10px; color: var(--muted); margin-top: 4px; }
+.warn-list { display: flex; flex-direction: column; gap: 6px; }
+.warn-item {
+  padding: 8px 10px; border-radius: 8px; font-size: 12px;
+  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2); color: var(--warn);
+}
+.err-item {
+  padding: 8px 10px; border-radius: 8px; font-size: 12px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); color: var(--err);
+}
+
+/* ── Score preview ── */
+.score-preview {
+  background: #fff; border-radius: 12px; overflow: auto;
+  -webkit-overflow-scrolling: touch; max-height: 240px; position: relative;
+}
+.score-preview svg { display: block; max-width: 100%; }
+.score-placeholder {
+  min-height: 120px; display: flex; align-items: center; justify-content: center;
+  color: #999; font-size: 13px; background: #f5f5f5; border-radius: 12px;
+}
+
+/* ── XML textarea ── */
+.xml-area {
+  width: 100%; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--muted); font-family: monospace;
+  font-size: 11px; padding: 10px; resize: vertical; min-height: 80px;
+  outline: none; line-height: 1.5;
+}
+.xml-area:focus { border-color: var(--accent); color: var(--text); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: #000; padding: 8px 20px; border-radius: 20px;
+  font-weight: 600; font-size: 13px; opacity: 0; transition: opacity .3s;
+  pointer-events: none; z-index: 999; white-space: nowrap;
+}
+
+/* ── Progress spinner ── */
+.spinner {
+  display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(0,212,170,.3); border-top-color: var(--accent);
+  animation: spin .7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Server badge ── */
+.server-indicator {
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+  border-radius: 10px; background: var(--bg2); border: 1px solid var(--border);
+  font-size: 12px; color: var(--muted); margin-bottom: 12px;
+}
+.server-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.server-dot.ok  { background: var(--ok); }
+.server-dot.err { background: var(--err); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="header">
+  <div class="header-logo">🎼</div>
+  <div class="header-info">
+    <div class="header-title">BAGO Score</div>
+    <div class="header-sub" id="header-filename">Partituras & Transposición</div>
+  </div>
+  <div class="header-pill offline" id="server-pill">⚡ offline</div>
+</div>
+
+<!-- ── Step bar ── -->
+<div class="status-bar">
+  <div class="step-dot active" id="sdot-1" onclick="focusStep(1)">
+    <div class="step-num">1</div><span>Cargar</span>
+  </div>
+  <div class="step-dot" id="sdot-2" onclick="focusStep(2)">
+    <div class="step-num">2</div><span>Partitura</span>
+  </div>
+  <div class="step-dot" id="sdot-3" onclick="focusStep(3)">
+    <div class="step-num">3</div><span>Transponer</span>
+  </div>
+  <div class="step-dot" id="sdot-4" onclick="focusStep(4)">
+    <div class="step-num">4</div><span>Validar</span>
+  </div>
+  <div class="step-dot" id="sdot-5" onclick="focusStep(5)">
+    <div class="step-num">5</div><span>Exportar</span>
+  </div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main" id="main-scroll">
+
+  <!-- ① CARGAR -->
+  <div class="acc" id="acc-wrap-1">
+    <div class="acc-hd open" id="acc-hd-1" onclick="toggleAcc(1)">
+      <span class="acc-icon">📄</span>
+      <span class="acc-label">Cargar partitura</span>
+      <span class="acc-badge" id="badge-1">pendiente</span>
+      <span class="acc-chev">▶</span>
+    </div>
+    <div class="acc-bd open" id="acc-bd-1">
+      <div class="acc-inner">
+
+        <div class="server-indicator">
+          <div class="server-dot" id="srv-dot"></div>
+          <span id="srv-label">Buscando BAGO Launcher…</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="srv-url"></span>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="drop-zone"
+          onclick="document.getElementById('file-input').click()"
+          ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <div class="drop-icon">🎵</div>
+          <div class="drop-title">Arrastra tu MusicXML aquí</div>
+          <div class="drop-sub">o pulsa para seleccionar archivo .xml / .mxl</div>
+        </div>
+        <input id="file-input" type="file" accept=".xml,.mxl,.musicxml" style="display:none" onchange="onFileSelect(event)">
+
+        <!-- Quick load buttons -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <button class="btn btn-sm" onclick="loadExample()">🌌 Taberna Galáctica</button>
+          <button class="btn btn-sm" onclick="loadExample('bajo')">🎸 Bajo Sol Mayor</button>
+        </div>
+
+        <!-- Paste XML -->
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">O pega MusicXML:</div>
+          <textarea id="xml-paste" class="xml-area" rows="4" placeholder="<?xml version=&quot;1.0&quot;..."></textarea>
+          <button class="btn btn-secondary" style="margin-top:8px;width:100%" onclick="loadFromPaste()">📋 Cargar XML pegado</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ② PARTITURA -->
+  <div class="acc" id="acc-wrap-2">
+    <div class="acc-hd" id="acc-hd-2" onclick="toggleAcc(2)">
+      <span class="acc-icon">🎼</span>
+      <span class="acc-label">Partitura cargada</span>
+      <span class="acc-badge" id="badge-2">—</span>
+      <span class="acc-chev">▶</span>
+    </div>
+    <div class="acc-bd" id="acc-bd-2">
+      <div class="acc-inner" id="partitura-inner">
+        <div class="score-placeholder">Carga una partitura primero</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ TRANSPONER -->
+  <div class="acc" id="acc-wrap-3">
+    <div class="acc-hd" id="acc-hd-3" onclick="toggleAcc(3)">
+      <span class="acc-icon">🎵</span>
+      <span class="acc-label">Transponer</span>
+      <span class="acc-badge" id="badge-3">—</span>
+      <span class="acc-chev">▶</span>
+    </div>
+    <div class="acc-bd" id="acc-bd-3">
+      <div class="acc-inner" id="transponer-inner">
+        <div class="score-placeholder" style="background:var(--bg2);color:var(--muted)">Selecciona un instrumento primero</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ VALIDAR -->
+  <div class="acc" id="acc-wrap-4">
+    <div class="acc-hd" id="acc-hd-4" onclick="toggleAcc(4)">
+      <span class="acc-icon">✅</span>
+      <span class="acc-label">Validación</span>
+      <span class="acc-badge" id="badge-4">—</span>
+      <span class="acc-chev">▶</span>
+    </div>
+    <div class="acc-bd" id="acc-bd-4">
+      <div class="acc-inner" id="validar-inner">
+        <div class="score-placeholder" style="background:var(--bg2);color:var(--muted)">Transpón primero</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ EXPORTAR -->
+  <div class="acc" id="acc-wrap-5">
+    <div class="acc-hd" id="acc-hd-5" onclick="toggleAcc(5)">
+      <span class="acc-icon">↓</span>
+      <span class="acc-label">Exportar</span>
+      <span class="acc-badge" id="badge-5">—</span>
+      <span class="acc-chev">▶</span>
+    </div>
+    <div class="acc-bd" id="acc-bd-5">
+      <div class="acc-inner" id="exportar-inner">
+        <div class="score-placeholder" style="background:var(--bg2);color:var(--muted)">Completa la transposición primero</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .main -->
+
+<div id="toast"></div>
+
+<script>
+/* ── Config ── */
+const API_BASE = 'http://localhost:7430';
+const TABERNA_XML_URL = API_BASE + '/taberna_galactica.xml';
+
+/* ── State ── */
+const ST = {
+  originalXml:    null,
+  transposedXml:  null,
+  filename:       null,
+  inventory:      null,  // { title, composer, parts:[], measures, key, time }
+  selectedTarget: 'all',
+  semitones:      0,
+  serverOnline:   false,
+  step:           1,     // 1-5
+};
+
+/* ── Accordion ── */
+const _acc = JSON.parse(localStorage.getItem('bago_score_acc') || '{"1":true}');
+
+function toggleAcc(id) {
+  const hd = document.getElementById('acc-hd-' + id);
+  const bd = document.getElementById('acc-bd-' + id);
+  if (!hd || !bd) return;
+  const open = hd.classList.toggle('open');
+  bd.classList.toggle('open', open);
+  _acc[id] = open;
+  localStorage.setItem('bago_score_acc', JSON.stringify(_acc));
+}
+
+function openAcc(id) {
+  const hd = document.getElementById('acc-hd-' + id);
+  const bd = document.getElementById('acc-bd-' + id);
+  if (hd && !hd.classList.contains('open')) { hd.classList.add('open'); bd.classList.add('open'); _acc[id] = true; }
+  localStorage.setItem('bago_score_acc', JSON.stringify(_acc));
+}
+
+function restoreAcc() {
+  for (const [id, open] of Object.entries(_acc)) {
+    const hd = document.getElementById('acc-hd-' + id);
+    const bd = document.getElementById('acc-bd-' + id);
+    if (hd && bd) { hd.classList.toggle('open', !!open); bd.classList.toggle('open', !!open); }
+  }
+}
+
+function focusStep(n) {
+  openAcc(n);
+  const el = document.getElementById('acc-wrap-' + n);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Step dots ── */
+function setStep(n) {
+  ST.step = n;
+  for (let i = 1; i <= 5; i++) {
+    const dot = document.getElementById('sdot-' + i);
+    dot.classList.remove('active', 'done');
+    if (i < n)  dot.classList.add('done');
+    if (i === n) dot.classList.add('active');
+  }
+}
+
+function setBadge(id, text, type='') {
+  const el = document.getElementById('badge-' + id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'acc-badge' + (type ? ' ' + type : '');
+}
+
+/* ── Toast ── */
+function toast(msg, ms=2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', ms);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Server check ── */
+async function checkServer() {
+  try {
+    const r = await fetch(API_BASE + '/api/state', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      ST.serverOnline = true;
+      document.getElementById('srv-dot').className   = 'server-dot ok';
+      document.getElementById('srv-label').textContent = '✅ BAGO Launcher conectado';
+      document.getElementById('srv-url').textContent   = API_BASE;
+      document.getElementById('server-pill').textContent = '⚡ online';
+      document.getElementById('server-pill').classList.remove('offline');
+    }
+  } catch {
+    ST.serverOnline = false;
+    document.getElementById('srv-dot').className   = 'server-dot err';
+    document.getElementById('srv-label').textContent = 'BAGO Launcher no disponible — modo local';
+    document.getElementById('srv-url').textContent   = 'python3 launcher/server.py';
+    document.getElementById('server-pill').textContent = '⚡ local';
+    document.getElementById('server-pill').classList.add('offline');
+  }
+}
+
+/* ── Drag & drop ── */
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('over');
+}
+function onDragLeave(e) {
+  document.getElementById('drop-zone').classList.remove('over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+}
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) readFile(file);
+  e.target.value = '';
+}
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => loadXml(ev.target.result, file.name);
+  reader.readAsText(file);
+}
+function loadFromPaste() {
+  const xml = document.getElementById('xml-paste').value.trim();
+  if (!xml) { toast('⚠️ Pega XML primero'); return; }
+  loadXml(xml, 'pegado.xml');
+}
+
+/* ── Load example ── */
+async function loadExample(type='taberna') {
+  if (type === 'bajo') {
+    // Try from server
+    if (ST.serverOnline) {
+      try {
+        const r = await fetch(API_BASE + '/bajo_a_sol_mayor.html');
+        // Only XML files in static. Use taberna as fallback.
+        toast('⚠️ Solo disponible taberna_galactica.xml en static');
+      } catch (_) {}
+    }
+    // Use embedded example
+    loadXml(EXAMPLE_BAJO_XML, 'bajo_sol_mayor.xml');
+    return;
+  }
+  // Taberna Galáctica
+  if (ST.serverOnline) {
+    try {
+      const r = await fetch(TABERNA_XML_URL);
+      if (r.ok) { loadXml(await r.text(), 'taberna_galactica.xml'); return; }
+    } catch (_) {}
+  }
+  // Fallback: embedded minimal example
+  loadXml(EXAMPLE_XML, 'ejemplo.xml');
+}
+
+/* ── Parse & inventory MusicXML ── */
+function parseMusicXml(xmlStr) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr, 'application/xml');
+  const err = doc.querySelector('parseerror');
+  if (err) return null;
+
+  const title    = doc.querySelector('work-title, movement-title')?.textContent || 'Sin título';
+  const composer = doc.querySelector('creator[type="composer"]')?.textContent || '—';
+  const partList = Array.from(doc.querySelectorAll('part-list > score-part'));
+  const parts    = partList.map(p => ({
+    id:   p.getAttribute('id'),
+    name: p.querySelector('part-name')?.textContent || p.getAttribute('id'),
+    abbr: p.querySelector('part-abbreviation')?.textContent || '',
+    instrument: p.querySelector('instrument-name')?.textContent || '',
+  }));
+
+  // Key and time from first measure
+  const firstMeasure = doc.querySelector('measure');
+  const fifths = parseInt(firstMeasure?.querySelector('fifths')?.textContent ?? '0', 10);
+  const mode   = firstMeasure?.querySelector('mode')?.textContent || 'major';
+  const beats  = firstMeasure?.querySelector('beats')?.textContent || '4';
+  const beatType = firstMeasure?.querySelector('beat-type')?.textContent || '4';
+  const measures = doc.querySelectorAll('measure').length;
+
+  const KEY_NAMES_MAJOR = ['C','G','D','A','E','B','F#/Gb','Db','Ab','Eb','Bb','F'];
+  const KEY_NAMES_MINOR = ['Am','Em','Bm','F#m','C#m','G#m','D#m/Ebm','Bbm','Fm','Cm','Gm','Dm'];
+  const ki = ((fifths % 12) + 12) % 12;
+  const keyName = mode === 'minor' ? KEY_NAMES_MINOR[ki] : KEY_NAMES_MAJOR[ki];
+
+  return { title, composer, parts, measures, key: keyName, time: `${beats}/${beatType}`, fifths, mode, rawDoc: doc };
+}
+
+function instrumentIcon(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('flute') || n.includes('flauta'))     return '🎶';
+  if (n.includes('clarinet') || n.includes('clarinete')) return '🎵';
+  if (n.includes('trumpet') || n.includes('trompeta'))  return '🎺';
+  if (n.includes('trombone') || n.includes('trombon'))  return '🎷';
+  if (n.includes('tuba') || n.includes('euphonium') || n.includes('eupho')) return '🎺';
+  if (n.includes('horn') || n.includes('trompa'))       return '📯';
+  if (n.includes('bass') || n.includes('bajo'))         return '🎸';
+  if (n.includes('guitar') || n.includes('guitarra'))   return '🎸';
+  if (n.includes('piano') || n.includes('keyboard'))    return '🎹';
+  if (n.includes('drum') || n.includes('percussion') || n.includes('bateria')) return '🥁';
+  if (n.includes('violin') || n.includes('viola') || n.includes('cello')) return '🎻';
+  if (n.includes('voice') || n.includes('voz') || n.includes('soprano') || n.includes('tenor')) return '🎤';
+  if (n.includes('saxo'))   return '🎷';
+  return '🎵';
+}
+
+async function loadXml(xmlStr, filename) {
+  ST.originalXml  = xmlStr;
+  ST.transposedXml = null;
+  ST.filename     = filename;
+  ST.inventory    = null;
+  ST.selectedTarget = 'all';
+
+  document.getElementById('header-filename').textContent = filename;
+
+  // Parse locally first
+  const inv = parseMusicXml(xmlStr);
+  if (!inv) { toast('❌ XML inválido'); return; }
+
+  // If server online, use /api/music/inventory for richer data
+  if (ST.serverOnline) {
+    try {
+      const r = await fetch(API_BASE + '/api/music/inventory', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xml: xmlStr, target: 'all' }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        ST.inventory = { ...inv, ...data };
+        renderPartituraPanel(ST.inventory);
+        setBadge(1, '✅ cargado', 'done');
+        setStep(2);
+        openAcc(2);
+        focusStep(2);
+        toast('✅ ' + filename + ' — vía pipeline');
+        return;
+      }
+    } catch (_) {}
+  }
+
+  // Fallback: use local parse
+  ST.inventory = inv;
+  renderPartituraPanel(inv);
+  setBadge(1, '✅ cargado', 'done');
+  setStep(2);
+  openAcc(2);
+  focusStep(2);
+  toast('✅ ' + filename);
+}
+
+/* ── Render partitura panel ── */
+function renderPartituraPanel(inv) {
+  const partsHtml = inv.parts.map(p => `
+    <div class="part-chip ${ST.selectedTarget === p.id || ST.selectedTarget === p.name ? 'active' : ''}"
+         id="part-${esc(p.id)}" onclick="selectTarget('${esc(p.id)}', '${esc(p.name)}')">
+      <span class="pi">${instrumentIcon(p.instrument || p.name)}</span>
+      <span>${esc(p.name)}</span>
+    </div>`).join('');
+
+  const noteCount = inv.note_count || inv.measures * (inv.parts.length || 1) * 4;
+
+  document.getElementById('partitura-inner').innerHTML = `
+    <div class="card" style="margin-bottom:10px">
+      <div class="card-title">Metadata</div>
+      <div class="stat-row"><span class="stat-label">Título</span><span class="stat-val">${esc(inv.title)}</span></div>
+      <div class="stat-row"><span class="stat-label">Compositor</span><span class="stat-val" style="font-size:12px">${esc(inv.composer)}</span></div>
+      <div class="stat-row"><span class="stat-label">Tonalidad</span><span class="stat-val"><span class="badge badge-ok">${esc(inv.key)}</span></span></div>
+      <div class="stat-row"><span class="stat-label">Compás</span><span class="stat-val">${esc(inv.time)}</span></div>
+      <div class="stat-row"><span class="stat-label">Compases</span><span class="stat-val">${inv.measures}</span></div>
+      <div class="stat-row"><span class="stat-label">Instrumentos</span><span class="stat-val">${inv.parts.length}</span></div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">
+      Selecciona instrumento objetivo:
+    </div>
+    <div class="parts-grid" style="margin-bottom:10px">
+      <div class="part-chip ${ST.selectedTarget==='all'?'active':''}" onclick="selectTarget('all','all')">
+        <span class="pi">🎼</span><span>Todos</span>
+      </div>
+      ${partsHtml}
+    </div>
+    <button class="btn btn-primary" onclick="goToTransponer()">🎵 Ir a transponer →</button>
+  `;
+
+  setBadge(2, inv.parts.length + ' partes', 'done');
+}
+
+function selectTarget(id, name) {
+  ST.selectedTarget = id;
+  // update chip visuals
+  document.querySelectorAll('.part-chip').forEach(c => c.classList.remove('active'));
+  const chip = document.getElementById('part-' + id) || event.currentTarget;
+  if (chip) chip.classList.add('active');
+  toast('🎯 Objetivo: ' + (name === 'all' ? 'Todos' : name));
+}
+
+function goToTransponer() {
+  renderTransponerPanel();
+  setStep(3);
+  openAcc(3);
+  focusStep(3);
+}
+
+/* ── Render transponer panel ── */
+function renderTransponerPanel() {
+  const intervals = [
+    { v: -12, label: '−8ª' }, { v: -7, label: '−5ª' }, { v: -5, label: '−4ª' },
+    { v: -4,  label: '−3M' }, { v: -3, label: '−3m' }, { v: -2, label: '−2M' },
+    { v: -1,  label: '−2m' }, { v: 0,  label: '0'   },
+    { v: +1,  label: '+2m' }, { v: +2, label: '+2M' }, { v: +3, label: '+3m' },
+    { v: +4,  label: '+3M' }, { v: +5, label: '+4ª' }, { v: +7, label: '+5ª' },
+    { v: +12, label: '+8ª' },
+  ];
+
+  const chipsHtml = intervals.map(iv => `
+    <div class="iv-chip ${iv.v < 0 ? 'neg' : ''} ${ST.semitones === iv.v ? 'active' : ''}"
+         id="iv-${iv.v}" onclick="setSemitones(${iv.v})">${iv.label}</div>`).join('');
+
+  const targetName = ST.selectedTarget === 'all'
+    ? 'Todos los instrumentos'
+    : ST.inventory?.parts?.find(p => p.id === ST.selectedTarget)?.name || ST.selectedTarget;
+
+  document.getElementById('transponer-inner').innerHTML = `
+    <div class="stat-row" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg2);margin-bottom:12px">
+      <span class="stat-label">Objetivo</span>
+      <span class="stat-val" style="color:var(--accent)">${esc(targetName)}</span>
+    </div>
+
+    <!-- Semitones big display -->
+    <div class="semi-control">
+      <button class="semi-btn" onclick="changeSemitone(-1)">−</button>
+      <div>
+        <div class="semi-display ${ST.semitones < 0 ? 'neg' : ST.semitones === 0 ? 'zero' : ''}" id="semi-disp">
+          ${ST.semitones > 0 ? '+' : ''}${ST.semitones}
+        </div>
+        <div class="semi-label">semitonos</div>
+      </div>
+      <button class="semi-btn" onclick="changeSemitone(+1)">+</button>
+    </div>
+
+    <!-- Slider -->
+    <input type="range" id="semi-slider" min="-24" max="24" value="${ST.semitones}"
+           oninput="setSemitones(+this.value)">
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:14px">
+      <span>−24</span><span>−12</span><span>0</span><span>+12</span><span>+24</span>
+    </div>
+
+    <!-- Interval chips -->
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Intervalos rápidos:</div>
+    <div class="interval-grid">${chipsHtml}</div>
+
+    <!-- Target key (optional) -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Tonalidad destino (opcional — sobreescribe semitonos):</div>
+      <select id="target-key" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;outline:none">
+        <option value="">— auto (usar semitonos) —</option>
+        <option>C major</option><option>G major</option><option>D major</option>
+        <option>A major</option><option>E major</option><option>B major</option>
+        <option>F major</option><option>Bb major</option><option>Eb major</option>
+        <option>Ab major</option><option>Db major</option><option>F# major</option>
+        <option>A minor</option><option>E minor</option><option>B minor</option>
+        <option>F# minor</option><option>D minor</option><option>G minor</option>
+        <option>C minor</option><option>F minor</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary" id="btn-run-transpose" onclick="runTranspose()">
+      🎵 Ejecutar transposición
+    </button>
+    <div id="transpose-status" style="margin-top:8px;text-align:center;font-size:12px;color:var(--muted)"></div>
+  `;
+  setBadge(3, (ST.semitones > 0 ? '+' : '') + ST.semitones + ' st', '');
+}
+
+function changeSemitone(delta) {
+  setSemitones(Math.max(-24, Math.min(24, ST.semitones + delta)));
+}
+
+function setSemitones(v) {
+  ST.semitones = +v;
+  // Update display
+  const disp = document.getElementById('semi-disp');
+  const slider = document.getElementById('semi-slider');
+  if (disp) {
+    disp.textContent = (v > 0 ? '+' : '') + v;
+    disp.className = 'semi-display ' + (v < 0 ? 'neg' : v === 0 ? 'zero' : '');
+  }
+  if (slider) slider.value = v;
+  // Update chips
+  document.querySelectorAll('.iv-chip').forEach(c => {
+    const chipV = parseInt(c.id.replace('iv-','').replace('iv',''), 10);
+    c.classList.toggle('active', chipV === v);
+    if (chipV < 0) c.classList.add('neg'); else c.classList.remove('neg');
+    if (chipV < 0 && chipV === v) { c.classList.remove('neg'); c.classList.add('neg', 'active'); }
+  });
+  setBadge(3, (v > 0 ? '+' : '') + v + ' st', '');
+}
+
+/* ── Run transpose ── */
+async function runTranspose() {
+  if (!ST.originalXml) { toast('⚠️ Carga una partitura primero'); return; }
+  if (ST.semitones === 0 && !document.getElementById('target-key')?.value) {
+    toast('⚠️ Selecciona un intervalo o tonalidad destino'); return;
+  }
+
+  const btn    = document.getElementById('btn-run-transpose');
+  const status = document.getElementById('transpose-status');
+  btn.classList.add('loading');
+  btn.innerHTML = '<span class="spinner"></span> Transponiendo…';
+  status.textContent = '';
+
+  const targetKey = document.getElementById('target-key')?.value || '';
+
+  try {
+    let transposedXml = null;
+
+    if (ST.serverOnline) {
+      const body = {
+        xml:      ST.originalXml,
+        target:   ST.selectedTarget,
+        semitones: ST.semitones,
+      };
+      if (targetKey) body.interval = targetKey;
+
+      const r    = await fetch(API_BASE + '/api/music/transpose', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+
+      if (data.ok && data.xml) {
+        transposedXml = data.xml;
+        status.textContent = `✅ Pipeline: ${data.message || 'transposición completada'}`;
+      } else {
+        // Fallback to client-side
+        status.textContent = `⚠️ Pipeline: ${data.error || '?'} — usando modo local`;
+        transposedXml = transposeClientSide(ST.originalXml, ST.semitones, ST.selectedTarget);
+      }
+    } else {
+      transposedXml = transposeClientSide(ST.originalXml, ST.semitones, ST.selectedTarget);
+      status.textContent = `✅ Modo local (sin servidor)`;
+    }
+
+    ST.transposedXml = transposedXml;
+    setBadge(3, '✅ +' + Math.abs(ST.semitones) + 'st', 'done');
+    setStep(4);
+    openAcc(4);
+    renderValidarPanel();
+    focusStep(4);
+    toast('✅ Transposición completada');
+
+  } catch(e) {
+    status.textContent = '❌ Error: ' + e.message;
+    toast('❌ Error en transposición');
+  } finally {
+    btn.classList.remove('loading');
+    btn.innerHTML = '🎵 Ejecutar transposición';
+  }
+}
+
+/* ── Client-side transposition fallback ── */
+function transposeClientSide(xmlStr, semitones, targetPartId) {
+  if (semitones === 0) return xmlStr;
+
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(xmlStr, 'application/xml');
+
+  const CHROMATIC = ['C','D','D','E','E','F','F#','G','G#','A','A#','B'];
+  const STEPS     = ['C','D','E','F','G','A','B'];
+  const STEP_SEMI = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+
+  function transposePitch(step, alter, octave, st) {
+    const midi = (octave + 1) * 12 + STEP_SEMI[step] + (alter || 0);
+    const newMidi = midi + st;
+    const newOct  = Math.floor(newMidi / 12) - 1;
+    const newPc   = ((newMidi % 12) + 12) % 12;
+    const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const raw = noteNames[newPc];
+    const newStep  = raw.charAt(0);
+    const newAlter = raw.length > 1 ? 1 : 0;
+    return { step: newStep, alter: newAlter, octave: newOct };
+  }
+
+  // Determine which parts to transpose
+  const partIds = new Set();
+  if (targetPartId === 'all') {
+    doc.querySelectorAll('part').forEach(p => partIds.add(p.getAttribute('id')));
+  } else {
+    partIds.add(targetPartId);
+  }
+
+  partIds.forEach(pid => {
+    const part = doc.querySelector(`part[id="${pid}"]`);
+    if (!part) return;
+    part.querySelectorAll('note').forEach(note => {
+      const pitchEl = note.querySelector('pitch');
+      if (!pitchEl) return;
+      const step  = pitchEl.querySelector('step')?.textContent || 'C';
+      const alter = parseInt(pitchEl.querySelector('alter')?.textContent || '0', 10);
+      const oct   = parseInt(pitchEl.querySelector('octave')?.textContent || '4', 10);
+      const np    = transposePitch(step, alter, oct, semitones);
+
+      pitchEl.querySelector('step').textContent   = np.step;
+      pitchEl.querySelector('octave').textContent = String(np.octave);
+      const alterEl = pitchEl.querySelector('alter');
+      if (np.alter) {
+        if (alterEl) alterEl.textContent = String(np.alter);
+        else {
+          const a = doc.createElement('alter');
+          a.textContent = '1';
+          pitchEl.insertBefore(a, pitchEl.querySelector('octave'));
+        }
+      } else if (alterEl) alterEl.remove();
+    });
+  });
+
+  return new XMLSerializer().serializeToString(doc);
+}
+
+/* ── Render validar panel ── */
+async function renderValidarPanel() {
+  document.getElementById('validar-inner').innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--muted)"><span class="spinner"></span> Validando…</div>';
+
+  let valData = null;
+
+  if (ST.serverOnline && ST.originalXml && ST.transposedXml) {
+    try {
+      const r = await fetch(API_BASE + '/api/music/validate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          original:   ST.originalXml,
+          transposed: ST.transposedXml,
+          target:     ST.selectedTarget,
+          semitones:  ST.semitones,
+        }),
+      });
+      valData = await r.json();
+    } catch(_) {}
+  }
+
+  // Local fallback: count notes
+  const origNotes  = (ST.originalXml?.match(/<pitch>/g) || []).length;
+  const transNotes = (ST.transposedXml?.match(/<pitch>/g) || []).length;
+  const match      = origNotes === transNotes;
+
+  const warnings = valData?.warnings || [];
+  const errors   = valData?.errors   || [];
+  const ok       = valData ? valData.ok : match;
+  const msg      = valData?.message || (match ? 'Notas conservadas correctamente' : 'Diferencia en conteo de notas');
+
+  const warnHtml = warnings.length
+    ? '<div class="warn-list">' + warnings.map(w => `<div class="warn-item">⚠️ ${esc(w)}</div>`).join('') + '</div>'
+    : '';
+  const errHtml = errors.length
+    ? '<div class="warn-list">' + errors.map(e => `<div class="err-item">❌ ${esc(e)}</div>`).join('') + '</div>'
+    : '';
+
+  const badge = ok ? 'done' : (errors.length ? 'warn' : '');
+  setBadge(4, ok ? '✅ ok' : '⚠️ advertencias', badge);
+
+  const targetName = ST.selectedTarget === 'all' ? 'Todos' :
+    (ST.inventory?.parts?.find(p => p.id === ST.selectedTarget)?.name || ST.selectedTarget);
+
+  document.getElementById('validar-inner').innerHTML = `
+    <div class="val-grid">
+      <div class="val-card">
+        <div class="val-num" style="color:var(--muted)">${origNotes}</div>
+        <div class="val-lbl">Notas originales</div>
+      </div>
+      <div class="val-card">
+        <div class="val-num" style="color:${ok?'var(--ok)':'var(--warn)'}">${transNotes}</div>
+        <div class="val-lbl">Notas transposición</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:10px">
+      <div class="stat-row"><span class="stat-label">Semitonos</span><span class="stat-val" style="color:var(--accent)">${ST.semitones > 0 ? '+' : ''}${ST.semitones}</span></div>
+      <div class="stat-row"><span class="stat-label">Objetivo</span><span class="stat-val">${esc(targetName)}</span></div>
+      <div class="stat-row"><span class="stat-label">Resultado</span><span class="badge badge-${ok?'ok':'warn'}">${ok ? '✅ correcto' : '⚠️ revisar'}</span></div>
+      <div class="stat-row"><span class="stat-label">Detalle</span><span style="font-size:12px;color:var(--muted);text-align:right;max-width:60%">${esc(msg)}</span></div>
+      <div class="stat-row"><span class="stat-label">Fuente</span><span style="font-size:11px;color:var(--muted)">${valData ? '🔗 pipeline' : '🖥️ local'}</span></div>
+    </div>
+    ${warnHtml}${errHtml}
+    <button class="btn btn-primary" style="margin-top:10px" onclick="goToExport()">↓ Ir a exportar →</button>
+  `;
+
+  setStep(4);
+}
+
+function goToExport() {
+  renderExportarPanel();
+  setStep(5);
+  openAcc(5);
+  focusStep(5);
+}
+
+/* ── Render exportar panel ── */
+function renderExportarPanel() {
+  if (!ST.transposedXml) {
+    document.getElementById('exportar-inner').innerHTML = '<div style="color:var(--err)">Sin transposición disponible</div>';
+    return;
+  }
+
+  const fname = (ST.filename || 'partitura').replace(/\.xml$/i, '')
+    + `_transposed_${ST.semitones > 0 ? '+' : ''}${ST.semitones}st.xml`;
+
+  const preview = ST.transposedXml.slice(0, 400) + (ST.transposedXml.length > 400 ? '\n…' : '');
+
+  setBadge(5, '✅ listo', 'done');
+
+  document.getElementById('exportar-inner').innerHTML = `
+    <div class="card" style="margin-bottom:10px">
+      <div class="stat-row"><span class="stat-label">Archivo</span><span style="font-size:11px;font-family:monospace;color:var(--accent)">${esc(fname)}</span></div>
+      <div class="stat-row"><span class="stat-label">Tamaño</span><span class="stat-val">${(ST.transposedXml.length / 1024).toFixed(1)} KB</span></div>
+      <div class="stat-row"><span class="stat-label">Notas</span><span class="stat-val">${(ST.transposedXml.match(/<pitch>/g) || []).length}</span></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="downloadXml('${esc(fname)}')" style="margin-bottom:8px">
+      ⬇️ Descargar MusicXML
+    </button>
+    <button class="btn btn-secondary" onclick="copyXml()" style="margin-bottom:8px">
+      📋 Copiar al portapapeles
+    </button>
+    <button class="btn" onclick="openInEditor()" style="margin-bottom:12px;width:100%">
+      🎵 Abrir en editor BAGO
+    </button>
+
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Vista previa XML:</div>
+    <textarea class="xml-area" rows="6" readonly>${esc(preview)}</textarea>
+
+    <button class="btn btn-sm btn-danger" onclick="resetAll()" style="margin-top:12px;width:100%">
+      🔄 Nueva partitura
+    </button>
+  `;
+}
+
+function downloadXml(fname) {
+  if (!ST.transposedXml) return;
+  const blob = new Blob([ST.transposedXml], { type: 'application/xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = fname; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('⬇️ Descargando…');
+}
+
+async function copyXml() {
+  if (!ST.transposedXml) return;
+  try {
+    await navigator.clipboard.writeText(ST.transposedXml);
+    toast('📋 XML copiado al portapapeles');
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = ST.transposedXml;
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('📋 Copiado');
+  }
+}
+
+function openInEditor() {
+  // Pass transposed XML to the music editor via localStorage
+  localStorage.setItem('bago_score_import', ST.transposedXml);
+  localStorage.setItem('bago_score_import_name', ST.filename);
+  window.open('./bago_matrix_music_editor.html', '_blank');
+  toast('🎵 Abriendo editor…');
+}
+
+function resetAll() {
+  ST.originalXml = ST.transposedXml = ST.filename = ST.inventory = null;
+  ST.selectedTarget = 'all'; ST.semitones = 0;
+  document.getElementById('header-filename').textContent = 'Partituras & Transposición';
+  setStep(1);
+  ['2','3','4','5'].forEach(i => setBadge(i, '—', ''));
+  setBadge(1, 'pendiente', '');
+  document.getElementById('partitura-inner').innerHTML = '<div class="score-placeholder">Carga una partitura primero</div>';
+  document.getElementById('transponer-inner').innerHTML = '<div class="score-placeholder" style="background:var(--bg2);color:var(--muted)">Selecciona un instrumento primero</div>';
+  document.getElementById('validar-inner').innerHTML = '<div class="score-placeholder" style="background:var(--bg2);color:var(--muted)">Transpón primero</div>';
+  document.getElementById('exportar-inner').innerHTML = '<div class="score-placeholder" style="background:var(--bg2);color:var(--muted)">Completa la transposición primero</div>';
+  // Close all except first
+  ['2','3','4','5'].forEach(i => {
+    const hd = document.getElementById('acc-hd-'+i);
+    const bd = document.getElementById('acc-bd-'+i);
+    if (hd) { hd.classList.remove('open'); bd.classList.remove('open'); }
+  });
+  openAcc(1); focusStep(1);
+  toast('🔄 Listo para nueva partitura');
+}
+
+/* ── Embedded example scores ── */
+const EXAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN"
+  "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <work><work-title>Ejemplo BAGO</work-title></work>
+  <identification><creator type="composer">BAGO v3.3.0</creator></identification>
+  <part-list>
+    <score-part id="P1"><part-name>Piano</part-name>
+      <score-instrument id="I1"><instrument-name>Piano</instrument-name></score-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <key><fifths>0</fifths><mode>major</mode></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>4</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>quarter</type></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+const EXAMPLE_BAJO_XML = EXAMPLE_XML.replace('Piano', 'Bajo').replace('Bajo', 'Bajo').replace('G</sign><line>2', 'F</sign><line>4').replace(/<octave>4<\/octave>/g, '<octave>2</octave>').replace(/<octave>5<\/octave>/g, '<octave>3</octave>');
+
+/* ── Init ── */
+restoreAcc();
+checkServer();
+setInterval(checkServer, 30000);
+
+// Check for score imported from editor via localStorage
+const importedXml = localStorage.getItem('bago_score_import');
+if (importedXml) {
+  const importedName = localStorage.getItem('bago_score_import_name') || 'importado.xml';
+  localStorage.removeItem('bago_score_import');
+  localStorage.removeItem('bago_score_import_name');
+  setTimeout(() => loadXml(importedXml, importedName), 500);
+}
+</script>
+</body>
+</html>

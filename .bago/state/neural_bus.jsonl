@@ -1,1 +1,0 @@
-{"id": "9a767dfa", "ts": "2026-05-13T12:36:49+00:00", "from": "bus", "to": "*", "topic": "system.node_up", "payload": {"node_id": "test_node_abc", "role": "test", "capabilities": ["testing"]}, "durable": true, "priority": 1}

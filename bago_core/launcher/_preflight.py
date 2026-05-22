@@ -126,6 +126,55 @@ def _check_risk(cmd: str, args: list) -> None:
     sys.exit(1)
 
 
+
+
+def _detect_session_mode() -> str:
+    """Detecta el modo de sesion para que el agente sepa si puede usar nohup/jobs.
+
+    Retorna:
+        "interactive" — TTY con pantalla y teclado directos.
+        "headless"    — Sin TTY (pipeline, redireccion, CI).
+        "detached"    — Headless + senales de sesion desconectada (SSH sin TTY, tmux/screen).
+    """
+    import os, sys
+    stdin_tty = sys.stdin.isatty() if hasattr(sys.stdin, 'isatty') else False
+    stdout_tty = sys.stdout.isatty() if hasattr(sys.stdout, 'isatty') else False
+
+    # Headless basico
+    if not (stdin_tty and stdout_tty):
+        mode = "headless"
+        # Senales de sesion desconectada
+        if os.environ.get("SSH_CONNECTION") and not stdout_tty:
+            mode = "detached"
+        if os.environ.get("TMUX") or os.environ.get("STY"):
+            mode = "detached"
+        return mode
+    return "interactive"
+
+
+def _persist_session_mode(mode: str) -> None:
+    """Guarda session_mode en global_state.json y exporta BAGO_SESSION_MODE."""
+    import json, os
+    from pathlib import Path
+    os.environ["BAGO_SESSION_MODE"] = mode
+    gs_path = Path(__file__).resolve().parent.parent.parent / ".bago" / "state" / "global_state.json"
+    if not gs_path.exists():
+        return
+    data = {}
+    try:
+        data = json.loads(gs_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    if not isinstance(data, dict) or "bago_version" not in data:
+        return
+    data["session_mode"] = mode
+    data["session_mode_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        gs_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _start_session(cmd: str, args: list) -> object:
     """Start a session logger. Returns logger or None on failure."""
     sl_path = TOOLS / "session_logger.py"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""bago_locate.py — Detecta la fuente de verdad de BAGO.
+r"""bago_locate.py — Detecta la fuente de verdad de BAGO.
 
 Jerarquía:
   1. Directorio de ejecución (pendrive, portable)

@@ -1,127 +1,48 @@
-# Python
 __pycache__/
 *.py[cod]
 *.pyo
-
-# macOS — metadatos del sistema (pendrive)
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+node_modules/
+dist/
+bago.egg-info/
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100/
-.fseventsd/
-.Trashes/
-.VolumeIcon.icns
-
-# Windows — metadatos del sistema (pendrive)
-System\ Volume\ Information/
-$RECYCLE.BIN/
-autorun.inf
 Thumbs.db
 desktop.ini
+*.log
+*.out
+*.err
+tmp_*
+fix_*.py
+gen_*.py
 
-# BAGO — binarios Ollama (demasiado grandes para git, se regeneran con bago doctor --fix)
+# Runtime privado/generado
+.bago/knowledge/
 .bago/bin/
-
-# BAGO — modelos LLM (pesos descargados, no se versionan)
 .bago/.models/
-
-# BAGO — runtime
-.bago/state/llm_server.pid
-.bago/state/bago_context.log
-.bago/state/events.jsonl
-.bago/state/routing_history.jsonl
-
-# BAGO — session data (private)
-.bago/state/sessions/
-.bago/state/changes/
-.bago/state/evidences/
+.bago/.llama/
+.bago/logs/
+.bago/state/*.db
+.bago/state/*.jsonl
+.bago/state/images/
+.bago/state/reports/
+.bago/state/sac_locks/
+.bago/state/findings/
+.bago/state/archive/
+.bago/state/goals/
+.bago/state/sprints/
+.bago/state/peers/
+.bago/state/orchestrator/state.json
+.bago/state/global_state.json
 !.bago/state/sessions/.gitkeep
 !.bago/state/changes/.gitkeep
 !.bago/state/evidences/.gitkeep
 
-# BAGO — volatile runtime files (generated on demand, not canonical)
-# Generated on `bago setup` / sync-cmds; excluded from CHECKSUMS in sync_pack_metadata.py.
-.bago/state/repo_context.json
-.bago/snapshots/
-.bago/state/research/
-
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.DS_Store
-whatsapp_config.json
-*.secret.json
-notify_config.json
-whatsapp_config.json
-*.secret.json
-
-# State privado (no versionar)
-.bago/state/chat_history.json
-.bago/state/tareas_telegram.json
-.bago/state/logs/
-
-# Backups y builds
-.bago/tools/*.bak
-.bago/tools/ImageStudio.spec
-.bago/tools/build_exe.bat
-.bago/tools/image_studio/
-.bago/ImageStudio/
-.bago/image_studio/
-
-
-# Autonomous loop runtime state
-.bago/state/auto_learnings.jsonl
-.bago/state/autonomous_state.json
-.bago/state/autonomous.lock
-.bago/state/inbox.json
-.bago/knowledge/auto_patterns.md
-
-# BAGO — runtime state ephemeral (no versionar)
-.bago/state/session_close_*.md
-.bago/state/sprint_summary_*.md
-.bago/state/ideas_report.md
-.bago/state/ideas_snapshot.md
-.bago/state/health.json
-.bago/state/images/
-
-# BAGO — HTML/SVG generados (se regeneran con bago matrix/dashboard)
-bago_matrix*.html
-# Excepción: herramientas permanentes que siguen la convención de nombre bago_matrix*
-!bago_matrix_music_editor.html
-.bago/docs/analysis/*.html
-.bago/docs/analysis/figures/
-
-# BAGO — runtime state (generated per-user, not part of distribution)
-# Template in .bago/state.example/ — copy to .bago/state/ on clean install
-.bago/state/bago.db
-.bago/state/health.json
-.bago/state/goals/
-.bago/state/sprints/
-.bago/state/sprint.json
-.bago/state/siembras.json
-.bago/state/implemented_ideas.json
-.bago/state/knowledge_index.json
-.bago/state/llm_config.json
-.bago/state/pending_w2_task.json
-.bago/state/peers/
-.bago/state/ESTADO_BAGO_ACTUAL.md
-bago.egg-info/
-dist/
-.bago/state/findings/
-.bago/state/archive/
-
-# Runtime artifacts
-.bago/state/neural_events.jsonl
-launcher/static/vendor/
-
-# BAGO — SEGURIDAD: state con datos privados/runtime (no versionar)
-# Use .bago/state/global_state.template.json como plantilla de referencia
-.bago/user/
-.bago/state/global_state.json
-.bago/state/private_state.json
-.bago/state/orchestrator/state.json
-projects/tragaperras_bot/.env
-.bago/config/github_token.txt
-.bago/logs/
+# Project outputs
+projects/**/build/
+projects/**/dist/
+projects/**/sprites_out/*.png
+projects/**/sprites_out/gallery.html

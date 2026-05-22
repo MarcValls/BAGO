@@ -1,6 +1,0 @@
-#!/usr/bin/env python3
-"""ideas — wrapper para .bago/tools/emit_ideas.py"""
-import subprocess, sys
-from pathlib import Path
-ROOT = Path(__file__).resolve().parent
-sys.exit(subprocess.run([sys.executable, str(ROOT / ".bago/tools/emit_ideas.py")] + sys.argv[1:]).returncode)

@@ -1,8 +1,0 @@
-┌─ BAGO Supervision Layer ───────────────────────────────────────────┐
-│  contract_auditor               ✅ green            REGISTRY_CONTRACT_A
-│  dangerous_command_agent        🔍 pending_scan     DANGEROUS_COMMANDS_
-│  doc_sync_agent                 ✅ green            DOC_SYNC_REPORT.jso
-│  legacy_migration_agent         ⚠️  yellow         LEGACY_TEST_MAP.jso
-│  release_guardian               ✅ green            VERSION_CONTRACT.js
-│  state_sandbox_agent            🔍 pending_scan     TEST_ISOLATION_POLI
-└──────────────────────────────────────────────────────────────────────┘

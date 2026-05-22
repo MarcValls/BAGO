@@ -18,6 +18,15 @@ from typing import Dict, List, Optional, Callable, Any
 from pathlib import Path
 import hashlib
 
+# Prompt adapter para adaptar roles al formato de cada modelo
+import importlib.util as _ilu_pa
+_tools_dir = Path(__file__).resolve().parent
+_pa_spec = _ilu_pa.spec_from_file_location("_prompt_adapter", str(_tools_dir / "prompt_adapter.py"))
+_pa_mod = _ilu_pa.module_from_spec(_pa_spec)  # type: ignore
+_pa_spec.loader.exec_module(_pa_mod)  # type: ignore
+PromptAdapter = _pa_mod.PromptAdapter
+_prompt_adapter = PromptAdapter()
+
 @dataclass
 class RoleArtifact:
     """Fragmento de código/texto/script que un rol puede usar."""
@@ -77,11 +86,12 @@ class RoleSpiralBuilder:
             except Exception:
                 continue
     
-    def build_prompt(self, role_id: str, cycle: int = 1, task_type: str = "", history: str = "") -> Dict[str, Any]:
-        """Construye prompt en espiral para un rol.
+    def build_prompt(self, role_id: str, cycle: int = 1, task_type: str = "", history: str = "", model: str = "") -> Dict[str, Any]:
+        """Construye prompt en espiral para un rol, adaptado al formato del modelo.
         
         cycle 1: prompt base + artifacts esenciales
         cycle 2+: añade más artifacts según spiral_index
+        model: nombre del modelo LLM para adaptar el formato del prompt
         """
         role = self.roles.get(role_id)
         if not role:
@@ -104,8 +114,19 @@ class RoleSpiralBuilder:
                 if a.id == artifact_id:
                     active_artifacts.append(a)
         
+        # Adaptar system_prompt al formato del modelo si se especifica
+        system_prompt = role.system_prompt
+        if model:
+            # Si el rol tiene variants por familia, usarlos
+            if hasattr(role, "system_prompts") and isinstance(role.system_prompts, dict):
+                family = _prompt_adapter.family(model)
+                system_prompt = role.system_prompts.get(family, role.system_prompt)
+            # Fallback: adaptar el system_prompt genérico
+            adapted = _prompt_adapter.adapt_prompt(model, system=system_prompt, task=task_type)
+            system_prompt = adapted.get("user") or system_prompt
+        
         # Construir prompt
-        prompt_parts = [role.system_prompt]
+        prompt_parts = [system_prompt]
         for a in active_artifacts:
             prompt_parts.append(f"\n--- {a.type}: {a.id} ---\n{a.content}")
         

@@ -5,7 +5,7 @@ y devuelve la respuesta. Permite enviar ordenes y recibir informes
 desde el movil.
 
 Configuracion:
-    export TELEGRAM_BOT_TOKEN="tu_token_de_botfather"
+    configurar TELEGRAM_BOT_TOKEN en el entorno
     python -m bago.api.services.telegram_bot
 
 Puerto: 11439 (webhook opcional) / polling por defecto

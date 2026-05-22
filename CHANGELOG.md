@@ -1,3 +1,12 @@
+## [3.5.0] - Clean Runtime - 2026-05-22
+
+- Repo cleaned to runtime engine plus `projects/music` and `projects/image_generation`.
+- Runtime state, archives, legacy projects, generated files and local knowledge removed from BAGO.
+- Knowledge, memory and session artifacts moved to `MarcValls/bago-knowledge`.
+- GitHub Actions reduced to compile, BAGO validate, music tests and image generator smoke test.
+
+---
+
 ## [3.4.5] — Stable — 2026-05-19 · Token Analytics
 
 ### Novedades
