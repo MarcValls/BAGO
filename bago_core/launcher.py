@@ -9,7 +9,7 @@ Uso:
   bago extensions         → gestiona extensiones BAGO (.bago/extensions/)
   bago versions           → lista todas las cleanversions disponibles
   bago stability          → resumen único de estabilidad (smoke/VM/soak/validadores)
-  bago dashboard          → pack_dashboard.py
+  bago dashboard          → genera JSON + abre navegador (pack_dashboard.py)
   bago ideas              → emit_ideas.py
   bago ideas --accept N   → acepta idea N y genera tarea W2
   bago task               → muestra la tarea W2 pendiente
@@ -1220,6 +1220,12 @@ def main():
             cwd=str(BAGO_ROOT.parent),
         )
         sys.exit(result.returncode)
+    elif cmd == "shell":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_shell.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+
     elif cmd == "serve":
         tools_dir = str(TOOLS)
         env = dict(os.environ, PYTHONPATH=tools_dir)
@@ -1400,6 +1406,8 @@ def _cmd_inbox_launcher(rest: list) -> None:
 
 if __name__ == "__main__":
     main()
+
+
 
 
 

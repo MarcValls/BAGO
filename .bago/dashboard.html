@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAGO — Agentes, Roles y Herramientas</title>
+<style>
+  :root {
+    --bg: #07091a;
+    --bg2: #0d1030;
+    --bg3: #111435;
+    --acc1: #7c6fcd;
+    --acc2: #3a7bd5;
+    --acc3: #2ec49e;
+    --acc4: #e06c4b;
+    --acc5: #d9a830;
+    --text: #e8eaff;
+    --mid: #8890c0;
+    --lo: #4a5080;
+    --border: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
+
+  /* ── Layout ── */
+  header { background: linear-gradient(135deg, #0e1040, #1a0e40); padding: 28px 32px; border-bottom: 1px solid var(--acc1); }
+  header h1 { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  header p { color: var(--mid); margin-top: 6px; }
+  header .meta { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .b-purple { background: rgba(124,111,205,.2); color: #c3b8ff; border: 1px solid rgba(124,111,205,.35); }
+  .b-blue   { background: rgba(58,123,213,.2);  color: #8fc4ff; border: 1px solid rgba(58,123,213,.35); }
+  .b-green  { background: rgba(46,196,158,.2);  color: #88f0d0; border: 1px solid rgba(46,196,158,.35); }
+  .b-amber  { background: rgba(217,168,48,.2);  color: #ffd878; border: 1px solid rgba(217,168,48,.35); }
+  .b-red    { background: rgba(224,108,75,.2);  color: #ffb89e; border: 1px solid rgba(224,108,75,.35); }
+  .b-gray   { background: rgba(255,255,255,.06); color: var(--mid); border: 1px solid var(--border); }
+
+  nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 0; overflow-x: auto; }
+  nav a { display: inline-block; padding: 14px 18px; color: var(--mid); text-decoration: none; font-weight: 600; font-size: 13px; border-bottom: 3px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s; }
+  nav a:hover { color: var(--text); }
+  nav a.active { color: #fff; border-bottom-color: var(--acc1); }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 32px; }
+  section { margin-bottom: 48px; }
+  h2 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  h2 .sec-icon { font-size: 22px; }
+  h3 { font-size: 15px; font-weight: 700; color: #d8dcff; margin-bottom: 8px; }
+
+  /* ── Cards ── */
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; transition: border-color .15s; }
+  .card:hover { border-color: rgba(124,111,205,.35); }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .card-name { font-size: 16px; font-weight: 800; color: #fff; }
+  .card-role { color: var(--acc3); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .card-desc { color: var(--mid); font-size: 13px; margin-bottom: 14px; }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+  .tag-tool  { background: rgba(58,123,213,.15);  color: #8fc4ff; border: 1px solid rgba(58,123,213,.25); }
+  .tag-cli   { background: rgba(46,196,158,.12);  color: #88f0d0; border: 1px solid rgba(46,196,158,.22); }
+  .tag-model { background: rgba(124,111,205,.15); color: #c3b8ff; border: 1px solid rgba(124,111,205,.25); }
+  .tag-cat   { background: rgba(217,168,48,.12);  color: #ffd878; border: 1px solid rgba(217,168,48,.22); }
+  .tag-work  { background: rgba(224,108,75,.12);  color: #ffb89e; border: 1px solid rgba(224,108,75,.22); }
+
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  /* ── Table ── */
+  .tbl-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; background: var(--bg2); }
+  thead tr { background: var(--bg3); }
+  th { padding: 12px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--mid); font-weight: 700; border-bottom: 1px solid var(--border); }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.025); }
+  td code { background: var(--bg3); color: #aad4ff; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-family: 'Cascadia Code', 'Consolas', monospace; }
+  td .mini-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  /* ── Section colors ── */
+  .sec-gov  { border-left: 4px solid var(--acc1); }
+  .sec-prod { border-left: 4px solid var(--acc2); }
+  .sec-sup  { border-left: 4px solid var(--acc3); }
+  .sec-esp  { border-left: 4px solid var(--acc4); }
+  .sec-spi  { border-left: 4px solid var(--acc5); }
+  .sec-mus  { border-left: 4px solid #e040fb; }
+  .card.sec-gov { border-color: rgba(124,111,205,.25); }
+  .card.sec-prod { border-color: rgba(58,123,213,.25); }
+  .card.sec-sup  { border-color: rgba(46,196,158,.25); }
+  .card.sec-esp  { border-color: rgba(224,108,75,.25); }
+  .card.sec-spi  { border-color: rgba(217,168,48,.25); }
+
+  /* ── MCP Index ── */
+  .mcp-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .mcp-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .mcp-name { font-family: 'Cascadia Code', monospace; font-size: 13px; font-weight: 700; color: #aad4ff; }
+  .mcp-cmd  { color: var(--acc3); font-size: 12px; margin: 4px 0 8px; }
+  .mcp-layer { font-size: 11px; color: var(--mid); }
+  .mcp-agents { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+
+  /* ── Tool Categories ── */
+  .cat-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .cat-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+  .cat-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .cat-title span { font-size: 16px; }
+  .tool-item { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .tool-item:last-child { border-bottom: none; }
+  .tool-name { font-family: monospace; font-size: 12px; color: #c3daff; font-weight: 600; min-width: 180px; }
+  .tool-desc { font-size: 12px; color: var(--mid); }
+  .star { color: var(--acc5); font-size: 10px; }
+
+  /* ── Work matrix ── */
+  .work-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .work-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .work-label { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .work-agent { font-size: 11px; color: var(--acc1); font-weight: 600; margin-bottom: 8px; }
+  .work-desc  { font-size: 12px; color: var(--mid); }
+
+  footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 20px 32px; color: var(--lo); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ BAGO — Mapa de Agentes, Roles y Herramientas</h1>
+  <p>Framework autónomo de desarrollo · Arquitectura multi-agente v3.5</p>
+  <div class="meta">
+    <span class="badge b-purple">9 agentes canónicos</span>
+    <span class="badge b-blue">4 roles arquitectónicos</span>
+    <span class="badge b-green">154+ comandos CLI</span>
+    <span class="badge b-amber">15 herramientas MCP</span>
+    <span class="badge b-red">7 scripts Pipeline Musical</span>
+    <span class="badge b-gray">Generado 2026-05-23</span>
+  </div>
+</header>
+<!-- ══════════════════════════════ VERSION SCANNER ══════════════════════════════ -->
+<div id="version-banner" style="display:none;background:linear-gradient(90deg,#1a0e40,#0e1040);border-bottom:1px solid var(--acc4);padding:16px 32px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1280px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:20px;">📦</span>
+      <div>
+        <div style="font-weight:700;color:#fff;font-size:14px;">Nueva versión disponible: <span id="remote-version" style="color:var(--acc4);">—</span></div>
+        <div style="font-size:12px;color:var(--mid);margin-top:2px;">Tu versión: <span id="local-version">v3.5.0</span> · Publicada en <span id="release-date">—</span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <a id="release-link" href="#" target="_blank" style="background:var(--acc4);color:#fff;padding:8px 16px;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;">Ver release</a>
+      <button id="install-btn" style="background:var(--acc3);color:#0a0a1a;padding:8px 16px;border-radius:10px;border:none;font-weight:700;font-size:13px;cursor:pointer;">Instalar ahora</button>
+      <button id="dismiss-btn" style="background:rgba(255,255,255,.06);color:var(--mid);padding:8px 16px;border-radius:10px;border:1px solid var(--border);font-weight:600;font-size:13px;cursor:pointer;">Más tarde</button>
+    </div>
+  </div>
+</div>
+
+
+<nav>
+  <a href="#gobierno" class="active">🏛 Gobierno</a>
+  <a href="#produccion">⚙️ Producción</a>
+  <a href="#supervision">🛡 Supervisión</a>
+  <a href="#especialistas">🔬 Especialistas</a>
+  <a href="#espirales">🌀 Espirales</a>
+  <a href="#mcp">🔌 MCP Tools</a>
+  <a href="#tools">🧰 Tools CLI</a>
+  <a href="#musica">🎵 Pipeline Musical</a>
+  <a href="#matrix">📊 Matriz</a>
+</nav>
+
+<main>
+
+<!-- ══════════════════════════════ GOBIERNO ══════════════════════════════ -->
+<section id="gobierno">
+  <h2><span class="sec-icon">🏛</span>Familia GOBIERNO — Coordinación Central</h2>
+  <div class="grid" id="gov-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ PRODUCCIÓN ══════════════════════════════ -->
+<section id="produccion">
+  <h2><span class="sec-icon">⚙️</span>Familia PRODUCCIÓN — Operaciones</h2>
+  <div class="grid" id="prod-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ SUPERVISIÓN ══════════════════════════════ -->
+<section id="supervision">
+  <h2><span class="sec-icon">🛡</span>Familia SUPERVISIÓN — Calidad e Integridad</h2>
+  <div class="grid" id="sup-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ ESPECIALISTAS ══════════════════════════════ -->
+<section id="especialistas">
+  <h2><span class="sec-icon">🔬</span>Familia ESPECIALISTAS — Dominio Específico</h2>
+  <div class="grid grid-3" id="esp-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ ESPIRALES ══════════════════════════════ -->
+<section id="espirales">
+  <h2><span class="sec-icon">🌀</span>Agentes Espirales — BagoAgents Nivel-1</h2>
+  <p style="color:var(--mid);margin-bottom:18px;font-size:13px;">Agentes de ejecución desfasados por terceras mayores (fases 0·4·8 + fase 2 adicional). Configurados en <code>state/agents_registry.json</code>.</p>
+  <div class="grid" id="spi-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ MCP TOOLS ══════════════════════════════ -->
+<section id="mcp">
+  <h2><span class="sec-icon">🔌</span>Herramientas MCP — Índice Canónico</h2>
+  <p style="color:var(--mid);margin-bottom:18px;font-size:13px;"><span id="mcp-count">—</span> herramientas MCP con capa, comando CLI y agentes responsables. Fuente: <code>mcp/agent_tool_matrix.json</code></p>
+  <div class="mcp-grid" id="mcp-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ TOOLS CLI ══════════════════════════════ -->
+<section id="tools">
+  <h2><span class="sec-icon">🧰</span>Tools CLI — Catálogo por Categoría</h2>
+  <p style="color:var(--mid);margin-bottom:18px;font-size:13px;"><span id="tools-count">—</span> herramientas en <code>C:\Program Files\BAGO\.bago\tools\</code> · Fuente: <code>knowledge/tools_reference.md</code></p>
+  <div class="cat-grid" id="cat-grid"></div>
+</section>
+
+<!-- ══════════════════════════════ PIPELINE MUSICAL ══════════════════════════════ -->
+<section id="musica">
+  <h2><span class="sec-icon">🎵</span>Pipeline Musical</h2>
+  <p style="color:var(--mid);margin-bottom:18px;font-size:13px;">Scripts en <code>C:\Program Files\BAGO\.bago\tools\</code> · API HTTP en <code>C:\Program Files\BAGO\bago_core\launcher.py</code> · UI en <code>projects\music\web\bago_matrix_music_editor.html</code></p>
+  <p style="color:var(--mid);margin-bottom:18px;font-size:13px;">Comandos: <span id="music-commands"></span></p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Script</th><th>Descripción</th><th>Endpoint / CLI</th><th>Dependencias</th></tr></thead>
+      <tbody id="music-tbody"></tbody>
+    </table>
+  </div>
+  <h3 style="margin-top:24px;">Síntesis (generación WAV)</h3>
+  <div class="tbl-wrap" style="margin-top:12px;">
+    <table>
+      <thead><tr><th>Script</th><th>Descripción</th><th>Endpoint / CLI</th><th>Dependencias</th></tr></thead>
+      <tbody id="synth-tbody"></tbody>
+    </table>
+  </div>
+  <h3 style="margin-top:24px;">Extras (browser / inline)</h3>
+  <div class="tbl-wrap" style="margin-top:12px;">
+    <table>
+      <thead><tr><th>Componente</th><th>Descripción</th><th>Endpoint</th><th>Dependencias</th></tr></thead>
+      <tbody id="extra-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:20px;padding:16px 20px;border-radius:14px;border:1px solid rgba(224,64,251,.2);background:rgba(224,64,251,.05);">
+    <strong style="color:#e040fb;">UI: <span id="ui-name">—</span></strong>
+    <div style="color:var(--mid);font-size:13px;margin-top:8px;" id="ui-desc">—</div>
+    <div class="tag-list" style="margin-top:10px;" id="ui-features"></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ MATRIZ ══════════════════════════════ -->
+<section id="matrix">
+  <h2><span class="sec-icon">📊</span>Matriz Tipo de Trabajo → Agente Responsable</h2>
+  <div class="work-grid" id="work-grid"></div>
+</section>
+
+</main>
+
+<footer>
+  BAGO v3.5.0 · Framework autónomo de desarrollo · C:\Program Files\BAGO · Generado por GitHub Copilot CLI · 2026-05-23
+</footer>
+
+<script>
+// Nav active state
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', () => {
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+  });
+});
+// Scroll spy
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav a');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+  navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#'+cur));
+});
+</script>
+<!-- Dashboard Renderer -->
+<script>
+(function(){
+  const DATA_URL = 'dashboard_data.json';
+
+  function tag(cls, text) { return <span class="tag ${cls}">${text}</span>; }
+  function badge(cls, text) { return <span class="badge ${cls}">${text}</span>; }
+
+  function renderAgentCard(a, sec) {
+    const mcp = (a.mcp || []).map(x => tag('tag-tool', x.replace('bago_',''))).join('');
+    const cli = (a.cli || []).map(x => tag('tag-cli', x)).join('');
+    const mcpBlock = mcp ? `<div class="divider"></div><h3>MCP primarias</h3><div class="tag-list">${mcp}</div>` : '';
+    const cliBlock = cli ? `<div class="divider"></div><h3>${a.cli.length > 10 ? 'Tools CLI' : 'CLI'}</h3><div class="tag-list">${cli}</div>` : '';
+    const note = a.note ? `<p style="color:var(--mid);font-size:13px;margin-top:8px;">${a.note}</p>` : '';
+    return `
+<div class="card ${sec}">
+  <div class="card-head">
+    <div>
+      <div class="card-role">${a.role}</div>
+      <div class="card-name">${a.name}</div>
+    </div>
+    ${badge(a.status_badge, a.status)}
+  </div>
+  <div class="card-desc">${a.desc}</div>
+  ${note}
+  ${mcpBlock}
+  ${cliBlock}
+</div>`;
+  }
+
+  function renderSpiralCard(a) {
+    const tags = (a.tags || []).map(t => tag('tag-' + t.type, t.text)).join('');
+    return `
+<div class="card sec-spi">
+  <div class="card-head">
+    <div>
+      <div class="card-role">Espiral · ${a.phase}</div>
+      <div class="card-name">${a.name}</div>
+    </div>
+    ${badge(a.status_badge, a.status)}
+  </div>
+  <div class="card-desc">${a.desc}</div>
+  <div class="tag-list" style="margin-top:12px;">${tags}</div>
+</div>`;
+  }
+
+  function renderMCPCard(t) {
+    const agents = (t.agents || []).map(a => tag('tag-tool', a)).join('');
+    return `
+<div class="mcp-card">
+  <div class="mcp-name">${t.name}</div>
+  <div class="mcp-cmd">→ ${t.cmd}</div>
+  <div class="mcp-layer">capa: <strong>${t.layer}</strong></div>
+  <div class="mcp-agents">${agents}</div>
+</div>`;
+  }
+
+  function renderCatBlock(c) {
+    const items = (c.items || []).map(i => {
+      const star = i.star ? ' <span class="star">⭐</span>' : '';
+      const warn = i.warn ? ' ⚠️' : '';
+      return `<div class="tool-item"><span class="tool-name">${i.name}${star}${warn}</span><span class="tool-desc">${i.desc}</span></div>`;
+    }).join('');
+    return `
+<div class="cat-block">
+  <div class="cat-title"><span>${c.icon}</span>${c.title}</div>
+  ${items}
+</div>`;
+  }
+
+  function renderMusicRow(r) {
+    const bd = r.badge ? ` <span class="badge b-green" style="font-size:10px;">${r.badge}</span>` : '';
+    return `<tr>
+  <td><code>${r.name}</code></td>
+  <td>${r.desc}</td>
+  <td><code>${r.endpoint}</code>${bd}</td>
+  <td>${r.deps}</td>
+</tr>`;
+  }
+
+  function renderWorkCard(w) {
+    return `<div class="work-card">
+  <div class="work-label">${w.label}</div>
+  <div class="work-agent">→ ${w.agent}</div>
+  <div class="work-desc">${w.desc}</div>
+</div>`;
+  }
+
+  fetch(DATA_URL)
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => {
+      // Header stats
+      document.getElementById('local-version').textContent = 'v' + data.meta.version;
+
+      // Families
+      data.families.forEach(f => {
+        const sec = 'sec-' + f.id.slice(0,3);
+        const grid = document.getElementById(f.id.slice(0,3) + '-grid');
+        if (!grid) return;
+        if (f.id === 'especialistas') {
+          grid.innerHTML = f.agents.map(a => {
+            const tags = (a.cli || []).map(x => tag('tag-cli', x)).join('');
+            const note = a.note ? `<span class="badge b-gray" style="font-size:11px;">${a.note}</span>` : '';
+            return `<div class="card sec-esp">
+              <div class="card-role">${a.role}</div>
+              <div class="card-name">${a.name}</div>
+              <div class="card-desc" style="margin-top:8px;">${a.desc}</div>
+              <div class="tag-list" style="margin-top:10px;">${tags}${note}</div>
+            </div>`;
+          }).join('');
+        } else {
+          grid.innerHTML = f.agents.map(a => renderAgentCard(a, sec)).join('');
+        }
+      });
+
+      // Spirals
+      const spi = document.getElementById('spi-grid');
+      if (spi) spi.innerHTML = data.spiral_agents.map(renderSpiralCard).join('');
+
+      // MCP
+      const mcpCount = document.getElementById('mcp-count');
+      if (mcpCount) mcpCount.textContent = data.mcp_tools.length;
+      const mcpGrid = document.getElementById('mcp-grid');
+      if (mcpGrid) mcpGrid.innerHTML = data.mcp_tools.map(renderMCPCard).join('');
+
+      // Tools
+      const toolsCount = document.getElementById('tools-count');
+      if (toolsCount) toolsCount.textContent = data.stats.total_py_tools + '+';
+      const catGrid = document.getElementById('cat-grid');
+      if (catGrid) catGrid.innerHTML = data.tool_categories.map(renderCatBlock).join('');
+
+      // Music
+      const mc = document.getElementById('music-commands');
+      if (mc) mc.innerHTML = data.music_pipeline.commands.map(c => `<code>${c}</code>`).join(' · ');
+      const mt = document.getElementById('music-tbody');
+      if (mt) mt.innerHTML = data.music_pipeline.scripts.map(renderMusicRow).join('');
+      const st = document.getElementById('synth-tbody');
+      if (st) st.innerHTML = data.music_pipeline.synths.map(renderMusicRow).join('');
+      const et = document.getElementById('extra-tbody');
+      if (et) et.innerHTML = data.music_pipeline.extras.map(renderMusicRow).join('');
+      const uiName = document.getElementById('ui-name');
+      const uiDesc = document.getElementById('ui-desc');
+      const uiFeat = document.getElementById('ui-features');
+      if (uiName) uiName.textContent = data.music_pipeline.ui.name;
+      if (uiDesc) uiDesc.textContent = data.music_pipeline.ui.desc;
+      if (uiFeat) uiFeat.innerHTML = data.music_pipeline.ui.features.map(f => tag('tag-work', f)).join('');
+
+      // Work matrix
+      const wg = document.getElementById('work-grid');
+      if (wg) wg.innerHTML = data.work_matrix.map(renderWorkCard).join('');
+    })
+    .catch(e => {
+      console.error('Dashboard load failed:', e);
+      document.querySelector('main').insertAdjacentHTML('afterbegin',
+        '<div style="background:rgba(224,108,75,.15);border:1px solid rgba(224,108,75,.3);border-radius:12px;padding:16px 20px;margin-bottom:24px;color:#ffb89e;">⚠️ No se pudo cargar bago_dashboard_data.json. El dashboard se muestra con datos estáticos por defecto.</div>');
+    });
+})();
+</script>
+<!-- Version Scanner Script -->
+<script>
+(function(){
+  const LOCAL = document.getElementById('local-version')?.textContent?.trim() || 'v3.5.0';
+  const banner = document.getElementById('version-banner');
+  const remoteVerEl = document.getElementById('remote-version');
+  const releaseDateEl = document.getElementById('release-date');
+  const linkEl = document.getElementById('release-link');
+  const installBtn = document.getElementById('install-btn');
+  const dismissBtn = document.getElementById('dismiss-btn');
+
+  function parseVer(v) {
+    return String(v).replace(/^v/i,'').split('.').map(Number);
+  }
+  function cmpVer(a, b) {
+    const A = parseVer(a), B = parseVer(b);
+    for (let i = 0; i < Math.max(A.length, B.length); i++) {
+      const x = A[i] || 0, y = B[i] || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  fetch('https://api.github.com/repos/MarcValls/BAGO/releases/latest')
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => {
+      const tag = data.tag_name || 'v0.0.0';
+      const date = data.published_at ? new Date(data.published_at).toLocaleDateString('es-ES') : '—';
+      remoteVerEl.textContent = tag;
+      releaseDateEl.textContent = date;
+      linkEl.href = data.html_url || 'https://github.com/MarcValls/BAGO/releases';
+
+      if (cmpVer(tag, LOCAL) > 0) {
+        banner.style.display = 'block';
+      }
+    })
+    .catch(() => {
+      // Silencioso: sin conexión o rate-limit
+    });
+
+  installBtn?.addEventListener('click', () => {
+    if (confirm('¿Descargar e instalar la nueva versión de BAGO?\nSe abrirá la página del release para descarga manual.')) {
+      window.open(linkEl.href, '_blank');
+      banner.style.display = 'none';
+    }
+  });
+  dismissBtn?.addEventListener('click', () => {
+    banner.style.display = 'none';
+    localStorage.setItem('bago-dismiss-version', remoteVerEl.textContent);
+  });
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
