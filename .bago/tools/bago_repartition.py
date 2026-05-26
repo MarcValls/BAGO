@@ -10,6 +10,17 @@ Ejecutar en macOS:  python3 .bago/tools/bago_repartition.py
 """
 
 # ── Todos los imports AL INICIO (el script sigue en RAM tras desmontar) ───
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import os, sys, time, shutil, stat, subprocess, textwrap
 from pathlib import Path
 

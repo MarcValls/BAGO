@@ -20,6 +20,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from bago.ollama_runtime import DEFAULT_HONO_PORT, DEFAULT_VITE_PORT, DEFAULT_WEB_DEV_PORT, DEFAULT_WEB_PORT
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8")
@@ -192,11 +194,21 @@ def main() -> int:
         ports_map = _get_project_ports(project)
         if not ports_map:
             # Fallback: common dev ports
-            ports_map = {3000: "default", 3001: "default", 5173: "vite", 8788: "server"}
+            ports_map = {
+                DEFAULT_WEB_PORT: "default",
+                DEFAULT_WEB_DEV_PORT: "default",
+                DEFAULT_VITE_PORT: "vite",
+                DEFAULT_HONO_PORT: "server",
+            }
         print(f"  Proyecto: {DIM(str(project))}")
     else:
         # No project, check common ports
-        ports_map = {3000: "default", 3001: "default", 5173: "vite", 8788: "server"}
+        ports_map = {
+            DEFAULT_WEB_PORT: "default",
+            DEFAULT_WEB_DEV_PORT: "default",
+            DEFAULT_VITE_PORT: "vite",
+            DEFAULT_HONO_PORT: "server",
+        }
 
     print()
     print(f"  {'PUERTO':<8} {'ORIGEN':<20} ESTADO")

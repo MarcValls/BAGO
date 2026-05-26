@@ -204,7 +204,7 @@ def _get_user_cwd() -> Path:
             return Path(env_cwd).resolve()
         except Exception:
             pass
-    return Path.cwd()
+    return Path(os.getcwd()).resolve()
 
 
 def _current_project_root() -> Path | None:

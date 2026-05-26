@@ -1,17 +1,28 @@
 """bago.api.bridge — Puente entre el chat BAGO y la API HTTP.
 
 Cuando BAGO se ejecuta en modo 'api' (bago launch --api o bago serve activo),
-el REPL envía mensajes a localhost:11435 en vez de importar los módulos Python.
+el REPL envía mensajes a localhost:<BAGO_API_PORT> en vez de importar los módulos Python.
 Así el orquestador, fallbacks, quality guards y proxies se usan por igual
 desde chat, n8n, curl o cualquier cliente.
 
 Modos de operación:
   - 'direct' (default): usa llm/orchestrator.py directamente (comportamiento actual)
-  - 'api': envía HTTP a localhost:11435
+  - 'api': envía HTTP a localhost:<BAGO_API_PORT>
   - 'hybrid': intenta API primero, cae a directo si no hay servidor
 """
 
 from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import json
 import os
@@ -19,9 +30,14 @@ import urllib.request
 import urllib.error
 from typing import Optional
 
+from bago.ollama_runtime import DEFAULT_BAGO_API_PORT, env_port
+
 # ─── Config ────────────────────────────────────────────────────────────────────
 
-BAGO_API_URL = os.environ.get("BAGO_API_URL", "http://127.0.0.1:11435")
+BAGO_API_URL = os.environ.get(
+    "BAGO_API_URL",
+    f"http://127.0.0.1:{env_port('BAGO_API_PORT', 'BAGO_PORT', default=DEFAULT_BAGO_API_PORT)}",
+)
 API_TIMEOUT = int(os.environ.get("BAGO_API_TIMEOUT", "120"))
 
 # Detección automática: si el servidor está vivo, usar API

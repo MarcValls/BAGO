@@ -23,6 +23,17 @@ Uso:
 Códigos: HEAL-I001 (reparado), HEAL-W001 (no reparable automáticamente),
          HEAL-E001 (error en reparación), HEAL-I002 (sin problemas)
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import sys
 import ast
 import re

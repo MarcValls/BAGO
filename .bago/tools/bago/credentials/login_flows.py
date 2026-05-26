@@ -4,6 +4,17 @@ Separado de manager.py para mantener la lógica de UI aislada del estado.
 Se mezcla con CredentialManager mediante herencia múltiple.
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import subprocess
 
 from ..ui import console

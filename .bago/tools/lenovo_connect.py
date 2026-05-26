@@ -6,12 +6,25 @@ Uso: python lenovo_connect.py [IP_LENOVO]
      Si no se da IP, la detecta automáticamente via ARP
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import subprocess
 import socket
 import struct
 import time
 import os
 import sys
+
+from bago.ollama_runtime import DEFAULT_ALT_HTTP_PORT
 
 MONITOR_LOG = r"C:\Marc_max_20gb\.bago\tools\lenovo_monitor.log"
 LENOVO_IP_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_ip.txt"
@@ -61,7 +74,7 @@ def scan_ports(ip):
     """Escanea puertos comunes en el Lenovo"""
     ports = {22: 'SSH', 23: 'Telnet', 80: 'HTTP', 135: 'WMI', 
              139: 'NetBIOS', 443: 'HTTPS', 445: 'SMB', 
-             3389: 'RDP', 5985: 'WinRM', 5986: 'WinRM-HTTPS', 8080: 'HTTP-Alt'}
+             3389: 'RDP', 5985: 'WinRM', 5986: 'WinRM-HTTPS', DEFAULT_ALT_HTTP_PORT: 'HTTP-Alt'}
     open_ports = {}
     log(f"Escaneando puertos en {ip}...")
     for port, name in ports.items():

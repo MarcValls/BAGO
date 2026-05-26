@@ -17,6 +17,17 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import shutil
@@ -25,6 +36,8 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+
+from bago.ollama_runtime import default_ollama_base_url, default_ollama_port
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
@@ -100,7 +113,7 @@ def _check_ollama_local() -> dict:
         cfg: dict = {}
         if LLM_CFG.exists():
             cfg = json.loads(LLM_CFG.read_text(encoding="utf-8"))
-        url = cfg.get("server_url", "http://127.0.0.1:11434")
+        url = cfg.get("server_url", default_ollama_base_url())
         req = urllib.request.Request(f"{url}/api/tags",
                                      headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=3) as r:
@@ -419,7 +432,7 @@ def cmd_setup() -> int:
     if r["ok"]:
         _ok(f"Ollama corriendo — {len(r['models'])} modelos: {', '.join(r['models'])}")
     else:
-        _warn("Ollama no responde en localhost:11434")
+        _warn(f"Ollama no responde en localhost:{default_ollama_port()}")
         _info(f"Instala desde: {BLUE('https://ollama.com/download')}")
         _info(f"Luego: {CYAN('ollama pull qwen2.5-coder:7b')}")
 
@@ -583,7 +596,7 @@ def _run_tests() -> None:
         "llm_config.json existe")
     chk("T3:ollama-local",
         _check_ollama_local()["ok"],
-        "Ollama local responde en localhost:11434")
+        f"Ollama local responde en localhost:{default_ollama_port()}")
     chk("T4:ssl-ctx",
         True,
         "_ssl_ctx() no lanza excepción")

@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 """BAGO Music — monitor APK build + send Telegram notification"""
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json, os, sys, time, subprocess
 import requests
 

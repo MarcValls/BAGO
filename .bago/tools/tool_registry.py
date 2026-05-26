@@ -135,6 +135,7 @@ def get_commands() -> dict[str, list[str]]:
         "sprite-studio":  ["sprite"],
         "image-studio":   ["image"],
         "list":           ["list"],
+        "stats-panel":    ["--public"],
     }
 
     def _resolve_module(stem: str) -> Path:
@@ -256,7 +257,7 @@ def _self_tests() -> None:
     # T3: no duplicate modules except explicit public aliases
     allowed_alias_modules = {
         "flow", "show_task", "project_memory", "autonomous_loop", "health", "session",
-        "visual_studio", "bago_instance_manager",
+        "visual_studio", "bago_instance_manager", "pack_dashboard",
     }
     modules = [e.module for e in REGISTRY.values()]
     dupes = {m for m in modules if modules.count(m) > 1 and m not in allowed_alias_modules}

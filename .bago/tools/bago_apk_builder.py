@@ -15,6 +15,17 @@ Salida:
     - APK firmado listo para Google Play o sideload
     - AAB (Android App Bundle) para Play Store
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse, json, os, subprocess, sys, tempfile, shutil
 from pathlib import Path
 

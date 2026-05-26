@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 """_neural_bus.py — Transporte y estado del BAGO Neural Bus."""
 import json, os, queue, sys, time, threading, uuid
 from datetime import datetime, timezone
@@ -7,6 +18,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Set
+
+from bago.ollama_runtime import DEFAULT_BAGO_HUB_PORT
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -26,7 +39,7 @@ MAX_SUBSCRIBERS  = int(os.environ.get("BAGO_NEURAL_MAX_SUBS", 50))
 HEARTBEAT_TTL    = int(os.environ.get("BAGO_NEURAL_HEARTBEAT_TTL", 120))
 SUBSCRIBER_QUEUE = int(os.environ.get("BAGO_NEURAL_QUEUE_SIZE", 200))
 # CORS origin: default allows bago_hub on 7860 but configurable for any port
-_CORS_ORIGIN     = os.environ.get("BAGO_HUB_ORIGIN", f"http://localhost:{os.environ.get('BAGO_HUB_PORT', 7860)}")
+_CORS_ORIGIN     = os.environ.get("BAGO_HUB_ORIGIN", f"http://localhost:{os.environ.get('BAGO_HUB_PORT', DEFAULT_BAGO_HUB_PORT)}")
 
 # Durable topics (persisted to JSONL)
 DURABLE_TOPICS = {

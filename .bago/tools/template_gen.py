@@ -32,6 +32,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from bago.ollama_runtime import DEFAULT_WEB_PORT
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8")
@@ -152,23 +154,19 @@ describe('{{NAME}}', () => {
         "ext":     "",
         "dest":    "apps/{{APP}}/.env.example",
         "desc":    ".env.example con variables comunes",
-        "content": """\
-# {{PROJECT}} - {{APP}} environment variables
-# Copy to .env and fill in your values
-
-NODE_ENV=development
-PORT=3000
-
-# Database
-DATABASE_URL=
-
-# Auth
-JWT_SECRET=your-secret-here
-SESSION_SECRET=
-
-# API Keys
-API_KEY=
-""",
+        "content": (
+            "# {{PROJECT}} - {{APP}} environment variables\n"
+            "# Copy to .env and fill in your values\n\n"
+            "NODE_ENV=development\n"
+            f"PORT={DEFAULT_WEB_PORT}\n\n"
+            "# Database\n"
+            "DATABASE_URL=\n\n"
+            "# Auth\n"
+            "JWT_SECRET=your-secret-here\n"
+            "SESSION_SECRET=\n\n"
+            "# API Keys\n"
+            "API_KEY=\n"
+        ),
     },
     "readme": {
         "ext":     ".md",
@@ -226,25 +224,24 @@ Thumbs.db
         "ext":     "",
         "dest":    "apps/{{APP}}/Dockerfile",
         "desc":    "Dockerfile multi-stage para Node.js",
-        "content": """\
-# Build stage
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
-""",
+        "content": (
+            "# Build stage\n"
+            "FROM node:20-alpine AS builder\n"
+            "WORKDIR /app\n"
+            "COPY package*.json ./\n"
+            "RUN npm ci --only=production\n"
+            "COPY . .\n"
+            "RUN npm run build\n\n"
+            "# Production stage\n"
+            "FROM node:20-alpine AS runner\n"
+            "WORKDIR /app\n"
+            "ENV NODE_ENV=production\n"
+            "COPY --from=builder /app/dist ./dist\n"
+            "COPY --from=builder /app/node_modules ./node_modules\n"
+            "COPY --from=builder /app/package.json ./package.json\n"
+            f"EXPOSE {DEFAULT_WEB_PORT}\n"
+            'CMD ["node", "dist/index.js"]\n'
+        ),
     },
 }
 

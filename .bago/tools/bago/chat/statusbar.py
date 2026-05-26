@@ -1,6 +1,17 @@
 """bago.chat.statusbar — barra de estado superior/inferior y prompt indicator."""
 
 import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+import os
 import shutil as _shutil
 import time as _time
 from pathlib import Path
@@ -14,6 +25,7 @@ except ModuleNotFoundError:
         return parts
 
 from ..constants import BAGO_DIR
+from ..cwd import get_user_cwd
 
 # ── Ruta del repo para la barra de estado ────────────────────────────────────
 _FW_ROOT = str(BAGO_DIR.parent)
@@ -29,7 +41,7 @@ def _bee_tick() -> str:
 def _topbar_prompt(route_mode: str) -> FormattedText:
     """Barra superior: avispa animada + ◆ BAGO + ruta + cwd."""
     cols = _shutil.get_terminal_size((80, 24)).columns
-    cwd  = Path(os.environ.get("BAGO_USER_CWD") or Path.cwd())
+    cwd  = get_user_cwd()
     bee  = _bee_tick()
     badge = f"{bee}◆ BAGO"
     sep   = "  │  "

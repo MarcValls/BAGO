@@ -72,15 +72,8 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
-
-# Windows: forzar UTF-8 para emojis y caracteres especiales en terminal
-if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
-    except AttributeError:
-        pass  # Python < 3.7
-
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 _launcher_path = Path(__file__).resolve()
 _bago_core_dir = _launcher_path.parent
 _user_active = Path.home() / ".bago" / "active" / ".bago"
@@ -98,6 +91,20 @@ if BAGO_ROOT is None:
     BAGO_ROOT = _bago_core_dir.parent / ".bago"
 TOOLS     = BAGO_ROOT / "tools"
 CORE      = BAGO_ROOT / "core"
+
+_pythonpath_parts = [str(_bago_core_dir.parent), str(_bago_core_dir.parent / ".bago" / "tools")]
+_pythonpath_existing = os.environ.get("PYTHONPATH")
+if _pythonpath_existing:
+    _pythonpath_parts.append(_pythonpath_existing)
+os.environ["PYTHONPATH"] = ";".join(_pythonpath_parts)
+
+# Windows: forzar UTF-8 para emojis y caracteres especiales en terminal
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass  # Python < 3.7
 
 def _default_user_home() -> Path:
     if sys.platform == "win32":
@@ -1176,7 +1183,20 @@ def main():
     elif cmd == "git-dirty":
         subprocess.run([sys.executable, str(TOOLS / "git_dirty_guard.py"), "--json"] + rest, cwd=str(BAGO_ROOT.parent))
     elif cmd == "test":
-        subprocess.run([sys.executable, "-m", "pytest", str(BAGO_ROOT.parent / "tests")] + rest, cwd=str(BAGO_ROOT.parent))
+        tests_roots: list[Path] = []
+        for base in (BAGO_ROOT.parent / "tests", BAGO_ROOT.parent / "projects", BAGO_ROOT.parent / "proyectos"):
+            if base.is_dir():
+                if base.name == "tests":
+                    tests_roots.append(base)
+                else:
+                    tests_roots.extend(sorted(p for p in base.rglob("tests") if p.is_dir()))
+        # Remove duplicates while preserving order.
+        seen: set[str] = set()
+        tests_roots = [p for p in tests_roots if not (str(p) in seen or seen.add(str(p)))]
+        if not tests_roots:
+            print("  ⚠  No se encontraron suites de tests en este checkout; omitiendo ejecución.")
+        else:
+            subprocess.run([sys.executable, "-m", "pytest", *[str(p) for p in tests_roots]] + rest, cwd=str(BAGO_ROOT.parent))
     elif cmd == "encoding":
         subprocess.run([sys.executable, str(TOOLS / "encoding_guard.py")] + rest, cwd=str(BAGO_ROOT.parent))
     elif cmd == "census":

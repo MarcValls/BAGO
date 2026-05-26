@@ -4,10 +4,21 @@ bago_hub.py — Interfaz central de BAGO.
 
 Lanzar con:
     python bago_hub.py
-    python bago_hub.py --port 7860
+    python bago_hub.py --port <HUB_PORT>
     bago hub
 """
 from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import json
 import re
@@ -20,11 +31,14 @@ from datetime import datetime
 
 import gradio as gr
 
+from bago.ollama_runtime import DEFAULT_BAGO_HUB_PORT, env_port
+
 # ── Rutas ──────────────────────────────────────────────────────────────────────
 TOOLS_DIR  = Path(__file__).resolve().parent
 BAGO_ROOT  = TOOLS_DIR.parent
 STATE_DIR  = BAGO_ROOT / "state"
 PACK_JSON  = BAGO_ROOT / "pack.json"
+HUB_PORT   = env_port("BAGO_HUB_PORT", "BAGO_PORT", default=DEFAULT_BAGO_HUB_PORT)
 
 _SAFE_MODULE_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _SAFE_ARG_RE = re.compile(r"^[A-Za-z0-9._:/=+-]+$")
@@ -248,7 +262,7 @@ def _tab_tools() -> None:
 
         table = gr.Dataframe(
             value=_build_tools_table(),
-            headers=["", "Comando", "Descripción", "Módulo"],
+                headers=["", "Comando", "Descripcion", "Modulo"],
             column_count=(4, "fixed"),
             interactive=False,
             label="Herramientas registradas",
@@ -538,7 +552,7 @@ def build_app() -> gr.Blocks:
     return app
 
 
-def launch(port: int = 7860, open_browser: bool = True, share: bool = False) -> None:
+def launch(port: int = HUB_PORT, open_browser: bool = True, share: bool = False) -> None:
     app = build_app()
     app.launch(
         server_port=port,
@@ -554,7 +568,7 @@ def launch(port: int = 7860, open_browser: bool = True, share: bool = False) -> 
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description="BAGO Hub — interfaz central")
-    ap.add_argument("--port",       type=int, default=7860)
+    ap.add_argument("--port",       type=int, default=HUB_PORT)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--share",      action="store_true")
     args = ap.parse_args()

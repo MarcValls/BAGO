@@ -6,7 +6,7 @@ net_interact.py — Interacción BAGO con la red Ethernet interna (10.0.0.x).
 Red descubierta via cable Ethernet (169.254.31.155):
   · Subred: 10.0.0.0/24  (requiere IP temporal 10.0.0.250/24 en la interfaz Ethernet)
   · Dispositivos: PC Suite de gestión telefónica (Android, MediaTek mt6572, Orange)
-  · Puerto principal: 8080 (HTTP REST + AngularJS)
+  · Puerto principal: <PC_SUITE_PORT> (HTTP REST + AngularJS)
 
 APIs disponibles por dispositivo:
   GET  /api/version          → info del terminal (IMEI, operador, firmware)
@@ -39,6 +39,8 @@ import time
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
+from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8")
@@ -52,7 +54,7 @@ LOCAL_APIPA_IP  = "169.254.31.155"   # IP actual del adaptador Ethernet
 TEMP_IP         = "10.0.0.250"       # IP temporal que añadimos para acceder a la red
 TEMP_PREFIX     = 24
 NETWORK_BASE    = "10.0.0"
-PC_SUITE_PORT   = 8080
+PC_SUITE_PORT   = env_port("BAGO_PC_SUITE_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT)
 TIMEOUT         = 6                   # segundos
 KNOWN_DEVICES   = [3, 4, 8, 15, 103, 203]   # IPs conocidas (actualizar con --scan)
 
@@ -143,9 +145,9 @@ def cleanup_network():
 # ─── Descubrimiento ───────────────────────────────────────────────────────────
 
 def scan_network(verbose: bool = True) -> list[str]:
-    """Descubre dispositivos PC Suite en 10.0.0.x escaneando el puerto 8080."""
+    """Descubre dispositivos PC Suite en 10.0.0.x escaneando el puerto <PC_SUITE_PORT>."""
     if verbose:
-        print(f"\n  🔍 Escaneando {NETWORK_BASE}.1-254:8080 ...")
+        print(f"\n  🔍 Escaneando {NETWORK_BASE}.1-254:{PC_SUITE_PORT} ...")
 
     import socket
     found = []
@@ -161,7 +163,7 @@ def scan_network(verbose: bool = True) -> list[str]:
             if r == 0:
                 found.append(ip)
                 if verbose:
-                    print(f"  🟢 {ip}:8080")
+                    print(f"  🟢 {ip}:{PC_SUITE_PORT}")
         except Exception:
             pass
 

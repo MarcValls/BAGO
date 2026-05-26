@@ -9,6 +9,17 @@ Integra:
 - escalado por saturación de contexto
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from ..constants import COLORS
 from ..providers import detect_strategy, resolve_litellm, best_model_for_provider
 from ..ui import console, pi

@@ -25,6 +25,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+from bago.ollama_runtime import (
+    DEFAULT_ALT_HTTP_PORT,
+    DEFAULT_API_HTTP_PORT,
+    DEFAULT_HONO_PORT,
+    DEFAULT_WEB_PORT,
+    DEFAULT_WEB_DEV_PORT,
+    DEFAULT_VITE_PORT,
+    DEFAULT_VITE_PREVIEW_PORT,
+    DEFAULT_BAGO_HUB_PORT,
+    DEFAULT_SERVER_PORT,
+)
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8")
@@ -36,16 +48,16 @@ STATE = ROOT / ".bago" / "state"
 
 PORT_VAR_RE = re.compile(r'(?:PORT|_PORT|PORT_[A-Z]+)\s*=\s*(\d+)', re.IGNORECASE)
 WELL_KNOWN_PORTS = {
-    "3000": "web/react",
-    "3001": "dev-server",
-    "4000": "api",
-    "5000": "server",
-    "5173": "vite",
-    "5174": "vite-preview",
+    str(DEFAULT_WEB_PORT): "web/react",
+    str(DEFAULT_WEB_DEV_PORT): "dev-server",
+    str(DEFAULT_API_HTTP_PORT): "api",
+    str(DEFAULT_SERVER_PORT): "server",
+    str(DEFAULT_VITE_PORT): "vite",
+    str(DEFAULT_VITE_PREVIEW_PORT): "vite-preview",
     "6379": "redis",
-    "8080": "server",
+    str(DEFAULT_ALT_HTTP_PORT): "server",
     "8443": "https",
-    "8788": "cloudflare",
+    str(DEFAULT_HONO_PORT): "cloudflare",
     "27017": "mongodb",
     "5432": "postgres",
     "3306": "mysql",

@@ -1,8 +1,20 @@
 """bago.chat.recovery — flujos de recuperación ante fallos de modelo o provider."""
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from bago.providers import ollama_probe, ollama_pull, get_default_model
 from bago.llm import _is_cloud_auth_error, _is_cloud_connection_error
 from bago.ui import console, pi, pe, _menu_select, _menu_input
+from bago.ollama_runtime import default_ollama_base_url
 
 
 # ─── Ollama ───────────────────────────────────────────────────────────────────
@@ -14,7 +26,7 @@ def _ollama_recovery_flow(session, model_name: str) -> bool:
     """
     from bago.menus.auth import _cmd_login
 
-    base_url = "http://127.0.0.1:11434"
+    base_url = default_ollama_base_url()
     probe = ollama_probe(base_url)
 
     if not probe["running"]:
@@ -36,7 +48,7 @@ def _ollama_recovery_flow(session, model_name: str) -> bool:
             url = _menu_input(
                 "URL de Ollama",
                 "Introduce la URL base de Ollama:",
-                default="http://localhost:11434",
+                default=default_ollama_base_url().replace("127.0.0.1", "localhost"),
             )
             if url:
                 probe2 = ollama_probe(url.strip())

@@ -22,6 +22,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from bago.ollama_runtime import DEFAULT_ALT_HTTP_PORT, DEFAULT_SERVER_PORT, DEFAULT_VITE_PORT, DEFAULT_VITE_PREVIEW_PORT, DEFAULT_WEB_DEV_PORT, DEFAULT_WEB_PORT
+
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
@@ -46,7 +48,7 @@ _DEV_DEFAULTS = {
     "AUTH_ACCESS_TTL_SECONDS": "600",
     "AUTH_REFRESH_TTL_SECONDS": "2592000",
     "AUTH_COOKIE_SECURE": "false",
-    "API_CORS_ORIGINS": "http://localhost:3000,http://localhost:3001,http://localhost:5173,https://localhost,null",
+    "API_CORS_ORIGINS": f"http://localhost:{DEFAULT_WEB_PORT},http://localhost:{DEFAULT_WEB_DEV_PORT},http://localhost:{DEFAULT_VITE_PORT},https://localhost,null",
     "API_JSON_LIMIT_BYTES": "1048576",
     "API_RATE_LIMIT_WINDOW_MS": "60000",
     "API_RATE_LIMIT_MAX_READS": "300",
@@ -295,7 +297,12 @@ def _check_postgres() -> dict:
 
 
 def _check_ports() -> dict:
-    ports = {3000: "web", 5173: "vite", 8788: "server", 4173: "preview"}
+    ports = {
+        DEFAULT_WEB_PORT: "web",
+        DEFAULT_VITE_PORT: "vite",
+        DEFAULT_SERVER_PORT: "server",
+        DEFAULT_VITE_PREVIEW_PORT: "preview",
+    }
     in_use = [f":{port}({label})" for port, label in ports.items() if _port_in_use(port)]
     return {"name": "Puertos del proyecto", "status": "ok", "detail": "en uso: " + ", ".join(in_use) if in_use else "todos libres"}
 
@@ -328,14 +335,14 @@ def _check_bago_state() -> dict:
 
 def _check_server() -> dict:
     try:
-        with urllib.request.urlopen("http://localhost:8788/health", timeout=2) as response:
+        with urllib.request.urlopen(f"http://localhost:{DEFAULT_SERVER_PORT}/health", timeout=2) as response:
             if response.status < 400:
-                return {"name": "Servidor local", "status": "ok", "detail": f"HTTP {response.status} en :8788"}
+                return {"name": "Servidor local", "status": "ok", "detail": f"HTTP {response.status} en :{DEFAULT_SERVER_PORT}"}
     except urllib.error.HTTPError as exc:
-        return {"name": "Servidor local", "status": "warn", "detail": f"HTTP {exc.code} en :8788"}
+        return {"name": "Servidor local", "status": "warn", "detail": f"HTTP {exc.code} en :{DEFAULT_SERVER_PORT}"}
     except Exception:
         pass
-    return {"name": "Servidor local", "status": "warn", "detail": "no responde en :8788", "fix": "npm run dev en apps/server"}
+    return {"name": "Servidor local", "status": "warn", "detail": "no responde en :{DEFAULT_SERVER_PORT}", "fix": "npm run dev en apps/server"}
 
 
 def diagnostic_main(argv: list[str]) -> int:
@@ -391,10 +398,10 @@ def _safe_dev_value(key: str, example_val: str) -> tuple[str, str]:
         return value, "default dev"
     vtype = _detect_type(key, example_val)
     if vtype == "secret": return secrets.token_hex(32), "auto-generado (dev)"
-    if vtype == "port": return example_val or "8080", "puerto dev"
+    if vtype == "port": return example_val or str(DEFAULT_ALT_HTTP_PORT), "puerto dev"
     if vtype == "bool": return "false", "seguro en dev"
     if vtype == "int": return example_val or "0", "valor ejemplo"
-    if vtype == "url": return example_val or "http://localhost:3000", "URL local"
+    if vtype == "url": return example_val or f"http://localhost:{DEFAULT_WEB_PORT}", "URL local"
     if vtype == "mode": return "development", "entorno dev"
     if example_val and "production" not in example_val.lower() and "secret" not in example_val.lower():
         return example_val, "del ejemplo"

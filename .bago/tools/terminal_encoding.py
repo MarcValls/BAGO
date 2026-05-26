@@ -1,5 +1,13 @@
+import os
 import sys
 from pathlib import Path
+
+
+def bootstrap_runtime_encoding() -> None:
+    """Fuerza UTF-8 para stdio y variables de entorno del proceso."""
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    force_utf8_stdio()
 
 def force_utf8_stdio() -> None:
     for stream in (sys.stdout, sys.stderr):

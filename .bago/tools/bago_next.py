@@ -16,6 +16,17 @@ Uso:
   bago next --dry     → muestra la próxima idea sin aceptarla ni escribir nada
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import sys
 from datetime import datetime, timezone

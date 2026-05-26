@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""bago_locate.py — Detecta la fuente de verdad de BAGO.
+r"""bago_locate.py — Detecta la fuente de verdad de BAGO.
 
 Jerarquía:
   1. Directorio de ejecución (pendrive, portable)
-  2. PC instalado (%USERPROFILE%\BAGO o C:\Program Files\BAGO)
+  2. PC instalado (%USERPROFILE%\\BAGO o C:\\Program Files\\BAGO)
   3. Ambos presentes → PC es PRIMARY, USB notifica SECONDARY
   4. Ninguno → modo primera vez
 
@@ -16,6 +16,17 @@ Devuelve:
   }
 """
 from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import os
 import sys

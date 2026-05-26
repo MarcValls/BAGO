@@ -14,11 +14,24 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+from bago.ollama_runtime import default_ollama_base_url
 
 BAGO_ROOT  = Path(__file__).resolve().parents[2]
 FIELD_FILE = BAGO_ROOT / ".bago" / "state" / "field" / "model_field_matrix.json"
@@ -201,7 +214,7 @@ def cmd_calibrate(model_alias: str):
                 r = litellm.completion(
                     model=f"ollama/{wire}",
                     messages=[{"role": "user", "content": prompt}],
-                    api_base="http://127.0.0.1:11434",
+                api_base=default_ollama_base_url(),
                     max_tokens=120,
                     timeout=30,
                 )

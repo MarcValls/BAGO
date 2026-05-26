@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 from pathlib import Path
 
@@ -144,7 +155,7 @@ def _ld_git(_: str) -> list[str]:
 def _ld_snapshot(_: str) -> list[str]:
     snaps = sorted((STATE / "snapshots").glob("*.json")) if (STATE / "snapshots").exists() else []
     if not snaps:
-        return ["  No hay snapshots guardados aún."]
+        return ["  No hay snapshots guardados aun."]
     last = snaps[-1]
     return [
         f"  Snapshots disponibles: {len(snaps)}",
@@ -272,7 +283,7 @@ def _ld_inbox(_: str) -> list[str]:
     tasks = data.get("tasks", []) if isinstance(data, dict) else data if isinstance(data, list) else []
     n = len(tasks)
     if not tasks:
-        return ["  Inbox vacío — no hay tareas pendientes."]
+        return ["  Inbox vacio - no hay tareas pendientes."]
     lines = [f"  Tareas en inbox: {n}"]
     for t in tasks[:3]:
         title = (t.get("title") or t.get("text") or str(t))[:55] if isinstance(t, dict) else str(t)[:55]

@@ -47,6 +47,17 @@ Emit JSON:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse
 import json
 import os
@@ -57,6 +68,8 @@ import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
+
+from _cwd import get_user_cwd
 
 
 STRUCTURED_MUSICXML = {".musicxml", ".xml", ".mxl"}
@@ -338,7 +351,7 @@ def execute_plan(plan: ConversionPlan, out_dir: str) -> ConversionResult:
         return result
 
     for command in plan.commands:
-        proc = subprocess.run(command, cwd=str(Path.cwd()), text=True, capture_output=True)
+        proc = subprocess.run(command, cwd=str(get_user_cwd()), text=True, capture_output=True)
         result.return_codes.append(proc.returncode)
         result.stdout.append(proc.stdout)
         result.stderr.append(proc.stderr)

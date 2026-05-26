@@ -7,6 +7,17 @@ Karpovich v4 — Instrumentos físicamente precisos
 - Juno-60 pad: BBD chorus con modulación de fase real, detuning per-voice
 - Lead: sin porta + vibrato delayed + VCA analógica
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import numpy as np
 import soundfile as sf
 from pathlib import Path

@@ -4,6 +4,17 @@ artifact_counter.py — BAGO
 Mide y reporta la producción de artefactos útiles por sesión.
 Excluye artefactos de protocolo (session, change, evidence JSONs, TREE, CHECKSUMS).
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import argparse
 import sys
@@ -121,7 +132,7 @@ def main():
 
     if not sessions:
         print("No se encontraron sesiones.")
-        sys.exit(1)
+        return 0
 
     report(sessions, verbose=args.verbose)
 

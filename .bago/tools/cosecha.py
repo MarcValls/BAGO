@@ -8,6 +8,17 @@ Uso:
   python3 .bago/tools/cosecha.py --dry-run   (muestra lo que crearía sin escribir)
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json, sqlite3, sys
 from datetime import datetime, timezone
 from pathlib import Path

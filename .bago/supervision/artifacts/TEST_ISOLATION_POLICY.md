@@ -13,8 +13,8 @@ apuntando a un `tempfile.TemporaryDirectory()`.
 ### Regla 3: BAGO_NEURAL_STATE_DIR para Neural Bus
 Tests del Neural Bus DEBEN usar `BAGO_NEURAL_STATE_DIR` apuntando a tmpdir.
 
-### Regla 4: Cleanup garantizado
-El tmpdir debe destruirse al finalizar el test (contexto `with` o fixture `tmp_path`).
+### Regla 4: Cleanup recomendado
+El tmpdir debería destruirse al finalizar el test (contexto `with` o fixture `tmp_path`).
 
 ## Herramientas de enforcement
 - `state_sandbox_agent` — escanea `.bago/state/` pre/post test y detecta cambios

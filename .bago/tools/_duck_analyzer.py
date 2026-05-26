@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import ast
 import json
 import socket
@@ -7,6 +18,8 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+from bago.ollama_runtime import DEFAULT_OLLAMA_PORT
 
 from _duck_collector import (
     BOLD,
@@ -46,7 +59,7 @@ def active_model() -> str:
 
 def ollama_alive() -> bool:
     try:
-        with socket.create_connection(("127.0.0.1", 11434), timeout=1):
+        with socket.create_connection(("127.0.0.1", DEFAULT_OLLAMA_PORT), timeout=1):
             return True
     except OSError:
         return False

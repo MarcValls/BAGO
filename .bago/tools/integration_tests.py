@@ -23,6 +23,17 @@ Uso:
   python3 integration_tests.py --verbose
 """
 from __future__ import annotations
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse, json, subprocess, sys, tempfile
 from pathlib import Path
 

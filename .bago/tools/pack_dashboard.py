@@ -7,8 +7,20 @@ Uso:
   python pack_dashboard.py --output  → solo genera JSON
   python pack_dashboard.py --public  → resumen publicable en terminal
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse
 import json
+import re
 import subprocess
 import sys
 import webbrowser
@@ -39,6 +51,41 @@ def generate_json():
     print("[OK] JSON generado:", JSON_PATH)
 
 
+def _registry_stability():
+    counts = {"core": 0, "experimental": 0, "dangerous": 0, "legacy": 0, "unknown": 0}
+    risks = {"safe": 0, "mutating": 0, "dangerous": 0, "unknown": 0}
+    try:
+        from tool_registry import REGISTRY
+    except Exception:
+        return counts, risks
+
+    for entry in REGISTRY.values():
+        stability = (getattr(entry, "stability", "") or "unknown").lower()
+        risk = (getattr(entry, "risk", "") or "unknown").lower()
+        counts[stability] = counts.get(stability, 0) + 1
+        risks[risk] = risks.get(risk, 0) + 1
+    return counts, risks
+
+
+def _probe_status(script: Path, *args: str, needle: str) -> str:
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), *args],
+            capture_output=True,
+            text=True,
+            timeout=45,
+        )
+    except Exception as exc:
+        return f"ERROR ({exc})"
+    output = (result.stdout + result.stderr).strip()
+    if result.returncode == 0 and needle in output:
+        return "GO"
+    if result.returncode == 0:
+        return "GO"
+    last = output.splitlines()[-1] if output else "sin salida"
+    return f"KO ({last})"
+
+
 def prepare_html():
     if not HTML_SRC.exists():
         print("[ERROR] HTML no encontrado:", HTML_SRC)
@@ -46,10 +93,7 @@ def prepare_html():
     html = HTML_SRC.read_text(encoding="utf-8")
     # Asegurar que apunte al JSON correcto
     abs_path = JSON_PATH.resolve().as_posix()
-    html = html.replace("const DATA_URL = 'bago_dashboard_data.json'", f"const DATA_URL = 'file:///{abs_path}'")
-    html = html.replace("const DATA_URL = '.bago/dashboard_data.json'", f"const DATA_URL = 'file:///{abs_path}'")
-    html = html.replace("const DATA_URL = 'dashboard_data.json'", f"const DATA_URL = 'file:///{abs_path}'")
-    html = html.replace("const DATA_URL = 'C:\\\\Program Files\\\\BAGO\\\\.bago\\\\dashboard_data.json'", f"const DATA_URL = 'file:///{abs_path}'")
+    html = re.sub(r"const DATA_URL = '.*?dashboard_data\.json'", f"const DATA_URL = 'file:///{abs_path}'", html)
     HTML_TEMP.write_text(html, encoding="utf-8")
     print("[OK] HTML preparado:", HTML_TEMP)
     return HTML_TEMP
@@ -132,6 +176,9 @@ def _public_dashboard():
     version = meta.get("version") or "?"
     visible_agents = sum(len(family.get("agents", [])) for family in families)
     command_count = stats.get("cli_commands") or len(tools)
+    stability_counts, risk_counts = _registry_stability()
+    pack_status = _probe_status(TOOLS / "validate_pack.py", needle="GO pack")
+    encoding_status = _probe_status(TOOLS / "encoding_guard.py", str(ROOT), needle="GO encoding")
 
     print()
     print("BAGO PUBLIC DASHBOARD")
@@ -141,6 +188,11 @@ def _public_dashboard():
     print(f"Comandos CLI: {command_count}")
     print(f"Tools Python: {stats.get('total_py_tools', 0)}")
     print(f"MCP tools: {stats.get('mcp_tools', 0)}")
+    print(f"Estabilidad: core {stability_counts.get('core', 0)} | experimental {stability_counts.get('experimental', 0)} | dangerous {stability_counts.get('dangerous', 0)} | legacy {stability_counts.get('legacy', 0)}")
+    print(f"Riesgo runtime: safe {risk_counts.get('safe', 0)} | mutating {risk_counts.get('mutating', 0)} | dangerous {risk_counts.get('dangerous', 0)}")
+    print(f"Validacion pack: {pack_status}")
+    print(f"Encoding: {encoding_status}")
+    print("Panel: stats-panel")
     print("Canal recomendado: beta hasta smoke test de instalacion limpia")
     print()
 

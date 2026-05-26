@@ -23,6 +23,17 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import platform
@@ -34,6 +45,13 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+
+from bago.ollama_runtime import (
+    DEFAULT_BAGO_LLM_SERVER_PORT,
+    default_ollama_base_url,
+    default_ollama_port,
+    env_port,
+)
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
@@ -49,8 +67,8 @@ CFG_FILE   = STATE_DIR / "llm_config.json"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 LLAMA_DIR.mkdir(parents=True, exist_ok=True)
 
-OLLAMA_PORT = 11434
-LLAMA_PORT  = 8080
+OLLAMA_PORT = default_ollama_port()
+LLAMA_PORT  = env_port("BAGO_LLAMA_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT)
 
 # ── Colores ───────────────────────────────────────────────────────────────────
 
@@ -328,7 +346,7 @@ def cmd_status() -> int:
         if PID_FILE.exists():
             pid = f"  PID {PID_FILE.read_text().strip()}"
         _ok(f"Ollama activo en localhost:{OLLAMA_PORT}{pid}")
-        _info("API compatible OpenAI: http://localhost:11434/v1")
+        _info(f"API compatible OpenAI: {default_ollama_base_url()}/v1")
     else:
         _warn("Servidor inactivo")
         if on_pendrive:

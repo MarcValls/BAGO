@@ -9,7 +9,7 @@ Fases:
   5. Reportar URL y estado
 
 Uso:
-  python pipeline_casino_deploy.py --project-dir PATH [--port 8080]
+  python pipeline_casino_deploy.py --project-dir PATH [--port <PORT>]
 """
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -67,7 +69,7 @@ def validate_assets(project_dir: Path) -> dict:
     return {"success": len(missing) == 0, "missing": missing, "required": required}
 
 
-def start_server(project_dir: Path, port: int = 8080) -> dict:
+def start_server(project_dir: Path, port: int = DEFAULT_BAGO_LLM_SERVER_PORT) -> dict:
     """Arranca server.py en segundo plano."""
     server_script = project_dir / "server.py"
     if not server_script.exists():
@@ -112,7 +114,7 @@ def health_check(url: str, timeout: int = 5) -> dict:
         return {"success": False, "error": str(e), "url": url}
 
 
-def run_pipeline(project_dir: Path, port: int = 8080) -> dict:
+def run_pipeline(project_dir: Path, port: int = DEFAULT_BAGO_LLM_SERVER_PORT) -> dict:
     print(f"\n  [Pipeline Casino Deploy] Proyecto: {project_dir}")
     print(f"  Puerto: {port}")
     print(f"  {'-'*50}")
@@ -174,7 +176,7 @@ def run_pipeline(project_dir: Path, port: int = 8080) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Pipeline Deploy Seguro Casino BAGO")
     parser.add_argument("--project-dir", default=".", help="Directorio del proyecto")
-    parser.add_argument("--port", type=int, default=8080, help="Puerto del servidor")
+    parser.add_argument("--port", type=int, default=DEFAULT_BAGO_LLM_SERVER_PORT, help="Puerto del servidor")
     args = parser.parse_args()
 
     project = Path(args.project_dir).resolve()

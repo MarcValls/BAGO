@@ -9,6 +9,17 @@ Elementos: 4-on-the-floor, chord stabs filtrados, disco strings,
 Usage: python3 disc_superstar_synth.py [output.wav]
 Requires: numpy, scipy, soundfile
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import sys
 import numpy as np
 import soundfile as sf

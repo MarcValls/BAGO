@@ -11,7 +11,7 @@
 
 set -e
 
-PORT=8080
+PORT="${BAGO_MINIAPP_PORT:-${BAGO_PORT:-8080}}"
 DEMO=0
 LOCAL_ONLY=0
 while [ $# -gt 0 ]; do

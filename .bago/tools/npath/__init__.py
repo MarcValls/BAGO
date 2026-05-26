@@ -7,6 +7,17 @@ Uso rápido:
     python -m npath --help
     bago npath status
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from npath._db import DB_PATH, STATE_DIR, cmd_init
 from npath._graph import (
     cmd_branch, cmd_branches, cmd_commit,

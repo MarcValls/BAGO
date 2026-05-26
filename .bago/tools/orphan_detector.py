@@ -19,6 +19,11 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 # ── paths ─────────────────────────────────────────────────────────────────────
 _TOOLS = Path(__file__).resolve().parent
 _STATE = _TOOLS.parent / "state"

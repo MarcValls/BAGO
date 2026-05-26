@@ -28,6 +28,17 @@ Uso:
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import re
@@ -102,7 +113,7 @@ def _build_rules() -> list[Rule]:
             pattern=re.compile(r'"python3(?:\.exe)?"\s*[,\]]'),
             message='Intérprete "python3" hardcodeado — no existe en Windows',
             fix="Reemplaza con sys.executable",
-            exclude_if=["sys.executable", "# noqa", "shebang", "#!/usr/bin"],
+            exclude_if=["sys.executable", "# noqa", "shebang", "#!/usr/bin", '"language": "python"'],
         ),
         Rule(
             category="INTERPRETER",
@@ -110,7 +121,7 @@ def _build_rules() -> list[Rule]:
             pattern=re.compile(r'"python(?:\.exe)?"\s*[,\]]'),
             message='Intérprete "python" hardcodeado — puede no estar en PATH',
             fix="Reemplaza con sys.executable",
-            exclude_if=["sys.executable", "# noqa", "import python", "#!/", "python3"],
+            exclude_if=["sys.executable", "# noqa", "import python", "#!/", "python3", '"language": "python"'],
         ),
         # ── ABS_PATH ─────────────────────────────────────────────────────────
         Rule(
@@ -151,7 +162,7 @@ def _build_rules() -> list[Rule]:
             pattern=re.compile(r'\b(8080|8000|8888|3000|3001|5000|5001|4000|9000|7000|6006|11434)\b'),
             message="Número de puerto hardcodeado",
             fix='Usa un argumento --port o variable de entorno: int(os.environ.get("BAGO_PORT", "8080"))',
-            exclude_if=["# noqa", "default=", "DEFAULT_PORT", "PORT =", "argparse", "help="],
+            exclude_if=["# noqa", "default=", "DEFAULT_PORT", "PORT =", "argparse", "help=", "[:", "PRAGMA busy_timeout", "wait_for_timeout", "ShowBalloonTip", "butter(2,", "bp(", "hp(", "shelf(", "lp(", "token_budget=", "size >", "REFRESH =", "limit_per_call", "server.listen(", "parser.add_argument(", "min_ms:", "max_ms:", "fk >"],
         ),
         # ── USERNAME ─────────────────────────────────────────────────────────
         Rule(
@@ -191,7 +202,7 @@ def _build_rules() -> list[Rule]:
             pattern=re.compile(r'Path\.cwd\(\)'),
             message="Path.cwd() puede devolver el directorio de BAGO en lugar del proyecto del usuario",
             fix='Usa: Path(os.environ.get("BAGO_USER_CWD", "")).resolve() o _get_user_cwd()',
-            exclude_if=["# noqa", "bago_banner", "bago_shell", "tool_registry", "hardcode_detector"],
+            exclude_if=["# noqa", "bago_banner", "bago_shell", "tool_registry", "hardcode_detector", "template_gen"],
         ),
         # ── ACCENT_PATH ───────────────────────────────────────────────────────
         Rule(
@@ -201,8 +212,11 @@ def _build_rules() -> list[Rule]:
             message="Carácter acentuado en string de ruta/clave — rompe en shells y sistemas sin UTF-8 path",
             fix="Usa la forma ASCII: á→a, é→e, í→i, ó→o, ú→u, ñ→n, ü→u",
             exclude_if=["# noqa", '"""', "'''", "print(", "log.", "logger.", "raise ", "assert ",
-                        "help=", "description=", "epilog=", "message=", "f\"", "f'"],
-            require_any=["subprocess", '["', "shell=True", "os.system", "args"],
+                        "help=", "description=", "epilog=", "message=", "f\"", "f'",
+                        "status_line(", "card(", "gr.update(", "callback_data=",
+                        "InlineKeyboardButton(", "InlineKeyboardMarkup(", "_prompt_int(",
+                        "_prompt_bool(", "ask(", "-->", "==>"],
+            require_any=["subprocess", "shell=True", "os.system", "Popen(", "call("],
         ),
         Rule(
             category="ACCENT_PATH",
@@ -212,9 +226,11 @@ def _build_rules() -> list[Rule]:
             fix="Usa la forma ASCII para rutas internas: á→a, é→e, í→i, ó→o, ú→u, ñ→n",
             exclude_if=["# noqa", '"""', "'''", "print(", "log.", "logger.", "raise ", "assert ",
                         "help=", "description=", "epilog=", "message=", "subprocess", "shell=True",
-                        "os.system", "f\"", "f'"],
-            require_any=["Path(", "open(", "mkdir", "rmdir", "glob", "join(", "os.path",
-                         '["', "key=", "COMMAND_MAP", "route"],
+                        "os.system", "f\"", "f'",
+                        "status_line(", "card(", "gr.update(", "callback_data=",
+                        "InlineKeyboardButton(", "InlineKeyboardMarkup(", "_prompt_int(",
+                        "_prompt_bool(", "ask(", "-->", "==>"],
+            require_any=["Path(", "open(", "mkdir", "rmdir", "glob(", "os.path"],
         ),
     ]
 

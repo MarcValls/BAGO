@@ -4,6 +4,8 @@
 import sys, re
 from pathlib import Path
 
+from _cwd import get_user_cwd
+
 TEXT_EXTS = {".py",".md",".json",".toml",".yaml",".yml",".txt",".sh",".ps1",".cmd",".html",".css",".js",".ts"}
 _MOJIBAKE_SEQ = [
     b"\xc3\x83\xc2\xa2\xc3\xa2\xe2\x80\x9a\xc2\xac\xc3\xa2\xe2\x82\xac\xc2\x9d",
@@ -50,7 +52,7 @@ def scan(root):
     return errors
 
 if __name__ == '__main__':
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else get_user_cwd()
     errors = scan(root)
     if errors:
         print('KO encoding')

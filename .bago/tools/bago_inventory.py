@@ -22,7 +22,10 @@ import json
 import sys
 from pathlib import Path
 
-sys.stdout.reconfigure(encoding="utf-8")
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 TOOLS_DIR = Path(__file__).resolve().parent
 BAGO_DIR = TOOLS_DIR.parent

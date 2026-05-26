@@ -14,6 +14,17 @@ Modelo cognitivo BAGO — Bucle Shepard (4 capas):
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from _registry_entries import REGISTRY  # noqa: F401 — re-exported
 
 # ── Taxonomía de capas — Modelo cognitivo BAGO ─────────────────────────────────
@@ -102,6 +113,7 @@ _LAYER_MAP: dict[str, str] = {
     "chronicle":        "memoria",
     "dashboard":        "memoria",
     "dashboard-risks":  "memoria",
+    "stats-panel":      "memoria",
     "demo":             "generacion",
     "debt":             "memoria",
     "devmode":          "memoria",
@@ -248,6 +260,7 @@ _SCOPE_MAP: dict[str, str] = {
     "chronicle": "both",
     "context": "both",
     "dashboard": "both",
+    "stats-panel": "framework",
     "demo": "framework",
     "deactivate": "both",
     "diff": "both",
@@ -383,6 +396,7 @@ _AGENT_MAP: dict[str, str] = {
     "build-run": "ORGANIZADOR",
     "create": "ORGANIZADOR",
     "dashboard": "ORGANIZADOR",
+    "stats-panel": "ORGANIZADOR",
     "demo": "MAESTRO_BAGO",
     "db": "ORGANIZADOR",
     "done": "ORGANIZADOR",
@@ -466,6 +480,7 @@ _CORE_CMDS: frozenset[str] = frozenset({
     "sprint",    # MEMORIA: gestión de sprints
     "goals",     # MEMORIA: objetivos del proyecto
     "dashboard", # MEMORIA: estado del pack
+    "stats-panel", # MEMORIA: panel estadístico de BAGO
     "route",     # MOTOR: routing LLM híbrido
     "review",    # GENERACIÓN: code review automatizado
     "docs",      # GENERACIÓN: genera documentación
@@ -584,6 +599,7 @@ _LAYER_GROUP_MAP: dict[str, str] = {
     # ui
     "hub": "ui",
     "dashboard": "ui",
+    "stats-panel": "ui",
     "demo": "ui",
     "peer": "ui",
     "publish-kit": "ui",

@@ -12,6 +12,17 @@ La espiral de prompts se autogenera: empieza con poco contexto
 y va creciendo infinitamente según la tarea lo requiera.
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Callable, Any

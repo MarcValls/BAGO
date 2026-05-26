@@ -768,6 +768,7 @@ def print_sectioned_ideas(sections: dict[str, list[dict[str, object]]]) -> None:
         f"Total ideas: {total} "
         f"(contextuales={len(sections['contextuales'])}, respaldo={len(sections['respaldo'])})  {range_status}"
     )
+    print(f"  rango permitido: {MIN_IDEAS}–{MAX_IDEAS} ideas")
     if total < MIN_IDEAS:
         # CATALOG_RENEWAL_GUIDE_IMPLEMENTED
         print(f"  💡  Para renovar el catálogo: python bago db reset-ideas")
@@ -1383,10 +1384,8 @@ def main() -> int:
     if detail_index is None:
         if ideas:
             top = ideas[0]
-            # COMPACT_RECOMMENDATION_IMPLEMENTED — recomendacion directa en dos líneas
-            print(f"→ [{top['priority']}] {top['title']}  ·  bago ideas --accept 1")
-            # QUICK_REPO_ENTRY_IMPLEMENTED — acceso directo de un paso a W2
-            print(f"  ↳ Acceso rápido: bago next  (acepta y abre W2 en un solo comando)")
+            # COMPACT_RECOMMENDATION_IMPLEMENTED — recomendacion directa en una sola línea
+            print(f"→ [{top['priority']}] {top['title']}  ·  bago ideas --accept 1  ·  bago next")
         else:
             print("→ No hay ideas disponibles. Revisa el backlog o añade más al catálogo.")
         return 0

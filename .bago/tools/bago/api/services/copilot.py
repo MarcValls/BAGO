@@ -10,6 +10,17 @@ Auth: GH_TOKEN o GITHUB_TOKEN en entorno
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import time
@@ -20,10 +31,11 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from bago.ollama_runtime import DEFAULT_BAGO_COPILOT_PORT, env_port
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
-COPILOT_PORT = 11436
+COPILOT_PORT = env_port("BAGO_COPILOT_PORT", "BAGO_PORT", default=DEFAULT_BAGO_COPILOT_PORT)
 GITHUB_MODELS_URL = "https://models.inference.ai.azure.com"
 PROVIDER_NAME = "copilot"
 
@@ -124,7 +136,7 @@ def _call_github(model: str, messages: list[dict], temperature: float = 0.7,
 
 app = FastAPI(
     title="BAGO Copilot Proxy",
-    description="Proxy Copilot (GitHub Models) — API BAGO-compatible en puerto 11436",
+    description=f"Proxy Copilot (GitHub Models) — API BAGO-compatible en puerto {COPILOT_PORT}",
     version="1.0.0",
 )
 

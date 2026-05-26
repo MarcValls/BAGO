@@ -11,6 +11,17 @@ Flujo:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse
 import json
 import os
@@ -22,6 +33,8 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+from bago.ollama_runtime import default_ollama_base_url
 
 TOOLS_DIR = Path(__file__).resolve().parent
 BAGO_ROOT = TOOLS_DIR.parent
@@ -518,7 +531,7 @@ def _classifier_prompt(task: str, available_ids: list[str]) -> str:
 
 def _classify_with_ollama(task: str, available: dict, policy: dict) -> dict | None:
     cfg = _read_json(CFG_FILE, {})
-    server_url = str(cfg.get("server_url") or "http://127.0.0.1:11434")
+    server_url = str(cfg.get("server_url") or os.environ.get("OLLAMA_HOST") or default_ollama_base_url())
     active_model = cfg.get("active_model") or "qwen25-coder"
     model_map = {
         "qwen25-coder": "qwen2.5-coder:7b",

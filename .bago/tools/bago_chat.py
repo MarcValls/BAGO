@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from bago.ollama_runtime import DEFAULT_BAGO_API_PORT, env_port
+
 # ── Activar VT/ANSI en Windows CMD lo antes posible ──────────────────────────
 if sys.platform == "win32":
     try:
@@ -33,6 +35,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from bago.chat.boot import resolve_session, run_startup_tasks
 from bago.chat.repl import build_prompt_session, run_repl
 
+BAGO_API_PORT = env_port("BAGO_API_PORT", "BAGO_PORT", default=DEFAULT_BAGO_API_PORT)
+
 
 def main():
         p = argparse.ArgumentParser(description="BAGO Orchestrator HUB")
@@ -51,8 +55,8 @@ def main():
                 cwd=str(Path(__file__).resolve().parent),
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
             )
-            print(f"  BAGO API arrancado (PID {proc.pid}, puerto 11435)")
-            print(f"  Endpoints: http://127.0.0.1:11435/docs")
+            print(f"  BAGO API arrancado (PID {proc.pid}, puerto {BAGO_API_PORT})")
+            print(f"  Endpoints: http://127.0.0.1:{BAGO_API_PORT}/docs")
             time.sleep(2)
             set_mode("api")
 

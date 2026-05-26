@@ -3,12 +3,23 @@
 Compatible con endpoints Ollama + extensiones BAGO (routing, health, escalate).
 
 Usage:
-    python -m bago.api.server              # default port 11435
-    python -m bago.api.server --port 8080   # custom port
+    python -m bago.api.server              # default port <BAGO_API_PORT>
+    python -m bago.api.server --port <PORT>   # custom port
     bago serve                              # via CLI
 """
 
 from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import json
 import os
@@ -26,17 +37,36 @@ from .routes import (
     models_router, bago_router,
 )
 from .models.schemas import VersionResponse
+from bago.cwd import get_user_cwd
+from bago.ollama_runtime import (
+    DEFAULT_BAGO_API_PORT,
+    DEFAULT_BAGO_COPILOT_PORT,
+    DEFAULT_BAGO_CODEX_PORT,
+    DEFAULT_BAGO_OLLAMA_CLOUD_PORT,
+    DEFAULT_BAGO_TELEGRAM_PORT,
+    DEFAULT_BAGO_UTOPIA_PORT,
+    default_ollama_base_url,
+    default_ollama_port,
+    env_port,
+)
 
 # ─── Port map ─────────────────────────────────────────────────────────────────
 
+BAGO_API_PORT = env_port("BAGO_API_PORT", "BAGO_PORT", default=DEFAULT_BAGO_API_PORT)
+BAGO_COPILOT_PORT = env_port("BAGO_COPILOT_PORT", "BAGO_PORT", default=DEFAULT_BAGO_COPILOT_PORT)
+BAGO_CODEX_PORT = env_port("BAGO_CODEX_PORT", "BAGO_PORT", default=DEFAULT_BAGO_CODEX_PORT)
+BAGO_OLLAMA_CLOUD_PORT = env_port("BAGO_OLLAMA_CLOUD_PORT", "BAGO_PORT", default=DEFAULT_BAGO_OLLAMA_CLOUD_PORT)
+BAGO_TELEGRAM_PORT = env_port("BAGO_TELEGRAM_PORT", "BAGO_PORT", default=DEFAULT_BAGO_TELEGRAM_PORT)
+BAGO_UTOPIA_PORT = env_port("BAGO_UTOPIA_PORT", "BAGO_PORT", default=DEFAULT_BAGO_UTOPIA_PORT)
+
 SERVICE_PORTS = {
-    "ollama-local":   11434,  # Ollama nativo
-    "bago":           11435,  # Este servidor
-    "copilot":        11436,  # GitHub Models proxy
-    "codex":          11437,  # OpenAI proxy
-    "ollama-cloud":   11438,  # Ollama Cloud proxy
-    "telegram-bot":   11439,  # Bot Telegram
-    "utopia-bot":     11440,  # Cliente Utopia
+    "ollama-local":   default_ollama_port(),  # Ollama nativo
+    "bago":           BAGO_API_PORT,  # Este servidor
+    "copilot":        BAGO_COPILOT_PORT,  # GitHub Models proxy
+    "codex":          BAGO_CODEX_PORT,  # OpenAI proxy
+    "ollama-cloud":   BAGO_OLLAMA_CLOUD_PORT,  # Ollama Cloud proxy
+    "telegram-bot":   BAGO_TELEGRAM_PORT,  # Bot Telegram
+    "utopia-bot":     BAGO_UTOPIA_PORT,  # Cliente Utopia
 }
 
 
@@ -74,14 +104,15 @@ class BagoAdapter:
     # ── Config loading ────────────────────────────────────────────────────
 
     def _find_bago_dir(self) -> Path:
-        for candidate in [Path.cwd(), Path.cwd().parent]:
+        cwd = get_user_cwd()
+        for candidate in [cwd, cwd.parent]:
             if (candidate / ".bago").is_dir() or (candidate / "bago_core").is_dir():
                 return candidate
         for drive in "DEFGH":
             p = Path(f"{drive}:")
             if (p / ".bago").is_dir():
                 return p
-        return Path.cwd()
+        return get_user_cwd()
 
     def _load_config(self):
         try:
@@ -174,7 +205,7 @@ class BagoAdapter:
     def check_provider(self, name: str) -> bool:
         """Check if a provider is reachable.
 
-        For proxies, checks the local port. For local Ollama, checks :11434.
+        For proxies, checks the local port. For local Ollama, checks the configured Ollama base URL.
         For cloud, checks env vars.
         """
         # Local proxies — check if port is alive
@@ -183,7 +214,7 @@ class BagoAdapter:
             return self._check_port("127.0.0.1", port)
 
         if name == "ollama-local":
-            return self._check_port("127.0.0.1", 11434)
+            return self._check_port("127.0.0.1", SERVICE_PORTS["ollama-local"])
 
         if name in ("copilot", "codex"):
             # Prefer local proxy, fall back to env var
@@ -259,7 +290,7 @@ class BagoAdapter:
                     payload["options"] = options
                 data = json.dumps(payload).encode()
                 req = urllib.request.Request(
-                    "http://127.0.0.1:11434/api/chat",
+                    f"{default_ollama_base_url()}/api/chat",
                     data=data,
                     headers={"Content-Type": "application/json"},
                 )
@@ -366,7 +397,7 @@ class BagoAdapter:
         import json as _json
         data = _json.dumps({"model": model, "input": input, **(options or {})}).encode()
         req = urllib.request.Request(
-            "http://127.0.0.1:11434/api/embed",
+            f"{default_ollama_base_url()}/api/embed",
             data=data,
             headers={"Content-Type": "application/json"},
         )
@@ -413,7 +444,7 @@ class BagoAdapter:
 
         # Ollama local
         try:
-            r = urllib.request.urlopen("http://127.0.0.1:11434/api/ps", timeout=3)
+            r = urllib.request.urlopen(f"{default_ollama_base_url()}/api/ps", timeout=3)
             ollama_ps = _json.loads(r.read())
             result["models"].extend(ollama_ps.get("models", []))
         except Exception:
@@ -482,7 +513,7 @@ async def version():
     ollama_ver = ""
     try:
         import urllib.request, json as _json
-        r = urllib.request.urlopen("http://127.0.0.1:11434/api/version", timeout=3)
+        r = urllib.request.urlopen(f"{default_ollama_base_url()}/api/version", timeout=3)
         ollama_ver = _json.loads(r.read()).get("version", "")
     except Exception:
         pass
@@ -520,7 +551,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="BAGO API Server")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=11435)
+    parser.add_argument("--port", type=int, default=BAGO_API_PORT)
     parser.add_argument("--reload", action="store_true")
     args = parser.parse_args()
 

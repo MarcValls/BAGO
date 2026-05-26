@@ -4,6 +4,17 @@ bago/completer.py — Autocompletado de comandos / para el REPL BAGO.
 Cuando el usuario escribe "/" aparece un popup navegable con todos los
 comandos disponibles filtrado en tiempo real. Soporta sub-comandos.
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from prompt_toolkit.completion import Completer, Completion
 
 # ── Catálogo completo de comandos ─────────────────────────────────────────────

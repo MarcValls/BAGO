@@ -4,6 +4,17 @@ bago_miniapp_server.py — BAGO Mini App Server v2
 Sirve la Mini App con API completa: estado, chat, tareas, git, notas.
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import re
@@ -14,6 +25,8 @@ from pathlib import Path
 from datetime import datetime
 import urllib.parse
 
+from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
+
 BAGO_ROOT    = Path(os.environ.get("BAGO_PADRE_PATH") or Path(__file__).parent.parent.parent)
 _STATE_DIR   = BAGO_ROOT / ".bago" / "state"
 _LOG_DIR     = _STATE_DIR / "logs"
@@ -23,7 +36,7 @@ CHAT_PATH    = _STATE_DIR / "chat_history.json"
 MINIAPP_DIR  = Path(__file__).parent / "miniapp"
 AUTH_TOKEN   = os.environ.get("BAGO_MINIAPP_TOKEN", "")
 SERVER_HOST  = os.environ.get("BAGO_MINIAPP_HOST", "127.0.0.1")
-SERVER_PORT  = int(os.environ.get("BAGO_MINIAPP_PORT", 8080))
+SERVER_PORT  = env_port("BAGO_MINIAPP_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT)
 _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -645,12 +658,12 @@ class BAGOHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    global AUTH_TOKEN, SERVER_HOST, SERVER_PORT
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=SERVER_PORT)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--token", default="")
     args = parser.parse_args()
-    global AUTH_TOKEN, SERVER_HOST, SERVER_PORT
     AUTH_TOKEN = (args.token or "").strip()
     SERVER_HOST = args.host.strip() or "127.0.0.1"
     SERVER_PORT = args.port

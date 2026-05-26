@@ -1,0 +1,18 @@
+{
+  "provider": "ntfy",
+  "phone": "+34684798513",
+  "whatsapp": {
+    "provider": "green-api",
+    "instance_id": "",
+    "api_token": "",
+    "to_phone": "34684798513"
+  },
+  "ntfy": {
+    "topic": "bago-684798513",
+    "server": "https://ntfy.sh"
+  },
+  "telegram": {
+    "token": "",
+    "chat_id": ""
+  }
+}

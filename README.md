@@ -2,7 +2,7 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.5.0b1** · 179 CLI commands · 144 public commands
+> Version: 3.5.0b1 · 179 CLI commands · 144 public commands
 
 Public command contract (CI-checked): **119 core** · **17 experimental** · **8 dangerous** · **30 legacy**
 
@@ -35,7 +35,7 @@ bago launch --provider ollama      # fuerza Ollama local
 bago launch --model qwen2.5:14b    # modelo específico
 ```
 
-> **📖 Documentación completa:** [`docs/BAGO_LAUNCH.md`](docs/BAGO_LAUNCH.md) · [`docs/SLASH_MENU.md`](docs/SLASH_MENU.md) · [`docs/CONTRACTS.md`](docs/CONTRACTS.md)
+> **📖 Documentación:** [`INSTALL.md`](INSTALL.md) · [`QUICKSTART.md`](QUICKSTART.md) · [`docs/INSTALL_DEEP.md`](docs/INSTALL_DEEP.md)
 
 ---
 

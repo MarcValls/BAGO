@@ -1,6 +1,17 @@
 """bago.chat.startup_ui — selector de modo de inicio con curses."""
 
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 def _startup_choice_curses(stdscr):
     """Curses UI: el usuario elige Manual o Asistente. Devuelve 'manual' o 'asistente'."""
     import curses

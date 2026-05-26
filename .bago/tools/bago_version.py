@@ -21,6 +21,17 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import re
 import subprocess
@@ -46,6 +57,8 @@ _TAG_BETA   = re.compile(r"^v\d+\.\d+\.\d+b\d+$")
 
 def _read_pyproject_version() -> str:
     """Lee version = \"X.Y.Z\" de pyproject.toml."""
+    if not _PYPROJECT.exists():
+        return _read_init_version()
     text = _PYPROJECT.read_text(encoding="utf-8")
     m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
     if not m:
@@ -63,6 +76,8 @@ def _read_init_version() -> str:
 
 
 def _write_pyproject_version(new_ver: str) -> None:
+    if not _PYPROJECT.exists():
+        return
     text = _PYPROJECT.read_text(encoding="utf-8")
     old = _read_pyproject_version()
     count = text.count(f'version = "{old}"')

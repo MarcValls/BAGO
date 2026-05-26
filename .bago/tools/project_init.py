@@ -1,9 +1,22 @@
 """bago init — scaffold a new BAGO monorepo project."""
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse
 import json
 import os
 import sys
 from pathlib import Path
+
+from bago.ollama_runtime import DEFAULT_VITE_PORT, DEFAULT_WEB_DEV_PORT
 
 BAGO_DIR = Path(__file__).resolve().parent.parent
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -88,30 +101,30 @@ GITIGNORE = "\n".join([
     ".bago/state/", ".bago/snapshots/", "desktop-dist/"
 ])
 
-SERVER_MAIN = """\
-// apps/server/src/server.mjs
-const PORT = process.env.PORT ?? 3001;
-const server = (await import('node:http')).createServer((req, res) => {
-  if (req.url === '/health' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, time: new Date().toISOString() }));
-    return;
-  }
-  res.writeHead(404);
-  res.end();
-});
-server.listen(PORT, () => console.log(`Server on http://localhost:${PORT}`));
-"""
+SERVER_MAIN = (
+    "// apps/server/src/server.mjs\n"
+    f"const PORT = process.env.PORT ?? {DEFAULT_WEB_DEV_PORT};\n"
+    "const server = (await import('node:http')).createServer((req, res) => {\n"
+    "  if (req.url === '/health' && req.method === 'GET') {\n"
+    "    res.writeHead(200, { 'Content-Type': 'application/json' });\n"
+    "    res.end(JSON.stringify({ ok: true, time: new Date().toISOString() }));\n"
+    "    return;\n"
+    "  }\n"
+    "  res.writeHead(404);\n"
+    "  res.end();\n"
+    "});\n"
+    "server.listen(PORT, () => console.log(`Server on http://localhost:${PORT}`));\n"
+)
 
-ELECTRON_MAIN = """\
-// apps/electron/src/main.cjs
-const { app, BrowserWindow } = require('electron');
-function createWindow() {
-  const win = new BrowserWindow({ width: 1200, height: 800 });
-  win.loadURL('http://localhost:5173');
-}
-app.whenReady().then(createWindow);
-"""
+ELECTRON_MAIN = (
+    "// apps/electron/src/main.cjs\n"
+    "const { app, BrowserWindow } = require('electron');\n"
+    "function createWindow() {\n"
+    "  const win = new BrowserWindow({ width: 1200, height: 800 });\n"
+    f"  win.loadURL('http://localhost:{DEFAULT_VITE_PORT}');\n"
+    "}\n"
+    "app.whenReady().then(createWindow);\n"
+)
 
 
 def _write(path: Path, content: str):

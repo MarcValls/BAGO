@@ -41,7 +41,7 @@ def _find_active_install():
     if (cand / "bago_core").exists() and (cand / ".bago").exists():
         _ACTIVE_INSTALL = cand
         return cand
-    pf = Path(os.environ.get("ProgramFiles", r"C:\\Program Files"))
+    pf = Path(os.environ["ProgramFiles"]) if os.environ.get("ProgramFiles") else Path.home().parent / "Program Files"
     if (pf / "BAGO" / "bago_core").exists():
         _ACTIVE_INSTALL = pf / "BAGO"
         return _ACTIVE_INSTALL

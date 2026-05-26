@@ -17,6 +17,17 @@ Uso directo:
   python3 .bago/tools/bago_intro.py --fast   (sin pulso/vuelo, para tests)
   python3 .bago/tools/bago_intro.py --skip   (skip inmediato)
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import os, sys, time
 from pathlib import Path
 

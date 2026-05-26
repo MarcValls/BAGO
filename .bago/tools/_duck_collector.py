@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+from bago.ollama_runtime import default_ollama_base_url
+
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 os.environ.setdefault("PYTHONUTF8", "1")
 for _stream in (sys.stdout, sys.stderr):
@@ -24,7 +26,7 @@ CONTEXT_LOG = STATE_DIR / "advisor_context.jsonl"
 GLOBAL_ST = STATE_DIR / "global_state.json"
 FINDINGS_DIR = STATE_DIR / "findings"
 LLM_CFG = STATE_DIR / "llm_config.json"
-OLLAMA_URL = "http://127.0.0.1:11434"
+OLLAMA_URL = default_ollama_base_url()
 DEFAULT_MODEL = "phi3:mini"
 
 WATCH_INTERVAL = int(os.getenv("BAGO_RD_INTERVAL", "3"))

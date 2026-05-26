@@ -25,6 +25,17 @@ Exit codes:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import ast
 import io
 import json
@@ -33,6 +44,8 @@ import sys
 import tokenize
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from _cwd import get_user_cwd
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -358,7 +371,7 @@ def scan_file(path: Path, skip_test_files: bool = False) -> list[Finding]:
 
     # Normalizar path relativo si es posible
     try:
-        rel = path.relative_to(Path.cwd())
+        rel = path.relative_to(get_user_cwd())
         display_path = str(rel).replace("\\", "/")
     except ValueError:
         display_path = str(path).replace("\\", "/")

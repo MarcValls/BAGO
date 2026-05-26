@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """bootstrap_state.py — crea global_state.json desde plantilla limpia con valores inyectados."""
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import datetime
 import uuid
@@ -8,8 +19,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+def _user_cwd() -> Path:
+    env_cwd = os.environ.get("BAGO_USER_CWD", "")
+    if env_cwd:
+        try:
+            return Path(env_cwd).expanduser().resolve()
+        except Exception:
+            pass
+    return Path(os.getcwd()).resolve()
+
 def main():
-    install_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
+    install_dir = Path(sys.argv[1]).expanduser().resolve() if len(sys.argv) > 1 else _user_cwd()
     bago_dir = install_dir / '.bago'
     tmpl_path = bago_dir / 'templates' / 'global_state.clean.json'
     state_path = bago_dir / 'state' / 'global_state.json'

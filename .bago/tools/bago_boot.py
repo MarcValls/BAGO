@@ -26,12 +26,32 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import datetime
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+def _user_cwd() -> Path:
+    env_cwd = os.environ.get("BAGO_USER_CWD", "")
+    if env_cwd:
+        try:
+            return Path(env_cwd).expanduser().resolve()
+        except Exception:
+            pass
+    return Path(os.getcwd()).resolve()
 
 BAGO_ROOT   = Path(__file__).resolve().parents[2]
 BOOT_DIR    = BAGO_ROOT / ".bago" / "state" / "boot"
@@ -226,7 +246,7 @@ def _fabricate_phrases(project: dict, field: dict, safeguards: dict) -> list[dic
 
 def cmd_examine(verbose: bool = True) -> dict:
     """Ejecuta el boot examiner completo."""
-    cwd = Path.cwd()
+    cwd = _user_cwd()
     print("\n  ◈ BAGO BOOT EXAMINER\n")
 
     # 1. Detectar proyecto

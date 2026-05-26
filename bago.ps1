@@ -27,6 +27,17 @@
 
 $ErrorActionPreference = "Stop"
 $env:PYTHONDONTWRITEBYTECODE = "1"
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+if ($env:PYTHONPATH) {
+    $env:PYTHONPATH = "$PSScriptRoot;$PSScriptRoot\.bago\tools;$env:PYTHONPATH"
+} else {
+    $env:PYTHONPATH = "$PSScriptRoot;$PSScriptRoot\.bago\tools"
+}
+try {
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {}
 
 # === Detección de fuente de verdad ===
 $exeDir = $PSScriptRoot

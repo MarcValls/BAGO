@@ -19,6 +19,17 @@ Comandos del bot:
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import sys
@@ -28,10 +39,15 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
+from bago.ollama_runtime import DEFAULT_BAGO_API_PORT, DEFAULT_BAGO_TELEGRAM_PORT, env_port
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-BAGO_API_URL = os.environ.get("BAGO_API_URL", "http://127.0.0.1:11435")
+BAGO_API_URL = os.environ.get(
+    "BAGO_API_URL",
+    f"http://127.0.0.1:{env_port('BAGO_API_PORT', 'BAGO_PORT', default=DEFAULT_BAGO_API_PORT)}",
+)
 TELEGRAM_API_URL = "https://api.telegram.org/bot{token}"
-TELEGRAM_WEBHOOK_PORT = 11439
+TELEGRAM_WEBHOOK_PORT = env_port("TELEGRAM_WEBHOOK_PORT", "BAGO_TELEGRAM_PORT", default=DEFAULT_BAGO_TELEGRAM_PORT)
 
 
 def _tg(method: str, payload: dict | None = None) -> dict:

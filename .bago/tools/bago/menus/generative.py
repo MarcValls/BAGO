@@ -12,6 +12,17 @@ en cada turno de la espiral:
              según complejidad, contexto y providers disponibles
 """
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from ..ui import _menu_pick, pi
 
 # (key, description_corta, description_larga)

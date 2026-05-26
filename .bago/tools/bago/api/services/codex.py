@@ -7,6 +7,17 @@ Auth: OPENAI_API_KEY en entorno
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import time
@@ -16,10 +27,11 @@ import urllib.error
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from bago.ollama_runtime import DEFAULT_BAGO_CODEX_PORT, env_port
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
-CODEX_PORT = 11437
+CODEX_PORT = env_port("BAGO_CODEX_PORT", "BAGO_PORT", default=DEFAULT_BAGO_CODEX_PORT)
 OPENAI_URL = "https://api.openai.com"
 PROVIDER_NAME = "codex"
 
@@ -103,7 +115,7 @@ def _call_openai(model: str, messages: list[dict], temperature: float = 0.7,
 
 app = FastAPI(
     title="BAGO Codex Proxy",
-    description="Proxy Codex (OpenAI) — API BAGO-compatible en puerto 11437",
+    description=f"Proxy Codex (OpenAI) — API BAGO-compatible en puerto {CODEX_PORT}",
     version="1.0.0",
 )
 

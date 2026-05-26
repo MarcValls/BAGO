@@ -21,6 +21,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+from bago.ollama_runtime import (
+    DEFAULT_ALT_HTTP_PORT,
+    DEFAULT_API_HTTP_PORT,
+    DEFAULT_HONO_PORT,
+    DEFAULT_SERVER_PORT,
+    DEFAULT_WEB_PORT,
+    DEFAULT_WEB_DEV_PORT,
+    DEFAULT_VITE_PORT,
+    DEFAULT_VITE_PREVIEW_PORT,
+)
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8")
@@ -117,12 +128,12 @@ def _get_pid_for_port(port: int) -> str:
 # ─── Default port catalogue ───────────────────────────────────────────────────
 
 _DEFAULT_PORTS: list[tuple[int, str]] = [
-    (8788,  "API server (Hono)"),
-    (5173,  "Frontend (Vite)"),
+    (DEFAULT_HONO_PORT,  "API server (Hono)"),
+    (DEFAULT_VITE_PORT,  "Frontend (Vite)"),
     (5432,  "PostgreSQL"),
-    (3000,  "Misc / Node"),
-    (4173,  "Vite preview"),
-    (8080,  "Alt HTTP"),
+    (DEFAULT_WEB_PORT,  "Misc / Node"),
+    (DEFAULT_VITE_PREVIEW_PORT,  "Vite preview"),
+    (DEFAULT_ALT_HTTP_PORT,  "Alt HTTP"),
 ]
 
 

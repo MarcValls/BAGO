@@ -1,5 +1,7 @@
 # BAGO — Instalación en 3 pasos (Windows)
 
+Version: 3.5.0b1
+
 > **TL;DR:** Copia, pega, ejecuta. Necesitas PowerShell y acceso a internet.
 
 ## Paso 1 — Descarga

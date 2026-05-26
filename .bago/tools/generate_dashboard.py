@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(r"E:\\bago_fw")
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = REPO_ROOT / ".bago" / "dashboard_data.json"
 
 

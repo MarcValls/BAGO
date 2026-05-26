@@ -7,6 +7,17 @@ Auth: OLLAMA_API_KEY en entorno
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import time
@@ -16,10 +27,11 @@ import urllib.error
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from bago.ollama_runtime import DEFAULT_BAGO_OLLAMA_CLOUD_PORT, env_port
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
-OLLAMA_CLOUD_PORT = 11438
+OLLAMA_CLOUD_PORT = env_port("BAGO_OLLAMA_CLOUD_PORT", "BAGO_PORT", default=DEFAULT_BAGO_OLLAMA_CLOUD_PORT)
 OLLAMA_CLOUD_URL = "https://api.ollama.com"
 PROVIDER_NAME = "ollama-cloud"
 
@@ -96,7 +108,7 @@ def _call_ollama_cloud(endpoint: str, payload: dict) -> dict:
 
 app = FastAPI(
     title="BAGO Ollama Cloud Proxy",
-    description="Proxy Ollama Cloud — API BAGO-compatible en puerto 11438",
+    description=f"Proxy Ollama Cloud — API BAGO-compatible en puerto {OLLAMA_CLOUD_PORT}",
     version="1.0.0",
 )
 

@@ -1,6 +1,17 @@
 """bago.llm.routing — Scoring de modelos, cadenas de escalado y deducción de cloud."""
 
 import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+import os
 
 # ── Scoring de tamaño de modelo ───────────────────────────────────────────────
 
@@ -88,7 +99,8 @@ def _build_escalation_chain(missing_model: str) -> "tuple[list, list]":
     fallback_local, available = _ollama_fallback_model(missing_model)
     if fallback_local:
         wire = f"ollama/{fallback_local}"
-        chain.append((wire, {"api_base": "http://127.0.0.1:11434"}, f"ollama-local / {fallback_local}"))
+        from ..ollama_runtime import default_ollama_base_url
+        chain.append((wire, {"api_base": default_ollama_base_url()}, f"ollama-local / {fallback_local}"))
 
     # 1b. ollama-cloud: si esta activo en providers, anadirlo
     if "ollama-cloud" in active_providers():

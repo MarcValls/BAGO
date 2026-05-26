@@ -50,6 +50,7 @@ for _p in [str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS)]:
 
 # ── Static Guard — separación motor / dinámica ───────────────────────────────
 import importlib.util as _ilu
+from bago.ollama_runtime import DEFAULT_OLLAMA_PORT
 try:
     _gs = _ilu.spec_from_file_location("agent_static_guard", _TOOLS_DIR / "agent_static_guard.py")
     _gm = _ilu.module_from_spec(_gs)   # type: ignore
@@ -251,7 +252,7 @@ class OllamaAdapter(BaseAgentAdapter):
 
     def __init__(self, model: str = ""):
         self.model = model or os.environ.get("BAGO_OLLAMA_MODEL", "qwen2.5-coder:7b")
-        self._ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+        self._ollama_url = os.environ.get("OLLAMA_URL", f"http://localhost:{DEFAULT_OLLAMA_PORT}")
 
     def capability(self) -> AdapterCapability:
         return AdapterCapability(

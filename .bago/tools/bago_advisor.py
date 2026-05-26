@@ -35,6 +35,8 @@ import uuid
 from pathlib import Path
 from typing import Iterator
 
+from bago.ollama_runtime import DEFAULT_OLLAMA_PORT, default_ollama_base_url, env_port
+
 # ── Fix UTF-8 en Windows ──────────────────────────────────────────────────────
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     try:
@@ -68,7 +70,7 @@ CYAN = lambda t: _c("1;36", t)   # noqa: E731
 MAG  = lambda t: _c("1;35", t)   # noqa: E731
 
 # ── Ollama ─────────────────────────────────────────────────────────────────────
-OLLAMA_URL   = "http://localhost:11434"
+OLLAMA_URL   = default_ollama_base_url()
 DEFAULT_MODEL = "qwen2.5-coder:7b"
 
 _SECRET_PATTERNS = [
@@ -116,7 +118,7 @@ def _active_model() -> str:
 def _ollama_alive() -> bool:
     import socket
     try:
-        with socket.create_connection(("127.0.0.1", 11434), timeout=1):
+        with socket.create_connection(("127.0.0.1", DEFAULT_OLLAMA_PORT), timeout=1):
             return True
     except OSError:
         return False
@@ -629,7 +631,7 @@ def _self_test() -> int:
 
     # T4: system prompt contains key sections
     prompt = _build_system_prompt(snap)
-    for kw in ["bago", "Próximo paso", "find-tool", "health"]:
+    for kw in ["bago", "Proximo paso", "find-tool", "health"]:
         if kw not in prompt:
             fail("system_prompt_completeness", f"missing keyword: {kw}")
             break

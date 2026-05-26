@@ -1,9 +1,22 @@
 """npath._ollama — LLM integration: think, reflect, suggest, evolve."""
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import re
 from typing import Optional
+
+from bago.ollama_runtime import default_ollama_base_url
 
 from npath._db import (
     _connect, _get_current_branch, _now,
@@ -11,7 +24,7 @@ from npath._db import (
 )
 from npath._graph import cmd_commit
 
-_OLLAMA_URL    = "http://localhost:11434"
+_OLLAMA_URL    = default_ollama_base_url()
 _DEFAULT_MODEL = "llama3"
 
 

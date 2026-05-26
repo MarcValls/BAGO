@@ -9,6 +9,17 @@ Usage:
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse
 import subprocess
 import sys
@@ -17,35 +28,53 @@ import signal
 import os
 from pathlib import Path
 
+from bago.ollama_runtime import (
+    DEFAULT_BAGO_API_PORT,
+    DEFAULT_BAGO_CODEX_PORT,
+    DEFAULT_BAGO_COPILOT_PORT,
+    DEFAULT_BAGO_OLLAMA_CLOUD_PORT,
+    DEFAULT_BAGO_TELEGRAM_PORT,
+    DEFAULT_BAGO_UTOPIA_PORT,
+    default_ollama_port,
+    env_port,
+)
+
+BAGO_API_PORT = env_port("BAGO_API_PORT", "BAGO_PORT", default=DEFAULT_BAGO_API_PORT)
+BAGO_COPILOT_PORT = env_port("BAGO_COPILOT_PORT", "BAGO_PORT", default=DEFAULT_BAGO_COPILOT_PORT)
+BAGO_CODEX_PORT = env_port("BAGO_CODEX_PORT", "BAGO_PORT", default=DEFAULT_BAGO_CODEX_PORT)
+BAGO_OLLAMA_CLOUD_PORT = env_port("BAGO_OLLAMA_CLOUD_PORT", "BAGO_PORT", default=DEFAULT_BAGO_OLLAMA_CLOUD_PORT)
+BAGO_TELEGRAM_PORT = env_port("BAGO_TELEGRAM_PORT", "BAGO_PORT", default=DEFAULT_BAGO_TELEGRAM_PORT)
+BAGO_UTOPIA_PORT = env_port("BAGO_UTOPIA_PORT", "BAGO_PORT", default=DEFAULT_BAGO_UTOPIA_PORT)
+
 SERVICES = {
     "bago": {
         "module": "bago.api.server:app",
-        "port": 11435,
+        "port": BAGO_API_PORT,
         "desc": "Orquestador BAGO",
     },
     "copilot": {
         "module": "bago.api.services.copilot:app",
-        "port": 11436,
+        "port": BAGO_COPILOT_PORT,
         "desc": "Copilot (GitHub Models)",
     },
     "codex": {
         "module": "bago.api.services.codex:app",
-        "port": 11437,
+        "port": BAGO_CODEX_PORT,
         "desc": "Codex (OpenAI)",
     },
     "ollama-cloud": {
         "module": "bago.api.services.ollama_cloud:app",
-        "port": 11438,
+        "port": BAGO_OLLAMA_CLOUD_PORT,
         "desc": "Ollama Cloud",
     },
     "telegram-bot": {
         "module": "bago.api.services.telegram_bot",
-        "port": 11439,
+        "port": BAGO_TELEGRAM_PORT,
         "desc": "Bot de Telegram para BAGO",
     },
     "utopia-bot": {
         "module": "bago.api.services.utopia_bot",
-        "port": 11440,
+        "port": BAGO_UTOPIA_PORT,
         "desc": "Cliente Utopia para BAGO",
     },
 }
@@ -92,7 +121,7 @@ def main():
         print("\n  BAGO Services\n  ==============\n")
         print(f"  {'Servicio':<16} {'Puerto':<8} {'Descripción'}")
         print(f"  {'-'*16} {'-'*8} {'-'*30}")
-        print(f"  {'ollama-local':<16} {'11434':<8} Ollama local (nativo)")
+        print(f"  {'ollama-local':<16} {default_ollama_port():<8} Ollama local (nativo)")
         for name, cfg in SERVICES.items():
             print(f"  {name:<16} {cfg['port']:<8} {cfg['desc']}")
         print()

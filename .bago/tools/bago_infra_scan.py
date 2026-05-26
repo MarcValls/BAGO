@@ -21,6 +21,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from bago.ollama_runtime import (
+    DEFAULT_BAGO_API_PORT,
+    DEFAULT_BAGO_HUB_PORT,
+    DEFAULT_BAGO_LLM_SERVER_PORT,
+    DEFAULT_API_HTTP_PORT,
+    DEFAULT_HONO_PORT,
+    DEFAULT_NOTEBOOK_PORT,
+    DEFAULT_SERVER_PORT,
+    DEFAULT_TOOLING_PORT,
+    DEFAULT_WEB_PORT,
+    default_ollama_port,
+)
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8")
@@ -60,7 +73,18 @@ SYSTEM_PORTS = frozenset({
     49664, 49665, 49666, 49667, 49668, 49669, # Windows dynamic RPC (no son IA, pero se pueden mostrar si --all)
 })
 
-QUICK_PORTS = [11434, 11435, 8080, 8081, 8082, 7860, 5000, 8888, 8000, 3000, 4000]
+QUICK_PORTS = [
+    default_ollama_port(),
+    DEFAULT_BAGO_API_PORT,
+    DEFAULT_BAGO_LLM_SERVER_PORT,
+    8081, 8082,
+    DEFAULT_BAGO_HUB_PORT,
+    DEFAULT_SERVER_PORT,
+    DEFAULT_NOTEBOOK_PORT,
+    DEFAULT_TOOLING_PORT,
+    DEFAULT_WEB_PORT,
+    DEFAULT_API_HTTP_PORT,
+]
 
 
 def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
@@ -117,7 +141,7 @@ def _identify_service(host: str, port: int) -> dict:
         if "ollama" in body_lower and is_html:
             info["name"] = "ollama-web"
             info["type"] = "web-ui"
-            info["api_port"] = "11434"  # referencia al API
+            info["api_port"] = str(default_ollama_port())  # referencia al API
             return info
 
         # Buscar firma conocida
@@ -233,7 +257,7 @@ def scan(quick: bool = False) -> dict:
         identified.add(name)
 
         # Mejorar nombre si es web UI de Ollama
-        if info.get("type") == "web" and port != 11434:
+        if info.get("type") == "web" and port != default_ollama_port():
             root_check = _probe_http(host, port, "/")
             if root_check and "ollama" in (root_check.get("body","") or "").lower():
                 info["name"] = "ollama-web"

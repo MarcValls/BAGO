@@ -20,6 +20,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from _cwd import get_user_cwd
+
 
 def get_root() -> Path:
     """Return BAGO repo root (parent of .bago/).
@@ -39,7 +41,7 @@ def get_root() -> Path:
         if (parent / ".bago").is_dir():
             return parent
 
-    return Path.cwd()
+    return get_user_cwd()
 
 
 def get_state_dir() -> Path:

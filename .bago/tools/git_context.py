@@ -25,6 +25,17 @@ Integracion con bago analyze:
   en el repo activo para que context_map.py lo incluya.
 """
 from __future__ import annotations
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import argparse, json, os, subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,7 +57,11 @@ def _run(cmd, cwd=None, timeout=10):
 
 def _find_git_root(start=None):
     """Busca el directorio raiz del repo git desde start o cwd."""
-    cwd = Path(start) if start else Path.cwd()
+    if start:
+        cwd = Path(start)
+    else:
+        from _cwd import get_user_cwd
+        cwd = get_user_cwd()
     current = cwd
     while True:
         if (current / ".git").exists():

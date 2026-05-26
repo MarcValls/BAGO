@@ -127,11 +127,18 @@ class GuardianAgent:
 
     @staticmethod
     def _is_executable_cmd(cmd: str) -> bool:
+        import shlex
+        from pathlib import Path
         stripped = cmd.strip()
         if not stripped:
             return False
-        head = stripped.split()[0].lower()
-        return head in {"python", "pytest", "git"}
+        try:
+            head = shlex.split(stripped, posix=False)[0]
+        except Exception:
+            head = stripped.split()[0]
+        head = Path(head).name.lower()
+        python_heads = {Path(sys.executable).name.lower(), Path(sys.executable).stem.lower(), "py"}
+        return head in python_heads or head in {"pytest", "git"}
 
     def _run(self, cmd: str, *, cwd: Path = REPO_ROOT) -> tuple[str, int]:
         """Ejecuta un comando de shell y devuelve (output, return_code)."""

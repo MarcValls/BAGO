@@ -24,6 +24,17 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import ast
 import json
 import re
@@ -450,7 +461,8 @@ def main(argv=None):
     elif positional:
         target = Path(positional[0]).expanduser().resolve()
     else:
-        target = Path.cwd()
+        user_cwd = os.environ.get("BAGO_USER_CWD", "")
+        target = Path(user_cwd).expanduser().resolve() if user_cwd else Path(os.getcwd()).resolve()
 
     if not target.exists():
         print(f"[AST AUDIT] ❌ Ruta no encontrada: {target}", file=sys.stderr)

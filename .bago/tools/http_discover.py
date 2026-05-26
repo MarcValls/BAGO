@@ -1,4 +1,15 @@
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 """http_discover — Servidor HTTP de descubrimiento para conexiones BAGO en red local.
 
 ⚠ Experimental:
@@ -10,6 +21,8 @@ import socketserver
 import socket
 import datetime
 import os
+
+from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
 
 LOG_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_http.log"
 IP_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_ip.txt"
@@ -39,9 +52,10 @@ class BAGOHandler(http.server.BaseHTTPRequestHandler):
         pass  # Silenciar logs por defecto
 
 # Bind en todas las interfaces (incluyendo 169.254.31.155)
-server = socketserver.TCPServer(('0.0.0.0', 8080), BAGOHandler)
-print(f"HTTP server en 0.0.0.0:8080 - esperando conexion del Lenovo...")
-print(f"Lenovo debe acceder a: http://169.254.31.155:8080")
+HTTP_PORT = env_port("BAGO_HTTP_DISCOVER_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT)
+server = socketserver.TCPServer(('0.0.0.0', HTTP_PORT), BAGOHandler)
+print(f"HTTP server en 0.0.0.0:{HTTP_PORT} - esperando conexion del Lenovo...")
+print(f"Lenovo debe acceder a: http://169.254.31.155:{HTTP_PORT}")
 server.serve_forever()
 
 def _self_test():

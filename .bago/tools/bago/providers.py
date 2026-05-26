@@ -1,3 +1,14 @@
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 
@@ -238,7 +249,8 @@ def _is_valid_api_key(key: str) -> bool:
 def resolve_litellm(provider, wire_name):
     provider = _normalize_provider_name(provider)
     if provider == "ollama-local":
-        return f"ollama/{wire_name}", {"api_base": os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")}
+        from .bago.ollama_runtime import default_ollama_base_url
+        return f"ollama/{wire_name}", {"api_base": os.environ.get("OLLAMA_HOST") or default_ollama_base_url()}
     if provider == "ollama-cloud":
         providers = load_providers()
         pdata = providers.get("ollama-cloud", {})

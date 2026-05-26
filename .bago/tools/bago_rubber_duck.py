@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 """bago_rubber_duck.py — Auto rubber duck debugging para BAGO."""
 
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from _cwd import get_user_cwd
 
 from _duck_analyzer import active_model, analyze
 from _duck_collector import (
@@ -185,7 +198,8 @@ def main(argv: list[str] | None = None) -> int:
 
     file_path = Path(args[0])
     if not file_path.is_absolute():
-        for candidate in [TOOLS_DIR / file_path, Path.cwd() / file_path, file_path]:
+        user_cwd = get_user_cwd()
+        for candidate in [TOOLS_DIR / file_path, user_cwd / file_path, file_path]:
             if candidate.exists():
                 file_path = candidate.resolve()
                 break

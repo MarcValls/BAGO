@@ -1,5 +1,16 @@
 """bago.llm.errors — Excepciones y detección de errores LLM/provider."""
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import re as _re
 
 # ── Excepción de modelo no disponible ─────────────────────────────────────────

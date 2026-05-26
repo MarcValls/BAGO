@@ -18,6 +18,17 @@ Uso:
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import sys
 from datetime import datetime, timezone
@@ -176,7 +187,15 @@ def select(skip_if_set: bool = False) -> dict | None:
 
 def main() -> int:
     as_json = "--json" in sys.argv
-    result = select()
+    if as_json:
+        result = _load_context()
+    else:
+        try:
+            result = select()
+        except EOFError:
+            result = _load_context()
+            if not as_json:
+                print(YELLOW("⚠") + "  Entrada cerrada. Manteniendo workspace actual.")
     if as_json:
         print(json.dumps(result or {}, indent=2, ensure_ascii=False))
     return 0

@@ -31,6 +31,17 @@ Uso:
 Códigos: ORC-I001 (workflow OK), ORC-W001 (tool con warnings),
          ORC-E001 (tool falló), ORC-E002 (workflow desconocido)
 """
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import sys
 import time

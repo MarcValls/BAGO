@@ -1,6 +1,17 @@
 """_registry_entries_core.py — Subset of BAGO tool registry."""
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from _registry_models import PreflightCheck, ToolEntry
 from _registry_paths import BAGO_ROOT, TOOLS_DIR
 
@@ -8,6 +19,11 @@ _ENTRIES: dict[str, ToolEntry] = {
     "dashboard": ToolEntry(
         cmd="dashboard", module="pack_dashboard",
         description="Muestra el dashboard del pack (--public para vista publicable)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "pack_dashboard.py"))],
+    ),
+    "stats-panel": ToolEntry(
+        cmd="stats-panel", module="pack_dashboard",
+        description="Panel de estadisticas de BAGO (--public)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "pack_dashboard.py"))],
     ),
     "publish-kit": ToolEntry(

@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+# version=3.5.0b1
 # BAGO clean installer for Windows
 # Installs the framework to C:\Program Files\BAGO and places mutable user
 # state outside Program Files at %ProgramData%\BAGO\user.

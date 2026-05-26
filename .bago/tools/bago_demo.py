@@ -6,12 +6,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
+
 TOOLS = Path(__file__).resolve().parent
 REPO = TOOLS.parent.parent
 
 
 def main() -> int:
-    port = "8080"
+    port = str(env_port("BAGO_MINIAPP_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT))
     args = sys.argv[1:]
     if "--port" in args:
         idx = args.index("--port")
@@ -31,4 +33,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -10,6 +10,17 @@ Returns a complete routing decision with all dimensions.
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 from pathlib import Path
 from typing import Any
@@ -39,7 +50,7 @@ def _task_type(task: str) -> str:
         return "debug"
     if any(k in text for k in ["implementa", "implementar", "crea", "crear", "edita", "script", "archivo", "deploy"]):
         return "code"
-    if any(k in text for k in ["arquitectura", "diseño", "router", "sistema", "estructura"]):
+    if any(k in text for k in ["arquitectura", "diseno", "router", "sistema", "estructura"]):
         return "architecture"
     if any(k in text for k in ["explica", "explicar", "resumen", "brainstorm", "idea", "plan"]):
         return "content"

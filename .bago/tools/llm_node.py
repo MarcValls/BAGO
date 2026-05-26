@@ -26,6 +26,17 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import sys
 import threading
@@ -36,6 +47,8 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
+from bago.ollama_runtime import DEFAULT_OLLAMA_PORT, default_ollama_base_url
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 TOOLS_DIR  = Path(__file__).resolve().parent
 BAGO_ROOT  = TOOLS_DIR.parent
@@ -45,8 +58,8 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 CONV_LOG   = STATE_DIR / "llm_conversations.jsonl"
 CFG_FILE   = STATE_DIR / "llm_config.json"
 
-OLLAMA_PORT     = 11434
-OLLAMA_BASE_URL = f"http://localhost:{OLLAMA_PORT}"
+OLLAMA_PORT     = DEFAULT_OLLAMA_PORT
+OLLAMA_BASE_URL = default_ollama_base_url()
 DEFAULT_MODEL   = "qwen2.5-coder:7b"
 MAX_HISTORY     = 20   # messages per conversation before trim
 MAX_CONV_AGE    = 3600 # seconds before discarding idle conversation
@@ -135,7 +148,7 @@ def _active_model() -> str:
 def _ollama_running() -> bool:
     import socket
     try:
-        with socket.create_connection(("127.0.0.1", OLLAMA_PORT), timeout=1):
+        with socket.create_connection(("127.0.0.1", DEFAULT_OLLAMA_PORT), timeout=1):
             return True
     except OSError:
         return False
@@ -576,12 +589,22 @@ def main(argv=None):
     )
     ap.add_argument("--dry-run",  action="store_true", help="Simula sin llamar a Ollama")
     ap.add_argument("--verbose",  action="store_true", help="Output detallado")
+    ap.add_argument("--status",   action="store_true", help="Muestra estado y sale")
     ap.add_argument("--once",     action="store_true", help="Procesa una petición y sale")
     ap.add_argument("--test",     action="store_true", help="Ejecuta self-tests")
     args = ap.parse_args(argv)
 
     if args.test:
         return _self_test()
+
+    if args.status:
+        print()
+        print(f"  {BOLD('🤖 BAGO LLM Node')}")
+        print(f"  Modelo activo : {CYAN(_active_model())}")
+        print(f"  Ollama        : {OK('activo') if _ollama_running() else WARN('inactivo — inicia con: bago llm start')}")
+        print(f"  Bus           : {'disponible' if (STATE_DIR / 'neural_bus.json').exists() else 'no materializado'}")
+        print(f"  Modo          : estado")
+        return 0
 
     print()
     print(f"  {BOLD('🤖 BAGO LLM Node')}")

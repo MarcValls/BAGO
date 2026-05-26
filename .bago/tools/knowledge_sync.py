@@ -25,6 +25,8 @@ import shutil
 import subprocess as sp
 import sys
 from pathlib import Path
+
+from _cwd import get_user_cwd
 from typing import Iterable
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -96,7 +98,7 @@ def _find_repo_root(explicit: str | None) -> Path | None:
     candidates.extend([
         Path.home() / _DEFAULT_REPO_NAME,
         _BAGO.parent / _DEFAULT_REPO_NAME,
-        Path.cwd() / _DEFAULT_REPO_NAME,
+        get_user_cwd() / _DEFAULT_REPO_NAME,
     ])
 
     seen: set[str] = set()
@@ -283,4 +285,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

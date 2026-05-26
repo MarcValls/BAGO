@@ -13,6 +13,17 @@ Puerto: 11440 (webhook/polling)
 
 from __future__ import annotations
 
+import os
+import sys
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import os
 import sys
@@ -20,10 +31,15 @@ import time
 import urllib.request
 import urllib.error
 
+from bago.ollama_runtime import DEFAULT_BAGO_API_PORT, env_port
+
 UTOPIA_HOST = os.environ.get("UTOPIA_HOST", "127.0.0.1")
 UTOPIA_PORT = int(os.environ.get("UTOPIA_PORT", "22824"))
 UTOPIA_TOKEN = os.environ.get("UTOPIA_TOKEN", "")
-BAGO_API_URL = os.environ.get("BAGO_API_URL", "http://127.0.0.1:11435")
+BAGO_API_URL = os.environ.get(
+    "BAGO_API_URL",
+    f"http://127.0.0.1:{env_port('BAGO_API_PORT', 'BAGO_PORT', default=DEFAULT_BAGO_API_PORT)}",
+)
 UTOPIA_API_URL = "http://{host}:{port}/api/1.0"
 
 
