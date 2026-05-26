@@ -22,6 +22,8 @@ class BagoSession:
         self.model_name = model_name
         self.wire_name  = wire_name
         self.history    = [{"role": "system", "content": BAGO_SYSTEM}]
+        self.timeline   = []
+        self.timeline_visible = False
         self.switches   = 0
         self.started_at = datetime.datetime.now()
         self.providers  = load_providers()
@@ -56,6 +58,7 @@ class BagoSession:
         self._orch_mod = None
         self._orch_mtime: float = 0.0
         self.refresh_runtime()
+        self.add_timeline("session", "start", f"{self.provider}/{self.model_name}")
 
     # ── Token tracking ────────────────────────────────────────────────────────
     def record_tokens(self, provider: str, model: str, tokens_in: int, tokens_out: int):
@@ -68,6 +71,39 @@ class BagoSession:
             m["in"]    += max(0, tokens_in or 0)
             m["out"]   += max(0, tokens_out or 0)
             m["calls"] += 1
+
+    def add_timeline(self, kind: str, title: str, detail: str = "", *, level: str = "info") -> None:
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        entry = {
+            "ts": ts,
+            "kind": kind,
+            "title": title,
+            "detail": detail,
+            "level": level,
+        }
+        self.timeline.append(entry)
+        if len(self.timeline) > 120:
+            self.timeline = self.timeline[-120:]
+
+    def timeline_view(self, limit: int = 6, width: int = 88) -> list[str]:
+        def _clip(text: str, max_len: int) -> str:
+            text = " ".join(str(text).split())
+            if max_len <= 3:
+                return text[:max_len]
+            if len(text) <= max_len:
+                return text
+            return text[: max_len - 3].rstrip() + "..."
+
+        rows = []
+        for item in self.timeline[-limit:]:
+            kind = str(item.get("kind", "event")).upper()
+            title = str(item.get("title", "")).strip()
+            detail = str(item.get("detail", "")).strip()
+            line = f"{item.get('ts', '--:--:--')} [{kind}] {title}"
+            if detail:
+                line += f" - {detail}"
+            rows.append(_clip(line, width))
+        return rows or ["(timeline vacia)"]
 
     def tokens_summary(self) -> str:
         """Resumen formateado de tokens usados en la sesión."""
@@ -164,7 +200,7 @@ class BagoSession:
     def litellm_info(self): return resolve_litellm(self.provider, self.wire_name)
 
     def _find_model(self, name):
-        from .providers import _CODEX_MODEL_MAP, _COPILOT_MODEL_MAP
+        from .providers import _CODEX_MODEL_MAP, _COPILOT_MODEL_MAP, _available_model_items
         shortcuts = {"copilot":"copilot","codex":"codex","ollama":"ollama-local",
                      "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud","anthropic":"anthropic"}
         if name in shortcuts:
@@ -174,15 +210,20 @@ class BagoSession:
         if "/" in name:
             pref, mname = name.split("/", 1)
             for pn, pd in self.providers.items():
-                if pn == pref and mname in pd.get("models", {}):
-                    return mname, pd["models"][mname].get("wire_name", mname), pn
+                available = dict(_available_model_items(pn, pd))
+                if pn == pref and mname in available:
+                    return mname, available[mname].get("wire_name", mname), pn
             # Provider matched but model not in registry — try as-is
             for pn, pd in self.providers.items():
                 if pn == pref:
                     return mname, mname, pn
         for pn, pd in self.providers.items():
-            if name in pd.get("models", {}):
-                return name, pd["models"][name].get("wire_name", name), pn
+            available = dict(_available_model_items(pn, pd))
+            if name in available:
+                return name, available[name].get("wire_name", name), pn
+            for mn, md in available.items():
+                if name == md.get("wire_name"):
+                    return mn, md.get("wire_name", mn), pn
         # Nombres ficticios gpt-5.x / claude-* → buscar en provider disponible
         if name in _CODEX_MODEL_MAP:
             for pref in ("codex", "openai", "copilot"):
@@ -289,16 +330,18 @@ class BagoSession:
             "started_at": self.started_at.isoformat(), "provider": self.provider,
             "model": self.model_name, "switches": self.switches,
             "messages": len(self.history)-1, "history": self.history,
+            "timeline": self.timeline,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         return str(path)
 
     def models_table(self):
         active = self.creds.active_bago_providers()
+        from .providers import _available_model_items
         lines = []
         for pn, pd in self.providers.items():
             avail = "✓" if pn in active else "○"
             lines.append(f"\n[{avail}] [{pn}]")
-            for mn, md in pd.get("models", {}).items():
+            for mn, md in _available_model_items(pn, pd):
                 act = " ← ACTIVO" if mn == self.model_name else ""
                 lines.append(f"    {mn:<30} {md.get('best_for',''):<25} {md.get('cost','')}{act}")
         return "\n".join(lines)

@@ -807,6 +807,9 @@ function Invoke-BagoChat {
         [string[]]$RawArgs = @()
     )
     Detect-Source
+    try {
+        $env:BAGO_USER_CWD = (Get-Location).ProviderPath
+    } catch {}
     $chatScript = Join-Path $script:PRIMARY "tools\bago_chat.py"
 
     if ($Provider) {

@@ -46,22 +46,18 @@ TOOLS_DIR = Path(__file__).resolve().parent.parent
 # Detect BAGO_ROOT from tool location (repo or installed)
 _BAGO_ROOT = TOOLS_DIR.parent
 
-# Priority for session storage:
-#   1. BAGO_ROOT/state/sessions  (if writable — active install)
-#   2. ~/.bago/sessions          (fallback)
-#   3. $XDG_DATA_HOME/bago/sessions (env override, highest priority)
+# Priority for invocation-log storage:
+#   1. $XDG_DATA_HOME/bago/sessions
+#   2. $BAGO_USER_HOME/sessions or $BAGO_USER_DIR/sessions
+#   3. ~/.bago/sessions
+#
+# Do not write these lightweight command logs into .bago/state/sessions:
+# that directory is reserved for protocol sessions validated by validate.py.
 _xdg = os.environ.get("XDG_DATA_HOME")
 if _xdg:
     SESSION_BASE: Path = Path(_xdg) / "bago" / "sessions"
-elif (_BAGO_ROOT / "state").exists():
-    # Active BAGO install — try to write alongside the framework
-    _candidate = _BAGO_ROOT / "state" / "sessions"
-    try:
-        _candidate.mkdir(parents=True, exist_ok=True)
-        SESSION_BASE = _candidate
-    except OSError:
-        # No write permission in Program Files — fallback to home
-        SESSION_BASE = Path.home() / ".bago" / "sessions"
+elif os.environ.get("BAGO_USER_HOME") or os.environ.get("BAGO_USER_DIR"):
+    SESSION_BASE = Path(os.environ.get("BAGO_USER_HOME") or os.environ["BAGO_USER_DIR"]).expanduser() / "sessions"
 else:
     SESSION_BASE = Path.home() / ".bago" / "sessions"
 
@@ -254,7 +250,7 @@ def _self_tests() -> None:
 
     def _check(name: str, cond: bool, msg: str) -> None:
         results.append({"name": name, "passed": cond, "message": msg})
-        print(f"  {'✅' if cond else '❌'} {name}: {msg}")
+        print(f"  {'OK' if cond else 'FAIL'} {name}: {msg}")
 
     import sys as _sys
     _this = _sys.modules[__name__]  # works whether run as __main__ or imported
@@ -306,7 +302,7 @@ def _self_tests() -> None:
         # T8: load_recent returns all records (newest first)
         records = SessionLogger.load_recent(n=10)
         _check("T8:load-recent-works", len(records) >= 3,
-               f"{len(records)} records loaded (expected ≥3)")
+               f"{len(records)} records loaded (expected >=3)")
 
         _this.SESSION_BASE = orig_base
 

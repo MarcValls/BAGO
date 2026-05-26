@@ -25,6 +25,7 @@ _ENTRIES = [
     (None,          "  -- Providers & Login --------------------------"),
     ("/scan",       "  Scan  -- disponibles / potenciales / missing + tokens"),
     ("/login",      "  Login / Providers  -- registrar y gestionar cuentas"),
+    ("/provider",   "  Activar/desactivar providers  -- ocultar servicios enteros"),
     ("/models",     "  Modelos disponibles"),
 
     # ── Modos BAGO ───────────────────────────────────────────────────

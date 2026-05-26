@@ -42,6 +42,7 @@ def _get_releases(limit: int = 10) -> list[dict]:
                 "tag": r["tag_name"],
                 "name": r["name"],
                 "published": r["published_at"],
+                "prerelease": bool(r.get("prerelease")),
                 "assets": [
                     {"name": a["name"], "url": a["browser_download_url"], "size": a["size"]}
                     for a in r.get("assets", [])
@@ -59,6 +60,32 @@ def _find_zip_asset(release: dict) -> dict | None:
     for a in release["assets"]:
         if a["name"].endswith(".zip") and "install" not in a["name"]:
             return a
+    return None
+
+
+def _is_beta_release(release: dict) -> bool:
+    tag = str(release.get("tag", "")).lower().lstrip("v")
+    name = str(release.get("name", "")).lower()
+    return bool(release.get("prerelease")) or "beta" in name or "beta" in tag or tag.endswith("b") or "b" in tag.split("-")[-1]
+
+
+def _is_installable_release(release: dict) -> bool:
+    return _find_zip_asset(release) is not None
+
+
+def _latest_installable(releases: list[dict], *, include_beta: bool = False) -> dict | None:
+    for release in releases:
+        if not include_beta and _is_beta_release(release):
+            continue
+        if _is_installable_release(release):
+            return release
+    return None
+
+
+def _latest_beta_installable(releases: list[dict]) -> dict | None:
+    for release in releases:
+        if _is_beta_release(release) and _is_installable_release(release):
+            return release
     return None
 
 
@@ -93,7 +120,27 @@ def _extract(zip_path: Path, dest: Path) -> Path | None:
     print(f"  [Extrayendo] {zip_path.name} → {dest}")
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(dest)
+            total_size = 0
+            dest_root = dest.resolve()
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+                parts = [p for p in name.split("/") if p]
+                if not parts or any(p == ".." for p in parts) or name.startswith("/"):
+                    raise ValueError(f"ruta insegura en ZIP: {info.filename}")
+                total_size += info.file_size
+                if total_size > 500 * 1_048_576:
+                    raise ValueError("ZIP demasiado grande al descomprimir (>500 MB)")
+                target = (dest / name).resolve()
+                try:
+                    target.relative_to(dest_root)
+                except ValueError:
+                    raise ValueError(f"ruta fuera de destino en ZIP: {info.filename}")
+                if info.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(info, "r") as src, open(target, "wb") as out:
+                    shutil.copyfileobj(src, out)
         # Find actual root (ZIP may have BAGO-x.y.z/ root folder)
         candidates = [d for d in dest.iterdir() if d.is_dir()]
         if len(candidates) == 1 and (candidates[0] / "bago").exists():
@@ -188,19 +235,26 @@ def _register_unix(bago_root: Path) -> None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def cmd_install(version: str | None = None, upgrade: bool = False, dry_run: bool = False) -> bool:
-    releases = _get_releases(limit=15)
+def cmd_install(version: str | None = None, upgrade: bool = False, dry_run: bool = False, beta: bool = False) -> bool:
+    releases = _get_releases(limit=30)
     if not releases:
         return False
 
     target_release = None
     if upgrade or version is None:
-        target_release = releases[0]  # latest
+        target_release = _latest_beta_installable(releases) if beta else _latest_installable(releases, include_beta=False)
+        if not target_release:
+            channel = "beta" if beta else "estable"
+            print(f"[ERROR] No hay release {channel} instalable con ZIP descargable.")
+            return False
     else:
         target_release = next((r for r in releases if r["tag"] == version or r["tag"] == f"v{version}"), None)
         if not target_release:
             print(f"[ERROR] Version '{version}' no encontrada.")
             print(f"  Versiones disponibles: {', '.join(r['tag'] for r in releases[:5])}")
+            return False
+        if not _is_installable_release(target_release):
+            print(f"[ERROR] La version '{target_release['tag']}' no tiene ZIP descargable.")
             return False
 
     tag = target_release["tag"]
@@ -230,6 +284,13 @@ def cmd_install(version: str | None = None, upgrade: bool = False, dry_run: bool
     if not _download(asset["url"], zip_path, "Descargando"):
         return False
 
+    # Validate ZIP compressed size before touching the active install.
+    size_mb = zip_path.stat().st_size / 1_048_576
+    if size_mb > 100:
+        print(f"[ERROR] ZIP demasiado grande ({size_mb:.1f} MB). Posible inclusion recursiva.")
+        zip_path.unlink(missing_ok=True)
+        return False
+
     # Clean previous
     if version_dir.exists():
         shutil.rmtree(version_dir)
@@ -239,14 +300,6 @@ def cmd_install(version: str | None = None, upgrade: bool = False, dry_run: bool
     # Extract
     extracted = _extract(zip_path, version_dir)
     if not extracted:
-        return False
-
-    # Validate ZIP size (anti-recursive guard)
-    size_mb = zip_path.stat().st_size / 1_048_576
-    if size_mb > 100:
-        print(f"[ERROR] ZIP demasiado grande ({size_mb:.1f} MB). Posible inclusion recursiva.")
-        zip_path.unlink(missing_ok=True)
-        shutil.rmtree(version_dir, ignore_errors=True)
         return False
 
     # Activate (copy/symlink)
@@ -283,9 +336,11 @@ def cmd_list() -> None:
     print("  " + "-" * 50)
     for r in releases:
         tag = r["tag"]
+        channel = "[BETA]" if _is_beta_release(r) else "[STABLE]"
+        installable = "" if _is_installable_release(r) else "[SIN ZIP]"
         installed = "[INSTALADO]" if (VERSIONS_DIR / tag.lstrip("v")).exists() else ""
         active = "[ACTIVO]" if ACTIVE_MARKER.exists() and ACTIVE_MARKER.read_text().strip() == tag else ""
-        print(f"  {tag:<12} {r['name'][:40]:<40} {installed} {active}")
+        print(f"  {tag:<12} {channel:<8} {r['name'][:34]:<34} {installable} {installed} {active}")
     print()
 
 
@@ -293,6 +348,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="BAGO Remote Installer")
     p.add_argument("--version", default=None, help="Version especifica (ej: 3.4.5 o v3.4.5)")
     p.add_argument("--upgrade", action="store_true", help="Reinstalar / actualizar")
+    p.add_argument("--beta", action="store_true", help="Permitir seleccionar la ultima beta instalable")
     p.add_argument("--list", action="store_true", help="Listar releases disponibles")
     p.add_argument("--dry-run", action="store_true", help="Simular sin instalar")
     args = p.parse_args()
@@ -301,7 +357,7 @@ def main() -> int:
         cmd_list()
         return 0
 
-    ok = cmd_install(version=args.version, upgrade=args.upgrade, dry_run=args.dry_run)
+    ok = cmd_install(version=args.version, upgrade=args.upgrade, dry_run=args.dry_run, beta=args.beta)
     return 0 if ok else 1
 
 

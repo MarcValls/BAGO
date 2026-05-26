@@ -107,7 +107,7 @@ _ENTRIES: dict[str, ToolEntry] = {
     ),
     "update": ToolEntry(
         cmd="update", module="bago_update",
-        description="Busca versiones nuevas, actualiza componentes conocidos y repara incompatibilidades del entorno",
+        description="Busca GitHub releases, actualiza BAGO y ofrece beta instalable cuando existe",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_update.py"))],
         stability="experimental",
         risk="mutating",

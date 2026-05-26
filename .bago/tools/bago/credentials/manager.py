@@ -9,6 +9,12 @@ from rich import box
 from rich.table import Table
 
 from ..constants import ACCOUNTS_FILE, CRED_FILE
+from ..provider_state import (
+    expand_provider_ids,
+    load_provider_state,
+    normalized_provider_id,
+    save_provider_state,
+)
 from .accounts import AccountManager
 from .login_flows import LoginFlowsMixin
 
@@ -168,9 +174,48 @@ class CredentialManager(LoginFlowsMixin):
         from ._atomic import atomic_write_json
         atomic_write_json(CRED_FILE, self._creds, indent=2, ensure_ascii=True)
 
+    def _load_provider_state(self) -> dict:
+        return load_provider_state()
+
+    def _save_provider_state(self, data: dict) -> None:
+        save_provider_state(data)
+
+    def _ids_for_provider(self, name: str) -> set[str]:
+        raw = normalized_provider_id(name)
+        ids = expand_provider_ids(raw)
+        for pname, info in self.PROVIDERS.items():
+            canonical = pname.replace("_", "-")
+            bago_provider = str(info.get("bago_provider") or "").replace("_", "-")
+            if raw in {canonical, bago_provider}:
+                ids.update({canonical, bago_provider})
+        ids.discard("")
+        return ids
+
+    def disabled_providers(self) -> set[str]:
+        data = self._load_provider_state()
+        return {normalized_provider_id(x) for x in data.get("disabled", []) if str(x).strip()}
+
+    def is_provider_enabled(self, name: str) -> bool:
+        disabled = self.disabled_providers()
+        return not bool(self._ids_for_provider(name) & disabled)
+
+    def set_provider_enabled(self, name: str, enabled: bool) -> str:
+        data = self._load_provider_state()
+        disabled = self.disabled_providers()
+        ids = self._ids_for_provider(name)
+        if enabled:
+            disabled.difference_update(ids)
+        else:
+            disabled.update(ids)
+        data["disabled"] = sorted(disabled)
+        self._save_provider_state(data)
+        return "activado" if enabled else "desactivado"
+
     def _apply_env(self):
         """Exporta credenciales guardadas como variables de entorno si no existen."""
         for name, info in self.PROVIDERS.items():
+            if not self.is_provider_enabled(name):
+                continue
             env_key = info.get("env")
             if env_key and not os.environ.get(env_key):
                 saved = self._creds.get(name)
@@ -251,6 +296,8 @@ class CredentialManager(LoginFlowsMixin):
         """
         active = []
         for name, info in self.PROVIDERS.items():
+            if not self.is_provider_enabled(name):
+                continue
             if name == "ollama":
                 if self._ollama_ok():
                     active.append("ollama-local")
@@ -296,16 +343,17 @@ class CredentialManager(LoginFlowsMixin):
         active = self.active_bago_providers()
         out = []
         for name, info in self.PROVIDERS.items():
+            if not self.is_provider_enabled(name) and os.environ.get("BAGO_SHOW_DISABLED_PROVIDERS") != "1":
+                continue
             bp = info.get("bago_provider")
             ok = (bp in active) if bp else False
             mark = "✓" if ok else "·"
             if name == "github":
-                tok = os.environ.get("GITHUB_TOKEN", "")
-                state = f"{tok[:8]}..." if tok else "sin credencial"
+                state = "configurado" if ok else "sin credencial"
             elif name == "openai":
                 k = os.environ.get("OPENAI_API_KEY", "")
                 if k:
-                    state = f"API key {k[:4]}…" if len(k) > 4 else "API key"
+                    state = "API key configurada"
                 elif ok:
                     state = "codex login (GPT Plus)"
                 else:
@@ -315,25 +363,27 @@ class CredentialManager(LoginFlowsMixin):
             elif name == "ollama_cloud":
                 k = os.environ.get("OLLAMA_CLOUD_API_KEY", "")
                 if k:
-                    state = f"API key {k[:4]}…" if len(k) > 4 else "API key"
+                    state = "API key configurada"
                 elif ok:
                     state = "ollama signin"
                 else:
                     state = "sin credencial"
             elif name == "opencode":
-                state = self._creds.get("opencode_via") or "sin auth"
+                state = "autenticado" if ok else "sin auth"
             elif name == "sendcm":
                 token = self._creds.get("sendcm", {}).get("api_key", "")
-                email = self._creds.get("sendcm", {}).get("email", "")
                 if token:
-                    state = f"✓ {email}" if email else f"token {token[:6]}…"
+                    state = "configurado"
                     mark = "✓"
                 else:
                     state = "sin credencial"
             else:
                 env_key = info.get("env")
                 val = os.environ.get(env_key, "") if env_key else ""
-                state = (f"{val[:4]}…" if len(val) > 4 else "activo") if val else "sin credencial"
+                state = "configurado" if val else "sin credencial"
+            if not self.is_provider_enabled(name):
+                mark = "·"
+                state = "desactivado"
             out.append((name, f"{name:<14} {mark}  {state:<26}  {info['desc']}"))
         return out
 
@@ -345,7 +395,12 @@ class CredentialManager(LoginFlowsMixin):
         t.add_column("Cuota/Gasto")
         t.add_column("Descripcion")
         for name, info in self.PROVIDERS.items():
+            if not self.is_provider_enabled(name) and os.environ.get("BAGO_SHOW_DISABLED_PROVIDERS") != "1":
+                continue
             quota = "[dim]no comprobada[/dim]"
+            if not self.is_provider_enabled(name):
+                t.add_row(name, "[dim]desactivado[/dim]", "[dim]omitido[/dim]", info["desc"])
+                continue
             if name == "ollama":
                 ok = self._ollama_ok()
                 status = "[green]✓ activo[/green]" if ok else "[red]✗ no disponible[/red]"
@@ -353,8 +408,7 @@ class CredentialManager(LoginFlowsMixin):
             elif name == "openai":
                 k = os.environ.get("OPENAI_API_KEY", "")
                 if k:
-                    masked = f"{k[:4]}…{k[-4:]}" if len(k) > 8 else "●●●"
-                    status = f"[green]✓ API key {masked}[/green]"
+                    status = "[green]✓ API key configurada[/green]"
                     quota = "[yellow]billing/cuota API no verificada[/yellow]"
                 elif self._codex_authed():
                     status = "[green]✓ codex login (GPT Plus)[/green]"
@@ -364,8 +418,7 @@ class CredentialManager(LoginFlowsMixin):
             elif name == "ollama_cloud":
                 k = os.environ.get("OLLAMA_CLOUD_API_KEY", "")
                 if k:
-                    masked = f"{k[:4]}…{k[-4:]}" if len(k) > 8 else "●●●"
-                    status = f"[green]✓ API key {masked}[/green]"
+                    status = "[green]✓ API key configurada[/green]"
                     quota = "[yellow]cuota Ollama Cloud no verificada[/yellow]"
                 elif self._creds.get("ollama_cloud_via") == "ollama_signin":
                     status = "[green]✓ ollama signin (cuenta ollama.com)[/green]"
@@ -379,8 +432,7 @@ class CredentialManager(LoginFlowsMixin):
                 env_key = info.get("env")
                 val = os.environ.get(env_key, "") if env_key else ""
                 if val:
-                    masked = f"{val[:4]}…{val[-4:]}" if len(val) > 8 else "●●●"
-                    status = f"[green]✓ {masked}[/green]"
+                    status = "[green]✓ configurado[/green]"
                     if name == "github":
                         quota = "[yellow]GitHub/Copilot API separado[/yellow]"
                 else:

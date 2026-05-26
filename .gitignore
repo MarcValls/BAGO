@@ -9,5 +9,6 @@ build/
 sessions/
 token_log.json
 .bago/state/health.json
+.bago/state/cli_sessions/
 proyectos/
 tmp/

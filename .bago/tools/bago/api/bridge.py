@@ -224,6 +224,10 @@ def _chat_via_api(session, user_input: str, *, history_input: str = None) -> str
         0,  # API doesn't return prompt tokens separately in this path
     )
 
+    history_msg = history_input if history_input is not None else user_input
+    session.history.append({"role": "user", "content": history_msg})
+    session.history.append({"role": "assistant", "content": result.get("content", "")})
+
     return result.get("content", "")
 
 

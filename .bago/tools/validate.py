@@ -22,9 +22,11 @@ from __future__ import annotations
 import json
 import re
 import sys
-import tempfile
-import zipfile
 from pathlib import Path
+
+from validate_pack import cmd_contents, validate_pack_full as _validate_pack_full
+from validate_sessions import quarantine_cli_invocation_logs
+from validate_workflows import check_w10_desync
 
 # CHG-002: early --test exit
 if "--test" in sys.argv:
@@ -95,9 +97,23 @@ def validate_manifest(root: Path | None = None) -> int:
             print(f"KO\ninvalid JSON: {e}")
             return 1
         if data.get("version") != global_state.get("bago_version"):
-            errors.append(
-                f"version mismatch: pack.json={data.get('version')} state={global_state.get('bago_version')}"
-            )
+            if _os.environ.get("BAGO_VALIDATE_NO_REPAIR") == "1":
+                errors.append(
+                    f"version mismatch: pack.json={data.get('version')} state={global_state.get('bago_version')}"
+                )
+            else:
+                global_state["bago_version"] = data.get("version")
+                try:
+                    state_path.write_text(
+                        json.dumps(global_state, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                    print(
+                        "  WARN global_state.bago_version sincronizado con "
+                        f"pack.json ({data.get('version')})"
+                    )
+                except Exception as exc:
+                    errors.append(f"could not sync state version: {exc}")
 
     for section in ("entrypoints", "contracts", "workflows", "governance", "docs", "bootstrap"):
         for key, value in data.get(section, {}).items():
@@ -211,6 +227,8 @@ def validate_state(root: Path | None = None) -> int:
             errors.append(f"workflow without parseable id: {rel}")
             continue
         workflow_ids.add(m.group(1))
+
+    quarantined_cli_logs = quarantine_cli_invocation_logs(sessions_dir, root, _load)
 
     # Active session consistency
     active_session_id = global_state.get("active_session_id")
@@ -406,6 +424,11 @@ def validate_state(root: Path | None = None) -> int:
     w010_warnings = check_w10_desync(global_state.get("sprint_status", {}))
     for w in w010_warnings:
         print(f"  {w}")
+    if quarantined_cli_logs:
+        print(
+            "  WARN state/sessions contenia logs CLI no protocolares; "
+            f"movidos a state/cli_sessions ({len(quarantined_cli_logs)})"
+        )
 
     if errors:
         print("KO")
@@ -417,167 +440,10 @@ def validate_state(root: Path | None = None) -> int:
     return 0
 
 
-def check_w10_desync(sprint_status: dict) -> list[str]:
-    """WARN-W010: detecta desync entre active_workflow y last_completed_workflow.
-
-    Condición: el mismo workflow está marcado como activo Y ya completado.
-    Esto indica que el flujo fue completado pero no se cerró correctamente.
-
-    Función pura: no modifica estado, no hace I/O. Retorna lista de warnings.
-    """
-    warnings: list[str] = []
-    active_wf = sprint_status.get("active_workflow")
-    last = sprint_status.get("last_completed_workflow") or {}
-    last_code = last.get("code") if isinstance(last, dict) else None
-
-    if (active_wf is not None
-            and last_code is not None
-            and active_wf == last_code):
-        title = last.get("title", "")
-        ended = last.get("ended", "")
-        warnings.append(
-            f"WARN-W010: active_workflow='{active_wf}' coincide con "
-            f"last_completed_workflow='{last_code}' ('{title}', ended={ended}) "
-            f"— el flujo parece completado pero active_workflow no fue limpiado"
-        )
-    return warnings
-
-
 # ── VALIDATE PACK (legacy version + roles checks) ─────────────────────────────
 
 def validate_pack_full(root: Path | None = None) -> int:
-    """Full pack validation: manifest + state + legacy-ref scan + role family checks."""
-    if root is None:
-        root = BAGO_DIR
-
-    if validate_manifest(root) != 0:
-        return 1
-    if validate_state(root) != 0:
-        return 1
-
-    excluded_prefixes = [
-        "docs/migration/", "docs/migration/legacy/",
-        "state/migrated_changes/", "state/migrated_sessions/",
-        "docs/V2_PROPUESTA.md", "ImageStudio/", "tools/dist/",
-    ]
-    legacy_re = re.compile(
-        r"(?:\bV2\.1(?:\.[0-9]+)?\b|\bv2_1\b|\bBAGO[-_\s]+2\.1(?:\.[0-9]+)?\b)",
-        re.IGNORECASE,
-    )
-
-    for p in sorted(root.rglob("*")):
-        if not p.is_file():
-            continue
-        if p.name.startswith("._") or p.name == ".DS_Store":
-            continue
-        rel = str(p.relative_to(root)).replace("\\", "/")
-        if any(rel.startswith(px) for px in excluded_prefixes):
-            continue
-        if p.suffix.lower() not in {".md", ".json", ".txt", ".py"}:
-            continue
-        try:
-            text = p.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, ValueError):
-            continue
-        if legacy_re.search(text):
-            print("KO")
-            print(f"legacy 2.1 reference found outside migration/legacy: {rel}")
-            return 1
-
-    role_dir_to_family = {
-        "gobierno": "government",
-        "produccion": "production",
-        "supervision": "supervision",
-        "especialistas": "specialist",
-    }
-    role_family_re = re.compile(r"^- family:\s*([A-Za-z_]+)\s*$", re.M)
-
-    for p in sorted((root / "roles").glob("*/*.md")):
-        rel             = str(p.relative_to(root)).replace("\\", "/")
-        physical_family = role_dir_to_family.get(p.parent.name)
-        if not physical_family:
-            print("KO")
-            print(f"unknown role directory family for {rel}")
-            return 1
-        text = p.read_text(encoding="utf-8")
-        m    = role_family_re.search(text)
-        if not m:
-            print("KO")
-            print(f"role without parseable family: {rel}")
-            return 1
-        declared = m.group(1).strip()
-        if declared != physical_family:
-            print("KO")
-            print(f"role family mismatch for {rel}: declared={declared} physical={physical_family}")
-            return 1
-
-    print("GO pack")
-    return 0
-
-
-# ── VALIDATE PACK CONTENTS (ZIP) ──────────────────────────────────────────────
-
-_REQUIRED_ZIP_ENTRIES = [
-    "bago",
-    ".bago/tools/tool_registry.py",
-    ".bago/pack.json",
-]
-_FORBIDDEN_ZIP_PREFIXES = [".bago/dist/", ".bago/state/", ".git/"]
-_FORBIDDEN_ZIP_SUFFIXES = ["__pycache__/", ".pyc", ".pyo"]
-
-
-def validate_contents(zip_path: Path) -> list[str]:
-    """Validate a BAGO distributable ZIP. Returns list of errors (empty = valid)."""
-    errors: list[str] = []
-    if not zip_path.exists():
-        return [f"File not found: {zip_path}"]
-    try:
-        with zipfile.ZipFile(zip_path) as zf:
-            names = zf.namelist()
-            # Normalize single root folder in ZIP (e.g. BAGO-3.4.0/.bago/pack.json -> .bago/pack.json)
-            root_prefix = None
-            if names:
-                first = names[0]
-                if "/" in first:
-                    candidate = first.split("/")[0] + "/"
-                    if all(n.startswith(candidate) or n == candidate.rstrip("/") for n in names):
-                        root_prefix = candidate
-            if root_prefix:
-                names = [n[len(root_prefix):] if n.startswith(root_prefix) else n for n in names]
-            for name in names:
-                for prefix in _FORBIDDEN_ZIP_PREFIXES:
-                    if name.startswith(prefix) or "/" + prefix in name:
-                        errors.append(f"Forbidden entry: {name}  (matches: {prefix})")
-                for suffix in _FORBIDDEN_ZIP_SUFFIXES:
-                    if name.endswith(suffix):
-                        errors.append(f"Forbidden entry: {name}  (suffix: {suffix})")
-            for req in _REQUIRED_ZIP_ENTRIES:
-                if req not in names:
-                    errors.append(f"Missing required entry: {req}")
-            with tempfile.TemporaryDirectory() as tmp:
-                try:
-                    zf.extractall(tmp)
-                except Exception as exc:
-                    errors.append(f"Extraction failed: {exc}")
-    except zipfile.BadZipFile as exc:
-        errors.append(f"Bad zip file: {exc}")
-    return errors
-
-
-def cmd_contents(args: list[str]) -> int:
-    if not args:
-        print("Usage: validate contents <BAGO_xxx.zip>")
-        return 1
-    zip_path = Path(args[0])
-    print(f"  🔍 Validating: {zip_path.name}")
-    errors = validate_contents(zip_path)
-    if errors:
-        print(f"  ❌ Pack validation FAILED ({len(errors)} error(s)):")
-        for e in errors:
-            print(f"     {e}")
-        return 1
-    print(f"  ✅ Pack is clean and valid: {zip_path.name}")
-    return 0
+    return _validate_pack_full(root or BAGO_DIR, validate_manifest, validate_state)
 
 
 # ── DISPATCH ──────────────────────────────────────────────────────────────────

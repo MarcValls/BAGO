@@ -29,14 +29,16 @@ def _bee_tick() -> str:
 def _topbar_prompt(route_mode: str) -> FormattedText:
     """Barra superior: avispa animada + ◆ BAGO + ruta + cwd."""
     cols = _shutil.get_terminal_size((80, 24)).columns
-    cwd  = Path.cwd()
+    cwd  = Path(os.environ.get("BAGO_USER_CWD") or Path.cwd())
     bee  = _bee_tick()
     badge = f"{bee}◆ BAGO"
     sep   = "  │  "
-    left  = f" {badge}{sep}{_FW_ROOT}"
+    left  = f" {badge}{sep}FW: {_FW_ROOT}"
     left_w = len(left)
-    right_full  = f"{cwd.name}  ·  {cwd}  "
-    right_short = f"{cwd.name}  "
+    is_system32 = str(cwd).lower().endswith("\\windows\\system32")
+    ws_name = "sin workspace" if is_system32 else cwd.name
+    right_full  = f"WS: {ws_name}  ·  {cwd}  "
+    right_short = f"WS: {ws_name}  "
     right = right_full if left_w + len(right_full) + 2 <= cols else right_short
     pad = max(1, cols - left_w - len(right))
     bar = (left + " " * pad + right)[:cols]
@@ -47,9 +49,29 @@ def _topbar_prompt(route_mode: str) -> FormattedText:
     ])
 
 
-def _bottom_bar() -> list:
+def _bottom_bar(session=None) -> list:
     cols = _shutil.get_terminal_size((80, 24)).columns
-    return [("class:statusbar", "─" * cols)]
+    line = [("class:statusbar", "─" * cols)]
+    if not session or not getattr(session, "timeline_visible", False):
+        return line
+
+    rows = []
+    timeline = []
+    try:
+        timeline = session.timeline_view(limit=6, width=max(48, cols - 4))
+    except Exception:
+        timeline = ["(timeline unavailable)"]
+
+    rows.extend([
+        ("class:statusbar", "\n"),
+        ("class:timeline.title", "Timeline"),
+        ("class:timeline.meta", "  (Ctrl+T para ocultar)"),
+        ("class:statusbar", "\n"),
+    ])
+    for row in timeline:
+        rows.append(("class:timeline.event", f"  {row}"))
+        rows.append(("class:statusbar", "\n"))
+    return line + rows
 
 
 def _prompt_indicator(session) -> str:
@@ -76,5 +98,8 @@ def _prompt_indicator(session) -> str:
 
     if session.tumba_mode:
         indicator += " 🪦"
+
+    if getattr(session, "timeline_visible", False):
+        indicator += " TL"
 
     return indicator

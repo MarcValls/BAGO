@@ -57,11 +57,41 @@ else:
 from .recovery import _ollama_recovery_flow, _cloud_recovery_flow
 
 
+def _try_local_intent_response(session, line: str) -> bool:
+    """Respuestas deterministas para intenciones que un modelo pequeno suele perder."""
+    try:
+        from intent_router import resolve_intent
+        plan = resolve_intent(line)
+    except Exception:
+        return False
+
+    if plan.get("intent") != "idea_feature_config_provider_disable":
+        return False
+
+    response = (
+        "Detecto una idea de producto: permitir desactivar providers o modelos completos. "
+        "La forma canónica es `enabled=false`: BAGO debe ocultarlos del menú, excluirlos "
+        "del routing y no usarlos en fallback. Ya existe el control operativo: "
+        "`/provider off <provider>` y `/provider on <provider>`."
+    )
+    try:
+        session.history.append({"role": "user", "content": line})
+        session.history.append({"role": "assistant", "content": response})
+        session.add_timeline("intent", plan.get("intent", ""), plan.get("rewrite", "")[:160], level="route")
+    except Exception:
+        pass
+    show_response(response, session.model_name, session.provider, label="BAGO")
+    return True
+
+
 if _PROMPT_TOOLKIT_AVAILABLE:
     _COMPLETION_STYLE = Style.from_dict({
         "prompt":                  "bold cyan",
         "statusbar":               "bg:#1e2a3a #7aa2f7 bold",
         "bottom-toolbar":          "bg:#1e2a3a #7aa2f7",
+        "timeline.title":          "bg:#1e2a3a #7dd3fc bold",
+        "timeline.meta":           "bg:#1e2a3a #94a3b8",
+        "timeline.event":          "bg:#111827 #cbd5e1",
         "completion-menu":                  "bg:#1a1a2e #e0e0e0",
         "completion-menu.completion":       "bg:#1a1a2e #e0e0e0",
         "completion-menu.completion.current": "bg:#00aaff #000000 bold",
@@ -86,7 +116,7 @@ class _SimplePromptSession:
         return input(m)
 
 
-def build_prompt_session() -> PromptSession:
+def build_prompt_session(session=None) -> PromptSession:
     """Crea y devuelve el PromptSession con historia, estilo y keybindings."""
     global _PROMPT_TOOLKIT_AVAILABLE
     if not _PROMPT_TOOLKIT_AVAILABLE:
@@ -120,6 +150,18 @@ def build_prompt_session() -> PromptSession:
 
         kb = KeyBindings()
 
+        @kb.add("c-t", eager=True)
+        def _toggle_timeline(event):
+            if session is None:
+                return
+            session.timeline_visible = not getattr(session, "timeline_visible", False)
+            state = "visible" if session.timeline_visible else "oculta"
+            try:
+                session.add_timeline("ui", "timeline", state, level="ui")
+            except Exception:
+                pass
+            event.app.invalidate()
+
         @kb.add("/")
         def _slash_trigger(event):
             buf = event.app.current_buffer
@@ -149,12 +191,16 @@ def build_prompt_session() -> PromptSession:
 def run_repl(session, pt: PromptSession) -> None:
     """Bucle REPL principal — procesa comandos y mensajes de chat."""
     ctrl_c = CtrlCGuard()
+    try:
+        session.add_timeline("ui", "repl", f"{session.provider}/{session.model_name}")
+    except Exception:
+        pass
     while True:
         try:
             if _PROMPT_TOOLKIT_AVAILABLE:
                 line = pt.prompt(
                     message=lambda: _topbar_prompt(_prompt_indicator(session)),
-                    bottom_toolbar=_bottom_bar,
+                    bottom_toolbar=lambda: _bottom_bar(session),
                 ).strip()
             else:
                 line = pt.prompt(message=f"[BAGO|{_prompt_indicator(session)}] > ").strip()
@@ -169,7 +215,18 @@ def run_repl(session, pt: PromptSession) -> None:
 
         if not line:
             continue
+        if line == "/timeline":
+            session.timeline_visible = not getattr(session, "timeline_visible", False)
+            try:
+                session.add_timeline("ui", "timeline", "visible" if session.timeline_visible else "oculta", level="ui")
+            except Exception:
+                pass
+            continue
         if line.startswith("/"):
+            try:
+                session.add_timeline("command", line.split()[0][1:], line[:120], level="command")
+            except Exception:
+                pass
             if not cmd(line, session):
                 break
             continue
@@ -178,6 +235,9 @@ def run_repl(session, pt: PromptSession) -> None:
         if session.tumba_mode:
             ok, name, msg = tumba_add(line)
             console.print(msg)
+            continue
+
+        if _try_local_intent_response(session, line):
             continue
 
         # ── Sustituir {{placeholders}} de la tumba antes de enviar al LLM ───
@@ -190,14 +250,42 @@ def run_repl(session, pt: PromptSession) -> None:
                 llm_input = substituted  # el LLM ve el valor; history conserva {{key}}
 
         try:
+            session.add_timeline("user", "input", line[:120], level="user")
+        except Exception:
+            pass
+
+        history_before = len(getattr(session, "history", []))
+        try:
             result = chat_bridge(session, llm_input, history_input=line)
+            if result and len(getattr(session, "history", [])) == history_before:
+                session.history.append({"role": "user", "content": line})
+                session.history.append({"role": "assistant", "content": result})
             if result:
                 show_response(result, session.model_name, session.provider)
+            assistant_text = result
+            if not assistant_text and getattr(session, "history", None):
+                last_msg = session.history[-1] if session.history else {}
+                if last_msg.get("role") == "assistant":
+                    assistant_text = last_msg.get("content", "")
+            route = session.last_route or {}
+            route_text = f"{route.get('mode', 'manual')} {route.get('provider', session.provider)}/{route.get('model', session.model_name)}"
+            if route.get("reason"):
+                route_text += f" | {route.get('reason')}"
+            if assistant_text:
+                try:
+                    session.add_timeline("route", "decision", route_text, level="route")
+                    session.add_timeline("assistant", "reply", assistant_text[:160].replace("\n", " "), level="assistant")
+                except Exception:
+                    pass
         except KeyboardInterrupt:
             console.print(
                 "\n[dim yellow]⚡ Interrumpido — modelo cancelado. "
                 "Escribe tu siguiente mensaje.[/dim yellow]"
             )
+            try:
+                session.add_timeline("error", "cancelled", "KeyboardInterrupt", level="error")
+            except Exception:
+                pass
         except RuntimeError as exc:
             # Sin modelo disponible: cadena agotada → pantalla de instalación
             if isinstance(exc, OllamaNoModelAvailable):
@@ -210,6 +298,10 @@ def run_repl(session, pt: PromptSession) -> None:
                     border_style="red",
                     expand=False,
                 ))
+                try:
+                    session.add_timeline("error", "no-model", f"{exc.missing}", level="error")
+                except Exception:
+                    pass
                 _ollama_recovery_flow(session, exc.missing)
                 continue
 
@@ -223,6 +315,9 @@ def run_repl(session, pt: PromptSession) -> None:
                 if recovered:
                     try:
                         result = chat_bridge(session, llm_input, history_input=line)
+                        if result and len(getattr(session, "history", [])) == history_before:
+                            session.history.append({"role": "user", "content": line})
+                            session.history.append({"role": "assistant", "content": result})
                         if result:
                             show_response(result, session.model_name, session.provider)
                     except RuntimeError as exc2:
@@ -243,4 +338,8 @@ def run_repl(session, pt: PromptSession) -> None:
                     "[dim]  Prueba /login para registrar providers "
                     "o /switch para cambiar modelo.[/dim]"
                 )
+                try:
+                    session.add_timeline("error", type(exc).__name__, str(exc)[:160].replace("\n", " "), level="error")
+                except Exception:
+                    pass
 

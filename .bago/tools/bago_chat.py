@@ -58,7 +58,7 @@ def main():
 
         session = resolve_session(args)
         run_startup_tasks(session)
-        pt = build_prompt_session()
+        pt = build_prompt_session(session)
         run_repl(session, pt)
 
 if __name__ == "__main__":
