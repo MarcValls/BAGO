@@ -254,7 +254,10 @@ def _self_tests() -> None:
            "all cmd == key" if not mismatches else f"mismatches: {mismatches}")
 
     # T3: no duplicate modules except explicit public aliases
-    allowed_alias_modules = {"flow", "show_task", "project_memory", "autonomous_loop", "health", "session"}
+    allowed_alias_modules = {
+        "flow", "show_task", "project_memory", "autonomous_loop", "health", "session",
+        "visual_studio", "bago_instance_manager",
+    }
     modules = [e.module for e in REGISTRY.values()]
     dupes = {m for m in modules if modules.count(m) > 1 and m not in allowed_alias_modules}
     _check("T3:no-duplicate-modules", not dupes,

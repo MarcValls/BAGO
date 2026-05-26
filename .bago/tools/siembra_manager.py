@@ -53,7 +53,7 @@ SIEMBRA_TOOLS: list[str] = [
     "stale_detector.py", "sprint_summary.py", "bago_utils.py",
     "context_detector.py", "context_map.py", "git_context.py",
     "session_logger.py", "session_opener.py", "session_close_generator.py",
-    "tool_registry.py", "preflight_engine.py",
+    "tool_registry.py", "preflight_engine.py", "bago_siembra_launcher.py",
 ]
 
 # Launcher mínimo que genera la siembra (template)

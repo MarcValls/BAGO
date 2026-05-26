@@ -7,8 +7,30 @@ from _registry_paths import BAGO_ROOT, TOOLS_DIR
 _ENTRIES: dict[str, ToolEntry] = {
     "dashboard": ToolEntry(
         cmd="dashboard", module="pack_dashboard",
-        description="Muestra el dashboard del pack",
+        description="Muestra el dashboard del pack (--public para vista publicable)",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "pack_dashboard.py"))],
+    ),
+    "publish-kit": ToolEntry(
+        cmd="publish-kit", module="publish_kit",
+        description="Genera notas de release y textos cortos para publicar BAGO",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "publish_kit.py"))],
+        layer="generacion",
+        scope="framework",
+        agent="DOCUMENTADOR",
+        stability="experimental",
+        risk="mutating",
+        supports_dry_run=False,
+    ),
+    "demo": ToolEntry(
+        cmd="demo", module="bago_demo",
+        description="Entrada demo de BAGO: dashboard publico, publish-kit y miniapp local",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_demo.py"))],
+        layer="interfaz",
+        scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
     ),
     "ideas": ToolEntry(
         cmd="ideas", module="emit_ideas",

@@ -5,6 +5,7 @@ Uso:
   python pack_dashboard.py           → genera JSON y abre navegador
   python pack_dashboard.py --full    → dashboard legacy en terminal
   python pack_dashboard.py --output  → solo genera JSON
+  python pack_dashboard.py --public  → resumen publicable en terminal
 """
 import argparse
 import json
@@ -121,16 +122,44 @@ def _legacy_dashboard():
 """)
 
 
+def _public_dashboard():
+    generate_json()
+    data = json.loads(JSON_PATH.read_text(encoding="utf-8")) if JSON_PATH.exists() else {}
+    meta = data.get("meta", {})
+    stats = data.get("stats", {})
+    families = data.get("families", [])
+    tools = data.get("tools", [])
+    version = meta.get("version") or "?"
+    visible_agents = sum(len(family.get("agents", [])) for family in families)
+    command_count = stats.get("cli_commands") or len(tools)
+
+    print()
+    print("BAGO PUBLIC DASHBOARD")
+    print("=====================")
+    print(f"Version: {version}")
+    print(f"Agentes visibles: {visible_agents or stats.get('agents_canonical', 0)}")
+    print(f"Comandos CLI: {command_count}")
+    print(f"Tools Python: {stats.get('total_py_tools', 0)}")
+    print(f"MCP tools: {stats.get('mcp_tools', 0)}")
+    print("Canal recomendado: beta hasta smoke test de instalacion limpia")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="BAGO Dashboard")
     parser.add_argument("--full", action="store_true", help="Dashboard legacy en terminal")
     parser.add_argument("--output", action="store_true", help="Solo generar JSON")
+    parser.add_argument("--public", action="store_true", help="Vista publicable en terminal")
     parser.add_argument("--serve", action="store_true", help="Servir via HTTP local")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
     if args.full:
         _legacy_dashboard()
+        return
+
+    if args.public:
+        _public_dashboard()
         return
 
     generate_json()

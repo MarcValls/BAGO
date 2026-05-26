@@ -2,7 +2,7 @@
 # launch_miniapp.sh — Lanza BAGO Mini App (servidor local + ngrok HTTPS)
 # La URL de ngrok se inyecta automáticamente en el bot de Telegram.
 #
-# Uso: bash launch_miniapp.sh [--port 8080]
+# Uso: bash launch_miniapp.sh [--port 8080] [--demo] [--local-only]
 #
 # Requiere:
 #   - Python 3 (ya disponible)
@@ -11,14 +11,28 @@
 
 set -e
 
-PORT=${1:-8080}
+PORT=8080
+DEMO=0
+LOCAL_ONLY=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --port) PORT="$2"; shift 2 ;;
+    --demo) DEMO=1; shift ;;
+    --local-only) LOCAL_ONLY=1; shift ;;
+    *) PORT="$1"; shift ;;
+  esac
+done
 TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)"
 NGROK_BIN="${HOME}/.local/bin/ngrok"
 CONFIG_FILE="$TOOLS_DIR/notify_config.json"
 LOG_FILE="/tmp/bago_miniapp.log"
 NGROK_LOG="/tmp/bago_ngrok.log"
 
-echo "🤖 BAGO Mini App — Lanzando..."
+if [ "$DEMO" = "1" ]; then
+  echo "BAGO Mini App — modo demo"
+else
+  echo "BAGO Mini App — Lanzando..."
+fi
 
 # 1) Matar instancias previas
 pkill -f "bago_miniapp_server.py" 2>/dev/null || true
@@ -37,6 +51,16 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
   exit 1
 fi
 echo "    ✅ Servidor PID $SERVER_PID"
+
+if [ "$LOCAL_ONLY" = "1" ]; then
+  echo ""
+  echo "BAGO Mini App local activa"
+  echo "   Local: http://localhost:$PORT"
+  echo "   Logs:  $LOG_FILE"
+  echo "Para parar: kill $SERVER_PID"
+  wait "$SERVER_PID"
+  exit 0
+fi
 
 # 3) Iniciar ngrok
 echo "[2/3] Iniciando ngrok HTTPS tunnel..."

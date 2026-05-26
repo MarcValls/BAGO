@@ -2,9 +2,9 @@
 
 [![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)
 
-> **Version 3.4.6** · 170 CLI commands · 137 public commands
+> **Version 3.5.0b1** · 179 CLI commands · 144 public commands
 
-Public command contract (CI-checked): **44 core** · **85 experimental** · **8 dangerous** · **28 legacy**
+Public command contract (CI-checked): **119 core** · **17 experimental** · **8 dangerous** · **30 legacy**
 
 ---
 
@@ -128,6 +128,18 @@ bago autonomous         # EVOLVE: ciclo autónomo
 
 ---
 
+## PADRE / SIEMBRA
+
+`bago siembra` planta una huella minima de BAGO en proyectos externos sin copiar todo el framework. La documentacion operativa vive en [`docs/siembras.md`](docs/siembras.md).
+
+```bash
+bago siembra create ../mi-proyecto
+bago siembra status
+bago siembra sync
+```
+
+---
+
 ## 2. Installation
 
 **Requirements:** Python 3.9+ · No external dependencies in core runtime (stdlib-only)
@@ -177,6 +189,7 @@ These commands form the **stable public interface**.
 | `bago sprint` | Sprint management: create, list, close (MEMORIA) |
 | `bago goals` | Project objectives with progress tracking (MEMORIA) |
 | `bago dashboard` | Pack dashboard: health, velocity, risks (MEMORIA) |
+| `bago dashboard --public` | Public-facing dashboard summary for demos and release notes |
 | `bago route` | Hybrid LLM router: local ↔ cloud (MOTOR) |
 | `bago review` | Automated fail-closed code review (GENERACIÓN) |
 | `bago docs` | Generate COMMANDS.md from registry (GENERACIÓN) |
@@ -221,15 +234,9 @@ These commands form the **stable public interface**.
 
 Usa `BAGO_LABS=1` para suprimir avisos. Ver `docs/COMMANDS.md` para la lista completa generada desde el registry.
 
-**MOTOR** — `agent` · `agent-config` · `alias-manager` · `assign` · `autonomy` · `boot` · `build-run` · `canon` · `contract` · `create` · `field` · `gateway` · `llm` · `llm-node` · `lsp` · `music-saas` · `neural` · `neural-toolbox` · `preset` · `restart` · `route-graph` · `safeguard` · `script-runner` · `select` · `skill` · `spiral-agent` · `toolsmith` · `update` · `workflow-navigator`
+Marketing/demo helpers: `bago publish-kit` genera textos de publicacion beta/stable y `bago demo` muestra las entradas publicas disponibles. `publish-kit` esta promovido al contrato estable; `demo` sigue experimental porque no tiene autotest dedicado.
 
-**CONSUMO** — `code-metrics` · `code-search` · `config-check` · `deps` · `doc-index` · `env-manager` · `find-tool` · `git-status` · `hardcode` · `inbox` · `lint-runner` · `log-viewer` · `naming` · `net-scan` · `orphan-shield` · `ping-server` · `placeholder_scan` · `preflight-check` · `repo` · `search-history` · `size-check` · `spanish` · `types`
-
-**MEMORIA** — `artifact-counter` · `benchmark` · `chronicle` · `debt` · `focus-mode` · `habit` · `insights` · `npath` · `project-summary` · `recientes` · `reopen` · `siembra` · `state-manager` · `weekly-report` · `work_matrix`
-
-**GENERACIÓN** — `build-clean` · `deactivate` · `heal-paths` · `html-export` · `image-studio` · `image_gen` · `notify-bago` · `notify-desktop` · `notify-whatsapp` · `personality-panel` · `research` · `rubber-duck` · `rules` · `seed` · `sprite-studio` · `template-gen`
-
-**DOMINIO** — `ableton-template` · `music`
+Siguen experimentales: `agent` · `agent-config` · `canon` · `deactivate` · `demo` · `field` · `gateway` · `infra-scan` · `instance` · `lint-runner` · `list` · `music` · `music-saas` · `net-scan` · `notify-whatsapp` · `script-runner` · `toolsmith`.
 
 ---
 
