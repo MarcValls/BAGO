@@ -31,3 +31,5 @@ sync-*.ps1
 sync2.ps1
 AGENTS.md
 sitecustomize.py
+
+bago-knowledge/
