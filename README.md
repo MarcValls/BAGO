@@ -331,3 +331,10 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 *BAGO 3.4.4 · Built with BAGO · May 2026*
+
+
+## Instalación en disco local
+
+- Disco: C:\bago_true
+- USB: E:\bago_fw
+- Sync: python .bago/tools/bago_sync_bidirectional.py
