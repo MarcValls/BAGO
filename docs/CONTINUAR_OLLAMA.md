@@ -76,3 +76,5 @@ bago llm chat "hola"
 - bago launch --local funciona desde C:\bago_true
 - bago llm status detecta modelos locales en ambas instalaciones
 - Sync probado y OK
+
+<!-- SYNC_OK: bidirectional sync verified -->
