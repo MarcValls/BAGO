@@ -1,7 +1,7 @@
 {
   "timestamp": "2026-05-19T22:53:51.482767",
   "project": {
-    "cwd": "C:\\Users\\AMTEC_Terminal_1º\\BAGO",
+    "cwd": "E:\\bago_fw",
     "is_git": true,
     "repo_name": "BAGO",
     "branch": "main",
@@ -23,7 +23,7 @@
       "cmd"
     ],
     "project_type": "python",
-    "repo_root": "C:/Users/AMTEC_Terminal_1º/BAGO"
+    "repo_root": "E:/bago_fw"
   },
   "readme_summary": "# BAGO CLI — Orquestador de IA · A.M. TECHNOLOGIES\n\n[![BAGO Code Health](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/bago.yml)\n\n> **Version 3.4.4** · 160 CLI commands · 127 public commands\n\nPublic command contract (CI-checked): **39 core** · **80 experimental** · **8 dangerous** · **28 legacy**\n\n---\n\n## 🚀 Empieza aquí\n\n```bash\nbago launch       # abre el chat con BAGO — orquestador central\n```\n\n```\n             ████",
   "field_summary": "Nodos disponibles: codex; Polo local: bago-local; Polo código: codex/gpt-5.4",
