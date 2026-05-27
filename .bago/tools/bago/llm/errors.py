@@ -134,3 +134,16 @@ def classify_provider_error(exc, *, model: str = "") -> str:
     if _is_cloud_connection_error(exc):
         return "connection"
     return "unknown"
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

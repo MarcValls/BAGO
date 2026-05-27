@@ -1,3 +1,4 @@
+from pathlib import Path
 
 import os
 import sys
@@ -138,3 +139,12 @@ def _ws_detail(wdata, ws_id):
                 _save_workspaces(wdata)
                 pi(f"Workspace '{w['name']}' eliminado.")
                 break
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

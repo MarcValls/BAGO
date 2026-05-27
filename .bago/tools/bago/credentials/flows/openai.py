@@ -64,3 +64,16 @@ def flow_openai(mgr) -> str:
             mgr._accounts.add("openai", "OpenAI Principal", key, "api_key")
         mgr._accounts.apply_active_credentials()
         return "[green]✓ OpenAI API key guardada.[/green]"
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

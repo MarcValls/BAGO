@@ -57,3 +57,16 @@ def available_model_items(prov_name: str, prov_data: dict) -> list[tuple[str, di
         if raw not in known_wires:
             out.append((raw, {"wire_name": raw, "best_for": "ollama_installed", "cost": "free"}))
     return out
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

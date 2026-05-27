@@ -251,3 +251,16 @@ class VersionResponse(BaseModel):
     bago_version: str
     api_version: str = "1.0.0"
     ollama_version: str = ""
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

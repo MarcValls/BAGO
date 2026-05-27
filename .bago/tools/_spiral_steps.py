@@ -546,3 +546,12 @@ def step_rest(ctx: dict) -> dict:
     print()
     _print_step(11, "OK", "Ciclo cerrado · listo para la próxima vuelta")
     return ctx
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

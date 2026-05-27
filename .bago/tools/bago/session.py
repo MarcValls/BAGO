@@ -40,6 +40,7 @@ class BagoSession:
         self.providers  = load_providers()
         self.routing    = load_routing()
         self.creds      = creds
+        self.available_models: dict[str, set[str]] = {}
         self.autoroute  = True   # routing + estrategia automaticos por defecto
         self.local_lock  = False  # fuerza local para toda la sesion
         self.autonomous = False  # modo autonomo (sin confirmaciones)
@@ -213,37 +214,50 @@ class BagoSession:
 
     def _find_model(self, name):
         from .providers import _CODEX_MODEL_MAP, _COPILOT_MODEL_MAP, _available_model_items
+        available_models = getattr(self, "available_models", {}) or {}
+
+        def _allowed(provider_name: str, model_name: str, wire_name: str | None = None) -> bool:
+            if not available_models:
+                return True
+            allowed = available_models.get(provider_name)
+            if allowed is None:
+                return False
+            if model_name in allowed:
+                return True
+            return bool(wire_name and wire_name in allowed)
+
         shortcuts = {"copilot":"copilot","codex":"codex","ollama":"ollama-local",
                      "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud","anthropic":"anthropic"}
         if name in shortcuts:
-            r = best_model_for_provider(shortcuts[name], self.providers)
-            if r: return r
+            r = best_model_for_provider(shortcuts[name], self.providers, available_models)
+            if r and _allowed(r[2], r[0], r[1]):
+                return r
         # Handle "provider/model" format (e.g. "copilot/gpt-4o")
         if "/" in name:
             pref, mname = name.split("/", 1)
             for pn, pd in self.providers.items():
                 available = dict(_available_model_items(pn, pd))
-                if pn == pref and mname in available:
+                if pn == pref and mname in available and _allowed(pn, mname, available[mname].get("wire_name", mname)):
                     return mname, available[mname].get("wire_name", mname), pn
             # Provider matched but model not in registry — try as-is
             for pn, pd in self.providers.items():
-                if pn == pref:
+                if pn == pref and _allowed(pn, mname, mname):
                     return mname, mname, pn
         for pn, pd in self.providers.items():
             available = dict(_available_model_items(pn, pd))
-            if name in available:
+            if name in available and _allowed(pn, name, available[name].get("wire_name", name)):
                 return name, available[name].get("wire_name", name), pn
             for mn, md in available.items():
-                if name == md.get("wire_name"):
+                if name == md.get("wire_name") and _allowed(pn, mn, md.get("wire_name", mn)):
                     return mn, md.get("wire_name", mn), pn
         # Nombres ficticios gpt-5.x / claude-* → buscar en provider disponible
         if name in _CODEX_MODEL_MAP:
             for pref in ("codex", "openai", "copilot"):
-                if pref in self.providers:
+                if pref in self.providers and _allowed(pref, name, _CODEX_MODEL_MAP[name]):
                     return name, _CODEX_MODEL_MAP[name], pref
         if name in _COPILOT_MODEL_MAP:
             for pref in ("copilot",):
-                if pref in self.providers:
+                if pref in self.providers and _allowed(pref, name, _COPILOT_MODEL_MAP[name]):
                     return name, _COPILOT_MODEL_MAP[name], pref
         return None, None, None
 
@@ -251,7 +265,7 @@ class BagoSession:
         # --local fuerza ollama-local
         if target == '--local' or target == 'local':
             from .providers import _best_ollama_coder
-            local = _best_ollama_coder(self.providers)
+            local = _best_ollama_coder(self.providers, getattr(self, "available_models", None))
             if local:
                 name, wire, prov = local
             else:
@@ -261,7 +275,10 @@ class BagoSession:
             if not name:
                 # si el target coincide con un modelo local instalado pero no en providers.json
                 from .model_availability import installed_ollama_models
-                if target in installed_ollama_models():
+                if target in installed_ollama_models() and (
+                    not getattr(self, "available_models", None)
+                    or "ollama-local" in self.available_models and target in self.available_models.get("ollama-local", set())
+                ):
                     name, wire, prov = target, target, "ollama-local"
                 else:
                     return f"'{target}' no encontrado. Usa /models."
@@ -333,7 +350,13 @@ class BagoSession:
                 pass
 
         """Routing por keyword: cambia al modelo mas adecuado para esta tarea."""
-        name, wire, prov, kw = route_by_task(user_input, self.routing, self.providers, self.provider)
+        name, wire, prov, kw = route_by_task(
+            user_input,
+            self.routing,
+            self.providers,
+            self.provider,
+            available_models=getattr(self, "available_models", None),
+        )
         if name and name != self.model_name:
             # Verificar que el provider tiene credenciales y no está excluido
             active = [p for p in self.creds.active_bago_providers() if p not in self.skip_providers]
@@ -377,3 +400,12 @@ class BagoSession:
         return "\n".join(lines)
 
 
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

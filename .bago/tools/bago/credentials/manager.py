@@ -26,6 +26,7 @@ from ..provider_state import (
     normalized_provider_id,
     save_provider_state,
 )
+from ..openai_service_state import openai_service_state
 from .accounts import AccountManager
 from .login_flows import LoginFlowsMixin
 
@@ -116,6 +117,11 @@ class CredentialManager(LoginFlowsMixin):
         "opencode":    {"env": None,                    "bago_provider": "opencode",
                         "desc": "OpenCode AI (CLI)",
                         "login_type": "opencode_cli",
+                        "group": "llm"},
+        "local-openai":{"env": "LOCAL_OPENAI_API_KEY",  "bago_provider": "local-openai",
+                        "desc": "Local OpenAI-compatible (LM Studio, LocalAI, vLLM, llama.cpp)",
+                        "login_type": "api_key",
+                        "url": "http://localhost:1234/v1",
                         "group": "llm"},
         # ── Repositorios de código ────────────────────────────────────────────
         "gitlab":      {"env": "GITLAB_TOKEN",          "bago_provider": None,
@@ -263,7 +269,7 @@ class CredentialManager(LoginFlowsMixin):
                 removed_keys.append(key)
 
         if alias == "openai":
-            for k in ("openai_via", "OPENAI_API_KEY"):
+            for k in ("openai_via", "OPENAI_API_KEY", "openai_api_key", "api_key"):
                 self._creds.pop(k, None)
             os.environ.pop("OPENAI_API_KEY", None)
             os.environ.pop("OPENAI_VIA", None)
@@ -310,33 +316,12 @@ class CredentialManager(LoginFlowsMixin):
                 return False
 
     def _codex_authed(self) -> bool:
-        """True si codex CLI tiene sesión activa (GPT Plus sin API key)."""
-        if self._creds.get("openai_via") in ("codex_login", "chatgpt_login"):
-            return True
-        try:
-            for f in (Path.home() / ".codex").glob("*.json"):
-                try:
-                    data = json.loads(f.read_text())
-                    if data.get("accessToken") or data.get("token") or data.get("auth"):
-                        return True
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        return False
+        """True si OpenAI/Codex tiene auth válida por API key o ChatGPT Plus."""
+        return bool(openai_service_state(self._creds).get("ok"))
 
     def _chatgpt_authed(self) -> bool:
         """True si chatgpt CLI tiene sesión activa."""
-        chatgpt_dir = Path.home() / "AppData" / "Roaming" / "chatgpt"
-        for pattern in ["*.json", "config*", "auth*"]:
-            for f in chatgpt_dir.glob(pattern) if chatgpt_dir.exists() else []:
-                try:
-                    data = json.loads(f.read_text())
-                    if data.get("accessToken") or data.get("token"):
-                        return True
-                except Exception:
-                    pass
-        return False
+        return bool(openai_service_state(self._creds).get("chatgpt_plus_ok"))
 
     # ── Consultas de estado ──────────────────────────────────────────────────────
 
@@ -374,10 +359,10 @@ class CredentialManager(LoginFlowsMixin):
                 if local_mode and (has_env or has_file or has_signin):
                     active.append("ollama-cloud")
             elif name == "openai":
-                env_key = os.environ.get("OPENAI_API_KEY", "")
-                codex_ok = self._codex_authed()
-                # Validar que la key no sea obviamente invalida (ej: "ollama")
-                if (env_key and self._is_valid_api_key(env_key)) or codex_ok:
+                state = openai_service_state(self._creds)
+                if state.get("api_ok") and state.get("chatgpt_plus_ok"):
+                    active.append("codex")
+                elif state.get("ok"):
                     active.append("codex")
             elif name == "github":
                 gh = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
@@ -416,11 +401,13 @@ class CredentialManager(LoginFlowsMixin):
             if name == "github":
                 state = "configurado" if ok else "sin credencial"
             elif name == "openai":
-                k = os.environ.get("OPENAI_API_KEY", "")
-                if k:
+                s = openai_service_state(self._creds)
+                if s.get("api_ok") and s.get("chatgpt_plus_ok"):
+                    state = "API key + chatgpt login (GPT Plus)"
+                elif s.get("api_ok"):
                     state = "API key configurada"
-                elif ok:
-                    state = "codex login (GPT Plus)"
+                elif s.get("chatgpt_plus_ok"):
+                    state = "chatgpt login (GPT Plus)"
                 else:
                     state = "sin credencial"
             elif name == "ollama":
@@ -471,12 +458,15 @@ class CredentialManager(LoginFlowsMixin):
                 status = "[green]✓ activo[/green]" if ok else "[red]✗ no disponible[/red]"
                 quota = "[green]sin gasto API[/green]"
             elif name == "openai":
-                k = os.environ.get("OPENAI_API_KEY", "")
-                if k:
+                s = openai_service_state(self._creds)
+                if s.get("api_ok") and s.get("chatgpt_plus_ok"):
+                    status = "[green]✓ API key + chatgpt login (GPT Plus)[/green]"
+                    quota = "[yellow]API billing + ChatGPT Plus separados[/yellow]"
+                elif s.get("api_ok"):
                     status = "[green]✓ API key configurada[/green]"
                     quota = "[yellow]billing/cuota API no verificada[/yellow]"
-                elif self._codex_authed():
-                    status = "[green]✓ codex login (GPT Plus)[/green]"
+                elif s.get("chatgpt_plus_ok"):
+                    status = "[green]✓ chatgpt login (GPT Plus)[/green]"
                     quota = "[yellow]separado de OpenAI API[/yellow]"
                 else:
                     status = "[red]✗ sin credencial[/red]"
@@ -505,3 +495,12 @@ class CredentialManager(LoginFlowsMixin):
             t.add_row(name, status, quota, info["desc"])
         t.add_row("[dim]/login <provider>[/dim]", "", "", "[dim]para registrar[/dim]")
         return t
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

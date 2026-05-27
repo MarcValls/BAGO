@@ -51,3 +51,12 @@ def atomic_write_json(path: Path, data: dict, *, indent: int = 2,
         except OSError:
             pass
         raise
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

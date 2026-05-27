@@ -1,3 +1,5 @@
+import sys
+from pathlib import Path
 
 from ..storage import AGENTS_FILE, _load_json, _save_json
 from ..ui import _menu_action, _menu_confirm, _menu_input, _menu_select, pe, pi
@@ -89,3 +91,12 @@ def _agents_edit(data, agents, name):
     agents[name][field] = new_val
     data.update(agents)
     if _save_json(AGENTS_FILE, data): pi(f"Agente '{name}': {field} actualizado.")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

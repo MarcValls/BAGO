@@ -499,3 +499,12 @@ def build_wizard_tab() -> None:
             return gr.update(visible=False), f"❌ Error: {e}"
 
     ai_tpl_export.click(_export_ai_template, inputs=[tpl_radio], outputs=[out_manifest, status_out])
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

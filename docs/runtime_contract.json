@@ -1,4 +1,4 @@
-{
+﻿{
     "schema": 1,
     "contract_id": "bago.runtime.clean-install",
     "contract_version": "1.0.0",
@@ -15,11 +15,16 @@
             "bago.ps1",
             "bago.ico",
             "bago_core",
+            "docs",
             "LICENSE",
             "README.md",
             "INSTALL.md",
             "CHANGELOG.md",
             "QUICKSTART.md",
+            "SECURITY.md",
+            "install-bago.cmd",
+            "install-bago.sh",
+            "install.sh",
             "install.ps1",
             "runtime_contract.json",
             "smoke-test.ps1"
@@ -110,13 +115,13 @@
         "default_profile": "with-knowledge",
         "profiles": {
             "with-knowledge": {
-                "installer": "install-with-knowledge.ps1",
-                "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-with-knowledge.ps1",
+                "installer": "install-bago.cmd",
+                "command": ".\\install-bago.cmd",
                 "knowledge_included": true
             },
             "without-knowledge": {
-                "installer": "install-without-knowledge.ps1",
-                "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-without-knowledge.ps1",
+                "installer": "install-bago.cmd",
+                "command": ".\\install-bago.cmd -NoKnowledge",
                 "knowledge_included": false
             }
         },

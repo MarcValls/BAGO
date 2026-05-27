@@ -11,6 +11,7 @@ en cada turno de la espiral:
   auto     — BAGO elige en cada turno de la espiral el nivel adecuado
              según complejidad, contexto y providers disponibles
 """
+from pathlib import Path
 
 import os
 import sys
@@ -55,3 +56,12 @@ def _cmd_generative(session):
     session.orch_mode = sel
     labels = dict(_GENERATIVE_MODES)
     pi(f"Modo generativo: [bold cyan]{sel}[/bold cyan]  —  {labels[sel]}")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

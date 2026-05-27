@@ -1,12 +1,40 @@
-# BAGO Framework v3.5.0b1 - Quick Start
+# BAGO Quick Start
 
-Version: 3.5.0b1
+## Instalar
 
-## First Commands
+```powershell
+# Windows
+.\install-bago.cmd
+```
 
 ```bash
-bago version check      # verify version truth
-bago validate           # validate manifest, state, pack
-bago health --quick     # quick health check
-bago autonomous --dry-run  # run integrity scan
+# macOS / Linux
+./install-bago.sh
+```
+
+Abre una terminal nueva si `bago` no se reconoce.
+
+## Primer arranque
+
+```bash
+bago
+```
+
+BAGO revisa dispositivo BAGO, credenciales, knowledge y modelos disponibles.
+
+## Primeros comandos
+
+```bash
+bago portable detect
+bago validate
+bago launch
+```
+
+Dentro del chat:
+
+```text
+/status
+/models
+/routing
+/login
 ```

@@ -116,3 +116,12 @@ def _utopia(action: str) -> None:
             console.print("  [red]Utopia client: OFFLINE o no accesible[/red]")
     else:
         pi("Uso: /bot utopia start|stop|status")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

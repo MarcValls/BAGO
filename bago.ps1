@@ -51,6 +51,42 @@ $pcDocs = Join-Path $env:USERPROFILE "Documents\BAGO\.bago"
 $script:SOURCE = $null
 $script:PRIMARY = $null
 $script:SECONDARY = $null
+$script:DEVICE_SYNC_DONE = $false
+
+function Apply-CredentialPolicy {
+    param([string]$DefaultUserHome)
+
+    $bindingPath = Join-Path $env:USERPROFILE ".bago\device_binding.json"
+    $mode = "session"
+    $userHome = $DefaultUserHome
+
+    $primaryIsRemovable = $false
+    try {
+        $primaryDrive = (Split-Path -Qualifier $script:PRIMARY).TrimEnd('\')
+        if ($primaryDrive) {
+            $driveId = $primaryDrive.TrimEnd(':')
+            $driveInfo = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='${driveId}:'" -ErrorAction SilentlyContinue
+            $primaryIsRemovable = ($driveInfo.DriveType -eq 2)
+        }
+    } catch {}
+
+    if ($script:SOURCE -eq "usb" -or ($script:SOURCE -eq "both" -and $primaryIsRemovable)) {
+        $mode = "device"
+        $userHome = Join-Path $script:PRIMARY "user"
+    } elseif (Test-Path $bindingPath -PathType Leaf) {
+        try {
+            $binding = Get-Content -Raw -LiteralPath $bindingPath | ConvertFrom-Json
+            if ($binding.mode -eq "local" -and $binding.credential_home) {
+                $mode = "local"
+                $userHome = [string]$binding.credential_home
+            }
+        } catch {}
+    }
+
+    New-Item -ItemType Directory -Path $userHome -Force | Out-Null
+    $env:BAGO_USER_HOME = $userHome
+    $env:BAGO_CREDENTIALS_MODE = $mode
+}
 
 function Detect-Source {
     # Buscar .bago en unidades removibles (USB real)
@@ -65,12 +101,6 @@ function Detect-Source {
                 if (Test-Path (Join-Path $cand '.bago') -PathType Container) {
                     $portableBase = $cand
                     break
-                }
-            }
-            if (-not $portableBase) {
-                $legacyUsb = Join-Path $driveRoot '.bago'
-                if (Test-Path $legacyUsb -PathType Container) {
-                    $portableBase = $legacyUsb
                 }
             }
             if ($portableBase) { $usbReal = $portableBase; break }
@@ -113,7 +143,7 @@ function Detect-Source {
         }
     } catch {}
 
-    if ($usbExists -and $isInstalledRuntime) {
+    if ($usbExists -and $isInstalledRuntime -and -not $usbReal) {
         $script:SOURCE = 'installed'
         $script:PRIMARY = $usbBago
         if ($env:BAGO_ALLOW_DEV_SECONDARY -eq "1") {
@@ -124,6 +154,11 @@ function Detect-Source {
             }
         }
         Write-Host "Fuente de verdad: $usbBago (INSTALADO)" -ForegroundColor Green
+    } elseif ($usbReal -and $isInstalledRuntime) {
+        $script:SOURCE = 'both'
+        $script:PRIMARY = $usbReal
+        $script:SECONDARY = $usbBago
+        Write-Host "Fuente de verdad: $usbReal (DISPOSITIVO BAGO). Instalacion: $usbBago" -ForegroundColor Cyan
     } elseif ($usbReal -and $pcPath) {
         if ($runningFromUsb) {
             $script:SOURCE = 'both'
@@ -164,13 +199,12 @@ function Detect-Source {
     }
 
     if ($script:PRIMARY) {
-        $portableUserHome = if ($env:ProgramData) {
+        $defaultUserHome = if ($env:ProgramData) {
             Join-Path $env:ProgramData 'BAGO\user'
         } else {
             Join-Path $script:PRIMARY 'user'
         }
-        New-Item -ItemType Directory -Path $portableUserHome -Force | Out-Null
-        $env:BAGO_USER_HOME = $portableUserHome
+        Apply-CredentialPolicy -DefaultUserHome $defaultUserHome
     }
 }
 
@@ -906,6 +940,8 @@ function Invoke-BagoChat {
         [string[]]$RawArgs = @()
     )
     Detect-Source
+    Invoke-FirstRunWizard
+    Invoke-AutoDeviceSync
     try {
         $env:BAGO_USER_CWD = (Get-Location).ProviderPath
     } catch {}
@@ -931,12 +967,39 @@ function Invoke-BagoChat {
 function Invoke-BagoMenu {
     param([string[]]$RawArgs = @())
     Detect-Source
+    Invoke-FirstRunWizard
+    Invoke-AutoDeviceSync
     $menuScript = Join-Path $script:PRIMARY "tools\bago_menu.py"
     if ($RawArgs -and $RawArgs.Count -gt 0) {
         python $menuScript @RawArgs
     } else {
         python $menuScript
     }
+}
+
+function Invoke-AutoDeviceSync {
+    if ($script:DEVICE_SYNC_DONE) { return }
+    if ($env:BAGO_SKIP_DEVICE_SYNC -eq "1") { return }
+    if ($script:SOURCE -eq "both" -and $script:PRIMARY -and $script:SECONDARY) {
+        Write-Host "Sincronizando dispositivo BAGO..." -ForegroundColor Cyan
+        Sync-USB -direction "auto"
+        $script:DEVICE_SYNC_DONE = $true
+    }
+}
+
+function Invoke-FirstRunWizard {
+    if ($env:CI -or $env:BAGO_SKIP_WIZARD) { return }
+    if (-not $script:PRIMARY) { return }
+    $marker = Join-Path $script:PRIMARY "state\install_complete.json"
+    if (Test-Path $marker -PathType Leaf) { return }
+
+    $wizard = Join-Path $script:PRIMARY "tools\bago_wizard.py"
+    if (-not (Test-Path $wizard -PathType Leaf)) { return }
+    python $wizard
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+    Detect-Source
 }
 
 function Invoke-CanonicalEntry {

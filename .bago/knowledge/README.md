@@ -8,8 +8,14 @@ Este directorio es la capa de conocimiento que puede reflejarse 1:1 con
 ## Layout canónico
 
 - `manifest.json` como índice y contrato.
-- `topics/` como superficie canónica de memoria.
+- `topics/` como superficie canónica de memoria del framework.
 - `examples/` para planes, prompts y casos reproducibles.
+- `projects/` para conocimiento de proyectos personales activos:
+  - `bianca/` — Juego BIANCA (engine, FX, sprites, audio)
+  - `casino/` — Casino Telegram Mini App (slots, TON, RTP)
+  - `music/` — Producción musical (Ableton, synths, secuencias)
+- `sessions/` para arcs de sesión, historiales e informes mensuales.
+- `simulations/` para visualizaciones HTML y referencias interactivas.
 - `schemas/` para validación de contratos.
 - `assets/` para diagramas ligeros y mapas.
 
@@ -24,7 +30,7 @@ Este directorio es la capa de conocimiento que puede reflejarse 1:1 con
 
 Todo lo que vaya a sincronizarse con GitHub debe vivir en rutas estables y
 canónicas. El contenido legacy puede quedarse como referencia, pero la edición
-activa debe apuntar a `topics/`, `examples/`, `schemas/` y `assets/`.
+activa debe apuntar a `topics/`, `examples/`, `projects/`, `sessions/`, `simulations/`, `schemas/` y `assets/`.
 
 ## Publicación
 

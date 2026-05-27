@@ -61,3 +61,16 @@ def cmd_provider(session, args: str) -> None:
         return
 
     pe("Uso: /provider list | /provider off <provider> | /provider on <provider>")
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

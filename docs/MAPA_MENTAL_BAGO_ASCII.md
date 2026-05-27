@@ -1,57 +1,57 @@
-# Mapa Mental BAGO
+﻿# Mapa Mental BAGO
 
 ```text
 BAGO
-â”œâ”€ E:\bago_fw  [checkout/runtime]
-â”‚  â”œâ”€ bago_core/            bootstrap, launcher, installer
-â”‚  â”œâ”€ .bago/                runtime real
-â”‚  â”‚  â”œâ”€ tools/             comandos, validadores, smoke, cosecha
-â”‚  â”‚  â”œâ”€ state/             memoria, sesiones, cambios, evidencias
-â”‚  â”‚  â”œâ”€ docs/              docs canÃ³nicos usados por validaciÃ³n
-â”‚  â”‚  â”œâ”€ knowledge/         memoria de conocimiento
-â”‚  â”‚  â””â”€ pack.json          entrada canÃ³nica del pack
-â”‚  â”œâ”€ install.ps1           instalaciÃ³n Windows
-â”‚  â”œâ”€ smoke-test.ps1        smoke postinstalaciÃ³n
-â”‚  â”œâ”€ runtime_contract.json contrato vivo del runtime
-â”‚  â””â”€ docs/                 documentaciÃ³n humana
-â””â”€ E:\bago_projects\task_manager  [proyecto real visible]
-   â”œâ”€ task_manager.py
-   â””â”€ tasks.json
+Ã¢â€Å“Ã¢â€â‚¬ E:\bago_fw  [checkout/runtime]
+Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ bago_core/            bootstrap, launcher, installer
+Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ .bago/                runtime real
+Ã¢â€â€š  Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ tools/             comandos, validadores, smoke, cosecha
+Ã¢â€â€š  Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ state/             memoria, sesiones, cambios, evidencias
+Ã¢â€â€š  Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ docs/              docs canÃƒÂ³nicos usados por validaciÃƒÂ³n
+Ã¢â€â€š  Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ knowledge/         memoria de conocimiento
+Ã¢â€â€š  Ã¢â€â€š  Ã¢â€â€Ã¢â€â‚¬ pack.json          entrada canÃƒÂ³nica del pack
+Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ install.ps1           instalaciÃƒÂ³n Windows
+Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ smoke-test.ps1        smoke postinstalaciÃƒÂ³n
+Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ runtime_contract.json contrato vivo del runtime
+Ã¢â€â€š  Ã¢â€â€Ã¢â€â‚¬ docs/                 documentaciÃƒÂ³n humana
+Ã¢â€â€Ã¢â€â‚¬ E:\bago_projects\task_manager  [proyecto real visible]
+   Ã¢â€Å“Ã¢â€â‚¬ task_manager.py
+   Ã¢â€â€Ã¢â€â‚¬ tasks.json
 ```
 
 ## Frentes
 
 ```text
 1. Runtime y arranque
-   â”œâ”€ launcher
-   â”œâ”€ installer
-   â”œâ”€ smoke
-   â””â”€ validate
+   Ã¢â€Å“Ã¢â€â‚¬ launcher
+   Ã¢â€Å“Ã¢â€â‚¬ installer
+   Ã¢â€Å“Ã¢â€â‚¬ smoke
+   Ã¢â€â€Ã¢â€â‚¬ validate
 
 2. Estado y memoria
-   â”œâ”€ global_state.json
-   â”œâ”€ sessions / changes / evidences
-   â””â”€ artefactos generados
+   Ã¢â€Å“Ã¢â€â‚¬ global_state.json
+   Ã¢â€Å“Ã¢â€â‚¬ sessions / changes / evidences
+   Ã¢â€â€Ã¢â€â‚¬ artefactos generados
 
 3. Cosecha y salud
-   â”œâ”€ cosecha.py
-   â”œâ”€ health_score.py
-   â””â”€ session history
+   Ã¢â€Å“Ã¢â€â‚¬ cosecha.py
+   Ã¢â€Å“Ã¢â€â‚¬ health_score.py
+   Ã¢â€â€Ã¢â€â‚¬ session history
 
-4. DocumentaciÃ³n canÃ³nica
-   â”œâ”€ docs/
-   â””â”€ .bago/docs/
+4. DocumentaciÃƒÂ³n canÃƒÂ³nica
+   Ã¢â€Å“Ã¢â€â‚¬ docs/
+   Ã¢â€â€Ã¢â€â‚¬ .bago/docs/
 
 5. Proyecto real
-   â””â”€ E:\bago_projects\task_manager
+   Ã¢â€â€Ã¢â€â‚¬ E:\bago_projects\task_manager
 
-6. InstalaciÃ³n
-   â”œâ”€ install.ps1
-   â”œâ”€ bago_core/installer.py
-   â””â”€ E:\START.bat
+6. InstalaciÃƒÂ³n
+   Ã¢â€Å“Ã¢â€â‚¬ install.ps1
+   Ã¢â€Å“Ã¢â€â‚¬ bago_core/installer.py
+   Ã¢â€â€Ã¢â€â‚¬ E:\START.bat
 ```
 
-## QuÃ© estÃ¡ verde
+## QuÃƒÂ© estÃƒÂ¡ verde
 
 ```text
 validate_pack  -> GO
@@ -59,12 +59,12 @@ smoke          -> pass
 health_score   -> 100 green
 ```
 
-## QuÃ© sigue abierto
+## QuÃƒÂ© sigue abierto
 
 ```text
-1. Elegir el Ã¡rbol de verdad para seguir
-2. Separar cÃ³digo de estado generado
-3. Confirmar instalaciÃ³n limpia real
-4. Unificar docs canÃ³nicos
+1. Elegir el ÃƒÂ¡rbol de verdad para seguir
+2. Separar cÃƒÂ³digo de estado generado
+3. Confirmar instalaciÃƒÂ³n limpia real
+4. Unificar docs canÃƒÂ³nicos
 5. Volver a un proyecto concreto
 ```

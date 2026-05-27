@@ -17,7 +17,9 @@ from datetime import datetime
 
 import requests
 
-TOKEN = os.environ.get("BAGO_TELEGRAM_TOKEN", "8519892399:AAHTKzfu_VyLUSpJ-iNjmSn9RcgFOsddeKA")
+TOKEN = os.environ.get("BAGO_TELEGRAM_TOKEN", "")
+if not TOKEN:
+    raise RuntimeError("BAGO_TELEGRAM_TOKEN no está definido en el entorno")
 CHAT_ID = os.environ.get("BAGO_TELEGRAM_CHAT", "7752787448")
 API_URL = f"https://api.telegram.org/bot{TOKEN}"
 OFFSET = 0

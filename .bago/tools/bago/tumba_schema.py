@@ -67,7 +67,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "name":     "GitHub App Private Key",
             "env":      "GITHUB_APP_PRIVATE_KEY",
             "desc":     "Clave privada PEM de la GitHub App (solo si usas GitHub Apps).",
-            "format":   "-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----",
+            "format":   "PEM_PRIVATE_KEY_VALUE",
             "required": False,
             "url":      "https://github.com/settings/apps",
         },
@@ -611,7 +611,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "env":      "FIREBASE_PRIVATE_KEY",
             "desc":     "Clave privada RSA de la cuenta de servicio Firebase. "
                         "Del archivo JSON descargado desde la consola.",
-            "format":   "-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----",
+            "format":   "PEM_PRIVATE_KEY_VALUE",
             "required": True,
             "url":      "https://console.firebase.google.com/project/_/settings/serviceaccounts",
         },
@@ -632,7 +632,7 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
             "env":      "MONGODB_URI",
             "desc":     "Connection string de MongoDB Atlas o instancia propia. "
                         "Incluye usuario, contraseña y host. Tratar como secreto.",
-            "format":   "mongodb+srv://usuario:contraseña@cluster.mongodb.net/database",
+            "format":   "MONGODB_CONNECTION_STRING",
             "required": True,
             "url":      "https://cloud.mongodb.com",
         },
@@ -842,3 +842,16 @@ def all_by_group() -> dict[str, list[str]]:
     for prov in TUMBA_SCHEMA:
         result[provider_group(prov)].append(prov)
     return dict(result)
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

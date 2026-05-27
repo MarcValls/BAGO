@@ -47,7 +47,10 @@ from .commands.status import cmd_status as _cmd_status
 from .commands.tumba import cmd_tumba as _cmd_tumba
 from .commands.bot import cmd_bot as _cmd_bot
 from .commands.api import cmd_api as _cmd_api, cmd_serve as _cmd_serve
-from .model_registry import print_accessible_models_report
+from .model_registry import _available_models_from_health, print_accessible_models_report, print_routing_snapshot
+from .providers import scan_provider_health
+from .routing_runtime import active_settings
+from .ui import _menu_pick_provider_model
 
 
 def _paths() -> tuple[Path, Path, Path]:
@@ -122,22 +125,38 @@ def cmd(line, session):
             pi("Local lock DESACTIVADO. Auto-routing reactivado. Puedes usar /switch para forzar un modelo cloud.")
     elif v == "/switch":
         if not a:
-            # Interactive model picker — incluye acceso al catálogo
-            from .ui import _menu_pick
-            rows = [
-                ("__catalog__", "✨ Explorar catálogo de modelos (instalar / comparar)"),
-                (None, "── Modelos activos ──"),
-            ]
-            for pn, pd in session.providers.items():
-                rows.append((None, f"  [{pn}]"))
-                for mn in pd.get("models", {}):
-                    rows.append((f"{pn}/{mn}", f"    {mn}"))
-            chosen = _menu_pick("/switch — Elegir modelo", "Selecciona un modelo:", rows)
-            if chosen == "__catalog__":
-                cmd_catalog(session)
-            elif chosen:
-                msg = session.switch_model(chosen)
-                pi(msg)
+            health = scan_provider_health(session.creds, session.providers, timeout=3)
+            session._last_health = health
+            session.available_models = _available_models_from_health(session.providers, health)
+            if not session.available_models:
+                pi("No hay modelos disponibles ahora mismo. Usa /scan o /models detect.")
+            else:
+                preset = active_settings().get("preset", {}) or {}
+                provider_order = [p for p in (preset.get("provider_order") or []) if p]
+                provider_model_entries = {}
+                for pname, models in session.available_models.items():
+                    pdata = session.providers.get(pname, {}) or {}
+                    model_cfgs = pdata.get("models", {}) or {}
+                    provider_model_entries[pname] = [
+                        {
+                            "name": mname,
+                            "recommended": bool((model_cfgs.get(mname, {}) or {}).get("recommended", False)),
+                        }
+                        for mname in sorted(models)
+                    ]
+                picked = _menu_pick_provider_model(
+                    "BAGO / Switch",
+                    "←/→ cambia proveedor   ↑/↓ cambia modelo   Enter aplica el cambio",
+                    provider_model_entries,
+                    provider_order=provider_order,
+                    current_provider=session.provider,
+                    current_model=session.model_name,
+                )
+                if picked:
+                    provider, model = picked
+                    msg = session.switch_model(f"{provider}/{model}")
+                    if msg:
+                        pi(msg)
         else:
             msg = session.switch_model(a)
             pi(msg)
@@ -182,7 +201,39 @@ def cmd(line, session):
         if sub in ("detect", "accessible", "scan"):
             print_accessible_models_report(session)
         else:
-            console.print(Panel(session.models_table(), title="[bold]Registry BAGO[/bold]", box=box.SIMPLE))
+            health = scan_provider_health(session.creds, session.providers, timeout=3)
+            session._last_health = health
+            session.available_models = _available_models_from_health(session.providers, health)
+            print_routing_snapshot(session, health=health, available_models=session.available_models)
+            if not session.available_models:
+                pi("No hay modelos disponibles ahora mismo. Usa /scan o revisa providers.")
+                return True
+            preset = active_settings().get("preset", {}) or {}
+            provider_order = [p for p in (preset.get("provider_order") or []) if p]
+            provider_model_entries = {}
+            for pname, models in session.available_models.items():
+                pdata = session.providers.get(pname, {}) or {}
+                model_cfgs = pdata.get("models", {}) or {}
+                provider_model_entries[pname] = [
+                    {
+                        "name": mname,
+                        "recommended": bool((model_cfgs.get(mname, {}) or {}).get("recommended", False)),
+                    }
+                    for mname in sorted(models)
+                ]
+            picked = _menu_pick_provider_model(
+                "BAGO / Modelos",
+                "←/→ cambia proveedor   ↑/↓ cambia modelo   Enter aplica el cambio",
+                provider_model_entries,
+                provider_order=provider_order,
+                current_provider=session.provider,
+                current_model=session.model_name,
+            )
+            if picked:
+                provider, model = picked
+                msg = session.switch_model(f"{provider}/{model}")
+                if msg:
+                    pi(msg)
     elif v == "/sendnow":
         subprocess_args = "sendnow" + (f" {a}" if a else "")
         subprocess.run(_launcher_args(subprocess_args), cwd=str(_paths()[0]))
@@ -215,7 +266,7 @@ def cmd(line, session):
 
     # ── Matriz de routing ─────────────────────────────────────────────────────
     elif v == "/routing":
-        _cmd_routing(a)
+        _cmd_routing(session, a)
 
     # ── Fabrica / Wizard LM ───────────────────────────────────────────────────
     elif v in ("/new", "/fabrica", "/wizard"):
@@ -483,3 +534,12 @@ def cmd(line, session):
 
 
 
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

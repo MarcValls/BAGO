@@ -51,6 +51,8 @@ Uso:
   bago wizard             → wizard de instalación (acepta contrato, instala packs)
   bago wizard --reset     → borra marker y vuelve a ejecutar el wizard
   bago wizard --status    → muestra estado de instalación
+  bago portable detect    → detecta dispositivos BAGO
+  bago portable create E:  → crea dispositivo BAGO en un pendrive
   bago rubber-duck <file> → rubber duck debugging: repite qué hace el código
   bago rubber-duck --last → analiza el último .py modificado
   bago rubber-duck --watch → modo watch (polling, auto-analiza cambios)
@@ -79,6 +81,15 @@ os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 _launcher_path = Path(__file__).resolve()
 _bago_core_dir = _launcher_path.parent
+if str(_bago_core_dir.parent) not in sys.path:
+    sys.path.insert(0, str(_bago_core_dir.parent))
+try:
+    from bago_core import __version__ as BAGO_CLI_VERSION
+    from bago_core.device_state import apply_device_context
+except Exception:
+    BAGO_CLI_VERSION = "3.5.0b1"
+    from device_state import apply_device_context
+
 _user_active = Path.home() / ".bago" / "active" / ".bago"
 _candidate_roots = [
     _bago_core_dir.parent / ".bago",     # repo mode: <root>/.bago
@@ -109,14 +120,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     except AttributeError:
         pass  # Python < 3.7
 
-def _default_user_home() -> Path:
-    if sys.platform == "win32":
-        program_data = os.environ.get("ProgramData")
-        if program_data:
-            return Path(program_data) / "BAGO" / "user"
-    return BAGO_ROOT / "user"
-
-os.environ.setdefault("BAGO_USER_HOME", str(_default_user_home()))
+_DEVICE_CONTEXT = apply_device_context()
 
 _USE_COLOR = sys.stdout.isatty()
 def GREEN(t):  return f"\033[1;32m{t}\033[0m" if _USE_COLOR else t
@@ -1013,14 +1017,42 @@ def _auto_sync(cwd=None):
     except Exception:
         pass
 
+
+def _sync_device_context(args: list[str]) -> None:
+    if os.environ.get("BAGO_SKIP_DEVICE_SYNC") == "1":
+        return
+    if not _DEVICE_CONTEXT.get("device_root"):
+        return
+    cmd = args[0].lower() if args else ""
+    if cmd and cmd not in {"launch", "status", "sync", "validate"}:
+        return
+
+    target = Path(_DEVICE_CONTEXT["device_root"])
+    if target.name.lower() == "bago":
+        target = target.parent
+    portable = TOOLS / "bago_portable.py"
+    if not portable.exists():
+        return
+    print(f"  Dispositivo BAGO: {target} | sincronizando...")
+    try:
+        subprocess.run(
+            [sys.executable, str(portable), "sync", str(target)],
+            cwd=str(BAGO_ROOT.parent),
+            timeout=30,
+        )
+    except Exception as exc:
+        print(f"  WARN: no se pudo sincronizar dispositivo BAGO: {exc}")
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     args = sys.argv[1:]
 
     if args and args[0] in ("--version", "-V"):
-        print("bago 3.4.5")
+        print(f"bago {BAGO_CLI_VERSION}")
         return
+
+    _sync_device_context(args)
 
     # ── First-run wizard ───────────────────────────────────────────────────────
     # Fires on any first run (with or without args) unless bypassed.
@@ -1040,6 +1072,9 @@ def main():
             )
             if _wiz_result.returncode != 0:
                 sys.exit(_wiz_result.returncode)
+            global _DEVICE_CONTEXT
+            _DEVICE_CONTEXT = apply_device_context()
+            _sync_device_context(args)
             if not args:
                 return  # No command given: wizard already showed banner, we're done
             # With args: continue below to dispatch the requested command
@@ -1119,6 +1154,11 @@ def main():
     elif cmd == "wizard":
         subprocess.run(
             [sys.executable, str(TOOLS / "bago_wizard.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "portable":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_portable.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
     elif cmd in ("rubber-duck", "rubber_duck"):
@@ -1314,13 +1354,13 @@ def main():
             print(f"    " + " | ".join(legacy_cmds[:8]) + (" | …" if len(legacy_cmds) > 8 else ""))
         else:
             print("  Comandos disponibles:")
-            print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath | project | siembra | siembra ideas | wizard")
+            print("    bago setup | extensions | versions | registry | last | history | telemetry | neural | heal-paths | npath | project | siembra | siembra ideas | wizard | portable")
             for k in sorted(COMMANDS):
                 print(f"    bago {k}")
         print()
     else:
         import difflib
-        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "rubber-duck", "seed-ideas", "assign"]
+        all_cmds = list(COMMANDS.keys()) + ["setup", "extensions", "versions", "registry", "last", "history", "telemetry", "help", "neural", "heal-paths", "npath", "project", "siembra", "wizard", "portable", "rubber-duck", "seed-ideas", "assign"]
         suggestions = difflib.get_close_matches(cmd, all_cmds, n=1, cutoff=0.5)
         print(f"  Comando desconocido: '{cmd}'")
         if suggestions:

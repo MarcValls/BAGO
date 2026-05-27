@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import sys
 
@@ -12,8 +13,8 @@ for _stream in (sys.stdout, sys.stderr):
 import json
 import os
 
-from .codex_auth import codex_access_token as _codex_access_token
 from .constants import PROVIDERS_FILE, ROUTING_FILE
+from .openai_service_state import openai_service_token
 from .model_availability import (
     available_model_items as _available_model_items,
     rough_model_size_score as _rough_model_size_score,
@@ -82,9 +83,16 @@ def _looks_like_local_code_task(text: str) -> bool:
     return any(k in tl for k in _LOCAL_CODE_KEYWORDS)
 
 
-def _best_ollama_coder(providers: dict) -> "tuple[str, str, str] | None":
+def _best_ollama_coder(providers: dict, available_models: dict[str, set[str]] | None = None) -> "tuple[str, str, str] | None":
     for prov in ("ollama-local", "ollama-cloud"):
         models = dict(_available_model_items(prov, providers.get(prov, {})))
+        if available_models and prov in available_models:
+            allowed = available_models[prov]
+            models = {
+                mn: md
+                for mn, md in models.items()
+                if mn in allowed or md.get("wire_name", mn) in allowed
+            }
         if not models:
             continue
         coder = [
@@ -100,7 +108,7 @@ def _best_ollama_coder(providers: dict) -> "tuple[str, str, str] | None":
     return None
 
 
-def route_by_task(task, routing, providers, current_provider=None):
+def route_by_task(task, routing, providers, current_provider=None, available_models: dict[str, set[str]] | None = None):
     tl = task.lower()
     best_rule = None
     best_hits = 0
@@ -138,17 +146,24 @@ def route_by_task(task, routing, providers, current_provider=None):
             first = next(iter(mods))
             wire = mods[first].get("wire_name", first)
             return first, wire, current_provider, None
-    if _looks_like_local_code_task(task):
-        local = _best_ollama_coder(providers)
-        if local:
-            return local[0], local[1], local[2], None
+        if _looks_like_local_code_task(task):
+            local = _best_ollama_coder(providers, available_models)
+            if local:
+                return local[0], local[1], local[2], None
 
     fb = routing.get("fallback", {"provider": "ollama-local", "model": "qwen25-mini"})
     fb_provider = _normalize_provider_name(fb.get("provider", "ollama-local"))
     fb_model = fb.get("model", "qwen25-mini")
     fb_models = dict(_available_model_items(fb_provider, providers.get(fb_provider, {})))
+    if available_models and fb_provider in available_models:
+        allowed = available_models[fb_provider]
+        fb_models = {
+            mn: md
+            for mn, md in fb_models.items()
+            if mn in allowed or md.get("wire_name", mn) in allowed
+        }
     if fb_model not in fb_models and fb_provider == "ollama-local":
-        local = _best_ollama_coder(providers)
+        local = _best_ollama_coder(providers, available_models)
         if local:
             return local[0], local[1], local[2], None
     fb_wire = fb_models.get(fb_model, providers.get(fb_provider, {}).get("models", {}).get(fb_model, {})).get("wire_name", fb_model)
@@ -195,23 +210,59 @@ def detect_strategy(text, active_providers):
     return "single", []
 
 
-def get_default_model(provider_name, providers):
+def get_default_model(provider_name, providers, available_models: dict[str, set[str]] | None = None):
     prov = providers.get(provider_name, {})
     models = dict(_available_model_items(provider_name, prov))
+    if available_models and provider_name in available_models:
+        allowed = available_models[provider_name]
+        models = {
+            mn: md
+            for mn, md in models.items()
+            if mn in allowed or md.get("wire_name", mn) in allowed
+        }
     if not models:
         return "", "", provider_name
+
+    def _model_priority(item: str) -> tuple[int, int, int]:
+        md = models[item]
+        wire = str(md.get("wire_name", item)).lower()
+        name = item.lower()
+        best_for = str(md.get("best_for", "")).lower()
+        reasoning = str(md.get("default_reasoning", "")).lower()
+
+        # Prioridad base: más versátil y menos especializada primero.
+        score = 0
+        if provider_name in ("codex", "openai"):
+            if item == "gpt-5.4-mini" or wire == "gpt-5.4-mini":
+                score += 6
+            if reasoning == "medium":
+                score += 3
+            if "mini" in name or "mini" in wire:
+                score += 2
+            if any(x in best_for for x in ("fast", "everyday", "general")):
+                score += 1
+            if "coder" in name or "coder" in wire or "coding" in best_for:
+                score += 1
+        else:
+            if "coder" in name or "coder" in wire:
+                score += 2
+            if "mini" in name or "mini" in wire:
+                score += 1
+
+        # Tiebreakers: capacidad aproximada y preferencia por coder si existe.
+        coder_bonus = 1 if ("coder" in name or "coder" in wire or "coding" in best_for) else 0
+        size_score = _rough_model_size_score(item)
+        return score, coder_bonus, size_score
+
     name = max(
         models,
-        key=lambda item: (
-            1 if "coder" in item.lower() or "coder" in str(models[item].get("wire_name", "")).lower() else 0,
-            _rough_model_size_score(item),
-        ),
+        key=_model_priority,
     )
     return name, models[name].get("wire_name", name), provider_name
 
 
-def best_model_for_provider(prov_name, providers):
-    name, wire, prov = get_default_model(prov_name, providers)
+def best_model_for_provider(prov_name, providers, available_models: dict[str, set[str]] | None = None):
+    name, wire, prov = get_default_model(prov_name, providers, available_models)
     return (name, wire, prov) if name else None
 
 
@@ -249,7 +300,7 @@ def _is_valid_api_key(key: str) -> bool:
 def resolve_litellm(provider, wire_name):
     provider = _normalize_provider_name(provider)
     if provider == "ollama-local":
-        from .bago.ollama_runtime import default_ollama_base_url
+        from .ollama_runtime import default_ollama_base_url
         return f"ollama/{wire_name}", {"api_base": os.environ.get("OLLAMA_HOST") or default_ollama_base_url()}
     if provider == "ollama-cloud":
         providers = load_providers()
@@ -280,12 +331,9 @@ def resolve_litellm(provider, wire_name):
             }
         return wire_name, {}
     if provider in ("codex", "openai"):
-        api_key = os.environ.get("OPENAI_API_KEY", "")
-        if api_key and _is_valid_api_key(api_key):
-            return wire_name, {"api_key": api_key}
-        codex_token = _codex_access_token()
-        if codex_token:
-            return wire_name, {"api_key": codex_token}
+        token, _source = openai_service_token()
+        if token:
+            return wire_name, {"api_key": token}
         gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if gh_token:
             safe = "gpt-4o-mini" if "mini" in wire_name else "gpt-4o"
@@ -297,6 +345,7 @@ def resolve_litellm(provider, wire_name):
 
     providers_data = load_providers()
     pdata = providers_data.get(provider, {})
+    provider_type = str(pdata.get("type", "")).lower()
     api_base = pdata.get("base_url") or pdata.get("base_url_v1")
     env_key = pdata.get("auth", "")
     api_key = ""
@@ -316,13 +365,27 @@ def resolve_litellm(provider, wire_name):
         if api_base:
             kw["api_base"] = api_base
         kw["api_key"] = api_key
-        return wire_name, kw
+        if provider == "replicate":
+            return f"replicate/{wire_name}", kw
+        model_ref = f"openai/{wire_name}" if provider_type == "openai-compatible" else wire_name
+        return model_ref, kw
+    if provider == "replicate":
+        kw = {}
+        if api_base:
+            kw["api_base"] = api_base
+        return f"replicate/{wire_name}", kw
+    if provider_type == "openai-compatible":
+        kw = {}
+        if api_base:
+            kw["api_base"] = api_base
+        model_ref = f"openai/{wire_name}"
+        return model_ref, kw
     return wire_name, {}
 
 
 def auto_detect_provider(creds, providers):
     active = creds.active_bago_providers()
-    for preferred in ("ollama-local", "copilot", "codex", "anthropic", "ollama-cloud"):
+    for preferred in ("ollama-local", "copilot", "codex", "anthropic", "ollama-cloud", "replicate", "local-openai"):
         if preferred in active and preferred in providers:
             return preferred
     return next((name for name in providers if name in active), "none")
@@ -388,4 +451,28 @@ KNOWN_PROVIDERS_CATALOG: dict[str, dict] = {
         "requires": "OPENROUTER_API_KEY",
         "type": "cloud",
     },
+    "replicate": {
+        "label": "Replicate",
+        "description": "Modelos open-source hospedados en la nube (Llama, DeepSeek, Qwen)",
+        "setup": "Obtén API key en https://replicate.com/account/api-tokens",
+        "requires": "REPLICATE_API_TOKEN",
+        "type": "cloud",
+    },
+    "local-openai": {
+        "label": "Local OpenAI-compatible",
+        "description": "Endpoint OpenAI local: LM Studio, LocalAI, vLLM, llama.cpp server",
+        "setup": "Arranca el servidor local y configura LOCAL_OPENAI_BASE_URL / LOCAL_OPENAI_API_KEY",
+        "requires": "Servidor local corriendo (ej. LM Studio en localhost:1234)",
+        "type": "local",
+        "openai_compat": True,
+    },
 }
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

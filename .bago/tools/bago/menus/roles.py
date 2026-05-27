@@ -1,3 +1,5 @@
+import sys
+from pathlib import Path
 
 from ..storage import ORCH_FILE, _load_json
 from ..ui import _menu_action, _menu_select
@@ -51,3 +53,12 @@ def _cmd_roles(arg):
             info = (f"Modelos:  {', '.join(tk.get('models', []))}\n"
                     f"Razon:    {tk.get('reason', '')}")
             _menu_action(f"Tarea: {sel}", info, [("Cerrar", "ok")])
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

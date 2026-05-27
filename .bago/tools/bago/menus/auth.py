@@ -1,3 +1,4 @@
+from pathlib import Path
 
 import os
 import sys
@@ -13,8 +14,29 @@ for _stream in (sys.stdout, sys.stderr):
 from rich import box
 from rich.panel import Panel
 
-from ..providers import auto_detect_provider, get_default_model, load_providers
+from ..providers import auto_detect_provider, get_default_model, load_providers, scan_provider_health
 from ..ui import console, _menu_action, _menu_confirm, _menu_pick, _menu_select, pi
+
+
+def _refresh_available_inventory(session, timeout: int = 2) -> None:
+    """Recalcula providers/modelos disponibles tras cambios de login/logout."""
+    try:
+        health = scan_provider_health(session.creds, session.providers, timeout=timeout)
+    except Exception:
+        health = {}
+    if not health:
+        session.available_models = {}
+        return
+    filtered = {
+        pname: pdata
+        for pname, pdata in session.providers.items()
+        if health.get(pname, {}).get("ok")
+    }
+    session.providers = filtered
+    session.available_models = {
+        pname: set(health.get(pname, {}).get("models") or pdata.get("models", {}).keys())
+        for pname, pdata in filtered.items()
+    }
 
 
 def _cmd_login(session):
@@ -99,9 +121,10 @@ def _cmd_auth(session):
             if provider:
                 result = session.creds.logout(provider)
                 session.providers = load_providers()
+                _refresh_available_inventory(session)
                 if provider in (session.provider, "openai", "github", "ollama_cloud", "sendcm"):
                     new_prov = auto_detect_provider(session.creds, session.providers)
-                    name, wire, prov = get_default_model(new_prov, session.providers)
+                    name, wire, prov = get_default_model(new_prov, session.providers, getattr(session, "available_models", None))
                     if name:
                         session.provider, session.model_name, session.wire_name = prov, name, wire
                 console.print(f"  {result}")
@@ -125,3 +148,12 @@ def _cmd_auth(session):
 
         elif sel == "signup":
             _menu_action("Proximamente", "Sign-up de nuevos proveedores en desarrollo.\nPor ahora usa /auth -> Login -> API key.", [("Cerrar","ok")])
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

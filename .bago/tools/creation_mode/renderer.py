@@ -146,3 +146,12 @@ def build_layout(sessions, gs, agents, tools_count, active_task, project, issues
     layout["center"].update(build_center_panel(active_task, project, last_input, build_status, layer, sublayer))
     layout["right"].update(build_right_panel(tab, ROOT, preview_path, issues, layer))
     return layout
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

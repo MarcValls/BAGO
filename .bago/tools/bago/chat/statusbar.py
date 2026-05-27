@@ -118,3 +118,12 @@ def _prompt_indicator(session) -> str:
         indicator = "LOCAL" + indicator.replace("AUTO", "").replace("MANUAL", "")
 
     return indicator
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

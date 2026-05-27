@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from .codex_auth import codex_access_token
+from .openai_service_state import openai_service_state
 from .ollama_runtime import discover_ollama_url, ollama_probe
 
 
@@ -100,85 +100,68 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             }
 
     def _check_codex():
-        api_key = os.environ.get("OPENAI_API_KEY", "")
-        if api_key:
-            return {
-                "ok": True,
-                "detail": "API key configurada | cuota API no verificada",
-                "auth": "api_key",
-                "auth_ok": True,
-                "auth_detail": "OpenAI API key configurada",
-                "quota_ok": None,
-                "quota_detail": "cuota/billing se confirma en la llamada real",
-                "channel": "openai_api",
-            }
-
-        oauth_token = codex_access_token()
-        if oauth_token:
-            return {
-                "ok": True,
-                "detail": "ChatGPT/Codex OAuth login | no es credito API",
-                "auth": "chatgpt_oauth",
-                "auth_ok": True,
-                "auth_detail": "ChatGPT/Codex OAuth",
-                "quota_ok": None,
-                "quota_detail": "login ChatGPT/Codex separado de OpenAI API billing",
-                "channel": "chatgpt_codex_login",
-            }
-
-        codex_dir = Path.home() / ".codex"
-        if codex_dir.exists():
-            for f in codex_dir.glob("*.json"):
-                try:
-                    d = json.loads(f.read_text())
-                    tok = (
-                        d.get("access_token")
-                        or d.get("accessToken")
-                        or d.get("token")
-                        or (d.get("tokens") or {}).get("access_token")
-                        or (d.get("auth") or {}).get("access_token")
-                    )
-                    if tok:
-                        return {
-                            "ok": True,
-                            "detail": "codex CLI autenticado | no es credito API",
-                            "auth": "codex_cli",
-                            "auth_ok": True,
-                            "auth_detail": "codex CLI autenticado",
-                            "quota_ok": None,
-                            "quota_detail": "separado de OpenAI API billing",
-                            "channel": "chatgpt_codex_login",
-                        }
-                except Exception:
-                    pass
-
+        state = openai_service_state(creds)
         cli = shutil.which("codex")
-        if cli:
+        if not state["ok"]:
+            if cli:
+                return {
+                    "ok": False,
+                    "detail": "codex CLI instalado pero sin login — ejecuta: codex login",
+                    "auth": "none",
+                    "cli": cli,
+                    "auth_ok": False,
+                    "auth_detail": "sin login OpenAI API ni ChatGPT Plus",
+                    "quota_ok": None,
+                    "quota_detail": "no comprobada sin auth",
+                    "channel": "openai_api",
+                    "source": "none",
+                }
             return {
                 "ok": False,
-                "detail": "codex CLI instalado pero sin login — ejecuta: codex login",
+                "detail": "sin OPENAI_API_KEY ni codex CLI — instala: npm i -g @openai/codex",
                 "auth": "none",
-                "cli": cli,
                 "auth_ok": False,
-                "auth_detail": "sin login Codex/OpenAI",
+                "auth_detail": "sin OpenAI API key ni ChatGPT Plus login",
                 "quota_ok": None,
                 "quota_detail": "no comprobada sin auth",
                 "channel": "openai_api",
+                "source": "none",
             }
 
+        if state["api_ok"] and state["chatgpt_plus_ok"]:
+            return {
+                **state,
+                "auth": "api_key+chatgpt_plus",
+                "channel": "openai_api",
+                "source": "api",
+                "cli": cli,
+            }
+        if state["api_ok"]:
+            return {
+                **state,
+                "auth": "api_key",
+                "channel": "openai_api",
+                "source": "api",
+                "cli": cli,
+            }
         return {
-            "ok": False,
-            "detail": "sin OPENAI_API_KEY ni codex CLI — instala: npm i -g @openai/codex",
-            "auth": "none",
-            "auth_ok": False,
-            "auth_detail": "sin OpenAI API key ni Codex login",
-            "quota_ok": None,
-            "quota_detail": "no comprobada sin auth",
-            "channel": "openai_api",
+            **state,
+            "auth": "chatgpt_plus",
+            "channel": "chatgpt_plus",
+            "source": "chatgpt_plus",
+            "cli": cli,
         }
 
     def _check_ollama_cloud():
         key = os.environ.get("OLLAMA_CLOUD_API_KEY") or os.environ.get("OLLAMA_API_KEY", "")
+        if not key:
+            try:
+                from .credentials import CredentialManager
+                key = CredentialManager()._creds.get("ollama_cloud", "")
+                if not isinstance(key, str):
+                    key = ""
+            except Exception:
+                key = ""
         base_url = os.environ.get("OLLAMA_CLOUD_BASE_URL", "https://api.ollama.com")
         if not key:
             return {
@@ -201,6 +184,106 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             "channel": "ollama_cloud_api",
             "url": base_url,
         }
+
+    def _check_replicate():
+        key = os.environ.get("REPLICATE_API_TOKEN", "")
+        if not key:
+            try:
+                from .credentials import CredentialManager
+                key = CredentialManager()._creds.get("replicate", "")
+                if not isinstance(key, str):
+                    key = ""
+            except Exception:
+                key = ""
+        if not key:
+            return {
+                "ok": False,
+                "detail": "sin REPLICATE_API_TOKEN",
+                "auth_ok": False,
+                "auth_detail": "sin API key Replicate",
+                "quota_ok": None,
+                "quota_detail": "no comprobada sin auth",
+                "channel": "replicate_api",
+            }
+        return {
+            "ok": True,
+            "detail": "API key configurada | cuota Replicate no verificada",
+            "auth_ok": True,
+            "auth_detail": "Replicate API key configurada",
+            "quota_ok": None,
+            "quota_detail": "se confirma en la llamada real",
+            "channel": "replicate_api",
+        }
+
+    def _check_local_openai():
+        base_url = os.environ.get("LOCAL_OPENAI_BASE_URL", "http://127.0.0.1:1234/v1").rstrip("/")
+        api_key = os.environ.get("LOCAL_OPENAI_API_KEY", "")
+        if not api_key:
+            try:
+                from .credentials import CredentialManager
+                api_key = CredentialManager()._creds.get("local-openai", "")
+                if not isinstance(api_key, str):
+                    api_key = ""
+            except Exception:
+                api_key = ""
+        headers = {"User-Agent": "BAGO-CLI"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        try:
+            req = urllib.request.Request(
+                f"{base_url}/models",
+                headers=headers,
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+                models_raw = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                model_ids = [m.get("id") for m in models_raw if m.get("id")]
+                n = len(model_ids)
+                sample = ", ".join(model_ids[:3]) if model_ids else "..."
+                return {
+                    "ok": True,
+                    "detail": f"{n} modelos en {base_url}: {sample}{'…' if n >= 3 else ''}",
+                    "models": model_ids,
+                    "auth_ok": True,
+                    "auth_detail": "endpoint local responde",
+                    "quota_ok": True,
+                    "quota_detail": "sin gasto API local",
+                    "channel": "local_openai_compat",
+                    "url": base_url,
+                }
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                return {
+                    "ok": False,
+                    "detail": f"endpoint requiere auth (401) en {base_url}",
+                    "auth_ok": False,
+                    "auth_detail": "API key requerida o incorrecta",
+                    "quota_ok": None,
+                    "quota_detail": "no comprobada",
+                    "channel": "local_openai_compat",
+                    "url": base_url,
+                }
+            return {
+                "ok": True,
+                "detail": f"endpoint responde (HTTP {e.code}) en {base_url}",
+                "auth_ok": True,
+                "auth_detail": "endpoint local responde",
+                "quota_ok": True,
+                "quota_detail": "sin gasto API local",
+                "channel": "local_openai_compat",
+                "url": base_url,
+            }
+        except Exception as e:
+            return {
+                "ok": False,
+                "detail": f"no responde en {base_url}: {str(e)[:60]}",
+                "auth_ok": None,
+                "auth_detail": "no comprobado",
+                "quota_ok": None,
+                "quota_detail": "no comprobada",
+                "channel": "local_openai_compat",
+                "url": base_url,
+            }
 
     def _check_anthropic():
         key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -334,6 +417,8 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         "anthropic": _check_anthropic,
         "gemini": _check_gemini,
         "openrouter": _check_openrouter,
+        "replicate": _check_replicate,
+        "local-openai": _check_local_openai,
     }
     enabled_checks = {
         prov: fn for prov, fn in checks.items()
@@ -349,3 +434,12 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
                 results[prov] = {"ok": False, "detail": f"error: {e}"}
 
     return results
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

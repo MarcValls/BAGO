@@ -1,4 +1,8 @@
-﻿$token = "8519892399:AAHTKzfu_VyLUSpJ-iNjmSn9RcgFOsddeKA"
+﻿$token = $env:BAGO_TELEGRAM_TOKEN
+if (-not $token) {
+    Write-Error "FATAL: BAGO_TELEGRAM_TOKEN no definido"
+    exit 1
+}
 $api = "https://api.telegram.org/bot$token"
 $bagoDir = "$env:USERPROFILE\BAGO"
 $logFile = "$env:USERPROFILE\.bago\state\logs\telegram_ps_daemon.log"

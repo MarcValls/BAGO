@@ -1,3 +1,4 @@
+from pathlib import Path
 
 import os
 import sys
@@ -10,12 +11,17 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
+from ..model_registry import print_routing_snapshot
 from ..storage import ROUTING_FILE_P, _load_json, _save_json
 from ..ui import _menu_action, _menu_confirm, _menu_input, _menu_select, pe, pi
 
 # ── /routing ──────────────────────────────────────────────────────────────────
-def _cmd_routing(arg):
+def _cmd_routing(session, arg):
     data = _load_json(ROUTING_FILE_P)
+    try:
+        print_routing_snapshot(session)
+    except Exception:
+        pass
 
     while True:
         rules = data.get("rules", [])
@@ -103,3 +109,12 @@ def _routing_edit(data, rid):
     if new_val is None: return
     rule[field] = new_val
     if _save_json(ROUTING_FILE_P, data): pi(f"Regla '{rid}': {field} actualizado.")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

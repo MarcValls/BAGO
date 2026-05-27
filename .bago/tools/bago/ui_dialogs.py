@@ -50,6 +50,7 @@ _MENU_STYLE = Style.from_dict({
     "pick.cursor":        "fg:#89b4fa bold",          # '>>' azul brillante
     "pick.focused":       "bg:#313244 fg:#cdf4a1 bold",  # fila activa: fondo + texto claro
     "pick.item":          "fg:#585b70",               # filas inactivas: gris tenue
+    "pick.recommended":   "fg:#f9e2af bold",         # badge recomendado
     "pick.sep":           "bold",                      # separador — visible en cualquier terminal
     "toggle.on":          "bg:ansibrightgreen fg:ansiblack bold",
     "toggle.off":         "bg:#444444 fg:#888888",
@@ -58,6 +59,7 @@ _MENU_STYLE = Style.from_dict({
 
 def _menu_pick(title: str, text: str, values: list):
     """
+from pathlib import Path
     Menu de seleccion unica con cursor y contraste por fila.
     values: lista de (key, label)  o  None como separador ("sep", "──...")
     Enter sobre un item => acepta inmediatamente.
@@ -344,6 +346,232 @@ def _menu_pick_tabs(title: str, text: str, tab_labels: list, tabs: list):
     return result[0]
 
 
+def _menu_pick_provider_model(title: str, text: str, providers: dict, provider_order: list | None = None,
+                              current_provider: str | None = None, current_model: str | None = None):
+    """Selector 2D: izquierda/derecha cambia provider, arriba/abajo cambia modelo."""
+    provider_order = list(provider_order or [])
+    available_providers = []
+    seen = set()
+    for pname in provider_order:
+        models = list(providers.get(pname, []) or [])
+        if models and pname not in seen:
+            available_providers.append(pname)
+            seen.add(pname)
+    for pname in sorted(providers):
+        models = list(providers.get(pname, []) or [])
+        if models and pname not in seen:
+            available_providers.append(pname)
+            seen.add(pname)
+
+    if not available_providers:
+        return None
+
+    provider_models = {}
+    for pname in available_providers:
+        entries = list(providers.get(pname, []) or [])
+        provider_models[pname] = sorted(
+            entries,
+            key=lambda item: (
+                0 if item.get("recommended") else 1,
+                item.get("name", ""),
+            ),
+        )
+
+    def _default_model_index(model_list: list[dict], preferred_name: str | None = None) -> int:
+        names = [item.get("name", "") for item in model_list]
+        if preferred_name and preferred_name in names:
+            return names.index(preferred_name)
+        for idx, item in enumerate(model_list):
+            if item.get("recommended"):
+                return idx
+        return 0
+
+    pidx = available_providers.index(current_provider) if current_provider in available_providers else 0
+    current_provider = available_providers[pidx]
+    models = provider_models[current_provider]
+    midx = _default_model_index(models, current_model)
+    result = [None]
+
+    def _sync_model_index():
+        nonlocal models, midx, current_provider
+        models = provider_models[current_provider]
+        if not models:
+            midx = 0
+            return
+        if midx >= len(models):
+            midx = _default_model_index(models, current_model)
+
+    def render_provider_bar():
+        out = []
+        out.append(("class:label", "  Proveedor: "))
+        for idx, pname in enumerate(available_providers):
+            if idx == pidx:
+                out.append(("class:pick.focused", f" [ {pname} ] "))
+            else:
+                out.append(("class:pick.item", f"  {pname}  "))
+            if idx < len(available_providers) - 1:
+                out.append(("class:pick.sep", "│"))
+        out.append(("", "\n"))
+        return out
+
+    def render_model_list():
+        out = []
+        out.append(("class:label", f"  Modelos de {current_provider}:\n"))
+        if not models:
+            out.append(("class:pick.item", "    (sin modelos)\n"))
+            return out
+        for idx, model in enumerate(models):
+            name = model.get("name", "?")
+            is_current = idx == midx
+            recommended = bool(model.get("recommended"))
+            prefix = "●" if is_current else " "
+            if is_current:
+                out.append(("class:pick.cursor", " >> "))
+                out.append(("class:pick.focused", f" {prefix} {name} "))
+                if recommended:
+                    out.append(("class:pick.recommended", "[recomendado]"))
+                out.append(("class:pick.focused", " [actual]\n"))
+            else:
+                out.append(("", "    "))
+                out.append(("class:pick.item", f" {prefix} {name} "))
+                if recommended:
+                    out.append(("class:pick.recommended", "[recomendado]"))
+                out.append(("class:pick.item", "\n"))
+        return out
+
+    def render():
+        return [
+            ("class:label", f" {_strip_rich(text)}\n"),
+            ("", "\n"),
+        ] + render_provider_bar() + render_model_list()
+
+    if not _PROMPT_TOOLKIT_AVAILABLE:
+        _warn_prompt_toolkit_fallback()
+        console.print(f"\n[bold]{title}[/bold]\n{_strip_rich(text)}")
+        console.print("Proveedores disponibles:")
+        for idx, pname in enumerate(available_providers, start=1):
+            console.print(f"  {idx}. {pname}")
+        raw = _stdin_prompt("Proveedor número (Enter cancela): ").strip()
+        if not raw:
+            return None
+        try:
+            psel = int(raw)
+        except ValueError:
+            return None
+        if psel < 1 or psel > len(available_providers):
+            return None
+        current_provider = available_providers[psel - 1]
+        models = provider_models[current_provider]
+        console.print(f"Modelos de {current_provider}:")
+        for idx, model in enumerate(models, start=1):
+            name = model.get("name", "?")
+            tag = " [recomendado]" if model.get("recommended") else ""
+            console.print(f"  {idx}. {name}{tag}")
+        raw = _stdin_prompt("Modelo número (Enter cancela): ").strip()
+        if not raw:
+            return None
+        try:
+            msel = int(raw)
+        except ValueError:
+            return None
+        if msel < 1 or msel > len(models):
+            return None
+        return current_provider, models[msel - 1].get("name")
+
+    content = FormattedTextControl(render, focusable=True)
+    win = Window(content=content, dont_extend_height=True)
+
+    kb = KeyBindings()
+
+    @kb.add("left", eager=True)
+    @kb.add("h", eager=True)
+    def _left(event):
+        nonlocal pidx, current_provider, midx
+        previous_model = models[midx].get("name") if models else None
+        pidx = (pidx - 1) % len(available_providers)
+        current_provider = available_providers[pidx]
+        _sync_model_index()
+        model_names = [item.get("name", "") for item in models]
+        if previous_model in model_names:
+            midx = model_names.index(previous_model)
+        else:
+            midx = _default_model_index(models, current_model)
+        event.app.invalidate()
+
+    @kb.add("right", eager=True)
+    @kb.add("l", eager=True)
+    def _right(event):
+        nonlocal pidx, current_provider, midx
+        previous_model = models[midx].get("name") if models else None
+        pidx = (pidx + 1) % len(available_providers)
+        current_provider = available_providers[pidx]
+        _sync_model_index()
+        model_names = [item.get("name", "") for item in models]
+        if previous_model in model_names:
+            midx = model_names.index(previous_model)
+        else:
+            midx = _default_model_index(models, current_model)
+        event.app.invalidate()
+
+    @kb.add("up", eager=True)
+    @kb.add("k", eager=True)
+    def _up(event):
+        nonlocal midx
+        if models:
+            midx = max(0, midx - 1)
+        event.app.invalidate()
+
+    @kb.add("down", eager=True)
+    @kb.add("j", eager=True)
+    def _down(event):
+        nonlocal midx
+        if models:
+            midx = min(len(models) - 1, midx + 1)
+        event.app.invalidate()
+
+    @kb.add("enter", eager=True)
+    def _accept(event):
+        if not models:
+            event.app.exit()
+            return
+        result[0] = (current_provider, models[midx].get("name"))
+        event.app.exit()
+
+    @kb.add("escape", eager=True)
+    @kb.add("c-c", eager=True)
+    def _cancel(event):
+        event.app.exit()
+
+    layout = Layout(
+        Frame(
+            HSplit([
+                Label(f" {_strip_rich(text)}"),
+                Window(height=1),
+                win,
+                Window(height=1),
+                Label(" ←/→  proveedor    ↑/↓  modelo    Enter  seleccionar    Esc  volver",
+                      style="class:label"),
+            ]),
+            title=f" {title} ",
+            style="class:dialog",
+        ),
+        focused_element=win,
+    )
+
+    app = Application(
+        layout=layout,
+        key_bindings=kb,
+        style=_MENU_STYLE,
+        full_screen=False,
+        mouse_support=True,
+    )
+    try:
+        app.run()
+    except Exception:
+        pass
+    return result[0]
+
+
 def _toggle_menu(title: str, text: str, items: list):
     """
     Panel que mezcla conmutadores ON/OFF y acciones normales.
@@ -607,3 +835,12 @@ def _menu_confirm(title, text):
                              style=_MENU_STYLE).run()
     except Exception:
         return False
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

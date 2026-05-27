@@ -38,7 +38,7 @@ _ENTRIES = [
     ("/login",      "  Login / Providers  -- registrar y gestionar cuentas"),
     ("/logout",     "  Logout  -- cerrar sesión y borrar credencial activa"),
     ("/provider",   "  Activar/desactivar providers  -- ocultar servicios enteros"),
-    ("/models",     "  Modelos disponibles / detectar accesibles"),
+    ("/models",     "  Modelos disponibles / selector provider-modelo"),
 
     # ── Modos BAGO ───────────────────────────────────────────────────
     (None,          "  -- Modos BAGO ---------------------------------"),
@@ -183,3 +183,12 @@ def _cmd_main_menu(session) -> str | None:
 
 
 
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -52,12 +52,40 @@ def _read_text(path: Path) -> str:
         return ""
 
 
+def _registry_text(tools_dir: Path | None = None) -> str:
+    """Return the fused registry source text, including split registry modules."""
+    td = tools_dir or _TOOLS
+    parts = []
+    for path in sorted(td.glob("_registry_entries*.py")):
+        parts.append(_read_text(path))
+    return "\n".join(parts)
+
+
+def _module_exists(module: str, tools_dir: Path | None = None) -> bool:
+    """Resolve registry module names against tools packages and BAGO roots."""
+    td = tools_dir or _TOOLS
+    rel = Path(*module.split("."))
+    candidates = [
+        td / f"{module}.py",
+        td / rel.with_suffix(".py"),
+        td / rel / "__init__.py",
+        _BAGO / "core" / rel.with_suffix(".py"),
+        _BAGO / "agents" / rel.with_suffix(".py"),
+        _BAGO / rel.with_suffix(".py"),
+        _BAGO / rel / "__init__.py",
+    ]
+    return any(path.exists() for path in candidates)
+
+
 def _load_baseline() -> set[str]:
     """Return set of known/accepted orphan stems from orphan_baseline.json."""
-    if not _BASELINE_FILE.exists():
+    baseline_file = _BASELINE_FILE
+    if not baseline_file.exists():
+        baseline_file = _BAGO / "state.example" / "orphan_baseline.json"
+    if not baseline_file.exists():
         return set()
     try:
-        data = json.loads(_BASELINE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(baseline_file.read_text(encoding="utf-8"))
         return set(data.get("known_orphans", []))
     except Exception:
         return set()
@@ -72,7 +100,7 @@ def scan_files(tools_dir: Path | None = None) -> tuple[list[str], list[str]]:
     baseline_orphans = those in orphan_baseline.json (accepted/known).
     """
     td = tools_dir or _TOOLS
-    registry_text = _read_text(_REGISTRY_FILE)
+    registry_text = _registry_text(td)
     baseline = _load_baseline()
 
     orphans: list[str] = []
@@ -98,13 +126,13 @@ def scan_files(tools_dir: Path | None = None) -> tuple[list[str], list[str]]:
 def scan_registry(tools_dir: Path | None = None) -> list[str]:
     """Return stems declared in _registry_entries.py whose .py file is missing."""
     td = tools_dir or _TOOLS
-    registry_text = _read_text(_REGISTRY_FILE)
+    registry_text = _registry_text(td)
 
     # Extract module= values from registry
     modules = re.findall(r'module\s*=\s*"([^"]+)"', registry_text)
     missing: list[str] = []
     for mod in modules:
-        if not (td / f"{mod}.py").exists():
+        if not _module_exists(mod, td):
             missing.append(mod)
     return sorted(set(missing))
 
@@ -122,7 +150,7 @@ def scan_routes(root: Path | None = None) -> list[str]:
         return []
 
     script_text = _read_text(bago_script)
-    registry_text = _read_text(_REGISTRY_FILE)
+    registry_text = _registry_text(_TOOLS)
 
     # Extract quoted command names from dispatcher lines like:
     #   "cmd-name" | 'cmd-name'

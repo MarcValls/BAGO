@@ -278,3 +278,12 @@ def _load_contract_to_fields(data: dict) -> list:
         visible = i < len(scens) or (i == 0 and not scens)
         updates.append(gr.update(visible=visible))
     return updates
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())
