@@ -170,7 +170,7 @@ _BAGO_ALIASES: dict[str, str] = {
     "model-gate": "model-gate", "token-analytics": "token-analytics",
     "token-brake": "token-brake", "spiral-prompt": "spiral-prompt",
     "splash": "splash", "menu": "menu", "start": "start",
-    "shell": "shell", "last": "last", "history": "history",
+    "shell": "shell", "last": "last", "history": "history", "timeline": "timeline",
     "portable": "portable", "sendnow": "sendnow", "heal-paths": "heal-paths",
     "dev": "dev", "v2": "v2", "workflow": "workflow",
     "efficiency": "efficiency", "seed-ideas": "seed-ideas",

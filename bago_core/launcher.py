@@ -67,6 +67,8 @@ Uso:
   bago bot utopia         → arranca el cliente Utopia
   bago shell              → BAGO Interactive Shell (BISH): REPL nativo
                             compatible con comandos BAGO y del sistema
+  bago timeline           → visor HTML de timeline, métricas y sesiones
+                            regenera datos desde state/ y abre navegador
   bago help               → este mensaje
 
 Instalar como alias global (Unix):
@@ -1298,6 +1300,19 @@ def main():
     elif cmd == "shell":
         subprocess.run(
             [sys.executable, str(TOOLS / "bago_shell.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+
+    elif cmd == "timeline":
+        """bago timeline → regenera timeline_data.json y abre visor HTML."""
+        refresh = "--no-refresh" not in rest
+        port = 8766
+        for i, arg in enumerate(rest):
+            if arg == "--port" and i + 1 < len(rest):
+                port = int(rest[i + 1])
+        extra = ["--refresh", "--serve", "--port=" + str(port)] if refresh else ["--serve", "--port=" + str(port)]
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_visualizer.py")] + extra,
             cwd=str(BAGO_ROOT.parent),
         )
 
