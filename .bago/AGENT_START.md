@@ -64,3 +64,25 @@ Ver reglas completas en `state/scenarios/ESCENARIO-MEJORA-ARTEFACTOS-FOCO.md`.
 - No activar todos los roles por defecto.
 - No mezclar bootstrap con ejecución principal.
 - No tocar decisiones congeladas sin justificación explícita.
+
+## Instalación dual activa
+
+Actualmente BAGO opera en dos instalaciones sincronizadas:
+- **USB/Pendrive**: E:\bago_fw — instalación portátil original
+- **Disco local**: C:\bago_true — clone del motor para trabajo rápido
+
+Ambas apuntan a GitHub como fuente de verdad:
+- Motor: https://github.com/MarcValls/BAGO
+- Knowledge: https://github.com/MarcValls/bago-knowledge
+
+### Comando de sincronización
+`ash
+python .bago/tools/bago_sync_bidirectional.py --dry-run   # previsualizar
+python .bago/tools/bago_sync_bidirectional.py             # sync + push
+`
+
+### Motor LLM local (Ollama)
+- ago llm status — ver estado
+- ago llm models — catálogo
+- ago launch --local — iniciar con modelo local
+- Dentro del chat: /local → fuerza local; /escalar → permite cloud
