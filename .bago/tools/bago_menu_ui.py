@@ -17,6 +17,23 @@ import subprocess
 import sys
 
 from bago_menu_data import MENU
+
+# ── Restaurar Quick Edit Mode en Windows (curses lo deshabilita) ──────────────
+def _restore_windows_quick_edit() -> None:
+    """Re-habilitar clic-derecho → pegar en consola Windows bajo curses."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        _k = ctypes.windll.kernel32
+        for _handle_id in (-10, -11):  # STD_INPUT, STD_OUTPUT
+            _h = _k.GetStdHandle(_handle_id)
+            _m = ctypes.c_ulong(0)
+            if _k.GetConsoleMode(_h, ctypes.byref(_m)):
+                _k.SetConsoleMode(_h, _m.value | 0x0040)  # ENABLE_QUICK_EDIT_MODE
+    except Exception:
+        pass
+# ───────────────────────────────────────────────────────────────────────────────
 from bago_menu_loaders import ROOT, STATE, _live_data
 
 SIDEBAR_W = 20
@@ -158,6 +175,7 @@ def _clamp(val: int, lo: int, hi: int) -> int:
 def _draw(stdscr: "curses._CursesWindow") -> str | None:
     _init_colors()
     curses.curs_set(0)
+    _restore_windows_quick_edit()
 
     # GAP-1: filter menu based on devmode at draw time
     menu = _active_menu()
@@ -334,3 +352,29 @@ def _draw(stdscr: "curses._CursesWindow") -> str | None:
                     break
 
     return result
+
+
+def run_tests() -> int:
+    """Self-test stub: verify module imports and key symbols exist."""
+    results = []
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_test_mod", __file__)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        results.append(("import", True, "module loads OK"))
+    except Exception as e:
+        results.append(("import", False, str(e)))
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    total = len(results)
+    for name, ok, detail in results:
+        status = "OK" if ok else "FAIL"
+        print(f"  [{status}] {name}: {detail}")
+    print(f"\n  {passed}/{total} tests passed")
+    return 0 if passed == total else 1
+
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(run_tests())
+
