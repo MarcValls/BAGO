@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "install_id": "bago-dual-2026-05-27",
+  "motor": {
+    "repo_url": "https://github.com/MarcValls/BAGO.git",
+    "local_path": "."
+  },
+  "knowledge": {
+    "repo_url": "https://github.com/MarcValls/bago-knowledge.git",
+    "local_path": "bago-knowledge"
+  },
+  "paths_relative_to": "motor_root"
+}
