@@ -59,3 +59,20 @@ bago llm chat "hola"
   - puerto `11434`
   - salida de `bago llm status`
 - No mezclar esta línea de trabajo con `send.now`, `portable` o sincronización de repos.
+
+## Instalacion en disco local (C:\bago_true)
+
+**Estructura:**
+- C:\bago_true -> clone del repo motor (MarcValls/BAGO)
+- C:\bago_true\bago-knowledge -> clone del repo knowledge (MarcValls/bago-knowledge)
+- E:\bago_fw\.bago\knowledge -> ahora tambien es un clone de bago-knowledge
+
+**Bidireccionalidad:**
+- Ambos apuntan a GitHub como origin (fuente de verdad)
+- Remotes cruzados: usb apunta a E:\bago_fw, disk apunta a C:\bago_true
+- El script bago_sync_bidirectional.py auto-commitea, hace pull/push entre locales y sube a GitHub
+
+**Estado:**
+- bago launch --local funciona desde C:\bago_true
+- bago llm status detecta modelos locales en ambas instalaciones
+- Sync probado y OK
