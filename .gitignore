@@ -9,7 +9,12 @@ build/
 sessions/
 token_log.json
 .bago/knowledge/
+.bago/user/
 .bago/logs/
+.bago/**/credentials.json
+.bago/**/accounts.json
+.bago/**/token_log.json
+.bago/**/provider_state.json
 .bago/state/*.db
 .bago/state/*.jsonl
 .bago/state/images/
@@ -45,4 +50,11 @@ sync2.ps1
 AGENTS.md
 sitecustomize.py
 
+*.bak
+*.backup
+.bago/knowledge_backup/
+.bago/knowledge/archives/
+
 bago-knowledge/
+credentials.json
+accounts.json
