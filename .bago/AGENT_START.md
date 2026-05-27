@@ -44,7 +44,7 @@ Si el workflow elegido requiere contexto que aún no existe, primero sugerir las
 
 Mientras `global_state.json → active_scenarios` incluya `ESCENARIO-001`, **toda sesión productiva debe pasar el preflight antes de arrancar**:
 
-```bash
+````bash
 python3 tools/session_preflight.py \
   --objetivo "Verbo + objeto + para que [done]" \
   --roles "role_principal,role_apoyo" \
