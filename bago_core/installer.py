@@ -18,6 +18,14 @@ import zipfile
 from pathlib import Path
 from urllib.request import urlopen, Request
 
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # ── Config ────────────────────────────────────────────────────────────────────
 REPO = "MarcValls/BAGO"
 API_RELEASES = f"https://api.github.com/repos/{REPO}/releases"
@@ -167,13 +175,27 @@ def _bootstrap_state(bago_root: Path) -> bool:
     return True
 
 
+def _launcher_command(bago_root: Path) -> list[str]:
+    candidates = []
+    if sys.platform == "win32":
+        candidates.extend([bago_root / "bago.cmd", bago_root / "bago"])
+    else:
+        candidates.extend([bago_root / "bago", bago_root / "bago.cmd"])
+    for candidate in candidates:
+        if candidate.exists():
+            if candidate.suffix.lower() in {".cmd", ".bat"}:
+                return ["cmd", "/c", str(candidate)]
+            return [sys.executable, str(candidate)]
+    return []
+
+
 def _validate(bago_root: Path) -> bool:
-    validate_script = bago_root / "bago"
-    if not validate_script.exists():
-        print(f"[ERROR] Script 'bago' no encontrado en {bago_root}")
+    launcher = _launcher_command(bago_root)
+    if not launcher:
+        print(f"[ERROR] Launcher 'bago' no encontrado en {bago_root}")
         return False
     print(f"  [Validando] bago validate...")
-    r = subprocess.run([sys.executable, str(validate_script), "validate"], cwd=str(bago_root), capture_output=True, text=True)
+    r = subprocess.run(launcher + ["validate"], cwd=str(bago_root), capture_output=True, text=True)
     ok = r.returncode == 0 and "GO manifest" in r.stdout and "GO state" in r.stdout and "GO pack" in r.stdout
     if ok:
         print(f"  [OK] validate → GO manifest / GO state / GO pack")
@@ -181,6 +203,25 @@ def _validate(bago_root: Path) -> bool:
         print(f"  [KO] validate fallo (rc={r.returncode})")
         if r.stdout:
             print(r.stdout[:500])
+    return ok
+
+
+def _smoke(bago_root: Path) -> bool:
+    launcher = _launcher_command(bago_root)
+    if not launcher:
+        print(f"[ERROR] Launcher 'bago' no encontrado en {bago_root}")
+        return False
+    print(f"  [Smoke] Ejecutando bago smoke...")
+    r = subprocess.run(launcher + ["smoke"], cwd=str(bago_root), capture_output=True, text=True)
+    ok = r.returncode == 0 and "smoke[pack]" in (r.stdout or "") and "pass" in (r.stdout or "")
+    if ok:
+        print("  [OK] smoke → validate_pack / health_score / última cosecha")
+    else:
+        print(f"  [KO] smoke fallo (rc={r.returncode})")
+        if r.stdout:
+            print(r.stdout[:500])
+        if r.stderr:
+            print(r.stderr[:500], file=sys.stderr)
     return ok
 
 
@@ -311,7 +352,7 @@ def cmd_install(version: str | None = None, upgrade: bool = False, dry_run: bool
     ACTIVE_MARKER.write_text(tag, encoding="utf-8")
 
     # Bootstrap + Validate
-    ok = _bootstrap_state(active_root) and _validate(active_root)
+    ok = _bootstrap_state(active_root) and _validate(active_root) and _smoke(active_root)
     if not ok:
         print("[KO] Instalacion fallida en validacion. Revisa el paquete.")
         return False

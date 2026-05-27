@@ -4,7 +4,7 @@
     "contract_version": "1.0.0",
     "description": "Clean-install policy that separates runtime, mutable state, syncable knowledge, and development residue.",
     "targets": {
-        "install_root": "C:\\Program Files\\BAGO",
+        "install_root": "E:\bago_fw",
         "runtime_root": ".bago",
         "user_home": "C:\\ProgramData\\BAGO\\user"
     },

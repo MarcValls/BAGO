@@ -11,6 +11,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 import json
+import subprocess
 from pathlib import Path
 
 from rich import box
@@ -46,6 +47,7 @@ from .commands.status import cmd_status as _cmd_status
 from .commands.tumba import cmd_tumba as _cmd_tumba
 from .commands.bot import cmd_bot as _cmd_bot
 from .commands.api import cmd_api as _cmd_api, cmd_serve as _cmd_serve
+from .model_registry import print_accessible_models_report
 
 
 def _paths() -> tuple[Path, Path, Path]:
@@ -99,6 +101,25 @@ def cmd(line, session):
             console.print(f"  {result}")
     elif v in ("/provider", "/providers"):
         _cmd_provider(session, a)
+    elif v == "/local":
+        if a.lower() in ("off", "no", "false"):
+            session.local_lock = False
+            pi("Modo local lock: DESACTIVADO. Auto-routing puede escalar a cloud.")
+        else:
+            session.local_lock = True
+            session.autoroute = False
+            msg = session.switch_model("--local", silent=True)
+            if msg is None:
+                pi(f"Modo local lock: ACTIVADO. Modelo: {session.model_name} ({session.provider}). Usa /escalar para romper lock.")
+            else:
+                pi(msg)
+    elif v == "/escalar":
+        if not session.local_lock:
+            pi("No estabas en local lock. Usa /local para activar modo local.")
+        else:
+            session.local_lock = False
+            session.autoroute = True
+            pi("Local lock DESACTIVADO. Auto-routing reactivado. Puedes usar /switch para forzar un modelo cloud.")
     elif v == "/switch":
         if not a:
             # Interactive model picker — incluye acceso al catálogo
@@ -156,7 +177,15 @@ def cmd(line, session):
         state = "ACTIVADO (auto single/chain/ensemble)" if session.autoroute else "DESACTIVADO"
         pi(f"Auto-routing: {state}")
     elif v == "/models":
-        console.print(Panel(session.models_table(), title="[bold]Registry BAGO[/bold]", box=box.SIMPLE))
+        sub_parts = a.split(None, 1) if a else []
+        sub = sub_parts[0].lower() if sub_parts else "table"
+        if sub in ("detect", "accessible", "scan"):
+            print_accessible_models_report(session)
+        else:
+            console.print(Panel(session.models_table(), title="[bold]Registry BAGO[/bold]", box=box.SIMPLE))
+    elif v == "/sendnow":
+        subprocess_args = "sendnow" + (f" {a}" if a else "")
+        subprocess.run(_launcher_args(subprocess_args), cwd=str(_paths()[0]))
     elif v == "/catalog":
         cmd_catalog(session)
     elif v == "/status":
@@ -198,6 +227,8 @@ def cmd(line, session):
 
     # ── Auth (superset de /login) ─────────────────────────────────────────────
     elif v in ("/auth",):
+        _cmd_auth(session)
+    elif v == "/logout":
         _cmd_auth(session)
 
     # ── Modo autonomo ─────────────────────────────────────────────────────────
@@ -277,7 +308,7 @@ def cmd(line, session):
         _cmd_memory(session)
 
     elif v == "/restart":
-        import subprocess, sys as _sys2
+        import sys as _sys2
         bago_chat = Path(__file__).resolve().parents[2] / "bago_chat.py"
         subprocess.Popen([_sys2.executable, str(bago_chat)], cwd=str(Path(__file__).resolve().parents[3]), creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _sys2.platform == "win32" else 0)
         pi("Reiniciando BAGO...")
@@ -356,7 +387,6 @@ def cmd(line, session):
 
     # Comandos del sistema BAGO (desde menu / con !)
     elif v.startswith("!"):
-        import subprocess
         sys_cmd = v[1:] + (" " + a if a else "")
         sys_cmd_norm = sys_cmd.replace("git-dirty", "git dirty")
         console.print(f"  [dim]ejecutando: bago {sys_cmd_norm}[/dim]")
@@ -383,7 +413,7 @@ def cmd(line, session):
         if v.startswith("/"):
             reg_cmd = v[1:]
             try:
-                import importlib.util, subprocess, sys as _sys2
+                import importlib.util, sys as _sys2
                 reg_path = _registry_path()
                 if reg_path.exists():
                     spec = importlib.util.spec_from_file_location("_bago_repl_registry", str(reg_path))

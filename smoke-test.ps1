@@ -55,6 +55,14 @@ Test-BagoSmoke "bago validate pasa" {
     "OK"
 }
 
+Test-BagoSmoke "bago smoke pasa" {
+    $out = & $bagoCmd smoke 2>&1
+    $outStr = $out | Out-String
+    if ($LASTEXITCODE -ne 0) { return "FAIL: smoke rc=$($LASTEXITCODE): $outStr" }
+    if ($outStr -notmatch "smoke\[pack\]") { return "FAIL: smoke no genero salida esperada: $outStr" }
+    "OK"
+}
+
 Test-BagoSmoke "bago preflight-check funciona" {
     & $bagoCmd preflight-check *> $null
     $rc = $LASTEXITCODE

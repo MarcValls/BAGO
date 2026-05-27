@@ -1,0 +1,15 @@
+topic: transposition
+status: example
+source_key: "Do minor"
+target_key: "E minor"
+interval: "up a major second"
+steps:
+  - "Identificar notas estructurales."
+  - "Trasladar melodía y acordes."
+  - "Comprobar rango del bajo."
+  - "Revisar cadencias."
+validation:
+  - "La función armónica se mantiene."
+  - "El patrón rítmico sigue igual."
+  - "La línea resultante es tocable."
+

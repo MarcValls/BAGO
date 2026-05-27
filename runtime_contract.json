@@ -1,12 +1,12 @@
 {
     "contract_id":  "bago.runtime.clean-install",
     "contract_version":  "1.0.0",
-    "install_root":  "E:\\bago_fw",
-    "runtime_root":  "E:\\bago_fw\\.bago",
+    "install_root":  "E:\bago_fw",
+    "runtime_root":  "E:\bago_fw\.bago",
     "user_home":  "C:\\ProgramData\\BAGO\\user",
     "custom_target":  true,
     "path_updated":  false,
-    "backup_of_existing_target":  "E:\\bago_fw.backup.20260521-213306",
+    "backup_of_existing_target":  "E:\bago_fw.backup.20260521-213306",
     "knowledge_included":  true,
     "install_profile":  "with-knowledge",
     "publication":  {
@@ -163,7 +163,7 @@
     "pruned":  {
 
                },
-    "contract_source":  "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\docs\\runtime_contract.json",
+    "contract_source":  "C:\\Users\\AMTEC_Terminal_1Âº\\BAGO\\docs\\runtime_contract.json",
     "contract_source_sha256":  "2F2CA22F6F30463676CC82858ED6FDA470B0A6425B592A379491F538DAED06D1",
     "generated_at":  "2026-05-21T21:33:30.4227300+02:00"
 }

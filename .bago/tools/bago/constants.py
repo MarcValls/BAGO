@@ -78,6 +78,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/login openrouter[/yellow]                    Guardar API Key → acceso a 200+ modelos
   [yellow]/login ollama[/yellow]                        Verificar Ollama local (sin credencial)
   [yellow]/scan[/yellow]                                Scan completo: disponibles · potenciales · missing · tokens
+  [yellow]/logout[/yellow]                               Logout limpio de provider activo o seleccionado
 
   [dim]  Multi-cuenta — varias suscripciones del mismo provider:[/dim]
   [yellow]/login add <provider> [nombre][/yellow]       Agregar cuenta  (ej: /login add github Trabajo)
@@ -89,7 +90,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
   [yellow]/switch <modelo>[/yellow]                     Forzar modelo puntualmente (sin perder historial)
   [yellow]/autoroute on|off[/yellow]                    Routing automatico basado en tipo de tarea
-  [yellow]/models[/yellow]                              Listar todos los modelos disponibles
+  [yellow]/models[/yellow]                              Listar modelos o detectar accesibles: /models detect
   [yellow]/generative[/yellow] [dim]|[/dim] [yellow]/gen[/yellow]               Modo generativo: offline · eco · standard · full · auto
   [yellow]/mode[/yellow]                                (alias de /generative)
   [yellow]/roles[/yellow]                               Ver modos del orquestador y preferencias por tarea
@@ -132,6 +133,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
   [yellow]/session[/yellow]    Gestionar sesion (guardar en disco, cargar, repliegue, letargo)
   [yellow]/sync[/yellow]       Sincronizar repositorios (GitHub/GitLab/Codeberg/custom), USB y snapshot nube
+  [yellow]/sendnow[/yellow]    Cliente send.now: account | upload | files | folder
   [yellow]/memory[/yellow]     Base de conocimiento y memoria episodica
   [yellow]/auto[/yellow]       Modo autonomo y nivel de confirmaciones requeridas
   [yellow]/config[/yellow]     Configuracion global persistente

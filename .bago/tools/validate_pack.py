@@ -144,3 +144,12 @@ def cmd_contents(args: list[str]) -> int:
         return 1
     print(f"  Pack is clean and valid: {zip_path.name}")
     return 0
+
+
+def main() -> int:
+    from validate import main as validate_main
+    return validate_main()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

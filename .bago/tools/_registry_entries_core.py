@@ -70,6 +70,16 @@ _ENTRIES: dict[str, ToolEntry] = {
         description="Verifica el pack (manifiesto, estado, roles, ZIP) — subcomandos: manifest, state, contents",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "validate.py"))],
     ),
+    "smoke": ToolEntry(
+        cmd="smoke", module="smoke_runner",
+        description="Smoke del pack: validate_pack + health_score + última cosecha cerrada",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "smoke_runner.py"))],
+        layer="calidad", scope="framework",
+        agent="CENTINELA",
+        stability="core",
+        risk="safe",
+        preflight_policy="optional",
+    ),
     "docs": ToolEntry(
         cmd="docs", module="generate_commands_doc",
         description="Genera docs/COMMANDS.md desde tool_registry.py (fuente única de verdad)",

@@ -423,8 +423,8 @@ def print_banner(mini=False):
     # # BANNER_COMPACT_MODE_IMPLEMENTED
     version        = _pack_version()
     pack_ok, reason = _validate()
-    ses            = _sync_session_count()   # sincroniza y lee el conteo real
-    _, chg, evd    = _inventory()
+    _sync_session_count()   # mantiene el contador legacy de session_closes
+    ses, chg, evd  = _inventory()
     mode           = _working_mode()
     scenarios      = _active_scenarios()
     last_sid, last_wf = _last_session()

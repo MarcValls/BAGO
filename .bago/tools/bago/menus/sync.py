@@ -12,14 +12,35 @@ for _stream in (sys.stdout, sys.stderr):
 
 import datetime
 import json
+import platform
 import shutil
 import subprocess as sp
 import sys
 import zipfile
 from pathlib import Path
 
-from ..constants import BAGO_DIR, BAGO_REPO_ROOT, BAGO_SYSTEM, SYNC_REMOTES_FILE
+from rich.panel import Panel
+
+from ..constants import BAGO_DIR, BAGO_REPO_ROOT, BAGO_SYSTEM, SYNC_REMOTES_FILE, USER_BAGO
+from ..sendnow_api import SendNowClient, SendNowError
+from ..tumba import tumba_add, tumba_get
 from ..ui import console, _menu_input, _menu_select, pe, pi
+
+
+def _send_api_base_url() -> str:
+    return os.environ.get("BAGO_SEND_API_BASE_URL", "https://send.now/api").rstrip("/")
+
+
+def _send_public_base_url() -> str:
+    return os.environ.get("BAGO_SEND_PUBLIC_BASE_URL", "https://send.now").rstrip("/")
+
+
+def _sendnow_client(api_key: str) -> SendNowClient:
+    return SendNowClient(
+        api_key=api_key,
+        base_url=_send_api_base_url(),
+        public_base_url=_send_public_base_url(),
+    )
 
 
 def _mirror_tree(src: Path, dst: Path) -> int:
@@ -37,6 +58,45 @@ def _mirror_tree(src: Path, dst: Path) -> int:
         shutil.copy2(item, target)
         copied += 1
     return copied
+
+
+def _portable_usb_bases() -> list[Path]:
+    """Devuelve bases portables detectadas: drive\\bago o drive\\BAGO."""
+    bases: list[Path] = []
+
+    def _add(base: Path) -> None:
+        if base not in bases:
+            bases.append(base)
+
+    def _scan_root(root: Path) -> None:
+        marker = root / ".bago_portable"
+        if marker.exists():
+            for folder in ("bago", "BAGO"):
+                base = root / folder
+                if (base / ".bago").exists():
+                    _add(base)
+        for folder in ("bago", "BAGO"):
+            base = root / folder
+            if (base / ".bago").exists():
+                _add(base)
+
+    if platform.system() == "Windows":
+        for letter in "DEFGHIJKLMNOPQRSTUVWXYZ":
+            root = Path(f"{letter}:\\")
+            if root.exists():
+                _scan_root(root)
+    elif platform.system() == "Darwin":
+        for vol in Path("/Volumes").iterdir():
+            if vol.exists():
+                _scan_root(vol)
+    else:
+        for base in [Path("/media"), Path("/run/media")]:
+            if base.exists():
+                for vol in base.iterdir():
+                    if vol.exists():
+                        _scan_root(vol)
+
+    return bases
 
 
 def _sync_knowledge(action: str = "sync") -> None:
@@ -261,18 +321,18 @@ def _sync_git(session):
         _post_sync(session)
 
 
-# ── Cloud versioning (send.cm) ────────────────────────────────────────────────
+# ── Cloud versioning (send.now) ───────────────────────────────────────────────
 # Esquema de versionado:
 #   bago_v3.4.0_20260519_1234.zip  ← snapshot versionado
 #   bago_manifest.json             ← índice de versiones con URLs
 #   install_bago.py                ← script autónomo de instalación
 #
-# El manifest se sube también a send.cm. Su URL se guarda localmente.
+# El manifest se sube también al servicio cloud configurado. Su URL se guarda localmente.
 # Con eso cualquier persona puede instalar BAGO sin GitHub:
-#   python install_bago.py --from https://send.cm/xxxxx
+#   python install_bago.py --from URL_DEL_SERVICIO
 #
 # El manifest NO es infinito: se mantienen hasta MAX_CLOUD_VERSIONS entradas.
-# Las antiguas se eliminan del registro local (send.cm no tiene API de borrado
+# Las antiguas se eliminan del registro local (el servicio cloud no tiene API de borrado
 # en cuentas free, pero los links simplemente dejan de listarse en el manifest).
 
 _CLOUD_VERSIONS_FILE = None   # se resuelve en runtime para evitar importación circular
@@ -301,8 +361,7 @@ def _save_cloud_manifest(manifest: dict):
 
 
 def _sendcm_api_key() -> str:
-    """Lee la API key de send.cm desde credentials.json. La pide si no existe."""
-    from ..constants import USER_BAGO
+    """Lee la API key de send.now desde credentials.json. La pide si no existe."""
     cred_file = USER_BAGO / "credentials.json"
     try:
         creds = json.loads(cred_file.read_text(encoding="utf-8"))
@@ -311,55 +370,126 @@ def _sendcm_api_key() -> str:
             return key
     except Exception:
         pass
+    tumba_key = tumba_get("SendCM API Key") or tumba_get("sendcm api key") or tumba_get("sendcm")
+    if tumba_key:
+        return tumba_key
 
     key = _menu_input(
-        "send.cm API Key",
-        "Introduce tu API key de send.cm (regístrate en https://send.cm):",
+        "send.now API Key",
+        "Introduce tu API key de send.now (o send.cm si usas compatibilidad):",
         default=""
     )
     if not key:
         return ""
-    try:
-        creds = {}
-        if cred_file.exists():
-            creds = json.loads(cred_file.read_text(encoding="utf-8"))
-        creds.setdefault("sendcm", {})["api_key"] = key
-        cred_file.write_text(json.dumps(creds, indent=2, ensure_ascii=False), encoding="utf-8")
-        pi("API key guardada en credentials.json")
-    except Exception as e:
-        pe(f"No se pudo guardar la API key: {e}")
+    _save_sendcm_secret(key)
     return key
 
 
-def _sendcm_upload(api_key: str, file_path: Path, label: str = "") -> str:
-    """Sube un fichero a send.cm y devuelve la URL de descarga (o '' si falla)."""
-    import requests
+def _sendcm_key_exists() -> bool:
     try:
-        r = requests.get(
-            "https://send.cm/api/upload/server",
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=10
-        )
-        r.raise_for_status()
-        upload_url = r.json()["data"]["upload_url"]
-    except Exception as e:
-        pe(f"send.cm: error obteniendo servidor de upload: {e}"); return ""
+        creds = json.loads((USER_BAGO / "credentials.json").read_text(encoding="utf-8"))
+        if creds.get("sendcm", {}).get("api_key", ""):
+            return True
+    except Exception:
+        pass
+    return bool(tumba_get("SendCM API Key") or tumba_get("sendcm api key") or tumba_get("sendcm"))
 
-    desc = label or file_path.name
-    with console.status(f"[dim cyan]Subiendo {desc}...[/dim cyan]", spinner="dots"):
-        try:
-            with open(file_path, "rb") as fh:
-                up = requests.post(
-                    upload_url,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    files={"file": (file_path.name, fh)},
-                    timeout=300
-                )
-            up.raise_for_status()
-            data = up.json()
-            return data.get("data", {}).get("url") or data.get("url", "")
-        except Exception as e:
-            pe(f"send.cm: error en upload: {e}"); return ""
+
+def _save_sendcm_secret(api_key: str, email: str = "") -> None:
+    try:
+        cred_file = USER_BAGO / "credentials.json"
+        creds = {}
+        if cred_file.exists():
+            creds = json.loads(cred_file.read_text(encoding="utf-8"))
+        creds.setdefault("sendcm", {})["api_key"] = api_key
+        if email:
+            creds["sendcm"]["email"] = email
+        cred_file.write_text(json.dumps(creds, indent=2, ensure_ascii=False), encoding="utf-8")
+        tumba_add(f"SendCM API Key: {api_key}")
+        if email:
+            tumba_add(f"SendCM Email: {email}")
+        pi("API key guardada en credentials.json y en la tumba")
+    except Exception as e:
+        pe(f"No se pudo guardar la API key: {e}")
+
+
+def _sync_sendcm_from_tumba(session) -> bool:
+    api_key = tumba_get("SendCM API Key") or tumba_get("sendcm api key") or tumba_get("sendcm")
+    email = tumba_get("SendCM Email") or ""
+    if not api_key:
+        pi("Abriendo /tumba fill sendcm para capturar las credenciales...")
+        from ..commands.tumba import cmd_tumba
+        cmd_tumba(session, "fill sendcm")
+        api_key = tumba_get("SendCM API Key") or tumba_get("sendcm api key") or tumba_get("sendcm")
+        email = tumba_get("SendCM Email") or ""
+    if not api_key:
+        pe("No se pudo completar send.cm desde la tumba.")
+        return False
+    _save_sendcm_secret(api_key, email)
+    return True
+
+
+def _diagnose_sync(session) -> None:
+    remotes = _load_remotes()
+    enabled = [rm for rm in remotes if rm.get("enabled", True)]
+    missing = []
+    if not enabled:
+        missing.append(("repos", "No hay repositorios remotos habilitados"))
+    if not _sendcm_key_exists():
+        missing.append(("sendcm", "Falta la API key de send.now"))
+
+    if not missing:
+        pi("No faltan piezas críticas para sync/cloud.")
+        return
+
+    console.print(Panel(
+        "\n".join(f"• {desc}" for _, desc in missing)
+        + "\n\n[dim]Si falta una llave, BAGO puede abrir tumba, capturarla y copiarla al sitio correcto.[/dim]",
+        title="[bold]Diagnóstico de sync[/bold]",
+        border_style="yellow",
+        expand=False,
+    ))
+
+    for kind, _desc in missing:
+        if kind == "sendcm":
+            action = _menu_select(
+                "SendCM faltante",
+                "¿Cómo quieres completar send.now?",
+                [
+                    ("tumba", "Rellenar en modo tumba y copiar a credentials.json"),
+                    ("login", "Login normal de send.now"),
+                    ("skip", "Saltar por ahora"),
+                ],
+            )
+            if action == "tumba":
+                if _sync_sendcm_from_tumba(session):
+                    pi("send.now configurado desde tumba.")
+            elif action == "login":
+                session.creds.do_login("sendcm")
+        elif kind == "repos":
+            action = _menu_select(
+                "Repositorios faltantes",
+                "¿Quieres gestionarlos ahora?",
+                [
+                    ("manage", "Abrir gestor de repositorios"),
+                    ("skip", "Saltar por ahora"),
+                ],
+            )
+            if action == "manage":
+                _manage_remotes()
+
+
+def _sendcm_upload(api_key: str, file_path: Path, label: str = "") -> str:
+    """Sube un fichero a send.now y devuelve la URL pública (o '' si falla)."""
+    try:
+        upload = _sendnow_client(api_key).upload_file(file_path)
+        return upload.url
+    except SendNowError as e:
+        pe(f"send.now: error subiendo {label or file_path.name}: {e}")
+        return ""
+    except Exception as e:
+        pe(f"send.now: error en upload {label or file_path.name}: {e}")
+        return ""
 
 
 def _generate_install_script(manifest_url: str) -> str:
@@ -368,7 +498,7 @@ def _generate_install_script(manifest_url: str) -> str:
 #!/usr/bin/env python3
 """
 install_bago.py — Instalador autónomo de BAGO
-Descarga la version especificada (o la mas reciente) desde send.cm
+Descarga la version especificada (o la mas reciente) desde el servicio cloud configurado
 y la extrae en el directorio actual.
 
 Uso:
@@ -405,7 +535,7 @@ def download(url: str, dest: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Instalador BAGO desde send.cm")
+    parser = argparse.ArgumentParser(description="Instalador BAGO desde el servicio cloud configurado")
     parser.add_argument("--manifest", default=MANIFEST_URL, help="URL del manifest JSON")
     parser.add_argument("--from",    dest="direct_url",    help="URL directa al zip")
     parser.add_argument("--version", default="",           help="Version a instalar (ej: v3.4.0)")
@@ -470,7 +600,7 @@ if __name__ == "__main__":
 
 
 def _sync_cloud_snapshot():
-    """Sube snapshot versionado a send.cm, actualiza manifest y genera install_bago.py."""
+    """Sube snapshot versionado al servicio cloud, actualiza manifest y genera install_bago.py."""
     try:
         import requests  # noqa: F401
     except ImportError:
@@ -482,7 +612,7 @@ def _sync_cloud_snapshot():
 
     # Submenú: qué hacer
     action = _menu_select(
-        "BAGO Cloud (send.cm)",
+        "BAGO Cloud (send.now)",
         "¿Qué quieres hacer?",
         [
             ("upload",   "Subir nueva versión  (zip + actualizar manifest)"),
@@ -607,30 +737,7 @@ def _sync_cloud_snapshot():
 
 def _sync_usb():
     """Detecta y sincroniza con USB si esta disponible."""
-    import platform
-    usb_candidates = []
-
-    if platform.system() == "Darwin":
-        for vol in Path("/Volumes").iterdir():
-            p = vol / "BAGO" / ".bago"
-            if p.exists():
-                usb_candidates.append(p.parent)
-            p2 = vol / ".bago"
-            if p2.exists() and vol not in usb_candidates:
-                usb_candidates.append(vol)
-    elif platform.system() == "Linux":
-        for base in [Path("/media"), Path("/run/media")]:
-            if base.exists():
-                for vol in base.rglob("BAGO/.bago"):
-                    usb_candidates.append(vol.parent)
-                for vol in base.rglob(".bago"):
-                    if vol.parent not in usb_candidates:
-                        usb_candidates.append(vol.parent)
-    else:
-        for letter in "DEFGHIJKLMNOPQRSTUVWXYZ":
-            p = Path(f"{letter}:\\BAGO\\.bago")
-            if p.exists():
-                usb_candidates.append(p.parent)
+    usb_candidates = _portable_usb_bases()
 
     if not usb_candidates:
         pe("No se encontro ningun USB con BAGO. Conecta el pendrive e intenta de nuevo.")
@@ -667,8 +774,9 @@ def _cmd_sync(session):
             ("sync_knowledge", "Sincronizar knowledge con repo local"),
             ("sync_usb",     "Sincronizar con USB  (mirror knowledge + state)"),
             ("sync_both",    "Sincronizar con repositorios Y USB"),
+            ("diagnose",    "Diagnosticar faltantes y completar llaves/repos"),
             ("manage_repos", "Gestionar repositorios  (GitHub / GitLab / Codeberg / custom)"),
-            ("cloud_snap",   "Cloud send.cm  — subir versión / listar / instalar desde cero"),
+            ("cloud_snap",   "Cloud send.now  — subir versión / listar / instalar desde cero"),
             ("after_sync",   f"Comportamiento post-sync: [cyan]{session.sync_after}[/cyan]"),
         ]
         sel = _menu_select("BAGO / Sync",
@@ -687,6 +795,9 @@ def _cmd_sync(session):
 
         if sel == "manage_repos":
             _manage_remotes()
+
+        if sel == "diagnose":
+            _diagnose_sync(session)
 
         if sel == "cloud_snap":
             _sync_cloud_snapshot()

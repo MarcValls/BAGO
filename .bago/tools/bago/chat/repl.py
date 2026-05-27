@@ -136,7 +136,10 @@ def build_prompt_session(session=None) -> PromptSession:
             "[dim]Instala prompt_toolkit para autocompletado y barra avanzada.[/dim]"
         )
         if sys.stdin.isatty():
-            ans = input("  ¿Instalar ahora? [s/n] ").strip().lower()
+            try:
+                ans = input("  ¿Instalar ahora? [s/n] ").strip().lower()
+            except EOFError:
+                ans = "n"
             if ans in ("s", "si", "y", "yes"):
                 import subprocess
                 try:

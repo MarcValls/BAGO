@@ -11,7 +11,7 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-from .ui_base import BAGO_VERSION, COLORS, CtrlCGuard, banner, console, pe, pi, show_response
+from .ui_base import BAGO_VERSION, COLORS, CtrlCGuard, banner, console, pe, pi, show_response, _stdin_prompt
 from .ui_dialogs import (
     _menu_action,
     _menu_confirm,
@@ -26,6 +26,7 @@ from .ui_dialogs import (
 __all__ = [
     "BAGO_VERSION", "COLORS", "CtrlCGuard", "banner", "console",
     "pe", "pi", "show_response",
+    "_stdin_prompt",
     "_menu_action", "_menu_confirm", "_menu_input", "_menu_multiselect",
     "_menu_pick", "_menu_pick_tabs", "_menu_select", "_toggle_menu",
 ]

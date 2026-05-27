@@ -52,6 +52,7 @@ from bago.ollama_runtime import (
     default_ollama_port,
     env_port,
 )
+from bago.model_registry import normalize_local_model_id
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ DRIVE_ROOT = BAGO_ROOT.parent
 STATE_DIR  = BAGO_ROOT / "state"
 MODELS_DIR = BAGO_ROOT / ".models"
 LLAMA_DIR  = BAGO_ROOT / ".llama"
+OLLAMA_HOME_DIR = Path.home() / ".ollama" / "models"
 PID_FILE   = STATE_DIR / "llm_server.pid"
 CFG_FILE   = STATE_DIR / "llm_config.json"
 
@@ -124,6 +126,14 @@ CATALOG: dict[str, dict] = {
         "best_for":   "Code completion, alternativa a Qwen",
         "recommended": False,
     },
+    "granite3.2": {
+        "label":      "IBM Granite 3.2 8B",
+        "size_gb":    4.9,
+        "min_ram_gb": 8,
+        "ollama_tag": "granite3.2:8b",
+        "best_for":   "Codigo, RAG y razonamiento empresarial",
+        "recommended": False,
+    },
     "llama32": {
         "label":      "Llama 3.2 (latest)",
         "size_gb":    1.9,
@@ -146,6 +156,14 @@ CATALOG: dict[str, dict] = {
         "min_ram_gb": 1,
         "ollama_tag": "qwen2.5:0.5b",
         "best_for":   "Ultra-rápido, confirmaciones simples, RAM mínima",
+        "recommended": False,
+    },
+    "smollm2": {
+        "label":      "SmolLM2 1.7B",
+        "size_gb":    1.1,
+        "min_ram_gb": 2,
+        "ollama_tag": "smollm2:1.7b",
+        "best_for":   "Tareas simples, edge y maquinas muy limitadas",
         "recommended": False,
     },
 }
@@ -270,6 +288,64 @@ def _models_in_pendrive() -> list[str]:
     return found
 
 
+def _models_in_ollama_home() -> list[str]:
+    """Model IDs whose ollama tag has been pulled into the default Ollama home."""
+    bin_ = _ollama_bin()
+    if not bin_:
+        return []
+    try:
+        result = subprocess.run(
+            [bin_, "list"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=15,
+        )
+        if result.returncode != 0:
+            return []
+    except Exception:
+        return []
+    # build reverse map: ollama_tag -> model_id
+    tag_to_id = {info["ollama_tag"]: mid for mid, info in CATALOG.items()}
+    found = []
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if not parts or parts[0] == "NAME":
+            continue
+        tag = parts[0]
+        if tag.endswith(":cloud"):
+            continue
+        if tag in tag_to_id:
+            found.append(tag_to_id[tag])
+    return found
+
+
+def _model_location(model_id: str) -> str | None:
+    """Return 'pendrive', 'local', or None."""
+    if model_id in _models_in_pendrive():
+        return "pendrive"
+    if model_id in _models_in_ollama_home():
+        return "local"
+    return None
+
+
+def _models_available() -> list[str]:
+    """All model IDs present either in pendrive or local Ollama home."""
+    seen = set(_models_in_pendrive())
+    seen.update(_models_in_ollama_home())
+    return [mid for mid in CATALOG if mid in seen]
+
+
+def _resolve_model_id(model_ref: str | None) -> str | None:
+    """Acepta IDs canonicos, tags Ollama y alias conocidos."""
+    if not model_ref:
+        return None
+    resolved = normalize_local_model_id(model_ref)
+    if resolved:
+        return resolved
+    if model_ref in CATALOG:
+        return model_ref
+    return None
+
+
 def _read_cfg() -> dict:
     if CFG_FILE.exists():
         try:
@@ -325,18 +401,20 @@ def cmd_status() -> int:
         _ok(f"llama-server en {llama}")
     print()
 
-    # Modelos en pendrive
-    print(BOLD("  Modelos en pendrive"))
-    on_pendrive = _models_in_pendrive()
+    # Modelos disponibles
+    print(BOLD("  Modelos disponibles"))
+    available = _models_available()
     active = _active_model()
-    if not on_pendrive:
-        _warn("Ningún modelo descargado al pendrive")
+    if not available:
+        _warn("Ningún modelo local disponible")
         _info("Ejecuta: bago llm download")
     else:
-        for mid in on_pendrive:
+        for mid in available:
             info   = CATALOG[mid]
+            loc    = _model_location(mid)
+            loc_marker = f"  [{loc}]" if loc else ""
             marker = f"  {OK('← activo')}" if mid == active else ""
-            _ok(f"{info['label']}  ·  {info['ollama_tag']}{marker}")
+            _ok(f"{info['label']}  ·  {info['ollama_tag']}{loc_marker}{marker}")
     print()
 
     # Servidor
@@ -349,7 +427,7 @@ def cmd_status() -> int:
         _info(f"API compatible OpenAI: {default_ollama_base_url()}/v1")
     else:
         _warn("Servidor inactivo")
-        if on_pendrive:
+        if available:
             _info("Ejecuta: bago llm start")
     print()
     return 0
@@ -360,12 +438,12 @@ def cmd_models() -> int:
     print(BOLD("  Catálogo de modelos BAGO LLM"))
     print(DIM("  " + "─" * 54))
     print()
-    on_pendrive = _models_in_pendrive()
+    available = _models_available()
     active = _active_model()
     ram = _ram_total_gb()
 
     for mid, info in CATALOG.items():
-        present   = mid in on_pendrive
+        present   = mid in available
         rec       = "  ★ recomendado" if info.get("recommended") else ""
         ram_warn  = ""
         if ram and ram < info["min_ram_gb"]:
@@ -381,8 +459,9 @@ def cmd_models() -> int:
         print(f"    {DIM('Ollama tag:')} {info['ollama_tag']}")
         print()
 
-    print(DIM("  Descargar: bago llm download <id>"))
+    print(DIM("  Descargar: bago llm download <id|tag|alias>"))
     print(DIM("  Ejemplo  : bago llm download qwen25-coder"))
+    print(DIM("  Ejemplo  : bago llm download qwen2.5-coder:7b"))
     print()
     return 0
 
@@ -398,12 +477,12 @@ def cmd_download(model_id: str | None = None) -> int:
         print(BOLD("  Selecciona un modelo para descargar al pendrive:"))
         print()
         ids = list(CATALOG.keys())
-        on_pendrive = _models_in_pendrive()
+        available = _models_available()
         for i, mid in enumerate(ids, 1):
             info = CATALOG[mid]
-            flag = f"  {OK('[descargado]')}" if mid in on_pendrive else ""
+            flag = f"  {OK('[disponible]')}" if mid in available else ""
             rec  = "  ★" if info.get("recommended") else ""
-            print(f"  {i}. {CYAN(mid)}{BOLD(rec)} — {info['label']} ({info['size_gb']} GB){flag}")
+            print(f"  {i}. {CYAN(mid)}{BOLD(rec)} — {info['label']} ({info['ollama_tag']}) ({info['size_gb']} GB){flag}")
         print()
         try:
             choice = input("  Número (Enter para cancelar): ").strip()
@@ -417,15 +496,18 @@ def cmd_download(model_id: str | None = None) -> int:
             print()
             return 0
 
-    if model_id not in CATALOG:
-        _err(f"Modelo desconocido: '{model_id}'")
+    raw_model_id = model_id
+    model_id = _resolve_model_id(model_id)
+    if not model_id or model_id not in CATALOG:
+        _err(f"Modelo desconocido: '{raw_model_id}'")
         _info(f"IDs válidos: {', '.join(CATALOG)}")
         return 1
 
     info = CATALOG[model_id]
-    on_pendrive = _models_in_pendrive()
-    if model_id in on_pendrive:
-        _ok(f"{info['label']} ya está en el pendrive")
+    available = _models_available()
+    if model_id in available:
+        loc = _model_location(model_id)
+        _ok(f"{info['label']} ya disponible ({loc})")
         return 0
 
     free = _disk_free_gb()
@@ -459,6 +541,14 @@ def cmd_download(model_id: str | None = None) -> int:
 def cmd_start(model_id: str | None = None) -> int:
     if _ollama_running():
         _ok(f"Ollama ya activo en localhost:{OLLAMA_PORT}")
+        if model_id:
+            model_id = _resolve_model_id(model_id) or model_id
+            cfg = _read_cfg()
+            if cfg.get('active_model') != model_id:
+                cfg['active_model'] = model_id
+                cfg['engine'] = 'ollama'
+                _write_cfg(cfg)
+                _info(f'Modelo activo actualizado: {model_id}')
         return 0
 
     bin_ = _ollama_bin()
@@ -467,16 +557,17 @@ def cmd_start(model_id: str | None = None) -> int:
         return 1
 
     if not model_id:
-        model_id = _active_model()
+        model_id = _resolve_model_id(_active_model())
 
     if not model_id:
-        on_pendrive = _models_in_pendrive()
-        if on_pendrive:
-            model_id = on_pendrive[0]
+        available = _models_available()
+        if available:
+            model_id = available[0]
         else:
-            _err("No hay modelos en el pendrive. Ejecuta primero: bago llm download")
+            _err("No hay modelos locales disponibles. Ejecuta primero: bago llm download")
             return 1
 
+    model_id = _resolve_model_id(model_id) or model_id
     info = CATALOG.get(model_id, {})
     label = info.get("label", model_id)
     tag   = info.get("ollama_tag", model_id)
@@ -486,9 +577,10 @@ def cmd_start(model_id: str | None = None) -> int:
     _info(f"OLLAMA_MODELS → {MODELS_DIR}")
     print()
 
+    env = _ollama_env() if _model_location(model_id) == "pendrive" else os.environ.copy()
     proc = subprocess.Popen(
         [bin_, "serve"],
-        env=_ollama_env(),
+        env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -511,7 +603,7 @@ def cmd_start(model_id: str | None = None) -> int:
     _info(f"Pre-cargando {tag}...")
     subprocess.run(
         [bin_, "run", tag, "hola"],
-        env=_ollama_env(),
+        env=env,
         capture_output=True,
         timeout=120,
     )
@@ -564,15 +656,16 @@ def cmd_chat(message: str) -> int:
         print()
 
     cfg   = _read_cfg()
-    mid   = cfg.get("active_model", "")
-    info  = CATALOG.get(mid, {})
+    mid   = _resolve_model_id(cfg.get("active_model", ""))
+    info  = CATALOG.get(mid, {}) if mid else {}
     tag   = info.get("ollama_tag", mid) if info else mid
     bin_  = _ollama_bin()
 
     if bin_:
+        chat_env = _ollama_env() if _model_location(mid) == "pendrive" else os.environ.copy()
         return subprocess.run(
             [bin_, "run", tag, message],
-            env=_ollama_env(),
+            env=chat_env,
         ).returncode
 
     # HTTP fallback (llama-server or external endpoint)

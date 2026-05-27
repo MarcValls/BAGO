@@ -114,4 +114,7 @@ def _prompt_indicator(session) -> str:
     if getattr(session, "timeline_visible", False):
         indicator += " TL"
 
+    if getattr(session, "local_lock", False):
+        indicator = "LOCAL" + indicator.replace("AUTO", "").replace("MANUAL", "")
+
     return indicator

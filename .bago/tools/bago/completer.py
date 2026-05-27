@@ -23,7 +23,8 @@ BAGO_COMMANDS: dict[str, str] = {
     # -- Providers & Login
     "/scan":        "[Providers] Scan: disponibles · potenciales · missing + tokens",
     "/login":       "[Providers] Registrar y gestionar cuentas de providers",
-    "/models":      "[Providers] Listar todos los modelos disponibles",
+    "/logout":      "[Providers] Cerrar sesión y borrar credencial activa",
+    "/models":      "[Providers] Listar modelos o detectar accesibles: /models detect",
     "/catalog":     "[Providers] Catálogo de modelos locales — instalar, comparar, joyas ocultas ✨",
     # -- Modelo & Routing
     "/switch":      "[Routing] Cambiar modelo activo: /switch <modelo|provider>",
@@ -51,6 +52,7 @@ BAGO_COMMANDS: dict[str, str] = {
     # -- Sesion & Config
     "/session":     "[Sesion] Gestion de sesion (temporal · disco · letargo · repliegue)",
     "/sync":        "[Sesion] Sincronizar GitHub/GitLab/Codeberg/USB + snapshot nube",
+    "/sendnow":     "[Cloud] Cliente explícito send.now: account | upload | files | folder",
     "/memory":      "[Sesion] Memoria y conocimiento",
     "/config":      "[Sesion] Configuracion global persistente",
     "/restart":     "[Sesion] Reiniciar BAGO y recargar runtime/modulos",
@@ -180,6 +182,16 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
         ("github",   "Push al repositorio GitHub"),
         ("status",   "Ver estado de sincronización"),
     ],
+    "/sendnow": [
+        ("account info", "Mostrar información de cuenta"),
+        ("account stats", "Mostrar estadísticas de cuenta"),
+        ("account dmca", "Ver reportes DMCA"),
+        ("account trash", "Ver archivos eliminados"),
+        ("upload file", "Subir archivo local"),
+        ("upload remote", "Subir desde URL"),
+        ("files list", "Listar archivos"),
+        ("folder list", "Listar contenido de carpeta"),
+    ],
     "/framework": [
         ("sprint",      "Estado del sprint actual"),
         ("health",      "Health check del framework"),
@@ -210,7 +222,7 @@ _ICONS: dict[str, str] = {
     "/route-graph": "=", "/preset": "=", "/contract": "=", "/restart": "x",
     "/memory": "~", "/config": "=", "/framework": "=", "/workspaces": "=", "/projects": "=",
     "/status": "=", "/save": "=", "/clear": "x", "/help": "?", "/exit": "x",
-    "/scan": ">>", "/plan": "~", "/brainstorm": "~", "/tumba": "x",
+    "/scan": ">>", "/plan": "~", "/brainstorm": "~", "/tumba": "x", "/sendnow": ">>",
 }
 
 

@@ -36,8 +36,9 @@ _ENTRIES = [
     (None,          "  -- Providers & Login --------------------------"),
     ("/scan",       "  Scan  -- disponibles / potenciales / missing + tokens"),
     ("/login",      "  Login / Providers  -- registrar y gestionar cuentas"),
+    ("/logout",     "  Logout  -- cerrar sesión y borrar credencial activa"),
     ("/provider",   "  Activar/desactivar providers  -- ocultar servicios enteros"),
-    ("/models",     "  Modelos disponibles"),
+    ("/models",     "  Modelos disponibles / detectar accesibles"),
 
     # ── Modos BAGO ───────────────────────────────────────────────────
     (None,          "  -- Modos BAGO ---------------------------------"),
@@ -78,6 +79,7 @@ _ENTRIES = [
     ("/status",     "  Estado actual  -- modelo / routing / tokens / salud"),
     ("/session",    "  Gestion de sesion  -- guardar / cargar / repliegue"),
     ("/sync",       "  Sincronizar  -- GitHub / USB"),
+    ("/sendnow",    "  Cliente send.now  -- account / upload / files / folder"),
     ("/memory",     "  Memoria y conocimiento"),
     ("/config",     "  Configuracion global"),
 

@@ -19,6 +19,7 @@ import json
 import shutil
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
+from ...model_registry import local_model_tag, normalize_local_model_id
 from ..models.schemas import (
     TagsResponse, ModelInfo, ShowRequest, ShowResponse,
     CreateRequest, CreateResponse, CopyRequest, CopyResponse,
@@ -98,6 +99,7 @@ async def show(req: ShowRequest):
     """Detalles de un modelo: BAGOMODEL si existe, sino info del catalogo."""
     from ..server import get_bago
     bago = get_bago()
+    req_model_id = normalize_local_model_id(req.model) or req.model
 
     # Check custom BAGOMODEL first
     models_dir = _models_dir()
@@ -118,7 +120,8 @@ async def show(req: ShowRequest):
 
     # Check catalog
     for entry in bago.catalog():
-        if entry.ollama_tag == req.model:
+        entry_id = normalize_local_model_id(entry.ollama_tag) or entry.ollama_tag
+        if req_model_id in (entry_id, entry.ollama_tag, entry.label.lower()):
             return ShowResponse(
                 provider="ollama-local",
                 best_for=entry.description,
@@ -135,7 +138,13 @@ async def show(req: ShowRequest):
     providers = bago.providers()
     for prov_name, prov_data in providers.items():
         for mname, mdata in prov_data.get("models", {}).items():
-            if mname == req.model or mdata.get("wire_name") == req.model:
+            wire = mdata.get("wire_name")
+            if (
+                mname == req.model
+                or wire == req.model
+                or normalize_local_model_id(mname) == req_model_id
+                or normalize_local_model_id(wire) == req_model_id
+            ):
                 return ShowResponse(
                     provider=prov_name,
                     details=mdata,
@@ -195,10 +204,12 @@ async def pull(req: PullRequest):
     import subprocess
     from ..server import get_bago
     bago = get_bago()
+    req_model_id = normalize_local_model_id(req.model) or req.model
 
     # Find in catalog to get exact tag
     for entry in bago.catalog():
-        if entry.ollama_tag == req.model or entry.label.lower() == req.model.lower():
+        entry_id = normalize_local_model_id(entry.ollama_tag) or entry.ollama_tag
+        if req_model_id in (entry_id, entry.ollama_tag, entry.label.lower()):
             result = subprocess.run(
                 ["ollama", "pull", entry.ollama_tag],
                 capture_output=True, text=True, timeout=600,
@@ -210,7 +221,7 @@ async def pull(req: PullRequest):
 
     # Not in catalog — try raw ollama pull
     result = subprocess.run(
-        ["ollama", "pull", req.model],
+        ["ollama", "pull", local_model_tag(req.model) or req.model],
         capture_output=True, text=True, timeout=600,
     )
     return ProgressResponse(

@@ -154,6 +154,21 @@ class AccountManager:
         self._save()
         return True
 
+    def clear_provider(self, provider: str) -> int:
+        """Elimina todas las cuentas de un provider y borra su activa."""
+        provider = str(provider or "").strip()
+        if not provider:
+            return 0
+        matches = [a for a in self.accounts if a["provider"] == provider]
+        if not matches:
+            self._data.get("active", {}).pop(provider, None)
+            self._save()
+            return 0
+        self._data["accounts"] = [a for a in self.accounts if a["provider"] != provider]
+        self._data.get("active", {}).pop(provider, None)
+        self._save()
+        return len(matches)
+
     def set_active(self, account_id: str) -> bool:
         """Establece una cuenta como activa para su tipo de proveedor."""
         acc = self.find(account_id)

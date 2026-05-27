@@ -551,6 +551,22 @@ if (-not (Test-Path $launcher)) {
     throw "No se encontro bago.cmd en $launcher"
 }
 
+$validateOut = & $launcher validate 2>&1
+if ($LASTEXITCODE -ne 0) {
+    throw "bago validate fallo: $($validateOut | Out-String)"
+}
+if ((($validateOut | Out-String)) -notmatch "GO manifest") {
+    throw "bago validate no devolvio GO manifest / GO state / GO pack"
+}
+
+$smokeOut = & $launcher smoke 2>&1
+if ($LASTEXITCODE -ne 0) {
+    throw "bago smoke fallo: $($smokeOut | Out-String)"
+}
+if ((($smokeOut | Out-String)) -notmatch "smoke\[pack\]") {
+    throw "bago smoke no devolvio salida esperada"
+}
+
 Write-Host ""
 Write-Host "BAGO instalado limpiamente en $installRoot" -ForegroundColor Green
 Write-Host "BAGO_USER_HOME: $userHome" -ForegroundColor Cyan
@@ -562,6 +578,6 @@ if ($NoPathUpdate) {
 } else {
     Write-Host "PATH usuario actualizado con $installRoot" -ForegroundColor Cyan
 }
-Write-Host "Verificacion sugerida: & `"$launcher`" validate" -ForegroundColor Yellow
+Write-Host "Verificacion: validate + smoke ejecutados correctamente" -ForegroundColor Green
 
 

@@ -41,6 +41,7 @@ class BagoSession:
         self.routing    = load_routing()
         self.creds      = creds
         self.autoroute  = True   # routing + estrategia automaticos por defecto
+        self.local_lock  = False  # fuerza local para toda la sesion
         self.autonomous = False  # modo autonomo (sin confirmaciones)
         self.auto_confirm = "adaptativo"  # never | adaptativo | balanceado | always
         self.auto_max_iter = 10
@@ -247,8 +248,23 @@ class BagoSession:
         return None, None, None
 
     def switch_model(self, target, silent=False):
-        name, wire, prov = self._find_model(target)
-        if not name: return f"'{target}' no encontrado. Usa /models."
+        # --local fuerza ollama-local
+        if target == '--local' or target == 'local':
+            from .providers import _best_ollama_coder
+            local = _best_ollama_coder(self.providers)
+            if local:
+                name, wire, prov = local
+            else:
+                return "No hay modelos locales disponibles. Usa 'bago llm models'."
+        else:
+            name, wire, prov = self._find_model(target)
+            if not name:
+                # si el target coincide con un modelo local instalado pero no en providers.json
+                from .model_availability import installed_ollama_models
+                if target in installed_ollama_models():
+                    name, wire, prov = target, target, "ollama-local"
+                else:
+                    return f"'{target}' no encontrado. Usa /models."
         old = self.model_name
         self.provider, self.model_name, self.wire_name = prov, name, wire
         self.switches += 1
@@ -288,7 +304,10 @@ class BagoSession:
         return "standard"
 
     def auto_route(self, user_input):
-        """Routing automatico via orquestador; fallback por keyword si falla."""
+        """Routing automatico via orquestador; fallback por keyword si falla.
+        Si local_lock esta activo, nunca escala a cloud salvo que el usuario
+        use /escalar explicitamente.
+        """
         effective_mode = self._resolve_generative_mode(user_input)
         orch = self._load_orchestrator()
         if orch:
