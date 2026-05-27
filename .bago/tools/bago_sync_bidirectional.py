@@ -25,19 +25,66 @@ from pathlib import Path
 
 # ── Configuración ───────────────────────────────────────────────────────────
 
+# Detectar motor y knowledge dinamicamente via bago_paths
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bago_paths import get_motor_root, get_knowledge_root
+
+MOTOR_ROOT = get_motor_root()
+KNOWLEDGE_ROOT = get_knowledge_root()
+
+# Detectar instalacion secundaria via env o busqueda
+_alt_motor = os.environ.get("BAGO_MOTOR_ROOT_ALT")
+_alt_knowledge = os.environ.get("BAGO_KNOWLEDGE_ROOT_ALT")
+if not _alt_motor:
+    # Buscar en todas las unidades disponibles
+    import string
+    for drive_letter in string.ascii_uppercase:
+        drive = Path(drive_letter + ":/")
+        if not drive.exists():
+            continue
+        for name in ("bago_true", "bago_fw", "BAGO"):
+            candidate = drive / name
+            if candidate.exists() and candidate.resolve() != MOTOR_ROOT.resolve():
+                if (candidate / ".bago").exists() or (candidate / "pack.json").exists():
+                    _alt_motor = str(candidate)
+                    break
+                if (candidate / ".bago" / "pack.json").exists():
+                    _alt_motor = str(candidate / ".bago")
+                    break
+        if _alt_motor:
+            break
+
+# Inferir knowledge alternativo desde motor alternativo
+if _alt_motor and not _alt_knowledge:
+    alt_path = Path(_alt_motor)
+    candidates = []
+    if alt_path.name == '.bago':
+        candidates = [alt_path / 'knowledge', alt_path.parent / 'bago-knowledge']
+    else:
+        candidates = [alt_path / '.bago' / 'knowledge', alt_path / 'bago-knowledge']
+    for cand in candidates:
+        if cand.exists() and (cand / '.git').exists():
+            _alt_knowledge = str(cand)
+            break
+    if not _alt_knowledge:
+        for cand in candidates:
+            if cand.exists():
+                _alt_knowledge = str(cand)
+                break
+
 REPO_CONFIG = {
     "motor": {
         "github": "https://github.com/MarcValls/BAGO.git",
         "locals": {
-            "usb": Path("E:\\\\bago_fw"),
-            "disk": Path("C:\\\\bago_true"),
+            "primary": MOTOR_ROOT,
+            "secondary": Path(_alt_motor) if _alt_motor else MOTOR_ROOT,
         },
     },
     "knowledge": {
         "github": "https://github.com/MarcValls/bago-knowledge.git",
         "locals": {
-            "usb": Path("E:\\\\bago_fw\\\\.bago\\\\knowledge"),
-            "disk": Path("C:\\\\bago_true\\\\bago-knowledge"),
+            "primary": KNOWLEDGE_ROOT,
+            "secondary": Path(_alt_knowledge) if _alt_knowledge else KNOWLEDGE_ROOT,
         },
     },
 }
@@ -108,48 +155,43 @@ def _sync_repo(name, cfg, dry_run, no_push):
             if _git_has_changes(path):
                 print(f"  [DRY][{label}] Tiene cambios locales")
 
-    usb_path = locals_.get("usb")
-    disk_path = locals_.get("disk")
-    if usb_path and usb_path.exists() and disk_path and disk_path.exists():
-        usb_branch = _git_current_branch(usb_path)
-        disk_branch = _git_current_branch(disk_path)
+    # Sync entre locales (primary <-> secondary)
+    paths = list(locals_.values())
+    # Eliminar duplicados
+    seen = set()
+    uniq = []
+    for pp in paths:
+        rp = str(pp.resolve())
+        if rp not in seen:
+            seen.add(rp)
+            uniq.append(pp)
+    paths = uniq
+    if len(paths) >= 2 and all(p.exists() for p in paths):
+        p1, p2 = paths[0], paths[1]
+        b1 = _git_current_branch(p1)
+        b2 = _git_current_branch(p2)
 
         if not dry_run:
-            _git_fetch(disk_path, "usb")
-            ahead_usb = _git_ahead(disk_path, f"usb/{usb_branch}", f"origin/{disk_branch}")
-            if ahead_usb > 0:
-                print(f"  [disk] Pull desde usb ({ahead_usb} commits)")
-                if not _git_pull(disk_path, "usb", usb_branch):
-                    print(f"  [disk] WARN: pull desde usb tuvo conflictos")
+            _git_fetch(p2, 'primary' if paths[0] == p1 else 'secondary')
+            ahead1 = _git_ahead(p2, f'primary/{b1}', f'origin/{b2}')
+            if ahead1 > 0:
+                print(f'  [secondary] Pull desde primary ({ahead1} commits)')
+                if not _git_pull(p2, 'primary', b1):
+                    print('  [secondary] WARN: pull tuvo conflictos')
                     ok = False
         else:
-            print(f"  [DRY] Sync usb -> disk no ejecutado")
+            print('  [DRY] Sync primary -> secondary no ejecutado')
 
         if not dry_run:
-            _git_fetch(usb_path, "disk")
-            ahead_disk = _git_ahead(usb_path, f"disk/{disk_branch}", f"origin/{usb_branch}")
-            if ahead_disk > 0:
-                print(f"  [usb] Pull desde disk ({ahead_disk} commits)")
-                if not _git_pull(usb_path, "disk", disk_branch):
-                    print(f"  [usb] WARN: pull desde disk tuvo conflictos")
+            _git_fetch(p1, 'secondary' if paths[1] == p2 else 'primary')
+            ahead2 = _git_ahead(p1, f'secondary/{b2}', f'origin/{b1}')
+            if ahead2 > 0:
+                print(f'  [primary] Pull desde secondary ({ahead2} commits)')
+                if not _git_pull(p1, 'secondary', b2):
+                    print('  [primary] WARN: pull tuvo conflictos')
                     ok = False
         else:
-            print(f"  [DRY] Sync disk -> usb no ejecutado")
-
-    if not no_push:
-        for label, path in locals_.items():
-            if not path.exists():
-                continue
-            branch = _git_current_branch(path)
-            if not dry_run:
-                print(f"  [{label}] Push a origin/{branch}...")
-                if not _git_push(path, "origin", branch):
-                    print(f"  [{label}] WARN: push falló")
-                    ok = False
-            else:
-                print(f"  [DRY][{label}] Push a origin/{branch} no ejecutado")
-
-    return ok
+            print('  [DRY] Sync secondary -> primary no ejecutado')
 
 def main():
     p = argparse.ArgumentParser(description="Sincroniza BAGO motor + knowledge")
