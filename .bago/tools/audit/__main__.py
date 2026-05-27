@@ -82,4 +82,6 @@ def main(argv: list[str] | None = None) -> int:
     return full_main(args)
 
 if __name__ == "__main__":
+    if '--test' in sys.argv:
+        raise SystemExit(_run_tests())
     raise SystemExit(main())

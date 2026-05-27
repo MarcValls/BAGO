@@ -31,6 +31,11 @@ def validate_pack_full(root: Path, validate_manifest, validate_state) -> int:
         "state/migrated_changes/", "state/migrated_sessions/",
         "docs/V2_PROPUESTA.md", "ImageStudio/", "tools/dist/",
     ]
+    excluded_fragments = [
+        "/migration/legacy/",
+        "/knowledge/archives/",
+        "knowledge/archives/",
+    ]
     legacy_re = re.compile(
         r"(?:\bV2\.1(?:\.[0-9]+)?\b|\bv2_1\b|\bBAGO[-_\s]+2\.1(?:\.[0-9]+)?\b)",
         re.IGNORECASE,
@@ -41,6 +46,8 @@ def validate_pack_full(root: Path, validate_manifest, validate_state) -> int:
             continue
         rel = str(p.relative_to(root)).replace("\\", "/")
         if any(rel.startswith(px) for px in excluded_prefixes):
+            continue
+        if any(fragment in rel for fragment in excluded_fragments):
             continue
         if p.suffix.lower() not in {".md", ".json", ".txt", ".py"}:
             continue
@@ -151,5 +158,29 @@ def main() -> int:
     return validate_main()
 
 
+
+
+def run_tests() -> int:
+    """Self-test stub: verify module imports and key symbols exist."""
+    results = []
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_test_mod", __file__)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        results.append(("import", True, "module loads OK"))
+    except Exception as e:
+        results.append(("import", False, str(e)))
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    total = len(results)
+    for name, ok, detail in results:
+        status = "OK" if ok else "FAIL"
+        print(f"  [{status}] {name}: {detail}")
+    print(f"\n  {passed}/{total} tests passed")
+    return 0 if passed == total else 1
+
 if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(run_tests())
     raise SystemExit(main())

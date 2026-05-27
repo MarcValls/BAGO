@@ -47,6 +47,24 @@ TOOLS_DIR       = BAGO_ROOT / "tools"
 WIZARD_MARKER   = STATE_DIR / "install_complete.json"
 MANIFEST_PATH   = STATE_DIR / "deps_manifest.json"
 
+if str(BAGO_ROOT.parent) not in sys.path:
+    sys.path.insert(0, str(BAGO_ROOT.parent))
+
+try:
+    from bago_core.device_state import (
+        apply_device_context,
+        default_user_home,
+        removable_drives,
+        resolve_device_context,
+        save_local_credential_binding,
+    )
+except Exception:
+    apply_device_context = None
+    default_user_home = None
+    removable_drives = None
+    resolve_device_context = None
+    save_local_credential_binding = None
+
 BAGO_VERSION        = "2.0"
 DISCLAIMER_VERSION  = "1.0"
 
@@ -69,6 +87,18 @@ def _warn(msg): print(f"  {YELLOW('⚠')} {msg}")
 def _err(msg):  print(f"  {RED('✗')} {msg}")
 def _info(msg): print(f"  {DIM('→')} {msg}")
 def _step(msg): print(f"\n  {BOLD(CYAN('»'))} {BOLD(msg)}")
+
+
+def _ask_yes_no(prompt: str, default: bool = False) -> bool:
+    suffix = "[S/n]" if default else "[s/N]"
+    try:
+        ans = input(f"  {BOLD(prompt)} {suffix}: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return default
+    if not ans:
+        return default
+    return ans in ("s", "si", "sí", "y", "yes")
 
 # ─── Contrato de uso ──────────────────────────────────────────────────────────
 
@@ -372,9 +402,136 @@ def _check_ollama() -> bool:
     return True
 
 
+# ─── Device / credentials onboarding ──────────────────────────────────────────
+
+def _apply_context_env(ctx: dict) -> None:
+    if not ctx:
+        return
+    os.environ["BAGO_CREDENTIALS_MODE"] = ctx.get("credentials_mode", "session")
+    os.environ["BAGO_USER_HOME"] = ctx.get("user_home", "")
+    if ctx.get("device_root"):
+        os.environ["BAGO_DEVICE_ROOT"] = ctx["device_root"]
+
+
+def _local_credentials_option() -> dict:
+    default_path = default_user_home() if default_user_home else Path.home() / ".bago" / "user"
+    if not _ask_yes_no("Usar directorio local para credenciales? (menos recomendado)", default=False):
+        ctx = {
+            "mode": "session",
+            "credentials_mode": "session",
+            "user_home": str(default_path),
+            "device_root": "",
+        }
+        _apply_context_env(ctx)
+        _warn("Sin almacenamiento persistente: tendras que logearte en cada sesion.")
+        return ctx
+
+    try:
+        raw = input(f"  Ruta [{default_path}]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        raw = ""
+    path = Path(raw).expanduser() if raw else default_path
+    if save_local_credential_binding:
+        save_local_credential_binding(path)
+    ctx = {
+        "mode": "local",
+        "credentials_mode": "local",
+        "user_home": str(path),
+        "device_root": "",
+    }
+    _apply_context_env(ctx)
+    _warn("Credenciales locales activadas. No subas esa ruta a GitHub.")
+    return ctx
+
+
+def _device_onboarding() -> dict:
+    if not resolve_device_context:
+        return {"mode": "session", "credentials_mode": "session", "user_home": "", "device_root": ""}
+
+    ctx = resolve_device_context()
+    if ctx.get("mode") == "device":
+        _apply_context_env(ctx)
+        _ok(f"Dispositivo BAGO detectado: {ctx.get('device_root')}")
+        _ok("Credenciales: dispositivo BAGO")
+        return ctx
+    if ctx.get("mode") in ("explicit", "local") and ctx.get("credentials_mode") != "session":
+        _apply_context_env(ctx)
+        label = "variable de entorno" if ctx.get("mode") == "explicit" else "directorio local aprobado"
+        _ok(f"Credenciales: {label} -> {ctx.get('user_home')}")
+        return ctx
+
+    drives = removable_drives() if removable_drives else []
+    if drives:
+        drive = drives[0]
+        _warn(f"Pendrive detectado sin BAGO: {drive}")
+        if _ask_yes_no(f"Convertir {drive} en dispositivo BAGO?", default=True):
+            portable = TOOLS_DIR / "bago_portable.py"
+            result = subprocess.run(
+                [sys.executable, str(portable), "create", str(drive), "--yes"],
+                cwd=str(BAGO_ROOT.parent),
+            )
+            if result.returncode == 0 and apply_device_context:
+                ctx = apply_device_context()
+                _apply_context_env(ctx)
+                _ok("Dispositivo BAGO creado y activado.")
+                return ctx
+            _warn("No se pudo crear el dispositivo BAGO automaticamente.")
+    else:
+        _warn("No se detecto pendrive.")
+        _info("Recomendado: inserta uno y ejecuta `bago portable create <unidad>`.")
+
+    return _local_credentials_option()
+
+
+def _knowledge_onboarding(device_context: dict) -> dict:
+    device_root = device_context.get("device_root") if device_context else ""
+    if device_root:
+        base = Path(device_root)
+        if base.name.lower() == "bago":
+            base = base.parent
+        default_path = base / "bago-knowledge"
+    else:
+        default_path = Path.home() / "bago-knowledge"
+
+    try:
+        raw = input(f"  Directorio bago-knowledge [{default_path}]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        raw = ""
+    path = Path(raw).expanduser() if raw else default_path
+    path.mkdir(parents=True, exist_ok=True)
+
+    readme = path / "README.md"
+    if not readme.exists():
+        readme.write_text(
+            "# bago-knowledge\n\n"
+            "Memoria aprendida de BAGO. No guardes credenciales ni secretos aqui.\n\n"
+            "Comparte solo subcarpetas curadas con la comunidad BAGO.\n",
+            encoding="utf-8",
+        )
+
+    repo_initialized = False
+    if shutil.which("git") and not (path / ".git").exists():
+        if _ask_yes_no("Inicializar repo git separado para bago-knowledge?", default=True):
+            result = subprocess.run(["git", "init"], cwd=str(path))
+            repo_initialized = result.returncode == 0
+
+    _ok(f"bago-knowledge: {path}")
+    if repo_initialized:
+        _info("Configura un remoto privado o publico cuando quieras compartir conocimiento curado.")
+    return {
+        "path": str(path),
+        "repo_initialized": repo_initialized or (path / ".git").exists(),
+        "share_policy": "solo subcarpetas curadas, nunca secretos",
+    }
+
+
 # ─── Marker ───────────────────────────────────────────────────────────────────
 
-def _write_marker(selected_packs: list[str]) -> None:
+def _write_marker(
+    selected_packs: list[str],
+    device_context: dict | None = None,
+    knowledge_context: dict | None = None,
+) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     data = {
         "schema":               1,
@@ -385,6 +542,8 @@ def _write_marker(selected_packs: list[str]) -> None:
         "platform":             platform.system(),
         "selected_packs":       selected_packs,
         "accepted_disclaimer":  True,
+        "device":               device_context or {},
+        "knowledge":            knowledge_context or {},
     }
     WIZARD_MARKER.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
@@ -417,9 +576,16 @@ def main() -> int:
             print(f"  Python:    {m.get('python_version', '?')}")
             print(f"  Plataforma:{m.get('platform', '?')}")
             print(f"  Packs:     {', '.join(m.get('selected_packs', []))}")
+            device = m.get("device") or {}
+            if device:
+                print(f"  Credenciales: {device.get('credentials_mode', '?')} ({device.get('mode', '?')})")
+            knowledge = m.get("knowledge") or {}
+            if knowledge:
+                print(f"  Knowledge: {knowledge.get('path', '?')}")
         return 0
 
-    # ── --reset ────────────────────────────────────────────────────────────────    if "--reset" in args:
+    # ── --reset ────────────────────────────────────────────────────────────────
+    if "--reset" in args:
         if WIZARD_MARKER.exists():
             WIZARD_MARKER.unlink()
             _ok("Marker eliminado. Vuelve a ejecutar 'bago' para reinstalar.")
@@ -434,12 +600,14 @@ def main() -> int:
     # ── CI / automation bypass ─────────────────────────────────────────────────
     if os.environ.get("CI") or os.environ.get("BAGO_SKIP_WIZARD"):
         if not WIZARD_MARKER.exists():
-            _write_marker(["core"])
+            device_context = resolve_device_context() if resolve_device_context else {}
+            _write_marker(["core"], device_context, {})
         return 0
 
     # ── Non-interactive fallback ───────────────────────────────────────────────
     if not sys.stdin.isatty():
-        _write_marker(["core"])
+        device_context = resolve_device_context() if resolve_device_context else {}
+        _write_marker(["core"], device_context, {})
         return 0
 
     packs = _load_packs()
@@ -462,13 +630,21 @@ def main() -> int:
         return 1
     _check_binary("git")
 
-    # ── Step 4: Feature pack selection ───────────────────────────────────────
+    # ── Step 4: Device / credentials policy ──────────────────────────────────
+    _step("Dispositivo BAGO y credenciales")
+    device_context = _device_onboarding()
+
+    # ── Step 5: Knowledge repo ───────────────────────────────────────────────
+    _step("bago-knowledge")
+    knowledge_context = _knowledge_onboarding(device_context)
+
+    # ── Step 6: Feature pack selection ───────────────────────────────────────
     _step("Selección de Feature Packs")
     selected = _select_packs(packs)
     print()
     _ok(f"Packs seleccionados: {', '.join(selected)}")
 
-    # ── Step 5: pip install ───────────────────────────────────────────────────
+    # ── Step 7: pip install ───────────────────────────────────────────────────
     all_pip: list[str] = []
     for pack_key in selected:
         all_pip.extend(packs.get(pack_key, {}).get("pip", []))
@@ -480,15 +656,15 @@ def main() -> int:
             _warn("Algunas dependencias no se instalaron. Puedes instalarlas manualmente.")
             _warn("La instalación básica de BAGO continúa de todas formas.")
 
-    # ── Step 6: Ollama check ──────────────────────────────────────────────────
+    # ── Step 8: Ollama check ──────────────────────────────────────────────────
     if "advisor" in selected:
         _step("Comprobando Ollama (para el Advisor LLM)")
         _check_ollama()
 
-    # ── Step 7: Write marker (only after reaching this point) ─────────────────
-    _write_marker(selected)
+    # ── Step 9: Write marker (only after reaching this point) ─────────────────
+    _write_marker(selected, device_context, knowledge_context)
 
-    # ── Step 8: Done ──────────────────────────────────────────────────────────
+    # ── Step 10: Done ─────────────────────────────────────────────────────────
     print()
     print(CYAN("  ╔══════════════════════════════════════════════════════════╗"))
     print(CYAN("  ║  ") + GREEN("✓  ¡BAGO instalado correctamente!") + "                      " + CYAN("║"))
@@ -515,5 +691,29 @@ def main() -> int:
     return 0
 
 
+
+
+def run_tests() -> int:
+    """Self-test stub: verify module imports and key symbols exist."""
+    results = []
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_test_mod", __file__)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        results.append(("import", True, "module loads OK"))
+    except Exception as e:
+        results.append(("import", False, str(e)))
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    total = len(results)
+    for name, ok, detail in results:
+        status = "OK" if ok else "FAIL"
+        print(f"  [{status}] {name}: {detail}")
+    print(f"\n  {passed}/{total} tests passed")
+    return 0 if passed == total else 1
+
 if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(run_tests())
     sys.exit(main())

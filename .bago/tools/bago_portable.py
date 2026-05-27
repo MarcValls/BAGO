@@ -134,10 +134,10 @@ def _get_drive_size(drive: Path):
         return 0, 0
 
 def cmd_detect():
-    print(f"\\n  {BOLD('BAGO Portable -- Deteccion de pen drives')}\\n")
+    print(f"\n  {BOLD('BAGO Portable -- Deteccion de pen drives')}\n")
     drives = _get_removable_drives()
     if not drives:
-        print("  No se detectaron drives removibles.\\n")
+        print("  No se detectaron drives removibles.\n")
         return
     found = False
     for drive in drives:
@@ -156,8 +156,8 @@ def cmd_detect():
             found = True
         print(f"  {drive}  {status}  {free_gb:.1f} GB libre / {total_gb:.1f} GB total{marker}")
     if not found:
-        print(f"\\n  {YELLOW('Ningun pen tiene BAGO portable instalado.')}")
-        print(f"  {DIM('Usa: bago portable create <drive>')}\\n")
+        print(f"\n  {YELLOW('Ningun pen tiene BAGO portable instalado.')}")
+        print(f"  {DIM('Usa: bago portable create <drive>')}\n")
     else:
         print()
 
@@ -172,7 +172,7 @@ def cmd_create(drive_str: str, install_models=None, yes: bool = False):
     if total == 0 and not drive.exists():
         print(f"  {RED('X')} No se pudo leer el drive.")
         return
-    print(f"\\n  {BOLD('Creando BAGO portable')} en {CYAN(str(drive))}")
+    print(f"\n  {BOLD('Creando BAGO portable')} en {CYAN(str(drive))}")
     print(f"  Espacio: {free / (1024**3):.1f} GB libre / {total / (1024**3):.1f} GB total")
     if total < 32 * (1024**3):
         print(f"  {YELLOW('!')} El drive tiene menos de 32 GB. Recomendado >=32 GB.")
@@ -182,7 +182,7 @@ def cmd_create(drive_str: str, install_models=None, yes: bool = False):
                 print("  Cancelado.")
                 return
         elif not sys.stdin.isatty() and not yes:
-            print(f"  {YELLOW("o")} Entrada no interactiva: usa --yes para forzar.")
+            print(f"  {YELLOW('o')} Entrada no interactiva: usa --yes para forzar.")
             return
     src = _find_active_install()
     if not src:
@@ -191,8 +191,10 @@ def cmd_create(drive_str: str, install_models=None, yes: bool = False):
     print(f"  {DIM('Origen: ' + str(src))}")
     items = [
         src / ".bago", src / "bago_core", src / "bago.cmd", src / "bago.ps1",
-        src / "bago.ico", src / "runtime_contract.json", src / "CHANGELOG.md",
+        src / "bago.ico", src / "docs", src / "runtime_contract.json", src / "CHANGELOG.md",
         src / "INSTALL.md", src / "LICENSE", src / "README.md", src / "QUICKSTART.md",
+        src / "SECURITY.md",
+        src / "install-bago.cmd", src / "install-bago.sh", src / "install.sh",
         src / "install.ps1", src / "smoke-test.ps1",
     ]
     dest = drive / "bago"
@@ -205,7 +207,20 @@ def cmd_create(drive_str: str, install_models=None, yes: bool = False):
             if item.is_dir():
                 if dst.exists():
                     shutil.rmtree(dst)
-                shutil.copytree(item, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".git"))
+                shutil.copytree(
+                    item,
+                    dst,
+                    ignore=shutil.ignore_patterns(
+                        "__pycache__",
+                        "*.pyc",
+                        ".git",
+                        "user",
+                        "credentials.json",
+                        "accounts.json",
+                        "token_log.json",
+                        "provider_state.json",
+                    ),
+                )
             else:
                 shutil.copy2(item, dst)
             print(f"    {GREEN('v')} {item.name}")
@@ -220,8 +235,9 @@ def cmd_create(drive_str: str, install_models=None, yes: bool = False):
     }, indent=2, ensure_ascii=False), encoding="utf-8")
     (drive / "models").mkdir(exist_ok=True)
     (drive / "sessions").mkdir(exist_ok=True)
-    print(f"\\n  {GREEN('OK')} BAGO portable creado en {dest}")
-    print(f"  {DIM('Usa: bago portable status ' + str(drive))} o arranca con el .ps1/.cmd del pen.\\n")
+    (dest / ".bago" / "user").mkdir(parents=True, exist_ok=True)
+    print(f"\n  {GREEN('OK')} BAGO portable creado en {dest}")
+    print(f"  {DIM('Usa: bago portable status ' + str(drive))} o arranca con el .ps1/.cmd del pen.\n")
     if install_models:
         print(f"  {CYAN('->')} Instalando modelos seleccionados...")
         for model in install_models:
@@ -233,7 +249,7 @@ def cmd_sync(drive_str: str):
     if base is None:
         print(f"  {RED('X')} {drive} no tiene BAGO portable.")
         return
-    print(f"\\n  {BOLD('Sincronizando')} {CYAN(str(drive))} <-> PC\\n")
+    print(f"\n  {BOLD('Sincronizando')} {CYAN(str(drive))} <-> PC\n")
     pc_sessions = STATE_DIR / "sessions"
     pen_sessions = drive / "sessions"
     if pc_sessions.exists():
@@ -258,7 +274,7 @@ def cmd_sync(drive_str: str):
                 if not dst.exists() or f.stat().st_mtime > dst.stat().st_mtime:
                     shutil.copy2(f, dst)
                     print(f"  {GREEN('->')} Estado {f.name} -> pen")
-    print(f"\\n  {GREEN('OK')} Sincronizacion completada.\\n")
+    print(f"\n  {GREEN('OK')} Sincronizacion completada.\n")
 
 def cmd_status(drive_str: str):
     drive = Path(drive_str.replace("/", "\\").rstrip("\\"))
@@ -273,7 +289,7 @@ def cmd_status(drive_str: str):
     models_dir = drive / "models"
     session_count = len(list(sessions_dir.glob("*.json"))) if sessions_dir.exists() else 0
     model_count = len(list(models_dir.iterdir())) if models_dir.exists() else 0
-    print(f"\\n  {BOLD('BAGO Portable')} en {CYAN(str(drive))}")
+    print(f"\n  {BOLD('BAGO Portable')} en {CYAN(str(drive))}")
     print(f"  Creado:     {meta.get('created', '?')}")
     print(f"  Origen:     {meta.get('source', '?')}")
     print(f"  Version:    {meta.get('version', '?')}")
@@ -330,5 +346,29 @@ def main():
         cmd_detect()
     return 0
 
+
+
+def run_tests() -> int:
+    """Self-test stub: verify module imports and key symbols exist."""
+    results = []
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_test_mod", __file__)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        results.append(("import", True, "module loads OK"))
+    except Exception as e:
+        results.append(("import", False, str(e)))
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    total = len(results)
+    for name, ok, detail in results:
+        status = "OK" if ok else "FAIL"
+        print(f"  [{status}] {name}: {detail}")
+    print(f"\n  {passed}/{total} tests passed")
+    return 0 if passed == total else 1
+
 if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(run_tests())
     sys.exit(main())
