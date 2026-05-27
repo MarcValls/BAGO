@@ -121,6 +121,13 @@ def tumba_list() -> "list[str]":
     return list(_load().keys())
 
 
+def tumba_get(name: str) -> str | None:
+    """Devuelve el valor de una clave de tumba sin exponerlo en pantalla."""
+    if not name:
+        return None
+    return _load().get(name)
+
+
 def tumba_clear() -> int:
     """Elimina todas las entradas. Devuelve cuántas había."""
     data = _load()

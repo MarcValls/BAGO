@@ -130,7 +130,7 @@ class CredentialManager(LoginFlowsMixin):
                         "group": "repo"},
         # ── Almacenamiento cloud ───────────────────────────────────────────────
         "sendcm":      {"env": None,                    "bago_provider": None,
-                        "desc": "send.cm (email+password — sin navegador)",
+                        "desc": "send.now (compat. send.cm) — email+password sin navegador",
                         "login_type": "sendcm",
                         "group": "cloud"},
     }
@@ -158,6 +158,7 @@ class CredentialManager(LoginFlowsMixin):
         "cb": "codeberg", "forgejo": "codeberg",
         # Cloud
         "send": "sendcm",
+        "sendnow": "sendcm",
     }
 
     def __init__(self):
@@ -240,6 +241,58 @@ class CredentialManager(LoginFlowsMixin):
             os.environ[env_key] = key
         self._save()
 
+    def logout(self, provider_name: str) -> str:
+        """Cierra sesión del provider y borra credenciales activas locales."""
+        raw = str(provider_name or "").strip().lower().replace("_", "-")
+        if not raw:
+            return "Provider vacío."
+
+        alias = {
+            "codex": "openai",
+            "gpt": "openai",
+            "copilot": "github",
+            "ollama-local": "ollama",
+            "ollama-cloud": "ollama_cloud",
+            "sendnow": "sendcm",
+        }.get(raw, raw)
+
+        removed_keys = []
+        for key in {alias, raw}:
+            if key in self._creds:
+                self._creds.pop(key, None)
+                removed_keys.append(key)
+
+        if alias == "openai":
+            for k in ("openai_via", "OPENAI_API_KEY"):
+                self._creds.pop(k, None)
+            os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop("OPENAI_VIA", None)
+            os.environ.pop("CODEx_VIA", None)
+            os.environ.pop("CHATGPT_VIA", None)
+            self._accounts.clear_provider("openai")
+        elif alias == "github":
+            os.environ.pop("GITHUB_TOKEN", None)
+            os.environ.pop("GH_TOKEN", None)
+            self._accounts.clear_provider("github")
+        elif alias == "ollama_cloud":
+            self._creds.pop("ollama_cloud_via", None)
+            os.environ.pop("OLLAMA_CLOUD_API_KEY", None)
+            os.environ.pop("OLLAMA_API_KEY", None)
+            self._accounts.clear_provider("ollama_cloud")
+        elif alias == "sendcm":
+            self._creds.pop("sendcm", None)
+        elif alias in self.PROVIDERS:
+            env_key = self.PROVIDERS[alias].get("env")
+            if env_key:
+                os.environ.pop(env_key, None)
+            self._accounts.clear_provider(alias)
+
+        self._save()
+        self._accounts.apply_active_credentials()
+        if removed_keys:
+            return f"logout OK: {alias} ({', '.join(sorted(removed_keys))})"
+        return f"logout OK: {alias}"
+
     # ── Detección de providers ───────────────────────────────────────────────────
 
     def _ollama_ok(self) -> bool:
@@ -306,18 +359,19 @@ class CredentialManager(LoginFlowsMixin):
         Valida que las keys API tengan formato plausible.
         """
         active = []
+        local_mode = os.environ.get("BAGO_ENABLE_LOCAL_MODE") == "1"
         for name, info in self.PROVIDERS.items():
             if not self.is_provider_enabled(name):
                 continue
             if name == "ollama":
-                if self._ollama_ok():
+                if local_mode and self._ollama_ok():
                     active.append("ollama-local")
             elif name == "ollama_cloud":
                 # API key en env var, en credentials.json, o signin
                 has_env = bool(os.environ.get("OLLAMA_CLOUD_API_KEY") or os.environ.get("OLLAMA_API_KEY"))
                 has_file = bool(self._creds.get("ollama_cloud"))  # key almacenada por ollama signin
                 has_signin = self._creds.get("ollama_cloud_via") == "ollama_signin"
-                if has_env or has_file or has_signin:
+                if local_mode and (has_env or has_file or has_signin):
                     active.append("ollama-cloud")
             elif name == "openai":
                 env_key = os.environ.get("OPENAI_API_KEY", "")

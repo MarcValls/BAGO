@@ -53,8 +53,16 @@ def _find_active_install():
 def _portable_marker(drive: Path):
     return drive / ".bago_portable"
 
+def _portable_base(drive: Path) -> Path | None:
+    """Devuelve la carpeta base del pen portable si existe."""
+    for folder in ("bago", "BAGO"):
+        base = drive / folder
+        if (base / ".bago").exists():
+            return base
+    return None
+
 def _is_portable(drive: Path):
-    return _portable_marker(drive).exists()
+    return _portable_marker(drive).exists() or _portable_base(drive) is not None
 
 def _get_removable_drives():
     system = platform.system()
@@ -221,7 +229,8 @@ def cmd_create(drive_str: str, install_models=None, yes: bool = False):
 
 def cmd_sync(drive_str: str):
     drive = Path(drive_str.replace("/", "\\").rstrip("\\"))
-    if not _is_portable(drive):
+    base = _portable_base(drive)
+    if base is None:
         print(f"  {RED('X')} {drive} no tiene BAGO portable.")
         return
     print(f"\\n  {BOLD('Sincronizando')} {CYAN(str(drive))} <-> PC\\n")
@@ -241,7 +250,7 @@ def cmd_sync(drive_str: str):
                 shutil.copy2(f, dst)
                 print(f"  {GREEN('<-')} Sesion {f.name} -> PC")
     pc_state = STATE_DIR
-    pen_state = drive / "bago" / ".bago" / "state"
+    pen_state = base / ".bago" / "state"
     if pc_state.exists() and pen_state.exists():
         for f in pc_state.glob("*.json"):
             if f.name in ("global_state.json", "repo_context.json", "creation_studio.json"):
@@ -253,12 +262,13 @@ def cmd_sync(drive_str: str):
 
 def cmd_status(drive_str: str):
     drive = Path(drive_str.replace("/", "\\").rstrip("\\"))
-    if not _is_portable(drive):
+    base = _portable_base(drive)
+    if base is None:
         print(f"  {RED('X')} {drive} no tiene BAGO portable.")
         return
     total, free = _get_drive_size(drive)
     meta = json.loads(_portable_marker(drive).read_text(encoding="utf-8")) if _portable_marker(drive).exists() else {}
-    dest = drive / "bago"
+    dest = base
     sessions_dir = drive / "sessions"
     models_dir = drive / "models"
     session_count = len(list(sessions_dir.glob("*.json"))) if sessions_dir.exists() else 0
@@ -276,7 +286,10 @@ def cmd_status(drive_str: str):
 
 def cmd_boot(drive_str: str):
     drive = Path(drive_str.replace("/", "\\").rstrip("\\"))
-    dest = drive / "bago"
+    dest = _portable_base(drive)
+    if dest is None:
+        print(f"  {RED('X')} No se encontro lanzador en {drive}")
+        return
     ps1 = dest / "bago.ps1"
     cmd = dest / "bago.cmd"
     if ps1.exists():

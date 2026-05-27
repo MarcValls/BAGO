@@ -24,6 +24,7 @@ Uso:
   bago cosecha            → cosecha.py
   bago detector           → context_detector.py
   bago validate           → valida pack (manifest + state + pack)
+  bago smoke              → smoke pack: validate_pack + health_score + última cosecha
   bago sync               → sync_pack_metadata.py (regenera TREE.txt y CHECKSUMS)
   bago health             → health_score.py
   bago audit              → audit_v2.py
@@ -57,6 +58,8 @@ Uso:
   bago model models       → lista todos los modelos disponibles
   bago model get <id>     → obtiene el modelo de un agente
   bago model set <id> <m> → asigna modelo a un agente (ej: bago model set agent_ops claude-opus-4.7)
+  bago models detect      → detecta modelos accesibles por provider
+  bago sendnow ...        → cliente send.now: account | upload | files | folder
   bago serve              → arranca el servidor API BAGO
   bago bot telegram       → arranca el bot de Telegram
   bago bot utopia         → arranca el cliente Utopia
@@ -1148,6 +1151,16 @@ def main():
         # Gestión dinámica de modelos por agente
         subprocess.run(
             [sys.executable, str(TOOLS / "agent_model_manager.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "models":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_models.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+    elif cmd == "sendnow":
+        subprocess.run(
+            [sys.executable, str(TOOLS / "bago_sendnow.py")] + rest,
             cwd=str(BAGO_ROOT.parent),
         )
     elif cmd == "assign":

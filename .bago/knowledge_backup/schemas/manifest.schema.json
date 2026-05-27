@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema", "repo", "purpose", "policy"],
+  "properties": {
+    "schema": {
+      "type": "integer"
+    },
+    "repo": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "object"
+    }
+  }
+}
+

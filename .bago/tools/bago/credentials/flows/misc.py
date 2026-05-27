@@ -15,6 +15,7 @@ import subprocess
 from pathlib import Path
 
 from ...ui import console, _stdin_prompt
+from ...tumba import tumba_add, tumba_get
 from ..accounts import AccountManager
 
 
@@ -95,51 +96,50 @@ def flow_huggingface(mgr) -> str:
     return f"[green]✓ Hugging Face token guardado (@{username}  {token[:6]}…)[/green]"
 
 
-def flow_sendcm(mgr) -> str:
-    """send.cm: pegar API key desde el dashboard (sin login email+password).
+def _send_api_base_url() -> str:
+    return os.environ.get("BAGO_SEND_API_BASE_URL", "https://send.now/api").rstrip("/")
 
-    send.cm es una plataforma XFileSharing — no tiene endpoint público
-    de login con credenciales. La API usa ?key=<api_key> en cada request.
-    El usuario debe sacar su API key de https://send.cm/?op=my_account
+
+def flow_sendcm(mgr) -> str:
+    """send.now / send.cm: pegar API key desde el dashboard (sin login email+password).
+
+    send.now expone una API simple por HTTP GET/POST con API key.
+    El usuario debe sacar su API key en su cuenta.
     """
-    import urllib.request, urllib.parse, json as _json
+    from ...sendnow_api import SendNowClient, SendNowError
 
     console.print(
-        "[bold]send.cm — API key[/bold]\n"
-        "[dim]  send.cm no permite login email+password por API.[/dim]\n"
-        "[dim]  Obtén tu API key en: https://send.cm/?op=my_account "
-        "(sección 'API Key')[/dim]\n"
-        "[dim]  Regístrate gratis en https://send.cm si aún no tienes cuenta.[/dim]\n"
+        "[bold]send.now — API key[/bold]\n"
+        "[dim]  Obtén tu API key en tu cuenta send.now.[/dim]\n"
+        f"[dim]  Base API: {_send_api_base_url()}[/dim]\n"
+        "[dim]  La clave sirve para account/info, upload/server, file/* y folder/*.[/dim]\n"
     )
 
-    existing = mgr._creds.get("sendcm", {}).get("api_key", "")
+    existing = mgr._creds.get("sendcm", {}).get("api_key", "") or tumba_get("SendCM API Key")
     if existing:
         console.print(f"  [dim]Token actual: {existing[:6]}…{existing[-4:]}[/dim]")
         overwrite = pt_prompt("¿Reemplazar token existente? [s/N]: ").strip().lower()
         if overwrite not in ("s", "si", "sí", "y", "yes"):
             return "[dim]Login cancelado — token existente conservado.[/dim]"
 
-    api_key = pt_prompt("send.cm API Key: ", is_password=True).strip()
+    api_key = pt_prompt("send.now API Key: ", is_password=True).strip()
     if not api_key:
         return "Cancelado."
 
-    # Verificar la key contra /api/account/info?key=...
+    client = SendNowClient(api_key=api_key, base_url=_send_api_base_url())
+
     email = "?"
     try:
-        url = f"https://send.cm/api/account/info?key={urllib.parse.quote(api_key)}"
-        with urllib.request.urlopen(url, timeout=15) as resp:
-            data = _json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        return f"[red]send.cm rechazó la API key (HTTP {e.code}).[/red]"
+        data = client.account_info()
+    except SendNowError as e:
+        if e.status is not None:
+            return f"[red]send.now rechazó la API key (HTTP {e.status}).[/red]"
+        return f"[red]send.now no pudo verificarse: {e}[/red]"
     except Exception as e:
         console.print(f"  [yellow]⚠  No se pudo verificar (sin conexión): {e}[/yellow]")
         data = None
 
     if data is not None:
-        status = data.get("status") or data.get("server_status") or 200
-        if status != 200:
-            msg = data.get("msg") or data.get("message") or str(data)
-            return f"[red]API key inválida: {msg}[/red]"
         result = data.get("result") or data.get("data") or {}
         email = result.get("email") or result.get("login") or "?"
         console.print(f"  [green]✓ Verificado: {email}[/green]")
@@ -148,7 +148,10 @@ def flow_sendcm(mgr) -> str:
     if email != "?":
         mgr._creds["sendcm"]["email"] = email
     mgr._save()
-    return f"[green]✓ send.cm autenticado: {email}  (key {api_key[:6]}…{api_key[-4:]})[/green]"
+    tumba_add(f"SendCM API Key: {api_key}")
+    if email != "?":
+        tumba_add(f"SendCM Email: {email}")
+    return f"[green]✓ send.now autenticado: {email}  (key {api_key[:6]}…{api_key[-4:]})[/green]"
 
 
 def _bago_to_am(name: str) -> str:

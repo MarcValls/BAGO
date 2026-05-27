@@ -90,13 +90,13 @@ def _next_session_id():
 
 def _read_global_state():
     p = BAGO_ROOT / "state" / "global_state.json"
-    return json.loads(p.read_text())
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 def _write_global_state(gs):
     p = BAGO_ROOT / "state" / "global_state.json"
     if not DRY_RUN:
-        p.write_text(json.dumps(gs, indent=2, ensure_ascii=False))
+        p.write_text(json.dumps(gs, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _ask(prompt, hint="", required=True):
@@ -585,11 +585,11 @@ def run():
 
     # ── Escribir ficheros ─────────────────────────────────────────────────────
     (SESSIONS / f"{session_id}.json").write_text(
-        json.dumps(session, indent=2, ensure_ascii=False))
+        json.dumps(session, indent=2, ensure_ascii=False), encoding="utf-8")
     (CHANGES  / f"{chg_id}.json").write_text(
-        json.dumps(chg,     indent=2, ensure_ascii=False))
+        json.dumps(chg,     indent=2, ensure_ascii=False), encoding="utf-8")
     (EVIDENCES / f"{evd_id}.json").write_text(
-        json.dumps(evd,     indent=2, ensure_ascii=False))
+        json.dumps(evd,     indent=2, ensure_ascii=False), encoding="utf-8")
     sprint_md_path.write_text(sprint_md_content, encoding="utf-8")
     _sync_session_to_db(session)  # índice analítico en bago.db
 

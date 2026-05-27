@@ -29,6 +29,9 @@ $ErrorActionPreference = "Stop"
 $env:PYTHONDONTWRITEBYTECODE = "1"
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
+if ($env:BAGO_NO_PROMPT_TOOLKIT -eq "1" -and $env:BAGO_FORCE_NO_PROMPT_TOOLKIT -ne "1") {
+    Remove-Item Env:BAGO_NO_PROMPT_TOOLKIT -ErrorAction SilentlyContinue
+}
 if ($env:PYTHONPATH) {
     $env:PYTHONPATH = "$PSScriptRoot;$PSScriptRoot\.bago\tools;$env:PYTHONPATH"
 } else {
@@ -55,8 +58,22 @@ function Detect-Source {
     try {
         $drives = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=2" | Select-Object -ExpandProperty DeviceID
         foreach ($d in $drives) {
-            $cand = Join-Path ($d.TrimEnd(':') + ':\') '.bago'
-            if (Test-Path $cand -PathType Container) { $usbReal = $cand; break }
+            $driveRoot = ($d.TrimEnd(':') + ':\')
+            $portableBase = $null
+            foreach ($folder in @('bago', 'BAGO')) {
+                $cand = Join-Path $driveRoot $folder
+                if (Test-Path (Join-Path $cand '.bago') -PathType Container) {
+                    $portableBase = $cand
+                    break
+                }
+            }
+            if (-not $portableBase) {
+                $legacyUsb = Join-Path $driveRoot '.bago'
+                if (Test-Path $legacyUsb -PathType Container) {
+                    $portableBase = $legacyUsb
+                }
+            }
+            if ($portableBase) { $usbReal = $portableBase; break }
         }
     } catch {}
 
@@ -301,8 +318,23 @@ function Show-Status {
     if (Test-Path $healthScript) {
         Write-Host ""
         Write-Host "  Health Check:" -ForegroundColor White
-        $health = python $healthScript 2>$null | Select-String "OK|NO" | Select-Object -First 4
-        $health | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        $healthOut = python $healthScript 2>$null
+        $healthLines = $healthOut | Where-Object {
+            $_ -match "✔|✗|⚠|ℹ" `
+                -and $_ -notmatch "= OK|Advertencia|Error|Info" `
+                -and $_ -notmatch "Archivo:|Sin registrar:|Registry roto:|archivos escaneados|Monolito:|Vigilar:|zona WARN|No es un repositorio git"
+        } | Select-Object -First 8
+        if ($healthLines) {
+            $healthLines | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        } else {
+            Write-Host "    Sin salida de health_check.py" -ForegroundColor Yellow
+        }
+        $debtLines = $healthOut | Where-Object {
+            $_ -match "Archivo:|Sin registrar:|Registry roto:|archivos escaneados|Monolito:|Vigilar:"
+        }
+        if ($debtLines) {
+            Write-Host "    ⚠ Deuda técnica detectada; detalle: bago health" -ForegroundColor DarkYellow
+        }
     }
 
     Write-Host ""
@@ -310,14 +342,30 @@ function Show-Status {
 
 function Install-Component {
     param([string]$component)
+    $normalized = if ($component) { $component.ToLowerInvariant() } else { "" }
+    switch ($normalized) {
+        "qwen2.5-coder:7b" { $component = "qwen25-coder" }
+        "phi3:mini"        { $component = "phi3-mini" }
+        "llama3.2:3b"      { $component = "llama32-3b" }
+        "deepseek-coder:6.7b" { $component = "deepseek-coder" }
+        "llama3.2:latest"  { $component = "llama32" }
+        "llama3.2:1b"      { $component = "llama32-1b" }
+        "qwen2.5:0.5b"     { $component = "qwen25-mini" }
+        "smollm2:1.7b"     { $component = "smollm2" }
+    }
     if (-not $component) {
         Write-Host ""
         Write-Host "  Componentes disponibles para instalar:" -ForegroundColor White
         Write-Host "  Modelos locales (Ollama):" -ForegroundColor Green
-        Write-Host "    qwen25-coder  — 4.5GB, código Python" -ForegroundColor White
-        Write-Host "    llama32       — 1.9GB, uso general" -ForegroundColor White
-        Write-Host "    llama32-1b    — 1.2GB, clasificación" -ForegroundColor White
-        Write-Host "    qwen25-mini   — 379MB, ultra-rápido" -ForegroundColor White
+        Write-Host "    qwen25-coder  — qwen2.5-coder:7b" -ForegroundColor White
+        Write-Host "    phi3-mini     — phi3:mini" -ForegroundColor White
+        Write-Host "    llama32-3b    — llama3.2:3b" -ForegroundColor White
+        Write-Host "    deepseek-coder— deepseek-coder:6.7b" -ForegroundColor White
+        Write-Host "    granite3.2    — granite3.2:8b" -ForegroundColor White
+        Write-Host "    llama32       — llama3.2:latest" -ForegroundColor White
+        Write-Host "    llama32-1b    — llama3.2:1b" -ForegroundColor White
+        Write-Host "    qwen25-mini   — qwen2.5:0.5b" -ForegroundColor White
+        Write-Host "    smollm2       — smollm2:1.7b" -ForegroundColor White
         Write-Host "  Herramientas:" -ForegroundColor Green
         Write-Host "    codex         — OpenAI Codex CLI" -ForegroundColor White
         Write-Host "    copilot       — GitHub Copilot CLI" -ForegroundColor White
@@ -334,6 +382,26 @@ function Install-Component {
             ollama pull qwen2.5-coder:7b
             Write-Host "✓ qwen25-coder instalado" -ForegroundColor Green
         }
+        "phi3-mini" {
+            Write-Host "Descargando phi3:mini (2.3GB)..." -ForegroundColor Cyan
+            ollama pull phi3:mini
+            Write-Host "✓ phi3-mini instalado" -ForegroundColor Green
+        }
+        "llama32-3b" {
+            Write-Host "Descargando llama3.2:3b (2.0GB)..." -ForegroundColor Cyan
+            ollama pull llama3.2:3b
+            Write-Host "✓ llama32-3b instalado" -ForegroundColor Green
+        }
+        "deepseek-coder" {
+            Write-Host "Descargando deepseek-coder:6.7b (4.1GB)..." -ForegroundColor Cyan
+            ollama pull deepseek-coder:6.7b
+            Write-Host "✓ deepseek-coder instalado" -ForegroundColor Green
+        }
+        "granite3.2" {
+            Write-Host "Descargando granite3.2:8b (4.9GB)..." -ForegroundColor Cyan
+            ollama pull granite3.2:8b
+            Write-Host "✓ granite3.2 instalado" -ForegroundColor Green
+        }
         "llama32" {
             Write-Host "Descargando llama3.2:latest (1.9GB)..." -ForegroundColor Cyan
             ollama pull llama3.2:latest
@@ -349,12 +417,22 @@ function Install-Component {
             ollama pull qwen2.5:0.5b
             Write-Host "✓ qwen25-mini instalado" -ForegroundColor Green
         }
+        "smollm2" {
+            Write-Host "Descargando smollm2:1.7b (1.1GB)..." -ForegroundColor Cyan
+            ollama pull smollm2:1.7b
+            Write-Host "✓ smollm2 instalado" -ForegroundColor Green
+        }
         "all" {
             Write-Host "Descargando todos los modelos locales..." -ForegroundColor Cyan
             ollama pull qwen2.5-coder:7b
+            ollama pull phi3:mini
+            ollama pull llama3.2:3b
+            ollama pull deepseek-coder:6.7b
+            ollama pull granite3.2:8b
             ollama pull llama3.2:latest
             ollama pull llama3.2:1b
             ollama pull qwen2.5:0.5b
+            ollama pull smollm2:1.7b
             Write-Host "✓ Todos los modelos locales instalados" -ForegroundColor Green
         }
         "codex" {
@@ -412,10 +490,20 @@ function Sync-USB {
         Write-Host "No se detectó USB. Inserta pendrive con BAGO." -ForegroundColor Red
         exit 1
     }
-    $knowledgeSrc = Join-Path $script:PRIMARY "knowledge"
-    $knowledgeDst = Join-Path $script:SECONDARY "knowledge"
-    $stateSrc = Join-Path $script:PRIMARY "state"
-    $stateDst = Join-Path $script:SECONDARY "state"
+    function Resolve-StateRoot([string]$path) {
+        $portable = Join-Path $path ".bago"
+        if (Test-Path $portable -PathType Container) {
+            return $portable
+        }
+        return $path
+    }
+
+    $primaryRoot = Resolve-StateRoot $script:PRIMARY
+    $secondaryRoot = Resolve-StateRoot $script:SECONDARY
+    $knowledgeSrc = Join-Path $primaryRoot "knowledge"
+    $knowledgeDst = Join-Path $secondaryRoot "knowledge"
+    $stateSrc = Join-Path $primaryRoot "state"
+    $stateDst = Join-Path $secondaryRoot "state"
 
     # Asegurar que directorios existen en destino
     if (-not (Test-Path $knowledgeDst)) { New-Item -ItemType Directory -Force $knowledgeDst | Out-Null }
@@ -876,10 +964,14 @@ if ($args.Count -eq 0) {
     exit $LASTEXITCODE
 }
 $command = $args[0]
-$rest = $args[1..($args.Length-1)]
+if ($args.Length -gt 1) {
+    $rest = $args[1..($args.Length-1)]
+} else {
+    $rest = @()
+}
 
 switch ($command) {
-    "status" { Show-Banner; Show-Status }
+    "status" { Show-Status }
     "inventory" {
         Detect-Source
         $invScript = Join-Path $script:PRIMARY "tools\bago_inventory.py"
@@ -929,6 +1021,27 @@ switch ($command) {
         Invoke-BagoPipeline -task ($rest -join " ")
     }
     "install" { Install-Component -component $rest[0] }
+    "portable" {
+        Detect-Source
+        $portableScript = Join-Path $script:PRIMARY "tools\bago_portable.py"
+        if (-not (Test-Path $portableScript)) {
+            Write-Host "No se encontro bago_portable.py en $portableScript" -ForegroundColor Red
+            exit 1
+        }
+        if ($rest.Count -gt 0) {
+            python $portableScript @rest
+        } else {
+            python $portableScript detect
+        }
+    }
+    "models" {
+        Detect-Source
+        if ($rest.Count -gt 0) {
+            python (Join-Path $script:PRIMARY "tools\bago_models.py") @rest
+        } else {
+            python (Join-Path $script:PRIMARY "tools\bago_models.py") detect
+        }
+    }
     "sync" {
         if ($rest -and $rest[0] -eq "knowledge") {
             $knowledgeArgs = @()

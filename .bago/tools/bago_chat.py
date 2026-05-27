@@ -43,6 +43,7 @@ def main():
         p.add_argument("--provider", default="")
         p.add_argument("--model",    default="")
         p.add_argument("--task",     default="")
+        p.add_argument("--local",    action="store_true", help="Fuerza modelo local (ollama-local)")
         p.add_argument("--api",      action="store_true", help="Arrancar con modo API activado")
         args = p.parse_args()
 
@@ -60,6 +61,8 @@ def main():
             time.sleep(2)
             set_mode("api")
 
+        if args.local and not args.provider and not args.model:
+            args.provider = "local"
         session = resolve_session(args)
         run_startup_tasks(session)
         pt = build_prompt_session(session)

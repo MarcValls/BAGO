@@ -282,27 +282,27 @@ TUMBA_SCHEMA: dict[str, list[TumbaSlot]] = {
         {
             "name":     "SendCM Email",
             "env":      None,
-            "desc":     "Email de tu cuenta send.cm. Se usa para autenticarse y obtener el API key.",
+            "desc":     "Email de tu cuenta send.now. Se usa para autenticarse y obtener la API key.",
             "format":   "usuario@dominio.com",
             "required": True,
-            "url":      "https://send.cm/register",
+            "url":      "https://send.now/api",
         },
         {
             "name":     "SendCM Password",
             "env":      None,
-            "desc":     "Contraseña de tu cuenta send.cm. Solo se usa durante el login inicial.",
+            "desc":     "Contraseña de tu cuenta send.now. Solo se usa durante el login inicial.",
             "format":   "contraseña de la cuenta",
             "required": True,
-            "url":      "https://send.cm/login",
+            "url":      "https://send.now/api",
         },
         {
             "name":     "SendCM API Key",
             "env":      None,
-            "desc":     "API key obtenida tras autenticarse en send.cm. "
-                        "Se usa para subir/compartir archivos por API.",
+            "desc":     "API key obtenida tras autenticarse en send.now. "
+                        "Se usa para account/info, upload/server, upload/url, file/* y folder/*.",
             "format":   "XXXX... (token largo)",
             "required": False,
-            "url":      "https://send.cm/account/api",
+            "url":      "https://send.now/api",
         },
     ],
 

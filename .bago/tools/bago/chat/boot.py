@@ -34,12 +34,20 @@ def resolve_session(args) -> BagoSession:
 
     if args.model:
         name, wire, prov = None, None, args.provider or "codex"
+        # buscar en providers.json
         for pn, pd in providers.items():
             if args.model in pd.get("models", {}):
                 name = args.model
                 wire = pd["models"][args.model].get("wire_name", args.model)
                 prov = pn
                 break
+        # si no esta en providers.json pero es un modelo local instalado
+        if not name:
+            from bago.model_availability import installed_ollama_models
+            if args.model in installed_ollama_models():
+                name = args.model
+                wire = args.model
+                prov = "ollama-local"
         if not name:
             console.print(f"[red]Modelo '{args.model}' no encontrado.[/red]")
             sys.exit(1)
@@ -53,6 +61,7 @@ def resolve_session(args) -> BagoSession:
             "copilot": "copilot", "codex": "codex",
             "ollama": "ollama-local", "ollama-local": "ollama-local",
             "ollama-cloud": "ollama-cloud", "anthropic": "anthropic",
+            "local": "ollama-local",
         }
         chosen = pm.get(args.provider, "") or auto_detect_provider(creds, providers)
         if not args.provider:

@@ -154,8 +154,11 @@ def _run_interactive() -> int:
     layer, sublayer = _load_layer()
 
     if _HAS_PROMPT_TOOLKIT:
-        pt_style = Style.from_dict({"prompt": "#5555ff bold", "rprompt": "#666666"})
-        session = PromptSession(style=pt_style)
+        try:
+            pt_style = Style.from_dict({"prompt": "#5555ff bold", "rprompt": "#666666"})
+            session = PromptSession(style=pt_style)
+        except Exception:
+            session = None
     else:
         session = None
 
@@ -204,7 +207,7 @@ def _run_interactive() -> int:
             console.print(f"\n[green]  Iniciando modo creación → {LAYERS[chosen_layer]['label']}[/green]")
             if chosen_sub:
                 console.print(f"[grey50]  subcapa: {chosen_sub}[/grey50]")
-            subprocess.run(cmd, cwd=str(tools_dir))
+            subprocess.run(cmd, cwd=str(TOOLS_DIR))
         else:
             console.print(f"[red]  No se encuentra creation_mode.py[/red]")
 
@@ -229,7 +232,7 @@ def main() -> int:
             cmd = [sys.executable, "-m", "creation_mode", "--layer", args.layer]
             if args.sublayer:
                 cmd += ["--sublayer", args.sublayer]
-            return subprocess.run(cmd, cwd=str(tools_dir)).returncode
+            return subprocess.run(cmd, cwd=str(TOOLS_DIR)).returncode
         console.print("[red]creation_mode.py no encontrado[/red]")
         return 1
 

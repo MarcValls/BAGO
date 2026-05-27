@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>3 Voces en Armonía — BAGO Shepard · 2026-05-13</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #07070d;
+  color: #e0e0e0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+header {
+  text-align: center;
+  padding: 32px 20px 12px;
+}
+header h1 { font-size: 1.3rem; letter-spacing: 0.2em; color: #e0e0e0; }
+header p  { font-size: 0.65rem; color: #444; margin-top: 6px; letter-spacing: 0.15em; }
+
+/* ── 3 VOICE SPIRALS ── */
+#stage {
+  position: relative;
+  width: 700px;
+  height: 340px;
+  margin: 20px auto 0;
+}
+#stage canvas { position: absolute; top:0; left:0; }
+
+/* ── VOICE LABELS ── */
+.voices {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin: 12px auto;
+  max-width: 700px;
+}
+.voice-card {
+  flex: 1;
+  border: 1px solid #1a1a2e;
+  border-radius: 10px;
+  padding: 14px 12px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  min-width: 0;
+}
+.voice-card.pulse { border-color: var(--c); box-shadow: 0 0 16px var(--c)33; }
+.voice-card .badge {
+  font-size: 0.6rem; letter-spacing: 0.15em;
+  color: var(--c); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.voice-card .badge .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c); box-shadow: 0 0 8px var(--c);
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.voice-card .files { list-style: none; margin-top: 4px; }
+.voice-card .files li {
+  font-size: 0.6rem; color: #555; padding: 2px 0;
+  transition: color 0.4s;
+  display: flex; justify-content: space-between;
+}
+.voice-card .files li.done { color: var(--c); }
+.voice-card .files li .lines { color: #333; font-size: 0.55rem; }
+.voice-card .files li.done .lines { color: var(--c); opacity: 0.6; }
+.voice-card .status {
+  margin-top: 8px; font-size: 0.6rem; color: #333;
+  border-top: 1px solid #1a1a2e; padding-top: 6px;
+  transition: color 0.4s;
+}
+.voice-card.pulse .status { color: var(--c); }
+
+/* ── WAVEFORM ── */
+#waveform-wrap {
+  width: 700px;
+  margin: 0 auto;
+}
+#waveform-wrap canvas { display: block; }
+
+/* ── PHASE BAR ── */
+.phase-bar {
+  width: 700px;
+  margin: 10px auto 0;
+  display: flex;
+  gap: 4px;
+}
+.phase-seg {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: #1a1a2e;
+  transition: background 0.4s, box-shadow 0.4s;
+}
+.phase-seg.lit { background: var(--c); box-shadow: 0 0 6px var(--c); }
+
+/* ── TONE BUTTON ── */
+.tone-btn {
+  margin: 14px auto;
+  background: #111;
+  border: 1px solid #333;
+  color: #888;
+  font-family: inherit;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.tone-btn:hover { border-color: #c084fc; color: #c084fc; }
+.tone-btn.on { border-color: #c084fc; color: #c084fc; box-shadow: 0 0 12px #c084fc44; }
+
+/* ── FOOTER ── */
+.foot {
+  font-size: 0.55rem; color: #222; text-align: center;
+  padding: 12px 0 30px; letter-spacing: 0.12em;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>◈ 3 Voces en Armonía · Desfasadas 120°</h1>
+  <p>BAGO 2026-05-13 · split-batch-1 · split-batch-2 · split-batch-3</p>
+</header>
+
+<!-- SPIRAL STAGE -->
+<div id="stage">
+  <canvas id="c-bg"  width="700" height="340"></canvas>
+  <canvas id="c-v1"  width="700" height="340"></canvas>
+  <canvas id="c-v2"  width="700" height="340"></canvas>
+  <canvas id="c-v3"  width="700" height="340"></canvas>
+  <canvas id="c-top" width="700" height="340"></canvas>
+</div>
+
+<!-- WAVEFORM -->
+<div id="waveform-wrap">
+  <canvas id="waveform" width="700" height="70"></canvas>
+</div>
+
+<!-- PHASE BARS — one per voice -->
+<div class="phase-bar" id="pb1">
+  <div class="phase-seg" data-v="1" data-i="0" style="--c:#f87171"></div>
+  <div class="phase-seg" data-v="1" data-i="1" style="--c:#fb923c"></div>
+  <div class="phase-seg" data-v="1" data-i="2" style="--c:#facc15"></div>
+  <div class="phase-seg" data-v="1" data-i="3" style="--c:#4ade80"></div>
+  <div class="phase-seg" data-v="1" data-i="4" style="--c:#c084fc"></div>
+</div>
+<div class="phase-bar" id="pb2" style="margin-top:3px">
+  <div class="phase-seg" data-v="2" data-i="0" style="--c:#f87171"></div>
+  <div class="phase-seg" data-v="2" data-i="1" style="--c:#fb923c"></div>
+  <div class="phase-seg" data-v="2" data-i="2" style="--c:#facc15"></div>
+  <div class="phase-seg" data-v="2" data-i="3" style="--c:#4ade80"></div>
+  <div class="phase-seg" data-v="2" data-i="4" style="--c:#c084fc"></div>
+</div>
+<div class="phase-bar" id="pb3" style="margin-top:3px">
+  <div class="phase-seg" data-v="3" data-i="0" style="--c:#f87171"></div>
+  <div class="phase-seg" data-v="3" data-i="1" style="--c:#fb923c"></div>
+  <div class="phase-seg" data-v="3" data-i="2" style="--c:#facc15"></div>
+  <div class="phase-seg" data-v="3" data-i="3" style="--c:#4ade80"></div>
+  <div class="phase-seg" data-v="3" data-i="4" style="--c:#c084fc"></div>
+</div>
+
+<!-- VOICE CARDS -->
+<div class="voices">
+  <div class="voice-card" id="vc1" style="--c:#60a5fa">
+    <div class="badge"><span class="dot"></span> BATCH-1 · 14:22 → 14:40</div>
+    <ul class="files">
+      <li data-v="1" data-i="0"><span>findings_engine.py</span><span class="lines">1612L</span></li>
+      <li data-v="1" data-i="1"><span>bago_telegram_daemon.py</span><span class="lines">1579L</span></li>
+      <li data-v="1" data-i="2"><span>spiral_loop.py</span><span class="lines">1118L</span></li>
+    </ul>
+    <div class="status" id="st1">▸ iniciando…</div>
+  </div>
+  <div class="voice-card" id="vc2" style="--c:#a78bfa">
+    <div class="badge"><span class="dot"></span> BATCH-2 · 14:22 → 14:42</div>
+    <ul class="files">
+      <li data-v="2" data-i="0"><span>generate_evolution_report.py</span><span class="lines">926L</span></li>
+      <li data-v="2" data-i="1"><span>bago_neural.py</span><span class="lines">917L</span></li>
+      <li data-v="2" data-i="2"><span>wizard_tab.py</span><span class="lines">903L</span></li>
+    </ul>
+    <div class="status" id="st2">▸ iniciando…</div>
+  </div>
+  <div class="voice-card" id="vc3" style="--c:#34d399">
+    <div class="badge"><span class="dot"></span> BATCH-3 · 14:22 → 14:33</div>
+    <ul class="files">
+      <li data-v="3" data-i="0"><span>path_healer.py</span><span class="lines">871L</span></li>
+      <li data-v="3" data-i="1"><span>code_review.py</span><span class="lines">816L</span></li>
+      <li data-v="3" data-i="2"><span>bago_rubber_duck.py</span><span class="lines">802L</span></li>
+    </ul>
+    <div class="status" id="st3">▸ iniciando…</div>
+  </div>
+</div>
+
+<button class="tone-btn" id="toneBtn">♪ activar tono Shepard</button>
+
+<div class="foot">
+  Cada voz ejecuta el mismo patrón · READ → IDENTIFY → SPLIT → VERIFY → COMMIT<br>
+  Desfasadas 120° — cuando una termina, las otras siguen · nunca hay silencio
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════
+const VOICES = [
+  {
+    id: 1, label: 'BATCH-1', color: '#60a5fa', offset: 0,
+    files: ['findings_engine', 'telegram_daemon', 'spiral_loop'],
+    commits: ['ab4a22c', '7ac144a', 'c72f6e2'],
+    cx: 175, cy: 170
+  },
+  {
+    id: 2, label: 'BATCH-2', color: '#a78bfa', offset: 2/3,
+    files: ['evolution_report', 'bago_neural', 'wizard_tab'],
+    commits: ['2e9b5a1', 'a8857fa', '1b37227'],
+    cx: 350, cy: 170
+  },
+  {
+    id: 3, label: 'BATCH-3', color: '#34d399', offset: 1/3,
+    files: ['path_healer', 'code_review', 'rubber_duck'],
+    commits: ['4430126', '7e9dcf4', '29e50a7'],
+    cx: 525, cy: 170
+  }
+];
+
+const PHASE_COLORS = ['#f87171','#fb923c','#facc15','#4ade80','#c084fc'];
+const PHASE_NAMES  = ['SCAN','ALERT','REMEDIATE','VERIFY','EVOLVE'];
+
+const cbg  = document.getElementById('c-bg');
+const ctop = document.getElementById('c-top');
+const cvs  = [null,
+  document.getElementById('c-v1'),
+  document.getElementById('c-v2'),
+  document.getElementById('c-v3')
+];
+const wfc  = document.getElementById('waveform');
+const wfx  = wfc.getContext('2d');
+
+const SPIRAL_R_MIN = 12;
+const SPIRAL_R_MAX = 110;
+const SPIRAL_TURNS = 2.5;
+const CYCLE = 16000; // ms for one full spiral cycle per voice
+
+// ═══════════════════════════════════════════════════════════════
+// BACKGROUND GRID
+// ═══════════════════════════════════════════════════════════════
+(function drawBg() {
+  const bx = cbg.getContext('2d');
+  bx.clearRect(0, 0, 700, 340);
+  // subtle vertical separator lines
+  [175, 350, 525].forEach(cx => {
+    const g = bx.createRadialGradient(cx, 170, 0, cx, 170, 140);
+    g.addColorStop(0, '#0d0d1a');
+    g.addColorStop(1, 'transparent');
+    bx.beginPath();
+    bx.arc(cx, 170, 140, 0, Math.PI * 2);
+    bx.fillStyle = g;
+    bx.fill();
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// SPIRAL DRAWING
+// ═══════════════════════════════════════════════════════════════
+function drawVoiceSpiral(v, progress, canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 700, 340);
+
+  const { cx, cy, color, offset } = v;
+  const turns = SPIRAL_TURNS;
+  const steps = 600;
+
+  // fade based on progress (Shepard: voice fades at top, reappears at bottom)
+  const fade = Math.sin(progress * Math.PI); // 0→1→0 over one cycle
+  const globalAlpha = 0.3 + fade * 0.7;
+
+  // Draw base spiral (dim)
+  ctx.globalAlpha = 0.12;
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    const a = f * turns * Math.PI * 2 - Math.PI / 2;
+    const r = SPIRAL_R_MIN + (SPIRAL_R_MAX - SPIRAL_R_MIN) * f;
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Draw animated progress arc
+  const drawSteps = Math.floor(steps * progress);
+  if (drawSteps > 1) {
+    ctx.globalAlpha = globalAlpha;
+    ctx.beginPath();
+    for (let i = 0; i <= drawSteps; i++) {
+      const f = i / steps;
+      const a = f * turns * Math.PI * 2 - Math.PI / 2;
+      const r = SPIRAL_R_MIN + (SPIRAL_R_MAX - SPIRAL_R_MIN) * f;
+      const x = cx + r * Math.cos(a);
+      const y = cy + r * Math.sin(a);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    const grd = ctx.createLinearGradient(cx - SPIRAL_R_MAX, cy, cx + SPIRAL_R_MAX, cy);
+    grd.addColorStop(0, '#1e1e2e');
+    grd.addColorStop(1, color);
+    ctx.strokeStyle = grd;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Glowing dot at tip
+    const tipF = drawSteps / steps;
+    const tipA = tipF * turns * Math.PI * 2 - Math.PI / 2;
+    const tipR = SPIRAL_R_MIN + (SPIRAL_R_MAX - SPIRAL_R_MIN) * tipF;
+    const tipX = cx + tipR * Math.cos(tipA);
+    const tipY = cy + tipR * Math.sin(tipA);
+
+    ctx.globalAlpha = globalAlpha;
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 5 + fade * 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Phase dot markers
+    const phaseCount = 5;
+    for (let p = 0; p < phaseCount; p++) {
+      const pf = (p + 0.5) / phaseCount;
+      if (pf > tipF) break;
+      const pa = pf * turns * Math.PI * 2 - Math.PI / 2;
+      const pr = SPIRAL_R_MIN + (SPIRAL_R_MAX - SPIRAL_R_MIN) * pf;
+      const px = cx + pr * Math.cos(pa);
+      const py = cy + pr * Math.sin(pa);
+      ctx.globalAlpha = globalAlpha * 0.8;
+      ctx.beginPath();
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = PHASE_COLORS[p];
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = PHASE_COLORS[p];
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAVEFORM (3 sine waves, offset 120°)
+// ═══════════════════════════════════════════════════════════════
+function drawWaveform(t) {
+  const W = 700, H = 70;
+  wfx.clearRect(0, 0, W, H);
+
+  // Dark bg
+  wfx.fillStyle = '#0b0b15';
+  wfx.fillRect(0, 0, W, H);
+
+  VOICES.forEach(v => {
+    wfx.beginPath();
+    const phase = v.offset * Math.PI * 2;
+    for (let x = 0; x <= W; x++) {
+      const frac = x / W;
+      // Shepard-like: amplitude envelope fades at ends
+      const amp = 20 * Math.sin(frac * Math.PI);
+      const freq = 3; // cycles across width
+      const y = H/2 + amp * Math.sin(frac * freq * Math.PI * 2 + t * 0.004 + phase);
+      x === 0 ? wfx.moveTo(x, y) : wfx.lineTo(x, y);
+    }
+    wfx.strokeStyle = v.color;
+    wfx.lineWidth = 1.8;
+    wfx.globalAlpha = 0.75;
+    wfx.stroke();
+    wfx.globalAlpha = 1;
+  });
+
+  // Combined / interference
+  wfx.beginPath();
+  for (let x = 0; x <= W; x++) {
+    const frac = x / W;
+    let sum = 0;
+    VOICES.forEach(v => {
+      const phase = v.offset * Math.PI * 2;
+      const amp = 8 * Math.sin(frac * Math.PI);
+      sum += amp * Math.sin(frac * 3 * Math.PI * 2 + t * 0.004 + phase);
+    });
+    const y = H/2 + sum;
+    x === 0 ? wfx.moveTo(x, y) : wfx.lineTo(x, y);
+  }
+  wfx.strokeStyle = '#ffffff';
+  wfx.lineWidth = 1;
+  wfx.globalAlpha = 0.15;
+  wfx.stroke();
+  wfx.globalAlpha = 1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE BAR + CARD UPDATES
+// ═══════════════════════════════════════════════════════════════
+const PHASE_STEPS = ['READ', 'IDENTIFY', 'SPLIT', 'VERIFY', 'COMMIT'];
+const FILE_DONE_TIMES = [
+  // batch-1: 14:28, 14:33, 14:40
+  [0.25, 0.55, 0.82],
+  // batch-2: 14:34, 14:37, 14:42
+  [0.35, 0.6, 0.88],
+  // batch-3: 14:28, 14:29, 14:31
+  [0.22, 0.42, 0.62],
+];
+
+function updateCards(t, totalDuration) {
+  const progress = (t % totalDuration) / totalDuration;
+
+  VOICES.forEach((v, vi) => {
+    const voiceProgress = (progress + v.offset) % 1;
+    const phaseIdx = Math.min(Math.floor(voiceProgress * 5), 4);
+
+    // Phase bar
+    document.querySelectorAll(`.phase-seg[data-v="${v.id}"]`).forEach(seg => {
+      const si = parseInt(seg.dataset.i);
+      seg.classList.toggle('lit', si <= phaseIdx);
+    });
+
+    // Card pulse
+    const card = document.getElementById(`vc${v.id}`);
+    card.classList.toggle('pulse', true);
+
+    // Status text
+    const st = document.getElementById(`st${v.id}`);
+    st.textContent = `▸ ${PHASE_STEPS[phaseIdx]}  [${Math.round(voiceProgress*100)}%]`;
+
+    // File done
+    const fileDoneTimes = FILE_DONE_TIMES[vi];
+    document.querySelectorAll(`li[data-v="${v.id}"]`).forEach((li, fi) => {
+      li.classList.toggle('done', voiceProgress >= fileDoneTimes[fi]);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIO — SHEPARD TONE (Web Audio API)
+// ═══════════════════════════════════════════════════════════════
+let audioCtx = null;
+let audioNodes = [];
+let audioOn = false;
+
+function startShepard() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // 3 voices, each a stack of octave-spaced sines with bell-curve envelope
+  // Slightly detuned per voice to create beating
+  const baseFreqs = [110, 110 * Math.pow(2, 1/3), 110 * Math.pow(2, 2/3)]; // offset 120° (1/3 octave)
+  const octaves = 5;
+  audioNodes = [];
+
+  VOICES.forEach((v, vi) => {
+    const voiceGain = audioCtx.createGain();
+    voiceGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    voiceGain.connect(audioCtx.destination);
+
+    for (let oct = 0; oct < octaves; oct++) {
+      const freq = baseFreqs[vi] * Math.pow(2, oct);
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      // Bell-curve amplitude per octave (center louder)
+      const env = audioCtx.createGain();
+      const bellAmp = Math.exp(-0.5 * Math.pow((oct - octaves/2) / (octaves/3), 2));
+      env.gain.setValueAtTime(bellAmp * 0.3, audioCtx.currentTime);
+
+      osc.connect(env);
+      env.connect(voiceGain);
+      osc.start();
+      audioNodes.push({ osc, env, voiceGain, baseFreq: baseFreqs[vi], oct, octaves });
+    }
+  });
+
+  // Slowly glide all oscillators upward (Shepard effect)
+  let glideStart = audioCtx.currentTime;
+  const GLIDE_PERIOD = 12; // seconds per octave rise
+
+  function glide() {
+    if (!audioOn) return;
+    const elapsed = audioCtx.currentTime - glideStart;
+    const ratio = Math.pow(2, elapsed / GLIDE_PERIOD);
+
+    audioNodes.forEach(n => {
+      const newFreq = n.baseFreq * Math.pow(2, n.oct) * ratio;
+      if (newFreq > 3000) { // wrap around
+        n.baseFreq = n.baseFreq / 2;
+        glideStart = audioCtx.currentTime;
+      } else {
+        n.osc.frequency.setValueAtTime(newFreq, audioCtx.currentTime);
+      }
+    });
+    setTimeout(glide, 80);
+  }
+  glide();
+}
+
+function stopShepard() {
+  audioNodes.forEach(n => { try { n.osc.stop(); } catch(e){} });
+  audioNodes = [];
+}
+
+document.getElementById('toneBtn').addEventListener('click', () => {
+  audioOn = !audioOn;
+  const btn = document.getElementById('toneBtn');
+  if (audioOn) {
+    startShepard();
+    btn.textContent = '■ detener tono Shepard';
+    btn.classList.add('on');
+  } else {
+    stopShepard();
+    btn.textContent = '♪ activar tono Shepard';
+    btn.classList.remove('on');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+const TOTAL_DURATION = 24000; // ms — full loop
+let startTime = null;
+
+function frame(ts) {
+  if (!startTime) startTime = ts;
+  const t = ts - startTime;
+  const loopT = t % TOTAL_DURATION;
+  const loopProgress = loopT / TOTAL_DURATION;
+
+  // Draw each voice spiral with its offset
+  VOICES.forEach((v, vi) => {
+    const voiceProgress = (loopProgress + v.offset) % 1;
+    // Shepard: progress always 0→1 cycling, each voice offset
+    drawVoiceSpiral(v, voiceProgress, cvs[v.id]);
+  });
+
+  drawWaveform(t);
+  updateCards(loopT, TOTAL_DURATION);
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

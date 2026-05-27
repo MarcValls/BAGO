@@ -13,6 +13,7 @@ for _stream in (sys.stdout, sys.stderr):
 from rich import box
 from rich.panel import Panel
 
+from ..providers import auto_detect_provider, get_default_model, load_providers
 from ..ui import console, _menu_action, _menu_confirm, _menu_pick, _menu_select, pi
 
 
@@ -42,6 +43,7 @@ def _cmd_auth(session):
         choices = [
             ("status",   f"Estado providers  (activos: {active_str})"),
             ("login",    "Login / registrar provider"),
+            ("logout",   "Logout / borrar credencial activa"),
             ("revoke",   "Revocar credencial guardada"),
             ("refresh",  "Refresh tokens (actualizar)"),
             ("signup",   "[dim]Sign-up nuevo proveedor  (proximamente)[/dim]"),
@@ -78,11 +80,30 @@ def _cmd_auth(session):
                 ("gitlab",       "GitLab                      (token o email+pass — sin nav.)"),
                 ("codeberg",     "Codeberg / Forgejo          (token o email+pass — sin nav.)"),
                 # ── Almacenamiento ──
-                ("sendcm",       "send.cm                     (email+contraseña — sin nav.)"),
+                ("sendcm",       "send.now (compat. send.cm)  (email+contraseña — sin nav.)"),
             ]
             provider = _menu_select("Login", "Selecciona provider a registrar:", providers_choices)
             if provider:
                 result = session.creds.do_login(provider)
+                console.print(f"  {result}")
+
+        elif sel == "logout":
+            logout_choices = []
+            seen = set()
+            for provider, _label in session.creds.login_choices():
+                if provider in seen:
+                    continue
+                seen.add(provider)
+                logout_choices.append((provider, provider))
+            provider = _menu_select("Logout", "Qué provider quieres cerrar sesión?", logout_choices)
+            if provider:
+                result = session.creds.logout(provider)
+                session.providers = load_providers()
+                if provider in (session.provider, "openai", "github", "ollama_cloud", "sendcm"):
+                    new_prov = auto_detect_provider(session.creds, session.providers)
+                    name, wire, prov = get_default_model(new_prov, session.providers)
+                    if name:
+                        session.provider, session.model_name, session.wire_name = prov, name, wire
                 console.print(f"  {result}")
 
         elif sel == "revoke":

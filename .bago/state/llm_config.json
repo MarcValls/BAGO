@@ -1,115 +1,115 @@
 {
-    "engine":  "ollama",
-    "server_url":  "http://127.0.0.1:11434",
-    "active_model":  "qwen2.5-coder:7b",
-    "session_start_model":  "qwen2.5-coder:7b",
-    "_comment_session_start":  "Modelo usado al abrir sesión. Debe ser local (sin coste, offline).",
-    "ollama_cloud":  {
-                         "server_url":  "https://api.ollama.com",
-                         "api_key_env":  "OLLAMA_API_KEY",
-                         "_comment":  "La clave se lee de la variable de entorno OLLAMA_API_KEY. No hardcodear aquí.",
-                         "curated":  {
-                                         "code":  {
-                                                      "devstral-2:123b":  "Mistral — modelo especializado en código (recomendado para BAGO)",
-                                                      "qwen3-coder:480b":  "Qwen3 Coder 480B — máxima capacidad de código",
-                                                      "qwen3-coder-next":  "Qwen3 Coder Next ~82B — balance velocidad/calidad",
-                                                      "gpt-oss:120b":  "GPT-OSS 120B — OpenAI open weights",
-                                                      "gpt-oss:20b":  "GPT-OSS 20B — rápido y económico"
-                                                  },
-                                         "reasoning":  {
-                                                           "deepseek-v3.1:671b":  "DeepSeek v3.1 — razonamiento profundo",
-                                                           "deepseek-v4-pro":  "DeepSeek v4 Pro — más reciente",
-                                                           "deepseek-v4-flash":  "DeepSeek v4 Flash — rápido",
-                                                           "qwen3-next:80b":  "Qwen3 Next 80B — instrucciones complejas",
-                                                           "kimi-k2:1t":  "Kimi K2 — contexto 1T tokens"
-                                                       },
-                                         "fast":  {
-                                                      "devstral-small-2:24b":  "Devstral Small 24B — código rápido",
-                                                      "gemma4:31b":  "Gemma4 31B — Google, uso general",
-                                                      "gemma3:12b":  "Gemma3 12B — ligero y eficiente",
-                                                      "ministral-3:8b":  "Ministral 3 8B — ultra rápido"
-                                                  }
-                                     }
-                     },
-    "openclaw":  {
-                     "_comment":  "OpenClaw gateway local — inferencia vía CLI \u0027openclaw infer model run\u0027",
-                     "gateway_url":  "http://127.0.0.1:18789",
-                     "gateway_health":  "http://127.0.0.1:18789/health",
-                     "cli_bin":  "openclaw",
-                     "default_model":  "github-copilot/claude-opus-4.7",
-                     "curated":  {
-                                     "claude":  [
-                                                    "github-copilot/claude-opus-4.7",
-                                                    "github-copilot/claude-sonnet-4.6",
-                                                    "github-copilot/claude-haiku-4.5"
-                                                ],
-                                     "gpt":  [
-                                                 "github-copilot/gpt-5.5",
-                                                 "github-copilot/gpt-5.4",
-                                                 "github-copilot/gpt-4.1"
-                                             ]
-                                 }
-                 },
-    "available_models":  {
-                             "local":  {
-                                           "qwen25-coder":  {
-                                                                "ollama_tag":  "qwen2.5-coder:7b",
-                                                                "size_mb":  4466,
-                                                                "best_for":  "Código Python/BAGO — modelo principal offline"
-                                                            },
-                                           "llama32":  {
-                                                           "ollama_tag":  "llama3.2:latest",
-                                                           "size_mb":  1925,
-                                                           "best_for":  "Instrucciones, resúmenes, uso general"
-                                                       },
-                                           "llama32-1b":  {
-                                                              "ollama_tag":  "llama3.2:1b",
-                                                              "size_mb":  1259,
-                                                              "best_for":  "Clasificación rápida, tareas ligeras"
-                                                          },
-                                           "qwen25-mini":  {
-                                                               "ollama_tag":  "qwen2.5:0.5b",
-                                                               "size_mb":  379,
-                                                               "best_for":  "Ultra-rápido, confirmaciones simples"
-                                                           }
-                                       },
-                             "copilot":  [
-                                             "claude-sonnet-4.6",
-                                             "claude-sonnet-4.5",
-                                             "claude-haiku-4.5",
-                                             "claude-opus-4.7",
-                                             "gpt-5.5",
-                                             "gpt-5.4",
-                                             "gpt-5.3-codex",
-                                             "gpt-5.2-codex",
-                                             "gpt-5.2",
-                                             "gpt-5.4-mini",
-                                             "gpt-5-mini",
-                                             "gpt-4.1"
-                                         ],
-                             "internal":  [
-                                              "claude-opus-4.7-1m-internal",
-                                              "claude-opus-4.7-high",
-                                              "claude-opus-4.7-xhigh",
-                                              "claude-opus-4.6",
-                                              "claude-opus-4.6-fast",
-                                              "claude-opus-4.6-1m",
-                                              "claude-opus-4.5"
-                                          ]
-                         },
-    "agent_models":  {
-                         "agent_tools":  "claude-sonnet-4.6",
-                         "agent_tests":  "claude-haiku-4.5",
-                         "agent_docs":  "claude-sonnet-4.6",
-                         "agent_ops":  "claude-opus-4.7"
-                     },
-    "model_preference":  [
-                             "ollama-local",
-                             "ollama-cloud",
-                             "copilot",
-                             "codex"
-                         ],
-    "_comment_preference":  "local (offline) → ollama_cloud (suscripción) → openclaw (gateway local) → copilot (cloud).",
-    "provider_registry":  ".bago/state/model_providers.json",
-    "_comment_deprecated":  "Use provider_registry for model definitions. Kept for backward compatibility."
+  "engine": "ollama",
+  "server_url": "http://127.0.0.1:11434",
+  "active_model": "granite3.2",
+  "session_start_model": "qwen2.5-coder:7b",
+  "_comment_session_start": "Modelo usado al abrir sesión. Debe ser local (sin coste, offline).",
+  "ollama_cloud": {
+    "server_url": "https://api.ollama.com",
+    "api_key_env": "OLLAMA_API_KEY",
+    "_comment": "La clave se lee de la variable de entorno OLLAMA_API_KEY. No hardcodear aquí.",
+    "curated": {
+      "code": {
+        "devstral-2:123b": "Mistral — modelo especializado en código (recomendado para BAGO)",
+        "qwen3-coder:480b": "Qwen3 Coder 480B — máxima capacidad de código",
+        "qwen3-coder-next": "Qwen3 Coder Next ~82B — balance velocidad/calidad",
+        "gpt-oss:120b": "GPT-OSS 120B — OpenAI open weights",
+        "gpt-oss:20b": "GPT-OSS 20B — rápido y económico"
+      },
+      "reasoning": {
+        "deepseek-v3.1:671b": "DeepSeek v3.1 — razonamiento profundo",
+        "deepseek-v4-pro": "DeepSeek v4 Pro — más reciente",
+        "deepseek-v4-flash": "DeepSeek v4 Flash — rápido",
+        "qwen3-next:80b": "Qwen3 Next 80B — instrucciones complejas",
+        "kimi-k2:1t": "Kimi K2 — contexto 1T tokens"
+      },
+      "fast": {
+        "devstral-small-2:24b": "Devstral Small 24B — código rápido",
+        "gemma4:31b": "Gemma4 31B — Google, uso general",
+        "gemma3:12b": "Gemma3 12B — ligero y eficiente",
+        "ministral-3:8b": "Ministral 3 8B — ultra rápido"
+      }
+    }
+  },
+  "openclaw": {
+    "_comment": "OpenClaw gateway local — inferencia vía CLI 'openclaw infer model run'",
+    "gateway_url": "http://127.0.0.1:18789",
+    "gateway_health": "http://127.0.0.1:18789/health",
+    "cli_bin": "openclaw",
+    "default_model": "github-copilot/claude-opus-4.7",
+    "curated": {
+      "claude": [
+        "github-copilot/claude-opus-4.7",
+        "github-copilot/claude-sonnet-4.6",
+        "github-copilot/claude-haiku-4.5"
+      ],
+      "gpt": [
+        "github-copilot/gpt-5.5",
+        "github-copilot/gpt-5.4",
+        "github-copilot/gpt-4.1"
+      ]
+    }
+  },
+  "available_models": {
+    "local": {
+      "qwen25-coder": {
+        "ollama_tag": "qwen2.5-coder:7b",
+        "size_mb": 4466,
+        "best_for": "Código Python/BAGO — modelo principal offline"
+      },
+      "llama32": {
+        "ollama_tag": "llama3.2:latest",
+        "size_mb": 1925,
+        "best_for": "Instrucciones, resúmenes, uso general"
+      },
+      "llama32-1b": {
+        "ollama_tag": "llama3.2:1b",
+        "size_mb": 1259,
+        "best_for": "Clasificación rápida, tareas ligeras"
+      },
+      "qwen25-mini": {
+        "ollama_tag": "qwen2.5:0.5b",
+        "size_mb": 379,
+        "best_for": "Ultra-rápido, confirmaciones simples"
+      }
+    },
+    "copilot": [
+      "claude-sonnet-4.6",
+      "claude-sonnet-4.5",
+      "claude-haiku-4.5",
+      "claude-opus-4.7",
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.3-codex",
+      "gpt-5.2-codex",
+      "gpt-5.2",
+      "gpt-5.4-mini",
+      "gpt-5-mini",
+      "gpt-4.1"
+    ],
+    "internal": [
+      "claude-opus-4.7-1m-internal",
+      "claude-opus-4.7-high",
+      "claude-opus-4.7-xhigh",
+      "claude-opus-4.6",
+      "claude-opus-4.6-fast",
+      "claude-opus-4.6-1m",
+      "claude-opus-4.5"
+    ]
+  },
+  "agent_models": {
+    "agent_tools": "claude-sonnet-4.6",
+    "agent_tests": "claude-haiku-4.5",
+    "agent_docs": "claude-sonnet-4.6",
+    "agent_ops": "claude-opus-4.7"
+  },
+  "model_preference": [
+    "ollama-local",
+    "ollama-cloud",
+    "copilot",
+    "codex"
+  ],
+  "_comment_preference": "local (offline) → ollama_cloud (suscripción) → openclaw (gateway local) → copilot (cloud).",
+  "provider_registry": ".bago/state/model_providers.json",
+  "_comment_deprecated": "Use provider_registry for model definitions. Kept for backward compatibility."
 }
