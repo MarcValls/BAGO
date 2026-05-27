@@ -65,6 +65,8 @@ Uso:
   bago serve              → arranca el servidor API BAGO
   bago bot telegram       → arranca el bot de Telegram
   bago bot utopia         → arranca el cliente Utopia
+  bago shell              → BAGO Interactive Shell (BISH): REPL nativo
+                            compatible con comandos BAGO y del sistema
   bago help               → este mensaje
 
 Instalar como alias global (Unix):

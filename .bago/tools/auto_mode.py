@@ -47,6 +47,21 @@ PROJECT_ROOT = PACK_DIR.parent                           # project root (donde e
 STATE_DIR    = PACK_DIR / "state"
 TOOLS        = PACK_DIR / "tools"
 
+# ── BagoShell integration (optional, fail-soft) ──────────────────────────────
+try:
+    import importlib.util as _ilu2
+    _shell_path = TOOLS / "bago_shell.py"
+    if _shell_path.exists():
+        _sp = _ilu2.spec_from_file_location("_bago_shell_auto", str(_shell_path))
+        _sm = _ilu2.module_from_spec(_sp)  # type: ignore
+        sys.modules[_sp.name] = _sm        # type: ignore
+        _sp.loader.exec_module(_sm)        # type: ignore
+        _BagoShell = _sm.BagoShell
+    else:
+        _BagoShell = None  # type: ignore
+except Exception:
+    _BagoShell = None  # type: ignore
+
 # ─── Imports directos de herramientas BAGO ───────────────────────────────────
 sys.path.insert(0, str(TOOLS))
 os.chdir(str(PROJECT_ROOT))   # las herramientas asumen cwd = project root
@@ -168,10 +183,14 @@ def _sync_context(target_path: str) -> bool:
 
     print("  🔄 Regenerando context_map…")
     try:
-        subprocess.run(
-            [sys.executable, str(TOOLS / "context_map.py"), "--save"],
-            cwd=str(PROJECT_ROOT), capture_output=True,
-        )
+        if _BagoShell is not None:
+            shell = _BagoShell(auto_approve=False, dry_run=False)
+            shell._run_script(TOOLS / "context_map.py", ["--save"], capture_output=True)
+        else:
+            subprocess.run(
+                [sys.executable, str(TOOLS / "context_map.py"), "--save"],
+                cwd=str(PROJECT_ROOT), capture_output=True,
+            )
         print("  ✅ context_map actualizado")
     except Exception:
         pass  # no bloqueante
@@ -235,6 +254,11 @@ def _detector():
 
 def _validate():
     try:
+        if _BagoShell is not None:
+            shell = _BagoShell(auto_approve=False, dry_run=False)
+            r1 = shell._run_script(TOOLS / "validate_manifest.py", [], capture_output=True)
+            r2 = shell._run_script(TOOLS / "validate_state.py", [], capture_output=True)
+            return r1.exit_code == 0 and r2.exit_code == 0
         r1 = subprocess.run(
             [sys.executable, str(TOOLS / "validate_manifest.py")],
             capture_output=True, text=True, cwd=str(PROJECT_ROOT)
@@ -247,8 +271,13 @@ def _validate():
     except Exception:
         return False
 
+
 def _stale_count():
     try:
+        if _BagoShell is not None:
+            shell = _BagoShell(auto_approve=False, dry_run=False)
+            r = shell._run_script(TOOLS / "stale_detector.py", [], capture_output=True)
+            return sum(1 for l in r.stdout.splitlines() if "WARN" in l or "stale" in l.lower())
         r = subprocess.run(
             [sys.executable, str(TOOLS / "stale_detector.py")],
             capture_output=True, text=True, cwd=str(PROJECT_ROOT)

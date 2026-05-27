@@ -30,6 +30,21 @@ STATE_DIR = BAGO_ROOT / "state"
 GLOBAL_FILE = STATE_DIR / "global_state.json"
 TASK_FILE = STATE_DIR / "pending_w2_task.json"
 
+# ── BagoShell integration (optional, fail-soft) ──────────────────────────────
+try:
+    import importlib.util as _ilu2
+    _shell_path = BAGO_ROOT / "tools" / "bago_shell.py"
+    if _shell_path.exists():
+        _sp = _ilu2.spec_from_file_location("_bago_shell_wf", str(_shell_path))
+        _sm = _ilu2.module_from_spec(_sp)  # type: ignore
+        sys.modules[_sp.name] = _sm        # type: ignore
+        _sp.loader.exec_module(_sm)        # type: ignore
+        _BagoShell = _sm.BagoShell
+    else:
+        _BagoShell = None  # type: ignore
+except Exception:
+    _BagoShell = None  # type: ignore
+
 
 def _load_json(path: Path) -> dict | None:
     if not path.exists():
@@ -73,12 +88,21 @@ def reconcile_workflow() -> dict:
     if current.get("code") in {"W2", "W2_IMPLEMENTACION_CONTROLADA"}:
         task_status = (task or {}).get("status", "").lower() if isinstance(task, dict) else ""
         if task is None or task_status == "done":
-            done_args = [sys.executable, str(BAGO_ROOT / "tools" / "flow.py"), "done"]
-            r = subprocess.run(done_args, capture_output=True, text=True, encoding="utf-8", errors="replace")
-            result["auto_closed"] = r.returncode == 0
-            result["reason"] = "auto_closed_w2" if r.returncode == 0 else "auto_close_failed"
-            result["stdout"] = (r.stdout or "").strip()
-            result["stderr"] = (r.stderr or "").strip()
+            flow_path = BAGO_ROOT / "tools" / "flow.py"
+            if _BagoShell is not None:
+                shell = _BagoShell(auto_approve=True, dry_run=False)
+                r = shell._run_script(flow_path, ["done"], capture_output=True)
+                rc = r.exit_code
+                result["stdout"] = (r.stdout or "").strip()
+                result["stderr"] = (r.stderr or "").strip()
+            else:
+                done_args = [sys.executable, str(flow_path), "done"]
+                proc = subprocess.run(done_args, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                rc = proc.returncode
+                result["stdout"] = (proc.stdout or "").strip()
+                result["stderr"] = (proc.stderr or "").strip()
+            result["auto_closed"] = rc == 0
+            result["reason"] = "auto_closed_w2" if rc == 0 else "auto_close_failed"
             return result
 
     result["reason"] = "no_action"

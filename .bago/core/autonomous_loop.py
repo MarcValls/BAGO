@@ -193,6 +193,22 @@ AGENT_TO_ROLE: dict[str, str] = {
 }
 
 
+# ── BagoShell integration (optional, fail-soft) ───────────────────────────────
+try:
+    import importlib.util as _ilu2
+    _shell_path = _TOOLS_DIR / "bago_shell.py"
+    if _shell_path.exists():
+        _sp = _ilu2.spec_from_file_location("_bago_shell_autonomous", str(_shell_path))
+        _sm = _ilu2.module_from_spec(_sp)  # type: ignore
+        sys.modules[_sp.name] = _sm        # type: ignore
+        _sp.loader.exec_module(_sm)        # type: ignore
+        _BagoShell = _sm.BagoShell
+        _ShellResult = _sm.ShellResult
+    else:
+        _BagoShell = None  # type: ignore
+except Exception:
+    _BagoShell = None  # type: ignore
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _now() -> str:
@@ -226,7 +242,17 @@ def _load_json(path: Path, default: Any = None) -> Any:
 
 
 def _run_tool(cmd: str, extra_args: list | None = None, timeout: int = TOOL_TIMEOUT) -> tuple[int, str]:
-    """Run `bago <cmd>` and return (returncode, combined_output)."""
+    """Run `bago <cmd>` via BagoShell if available, else legacy subprocess.
+    Returns (returncode, combined_output)."""
+    line = cmd + (" " + " ".join(extra_args) if extra_args else "")
+    if _BagoShell is not None:
+        shell = _BagoShell(auto_approve=False, dry_run=False)
+        r = shell.run(line, capture_output=True)
+        out = (r.stdout or "") + (r.stderr or "")
+        if r.needs_auth and not r.authorized:
+            out += f"\n[BLOCKED] Comando requiere autorización: {line}"
+        return r.exit_code, out
+    # Legacy fallback
     args = [sys.executable, str(_BAGO_BIN), cmd] + (extra_args or [])
     try:
         r = subprocess.run(

@@ -250,7 +250,7 @@ def print_routing_snapshot(session, health=None, available_models=None) -> None:
         table.add_column("Provider", style="cyan", no_wrap=True)
         table.add_column("Modelo activo", style="green")
         for pname, models in sorted(available_models.items()):
-            active = models[0] if models else "—"
+            active = list(models)[0] if models else "—"
             table.add_row(pname, active)
         console.print(table)
     else:

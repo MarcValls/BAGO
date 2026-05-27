@@ -27,6 +27,21 @@ import urllib.parse
 
 from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
 
+# ── BagoShell integration (optional, fail-soft) ───────────────────────────
+try:
+    import importlib.util as _ilu2
+    _shell_path_mini = BAGO_ROOT / ".bago" / "tools" / "bago_shell.py"
+    if _shell_path_mini.exists():
+        _sp_mini = _ilu2.spec_from_file_location("_bago_shell_mini", str(_shell_path_mini))
+        _sm_mini = _ilu2.module_from_spec(_sp_mini)  # type: ignore
+        sys.modules[_sp_mini.name] = _sm_mini          # type: ignore
+        _sp_mini.loader.exec_module(_sm_mini)          # type: ignore
+        _BagoShellMini = _sm_mini.BagoShell
+    else:
+        _BagoShellMini = None  # type: ignore
+except Exception:
+    _BagoShellMini = None  # type: ignore
+
 BAGO_ROOT    = Path(os.environ.get("BAGO_PADRE_PATH") or Path(__file__).parent.parent.parent)
 _STATE_DIR   = BAGO_ROOT / ".bago" / "state"
 _LOG_DIR     = _STATE_DIR / "logs"
@@ -73,8 +88,17 @@ def run_git(args_list: list, timeout=10) -> str:
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mABCDEFGHJKSTfnsuhl]")
 
 def run_bago_cmd(cmd: str, timeout: int = 30) -> str:
-    """Ejecuta `python3 <BAGO_ROOT>/bago <cmd>` y retorna stdout limpio."""
+    """Ejecuta `bago <cmd>` vía BagoShell si está disponible; legacy fallback."""
     try:
+        if _BagoShellMini is not None:
+            shell = _BagoShellMini(auto_approve=False, dry_run=False)
+            r = shell.run(cmd, capture_output=True)
+            out = (r.stdout or "") + ("\n" + (r.stderr or "") if r.stderr else "")
+            out = ANSI_RE.sub("", out).strip()
+            if r.needs_auth and not r.authorized:
+                out += f"\n[BLOCKED] Requiere autorización: {cmd}"
+            return out or "(sin salida)"
+        # Legacy fallback
         r = subprocess.run(
             [sys.executable, str(BAGO_ROOT / "bago"), cmd],
             capture_output=True, text=True, timeout=timeout,

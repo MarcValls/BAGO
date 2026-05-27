@@ -55,6 +55,21 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent
 BAGO_ROOT = TOOLS.parent
 
+# ── BagoShell integration (optional, fail-soft) ──────────────────────────────
+try:
+    import importlib.util as _ilu2
+    _shell_path = TOOLS / "bago_shell.py"
+    if _shell_path.exists():
+        _sp = _ilu2.spec_from_file_location("_bago_shell_cabinet", str(_shell_path))
+        _sm = _ilu2.module_from_spec(_sp)  # type: ignore
+        sys.modules[_sp.name] = _sm        # type: ignore
+        _sp.loader.exec_module(_sm)      # type: ignore
+        _BagoShell = _sm.BagoShell
+    else:
+        _BagoShell = None  # type: ignore
+except Exception:
+    _BagoShell = None  # type: ignore
+
 # cmd_id → (descripción, ruta absoluta, args extra)
 AGENTS: dict[str, tuple[str, Path, list[str]]] = {
     "validador":  ("Integridad del pack",               TOOLS / "validate_pack.py",    []),
@@ -97,12 +112,17 @@ def run_agent(name: str, path: Path, extra: list[str]) -> AgentResult:
                            verdict="MISSING")
     t0 = time.time()
     try:
-        proc = subprocess.run(
-            [sys.executable, str(path), *extra],
-            capture_output=True, text=True, check=False, timeout=180,
-        )
-        rc = proc.returncode
-        out, err = proc.stdout, proc.stderr
+        if _BagoShell is not None:
+            shell = _BagoShell(auto_approve=False, dry_run=False)
+            r = shell._run_script(path, extra, capture_output=True)
+            rc, out, err = r.exit_code, r.stdout, r.stderr
+        else:
+            proc = subprocess.run(
+                [sys.executable, str(path), *extra],
+                capture_output=True, text=True, check=False, timeout=180,
+            )
+            rc = proc.returncode
+            out, err = proc.stdout, proc.stderr
     except subprocess.TimeoutExpired as e:
         rc, out, err = 124, "", f"timeout after {e.timeout}s"
     except Exception as e:  # noqa: BLE001

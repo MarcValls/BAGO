@@ -411,6 +411,23 @@ def _registry_snapshot() -> str:
 
 
 # ---------------------------------------------------------------------------
+# BagoShell integration (optional, fail-soft)
+# ---------------------------------------------------------------------------
+try:
+    _shell_path_mcp = TOOLS_DIR / "bago_shell.py"
+    if _shell_path_mcp.exists():
+        _sp_mcp = importlib.util.spec_from_file_location("_bago_shell_mcp", str(_shell_path_mcp))
+        _sm_mcp = importlib.util.module_from_spec(_sp_mcp)  # type: ignore
+        sys.modules[_sp_mcp.name] = _sm_mcp                  # type: ignore
+        _sp_mcp.loader.exec_module(_sm_mcp)                  # type: ignore
+        _BagoShellMCP = _sm_mcp.BagoShell
+    else:
+        _BagoShellMCP = None  # type: ignore
+except Exception:
+    _BagoShellMCP = None  # type: ignore
+
+
+# ---------------------------------------------------------------------------
 # BAGO execution
 # ---------------------------------------------------------------------------
 
@@ -483,6 +500,15 @@ def _run_bago(cmd: str, args: list[str] | None = None, timeout: int = 90) -> tup
     args = args or []
     _validate_bago_command(cmd)
 
+    # Prefer BagoShell for unified logging + classification
+    if _BagoShellMCP is not None:
+        shell = _BagoShellMCP(auto_approve=True, dry_run=False)
+        line = cmd + (" " + " ".join(args) if args else "")
+        r = shell.run(line, capture_output=True)
+        output = _clean_text((r.stdout or "") + (r.stderr or ""))
+        return r.exit_code, output
+
+    # Legacy fallback
     env = os.environ.copy()
     env["BAGO_ROOT"] = str(REPO_ROOT)
     env["BAGO_PADRE_PATH"] = str(REPO_ROOT)
