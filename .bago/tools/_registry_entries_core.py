@@ -107,6 +107,13 @@ _ENTRIES: dict[str, ToolEntry] = {
         description="Regenera TREE.txt y CHECKSUMS",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "sync_pack_metadata.py"))],
     ),
+    "sync-knowledge": ToolEntry(
+        cmd="sync-knowledge", module="knowledge_sync",
+        description="Sincroniza la memoria canónica de BAGO con su repo Git (status | pull | push | sync)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "knowledge_sync.py"))],
+        layer="infraestructura", scope="framework", agent="ARQUITECTO",
+        stability="core", risk="safe",
+    ),
     "pack-cache": ToolEntry(
         cmd="pack-cache", module="pack_cache_db",
         description="Cache híbrida pack.json -> bago.db (sync | check | status)",
@@ -246,3 +253,29 @@ _ENTRIES: dict[str, ToolEntry] = {
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "cabinet_orchestrator.py"))],
     ),
 }
+
+
+def run_tests() -> int:
+    """Self-test stub: verify module imports and key symbols exist."""
+    results = []
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_test_mod", __file__)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        results.append(("import", True, "module loads OK"))
+    except Exception as e:
+        results.append(("import", False, str(e)))
+
+    passed = sum(1 for _, ok, _ in results if ok)
+    total = len(results)
+    for name, ok, detail in results:
+        status = "OK" if ok else "FAIL"
+        print(f"  [{status}] {name}: {detail}")
+    print(f"\n  {passed}/{total} tests passed")
+    return 0 if passed == total else 1
+
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(run_tests())
+
