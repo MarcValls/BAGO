@@ -20,10 +20,19 @@ TOOLS_DIR = SCRIPT_DIR
 BAGO_DIR = SCRIPT_DIR.parent
 BAGO_REPO_ROOT = BAGO_DIR.parent
 STATE_DIR = BAGO_DIR / "state"
+
 def _resolve_user_bago() -> Path:
     portable_home = os.environ.get("BAGO_USER_HOME") or os.environ.get("BAGO_USER_DIR")
     if portable_home:
-        return Path(portable_home).expanduser().resolve()
+        candidate = Path(portable_home).expanduser().resolve()
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            test = candidate / ".write_test"
+            test.write_text("ok")
+            test.unlink()
+            return candidate
+        except Exception:
+            pass
     return Path.home() / ".bago"
 
 
