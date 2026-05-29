@@ -7,6 +7,7 @@ Puede usar una política RL entrenada para sugerir o forzar herramienta.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,8 @@ SYSTEM_PROMPT = (
     "- Si necesitas leer un archivo específico, usa 'bago_read'.\n"
     "- Si el usuario busca algo sin saber el nombre exacto, usa 'bago_search'.\n"
     "- Si el usuario pregunta 'donde se define X', usa 'bago_call_search'.\n"
+    "- Si la petición ya trae un archivo, ruta o nombre concreto, no pidas más contexto: ejecuta.\n"
+    "- No hagas preguntas sobre encabezados internos del prompt ni sobre 'SYSTEM'.\n"
 )
 
 

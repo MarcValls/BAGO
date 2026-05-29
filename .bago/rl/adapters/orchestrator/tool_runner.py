@@ -11,6 +11,31 @@ TOOLS_DIR = Path(__file__).resolve().parents[3] / "tools"
 BAGO_ROOT = TOOLS_DIR.parent
 
 
+def _resolve_read_target(raw: str) -> str:
+    target = (raw or "").strip()
+    if not target:
+        return target
+    p = Path(target)
+    if p.exists():
+        return str(p)
+    if "/path/to/" in target or "\\path\\to\\" in target or target.startswith("/path/to/"):
+        candidate_name = p.name or target.split("/")[-1] or target.split("\\")[-1]
+    else:
+        candidate_name = p.name or target
+    if not candidate_name:
+        return target
+    matches = []
+    try:
+        for m in BAGO_ROOT.rglob(candidate_name):
+            if m.is_file():
+                matches.append(m)
+    except Exception:
+        return target
+    if matches:
+        return str(matches[0])
+    return target
+
+
 def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Ejecuta una herramienta BAGO y devuelve resultado estructurado."""
     cmd = [sys.executable, str(TOOLS_DIR / f"{name}.py")]
@@ -32,7 +57,7 @@ def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 cmd.append(f"--{flag}")
 
     elif name == "bago_read":
-        cmd.append(arguments.get("filepath", ""))
+        cmd.append(_resolve_read_target(arguments.get("filepath", "")))
         if arguments.get("lines"):
             cmd.extend(["--lines", str(arguments["lines"])])
         if arguments.get("context") and arguments["context"] != "none":

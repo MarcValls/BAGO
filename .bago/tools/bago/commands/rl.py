@@ -17,12 +17,14 @@ Uso en el chat:
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+from rich import box
 from rich.table import Table
 from rich.live import Live
 from rich.panel import Panel
@@ -32,8 +34,9 @@ from ..ui import console, pe, pi
 
 def _rl_paths() -> tuple[Path, Path, Path]:
     """Retorna (root_dir, logs_path, checkpoints_dir)."""
-    tools = Path(__file__).resolve().parents[2]
-    root = tools.parent
+    # __file__ vive en .bago/tools/bago/commands/rl.py.
+    # Subimos hasta el root del repo para que los joins .bago/... no se dupliquen.
+    root = Path(__file__).resolve().parents[4]
     logs = root / ".bago" / "logs" / "rl_transitions.jsonl"
     ckpts = root / ".bago" / "rl" / "checkpoints"
     return root, logs, ckpts
@@ -41,7 +44,7 @@ def _rl_paths() -> tuple[Path, Path, Path]:
 
 def _tool_orchestrator_paths(root: Path) -> tuple[Path, Path, Path]:
     """Retorna paths del tool orchestrator Fase 5."""
-    logs = root / ".bago" / "rl" / "logs" / "tool_orchestrator_transitions.jsonl"
+    logs = root / ".bago" / "logs" / "tool_orchestrator_transitions.jsonl"
     ckpts = root / ".bago" / "rl" / "checkpoints"
     train_script = root / ".bago" / "rl" / "training" / "train_tool_orchestrator.py"
     orchestrator_script = root / ".bago" / "rl" / "adapters" / "bago_tool_orchestrator.py"
@@ -62,7 +65,8 @@ def _count_transitions(logs: Path) -> int:
 def cmd_rl_status(session, args: str = ""):
     """Muestra estado del pipeline RL (Fase 1-4 + Fase 5)."""
     root, logs, ckpts = _rl_paths()
-    tlogs, tckpts, _, _, _ = _tool_orchestrator_paths(root)
+    tlogs_real, tckpts, _, _, _ = _tool_orchestrator_paths(root)
+    tlogs_syn = tckpts.parent / "logs" / "synthetic_tool_demos.jsonl"
 
     console.print("[bold cyan]  Estado RL[/bold cyan]")
 
@@ -71,8 +75,10 @@ def cmd_rl_status(session, args: str = ""):
     console.print(f"  Transiciones clásicas: [bold]{count}[/bold]  ({'OK' if count >= 5 else 'Necesitas ~5 para BC, ~200 para PPO'})")
 
     # Fase 5 — Tool Orchestrator
-    tcount = _count_transitions(tlogs)
-    console.print(f"  Transiciones tool-orchestrator: [bold]{tcount}[/bold]  ({'OK' if tcount >= 5 else 'Ejecuta rl-tool para generar datos'})")
+    tcount_real = _count_transitions(tlogs_real)
+    tcount_syn = _count_transitions(tlogs_syn)
+    console.print(f"  Transiciones tool-orchestrator reales: [bold]{tcount_real}[/bold]  ({'OK' if tcount_real >= 5 else 'Faltan transiciones reales'})")
+    console.print(f"  Transiciones tool-orchestrator sintéticas: [bold]{tcount_syn}[/bold]  ({'OK' if tcount_syn >= 5 else 'Ejecuta rl-train tool-bc para generarlas'})")
 
     # Checkpoints existentes
     bc_ckpt = ckpts / "bc" / "bc_model.pkl"
@@ -82,7 +88,7 @@ def cmd_rl_status(session, args: str = ""):
     tool_bandit = tckpts / "tool_policy_bandit.json"
     tool_bc_syn = tckpts / "tool_policy_bc_synthetic.json"
 
-    table = Table(title="Checkpoints", box="ROUNDED")
+    table = Table(title="Checkpoints", box=box.ROUNDED)
     table.add_column("Pipeline", style="cyan")
     table.add_column("Checkpoint", style="green")
     table.add_column("Estado", style="bold")
@@ -96,9 +102,9 @@ def cmd_rl_status(session, args: str = ""):
     console.print(table)
 
     # Sugerencias
-    if tcount < 5 and not tool_bc_syn.exists():
+    if tcount_real < 5 and tcount_syn < 5 and not tool_bc_syn.exists():
         pi("Ejecuta rl-train tool-bc para generar datos sintéticos y entrenar.")
-    elif not tool_bc.exists() and not tool_bc_syn.exists():
+    elif tcount_real < 5 and not tool_bc.exists() and not tool_bc_syn.exists():
         pi("Ejecuta rl-tool para generar transiciones reales, luego rl-train tool-bc.")
     else:
         pi("Listo. rl-tool para orquestar, rl-train tool-bc para re-entrenar.")
@@ -253,37 +259,58 @@ def cmd_rl_train(session, args: str = ""):
     # ── Fase 5 — Tool Orchestrator ───────────────────────────────────────────
     elif sub == "tool-bc":
         _, tckpts, train_script, _, demo_gen = _tool_orchestrator_paths(root)
-        dataset = tckpts.parent / "logs" / "synthetic_tool_demos.jsonl"
+        real_dataset = tckpts.parent.parent / "logs" / "tool_orchestrator_transitions.jsonl"
+        synth_dataset = tckpts.parent / "logs" / "synthetic_tool_demos.jsonl"
+        dataset = real_dataset if real_dataset.exists() else synth_dataset
 
         # Generar sintéticos si no existen
         if not dataset.exists():
             pi("Generando demostraciones sintéticas (500 transiciones)...")
             try:
                 subprocess.run(
-                    [sys.executable, str(demo_gen), "--episodes", "500", "--output", str(dataset)],
+                    [sys.executable, str(demo_gen), "--episodes", "500", "--output", str(synth_dataset)],
                     capture_output=True, text=True, cwd=str(root), timeout=30,
                 )
+                dataset = synth_dataset
             except Exception as exc:
                 pe(f"Error generando demos: {exc}")
                 return
+        elif dataset == real_dataset:
+            pi("Usando transiciones reales del orquestador.")
 
         save = tckpts / "tool_policy_bc.json"
-        _run_training_with_dashboard(
-            [sys.executable, str(train_script), "--mode", "bc", "--epochs", "30",
-             "--dataset", str(dataset), "--save", str(save)],
-            cwd=root,
-            title="Entrenando Tool Orchestrator (BC)",
-        )
+        console.print("[dim]  Entrenando Tool Orchestrator (BC)...[/dim]")
+        try:
+            proc = subprocess.run(
+                [sys.executable, str(train_script), "--mode", "bc", "--epochs", "30",
+                 "--dataset", str(dataset), "--save", str(save)],
+                capture_output=True, text=True, cwd=str(root),
+                timeout=600, encoding="utf-8", errors="replace",
+            )
+            if proc.stdout:
+                console.print(proc.stdout)
+            if proc.stderr:
+                console.print(f"[red]{proc.stderr}[/red]")
+        except Exception as exc:
+            pe(f"Error entrenando Tool Orchestrator BC: {exc}")
 
     elif sub == "tool-bandit":
         _, tckpts, train_script, _, _ = _tool_orchestrator_paths(root)
         save = tckpts / "tool_policy_bandit.json"
-        _run_training_with_dashboard(
-            [sys.executable, str(train_script), "--mode", "bandit", "--episodes", "2000",
-             "--save", str(save)],
-            cwd=root,
-            title="Entrenando Tool Orchestrator (LinUCB)",
-        )
+        console.print("[dim]  Entrenando Tool Orchestrator (LinUCB)...[/dim]")
+        try:
+            proc = subprocess.run(
+                [sys.executable, str(train_script), "--mode", "bandit", "--episodes", "2000",
+                 "--save", str(save)],
+                capture_output=True, text=True, cwd=str(root),
+                timeout=600, encoding="utf-8", errors="replace",
+            )
+            if proc.stdout:
+                console.print(proc.stdout)
+            if proc.stderr:
+                console.print(f"[red]{proc.stderr}[/red]")
+        except Exception as exc:
+            pe(f"Error entrenando Tool Orchestrator LinUCB: {exc}")
 
     else:
         pi("Uso: rl-train bc | rl-train ppo | rl-train qmix | rl-train tool-bc | rl-train tool-bandit")
@@ -354,7 +381,7 @@ def cmd_rl_tool(session, args: str = ""):
       rl-tool                          → modo interactivo
       rl-tool "busca archivos de config" → tarea directa (no interactivo)
     """
-    root = Path(__file__).resolve().parents[2].parent
+    root, _, _ = _rl_paths()
     _, _, _, orch_script, _ = _tool_orchestrator_paths(root)
 
     if not orch_script.exists():
@@ -362,7 +389,8 @@ def cmd_rl_tool(session, args: str = ""):
         return
 
     task = args.strip()
-    cmd = [sys.executable, str(orch_script), "--model", "qwen2.5:1.5b"]
+    model = os.environ.get("BAGO_RL_TOOL_MODEL", "llama3.2:3b").strip() or "llama3.2:3b"
+    cmd = [sys.executable, str(orch_script), "--model", model]
     if task:
         cmd += ["--task", task]
     else:

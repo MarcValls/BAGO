@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from bago_utils import load_json, save_json, timestamp_iso
 
 import re

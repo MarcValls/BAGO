@@ -58,15 +58,22 @@ def _last_assistant(history: list) -> str:
 # Patrones que indican que el modelo redirigió en lugar de responder
 _EVASION_PATTERNS = [
     r"(?i)(cómo|como) puedo ayudarte",
+    r"(?i)¿?(qué|que) (deseas|quieres) (saber|hacer|preguntar)",
+    r"(?i)¿?(en qué|en que) puedo ayudarte",
     r"(?i)no (necesito|necesitas) m[aá]s informaci[oó]n",
-    r"(?i)¿(qué|que) deseas (saber|hacer|preguntar)",
-    r"(?i)(¿hay|hay) algo m[aá]s (en que|que) pueda",
     r"(?i)how can i (help|assist) you( today)?",
     r"(?i)what would you like (me to|to) (do|know|help)",
     r"(?i)i('m|'d) (be )?happy to help",
     r"(?i)please (let me know|tell me) (what|how)",
-    r"(?i)¿(en qué|en que) puedo ayudarte",
-    r"(?i)¿(qué|que) (es lo que|necesitas|quieres)",
+]
+
+# Respuestas de aclaración válidas, no se deben penalizar.
+# Solo si la respuesta referencia el tema del usuario o pregunta por detalles concretos.
+_CLARIFICATION_PATTERNS = [
+    r"(?i)^¿?(te refieres a|hablas de|est[aá]s buscando|quieres que)",
+    r"(?i)^¿?(dime|indica|especifica|confirma|aclara)\b",
+    r"(?i)\b(puedes|podr[ií]as)\s+(decirme|confirmar|especificar|aclarar|mostrar)\b",
+    r"(?i)\b(necesito|me falta|me hace falta)\b.{5,}",  # necesita contexto extra, no genérico
 ]
 
 # Patrones que indican que el modelo admite no poder acceder a internet
@@ -124,9 +131,16 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
     resp_words  = len(response.split())
     q_words     = len(user_input.split())
     resp_low    = response.lower()
+    resp_stripped = response.strip()
+    is_clarification = any(re.search(pat, resp_stripped) for pat in _CLARIFICATION_PATTERNS)
+
+    if is_clarification:
+        return False, ""
 
     # 1. Respuesta vacía o extremadamente corta para pregunta sustantiva
-    if resp_words < 8 and q_words > 6 and not is_simple_greeting:
+    if resp_words < 5 and q_words > 6 and not is_simple_greeting:
+        if is_clarification:
+            return False, ""
         return True, f"respuesta demasiado corta ({resp_words} palabras)"
 
     # 2. El modelo admite no poder acceder a internet — solo relevante si el
@@ -140,6 +154,8 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
     if not is_simple_greeting and q_words > 4:
         for pat in _EVASION_PATTERNS:
             if re.search(pat, response):
+                if is_clarification:
+                    return False, ""
                 return True, "respuesta evasiva — modelo redirigió sin responder"
 
     # 4. Overlap de palabras clave muy bajo cuando la pregunta es larga
@@ -151,7 +167,7 @@ def _response_is_garbage(user_input: str, response: str) -> "tuple[bool, str]":
         if q_sig:
             overlap = sum(1 for w in q_sig if w in resp_low)
             ratio = overlap / len(q_sig)
-            if ratio < 0.07:
+            if ratio < 0.07 and not is_clarification:
                 return True, (
                     f"sin relación con la pregunta "
                     f"({overlap}/{len(q_sig)} palabras clave coinciden)"

@@ -89,7 +89,19 @@ def _registry_path() -> Path:
 
 
 def cmd(line, session):
-    parts = line.strip().split(None, 1)
+    raw = line.strip()
+    if raw.startswith("\\"):
+        raw = raw[1:]
+    parts = raw.split(None, 1)
+    bare = {
+        "rl-status", "rl-demo", "rl-train", "rl-eval",
+        "rl-sandbox", "rl-shadow", "rl-tool",
+    }
+    if not parts:
+        return True
+    if not parts[0].startswith("/") and parts[0].lower() not in bare:
+        raw = "/" + raw
+        parts = raw.split(None, 1)
     v = parts[0].lower(); a = parts[1].strip() if len(parts) > 1 else ""
 
     if v == "/exit":

@@ -260,7 +260,21 @@ def get_default_model(provider_name, providers):
     models = dict(_available_model_items(provider_name, prov))
     if not models:
         return "", "", provider_name
-    preferred = _CODEX_PREFERRED_MODELS if provider_name in ("codex", "openai") else ()
+    if provider_name == "ollama-local":
+        preferred = (
+            "llama3.2:1b",
+            "qwen2.5:1.5b",
+            "phi3:mini",
+            "smollm2:1.7b",
+            "qwen2.5:0.5b",
+            "llama3.2:3b",
+            "llama3.2:latest",
+            "qwen2.5-coder:7b",
+            "deepseek-coder:6.7b",
+            "granite3.2:8b",
+        )
+    else:
+        preferred = _CODEX_PREFERRED_MODELS if provider_name in ("codex", "openai") else ()
     selected = _select_best_model(models, preferred=preferred)
     if not selected:
         return "", "", provider_name

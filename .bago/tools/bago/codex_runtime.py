@@ -52,13 +52,14 @@ def build_codex_prompt(messages: list[dict]) -> str:
 
     parts: list[str] = []
     if system_parts:
-        parts.append("SYSTEM:\n" + "\n\n".join(system_parts))
+        parts.append("CONTEXTO DE SISTEMA:\n" + "\n\n".join(system_parts))
     if transcript:
-        parts.append("CONVERSATION:\n" + "\n\n".join(transcript))
+        parts.append("CONVERSACIÓN:\n" + "\n\n".join(transcript))
     parts.append(
-        "INSTRUCCION FINAL:\n"
-        "Responde solo al ultimo mensaje del usuario. "
-        "Devuelve solo la respuesta final."
+        "INSTRUCCIÓN FINAL:\n"
+        "Responde al último mensaje útil del usuario sin referirte a los encabezados del prompt. "
+        "No preguntes por 'SYSTEM', 'CONVERSATION' ni por el formato interno. "
+        "Devuelve solo la respuesta final y, si la tarea ya es concreta, actúa sin pedir confirmación."
     )
     return "\n\n".join(parts).strip()
 

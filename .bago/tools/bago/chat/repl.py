@@ -350,11 +350,14 @@ def run_repl(session, pt: PromptSession) -> None:
             except Exception:
                 pass
             continue
-        if line.startswith("/"):
+        if line.startswith(("/", "\\")):
             try:
-                session.add_timeline("command", line.split()[0][1:], line[:120], level="command")
+                cmd_name = line.split()[0].lstrip("/\\")
+                session.add_timeline("command", cmd_name, line[:120], level="command")
             except Exception:
                 pass
+            if line.startswith("\\"):
+                line = line[1:]
             if not cmd(line, session):
                 break
             continue

@@ -11,6 +11,7 @@ Integra:
 from pathlib import Path
 
 import os
+import re
 import sys
 
 os.environ.setdefault("PYTHONUTF8", "1")
@@ -177,6 +178,18 @@ def _preemptive_cloud_escalation(session, user_input: str) -> bool:
     return True
 
 
+def _looks_like_helpful_clarification(text: str) -> bool:
+    """Detecta si la respuesta es una aclaración genuina, no evasiva."""
+    for pattern in (
+        r"(?i)\b(te refieres a|hablas de|est[aá]s buscando|quieres que)\b",
+        r"(?i)\b(puedes|podr[ií]as)\s+(decirme|confirmar|especificar|aclarar|mostrar)\b",
+        r"(?i)\b(necesito|me falta|me hace falta)\b.{5,}",
+    ):
+        if re.search(pattern, text or ""):
+            return True
+    return False
+
+
 def _quality_cloud_retry(session, user_input: str, reason: str) -> "str | None":
     """Escala a cloud y reintenta cuando la respuesta es basura.
 
@@ -214,15 +227,144 @@ def _quality_cloud_retry(session, user_input: str, reason: str) -> "str | None":
         return None
 
 
+def _spiral_single(session, history_msg: str, user_input: str) -> str:
+    """Espiral: modo single-model sin fallback."""
+    session.history.append({"role": "user", "content": history_msg})
+    lm, kw = session.litellm_info
+    with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
+        text = _llm_call(lm, kw, session.history, session=session)
+    text = _dedup_paragraphs(text)
+    session.history.append({"role": "assistant", "content": text})
+    source = session._update_model_origin(session.provider, session.model_name, session.wire_name)
+    session.last_route = {
+        "mode": "single",
+        "provider": session.provider,
+        "model": session.model_name,
+        "reason": "single-model mode",
+        "service": source.get("service", ""),
+        "route": source.get("route", ""),
+        "backend": source.get("backend", ""),
+    }
+    return text
+
+
+def _spiral_brainstorm(session, history_msg: str, user_input: str) -> str:
+    """Espiral: modo brainstorm — fuerza análisis concreto."""
+    brainstorm_prompt = (
+        "[MODO BRAINSTORM ACTIVO] Resultado CONCRETO obligatorio:\n"
+        "1. ANALISIS: Identifica minimo 3 aspectos concretos.\n"
+        "2. GENERACION: Propón minimo 2 soluciones implementables con codigo real.\n"
+        "3. EVIDENCIA: Cada afirmacion con ejemplo especifico.\n"
+        "4. PROHIBIDO: vaguedades, depends, podria ser.\n"
+        "5. FORMATO: listas, codigo real, rutas absolutas, valores concretos.\n"
+        f"TAREA: {history_msg}\n"
+    )
+    session.history.append({"role": "user", "content": brainstorm_prompt})
+    return _spiral_call_with_guards(session, user_input)
+
+
+def _spiral_normal(session, history_msg: str, user_input: str) -> str:
+    """Espiral: llamada normal con anti-rep + quality guard."""
+    session.history.append({"role": "user", "content": history_msg})
+    return _spiral_call_with_guards(session, user_input)
+
+
+def _spiral_call_with_guards(session, user_input: str) -> str:
+    """Núcleo compartido: LLM call + anti-rep + quality guard + ctx overflow."""
+    lm, kw = session.litellm_info
+    with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
+        text = _llm_call(lm, kw, session.history, session=session)
+
+    # ── Anti-rep capa 1: eliminar bloques duplicados ─────────────────────
+    text = _dedup_paragraphs(text)
+
+    # ── Anti-rep capa 2: reintentar si respuesta ≈ anterior ──────────────
+    prev = _last_assistant(session.history[:-1])
+    if prev and _jaccard(text, prev) >= _REPEAT_THRESHOLD:
+        console.print(
+            "  [dim yellow]⚠ respuesta repetitiva detectada — "
+            "reintentando con mayor profundidad...[/dim yellow]"
+        )
+        anti_repeat = (
+            "ALERTA: Tu respuesta fue casi idéntica a la anterior. Esto no es aceptable. "
+            "Debes profundizar REALMENTE. Para esta nueva respuesta:\n"
+            "1. No copies ni parafrasees nada de lo ya dicho.\n"
+            "2. Baja un nivel más: mecanismos internos, por qué funciona así, qué pasa si falla.\n"
+            "3. Da ejemplos CONCRETOS y ESPECÍFICOS (valores reales, rutas reales, código real).\n"
+            "4. Explica implicaciones prácticas que no se mencionaron antes.\n"
+            "5. Si hay alternativas o casos límite, descríbelos ahora.\n"
+            f"Pregunta original del usuario: {user_input}"
+        )
+        msgs_retry = session.history[:-1] + [{"role": "user", "content": anti_repeat}]
+        with console.status(f"[dim]{session.model_name} (anti-rep)...[/dim]", spinner="dots"):
+            text = _llm_call(lm, kw, msgs_retry, session=session)
+        text = _dedup_paragraphs(text)
+
+    # ── Quality guard: detectar basura → escalar a cloud ─────────────────
+    is_garbage, garbage_reason = _response_is_garbage(user_input, text)
+    if is_garbage and not _looks_like_helpful_clarification(text):
+        retry_text = _quality_cloud_retry(session, user_input, garbage_reason)
+        if retry_text:
+            text = retry_text
+
+    session.history.append({"role": "assistant", "content": text})
+    session.last_route = {
+        "mode":     "auto" if session.autoroute else "manual",
+        "provider": session.provider,
+        "model":    session.model_name,
+        "reason":   session.last_route.get("reason", "single"),
+        "service":   session.model_origin.get("service", ""),
+        "route":     session.model_origin.get("route", ""),
+        "backend":   session.model_origin.get("backend", ""),
+    }
+    return text
+
+
+def _spiral_ctx_overflow_retry(session, history_msg: str, user_input: str) -> str:
+    """Espiral: reintento tras desbordamiento de contexto."""
+    escalation = _escalate_model(session, user_input)
+    if not escalation:
+        raise RuntimeError("contexto saturado y sin modelo de escalado disponible")
+    new_model, new_wire, new_prov = escalation
+    old_model = session.model_name
+    c_new     = COLORS.get(new_prov, "white")
+    is_cloud  = new_prov not in ("ollama-local", "ollama-cloud")
+    tag       = "☁ cloud" if is_cloud else "⬆ local"
+    console.print(
+        f"  [dim yellow]⚡ contexto saturado ({old_model}) "
+        f"→ {tag}: [{c_new}]{new_model}[/{c_new}] ({new_prov})[/dim yellow]"
+    )
+    session.provider   = new_prov
+    session.model_name = new_model
+    session.wire_name  = new_wire
+    source = session._update_model_origin(new_prov, new_model, new_wire)
+    session.switches  += 1
+    session.last_route = {
+        "mode": "auto", "provider": new_prov, "model": new_model,
+        "reason": f"ctx-overflow escalation desde {old_model}",
+        "service": source.get("service", ""),
+        "route": source.get("route", ""),
+        "backend": source.get("backend", ""),
+    }
+    session.history.append({"role": "user", "content": history_msg})
+    lm2, kw2 = session.litellm_info
+    with console.status(f"[dim]{new_model}...[/dim]", spinner="dots"):
+        text2 = _llm_call(lm2, kw2, session.history,
+                          session=session, _provider=new_prov, _model=new_model)
+    text2 = _dedup_paragraphs(text2)
+    session.history.append({"role": "assistant", "content": text2})
+    return text2
+
+
 def chat(session, user_input, *, history_input: str | None = None):
-    """Orquestador principal — decide modelo, estrategia y calidad de respuesta.
+    """Orquestador principal — un solo punto de salida en espiral.
 
     Args:
         user_input:    Texto que ve el LLM (puede tener secretos de tumba sustituidos).
         history_input: Texto que se guarda en history (conserva {{placeholders}} de tumba).
                        Si None, se usa user_input para ambos.
 
-    Flujo:
+    Flujo espiral:
       1. Auto-routing por keywords
       2. Pre-call: si URL en mensaje y provider local → escalar a cloud
       3. Detectar estrategia (single / chain / ensemble)
@@ -230,187 +372,66 @@ def chat(session, user_input, *, history_input: str | None = None):
       5. Anti-repetición (dedup + jaccard)
       6. Post-call: quality guard → si basura → escalar + reintentar
       7. Escalado por saturación de contexto
+      ── Todas las ramas confluyen en un único return al final.
     """
-    # La entrada que va a history conserva {{placeholders}} para no filtrar secretos
     history_msg = history_input if history_input is not None else user_input
     contract_text = resolve_contract(history_msg, getattr(session, "output_contract", ""))
 
-    if session.autoroute:
-        # ── Paso 1: routing por keyword ───────────────────────────────────────
-        switched, reason = session.auto_route(user_input)
-        if switched or reason:
-            c = COLORS.get(session.provider, "white")
-            console.print(f"  [dim {c}]{reason}[/dim {c}]")
+    result = None      # ── única variable de salida ──
 
-        # ── Paso 2: pre-call URL escalation ──────────────────────────────────
-        _preemptive_cloud_escalation(session, user_input)
-
-        # ── Paso 3: detectar estrategia ───────────────────────────────────────
-        active = [
-            p for p in session.creds.active_bago_providers()
-            if p not in getattr(session, "skip_providers", set())
-        ]
-        strategy, providers_for_strategy = detect_strategy(user_input, active)
-
-        if contract_text and getattr(session, "contract_loop_enabled", False):
-            contract_result = _run_contract_loop(session, user_input, history_msg, contract_text)
-            if contract_result is not None:
-                return contract_result
-
-        if strategy == "chain" and len(providers_for_strategy) >= 2:
-            console.print(f"  [dim]⛓ chain auto: {' → '.join(providers_for_strategy)}[/dim]")
-            run_chain(session, providers_for_strategy, user_input, history_input=history_msg)
-            return None
-
-        if strategy == "ensemble" and len(providers_for_strategy) >= 2:
-            console.print(f"  [dim]◈ ensemble auto: {', '.join(providers_for_strategy)}[/dim]")
-            run_ensemble(session, providers_for_strategy, user_input, history_input=history_msg)
-            return None
-
-    # ── Estrategia single (o autoroute desactivado) ───────────────────────────
-    # history_msg conserva {{placeholders}} para no filtrar secretos al disco
-    # === MODO SINGLE: forzar un único modelo sin fallback ni escalado ===
-    if getattr(session, "single_model", False):
-        history_msg = history_input if history_input is not None else user_input
-        session.history.append({"role": "user", "content": history_msg})
-        lm, kw = session.litellm_info
-        try:
-            with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
-                text = _llm_call(lm, kw, session.history, session=session)
-            text = _dedup_paragraphs(text)
-            session.history.append({"role": "assistant", "content": text})
-            source = session._update_model_origin(session.provider, session.model_name, session.wire_name)
-            session.last_route = {
-                "mode": "single",
-                "provider": session.provider,
-                "model": session.model_name,
-                "reason": "single-model mode",
-                "service": source.get("service", ""),
-                "route": source.get("route", ""),
-                "backend": source.get("backend", ""),
-            }
-            return text
-        except Exception as e:
-            session.history.pop()
-            raise RuntimeError(str(e))
-
-    # === MODO BRAINSTORM: forzar analisis real (v3.5) ===
-    if getattr(session, "brainstorm", False):
-        brainstorm_prompt = (
-            "[MODO BRAINSTORM ACTIVO] Resultado CONCRETO obligatorio:\\n"
-            "1. ANALISIS: Identifica minimo 3 aspectos concretos.\\n"
-            "2. GENERACION: Propón minimo 2 soluciones implementables con codigo real.\\n"
-            "3. EVIDENCIA: Cada afirmacion con ejemplo especifico.\\n"
-            "4. PROHIBIDO: vaguedades, depends, podria ser.\\n"
-            "5. FORMATO: listas, codigo real, rutas absolutas, valores concretos.\\n"
-            f"TAREA: {history_msg}\\n"
-        )
-        session.history.append({"role": "user", "content": brainstorm_prompt})
-    else:
-        session.history.append({"role": "user", "content": history_msg})
-    lm, kw = session.litellm_info
     try:
-        with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
-            text = _llm_call(lm, kw, session.history, session=session)
+        # ── Espiral 1–3: routing + estrategia ──────────────────────────────
+        if session.autoroute:
+            switched, reason = session.auto_route(user_input)
+            if switched or reason:
+                c = COLORS.get(session.provider, "white")
+                console.print(f"  [dim {c}]{reason}[/dim {c}]")
+            _preemptive_cloud_escalation(session, user_input)
 
-        # ── Anti-rep capa 1: eliminar bloques duplicados ─────────────────────
-        text = _dedup_paragraphs(text)
+            active = [
+                p for p in session.creds.active_bago_providers()
+                if p not in getattr(session, "skip_providers", set())
+            ]
+            strategy, providers_for_strategy = detect_strategy(user_input, active)
 
-        # ── Anti-rep capa 2: reintentar si respuesta ≈ anterior ──────────────
-        prev = _last_assistant(session.history[:-1])
-        if prev and _jaccard(text, prev) >= _REPEAT_THRESHOLD:
-            console.print(
-                "  [dim yellow]⚠ respuesta repetitiva detectada — "
-                "reintentando con mayor profundidad...[/dim yellow]"
-            )
-            anti_repeat = (
-                "ALERTA: Tu respuesta fue casi idéntica a la anterior. Esto no es aceptable. "
-                "Debes profundizar REALMENTE. Para esta nueva respuesta:\n"
-                "1. No copies ni parafrasees nada de lo ya dicho.\n"
-                "2. Baja un nivel más: mecanismos internos, por qué funciona así, qué pasa si falla.\n"
-                "3. Da ejemplos CONCRETOS y ESPECÍFICOS (valores reales, rutas reales, código real).\n"
-                "4. Explica implicaciones prácticas que no se mencionaron antes.\n"
-                "5. Si hay alternativas o casos límite, descríbelos ahora.\n"
-                f"Pregunta original del usuario: {user_input}"
-            )
-            msgs_retry = session.history[:-1] + [{"role": "user", "content": anti_repeat}]
-            with console.status(f"[dim]{session.model_name} (anti-rep)...[/dim]", spinner="dots"):
-                text = _llm_call(lm, kw, msgs_retry, session=session)
-            text = _dedup_paragraphs(text)
+            if contract_text and getattr(session, "contract_loop_enabled", False):
+                result = _run_contract_loop(session, user_input, history_msg, contract_text)
+            elif strategy == "chain" and len(providers_for_strategy) >= 2:
+                console.print(f"  [dim]⛓ chain auto: {' → '.join(providers_for_strategy)}[/dim]")
+                run_chain(session, providers_for_strategy, user_input, history_input=history_msg)
+            elif strategy == "ensemble" and len(providers_for_strategy) >= 2:
+                console.print(f"  [dim]◈ ensemble auto: {', '.join(providers_for_strategy)}[/dim]")
+                run_ensemble(session, providers_for_strategy, user_input, history_input=history_msg)
 
-        # ── Quality guard: detectar basura → escalar a cloud ─────────────────
-        is_garbage, garbage_reason = _response_is_garbage(user_input, text)
-        if is_garbage:
-            retry_text = _quality_cloud_retry(session, user_input, garbage_reason)
-            if retry_text:
-                text = retry_text
-
-        session.history.append({"role": "assistant", "content": text})
-        session.last_route = {
-            "mode":     "auto" if session.autoroute else "manual",
-            "provider": session.provider,
-            "model":    session.model_name,
-            "reason":   session.last_route.get("reason", "single"),
-            "service":   session.model_origin.get("service", ""),
-            "route":     session.model_origin.get("route", ""),
-            "backend":   session.model_origin.get("backend", ""),
-        }
-        return text
+        # ── Espiral 4–6: llamada al modelo con guards ────────────────────
+        if result is None:
+            if getattr(session, "single_model", False):
+                result = _spiral_single(session, history_msg, user_input)
+            elif getattr(session, "brainstorm", False):
+                result = _spiral_brainstorm(session, history_msg, user_input)
+            else:
+                result = _spiral_normal(session, history_msg, user_input)
 
     except (KeyboardInterrupt, SystemExit):
-        # audit-1: evitar que el user turn quede huérfano en history sin respuesta
-        session.history.pop()
+        if session.history and session.history[-1].get("role") == "user":
+            session.history.pop()
         raise
 
-    except Exception as e:
-        session.history.pop()
+    except Exception as exc:
+        # Deshacer turno huérfano
+        if session.history and session.history[-1].get("role") == "user":
+            session.history.pop()
+        # ── Espiral 7: escalado por saturación de contexto ───────────────
+        if _is_ctx_overflow(exc):
+            try:
+                result = _spiral_ctx_overflow_retry(session, history_msg, user_input)
+            except Exception:
+                raise RuntimeError(str(exc))
+        else:
+            raise RuntimeError(str(exc))
 
-        # ── Escalado por saturación de contexto ──────────────────────────────
-        if _is_ctx_overflow(e):
-            escalation = _escalate_model(session, user_input)
-            if escalation:
-                new_model, new_wire, new_prov = escalation
-                old_model = session.model_name
-                c_new     = COLORS.get(new_prov, "white")
-                is_cloud  = new_prov not in ("ollama-local", "ollama-cloud")
-                tag       = "☁ cloud" if is_cloud else "⬆ local"
-                console.print(
-                    f"  [dim yellow]⚡ contexto saturado ({old_model}) "
-                    f"→ {tag}: [{c_new}]{new_model}[/{c_new}] ({new_prov})[/dim yellow]"
-                )
-                session.provider   = new_prov
-                session.model_name = new_model
-                session.wire_name  = new_wire
-                source = session._update_model_origin(new_prov, new_model, new_wire)
-                session.switches  += 1
-                session.last_route = {
-                    "mode": "auto", "provider": new_prov, "model": new_model,
-                    "reason": f"ctx-overflow escalation desde {old_model}",
-                    "service": source.get("service", ""),
-                    "route": source.get("route", ""),
-                    "backend": source.get("backend", ""),
-                }
-                session.history.append({"role": "user", "content": history_msg})
-                lm2, kw2 = session.litellm_info
-                try:
-                    with console.status(f"[dim]{new_model}...[/dim]", spinner="dots"):
-                        text2 = _llm_call(lm2, kw2, session.history,
-                                          session=session, _provider=new_prov, _model=new_model)
-                    text2 = _dedup_paragraphs(text2)
-                    session.history.append({"role": "assistant", "content": text2})
-                    return text2
-                except Exception as e2:
-                    session.history.pop()
-                    raise RuntimeError(str(e2))
-
-        raise RuntimeError(str(e))
-
-
-
-
-
-
-
+    # ── ÚNICO PUNTO DE SALIDA ──────────────────────────────────────────────
+    return result
 
 
 def _run_tests() -> int:
