@@ -2,7 +2,8 @@
 
 **Fecha:** 2026-05-29  
 **Estado:** RELEASE STABLE  
-**Tag:** `v3.5.0`  
+**Tag:** `v3.5.0-stable`  
+*(Nota: el tag `v3.5.0` ya existía en commit `d9a3b63` del 20-05-2026; esta release consolidada usa `v3.5.0-stable`)*  
 **Source of Truth:** `C:\bago_true`  
 **Branch:** `main`  
 **Commit:** `b44d8cd` → `v3.5.0`
