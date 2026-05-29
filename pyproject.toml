@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bago"
-version = "3.5.0b1"
+version = "3.5.0"
 description = "BAGO runtime"
 requires-python = ">=3.10"
 
