@@ -1,14 +1,5 @@
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 """http_discover — Servidor HTTP de descubrimiento para conexiones BAGO en red local.
 
@@ -24,8 +15,12 @@ import os
 
 from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
 
-LOG_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_http.log"
-IP_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_ip.txt"
+from pathlib import Path
+
+LOG_FILE = Path.home() / ".bago" / "tools" / "lenovo_http.log"
+IP_FILE = Path.home() / ".bago" / "tools" / "lenovo_ip.txt"
+# IP del propio adaptador Ethernet (APIPA / link-local).  Sobrescribible via env.
+OWN_ETHERNET_IP = os.getenv("BAGO_OWN_ETHERNET_IP", "169.254.31.155")
 STABILITY = "experimental"
 
 class BAGOHandler(http.server.BaseHTTPRequestHandler):
@@ -37,7 +32,7 @@ class BAGOHandler(http.server.BaseHTTPRequestHandler):
         with open(LOG_FILE, 'a') as f:
             f.write(msg)
         # Si no es nuestra propia IP, guardar como IP del Lenovo
-        if client_ip not in ('169.254.31.155', '127.0.0.1', '::1'):
+        if client_ip not in (OWN_ETHERNET_IP, '127.0.0.1', '::1'):
             with open(IP_FILE, 'w') as f:
                 f.write(client_ip)
             print(f"!!! IP LENOVO DETECTADA: {client_ip} !!!")
@@ -51,11 +46,11 @@ class BAGOHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Silenciar logs por defecto
 
-# Bind en todas las interfaces (incluyendo 169.254.31.155)
+# Bind en todas las interfaces (incluyendo APIPA)
 HTTP_PORT = env_port("BAGO_HTTP_DISCOVER_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT)
 server = socketserver.TCPServer(('0.0.0.0', HTTP_PORT), BAGOHandler)
 print(f"HTTP server en 0.0.0.0:{HTTP_PORT} - esperando conexion del Lenovo...")
-print(f"Lenovo debe acceder a: http://169.254.31.155:{HTTP_PORT}")
+print(f"Lenovo debe acceder a: http://{OWN_ETHERNET_IP}:{HTTP_PORT}")
 server.serve_forever()
 
 def _self_test():

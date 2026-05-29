@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """model_gate.py — Gate de fallback entre modelos
 
+
 Cuando un modelo llama a otro y no está disponible:
 1. Intenta fallback al modelo local más cercano
 2. Si no hay local, intenta cloud con mismo tier
@@ -12,17 +13,6 @@ Reglas:
 - Siempre informar al usuario del cambio
 - Siempre registrar el gate para aprendizaje
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 from dataclasses import dataclass

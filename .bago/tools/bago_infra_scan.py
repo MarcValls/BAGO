@@ -11,6 +11,8 @@ Uso:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import re
@@ -34,11 +36,6 @@ from bago.ollama_runtime import (
     default_ollama_port,
 )
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 THIS_FILE = Path(__file__).resolve()
 TOOLS_DIR = THIS_FILE.parent

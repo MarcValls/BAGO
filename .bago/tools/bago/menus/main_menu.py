@@ -78,6 +78,7 @@ _ENTRIES = [
     (None,          "  -- Sesion & Configuracion ---------------------"),
     ("/status",     "  Estado actual  -- modelo / routing / tokens / salud"),
     ("/session",    "  Gestion de sesion  -- guardar / cargar / repliegue"),
+    ("/cwd",        "  Carpeta de trabajo  -- ver / fijar ruta del chat"),
     ("/sync",       "  Sincronizar  -- GitHub / USB"),
     ("/sendnow",    "  Cliente send.now  -- account / upload / files / folder"),
     ("/memory",     "  Memoria y conocimiento"),
@@ -88,6 +89,16 @@ _ENTRIES = [
     ("/framework",  "  Framework evolutivo  -- sprint / health / componentes"),
     ("/workspaces", "  Workspaces"),
     ("/projects",   "  Proyectos"),
+
+    # ── RL · Reinforcement Learning ──────────────────────────────────
+    (None,          "  -- RL · Reinforcement Learning ----------------"),
+    ("/rl-status",  "  RL Estado  -- transiciones, checkpoints, sugerencias"),
+    ("/rl-demo",    "  RL Demo  -- ejecuta pipeline demo (sandbox, 0 riesgo)"),
+    ("/rl-shadow",  "  RL Shadow  -- activar / desactivar recopilacion de datos reales"),
+    ("/rl-train bc","  RL Entrenar BC  -- Behavioral Cloning con datos"),
+    ("/rl-train ppo"," RL Entrenar PPO  -- online RL (~5 min)"),
+    ("/rl-eval",    "  RL Evaluar  -- shadow mode con politica entrenada"),
+    ("/rl-sandbox", "  RL Sandbox  -- activar / desactivar simulacion"),
 
     # ── 8 · Framework BAGO ─────────────────────────────────────────
     (None,          "  -- Framework BAGO (160 cmds) ------------------"),

@@ -23,6 +23,8 @@ Códigos de salida: 0 = OK, 1 = error (no es fatal)
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import subprocess
 import sys
@@ -30,11 +32,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT    = Path(__file__).resolve().parents[2]
 STATE   = ROOT / ".bago" / "state"

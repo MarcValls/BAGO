@@ -6,6 +6,13 @@ from .providers import load_providers, load_routing
 from .session import BagoSession
 from .cmd import cmd
 from .llm import chat
+from .truth_gate import (
+    TruthGateError,
+    add_claim,
+    assert_can_close_task,
+    render_trace_report,
+    run_command,
+)
 
 __all__ = [name for name in globals() if name.isupper()] + [
     "console",
@@ -19,4 +26,9 @@ __all__ = [name for name in globals() if name.isupper()] + [
     "BagoSession",
     "cmd",
     "chat",
+    "TruthGateError",
+    "add_claim",
+    "assert_can_close_task",
+    "render_trace_report",
+    "run_command",
 ]

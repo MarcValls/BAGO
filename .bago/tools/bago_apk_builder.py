@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """BAGO APK Builder — Genera APK desde PWA usando Bubblewrap (TWA)
 
+
 Uso:
     python bago_apk_builder.py --url https://mi-pwa.com --name "Mi App" --package com.example.app
     python bago_apk_builder.py --manifest https://mi-pwa.com/manifest.json
@@ -15,17 +16,6 @@ Salida:
     - APK firmado listo para Google Play o sideload
     - AAB (Android App Bundle) para Play Store
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import argparse, json, os, subprocess, sys, tempfile, shutil
 from pathlib import Path
 

@@ -7,3 +7,6 @@ name = "bago"
 version = "3.5.0b1"
 description = "BAGO runtime"
 requires-python = ">=3.10"
+
+[project.scripts]
+bago = "bago_core.cli:main"

@@ -1,21 +1,11 @@
 #!/usr/bin/env python3
 """
+
 BAGO Lenovo Ethernet Connector
 Conecta con el PC Lenovo por Ethernet directo (cable) usando WinRM/SMB
 Uso: python lenovo_connect.py [IP_LENOVO]
      Si no se da IP, la detecta automáticamente via ARP
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import subprocess
 import socket
@@ -26,9 +16,12 @@ import sys
 
 from bago.ollama_runtime import DEFAULT_ALT_HTTP_PORT
 
-MONITOR_LOG = r"C:\Marc_max_20gb\.bago\tools\lenovo_monitor.log"
-LENOVO_IP_FILE = r"C:\Marc_max_20gb\.bago\tools\lenovo_ip.txt"
-OUR_ETHERNET_IP = "169.254.31.155"
+from pathlib import Path
+
+MONITOR_LOG = Path.home() / ".bago" / "tools" / "lenovo_monitor.log"
+LENOVO_IP_FILE = Path.home() / ".bago" / "tools" / "lenovo_ip.txt"
+# IP del propio adaptador Ethernet (APIPA).  Sobrescribible via env.
+OUR_ETHERNET_IP = os.getenv("BAGO_OWN_ETHERNET_IP", "169.254.31.155")
 
 def log(msg):
     print(f"[BAGO-LENOVO] {msg}")

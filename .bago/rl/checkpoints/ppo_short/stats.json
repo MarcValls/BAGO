@@ -1,0 +1,8 @@
+{
+  "curriculum": "short",
+  "total_timesteps": 50000,
+  "mean_reward": 4.236,
+  "std_reward": 1.6339,
+  "save_path": ".bago\\rl\\checkpoints\\ppo_short",
+  "seed": 42
+}

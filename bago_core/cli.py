@@ -22,11 +22,16 @@ def _active_install_path() -> Path | None:
     """Return path to active BAGO installation in ~/.bago/active/ if it exists."""
     marker = Path.home() / ".bago" / "active_version.txt"
     active = Path.home() / ".bago" / "active"
-    if marker.exists() and active.exists() and (active / "bago").exists():
-        return active
+    if not marker.exists() or not active.exists():
+        return None
+    # Windows usa .cmd / .ps1; Unix usa script sin extensión
+    launcher_names = ["bago"]
+    if sys.platform == "win32":
+        launcher_names = ["bago.cmd", "bago.ps1", "bago"]
+    for name in launcher_names:
+        if (active / name).exists():
+            return active
     return None
-
-
 
 
 def _find_bago_launcher() -> Path | None:
@@ -37,7 +42,13 @@ def _find_bago_launcher() -> Path | None:
         return cand
     active = _active_install_path()
     if active:
-        return active / "bago"
+        launcher_names = ["bago"]
+        if sys.platform == "win32":
+            launcher_names = ["bago.cmd", "bago.ps1", "bago"]
+        for name in launcher_names:
+            p = active / name
+            if p.exists():
+                return p
     return None
 def main() -> None:
     args = sys.argv[1:]

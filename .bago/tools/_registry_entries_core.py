@@ -1,16 +1,7 @@
 """_registry_entries_core.py — Subset of BAGO tool registry."""
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 from _registry_models import PreflightCheck, ToolEntry
 from _registry_paths import BAGO_ROOT, TOOLS_DIR
@@ -41,6 +32,17 @@ _ENTRIES: dict[str, ToolEntry] = {
         cmd="demo", module="bago_demo",
         description="Entrada demo de BAGO: dashboard publico, publish-kit y miniapp local",
         preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_demo.py"))],
+        layer="interfaz",
+        scope="framework",
+        agent="MAESTRO_BAGO",
+        stability="experimental",
+        risk="safe",
+        supports_dry_run=False,
+    ),
+    "split": ToolEntry(
+        cmd="split", module="bago_split",
+        description="Abre BAGO Chat y un terminal vacio lado a lado (Windows Terminal o snap manual)",
+        preflight=[PreflightCheck("file", str(TOOLS_DIR / "bago_split.py"))],
         layer="interfaz",
         scope="framework",
         agent="MAESTRO_BAGO",

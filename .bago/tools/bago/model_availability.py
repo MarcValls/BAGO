@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .codex_auth import resolve_openai_credentials
+
 
 _OLLAMA_MODEL_CACHE: list[str] | None = None
 
@@ -37,23 +39,122 @@ def installed_ollama_models() -> list[str]:
     return _OLLAMA_MODEL_CACHE
 
 
-def available_model_items(prov_name: str, prov_data: dict) -> list[tuple[str, dict]]:
-    models = list((prov_data or {}).get("models", {}).items())
-    if prov_name != "ollama-local":
-        return models
+def _model_service_name(prov_name: str, *, route: str = "", auth_mode: str = "") -> str:
+    prov = (prov_name or "").strip().lower()
+    if prov == "ollama-local":
+        return "ollama-native"
+    if prov == "ollama-cloud":
+        return "ollama-cloud-api"
+    if prov == "copilot":
+        return "github-copilot-api"
+    if prov == "github-models":
+        return "github-models-api"
+    if prov in ("codex", "openai"):
+        if route == "openai-api" or auth_mode == "api_key":
+            return "openai-api"
+        return "codex-cli"
+    if prov:
+        return f"{prov}-api"
+    return "unknown"
 
-    installed = installed_ollama_models()
-    if not installed:
+
+def available_model_routes(prov_name: str, prov_data: dict) -> list[dict]:
+    """Return rich route records for the models exposed by a provider."""
+    models = list((prov_data or {}).get("models", {}).items())
+    if not models:
         return []
 
-    installed_set = set(installed)
-    out = [
-        (mn, md)
-        for mn, md in models
-        if md.get("wire_name", mn) in installed_set or mn in installed_set
-    ]
-    known_wires = {md.get("wire_name", mn) for mn, md in out}
-    for raw in installed:
-        if raw not in known_wires:
-            out.append((raw, {"wire_name": raw, "best_for": "ollama_installed", "cost": "free"}))
-    return out
+    prov = (prov_name or "").strip().lower()
+    records: list[dict] = []
+
+    if prov == "ollama-local":
+        installed = set(installed_ollama_models())
+        if not installed:
+            return []
+        for mn, md in models:
+            wire = md.get("wire_name", mn)
+            if wire in installed or mn in installed:
+                records.append({
+                    "provider": prov_name,
+                    "model": mn,
+                    "wire_name": wire,
+                    "service": "ollama-native",
+                    "route": "ollama-native",
+                    "backend": "ollama",
+                    "available": True,
+                    "best_for": md.get("best_for", ""),
+                    "cost": md.get("cost", ""),
+                })
+        known_wires = {rec["wire_name"] for rec in records}
+        for raw in installed:
+            if raw not in known_wires:
+                records.append({
+                    "provider": prov_name,
+                    "model": raw,
+                    "wire_name": raw,
+                    "service": "ollama-native",
+                    "route": "ollama-native",
+                    "backend": "ollama",
+                    "available": True,
+                    "best_for": "ollama_installed",
+                    "cost": "free",
+                })
+        return records
+
+    if prov in ("codex", "openai"):
+        creds = resolve_openai_credentials()
+        if not creds.get("oauth_token"):
+            return []
+        try:
+            from .providers import resolve_codex_route_candidates
+        except Exception:
+            return []
+
+        for mn, md in models:
+            wire = md.get("wire_name", mn)
+            for candidate in resolve_codex_route_candidates(wire):
+                records.append({
+                    "provider": prov_name,
+                    "model": mn,
+                    "wire_name": wire,
+                    "service": candidate.get("service", ""),
+                    "route": candidate.get("route", ""),
+                    "backend": candidate.get("backend", "litellm"),
+                    "available": True,
+                    "auth_mode": candidate.get("auth_mode", ""),
+                    "fallback": candidate.get("fallback", False),
+                    "best_for": md.get("best_for", ""),
+                    "cost": md.get("cost", ""),
+                })
+        return records
+
+    for mn, md in models:
+        wire = md.get("wire_name", mn)
+        records.append({
+            "provider": prov_name,
+            "model": mn,
+            "wire_name": wire,
+            "service": _model_service_name(prov_name),
+            "route": _model_service_name(prov_name),
+            "backend": "litellm",
+            "available": True,
+            "best_for": md.get("best_for", ""),
+            "cost": md.get("cost", ""),
+        })
+    return records
+
+
+def available_model_items(prov_name: str, prov_data: dict) -> list[tuple[str, dict]]:
+    records = available_model_routes(prov_name, prov_data)
+    if not records:
+        return []
+    chosen: dict[str, dict] = {}
+    for rec in records:
+        mn = rec["model"]
+        current = chosen.get(mn)
+        if current is None:
+            chosen[mn] = dict(rec)
+            continue
+        if current.get("route") == "openai-api" and rec.get("route") == "codex-cli":
+            chosen[mn] = dict(rec)
+    return [(mn, md) for mn, md in chosen.items()]

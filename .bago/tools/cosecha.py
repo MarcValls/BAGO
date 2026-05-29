@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 cosecha.py — BAGO ESCENARIO-003
 Protocolo W9: 3 preguntas → sesión harvest cerrada + CHG + EVD automáticos.
 
@@ -8,20 +9,18 @@ Uso:
   python3 .bago/tools/cosecha.py --dry-run   (muestra lo que crearía sin escribir)
 """
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import json, sqlite3, sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Truth Gate integration
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from bago.truth_gate import TruthGateError, assert_can_close_task
+except Exception:
+    TruthGateError = RuntimeError
+    def assert_can_close_task(**_):  # type: ignore[misc]
+        pass
 
 # ─── Rutas ────────────────────────────────────────────────────────────────────
 BAGO_ROOT  = Path(__file__).resolve().parent.parent
@@ -171,7 +170,6 @@ def _sprint_window_start() -> datetime | None:
             except Exception:
                 pass
     # fallback: últimos 7 días
-    from datetime import timedelta as _td
     return datetime.now(timezone.utc) - _td(days=7)
 
 
@@ -341,8 +339,6 @@ def _get_health_score() -> tuple[str, int]:
     # COSECHA_HEALTH_COMPARE_IMPLEMENTED
     Retorna (icono, puntos) — ej. ('🟢', 80).
     """
-    import subprocess as _sp
-    import sys as _sys
     hs_script = BAGO_ROOT / "tools" / "health_score.py"
     if not hs_script.exists():
         return "⚪", 0
@@ -387,7 +383,6 @@ def _regenerate_ideas_report() -> str | None:
     Retorna la ruta del fichero generado, o None si falla.
     """
     try:
-        import importlib.util
         sprint_summary = BAGO_ROOT / "tools" / "sprint_summary.py"
         if not sprint_summary.exists():
             return None
@@ -405,7 +400,6 @@ def _detect_modified_files():
     detector = BAGO_ROOT / "tools" / "context_detector.py"
     if detector.exists():
         try:
-            import importlib.util
             spec = importlib.util.spec_from_file_location("context_detector", detector)
             mod  = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
@@ -612,6 +606,17 @@ def run():
     }
     _write_global_state(gs)
 
+    # ── Truth Gate: solo bloquea si hay trace activo ─────────────────────────
+    try:
+        assert_can_close_task()
+    except TruthGateError as e:
+        print()
+        print(f"  🚫 TRUTH_GATE_BLOCKED: {e}")
+        print("     La cosecha se abortó porque hay claims sin trazabilidad.")
+        print("     Ejecuta:  python -m bago.truth_cli report")
+        print()
+        raise SystemExit(2)
+
     # ── Resultado ─────────────────────────────────────────────────────────────
     print()
     print("  ✅ Cosecha completada:")
@@ -632,7 +637,6 @@ def run():
 
 def _self_test():
     """Autotest mínimo — verifica arranque limpio del módulo."""
-    from pathlib import Path as _P
     assert _P(__file__).exists(), "fichero no encontrado"
     print("  1/1 tests pasaron")
 
@@ -643,7 +647,6 @@ if __name__ == "__main__":
     run()
     # SAC: sugerir cosecha si hay muchas tareas done sin cosecha
     try:
-        import importlib.util as _ilu
         _ep = __import__("pathlib").Path(__file__).parent / "bago_sac_engine.py"
         _spec = _ilu.spec_from_file_location("bago_sac_engine", str(_ep))
         _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)

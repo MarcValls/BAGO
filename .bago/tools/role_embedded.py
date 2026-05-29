@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """role_embedded.py — Roles BAGO con código embebido
 
+
 Los roles ahora contienen:
 - Descripción textual (prompt base)
 - Scripts ejecutables (comportamiento dinámico)
@@ -11,17 +12,6 @@ Los roles ahora contienen:
 La espiral de prompts se autogenera: empieza con poco contexto
 y va creciendo infinitamente según la tarea lo requiera.
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 from dataclasses import dataclass, field

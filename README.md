@@ -39,6 +39,32 @@ bago launch --model qwen2.5:14b    # modelo específico
 
 ---
 
+## 🛠️ Empezar a trabajar
+
+BAGO gestiona el trabajo mediante **ideas** y el **workflow W2 (Controlled Implementation)**.
+
+Flujo recomendado para desarrollar una nueva característica:
+
+```bash
+bago ideas              # ver ideas disponibles en bago.db
+bago next               # selecciona la idea de mayor prioridad y abre tarea W2
+# — implementa el cambio —
+bago done               # cierra la tarea y registra evidencia
+bago health             # verifica que no se haya roto nada
+```
+
+### Del ciclo ideas → W2
+
+1. `bago ideas` muestra las ideas registradas con prioridad y contexto.  
+2. `bago next` escoge la más prioritaria, abre una tarea W2 y sugiere el primer paso concreto.  
+3. Implementas el cambio siguiendo el flujo guiado.  
+4. `bago done` cierra la sesión, genera evidencia y actualiza el estado del proyecto.  
+5. `bago health` valida integridad y health score antes de continuar.
+
+Este ciclo asegura que cada cambio queda trazado, auditado y verificado.
+
+---
+
 ## Otros comandos frecuentes
 
 ```bash

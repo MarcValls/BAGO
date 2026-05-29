@@ -13,6 +13,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 import sys
 import os
+import time
 from pathlib import Path
 
 _PROMPT_TOOLKIT_AVAILABLE = os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "0") != "1"
@@ -31,6 +32,7 @@ except ModuleNotFoundError:
 
 from bago import cmd, console, pe, CtrlCGuard
 from bago.constants import USER_BAGO
+from bago.providers import get_default_model
 from bago.llm import (
     _is_ollama_model_not_found, _is_ollama_unreachable,
     _is_cloud_auth_error, _is_cloud_connection_error,
@@ -41,6 +43,25 @@ from bago.ui import show_response
 from bago.api.bridge import chat_bridge
 
 from rich.panel import Panel
+
+# ── Shadow Mode RL ──────────────────────────────────────────────────────
+_RL_AVAILABLE = os.environ.get("BAGO_RL_SHADOW", "0").lower() in ("1", "true", "yes")
+_shadow = None
+
+def _init_shadow():
+    global _shadow
+    if _shadow is not None:
+        return
+    try:
+        import sys
+        _rl_dir = Path(__file__).resolve().parents[4] / ".bago" / "rl" / "adapters"
+        if str(_rl_dir) not in sys.path:
+            sys.path.insert(0, str(_rl_dir))
+        from bago_rl_shadow import ShadowMode
+        _shadow = ShadowMode()
+    except Exception as exc:
+        console.print(f"[dim yellow][Shadow] No disponible: {exc}[/dim yellow]")
+        _shadow = None
 
 if _PROMPT_TOOLKIT_AVAILABLE:
     from .statusbar import _topbar_prompt, _bottom_bar, _prompt_indicator
@@ -160,7 +181,25 @@ def build_prompt_session(session=None) -> PromptSession:
         from bago.completer import BagoCompleter
 
         hist_file = USER_BAGO / "state" / "chat_input_history.txt"
-        hist_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            hist_file.parent.mkdir(parents=True, exist_ok=True)
+            hist_file.touch(exist_ok=True)
+        except Exception:
+            # fallback: usar directorio temporal si no se puede crear o escribir en USER_BAGO
+            import tempfile
+            hist_file = Path(tempfile.gettempdir()) / "bago_history.txt"
+            try:
+                hist_file.parent.mkdir(parents=True, exist_ok=True)
+                hist_file.touch(exist_ok=True)
+            except Exception:
+                pass
+
+        try:
+            history = FileHistory(str(hist_file))
+        except Exception:
+            import tempfile
+            hist_file = Path(tempfile.gettempdir()) / "bago_history.txt"
+            history = FileHistory(str(hist_file))
 
         kb = KeyBindings()
 
@@ -186,7 +225,7 @@ def build_prompt_session(session=None) -> PromptSession:
                 buf.insert_text("/")
 
         return PromptSession(
-            history=FileHistory(str(hist_file)),
+            history=history,
             auto_suggest=AutoSuggestFromHistory(),
             style=_COMPLETION_STYLE,
             completer=BagoCompleter(),
@@ -202,6 +241,80 @@ def build_prompt_session(session=None) -> PromptSession:
         return _SimplePromptSession()
 
 
+def _auto_switch_model(session) -> bool:
+    """Si el modelo actual es 'sin-modelo', intenta auto-switch al primer provider SANO disponible."""
+    if getattr(session, "model_name", None) != "sin-modelo" and getattr(session, "provider", None) != "none":
+        return False
+    providers = getattr(session, "providers", {})
+    if not providers:
+        return False
+
+    # Health check rápido de todos los providers activos
+    try:
+        from bago.provider_health import scan_provider_health
+        health = scan_provider_health(session.creds, providers, timeout=3)
+    except Exception:
+        health = {}
+
+    active = session.creds.active_bago_providers() if hasattr(session.creds, "active_bago_providers") else set(providers.keys())
+
+    # Orden: github-models (más confiable, 43 modelos) > codex > copilot > anthropic > ollama-cloud > ollama-local
+    for prov_name in ("github-models", "codex", "copilot", "anthropic", "ollama-cloud", "ollama-local"):
+        if prov_name not in active:
+            continue
+        prov_health = health.get(prov_name, {})
+        if not prov_health.get("ok"):
+            continue  # Saltar providers enfermos (auth errors, rate limits, etc.)
+        prov_data = providers.get(prov_name)
+        if not prov_data:
+            continue
+        model_name, wire, _ = get_default_model(prov_name, providers)
+        if not model_name:
+            continue
+        old = session.model_name
+        session.provider, session.model_name, session.wire_name = prov_name, model_name, wire
+        source = session._update_model_origin(prov_name, model_name, wire)
+        session.switches = getattr(session, "switches", 0) + 1
+        session.last_route = {
+            "mode": "auto",
+            "provider": prov_name,
+            "model": model_name,
+            "reason": f"auto-switch desde {old}",
+            "service": source.get("service", ""),
+            "route": source.get("route", ""),
+            "backend": source.get("backend", ""),
+        }
+        console.print(f"  [dim cyan][Auto-switch] {old} → {model_name} ({prov_name}) ✓[/dim cyan]")
+        return True
+
+    # Fallback: si ninguno pasa health check, elegir el primero que tenga modelos (último recurso)
+    for prov_name in ("github-models", "codex", "copilot", "anthropic", "ollama-cloud", "ollama-local"):
+        if prov_name not in active:
+            continue
+        prov_data = providers.get(prov_name)
+        if not prov_data:
+            continue
+        model_name, wire, _ = get_default_model(prov_name, providers)
+        if not model_name:
+            continue
+        old = session.model_name
+        session.provider, session.model_name, session.wire_name = prov_name, model_name, wire
+        source = session._update_model_origin(prov_name, model_name, wire)
+        session.switches = getattr(session, "switches", 0) + 1
+        session.last_route = {
+            "mode": "auto",
+            "provider": prov_name,
+            "model": model_name,
+            "reason": f"auto-switch fallback desde {old}",
+            "service": source.get("service", ""),
+            "route": source.get("route", ""),
+            "backend": source.get("backend", ""),
+        }
+        console.print(f"  [dim yellow][Auto-switch] {old} → {model_name} ({prov_name}) ⚠ sin health check[/dim yellow]")
+        return True
+    return False
+
+
 def run_repl(session, pt: PromptSession) -> None:
     """Bucle REPL principal — procesa comandos y mensajes de chat."""
     ctrl_c = CtrlCGuard()
@@ -210,6 +323,7 @@ def run_repl(session, pt: PromptSession) -> None:
     except Exception:
         pass
     while True:
+        _auto_switch_model(session)
         try:
             if _PROMPT_TOOLKIT_AVAILABLE:
                 line = pt.prompt(
@@ -269,8 +383,17 @@ def run_repl(session, pt: PromptSession) -> None:
             pass
 
         history_before = len(getattr(session, "history", []))
+        _init_shadow()
+        if _shadow:
+            _shadow.on_pre_chat(session, llm_input)
+        _chat_exc = None
+        _t0 = None
         try:
+            _t0 = time.time()
             result = chat_bridge(session, llm_input, history_input=line)
+            _elapsed = time.time() - _t0 if _t0 else 0.0
+            if _shadow:
+                _shadow.on_post_chat(session, result, None, _elapsed)
             if result and len(getattr(session, "history", [])) == history_before:
                 session.history.append({"role": "user", "content": line})
                 session.history.append({"role": "assistant", "content": result})
@@ -292,6 +415,8 @@ def run_repl(session, pt: PromptSession) -> None:
                 except Exception:
                     pass
         except KeyboardInterrupt:
+            if _shadow and _t0:
+                _shadow.on_post_chat(session, None, KeyboardInterrupt(), time.time() - _t0)
             console.print(
                 "\n[dim yellow]⚡ Interrumpido — modelo cancelado. "
                 "Escribe tu siguiente mensaje.[/dim yellow]"
@@ -301,6 +426,8 @@ def run_repl(session, pt: PromptSession) -> None:
             except Exception:
                 pass
         except RuntimeError as exc:
+            if _shadow and _t0:
+                _shadow.on_post_chat(session, None, exc, time.time() - _t0)
             # Sin modelo disponible: cadena agotada → pantalla de instalación
             if isinstance(exc, OllamaNoModelAvailable):
                 console.print(Panel(
@@ -327,14 +454,20 @@ def run_repl(session, pt: PromptSession) -> None:
                     ol_model or session.wire_name or "",
                 )
                 if recovered:
+                    _t0_rec = time.time()
                     try:
                         result = chat_bridge(session, llm_input, history_input=line)
+                        _elapsed = time.time() - _t0_rec
+                        if _shadow:
+                            _shadow.on_post_chat(session, result, None, _elapsed)
                         if result and len(getattr(session, "history", [])) == history_before:
                             session.history.append({"role": "user", "content": line})
                             session.history.append({"role": "assistant", "content": result})
                         if result:
                             show_response(result, session.model_name, session.provider)
                     except RuntimeError as exc2:
+                        if _shadow:
+                            _shadow.on_post_chat(session, None, exc2, time.time() - _t0_rec)
                         if _is_cloud_auth_error(exc2) or _is_cloud_connection_error(exc2):
                             _cloud_recovery_flow(session, exc2)
                         else:

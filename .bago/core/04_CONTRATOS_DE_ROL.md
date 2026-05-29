@@ -1,3 +1,5 @@
+> **DEPRECADO**: Este archivo ha sido reemplazado por `core/canon/CONTRATOS/contrato_rol.md`, que contiene la versión formal canónica actual. Se conserva solo con fines de referencia histórica.
+>
 # 04_CONTRATOS_DE_ROL
 
 ## MAESTRO_BAGO

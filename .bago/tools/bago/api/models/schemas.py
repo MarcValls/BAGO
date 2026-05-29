@@ -100,6 +100,8 @@ class ModelInfo(BaseModel):
     digest: str = ""
     details: dict = Field(default_factory=dict)
     provider: str = ""
+    service: str = ""
+    route: str = ""
     best_for: str = ""
     installed: bool = False
     compat_level: str = ""

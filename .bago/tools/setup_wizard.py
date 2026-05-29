@@ -1,4 +1,5 @@
 """
+
 setup_wizard.py — BAGO first-time setup wizard.
 
 Initializes global_state.json from template and configures
@@ -9,17 +10,6 @@ Usage:
     bago setup --check      # verify config is complete
     bago setup --reset      # reset to template
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 import shutil

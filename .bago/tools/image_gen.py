@@ -15,18 +15,14 @@ Uso:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 TOOLS_DIR = Path(__file__).parent
 BAGO_ROOT = TOOLS_DIR.parent

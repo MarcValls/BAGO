@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """legacy_registry.py — Comandos legacy BAGO (hyphenated aliases).
 
+
 Este fichero es SOLO documentación y compatibilidad histórica.
 NINGÚN comando aquí debe usarse para despacho nuevo.
 
@@ -11,17 +12,6 @@ los comandos operativos actuales.
 
 Añadido en PR-02 (registry-single-source-of-truth) del Kernel Lockdown.
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 from pathlib import Path
 
 TOOLS = Path(__file__).parent

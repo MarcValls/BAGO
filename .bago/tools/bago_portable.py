@@ -3,6 +3,8 @@
 """bago_portable.py -- BAGO Portable: crea, detecta y sincroniza instalaciones en pen drive."""
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import argparse
 import json
 import os
@@ -13,11 +15,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 def GREEN(s):  return f"\033[32m{s}\033[0m"
 def RED(s):    return f"\033[31m{s}\033[0m"

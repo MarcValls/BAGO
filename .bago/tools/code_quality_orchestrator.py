@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 code_quality_orchestrator.py — LÍDER BAGO que orquesta agentes especializados.
 
 BAGO NO ejecuta tareas. BAGO GENERA y COORDINA especialistas.
@@ -23,17 +24,6 @@ Uso:
   bago code-quality [DIR] [--format text|md|json]
   bago code-quality [DIR] --new-agent "performance checker"
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import subprocess
 import json

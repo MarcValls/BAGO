@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """BAGO Electron Packager — Empaqueta web app como app de escritorio
 
+
 Uso:
     python bago_electron_packager.py --url https://mi-app.com --name "Mi App"
     python bago_electron_packager.py --dir ./static --name "BAGO Music"
@@ -14,17 +15,6 @@ Salida:
     - .dmg (macOS, si se build en Mac)
     - .AppImage / .deb (Linux)
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import argparse, json, os, shutil, subprocess, sys
 from pathlib import Path
 
@@ -39,9 +29,13 @@ def run(cmd, cwd=None, timeout=300):
         print(f"  ERR: {result.stderr[:500]}")
     return result
 
-def scaffold_electron_project(name: str, url: str, output_dir: Path):
+def scaffold_electron_project(name: str, url: str, output_dir: Path, force: bool = False):
     proj = output_dir / f"electron_{name.lower().replace(' ', '_')}"
     if proj.exists():
+        if not force:
+            print(f"⚠️  El proyecto ya existe: {proj}")
+            print("   Usa --force para sobrescribir.")
+            raise SystemExit(1)
         shutil.rmtree(proj)
     proj.mkdir(parents=True)
 
@@ -132,9 +126,10 @@ def main():
     parser.add_argument("--url", required=True, help="URL de la web app o PWA")
     parser.add_argument("--name", default="BAGO App", help="Nombre de la app")
     parser.add_argument("--out", default=str(BUILD_DIR), help="Directorio de salida")
+    parser.add_argument("--force", action="store_true", help="Sobrescribe proyecto existente sin confirmar")
     args = parser.parse_args()
 
-    proj = scaffold_electron_project(args.name, args.url, Path(args.out))
+    proj = scaffold_electron_project(args.name, args.url, Path(args.out), force=args.force)
     return build(proj)
 
 if __name__ == "__main__":

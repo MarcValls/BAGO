@@ -12,8 +12,6 @@ Definir cómo se publica BAGO en dos perfiles sin cambiar el runtime base.
 ## Comandos canónicos
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-with-knowledge.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-without-knowledge.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -NoKnowledge
 ```
@@ -21,8 +19,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -NoKnowledge
 ## Contrato
 
 - `install.ps1` es la implementación compartida.
-- `docs/runtime_contract.json` define el keep/prune del runtime limpio.
-- `docs/PUBLISH_CONTRACT.md` describe la política de publicación.
+- `runtime_contract.json` define el keep/prune del runtime limpio.
+- `publication-contract.md` (este archivo) describe la política de publicación.
 - `C:\Program Files\BAGO\runtime_contract.json` registra el perfil aplicado.
 - `bago knowledge status` y `bago knowledge sync` mantienen la memoria alineada
   con `MarcValls/bago-knowledge`.

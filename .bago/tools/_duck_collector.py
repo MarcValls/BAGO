@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import ast
 import json
 import os
@@ -11,13 +13,6 @@ from pathlib import Path
 
 from bago.ollama_runtime import default_ollama_base_url
 
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-os.environ.setdefault("PYTHONUTF8", "1")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 TOOLS_DIR = Path(__file__).parent
 BAGO_ROOT = TOOLS_DIR.parent

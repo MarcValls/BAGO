@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""DEPRECATED thin wrapper — use `bago health score` or `health/_score.py` directly.
+
+Este archivo se conserva para compatibilidad con scripts que invocan
+health_score.py directamente. No añadir lógica nueva aquí. Ver
+`health/README.md` para el índice completo de health tools.
+"""
 from __future__ import annotations
 import sys
 from pathlib import Path

@@ -12,6 +12,8 @@ Usage:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import re
 import shutil
@@ -21,11 +23,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 TOOLS_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]

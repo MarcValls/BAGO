@@ -1,0 +1,207 @@
+{
+  "evidence_id": "EVIDENCE-AUDIT-DUPLICACIONES-001",
+  "audit_date": "2025-07-28T01:00:00Z",
+  "auditor": "bago-session-copilot",
+  "scope": [
+    ".bago/tools/*.py",
+    ".bago/core/canon/CONTRATOS/*.md",
+    ".bago/knowledge/topics/*.md",
+    ".bago/workflows/*.md",
+    ".bago/roles/ROLE_TEMPLATE.md",
+    "bago_core/*.py"
+  ],
+  "findings": {
+    "code_duplication": [
+      {
+        "id": "DUP-001",
+        "severity": "high",
+        "category": "utf8_boilerplate",
+        "description": "Bloque de configuración UTF-8 duplicado en 216 de 356 archivos .py en .bago/tools/",
+        "impact": "Código redundante, dificulta mantenimiento, riesgo de inconsistencias si se cambia el patrón",
+        "recommendation": "Eliminar el bloque de todos los archivos .py excepto en un único punto de entrada (bago_utils.py o sitecustomize.py). Si no es posible refactorizar masivamente, documentar que todo nuevo archivo debe importar bago_utils primero.",
+        "status": "resolved",
+        "resolution": "Migrados 273 de 357 archivos con audit_utf8_boilerplate.py. El bloque fue eliminado o reemplazado por import de bago_utils.py.",
+        "files_affected": 273,
+        "example_files": [
+          ".bago/tools/validate.py",
+          ".bago/tools/validate_pack.py",
+          ".bago/tools/backup_manager.py",
+          ".bago/tools/bago_backup_vault.py"
+        ]
+      },
+      {
+        "id": "DUP-002",
+        "severity": "medium",
+        "category": "run_tests_function",
+        "description": "Función run_tests() duplicada en 15 archivos .py",
+        "impact": "Lógica de prueba dispersa, difícil de mantener consistente",
+        "recommendation": "Extraer run_tests() a un módulo central (bago_test_runner.py) o reutilizar contracts.py como fuente de verdad. Nota: cada run_tests() es específico de su archivo, por lo que la extracción masiva no es trivial sin perder cobertura.",
+        "files_affected": 15,
+        "example_files": [
+          ".bago/tools/validate.py",
+          ".bago/tools/validate_pack.py",
+          ".bago/tools/contracts.py",
+          ".bago/tools/pack_manager.py"
+        ]
+      },
+      {
+        "id": "DUP-003",
+        "severity": "medium",
+        "category": "load_json_function",
+        "description": "Función load_json() duplicada en 4 archivos a pesar de que bago_utils.py ya la proporciona",
+        "impact": "Redundancia innecesaria, viola DRY",
+        "recommendation": "Reemplar las implementaciones locales por from bago_utils import load_json, save_json",
+        "status": "partially_resolved",
+        "resolution": "emit_ideas.py migrado a `from bago_utils import load_json`. _evolution_collectors.py y stability_summary.py pendientes (requieren análisis de compatibilidad con None vs default dict).",
+        "files_affected": 4,
+        "example_files": [
+          ".bago/tools/emit_ideas.py",
+          ".bago/tools/_evolution_collectors.py",
+          ".bago/tools/stability_summary.py"
+        ]
+      },
+      {
+        "id": "DUP-004",
+        "severity": "low",
+        "category": "backup_tools_overlap",
+        "description": "backup_manager.py y bago_backup_vault.py tienen responsabilidades superpuestas (gestión de backups)",
+        "impact": "Confusión sobre qué herramienta usar para qué caso",
+        "recommendation": "Documentar claramente en README de backups cuándo usar cada una, o fusionar funcionalidades si es posible",
+        "files_affected": 2,
+        "example_files": [
+          ".bago/tools/backup_manager.py",
+          ".bago/tools/bago_backup_vault.py"
+        ]
+      },
+      {
+        "id": "DUP-005",
+        "severity": "low",
+        "category": "audit_tools_overlap",
+        "description": "Múltiples herramientas de auditoría con nombres similares: audit_v2.py, bago_learning_audit.py, audit_state_pointers.py, spanish_audit.py, dep_audit.py",
+        "impact": "Difícil saber cuál auditoría cubre qué ámbito sin leer cada archivo",
+        "recommendation": "Crear un índice/mapa de auditorías (posiblemente en .bago/knowledge/topics/) que liste alcance de cada tool",
+        "files_affected": 5,
+        "example_files": [
+          ".bago/tools/audit_v2.py",
+          ".bago/tools/bago_learning_audit.py",
+          ".bago/tools/audit_state_pointers.py"
+        ]
+      },
+      {
+        "id": "DUP-006",
+        "severity": "low",
+        "category": "validate_tools_overlap",
+        "description": "validate.py, validate_pack.py, validate_manifest.py, validate_state.py, validate_workflows.py, validate_sessions.py comparten prefijo pero no están claramente diferenciados",
+        "impact": "validate.py ya centraliza manifest/state/contents; los shims validate_manifest.py y validate_state.py delegan correctamente, pero la proliferación de nombres puede confundir",
+        "recommendation": "Eliminar los shims obsoletos o documentarlos explícitamente como deprecated; unificar naming",
+        "status": "partially_resolved",
+        "resolution": "validate_manifest.py y validate_state.py marcados como DEPRECATED, limpiados de boilerplate UTF-8, y documentados en tools/README.md. validate_pack.py, validate_workflows.py, validate_sessions.py siguen activos con scopes diferenciados.",
+        "files_affected": 6,
+        "example_files": [
+          ".bago/tools/validate.py",
+          ".bago/tools/validate_manifest.py",
+          ".bago/tools/validate_state.py"
+        ]
+      },
+      {
+        "id": "DUP-007",
+        "severity": "low",
+        "category": "health_tools_overlap",
+        "description": "health_check.py, health_score.py, health_report.py, doctor.py cubren aspectos de salud del sistema",
+        "impact": "Posible duplicidad de métricas y reportes",
+        "recommendation": "Auditar si health_check.py y health_score.py calculan métricas idénticas; considerar unificar o documentar diferencias",
+        "files_affected": 4,
+        "example_files": [
+          ".bago/tools/health_check.py",
+          ".bago/tools/health_score.py",
+          ".bago/tools/doctor.py"
+        ]
+      },
+      {
+        "id": "DUP-008",
+        "severity": "low",
+        "category": "search_tools_overlap",
+        "description": "tool_search.py, code_search.py, bago_search.py, search_history.py cubren búsqueda en el sistema",
+        "impact": "Funcionalidad dispersa, posible duplicidad de filtros",
+        "recommendation": "Auditar si tool_search.py y code_search.py usan la misma lógica de filtrado; documentar alcance de cada uno",
+        "files_affected": 4,
+        "example_files": [
+          ".bago/tools/tool_search.py",
+          ".bago/tools/code_search.py",
+          ".bago/tools/bago_search.py"
+        ]
+      }
+    ],
+    "doc_code_inconsistencies": [
+      {
+        "id": "INC-001",
+        "severity": "medium",
+        "category": "workflow_contract_vs_reality",
+        "description": "contrato_workflow.md (canónico) requiere 10 campos estructurados (id, objetivo, cuando_usarlo, roles_minimos, entradas, fases, salidas, escalado, incidencia_tipica, criterio_de_cierre). Los workflows reales (.md y workflow_guidance.json) no cumplen ese esquema.",
+        "impact": "Los workflows reales no son validables contra el contrato canónico; el contrato es una aspiración no reflejada en la implementación",
+        "recommendation": "Decidir: (a) adaptar el contrato canónico a la realidad actual, o (b) migrar todos los workflows a un formato que cumpla el contrato (JSON/YAML)",
+        "status": "documented",
+        "resolution": "Creado workflows/README.md que documenta la discrepancia campo a campo. Se añadió índice de workflows y decisión pendiente.",
+        "files_involved": [
+          ".bago/core/canon/CONTRATOS/contrato_workflow.md",
+          ".bago/workflows/WORKFLOW_MAESTRO_BAGO.md",
+          ".bago/workflows/W1_COLD_START.md",
+          ".bago/workflows/README.md"
+        ]
+      },
+      {
+        "id": "INC-002",
+        "severity": "low",
+        "category": "roles_readme_vs_reality",
+        "description": "agents/README.md dice que supervision/ y produccion/ están vacíos, pero contienen archivos",
+        "impact": "Documentación desactualizada que induce a error",
+        "recommendation": "Actualizar agents/README.md para reflejar el contenido real de supervision/ y produccion/",
+        "status": "not_reproducible",
+        "resolution": "No se encontró la afirmación en agents/README.md actual. Posiblemente corregido en sesión anterior o referencia obsoleta.",
+        "files_involved": [
+          ".bago/agents/README.md"
+        ]
+      },
+      {
+        "id": "INC-003",
+        "severity": "low",
+        "category": "deprecated_docs_stale_states",
+        "description": "07_PROTOCOLO_DE_CAMBIO.md (deprecated) contiene estados 'proposed' e 'in_review' que ya no existen en contrato_cambio.md (draft, pending, approved, rejected, deferred, implemented, verified, closed)",
+        "impact": "Bajo porque está marcado como deprecated, pero puede confundir si alguien lo lee sin ver la advertencia",
+        "recommendation": "Añadir nota de aviso más prominente en 07_PROTOCOLO_DE_CAMBIO.md indicando que los estados están obsoletos",
+        "files_involved": [
+          ".bago/core/07_PROTOCOLO_DE_CAMBIO.md",
+          ".bago/core/canon/CONTRATOS/contrato_cambio.md"
+        ]
+      },
+      {
+        "id": "INC-004",
+        "severity": "low",
+        "category": "model_config_dispersion",
+        "description": "Configuración de modelos/providers dispersa en múltiples archivos: agent_model_manager.py, bago_llm_setup.py, bago_models.py, model_gate.py",
+        "impact": "Difícil saber cuál es la fuente de verdad para la configuración de modelos",
+        "recommendation": "Auditar cada archivo y documentar en config/README.md cuál es la fuente de verdad para cada aspecto (modelo por defecto, API keys, reglas de enrutamiento)",
+        "status": "documented",
+        "resolution": "Actualizado config/README.md con tabla de dispersión de configuración de modelos y recomendación de consolidación futura.",
+        "files_involved": [
+          ".bago/tools/agent_model_manager.py",
+          ".bago/tools/bago_llm_setup.py",
+          ".bago/tools/bago_models.py",
+          ".bago/tools/model_gate.py"
+        ]
+      }
+    ]
+  },
+  "status": "partially_resolved",
+  "next_steps": [
+    "DUP-001 RESUELTO: 273 archivos migrados. Restante: validar que no hay regresiones en tests.",
+    "DUP-002 PENDIENTE: run_tests() son específicos por archivo; considerar patrón de test runner si proliferan.",
+    "DUP-003 PARCIAL: Completar migración de _evolution_collectors.py y stability_summary.py.",
+    "DUP-004..DUP-008 DOCUMENTADOS: Solapamientos documentados en tools/README.md; decisión de fusión futura.",
+    "INC-001 DOCUMENTADO: workflows/README.md creado con tabla de discrepancia; decisión arquitectónica pendiente.",
+    "INC-002 NO REPRODUCIBLE: Verificar en próxima sesión si reaparece.",
+    "INC-003 PENDIENTE: Reforzar aviso deprecated en 07_PROTOCOLO_DE_CAMBIO.md si es necesario.",
+    "INC-004 DOCUMENTADO: config/README.md actualizado; consolidación real requiere refactorización de código.",
+    "CONTINUAR CAZA: Revisar prompts/, extensions/, y cualquier nuevo directorio sin README."
+  ]
+}

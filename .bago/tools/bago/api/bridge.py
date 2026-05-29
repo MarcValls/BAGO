@@ -226,12 +226,25 @@ def _chat_via_api(session, user_input: str, *, history_input: str = None) -> str
         session.provider = result["provider"]
     if result.get("model"):
         session.model_name = result["model"]
+    if result.get("route") or result.get("service"):
+        source = session._update_model_origin(
+            session.provider,
+            session.model_name,
+            session.wire_name,
+            route=result.get("route"),
+            service=result.get("service"),
+        )
+    else:
+        source = session._update_model_origin(session.provider, session.model_name, session.wire_name)
     session.switches += result.get("switches", 0)
     session.last_route = {
         "mode": "api",
         "provider": result.get("provider", ""),
         "model": result.get("model", ""),
         "reason": result.get("route_reason", "api-bridge"),
+        "service": source.get("service", ""),
+        "route": source.get("route", ""),
+        "backend": source.get("backend", ""),
     }
     session.record_tokens(
         result.get("provider", ""),

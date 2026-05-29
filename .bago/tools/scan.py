@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago scan — análisis unificado de código con modelo de hallazgos canónico.
 
 Ejecuta todos los linters disponibles sobre el directorio objetivo,
@@ -19,17 +20,6 @@ Uso:
     bago scan --lang py|js|go|auto|java|csharp|ruby|php|swift|kotlin|shell|terraform|yaml
     bago scan --test                   → tests integrados
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import argparse, json, subprocess, sys
 import sys

@@ -1,0 +1,6 @@
+{
+  "episodes": 3000,
+  "final_mean_reward": 0.9327000000000001,
+  "max_reward": 1.85,
+  "losses_last_100": 7.932016546428204
+}

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 airdrop_scanner.py — BAGO Airdrop Scanner v1
 Detecta airdrops cobrables en una TON wallet (Telegram Wallet).
 READ-ONLY: consulta blockchain, no firma ni envía transacciones.
@@ -8,17 +9,6 @@ APIs usadas (todas gratuitas, sin auth):
   - tonapi.io  v2  — jetton balances, NFT, eventos
   - toncenter.com  — balance, transacciones recientes
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 import ssl

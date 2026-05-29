@@ -61,6 +61,8 @@ async def chat(req: ChatRequest):
             max_switches=req.max_switches or 3,
             options=req.options,
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 

@@ -14,6 +14,8 @@ Códigos de salida: 0 = OK, 1 = conflicto detectado
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import socket
@@ -32,11 +34,6 @@ from bago.ollama_runtime import (
     DEFAULT_VITE_PREVIEW_PORT,
 )
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

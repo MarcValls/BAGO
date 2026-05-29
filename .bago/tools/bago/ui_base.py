@@ -58,6 +58,26 @@ import threading
 import shutil as _shutil
 import getpass
 import os
+import sys
+
+
+def _enable_win_vt() -> bool:
+    """Activa Virtual Terminal en Windows cuando sea posible."""
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        handle = k32.GetStdHandle(-11)
+        mode = ctypes.c_ulong(0)
+        if k32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return bool(k32.SetConsoleMode(handle, mode.value | 0x0004))
+    except Exception:
+        pass
+    return False
+
+
+_VT_OK = _enable_win_vt()
 
 
 def _strip_rich(text: str) -> str:
@@ -92,7 +112,7 @@ from rich.panel import Panel
 
 from .constants import COLORS, BAGO_VERSION
 
-console = Console(force_terminal=True, highlight=False, markup=True,
+console = Console(force_terminal=sys.stdout.isatty() and _VT_OK, highlight=False, markup=True,
                   safe_box=True, emoji=False)
 
 _PT_FALLBACK_WARNED = False

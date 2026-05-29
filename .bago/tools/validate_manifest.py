@@ -1,19 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Compatibility shim — validate_manifest merged into validate.py (manifest subcommand)."""
-import os
-import sys
+"""DEPRECATED shim — use `python tools/validate.py manifest` directly.
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-import subprocess, sys
-from pathlib import Path
+Este archivo se conserva temporalmente para compatibilidad con scripts
+antiguos. Se eliminará en BAGO 3.6."""
 
 result = subprocess.run(
     [sys.executable, str(Path(__file__).parent / "validate.py"), "manifest"],

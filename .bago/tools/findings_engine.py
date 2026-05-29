@@ -13,17 +13,8 @@ Parsea salida de: flake8, pylint, mypy, pyflakes, bandit, custom-bago,
 Persiste en state/findings/SCAN-{timestamp}.json
 """
 from __future__ import annotations
-import os
-import sys
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
+from bago_utils import load_json, save_json, timestamp_iso
 import json
 import sys
 from pathlib import Path

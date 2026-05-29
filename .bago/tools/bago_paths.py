@@ -7,9 +7,6 @@ Lee install_config.json para saber donde esta cada cosa.
 """
 ""
 
-import json
-import os
-from pathlib import Path
 
 _CONFIG_FILE = Path(__file__).resolve().parents[1] / "install_config.json"
 

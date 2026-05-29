@@ -16,16 +16,7 @@ Opciones:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import sys
 from dataclasses import dataclass
@@ -456,7 +447,6 @@ def main(argv: list[str]) -> int:
         content = generate_markdown(rules)
 
     if out:
-        import pathlib
         pathlib.Path(out).write_text(content, encoding="utf-8")
         print(f"Catálogo escrito en: {out}  ({len(rules)} reglas, formato {fmt})")
     else:

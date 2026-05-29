@@ -15,6 +15,8 @@ Códigos de salida: 0 = OK, 1 = error
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import subprocess
 import sys
@@ -22,11 +24,6 @@ from pathlib import Path
 
 from bago.ollama_runtime import DEFAULT_HONO_PORT, DEFAULT_VITE_PORT, DEFAULT_WEB_DEV_PORT, DEFAULT_WEB_PORT
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

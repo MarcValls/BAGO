@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 dashboard_v2.py — Dashboard BAGO V2.
 
 Muestra el estado del pack con sección V2 adicional:
@@ -12,17 +13,6 @@ Muestra el estado del pack con sección V2 adicional:
 Uso:
   python3 .bago/tools/dashboard_v2.py [--full]
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 import subprocess

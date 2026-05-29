@@ -151,12 +151,12 @@
       "base_url": "https://api.openai.com",
       "auth": "openai_key",
       "models": {
-        "gpt-5.5": {
-          "wire_name": "gpt-5.5",
+        "gpt-5.4-mini": {
+          "wire_name": "gpt-5.4-mini",
           "max_prompt_tokens": 128000,
           "max_output_tokens": 16384,
           "default_reasoning": "medium",
-          "best_for": "complex_coding",
+          "best_for": "fast_coding",
           "cost": "openai_credits"
         },
         "gpt-5.4": {
@@ -167,20 +167,20 @@
           "best_for": "everyday_coding",
           "cost": "openai_credits"
         },
-        "gpt-5.4-mini": {
-          "wire_name": "gpt-5.4-mini",
-          "max_prompt_tokens": 128000,
-          "max_output_tokens": 16384,
-          "default_reasoning": "medium",
-          "best_for": "fast_coding",
-          "cost": "openai_credits"
-        },
         "gpt-5.3-codex": {
           "wire_name": "gpt-5.3-codex",
           "max_prompt_tokens": 128000,
           "max_output_tokens": 16384,
           "default_reasoning": "medium",
           "best_for": "coding_optimized",
+          "cost": "openai_credits"
+        },
+        "gpt-5.5": {
+          "wire_name": "gpt-5.5",
+          "max_prompt_tokens": 128000,
+          "max_output_tokens": 16384,
+          "default_reasoning": "medium",
+          "best_for": "complex_coding",
           "cost": "openai_credits"
         },
         "gpt-5.2": {

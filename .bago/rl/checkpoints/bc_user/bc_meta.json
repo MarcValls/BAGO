@@ -1,0 +1,7 @@
+{
+  "num_samples": 9,
+  "input_dim": 2,
+  "num_actions": 581,
+  "final_accuracy": 0.0,
+  "epochs": 20
+}

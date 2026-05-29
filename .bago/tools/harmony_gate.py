@@ -22,7 +22,6 @@ La escala cromática como referencia de consonancia:
   Semitono     1          0.08  (muy disonante)
 
 Uso:
-  from harmony_gate import HarmonyGate, SpiralState
 
   gate = HarmonyGate(threshold=0.6)
   a = SpiralState(phase=0, validate="GO", fingerprint=["skill:code_review"], radius_gained=0.3)
@@ -39,16 +38,7 @@ Self-test:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import sys
 

@@ -1,0 +1,9 @@
+{
+  "coordination_mean": 0.46,
+  "coordination_std": 0.49839743177508444,
+  "non_stationarity": 0.1003440369158706,
+  "divergence_rate": 0.0,
+  "throughput_improvement": 0.05333333333333338,
+  "checkpoint_dir": ".bago/rl/checkpoints/qmix",
+  "eval_episodes": 100
+}

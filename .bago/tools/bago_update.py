@@ -4,8 +4,21 @@
 Uso:
     bago update [--yes] [--dry-run] [--beta] [--stable] [--list]
     bago update --local [--with-local]  # mantenimiento antiguo: modelos/deps/heal/env
+
+Nota de arquitectura:
+  Este módulo comparte lógica superficial con bago_core.installer (descarga de
+  releases, parsing de JSON de GitHub, extracción de zips).  No se delega a
+  bago_core.installer porque los casos de uso difieren:
+    - installer.py → instala BAGO desde cero en un directorio limpio.
+    - bago_update.py → actualiza una instalación existente, respalda estado local,
+      preserva configuración, y soporta flags (--beta, --stable, --dry-run,
+      --local) que installer no tiene.
+  Duplicar las ~5 funciones de baja complejidad aquí mantiene la herramienta
+  autocontenida y evita romper el update path si bago_core cambia.
 """
 from __future__ import annotations
+
+from bago_utils import load_json, save_json, timestamp_iso
 
 import shutil
 import subprocess
@@ -26,11 +39,6 @@ GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 
 def _info(msg: str) -> None:
@@ -170,6 +178,53 @@ def _sync_state_version(tag: str) -> None:
         pass
 
 
+# ── Funciones migradas desde bago_core.installer (módulo inexistente) ──
+
+def _is_beta_release(release: dict) -> bool:
+    tag = release.get("tag", "")
+    return release.get("prerelease", False) or "b" in tag.lower() or "beta" in tag.lower()
+
+
+def _is_installable_release(release: dict) -> bool:
+    return any(a["name"].endswith(".zip") for a in release.get("assets", []))
+
+
+def _find_zip_asset(release: dict) -> dict | None:
+    for a in release.get("assets", []):
+        if a["name"].endswith(".zip"):
+            return a
+    return None
+
+
+def _download(url: str, path: Path, label: str) -> bool:
+    try:
+        req = Request(url, headers={"User-Agent": "BAGO-updater"})
+        with urlopen(req, timeout=120) as resp, open(path, "wb") as out:
+            total = int(resp.headers.get("content-length", 0))
+            written = 0
+            chunk = resp.read(64 * 1024)
+            while chunk:
+                out.write(chunk)
+                written += len(chunk)
+                chunk = resp.read(64 * 1024)
+            if total and written != total:
+                _warn(f"{label}: tamaño descargado ({written}) != esperado ({total})")
+        return True
+    except Exception as exc:
+        _err(f"{label}: fallo de descarga — {exc}")
+        return False
+
+
+def _latest_installable(releases: list[dict], *, include_beta: bool = False) -> dict | None:
+    for release in releases:
+        if not _is_installable_release(release):
+            continue
+        if not include_beta and _is_beta_release(release):
+            continue
+        return release
+    return None
+
+
 def _github_api(url: str) -> dict | list:
     req = Request(
         url,
@@ -210,13 +265,11 @@ def _get_releases(limit: int = 30) -> list[dict]:
 
 
 def _print_releases(releases: list[dict]) -> None:
-    from bago_core import installer
-
     print(f"\n  Releases GitHub: {GITHUB_REPO}")
     print("  " + "-" * 58)
     for release in releases[:10]:
-        channel = "BETA" if installer._is_beta_release(release) else "STABLE"
-        installable = "" if installer._is_installable_release(release) else " SIN ZIP"
+        channel = "BETA" if _is_beta_release(release) else "STABLE"
+        installable = "" if _is_installable_release(release) else " SIN ZIP"
         print(f"  {release['tag']:<16} [{channel}]{installable}  {release.get('name', '')}")
 
 
@@ -241,19 +294,15 @@ def _is_newer(target: dict, current: str, releases: list[dict]) -> bool:
 
 
 def _latest_beta_installable(releases: list[dict]) -> dict | None:
-    from bago_core import installer
-
     for release in releases:
-        if installer._is_beta_release(release) and installer._is_installable_release(release):
+        if _is_beta_release(release) and _is_installable_release(release):
             return release
     return None
 
 
 def _latest_beta_seen(releases: list[dict]) -> dict | None:
-    from bago_core import installer
-
     for release in releases:
-        if installer._is_beta_release(release):
+        if _is_beta_release(release):
             return release
     return None
 
@@ -302,16 +351,14 @@ def _backup_existing_files(root: Path, members: list[tuple[str, str, int]], curr
 
 
 def _apply_zip_to_current_install(release: dict, *, dry_run: bool, current: str) -> bool:
-    from bago_core import installer
-
-    asset = installer._find_zip_asset(release)
+    asset = _find_zip_asset(release)
     if not asset:
         _err(f"{release['tag']} no tiene ZIP descargable")
         return False
 
     with tempfile.TemporaryDirectory(prefix="bago-update-") as tmp:
         zip_path = Path(tmp) / f"{release['tag']}.zip"
-        if not installer._download(asset["url"], zip_path, "Descargando release"):
+        if not _download(asset["url"], zip_path, "Descargando release"):
             return False
 
         try:
@@ -351,8 +398,6 @@ def _apply_zip_to_current_install(release: dict, *, dry_run: bool, current: str)
 
 
 def _run_release_update(argv: list[str], *, dry_run: bool, assume_yes: bool) -> int:
-    from bago_core import installer
-
     want_beta = "--beta" in argv
     force_stable = "--stable" in argv
     list_only = "--list" in argv
@@ -365,7 +410,7 @@ def _run_release_update(argv: list[str], *, dry_run: bool, assume_yes: bool) -> 
         return 0
 
     current = _current_version()
-    stable = installer._latest_installable(releases, include_beta=False)
+    stable = _latest_installable(releases, include_beta=False)
     beta = _latest_beta_installable(releases)
     seen_beta = _latest_beta_seen(releases)
 
@@ -461,7 +506,6 @@ def main(argv: list[str] | None = None) -> int:
             TOOLS_DIR / "deps_check.py",
             TOOLS_DIR / "auto_heal.py",
             TOOLS_DIR / "env.py",
-            PROJECT_ROOT / "bago_core" / "installer.py",
             Path(__file__),
         ]
         missing = [str(p) for p in required if not p.exists()]

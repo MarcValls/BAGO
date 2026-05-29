@@ -11,6 +11,7 @@ El prompt es un router WiFi. Se adapta segun la calidad de la senal del contexto
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -116,8 +117,42 @@ class PromptRouter:
                 return data
         return None
 
+    @staticmethod
+    def _safe_eval_condition(cond: str, ctx: dict) -> bool:
+        """Evalúa una condición de artefacto de forma segura mediante AST.
+
+        Solo permite operadores de comparación, booleanos, aritméticos básicos
+        y referencias a variables definidas en ctx. Rechaza acceso a atributos,
+        llamadas a funciones y cualquier nodo AST no autorizado.
+        """
+        try:
+            tree = ast.parse(cond, mode="eval")
+        except SyntaxError:
+            return False
+
+        allowed_nodes = {
+            ast.Expression,
+            ast.BinOp, ast.BoolOp, ast.Compare, ast.UnaryOp,
+            ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow,
+            ast.And, ast.Or, ast.Not,
+            ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+            ast.In, ast.NotIn,
+            ast.Name, ast.Constant, ast.Load,
+        }
+        # Compatibilidad con Python < 3.8 (ast.Num, ast.Str)
+        if hasattr(ast, "Num"):
+            allowed_nodes.add(ast.Num)
+        if hasattr(ast, "Str"):
+            allowed_nodes.add(ast.Str)
+
+        for node in ast.walk(tree):
+            if type(node) not in allowed_nodes:
+                return False
+
+        compiled = compile(tree, "<condition>", "eval")
+        return eval(compiled, {"__builtins__": {}}, ctx)
+
     def _eval_conditions(self, artifacts, cycle, radius, task_type):
-        allowed = re.compile(r"^[\w\s._\-+<>=!&|('):,\[\]]+$")
         ctx = {"cycle": cycle, "radius": radius, "task_type": task_type}
         selected = []
         for art in artifacts:
@@ -125,10 +160,8 @@ class PromptRouter:
             if not cond:
                 selected.append(art)
                 continue
-            if not allowed.match(cond):
-                continue
             try:
-                if eval(cond, {"__builtins__": {}}, ctx):
+                if self._safe_eval_condition(cond, ctx):
                     selected.append(art)
             except Exception:
                 pass

@@ -15,17 +15,14 @@ Códigos de salida: 0 = OK, 1 = sin tarea activa
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

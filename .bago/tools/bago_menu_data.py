@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 # Cada entrada: (nombre_grupo, [(cmd, descripción_corta, descripción_larga[, sub_opciones])])
 # Sub-opciones: [(args, etiqueta_corta, descripción)]
 #
@@ -7,17 +9,6 @@ from __future__ import annotations
 #   · Sin duplicados: cada comando aparece UNA sola vez en el menú.
 #   · Sin solapamiento: si dos comandos hacen lo mismo, uno es sub-opción del otro.
 #   · Descriptores vivid: qué hace, cómo ayuda, sin jerga de framework.
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 MENU: list[tuple[str, list[tuple]]] = [
 

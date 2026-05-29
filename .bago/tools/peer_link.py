@@ -17,16 +17,7 @@ Commands:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import argparse
 import json
@@ -93,9 +84,10 @@ def _local_ip() -> str:
     except Exception:
         pass
     # Fallback: connect to public DNS to detect route
+    fallback_dns = os.getenv("BAGO_FALLBACK_DNS", "8.8.8.8")
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
+            s.connect((fallback_dns, 80))
             candidates.insert(0, s.getsockname()[0])
     except Exception:
         pass

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago_wa_daemon.py — BAGO WhatsApp command listener
 
 Polling daemon que recibe mensajes de WhatsApp y ejecuta comandos BAGO.
@@ -17,17 +18,6 @@ Comandos disponibles desde WhatsApp:
   nota <texto>       → añade nota al global_state
   notify <mensaje>   → reenvía el mensaje como notificación BAGO
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 import sys

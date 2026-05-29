@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""DEPRECATED thin wrapper — use `bago audit security` or `audit/_security.py` directly.
+
+Este archivo se conserva para compatibilidad con scripts que invocan
+security_audit.py directamente. No añadir lógica nueva aquí.
+"""
 from __future__ import annotations
 import sys
 from pathlib import Path

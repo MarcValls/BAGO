@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 stats.py — Velocidad de ciclo W2: estadísticas de ideas implementadas.
 
 Uso:
@@ -12,11 +13,6 @@ import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 BAGO_ROOT = Path(__file__).resolve().parent.parent
 STATE_FILE = BAGO_ROOT / "state" / "implemented_ideas.json"

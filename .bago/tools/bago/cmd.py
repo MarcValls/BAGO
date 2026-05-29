@@ -47,6 +47,14 @@ from .commands.status import cmd_status as _cmd_status
 from .commands.tumba import cmd_tumba as _cmd_tumba
 from .commands.bot import cmd_bot as _cmd_bot
 from .commands.api import cmd_api as _cmd_api, cmd_serve as _cmd_serve
+from .commands.rl import (
+    cmd_rl_demo,
+    cmd_rl_eval,
+    cmd_rl_sandbox,
+    cmd_rl_shadow,
+    cmd_rl_status,
+    cmd_rl_train,
+)
 from .model_registry import print_accessible_models_report
 
 
@@ -114,12 +122,13 @@ def cmd(line, session):
             else:
                 pi(msg)
     elif v == "/escalar":
-        if not session.local_lock:
-            pi("No estabas en local lock. Usa /local para activar modo local.")
+        if not session.local_lock and not session.single_model:
+            pi("No estabas en local lock ni en single model. Usa /local o /single para activar modo restringido.")
         else:
             session.local_lock = False
+            session.single_model = False
             session.autoroute = True
-            pi("Local lock DESACTIVADO. Auto-routing reactivado. Puedes usar /switch para forzar un modelo cloud.")
+            pi("Restricciones DESACTIVADAS. Auto-routing reactivado. Puedes usar /switch para forzar un modelo cloud.")
     elif v == "/switch":
         if not a:
             # Interactive model picker — incluye acceso al catálogo
@@ -172,10 +181,21 @@ def cmd(line, session):
             pe("Necesitas al menos 2 modelos y un prompt.")
         else:
             run_ensemble(session, models, pp.strip())
+    elif v == "/single":
+        if a.lower() in ("off", "no", "false"):
+            session.single_model = False
+            pi("Modo single model: DESACTIVADO. Fallbacks y auto-routing reactivados.")
+        else:
+            session.single_model = True
+            session.autoroute = False
+            pi("Modo single model: ACTIVADO. Fallbacks y auto-routing desactivados. Usa /single off para volver.")
     elif v == "/autoroute":
         session.autoroute = a.lower() != "off"
         state = "ACTIVADO (auto single/chain/ensemble)" if session.autoroute else "DESACTIVADO"
         pi(f"Auto-routing: {state}")
+        if session.autoroute and session.single_model:
+            session.single_model = False
+            pi("Modo single model auto-desactivado (incompatible con autoroute).")
     elif v == "/models":
         sub_parts = a.split(None, 1) if a else []
         sub = sub_parts[0].lower() if sub_parts else "table"
@@ -224,6 +244,40 @@ def cmd(line, session):
     # ── Sesion ────────────────────────────────────────────────────────────────
     elif v == "/session":
         _cmd_session(session)
+    elif v == "/cwd":
+        from .cwd import clear_user_cwd, get_user_cwd, set_user_cwd
+        target = a.strip().strip('"').strip("'")
+        if not target:
+            from .menus.workspaces import _load_workspaces, _ws_active
+            wdata = _load_workspaces()
+            ws = _ws_active(wdata)
+            current = get_user_cwd()
+            pi(f"CWD actual: {current}")
+            if ws:
+                pi(f"Workspace activo: {ws['name']}  |  ruta: {ws.get('path') or '—'}")
+            pi("Uso: /cwd <ruta> | /cwd workspace | /cwd clear")
+        elif target.lower() in ("clear", "reset", "default"):
+            clear_user_cwd()
+            pi("CWD persistido borrado. Volverá al workspace activo o al cwd del proceso.")
+        elif target.lower() in ("workspace", "ws", "active"):
+            from .menus.workspaces import _load_workspaces, _ws_active
+            wdata = _load_workspaces()
+            ws = _ws_active(wdata)
+            ws_path = str(ws.get("path", "")).strip() if ws else ""
+            if not ws_path:
+                pe("No hay workspace activo con ruta definida.")
+            else:
+                try:
+                    resolved = set_user_cwd(ws_path)
+                    pi(f"CWD fijado al workspace activo: {resolved}")
+                except Exception as exc:
+                    pe(f"No pude fijar el cwd del workspace: {exc}")
+        else:
+            try:
+                resolved = set_user_cwd(target)
+                pi(f"CWD fijado: {resolved}")
+            except Exception as exc:
+                pe(f"No pude usar esa ruta: {exc}")
 
     # ── Auth (superset de /login) ─────────────────────────────────────────────
     elif v in ("/auth",):
@@ -384,6 +438,20 @@ def cmd(line, session):
             subprocess.run([sys.executable, str(portable)], cwd=str(_paths()[0]))
         else:
             pe("bago_portable.py no encontrado")
+
+    # ── Reinforcement Learning (RL) ────────────────────────────────────────────
+    elif v == "/rl-status":
+        cmd_rl_status(session, a)
+    elif v == "/rl-demo":
+        cmd_rl_demo(session, a)
+    elif v == "/rl-train":
+        cmd_rl_train(session, a)
+    elif v == "/rl-eval":
+        cmd_rl_eval(session, a)
+    elif v == "/rl-sandbox":
+        cmd_rl_sandbox(session, a)
+    elif v == "/rl-shadow":
+        cmd_rl_shadow(session, a)
 
     # Comandos del sistema BAGO (desde menu / con !)
     elif v.startswith("!"):

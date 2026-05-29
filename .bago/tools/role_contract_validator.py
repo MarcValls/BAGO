@@ -19,16 +19,7 @@ Uso:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import json
 import re
@@ -60,11 +51,13 @@ class RoleContract:
     family:          str
     version:         str
     purpose:         str
+    alcance:         list[str] = field(default_factory=list)
     entradas:        list[str] = field(default_factory=list)
     salidas:         list[str] = field(default_factory=list)
     limites:         list[str] = field(default_factory=list)
     activacion:      list[str] = field(default_factory=list)
     no_activacion:   list[str] = field(default_factory=list)
+    dependencias:    list[str] = field(default_factory=list)
     criterio_exito:  list[str] = field(default_factory=list)
     source_file:     str = ""
 
@@ -74,11 +67,13 @@ class RoleContract:
             "family":         self.family,
             "version":        self.version,
             "purpose":        self.purpose,
+            "alcance":        self.alcance,
             "entradas":       self.entradas,
             "salidas":        self.salidas,
             "limites":        self.limites,
             "activacion":     self.activacion,
             "no_activacion":  self.no_activacion,
+            "dependencias":   self.dependencias,
             "criterio_exito": self.criterio_exito,
             "source_file":    self.source_file,
         }
@@ -142,12 +137,14 @@ def parse_role_file(path: Path) -> RoleContract | None:
     section_map = {
         "entradas":       [],
         "salidas":        [],
+        "alcance":        [],
         "límites":        [],  # noqa: SPANISH — tolerancia de ortografía intencional
         "limites":        [],  # noqa: SPANISH
         "activación":     [],  # noqa: SPANISH
         "activacion":     [],  # noqa: SPANISH
         "no activación":  [],  # noqa: SPANISH
         "no activacion":  [],  # noqa: SPANISH
+        "dependencias":   [],
         "criterio de éxito": [],  # noqa: SPANISH
         "criterio de exito": [],  # noqa: SPANISH
     }
@@ -176,11 +173,13 @@ def parse_role_file(path: Path) -> RoleContract | None:
         family         = family,
         version        = version,
         purpose        = purpose,
+        alcance        = _items("alcance"),
         entradas       = _items("entradas"),
         salidas        = _items("salidas"),
         limites        = _items("límites") or _items("limites"),
         activacion     = _items("activación") or _items("activacion"),
         no_activacion  = _items("no activación") or _items("no activacion"),
+        dependencias   = _items("dependencias"),
         criterio_exito = _items("criterio de éxito") or _items("criterio de exito"),
         source_file    = str(path.relative_to(BAGO_ROOT)),
     )
@@ -292,6 +291,10 @@ def validate_session(session_path: Path) -> list[ValidationResult]:
 def _print_contract(contract: RoleContract) -> None:
     print(f"\n  {_BOLD}{contract.role_id}{_RST}  ({contract.family} · v{contract.version})")
     print(f"  Propósito: {contract.purpose}")
+    if contract.alcance:
+        print(f"\n  Alcance:")
+        for a in contract.alcance:
+            print(f"    - {a}")
     if contract.entradas:
         print(f"\n  {_CYN}Entradas:{_RST}")
         for e in contract.entradas:
@@ -304,6 +307,18 @@ def _print_contract(contract: RoleContract) -> None:
         print(f"\n  {_YEL}Límites:{_RST}")
         for l in contract.limites:
             print(f"    - {l}")
+    if contract.activacion:
+        print(f"\n  Activación:")
+        for a in contract.activacion:
+            print(f"    - {a}")
+    if contract.no_activacion:
+        print(f"\n  No activación:")
+        for na in contract.no_activacion:
+            print(f"    - {na}")
+    if contract.dependencias:
+        print(f"\n  Dependencias:")
+        for d in contract.dependencias:
+            print(f"    - {d}")
     if contract.criterio_exito:
         print(f"\n  Criterio de éxito:")
         for c in contract.criterio_exito:

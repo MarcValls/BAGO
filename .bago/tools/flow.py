@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago flow — visualiza el pipeline de un workflow como flowchart ASCII.
               Gestiona el estado activo del workflow (start/done/status).
 
@@ -16,17 +17,6 @@ Uso:
     bago flow status            → mostrar workflow activo actual
     bago flow --test            → tests integrados
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import argparse
 import json

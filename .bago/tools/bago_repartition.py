@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago_repartition.py — Divide el pendrive BAGO en 2 particiones.
 
   P1 (FAT32, 256 MB):  "BAGO"      → Launchers + ícono (visible siempre)
@@ -10,17 +11,6 @@ Ejecutar en macOS:  python3 .bago/tools/bago_repartition.py
 """
 
 # ── Todos los imports AL INICIO (el script sigue en RAM tras desmontar) ───
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import os, sys, time, shutil, stat, subprocess, textwrap
 from pathlib import Path
 
@@ -238,22 +228,22 @@ def setup_p1(p1: Path, icns_src: Path, ico_src: Path):
 
     # Launchers
     f = p1 / "BAGO.command"
-    f.write_text(LAUNCHER_COMMAND); f.chmod(0o755); ok(f"{f.name}")
+    f.write_text(LAUNCHER_COMMAND, encoding="utf-8"); f.chmod(0o755); ok(f"{f.name}")
 
     f = p1 / "BAGO.bat"
-    f.write_text(LAUNCHER_BAT); ok(f"{f.name}")
+    f.write_text(LAUNCHER_BAT, encoding="utf-8"); ok(f"{f.name}")
 
     f = p1 / "bago.sh"
-    f.write_text(LAUNCHER_SH); f.chmod(0o755); ok(f"{f.name}")
+    f.write_text(LAUNCHER_SH, encoding="utf-8"); f.chmod(0o755); ok(f"{f.name}")
 
     f = p1 / "BAGO.desktop"
-    f.write_text(LAUNCHER_DESKTOP); f.chmod(0o755); ok(f"{f.name}")
+    f.write_text(LAUNCHER_DESKTOP, encoding="utf-8"); f.chmod(0o755); ok(f"{f.name}")
 
     f = p1 / "autorun.inf"
-    f.write_text(AUTORUN_INF); ok(f"{f.name}")
+    f.write_text(AUTORUN_INF, encoding="utf-8"); ok(f"{f.name}")
 
     f = p1 / "BIENVENIDO.txt"
-    f.write_text(BIENVENIDO); ok(f"{f.name}")
+    f.write_text(BIENVENIDO, encoding="utf-8"); ok(f"{f.name}")
 
     # Íconos
     if ico_src.exists():

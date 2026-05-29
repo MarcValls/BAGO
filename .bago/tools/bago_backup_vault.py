@@ -2,6 +2,12 @@
 # -*- coding: utf-8 -*-
 """bago_backup_vault.py — Backups trifásicos: engine, engine+memory, memory-only.
 
+NOTE DE ARQUITECTURA (DUP-004):
+  Este script hace backups ESPECÍFICOS del framework BAGO con rotación
+  automática (engine, engine+memory, memory). Para backups GENÉRICOS
+  del estado del proyecto (archivos/directorios arbitrarios), ver:
+    backup_manager.py
+
 Directorios:
   .bago/backups/engine/         → instalación limpia, rotación con --max
   .bago/backups/engine_memory/  → engine + memoria fusionada, rotación con --max
@@ -16,6 +22,8 @@ Uso:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import argparse
 import hashlib
 import json
@@ -27,11 +35,6 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 ROOT       = Path(__file__).resolve().parents[2]

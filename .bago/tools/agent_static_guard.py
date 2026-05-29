@@ -23,7 +23,6 @@ Mapa de directorios:
     <name>.py             ← agentes generados por factory
 
 API:
-  from agent_static_guard import guard
 
   guard.is_static(path)          → bool
   guard.assert_writable(path)    → lanza AgentWriteError si estático
@@ -36,16 +35,7 @@ API:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import json
 import sys

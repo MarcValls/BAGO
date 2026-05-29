@@ -88,7 +88,8 @@ fi
 
 # ── paso 2: borrar webhook del token viejo (si aplica) ───────────────────────
 info "Paso 2/5 — Intentando borrar webhook del token VIEJO..."
-OLD_TOKEN="8519892399:AAHTKzfu_VyLUSpJ-iNjmSn9RcgFOsddeKA"
+# OLD_TOKEN="<PASTE_OLD_TOKEN_HERE>"  # <-- rellena antes de ejecutar
+OLD_TOKEN="${OLD_TOKEN:-}"
 DEL=$(curl -sf "https://api.telegram.org/bot${OLD_TOKEN}/deleteWebhook" 2>/dev/null || echo "")
 if echo "$DEL" | grep -q '"ok":true'; then
   ok "Webhook del token viejo borrado."

@@ -26,7 +26,6 @@ TOOLS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS_DIR))
 
 from bago_dynamic_router import dynamic_route
-from bago_orchestrator import orchestrate
 from bago_adaptive_engine import adaptive_timeout, agent_score, record_execution, print_adaptive_summary
 
 STATE_DIR = TOOLS_DIR.parent / "state"
@@ -192,7 +191,6 @@ def run_pipeline(task: str) -> dict:
 
     # FASE 1: Router + Orquestador
     route = dynamic_route(task)
-    orch = orchestrate(task)
     agent = route["agent"]
     model = route["model"]
     provider = route["provider"]

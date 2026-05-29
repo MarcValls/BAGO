@@ -13,6 +13,13 @@ for _stream in (sys.stdout, sys.stderr):
 
 import os
 
+from ..providers import (
+    _CODEX_PREFERRED_MODELS,
+    _available_model_items,
+    _looks_like_local_code_task,
+    _select_best_model,
+)
+
 # ── Scoring de tamaño de modelo ───────────────────────────────────────────────
 
 def _model_size_score(name: str) -> int:
@@ -41,10 +48,10 @@ def _ollama_fallback_model(missing_model: str) -> "tuple[str | None, list[str]]"
     scored = sorted(
         available,
         key=lambda m: (
-            (1 if is_coder and "coder" in m.lower() else 0),
-            _model_size_score(m),
+            0 if is_coder and "coder" in m.lower() else 1,
+            -_model_size_score(m),
+            m.lower(),
         ),
-        reverse=True,
     )
     return scored[0], available
 
@@ -90,7 +97,7 @@ def _build_escalation_chain(missing_model: str) -> "tuple[list, list]":
     Orden: otros Ollama locales → copilot → codex.
     Devuelve (chain, available) donde chain es lista de (lm_wire, kw_dict, label).
     """
-    from ..providers import _codex_access_token
+    from ..codex_auth import resolve_openai_credential
 
     chain: list[tuple[str, dict, str]] = []
     score = _model_size_score(missing_model)
@@ -128,10 +135,15 @@ def _build_escalation_chain(missing_model: str) -> "tuple[list, list]":
             {"api_base": "https://models.inference.ai.azure.com", "api_key": gh_token},
             f"copilot / {copilot_model}",
         ))
+        # github-models endpoint separado
+        chain.append((
+            f"openai/{copilot_model}",
+            {"api_base": "https://models.github.ai/inference", "api_key": gh_token},
+            f"github-models / {copilot_model}",
+        ))
 
-    # 3. codex: OpenAI API key o Codex CLI OAuth
-    openai_key  = os.environ.get("OPENAI_API_KEY", "")
-    codex_token = openai_key or _codex_access_token()
+    # 3. codex: una sola fuente decide entre OAuth de Codex y API key
+    codex_token, _mode = resolve_openai_credential()
     if codex_token:
         codex_model = _CLOUD_EQUIV.get(score, _CLOUD_EQUIV[3])[1]
         chain.append((
@@ -193,6 +205,12 @@ def _cloud_priority_order(history: list, user_input: str, active: list) -> list[
     return result
 
 
+def _available_models_for_provider(session, provider: str) -> dict:
+    """Devuelve solo los modelos realmente disponibles para un provider."""
+    prov_data = session.providers.get(provider, {})
+    return dict(_available_model_items(provider, prov_data))
+
+
 def _deduce_cloud_provider(history: list, user_input: str, active: list) -> str:
     """Deduce el mejor provider cloud para la tarea. Usa _cloud_priority_order."""
     order = _cloud_priority_order(history, user_input, active)
@@ -225,21 +243,36 @@ def _escalate_candidates(session, user_input: str = "") -> list[tuple[str, str, 
     def _candidates_in(prov_name):
         if prov_name not in active:
             return []
-        prov_data = session.providers.get(prov_name, {})
-        out = []
-        for mn, md in prov_data.get("models", {}).items():
-            s = _model_size_score(mn)
-            if s > cur_score:
-                out.append((s, mn, md.get("wire_name", mn), prov_name))
-        return sorted(out)
+        models = {
+            mn: md
+            for mn, md in _available_models_for_provider(session, prov_name).items()
+            if _model_size_score(mn) > cur_score
+        }
+        if not models:
+            return []
+        selected_name, selected_meta = sorted(
+            models.items(),
+            key=lambda item: (
+                _model_size_score(item[0]),
+                item[0].lower(),
+                str(item[1].get("wire_name", item[0])).lower(),
+            ),
+        )[0]
+        return [(
+            _model_size_score(selected_name),
+            selected_name,
+            selected_meta.get("wire_name", selected_name),
+            prov_name,
+        )]
 
     def _any_model_in(prov_name):
         if prov_name not in active:
             return None
-        prov_data = session.providers.get(prov_name, {})
-        for mn, md in prov_data.get("models", {}).items():
-            return mn, md.get("wire_name", mn), prov_name
-        return None
+        selected = _select_best_model(_available_models_for_provider(session, prov_name), prefer_code=False)
+        if not selected:
+            return None
+        mn, md = selected
+        return mn, md.get("wire_name", mn), prov_name
 
     # Fase 1: escalar dentro de providers locales
     for pn in local_provs:
@@ -257,8 +290,8 @@ def _escalate_candidates(session, user_input: str = "") -> list[tuple[str, str, 
     for prov in cloud_order:
         prov_data = session.providers.get(prov, {})
         models = prov_data.get("models", {})
-        if models:
-            best = max(models.items(), key=lambda kv: _model_size_score(kv[0]))
+        best = _select_best_model(models, prefer_code=False)
+        if best:
             mn, md = best
             candidates.append((mn, md.get("wire_name", mn), prov))
 
@@ -285,10 +318,9 @@ def _cloud_escalation_candidates(session, user_input: str) -> list[tuple[str, st
     all_provs = cloud_order + local_fallback
     candidates: list[tuple[str, str, str]] = []
     for prov in all_provs:
-        prov_data = session.providers.get(prov, {})
-        models = prov_data.get("models", {})
-        if models:
-            best = max(models.items(), key=lambda kv: _model_size_score(kv[0]))
+        models = _available_models_for_provider(session, prov)
+        best = _select_best_model(models, prefer_code=False)
+        if best:
             mn, md = best
             candidates.append((mn, md.get("wire_name", mn), prov))
     return candidates
@@ -296,30 +328,46 @@ def _cloud_escalation_candidates(session, user_input: str) -> list[tuple[str, st
 
 def _best_model_for_provider_task(session, provider: str, user_input: str) -> "tuple[str, str, str] | None":
     """Elige modelo dentro de un provider, prefiriendo coder para tareas de código."""
-    pdata = session.providers.get(provider, {})
-    models = pdata.get("models", {})
+    models = _available_models_for_provider(session, provider)
     if not models:
         return None
     try:
-        from ..providers import _looks_like_local_code_task
         wants_code = _looks_like_local_code_task(user_input)
     except Exception:
         wants_code = False
 
-    items = list(models.items())
-    if wants_code:
-        code_items = [
-            (mn, md) for mn, md in items
-            if "coder" in mn.lower()
+    def _is_code_model(mn: str, md: dict) -> bool:
+        return (
+            "coder" in mn.lower()
             or "codex" in mn.lower()
-            or "code" in str(md.get("best_for", "")).lower()
+            or "code" in mn.lower()
             or "coding" in str(md.get("best_for", "")).lower()
-        ]
-        if code_items:
-            items = code_items
+        )
 
-    mn, md = max(items, key=lambda kv: _model_size_score(kv[0]))
-    return mn, md.get("wire_name", mn), provider
+    if provider in ("codex", "openai"):
+        candidates = models
+        if wants_code:
+            code_models = {mn: md for mn, md in models.items() if _is_code_model(mn, md)}
+            if code_models:
+                candidates = code_models
+        selected = _select_best_model(candidates, preferred=_CODEX_PREFERRED_MODELS, prefer_code=False)
+        if selected:
+            mn, md = selected
+            return mn, md.get("wire_name", mn), provider
+
+    if wants_code:
+        code_models = {mn: md for mn, md in models.items() if _is_code_model(mn, md)}
+        if code_models:
+            selected = _select_best_model(code_models, prefer_code=False)
+            if selected:
+                mn, md = selected
+                return mn, md.get("wire_name", mn), provider
+
+    selected = _select_best_model(models, prefer_code=False)
+    if selected:
+        mn, md = selected
+        return mn, md.get("wire_name", mn), provider
+    return None
 
 
 def _provider_error_fallbacks(session, user_input: str, failed_provider: str) -> list[tuple[str, str, str]]:
@@ -333,7 +381,6 @@ def _provider_error_fallbacks(session, user_input: str, failed_provider: str) ->
         if p != failed_provider and p not in getattr(session, "skip_providers", set())
     ]
     try:
-        from ..providers import _looks_like_local_code_task
         local_code = _looks_like_local_code_task(user_input)
     except Exception:
         local_code = False
@@ -345,7 +392,7 @@ def _provider_error_fallbacks(session, user_input: str, failed_provider: str) ->
         )
     else:
         priority = (
-            "copilot", "ollama-cloud", "ollama-local", "github-models",
+            "copilot", "github-models", "ollama-cloud", "ollama-local",
             "codex", "anthropic", "gemini", "openrouter",
         )
 

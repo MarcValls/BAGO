@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """audit_state_pointers.py — Detecta bugs de punteros huérfanos en global_state.json.
 
+
 Patrón de bug: un campo en global_state apunta a un ID cuyo archivo
 referenciado no existe, o cuyos campos derivados no coinciden con él.
 
@@ -8,17 +9,6 @@ Ejecutar: python3 audit_state_pointers.py
 Flags:    --fix-report   → muestra cómo arreglar cada fallo
           --test         → comprueba imports y sale
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import sys
 import json

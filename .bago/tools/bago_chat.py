@@ -1,4 +1,6 @@
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 #!/usr/bin/env python3
 """BAGO Orchestrator HUB — Entry point (thin glue)"""
 import argparse
@@ -7,6 +9,7 @@ import sys
 from pathlib import Path
 
 from bago.ollama_runtime import DEFAULT_BAGO_API_PORT, env_port
+from bago.ollama_models import ensure_ollama_models_env
 
 # ── Activar VT/ANSI en Windows CMD lo antes posible ──────────────────────────
 if sys.platform == "win32":
@@ -22,20 +25,15 @@ if sys.platform == "win32":
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Forzar UTF-8 para evitar crashes en consolas Windows con CP1252.
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-os.environ.setdefault("PYTHONUTF8", "1")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from bago.chat.boot import resolve_session, run_startup_tasks
 from bago.chat.repl import build_prompt_session, run_repl
+from bago.menus.config import _load_config
 
 BAGO_API_PORT = env_port("BAGO_API_PORT", "BAGO_PORT", default=DEFAULT_BAGO_API_PORT)
+ensure_ollama_models_env()
 
 
 def main():
@@ -61,9 +59,21 @@ def main():
             time.sleep(2)
             set_mode("api")
 
+        # Cargar configuracion persistente antes de resolver sesion
+        cfg = _load_config()
         if args.local and not args.provider and not args.model:
             args.provider = "local"
+        args.single_model = cfg.get("single_model", False)
         session = resolve_session(args)
+        # Aplicar configuracion guardada a la sesion
+        session.autoroute = cfg.get("autoroute", True)
+        session.single_model = cfg.get("single_model", False)
+        session.autonomous = cfg.get("autonomous", False)
+        session.auto_confirm = cfg.get("auto_confirm", "adaptativo")
+        session.auto_max_iter = cfg.get("auto_max_iter", 10)
+        session.orch_mode = cfg.get("orch_mode", "standard")
+        session.sync_after = cfg.get("sync_after", "continuar")
+        session.temp_mode = cfg.get("temp_mode", False)
         run_startup_tasks(session)
         pt = build_prompt_session(session)
         run_repl(session, pt)

@@ -54,6 +54,7 @@ BAGO_COMMANDS: dict[str, str] = {
     "/sync":        "[Sesion] Sincronizar GitHub/GitLab/Codeberg/USB + snapshot nube",
     "/sendnow":     "[Cloud] Cliente explícito send.now: account | upload | files | folder",
     "/memory":      "[Sesion] Memoria y conocimiento",
+    "/cwd":         "[Sesion] Ver o fijar la carpeta de trabajo actual",
     "/config":      "[Sesion] Configuracion global persistente",
     "/restart":     "[Sesion] Reiniciar BAGO y recargar runtime/modulos",
     # -- Workspace & Proyectos
@@ -135,6 +136,10 @@ BAGO_SUBCOMMANDS: dict[str, list[tuple[str, str]]] = {
         ("load",     "Cargar sesión anterior"),
         ("repliegue","Preparar repliegue (sync + hibernate)"),
         ("letargo",  "Letargo: sync + cerrar"),
+    ],
+    "/cwd": [
+        ("workspace", "Usar la ruta del workspace activo"),
+        ("clear",     "Borrar el cwd persistido y volver al cwd normal"),
     ],
     "/auto": [
         ("on",   "Activar modo autónomo (confirma solo lo crítico)"),
@@ -220,7 +225,7 @@ _ICONS: dict[str, str] = {
     "/wizard": "+", "/fabrica": "+",
     "/session": "=", "/auto": "~", "/mode": "~", "/generative": "~", "/gen": "~", "/sync": ">>",
     "/route-graph": "=", "/preset": "=", "/contract": "=", "/restart": "x",
-    "/memory": "~", "/config": "=", "/framework": "=", "/workspaces": "=", "/projects": "=",
+    "/memory": "~", "/cwd": "=", "/config": "=", "/framework": "=", "/workspaces": "=", "/projects": "=",
     "/status": "=", "/save": "=", "/clear": "x", "/help": "?", "/exit": "x",
     "/scan": ">>", "/plan": "~", "/brainstorm": "~", "/tumba": "x", "/sendnow": ">>",
 }

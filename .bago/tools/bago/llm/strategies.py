@@ -81,6 +81,17 @@ def run_chain(session, model_sequence, prompt, silent_route=True, *, history_inp
             session.history.append({"role": "user", "content": history_msg})
             session.history.append({"role": "assistant", "content": text})
             session.provider, session.model_name, session.wire_name = prov, name, wire
+            source = session._update_model_origin(prov, name, wire)
+            session.switches += 1
+            session.last_route = {
+                "mode": "auto" if getattr(session, "autoroute", False) else "manual",
+                "provider": prov,
+                "model": name,
+                "reason": f"chain-final {name}",
+                "service": source.get("service", ""),
+                "route": source.get("route", ""),
+                "backend": source.get("backend", ""),
+            }
         else:
             console.print(f"  [{c}]✓ {name}[/{c}] [dim]→ refinando con siguiente modelo...[/dim]")
 

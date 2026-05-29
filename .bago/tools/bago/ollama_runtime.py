@@ -93,6 +93,13 @@ def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
     import shutil
     import subprocess
 
+    try:
+        from .ollama_models import ensure_ollama_models_env
+
+        ensure_ollama_models_env()
+    except Exception:
+        pass
+
     base_url = base_url or default_ollama_base_url()
     cli = shutil.which("ollama")
     if not cli:
@@ -196,6 +203,13 @@ def _try_start_ollama_windows() -> None:
     import shutil
     import subprocess
     import time
+
+    try:
+        from .ollama_models import ensure_ollama_models_env
+
+        ensure_ollama_models_env()
+    except Exception:
+        pass
 
     cli = shutil.which("ollama")
     if not cli:

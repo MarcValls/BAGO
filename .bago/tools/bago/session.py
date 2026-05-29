@@ -19,6 +19,7 @@ from pathlib import Path
 from .constants import BAGO_SYSTEM, SESSIONS_DIR
 from .providers import (
     best_model_for_provider,
+    describe_model_source,
     load_providers,
     load_routing,
     resolve_litellm,
@@ -28,7 +29,7 @@ from .llm.errors import classify_provider_error
 from .routing_runtime import active_settings
 
 class BagoSession:
-    def __init__(self, provider, model_name, wire_name, creds):
+    def __init__(self, provider, model_name, wire_name, creds, single_model=False):
         self.provider   = provider
         self.model_name = model_name
         self.wire_name  = wire_name
@@ -50,12 +51,21 @@ class BagoSession:
         self.plan_mode  = False  # modo plan: razona y propone antes de actuar
         self.brainstorm = False  # modo brainstorm: expande ideas sin restricciones
         self.tumba_mode = False  # modo tumba: copia secretos sin enviárselos al LLM
+        self.single_model = single_model  # modo single: fuerza un único modelo sin fallback
         self.sync_after = "continuar"  # continuar|repliegue|letargo
         self.last_route = {
             "mode": "auto",
             "provider": provider,
             "model": model_name,
             "reason": "inicio de sesión",
+        }
+        self.model_origin = {
+            "provider": provider,
+            "model": model_name,
+            "wire_name": wire_name,
+            "service": "",
+            "route": "",
+            "backend": "",
         }
         # Providers temporalmente excluidos del autoroute (e.g. Ollama caído)
         self.skip_providers: set = set()
@@ -70,6 +80,7 @@ class BagoSession:
         self._orch_mod = None
         self._orch_mtime: float = 0.0
         self.refresh_runtime()
+        self._update_model_origin(self.provider, self.model_name, self.wire_name)
         self.add_timeline("session", "start", f"{self.provider}/{self.model_name}")
 
     # ── Token tracking ────────────────────────────────────────────────────────
@@ -175,6 +186,26 @@ class BagoSession:
             lines.append(f"  {prov}/{model}: {reason}")
         return "\n".join(lines)
 
+    def _update_model_origin(
+        self,
+        provider: str,
+        model: str,
+        wire_name: str | None = None,
+        *,
+        route: str | None = None,
+        service: str | None = None,
+    ) -> dict:
+        source = describe_model_source(
+            provider,
+            model,
+            self.providers,
+            wire_name=wire_name,
+            route=route,
+            service=service,
+        )
+        self.model_origin = source
+        return source
+
     def _load_orchestrator(self):
         """Carga el orquestador externo con caché por mtime — audit-10."""
         path = Path(__file__).resolve().parents[1] / "orchestrator.py"
@@ -214,7 +245,8 @@ class BagoSession:
     def _find_model(self, name):
         from .providers import _CODEX_MODEL_MAP, _COPILOT_MODEL_MAP, _available_model_items
         shortcuts = {"copilot":"copilot","codex":"codex","ollama":"ollama-local",
-                     "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud","anthropic":"anthropic"}
+                     "ollama-local":"ollama-local","ollama-cloud":"ollama-cloud","anthropic":"anthropic",
+                     "github-models":"github-models"}
         if name in shortcuts:
             r = best_model_for_provider(shortcuts[name], self.providers)
             if r: return r
@@ -238,11 +270,11 @@ class BagoSession:
                     return mn, md.get("wire_name", mn), pn
         # Nombres ficticios gpt-5.x / claude-* → buscar en provider disponible
         if name in _CODEX_MODEL_MAP:
-            for pref in ("codex", "openai", "copilot"):
+            for pref in ("codex", "openai", "copilot", "github-models"):
                 if pref in self.providers:
                     return name, _CODEX_MODEL_MAP[name], pref
         if name in _COPILOT_MODEL_MAP:
-            for pref in ("copilot",):
+            for pref in ("copilot", "github-models"):
                 if pref in self.providers:
                     return name, _COPILOT_MODEL_MAP[name], pref
         return None, None, None
@@ -267,8 +299,17 @@ class BagoSession:
                     return f"'{target}' no encontrado. Usa /models."
         old = self.model_name
         self.provider, self.model_name, self.wire_name = prov, name, wire
+        source = self._update_model_origin(prov, name, wire)
         self.switches += 1
-        self.last_route = {"mode": "manual", "provider": prov, "model": name, "reason": f"switch manual desde {old}"}
+        self.last_route = {
+            "mode": "manual",
+            "provider": prov,
+            "model": name,
+            "reason": f"switch manual desde {old}",
+            "service": source.get("service", ""),
+            "route": source.get("route", ""),
+            "backend": source.get("backend", ""),
+        }
         if silent: return None
         return f"Cambiado: {old} -> {name} ({prov}) | {len(self.history)-1} msgs mantenidos"
 
@@ -322,12 +363,29 @@ class BagoSession:
                         wire = result.get("wire_name", model)
                         old = self.model_name
                         self.provider, self.model_name, self.wire_name = provider, model, wire
+                        source = self._update_model_origin(provider, model, wire)
                         self.switches += 1
                         mode_tag = f"{self.orch_mode}→{effective_mode}" if self.orch_mode == "auto" else self.orch_mode
-                        self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
+                        self.last_route = {
+                            "mode": "auto",
+                            "provider": provider,
+                            "model": model,
+                            "reason": reason,
+                            "service": source.get("service", ""),
+                            "route": source.get("route", ""),
+                            "backend": source.get("backend", ""),
+                        }
                         return True, f"auto-orchestrator [{mode_tag}]: {old} -> {model} ({provider})"
                 if model and provider and provider not in self.skip_providers:
-                    self.last_route = {"mode": "auto", "provider": provider, "model": model, "reason": reason}
+                    source = describe_model_source(provider, model, self.providers, wire_name=result.get("wire_name", model))
+                    self.last_route = {
+                        "mode": "auto",
+                        "provider": provider,
+                        "model": model,
+                        "reason": reason,
+                        "service": source.get("service", ""),
+                        "route": source.get("route", ""),
+                    }
                     return False, f"auto-orchestrator mantiene {model} ({provider})"
             except Exception:
                 pass
@@ -340,10 +398,27 @@ class BagoSession:
             if prov not in self.skip_providers and prov in active:
                 old = self.model_name
                 self.provider, self.model_name, self.wire_name = prov, name, wire
+                source = self._update_model_origin(prov, name, wire)
                 self.switches += 1
-                self.last_route = {"mode": "auto", "provider": prov, "model": name, "reason": f"keyword:{kw}"}
+                self.last_route = {
+                    "mode": "auto",
+                    "provider": prov,
+                    "model": name,
+                    "reason": f"keyword:{kw}",
+                    "service": source.get("service", ""),
+                    "route": source.get("route", ""),
+                    "backend": source.get("backend", ""),
+                }
                 return True, f"auto-route [{kw}]: {old} -> {name}"
-        self.last_route = {"mode": "auto", "provider": self.provider, "model": self.model_name, "reason": "sin cambio"}
+        self.last_route = {
+            "mode": "auto",
+            "provider": self.provider,
+            "model": self.model_name,
+            "reason": "sin cambio",
+            "service": self.model_origin.get("service", ""),
+            "route": self.model_origin.get("route", ""),
+            "backend": self.model_origin.get("backend", ""),
+        }
         return False, None
 
     def save(self):
@@ -366,14 +441,35 @@ class BagoSession:
 
     def models_table(self):
         active = self.creds.active_bago_providers()
-        from .providers import _available_model_items
+        from .providers import _available_model_routes
         lines = []
         for pn, pd in self.providers.items():
             avail = "✓" if pn in active else "○"
             lines.append(f"\n[{avail}] [{pn}]")
-            for mn, md in _available_model_items(pn, pd):
-                act = " ← ACTIVO" if mn == self.model_name else ""
-                lines.append(f"    {mn:<30} {md.get('best_for',''):<25} {md.get('cost','')}{act}")
+            origin = self.model_origin or {}
+            for md in _available_model_routes(pn, pd):
+                mn = md.get("model", "")
+                act = " ← ACTIVO" if mn == self.model_name and pn == self.provider else ""
+                service = md.get("service") or (
+                    "ollama-native" if pn == "ollama-local"
+                    else "ollama-cloud-api" if pn == "ollama-cloud"
+                    else "codex-cli" if pn in ("codex", "openai")
+                    else f"{pn}-api"
+                )
+                route = md.get("route") or service
+                if not (
+                    mn == self.model_name
+                    and pn == self.provider
+                    and (not origin.get("service") or origin.get("service") == service)
+                    and (not origin.get("route") or origin.get("route") == route)
+                ):
+                    act = ""
+                else:
+                    act = " ← ACTIVO"
+                lines.append(
+                    f"    {mn:<30} {md.get('best_for',''):<25} "
+                    f"{md.get('cost',''):<12} {service:<18} {route:<14}{act}"
+                )
         return "\n".join(lines)
 
 

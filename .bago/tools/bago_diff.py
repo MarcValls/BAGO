@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago_diff.py — Muestra cambios entre las dos últimas sesiones BAGO.
 # BAGO_DIFF_SESSIONS_IMPLEMENTED
 
@@ -8,17 +9,6 @@ Uso:
   bago diff --list    → lista las sesiones disponibles con timestamps
   bago diff --n N     → compara las últimas N sesiones (por defecto 2)
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import re
 import subprocess

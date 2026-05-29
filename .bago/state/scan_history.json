@@ -1,19 +1,20 @@
 {
-  "last_scan": "2026-05-27T01:48:34.595808",
+  "last_scan": "2026-05-29T08:18:22.292222",
   "providers": {
     "ollama-local": {
       "first_seen": "2026-05-27T01:39:29.923639",
-      "last_ok": "2026-05-27T01:48:34.595808",
+      "last_ok": "2026-05-29T08:18:22.292222",
       "last_models": [
-        "granite3.2:8b",
-        "qwen2.5:0.5b",
-        "kimi-k2.6:cloud",
-        "qwen2.5-coder:0.5b"
+        "llama3.2:1b",
+        "llama3.2:3b",
+        "llama3.2:latest",
+        "qwen2.5:1.5b",
+        "qwen2.5-coder:7b"
       ]
     },
     "ollama-cloud": {
       "first_seen": "2026-05-27T01:39:29.923639",
-      "last_ok": "2026-05-27T01:48:34.595808",
+      "last_ok": "2026-05-28T15:17:23.247892",
       "last_models": []
     },
     "copilot": {
@@ -21,7 +22,7 @@
     },
     "github-models": {
       "first_seen": "2026-05-27T01:39:29.923639",
-      "last_ok": "2026-05-27T01:39:29.923639",
+      "last_ok": "2026-05-28T15:17:23.247892",
       "last_models": [
         "openai/gpt-4.1",
         "openai/gpt-4.1-mini",
@@ -70,7 +71,7 @@
     },
     "codex": {
       "first_seen": "2026-05-27T01:39:29.923639",
-      "last_ok": "2026-05-27T01:48:34.595808",
+      "last_ok": "2026-05-29T08:18:22.292222",
       "last_models": []
     },
     "anthropic": {
@@ -81,6 +82,17 @@
     },
     "openrouter": {
       "first_seen": "2026-05-27T01:39:29.923639"
+    },
+    "replicate": {
+      "first_seen": "2026-05-28T15:17:23.247892",
+      "last_ok": "2026-05-28T15:17:23.247892",
+      "last_models": [
+        "p-image-edit",
+        "krea-2-large",
+        "krea-2-medium",
+        "old-photo-restorer",
+        "realtor-photo-enhancer"
+      ]
     }
   }
 }

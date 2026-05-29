@@ -21,6 +21,8 @@ Fuente canónica: .bago/mcp/toolbox_catalog.json
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import re
@@ -35,13 +37,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 TOOLS_DIR   = Path(__file__).resolve().parent
 BAGO_ROOT   = TOOLS_DIR.parent
@@ -273,13 +268,6 @@ import os
 import sys
 from pathlib import Path
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 TOOLS_DIR = Path(__file__).resolve().parent
 BAGO_ROOT = TOOLS_DIR.parent

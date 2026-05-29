@@ -13,6 +13,8 @@ Behaviors:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import argparse
 import json
 import sqlite3
@@ -21,11 +23,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 TOOLS_DIR = Path(__file__).resolve().parent
 ROOT = TOOLS_DIR.parent

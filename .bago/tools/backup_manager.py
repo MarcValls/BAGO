@@ -1,4 +1,11 @@
-"""bago backup — Create and manage project state backups."""
+"""bago backup — Create and manage project state backups.
+
+NOTE DE ARQUITECTURA (DUP-004):
+  Este script hace backups GENÉRICOS del estado del proyecto (zips con
+  archivos/directorios arbitrarios). Para backups TRIFÁSICOS del framework
+  (engine / engine+memory / memory) con rotación automática, ver:
+    bago_backup_vault.py
+"""
 from __future__ import annotations
 
 import argparse

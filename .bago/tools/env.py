@@ -13,6 +13,8 @@ Usage:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import re
 import secrets
@@ -24,11 +26,6 @@ from pathlib import Path
 
 from bago.ollama_runtime import DEFAULT_ALT_HTTP_PORT, DEFAULT_SERVER_PORT, DEFAULT_VITE_PORT, DEFAULT_VITE_PREVIEW_PORT, DEFAULT_WEB_DEV_PORT, DEFAULT_WEB_PORT
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

@@ -1,4 +1,9 @@
-﻿$token = "8519892399:AAHTKzfu_VyLUSpJ-iNjmSn9RcgFOsddeKA"
+# Requires $env:BAGO_TELEGRAM_TOKEN to be set (e.g. in .env or CI secrets)
+if (-not $env:BAGO_TELEGRAM_TOKEN) {
+    Write-Error "Falta la variable de entorno BAGO_TELEGRAM_TOKEN"
+    exit 1
+}
+$token = $env:BAGO_TELEGRAM_TOKEN
 $api = "https://api.telegram.org/bot$token"
 $bagoDir = "$env:USERPROFILE\BAGO"
 $logFile = "$env:USERPROFILE\.bago\state\logs\telegram_ps_daemon.log"

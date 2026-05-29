@@ -36,6 +36,20 @@ def _ws_active(wdata):
 def _proj_in_ws(pdata, ws_id):
     return [p for p in pdata.get("projects", []) if p.get("workspace_id") == ws_id]
 
+
+def _sync_active_workspace_cwd(wdata):
+    from ..cwd import clear_user_cwd, set_user_cwd
+
+    ws = _ws_active(wdata)
+    raw = str(ws.get("path", "")).strip() if ws else ""
+    if not raw:
+        clear_user_cwd()
+        return
+    try:
+        set_user_cwd(raw)
+    except Exception:
+        clear_user_cwd()
+
 # ── /workspaces ───────────────────────────────────────────────────────────────
 def _cmd_workspaces(session):
     """Gestion de workspaces. Un workspace agrupa muchos proyectos."""
@@ -77,6 +91,7 @@ def _ws_create(wdata):
     if not wdata.get("active_workspace_id"):
         wdata["active_workspace_id"] = new_id
     _save_workspaces(wdata)
+    _sync_active_workspace_cwd(wdata)
     pi(f"Workspace '{name}' creado [{new_id}].")
 
 def _ws_detail(wdata, ws_id):
@@ -108,6 +123,7 @@ def _ws_detail(wdata, ws_id):
         if sel == "set_active":
             wdata["active_workspace_id"] = ws_id
             _save_workspaces(wdata)
+            _sync_active_workspace_cwd(wdata)
             is_active = True
             pi(f"Workspace activo: {w['name']}")
 
@@ -121,7 +137,11 @@ def _ws_detail(wdata, ws_id):
 
         elif sel == "edit_path":
             v = _menu_input("Ruta", "Ruta raiz:", default=w.get("path",""))
-            if v is not None: w["path"] = v; _save_workspaces(wdata)
+            if v is not None:
+                w["path"] = v
+                _save_workspaces(wdata)
+                if is_active:
+                    _sync_active_workspace_cwd(wdata)
 
         elif sel == "projects":
             _cmd_projects_in_ws(ws_id, w["name"])
@@ -136,5 +156,6 @@ def _ws_detail(wdata, ws_id):
                 if wdata.get("active_workspace_id") == ws_id:
                     wdata["active_workspace_id"] = wdata["workspaces"][0]["id"] if wdata["workspaces"] else None
                 _save_workspaces(wdata)
+                _sync_active_workspace_cwd(wdata)
                 pi(f"Workspace '{w['name']}' eliminado.")
                 break

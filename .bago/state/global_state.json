@@ -11,23 +11,27 @@
   "active_task_type": null,
   "active_roles": [],
   "active_workflows": [],
-  "last_completed_session_id": "SES-HARVEST-2026-05-26-002",
+  "last_completed_session_id": null,
   "last_completed_task_type": "harvest",
   "last_completed_workflow": "w9_cosecha",
   "last_completed_roles": [
     "role_auditor"
   ],
-  "last_completed_change_id": "BAGO-CHG-001",
-  "last_completed_evidence_id": "BAGO-EVD-001",
+  "last_completed_change_id": null,
+  "last_completed_evidence_id": null,
   "sprint_status": {
-    "active_workflow": null,
+    "active_workflow": {
+      "code": "W2",
+      "title": "README enlaza ideas con W2",
+      "started": "2026-05-27T18:01:30.481463+00:00"
+    },
     "pending_w2_task": "none",
     "last_completed_workflow": null
   },
   "inventory": {
-    "sessions": 2,
-    "changes": 1,
-    "evidences": 1
+    "sessions": 0,
+    "changes": 0,
+    "evidences": 0
   },
   "last_validation": {
     "validate_manifest": "KO",
@@ -108,5 +112,11 @@
     "stashes": 0,
     "note": ""
   },
-  "harmonic_mode": "production_monitor"
+  "harmonic_mode": "production_monitor",
+  "devmode": false,
+  "knowledge_index": {
+    "promoted_count": 1,
+    "last_promoted": "2026-05-27",
+    "last_promoted_project": "unknown"
+  }
 }

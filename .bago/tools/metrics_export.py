@@ -14,17 +14,14 @@ Códigos de salida: 0 = OK
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import csv
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT      = Path(__file__).resolve().parents[2]
 STATE     = ROOT / ".bago" / "state"

@@ -138,18 +138,25 @@ def _stream_ollama(messages: list[dict], model: str) -> Iterator[str]:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        for raw in resp:
-            line = raw.decode("utf-8", errors="replace").strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-                chunk = obj.get("message", {}).get("content", "")
-                if chunk:
-                    yield chunk
-            except json.JSONDecodeError:
-                continue
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            for raw in resp:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    chunk = obj.get("message", {}).get("content", "")
+                    if chunk:
+                        yield chunk
+                except json.JSONDecodeError:
+                    continue
+    except urllib.error.HTTPError as exc:
+        print(ERR(f"  [ADVISOR-E] Ollama respondió con error HTTP {exc.code}: {exc.reason}"))
+    except urllib.error.URLError as exc:
+        print(ERR(f"  [ADVISOR-E] No se pudo conectar con Ollama: {exc.reason}"))
+    except socket.timeout:
+        print(ERR("  [ADVISOR-E] Timeout al esperar respuesta de Ollama."))
 
 
 def _call_llm(messages: list[dict], model: str | None = None) -> str:
@@ -202,7 +209,7 @@ def _read_recent_history(n: int = 5) -> list[dict]:
 
 def _detect_domain(gs: dict, recent: list[dict]) -> str:
     """Detect active work domain from state + recent commands."""
-    flow = (gs.get("sprint_status", {}).get("active_workflow") or "").lower()
+    flow = str(gs.get("sprint_status", {}).get("active_workflow") or "").lower()
     last_cmds = " ".join(e.get("cmd", "") for e in recent[-3:]).lower()
 
     music_kw = {"ableton", "music", "techno", "midi", "audio", "musicxml"}
@@ -631,7 +638,7 @@ def _self_test() -> int:
 
     # T4: system prompt contains key sections
     prompt = _build_system_prompt(snap)
-    for kw in ["bago", "Proximo paso", "find-tool", "health"]:
+    for kw in ["bago", "Próximo paso", "find-tool", "health"]:
         if kw not in prompt:
             fail("system_prompt_completeness", f"missing keyword: {kw}")
             break

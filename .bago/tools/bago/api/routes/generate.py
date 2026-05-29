@@ -54,6 +54,8 @@ async def generate(req: GenerateRequest):
             max_switches=1,
             options=req.options,
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 

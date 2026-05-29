@@ -1,18 +1,8 @@
 """
+
 bago splash - Pantalla de entrada grafica BAGO
 Uso: python bago splash
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import sqlite3
 import json
@@ -51,7 +41,7 @@ try:
 except ImportError:
     HAS_FIGLET = False
 
-console = Console(force_terminal=True, highlight=False)
+console = Console(force_terminal=sys.stdout.isatty(), highlight=False)
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[2]
@@ -79,6 +69,17 @@ def _get_logo():
 TAGLINE = "B.alanceado  A.daptativo  G.enerativo  O.rganizativo"
 
 # ── Data readers ─────────────────────────────────────────────────────────────
+
+def _load_recent_projects():
+    """Lee proyectos recientes desde recent_projects.json."""
+    recent_f = ROOT / ".bago" / "state" / "recent_projects.json"
+    if not recent_f.exists():
+        return []
+    try:
+        return json.loads(recent_f.read_text(encoding="utf-8")).get("projects", [])
+    except Exception:
+        return []
+
 
 def _read_db():
     if not DB.exists():
@@ -164,12 +165,12 @@ def _git_branch():
 # ── Render ────────────────────────────────────────────────────────────────────
 
 def _logo_panel():
-    logo_text = Text(_get_logo(), style="bold cyan", justify="center")
-    tag_text   = Text(TAGLINE, style="italic dim cyan", justify="center")
+    logo_text = Text(_get_logo(), style="bold red", justify="center")
+    tag_text   = Text(TAGLINE, style="italic dim red", justify="center")
     combined   = Text.assemble(logo_text, "\n", tag_text)
     return Panel(
         Align.center(combined),
-        border_style="cyan",
+        border_style="red",
         padding=(0, 4),
     )
 
@@ -257,6 +258,103 @@ def _commands_panel():
     )
 
 
+def _mode_panel(state: dict):
+    devmode = state.get("devmode", False)
+
+    tbl = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+    tbl.add_column("modo", style="bold")
+    tbl.add_column("descripcion", style="dim")
+
+    tbl.add_row(
+        "[bold green]💬 CHAT[/]",
+        "Interfaz conversacional con BAGO (default) — bago launch"
+    )
+    tbl.add_row(
+        "[bold yellow]🛠️ CREATE[/]",
+        "Modo creación: ideas + W2 + evidencia — bago next"
+    )
+
+    if devmode:
+        tbl.add_row(
+            "[bold magenta]🔧 FRAMEWORK[/]",
+            "Developer mode: trabajar sobre la instalación BAGO — bago devmode"
+        )
+
+    title = "[bold white]Modo de operación[/]"
+    if devmode:
+        title += "  [dim](developer mode activo)[/]"
+
+    return Panel(
+        tbl,
+        title=title,
+        border_style="yellow",
+        padding=(0, 1),
+    )
+
+
+def _projects_panel():
+    projects = _load_recent_projects()
+    tbl = Table(box=box.SIMPLE, show_header=True, padding=(0, 1))
+    tbl.add_column("#", style="dim", justify="right", width=3)
+    tbl.add_column("Proyecto", style="bold cyan")
+    tbl.add_column("Modo", style="dim")
+    tbl.add_column("Ideas", style="green", justify="right")
+    tbl.add_column("Última vez", style="yellow")
+
+    if not projects:
+        tbl.add_row("", "[dim]Sin proyectos recientes[/]", "", "", "")
+        tbl.add_row("", "  → bago siembra create <ruta>  (nuevo)", "", "", "")
+    else:
+        for i, p in enumerate(projects[:5], start=1):
+            name = p.get("repo_name", "?")[:24]
+            mode = p.get("mode", "?")[:8]
+            ideas = str(p.get("ideas_done", 0))
+            last = p.get("last_seen", "")
+            when = "?"
+            if last:
+                try:
+                    from datetime import datetime, timezone
+                    dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
+                    days = (datetime.now(timezone.utc) - dt).days
+                    if days == 0:
+                        when = "hoy"
+                    elif days == 1:
+                        when = "ayer"
+                    else:
+                        when = f"hace {days}d"
+                except Exception:
+                    pass
+            marker = "→" if i == 1 else ""
+            tbl.add_row(str(i), f"{marker} {name}", mode, ideas, when)
+
+    return Panel(
+        tbl,
+        title="[bold white]Proyectos recientes[/]",
+        border_style="cyan",
+        padding=(0, 1),
+    )
+
+
+def _actions_panel(devmode: bool):
+    tbl = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+    tbl.add_column("accion", style="bold")
+    tbl.add_column("comando", style="dim")
+
+    tbl.add_row("[green]Iniciar chat[/]",      "bago launch")
+    tbl.add_row("[yellow]Nueva tarea W2[/]",   "bago next")
+    tbl.add_row("[cyan]Nuevo proyecto[/]",     "bago siembra create <ruta>")
+    tbl.add_row("[white]Cambiar proyecto[/]",   "bago workspace-select")
+    if devmode:
+        tbl.add_row("[magenta]Framework tools[/]", "bago devmode --info")
+
+    return Panel(
+        tbl,
+        title="[bold white]Acciones rápidas[/]",
+        border_style="green",
+        padding=(0, 1),
+    )
+
+
 def _version_bar(tools, branch):
     return Text.assemble(
         ("  v5-neural-fabric", "bold cyan"),
@@ -310,7 +408,12 @@ def main():
     console.print()
     console.print(_logo_panel())
     console.print(_version_bar(tools, branch))
+    console.print(_mode_panel(state))
     console.print(_status_table(db, state, tools, branch, head))
+    console.print()
+    console.print(_projects_panel())
+    console.print()
+    console.print(_actions_panel(state.get("devmode", False)))
     console.print()
     console.print(_neural_panel())
     console.print()

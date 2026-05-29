@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 notify_bago.py — BAGO universal notification tool
 
 Providers soportados:
@@ -21,17 +22,6 @@ SETUP WhatsApp — Green API (recomendado):
   4. Copia ID_INSTANCE y API_TOKEN_INSTANCE del dashboard
   5. python3 notify_bago.py --set-wa-instance ID_INSTANCE API_TOKEN
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import sys
 import json

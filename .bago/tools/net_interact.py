@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 net_interact.py — Interacción BAGO con la red Ethernet interna (10.0.0.x).
 
 Red descubierta via cable Ethernet (169.254.31.155):
@@ -41,17 +42,12 @@ from urllib.error import URLError, HTTPError
 
 from bago.ollama_runtime import DEFAULT_BAGO_LLM_SERVER_PORT, env_port
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # ─── Configuración ────────────────────────────────────────────────────────────
 
-ETHERNET_IFACE  = "Ethernet"
-LOCAL_APIPA_IP  = "169.254.31.155"   # IP actual del adaptador Ethernet
-TEMP_IP         = "10.0.0.250"       # IP temporal que añadimos para acceder a la red
+ETHERNET_IFACE  = os.getenv("BAGO_ETHERNET_IFACE", "Ethernet")
+LOCAL_APIPA_IP  = os.getenv("BAGO_LOCAL_APIPA_IP", "169.254.31.155")   # IP actual del adaptador Ethernet
+TEMP_IP         = os.getenv("BAGO_TEMP_IP", "10.0.0.250")               # IP temporal que añadimos para acceder a la red
 TEMP_PREFIX     = 24
 NETWORK_BASE    = "10.0.0"
 PC_SUITE_PORT   = env_port("BAGO_PC_SUITE_PORT", "BAGO_PORT", default=DEFAULT_BAGO_LLM_SERVER_PORT)
@@ -132,7 +128,8 @@ def setup_network(quiet: bool = False) -> bool:
 
 def cleanup_network():
     """Elimina todas las IPs temporales añadidas por este script."""
-    temps = [TEMP_IP, "192.168.0.250", "192.168.1.250", "172.16.0.250"]
+    extra_temps = os.getenv("BAGO_EXTRA_TEMP_IPS", "192.168.0.250,192.168.1.250,172.16.0.250")
+    temps = [TEMP_IP] + [ip.strip() for ip in extra_temps.split(",") if ip.strip()]
     for ip in temps:
         if _ip_exists(ETHERNET_IFACE, ip):
             ps = (f"Remove-NetIPAddress -InterfaceAlias '{ETHERNET_IFACE}' "

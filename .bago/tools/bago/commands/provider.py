@@ -44,11 +44,16 @@ def cmd_provider(session, args: str) -> None:
             name, wire, prov = get_default_model(new_prov, session.providers)
             if name:
                 session.provider, session.model_name, session.wire_name = prov, name, wire
+                source = session._update_model_origin(prov, name, wire)
+                session.switches = getattr(session, "switches", 0) + 1
                 session.last_route = {
                     "mode": "manual",
                     "provider": prov,
                     "model": name,
                     "reason": f"{target} desactivado",
+                    "service": source.get("service", ""),
+                    "route": source.get("route", ""),
+                    "backend": source.get("backend", ""),
                 }
         pi(f"Provider {target}: {state}.")
         return

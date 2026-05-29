@@ -3,6 +3,12 @@
 """
 research_orchestrator.py — Modo Research integrando GitHub Copilot CLI /research
 
+NOTE DE ARQUITECTURA (DUP-008):
+  Este script implementa el MODO RESEARCH de BAGO (recopilación de contexto
+  del repo + análisis temático + reporte investigativo). No busca texto plano
+  como code_search.py, ni busca en el catálogo de tools como tool_search.py,
+  ni busca en el historial de ideas como search_history.py.
+
 Implementa `/research` de Copilot CLI como workflow BAGO:
 - Recopila contexto del repo (estructura, dependencias, estado)
 - Ejecuta análisis temático (código, docs, arquitectura)
@@ -14,17 +20,6 @@ Uso:
   python3 .bago/tools/research_orchestrator.py "seguridad de autenticación"
   python3 .bago/tools/research_orchestrator.py --list
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 from pathlib import Path
 import json

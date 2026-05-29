@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 ci_generator — Genera configuración CI/CD para proyectos con BAGO.
 
 Genera:
@@ -14,17 +15,6 @@ Uso:
   bago ci --provider all
   bago ci --dry-run          → muestra sin escribir
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import argparse
 from pathlib import Path
 
@@ -253,7 +243,6 @@ bago-lint:
       "
     - |
       python3 -c "
-      import json, sys
       from pathlib import Path
       tools_dir = Path('.bago/tools')
       manifest_file = Path('.bago/tools.manifest.json')
@@ -303,7 +292,6 @@ bago-scan:
     - python3 bago stale --json > bago-stale.json || true
     - |
       python3 -c "
-      import json, sys
       try:
           raw = open('bago-findings.json').read()
       except OSError as e:
@@ -492,7 +480,6 @@ def main():
 
 
 def _self_test():
-    import tempfile
     print("Ejecutando self-tests de ci_generator.py...")
     errors = []
 

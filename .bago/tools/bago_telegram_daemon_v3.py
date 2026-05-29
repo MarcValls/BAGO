@@ -1,14 +1,5 @@
-import os
-import sys
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
+from bago_utils import load_json, save_json, timestamp_iso
 import requests, subprocess, time, threading, os
 from pathlib import Path
 from datetime import datetime

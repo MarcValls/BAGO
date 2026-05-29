@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """scope_detector.py — Detecta el ámbito (scope) de un script BAGO.
 
+
 Analiza un archivo Python y determina si opera sobre:
   - el framework BAGO en sí mismo (framework)
   - el proyecto activo del usuario (project)
@@ -16,17 +17,6 @@ Uso:
   python3 scope_detector.py --all          # escanea todo tools/
   python3 scope_detector.py --test
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import sys
 from pathlib import Path
 

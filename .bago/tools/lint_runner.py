@@ -17,17 +17,14 @@ Códigos de salida: 0 = sin errores, 1 = hay errores, 2 = error en ejecución
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

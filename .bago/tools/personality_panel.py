@@ -5,6 +5,8 @@
 """personality_panel — Panel de personalidad y configuración de agentes BAGO."""
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 from pathlib import Path
 from datetime import datetime, timezone
 import argparse
@@ -12,13 +14,6 @@ import json
 import sys
 import os
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 
 ROOT = Path(__file__).resolve().parents[2]

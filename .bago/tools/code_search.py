@@ -3,6 +3,11 @@
 """
 code_search.py — Busca texto o patrones en el código fuente del proyecto.
 
+NOTE DE ARQUITECTURA (DUP-008):
+  Este script busca en el CÓDIGO FUENTE del proyecto activo (archivos .py, .ts,
+  .md, etc.). Para buscar en el catálogo de tools, usar tool_search.py. Para
+  buscar en el historial de ideas implementadas, usar search_history.py.
+
 Rápido, sin dependencias externas. Excluye node_modules/dist/build.
 
 Uso:
@@ -17,17 +22,14 @@ Códigos de salida: 0 = encontrado, 1 = sin resultados, 2 = error
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import re
 import sys
 from functools import lru_cache
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

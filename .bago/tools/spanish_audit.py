@@ -19,6 +19,8 @@ Uso:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import ast
 import json
 import os
@@ -31,13 +33,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-os.environ.setdefault("PYTHONUTF8", "1")
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # ── Configuración ──────────────────────────────────────────────────────────────
 

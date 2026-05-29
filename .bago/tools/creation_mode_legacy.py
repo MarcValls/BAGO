@@ -27,6 +27,8 @@ Uso:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import argparse
 import json
 import os
@@ -37,11 +39,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # ── Dependencias rich ─────────────────────────────────────────────────────────
 try:

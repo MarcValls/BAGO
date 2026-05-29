@@ -29,7 +29,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import (
@@ -37,7 +37,10 @@ from .routes import (
     models_router, bago_router,
 )
 from .models.schemas import VersionResponse
+from bago.codex_auth import resolve_openai_credential
+from bago.codex_runtime import codex_cli_available, run_codex_exec
 from bago.cwd import get_user_cwd
+from bago.providers import get_default_model, resolve_codex_route_candidates
 from bago.ollama_runtime import (
     DEFAULT_BAGO_API_PORT,
     DEFAULT_BAGO_COPILOT_PORT,
@@ -208,6 +211,13 @@ class BagoAdapter:
         For proxies, checks the local port. For local Ollama, checks the configured Ollama base URL.
         For cloud, checks env vars.
         """
+        if name == "codex":
+            try:
+                return bool(resolve_codex_route_candidates("gpt-5.4-mini"))
+            except Exception:
+                credential, mode = resolve_openai_credential()
+                return codex_cli_available() and bool(credential) and mode == "oauth"
+
         # Local proxies — check if port is alive
         if name in SERVICE_PORTS and name != "bago":
             port = SERVICE_PORTS[name]
@@ -216,7 +226,7 @@ class BagoAdapter:
         if name == "ollama-local":
             return self._check_port("127.0.0.1", SERVICE_PORTS["ollama-local"])
 
-        if name in ("copilot", "codex"):
+        if name == "copilot":
             # Prefer local proxy, fall back to env var
             port = SERVICE_PORTS.get(name, 0)
             if self._check_port("127.0.0.1", port):
@@ -247,6 +257,9 @@ class BagoAdapter:
 
     def call_provider(self, provider: str, endpoint: str, payload: dict, method: str = "POST") -> dict:
         """Call a provider proxy via HTTP. Returns the JSON response."""
+        import urllib.error
+        import urllib.request
+
         port = SERVICE_PORTS.get(provider)
         if not port:
             raise ValueError(f"No proxy port for provider '{provider}'")
@@ -261,6 +274,15 @@ class BagoAdapter:
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")
+            try:
+                parsed = json.loads(detail)
+                if isinstance(parsed, dict) and isinstance(parsed.get("detail"), str):
+                    detail = parsed["detail"]
+            except Exception:
+                pass
+            raise HTTPException(status_code=e.code, detail=detail or f"Provider {provider} error")
         except Exception as e:
             raise RuntimeError(f"Provider {provider} error: {e}")
 
@@ -308,6 +330,9 @@ class BagoAdapter:
                     "original_model": model,
                     "original_provider": "ollama-local",
                     "route_reason": "ollama-native",
+                    "service": "ollama-native",
+                    "route": "ollama-native",
+                    "backend": "ollama",
                 }
             except Exception as e:
                 pass  # Fall through to LLM stack
@@ -333,6 +358,9 @@ class BagoAdapter:
                     "original_model": model,
                     "original_provider": provider,
                     "route_reason": result.get("route_reason", "proxy"),
+                    "service": result.get("service", ""),
+                    "route": result.get("route", ""),
+                    "backend": result.get("backend", ""),
                 }
             except Exception:
                 pass  # Fall through to LLM stack
@@ -366,15 +394,74 @@ class BagoAdapter:
 
     def _chat_litellm(self, messages, model, provider, options):
         """Direct LiteLLM call when orchestrator is not available."""
+        if provider in ("codex", "openai"):
+            wire = self._resolve_wire(model, provider)
+            candidates = resolve_codex_route_candidates(wire)
+            if not candidates:
+                credential, mode = resolve_openai_credential()
+                if not credential or mode != "oauth":
+                    raise HTTPException(status_code=401, detail="codex login requerido; ruta API deshabilitada")
+                raise HTTPException(status_code=503, detail="codex route unavailable")
+            last_exc: Exception | None = None
+            for candidate in candidates:
+                try:
+                    backend = candidate.get("backend", "litellm")
+                    if backend == "codex-cli":
+                        text, usage = run_codex_exec(messages, candidate.get("lm", wire), workdir=get_user_cwd())
+                    else:
+                        import litellm
+                        r = litellm.completion(
+                            model=candidate.get("lm", wire),
+                            messages=messages,
+                            **(candidate.get("kw", {}) or {}),
+                        )
+                        text = r.choices[0].message.content
+                        usage = getattr(r, "usage", None)
+                    eval_count = 0
+                    prompt_eval_count = 0
+                    if usage:
+                        if isinstance(usage, dict):
+                            eval_count = int(usage.get("output_tokens", usage.get("completion_tokens", 0)) or 0)
+                            prompt_eval_count = int(usage.get("input_tokens", usage.get("prompt_tokens", 0)) or 0)
+                        else:
+                            eval_count = int(getattr(usage, "completion_tokens", 0) or getattr(usage, "output_tokens", 0) or 0)
+                            prompt_eval_count = int(getattr(usage, "prompt_tokens", 0) or getattr(usage, "input_tokens", 0) or 0)
+                    return {
+                        "content": text,
+                        "model": model,
+                        "provider": provider,
+                        "switches": 0,
+                        "eval_count": eval_count,
+                        "prompt_eval_count": prompt_eval_count,
+                        "service": candidate.get("service", ""),
+                        "route": candidate.get("route", ""),
+                        "backend": backend,
+                    }
+                except Exception as exc:
+                    last_exc = exc
+            detail = str(last_exc) if last_exc else "codex route unavailable"
+            status = 401 if "auth required" in detail.lower() or "login required" in detail.lower() else 502
+            raise HTTPException(status_code=status, detail=detail)
+
         try:
             import litellm
             wire = self._resolve_wire(model, provider)
             r = litellm.completion(model=wire, messages=messages, **(options or {}))
+            service = (
+                "ollama-native" if provider == "ollama-local"
+                else "ollama-cloud-api" if provider == "ollama-cloud"
+                else "github-copilot-api" if provider == "copilot"
+                else "github-models-api" if provider == "github-models"
+                else f"{provider}-api"
+            )
             return {
                 "content": r.choices[0].message.content,
                 "model": model,
                 "provider": provider,
                 "switches": 0,
+                "service": service,
+                "route": service,
+                "backend": "litellm",
             }
         except Exception as e:
             return {"content": f"Error: {e}", "model": model, "provider": provider}
@@ -415,10 +502,7 @@ class BagoAdapter:
                     target_provider = prov
                     break
         if not target_model and target_provider:
-            prov_data = self._providers.get(target_provider, {})
-            models = prov_data.get("models", {})
-            if models:
-                target_model = next(iter(models))
+            target_model, _, _ = get_default_model(target_provider, self._providers)
         return {"provider": target_provider, "model": target_model,
                 "reason": "manual-escalation"}
 

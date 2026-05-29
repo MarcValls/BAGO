@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 net_scan.py — Escáner de red y estado de cables para BAGO.
 
 Detecta:
@@ -23,11 +24,6 @@ import sys
 import time
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 
 # ─── Detección de adaptadores ─────────────────────────────────────────────────

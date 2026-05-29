@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago_banner.py — Cartel de activación BAGO
 Muestra logotipo ASCII + estado del pack al arrancar.
 
@@ -14,11 +15,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Windows UTF-8 fix for box-drawing / emoji characters
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 def _enable_win_vt() -> bool:
     """Activa ANSI VT processing en Windows CMD. Devuelve True si tuvo éxito."""
@@ -62,19 +58,16 @@ BOLD   = lambda t: _c("1",    t)
 DIM    = lambda t: _c("2",    t)
 
 def _rgb(r: int, g: int, b: int, ch: str) -> str:
-    """Truecolor per-character RGB — falls back to CYAN on unsupported terminals."""
+    """Truecolor per-character RGB — falls back to red on unsupported terminals."""
     if not USE_COLOR:
         return ch
     if not USE_TRUECOLOR:
-        return f"\033[1;36m{ch}\033[0m"
+        return f"\033[1;31m{ch}\033[0m"
     return f"\033[38;2;{r};{g};{b}m{ch}\033[0m"
 
 def _gradient_line(line: str, y: int, height: int) -> str:
     """
-    Apply per-character RGB gradient matching the BAGO PowerShell logo:
-      R: 45→125  (left→right)
-      G: 180→245 (top→bottom)
-      B: 110→220 (left→right)
+    Apply a red per-character RGB gradient for the entry logo.
     Spaces are preserved as-is (no escape codes on whitespace).
     """
     width = max(1, len(line))
@@ -83,9 +76,9 @@ def _gradient_line(line: str, y: int, height: int) -> str:
         if ch == " ":
             out.append(" ")
         else:
-            r = int(45  + (80  * x / width))
-            g = int(180 + (65  * y / height))
-            b = int(110 + (110 * x / width))
+            r = int(175 + (70 * x / width))
+            g = int(25 + (35 * y / height))
+            b = int(25 + (25 * x / width))
             out.append(_rgb(r, g, b, ch))
     return "".join(out)
 

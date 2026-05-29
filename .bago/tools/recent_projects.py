@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 recent_projects.py — Registro de proyectos recientes BAGO
 
 Registra automáticamente cada repo donde BAGO arranca y permite
@@ -16,11 +17,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Windows UTF-8 fix
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 BAGO_ROOT = Path(__file__).resolve().parent.parent
 STATE     = BAGO_ROOT / "state"

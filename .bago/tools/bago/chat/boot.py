@@ -61,24 +61,72 @@ def resolve_session(args) -> BagoSession:
             "copilot": "copilot", "codex": "codex",
             "ollama": "ollama-local", "ollama-local": "ollama-local",
             "ollama-cloud": "ollama-cloud", "anthropic": "anthropic",
-            "local": "ollama-local",
+            "local": "ollama-local", "github-models": "github-models",
         }
         chosen = pm.get(args.provider, "") or auto_detect_provider(creds, providers)
         if not args.provider:
             pi(f"Provider detectado: {chosen}")
+
+        # ── Validar que el provider elegido realmente funciona ───────────────
+        # Usamos health check rápido; si falla, intentamos fallback ordenado
+        from ..provider_health import scan_provider_health
+        active = creds.active_bago_providers()
+        health = {}
+        if chosen and chosen != "none":
+            try:
+                health = scan_provider_health(creds, providers, timeout=3)
+            except Exception:
+                pass
+            chosen_health = health.get(chosen, {})
+            if not chosen_health.get("ok") and not getattr(args, 'single_model', False):
+                # Intentar siguiente provider activo válido
+                for fallback in ("ollama-local", "copilot", "github-models", "codex", "anthropic", "ollama-cloud"):
+                    if fallback == chosen:
+                        continue
+                    if fallback in active and health.get(fallback, {}).get("ok"):
+                        chosen = fallback
+                        pi(f"Fallback provider: {chosen}")
+                        break
+                else:
+                    chosen = "none"
+                    pi("Ningún provider válido encontrado")
+
         name, wire, prov = get_default_model(chosen, providers)
         if not name:
-            console.print(Panel(
-                "[bold yellow]No hay providers activos.[/bold yellow]\n"
-                "Usa [yellow]/login github[/yellow] para Copilot, "
-                "[yellow]/login openai[/yellow] para GPT, "
-                "[yellow]/login anthropic[/yellow] para Claude, "
-                "[yellow]/login ollama[/yellow] para local.",
-                title="BAGO — Login requerido", box=box.ROUNDED, border_style="yellow",
-            ))
-            name, wire, prov = "sin-modelo", "sin-modelo", "none"
+            session = BagoSession("none", "sin-modelo", "sin-modelo", creds, single_model=getattr(args, 'single_model', False))
+            from bago.menus.auth import _cmd_login
+            _cmd_login(session)
+            providers = load_providers()
+            chosen = auto_detect_provider(creds, providers)
+            if chosen and chosen != "none":
+                name, wire, prov = get_default_model(chosen, providers)
+            if not name:
+                console.print(Panel(
+                    "[bold yellow]No hay providers activos.[/bold yellow]\n"
+                    "Usa [yellow]/login github[/yellow] para Copilot, "
+                    "[yellow]/login openai[/yellow] para GPT, "
+                    "[yellow]/login anthropic[/yellow] para Claude, "
+                    "[yellow]/login ollama[/yellow] para local.",
+                    title="BAGO — Login requerido", box=box.ROUNDED, border_style="yellow",
+                ))
+                name, wire, prov = "sin-modelo", "sin-modelo", "none"
+            session.provider = prov
+            session.model_name = name
+            session.wire_name = wire
+            session.providers = providers
+            source = session._update_model_origin(prov, name, wire)
+            session.last_route = {
+                "mode": "auto",
+                "provider": prov,
+                "model": name,
+                "reason": "login requerido",
+                "service": source.get("service", ""),
+                "route": source.get("route", ""),
+                "backend": source.get("backend", ""),
+            }
+            return session
 
-    return BagoSession(prov, name, wire, creds)
+    return BagoSession(prov, name, wire, creds, single_model=getattr(args, 'single_model', False))
 
 
 # ─── Tareas de inicio en paralelo ─────────────────────────────────────────────

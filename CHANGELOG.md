@@ -1,3 +1,24 @@
+## [3.5.1] — Unreleased — 2026-05-28 · Startup Screen Redesign
+
+### Novedades
+- **Pantalla de inicio rediseñada** (`.bago/tools/bago_splash.py`):
+  - **Modo de operación**: muestra CHAT (conversación) y CREATE (tareas W2). En devmode aparece FRAMEWORK (trabajar sobre la instalación BAGO).
+  - **Proyectos recientes**: panel que lista hasta 5 proyectos recientes desde `.bago/state/recent_projects.json` con modo, ideas completadas y fecha relativa.
+  - **Acciones rápidas**: enlaces directos para iniciar chat (`bago launch`), nueva tarea W2 (`bago next`), nuevo proyecto (`bago siembra create <ruta>`), cambiar proyecto (`bago workspace-select`). En devmode añade "Framework tools".
+- **Rutas de launcher corregidas** (`bago_core/launcher.py`):
+  - `bago splash` ahora ejecuta correctamente `bago_splash.py` (pantalla gráfica Rich).
+  - `bago start / inicio / menu` siguen usando `bago_menu.py` (menú interactivo).
+- **Contrato operativo de la pantalla de inicio** creado en `.bago/knowledge_backup/topics/startup-screen-contract.md`.
+- Se añadió `## 🛠️ Empezar a trabajar` al `README.md` documentando el flujo `ideas → next → W2 → done → health`.
+
+### Archivos modificados
+- `.bago/tools/bago_splash.py` — paneles de modo, proyectos recientes, acciones rápidas.
+- `bago_core/launcher.py` — routing de `splash` separado de `start/inicio/menu`.
+- `README.md` — sección de inicio rápido.
+- `.bago/knowledge_backup/topics/startup-screen-contract.md` — contrato operativo.
+
+---
+
 ## [3.5.0] — Stable — 2026-05-22 · Escalacion Multi-Provider con Validacion de Credenciales
 
 ### Novedades

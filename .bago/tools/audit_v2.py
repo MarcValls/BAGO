@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""DEPRECATED thin wrapper — use `bago audit full` or `audit/_v2.py` directly.
+
+Este archivo se conserva para compatibilidad con scripts y pack.json que
+invocan audit_v2.py directamente. No añadir lógica nueva aquí.
+"""
 from __future__ import annotations
 import sys
 from pathlib import Path

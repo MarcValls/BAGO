@@ -1,17 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """bootstrap_state.py — crea global_state.json desde plantilla limpia con valores inyectados."""
-import os
-import sys
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
+from bago_utils import load_json, save_json, timestamp_iso
 import json
 import datetime
 import uuid
@@ -64,7 +55,12 @@ def main():
     state['mode'] = 'clean_install'
     state['status'] = 'initialized'
 
-    for subdir in ('sessions', 'changes', 'evidences', 'reports', 'config'):
+    for subdir in (
+        'sessions', 'changes', 'evidences', 'reports', 'config',
+        'audits', 'contracts', 'agents', 'boot', 'field', 'goals',
+        'orchestrator', 'peers', 'reactor', 'research', 'sac_locks',
+        'skills', 'sprints', 'toolboxes', 'scenarios',
+    ):
         (bago_dir / 'state' / subdir).mkdir(parents=True, exist_ok=True)
     state_path.parent.mkdir(parents=True, exist_ok=True)
     with open(state_path, 'w', encoding='utf-8') as f:

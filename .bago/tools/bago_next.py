@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago_next.py — Meta-comando de ciclo mínimo.
 
 Hace en un solo comando lo que antes requería 4:
@@ -15,17 +16,6 @@ Uso:
   bago next --auto    → acepta la idea #1 sin preguntar (para scripts/Codex)
   bago next --dry     → muestra la próxima idea sin aceptarla ni escribir nada
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 import sys
@@ -131,10 +121,13 @@ def _run_code_quality() -> None:
     """
     import subprocess
     bago_bin = BAGO_ROOT.parent / "bago"
+    # En Windows el ejecutable es bago.cmd
+    if sys.platform == "win32" and not bago_bin.exists():
+        bago_bin = BAGO_ROOT.parent / "bago.cmd"
     target = str(BAGO_ROOT / "tools")
     print(f"  {DIM('── Análisis previo de calidad ───────────────')}")
     result = subprocess.run(
-        [sys.executable, str(bago_bin), "code-quality", target],
+        [str(bago_bin), "code-quality", target],
         capture_output=True, text=True
     )
     # Prefer the final "Análisis completado" total line, fallback to first "hallazgo" line

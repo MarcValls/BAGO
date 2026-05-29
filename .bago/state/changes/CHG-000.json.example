@@ -1,0 +1,17 @@
+{
+  "change_id": "CHG-000",
+  "title": "Ejemplo de cambio estructural",
+  "type": "refactor",
+  "severity": "patch",
+  "status": "proposed",
+  "motivation": "Documentar la estructura mínima de un cambio canónico.",
+  "scope": ["docs", "contratos"],
+  "impacts": ["trazabilidad", "auditoría"],
+  "requires_migration": false,
+  "validation_result": "",
+  "source_path": null,
+  "source_format": null,
+  "raw_markdown_preserved": false,
+  "created_at": "2026-05-28T21:00:00+02:00",
+  "updated_at": "2026-05-28T21:00:00+02:00"
+}

@@ -20,6 +20,7 @@ TOOLS_DIR = SCRIPT_DIR
 BAGO_DIR = SCRIPT_DIR.parent
 BAGO_REPO_ROOT = BAGO_DIR.parent
 STATE_DIR = BAGO_DIR / "state"
+DEFAULT_USER_BAGO = BAGO_DIR / "user"
 
 def _resolve_user_bago() -> Path:
     portable_home = os.environ.get("BAGO_USER_HOME") or os.environ.get("BAGO_USER_DIR")
@@ -27,9 +28,14 @@ def _resolve_user_bago() -> Path:
         candidate = Path(portable_home).expanduser().resolve()
         try:
             candidate.mkdir(parents=True, exist_ok=True)
+            state_dir = candidate / "state"
+            state_dir.mkdir(parents=True, exist_ok=True)
             test = candidate / ".write_test"
             test.write_text("ok")
             test.unlink()
+            state_test = state_dir / ".write_test"
+            state_test.write_text("ok")
+            state_test.unlink()
             return candidate
         except Exception:
             pass
@@ -73,7 +79,7 @@ BAGO_SYSTEM = (
     "ejemplos concretos con valores reales."
 )
 
-COLORS = {"copilot":"yellow","codex":"magenta","ollama-local":"green","ollama-cloud":"cyan"}
+COLORS = {"copilot":"yellow","codex":"magenta","ollama-local":"green","ollama-cloud":"cyan","github-models":"blue"}
 
 HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
@@ -81,11 +87,13 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
   [yellow]/login[/yellow]                               Ver estado de todos los providers
   [yellow]/login github[/yellow]                        Login GitHub → activa Copilot + GitHub Models
+  [yellow]/login github-models[/yellow]                 Alias para /login github (GitHub Models)
   [yellow]/login gpt[/yellow]                           Login GPT Plus (codex login) o API key OpenAI
   [yellow]/login anthropic[/yellow]                     Guardar API Key → activa Claude
   [yellow]/login gemini[/yellow]                        Guardar API Key → activa Gemini Flash/Pro
   [yellow]/login openrouter[/yellow]                    Guardar API Key → acceso a 200+ modelos
   [yellow]/login ollama[/yellow]                        Verificar Ollama local (sin credencial)
+  [yellow]/login github-models[/yellow]                 Alias para /login github (GitHub Models)
   [yellow]/scan[/yellow]                                Scan completo: disponibles · potenciales · missing · tokens
   [yellow]/logout[/yellow]                               Logout limpio de provider activo o seleccionado
 
@@ -98,6 +106,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [dim]─── 2 · MODELO & ROUTING ── cómo BAGO decide qué modelo usar ─────────[/dim]
 
   [yellow]/switch <modelo>[/yellow]                     Forzar modelo puntualmente (sin perder historial)
+  [yellow]/single on|off[/yellow]                      Modo single model (sin fallback ni auto-routing)
   [yellow]/autoroute on|off[/yellow]                    Routing automatico basado en tipo de tarea
   [yellow]/models[/yellow]                              Listar modelos o detectar accesibles: /models detect
   [yellow]/generative[/yellow] [dim]|[/dim] [yellow]/gen[/yellow]               Modo generativo: offline · eco · standard · full · auto
@@ -165,6 +174,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [dim]─── SESION RAPIDA ───────────────────────────────────────────────────────[/dim]
 
   [yellow]/status[/yellow]  Estado actual    [yellow]/save[/yellow]  Guardar sesion
+  [yellow]/cwd[/yellow]      Ver/fijar carpeta de trabajo del chat
   [yellow]/serve[/yellow]  Arrancar API BAGO  [yellow]/api[/yellow]   Modo API (on/off/hybrid/status)
   [yellow]/clear[/yellow]   Limpiar historial  [yellow]/exit[/yellow]  Salir
 

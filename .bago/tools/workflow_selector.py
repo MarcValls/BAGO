@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 workflow_selector.py — Selector formal de workflow BAGO.
 
 Modo interactivo: hace 4-5 preguntas y recomienda el workflow más adecuado.
@@ -25,11 +26,6 @@ import json
 import sys
 
 # Windows UTF-8 fix for box-drawing characters
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT = Path(__file__).resolve().parents[1]
 GLOBAL_STATE = ROOT / "state" / "global_state.json"

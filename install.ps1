@@ -36,18 +36,36 @@ function New-DefaultRuntimeContract {
                 "bago.ps1",
                 "bago.ico",
                 "bago_core",
+                "bago_dashboard.py",
+                "bago-dev.cmd",
+                "bago.sh",
                 "LICENSE",
                 "README.md",
                 "INSTALL.md",
                 "CHANGELOG.md",
                 "QUICKSTART.md",
+                "INICIO_RAPIDO_PORTABLE.md",
                 "install.ps1",
-                "smoke-test.ps1",
-                "runtime_contract.json"
+                "install.sh",
+                "install_bago.py",
+                "install-bago.cmd",
+                "install-bago.sh",
+                "make-portable.ps1",
+                "pyproject.toml",
+                "RELEASE_3.5.0.md",
+                "SIMULACION_MAC.md",
+                "SIMULACION_WINDOWS.md",
+                "runtime_contract.json",
+                "smoke-test.ps1"
             )
         }
         state = [pscustomobject]@{
-            keep_dirs = @("sessions", "changes", "evidences", "reports", "config")
+            keep_dirs = @(
+                "sessions", "changes", "evidences", "reports", "config",
+                "audits", "contracts", "agents", "boot", "field", "goals",
+                "orchestrator", "peers", "reactor", "research", "skills",
+                "sprints", "toolboxes"
+            )
             reset_dirs = @("reports", "sac_locks")
             prune_file_patterns = @(
                 "*.jsonl",
@@ -295,28 +313,35 @@ function Prune-RuntimeTree {
     $keep = @($treeContract.keep)
     if (-not $keep -or $keep.Count -eq 0) {
         $keep = @(
-            ".llama",
-            ".models",
             "agents",
             "assets",
+            "backups",
             "bin",
             "config",
             "core",
+            "docs",
             "extensions",
             "knowledge",
+            "knowledge_backup",
             "manifests",
             "mcp",
             "prompts",
             "roles",
+            "snapshots",
             "state",
             "supervision",
             "templates",
             "tools",
+            "traces",
             "workflows",
             "pack.json",
             "tools.manifest.json",
             "AGENT_START.md",
             "BOOTSTRAP.md",
+            "DASHBOARD_README.md",
+            "dashboard.html",
+            "dashboard_data.json",
+            "install_config.json",
             "TREE.txt",
             "CHECKSUMS.sha256"
         )
@@ -365,14 +390,27 @@ function Prune-DevelopmentResidue {
             "bago.ps1",
             "bago.ico",
             "bago_core",
+            "bago_dashboard.py",
+            "bago-dev.cmd",
+            "bago.sh",
             "LICENSE",
             "README.md",
             "INSTALL.md",
             "CHANGELOG.md",
             "QUICKSTART.md",
+            "INICIO_RAPIDO_PORTABLE.md",
             "install.ps1",
-            "smoke-test.ps1",
-            "runtime_contract.json"
+            "install.sh",
+            "install_bago.py",
+            "install-bago.cmd",
+            "install-bago.sh",
+            "make-portable.ps1",
+            "pyproject.toml",
+            "RELEASE_3.5.0.md",
+            "SIMULACION_MAC.md",
+            "SIMULACION_WINDOWS.md",
+            "runtime_contract.json",
+            "smoke-test.ps1"
         )
     }
     if ($keep -notcontains "runtime_contract.json") {

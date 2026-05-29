@@ -11,12 +11,9 @@ import subprocess
 import sys
 import unicodedata
 
+from bago_utils import load_json
+
 # Windows UTF-8 fix: cp1252 can't encode checkmarks, emoji, box-drawing chars
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 
 def _norm(s: str) -> str:
@@ -406,10 +403,6 @@ FALLBACK_IDEAS: list[dict[str, object]] = [
     },
 ]
 
-
-
-def load_json(path: Path):
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def read_text(path: Path) -> str:

@@ -1,0 +1,248 @@
+{
+  "audit_id": "AUDITORIA-PROFUNDIZACION-003",
+  "title": "Profundización sobre AUDITORIA-BRUTAL-002 — Verificación y nuevos hallazgos",
+  "timestamp": "2026-05-28T00:00:00Z",
+  "auditor": "Copilot CLI",
+  "scope": [
+    "verify_prior_fixes",
+    "secret_leakage_extended",
+    "env_var_completeness",
+    "bago_core_architecture",
+    "dashboard_data_personal_info",
+    "bootstrap_completeness"
+  ],
+  "summary": {
+    "critical": 2,
+    "high": 1,
+    "medium": 3,
+    "low": 3,
+    "info": 7,
+    "corrections_to_prior": 2
+  },
+  "corrections_to_prior_audits": [
+    {
+      "prior_audit": "AUDITORIA-BRUTAL-002",
+      "finding_id": "IMP-002",
+      "correction": "El paquete 'bago_core' SÍ existe en el repositorio. Contiene __init__.py, cli.py, installer.py y launcher.py. El import 'from bago_core.installer import ...' habría funcionado. La reimplementación local en bago_update.py es redundante pero inofensiva.",
+      "impact": "Ninguno funcional — bago_update.py sigue operativo."
+    },
+    {
+      "prior_audit": "Resumen de contexto comprimido",
+      "finding": "bago_version.py referencia bago_core/__init__.py que 'no existe'",
+      "correction": "bago_core/__init__.py SÍ existe y contiene __version__ = '3.5.0b1'. El self-test de bago_version.py pasa con 14/14 OK.",
+      "impact": "Ninguno — la herramienta de versionado está completamente operativa."
+    }
+  ],
+  "findings": [
+    {
+      "id": "SEC-002",
+      "severity": "critical",
+      "category": "secret_leakage",
+      "files": [
+        "tools/bago_music_apk_monitor.py",
+        "tools/bago_telegram_bridge.py",
+        "tools/rotate_telegram_token.sh"
+      ],
+      "description": "Mismo token de Telegram Bot hardcodeado como valor por defecto en dos archivos Python y como OLD_TOKEN en un script shell.",
+      "impact": "El token comprometido podría ser usado por terceros para controlar el bot incluso después de revocarlo, si alguna instalación antigua sigue usando estos archivos.",
+      "action_taken": "Eliminados los valores por defecto hardcodeados. Ahora los archivos Python abortan con SystemExit si BAGO_TELEGRAM_TOKEN no está definido. El script shell requiere que el usuario exporte OLD_TOKEN o lo edite antes de ejecutar.",
+      "verification": "grep de '<REDACTED_TELEGRAM_TOKEN>' en todo .bago/ devuelve 0 resultados.",
+      "status": "fixed"
+    },
+    {
+      "id": "SEC-003",
+      "severity": "low",
+      "category": "secret_leakage",
+      "file": "tools/bago_music_apk_monitor.py",
+      "line": 9,
+      "description": "CHAT_ID por defecto hardcodeado (7752787448) en BAGO_TELEGRAM_CHAT.",
+      "impact": "Si alguien ejecuta el script sin definir CHAT_ID, las notificaciones irían a un chat controlado por el desarrollador original. No es un token pero es información personal.",
+      "action_taken": "Se mantiene como referencia pero se añade documentación en .env.example para que el usuario lo configure.",
+      "status": "mitigated"
+    },
+    {
+      "id": "ENV-001",
+      "severity": "info",
+      "category": "env_var_completeness",
+      "description": "Escaneo completo de variables de entorno usadas en .bago/ revela ~191 referencias únicas.",
+      "prior_state": ".env.example documentaba solo 3 variables (BAGO_TELEGRAM_TOKEN, GITHUB_TOKEN, OPENAI_API_KEY).",
+      "action_taken": ".env.example expandido a ~50 variables organizadas por categoría: Telegram, GitHub, OpenAI/Codex, Ollama, otros LLM, rutas principales, componentes opcionales, API internas, neural bus, cloud gateway, issues/sync, desactivación de componentes, seguridad/depuración.",
+      "status": "fixed"
+    },
+    {
+      "id": "ARCH-001",
+      "severity": "info",
+      "category": "bago_core_architecture",
+      "description": "Verificación de existencia de bago_core/.",
+      "detail": "bago_core/ existe en la raíz del repo y contiene: __init__.py (con __version__), cli.py, installer.py, launcher.py. Las referencias a bago_core en el código son válidas.",
+      "exception": "bago_orchestrator SÍ es inexistente como módulo estático. Solo se carga dinámicamente desde tools/orchestrator.py mediante importlib en bago/session.py.",
+      "status": "verified"
+    },
+    {
+      "id": "DASH-001",
+      "severity": "info",
+      "category": "dashboard_data_personal_info",
+      "description": "Escaneo profundo de dashboard_data.json buscando datos personales.",
+      "findings": "Solo se encontró '/meta/repo: MarcValls/BAGO', que es información pública (nombre de repo de GitHub). No hay rutas de usuario, nombres reales, tokens ni otros datos sensibles.",
+      "action_taken": "El archivo ya tenía placeholders <INSTALL_ROOT> y <PROGRAM_DATA> aplicados en auditoría anterior. No requiere más cambios.",
+      "status": "verified"
+    },
+    {
+      "id": "BOOT-001",
+      "severity": "info",
+      "category": "bootstrap_completeness",
+      "description": "Verificación de que bootstrap_state.py crea todos los directorios esperados.",
+      "detail": "bootstrap_state.py crea: knowledge, tools, state, state/audits, state/scenarios, state/global, backups, snapshots, contracts. La rama 'scenarios' fue añadida en AUDITORIA-BRUTAL-002.",
+      "action_taken": "Ninguno requerido. El bootstrap está completo.",
+      "status": "verified"
+    },
+    {
+      "id": "SEC-004",
+      "severity": "critical",
+      "category": "remote_code_execution",
+      "file": "core/prompt_router.py",
+      "line": "~131 (pre-fix)",
+      "description": "Uso de eval() con sandbox escapable. La regex de whitelist permitia parentesis, punto y apóstrofe, posibilitando: ().__class__.__base__.__subclasses__() y ejecución arbitraria.",
+      "impact": "Un atacante con acceso a modificar .bago/artifacts/index.json podía inyectar condiciones maliciosas que se evaluaban con eval() directamente.",
+      "action_taken": "Reemplazado eval() por evaluador AST seguro (_safe_eval_condition). Solo se permiten nodos de comparación, booleanos, aritméticos básicos y referencias a variables del contexto (cycle, radius, task_type).",
+      "verification": "Prueba con condición benigna 'cycle > 1 and radius < 10' evalúa correctamente. Prueba con payload '__import__(\"os\").system(\"whoami\")' es rechazada.",
+      "status": "fixed"
+    },
+    {
+      "id": "SEC-005",
+      "severity": "critical",
+      "category": "broken_security_control",
+      "file": "core/spiral_prompt_builder.py",
+      "line": "~20 (pre-fix)",
+      "description": "Regex SafeExpr._ALLOWED_OPS usaba '$$' en lugar de '$'. En regex Python '$$' nunca hace match, por lo que SafeExpr.eval() siempre retornaba False para condiciones no vacías.",
+      "impact": "El mecanismo de selección condicional de artefactos estaba completamente roto; ningún artefacto con condición era seleccionado nunca.",
+      "action_taken": "Reescrita la clase SafeExpr para usar evaluador AST seguro (mismo mecanismo que prompt_router.py). El regex obsoleto ha sido eliminado.",
+      "verification": "Prueba con condición 'cycle > 1' retorna True. Payload malicioso es rechazado.",
+      "status": "fixed"
+    },
+    {
+      "id": "CORR-001",
+      "severity": "high",
+      "category": "data_corruption",
+      "file": "tools/bago_repartition.py",
+      "line": "232-247",
+      "description": "Seis llamadas a Path.write_text() sin encoding explícito. En Windows usa cp1252 por defecto, corrompiendo caracteres no-ASCII y emojis en scripts lanzadores.",
+      "impact": "Scripts generados en Windows podían contener caracteres corruptos (mojibake), rompiendo lanzadores o generando errores de sintaxis en shell scripts.",
+      "action_taken": "Añadido encoding='utf-8' a las 6 llamadas write_text() en la generación de launchers.",
+      "verification": "py_compile pasa sin errores. El archivo genera correctamente UTF-8.",
+      "status": "fixed"
+    },
+    {
+      "id": "CONF-001",
+      "severity": "medium",
+      "category": "hardcoded_paths",
+      "files": [
+        "tools/http_discover.py",
+        "tools/lenovo_connect.py"
+      ],
+      "description": "Rutas absolutas de otra máquina (C:\\Marc_max_20gb\\.bago\\tools\\...) hardcodeadas en LOG_FILE, IP_FILE, MONITOR_LOG y LENOVO_IP_FILE.",
+      "impact": "En instalaciones nuevas estas rutas no existen, causando errores de escritura y perdiendo logs/detecciones.",
+      "action_taken": "Reemplazadas por rutas relativas al home del usuario: Path.home() / '.bago' / 'tools' / ...",
+      "status": "fixed"
+    },
+    {
+      "id": "CONF-002",
+      "severity": "medium",
+      "category": "hardcoded_ips",
+      "files": [
+        "tools/http_discover.py",
+        "tools/lenovo_connect.py",
+        "tools/net_interact.py",
+        "tools/peer_link.py"
+      ],
+      "description": "IPs APIPA (169.254.31.155), temporales (10.0.0.250, 172.16.0.250, 192.168.x.250) y DNS fallback (8.8.8.8) hardcodeadas.",
+      "impact": "Configuración de red específica de un entorno físico está inyectada en el código fuente. Rompe portabilidad y obliga a editar código para otros usuarios.",
+      "action_taken": "Todas las IPs parametrizadas mediante variables de entorno con valores por defecto documentados: BAGO_OWN_ETHERNET_IP, BAGO_ETHERNET_IFACE, BAGO_LOCAL_APIPA_IP, BAGO_TEMP_IP, BAGO_EXTRA_TEMP_IPS, BAGO_FALLBACK_DNS. Añadidas a .env.example.",
+      "status": "fixed"
+    },
+    {
+      "id": "NET-001",
+      "severity": "medium",
+      "category": "network_error_handling",
+      "file": "tools/bago_advisor.py",
+      "line": "141 (pre-fix)",
+      "description": "urllib.request.urlopen() en _stream_ollama sin bloque try/except. Si Ollama cae durante la llamada o la red falla, el script aborta con excepción no controlada.",
+      "impact": "Usuario recibe stacktrace en lugar de mensaje de error amigable. Posible pérdida de contexto de la conversación.",
+      "action_taken": "Añadidos except blocks para urllib.error.HTTPError, urllib.error.URLError y socket.timeout con mensajes de error claros en español.",
+      "verification": "Self-test de bago_advisor.py pasa 8/8 OK. py_compile OK.",
+      "status": "fixed"
+    },
+    {
+      "id": "DEST-001",
+      "severity": "medium",
+      "category": "destructive_operations",
+      "file": "tools/bago_electron_packager.py",
+      "line": "36 (pre-fix)",
+      "description": "shutil.rmtree(proj) elimina directorio de proyecto existente sin confirmación ni flag de override.",
+      "impact": "Ejecutar el script dos veces con el mismo nombre destruye el trabajo anterior sin avisar.",
+      "action_taken": "Añadido flag --force. Sin --force, el script imprime advertencia y aborta con exit code 1. Con --force, sobrescribe explícitamente.",
+      "verification": "Prueba manual: primera ejecución crea proyecto; segunda ejecución sin --force aborta con mensaje claro; segunda ejecución con --force re-crea proyecto.",
+      "status": "fixed"
+    },
+    {
+      "id": "BUG-001",
+      "severity": "low",
+      "category": "pre_existing_bug",
+      "file": "tools/bago_advisor.py",
+      "line": "212",
+      "description": "_detect_domain asume que active_workflow es string, pero puede ser dict. Llamada a .lower() sobre dict lanza AttributeError durante self-test.",
+      "impact": "Self-test de bago_advisor.py fallaba consistentemente (1/8 tests). No afecta runtime normal si active_workflow siempre es string.",
+      "action_taken": "Añadido str() antes de .lower(): str(gs.get('sprint_status', {}).get('active_workflow') or '').lower().",
+      "verification": "Self-test pasa 8/8 OK.",
+      "status": "fixed"
+    },
+    {
+      "id": "BUG-002",
+      "severity": "low",
+      "category": "pre_existing_bug",
+      "file": "tools/bago_advisor.py",
+      "line": "641",
+      "description": "Test system_prompt_completeness busca 'Proximo paso' sin acento, pero el prompt contiene 'Próximo paso'.",
+      "impact": "Self-test fallaba consistentemente en T4.",
+      "action_taken": "Corregida la keyword del test para que coincida con el contenido real del prompt: 'Próximo paso'.",
+      "verification": "Self-test pasa 8/8 OK.",
+      "status": "fixed"
+    },
+    {
+      "id": "CLEAN-001",
+      "severity": "info",
+      "category": "docstring_import_cleanup",
+      "files": "57 archivos en .bago/tools/",
+      "description": "Limpieza de imports falsos incrustados en docstrings de módulo. Eran artefactos de copiar-pegar de una plantilla común ('from bago_utils import load_json, save_json, timestamp_iso').",
+      "impact": "Cosmético pero reduce ruido para herramientas de análisis estático (grep, auditores) y mejora legibilidad de la documentación.",
+      "action_taken": "Script AST-safe eliminó 57 líneas de import falsas en 57 archivos. Verificado con py_compile en todo .bago/tools/*.py — 0 errores.",
+      "note": "15 archivos restantes reportados por el auditor original contienen imports indentados como ejemplos legítimos de uso (ej. 'from bago_node import BusNode') o son falsos positivos del script de auditoría (imports locales dentro de funciones). No se modificaron.",
+      "status": "fixed"
+    },
+    {
+      "id": "GIT-001",
+      "severity": "info",
+      "category": "gitignore_completeness",
+      "file": ".gitignore",
+      "description": "Verificación de que dashboard_data.json esté en .gitignore.",
+      "action_taken": "Ya existía en línea 33: '.bago/dashboard_data.json'. No requirió cambios.",
+      "status": "verified"
+    },
+    {
+      "id": "ARCH-002",
+      "severity": "info",
+      "category": "code_duplication_decision",
+      "file": "tools/bago_update.py",
+      "description": "Revisión de si bago_update.py debería revertirse a usar bago_core.installer.",
+      "analysis": "bago_core.installer instala BAGO desde cero en un directorio limpio. bago_update.py actualiza una instalación existente, respalda estado local, preserva configuración, y soporta flags (--beta, --stable, --dry-run, --local) que installer no tiene. Los casos de uso difieren.",
+      "action_taken": "Decisión: MANTENER duplicación local. Añadida nota de arquitectura en el docstring de bago_update.py documentando la relación y la razón de la independencia. Esto mantiene la herramienta autocontenida y evita romper el update path si bago_core cambia.",
+      "status": "resolved"
+    }
+  ],
+  "recommendations_remaining": [
+    "Ninguna — todas las recomendaciones de AUDITORIA-PROFUNDIZACION-003 están resueltas o documentadas."
+  ],
+  "previous_audits": [
+    "state/audits/AUDITORIA-BRUTAL-002.json"
+  ]
+}

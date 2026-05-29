@@ -22,16 +22,7 @@ Opciones:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import ast
 import re
@@ -357,7 +348,6 @@ def _self_test() -> None:
         fail("dead_code:unused_func_detected", f"findings={[(x.rule,x.message) for x in r4]}")
 
     # T6 — scan_target en directorio sin .py → vacío
-    import os
     with tempfile.TemporaryDirectory() as td:
         (Path(td) / "test.txt").write_text("hello")
         r5 = scan_target(td)

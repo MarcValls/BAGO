@@ -84,6 +84,15 @@
       "seeded_from": "3.3.0",
       "last_sync": "2026-05-11",
       "estado": "activa"
+    },
+    {
+      "name": "bago_test_project",
+      "path": "C:\\bago_test_project",
+      "tipo": "siembra_v3",
+      "seeded_at": "2026-05-27",
+      "seeded_from": "3.5.0b1",
+      "last_sync": "2026-05-27",
+      "estado": "activa"
     }
   ]
 }

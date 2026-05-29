@@ -23,18 +23,13 @@ Arquitectura interna (sub-módulos privados en el mismo directorio):
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import sys
 from pathlib import Path
 
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-os.environ.setdefault("PYTHONUTF8", "1")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # Ensure sub-modules in this directory are importable even when this file is
 # loaded via importlib.util.spec_from_file_location (which does NOT add the

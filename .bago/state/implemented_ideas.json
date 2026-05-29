@@ -161,130 +161,33 @@
       "title": "Framework padre vs siembras de proyecto",
       "slot": null,
       "done_at": "2026-05-06T23:51:34.168389+00:00"
+    },
+    {
+      "title": "README enlaza ideas con W2",
+      "slot": null,
+      "done_at": "2026-05-27T18:03:22.732973+00:00"
+    },
+    {
+      "title": "Compactar recomendacion final",
+      "slot": null,
+      "done_at": "2026-05-27T18:59:51.014689+00:00"
+    },
+    {
+      "title": "Reforzar rango del selector",
+      "slot": null,
+      "done_at": "2026-05-27T19:02:17.248860+00:00"
     }
   ],
-  "updated_at": "2026-05-07T15:12:09.766647+00:00",
+  "updated_at": "2026-05-27T19:02:17.248860+00:00",
   "ideas_completed": [
     {
-      "id": "session_close_uses_last_completed",
-      "title": "session_close_generator debe leer last_completed_workflow (enriquecimiento)",
-      "date": "2026-05-07T15:12:09.766647+00:00",
-      "session_close": "SESSION_CLOSE_20260507_151135.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "session_close_generator.generate() invoca _enrich_task_with_last_completed antes de renderizar. Si task vacía → sintetiza desde last_completed_workflow. Si task no encaja con last_completed (substring) y last_completed.ended > task.accepted_at → override. Tests 4/4 cubren todos los casos."
-    },
-    {
-      "id": "ideas_filter_already_implemented",
-      "title": "bago ideas debe filtrar las ideas ya implementadas (substring match)",
-      "date": "2026-05-07T15:04:59.483924+00:00",
-      "session_close": "auto",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "emit_ideas._is_implemented usa substring matching para excluir ideas cuyos títulos en implemented_ideas tengan sufijos (ej. \"— sidecar W9\", \"(bago health)\"). 6/6 casos validados. Cambio paralelo en ideas_selector.py para coherencia con bago select."
-    },
-    {
-      "id": "session_close_clears_pending_task",
-      "title": "session close limpia pending_w2_task con status=done",
-      "date": "2026-05-07T14:59:36.294999+00:00",
-      "session_close": "SESSION_CLOSE_20260507_145857.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "session_close_generator.main() archiva pending_w2_task.json en .bago/state/archive/pending_w2_task/<TS>.json cuando status=done; tests 6/6."
-    },
-    {
-      "id": "fallback_w10_flow_task_desync",
-      "title": "W10: detectar desync task-done vs flow-activo (bago health)",
-      "date": "2026-05-07T14:37:25.069271+00:00",
-      "session_close": "SESSION_CLOSE_20260507_143712.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Subscore disciplina_workflow penaliza -5 cuando pending_w2_task.status=done coexiste con active_workflow!=null. Test 5/5. Detalle visible en bago health."
-    },
-    {
-      "id": "cosecha_ideas_sprint",
-      "title": "Cosecha con ideas del sprint — sidecar artefacto W9",
-      "date": "2026-05-07T13:58:17.421227+00:00",
-      "session_close": "SESSION_CLOSE_20260507_135806.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Generar artefacto sidecar COSECHA_<SES>_ideas.md con tabla de ideas implementadas en la ventana del sprint actual + objetivos detallados, registrado como artifact de la sesión harvest"
-    },
-    {
-      "id": "bago_recientes_paginated_log",
-      "title": "bago recientes — bitácora paginada de últimos trabajos",
-      "date": "2026-05-07T07:35:06.251752+00:00",
-      "session_close": "SESSION_CLOSE_20260507_073451.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Comando agregador timeline cruzado (sesiones+sprints+ideas+cierres+commits) con paginación interactiva"
-    },
-    {
       "id": null,
-      "title": "Framework padre vs siembras de proyecto",
-      "date": "2026-05-07T01:47:36.059430+00:00",
-      "session_close": "SESSION_CLOSE_20260507_014736.md",
+      "title": "Reforzar rango del selector",
+      "date": "2026-05-27T19:02:17.315538+00:00",
+      "session_close": "SESSION_CLOSE_20260527_180322.md",
       "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Spec detallado en .bago/core/architecture/PADRE_SIEMBRA.md — 4 fases, 6 decisiones frozen, listo para implementar en v3.0"
-    },
-    {
-      "id": null,
-      "title": "session close debe limpiar pending_w2_task con status=done",
-      "date": "2026-05-07T14:58:19.970288+00:00",
-      "session_close": "SESSION_CLOSE_20260507_145819.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Tras bago session close, la pending_w2_task con status=done queda residual y bloquea bago session open siguiente."
-    },
-    {
-      "id": null,
-      "title": "bago ideas debe filtrar las ideas ya implementadas",
-      "date": "2026-05-07T15:04:59.337632+00:00",
-      "session_close": "SESSION_CLOSE_20260507_150459.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Las ideas cerradas hoy seguían en el catálogo como ranking-1, lo que confunde al selector y rompe la auto-coherencia ideación→implementación→catálogo."
-    },
-    {
-      "id": null,
-      "title": "session_close_generator lee last_completed_workflow",
-      "date": "2026-05-07T15:11:35.994766+00:00",
-      "session_close": "SESSION_CLOSE_20260507_151135.md",
-      "workflow": "W2",
-      "objetivo": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día."
-    },
-    {
-      "id": "ton_wallet_connect_bago_app",
-      "title": "TON wallet connect en BAGO app",
-      "date": "2026-05-07T23:15:40.325812+00:00",
-      "session_close": "SESSION_CLOSE_20260507_231540.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Eliminar el paste manual de token TON en la BAGO app. Enlazar wallet de usuario estilo mini-apps de trading de Telegram (TonConnect protocol)."
-    },
-    {
-      "id": null,
-      "title": "session_close_generator debe leer last_completed_workflow",
-      "date": "2026-05-11T15:22:56.609560+00:00",
-      "session_close": "SESSION_CLOSE_20260511_152256.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "El SESSION_CLOSE.md generado al cerrar sesión sigue refiriéndose a la pending_w2_task vieja (Padre/Siembra) en lugar del último flow cerrado del día."
-    },
-    {
-      "id": null,
-      "title": "Clasificador automático de workflow (W0-W10) con sklearn",
-      "date": "2026-05-13T07:18:25.289789+00:00",
-      "session_close": "SESSION_CLOSE_20260513_071825.md",
-      "workflow": "W2_IMPLEMENTACION_CONTROLADA",
-      "objetivo": "Entrenar un clasificador LogisticRegression/RandomForest sobre las 59 sesiones existentes para predecir qué workflow (W0-W10) activar dado el contexto actual. Features: tipo de archivos modificados, keywords de la tarea, hora, health score. Integrar en bago workflow como recomendación automática."
-    },
-    {
-      "id": null,
-      "title": "—",
-      "date": "2026-05-19T20:55:40.083513+00:00",
-      "session_close": "SESSION_CLOSE_20260519_205540.md",
-      "workflow": "—",
-      "objetivo": "—"
-    },
-    {
-      "id": null,
-      "title": "—",
-      "date": "2026-05-19T21:00:33.476735+00:00",
-      "session_close": "SESSION_CLOSE_20260519_205540.md",
-      "workflow": "—",
-      "objetivo": "—"
+      "objetivo": "Hacer explicito el limite de 5 a 20 ideas en la salida del selector."
     }
   ],
-  "last_updated": "2026-05-19T21:00:33.476744+00:00"
+  "last_updated": "2026-05-27T19:02:17.315553+00:00"
 }

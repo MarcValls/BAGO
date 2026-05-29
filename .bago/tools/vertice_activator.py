@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 vertice_activator.py — Evaluador de activación de revisión Vértice.
 
 Evalúa señales para abrir revisión Vértice:
@@ -14,17 +15,6 @@ Salida: CLEAN / WATCH / ACTIVATE con justificación.
 Uso:
   python3 .bago/tools/vertice_activator.py
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 from pathlib import Path
 import json

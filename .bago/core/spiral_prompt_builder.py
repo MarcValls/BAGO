@@ -8,6 +8,7 @@ el prompt capa por capa, de menos a mas, infinitamente escalable.
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 import textwrap
@@ -16,17 +17,43 @@ from typing import Any
 
 
 class SafeExpr:
-    """Evaluador de expresiones condicionales seguras para artefactos."""
-    _ALLOWED_OPS = re.compile(r"^[\w\s._\-+<>=!&|'():,\[\]]+$$")
+    """Evaluador de expresiones condicionales seguras para artefactos.
+
+    Rechaza cualquier construccion que no sea comparacion, operador booleano
+    o aritmetica basica sobre variables del contexto.
+    """
 
     @staticmethod
     def eval(condition: str, context: dict) -> bool:
         if not condition:
             return True
-        if not SafeExpr._ALLOWED_OPS.match(condition):
-            return False
         try:
-            return bool(eval(condition, {"__builtins__": {}}, context))
+            tree = ast.parse(condition, mode="eval")
+        except SyntaxError:
+            return False
+
+        allowed_nodes = {
+            ast.Expression,
+            ast.BinOp, ast.BoolOp, ast.Compare, ast.UnaryOp,
+            ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow,
+            ast.And, ast.Or, ast.Not,
+            ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+            ast.In, ast.NotIn,
+            ast.Name, ast.Constant, ast.Load,
+        }
+        # Compatibilidad con Python < 3.8
+        if hasattr(ast, "Num"):
+            allowed_nodes.add(ast.Num)
+        if hasattr(ast, "Str"):
+            allowed_nodes.add(ast.Str)
+
+        for node in ast.walk(tree):
+            if type(node) not in allowed_nodes:
+                return False
+
+        compiled = compile(tree, "<condition>", "eval")
+        try:
+            return bool(eval(compiled, {"__builtins__": {}}, context))
         except Exception:
             return False
 

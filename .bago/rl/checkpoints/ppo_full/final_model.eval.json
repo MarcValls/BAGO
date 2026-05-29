@@ -1,0 +1,11 @@
+{
+  "curriculum": "full",
+  "model": ".bago\\rl\\checkpoints\\ppo_full\\final_model.zip",
+  "episodes": 500,
+  "mean_reward": 2.0899,
+  "std_reward": 2.0391,
+  "mean_length": 8.13,
+  "success_rate": 0.0,
+  "invalid_actions": 0,
+  "invalid_pct": 0.0
+}

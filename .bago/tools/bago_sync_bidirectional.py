@@ -14,20 +14,12 @@ Instalaciones locales:
 Uso:
     python bago_sync_bidirectional.py [--dry-run] [--no-push]
 """
-from __future__ import annotations
 
-import argparse
-import os
-import subprocess
-import sys
-import time
-from pathlib import Path
 
 # ── Configuración ───────────────────────────────────────────────────────────
 
 # Detectar motor y knowledge dinamicamente via bago_paths
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from bago_paths import get_motor_root, get_knowledge_root
 
 MOTOR_ROOT = get_motor_root()
 KNOWLEDGE_ROOT = get_knowledge_root()
@@ -37,7 +29,6 @@ _alt_motor = os.environ.get("BAGO_MOTOR_ROOT_ALT")
 _alt_knowledge = os.environ.get("BAGO_KNOWLEDGE_ROOT_ALT")
 if not _alt_motor:
     # Buscar en todas las unidades disponibles
-    import string
     for drive_letter in string.ascii_uppercase:
         drive = Path(drive_letter + ":/")
         if not drive.exists():

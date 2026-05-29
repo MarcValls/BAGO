@@ -21,9 +21,9 @@
     "brain": "core/00_CEREBRO_BAGO.md"
   },
   "contracts": {
-    "role": "core/04_CONTRATOS_DE_ROL.md",
+    "role": "core/canon/CONTRATOS/contrato_rol.md",
     "workflow": "core/canon/CONTRATOS/contrato_workflow.md",
-    "change": "core/07_PROTOCOLO_DE_CAMBIO.md",
+    "change": "core/canon/CONTRATOS/contrato_cambio.md",
     "evidence": "core/canon/CONTRATOS/contrato_evidencia.md"
   },
   "workflows": {

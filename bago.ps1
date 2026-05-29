@@ -17,6 +17,8 @@
 #   bago sync [--to-usb|--from-usb|knowledge] → sincroniza con pendrive o knowledge repo
 #   bago knowledge [sync|pull|push|status] → sincroniza con bago-knowledge
 #   bago dev refresh-engine [--with-knowledge|--without-knowledge] → reconstruye el motor limpio
+#   bago dev twin            → interfaz de desarrollador con dos paneles (IA | BAGO)
+#   bago split               → abre BAGO Chat + terminal vacio lado a lado
 #   bago inventory           → inventario de herramientas
 #   bago pipeline <tarea>    → ejecuta pipeline multi-modelo
 #
@@ -51,6 +53,14 @@ $pcDocs = Join-Path $env:USERPROFILE "Documents\BAGO\.bago"
 $script:SOURCE = $null
 $script:PRIMARY = $null
 $script:SECONDARY = $null
+$script:BAGO_DEVICE_PRESENT = $false
+$script:COLD_START_CREDENTIALS_CLEARED = $false
+$script:CREDENTIAL_FILES = @(
+    'credentials.json',
+    'accounts.json',
+    'token_log.json',
+    'provider_state.json'
+)
 
 function Detect-Source {
     # Buscar .bago en unidades removibles (USB real)
@@ -82,6 +92,7 @@ function Detect-Source {
     $usbBago = Join-Path $exeDir '.bago'
     $pcBago = Join-Path $env:USERPROFILE 'BAGO\.bago'
     $pcDocs = Join-Path $env:USERPROFILE 'Documents\BAGO\.bago'
+    $localBagoExists = Test-Path $usbBago -PathType Container
 
     $usbExists = if ($usbReal) { $true } else { Test-Path $usbBago -PathType Container }
     $usbPath = if ($usbReal) { $usbReal } else { $usbBago }
@@ -112,6 +123,8 @@ function Detect-Source {
             $runningFromUsb = ($scriptDrive.ToUpperInvariant() -eq $usbDrive.ToUpperInvariant())
         }
     } catch {}
+
+    $script:BAGO_DEVICE_PRESENT = [bool]$usbReal -or ($localBagoExists -and $isRemovable)
 
     if ($usbExists -and $isInstalledRuntime) {
         $script:SOURCE = 'installed'
@@ -144,14 +157,14 @@ function Detect-Source {
         $script:SOURCE = 'usb'
         $script:PRIMARY = $usbPath
         Write-Host "Fuente de verdad: $usbPath (PENDRIVE)" -ForegroundColor Cyan
-    } elseif ($usbExists) {
-        $script:SOURCE = 'usb'
+    } elseif ($localBagoExists) {
+        $script:SOURCE = 'local'
         $script:PRIMARY = $usbPath
         if ($pcPath) {
             $script:SECONDARY = $pcPath
-            Write-Host "Fuente de verdad: $usbPath (DIRECTORIO LOCAL). PC: $pcPath" -ForegroundColor Cyan
+            Write-Host "Fuente de verdad: $usbPath (LOCAL). PC: $pcPath" -ForegroundColor Cyan
         } else {
-            Write-Host "Fuente de verdad: $usbPath (DIRECTORIO LOCAL)" -ForegroundColor Cyan
+            Write-Host "Fuente de verdad: $usbPath (LOCAL)" -ForegroundColor Cyan
         }
     } elseif ($pcPath) {
         $script:SOURCE = 'pc'
@@ -164,14 +177,111 @@ function Detect-Source {
     }
 
     if ($script:PRIMARY) {
-        $portableUserHome = if ($env:ProgramData) {
-            Join-Path $env:ProgramData 'BAGO\user'
-        } else {
-            Join-Path $script:PRIMARY 'user'
-        }
+        $portableUserHome = Join-Path $script:PRIMARY 'user'
         New-Item -ItemType Directory -Path $portableUserHome -Force | Out-Null
         $env:BAGO_USER_HOME = $portableUserHome
+        $env:BAGO_USER_DIR = $portableUserHome
+        $env:BAGO_STATE_ROOT = $portableUserHome
+        $modelsRoot = Resolve-BagoModelsDir -PreferredRoot (Split-Path -Qualifier $script:PRIMARY)
+        if ($modelsRoot) {
+            $env:OLLAMA_MODELS = $modelsRoot
+        } else {
+            Remove-Item Env:OLLAMA_MODELS -ErrorAction SilentlyContinue
+        }
+        Reset-BagoCredentialEnv
+        Clear-BagoColdStartCredentials -UserHome $portableUserHome -HasDevice:$script:BAGO_DEVICE_PRESENT
     }
+}
+
+function Reset-BagoCredentialEnv {
+    $vars = @(
+        'OPENAI_API_KEY',
+        'OPENAI_VIA',
+        'CODEx_VIA',
+        'CHATGPT_VIA',
+        'GITHUB_TOKEN',
+        'GH_TOKEN',
+        'ANTHROPIC_API_KEY',
+        'GEMINI_API_KEY',
+        'GROQ_API_KEY',
+        'MISTRAL_API_KEY',
+        'TOGETHER_API_KEY',
+        'DEEPSEEK_API_KEY',
+        'XAI_API_KEY',
+        'PPLX_API_KEY',
+        'COHERE_API_KEY',
+        'REPLICATE_API_TOKEN',
+        'HF_TOKEN',
+        'OPENROUTER_API_KEY',
+        'OLLAMA_CLOUD_API_KEY',
+        'OLLAMA_API_KEY'
+    )
+    foreach ($name in $vars) {
+        Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
+}
+
+function Clear-BagoColdStartCredentials {
+    param(
+        [string]$UserHome,
+        [bool]$HasDevice = $false
+    )
+    if ($HasDevice -or -not $UserHome -or $script:COLD_START_CREDENTIALS_CLEARED) {
+        return
+    }
+
+    $script:COLD_START_CREDENTIALS_CLEARED = $true
+
+    $targets = foreach ($name in $script:CREDENTIAL_FILES) {
+        Join-Path $UserHome $name
+    }
+
+    foreach ($target in $targets) {
+        if (Test-Path $target) {
+            Remove-Item $target -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Resolve-BagoModelsDir {
+    param(
+        [string]$PreferredRoot = ""
+    )
+
+    $roots = New-Object System.Collections.Generic.List[string]
+    $seen = @{}
+    $fallback = $null
+
+    function Add-Root([string]$RootPath) {
+        if (-not $RootPath) { return }
+        $normalized = $RootPath.TrimEnd('\')
+        if (-not $seen.ContainsKey($normalized)) {
+            $seen[$normalized] = $true
+            [void]$roots.Add($normalized)
+        }
+    }
+
+    Add-Root $PreferredRoot
+    foreach ($drive in Get-PSDrive -PSProvider FileSystem | Sort-Object Root) {
+        Add-Root $drive.Root
+    }
+
+    foreach ($root in $roots) {
+        foreach ($folder in @('.models', 'models')) {
+            $candidate = Join-Path ($root + '\') $folder
+            if (-not (Test-Path $candidate -PathType Container)) { continue }
+            $blobs = Join-Path $candidate 'blobs'
+            $manifests = Join-Path $candidate 'manifests'
+            if ((Test-Path $blobs -PathType Container) -or (Test-Path $manifests -PathType Container)) {
+                return $candidate
+            }
+            if (-not $fallback) {
+                $fallback = $candidate
+            }
+        }
+    }
+
+    return $fallback
 }
 
 function Find-Gh {
@@ -243,17 +353,27 @@ function Invoke-BagoPipeline {
     Write-Host ""
 
     $outputFile = [System.IO.Path]::GetTempFileName()
-    $job = Start-Job -ScriptBlock {
-        param($script, $task, $output)
-        & python "$script" "$task" --output "$output"
-    } -ArgumentList $pipelineScript, $task, $outputFile
-    $job | Wait-Job -Timeout $jobTimeout | Out-Null
-    if ($job.State -eq 'Running') {
-        Write-Host "  WARN Pipeline timeout (${jobTimeout}s). Matando job..." -ForegroundColor Yellow
-        $job | Stop-Job
+    $rlActive = $env:BAGO_RL_INSTRUMENTATION -eq "1"
+
+    if ($rlActive) {
+        # Modo RL: ejecutar sincrónicamente para que hooks + sandbox capturen transiciones
+        Write-Host "  [RL] Instrumentación activa. Ejecutando pipeline sincrónicamente..." -ForegroundColor Magenta
+        try {
+            & python "$pipelineScript" "$task" --output "$outputFile" 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        } catch {}
+    } else {
+        $job = Start-Job -ScriptBlock {
+            param($script, $task, $output)
+            & python "$script" "$task" --output "$output"
+        } -ArgumentList $pipelineScript, $task, $outputFile
+        $job | Wait-Job -Timeout $jobTimeout | Out-Null
+        if ($job.State -eq 'Running') {
+            Write-Host "  WARN Pipeline timeout (${jobTimeout}s). Matando job..." -ForegroundColor Yellow
+            $job | Stop-Job
+        }
+        $job | Receive-Job | Out-Null
+        Remove-Job $job -ErrorAction SilentlyContinue
     }
-    $job | Receive-Job | Out-Null
-    Remove-Job $job -ErrorAction SilentlyContinue
 
     if (Test-Path $outputFile) {
         $result = Get-Content $outputFile -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
@@ -957,11 +1077,18 @@ function Invoke-CanonicalEntry {
 
 # === Main ===
 
-# Sin argumentos: entrar directamente por la puerta canónica.
+# Sin argumentos: mostrar menú de inicio interactivo (flechas + números)
 if ($args.Count -eq 0) {
-    Show-Banner
-    Invoke-CanonicalEntry -From "default"
-    exit $LASTEXITCODE
+    Detect-Source
+    $startMenuScript = Join-Path $script:PRIMARY "tools\bago_start_menu.py"
+    if (Test-Path $startMenuScript) {
+        python $startMenuScript
+        exit $LASTEXITCODE
+    } else {
+        Show-Banner
+        Invoke-CanonicalEntry -From "default"
+        exit $LASTEXITCODE
+    }
 }
 $command = $args[0]
 if ($args.Length -gt 1) {
@@ -984,6 +1111,16 @@ switch ($command) {
     "launch" {
         # Entrada canónica de la app.
         Invoke-CanonicalEntry -From "launch" -RawArgs @($rest)
+    }
+    "split" {
+        Detect-Source
+        $splitScript = Join-Path $script:PRIMARY "..\bago_split.ps1"
+        if (Test-Path $splitScript) {
+            powershell -ExecutionPolicy Bypass -File $splitScript
+        } else {
+            Write-Host "No se encontro bago_split.ps1 en $splitScript" -ForegroundColor Red
+            exit 1
+        }
     }
     # Alias corto: "bago chat" == "bago launch"
     "chat" {
@@ -1062,8 +1199,18 @@ switch ($command) {
                 $refreshArgs = $rest[1..($rest.Count-1)]
             }
             Refresh-Engine -RawArgs $refreshArgs
+        } elseif ($rest -and $rest[0] -eq "twin") {
+            Detect-Source
+            $twinScript = Join-Path $script:PRIMARY "tools\bago_dev_twin.py"
+            if (Test-Path $twinScript) {
+                python $twinScript
+            } else {
+                Write-Host "No se encontro bago_dev_twin.py en $twinScript" -ForegroundColor Red
+                exit 1
+            }
         } else {
             Write-Host "Uso: BAGO dev refresh-engine [--with-knowledge|--without-knowledge]" -ForegroundColor Yellow
+            Write-Host "       BAGO dev twin           → Interfaz dev IA|BAGO con modo unimodel" -ForegroundColor Yellow
         }
     }
     "contribute" { Contribute }
@@ -1195,6 +1342,7 @@ Comandos globales:
   BAGO install             → Lista componentes disponibles
   BAGO install [modelo]    → Instala modelo o herramienta
   BAGO sync [--to-usb|--from-usb] → Sincroniza con pendrive
+  BAGO dev twin            → Interfaz de desarrollador con dos terminales
   BAGO contribute          → Genera informe de aprendizaje
   BAGO repo init           → Crea repo Git para progresos
   BAGO repo sync           → Sube progresos a GitHub

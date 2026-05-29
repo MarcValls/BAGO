@@ -31,6 +31,8 @@ Teclas:
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import sys
@@ -40,11 +42,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 try:
     from rich.console import Console

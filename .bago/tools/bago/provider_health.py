@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from .codex_auth import codex_access_token
+from .codex_auth import resolve_openai_credential, resolve_openai_credentials
 from .ollama_runtime import discover_ollama_url, ollama_probe
 
 
@@ -100,30 +100,72 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
             }
 
     def _check_codex():
-        api_key = os.environ.get("OPENAI_API_KEY", "")
-        if api_key:
+        creds = resolve_openai_credentials()
+        _, mode = resolve_openai_credential()
+        try:
+            from .providers import resolve_codex_route_candidates
+            candidates = resolve_codex_route_candidates("gpt-5.4-mini")
+        except Exception:
+            candidates = []
+        if candidates:
+            services = ", ".join(sorted({c.get("service", "") for c in candidates if c.get("service")}))
+            detail = f"ChatGPT/Codex OAuth login | rutas: {services}" if services else "ChatGPT/Codex OAuth login"
+            quota_detail = "login ChatGPT/Codex separado de OpenAI API billing"
+            if any(c.get("service") == "openai-api" for c in candidates):
+                quota_detail = "login ChatGPT/Codex con fallback OpenAI API separado"
             return {
                 "ok": True,
-                "detail": "API key configurada | cuota API no verificada",
-                "auth": "api_key",
-                "auth_ok": True,
-                "auth_detail": "OpenAI API key configurada",
-                "quota_ok": None,
-                "quota_detail": "cuota/billing se confirma en la llamada real",
-                "channel": "openai_api",
-            }
-
-        oauth_token = codex_access_token()
-        if oauth_token:
-            return {
-                "ok": True,
-                "detail": "ChatGPT/Codex OAuth login | no es credito API",
+                "detail": detail,
                 "auth": "chatgpt_oauth",
                 "auth_ok": True,
                 "auth_detail": "ChatGPT/Codex OAuth",
                 "quota_ok": None,
-                "quota_detail": "login ChatGPT/Codex separado de OpenAI API billing",
+                "quota_detail": quota_detail,
                 "channel": "chatgpt_codex_login",
+            }
+        if mode == "oauth":
+            return {
+                "ok": False,
+                "detail": "ChatGPT/Codex OAuth login presente, pero no hay ruta codex disponible",
+                "auth": "chatgpt_oauth",
+                "auth_ok": True,
+                "auth_detail": "ChatGPT/Codex OAuth",
+                "quota_ok": None,
+                "quota_detail": "ruta CLI/API no disponible",
+                "channel": "chatgpt_codex_login",
+            }
+        if mode == "api_key":
+            return {
+                "ok": False,
+                "detail": "API key configurada, pero codex login requerido y ruta API deshabilitada",
+                "auth": "api_key",
+                "auth_ok": False,
+                "auth_detail": "API key detectada, pero no sirve para codex",
+                "quota_ok": None,
+                "quota_detail": "ruta API deshabilitada; usa codex login",
+                "channel": "chatgpt_codex_login",
+            }
+        if mode == "invalid_api_key":
+            return {
+                "ok": False,
+                "detail": "credencial OpenAI presente pero codex login requerido",
+                "auth": "api_key",
+                "auth_ok": False,
+                "auth_detail": "API key inválida",
+                "quota_ok": None,
+                "quota_detail": "no comprobada",
+                "channel": "openai_api",
+            }
+        if creds.get("api_key"):
+            return {
+                "ok": False,
+                "detail": "credencial OpenAI presente pero codex login requerido",
+                "auth": "api_key",
+                "auth_ok": False,
+                "auth_detail": "API key presente, pero no sirve para codex",
+                "quota_ok": None,
+                "quota_detail": "ruta API deshabilitada; usa codex login",
+                "channel": "openai_api",
             }
 
         codex_dir = Path.home() / ".codex"
@@ -168,10 +210,10 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
 
         return {
             "ok": False,
-            "detail": "sin OPENAI_API_KEY ni codex CLI — instala: npm i -g @openai/codex",
+            "detail": "sin codex CLI — instala: npm i -g @openai/codex y ejecuta codex login",
             "auth": "none",
             "auth_ok": False,
-            "auth_detail": "sin OpenAI API key ni Codex login",
+            "auth_detail": "sin Codex login",
             "quota_ok": None,
             "quota_detail": "no comprobada sin auth",
             "channel": "openai_api",
@@ -246,6 +288,52 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         if not key:
             return {"ok": False, "detail": "sin OPENROUTER_API_KEY"}
         return {"ok": True, "detail": "API key configurada"}
+
+    def _check_replicate():
+        key = os.environ.get("REPLICATE_API_TOKEN", "")
+        if not key:
+            return {"ok": False, "detail": "sin REPLICATE_API_TOKEN"}
+        try:
+            req = urllib.request.Request(
+                "https://api.replicate.com/v1/models",
+                headers={"Authorization": f"Token {key}", "User-Agent": "BAGO-CLI"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+                results_list = data.get("results", [])
+                n = len(results_list)
+                return {
+                    "ok": True,
+                    "detail": f"API key válida ({n} modelos listados)",
+                    "models": [m.get("name", "") for m in results_list[:5]],
+                    "auth_ok": True,
+                    "auth_detail": "Replicate autenticado",
+                    "quota_ok": None,
+                    "quota_detail": "cuota no verificada",
+                    "channel": "replicate_api",
+                }
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                return {
+                    "ok": False, "detail": "API key inválida (401)",
+                    "auth_ok": False, "auth_detail": "token inválido",
+                    "quota_ok": None, "quota_detail": "no comprobada",
+                    "channel": "replicate_api",
+                }
+            return {
+                "ok": False, "detail": f"HTTP {e.code}",
+                "auth_ok": True, "auth_detail": "token aceptado",
+                "quota_ok": False if e.code == 429 else None,
+                "quota_detail": "rate limit" if e.code == 429 else "no comprobada",
+                "channel": "replicate_api",
+            }
+        except Exception as e:
+            return {
+                "ok": False, "detail": f"error: {str(e)[:60]}",
+                "auth_ok": None, "auth_detail": "no comprobado",
+                "quota_ok": None, "quota_detail": "no comprobada",
+                "channel": "replicate_api",
+            }
 
     def _check_github_models():
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
@@ -334,6 +422,7 @@ def scan_provider_health(creds, providers: dict, timeout: int = 3) -> dict:
         "anthropic": _check_anthropic,
         "gemini": _check_gemini,
         "openrouter": _check_openrouter,
+        "replicate": _check_replicate,
     }
     enabled_checks = {
         prov: fn for prov, fn in checks.items()

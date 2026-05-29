@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """bago_context — Mapa y detección de contexto BAGO.
 
+
 Router de subcomandos para análisis de contexto del workspace.
 
 Uso:
@@ -10,17 +11,6 @@ Uso:
   bago context stale         → detecta artefactos desactualizados
   bago context               → muestra este menú
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import subprocess, sys
 from pathlib import Path
 

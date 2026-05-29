@@ -1,4 +1,5 @@
 """
+
 Scraper usando el cliente SeedFinder (Playwright fallback).
 
 - Modo rápido (por defecto): queries populares para poblar un catálogo básico.
@@ -10,17 +11,6 @@ Uso:
   python3 scripts/seedfinder_scraper.py --full            # intentar todas (más lento)
   python3 scripts/seedfinder_scraper.py --full --quiet    # silencioso (solo resumen final)
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import argparse
 import json

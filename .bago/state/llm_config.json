@@ -1,7 +1,7 @@
 {
   "engine": "ollama",
   "server_url": "http://127.0.0.1:11434",
-  "active_model": "granite3.2",
+  "active_model": "qwen25-coder",
   "session_start_model": "qwen2.5-coder:7b",
   "_comment_session_start": "Modelo usado al abrir sesión. Debe ser local (sin coste, offline).",
   "ollama_cloud": {
@@ -29,25 +29,6 @@
         "gemma3:12b": "Gemma3 12B — ligero y eficiente",
         "ministral-3:8b": "Ministral 3 8B — ultra rápido"
       }
-    }
-  },
-  "openclaw": {
-    "_comment": "OpenClaw gateway local — inferencia vía CLI 'openclaw infer model run'",
-    "gateway_url": "http://127.0.0.1:18789",
-    "gateway_health": "http://127.0.0.1:18789/health",
-    "cli_bin": "openclaw",
-    "default_model": "github-copilot/claude-opus-4.7",
-    "curated": {
-      "claude": [
-        "github-copilot/claude-opus-4.7",
-        "github-copilot/claude-sonnet-4.6",
-        "github-copilot/claude-haiku-4.5"
-      ],
-      "gpt": [
-        "github-copilot/gpt-5.5",
-        "github-copilot/gpt-5.4",
-        "github-copilot/gpt-4.1"
-      ]
     }
   },
   "available_models": {
@@ -98,16 +79,13 @@
     ]
   },
   "agent_models": {
-    "agent_tools": "claude-sonnet-4.6",
-    "agent_tests": "claude-haiku-4.5",
-    "agent_docs": "claude-sonnet-4.6",
-    "agent_ops": "claude-opus-4.7"
+    "agent_tools": "qwen25-coder",
+    "agent_tests": "llama32",
+    "agent_docs": "qwen25-coder",
+    "agent_ops": "llama32"
   },
   "model_preference": [
-    "ollama-local",
-    "ollama-cloud",
-    "copilot",
-    "codex"
+    "ollama-local"
   ],
   "_comment_preference": "local (offline) → ollama_cloud (suscripción) → openclaw (gateway local) → copilot (cloud).",
   "provider_registry": ".bago/state/model_providers.json",

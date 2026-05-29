@@ -24,6 +24,8 @@ Variables de entorno:
 
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import importlib
 import json
 import os
@@ -35,11 +37,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Windows UTF-8 fix
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 BAGO_ROOT       = Path(__file__).resolve().parent.parent
 STATE_DIR       = BAGO_ROOT / "state"

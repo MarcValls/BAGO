@@ -16,8 +16,10 @@ PROVIDER_DISABLE_ALIASES = {
     "openai": {"openai", "codex"},
     "gpt": {"openai", "codex"},
     "codex": {"openai", "codex"},
-    "github": {"github", "copilot"},
-    "copilot": {"github", "copilot"},
+    "github": {"github", "copilot", "github-models"},
+    "copilot": {"github", "copilot", "github-models"},
+    "github-models": {"github", "copilot", "github-models"},
+    "github_models": {"github", "copilot", "github-models"},
 }
 
 

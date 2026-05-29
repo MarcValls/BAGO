@@ -15,6 +15,8 @@ Códigos de salida: 0 = todos los tests pasan, 1 = hay fallos, 2 = no tests
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import subprocess
@@ -22,11 +24,6 @@ import sys
 from pathlib import Path
 from shutil import which
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

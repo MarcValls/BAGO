@@ -30,7 +30,7 @@ bago dev refresh-engine --without-knowledge
 
 ## Relación con otros contratos
 
-- `RUNTIME_CONTRACT.md` define qué entra en la instalación limpia.
-- `PUBLISH_CONTRACT.md` define los perfiles con y sin knowledge.
+- `runtime_contract.json` define qué entra en la instalación limpia.
+- `publication-contract.md` define los perfiles con y sin knowledge.
 - `publication-contract` define la misma política en formato knowledge.
 

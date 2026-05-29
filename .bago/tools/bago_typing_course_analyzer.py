@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 bago_typing_course_analyzer.py
 
 DEMO INTERACTIVO: BAGO analizando proyecto typing-course
@@ -14,17 +15,6 @@ Flujo:
 Uso:
   python bago_typing_course_analyzer.py C:/Marc_max_20gb/typing-course
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import json
 import subprocess

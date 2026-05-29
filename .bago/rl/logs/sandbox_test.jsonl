@@ -1,0 +1,15 @@
+{'type': 'open', 'path': '/tmp/bago_test_delete_me.txt', 'mode': 'w'}
+{'type': 'subprocess', 'cmd': "['del', '/f', 'C:\\\\Windows\\\\System32\\\\important.dll']", 'mode': 'simulate', 'kwargs': {'shell': 'True'}}
+{'type': 'time.sleep', 'seconds': 2.0}
+{'type': 'open', 'path': '/tmp/bago_test_delete_me.txt', 'mode': 'w'}
+{'type': 'subprocess', 'cmd': "['del', '/f', 'C:\\\\Windows\\\\System32\\\\important.dll']", 'mode': 'simulate', 'kwargs': {'shell': 'True'}}
+{'type': 'time.sleep', 'seconds': 2.0}
+{'type': 'open', 'path': '/tmp/bago_test_delete_me.txt', 'mode': 'w'}
+{'type': 'subprocess', 'cmd': "['del', '/f', 'C:\\\\Windows\\\\System32\\\\important.dll']", 'mode': 'simulate', 'kwargs': {'shell': 'True'}}
+{'type': 'time.sleep', 'seconds': 2.0}
+{'type': 'open', 'path': '/tmp/bago_test_delete_me.txt', 'mode': 'w'}
+{'type': 'subprocess', 'cmd': "['del', '/f', 'C:\\\\Windows\\\\System32\\\\important.dll']", 'mode': 'simulate', 'kwargs': {'shell': 'True'}}
+{'type': 'time.sleep', 'seconds': 2.0}
+{'type': 'open', 'path': '/tmp/bago_test_delete_me.txt', 'mode': 'w'}
+{'type': 'subprocess', 'cmd': "['del', '/f', 'C:\\\\Windows\\\\System32\\\\important.dll']", 'mode': 'simulate', 'kwargs': {'shell': 'True'}}
+{'type': 'time.sleep', 'seconds': 2.0}

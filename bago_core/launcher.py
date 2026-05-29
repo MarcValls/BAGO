@@ -109,14 +109,9 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     except AttributeError:
         pass  # Python < 3.7
 
-def _default_user_home() -> Path:
-    if sys.platform == "win32":
-        program_data = os.environ.get("ProgramData")
-        if program_data:
-            return Path(program_data) / "BAGO" / "user"
-    return BAGO_ROOT / "user"
+from bago.constants import DEFAULT_USER_BAGO
 
-os.environ.setdefault("BAGO_USER_HOME", str(_default_user_home()))
+os.environ["BAGO_USER_HOME"] = str(DEFAULT_USER_BAGO)
 
 _USE_COLOR = sys.stdout.isatty()
 def GREEN(t):  return f"\033[1;32m{t}\033[0m" if _USE_COLOR else t
@@ -1246,7 +1241,15 @@ def main():
         _cmd_spiral_prompt(rest)
         return
 
-    elif cmd in ("splash", "start", "inicio", "menu"):
+    elif cmd == "splash":
+        # Pantalla de entrada grafica BAGO (Rich)
+        result = subprocess.run(
+            [sys.executable, str(TOOLS / "bago_splash.py")] + rest,
+            cwd=str(BAGO_ROOT.parent),
+        )
+        sys.exit(result.returncode)
+
+    elif cmd in ("start", "inicio", "menu"):
         # Menú principal interactivo BAGO (curses TUI)
         result = subprocess.run(
             [sys.executable, str(TOOLS / "bago_menu.py")] + rest,

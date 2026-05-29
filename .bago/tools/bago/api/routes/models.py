@@ -47,6 +47,8 @@ def _models_dir() -> Path:
 async def tags():
     """Lista modelos disponibles: catalogo BAGO + instalados Ollama + custom BAGOMODELs."""
     from ..server import get_bago
+    from bago.model_availability import available_model_routes
+    from bago.providers import describe_model_source
     bago = get_bago()
 
     models = []
@@ -57,6 +59,8 @@ async def tags():
             name=entry.ollama_tag,
             model=entry.ollama_tag,
             provider=getattr(entry, "provider", "ollama-local"),
+            service="ollama-native",
+            route="ollama-native",
             best_for=entry.description if entry.description else "",
             installed=entry.installed,
             compat_level=entry.compat_level,
@@ -71,23 +75,38 @@ async def tags():
             name=bm.name,
             model=bm.from_model,
             provider="bago-custom",
+            service="custom-modelfile",
+            route="custom-modelfile",
             best_for=bm.best_for,
         ))
 
     # 3. Provider models (from model_providers.json)
     providers = bago.providers()
     for prov_name, prov_data in providers.items():
-        for mname, mdata in prov_data.get("models", {}).items():
-            # avoid duplicates from catalog
-            existing = [m for m in models if m.name == mname or m.model == mdata.get("wire_name", mname)]
-            if not existing:
-                models.append(ModelInfo(
-                    name=mname,
-                    model=mdata.get("wire_name", mname),
-                    provider=prov_name,
-                    best_for=mdata.get("best_for", ""),
-                    size=int(mdata.get("size_mb", 0) * 1024 * 1024),
-                ))
+        seen = {
+            (m.name, m.model, m.provider, m.service, m.route)
+            for m in models
+        }
+        for rec in available_model_routes(prov_name, prov_data):
+            mname = rec.get("model", "")
+            wire = rec.get("wire_name", mname)
+            key = (mname, wire, prov_name, rec.get("service", ""), rec.get("route", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            md = prov_data.get("models", {}).get(mname, {})
+            models.append(ModelInfo(
+                name=mname,
+                model=wire,
+                provider=prov_name,
+                service=rec.get("service", "") or describe_model_source(
+                    prov_name, mname, providers, wire_name=wire,
+                    route=rec.get("route", ""), service=rec.get("service", ""),
+                ).get("service", ""),
+                route=rec.get("route", ""),
+                best_for=rec.get("best_for", md.get("best_for", "")),
+                size=int(md.get("size_mb", 0) * 1024 * 1024),
+            ))
 
     return TagsResponse(models=models)
 
@@ -145,10 +164,15 @@ async def show(req: ShowRequest):
                 or normalize_local_model_id(mname) == req_model_id
                 or normalize_local_model_id(wire) == req_model_id
             ):
+                origin = describe_model_source(prov_name, mname, providers, wire_name=wire)
                 return ShowResponse(
                     provider=prov_name,
-                    details=mdata,
-                    routing={"best_for": mdata.get("best_for", "")},
+                    details={**mdata, "service": origin.get("service", ""), "route": origin.get("route", "")},
+                    routing={
+                        "best_for": mdata.get("best_for", ""),
+                        "service": origin.get("service", ""),
+                        "route": origin.get("route", ""),
+                    },
                 )
 
     raise HTTPException(status_code=404, detail=f"Model '{req.model}' not found")

@@ -21,7 +21,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 from ..constants import COLORS
-from ..providers import detect_strategy, resolve_litellm, best_model_for_provider
+from ..providers import detect_strategy, describe_model_source, resolve_litellm, best_model_for_provider
 from ..ui import console, pi
 
 from .call import _llm_call
@@ -86,6 +86,7 @@ def _run_contract_loop(session, user_input: str, history_msg: str, contract_text
 
     best_text = None
     best_validation = {"ok": False, "score": 0.0, "unmet": ["sin validacion"]}
+    best_route = None
     prev_text = ""
     max_iter = max(1, int(getattr(session, "contract_max_iter", 3)))
 
@@ -101,23 +102,42 @@ def _run_contract_loop(session, user_input: str, history_msg: str, contract_text
             text = _llm_call(lm, kw, msgs, session=session, _provider=prov, _model=name)
         validation = validate_contract(contract_text, text)
         session.last_contract_report = validation
+        source = describe_model_source(prov, name, session.providers, wire_name=wire)
         session.last_route = {
             "mode": "auto" if session.autoroute else "manual",
             "provider": prov,
             "model": name,
             "reason": f"contract-loop {idx+1}/{max_iter} score={validation.get('score')}",
+            "service": source.get("service", ""),
+            "route": source.get("route", ""),
+            "backend": source.get("backend", ""),
         }
         prev_text = text
         if validation.get("score", 0.0) >= best_validation.get("score", 0.0):
             best_text = text
             best_validation = validation
             session.provider, session.model_name, session.wire_name = prov, name, wire
+            source = session._update_model_origin(prov, name, wire)
+            best_route = {
+                "mode": "auto" if session.autoroute else "manual",
+                "provider": prov,
+                "model": name,
+                "reason": f"contract-loop {idx+1}/{max_iter} score={validation.get('score')}",
+                "service": source.get("service", ""),
+                "route": source.get("route", ""),
+                "backend": source.get("backend", ""),
+            }
+            session.last_route = {
+                **best_route,
+            }
         if validation.get("ok"):
             session.history.append({"role": "user", "content": history_msg})
             session.history.append({"role": "assistant", "content": text})
             return text
 
     if best_text is not None:
+        if best_route:
+            session.last_route = best_route
         session.history.append({"role": "user", "content": history_msg})
         session.history.append({"role": "assistant", "content": best_text})
         return best_text
@@ -144,10 +164,14 @@ def _preemptive_cloud_escalation(session, user_input: str) -> bool:
     session.provider   = new_prov
     session.model_name = new_model
     session.wire_name  = new_wire
+    source = session._update_model_origin(new_prov, new_model, new_wire)
     session.switches  += 1
     session.last_route = {
         "mode": "auto", "provider": new_prov, "model": new_model,
         "reason": f"preemptive-url-escalation desde {old_label}",
+        "service": source.get("service", ""),
+        "route": source.get("route", ""),
+        "backend": source.get("backend", ""),
     }
     return True
 
@@ -170,10 +194,14 @@ def _quality_cloud_retry(session, user_input: str, reason: str) -> "str | None":
     session.provider   = new_prov
     session.model_name = new_model
     session.wire_name  = new_wire
+    source = session._update_model_origin(new_prov, new_model, new_wire)
     session.switches  += 1
     session.last_route = {
         "mode": "auto", "provider": new_prov, "model": new_model,
         "reason": f"quality-guard escalation desde {old_label}",
+        "service": source.get("service", ""),
+        "route": source.get("route", ""),
+        "backend": source.get("backend", ""),
     }
     lm, kw = session.litellm_info
     try:
@@ -240,6 +268,31 @@ def chat(session, user_input, *, history_input: str | None = None):
 
     # ── Estrategia single (o autoroute desactivado) ───────────────────────────
     # history_msg conserva {{placeholders}} para no filtrar secretos al disco
+    # === MODO SINGLE: forzar un único modelo sin fallback ni escalado ===
+    if getattr(session, "single_model", False):
+        history_msg = history_input if history_input is not None else user_input
+        session.history.append({"role": "user", "content": history_msg})
+        lm, kw = session.litellm_info
+        try:
+            with console.status(f"[dim]{session.model_name}...[/dim]", spinner="dots"):
+                text = _llm_call(lm, kw, session.history, session=session)
+            text = _dedup_paragraphs(text)
+            session.history.append({"role": "assistant", "content": text})
+            source = session._update_model_origin(session.provider, session.model_name, session.wire_name)
+            session.last_route = {
+                "mode": "single",
+                "provider": session.provider,
+                "model": session.model_name,
+                "reason": "single-model mode",
+                "service": source.get("service", ""),
+                "route": source.get("route", ""),
+                "backend": source.get("backend", ""),
+            }
+            return text
+        except Exception as e:
+            session.history.pop()
+            raise RuntimeError(str(e))
+
     # === MODO BRAINSTORM: forzar analisis real (v3.5) ===
     if getattr(session, "brainstorm", False):
         brainstorm_prompt = (
@@ -297,6 +350,9 @@ def chat(session, user_input, *, history_input: str | None = None):
             "provider": session.provider,
             "model":    session.model_name,
             "reason":   session.last_route.get("reason", "single"),
+            "service":   session.model_origin.get("service", ""),
+            "route":     session.model_origin.get("route", ""),
+            "backend":   session.model_origin.get("backend", ""),
         }
         return text
 
@@ -324,10 +380,14 @@ def chat(session, user_input, *, history_input: str | None = None):
                 session.provider   = new_prov
                 session.model_name = new_model
                 session.wire_name  = new_wire
+                source = session._update_model_origin(new_prov, new_model, new_wire)
                 session.switches  += 1
                 session.last_route = {
                     "mode": "auto", "provider": new_prov, "model": new_model,
                     "reason": f"ctx-overflow escalation desde {old_model}",
+                    "service": source.get("service", ""),
+                    "route": source.get("route", ""),
+                    "backend": source.get("backend", ""),
                 }
                 session.history.append({"role": "user", "content": history_msg})
                 lm2, kw2 = session.litellm_info

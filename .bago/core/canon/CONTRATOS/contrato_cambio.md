@@ -43,7 +43,7 @@ En estos casos, `status` debe adoptar el valor de `normalized_status` para que e
 - applied
 - validated
 - rejected
-- unknown
+- deferred
 
 ## Reglas
 

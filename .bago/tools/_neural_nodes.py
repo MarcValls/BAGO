@@ -1,15 +1,6 @@
 from __future__ import annotations
-import os
-import sys
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
+from bago_utils import load_json, save_json, timestamp_iso
 """_neural_nodes.py — Comandos CLI cliente del BAGO Neural Bus."""
 import json, sys, urllib.request
 from pathlib import Path

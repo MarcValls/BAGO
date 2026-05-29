@@ -23,6 +23,49 @@ def pt_prompt(text: str, is_password: bool = False) -> str:
     return _stdin_prompt(text, is_password=is_password)
 
 
+_VALIDATION_ENDPOINTS = {
+    "anthropic":  ("https://api.anthropic.com/v1/models",  "x-api-key"),
+    "gemini":     ("https://generativelanguage.googleapis.com/v1beta/models?key={key}",  None),
+    "groq":       ("https://api.groq.com/openai/v1/models",  "Authorization"),
+    "mistral":    ("https://api.mistral.ai/v1/models",       "Authorization"),
+    "together":   ("https://api.together.xyz/v1/models",       "Authorization"),
+    "deepseek":   ("https://api.deepseek.com/v1/models",       "Authorization"),
+    "xai":        ("https://api.x.ai/v1/models",               "Authorization"),
+    "openrouter": ("https://openrouter.ai/api/v1/auth/limits", "Authorization"),
+    "replicate":  ("https://api.replicate.com/v1/models",      "Authorization"),
+}
+
+
+def _validate_api_key(name: str, key: str) -> tuple[bool, str]:
+    """Valida una API key contra el endpoint del provider. Devuelve (ok, mensaje)."""
+    import urllib.request, urllib.error
+
+    cfg = _VALIDATION_ENDPOINTS.get(name)
+    if not cfg:
+        return True, "sin endpoint de validación"
+
+    url, header = cfg
+    req = urllib.request.Request(url.replace("{key}", key))
+    if header:
+        if header.lower() == "x-api-key":
+            req.add_header(header, key)
+        elif name == "replicate":
+            req.add_header(header, f"Token {key}")
+        else:
+            req.add_header(header, f"Bearer {key}")
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return True, f"HTTP {resp.status}"
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return False, f"rechazada (HTTP {e.code})"
+        return False, f"error HTTP {e.code}"
+    except urllib.error.URLError as e:
+        return False, f"sin conexión: {e.reason}"
+    except Exception as e:
+        return False, f"excepción: {e}"
+
+
 def flow_api_key(mgr, name: str, info: dict) -> str:
     """Flujo genérico para providers con API key (anthropic, gemini, groq…)."""
     url = info.get("url", "")
@@ -32,6 +75,13 @@ def flow_api_key(mgr, name: str, info: dict) -> str:
     key = pt_prompt("API Key: ", is_password=True).strip()
     if not key:
         return "Cancelado."
+
+    # ── Validación real antes de guardar ────────────────────────────────────
+    ok, msg = _validate_api_key(name, key)
+    if not ok:
+        return f"[red]✗ {info['desc']} — API key {msg}. No guardada.[/red]\n  [dim]Revisa la clave o tu conexión.[/dim]"
+    console.print(f"  [green]✓ Validada ({msg})[/green]")
+
     mgr.set(name, key)
     am_provider = _bago_to_am(name)
     if am_provider in AccountManager.PROVIDER_ENV:

@@ -1,12 +1,12 @@
 {
     "contract_id":  "bago.runtime.clean-install",
     "contract_version":  "1.0.0",
-    "install_root":  "E:\bago_fw",
-    "runtime_root":  "E:\bago_fw\.bago",
+    "install_root":  "E:\\bago_fw",
+    "runtime_root":  "E:\\bago_fw\\.bago",
     "user_home":  "C:\\ProgramData\\BAGO\\user",
     "custom_target":  true,
     "path_updated":  false,
-    "backup_of_existing_target":  "E:\bago_fw.backup.20260521-213306",
+    "backup_of_existing_target":  "E:\\bago_fw.backup.20260521-213306",
     "knowledge_included":  true,
     "install_profile":  "with-knowledge",
     "publication":  {

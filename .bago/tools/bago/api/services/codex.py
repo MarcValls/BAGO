@@ -1,8 +1,7 @@
-"""bago.api.services.codex — Proxy Codex (OpenAI) en puerto 11437.
+"""bago.api.services.codex — Proxy Codex por codex CLI en puerto 11437.
 
-Traduce la API BAGO al formato OpenAI API.
-Puerto: 11437
-Auth: OPENAI_API_KEY en entorno
+Chat y generate usan la sesión de `codex login`.
+Embeddings siguen usando OpenAI API si hace falta.
 """
 
 from __future__ import annotations
@@ -27,7 +26,11 @@ import urllib.error
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from bago.codex_auth import resolve_openai_credential
+from bago.codex_runtime import codex_cli_available, run_codex_exec
+from bago.cwd import get_user_cwd
 from bago.ollama_runtime import DEFAULT_BAGO_CODEX_PORT, env_port
+from bago.providers import resolve_codex_route_candidates
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +95,54 @@ def _get_key() -> str:
         raise HTTPException(status_code=401, detail="OPENAI_API_KEY not set")
     return key
 
+
+def _codex_login_ready() -> bool:
+    credential, mode = resolve_openai_credential()
+    return bool(credential) and mode == "oauth"
+
+
+def _usage_count(usage: dict, *keys: str) -> int:
+    if not usage:
+        return 0
+    for key in keys:
+        value = usage.get(key) if isinstance(usage, dict) else getattr(usage, key, None)
+        if isinstance(value, (int, float)):
+            return int(value)
+    return 0
+
+
+def _run_codex_chat(model: str, messages: list[dict]) -> tuple[str, dict, dict]:
+    candidates = resolve_codex_route_candidates(model)
+    if not candidates:
+        credential, mode = resolve_openai_credential()
+        if not credential or mode != "oauth":
+            raise HTTPException(status_code=401, detail="codex login requerido; ruta API deshabilitada")
+        raise HTTPException(status_code=503, detail="codex route unavailable")
+
+    last_exc: Exception | None = None
+    for candidate in candidates:
+        try:
+            backend = candidate.get("backend", "codex-cli")
+            if backend == "codex-cli":
+                text, usage = run_codex_exec(messages, model, workdir=get_user_cwd())
+            else:
+                import litellm
+
+                r = litellm.completion(
+                    model=model,
+                    messages=messages,
+                    **(candidate.get("kw", {}) or {}),
+                )
+                text = r.choices[0].message.content
+                usage = getattr(r, "usage", None) or {}
+            return text, usage, candidate
+        except Exception as exc:
+            last_exc = exc
+
+    detail = str(last_exc) if last_exc else "codex route unavailable"
+    status = 401 if "auth required" in detail.lower() or "login required" in detail.lower() else 502
+    raise HTTPException(status_code=status, detail=detail)
+
 def _call_openai(model: str, messages: list[dict], temperature: float = 0.7,
                  max_tokens: int = 4096) -> dict:
     key = _get_key()
@@ -145,9 +196,23 @@ async def ps():
 
 @app.post("/api/health")
 async def health():
-    available = bool(os.environ.get("OPENAI_API_KEY", ""))
+    credential, mode = resolve_openai_credential()
+    candidates = resolve_codex_route_candidates("gpt-5.4-mini")
+    available = bool(candidates)
+    error = ""
+    if available:
+        routes = ", ".join(sorted({c.get("service", "") for c in candidates if c.get("service")}))
+    elif mode != "oauth" or not credential:
+        error = "codex login requerido; ruta API deshabilitada"
+        routes = ""
+    elif not codex_cli_available():
+        error = "codex CLI no disponible"
+        routes = ""
+    else:
+        error = "codex route unavailable"
+        routes = ""
     return {"provider": PROVIDER_NAME, "available": available,
-            "error": "" if available else "OPENAI_API_KEY not set"}
+            "auth_mode": mode, "error": error, "routes": routes}
 
 
 @app.post("/api/chat")
@@ -157,22 +222,27 @@ async def chat(req: ChatRequest):
         messages.insert(0, {"role": "system", "content": req.system})
 
     model = CODEX_MODELS.get(req.model, ModelInfo(name=req.model, wire_name=req.model)).wire_name
-    temp = req.options.get("temperature", req.temperature)
-    max_tok = req.options.get("num_predict", req.max_tokens)
 
     t0 = time.perf_counter()
-    result = _call_openai(model, messages, float(temp), int(max_tok))
+    try:
+        content, usage, route = _run_codex_chat(model, messages)
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        detail = str(exc)
+        status = 401 if "auth required" in detail.lower() or "login required" in detail.lower() else 502
+        raise HTTPException(status_code=status, detail=detail)
     elapsed = int((time.perf_counter() - t0) * 1e9)
-
-    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-    usage = result.get("usage", {})
 
     return {
         "model": model, "provider": PROVIDER_NAME,
         "message": {"role": "assistant", "content": content},
         "done": True, "total_duration": elapsed,
-        "eval_count": usage.get("completion_tokens", 0),
-        "prompt_eval_count": usage.get("prompt_tokens", 0),
+        "eval_count": _usage_count(usage, "output_tokens", "completion_tokens"),
+        "prompt_eval_count": _usage_count(usage, "input_tokens", "prompt_tokens"),
+        "service": route.get("service", ""),
+        "route": route.get("route", ""),
+        "backend": route.get("backend", ""),
     }
 
 
@@ -184,21 +254,26 @@ async def generate(req: GenerateRequest):
     messages.append({"role": "user", "content": req.prompt})
 
     model = CODEX_MODELS.get(req.model, ModelInfo(name=req.model, wire_name=req.model)).wire_name
-    temp = req.options.get("temperature", req.temperature)
-    max_tok = req.options.get("num_predict", req.max_tokens)
 
     t0 = time.perf_counter()
-    result = _call_openai(model, messages, float(temp), int(max_tok))
+    try:
+        content, usage, route = _run_codex_chat(model, messages)
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        detail = str(exc)
+        status = 401 if "auth required" in detail.lower() or "login required" in detail.lower() else 502
+        raise HTTPException(status_code=status, detail=detail)
     elapsed = int((time.perf_counter() - t0) * 1e9)
-
-    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-    usage = result.get("usage", {})
 
     return {
         "model": model, "provider": PROVIDER_NAME,
         "response": content, "done": True, "total_duration": elapsed,
-        "eval_count": usage.get("completion_tokens", 0),
-        "prompt_eval_count": usage.get("prompt_tokens", 0),
+        "eval_count": _usage_count(usage, "output_tokens", "completion_tokens"),
+        "prompt_eval_count": _usage_count(usage, "input_tokens", "prompt_tokens"),
+        "service": route.get("service", ""),
+        "route": route.get("route", ""),
+        "backend": route.get("backend", ""),
     }
 
 

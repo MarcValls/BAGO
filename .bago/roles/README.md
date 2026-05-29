@@ -19,8 +19,8 @@ Este directorio contiene el **Sistema de Fábrica de Roles** de BAGO — equival
 .bago/roles/
 ├── gobierno/              ← Gobierno de BAGO (maestro, orquestador)
 ├── especialistas/         ← Especialistas por dominio (seguridad, UX, etc)
-├── supervision/           ← Supervisión y cumplimiento (vacío)
-└── produccion/            ← Operaciones y despliegue (vacío)
+├── supervision/           ← Supervisión y cumplimiento (AUDITOR_CANONICO, CENTINELA_SINCERIDAD, VERTICE)
+└── produccion/            ← Operaciones y despliegue (ANALISTA, ARQUITECTO, GENERADOR, ORGANIZADOR, VALIDADOR)
 ```
 
 ---

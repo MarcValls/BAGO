@@ -10,7 +10,6 @@ Funciones reutilizables para:
   - State management
   
 Uso:
-  from bago_utils import get_bago_root, load_json, save_json, timestamp_now
 """
 
 import os
@@ -65,6 +64,20 @@ def save_json(path: Path, data: dict, indent: int = 2) -> bool:
         return True
     except Exception:
         return False
+
+
+def print_test_results(results: list[tuple[str, bool, str]]) -> int:
+    """Imprime resultados de tests y retorna 0 si todos pasaron, 1 si alguno falló.
+
+    results: lista de (nombre, ok, detalle)
+    """
+    passed = sum(1 for _, ok, _ in results if ok)
+    failed = sum(1 for _, ok, _ in results if not ok)
+    for name, ok, detail in results:
+        status = "✅" if ok else "❌"
+        print(f"  {status}  {name}: {detail}")
+    print(f"\n  {passed}/{len(results)} pasaron")
+    return 0 if failed == 0 else 1
 
 
 def timestamp_iso() -> str:

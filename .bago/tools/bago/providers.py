@@ -12,16 +12,20 @@ for _stream in (sys.stdout, sys.stderr):
 import json
 import os
 
-from .codex_auth import codex_access_token as _codex_access_token
+from .codex_auth import resolve_openai_credential, resolve_openai_credentials
 from .constants import PROVIDERS_FILE, ROUTING_FILE
 from .model_availability import (
     available_model_items as _available_model_items,
+    available_model_routes as _available_model_routes,
     rough_model_size_score as _rough_model_size_score,
 )
 from .ollama_runtime import discover_ollama_url, ollama_probe, ollama_pull
 from .provider_health import scan_provider_health
 from .provider_scan_history import update_scan_history
 from .provider_state import disabled_provider_ids
+from .ollama_models import ensure_ollama_models_env
+
+ensure_ollama_models_env()
 
 
 def load_providers():
@@ -41,7 +45,7 @@ def load_routing():
     try:
         return json.loads(ROUTING_FILE.read_text(encoding="utf-8-sig"))
     except Exception:
-        return {"rules": [], "fallback": {"provider": "codex", "model": "gpt-5.4"}}
+        return {"rules": [], "fallback": {"provider": "codex", "model": "gpt-5.4-mini"}}
 
 
 _PROVIDER_ALIASES = {
@@ -53,6 +57,7 @@ _PROVIDER_ALIASES = {
     "openai": "codex",
     "gpt": "codex",
     "github": "copilot",
+    "github-models": "github-models",
 }
 
 _LOCAL_CODE_KEYWORDS = (
@@ -82,20 +87,77 @@ def _looks_like_local_code_task(text: str) -> bool:
     return any(k in tl for k in _LOCAL_CODE_KEYWORDS)
 
 
+# Selección estable: primero la preferencia explícita, luego capacidad y al final nombre.
+_CODEX_PREFERRED_MODELS = (
+    "gpt-5.4-mini",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.5",
+    "gpt-5.2",
+    "gpt-5.3",
+    "gpt-5.2-codex",
+    "gpt-5-mini",
+    "gpt-5.1",
+)
+
+
+def _model_sort_key(
+    name: str,
+    meta: dict | None = None,
+    *,
+    preferred: tuple[str, ...] = (),
+    prefer_code: bool = True,
+):
+    meta = meta if isinstance(meta, dict) else {}
+    wire = str(meta.get("wire_name", name))
+    best_for = str(meta.get("best_for", "")).lower()
+    lower_name = name.lower()
+    lower_wire = wire.lower()
+    preferred_index = next(
+        (
+            idx
+            for idx, candidate in enumerate(preferred)
+            if candidate == name
+            or candidate == lower_name
+            or candidate == wire
+            or candidate == lower_wire
+        ),
+        None,
+    )
+    if preferred_index is not None:
+        return (0, preferred_index, -_rough_model_size_score(name), lower_name, lower_wire)
+    code_bonus = 1 if prefer_code and ("coder" in lower_name or "code" in lower_wire or "code" in best_for) else 0
+    return (1, -code_bonus, -_rough_model_size_score(name), lower_name, lower_wire)
+
+
+def _select_best_model(models: dict, *, preferred: tuple[str, ...] = (), prefer_code: bool = True):
+    if not models:
+        return None
+    return min(
+        models.items(),
+        key=lambda item: _model_sort_key(
+            item[0],
+            item[1],
+            preferred=preferred,
+            prefer_code=prefer_code,
+        ),
+    )
+
+
 def _best_ollama_coder(providers: dict) -> "tuple[str, str, str] | None":
     for prov in ("ollama-local", "ollama-cloud"):
         models = dict(_available_model_items(prov, providers.get(prov, {})))
         if not models:
             continue
-        coder = [
-            (mn, md.get("wire_name", mn))
+        coder = {
+            mn: md
             for mn, md in models.items()
             if "coder" in mn.lower() or "code" in str(md.get("best_for", "")).lower()
-        ]
-        if coder:
-            mn, wire = coder[0]
-            return mn, wire, prov
-        mn, md = next(iter(models.items()))
+        }
+        selected = _select_best_model(coder) if coder else _select_best_model(models)
+        if not selected:
+            continue
+        mn, md = selected
         return mn, md.get("wire_name", mn), prov
     return None
 
@@ -133,11 +195,9 @@ def route_by_task(task, routing, providers, current_provider=None):
 
     current_provider = _normalize_provider_name(current_provider)
     if current_provider in ("ollama-local", "ollama-cloud"):
-        mods = dict(_available_model_items(current_provider, providers.get(current_provider, {})))
-        if mods:
-            first = next(iter(mods))
-            wire = mods[first].get("wire_name", first)
-            return first, wire, current_provider, None
+        best = best_model_for_provider(current_provider, providers)
+        if best:
+            return best[0], best[1], current_provider, None
     if _looks_like_local_code_task(task):
         local = _best_ollama_coder(providers)
         if local:
@@ -200,19 +260,74 @@ def get_default_model(provider_name, providers):
     models = dict(_available_model_items(provider_name, prov))
     if not models:
         return "", "", provider_name
-    name = max(
-        models,
-        key=lambda item: (
-            1 if "coder" in item.lower() or "coder" in str(models[item].get("wire_name", "")).lower() else 0,
-            _rough_model_size_score(item),
-        ),
-    )
-    return name, models[name].get("wire_name", name), provider_name
+    preferred = _CODEX_PREFERRED_MODELS if provider_name in ("codex", "openai") else ()
+    selected = _select_best_model(models, preferred=preferred)
+    if not selected:
+        return "", "", provider_name
+    name, meta = selected
+    return name, meta.get("wire_name", name), provider_name
 
 
 def best_model_for_provider(prov_name, providers):
     name, wire, prov = get_default_model(prov_name, providers)
     return (name, wire, prov) if name else None
+
+
+def describe_model_source(
+    provider_name: str,
+    model_name: str,
+    providers: dict,
+    wire_name: str | None = None,
+    *,
+    route: str | None = None,
+    service: str | None = None,
+) -> dict:
+    """Return the richest known origin metadata for a provider/model pair."""
+    prov_data = providers.get(provider_name, {})
+    target_wire = wire_name or model_name
+    def _default_service() -> str:
+        if provider_name in ("codex", "openai"):
+            if route == "openai-api" or service == "openai-api":
+                return "openai-api"
+            return "codex-cli"
+        if provider_name == "ollama-local":
+            return "ollama-native"
+        if provider_name == "ollama-cloud":
+            return "ollama-cloud-api"
+        return f"{provider_name}-api"
+
+    for rec in _available_model_routes(provider_name, prov_data):
+        if route and rec.get("route") != route:
+            continue
+        if service and rec.get("service") != service:
+            continue
+        if rec.get("model") == model_name or rec.get("wire_name") == target_wire:
+            return dict(rec)
+    for mn, md in _available_model_items(provider_name, prov_data):
+        if mn == model_name or md.get("wire_name", mn) == target_wire:
+            resolved_service = md.get("service") or _default_service()
+            resolved_route = route or md.get("route") or service or resolved_service or provider_name
+            return {
+                "provider": provider_name,
+                "model": mn,
+                "wire_name": md.get("wire_name", mn),
+                "service": service or resolved_service,
+                "route": resolved_route,
+                "backend": md.get("backend", "litellm"),
+                "available": md.get("available", True),
+                "best_for": md.get("best_for", ""),
+                "cost": md.get("cost", ""),
+            }
+    resolved_service = service or _default_service()
+    return {
+        "provider": provider_name,
+        "model": model_name,
+        "wire_name": target_wire,
+        "service": resolved_service,
+        "route": route or service or provider_name,
+        "backend": "litellm",
+        "available": False,
+    }
 
 
 _COPILOT_MODEL_MAP = {
@@ -246,10 +361,57 @@ def _is_valid_api_key(key: str) -> bool:
     return key.lower() not in obvious
 
 
+def resolve_codex_route_candidates(wire_name: str, *, allow_api_fallback: bool = True) -> list[dict]:
+    """Return ordered execution routes for codex/openai models."""
+    creds = resolve_openai_credentials()
+    oauth_token = creds.get("oauth_token")
+    api_key = creds.get("api_key", "")
+    if not oauth_token:
+        return []
+
+    candidates: list[dict] = []
+    try:
+        from .codex_runtime import codex_cli_available
+    except Exception:
+        def codex_cli_available() -> bool:  # type: ignore[redef]
+            return False
+
+    if codex_cli_available():
+        candidates.append({
+            "provider": "codex",
+            "model": wire_name,
+            "wire_name": wire_name,
+            "service": "codex-cli",
+            "route": "codex-cli",
+            "backend": "codex-cli",
+            "available": True,
+            "auth_mode": "oauth",
+            "lm": wire_name,
+            "kw": {},
+        })
+
+    if allow_api_fallback and api_key and _is_valid_api_key(api_key):
+        candidates.append({
+            "provider": "codex",
+            "model": wire_name,
+            "wire_name": wire_name,
+            "service": "openai-api",
+            "route": "openai-api",
+            "backend": "litellm",
+            "available": True,
+            "auth_mode": "api_key",
+            "fallback": True,
+            "lm": wire_name,
+            "kw": {"api_key": api_key},
+        })
+
+    return candidates
+
+
 def resolve_litellm(provider, wire_name):
     provider = _normalize_provider_name(provider)
     if provider == "ollama-local":
-        from .bago.ollama_runtime import default_ollama_base_url
+        from .ollama_runtime import default_ollama_base_url
         return f"ollama/{wire_name}", {"api_base": os.environ.get("OLLAMA_HOST") or default_ollama_base_url()}
     if provider == "ollama-cloud":
         providers = load_providers()
@@ -279,13 +441,36 @@ def resolve_litellm(provider, wire_name):
                 "api_key": token,
             }
         return wire_name, {}
-    if provider in ("codex", "openai"):
-        api_key = os.environ.get("OPENAI_API_KEY", "")
+    if provider == "github-models":
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+        if not token:
+            try:
+                from .credentials import CredentialManager
+                token = CredentialManager()._creds.get("github", "")
+            except Exception:
+                pass
+        if token and _is_valid_api_key(token):
+            # GitHub Models usa el endpoint models.github.ai/inference
+            return f"openai/{wire_name}", {
+                "api_base": "https://models.github.ai/inference",
+                "api_key": token,
+            }
+        return wire_name, {}
+    if provider == "replicate":
+        api_key = os.environ.get("REPLICATE_API_TOKEN", "")
+        if not api_key:
+            try:
+                from .credentials import CredentialManager
+                api_key = CredentialManager()._creds.get("replicate", "")
+            except Exception:
+                pass
         if api_key and _is_valid_api_key(api_key):
-            return wire_name, {"api_key": api_key}
-        codex_token = _codex_access_token()
-        if codex_token:
-            return wire_name, {"api_key": codex_token}
+            return f"replicate/{wire_name}", {"api_key": api_key}
+        return wire_name, {}
+    if provider in ("codex", "openai"):
+        credential, _mode = resolve_openai_credential()
+        if credential:
+            return wire_name, {"api_key": credential}
         gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if gh_token:
             safe = "gpt-4o-mini" if "mini" in wire_name else "gpt-4o"
@@ -322,7 +507,7 @@ def resolve_litellm(provider, wire_name):
 
 def auto_detect_provider(creds, providers):
     active = creds.active_bago_providers()
-    for preferred in ("ollama-local", "copilot", "codex", "anthropic", "ollama-cloud"):
+    for preferred in ("ollama-local", "copilot", "github-models", "codex", "anthropic", "ollama-cloud"):
         if preferred in active and preferred in providers:
             return preferred
     return next((name for name in providers if name in active), "none")
@@ -362,9 +547,9 @@ KNOWN_PROVIDERS_CATALOG: dict[str, dict] = {
     },
     "codex": {
         "label": "OpenAI / Codex CLI",
-        "description": "GPT-4o via API OpenAI o ChatGPT Plus via codex login",
-        "setup": "OPENAI_API_KEY o npm i -g @openai/codex && codex login",
-        "requires": "OPENAI_API_KEY o codex CLI autenticado",
+        "description": "GPT-4o / GPT-5.x via codex login",
+        "setup": "npm i -g @openai/codex && codex login",
+        "requires": "codex CLI autenticado",
         "type": "cloud",
     },
     "anthropic": {

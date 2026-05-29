@@ -17,6 +17,8 @@ Opciones:
 
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import os
 import re
@@ -26,13 +28,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 ROOT = Path(__file__).resolve().parents[1]
 PACK_PARENT = ROOT.parent

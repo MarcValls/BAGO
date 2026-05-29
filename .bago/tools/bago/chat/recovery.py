@@ -110,6 +110,7 @@ def _ollama_recovery_flow(session, model_name: str) -> bool:
             pi(f"Cambiando a {sel}...")
             session.wire_name  = sel
             session.model_name = sel.split(":")[0]
+            session._update_model_origin(session.provider, session.model_name, session.wire_name)
             return True
     else:
         console.print(
@@ -132,6 +133,7 @@ def _do_ollama_pull(model_name: str, base_url: str, session) -> bool:
     if ok:
         console.print(f"\n  [green]✔ Modelo '{model_name}' instalado correctamente.[/green]")
         session.wire_name = model_name
+        session._update_model_origin(session.provider, session.model_name, session.wire_name)
         session.skip_providers.discard("ollama-local")
         session.skip_providers.discard("ollama-cloud")
         return True
@@ -153,6 +155,17 @@ def _fallback_to_other_provider(session) -> bool:
         name, wire, _ = get_default_model(prov, session.providers)
         if name:
             session.provider, session.model_name, session.wire_name = prov, name, wire
+            source = session._update_model_origin(prov, name, wire)
+            session.switches = getattr(session, "switches", 0) + 1
+            session.last_route = {
+                "mode": "manual",
+                "provider": prov,
+                "model": name,
+                "reason": "recovery fallback",
+                "service": source.get("service", ""),
+                "route": source.get("route", ""),
+                "backend": source.get("backend", ""),
+            }
             pi(f"Cambiando a {name} ({prov}) — el modelo Ollama no está disponible.")
             return True
 
@@ -195,6 +208,17 @@ def _cloud_recovery_flow(session, exc) -> bool:
         name, wire, _ = get_default_model(new_prov, session.providers)
         if name:
             session.provider, session.model_name, session.wire_name = new_prov, name, wire
+            source = session._update_model_origin(new_prov, name, wire)
+            session.switches = getattr(session, "switches", 0) + 1
+            session.last_route = {
+                "mode": "manual",
+                "provider": new_prov,
+                "model": name,
+                "reason": "cloud recovery fallback",
+                "service": source.get("service", ""),
+                "route": source.get("route", ""),
+                "backend": source.get("backend", ""),
+            }
             pi(f"Cambiando a {name} ({new_prov}) — {prov} no disponible.")
             return True
 

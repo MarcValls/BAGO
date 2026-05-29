@@ -27,6 +27,12 @@ from ..provider_state import (
     save_provider_state,
 )
 from .accounts import AccountManager
+from .auth_state import (
+    active_bago_providers as _active_bago_providers,
+    build_login_view,
+    build_status_view,
+    is_valid_api_key,
+)
 from .login_flows import LoginFlowsMixin
 
 
@@ -39,6 +45,10 @@ class CredentialManager(LoginFlowsMixin):
                         "desc": "GitHub Copilot / Models",
                         "login_type": "github",
                         "group": "llm"},
+        "github-models":{"env": "GITHUB_TOKEN",         "bago_provider": "github-models",
+                            "desc": "GitHub Models (endpoint models.github.ai)",
+                            "login_type": "github",
+                            "group": "llm"},
         "openai":      {"env": "OPENAI_API_KEY",        "bago_provider": "codex",
                         "desc": "OpenAI / GPT Plus",
                         "login_type": "openai_cli",
@@ -240,6 +250,24 @@ class CredentialManager(LoginFlowsMixin):
         if env_key:
             os.environ[env_key] = key
         self._save()
+        # ── sincronizar con AccountManager para que persista ────────────────
+        am = getattr(self, "_accounts", None)
+        if am:
+            from .accounts import AccountManager
+            accounts = am.accounts_for(provider_name)
+            if accounts:
+                # actualizar la cuenta activa existente
+                active_id = am.get_active_id(provider_name)
+                if active_id:
+                    am.update(active_id, credential=key, enabled=True)
+                else:
+                    # no hay activa: usar la primera
+                    am.update(accounts[0]["id"], credential=key, enabled=True)
+            else:
+                # crear nueva cuenta
+                am.add(provider=provider_name, label="", credential=key,
+                       credential_type="api_key", make_active=True)
+            am.apply_active_credentials()
 
     def logout(self, provider_name: str) -> str:
         """Cierra sesión del provider y borra credenciales activas locales."""
@@ -310,20 +338,9 @@ class CredentialManager(LoginFlowsMixin):
                 return False
 
     def _codex_authed(self) -> bool:
-        """True si codex CLI tiene sesión activa (GPT Plus sin API key)."""
-        if self._creds.get("openai_via") in ("codex_login", "chatgpt_login"):
-            return True
-        try:
-            for f in (Path.home() / ".codex").glob("*.json"):
-                try:
-                    data = json.loads(f.read_text())
-                    if data.get("accessToken") or data.get("token") or data.get("auth"):
-                        return True
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        return False
+        """True si la sesión OAuth de Codex/ChatGPT está activa."""
+        from ..codex_auth import resolve_openai_credential
+        return resolve_openai_credential()[1] == "oauth"
 
     def _chatgpt_authed(self) -> bool:
         """True si chatgpt CLI tiene sesión activa."""
@@ -340,116 +357,19 @@ class CredentialManager(LoginFlowsMixin):
 
     # ── Consultas de estado ──────────────────────────────────────────────────────
 
-    @staticmethod
-    def _is_valid_api_key(key: str) -> bool:
-        """Heuristico rapido: una key valida no es una palabra suelta ni vacia."""
-        k = key.strip()
-        if len(k) < 8:
-            return False
-        # Keys de OpenAI empiezan con sk-, pero no siempre; rechazar palabras obvias
-        obvious_invalid = {"ollama", "none", "null", "undefined", "false", "test", "demo", "placeholder"}
-        if k.lower() in obvious_invalid:
-            return False
-        return True
-
     def active_bago_providers(self) -> list[str]:
-        """Lista de bago_provider strings con credenciales activas.
-
-        Chequea tanto env vars como credentials.json.
-        Valida que las keys API tengan formato plausible.
-        """
-        active = []
-        local_mode = os.environ.get("BAGO_ENABLE_LOCAL_MODE") == "1"
-        for name, info in self.PROVIDERS.items():
-            if not self.is_provider_enabled(name):
-                continue
-            if name == "ollama":
-                if local_mode and self._ollama_ok():
-                    active.append("ollama-local")
-            elif name == "ollama_cloud":
-                # API key en env var, en credentials.json, o signin
-                has_env = bool(os.environ.get("OLLAMA_CLOUD_API_KEY") or os.environ.get("OLLAMA_API_KEY"))
-                has_file = bool(self._creds.get("ollama_cloud"))  # key almacenada por ollama signin
-                has_signin = self._creds.get("ollama_cloud_via") == "ollama_signin"
-                if local_mode and (has_env or has_file or has_signin):
-                    active.append("ollama-cloud")
-            elif name == "openai":
-                env_key = os.environ.get("OPENAI_API_KEY", "")
-                codex_ok = self._codex_authed()
-                # Validar que la key no sea obviamente invalida (ej: "ollama")
-                if (env_key and self._is_valid_api_key(env_key)) or codex_ok:
-                    active.append("codex")
-            elif name == "github":
-                gh = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
-                gh_file = self._creds.get("github", "")
-                if (gh and self._is_valid_api_key(gh)) or (gh_file and self._is_valid_api_key(gh_file)):
-                    active.append("copilot")
-            elif name == "opencode":
-                if self._creds.get("opencode_via"):
-                    active.append("opencode")
-            elif name == "sendcm":
-                pass  # sendcm no es un proveedor LLM
-            else:
-                # Providers genericos: buscar en env var Y en credentials.json
-                env_key = info.get("env")
-                bago_prov = info.get("bago_provider", name)
-                # Env var
-                if env_key and os.environ.get(env_key):
-                    active.append(bago_prov)
-                    continue
-                # credentials.json: buscar por nombre de provider o por env var como clave
-                cred_val = self._creds.get(name) or self._creds.get(env_key)
-                if isinstance(cred_val, str) and self._is_valid_api_key(cred_val):
-                    active.append(bago_prov)
-        return active
+        """Lista de bago_provider strings con credenciales activas."""
+        return _active_bago_providers(self)
 
     def login_choices(self) -> list[tuple[str, str]]:
         """Lista (name, label) con estado plain-text para el menú interactivo."""
         active = self.active_bago_providers()
         out = []
         for name, info in self.PROVIDERS.items():
-            if not self.is_provider_enabled(name) and os.environ.get("BAGO_SHOW_DISABLED_PROVIDERS") != "1":
+            view = build_login_view(self, name, info, active)
+            if not view:
                 continue
-            bp = info.get("bago_provider")
-            ok = (bp in active) if bp else False
-            mark = "✓" if ok else "·"
-            if name == "github":
-                state = "configurado" if ok else "sin credencial"
-            elif name == "openai":
-                k = os.environ.get("OPENAI_API_KEY", "")
-                if k:
-                    state = "API key configurada"
-                elif ok:
-                    state = "codex login (GPT Plus)"
-                else:
-                    state = "sin credencial"
-            elif name == "ollama":
-                state = "activo" if ok else "no disponible"
-            elif name == "ollama_cloud":
-                k = os.environ.get("OLLAMA_CLOUD_API_KEY", "")
-                if k:
-                    state = "API key configurada"
-                elif ok:
-                    state = "ollama signin"
-                else:
-                    state = "sin credencial"
-            elif name == "opencode":
-                state = "autenticado" if ok else "sin auth"
-            elif name == "sendcm":
-                token = self._creds.get("sendcm", {}).get("api_key", "")
-                if token:
-                    state = "configurado"
-                    mark = "✓"
-                else:
-                    state = "sin credencial"
-            else:
-                env_key = info.get("env")
-                val = os.environ.get(env_key, "") if env_key else ""
-                state = "configurado" if val else "sin credencial"
-            if not self.is_provider_enabled(name):
-                mark = "·"
-                state = "desactivado"
-            out.append((name, f"{name:<14} {mark}  {state:<26}  {info['desc']}"))
+            out.append((name, f"{name:<14} {view.mark}  {view.state:<26}  {view.desc}"))
         return out
 
     def status_table(self) -> Table:
@@ -460,48 +380,9 @@ class CredentialManager(LoginFlowsMixin):
         t.add_column("Cuota/Gasto")
         t.add_column("Descripcion")
         for name, info in self.PROVIDERS.items():
-            if not self.is_provider_enabled(name) and os.environ.get("BAGO_SHOW_DISABLED_PROVIDERS") != "1":
+            view = build_status_view(self, name, info)
+            if not view:
                 continue
-            quota = "[dim]no comprobada[/dim]"
-            if not self.is_provider_enabled(name):
-                t.add_row(name, "[dim]desactivado[/dim]", "[dim]omitido[/dim]", info["desc"])
-                continue
-            if name == "ollama":
-                ok = self._ollama_ok()
-                status = "[green]✓ activo[/green]" if ok else "[red]✗ no disponible[/red]"
-                quota = "[green]sin gasto API[/green]"
-            elif name == "openai":
-                k = os.environ.get("OPENAI_API_KEY", "")
-                if k:
-                    status = "[green]✓ API key configurada[/green]"
-                    quota = "[yellow]billing/cuota API no verificada[/yellow]"
-                elif self._codex_authed():
-                    status = "[green]✓ codex login (GPT Plus)[/green]"
-                    quota = "[yellow]separado de OpenAI API[/yellow]"
-                else:
-                    status = "[red]✗ sin credencial[/red]"
-            elif name == "ollama_cloud":
-                k = os.environ.get("OLLAMA_CLOUD_API_KEY", "")
-                if k:
-                    status = "[green]✓ API key configurada[/green]"
-                    quota = "[yellow]cuota Ollama Cloud no verificada[/yellow]"
-                elif self._creds.get("ollama_cloud_via") == "ollama_signin":
-                    status = "[green]✓ ollama signin (cuenta ollama.com)[/green]"
-                    quota = "[yellow]separado de login[/yellow]"
-                else:
-                    status = "[red]✗ sin credencial[/red]"
-            elif name == "opencode":
-                via = self._creds.get("opencode_via")
-                status = f"[green]✓ {via}[/green]" if via else "[red]✗ no instalado / sin auth[/red]"
-            else:
-                env_key = info.get("env")
-                val = os.environ.get(env_key, "") if env_key else ""
-                if val:
-                    status = "[green]✓ configurado[/green]"
-                    if name == "github":
-                        quota = "[yellow]GitHub/Copilot API separado[/yellow]"
-                else:
-                    status = "[red]✗ sin credencial[/red]"
-            t.add_row(name, status, quota, info["desc"])
+            t.add_row(name, view.status, view.quota, view.desc)
         t.add_row("[dim]/login <provider>[/dim]", "", "", "[dim]para registrar[/dim]")
         return t

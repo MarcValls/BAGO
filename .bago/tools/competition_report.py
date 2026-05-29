@@ -1,21 +1,11 @@
 #!/usr/bin/env python3
 """
+
 competition_report.py — BAGO
 Compara sesiones .bago/on (W7) vs .bago/off (W0) del ESCENARIO-002.
 Solo cuenta sesiones cerradas con escenario="ESCENARIO-002".
 Con --baseline también muestra el histórico general de sesiones W7.
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import json
 import argparse
 from pathlib import Path

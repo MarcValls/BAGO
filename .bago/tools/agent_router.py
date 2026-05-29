@@ -11,16 +11,7 @@ Flujo:
 """
 from __future__ import annotations
 
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+from bago_utils import load_json, save_json, timestamp_iso
 
 import argparse
 import json
@@ -35,6 +26,79 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bago.ollama_runtime import default_ollama_base_url
+from bago.ollama_models import resolve_ollama_models_dir
+
+# ── BC Model Integration ───────────────────────────────────────────────────
+_BC_NET = None
+_BC_ACTION_MAP: dict[int, str] = {}
+
+def _load_bc_model() -> None:
+    """Carga el modelo BC entrenado para influir en routing."""
+    global _BC_NET, _BC_ACTION_MAP
+    if _BC_NET is not None:
+        return
+    ckpt = BAGO_ROOT / "rl" / "checkpoints" / "bc_router" / "bc_model.pkl"
+    if not ckpt.exists():
+        return
+    try:
+        import numpy as np
+        sys.path.insert(0, str(BAGO_ROOT / "rl" / "training"))
+        from train_bc import BCSimpleNN, _flatten_obs
+        _BC_NET = BCSimpleNN.load(ckpt)
+        _BC_ACTION_MAP = {v: k for k, v in getattr(_BC_NET, "action_to_idx", {}).items()}
+    except Exception as exc:
+        import warnings
+        warnings.warn(f"[BC-Router] No se pudo cargar modelo BC: {exc}")
+        pass
+
+def _bc_observation(task: str, policy: dict, sig: dict) -> dict:
+    """Construye observación para el modelo BC desde el contexto del router."""
+    local_id = policy.get("local_agent", "ollama")
+    return {
+        "provider": local_id,
+        "model": "sin-modelo",
+        "autoroute": 1.0 if policy.get("mode") == "auto" else 0.0,
+        "local_lock": 1.0 if policy.get("local_first") else 0.0,
+        "switches": 0.0,
+        "mode": str(policy.get("mode", "standard")),
+        "input_len": float(len(task)),
+        "has_code": 1.0 if sig["code_hits"] >= 1 else 0.0,
+        "has_long": 1.0 if len(task) > 100 else 0.0,
+    }
+
+def _bc_agent_id_from_action(action: str) -> str | None:
+    """Mapea acción BC 'provider/model' a agent_id del router."""
+    if not action:
+        return None
+    prov = action.split("/")[0].lower()
+    mapping = {
+        "copilot": "copilot",
+        "codex": "codex",
+        "github-models": "codex",  # fallback a codex (más estable)
+        "ollama-local": "ollama",
+        "ollama-cloud": "ollama",  # ambos son ollama
+    }
+    return mapping.get(prov)
+
+def _bc_boost(task: str, available: dict, policy: dict, sig: dict, scores: dict) -> dict:
+    """Consulta el modelo BC y añade un boost al agente predicho."""
+    _load_bc_model()
+    if _BC_NET is None:
+        return scores
+    try:
+        import numpy as np
+        sys.path.insert(0, str(BAGO_ROOT / ".bago" / "rl" / "training"))
+        from train_bc import _flatten_obs
+        obs = _bc_observation(task, policy, sig)
+        x = _flatten_obs(obs).reshape(1, -1)
+        pred_idx = int(_BC_NET.predict(x)[0])
+        action = _BC_ACTION_MAP.get(pred_idx)
+        agent_id = _bc_agent_id_from_action(action)
+        if agent_id and agent_id in available:
+            scores[agent_id] = scores.get(agent_id, 0) + 20
+    except Exception:
+        pass
+    return scores
 
 TOOLS_DIR = Path(__file__).resolve().parent
 BAGO_ROOT = TOOLS_DIR.parent
@@ -42,7 +106,7 @@ REPO_ROOT = BAGO_ROOT.parent
 STATE_DIR = BAGO_ROOT / "state"
 CFG_FILE = STATE_DIR / "llm_config.json"
 HISTORY_FILE = STATE_DIR / "routing_history.jsonl"
-OLLAMA_MODELS_DIR = BAGO_ROOT / ".models"
+OLLAMA_MODELS_DIR = resolve_ollama_models_dir()
 
 DEFAULT_POLICY: dict = {
     "mode": "balanced",
@@ -640,6 +704,7 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
 
     sig = _signals(task)
     scores = _scores(available, policy, sig)
+    scores = _bc_boost(task, available, policy, sig, scores)
 
     hard = _hard_route(available, policy, sig)
     if hard:

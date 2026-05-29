@@ -38,6 +38,8 @@ _CTX_KEYWORDS = (
 
 def _is_ctx_overflow(exc) -> bool:
     msg = str(exc).lower()
+    if _is_cloud_auth_error(exc):
+        return False
     return any(kw in msg for kw in _CTX_KEYWORDS)
 
 
@@ -79,7 +81,8 @@ _CLOUD_AUTH_SIGNALS = (
     "authenticationerror", "401", "unauthorized", "invalid token",
     "authentication failed", "auth_error", "invalid_api_key",
     "permissiondeniederror", "permission denied", "forbidden",
-    "invalid credentials",
+    "invalid credentials", "authentication token has been invalidated",
+    "please try signing in again", "signing in again",
 )
 _CLOUD_CONN_SIGNALS = (
     "connection timed out", "timed out", "connecttimeout",

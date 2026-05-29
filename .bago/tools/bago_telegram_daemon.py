@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
 """BAGO Telegram Daemon — polling real de mensajes + ejecución de comandos"""
-import os
-import sys
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
+from bago_utils import load_json, save_json, timestamp_iso
 import html, json, os, sys, subprocess, time, threading, re
 from pathlib import Path
 from datetime import datetime

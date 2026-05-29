@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 context_detector.py — BAGO ESCENARIO-003
 Detecta señales de madurez cognitiva y técnica en el workspace.
 Emite un veredicto: HARVEST / WATCH / CLEAN
@@ -15,11 +16,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # Windows UTF-8 fix: box-drawing / emoji chars fail on cp1252
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # ─── Configuración ────────────────────────────────────────────────────────────
 BAGO_ROOT   = Path(__file__).resolve().parent.parent

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 reconcile_state.py — Reconciliador estado vs disco.
 
 Cuenta archivos reales en state/sessions/, state/changes/, state/evidences/
@@ -12,17 +13,6 @@ Uso:
   python3 .bago/tools/reconcile_state.py         # solo muestra diff
   python3 .bago/tools/reconcile_state.py --fix   # aplica corrección
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 from pathlib import Path
 import json

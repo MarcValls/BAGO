@@ -1,7 +1,9 @@
 {
-  "bago_host_root": "E:\\bago_fw",
-  "recorded_at": "2026-05-26T23:26:56+00:00",
-  "repo_fingerprint": "94f6385d0ae32651ccfe2a5b39654f9774633902f0203a35744f0c911366a7bd",
-  "repo_root": "E:\\bago_fw",
-  "working_mode": "self"
+  "bago_host_root": "C:\\bago_true",
+  "note": "BAGO operando como herramienta sobre un proyecto externo.",
+  "recorded_at": "2026-05-27T18:26:48+00:00",
+  "repo_fingerprint": "3e4b652f3a1db7d948653bc32c97048583792d76a0c494d73c7276e4040fa2f2",
+  "repo_root": "C:\\bago_test_project",
+  "role": "workspace_pointer",
+  "working_mode": "external"
 }

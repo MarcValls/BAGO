@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+
 bago insights — motor de insights automaticos desde los datos del pack BAGO.
 
 Analiza patrones en las sesiones, cambios y métricas para generar observaciones
@@ -19,17 +20,6 @@ Uso:
     bago insights --json    → output JSON
     bago insights --test    → tests integrados
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import argparse
 import json

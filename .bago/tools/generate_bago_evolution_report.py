@@ -5,6 +5,8 @@
 """generate_bago_evolution_report — Genera report de evolución del framework BAGO."""
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import datetime as dt
 import sys
 from collections import Counter
@@ -12,13 +14,6 @@ from pathlib import Path
 
 import os
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

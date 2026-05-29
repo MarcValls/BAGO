@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+
 check_validate_purity.py — Static checker for write-free validation tools.
 
 Scans all tools/validate_*.py files and fails if any contains file-write
@@ -12,17 +13,6 @@ Usage:
   python3 .bago/tools/check_validate_purity.py
   (called by CI job: validate-purity-static)
 """
-
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import re
 import sys

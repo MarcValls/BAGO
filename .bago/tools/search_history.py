@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 """search_history.py — Busca en el historial de ideas implementadas.
 
+NOTE DE ARQUITECTURA (DUP-008):
+  Este script busca en el HISTORIAL DE IDEAS IMPLEMENTADAS del framework.
+  Para buscar en el código fuente del proyecto, usar code_search.py. Para
+  buscar en el catálogo de tools, usar tool_search.py.
+
 Uso:
   python .bago/tools/search_history.py <término> [término2 ...]
   python .bago/tools/search_history.py           # últimas 10 ideas
@@ -10,17 +15,14 @@ Uso:
 
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import sys
 import unicodedata
 from datetime import datetime
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT = Path(__file__).resolve().parents[2]
 HISTORY_PATH = ROOT / ".bago" / "state" / "implemented_ideas.json"

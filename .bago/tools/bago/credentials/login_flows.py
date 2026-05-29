@@ -16,6 +16,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 import subprocess
+import shutil
 
 from ..ui import console
 from .accounts import AccountManager
@@ -25,6 +26,31 @@ from ..ui import _stdin_prompt
 def pt_prompt(text: str, is_password: bool = False) -> str:
     """Prompt compatible con prompt_toolkit, con fallback a input/getpass."""
     return _stdin_prompt(text, is_password=is_password)
+
+
+def _resolve_codex_cli() -> str | None:
+    for name in ("codex", "codex.cmd", "codex.ps1"):
+        found = shutil.which(name)
+        if found:
+            return found
+    try:
+        out = subprocess.run(["where.exe", "codex"], capture_output=True, text=True, check=False)
+        for line in out.stdout.splitlines():
+            candidate = line.strip()
+            if candidate:
+                return candidate
+    except Exception:
+        pass
+    return None
+
+
+def _run_codex_login() -> subprocess.CompletedProcess | None:
+    cli = _resolve_codex_cli()
+    if not cli:
+        return None
+    if cli.lower().endswith((".cmd", ".bat", ".ps1")):
+        return subprocess.run(["cmd", "/c", cli, "login"])
+    return subprocess.run([cli, "login"])
 
 
 class LoginFlowsMixin:
@@ -232,26 +258,31 @@ class LoginFlowsMixin:
             console.print(
                 "[bold]OpenAI / GPT — elige método:[/bold]\n"
                 "  [yellow]1[/yellow]  codex login  (GPT Plus — abre navegador)\n"
-                "  [yellow]2[/yellow]  API key      (platform.openai.com)\n"
+                "  [yellow]2[/yellow]  API key      (no activa Codex)\n"
             )
             choice = pt_prompt("Opción [1/2]: ").strip()
             if choice == "1":
-                try:
-                    result = subprocess.run(["codex", "login"])
-                except FileNotFoundError:
+                result = _run_codex_login()
+                if result is None:
                     console.print("[yellow]codex no esta instalado.[/yellow]")
                     ans = pt_prompt("Install codex CLI now? [y/n]: ").strip().lower()
                     if ans in ("y", "yes", "s", "si"):
                         console.print("[dim]Installing @openai/codex via npm...[/dim]")
                         try:
-                            r = subprocess.run(["npm", "install", "-g", "@openai/codex"])
+                            npm_cli = shutil.which("npm") or shutil.which("npm.cmd") or shutil.which("npm.ps1") or "npm"
+                            if str(npm_cli).lower().endswith((".cmd", ".bat", ".ps1")):
+                                r = subprocess.run(["cmd", "/c", str(npm_cli), "install", "-g", "@openai/codex"])
+                            else:
+                                r = subprocess.run([str(npm_cli), "install", "-g", "@openai/codex"])
                             if r.returncode != 0:
                                 return "[red]npm install failed. Install manually: npm install -g @openai/codex[/red]"
-                            result = subprocess.run(["codex", "login"])
+                            result = _run_codex_login()
+                            if result is None:
+                                return "[red]codex instalado pero no se pudo resolver el binario. Cierra y reabre la terminal.[/red]"
                         except FileNotFoundError:
                             return "[red]npm not found. Install Node.js then: npm install -g @openai/codex[/red]"
                     else:
-                        return "Cancelled. Use option 2 (API key) or install codex manually."
+                        return "Cancelled. Use option 2 only for stored credentials or install codex manually."
                 if result.returncode == 0:
                     account_id = am.add("openai", label, "__codex_oauth__", "oauth", make_active=True)
                     return f"[green]✓ Cuenta añadida: {account_id} — {label} (codex OAuth)[/green]"

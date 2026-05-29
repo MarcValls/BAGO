@@ -16,6 +16,8 @@ Códigos de salida: 0 = responde, 1 = no responde
 """
 from __future__ import annotations
 
+from bago_utils import load_json, save_json, timestamp_iso
+
 import json
 import sys
 import time
@@ -23,11 +25,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 ROOT  = Path(__file__).resolve().parents[2]
 STATE = ROOT / ".bago" / "state"

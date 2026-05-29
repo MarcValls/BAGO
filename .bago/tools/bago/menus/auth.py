@@ -59,7 +59,7 @@ def _cmd_auth(session):
             providers_choices = [
                 # ── LLM / IA ──
                 ("github",       "GitHub Copilot / Models   (PAT sin navegador o gh auth)"),
-                ("openai",       "OpenAI / GPT Plus          (API key o codex login)"),
+                ("openai",       "OpenAI / GPT Plus          (codex login)"),
                 ("anthropic",    "Anthropic Claude            (API key — sin navegador)"),
                 ("gemini",       "Google Gemini               (API key — sin navegador)"),
                 ("groq",         "Groq — inferencia rapida    (API key — sin navegador)"),
@@ -124,4 +124,4 @@ def _cmd_auth(session):
             pi(f"Providers activos ahora: {', '.join(active) or 'ninguno'}")
 
         elif sel == "signup":
-            _menu_action("Proximamente", "Sign-up de nuevos proveedores en desarrollo.\nPor ahora usa /auth -> Login -> API key.", [("Cerrar","ok")])
+            _menu_action("Proximamente", "Sign-up de nuevos proveedores en desarrollo.\nPor ahora usa /auth -> Login -> provider.", [("Cerrar","ok")])

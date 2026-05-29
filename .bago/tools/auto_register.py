@@ -24,22 +24,12 @@ Códigos:
   REG-W001  Ya registrado
   REG-E001  Error (no se pudo registrar)
 """
-import os
-import sys
-
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 import sys
 import re
 import json
 import hashlib
 from pathlib import Path
+from bago_utils import load_json, save_json, timestamp_iso, print_test_results
 
 BAGO_ROOT = Path(__file__).parent.parent
 TOOLS_DIR = Path(__file__).parent
@@ -494,13 +484,7 @@ def run_tests():
         ok6 = False
     results.append(("auto_register:generate_func_valid_python", ok6, ""))
 
-    passed = sum(1 for _, ok, _ in results if ok)
-    failed = sum(1 for _, ok, _ in results if not ok)
-    for name, ok, detail in results:
-        status = "✅" if ok else "❌"
-        print(f"  {status}  {name}: {detail}")
-    print(f"\n  {passed}/{len(results)} pasaron")
-    return 0 if failed == 0 else 1
+    return print_test_results(results)
 
 
 if __name__ == "__main__":

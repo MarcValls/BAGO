@@ -7,6 +7,7 @@ from ..ui import _menu_input, _menu_pick, _toggle_menu, pi
 _CONFIG_FILE = USER_BAGO / "bago_chat_config.json"
 _DEFAULT_CONFIG = {
     "autoroute": True,
+    "single_model": False,
     "autonomous": False,
     "auto_confirm": "adaptativo",
     "auto_max_iter": 10,
@@ -55,6 +56,9 @@ def _cmd_config(session):
                 {"type": "toggle", "key": "autoroute",
                  "label": "Auto-routing",
                  "value": cfg.get("autoroute", True)},
+                {"type": "toggle", "key": "single_model",
+                 "label": "Modo single model (sin fallback ni auto-routing)",
+                 "value": cfg.get("single_model", False)},
                 {"type": "toggle", "key": "autonomous",
                  "label": "Modo autonomo",
                  "value": cfg.get("autonomous", False)},
@@ -76,7 +80,7 @@ def _cmd_config(session):
             ],
         )
 
-        for key in ("autoroute", "autonomous", "temp_mode"):
+        for key in ("autoroute", "autonomous", "temp_mode", "single_model"):
             if key in result["toggles"]:
                 cfg[key] = result["toggles"][key]
 
@@ -89,6 +93,7 @@ def _cmd_config(session):
             cfg = _normalize_config(cfg)
             _save_config(cfg)
             session.autoroute = cfg.get("autoroute", True)
+            session.single_model = cfg.get("single_model", False)
             session.autonomous = cfg.get("autonomous", False)
             session.auto_confirm = cfg.get("auto_confirm", "adaptativo")
             session.auto_max_iter = cfg.get("auto_max_iter", 10)

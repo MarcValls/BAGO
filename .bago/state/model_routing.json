@@ -198,8 +198,8 @@
         "pipeline"
       ],
       "provider": "codex",
-      "model": "gpt-5.4",
-      "reason": "Edición de archivos + ejecución. Codex con control del repo."
+      "model": "gpt-5.4-mini",
+      "reason": "Edición de archivos + ejecución. Codex arranca con gpt-5.4-mini."
     },
     {
       "id": "code_frontier",

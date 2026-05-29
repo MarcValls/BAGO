@@ -1,0 +1,8 @@
+{
+  "curriculum": "medium",
+  "total_timesteps": 50000,
+  "mean_reward": 2.1649,
+  "std_reward": 1.9573,
+  "save_path": ".bago\\rl\\checkpoints\\ppo_medium",
+  "seed": 43
+}

@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
 """BAGO Telegram Bridge — recibe mensajes de Telegram y ejecuta comandos BAGO"""
-import os
-import sys
 
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
+from bago_utils import load_json, save_json, timestamp_iso
 import json, os, sys, subprocess, time, threading, re
 from pathlib import Path
 from datetime import datetime
 
 import requests
 
-TOKEN = os.environ.get("BAGO_TELEGRAM_TOKEN", "8519892399:AAHTKzfu_VyLUSpJ-iNjmSn9RcgFOsddeKA")
+TOKEN = os.environ.get("BAGO_TELEGRAM_TOKEN", "").strip()
+if not TOKEN:
+    raise SystemExit("[FATAL] BAGO_TELEGRAM_TOKEN no definido. Exporta el token antes de ejecutar.")
 CHAT_ID = os.environ.get("BAGO_TELEGRAM_CHAT", "7752787448")
 API_URL = f"https://api.telegram.org/bot{TOKEN}"
 OFFSET = 0

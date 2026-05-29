@@ -176,6 +176,42 @@ El codigo Python debe:
 6. Usar BAGO_ROOT = Path(__file__).resolve().parents[1] si necesita acceso al repo
 7. Usar sys.stdout.isatty() para decidir si usar colores
 Devuelve el codigo como STRING en el campo 'code', con saltos de linea como \\n.""",
+
+    # ── CATEGORÍA: INTERFAZ DE TERMINAL ─────────────────────────────────────────
+
+    "tui": """\
+Eres el constructor de menus de terminal (TUI) para el framework BAGO.
+El usuario describe un menu de terminal y tu generas un script Python completo con curses
+y su archivo de cableado (wiring) que conecta cada opcion del menu a un comando/endpoint.
+Responde SOLO con JSON valido que contiene la metadata, el codigo Python y el wiring.
+Sin explicacion adicional, sin markdown externo.
+Esquema requerido:
+{
+  "name": "<menu_slug>",
+  "description": "<descripcion de una linea>",
+  "tags": ["tui", "menu"],
+  "wiring": {
+    "opciones": [
+      {"key": "1", "label": "Opcion 1", "cmd": ["comando", "arg1"]},
+      {"key": "2", "label": "Opcion 2", "cmd": ["otro_comando"]},
+      {"key": "q", "label": "Salir", "action": "quit"}
+    ]
+  },
+  "code": "<codigo Python completo como string — sin saltos de linea literales, usa \\n>"
+}
+El codigo Python debe:
+1. Empezar con el shebang: #!/usr/bin/env python3
+2. Tener un docstring modulo con descripcion y seccion 'Uso:'
+3. Usar la libreria `curses` para la interfaz (funcionar en Windows con windows-curses)
+4. Cargar el wiring desde un JSON adjunto con el mismo nombre + '_wiring.json'
+5. Navegar con flechas ↑↓ y numeros 1-9
+6. Al seleccionar una opcion, ejecutar el comando via subprocess.run(cmd, cwd=BAGO_ROOT)
+7. Volver al menu tras ejecutar el comando
+8. Manejar KeyboardInterrupt gracefully
+9. Tener una funcion main() clara y terminar con: if __name__ == '__main__': main()
+10. Usar BAGO_ROOT = Path(__file__).resolve().parents[2] para acceder al repo
+11. Usar sys.stdout.isatty() para decidir si usar colores
+Devuelve el codigo como STRING en el campo 'code', con saltos de linea como \\n.""",
 }
 
 # ─── Categorías para el menú ────────────────────────────────────────────────────
@@ -191,6 +227,9 @@ _WIZARD_CATEGORIES = [
         ("routing",     "Regla de routing   — keywords → provider/modelo"),
         ("task_pref",   "Preferencia tarea  — tipo de tarea → modelos recomendados"),
         ("role",        "Modo orquestador   — offline / eco / standard / full / auto"),
+    ]),
+    ("🖥️  INTERFAZ DE TERMINAL", [
+        ("tui",         "Menu TUI           — menu curses + wiring a comandos"),
     ]),
     ("🔧  HERRAMIENTAS", [
         ("tool",        "Tool Python        — script con main() listo para usar"),
@@ -376,6 +415,33 @@ def _wizard_save(kind, d):
         pi(f"  Categoría   : {d.get('category','')}")
         pi(f"  Tags        : {', '.join(d.get('tags', []))}")
 
+    elif kind == "tui":
+        name = d.get("name", "menu_nuevo").lower().replace(" ", "_")
+        # Guardar el script Python
+        filename = f"{name}.py"
+        dest_script = SCRIPT_DIR / filename
+        code = d.get("code", "")
+        # Desescapar \n literales que el LM puede enviar
+        if "\\n" in code and "\n" not in code:
+            code = code.replace("\\n", "\n")
+        if dest_script.exists():
+            pi(f"[yellow]¡Atención![/yellow] {filename} ya existe — guardando como {filename}.new")
+            dest_script = dest_script.with_suffix(".py.new")
+        dest_script.write_text(code, encoding="utf-8")
+
+        # Guardar el wiring JSON
+        wiring = d.get("wiring", {})
+        wiring_filename = f"{name}_wiring.json"
+        dest_wiring = SCRIPT_DIR / wiring_filename
+        if dest_wiring.exists():
+            pi(f"[yellow]¡Atención![/yellow] {wiring_filename} ya existe — sobrescribiendo.")
+        dest_wiring.write_text(json.dumps(wiring, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        pi(f"TUI '[bold]{filename}[/bold]' creado en tools/")
+        pi(f"  Descripción : {d.get('description','')}")
+        pi(f"  Wiring      : {wiring_filename}")
+        pi(f"  Tags        : {', '.join(d.get('tags', []))}")
+
 # ─── Comando principal ──────────────────────────────────────────────────────────
 
 def _cmd_wizard(session):
@@ -388,7 +454,7 @@ def _cmd_wizard(session):
             display_choices.append((kind_key, f"[{cat_label}]  {kind_lbl}"))
 
     kind = _menu_select(
-        "BAGO / Fábrica de Artefactos — 7 tipos",
+        "BAGO / Fábrica de Artefactos — 8 tipos",
         "Selecciona el tipo de artefacto a construir.\n"
         "El LM genera la definición completa a partir de tu descripción natural:",
         display_choices)
@@ -420,6 +486,7 @@ def _cmd_wizard(session):
         "routing":    "id",
         "task_pref":  "name",
         "tool":       "name",
+        "tui":        "name",
     }.get(kind, "name")
 
     if name_field not in result or not result.get(name_field):
@@ -435,7 +502,7 @@ def _cmd_wizard(session):
     # Revisión interactiva campo a campo
     title = f"Fábrica > {kind}: {result.get(name_field, '?')}"
     # Para tools, el campo 'code' es largo — tratarlo como campo especial
-    skip_long = {"code"} if kind == "tool" else set()
+    skip_long = {"code"} if kind in ("tool", "tui") else set()
     confirmed = _wizard_review_dict(title, result, skip_keys=skip_long)
     if confirmed is None:
         pi("Wizard cancelado."); return
