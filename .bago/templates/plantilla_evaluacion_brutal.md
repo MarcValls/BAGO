@@ -6,7 +6,7 @@ Esta plantilla existe para responder una sola pregunta:
 
 **¿BAGO mejora de verdad el trabajo técnico complejo o solo lo ordena con más ceremonia?**
 
-No evalúa si el sistema “suena bien”.
+No evalúa si el sistema "suena bien".
 Evalúa si produce ventajas medibles en repositorios reales.
 
 ---
@@ -509,16 +509,16 @@ Evalúa si produce ventajas medibles en repositorios reales.
 
 No escribir:
 
-- “parece útil”
-- “da buena sensación”
-- “me ayudó bastante”
-- “se ve sólido”
-- “ordenó mejor todo”
+- "parece útil"
+- "da buena sensación"
+- "me ayudó bastante"
+- "se ve sólido"
+- "ordenó mejor todo"
 
 Sustituir por:
 
-- “redujo X minutos”
-- “evitó Y retrabajos”
-- “bajó de N a M contradicciones”
-- “el siguiente paso quedó listo sin reconstrucción”
-- “añadió Z minutos de ceremonia”
+- "redujo X minutos"
+- "evitó Y retrabajos"
+- "bajó de N a M contradicciones"
+- "el siguiente paso quedó listo sin reconstrucción"
+- "añadió Z minutos de ceremonia"

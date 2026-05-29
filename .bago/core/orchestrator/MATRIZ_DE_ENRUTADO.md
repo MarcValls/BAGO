@@ -13,7 +13,7 @@
 
 ## Observación
 
-`history_migration` no equivale a “documentación”. Es una tarea híbrida entre análisis, transformación y trazabilidad.
+`history_migration` no equivale a "documentación". Es una tarea híbrida entre análisis, transformación y trazabilidad.
 
 ## Extensión V2.2.1 · Ruta repo-first
 

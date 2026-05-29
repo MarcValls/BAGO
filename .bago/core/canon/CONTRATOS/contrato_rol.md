@@ -25,7 +25,7 @@ Definir la forma mínima obligatoria de un rol canónico o especialista y hacerl
 
 ## Regla de frontera
 
-Un rol existe porque resuelve una frontera funcional. No se justifica por tono, estilo o “sensación de cobertura”.
+Un rol existe porque resuelve una frontera funcional. No se justifica por tono, estilo o "sensación de cobertura".
 
 ## Regla de diferenciación
 

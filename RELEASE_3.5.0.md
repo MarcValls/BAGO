@@ -44,7 +44,7 @@ bago restart
 
 ### Registrar providers adicionales
 
-`ash
+`ash
 # En el REPL de BAGO:
 /login github        # GitHub Copilot / Models (token o browser)
 /login openai        # OpenAI API key o ChatGPT Plus login
@@ -135,11 +135,13 @@ Si TODOS fallan, retorna la mejor respuesta disponible (local).
 
 | Archivo | Cambio |
 |---------|--------|
-| credentials/manager.py | ctive_bago_providers() lee credentials.json, valida keys |
+| credentials/manager.py | ctive_bago_providers() lee credentials.json, valida keys |
 | llm/routing.py | _escalate_candidates(), _cloud_escalation_candidates(), _cloud_priority_order() dinamicos |
 | llm/orchestrator.py | _quality_cloud_retry() itera candidatos, ctx-overflow itera |
-| providers.py | _is_valid_api_key(), esolve_litellm() generico, copilot lee cred file |
-| model_providers.json | Provider eplicate anadido |
+| providers.py | _is_valid_api_key(), 
+esolve_litellm() generico, copilot lee cred file |
+| model_providers.json | Provider 
+eplicate anadido |
 
 ---
 

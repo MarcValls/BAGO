@@ -52,7 +52,7 @@ Preservar y traducir una historia operativa previa a las estructuras actuales.
 
 ## Anti-patrones
 
-- tratar legado como basura que “molesta”,
+- tratar legado como basura que "molesta",
 - tratar legado como estado vivo,
 - usar ejemplos sintéticos como si fueran historia real,
 - cerrar una ruta sin validación.

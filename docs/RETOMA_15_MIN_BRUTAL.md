@@ -1,24 +1,24 @@
-﻿# Retoma 15 Min Brutal
+# Retoma 15 Min Brutal
 
-## QuÃƒÂ© estÃƒÂ¡ abierto
+## Qué está abierto
 
-- El ÃƒÂ¡rbol tiene dos capas mezcladas: runtime y estado generado.
+- El árbol tiene dos capas mezcladas: runtime y estado generado.
 - `E:\bago_fw` es el checkout/runtime real.
-- `E:\bago_projects\task_manager` es el ÃƒÂºnico proyecto visible ahora.
+- `E:\bago_projects\task_manager` es el único proyecto visible ahora.
 - `validate_pack` pasa.
 - `bago smoke` pasa.
-- `health_score` estÃƒÂ¡ en `100 green`.
+- `health_score` está en `100 green`.
 - Sigue habiendo suciedad de git por estado y docs nuevas.
 
-## QuÃƒÂ© no tocar
+## Qué no tocar
 
 - No mezclar `bago_core/` con `.bago/state/`.
-- No tocar `global_state.json` si no estÃƒÂ¡s cerrando una cosecha o una sesiÃƒÂ³n.
+- No tocar `global_state.json` si no estás cerrando una cosecha o una sesión.
 - No intentar arreglar todo a la vez.
 - No saltar entre copias distintas del runtime.
 - No empezar otro proyecto nuevo.
 
-## QuÃƒÂ© hacer hoy en 15 minutos
+## Qué hacer hoy en 15 minutos
 
 1. Ejecuta:
 
@@ -29,14 +29,14 @@ python .bago\tools\smoke_runner.py
 
 2. Mira `git status --short`.
 
-3. Elige solo una vÃƒÂ­a:
+3. Elige solo una vía:
 
-- `limpieza`: separar cÃƒÂ³digo de estado generado.
+- `limpieza`: separar código de estado generado.
 - `producto`: volver a `E:\bago_projects\task_manager`.
-- `estabilidad`: validar instalaciÃƒÂ³n limpia real.
+- `estabilidad`: validar instalación limpia real.
 
 ## Regla final
 
-- Un ÃƒÂ¡rbol.
+- Un árbol.
 - Un frente.
 - Un resultado.

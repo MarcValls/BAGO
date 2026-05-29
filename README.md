@@ -44,14 +44,14 @@ bago
 En el primer arranque BAGO detecta si hay un dispositivo BAGO conectado. Si existe, lo usa como fuente de verdad para credenciales y memoria. Si hay un pendrive sin BAGO, te ofrece convertirlo. Si no hay pendrive, te recomienda crear uno; como alternativa menos recomendada puedes usar un directorio local de credenciales.
 
 ```
-             â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—
-             â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â• â–ˆâ–ˆâ•”â•â•â•â–ˆâ–ˆâ•—
-             â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘
-             â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘
-             â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•
-             â•šâ•â•â•â•â•â• â•šâ•â•  â•šâ•â• â•šâ•â•â•â•â•â•  â•šâ•â•â•â•â•â•
+             ██████╗  █████╗  ██████╗  ██████╗
+             ██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗
+             ██████╔╝███████║██║  ███╗██║   ██║
+             ██╔══██╗██╔══██║██║   ██║██║   ██║
+             ██████╔╝██║  ██║╚██████╔╝╚██████╔╝
+             ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝
 
-             â£¾  INICIANDO DESDE EL DISPOSITIVO BAGO...
+             ⣾  INICIANDO DESDE EL DISPOSITIVO BAGO...
 ```
 
 `bago launch` abre la interfaz conversacional. El usuario habla con BAGO; BAGO decide qué motores internos usar.
@@ -117,9 +117,9 @@ bago audit full   # session audit trail
 El comando principal es `bago launch`:
 
 ```
-El usuario  â”€â”€â–º  BAGO  â”€â”€â–º  [Qwen / GPT / Claude / Llama / ...]
-                  â–²                        â”‚
-                  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+El usuario  ──►  BAGO  ──►  [Qwen / GPT / Claude / Llama / ...]
+                  ▲                        │
+                  └────────────────────────┘
               BAGO recibe, decide y responde
 ```
 
@@ -136,26 +136,26 @@ This README is an **operational contract**.
 
 ---
 
-## ðŸ” El Bucle de Shepard
+## 🔁 El Bucle de Shepard
 
 > *Un tono de Shepard sube infinitamente sin llegar nunca al límite. BAGO funciona igual.*
 
 El **Bucle de Shepard** es el meta-ciclo que mantiene el framework en mejora continua. Cada iteración parece subir, y siempre sube — porque nunca para.
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                                                 â”‚
-â”‚   SCAN â”€â”€â–¶ ALERT â”€â”€â–¶ REMEDIATE â”€â”€â–¶ VERIFY      â”‚
-â”‚     â–²                                  â”‚        â”‚
-â”‚     â””â”€â”€â”€â”€â”€â”€â”€â”€ EVOLVE â—€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜        â”‚
-â”‚                                                 â”‚
-â”‚  SCAN:      orphan_shield · file_size_guard     â”‚
-â”‚  ALERT:     guardian_findings · health_score    â”‚
-â”‚  REMEDIATE: heal · promote · cosecha · merge    â”‚
-â”‚  VERIFY:    validate · sincerity · stability    â”‚
-â”‚  EVOLVE:    siembra · spiral · autonomous       â”‚
-â”‚                                                 â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│   SCAN ──▶ ALERT ──▶ REMEDIATE ──▶ VERIFY      │
+│     ▲                                  │        │
+│     └──────── EVOLVE ◀─────────────────┘        │
+│                                                 │
+│  SCAN:      orphan_shield · file_size_guard     │
+│  ALERT:     guardian_findings · health_score    │
+│  REMEDIATE: heal · promote · cosecha · merge    │
+│  VERIFY:    validate · sincerity · stability    │
+│  EVOLVE:    siembra · spiral · autonomous       │
+│                                                 │
+└─────────────────────────────────────────────────┘
 ```
 
 Cada nodo del bucle tiene su herramienta:
@@ -215,7 +215,7 @@ These commands form the **stable public interface**.
 | Command | Purpose |
 |---|---|
 | `bago launch` | **Main entry point** — talk to BAGO; BAGO orchestrates all agents internally |
-| `bago health` | System health score (0"“100) + stability report |
+| `bago health` | System health score (0""100) + stability report |
 | `bago status` | Active flow, pending task, current health |
 | `bago validate` | Consistency check: manifest + state + pack |
 | `bago audit` | Session audit trail (full \| pack \| scan \| commit \| push) |
@@ -237,13 +237,13 @@ These commands form the **stable public interface**.
 | `bago menu` | Interactive hierarchical command menu (curses UI) |
 | `bago workspace-select` | Select active workspace: framework / parent dir / external repo |
 | `bago recent-projects` | History of recent BAGO projects and sessions |
-| `bago ask` | Natural language router â†’ BAGO tools (CONSUMO) |
+| `bago ask` | Natural language router → BAGO tools (CONSUMO) |
 | `bago ideas` | W2 ideas loop — central to the BAGO workflow (MEMORIA) |
 | `bago sprint` | Sprint management: create, list, close (MEMORIA) |
 | `bago goals` | Project objectives with progress tracking (MEMORIA) |
 | `bago dashboard` | Pack dashboard: health, velocity, risks (MEMORIA) |
 | `bago dashboard --public` | Public-facing dashboard summary for demos and release notes |
-| `bago route` | Hybrid LLM router: local â†” cloud (MOTOR) |
+| `bago route` | Hybrid LLM router: local ↔ cloud (MOTOR) |
 | `bago review` | Automated fail-closed code review (GENERACIÓN) |
 | `bago docs` | Generate COMMANDS.md from registry (GENERACIÓN) |
 | `bago version` | Version management: bump \| beta \| release \| tag (MEMORIA) |
@@ -267,7 +267,7 @@ These commands form the **stable public interface**.
 | Command | Description | Required flag(s) |
 |---|---|---|
 | `auto` | Automatic evaluation + action loop | `--yes` or `--unsafe` |
-| `autonomous` | Full SENSEâ†’PLANâ†’ACTâ†’OBSERVEâ†’LEARN loop | `--yes` or `--unsafe` |
+| `autonomous` | Full SENSE→PLAN→ACT→OBSERVE→LEARN loop | `--yes` or `--unsafe` |
 | `cabinet` | Multi-agent parallel orchestration | `--yes` or `--unsafe` |
 | `db` | Manage `bago.db` (ideas state, guardian history) | `--yes` or `--unsafe` |
 | `install` | Auto-launch on pendrive insert (macOS/Linux) | `--yes` or `--unsafe` |
@@ -316,9 +316,9 @@ bago review . --sarif results.sarif --format md --out bago-review.md
 
 ---
 
-## 7. Workflows (W0"“W10)
+## 7. Workflows (W0""W10)
 
-BAGO ships with **11 operational workflows** (W0"“W10).
+BAGO ships with **11 operational workflows** (W0""W10).
 
 | Workflow | Purpose |
 |---|---|
@@ -345,7 +345,7 @@ BAGO ships with **11 operational workflows** (W0"“W10).
 
 ## 9. Example projects
 
-Real projects built with BAGO workflows (W1 â†’ W2 cycles, tracked via `bago ideas` + `bago next`):
+Real projects built with BAGO workflows (W1 → W2 cycles, tracked via `bago ideas` + `bago next`):
 
 | Project | Description |
 |---|---|
@@ -365,8 +365,8 @@ Real projects built with BAGO workflows (W1 â†’ W2 cycles, tracked via `bag
 BAGO separates **versioned code** from **runtime state**.
 
 ```text
-.bago/state/           â† runtime (gitignored except templates)
-.bago/state.example/   â† clean-install templates (versioned)
+.bago/state/           ← runtime (gitignored except templates)
+.bago/state.example/   ← clean-install templates (versioned)
 ```
 
 ---

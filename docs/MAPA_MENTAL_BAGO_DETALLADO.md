@@ -1,48 +1,48 @@
-﻿# Mapa Mental Detallado de BAGO
+# Mapa Mental Detallado de BAGO
 
-Este documento describe la verdad operativa actual del ÃƒÂ¡rbol `E:\`, separando lo que es repo, runtime, estado generado y proyecto real.
+Este documento describe la verdad operativa actual del árbol `E:\`, separando lo que es repo, runtime, estado generado y proyecto real.
 
 ## 0. Verdad base
 
-### RaÃƒÂ­ces reales en `E:\`
+### Raíces reales en `E:\`
 
 - `E:\bago_fw`
   - Checkout principal del runtime BAGO.
-  - AquÃƒÂ­ viven `bago_core/`, `.bago/`, `install.ps1`, `smoke-test.ps1` y la documentaciÃƒÂ³n del runtime.
+  - Aquí viven `bago_core/`, `.bago/`, `install.ps1`, `smoke-test.ps1` y la documentación del runtime.
 - `E:\bago_projects\task_manager`
-  - ÃƒÅ¡nico proyecto real visible ahora mismo fuera del checkout.
+  - Único proyecto real visible ahora mismo fuera del checkout.
   - Contiene `task_manager.py` y `tasks.json`.
 - `E:\bago_fw\proyectos`
-  - Existe como carpeta, pero estÃƒÂ¡ vacÃƒÂ­a.
+  - Existe como carpeta, pero está vacía.
 - `E:\bago_fw\projects`
-  - No existe en este ÃƒÂ¡rbol.
+  - No existe en este árbol.
 - `E:\bago_fw\launcher`
-  - No existe en este ÃƒÂ¡rbol.
+  - No existe en este árbol.
 
-### Consecuencia prÃƒÂ¡ctica
+### Consecuencia práctica
 
-- Si un documento dice `projects/music` o `projects/image_generation`, eso no describe el ÃƒÂ¡rbol actual de `E:\bago_fw`.
-- La verdad operativa para retomar trabajo hoy estÃƒÂ¡ en `E:\bago_fw` y `E:\bago_projects\task_manager`.
+- Si un documento dice `projects/music` o `projects/image_generation`, eso no describe el árbol actual de `E:\bago_fw`.
+- La verdad operativa para retomar trabajo hoy está en `E:\bago_fw` y `E:\bago_projects\task_manager`.
 
 ## 1. Mapa General
 
 ```text
 BAGO en E:/
-Ã¢â€Å“Ã¢â€â‚¬ checkout/runtime: E:\bago_fw
-Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ arranque Windows
-Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ launcher Python
-Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ runtime .bago
-Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ docs canÃƒÂ³nicos
-Ã¢â€â€š  Ã¢â€Å“Ã¢â€â‚¬ smoke / validate / cosecha
-Ã¢â€â€š  Ã¢â€â€Ã¢â€â‚¬ estado generado
-Ã¢â€â€Ã¢â€â‚¬ proyecto real visible: E:\bago_projects\task_manager
-   Ã¢â€Å“Ã¢â€â‚¬ task_manager.py
-   Ã¢â€â€Ã¢â€â‚¬ tasks.json
+├─ checkout/runtime: E:\bago_fw
+│  ├─ arranque Windows
+│  ├─ launcher Python
+│  ├─ runtime .bago
+│  ├─ docs canónicos
+│  ├─ smoke / validate / cosecha
+│  └─ estado generado
+└─ proyecto real visible: E:\bago_projects\task_manager
+   ├─ task_manager.py
+   └─ tasks.json
 ```
 
 ## 2. Frente A: Runtime y arranque
 
-### QuÃƒÂ© incluye
+### Qué incluye
 
 - `bago_core/launcher.py`
 - `bago_core/installer.py`
@@ -53,37 +53,37 @@ BAGO en E:/
 - `.bago/tools/smoke_runner.py`
 - `.bago/tools/validate_pack.py`
 
-### QuÃƒÂ© pasÃƒÂ³ aquÃƒÂ­
+### Qué pasó aquí
 
-- Se corrigiÃƒÂ³ el import roto de `bago.ui` para `_stdin_prompt`.
-- Se aÃƒÂ±adiÃƒÂ³ `bago smoke`.
+- Se corrigió el import roto de `bago.ui` para `_stdin_prompt`.
+- Se añadió `bago smoke`.
 - `smoke_runner.py` valida:
   - `validate_pack`
   - `health_score`
-  - ÃƒÂºltima cosecha cerrada
+  - última cosecha cerrada
 - El instalador ahora ejecuta `validate` y `smoke`.
-- `smoke-test.ps1` tambiÃƒÂ©n comprueba `bago smoke`.
+- `smoke-test.ps1` también comprueba `bago smoke`.
 
 ### Estado actual
 
 - Funciona en el checkout local.
-- Necesita confirmaciÃƒÂ³n final en instalaciÃƒÂ³n limpia real si quieres cerrar completamente este frente.
+- Necesita confirmación final en instalación limpia real si quieres cerrar completamente este frente.
 
 ### Riesgo principal
 
 - El instalador y el launcher pueden comportarse distinto en `C:\Program Files\BAGO`, en el perfil del usuario o en una copia portable.
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
 - Si quieres cerrar estabilidad:
-  - validar instalaciÃƒÂ³n limpia
+  - validar instalación limpia
   - ejecutar `bago validate`
   - ejecutar `bago smoke`
   - revisar que el alias `default` no caiga en una ruta vieja
 
 ## 3. Frente B: Estado y memoria
 
-### QuÃƒÂ© incluye
+### Qué incluye
 
 - `.bago/state/global_state.json`
 - `.bago/state/sessions/`
@@ -99,62 +99,62 @@ BAGO en E:/
 - `.bago/state/sprint_plan.json`
 - `.bago/state/sprint_summary_07.md`
 
-### QuÃƒÂ© pasÃƒÂ³ aquÃƒÂ­
+### Qué pasó aquí
 
-- Se cerrÃƒÂ³ una cosecha real.
-- El estado global quedÃƒÂ³ persistido.
-- `health_score` estÃƒÂ¡ en `100 green`.
-- Pero el ÃƒÂ¡rbol estÃƒÂ¡ lleno de artefactos generados y temporales.
+- Se cerró una cosecha real.
+- El estado global quedó persistido.
+- `health_score` está en `100 green`.
+- Pero el árbol está lleno de artefactos generados y temporales.
 
 ### Estado actual
 
 - Operativamente verde.
-- Git estÃƒÂ¡ sucio por estado generado y cambios de runtime.
+- Git está sucio por estado generado y cambios de runtime.
 
 ### Riesgo principal
 
-- Mezclar memoria generada con cambios de cÃƒÂ³digo hace muy difÃƒÂ­cil distinguir quÃƒÂ© es funcional y quÃƒÂ© es solo histÃƒÂ³rico.
+- Mezclar memoria generada con cambios de código hace muy difícil distinguir qué es funcional y qué es solo histórico.
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
 - Si quieres un commit limpio:
-  - separar estado generado de cambios de cÃƒÂ³digo
-  - decidir quÃƒÂ© se conserva y quÃƒÂ© se regenera
+  - separar estado generado de cambios de código
+  - decidir qué se conserva y qué se regenera
 - Si quieres seguir trabajando:
   - no toques `global_state.json` salvo que sea parte del objetivo
 
 ## 4. Frente C: Cosecha y salud
 
-### QuÃƒÂ© incluye
+### Qué incluye
 
 - `.bago/tools/cosecha.py`
 - `.bago/tools/health_score.py`
 - `.bago/tools/health/_score.py`
 - `.bago/tools/validate.py`
 
-### QuÃƒÂ© pasÃƒÂ³ aquÃƒÂ­
+### Qué pasó aquí
 
-- `cosecha.py` guardaba mal en Windows por encoding y se corrigiÃƒÂ³ a UTF-8.
-- Se creÃƒÂ³ una sesiÃƒÂ³n cerrada real.
-- La salud pasÃƒÂ³ a `100 green`.
+- `cosecha.py` guardaba mal en Windows por encoding y se corrigió a UTF-8.
+- Se creó una sesión cerrada real.
+- La salud pasó a `100 green`.
 
 ### Estado actual
 
-- El flujo estÃƒÂ¡ vivo y cerrado correctamente.
-- La salud actual no es una promesa: ya estÃƒÂ¡ calculada sobre historial real.
+- El flujo está vivo y cerrado correctamente.
+- La salud actual no es una promesa: ya está calculada sobre historial real.
 
 ### Riesgo principal
 
 - El score puede bajar de nuevo si se rompe `validate_pack`, si cambia el estado o si aparecen desajustes de inventario.
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
-- No perseguir la salud por sÃƒÂ­ sola.
-- Usarla como semÃƒÂ¡foro, no como objetivo abstracto.
+- No perseguir la salud por sí sola.
+- Usarla como semáforo, no como objetivo abstracto.
 
-## 5. Frente D: DocumentaciÃƒÂ³n canÃƒÂ³nica
+## 5. Frente D: Documentación canónica
 
-### QuÃƒÂ© incluye
+### Qué incluye
 
 - `docs/BAGO_CANON.md`
 - `docs/operation/GUIA_DE_USO.md`
@@ -164,55 +164,55 @@ BAGO en E:/
 - `docs/PLANTILLA_EVALUACION_BRUTAL_BAGO.md`
 - las copias equivalentes dentro de `.bago/docs/`
 
-### QuÃƒÂ© pasÃƒÂ³ aquÃƒÂ­
+### Qué pasó aquí
 
-- Se crearon documentos para cerrar validaciÃƒÂ³n.
-- Hay duplicaciÃƒÂ³n entre `docs/` y `.bago/docs/`.
+- Se crearon documentos para cerrar validación.
+- Hay duplicación entre `docs/` y `.bago/docs/`.
 
 ### Estado actual
 
 - El contenido existe.
-- La fuente principal todavÃƒÂ­a no estÃƒÂ¡ unificada del todo.
+- La fuente principal todavía no está unificada del todo.
 
 ### Riesgo principal
 
 - Dos copias de la verdad documental pueden divergir.
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
-- Elegir una fuente canÃƒÂ³nica:
+- Elegir una fuente canónica:
   - `docs/` como lectura humana
-  - `.bago/docs/` como fuente de validaciÃƒÂ³n
-- O viceversa, pero no ambas sin sincronizaciÃƒÂ³n clara.
+  - `.bago/docs/` como fuente de validación
+- O viceversa, pero no ambas sin sincronización clara.
 
 ## 6. Frente E: Proyectos reales
 
-### QuÃƒÂ© existe de verdad
+### Qué existe de verdad
 
 - `E:\bago_projects\task_manager`
   - `task_manager.py`
   - `tasks.json`
 
-### QuÃƒÂ© no existe ahora
+### Qué no existe ahora
 
 - No hay `E:\bago_fw\projects`.
 - No hay `E:\bago_fw\proyectos` con contenido.
 - No se ven `music` ni `image_generation` en este checkout.
 
-### InterpretaciÃƒÂ³n
+### Interpretación
 
-- La conversaciÃƒÂ³n anterior sobre ejemplos de proyecto venÃƒÂ­a de otro ÃƒÂ¡rbol o de una copia distinta.
-- En este ÃƒÂ¡rbol, el proyecto real visible es `task_manager`.
+- La conversación anterior sobre ejemplos de proyecto venía de otro árbol o de una copia distinta.
+- En este árbol, el proyecto real visible es `task_manager`.
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
 - Si quieres trabajar producto:
   - o vuelves a `task_manager`
-  - o localizas el ÃƒÂ¡rbol correcto donde estÃƒÂ©n los ejemplos esperados
+  - o localizas el árbol correcto donde estén los ejemplos esperados
 
-## 7. Frente F: InstalaciÃƒÂ³n y distribuciÃƒÂ³n
+## 7. Frente F: Instalación y distribución
 
-### QuÃƒÂ© incluye
+### Qué incluye
 
 - `install.ps1`
 - `bago_core/installer.py`
@@ -220,16 +220,16 @@ BAGO en E:/
 - `bago.cmd`
 - `bago.ps1`
 
-### QuÃƒÂ© pasÃƒÂ³ aquÃƒÂ­
+### Qué pasó aquí
 
 - El instalador ahora valida y hace smoke.
-- `START.bat` apunta al arranque portÃƒÂ¡til de `E:\bago_fw`.
-- Se reforzÃƒÂ³ el flujo postinstalaciÃƒÂ³n.
+- `START.bat` apunta al arranque portátil de `E:\bago_fw`.
+- Se reforzó el flujo postinstalación.
 
 ### Estado actual
 
 - El camino local es coherente.
-- La ruta `Program Files` ya no es el ÃƒÂºnico relato operativo.
+- La ruta `Program Files` ya no es el único relato operativo.
 
 ### Riesgo principal
 
@@ -239,9 +239,9 @@ BAGO en E:/
   - user active install
   - backup
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
-- Decidir cuÃƒÂ¡l es la instalaciÃƒÂ³n de verdad para la sesiÃƒÂ³n actual.
+- Decidir cuál es la instalación de verdad para la sesión actual.
 - No saltar entre copias sin etiquetarlas.
 
 ## 8. Frente G: Git y suciedad de trabajo
@@ -249,66 +249,66 @@ BAGO en E:/
 ### Estado
 
 - Hay muchas modificaciones en:
-  - cÃƒÂ³digo
+  - código
   - runtime
   - docs
   - estado generado
-- Hay archivos no rastreados que no deberÃƒÂ­an entrar al mismo commit sin criterio.
+- Hay archivos no rastreados que no deberían entrar al mismo commit sin criterio.
 
-### QuÃƒÂ© significa
+### Qué significa
 
-- El ÃƒÂ¡rbol no estÃƒÂ¡ listo para un commit limpio sin una fase de separaciÃƒÂ³n.
+- El árbol no está listo para un commit limpio sin una fase de separación.
 
-### CÃƒÂ³mo continuar
+### Cómo continuar
 
 - Hacer una de estas dos cosas:
   - limpieza de commit
-  - seguir iterando sin intentar empaquetar todavÃƒÂ­a
+  - seguir iterando sin intentar empaquetar todavía
 
 ## 9. Frentes abiertos de verdad, ordenados por prioridad
 
 ### Prioridad 1
 
-- Decidir quÃƒÂ© ÃƒÂ¡rbol es el de verdad para continuar:
+- Decidir qué árbol es el de verdad para continuar:
   - `E:\bago_fw`
-  - o el ÃƒÂ¡rbol de otra instalaciÃƒÂ³n/copia
+  - o el árbol de otra instalación/copia
 
 ### Prioridad 2
 
-- Separar cÃƒÂ³digo de estado generado.
+- Separar código de estado generado.
 
 ### Prioridad 3
 
-- Confirmar instalaciÃƒÂ³n limpia con `validate` + `smoke`.
+- Confirmar instalación limpia con `validate` + `smoke`.
 
 ### Prioridad 4
 
-- Unificar documentaciÃƒÂ³n canÃƒÂ³nica.
+- Unificar documentación canónica.
 
 ### Prioridad 5
 
 - Volver a un proyecto real concreto, hoy visible solo como `E:\bago_projects\task_manager`.
 
-## 10. Mapa de decisiÃƒÂ³n para seguir
+## 10. Mapa de decisión para seguir
 
-### Si estÃƒÂ¡s cansado y quieres avanzar poco
+### Si estás cansado y quieres avanzar poco
 
 - Ejecuta solo:
   - `bago validate`
   - `bago smoke`
   - `git status --short`
 
-### Si quieres limpiar el ÃƒÂ¡rbol
+### Si quieres limpiar el árbol
 
-- Decide quÃƒÂ© de `.bago/state/` es estado histÃƒÂ³rico y quÃƒÂ© es ruido.
-- MantÃƒÂ©n fuera del commit lo regenerable.
+- Decide qué de `.bago/state/` es estado histórico y qué es ruido.
+- Mantén fuera del commit lo regenerable.
 
 ### Si quieres retomar trabajo funcional
 
 - Elige un frente:
   - runtime
-  - instalaciÃƒÂ³n
-  - documentaciÃƒÂ³n
+  - instalación
+  - documentación
   - proyecto real
 
 ### Si quieres volver a producto
@@ -318,14 +318,14 @@ BAGO en E:/
 
 ## 11. Regla simple para no perderte otra vez
 
-Un frente = un ÃƒÂ¡rbol = una salida.
+Un frente = un árbol = una salida.
 
 Si mezclas:
 
 - runtime
-- instalaciÃƒÂ³n
+- instalación
 - estado
-- documentaciÃƒÂ³n
+- documentación
 - proyecto
 
 ...acabas reconstruyendo contexto en vez de avanzar.
@@ -333,13 +333,13 @@ Si mezclas:
 ## 12. Resumen ejecutivo
 
 - `E:\bago_fw` es el checkout/runtime principal.
-- `E:\bago_projects\task_manager` es el ÃƒÂºnico proyecto real visible ahora.
-- `proyectos/` dentro del checkout estÃƒÂ¡ vacÃƒÂ­o.
-- `projects/` no existe en este ÃƒÂ¡rbol.
-- `validate_pack` y `bago smoke` estÃƒÂ¡n en verde.
-- La salud estÃƒÂ¡ en `100 green`.
-- El ÃƒÂ¡rbol estÃƒÂ¡ funcional, pero sucio por estado generado y cambios acumulados.
-- Lo siguiente no es Ã¢â‚¬Å“seguir tocando cosasÃ¢â‚¬Â, sino elegir una lÃƒÂ­nea:
+- `E:\bago_projects\task_manager` es el único proyecto real visible ahora.
+- `proyectos/` dentro del checkout está vacío.
+- `projects/` no existe en este árbol.
+- `validate_pack` y `bago smoke` están en verde.
+- La salud está en `100 green`.
+- El árbol está funcional, pero sucio por estado generado y cambios acumulados.
+- Lo siguiente no es "seguir tocando cosas", sino elegir una línea:
   - estabilidad
   - limpieza
   - producto

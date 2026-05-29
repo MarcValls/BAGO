@@ -32,12 +32,13 @@
   - _is_valid_api_key() rechaza keys obviamente invalidas (ollama, 
 one, strings cortos).
   - OPENAI_API_KEY=ollama ya no activa el provider codex con una key falsa.
-  - ctive_bago_providers() lee credenciales de credentials.json (no solo env vars).
+  - ctive_bago_providers() lee credenciales de credentials.json (no solo env vars).
 
 - **Soporte dinamico de providers**: Se anaden automaticamente todos los providers con credenciales validas, sin hardcodear.
   - _cloud_priority_order() incluye providers no listados en _TASK_CLOUD_HINTS.
   - _deduce_cloud_provider() delega en _cloud_priority_order().
-  - esolve_litellm() soporta providers genericos via pi_key_env + credentials.json.
+  - 
+esolve_litellm() soporta providers genericos via pi_key_env + credentials.json.
 
 - **Replicate anadido como provider**: Modelos llama-4-maverick, deepseek-r1, qwen25-coder-32b disponibles via API key.
 
@@ -47,11 +48,13 @@ one, strings cortos).
 
 ### Archivos modificados
 
-- .bago/tools/bago/credentials/manager.py — ctive_bago_providers(), _is_valid_api_key()
+- .bago/tools/bago/credentials/manager.py — ctive_bago_providers(), _is_valid_api_key()
 - .bago/tools/bago/llm/routing.py — _escalate_candidates(), _cloud_escalation_candidates(), _cloud_priority_order(), _deduce_cloud_provider()
 - .bago/tools/bago/llm/orchestrator.py — _quality_cloud_retry(), ctx-overflow escalation
-- .bago/tools/bago/providers.py — esolve_litellm(), _is_valid_api_key(), soporte generico
-- .bago/state/model_providers.json — Provider eplicate anadido
+- .bago/tools/bago/providers.py — 
+esolve_litellm(), _is_valid_api_key(), soporte generico
+- .bago/state/model_providers.json — Provider 
+eplicate anadido
 - pack.json — Version 3.5.0
 
 ### Compatibilidad
@@ -80,7 +83,7 @@ GitHub Copilot en modo login no tiene freno de tokens: pago a mes vencido sin li
 - **Copilot login**: deshabilitado por defecto.
 - **API models** (openai, etc.): habilitados con limites diarios/mensuales/por-llamada.
 - **Ollama local**: habilitado sin limites (sin coste).
-- **CLI**: ago token-brake status|disable|enable|set-limit|allow|record|reset.
+- **CLI**: ago token-brake status|disable|enable|set-limit|allow|record|reset.
 
 ---
 
