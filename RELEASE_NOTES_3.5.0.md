@@ -26,6 +26,8 @@ BAGO 3.5.0 es la primera release estable que consolida el framework tras la pér
 | `abe26ad` | `fix(release): repair env vars, global_state, llm_config after USB loss` |
 | `79d12c3` | `feat(tools): add 5 BAGO search and analysis scripts` |
 | `b44d8cd` | `merge: integrate origin/main clean release while preserving local state fixes and new tools` |
+| `8b8e63c` | `security(git): remove .bago/user/ files from repository index` |
+| `4e4958a` | `refactor(rl): modularize tool orchestrator and training scripts` |
 
 ---
 
@@ -120,6 +122,37 @@ GO pack
 ## Entrenamiento, Orquestación y Datos de RL — Lo Más Probado del Framework
 
 BAGO 3.5.0 incluye el **pipeline de Reinforcement Learning más maduro probado hasta la fecha**, con datos reales y sintéticos, checkpoints validados, y un orquestador central documentado.
+
+### Fase 5 — Tool Orchestrator (NUEVO en esta release)
+
+Orquestador modular que conecta un LLM local (≤5B parámetros, ej. `qwen2.5:1.5b`) con las 5 herramientas de análisis BAGO. El LLM aprende a seleccionar herramientas mediante tool-calling de Ollama; cada transición se loggea para entrenamiento RL posterior.
+
+| Componente | Archivo | Rol |
+|------------|---------|-----|
+| **CLI Entry** | `adapters/bago_tool_orchestrator.py` | Punto de entrada (~40 líneas) |
+| **Esquemas** | `adapters/orchestrator/tool_schemas.py` | JSON schemas de 5 herramientas para Ollama |
+| **Runner** | `adapters/orchestrator/tool_runner.py` | Ejecuta herramientas vía subprocess |
+| **Cliente** | `adapters/orchestrator/ollama_client.py` | Wrapper de `/api/chat` con `tool_calls` |
+| **Logger** | `adapters/orchestrator/rl_logger.py` | Transiciones + cálculo de recompensa |
+| **Core** | `adapters/orchestrator/core.py` | Loop principal prompt → LLM → tool → resultado |
+| **Entorno RL** | `envs/bago_tool_env.py` | Gymnasium: 5 acciones, obs 12-dim, recompensa desde logs |
+| **Políticas** | `training/policies.py` | `LinUCBPolicy` + `BCPolicy` (numpy puro, ~5B friendly) |
+| **Training** | `training/training.py` | `train_bandit()`, `train_bc()`, `evaluate_policy()` |
+| **CLI Train** | `training/train_tool_orchestrator.py` | Entry point (~40 líneas) |
+
+**Uso rápido:**
+```powershell
+# 1. Orquestador interactivo
+python .bago\rl\adapters\bago_tool_orchestrator.py --model qwen2.5:1.5b --interactive
+
+# 2. Entrenar política desde transiciones loggeadas
+python .bago\rl\training\train_tool_orchestrator.py --mode bc --epochs 30
+
+# 3. Evaluar
+python .bago\rl\training\train_tool_orchestrator.py --eval --checkpoint .bago\rl\checkpoints\tool_policy_bc.json
+```
+
+**Validado:** `qwen2.5:1.5b` (986 MB) genera `tool_calls` correctamente en Ollama. Modelos alternativos: `llama3.2:3b` (2 GB, mejor balance).
 
 ### 1. Pipeline RL Probado (Fase 0–4)
 
@@ -272,8 +305,8 @@ python .bago\tools\bago_grep_smart.py "health" --def
 |---------|-------|
 | Versión | 3.5.0 |
 | Rama | main |
-| Commits locales | 4 (sobre `v3.5.0b1-clean`) |
-| Archivos nuevos | 5 scripts Python |
+| Commits locales | 6 (sobre `v3.5.0b1-clean`) |
+| Archivos nuevos | 5 scripts Python + 10 módulos RL (orchestrator + training) |
 | Archivos reparados | 3 JSON de estado + pyproject.toml + __init__.py |
 | Archivos en merge | ~100+ (resueltos a favor local) |
 | Validación | GO manifest / GO state / GO pack |
