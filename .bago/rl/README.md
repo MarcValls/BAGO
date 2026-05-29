@@ -66,11 +66,38 @@ python train_bandit.py --eval policy_bandit.json --episodes 1000
 - Entorno: PettingZoo (AEC/Parallel).
 - Algoritmos: QMIX / MADDPG.
 
+## Fase 5 — Tool Orchestrator (LLM local aprende a usar herramientas BAGO) 🔄
+
+- `adapters/bago_tool_orchestrator.py` — conecta Ollama (modelo local ≤5B) con las 5 herramientas de análisis.
+- `envs/bago_tool_env.py` — entorno RL que aprende a seleccionar herramienta óptima desde logs reales.
+- `training/train_tool_orchestrator.py` — entrena LinUCB o BC con transiciones capturadas.
+
+### Flujo
+
+```
+Usuario describe tarea → LLM elige herramienta → Orquestador ejecuta →
+Resultado vuelve al LLM → Loggea transición → Entrena política RL
+```
+
+### Uso rápido
+
+```powershell
+# 1. Ejecutar orquestador interactivo con modelo ligero
+python .bago\rl\adapters\bago_tool_orchestrator.py --model qwen2.5:1.5b --interactive
+
+# 2. Entrenar política desde transiciones loggeadas
+python .bago\rl\training\train_tool_orchestrator.py --mode bc --epochs 30
+
+# 3. Evaluar
+python .bago\rl\training\train_tool_orchestrator.py --eval --checkpoint .bago\rl\checkpoints\tool_policy_bc.json
+```
+
 ## Seguridad
 
 - Action masking en todo entrenamiento online.
 - Validadores independientes antes de canary.
 - Reward channels separados para detectar hacking.
+- Modelo local ≤5B ejecuta 100% offline; cero datos salen del equipo.
 
 ## Referencias
 
