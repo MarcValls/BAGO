@@ -3,22 +3,22 @@
   "bago_version": "3.5.0b1",
   "install_id": "829585ee-7fdb-44f9-b2ee-970b10f038d8",
   "created_at": "2026-05-21T21:33:29.750221",
-  "updated_at": "2026-05-29T08:57:12",
+  "updated_at": "2026-05-29T08:58:54",
   "mode": "clean_install",
   "status": "initialized",
   "system_health": "ok",
   "active_session_id": "",
-  "active_task_type": "",
+  "active_task_type": null,
   "active_roles": {},
   "active_workflows": {},
-  "last_completed_session_id": "",
+  "last_completed_session_id": null,
   "last_completed_task_type": "harvest",
   "last_completed_workflow": "w9_cosecha",
   "last_completed_roles": {
     "role_auditor": true
   },
-  "last_completed_change_id": "",
-  "last_completed_evidence_id": "",
+  "last_completed_change_id": null,
+  "last_completed_evidence_id": null,
   "sprint_status": {
     "active_workflow": "",
     "last_completed_workflow": "",
@@ -26,15 +26,15 @@
   },
   "inventory": {
     "sessions": 0,
-    "changes": 0,
-    "evidences": 0
+    "evidences": 0,
+    "changes": 0
   },
   "last_validation": {
-    "validate_manifest": "OK",
-    "health": "ok",
-    "date": "2026-05-29T08:57:12",
-    "validate_state": "OK",
-    "validate_pack": "OK"
+    "validate_manifest": "GO",
+    "validate_pack": "GO",
+    "date": "2026-05-29T08:58:54",
+    "validate_state": "GO",
+    "health": "GO"
   },
   "guardian_findings": {
     "last_run": "2026-05-29T08:57:12",
