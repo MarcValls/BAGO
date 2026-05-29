@@ -1,6 +1,6 @@
 # BAGO - Instalacion rapida
 
-Version: 3.5.0b1
+Version: 3.5.0
 
 ## Windows
 
