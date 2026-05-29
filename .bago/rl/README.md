@@ -8,19 +8,29 @@
 .bago/rl/
 ├── envs/
 │   ├── bago_bandit_env.py      # Entorno contextual bandit (Fase 1) ✅
+│   ├── bago_tool_env.py         # Entorno RL para tool orchestrator (Fase 5) ✅
 │   └── bago_workflow_env.py    # Entorno MDP para workflows (Fase 3) 🔄
 ├── safety/
 │   ├── action_masker.py         # Máscara de acciones inválidas (Fase 3)
 │   └── validator.py             # Validador de seguridad (Fase 3)
 ├── training/
-│   ├── train_bandit.py          # LinUCB training (Fase 1) ✅
+│   ├── policies.py              # LinUCB + BC Policy classes ✅
+│   ├── training.py              # train_bandit / train_bc / evaluate ✅
+│   ├── train_tool_orchestrator.py  # CLI entry point (Fase 5) ✅
 │   ├── train_offline.py         # BCQ/CQL offline RL (Fase 2)
 │   └── train_online.py          # MaskablePPO online (Fase 3)
 ├── evaluation/
 │   ├── eval_policy.py           # Evaluación de políticas
 │   └── ab_test.py               # A/B testing contra baseline
-└── adapters/
-    └── bago_client.py           # Cliente sandbox para entornos
+├── adapters/
+│   ├── orchestrator/            # Paquete modular del tool orchestrator ✅
+│   │   ├── __init__.py
+│   │   ├── tool_schemas.py      # Esquemas JSON de las 5 herramientas
+│   │   ├── tool_runner.py       # Ejecución de herramientas vía subprocess
+│   │   ├── ollama_client.py     # Wrapper de la API /api/chat de Ollama
+│   │   ├── rl_logger.py         # Logger de transiciones + recompensa
+│   │   └── core.py              # Loop principal de orquestación
+│   └── bago_tool_orchestrator.py  # CLI entry point (Fase 5) ✅
 ```
 
 ## Fase 0 — Instrumentación ✅
@@ -66,11 +76,24 @@ python train_bandit.py --eval policy_bandit.json --episodes 1000
 - Entorno: PettingZoo (AEC/Parallel).
 - Algoritmos: QMIX / MADDPG.
 
-## Fase 5 — Tool Orchestrator (LLM local aprende a usar herramientas BAGO) 🔄
+## Fase 5 — Tool Orchestrator (LLM local aprende a usar herramientas BAGO) ✅
 
-- `adapters/bago_tool_orchestrator.py` — conecta Ollama (modelo local ≤5B) con las 5 herramientas de análisis.
-- `envs/bago_tool_env.py` — entorno RL que aprende a seleccionar herramienta óptima desde logs reales.
-- `training/train_tool_orchestrator.py` — entrena LinUCB o BC con transiciones capturadas.
+### Estructura modular
+
+```
+adapters/orchestrator/
+├── __init__.py           # Exports públicos
+├── tool_schemas.py       # 5 esquemas JSON para Ollama tool-calling
+├── tool_runner.py        # Ejecuta herramientas vía subprocess (list, read, search...)
+├── ollama_client.py      # Wrapper de /api/chat con soporte tool_calls
+├── rl_logger.py          # Loggea transiciones y calcula recompensa
+└── core.py               # Loop principal: prompt → LLM → tool → resultado → log
+
+training/
+├── policies.py           # LinUCBPolicy + BCPolicy (numpy puro, ~5B friendly)
+├── training.py           # train_bandit, train_bc, evaluate_policy
+└── train_tool_orchestrator.py  # CLI entry point (~40 líneas)
+```
 
 ### Flujo
 
