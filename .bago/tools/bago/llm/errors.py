@@ -31,9 +31,10 @@ class OllamaNoModelAvailable(RuntimeError):
 # ── Context overflow ───────────────────────────────────────────────────────────
 
 _CTX_KEYWORDS = (
-    "context", "token", "length exceeded", "too long", "maximum context",
-    "context_length", "context window", "max_tokens", "sequence length",
-    "input is too long", "prompt is too long", "reduce your prompt",
+    "context_length_exceeded", "context window exceeded", "maximum context length",
+    "reduce your prompt", "prompt is too long", "input is too long",
+    "token limit exceeded", "max context length", "context_length",
+    "too many tokens", "exceeds the maximum",
 )
 
 def _is_ctx_overflow(exc) -> bool:
