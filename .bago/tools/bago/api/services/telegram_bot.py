@@ -5,7 +5,7 @@ y devuelve la respuesta. Permite enviar ordenes y recibir informes
 desde el movil.
 
 Configuracion:
-    export TELEGRAM_BOT_TOKEN="tu_token_de_botfather"
+    export TELEGRAM_BOT_TOKEN="<botfather-token>"
     python -m bago.api.services.telegram_bot
 
 Puerto: 11439 (webhook opcional) / polling por defecto
@@ -264,4 +264,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if '--test' in sys.argv:
+        raise SystemExit(_run_tests())
     main()

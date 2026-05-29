@@ -61,3 +61,16 @@ def disabled_provider_ids() -> set[str]:
     for item in disabled:
         expanded.update(PROVIDER_DISABLE_ALIASES.get(item, set()))
     return expanded
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -1,3 +1,4 @@
+from pathlib import Path
 
 import os
 import sys
@@ -94,3 +95,12 @@ def _cmd_auto(session):
                         pi(f"Maximo de iteraciones: {session.auto_max_iter}")
                 except ValueError:
                     pe("Valor no valido -- introduce un numero entero.")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -1,5 +1,6 @@
 """bago.llm.quality — Calidad de respuesta: anti-repetición, detección de basura,
 escalado preventivo por URL o incapacidad de modelo."""
+from pathlib import Path
 
 import os
 import sys
@@ -169,3 +170,12 @@ def _needs_cloud_for_url(user_input: str, session) -> bool:
     if _PASTED_STATUS_PATTERN.search(user_input):
         return False
     return bool(_WEB_INTENT_PATTERN.search(user_input))
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

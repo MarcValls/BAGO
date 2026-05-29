@@ -56,6 +56,7 @@ LLAMA_DIR  = BAGO_ROOT / ".llama"
 OLLAMA_HOME_DIR = Path.home() / ".ollama" / "models"
 PID_FILE   = STATE_DIR / "llm_server.pid"
 CFG_FILE   = STATE_DIR / "llm_config.json"
+RUNTIME_FILE = STATE_DIR / "ollama_runtime.json"
 
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 LLAMA_DIR.mkdir(parents=True, exist_ok=True)
@@ -350,14 +351,31 @@ def _write_cfg(data: dict) -> None:
     CFG_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _write_runtime_state(enabled: bool, model_id: str | None = None) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    data = {
+        "mode": "bago",
+        "enabled": enabled,
+        "engine": "ollama",
+        "model": model_id or _active_model(),
+        "ollama_port": OLLAMA_PORT,
+        "models_dir": str(MODELS_DIR),
+        "bago_root": str(BAGO_ROOT),
+    }
+    RUNTIME_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
 def _active_model() -> str | None:
     return _read_cfg().get("active_model")
 
 
 def _ollama_env() -> dict:
-    """Env vars to redirect Ollama storage to the pendrive."""
+    """Env vars to redirect Ollama storage and mark it as BAGO-managed."""
     env = os.environ.copy()
     env["OLLAMA_MODELS"] = str(MODELS_DIR)
+    env["BAGO_MODE"] = "1"
+    env["BAGO_RUNTIME"] = "bago"
+    env["BAGO_OLLAMA_MODE"] = "1"
     return env
 
 # ── Subcomandos ───────────────────────────────────────────────────────────────
@@ -390,6 +408,16 @@ def cmd_status() -> int:
     llama = _llama_server_bin()
     if llama:
         _ok(f"llama-server en {llama}")
+    runtime = {}
+    if RUNTIME_FILE.exists():
+        try:
+            runtime = json.loads(RUNTIME_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            runtime = {}
+    if runtime:
+        print(f"    Modo BAGO  : {'ON' if runtime.get('enabled') else 'OFF'}")
+        print(f"    Modelo     : {runtime.get('model') or active or 'ninguno'}")
+        print(f"    Models dir : {runtime.get('models_dir', MODELS_DIR)}")
     print()
 
     # Modelos disponibles
@@ -532,6 +560,7 @@ def cmd_download(model_id: str | None = None) -> int:
 def cmd_start(model_id: str | None = None) -> int:
     if _ollama_running():
         _ok(f"Ollama ya activo en localhost:{OLLAMA_PORT}")
+        _write_runtime_state(True, model_id or _active_model())
         if model_id:
             model_id = _resolve_model_id(model_id) or model_id
             cfg = _read_cfg()
@@ -569,6 +598,9 @@ def cmd_start(model_id: str | None = None) -> int:
     print()
 
     env = _ollama_env() if _model_location(model_id) == "pendrive" else os.environ.copy()
+    env["BAGO_MODE"] = "1"
+    env["BAGO_RUNTIME"] = "bago"
+    env["BAGO_OLLAMA_MODE"] = "1"
     proc = subprocess.Popen(
         [bin_, "serve"],
         env=env,
@@ -585,6 +617,7 @@ def cmd_start(model_id: str | None = None) -> int:
 
     if not _ollama_running():
         _err("El servidor no respondió en 30 s")
+        _write_runtime_state(False, model_id)
         return 1
 
     _ok(f"Servidor activo en http://localhost:{OLLAMA_PORT}")
@@ -603,6 +636,7 @@ def cmd_start(model_id: str | None = None) -> int:
     cfg["active_model"] = model_id
     cfg["engine"] = "ollama"
     _write_cfg(cfg)
+    _write_runtime_state(True, model_id)
     _ok(f"Listo — modelo activo: {tag}")
     print()
     return 0
@@ -611,6 +645,7 @@ def cmd_start(model_id: str | None = None) -> int:
 def cmd_stop() -> int:
     if not _ollama_running():
         _info("El servidor no está activo")
+        _write_runtime_state(False, _active_model())
         return 0
 
     if PID_FILE.exists():
@@ -621,6 +656,7 @@ def cmd_stop() -> int:
             else:
                 os.kill(pid, signal.SIGTERM)
             PID_FILE.unlink(missing_ok=True)
+            _write_runtime_state(False, _active_model())
             _ok(f"Servidor detenido (PID {pid})")
             return 0
         except ProcessLookupError:

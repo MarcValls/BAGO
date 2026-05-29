@@ -649,4 +649,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if '--test' in sys.argv:
+        raise SystemExit(_run_tests())
     main()

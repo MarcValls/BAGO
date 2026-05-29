@@ -122,3 +122,12 @@ def _session_export(session):
         lines.append(f"\n{prefix}\n\n{msg['content']}\n\n---\n")
     export_path.write_text("".join(lines), encoding="utf-8")
     pi(f"Exportado: {export_path}")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

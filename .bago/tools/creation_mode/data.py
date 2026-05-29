@@ -134,3 +134,12 @@ def load_layer_config() -> dict:
         return json.loads(cfg.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

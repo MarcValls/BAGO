@@ -1,5 +1,5 @@
-#!/usr/bin/env pwsh
-# make-portable.ps1 â€” Adapta BAGO a la letra de unidad actual y prepara para Mac/Linux
+﻿#!/usr/bin/env pwsh
+# make-portable.ps1 Ã¢â‚¬â€ Adapta BAGO a la letra de unidad actual y prepara para Mac/Linux
 # Uso: powershell -ExecutionPolicy Bypass -File .\make-portable.ps1
 
 $ErrorActionPreference = "Stop"
@@ -23,7 +23,7 @@ function Update-TextFile($path, $old, $new) {
     }
 }
 
-# 1. runtime_contract.json (raiz) â€” reemplazo textual para preservar escapes
+# 1. runtime_contract.json (raiz) Ã¢â‚¬â€ reemplazo textual para preservar escapes
 Update-TextFile (Join-Path $scriptDir "runtime_contract.json") "E:\bago_fw" $newPath
 Update-TextFile (Join-Path $scriptDir "runtime_contract.json") "E:\bago_fw\\.bago" $newRuntime
 

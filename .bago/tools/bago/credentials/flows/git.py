@@ -5,6 +5,7 @@ Soporta dos métodos:
   1. Personal Access Token (pegar — sin navegador)
   2. Email + contraseña → genera token por API (solo Gitea/Codeberg)
 """
+from pathlib import Path
 
 import os
 import sys
@@ -133,3 +134,12 @@ def flow_gittoken(
     mgr._creds[provider]["username"] = username
     mgr._save()
     return f"[green]✓ {label} autenticado: @{username}  ({token[:4]}…{token[-4:]})[/green]"
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

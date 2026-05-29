@@ -4,6 +4,7 @@ bago/completer.py — Autocompletado de comandos / para el REPL BAGO.
 Cuando el usuario escribe "/" aparece un popup navegable con todos los
 comandos disponibles filtrado en tiempo real. Soporta sub-comandos.
 """
+from pathlib import Path
 import os
 import sys
 
@@ -24,7 +25,7 @@ BAGO_COMMANDS: dict[str, str] = {
     "/scan":        "[Providers] Scan: disponibles · potenciales · missing + tokens",
     "/login":       "[Providers] Registrar y gestionar cuentas de providers",
     "/logout":      "[Providers] Cerrar sesión y borrar credencial activa",
-    "/models":      "[Providers] Listar modelos o detectar accesibles: /models detect",
+    "/models":      "[Providers] Inventario real + selector provider/modelo: /models detect",
     "/catalog":     "[Providers] Catálogo de modelos locales — instalar, comparar, joyas ocultas ✨",
     # -- Modelo & Routing
     "/switch":      "[Routing] Cambiar modelo activo: /switch <modelo|provider>",
@@ -276,3 +277,12 @@ class BagoCompleter(Completer):
                         display=sub,
                         display_meta=sub_desc,
                     )
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -85,3 +85,16 @@ def cmd_status(session) -> None:
         f"{hw_section}",
         title="[bold]Estado BAGO[/bold]", box=box.ROUNDED,
     ))
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

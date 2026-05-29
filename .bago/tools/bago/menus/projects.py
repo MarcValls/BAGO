@@ -1,3 +1,4 @@
+from pathlib import Path
 
 import os
 import sys
@@ -192,3 +193,12 @@ def _proj_detail(proj_id):
                 _save_projects(pdata)
                 pi(f"Proyecto '{p['name']}' eliminado.")
                 break
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

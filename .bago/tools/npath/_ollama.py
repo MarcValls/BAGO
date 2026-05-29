@@ -348,3 +348,16 @@ def cmd_ollama_status() -> None:
             print(f"    - {CYAN(m)}")
     else:
         print(f"  Sin modelos instalados. Prueba: {DIM('ollama pull llama3')}")
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

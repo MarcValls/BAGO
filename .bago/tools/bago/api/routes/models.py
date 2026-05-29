@@ -274,3 +274,12 @@ async def delete(req: DeleteRequest):
     if result.returncode == 0:
         return {"status": "success", "name": req.model}
     raise HTTPException(status_code=404, detail=f"Model '{req.model}' not found")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

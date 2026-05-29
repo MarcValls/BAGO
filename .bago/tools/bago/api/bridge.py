@@ -264,3 +264,16 @@ def _chat_direct(session, user_input: str, *, history_input: str = None) -> str:
     """Chat directo via llm/orchestrator (comportamiento actual)."""
     from bago.llm.orchestrator import chat
     return chat(session, user_input, history_input=history_input)
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -73,7 +73,9 @@ def main() -> None:
     # If no active install and no local .bago/, show helpful message
     active = _active_install_path()
     has_local_bago = (Path.cwd() / ".bago" / "pack.json").exists()
-    if not active and not has_local_bago:
+    package_root = Path(__file__).resolve().parents[1]
+    has_package_bago = (package_root / ".bago" / "pack.json").exists() or (package_root / ".bago" / "tools").exists()
+    if not active and not has_local_bago and not has_package_bago:
         print(
             "BAGO no esta instalado en este directorio ni como paquete global.\n"
             "\n"

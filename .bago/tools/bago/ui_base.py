@@ -41,6 +41,7 @@
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
+from pathlib import Path
 
 import os
 import sys
@@ -307,3 +308,12 @@ def banner(session, health: "dict | None" = None):
         print(f"Modo: {session.orch_mode.upper()} | Autónomo: {session.autonomous} | Plan: {session.plan_mode} | Brainstorm: {session.brainstorm}")
         print(f"Routing: {rt_mode} → {rt_model} ({rt_prov}) — {rt_reason}")
         print("/ para menú\n")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

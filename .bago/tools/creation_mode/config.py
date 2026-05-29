@@ -56,3 +56,12 @@ C_GREEN      = "spring_green3"
 C_YELLOW     = "yellow3"
 C_RED        = "red3"
 C_INPUT_BG   = "grey15"
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

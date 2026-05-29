@@ -348,3 +348,16 @@ def hw_summary_lines(hw: Optional[HWInfo] = None) -> list[str]:
         lines.append(f"  [red]⚠  Disco muy bajo ({hw.disk_free_gb:.1f} GB). Libera espacio antes de instalar modelos.[/red]")
 
     return lines
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

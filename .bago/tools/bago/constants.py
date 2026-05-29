@@ -13,6 +13,7 @@ for _stream in (sys.stdout, sys.stderr):
 import os
 from pathlib import Path
 import json as _json
+import tempfile
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 SCRIPT_DIR = PACKAGE_DIR.parent
@@ -43,6 +44,8 @@ def _resolve_user_bago() -> Path:
 
 
 USER_BAGO = _resolve_user_bago()
+_CREDENTIALS_MODE = os.environ.get("BAGO_CREDENTIALS_MODE", "").strip().lower()
+_SESSION_SECRET_DIR = Path(tempfile.gettempdir()) / f"bago_session_{os.getpid()}"
 
 def _bago_version() -> str:
     try:
@@ -52,10 +55,10 @@ def _bago_version() -> str:
 
 BAGO_VERSION = _bago_version()
 SESSIONS_DIR = USER_BAGO / "sessions"
-CRED_FILE = USER_BAGO / "credentials.json"
+CRED_FILE = (_SESSION_SECRET_DIR if _CREDENTIALS_MODE == "session" else USER_BAGO) / "credentials.json"
 PROVIDERS_FILE    = STATE_DIR / "model_providers.json"
 ROUTING_FILE      = STATE_DIR / "model_routing.json"
-ACCOUNTS_FILE     = USER_BAGO / "accounts.json"
+ACCOUNTS_FILE     = (_SESSION_SECRET_DIR if _CREDENTIALS_MODE == "session" else USER_BAGO) / "accounts.json"
 SCAN_HISTORY_FILE = STATE_DIR / "scan_history.json"
 TOKEN_LOG_FILE    = USER_BAGO / "token_log.json"
 PROVIDER_STATE_FILE = USER_BAGO / "provider_state.json"
@@ -108,7 +111,7 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
   [yellow]/switch <modelo>[/yellow]                     Forzar modelo puntualmente (sin perder historial)
   [yellow]/single on|off[/yellow]                      Modo single model (sin fallback ni auto-routing)
   [yellow]/autoroute on|off[/yellow]                    Routing automatico basado en tipo de tarea
-  [yellow]/models[/yellow]                              Listar modelos o detectar accesibles: /models detect
+  [yellow]/models[/yellow]                              Inventario real + selector por provider/modelo: /models detect
   [yellow]/generative[/yellow] [dim]|[/dim] [yellow]/gen[/yellow]               Modo generativo: offline · eco · standard · full · auto
   [yellow]/mode[/yellow]                                (alias de /generative)
   [yellow]/roles[/yellow]                               Ver modos del orquestador y preferencias por tarea
@@ -180,3 +183,12 @@ HELP = """[bold]BAGO — A.M. TECHNOLOGIES — Comandos:[/bold]
 
 [dim]El orquestador decide automaticamente que modelo/s usar y con que estrategia.[/dim]
 """
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

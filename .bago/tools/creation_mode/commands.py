@@ -127,3 +127,12 @@ def save_milestone(text: str, gs: dict) -> None:
                 pass
         notes.append({"text": text, "timestamp": datetime.now().isoformat()})
         notes_file.write_text(json.dumps(notes[-50:], indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

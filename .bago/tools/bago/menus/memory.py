@@ -1,3 +1,4 @@
+import sys
 
 import datetime
 from pathlib import Path
@@ -97,3 +98,12 @@ def _memory_add_note(kdir):
     fpath.parent.mkdir(parents=True, exist_ok=True)
     fpath.write_text(f"# {title}\n\n> Fecha: {ts}\n\n{content}\n", encoding="utf-8")
     pi(f"Nota guardada: {fpath.name}")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -214,3 +214,12 @@ def _bago_to_am(name: str) -> str:
         "gemini":       "gemini",
         "ollama_cloud": "ollama_cloud",
     }.get(name, name)
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

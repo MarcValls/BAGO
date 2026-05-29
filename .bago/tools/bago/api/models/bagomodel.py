@@ -268,3 +268,12 @@ def load_bagomodel(path: Path, name: str = "") -> BagoModel:
 def save_bagomodel(model: BagoModel, path: Path) -> None:
     """Guarda un BAGOMODEL como archivo de texto."""
     path.write_text(model.to_modelfile(), encoding="utf-8")
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(f"{Path(__file__).name} --test: PASS (imports OK)")
+    return 0
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

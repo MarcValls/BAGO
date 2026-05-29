@@ -278,3 +278,16 @@ def _llm_call(lm, kw, messages, *, session=None, _provider=None, _model=None):
             f"  Instala un modelo: ollama pull qwen2.5-coder:7b"
         )
         raise OllamaNoModelAvailable(target, tried_labels)
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

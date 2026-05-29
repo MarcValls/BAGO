@@ -4,13 +4,22 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.pytest_cache/
 .env
 *.log
+*.zip
 sessions/
 token_log.json
 .bago/knowledge/
+.bago/user/
 .bago/logs/
+.bago/state/
+.bago/**/credentials.json
+.bago/**/accounts.json
+.bago/**/token_log.json
+.bago/**/provider_state.json
 .bago/state/*.db
+.bago/state/*.json
 .bago/state/*.jsonl
 .bago/state/images/
 .bago/state/reports/
@@ -29,7 +38,6 @@ token_log.json
 .bago/state/evidences/*.json
 .bago/state/sessions/*.json
 .bago/state/sessions/*.md
-.bago/state.example/
 .bago/dashboard_data.json
 proyectos/
 tmp/
@@ -45,4 +53,11 @@ sync2.ps1
 AGENTS.md
 sitecustomize.py
 
+*.bak
+*.backup
+.bago/knowledge_backup/
+.bago/knowledge/archives/
+
 bago-knowledge/
+credentials.json
+accounts.json

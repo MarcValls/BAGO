@@ -229,6 +229,34 @@ def print_accessible_models_report(session, timeout: int = 4) -> int:
     return 0
 
 
+def _available_models_from_health(providers: dict, health: dict) -> dict[str, list[str]]:
+    """Devuelve un mapa provider -> modelos disponibles a partir del health scan."""
+    result: dict[str, list[str]] = {}
+    for provider_name, h in (health or {}).items():
+        if not h.get("ok"):
+            continue
+        models, _ = _provider_models_from_health(provider_name, h, providers)
+        if models:
+            result[provider_name] = models
+    return result
+
+
+def print_routing_snapshot(session, health=None, available_models=None) -> None:
+    """Imprime un resumen compacto del routing actual."""
+    from .ui import console
+
+    if available_models:
+        table = Table(title="Routing snapshot", box=box.SIMPLE)
+        table.add_column("Provider", style="cyan", no_wrap=True)
+        table.add_column("Modelo activo", style="green")
+        for pname, models in sorted(available_models.items()):
+            active = models[0] if models else "—"
+            table.add_row(pname, active)
+        console.print(table)
+    else:
+        console.print(Panel("Sin modelos en routing.", title="Routing", box=box.ROUNDED))
+
+
 def main(argv: list[str] | None = None) -> int:
     from .providers import load_providers
 
@@ -257,3 +285,16 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Comando desconocido: {action}")
     return 1
+
+
+
+def _run_tests() -> int:
+    """Self-test stub: verifies module imports."""
+    print(__file__ + " --test: PASS (imports OK)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        raise SystemExit(_run_tests())

@@ -1,70 +1,83 @@
-# BAGO — Instalación en 3 pasos (Windows)
+# BAGO - Instalacion rapida
 
 Version: 3.5.0b1
 
-> **TL;DR:** Copia, pega, ejecuta. Necesitas PowerShell y acceso a internet.
+## Windows
 
-## Paso 1 — Descarga
+```powershell
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
+.\install-bago.cmd
+```
 
-Descarga o clona este repositorio:
+Ruta por defecto: `C:\Program Files\BAGO`.
+
+Ruta personalizada:
+
+```powershell
+.\install-bago.cmd -TargetRoot C:\BAGO
+```
+
+Al terminar, abre una terminal nueva si `bago` no se reconoce.
+
+## macOS / Linux
 
 ```bash
 git clone https://github.com/MarcValls/BAGO.git
 cd BAGO
+./install-bago.sh
 ```
 
-O descarga el ZIP desde GitHub y descomprímelo.
+Ruta por defecto: `~/.local/share/bago`.
 
-## Paso 2 — Instala
+Ruta personalizada:
 
-Elige **uno** de estos dos perfiles:
-
-### Con conocimiento sincronizado (recomendado)
-Mantiene BAGO alineado con la memoria operativa remota.
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-with-knowledge.ps1
+```bash
+BAGO_TARGET_ROOT="$HOME/apps/bago" ./install-bago.sh
 ```
 
-### Solo runtime (mínimo)
-Solo el motor, sin sincronización de memoria.
+Si `bago` no aparece, abre una terminal nueva o añade `~/.local/bin` al `PATH`.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-without-knowledge.ps1
+## Primer arranque
+
+```bash
+bago
 ```
 
-Ambos instalan en `C:\Program Files\BAGO` y actualizan tu `PATH`.
+BAGO comprueba:
 
-## Paso 3 — Verifica
+- si hay un dispositivo BAGO conectado;
+- si hay un pendrive disponible para convertirlo en dispositivo BAGO;
+- donde guardar credenciales;
+- si debe usar credenciales solo de sesion.
 
-Abre una **nueva** terminal (PowerShell o CMD) y ejecuta:
+Orden recomendado:
 
-```powershell
+1. Dispositivo BAGO en pendrive.
+2. Directorio local de credenciales, solo si no usas pendrive.
+3. Credenciales de sesion, sin persistencia.
+
+Las credenciales no deben estar en el repo. El `.gitignore` excluye `credentials.json`, `accounts.json`, `.bago/user/` y `bago-knowledge/`.
+
+## Validar
+
+```bash
 bago validate
+bago portable detect
+bago launch
 ```
 
-Si ves:
+## Knowledge
 
-```
-GO manifest
-GO state
-GO pack
-```
+BAGO crea y usa `bago-knowledge` como memoria de aprendizaje. Recomendado:
 
-La instalación está correcta.
+- repo 1: tu framework/proyecto BAGO;
+- repo 2: `bago-knowledge`, privado o publico segun lo que quieras compartir;
+- compartir solo subcarpetas curadas de conocimiento con la comunidad BAGO.
 
----
+Documentacion relacionada:
 
-## Primeros comandos
-
-```powershell
-bago hello       # guía de inicio interactiva
-bago status      # estado del sistema
-bago --help      # lista completa de comandos
-```
-
-## ¿Problemas?
-
-- Si `bago` no se reconoce: cierra y abre la terminal, o ejecuta `refreshenv`
-- Si la instalación falla: revisa que tengas permisos de administrador
-- Para más detalle: `docs/INSTALL_DEEP.md`
+- [Manual de usuario](docs/USER_MANUAL.md)
+- [Desarrolladores](docs/DEVELOPERS.md)
+- [Sponsors](docs/SPONSORS.md)
+- [Instalacion profunda](docs/INSTALL_DEEP.md)
