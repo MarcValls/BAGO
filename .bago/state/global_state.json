@@ -3,30 +3,26 @@
   "bago_version": "3.5.0b1",
   "install_id": "829585ee-7fdb-44f9-b2ee-970b10f038d8",
   "created_at": "2026-05-21T21:33:29.750221",
-  "updated_at": "2026-05-26T19:46:22.906612+00:00",
+  "updated_at": "2026-05-29T08:57:12",
   "mode": "clean_install",
   "status": "initialized",
-  "system_health": "unknown",
-  "active_session_id": null,
-  "active_task_type": null,
-  "active_roles": [],
-  "active_workflows": [],
-  "last_completed_session_id": null,
+  "system_health": "ok",
+  "active_session_id": "",
+  "active_task_type": "",
+  "active_roles": {},
+  "active_workflows": {},
+  "last_completed_session_id": "",
   "last_completed_task_type": "harvest",
   "last_completed_workflow": "w9_cosecha",
-  "last_completed_roles": [
-    "role_auditor"
-  ],
-  "last_completed_change_id": null,
-  "last_completed_evidence_id": null,
+  "last_completed_roles": {
+    "role_auditor": true
+  },
+  "last_completed_change_id": "",
+  "last_completed_evidence_id": "",
   "sprint_status": {
-    "active_workflow": {
-      "code": "W2",
-      "title": "README enlaza ideas con W2",
-      "started": "2026-05-27T18:01:30.481463+00:00"
-    },
-    "pending_w2_task": "none",
-    "last_completed_workflow": null
+    "active_workflow": "",
+    "last_completed_workflow": "",
+    "pending_w2_task": "none"
   },
   "inventory": {
     "sessions": 0,
@@ -34,42 +30,33 @@
     "evidences": 0
   },
   "last_validation": {
-    "validate_manifest": "KO",
-    "validate_state": "KO",
-    "validate_pack": "KO",
-    "date": null,
-    "health": "unknown"
+    "validate_manifest": "OK",
+    "health": "ok",
+    "date": "2026-05-29T08:57:12",
+    "validate_state": "OK",
+    "validate_pack": "OK"
   },
   "guardian_findings": {
+    "last_run": "2026-05-29T08:57:12",
     "calibration": "tier-based",
-    "health_pct": 0,
     "required_ok": 0,
-    "required_tools": 0,
+    "warnings": 0,
     "total_tools": 0,
     "critical_errors": 0,
-    "warnings": 0,
-    "last_run": null,
-    "status": "UNKNOWN"
+    "health_pct": 100,
+    "status": "OK",
+    "required_tools": 0
   },
   "health_score": {
-    "score": 0,
+    "status": "ok",
     "max": 100,
-    "color": "grey",
-    "status": "unknown"
+    "score": 100,
+    "color": "green"
   },
   "providers": {
-    "ollama": {
-      "status": "unconfigured",
-      "model": null
-    },
-    "copilot": {
-      "status": "unconfigured",
-      "model": null
-    },
-    "openai": {
-      "status": "unconfigured",
-      "model": null
-    }
+    "ollama": "127.0.0.1:11434",
+    "openai": "",
+    "copilot": ""
   },
   "integrations": {
     "whatsapp_daemon": {
@@ -103,10 +90,10 @@
     }
   },
   "spiral_loop": {
-    "current_radius": 1.0,
     "cycles_completed": 0,
-    "last_cycle": null,
-    "last_health": null
+    "current_radius": 1,
+    "last_health": "",
+    "last_cycle": ""
   },
   "unresolved": {
     "stashes": 0,
@@ -115,8 +102,8 @@
   "harmonic_mode": "production_monitor",
   "devmode": false,
   "knowledge_index": {
+    "last_promoted_project": "bago_true",
     "promoted_count": 1,
-    "last_promoted": "2026-05-27",
-    "last_promoted_project": "unknown"
+    "last_promoted": "2026-05-29"
   }
 }

@@ -1,7 +1,7 @@
 {
   "engine": "ollama",
   "server_url": "http://127.0.0.1:11434",
-  "active_model": "qwen25-coder",
+  "active_model": "qwen2.5-coder:7b",
   "session_start_model": "qwen2.5-coder:7b",
   "_comment_session_start": "Modelo usado al abrir sesión. Debe ser local (sin coste, offline).",
   "ollama_cloud": {
