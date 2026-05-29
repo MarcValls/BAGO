@@ -14,7 +14,7 @@
 
 BAGO 3.5.0 es la primera release estable que consolida el framework tras la pérdida del USB remoto `E:\bago_fw`. Esta release integra limpiamente la versión `v3.5.0b1-clean` del remoto con 529 archivos locales sin commitear, reparaciones de estado, 5 nuevas herramientas de análisis Python, y un entorno Windows validado.
 
-**Máxima prioridad de seguridad:** las credenciales nunca se almacenan en el ordenador personal. Se gestionan dentro de BAGO y se sincronizan vía GitHub.
+**Máxima prioridad de seguridad:** las credenciales nunca se almacenan en el repositorio ni se sincronizan vía GitHub. Se gestionan exclusivamente dentro del entorno de ejecución de BAGO y su fuente de verdad es el **dispositivo BAGO (pendrive USB)**; como alternativa menos recomendada, un directorio local fuera del repo o credenciales de sesión (temporales, sin persistencia).
 
 ---
 
@@ -217,7 +217,7 @@ python .bago\rl\evaluation\eval_policy.py --checkpoint .bago\rl\checkpoints\ppo_
    - El contenido físico del USB no se borra; puede re-agregarse con `git remote add usb E:\bago_fw`.
 
 3. **Credenciales nunca en PC personal:**
-   - Política reforzada: credenciales se gestionan dentro de BAGO (`credentials/manager.py`) y se sincronizan vía GitHub.
+   - Política reforzada: credenciales se gestionan dentro de BAGO (`credentials/manager.py`) pero **nunca se commitean ni sincronizan vía GitHub**. La fuente de verdad es el dispositivo BAGO (USB); alternativas: directorio local fuera del repo o sesión temporal.
 
 ---
 
