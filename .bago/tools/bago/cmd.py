@@ -53,6 +53,7 @@ from .commands.rl import (
     cmd_rl_sandbox,
     cmd_rl_shadow,
     cmd_rl_status,
+    cmd_rl_tool,
     cmd_rl_train,
 )
 from .model_registry import print_accessible_models_report
@@ -452,6 +453,8 @@ def cmd(line, session):
         cmd_rl_sandbox(session, a)
     elif v == "/rl-shadow":
         cmd_rl_shadow(session, a)
+    elif v == "/rl-tool":
+        cmd_rl_tool(session, a)
 
     # Comandos del sistema BAGO (desde menu / con !)
     elif v.startswith("!"):
