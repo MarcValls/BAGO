@@ -105,7 +105,7 @@ Resultado vuelve al LLM → Loggea transición → Entrena política RL
 ### Uso rápido
 
 ```powershell
-# 1. Ejecutar orquestador interactivo con modelo ligero
+# 1. Orquestador interactivo
 python .bago\rl\adapters\bago_tool_orchestrator.py --model qwen2.5:1.5b --interactive
 
 # 2. Entrenar política desde transiciones loggeadas
@@ -113,6 +113,17 @@ python .bago\rl\training\train_tool_orchestrator.py --mode bc --epochs 30
 
 # 3. Evaluar
 python .bago\rl\training\train_tool_orchestrator.py --eval --checkpoint .bago\rl\checkpoints\tool_policy_bc.json
+```
+
+### Desde el chat de BAGO (`bago launch`)
+
+```
+rl-status              → Ver transiciones y checkpoints
+rl-tool                → Ejecutar orquestador interactivo
+rl-tool "busca config" → Ejecutar orquestador con tarea directa
+rl-train tool-bc       → Entrenar BC con dashboard en vivo (~30s)
+rl-train tool-bandit   → Entrenar LinUCB online (~10s)
+rl-eval                → Evaluar política entrenada
 ```
 
 ## Seguridad

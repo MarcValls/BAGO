@@ -2,15 +2,48 @@
 """core.py — Loop principal de orquestación BAGO + LLM local.
 
 Decide herramienta, ejecuta, loggea transición, y devuelve resultado al LLM.
+Puede usar una política RL entrenada para sugerir o forzar herramienta.
 """
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from . import ollama_client, rl_logger, tool_runner
 from .tool_schemas import TOOL_NAMES, TOOL_SCHEMAS
 
+# Optional: load trained policy for tool suggestion
+_RL_DIR = Path(__file__).resolve().parents[2]
+sys_path_inserted = False
+if str(_RL_DIR) not in sys.path:
+    sys.path.insert(0, str(_RL_DIR))
+    sys_path_inserted = True
+
+try:
+    from .policy_loader import load_policy, predict_tool
+    _POLICY_LOADER_AVAILABLE = True
+except Exception:
+    _POLICY_LOADER_AVAILABLE = False
+
+if sys_path_inserted:
+    # keep it; needed for env import too
+    pass
+
+
+def _get_policy_path(name: str = "bc") -> Path | None:
+    """Resuelve ruta de checkpoint más reciente."""
+    ckpts = _RL_DIR / "checkpoints"
+    candidates = {
+        "bc": [ckpts / "tool_policy_bc.json", ckpts / "tool_policy_bc_synthetic.json"],
+        "bandit": [ckpts / "tool_policy_bandit.json"],
+    }
+    for p in candidates.get(name, []):
+        if p.exists():
+            return p
+    return None
 
 SYSTEM_PROMPT = (
     "Eres el orquestador de herramientas BAGO. Tu trabajo es DECIDIR "

@@ -92,13 +92,15 @@ _ENTRIES = [
 
     # ── RL · Reinforcement Learning ──────────────────────────────────
     (None,          "  -- RL · Reinforcement Learning ----------------"),
-    ("/rl-status",  "  RL Estado  -- transiciones, checkpoints, sugerencias"),
-    ("/rl-demo",    "  RL Demo  -- ejecuta pipeline demo (sandbox, 0 riesgo)"),
-    ("/rl-shadow",  "  RL Shadow  -- activar / desactivar recopilacion de datos reales"),
-    ("/rl-train bc","  RL Entrenar BC  -- Behavioral Cloning con datos"),
-    ("/rl-train ppo"," RL Entrenar PPO  -- online RL (~5 min)"),
-    ("/rl-eval",    "  RL Evaluar  -- shadow mode con politica entrenada"),
-    ("/rl-sandbox", "  RL Sandbox  -- activar / desactivar simulacion"),
+    ("rl-status",  "  RL Estado  -- transiciones, checkpoints, sugerencias"),
+    ("rl-demo",    "  RL Demo  -- ejecuta pipeline demo (sandbox, 0 riesgo)"),
+    ("rl-shadow",  "  RL Shadow  -- activar / desactivar recopilacion de datos reales"),
+    ("rl-train bc","  RL Entrenar BC  -- Behavioral Cloning con datos"),
+    ("rl-train ppo"," RL Entrenar PPO  -- online RL (~5 min)"),
+    ("rl-train tool-bc"," RL Entrenar Tool-BC  -- orquestador herramientas (~30s)"),
+    ("rl-eval",    "  RL Evaluar  -- shadow mode con politica entrenada"),
+    ("rl-tool",    "  RL Orquestador  -- ejecutar herramientas con LLM local"),
+    ("rl-sandbox", "  RL Sandbox  -- activar / desactivar simulacion"),
 
     # ── 8 · Framework BAGO ─────────────────────────────────────────
     (None,          "  -- Framework BAGO (160 cmds) ------------------"),

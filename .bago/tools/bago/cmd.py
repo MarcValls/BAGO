@@ -441,19 +441,19 @@ def cmd(line, session):
             pe("bago_portable.py no encontrado")
 
     # ── Reinforcement Learning (RL) ────────────────────────────────────────────
-    elif v == "/rl-status":
+    elif v == "rl-status":
         cmd_rl_status(session, a)
-    elif v == "/rl-demo":
+    elif v == "rl-demo":
         cmd_rl_demo(session, a)
-    elif v == "/rl-train":
+    elif v == "rl-train":
         cmd_rl_train(session, a)
-    elif v == "/rl-eval":
+    elif v == "rl-eval":
         cmd_rl_eval(session, a)
-    elif v == "/rl-sandbox":
+    elif v == "rl-sandbox":
         cmd_rl_sandbox(session, a)
-    elif v == "/rl-shadow":
+    elif v == "rl-shadow":
         cmd_rl_shadow(session, a)
-    elif v == "/rl-tool":
+    elif v == "rl-tool":
         cmd_rl_tool(session, a)
 
     # Comandos del sistema BAGO (desde menu / con !)

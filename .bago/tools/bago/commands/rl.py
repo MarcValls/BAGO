@@ -1,18 +1,18 @@
 """bago.commands.rl — Comandos RL integrados en el chat de BAGO.
 
 Uso en el chat:
-  /rl-status      → Muestra transiciones acumuladas y checkpoints
-  /rl-demo        → Ejecuta demo manual (3 pasos, sandbox, 0 riesgo)
-  /rl-train bc    → Entrena Behavioral Cloning con datos acumulados
-  /rl-train ppo   → Entrena PPO online (si hay entorno)
-  /rl-eval        → Evalúa política entrenada en shadow mode
-  /rl-sandbox     → Activa/desactiva sandbox
-  /rl-shadow      → Activa/desactiva shadow mode
+  rl-status      → Muestra transiciones acumuladas y checkpoints
+  rl-demo        → Ejecuta demo manual (3 pasos, sandbox, 0 riesgo)
+  rl-train bc    → Entrena Behavioral Cloning con datos acumulados
+  rl-train ppo   → Entrena PPO online (si hay entorno)
+  rl-eval        → Evalúa política entrenada en shadow mode
+  rl-sandbox     → Activa/desactiva sandbox
+  rl-shadow      → Activa/desactiva shadow mode
 
-  /rl-tool               → Ejecuta orquestador de herramientas (interactivo)
-  /rl-tool "busca archivos de config" → Ejecuta orquestador con tarea directa
-  /rl-train tool-bc      → Entrena BC del orquestador con dashboard
-  /rl-train tool-bandit  → Entrena LinUCB online del orquestador
+  rl-tool               → Ejecuta orquestador de herramientas (interactivo)
+  rl-tool "busca archivos de config" → Ejecuta orquestador con tarea directa
+  rl-train tool-bc      → Entrena BC del orquestador con dashboard
+  rl-train tool-bandit  → Entrena LinUCB online del orquestador
 """
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def cmd_rl_status(session, args: str = ""):
 
     # Fase 5 — Tool Orchestrator
     tcount = _count_transitions(tlogs)
-    console.print(f"  Transiciones tool-orchestrator: [bold]{tcount}[/bold]  ({'OK' if tcount >= 5 else 'Ejecuta /rl-tool para generar datos'})")
+    console.print(f"  Transiciones tool-orchestrator: [bold]{tcount}[/bold]  ({'OK' if tcount >= 5 else 'Ejecuta rl-tool para generar datos'})")
 
     # Checkpoints existentes
     bc_ckpt = ckpts / "bc" / "bc_model.pkl"
@@ -97,11 +97,11 @@ def cmd_rl_status(session, args: str = ""):
 
     # Sugerencias
     if tcount < 5 and not tool_bc_syn.exists():
-        pi("Ejecuta /rl-train tool-bc para generar datos sintéticos y entrenar.")
+        pi("Ejecuta rl-train tool-bc para generar datos sintéticos y entrenar.")
     elif not tool_bc.exists() and not tool_bc_syn.exists():
-        pi("Ejecuta /rl-tool para generar transiciones reales, luego /rl-train tool-bc.")
+        pi("Ejecuta rl-tool para generar transiciones reales, luego rl-train tool-bc.")
     else:
-        pi("Listo. /rl-tool para orquestar, /rl-train tool-bc para re-entrenar.")
+        pi("Listo. rl-tool para orquestar, rl-train tool-bc para re-entrenar.")
 
 
 def cmd_rl_demo(session, args: str = ""):
@@ -197,7 +197,7 @@ def cmd_rl_train(session, args: str = ""):
     if sub == "bc":
         if not logs.exists() or _count_transitions(logs) < 5:
             pe(f"Solo {_count_transitions(logs)} transiciones. Necesitas al menos 5.")
-            pi("Ejecuta /rl-demo primero.")
+            pi("Ejecuta rl-demo primero.")
             return
         train_script = root / ".bago" / "rl" / "training" / "train_bc.py"
         out_dir = ckpts / "bc_user"
@@ -286,7 +286,7 @@ def cmd_rl_train(session, args: str = ""):
         )
 
     else:
-        pi("Uso: /rl-train bc | /rl-train ppo | /rl-train qmix | /rl-train tool-bc | /rl-train tool-bandit")
+        pi("Uso: rl-train bc | rl-train ppo | rl-train qmix | rl-train tool-bc | rl-train tool-bandit")
         pi("  bc          → Behavioral Cloning clásico (rápido, ~1 min)")
         pi("  ppo         → Proximal Policy Optimization (~5 min)")
         pi("  qmix        → Multi-Agent RL (~15 min)")
@@ -324,7 +324,7 @@ def cmd_rl_sandbox(session, args: str = ""):
     elif sub in ("off", "deactivate"):
         pi("Sandbox desactivado. Operaciones reales permitidas.")
     else:
-        pi("Uso: /rl-sandbox on | /rl-sandbox off")
+        pi("Uso: rl-sandbox on | rl-sandbox off")
 
 
 def cmd_rl_shadow(session, args: str = ""):
@@ -342,7 +342,7 @@ def cmd_rl_shadow(session, args: str = ""):
         current = os.environ.get("BAGO_RL_SHADOW", "0")
         state = "ACTIVADO" if current.lower() in ("1", "true", "yes") else "DESACTIVADO"
         pi(f"Shadow mode: {state}")
-        pi("Uso: /rl-shadow on | /rl-shadow off")
+        pi("Uso: rl-shadow on | rl-shadow off")
 
 
 # ── Fase 5 — Tool Orchestrator commands ───────────────────────────────────────
@@ -351,8 +351,8 @@ def cmd_rl_tool(session, args: str = ""):
     """Ejecuta el orquestador de herramientas BAGO (Fase 5).
 
     Uso:
-      /rl-tool                          → modo interactivo
-      /rl-tool "busca archivos de config" → tarea directa (no interactivo)
+      rl-tool                          → modo interactivo
+      rl-tool "busca archivos de config" → tarea directa (no interactivo)
     """
     root = Path(__file__).resolve().parents[2].parent
     _, _, _, orch_script, _ = _tool_orchestrator_paths(root)
