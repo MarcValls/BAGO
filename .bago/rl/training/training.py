@@ -49,8 +49,8 @@ def train_bandit(episodes: int, alpha: float, save_path: Path) -> dict[str, floa
     }
 
 
-def train_bc(epochs: int, lr: float, save_path: Path) -> dict[str, float]:
-    env = BagoToolEnv()
+def train_bc(epochs: int, lr: float, save_path: Path, transitions_file: Path | None = None) -> dict[str, float]:
+    env = BagoToolEnv(transitions_file=transitions_file) if transitions_file else BagoToolEnv()
     n_features = env.observation_space.shape[0]
     policy = BCPolicy(NUM_ACTIONS, n_features, lr)
 
@@ -73,7 +73,7 @@ def train_bc(epochs: int, lr: float, save_path: Path) -> dict[str, float]:
         transitions.append((obs, action, reward))
 
     if not transitions:
-        print("[WARN] No hay transiciones para entrenar BC. Ejecuta el orquestador primero.")
+        print("[WARN] No hay transiciones para entrenar BC. Ejecuta el orquestador primero o genera demos sintéticas.")
         return {"error": "no_transitions"}
 
     losses = []
@@ -97,8 +97,8 @@ def train_bc(epochs: int, lr: float, save_path: Path) -> dict[str, float]:
     }
 
 
-def evaluate_policy(checkpoint_path: Path, episodes: int = 100) -> dict[str, float]:
-    env = BagoToolEnv()
+def evaluate_policy(checkpoint_path: Path, episodes: int = 100, transitions_file: Path | None = None) -> dict[str, float]:
+    env = BagoToolEnv(transitions_file=transitions_file) if transitions_file else BagoToolEnv()
     n_features = env.observation_space.shape[0]
 
     with open(checkpoint_path, "r", encoding="utf-8") as f:

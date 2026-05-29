@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=30, help="Épocas (bc)")
     parser.add_argument("--alpha", type=float, default=1.0, help="Exploración LinUCB")
     parser.add_argument("--lr", type=float, default=0.01, help="Learning rate BC")
+    parser.add_argument("--dataset", type=Path, help="JSONL de transiciones para BC (demo sintética o real)")
     parser.add_argument("--eval", action="store_true", help="Modo evaluación")
     parser.add_argument("--checkpoint", type=Path, help="Checkpoint para evaluar")
     parser.add_argument("--save", type=Path, help="Ruta de guardado")
@@ -47,7 +48,7 @@ def main() -> None:
             print("[ERROR] --eval requiere --checkpoint")
             sys.exit(1)
         print(f"Evaluando {args.checkpoint}...")
-        metrics = evaluate_policy(args.checkpoint)
+        metrics = evaluate_policy(args.checkpoint, transitions_file=args.dataset)
         print(json.dumps(metrics, indent=2))
         return
 
@@ -58,7 +59,7 @@ def main() -> None:
     else:
         save = args.save or CHECKPOINTS_DIR / "tool_policy_bc.json"
         print(f"Entrenando BC ({args.epochs} epochs, lr={args.lr})...")
-        metrics = train_bc(args.epochs, args.lr, save)
+        metrics = train_bc(args.epochs, args.lr, save, transitions_file=args.dataset)
 
     print("\n=== Métricas ===")
     print(json.dumps(metrics, indent=2))
