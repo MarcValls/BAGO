@@ -1,9 +1,0 @@
-{
-  "bago_host_root": "C:\\bago_true",
-  "note": "BAGO operando como herramienta sobre un proyecto externo.",
-  "recorded_at": "2026-05-27T18:26:48+00:00",
-  "repo_fingerprint": "3e4b652f3a1db7d948653bc32c97048583792d76a0c494d73c7276e4040fa2f2",
-  "repo_root": "C:\\bago_test_project",
-  "role": "workspace_pointer",
-  "working_mode": "external"
-}

@@ -1,0 +1,26 @@
+{
+  "/status": {
+    "ok": true,
+    "message": "Session ID : a351e0f7-95b\nProvider   : mock-contract\nModel      : contract-assistant-v1\nHealth     : OK — Mock contract runtime ready\nMessages   : 2\nTokens     : 91\nCalls      : 1\nSwitches   : 0"
+  },
+  "/plan": {
+    "ok": true,
+    "message": "📋 Plan: publicar una mejora pequena y verificable de conocimiento comunitario para que otro usuario la pueda reutilizar\n\n  ○ 1. Definir una necesidad concreta que ayude al usuario.\n  ○ 2. Convertir la necesidad en una mejora pequena y verificable.\n  ○ 3. Registrar el aprendizaje como conocimiento recuperable.\n  ○ 4. Guardar la sesion y publicar la evidencia reutilizable."
+  },
+  "/memory add": {
+    "ok": true,
+    "message": "✓ Recuerdo añadido (ID: 1)."
+  },
+  "/memory search": {
+    "ok": true,
+    "message": "Resultados para 'conocimiento recuperable':\n  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: a351e0f7-95b)"
+  },
+  "/good": {
+    "ok": true,
+    "message": "Mensaje -1 marcado como 'good' — no se diluirá en compresión."
+  },
+  "/save": {
+    "ok": true,
+    "message": "Sesión guardada: a351e0f7-95b"
+  }
+}

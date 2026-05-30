@@ -1,0 +1,103 @@
+================================================================================
+  CAPTURA 1: Inicio de sesión + Banner BAGO 4.0
+================================================================================
+
+  ____    _    ____   ___  
+ | __ )  / \  / ___| / _ \ 
+ |  _ \ / _ \ \___ \| | | |
+ | |_) / ___ \ ___) | |_| |
+ |____/_/   \_\____/ \___/ 
+           v4.0 — Session-First AI Chat
+
+Bienvenido a BAGO 4.0. Escribe /help para ver comandos.
+El contexto de sesión sobrevive al cambio de provider.
+
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:3b · 0 tok
+────────────────────────────────────────────────────────────
+bago ❯
+
+================================================================================
+  CAPTURA 2: Comando /help
+================================================================================
+
+bago ❯ /help
+Comandos disponibles:
+  /switch <provider> [modelo] [--force]   Cambia de provider/modelo   
+  /models [provider]                       Lista modelos disponibles  
+  /status                                  Estado de la sesión activa 
+  /session                                 Detalles de la sesión      
+  /save                                    Guarda sesión en disco     
+  /load <session_id>                       Carga sesión desde disco   
+  /providers                               Lista providers registrados
+  /help                                    Muestra esta ayuda
+  /quit                                    Salir del chat
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:3b · 0 tok
+────────────────────────────────────────────────────────────
+
+================================================================================
+  CAPTURA 3: Estado de sesión (/status)
+================================================================================
+
+bago ❯ /status
+Session ID : 97a91109-878
+Provider   : ollama-local
+Model      : llama3.2:3b
+Health     : OK — Ollama OK (5 models)
+Messages   : 0
+Tokens     : 0
+Calls      : 0
+Switches   : 0
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:3b · 0 tok
+────────────────────────────────────────────────────────────
+
+================================================================================
+  CAPTURA 4: Mensaje enviado + Respuesta del modelo
+================================================================================
+
+bago ❯ Hola BAGO, confirma funcionamiento con OK
+You Hola BAGO, confirma funcionamiento con OK
+BAGO ¡Hola! OK, confirmando funcionamiento... ESTOY ACTIVO. ¿En qué puedo ayudarte hoy?
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:3b · 61 tok
+────────────────────────────────────────────────────────────
+
+================================================================================
+  CAPTURA 5: Switch de modelo en caliente (/switch)
+================================================================================
+
+bago ❯ /switch ollama-local llama3.2:1b --force
+Switch completado: ollama-local/llama3.2:3b → ollama-local/llama3.2:1b
+✓ Switch: ollama-local/llama3.2:3b → ollama-local/llama3.2:1b
+  ⚠ Se aplicará estrategia de contexto: RESET
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:1b · 61 tok
+────────────────────────────────────────────────────────────
+
+================================================================================
+  CAPTURA 6: Manejo de error (timeout)
+================================================================================
+
+bago ❯ ¿Recuerdas que te pedí confirmar funcionamiento? Responde SI o NO
+You ¿Recuerdas que te pedí confirmar funcionamiento? Responde SI o NO
+BAGO Error Ollama: timed out
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:1b · 61 tok
+────────────────────────────────────────────────────────────
+
+================================================================================
+  CAPTURA 7: Guardar y salir (/save + /quit)
+================================================================================
+
+bago ❯ /save
+Sesión guardada: 97a91109-878
+────────────────────────────────────────────────────────────
+● ollama-local/llama3.2:1b · 61 tok
+────────────────────────────────────────────────────────────
+bago ❯ /quit
+Bye.
+Sesión guardada automáticamente: 97a91109-878
+
+================================================================================

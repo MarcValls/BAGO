@@ -1,8 +1,0 @@
-{
-  "curriculum": "full",
-  "total_timesteps": 150000,
-  "mean_reward": 15.1403,
-  "std_reward": 3.5389,
-  "save_path": ".bago\\rl\\checkpoints\\ppo_full_v3",
-  "seed": 47
-}

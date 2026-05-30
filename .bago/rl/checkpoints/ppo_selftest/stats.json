@@ -1,8 +1,0 @@
-{
-  "curriculum": "short",
-  "total_timesteps": 5000,
-  "mean_reward": 3.4802,
-  "std_reward": 1.8605,
-  "save_path": ".bago\\rl\\checkpoints\\ppo_selftest",
-  "seed": 42
-}

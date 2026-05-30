@@ -1,9 +1,0 @@
-{
-  "evidence_id": "EVIDENCE-000",
-  "type": "decision",
-  "related_to": ["CHG-000", "SESSION-000"],
-  "summary": "Ejemplo de evidencia de decisión tomada durante una sesión.",
-  "details": "Esta evidencia documenta una decisión arquitectónica relevante que afecta al framework. Debe ser breve, verificable y enlazable.",
-  "status": "recorded",
-  "recorded_at": "2026-05-28T21:00:00+02:00"
-}

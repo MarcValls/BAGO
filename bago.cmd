@@ -1,5 +1,16 @@
 @echo off
-:: bago.cmd - BAGO Launcher para Windows (wrapper del launcher Python canonico)
-:: Instalar en PATH: C:\Users\{user}\BAGO\ o C:\Program Files\BAGO\
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bago.ps1" %*
-exit /b %ERRORLEVEL%
+REM bago.cmd — BAGO 4.0 Windows Entrypoint
+setlocal EnableDelayedExpansion
+
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
+
+set "BAGO_ROOT=%~dp0"
+set "BAGO_CORE=%BAGO_ROOT%bago_core\cli.py"
+
+if not exist "%BAGO_CORE%" (
+    echo [ERROR] No se encontro bago_core\cli.py en %BAGO_ROOT%
+    exit /b 1
+)
+
+python "%~dp0bago_core\cli.py" %*

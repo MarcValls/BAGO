@@ -1,0 +1,11 @@
+{
+  "session_id": "a351e0f7-95b",
+  "provider": "mock-contract",
+  "model": "contract-assistant-v1",
+  "system_prompt": "",
+  "created_at": 1780089446.2230387,
+  "total_tokens": 225,
+  "total_calls": 2,
+  "last_switch_at": null,
+  "switch_log": []
+}

@@ -1,7 +1,0 @@
-{
-  "num_samples": 5000,
-  "input_dim": 9,
-  "num_actions": 11,
-  "final_accuracy": 0.12193890431709165,
-  "epochs": 50
-}
