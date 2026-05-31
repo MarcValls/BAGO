@@ -19,6 +19,23 @@ function Get-FullPath {
     return [System.IO.Path]::GetFullPath($Path)
 }
 
+function Get-RelativePathCompat {
+    param(
+        [Parameter(Mandatory = $true)][string]$BasePath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+    $baseFull = (Get-FullPath $BasePath).TrimEnd("\") + "\"
+    $targetFull = Get-FullPath $TargetPath
+    try {
+        return [System.IO.Path]::GetRelativePath($baseFull, $targetFull)
+    } catch {
+        $baseUri = [System.Uri]::new($baseFull)
+        $targetUri = [System.Uri]::new($targetFull)
+        $relativeUri = $baseUri.MakeRelativeUri($targetUri)
+        return [System.Uri]::UnescapeDataString($relativeUri.ToString()).Replace("/", "\")
+    }
+}
+
 function Assert-SafeTarget {
     param([Parameter(Mandatory = $true)][string]$Path)
     $full = Get-FullPath $Path
@@ -57,7 +74,7 @@ function Copy-ReleaseTree {
     $sourceFull = Get-FullPath $Source
     $destFull = Get-FullPath $Destination
     Get-ChildItem -LiteralPath $sourceFull -Force -Recurse -File | ForEach-Object {
-        $relative = [System.IO.Path]::GetRelativePath($sourceFull, $_.FullName)
+        $relative = Get-RelativePathCompat -BasePath $sourceFull -TargetPath $_.FullName
         if (Test-ReleaseExcluded $relative) {
             return
         }
