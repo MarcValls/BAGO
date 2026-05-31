@@ -13,6 +13,12 @@ from __future__ import annotations
 import json
 import os
 import sys
+import base64
+from ctypes import POINTER, Structure, byref, cast, create_string_buffer, wintypes
+try:
+    from ctypes import windll  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - Windows-only API
+    windll = None  # type: ignore[assignment]
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +61,73 @@ CREDENTIAL_SCHEMA: dict[str, dict[str, str]] = {
 }
 
 
+class _DATA_BLOB(Structure):
+    _fields_ = [("cbData", wintypes.DWORD), ("pbData", POINTER(wintypes.BYTE))]
+
+
+def _load_install_config(base_path: Path) -> dict[str, Any]:
+    path = base_path / "install_config.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _blob_from_bytes(data: bytes) -> _DATA_BLOB:
+    buf = create_string_buffer(data if data else b"\x00", max(1, len(data)))
+    blob = _DATA_BLOB(len(data), cast(buf, POINTER(wintypes.BYTE)))
+    blob._buffer = buf  # type: ignore[attr-defined]
+    return blob
+
+
+def _bytes_from_blob(blob: _DATA_BLOB) -> bytes:
+    if not blob.cbData or not blob.pbData:
+        return b""
+    return bytes(bytearray(blob.pbData[i] for i in range(blob.cbData)))
+
+
+def _dpapi_protect(plain_text: str, entropy: str = "BAGO") -> str:
+    if sys.platform != "win32" or windll is None:
+        raise OSError("DPAPI encryption is only available on Windows")
+    data_in = _blob_from_bytes(plain_text.encode("utf-8"))
+    entropy_blob = _blob_from_bytes(entropy.encode("utf-8"))
+    out_blob = _DATA_BLOB()
+    if not windll.crypt32.CryptProtectData(byref(data_in), None, byref(entropy_blob), None, None, 0, byref(out_blob)):
+        raise OSError("CryptProtectData failed")
+    try:
+        return json.dumps({
+            "format": "bago-encrypted-v1",
+            "scope": "CurrentUser",
+            "payload": base64.b64encode(_bytes_from_blob(out_blob)).decode("ascii"),
+        })
+    finally:
+        windll.kernel32.LocalFree(out_blob.pbData)
+
+
+def _decode_payload(value: str) -> bytes:
+    try:
+        return base64.b64decode(value)
+    except Exception:
+        return bytes.fromhex(value)
+
+
+def _dpapi_unprotect(container: dict[str, Any], entropy: str = "BAGO") -> str:
+    if sys.platform != "win32" or windll is None:
+        raise OSError("DPAPI decryption is only available on Windows")
+    payload = _decode_payload(container.get("payload", ""))
+    data_in = _blob_from_bytes(payload)
+    entropy_blob = _blob_from_bytes(entropy.encode("utf-8"))
+    out_blob = _DATA_BLOB()
+    if not windll.crypt32.CryptUnprotectData(byref(data_in), None, byref(entropy_blob), None, None, 0, byref(out_blob)):
+        raise OSError("CryptUnprotectData failed")
+    try:
+        return _bytes_from_blob(out_blob).decode("utf-8")
+    finally:
+        windll.kernel32.LocalFree(out_blob.pbData)
+
+
 class CredentialManager:
     """Gestiona `.bago/credentials.json`."""
 
@@ -62,15 +135,34 @@ class CredentialManager:
         self.base_path = Path(base_path or os.getcwd())
         self.config_dir = self.base_path / ".bago"
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.cred_path = self.config_dir / "credentials.json"
+        self.install_config = _load_install_config(self.base_path)
+        store_cfg = self.install_config.get("credentials", {})
+        self.store_mode = str(store_cfg.get("mode", "legacy")).lower()
+        self.store_encrypted = bool(store_cfg.get("encrypted", False) or self.store_mode in {"persistent", "external"})
+        store_path = store_cfg.get("path") or ""
+        if store_path:
+            self.cred_path = Path(store_path)
+        elif self.store_mode == "session":
+            self.cred_path = self.config_dir / "session-credentials.json"
+        else:
+            self.cred_path = self.config_dir / "credentials.json"
         self._data: dict[str, dict[str, str]] = {}
         self._load()
 
     def _load(self) -> None:
+        if self.store_mode == "session":
+            self._data = {}
+            self._auto_import_env()
+            return
         if self.cred_path.exists():
             try:
-                self._data = json.loads(self.cred_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
+                raw = self.cred_path.read_text(encoding="utf-8")
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict) and parsed.get("format") == "bago-encrypted-v1":
+                    self._data = json.loads(_dpapi_unprotect(parsed))
+                else:
+                    self._data = parsed if isinstance(parsed, dict) else {}
+            except Exception:
                 self._data = {}
         else:
             self._data = {}
@@ -92,6 +184,14 @@ class CredentialManager:
             self._save()
 
     def _save(self) -> None:
+        if self.store_mode == "session":
+            return
+        if self.store_encrypted:
+            self.cred_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = _dpapi_protect(json.dumps(self._data, indent=2, ensure_ascii=False))
+            self.cred_path.write_text(payload, encoding="utf-8")
+            return
+        self.cred_path.parent.mkdir(parents=True, exist_ok=True)
         self.cred_path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
         # Intentar permisos restrictivos (no crítico si falla en Windows)
         try:

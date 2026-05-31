@@ -17,6 +17,8 @@ INCLUDE_FILES = [
     "bago.ps1",
     "bago.sh",
     "install-v4.ps1",
+    "bago-uninstall.ps1",
+    "bago-uninstall.cmd",
     "rollback-v4.ps1",
     "test_e2e.py",
     "test_security_release.py",
@@ -52,6 +54,7 @@ EXCLUDED_PREFIXES = [
 
 FORBIDDEN_NAMES = {
     "credentials.json",
+    "install_config.json",
     ".env",
     ".env.local",
 }

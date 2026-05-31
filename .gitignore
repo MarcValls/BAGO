@@ -2,6 +2,9 @@
 .bago/state/
 .bago/logs/
 .bago/credentials.json
+.bago/config.json
+.bago/session-credentials.json
+install_config.json
 
 # ── Bases de datos ──────────────────────────────────────────────────────────────
 *.db

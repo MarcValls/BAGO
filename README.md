@@ -19,18 +19,35 @@
 ### 1. Install
 ```powershell
 # Windows (PowerShell)
-.\install-v4.ps1
+.\install-v4.ps1 -Mode Express
+
+# Or from an installed/runtime copy
+bago install --mode Express
 
 # Or clone and run directly
 python bago_core\cli.py validate
 ```
 
-### 2. Start Chatting
+The installer writes per-install non-secret settings to `install_config.json`.
+Credentials default to session-only storage; persistent storage and external export require explicit opt-in and are encrypted.
+
+### 2. Uninstall
+```powershell
+bago uninstall --dry-run
+bago uninstall
+
+# Remove user state too
+bago uninstall --purge-state
+```
+
+Uninstall creates a backup ZIP before deleting the install directory and removes BAGO from PATH where possible.
+
+### 3. Start Chatting
 ```powershell
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b
 ```
 
-### 3. Dry-Run Check (no chat window)
+### 4. Dry-Run Check (no chat window)
 ```powershell
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```

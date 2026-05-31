@@ -12,8 +12,12 @@ Encarga:
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import shutil
 import sys
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +51,16 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
 
 EXPERIMENTAL_PROVIDERS = {"cpp-local"}
+
+
+def _load_install_config(root: Path) -> dict[str, Any]:
+    path = root / "install_config.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def _provider_inventory(base_path: str, include_experimental: bool = False) -> list[dict[str, Any]]:
@@ -630,17 +644,142 @@ def cmd_cpp_runtime(args: argparse.Namespace) -> int:
     return runtime_main(argv)
 
 
+def cmd_install(args: argparse.Namespace) -> int:
+    import subprocess
+
+    root = Path(__file__).resolve().parents[1]
+    script = root / "install-v4.ps1"
+    if not script.exists():
+        print(f"[ERROR] No se encontro instalador local: {script}")
+        return 1
+
+    ps = shutil.which("pwsh.exe") or shutil.which("powershell.exe") or "powershell.exe"
+    command = [
+        ps,
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script),
+    ]
+    if args.source_root:
+        command += ["-SourceRoot", args.source_root]
+    if args.package_zip:
+        command += ["-PackageZip", args.package_zip]
+    if args.install_dir:
+        command += ["-InstallDir", args.install_dir]
+    if args.mode:
+        command += ["-Mode", args.mode]
+    if args.repair_only:
+        command.append("-RepairOnly")
+    if args.skip_tests:
+        command.append("-SkipTests")
+    if args.no_path_update:
+        command.append("-NoPathUpdate")
+
+    print("BAGO local install")
+    print(f"Fuente local : {args.source_root or str(root)}")
+    print(f"Destino      : {args.install_dir}")
+    print("Red          : no descarga nada")
+    if args.dry_run:
+        print("Dry-run      : no ejecutado")
+        return 0
+    return subprocess.call(command)
+
+
+def _normalize_path_entry(entry: str) -> str:
+    return entry.strip().rstrip("\\").lower()
+
+
+def _remove_install_from_path(install_path: str) -> str:
+    removed_scopes: list[str] = []
+    install_norm = _normalize_path_entry(install_path)
+    current = os.environ.get("Path", "")
+    entries = []
+    for entry in current.split(";"):
+        clean = entry.strip()
+        if clean and _normalize_path_entry(clean) != install_norm:
+            entries.append(clean)
+    os.environ["Path"] = ";".join(entries)
+
+    try:
+        import winreg  # type: ignore
+    except Exception:
+        return "process"
+
+    def _rewrite(scope_root: int) -> bool:
+        try:
+            with winreg.OpenKey(scope_root, "Environment", 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
+                value, reg_type = winreg.QueryValueEx(key, "Path")
+                kept = []
+                for entry in str(value or "").split(";"):
+                    clean = entry.strip()
+                    if clean and _normalize_path_entry(clean) != install_norm:
+                        kept.append(clean)
+                winreg.SetValueEx(key, "Path", 0, reg_type, ";".join(kept))
+            return True
+        except Exception:
+            return False
+
+    if _rewrite(winreg.HKEY_CURRENT_USER):
+        removed_scopes.append("user")
+    if _rewrite(winreg.HKEY_LOCAL_MACHINE):
+        removed_scopes.append("machine")
+    return "+".join(removed_scopes) if removed_scopes else "process"
+
+
+def _zip_tree(source_dir: Path, zip_path: Path) -> None:
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in source_dir.rglob("*"):
+            if path.is_file():
+                zf.write(path, path.relative_to(source_dir))
+
+
+def cmd_uninstall(args: argparse.Namespace) -> int:
+    install_dir = Path(args.install_dir or Path(__file__).resolve().parents[1])
+    backup_root = Path(args.backup_root or (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "backups"))
+    user_state_dir = Path(args.user_state_dir or (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "user"))
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+    if not install_dir.exists():
+        print(f"[ERROR] No se encontro la instalacion: {install_dir}")
+        return 1
+
+    backup_zip = backup_root / f"bago-programfiles-uninstall-{stamp}.zip"
+    print("BAGO local uninstall")
+    print(f"Destino      : {install_dir}")
+    print(f"Backup       : {backup_zip}")
+    print(f"Estado user  : {user_state_dir}")
+    print(f"Purga state  : {'si' if args.purge_state else 'no'}")
+    if args.dry_run:
+        print("Dry-run      : no ejecutado")
+        return 0
+
+    _zip_tree(install_dir, backup_zip)
+    removed_scope = _remove_install_from_path(str(install_dir))
+    if args.purge_state and user_state_dir.exists():
+        shutil.rmtree(user_state_dir, ignore_errors=True)
+    shutil.rmtree(install_dir)
+    print(f"Backup creado: {backup_zip}")
+    print(f"PATH limpiado : {removed_scope}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
     from config_manager import ConfigManager
 
+    install_root = Path(__file__).resolve().parents[1]
+    install_config = _load_install_config(install_root)
+
     # Leer defaults desde config.json si existe
-    base = os.getcwd()
+    base = str(install_root) if install_config else os.getcwd()
     try:
         cm_defaults = ConfigManager(base_path=base)
-        default_provider = cm_defaults.default_provider
-        default_model = cm_defaults.default_model
+        default_provider = install_config.get("runtime", {}).get("default_provider") or cm_defaults.default_provider
+        default_model = install_config.get("runtime", {}).get("default_model") or cm_defaults.default_model
     except Exception:
         default_provider = "ollama-local"
         default_model = "llama3.2:3b"
@@ -654,6 +793,23 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("chat", help="Inicia el REPL de chat")
     sub.add_parser("launch", help="Alias de chat: inicia BAGO")
     sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
+
+    install_parser = sub.add_parser("install", help="Instala/repara BAGO desde la copia local, sin descarga")
+    install_parser.add_argument("--source-root", default="", help="Raiz local desde la que instalar")
+    install_parser.add_argument("--package-zip", default="", help="ZIP local desde el que instalar")
+    install_parser.add_argument("--install-dir", default="C:\\Program Files\\BAGO", help="Destino de instalacion")
+    install_parser.add_argument("--mode", choices=("Express", "Advanced"), default="", help="Modo de asistente")
+    install_parser.add_argument("--repair-only", action="store_true", help="Solo repara registro PATH/comando")
+    install_parser.add_argument("--skip-tests", action="store_true", help="Omite tests internos del instalador")
+    install_parser.add_argument("--no-path-update", action="store_true", help="No modifica PATH")
+    install_parser.add_argument("--dry-run", action="store_true", help="Muestra lo que haria sin ejecutar")
+
+    uninstall_parser = sub.add_parser("uninstall", help="Desinstala BAGO de la ruta indicada")
+    uninstall_parser.add_argument("--install-dir", default="C:\\Program Files\\BAGO", help="Destino a desinstalar")
+    uninstall_parser.add_argument("--backup-root", default="", help="Carpeta para el ZIP de backup")
+    uninstall_parser.add_argument("--user-state-dir", default="", help="Carpeta de estado a preservar o purgar")
+    uninstall_parser.add_argument("--purge-state", action="store_true", help="Borra tambien el estado de usuario")
+    uninstall_parser.add_argument("--dry-run", action="store_true", help="Muestra lo que haria sin ejecutar")
 
     claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger — afirmaciones trazables")
     claim_sub = claim_parser.add_subparsers(dest="claim_action")
@@ -750,6 +906,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_chat(args)
     elif args.command == "validate":
         return cmd_validate(args)
+    elif args.command == "install":
+        return cmd_install(args)
+    elif args.command == "uninstall":
+        return cmd_uninstall(args)
     elif args.command == "claim":
         return cmd_claim(args)
     elif args.command == "config":
@@ -780,6 +940,9 @@ if __name__ == "__main__":
         # Quick smoke test
         import tempfile
         with tempfile.TemporaryDirectory() as td:
+            cfg = {"runtime": {"default_provider": "codex", "default_model": "gpt-5.4-mini"}}
+            (Path(td) / "install_config.json").write_text(json.dumps(cfg), encoding="utf-8")
+            assert _load_install_config(Path(td))["runtime"]["default_provider"] == "codex"
             assert main(["--base-path", td, "config", "set", "providers.cpp-local.enabled", "true"]) == 0
             assert main(["--base-path", td, "config", "get", "providers.cpp-local.enabled"]) == 0
             assert main(["--base-path", td, "llm", "list"]) == 0
@@ -795,6 +958,11 @@ if __name__ == "__main__":
             assert main(["--base-path", td, "rl", "train", "bc"]) == 0
             assert main(["--base-path", td, "rl", "eval"]) == 0
             assert main(["--base-path", td, "evidence", "--test"]) == 0
+            assert main(["--base-path", td, "install", "--dry-run"]) == 0
+            tmp_install = Path(td) / "fake-install"
+            tmp_install.mkdir()
+            (tmp_install / "keep.txt").write_text("x", encoding="utf-8")
+            assert main(["--base-path", td, "uninstall", "--install-dir", str(tmp_install), "--dry-run"]) == 0
         print("launcher.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())

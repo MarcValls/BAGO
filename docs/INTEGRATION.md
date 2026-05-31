@@ -30,6 +30,9 @@ Rule:
 - never patch installed runtime blindly.
 - backup before update.
 - rollback path required.
+- install uses `install-v4.ps1` or `bago install`.
+- uninstall uses `bago uninstall` or `bago-uninstall.ps1` and creates a backup first.
+- `install_config.json` is generated per installation and must not be committed as a static package file.
 
 ## Mutable User State
 
@@ -48,6 +51,9 @@ Rule:
 
 - never package.
 - never overwrite without migration logic.
+- credentials are session-only by default.
+- persistent credentials require explicit opt-in and are stored outside the repo/package.
+- external credential export must be encrypted.
 
 ## `bago_true`
 
