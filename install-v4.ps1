@@ -396,7 +396,7 @@ function Invoke-FinalValidation {
     $report.destination = @{ ok = (Test-PathWritable $InstallPath); path = $InstallPath }
     $report.providers = Invoke-ProviderValidation -Providers $Providers
     $report.local_model = @{ ok = $true; detail = "no local provider selected" }
-    if ($Providers.ContainsKey("ollama-local") -and $Providers["ollama-local"].enabled) {
+    if ($Providers.Contains("ollama-local") -and $Providers["ollama-local"].enabled) {
         $report.local_model = @{ ok = $true; detail = "ollama-local validated"; model = $Providers["ollama-local"].model }
     }
     $report.knowledge = @{ ok = $true; detail = "not shared" }
