@@ -548,7 +548,7 @@ foreach ($name in $providerConfigs.Keys) {
 if (-not $RepairOnly) {
     if (Test-Path -LiteralPath $installFull) {
         $backupZip = Join-Path $backupFull "bago-programfiles-backup-$stamp.zip"
-        $children = Get-ChildItem -LiteralPath $installFull -Force
+        $children = @(Get-ChildItem -LiteralPath $installFull -Force)
         if ($children.Count -gt 0) {
             Compress-Archive -Path (Join-Path $installFull "*") -DestinationPath $backupZip -CompressionLevel Optimal -Force
         } else {
