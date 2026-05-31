@@ -12,9 +12,12 @@ Encarga:
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import shutil
+import stat
+import subprocess
 import sys
 import zipfile
 from datetime import datetime, timezone
@@ -736,6 +739,80 @@ def _zip_tree(source_dir: Path, zip_path: Path) -> None:
                 zf.write(path, path.relative_to(source_dir))
 
 
+def _is_windows_admin() -> bool:
+    if os.name != "nt":
+        return True
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _is_under_path(path: Path, parent: str) -> bool:
+    if not parent:
+        return False
+    try:
+        path.resolve().relative_to(Path(parent).resolve())
+        return True
+    except Exception:
+        return False
+
+
+def _needs_uninstall_elevation(install_dir: Path) -> bool:
+    if os.name != "nt" or _is_windows_admin():
+        return False
+    protected_roots = [
+        os.environ.get("ProgramFiles", r"C:\Program Files"),
+        os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+    ]
+    return any(_is_under_path(install_dir, root) for root in protected_roots if root)
+
+
+def _ps_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _relaunch_uninstall_elevated(args: argparse.Namespace, install_dir: Path) -> int:
+    ps = shutil.which("pwsh.exe") or shutil.which("powershell.exe") or "powershell.exe"
+    cli_path = Path(__file__).with_name("cli.py")
+    argv = [
+        str(cli_path if cli_path.exists() else Path(__file__)),
+        "--base-path",
+        str(args.base_path),
+        "uninstall",
+        "--install-dir",
+        str(install_dir),
+        "--elevated-child",
+    ]
+    if args.backup_root:
+        argv += ["--backup-root", args.backup_root]
+    if args.user_state_dir:
+        argv += ["--user-state-dir", args.user_state_dir]
+    if args.purge_state:
+        argv.append("--purge-state")
+    arg_list = "@(" + ",".join(_ps_literal(item) for item in argv) + ")"
+    command = (
+        "$p = Start-Process -FilePath "
+        + _ps_literal(sys.executable)
+        + " -ArgumentList "
+        + arg_list
+        + " -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
+    )
+    print("Elevacion    : requerida para borrar Program Files")
+    return subprocess.call([ps, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command])
+
+
+def _rmtree_writable(path: Path) -> None:
+    def _fix_permissions(func: Any, target: str, exc_info: Any) -> None:
+        try:
+            os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+            func(target)
+        except Exception:
+            raise exc_info[1]
+
+    shutil.rmtree(path, onerror=_fix_permissions)
+
+
 def cmd_uninstall(args: argparse.Namespace) -> int:
     install_dir = Path(args.install_dir or Path(__file__).resolve().parents[1])
     backup_root = Path(args.backup_root or (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "backups"))
@@ -756,11 +833,23 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
         print("Dry-run      : no ejecutado")
         return 0
 
-    _zip_tree(install_dir, backup_zip)
-    removed_scope = _remove_install_from_path(str(install_dir))
-    if args.purge_state and user_state_dir.exists():
-        shutil.rmtree(user_state_dir, ignore_errors=True)
-    shutil.rmtree(install_dir)
+    if _needs_uninstall_elevation(install_dir) and not args.elevated_child and not args.no_elevate:
+        return _relaunch_uninstall_elevated(args, install_dir)
+
+    try:
+        _zip_tree(install_dir, backup_zip)
+        removed_scope = _remove_install_from_path(str(install_dir))
+        if args.purge_state and user_state_dir.exists():
+            _rmtree_writable(user_state_dir)
+        _rmtree_writable(install_dir)
+    except PermissionError as exc:
+        print(f"[ERROR] Sin permisos para desinstalar: {exc}")
+        if os.name == "nt" and not _is_windows_admin():
+            print("Ejecuta PowerShell como administrador o usa el prompt UAC del comando sin --no-elevate.")
+        return 1
+    except OSError as exc:
+        print(f"[ERROR] No se pudo completar la desinstalacion: {exc}")
+        return 1
     print(f"Backup creado: {backup_zip}")
     print(f"PATH limpiado : {removed_scope}")
     return 0
@@ -810,6 +899,8 @@ def main(argv: list[str] | None = None) -> int:
     uninstall_parser.add_argument("--user-state-dir", default="", help="Carpeta de estado a preservar o purgar")
     uninstall_parser.add_argument("--purge-state", action="store_true", help="Borra tambien el estado de usuario")
     uninstall_parser.add_argument("--dry-run", action="store_true", help="Muestra lo que haria sin ejecutar")
+    uninstall_parser.add_argument("--no-elevate", action="store_true", help=argparse.SUPPRESS)
+    uninstall_parser.add_argument("--elevated-child", action="store_true", help=argparse.SUPPRESS)
 
     claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger — afirmaciones trazables")
     claim_sub = claim_parser.add_subparsers(dest="claim_action")
