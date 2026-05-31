@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Instalador remoto de BAGO v4.1.4 - sin descarga manual.
+  Instalador remoto de BAGO v4.1.5 - sin descarga manual.
 
 .DESCRIPTION
   Descarga el release oficial de GitHub, lo extrae y ejecuta install-v4.ps1.
@@ -32,8 +32,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$version = "v4.1.4"
-$asset = "bago-v4.1.4.zip"
+$version = "v4.1.5"
+$asset = "bago-v4.1.5.zip"
 $releaseUrl = "https://github.com/MarcValls/BAGO/releases/download/$version/$asset"
 $tempZip = Join-Path $env:TEMP $asset
 $tempExtract = Join-Path $env:TEMP "bago-$version-extract"

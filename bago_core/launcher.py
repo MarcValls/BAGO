@@ -651,6 +651,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     import subprocess
 
     root = Path(__file__).resolve().parents[1]
+    install_dir = Path(args.install_dir)
+    source_root = Path(args.source_root) if args.source_root else root
+    same_source_and_target = False
+    try:
+        same_source_and_target = source_root.resolve() == install_dir.resolve()
+    except Exception:
+        same_source_and_target = str(source_root).rstrip("\\/").lower() == str(install_dir).rstrip("\\/").lower()
+    repair_only = bool(args.repair_only or (same_source_and_target and not args.package_zip))
     script = root / "install-v4.ps1"
     if not script.exists():
         print(f"[ERROR] No se encontro instalador local: {script}")
@@ -673,7 +681,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         command += ["-InstallDir", args.install_dir]
     if args.mode:
         command += ["-Mode", args.mode]
-    if args.repair_only:
+    elif repair_only:
+        command += ["-Mode", "Express"]
+    if repair_only:
         command.append("-RepairOnly")
     if args.skip_tests:
         command.append("-SkipTests")
@@ -682,7 +692,8 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     print("BAGO local install")
     print(f"Fuente local : {args.source_root or str(root)}")
-    print(f"Destino      : {args.install_dir}")
+    print(f"Destino      : {install_dir}")
+    print(f"Modo         : {'repair' if repair_only else 'install'}")
     print("Red          : no descarga nada")
     if args.dry_run:
         print("Dry-run      : no ejecutado")
