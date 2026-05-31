@@ -17,6 +17,7 @@ INCLUDE_FILES = [
     "bago.ps1",
     "bago.sh",
     "install-v4.ps1",
+    "install-remote.ps1",
     "bago-uninstall.ps1",
     "bago-uninstall.cmd",
     "rollback-v4.ps1",
