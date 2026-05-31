@@ -1,5 +1,5 @@
-#!/usr/bin/env pwsh
-# bago.ps1 — BAGO 4.0 PowerShell Entrypoint
+﻿#!/usr/bin/env pwsh
+# bago.ps1 â€” BAGO 4.1.5 PowerShell Entrypoint
 
 $ErrorActionPreference = "Stop"
 $env:PYTHONUTF8 = "1"

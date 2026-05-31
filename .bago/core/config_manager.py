@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-config_manager.py — BAGO 4.0 Configuration Manager
 
-Gestiona la configuración persistente del sistema en `.bago/config.json`.
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+config_manager.py â€” BAGO 4.1.5 Configuration Manager
+
+Gestiona la configuraciÃ³n persistente del sistema en `.bago/config.json`.
 Soporta defaults de provider, modelos favoritos, timeouts, y flags de features.
 """
 
@@ -146,7 +148,7 @@ class ConfigManager:
         self._save()
 
     def delete(self, key: str) -> bool:
-        """Borra clave dot-notation. Retorna True si existía."""
+        """Borra clave dot-notation. Retorna True si existÃ­a."""
         parts = key.split(".")
         node = self._data
         for part in parts[:-1]:
@@ -160,7 +162,7 @@ class ConfigManager:
         return False
 
     def reset(self) -> None:
-        """Restaura configuración por defecto."""
+        """Restaura configuraciÃ³n por defecto."""
         self._data = {}
         self._merge_defaults(DEFAULT_CONFIG)
         self._save()
@@ -208,7 +210,7 @@ class ConfigManager:
         return self._data.get("features", {}).get("rl_learning", True)
 
 
-# ── Quick test ──────────────────────────────────────────────────────
+# â”€â”€ Quick test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _run_tests() -> int:
     import tempfile

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-credential_manager.py — BAGO 4.0 Credential Manager
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+credential_manager.py â€” BAGO 4.1.5 Credential Manager
 
 Almacena y recupera credenciales de providers (API keys, tokens, URLs).
 Las guarda en `.bago/credentials.json` con permisos restrictivos.
@@ -31,7 +33,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 
-# Mapeo: provider -> (env_var, descripción)
+# Mapeo: provider -> (env_var, descripciÃ³n)
 CREDENTIAL_SCHEMA: dict[str, dict[str, str]] = {
     "ollama-local": {
         "OLLAMA_HOST": "URL base de Ollama local (default: http://127.0.0.1:11434)",
@@ -48,7 +50,7 @@ CREDENTIAL_SCHEMA: dict[str, dict[str, str]] = {
     },
     "codex": {
         "OPENAI_API_KEY": "API key de OpenAI",
-        "OPENAI_ORG_ID": "ID de organización OpenAI (opcional)",
+        "OPENAI_ORG_ID": "ID de organizaciÃ³n OpenAI (opcional)",
     },
     "openrouter": {
         "OPENROUTER_API_KEY": "API key de OpenRouter",
@@ -170,7 +172,7 @@ class CredentialManager:
         self._auto_import_env()
 
     def _auto_import_env(self) -> None:
-        """Importa automáticamente credenciales desde env vars si no existen localmente."""
+        """Importa automÃ¡ticamente credenciales desde env vars si no existen localmente."""
         dirty = False
         for provider, mapping in CREDENTIAL_SCHEMA.items():
             for env_var, desc in mapping.items():
@@ -193,7 +195,7 @@ class CredentialManager:
             return
         self.cred_path.parent.mkdir(parents=True, exist_ok=True)
         self.cred_path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
-        # Intentar permisos restrictivos (no crítico si falla en Windows)
+        # Intentar permisos restrictivos (no crÃ­tico si falla en Windows)
         try:
             os.chmod(self.cred_path, 0o600)
         except (OSError, AttributeError):
@@ -244,7 +246,7 @@ class CredentialManager:
         return False
 
     def required_keys(self, provider: str) -> list[str]:
-        """Devuelve las claves requeridas según el schema."""
+        """Devuelve las claves requeridas segÃºn el schema."""
         return list(CREDENTIAL_SCHEMA.get(provider, {}).keys())
 
     def describe_key(self, provider: str, key: str) -> str:
@@ -254,7 +256,7 @@ class CredentialManager:
         return {k: dict(v) for k, v in self._data.items()}
 
 
-# ── Quick test ──────────────────────────────────────────────────────
+# â”€â”€ Quick test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _run_tests() -> int:
     import tempfile

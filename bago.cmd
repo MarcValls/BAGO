@@ -1,5 +1,5 @@
-@echo off
-REM bago.cmd — BAGO 4.0 Windows Entrypoint
+﻿@echo off
+REM bago.cmd â€” BAGO 4.1.5 Windows Entrypoint
 setlocal EnableDelayedExpansion
 
 set "PYTHONUTF8=1"

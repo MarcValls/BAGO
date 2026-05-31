@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-plan_engine.py — BAGO 4.0 Plan Engine
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+plan_engine.py â€” BAGO 4.1.5 Plan Engine
 
 Genera y ejecuta planes paso a paso usando el provider activo.
-Mantiene el plan en la sesión para ejecución progresiva.
+Mantiene el plan en la sesiÃ³n para ejecuciÃ³n progresiva.
 """
 
 from __future__ import annotations
@@ -31,14 +33,14 @@ class Plan:
     status: str = "draft"  # draft | running | done | failed
 
     def to_text(self) -> str:
-        lines = [f"📋 Plan: {self.task}", ""]
+        lines = [f"ðŸ“‹ Plan: {self.task}", ""]
         for step in self.steps:
             icon = {
-                "pending": "○",
-                "running": "◐",
-                "done": "✓",
-                "failed": "✗",
-            }.get(step.status, "○")
+                "pending": "â—‹",
+                "running": "â—",
+                "done": "âœ“",
+                "failed": "âœ—",
+            }.get(step.status, "â—‹")
             lines.append(f"  {icon} {step.number}. {step.description}")
         return "\n".join(lines)
 
@@ -53,7 +55,7 @@ class PlanEngine:
     def parse_steps(text: str) -> list[Step]:
         """Extrae pasos numerados de una respuesta de modelo."""
         steps: list[Step] = []
-        # Busca líneas que empiecen con número + punto o guión
+        # Busca lÃ­neas que empiecen con nÃºmero + punto o guiÃ³n
         for line in text.splitlines():
             line = line.strip()
             if not line:
@@ -71,7 +73,7 @@ class PlanEngine:
         return (
             f"Genera un plan paso a paso conciso para esta tarea: {task}\n\n"
             "Responde SOLO con una lista numerada de pasos. "
-            "Cada paso debe ser una acción concreta y ejecutable. "
+            "Cada paso debe ser una acciÃ³n concreta y ejecutable. "
             "No incluyas explicaciones adicionales."
         )
 
@@ -79,7 +81,7 @@ class PlanEngine:
         """Crea un Plan a partir de la respuesta del modelo."""
         steps = self.parse_steps(model_response)
         if not steps:
-            # Fallback: si no parseó bien, crea un paso con todo el texto
+            # Fallback: si no parseÃ³ bien, crea un paso con todo el texto
             steps = [Step(number=1, description=model_response.strip()[:200])]
         plan = Plan(task=task, steps=steps)
         self.current_plan = plan

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-knowledge_base.py — BAGO 4.0 Knowledge Base
 
-Almacenamiento persistente de hechos y recuerdos extraídos de las conversaciones.
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+knowledge_base.py â€” BAGO 4.1.5 Knowledge Base
+
+Almacenamiento persistente de hechos y recuerdos extraÃ­dos de las conversaciones.
 Usa SQLite (stdlib) para persistencia sin dependencias externas.
 
 Funciones:
-  - add(content, source_session="") → guarda un fragmento de conocimiento
-  - search(query, limit=5) → búsqueda por palabras clave (LIKE)
-  - list_recent(limit=10) → últimos recuerdos añadidos
-  - delete(memory_id) → elimina un recuerdo por ID
+  - add(content, source_session="") â†’ guarda un fragmento de conocimiento
+  - search(query, limit=5) â†’ bÃºsqueda por palabras clave (LIKE)
+  - list_recent(limit=10) â†’ Ãºltimos recuerdos aÃ±adidos
+  - delete(memory_id) â†’ elimina un recuerdo por ID
 """
 
 from __future__ import annotations
@@ -64,7 +66,7 @@ class KnowledgeBase:
         conn.commit()
 
     def add(self, content: str, source_session: str = "") -> int:
-        """Añade un recuerdo y retorna su ID."""
+        """AÃ±ade un recuerdo y retorna su ID."""
         now = datetime.now(timezone.utc).isoformat()
         conn = self._connect()
         cursor = conn.execute(
@@ -83,7 +85,7 @@ class KnowledgeBase:
         return cursor.lastrowid  # type: ignore[return-value]
 
     def search(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
-        """Búsqueda por coincidencia de palabras (LIKE) o FTS si está disponible."""
+        """BÃºsqueda por coincidencia de palabras (LIKE) o FTS si estÃ¡ disponible."""
         conn = self._connect()
         results: list[dict[str, Any]] = []
 
@@ -121,7 +123,7 @@ class KnowledgeBase:
         return results
 
     def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Devuelve los recuerdos más recientes."""
+        """Devuelve los recuerdos mÃ¡s recientes."""
         conn = self._connect()
         rows = conn.execute(
             "SELECT id, content, source_session, created_at FROM memories ORDER BY created_at DESC LIMIT ?",
@@ -149,7 +151,7 @@ class KnowledgeBase:
         return cursor.rowcount > 0
 
     def count(self) -> int:
-        """Número total de recuerdos almacenados."""
+        """NÃºmero total de recuerdos almacenados."""
         conn = self._connect()
         row = conn.execute("SELECT COUNT(*) FROM memories").fetchone()
         return row[0] if row else 0
@@ -167,7 +169,7 @@ def _run_tests() -> int:
         kb = KnowledgeBase(base_path=td)
 
         # Test add
-        mid = kb.add("Python es un lenguaje de programación interpretado.", source_session="sess-1")
+        mid = kb.add("Python es un lenguaje de programaciÃ³n interpretado.", source_session="sess-1")
         assert isinstance(mid, int)
         assert kb.count() == 1
 

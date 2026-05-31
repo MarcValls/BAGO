@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
 embedding_store.py — Almacén ligero de embeddings para memoria híbrida.
 """
 

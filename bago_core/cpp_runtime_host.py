@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
 cpp_runtime_host.py — Reference host for the cpp-local protocol.
 
 Sirve como daemon de desarrollo/pruebas para `cpp-local` en entornos donde el

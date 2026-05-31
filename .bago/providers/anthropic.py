@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-anthropic.py — BAGO 4.0 Anthropic Provider Adapter
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+anthropic.py â€” BAGO 4.1.5 Anthropic Provider Adapter
 
 Adapter directo HTTP para la API de Anthropic (Claude).
 Requiere ANTHROPIC_API_KEY.
@@ -142,7 +144,7 @@ class AnthropicAdapter(ProviderAdapter):
             return delta.get("text", "")
         if tp == "message_delta":
             return ""
-        # Fallback genérico
+        # Fallback genÃ©rico
         for key in ("content", "text", "partial_json"):
             if key in chunk:
                 return str(chunk[key])

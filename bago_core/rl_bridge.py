@@ -22,6 +22,8 @@ def _utc_now() -> str:
 class RLBridge:
     """Shadow-first RL bridge. It records observations; it never executes actions."""
 
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+
     def __init__(self, base_path: str | Path, true_root: str | Path | None = None) -> None:
         self.base_path = Path(base_path)
         self.true_root = true_root

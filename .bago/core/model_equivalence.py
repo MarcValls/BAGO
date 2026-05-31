@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-model_equivalence.py — BAGO 4.0 Model Equivalence Map
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+model_equivalence.py â€” BAGO 4.1.5 Model Equivalence Map
 
 Define equivalencias entre modelos para decidir si el contexto es
-transferible sin pérdida al cambiar de provider.
+transferible sin pÃ©rdida al cambiar de provider.
 
 Un modelo "equivalente" es aquel con capacidad cognitiva comparable:
-- Context window similar (±25%)
-- Capacidad de razonamiento similar (según benchmarks)
-- Capacidad de código similar
+- Context window similar (Â±25%)
+- Capacidad de razonamiento similar (segÃºn benchmarks)
+- Capacidad de cÃ³digo similar
 
 Clases de equivalencia:
-  TIER_1: Frontier — razonamiento profundo, edición multi-file
-  TIER_2: Everyday — código, resúmenes, tareas generales
-  TIER_3: Fast — confirmaciones, clasificación, tareas ligeras
-  TIER_4: Local ultra-light — edge, offline básico
+  TIER_1: Frontier â€” razonamiento profundo, ediciÃ³n multi-file
+  TIER_2: Everyday â€” cÃ³digo, resÃºmenes, tareas generales
+  TIER_3: Fast â€” confirmaciones, clasificaciÃ³n, tareas ligeras
+  TIER_4: Local ultra-light â€” edge, offline bÃ¡sico
 
 Uso:
     from model_equivalence import EquivalenceMap
@@ -45,7 +47,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 @dataclass(frozen=True)
 class ModelSpec:
-    """Especificación de un modelo para equivalencia."""
+    """EspecificaciÃ³n de un modelo para equivalencia."""
     model_id: str
     wire_name: str
     provider: str
@@ -82,11 +84,11 @@ class TransferStrategy(Enum):
             return cls.RESET
 
 
-# ── Equivalence Map Hardcoded (puede sobreescribirse con JSON) ───────────────
+# â”€â”€ Equivalence Map Hardcoded (puede sobreescribirse con JSON) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _DEFAULT_MAP: dict[str, dict] = {
     "tier_1_frontier": {
-        "description": "Modelos frontier: razonamiento profundo, contexto largo, edición compleja",
+        "description": "Modelos frontier: razonamiento profundo, contexto largo, ediciÃ³n compleja",
         "models": {
             "gpt-5.5": {"wire": "gpt-5.5", "provider": "copilot", "context": 128000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "frontier"},
             "claude-opus-4.7": {"wire": "claude-opus-4.7", "provider": "copilot", "context": 200000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "complex_reasoning"},
@@ -97,7 +99,7 @@ _DEFAULT_MAP: dict[str, dict] = {
         }
     },
     "tier_2_everyday": {
-        "description": "Modelos everyday: código, resúmenes, tareas generales",
+        "description": "Modelos everyday: cÃ³digo, resÃºmenes, tareas generales",
         "models": {
             "gpt-5.4-mini": {"wire": "gpt-5.4-mini", "provider": "copilot", "context": 128000, "reasoning": "medium", "coding": "high", "best_for": "fast_coding"},
             "gpt-5.3-codex": {"wire": "gpt-5.3-codex", "provider": "copilot", "context": 128000, "reasoning": "medium", "coding": "xhigh", "best_for": "coding"},
@@ -109,7 +111,7 @@ _DEFAULT_MAP: dict[str, dict] = {
         }
     },
     "tier_3_fast": {
-        "description": "Modelos rápidos: confirmaciones, clasificación, tareas ligeras",
+        "description": "Modelos rÃ¡pidos: confirmaciones, clasificaciÃ³n, tareas ligeras",
         "models": {
             "llama32-1b": {"wire": "llama3.2:1b", "provider": "ollama-local", "context": 128000, "reasoning": "low", "coding": "low", "best_for": "classification"},
             "qwen25-mini": {"wire": "qwen2.5:0.5b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
@@ -118,7 +120,7 @@ _DEFAULT_MAP: dict[str, dict] = {
         }
     },
     "tier_4_ultra_light": {
-        "description": "Modelos ultra-ligeros: edge, offline básico",
+        "description": "Modelos ultra-ligeros: edge, offline bÃ¡sico",
         "models": {
             "qwen25-mini": {"wire": "qwen2.5:0.5b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
             "smollm2": {"wire": "smollm2:1.7b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "edge"},
@@ -154,7 +156,7 @@ class EquivalenceMap:
                     best_for=info["best_for"],
                 )
 
-    # ── Queries ──────────────────────────────────────────────────────────────
+    # â”€â”€ Queries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def get_tier(self, model_id: str) -> str | None:
         return self._model_to_tier.get(model_id)
@@ -270,7 +272,7 @@ class EquivalenceMap:
         spec = self.get_spec(model_id)
         return [spec.provider] if spec else []
 
-    # ── Persistence ───────────────────────────────────────────────────────────
+    # â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def save(self, path: Path) -> None:
         path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -281,7 +283,7 @@ class EquivalenceMap:
             return cls(json.loads(path.read_text(encoding="utf-8")))
         return cls()
 
-    # ── Diagnostics ───────────────────────────────────────────────────────────
+    # â”€â”€ Diagnostics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def describe_transfer(self, from_model: str, to_model: str) -> dict:
         """Devuelve un dict descriptivo sobre la transferencia propuesta."""

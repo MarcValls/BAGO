@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-codex.py — BAGO 4.0 Codex / OpenAI Provider Adapter
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+codex.py â€” BAGO 4.1.5 Codex / OpenAI Provider Adapter
 
 Adapter directo HTTP para la API de OpenAI (incluye Codex models).
 Requiere OPENAI_API_KEY.

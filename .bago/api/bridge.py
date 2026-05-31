@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-api_bridge.py — BAGO 4.0 HTTP API Bridge
+api_bridge.py — BAGO HTTP API Bridge
 
 Servidor HTTP simple para integraciones externas.
 Expone endpoints REST para chat, status, providers, y switches.
@@ -35,6 +35,17 @@ for _stream in (sys.stdout, sys.stderr):
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "chat"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
+
+_CREATED_VERSION = "4.0.0"
+
+try:
+    from version import CURRENT as _BAGO_VERSION
+except ImportError:
+    import json as _json
+    _BAGO_VERSION = _json.loads(
+        (Path(__file__).resolve().parents[2] / "versions.json").read_text(encoding="utf-8")
+    )["current"]
+
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
 from commands import execute as execute_command
@@ -139,7 +150,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         try:
             candidate.relative_to(static_root)
         except ValueError:
-            self._send_json(403, {"error": "Ruta estática inválida"})
+            self._send_json(403, {"error": "Ruta estÃ¡tica invÃ¡lida"})
             return True
 
         if candidate.is_file():
@@ -173,7 +184,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
 
         if self._is_api_path(path):
             if not self._check_auth():
-                self._send_json(401, {"error": "Unauthorized — X-Bago-Token requerido"})
+                self._send_json(401, {"error": "Unauthorized â€” X-Bago-Token requerido"})
                 return
 
             if path == "/status":
@@ -206,7 +217,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if not self._check_auth():
-            self._send_json(401, {"error": "Unauthorized — X-Bago-Token requerido"})
+            self._send_json(401, {"error": "Unauthorized â€” X-Bago-Token requerido"})
             return
         parsed = urlparse(self.path)
         path = parsed.path
@@ -227,7 +238,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
 
-    # ── Handlers ─────────────────────────────────────────────────────
+    # â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _handle_status(self) -> None:
         mgr = self.session_mgr
@@ -301,7 +312,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         mode = str(body.get("mode", "")).strip()
         if mode not in ("all", "available-only"):
-            self._send_json(400, {"error": "Modo inválido. Usa all|available-only"})
+            self._send_json(400, {"error": "Modo invÃ¡lido. Usa all|available-only"})
             return
         mgr.config.set("model_catalog.mode", mode)
         mgr._providers_cache = None
@@ -521,7 +532,7 @@ class BagoAPIServer:
     ):
         if host != "127.0.0.1" and not token:
             raise RuntimeError(
-                f"No se puede exponer BAGO en {host} sin token de autenticación. "
+                f"No se puede exponer BAGO en {host} sin token de autenticaciÃ³n. "
                 "Proporciona --token o usa --host 127.0.0.1."
             )
         self.session_mgr = session_mgr
@@ -552,7 +563,7 @@ class BagoAPIServer:
         if self.token:
             print(f"[API] Token requerido: {self.token[:4]}***")
         else:
-            print("[API] Sin token — acceso permitido solo desde localhost")
+            print("[API] Sin token â€” acceso permitido solo desde localhost")
         if self.static_dir:
             print(f"[API] UI React servida desde: {self.static_dir}")
 
@@ -726,7 +737,7 @@ if __name__ == "__main__":
         raise SystemExit(_run_tests())
     # Modo standalone
     import argparse
-    parser = argparse.ArgumentParser(description="BAGO 4.0 API Bridge")
+    parser = argparse.ArgumentParser(description=f"BAGO {_BAGO_VERSION} API Bridge")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--token", default="")
     parser.add_argument("--provider", default="ollama-local")

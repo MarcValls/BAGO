@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-provider_adapter.py — BAGO 4.0 Provider Adapter Base
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+provider_adapter.py â€” BAGO 4.1.5 Provider Adapter Base
 
 Interfaz unificada para todos los providers de LLM.
 Cada provider implementa esta interfaz.
@@ -92,7 +94,7 @@ class ProviderAdapter(ABC):
         stream: bool = False,
         tools: list[dict] | None = None,
     ) -> ProviderResponse:
-        """Envía mensajes al provider y retorna respuesta normalizada."""
+        """EnvÃ­a mensajes al provider y retorna respuesta normalizada."""
         ...
 
     @abstractmethod
@@ -102,12 +104,12 @@ class ProviderAdapter(ABC):
 
     @abstractmethod
     def health_check(self, timeout: float = 5.0) -> HealthStatus:
-        """Verifica si el provider está accesible."""
+        """Verifica si el provider estÃ¡ accesible."""
         ...
 
     @abstractmethod
     def is_configured(self) -> bool:
-        """Verifica si el provider tiene credenciales/configuración válida."""
+        """Verifica si el provider tiene credenciales/configuraciÃ³n vÃ¡lida."""
         ...
 
     @abstractmethod

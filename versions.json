@@ -1,0 +1,17 @@
+{
+  "current": "4.1.5",
+  "history": [
+    {
+      "version": "4.0.0",
+      "released": "2026-01-01",
+      "ended": "2026-05-28",
+      "notes": "Release inicial BAGO 4.0"
+    },
+    {
+      "version": "4.1.5",
+      "released": "2026-05-29",
+      "ended": null,
+      "notes": "Mejoras de instalador, correcciones de permisos y bump de versión"
+    }
+  ]
+}
