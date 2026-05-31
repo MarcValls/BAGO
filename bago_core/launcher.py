@@ -1,0 +1,800 @@
+#!/usr/bin/env python3
+"""
+launcher.py — BAGO 4.0 Launcher
+
+Punto de entrada principal para BAGO CLI.
+Encarga:
+1. Parsear argumentos
+2. Detectar comando (chat, validate, config, help)
+3. Delegar al módulo correspondiente
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# Insert .bago paths
+BAGO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
+sys.path.insert(0, str(BAGO_ROOT / ".bago" / "chat"))
+sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
+
+
+def cmd_chat(args: argparse.Namespace) -> int:
+    from repl import BagoREPL
+    from system_prompt import get_system_prompt
+
+    repl = BagoREPL(
+        provider=args.provider,
+        model=args.model,
+        system_prompt=get_system_prompt(),
+        base_path=args.base_path,
+    )
+    repl.run()
+    return 0
+
+
+EXPERIMENTAL_PROVIDERS = {"cpp-local"}
+
+
+def _provider_inventory(base_path: str, include_experimental: bool = False) -> list[dict[str, Any]]:
+    from session_manager import ADAPTER_REGISTRY, SessionManager
+
+    mgr = SessionManager(base_path=base_path)
+    try:
+        providers = {item["name"]: item for item in mgr.available_providers()}
+        inventory = []
+        for name in ADAPTER_REGISTRY:
+            if name in EXPERIMENTAL_PROVIDERS and not include_experimental:
+                continue
+            info = providers.get(name, {"name": name, "configured": False, "models": []})
+            enabled = mgr.config.is_provider_enabled(name)
+            configured = bool(info.get("configured"))
+            models = list(info.get("models") or [])
+            inventory.append({
+                "name": name,
+                "enabled": enabled,
+                "configured": configured,
+                "installed": enabled or configured,
+                "models": models,
+            })
+        return inventory
+    finally:
+        mgr.close()
+
+
+def _default_model_for_provider(base_path: str, provider: str) -> str:
+    from session_manager import SessionManager
+
+    mgr = SessionManager(base_path=base_path, provider=provider)
+    try:
+        models = mgr.list_models(provider)
+        if provider == mgr.config.default_provider and mgr.config.default_model in models:
+            return mgr.config.default_model
+        return models[0] if models else mgr.config.default_model
+    finally:
+        mgr.close()
+
+
+def _write_llm_start_state(base_path: str, provider: str, model: str, mode: str) -> Path:
+    import json as _json
+    from datetime import datetime, timezone
+
+    state_dir = Path(base_path) / ".bago" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    path = state_dir / "llm_start.json"
+    payload = {
+        "provider": provider,
+        "model": model,
+        "mode": mode,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+    path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def cmd_llm(args: argparse.Namespace) -> int:
+    from config_manager import ConfigManager
+
+    action = args.llm_action or "list"
+    inventory = _provider_inventory(args.base_path, include_experimental=getattr(args, "include_experimental", False))
+
+    if action == "list":
+        print("BAGO LLM providers")
+        print("Instalados/configurados:")
+        installed = [item for item in inventory if item["installed"]]
+        pending = [item for item in inventory if not item["installed"]]
+        if installed:
+            for item in installed:
+                markers = []
+                if item["enabled"]:
+                    markers.append("enabled")
+                if item["configured"]:
+                    markers.append("configured")
+                markers_s = ", ".join(markers) or "local"
+                models = len(item["models"])
+                print(f"  [ok] {item['name']} ({markers_s}, {models} modelos)")
+        else:
+            print("  ninguno")
+        print("Disponibles para configurar:")
+        for item in pending:
+            print(f"  [--] {item['name']}")
+        if not getattr(args, "include_experimental", False):
+            print("Experimentales ocultos: usa --include-experimental para verlos.")
+        return 0
+
+    if action != "start":
+        print("Uso: bago llm [list|start]")
+        return 1
+
+    provider = getattr(args, "llm_provider", "") or ""
+    model = getattr(args, "llm_model", "") or ""
+    installed = [item for item in inventory if item["installed"]]
+    installed_names = {item["name"] for item in installed}
+    all_names = {item["name"] for item in inventory}
+
+    if not provider:
+        if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+            print("Providers instalados/configurados:")
+            for idx, item in enumerate(installed, 1):
+                print(f"  {idx}. {item['name']} ({len(item['models'])} modelos)")
+            print("Providers disponibles para configurar:")
+            for item in inventory:
+                if not item["installed"]:
+                    print(f"  - {item['name']}")
+            choice = input("Elige provider instalado: ").strip()
+            try:
+                provider = installed[int(choice) - 1]["name"]
+            except Exception:
+                print("Selección inválida.")
+                return 1
+        elif installed:
+            provider = installed[0]["name"]
+        else:
+            cm = ConfigManager(base_path=args.base_path)
+            provider = cm.default_provider
+
+    if provider in EXPERIMENTAL_PROVIDERS and not getattr(args, "include_experimental", False):
+        print(f"Provider experimental fuera del camino principal: {provider}")
+        print("Usa --include-experimental si quieres probarlo explícitamente.")
+        return 1
+    if provider not in all_names:
+        print(f"Provider no registrado: {provider}")
+        return 1
+    if provider not in installed_names and not getattr(args, "allow_unconfigured", False):
+        print(f"Provider no instalado/configurado: {provider}")
+        print("Usa 'bago llm list' para ver instalados y disponibles.")
+        return 1
+
+    if not model:
+        model = _default_model_for_provider(args.base_path, provider)
+
+    _write_llm_start_state(args.base_path, provider, model, mode="dry-run" if args.dry_run else "chat")
+    print(f"LLM session: {provider}/{model}")
+
+    if getattr(args, "persist_default", False):
+        cm = ConfigManager(base_path=args.base_path)
+        cm.default_provider = provider
+        cm.default_model = model
+        print("Default provider/model actualizado.")
+
+    if args.dry_run:
+        return 0
+
+    args.provider = provider
+    args.model = model
+    return cmd_chat(args)
+
+
+def cmd_engine(args: argparse.Namespace) -> int:
+    from bago_true_bridge import collect_status, render_status
+
+    action = args.engine_action or "status"
+    if action != "status":
+        print("Uso: bago engine status")
+        return 1
+    status = collect_status(args.true_root or None, args.appdata_root or None)
+    print(render_status(status, section="engine"))
+    return 0
+
+
+def cmd_appdata(args: argparse.Namespace) -> int:
+    from bago_true_bridge import collect_status, render_status
+
+    action = args.appdata_action or "status"
+    if action != "status":
+        print("Uso: bago appdata status")
+        return 1
+    status = collect_status(args.true_root or None, args.appdata_root or None)
+    print(render_status(status, section="appdata"))
+    return 0
+
+
+def cmd_cmd_rl(args: argparse.Namespace) -> int:
+    from bago_true_bridge import collect_status, render_status
+
+    action = args.cmd_rl_action or "status"
+    if action != "status":
+        print("Uso: bago cmd-rl status")
+        return 1
+    status = collect_status(args.true_root or None, args.appdata_root or None)
+    print(render_status(status, section="cmd-rl"))
+    return 0
+
+
+def cmd_rl(args: argparse.Namespace) -> int:
+    from rl_bridge import RLBridge, render_status
+
+    bridge = RLBridge(args.base_path, true_root=args.true_root or None)
+    action = args.rl_action or "status"
+
+    if action == "status":
+        print(render_status(bridge.status()))
+        return 0
+
+    if action == "shadow":
+        shadow_action = args.shadow_action or "status"
+        if shadow_action == "on":
+            print(render_status(bridge.shadow(True)))
+            return 0
+        if shadow_action == "off":
+            print(render_status(bridge.shadow(False)))
+            return 0
+        if shadow_action == "status":
+            print(render_status(bridge.status()))
+            return 0
+        print("Uso: bago rl shadow [on|off|status]")
+        return 1
+
+    if action == "train":
+        train_action = args.train_action or ""
+        if train_action != "bc":
+            print("Uso: bago rl train bc")
+            return 1
+        from rl_policies import render_policy_report, train_bc_policy
+        report = train_bc_policy(args.base_path, args.n_actions, args.n_features)
+        print(render_policy_report(report, "BAGO RL TRAIN BC"))
+        return 0
+
+    if action == "eval":
+        from rl_policies import eval_bc_policy, render_policy_report
+        report = eval_bc_policy(args.base_path, args.n_features)
+        print(render_policy_report(report, "BAGO RL EVAL"))
+        return 0
+
+    print("Uso: bago rl [status|shadow|train|eval]")
+    return 1
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    """Gate real de validación — no solo health checks de providers."""
+    import ast
+    import json as _json
+    import re
+    import tempfile
+
+    base = Path(args.base_path)
+    bago_dir = base / ".bago"
+    checks: list[dict] = []
+    fails = 0
+
+    def _check(name: str, ok: bool, detail: str = "") -> None:
+        nonlocal fails
+        status = "PASS" if ok else "FAIL"
+        if not ok:
+            fails += 1
+        checks.append({"check": name, "status": status, "detail": detail})
+        marker = "✓" if ok else "✗"
+        line = f"  [{marker}] {name}"
+        if detail:
+            line += f" — {detail}"
+        print(line)
+
+    print("\nBAGO VALIDATE\n" + "─" * 40)
+
+    # ── 1. Syntax: compilar todos los .py en .bago/ y bago_core/ ──────────────
+    py_errors: list[str] = []
+    for search_root in [bago_dir, base / "bago_core"]:
+        if not search_root.exists():
+            continue
+        for py_file in search_root.rglob("*.py"):
+            if "__pycache__" in py_file.parts:
+                continue
+            try:
+                src = py_file.read_text(encoding="utf-8", errors="replace")
+                ast.parse(src, filename=str(py_file))
+            except SyntaxError as e:
+                py_errors.append(f"{py_file.relative_to(base)}: {e}")
+    _check("syntax", not py_errors, f"{len(py_errors)} error(es)" if py_errors else "todos los .py compilables")
+
+    # ── 2. Contratos presentes ─────────────────────────────────────────────────
+    contracts_dir = base / "docs" / "contracts"
+    required_contracts = [
+        "bago_v4_runtime_contract.json",
+        "bago_v4_repl_contract.md",
+        "bago_v4_evidence_contract.md",
+        "bago_v4_knowledge_contract.md",
+        "bago_v4_governance_contract.md",
+        "bago_v4_engineering_contract.md",
+    ]
+    missing_contracts = [c for c in required_contracts if not (contracts_dir / c).exists()]
+    _check("contracts_present", not missing_contracts,
+           f"faltan: {missing_contracts}" if missing_contracts else f"{len(required_contracts)} contratos presentes")
+
+    # ── 3. auto_allow_tools = false ────────────────────────────────────────────
+    config_file = bago_dir / "config.json"
+    config_manager_file = bago_dir / "core" / "config_manager.py"
+    auto_allow_ok = False
+    runtime_val: Any = None
+    default_val: Any = None
+    config_detail = "config.json/config_manager.py no encontrados"
+    if config_file.exists():
+        try:
+            cfg = _json.loads(config_file.read_text(encoding="utf-8"))
+            runtime_val = cfg.get("features", {}).get("auto_allow_tools", True)
+        except Exception as exc:
+            config_detail = f"runtime config error: {exc}"
+    if config_manager_file.exists():
+        try:
+            tree = ast.parse(config_manager_file.read_text(encoding="utf-8"), filename=str(config_manager_file))
+            for node in tree.body:
+                if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "DEFAULT_CONFIG":
+                    defaults = ast.literal_eval(node.value)
+                    default_val = defaults.get("features", {}).get("auto_allow_tools", True)
+                    break
+        except Exception as exc:
+            config_detail = f"default config error: {exc}"
+    auto_allow_ok = runtime_val is False and default_val is False
+    if config_detail.startswith("config.json"):
+        config_detail = f"runtime={runtime_val}, default={default_val}"
+    _check("auto_allow_tools_false", auto_allow_ok, config_detail)
+
+    # ── 4. execute_command sin shell=True expuesto ─────────────────────────────
+    tool_registry = bago_dir / "core" / "tool_registry.py"
+    shell_true_ok = True
+    shell_detail = "tool_registry.py no encontrado"
+    if tool_registry.exists():
+        src = tool_registry.read_text(encoding="utf-8")
+        # shell=True is ONLY forbidden in the execute_command implementation
+        # (it's allowed in comments or other internal uses)
+        exposed = [
+            ln.strip() for ln in src.splitlines()
+            if "shell=True" in ln and not ln.strip().startswith("#")
+        ]
+        shell_true_ok = len(exposed) == 0
+        shell_detail = f"{len(exposed)} ocurrencia(s) de shell=True" if exposed else "no expuesto"
+    _check("no_shell_true", shell_true_ok, shell_detail)
+
+    # ── 5. API no arranca en 0.0.0.0 por defecto ──────────────────────────────
+    bridge_file = bago_dir / "api" / "bridge.py"
+    api_host_ok = True
+    api_detail = "bridge.py no encontrado"
+    if bridge_file.exists():
+        src = bridge_file.read_text(encoding="utf-8")
+        # Buscar HTTPServer(("0.0.0.0" como hardcode (no dentro de self.host)
+        hardcoded = re.search(r'HTTPServer\(\s*\(\s*["\']0\.0\.0\.0["\']', src)
+        api_host_ok = hardcoded is None
+        api_detail = "hardcode 0.0.0.0 detectado" if hardcoded else "host proviene de parámetro"
+    _check("api_host_not_hardcoded", api_host_ok, api_detail)
+
+    # ── 6. CORS sin wildcard ──────────────────────────────────────────────────
+    cors_ok = True
+    cors_detail = "bridge.py no encontrado"
+    if bridge_file.exists():
+        src = bridge_file.read_text(encoding="utf-8")
+        wildcard = 'Access-Control-Allow-Origin", "*"' in src or "Access-Control-Allow-Origin', '*'" in src
+        cors_ok = not wildcard
+        cors_detail = "sin wildcard" if cors_ok else "wildcard CORS detectado"
+    _check("cors_no_wildcard", cors_ok, cors_detail)
+
+    # ── 7. .gitignore excluye .bago/state/ ────────────────────────────────────
+    gitignore = base / ".gitignore"
+    gitignore_ok = False
+    gitignore_detail = ".gitignore no encontrado"
+    if gitignore.exists():
+        content = gitignore.read_text(encoding="utf-8")
+        gitignore_ok = ".bago/state/" in content or ".bago/state" in content
+        gitignore_detail = "excluye .bago/state/" if gitignore_ok else ".bago/state/ no excluido"
+    _check("state_excluded_from_vcs", gitignore_ok, gitignore_detail)
+
+    # ── 8. Culpas abiertas ─────────────────────────────────────────────────────
+    culpas_file = bago_dir / "state" / "culpas" / "culpas.jsonl"
+    culpas_ok = True
+    culpas_detail = "sin culpas registradas"
+    if culpas_file.exists():
+        open_culpas = []
+        for line in culpas_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = _json.loads(line)
+                if entry.get("status") == "open":
+                    open_culpas.append(entry.get("culpa_id", "?"))
+            except Exception:
+                pass
+        culpas_ok = len(open_culpas) == 0
+        culpas_detail = f"{len(open_culpas)} culpas abiertas: {open_culpas}" if open_culpas else "sin culpas abiertas"
+    _check("no_open_culpas", culpas_ok, culpas_detail)
+
+    # ── 8. Claims ledger: no hay claims fallados ───────────────────────────────
+    claims_file = bago_dir / "state" / "evidence" / "claims.jsonl"
+    claims_ok = True
+    claims_detail = "sin claims registrados"
+    if claims_file.exists():
+        sys.path.insert(0, str(base / "bago_core"))
+        try:
+            from claim_ledger import ClaimLedger
+            ledger = ClaimLedger(base_path=str(base))
+            r = ledger.report()
+            failed = r.get("failed", 0)
+            claims_ok = failed == 0
+            claims_detail = (
+                f"total={r['total_claims']}, verified={r['verified']}, "
+                f"open={r['open']}, simulated={r['simulated']}, failed={failed}"
+            )
+        except Exception as exc:
+            claims_detail = f"error al leer ledger: {exc}"
+    _check("no_failed_claims", claims_ok, claims_detail)
+
+    # ── 9. Provider health (comportamiento original, ahora un check más) ───────
+    print("  [→] provider_health (requiere providers activos):")
+    sys.path.insert(0, str(bago_dir / "core"))
+    try:
+        from session_manager import SessionManager
+        any_provider_ok = False
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SessionManager(base_path=td, provider="ollama-local", model="llama3.2:3b")
+            try:
+                for name, adapter_cls in mgr.adapters.items():
+                    try:
+                        inst = adapter_cls(config=mgr.config.provider_config(name))
+                        health = inst.health_check()
+                        marker = "✓" if health.ok else "·"
+                        print(f"       [{marker}] {name:15} — {health.detail}")
+                        if health.ok:
+                            any_provider_ok = True
+                    except Exception as exc:
+                        print(f"       [·] {name:15} — error: {exc}")
+            finally:
+                mgr.close()
+        _check("at_least_one_provider_healthy", any_provider_ok,
+               "al menos un provider responde" if any_provider_ok else "ningún provider disponible (normal si no hay LLM activo)")
+    except Exception as exc:
+        _check("at_least_one_provider_healthy", False, f"error al cargar session_manager: {exc}")
+
+    # ── Resultado final ────────────────────────────────────────────────────────
+    print("\n" + "─" * 40)
+    if fails == 0:
+        print(f"✓ VALIDATE PASS — {len(checks)} checks OK")
+    else:
+        print(f"✗ VALIDATE FAIL — {fails}/{len(checks)} checks fallaron")
+        for c in checks:
+            if c["status"] == "FAIL":
+                print(f"  → [{c['check']}]: {c['detail']}")
+    print()
+    return 0 if fails == 0 else 1
+
+
+def cmd_claim(args: argparse.Namespace) -> int:
+    """Gestiona el Claim Evidence Ledger."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from claim_ledger import _cli as claim_cli
+    # Reconstruir argv para claim_ledger
+    argv: list[str] = ["--base-path", args.base_path]
+    if args.claim_action:
+        argv.append(args.claim_action)
+        if args.claim_action == "add":
+            argv += ["--claim", args.claim_text, "--basis", args.basis]
+            if args.command:
+                argv += ["--command", args.command]
+            if args.artifacts:
+                argv += ["--artifacts", args.artifacts]
+            if args.limits:
+                argv += ["--limits", args.limits]
+            if args.status_val:
+                argv += ["--status", args.status_val]
+            if args.stdout_val:
+                argv += ["--stdout", args.stdout_val]
+            if args.notes:
+                argv += ["--notes", args.notes]
+        elif args.claim_action == "verify":
+            argv.append(args.claim_id)
+        elif args.claim_action == "list":
+            if args.filter_status:
+                argv += ["--status", args.filter_status]
+    return claim_cli(argv)
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
+    from config_manager import ConfigManager
+    from credential_manager import CredentialManager
+
+    cm = ConfigManager(base_path=args.base_path)
+    creds = CredentialManager(base_path=args.base_path)
+
+    if args.config_cmd == "set":
+        if not args.key:
+            print("Uso: bago config set <clave> <valor>")
+            return 1
+        val = " ".join(args.value) if hasattr(args, "value") and args.value else ""
+        # Intentar parsear bool/numeric
+        if val.lower() in ("true", "yes", "1"):
+            val_parsed: Any = True
+        elif val.lower() in ("false", "no", "0"):
+            val_parsed = False
+        else:
+            try:
+                val_parsed = int(val)
+            except ValueError:
+                try:
+                    val_parsed = float(val)
+                except ValueError:
+                    val_parsed = val
+        cm.set(args.key, val_parsed)
+        print(f"✓ {args.key} = {val_parsed}")
+        return 0
+
+    if args.config_cmd == "get":
+        if not args.key:
+            print("Uso: bago config get <clave>")
+            return 1
+        print(cm.get(args.key, "(no definido)"))
+        return 0
+
+    if args.config_cmd == "list" or args.config_cmd is None:
+        print("Configuración de BAGO 4.0:")
+        print(f"  Base path      : {args.base_path or os.getcwd()}")
+        print(f"  Default provider: {cm.default_provider}")
+        print(f"  Default model   : {cm.default_model}")
+        print(f"  Temperature     : {cm.get('temperature')}")
+        print(f"  Streaming       : {cm.feature_streaming}")
+        print(f"  Compression     : {cm.feature_compression}")
+        print(f"  RL Learning     : {cm.feature_rl}")
+        print("\nProviders:")
+        for name in cm.get("providers", {}):
+            enabled = cm.is_provider_enabled(name)
+            status = "✓" if enabled else "✗"
+            has_creds = creds.is_configured(name)
+            cred_status = " [cred]" if has_creds else ""
+            print(f"  [{status}] {name:15}{cred_status}")
+        return 0
+
+    if args.config_cmd == "reset":
+        cm.reset()
+        print("✓ Configuración restaurada a valores por defecto.")
+        return 0
+
+    print("Uso: bago config [set|get|list|reset]")
+    return 1
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "api"))
+    from session_manager import SessionManager
+    from switch_engine import SwitchEngine
+    from bridge import BagoAPIServer
+
+    mgr = SessionManager(
+        provider=args.provider,
+        model=args.model,
+        base_path=args.base_path,
+    )
+    engine = SwitchEngine(mgr.adapters)
+    ui_dist = None
+    if getattr(args, "ui_dist", ""):
+        ui_dist = args.ui_dist
+    else:
+        default_ui_dist = Path(__file__).resolve().parents[1] / "ui-react" / "dist"
+        if default_ui_dist.exists():
+            ui_dist = str(default_ui_dist)
+    server = BagoAPIServer(mgr, engine, port=args.port, host=args.host, token=args.token, static_dir=ui_dist)
+    server.start()
+    try:
+        while server.running:
+            import time
+            time.sleep(1)
+    except KeyboardInterrupt:
+        server.stop()
+    finally:
+        mgr.close()
+    return 0
+
+
+def cmd_evidence(args: argparse.Namespace) -> int:
+    from evidence_bundle import run
+    return run(args)
+
+
+def cmd_cpp_runtime(args: argparse.Namespace) -> int:
+    from cpp_runtime_host import main as runtime_main
+    argv = ["--host", args.host, "--port", str(args.port), "--model", args.runtime_model]
+    if args.test:
+        argv.append("--test")
+    return runtime_main(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
+    from config_manager import ConfigManager
+
+    # Leer defaults desde config.json si existe
+    base = os.getcwd()
+    try:
+        cm_defaults = ConfigManager(base_path=base)
+        default_provider = cm_defaults.default_provider
+        default_model = cm_defaults.default_model
+    except Exception:
+        default_provider = "ollama-local"
+        default_model = "llama3.2:3b"
+
+    parser = argparse.ArgumentParser(prog="bago", description="BAGO 4.0 — Session-First AI Chat")
+    parser.add_argument("--provider", default=default_provider, help="Provider por defecto")
+    parser.add_argument("--model", default=default_model, help="Modelo por defecto")
+    parser.add_argument("--base-path", default=base, help="Directorio base del proyecto")
+    sub = parser.add_subparsers(dest="command", help="Comandos disponibles")
+
+    sub.add_parser("chat", help="Inicia el REPL de chat")
+    sub.add_parser("launch", help="Alias de chat: inicia BAGO")
+    sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
+
+    claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger — afirmaciones trazables")
+    claim_sub = claim_parser.add_subparsers(dest="claim_action")
+    claim_add = claim_sub.add_parser("add", help="Añade un claim trazable")
+    claim_add.add_argument("--claim",     dest="claim_text", required=True)
+    claim_add.add_argument("--basis",     required=True)
+    claim_add.add_argument("--command",   default="")
+    claim_add.add_argument("--artifacts", default="")
+    claim_add.add_argument("--limits",    default="")
+    claim_add.add_argument("--status",    dest="status_val", default="open")
+    claim_add.add_argument("--stdout",    dest="stdout_val", default="")
+    claim_add.add_argument("--notes",     default="")
+    claim_list = claim_sub.add_parser("list", help="Lista claims")
+    claim_list.add_argument("--status",   dest="filter_status", default="")
+    claim_verify = claim_sub.add_parser("verify", help="Verifica artefactos de un claim")
+    claim_verify.add_argument("claim_id")
+    claim_sub.add_parser("report", help="Resumen del ledger")
+
+    config_parser = sub.add_parser("config", help="Gestiona configuración")
+    config_sub = config_parser.add_subparsers(dest="config_cmd", help="Subcomandos de config")
+    config_set_parser = config_sub.add_parser("set", help="Establece clave de config")
+    config_set_parser.add_argument("key", nargs="?")
+    config_set_parser.add_argument("value", nargs=argparse.REMAINDER)
+    config_get_parser = config_sub.add_parser("get", help="Obtiene clave de config")
+    config_get_parser.add_argument("key", nargs="?")
+    config_sub.add_parser("list", help="Lista configuración completa")
+    config_sub.add_parser("reset", help="Restaura defaults")
+
+    llm_parser = sub.add_parser("llm", help="Gestiona arranque provider-aware")
+    llm_parser.add_argument("--include-experimental", action="store_true", help="Incluye providers experimentales fuera del release principal")
+    llm_sub = llm_parser.add_subparsers(dest="llm_action")
+    llm_sub.add_parser("list", help="Lista providers instalados/configurados y disponibles")
+    llm_start = llm_sub.add_parser("start", help="Inicia BAGO con provider/modelo seleccionado")
+    llm_start.add_argument("--provider", dest="llm_provider", default="", help="Provider instalado/configurado")
+    llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesión")
+    llm_start.add_argument("--allow-unconfigured", action="store_true", help="Permite arrancar contra provider no configurado")
+    llm_start.add_argument("--persist-default", action="store_true", help="Guarda provider/modelo como default")
+    llm_start.add_argument("--dry-run", action="store_true", help="Registra selección sin abrir chat")
+
+    engine_parser = sub.add_parser("engine", help="Estado del backend avanzado bago_true")
+    engine_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
+    engine_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")
+    engine_sub = engine_parser.add_subparsers(dest="engine_action")
+    engine_sub.add_parser("status", help="Muestra estado de bago_true")
+
+    appdata_parser = sub.add_parser("appdata", help="Estado de instalacion AppData BAGO")
+    appdata_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
+    appdata_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")
+    appdata_sub = appdata_parser.add_subparsers(dest="appdata_action")
+    appdata_sub.add_parser("status", help="Muestra estado de AppData BAGO")
+
+    cmd_rl_parser = sub.add_parser("cmd-rl", help="Estado del puente AppData cmd-rl/Spiral")
+    cmd_rl_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
+    cmd_rl_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")
+    cmd_rl_sub = cmd_rl_parser.add_subparsers(dest="cmd_rl_action")
+    cmd_rl_sub.add_parser("status", help="Muestra soporte cmd-rl/Spiral")
+
+    rl_parser = sub.add_parser("rl", help="RL shadow bridge")
+    rl_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
+    rl_sub = rl_parser.add_subparsers(dest="rl_action")
+    rl_sub.add_parser("status", help="Muestra estado RL")
+    rl_shadow = rl_sub.add_parser("shadow", help="Controla modo shadow")
+    rl_shadow.add_argument("shadow_action", nargs="?", choices=("on", "off", "status"), default="status")
+    rl_train = rl_sub.add_parser("train", help="Entrena politicas RL opcionales")
+    rl_train_sub = rl_train.add_subparsers(dest="train_action")
+    rl_train_bc = rl_train_sub.add_parser("bc", help="Entrena Behavioral Cloning desde transiciones disponibles")
+    rl_train_bc.add_argument("--n-actions", type=int, default=3)
+    rl_train_bc.add_argument("--n-features", type=int, default=4)
+    rl_eval = rl_sub.add_parser("eval", help="Evalua politicas RL opcionales")
+    rl_eval.add_argument("--n-features", type=int, default=4)
+
+    serve_parser = sub.add_parser("serve", help="Inicia servidor API HTTP")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Host de escucha (default: 127.0.0.1). Usar 0.0.0.0 requiere --token.")
+    serve_parser.add_argument("--port", type=int, default=8080, help="Puerto (default: 8080)")
+    serve_parser.add_argument("--token", default="", help="Token de autenticación API")
+    serve_parser.add_argument("--ui-dist", default="", help="Directorio dist de la UI React (si se omite, intenta ui-react\\dist)")
+
+    evidence_parser = sub.add_parser("evidence", help="Genera bundle de evidencias verificables")
+    evidence_parser.add_argument("--mode", choices=("simulated", "real"), default="simulated", help="Modo de evidencia")
+    evidence_parser.add_argument("--objective", default="community-knowledge", help="Objetivo demostrable")
+    evidence_parser.add_argument("--output", help="Directorio de salida del bundle")
+    evidence_parser.add_argument("--overwrite", action="store_true", help="Sobrescribe el directorio de salida")
+    evidence_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del generador")
+
+    runtime_parser = sub.add_parser("cpp-runtime", help="Inicia host de referencia para cpp-local")
+    runtime_parser.add_argument("--host", default="127.0.0.1", help="Host del runtime")
+    runtime_parser.add_argument("--port", type=int, default=8765, help="Puerto del runtime")
+    runtime_parser.add_argument("--runtime-model", default="bago-cpp:default", help="Modelo expuesto por el runtime")
+    runtime_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del host")
+
+    args = parser.parse_args(argv)
+
+    if args.command in ("chat", "launch") or args.command is None:
+        return cmd_chat(args)
+    elif args.command == "validate":
+        return cmd_validate(args)
+    elif args.command == "claim":
+        return cmd_claim(args)
+    elif args.command == "config":
+        return cmd_config(args)
+    elif args.command == "llm":
+        return cmd_llm(args)
+    elif args.command == "engine":
+        return cmd_engine(args)
+    elif args.command == "appdata":
+        return cmd_appdata(args)
+    elif args.command == "cmd-rl":
+        return cmd_cmd_rl(args)
+    elif args.command == "rl":
+        return cmd_rl(args)
+    elif args.command == "serve":
+        return cmd_serve(args)
+    elif args.command == "evidence":
+        return cmd_evidence(args)
+    elif args.command == "cpp-runtime":
+        return cmd_cpp_runtime(args)
+    else:
+        parser.print_help()
+        return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 2 and sys.argv[1] == "--test":
+        # Quick smoke test
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            assert main(["--base-path", td, "config", "set", "providers.cpp-local.enabled", "true"]) == 0
+            assert main(["--base-path", td, "config", "get", "providers.cpp-local.enabled"]) == 0
+            assert main(["--base-path", td, "llm", "list"]) == 0
+            assert main(["--base-path", td, "llm", "start", "--provider", "ollama-local", "--model", "llama3.2:3b", "--dry-run"]) == 0
+            assert (Path(td) / ".bago" / "state" / "llm_start.json").exists()
+            assert main(["--base-path", td, "llm", "start", "--provider", "cpp-local", "--dry-run"]) == 1
+            assert main(["--base-path", td, "engine", "status"]) == 0
+            assert main(["--base-path", td, "appdata", "status"]) == 0
+            assert main(["--base-path", td, "cmd-rl", "status"]) == 0
+            assert main(["--base-path", td, "rl", "status"]) == 0
+            assert main(["--base-path", td, "rl", "shadow", "off"]) == 0
+            assert main(["--base-path", td, "rl", "shadow", "on"]) == 0
+            assert main(["--base-path", td, "rl", "train", "bc"]) == 0
+            assert main(["--base-path", td, "rl", "eval"]) == 0
+            assert main(["--base-path", td, "evidence", "--test"]) == 0
+        print("launcher.py --test: ALL PASS")
+        raise SystemExit(0)
+    raise SystemExit(main())
