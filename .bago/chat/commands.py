@@ -227,7 +227,7 @@ Comandos disponibles:
   /suggest                                 Sugerencia RL de provider
   /good [índice]                           Marca mensaje como importante
   /config [list|get|set|reset]             Gestiona configuración
-  /credentials [list|set|delete]           Gestiona credenciales API
+  /credentials [list|set|delete]           Gestiona credenciales API (set sin args = asistente guiado)
   /tools [list|enable|disable]             Gestiona herramientas del modelo
   /plan <tarea>                           Genera plan paso a paso
   /autopilot <tarea>                       Ejecuta tarea autónomamente

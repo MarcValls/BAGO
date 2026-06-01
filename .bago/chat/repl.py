@@ -253,6 +253,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "items": [
             {"command": "/config", "description": "Ver configuracion actual."},
             {"command": "/credentials", "description": "Ver credenciales configuradas."},
+            {"command": "/credentials set", "description": "Registrar una credencial (asistente guiado).", "wizard": "credentials"},
             {"command": "/update", "description": "Actualizar BAGO a la ultima version.", "confirm": True},
             {"command": "/help", "description": "Mostrar la ayuda completa."},
             {"command": "/quit", "description": "Salir del chat.", "confirm": True},
@@ -539,6 +540,8 @@ class BagoREPL:
 
     def _run_menu_item(self, item: dict[str, Any]) -> bool:
         command_line = item["command"]
+        if item.get("wizard") == "credentials":
+            return self._credential_wizard()
         if item.get("confirm"):
             try:
                 confirm = input(R.warn(f"Confirma {command_line} (s/N): ")).strip().lower()
@@ -562,8 +565,85 @@ class BagoREPL:
 
         return self._handle_command(command_line)
 
+    def _credential_wizard(self) -> bool:
+        """Asistente guiado para registrar/actualizar una credencial sin escribir comandos.
+
+        Flujo navegable: elegir provider -> elegir dato (key) -> escribir valor.
+        Accesible desde el menu, la paleta '/' o escribiendo '/credentials set', '/login' o '/cred'.
+        """
+        try:
+            from credential_manager import CREDENTIAL_SCHEMA
+        except Exception as exc:
+            print(R.error(f"No se pudo cargar el esquema de credenciales: {exc}"))
+            return True
+
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            print(R.warn(
+                "El asistente de credenciales requiere un terminal interactivo. "
+                "Usa: /credentials set <provider> <key> <valor>"
+            ))
+            return True
+
+        creds = self.mgr.credentials
+
+        providers = list(CREDENTIAL_SCHEMA.keys())
+        plabels = []
+        for p in providers:
+            estado = "configurado" if creds.is_configured(p) else "sin configurar"
+            plabels.append(f"{p}  —  {estado}")
+        pidx = self._navigate("Registrar credencial · elige el provider", plabels)
+        if pidx is None:
+            print(R.dim("Asistente de credenciales cerrado."))
+            return True
+        provider = providers[pidx]
+
+        schema = CREDENTIAL_SCHEMA[provider]
+        keys = list(schema.keys())
+        stored = creds.list_for_provider(provider)
+        klabels = []
+        for k in keys:
+            mark = "●" if stored.get(k) else "○"
+            klabels.append(f"{mark} {k}  —  {schema[k]}")
+        kidx = self._navigate(f"{provider} · elige el dato a registrar", klabels)
+        if kidx is None:
+            print(R.dim("Asistente de credenciales cerrado."))
+            return True
+        key = keys[kidx]
+
+        print(R.dim(f"  {schema[key]}"))
+        if stored.get(key):
+            actual = stored[key]
+            masked = actual[:4] + "***" if len(actual) > 4 else "****"
+            print(R.dim(f"  Valor actual: {masked} (se sobrescribira)"))
+        try:
+            value = input(R.accent(f"  {provider}/{key} = ")).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            print(R.dim("Asistente de credenciales cerrado."))
+            return True
+        if not value:
+            print(R.dim("Valor vacio. Operacion cancelada."))
+            return True
+
+        try:
+            creds.set(provider, key, value)
+        except Exception as exc:
+            # Culpa tecnica: reportar responsabilidad y causa con claridad.
+            print(R.error(
+                f"No se pudo guardar la credencial {provider}/{key}: {exc}. "
+                "Revisa permisos de .bago/credentials.json o el modo de almacenamiento en install_config.json."
+            ))
+            return True
+
+        masked = value[:4] + "***" if len(value) > 4 else "****"
+        print(R.ok(f"✓ Credencial guardada: {provider}/{key} = {masked}"))
+        return True
+
     def _handle_command(self, line: str) -> bool:
         """Ejecuta un comando slash. Retorna True si debe continuar, False si quit."""
+        low = line.strip().lower()
+        if low in ("/credentials set", "/credentials add", "/login", "/cred"):
+            return self._credential_wizard()
         result = execute(line, self.mgr, self.engine)
         if result.get("action") == "quit":
             print(R.ok(result["message"]))
