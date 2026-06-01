@@ -360,13 +360,25 @@ def build_parser(
     guard_setaction.add_argument("action_value")
 
     # ── route / inventory ─────────────────────────────────────────────────────
-    route_parser = sub.add_parser("route", help="Ruta tareas al mejor agente AI")
-    route_parser.add_argument("--root",          default="")
-    route_parser.add_argument("--task",          default="")
-    route_parser.add_argument("--json",          dest="route_json", action="store_true")
-    route_parser.add_argument("--history",       action="store_true")
-    route_parser.add_argument("--limit",         type=int, default=10)
-    route_parser.add_argument("--no-classifier", action="store_true")
+    route_parser = sub.add_parser("route", help="Gestión de presets de routing y contrato activo")
+    route_sp = route_parser.add_subparsers(dest="route_cmd", required=False)
+    route_status = route_sp.add_parser("status", help="Muestra el preset activo y el contrato")
+    route_status.add_argument("--user-bago", default=None)
+    route_status.add_argument("--repo", default=None)
+    route_status.add_argument("--json", action="store_true")
+    route_status.add_argument("--tolerant", action="store_true")
+    route_validate = route_sp.add_parser("validate", help="Valida el preset activo o uno nombrado")
+    route_validate.add_argument("--preset", default=None)
+    route_validate.add_argument("--user-bago", default=None)
+    route_validate.add_argument("--repo", default=None)
+    route_validate.add_argument("--json", action="store_true")
+    route_activate = route_sp.add_parser("activate", help="Activa un preset y reescribe routing_runtime.json")
+    route_activate.add_argument("--preset", required=True)
+    route_activate.add_argument("--user-bago", default=None)
+    route_activate.add_argument("--repo", default=None)
+    # Compatibilidad con flags antiguos (--root, --task, etc.) — se ignoran silenciosamente
+    for legacy in ("--root", "--task", "--history", "--limit", "--no-classifier"):
+        route_parser.add_argument(legacy, nargs="?", default=None)
 
     inv_parser = sub.add_parser("inventory", help="Cataloga capacidades del proyecto")
     inv_parser.add_argument("--root",   default="")

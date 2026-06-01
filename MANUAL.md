@@ -548,7 +548,7 @@ Valores válidos: `-1.0` (muy malo) a `1.0` (muy bueno).
 
 ```
 bago ❯ /suggest
-Sugerencia RL: ollama-local/granite3.2:8b (score=0.00)
+Sugerencia RL: ollama-local/llama3.2:3b (score=0.00)
 ```
 
 A medida que uses el sistema, el score se ajustará y las sugerencias mejorarán.

@@ -1,16 +1,97 @@
-﻿#!/usr/bin/env pwsh
-# bago.ps1 â€” BAGO 4.1.5 PowerShell Entrypoint
+#!/usr/bin/env pwsh
+# BAGO global launcher — despacha por sub-comando:
+#   bago              → instalación de trabajo (~/.bago)
+#   bago des          → plataforma de desarrollo (BAGO source)
+#   bago ign          → plataforma de lanzamiento (BAGO install + ~/.bago/launch)
+#   bago sup <verb>   → supervisor always-on (start|stop|status|attach)
+# Sin sub-comando = "bago" (instalación de trabajo) para retro-compatibilidad.
+$ErrorActionPreference = 'Stop'
+$userBago  = Join-Path $env:USERPROFILE '.bago'
+$srcBago   = "$env:USERPROFILE\BAGO"
+$instBago  = 'C:\Program Files\BAGO'
+$supScript = Join-Path $srcBago 'scripts\bago_supervisor.py'
 
-$ErrorActionPreference = "Stop"
-$env:PYTHONUTF8 = "1"
-$env:PYTHONIOENCODING = "utf-8"
-
-$BagoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BagoCore = Join-Path $BagoRoot "bago_core\cli.py"
-
-if (-not (Test-Path $BagoCore)) {
-    Write-Error "No se encontro bago_core\cli.py en $BagoRoot"
-    exit 1
+function Resolve-Target([string]$mode) {
+    switch ($mode) {
+        'work' { return @{ cli = (Join-Path $instBago 'bago_core\cli.py'); mode = 'work'; home = $userBago } }
+        'dev'  { return @{ cli = (Join-Path $srcBago  'bago_core\cli.py'); mode = 'dev';  home = $srcBago  } }
+        'ign'  { return @{ cli = (Join-Path $instBago 'bago_core\cli.py'); mode = 'ign';  home = $instBago } }
+        default { Write-Error "bago: modo desconocido '$mode'"; exit 1 }
+    }
 }
 
-& python $BagoCore @args
+$mode = 'work'
+$rest = @()
+if ($args.Count -gt 0) {
+    $first = ([string]$args[0]).ToLower()
+    # `bago sup <verb>` se intercepta SIEMPRE antes del modo, sin importar
+    # si vino solo o detrás de un `des`/`ign`. La razón: el supervisor vive
+    # en un único lugar (el dev tree) y no debería respetar el modo.
+    # Si 'sup' está en cualquier posición, dejamos que el caller decida.
+    $supIdx = -1
+    for ($i = 0; $i -lt $args.Count; $i++) {
+        if ([string]$args[$i] -ieq 'sup') { $supIdx = $i; break }
+    }
+    if ($supIdx -ge 0) {
+        if (-not (Test-Path $supScript)) {
+            Write-Error "bago sup: no se encontró $supScript"
+            exit 1
+        }
+        $supArgs = @()
+        if ($supIdx + 1 -lt $args.Count) {
+            $supArgs = $args[($supIdx + 1)..($args.Count - 1)]
+        }
+        # Usar pythonw.exe (sin consola) para evitar parpadeo de ventana.
+        & pythonw $supScript @supArgs 2>$null
+        exit $LASTEXITCODE
+    }
+
+    # `bago probe` se intercepta en cualquier posición (sólo, detrás de `des`/`ign`/`work`).
+    # Igual que `sup`: el probe vive en el dev tree y no respeta el modo.
+    $probeIdx = -1
+    for ($i = 0; $i -lt $args.Count; $i++) {
+        if ([string]$args[$i] -ieq 'probe') { $probeIdx = $i; break }
+    }
+    if ($probeIdx -ge 0) {
+        $probeScript = Join-Path $srcBago 'scripts\probe.py'
+        if (-not (Test-Path $probeScript)) {
+            Write-Error "bago probe: no se encontró $probeScript"
+            exit 1
+        }
+        $probeArgs = @()
+        if ($probeIdx + 1 -lt $args.Count) {
+            $probeArgs = $args[($probeIdx + 1)..($args.Count - 1)]
+        }
+        & python $probeScript @probeArgs
+        exit $LASTEXITCODE
+    }
+    if ($first -eq 'des') {
+        $mode = 'dev'; $rest = $args[1..($args.Count - 1)]
+    } elseif ($first -eq 'ign') {
+        $mode = 'ign'; $rest = $args[1..($args.Count - 1)]
+    } elseif ($first -eq 'work') {
+        $mode = 'work'; $rest = $args[1..($args.Count - 1)]
+    } elseif ($first -eq 'help' -or $first -eq '--help' -or $first -eq '-h') {
+        @'
+BAGO launcher (4.1.5)
+  bago              Instalación de trabajo (~/.bago) [default]
+  bago work         Igual que `bago` sin sub-comando
+  bago des          Plataforma de desarrollo (BAGO source)
+  bago ign          Plataforma de lanzamiento (BAGO install + launch/)
+  bago sup <verb>   Supervisor always-on (start|stop|status|attach)
+  bago help         Muestra esta ayuda
+'@
+        exit 0
+    } else {
+        $rest = $args
+    }
+}
+
+$target = Resolve-Target $mode
+if (-not (Test-Path $target.cli)) {
+    Write-Error "bago ($mode): no se encontró $($target.cli)"
+    exit 1
+}
+& python $target.cli @rest
+exit $LASTEXITCODE
+
