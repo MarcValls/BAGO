@@ -75,6 +75,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "auto_allow_tools": False,
         "compression_on_downgrade": True,
         "rl_learning": True,
+        "auto_evolve_on_start": True,
     },
     "model_catalog": {
         "mode": "all",
@@ -208,6 +209,10 @@ class ConfigManager:
     @property
     def feature_rl(self) -> bool:
         return self._data.get("features", {}).get("rl_learning", True)
+
+    @property
+    def feature_auto_evolve(self) -> bool:
+        return self._data.get("features", {}).get("auto_evolve_on_start", True)
 
 
 # ── Quick test ──────────────────────────────────────────────────────
