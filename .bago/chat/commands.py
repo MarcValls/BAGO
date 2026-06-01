@@ -223,10 +223,10 @@ Comandos disponibles:
   /providers                               Lista providers registrados
   /allow                                   Aprueba ejecución de herramientas pendientes
   /deny                                    Rechaza ejecución de herramientas pendientes
-  /feedback <rating>                       Feedback explícito (-1 a 1)
+  /feedback [rating]                       Feedback explícito (-1 a 1; sin args = asistente)
   /suggest                                 Sugerencia RL de provider
   /good [índice]                           Marca mensaje como importante
-  /config [list|get|set|reset]             Gestiona configuración
+  /config [list|get|set|reset]             Gestiona configuración (set sin args = asistente guiado)
   /credentials [list|set|delete]           Gestiona credenciales API (set sin args = asistente guiado)
   /tools [list|enable|disable]             Gestiona herramientas del modelo
   /plan <tarea>                           Genera plan paso a paso

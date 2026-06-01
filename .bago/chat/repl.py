@@ -202,6 +202,19 @@ def _restore_windows_console() -> None:
         pass
 
 
+# Ajustes editables desde el asistente /config (clave dotted, tipo, descripcion).
+_CONFIG_EDITABLE: list[tuple[str, str, str]] = [
+    ("temperature", "number", "Creatividad del modelo (0.0 - 1.0)"),
+    ("features.streaming", "bool", "Respuestas en streaming"),
+    ("features.tool_calling", "bool", "El modelo puede invocar herramientas"),
+    ("features.compression_on_downgrade", "bool", "Comprimir contexto al bajar de modelo"),
+    ("features.rl_learning", "bool", "Aprendizaje por refuerzo activo"),
+    ("ui.prompt_provider_on_start", "bool", "Preguntar provider al arrancar"),
+    ("default_provider", "text", "Provider por defecto"),
+    ("default_model", "text", "Modelo por defecto"),
+]
+
+
 MENU_SECTIONS: list[dict[str, Any]] = [
     {
         "title": "Sesion y estado",
@@ -228,6 +241,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "description": "Tools, planes y ejecucion autonoma.",
         "items": [
             {"command": "/tools", "description": "Listar herramientas disponibles."},
+            {"command": "/tools set", "description": "Activar/desactivar herramientas (asistente).", "wizard": "tools"},
             {"command": "/scripts", "description": "Listar scripts y baterias registradas."},
             {"command": "/allow", "description": "Aprobar herramientas pendientes."},
             {"command": "/deny", "description": "Rechazar herramientas pendientes."},
@@ -243,8 +257,9 @@ MENU_SECTIONS: list[dict[str, Any]] = [
             {"command": "/agents", "description": "Ver agentes disponibles."},
             {"command": "/agent", "description": "Activar un agente (asistente guiado).", "wizard": "agent"},
             {"command": "/memory", "description": "Listar recuerdos recientes."},
+            {"command": "/memory delete", "description": "Eliminar un recuerdo (asistente guiado).", "wizard": "memory-delete"},
             {"command": "/good", "description": "Marcar el ultimo mensaje como importante."},
-            {"command": "/feedback", "description": "Registrar feedback explicito.", "args_prompt": "<rating>"},
+            {"command": "/feedback", "description": "Registrar feedback explicito (asistente guiado).", "wizard": "feedback"},
         ],
     },
     {
@@ -252,6 +267,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "description": "Config, credenciales y ayuda del chat.",
         "items": [
             {"command": "/config", "description": "Ver configuracion actual."},
+            {"command": "/config set", "description": "Cambiar un ajuste (asistente guiado).", "wizard": "config"},
             {"command": "/credentials", "description": "Ver credenciales configuradas."},
             {"command": "/credentials set", "description": "Registrar una credencial (asistente guiado).", "wizard": "credentials"},
             {"command": "/update", "description": "Actualizar BAGO a la ultima version.", "confirm": True},
@@ -576,6 +592,14 @@ class BagoREPL:
             return self._agent_wizard()
         if name == "load":
             return self._load_wizard()
+        if name == "config":
+            return self._config_wizard()
+        if name == "feedback":
+            return self._feedback_wizard()
+        if name == "tools":
+            return self._tools_wizard()
+        if name == "memory-delete":
+            return self._memory_delete_wizard()
         print(R.error(f"Asistente desconocido: {name}"))
         return True
 
@@ -678,6 +702,92 @@ class BagoREPL:
             return True
         return self._handle_command(f"/load {sessions[idx]['sid']}")
 
+    def _config_wizard(self) -> bool:
+        """Asistente guiado para cambiar un ajuste de configuracion."""
+        if not self._wizard_tty_ok("/config set <clave> <valor>"):
+            return True
+        labels = []
+        for key, _typ, desc in _CONFIG_EDITABLE:
+            cur = self.mgr.config.get(key, "")
+            labels.append(f"{key} = {cur}  —  {desc}")
+        idx = self._navigate("Configuracion · elige el ajuste a cambiar", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        key, typ, desc = _CONFIG_EDITABLE[idx]
+
+        if typ == "bool":
+            cur = bool(self.mgr.config.get(key, False))
+            sidx = self._navigate(
+                f"{key} (actual: {'true' if cur else 'false'})",
+                ["Activar (true)", "Desactivar (false)"],
+            )
+            if sidx is None:
+                print(R.dim("Asistente cerrado."))
+                return True
+            value = "true" if sidx == 0 else "false"
+        else:
+            print(R.dim(f"  {desc}"))
+            try:
+                value = input(R.accent(f"  {key} = ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                print(R.dim("Asistente cerrado."))
+                return True
+            if not value:
+                print(R.dim("Valor vacio. Operacion cancelada."))
+                return True
+        return self._handle_command(f"/config set {key} {value}")
+
+    def _feedback_wizard(self) -> bool:
+        """Asistente guiado para registrar feedback de la ultima respuesta."""
+        if not self._wizard_tty_ok("/feedback <rating>"):
+            return True
+        opts = ["Positivo (+1)", "Neutro (0)", "Negativo (-1)"]
+        vals = ["1", "0", "-1"]
+        idx = self._navigate("Feedback de la ultima respuesta", opts)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(f"/feedback {vals[idx]}")
+
+    def _tools_wizard(self) -> bool:
+        """Asistente guiado para activar/desactivar las herramientas del modelo."""
+        if not self._wizard_tty_ok("/tools [enable|disable]"):
+            return True
+        cur = bool(self.mgr.config.get("features.tool_calling", False))
+        idx = self._navigate(
+            f"Herramientas del modelo (actual: {'activadas' if cur else 'desactivadas'})",
+            ["Activar herramientas", "Desactivar herramientas", "Listar herramientas"],
+        )
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(["/tools enable", "/tools disable", "/tools list"][idx])
+
+    def _memory_delete_wizard(self) -> bool:
+        """Asistente guiado para eliminar un recuerdo sin recordar su id."""
+        if not self._wizard_tty_ok("/memory delete <id>"):
+            return True
+        try:
+            recent = self.mgr.knowledge.list_recent(limit=20)
+        except Exception as exc:
+            print(R.error(f"No se pudieron listar los recuerdos: {exc}"))
+            return True
+        if not recent:
+            print(R.warn("No hay recuerdos almacenados."))
+            return True
+        labels = []
+        for r in recent:
+            when = str(r.get("created_at", ""))[:19]
+            content = str(r.get("content", "")).replace("\n", " ")[:50]
+            labels.append(f"{r.get('id', '?')}  ·  {when}  ·  {content}")
+        idx = self._navigate("Eliminar recuerdo · elige uno", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(f"/memory delete {recent[idx]['id']}")
+
     def _credential_wizard(self) -> bool:
         """Asistente guiado para registrar/actualizar una credencial sin escribir comandos.
 
@@ -763,6 +873,14 @@ class BagoREPL:
             return self._agent_wizard()
         if low == "/load":
             return self._load_wizard()
+        if low == "/config set":
+            return self._config_wizard()
+        if low == "/feedback":
+            return self._feedback_wizard()
+        if low == "/tools set":
+            return self._tools_wizard()
+        if low == "/memory delete":
+            return self._memory_delete_wizard()
         result = execute(line, self.mgr, self.engine)
         if result.get("action") == "quit":
             print(R.ok(result["message"]))
