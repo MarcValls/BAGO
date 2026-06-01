@@ -21,6 +21,9 @@
 # Windows (PowerShell)
 .\install-v4.ps1 -Mode Express
 
+# Interactive assistant preview
+.\install-assistant.ps1 -AssumeYes -DryRun
+
 # Or from an installed/runtime copy
 bago install --mode Express
 

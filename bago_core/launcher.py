@@ -44,6 +44,26 @@ _CREATED_VERSION = "4.0.0"
 from version import CURRENT as _BAGO_VERSION  # noqa: E402
 
 
+def _read_release_label(root: Path) -> str:
+    for candidate in (root / "release_version.txt", root / ".bago" / "release_version.txt"):
+        if candidate.exists():
+            try:
+                value = candidate.read_text(encoding="utf-8").strip()
+            except Exception:
+                continue
+            if value:
+                return value
+    cfg = _load_install_config(root)
+    for key in ("release_version", "version", "tag"):
+        value = cfg.get(key)
+        if value:
+            return str(value)
+    return "latest release"
+
+
+RELEASE_LABEL = _read_release_label(BAGO_ROOT)
+
+
 def cmd_chat(args: argparse.Namespace) -> int:
     from repl import BagoREPL
     from system_prompt import get_system_prompt

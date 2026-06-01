@@ -237,6 +237,46 @@ function Read-InputOrDefault {
     return $value.Trim()
 }
 
+function Read-UrlOrDefault {
+    param(
+        [Parameter(Mandatory = $true)][string]$Prompt,
+        [string]$Default = ""
+    )
+    while ($true) {
+        $value = Read-InputOrDefault -Prompt $Prompt -Default $Default
+        if ([string]::IsNullOrWhiteSpace($value)) { return $value }
+        if ($value -match '^\s*https?://') { return $value }
+        if ($value -match '\s') {
+            Write-Host "Introduce una URL, no un comando."
+            continue
+        }
+        if ($value -match '^(ollama|gh|git|pwsh|powershell)\b') {
+            Write-Host "Eso parece un comando. Aqui va una URL base."
+            continue
+        }
+        Write-Host "La URL debe empezar por http:// o https://."
+    }
+}
+
+function Invoke-GhDeviceLogin {
+    $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
+    if (-not $gh) { throw "GitHub device-flow requiere gh CLI." }
+    & gh auth status -h github.com 1>$null 2>$null
+    if ($LASTEXITCODE -eq 0) { return }
+    Write-Host "GitHub device-flow: iniciando gh auth login --device ..."
+    & gh auth login --device -h github.com
+    if ($LASTEXITCODE -ne 0) { throw "gh auth login --device fallo para github.com." }
+    & gh auth status -h github.com 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "gh auth status fallo despues del login." }
+}
+
+function Invoke-OllamaCloudSignin {
+    param([Parameter(Mandatory = $true)][string]$BaseUrl)
+    Write-Host "Ollama Cloud signin: se abrira el navegador para completar el login."
+    Start-Process $BaseUrl | Out-Null
+    Read-Host "Completa el login en el navegador y pulsa Enter para continuar" | Out-Null
+}
+
 function Protect-String {
     param([Parameter(Mandatory = $true)][string]$PlainText)
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($PlainText)
@@ -476,27 +516,41 @@ if ($installerMode -eq "Express") {
 } else {
     $providerConfigs["ollama-local"].enabled = Read-YesNo -Prompt "Activar Ollama local" -Default $true
     if ($providerConfigs["ollama-local"].enabled) {
-        $providerConfigs["ollama-local"].model = Read-InputOrDefault -Prompt "Modelo local por defecto" -Default "llama3.2:3b"
+        $providerConfigs["ollama-local"].model = Read-InputOrDefault -Prompt "Modelo local por defecto (nombre del modelo en Ollama, por ejemplo llama3.2:3b)" -Default "llama3.2:3b"
     }
     $providerConfigs["codex"].enabled = Read-YesNo -Prompt "Activar OpenAI/Codex" -Default $false
     if ($providerConfigs["codex"].enabled) {
-        $providerConfigs["codex"].api_key = Read-InputOrDefault -Prompt "API key de OpenAI" -Default $env:OPENAI_API_KEY
-        $providerConfigs["codex"].model = Read-InputOrDefault -Prompt "Modelo OpenAI por defecto" -Default "gpt-5.4-mini"
+        $providerConfigs["codex"].api_key = Read-InputOrDefault -Prompt "API key de OpenAI (empieza por sk-... o usa la variable OPENAI_API_KEY)" -Default $env:OPENAI_API_KEY
+        $providerConfigs["codex"].model = Read-InputOrDefault -Prompt "Modelo OpenAI por defecto (por ejemplo gpt-5.4-mini)" -Default "gpt-5.4-mini"
     }
     $providerConfigs["copilot"].enabled = Read-YesNo -Prompt "Activar GitHub/Copilot" -Default $false
     if ($providerConfigs["copilot"].enabled) {
-        $providerConfigs["copilot"].auth_mode = Read-Choice -Prompt "Autenticacion GitHub" -Options @("device-flow", "pat") -DefaultIndex 0
+        Write-Host "Autenticacion GitHub:"
+        Write-Host "  device-flow = login interactivo con navegador"
+        Write-Host "  pat         = token manual pegado por el usuario"
+        $providerConfigs["copilot"].auth_mode = Read-Choice -Prompt "Autenticacion GitHub (device-flow abre gh auth login; pat pide token)" -Options @("device-flow", "pat") -DefaultIndex 0
         if ($providerConfigs["copilot"].auth_mode -eq "pat") {
-            $providerConfigs["copilot"].api_key = Read-InputOrDefault -Prompt "PAT de GitHub" -Default $env:GITHUB_TOKEN
+            $providerConfigs["copilot"].api_key = Read-InputOrDefault -Prompt "PAT de GitHub (token personal, o usa GITHUB_TOKEN)" -Default $env:GITHUB_TOKEN
+        } else {
+            Invoke-GhDeviceLogin
         }
-        $providerConfigs["copilot"].model = Read-InputOrDefault -Prompt "Modelo Copilot por defecto" -Default "gpt-4o-copilot"
+        $providerConfigs["copilot"].model = Read-InputOrDefault -Prompt "Modelo Copilot por defecto (por ejemplo gpt-4o-copilot)" -Default "gpt-4o-copilot"
     }
     $providerConfigs["ollama-cloud"].enabled = Read-YesNo -Prompt "Activar Ollama Cloud" -Default $false
     if ($providerConfigs["ollama-cloud"].enabled) {
-        $providerConfigs["ollama-cloud"].auth_mode = Read-Choice -Prompt "Autenticacion Ollama Cloud" -Options @("signin", "api_key") -DefaultIndex 0
-        $providerConfigs["ollama-cloud"].base_url = Read-InputOrDefault -Prompt "URL base de Ollama Cloud" -Default $env:OLLAMA_CLOUD_URL
+        Write-Host "Autenticacion Ollama Cloud:"
+        Write-Host "  signin  = login interactivo con navegador"
+        Write-Host "  api_key = token manual pegado por el usuario"
+        $providerConfigs["ollama-cloud"].auth_mode = Read-Choice -Prompt "Autenticacion Ollama Cloud (signin abre navegador; api_key pide clave)" -Options @("signin", "api_key") -DefaultIndex 0
+        $providerConfigs["ollama-cloud"].base_url = Read-UrlOrDefault -Prompt "URL base de Ollama Cloud (solo URL, por ejemplo https://cloud.example.com)" -Default $env:OLLAMA_CLOUD_URL
+        if ([string]::IsNullOrWhiteSpace($providerConfigs["ollama-cloud"].base_url)) {
+            throw "Ollama Cloud requiere una URL base valida."
+        }
+        if ($providerConfigs["ollama-cloud"].auth_mode -eq "signin") {
+            Invoke-OllamaCloudSignin -BaseUrl $providerConfigs["ollama-cloud"].base_url
+        }
         if ($providerConfigs["ollama-cloud"].auth_mode -eq "api_key") {
-            $providerConfigs["ollama-cloud"].api_key = Read-InputOrDefault -Prompt "API key de Ollama Cloud" -Default $env:OLLAMA_CLOUD_KEY
+            $providerConfigs["ollama-cloud"].api_key = Read-InputOrDefault -Prompt "API key de Ollama Cloud (o usa OLLAMA_CLOUD_KEY)" -Default $env:OLLAMA_CLOUD_KEY
         }
     }
     $knowledgeCfg.mode = Read-Choice -Prompt "Repositorio de conocimiento" -Options @("none", "existing", "new") -DefaultIndex 0
