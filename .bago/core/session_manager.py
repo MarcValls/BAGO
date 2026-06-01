@@ -135,6 +135,23 @@ class SessionManager:
         self._providers_cache_at = 0.0
         self._providers_cache_ttl = 30.0
 
+    def _train_bc_policy(self) -> dict:
+        """Entrena la política BC (Behavioral Cloning) desde el historial real.
+        Capa shadow: solo aprende a recomendar, nunca ejecuta acciones.
+        No es fatal: ante cualquier problema devuelve {ok: False, ...}."""
+        try:
+            bago_core = self.base_path / "bago_core"
+            if str(bago_core) not in sys.path:
+                sys.path.insert(0, str(bago_core))
+            from rl_policies import train_bc_policy, numpy_available
+
+            if not numpy_available():
+                return {"ok": False, "reason": "numpy no disponible"}
+            report = train_bc_policy(self.base_path, n_actions=4, n_features=4)
+            return {"ok": report.get("status") == "trained", **report}
+        except Exception as exc:
+            return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+
     def auto_evolve(self) -> dict:
         """Ciclo de autoevolución de BAGO.
 
@@ -153,12 +170,15 @@ class SessionManager:
 
             message = self.tool_registry.retrain_intents()
             counts = intent_engine.reload_examples()
-            return {
+            result = {
                 "ok": True,
                 "message": message,
                 "counts": counts,
                 "total": sum(counts.values()),
             }
+            # Entrenamiento de la política BC desde el historial (capa shadow, nunca ejecuta).
+            result["bc"] = self._train_bc_policy()
+            return result
         except Exception as exc:
             # Culpa técnica: registrar responsable, causa y prevención (preferencia del usuario)
             return {

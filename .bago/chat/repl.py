@@ -424,6 +424,12 @@ class BagoREPL:
             counts = res.get("counts", {})
             detail = " · ".join(f"{k}:{v}" for k, v in counts.items()) or "sin datos"
             print(R.ok(f"Autoevolución completada — {res.get('total', 0)} ejemplos ({detail})"))
+            bc = res.get("bc") or {}
+            if bc.get("ok"):
+                print(R.ok(f"Política BC entrenada — {bc.get('samples', 0)} muestras "
+                           f"(fuente: {bc.get('source', '?')}, loss: {bc.get('loss', 0):.3f})"))
+            elif bc.get("reason"):
+                print(R.dim(f"  BC no entrenada: {bc['reason']}"))
         else:
             # Culpa técnica visible, sin tumbar el arranque
             print(R.warn(f"Autoevolución no completada — {res.get('causa', res.get('message', '?'))}"))

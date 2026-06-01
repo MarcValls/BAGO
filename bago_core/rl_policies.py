@@ -150,10 +150,130 @@ def load_transition_samples(base_path: str | Path, n_features: int) -> list[tupl
     return samples
 
 
+# ---------------------------------------------------------------------------
+# Auto-ingesta de transiciones desde el historial real del usuario.
+# Misma fuente que la autoevolución del clasificador de intenciones:
+# convierte cada mensaje del usuario en una transición (features, action, reward)
+# para poder entrenar una política BC sin requerir interacciones en vivo.
+# Capa shadow: nunca ejecuta acciones, solo aprende a recomendar.
+# ---------------------------------------------------------------------------
+
+# Orden de acciones = intenciones del clasificador
+INTENT_ACTIONS: list[str] = ["chat", "review", "execute", "work"]
+ACTION_INDEX: dict[str, int] = {name: i for i, name in enumerate(INTENT_ACTIONS)}
+
+_INTENT_KEYWORDS: dict[str, list[str]] = {
+    "chat": ["hola", "hey", "saludos", "continua", "gracias", "adios", "bago",
+             "bago next", "bago start", "español", "hello", "hi"],
+    "review": ["revisa", "mira", "reune", "busca", "chequea", "examina", "verifica",
+               "analiza esto", "mira esto", "mira ahora", "list_directory",
+               "read_file", "dame el contenido"],
+    "execute": ["ejecuta", "corre", "lanza", "dispara", "run", "execute",
+                "corre el comando", "ejecuta el script", "corre el script"],
+    "work": ["trabaja", "modulariza", "adapta", "crea", "modifica", "refactoriza",
+             "estructurala", "ordena", "desarrolla", "implementa", "construye",
+             "genera", "haz que", "hazme", "adaptalo", "modularizala",
+             "estructuralo", "organiza"],
+}
+
+_PATH_TOKENS = (":\\", "/", "\\", ".py", ".js", ".md", ".json", ".ps1")
+
+
+def classify_message(message: str) -> str:
+    """Clasifica un mensaje en una intención (mirror de intent_engine, autocontenido)."""
+    msg = message.lower().strip()
+    for intent, words in _INTENT_KEYWORDS.items():
+        if any(w in msg for w in words):
+            return intent
+    if len(msg) < 40 and not any(t in msg for t in _PATH_TOKENS):
+        return "chat"
+    return "work"
+
+
+def message_features(message: str) -> list[float]:
+    """Vector de features determinista (4 dims) a partir del mensaje."""
+    msg = message.lower()
+    f_len = min(len(message) / 200.0, 1.0)
+    f_path = 1.0 if any(t in msg for t in _PATH_TOKENS) else 0.0
+    f_exec = 1.0 if any(w in msg for w in _INTENT_KEYWORDS["execute"]) else 0.0
+    f_question = 1.0 if (msg.strip().endswith("?") or msg.strip().startswith(
+        ("que", "qué", "como", "cómo", "por que", "por qué", "cuando", "cuándo", "donde", "dónde"))) else 0.0
+    return [f_len, f_path, f_exec, f_question]
+
+
+def synthesize_transitions_from_history(base_path: str | Path, n_features: int = 4, limit: int = 4000) -> int:
+    """Genera transiciones BC desde el historial de sesiones (~/.copilot/session-store.db)
+    y las escribe en el log de transiciones. Devuelve el número de transiciones añadidas.
+    Solo escribe si el log está vacío/inexistente (evita duplicar en cada entrenamiento)."""
+    import sqlite3
+
+    if n_features != 4:
+        return 0  # las features sintetizadas son de dimensión 4
+
+    log_path = _transition_log(base_path)
+    if log_path.exists() and log_path.stat().st_size > 0:
+        return 0
+
+    store_db = Path.home() / ".copilot" / "session-store.db"
+    if not store_db.exists():
+        return 0
+
+    try:
+        conn = sqlite3.connect(str(store_db))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT user_message FROM turns "
+            "WHERE user_message IS NOT NULL AND user_message != '' "
+            "AND LENGTH(user_message) < 800"
+        )
+        rows = cur.fetchall()
+        conn.close()
+    except Exception:
+        return 0
+
+    seen: set[str] = set()
+    events: list[dict[str, Any]] = []
+    for row in rows:
+        msg = row["user_message"]
+        if not msg or "══" in msg or "┌─" in msg or len(msg) > 400:
+            continue
+        if msg in seen:
+            continue
+        seen.add(msg)
+        intent = classify_message(msg)
+        events.append({
+            "kind": "intent_sample",
+            "source": "history",
+            "features": message_features(msg),
+            "action": ACTION_INDEX[intent],
+            "reward": 1.0,
+            "intent": intent,
+        })
+        if len(events) >= limit:
+            break
+
+    if not events:
+        return 0
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as fh:
+        for ev in events:
+            fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+    return len(events)
+
+
 def train_bc_policy(base_path: str | Path, n_actions: int, n_features: int) -> dict[str, Any]:
     if not numpy_available():
         return {"status": "disabled", "reason": "numpy not installed", "can_execute": False}
     samples = load_transition_samples(base_path, n_features)
+    source = "transition_log"
+    if not samples:
+        # Autoevolución: si no hay transiciones en vivo, aprender del historial real.
+        ingested = synthesize_transitions_from_history(base_path, n_features)
+        if ingested:
+            samples = load_transition_samples(base_path, n_features)
+            source = "history"
     if not samples:
         return {
             "status": "no_samples",
@@ -169,6 +289,7 @@ def train_bc_policy(base_path: str | Path, n_actions: int, n_features: int) -> d
     policy.save(bc_policy_path(base_path))
     return {
         "status": "trained",
+        "source": source,
         "samples": len(losses),
         "loss": float(sum(losses) / len(losses)) if losses else 0.0,
         "policy_file": str(bc_policy_path(base_path)),

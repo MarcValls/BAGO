@@ -615,9 +615,16 @@ def cmd_evolve(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
     if res.get("ok"):
         counts = res.get("counts", {})
         detail = " · ".join(f"{k}:{v}" for k, v in counts.items()) or "sin datos"
+        bc = res.get("bc") or {}
+        bc_line = ""
+        if bc.get("ok"):
+            bc_line = (f"\n  🤖 Política BC: {bc.get('samples', 0)} muestras "
+                       f"(fuente: {bc.get('source', '?')}, loss: {bc.get('loss', 0):.3f})")
+        elif bc.get("reason"):
+            bc_line = f"\n  🤖 BC no entrenada: {bc['reason']}"
         return {
             "ok": True,
-            "message": f"🧬 Autoevolución completada — {res.get('total', 0)} ejemplos ({detail})",
+            "message": f"🧬 Autoevolución completada — {res.get('total', 0)} ejemplos ({detail}){bc_line}",
         }
     return {
         "ok": False,

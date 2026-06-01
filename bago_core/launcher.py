@@ -1004,7 +1004,7 @@ def main(argv: list[str] | None = None) -> int:
     rl_train = rl_sub.add_parser("train", help="Entrena politicas RL opcionales")
     rl_train_sub = rl_train.add_subparsers(dest="train_action")
     rl_train_bc = rl_train_sub.add_parser("bc", help="Entrena Behavioral Cloning desde transiciones disponibles")
-    rl_train_bc.add_argument("--n-actions", type=int, default=3)
+    rl_train_bc.add_argument("--n-actions", type=int, default=4)
     rl_train_bc.add_argument("--n-features", type=int, default=4)
     rl_eval = rl_sub.add_parser("eval", help="Evalua politicas RL opcionales")
     rl_eval.add_argument("--n-features", type=int, default=4)
