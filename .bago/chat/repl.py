@@ -210,7 +210,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
             {"command": "/status", "description": "Resumen rapido de la sesion actual."},
             {"command": "/session", "description": "Detalles completos de la sesion."},
             {"command": "/save", "description": "Guardar la sesion actual en disco."},
-            {"command": "/load", "description": "Cargar una sesion guardada.", "args_prompt": "<session_id>"},
+            {"command": "/load", "description": "Cargar una sesion guardada (asistente guiado).", "wizard": "load"},
         ],
     },
     {
@@ -219,7 +219,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "items": [
             {"command": "/providers", "description": "Lista providers registrados."},
             {"command": "/models", "description": "Ver modelos del provider actual."},
-            {"command": "/switch", "description": "Cambiar provider o modelo.", "args_prompt": "<provider> [modelo] [--force]"},
+            {"command": "/switch", "description": "Cambiar provider o modelo (asistente guiado).", "wizard": "switch"},
             {"command": "/suggest", "description": "Sugerencia automatica de provider/modelo."},
         ],
     },
@@ -241,7 +241,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "description": "Agentes especializados y base de conocimiento.",
         "items": [
             {"command": "/agents", "description": "Ver agentes disponibles."},
-            {"command": "/agent", "description": "Activar un agente.", "args_prompt": "<nombre>"},
+            {"command": "/agent", "description": "Activar un agente (asistente guiado).", "wizard": "agent"},
             {"command": "/memory", "description": "Listar recuerdos recientes."},
             {"command": "/good", "description": "Marcar el ultimo mensaje como importante."},
             {"command": "/feedback", "description": "Registrar feedback explicito.", "args_prompt": "<rating>"},
@@ -540,8 +540,9 @@ class BagoREPL:
 
     def _run_menu_item(self, item: dict[str, Any]) -> bool:
         command_line = item["command"]
-        if item.get("wizard") == "credentials":
-            return self._credential_wizard()
+        wizard = item.get("wizard")
+        if wizard:
+            return self._run_wizard(wizard)
         if item.get("confirm"):
             try:
                 confirm = input(R.warn(f"Confirma {command_line} (s/N): ")).strip().lower()
@@ -564,6 +565,118 @@ class BagoREPL:
             command_line = f"{command_line} {tail}"
 
         return self._handle_command(command_line)
+
+    def _run_wizard(self, name: str) -> bool:
+        """Despacha asistentes guiados navegables por nombre."""
+        if name == "credentials":
+            return self._credential_wizard()
+        if name == "switch":
+            return self._switch_wizard()
+        if name == "agent":
+            return self._agent_wizard()
+        if name == "load":
+            return self._load_wizard()
+        print(R.error(f"Asistente desconocido: {name}"))
+        return True
+
+    def _wizard_tty_ok(self, manual_hint: str) -> bool:
+        """Verifica terminal interactivo; si no, informa el equivalente manual."""
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            return True
+        print(R.warn(f"El asistente requiere un terminal interactivo. Usa: {manual_hint}"))
+        return False
+
+    def _switch_wizard(self) -> bool:
+        """Asistente guiado para cambiar de provider/modelo sin teclear nombres."""
+        if not self._wizard_tty_ok("/switch <provider> [modelo]"):
+            return True
+        try:
+            providers = self.mgr.available_providers()
+        except Exception as exc:
+            print(R.error(f"No se pudieron listar los providers: {exc}"))
+            return True
+        if not providers:
+            print(R.warn("No hay providers registrados."))
+            return True
+        plabels = []
+        for p in providers:
+            estado = "configurado" if p.get("configured") else "sin configurar"
+            nmod = len(p.get("models") or [])
+            plabels.append(f"{p['name']}  —  {estado} · {nmod} modelos")
+        pidx = self._navigate("Cambiar provider · elige uno", plabels)
+        if pidx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        provider = providers[pidx]["name"]
+
+        try:
+            catalog = self.mgr.list_model_catalog(provider)
+        except Exception:
+            catalog = []
+        model = None
+        if catalog:
+            mlabels = ["(auto / mantener por defecto)"] + [str(item["id"]) for item in catalog]
+            midx = self._navigate(f"{provider} · elige modelo", mlabels)
+            if midx is None:
+                print(R.dim("Asistente cerrado."))
+                return True
+            if midx > 0:
+                model = catalog[midx - 1]["id"]
+
+        command_line = f"/switch {provider}" + (f" {model}" if model else "")
+        return self._handle_command(command_line)
+
+    def _agent_wizard(self) -> bool:
+        """Asistente guiado para activar un agente especializado."""
+        if not self._wizard_tty_ok("/agent <nombre>"):
+            return True
+        try:
+            agents = self.mgr.agent_gateway.list_agents()
+        except Exception as exc:
+            print(R.error(f"No se pudieron listar los agentes: {exc}"))
+            return True
+        if not agents:
+            print(R.warn("No hay agentes registrados."))
+            return True
+        try:
+            active = self.mgr.agent_gateway.active.name
+        except Exception:
+            active = ""
+        labels = []
+        for a in agents:
+            mark = "●" if a.name == active else "○"
+            labels.append(f"{mark} {a.name}  —  {a.description}")
+        idx = self._navigate("Activar agente · elige uno", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(f"/agent {agents[idx].name}")
+
+    def _load_wizard(self) -> bool:
+        """Asistente guiado para cargar una sesion guardada (no hay que recordar el id)."""
+        if not self._wizard_tty_ok("/load <session_id>"):
+            return True
+        try:
+            sessions = type(self.mgr.store).list_sessions(self.mgr.store.base_dir)
+        except Exception as exc:
+            print(R.error(f"No se pudieron listar las sesiones guardadas: {exc}"))
+            return True
+        if not sessions:
+            print(R.warn("No hay sesiones guardadas. Usa /save para crear una."))
+            return True
+        sessions = sorted(sessions, key=lambda s: s.get("created_at", ""), reverse=True)
+        labels = []
+        for s in sessions:
+            sid = s.get("sid", "?")
+            when = s.get("created_at", "") or "sin fecha"
+            prov = s.get("last_provider", "") or "?"
+            mod = s.get("last_model", "") or "?"
+            labels.append(f"{sid[:12]}  ·  {when}  ·  {prov}/{mod}")
+        idx = self._navigate("Cargar sesion · elige una", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(f"/load {sessions[idx]['sid']}")
 
     def _credential_wizard(self) -> bool:
         """Asistente guiado para registrar/actualizar una credencial sin escribir comandos.
@@ -644,6 +757,12 @@ class BagoREPL:
         low = line.strip().lower()
         if low in ("/credentials set", "/credentials add", "/login", "/cred"):
             return self._credential_wizard()
+        if low == "/switch":
+            return self._switch_wizard()
+        if low == "/agent":
+            return self._agent_wizard()
+        if low == "/load":
+            return self._load_wizard()
         result = execute(line, self.mgr, self.engine)
         if result.get("action") == "quit":
             print(R.ok(result["message"]))

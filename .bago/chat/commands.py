@@ -214,12 +214,12 @@ def cmd_help(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
     text = """
 Comandos disponibles:
   /menu                                    Abre menú interactivo de funciones
-  /switch <provider> [modelo] [--force]   Cambia de provider/modelo
+  /switch [provider] [modelo] [--force]   Cambia de provider/modelo (sin args = asistente guiado)
   /models [provider]                       Lista modelos disponibles
   /status                                  Estado de la sesión activa
   /session                                 Detalles de la sesión
   /save                                    Guarda sesión en disco
-  /load <session_id>                       Carga sesión desde disco
+  /load [session_id]                       Carga sesión desde disco (sin args = asistente guiado)
   /providers                               Lista providers registrados
   /allow                                   Aprueba ejecución de herramientas pendientes
   /deny                                    Rechaza ejecución de herramientas pendientes
@@ -233,7 +233,7 @@ Comandos disponibles:
   /autopilot <tarea>                       Ejecuta tarea autónomamente
   /evolve                                  Autoevoluciona: reentrena intenciones desde tu historial
   /agents                                  Lista agentes especializados
-  /agent <nombre>                          Activa un agente (coder, reviewer, etc.)
+  /agent <nombre>                          Activa un agente (coder, reviewer, etc.; sin args = asistente)
   /memory [list|search|add|delete|hybrid-add|hybrid-search]  Gestiona base de conocimiento
   /update                                  Actualizar BAGO a la ultima version
   /help                                    Muestra esta ayuda
