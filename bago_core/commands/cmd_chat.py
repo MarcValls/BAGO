@@ -85,13 +85,51 @@ def _write_llm_start_state(base_path: str, provider: str, model: str, mode: str)
     path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
 
+def _start_monitor_bg(base_path: str, port: int = 7890) -> None:
+    """Arranca bago monitor serve en un hilo daemon si el puerto no está en uso."""
+    import socket
+    import threading
+
+    def _port_free(p: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", p))
+                return True
+            except OSError:
+                return False
+
+    if not _port_free(port):
+        return  # ya está corriendo
+
+    def _run():
+        try:
+            sys.path.insert(0, str(BAGO_ROOT / ".bago" / "tools"))
+            from process_monitor import serve
+            serve(BAGO_ROOT, port=port, refresh=5)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_run, daemon=True, name="bago-monitor")
+    t.start()
+
+
 def cmd_chat(args: argparse.Namespace) -> int:
     from repl import BagoREPL
     from system_prompt import get_system_prompt
 
+    provider = getattr(args, "provider", "unknown") or "unknown"
+    model = getattr(args, "model", "unknown") or "unknown"
+
+    # Registrar sesión LLM en state/ para que el monitor la vea
+    _write_llm_start_state(args.base_path, provider, model, mode="chat")
+
+    # Auto-arrancar monitor en background (no bloquea el chat)
+    if not getattr(args, "no_monitor", False):
+        _start_monitor_bg(args.base_path)
+
     repl = BagoREPL(
-        provider=args.provider,
-        model=args.model,
+        provider=provider,
+        model=model,
         system_prompt=get_system_prompt(),
         base_path=args.base_path,
     )
@@ -185,6 +223,10 @@ def cmd_llm(args: argparse.Namespace) -> int:
 
     if args.dry_run:
         return 0
+
+    # Auto-arrancar monitor (no bloquea)
+    if not getattr(args, "no_monitor", False):
+        _start_monitor_bg(args.base_path)
 
     args.provider = provider
     args.model = model

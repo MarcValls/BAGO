@@ -165,7 +165,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-path", default=base, help="Directorio base del proyecto")
     sub = parser.add_subparsers(dest="command", help="Comandos disponibles")
 
-    sub.add_parser("chat", help="Inicia el REPL de chat")
+    chat_parser = sub.add_parser("chat", help="Inicia el REPL de chat")
+    chat_parser.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
     sub.add_parser("launch", help="Alias de chat: inicia BAGO")
     sub.add_parser("start", help="Inicia BAGO y autoevoluciona (alias de chat con auto-aprendizaje al arrancar)")
     sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
@@ -226,6 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     llm_start.add_argument("--allow-unconfigured", action="store_true", help="Permite arrancar contra provider no configurado")
     llm_start.add_argument("--persist-default", action="store_true", help="Guarda provider/modelo como default")
     llm_start.add_argument("--dry-run", action="store_true", help="Registra selección sin abrir chat")
+    llm_start.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
 
     engine_parser = sub.add_parser("engine", help="Estado del backend avanzado bago_true")
     engine_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
