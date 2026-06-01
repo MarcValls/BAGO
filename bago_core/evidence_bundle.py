@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-evidence_bundle.py — BAGO 4.0 Contract Evidence Generator
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+evidence_bundle.py â€” BAGO 4.1.5 Contract Evidence Generator
 
 Genera bundles de evidencia verificables para los contratos v4.
 El modo simulated usa un adapter mock, pero ejecuta el runtime real
 de SessionManager, comandos REPL, persistencia y KnowledgeBase.
-El modo real usa el provider/configuración activos y exige respuesta viva.
+El modo real usa el provider/configuraciÃ³n activos y exige respuesta viva.
 """
 
 from __future__ import annotations
@@ -59,12 +61,12 @@ PROFILES: dict[str, ObjectiveProfile] = {
         title="Asistencia comunitaria basada en conocimiento abierto",
         summary=(
             "Demuestra que BAGO v4 puede asistir al usuario de forma directa "
-            "con una respuesta útil y de forma indirecta preservando conocimiento, "
-            "planificación y estado reproducible."
+            "con una respuesta Ãºtil y de forma indirecta preservando conocimiento, "
+            "planificaciÃ³n y estado reproducible."
         ),
         user_prompt=(
             "Resume en dos frases como BAGO v4 puede ayudar a una comunidad abierta "
-            "a convertir conocimiento disperso en acciones útiles para el usuario."
+            "a convertir conocimiento disperso en acciones Ãºtiles para el usuario."
         ),
         plan_task=(
             "publicar una mejora pequena y verificable de conocimiento comunitario "
@@ -285,7 +287,7 @@ def _build_report(
     output_dir: Path,
 ) -> str:
     lines = [
-        f"# Bundle de evidencia — {profile.title}",
+        f"# Bundle de evidencia â€” {profile.title}",
         "",
         f"- **Modo:** `{mode}`",
         f"- **Objetivo:** `{profile.objective_id}`",
@@ -313,7 +315,7 @@ def _build_report(
         "",
     ])
     for check in checks:
-        lines.append(f"- **{check['id']}**: {check['status']} — {check['detail']}")
+        lines.append(f"- **{check['id']}**: {check['status']} â€” {check['detail']}")
 
     lines.extend([
         "",
@@ -450,7 +452,7 @@ def _generate_bundle_with_manager(
 
     manifest = {
         "bundle_id": f"bago.v4.evidence.{mode}.{profile.objective_id}",
-        "contract_version": "4.0.0",
+        "contract_version": "4.1.5",
         "related_to": [
             "docs\\contracts\\bago_v4_runtime_contract.json",
             "docs\\contracts\\bago_v4_repl_contract.md",
@@ -614,10 +616,10 @@ def run(args: argparse.Namespace) -> int:
             overwrite=bool(args.overwrite),
         )
     except Exception as exc:
-        print(f"❌ No se pudo generar el bundle: {exc}")
+        print(f"âŒ No se pudo generar el bundle: {exc}")
         return 1
 
-    print(f"✓ Bundle generado: {manifest_path}")
+    print(f"âœ“ Bundle generado: {manifest_path}")
     return 0
 
 

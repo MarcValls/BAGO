@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-ollama_local.py — BAGO 4.0 Ollama Local Provider Adapter
 
-Adapter para modelos Ollama ejecutándose en localhost:11434.
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+ollama_local.py â€” BAGO 4.1.5 Ollama Local Provider Adapter
+
+Adapter para modelos Ollama ejecutÃ¡ndose en localhost:11434.
 No requiere credenciales.
 """
 
@@ -112,7 +114,7 @@ class OllamaLocalAdapter(ProviderAdapter):
                 model_id=name,
                 wire_name=name,
                 provider=self.provider_name,
-                context_tokens=32768,  # Default; Ollama doesn’t expose this via API
+                context_tokens=32768,  # Default; Ollama doesnâ€™t expose this via API
                 max_output_tokens=8192,
                 best_for="general",
                 cost="free",
@@ -130,7 +132,7 @@ class OllamaLocalAdapter(ProviderAdapter):
         max_tokens: int | None = None,
         tools: list[dict] | None = None,
     ):
-        """Streaming real para Ollama: NDJSON línea por línea."""
+        """Streaming real para Ollama: NDJSON lÃ­nea por lÃ­nea."""
         payload = {
             "model": model,
             "messages": messages,

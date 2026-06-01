@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
 intent_engine.py — Auto-training intent classification for BAGO local.
 
 Learns from the user's own conversation history (intent_examples.json)

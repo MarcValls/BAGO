@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-context_store.py — BAGO 4.0 Context Store
 
-Persiste el contexto de conversación independientemente del provider.
-Cada sesión tiene su propio directorio en .bago/state/sessions/<sid>/
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+context_store.py â€” BAGO 4.1.5 Context Store
+
+Persiste el contexto de conversaciÃ³n independientemente del provider.
+Cada sesiÃ³n tiene su propio directorio en .bago/state/sessions/<sid>/
 con:
   - context.jsonl   : historial de mensajes (role, content, metadata)
-  - timeline.jsonl  : eventos de la sesión
+  - timeline.jsonl  : eventos de la sesiÃ³n
   - tokens.json     : contador de tokens por provider/modelo
-  - meta.json       : metadatos de sesión (inicio, último provider, equivalencias usadas)
+  - meta.json       : metadatos de sesiÃ³n (inicio, Ãºltimo provider, equivalencias usadas)
 
-El ContextStore es el único sistema que debe tocarse al cambiar de provider.
-Los adapters de LLM solo leen/escriben a través de él.
+El ContextStore es el Ãºnico sistema que debe tocarse al cambiar de provider.
+Los adapters de LLM solo leen/escriben a travÃ©s de Ã©l.
 """
 
 from __future__ import annotations
@@ -77,7 +79,7 @@ class ContextMessage:
 
 
 class TimelineEvent:
-    """Evento de la timeline de sesión."""
+    """Evento de la timeline de sesiÃ³n."""
 
     def __init__(
         self,
@@ -116,13 +118,13 @@ class TimelineEvent:
 
 class ContextStore:
     """
-    Almacén de contexto de sesión. Thread-safe.
+    AlmacÃ©n de contexto de sesiÃ³n. Thread-safe.
 
     Uso:
-        store = ContextStore.create_new()   # nueva sesión
-        store = ContextStore.load("<sid>")  # reanudar sesión
+        store = ContextStore.create_new()   # nueva sesiÃ³n
+        store = ContextStore.load("<sid>")  # reanudar sesiÃ³n
         store.append_message(ContextMessage("user", "hola"))
-        store.append_response("¡Hola! Soy BAGO.", provider="copilot", model="gpt-5.4")
+        store.append_response("Â¡Hola! Soy BAGO.", provider="copilot", model="gpt-5.4")
         history = store.get_history()       # lista de dicts para el LLM
         store.save()
     """
@@ -147,7 +149,7 @@ class ContextStore:
 
         self._load_all()
 
-    # ── Factory methods ──────────────────────────────────────────────────────
+    # â”€â”€ Factory methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @classmethod
     def create_new(cls, base_dir: Path | None = None) -> ContextStore:
@@ -159,7 +161,7 @@ class ContextStore:
             "last_provider": "",
             "last_model": "",
             "switch_count": 0,
-            "bago_version": "4.0.0",
+            "bago_version": "4.1.5",
         }
         instance._save_meta()
         instance.add_timeline_event(TimelineEvent("session", "start", f"Session {sid} created"))
@@ -190,7 +192,7 @@ class ContextStore:
                 })
         return result
 
-    # ── Public API: messages ─────────────────────────────────────────────────
+    # â”€â”€ Public API: messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def append_message(self, msg: ContextMessage) -> None:
         with self._lock:
@@ -229,10 +231,10 @@ class ContextStore:
 
     def get_history_for_provider(self, provider: str, model: str, *, max_tokens: int | None = None) -> list[dict]:
         """
-        Devuelve historial filtrado/adaptado para un provider específico.
+        Devuelve historial filtrado/adaptado para un provider especÃ­fico.
         Por ahora devuelve todo; en el futuro puede comprimir si excede max_tokens.
         """
-        # Marcar metadatos de que este provider está accediendo
+        # Marcar metadatos de que este provider estÃ¡ accediendo
         self._meta["last_provider"] = provider
         self._meta["last_model"] = model
         self._save_meta()
@@ -244,7 +246,7 @@ class ContextStore:
             self._context_path.write_text("", encoding="utf-8")
         self.add_timeline_event(TimelineEvent("session", "clear", "Historial limpiado"))
 
-    # ── Public API: timeline ─────────────────────────────────────────────────
+    # â”€â”€ Public API: timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def add_timeline_event(self, event: TimelineEvent) -> None:
         with self._lock:
@@ -256,7 +258,7 @@ class ContextStore:
     def get_timeline(self, limit: int = 20) -> list[dict]:
         return [e.to_dict() for e in self._timeline[-limit:]]
 
-    # ── Public API: tokens ─────────────────────────────────────────────────
+    # â”€â”€ Public API: tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def record_tokens(self, provider: str, model: str, tokens_in: int, tokens_out: int) -> None:
         with self._lock:
@@ -270,7 +272,7 @@ class ContextStore:
     def get_token_summary(self) -> dict:
         return dict(self._tokens)
 
-    # ── Public API: metadata ─────────────────────────────────────────────────
+    # â”€â”€ Public API: metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def get_meta(self) -> dict:
         return dict(self._meta)
@@ -289,13 +291,13 @@ class ContextStore:
         self.add_timeline_event(
             TimelineEvent(
                 "switch",
-                f"{old_provider}/{old_model} → {new_provider}/{new_model}",
+                f"{old_provider}/{old_model} â†’ {new_provider}/{new_model}",
                 reason,
                 level="info",
             )
         )
 
-    # ── Persistence helpers ───────────────────────────────────────────────────
+    # â”€â”€ Persistence helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _load_all(self) -> None:
         self._messages = self._load_jsonl(self._context_path, ContextMessage.from_dict)
@@ -348,12 +350,12 @@ class ContextStore:
             return cand
         return Path.cwd() / ".bago" / "state"
 
-    # ── Context compression / summarization (future) ────────────────────────
+    # â”€â”€ Context compression / summarization (future) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def compress_history(self, target_messages: int = 20) -> None:
         """
         Si el historial es muy largo, comprime los mensajes antiguos en un resumen.
-        Por ahora solo trunca conservando system + últimos N. En v4.1 se puede
+        Por ahora solo trunca conservando system + Ãºltimos N. En v4.1 se puede
         usar un modelo ligero para resumir.
         """
         with self._lock:
@@ -379,10 +381,10 @@ def _run_tests() -> int:
         base = Path(td)
         store = ContextStore.create_new(base_dir=base)
         sid = store.sid
-        assert store._meta.get("bago_version") == "4.0.0"
+        assert store._meta.get("bago_version") == "4.1.5"
 
         store.append_user("Hola BAGO")
-        store.append_response("¡Hola! Soy BAGO.", provider="copilot", model="gpt-5.4")
+        store.append_response("Â¡Hola! Soy BAGO.", provider="copilot", model="gpt-5.4")
         store.record_tokens("copilot", "gpt-5.4", 12, 34)
         store.record_switch("copilot", "gpt-5.4", "ollama-local", "qwen2.5-coder:7b", "user requested local")
 

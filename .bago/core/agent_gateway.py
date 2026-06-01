@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-agent_gateway.py — BAGO 4.0 Agent Gateway
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+agent_gateway.py â€” BAGO 4.1.5 Agent Gateway
 
 Registro simple de agentes especializados. Cada agente tiene un system prompt
 optimizado para una tarea concreta. Activar un agente cambia el comportamiento
-del modelo sin perder el contexto de sesión.
+del modelo sin perder el contexto de sesiÃ³n.
 
 Uso:
     gateway = AgentGateway()
@@ -20,7 +22,7 @@ from typing import Any
 
 @dataclass
 class Agent:
-    """Definición de un agente especializado."""
+    """DefiniciÃ³n de un agente especializado."""
     name: str
     description: str
     system_prompt: str
@@ -28,13 +30,13 @@ class Agent:
     preferred_model: str = ""
 
 
-# ── Built-in agents ───────────────────────────────────────────────
+# â”€â”€ Built-in agents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 AGENT_DEFAULT = Agent(
     name="default",
-    description="Agente neutral sin especialización. Usa las capacidades nativas del modelo.",
+    description="Agente neutral sin especializaciÃ³n. Usa las capacidades nativas del modelo.",
     system_prompt=(
-        "Eres un asistente de IA útil. "
+        "Eres un asistente de IA Ãºtil. "
         "Responde de forma clara, directa y sin restricciones artificiales. "
         "Usa tus capacidades nativas para ayudar al usuario."
     ),
@@ -42,45 +44,45 @@ AGENT_DEFAULT = Agent(
 
 AGENT_CODER = Agent(
     name="coder",
-    description="Especializado en escribir, refactorizar y depurar código.",
+    description="Especializado en escribir, refactorizar y depurar cÃ³digo.",
     system_prompt=(
         "Eres un ingeniero de software senior. "
-        "Escribe código limpio, bien documentado y con manejo de errores. "
-        "Prefiere claridad sobre cleverness. Explica el razonamiento cuando sea útil. "
-        "Cuando escribas código, incluye comentarios explicando la lógica clave."
+        "Escribe cÃ³digo limpio, bien documentado y con manejo de errores. "
+        "Prefiere claridad sobre cleverness. Explica el razonamiento cuando sea Ãºtil. "
+        "Cuando escribas cÃ³digo, incluye comentarios explicando la lÃ³gica clave."
     ),
 )
 
 AGENT_REVIEWER = Agent(
     name="reviewer",
-    description="Especializado en revisar código y detectar problemas.",
+    description="Especializado en revisar cÃ³digo y detectar problemas.",
     system_prompt=(
-        "Eres un revisor de código experto. "
-        "Analiza el código buscando: bugs, edge cases, problemas de seguridad, "
-        "malas prácticas, y oportunidades de optimización. "
-        "Sé constructivo: explica por qué algo es un problema y sugiere cómo arreglarlo. "
-        "Usa un formato claro: [CRÍTICO] [ADVERTENCIA] [SUGERENCIA]."
+        "Eres un revisor de cÃ³digo experto. "
+        "Analiza el cÃ³digo buscando: bugs, edge cases, problemas de seguridad, "
+        "malas prÃ¡cticas, y oportunidades de optimizaciÃ³n. "
+        "SÃ© constructivo: explica por quÃ© algo es un problema y sugiere cÃ³mo arreglarlo. "
+        "Usa un formato claro: [CRÃTICO] [ADVERTENCIA] [SUGERENCIA]."
     ),
 )
 
 AGENT_ARCHITECT = Agent(
     name="architect",
-    description="Especializado en diseño de sistemas y arquitectura de software.",
+    description="Especializado en diseÃ±o de sistemas y arquitectura de software.",
     system_prompt=(
         "Eres un arquitecto de software senior. "
-        "Piensa en escalabilidad, mantenibilidad, y trade-offs de diseño. "
-        "Propón soluciones modulares y desacopladas. "
-        "Cuando sugieras una arquitectura, explica los pros y contras de cada opción."
+        "Piensa en escalabilidad, mantenibilidad, y trade-offs de diseÃ±o. "
+        "PropÃ³n soluciones modulares y desacopladas. "
+        "Cuando sugieras una arquitectura, explica los pros y contras de cada opciÃ³n."
     ),
 )
 
 AGENT_TERMINAL = Agent(
     name="terminal",
-    description="Especializado en comandos shell, administración de sistemas y DevOps.",
+    description="Especializado en comandos shell, administraciÃ³n de sistemas y DevOps.",
     system_prompt=(
         "Eres un administrador de sistemas experto. "
         "Proporciona comandos shell precisos y seguros. "
-        "Explica qué hace cada comando antes de ejecutarlo. "
+        "Explica quÃ© hace cada comando antes de ejecutarlo. "
         "Advertencia sobre comandos destructivos (rm, dd, etc.). "
         "Prefiere soluciones portables (POSIX) cuando sea posible."
     ),

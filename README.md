@@ -1,6 +1,6 @@
-# BAGO v4 — Session-First AI Control Plane
+﻿# BAGO v4 â€” Session-First AI Control Plane
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.1.5-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -8,11 +8,11 @@
 
 ## What BAGO Does
 
-- **Session Persistence** — conversations survive provider and model switches.
-- **Provider Orchestration** — Ollama (local/cloud), Copilot, Anthropic, OpenRouter, Codex.
-- **Intent-Aware Tooling** — BAGO auto-classifies your intent (chat / review / execute / work) and only offers tools when they are actually needed, preventing over-eager tool calls from small local models.
-- **Auto-Training** — BAGO rescans your conversation history before each context compression to learn how you speak and refine its intent classifier.
-- **Evidence & Contracts** — every claim BAGO makes can be recorded, bundled, and validated.
+- **Session Persistence** â€” conversations survive provider and model switches.
+- **Provider Orchestration** â€” Ollama (local/cloud), Copilot, Anthropic, OpenRouter, Codex.
+- **Intent-Aware Tooling** â€” BAGO auto-classifies your intent (chat / review / execute / work) and only offers tools when they are actually needed, preventing over-eager tool calls from small local models.
+- **Auto-Training** â€” BAGO rescans your conversation history before each context compression to learn how you speak and refine its intent classifier.
+- **Evidence & Contracts** â€” every claim BAGO makes can be recorded, bundled, and validated.
 
 ## Quick Start
 
@@ -77,12 +77,12 @@ python bago_core\cli.py evidence --test
 
 ## Documentation
 
-- [`MANUAL.md`](MANUAL.md) — user manual
-- [`docs/DISTRIBUTION_CONTRACT.md`](docs/DISTRIBUTION_CONTRACT.md) — presentation & distribution rules
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — distribution plan
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — runtime architecture
-- [`docs/SECURITY.md`](docs/SECURITY.md) — security defaults and gates
-- [`docs/TESTING.md`](docs/TESTING.md) — validation commands
+- [`MANUAL.md`](MANUAL.md) â€” user manual
+- [`docs/DISTRIBUTION_CONTRACT.md`](docs/DISTRIBUTION_CONTRACT.md) â€” presentation & distribution rules
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) â€” distribution plan
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) â€” runtime architecture
+- [`docs/SECURITY.md`](docs/SECURITY.md) â€” security defaults and gates
+- [`docs/TESTING.md`](docs/TESTING.md) â€” validation commands
 
 ## Distribution Rule
 

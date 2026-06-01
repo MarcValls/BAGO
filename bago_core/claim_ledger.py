@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-claim_ledger.py — BAGO 4.0 Claim Evidence Ledger
+
+_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+claim_ledger.py â€” BAGO 4.1.5 Claim Evidence Ledger
 
 Registro append-only de afirmaciones con evidencia trazable.
 
-El núcleo anti-mentira de BAGO: ninguna afirmación relevante del sistema puede
-existir sin un rastro que indique en qué se basa, qué comando la generó y
-qué artefactos la sostienen.
+El nÃºcleo anti-mentira de BAGO: ninguna afirmaciÃ³n relevante del sistema puede
+existir sin un rastro que indique en quÃ© se basa, quÃ© comando la generÃ³ y
+quÃ© artefactos la sostienen.
 
 Regla central:
-    sin evidencia → no hay claim
-    sin comando   → no hay validación
-    sin artefacto → no hay prueba
+    sin evidencia â†’ no hay claim
+    sin comando   â†’ no hay validaciÃ³n
+    sin artefacto â†’ no hay prueba
 
 Uso:
     ledger = ClaimLedger(base_path=".bago/state")
     claim_id = ledger.add(
-        claim="La sesión fue guardada correctamente",
+        claim="La sesiÃ³n fue guardada correctamente",
         basis="command",
         command="/save",
         artifacts=[".bago/state/sessions/abc.json"],
@@ -44,19 +46,19 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 
-# ── Tipos de base válidos ──────────────────────────────────────────────────────
+# â”€â”€ Tipos de base vÃ¡lidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 BASIS_TYPES = ("command", "artifact", "observation", "provider_response", "test_result")
 
-# ── Estados posibles de un claim ──────────────────────────────────────────────
-STATUS_OPEN       = "open"       # registrado, pendiente de verificación
-STATUS_VERIFIED   = "verified"   # evidencia verificada explícitamente
+# â”€â”€ Estados posibles de un claim â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+STATUS_OPEN       = "open"       # registrado, pendiente de verificaciÃ³n
+STATUS_VERIFIED   = "verified"   # evidencia verificada explÃ­citamente
 STATUS_SIMULATED  = "simulated"  # evidencia simulada (nunca = evidencia real)
 STATUS_FAILED     = "failed"     # la evidencia no pudo verificarse
 STATUS_SUPERSEDED = "superseded" # reemplazado por un claim posterior
 
 
 class Claim:
-    """Representa una afirmación trazable del sistema."""
+    """Representa una afirmaciÃ³n trazable del sistema."""
 
     def __init__(
         self,
@@ -150,7 +152,7 @@ class ClaimLedger:
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.claims_file = self.evidence_dir / "claims.jsonl"
 
-    # ── Lectura ───────────────────────────────────────────────────────────────
+    # â”€â”€ Lectura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def load_all(self) -> list[Claim]:
         """Carga todos los claims del ledger."""
@@ -167,7 +169,7 @@ class ClaimLedger:
         return claims
 
     def get(self, claim_id: str) -> Claim | None:
-        """Devuelve el último estado de un claim por id."""
+        """Devuelve el Ãºltimo estado de un claim por id."""
         found = None
         for c in self.load_all():
             if c.claim_id == claim_id:
@@ -183,10 +185,10 @@ class ClaimLedger:
     def simulated_claims(self) -> list[Claim]:
         return [c for c in self.load_all() if c.status == STATUS_SIMULATED]
 
-    # ── Escritura ─────────────────────────────────────────────────────────────
+    # â”€â”€ Escritura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _append(self, claim: Claim) -> None:
-        """Añade una línea al ledger (append-only)."""
+        """AÃ±ade una lÃ­nea al ledger (append-only)."""
         with self.claims_file.open("a", encoding="utf-8") as f:
             f.write(json.dumps(claim.to_dict(), ensure_ascii=False) + "\n")
 
@@ -204,7 +206,7 @@ class ClaimLedger:
         stdout: str = "",
         notes: str = "",
     ) -> str:
-        """Añade un claim y devuelve su claim_id."""
+        """AÃ±ade un claim y devuelve su claim_id."""
         c = Claim(
             claim      = claim,
             basis      = basis,
@@ -263,12 +265,12 @@ class ClaimLedger:
         self.update_status(claim_id, new_status, notes="auto-verified by ClaimLedger.verify()")
         return ok
 
-    # ── Reporte ───────────────────────────────────────────────────────────────
+    # â”€â”€ Reporte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def report(self) -> dict[str, Any]:
         """Resumen del ledger para validate y evidencias."""
         all_claims = self.load_all()
-        # Para cada claim_id, el último estado es el que manda
+        # Para cada claim_id, el Ãºltimo estado es el que manda
         latest: dict[str, Claim] = {}
         for c in all_claims:
             latest[c.claim_id] = c
@@ -289,7 +291,7 @@ class ClaimLedger:
         }
 
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+# â”€â”€ CLI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _cli(argv: list[str] | None = None) -> int:
     import argparse
@@ -297,12 +299,12 @@ def _cli(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-path", default=".", help="Directorio base del proyecto")
     sub = parser.add_subparsers(dest="action")
 
-    add_p = sub.add_parser("add", help="Añade un claim trazable")
-    add_p.add_argument("--claim",     required=True, help="Texto de la afirmación")
+    add_p = sub.add_parser("add", help="AÃ±ade un claim trazable")
+    add_p.add_argument("--claim",     required=True, help="Texto de la afirmaciÃ³n")
     add_p.add_argument("--basis",     required=True, choices=BASIS_TYPES, help="Tipo de evidencia")
-    add_p.add_argument("--command",   default="", help="Comando que generó la evidencia")
+    add_p.add_argument("--command",   default="", help="Comando que generÃ³ la evidencia")
     add_p.add_argument("--artifacts", default="", help="Rutas de artefactos separadas por coma")
-    add_p.add_argument("--limits",    default="", help="Límites de lo que prueba esta evidencia")
+    add_p.add_argument("--limits",    default="", help="LÃ­mites de lo que prueba esta evidencia")
     add_p.add_argument("--status",    default=STATUS_OPEN, choices=[STATUS_OPEN, STATUS_SIMULATED, STATUS_VERIFIED])
     add_p.add_argument("--stdout",    default="", help="Salida capturada del comando")
     add_p.add_argument("--notes",     default="")
@@ -330,7 +332,7 @@ def _cli(argv: list[str] | None = None) -> int:
             stdout    = args.stdout,
             notes     = args.notes,
         )
-        print(f"✓ Claim registrado: {cid}")
+        print(f"âœ“ Claim registrado: {cid}")
         return 0
 
     if args.action == "list":
@@ -344,19 +346,19 @@ def _cli(argv: list[str] | None = None) -> int:
             print("(sin claims)")
             return 0
         for c in sorted(filtered, key=lambda x: x.recorded_at):
-            print(f"  [{c.status:10}] {c.claim_id} — {c.claim[:70]}")
+            print(f"  [{c.status:10}] {c.claim_id} â€” {c.claim[:70]}")
             if c.command:
                 print(f"             cmd: {c.command}")
             if c.limits:
-                print(f"          límite: {c.limits}")
+                print(f"          lÃ­mite: {c.limits}")
         return 0
 
     if args.action == "verify":
         ok = ledger.verify(args.claim_id)
         if ok:
-            print(f"✓ Claim {args.claim_id} verificado (artefactos presentes)")
+            print(f"âœ“ Claim {args.claim_id} verificado (artefactos presentes)")
         else:
-            print(f"✗ Claim {args.claim_id} FAILED (artefactos ausentes o claim no encontrado)")
+            print(f"âœ— Claim {args.claim_id} FAILED (artefactos ausentes o claim no encontrado)")
         return 0 if ok else 1
 
     if args.action == "report":
@@ -392,7 +394,7 @@ def _run_tests() -> int:
         assert ledger.get(cid) is not None
         assert ledger.report()["open"] == 1
 
-        # Verificar: sin artefactos → verified (nada que comprobar)
+        # Verificar: sin artefactos â†’ verified (nada que comprobar)
         ok = ledger.verify(cid)
         assert ok, "verify sin artefactos debe ser True"
         assert ledger.get(cid).status == STATUS_VERIFIED
