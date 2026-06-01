@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 launcher.py — BAGO Launcher
 
@@ -6,7 +6,7 @@ Punto de entrada principal para BAGO CLI.
 Encarga:
 1. Parsear argumentos
 2. Detectar comando (chat, validate, config, help)
-3. Delegar al mÃ³dulo correspondiente
+3. Delegar al módulo correspondiente
 """
 
 from __future__ import annotations
@@ -180,7 +180,7 @@ def cmd_llm(args: argparse.Namespace) -> int:
             try:
                 provider = installed[int(choice) - 1]["name"]
             except Exception:
-                print("SelecciÃ³n invÃ¡lida.")
+                print("Selección inválida.")
                 return 1
         elif installed:
             provider = installed[0]["name"]
@@ -190,7 +190,7 @@ def cmd_llm(args: argparse.Namespace) -> int:
 
     if provider in EXPERIMENTAL_PROVIDERS and not getattr(args, "include_experimental", False):
         print(f"Provider experimental fuera del camino principal: {provider}")
-        print("Usa --include-experimental si quieres probarlo explÃ­citamente.")
+        print("Usa --include-experimental si quieres probarlo explícitamente.")
         return 1
     if provider not in all_names:
         print(f"Provider no registrado: {provider}")
@@ -301,7 +301,7 @@ def cmd_rl(args: argparse.Namespace) -> int:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    """Gate real de validaciÃ³n â€” no solo health checks de providers."""
+    """Gate real de validación — no solo health checks de providers."""
     import ast
     import json as _json
     import re
@@ -318,15 +318,15 @@ def cmd_validate(args: argparse.Namespace) -> int:
         if not ok:
             fails += 1
         checks.append({"check": name, "status": status, "detail": detail})
-        marker = "âœ“" if ok else "âœ—"
+        marker = "✓" if ok else "✗"
         line = f"  [{marker}] {name}"
         if detail:
-            line += f" â€” {detail}"
+            line += f" — {detail}"
         print(line)
 
-    print("\nBAGO VALIDATE\n" + "â”€" * 40)
+    print("\nBAGO VALIDATE\n" + "─" * 40)
 
-    # â”€â”€ 1. Syntax: compilar todos los .py en .bago/ y bago_core/ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 1. Syntax: compilar todos los .py en .bago/ y bago_core/ ──────────────
     py_errors: list[str] = []
     for search_root in [bago_dir, base / "bago_core"]:
         if not search_root.exists():
@@ -341,7 +341,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 py_errors.append(f"{py_file.relative_to(base)}: {e}")
     _check("syntax", not py_errors, f"{len(py_errors)} error(es)" if py_errors else "todos los .py compilables")
 
-    # â”€â”€ 2. Contratos presentes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 2. Contratos presentes ─────────────────────────────────────────────────
     contracts_dir = base / "docs" / "contracts"
     required_contracts = [
         "bago_v4_runtime_contract.json",
@@ -355,7 +355,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     _check("contracts_present", not missing_contracts,
            f"faltan: {missing_contracts}" if missing_contracts else f"{len(required_contracts)} contratos presentes")
 
-    # â”€â”€ 3. auto_allow_tools = false â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 3. auto_allow_tools = false ────────────────────────────────────────────
     config_file = bago_dir / "config.json"
     config_manager_file = bago_dir / "core" / "config_manager.py"
     auto_allow_ok = False
@@ -383,7 +383,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         config_detail = f"runtime={runtime_val}, default={default_val}"
     _check("auto_allow_tools_false", auto_allow_ok, config_detail)
 
-    # â”€â”€ 4. execute_command sin shell=True expuesto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 4. execute_command sin shell=True expuesto ─────────────────────────────
     tool_registry = bago_dir / "core" / "tool_registry.py"
     shell_true_ok = True
     shell_detail = "tool_registry.py no encontrado"
@@ -399,7 +399,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         shell_detail = f"{len(exposed)} ocurrencia(s) de shell=True" if exposed else "no expuesto"
     _check("no_shell_true", shell_true_ok, shell_detail)
 
-    # â”€â”€ 5. API no arranca en 0.0.0.0 por defecto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 5. API no arranca en 0.0.0.0 por defecto ──────────────────────────────
     bridge_file = bago_dir / "api" / "bridge.py"
     api_host_ok = True
     api_detail = "bridge.py no encontrado"
@@ -408,10 +408,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
         # Buscar HTTPServer(("0.0.0.0" como hardcode (no dentro de self.host)
         hardcoded = re.search(r'HTTPServer\(\s*\(\s*["\']0\.0\.0\.0["\']', src)
         api_host_ok = hardcoded is None
-        api_detail = "hardcode 0.0.0.0 detectado" if hardcoded else "host proviene de parÃ¡metro"
+        api_detail = "hardcode 0.0.0.0 detectado" if hardcoded else "host proviene de parámetro"
     _check("api_host_not_hardcoded", api_host_ok, api_detail)
 
-    # â”€â”€ 6. CORS sin wildcard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 6. CORS sin wildcard ──────────────────────────────────────────────────
     cors_ok = True
     cors_detail = "bridge.py no encontrado"
     if bridge_file.exists():
@@ -421,7 +421,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         cors_detail = "sin wildcard" if cors_ok else "wildcard CORS detectado"
     _check("cors_no_wildcard", cors_ok, cors_detail)
 
-    # â”€â”€ 7. .gitignore excluye .bago/state/ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 7. .gitignore excluye .bago/state/ ────────────────────────────────────
     gitignore = base / ".gitignore"
     gitignore_ok = False
     gitignore_detail = ".gitignore no encontrado"
@@ -431,7 +431,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         gitignore_detail = "excluye .bago/state/" if gitignore_ok else ".bago/state/ no excluido"
     _check("state_excluded_from_vcs", gitignore_ok, gitignore_detail)
 
-    # â”€â”€ 8. Culpas abiertas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 8. Culpas abiertas ─────────────────────────────────────────────────────
     culpas_file = bago_dir / "state" / "culpas" / "culpas.jsonl"
     culpas_ok = True
     culpas_detail = "sin culpas registradas"
@@ -451,7 +451,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         culpas_detail = f"{len(open_culpas)} culpas abiertas: {open_culpas}" if open_culpas else "sin culpas abiertas"
     _check("no_open_culpas", culpas_ok, culpas_detail)
 
-    # â”€â”€ 8. Claims ledger: no hay claims fallados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 8. Claims ledger: no hay claims fallados ───────────────────────────────
     claims_file = bago_dir / "state" / "evidence" / "claims.jsonl"
     claims_ok = True
     claims_detail = "sin claims registrados"
@@ -471,8 +471,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
             claims_detail = f"error al leer ledger: {exc}"
     _check("no_failed_claims", claims_ok, claims_detail)
 
-    # â”€â”€ 9. Provider health (comportamiento original, ahora un check mÃ¡s) â”€â”€â”€â”€â”€â”€â”€
-    print("  [â†’] provider_health (requiere providers activos):")
+    # ── 9. Provider health (comportamiento original, ahora un check más) ───────
+    print("  [→] provider_health (requiere providers activos):")
     sys.path.insert(0, str(bago_dir / "core"))
     try:
         from session_manager import SessionManager
@@ -484,28 +484,28 @@ def cmd_validate(args: argparse.Namespace) -> int:
                     try:
                         inst = adapter_cls(config=mgr.config.provider_config(name))
                         health = inst.health_check()
-                        marker = "âœ“" if health.ok else "Â·"
-                        print(f"       [{marker}] {name:15} â€” {health.detail}")
+                        marker = "✓" if health.ok else "·"
+                        print(f"       [{marker}] {name:15} — {health.detail}")
                         if health.ok:
                             any_provider_ok = True
                     except Exception as exc:
-                        print(f"       [Â·] {name:15} â€” error: {exc}")
+                        print(f"       [·] {name:15} — error: {exc}")
             finally:
                 mgr.close()
         _check("at_least_one_provider_healthy", any_provider_ok,
-               "al menos un provider responde" if any_provider_ok else "ningÃºn provider disponible (normal si no hay LLM activo)")
+               "al menos un provider responde" if any_provider_ok else "ningún provider disponible (normal si no hay LLM activo)")
     except Exception as exc:
         _check("at_least_one_provider_healthy", False, f"error al cargar session_manager: {exc}")
 
-    # â”€â”€ Resultado final â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    print("\n" + "â”€" * 40)
+    # ── Resultado final ────────────────────────────────────────────────────────
+    print("\n" + "─" * 40)
     if fails == 0:
-        print(f"âœ“ VALIDATE PASS â€” {len(checks)} checks OK")
+        print(f"✓ VALIDATE PASS — {len(checks)} checks OK")
     else:
-        print(f"âœ— VALIDATE FAIL â€” {fails}/{len(checks)} checks fallaron")
+        print(f"✗ VALIDATE FAIL — {fails}/{len(checks)} checks fallaron")
         for c in checks:
             if c["status"] == "FAIL":
-                print(f"  â†’ [{c['check']}]: {c['detail']}")
+                print(f"  → [{c['check']}]: {c['detail']}")
     print()
     return 0 if fails == 0 else 1
 
@@ -568,7 +568,7 @@ def cmd_config(args: argparse.Namespace) -> int:
                 except ValueError:
                     val_parsed = val
         cm.set(args.key, val_parsed)
-        print(f"âœ“ {args.key} = {val_parsed}")
+        print(f"✓ {args.key} = {val_parsed}")
         return 0
 
     if args.config_cmd == "get":
@@ -579,7 +579,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         return 0
 
     if args.config_cmd == "list" or args.config_cmd is None:
-        print(f"ConfiguraciÃ³n de BAGO {_BAGO_VERSION}:")
+        print(f"Configuración de BAGO {_BAGO_VERSION}:")
         print(f"  Base path      : {args.base_path or os.getcwd()}")
         print(f"  Default provider: {cm.default_provider}")
         print(f"  Default model   : {cm.default_model}")
@@ -590,7 +590,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         print("\nProviders:")
         for name in cm.get("providers", {}):
             enabled = cm.is_provider_enabled(name)
-            status = "âœ“" if enabled else "âœ—"
+            status = "✓" if enabled else "✗"
             has_creds = creds.is_configured(name)
             cred_status = " [cred]" if has_creds else ""
             print(f"  [{status}] {name:15}{cred_status}")
@@ -598,7 +598,7 @@ def cmd_config(args: argparse.Namespace) -> int:
 
     if args.config_cmd == "reset":
         cm.reset()
-        print("âœ“ ConfiguraciÃ³n restaurada a valores por defecto.")
+        print("✓ Configuración restaurada a valores por defecto.")
         return 0
 
     print("Uso: bago config [set|get|list|reset]")
@@ -897,7 +897,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("chat", help="Inicia el REPL de chat")
     sub.add_parser("launch", help="Alias de chat: inicia BAGO")
-    sub.add_parser("validate", help="Gate real de validaciÃ³n: security, contratos, culpas, claims, providers")
+    sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
 
     install_parser = sub.add_parser("install", help="Instala/repara BAGO desde la copia local, sin descarga")
     install_parser.add_argument("--source-root", default="", help="Raiz local desde la que instalar")
@@ -918,9 +918,9 @@ def main(argv: list[str] | None = None) -> int:
     uninstall_parser.add_argument("--no-elevate", action="store_true", help=argparse.SUPPRESS)
     uninstall_parser.add_argument("--elevated-child", action="store_true", help=argparse.SUPPRESS)
 
-    claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger â€” afirmaciones trazables")
+    claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger — afirmaciones trazables")
     claim_sub = claim_parser.add_subparsers(dest="claim_action")
-    claim_add = claim_sub.add_parser("add", help="AÃ±ade un claim trazable")
+    claim_add = claim_sub.add_parser("add", help="Añade un claim trazable")
     claim_add.add_argument("--claim",     dest="claim_text", required=True)
     claim_add.add_argument("--basis",     required=True)
     claim_add.add_argument("--command",   default="")
@@ -935,14 +935,14 @@ def main(argv: list[str] | None = None) -> int:
     claim_verify.add_argument("claim_id")
     claim_sub.add_parser("report", help="Resumen del ledger")
 
-    config_parser = sub.add_parser("config", help="Gestiona configuraciÃ³n")
+    config_parser = sub.add_parser("config", help="Gestiona configuración")
     config_sub = config_parser.add_subparsers(dest="config_cmd", help="Subcomandos de config")
     config_set_parser = config_sub.add_parser("set", help="Establece clave de config")
     config_set_parser.add_argument("key", nargs="?")
     config_set_parser.add_argument("value", nargs=argparse.REMAINDER)
     config_get_parser = config_sub.add_parser("get", help="Obtiene clave de config")
     config_get_parser.add_argument("key", nargs="?")
-    config_sub.add_parser("list", help="Lista configuraciÃ³n completa")
+    config_sub.add_parser("list", help="Lista configuración completa")
     config_sub.add_parser("reset", help="Restaura defaults")
 
     llm_parser = sub.add_parser("llm", help="Gestiona arranque provider-aware")
@@ -951,10 +951,10 @@ def main(argv: list[str] | None = None) -> int:
     llm_sub.add_parser("list", help="Lista providers instalados/configurados y disponibles")
     llm_start = llm_sub.add_parser("start", help="Inicia BAGO con provider/modelo seleccionado")
     llm_start.add_argument("--provider", dest="llm_provider", default="", help="Provider instalado/configurado")
-    llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesiÃ³n")
+    llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesión")
     llm_start.add_argument("--allow-unconfigured", action="store_true", help="Permite arrancar contra provider no configurado")
     llm_start.add_argument("--persist-default", action="store_true", help="Guarda provider/modelo como default")
-    llm_start.add_argument("--dry-run", action="store_true", help="Registra selecciÃ³n sin abrir chat")
+    llm_start.add_argument("--dry-run", action="store_true", help="Registra selección sin abrir chat")
 
     engine_parser = sub.add_parser("engine", help="Estado del backend avanzado bago_true")
     engine_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
@@ -991,7 +991,7 @@ def main(argv: list[str] | None = None) -> int:
     serve_parser = sub.add_parser("serve", help="Inicia servidor API HTTP")
     serve_parser.add_argument("--host", default="127.0.0.1", help="Host de escucha (default: 127.0.0.1). Usar 0.0.0.0 requiere --token.")
     serve_parser.add_argument("--port", type=int, default=8080, help="Puerto (default: 8080)")
-    serve_parser.add_argument("--token", default="", help="Token de autenticaciÃ³n API")
+    serve_parser.add_argument("--token", default="", help="Token de autenticación API")
     serve_parser.add_argument("--ui-dist", default="", help="Directorio dist de la UI React (si se omite, intenta ui-react\\dist)")
 
     evidence_parser = sub.add_parser("evidence", help="Genera bundle de evidencias verificables")

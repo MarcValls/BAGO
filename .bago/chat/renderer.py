@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 renderer.py — BAGO Chat Visual Renderer
 
@@ -132,7 +132,7 @@ def magenta(text: str) -> str:
 
 
 def box(title: str, lines: list[str], width: int = 60) -> str:
-    """Dibuja una caja con tÃ­tulo."""
+    """Dibuja una caja con título."""
     def visible_len(text: str) -> int:
         return len(_ANSI_RE.sub("", text))
 
@@ -140,14 +140,14 @@ def box(title: str, lines: list[str], width: int = 60) -> str:
         return text + (" " * max(0, inner_width - visible_len(text)))
 
     inner_width = width - 3
-    top = "â”Œ" + "â”€" * (width - 2) + "â”"
-    title_line = f"â”‚ {pad(bold(title), inner_width)}â”‚"
-    sep = "â”œ" + "â”€" * (width - 2) + "â”¤"
+    top = "┌" + "─" * (width - 2) + "┐"
+    title_line = f"│ {pad(bold(title), inner_width)}│"
+    sep = "├" + "─" * (width - 2) + "┤"
     body = []
     for line in lines:
         # Truncate or wrap if needed; keep simple for now
-        body.append(f"â”‚ {pad(line, inner_width)}â”‚")
-    bottom = "â””" + "â”€" * (width - 2) + "â”˜"
+        body.append(f"│ {pad(line, inner_width)}│")
+    bottom = "└" + "─" * (width - 2) + "┘"
     return "\n".join([top, title_line, sep] + body + [bottom])
 
 
@@ -167,13 +167,13 @@ def banner() -> str:
 
 
 def status_line(provider: str, model: str, tokens: int, health_ok: bool) -> str:
-    """LÃ­nea compacta de estado."""
-    h = ok("â—") if health_ok else error("â—")
-    return f"{h} {accent(provider)}/{bold(model)} Â· {dim(str(tokens) + ' tok')}"
+    """Línea compacta de estado."""
+    h = ok("●") if health_ok else error("●")
+    return f"{h} {accent(provider)}/{bold(model)} · {dim(str(tokens) + ' tok')}"
 
 
 def print_message(role: str, content: str) -> None:
-    """Imprime un mensaje del chat con color segÃºn rol."""
+    """Imprime un mensaje del chat con color según rol."""
     if role == "user":
         prefix = bold("You")
         color = Color.BRIGHT_WHITE
@@ -196,16 +196,16 @@ def print_message(role: str, content: str) -> None:
 
 
 def print_switch_notification(result: dict) -> None:
-    """NotificaciÃ³n visual de cambio de provider."""
+    """Notificación visual de cambio de provider."""
     if not result.get("ok"):
-        print(error(f"âŒ Switch fallido: {result.get('error', 'unknown')}"))
+        print(error(f"❌ Switch fallido: {result.get('error', 'unknown')}"))
         return
 
     old = f"{result.get('old_provider')}/{result.get('old_model')}"
     new = f"{result.get('new_provider')}/{result.get('new_model')}"
-    print(ok(f"âœ“ Switch: {dim(old)} â†’ {bold(new)}"))
+    print(ok(f"✓ Switch: {dim(old)} → {bold(new)}"))
     for w in result.get("warnings", []):
-        print(warn(f"  âš  {w}"))
+        print(warn(f"  ⚠ {w}"))
 
 
 def print_table(headers: list[str], rows: list[list[str]]) -> None:
@@ -216,9 +216,9 @@ def print_table(headers: list[str], rows: list[list[str]]) -> None:
             col_widths[i] = max(col_widths[i], len(cell))
 
     def fmt(row: list[str]) -> str:
-        return " â”‚ ".join(f"{cell:<{col_widths[i]}}" for i, cell in enumerate(row))
+        return " │ ".join(f"{cell:<{col_widths[i]}}" for i, cell in enumerate(row))
 
-    sep = "â”€â”¼â”€".join("â”€" * (w + 2) for w in col_widths)
+    sep = "─┼─".join("─" * (w + 2) for w in col_widths)
     print(bold(fmt(headers)))
     print(sep)
     for row in rows:
@@ -232,7 +232,7 @@ def _run_tests() -> int:
     print()
     print(status_line("ollama-local", "qwen2.5:14b", 1234, True))
     print_message("user", "Hola")
-    print_message("assistant", "Hola, Â¿quÃ© tal?")
+    print_message("assistant", "Hola, ¿qué tal?")
     print_switch_notification({"ok": True, "old_provider": "codex", "old_model": "gpt-4o", "new_provider": "anthropic", "new_model": "claude-sonnet-4", "warnings": ["Downgrade detectado"]})
     return 0
 

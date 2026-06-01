@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 api_bridge.py — BAGO HTTP API Bridge
 
@@ -150,7 +150,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         try:
             candidate.relative_to(static_root)
         except ValueError:
-            self._send_json(403, {"error": "Ruta estÃ¡tica invÃ¡lida"})
+            self._send_json(403, {"error": "Ruta estática inválida"})
             return True
 
         if candidate.is_file():
@@ -184,7 +184,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
 
         if self._is_api_path(path):
             if not self._check_auth():
-                self._send_json(401, {"error": "Unauthorized â€” X-Bago-Token requerido"})
+                self._send_json(401, {"error": "Unauthorized — X-Bago-Token requerido"})
                 return
 
             if path == "/status":
@@ -217,7 +217,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if not self._check_auth():
-            self._send_json(401, {"error": "Unauthorized â€” X-Bago-Token requerido"})
+            self._send_json(401, {"error": "Unauthorized — X-Bago-Token requerido"})
             return
         parsed = urlparse(self.path)
         path = parsed.path
@@ -238,7 +238,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
 
-    # â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Handlers ─────────────────────────────────────────────────────
 
     def _handle_status(self) -> None:
         mgr = self.session_mgr
@@ -312,7 +312,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         mode = str(body.get("mode", "")).strip()
         if mode not in ("all", "available-only"):
-            self._send_json(400, {"error": "Modo invÃ¡lido. Usa all|available-only"})
+            self._send_json(400, {"error": "Modo inválido. Usa all|available-only"})
             return
         mgr.config.set("model_catalog.mode", mode)
         mgr._providers_cache = None
@@ -532,7 +532,7 @@ class BagoAPIServer:
     ):
         if host != "127.0.0.1" and not token:
             raise RuntimeError(
-                f"No se puede exponer BAGO en {host} sin token de autenticaciÃ³n. "
+                f"No se puede exponer BAGO en {host} sin token de autenticación. "
                 "Proporciona --token o usa --host 127.0.0.1."
             )
         self.session_mgr = session_mgr
@@ -563,7 +563,7 @@ class BagoAPIServer:
         if self.token:
             print(f"[API] Token requerido: {self.token[:4]}***")
         else:
-            print("[API] Sin token â€” acceso permitido solo desde localhost")
+            print("[API] Sin token — acceso permitido solo desde localhost")
         if self.static_dir:
             print(f"[API] UI React servida desde: {self.static_dir}")
 

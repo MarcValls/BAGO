@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-openrouter.py â€” BAGO 4.1.5 OpenRouter Provider Adapter
+openrouter.py — BAGO 4.1.5 OpenRouter Provider Adapter
 
 Adapter para OpenRouter (https://openrouter.ai).
 API OpenAI-compatible. Requiere OPENROUTER_API_KEY.

@@ -2,11 +2,11 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-system_prompt.py â€” BAGO 4.1.5 Neutral System Prompt
+system_prompt.py — BAGO 4.1.5 Neutral System Prompt
 
 Prompt de sistema sin gates artificiales.
-El modelo actÃºa con sus capacidades nativas.
-Solo se define identidad, contexto de sesiÃ³n y formato de respuesta.
+El modelo actúa con sus capacidades nativas.
+Solo se define identidad, contexto de sesión y formato de respuesta.
 """
 
 from __future__ import annotations

@@ -2,15 +2,15 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-ollama_cloud.py â€” BAGO 4.1.5 Ollama Cloud Provider Adapter
+ollama_cloud.py — BAGO 4.1.5 Ollama Cloud Provider Adapter
 
 Adapter para instancias Ollama remotas (cloud/self-hosted).
 Mismo protocolo que Ollama local pero con URL configurable
-y soporte opcional de autenticaciÃ³n (API key o Bearer token).
+y soporte opcional de autenticación (API key o Bearer token).
 
 Variables de entorno:
-  OLLAMA_CLOUD_URL   â€” URL base del endpoint remoto
-  OLLAMA_CLOUD_KEY   â€” API key opcional
+  OLLAMA_CLOUD_URL   — URL base del endpoint remoto
+  OLLAMA_CLOUD_KEY   — API key opcional
 """
 
 from __future__ import annotations

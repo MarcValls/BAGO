@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-message_adapter.py â€” BAGO 4.1.5 Message Adapter
+message_adapter.py — BAGO 4.1.5 Message Adapter
 
 Normaliza el formato de mensajes entre diferentes providers para que
 el ContextStore.history[] sea portable.
@@ -14,7 +14,7 @@ Providers soportados y sus formatos:
 
 - Anthropic Claude:
     [{"role": "user"|"assistant", "content": str}]
-    system va como parÃ¡metro separado, no en la lista.
+    system va como parámetro separado, no en la lista.
 
 - Ollama (chat):
     [{"role": "system"|"user"|"assistant", "content": str}]
@@ -74,8 +74,8 @@ class BaseMessageAdapter(ABC):
     def compress_for_provider(self, messages: list[dict], max_tokens: int) -> list[dict]:
         """
         Si el historial excede max_tokens, comprime mensajes antiguos.
-        Por defecto: trunca manteniendo system + Ãºltimos N.
-        Override en subclases para compresiÃ³n inteligente.
+        Por defecto: trunca manteniendo system + últimos N.
+        Override en subclases para compresión inteligente.
         """
         # BAGO native format: OpenAI-like
         system_msgs = [m for m in messages if m.get("role") == "system"]
@@ -87,7 +87,7 @@ class BaseMessageAdapter(ABC):
 
 
 class OpenAIAdapter(BaseMessageAdapter):
-    """OpenAI, Codex, Copilot, GitHub Models â€” todos usan el mismo formato."""
+    """OpenAI, Codex, Copilot, GitHub Models — todos usan el mismo formato."""
 
     def to_provider(self, messages: list[dict], *, system: str = "") -> list[dict]:
         result = []
@@ -126,7 +126,7 @@ class OpenAIAdapter(BaseMessageAdapter):
 
 
 class AnthropicAdapter(BaseMessageAdapter):
-    """Anthropic Claude: system es parÃ¡metro separado, no en la lista."""
+    """Anthropic Claude: system es parámetro separado, no en la lista."""
 
     def to_provider(self, messages: list[dict], *, system: str = "") -> list[dict]:
         result = []
@@ -244,10 +244,10 @@ class GeminiAdapter(BaseMessageAdapter):
         return True
 
 
-# â”€â”€ Dispatcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Dispatcher ──────────────────────────────────────────────────────────────
 
 class MessageAdapter:
-    """Dispatcher que selecciona el adapter correcto segÃºn el provider."""
+    """Dispatcher que selecciona el adapter correcto según el provider."""
 
     def to_provider(self, messages: list[dict], provider: str, *, system: str = "") -> list[dict]:
         adapter = get_adapter(provider)
@@ -266,7 +266,7 @@ class MessageAdapter:
         return adapter.supports_tools()
 
 
-# â”€â”€ Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Registry ─────────────────────────────────────────────────────────────────
 
 _ADAPTERS: dict[str, type[BaseMessageAdapter]] = {
     "openai": OpenAIAdapter,
@@ -295,7 +295,7 @@ def _run_tests() -> int:
     history = [
         {"role": "system", "content": "Eres BAGO."},
         {"role": "user", "content": "Hola"},
-        {"role": "assistant", "content": "Â¡Hola!"},
+        {"role": "assistant", "content": "¡Hola!"},
     ]
 
     # OpenAI adapter

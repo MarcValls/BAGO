@@ -2,16 +2,16 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-context_compressor.py â€” BAGO 4.1.5 Hierarchical Layer Compression
+context_compressor.py — BAGO 4.1.5 Hierarchical Layer Compression
 
-CompresiÃ³n por capas para downgrades de modelo:
+Compresión por capas para downgrades de modelo:
 - Las capas se enlazan formando bloques unificados.
 - Cada nueva capa compacta: su propio contenido + el bloque anterior.
-- Los mensajes marcados como "good" (documentados) sobreviven sin diluciÃ³n.
-- Los demÃ¡s se resumen, perdiendo detalle progresivamente.
+- Los mensajes marcados como "good" (documentados) sobreviven sin dilución.
+- Los demás se resumen, perdiendo detalle progresivamente.
 
-Arquitectura atÃ³mica:
-  Layer â†’ Block â†’ Unified Block â†’ ... â†’ Final Compressed Context
+Arquitectura atómica:
+  Layer → Block → Unified Block → ... → Final Compressed Context
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ class MessageNode:
     role: str
     content: str
     layer_id: int
-    good: bool = False  # Si True, no se diluye en compresiÃ³n
+    good: bool = False  # Si True, no se diluye en compresión
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -65,7 +65,7 @@ class MessageNode:
 
 @dataclass
 class Layer:
-    """Una capa de interacciÃ³n (user message + assistant response)."""
+    """Una capa de interacción (user message + assistant response)."""
     layer_id: int
     user: MessageNode | None = None
     assistant: MessageNode | None = None
@@ -74,7 +74,7 @@ class Layer:
     compressed: bool = False
 
     def token_estimate(self) -> int:
-        """EstimaciÃ³n rÃ¡pida de tokens (~4 chars por token)."""
+        """Estimación rápida de tokens (~4 chars por token)."""
         total = 0
         for node in (self.user, self.assistant, self.system):
             if node:
@@ -104,7 +104,7 @@ class Layer:
 
 
 class ContextCompressor:
-    """Compresor jerÃ¡rquico por capas."""
+    """Compresor jerárquico por capas."""
 
     def __init__(self, target_tokens: int = 4096, char_per_token: int = 4):
         self.target_tokens = target_tokens
@@ -145,7 +145,7 @@ class ContextCompressor:
         if layer.system and layer.system.good:
             parts.append(f"[SYS] {layer.system.content[:200]}")
         elif layer.system and not layer.compressed:
-            parts.append(f"[SYS-instrucciÃ³n base]")
+            parts.append(f"[SYS-instrucción base]")
 
         if layer.user and layer.user.good:
             parts.append(f"[USER-GOOD] {layer.user.content[:300]}")
@@ -157,14 +157,14 @@ class ContextCompressor:
         elif layer.assistant:
             parts.append(f"[ASSISTANT] {self._extract_key_points(layer.assistant.content)}")
 
-        return " | ".join(parts) if parts else "[capa vacÃ­a]"
+        return " | ".join(parts) if parts else "[capa vacía]"
 
     def _extract_key_points(self, text: str, max_words: int = 15) -> str:
-        """ExtracciÃ³n ultra-ligera de puntos clave."""
+        """Extracción ultra-ligera de puntos clave."""
         words = text.split()
         if len(words) <= max_words:
             return text
-        # HeurÃ­stica: primera oraciÃ³n + Ãºltima oraciÃ³n
+        # Heurística: primera oración + última oración
         first_sentence = " ".join(words[:max_words])
         last_sentence = " ".join(words[-max_words:]) if len(words) > max_words * 2 else ""
         if last_sentence and last_sentence != first_sentence:
@@ -173,11 +173,11 @@ class ContextCompressor:
 
     def compress_layers(self, layers: list[Layer]) -> list[Layer]:
         """
-        CompresiÃ³n por capas enlazadas:
-        - Capa 1 â†’ resumen (bloque A)
-        - Capa 2 â†’ resumen + bloque A â†’ nuevo bloque unificado B
-        - Capa 3 â†’ resumen + bloque B â†’ bloque C
-        - Y asÃ­ sucesivamente...
+        Compresión por capas enlazadas:
+        - Capa 1 → resumen (bloque A)
+        - Capa 2 → resumen + bloque A → nuevo bloque unificado B
+        - Capa 3 → resumen + bloque B → bloque C
+        - Y así sucesivamente...
         """
         if not layers:
             return []
@@ -187,7 +187,7 @@ class ContextCompressor:
 
         for i, layer in enumerate(layers):
             if layer.layer_id == 0:
-                # Capa 0 (system) siempre se preserva Ã­ntegra o resumida
+                # Capa 0 (system) siempre se preserva íntegra o resumida
                 if layer.system and layer.system.good:
                     compressed.append(layer)
                 else:
@@ -283,15 +283,15 @@ class LayerStore:
         return False
 
 
-# â”€â”€ Quick test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Quick test ────────────────────────────────────────────────────────
 
 def _run_tests() -> int:
     # Test Layer building
     history = [
-        {"role": "system", "content": "Eres un asistente Ãºtil.", "metadata": {"good": True}},
-        {"role": "user", "content": "ExplÃ­came la teorÃ­a de la relatividad en detalle.", "metadata": {}},
-        {"role": "assistant", "content": "La relatividad de Einstein establece que el espacio y el tiempo estÃ¡n interconectados... [texto largo]", "metadata": {}},
-        {"role": "user", "content": "Â¿Y la relatividad general?", "metadata": {}},
+        {"role": "system", "content": "Eres un asistente útil.", "metadata": {"good": True}},
+        {"role": "user", "content": "Explícame la teoría de la relatividad en detalle.", "metadata": {}},
+        {"role": "assistant", "content": "La relatividad de Einstein establece que el espacio y el tiempo están interconectados... [texto largo]", "metadata": {}},
+        {"role": "user", "content": "¿Y la relatividad general?", "metadata": {}},
         {"role": "assistant", "content": "La relatividad general extiende la especial incluyendo la gravedad como curvatura del espaciotiempo...", "metadata": {}},
     ]
 
@@ -299,7 +299,7 @@ def _run_tests() -> int:
     layers = compressor.build_layers(history)
     assert len(layers) == 3  # system (0), capa 1, capa 2
     assert layers[0].system is not None
-    assert layers[1].user.content == "ExplÃ­came la teorÃ­a de la relatividad en detalle."
+    assert layers[1].user.content == "Explícame la teoría de la relatividad en detalle."
 
     # Test compression
     compressed = compressor.compress_layers(layers)
@@ -323,7 +323,7 @@ def _run_tests() -> int:
 
     # Test compact_for_downgrade API
     result = compressor.compact_for_downgrade(history)
-    assert len(result) >= 3  # system + user + assistant mÃ­nimo
+    assert len(result) >= 3  # system + user + assistant mínimo
 
     print("context_compressor.py --test: ALL PASS")
     return 0
