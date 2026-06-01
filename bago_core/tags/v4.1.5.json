@@ -1,11 +1,11 @@
 {
   "tag": "v4.1.5",
   "version": "4.1.5",
-  "created_at": "2026-06-01T22:51:34.390259+00:00",
+  "created_at": "2026-06-01T23:22:44.073879+00:00",
   "release": {
     "checksums": "C:\\Users\\AMTEC_Terminal_1º\\.bago\\launch\\checksums.sha256",
     "bundle_id": "bago.v4.1.5",
-    "promoted_at": "2026-06-01T22:51:34.380478+00:00",
+    "promoted_at": "2026-06-01T23:22:44.065255+00:00",
     "default_model": "llama3.2:3b",
     "fallback_chain": [
       {
@@ -45,11 +45,11 @@
   },
   "signature": {
     "algorithm": "chained-sha256",
-    "signed_at": "2026-06-01T22:51:34.390247+00:00",
-    "release_sha256": "ccdc2a3dbb1aedc34b072efdffdf9269613b3cc29a28d7aacbe19d446763a54d",
-    "key_sha256": "ccdc2a3dbb1aedc34b072efdffdf9269613b3cc29a28d7aacbe19d446763a54d",
-    "checksums_sha256": "0db729e0c0d13b82b241d00d60854cea5b91e9094bf1ed345eef6a0db0af8f8f",
-    "seal_sha256": "1200b4d26aedf81d92fed1884f4eb14aab00251aa2be7fb037a6679bc49ca0b4"
+    "signed_at": "2026-06-01T23:22:44.073865+00:00",
+    "release_sha256": "71d8293b1c7e8af670a73fc5183c1799ec17493b53736f0318a41e33492dda10",
+    "key_sha256": "71d8293b1c7e8af670a73fc5183c1799ec17493b53736f0318a41e33492dda10",
+    "checksums_sha256": "a82cbd1af33d9dd62669973b65d907b82add021c9be34e3940097498aed8987a",
+    "seal_sha256": "0e06e9de999f4376589064669c44021a369834907e745b5b78a51afe232cd9d6"
   },
   "components": {
     "supervisor": "scripts/bago_supervisor.py",

@@ -13,6 +13,8 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import ctypes
+import datetime
 import json
 import os
 import socket
@@ -120,23 +122,63 @@ def check_knowledge() -> dict:
         return {"provider": "knowledge", "ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+def _pid_alive(pid: int) -> bool:
+    """Best-effort: ¿el pid está vivo en este momento? Windows-first."""
+    if not pid:
+        return False
+    try:
+        import ctypes
+        PROCESS_QUERY_LIMITED = 0x1000
+        h = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED, False, pid)
+        if not h:
+            return False
+        STILL_ACTIVE = 259
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return code.value == STILL_ACTIVE
+    except Exception:
+        return False
+
+
 def check_supervisor() -> dict:
+    """Lee supervisor.json + verifica liveness del pid. No depende de un
+    campo 'alive' pre-escrito (el supervisor lo recalcula en cada tick)."""
     state = Path.home() / ".bago" / "state" / "supervisor.json"
     if not state.exists():
         return {"provider": "supervisor", "ok": False, "error": "no instalado"}
     try:
         payload = json.loads(state.read_text(encoding="utf-8"))
-        return {
-            "provider": "supervisor",
-            "ok": bool(payload.get("alive")),
-            "version": payload.get("version"),
-            "pid": payload.get("pid"),
-            "uptime_s": payload.get("uptime_s"),
-            "events": payload.get("events", 0),
-            "children_max": payload.get("children_max", 0),
-        }
     except Exception as exc:
         return {"provider": "supervisor", "ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+    pid = payload.get("pid")
+    alive = bool(pid) and _pid_alive(int(pid))
+    started = payload.get("started_at")
+    uptime = None
+    if started:
+        try:
+            dt = datetime.datetime.fromisoformat(started) - datetime.datetime.now(datetime.timezone.utc).astimezone().replace(tzinfo=None) if False else None  # ver abajo
+        except Exception:
+            uptime = None
+    # cálculo uptime robusto:
+    if started:
+        try:
+            t0 = datetime.datetime.fromisoformat(started)
+            now = datetime.datetime.now(t0.tzinfo) if t0.tzinfo else datetime.datetime.now()
+            uptime = int((now - t0).total_seconds())
+        except Exception:
+            uptime = None
+
+    return {
+        "provider": "supervisor",
+        "ok": alive,
+        "version": payload.get("version"),
+        "pid": pid,
+        "uptime_s": uptime,
+        "events": payload.get("events", 0),
+        "children_max": payload.get("children_seen", 0),
+    }
 
 
 def check_release() -> dict:
