@@ -233,6 +233,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
             {"command": "/deny", "description": "Rechazar herramientas pendientes."},
             {"command": "/plan", "description": "Generar un plan paso a paso.", "args_prompt": "<tarea>"},
             {"command": "/autopilot", "description": "Ejecutar una tarea autonomamente.", "args_prompt": "<tarea>"},
+            {"command": "/evolve", "description": "Autoevolucionar: reentrenar intenciones desde el historial."},
         ],
     },
     {
@@ -403,6 +404,34 @@ class BagoREPL:
             atexit.register(readline.write_history_file, str(histfile))
         except ImportError:
             pass
+
+    def _auto_evolve_startup(self) -> None:
+        """BAGO START autoevoluciona: al arrancar, reentrena el clasificador de
+        intenciones con todo el historial y recarga el few-shot en caliente.
+
+        Es una 'puerta' configurable (features.auto_evolve_on_start, por defecto
+        activada). Nunca aborta el arranque: ante fallo registra culpa técnica."""
+        try:
+            enabled = self.mgr.config.get("features.auto_evolve_on_start", True)
+        except Exception:
+            enabled = True
+        if not enabled:
+            return
+
+        print(R.dim("🧬 Autoevolución: aprendiendo de tu historial…"))
+        res = self.mgr.auto_evolve()
+        if res.get("ok"):
+            counts = res.get("counts", {})
+            detail = " · ".join(f"{k}:{v}" for k, v in counts.items()) or "sin datos"
+            print(R.ok(f"Autoevolución completada — {res.get('total', 0)} ejemplos ({detail})"))
+        else:
+            # Culpa técnica visible, sin tumbar el arranque
+            print(R.warn(f"Autoevolución no completada — {res.get('causa', res.get('message', '?'))}"))
+            if res.get("responsable"):
+                print(R.dim(f"  responsable: {res['responsable']}"))
+            if res.get("prevencion"):
+                print(R.dim(f"  prevención: {res['prevencion']}"))
+        print()
 
     def _print_status(self) -> None:
         s = self.mgr.status()
@@ -578,6 +607,7 @@ class BagoREPL:
             self._setup_readline()
             self._print_banner()
             self._print_init_warnings()
+            self._auto_evolve_startup()
             self._interactive_startup()
             self._print_status()
             self.running = True

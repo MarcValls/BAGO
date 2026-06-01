@@ -135,6 +135,44 @@ class SessionManager:
         self._providers_cache_at = 0.0
         self._providers_cache_ttl = 30.0
 
+    def auto_evolve(self) -> dict:
+        """Ciclo de autoevolución de BAGO.
+
+        Reentrena el clasificador de intenciones con TODO el historial acumulado
+        (mismo primitivo que se ejecuta antes de cada compresión de contexto) y
+        recarga el dataset few-shot en caliente, de modo que la mejora surte
+        efecto en la sesión actual.
+
+        Devuelve un dict:
+          {ok: True, message, counts: {intent: n}, total}
+        o, ante fallo (culpa técnica explícita):
+          {ok: False, message, responsable, causa, prevencion}
+        """
+        try:
+            import intent_engine
+
+            message = self.tool_registry.retrain_intents()
+            counts = intent_engine.reload_examples()
+            return {
+                "ok": True,
+                "message": message,
+                "counts": counts,
+                "total": sum(counts.values()),
+            }
+        except Exception as exc:
+            # Culpa técnica: registrar responsable, causa y prevención (preferencia del usuario)
+            return {
+                "ok": False,
+                "message": f"Autoevolución no completada: {exc}",
+                "responsable": "SessionManager.auto_evolve / ToolRegistry.retrain_intents",
+                "causa": f"{type(exc).__name__}: {exc}",
+                "prevencion": (
+                    "Verificar acceso de lectura a la base de sesiones "
+                    "(~/.copilot/session-store.db) y permisos de escritura en "
+                    ".bago/core/intent_examples.json"
+                ),
+            }
+
     def _build_adapter_config(self, provider_name: str | None = None) -> dict:
         """Construye dict de config para el adapter activo desde ConfigManager + CredentialManager."""
         target_provider = provider_name or self.provider

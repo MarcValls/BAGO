@@ -231,6 +231,7 @@ Comandos disponibles:
   /tools [list|enable|disable]             Gestiona herramientas del modelo
   /plan <tarea>                           Genera plan paso a paso
   /autopilot <tarea>                       Ejecuta tarea autónomamente
+  /evolve                                  Autoevoluciona: reentrena intenciones desde tu historial
   /agents                                  Lista agentes especializados
   /agent <nombre>                          Activa un agente (coder, reviewer, etc.)
   /memory [list|search|add|delete|hybrid-add|hybrid-search]  Gestiona base de conocimiento
@@ -605,6 +606,30 @@ def cmd_memory(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
     }
 
 
+def cmd_evolve(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    """Dispara la autoevolución de BAGO: /evolve.
+
+    Reentrena el clasificador de intenciones con todo el historial y recarga el
+    few-shot en caliente para que mejore en la sesión actual."""
+    res = mgr.auto_evolve()
+    if res.get("ok"):
+        counts = res.get("counts", {})
+        detail = " · ".join(f"{k}:{v}" for k, v in counts.items()) or "sin datos"
+        return {
+            "ok": True,
+            "message": f"🧬 Autoevolución completada — {res.get('total', 0)} ejemplos ({detail})",
+        }
+    return {
+        "ok": False,
+        "message": (
+            f"🧬 {res.get('message', 'Autoevolución no completada')}\n"
+            f"  responsable: {res.get('responsable', '?')}\n"
+            f"  causa: {res.get('causa', '?')}\n"
+            f"  prevención: {res.get('prevencion', '?')}"
+        ),
+    }
+
+
 # Registry de comandos
 COMMAND_REGISTRY: dict[str, Any] = {
     "menu": cmd_menu,
@@ -629,6 +654,7 @@ COMMAND_REGISTRY: dict[str, Any] = {
     "agents": cmd_agents,
     "agent": cmd_agent,
     "memory": cmd_memory,
+    "evolve": cmd_evolve,
     "update": cmd_update,
     "help": cmd_help,
     "quit": cmd_quit,

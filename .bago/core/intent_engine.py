@@ -36,6 +36,21 @@ def _load_examples() -> Dict[str, List[Dict[str, str]]]:
 
 _DEFAULT_EXAMPLES = _load_examples()
 
+
+def reload_examples() -> Dict[str, int]:
+    """Recarga el dataset few-shot desde disco (tras una autoevolución/retrain).
+    Necesario porque el dataset se carga una sola vez al importar el módulo.
+    Devuelve el conteo de ejemplos por intención."""
+    global _DEFAULT_EXAMPLES
+    _DEFAULT_EXAMPLES = _load_examples()
+    return {k: len(v) for k, v in _DEFAULT_EXAMPLES.items()}
+
+
+def example_counts() -> Dict[str, int]:
+    """Conteo actual de ejemplos few-shot por intención."""
+    return {k: len(v) for k, v in _DEFAULT_EXAMPLES.items()}
+
+
 # Keyword heuristics for fast classification (mirrors the generation logic)
 _KEYWORDS: Dict[str, List[str]] = {
     "chat": [

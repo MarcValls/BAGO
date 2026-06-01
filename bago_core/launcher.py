@@ -917,6 +917,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("chat", help="Inicia el REPL de chat")
     sub.add_parser("launch", help="Alias de chat: inicia BAGO")
+    sub.add_parser("start", help="Inicia BAGO y autoevoluciona (alias de chat con auto-aprendizaje al arrancar)")
     sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
 
     install_parser = sub.add_parser("install", help="Instala/repara BAGO desde la copia local, sin descarga")
@@ -1029,7 +1030,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    if args.command in ("chat", "launch") or args.command is None:
+    if args.command in ("chat", "launch", "start") or args.command is None:
         return cmd_chat(args)
     elif args.command == "validate":
         return cmd_validate(args)
