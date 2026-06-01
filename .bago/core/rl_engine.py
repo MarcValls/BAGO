@@ -2,18 +2,18 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-rl_engine.py â€” BAGO 4.1.5 Reinforcement Learning Engine
+rl_engine.py — BAGO 4.1.5 Reinforcement Learning Engine
 
-MÃ³dulo de aprendizaje por refuerzo ligero para BAGO:
-- Feedback implÃ­cito/explÃ­cito del usuario sobre respuestas
+Módulo de aprendizaje por refuerzo ligero para BAGO:
+- Feedback implícito/explícito del usuario sobre respuestas
 - Aprendizaje de preferencias entre providers/modelos
-- Sugerencia automÃ¡tica de provider Ã³ptimo segÃºn el contexto
+- Sugerencia automática de provider óptimo según el contexto
 - No dependencias externas (puro Python + JSON Lines)
 
-Arquitectura atÃ³mica:
+Arquitectura atómica:
 - RewardStore: persistencia de recompensas
 - PreferenceModel: aprendizaje de preferencias por (provider, modelo, fingerprint_tarea)
-- RLPolicy: polÃ­tica de selecciÃ³n epsilon-greedy + UCB
+- RLPolicy: política de selección epsilon-greedy + UCB
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 
 class RewardStore:
-    """Persistencia append-only de recompensas por interacciÃ³n."""
+    """Persistencia append-only de recompensas por interacción."""
 
     def __init__(self, base_dir: Path | str | None = None):
         self.base_dir = Path(base_dir or os.getcwd()) / ".bago" / "state" / "rl"
@@ -79,7 +79,7 @@ class RewardStore:
 
 
 class PreferenceModel:
-    """Aprendizaje de preferencias por combinaciÃ³n (provider, model, fingerprint)."""
+    """Aprendizaje de preferencias por combinación (provider, model, fingerprint)."""
 
     def __init__(self, base_dir: Path | str | None = None):
         self.store = RewardStore(base_dir)
@@ -160,7 +160,7 @@ class PreferenceModel:
 
 
 class RLPolicy:
-    """PolÃ­tica de selecciÃ³n epsilon-greedy + UCB1."""
+    """Política de selección epsilon-greedy + UCB1."""
 
     def __init__(
         self,
@@ -220,7 +220,7 @@ class FeedbackCollector:
         response_time_ms: float,
         tokens_used: int,
     ) -> float:
-        """Calcula recompensa implÃ­cita basada en heurÃ­sticas."""
+        """Calcula recompensa implícita basada en heurísticas."""
         reward = 0.0
         # Rapidez
         if response_time_ms < 2000:
@@ -255,7 +255,7 @@ class FeedbackCollector:
         user_message: str,
         rating: float,  # -1.0 a 1.0
     ) -> None:
-        """Registra feedback explÃ­cito del usuario."""
+        """Registra feedback explícito del usuario."""
         fingerprint = self._fingerprint(user_message)
         self.pref.add_reward(session_id, provider, model, rating, fingerprint)
 
@@ -270,7 +270,7 @@ class FeedbackCollector:
         return self._fingerprint(text)
 
 
-# â”€â”€ Quick test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Quick test ────────────────────────────────────────────────────────
 
 def _run_tests() -> int:
     import tempfile

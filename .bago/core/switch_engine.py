@@ -2,15 +2,15 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-switch_engine.py â€” BAGO 4.1.5 Switch Engine
+switch_engine.py — BAGO 4.1.5 Switch Engine
 
 Motor de cambio de provider/modelo.
-- Valida configuraciÃ³n del destino
+- Valida configuración del destino
 - Revisa equivalencia y sugiere modelos
 - Adapta contexto si es necesario
-- Commit del cambio vÃ­a SessionManager
+- Commit del cambio vía SessionManager
 
-Este mÃ³dulo encapsula toda la lÃ³gica de /switch para mantener
+Este módulo encapsula toda la lógica de /switch para mantener
 SessionManager limpio y testeable.
 """
 
@@ -56,7 +56,7 @@ class SwitchResult:
 
 
 class SwitchEngine:
-    """Motor de cambio de provider con lÃ³gica de equivalencia."""
+    """Motor de cambio de provider con lógica de equivalencia."""
 
     def __init__(self, adapter_registry: dict[str, Any]):
         self._adapters = adapter_registry
@@ -78,7 +78,7 @@ class SwitchEngine:
         adapter_cls = self.adapters[provider]
         adapter = adapter_cls()
         if not adapter.is_configured():
-            return False, f"Provider '{provider}' no estÃ¡ configurado (faltan credenciales)."
+            return False, f"Provider '{provider}' no está configurado (faltan credenciales)."
 
         if model:
             available = {m.model_id for m in adapter.list_models()}
@@ -156,25 +156,25 @@ class SwitchEngine:
         if verdict == TransferVerdict.NOT_RECOMMENDED and not force:
             return SwitchResult(
                 ok=False,
-                message=f"Switch no recomendado: {current_model} â†’ {new_model}. Usa --force para forzar.",
+                message=f"Switch no recomendado: {current_model} → {new_model}. Usa --force para forzar.",
                 old_provider=current_provider, old_model=current_model,
                 new_provider=new_provider, new_model=new_model,
                 verdict=verdict, warnings=[], suggestions=suggestions, strategy=strategy,
             )
 
         if verdict == TransferVerdict.DOWNGRADE:
-            warnings.append(f"Downgrade detectado ({current_model} â†’ {new_model}). Posible pÃ©rdida de matices.")
+            warnings.append(f"Downgrade detectado ({current_model} → {new_model}). Posible pérdida de matices.")
         elif verdict == TransferVerdict.UPGRADE:
-            warnings.append(f"Upgrade detectado ({current_model} â†’ {new_model}). El nuevo modelo puede reinterpretar contexto anterior.")
+            warnings.append(f"Upgrade detectado ({current_model} → {new_model}). El nuevo modelo puede reinterpretar contexto anterior.")
         elif verdict == TransferVerdict.EQUIVALENT:
-            warnings.append(f"Transferencia equivalente ({current_model} â†’ {new_model}).")
+            warnings.append(f"Transferencia equivalente ({current_model} → {new_model}).")
 
         if strategy != TransferStrategy.DIRECT:
-            warnings.append(f"Se aplicarÃ¡ estrategia de contexto: {strategy.name}")
+            warnings.append(f"Se aplicará estrategia de contexto: {strategy.name}")
 
         return SwitchResult(
             ok=True,
-            message=f"Switch validado: {current_provider}/{current_model} â†’ {new_provider}/{new_model}",
+            message=f"Switch validado: {current_provider}/{current_model} → {new_provider}/{new_model}",
             old_provider=current_provider, old_model=current_model,
             new_provider=new_provider, new_model=new_model,
             verdict=verdict, warnings=warnings, suggestions=suggestions, strategy=strategy,
@@ -202,7 +202,7 @@ class SwitchEngine:
         switch_result = session_manager.switch(result.new_provider, result.new_model, force=force)
         if not switch_result.get("ok"):
             return SwitchResult(
-                ok=False, message=switch_result.get("error", "Switch fallÃ³"),
+                ok=False, message=switch_result.get("error", "Switch falló"),
                 old_provider=result.old_provider, old_model=result.old_model,
                 new_provider=result.new_provider, new_model=result.new_model,
                 verdict=result.verdict, warnings=result.warnings,
@@ -211,7 +211,7 @@ class SwitchEngine:
 
         return SwitchResult(
             ok=True,
-            message=f"Switch completado: {result.old_provider}/{result.old_model} â†’ {result.new_provider}/{result.new_model}",
+            message=f"Switch completado: {result.old_provider}/{result.old_model} → {result.new_provider}/{result.new_model}",
             old_provider=result.old_provider, old_model=result.old_model,
             new_provider=result.new_provider, new_model=result.new_model,
             verdict=result.verdict, warnings=result.warnings,
@@ -219,7 +219,7 @@ class SwitchEngine:
         )
 
 
-# â”€â”€ Quick test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Quick test ──────────────────────────────────────────────────────
 
 def _run_tests() -> int:
     # Mock adapter para tests independientes de red
@@ -245,7 +245,7 @@ def _run_tests() -> int:
     registry = {"mock": MockAdapter}
     engine = SwitchEngine(registry)
 
-    # Test validaciÃ³n destino no registrado
+    # Test validación destino no registrado
     ok, msg = engine.validate_target("fantasma", None)
     assert not ok and "no registrado" in msg
 

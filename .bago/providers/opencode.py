@@ -2,10 +2,10 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-opencode.py â€” BAGO 4.1.5 OpenCode Provider Adapter
+opencode.py — BAGO 4.1.5 OpenCode Provider Adapter
 
-OpenCode es un agente de cÃ³digo que se conecta a mÃºltiples LLMs.
-Su API es OpenAI-compatible vÃ­a proxy.
+OpenCode es un agente de código que se conecta a múltiples LLMs.
+Su API es OpenAI-compatible vía proxy.
 Requiere OPENCODE_API_KEY o usa la config local de OpenCode.
 """
 

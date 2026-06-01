@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-commands.py â€” BAGO 4.1.5 Chat Command Parser
+commands.py — BAGO 4.1.5 Chat Command Parser
 
 Parsea y ejecuta comandos slash del REPL.
 Todos los comandos son funciones puras que reciben el SessionManager
@@ -93,7 +93,7 @@ def cmd_models(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
     }
     if not models:
         return {"ok": True, "message": "No hay modelos disponibles.", "data": data}
-    lines = [f"  â€¢ {m}" for m in models]
+    lines = [f"  • {m}" for m in models]
     return {
         "ok": True,
         "message": f"Modelos disponibles ({provider or mgr.provider}):\n" + "\n".join(lines),
@@ -107,7 +107,7 @@ def cmd_status(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
         f"Session ID : {s['session_id']}",
         f"Provider   : {s['provider']}",
         f"Model      : {s['model']}",
-        f"Health     : {'OK' if s['health']['ok'] else 'FAIL'} â€” {s['health']['detail']}",
+        f"Health     : {'OK' if s['health']['ok'] else 'FAIL'} — {s['health']['detail']}",
         f"Messages   : {s['messages']}",
         f"Tokens     : {s['total_tokens']}",
         f"Calls      : {s['total_calls']}",
@@ -140,7 +140,7 @@ def cmd_session(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
 
 def cmd_save(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
     mgr.save()
-    return {"ok": True, "message": f"SesiÃ³n guardada: {mgr.session_id}"}
+    return {"ok": True, "message": f"Sesión guardada: {mgr.session_id}"}
 
 
 def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
@@ -149,8 +149,8 @@ def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
     sid = args[0]
     loaded = SessionManager.load(sid, base_path=str(mgr.base_path))
 
-    # Cerrar recursos de la sesiÃ³n anterior (knowledge y embeddings tienen
-    # conexiones SQLite propias; store no necesita cierre explÃ­cito)
+    # Cerrar recursos de la sesión anterior (knowledge y embeddings tienen
+    # conexiones SQLite propias; store no necesita cierre explícito)
     try:
         mgr.knowledge.close()
     except Exception:
@@ -161,13 +161,13 @@ def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
         pass
 
     # Transferir TODO el estado al manager activo.
-    # CRÃTICO: store debe coincidir con la sesiÃ³n cargada, o los mensajes
-    # se escribirÃ­an al context.jsonl incorrecto (violaciÃ³n de session-first).
+    # CRÍTICO: store debe coincidir con la sesión cargada, o los mensajes
+    # se escribirían al context.jsonl incorrecto (violación de session-first).
     mgr.session_id = loaded.session_id
     mgr.provider = loaded.provider
     mgr.model = loaded.model
     mgr.system_prompt = loaded.system_prompt
-    mgr.store = loaded.store                     # â† context store de la sesiÃ³n cargada
+    mgr.store = loaded.store                     # ← context store de la sesión cargada
     mgr.config = loaded.config
     mgr.credentials = loaded.credentials
     mgr.knowledge = loaded.knowledge
@@ -181,7 +181,7 @@ def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
     mgr._adapter = loaded._adapter
     mgr._init_info = loaded._init_info
 
-    # Limpiar estado pendiente de tool calls de la sesiÃ³n anterior
+    # Limpiar estado pendiente de tool calls de la sesión anterior
     mgr._pending_tools = None
     mgr._pending_normalized = None
     mgr._pending_user_message = ""
@@ -190,15 +190,15 @@ def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
 
     # Rebuild SwitchEngine with current registry
     engine.adapters = mgr.adapters
-    return {"ok": True, "message": f"SesiÃ³n cargada: {sid}"}
+    return {"ok": True, "message": f"Sesión cargada: {sid}"}
 
 
 def cmd_providers(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
     providers = mgr.available_providers()
     lines = []
     for p in providers:
-        status = "âœ“" if p["configured"] else "âœ—"
-        lines.append(f"  [{status}] {p['name']:12} â€” {len(p['models'])} modelos")
+        status = "✓" if p["configured"] else "✗"
+        lines.append(f"  [{status}] {p['name']:12} — {len(p['models'])} modelos")
     return {
         "ok": True,
         "message": "Providers registrados:\n" + "\n".join(lines),
@@ -213,24 +213,24 @@ def cmd_menu(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
 def cmd_help(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
     text = """
 Comandos disponibles:
-  /menu                                    Abre menÃº interactivo de funciones
+  /menu                                    Abre menú interactivo de funciones
   /switch <provider> [modelo] [--force]   Cambia de provider/modelo
   /models [provider]                       Lista modelos disponibles
-  /status                                  Estado de la sesiÃ³n activa
-  /session                                 Detalles de la sesiÃ³n
-  /save                                    Guarda sesiÃ³n en disco
-  /load <session_id>                       Carga sesiÃ³n desde disco
+  /status                                  Estado de la sesión activa
+  /session                                 Detalles de la sesión
+  /save                                    Guarda sesión en disco
+  /load <session_id>                       Carga sesión desde disco
   /providers                               Lista providers registrados
-  /allow                                   Aprueba ejecuciÃ³n de herramientas pendientes
-  /deny                                    Rechaza ejecuciÃ³n de herramientas pendientes
-  /feedback <rating>                       Feedback explÃ­cito (-1 a 1)
+  /allow                                   Aprueba ejecución de herramientas pendientes
+  /deny                                    Rechaza ejecución de herramientas pendientes
+  /feedback <rating>                       Feedback explícito (-1 a 1)
   /suggest                                 Sugerencia RL de provider
-  /good [Ã­ndice]                           Marca mensaje como importante
-  /config [list|get|set|reset]             Gestiona configuraciÃ³n
+  /good [índice]                           Marca mensaje como importante
+  /config [list|get|set|reset]             Gestiona configuración
   /credentials [list|set|delete]           Gestiona credenciales API
   /tools [list|enable|disable]             Gestiona herramientas del modelo
   /plan <tarea>                           Genera plan paso a paso
-  /autopilot <tarea>                       Ejecuta tarea autÃ³nomamente
+  /autopilot <tarea>                       Ejecuta tarea autónomamente
   /agents                                  Lista agentes especializados
   /agent <nombre>                          Activa un agente (coder, reviewer, etc.)
   /memory [list|search|add|delete|hybrid-add|hybrid-search]  Gestiona base de conocimiento
@@ -312,7 +312,7 @@ def cmd_feedback(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> 
         if rating < -1 or rating > 1:
             raise ValueError
     except ValueError:
-        return {"ok": False, "message": "Rating debe ser un nÃºmero entre -1.0 y 1.0"}
+        return {"ok": False, "message": "Rating debe ser un número entre -1.0 y 1.0"}
     mgr.feedback(rating)
     return {"ok": True, "message": f"Feedback registrado: {rating}"}
 
@@ -346,25 +346,25 @@ def cmd_suggest(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
                 f"(score={score:.2f}, muestras={observations})"
             ),
         }
-    return {"ok": False, "message": "AÃºn no hay datos suficientes para sugerir."}
+    return {"ok": False, "message": "Aún no hay datos suficientes para sugerir."}
 
 
 def cmd_good(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Marca el Ãºltimo mensaje o uno por Ã­ndice como 'good' (no diluible)."""
+    """Marca el último mensaje o uno por índice como 'good' (no diluible)."""
     index = -1
     if args:
         try:
             index = int(args[0])
         except ValueError:
-            return {"ok": False, "message": "Uso: /good [Ã­ndice] (default: Ãºltimo mensaje)"}
+            return {"ok": False, "message": "Uso: /good [índice] (default: último mensaje)"}
     ok = mgr.store.mark_good(index)
     if ok:
-        return {"ok": True, "message": f"Mensaje {index} marcado como 'good' â€” no se diluirÃ¡ en compresiÃ³n."}
+        return {"ok": True, "message": f"Mensaje {index} marcado como 'good' — no se diluirá en compresión."}
     return {"ok": False, "message": "No se pudo marcar el mensaje."}
 
 
 def cmd_config(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Gestiona configuraciÃ³n: /config [get|set|list|reset] [clave] [valor]."""
+    """Gestiona configuración: /config [get|set|list|reset] [clave] [valor]."""
     if not args or args[0] == "list":
         lines = [
             f"default_provider : {mgr.config.default_provider}",
@@ -376,7 +376,7 @@ def cmd_config(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
             f"rl_learning      : {mgr.config.feature_rl}",
             f"prompt_on_start  : {mgr.config.get('ui.prompt_provider_on_start')}",
         ]
-        return {"ok": True, "message": "ConfiguraciÃ³n:\n" + "\n".join(lines)}
+        return {"ok": True, "message": "Configuración:\n" + "\n".join(lines)}
     if args[0] == "get" and len(args) >= 2:
         return {"ok": True, "message": str(mgr.config.get(args[1], "(no definido)"))}
     if args[0] == "set" and len(args) >= 3:
@@ -394,10 +394,10 @@ def cmd_config(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
                 except ValueError:
                     parsed = val
         mgr.config.set(args[1], parsed)
-        return {"ok": True, "message": f"âœ“ {args[1]} = {parsed}"}
+        return {"ok": True, "message": f"✓ {args[1]} = {parsed}"}
     if args[0] == "reset":
         mgr.config.reset()
-        return {"ok": True, "message": "ConfiguraciÃ³n restaurada a defaults."}
+        return {"ok": True, "message": "Configuración restaurada a defaults."}
     return {"ok": False, "message": "Uso: /config [list|get <clave>|set <clave> <valor>|reset]"}
 
 
@@ -418,12 +418,12 @@ def cmd_credentials(mgr: SessionManager, engine: SwitchEngine, args: list[str]) 
         key = args[2]
         value = " ".join(args[3:])
         mgr.credentials.set(provider, key, value)
-        return {"ok": True, "message": f"âœ“ Credencial guardada para {provider}/{key}"}
+        return {"ok": True, "message": f"✓ Credencial guardada para {provider}/{key}"}
     if args[0] == "delete" and len(args) >= 3:
         ok = mgr.credentials.delete(args[1], args[2])
         if ok:
-            return {"ok": True, "message": f"âœ“ Credencial eliminada: {args[1]}/{args[2]}"}
-        return {"ok": False, "message": "No se encontrÃ³ la credencial."}
+            return {"ok": True, "message": f"✓ Credencial eliminada: {args[1]}/{args[2]}"}
+        return {"ok": False, "message": "No se encontró la credencial."}
     return {"ok": False, "message": "Uso: /credentials [list|set <provider> <key> <valor>|delete <provider> <key>]"}
 
 
@@ -435,47 +435,47 @@ def cmd_tools(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dic
             return {"ok": True, "message": "No hay herramientas registradas."}
         lines = []
         for t in tools:
-            lines.append(f"  ðŸ”§ {t.name}: {t.description}")
+            lines.append(f"  🔧 {t.name}: {t.description}")
         return {"ok": True, "message": f"Herramientas disponibles ({len(tools)}):\n" + "\n".join(lines)}
     if args[0] == "enable":
         mgr.config.set("features.tool_calling", True)
         return {"ok": True, "message": "Herramientas activadas. El modelo puede invocar tools."}
     if args[0] == "disable":
         mgr.config.set("features.tool_calling", False)
-        return {"ok": True, "message": "Herramientas desactivadas. El modelo no invocarÃ¡ tools."}
+        return {"ok": True, "message": "Herramientas desactivadas. El modelo no invocará tools."}
     return {"ok": False, "message": "Uso: /tools [list|enable|disable]"}
 
 
 def cmd_scripts(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Lista baterÃ­as/scripts explÃ­citos o filtra una baterÃ­a: /scripts [battery]."""
+    """Lista baterías/scripts explícitos o filtra una batería: /scripts [battery]."""
     if not args:
         return {"ok": True, "message": mgr.script_registry.describe_catalog()}
     battery_id = args[0]
     battery = mgr.script_registry.get_battery(battery_id)
     if battery is None:
         known = ", ".join(item["id"] for item in mgr.script_registry.list_batteries())
-        return {"ok": False, "message": f"BaterÃ­a '{battery_id}' no registrada. Disponibles: {known}"}
+        return {"ok": False, "message": f"Batería '{battery_id}' no registrada. Disponibles: {known}"}
     lines = [f"{battery.id}: {battery.description}", f"  falta: {battery.missing_script}"]
     if battery.fallback_tool:
         lines.append(f"  fallback: {battery.fallback_tool}")
     scripts = mgr.script_registry.list_scripts(battery.id)
     if scripts:
         for script in scripts:
-            marker = "âœ“" if script["enabled"] and script["exists"] else "!"
-            lines.append(f"  {marker} {script['id']} â€” {script['description']} ({script['path']})")
+            marker = "✓" if script["enabled"] and script["exists"] else "!"
+            lines.append(f"  {marker} {script['id']} — {script['description']} ({script['path']})")
     else:
         lines.append("  (sin scripts registrados)")
     return {"ok": True, "message": "\n".join(lines)}
 
 
 def cmd_allow(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Aprueba ejecuciÃ³n de herramientas pendientes: /allow."""
+    """Aprueba ejecución de herramientas pendientes: /allow."""
     result = mgr.approve_tools()
     return {"ok": True, "message": result}
 
 
 def cmd_deny(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Rechaza ejecuciÃ³n de herramientas pendientes: /deny."""
+    """Rechaza ejecución de herramientas pendientes: /deny."""
     result = mgr.deny_tools()
     return {"ok": True, "message": result}
 
@@ -485,7 +485,7 @@ def cmd_plan(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
     if not args:
         if mgr.plan_engine.current_plan:
             return {"ok": True, "message": mgr.plan_engine.current_plan.to_text()}
-        return {"ok": False, "message": "Uso: /plan <tarea> â€” describe lo que quieres planificar."}
+        return {"ok": False, "message": "Uso: /plan <tarea> — describe lo que quieres planificar."}
     task = " ".join(args)
     prompt = mgr.plan_engine.generate_prompt(task)
     response = mgr.send(prompt)
@@ -494,13 +494,13 @@ def cmd_plan(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
 
 
 def cmd_autopilot(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Ejecuta una tarea autÃ³nomamente: /autopilot <tarea>.
+    """Ejecuta una tarea autónomamente: /autopilot <tarea>.
 
-    Genera un plan y ejecuta cada paso enviÃ¡ndolo al modelo.
+    Genera un plan y ejecuta cada paso enviándolo al modelo.
     El modelo puede usar herramientas en cada paso.
     """
     if not args:
-        return {"ok": False, "message": "Uso: /autopilot <tarea> â€” describe la tarea a ejecutar."}
+        return {"ok": False, "message": "Uso: /autopilot <tarea> — describe la tarea a ejecutar."}
     task = " ".join(args)
 
     # Generar plan
@@ -508,7 +508,7 @@ def cmd_autopilot(mgr: SessionManager, engine: SwitchEngine, args: list[str]) ->
     response = mgr.send(prompt)
     plan = mgr.plan_engine.create_plan(task, response)
 
-    messages = [f"ðŸ“‹ Plan generado ({len(plan.steps)} pasos):", plan.to_text(), "", "ðŸš€ Ejecutando..."]
+    messages = [f"📋 Plan generado ({len(plan.steps)} pasos):", plan.to_text(), "", "🚀 Ejecutando..."]
 
     for step in plan.steps:
         step.status = "running"
@@ -516,8 +516,8 @@ def cmd_autopilot(mgr: SessionManager, engine: SwitchEngine, args: list[str]) ->
         result = mgr.send(step_prompt)
         step.status = "done"
         step.result = result[:500]  # Truncar para no saturar
-        messages.append(f"  âœ“ Paso {step.number}: {step.description}")
-        messages.append(f"    â†’ {result[:200]}...")
+        messages.append(f"  ✓ Paso {step.number}: {step.description}")
+        messages.append(f"    → {result[:200]}...")
 
     plan.status = "done"
     return {"ok": True, "message": "\n".join(messages), "plan": plan}
@@ -529,19 +529,19 @@ def cmd_agents(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
     active = mgr.agent_gateway.active.name
     lines = []
     for a in agents:
-        marker = "â—" if a.name == active else "â—‹"
-        lines.append(f"  {marker} {a.name:12} â€” {a.description}")
+        marker = "●" if a.name == active else "○"
+        lines.append(f"  {marker} {a.name:12} — {a.description}")
     return {"ok": True, "message": f"Agentes disponibles ({len(agents)}):\n" + "\n".join(lines)}
 
 
 def cmd_agent(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
     """Activa un agente: /agent <nombre>."""
     if not args:
-        return {"ok": False, "message": "Uso: /agent <nombre> â€” activa un agente especializado. Usa /agents para ver disponibles."}
+        return {"ok": False, "message": "Uso: /agent <nombre> — activa un agente especializado. Usa /agents para ver disponibles."}
     name = args[0]
     result = mgr.activate_agent(name)
     if result.get("ok"):
-        msg = f"âœ“ Agente activado: {name}"
+        msg = f"✓ Agente activado: {name}"
         if result.get("warnings"):
             msg += "\n  Notas:\n" + "\n".join(f"    ! {w}" for w in result["warnings"])
         return {"ok": True, "message": msg}
@@ -561,19 +561,19 @@ def cmd_memory(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
         results = mgr.knowledge.search(query, limit=5)
         if not results:
             return {"ok": True, "message": f"No se encontraron recuerdos para '{query}'."}
-        lines = [f"  â€¢ {r['content'][:100]}... (sesiÃ³n: {r['source_session']})" for r in results]
+        lines = [f"  • {r['content'][:100]}... (sesión: {r['source_session']})" for r in results]
         return {"ok": True, "message": f"Resultados para '{query}':\n" + "\n".join(lines)}
     if args[0] == "add" and len(args) >= 2:
         content = " ".join(args[1:])
         mid = mgr.knowledge.add(content, source_session=mgr.session_id)
-        return {"ok": True, "message": f"âœ“ Recuerdo aÃ±adido (ID: {mid})."}
+        return {"ok": True, "message": f"✓ Recuerdo añadido (ID: {mid})."}
     if args[0] == "hybrid-add" and len(args) >= 2:
         content = " ".join(args[1:])
         result = mgr.memory_add_hybrid(content)
         return {
             "ok": True,
             "message": (
-                f"âœ“ Recuerdo hÃ­brido aÃ±adido (ID: {result['memory_id']}, "
+                f"✓ Recuerdo híbrido añadido (ID: {result['memory_id']}, "
                 f"embedding: {result['embedding_id']})."
             ),
         }
@@ -581,19 +581,19 @@ def cmd_memory(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
         query = " ".join(args[1:])
         results = mgr.memory_search_hybrid(query, limit=5)
         if not results:
-            return {"ok": True, "message": f"No hay resultados hÃ­bridos para '{query}'."}
+            return {"ok": True, "message": f"No hay resultados híbridos para '{query}'."}
         lines = [
-            f"  â€¢ score={r['score']:.3f} | memoria {r['memory_id']} | {r['content'][:80]}..."
+            f"  • score={r['score']:.3f} | memoria {r['memory_id']} | {r['content'][:80]}..."
             for r in results
         ]
-        return {"ok": True, "message": f"Resultados hÃ­bridos para '{query}':\n" + "\n".join(lines)}
+        return {"ok": True, "message": f"Resultados híbridos para '{query}':\n" + "\n".join(lines)}
     if args[0] == "delete" and len(args) >= 2:
         try:
             mid = int(args[1])
             ok = mgr.knowledge.delete(mid)
             if ok:
-                return {"ok": True, "message": f"âœ“ Recuerdo {mid} eliminado."}
-            return {"ok": False, "message": f"No se encontrÃ³ el recuerdo {mid}."}
+                return {"ok": True, "message": f"✓ Recuerdo {mid} eliminado."}
+            return {"ok": False, "message": f"No se encontró el recuerdo {mid}."}
         except ValueError:
             return {"ok": False, "message": "Uso: /memory delete <id>"}
     return {
@@ -636,14 +636,14 @@ COMMAND_REGISTRY: dict[str, Any] = {
 
 
 def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
-    """Parsea una lÃ­nea de comando y la ejecuta."""
+    """Parsea una línea de comando y la ejecuta."""
     command_line = command_line.strip()
     if not command_line.startswith("/"):
         return {"ok": False, "message": "Comando debe empezar con /", "is_chat": True}
 
     parts = command_line[1:].split()
     if not parts:
-        return {"ok": False, "message": "Comando vacÃ­o."}
+        return {"ok": False, "message": "Comando vacío."}
 
     cmd_name = parts[0].lower()
     args = parts[1:]
@@ -708,7 +708,7 @@ def _run_tests() -> int:
             assert isinstance(r["message"], str)
             r = execute("/save", mgr, engine)
             assert r["ok"]
-            assert "SesiÃ³n guardada" in r["message"]
+            assert "Sesión guardada" in r["message"]
             mgr.rl_pref.add_reward(mgr.session_id, mgr.provider, mgr.model, 0.8, "tema_4")
             r = execute("/suggest tema", mgr, engine)
             assert r["ok"]

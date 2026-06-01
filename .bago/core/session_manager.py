@@ -2,15 +2,15 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-session_manager.py â€” BAGO 4.1.5 Session Manager
+session_manager.py — BAGO 4.1.5 Session Manager
 
-Orquesta todo el ciclo de vida de una sesiÃ³n de chat:
+Orquesta todo el ciclo de vida de una sesión de chat:
 - Carga/guarda contexto via ContextStore
 - Mantiene el provider/modelo activo
 - Coordina switches con SwitchEngine
 - Expone la API que usa el REPL.
 
-El SessionManager es la Ãºnica puerta de entrada al core desde el chat.
+El SessionManager es la única puerta de entrada al core desde el chat.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ ADAPTER_REGISTRY: dict[str, type[ProviderAdapter]] = {
 
 
 class SessionManager:
-    """Gestiona una sesiÃ³n de chat multi-provider."""
+    """Gestiona una sesión de chat multi-provider."""
 
     def __init__(
         self,
@@ -144,7 +144,7 @@ class SessionManager:
             val = self.credentials.get(target_provider, key)
             if val:
                 creds[key] = val
-                # Alias estÃ¡ndar para compatibilidad con adapters
+                # Alias estándar para compatibilidad con adapters
                 upper = key.upper()
                 if "API_KEY" in upper or "KEY" in upper:
                     creds.setdefault("api_key", val)
@@ -173,7 +173,7 @@ class SessionManager:
         return max(available, key=self._model_quality_key)
 
     def _init_adapter(self) -> dict:
-        """Inicializa adapter y auto-corrige modelo si no estÃ¡ disponible.
+        """Inicializa adapter y auto-corrige modelo si no está disponible.
 
         Retorna dict con: corrected (bool), requested (str), actual (str), available (list).
         """
@@ -203,14 +203,14 @@ class SessionManager:
     def _tool_calling_enabled(self) -> bool:
         return bool(self.config.get("features.tool_calling", False))
 
-    # â”€â”€ Core API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Core API ──────────────────────────────────────────────────────
 
     def send(self, user_message: str, **kwargs: Any) -> str:
-        """EnvÃ­a mensaje al provider activo y guarda respuesta en contexto.
+        """Envía mensaje al provider activo y guarda respuesta en contexto.
 
         Si el provider soporta tools y hay herramientas registradas, las pasa
-        al modelo. Si el modelo responde con tool_calls, las ejecuta y reenvÃ­a
-        automÃ¡ticamente para obtener la respuesta final.
+        al modelo. Si el modelo responde con tool_calls, las ejecuta y reenvía
+        automáticamente para obtener la respuesta final.
         """
         adapter = self._ensure_adapter()
         start = time.time()
@@ -229,7 +229,7 @@ class SessionManager:
         else:
             dynamic_system += "\n\n" + intent_guidance("chat")
 
-        # Pasar tools solo si la intenciÃ³n NO es chat
+        # Pasar tools solo si la intención NO es chat
         tools = None
         if (
             self._tool_calling_enabled()
@@ -250,7 +250,7 @@ class SessionManager:
 
         self.store.append_user(user_message, provider=self.provider, model=self.model)
 
-        # Si el modelo pidiÃ³ tool calls, ejecutarlas y reenviar
+        # Si el modelo pidió tool calls, ejecutarlas y reenviar
         if resp.tool_calls:
             # Guardar el assistant message con tool_calls
             assistant_msg = {"role": "assistant", "content": resp.content or ""}
@@ -264,16 +264,16 @@ class SessionManager:
                 metadata={"tool_calls": resp.tool_calls},
             )
 
-            # Si auto_allow_tools es False, pausar para aprobaciÃ³n
+            # Si auto_allow_tools es False, pausar para aprobación
             if not self.config.get("features.auto_allow_tools", True):
                 self._pending_tools = resp.tool_calls
                 self._pending_normalized = normalized.copy()
                 self._pending_user_message = user_message
                 self._pending_tools_kwargs = kwargs.copy()
-                lines = ["â¸ï¸ El modelo quiere usar estas herramientas:"]
+                lines = ["⏸️ El modelo quiere usar estas herramientas:"]
                 for tc in resp.tool_calls:
                     func = tc.get("function", {})
-                    lines.append(f"  â€¢ {func.get('name', 'unknown')}: {func.get('arguments', '{}')}")
+                    lines.append(f"  • {func.get('name', 'unknown')}: {func.get('arguments', '{}')}")
                 lines.append("\nEscribe /allow para ejecutarlas o /deny para rechazarlas.")
                 return "\n".join(lines)
 
@@ -322,7 +322,7 @@ class SessionManager:
         self.total_tokens += resp.usage.total_tokens
         self.total_calls += 1
 
-        # RL: recompensa implÃ­cita
+        # RL: recompensa implícita
         self.rl_feedback.implicit(
             session_id=self.session_id,
             provider=self.provider,
@@ -336,10 +336,10 @@ class SessionManager:
         return resp.content
 
     def send_stream(self, user_message: str, **kwargs: Any):
-        """EnvÃ­a mensaje al provider con streaming real.
+        """Envía mensaje al provider con streaming real.
 
         Yield chunks de texto (str). Al finalizar, persiste el historial
-        completo y registra tokens/RL automÃ¡ticamente.
+        completo y registra tokens/RL automáticamente.
         """
         adapter = self._ensure_adapter()
 
@@ -384,7 +384,7 @@ class SessionManager:
             model=self.model,
             metadata={"finish_reason": "stop"},
         )
-        # Estimar tokens (heurÃ­stica: ~4 chars/token)
+        # Estimar tokens (heurística: ~4 chars/token)
         est_tokens = max(len(full_response) // 4, 1)
         self.store.record_tokens(
             provider=self.provider,
@@ -394,7 +394,7 @@ class SessionManager:
         )
         self.total_tokens += est_tokens
         self.total_calls += 1
-        # RL implÃ­cito
+        # RL implícito
         self.rl_feedback.implicit(
             session_id=self.session_id,
             provider=self.provider,
@@ -406,12 +406,12 @@ class SessionManager:
         )
 
     def approve_tools(self) -> str:
-        """Ejecuta las tool calls pendientes y reenvÃ­a al modelo.
+        """Ejecuta las tool calls pendientes y reenvía al modelo.
 
         Retorna la respuesta final del modelo.
         """
         if not self._pending_tools or not self._pending_normalized:
-            return "No hay herramientas pendientes de aprobaciÃ³n."
+            return "No hay herramientas pendientes de aprobación."
 
         adapter = self._ensure_adapter()
         tools = None
@@ -459,7 +459,7 @@ class SessionManager:
         self.total_tokens += resp.usage.total_tokens
         self.total_calls += 1
 
-        # RL implÃ­cito
+        # RL implícito
         self.rl_feedback.implicit(
             session_id=self.session_id,
             provider=self.provider,
@@ -481,11 +481,11 @@ class SessionManager:
     def deny_tools(self) -> str:
         """Rechaza las tool calls pendientes y limpia el estado."""
         if not self._pending_tools:
-            return "No hay herramientas pendientes de aprobaciÃ³n."
+            return "No hay herramientas pendientes de aprobación."
 
         self.store.append_message(ContextMessage(
             role="system",
-            content="[El usuario rechazÃ³ la ejecuciÃ³n de herramientas]",
+            content="[El usuario rechazó la ejecución de herramientas]",
         ))
 
         self._pending_tools = None
@@ -495,7 +495,7 @@ class SessionManager:
         return "Herramientas rechazadas."
 
     def feedback(self, rating: float, user_message: str = "") -> None:
-        """Registra feedback explÃ­cito del usuario para la Ãºltima interacciÃ³n."""
+        """Registra feedback explícito del usuario para la última interacción."""
         history = self.store.get_history()
         last_user = ""
         for entry in reversed(history):
@@ -511,7 +511,7 @@ class SessionManager:
         )
 
     def switch(self, new_provider: str, new_model: str | None = None, force: bool = False) -> dict:
-        """Cambia de provider/modelo con validaciÃ³n de equivalencia.
+        """Cambia de provider/modelo con validación de equivalencia.
 
         Retorna dict con: ok, verdict, warnings, old_provider, new_provider.
         """
@@ -528,7 +528,7 @@ class SessionManager:
 
         if verdict == TransferVerdict.NOT_RECOMMENDED and not force:
             warnings.append(
-                f"Switch de {old_model} â†’ {new_model} no recomendado. "
+                f"Switch de {old_model} → {new_model} no recomendado. "
                 "Usa force=True para forzar."
             )
             return {
@@ -539,13 +539,13 @@ class SessionManager:
                 "new_provider": new_provider,
             }
 
-        # Preparar adaptaciÃ³n de contexto si hay cambio de formato
+        # Preparar adaptación de contexto si hay cambio de formato
         strategy = TransferStrategy.recommended(verdict)
         if strategy != TransferStrategy.DIRECT:
             self.store.record_switch(old_provider, old_model, new_provider, new_model, reason=strategy.name)
             warnings.append(f"Contexto adaptado con estrategia: {strategy.name}")
 
-            # CompresiÃ³n por capas para downgrade
+            # Compresión por capas para downgrade
             if strategy in (TransferStrategy.COMPRESS, TransferStrategy.REHYDRATE):
                 # Reentrenar intenciones con todo el historial acumulado antes de compactar
                 try:
@@ -567,7 +567,7 @@ class SessionManager:
                         content=msg["content"],
                         metadata=msg.get("metadata", {}),
                     ))
-                warnings.append(f"Contexto comprimido por capas: {len(layers)} â†’ {len(compressed)} capas")
+                warnings.append(f"Contexto comprimido por capas: {len(layers)} → {len(compressed)} capas")
 
         # Instanciar nuevo adapter
         self.provider = new_provider
@@ -595,7 +595,7 @@ class SessionManager:
         }
 
     def status(self) -> dict:
-        """Estado actual de la sesiÃ³n."""
+        """Estado actual de la sesión."""
         adapter = self._ensure_adapter()
         health = adapter.health_check()
         return {
@@ -642,7 +642,7 @@ class SessionManager:
             return {"ok": False, "error": str(exc)}
 
     def available_providers(self) -> list[dict]:
-        """Lista providers registrados con estado de configuraciÃ³n."""
+        """Lista providers registrados con estado de configuración."""
         if self._providers_cache is not None and (time.time() - self._providers_cache_at) < self._providers_cache_ttl:
             return [
                 {"name": item["name"], "configured": item["configured"], "models": list(item["models"])}
@@ -681,7 +681,7 @@ class SessionManager:
         return result
 
     def save(self) -> None:
-        """Persiste metadata de sesiÃ³n en disco."""
+        """Persiste metadata de sesión en disco."""
         self.store.update_meta({
             "last_provider": self.provider,
             "last_model": self.model,
@@ -706,7 +706,7 @@ class SessionManager:
     def memory_add_hybrid(self, content: str) -> dict[str, Any]:
         adapter = self._ensure_adapter()
         if not adapter.supports_embeddings():
-            raise RuntimeError(f"{self.provider} no soporta memoria hÃ­brida")
+            raise RuntimeError(f"{self.provider} no soporta memoria híbrida")
         vector = adapter.embed([content], model=self.model)[0]
         memory_id = self.knowledge.add(content, source_session=self.session_id)
         try:
@@ -726,7 +726,7 @@ class SessionManager:
     def memory_search_hybrid(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
         adapter = self._ensure_adapter()
         if not adapter.supports_embeddings():
-            raise RuntimeError(f"{self.provider} no soporta memoria hÃ­brida")
+            raise RuntimeError(f"{self.provider} no soporta memoria híbrida")
         query_vector = adapter.embed([query], model=self.model)[0]
         return self.embedding_store.search(query_vector=query_vector, limit=limit)
 
@@ -743,7 +743,7 @@ class SessionManager:
 
     @classmethod
     def load(cls, session_id: str, base_path: str | None = None) -> "SessionManager":
-        """Carga una sesiÃ³n desde disco."""
+        """Carga una sesión desde disco."""
         bp = Path(base_path or os.getcwd())
         path = bp / ".bago" / "state" / "sessions" / f"{session_id}.json"
         if path.exists():
@@ -823,7 +823,7 @@ class SessionManager:
         return catalog
 
 
-# â”€â”€ Quick test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Quick test ──────────────────────────────────────────────────────
 
 def _run_tests() -> int:
     import tempfile
@@ -952,7 +952,7 @@ def _run_tests() -> int:
         before = len(failing.store.get_history())
         try:
             failing.send("este turno no debe persistirse")
-            raise AssertionError("send() debÃ­a fallar con el adapter de prueba")
+            raise AssertionError("send() debía fallar con el adapter de prueba")
         except RuntimeError as exc:
             assert str(exc) == "boom"
         after = len(failing.store.get_history())

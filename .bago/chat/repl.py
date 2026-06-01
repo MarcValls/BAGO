@@ -2,12 +2,12 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-repl.py â€” BAGO 4.1.5 Chat REPL (RediseÃ±o Completo)
+repl.py — BAGO 4.1.5 Chat REPL (Rediseño Completo)
 
 Loop principal de chat multi-provider.
 - Barra de estado persistente
 - Comandos slash (/switch, /models, /status, ...)
-- Sin gates: el modelo actÃºa con capacidades nativas
+- Sin gates: el modelo actúa con capacidades nativas
 - Colores ANSI, banner, notificaciones visuales
 - Soporte multiline (``` para bloques)
 - Historial con readline
@@ -127,15 +127,15 @@ class BagoREPL:
             requested = info.get("requested", "?")
             actual = info.get("actual", "?")
             available = info.get("available", [])
-            print(R.warn(f"âš  Modelo '{requested}' no disponible. Usando '{actual}'."))
+            print(R.warn(f"⚠ Modelo '{requested}' no disponible. Usando '{actual}'."))
             if available:
                 print(R.dim(f"   Modelos disponibles: {', '.join(available[:5])}"))
                 if len(available) > 5:
-                    print(R.dim(f"   ... y {len(available) - 5} mÃ¡s. Usa /models para ver todos."))
+                    print(R.dim(f"   ... y {len(available) - 5} más. Usa /models para ver todos."))
             print()
 
     def _interactive_startup(self) -> None:
-        """Ofrece selecciÃ³n interactiva de provider/modelo si estamos en TTY."""
+        """Ofrece selección interactiva de provider/modelo si estamos en TTY."""
         if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
             return
 
@@ -143,7 +143,7 @@ class BagoREPL:
         if not info.get("corrected") and not self.mgr.config.get("ui.prompt_provider_on_start", False):
             return
         if info.get("corrected"):
-            print(R.info("Â¿Quieres elegir otro modelo? (s/n)"), end=" ")
+            print(R.info("¿Quieres elegir otro modelo? (s/n)"), end=" ")
             try:
                 choice = input().strip().lower()
             except (EOFError, KeyboardInterrupt):
@@ -183,10 +183,10 @@ class BagoREPL:
         try:
             idx = int(sel) - 1
             if idx < 0 or idx >= len(configured):
-                print(R.error("SelecciÃ³n invÃ¡lida."))
+                print(R.error("Selección inválida."))
                 return
         except ValueError:
-            print(R.error("Debes introducir un nÃºmero."))
+            print(R.error("Debes introducir un número."))
             return
 
         prov = configured[idx]
@@ -199,7 +199,7 @@ class BagoREPL:
         for i, m in enumerate(models[:10], 1):
             print(f"  {R.accent(str(i))} {m}")
         if len(models) > 10:
-            print(R.dim(f"   ... y {len(models) - 10} mÃ¡s."))
+            print(R.dim(f"   ... y {len(models) - 10} más."))
         print(R.dim("  0 Cancelar"))
 
         try:
@@ -212,16 +212,16 @@ class BagoREPL:
         try:
             idx = int(sel) - 1
             if idx < 0 or idx >= len(models):
-                print(R.error("SelecciÃ³n invÃ¡lida."))
+                print(R.error("Selección inválida."))
                 return
         except ValueError:
-            print(R.error("Debes introducir un nÃºmero."))
+            print(R.error("Debes introducir un número."))
             return
 
         new_model = models[idx]
         result = self.mgr.switch(prov["name"], new_model)
         if result["ok"]:
-            print(R.ok(f"âœ“ Conectado a {prov['name']}/{new_model}"))
+            print(R.ok(f"✓ Conectado a {prov['name']}/{new_model}"))
             self.engine = SwitchEngine(self.mgr.adapters)
         else:
             print(R.error(f"Error: {result.get('error', 'unknown')}"))
@@ -243,15 +243,15 @@ class BagoREPL:
     def _print_status(self) -> None:
         s = self.mgr.status()
         line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])
-        print(R.dim("â”€" * 60))
+        print(R.dim("─" * 60))
         print(line)
-        print(R.dim("â”€" * 60))
+        print(R.dim("─" * 60))
 
     def _print_banner(self) -> None:
         print(R.banner())
         print()
         print(R.info("Bienvenido a BAGO 4.1.5. Escribe /help para ver comandos o /menu para navegar."))
-        print(R.dim("El contexto de sesiÃ³n sobrevive al cambio de provider."))
+        print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
 
     def _show_menu(self) -> bool:
@@ -262,7 +262,7 @@ class BagoREPL:
 
         while True:
             lines = [
-                f"{R.accent(str(i))}. {R.bold(section['title'])} â€” {section['description']}"
+                f"{R.accent(str(i))}. {R.bold(section['title'])} — {section['description']}"
                 for i, section in enumerate(MENU_SECTIONS, 1)
             ]
             lines.extend([
@@ -298,7 +298,7 @@ class BagoREPL:
             for i, item in enumerate(section["items"], 1):
                 suffix = f" {R.dim(item['args_prompt'])}" if item.get("args_prompt") else ""
                 lines.append(
-                    f"{R.accent(str(i))}. {R.bold(item['command'])}{suffix} â€” {item['description']}"
+                    f"{R.accent(str(i))}. {R.bold(item['command'])}{suffix} — {item['description']}"
                 )
             lines.extend([
                 "",
@@ -367,14 +367,14 @@ class BagoREPL:
         else:
             print(R.error(result["message"]))
 
-        # Si fue switch exitoso, notificaciÃ³n visual extra
+        # Si fue switch exitoso, notificación visual extra
         if line.startswith("/switch") and result.get("ok") and result.get("result"):
             R.print_switch_notification(result["result"].__dict__ if hasattr(result["result"], "__dict__") else {})
 
         return True
 
     def _handle_chat(self, text: str) -> None:
-        """EnvÃ­a mensaje al LLM y muestra respuesta. Usa streaming si estÃ¡ activo."""
+        """Envía mensaje al LLM y muestra respuesta. Usa streaming si está activo."""
         try:
             if self.mgr.config.feature_streaming and self.mgr._adapter and self.mgr._adapter.supports_streaming():
                 print(R.accent("BAGO"), end=" ")
@@ -393,7 +393,7 @@ class BagoREPL:
     def _prompt(self) -> str:
         if self._in_multiline:
             return R.dim("... ")
-        return R.accent("bago") + R.bright_black(" â¯ ")
+        return R.accent("bago") + R.bright_black(" ❯ ")
 
     def run(self) -> None:
         try:
@@ -448,9 +448,9 @@ class BagoREPL:
         finally:
             try:
                 self.mgr.save()
-                print(R.dim(f"SesiÃ³n guardada automÃ¡ticamente: {self.mgr.session_id}"))
+                print(R.dim(f"Sesión guardada automáticamente: {self.mgr.session_id}"))
             except Exception as exc:
-                print(R.warn(f"No se pudo guardar sesiÃ³n: {exc}"))
+                print(R.warn(f"No se pudo guardar sesión: {exc}"))
             finally:
                 self.mgr.close()
 

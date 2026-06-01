@@ -2,10 +2,10 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-script_registry.py â€” BAGO 4.1.5 Script Registry
+script_registry.py — BAGO 4.1.5 Script Registry
 
-Ãndice explÃ­cito de scripts Python agrupados por baterÃ­as funcionales.
-Permite resolver una tarea hacia un script concreto y decir quÃ© falta cuando
+Índice explícito de scripts Python agrupados por baterías funcionales.
+Permite resolver una tarea hacia un script concreto y decir qué falta cuando
 no existe un script compatible.
 """
 
@@ -84,14 +84,14 @@ class ScriptMatch:
 
 
 class ScriptRegistry:
-    """Ãndice explÃ­cito de scripts y baterÃ­as de BAGO."""
+    """Índice explícito de scripts y baterías de BAGO."""
 
     def __init__(self, repo_root: str | Path | None = None) -> None:
         self.repo_root = Path(repo_root or Path(__file__).resolve().parents[2]).resolve()
         self._batteries: dict[str, ScriptBattery] = {
             "filesystem": ScriptBattery(
                 id="filesystem",
-                description="ExploraciÃ³n de rutas, directorios y anÃ¡lisis de estructura.",
+                description="Exploración de rutas, directorios y análisis de estructura.",
                 keywords=(
                     "file",
                     "filesystem",
@@ -113,13 +113,13 @@ class ScriptRegistry:
             ),
             "diagnostics": ScriptBattery(
                 id="diagnostics",
-                description="Smoke tests, validaciÃ³n y salud del runtime.",
+                description="Smoke tests, validación y salud del runtime.",
                 keywords=("test", "validate", "diagnose", "smoke", "health", "check", "prueba", "validar", "validacion", "salud"),
                 missing_script="run_smoke_tests.py",
             ),
             "chat": ScriptBattery(
                 id="chat",
-                description="REPL, comandos slash y sesiÃ³n persistente.",
+                description="REPL, comandos slash y sesión persistente.",
                 keywords=("chat", "repl", "command", "slash", "session", "conversation", "sesion", "comandos"),
                 missing_script="chat_qa.py",
             ),
@@ -137,7 +137,7 @@ class ScriptRegistry:
             ),
             "release": ScriptBattery(
                 id="release",
-                description="Empaquetado, validaciÃ³n y publicaciÃ³n.",
+                description="Empaquetado, validación y publicación.",
                 keywords=("release", "publish", "zip", "tag", "deploy", "pack", "publicar", "empaquetar"),
                 missing_script="publish_release.py",
             ),
@@ -245,7 +245,7 @@ class ScriptRegistry:
             "runtime.embedding_store_test": ScriptSpec(
                 id="runtime.embedding_store_test",
                 battery="runtime",
-                description="Smoke test del almacÃ©n de embeddings.",
+                description="Smoke test del almacén de embeddings.",
                 path=".bago/core/embedding_store.py",
                 keywords=("embedding", "store", "vector"),
                 fixed_args=("--test",),
@@ -315,7 +315,7 @@ class ScriptRegistry:
     def resolve_task(self, task: str) -> ScriptMatch:
         text = task.strip()
         if not text:
-            return ScriptMatch(script=None, battery=None, reason="Tarea vacÃ­a.")
+            return ScriptMatch(script=None, battery=None, reason="Tarea vacía.")
 
         battery_scores = self._score_batteries(text)
         best_battery_score, best_battery = battery_scores[0] if battery_scores else (0, None)
@@ -342,11 +342,11 @@ class ScriptRegistry:
                 script=None,
                 battery=best_battery,
                 score=best_battery_score,
-                reason=f"La tarea cae en la baterÃ­a '{best_battery.id}', pero no hay script compatible.",
+                reason=f"La tarea cae en la batería '{best_battery.id}', pero no hay script compatible.",
                 missing_script=best_battery.missing_script,
             )
 
-        return ScriptMatch(script=None, battery=None, reason="No se pudo resolver la tarea contra ninguna baterÃ­a.")
+        return ScriptMatch(script=None, battery=None, reason="No se pudo resolver la tarea contra ninguna batería.")
 
     def describe_script(self, script: ScriptSpec) -> str:
         status = "enabled" if script.enabled else "disabled"
@@ -363,9 +363,9 @@ class ScriptRegistry:
                 lines.append(f"  fallback: {battery['fallback_tool']}")
             if battery["scripts"]:
                 for script in battery["scripts"]:
-                    marker = "âœ“" if script["enabled"] and script["exists"] else "!"
+                    marker = "✓" if script["enabled"] and script["exists"] else "!"
                     lines.append(
-                        f"  {marker} {script['id']} â€” {script['description']} ({script['path']})"
+                        f"  {marker} {script['id']} — {script['description']} ({script['path']})"
                     )
             else:
                 lines.append("  (sin scripts registrados)")
@@ -376,11 +376,11 @@ class ScriptRegistry:
         if match.battery is None:
             return (
                 f"No hay script registrado para: {task}\n"
-                "Falta crear una baterÃ­a compatible o ampliar el Ã­ndice explÃ­cito."
+                "Falta crear una batería compatible o ampliar el índice explícito."
             )
         lines = [
             f"No hay script registrado para: {task}",
-            f"BaterÃ­a: {match.battery.id}",
+            f"Batería: {match.battery.id}",
             f"Falta script: {match.missing_script}",
         ]
         if match.battery.fallback_tool:
@@ -392,9 +392,9 @@ class ScriptRegistry:
         script = self.get_script(script_id)
         if script is None:
             known = ", ".join(sorted(self._scripts))
-            raise ValueError(f"Script '{script_id}' no estÃ¡ registrado. Disponibles: {known}")
+            raise ValueError(f"Script '{script_id}' no está registrado. Disponibles: {known}")
         if not script.enabled:
-            raise ValueError(f"Script '{script_id}' estÃ¡ deshabilitado.")
+            raise ValueError(f"Script '{script_id}' está deshabilitado.")
         script_path = script.resolved_path(self.repo_root)
         if not script_path.exists():
             raise FileNotFoundError(f"Script '{script_id}' no existe en disco: {script.path}")

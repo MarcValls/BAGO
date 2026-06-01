@@ -2,10 +2,10 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-tool_registry.py â€” BAGO 4.1.5 Tool Registry
+tool_registry.py — BAGO 4.1.5 Tool Registry
 
 Registro simple de herramientas que los modelos pueden invocar.
-Mantiene el formato estÃ¡ndar OpenAI (function calling) para compatibilidad.
+Mantiene el formato estándar OpenAI (function calling) para compatibilidad.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from script_registry import ScriptRegistry
 
 @dataclass
 class ToolCall:
-    """Representa una invocaciÃ³n de herramienta desde el modelo."""
+    """Representa una invocación de herramienta desde el modelo."""
     id: str
     name: str
     arguments: dict[str, Any]
@@ -46,7 +46,7 @@ class ToolResult:
 
 @dataclass
 class Tool:
-    """DefiniciÃ³n de una herramienta ejecutable."""
+    """Definición de una herramienta ejecutable."""
     name: str
     description: str
     parameters: dict[str, Any]
@@ -72,7 +72,7 @@ class Tool:
             return ToolResult(call_id="", name=self.name, output="", error=str(exc))
 
 
-# â”€â”€ Built-in tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Built-in tools ─────────────────────────────────────────────────
 
 def _tool_read_file(path: str) -> str:
     p = Path(path)
@@ -88,10 +88,10 @@ def _tool_write_file(path: str, content: str) -> str:
     return f"Archivo escrito: {path} ({len(content)} chars)"
 
 
-# â”€â”€ Allowlist de comandos seguros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Allowlist de comandos seguros ─────────────────────────────────────────────
 # Cada entrada mapea un command_id a (executable, [args_fijos]).
 # El modelo pasa command_id + args_extra; nunca pasa shell string libre.
-# Para aÃ±adir comandos: extender este dict o cargarlo desde .bago/allowed_commands.json.
+# Para añadir comandos: extender este dict o cargarlo desde .bago/allowed_commands.json.
 _COMMAND_ALLOWLIST: dict[str, tuple[str, list[str]]] = {
     "git-status":     ("git", ["status", "--short"]),
     "git-log":        ("git", ["log", "--oneline", "-10"]),
@@ -101,11 +101,11 @@ _COMMAND_ALLOWLIST: dict[str, tuple[str, list[str]]] = {
 
 
 def _tool_run_allowed_command(command_id: str, args: list[str] | None = None) -> str:
-    """Ejecuta solo comandos explÃ­citamente aprobados en el allowlist."""
+    """Ejecuta solo comandos explícitamente aprobados en el allowlist."""
     if command_id not in _COMMAND_ALLOWLIST:
         known = ", ".join(sorted(_COMMAND_ALLOWLIST))
         raise ValueError(
-            f"Comando '{command_id}' no estÃ¡ en el allowlist. "
+            f"Comando '{command_id}' no está en el allowlist. "
             f"Comandos permitidos: {known}"
         )
     exe, fixed_args = _COMMAND_ALLOWLIST[command_id]
@@ -130,9 +130,9 @@ def _tool_list_directory(path: str = ".") -> str:
         raise NotADirectoryError(f"No es directorio: {path}")
     entries = []
     for item in sorted(p.iterdir()):
-        marker = "ðŸ“" if item.is_dir() else "ðŸ“„"
+        marker = "📁" if item.is_dir() else "📄"
         entries.append(f"{marker} {item.name}")
-    return "\n".join(entries) if entries else "(vacÃ­o)"
+    return "\n".join(entries) if entries else "(vacío)"
 
 
 def _tool_retrain_intents() -> str:
@@ -140,10 +140,10 @@ def _tool_retrain_intents() -> str:
     import sqlite3
     store_db = Path.home() / ".copilot" / "session-store.db"
     if not store_db.exists():
-        return f"[retrain_intents] No se encontrÃ³ la base de datos de sesiones: {store_db}"
+        return f"[retrain_intents] No se encontró la base de datos de sesiones: {store_db}"
 
     keywords = {
-        "chat": ["hola", "hey", "saludos", "continua", "gracias", "adios", "bago", "bago next", "bago start", "espaÃ±ol", "hello", "hi"],
+        "chat": ["hola", "hey", "saludos", "continua", "gracias", "adios", "bago", "bago next", "bago start", "español", "hello", "hi"],
         "review": ["revisa", "mira", "reune", "busca", "chequea", "examina", "verifica", "analiza esto", "mira esto", "mira ahora", "list_directory", "read_file", "dame el contenido"],
         "execute": ["ejecuta", "corre", "lanza", "dispara", "run", "execute", "corre el comando", "ejecuta el script", "corre el script"],
         "work": ["trabaja", "modulariza", "adapta", "crea", "modifica", "refactoriza", "estructurala", "ordena", "desarrolla", "implementa", "construye", "genera", "haz que", "hazme", "adaptalo", "modularizala", "estructuralo", "organiza"],
@@ -159,7 +159,7 @@ def _tool_retrain_intents() -> str:
     examples = {k: [] for k in keywords}
     for row in rows:
         msg = row["user_message"]
-        if "â•â•" in msg or "â”Œâ”€" in msg or len(msg) > 400:
+        if "══" in msg or "┌─" in msg or len(msg) > 400:
             continue
         low = msg.lower()
         matched = False
@@ -203,7 +203,7 @@ def _tool_clean_bago_installs(
     fresh_package: str = "",
     skip_install_tests: bool = False,
 ) -> str:
-    """InventarÃ­a/respaldar instalaciones BAGO y opcionalmente limpia/reinstala."""
+    """Inventaría/respaldar instalaciones BAGO y opcionalmente limpia/reinstala."""
     root = Path(__file__).resolve().parents[2]
     script = root / "scripts" / "clean_bago_installs.py"
     if not script.exists():
@@ -241,13 +241,13 @@ def _tool_clean_bago_installs(
 def _tool_deploy_to_vercel(project_path: str = ".", production: bool = False, yes: bool = False) -> str:
     """Despliega un proyecto a Vercel usando la CLI de Vercel.
 
-    Requiere que 'vercel' estÃ© instalado y autenticado (vercel login).
+    Requiere que 'vercel' esté instalado y autenticado (vercel login).
     """
     import shutil
     if not shutil.which("vercel"):
         raise RuntimeError(
-            "Vercel CLI no encontrado. InstÃ¡lalo con: npm i -g vercel\n"
-            "Y autentÃ­cate con: vercel login"
+            "Vercel CLI no encontrado. Instálalo con: npm i -g vercel\n"
+            "Y autentícate con: vercel login"
         )
     cmd = ["vercel", str(Path(project_path).resolve())]
     if production:
@@ -264,7 +264,7 @@ def _tool_deploy_to_vercel(project_path: str = ".", production: bool = False, ye
     stdout = result.stdout.strip()
     stderr = result.stderr.strip()
     if result.returncode != 0:
-        raise RuntimeError(f"Deploy fallÃ³ (exit {result.returncode}):\n{stderr or stdout}")
+        raise RuntimeError(f"Deploy falló (exit {result.returncode}):\n{stderr or stdout}")
     # Extraer URL de salida
     for line in stdout.splitlines():
         if line.startswith("https://") and "vercel.app" in line:
@@ -275,7 +275,7 @@ def _tool_deploy_to_vercel(project_path: str = ".", production: bool = False, ye
 BUILTIN_TOOLS: list[Tool] = [
     Tool(
         name="read_file",
-        description="Lee el contenido de un archivo de texto. Ãštil para inspeccionar cÃ³digo o documentos.",
+        description="Lee el contenido de un archivo de texto. Útil para inspeccionar código o documentos.",
         parameters={
             "type": "object",
             "properties": {
@@ -342,7 +342,7 @@ BUILTIN_TOOLS: list[Tool] = [
         description=(
             "Regenera el dataset de entrenamiento de intenciones (intent_examples.json) "
             "escaneando todo el historial de conversaciones del usuario. "
-            "Ãšsalo cuando quieras que BAGO aprenda de nuevas interacciones."
+            "Úsalo cuando quieras que BAGO aprenda de nuevas interacciones."
         ),
         parameters={
             "type": "object",
@@ -354,7 +354,7 @@ BUILTIN_TOOLS: list[Tool] = [
     Tool(
         name="clean_bago_installs",
         description=(
-            "InventarÃ­a instalaciones BAGO verificadas y no verificadas en C:, "
+            "Inventaría instalaciones BAGO verificadas y no verificadas en C:, "
             "crea ZIP/manifiesto en C:\\BAGO_INSTALLS y, solo si execute=true, "
             "limpia rutas BAGO y puede reinstalar una copia fresca."
         ),
@@ -367,7 +367,7 @@ BUILTIN_TOOLS: list[Tool] = [
                 },
                 "execute": {
                     "type": "boolean",
-                    "description": "false solo inventario+backup; true borra targets despuÃ©s del ZIP.",
+                    "description": "false solo inventario+backup; true borra targets después del ZIP.",
                 },
                 "reinstall": {
                     "type": "boolean",
@@ -379,7 +379,7 @@ BUILTIN_TOOLS: list[Tool] = [
                 },
                 "skip_install_tests": {
                     "type": "boolean",
-                    "description": "Omite tests del instalador en reinstalaciÃ³n.",
+                    "description": "Omite tests del instalador en reinstalación.",
                 },
             },
             "required": [],
@@ -390,7 +390,7 @@ BUILTIN_TOOLS: list[Tool] = [
         name="deploy_to_vercel",
         description=(
             "Despliega un proyecto local a Vercel. Requiere 'vercel' CLI instalado y autenticado. "
-            "Usa production=true para desplegar a producciÃ³n; yes=true para saltar confirmaciones."
+            "Usa production=true para desplegar a producción; yes=true para saltar confirmaciones."
         ),
         parameters={
             "type": "object",
@@ -401,11 +401,11 @@ BUILTIN_TOOLS: list[Tool] = [
                 },
                 "production": {
                     "type": "boolean",
-                    "description": "Si true, despliega a producciÃ³n (--prod).",
+                    "description": "Si true, despliega a producción (--prod).",
                 },
                 "yes": {
                     "type": "boolean",
-                    "description": "Si true, confirma automÃ¡ticamente (--yes).",
+                    "description": "Si true, confirma automáticamente (--yes).",
                 },
             },
             "required": [],
@@ -426,13 +426,13 @@ class ToolRegistry:
         self.register(
             Tool(
                 name="list_scripts",
-                description="Lista el Ã­ndice explÃ­cito de scripts y baterÃ­as registradas.",
+                description="Lista el índice explícito de scripts y baterías registradas.",
                 parameters={
                     "type": "object",
                     "properties": {
                         "battery": {
                             "type": "string",
-                            "description": "BaterÃ­a opcional a filtrar.",
+                            "description": "Batería opcional a filtrar.",
                         },
                     },
                     "required": [],
@@ -446,15 +446,15 @@ class ToolRegistry:
             Tool(
                 name="run_script",
                 description=(
-                    "Resuelve una tarea contra el Ã­ndice explÃ­cito de scripts y ejecuta "
-                    "el script Python registrado. Si no existe, devuelve quÃ© script falta."
+                    "Resuelve una tarea contra el índice explícito de scripts y ejecuta "
+                    "el script Python registrado. Si no existe, devuelve qué script falta."
                 ),
                 parameters={
                     "type": "object",
                     "properties": {
                         "task": {
                             "type": "string",
-                            "description": "DescripciÃ³n libre de la tarea a resolver.",
+                            "description": "Descripción libre de la tarea a resolver.",
                         },
                         "script_id": {
                             "type": "string",
@@ -518,11 +518,11 @@ class ToolRegistry:
         battery_def = self.script_registry.get_battery(battery)
         if battery_def is None:
             known = ", ".join(sorted(item["id"] for item in self.script_registry.list_batteries()))
-            raise ValueError(f"BaterÃ­a '{battery}' no registrada. Disponibles: {known}")
+            raise ValueError(f"Batería '{battery}' no registrada. Disponibles: {known}")
         lines = [f"{battery_def.id}: {battery_def.description}"]
         for script in self.script_registry.list_scripts(battery_def.id):
-            marker = "âœ“" if script["enabled"] and script["exists"] else "!"
-            lines.append(f"  {marker} {script['id']} â€” {script['description']} ({script['path']})")
+            marker = "✓" if script["enabled"] and script["exists"] else "!"
+            lines.append(f"  {marker} {script['id']} — {script['description']} ({script['path']})")
         if not self.script_registry.list_scripts(battery_def.id):
             lines.append("  (sin scripts registrados)")
         return "\n".join(lines)
