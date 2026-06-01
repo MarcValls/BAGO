@@ -1,243 +1,260 @@
 #!/usr/bin/env python3
-"""
-bago_security_audit.py - Auditoria forense de seguridad para BAGO 4.1.5
-
-Escanea el repositorio (o una ruta dada) en busca de tokens/credenciales
-expuestos y revisa la configuracion de git y de secretos locales.
-
-Portado desde BAGO 3.x y adaptado a 4.1.5:
-- Raiz de escaneo parametrizable (--root); por defecto, la raiz del repo.
-- Sin rutas ni identidades hardcodeadas.
-- Salida ASCII-safe (sin emojis) para consolas Windows (cp1252).
-
-Uso:
-    python .bago/tools/bago_security_audit.py
-    python .bago/tools/bago_security_audit.py --root C:\\ruta --output report.json
-    python .bago/tools/bago_security_audit.py --home   # escanea tambien el HOME
-"""
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import subprocess
+import shutil
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-# Patrones de tokens sensibles
 TOKEN_PATTERNS = {
-    "github_pat_classic": re.compile(r"ghp_[a-zA-Z0-9]{36}"),
-    "github_pat_fine": re.compile(r"github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}"),
-    "openai_sk": re.compile(r"sk-[a-zA-Z0-9]{20,}"),
-    "openai_sk_proj": re.compile(r"sk-proj-[a-zA-Z0-9_-]+"),
-    "anthropic_key": re.compile(r"sk-ant-[a-zA-Z0-9_-]+"),
-    "telegram_bot": re.compile(r"[0-9]{9,10}:[a-zA-Z0-9_-]{35}"),
-    "generic_bearer": re.compile(r"Bearer\s+[a-zA-Z0-9\-_]{20,}"),
-    "generic_api_key": re.compile(r"(?i)(api[_-]?key|apikey)\s*=\s*['\"][a-zA-Z0-9]{16,}['\"]"),
+    "github_pat": re.compile(r"(?:ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,})"),
+    "openai": re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    "anthropic": re.compile(r"sk-ant-[A-Za-z0-9_-]{16,}"),
+    "telegram": re.compile(r"[0-9]{8,10}:[A-Za-z0-9_-]{30,}"),
+    "bearer": re.compile(r"Bearer\s+[A-Za-z0-9._-]{16,}", re.IGNORECASE),
+    "api_key": re.compile(r"(?i)(?:api[_-]?key|apikey)\s*[:=]\s*['\"]?[A-Za-z0-9._-]{16,}['\"]?"),
 }
-
-EXCLUDE_DIRS = {"node_modules", "__pycache__", ".git", "dist", "build", ".venv", "venv", "temp", "tmp"}
-EXCLUDE_EXTS = {".exe", ".dll", ".bin", ".zip", ".jpg", ".png", ".mp3", ".mp4", ".ico", ".so", ".pyc"}
-
-REPORT: dict = {
-    "timestamp": datetime.now(timezone.utc).isoformat(),
-    "findings": [],
-    "score": 100,
-}
+EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", ".venv", "venv", "__pycache__", ".bago"}
+EXCLUDE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".zip", ".7z", ".exe", ".dll", ".bin", ".pyc", ".mp3", ".mp4"}
+MAX_SCAN_SIZE = 500_000
+SEVERITY_DEDUCTIONS = {"CRITICAL": 30, "HIGH": 15, "MEDIUM": 8, "LOW": 3}
 
 
-def _repo_root() -> Path:
-    # .bago/tools/ -> repo root es parents[2]
-    return Path(__file__).resolve().parents[2]
-
-
-def add_finding(severity: str, category: str, detail: str, file: str = "") -> None:
-    REPORT["findings"].append({
-        "severity": severity,
-        "category": category,
-        "detail": detail,
-        "file": str(file),
-    })
-    REPORT["score"] -= {"CRITICAL": 25, "HIGH": 15, "MEDIUM": 5, "LOW": 1}.get(severity, 0)
-
-
-def scan_file(path: Path) -> list[dict]:
-    findings: list[dict] = []
+def _display(root: Path, path: Path) -> str:
     try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
+        return str(path.relative_to(root)).replace("\\", "/")
     except Exception:
-        return findings
-    for token_type, pattern in TOKEN_PATTERNS.items():
-        for match in pattern.finditer(text):
-            line_start = text.rfind("\n", 0, match.start()) + 1
-            line_end = text.find("\n", match.end())
-            line = text[line_start:line_end if line_end != -1 else None]
-            low = line.lower()
-            if any(tok in low for tok in ("noqa", "test", "fixture", "example")):
-                continue
-            # Descartar placeholders de documentacion (sk-ant-x..., <token>, XXXX, your_key)
-            if any(ph in low for ph in ("...", "xxxx", "<", "your_", "placeholder", "tu_", "set anthropic", "set openai", "set ")):
-                continue
-            findings.append({"type": token_type, "file": str(path), "line": line.strip()})
-    return findings
+        return str(path)
 
 
-def scan_directory(root: Path, max_size: int = 500_000) -> list[dict]:
-    findings: list[dict] = []
+def _iter_files(root: Path):
     for path in root.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in EXCLUDE_DIRS for part in path.parts):
+        rel = path.relative_to(root)
+        if any(part in EXCLUDE_DIRS for part in rel.parts):
             continue
         if path.suffix.lower() in EXCLUDE_EXTS:
             continue
         try:
-            if path.stat().st_size > max_size:
+            if path.stat().st_size > MAX_SCAN_SIZE:
                 continue
         except OSError:
             continue
-        findings.extend(scan_file(path))
+        yield path
+
+
+def _should_skip_line(line: str) -> bool:
+    low = line.lower()
+    markers = ("example", "fixture", "dummy", "placeholder", "xxxx", "your_", "<token", "<api", "test")
+    return any(marker in low for marker in markers)
+
+
+def scan_tokens(root: Path) -> list[dict]:
+    findings = []
+    for path in _iter_files(root):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if _should_skip_line(line):
+                continue
+            for name, pattern in TOKEN_PATTERNS.items():
+                if not pattern.search(line):
+                    continue
+                findings.append({
+                    "severity": "CRITICAL",
+                    "kind": "token_exposed",
+                    "token_type": name,
+                    "file": _display(root, path),
+                    "line": lineno,
+                    "excerpt": line.strip()[:160],
+                })
     return findings
 
 
-def check_git_config() -> None:
-    try:
-        listing = subprocess.check_output(
-            ["git", "config", "--global", "--list"], text=True, stderr=subprocess.DEVNULL
-        )
-    except Exception:
-        return
-    if "credential.helper" in listing:
-        try:
-            helper = subprocess.check_output(
-                ["git", "config", "--global", "credential.helper"], text=True, stderr=subprocess.DEVNULL
-            ).strip()
-            if helper and "manager" not in helper.lower():
-                add_finding("MEDIUM", "git_config", f"credential.helper no es GCM: {helper}")
-        except Exception:
-            pass
+def _permission_flags(mode: int) -> list[str]:
+    flags = []
+    if mode & 0o111:
+        flags.append("executable")
+    if mode & 0o002:
+        flags.append("world_writable")
+    return flags
 
 
-def check_secrets_file(root: Path) -> None:
-    candidates = [
-        Path.home() / ".bago_secrets.json",
-        root / ".bago" / "credentials.json",
-        root / ".bago" / "session-credentials.json",
-    ]
-    for secrets in candidates:
-        if not secrets.exists():
-            continue
+def _env_files(root: Path) -> list[Path]:
+    return [path for path in root.rglob(".env*") if path.is_file() and not any(part in EXCLUDE_DIRS for part in path.relative_to(root).parts)]
+
+
+def scan_env_permissions(root: Path) -> list[dict]:
+    findings = []
+    for path in _env_files(root):
         try:
-            mode = secrets.stat().st_mode
-            if os.name != "nt" and (mode & 0o077):
-                add_finding("HIGH", "file_permissions",
-                            f"{secrets} accesible por grupo/otros (mode {oct(mode)})", str(secrets))
+            flags = _permission_flags(path.stat().st_mode)
         except OSError:
-            pass
-        try:
-            data = json.loads(secrets.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            add_finding("HIGH", "secrets_file", f"{secrets} contiene JSON invalido", str(secrets))
             continue
-        except Exception:
-            continue
-        if isinstance(data, dict):
-            for key, value in data.items():
-                if isinstance(value, str) and len(value) > 20:
-                    add_finding("CRITICAL", "secrets_file",
-                                f"Posible token '{key}' en texto plano (revisa que este en .gitignore)", str(secrets))
+        for flag in flags:
+            findings.append({
+                "severity": "HIGH",
+                "kind": "env_permissions",
+                "token_type": "",
+                "file": _display(root, path),
+                "line": 0,
+                "excerpt": flag,
+            })
+    return findings
 
 
-def check_git_tracked_secrets(root: Path) -> None:
-    """Avisa si algun archivo de DATOS con secretos esta rastreado por git.
-
-    Solo marca ficheros de datos (.json/.env/.yaml/.ini/...) cuyo nombre sugiere
-    secretos; el codigo fuente (p.ej. credential_manager.py) NO se marca.
-    """
-    secret_exts = {".json", ".env", ".yaml", ".yml", ".ini", ".cfg", ".conf", ".toml"}
+def _gitignore_text(root: Path) -> str:
+    gitignore = root / ".gitignore"
+    if not gitignore.exists():
+        return ""
     try:
-        tracked = subprocess.check_output(
-            ["git", "-C", str(root), "ls-files"], text=True, stderr=subprocess.DEVNULL
-        )
-    except Exception:
+        return gitignore.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _env_is_ignored(rel: str, gitignore_text: str) -> bool:
+    if not gitignore_text:
+        return False
+    rel = rel.replace("\\", "/")
+    name = Path(rel).name
+    for raw in gitignore_text.splitlines():
+        entry = raw.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        if entry in {".env", ".env.*", ".env*", name, rel, f"/{rel}"}:
+            return True
+    return False
+
+
+def scan_env_gitignore(root: Path) -> list[dict]:
+    findings = []
+    gitignore_text = _gitignore_text(root)
+    for path in _env_files(root):
+        rel = _display(root, path)
+        if not _env_is_ignored(rel, gitignore_text):
+            findings.append({
+                "severity": "MEDIUM",
+                "kind": "env_gitignore",
+                "token_type": "",
+                "file": rel,
+                "line": 0,
+                "excerpt": ".env file not ignored by git",
+            })
+    return findings
+
+
+def compute_score(findings: list[dict]) -> int:
+    score = 100
+    for item in findings:
+        score -= SEVERITY_DEDUCTIONS.get(item.get("severity", ""), 0)
+    return max(0, min(100, score))
+
+
+def remediation_steps(findings: list[dict]) -> list[str]:
+    steps = []
+    for item in findings:
+        if item["kind"] == "token_exposed":
+            steps.append(f"Rotate {item['token_type']} secret found in {item['file']} line {item['line']}")
+        elif item["kind"] == "env_permissions":
+            steps.append(f"Remove dangerous permissions from {item['file']} ({item['excerpt']})")
+        elif item["kind"] == "env_gitignore":
+            steps.append(f"Add {item['file']} or .env* to .gitignore")
+    out = []
+    seen = set()
+    for step in steps:
+        if step not in seen:
+            seen.add(step)
+            out.append(step)
+    return out
+
+
+def scan(root: Path) -> dict:
+    findings = []
+    findings.extend(scan_tokens(root))
+    findings.extend(scan_env_permissions(root))
+    findings.extend(scan_env_gitignore(root))
+    findings.sort(key=lambda item: (item["severity"], item["file"], item["line"], item["kind"]))
+    return {"root": str(root), "findings": findings, "score": compute_score(findings)}
+
+
+def _print_report(report: dict, show_fix: bool, as_json: bool) -> None:
+    payload = dict(report)
+    if show_fix:
+        payload["remediation"] = remediation_steps(report["findings"])
+    if as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=True))
         return
-    for line in tracked.splitlines():
-        name = line.rsplit("/", 1)[-1].lower()
-        suffix = ("." + name.rsplit(".", 1)[-1]) if "." in name else ""
-        is_data = suffix in secret_exts or name == ".env"
-        if is_data and ("credential" in name or "secret" in name or name == ".env"):
-            add_finding("CRITICAL", "git_tracked_secret",
-                        f"Archivo de secretos rastreado por git: {line}", line)
+    print("BAGO SECURITY AUDIT")
+    print(f"Root: {report['root']}")
+    print(f"Score: {report['score']}/100")
+    print(f"Findings: {len(report['findings'])}")
+    for item in report["findings"]:
+        location = f"{item['file']}:{item['line']}" if item["line"] else item["file"]
+        extra = f" [{item['token_type']}]" if item.get("token_type") else ""
+        print(f"[{item['severity']}] {item['kind']}{extra} {location} - {item['excerpt']}")
+    if show_fix:
+        print("Remediation:")
+        for step in payload["remediation"]:
+            print(f"  - {step}")
 
 
-def generate_report(output_path: Path | None = None) -> None:
-    REPORT["score"] = max(0, REPORT["score"])
-    by_sev: dict[str, list] = {}
-    for f in REPORT["findings"]:
-        by_sev.setdefault(f["severity"], []).append(f)
-
-    print("=" * 70)
-    print("  BAGO SECURITY AUDIT REPORT")
-    print(f"  Generado: {REPORT['timestamp']}")
-    print("=" * 70)
-    print(f"\n  Puntuacion de seguridad: {REPORT['score']}/100")
-    if REPORT["score"] >= 80:
-        print("  Estado: [BUENO]")
-    elif REPORT["score"] >= 50:
-        print("  Estado: [MODERADO]")
-    else:
-        print("  Estado: [CRITICO]")
-
-    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        if sev in by_sev:
-            print(f"\n  [{sev}] - {len(by_sev[sev])} hallazgos")
-            for f in by_sev[sev]:
-                info = f"  -> {f['file']}" if f["file"] else ""
-                print(f"    - {f['category']}: {f['detail']}{info}")
-
-    if not REPORT["findings"]:
-        print("\n  No se detectaron hallazgos. Mantiene buenas practicas.")
-    else:
-        print("\n" + "=" * 70)
-        print("  RECOMENDACIONES:")
-        print("=" * 70)
-        print("  - Revoca cualquier token expuesto en su proveedor (GitHub/OpenAI/...).")
-        print("  - Verifica que credentials.json y secretos esten en .gitignore.")
-        print("  - Usa Windows Credential Manager o variables de entorno, no texto plano.")
-
-    if output_path:
-        output_path.write_text(json.dumps(REPORT, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"\n  Informe guardado en: {output_path}")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Portable security audit for tokens, env permissions and unsafe config.")
+    parser.add_argument("--root", default="", help="Project root to scan. Default: cwd")
+    parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    parser.add_argument("--fix", action="store_true", help="Show remediation instructions")
+    parser.add_argument("--test", action="store_true", help="Run self tests")
+    return parser
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Auditoria de seguridad BAGO 4.1.5")
-    parser.add_argument("--root", type=Path, default=_repo_root(),
-                        help="Raiz a escanear (por defecto, la raiz del repo).")
-    parser.add_argument("--home", action="store_true",
-                        help="Escanea tambien el directorio HOME del usuario.")
-    parser.add_argument("--output", type=Path, help="Guarda el informe JSON en la ruta indicada.")
-    args = parser.parse_args()
+def _selftest_dir() -> Path:
+    return Path(__file__).resolve().parent / ".selftest_bago_security_audit"
 
-    print("Iniciando auditoria de seguridad BAGO...")
-    roots = [args.root]
-    if args.home:
-        roots.append(Path.home())
-    for root in roots:
-        if root.exists():
-            print(f"   Escaneando: {root}")
-            for f in scan_directory(root):
-                add_finding("CRITICAL", "exposed_token",
-                            f"Token {f['type']} expuesto: {f['line'][:60]}...", f["file"])
 
-    check_git_config()
-    check_secrets_file(args.root)
-    check_git_tracked_secrets(args.root)
+def run_self_tests() -> int:
+    base = _selftest_dir()
+    if base.exists():
+        shutil.rmtree(base)
+    base.mkdir(parents=True)
+    try:
+        token_line = "github_pat_abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890\n"
+        (base / "token.txt").write_text(token_line, encoding="utf-8")
+        (base / ".env").write_text("OPENAI_KEY=test\n", encoding="utf-8")
+        (base / "example.txt").write_text("example github_pat_placeholder_token\n", encoding="utf-8")
 
-    generate_report(args.output)
-    return 0 if REPORT["score"] >= 50 else 1
+        ok1 = any(item["token_type"] == "github_pat" for item in scan_tokens(base))
+        ok2 = _permission_flags(0o777) == ["executable", "world_writable"]
+        ok3 = any(item["kind"] == "env_gitignore" for item in scan_env_gitignore(base))
+        (base / ".gitignore").write_text(".env\n", encoding="utf-8")
+        ok4 = not scan_env_gitignore(base)
+        ok5 = compute_score([{"severity": "CRITICAL"}] * 10) == 0
+        ok6 = not any(item["file"] == "example.txt" for item in scan_tokens(base))
+
+        results = [ok1, ok2, ok3, ok4, ok5, ok6]
+        passed = sum(1 for ok in results if ok)
+        print(f"{passed}/{len(results)} tests passed")
+        return 0 if passed == len(results) else 1
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.test:
+        return run_self_tests()
+    root = Path(args.root or Path.cwd()).resolve()
+    if not root.exists() or not root.is_dir():
+        print(f"Error: invalid root {root}", file=sys.stderr)
+        return 2
+    report = scan(root)
+    _print_report(report, args.fix, args.json)
+    return 1 if report["findings"] else 0
 
 
 if __name__ == "__main__":

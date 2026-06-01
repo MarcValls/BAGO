@@ -776,6 +776,41 @@ def cmd_scan(args: argparse.Namespace) -> int:
         n_log = getattr(args, 'log', 10)
         if n_log != 10: argv += ['--log', str(n_log)]
         return git_context.main(argv)
+    elif subcmd == "sincerity":
+        import sincerity_detector
+        argv = _base_argv()
+        if getattr(args, 'strict', False): argv.append('--strict')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        path_arg = getattr(args, 'path', '')
+        if path_arg: argv += ['--path', path_arg]
+        return sincerity_detector.main(argv)
+    elif subcmd == "net":
+        import net_scan
+        argv = []
+        if getattr(args, 'scan_net', False): argv.append('--scan')
+        if getattr(args, 'adapters', False): argv.append('--adapters')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        return net_scan.main(argv)
+    elif subcmd == "metrics":
+        import code_metrics
+        argv = _base_argv()
+        if getattr(args, 'as_json', False): argv.append('--json')
+        ext_arg = getattr(args, 'ext', '')
+        if ext_arg: argv += ['--ext', ext_arg]
+        return code_metrics.main(argv)
+    elif subcmd == "heal":
+        import auto_heal
+        argv = _base_argv()
+        if getattr(args, 'fix', False): argv.append('--fix')
+        if getattr(args, 'dry_run', False): argv.append('--dry-run')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        return auto_heal.main(argv)
+    elif subcmd == "security":
+        import bago_security_audit
+        argv = _base_argv()
+        if getattr(args, 'fix', False): argv.append('--fix')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        return bago_security_audit.main(argv)
 
     else:
         print("Uso: bago scan <subcomando> [--root DIR] [opciones]")
@@ -787,6 +822,11 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print("    tokens    Detecta tokens de API expuestos")
         print("    dead      Detecta codigo muerto (imports, funciones no usadas)")
         print("    names     Valida convenciones de nombres (PEP 8)")
+        print("    sincerity Detecta marketing vacio en la documentacion")
+        print("    net       Escanea adaptadores de red y dispositivos locales")
+        print("    metrics   Metricas de codigo: LOC, archivos, tipos")
+        print("    heal      Sistema inmune: detecta y repara inconsistencias")
+        print("    security  Auditoria de seguridad: tokens, permisos, configs")
         print("    doctor    Diagnostico de integridad del proyecto")
         print("    commit    Pre-commit check rapido")
         print("    git       Snapshot del contexto git")
@@ -1214,7 +1254,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_parser.add_argument("--runtime-model", default="bago-cpp:default", help="Modelo expuesto por el runtime")
     runtime_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del host")
 
-    scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, doctor, commit, git, all)")
+    scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, sincerity, net, metrics, heal, security, doctor, commit, git, all)")
     scan_parser.add_argument("--root", default="", help="Directorio raiz a escanear (default: cwd)")
     scan_sub = scan_parser.add_subparsers(dest="scan_cmd")
 
@@ -1242,6 +1282,29 @@ def main(argv: list[str] | None = None) -> int:
     scan_names.add_argument("--json", dest="as_json", action="store_true")
 
     scan_sub.add_parser("all", help="Ejecuta todos los scans y muestra resumen")
+
+    scan_sincerity = scan_sub.add_parser("sincerity", help="Detecta marketing vacio en la documentacion")
+    scan_sincerity.add_argument("--strict", action="store_true")
+    scan_sincerity.add_argument("--path", default="")
+    scan_sincerity.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_net = scan_sub.add_parser("net", help="Escanea adaptadores de red y dispositivos locales")
+    scan_net.add_argument("--scan", dest="scan_net", action="store_true")
+    scan_net.add_argument("--adapters", action="store_true")
+    scan_net.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_metrics = scan_sub.add_parser("metrics", help="Metricas de codigo: LOC, archivos, tipos")
+    scan_metrics.add_argument("--ext", default="")
+    scan_metrics.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_heal = scan_sub.add_parser("heal", help="Sistema inmune: detecta y repara inconsistencias")
+    scan_heal.add_argument("--fix", action="store_true")
+    scan_heal.add_argument("--dry-run", dest="dry_run", action="store_true")
+    scan_heal.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_security = scan_sub.add_parser("security", help="Auditoria de seguridad: tokens, permisos, configs")
+    scan_security.add_argument("--fix", action="store_true")
+    scan_security.add_argument("--json", dest="as_json", action="store_true")
 
     scan_doctor = scan_sub.add_parser("doctor", help="Diagnostico de integridad del proyecto")
     scan_doctor.add_argument("--fix", action="store_true")
