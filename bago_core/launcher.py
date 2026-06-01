@@ -754,6 +754,29 @@ def cmd_scan(args: argparse.Namespace) -> int:
             print(f"  {k:10} {v}")
         return 1 if has_errors else 0
 
+    elif subcmd == "doctor":
+        import doctor
+        argv = _base_argv()
+        if getattr(args, 'fix', False): argv.append('--fix')
+        if getattr(args, 'quiet', False): argv.append('--quiet')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        return doctor.main(argv)
+    elif subcmd == "commit":
+        import commit_readiness
+        argv = _base_argv()
+        if getattr(args, 'all_files', False): argv.append('--all')
+        if getattr(args, 'strict', False): argv.append('--strict')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        return commit_readiness.main(argv)
+    elif subcmd == "git":
+        import git_context
+        argv = _base_argv()
+        if getattr(args, 'brief', False): argv.append('--brief')
+        if getattr(args, 'as_json', False): argv.append('--json')
+        n_log = getattr(args, 'log', 10)
+        if n_log != 10: argv += ['--log', str(n_log)]
+        return git_context.main(argv)
+
     else:
         print("Uso: bago scan <subcomando> [--root DIR] [opciones]")
         print()
@@ -764,6 +787,9 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print("    tokens    Detecta tokens de API expuestos")
         print("    dead      Detecta codigo muerto (imports, funciones no usadas)")
         print("    names     Valida convenciones de nombres (PEP 8)")
+        print("    doctor    Diagnostico de integridad del proyecto")
+        print("    commit    Pre-commit check rapido")
+        print("    git       Snapshot del contexto git")
         print("    all       Ejecuta todos los scans")
         print()
         print("  Opciones comunes:")
@@ -773,6 +799,55 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print("  Estas herramientas tambien funcionan standalone:")
         print("    python .bago/tools/secret_scan.py --root /mi/proyecto")
         return 0
+
+
+def cmd_canary(args):
+    tools_dir = BAGO_ROOT / ".bago" / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    import bago_canary
+    root = getattr(args, 'root', '') or ''
+    subcmd = getattr(args, 'canary_cmd', None)
+    argv = ['--root', root] if root else []
+    if subcmd == 'deploy':
+        argv += ['deploy', '--type', getattr(args, 'type', 'aws_keys')]
+    elif subcmd:
+        argv.append(subcmd)
+    else:
+        argv.append('list')
+    return bago_canary.main(argv)
+
+
+def cmd_backup(args):
+    tools_dir = BAGO_ROOT / ".bago" / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    import bago_backup_vault
+    root = getattr(args, 'root', '') or ''
+    subcmd = getattr(args, 'backup_cmd', None)
+    argv = ['--root', root] if root else []
+    if subcmd == 'create':
+        argv += ['create', '--max', str(getattr(args, 'max', 10))]
+    elif subcmd == 'restore':
+        argv += ['restore', '--index', str(getattr(args, 'index', 1))]
+    elif subcmd:
+        argv.append(subcmd)
+    else:
+        argv.append('list')
+    return bago_backup_vault.main(argv)
+
+
+def cmd_inventory(args):
+    tools_dir = BAGO_ROOT / ".bago" / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    import bago_inventory
+    root = getattr(args, 'root', '') or ''
+    argv = ['--root', root] if root else []
+    fmt = getattr(args, 'format', 'text')
+    if fmt != 'text':
+        argv += ['--format', fmt]
+    return bago_inventory.main(argv)
 
 
 def cmd_cpp_runtime(args: argparse.Namespace) -> int:
@@ -1139,7 +1214,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_parser.add_argument("--runtime-model", default="bago-cpp:default", help="Modelo expuesto por el runtime")
     runtime_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del host")
 
-    scan_parser = sub.add_parser("scan", help="Herramientas de análisis portables (secrets, deps, todos, tokens, dead, names, all)")
+    scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, doctor, commit, git, all)")
     scan_parser.add_argument("--root", default="", help="Directorio raiz a escanear (default: cwd)")
     scan_sub = scan_parser.add_subparsers(dest="scan_cmd")
 
@@ -1167,6 +1242,43 @@ def main(argv: list[str] | None = None) -> int:
     scan_names.add_argument("--json", dest="as_json", action="store_true")
 
     scan_sub.add_parser("all", help="Ejecuta todos los scans y muestra resumen")
+
+    scan_doctor = scan_sub.add_parser("doctor", help="Diagnostico de integridad del proyecto")
+    scan_doctor.add_argument("--fix", action="store_true")
+    scan_doctor.add_argument("--quiet", action="store_true")
+    scan_doctor.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_commit = scan_sub.add_parser("commit", help="Pre-commit check rapido")
+    scan_commit.add_argument("--all", dest="all_files", action="store_true")
+    scan_commit.add_argument("--strict", action="store_true")
+    scan_commit.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_git = scan_sub.add_parser("git", help="Snapshot del contexto git")
+    scan_git.add_argument("--brief", action="store_true")
+    scan_git.add_argument("--log", type=int, default=10)
+    scan_git.add_argument("--json", dest="as_json", action="store_true")
+
+    canary_parser = sub.add_parser("canary", help="Honeytokens - trampas de deteccion de intrusos")
+    canary_parser.add_argument("--root", default="")
+    canary_sub = canary_parser.add_subparsers(dest="canary_cmd")
+    canary_deploy = canary_sub.add_parser("deploy")
+    canary_deploy.add_argument("--type", default="aws_keys", choices=["aws_keys","openai_api","github_pat","telegram_bot","google_api","all"])
+    canary_sub.add_parser("check")
+    canary_sub.add_parser("list")
+    canary_sub.add_parser("purge")
+
+    backup_parser = sub.add_parser("backup", help="Backups del proyecto con rotacion")
+    backup_parser.add_argument("--root", default="")
+    backup_sub = backup_parser.add_subparsers(dest="backup_cmd")
+    bc = backup_sub.add_parser("create")
+    bc.add_argument("--max", type=int, default=10)
+    backup_sub.add_parser("list")
+    br = backup_sub.add_parser("restore")
+    br.add_argument("--index", type=int, default=1)
+
+    inv_parser = sub.add_parser("inventory", help="Cataloga capacidades del proyecto")
+    inv_parser.add_argument("--root", default="")
+    inv_parser.add_argument("--format", default="text", choices=["text","md","json"])
 
     args = parser.parse_args(argv)
 
@@ -1200,6 +1312,12 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_cpp_runtime(args)
     elif args.command == "scan":
         return cmd_scan(args)
+    elif args.command == "canary":
+        return cmd_canary(args)
+    elif args.command == "backup":
+        return cmd_backup(args)
+    elif args.command == "inventory":
+        return cmd_inventory(args)
     else:
         parser.print_help()
         return 0
