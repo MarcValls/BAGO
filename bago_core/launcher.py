@@ -167,9 +167,9 @@ def main(argv: list[str] | None = None) -> int:
 
     chat_parser = sub.add_parser("chat", help="Inicia el REPL de chat")
     chat_parser.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
-    sub.add_parser("launch", help="Alias de chat: inicia BAGO")
-    sub.add_parser("start", help="Inicia BAGO y autoevoluciona (alias de chat con auto-aprendizaje al arrancar)")
-    sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
+    launch_parser   = sub.add_parser("launch",   help="Alias de chat: inicia BAGO")  # noqa: F841
+    start_parser    = sub.add_parser("start",    help="Inicia BAGO y autoevoluciona (alias de chat con auto-aprendizaje al arrancar)")  # noqa: F841
+    validate_parser = sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")  # noqa: F841
 
     install_parser = sub.add_parser("install", help="Instala/repara BAGO desde la copia local, sin descarga")
     install_parser.add_argument("--source-root", default="", help="Raiz local desde la que instalar")
@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     claim_list.add_argument("--status",   dest="filter_status", default="")
     claim_verify = claim_sub.add_parser("verify", help="Verifica artefactos de un claim")
     claim_verify.add_argument("claim_id")
-    claim_sub.add_parser("report", help="Resumen del ledger")
+    claim_report = claim_sub.add_parser("report", help="Resumen del ledger")  # noqa: F841
 
     config_parser = sub.add_parser("config", help="Gestiona configuración")
     config_sub = config_parser.add_subparsers(dest="config_cmd", help="Subcomandos de config")
@@ -214,13 +214,13 @@ def main(argv: list[str] | None = None) -> int:
     config_set_parser.add_argument("value", nargs=argparse.REMAINDER)
     config_get_parser = config_sub.add_parser("get", help="Obtiene clave de config")
     config_get_parser.add_argument("key", nargs="?")
-    config_sub.add_parser("list", help="Lista configuración completa")
-    config_sub.add_parser("reset", help="Restaura defaults")
+    config_list  = config_sub.add_parser("list",  help="Lista configuración completa")  # noqa: F841
+    config_reset = config_sub.add_parser("reset", help="Restaura defaults")  # noqa: F841
 
     llm_parser = sub.add_parser("llm", help="Gestiona arranque provider-aware")
     llm_parser.add_argument("--include-experimental", action="store_true", help="Incluye providers experimentales fuera del release principal")
     llm_sub = llm_parser.add_subparsers(dest="llm_action")
-    llm_sub.add_parser("list", help="Lista providers instalados/configurados y disponibles")
+    llm_list = llm_sub.add_parser("list", help="Lista providers instalados/configurados y disponibles")  # noqa: F841
     llm_start = llm_sub.add_parser("start", help="Inicia BAGO con provider/modelo seleccionado")
     llm_start.add_argument("--provider", dest="llm_provider", default="", help="Provider instalado/configurado")
     llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesión")
@@ -233,24 +233,24 @@ def main(argv: list[str] | None = None) -> int:
     engine_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
     engine_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")
     engine_sub = engine_parser.add_subparsers(dest="engine_action")
-    engine_sub.add_parser("status", help="Muestra estado de bago_true")
+    engine_status = engine_sub.add_parser("status", help="Muestra estado de bago_true")  # noqa: F841
 
     appdata_parser = sub.add_parser("appdata", help="Estado de instalacion AppData BAGO")
     appdata_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
     appdata_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")
     appdata_sub = appdata_parser.add_subparsers(dest="appdata_action")
-    appdata_sub.add_parser("status", help="Muestra estado de AppData BAGO")
+    appdata_status = appdata_sub.add_parser("status", help="Muestra estado de AppData BAGO")  # noqa: F841
 
     cmd_rl_parser = sub.add_parser("cmd-rl", help="Estado del puente AppData cmd-rl/Spiral")
     cmd_rl_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
     cmd_rl_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")
     cmd_rl_sub = cmd_rl_parser.add_subparsers(dest="cmd_rl_action")
-    cmd_rl_sub.add_parser("status", help="Muestra soporte cmd-rl/Spiral")
+    cmd_rl_status = cmd_rl_sub.add_parser("status", help="Muestra soporte cmd-rl/Spiral")  # noqa: F841
 
     rl_parser = sub.add_parser("rl", help="RL shadow bridge")
     rl_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
     rl_sub = rl_parser.add_subparsers(dest="rl_action")
-    rl_sub.add_parser("status", help="Muestra estado RL")
+    rl_status = rl_sub.add_parser("status", help="Muestra estado RL")  # noqa: F841
     rl_shadow = rl_sub.add_parser("shadow", help="Controla modo shadow")
     rl_shadow.add_argument("shadow_action", nargs="?", choices=("on", "off", "status"), default="status")
     rl_train = rl_sub.add_parser("train", help="Entrena politicas RL opcionales")
@@ -285,8 +285,8 @@ def main(argv: list[str] | None = None) -> int:
     monitor_parser.add_argument("--port", type=int, default=7890, help="Puerto HTTP del monitor (default: 7890)")
     monitor_parser.add_argument("--refresh", type=int, default=5, help="Segundos entre auto-refresh (default: 5)")
     monitor_sub = monitor_parser.add_subparsers(dest="monitor_cmd")
-    monitor_sub.add_parser("serve", help="Sirve el monitor en http://127.0.0.1:PORT/ (default)")
-    monitor_sub.add_parser("generate", help="Genera monitor.html estático en .bago/monitor.html")
+    monitor_serve    = monitor_sub.add_parser("serve",    help="Sirve el monitor en http://127.0.0.1:PORT/ (default)")  # noqa: F841
+    monitor_generate = monitor_sub.add_parser("generate", help="Genera monitor.html estático en .bago/monitor.html")  # noqa: F841
 
     orc_parser = sub.add_parser("orchestrate", help="Orchestrator v4 — Flujo Operativo (Regla Fundamental)")
     orc_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
@@ -343,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
     scan_names = scan_sub.add_parser("names", help="Valida convenciones de nombres (PEP 8)")
     scan_names.add_argument("--json", dest="as_json", action="store_true")
 
-    scan_sub.add_parser("all", help="Ejecuta todos los scans y muestra resumen")
+    scan_all = scan_sub.add_parser("all", help="Ejecuta todos los scans y muestra resumen")  # noqa: F841
 
     scan_sincerity = scan_sub.add_parser("sincerity", help="Detecta marketing vacio en la documentacion")
     scan_sincerity.add_argument("--strict", action="store_true")
@@ -393,25 +393,25 @@ def main(argv: list[str] | None = None) -> int:
     canary_sub = canary_parser.add_subparsers(dest="canary_cmd")
     canary_deploy = canary_sub.add_parser("deploy")
     canary_deploy.add_argument("--type", default="aws_keys", choices=["aws_keys","openai_api","github_pat","telegram_bot","google_api","all"])
-    canary_sub.add_parser("check")
-    canary_sub.add_parser("list")
-    canary_sub.add_parser("purge")
+    canary_check = canary_sub.add_parser("check")  # noqa: F841
+    canary_list  = canary_sub.add_parser("list")   # noqa: F841
+    canary_purge = canary_sub.add_parser("purge")  # noqa: F841
 
     backup_parser = sub.add_parser("backup", help="Backups del proyecto con rotacion")
     backup_parser.add_argument("--root", default="")
     backup_sub = backup_parser.add_subparsers(dest="backup_cmd")
     bc = backup_sub.add_parser("create")
     bc.add_argument("--max", type=int, default=10)
-    backup_sub.add_parser("list")
+    backup_list = backup_sub.add_parser("list")  # noqa: F841
     br = backup_sub.add_parser("restore")
     br.add_argument("--index", type=int, default=1)
 
     project_parser = sub.add_parser("project", help="Gestiona la estructura portable .bago del proyecto")
     project_parser.add_argument("--root", default="")
     project_sub = project_parser.add_subparsers(dest="project_cmd")
-    project_sub.add_parser("init", help="Inicializa la estructura .bago")
-    project_sub.add_parser("status", help="Muestra el estado actual")
-    project_sub.add_parser("link", help="Crea el enlace portable del proyecto")
+    project_init   = project_sub.add_parser("init",   help="Inicializa la estructura .bago")  # noqa: F841
+    project_status = project_sub.add_parser("status", help="Muestra el estado actual")         # noqa: F841
+    project_link   = project_sub.add_parser("link",   help="Crea el enlace portable del proyecto")  # noqa: F841
 
     preflight_parser = sub.add_parser("preflight", help="Ejecuta checks de preflight portables")
     preflight_parser.add_argument("--root", default="")
@@ -421,7 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     toolsmith_parser.add_argument("--root", default="")
     toolsmith_parser.add_argument("--json", dest="toolsmith_json", action="store_true")
     toolsmith_sub = toolsmith_parser.add_subparsers(dest="toolsmith_cmd")
-    toolsmith_sub.add_parser("catalog", help="Muestra el catalogo")
+    toolsmith_catalog = toolsmith_sub.add_parser("catalog", help="Muestra el catalogo")  # noqa: F841
     toolsmith_assign = toolsmith_sub.add_parser("assign", help="Asigna herramientas a un agente")
     toolsmith_assign.add_argument("--task", required=True)
     toolsmith_assign.add_argument("--agent", dest="agent_name", default="")
@@ -429,7 +429,7 @@ def main(argv: list[str] | None = None) -> int:
     toolsmith_sprint = toolsmith_sub.add_parser("sprint", help="Crea toolboxes para un sprint")
     toolsmith_sprint.add_argument("sprint_id")
     toolsmith_sprint.add_argument("--tasks", default="")
-    toolsmith_sub.add_parser("missing", help="Lista herramientas faltantes")
+    toolsmith_missing = toolsmith_sub.add_parser("missing", help="Lista herramientas faltantes")  # noqa: F841
     toolsmith_create = toolsmith_sub.add_parser("create", help="Crea un nuevo tool stub")
     toolsmith_create.add_argument("tool_name")
     toolsmith_create.add_argument("--desc", default="")
@@ -444,12 +444,12 @@ def main(argv: list[str] | None = None) -> int:
     agent_spawn.add_argument("agent_id")
     agent_spawn.add_argument("--phase", type=int, default=0)
     agent_spawn.add_argument("--skills", default="")
-    agent_sub.add_parser("list", help="Lista agentes")
+    agent_list = agent_sub.add_parser("list", help="Lista agentes")  # noqa: F841
     agent_run = agent_sub.add_parser("run", help="Ejecuta un agente")
     agent_run.add_argument("agent_id")
     agent_kill = agent_sub.add_parser("kill", help="Desactiva un agente")
     agent_kill.add_argument("agent_id")
-    agent_sub.add_parser("status", help="Muestra consonancia entre agentes")
+    agent_status = agent_sub.add_parser("status", help="Muestra consonancia entre agentes")  # noqa: F841
 
     route_parser = sub.add_parser("route", help="Ruta tareas al mejor agente AI")
     route_parser.add_argument("--root", default="")
