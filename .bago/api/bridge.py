@@ -67,6 +67,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         "/session",
         "/history",
         "/providers",
+        "/menu",
         "/models",
         "/chat",
         "/command",
@@ -195,6 +196,8 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
                 self._handle_history()
             elif path == "/providers":
                 self._handle_providers()
+            elif path == "/menu":
+                self._handle_menu()
             elif path == "/catalog/status":
                 self._handle_catalog_status()
             elif path == "/simulation/status":
@@ -281,6 +284,16 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         providers = mgr.available_providers()
         self._send_json(200, {"providers": providers, "mode": mgr.config.get("model_catalog.mode", "all")})
+
+    def _handle_menu(self) -> None:
+        try:
+            from repl import MENU_SECTIONS
+        except Exception as exc:  # pragma: no cover - import defensivo
+            # Culpa tecnica: responsable=import de MENU_SECTIONS; causa=ruta/paquete;
+            # prevencion=fallback vacio para no romper la UI.
+            self._send_json(200, {"sections": [], "error": f"menu no disponible: {exc}"})
+            return
+        self._send_json(200, {"sections": MENU_SECTIONS})
 
     def _handle_models(self, provider: str) -> None:
         mgr = self.session_mgr
