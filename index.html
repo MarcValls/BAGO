@@ -37,7 +37,7 @@
         BAGO es una CLI local-first que orquesta proveedores de IA, mantiene el contexto entre cambios de modelo, y aprende de tu estilo de conversación para no ser invasivo.
       </p>
       <div class="flex flex-wrap gap-4">
-        <a href="#install" class="px-6 py-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Instalar ahora</a>
+        <a id="primary-release-download" href="#install" class="px-6 py-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Instalar ahora</a>
         <a href="https://github.com/MarcValls/BAGO" target="_blank" class="px-6 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Ver en GitHub</a>
       </div>
     </div>
@@ -183,6 +183,7 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b</c
     (async function() {
       const status = document.getElementById('act-status');
       const releaseBadgeText = document.getElementById('hero-release-label');
+      const primaryReleaseDownload = document.getElementById('primary-release-download');
       try {
         const [repo, commits, release] = await Promise.all([
           fetch('https://api.github.com/repos/MarcValls/BAGO').then(r => r.json()),
@@ -201,14 +202,22 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b</c
           if (releaseBadgeText) releaseBadgeText.textContent = `${release.tag_name} Disponible`;
           const releaseLink = document.getElementById('latest-release-link');
           const releaseDownload = document.getElementById('latest-release-download');
+          const asset = Array.isArray(release.assets) && release.assets.length ? release.assets[0] : null;
           if (releaseLink) releaseLink.href = release.html_url;
           if (releaseDownload) {
-            const asset = Array.isArray(release.assets) && release.assets.length ? release.assets[0] : null;
             releaseDownload.href = asset ? asset.browser_download_url : release.html_url;
             releaseDownload.textContent = asset ? 'Descargar asset →' : 'Abrir release →';
           }
+          if (primaryReleaseDownload) {
+            primaryReleaseDownload.href = asset ? asset.browser_download_url : release.html_url;
+            primaryReleaseDownload.textContent = asset ? 'Descargar última release' : 'Abrir última release';
+          }
         } else {
           document.getElementById('act-release').textContent = 'Sin release publicada';
+          if (primaryReleaseDownload) {
+            primaryReleaseDownload.href = '#install';
+            primaryReleaseDownload.textContent = 'Instalar ahora';
+          }
         }
         const list = document.getElementById('act-commits');
         if (Array.isArray(commits) && commits.length) {
