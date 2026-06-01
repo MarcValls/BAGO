@@ -337,6 +337,28 @@ def build_parser(
     agent_kill.add_argument("agent_id")
     agent_status = agent_sub.add_parser("status", help="Muestra consonancia entre agentes")          # noqa: F841
 
+    # ── guard ─────────────────────────────────────────────────────────────────
+    guard_parser = sub.add_parser("guard", help="Guardián de deuda técnica — previene patrones antes de commitear")
+    guard_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
+    guard_sub = guard_parser.add_subparsers(dest="guard_cmd")
+    guard_sub.add_parser("install",   help="Instala hook git pre-commit")
+    guard_sub.add_parser("uninstall", help="Elimina hook git pre-commit")
+    guard_sub.add_parser("status",    help="Muestra estado del hook y reglas activas")
+    guard_check = guard_sub.add_parser("check", help="Verifica archivos staged (o todos con --all)")
+    guard_check.add_argument("--all", dest="all_files", action="store_true",
+                             help="Verificar todos los .py, no sólo staged")
+    guard_config = guard_sub.add_parser("config", help="Gestiona reglas activas")
+    guard_config_sub = guard_config.add_subparsers(dest="config_action")
+    guard_config_sub.add_parser("show",  help="Muestra configuración actual")
+    guard_config_sub.add_parser("reset", help="Restaura configuración a defaults")
+    guard_enable = guard_config_sub.add_parser("enable",  help="Activa una regla (D01…D10)")
+    guard_enable.add_argument("rule_code")
+    guard_disable = guard_config_sub.add_parser("disable", help="Desactiva una regla (D01…D10)")
+    guard_disable.add_argument("rule_code")
+    guard_setaction = guard_config_sub.add_parser("set-action", help="Cambia acción: block o warn")
+    guard_setaction.add_argument("rule_code")
+    guard_setaction.add_argument("action_value")
+
     # ── route / inventory ─────────────────────────────────────────────────────
     route_parser = sub.add_parser("route", help="Ruta tareas al mejor agente AI")
     route_parser.add_argument("--root",          default="")

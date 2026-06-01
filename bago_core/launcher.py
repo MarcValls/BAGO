@@ -64,6 +64,34 @@ from bago_core.commands.cmd_tools import _load_tool_module as _load_tool_module 
 from bago_core.parsers import build_parser  # noqa: E402
 
 
+def cmd_guard(args: argparse.Namespace) -> int:
+    """Guardián de deuda técnica — previene patrones antes de commitear."""
+    mod = _load_tool_module("debt_guard", "debt_guard.py")
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    subcmd = getattr(args, "guard_cmd", None) or "check"
+    if subcmd == "check":
+        argv.append("check")
+        if getattr(args, "all_files", False):
+            argv.append("--all")
+    elif subcmd == "config":
+        argv.append("config")
+        config_action = getattr(args, "config_action", None)
+        if config_action:
+            argv.append(config_action)
+            rule_code = getattr(args, "rule_code", None)
+            if rule_code:
+                argv.append(rule_code)
+            action_value = getattr(args, "action_value", None)
+            if action_value:
+                argv.append(action_value)
+    else:
+        argv.append(subcmd)
+    return mod.main(argv)
+
+
 def cmd_monitor(args: argparse.Namespace) -> int:
     """Monitor HTML en tiempo real de procesos BAGO internos."""
     mod = _load_tool_module("process_monitor", "process_monitor.py")
@@ -193,6 +221,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_cpp_runtime(args)
     elif args.command == "scan":
         return cmd_scan(args)
+    elif args.command == "guard":
+        return cmd_guard(args)
     elif args.command == "canary":
         return cmd_canary(args)
     elif args.command == "backup":
