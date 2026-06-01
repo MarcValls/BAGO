@@ -664,6 +664,44 @@ def cmd_evidence(args: argparse.Namespace) -> int:
     return run(args)
 
 
+def _load_tool_module(module_name: str, file_name: str):
+    import importlib.util
+
+    tool_path = BAGO_ROOT / ".bago" / "tools" / file_name
+    spec = importlib.util.spec_from_file_location(module_name, tool_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"No se pudo cargar la herramienta: {tool_path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def cmd_project(args: argparse.Namespace) -> int:
+    mod = _load_tool_module("project_memory", "project_memory.py")
+    action = getattr(args, "project_cmd", None) or "status"
+    root = getattr(args, "root", "") or None
+    if action == "init":
+        return mod.cmd_init(root)
+    if action == "status":
+        return mod.cmd_status(root)
+    if action == "link":
+        return mod.cmd_link(root)
+    print("Uso: bago project <init|status|link> [--root DIR]")
+    return 1
+
+
+def cmd_preflight(args: argparse.Namespace) -> int:
+    mod = _load_tool_module("preflight_engine", "preflight_engine.py")
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    cmd = getattr(args, "cmd", "") or ""
+    if root:
+        argv += ["--root", root]
+    if cmd:
+        argv += ["--cmd", cmd]
+    return mod.main(argv)
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     """Herramientas de análisis portables. Funcionan en cualquier proyecto."""
     tools_dir = BAGO_ROOT / ".bago" / "tools"
@@ -798,6 +836,16 @@ def cmd_scan(args: argparse.Namespace) -> int:
         ext_arg = getattr(args, 'ext', '')
         if ext_arg: argv += ['--ext', ext_arg]
         return code_metrics.main(argv)
+    elif subcmd == "infra":
+        mod = _load_tool_module("bago_infra_scan", "bago_infra_scan.py")
+        argv = _base_argv()
+        if getattr(args, 'quick', False):
+            argv.append('--quick')
+        if getattr(args, 'as_json', False):
+            argv.append('--json')
+        if getattr(args, 'all_ports', False):
+            argv.append('--all')
+        return mod.main(argv)
     elif subcmd == "heal":
         import auto_heal
         argv = _base_argv()
@@ -825,6 +873,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print("    sincerity Detecta marketing vacio en la documentacion")
         print("    net       Escanea adaptadores de red y dispositivos locales")
         print("    metrics   Metricas de codigo: LOC, archivos, tipos")
+        print("    infra     Escanea servicios locales LLM (Ollama, LM Studio, APIs)")
         print("    heal      Sistema inmune: detecta y repara inconsistencias")
         print("    security  Auditoria de seguridad: tokens, permisos, configs")
         print("    doctor    Diagnostico de integridad del proyecto")
@@ -1254,7 +1303,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_parser.add_argument("--runtime-model", default="bago-cpp:default", help="Modelo expuesto por el runtime")
     runtime_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del host")
 
-    scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, sincerity, net, metrics, heal, security, doctor, commit, git, all)")
+    scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, sincerity, net, metrics, infra, heal, security, doctor, commit, git, all)")
     scan_parser.add_argument("--root", default="", help="Directorio raiz a escanear (default: cwd)")
     scan_sub = scan_parser.add_subparsers(dest="scan_cmd")
 
@@ -1296,6 +1345,11 @@ def main(argv: list[str] | None = None) -> int:
     scan_metrics = scan_sub.add_parser("metrics", help="Metricas de codigo: LOC, archivos, tipos")
     scan_metrics.add_argument("--ext", default="")
     scan_metrics.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_infra = scan_sub.add_parser("infra", help="Escanea servicios locales LLM (Ollama, LM Studio, APIs)")
+    scan_infra.add_argument("--quick", action="store_true")
+    scan_infra.add_argument("--all", dest="all_ports", action="store_true")
+    scan_infra.add_argument("--json", dest="as_json", action="store_true")
 
     scan_heal = scan_sub.add_parser("heal", help="Sistema inmune: detecta y repara inconsistencias")
     scan_heal.add_argument("--fix", action="store_true")
@@ -1339,6 +1393,17 @@ def main(argv: list[str] | None = None) -> int:
     br = backup_sub.add_parser("restore")
     br.add_argument("--index", type=int, default=1)
 
+    project_parser = sub.add_parser("project", help="Gestiona la estructura portable .bago del proyecto")
+    project_parser.add_argument("--root", default="")
+    project_sub = project_parser.add_subparsers(dest="project_cmd")
+    project_sub.add_parser("init", help="Inicializa la estructura .bago")
+    project_sub.add_parser("status", help="Muestra el estado actual")
+    project_sub.add_parser("link", help="Crea el enlace portable del proyecto")
+
+    preflight_parser = sub.add_parser("preflight", help="Ejecuta checks de preflight portables")
+    preflight_parser.add_argument("--root", default="")
+    preflight_parser.add_argument("--cmd", default="")
+
     inv_parser = sub.add_parser("inventory", help="Cataloga capacidades del proyecto")
     inv_parser.add_argument("--root", default="")
     inv_parser.add_argument("--format", default="text", choices=["text","md","json"])
@@ -1379,6 +1444,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_canary(args)
     elif args.command == "backup":
         return cmd_backup(args)
+    elif args.command == "project":
+        return cmd_project(args)
+    elif args.command == "preflight":
+        return cmd_preflight(args)
     elif args.command == "inventory":
         return cmd_inventory(args)
     else:
