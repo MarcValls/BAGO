@@ -221,6 +221,41 @@ class BagoAgent:
 
     def _step_emit(self, ctx: dict) -> None:
         ctx['emitted'] = True
+        # ── Orchestrator Handoff (opt-in: BAGO_ORCHESTRATE=1) ──────────────────
+        import os as _os
+        if _os.environ.get('BAGO_ORCHESTRATE') == '1':
+            try:
+                import importlib.util as _ilu
+                _orc_path = Path(__file__).parent / 'orchestrator_v4.py'
+                _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
+                _orc = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+                _spec.loader.exec_module(_orc)  # type: ignore[union-attr]
+                _orc.configure_paths(str(SCAN_ROOT))
+                summary = (
+                    f"SpiralAgent {self.agent_id} completó ciclo. "
+                    f"validate={ctx.get('validate','?')} "
+                    f"radius={ctx.get('radius_gained',0)} "
+                    f"skills={[r.skill_id for r in ctx.get('skill_results',[])]}"
+                )
+                brief_id = ctx.get('brief_id', '')
+                if not brief_id:
+                    # Crear brief para este ciclo si no viene de router
+                    _brief = _orc.create_brief(
+                        task_description=f"SpiralAgent {self.agent_id} cycle",
+                        domain="Backend",
+                        priority="P2",
+                    )
+                    brief_id = _brief.get('id', '')
+                _orc.create_handoff(
+                    brief_id=brief_id,
+                    from_domain="Backend",
+                    to_domain="Backend",
+                    summary=summary,
+                )
+                ctx['handoff_brief_id'] = brief_id
+            except Exception:
+                pass  # Orchestrator no disponible — continúa sin él
+        # ─────────────────────────────────────────────────────────────────────
 
     def run(self, parent_ctx: dict | None = None) -> AgentResult:
         ctx: dict[str, Any] = {

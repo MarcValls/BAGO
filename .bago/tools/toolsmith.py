@@ -256,6 +256,25 @@ def listen_neural_bus(limit: int = 1) -> int:
             with urllib.request.urlopen(f'{NEURAL_URL}/toolsmith/events', timeout=1.0) as response:
                 payload = response.read().decode('utf-8', errors='replace').strip()
                 if payload:
+                    # ── Orchestrator gate (opt-in: BAGO_ORCHESTRATE=1) ───────
+                    if os.environ.get('BAGO_ORCHESTRATE') == '1':
+                        try:
+                            import importlib.util as _ilu
+                            _orc_path = TOOLS_DIR / 'orchestrator_v4.py'
+                            _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
+                            _orc = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+                            _spec.loader.exec_module(_orc)  # type: ignore[union-attr]
+                            _orc.configure_paths(str(SCAN_ROOT))
+                            _brief = _orc.create_brief(
+                                task_description=f"neural_bus event: {payload[:80]}",
+                                domain="Backend",
+                                priority="P1",
+                            )
+                            _brief_id = _brief.get('id', '')
+                            _orc.assign_brief(_brief_id, agent='Toolsmith Specialist')
+                        except Exception:
+                            pass  # Orchestrator no disponible — continúa
+                    # ─────────────────────────────────────────────────────────
                     print(payload)
                     count += 1
                     continue

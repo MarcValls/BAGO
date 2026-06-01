@@ -190,9 +190,28 @@ def _record_route(route: dict) -> None:
 def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool = True, record: bool = False) -> dict:
     policy = load_policy()
     available = _available_agents(agents)
+
+    # ── Orchestrator gate (opt-in: BAGO_ORCHESTRATE=1) ────────────────────────
+    brief_id: str = ''
+    if os.environ.get('BAGO_ORCHESTRATE') == '1':
+        try:
+            import importlib.util as _ilu
+            _orc_path = Path(__file__).parent / 'orchestrator_v4.py'
+            _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
+            _orc = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+            _spec.loader.exec_module(_orc)  # type: ignore[union-attr]
+            _orc.configure_paths(str(SCAN_ROOT))
+            _brief = _orc.create_brief(task_description=task)
+            brief_id = _brief.get('id', '')
+        except Exception:
+            pass  # Orchestrator no disponible — continúa sin él
+    # ─────────────────────────────────────────────────────────────────────────
+
     if not available:
         agent_id = policy.get('default_agent', 'copilot')
         result = {'agent': agent_id, 'model': policy.get('model_preferences', {}).get(agent_id, ''), 'reason': 'default-no-agents', 'task': task, 'timestamp': timestamp_iso()}
+        if brief_id:
+            result['brief_id'] = brief_id
         if record:
             _record_route(result)
         return result
@@ -217,6 +236,13 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
         'task': task,
         'timestamp': timestamp_iso(),
     }
+    if brief_id:
+        result['brief_id'] = brief_id
+        # Registrar asignación en el brief
+        try:
+            _orc.assign_brief(brief_id, agent=agent_id)  # type: ignore[name-defined]
+        except Exception:
+            pass
     if record:
         _record_route(result)
     return result

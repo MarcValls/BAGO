@@ -27,7 +27,13 @@ def _load_tool_module(module_name: str, file_name: str):
     if spec is None or spec.loader is None:
         raise RuntimeError(f"No se pudo cargar la herramienta: {tool_path}")
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    # Register in sys.modules BEFORE exec so dataclasses can resolve __module__
+    sys.modules[module_name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
     return mod
 
 def cmd_project(args: argparse.Namespace) -> int:

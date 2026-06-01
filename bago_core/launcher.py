@@ -77,6 +77,52 @@ def cmd_monitor(args: argparse.Namespace) -> int:
     argv.append(subcmd)
     return mod.main(argv)
 
+
+def cmd_orchestrate(args: argparse.Namespace) -> int:
+    """Orchestrator v4 — Flujo Operativo (Regla Fundamental)."""
+    mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
+    subcmd = getattr(args, "orc_cmd", None)
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    if getattr(args, "as_json", False):
+        argv.append("--json")
+    if subcmd == "create":
+        argv += ["create", "--task", getattr(args, "task", "")]
+        domain = getattr(args, "domain", "")
+        priority = getattr(args, "priority", "")
+        if domain:
+            argv += ["--domain", domain]
+        if priority:
+            argv += ["--priority", priority]
+    elif subcmd == "assign":
+        argv += ["assign", getattr(args, "brief_id", ""), "--agent", getattr(args, "agent", "")]
+    elif subcmd == "handoff":
+        argv += ["handoff", getattr(args, "brief_id", ""),
+                 "--from", getattr(args, "from_domain", ""),
+                 "--to", getattr(args, "to_domain", ""),
+                 "--summary", getattr(args, "summary", "")]
+    elif subcmd == "review":
+        argv += ["review", getattr(args, "brief_id", "")]
+        result_arg = getattr(args, "result", "")
+        if result_arg:
+            argv += ["--result", result_arg]
+    elif subcmd == "close":
+        argv += ["close", getattr(args, "brief_id", "")]
+        if getattr(args, "force", False):
+            argv.append("--force")
+    elif subcmd == "show":
+        argv += ["show", getattr(args, "brief_id", "")]
+    elif subcmd == "list" or subcmd is None:
+        argv.append("list")
+        status_filter = getattr(args, "status", "")
+        if status_filter:
+            argv += ["--status", status_filter]
+    else:
+        argv += ["--help"]
+    return mod.main(argv)
+
 def _read_release_label(root: Path) -> str:
     for candidate in (root / "release_version.txt", root / ".bago" / "release_version.txt"):
         if candidate.exists():
@@ -239,6 +285,34 @@ def main(argv: list[str] | None = None) -> int:
     monitor_sub = monitor_parser.add_subparsers(dest="monitor_cmd")
     monitor_sub.add_parser("serve", help="Sirve el monitor en http://127.0.0.1:PORT/ (default)")
     monitor_sub.add_parser("generate", help="Genera monitor.html estático en .bago/monitor.html")
+
+    orc_parser = sub.add_parser("orchestrate", help="Orchestrator v4 — Flujo Operativo (Regla Fundamental)")
+    orc_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
+    orc_parser.add_argument("--json", dest="as_json", action="store_true", help="Output JSON")
+    orc_sub = orc_parser.add_subparsers(dest="orc_cmd")
+    orc_list = orc_sub.add_parser("list", help="Lista Task Briefs")
+    orc_list.add_argument("--status", default="", help="Filtrar por estado (open/assigned/closed)")
+    orc_create = orc_sub.add_parser("create", help="Crea un Task Brief")
+    orc_create.add_argument("--task", required=True, help="Descripción de la tarea")
+    orc_create.add_argument("--domain", default="", help="Dominio (Backend/Frontend/Producto/Contenido/Deployment)")
+    orc_create.add_argument("--priority", default="", help="Prioridad (P0/P1/P2/Post-MVP)")
+    orc_assign = orc_sub.add_parser("assign", help="Asigna brief a un especialista")
+    orc_assign.add_argument("brief_id", help="ID del brief")
+    orc_assign.add_argument("--agent", required=True, help="Agente especialista")
+    orc_handoff = orc_sub.add_parser("handoff", help="Genera Handoff formal entre dominios")
+    orc_handoff.add_argument("brief_id", help="ID del brief")
+    orc_handoff.add_argument("--from", dest="from_domain", required=True, help="Dominio origen")
+    orc_handoff.add_argument("--to", dest="to_domain", required=True, help="Dominio destino")
+    orc_handoff.add_argument("--summary", default="", help="Resumen del trabajo realizado")
+    orc_review = orc_sub.add_parser("review", help="Revisión del Orchestrator (Fase 5)")
+    orc_review.add_argument("brief_id", help="ID del brief")
+    orc_review.add_argument("--result", default="approved", choices=["approved", "requires_changes", "reencaminar"],
+                            help="Resultado de la revisión")
+    orc_close = orc_sub.add_parser("close", help="Cierra un Task Brief (Fase 6)")
+    orc_close.add_argument("brief_id", help="ID del brief")
+    orc_close.add_argument("--force", action="store_true", help="Cierra sin revisión previa")
+    orc_show = orc_sub.add_parser("show", help="Muestra detalle de un brief")
+    orc_show.add_argument("brief_id", help="ID del brief")
 
     scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, sincerity, net, metrics, infra, heal, security, doctor, commit, git, all)")
     scan_parser.add_argument("--root", default="", help="Directorio raiz a escanear (default: cwd)")
@@ -437,6 +511,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_inventory(args)
     elif args.command == "monitor":
         return cmd_monitor(args)
+    elif args.command == "orchestrate":
+        return cmd_orchestrate(args)
     else:
         parser.print_help()
         return 0
