@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -63,31 +64,43 @@ def _load_keybinds() -> dict:
 
 
 def _read_key() -> str:
-    """Lee una pulsación de tecla y devuelve su nombre canónico."""
+    """Lee una pulsación y devuelve su nombre canónico.
+    Lanza KeyboardInterrupt si se pulsa Ctrl+C (en raw mode no llega como señal)."""
     if sys.platform == "win32":
         import msvcrt
-        ch = msvcrt.getch()
-        if ch in (b"\xe0", b"\x00"):
-            ch2 = msvcrt.getch()
-            return {b"H": "UP", b"P": "DOWN", b"K": "LEFT", b"M": "RIGHT"}.get(ch2, "")
-        if ch == b"\r":
+        ch = msvcrt.getwch()  # getwch: soporta Unicode (acentos en keybinds)
+        if ch in ("\x00", "\xe0"):  # prefijo de tecla especial
+            ch2 = msvcrt.getwch()
+            return {"H": "UP", "P": "DOWN", "K": "LEFT", "M": "RIGHT"}.get(ch2, "")
+        if ch == "\x03":
+            raise KeyboardInterrupt
+        if ch == "\r":
             return "ENTER"
-        if ch == b"\x1b":
+        if ch == "\x1b":
             return "ESC"
-        try:
-            return ch.decode("utf-8")
-        except Exception:
-            return ""
+        return ch
     else:
-        import tty, termios
+        import select
+        import termios
+        import tty
         fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
+        try:
+            old = termios.tcgetattr(fd)
+        except termios.error:
+            return ""  # stdin no es un TTY real
         try:
             tty.setraw(fd)
             ch = sys.stdin.read(1)
+            if ch == "\x03":
+                raise KeyboardInterrupt
             if ch == "\x1b":
+                # Esc solo: sin más bytes en 50ms lo tratamos como ESC (no bloquear)
+                if not select.select([sys.stdin], [], [], 0.05)[0]:
+                    return "ESC"
                 ch2 = sys.stdin.read(1)
                 if ch2 == "[":
+                    if not select.select([sys.stdin], [], [], 0.05)[0]:
+                        return "ESC"
                     ch3 = sys.stdin.read(1)
                     return {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}.get(ch3, "ESC")
                 return "ESC"
@@ -96,6 +109,32 @@ def _read_key() -> str:
             return ch
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _enable_vt() -> bool:
+    """Garantiza Virtual Terminal Processing en Windows (para ANSI). True si está disponible."""
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
+        mode = ctypes.c_uint()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        return bool(kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+    except Exception:
+        return False
+
+
+def _fit(text: str, width: int) -> str:
+    """Recorta texto plano a `width` columnas para evitar wrap (rompería el redibujado)."""
+    if width < 1:
+        return ""
+    if len(text) > width:
+        return text[: max(1, width - 1)] + "…"
+    return text
 
 
 def _key_action(key: str, kb: dict, section: str = "menu") -> str:
@@ -108,17 +147,29 @@ def _key_action(key: str, kb: dict, section: str = "menu") -> str:
     return ""
 
 
-def _draw_navigate(title: str, options: list[str], selected: int, hint: str, redraw_lines: int = 0) -> int:
-    """Dibuja el menú de navegación con flechas. Retorna el número de líneas impresas."""
+def _draw_navigate(
+    title: str,
+    options: list[str],
+    selected: int,
+    hint: str,
+    redraw_lines: int = 0,
+) -> int:
+    """Dibuja el menú navegable. Trunca al ancho del terminal para que ninguna
+    línea haga wrap (un wrap descuadraría el cursor-up del redibujado).
+    Retorna el número de líneas impresas (= líneas físicas, sin wrap)."""
+    cols = shutil.get_terminal_size((80, 24)).columns
+    avail = max(10, cols - 5)  # margen para "  ❯ " + seguridad
+
     rows = []
-    rows.append(f"  {R.bold(title)}")
-    rows.append(R.dim("  " + "─" * 52))
+    rows.append(f"  {R.bold(_fit(title, avail))}")
+    rows.append(R.dim("  " + "─" * min(52, avail)))
     for i, opt in enumerate(options):
         cursor = R.accent("❯") if i == selected else " "
-        text   = R.bold(opt) if i == selected else R.dim(opt)
+        body = _fit(opt, avail)
+        text = R.bold(body) if i == selected else R.dim(body)
         rows.append(f"  {cursor} {text}")
     rows.append("")
-    rows.append(R.dim(f"  {hint}"))
+    rows.append(R.dim(f"  {_fit(hint, avail)}"))
 
     if redraw_lines:
         sys.stdout.write(f"\033[{redraw_lines}A")
@@ -131,8 +182,9 @@ def _draw_navigate(title: str, options: list[str], selected: int, hint: str, red
     return len(rows)
 
 def _restore_windows_console() -> None:
-    """Re-habilita Quick Edit en Windows tras leer teclas en crudo.
-    Necesario para que el clic derecho siga pegando (lección de sesiones previas)."""
+    """Fuerza Quick Edit ON en Windows tras la navegación (decisión deliberada de UX:
+    el usuario quiere poder pegar con clic derecho; lección de sesiones previas).
+    No es un 'restore' del modo previo: habilita Quick Edit aunque estuviera off."""
     if sys.platform != "win32":
         return
     try:
@@ -368,9 +420,12 @@ class BagoREPL:
 
     def _navigate(self, title: str, labels: list[str], hint: str | None = None) -> int | None:
         """Selector navegable con flechas. Retorna índice elegido o None si se cancela."""
-        if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()) or not labels:
+        if not labels:
+            return None
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
             return None
         hint = hint or self.keybinds.get("_hint", "↑↓ navegar   Enter seleccionar   Esc/q cancelar")
+        vt_ok = _enable_vt()  # si falla, no usamos redibujado in-place (evita basura ANSI)
         selected = 0
         drawn = _draw_navigate(title, labels, selected, hint)
         try:
@@ -390,7 +445,7 @@ class BagoREPL:
                     return None
                 else:
                     continue
-                drawn = _draw_navigate(title, labels, selected, hint, redraw_lines=drawn)
+                drawn = _draw_navigate(title, labels, selected, hint, redraw_lines=drawn if vt_ok else 0)
         finally:
             _restore_windows_console()
 
@@ -553,15 +608,19 @@ class BagoREPL:
                     self._multiline_buffer.append(line)
                     continue
 
-                # Empty line (Enter solo = Ctrl+M) → abre el menu interactivo
+                # Empty line (Enter solo = Ctrl+M) → abre el menu interactivo en TTY
                 if not stripped:
-                    self._show_menu()
+                    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+                        continue
+                    if not self._show_menu():
+                        break
                     self._print_status()
                     continue
 
                 # "/" solo → paleta navegable con todos los comandos
                 if stripped == "/":
-                    self._show_command_palette()
+                    if not self._show_command_palette():
+                        break
                     self._print_status()
                     continue
 
