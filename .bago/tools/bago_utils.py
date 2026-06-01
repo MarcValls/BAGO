@@ -95,6 +95,20 @@ def timestamp_filename() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
 
+def get_scan_root(override: str | None = None) -> Path:
+    """Directorio raiz a escanear: override > BAGO_SCAN_ROOT env > cwd.
+
+    Permite que cada herramienta funcione en cualquier proyecto sin tener
+    BAGO instalado: basta con pasar --root <ruta> o definir BAGO_SCAN_ROOT.
+    """
+    if override:
+        return Path(override).resolve()
+    env_root = os.environ.get("BAGO_SCAN_ROOT", "")
+    if env_root:
+        return Path(env_root).resolve()
+    return Path.cwd()
+
+
 def get_bago_version() -> str:
     """Obtiene versión BAGO del pack.json."""
     pack_file = get_bago_root() / "pack.json"

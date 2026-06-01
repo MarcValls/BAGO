@@ -664,6 +664,117 @@ def cmd_evidence(args: argparse.Namespace) -> int:
     return run(args)
 
 
+def cmd_scan(args: argparse.Namespace) -> int:
+    """Herramientas de análisis portables. Funcionan en cualquier proyecto."""
+    tools_dir = BAGO_ROOT / ".bago" / "tools"
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+
+    subcmd = getattr(args, "scan_cmd", None)
+    root   = getattr(args, "root", "") or ""
+
+    def _base_argv() -> list[str]:
+        return ["--root", root] if root else []
+
+    if subcmd == "secrets":
+        import secret_scan
+        argv = _base_argv()
+        sev = getattr(args, "severity", "warning")
+        if sev != "warning":
+            argv += ["--severity", sev]
+        if getattr(args, "as_json", False):
+            argv.append("--json")
+        return secret_scan.main(argv)
+
+    elif subcmd == "deps":
+        import dep_audit
+        argv = _base_argv()
+        fmt = getattr(args, "format", "text")
+        if fmt != "text":
+            argv += ["--format", fmt]
+        if getattr(args, "pip_audit", False):
+            argv.append("--pip-audit")
+        return dep_audit.main(argv)
+
+    elif subcmd == "todos":
+        import todo_scan
+        argv = _base_argv()
+        if getattr(args, "fixme_only", False):
+            argv.append("--fixme")
+        if getattr(args, "count", False):
+            argv.append("--count")
+        if getattr(args, "as_json", False):
+            argv.append("--json")
+        return todo_scan.main(argv)
+
+    elif subcmd == "tokens":
+        import token_rotation_guard
+        argv = _base_argv()
+        if getattr(args, "fix", False):
+            argv.append("--fix")
+        if getattr(args, "as_json", False):
+            argv.append("--json")
+        return token_rotation_guard.main(argv)
+
+    elif subcmd == "dead":
+        import dead_code
+        argv = [root or "./"]
+        if getattr(args, "as_json", False):
+            argv.append("--json")
+        return dead_code.main(argv)
+
+    elif subcmd == "names":
+        import naming_check
+        argv = [root or "./"]
+        if getattr(args, "as_json", False):
+            argv.append("--json")
+        return naming_check.main(argv)
+
+    elif subcmd == "all":
+        scanners = [
+            ("secrets", "secret_scan",           _base_argv()),
+            ("deps",    "dep_audit",             _base_argv()),
+            ("todos",   "todo_scan",             _base_argv() + ["--count"]),
+            ("tokens",  "token_rotation_guard",  _base_argv()),
+        ]
+        results: dict[str, str] = {}
+        has_errors = False
+        for name, mod_name, argv in scanners:
+            try:
+                mod = __import__(mod_name)
+                rc = mod.main(argv)
+                results[name] = "[OK]" if rc == 0 else "[WARN]"
+                if rc != 0:
+                    has_errors = True
+            except Exception as exc:  # noqa: BLE001
+                results[name] = f"[ERROR] {exc}"
+                has_errors = True
+        print("\n[bago scan all] Resumen:")
+        for k, v in results.items():
+            print(f"  {k:10} {v}")
+        return 1 if has_errors else 0
+
+    else:
+        print("Uso: bago scan <subcomando> [--root DIR] [opciones]")
+        print()
+        print("  Subcomandos disponibles:")
+        print("    secrets   Detecta secretos hardcodeados (API keys, passwords)")
+        print("    deps      Audita dependencias Python (CVEs, versiones sin pinear)")
+        print("    todos     Lista TODOs, FIXMEs y HACKs en el codigo fuente")
+        print("    tokens    Detecta tokens de API expuestos")
+        print("    dead      Detecta codigo muerto (imports, funciones no usadas)")
+        print("    names     Valida convenciones de nombres (PEP 8)")
+        print("    all       Ejecuta todos los scans")
+        print()
+        print("  Opciones comunes:")
+        print("    --root DIR    Directorio a escanear (default: directorio actual)")
+        print("    --json        Output estructurado en JSON")
+        print()
+        print("  Estas herramientas tambien funcionan standalone:")
+        print("    python .bago/tools/secret_scan.py --root /mi/proyecto")
+        return 0
+
+
 def cmd_cpp_runtime(args: argparse.Namespace) -> int:
     from cpp_runtime_host import main as runtime_main
     argv = ["--host", args.host, "--port", str(args.port), "--model", args.runtime_model]
@@ -1028,6 +1139,35 @@ def main(argv: list[str] | None = None) -> int:
     runtime_parser.add_argument("--runtime-model", default="bago-cpp:default", help="Modelo expuesto por el runtime")
     runtime_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del host")
 
+    scan_parser = sub.add_parser("scan", help="Herramientas de análisis portables (secrets, deps, todos, tokens, dead, names, all)")
+    scan_parser.add_argument("--root", default="", help="Directorio raiz a escanear (default: cwd)")
+    scan_sub = scan_parser.add_subparsers(dest="scan_cmd")
+
+    scan_secrets = scan_sub.add_parser("secrets", help="Detecta secretos hardcodeados")
+    scan_secrets.add_argument("--severity", default="warning", choices=["error", "warning", "info"])
+    scan_secrets.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_deps = scan_sub.add_parser("deps", help="Audita dependencias Python")
+    scan_deps.add_argument("--format", default="text", choices=["text", "md", "json"])
+    scan_deps.add_argument("--pip-audit", dest="pip_audit", action="store_true")
+
+    scan_todos = scan_sub.add_parser("todos", help="Lista TODOs, FIXMEs y HACKs")
+    scan_todos.add_argument("--fixme", dest="fixme_only", action="store_true")
+    scan_todos.add_argument("--count", action="store_true")
+    scan_todos.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_tokens = scan_sub.add_parser("tokens", help="Detecta tokens de API expuestos")
+    scan_tokens.add_argument("--fix", action="store_true", help="Instrucciones de rotacion")
+    scan_tokens.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_dead = scan_sub.add_parser("dead", help="Detecta codigo muerto (Python)")
+    scan_dead.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_names = scan_sub.add_parser("names", help="Valida convenciones de nombres (PEP 8)")
+    scan_names.add_argument("--json", dest="as_json", action="store_true")
+
+    scan_sub.add_parser("all", help="Ejecuta todos los scans y muestra resumen")
+
     args = parser.parse_args(argv)
 
     if args.command in ("chat", "launch", "start") or args.command is None:
@@ -1058,6 +1198,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_evidence(args)
     elif args.command == "cpp-runtime":
         return cmd_cpp_runtime(args)
+    elif args.command == "scan":
+        return cmd_scan(args)
     else:
         parser.print_help()
         return 0
