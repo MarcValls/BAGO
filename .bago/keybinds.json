@@ -1,0 +1,10 @@
+{
+  "_comment": "Keybinds de BAGO — edita las listas para añadir/quitar teclas. Nombres válidos: UP DOWN LEFT RIGHT ENTER ESC y cualquier carácter único (j k q ...).",
+  "_hint": "↑↓ navegar   Enter seleccionar   Esc/q cancelar",
+  "menu": {
+    "up":     ["UP", "k"],
+    "down":   ["DOWN", "j"],
+    "select": ["ENTER"],
+    "back":   ["ESC", "q", "LEFT"]
+  }
+}

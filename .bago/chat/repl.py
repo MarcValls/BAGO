@@ -15,6 +15,7 @@ Loop principal de chat multi-provider.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import time
@@ -38,6 +39,116 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
 from renderer import Color
 from commands import execute
+
+# ─── Keybinds ────────────────────────────────────────────────────────────────
+
+_KEYBINDS_PATH = Path(__file__).resolve().parents[2] / ".bago" / "keybinds.json"
+
+_DEFAULT_KEYBINDS: dict = {
+    "_hint": "↑↓ navegar   Enter seleccionar   Esc/q cancelar",
+    "menu": {
+        "up":     ["UP", "k"],
+        "down":   ["DOWN", "j"],
+        "select": ["ENTER"],
+        "back":   ["ESC", "q", "LEFT"],
+    },
+}
+
+
+def _load_keybinds() -> dict:
+    try:
+        return json.loads(_KEYBINDS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return _DEFAULT_KEYBINDS
+
+
+def _read_key() -> str:
+    """Lee una pulsación de tecla y devuelve su nombre canónico."""
+    if sys.platform == "win32":
+        import msvcrt
+        ch = msvcrt.getch()
+        if ch in (b"\xe0", b"\x00"):
+            ch2 = msvcrt.getch()
+            return {b"H": "UP", b"P": "DOWN", b"K": "LEFT", b"M": "RIGHT"}.get(ch2, "")
+        if ch == b"\r":
+            return "ENTER"
+        if ch == b"\x1b":
+            return "ESC"
+        try:
+            return ch.decode("utf-8")
+        except Exception:
+            return ""
+    else:
+        import tty, termios
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+            if ch == "\x1b":
+                ch2 = sys.stdin.read(1)
+                if ch2 == "[":
+                    ch3 = sys.stdin.read(1)
+                    return {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}.get(ch3, "ESC")
+                return "ESC"
+            if ch in ("\r", "\n"):
+                return "ENTER"
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _key_action(key: str, kb: dict, section: str = "menu") -> str:
+    """Devuelve la acción asociada a una tecla según los keybinds cargados."""
+    for action, keys in kb.get(section, {}).items():
+        if action.startswith("_"):
+            continue
+        if key in keys:
+            return action
+    return ""
+
+
+def _draw_navigate(title: str, options: list[str], selected: int, hint: str, redraw_lines: int = 0) -> int:
+    """Dibuja el menú de navegación con flechas. Retorna el número de líneas impresas."""
+    rows = []
+    rows.append(f"  {R.bold(title)}")
+    rows.append(R.dim("  " + "─" * 52))
+    for i, opt in enumerate(options):
+        cursor = R.accent("❯") if i == selected else " "
+        text   = R.bold(opt) if i == selected else R.dim(opt)
+        rows.append(f"  {cursor} {text}")
+    rows.append("")
+    rows.append(R.dim(f"  {hint}"))
+
+    if redraw_lines:
+        sys.stdout.write(f"\033[{redraw_lines}A")
+        for row in rows:
+            sys.stdout.write("\033[2K\r" + row + "\n")
+    else:
+        for row in rows:
+            print(row)
+    sys.stdout.flush()
+    return len(rows)
+
+def _restore_windows_console() -> None:
+    """Re-habilita Quick Edit en Windows tras leer teclas en crudo.
+    Necesario para que el clic derecho siga pegando (lección de sesiones previas)."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        mode = ctypes.c_uint()
+        if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            ENABLE_EXTENDED_FLAGS = 0x0080
+            ENABLE_QUICK_EDIT_MODE = 0x0040
+            ENABLE_PROCESSED_INPUT = 0x0001
+            new_mode = mode.value | ENABLE_EXTENDED_FLAGS | ENABLE_QUICK_EDIT_MODE | ENABLE_PROCESSED_INPUT
+            kernel32.SetConsoleMode(handle, new_mode)
+    except Exception:
+        pass
+
 
 MENU_SECTIONS: list[dict[str, Any]] = [
     {
@@ -116,6 +227,7 @@ class BagoREPL:
         )
         self.engine = SwitchEngine(self.mgr.adapters)
 
+        self.keybinds = _load_keybinds()
         self.running = False
         self._multiline_buffer: list[str] = []
         self._in_multiline = False
@@ -250,79 +362,90 @@ class BagoREPL:
     def _print_banner(self) -> None:
         print(R.banner())
         print()
-        print(R.info("Bienvenido a BAGO 4.1.5. Escribe /help para ver comandos o /menu para navegar."))
+        print(R.info("Bienvenido a BAGO 4.1.5. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
 
+    def _navigate(self, title: str, labels: list[str], hint: str | None = None) -> int | None:
+        """Selector navegable con flechas. Retorna índice elegido o None si se cancela."""
+        if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()) or not labels:
+            return None
+        hint = hint or self.keybinds.get("_hint", "↑↓ navegar   Enter seleccionar   Esc/q cancelar")
+        selected = 0
+        drawn = _draw_navigate(title, labels, selected, hint)
+        try:
+            while True:
+                try:
+                    key = _read_key()
+                except (KeyboardInterrupt, EOFError):
+                    return None
+                action = _key_action(key, self.keybinds, "menu")
+                if action == "up":
+                    selected = (selected - 1) % len(labels)
+                elif action == "down":
+                    selected = (selected + 1) % len(labels)
+                elif action == "select":
+                    return selected
+                elif action == "back":
+                    return None
+                else:
+                    continue
+                drawn = _draw_navigate(title, labels, selected, hint, redraw_lines=drawn)
+        finally:
+            _restore_windows_console()
+
+    def _command_catalog(self) -> list[dict[str, Any]]:
+        """Lista plana de todos los comandos con su sección de origen."""
+        catalog: list[dict[str, Any]] = []
+        for section in MENU_SECTIONS:
+            for item in section["items"]:
+                catalog.append({**item, "section": section["title"]})
+        return catalog
+
+    def _show_command_palette(self) -> bool:
+        """Paleta navegable con TODOS los comandos y subcomandos (se abre al escribir '/')."""
+        if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
+            print(R.warn("Paleta no disponible en modo no interactivo. Usa /help."))
+            return True
+        catalog = self._command_catalog()
+        labels = []
+        for it in catalog:
+            args = f" {it['args_prompt']}" if it.get("args_prompt") else ""
+            labels.append(f"{it['command']}{args}  —  {it['description']}")
+        idx = self._navigate("Comandos de BAGO  ·  escribe / para abrir", labels)
+        if idx is None:
+            print(R.dim("Paleta cerrada."))
+            return True
+        return self._run_menu_item(catalog[idx])
+
     def _show_menu(self) -> bool:
-        """Muestra un menu interactivo para acceder a funciones del chat."""
+        """Menu interactivo por secciones (se abre con /menu o Ctrl+M)."""
         if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
             print(R.warn("Menu no disponible en modo no interactivo. Usa /help."))
             return True
-
         while True:
-            lines = [
-                f"{R.accent(str(i))}. {R.bold(section['title'])} — {section['description']}"
-                for i, section in enumerate(MENU_SECTIONS, 1)
+            labels = [
+                f"{section['title']}  —  {section['description']}"
+                for section in MENU_SECTIONS
             ]
-            lines.extend([
-                "",
-                R.dim("0. Volver al chat"),
-            ])
-            print(R.box("Menu de funciones", lines, width=84))
-            try:
-                choice = input(R.dim("Elige una seccion: ")).strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
+            idx = self._navigate("Menu de funciones", labels)
+            if idx is None:
+                print(R.dim("Menu cerrado."))
                 return True
-
-            if choice in ("", "0"):
-                return True
-
-            try:
-                idx = int(choice) - 1
-                if idx < 0 or idx >= len(MENU_SECTIONS):
-                    raise ValueError
-            except ValueError:
-                print(R.error("Seleccion invalida."))
-                continue
-
             result = self._show_menu_section(MENU_SECTIONS[idx])
             if result is None:
                 continue
             return result
 
     def _show_menu_section(self, section: dict[str, Any]) -> bool | None:
-        while True:
-            lines = []
-            for i, item in enumerate(section["items"], 1):
-                suffix = f" {R.dim(item['args_prompt'])}" if item.get("args_prompt") else ""
-                lines.append(
-                    f"{R.accent(str(i))}. {R.bold(item['command'])}{suffix} — {item['description']}"
-                )
-            lines.extend([
-                "",
-                R.dim("0. Volver al menu"),
-            ])
-            print(R.box(section["title"], lines, width=92))
-            try:
-                choice = input(R.dim("Elige una opcion: ")).strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                return True
-
-            if choice in ("", "0"):
-                return None
-
-            try:
-                idx = int(choice) - 1
-                if idx < 0 or idx >= len(section["items"]):
-                    raise ValueError
-            except ValueError:
-                print(R.error("Seleccion invalida."))
-                continue
-
-            return self._run_menu_item(section["items"][idx])
+        labels = []
+        for item in section["items"]:
+            args = f" {item['args_prompt']}" if item.get("args_prompt") else ""
+            labels.append(f"{item['command']}{args}  —  {item['description']}")
+        idx = self._navigate(section["title"], labels)
+        if idx is None:
+            return None
+        return self._run_menu_item(section["items"][idx])
 
     def _run_menu_item(self, item: dict[str, Any]) -> bool:
         command_line = item["command"]
@@ -430,8 +553,16 @@ class BagoREPL:
                     self._multiline_buffer.append(line)
                     continue
 
-                # Empty line
+                # Empty line (Enter solo = Ctrl+M) → abre el menu interactivo
                 if not stripped:
+                    self._show_menu()
+                    self._print_status()
+                    continue
+
+                # "/" solo → paleta navegable con todos los comandos
+                if stripped == "/":
+                    self._show_command_palette()
+                    self._print_status()
                     continue
 
                 # Commands
