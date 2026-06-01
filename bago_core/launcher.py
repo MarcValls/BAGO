@@ -702,6 +702,88 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     return mod.main(argv)
 
 
+def cmd_toolsmith(args: argparse.Namespace) -> int:
+    mod = _load_tool_module("toolsmith", "toolsmith.py")
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    if getattr(args, "toolsmith_json", False):
+        argv.append("--json")
+    subcmd = getattr(args, "toolsmith_cmd", None)
+    if subcmd == "catalog":
+        argv.append("catalog")
+    elif subcmd == "assign":
+        argv += ["assign", "--task", getattr(args, "task", "")]
+        if getattr(args, "agent_name", ""):
+            argv += ["--agent", args.agent_name]
+        if getattr(args, "sprint", ""):
+            argv += ["--sprint", args.sprint]
+    elif subcmd == "sprint":
+        argv += ["sprint", getattr(args, "sprint_id", "")]
+        if getattr(args, "tasks", ""):
+            argv += ["--tasks", args.tasks]
+    elif subcmd == "missing":
+        argv.append("missing")
+    elif subcmd == "create":
+        argv += ["create", getattr(args, "tool_name", "")]
+        if getattr(args, "desc", ""):
+            argv += ["--desc", args.desc]
+        if getattr(args, "category", ""):
+            argv += ["--category", args.category]
+    elif subcmd == "listen":
+        argv += ["listen"]
+        if getattr(args, "limit", 1) != 1:
+            argv += ["--limit", str(args.limit)]
+    else:
+        argv += ["--help"]
+    return mod.main(argv)
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    mod = _load_tool_module("spiral_agent", "spiral_agent.py")
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    subcmd = getattr(args, "agent_cmd", None)
+    if subcmd == "spawn":
+        argv += ["spawn", getattr(args, "agent_id", "")]
+        if getattr(args, "phase", None) is not None:
+            argv += ["--phase", str(args.phase)]
+        if getattr(args, "skills", ""):
+            argv += ["--skills", args.skills]
+    elif subcmd in {"list", "status"}:
+        argv += [subcmd]
+    elif subcmd in {"run", "kill"}:
+        argv += [subcmd, getattr(args, "agent_id", "")]
+    else:
+        argv += ["--help"]
+    return mod.main(argv)
+
+
+def cmd_route(args: argparse.Namespace) -> int:
+    mod = _load_tool_module("agent_router", "agent_router.py")
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    task_text = getattr(args, "task", "") or ""
+    if task_text:
+        argv += ["--task", task_text]
+    if getattr(args, "route_json", False):
+        argv.append("--json")
+    if getattr(args, "history", False):
+        argv.append("--history")
+    if getattr(args, "limit", 10) != 10:
+        argv += ["--limit", str(args.limit)]
+    if getattr(args, "no_classifier", False):
+        argv.append("--no-classifier")
+    if not task_text and not getattr(args, "history", False):
+        argv += ["--help"]
+    return mod.main(argv)
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     """Herramientas de análisis portables. Funcionan en cualquier proyecto."""
     tools_dir = BAGO_ROOT / ".bago" / "tools"
@@ -1404,6 +1486,48 @@ def main(argv: list[str] | None = None) -> int:
     preflight_parser.add_argument("--root", default="")
     preflight_parser.add_argument("--cmd", default="")
 
+    toolsmith_parser = sub.add_parser("toolsmith", help="Gestiona toolboxes de agentes")
+    toolsmith_parser.add_argument("--root", default="")
+    toolsmith_parser.add_argument("--json", dest="toolsmith_json", action="store_true")
+    toolsmith_sub = toolsmith_parser.add_subparsers(dest="toolsmith_cmd")
+    toolsmith_sub.add_parser("catalog", help="Muestra el catalogo")
+    toolsmith_assign = toolsmith_sub.add_parser("assign", help="Asigna herramientas a un agente")
+    toolsmith_assign.add_argument("--task", required=True)
+    toolsmith_assign.add_argument("--agent", dest="agent_name", default="")
+    toolsmith_assign.add_argument("--sprint", default="backlog")
+    toolsmith_sprint = toolsmith_sub.add_parser("sprint", help="Crea toolboxes para un sprint")
+    toolsmith_sprint.add_argument("sprint_id")
+    toolsmith_sprint.add_argument("--tasks", default="")
+    toolsmith_sub.add_parser("missing", help="Lista herramientas faltantes")
+    toolsmith_create = toolsmith_sub.add_parser("create", help="Crea un nuevo tool stub")
+    toolsmith_create.add_argument("tool_name")
+    toolsmith_create.add_argument("--desc", default="")
+    toolsmith_create.add_argument("--category", default="general")
+    toolsmith_listen = toolsmith_sub.add_parser("listen", help="Escucha eventos del bus neural")
+    toolsmith_listen.add_argument("--limit", type=int, default=1)
+
+    agent_parser = sub.add_parser("agent", help="Gestiona spiral agents")
+    agent_parser.add_argument("--root", default="")
+    agent_sub = agent_parser.add_subparsers(dest="agent_cmd")
+    agent_spawn = agent_sub.add_parser("spawn", help="Crea un agente")
+    agent_spawn.add_argument("agent_id")
+    agent_spawn.add_argument("--phase", type=int, default=0)
+    agent_spawn.add_argument("--skills", default="")
+    agent_sub.add_parser("list", help="Lista agentes")
+    agent_run = agent_sub.add_parser("run", help="Ejecuta un agente")
+    agent_run.add_argument("agent_id")
+    agent_kill = agent_sub.add_parser("kill", help="Desactiva un agente")
+    agent_kill.add_argument("agent_id")
+    agent_sub.add_parser("status", help="Muestra consonancia entre agentes")
+
+    route_parser = sub.add_parser("route", help="Ruta tareas al mejor agente AI")
+    route_parser.add_argument("--root", default="")
+    route_parser.add_argument("--task", default="")
+    route_parser.add_argument("--json", dest="route_json", action="store_true")
+    route_parser.add_argument("--history", action="store_true")
+    route_parser.add_argument("--limit", type=int, default=10)
+    route_parser.add_argument("--no-classifier", action="store_true")
+
     inv_parser = sub.add_parser("inventory", help="Cataloga capacidades del proyecto")
     inv_parser.add_argument("--root", default="")
     inv_parser.add_argument("--format", default="text", choices=["text","md","json"])
@@ -1448,6 +1572,12 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_project(args)
     elif args.command == "preflight":
         return cmd_preflight(args)
+    elif args.command == "toolsmith":
+        return cmd_toolsmith(args)
+    elif args.command == "agent":
+        return cmd_agent(args)
+    elif args.command == "route":
+        return cmd_route(args)
     elif args.command == "inventory":
         return cmd_inventory(args)
     else:

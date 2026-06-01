@@ -74,7 +74,7 @@ def print_test_results(results: list[tuple[str, bool, str]]) -> int:
     passed = sum(1 for _, ok, _ in results if ok)
     failed = sum(1 for _, ok, _ in results if not ok)
     for name, ok, detail in results:
-        status = "✅" if ok else "❌"
+        status = "PASS" if ok else "FAIL"
         print(f"  {status}  {name}: {detail}")
     print(f"\n  {passed}/{len(results)} pasaron")
     return 0 if failed == 0 else 1
