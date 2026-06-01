@@ -119,25 +119,25 @@ def cmd_agent(args: argparse.Namespace) -> int:
     return mod.main(argv)
 
 def cmd_route(args: argparse.Namespace) -> int:
-    mod = _load_tool_module("agent_router", "agent_router.py")
-    argv: list[str] = []
-    root = getattr(args, "root", "") or ""
-    if root:
-        argv += ["--root", root]
-    task_text = getattr(args, "task", "") or ""
-    if task_text:
-        argv += ["--task", task_text]
-    if getattr(args, "route_json", False):
-        argv.append("--json")
-    if getattr(args, "history", False):
-        argv.append("--history")
-    if getattr(args, "limit", 10) != 10:
-        argv += ["--limit", str(args.limit)]
-    if getattr(args, "no_classifier", False):
-        argv.append("--no-classifier")
-    if not task_text and not getattr(args, "history", False):
-        argv += ["--help"]
-    return mod.main(argv)
+    """Routing presets: status/validate/activate (sub-módulo cmd_route_v2)."""
+    import importlib.util
+    from pathlib import Path
+    _here = Path(__file__).resolve().parent
+    spec = importlib.util.spec_from_file_location("bago_route_v2", _here / "cmd_route_v2.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("no se pudo cargar cmd_route_v2")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    sub = getattr(args, "route_cmd", None) or "status"
+    if sub == "status":
+        return mod.cmd_route_status(args)
+    if sub == "validate":
+        return mod.cmd_route_validate(args)
+    if sub == "activate":
+        return mod.cmd_route_activate(args)
+    print(f"unknown subcommand: {sub}")
+    return 1
+
 
 def cmd_scan(args: argparse.Namespace) -> int:
     """Herramientas de análisis portables. Funcionan en cualquier proyecto."""
