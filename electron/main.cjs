@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
@@ -30,6 +30,26 @@ function runVisiblePowerShell(command) {
   );
   child.unref();
   return { pid: child.pid };
+}
+
+function runBagoNode(args) {
+  // args: list of strings, e.g. ['node','status','--json']
+  return new Promise((resolve, reject) => {
+    const safe = (Array.isArray(args) ? args : []).map(a => String(a || ''));
+    const cmd = `python -m bago_core.launcher ${safe.map(a => /[\s'"&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a).join(' ')}`;
+    execFile(
+      'python',
+      ['-m', 'bago_core.launcher', ...safe],
+      { cwd: ROOT_DIR, windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`${error.message}${stderr ? ` · ${stderr.trim()}` : ''} · cmd=${cmd}`));
+          return;
+        }
+        resolve({ stdout, stderr, cmd });
+      }
+    );
+  });
 }
 
 function createWindow() {
@@ -71,6 +91,20 @@ function createWindow() {
 app.setAppUserModelId('com.bago.installation-manager');
 
 ipcMain.handle('bago:run-command', (_event, command) => runVisiblePowerShell(command));
+ipcMain.handle('bago:node-cmd', async (_event, args) => {
+  const result = await runBagoNode(args);
+  // If the user asked for --json, try to parse and return both raw + parsed.
+  const wantsJson = Array.isArray(args) && args.includes('--json');
+  if (wantsJson) {
+    try {
+      const parsed = JSON.parse(result.stdout);
+      return { ok: true, data: parsed, raw: result.stdout, cmd: result.cmd };
+    } catch (e) {
+      return { ok: false, error: `JSON parse falló: ${e.message}`, raw: result.stdout, cmd: result.cmd };
+    }
+  }
+  return { ok: true, text: result.stdout, cmd: result.cmd };
+});
 
 app.whenReady().then(() => {
   createWindow();

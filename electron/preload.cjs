@@ -202,5 +202,12 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   scanInstallations: (extraPaths) => Promise.resolve(scanInstallations(Array.isArray(extraPaths) ? extraPaths : [])),
   fetchReleases,
   buildInstallCommand,
-  buildUninstallCommand
+  buildUninstallCommand,
+  // Node Control: invoca bago node <args> y devuelve {ok, data?, text?, raw?, cmd, error?}
+  runNodeCommand: (args) => ipcRenderer.invoke('bago:node-cmd', Array.isArray(args) ? args.map(String) : []),
+  runNodeStatus: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'status', '--json']),
+  runNodeMatrix: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'matrix', '--json']),
+  runNodePieces: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'pieces', '--json']),
+  runNodeConnectors: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'connectors', '--json']),
+  runNodeValidate: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'validate', '--json'])
 });
