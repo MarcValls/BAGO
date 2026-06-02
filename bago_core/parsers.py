@@ -398,4 +398,9 @@ def build_parser(
     inv_parser.add_argument("--root",   default="")
     inv_parser.add_argument("--format", default="text", choices=["text", "md", "json"])
 
+    # ── list-installs (gestor de instalaciones para el landing) ────────────
+    installs_parser = sub.add_parser("list-installs", help="Escanea el sistema e imprime JSON con todas las instalaciones BAGO (para el gestor de la landing)")
+    installs_parser.add_argument("--plain",        action="store_true", help="JSON compacto en una línea (fácil de pegar en la web)")
+    installs_parser.add_argument("--active-only",  action="store_true", help="Solo listar instalaciones que existen")
+
     return parser

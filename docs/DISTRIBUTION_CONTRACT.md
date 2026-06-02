@@ -32,14 +32,18 @@ Los siguientes tipos de archivo nunca deben aparecer en un commit de distribuci�
 ## 5. Control de Calidad Pre-Push
 Antes de cualquier push a `main`, el mantenedor debe ejecutar:
 ```powershell
+python --version
+python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py .bago\core\config_manager.py test_security_release.py test_e2e.py
 python test_security_release.py
 python test_e2e.py
 python bago_core\cli.py validate
+python bago_core\cli.py evidence --test
 ```
-Si alguno de los tres falla, el push está bloqueado hasta su resolución.
+Si alguno falla, el push está bloqueado hasta su resolución. El gate completo vive en `RELEASE_CHECKLIST.md`.
 
 ## 6. Versionado y Releases
 - Las releases siguen SemVer (`v4.x.x`).
+- La versión visible debe coincidir en `release_version.txt`, `versions.json`, launchers, README, manual, landing page, instalador y release notes.
 - Cada release debe incluir:
   - Un tag firmado (`git tag -s`).
   - Notas de release en GitHub con secciones: Novedades, Correcciones, Breaking Changes.
@@ -54,7 +58,7 @@ Si alguno de los tres falla, el push está bloqueado hasta su resolución.
 1. **Sincronización**: copiar los cambios validados desde el entorno de desarrollo local al working tree.
 2. **Limpieza**: eliminar archivos basura y verificar `.gitignore`.
 3. **Documentación**: actualizar `README.md`, `MANUAL.md` y `docs/ROADMAP.md` si hay cambios de alcance.
-4. **Validación**: ejecutar los tres gates de seguridad.
+4. **Validación**: ejecutar `RELEASE_CHECKLIST.md`.
 5. **Commit**: mensaje claro en inglés o español con referencia al área modificada (`core:`, `chat:`, `docs:`).
 6. **Push**: directo a `main` solo si los gates pasan; de lo contrario, pull request.
 

@@ -3,8 +3,8 @@
 - **Modo:** `simulated`
 - **Objetivo:** `community-knowledge`
 - **Provider/modelo:** `mock-contract/contract-assistant-v1`
-- **Session ID:** `a351e0f7-95b`
-- **Generado en:** `C:\Bago_v4\docs\evidence\example_bundle`
+- **Session ID:** `96137912-1b2`
+- **Generado en:** `C:\Users\AMTEC_Terminal_1º\source\repos\MarcValls\BAGO\docs\evidence\example_bundle`
 
 ## Resultado directo al usuario
 
@@ -34,7 +34,7 @@ BAGO v4 puede responder a una necesidad concreta del usuario y, al mismo tiempo,
 ### /status
 
 ```text
-Session ID : a351e0f7-95b
+Session ID : 96137912-1b2
 Provider   : mock-contract
 Model      : contract-assistant-v1
 Health     : OK — Mock contract runtime ready
@@ -65,7 +65,7 @@ Switches   : 0
 
 ```text
 Resultados para 'conocimiento recuperable':
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: a351e0f7-95b)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 96137912-1b2)
 ```
 
 ### /good
@@ -77,5 +77,5 @@ Mensaje -1 marcado como 'good' — no se diluirá en compresión.
 ### /save
 
 ```text
-Sesión guardada: a351e0f7-95b
+Sesión guardada: 96137912-1b2
 ```

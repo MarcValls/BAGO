@@ -1,94 +1,174 @@
-# BAGO v4 — Session-First AI Control Plane
+# BAGO v4.1.5
 
 [![Version](https://img.shields.io/badge/version-4.1.5-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
-> BAGO is a local-first, session-persistent CLI for orchestrating AI providers. It keeps context across model switches, validates claims with evidence, and learns from your conversation style.
+BAGO is a local-first AI control plane. Its main job is to keep the session as the source of truth while providers and models remain interchangeable execution engines.
 
-## What BAGO Does
+## What Problem It Solves
 
-- **Session Persistence** — conversations survive provider and model switches.
-- **Provider Orchestration** — Ollama (local/cloud), Copilot, Anthropic, OpenRouter, Codex.
-- **Intent-Aware Tooling** — BAGO auto-classifies your intent (chat / review / execute / work) and only offers tools when they are actually needed, preventing over-eager tool calls from small local models.
-- **Auto-Training** — BAGO rescans your conversation history before each context compression to learn how you speak and refine its intent classifier.
-- **Evidence & Contracts** — every claim BAGO makes can be recorded, bundled, and validated.
+Most AI tools bind context to one provider or model. BAGO separates session state from model execution so a user can keep continuity while switching provider, model, API surface, or UI surface.
 
-## Quick Start
+## Current Product Status
 
-### 1. Install
+The stable MVP is intentionally small:
+
+| Capability | Status | Proof |
+|---|---|---|
+| CLI | Working | `python bago_core\cli.py validate` |
+| Persistent session | Working | `python test_e2e.py` |
+| Provider/model switch | Working | `python test_e2e.py` |
+| Ollama local startup | Working when Ollama is installed | `python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run` |
+| Local API | Working, localhost-first | `python .bago\api\bridge.py --test` |
+| Evidence bundles | Working | `python bago_core\cli.py evidence --test` |
+| Security validation | Working | `python test_security_release.py` |
+| React UI | Optional surface | `cd ui-react; npm run build` |
+
+Post-MVP or experimental:
+
+| Capability | Status | Boundary |
+|---|---|---|
+| RL policy layer | Experimental | shadow/off by default, no execution authority |
+| Agents and autopilot | Experimental | must not be claimed as stable product behavior |
+| C++ runtime | Experimental | not required for install, release, or validation |
+| Cloud multiprovider completeness | Partial | depends on configured credentials and provider health |
+| Advanced knowledge/embedding store | Partial | must remain separate from the MVP claim set |
+
+## Install
+
+Requirements:
+
+- Windows-first runtime.
+- Python 3.11 or newer.
+- Ollama is optional, but required for the local live-model path.
+- Cloud provider keys are optional and must stay outside the repository.
+
 ```powershell
-# Windows (PowerShell)
+git clone https://github.com/MarcValls/BAGO.git
+cd BAGO
 .\install-v4.ps1 -Mode Express
-
-# Interactive assistant preview
-.\install-assistant.ps1 -AssumeYes -DryRun
-
-# Or from an installed/runtime copy
-bago install --mode Express
-
-# Or clone and run directly
-python bago_core\cli.py validate
 ```
 
-The installer writes per-install non-secret settings to `install_config.json`.
-Credentials default to session-only storage; persistent storage and external export require explicit opt-in and are encrypted.
+Direct source run:
 
-### 2. Uninstall
 ```powershell
-bago uninstall --dry-run
-bago uninstall
-
-# Remove user state too
-bago uninstall --purge-state
+python bago_core\cli.py validate
+python bago_core\cli.py llm list
+python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```
 
-Uninstall creates a backup ZIP before deleting the install directory and removes BAGO from PATH where possible.
+Remote installer for the latest published release:
 
-### 3. Start Chatting
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
+```
+
+## Minimum Use
+
 ```powershell
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b
 ```
 
-### 4. Dry-Run Check (no chat window)
+Validation without opening a chat:
+
 ```powershell
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```
 
-## Validation Gates
+## Main Commands
 
-Before any release, the following must pass:
+| Command | Purpose |
+|---|---|
+| `python bago_core\cli.py validate` | checks contracts, security defaults, and provider configuration |
+| `python bago_core\cli.py evidence --test` | validates evidence bundle generation |
+| `python bago_core\cli.py llm list` | lists provider/model availability |
+| `python bago_core\cli.py llm start ...` | starts or dry-runs provider-aware startup |
+| `python bago_core\cli.py serve --host 127.0.0.1 --port 8080` | starts the local API |
+| `python bago_core\cli.py rl status` | reports RL/shadow state without granting authority |
 
-```powershell
-python test_security_release.py
-python test_e2e.py
-python bago_core\cli.py validate
-python bago_core\cli.py evidence --test
-```
+## Providers
 
-## Project Structure
+| Provider | Status | Notes |
+|---|---|---|
+| `ollama-local` | Working | default local path when Ollama is installed |
+| `ollama-cloud` | Partial | requires URL/key configuration |
+| `copilot` | Partial | requires GitHub token/configuration |
+| `anthropic` | Partial | requires API key |
+| `codex` | Partial | requires API key/configuration |
+| `openrouter` | Partial | requires API key |
+| `opencode` | Partial | requires API key/configuration |
+| `cpp-local` | Experimental | hidden from the default path unless explicitly requested |
 
-| Path | Description |
-|------|-------------|
-| `.bago/chat/` | REPL, system prompts, commands |
-| `.bago/core/` | Session manager, tool registry, context compression, RL engine |
-| `.bago/providers/` | Provider adapters (Ollama, Copilot, Anthropic, ...) |
-| `.bago/api/` | Optional local REST API |
-| `bago_core/` | Legacy CLI and runtime bridges |
-| `docs/` | Architecture, security, testing, and distribution contracts |
-| `scripts/` | Registered utility scripts |
+## Security
+
+BAGO must remain safe by default:
+
+- API binds to `127.0.0.1` by default.
+- Non-localhost API exposure requires a token.
+- CORS must never use wildcard origin.
+- Credentials must not enter Git, release ZIPs, UI bundles, or evidence samples.
+- Tool execution is reject-by-default unless explicitly allowed.
+- RL, agents, and automation remain suggestion/shadow surfaces unless explicitly authorized.
+
+## Evidence
+
+Every public claim must have at least one validation path:
+
+- command,
+- automated test,
+- evidence bundle,
+- functional contract,
+- or minimal demo.
+
+See [`docs/CLAIMS.md`](docs/CLAIMS.md) for the claim-to-evidence matrix.
+
+## Roadmap
+
+The near-term order is:
+
+1. keep the MVP frozen,
+2. keep version and Python requirements unified,
+3. run the clean-machine gate before releases,
+4. require evidence for every public claim,
+5. keep partial/experimental modules out of stable product claims.
+
+See [`docs/MVP.md`](docs/MVP.md), [`docs/MODULES.md`](docs/MODULES.md), and [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
+
+## Known Limits
+
+- The project is Windows-first today.
+- macOS and Linux are experimental until their install and runtime gates are verified.
+- A live Ollama conversation is optional and depends on a local Ollama service plus installed model.
+- React UI is not the system authority; it consumes the backend API.
+- RL, agents, C++ runtime, and advanced orchestration are not part of the stable MVP.
+
+## License
+
+BAGO is proprietary at this stage.
+
+Allowed:
+
+- inspect the public source,
+- run local validation,
+- submit issues or proposed changes through GitHub.
+
+Not allowed without written permission:
+
+- redistribute BAGO as a competing package,
+- sell hosted or packaged copies,
+- remove attribution,
+- extract private release assets for third-party distribution.
+
+Future licensing may change, but the current release line remains proprietary.
 
 ## Documentation
 
-- [`MANUAL.md`](MANUAL.md) — user manual
-- [`docs/DISTRIBUTION_CONTRACT.md`](docs/DISTRIBUTION_CONTRACT.md) — presentation & distribution rules
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — distribution plan
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — runtime architecture
-- [`docs/SECURITY.md`](docs/SECURITY.md) — security defaults and gates
-- [`docs/TESTING.md`](docs/TESTING.md) — validation commands
-
-## Distribution Rule
-
-> Ship only what can be installed cleanly, started predictably, and validated with evidence.
-
-See [`docs/DISTRIBUTION_CONTRACT.md`](docs/DISTRIBUTION_CONTRACT.md) for the full contract.
+- [`MANUAL.md`](MANUAL.md) - user manual in Spanish.
+- [`docs/MVP.md`](docs/MVP.md) - MVP boundary.
+- [`docs/MODULES.md`](docs/MODULES.md) - module status matrix.
+- [`docs/CLAIMS.md`](docs/CLAIMS.md) - claim evidence matrix.
+- [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md) - operating system support.
+- [`docs/SECURITY.md`](docs/SECURITY.md) - security defaults and gates.
+- [`docs/TESTING.md`](docs/TESTING.md) - validation commands.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) - distribution roadmap.

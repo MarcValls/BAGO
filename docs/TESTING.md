@@ -4,18 +4,22 @@ Testing is the gate between a plan item and a completed feature. A feature is no
 
 ## Base Gate
 
-Run from `C:\Bago_v4`:
+Run from the repository root:
 
 ```powershell
-python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py .bago\core\config_manager.py test_security_release.py
+python --version
+python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py .bago\core\config_manager.py test_security_release.py test_e2e.py
 python test_security_release.py
 python test_e2e.py
 python bago_core\cli.py validate
 python bago_core\cli.py evidence --test
+python bago_core\cli.py llm list
+python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```
 
 Required result:
 
+- Python reports 3.11 or newer.
 - all commands pass.
 - `validate` reports contracts present.
 - no security regression.
@@ -34,6 +38,22 @@ Expected:
 
 - `ollama-local` starts in dry-run when available.
 - `cpp-local` is blocked unless experimental mode is explicit.
+
+## Optional Live Ollama Gate
+
+This gate is skipped automatically if Ollama is not running or no local model is installed. It is not required for every commit, but it is the cleanest proof of the live local-model path.
+
+```powershell
+python test_ollama_live_optional.py
+```
+
+Expected:
+
+- detects local Ollama.
+- sends one short live prompt.
+- saves the session.
+- exercises the provider/model switch path.
+- reloads the session and verifies the history remains available.
 
 ## UI Gate
 
@@ -112,10 +132,13 @@ Expected:
 Before packaging:
 
 ```powershell
+python --version
 python test_security_release.py
 python test_e2e.py
 python bago_core\cli.py validate
 python bago_core\cli.py evidence --test
+python bago_core\cli.py llm list
+python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```
 
 Manual release checks:
