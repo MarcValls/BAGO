@@ -3,108 +3,203 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO v4.1.5 — AI Control Plane Local</title>
+  <title>BAGO v4.1.5-r2 — AI Control Plane Local</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <style>body{font-family:'Inter',sans-serif;}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Inter',sans-serif;}
+    code,.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+    .scroll-fade{scrollbar-width:thin;scrollbar-color:#1e293b #0f172a;}
+    .scroll-fade::-webkit-scrollbar{width:8px;height:8px;}
+    .scroll-fade::-webkit-scrollbar-track{background:#0f172a;}
+    .scroll-fade::-webkit-scrollbar-thumb{background:#334155;border-radius:4px;}
+    .grad-text{background:linear-gradient(90deg,#818cf8,#22d3ee,#34d399);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    .card{transition:all .2s ease;}
+    .card:hover{border-color:rgba(99,102,241,.4);transform:translateY(-1px);}
+    details>summary{list-style:none;cursor:pointer;}
+    details>summary::-webkit-details-marker{display:none;}
+    details[open] .chev{transform:rotate(90deg);}
+    .chev{transition:transform .2s;}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);opacity:0;transition:all .3s;z-index:50;}
+    .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+    .badge-on{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+    .badge-off{background:rgba(244,63,94,.15);color:#fb7185;border:1px solid rgba(244,63,94,.3);}
+    .badge-warn{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3);}
+    .badge-neutral{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.3);}
+  </style>
 </head>
 <body class="bg-slate-950 text-slate-100">
-  <header class="border-b border-slate-800">
-    <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+  <div id="toast" class="toast px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-medium"></div>
+
+  <header class="border-b border-slate-800 sticky top-0 z-40 bg-slate-950/95 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">B</div>
-        <span class="font-bold text-xl tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.1.5</span></span>
+        <div class="w-9 h-9 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold">B</div>
+        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.1.5-r2</span></span>
+        <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">SUPERVISOR · PROBE</span>
       </div>
       <nav class="hidden md:flex gap-6 text-sm text-slate-300">
-        <a href="#features" class="hover:text-white transition">Features</a>
-        <a href="#activity" class="hover:text-white transition">Actividad</a>
-        <a href="#install" class="hover:text-white transition">Instalar</a>
-        <a href="#docs" class="hover:text-white transition">Docs</a>
+        <a href="#install"        class="hover:text-white transition">Instalar</a>
+        <a href="#manager"        class="hover:text-white transition">Gestor</a>
+        <a href="#installations"  class="hover:text-white transition">Instalaciones</a>
+        <a href="#activity"       class="hover:text-white transition">Actividad</a>
+        <a href="#docs"           class="hover:text-white transition">Docs</a>
         <a href="https://github.com/MarcValls/BAGO" target="_blank" class="hover:text-white transition">GitHub →</a>
       </nav>
     </div>
   </header>
 
-  <section class="max-w-6xl mx-auto px-6 py-20 md:py-28">
-    <div class="max-w-3xl">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-6">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="hero-release-label">v4.1.5 Disponible</span>
+  <!-- ───────────────────── HERO + DESCARGA ───────────────────── -->
+  <section class="max-w-6xl mx-auto px-6 pt-16 pb-12 md:pt-24 md:pb-16">
+    <div class="grid md:grid-cols-2 gap-10 items-start">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.1.5-r2 con supervisor always-on
+        </div>
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
+          Session-First <span class="grad-text">AI Control Plane</span>
+        </h1>
+        <p class="text-base md:text-lg text-slate-400 mb-6 leading-relaxed">
+          BAGO orquesta proveedores de IA locales y remotos, mantiene el contexto entre cambios de modelo,
+          y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a id="primary-release-download" href="#install" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Instalar ahora</a>
+          <a href="https://github.com/MarcValls/BAGO/releases/tag/v4.1.5-r2" target="_blank" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Release notes</a>
+        </div>
+        <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs">
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+            <p class="text-slate-500 uppercase tracking-wider">Probe</p>
+            <p class="text-emerald-400 font-semibold mt-0.5">4/5 OK</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+            <p class="text-slate-500 uppercase tracking-wider">Liveness</p>
+            <p class="text-cyan-400 font-semibold mt-0.5">OpenProcess</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+            <p class="text-slate-500 uppercase tracking-wider">Console</p>
+            <p class="text-amber-400 font-semibold mt-0.5">pythonw</p>
+          </div>
+        </div>
       </div>
-      <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
-        Session-First <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">AI Control Plane</span>
-      </h1>
-      <p class="text-lg md:text-xl text-slate-400 mb-8 leading-relaxed">
-        BAGO es una CLI local-first que orquesta proveedores de IA, mantiene el contexto entre cambios de modelo, y aprende de tu estilo de conversación para no ser invasivo.
-      </p>
-      <div class="flex flex-wrap gap-4">
-        <a id="primary-release-download" href="#install" class="px-6 py-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Instalar ahora</a>
-        <a href="https://github.com/MarcValls/BAGO" target="_blank" class="px-6 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Ver en GitHub</a>
+
+      <div id="install" class="space-y-4">
+        <!-- One-liner PowerShell -->
+        <div class="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+          <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-900/80">
+            <span class="w-3 h-3 rounded-full bg-red-500/30"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/30"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/30"></span>
+            <span class="ml-2 text-xs text-slate-500">PowerShell · instalación one-liner</span>
+          </div>
+          <div class="p-4">
+            <pre class="mono text-[12.5px] text-slate-200 overflow-x-auto leading-relaxed"><code>irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex</code></pre>
+          </div>
+          <div class="px-4 pb-4 flex justify-end">
+            <button data-copy="irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex" class="copy-btn px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold border border-indigo-500/30 transition">
+              Copiar
+            </button>
+          </div>
+        </div>
+
+        <!-- Descarga zip + checksums -->
+        <div class="grid grid-cols-2 gap-3">
+          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.1.5-r2/bago-release-20260601T232719Z.zip" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+            <div class="flex items-start justify-between mb-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+              <span class="text-[10px] text-slate-500 uppercase tracking-wider">516 KB</span>
+            </div>
+            <p class="font-semibold text-sm">bago-v4.1.5-r2.zip</p>
+            <p class="text-xs text-slate-500 mt-0.5">Bundle portable · 226 files</p>
+          </a>
+          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.1.5-r2/checksums.sha256" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+            <div class="flex items-start justify-between mb-2">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span class="text-[10px] text-slate-500 uppercase tracking-wider">SHA-256</span>
+            </div>
+            <p class="font-semibold text-sm">checksums.sha256</p>
+            <p class="text-xs text-slate-500 mt-0.5 mono break-all">dbc72a6f917bede4...</p>
+          </a>
+        </div>
+        <!-- Descarga gestor standalone -->
+        <a href="manager.html" class="card block mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+         <div class="flex items-start justify-between mb-2">
+           <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+           <span class="text-[10px] text-slate-500 uppercase tracking-wider">19 KB · HTML único</span>
+         </div>
+         <p class="font-semibold text-sm">Gestor de instalaciones (standalone)</p>
+         <p class="text-xs text-slate-500 mt-0.5">Funciona 100% offline · sin servidor · sin internet · sin tracking</p>
+        </a>
       </div>
     </div>
   </section>
 
-  <section id="features" class="border-t border-slate-800 bg-slate-900/50">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <h2 class="text-2xl md:text-3xl font-bold mb-12">¿Por qué BAGO?</h2>
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition">
-          <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-4 text-emerald-400">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-6h6m-9 12h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </div>
-          <h3 class="font-semibold mb-2">Sesiones persistentes</h3>
-          <p class="text-sm text-slate-400">Las conversaciones sobreviven a cambios de proveedor y modelo sin perder contexto.</p>
+  <!-- ───────────────────── GESTOR DE INSTALACIONES ───────────────────── -->
+  <section id="manager" class="border-t border-slate-800 bg-slate-900/50">
+    <div class="max-w-6xl mx-auto px-6 py-16">
+      <div class="flex items-start justify-between flex-wrap gap-4 mb-8">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold mb-2">Gestor de instalaciones</h2>
+          <p class="text-slate-400 text-sm max-w-2xl">
+            Detectá las instalaciones BAGO en tu máquina, inspeccionalas y ejecutá acciones
+            sobre cada una. La web no toca tu PC: corré un comando, pegá el resultado,
+            y operá desde acá con privacidad total.
+          </p>
         </div>
-        <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition">
-          <div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4 text-cyan-400">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          </div>
-          <h3 class="font-semibold mb-2">Motor de intenciones</h3>
-          <p class="text-sm text-slate-400">Clasifica automáticamente si hablas, pides revisar, ejecutar o trabajar en código, y solo ofrece herramientas cuando corresponde.</p>
+        <div class="flex gap-2">
+          <button id="paste-btn" class="px-3 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-sm font-semibold border border-indigo-500/30 transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Pegar output
+          </button>
+          <button id="clear-btn" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold border border-slate-700 transition">Limpiar</button>
         </div>
-        <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition">
-          <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4 text-amber-400">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v16h16V4H4z"/></svg>
-          </div>
-          <h3 class="font-semibold mb-2">Multi-provider</h3>
-          <p class="text-sm text-slate-400">Soporta Ollama local, Copilot, Anthropic, OpenRouter y Codex desde una misma interfaz.</p>
-        </div>
-        <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition">
-          <div class="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center mb-4 text-rose-400">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          </div>
-          <h3 class="font-semibold mb-2">Auto-entrenamiento</h3>
-          <p class="text-sm text-slate-400">Reescanea tu historial antes de cada compresión de contexto para aprender cómo hablas y refinar su clasificador.</p>
-        </div>
+      </div>
+
+      <!-- Instrucciones -->
+      <div id="instructions" class="rounded-xl bg-slate-900 border border-slate-800 p-5 mb-6">
+        <p class="text-sm text-slate-300 mb-3 font-semibold">Cómo usar este gestor</p>
+        <ol class="text-sm text-slate-400 space-y-2 list-decimal list-inside">
+          <li>En tu terminal (PowerShell o cmd), corré: <code class="mono text-emerald-300 bg-slate-950 px-1.5 py-0.5 rounded">bago list-installs --plain</code></li>
+          <li>Copiá todo el output (un JSON largo en una línea).</li>
+          <li>Click <span class="text-indigo-300">Pegar output</span> arriba. La web parsea el JSON y muestra las instalaciones detectadas.</li>
+          <li>Click en cualquier card para expandirla. Cada acción es un comando listo para copiar.</li>
+        </ol>
+      </div>
+
+      <textarea id="input-area" class="hidden mono text-[12px] w-full h-32 p-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 scroll-fade" placeholder="Pegá acá el output de `bago list-installs --plain`"></textarea>
+
+      <div id="installations" class="space-y-3"></div>
+
+      <div id="empty-state" class="text-center py-12 text-slate-500">
+        <svg class="w-12 h-12 mx-auto mb-3 text-slate-700" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        <p class="text-sm">Esperando el output de <code class="mono text-slate-400">bago list-installs</code></p>
       </div>
     </div>
   </section>
 
+  <!-- ───────────────────── ACTIVITY (GITHUB) ───────────────────── -->
   <section id="activity" class="border-t border-slate-800">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <div class="flex items-center justify-between mb-8">
-        <h2 class="text-2xl md:text-3xl font-bold">Panel de actividad</h2>
+    <div class="max-w-6xl mx-auto px-6 py-16">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl md:text-3xl font-bold">Actividad del repo</h2>
         <span id="act-status" class="text-xs text-slate-500">Cargando...</span>
       </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Stars</p>
+      <div class="grid md:grid-cols-4 gap-3 mb-6">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Stars</p>
           <p id="act-stars" class="text-2xl font-bold text-indigo-400">—</p>
         </div>
-        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Issues abiertos</p>
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Issues abiertos</p>
           <p id="act-issues" class="text-2xl font-bold text-rose-400">—</p>
         </div>
-        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Último push</p>
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Último push</p>
           <p id="act-pushed" class="text-sm font-semibold text-slate-200">—</p>
         </div>
-        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tamaño</p>
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Tamaño</p>
           <p id="act-size" class="text-2xl font-bold text-emerald-400">—</p>
-        </div>
-        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <p class="text-xs text-slate-500 uppercase tracking-wider mb-1">Última release</p>
-          <p id="act-release" class="text-sm font-semibold text-cyan-300">—</p>
         </div>
       </div>
       <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
@@ -119,131 +214,284 @@
     </div>
   </section>
 
-  <section id="install" class="border-t border-slate-800 bg-slate-900/50">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <h2 class="text-2xl md:text-3xl font-bold mb-8">Instalación rápida</h2>
-      <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-900/80">
-          <span class="w-3 h-3 rounded-full bg-red-500/20"></span>
-          <span class="w-3 h-3 rounded-full bg-amber-500/20"></span>
-          <span class="w-3 h-3 rounded-full bg-emerald-500/20"></span>
-          <span class="ml-2 text-xs text-slate-500">PowerShell</span>
-        </div>
-        <pre class="p-4 text-sm text-slate-300 overflow-x-auto"><code>git clone https://github.com/MarcValls/BAGO.git
-cd BAGO
-.\install-v4.ps1
-python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b</code></pre>
-      </div>
-      <div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
-        <span class="text-slate-500">La página toma la última release publicada en GitHub.</span>
-        <a id="latest-release-link" href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="text-indigo-400 hover:underline">Ver releases →</a>
-        <a id="latest-release-download" href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="text-cyan-300 hover:underline">Descargar última release →</a>
-      </div>
-    </div>
-  </section>
-
-  <section id="docs" class="border-t border-slate-800">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <h2 class="text-2xl md:text-3xl font-bold mb-8">Documentación</h2>
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <a href="https://github.com/MarcValls/BAGO/blob/main/MANUAL.md" target="_blank" class="p-5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition flex items-center justify-between">
-          <span class="font-medium">MANUAL.md</span>
-          <span class="text-slate-500">→</span>
+  <!-- ───────────────────── DOCS ───────────────────── -->
+  <section id="docs" class="border-t border-slate-800 bg-slate-900/50">
+    <div class="max-w-6xl mx-auto px-6 py-16">
+      <h2 class="text-2xl md:text-3xl font-bold mb-6">Documentación</h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <a href="https://github.com/MarcValls/BAGO/blob/main/MANUAL.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="font-medium text-sm">MANUAL.md</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" target="_blank" class="p-5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition flex items-center justify-between">
-          <span class="font-medium">Contrato de distribución</span>
-          <span class="text-slate-500">→</span>
+        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="font-medium text-sm">Contrato de distribución</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/ARCHITECTURE.md" target="_blank" class="p-5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition flex items-center justify-between">
-          <span class="font-medium">Arquitectura</span>
-          <span class="text-slate-500">→</span>
+        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/ARCHITECTURE.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="font-medium text-sm">Arquitectura</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/SECURITY.md" target="_blank" class="p-5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition flex items-center justify-between">
-          <span class="font-medium">Seguridad</span>
-          <span class="text-slate-500">→</span>
+        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/SECURITY.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="font-medium text-sm">Seguridad</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/TESTING.md" target="_blank" class="p-5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition flex items-center justify-between">
-          <span class="font-medium">Testing</span>
-          <span class="text-slate-500">→</span>
+        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/TESTING.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="font-medium text-sm">Testing</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/ROADMAP.md" target="_blank" class="p-5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition flex items-center justify-between">
-          <span class="font-medium">Roadmap</span>
-          <span class="text-slate-500">→</span>
+        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/ROADMAP.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <span class="font-medium text-sm">Roadmap</span><span class="text-slate-500">→</span>
         </a>
       </div>
     </div>
   </section>
 
-  <footer class="border-t border-slate-800 py-10 text-center text-sm text-slate-500">
+  <footer class="border-t border-slate-800 py-8 text-center text-xs text-slate-500">
     <p>© 2026 BAGO — Session-First AI Control Plane</p>
-    <p class="mt-2">Distribuido bajo las reglas del <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" class="text-indigo-400 hover:underline">Distribution Contract</a>.</p>
+    <p class="mt-1">Distribuido bajo las reglas del <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" class="text-indigo-400 hover:underline">Distribution Contract</a>.</p>
   </footer>
 
   <script>
+    /* ──── Activity panel ──── */
     (async function() {
       const status = document.getElementById('act-status');
-      const releaseBadgeText = document.getElementById('hero-release-label');
-      const primaryReleaseDownload = document.getElementById('primary-release-download');
       try {
-        const [repo, commits, release] = await Promise.all([
+        const [repo, commits] = await Promise.all([
           fetch('https://api.github.com/repos/MarcValls/BAGO').then(r => r.json()),
-          fetch('https://api.github.com/repos/MarcValls/BAGO/commits?per_page=5').then(r => r.json()),
-          fetch('https://api.github.com/repos/MarcValls/BAGO/releases/latest').then(async r => r.ok ? r.json() : null)
+          fetch('https://api.github.com/repos/MarcValls/BAGO/commits?per_page=5').then(r => r.json())
         ]);
         if (repo.stargazers_count != null) document.getElementById('act-stars').textContent = repo.stargazers_count;
         if (repo.open_issues_count != null) document.getElementById('act-issues').textContent = repo.open_issues_count;
         if (repo.pushed_at) {
           const d = new Date(repo.pushed_at);
-          document.getElementById('act-pushed').textContent = d.toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+          document.getElementById('act-pushed').textContent = d.toLocaleDateString('es-ES', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
         }
         if (repo.size != null) document.getElementById('act-size').textContent = (repo.size / 1024).toFixed(1) + ' MB';
-        if (release && release.tag_name) {
-          document.getElementById('act-release').textContent = `${release.tag_name} • ${new Date(release.published_at).toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric'})}`;
-          if (releaseBadgeText) releaseBadgeText.textContent = `${release.tag_name} Disponible`;
-          const releaseLink = document.getElementById('latest-release-link');
-          const releaseDownload = document.getElementById('latest-release-download');
-          const asset = Array.isArray(release.assets) && release.assets.length ? release.assets[0] : null;
-          if (releaseLink) releaseLink.href = release.html_url;
-          if (releaseDownload) {
-            releaseDownload.href = asset ? asset.browser_download_url : release.html_url;
-            releaseDownload.textContent = asset ? 'Descargar asset →' : 'Abrir release →';
-          }
-          if (primaryReleaseDownload) {
-            primaryReleaseDownload.href = asset ? asset.browser_download_url : release.html_url;
-            primaryReleaseDownload.textContent = asset ? 'Descargar última release' : 'Abrir última release';
-          }
-        } else {
-          document.getElementById('act-release').textContent = 'Sin release publicada';
-          if (primaryReleaseDownload) {
-            primaryReleaseDownload.href = '#install';
-            primaryReleaseDownload.textContent = 'Instalar ahora';
-          }
-        }
         const list = document.getElementById('act-commits');
         if (Array.isArray(commits) && commits.length) {
           list.innerHTML = commits.map(c => {
             const msg = c.commit.message.split('\n')[0].substring(0, 70);
             const sha = c.sha.substring(0, 7);
             const date = new Date(c.commit.committer.date).toLocaleDateString('es-ES', {day:'numeric', month:'short'});
-            return `<li class="px-5 py-4 flex items-center justify-between gap-4">
+            return `<li class="px-5 py-3 flex items-center justify-between gap-4">
               <div class="min-w-0">
                 <p class="text-sm text-slate-200 truncate font-medium" title="${c.commit.message}">${msg}</p>
-                <p class="text-xs text-slate-500 mt-0.5">${c.commit.author.name} • ${date}</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">${c.commit.author.name} • ${date}</p>
               </div>
-              <a href="${c.html_url}" target="_blank" class="text-xs text-indigo-400 hover:underline whitespace-nowrap">${sha}</a>
+              <a href="${c.html_url}" target="_blank" class="text-[11px] text-indigo-400 hover:underline whitespace-nowrap mono">${sha}</a>
             </li>`;
           }).join('');
-        } else {
-          list.innerHTML = '<li class="px-5 py-4 text-sm text-slate-500">No se pudieron cargar los commits.</li>';
         }
-        status.textContent = 'Actualizado en vivo desde GitHub';
+        status.textContent = 'En vivo desde GitHub';
         status.className = 'text-xs text-emerald-500';
       } catch (e) {
-        status.textContent = 'Error al cargar datos';
+        status.textContent = 'Error al cargar';
         status.className = 'text-xs text-rose-500';
-        console.error(e);
       }
     })();
+
+    /* ──── Toast ──── */
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    function showToast(msg, ok = true) {
+      toast.textContent = msg;
+      toast.className = `toast show px-4 py-2 rounded-lg text-sm font-medium border ${ok ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-rose-500/20 border-rose-500/40 text-rose-300'}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 2200);
+    }
+
+    /* ──── Copy buttons ──── */
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const text = btn.getAttribute('data-copy');
+        try { await navigator.clipboard.writeText(text); showToast('Copiado al portapapeles'); }
+        catch { showToast('No se pudo copiar', false); }
+      });
+    });
+
+    /* ──── Manager: paste + parse + render ──── */
+    const inputArea = document.getElementById('input-area');
+    const installBox = document.getElementById('installations');
+    const emptyState = document.getElementById('empty-state');
+
+    document.getElementById('paste-btn').addEventListener('click', async () => {
+      inputArea.classList.toggle('hidden');
+      inputArea.focus();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim().startsWith('{')) {
+          inputArea.value = text.trim();
+          parseAndRender(text.trim());
+        } else {
+          showToast('Pegá el JSON manualmente (Ctrl+V)', false);
+        }
+      } catch {
+        showToast('Permití acceso al portapapeles y reintentá', false);
+      }
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      inputArea.value = '';
+      installBox.innerHTML = '';
+      emptyState.classList.remove('hidden');
+    });
+
+    inputArea.addEventListener('input', () => {
+      const text = inputArea.value.trim();
+      if (text.startsWith('{')) parseAndRender(text);
+    });
+
+    function parseAndRender(raw) {
+      let data;
+      try { data = JSON.parse(raw); }
+      catch (e) { showToast('JSON inválido: ' + e.message, false); return; }
+      if (!data.installations || !Array.isArray(data.installations)) {
+        showToast('Falta el array "installations"', false);
+        return;
+      }
+      const existing = data.installations.filter(i => i.exists);
+      if (!existing.length) {
+        installBox.innerHTML = `<div class="rounded-xl bg-slate-900 border border-slate-800 p-6 text-center text-slate-400">
+          <p class="text-sm">No se detectaron instalaciones BAGO en tu máquina.</p>
+          <p class="text-xs text-slate-500 mt-1">Tip: corré <code class="mono text-slate-300">bago list-installs --plain</code> en cada shell donde tengas BAGO.</p>
+        </div>`;
+        emptyState.classList.add('hidden');
+        return;
+      }
+      installBox.innerHTML = existing.map((inst, i) => renderCard(inst, i, data.summary)).join('');
+      attachCardHandlers();
+      emptyState.classList.add('hidden');
+    }
+
+    function modeBadge(mode, alive) {
+      if (alive) return `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold badge-on">SUPERVISOR VIVO</span>`;
+      const colors = {
+        system: 'badge-warn', source: 'badge-on', work: 'badge-on',
+        dev: 'badge-warn', ign: 'badge-warn', user: 'badge-neutral',
+        launch: 'badge-on', missing: 'badge-off'
+      };
+      const cls = colors[mode] || 'badge-neutral';
+      return `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}">${mode.toUpperCase()}</span>`;
+    }
+
+    function renderCard(inst, idx, summary) {
+      const ver = inst.version || inst.tag || '—';
+      const isSource = inst.mode === 'source';
+      const actions = buildActions(inst, isSource);
+      return `
+        <details class="card rounded-xl bg-slate-900 border border-slate-800 overflow-hidden" ${idx === 0 ? 'open' : ''}>
+          <summary class="px-5 py-4 flex items-center justify-between gap-4 hover:bg-slate-800/40 transition">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                ${modeBadge(inst.mode, inst.supervisor_alive)}
+                <span class="font-semibold text-sm">${inst.description || inst.mode}</span>
+                <span class="mono text-[11px] text-slate-500 truncate" title="${inst.path}">${inst.path}</span>
+              </div>
+              <div class="flex items-center gap-3 text-[11px] text-slate-500">
+                <span>v <span class="text-slate-300 font-mono">${ver}</span></span>
+                ${inst.has_supervisor ? '<span class="text-emerald-400">sup</span>' : '<span class="text-slate-600">no-sup</span>'}
+                ${inst.has_probe      ? '<span class="text-cyan-400">probe</span>'    : '<span class="text-slate-600">no-probe</span>'}
+                ${inst.has_seal       ? '<span class="text-amber-400">seal</span>'    : ''}
+                ${inst.has_cli        ? '<span class="text-indigo-400">cli</span>'    : ''}
+                ${inst.supervisor_state ? `<span class="text-slate-400">pid ${inst.supervisor_state.pid || '?'}</span>` : ''}
+              </div>
+            </div>
+            <svg class="chev w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </summary>
+          <div class="border-t border-slate-800 px-5 py-4 space-y-4">
+            ${actions}
+          </div>
+        </details>
+      `;
+    }
+
+    function actionGroup(title, icon, items) {
+      return `
+        <div>
+          <p class="text-[11px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">${icon} ${title}</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${items.map(it => `
+              <button class="cmd-btn text-left p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500/40 transition" data-cmd="${escapeHtml(it.cmd)}">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[13px] text-slate-200 font-medium">${it.label}</span>
+                  <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">${it.hint}</p>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function buildActions(inst, isSource) {
+      const path = inst.path;
+      const cd = `cd "${path}"`;
+      const groups = [];
+
+      // 1) Launch
+      groups.push(actionGroup('Ejecutar', '▶️', [
+        { label: 'Abrir chat (REPL)', hint: 'Inicia BAGO en modo conversación', cmd: `${cd}; bago` },
+        { label: 'Arrancar supervisor', hint: 'Lanza supervisor detached (sin consola)', cmd: `${cd}; bago sup start` },
+        { label: 'Parar supervisor', hint: 'Stop limpio via sentinel-file', cmd: `${cd}; bago sup stop` },
+        { label: 'Estado del supervisor', hint: 'JSON con pid/uptime/eventos', cmd: `${cd}; bago sup status` },
+      ]));
+
+      // 2) Platform (probe, llm, config, route)
+      groups.push(actionGroup('Plataforma', '⚙️', [
+        { label: 'Probe (5 checks)', hint: 'Health check unificado', cmd: `${cd}; bago probe` },
+        { label: 'LLM · listar providers', hint: 'Muestra providers configurados', cmd: `${cd}; bago llm list` },
+        { label: 'LLM · arrancar provider', hint: 'Inicia con provider/modelo por defecto', cmd: `${cd}; bago llm start` },
+        { label: 'Route · status', hint: 'Preset activo y contrato', cmd: `${cd}; bago route status` },
+        { label: 'Route · validate', hint: 'Valida el routing preset', cmd: `${cd}; bago route validate` },
+        { label: 'Config · show', hint: 'Configuración efectiva', cmd: `${cd}; bago config show` },
+      ]));
+
+      // 3) Conocimiento
+      groups.push(actionGroup('Conocimiento', '🧠', [
+        { label: 'Knowledge status', hint: 'Tablas, conteos, última ingesta', cmd: `${cd}; bago knowledge status` },
+        { label: 'Knowledge ingest', hint: 'Re-escanea y re-ingesta', cmd: `${cd}; bago knowledge ingest` },
+        { label: 'Knowledge scan', hint: 'Solo escanea (no ingiere)', cmd: `${cd}; bago knowledge scan` },
+      ]));
+
+      // 4) Entrenamiento (RL)
+      groups.push(actionGroup('Entrenamiento', '🎯', [
+        { label: 'RL · status', hint: 'Modo shadow, política, recompensas', cmd: `${cd}; bago rl status` },
+        { label: 'RL · train BC', hint: 'Behavioral cloning desde transiciones', cmd: `${cd}; bago rl train bc` },
+        { label: 'RL · shadow on', hint: 'Activa modo shadow', cmd: `${cd}; bago rl shadow on` },
+        { label: 'RL · shadow off', hint: 'Desactiva modo shadow', cmd: `${cd}; bago rl shadow off` },
+      ]));
+
+      // 5) Agentes
+      groups.push(actionGroup('Agentes', '🤖', [
+        { label: 'Agent list', hint: 'Lista agentes registrados', cmd: `${cd}; bago agent list` },
+        { label: 'Agent spawn', hint: 'Crea un agente nuevo (id=explorer)', cmd: `${cd}; bago agent spawn explorer` },
+        { label: 'Toolsmith catalog', hint: 'Catálogo de tools disponibles', cmd: `${cd}; bago toolsmith catalog` },
+        { label: 'Toolsmith assign', hint: 'Asigna tool a agente (--task)', cmd: `${cd}; bago toolsmith assign --task explore` },
+      ]));
+
+      // 6) Backup
+      groups.push(actionGroup('Backup', '💾', [
+        { label: 'Backup · create', hint: 'Crea snapshot del estado', cmd: `${cd}; bago backup create` },
+        { label: 'Backup · list', hint: 'Lista backups disponibles', cmd: `${cd}; bago backup list` },
+        { label: 'Inventory', hint: 'Cataloga capacidades de esta instalación', cmd: `${cd}; bago inventory --format md` },
+      ]));
+
+      return groups.join('');
+    }
+
+    function attachCardHandlers() {
+      document.querySelectorAll('.cmd-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const cmd = btn.getAttribute('data-cmd');
+          try {
+            await navigator.clipboard.writeText(cmd);
+            showToast('Comando copiado — pegalo en tu terminal');
+          } catch {
+            showToast('Copiá manualmente: ' + cmd.substring(0, 40) + '...', false);
+          }
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
   </script>
 </body>
 </html>

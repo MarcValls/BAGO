@@ -152,6 +152,23 @@ def cmd_orchestrate(args: argparse.Namespace) -> int:
         argv += ["--help"]
     return mod.main(argv)
 
+
+def cmd_installs(args: argparse.Namespace) -> int:
+    """Escanea el sistema e imprime JSON con todas las instalaciones BAGO.
+
+    Diseñado para la landing page (https://bago-...vercel.app): el usuario
+    corre `bago list-installs` y pega el resultado en la web. Cero telemetría,
+    cero red. El JSON contiene paths absolutos, versiones, presencia de
+    supervisor/probe, y liveness del pid del supervisor.
+    """
+    from bago_core.cli_installs import main as _inst_main
+    argv: list[str] = []
+    if getattr(args, "plain", False):
+        argv.append("--plain")
+    if getattr(args, "active_only", False):
+        argv.append("--active-only")
+    return _inst_main(argv)
+
 def _read_release_label(root: Path) -> str:
     for candidate in (root / "release_version.txt", root / ".bago" / "release_version.txt"):
         if candidate.exists():
@@ -243,6 +260,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_monitor(args)
     elif args.command == "orchestrate":
         return cmd_orchestrate(args)
+    elif args.command == "list-installs":
+        return cmd_installs(args)
     else:
         parser.print_help()
         return 0
