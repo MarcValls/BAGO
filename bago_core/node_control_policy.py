@@ -150,3 +150,52 @@ def find_connector(state: dict[str, Any], installation_id: str, piece_id: str) -
         if connector["installation_id"] == installation_id and connector["piece_id"] == piece_id:
             return connector
     return None
+
+
+# -- FASE 12.6: translator policy gate ----------------------------------------
+#
+# The Policy Engine must refuse to "connect" an installation to a piece when
+# the installation has no translator capable of encoding/decoding the model's
+# dialect. This is the FASE 12.6 contract: a missing translator is a hard
+# policy failure (evidence: missing_translator), not a warning.
+
+MISSING_TRANSLATOR_REASON = "missing_translator"
+
+
+def installation_has_translator(installation: dict[str, Any], piece_id: str) -> bool:
+    """Return True iff `installation['translators']` lists `piece_id` as enabled."""
+    for entry in installation.get("translators", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        if not entry.get("enabled", True):
+            continue
+        if entry.get("piece_id") == piece_id:
+            return True
+    return False
+
+
+def gate_translator(installation: dict[str, Any], piece: dict[str, Any]) -> dict[str, Any]:
+    """Apply the translator gate for a (installation, piece) pair.
+
+    For translator pieces, the installation must have the piece itself bound
+    in its `translators` list. For non-translator pieces (tools, agents,
+    repos, knowledge, models, skills) the gate is trivially satisfied.
+
+    Returns:
+        {
+          "ok":     bool,
+          "reason": str (empty if ok),
+          "mode":   "connected" | "locked"  (locked if missing translator)
+        }
+    """
+    ptype = piece.get("type", "")
+    if ptype != "translator":
+        return {"ok": True, "reason": "", "mode": "connected"}
+    piece_id = piece.get("piece_id", "")
+    if installation_has_translator(installation, piece_id):
+        return {"ok": True, "reason": "", "mode": "connected"}
+    return {
+        "ok": False,
+        "reason": MISSING_TRANSLATOR_REASON,
+        "mode": "locked",
+    }

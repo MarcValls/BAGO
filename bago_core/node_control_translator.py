@@ -107,4 +107,67 @@ def run_translator(args: Any) -> int:
             sys.stderr.write(f"Pieza traductora '{args.piece_id}' no encontrada.\n")
             return 2
         return _map(piece, json_mode)
+
+    if sub_cmd == "call":
+        return _call(args, json_mode)
+
+    if sub_cmd == "audit":
+        return _audit(args, json_mode)
     return 1
+
+
+def _call(args: Any, json_mode: bool) -> int:
+    """FASE 12.8: run encode -> caller (default fake) -> decode and write evidence."""
+    from bago_core.translators.evidence_gate import call_with_evidence  # type: ignore
+    from bago_core.node_control_store import jsonl_append  # type: ignore
+    from bago_core.translators import _ensure_ir_types_path  # type: ignore
+    _ensure_ir_types_path()
+    from ir_types import IRConversation, IRMessage  # type: ignore  # noqa: E402
+
+    ir_in = IRConversation(
+        messages=[
+            IRMessage(id="m1", role="user", parts=[
+                {"type": "text", "text": getattr(args, "prompt", "BAGO smoke test.")},
+            ]),
+        ],
+        model_hint="",
+    )
+    result = call_with_evidence(args.piece_id, ir_in, base_path=getattr(args, "base_path", None))
+    if json_mode:
+        sys.stdout.write(json.dumps(result, ensure_ascii=False) + "\n")
+        return 0 if result.get("ok") else 1
+    if not result.get("ok"):
+        sys.stderr.write(f"translator call failed: {result.get('error')}\n")
+        return 1
+    ev = result["evidence"]
+    sys.stdout.write(
+        f"piece={ev['piece_id']} family={ev['model_family']} model={ev['model_id']}\n"
+        f"  request_hash ={ev['request_hash']}\n"
+        f"  response_hash={ev['response_hash']}\n"
+        f"  tokens_in/out={ev['tokens_in']}/{ev['tokens_out']}\n"
+        f"  latency_ms   ={ev['latency_ms']}\n"
+        f"  evidence_id  ={ev['evidence_id']}\n"
+    )
+    return 0
+
+
+def _audit(args: Any, json_mode: bool) -> int:
+    """Tail the evidence ledger for a piece (FASE 12.8 audit trail)."""
+    from bago_core.translators.evidence_gate import last_evidence  # type: ignore
+    base_path = getattr(args, "base_path", None)
+    limit = int(getattr(args, "limit", 5) or 5)
+    entries = last_evidence(args.piece_id, base_path=base_path, limit=limit)
+    if json_mode:
+        sys.stdout.write(json.dumps({"piece_id": args.piece_id, "entries": entries}, ensure_ascii=False) + "\n")
+        return 0
+    if not entries:
+        sys.stdout.write(f"no evidence yet for {args.piece_id}\n")
+        return 0
+    for ev in entries:
+        sys.stdout.write(
+            f"{ev.get('timestamp','?')}  {ev.get('evidence_id','?')}  "
+            f"req={ev.get('request_hash','?')}  resp={ev.get('response_hash','?')}  "
+            f"tokens_in/out={ev.get('tokens_in',0)}/{ev.get('tokens_out',0)}  "
+            f"latency_ms={ev.get('latency_ms',0)}\n"
+        )
+    return 0

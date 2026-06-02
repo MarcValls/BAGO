@@ -371,3 +371,14 @@ def add_translator_parser(node_sub: argparse._SubParsersAction) -> None:
     t_map = translator_sub.add_parser("map", help="Preview encode de un IR de ejemplo al dialecto de la pieza")
     t_map.add_argument("piece_id", help="ID de la pieza traductora")
     t_map.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    t_call = translator_sub.add_parser("call", help="FASE 12.8: encode -> caller -> decode con evidencia")
+    t_call.add_argument("piece_id", help="ID de la pieza traductora")
+    t_call.add_argument("--prompt", default="BAGO smoke test.",
+                        help="Prompt del usuario a codificar (default: smoke test)")
+    t_call.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    t_audit = translator_sub.add_parser("audit", help="FASE 12.8: historial de evidencia de una pieza")
+    t_audit.add_argument("piece_id", help="ID de la pieza traductora")
+    t_audit.add_argument("--limit", type=int, default=5, help="Numero de entradas (default 5)")
+    t_audit.add_argument("--json", action="store_true", help=argparse.SUPPRESS)

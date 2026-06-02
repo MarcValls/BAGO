@@ -20,6 +20,7 @@ from .bootstrap import (
     get_translator,
     smoke_test_piece,
     smoke_test_all,
+    bootstrap_path,
     _ensure_ir_types_path,
 )
 
@@ -28,5 +29,6 @@ __all__ = [
     "get_translator",
     "smoke_test_piece",
     "smoke_test_all",
+    "bootstrap_path",
     "_ensure_ir_types_path",
 ]

@@ -140,7 +140,25 @@ def fallback_installation(base_path: str | Path) -> dict[str, Any]:
         "state": "active",
         "policy": "observe-and-overlay",
         "source": "fallback",
+        "translators": _default_translators(),
     }
+
+
+def _default_translators() -> list[dict[str, Any]]:
+    """Default translator list bound to an installation.
+
+    FASE 12.5: each installation gets a list of `translator.<family>.<model>`
+    piece_ids that the Policy Engine and the `bago` runtime can use to
+    encode/decode conversations. The list is read from the live PieceStore
+    (loaded translator pieces); if the registry cannot be imported we fall
+    back to a safe default (only the shared/base piece is implicit).
+    """
+    try:
+        from bago_core.translators import list_translators  # type: ignore
+        return [{"piece_id": p["piece_id"], "enabled": True} for p in list_translators()]
+    except Exception:
+        return [{"piece_id": "translator.shared.base", "enabled": True}]
+
 
 def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
     try:
@@ -173,6 +191,7 @@ def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
                 "source": "scan",
                 "has_supervisor": bool(item.get("has_supervisor")),
                 "supervisor_alive": bool(item.get("supervisor_alive")),
+                "translators": _default_translators(),
             }
         )
     if not installs:
@@ -182,6 +201,27 @@ def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
         if not any(item["path"].lower() == root.lower() for item in installs):
             installs.append(fallback_installation(base_path))
     return installs
+
+
+def bind_translators(installation: dict[str, Any], piece_ids: list[str]) -> dict[str, Any]:
+    """Replace the installation's translator list with the given piece_ids.
+
+    FASE 12.5 helper. Returns a new installation dict; does not mutate the
+    caller's reference.
+    """
+    out = dict(installation)
+    out["translators"] = [{"piece_id": pid, "enabled": True} for pid in piece_ids]
+    return out
+
+
+def list_translators_for(installation: dict[str, Any]) -> list[str]:
+    """Read the bound translator piece_ids for an installation."""
+    out: list[str] = []
+    for entry in installation.get("translators", []) or []:
+        pid = entry.get("piece_id") if isinstance(entry, dict) else str(entry)
+        if pid:
+            out.append(pid)
+    return out
 
 def load_default_piece_catalog() -> list[dict[str, Any]]:
     return list(DEFAULT_PIECE_CATALOG)

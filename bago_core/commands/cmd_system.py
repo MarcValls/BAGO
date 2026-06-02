@@ -293,6 +293,20 @@ def cmd_validate(args: argparse.Namespace) -> int:
     except Exception as exc:
         _check("at_least_one_provider_healthy", False, f"error al cargar session_manager: {exc}")
 
+    # -- 10. Translator layer: encode->decode roundtrip por cada pieza ----------
+    try:
+        from bago_core.translators import smoke_test_all
+        translator_results = smoke_test_all()
+        ok_count = sum(1 for r in translator_results if r.get("ok"))
+        translator_ok = ok_count == len(translator_results)
+        _check(
+            "translators_roundtrip",
+            translator_ok,
+            f"{ok_count}/{len(translator_results)} piezas roundtrip OK" if translator_results else "no hay piezas traductoras",
+        )
+    except Exception as exc:
+        _check("translators_roundtrip", False, f"error al cargar translator layer: {exc}")
+
     # -- Resultado final --------------------------------------------------------
     print("\n" + "-" * 40)
     if fails == 0:
