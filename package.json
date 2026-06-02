@@ -1,0 +1,51 @@
+{
+  "name": "bago-installation-manager",
+  "version": "4.1.5-r2",
+  "private": true,
+  "description": "Electron packaged installation manager for BAGO.",
+  "main": "electron/main.cjs",
+  "author": "BAGO",
+  "license": "UNLICENSED",
+  "scripts": {
+    "manager:dev": "electron .",
+    "manager:pack": "electron-builder --dir",
+    "manager:dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.bago.installation-manager",
+    "productName": "BAGO Installation Manager",
+    "artifactName": "BAGO-Installation-Manager-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "manager.html",
+      "bago.ico"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "bago.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BAGO Installation Manager"
+    }
+  },
+  "devDependencies": {
+    "electron": "42.3.0",
+    "electron-builder": "26.8.1"
+  }
+}
