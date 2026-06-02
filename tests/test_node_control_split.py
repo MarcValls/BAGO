@@ -60,6 +60,56 @@ def test_facade_is_thin() -> None:
     assert connect.export_bundle.__module__ == "bago_core.node_control_connect"
 
 
+def test_ssot_mode_tables_in_policy() -> None:
+    """R5: ``_MODE_SYNC`` y ``_MODE_VISIBILITY`` son SSoT de policy, no de connect.
+
+    El connect side consume ``policy_dict_for_mode`` para construir la
+    policy del connector; las tablas literales viven en
+    ``node_control_policy`` y NO se duplican en ``node_control_connect``.
+    """
+    import bago_core.node_control_policy as policy
+    import bago_core.node_control_connect as connect
+
+    # Las tablas SSoT viven en policy (son _MODE_SYNC / _MODE_VISIBILITY).
+    assert hasattr(policy, "_MODE_SYNC")
+    assert hasattr(policy, "_MODE_VISIBILITY")
+    assert policy.policy_dict_for_mode("connected") == {
+        "can_execute": True,
+        "can_modify": False,
+        "sync_mode": "pull",
+        "visibility": "visible",
+    }
+    assert policy.policy_dict_for_mode("writable overlay") == {
+        "can_execute": True,
+        "can_modify": True,
+        "sync_mode": "overlay",
+        "visibility": "overlay",
+    }
+    assert policy.policy_dict_for_mode("locked") == {
+        "can_execute": False,
+        "can_modify": False,
+        "sync_mode": "deny",
+        "visibility": "hidden",
+    }
+    # En connect, los literales NO deben existir: solo se importa
+    # ``policy_dict_for_mode`` y se reusa. La regla R5 mira el codigo
+    # ejecutable, no la docstring; comprobamos que NO se asignan los
+    # literales (en ningun sitio del archivo, incluyendo comentarios).
+    import ast
+    tree = ast.parse(Path(connect.__file__).read_text(encoding="utf-8"))
+    literal_ids: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    literal_ids.add(target.id)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            literal_ids.add(node.name)
+    assert "_MODE_SYNC" not in literal_ids
+    assert "_MODE_VISIBILITY" not in literal_ids
+    assert "_policy_dict_for_mode" not in literal_ids
+
+
 # ---------------------------------------------------------------------------
 # R1/R2: state solo importa de store/policy/ssot; connect solo de state/policy/store.
 # ---------------------------------------------------------------------------

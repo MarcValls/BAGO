@@ -126,6 +126,44 @@ def normalize_mode(mode: str | None) -> str:
         return "connected"
     return CLI_MODES.get(mode.lower(), mode.lower())
 
+# R5 SSoT: tables for the per-mode policy flags. ``policy_for`` inlines
+# these for the read-side (``mode -> {can_execute, can_modify, ...}``);
+# the connect side consumes them via :func:`policy_dict_for_mode` to
+# avoid duplicating the dict literals.
+_MODE_SYNC: dict[str, str] = {
+    "connected": "pull",
+    "shadow": "observe",
+    "locked": "deny",
+    "detached": "none",
+    "read-only": "pull",
+    "writable overlay": "overlay",
+}
+_MODE_VISIBILITY: dict[str, str] = {
+    "connected": "visible",
+    "shadow": "shadow",
+    "locked": "hidden",
+    "detached": "detached",
+    "read-only": "readonly",
+    "writable overlay": "overlay",
+}
+
+
+def policy_dict_for_mode(mode: str) -> dict[str, bool | str]:
+    """Build the per-mode policy dict consumed by the connector state.
+
+    This is the write-side counterpart of :func:`policy_for`: it turns
+    a target mode (possibly user-supplied) into the same shape that
+    ``policy_for`` produces, so the connect path stays consistent with
+    the read path. R5 SSoT: both call sites read from ``_MODE_SYNC`` /
+    ``_MODE_VISIBILITY``; the literals are not duplicated.
+    """
+    return {
+        "can_execute": mode in {"connected", "writable overlay"},
+        "can_modify": mode == "writable overlay",
+        "sync_mode": _MODE_SYNC[mode],
+        "visibility": _MODE_VISIBILITY[mode],
+    }
+
 def is_valid_mode(mode: str) -> bool:
     return mode in ALLOWED_MODES
 

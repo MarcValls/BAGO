@@ -5,6 +5,10 @@ Owns: ``connect``, ``disconnect``, ``set_mode``, ``export_bundle``. These are
 the only operations that mutate the registry's connector / compatibility
 data and write evidence rows; everything else is read-only and lives in
 :mod:`bago_core.node_control_state`.
+
+The per-mode policy tables (``_MODE_SYNC`` / ``_MODE_VISIBILITY``) live in
+:mod:`bago_core.node_control_policy` as the R5 SSoT; this module imports
+:func:`policy_dict_for_mode` from there.
 """
 from __future__ import annotations
 
@@ -25,6 +29,7 @@ from bago_core.node_control_policy import (
     find_installation,
     find_piece,
     normalize_mode,
+    policy_dict_for_mode,
     policy_for,
 )
 from bago_core.node_control_store import (
@@ -32,33 +37,6 @@ from bago_core.node_control_store import (
     now,
     record_evidence,
 )
-
-
-_MODE_SYNC = {
-    "connected": "pull",
-    "shadow": "observe",
-    "locked": "deny",
-    "detached": "none",
-    "read-only": "pull",
-    "writable overlay": "overlay",
-}
-_MODE_VISIBILITY = {
-    "connected": "visible",
-    "shadow": "shadow",
-    "locked": "hidden",
-    "detached": "detached",
-    "read-only": "readonly",
-    "writable overlay": "overlay",
-}
-
-
-def _policy_dict_for_mode(mode: str) -> dict[str, bool | str]:
-    return {
-        "can_execute": mode in {"connected", "writable overlay"},
-        "can_modify": mode == "writable overlay",
-        "sync_mode": _MODE_SYNC[mode],
-        "visibility": _MODE_VISIBILITY[mode],
-    }
 
 
 def connect(
@@ -86,7 +64,7 @@ def connect(
         "created_at": now(),
     }
     connector["mode"] = normalized_mode
-    connector["policy"] = _policy_dict_for_mode(normalized_mode)
+    connector["policy"] = policy_dict_for_mode(normalized_mode)
     connector["reason"] = resolved["reason"]
     connector["updated_at"] = now()
     if existing is None:
