@@ -9,7 +9,7 @@
 ## 1. Instalación y Primer Arranque
 
 ### Requisitos
-- Python 3.10+
+- Python 3.11+
 - Ollama (opcional, para provider local)
 - API keys (opcionales, para providers cloud)
 
@@ -34,7 +34,7 @@ $ ./bago.sh chat
  |  _ \ / _ \ \___ \| | | |
  | |_) / ___ \ ___) | |_| |
  |____/_/   \_\____/ \___/ 
-           v4.0 — Session-First AI Chat
+           v4.1.5 — Session-First AI Chat
 
 Bienvenido a BAGO 4.1.5. Escribe /help para ver comandos.
 El contexto de sesión sobrevive al cambio de provider.
@@ -47,9 +47,9 @@ bago ❯
 
 > **Nota:** Si el modelo por defecto no está disponible en Ollama local, BAGO 4.1.5 **auto-ajusta** al primer modelo disponible automáticamente y te avisa.
 
-### Runtime híbrido `cpp-local` (fase 1)
+### Runtime híbrido `cpp-local` (experimental/post-MVP)
 
-BAGO puede exponer un runtime local C++ como provider `cpp-local`, manteniendo en Python la sesión, memoria, REPL, contratos y tools.
+BAGO puede exponer un runtime local C++ como provider `cpp-local`, manteniendo en Python la sesión, memoria, REPL, contratos y tools. Esta ruta no forma parte del MVP estable ni bloquea releases.
 
 Configuración mínima:
 
@@ -527,9 +527,9 @@ Los archivos de sesión se almacenan en:
 
 ---
 
-## 8. Aprendizaje por Refuerzo (RL)
+## 8. Aprendizaje por Refuerzo (RL experimental)
 
-BAGO 4.1.5 incluye un motor de RL ligero que aprende de cada interacción:
+BAGO 4.1.5 incluye un motor de RL ligero que aprende de cada interacción. En el producto estable se mantiene como `shadow/off` por defecto y no tiene autoridad de ejecución:
 
 - **Recompensa implícita**: se calcula automáticamente por rapidez, longitud de respuesta y ausencia de errores.
 - **Recompensa explícita**: el usuario puede valorar cualquier respuesta con `/feedback <rating>`.
@@ -575,9 +575,9 @@ Los datos RL se persisten en:
 
 ---
 
-## 9. Plan y Autopilot
+## 9. Plan y Autopilot (experimental/post-MVP)
 
-BAGO 4.1.5 puede generar planes de tareas y ejecutarlos autónomamente.
+BAGO 4.1.5 puede generar planes de tareas y preparar ejecución asistida. Esta superficie es experimental y no forma parte del MVP estable hasta que tenga pruebas por escenario, permisos explícitos y evidencia.
 
 ### `/plan` — Generar plan paso a paso
 
@@ -625,6 +625,8 @@ En modo **autopilot**, BAGO:
 ## 10. Allow All — Control de Ejecución de Herramientas
 
 BAGO 4.1.5 puede ejecutar herramientas automáticamente o pedirte confirmación antes de hacerlo, al estilo **Copilot Allow All**.
+
+Regla estable: la sugerencia y la ejecución están separadas. `auto_allow_tools` debe permanecer en `false` por defecto y cualquier ejecución crítica debe pasar por aprobación explícita.
 
 ### Comportamiento por defecto
 
@@ -691,9 +693,11 @@ La selección queda registrada en `.bago/state/llm_start.json` y se usa para esa
 
 ---
 
-## 12. Base de Conocimiento (Knowledge Base)
+## 12. Base de Conocimiento (partial/post-MVP)
 
 BAGO 4.1.5 incluye una **base de conocimiento persistente** que sobrevive a las sesiones. Almacena recuerdos, hechos y notas importantes extraídos de las conversaciones.
+
+Estado actual: superficie parcial. La sesión persistente entra en el MVP; memoria avanzada, embeddings e inyección automática de recuerdos quedan fuera del MVP hasta tener prueba end-to-end.
 
 ### Almacenamiento
 
@@ -783,8 +787,8 @@ En el futuro, la Knowledge Base se puede conectar al `send()` para inyectar recu
 
 1. **Sesión = Fuente de verdad** — El contexto sobrevive al cambio de provider.
 2. **Modelo = Motor temporal** — El provider es intercambiable; la sesión persiste.
-3. **No Gates** — El modelo actúa con sus capacidades nativas. El sistema no impone restricciones artificiales.
-4. **Auto-ajuste** — Si un modelo no está disponible, se elige automáticamente el primero de la lista.
+3. **Seguro por defecto** — Herramientas, API externa, RL y automatización requieren permisos o flags explícitos.
+4. **Auto-ajuste controlado** — Si un modelo no está disponible, se elige automáticamente el primero disponible y se informa al usuario.
 
 ---
 

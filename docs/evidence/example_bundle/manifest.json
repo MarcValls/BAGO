@@ -1,26 +1,28 @@
 {
   "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
-  "contract_version": "4.0.0",
+  "contract_version": "4.1.5",
   "related_to": [
     "docs\\contracts\\bago_v4_runtime_contract.json",
     "docs\\contracts\\bago_v4_repl_contract.md",
     "docs\\contracts\\bago_v4_evidence_contract.md",
-    "docs\\contracts\\bago_v4_knowledge_contract.md"
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
   ],
   "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta útil y de forma indirecta preservando conocimiento, planificación y estado reproducible.",
   "details": {
     "mode": "simulated",
     "provider": "mock-contract",
     "model": "contract-assistant-v1",
-    "session_id": "a351e0f7-95b",
+    "session_id": "96137912-1b2",
     "state_root": ".bago\\state"
   },
   "status": "pass",
-  "recorded_at": "2026-05-29T21:17:26.248142+00:00",
+  "recorded_at": "2026-06-02T00:25:26.647101+00:00",
   "validation_commands": [
     "python test_e2e.py",
     "python bago_core\\cli.py evidence --test",
-    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Bago_v4\\docs\\evidence\\example_bundle\" --overwrite"
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Users\\AMTEC_Terminal_1º\\source\\repos\\MarcValls\\BAGO\\docs\\evidence\\example_bundle\" --overwrite"
   ],
   "checks": [
     {
@@ -69,27 +71,27 @@
     },
     {
       "path": "checksums.sha256",
-      "sha256": "d5e6872de3cf168af97075df815d442af0bc58098d58576c76a29c0237fe8181",
+      "sha256": "7504c3390c630f36fdc0ca72088be0c31238b69bec5fb5e24e3bb2e5e55fbd2a",
       "size_bytes": 1032
     },
     {
       "path": "commands\\results.json",
-      "sha256": "d7e1c1c6d6c6ed41bb8a426d435f7eee0fdbafe4b9ce558998bae81aea35c2a7",
+      "sha256": "89933ab94ea9456aeba61bdf74875f1e523a82349e6ebe879be8c9b3564495b7",
       "size_bytes": 1251
     },
     {
       "path": "knowledge\\recent_memories.json",
-      "sha256": "4a0dc053661b0bb01f1183175c9bc3e90cd282a9a3562df41b2d60a9cf8407ea",
+      "sha256": "de1356be11b2f5df96e833eb5ce212e1f7135e7b68725049cfac122d94cf44cb",
       "size_bytes": 262
     },
     {
       "path": "manifest.json",
-      "sha256": "8df72da669aed217d9315d0f9b57c09d5ee27c1cb02f4a7b34401e6ba84014eb",
-      "size_bytes": 2195
+      "sha256": "21cfff96f1408ecfe95f69ce2ce73b0af0068a00d6c21800c38960837e9d9216",
+      "size_bytes": 2358
     },
     {
       "path": "objective.json",
-      "sha256": "ce9d9d474f01de1a2fc62585d3efcba4448c0835efcc77a7822be2b3fb317f20",
+      "sha256": "5decf354f5ef02a52d4936cc2f51e7b370ca42e81f5a9838e99821dd65bdd413",
       "size_bytes": 382
     },
     {
@@ -99,27 +101,27 @@
     },
     {
       "path": "report.md",
-      "sha256": "9276f264a1c72a4d2e1c3f74cc26a3c042ada6930e28a8cdb7ca5315efc68665",
-      "size_bytes": 2663
+      "sha256": "974d50e1a88ef955086c069d073536aef742c30928e4def032206c740dead2e6",
+      "size_bytes": 2708
     },
     {
       "path": "session\\context.jsonl",
-      "sha256": "3a85bb51081269bd4299a1ffdd241df25f7d664caa401358a6e90660405fa110",
+      "sha256": "b993211d580ba0d2ec13b64e6fb537147af361e9b8165ca0d6e09993668e02fe",
       "size_bytes": 1650
     },
     {
       "path": "session\\meta.json",
-      "sha256": "ecd442f89fbaa6e3acf664064071f8fefa9174177435a880fd6a8009a2c2fb4d",
-      "size_bytes": 151
+      "sha256": "3d6747d4c5e5ce7c43b81a8817f79e1d629b0658a976843d2f8e69617685b636",
+      "size_bytes": 212
     },
     {
       "path": "session\\session.json",
-      "sha256": "194b4891d5984adce897b3269b730d997ec7a70c81dc2a09d291b67abc813c3c",
+      "sha256": "972d674a44f91d1cb2bd0c6faac44bc946b6c8a200e1864912b235066870b2b6",
       "size_bytes": 259
     },
     {
       "path": "session\\timeline.jsonl",
-      "sha256": "75ed1d7aac63bee06e10565c19351547dea3a3a8894c5ad99271db5a923bee6c",
+      "sha256": "a660dcf29e402732d2b8e85722b77522033d1a8adb7e6ffa50f7e08ab895ee9c",
       "size_bytes": 298
     },
     {

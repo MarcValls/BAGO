@@ -1,12 +1,20 @@
-# BAGO v4 Distribution Roadmap
+# BAGO v4.1.5 Distribution Roadmap
 
-This is the execution plan for turning `C:\Bago_v4` into a clean BAGO v4 distribution.
+This is the execution plan for keeping BAGO v4.1.5 small, verifiable, and releaseable.
 
 ## Decision
 
 BAGO v4 ships as Python + React + contracts + evidence.
 
 C++ is out of the main release path. Existing C++ files may stay as experimental references, but they do not block the release and must not be documented as required runtime.
+
+Canonical operating docs:
+
+- `docs/MVP.md` freezes the stable MVP.
+- `docs/MODULES.md` marks working, partial, experimental, planned, and deprecated surfaces.
+- `docs/CLAIMS.md` maps public claims to proof.
+- `docs/SUPPORT_MATRIX.md` declares operating-system support.
+- `RELEASE_CHECKLIST.md` is the release gate.
 
 ## Non-Negotiable Boundaries
 
@@ -15,6 +23,7 @@ C++ is out of the main release path. Existing C++ files may stay as experimental
 - Mutable user state: `C:\ProgramData\BAGO\user`
 - Do not package live state, logs, credentials, caches, `node_modules`, or temporary build output.
 - Do not claim a capability unless a command or evidence bundle proves it.
+- Python minimum: 3.11+.
 
 ## Phase 0 - Scope Freeze
 

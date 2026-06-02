@@ -32,9 +32,9 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "chat"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
 
 _CREATED_VERSION = "4.0.0"
 
