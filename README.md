@@ -1,6 +1,6 @@
-# BAGO v4.1.5
+# BAGO v4.2.0
 
-[![Version](https://img.shields.io/badge/version-4.1.5-blue)]()
+[![Version](https://img.shields.io/badge/version-4.2.0-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -62,6 +62,15 @@ Remote installer for the latest published release:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
+```
+
+Installation manager:
+
+```powershell
+bago profiles
+bago install --profile des
+bago install --profile ign
+bago install --profile stable
 ```
 
 ## Minimum Use

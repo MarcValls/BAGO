@@ -1,4 +1,4 @@
-# BAGO 4.1.5 — Manual de Usuario
+# BAGO 4.2.0 — Manual de Usuario
 
 > **Session-First AI Chat**  
 > El contexto de sesión sobrevive al cambio de provider.  
@@ -34,9 +34,9 @@ $ ./bago.sh chat
  |  _ \ / _ \ \___ \| | | |
  | |_) / ___ \ ___) | |_| |
  |____/_/   \_\____/ \___/ 
-           v4.1.5 — Session-First AI Chat
+           v4.2.0 — Session-First AI Chat
 
-Bienvenido a BAGO 4.1.5. Escribe /help para ver comandos.
+Bienvenido a BAGO 4.2.0. Escribe /help para ver comandos.
 El contexto de sesión sobrevive al cambio de provider.
 
 ────────────────────────────────────────────────────────────
@@ -45,7 +45,31 @@ El contexto de sesión sobrevive al cambio de provider.
 bago ❯
 ```
 
-> **Nota:** Si el modelo por defecto no está disponible en Ollama local, BAGO 4.1.5 **auto-ajusta** al primer modelo disponible automáticamente y te avisa.
+> **Nota:** Si el modelo por defecto no está disponible en Ollama local, BAGO 4.2.0 **auto-ajusta** al primer modelo disponible automáticamente y te avisa.
+
+### Nuevo gestor de instalaciones
+
+BAGO 4.2.0 separa claramente los perfiles de instalación:
+
+- `bago` -> copia estable activa
+- `bago des` -> entorno de desarrollo completo del framework
+- `bago ign` -> entorno de integración/lanzamiento
+
+Flujo recomendado:
+
+```bash
+bago profiles
+bago install --profile des
+bago install --profile ign
+bago install --profile stable
+bago promote --from des --to ign
+bago promote --from ign --to stable
+```
+
+Capturas del gestor:
+
+- CLI: `docs/evidence/manual/captures/bago-profiles-cli.png`
+- UI: `docs/evidence/manual/captures/bago-ui-index.png`
 
 ### Runtime híbrido `cpp-local` (experimental/post-MVP)
 
@@ -95,7 +119,7 @@ En el chat:
 
 ### Selección interactiva al inicio
 
-Si el modelo por defecto no está disponible, o siempre que arranques el REPL, BAGO 4.1.5 te ofrece elegir provider y modelo de forma interactiva:
+Si el modelo por defecto no está disponible, o siempre que arranques el REPL, BAGO 4.2.0 te ofrece elegir provider y modelo de forma interactiva:
 
 ```
 Provider actual: ollama-local/llama3.2:3b
@@ -117,7 +141,7 @@ Elige: 2
 
 ### Motor de Intenciones (Auto-Training)
 
-BAGO 4.1.5 incluye un **motor de intenciones** que aprende automáticamente de tu estilo de conversación para decidir cuándo usar herramientas y cuándo no.
+BAGO 4.2.0 incluye un **motor de intenciones** que aprende automáticamente de tu estilo de conversación para decidir cuándo usar herramientas y cuándo no.
 
 Intenciones detectadas:
 - **chat** — saludos, conversación casual. BAGO **no ofrece herramientas** al modelo.

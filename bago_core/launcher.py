@@ -211,6 +211,23 @@ def cmd_install_role(args: argparse.Namespace) -> int:
         argv.append("--json")
     return _roles_main(argv)
 
+
+def cmd_profiles(args: argparse.Namespace) -> int:
+    """Muestra el mapa estable de active/des/ign y el flujo recomendado."""
+    print("BAGO profiles")
+    print("----------------------------------------")
+    print("stable : C:\\Program Files\\BAGO")
+    print("des    : C:\\Users\\AMTEC_Terminal_1º\\.bago\\dev")
+    print("ign    : C:\\Users\\AMTEC_Terminal_1º\\.bago\\launch")
+    print("")
+    print("Flujo:")
+    print("  bago install --profile des")
+    print("  bago install --profile ign")
+    print("  bago install --profile stable")
+    print("  bago promote --from des --to ign")
+    print("  bago promote --from ign --to stable")
+    return 0
+
 def cmd_node(args: argparse.Namespace) -> int:
     """Passthrough al CLI de node_control (registry, policy, evidence, modos).
 
@@ -266,6 +283,19 @@ RELEASE_LABEL = _read_release_label(BAGO_ROOT)
 
 def main(argv: list[str] | None = None) -> int:
     import sys
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in {"des", "ign"}:
+        profile = argv[0]
+        profile_root = Path.home() / ".bago" / ("dev" if profile == "des" else "launch")
+        cli_path = profile_root / "bago_core" / "cli.py"
+        runner = cli_path if cli_path.exists() else profile_root / "bago_core" / "launcher.py"
+        if not runner.exists():
+            print(f"[ERROR] Perfil '{profile}' no disponible en {profile_root}")
+            return 1
+        import subprocess
+        completed = subprocess.run([sys.executable, str(runner), *argv[1:]], cwd=str(profile_root))
+        return completed.returncode
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
     from config_manager import ConfigManager
 
@@ -302,6 +332,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "validate":    "cmd_validate",
     "install":     "cmd_install",
     "uninstall":   "cmd_uninstall",
+    "profiles":    "cmd_profiles",
     "claim":       "cmd_claim",
     "config":      "cmd_config",
     "llm":         "cmd_llm",

@@ -117,7 +117,7 @@ if ($args.Count -gt 0) {
         $mode = 'work'; $rest = Get-ArgsTail $args 1
     } elseif ($first -eq 'help' -or $first -eq '--help' -or $first -eq '-h') {
         @"
-BAGO launcher (4.1.5)
+BAGO launcher (4.2.0)
   bago              Copia activa seleccionada [default]
   bago work         Igual que bago sin sub-comando
   bago des          Copia de desarrollo seleccionada
@@ -147,4 +147,3 @@ if (-not (Test-Path $target.cli)) {
 }
 & python $target.cli @($rest)
 exit $LASTEXITCODE
-
