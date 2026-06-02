@@ -337,13 +337,13 @@ def build_parser(
     toolsmith_listen = toolsmith_sub.add_parser("listen", help="Escucha eventos del bus neural")
     toolsmith_listen.add_argument("--limit", type=int, default=1)
 
-    issues_parser = sub.add_parser("issues", help="Gestiona issues del repositorio")
+    issues_parser = sub.add_parser("issues-gh", help="Gestiona issues del repositorio")
     issues_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
     issues_parser.add_argument("--dry-run", action="store_true", help="No aplica cambios en GitHub")
     issues_sub = issues_parser.add_subparsers(dest="issues_cmd")
-    issues_take = issues_sub.add_parser("take", help="Toma la siguiente issue abierta")
-    issues_take.add_argument("repo", nargs="?", default="", help="Repositorio owner/name")
-    issues_take.add_argument("--agent", default="", help="Agente/usuario a asignar")
+    issues_take_gh = issues_sub.add_parser("take", help="Toma la siguiente issue abierta")
+    issues_take_gh.add_argument("repo", nargs="?", default="", help="Repositorio owner/name")
+    issues_take_gh.add_argument("--agent", default="", help="Agente/usuario a asignar")
 
     agent_parser = sub.add_parser("agent", help="Gestiona spiral agents")
     agent_parser.add_argument("--root", default="")
@@ -410,5 +410,11 @@ def build_parser(
     installs_parser = sub.add_parser("list-installs", help="Escanea el sistema e imprime JSON con todas las instalaciones BAGO (para el gestor de la landing)")
     installs_parser.add_argument("--plain",        action="store_true", help="JSON compacto en una línea (fácil de pegar en la web)")
     installs_parser.add_argument("--active-only",  action="store_true", help="Solo listar instalaciones que existen")
+
+    # ── node (control centralizado de instalaciones/piezas/conectores) ─────
+    node_parser = sub.add_parser("node", help="Control centralizado: registry, policy, evidence, modos")
+    node_sub = node_parser.add_subparsers(dest="node_cmd", help="Subcomandos node")
+    for nc in ("status", "validate", "pieces", "connectors", "matrix", "export", "tui"):
+        node_sub.add_parser(nc, help=f"bago node {nc}")
 
     return parser

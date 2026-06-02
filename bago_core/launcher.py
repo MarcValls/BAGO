@@ -197,6 +197,25 @@ def cmd_installs(args: argparse.Namespace) -> int:
         argv.append("--active-only")
     return _inst_main(argv)
 
+
+def cmd_node(args: argparse.Namespace) -> int:
+    """Passthrough al CLI de node_control (registry, policy, evidence, modos).
+
+    Importa dinámicamente bago_core.node_control y delega. Acepta --json
+    antes del subcomando. Misma superficie que `python -m bago_core.node_control`.
+    """
+    from bago_core import node_control as _nc
+    argv: list[str] = []
+    if getattr(args, "json", False):
+        argv.append("--json")
+    base = getattr(args, "base_path", None)
+    if base:
+        argv += ["--base-path", str(base)]
+    sub = getattr(args, "node_cmd", None)
+    if sub:
+        argv.append(sub)
+    return _nc.main(argv)
+
 def _read_release_label(root: Path) -> str:
     for candidate in (root / "release_version.txt", root / ".bago" / "release_version.txt"):
         if candidate.exists():
@@ -294,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_issues(args)
     elif args.command == "list-installs":
         return cmd_installs(args)
+    elif args.command == "node":
+        return cmd_node(args)
     else:
         parser.print_help()
         return 0
