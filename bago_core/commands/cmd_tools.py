@@ -97,6 +97,27 @@ def cmd_toolsmith(args: argparse.Namespace) -> int:
         argv += ["--help"]
     return mod.main(argv)
 
+def cmd_issues(args: argparse.Namespace) -> int:
+    mod = _load_tool_module("issues_take", "issues_take.py")
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    if getattr(args, "dry_run", False):
+        argv.append("--dry-run")
+    subcmd = getattr(args, "issues_cmd", None)
+    if subcmd == "take":
+        argv.append("take")
+        agent = getattr(args, "agent", "") or ""
+        if agent:
+            argv += ["--agent", agent]
+        repo = getattr(args, "repo", "") or ""
+        if repo:
+            argv.append(repo)
+    else:
+        argv += ["--help"]
+    return mod.main(argv)
+
 def cmd_agent(args: argparse.Namespace) -> int:
     mod = _load_tool_module("spiral_agent", "spiral_agent.py")
     argv: list[str] = []
