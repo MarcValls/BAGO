@@ -194,6 +194,20 @@ def build_parser(
     orc_show  = orc_sub.add_parser("show",  help="Muestra detalle de un brief")
     orc_show.add_argument("brief_id")
 
+    # ── issues (alias operativo para orchestrate) ────────────────────────────
+    issues_parser = sub.add_parser("issues", help="Flujo rápido de issues (list/take/close)")
+    issues_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
+    issues_parser.add_argument("--json", dest="as_json", action="store_true", help="Output JSON")
+    issues_sub = issues_parser.add_subparsers(dest="issues_cmd")
+    issues_list = issues_sub.add_parser("list", help="Lista issues")
+    issues_list.add_argument("--status", default="", help="Filtrar por estado")
+    issues_take = issues_sub.add_parser("take", help="Toma una issue (asignar agente)")
+    issues_take.add_argument("brief_id")
+    issues_take.add_argument("--agent", default="codex", help="Agente especialista")
+    issues_close = issues_sub.add_parser("close", help="Cierra una issue")
+    issues_close.add_argument("brief_id")
+    issues_close.add_argument("--force", action="store_true", help="Cierra sin revisión previa")
+
     # ── scan ──────────────────────────────────────────────────────────────────
     scan_parser = sub.add_parser(
         "scan",

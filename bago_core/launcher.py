@@ -153,6 +153,33 @@ def cmd_orchestrate(args: argparse.Namespace) -> int:
     return mod.main(argv)
 
 
+def cmd_issues(args: argparse.Namespace) -> int:
+    """Alias operativo para flujo list/take/close sobre orchestrator_v4."""
+    mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
+    subcmd = getattr(args, "issues_cmd", None)
+    argv: list[str] = []
+    root = getattr(args, "root", "") or ""
+    if root:
+        argv += ["--root", root]
+    if getattr(args, "as_json", False):
+        argv.append("--json")
+    if subcmd == "take":
+        agent = (getattr(args, "agent", "codex") or "codex").strip()
+        if agent.lower() == "codex":
+            agent = "auto"
+        argv += ["assign", getattr(args, "brief_id", ""), "--agent", agent]
+    elif subcmd == "close":
+        argv += ["close", getattr(args, "brief_id", "")]
+        if getattr(args, "force", False):
+            argv.append("--force")
+    elif subcmd == "list" or subcmd is None:
+        argv.append("list")
+        status_filter = getattr(args, "status", "")
+        if status_filter:
+            argv += ["--status", status_filter]
+    else:
+        argv += ["--help"]
+    return mod.main(argv)
 def cmd_installs(args: argparse.Namespace) -> int:
     """Escanea el sistema e imprime JSON con todas las instalaciones BAGO.
 
@@ -260,6 +287,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_monitor(args)
     elif args.command == "orchestrate":
         return cmd_orchestrate(args)
+    elif args.command == "issues":
+        return cmd_issues(args)
     elif args.command == "list-installs":
         return cmd_installs(args)
     else:
@@ -295,6 +324,12 @@ if __name__ == "__main__":
             tmp_install.mkdir()
             (tmp_install / "keep.txt").write_text("x", encoding="utf-8")
             assert main(["--base-path", td, "uninstall", "--install-dir", str(tmp_install), "--dry-run"]) == 0
+            assert main(["--base-path", td, "issues", "--root", td, "list"]) == 0
+            orc_mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
+            orc_mod.configure_paths(str(Path(td)))
+            issue_brief = orc_mod.create_brief(task="CLI issues command smoke test")
+            assert main(["--base-path", td, "issues", "--root", td, "take", issue_brief.id, "--agent", "codex"]) == 0
+            assert main(["--base-path", td, "issues", "--root", td, "close", issue_brief.id, "--force"]) == 0
         print("launcher.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())
