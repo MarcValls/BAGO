@@ -395,13 +395,16 @@ def check_r10_test_coverage() -> list[dict]:
         })
         return findings
     existing_tests = {p.stem for p in tests_dir.glob("test_*.py")}
+    existing_tests_split = {p.stem for p in tests_dir.glob("test_*_split.py")}
     for path in find_python_files():
         if not path.name.startswith("node_control_"):
             continue
         if path.name == "node_control.py":
             continue
         expected = f"test_{path.stem}"
-        if expected not in existing_tests:
+        # Accept either test_<name>.py or test_<name>_split.py (canonical
+        # name for FASE 6+ module-split tests).
+        if expected not in existing_tests and expected not in existing_tests_split:
             findings.append({
                 "rule": "R10",
                 "severity": "INFO",
