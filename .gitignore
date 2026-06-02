@@ -1,6 +1,9 @@
 # ── Estado vivo de BAGO (no distribuir) ────────────────────────────────────────
 .bago/state/
 .bago/logs/
+.bago/launch/
+.bago/tools/.bago/
+.bago/monitor.html
 .bago/credentials.json
 .bago/config.json
 .bago/session-credentials.json
@@ -46,6 +49,9 @@ env/
 # ── Temporales ──────────────────────────────────────────────────────────────────
 *.tmp
 *.bak
+*.py.new
+bago_core/parsers_legacy_*.py
+tools/_diff_*.py
 dist/
 build/
 release/

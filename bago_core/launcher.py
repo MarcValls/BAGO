@@ -193,6 +193,24 @@ def cmd_installs(args: argparse.Namespace) -> int:
         argv.append("--active-only")
     return _inst_main(argv)
 
+def cmd_install_role(args: argparse.Namespace) -> int:
+    """Gestiona que copia BAGO se usa como active/dev/launch."""
+    from bago_core.install_roles import main as _roles_main
+    argv: list[str] = []
+    subcmd = getattr(args, "install_role_cmd", None) or "show"
+    argv.append(subcmd)
+    if subcmd == "set":
+        argv += ["--role", getattr(args, "role", ""), "--path", getattr(args, "path", "")]
+        if getattr(args, "no_strict", False):
+            argv.append("--no-strict")
+    elif subcmd == "clear":
+        role = getattr(args, "role", "") or ""
+        if role:
+            argv += ["--role", role]
+    if getattr(args, "json", False):
+        argv.append("--json")
+    return _roles_main(argv)
+
 def cmd_node(args: argparse.Namespace) -> int:
     """Passthrough al CLI de node_control (registry, policy, evidence, modos).
 
@@ -266,70 +284,70 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = build_parser(_BAGO_VERSION, base, default_provider, default_model)
     args = parser.parse_args(argv)
+    return _dispatch(args, parser)
 
-    if args.command in ("chat", "launch", "start") or args.command is None:
-        return cmd_chat(args)
-    elif args.command == "validate":
-        return cmd_validate(args)
-    elif args.command == "install":
-        return cmd_install(args)
-    elif args.command == "uninstall":
-        return cmd_uninstall(args)
-    elif args.command == "claim":
-        return cmd_claim(args)
-    elif args.command == "config":
-        return cmd_config(args)
-    elif args.command == "llm":
-        return cmd_llm(args)
-    elif args.command == "engine":
-        return cmd_engine(args)
-    elif args.command == "appdata":
-        return cmd_appdata(args)
-    elif args.command == "cmd-rl":
-        return cmd_cmd_rl(args)
-    elif args.command == "rl":
-        return cmd_rl(args)
-    elif args.command == "serve":
-        return cmd_serve(args)
-    elif args.command == "evidence":
-        return cmd_evidence(args)
-    elif args.command == "cpp-runtime":
-        return cmd_cpp_runtime(args)
-    elif args.command == "scan":
-        return cmd_scan(args)
-    elif args.command == "guard":
-        return cmd_guard(args)
-    elif args.command == "canary":
-        return cmd_canary(args)
-    elif args.command == "backup":
-        return cmd_backup(args)
-    elif args.command == "project":
-        return cmd_project(args)
-    elif args.command == "preflight":
-        return cmd_preflight(args)
-    elif args.command == "toolsmith":
-        return cmd_toolsmith(args)
-    elif args.command == "issues":
-        return cmd_issues(args)
-    elif args.command == "agent":
-        return cmd_agent(args)
-    elif args.command == "route":
-        return cmd_route(args)
-    elif args.command == "inventory":
-        return cmd_inventory(args)
-    elif args.command == "monitor":
-        return cmd_monitor(args)
-    elif args.command == "orchestrate":
-        return cmd_orchestrate(args)
-    elif args.command == "issues":
-        return cmd_issues(args)
-    elif args.command == "list-installs":
-        return cmd_installs(args)
-    elif args.command == "node":
-        return cmd_node(args)
-    else:
+
+# -- FASE 6.2 facade dispatcher -------------------------------------------------
+# launcher.py is a *thin facade* (R0-R10). The dispatch table below is the only
+# piece of routing logic allowed at this layer. It maps:
+#     args.command    -> command implementation in bago_core.commands.cmd_*
+# Keeping the table explicit (no `elif ladder`) makes it trivial to:
+#   * audit (one screenful)
+#   * test (covered by tests/test_launcher_dispatch.py)
+#   * refactor (move a command -> update one line)
+_DISPATCH_TABLE: dict[str, str] = {
+    "chat":        "cmd_chat",
+    "launch":      "cmd_chat",
+    "start":       "cmd_chat",
+    "validate":    "cmd_validate",
+    "install":     "cmd_install",
+    "uninstall":   "cmd_uninstall",
+    "claim":       "cmd_claim",
+    "config":      "cmd_config",
+    "llm":         "cmd_llm",
+    "engine":      "cmd_engine",
+    "appdata":     "cmd_appdata",
+    "cmd-rl":      "cmd_cmd_rl",
+    "rl":          "cmd_rl",
+    "serve":       "cmd_serve",
+    "evidence":    "cmd_evidence",
+    "cpp-runtime": "cmd_cpp_runtime",
+    "scan":        "cmd_scan",
+    "guard":       "cmd_guard",
+    "canary":      "cmd_canary",
+    "backup":      "cmd_backup",
+    "project":     "cmd_project",
+    "preflight":   "cmd_preflight",
+    "toolsmith":   "cmd_toolsmith",
+    "issues":      "cmd_issues",
+    "agent":       "cmd_agent",
+    "route":       "cmd_route",
+    "inventory":   "cmd_inventory",
+    "monitor":     "cmd_monitor",
+    "orchestrate": "cmd_orchestrate",
+    "list-installs": "cmd_installs",
+    "install-role": "cmd_install_role",
+    "node":        "cmd_node",
+}
+
+
+def _dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Route a parsed Namespace to the matching cmd_* implementation.
+
+    `None` (no command) is treated as `chat` for backwards compatibility
+    with the legacy `bago` (no args) entrypoint. Unknown commands print help.
+    """
+    cmd = args.command or "chat"
+    impl_name = _DISPATCH_TABLE.get(cmd)
+    if impl_name is None:
         parser.print_help()
         return 0
+    # local lookup keeps the table readable while avoiding a per-call dict
+    impl = globals().get(impl_name)
+    if impl is None:
+        parser.print_help()
+        return 0
+    return impl(args)
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "--test":

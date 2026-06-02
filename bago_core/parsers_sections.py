@@ -241,6 +241,14 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     toolsmith_listen = toolsmith_sub.add_parser("listen", help="Escucha eventos del bus neural")
     toolsmith_listen.add_argument("--limit", type=int, default=1)
 
+    issues_gh_parser = sub.add_parser("issues-gh", help="Gestiona issues del repositorio")
+    issues_gh_parser.add_argument("--root", default="", help="Raiz del proyecto (default: cwd)")
+    issues_gh_parser.add_argument("--dry-run", action="store_true", help="No aplica cambios en GitHub")
+    issues_gh_sub = issues_gh_parser.add_subparsers(dest="issues_gh_cmd")
+    issues_gh_take = issues_gh_sub.add_parser("take", help="Toma la siguiente issue abierta")
+    issues_gh_take.add_argument("repo", nargs="?", default="", help="Repositorio owner/name")
+    issues_gh_take.add_argument("--agent", default="", help="Agente/usuario a asignar")
+
     agent_parser = sub.add_parser("agent", help="Gestiona spiral agents")
     agent_parser.add_argument("--root", default="")
     agent_sub = agent_parser.add_subparsers(dest="agent_cmd")
@@ -301,6 +309,20 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     installs_parser = sub.add_parser("list-installs", help="Escanea el sistema e imprime JSON con todas las instalaciones BAGO (para el gestor de la landing)")
     installs_parser.add_argument("--plain", action="store_true", help="JSON compacto en una linea (facil de pegar en la web)")
     installs_parser.add_argument("--active-only", action="store_true", help="Solo listar instalaciones que existen")
+
+    roles_parser = sub.add_parser("install-role", help="Elige que copia BAGO se usa como active/dev/launch")
+    roles_parser.add_argument("--json", action="store_true", help="Salida JSON")
+    roles_sub = roles_parser.add_subparsers(dest="install_role_cmd")
+    roles_show = roles_sub.add_parser("show", help="Muestra la seleccion actual")
+    roles_show.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+    roles_set = roles_sub.add_parser("set", help="Fija un rol a una ruta")
+    roles_set.add_argument("--role", required=True, choices=("active", "dev", "launch"))
+    roles_set.add_argument("--path", required=True)
+    roles_set.add_argument("--no-strict", action="store_true")
+    roles_set.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+    roles_clear = roles_sub.add_parser("clear", help="Borra un rol o toda la seleccion")
+    roles_clear.add_argument("--role", choices=("active", "dev", "launch"), default="")
+    roles_clear.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
 
 def add_node_parsers(sub: argparse._SubParsersAction) -> None:
     node_parser = sub.add_parser("node", help="Gestor de registry, policy, evidence y compatibilidad")

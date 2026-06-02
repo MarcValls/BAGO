@@ -81,6 +81,16 @@
   .release-item .title{font-weight:700;margin-bottom:4px;}
   .release-item .actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
   .release-item .actions button{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;border-radius:6px;padding:5px 10px;}
+  .role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;}
+  .role-card{background:#020617;border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .role-card.selected{border-color:rgba(16,185,129,0.55);box-shadow:0 0 0 1px rgba(16,185,129,0.16);}
+  .role-card .role-title{font-weight:800;font-size:13px;color:var(--fg);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;}
+  .role-card .role-desc{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .role-card .role-path{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--cyan);word-break:break-all;min-height:34px;}
+  .role-card .actions,.role-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .role-actions{margin-bottom:12px;}
+  .role-actions button,.role-card .actions button{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;border-radius:6px;padding:5px 9px;}
+  .role-actions .role-select.active{background:rgba(16,185,129,0.22);color:#86efac;border-color:rgba(16,185,129,0.5);}
   #empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
   #empty-state .icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
   #empty-state h3{margin:0 0 6px;color:var(--fg);font-size:18px;}
@@ -140,7 +150,7 @@
   <div class="wrap">
     <img src="assets/bago-wasp.svg" width="32" height="32" alt="BAGO avispa" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · v4.1.5-r4</span>
+    <span class="meta">standalone · offline · v4.1.5-r5</span>
   </div>
 </header>
 <main>
@@ -192,6 +202,16 @@
     <span class="chip">con supervisor: <b id="s-sup">0</b></span>
     <span class="chip">con probe: <b id="s-probe">0</b></span>
   </div>
+  <section class="panel" id="role-panel" style="display:none">
+    <div class="panel-head">
+      <h3>Roles de instalaciones</h3>
+      <div class="toolbar">
+        <span class="chip" id="role-file" style="font-size:11px;padding:3px 10px;">~\\.bago\\install_selection.json</span>
+        <button id="btn-refresh-roles">Recargar roles</button>
+      </div>
+    </div>
+    <div id="role-cards" class="role-grid"></div>
+  </section>
   <div id="installations"></div>
   <section id="empty-state">
     <div class="icon">📦</div>
@@ -221,7 +241,7 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · v4.1.5-r4 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · v4.1.5-r5 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script>
@@ -264,8 +284,20 @@ const releaseSummary=document.getElementById('release-summary');
 const releaseList=document.getElementById('release-list');
 const nodePanel=document.getElementById('node-panel');
 const nodeCmdLabel=document.getElementById('node-cmd');
+const rolePanel=document.getElementById('role-panel');
+const roleCards=document.getElementById('role-cards');
+const roleFileLabel=document.getElementById('role-file');
+const ROLE_DEFS={
+  active:{label:'Uso / activa',desc:'La copia que ejecuta `bago` sin subcomando.'},
+  dev:{label:'Desarrollo',desc:'La copia que ejecuta `bago des` y donde editas código.'},
+  launch:{label:'Lanzamiento',desc:'La plataforma que ejecuta `bago ign`.'}
+};
+const ROLE_ORDER=['active','dev','launch'];
+const ROLE_STORAGE_KEY='bago.install.selection';
 let latestRelease=null;
 let releaseItems=[];
+let installSelection={version:1,updated_at:'',roles:{}};
+let currentPayload=null;
 let nodeCache={status:null,matrix:null,pieces:null,connectors:null};
 let activeNodeTab='overview';
 
@@ -498,6 +530,150 @@ function uninstallCommand(target){
   }
   return psCommand('& '+psSingle(target+'\\bago-uninstall.ps1')+' -InstallDir '+psSingle(target));
 }
+function roleCommand(role,target){
+  const api=electronApi();
+  if(api&&api.buildRoleCommand){
+    return api.buildRoleCommand(role,target);
+  }
+  const label=(ROLE_DEFS[role]&&ROLE_DEFS[role].label)||role;
+  return psCommand([
+    '$role = '+psSingle(role),
+    '$root = '+psSingle(target),
+    '$label = '+psSingle(label),
+    '$file = Join-Path $env:USERPROFILE '+psSingle('.bago\\install_selection.json'),
+    '$roles = @{}',
+    'if (Test-Path $file) { try { $data = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json; if ($data.roles) { foreach ($p in $data.roles.PSObject.Properties) { $roles[$p.Name] = $p.Value } } } catch {} }',
+    "$now = (Get-Date).ToUniversalTime().ToString('o')",
+    '$roles[$role] = [ordered]@{ path = $root; label = $label; updated_at = $now }',
+    '$out = [ordered]@{ version = 1; updated_at = $now; roles = $roles }',
+    'New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null',
+    '$out | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $file -Encoding UTF8',
+    'Write-Host ("BAGO role " + $role + " -> " + $root)'
+  ].join('; '));
+}
+
+function normalizePathKey(p){
+  return String(p||'').replace(/[\\/]+$/,'').toLowerCase();
+}
+
+function normalizeSelection(raw){
+  const roles=(raw&&raw.roles&&typeof raw.roles==='object')?raw.roles:{};
+  const out={version:1,updated_at:(raw&&raw.updated_at)||'',selection_file:(raw&&raw.selection_file)||(raw&&raw.file)||'',roles:{}};
+  ROLE_ORDER.forEach(role=>{
+    const entry=roles[role];
+    if(typeof entry==='string'&&entry) out.roles[role]={path:entry,label:ROLE_DEFS[role].label};
+    else if(entry&&entry.path) out.roles[role]={path:String(entry.path),label:entry.label||ROLE_DEFS[role].label,updated_at:entry.updated_at||''};
+  });
+  return out;
+}
+
+function rolePathsFromSelection(sel=installSelection){
+  const out={};
+  ROLE_ORDER.forEach(role=>{
+    const entry=sel.roles&&sel.roles[role];
+    if(entry&&entry.path) out[role]=String(entry.path);
+  });
+  return out;
+}
+
+function readLocalSelection(){
+  try{return normalizeSelection(JSON.parse(localStorage.getItem(ROLE_STORAGE_KEY)||'{}'));}catch{return normalizeSelection({});}
+}
+
+function writeLocalSelection(role,target){
+  const sel=normalizeSelection(readLocalSelection());
+  sel.roles[role]={path:target,label:ROLE_DEFS[role].label,updated_at:new Date().toISOString()};
+  sel.updated_at=new Date().toISOString();
+  localStorage.setItem(ROLE_STORAGE_KEY,JSON.stringify(sel));
+  return sel;
+}
+
+async function resolveInstallSelection(data){
+  const api=electronApi();
+  if(api&&api.readInstallSelection){
+    try{return normalizeSelection(await api.readInstallSelection());}catch(e){/* fallback to payload/local */}
+  }
+  if(data&&data.selection){
+    return normalizeSelection({roles:data.selection.roles||{},selection_file:data.selection.file||data.selection.selection_file||''});
+  }
+  return readLocalSelection();
+}
+
+function decorateInstallRoles(items){
+  const selected=rolePathsFromSelection();
+  (items||[]).forEach(inst=>{
+    const roles=ROLE_ORDER.filter(role=>normalizePathKey(selected[role])===normalizePathKey(inst.path));
+    inst.selection_roles=roles;
+    ROLE_ORDER.forEach(role=>{inst['selected_'+role]=roles.includes(role);});
+  });
+}
+
+function existingInstallations(data=currentPayload){
+  return data&&Array.isArray(data.installations)?data.installations.filter(i=>i.exists):[];
+}
+
+function roleBadgeLabel(role){
+  if(role==='active')return 'activa';
+  if(role==='dev')return 'dev';
+  if(role==='launch')return 'launch';
+  return role;
+}
+
+function renderRolePanel(items){
+  if(!rolePanel||!roleCards)return;
+  const selected=rolePathsFromSelection();
+  const file=installSelection.selection_file||'~\\.bago\\install_selection.json';
+  roleFileLabel.textContent=file;
+  rolePanel.style.display='block';
+  roleCards.innerHTML=ROLE_ORDER.map(role=>{
+    const def=ROLE_DEFS[role];
+    const selectedPath=selected[role]||'';
+    const found=items.find(i=>normalizePathKey(i.path)===normalizePathKey(selectedPath));
+    const cmd=selectedPath?roleCommand(role,selectedPath):'';
+    const state=selectedPath?(found?'seleccionada':'seleccionada, no detectada'):'sin seleccionar';
+    const stateBadge='<span class="badge '+(selectedPath?(found?'badge-on':'badge-warn'):'badge-neutral')+'">'+escapeHtml(state)+'</span>';
+    const actions=selectedPath
+      ? '<div class="actions">'
+        +(canRunCommands()?'<button class="run" data-cmd="'+escapeHtml(cmd)+'">reaplicar</button>':'')
+        +'<button class="copy" data-cmd="'+escapeHtml(cmd)+'">copiar comando</button>'
+        +'</div>'
+      : '<div class="actions"><span class="badge badge-neutral">elige una copia en las tarjetas de abajo</span></div>';
+    return '<div class="role-card '+(selectedPath?'selected':'')+'">'
+      +'<div class="role-title">'+escapeHtml(def.label)+' '+stateBadge+'</div>'
+      +'<div class="role-desc">'+escapeHtml(def.desc)+'</div>'
+      +'<div class="role-path">'+escapeHtml(selectedPath||'No asignado')+'</div>'
+      +actions
+      +'</div>';
+  }).join('');
+  roleCards.querySelectorAll('button.copy').forEach(btn=>btn.addEventListener('click',()=>copyText(btn.getAttribute('data-cmd')||'')));
+  roleCards.querySelectorAll('button.run').forEach(btn=>btn.addEventListener('click',()=>runCommand(btn.getAttribute('data-cmd')||'')));
+}
+
+function rerenderInstallationCards(){
+  if(!currentPayload)return;
+  decorateInstallRoles(currentPayload.installations);
+  const existing=existingInstallations(currentPayload);
+  renderRolePanel(existing);
+  installBox.innerHTML=existing.map(renderCard).join('');
+  attachCardHandlers();
+}
+
+async function setInstallRole(role,target){
+  const api=electronApi();
+  try{
+    if(api&&api.writeInstallSelection){
+      installSelection=normalizeSelection(await api.writeInstallSelection(role,target));
+      showToast('rol '+roleBadgeLabel(role)+' guardado',true);
+    }else{
+      installSelection=writeLocalSelection(role,target);
+      await copyText(roleCommand(role,target));
+      showToast('rol guardado localmente; comando copiado para aplicarlo en BAGO',true);
+    }
+    rerenderInstallationCards();
+  }catch(e){
+    showToast('no se pudo guardar rol: '+e.message,false);
+  }
+}
 
 function versionText(v){return String(v||'').replace(/^v/i,'').trim();}
 function updateState(inst){
@@ -548,9 +724,12 @@ function renderReleaseList(){
   });
 }
 
-function renderPayload(data){
+async function renderPayload(data){
   if(!latestRelease && releaseItems.length) latestRelease = releaseItems[0];
   if(!data||!Array.isArray(data.installations)){showToast('el JSON no tiene el campo installations[]',false);return;}
+  currentPayload=data;
+  installSelection=await resolveInstallSelection(data);
+  decorateInstallRoles(data.installations);
   const existing=data.installations.filter(i=>i.exists);
   if(!existing.length){showToast('ninguna instalación existente detectada',false);renderEmpty();return;}
   document.getElementById('s-total').textContent=data.installations.length;
@@ -559,6 +738,7 @@ function renderPayload(data){
   document.getElementById('s-probe').textContent=existing.filter(i=>i.has_probe).length;
   summaryBar.style.display='flex';
   emptyState.style.display='none';
+  renderRolePanel(existing);
   installBox.innerHTML=existing.map(renderCard).join('');
   attachCardHandlers();
   showToast(existing.length+' instalación(es) cargada(s)',true);
@@ -572,7 +752,7 @@ async function refreshAll(extraPaths){
       releaseItems=Array.isArray(releases)?releases:[];
       latestRelease=releaseItems[0]||null;
       renderReleaseList();
-      renderPayload(scan);
+      await renderPayload(scan);
       return;
     }
     await loadLatestRelease();
@@ -601,7 +781,7 @@ async function parseAndRender(raw){
   if(!raw){showToast('pega primero el JSON o usa Cargar desde archivo',false);return;}
   let data;
   try{data=JSON.parse(raw);}catch(e){showToast('JSON inválido: '+e.message,false);return;}
-  renderPayload(data);
+  await renderPayload(data);
 }
 
 function modeBadge(mode,alive){const map={system:['system','badge-mode'],user:['user','badge-mode'],work:['work','badge-mode'],ign:['ign','badge-mode'],dev:['dev','badge-mode'],source:['source','badge-mode']};const[v,c]=map[mode]||[mode,'badge-neutral'];const a=alive==='alive'?'<span class="badge badge-on">● vivo</span>':'<span class="badge badge-off">○ parado</span>';return'<span class="badge '+c+'">'+escapeHtml(v)+'</span>'+a;}
@@ -614,13 +794,18 @@ function renderCard(inst){
   const sealBadge=inst.has_seal?'<span class="badge badge-on">sealed</span>':'<span class="badge badge-warn">unsealed</span>';
   const upd=updateState(inst);
   const updateBadge='<span class="badge '+upd.cls+'">'+escapeHtml(upd.label)+'</span>';
+  const roleBadges=(inst.selection_roles||[]).map(role=>'<span class="badge badge-on">rol '+escapeHtml(roleBadgeLabel(role))+'</span>').join('');
   const isSource=inst.mode==='source';
-  const actions=buildActions(inst,isSource);
   const pathEnc=escapeHtml(inst.path);
+  const roleButtons='<div class="role-actions">'
+    +ROLE_ORDER.map(role=>'<button class="role-select '+(inst['selected_'+role]?'active':'')+'" data-role="'+escapeHtml(role)+'" data-path="'+pathEnc+'">'+escapeHtml(roleBadgeLabel(role))+'</button>').join('')
+    +'</div>';
+  const actions=buildActions(inst,isSource);
   return'<div class="card" data-idx="'+escapeHtml(inst.mode)+'">'
     +'<div class="card-head"><h3 class="card-title">'+pathEnc.split(/[\\\\\\/]/).filter(Boolean).slice(-1)[0]+' <span class="mono" style="color:var(--muted);font-size:13px;font-weight:400">v'+escapeHtml(ver)+'</span></h3></div>'
     +'<div class="card-path">'+pathEnc+'</div>'
-    +'<div class="badges">'+modeBadge(inst.mode,inst.supervisor_alive?'alive':'dead')+supBadge+probeBadge+cliBadge+sealBadge+updateBadge+'</div>'
+    +'<div class="badges">'+modeBadge(inst.mode,inst.supervisor_alive?'alive':'dead')+supBadge+probeBadge+cliBadge+sealBadge+updateBadge+roleBadges+'</div>'
+    +roleButtons
     +actions
     +'</div>';
 }
@@ -646,6 +831,11 @@ function buildActions(inst,isSource){
   const latestAssetName=latestAsset&&latestAsset.name?latestAsset.name:'asset .zip mas reciente';
   const latestReleaseUrl=latestRelease&&latestRelease.html_url?latestRelease.html_url:'https://github.com/MarcValls/BAGO/releases';
   const latestAssetUrl=latestAsset&&latestAsset.browser_download_url?latestAsset.browser_download_url:'https://github.com/MarcValls/BAGO/releases';
+  groups.push(actionGroup('Roles BAGO','🎛',[
+    {label:'Usar como copia activa',desc:'Hace que `bago` apunte a esta copia',cmd:roleCommand('active',path)},
+    {label:'Usar como desarrollo',desc:'Hace que `bago des` apunte a esta copia',cmd:roleCommand('dev',path)},
+    {label:'Usar como lanzamiento',desc:'Hace que `bago ign` apunte a esta copia',cmd:roleCommand('launch',path)},
+  ]));
   groups.push(actionGroup('Ejecutar','▶',[
     {label:'Abrir chat BAGO',desc:'Lanza la CLI interactiva',cmd:cd+'; '+pypath+' bago_core/cli.py chat'},
     {label:'Arrancar supervisor',desc:'Modo silencioso (pythonw)',cmd:cd+'; pythonw scripts/bago_supervisor.pyw'},
@@ -672,6 +862,8 @@ function buildActions(inst,isSource){
     {label:'Listar con experimentales',desc:'Incluye cpp-local y rutas beta',cmd:cd+'; python bago_core/cli.py llm --include-experimental list'},
     {label:'Probar Ollama local',desc:'Dry-run sin abrir chat',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run'},
     {label:'Fijar Ollama como default',desc:'Guarda provider/modelo por defecto en esta instalación',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model llama3.2:3b --persist-default --dry-run'},
+    {label:'Probar BAGO persona',desc:'Modelo Ollama con identidad BAGO',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model bago-llama32-bago-persona --dry-run'},
+    {label:'Fijar BAGO persona',desc:'Usar bago-llama32-bago-persona como modelo por defecto',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model bago-llama32-bago-persona --persist-default --dry-run'},
     {label:'Activar OpenRouter',desc:'Marca provider cloud como habilitado',cmd:cd+'; python bago_core/cli.py config set providers.openrouter.enabled true'},
     {label:'Activar Anthropic',desc:'Marca provider cloud como habilitado',cmd:cd+'; python bago_core/cli.py config set providers.anthropic.enabled true'},
     {label:'Editar .bago/config.json',desc:'Config de providers de esta instalación',cmd:'notepad "'+path+'\\.bago\\config.json"'},
@@ -704,6 +896,9 @@ function buildActions(inst,isSource){
 }
 
 function attachCardHandlers(){
+  installBox.querySelectorAll('button.role-select').forEach(btn=>{
+    btn.addEventListener('click',()=>setInstallRole(btn.getAttribute('data-role')||'',btn.getAttribute('data-path')||''));
+  });
   installBox.querySelectorAll('button.copy').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const cmd=btn.getAttribute('data-cmd')||'';
@@ -721,6 +916,7 @@ function attachCardHandlers(){
 function renderEmpty(){
   installBox.innerHTML='';
   summaryBar.style.display='none';
+  if(rolePanel) rolePanel.style.display='none';
   emptyState.style.display='block';
 }
 
@@ -749,6 +945,15 @@ document.getElementById('btn-sample').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-refresh-data').addEventListener('click',()=>refreshAll([]));
+document.getElementById('btn-refresh-roles').addEventListener('click',async()=>{
+  if(currentPayload){
+    installSelection=await resolveInstallSelection(currentPayload);
+    rerenderInstallationCards();
+    showToast('roles recargados',true);
+  }else{
+    await refreshAll([]);
+  }
+});
 document.getElementById('btn-scan-path').addEventListener('click',()=>{
   const p=document.getElementById('manual-scan-path').value.trim();
   if(!p){showToast('indica una ruta primero',false);return;}
