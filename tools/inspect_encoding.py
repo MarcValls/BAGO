@@ -8,7 +8,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FILES = [
     "bago_core/launcher.py",
     "bago_core/node_control.py",
-    "bago_core/node_control_backend.py",
     "bago_core/node_control_render.py",
     "bago_core/node_control_ssot.py",
     "bago_core/node_control_translator.py",

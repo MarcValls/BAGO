@@ -6,7 +6,6 @@ files = [
     "bago_core/launcher.py",
     "bago_core/node_control.py",
     "bago_core/node_control_cli.py",
-    "bago_core/node_control_backend.py",
     "bago_core/node_control_render.py",
     "bago_core/node_control_ssot.py",
     "bago_core/node_control_store.py",

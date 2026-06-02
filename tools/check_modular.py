@@ -45,7 +45,6 @@ LAYER_MAP: dict[str, str] = {
     "node_control_policy.py": "policy",
     "node_control_render.py": "render",
     "node_control_tui.py": "tui",
-    "node_control_backend.py": "backend",
     "node_control_translator.py": "dispatch",
     "node_control.py": "facade",
     "parsers.py": "parsers",
@@ -68,10 +67,6 @@ LAYER_FUNCTIONS: dict[str, set[str]] = {
     "tui": {
         "interactive_tui", "run_tui", "tui_main",
     },
-    "backend": {
-        "http_get", "http_post", "ollama_chat", "openai_chat",
-        "anthropic_chat",
-    },
     "dispatch": {
         "run_translator", "run_evidence", "run_matrix",
     },
@@ -83,18 +78,15 @@ LAYER_FUNCTIONS: dict[str, set[str]] = {
 
 # Imports prohibidos entre capas (R2)
 FORBIDDEN_IMPORTS: dict[str, set[str]] = {
-    "ssot": {"bago_core.node_control_store", "bago_core.node_control_backend",
+    "ssot": {"bago_core.node_control_store",
              "bago_core.node_control_tui", "bago_core.node_control_render",
              "bago_core.node_control_translator"},
     "store": {"bago_core.node_control_render", "bago_core.node_control_tui",
               "bago_core.node_control_translator"},
-    "policy": {"bago_core.node_control_render", "bago_core.node_control_tui",
-               "bago_core.node_control_backend"},
-    "render": {"bago_core.node_control_store", "bago_core.node_control_backend",
+    "policy": {"bago_core.node_control_render", "bago_core.node_control_tui"},
+    "render": {"bago_core.node_control_store",
                "bago_core.node_control_tui"},
-    "tui": {"bago_core.parsers", "bago_core.node_control_backend"},
-    "backend": {"bago_core.parsers", "bago_core.node_control_tui",
-                "bago_core.node_control_render"},
+    "tui": {"bago_core.parsers"},
     "dispatch": {"bago_core.parsers", "bago_core.parsers_sections"},
     "parsers": {"bago_core.node_control", "bago_core.node_control_translator",
                 "bago_core.translators"},

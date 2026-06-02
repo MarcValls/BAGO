@@ -68,6 +68,67 @@ class TestEvidenceFacades(unittest.TestCase):
                 "model layer must not print",
             )
 
+    def test_io_layer_size(self):
+        """FASE 9.2: evidence_io.py is the file-IO layer (R0, R1)."""
+        io_path = REPO_ROOT / "bago_core" / "evidence_io.py"
+        self.assertTrue(io_path.exists())
+        lines = io_path.read_text(encoding="utf-8").splitlines()
+        self.assertLess(
+            len(lines), 250,
+            f"evidence_io.py has {len(lines)} lines; R0 wants < 250",
+        )
+        # No high-level imports of model/cli/manager (R1).
+        src = io_path.read_text(encoding="utf-8")
+        for forbidden in (
+            "from bago_core.evidence_model",
+            "from bago_core.evidence_cli",
+            "from bago_core.evidence_generator",
+            "from session_manager",
+            "from switch_engine",
+        ):
+            self.assertNotIn(forbidden, src, f"io imports {forbidden}")
+
+    def test_generator_orchestrator_size(self):
+        """FASE 9.2: evidence_generator.py is the orchestrator (R0)."""
+        gen_path = REPO_ROOT / "bago_core" / "evidence_generator.py"
+        lines = gen_path.read_text(encoding="utf-8").splitlines()
+        # R3 objective: < 500. Hard limit 600.
+        self.assertLess(
+            len(lines), 600,
+            f"evidence_generator.py has {len(lines)} lines; R3 hard limit 600",
+        )
+
+    def test_generator_io_uses_evidence_io(self):
+        """FASE 9.2: generator delegates IO to evidence_io (R1, R5)."""
+        src = (REPO_ROOT / "bago_core" / "evidence_generator.py").read_text(
+            encoding="utf-8"
+        )
+        # The old `_write_json`, `_write_text`, `_now_iso`, etc. are gone.
+        for old in (
+            "def _now_iso(",
+            "def _write_json(",
+            "def _write_text(",
+            "def _sha256(",
+            "def _copy_if_exists(",
+            "def _prepare_output_dir(",
+            "def _collect_file_digests(",
+            "def _write_checksums(",
+            "def _copy_session_artifacts(",
+        ):
+            self.assertNotIn(old, src, f"generator still defines {old}")
+        # And the canonical helpers are imported.
+        for new in (
+            "from bago_core.evidence_io import",
+            "write_json",
+            "write_text",
+            "now_iso",
+            "collect_file_digests",
+            "copy_session_artifacts",
+            "write_checksums",
+            "prepare_output_dir",
+        ):
+            self.assertIn(new, src, f"generator missing {new}")
+
     def test_cli_no_business_logic(self):
         """evidence_cli only wires argparse -> run() (R1 dispatch)."""
         src = (REPO_ROOT / "bago_core" / "evidence_cli.py").read_text(

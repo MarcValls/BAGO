@@ -373,7 +373,7 @@ def add_translator_parser(node_sub: argparse._SubParsersAction) -> None:
     * dispatch     -> node_control_translator.py (and node_control.py for facade)
     * model/state  -> node_control_store.py / node_control_ssot.py
     * policy       -> node_control_policy.py
-    * network      -> node_control_backend.py
+    * network      -> (resolver en node_control_store/_connect via SSoT)
     * interactive  -> node_control_tui.py
     """
     translator_p = node_sub.add_parser("translator", help="Gestiona piezas traductoras (BAGO IR <-> modelo)")
