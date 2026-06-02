@@ -21,23 +21,47 @@
 
 .PARAMETER SkipTests
   Omite tests post-instalacion.
+
+.PARAMETER Tag
+  Tag exacto de la release a instalar. Si no se especifica, usa la release
+  mas reciente publicada en GitHub.
 #>
 [CmdletBinding()]
 param(
     [string]$InstallDir = "C:\Program Files\BAGO",
     [ValidateSet("Express", "Advanced")]
     [string]$Mode = "Express",
+    [string]$Tag = "",
     [switch]$SkipTests,
     [switch]$NoPathUpdate
 )
 
 $ErrorActionPreference = "Stop"
-$apiUrl = "https://api.github.com/repos/MarcValls/BAGO/releases?per_page=20"
-$releases = Invoke-RestMethod -Uri $apiUrl -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
-$release = @($releases) |
-    Where-Object { -not $_.draft } |
-    Sort-Object { [datetime]$_.published_at } -Descending |
-    Select-Object -First 1
+function Get-LatestRelease {
+    $apiUrl = "https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100"
+    $releases = Invoke-RestMethod -Uri $apiUrl -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
+    return @($releases) |
+        Where-Object { -not $_.draft } |
+        Sort-Object { [datetime]$_.published_at } -Descending |
+        Select-Object -First 1
+}
+
+function Get-TaggedRelease {
+    param([Parameter(Mandatory = $true)][string]$RequestedTag)
+    $tag = $RequestedTag.Trim()
+    if (-not $tag) { return $null }
+    $url = "https://api.github.com/repos/MarcValls/BAGO/releases/tags/$tag"
+    return Invoke-RestMethod -Uri $url -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
+}
+
+if ($Tag) {
+    $release = Get-TaggedRelease -RequestedTag $Tag
+    if (-not $release) {
+        throw "No se encontro la release con tag $Tag."
+    }
+} else {
+    $release = Get-LatestRelease
+}
 if (-not $release) {
     throw "No se encontro ninguna release publicada de BAGO."
 }

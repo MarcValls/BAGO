@@ -68,6 +68,19 @@
   details .row .copy:hover{background:#312e81;border-color:#4f46e5;color:white;}
   details .row .run{background:rgba(16,185,129,0.16);color:#86efac;border-color:rgba(16,185,129,0.35);}
   details .row .run:hover{background:rgba(16,185,129,0.28);border-color:#22c55e;color:white;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:18px;}
+  .panel-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  .panel-head h3{margin:0;font-size:14px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+  .toolbar input,.toolbar select{background:#020617;color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;min-width:220px;}
+  .toolbar button{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;border-radius:8px;border:1px solid var(--border);background:#1e293b;color:#e2e8f0;padding:8px 12px;cursor:pointer;}
+  .toolbar button.primary{background:linear-gradient(90deg,#4f46e5,#0ea5e9);border-color:transparent;color:#fff;}
+  .release-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+  .release-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);background:#020617;border-radius:10px;padding:12px 14px;}
+  .release-item .meta{font-size:12px;color:var(--muted);}
+  .release-item .title{font-weight:700;margin-bottom:4px;}
+  .release-item .actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+  .release-item .actions button{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;border-radius:6px;padding:5px 10px;}
   #empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
   #empty-state .icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
   #empty-state h3{margin:0 0 6px;color:var(--fg);font-size:18px;}
@@ -90,20 +103,32 @@
 <main>
   <section class="hero">
     <h2>Gestiona todas tus instalaciones BAGO</h2>
-    <p>Esta página es 100% local. No envía datos a ningún servidor. Pega la salida de <code>bago list-installs --plain</code> y aparecerán tus instalaciones con acciones centralizadas para proveedores, runtime y mantenimiento.</p>
+    <p>Esta página detecta instalaciones y releases automáticamente. En Electron no hace falta pegar JSON: la app consulta GitHub, localiza la ultima release y permite instalar la que quieras.</p>
   </section>
   <section class="steps">
     <h3>Cómo usar</h3>
     <ol>
-      <li>Abre una terminal <code>(PowerShell, cmd, bash…)</code></li>
-      <li>Ejecuta: <code>bago list-installs --plain</code></li>
-      <li>Copia el JSON resultante al portapapeles</li>
-      <li>Pégalo en el cuadro de abajo o usa <b>Cargar desde portapapeles</b></li>
-      <li>En Electron, pulsa <b>ejecutar</b> para lanzar una ventana PowerShell visible; en navegador, usa <b>copiar</b>.</li>
+      <li>Abre el gestor y espera a que cargue releases e instalaciones.</li>
+      <li>Si quieres buscar una ruta concreta, usa el campo manual de abajo.</li>
+      <li>En Electron, pulsa <b>ejecutar</b> para abrir PowerShell visible.</li>
+      <li>En navegador, usa <b>copiar</b> para ejecutar los comandos a mano.</li>
     </ol>
   </section>
   <section class="notice">
     <b>Aviso de ejecución:</b> los botones <b>ejecutar</b> abren una ventana PowerShell visible con el comando. No se ejecuta nada oculto ni silencioso en segundo plano. En la versión web solo se copian comandos.
+  </section>
+  <section class="panel" id="releases-panel">
+    <div class="panel-head">
+      <h3>Versiones GitHub</h3>
+      <div class="toolbar">
+        <input id="manual-scan-path" placeholder="Ruta manual a escanear, por ejemplo C:\\Tools\\BAGO">
+        <input id="target-install-path" value="C:\\Program Files\\BAGO" placeholder="Ruta destino de instalación">
+        <button id="btn-scan-path">Escanear ruta</button>
+        <button id="btn-refresh-data" class="primary">Actualizar todo</button>
+      </div>
+    </div>
+    <div id="release-summary" class="text-sm text-slate-400 mb-3">Cargando releases...</div>
+    <div id="release-list" class="release-grid"></div>
   </section>
   <section class="io">
     <div>
@@ -171,17 +196,25 @@ const inputArea=document.getElementById('input-area');
 const installBox=document.getElementById('installations');
 const emptyState=document.getElementById('empty-state');
 const summaryBar=document.getElementById('summary-bar');
+const releaseSummary=document.getElementById('release-summary');
+const releaseList=document.getElementById('release-list');
 let latestRelease=null;
+let releaseItems=[];
 
 async function loadLatestRelease(){
   try{
-    const res=await fetch('https://api.github.com/repos/MarcValls/BAGO/releases?per_page=20');
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const releases=await res.json();
-    latestRelease=(Array.isArray(releases)?releases:[])
+    const api=electronApi();
+    const releases=api&&api.fetchReleases ? await api.fetchReleases() : await (async()=>{
+      const res=await fetch('https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100');
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      return await res.json();
+    })();
+    releaseItems=(Array.isArray(releases)?releases:[])
       .filter(r=>!r.draft)
-      .sort((a,b)=>new Date(b.published_at||0)-new Date(a.published_at||0))[0]||null;
+      .sort((a,b)=>new Date(b.published_at||0)-new Date(a.published_at||0));
+    latestRelease=releaseItems[0]||null;
   }catch(e){
+    releaseItems=[];
     latestRelease=null;
   }
 }
@@ -200,8 +233,20 @@ function psCommand(script){
   }
   return 'powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand '+btoa(bin);
 }
-function remoteInstallerCommand(target){
-  return psCommand('$s=Join-Path $env:TEMP '+psSingle('install-remote.ps1')+'; Invoke-WebRequest -Uri '+psSingle('https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1')+' -OutFile $s -UseBasicParsing; & $s -InstallDir '+psSingle(target));
+function installCommand(tag,target){
+  const api=electronApi();
+  if(api&&api.buildInstallCommand){
+    return api.buildInstallCommand(tag,target,'Express');
+  }
+  const tagArg=tag? ' -Tag '+psSingle(tag) : '';
+  return psCommand('$s=Join-Path $env:TEMP '+psSingle('install-remote.ps1')+'; Invoke-WebRequest -Uri '+psSingle('https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1')+' -OutFile $s -UseBasicParsing; & $s'+tagArg+' -InstallDir '+psSingle(target));
+}
+function uninstallCommand(target){
+  const api=electronApi();
+  if(api&&api.buildUninstallCommand){
+    return api.buildUninstallCommand(target,false);
+  }
+  return psCommand('& '+psSingle(target+'\\bago-uninstall.ps1')+' -InstallDir '+psSingle(target));
 }
 
 function versionText(v){return String(v||'').replace(/^v/i,'').trim();}
@@ -214,12 +259,47 @@ function updateState(inst){
   return {label:'update '+(current||'desconocida')+' → '+latest+beta,cls:'badge-warn',tag:latestRelease.tag_name,asset:(latestZipAsset()||{}).name||''};
 }
 
-async function parseAndRender(raw){
-  if(latestRelease===null)await loadLatestRelease();
-  raw=(raw||'').trim();
-  if(!raw){showToast('pega primero el JSON o usa Cargar desde archivo',false);return;}
-  let data;
-  try{data=JSON.parse(raw);}catch(e){showToast('JSON inválido: '+e.message,false);return;}
+function renderReleaseList(){
+  if(!releaseList) return;
+  const total = releaseItems.length;
+  const beta = releaseItems.filter(r=>r.prerelease).length;
+  releaseSummary.textContent = total
+    ? `Detectadas ${total} release(s) en GitHub · ${beta} beta(s) · la mas reciente es ${latestRelease ? latestRelease.tag_name : 'n/a'}`
+    : 'No se pudieron cargar releases desde GitHub.';
+  releaseList.innerHTML = releaseItems.map(rel=>{
+    const asset = (Array.isArray(rel.assets) ? rel.assets.find(a=>/\.zip$/i.test(a.name||'')) : null) || {};
+    const betaBadge = rel.prerelease ? '<span class="badge badge-warn">beta</span>' : '<span class="badge badge-on">release</span>';
+    const dateText = rel.published_at ? new Date(rel.published_at).toLocaleString() : 'fecha desconocida';
+    const target = document.getElementById('target-install-path')?.value || 'C:\\Program Files\\BAGO';
+    const safeTag = versionText(rel.tag_name || 'latest').replace(/[^A-Za-z0-9._-]/g, '_');
+    return '<div class="release-item">'
+      + '<div>'
+      + '<div class="title">'+escapeHtml(rel.tag_name || 'sin tag')+' '+betaBadge+'</div>'
+      + '<div class="meta">'+escapeHtml(dateText)+' · '+escapeHtml(asset.name || 'sin asset zip')+'</div>'
+      + '<div class="meta">'+escapeHtml(asset.browser_download_url || '')+'</div>'
+      + '</div>'
+      + '<div class="actions">'
+      + '<button class="run" data-release="'+escapeHtml(rel.tag_name || '')+'" data-target="'+escapeHtml(target)+'">instalar aquí</button>'
+      + '<button class="run" data-release="'+escapeHtml(rel.tag_name || '')+'" data-target="'+escapeHtml(target+'-'+safeTag)+'">instalar aparte</button>'
+      + '<button class="copy" data-cmd="'+escapeHtml(asset.browser_download_url || '')+'">copiar url</button>'
+      + '<button class="copy" data-cmd="'+escapeHtml(rel.html_url || '')+'">copiar release</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  releaseList.querySelectorAll('button.run').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const tag = btn.getAttribute('data-release')||'';
+      const target = btn.getAttribute('data-target')||'C:\\Program Files\\BAGO';
+      runCommand(installCommand(tag,target));
+    });
+  });
+  releaseList.querySelectorAll('button.copy').forEach(btn=>{
+    btn.addEventListener('click',()=>copyText(btn.getAttribute('data-cmd')||''));
+  });
+}
+
+function renderPayload(data){
+  if(!latestRelease && releaseItems.length) latestRelease = releaseItems[0];
   if(!data||!Array.isArray(data.installations)){showToast('el JSON no tiene el campo installations[]',false);return;}
   const existing=data.installations.filter(i=>i.exists);
   if(!existing.length){showToast('ninguna instalación existente detectada',false);renderEmpty();return;}
@@ -232,6 +312,46 @@ async function parseAndRender(raw){
   installBox.innerHTML=existing.map(renderCard).join('');
   attachCardHandlers();
   showToast(existing.length+' instalación(es) cargada(s)',true);
+}
+
+async function refreshAll(extraPaths){
+  const api=electronApi();
+  try{
+    if(api&&api.scanInstallations&&api.fetchReleases){
+      const [scan,releases]=await Promise.all([api.scanInstallations(Array.isArray(extraPaths)?extraPaths:[]), api.fetchReleases()]);
+      releaseItems=Array.isArray(releases)?releases:[];
+      latestRelease=releaseItems[0]||null;
+      renderReleaseList();
+      renderPayload(scan);
+      return;
+    }
+    await loadLatestRelease();
+    renderReleaseList();
+    showToast('modo web: usa el pegado manual para cargar instalaciones',false);
+  }catch(e){
+    showToast('no se pudo actualizar: '+e.message,false);
+  }
+}
+
+async function bootstrapAuto(){
+  const api=electronApi();
+  if(api&&api.scanInstallations&&api.fetchReleases){
+    const io=document.querySelector('.io');
+    if(io) io.style.display='none';
+    await refreshAll([]);
+  } else {
+    await loadLatestRelease();
+    renderReleaseList();
+  }
+}
+
+async function parseAndRender(raw){
+  if(latestRelease===null)await loadLatestRelease();
+  raw=(raw||'').trim();
+  if(!raw){showToast('pega primero el JSON o usa Cargar desde archivo',false);return;}
+  let data;
+  try{data=JSON.parse(raw);}catch(e){showToast('JSON inválido: '+e.message,false);return;}
+  renderPayload(data);
 }
 
 function modeBadge(mode,alive){const map={system:['system','badge-mode'],user:['user','badge-mode'],work:['work','badge-mode'],ign:['ign','badge-mode'],dev:['dev','badge-mode'],source:['source','badge-mode']};const[v,c]=map[mode]||[mode,'badge-neutral'];const a=alive==='alive'?'<span class="badge badge-on">● vivo</span>':'<span class="badge badge-off">○ parado</span>';return'<span class="badge '+c+'">'+escapeHtml(v)+'</span>'+a;}
@@ -291,8 +411,9 @@ function buildActions(inst,isSource){
   ]));
   groups.push(actionGroup('Actualizaciones','⬆',[
     {label:'Ver ultima release detectada',desc:'Muestra tag y asset resuelto por el gestor',cmd:psCommand('Write-Host '+psSingle(latestTag+' / '+latestAssetName))},
-    {label:'Actualizar esta instalación',desc:'Instala la release mas reciente encima de esta ruta',cmd:remoteInstallerCommand(path)},
-    {label:'Instalar aparte',desc:'Crea una instalación separada para probar sin pisar esta',cmd:remoteInstallerCommand(path+'-latest')},
+    {label:'Actualizar esta instalación',desc:'Instala la release mas reciente encima de esta ruta',cmd:installCommand(latestTag,path)},
+    {label:'Instalar aparte',desc:'Crea una instalación separada para probar sin pisar esta',cmd:installCommand(latestTag,path+'-'+latestTag.replace(/[^A-Za-z0-9._-]/g,'_'))},
+    {label:'Desinstalar',desc:'Llama al uninstall local de esta ruta',cmd:uninstallCommand(path)},
     {label:'Abrir release en GitHub',desc:'Revisar notas antes de actualizar',cmd:psCommand('Start-Process '+psSingle(latestReleaseUrl))},
     {label:'Descargar asset latest',desc:'Baja el zip resuelto a Descargas',cmd:psCommand('Invoke-WebRequest -Uri '+psSingle(latestAssetUrl)+' -OutFile (Join-Path $env:USERPROFILE '+psSingle('Downloads\\'+latestAssetName)+')')},
   ]));
@@ -377,9 +498,16 @@ document.getElementById('btn-sample').addEventListener('click',()=>{
   parseAndRender(sample);
 });
 
+document.getElementById('btn-refresh-data').addEventListener('click',()=>refreshAll([]));
+document.getElementById('btn-scan-path').addEventListener('click',()=>{
+  const p=document.getElementById('manual-scan-path').value.trim();
+  if(!p){showToast('indica una ruta primero',false);return;}
+  refreshAll([p]);
+});
+
 // Ctrl+Enter en el textarea = parsear
 inputArea.addEventListener('keydown',ev=>{if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ev.preventDefault();parseAndRender(inputArea.value);}});
-loadLatestRelease();
+bootstrapAuto();
 </script>
 </body>
 </html>
