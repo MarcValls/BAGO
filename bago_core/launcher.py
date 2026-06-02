@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-launcher.py — BAGO Launcher
+launcher.py -- BAGO Launcher
 
 Punto de entrada principal para BAGO CLI.
 Encarga:
 1. Parsear argumentos
 2. Detectar comando (chat, validate, config, help)
-3. Delegar al módulo correspondiente
+3. Delegar al modulo correspondiente
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
 
 _CREATED_VERSION = "4.0.0"
 
-# Lee la versión desde el índice central (versions.json)
+# Lee la version desde el indice central (versions.json)
 from version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
@@ -64,9 +64,8 @@ from bago_core.commands.cmd_tools import (  # noqa: E402
 from bago_core.commands.cmd_tools import _load_tool_module as _load_tool_module  # noqa: F401,E402
 from bago_core.parsers import build_parser  # noqa: E402
 
-
 def cmd_guard(args: argparse.Namespace) -> int:
-    """Guardián de deuda técnica — previene patrones antes de commitear."""
+    """Guardian de deuda tecnica -- previene patrones antes de commitear."""
     mod = _load_tool_module("debt_guard", "debt_guard.py")
     argv: list[str] = []
     root = getattr(args, "root", "") or ""
@@ -92,7 +91,6 @@ def cmd_guard(args: argparse.Namespace) -> int:
         argv.append(subcmd)
     return mod.main(argv)
 
-
 def cmd_monitor(args: argparse.Namespace) -> int:
     """Monitor HTML en tiempo real de procesos BAGO internos."""
     mod = _load_tool_module("process_monitor", "process_monitor.py")
@@ -107,9 +105,8 @@ def cmd_monitor(args: argparse.Namespace) -> int:
     argv.append(subcmd)
     return mod.main(argv)
 
-
 def cmd_orchestrate(args: argparse.Namespace) -> int:
-    """Orchestrator v4 — Flujo Operativo (Regla Fundamental)."""
+    """Orchestrator v4 -- Flujo Operativo (Regla Fundamental)."""
     mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
     subcmd = getattr(args, "orc_cmd", None)
     argv: list[str] = []
@@ -153,7 +150,6 @@ def cmd_orchestrate(args: argparse.Namespace) -> int:
         argv += ["--help"]
     return mod.main(argv)
 
-
 def cmd_issues(args: argparse.Namespace) -> int:
     """Alias operativo para flujo list/take/close sobre orchestrator_v4."""
     mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
@@ -184,8 +180,8 @@ def cmd_issues(args: argparse.Namespace) -> int:
 def cmd_installs(args: argparse.Namespace) -> int:
     """Escanea el sistema e imprime JSON con todas las instalaciones BAGO.
 
-    Diseñado para la landing page (https://bago-...vercel.app): el usuario
-    corre `bago list-installs` y pega el resultado en la web. Cero telemetría,
+    Disenado para la landing page (https://bago-...vercel.app): el usuario
+    corre `bago list-installs` y pega el resultado en la web. Cero telemetria,
     cero red. El JSON contiene paths absolutos, versiones, presencia de
     supervisor/probe, y liveness del pid del supervisor.
     """
@@ -197,12 +193,11 @@ def cmd_installs(args: argparse.Namespace) -> int:
         argv.append("--active-only")
     return _inst_main(argv)
 
-
 def cmd_node(args: argparse.Namespace) -> int:
     """Passthrough al CLI de node_control (registry, policy, evidence, modos).
 
-    Importa dinámicamente bago_core.node_control y delega. Acepta --json
-    antes o después del subcomando. Misma superficie que `python -m bago_core.node_control`.
+    Importa dinamicamente bago_core.node_control y delega. Acepta --json
+    antes o despues del subcomando. Misma superficie que `python -m bago_core.node_control`.
     """
     from bago_core import node_control as _nc
     argv: list[str] = []
@@ -214,7 +209,20 @@ def cmd_node(args: argparse.Namespace) -> int:
     sub = getattr(args, "node_cmd", None)
     if sub:
         argv.append(sub)
-    # Some node_control subcommands accept --json after themselves
+    # Translator is special: it has a sub-subcommand (list/show/validate/map),
+    # so --json must come AFTER that sub-subcommand to be parsed correctly.
+    if sub == "translator":
+        sub_sub = getattr(args, "translator_command", None)
+        if sub_sub:
+            argv.append(sub_sub)
+        # Pass through positional piece_id (if any) and --json
+        piece_id = getattr(args, "piece_id", None)
+        if piece_id:
+            argv.append(piece_id)
+        if getattr(args, "json", False):
+            argv.append("--json")
+        return _nc.main(argv)
+    # Other node_control subcommands accept --json after themselves
     sub_with_json = {"status", "validate", "pieces", "connectors", "matrix"}
     if sub in sub_with_json and getattr(args, "json", False):
         argv.append("--json")
@@ -322,7 +330,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         parser.print_help()
         return 0
-
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "--test":

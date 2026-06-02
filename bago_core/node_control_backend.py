@@ -28,7 +28,6 @@ from bago_core.node_control_store import (
     now,
 )
 
-
 def _load_state(base_path: str | Path) -> tuple[Any, dict[str, Any]]:
     paths = registry_paths(base_path)
     paths.root.mkdir(parents=True, exist_ok=True)
@@ -69,23 +68,19 @@ def _load_state(base_path: str | Path) -> tuple[Any, dict[str, Any]]:
     }
     return paths, state
 
-
 def _persist_state(paths: Any, state: dict[str, Any]) -> None:
     json_write(paths.installations, state["installations"])
     json_write(paths.pieces, state["pieces"])
     json_write(paths.connectors, state["connectors"])
     json_write(paths.compatibility, state["compatibility"])
 
-
 def _refresh_compatibility(state: dict[str, Any]) -> None:
     state["compatibility"] = build_compatibility(state["connectors"])
-
 
 def bootstrap(base_path: str | Path) -> dict[str, Any]:
     paths, state = _load_state(base_path)
     _persist_state(paths, state)
     return {"paths": paths, "state": state}
-
 
 def status(base_path: str | Path) -> dict[str, Any]:
     boot = bootstrap(base_path)
@@ -109,7 +104,6 @@ def status(base_path: str | Path) -> dict[str, Any]:
         "connectors_data": connectors,
         "compatibility_data": state["compatibility"],
     }
-
 
 def list_pieces(base_path: str | Path, type_filter: str = "", scope_filter: str = "") -> dict[str, Any]:
     boot = bootstrap(base_path)
@@ -136,7 +130,6 @@ def list_pieces(base_path: str | Path, type_filter: str = "", scope_filter: str 
         "pieces": items,
     }
 
-
 def list_connectors(
     base_path: str | Path,
     installation_filter: str = "",
@@ -162,7 +155,6 @@ def list_connectors(
         "count": len(items),
         "connectors": items,
     }
-
 
 def matrix(base_path: str | Path) -> dict[str, Any]:
     boot = bootstrap(base_path)
@@ -214,7 +206,6 @@ def matrix(base_path: str | Path) -> dict[str, Any]:
         "rows": rows,
     }
 
-
 def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:
     boot = bootstrap(base_path)
     paths = boot["paths"]
@@ -237,6 +228,16 @@ def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:
     add_check("modes_valid", all(item["mode"] in ALLOWED_MODES for item in state["connectors"]), "all connector modes valid")
     add_check("evidence_path_writable", True, str(paths.evidence))
 
+    # Modular guard (FASE modular) -- corre check_modular.py y agrega sus findings.
+    mod_findings = _run_modular_guard()
+    mod_errors = sum(1 for f in mod_findings if f.get("severity") == "ERROR")
+    mod_warns = sum(1 for f in mod_findings if f.get("severity") == "WARN")
+    add_check(
+        "modular_guard",
+        mod_errors == 0,
+        f"{mod_errors} errors, {mod_warns} warnings (tools/check_modular.py)",
+    )
+
     if failures == 0:
         record_evidence(
             paths,
@@ -258,6 +259,39 @@ def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:
 
     return failures == 0, {"checks": checks, "failures": failures, "state": status(base_path)}
 
+def _run_modular_guard() -> list[dict[str, Any]]:
+    """Ejecuta tools/check_modular.py y devuelve sus findings.
+
+    Best-effort: si el script no existe o falla de import, devuelve un finding
+    suave en lugar de romper la validacion.
+    """
+    import subprocess
+    repo_root = Path(__file__).resolve().parent.parent
+    script = repo_root / "tools" / "check_modular.py"
+    if not script.exists():
+        return [{
+            "rule": "R6", "severity": "WARN",
+            "message": f"tools/check_modular.py no encontrado en {repo_root}",
+        }]
+    try:
+        result = subprocess.run(
+            ["python", str(script), "--json"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return [{
+            "rule": "R6", "severity": "WARN",
+            "message": f"No se pudo ejecutar check_modular.py: {exc!r}",
+        }]
+    try:
+        import json
+        report = json.loads(result.stdout or "{}")
+        return list(report.get("findings", []))
+    except Exception:  # noqa: BLE001
+        return []
 
 def connect(base_path: str | Path, installation_key: str, piece_key: str, mode: str = "connected") -> dict[str, Any]:
     paths, state = _load_state(base_path)
@@ -317,7 +351,6 @@ def connect(base_path: str | Path, installation_key: str, piece_key: str, mode: 
     )
     return {"connector": connector, "state": status(base_path)}
 
-
 def disconnect(base_path: str | Path, installation_key: str, piece_key: str) -> dict[str, Any]:
     paths, state = _load_state(base_path)
     install = find_installation(state, installation_key)
@@ -345,7 +378,6 @@ def disconnect(base_path: str | Path, installation_key: str, piece_key: str) -> 
     )
     return {"connector": connector, "state": status(base_path)}
 
-
 def set_mode(base_path: str | Path, installation_key: str, piece_key: str, mode: str) -> dict[str, Any]:
     normalized_mode = normalize_mode(mode)
     if normalized_mode not in ALLOWED_MODES:
@@ -353,7 +385,6 @@ def set_mode(base_path: str | Path, installation_key: str, piece_key: str, mode:
     if normalized_mode == "detached":
         return disconnect(base_path, installation_key, piece_key)
     return connect(base_path, installation_key, piece_key, mode=normalized_mode)
-
 
 def export_bundle(base_path: str | Path, output: str | Path | None = None) -> Path:
     boot = bootstrap(base_path)

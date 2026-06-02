@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 
-_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-cli.py — BAGO 4.1.5 CLI Entrypoint
+_CREATED_VERSION = "4.0.0"  # Version en que fue creado este archivo
+cli.py -- BAGO 4.1.5 CLI Entrypoint
 
 Wrapper ligero sobre launcher.py para compatibilidad con entrypoints.
 """

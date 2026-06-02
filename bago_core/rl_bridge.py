@@ -10,19 +10,16 @@ try:
 except ImportError:
     from bago_true_bridge import detect_bago_true
 
-
 DEFAULT_MODE = "shadow"
 ALLOWED_MODES = {"off", "shadow"}
-
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 class RLBridge:
     """Shadow-first RL bridge. It records observations; it never executes actions."""
 
-    _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
+    _CREATED_VERSION = "4.0.0"  # Version en que fue creado este archivo
 
     def __init__(self, base_path: str | Path, true_root: str | Path | None = None) -> None:
         self.base_path = Path(base_path)
@@ -99,7 +96,6 @@ class RLBridge:
             "source": "cli",
         })
         return self.status() | state
-
 
 def render_status(status: dict[str, Any]) -> str:
     external = status.get("external_rl", {})

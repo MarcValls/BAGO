@@ -7,7 +7,6 @@ from typing import Any
 
 from bago_core.node_control_ssot import ALLOWED_MODES, CLI_MODES
 
-
 def policy_for(installation: dict[str, Any], piece: dict[str, Any]) -> dict[str, Any]:
     profile = installation.get("profile", "production")
     scope = piece.get("scope", "shared")
@@ -82,11 +81,9 @@ def policy_for(installation: dict[str, Any], piece: dict[str, Any]) -> dict[str,
         "reason": reason,
     }
 
-
 def connector_id(installation_id: str, piece_id: str) -> str:
     digest = hashlib.sha1(f"{installation_id}:{piece_id}".encode("utf-8")).hexdigest()[:10]
     return f"conn-{digest}"
-
 
 def build_connectors(installations: list[dict[str, Any]], pieces: list[dict[str, Any]], now_fn) -> list[dict[str, Any]]:
     connectors: list[dict[str, Any]] = []
@@ -107,7 +104,6 @@ def build_connectors(installations: list[dict[str, Any]], pieces: list[dict[str,
             )
     return connectors
 
-
 def build_compatibility(connectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for connector in connectors:
@@ -125,16 +121,13 @@ def build_compatibility(connectors: list[dict[str, Any]]) -> list[dict[str, Any]
         )
     return rows
 
-
 def normalize_mode(mode: str | None) -> str:
     if not mode:
         return "connected"
     return CLI_MODES.get(mode.lower(), mode.lower())
 
-
 def is_valid_mode(mode: str) -> bool:
     return mode in ALLOWED_MODES
-
 
 def find_installation(state: dict[str, Any], key: str) -> dict[str, Any] | None:
     key_norm = str(key).strip().lower()
@@ -145,14 +138,12 @@ def find_installation(state: dict[str, Any], key: str) -> dict[str, Any] | None:
             return install
     return None
 
-
 def find_piece(state: dict[str, Any], key: str) -> dict[str, Any] | None:
     key_norm = str(key).strip().lower()
     for piece in state["pieces"]:
         if piece["piece_id"].lower() == key_norm:
             return piece
     return None
-
 
 def find_connector(state: dict[str, Any], installation_id: str, piece_id: str) -> dict[str, Any] | None:
     for connector in state["connectors"]:

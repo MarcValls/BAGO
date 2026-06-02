@@ -4,9 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_TRUE_ROOT = Path(r"C:\bago_true\.bago")
-DEFAULT_APPDATA_ROOT = Path(r"C:\Users\AMTEC_Terminal_1º\AppData\Local\Programs\BAGO")
+DEFAULT_APPDATA_ROOT = Path(r"C:\Users\AMTEC_Terminal_1o\AppData\Local\Programs\BAGO")
 
 EXPECTED_TRUE_SUBSYSTEMS = [
     "agents",
@@ -33,20 +32,17 @@ EXCLUDED_NAMES = {
     "__pycache__",
 }
 
-
 def _safe_read_text(path: Path, limit: int = 300_000) -> str:
     if not path.exists() or not path.is_file():
         return ""
     with path.open("rb") as fh:
         return fh.read(limit).decode("utf-8", errors="replace")
 
-
 def _json_file(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
-
 
 def _dir_status(root: Path, names: list[str]) -> list[dict[str, Any]]:
     items = []
@@ -59,7 +55,6 @@ def _dir_status(root: Path, names: list[str]) -> list[dict[str, Any]]:
             "excluded": name in EXCLUDED_NAMES,
         })
     return items
-
 
 def detect_bago_true(root: str | Path | None = None) -> dict[str, Any]:
     true_root = Path(root) if root else DEFAULT_TRUE_ROOT
@@ -96,7 +91,6 @@ def detect_bago_true(root: str | Path | None = None) -> dict[str, Any]:
         },
     }
 
-
 def detect_appdata(root: str | Path | None = None) -> dict[str, Any]:
     app_root = Path(root) if root else DEFAULT_APPDATA_ROOT
     available = app_root.exists() and app_root.is_dir()
@@ -122,7 +116,6 @@ def detect_appdata(root: str | Path | None = None) -> dict[str, Any]:
         },
     }
 
-
 def collect_status(
     true_root: str | Path | None = None,
     appdata_root: str | Path | None = None,
@@ -131,7 +124,6 @@ def collect_status(
         "bago_true": detect_bago_true(true_root),
         "appdata": detect_appdata(appdata_root),
     }
-
 
 def render_status(status: dict[str, Any], section: str = "engine") -> str:
     true_status = status["bago_true"]

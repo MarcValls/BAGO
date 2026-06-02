@@ -140,7 +140,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
     return mod.main(argv)
 
 def cmd_route(args: argparse.Namespace) -> int:
-    """Routing presets: status/validate/activate (sub-módulo cmd_route_v2)."""
+    """Routing presets: status/validate/activate (sub-modulo cmd_route_v2)."""
     import importlib.util
     from pathlib import Path
     _here = Path(__file__).resolve().parent
@@ -159,9 +159,8 @@ def cmd_route(args: argparse.Namespace) -> int:
     print(f"unknown subcommand: {sub}")
     return 1
 
-
 def cmd_scan(args: argparse.Namespace) -> int:
-    """Herramientas de análisis portables. Funcionan en cualquier proyecto."""
+    """Herramientas de analisis portables. Funcionan en cualquier proyecto."""
     tools_dir = BAGO_ROOT / ".bago" / "tools"
     if str(tools_dir) not in sys.path:
         sys.path.insert(0, str(tools_dir))

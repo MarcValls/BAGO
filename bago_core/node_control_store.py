@@ -12,7 +12,6 @@ from typing import Any
 
 from bago_core.node_control_ssot import DEFAULT_PIECE_CATALOG, PIECE_STORE_TYPES
 
-
 @dataclass(frozen=True)
 class RegistryPaths:
     root: Path
@@ -23,17 +22,14 @@ class RegistryPaths:
     evidence: Path
     exports: Path
 
-
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def slug(text: str) -> str:
     clean = "".join(ch.lower() if ch.isalnum() else "-" for ch in text)
     while "--" in clean:
         clean = clean.replace("--", "-")
     return clean.strip("-") or "item"
-
 
 def json_read(path: Path, default: Any) -> Any:
     if not path.exists():
@@ -43,18 +39,15 @@ def json_read(path: Path, default: Any) -> Any:
     except Exception:
         return default
 
-
 def json_write(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-
 
 def jsonl_append(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(payload, ensure_ascii=False))
         fh.write("\n")
-
 
 def registry_paths(base_path: str | Path) -> RegistryPaths:
     root = Path(base_path) / ".bago" / "state" / "node_control"
@@ -68,21 +61,17 @@ def registry_paths(base_path: str | Path) -> RegistryPaths:
         exports=root / "exports",
     )
 
-
 def piece_store_root() -> Path:
     return Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "pieces"
-
 
 def piece_store_dirs() -> list[Path]:
     root = piece_store_root()
     return [root / name for name in PIECE_STORE_TYPES]
 
-
 def installation_id(path: str | Path) -> str:
     norm = str(Path(path).resolve()).lower()
     digest = hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12]
     return f"inst-{digest}"
-
 
 def piece_manifest(piece: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -95,7 +84,6 @@ def piece_manifest(piece: dict[str, Any]) -> dict[str, Any]:
         "materialized_at": now(),
         "managed_by": "bago.node_control",
     }
-
 
 def materialize_piece_store(pieces: list[dict[str, Any]]) -> list[dict[str, Any]]:
     root = piece_store_root()
@@ -120,7 +108,6 @@ def materialize_piece_store(pieces: list[dict[str, Any]]) -> list[dict[str, Any]
         )
     return created
 
-
 def derive_profile(install: dict[str, Any]) -> tuple[str, str]:
     mode = (install.get("mode") or "").lower()
     version = str(install.get("version") or "")
@@ -138,7 +125,6 @@ def derive_profile(install: dict[str, Any]) -> tuple[str, str]:
         profile = "production"
     return profile, channel
 
-
 def fallback_installation(base_path: str | Path) -> dict[str, Any]:
     root = Path(base_path).resolve()
     return {
@@ -155,7 +141,6 @@ def fallback_installation(base_path: str | Path) -> dict[str, Any]:
         "policy": "observe-and-overlay",
         "source": "fallback",
     }
-
 
 def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
     try:
@@ -198,10 +183,8 @@ def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
             installs.append(fallback_installation(base_path))
     return installs
 
-
 def load_default_piece_catalog() -> list[dict[str, Any]]:
     return list(DEFAULT_PIECE_CATALOG)
-
 
 def record_evidence(paths: RegistryPaths, action: str, target: dict[str, Any], before: Any, after: Any, result: str) -> dict[str, Any]:
     entry = {

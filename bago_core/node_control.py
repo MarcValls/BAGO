@@ -26,7 +26,6 @@ from bago_core.node_control_tui import interactive_tui as _interactive_tui_mod
 
 BAGO_ROOT = Path(__file__).resolve().parents[1]
 
-
 @dataclass(frozen=True)
 class RegistryPaths:
     root: Path
@@ -37,17 +36,14 @@ class RegistryPaths:
     evidence: Path
     exports: Path
 
-
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _slug(text: str) -> str:
     clean = "".join(ch.lower() if ch.isalnum() else "-" for ch in text)
     while "--" in clean:
         clean = clean.replace("--", "-")
     return clean.strip("-") or "item"
-
 
 def _json_read(path: Path, default: Any) -> Any:
     if not path.exists():
@@ -57,18 +53,15 @@ def _json_read(path: Path, default: Any) -> Any:
     except Exception:
         return default
 
-
 def _json_write(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-
 
 def _jsonl_append(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(payload, ensure_ascii=False))
         fh.write("\n")
-
 
 def _registry_paths(base_path: str | Path) -> RegistryPaths:
     root = Path(base_path) / ".bago" / "state" / "node_control"
@@ -82,21 +75,17 @@ def _registry_paths(base_path: str | Path) -> RegistryPaths:
         exports=root / "exports",
     )
 
-
 def _piece_store_root() -> Path:
     return Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "pieces"
-
 
 def _piece_store_dirs() -> list[Path]:
     root = _piece_store_root()
     return [root / name for name in PIECE_STORE_TYPES]
 
-
 def _installation_id(path: str | Path) -> str:
     norm = str(Path(path).resolve()).lower()
     digest = hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12]
     return f"inst-{digest}"
-
 
 def _piece_manifest(piece: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -109,7 +98,6 @@ def _piece_manifest(piece: dict[str, Any]) -> dict[str, Any]:
         "materialized_at": _now(),
         "managed_by": "bago.node_control",
     }
-
 
 def _materialize_piece_store(pieces: list[dict[str, Any]]) -> list[dict[str, Any]]:
     root = _piece_store_root()
@@ -134,7 +122,6 @@ def _materialize_piece_store(pieces: list[dict[str, Any]]) -> list[dict[str, Any
         )
     return created
 
-
 def _derive_profile(install: dict[str, Any]) -> tuple[str, str]:
     mode = (install.get("mode") or "").lower()
     version = str(install.get("version") or "")
@@ -152,7 +139,6 @@ def _derive_profile(install: dict[str, Any]) -> tuple[str, str]:
         profile = "production"
     return profile, channel
 
-
 def _fallback_installation(base_path: str | Path) -> dict[str, Any]:
     root = Path(base_path).resolve()
     return {
@@ -169,7 +155,6 @@ def _fallback_installation(base_path: str | Path) -> dict[str, Any]:
         "policy": "observe-and-overlay",
         "source": "fallback",
     }
-
 
 def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
     try:
@@ -211,7 +196,6 @@ def discover_installations(base_path: str | Path) -> list[dict[str, Any]]:
         if not any(item["path"].lower() == root.lower() for item in installs):
             installs.append(_fallback_installation(base_path))
     return installs
-
 
 def _policy_for(installation: dict[str, Any], piece: dict[str, Any]) -> dict[str, Any]:
     profile = installation.get("profile", "production")
@@ -287,11 +271,9 @@ def _policy_for(installation: dict[str, Any], piece: dict[str, Any]) -> dict[str
         "reason": reason,
     }
 
-
 def _connector_id(installation_id: str, piece_id: str) -> str:
     digest = hashlib.sha1(f"{installation_id}:{piece_id}".encode("utf-8")).hexdigest()[:10]
     return f"conn-{digest}"
-
 
 def _build_connectors(installations: list[dict[str, Any]], pieces: list[dict[str, Any]]) -> list[dict[str, Any]]:
     connectors: list[dict[str, Any]] = []
@@ -312,7 +294,6 @@ def _build_connectors(installations: list[dict[str, Any]], pieces: list[dict[str
             )
     return connectors
 
-
 def _build_compatibility(connectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for connector in connectors:
@@ -329,7 +310,6 @@ def _build_compatibility(connectors: list[dict[str, Any]]) -> list[dict[str, Any
             }
         )
     return rows
-
 
 def _load_state(base_path: str | Path) -> tuple[RegistryPaths, dict[str, Any]]:
     paths = _registry_paths(base_path)
@@ -371,13 +351,11 @@ def _load_state(base_path: str | Path) -> tuple[RegistryPaths, dict[str, Any]]:
     }
     return paths, state
 
-
 def _persist_state(paths: RegistryPaths, state: dict[str, Any]) -> None:
     _json_write(paths.installations, state["installations"])
     _json_write(paths.pieces, state["pieces"])
     _json_write(paths.connectors, state["connectors"])
     _json_write(paths.compatibility, state["compatibility"])
-
 
 def _find_installation(state: dict[str, Any], key: str) -> dict[str, Any] | None:
     key_norm = str(key).strip().lower()
@@ -388,7 +366,6 @@ def _find_installation(state: dict[str, Any], key: str) -> dict[str, Any] | None
             return install
     return None
 
-
 def _find_piece(state: dict[str, Any], key: str) -> dict[str, Any] | None:
     key_norm = str(key).strip().lower()
     for piece in state["pieces"]:
@@ -396,23 +373,19 @@ def _find_piece(state: dict[str, Any], key: str) -> dict[str, Any] | None:
             return piece
     return None
 
-
 def _find_connector(state: dict[str, Any], installation_id: str, piece_id: str) -> dict[str, Any] | None:
     for connector in state["connectors"]:
         if connector["installation_id"] == installation_id and connector["piece_id"] == piece_id:
             return connector
     return None
 
-
 def _normalize_mode(mode: str | None) -> str:
     if not mode:
         return "connected"
     return CLI_MODES.get(mode.lower(), mode.lower())
 
-
 def _refresh_compatibility(state: dict[str, Any]) -> None:
     state["compatibility"] = _build_compatibility(state["connectors"])
-
 
 def _record_evidence(paths: RegistryPaths, action: str, target: dict[str, Any], before: Any, after: Any, result: str) -> dict[str, Any]:
     entry = {
@@ -429,12 +402,10 @@ def _record_evidence(paths: RegistryPaths, action: str, target: dict[str, Any], 
     _jsonl_append(paths.evidence, entry)
     return entry
 
-
 def bootstrap(base_path: str | Path) -> dict[str, Any]:
     paths, state = _load_state(base_path)
     _persist_state(paths, state)
     return {"paths": paths, "state": state}
-
 
 def status(base_path: str | Path) -> dict[str, Any]:
     boot = bootstrap(base_path)
@@ -458,7 +429,6 @@ def status(base_path: str | Path) -> dict[str, Any]:
         "connectors_data": connectors,
         "compatibility_data": state["compatibility"],
     }
-
 
 def list_pieces(base_path: str | Path, type_filter: str = "", scope_filter: str = "") -> dict[str, Any]:
     boot = bootstrap(base_path)
@@ -485,7 +455,6 @@ def list_pieces(base_path: str | Path, type_filter: str = "", scope_filter: str 
         "pieces": items,
     }
 
-
 def list_connectors(
     base_path: str | Path,
     installation_filter: str = "",
@@ -511,7 +480,6 @@ def list_connectors(
         "count": len(items),
         "connectors": items,
     }
-
 
 def matrix(base_path: str | Path) -> dict[str, Any]:
     boot = bootstrap(base_path)
@@ -563,7 +531,6 @@ def matrix(base_path: str | Path) -> dict[str, Any]:
         "rows": rows,
     }
 
-
 def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:
     boot = bootstrap(base_path)
     paths = boot["paths"]
@@ -586,6 +553,16 @@ def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:
     add_check("modes_valid", all(item["mode"] in ALLOWED_MODES for item in state["connectors"]), "all connector modes valid")
     add_check("evidence_path_writable", True, str(paths.evidence))
 
+    # Modular guard (FASE modular) -- corre check_modular.py y agrega sus findings.
+    mod_findings = _run_modular_guard()
+    mod_errors = sum(1 for f in mod_findings if f.get("severity") == "ERROR")
+    mod_warns = sum(1 for f in mod_findings if f.get("severity") == "WARN")
+    add_check(
+        "modular_guard",
+        mod_errors == 0,
+        f"{mod_errors} errors, {mod_warns} warnings (tools/check_modular.py)",
+    )
+
     if failures == 0:
         _record_evidence(
             paths,
@@ -607,6 +584,39 @@ def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:
 
     return failures == 0, {"checks": checks, "failures": failures, "state": status(base_path)}
 
+def _run_modular_guard() -> list[dict[str, Any]]:
+    """Ejecuta tools/check_modular.py y devuelve sus findings.
+
+    Best-effort: si el script no existe o falla de import, devuelve un finding
+    suave en lugar de romper la validacion.
+    """
+    import subprocess
+    repo_root = Path(__file__).resolve().parent.parent
+    script = repo_root / "tools" / "check_modular.py"
+    if not script.exists():
+        return [{
+            "rule": "R6", "severity": "WARN",
+            "message": f"tools/check_modular.py no encontrado en {repo_root}",
+        }]
+    try:
+        result = subprocess.run(
+            ["python", str(script), "--json"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return [{
+            "rule": "R6", "severity": "WARN",
+            "message": f"No se pudo ejecutar check_modular.py: {exc!r}",
+        }]
+    try:
+        import json
+        report = json.loads(result.stdout or "{}")
+        return list(report.get("findings", []))
+    except Exception:  # noqa: BLE001
+        return []
 
 def connect(base_path: str | Path, installation_key: str, piece_key: str, mode: str = "connected") -> dict[str, Any]:
     paths, state = _load_state(base_path)
@@ -666,7 +676,6 @@ def connect(base_path: str | Path, installation_key: str, piece_key: str, mode: 
     )
     return {"connector": connector, "state": status(base_path)}
 
-
 def disconnect(base_path: str | Path, installation_key: str, piece_key: str) -> dict[str, Any]:
     paths, state = _load_state(base_path)
     install = _find_installation(state, installation_key)
@@ -694,7 +703,6 @@ def disconnect(base_path: str | Path, installation_key: str, piece_key: str) -> 
     )
     return {"connector": connector, "state": status(base_path)}
 
-
 def set_mode(base_path: str | Path, installation_key: str, piece_key: str, mode: str) -> dict[str, Any]:
     normalized_mode = _normalize_mode(mode)
     if normalized_mode not in ALLOWED_MODES:
@@ -702,7 +710,6 @@ def set_mode(base_path: str | Path, installation_key: str, piece_key: str, mode:
     if normalized_mode == "detached":
         return disconnect(base_path, installation_key, piece_key)
     return connect(base_path, installation_key, piece_key, mode=normalized_mode)
-
 
 def export_bundle(base_path: str | Path, output: str | Path | None = None) -> Path:
     boot = bootstrap(base_path)
@@ -729,127 +736,10 @@ def export_bundle(base_path: str | Path, output: str | Path | None = None) -> Pa
     )
     return target
 
-
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="BAGO Node Control")
-    parser.add_argument("--base-path", default=str(BAGO_ROOT), help="Base path del runtime")
-    parser.add_argument("--json", action="store_true", help="Salida JSON")
-    sub = parser.add_subparsers(dest="command")
-
-    status_p = sub.add_parser("status", help="Muestra el registry, policy y evidence state")
-    status_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
-
-    validate_p = sub.add_parser("validate", help="Valida el registry/policy/compatibility/evidence")
-    validate_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
-
-    pieces_p = sub.add_parser("pieces", help="Lista piezas del PieceStore")
-    pieces_p.add_argument("--type", default="")
-    pieces_p.add_argument("--scope", default="")
-    pieces_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
-
-    connectors_p = sub.add_parser("connectors", help="Lista conectores del registry")
-    connectors_p.add_argument("--installation", default="")
-    connectors_p.add_argument("--piece", default="")
-    connectors_p.add_argument("--mode", default="")
-    connectors_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
-
-    matrix_p = sub.add_parser("matrix", help="Muestra la matriz Installation x Piece")
-    matrix_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
-
-    connect_p = sub.add_parser("connect", help="Conecta una installation con una piece")
-    connect_p.add_argument("--installation", required=True)
-    connect_p.add_argument("--piece", required=True)
-    connect_p.add_argument("--mode", default="connected", choices=list(CLI_MODES.keys()))
-
-    disconnect_p = sub.add_parser("disconnect", help="Desconecta una installation de una piece")
-    disconnect_p.add_argument("--installation", required=True)
-    disconnect_p.add_argument("--piece", required=True)
-
-    setmode_p = sub.add_parser("set-mode", help="Cambia el modo de un connector")
-    setmode_p.add_argument("--installation", required=True)
-    setmode_p.add_argument("--piece", required=True)
-    setmode_p.add_argument("--mode", required=True, choices=list(CLI_MODES.keys()))
-
-    export_p = sub.add_parser("export", help="Exporta el estado a un bundle JSON")
-    export_p.add_argument("--output", default="")
-
-    sub.add_parser("tui", aliases=("terminal",), help="Interfaz de terminal del gestor de instalaciones")
-
-    args = parser.parse_args(argv)
-    base_path = args.base_path
-    command = args.command or "status"
-
-    if command == "status":
-        payload = status(base_path)
-        json_flag = args.json or getattr(args, "json", False)  # subcommand --json or top-level --json
-        print(json.dumps(payload, indent=None if json_flag else 2, ensure_ascii=False))
-        return 0
-    if command == "validate":
-        ok, payload = validate(base_path)
-        json_flag = getattr(args, "json", False)
-        print(json.dumps(payload, indent=None if json_flag else 2, ensure_ascii=False))
-        return 0 if ok else 1
-    if command == "pieces":
-        payload = list_pieces(base_path, getattr(args, "type", ""), getattr(args, "scope", ""))
-        if args.json:
-            print(json.dumps(payload, indent=None, ensure_ascii=False))
-        else:
-            print(_render_pieces_mod(payload))
-        return 0
-    if command == "connectors":
-        payload = list_connectors(
-            base_path,
-            getattr(args, "installation", ""),
-            getattr(args, "piece", ""),
-            getattr(args, "mode", ""),
-        )
-        if args.json:
-            print(json.dumps(payload, indent=None, ensure_ascii=False))
-        else:
-            print(_render_connectors_mod(payload))
-        return 0
-    if command == "matrix":
-        payload = matrix(base_path)
-        if args.json:
-            print(json.dumps(payload, indent=None, ensure_ascii=False))
-        else:
-            print(_render_matrix_mod(payload))
-        return 0
-    if command == "connect":
-        payload = connect(base_path, args.installation, args.piece, args.mode)
-        print(json.dumps(payload, indent=None if args.json else 2, ensure_ascii=False))
-        return 0
-    if command == "disconnect":
-        payload = disconnect(base_path, args.installation, args.piece)
-        print(json.dumps(payload, indent=None if args.json else 2, ensure_ascii=False))
-        return 0
-    if command == "set-mode":
-        payload = set_mode(base_path, args.installation, args.piece, args.mode)
-        print(json.dumps(payload, indent=None if args.json else 2, ensure_ascii=False))
-        return 0
-    if command == "export":
-        target = export_bundle(base_path, args.output or None)
-        print(str(target))
-        return 0
-    if command in {"tui", "terminal"}:
-        return _interactive_tui_mod(
-            base_path,
-            {
-                "status": status,
-                "list_pieces": list_pieces,
-                "list_connectors": list_connectors,
-                "matrix": matrix,
-                "validate": validate,
-                "export_bundle": export_bundle,
-                "connect": connect,
-                "disconnect": disconnect,
-                "set_mode": set_mode,
-            },
-        )
-
-    parser.print_help()
-    return 1
-
+    """Thin facade: delegates CLI to :mod:`bago_core.node_control_cli`."""
+    from bago_core import node_control_cli as _cli
+    return _cli.main(argv)
 
 def _run_tests() -> int:
     import tempfile
@@ -874,8 +764,8 @@ def _run_tests() -> int:
         print("node_control.py --test: ALL PASS")
     return 0
 
-
 if __name__ == "__main__":
-    if "--test" in sys.argv:
+    import sys as _sys
+    if "--test" in _sys.argv:
         raise SystemExit(_run_tests())
     raise SystemExit(main())

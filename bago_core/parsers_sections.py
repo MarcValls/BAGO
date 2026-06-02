@@ -3,13 +3,12 @@ from __future__ import annotations
 
 import argparse
 
-
 def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     chat_parser = sub.add_parser("chat", help="Inicia el REPL de chat")
     chat_parser.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
     sub.add_parser("launch", help="Alias de chat: inicia BAGO")
     sub.add_parser("start", help="Inicia BAGO y autoevoluciona (alias de chat con auto-aprendizaje al arrancar)")
-    sub.add_parser("validate", help="Gate real de validación: security, contratos, culpas, claims, providers")
+    sub.add_parser("validate", help="Gate real de validacion: security, contratos, culpas, claims, providers")
 
     install_parser = sub.add_parser("install", help="Instala/repara BAGO desde la copia local, sin descarga")
     install_parser.add_argument("--source-root", default="", help="Raiz local desde la que instalar")
@@ -30,9 +29,9 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     uninstall_parser.add_argument("--no-elevate", action="store_true", help=argparse.SUPPRESS)
     uninstall_parser.add_argument("--elevated-child", action="store_true", help=argparse.SUPPRESS)
 
-    claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger — afirmaciones trazables")
+    claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger -- afirmaciones trazables")
     claim_sub = claim_parser.add_subparsers(dest="claim_action")
-    claim_add = claim_sub.add_parser("add", help="Añade un claim trazable")
+    claim_add = claim_sub.add_parser("add", help="Anade un claim trazable")
     claim_add.add_argument("--claim", dest="claim_text", required=True)
     claim_add.add_argument("--basis", required=True)
     claim_add.add_argument("--command", default="")
@@ -47,14 +46,14 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     claim_verify.add_argument("claim_id")
     claim_sub.add_parser("report", help="Resumen del ledger")
 
-    config_parser = sub.add_parser("config", help="Gestiona configuración")
+    config_parser = sub.add_parser("config", help="Gestiona configuracion")
     config_sub = config_parser.add_subparsers(dest="config_cmd", help="Subcomandos de config")
     config_set = config_sub.add_parser("set", help="Establece clave de config")
     config_set.add_argument("key", nargs="?")
     config_set.add_argument("value", nargs=argparse.REMAINDER)
     config_get = config_sub.add_parser("get", help="Obtiene clave de config")
     config_get.add_argument("key", nargs="?")
-    config_sub.add_parser("list", help="Lista configuración completa")
+    config_sub.add_parser("list", help="Lista configuracion completa")
     config_sub.add_parser("reset", help="Restaura defaults")
 
     llm_parser = sub.add_parser("llm", help="Gestiona arranque provider-aware")
@@ -63,10 +62,10 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     llm_sub.add_parser("list", help="Lista providers instalados/configurados y disponibles")
     llm_start = llm_sub.add_parser("start", help="Inicia BAGO con provider/modelo seleccionado")
     llm_start.add_argument("--provider", dest="llm_provider", default="", help="Provider instalado/configurado")
-    llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesión")
+    llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesion")
     llm_start.add_argument("--allow-unconfigured", action="store_true", help="Permite arrancar contra provider no configurado")
     llm_start.add_argument("--persist-default", action="store_true", help="Guarda provider/modelo como default")
-    llm_start.add_argument("--dry-run", action="store_true", help="Registra selección sin abrir chat")
+    llm_start.add_argument("--dry-run", action="store_true", help="Registra seleccion sin abrir chat")
     llm_start.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
 
     engine_parser = sub.add_parser("engine", help="Estado del backend avanzado bago_true")
@@ -104,7 +103,7 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     serve_parser = sub.add_parser("serve", help="Inicia servidor API HTTP")
     serve_parser.add_argument("--host", default="127.0.0.1", help="Host de escucha (default: 127.0.0.1). Usar 0.0.0.0 requiere --token.")
     serve_parser.add_argument("--port", type=int, default=8080, help="Puerto (default: 8080)")
-    serve_parser.add_argument("--token", default="", help="Token de autenticación API")
+    serve_parser.add_argument("--token", default="", help="Token de autenticacion API")
     serve_parser.add_argument("--ui-dist", default="", help="Directorio dist de la UI React (si se omite, intenta ui-react\\dist)")
 
     evidence_parser = sub.add_parser("evidence", help="Genera bundle de evidencias verificables")
@@ -121,23 +120,22 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     runtime_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del host")
 
     monitor_parser = sub.add_parser("monitor", help="Monitor HTML en tiempo real de procesos BAGO")
-    monitor_parser.add_argument("--root", default="", help="Raíz del proyecto a monitorizar (default: cwd)")
+    monitor_parser.add_argument("--root", default="", help="Raiz del proyecto a monitorizar (default: cwd)")
     monitor_parser.add_argument("--port", type=int, default=7890, help="Puerto HTTP del monitor (default: 7890)")
     monitor_parser.add_argument("--refresh", type=int, default=5, help="Segundos entre auto-refresh (default: 5)")
     monitor_sub = monitor_parser.add_subparsers(dest="monitor_cmd")
     monitor_sub.add_parser("serve", help="Sirve el monitor en http://127.0.0.1:PORT/ (default)")
-    monitor_sub.add_parser("generate", help="Genera monitor.html estático en .bago/monitor.html")
-
+    monitor_sub.add_parser("generate", help="Genera monitor.html estatico en .bago/monitor.html")
 
 def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
-    orc_parser = sub.add_parser("orchestrate", help="Orchestrator v4 — Flujo Operativo (Regla Fundamental)")
-    orc_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
+    orc_parser = sub.add_parser("orchestrate", help="Orchestrator v4 -- Flujo Operativo (Regla Fundamental)")
+    orc_parser.add_argument("--root", default="", help="Raiz del proyecto (default: cwd)")
     orc_parser.add_argument("--json", dest="as_json", action="store_true", help="Output JSON")
     orc_sub = orc_parser.add_subparsers(dest="orc_cmd")
     orc_list = orc_sub.add_parser("list", help="Lista Task Briefs")
     orc_list.add_argument("--status", default="", help="Filtrar por estado (open/assigned/closed)")
     orc_create = orc_sub.add_parser("create", help="Crea un Task Brief")
-    orc_create.add_argument("--task", required=True, help="Descripción de la tarea")
+    orc_create.add_argument("--task", required=True, help="Descripcion de la tarea")
     orc_create.add_argument("--domain", default="", help="Dominio (Backend/Frontend/Producto/Contenido/Deployment)")
     orc_create.add_argument("--priority", default="", help="Prioridad (P0/P1/P2/Post-MVP)")
     orc_assign = orc_sub.add_parser("assign", help="Asigna brief a un especialista")
@@ -148,17 +146,17 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     orc_handoff.add_argument("--from", dest="from_domain", required=True, help="Dominio origen")
     orc_handoff.add_argument("--to", dest="to_domain", required=True, help="Dominio destino")
     orc_handoff.add_argument("--summary", default="", help="Resumen del trabajo realizado")
-    orc_review = orc_sub.add_parser("review", help="Revisión del Orchestrator (Fase 5)")
+    orc_review = orc_sub.add_parser("review", help="Revision del Orchestrator (Fase 5)")
     orc_review.add_argument("brief_id")
-    orc_review.add_argument("--result", default="approved", choices=["approved", "requires_changes", "reencaminar"], help="Resultado de la revisión")
+    orc_review.add_argument("--result", default="approved", choices=["approved", "requires_changes", "reencaminar"], help="Resultado de la revision")
     orc_close = orc_sub.add_parser("close", help="Cierra un Task Brief (Fase 6)")
     orc_close.add_argument("brief_id")
-    orc_close.add_argument("--force", action="store_true", help="Cierra sin revisión previa")
+    orc_close.add_argument("--force", action="store_true", help="Cierra sin revision previa")
     orc_show = orc_sub.add_parser("show", help="Muestra detalle de un brief")
     orc_show.add_argument("brief_id")
 
-    issues_parser = sub.add_parser("issues", help="Flujo rápido de issues (list/take/close)")
-    issues_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
+    issues_parser = sub.add_parser("issues", help="Flujo rapido de issues (list/take/close)")
+    issues_parser.add_argument("--root", default="", help="Raiz del proyecto (default: cwd)")
     issues_parser.add_argument("--json", dest="as_json", action="store_true", help="Output JSON")
     issues_sub = issues_parser.add_subparsers(dest="issues_cmd")
     issues_list = issues_sub.add_parser("list", help="Lista issues")
@@ -168,7 +166,7 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     issues_take.add_argument("--agent", default="codex", help="Agente especialista")
     issues_close = issues_sub.add_parser("close", help="Cierra una issue")
     issues_close.add_argument("brief_id")
-    issues_close.add_argument("--force", action="store_true", help="Cierra sin revisión previa")
+    issues_close.add_argument("--force", action="store_true", help="Cierra sin revision previa")
 
     scan_parser = sub.add_parser("scan", help="Herramientas de analisis portables (secrets, deps, todos, tokens, dead, names, sincerity, net, metrics, infra, heal, security, doctor, commit, git, all)")
     scan_parser.add_argument("--root", default="", help="Directorio raiz a escanear (default: cwd)")
@@ -194,7 +192,7 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
         scan_sub.add_parser(name, **kwargs)
     # arguments for individual scan commands are attached in build_parser for brevity.
 
-    canary_parser = sub.add_parser("canary", help="Honeytokens — trampas de deteccion de intrusos")
+    canary_parser = sub.add_parser("canary", help="Honeytokens -- trampas de deteccion de intrusos")
     canary_parser.add_argument("--root", default="")
     canary_sub = canary_parser.add_subparsers(dest="canary_cmd")
     canary_deploy = canary_sub.add_parser("deploy")
@@ -257,27 +255,27 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     agent_kill.add_argument("agent_id")
     agent_sub.add_parser("status", help="Muestra consonancia entre agentes")
 
-    guard_parser = sub.add_parser("guard", help="Guardián de deuda técnica — previene patrones antes de commitear")
-    guard_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
+    guard_parser = sub.add_parser("guard", help="Guardian de deuda tecnica -- previene patrones antes de commitear")
+    guard_parser.add_argument("--root", default="", help="Raiz del proyecto (default: cwd)")
     guard_sub = guard_parser.add_subparsers(dest="guard_cmd")
     guard_sub.add_parser("install", help="Instala hook git pre-commit")
     guard_sub.add_parser("uninstall", help="Elimina hook git pre-commit")
     guard_sub.add_parser("status", help="Muestra estado del hook y reglas activas")
     guard_check = guard_sub.add_parser("check", help="Verifica archivos staged (o todos con --all)")
-    guard_check.add_argument("--all", dest="all_files", action="store_true", help="Verificar todos los .py, no sólo staged")
+    guard_check.add_argument("--all", dest="all_files", action="store_true", help="Verificar todos los .py, no solo staged")
     guard_config = guard_sub.add_parser("config", help="Gestiona reglas activas")
     guard_config_sub = guard_config.add_subparsers(dest="config_action")
-    guard_config_sub.add_parser("show", help="Muestra configuración actual")
-    guard_config_sub.add_parser("reset", help="Restaura configuración a defaults")
-    guard_enable = guard_config_sub.add_parser("enable", help="Activa una regla (D01…D10)")
+    guard_config_sub.add_parser("show", help="Muestra configuracion actual")
+    guard_config_sub.add_parser("reset", help="Restaura configuracion a defaults")
+    guard_enable = guard_config_sub.add_parser("enable", help="Activa una regla (D01...D10)")
     guard_enable.add_argument("rule_code")
-    guard_disable = guard_config_sub.add_parser("disable", help="Desactiva una regla (D01…D10)")
+    guard_disable = guard_config_sub.add_parser("disable", help="Desactiva una regla (D01...D10)")
     guard_disable.add_argument("rule_code")
-    guard_setaction = guard_config_sub.add_parser("set-action", help="Cambia acción: block o warn")
+    guard_setaction = guard_config_sub.add_parser("set-action", help="Cambia accion: block o warn")
     guard_setaction.add_argument("rule_code")
     guard_setaction.add_argument("action_value")
 
-    route_parser = sub.add_parser("route", help="Gestión de presets de routing y contrato activo")
+    route_parser = sub.add_parser("route", help="Gestion de presets de routing y contrato activo")
     route_sp = route_parser.add_subparsers(dest="route_cmd", required=False)
     route_status = route_sp.add_parser("status", help="Muestra el preset activo y el contrato")
     route_status.add_argument("--user-bago", default=None)
@@ -301,9 +299,8 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     inv_parser.add_argument("--format", default="text", choices=["text", "md", "json"])
 
     installs_parser = sub.add_parser("list-installs", help="Escanea el sistema e imprime JSON con todas las instalaciones BAGO (para el gestor de la landing)")
-    installs_parser.add_argument("--plain", action="store_true", help="JSON compacto en una línea (fácil de pegar en la web)")
+    installs_parser.add_argument("--plain", action="store_true", help="JSON compacto en una linea (facil de pegar en la web)")
     installs_parser.add_argument("--active-only", action="store_true", help="Solo listar instalaciones que existen")
-
 
 def add_node_parsers(sub: argparse._SubParsersAction) -> None:
     node_parser = sub.add_parser("node", help="Gestor de registry, policy, evidence y compatibilidad")
@@ -341,3 +338,36 @@ def add_node_parsers(sub: argparse._SubParsersAction) -> None:
     node_export.add_argument("--output", default="")
     node_export.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
     node_sub.add_parser("tui", aliases=("terminal",), help="Interfaz de terminal interactiva del gestor")
+
+    add_translator_parser(node_sub)
+
+def add_translator_parser(node_sub: argparse._SubParsersAction) -> None:
+    """Register the `bago node translator <subcmd>` subcommand group (FASE 12).
+
+    Runtime dispatch lives in :mod:`bago_core.node_control_translator`.
+    This is just the argparse surface -- keep the rule:
+    * parser shape -> parsers_sections.py / parsers.py
+    * render       -> node_control_render.py
+    * dispatch     -> node_control_translator.py (and node_control.py for facade)
+    * model/state  -> node_control_store.py / node_control_ssot.py
+    * policy       -> node_control_policy.py
+    * network      -> node_control_backend.py
+    * interactive  -> node_control_tui.py
+    """
+    translator_p = node_sub.add_parser("translator", help="Gestiona piezas traductoras (BAGO IR <-> modelo)")
+    translator_sub = translator_p.add_subparsers(dest="translator_command")
+
+    t_list = translator_sub.add_parser("list", help="Lista las piezas traductoras instaladas")
+    t_list.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    t_show = translator_sub.add_parser("show", help="Muestra el detalle de una pieza traductora")
+    t_show.add_argument("piece_id", help="ID de la pieza traductora (ej. translator.openai.gpt-4o)")
+    t_show.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    t_validate = translator_sub.add_parser("validate", help="Smoke test encode->decode roundtrip")
+    t_validate.add_argument("piece_id", nargs="?", default="", help="ID de pieza o vacio para todas")
+    t_validate.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    t_map = translator_sub.add_parser("map", help="Preview encode de un IR de ejemplo al dialecto de la pieza")
+    t_map.add_argument("piece_id", help="ID de la pieza traductora")
+    t_map.add_argument("--json", action="store_true", help=argparse.SUPPRESS)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cmd_provider.py — Inspect and patch providers in .bago/config.json.
+cmd_provider.py -- Inspect and patch providers in .bago/config.json.
 
 Uso:
     python bago_core\\cli.py provider list
@@ -15,10 +15,8 @@ import json
 import sys
 from pathlib import Path
 
-
 def _user_bago_root() -> Path:
     return Path.home() / ".bago"
-
 
 def _read_config(user_root: Path) -> dict:
     cfg = user_root / "config.json"
@@ -29,11 +27,9 @@ def _read_config(user_root: Path) -> dict:
     except Exception:
         return {"providers": {}}
 
-
 def _write_config(user_root: Path, data: dict) -> None:
     cfg = user_root / "config.json"
     cfg.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
 
 def cmd_provider_list(args: argparse.Namespace) -> int:
     user_root = Path(args.user_bago or str(_user_bago_root()))
@@ -45,7 +41,6 @@ def cmd_provider_list(args: argparse.Namespace) -> int:
         print(f"default_model: {data['default_model']}")
     return 0
 
-
 def cmd_provider_set_fallback(args: argparse.Namespace) -> int:
     user_root = Path(args.user_bago or str(_user_bago_root()))
     data = _read_config(user_root)
@@ -55,7 +50,6 @@ def cmd_provider_set_fallback(args: argparse.Namespace) -> int:
     _write_config(user_root, data)
     print(f"set ollama-local.fallback_model={args.model}")
     return 0
-
 
 def cmd_provider_remove_fallback(args: argparse.Namespace) -> int:
     user_root = Path(args.user_bago or str(_user_bago_root()))
@@ -70,7 +64,6 @@ def cmd_provider_remove_fallback(args: argparse.Namespace) -> int:
         print("no fallback_model set")
     return 0
 
-
 def build_subparser(parser):
     p = parser.add_subparsers(dest="command", required=False)
     pp = p.add_parser("provider", help="Provider inspection/patching")
@@ -82,7 +75,6 @@ def build_subparser(parser):
     ss.add_argument("--model", required=True)
     sr = sp.add_parser("remove-fallback", help="Remove ollama-local fallback_model")
     sr.add_argument("--user-bago", default=None)
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bago")
@@ -99,7 +91,6 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "remove-fallback":
         return cmd_provider_remove_fallback(args)
     return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -91,7 +91,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         return 0
 
     if args.config_cmd == "list" or args.config_cmd is None:
-        print(f"Configuración de BAGO {_BAGO_VERSION}:")
+        print(f"Configuracion de BAGO {_BAGO_VERSION}:")
         print(f"  Base path      : {args.base_path or os.getcwd()}")
         print(f"  Default provider: {cm.default_provider}")
         print(f"  Default model   : {cm.default_model}")
@@ -110,7 +110,7 @@ def cmd_config(args: argparse.Namespace) -> int:
 
     if args.config_cmd == "reset":
         cm.reset()
-        print("✓ Configuración restaurada a valores por defecto.")
+        print("✓ Configuracion restaurada a valores por defecto.")
         return 0
 
     print("Uso: bago config [set|get|list|reset]")

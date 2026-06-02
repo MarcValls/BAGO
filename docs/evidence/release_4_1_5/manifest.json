@@ -1,0 +1,133 @@
+{
+  "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
+  "contract_version": "4.1.5",
+  "related_to": [
+    "docs\\contracts\\bago_v4_runtime_contract.json",
+    "docs\\contracts\\bago_v4_repl_contract.md",
+    "docs\\contracts\\bago_v4_evidence_contract.md",
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
+  ],
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta útil y de forma indirecta preservando conocimiento, planificación y estado reproducible.",
+  "details": {
+    "mode": "simulated",
+    "provider": "mock-contract",
+    "model": "contract-assistant-v1",
+    "session_id": "6ef8cc6c-170",
+    "state_root": ".bago\\state"
+  },
+  "status": "pass",
+  "recorded_at": "2026-06-01T19:06:46.198764+00:00",
+  "validation_commands": [
+    "python test_e2e.py",
+    "python bago_core\\cli.py evidence --test",
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Users\\AMTEC_Terminal_1º\\BAGO\\docs\\evidence\\release_4_1_5\" --overwrite"
+  ],
+  "checks": [
+    {
+      "id": "session-runtime",
+      "status": "pass",
+      "detail": "La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta."
+    },
+    {
+      "id": "direct-assistance",
+      "status": "pass",
+      "detail": "Existe una respuesta util al objetivo planteado por el usuario."
+    },
+    {
+      "id": "knowledge-persistence",
+      "status": "pass",
+      "detail": "La evidencia incluye conocimiento recuperable derivado de la sesion."
+    },
+    {
+      "id": "session-save",
+      "status": "pass",
+      "detail": "La sesion se guardo en disco con metadatos de continuidad."
+    },
+    {
+      "id": "plan-generation",
+      "status": "pass",
+      "detail": "El runtime genero un plan reutilizable desde el parser REPL real."
+    }
+  ],
+  "artifacts": [
+    "session\\context.jsonl",
+    "session\\timeline.jsonl",
+    "session\\tokens.json",
+    "session\\meta.json",
+    "session\\session.json",
+    "assistant_response.txt",
+    "commands\\results.json",
+    "knowledge\\recent_memories.json",
+    "objective.json",
+    "plan.txt"
+  ],
+  "files": [
+    {
+      "path": "assistant_response.txt",
+      "sha256": "a9f3d52c3d496f27f880e214bdee039dd3d0838b3ec63e1b567ed7839711732b",
+      "size_bytes": 226
+    },
+    {
+      "path": "checksums.sha256",
+      "sha256": "ebf660cf4c690971699e46067c78eef508c35016165380ff256ebdc7a8a55734",
+      "size_bytes": 1032
+    },
+    {
+      "path": "commands\\results.json",
+      "sha256": "92bf31f3b931cc6073a799ec54204753ec8cad5645ac074b45298e1befb86606",
+      "size_bytes": 1251
+    },
+    {
+      "path": "knowledge\\recent_memories.json",
+      "sha256": "371d1eb5c8e68101866c3251879e4caa03218cb3e67782f4114b55e52d976856",
+      "size_bytes": 262
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "ae9e8f31d2d870431ff7400b5aa7a40f9ac359f362db450495f510874c10e048",
+      "size_bytes": 2331
+    },
+    {
+      "path": "objective.json",
+      "sha256": "31885c52dc3dbcf7761ec402e105e18950b8853d965903f90bf2535efdefc224",
+      "size_bytes": 382
+    },
+    {
+      "path": "plan.txt",
+      "sha256": "189b7d71d532615d988c616567afd8b8d1c6e9a5e9a232c1b5fb198e48a2ec85",
+      "size_bytes": 391
+    },
+    {
+      "path": "report.md",
+      "sha256": "128e11709af32a6da8f821038403bce654cadac40198e81d87702f8ca3de40ab",
+      "size_bytes": 2684
+    },
+    {
+      "path": "session\\context.jsonl",
+      "sha256": "98d673e056e511e585929ec5d329cd46631ca692306d19abf8986adaf6ed680a",
+      "size_bytes": 1650
+    },
+    {
+      "path": "session\\meta.json",
+      "sha256": "a9ba54cf1fbcdeff3167fdc2054b83c83093cdbae852eea27eb4cf60d3427199",
+      "size_bytes": 212
+    },
+    {
+      "path": "session\\session.json",
+      "sha256": "40b60c982604d79cae6dd99d7eeab8aa7a4deaf524f95bf62c2bf5edcc84eb00",
+      "size_bytes": 259
+    },
+    {
+      "path": "session\\timeline.jsonl",
+      "sha256": "d23d175eb754e971157ea4139dffd5f39b77af44c3190bfffa06443eb1ca2965",
+      "size_bytes": 298
+    },
+    {
+      "path": "session\\tokens.json",
+      "sha256": "212bc182319e99d42c0fadbd1d326bd14bdc56c1d2e832011d35fde66f3b3c50",
+      "size_bytes": 125
+    }
+  ]
+}

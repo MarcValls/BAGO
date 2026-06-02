@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
-"""bago_core/cli_installs.py — escaneo de instalaciones BAGO en la máquina.
+"""bago_core/cli_installs.py -- escaneo de instalaciones BAGO en la maquina.
 
 Uso:
     python -m bago_core.cli_installs            # JSON pretty a stdout
     python -m bago_core.cli_installs --plain    # sin indent (para pegar en web)
-    bago list-installs                          # vía launcher (todas las copias)
+    bago list-installs                          # via launcher (todas las copias)
 
 Detecta instalaciones en:
-  - C:\\Program Files\\BAGO              (instalación de sistema)
-  - %USERPROFILE%\\.bago                 (instalación de trabajo por defecto)
+  - C:\\Program Files\\BAGO              (instalacion de sistema)
+  - %USERPROFILE%\\.bago                 (instalacion de trabajo por defecto)
   - %USERPROFILE%\\.bago\\active         (work / copia activa)
   - %USERPROFILE%\\.bago\\launch         (ignition / plataforma de lanzamiento)
   - %USERPROFILE%\\.bago\\dev            (dev / plataforma de desarrollo)
   - %USERPROFILE%\\BAGO                  (source tree del dev)
   - Cualquier otra ruta que tenga bago.ps1 + bago_core + scripts
 
-Cada instalación detectada trae:
+Cada instalacion detectada trae:
   - path         ruta absoluta
   - mode         active | work | dev | ign | launch | source | unknown
-  - version      versión leída de release_version.txt o del tag en repo
+  - version      version leida de release_version.txt o del tag en repo
   - has_bago_ps1 bool
   - has_bago_cmd bool
   - has_supervisor bool (si existe scripts/bago_supervisor.py)
   - has_probe       bool (si existe scripts/probe.py)
   - state_file      ~/.bago/state/supervisor.json si existe
-  - supervisor_alive bool si el pid del state está vivo
-  - last_release_sig SHA corto del release.sig más cercano
+  - supervisor_alive bool si el pid del state esta vivo
+  - last_release_sig SHA corto del release.sig mas cercano
   - tag              v4.1.5-r2 si hay tag snapshot en bago_core/tags
 """
 from __future__ import annotations
@@ -40,10 +40,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 KNOWN_LOCATIONS: list[tuple[str, str, str]] = [
     # (path_template, mode, description)
-    ("{pf}\\BAGO",                                            "system",  "Instalación de sistema"),
+    ("{pf}\\BAGO",                                            "system",  "Instalacion de sistema"),
     ("{home}\\.bago",                                          "user",    "User root (default work)"),
     ("{home}\\.bago\\active",                                  "work",    "Active / work"),
     ("{home}\\.bago\\launch",                                  "ign",     "Ignition / launch"),
@@ -53,10 +52,8 @@ KNOWN_LOCATIONS: list[tuple[str, str, str]] = [
 
 EXTRA_HINTS = ["bago.ps1", "bago.cmd", "bago.sh", "release_version.txt"]
 
-
 def _expand(p: str) -> Path:
     return Path(os.path.expandvars(p)).expanduser()
-
 
 def _pid_alive(pid: int) -> bool:
     if not pid:
@@ -74,13 +71,11 @@ def _pid_alive(pid: int) -> bool:
     except Exception:
         return False
 
-
 def _read_version(root: Path) -> str:
     rv = root / "release_version.txt"
     if rv.is_file():
         return rv.read_text(encoding="utf-8", errors="replace").strip()
     return ""
-
 
 def _short_sig(p: Path) -> str:
     if not p.is_file():
@@ -91,9 +86,8 @@ def _short_sig(p: Path) -> str:
     except Exception:
         return ""
 
-
 def _read_tag(root: Path) -> str:
-    # busca el tag snapshot más reciente (v*.json) en bago_core/tags
+    # busca el tag snapshot mas reciente (v*.json) en bago_core/tags
     tags_dir = root / "bago_core" / "tags"
     if not tags_dir.is_dir():
         return ""
@@ -105,9 +99,8 @@ def _read_tag(root: Path) -> str:
     versions.sort(reverse=True)
     return versions[0][1]  # e.g. "v4.1.5"
 
-
 def _classify(path: Path) -> dict[str, Any]:
-    """Devuelve dict con todos los metadatos de la instalación."""
+    """Devuelve dict con todos los metadatos de la instalacion."""
     out: dict[str, Any] = {
         "path":              str(path),
         "exists":            path.is_dir(),
@@ -134,8 +127,8 @@ def _classify(path: Path) -> dict[str, Any]:
     sig = path / "release.sig"
     if sig.is_file():
         out["release_sig_short"] = _short_sig(sig)
-    # supervisor state vive en ~/.bago/state NO en la instalación, pero
-    # si la propia instalación tiene su state local, leemos de ahí.
+    # supervisor state vive en ~/.bago/state NO en la instalacion, pero
+    # si la propia instalacion tiene su state local, leemos de ahi.
     state = path / "state" / "supervisor.json"
     if not state.is_file():
         state = Path.home() / ".bago" / "state" / "supervisor.json"
@@ -153,7 +146,6 @@ def _classify(path: Path) -> dict[str, Any]:
             out["supervisor_state"] = {"error": f"{type(exc).__name__}: {exc}"}
     return out
 
-
 def _scan() -> list[dict[str, Any]]:
     pf  = os.environ.get("ProgramFiles", r"C:\Program Files")
     home = os.environ.get("USERPROFILE") or os.environ.get("HOME") or str(Path.home())
@@ -170,7 +162,6 @@ def _scan() -> list[dict[str, Any]]:
         results.append(info)
     return results
 
-
 def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
     alive = [i for i in items if i.get("supervisor_alive")]
     has_sup = [i for i in items if i.get("has_supervisor")]
@@ -186,11 +177,10 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, Any]:
         "with_supervisor_alive": len(alive),
     }
 
-
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plain", action="store_true",
-                   help="JSON compacto en una sola línea (fácil de copiar a la web)")
+                   help="JSON compacto en una sola linea (facil de copiar a la web)")
     p.add_argument("--active-only", action="store_true",
                    help="Solo listar instalaciones que existen (descarta las que faltan)")
     args = p.parse_args(argv)
@@ -204,7 +194,6 @@ def main(argv: list[str] | None = None) -> int:
     indent = None if args.plain else 2
     print(json.dumps(payload, indent=indent, ensure_ascii=False))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

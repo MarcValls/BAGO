@@ -4,22 +4,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 try:
     import numpy as np
 except Exception:
     np = None  # type: ignore[assignment]
 
-
 def numpy_available() -> bool:
     return np is not None
-
 
 def _require_numpy() -> Any:
     if np is None:
         raise RuntimeError("numpy not installed; RL policy layer disabled")
     return np
-
 
 class LinUCBPolicy:
     def __init__(self, n_actions: int, n_features: int, alpha: float = 1.0):
@@ -57,7 +53,6 @@ class LinUCBPolicy:
         self.A[action] += npx.outer(x, x)
         self.b[action] += float(reward) * x
         self._update_all()
-
 
 class BCPolicy:
     def __init__(self, n_actions: int, n_features: int, lr: float = 0.01):
@@ -113,18 +108,14 @@ class BCPolicy:
         policy.bias = npx.asarray(data["bias"], dtype=float)
         return policy
 
-
 def policy_dir(base_path: str | Path) -> Path:
     return Path(base_path) / ".bago" / "state" / "rl_policies"
-
 
 def bc_policy_path(base_path: str | Path) -> Path:
     return policy_dir(base_path) / "bc_policy.json"
 
-
 def _transition_log(base_path: str | Path) -> Path:
     return Path(base_path) / ".bago" / "state" / "rl_transitions.jsonl"
-
 
 def load_transition_samples(base_path: str | Path, n_features: int) -> list[tuple[list[float], int, float]]:
     path = _transition_log(base_path)
@@ -149,12 +140,11 @@ def load_transition_samples(base_path: str | Path, n_features: int) -> list[tupl
             continue
     return samples
 
-
 # ---------------------------------------------------------------------------
 # Auto-ingesta de transiciones desde el historial real del usuario.
-# Misma fuente que la autoevolución del clasificador de intenciones:
-# convierte cada mensaje del usuario en una transición (features, action, reward)
-# para poder entrenar una política BC sin requerir interacciones en vivo.
+# Misma fuente que la autoevolucion del clasificador de intenciones:
+# convierte cada mensaje del usuario en una transicion (features, action, reward)
+# para poder entrenar una politica BC sin requerir interacciones en vivo.
 # Capa shadow: nunca ejecuta acciones, solo aprende a recomendar.
 # ---------------------------------------------------------------------------
 
@@ -164,7 +154,7 @@ ACTION_INDEX: dict[str, int] = {name: i for i, name in enumerate(INTENT_ACTIONS)
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
     "chat": ["hola", "hey", "saludos", "continua", "gracias", "adios", "bago",
-             "bago next", "bago start", "español", "hello", "hi"],
+             "bago next", "bago start", "espanol", "hello", "hi"],
     "review": ["revisa", "mira", "reune", "busca", "chequea", "examina", "verifica",
                "analiza esto", "mira esto", "mira ahora", "list_directory",
                "read_file", "dame el contenido"],
@@ -178,9 +168,8 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
 
 _PATH_TOKENS = (":\\", "/", "\\", ".py", ".js", ".md", ".json", ".ps1")
 
-
 def classify_message(message: str) -> str:
-    """Clasifica un mensaje en una intención (mirror de intent_engine, autocontenido)."""
+    """Clasifica un mensaje en una intencion (mirror de intent_engine, autocontenido)."""
     msg = message.lower().strip()
     for intent, words in _INTENT_KEYWORDS.items():
         if any(w in msg for w in words):
@@ -189,7 +178,6 @@ def classify_message(message: str) -> str:
         return "chat"
     return "work"
 
-
 def message_features(message: str) -> list[float]:
     """Vector de features determinista (4 dims) a partir del mensaje."""
     msg = message.lower()
@@ -197,18 +185,17 @@ def message_features(message: str) -> list[float]:
     f_path = 1.0 if any(t in msg for t in _PATH_TOKENS) else 0.0
     f_exec = 1.0 if any(w in msg for w in _INTENT_KEYWORDS["execute"]) else 0.0
     f_question = 1.0 if (msg.strip().endswith("?") or msg.strip().startswith(
-        ("que", "qué", "como", "cómo", "por que", "por qué", "cuando", "cuándo", "donde", "dónde"))) else 0.0
+        ("que", "que", "como", "como", "por que", "por que", "cuando", "cuando", "donde", "donde"))) else 0.0
     return [f_len, f_path, f_exec, f_question]
-
 
 def synthesize_transitions_from_history(base_path: str | Path, n_features: int = 4, limit: int = 4000) -> int:
     """Genera transiciones BC desde el historial de sesiones (~/.copilot/session-store.db)
-    y las escribe en el log de transiciones. Devuelve el número de transiciones añadidas.
-    Solo escribe si el log está vacío/inexistente (evita duplicar en cada entrenamiento)."""
+    y las escribe en el log de transiciones. Devuelve el numero de transiciones anadidas.
+    Solo escribe si el log esta vacio/inexistente (evita duplicar en cada entrenamiento)."""
     import sqlite3
 
     if n_features != 4:
-        return 0  # las features sintetizadas son de dimensión 4
+        return 0  # las features sintetizadas son de dimension 4
 
     log_path = _transition_log(base_path)
     if log_path.exists() and log_path.stat().st_size > 0:
@@ -236,7 +223,7 @@ def synthesize_transitions_from_history(base_path: str | Path, n_features: int =
     events: list[dict[str, Any]] = []
     for row in rows:
         msg = row["user_message"]
-        if not msg or "══" in msg or "┌─" in msg or len(msg) > 400:
+        if not msg or "══" in msg or "┌-" in msg or len(msg) > 400:
             continue
         if msg in seen:
             continue
@@ -262,14 +249,13 @@ def synthesize_transitions_from_history(base_path: str | Path, n_features: int =
             fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
     return len(events)
 
-
 def train_bc_policy(base_path: str | Path, n_actions: int, n_features: int) -> dict[str, Any]:
     if not numpy_available():
         return {"status": "disabled", "reason": "numpy not installed", "can_execute": False}
     samples = load_transition_samples(base_path, n_features)
     source = "transition_log"
     if not samples:
-        # Autoevolución: si no hay transiciones en vivo, aprender del historial real.
+        # Autoevolucion: si no hay transiciones en vivo, aprender del historial real.
         ingested = synthesize_transitions_from_history(base_path, n_features)
         if ingested:
             samples = load_transition_samples(base_path, n_features)
@@ -296,7 +282,6 @@ def train_bc_policy(base_path: str | Path, n_actions: int, n_features: int) -> d
         "can_execute": False,
     }
 
-
 def eval_bc_policy(base_path: str | Path, n_features: int) -> dict[str, Any]:
     if not numpy_available():
         return {"status": "disabled", "reason": "numpy not installed", "can_execute": False}
@@ -311,7 +296,6 @@ def eval_bc_policy(base_path: str | Path, n_features: int) -> dict[str, Any]:
         "prediction_for_zero_vector": prediction,
         "can_execute": False,
     }
-
 
 def render_policy_report(report: dict[str, Any], title: str) -> str:
     lines = [title, "-" * 40]

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 
-_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-evidence_bundle.py — BAGO 4.1.5 Contract Evidence Generator
+_CREATED_VERSION = "4.0.0"  # Version en que fue creado este archivo
+evidence_bundle.py -- BAGO 4.1.5 Contract Evidence Generator
 
 Genera bundles de evidencia verificables para los contratos v4.
 El modo simulated usa un adapter mock, pero ejecuta el runtime real
 de SessionManager, comandos REPL, persistencia y KnowledgeBase.
-El modo real usa el provider/configuración activos y exige respuesta viva.
+El modo real usa el provider/configuracion activos y exige respuesta viva.
 """
 
 from __future__ import annotations
@@ -42,7 +42,6 @@ from provider_adapter import HealthStatus, ModelInfo, ProviderAdapter, ProviderR
 from session_manager import ADAPTER_REGISTRY, SessionManager
 from switch_engine import SwitchEngine
 
-
 @dataclass(frozen=True)
 class ObjectiveProfile:
     objective_id: str
@@ -54,19 +53,18 @@ class ObjectiveProfile:
     knowledge_query: str
     real_prompt: str
 
-
 PROFILES: dict[str, ObjectiveProfile] = {
     "community-knowledge": ObjectiveProfile(
         objective_id="community-knowledge",
         title="Asistencia comunitaria basada en conocimiento abierto",
         summary=(
             "Demuestra que BAGO v4 puede asistir al usuario de forma directa "
-            "con una respuesta útil y de forma indirecta preservando conocimiento, "
-            "planificación y estado reproducible."
+            "con una respuesta util y de forma indirecta preservando conocimiento, "
+            "planificacion y estado reproducible."
         ),
         user_prompt=(
             "Resume en dos frases como BAGO v4 puede ayudar a una comunidad abierta "
-            "a convertir conocimiento disperso en acciones útiles para el usuario."
+            "a convertir conocimiento disperso en acciones utiles para el usuario."
         ),
         plan_task=(
             "publicar una mejora pequena y verificable de conocimiento comunitario "
@@ -83,7 +81,6 @@ PROFILES: dict[str, ObjectiveProfile] = {
         ),
     ),
 }
-
 
 class ContractMockAdapter(ProviderAdapter):
     """Adapter local para generar evidencia simulada usando el runtime real."""
@@ -174,7 +171,6 @@ class ContractMockAdapter(ProviderAdapter):
             "La evidencia valida que la ayuda ofrecida puede repetirse y auditarse."
         )
 
-
 @contextmanager
 def _registered_mock_adapter():
     previous = ADAPTER_REGISTRY.get("mock-contract")
@@ -187,20 +183,16 @@ def _registered_mock_adapter():
         else:
             ADAPTER_REGISTRY["mock-contract"] = previous
 
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
-
 def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -209,12 +201,10 @@ def _sha256(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
-
 def _copy_if_exists(source: Path, target: Path) -> None:
     if source.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-
 
 def _sanitize_result(result: dict[str, Any]) -> dict[str, Any]:
     clean = {
@@ -225,14 +215,12 @@ def _sanitize_result(result: dict[str, Any]) -> dict[str, Any]:
         clean["action"] = result["action"]
     return clean
 
-
 def _prepare_output_dir(output_dir: Path, overwrite: bool) -> None:
     if output_dir.exists():
         if not overwrite:
             raise FileExistsError(f"El directorio ya existe: {output_dir}")
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-
 
 def _copy_session_artifacts(base_path: Path, session_id: str, output_dir: Path) -> list[str]:
     state_dir = base_path / ".bago" / "state" / "sessions"
@@ -254,7 +242,6 @@ def _copy_session_artifacts(base_path: Path, session_id: str, output_dir: Path) 
 
     return copied
 
-
 def _collect_file_digests(output_dir: Path) -> list[dict[str, Any]]:
     files: list[dict[str, Any]] = []
     for path in sorted(output_dir.rglob("*")):
@@ -267,11 +254,9 @@ def _collect_file_digests(output_dir: Path) -> list[dict[str, Any]]:
             })
     return files
 
-
 def _write_checksums(output_dir: Path, files: list[dict[str, Any]]) -> None:
     lines = [f"{entry['sha256']} *{entry['path']}" for entry in files if entry["path"] != "checksums.sha256"]
     _write_text(output_dir / "checksums.sha256", "\n".join(lines) + ("\n" if lines else ""))
-
 
 def _build_report(
     *,
@@ -287,7 +272,7 @@ def _build_report(
     output_dir: Path,
 ) -> str:
     lines = [
-        f"# Bundle de evidencia — {profile.title}",
+        f"# Bundle de evidencia -- {profile.title}",
         "",
         f"- **Modo:** `{mode}`",
         f"- **Objetivo:** `{profile.objective_id}`",
@@ -315,7 +300,7 @@ def _build_report(
         "",
     ])
     for check in checks:
-        lines.append(f"- **{check['id']}**: {check['status']} — {check['detail']}")
+        lines.append(f"- **{check['id']}**: {check['status']} -- {check['detail']}")
 
     lines.extend([
         "",
@@ -334,7 +319,6 @@ def _build_report(
 
     return "\n".join(lines).rstrip() + "\n"
 
-
 def _validation_commands(mode: str, objective: str, output_dir: Path, provider: str, model: str) -> list[str]:
     commands = [
         "python test_e2e.py",
@@ -349,7 +333,6 @@ def _validation_commands(mode: str, objective: str, output_dir: Path, provider: 
             f'python bago_core\\cli.py evidence --mode real --provider {provider} --model "{model}" --output "{output_dir}" --overwrite'
         )
     return commands
-
 
 def _generate_bundle_with_manager(
     *,
@@ -506,7 +489,6 @@ def _generate_bundle_with_manager(
     _write_json(output_dir / "manifest.json", manifest)
     return output_dir / "manifest.json"
 
-
 def generate_bundle(
     *,
     mode: str,
@@ -558,7 +540,6 @@ def generate_bundle(
     finally:
         mgr.close()
 
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bago evidence",
@@ -573,7 +554,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--overwrite", action="store_true", help="Sobrescribe el directorio de salida si existe")
     parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del generador")
     return parser
-
 
 def _run_tests() -> int:
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -595,7 +575,6 @@ def _run_tests() -> int:
         assert (output_dir / "knowledge" / "recent_memories.json").exists()
         print("evidence_bundle.py --test: ALL PASS")
     return 0
-
 
 def run(args: argparse.Namespace) -> int:
     if getattr(args, "test", False):
@@ -622,12 +601,10 @@ def run(args: argparse.Namespace) -> int:
     print(f"✓ Bundle generado: {manifest_path}")
     return 0
 
-
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     return run(args)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

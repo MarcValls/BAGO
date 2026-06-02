@@ -97,7 +97,7 @@ def cmd_rl(args: argparse.Namespace) -> int:
     return 1
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    """Gate real de validación — no solo health checks de providers."""
+    """Gate real de validacion -- no solo health checks de providers."""
     import ast
     import json as _json
     import re
@@ -117,12 +117,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
         marker = "✓" if ok else "✗"
         line = f"  [{marker}] {name}"
         if detail:
-            line += f" — {detail}"
+            line += f" -- {detail}"
         print(line)
 
-    print("\nBAGO VALIDATE\n" + "─" * 40)
+    print("\nBAGO VALIDATE\n" + "-" * 40)
 
-    # ── 1. Syntax: compilar todos los .py en .bago/ y bago_core/ ──────────────
+    # -- 1. Syntax: compilar todos los .py en .bago/ y bago_core/ --------------
     py_errors: list[str] = []
     for search_root in [bago_dir, base / "bago_core"]:
         if not search_root.exists():
@@ -137,7 +137,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 py_errors.append(f"{py_file.relative_to(base)}: {e}")
     _check("syntax", not py_errors, f"{len(py_errors)} error(es)" if py_errors else "todos los .py compilables")
 
-    # ── 2. Contratos presentes ─────────────────────────────────────────────────
+    # -- 2. Contratos presentes -------------------------------------------------
     contracts_dir = base / "docs" / "contracts"
     required_contracts = [
         "bago_v4_runtime_contract.json",
@@ -151,7 +151,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     _check("contracts_present", not missing_contracts,
            f"faltan: {missing_contracts}" if missing_contracts else f"{len(required_contracts)} contratos presentes")
 
-    # ── 3. auto_allow_tools = false ────────────────────────────────────────────
+    # -- 3. auto_allow_tools = false --------------------------------------------
     config_file = bago_dir / "config.json"
     config_manager_file = bago_dir / "core" / "config_manager.py"
     auto_allow_ok = False
@@ -179,7 +179,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         config_detail = f"runtime={runtime_val}, default={default_val}"
     _check("auto_allow_tools_false", auto_allow_ok, config_detail)
 
-    # ── 4. execute_command sin shell=True expuesto ─────────────────────────────
+    # -- 4. execute_command sin shell=True expuesto -----------------------------
     tool_registry = bago_dir / "core" / "tool_registry.py"
     shell_true_ok = True
     shell_detail = "tool_registry.py no encontrado"
@@ -195,7 +195,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         shell_detail = f"{len(exposed)} ocurrencia(s) de shell=True" if exposed else "no expuesto"
     _check("no_shell_true", shell_true_ok, shell_detail)
 
-    # ── 5. API no arranca en 0.0.0.0 por defecto ──────────────────────────────
+    # -- 5. API no arranca en 0.0.0.0 por defecto ------------------------------
     bridge_file = bago_dir / "api" / "bridge.py"
     api_host_ok = True
     api_detail = "bridge.py no encontrado"
@@ -204,10 +204,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
         # Buscar HTTPServer(("0.0.0.0" como hardcode (no dentro de self.host)
         hardcoded = re.search(r'HTTPServer\(\s*\(\s*["\']0\.0\.0\.0["\']', src)
         api_host_ok = hardcoded is None
-        api_detail = "hardcode 0.0.0.0 detectado" if hardcoded else "host proviene de parámetro"
+        api_detail = "hardcode 0.0.0.0 detectado" if hardcoded else "host proviene de parametro"
     _check("api_host_not_hardcoded", api_host_ok, api_detail)
 
-    # ── 6. CORS sin wildcard ──────────────────────────────────────────────────
+    # -- 6. CORS sin wildcard --------------------------------------------------
     cors_ok = True
     cors_detail = "bridge.py no encontrado"
     if bridge_file.exists():
@@ -217,7 +217,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         cors_detail = "sin wildcard" if cors_ok else "wildcard CORS detectado"
     _check("cors_no_wildcard", cors_ok, cors_detail)
 
-    # ── 7. .gitignore excluye .bago/state/ ────────────────────────────────────
+    # -- 7. .gitignore excluye .bago/state/ ------------------------------------
     gitignore = base / ".gitignore"
     gitignore_ok = False
     gitignore_detail = ".gitignore no encontrado"
@@ -227,7 +227,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         gitignore_detail = "excluye .bago/state/" if gitignore_ok else ".bago/state/ no excluido"
     _check("state_excluded_from_vcs", gitignore_ok, gitignore_detail)
 
-    # ── 8. Culpas abiertas ─────────────────────────────────────────────────────
+    # -- 8. Culpas abiertas -----------------------------------------------------
     culpas_file = bago_dir / "state" / "culpas" / "culpas.jsonl"
     culpas_ok = True
     culpas_detail = "sin culpas registradas"
@@ -247,7 +247,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         culpas_detail = f"{len(open_culpas)} culpas abiertas: {open_culpas}" if open_culpas else "sin culpas abiertas"
     _check("no_open_culpas", culpas_ok, culpas_detail)
 
-    # ── 8. Claims ledger: no hay claims fallados ───────────────────────────────
+    # -- 8. Claims ledger: no hay claims fallados -------------------------------
     claims_file = bago_dir / "state" / "evidence" / "claims.jsonl"
     claims_ok = True
     claims_detail = "sin claims registrados"
@@ -267,8 +267,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
             claims_detail = f"error al leer ledger: {exc}"
     _check("no_failed_claims", claims_ok, claims_detail)
 
-    # ── 9. Provider health (comportamiento original, ahora un check más) ───────
-    print("  [→] provider_health (requiere providers activos):")
+    # -- 9. Provider health (comportamiento original, ahora un check mas) -------
+    print("  [->] provider_health (requiere providers activos):")
     sys.path.insert(0, str(bago_dir / "core"))
     try:
         from session_manager import SessionManager
@@ -281,27 +281,27 @@ def cmd_validate(args: argparse.Namespace) -> int:
                         inst = adapter_cls(config=mgr.config.provider_config(name))
                         health = inst.health_check()
                         marker = "✓" if health.ok else "·"
-                        print(f"       [{marker}] {name:15} — {health.detail}")
+                        print(f"       [{marker}] {name:15} -- {health.detail}")
                         if health.ok:
                             any_provider_ok = True
                     except Exception as exc:
-                        print(f"       [·] {name:15} — error: {exc}")
+                        print(f"       [·] {name:15} -- error: {exc}")
             finally:
                 mgr.close()
         _check("at_least_one_provider_healthy", any_provider_ok,
-               "al menos un provider responde" if any_provider_ok else "ningún provider disponible (normal si no hay LLM activo)")
+               "al menos un provider responde" if any_provider_ok else "ningun provider disponible (normal si no hay LLM activo)")
     except Exception as exc:
         _check("at_least_one_provider_healthy", False, f"error al cargar session_manager: {exc}")
 
-    # ── Resultado final ────────────────────────────────────────────────────────
-    print("\n" + "─" * 40)
+    # -- Resultado final --------------------------------------------------------
+    print("\n" + "-" * 40)
     if fails == 0:
-        print(f"✓ VALIDATE PASS — {len(checks)} checks OK")
+        print(f"✓ VALIDATE PASS -- {len(checks)} checks OK")
     else:
-        print(f"✗ VALIDATE FAIL — {fails}/{len(checks)} checks fallaron")
+        print(f"✗ VALIDATE FAIL -- {fails}/{len(checks)} checks fallaron")
         for c in checks:
             if c["status"] == "FAIL":
-                print(f"  → [{c['check']}]: {c['detail']}")
+                print(f"  -> [{c['check']}]: {c['detail']}")
     print()
     return 0 if fails == 0 else 1
 

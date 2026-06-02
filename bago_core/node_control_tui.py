@@ -7,13 +7,11 @@ from typing import Any, Callable
 
 from bago_core.node_control_render import render_connectors, render_matrix, render_pieces, render_text
 
-
 def _read_input(prompt: str) -> str | None:
     try:
         return input(prompt)
     except EOFError:
         return None
-
 
 def _prompt_text(prompt: str, default: str = "") -> str:
     suffix = f" [{default}]" if default else ""
@@ -22,7 +20,6 @@ def _prompt_text(prompt: str, default: str = "") -> str:
         return default
     value = raw.strip()
     return value or default
-
 
 def _prompt_choice(prompt: str, options: list[str], default_index: int = 0) -> int:
     if not options:
@@ -44,15 +41,13 @@ def _prompt_choice(prompt: str, options: list[str], default_index: int = 0) -> i
             selected = int(raw) - 1
             if 0 <= selected < len(options):
                 return selected
-        print("Selecciona un número válido.")
-
+        print("Selecciona un numero valido.")
 
 def _pause() -> None:
     try:
         input("\nEnter para continuar...")
     except EOFError:
         pass
-
 
 def _print_tui_header(summary: dict[str, Any]) -> None:
     print("\nBAGO NODE CONTROL · TERMINAL")
@@ -69,12 +64,10 @@ def _print_tui_header(summary: dict[str, Any]) -> None:
         print(f"Modes       : {mode_bits}")
     print("=" * 72)
 
-
 def _print_block(title: str, text: str) -> None:
     print(f"\n{title}")
     print("-" * len(title))
     print(text)
-
 
 def _select_installation(summary: dict[str, Any]) -> dict[str, Any] | None:
     installs = summary.get("installations_data", [])
@@ -90,7 +83,6 @@ def _select_installation(summary: dict[str, Any]) -> dict[str, Any] | None:
         return None
     return installs[index]
 
-
 def _select_piece(summary: dict[str, Any]) -> dict[str, Any] | None:
     pieces = summary.get("pieces_data", [])
     if not pieces:
@@ -104,7 +96,6 @@ def _select_piece(summary: dict[str, Any]) -> dict[str, Any] | None:
     if index < 0:
         return None
     return pieces[index]
-
 
 def interactive_tui(
     base_path: str | Path,
@@ -137,7 +128,7 @@ def interactive_tui(
         print("8. Desconectar")
         print("9. Cambiar modo")
         print("0. Salir")
-        choice_raw = _read_input("\nOpción: ")
+        choice_raw = _read_input("\nOpcion: ")
         if choice_raw is None:
             print("\nEntrada cerrada. Saliendo del gestor de instalaciones.")
             return 0
@@ -167,13 +158,13 @@ def interactive_tui(
             continue
         if choice in {"5", "validate"}:
             ok, payload = validate_fn(base_path)
-            _print_block("Validación", __import__("json").dumps(payload, indent=2, ensure_ascii=False))
+            _print_block("Validacion", __import__("json").dumps(payload, indent=2, ensure_ascii=False))
             print(f"\nResultado: {'OK' if ok else 'FAIL'}")
             _pause()
             continue
         if choice in {"6", "export"}:
             default_name = f"node-control-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-            output = _prompt_text("Ruta de exportación", default_name)
+            output = _prompt_text("Ruta de exportacion", default_name)
             target = export_fn(base_path, output)
             print(f"Exportado en: {target}")
             _pause()
@@ -197,7 +188,7 @@ def interactive_tui(
                 continue
             mode = ["connected", "shadow", "locked", "readonly", "overlay"][mode_idx]
             payload = connect_fn(base_path, install["installation_id"], piece["piece_id"], mode)
-            _print_block("Conexión", __import__("json").dumps(payload, indent=2, ensure_ascii=False))
+            _print_block("Conexion", __import__("json").dumps(payload, indent=2, ensure_ascii=False))
             _pause()
             continue
         if choice in {"8", "disconnect"}:
@@ -210,7 +201,7 @@ def interactive_tui(
                 _pause()
                 continue
             payload = disconnect_fn(base_path, install["installation_id"], piece["piece_id"])
-            _print_block("Desconexión", __import__("json").dumps(payload, indent=2, ensure_ascii=False))
+            _print_block("Desconexion", __import__("json").dumps(payload, indent=2, ensure_ascii=False))
             _pause()
             continue
         if choice in {"9", "set-mode"}:
@@ -236,5 +227,5 @@ def interactive_tui(
             _pause()
             continue
 
-        print("Opción no válida.")
+        print("Opcion no valida.")
         _pause()
