@@ -54,6 +54,7 @@ from bago_core.commands.cmd_tools import (  # noqa: E402
     cmd_backup,
     cmd_canary,
     cmd_inventory,
+    cmd_issues,
     cmd_preflight,
     cmd_project,
     cmd_route,
@@ -233,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_preflight(args)
     elif args.command == "toolsmith":
         return cmd_toolsmith(args)
+    elif args.command == "issues":
+        return cmd_issues(args)
     elif args.command == "agent":
         return cmd_agent(args)
     elif args.command == "route":
