@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Instalador remoto de BAGO v4.1.5 - sin descarga manual.
+  Instalador remoto de BAGO - siempre usa la ultima release de GitHub.
 
 .DESCRIPTION
   Descarga el release oficial de GitHub, lo extrae y ejecuta install-v4.ps1.
@@ -32,13 +32,27 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$version = "v4.1.5"
-$asset = "bago-v4.1.5.zip"
-$releaseUrl = "https://github.com/MarcValls/BAGO/releases/download/$version/$asset"
+$apiUrl = "https://api.github.com/repos/MarcValls/BAGO/releases?per_page=20"
+$releases = Invoke-RestMethod -Uri $apiUrl -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
+$release = @($releases) |
+    Where-Object { -not $_.draft } |
+    Sort-Object { [datetime]$_.published_at } -Descending |
+    Select-Object -First 1
+if (-not $release) {
+    throw "No se encontro ninguna release publicada de BAGO."
+}
+$version = [string]$release.tag_name
+$assetInfo = @($release.assets) | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
+if (-not $assetInfo) {
+    throw "La ultima release de BAGO no contiene un asset .zip instalable."
+}
+$asset = [string]$assetInfo.name
+$releaseUrl = [string]$assetInfo.browser_download_url
 $tempZip = Join-Path $env:TEMP $asset
-$tempExtract = Join-Path $env:TEMP "bago-$version-extract"
+$safeVersion = $version -replace '[^A-Za-z0-9._-]', '_'
+$tempExtract = Join-Path $env:TEMP "bago-$safeVersion-extract"
 
-Write-Host "[install-remote] Descargando BAGO $version ..." -ForegroundColor Cyan
+Write-Host "[install-remote] Descargando BAGO $version ($asset) ..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri $releaseUrl -OutFile $tempZip -UseBasicParsing
 
 Write-Host "[install-remote] Extrayendo ..." -ForegroundColor Cyan
