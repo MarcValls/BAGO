@@ -637,6 +637,78 @@ def cmd_evolve(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
     }
 
 
+def cmd_train(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    """Verifica el dataset de entrenamiento de comandos en tiempo real dentro del chat.
+
+    Uso: /train [demo|all|fallos|/comando]
+    Sin args → demo rápido (15 frases).
+    all / todo → suite completa + timeouts.
+    fallos     → solo frases que fallan.
+    /autopilot → filtra un comando concreto.
+
+    La salida aparece línea a línea directamente en el chat (streaming).
+    Retorna {"action": "streamed"} para que _handle_command no re-imprima nada.
+    """
+    import subprocess
+
+    bago_root = Path(__file__).resolve().parents[2]
+    script = bago_root / "test_command_intents.py"
+    if not script.exists():
+        return {"ok": False, "message": f"No se encontró {script}. Reinstala BAGO."}
+
+    subcmd = (args[0] if args else "demo").strip().lower()
+    argv = [sys.executable, "-u", str(script)]  # -u = unbuffered
+
+    if subcmd in ("all", "todo", "todos", "--all"):
+        argv += []                   # sin flags = demo + timeouts + suite completa
+    elif subcmd in ("fallos", "fail", "--fail-only"):
+        argv += ["--fail-only"]
+    elif subcmd in ("demo", "--demo", ""):
+        argv += ["--demo"]
+    elif subcmd.startswith("/"):
+        argv += [subcmd]             # filtrar un comando concreto, ej. /autopilot
+    else:
+        argv += ["--demo"]
+
+    # Cabecera visual inline
+    label = subcmd if subcmd else "demo"
+    print(f"\033[1m\033[96m▶ /train {label}\033[0m", flush=True)
+
+    try:
+        env = {**__import__("os").environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+        proc = subprocess.Popen(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+        )
+        assert proc.stdout is not None
+        for raw_line in proc.stdout:
+            sys.stdout.write(raw_line)
+            sys.stdout.flush()
+        proc.wait(timeout=60)
+        ok = proc.returncode == 0
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        print("\033[91mTimeout (60 s) — proceso detenido.\033[0m", flush=True)
+        ok = False
+    except Exception as exc:
+        print(f"\033[91mError al ejecutar train: {exc}\033[0m", flush=True)
+        ok = False
+
+    # Pie visual
+    if ok:
+        print("\033[92m✓ /train completado\033[0m", flush=True)
+    else:
+        print("\033[91m✗ /train terminó con errores\033[0m", flush=True)
+
+    # Retorna "streamed" → _handle_command no re-imprimirá nada
+    return {"ok": ok, "action": "streamed", "message": ""}
+
+
 # Registry de comandos
 COMMAND_REGISTRY: dict[str, Any] = {
     "menu": cmd_menu,
@@ -662,6 +734,7 @@ COMMAND_REGISTRY: dict[str, Any] = {
     "agent": cmd_agent,
     "memory": cmd_memory,
     "evolve": cmd_evolve,
+    "train": cmd_train,
     "update": cmd_update,
     "help": cmd_help,
     "quit": cmd_quit,
