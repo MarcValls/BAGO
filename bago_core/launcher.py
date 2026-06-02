@@ -202,7 +202,7 @@ def cmd_node(args: argparse.Namespace) -> int:
     """Passthrough al CLI de node_control (registry, policy, evidence, modos).
 
     Importa dinámicamente bago_core.node_control y delega. Acepta --json
-    antes del subcomando. Misma superficie que `python -m bago_core.node_control`.
+    antes o después del subcomando. Misma superficie que `python -m bago_core.node_control`.
     """
     from bago_core import node_control as _nc
     argv: list[str] = []
@@ -214,6 +214,10 @@ def cmd_node(args: argparse.Namespace) -> int:
     sub = getattr(args, "node_cmd", None)
     if sub:
         argv.append(sub)
+    # Some node_control subcommands accept --json after themselves
+    sub_with_json = {"status", "validate", "pieces", "connectors", "matrix"}
+    if sub in sub_with_json and getattr(args, "json", False):
+        argv.append("--json")
     return _nc.main(argv)
 
 def _read_release_label(root: Path) -> str:

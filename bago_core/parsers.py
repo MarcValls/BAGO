@@ -413,8 +413,10 @@ def build_parser(
 
     # ── node (control centralizado de instalaciones/piezas/conectores) ─────
     node_parser = sub.add_parser("node", help="Control centralizado: registry, policy, evidence, modos")
+    node_parser.add_argument("--json", action="store_true", help="Salida JSON (forwarded a node_control)")
     node_sub = node_parser.add_subparsers(dest="node_cmd", help="Subcomandos node")
     for nc in ("status", "validate", "pieces", "connectors", "matrix", "export", "tui"):
-        node_sub.add_parser(nc, help=f"bago node {nc}")
+        sub_p = node_sub.add_parser(nc, help=f"bago node {nc}")
+        sub_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
     return parser

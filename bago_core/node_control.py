@@ -736,8 +736,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Salida JSON")
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("status", help="Muestra el registry, policy y evidence state")
-    sub.add_parser("validate", help="Valida el registry/policy/compatibility/evidence")
+    status_p = sub.add_parser("status", help="Muestra el registry, policy y evidence state")
+    status_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    validate_p = sub.add_parser("validate", help="Valida el registry/policy/compatibility/evidence")
+    validate_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
     pieces_p = sub.add_parser("pieces", help="Lista piezas del PieceStore")
     pieces_p.add_argument("--type", default="")
@@ -778,11 +781,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "status":
         payload = status(base_path)
-        print(json.dumps(payload, indent=None if args.json else 2, ensure_ascii=False))
+        json_flag = args.json or getattr(args, "json", False)  # subcommand --json or top-level --json
+        print(json.dumps(payload, indent=None if json_flag else 2, ensure_ascii=False))
         return 0
     if command == "validate":
         ok, payload = validate(base_path)
-        print(json.dumps(payload, indent=None if args.json else 2, ensure_ascii=False))
+        json_flag = getattr(args, "json", False)
+        print(json.dumps(payload, indent=None if json_flag else 2, ensure_ascii=False))
         return 0 if ok else 1
     if command == "pieces":
         payload = list_pieces(base_path, getattr(args, "type", ""), getattr(args, "scope", ""))
