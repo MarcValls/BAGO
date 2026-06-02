@@ -155,6 +155,52 @@ def _write_checksums(output_dir: Path, files: list[dict[str, Any]]) -> None:
     _write_text(output_dir / "checksums.sha256", "\n".join(lines) + ("\n" if lines else ""))
 
 
+def _build_report_header(
+    *,
+    profile: ObjectiveProfile,
+    mode: str,
+    provider: str,
+    model: str,
+    session_id: str,
+    output_dir: Path,
+) -> list[str]:
+    """Markdown header for the evidence report (R4: small helper)."""
+    return [
+        f"# Bundle de evidencia -- {profile.title}",
+        "",
+        f"- **Modo:** `{mode}`",
+        f"- **Objetivo:** `{profile.objective_id}`",
+        f"- **Provider/modelo:** `{provider}/{model}`",
+        f"- **Session ID:** `{session_id}`",
+        f"- **Generado en:** `{output_dir}`",
+        "",
+    ]
+
+
+def _format_checks_lines(checks: list[dict[str, str]]) -> list[str]:
+    lines = ["## Comprobaciones demostrables", ""]
+    for check in checks:
+        lines.append(
+            f"- **{check['id']}**: {check['status']} -- {check['detail']}"
+        )
+    lines.append("")
+    return lines
+
+
+def _format_commands_lines(commands: dict[str, dict[str, Any]]) -> list[str]:
+    lines = ["## Comandos capturados", ""]
+    for name, result in commands.items():
+        lines.extend([
+            f"### {name}",
+            "",
+            "```text",
+            result.get("message", "").strip(),
+            "```",
+            "",
+        ])
+    return lines
+
+
 def _build_report(
     *,
     mode: str,
@@ -168,20 +214,21 @@ def _build_report(
     plan_text: str,
     output_dir: Path,
 ) -> str:
-    lines = [
-        f"# Bundle de evidencia -- {profile.title}",
-        "",
-        f"- **Modo:** `{mode}`",
-        f"- **Objetivo:** `{profile.objective_id}`",
-        f"- **Provider/modelo:** `{provider}/{model}`",
-        f"- **Session ID:** `{session_id}`",
-        f"- **Generado en:** `{output_dir}`",
-        "",
+    """Compose the human-readable report.md (R4: small, side-effect free)."""
+    lines = _build_report_header(
+        profile=profile,
+        mode=mode,
+        provider=provider,
+        model=model,
+        session_id=session_id,
+        output_dir=output_dir,
+    )
+    lines.extend([
         "## Resultado directo al usuario",
         "",
         response_text.strip(),
         "",
-    ]
+    ])
     if plan_text:
         lines.extend([
             "## Plan generado",
@@ -191,29 +238,8 @@ def _build_report(
             "```",
             "",
         ])
-
-    lines.extend([
-        "## Comprobaciones demostrables",
-        "",
-    ])
-    for check in checks:
-        lines.append(f"- **{check['id']}**: {check['status']} -- {check['detail']}")
-
-    lines.extend([
-        "",
-        "## Comandos capturados",
-        "",
-    ])
-    for name, result in commands.items():
-        lines.extend([
-            f"### {name}",
-            "",
-            "```text",
-            result.get("message", "").strip(),
-            "```",
-            "",
-        ])
-
+    lines.extend(_format_checks_lines(checks))
+    lines.extend(_format_commands_lines(commands))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -233,55 +259,162 @@ def _validation_commands(mode: str, objective: str, output_dir: Path, provider: 
     return commands
 
 
-def _generate_bundle_with_manager(
+def _run_repl_commands(
     *,
     mgr: SessionManager,
-    mode: str,
+    engine: SwitchEngine,
     profile: ObjectiveProfile,
-    output_dir: Path,
-    workspace_path: Path,
-) -> Path:
-    engine = SwitchEngine(mgr.adapters)
+    mode: str,
+) -> tuple[dict[str, dict[str, Any]], str]:
+    """Run the standard REPL evidence commands and collect their results.
 
-    direct_response = mgr.send(profile.user_prompt if mode == "simulated" else profile.real_prompt)
-    if not direct_response.strip():
-        raise RuntimeError("La respuesta del provider esta vacia.")
-
+    Returns ``(commands, plan_text)``. The simulated mode also runs
+    ``/plan`` and ``/good``; the real mode skips them. The result dict
+    is keyed by command name (e.g. ``/status``) for the manifest.
+    """
     status_result = _sanitize_result(execute("/status", mgr, engine))
-    memory_add_result = _sanitize_result(execute(f"/memory add {profile.knowledge_entry}", mgr, engine))
-    memory_search_result = _sanitize_result(execute(f"/memory search {profile.knowledge_query}", mgr, engine))
-    save_result: dict[str, Any] | None = None
+    memory_add_result = _sanitize_result(
+        execute(f"/memory add {profile.knowledge_entry}", mgr, engine)
+    )
+    memory_search_result = _sanitize_result(
+        execute(f"/memory search {profile.knowledge_query}", mgr, engine)
+    )
 
     plan_text = ""
+    commands: dict[str, dict[str, Any]] = {
+        "/status": status_result,
+        "/memory add": memory_add_result,
+        "/memory search": memory_search_result,
+    }
+
     if mode == "simulated":
         plan_result = execute(f"/plan {profile.plan_task}", mgr, engine)
         plan_view = _sanitize_result(plan_result)
-        commands = {
-            "/status": status_result,
-            "/plan": plan_view,
-            "/memory add": memory_add_result,
-            "/memory search": memory_search_result,
-        }
+        commands["/plan"] = plan_view
         plan_text = plan_view["message"]
-        good_result = _sanitize_result(execute("/good", mgr, engine))
-        commands["/good"] = good_result
-    else:
-        commands = {
-            "/status": status_result,
-            "/memory add": memory_add_result,
-            "/memory search": memory_search_result,
-        }
+        commands["/good"] = _sanitize_result(execute("/good", mgr, engine))
 
-    save_result = _sanitize_result(execute("/save", mgr, engine))
-    commands["/save"] = save_result
+    commands["/save"] = _sanitize_result(execute("/save", mgr, engine))
+    return commands, plan_text
 
+
+def _collect_evidence(
+    *,
+    mgr: SessionManager,
+    profile: ObjectiveProfile,
+) -> list[dict[str, Any]]:
+    """Pick recent memories matching the objective's knowledge queries."""
     recent_memories = mgr.knowledge.list_recent(limit=5)
-    exported_memory = [
+    return [
         item for item in recent_memories
         if profile.knowledge_query.lower() in item["content"].lower()
         or profile.knowledge_entry.lower() in item["content"].lower()
     ]
 
+
+def _build_baseline_checks(
+    *,
+    direct_response: str,
+    copied_artifacts: list[str],
+    exported_memory: list[dict[str, Any]],
+    output_dir: Path,
+) -> list[dict[str, str]]:
+    """The four always-present contract checks (R4)."""
+    return [
+        {
+            "id": "session-runtime",
+            "status": "pass" if copied_artifacts else "fail",
+            "detail": (
+                "La sesion genero artefactos persistentes en "
+                "context.jsonl/timeline/tokens/meta."
+            ),
+        },
+        {
+            "id": "direct-assistance",
+            "status": "pass" if direct_response.strip() else "fail",
+            "detail": (
+                "Existe una respuesta util al objetivo planteado por el "
+                "usuario."
+            ),
+        },
+        {
+            "id": "knowledge-persistence",
+            "status": "pass" if exported_memory else "fail",
+            "detail": (
+                "La evidencia incluye conocimiento recuperable derivado "
+                "de la sesion."
+            ),
+        },
+        {
+            "id": "session-save",
+            "status": "pass"
+                if (output_dir / "session" / "session.json").exists()
+                else "fail",
+            "detail": (
+                "La sesion se guardo en disco con metadatos de "
+                "continuidad."
+            ),
+        },
+    ]
+
+
+def _simulated_mode_check(profile: ObjectiveProfile) -> dict[str, str]:
+    return {
+        "id": "plan-generation",
+        "status": "pass" if profile.plan_task else "fail",
+        "detail": (
+            "El runtime definio un plan reutilizable desde el parser "
+            "REPL real."
+        ),
+    }
+
+
+def _live_mode_check(mgr: SessionManager) -> dict[str, str]:
+    return {
+        "id": "live-provider-health",
+        "status": "pass" if mgr.status()["health"]["ok"] else "fail",
+        "detail": (
+            "El provider real respondio con salud positiva antes de "
+            "cerrar el bundle."
+        ),
+    }
+
+
+def _build_manifest_checks(
+    *,
+    mode: str,
+    profile: ObjectiveProfile,
+    direct_response: str,
+    copied_artifacts: list[str],
+    exported_memory: list[dict[str, Any]],
+    output_dir: Path,
+    mgr: SessionManager,
+) -> list[dict[str, str]]:
+    """Build the contract checks for the evidence manifest (R4)."""
+    checks = _build_baseline_checks(
+        direct_response=direct_response,
+        copied_artifacts=copied_artifacts,
+        exported_memory=exported_memory,
+        output_dir=output_dir,
+    )
+    if mode == "simulated":
+        checks.append(_simulated_mode_check(profile))
+    else:
+        checks.insert(0, _live_mode_check(mgr))
+    return checks
+
+
+def _write_bundle_artifacts(
+    *,
+    output_dir: Path,
+    profile: ObjectiveProfile,
+    mode: str,
+    direct_response: str,
+    plan_text: str,
+    commands: dict[str, dict[str, Any]],
+    exported_memory: list[dict[str, Any]],
+) -> None:
+    """Materialize the bundle's evidence files on disk (R4)."""
     _write_json(output_dir / "objective.json", {
         "objective_id": profile.objective_id,
         "title": profile.title,
@@ -289,51 +422,34 @@ def _generate_bundle_with_manager(
         "mode": mode,
         "recorded_at": _now_iso(),
     })
-    _write_text(output_dir / "assistant_response.txt", direct_response.strip() + "\n")
+    _write_text(
+        output_dir / "assistant_response.txt",
+        direct_response.strip() + "\n",
+    )
     if plan_text:
         _write_text(output_dir / "plan.txt", plan_text.strip() + "\n")
     _write_json(output_dir / "commands" / "results.json", commands)
-    _write_json(output_dir / "knowledge" / "recent_memories.json", exported_memory)
+    _write_json(
+        output_dir / "knowledge" / "recent_memories.json",
+        exported_memory,
+    )
 
-    copied_artifacts = _copy_session_artifacts(workspace_path, mgr.session_id, output_dir)
 
-    checks: list[dict[str, str]] = [
-        {
-            "id": "session-runtime",
-            "status": "pass" if copied_artifacts else "fail",
-            "detail": "La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta.",
-        },
-        {
-            "id": "direct-assistance",
-            "status": "pass" if direct_response.strip() else "fail",
-            "detail": "Existe una respuesta util al objetivo planteado por el usuario.",
-        },
-        {
-            "id": "knowledge-persistence",
-            "status": "pass" if exported_memory else "fail",
-            "detail": "La evidencia incluye conocimiento recuperable derivado de la sesion.",
-        },
-        {
-            "id": "session-save",
-            "status": "pass" if (output_dir / "session" / "session.json").exists() else "fail",
-            "detail": "La sesion se guardo en disco con metadatos de continuidad.",
-        },
-    ]
-    if mode == "simulated":
-        checks.append({
-            "id": "plan-generation",
-            "status": "pass" if plan_text.strip() else "fail",
-            "detail": "El runtime genero un plan reutilizable desde el parser REPL real.",
-        })
-    else:
-        checks.insert(0, {
-            "id": "live-provider-health",
-            "status": "pass" if mgr.status()["health"]["ok"] else "fail",
-            "detail": "El provider real respondio con salud positiva antes de cerrar el bundle.",
-        })
-
-    manifest = {
-        "bundle_id": f"bago.v4.evidence.{mode}.{profile.objective_id}",
+def _build_manifest(
+    *,
+    mode: str,
+    profile: ObjectiveProfile,
+    mgr: SessionManager,
+    output_dir: Path,
+    checks: list[dict[str, str]],
+    copied_artifacts: list[str],
+    plan_text: str,
+) -> dict[str, Any]:
+    """Compose the manifest.json payload (R4, R8)."""
+    return {
+        "bundle_id": (
+            f"bago.v4.evidence.{mode}.{profile.objective_id}"
+        ),
         "contract_version": "4.1.5",
         "related_to": [
             "docs\\contracts\\bago_v4_runtime_contract.json",
@@ -351,9 +467,13 @@ def _generate_bundle_with_manager(
             "session_id": mgr.session_id,
             "state_root": ".bago\\state",
         },
-        "status": "pass" if all(item["status"] == "pass" for item in checks) else "fail",
+        "status": "pass"
+            if all(item["status"] == "pass" for item in checks)
+            else "fail",
         "recorded_at": _now_iso(),
-        "validation_commands": _validation_commands(mode, profile.objective_id, output_dir, mgr.provider, mgr.model),
+        "validation_commands": _validation_commands(
+            mode, profile.objective_id, output_dir, mgr.provider, mgr.model
+        ),
         "checks": checks,
         "artifacts": copied_artifacts + [
             "assistant_response.txt",
@@ -363,6 +483,24 @@ def _generate_bundle_with_manager(
         ] + (["plan.txt"] if plan_text else []),
     }
 
+
+def _finalize_manifest(
+    *,
+    output_dir: Path,
+    manifest: dict[str, Any],
+    mode: str,
+    profile: ObjectiveProfile,
+    mgr: SessionManager,
+    checks: list[dict[str, str]],
+    commands: dict[str, dict[str, Any]],
+    direct_response: str,
+    plan_text: str,
+) -> dict[str, Any]:
+    """Write the manifest, report, and checksums; return the manifest.
+
+    Re-digests the bundle twice so the file list reflects the report.md
+    and checksums.sha256 we just wrote (R4: extracted side-effect chain).
+    """
     _write_json(output_dir / "manifest.json", manifest)
     _write_text(
         output_dir / "report.md",
@@ -383,10 +521,186 @@ def _generate_bundle_with_manager(
     files = _collect_file_digests(output_dir)
     _write_checksums(output_dir, files)
     files = _collect_file_digests(output_dir)
-
     manifest["files"] = files
     _write_json(output_dir / "manifest.json", manifest)
+    return manifest
+
+
+def _run_session_phase(
+    *,
+    mgr: SessionManager,
+    profile: ObjectiveProfile,
+    mode: str,
+    workspace_path: Path,
+    output_dir: Path,
+) -> tuple[
+    str,
+    dict[str, dict[str, Any]],
+    str,
+    list[dict[str, Any]],
+    list[str],
+]:
+    """Run the evidence collection phase of a bundle (R4)."""
+    engine = SwitchEngine(mgr.adapters)
+    direct_response = mgr.send(
+        profile.user_prompt if mode == "simulated" else profile.real_prompt
+    )
+    if not direct_response.strip():
+        raise RuntimeError("La respuesta del provider esta vacia.")
+
+    commands, plan_text = _run_repl_commands(
+        mgr=mgr, engine=engine, profile=profile, mode=mode,
+    )
+    exported_memory = _collect_evidence(mgr=mgr, profile=profile)
+    copied_artifacts = _copy_session_artifacts(
+        workspace_path, mgr.session_id, output_dir,
+    )
+    return direct_response, commands, plan_text, exported_memory, copied_artifacts
+
+
+def _build_checks_and_manifest(
+    *,
+    mode: str,
+    profile: ObjectiveProfile,
+    mgr: SessionManager,
+    output_dir: Path,
+    direct_response: str,
+    copied_artifacts: list[str],
+    exported_memory: list[dict[str, Any]],
+    plan_text: str,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    """Compose the contract checks and the manifest payload (R4)."""
+    checks = _build_manifest_checks(
+        mode=mode,
+        profile=profile,
+        direct_response=direct_response,
+        copied_artifacts=copied_artifacts,
+        exported_memory=exported_memory,
+        output_dir=output_dir,
+        mgr=mgr,
+    )
+    manifest = _build_manifest(
+        mode=mode,
+        profile=profile,
+        mgr=mgr,
+        output_dir=output_dir,
+        checks=checks,
+        copied_artifacts=copied_artifacts,
+        plan_text=plan_text,
+    )
+    return checks, manifest
+
+
+def _generate_bundle_with_manager(
+    *,
+    mgr: SessionManager,
+    mode: str,
+    profile: ObjectiveProfile,
+    output_dir: Path,
+    workspace_path: Path,
+) -> Path:
+    """Build a complete evidence bundle on disk and return its manifest.
+
+    The function is intentionally thin: each phase is delegated to a
+    R4 helper (`_run_session_phase`, `_write_bundle_artifacts`,
+    `_build_checks_and_manifest`, `_finalize_manifest`).
+    """
+    direct_response, commands, plan_text, exported_memory, copied_artifacts = (
+        _run_session_phase(
+            mgr=mgr,
+            profile=profile,
+            mode=mode,
+            workspace_path=workspace_path,
+            output_dir=output_dir,
+        )
+    )
+    _write_bundle_artifacts(
+        output_dir=output_dir,
+        profile=profile,
+        mode=mode,
+        direct_response=direct_response,
+        plan_text=plan_text,
+        commands=commands,
+        exported_memory=exported_memory,
+    )
+    checks, manifest = _build_checks_and_manifest(
+        mode=mode,
+        profile=profile,
+        mgr=mgr,
+        output_dir=output_dir,
+        direct_response=direct_response,
+        copied_artifacts=copied_artifacts,
+        exported_memory=exported_memory,
+        plan_text=plan_text,
+    )
+    _finalize_manifest(
+        output_dir=output_dir,
+        manifest=manifest,
+        mode=mode,
+        profile=profile,
+        mgr=mgr,
+        checks=checks,
+        commands=commands,
+        direct_response=direct_response,
+        plan_text=plan_text,
+    )
     return output_dir / "manifest.json"
+
+
+def _run_simulated_bundle(
+    *,
+    profile: ObjectiveProfile,
+    output_dir: Path,
+) -> Path:
+    """Build a bundle in simulated mode (R4, R8)."""
+    with tempfile.TemporaryDirectory() as temp_dir, registered_mock_adapter():
+        workspace_path = Path(temp_dir)
+        mgr = SessionManager(
+            base_path=str(workspace_path),
+            provider="mock-contract",
+            model=ContractMockAdapter.MODEL_ID,
+        )
+        try:
+            return _generate_bundle_with_manager(
+                mgr=mgr,
+                mode="simulated",
+                profile=profile,
+                output_dir=output_dir,
+                workspace_path=workspace_path,
+            )
+        finally:
+            mgr.close()
+
+
+def _run_live_bundle(
+    *,
+    profile: ObjectiveProfile,
+    output_dir: Path,
+    provider: str,
+    model: str,
+    base_path: Path,
+) -> Path:
+    """Build a bundle against a real provider (R4, R8)."""
+    mgr = SessionManager(
+        base_path=str(base_path),
+        provider=provider,
+        model=model,
+    )
+    try:
+        health = mgr.status()["health"]
+        if not health["ok"]:
+            raise RuntimeError(
+                f"Provider no saludable: {health['detail']}"
+            )
+        return _generate_bundle_with_manager(
+            mgr=mgr,
+            mode="real",
+            profile=profile,
+            output_dir=output_dir,
+            workspace_path=base_path,
+        )
+    finally:
+        mgr.close()
 
 
 def generate_bundle(
@@ -407,39 +721,13 @@ def generate_bundle(
     _prepare_output_dir(output_dir, overwrite)
 
     if mode == "simulated":
-        with tempfile.TemporaryDirectory() as temp_dir, registered_mock_adapter():
-            workspace_path = Path(temp_dir)
-            mgr = SessionManager(
-                base_path=str(workspace_path),
-                provider="mock-contract",
-                model=ContractMockAdapter.MODEL_ID,
-            )
-            try:
-                return _generate_bundle_with_manager(
-                    mgr=mgr,
-                    mode=mode,
-                    profile=profile,
-                    output_dir=output_dir,
-                    workspace_path=workspace_path,
-                )
-            finally:
-                mgr.close()
-
-    mgr = SessionManager(
-        base_path=str(base_path),
+        return _run_simulated_bundle(
+            profile=profile, output_dir=output_dir,
+        )
+    return _run_live_bundle(
+        profile=profile,
+        output_dir=output_dir,
         provider=provider,
         model=model,
+        base_path=base_path,
     )
-    try:
-        health = mgr.status()["health"]
-        if not health["ok"]:
-            raise RuntimeError(f"Provider no saludable: {health['detail']}")
-        return _generate_bundle_with_manager(
-            mgr=mgr,
-            mode=mode,
-            profile=profile,
-            output_dir=output_dir,
-            workspace_path=base_path,
-        )
-    finally:
-        mgr.close()
