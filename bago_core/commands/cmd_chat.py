@@ -135,6 +135,56 @@ def cmd_chat(args: argparse.Namespace) -> int:
     repl.run()
     return 0
 
+
+def cmd_exec(args: argparse.Namespace) -> int:
+    """Ejecuta un comando slash sin abrir el REPL interactivo."""
+    import importlib.util
+    import sys
+    from session_manager import SessionManager
+    from switch_engine import SwitchEngine
+    from system_prompt import get_system_prompt
+
+    repl_commands_path = BAGO_ROOT / ".bago" / "chat" / "commands.py"
+    spec = importlib.util.spec_from_file_location("bago_repl_commands_exec", repl_commands_path)
+    if spec is None or spec.loader is None:
+        print(f"No se pudo cargar el ejecutor REPL desde {repl_commands_path}")
+        return 1
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("bago_repl_commands_exec", module)
+    spec.loader.exec_module(module)
+    execute = module.execute
+
+    raw_command = getattr(args, "slash_command", None) or getattr(args, "command", None) or []
+    command_line = " ".join(str(part) for part in raw_command).strip()
+    if not command_line:
+        print("Uso: bago exec /comando [args...]")
+        return 1
+    if not command_line.startswith("/"):
+        command_line = f"/{command_line}"
+
+    provider = getattr(args, "provider", "ollama-local") or "ollama-local"
+    model = getattr(args, "model", "llama3.2:3b") or "llama3.2:3b"
+    mgr = SessionManager(
+        base_path=args.base_path,
+        provider=provider,
+        model=model,
+        system_prompt=get_system_prompt(),
+    )
+    try:
+        engine = SwitchEngine(mgr.adapters)
+        result = execute(command_line, mgr, engine)
+        action = result.get("action")
+        message = result.get("message", "")
+        if action == "menu":
+            menu_text = message or module.execute("/help", mgr, engine)["message"]
+            print(menu_text)
+            return 0
+        if message:
+            print(message)
+        return 0 if result.get("ok") else 1
+    finally:
+        mgr.close()
+
 def cmd_llm(args: argparse.Namespace) -> int:
     from config_manager import ConfigManager
 

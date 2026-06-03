@@ -39,7 +39,7 @@ from switch_engine import SwitchEngine
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
 from renderer import Color
-from commands import execute
+from commands import MENU_SECTIONS, execute
 from intent_engine import classify_command_intent  # noqa: E402
 
 # ─── Natural-language aliases que disparan comandos (fallback hardcoded) ──────
@@ -308,70 +308,6 @@ _CONFIG_EDITABLE: list[tuple[str, str, str]] = [
     ("ui.prompt_provider_on_start", "bool", "Preguntar provider al arrancar"),
     ("default_provider", "text", "Provider por defecto"),
     ("default_model", "text", "Modelo por defecto"),
-]
-
-
-MENU_SECTIONS: list[dict[str, Any]] = [
-    {
-        "title": "Sesion y estado",
-        "description": "Estado de la conversacion y sesiones guardadas.",
-        "items": [
-            {"command": "/status", "description": "Resumen rapido de la sesion actual."},
-            {"command": "/session", "description": "Detalles completos de la sesion."},
-            {"command": "/save", "description": "Guardar la sesion actual en disco."},
-            {"command": "/load", "description": "Cargar una sesion guardada (asistente guiado).", "wizard": "load"},
-        ],
-    },
-    {
-        "title": "Providers y modelos",
-        "description": "Cambiar provider, ver modelos y consultar sugerencias.",
-        "items": [
-            {"command": "/providers", "description": "Lista providers registrados."},
-            {"command": "/models", "description": "Ver modelos del provider actual."},
-            {"command": "/switch", "description": "Cambiar provider o modelo (asistente guiado).", "wizard": "switch"},
-            {"command": "/suggest", "description": "Sugerencia automatica de provider/modelo."},
-        ],
-    },
-    {
-        "title": "Herramientas y automatizacion",
-        "description": "Tools, planes y ejecucion autonoma.",
-        "items": [
-            {"command": "/tools", "description": "Listar herramientas disponibles."},
-            {"command": "/tools set", "description": "Activar/desactivar herramientas (asistente).", "wizard": "tools"},
-            {"command": "/scripts", "description": "Listar scripts y baterias registradas."},
-            {"command": "/allow", "description": "Aprobar herramientas pendientes."},
-            {"command": "/deny", "description": "Rechazar herramientas pendientes."},
-            {"command": "/plan", "description": "Generar un plan paso a paso.", "args_prompt": "<tarea>"},
-            {"command": "/autopilot", "description": "Ejecutar una tarea autonomamente.", "args_prompt": "<tarea>"},
-            {"command": "/evolve", "description": "Autoevolucionar: reentrenar intenciones desde el historial."},
-            {"command": "/train", "description": "Verificar frases de entrenamiento de comandos (command_intents.json)."},
-        ],
-    },
-    {
-        "title": "Agentes y memoria",
-        "description": "Agentes especializados y base de conocimiento.",
-        "items": [
-            {"command": "/agents", "description": "Ver agentes disponibles."},
-            {"command": "/agent", "description": "Activar un agente (asistente guiado).", "wizard": "agent"},
-            {"command": "/memory", "description": "Listar recuerdos recientes."},
-            {"command": "/memory delete", "description": "Eliminar un recuerdo (asistente guiado).", "wizard": "memory-delete"},
-            {"command": "/good", "description": "Marcar el ultimo mensaje como importante."},
-            {"command": "/feedback", "description": "Registrar feedback explicito (asistente guiado).", "wizard": "feedback"},
-        ],
-    },
-    {
-        "title": "Configuracion y ayuda",
-        "description": "Config, credenciales y ayuda del chat.",
-        "items": [
-            {"command": "/config", "description": "Ver configuracion actual."},
-            {"command": "/config set", "description": "Cambiar un ajuste (asistente guiado).", "wizard": "config"},
-            {"command": "/credentials", "description": "Ver credenciales configuradas."},
-            {"command": "/credentials set", "description": "Registrar una credencial (asistente guiado).", "wizard": "credentials"},
-            {"command": "/update", "description": "Actualizar BAGO a la ultima version.", "confirm": True},
-            {"command": "/help", "description": "Mostrar la ayuda completa."},
-            {"command": "/quit", "description": "Salir del chat.", "confirm": True},
-        ],
-    },
 ]
 
 

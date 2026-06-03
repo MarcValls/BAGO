@@ -8,6 +8,8 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     chat_parser.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
     sub.add_parser("launch", help="Alias de chat: inicia BAGO")
     sub.add_parser("start", help="Inicia BAGO y autoevoluciona (alias de chat con auto-aprendizaje al arrancar)")
+    exec_parser = sub.add_parser("exec", help="Ejecuta un comando slash sin abrir el REPL")
+    exec_parser.add_argument("slash_command", nargs=argparse.REMAINDER, help="Comando slash a ejecutar, por ejemplo /status")
     sub.add_parser("validate", help="Gate real de validacion: security, contratos, culpas, claims, providers")
     sub.add_parser("profiles", help="Muestra el mapa de stable/des/ign y el flujo recomendado")
 

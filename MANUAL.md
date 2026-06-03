@@ -20,6 +20,7 @@
 - Instalación y primer arranque.
 - Flujo de chat, providers y sesión.
 - Gestor de instalaciones con perfiles y promoción.
+- Modo agente/headless con catálogo JSON de comandos.
 - Manual de uso y notas de release.
 - Anexo de diagramas consolidados.
 
@@ -89,6 +90,25 @@ Capturas del gestor:
 
 - CLI: `docs/evidence/manual/captures/bago-profiles-cli.png`
 - UI: `docs/evidence/manual/captures/bago-ui-index.png`
+
+### Modo agente/headless
+
+Todo comando slash visible en `/help` debe poder ejecutarse sin interfaz interactiva:
+
+```bash
+bago exec /help
+bago exec /status
+bago exec /commands json
+bago exec /doctor
+bago exec /switch ollama-local llama3.2:3b
+```
+
+Contratos:
+
+- `/help` sale del mismo catálogo que el menú interactivo.
+- `/commands json` exporta el mapa exacto para agentes y automatizaciones.
+- `/doctor` verifica catálogo, modo headless, ruta base, roles de instalación y provider activo.
+- Si un comando requiere datos, se pasa como argumentos en `bago exec /comando [args...]`.
 
 ### Runtime híbrido `cpp-local` (experimental/post-MVP)
 

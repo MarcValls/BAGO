@@ -27,6 +27,7 @@ Comandos soportados:
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -47,6 +48,125 @@ from switch_engine import SwitchEngine
 
 class CommandError(Exception):
     pass
+
+
+MENU_SECTIONS: list[dict[str, Any]] = [
+    {
+        "title": "Sesion y estado",
+        "description": "Estado de la conversacion y sesiones guardadas.",
+        "items": [
+            {"command": "/menu", "description": "Abre menu interactivo de funciones"},
+            {"command": "/commands", "description": "Exporta catalogo de comandos", "args_prompt": "[json]"},
+            {"command": "/doctor", "description": "Diagnostico rapido del entorno BAGO"},
+            {"command": "/status", "description": "Estado de la sesion activa"},
+            {"command": "/session", "description": "Detalles de la sesion"},
+            {"command": "/save", "description": "Guarda sesion en disco"},
+            {"command": "/load", "description": "Carga una sesion desde disco", "wizard": "load"},
+        ],
+    },
+    {
+        "title": "Providers y modelos",
+        "description": "Cambiar provider, ver modelos y consultar sugerencias.",
+        "items": [
+            {"command": "/providers", "description": "Lista providers registrados"},
+            {"command": "/models", "description": "Lista modelos disponibles"},
+            {"command": "/switch", "description": "Cambia de provider/modelo", "wizard": "switch"},
+            {"command": "/suggest", "description": "Sugerencia RL de provider"},
+        ],
+    },
+    {
+        "title": "Herramientas y automatizacion",
+        "description": "Tools, planes y ejecucion autonoma.",
+        "items": [
+            {"command": "/tools", "description": "Gestiona herramientas del modelo"},
+            {"command": "/tools set", "description": "Activa/desactiva herramientas", "wizard": "tools"},
+            {"command": "/scripts", "description": "Lista scripts y baterias registradas"},
+            {"command": "/allow", "description": "Aprueba ejecucion de herramientas pendientes"},
+            {"command": "/deny", "description": "Rechaza herramientas pendientes"},
+            {"command": "/plan", "description": "Genera un plan paso a paso", "args_prompt": "<tarea>"},
+            {"command": "/autopilot", "description": "Ejecuta una tarea autonomamente", "args_prompt": "<tarea>"},
+            {"command": "/evolve", "description": "Autoevoluciona: reentrena intenciones desde el historial"},
+            {"command": "/train", "description": "Verifica frases de entrenamiento de comandos", "args_prompt": "[demo|all|fallos|/comando]"},
+        ],
+    },
+    {
+        "title": "Agentes y memoria",
+        "description": "Agentes especializados y base de conocimiento.",
+        "items": [
+            {"command": "/agents", "description": "Lista agentes especializados"},
+            {"command": "/agent", "description": "Activa un agente", "wizard": "agent"},
+            {"command": "/memory", "description": "Gestiona base de conocimiento"},
+            {"command": "/memory delete", "description": "Elimina un recuerdo", "wizard": "memory-delete"},
+            {"command": "/good", "description": "Marca un mensaje como importante"},
+            {"command": "/feedback", "description": "Feedback explicito (-1 a 1)", "wizard": "feedback"},
+        ],
+    },
+    {
+        "title": "Configuracion y control",
+        "description": "Config, credenciales y ayuda del chat.",
+        "items": [
+            {"command": "/config", "description": "Gestiona configuracion"},
+            {"command": "/config set", "description": "Cambia un ajuste", "wizard": "config"},
+            {"command": "/credentials", "description": "Gestiona credenciales API"},
+            {"command": "/credentials set", "description": "Registra una credencial", "wizard": "credentials"},
+            {"command": "/update", "description": "Actualiza BAGO a la ultima version", "confirm": True},
+            {"command": "/help", "description": "Muestra esta ayuda"},
+            {"command": "/quit", "description": "Salir del chat", "confirm": True},
+        ],
+    },
+]
+
+
+def _build_help_text() -> str:
+    lines = ["Comandos disponibles:"]
+    for section in MENU_SECTIONS:
+        lines.append(f"")
+        lines.append(f"[{section['title']}]")
+        for item in section["items"]:
+            command = item["command"]
+            if item.get("args_prompt"):
+                command = f"{command} {item['args_prompt']}"
+            description = item["description"]
+            lines.append(f"  {command:<44} {description}")
+    lines.extend([
+        "",
+        "Modo no interactivo:",
+        "  bago exec /comando [args...]                 Ejecuta cualquier comando slash sin abrir el REPL",
+        "  bago exec /status                            Ejemplo headless",
+        "  bago exec /switch ollama-local llama3.2:3b   Ejemplo con argumentos",
+    ])
+    return "\n".join(lines)
+
+
+def _catalog_payload() -> dict[str, Any]:
+    sections: list[dict[str, Any]] = []
+    catalog_commands: list[str] = []
+    for section in MENU_SECTIONS:
+        items: list[dict[str, Any]] = []
+        for item in section["items"]:
+            command = str(item["command"])
+            catalog_commands.append(command.split()[0].lstrip("/"))
+            items.append({
+                "command": command,
+                "description": item["description"],
+                "args": item.get("args_prompt", ""),
+                "wizard": item.get("wizard", ""),
+                "confirm": bool(item.get("confirm", False)),
+            })
+        sections.append({
+            "title": section["title"],
+            "description": section["description"],
+            "items": items,
+        })
+
+    registered = sorted(COMMAND_REGISTRY) if "COMMAND_REGISTRY" in globals() else sorted(set(catalog_commands))
+    return {
+        "schema": "bago.command_catalog.v1",
+        "headless_entrypoint": "bago exec /comando [args...]",
+        "sections": sections,
+        "registered_commands": registered,
+        "catalog_commands": sorted(set(catalog_commands)),
+    }
 
 
 def _parse_args(args: list[str]) -> tuple[list[str], dict[str, str | bool]]:
@@ -211,35 +331,77 @@ def cmd_menu(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
 
 
 def cmd_help(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    text = """
-Comandos disponibles:
-  /menu                                    Abre menú interactivo de funciones
-  /switch [provider] [modelo] [--force]   Cambia de provider/modelo (sin args = asistente guiado)
-  /models [provider]                       Lista modelos disponibles
-  /status                                  Estado de la sesión activa
-  /session                                 Detalles de la sesión
-  /save                                    Guarda sesión en disco
-  /load [session_id]                       Carga sesión desde disco (sin args = asistente guiado)
-  /providers                               Lista providers registrados
-  /allow                                   Aprueba ejecución de herramientas pendientes
-  /deny                                    Rechaza ejecución de herramientas pendientes
-  /feedback [rating]                       Feedback explícito (-1 a 1; sin args = asistente)
-  /suggest                                 Sugerencia RL de provider
-  /good [índice]                           Marca mensaje como importante
-  /config [list|get|set|reset]             Gestiona configuración (set sin args = asistente guiado)
-  /credentials [list|set|delete]           Gestiona credenciales API (set sin args = asistente guiado)
-  /tools [list|enable|disable]             Gestiona herramientas del modelo
-  /plan <tarea>                           Genera plan paso a paso
-  /autopilot <tarea>                       Ejecuta tarea autónomamente
-  /evolve                                  Autoevoluciona: reentrena intenciones desde tu historial
-  /agents                                  Lista agentes especializados
-  /agent <nombre>                          Activa un agente (coder, reviewer, etc.; sin args = asistente)
-  /memory [list|search|add|delete|hybrid-add|hybrid-search]  Gestiona base de conocimiento
-  /update                                  Actualizar BAGO a la ultima version
-  /help                                    Muestra esta ayuda
-  /quit                                    Salir del chat
-""".strip()
-    return {"ok": True, "message": text}
+    return {"ok": True, "message": _build_help_text()}
+
+
+def cmd_commands(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    mode = args[0].lower() if args else "text"
+    if mode in {"json", "--json"}:
+        return {
+            "ok": True,
+            "message": json.dumps(_catalog_payload(), ensure_ascii=False, indent=2),
+            "data": _catalog_payload(),
+        }
+    return {"ok": True, "message": _build_help_text(), "data": _catalog_payload()}
+
+
+def cmd_doctor(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    checks: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: str, level: str = "ok") -> None:
+        checks.append({"name": name, "ok": ok, "level": level if ok else "fail", "detail": detail})
+
+    payload = _catalog_payload()
+    registered = set(payload["registered_commands"])
+    catalog = set(payload["catalog_commands"])
+    missing_in_help = sorted(registered - catalog)
+    add(
+        "command_catalog",
+        not missing_in_help,
+        f"{len(catalog)} catalogados / {len(registered)} registrados"
+        + (f"; faltan en help: {', '.join(missing_in_help)}" if missing_in_help else ""),
+    )
+    add("headless_exec", True, "bago exec /comando [args...]")
+
+    base_path = Path(getattr(mgr, "base_path", Path.cwd()))
+    add("base_path", base_path.exists(), str(base_path))
+    add("base_writable", os.access(base_path, os.W_OK), str(base_path))
+
+    roles_file = Path.home() / ".bago" / "install_selection.json"
+    if roles_file.exists():
+        add("install_roles", True, str(roles_file))
+    else:
+        checks.append({
+            "name": "install_roles",
+            "ok": True,
+            "level": "warn",
+            "detail": f"No existe {roles_file}; se usaran fallbacks.",
+        })
+
+    try:
+        status = mgr.status()
+        health = status.get("health", {})
+        checks.append({
+            "name": "provider_health",
+            "ok": bool(health.get("ok")),
+            "level": "ok" if health.get("ok") else "warn",
+            "detail": f"{status.get('provider')} / {status.get('model')}: {health.get('detail', 'sin detalle')}",
+        })
+    except Exception as exc:
+        checks.append({
+            "name": "provider_health",
+            "ok": False,
+            "level": "warn",
+            "detail": f"No se pudo comprobar provider: {exc}",
+        })
+
+    lines = ["BAGO DOCTOR"]
+    for check in checks:
+        lines.append(f"  [{check['level']}] {check['name']:<18} {check['detail']}")
+    blocking = [check for check in checks if check["level"] == "fail"]
+    lines.append("")
+    lines.append("Resultado: listo" if not blocking else "Resultado: requiere correccion")
+    return {"ok": not blocking, "message": "\n".join(lines), "data": {"checks": checks}}
 
 
 def cmd_update(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
@@ -712,6 +874,8 @@ def cmd_train(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dic
 # Registry de comandos
 COMMAND_REGISTRY: dict[str, Any] = {
     "menu": cmd_menu,
+    "commands": cmd_commands,
+    "doctor": cmd_doctor,
     "switch": cmd_switch,
     "models": cmd_models,
     "status": cmd_status,

@@ -38,7 +38,7 @@ _CREATED_VERSION = "4.0.0"
 
 # Lee la version desde el indice central (versions.json)
 from version import CURRENT as _BAGO_VERSION  # noqa: E402
-from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_llm  # noqa: E402
+from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
@@ -329,6 +329,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "chat":        "cmd_chat",
     "launch":      "cmd_chat",
     "start":       "cmd_chat",
+    "exec":        "cmd_exec",
     "validate":    "cmd_validate",
     "install":     "cmd_install",
     "uninstall":   "cmd_uninstall",
