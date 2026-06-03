@@ -202,14 +202,22 @@ def test_export_bundle_in_tempdir() -> None:
 # CLI: node validate sigue funcionando end-to-end (R9 backwards compat).
 # ---------------------------------------------------------------------------
 def test_cli_status_json() -> None:
-    # ``status --json`` por la pasarela del launcher: --json debe ir
-    # DESPUES del subcomando (mismo orden que ``node_control_cli``). En
-    # este test invocamos ``bago_core.node_control`` directamente porque
-    # el launcher tiene un subparser donde --json no llega al subcomando
-    # sin reordenar argumentos; la pasarela real ya valida este camino
-    # en test_launcher_dispatch.py.
     result = subprocess.run(
         [sys.executable, "-m", "bago_core.node_control", "status", "--json"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["installations"] >= 1
+    assert payload["pieces"] >= 1
+
+
+def test_launcher_node_status_json_matches_electron_command() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "bago_core.launcher", "node", "status", "--json"],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,

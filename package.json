@@ -1,6 +1,6 @@
 {
   "name": "bago-installation-manager",
-  "version": "4.2.1",
+  "version": "4.2.2",
   "private": true,
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
@@ -16,10 +16,42 @@
     "productName": "BAGO Installation Manager",
     "artifactName": "BAGO-Installation-Manager-${version}-${os}-${arch}.${ext}",
     "asar": true,
+    "asarUnpack": [
+      "bago_core/**/*",
+      ".bago/**/*",
+      "scripts/**/*",
+      "tools/**/*",
+      "docs/**/*",
+      "install-v4.ps1",
+      "install-remote.ps1",
+      "bago.ps1",
+      "bago.cmd",
+      "bago.sh",
+      "versions.json",
+      "release_version.txt"
+    ],
     "files": [
       "electron/**/*",
       "manager.html",
-      "bago.ico"
+      "bago.ico",
+      "assets/**/*",
+      "bago_core/**/*",
+      ".bago/core/**/*",
+      ".bago/chat/**/*",
+      ".bago/knowledge/**/*",
+      ".bago/providers/**/*",
+      ".bago/api/**/*",
+      ".bago/tools/**/*",
+      "docs/**/*",
+      "scripts/**/*",
+      "tools/**/*",
+      "install-v4.ps1",
+      "install-remote.ps1",
+      "bago.ps1",
+      "bago.cmd",
+      "bago.sh",
+      "versions.json",
+      "release_version.txt"
     ],
     "directories": {
       "output": "dist"

@@ -1,5 +1,5 @@
 {
-  "current": "4.2.1",
+  "current": "4.2.2",
   "history": [
     {
       "version": "4.0.0",
@@ -22,8 +22,14 @@
     {
       "version": "4.2.1",
       "released": "2026-06-03",
-      "ended": null,
+      "ended": "2026-06-03",
       "notes": "Patch publico con modo headless para agentes, catalogo JSON de comandos y diagnostico /doctor"
+    },
+    {
+      "version": "4.2.2",
+      "released": "2026-06-03",
+      "ended": null,
+      "notes": "Patch publico del gestor: Node Control acepta node status --json, runtime BAGO empaquetado y foco de UI en instalaciones, roles, piezas y matriz"
     }
   ]
 }

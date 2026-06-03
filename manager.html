@@ -150,21 +150,21 @@
   <div class="wrap">
     <img src="assets/bago-wasp.svg" width="32" height="32" alt="BAGO avispa" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · v4.2.1</span>
+    <span class="meta">standalone · offline · v4.2.2</span>
   </div>
 </header>
 <main>
   <section class="hero">
     <h2>Gestiona todas tus instalaciones BAGO</h2>
-    <p>Esta página detecta instalaciones y releases automáticamente. En Electron no hace falta pegar JSON: la app consulta GitHub, localiza la ultima release y permite instalar la que quieras.</p>
+    <p>Controla instalaciones, roles active/des/ign, piezas, compatibilidad y evidencia. Las descargas de GitHub son solo una accion mas del gestor, no el centro de la app.</p>
   </section>
   <section class="steps">
-    <h3>Cómo usar</h3>
+    <h3>Cómo usarlo como gestor</h3>
     <ol>
-      <li>Abre el gestor y espera a que cargue releases e instalaciones.</li>
-      <li>Si quieres buscar una ruta concreta, usa el campo manual de abajo.</li>
-      <li>En Electron, pulsa <b>ejecutar</b> para abrir PowerShell visible.</li>
-      <li>En navegador, usa <b>copiar</b> para ejecutar los comandos a mano.</li>
+      <li>Revisa primero Node Control: registry, piezas, matriz y conectores.</li>
+      <li>Comprueba roles active/des/ign y las instalaciones detectadas.</li>
+      <li>Usa releases solo para instalar, actualizar o probar una version aparte.</li>
+      <li>En Electron, <b>ejecutar</b> abre PowerShell visible; en navegador, se copian comandos.</li>
     </ol>
   </section>
   <section class="notice">
@@ -172,7 +172,7 @@
   </section>
   <section class="panel" id="releases-panel">
     <div class="panel-head">
-      <h3>Versiones GitHub</h3>
+      <h3>Actualizar o instalar versiones (GitHub)</h3>
       <div class="toolbar">
         <input id="manual-scan-path" placeholder="Ruta manual a escanear, por ejemplo C:\\Tools\\BAGO">
         <input id="target-install-path" value="C:\\Program Files\\BAGO" placeholder="Ruta destino de instalación">
@@ -241,7 +241,7 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · v4.2.1 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · v4.2.2 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script>
@@ -284,6 +284,7 @@ const releaseSummary=document.getElementById('release-summary');
 const releaseList=document.getElementById('release-list');
 const nodePanel=document.getElementById('node-panel');
 const nodeCmdLabel=document.getElementById('node-cmd');
+const releasesPanel=document.getElementById('releases-panel');
 const rolePanel=document.getElementById('role-panel');
 const roleCards=document.getElementById('role-cards');
 const roleFileLabel=document.getElementById('role-file');
@@ -300,6 +301,10 @@ let installSelection={version:1,updated_at:'',roles:{}};
 let currentPayload=null;
 let nodeCache={status:null,matrix:null,pieces:null,connectors:null};
 let activeNodeTab='overview';
+
+if(nodePanel&&releasesPanel&&releasesPanel.parentNode){
+  releasesPanel.parentNode.insertBefore(nodePanel,releasesPanel);
+}
 
 // ── Node Control data flow ───────────────────────────────────
 function setNodeTab(name){
@@ -332,6 +337,12 @@ async function loadNodeData(){
     showToast('Node Control cargado',true);
   }catch(e){
     nodeCmdLabel.textContent='bago node status --json (error)';
+    nodePanel.style.display='block';
+    document.getElementById('node-overview').innerHTML='<div class="notice" style="margin:0">'
+      +'<b>Node Control no pudo cargar.</b><br>'
+      +'<span style="color:var(--muted)">Comando: <code>bago node status --json</code></span><br>'
+      +'<span style="color:#fecaca">'+escapeHtml(e.message)+'</span>'
+      +'</div>';
     showToast('Node Control falló: '+e.message,false);
   }
 }
@@ -890,7 +901,7 @@ function buildActions(inst,isSource){
     {label:'Crear backup',desc:'Snapshot de state+config+memory',cmd:cd+'; python bago_core/cli.py backup create'},
     {label:'Listar backups',desc:'Snapshots disponibles',cmd:cd+'; python bago_core/cli.py backup list'},
     {label:'Inventario completo',desc:'Cuenta archivos, tamaños, sellos',cmd:cd+'; python bago_core/cli.py inventory'},
-    {label:'Generar bundle 4.2.1',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
+    {label:'Generar bundle 4.2.2',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
   ]));
   return groups.join('');
 }
@@ -939,7 +950,7 @@ document.getElementById('file-input').addEventListener('change',ev=>{
   r.readAsText(f);
 });
 document.getElementById('btn-sample').addEventListener('click',()=>{
-  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.2.1","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.2.2","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
   inputArea.value=sample;
   parseAndRender(sample);
 });
