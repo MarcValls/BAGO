@@ -4,6 +4,25 @@
 > El contexto de sesión sobrevive al cambio de provider.  
 > El modelo es un motor temporal; la sesión es la fuente de verdad.
 
+## Portada
+
+| Campo | Valor |
+|---|---|
+| Producto | BAGO 4.2.0 |
+| Tipo | Manual de usuario y guía de release |
+| Alcance | `stable` / `des` / `ign` |
+| UI | `manager.html` + capturas de CLI/UI |
+| Validación | `validate`, `test_security_release.py`, `test_e2e.py`, `publish_release.py --test` |
+| Artefactos | `dist\BAGO-Installation-Manager-4.2.0-win-x64.exe`, `dist\bago-v4.2.0.zip` |
+
+### Contenido de esta edición
+
+- Instalación y primer arranque.
+- Flujo de chat, providers y sesión.
+- Gestor de instalaciones con perfiles y promoción.
+- Manual de uso y notas de release.
+- Anexo de diagramas consolidados.
+
 ---
 
 ## 1. Instalación y Primer Arranque
@@ -188,7 +207,7 @@ BAGO también reentrena **automáticamente** justo antes de cada compactación d
 
 ### Servidor API (`bago serve`)
 
-BAGO 4.1.5 expone una API HTTP para integraciones externas:
+BAGO 4.2.0 expone una API HTTP para integraciones externas:
 
 ```bash
 C:\Bago_v4> python bago_core\cli.py serve --port 8080 --token secret123
@@ -263,7 +282,7 @@ Simulación segura (`shadow`):
 
 ### Generador de evidencias (`bago evidence`)
 
-BAGO 4.1.5 puede materializar un bundle de evidencia contractual para demostrar ayuda directa e indirecta al usuario.
+BAGO 4.2.0 puede materializar un bundle de evidencia contractual para demostrar ayuda directa e indirecta al usuario.
 
 ```bash
 C:\Bago_v4> python bago_core\cli.py evidence --mode simulated --objective community-knowledge --output docs\evidence\example_bundle --overwrite
@@ -400,7 +419,7 @@ bago ❯ ```
 
 ## 5. Switch de Provider/Modelo
 
-BAGO 4.1.5 permite cambiar de modelo **sin perder la sesión**. El sistema evalúa la equivalencia entre modelos y aplica la estrategia de transferencia adecuada.
+BAGO 4.2.0 permite cambiar de modelo **sin perder la sesión**. El sistema evalúa la equivalencia entre modelos y aplica la estrategia de transferencia adecuada.
 
 ### Switch básico
 
@@ -427,7 +446,7 @@ Si el switch no es recomendado, el sistema te avisará. Usa `--force` para forza
 
 ### Compresión por capas (downgrade)
 
-Cuando cambias a un modelo menor, BAGO 4.1.5 **no pierde el contexto**: lo comprime por capas jerárquicamente:
+Cuando cambias a un modelo menor, BAGO 4.2.0 **no pierde el contexto**: lo comprime por capas jerárquicamente:
 
 - **Capa 1** → se resume en un bloque A
 - **Capa 2** → se resume + se une con A → bloque unificado B
@@ -474,7 +493,7 @@ Los datos de capas se persisten en:
 
 ## 6. Configuración y Credenciales
 
-BAGO 4.1.5 gestiona su configuración en `.bago/config.json` y las credenciales en `.bago/credentials.json`. Ya no dependes exclusivamente de variables de entorno.
+BAGO 4.2.0 gestiona su configuración en `.bago/config.json` y las credenciales en `.bago/credentials.json`. Ya no dependes exclusivamente de variables de entorno.
 
 ### Desde la línea de comandos
 
@@ -553,7 +572,7 @@ Los archivos de sesión se almacenan en:
 
 ## 8. Aprendizaje por Refuerzo (RL experimental)
 
-BAGO 4.1.5 incluye un motor de RL ligero que aprende de cada interacción. En el producto estable se mantiene como `shadow/off` por defecto y no tiene autoridad de ejecución:
+BAGO 4.2.0 incluye un motor de RL ligero que aprende de cada interacción. En el producto estable se mantiene como `shadow/off` por defecto y no tiene autoridad de ejecución:
 
 - **Recompensa implícita**: se calcula automáticamente por rapidez, longitud de respuesta y ausencia de errores.
 - **Recompensa explícita**: el usuario puede valorar cualquier respuesta con `/feedback <rating>`.
@@ -601,7 +620,7 @@ Los datos RL se persisten en:
 
 ## 9. Plan y Autopilot (experimental/post-MVP)
 
-BAGO 4.1.5 puede generar planes de tareas y preparar ejecución asistida. Esta superficie es experimental y no forma parte del MVP estable hasta que tenga pruebas por escenario, permisos explícitos y evidencia.
+BAGO 4.2.0 puede generar planes de tareas y preparar ejecución asistida. Esta superficie es experimental y no forma parte del MVP estable hasta que tenga pruebas por escenario, permisos explícitos y evidencia.
 
 ### `/plan` — Generar plan paso a paso
 
@@ -648,7 +667,7 @@ En modo **autopilot**, BAGO:
 
 ## 10. Allow All — Control de Ejecución de Herramientas
 
-BAGO 4.1.5 puede ejecutar herramientas automáticamente o pedirte confirmación antes de hacerlo, al estilo **Copilot Allow All**.
+BAGO 4.2.0 puede ejecutar herramientas automáticamente o pedirte confirmación antes de hacerlo, al estilo **Copilot Allow All**.
 
 Regla estable: la sugerencia y la ejecución están separadas. `auto_allow_tools` debe permanecer en `false` por defecto y cualquier ejecución crítica debe pasar por aprobación explícita.
 
@@ -719,7 +738,7 @@ La selección queda registrada en `.bago/state/llm_start.json` y se usa para esa
 
 ## 12. Base de Conocimiento (partial/post-MVP)
 
-BAGO 4.1.5 incluye una **base de conocimiento persistente** que sobrevive a las sesiones. Almacena recuerdos, hechos y notas importantes extraídos de las conversaciones.
+BAGO 4.2.0 incluye una **base de conocimiento persistente** que sobrevive a las sesiones. Almacena recuerdos, hechos y notas importantes extraídos de las conversaciones.
 
 Estado actual: superficie parcial. La sesión persistente entra en el MVP; memoria avanzada, embeddings e inyección automática de recuerdos quedan fuera del MVP hasta tener prueba end-to-end.
 
@@ -765,7 +784,7 @@ En el futuro, la Knowledge Base se puede conectar al `send()` para inyectar recu
 
 ---
 
-## 12. Arquitectura de BAGO 4.1.5
+## 12. Arquitectura de BAGO 4.2.0
 
 ```
 ┌─────────────────────────────────────────┐
@@ -816,7 +835,152 @@ En el futuro, la Knowledge Base se puede conectar al `send()` para inyectar recu
 
 ---
 
-## 13. Providers Soportados
+## 13. Gestor de Instalaciones
+
+### Subtítulo
+
+> `des` para construir el framework, `ign` para validar el conjunto, `stable` para publicar entero.
+
+### Flujo general
+
+```mermaid
+flowchart LR
+  subgraph Source["Fuente / Workspace"]
+    A["Repo BAGO<br/>C:\\Users\\AMTEC_Terminal_1º\\source\\repos\\BAGO"]
+    B["Estado de selección<br/>~\\.bago\\install_selection.json"]
+    C["Capturas manual<br/>docs\\evidence\\manual\\captures"]
+  end
+
+  subgraph Dev["Desarrollo"]
+    D["bago install --profile des"]
+    E["Copia dev<br/>~\\.bago\\dev"]
+    F["Pruebas locales"]
+    G["Correcciones en el framework"]
+  end
+
+  subgraph Ignite["Integración"]
+    H["bago install --profile ign"]
+    I["Copia launch<br/>~\\.bago\\launch"]
+    J["Validación de conjunto"]
+    K["Promoción solo de piezas cerradas"]
+  end
+
+  subgraph Stable["Publicación"]
+    L["bago install --profile stable"]
+    M["Copia estable<br/>C:\\Program Files\\BAGO"]
+    N["Release ZIP + tag + GitHub Release"]
+    O["bago = stable"]
+  end
+
+  subgraph UI["Interfaz de gestión"]
+    P["manager.html"]
+    Q["Role cards<br/>active / dev / launch"]
+    R["setInstallRole(role, target)"]
+    S{"Electron bridge disponible?"}
+    T["writeInstallSelection(role, target)"]
+    U["Copiar comando manual"]
+    V["bago install-role set ..."]
+    W["bago list-installs --plain"]
+    X["Render de badges y rutas"]
+  end
+
+  A --> D
+  D --> E
+  E --> F
+  F --> G
+  G --> H
+  H --> I
+  I --> J
+  J --> K
+  K --> L
+  L --> M
+  M --> N
+  N --> O
+
+  P --> Q --> R --> S
+  S -- "sí" --> T --> B
+  S -- "no" --> U --> V --> B
+  B --> W --> X --> Q
+
+  C --> P
+  M --> W
+  E --> W
+  I --> W
+```
+
+### Secuencia operativa
+
+```mermaid
+sequenceDiagram
+  actor User as Usuario
+  participant Dev as des
+  participant Ign as ign
+  participant Stable as stable
+  participant UI as manager.html
+  participant Roles as install_selection.json
+  participant Release as GitHub Release
+
+  User->>Dev: Implementa y prueba
+  Dev->>Dev: Valida framework
+  alt Funciona
+    User->>Ign: Promueve a integración
+    Ign->>Ign: Verifica conjunto completo
+    alt Todo entero
+      User->>Stable: Publica release
+      Stable->>Release: Tag + ZIP + assets
+    else Algo falla
+      Ign-->>User: Se corrige antes de lanzar
+    end
+  else No funciona
+    Dev-->>User: Se corrige en des
+  end
+
+  User->>UI: Cambia rol desde la interfaz
+  UI->>Roles: Guarda active/dev/launch
+  UI->>UI: Refresca vista y badges
+```
+
+### Mapa mental
+
+```mermaid
+mindmap
+  root((BAGO release model))
+    des
+      "trabajo de framework"
+      "pruebas locales"
+      "no publicar a medias"
+    ign
+      "integración"
+      "validación del conjunto"
+      "solo piezas terminadas"
+    stable
+      "publicación final"
+      "C:\\Program Files\\BAGO"
+      "release GitHub"
+    UI
+      "manager.html"
+      "role-select"
+      "Electron persiste"
+      "web copia comando"
+    SSOT
+      "~\\.bago\\install_selection.json"
+      "install_roles.py"
+      "launcher.py"
+      "bago list-installs"
+```
+
+### Notas de uso
+
+- En la UI de Electron, los botones de rol persisten la selección en `~\.bago\install_selection.json`.
+- En la web pura, la UI copia el comando para ejecutarlo manualmente.
+- `bago install --profile des` instala la copia de desarrollo.
+- `bago install --profile ign` promueve y valida la integración.
+- `bago install --profile stable` sincroniza la instalación estable en `C:\Program Files\BAGO`.
+- `bago profiles` muestra el mapa y el flujo recomendado.
+
+---
+
+## 14. Providers Soportados
 
 | Provider | Tipo | Auth | Estado |
 |----------|------|------|--------|
@@ -830,7 +994,7 @@ En el futuro, la Knowledge Base se puede conectar al `send()` para inyectar recu
 
 ---
 
-## 14. Solución de Problemas
+## 15. Solución de Problemas
 
 ### Error 404 / Modelo no encontrado
 
@@ -840,7 +1004,7 @@ BAGO Error Ollama: HTTP Error 404: Not Found
 
 **Causa:** El modelo por defecto no está descargado en Ollama.
 
-**Solución:** BAGO 4.1.5 auto-ajusta al primer modelo disponible. Si aun así falla, descarga un modelo:
+**Solución:** BAGO 4.2.0 auto-ajusta al primer modelo disponible. Si aun así falla, descarga un modelo:
 
 ```bash
 ollama pull llama3.2:3b
@@ -884,11 +1048,11 @@ O desde línea de comandos:
 python bago_core\cli.py config set providers.anthropic.enabled true
 ```
 
-> **Tip:** Al iniciar el REPL, BAGO 4.1.5 te ofrece una selección interactiva de providers y modelos disponibles.
+> **Tip:** Al iniciar el REPL, BAGO 4.2.0 te ofrece una selección interactiva de providers y modelos disponibles.
 
 ---
 
-## 15. Atajos y Tips
+## 16. Atajos y Tips
 
 | Atajo | Descripción |
 |-------|-------------|
@@ -899,5 +1063,150 @@ python bago_core\cli.py config set providers.anthropic.enabled true
 
 ---
 
-**BAGO 4.1.5** — Session-First AI Chat  
+**BAGO 4.2.0** — Session-First AI Chat  
 *Construido con arquitectura atómica, sin gates, con memoria compartida.*
+
+---
+
+## 17. Anexo de Diagramas Consolidados
+
+Los diagramas de este anexo recogen la versión final consolidada de los flujos que se fueron refinando durante la conversación.
+
+### 17.1 Gestión de roles desde la interfaz y el CLI
+
+```mermaid
+flowchart LR
+  subgraph UI["manager.html / UI"]
+    A["Role card click<br/>role-select button"] --> B["setInstallRole(role, target)"]
+    B --> C{"electronApi() disponible?"}
+    C -- "sí" --> D["api.writeInstallSelection(role, target)"]
+    C -- "no" --> E["writeLocalSelection(role, target)"]
+    D --> F["installSelection = normalizeSelection(payload)"]
+    E --> G["installSelection local JSON en memoria"]
+    E --> H["copyText(roleCommand(role, target))"]
+    F --> I["renderRolePanel() / renderInstallations()"]
+    G --> I
+    H --> I
+  end
+
+  subgraph COMMANDS["Comandos generados"]
+    J["roleCommand(role, target)"] --> K{"electronApi().buildRoleCommand?"}
+    K -- "sí" --> L["Comando nativo del bridge Electron"]
+    K -- "no" --> M["PowerShell: bago install-role set --role ROLE --path TARGET"]
+  end
+
+  subgraph CLI["BAGO CLI"]
+    N["bago install-role"] --> O["bago_core/launcher.py<br/>cmd_install_role(args)"]
+    O --> P["bago_core/install_roles.py<br/>main(argv)"]
+    P --> Q["set_role() / clear_role() / load_selection()"]
+    Q --> R["~/.bago/install_selection.json"]
+    Q --> S["roles: active | dev | launch"]
+  end
+
+  subgraph READPATH["Lectura desde la UI y escaneo"]
+    T["bago list-installs --plain"] --> U["bago_core/cli_installs_cli.py"]
+    U --> V["_scan() en cli_installs_discovery.py"]
+    V --> W["role_paths(load_selection())"]
+    W --> X["selection.roles en JSON de salida"]
+    X --> Y["manager.html pinta badges selected_active/dev/launch"]
+  end
+
+  I --> Y
+  M --> N
+  L --> N
+  R --> W
+```
+
+### 17.2 Flujo des -> ign -> stable
+
+```mermaid
+flowchart TD
+  A["bago install --profile des"] --> B["Instala en ~/.bago/dev"]
+  B --> C["Validación local en des"]
+  C --> D{"Funciona?"}
+  D -- "no" --> E["Se corrige en des"]
+  D -- "sí" --> F["bago install --profile ign"]
+  F --> G["Promueve a ~/.bago/launch"]
+  G --> H["Validación de integración en ign"]
+  H --> I{"Todo entero y probado?"}
+  I -- "no" --> J["Se corrige antes de lanzar"]
+  I -- "sí" --> K["bago install --profile stable"]
+  K --> L["Sincroniza C:\\Program Files\\BAGO"]
+  L --> M["bago = stable"]
+  M --> N["bago des = dev"]
+  M --> O["bago ign = launch"]
+  N --> P["gestor UI/CLI muestran roles"]
+  O --> P
+  M --> P
+
+  Q["manager.html"] --> R["role-select buttons"]
+  R --> S["setInstallRole(role, target)"]
+  S --> T{"Electron bridge?"}
+  T -- "sí" --> U["writeInstallSelection(role, target)"]
+  T -- "no" --> V["copy command / local selection"]
+  U --> W["~/.bago/install_selection.json"]
+  V --> X["Comando listo para ejecutar"]
+  W --> Y["bago list-installs --plain"]
+  Y --> Z["UI pinta badges selected_active/dev/launch"]
+```
+
+### 17.3 Secuencia de roles y publicación
+
+```mermaid
+sequenceDiagram
+  actor User as Usuario
+  participant Dev as des
+  participant Ign as ign
+  participant Stable as stable
+  participant UI as manager.html
+  participant Roles as install_selection.json
+  participant Release as GitHub Release
+
+  User->>Dev: Implementa y prueba
+  Dev->>Dev: Valida framework
+  alt Funciona
+    User->>Ign: Promueve a integración
+    Ign->>Ign: Verifica conjunto completo
+    alt Todo entero
+      User->>Stable: Publica release
+      Stable->>Release: Tag + ZIP + assets
+    else Algo falla
+      Ign-->>User: Se corrige antes de lanzar
+    end
+  else No funciona
+    Dev-->>User: Se corrige en des
+  end
+
+  User->>UI: Cambia rol desde la interfaz
+  UI->>Roles: Guarda active/dev/launch
+  UI->>UI: Refresca vista y badges
+```
+
+### 17.4 Mapa mental del release model
+
+```mermaid
+mindmap
+  root((BAGO release model))
+    des
+      "trabajo de framework"
+      "pruebas locales"
+      "no publicar a medias"
+    ign
+      "integración"
+      "validación del conjunto"
+      "solo piezas terminadas"
+    stable
+      "publicación final"
+      "C:\\Program Files\\BAGO"
+      "release GitHub"
+    UI
+      "manager.html"
+      "role-select"
+      "Electron persiste"
+      "web copia comando"
+    SSOT
+      "~\\.bago\\install_selection.json"
+      "install_roles.py"
+      "launcher.py"
+      "bago list-installs"
+```
