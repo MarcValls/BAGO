@@ -1,5 +1,5 @@
 {
-  "current": "4.2.0",
+  "current": "4.2.1",
   "history": [
     {
       "version": "4.0.0",
@@ -16,8 +16,14 @@
     {
       "version": "4.2.0",
       "released": "2026-06-02",
-      "ended": null,
+      "ended": "2026-06-03",
       "notes": "Nuevo gestor de instalaciones con perfiles stable/des/ign y flujo de promocion"
+    },
+    {
+      "version": "4.2.1",
+      "released": "2026-06-03",
+      "ended": null,
+      "notes": "Patch publico con modo headless para agentes, catalogo JSON de comandos y diagnostico /doctor"
     }
   ]
 }

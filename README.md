@@ -1,6 +1,6 @@
-# BAGO v4.2.0
+# BAGO v4.2.1
 
-[![Version](https://img.shields.io/badge/version-4.2.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.2.1-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -85,11 +85,22 @@ Validation without opening a chat:
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```
 
+Agent/headless command mode:
+
+```powershell
+bago exec /help
+bago exec /commands json
+bago exec /doctor
+bago exec /status
+```
+
 ## Main Commands
 
 | Command | Purpose |
 |---|---|
 | `python bago_core\cli.py validate` | checks contracts, security defaults, and provider configuration |
+| `bago exec /commands json` | exports the slash-command catalog for agents |
+| `bago exec /doctor` | checks command catalog, headless execution, install roles, and provider health |
 | `python bago_core\cli.py evidence --test` | validates evidence bundle generation |
 | `python bago_core\cli.py llm list` | lists provider/model availability |
 | `python bago_core\cli.py llm start ...` | starts or dry-runs provider-aware startup |

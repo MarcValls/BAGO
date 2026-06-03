@@ -150,7 +150,7 @@
   <div class="wrap">
     <img src="assets/bago-wasp.svg" width="32" height="32" alt="BAGO avispa" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · v4.2.0</span>
+    <span class="meta">standalone · offline · v4.2.1</span>
   </div>
 </header>
 <main>
@@ -241,7 +241,7 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · v4.2.0 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · v4.2.1 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script>
@@ -890,7 +890,7 @@ function buildActions(inst,isSource){
     {label:'Crear backup',desc:'Snapshot de state+config+memory',cmd:cd+'; python bago_core/cli.py backup create'},
     {label:'Listar backups',desc:'Snapshots disponibles',cmd:cd+'; python bago_core/cli.py backup list'},
     {label:'Inventario completo',desc:'Cuenta archivos, tamaños, sellos',cmd:cd+'; python bago_core/cli.py inventory'},
-    {label:'Generar bundle 4.2.0',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
+    {label:'Generar bundle 4.2.1',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
   ]));
   return groups.join('');
 }
@@ -939,7 +939,7 @@ document.getElementById('file-input').addEventListener('change',ev=>{
   r.readAsText(f);
 });
 document.getElementById('btn-sample').addEventListener('click',()=>{
-  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.2.0","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.2.1","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
   inputArea.value=sample;
   parseAndRender(sample);
 });
