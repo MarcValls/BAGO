@@ -14,6 +14,8 @@
     .scroll-fade::-webkit-scrollbar-track{background:#0f172a;}
     .scroll-fade::-webkit-scrollbar-thumb{background:#334155;border-radius:4px;}
     .grad-text{background:linear-gradient(90deg,#818cf8,#22d3ee,#34d399);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    .wordmark{display:inline-block;font-family:'Arial Black','Impact','Segoe UI Black',sans-serif;font-weight:900;letter-spacing:-0.16em;line-height:0.9;color:#fff;-webkit-text-stroke:4px #000;text-shadow:4px 0 0 #000,-4px 0 0 #000,0 4px 0 #000,0 -4px 0 #000,4px 4px 0 #000,-4px -4px 0 #000,4px -4px 0 #000,-4px 4px 0 #000}
+    .wordmark.sm{font-size:24px}
     .card{transition:all .2s ease;}
     .card:hover{border-color:rgba(99,102,241,.4);transform:translateY(-1px);}
     details>summary{list-style:none;cursor:pointer;}
@@ -34,8 +36,8 @@
   <header class="border-b border-slate-800 sticky top-0 z-40 bg-slate-950/95 backdrop-blur">
     <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold">B</div>
-        <span class="font-bold text-lg tracking-tight">BAGO Installation Manager <span class="text-indigo-400 font-normal">v4.2.2</span></span>
+        <span class="wordmark sm" aria-label="BAGO">BAGO</span>
+        <span class="font-bold text-lg tracking-tight">Installation Manager <span class="text-indigo-400 font-normal">v4.2.2</span></span>
         <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">DESCARGAS · INSTALACIONES · GESTOR</span>
       </div>
       <nav class="hidden md:flex gap-6 text-sm text-slate-300">

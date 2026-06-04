@@ -14,6 +14,8 @@
   header .wrap{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
   header h1{font-size:18px;font-weight:700;margin:0;letter-spacing:-0.01em;}
   header h1 .grad{background:linear-gradient(90deg,#818cf8,#22d3ee,#34d399);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .wordmark{display:inline-block;font-family:'Arial Black','Impact','Segoe UI Black',sans-serif;font-weight:900;letter-spacing:-0.16em;line-height:0.95;color:#fff;-webkit-text-stroke:4px #000;text-shadow:4px 0 0 #000,-4px 0 0 #000,0 4px 0 #000,0 -4px 0 #000,4px 4px 0 #000,-4px -4px 0 #000,4px -4px 0 #000,-4px 4px 0 #000}
+  .wordmark.sm{font-size:24px}
   header .meta{margin-left:auto;font-size:12px;color:var(--muted);font-family:'JetBrains Mono',ui-monospace,monospace;}
   main{max-width:1100px;margin:0 auto;padding:32px 24px 80px;}
   .hero{padding:8px 0 28px;}
@@ -96,7 +98,7 @@
 <body>
 <header>
   <div class="wrap">
-    <h1><span class="grad">BAGO Installation Manager</span> · Gestor de Instalaciones</h1>
+    <h1><span class="wordmark sm" aria-label="BAGO">BAGO</span> · Gestor de Instalaciones</h1>
     <span class="meta">standalone · offline · v4.2.2</span>
   </div>
 </header>
