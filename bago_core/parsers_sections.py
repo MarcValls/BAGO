@@ -83,6 +83,13 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     android_init.add_argument("--model", dest="android_model", default="", help="Modelo por defecto para Android")
     android_init.add_argument("--base-url", dest="android_base_url", default="", help="Base URL del provider")
     android_init.add_argument("--json", dest="android_json", action="store_true", help="Salida JSON")
+    android_layers = android_sub.add_parser("layers", help="Diagnóstico por capas Android y aplicación autónoma")
+    android_layers.add_argument("--provider", dest="android_provider", default="", choices=("openrouter", "codex", "anthropic"), help="Provider objetivo para capas Android")
+    android_layers.add_argument("--model", dest="android_model", default="", help="Modelo objetivo para capas Android")
+    android_layers.add_argument("--base-url", dest="android_base_url", default="", help="Base URL objetivo para capas Android")
+    android_layers.add_argument("--apply", dest="android_apply", action="store_true", help="Aplica baseline Android por capas")
+    android_layers.add_argument("--force", dest="android_force", action="store_true", help="Permite aplicar fuera de Termux")
+    android_layers.add_argument("--json", dest="android_json", action="store_true", help="Salida JSON")
 
     engine_parser = sub.add_parser("engine", help="Estado del backend avanzado bago_true")
     engine_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")

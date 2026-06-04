@@ -43,6 +43,19 @@
     </section>
 
     <section class="card">
+      <h2>Compatibilidad por capas</h2>
+      <p class="muted">Capas: runtime, provider, network, security y UI. Puedes cargar el JSON de <code>bago android layers --json</code>.</p>
+      <div class="actions">
+        <button id="layers-refresh-btn">Recalcular capas web</button>
+        <button id="layers-load-cli-btn">Cargar JSON CLI</button>
+      </div>
+      <label>Salida JSON de CLI (opcional)
+        <textarea id="layers-json-input" rows="5" placeholder='Pega aqui la salida de: bago android layers --json'></textarea>
+      </label>
+      <pre id="layers-box" class="output">Sin diagnostico de capas.</pre>
+    </section>
+
+    <section class="card">
       <h2>Credencial (solo sesion)</h2>
       <p class="muted">La API key no se guarda en localStorage. Solo queda en esta pestana (sessionStorage).</p>
       <label>API key

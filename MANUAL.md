@@ -119,6 +119,24 @@ export OPENROUTER_API_KEY='<tu_clave>'
 bago llm start --provider openrouter --model openai/gpt-4o-mini --dry-run
 ```
 
+Compatibilidad Android por capas (autónoma):
+
+```bash
+# 1) Diagnóstico por capas
+bago android layers --json
+
+# 2) Aplicar baseline Android (runtime cloud-first)
+bago android layers --provider openrouter --apply
+```
+
+Capas evaluadas:
+
+- `layer_runtime`: Termux/Python/Git listos.
+- `layer_provider`: provider cloud habilitado + credenciales mínimas.
+- `layer_network`: conectividad TCP al endpoint del provider.
+- `layer_security`: providers locales deshabilitados y arranque con selección de provider.
+- `layer_ui`: gestor Android presente en `manager/android/index.html`.
+
 ### Modo agente/headless
 
 Todo comando slash visible en `/help` debe poder ejecutarse sin interfaz interactiva:

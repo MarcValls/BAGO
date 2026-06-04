@@ -99,6 +99,16 @@ export OPENROUTER_API_KEY='<tu_clave>'
 bago llm start --provider openrouter --model openai/gpt-4o-mini --dry-run
 ```
 
+Android layered autonomy:
+
+```bash
+# Diagnóstico por capas (runtime/provider/network/security/ui)
+bago android layers --json
+
+# Aplicar baseline Android por capas (en Termux)
+bago android layers --provider openrouter --apply
+```
+
 ## Minimum Use
 
 ```powershell

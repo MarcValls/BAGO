@@ -22,6 +22,13 @@ const statusBox = document.getElementById('status-box');
 const promptInput = document.getElementById('prompt-input');
 const responseBox = document.getElementById('response-box');
 const termuxBox = document.getElementById('termux-box');
+const layersBox = document.getElementById('layers-box');
+const layersJsonInput = document.getElementById('layers-json-input');
+let lastNetworkLayer = {
+  ok: false,
+  details: { reachable: false, reason: 'Sin prueba de red.' },
+  actions: ['Ejecuta "Probar conexion" para validar red/provider.'],
+};
 
 function readConfig() {
   try {
@@ -67,6 +74,110 @@ function getSessionApiKey(provider) {
 function setStatus(message, ok = true) {
   statusBox.textContent = message;
   statusBox.className = `status ${ok ? 'ok' : 'bad'}`;
+}
+
+function summarizeLayer(name, layer) {
+  const state = layer && layer.ok ? 'ok' : 'pendiente';
+  const details = layer && layer.details ? JSON.stringify(layer.details) : '{}';
+  return `- ${name}: ${state}\n  detalles: ${details}`;
+}
+
+function renderLayers(payload, source = 'web') {
+  if (!layersBox) return;
+  const layers = payload && payload.layers ? payload.layers : {};
+  const names = Object.keys(layers);
+  if (names.length === 0) {
+    layersBox.textContent = 'Sin diagnostico de capas.';
+    return;
+  }
+  const allOk = names.every(name => !!layers[name].ok);
+  const lines = [
+    `Fuente: ${source}`,
+    `Estado global: ${allOk ? 'OK' : 'PENDIENTE'}`,
+    ...names.map(name => summarizeLayer(name, layers[name])),
+  ];
+  const actions = payload.next_actions || [];
+  if (actions.length) {
+    lines.push('Acciones recomendadas:');
+    for (const step of actions) lines.push(`  - ${step}`);
+  }
+  layersBox.textContent = lines.join('\n');
+}
+
+function layerSecurityWeb() {
+  const localStorageHasKeyMaterial = Object.keys(localStorage).some(key => key.includes('api_key') || key.includes('OPENAI') || key.includes('OPENROUTER'));
+  const sessionScoped = Object.keys(sessionStorage).some(key => key.startsWith(SESSION_KEY_PREFIX));
+  const ok = !localStorageHasKeyMaterial;
+  const actions = [];
+  if (localStorageHasKeyMaterial) actions.push('Mover credenciales de localStorage a sessionStorage o CLI.');
+  if (!sessionScoped) actions.push('Guardar API key de sesion para operar provider.');
+  return {
+    ok,
+    details: { localStorage_has_key_material: localStorageHasKeyMaterial, session_key_present: sessionScoped },
+    actions,
+  };
+}
+
+function buildWebLayers() {
+  const provider = providerSelect.value;
+  const endpoint = endpointInput.value.trim();
+  const model = modelInput.value.trim();
+  const key = apiKeyInput.value.trim() || getSessionApiKey(provider);
+  const isAndroid = /Android/i.test(navigator.userAgent || '');
+  const layers = {
+    layer_runtime: {
+      ok: isAndroid,
+      details: { android_user_agent: isAndroid, termux_detected: /Termux|com\.termux/i.test(navigator.userAgent || '') },
+      actions: isAndroid ? [] : ['Abrir este gestor desde un dispositivo Android.'],
+    },
+    layer_provider: {
+      ok: !!provider && !!endpoint && !!model && !!key,
+      details: { provider, endpoint, model, key_present: !!key },
+      actions: [
+        ...(!endpoint ? ['Definir endpoint del provider.'] : []),
+        ...(!model ? ['Definir modelo objetivo.'] : []),
+        ...(!key ? [`Definir ${PRESETS[provider].envKey} en sesion.`] : []),
+      ],
+    },
+    layer_network: lastNetworkLayer,
+    layer_security: layerSecurityWeb(),
+    layer_ui: {
+      ok: true,
+      details: { manager_android_loaded: true },
+      actions: [],
+    },
+  };
+  const nextActions = [];
+  for (const name of Object.keys(layers)) {
+    for (const action of layers[name].actions || []) {
+      if (!nextActions.includes(action)) nextActions.push(action);
+    }
+  }
+  return { layers, next_actions: nextActions };
+}
+
+function refreshLayersWeb() {
+  renderLayers(buildWebLayers(), 'web-local');
+}
+
+function loadLayersFromCliJson() {
+  const raw = (layersJsonInput && layersJsonInput.value || '').trim();
+  if (!raw) {
+    setStatus('Pega primero el JSON de `bago android layers --json`.', false);
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const payload = parsed.layers ? parsed : parsed.layers_report ? parsed.layers_report : null;
+    if (!payload || !payload.layers) {
+      setStatus('JSON sin estructura de capas.', false);
+      return;
+    }
+    renderLayers(payload, 'cli-json');
+    setStatus('Capas cargadas desde CLI.', true);
+  } catch (_err) {
+    setStatus('JSON CLI invalido.', false);
+  }
 }
 
 function providerHeaders(provider, key) {
@@ -115,13 +226,31 @@ async function testHealth() {
       headers: providerHeaders(provider, key),
     });
     if (!response.ok) {
+      lastNetworkLayer = {
+        ok: false,
+        details: { reachable: false, status: response.status },
+        actions: ['Revisar conectividad o credenciales del provider.'],
+      };
+      refreshLayersWeb();
       setStatus(mapHttpError(response.status), false);
       return;
     }
     const payload = await readJsonSafe(response);
     const count = Array.isArray(payload.data) ? payload.data.length : 0;
+    lastNetworkLayer = {
+      ok: true,
+      details: { reachable: true, models_visible: count },
+      actions: [],
+    };
+    refreshLayersWeb();
     setStatus(`Conexion OK. Modelos visibles: ${count}.`, true);
   } catch (_err) {
+    lastNetworkLayer = {
+      ok: false,
+      details: { reachable: false, reason: 'network-or-cors' },
+      actions: ['Verificar red Android, DNS o restricciones CORS.'],
+    };
+    refreshLayersWeb();
     setStatus('Fallo de red/CORS. Revisa conectividad o endpoint.', false);
   }
 }
@@ -231,6 +360,9 @@ function init() {
   });
   document.getElementById('copy-termux-btn').addEventListener('click', copyTermux);
   providerSelect.addEventListener('change', () => syncPreset(true));
+  document.getElementById('layers-refresh-btn').addEventListener('click', refreshLayersWeb);
+  document.getElementById('layers-load-cli-btn').addEventListener('click', loadLayersFromCliJson);
+  refreshLayersWeb();
 }
 
 init();
