@@ -1,5 +1,5 @@
 {
-  "current": "4.2.2",
+  "current": "4.3.0",
   "history": [
     {
       "version": "4.0.0",
@@ -28,8 +28,14 @@
     {
       "version": "4.2.2",
       "released": "2026-06-03",
-      "ended": null,
+      "ended": "2026-06-04",
       "notes": "Patch publico del gestor: Node Control acepta node status --json, runtime BAGO empaquetado y foco de UI en instalaciones, roles, piezas y matriz"
+    },
+    {
+      "version": "4.3.0",
+      "released": "2026-06-04",
+      "ended": null,
+      "notes": "Consolidación post-rebase: SessionManager integrado en el gestor, bridges Codex/Copilot y estabilidad verificada de runtime y release jobs"
     }
   ]
 }
