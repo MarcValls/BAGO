@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-launcher.py — BAGO Launcher
+launcher.py -- BAGO Launcher
 
 Punto de entrada principal para BAGO CLI.
 Encarga:
 1. Parsear argumentos
 2. Detectar comando (chat, validate, config, help)
-3. Delegar al módulo correspondiente
+3. Delegar al modulo correspondiente
 """
 
 from __future__ import annotations
@@ -36,9 +36,9 @@ sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
 
 _CREATED_VERSION = "4.0.0"
 
-# Lee la versión desde el índice central (versions.json)
+# Lee la version desde el indice central (versions.json)
 from version import CURRENT as _BAGO_VERSION  # noqa: E402
-from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_llm  # noqa: E402
+from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
@@ -54,8 +54,7 @@ from bago_core.commands.cmd_tools import (  # noqa: E402
     cmd_backup,
     cmd_canary,
     cmd_inventory,
-    cmd_issues,
-    cmd_node,
+    cmd_issues as cmd_issues_next,
     cmd_preflight,
     cmd_project,
     cmd_route,
@@ -65,9 +64,8 @@ from bago_core.commands.cmd_tools import (  # noqa: E402
 from bago_core.commands.cmd_tools import _load_tool_module as _load_tool_module  # noqa: F401,E402
 from bago_core.parsers import build_parser  # noqa: E402
 
-
 def cmd_guard(args: argparse.Namespace) -> int:
-    """Guardián de deuda técnica — previene patrones antes de commitear."""
+    """Guardian de deuda tecnica -- previene patrones antes de commitear."""
     mod = _load_tool_module("debt_guard", "debt_guard.py")
     argv: list[str] = []
     root = getattr(args, "root", "") or ""
@@ -93,7 +91,6 @@ def cmd_guard(args: argparse.Namespace) -> int:
         argv.append(subcmd)
     return mod.main(argv)
 
-
 def cmd_monitor(args: argparse.Namespace) -> int:
     """Monitor HTML en tiempo real de procesos BAGO internos."""
     mod = _load_tool_module("process_monitor", "process_monitor.py")
@@ -108,9 +105,8 @@ def cmd_monitor(args: argparse.Namespace) -> int:
     argv.append(subcmd)
     return mod.main(argv)
 
-
 def cmd_orchestrate(args: argparse.Namespace) -> int:
-    """Orchestrator v4 — Flujo Operativo (Regla Fundamental)."""
+    """Orchestrator v4 -- Flujo Operativo (Regla Fundamental)."""
     mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
     subcmd = getattr(args, "orc_cmd", None)
     argv: list[str] = []
@@ -154,9 +150,11 @@ def cmd_orchestrate(args: argparse.Namespace) -> int:
         argv += ["--help"]
     return mod.main(argv)
 
-
 def cmd_issues(args: argparse.Namespace) -> int:
     """Alias operativo para flujo list/take/close sobre orchestrator_v4."""
+    if getattr(args, "issues_cmd", None) == "take" and not getattr(args, "brief_id", ""):
+        return cmd_issues_next(args)
+
     mod = _load_tool_module("orchestrator_v4", "orchestrator_v4.py")
     subcmd = getattr(args, "issues_cmd", None)
     argv: list[str] = []
@@ -185,8 +183,8 @@ def cmd_issues(args: argparse.Namespace) -> int:
 def cmd_installs(args: argparse.Namespace) -> int:
     """Escanea el sistema e imprime JSON con todas las instalaciones BAGO.
 
-    Diseñado para la landing page (https://bago-...vercel.app): el usuario
-    corre `bago list-installs` y pega el resultado en la web. Cero telemetría,
+    Disenado para la landing page (https://bago-...vercel.app): el usuario
+    corre `bago list-installs` y pega el resultado en la web. Cero telemetria,
     cero red. El JSON contiene paths absolutos, versiones, presencia de
     supervisor/probe, y liveness del pid del supervisor.
     """
@@ -197,6 +195,92 @@ def cmd_installs(args: argparse.Namespace) -> int:
     if getattr(args, "active_only", False):
         argv.append("--active-only")
     return _inst_main(argv)
+
+def cmd_install_role(args: argparse.Namespace) -> int:
+    """Gestiona que copia BAGO se usa como active/dev/launch."""
+    from bago_core.install_roles import main as _roles_main
+    argv: list[str] = []
+    subcmd = getattr(args, "install_role_cmd", None) or "show"
+    argv.append(subcmd)
+    if subcmd == "set":
+        argv += ["--role", getattr(args, "role", ""), "--path", getattr(args, "path", "")]
+        if getattr(args, "no_strict", False):
+            argv.append("--no-strict")
+    elif subcmd == "clear":
+        role = getattr(args, "role", "") or ""
+        if role:
+            argv += ["--role", role]
+    if getattr(args, "json", False):
+        argv.append("--json")
+    return _roles_main(argv)
+
+
+def cmd_profiles(args: argparse.Namespace) -> int:
+    """Muestra el mapa estable de active/des/ign y el flujo recomendado."""
+    print("BAGO profiles")
+    print("----------------------------------------")
+    print("stable : C:\\Program Files\\BAGO")
+    print("des    : C:\\Users\\AMTEC_Terminal_1º\\.bago\\dev")
+    print("ign    : C:\\Users\\AMTEC_Terminal_1º\\.bago\\launch")
+    print("")
+    print("Flujo:")
+    print("  bago install --profile des")
+    print("  bago install --profile ign")
+    print("  bago install --profile stable")
+    print("  bago promote --from des --to ign")
+    print("  bago promote --from ign --to stable")
+    return 0
+
+def cmd_node(args: argparse.Namespace) -> int:
+    """Passthrough al CLI de node_control (registry, policy, evidence, modos).
+
+    Importa dinamicamente bago_core.node_control y delega. Acepta --json
+    antes o despues del subcomando. Misma superficie que `python -m bago_core.node_control`.
+    """
+    from bago_core import node_control as _nc
+    argv: list[str] = []
+    if getattr(args, "json", False):
+        argv.append("--json")
+    base = getattr(args, "base_path", None)
+    if base:
+        argv += ["--base-path", str(base)]
+    sub = getattr(args, "node_cmd", None)
+    if sub:
+        argv.append(sub)
+    # Translator is special: it has a sub-subcommand (list/show/validate/map),
+    # so --json must come AFTER that sub-subcommand to be parsed correctly.
+    if sub == "translator":
+        sub_sub = getattr(args, "translator_command", None)
+        if sub_sub:
+            argv.append(sub_sub)
+        # Pass through positional piece_id (if any) and --json
+        piece_id = getattr(args, "piece_id", None)
+        if piece_id:
+            argv.append(piece_id)
+        if getattr(args, "json", False):
+            argv.append("--json")
+        return _nc.main(argv)
+    option_map = (
+        ("type", "--type"),
+        ("scope", "--scope"),
+        ("installation", "--installation"),
+        ("piece", "--piece"),
+        ("mode", "--mode"),
+        ("output", "--output"),
+        ("limit", "--limit"),
+    )
+    for attr, flag in option_map:
+        value = getattr(args, attr, None)
+        if value not in (None, ""):
+            argv.extend([flag, str(value)])
+    # Other node_control subcommands accept --json after themselves.
+    sub_with_json = {
+        "status", "validate", "pieces", "connectors", "matrix",
+        "evidence", "preview", "connect", "disconnect", "set-mode",
+    }
+    if sub in sub_with_json and getattr(args, "json", False):
+        argv.append("--json")
+    return _nc.main(argv)
 
 def _read_release_label(root: Path) -> str:
     for candidate in (root / "release_version.txt", root / ".bago" / "release_version.txt"):
@@ -218,6 +302,19 @@ RELEASE_LABEL = _read_release_label(BAGO_ROOT)
 
 def main(argv: list[str] | None = None) -> int:
     import sys
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in {"des", "ign"}:
+        profile = argv[0]
+        profile_root = Path.home() / ".bago" / ("dev" if profile == "des" else "launch")
+        cli_path = profile_root / "bago_core" / "cli.py"
+        runner = cli_path if cli_path.exists() else profile_root / "bago_core" / "launcher.py"
+        if not runner.exists():
+            print(f"[ERROR] Perfil '{profile}' no disponible en {profile_root}")
+            return 1
+        import subprocess
+        completed = subprocess.run([sys.executable, str(runner), *argv[1:]], cwd=str(profile_root))
+        return completed.returncode
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
     from config_manager import ConfigManager
 
@@ -236,71 +333,72 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = build_parser(_BAGO_VERSION, base, default_provider, default_model)
     args = parser.parse_args(argv)
+    return _dispatch(args, parser)
 
-    if args.command in ("chat", "launch", "start") or args.command is None:
-        return cmd_chat(args)
-    elif args.command == "validate":
-        return cmd_validate(args)
-    elif args.command == "install":
-        return cmd_install(args)
-    elif args.command == "uninstall":
-        return cmd_uninstall(args)
-    elif args.command == "claim":
-        return cmd_claim(args)
-    elif args.command == "config":
-        return cmd_config(args)
-    elif args.command == "llm":
-        return cmd_llm(args)
-    elif args.command == "engine":
-        return cmd_engine(args)
-    elif args.command == "appdata":
-        return cmd_appdata(args)
-    elif args.command == "cmd-rl":
-        return cmd_cmd_rl(args)
-    elif args.command == "rl":
-        return cmd_rl(args)
-    elif args.command == "serve":
-        return cmd_serve(args)
-    elif args.command == "evidence":
-        return cmd_evidence(args)
-    elif args.command == "cpp-runtime":
-        return cmd_cpp_runtime(args)
-    elif args.command == "scan":
-        return cmd_scan(args)
-    elif args.command == "guard":
-        return cmd_guard(args)
-    elif args.command == "canary":
-        return cmd_canary(args)
-    elif args.command == "backup":
-        return cmd_backup(args)
-    elif args.command == "project":
-        return cmd_project(args)
-    elif args.command == "preflight":
-        return cmd_preflight(args)
-    elif args.command == "toolsmith":
-        return cmd_toolsmith(args)
-    elif args.command == "issues":
-        return cmd_issues(args)
-    elif args.command == "agent":
-        return cmd_agent(args)
-    elif args.command == "node":
-        return cmd_node(args)
-    elif args.command == "route":
-        return cmd_route(args)
-    elif args.command == "inventory":
-        return cmd_inventory(args)
-    elif args.command == "monitor":
-        return cmd_monitor(args)
-    elif args.command == "orchestrate":
-        return cmd_orchestrate(args)
-    elif args.command == "issues":
-        return cmd_issues(args)
-    elif args.command == "list-installs":
-        return cmd_installs(args)
-    else:
+
+# -- FASE 6.2 facade dispatcher -------------------------------------------------
+# launcher.py is a *thin facade* (R0-R10). The dispatch table below is the only
+# piece of routing logic allowed at this layer. It maps:
+#     args.command    -> command implementation in bago_core.commands.cmd_*
+# Keeping the table explicit (no `elif ladder`) makes it trivial to:
+#   * audit (one screenful)
+#   * test (covered by tests/test_launcher_dispatch.py)
+#   * refactor (move a command -> update one line)
+_DISPATCH_TABLE: dict[str, str] = {
+    "chat":        "cmd_chat",
+    "launch":      "cmd_chat",
+    "start":       "cmd_chat",
+    "exec":        "cmd_exec",
+    "validate":    "cmd_validate",
+    "install":     "cmd_install",
+    "uninstall":   "cmd_uninstall",
+    "profiles":    "cmd_profiles",
+    "claim":       "cmd_claim",
+    "config":      "cmd_config",
+    "llm":         "cmd_llm",
+    "engine":      "cmd_engine",
+    "appdata":     "cmd_appdata",
+    "cmd-rl":      "cmd_cmd_rl",
+    "rl":          "cmd_rl",
+    "serve":       "cmd_serve",
+    "evidence":    "cmd_evidence",
+    "cpp-runtime": "cmd_cpp_runtime",
+    "scan":        "cmd_scan",
+    "guard":       "cmd_guard",
+    "canary":      "cmd_canary",
+    "backup":      "cmd_backup",
+    "project":     "cmd_project",
+    "preflight":   "cmd_preflight",
+    "toolsmith":   "cmd_toolsmith",
+    "issues":      "cmd_issues",
+    "agent":       "cmd_agent",
+    "route":       "cmd_route",
+    "inventory":   "cmd_inventory",
+    "monitor":     "cmd_monitor",
+    "orchestrate": "cmd_orchestrate",
+    "list-installs": "cmd_installs",
+    "install-role": "cmd_install_role",
+    "node":        "cmd_node",
+}
+
+
+def _dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Route a parsed Namespace to the matching cmd_* implementation.
+
+    `None` (no command) is treated as `chat` for backwards compatibility
+    with the legacy `bago` (no args) entrypoint. Unknown commands print help.
+    """
+    cmd = args.command or "chat"
+    impl_name = _DISPATCH_TABLE.get(cmd)
+    if impl_name is None:
         parser.print_help()
         return 0
-
+    # local lookup keeps the table readable while avoiding a per-call dict
+    impl = globals().get(impl_name)
+    if impl is None:
+        parser.print_help()
+        return 0
+    return impl(args)
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "--test":
@@ -336,12 +434,6 @@ if __name__ == "__main__":
             issue_brief = orc_mod.create_brief(task="CLI issues command smoke test")
             assert main(["--base-path", td, "issues", "--root", td, "take", issue_brief.id, "--agent", "codex"]) == 0
             assert main(["--base-path", td, "issues", "--root", td, "close", issue_brief.id, "--force"]) == 0
-            assert main(["--base-path", td, "node", "status"]) == 0
-            assert main(["--base-path", td, "node", "pieces"]) == 0
-            assert main(["--base-path", td, "node", "connectors"]) == 0
-            assert main(["--base-path", td, "node", "matrix"]) == 0
-            assert main(["--base-path", td, "node", "validate"]) == 0
-            assert main(["--base-path", td, "node", "export", "--output", str(Path(td) / "node-export.json")]) == 0
         print("launcher.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())

@@ -52,6 +52,7 @@ Rules:
 | `shadow` | Installation can observe only | no |
 | `locked` | Installation cannot use the piece | no |
 | `detached` | Piece exists but is not linked | no |
+| `available` / `not-created` | Matrix crossing exists, but no connector has been materialized | no |
 | `read-only` | Installation can inspect but not modify | no |
 | `writable overlay` | Installation can change a local overlay layer | yes, but only on overlay |
 
@@ -103,21 +104,22 @@ Current command surfaces that the UI should use or expose:
 
 - `bago list-installs`
 - `bago uninstall`
+- `bago node status --json`
+- `bago node matrix --json`
+- `bago node preview --installation <id> --piece <id> --mode <mode> --json`
+- `bago node connect --installation <id> --piece <id> --mode <mode> --json`
+- `bago node disconnect --installation <id> --piece <id> --json`
+- `bago node set-mode --installation <id> --piece <id> --mode <mode> --json`
+- `bago node validate --json`
+- `bago node evidence --limit <n> --json`
 - `install-remote.ps1 -Tag <tag>`
 - GitHub Releases API for listing tags and assets
 
-Target UI commands:
+Later command targets:
 
-- `connect`
-- `disconnect`
-- `lock`
-- `shadow`
-- `readonly`
-- `overlay`
 - `sync`
 - `install`
 - `uninstall`
-- `evidence`
 
 ## Screens
 
@@ -150,7 +152,8 @@ Target UI commands:
 
 - One shared piece can be referenced by multiple installations.
 - A connector can be `connected`, `shadow`, `locked`, `detached`, `read-only`, or `writable overlay`.
+- The matrix distinguishes a detached connector from an available/not-created crossing.
 - Every state change produces evidence.
+- Connector changes can be previewed and validated before and after mutation.
 - The UI can show the graph and the matrix in separate views.
 - Releases are listed automatically and prereleases are labeled `beta`.
-

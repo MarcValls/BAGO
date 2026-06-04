@@ -11,7 +11,7 @@
 | Producto | BAGO 4.2.2 |
 | Tipo | Manual de usuario y guía de release |
 | Alcance | `stable` / `des` / `ign` |
-| UI | `manager.html` + capturas de CLI/UI |
+| UI | `manager/index.html` + capturas de CLI/UI |
 | Validación | `validate`, `test_security_release.py`, `test_e2e.py`, `publish_release.py --test` |
 | Artefactos | `dist\BAGO-Installation-Manager-4.2.2-win-x64.exe`, `dist\bago-v4.2.2.zip` |
 
@@ -893,7 +893,7 @@ flowchart LR
   end
 
   subgraph UI["Interfaz de gestión"]
-    P["manager.html"]
+    P["manager/index.html"]
     Q["Role cards<br/>active / dev / launch"]
     R["setInstallRole(role, target)"]
     S{"Electron bridge disponible?"}
@@ -936,7 +936,7 @@ sequenceDiagram
   participant Dev as des
   participant Ign as ign
   participant Stable as stable
-  participant UI as manager.html
+  participant UI as manager/index.html
   participant Roles as install_selection.json
   participant Release as GitHub Release
 
@@ -978,7 +978,7 @@ mindmap
       "C:\\Program Files\\BAGO"
       "release GitHub"
     UI
-      "manager.html"
+      "manager/index.html"
       "role-select"
       "Electron persiste"
       "web copia comando"
@@ -993,6 +993,11 @@ mindmap
 
 - En la UI de Electron, los botones de rol persisten la selección en `~\.bago\install_selection.json`.
 - En la web pura, la UI copia el comando para ejecutarlo manualmente.
+- La vista `Releases` crea trabajos verificados; no instala directamente desde una URL.
+- La vista `Trabajos` muestra descarga, progreso, cancelación, reanudación, SHA256, logs, instalación y rollback.
+- Los trabajos persisten bajo `~\.bago\manager\release-jobs\`.
+- Un bundle solo queda listo cuando coinciden su checksum emparejado, el digest GitHub publicado y la compatibilidad mínima.
+- Antes de modificar un destino existente, el gestor crea un backup atómico en el mismo volumen.
 - `bago install --profile des` instala la copia de desarrollo.
 - `bago install --profile ign` promueve y valida la integración.
 - `bago install --profile stable` sincroniza la instalación estable en `C:\Program Files\BAGO`.
@@ -1096,7 +1101,7 @@ Los diagramas de este anexo recogen la versión final consolidada de los flujos 
 
 ```mermaid
 flowchart LR
-  subgraph UI["manager.html / UI"]
+  subgraph UI["manager/index.html / UI"]
     A["Role card click<br/>role-select button"] --> B["setInstallRole(role, target)"]
     B --> C{"electronApi() disponible?"}
     C -- "sí" --> D["api.writeInstallSelection(role, target)"]
@@ -1128,7 +1133,7 @@ flowchart LR
     U --> V["_scan() en cli_installs_discovery.py"]
     V --> W["role_paths(load_selection())"]
     W --> X["selection.roles en JSON de salida"]
-    X --> Y["manager.html pinta badges selected_active/dev/launch"]
+    X --> Y["manager/index.html pinta badges selected_active/dev/launch"]
   end
 
   I --> Y
@@ -1159,7 +1164,7 @@ flowchart TD
   O --> P
   M --> P
 
-  Q["manager.html"] --> R["role-select buttons"]
+  Q["manager/index.html"] --> R["role-select buttons"]
   R --> S["setInstallRole(role, target)"]
   S --> T{"Electron bridge?"}
   T -- "sí" --> U["writeInstallSelection(role, target)"]
@@ -1178,7 +1183,7 @@ sequenceDiagram
   participant Dev as des
   participant Ign as ign
   participant Stable as stable
-  participant UI as manager.html
+  participant UI as manager/index.html
   participant Roles as install_selection.json
   participant Release as GitHub Release
 
@@ -1220,7 +1225,7 @@ mindmap
       "C:\\Program Files\\BAGO"
       "release GitHub"
     UI
-      "manager.html"
+      "manager/index.html"
       "role-select"
       "Electron persiste"
       "web copia comando"

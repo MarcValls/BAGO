@@ -2,6 +2,6 @@
   "version": 2,
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
-    { "src": "manager.html", "use": "@vercel/static" }
+    { "src": "manager/index.html", "use": "@vercel/static" }
   ]
 }

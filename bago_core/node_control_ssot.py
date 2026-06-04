@@ -3,7 +3,7 @@ from __future__ import annotations
 
 NODE_CONTROL_SCHEMA_VERSION = 1
 
-PIECE_STORE_TYPES = ("tools", "agents", "skills", "repos", "knowledge", "models", "connectors", "blobs", "cache")
+PIECE_STORE_TYPES = ("tools", "agents", "skills", "repos", "knowledge", "models", "connectors", "blobs", "cache", "translators")
 
 ALLOWED_MODES = ("connected", "shadow", "locked", "detached", "read-only", "writable overlay")
 
@@ -80,5 +80,45 @@ DEFAULT_PIECE_CATALOG: list[dict[str, str]] = [
         "version": "0.8",
         "hash": "sha256:toolsmith-catalog",
         "store_path": r"C:\ProgramData\BAGO\pieces\skills\toolsmith-catalog",
+    },
+    {
+        "piece_id": "translator.shared.base",
+        "type": "translator",
+        "scope": "shared",
+        "version": "1.0",
+        "hash": "sha256:translator-base-v1",
+        "store_path": r"C:\ProgramData\BAGO\pieces\translators\shared\base",
+    },
+    {
+        "piece_id": "translator.openai.gpt-4o",
+        "type": "translator",
+        "scope": "cloud",
+        "version": "1.0",
+        "hash": "sha256:translator-openai-gpt4o-v1",
+        "store_path": r"C:\ProgramData\BAGO\pieces\translators\openai\gpt-4o",
+    },
+    {
+        "piece_id": "translator.anthropic.claude-3-5-sonnet",
+        "type": "translator",
+        "scope": "cloud",
+        "version": "1.0",
+        "hash": "sha256:translator-anthropic-claude35-v1",
+        "store_path": r"C:\ProgramData\BAGO\pieces\translators\anthropic\claude-3-5-sonnet",
+    },
+    {
+        "piece_id": "translator.ollama.llama3.2",
+        "type": "translator",
+        "scope": "local",
+        "version": "1.0",
+        "hash": "sha256:translator-ollama-llama32-v1",
+        "store_path": r"C:\ProgramData\BAGO\pieces\translators\ollama\llama3.2",
+    },
+    {
+        "piece_id": "translator.ollama.granite3.2-8b",
+        "type": "translator",
+        "scope": "local",
+        "version": "1.0",
+        "hash": "sha256:translator-ollama-granite32-v1",
+        "store_path": r"C:\ProgramData\BAGO\pieces\translators\ollama\granite3.2-8b",
     },
 ]

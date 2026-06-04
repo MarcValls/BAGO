@@ -9,7 +9,9 @@
   "scripts": {
     "manager:dev": "electron .",
     "manager:pack": "electron-builder --dir",
-    "manager:dist": "electron-builder --win nsis"
+    "manager:dist": "electron-builder --win nsis",
+    "manager:test-jobs": "node tests/test_release_job_manager.cjs",
+    "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
   },
   "build": {
     "appId": "com.bago.installation-manager",
@@ -32,7 +34,7 @@
     ],
     "files": [
       "electron/**/*",
-      "manager.html",
+      "manager/**/*",
       "bago.ico",
       "assets/**/*",
       "bago_core/**/*",

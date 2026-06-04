@@ -28,6 +28,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from provider_adapter import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
+from cli_bridge import build_prompt, find_cli, run_cli
 
 
 COPILOT_API = "https://api.githubcopilot.com"
@@ -41,6 +42,43 @@ class CopilotAdapter(ProviderAdapter):
         self.token = (config or {}).get("token") or os.environ.get("GITHUB_COPILOT_TOKEN") or self._gh_token()
         self.base_url = (config or {}).get("base_url", COPILOT_API).rstrip("/")
         self.model_id = (config or {}).get("model", "gpt-4o-copilot")
+        self.base_path = Path((config or {}).get("base_path") or os.getcwd()).resolve()
+        self.cli_path = find_cli("copilot", (config or {}).get("cli_path", ""))
+        self.cli_timeout = float((config or {}).get("cli_timeout", 180))
+        copilot_home = Path.home() / ".copilot"
+        self.cli_authenticated = bool((config or {}).get("cli_authenticated")) or (
+            bool(self.cli_path)
+            and any((copilot_home / name).exists() for name in ("config.json", "session-store.db"))
+        )
+
+    def _use_cli(self) -> bool:
+        return not self.token and self.cli_authenticated
+
+    def _chat_cli(self, messages: list[dict], model: str, system: str) -> ProviderResponse:
+        prompt = build_prompt(messages, system)
+        command = [
+            self.cli_path,
+            "-p",
+            prompt,
+            "--silent",
+            "--no-color",
+            "--no-ask-user",
+            "--no-auto-update",
+            "--disable-builtin-mcps",
+            "--no-custom-instructions",
+            "-C",
+            str(self.base_path),
+        ]
+        if model:
+            command += ["--model", model]
+        content = run_cli(command, self.base_path, self.cli_timeout)
+        return ProviderResponse(
+            content=content,
+            model_used=model,
+            provider=self.provider_name,
+            finish_reason="stop",
+            metadata={"transport": "cli"},
+        )
 
     def _gh_token(self) -> str | None:
         # Attempt to read from gh CLI credential cache
@@ -89,6 +127,19 @@ class CopilotAdapter(ProviderAdapter):
         stream: bool = False,
         tools: list[dict] | None = None,
     ) -> ProviderResponse:
+        if self._use_cli():
+            try:
+                return self._chat_cli(messages, model, system)
+            except Exception as exc:
+                self._set_error(str(exc))
+                return ProviderResponse(
+                    content=f"Error Copilot CLI: {exc}",
+                    provider=self.provider_name,
+                    model_used=model,
+                    finish_reason="error",
+                    metadata={"transport": "cli", "error": True},
+                )
+
         payload = {
             "model": model,
             "messages": messages,
@@ -106,7 +157,13 @@ class CopilotAdapter(ProviderAdapter):
             result = self._post(f"{self.base_url}/chat/completions", payload)
         except Exception as exc:
             self._set_error(str(exc))
-            return ProviderResponse(content=f"Error Copilot: {exc}", provider=self.provider_name, model_used=model)
+            return ProviderResponse(
+                content=f"Error Copilot: {exc}",
+                provider=self.provider_name,
+                model_used=model,
+                finish_reason="error",
+                metadata={"transport": "api", "error": True},
+            )
 
         choice = result.get("choices", [{}])[0]
         msg = choice.get("message", {})
@@ -126,10 +183,11 @@ class CopilotAdapter(ProviderAdapter):
         )
 
     def list_models(self) -> list[ModelInfo]:
-        # Copilot doesn't expose a public model list API; hardcode known models
         return [
+            ModelInfo("gpt-5.4-mini", "gpt-5.4-mini", self.provider_name, 128000, 16384, "fast_coding", "subscription"),
+            ModelInfo("gpt-5.3-codex", "gpt-5.3-codex", self.provider_name, 128000, 16384, "coding", "subscription"),
+            ModelInfo("gpt-5.2", "gpt-5.2", self.provider_name, 128000, 16384, "general", "subscription"),
             ModelInfo("gpt-4o-copilot", "gpt-4o", self.provider_name, 128000, 16384, "coding", "subscription"),
-            ModelInfo("o3-mini-copilot", "o3-mini", self.provider_name, 200000, 100000, "reasoning", "subscription"),
         ]
 
     def chat_stream(
@@ -143,6 +201,12 @@ class CopilotAdapter(ProviderAdapter):
         tools: list[dict] | None = None,
     ):
         """Streaming real para Copilot (SSE, OpenAI-compatible)."""
+        if self._use_cli():
+            response = self._chat_cli(messages, model, system)
+            if response.content:
+                yield response.content
+            return
+
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -181,8 +245,14 @@ class CopilotAdapter(ProviderAdapter):
             yield f"Error Copilot: {exc}"
 
     def health_check(self, timeout: float = 5.0) -> HealthStatus:
+        if self._use_cli():
+            try:
+                detail = run_cli([self.cli_path, "--version"], self.base_path, timeout).splitlines()[0]
+                return HealthStatus(ok=True, provider=self.provider_name, detail=f"Copilot CLI: {detail}", models_available=4)
+            except Exception as exc:
+                return HealthStatus(ok=False, provider=self.provider_name, detail=f"Copilot CLI: {exc}")
         if not self.token:
-            return HealthStatus(ok=False, provider=self.provider_name, detail="No token configured")
+            return HealthStatus(ok=False, provider=self.provider_name, detail="No token ni CLI autenticado")
         try:
             self._get(f"{self.base_url}/models", timeout=timeout)
             return HealthStatus(ok=True, provider=self.provider_name, detail="Copilot API reachable")
@@ -190,13 +260,13 @@ class CopilotAdapter(ProviderAdapter):
             return HealthStatus(ok=False, provider=self.provider_name, detail=str(exc))
 
     def is_configured(self) -> bool:
-        return bool(self.token)
+        return bool(self.token or self._use_cli())
 
     def supports_tools(self) -> bool:
-        return True
+        return bool(self.token)
 
     def supports_streaming(self) -> bool:
-        return True
+        return bool(self.token)
 
 
 def _run_tests() -> int:

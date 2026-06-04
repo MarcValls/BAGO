@@ -27,6 +27,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from provider_adapter import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
+from cli_bridge import build_prompt, find_cli, run_cli
 
 
 OPENAI_API = "https://api.openai.com/v1"
@@ -39,6 +40,41 @@ class CodexAdapter(ProviderAdapter):
         super().__init__("codex", config)
         self.api_key = (config or {}).get("api_key") or os.environ.get("OPENAI_API_KEY")
         self.base_url = (config or {}).get("base_url", OPENAI_API).rstrip("/")
+        self.base_path = Path((config or {}).get("base_path") or os.getcwd()).resolve()
+        self.cli_path = find_cli("codex", (config or {}).get("cli_path", ""))
+        self.cli_timeout = float((config or {}).get("cli_timeout", 180))
+        self.cli_authenticated = bool((config or {}).get("cli_authenticated")) or (
+            bool(self.cli_path) and (Path.home() / ".codex" / "auth.json").exists()
+        )
+
+    def _use_cli(self) -> bool:
+        return not self.api_key and self.cli_authenticated
+
+    def _chat_cli(self, messages: list[dict], model: str, system: str) -> ProviderResponse:
+        prompt = build_prompt(messages, system)
+        command = [
+            self.cli_path,
+            "exec",
+            "--ephemeral",
+            "--skip-git-repo-check",
+            "--sandbox",
+            "read-only",
+            "--color",
+            "never",
+            "-C",
+            str(self.base_path),
+        ]
+        if model:
+            command += ["--model", model]
+        command.append("-")
+        content = run_cli(command, self.base_path, self.cli_timeout, input_text=prompt)
+        return ProviderResponse(
+            content=content,
+            model_used=model,
+            provider=self.provider_name,
+            finish_reason="stop",
+            metadata={"transport": "cli"},
+        )
 
     def _headers(self) -> dict:
         return {
@@ -68,6 +104,19 @@ class CodexAdapter(ProviderAdapter):
         stream: bool = False,
         tools: list[dict] | None = None,
     ) -> ProviderResponse:
+        if self._use_cli():
+            try:
+                return self._chat_cli(messages, model, system)
+            except Exception as exc:
+                self._set_error(str(exc))
+                return ProviderResponse(
+                    content=f"Error Codex CLI: {exc}",
+                    provider=self.provider_name,
+                    model_used=model,
+                    finish_reason="error",
+                    metadata={"transport": "cli", "error": True},
+                )
+
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -85,7 +134,13 @@ class CodexAdapter(ProviderAdapter):
             result = self._post(f"{self.base_url}/chat/completions", payload)
         except Exception as exc:
             self._set_error(str(exc))
-            return ProviderResponse(content=f"Error OpenAI: {exc}", provider=self.provider_name, model_used=model)
+            return ProviderResponse(
+                content=f"Error OpenAI: {exc}",
+                provider=self.provider_name,
+                model_used=model,
+                finish_reason="error",
+                metadata={"transport": "api", "error": True},
+            )
 
         choice = result.get("choices", [{}])[0]
         msg = choice.get("message", {})
@@ -106,6 +161,12 @@ class CodexAdapter(ProviderAdapter):
         )
 
     def list_models(self) -> list[ModelInfo]:
+        if self._use_cli():
+            return [
+                ModelInfo("gpt-5.4-mini", "gpt-5.4-mini", self.provider_name, 128000, 16384, "fast_coding", "subscription"),
+                ModelInfo("gpt-5.3-codex", "gpt-5.3-codex", self.provider_name, 128000, 16384, "coding", "subscription"),
+                ModelInfo("gpt-5.2", "gpt-5.2", self.provider_name, 128000, 16384, "general", "subscription"),
+            ]
         try:
             data = self._get(f"{self.base_url}/models")
         except Exception as exc:
@@ -137,6 +198,12 @@ class CodexAdapter(ProviderAdapter):
         tools: list[dict] | None = None,
     ):
         """Streaming real para OpenAI/Codex (SSE)."""
+        if self._use_cli():
+            response = self._chat_cli(messages, model, system)
+            if response.content:
+                yield response.content
+            return
+
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -175,8 +242,14 @@ class CodexAdapter(ProviderAdapter):
             yield f"Error Codex: {exc}"
 
     def health_check(self, timeout: float = 5.0) -> HealthStatus:
+        if self._use_cli():
+            try:
+                detail = run_cli([self.cli_path, "login", "status"], self.base_path, timeout)
+                return HealthStatus(ok=True, provider=self.provider_name, detail=f"Codex CLI: {detail}", models_available=3)
+            except Exception as exc:
+                return HealthStatus(ok=False, provider=self.provider_name, detail=f"Codex CLI: {exc}")
         if not self.api_key:
-            return HealthStatus(ok=False, provider=self.provider_name, detail="No API key")
+            return HealthStatus(ok=False, provider=self.provider_name, detail="No API key ni CLI autenticado")
         try:
             data = self._get(f"{self.base_url}/models", timeout=timeout)
             count = len(data.get("data", []))
@@ -185,13 +258,13 @@ class CodexAdapter(ProviderAdapter):
             return HealthStatus(ok=False, provider=self.provider_name, detail=str(exc))
 
     def is_configured(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.api_key or self._use_cli())
 
     def supports_tools(self) -> bool:
-        return True
+        return bool(self.api_key)
 
     def supports_streaming(self) -> bool:
-        return True
+        return bool(self.api_key)
 
 
 def _run_tests() -> int:

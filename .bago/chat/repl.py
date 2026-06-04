@@ -320,6 +320,7 @@ class BagoREPL:
         model: str = "llama3.2:3b",
         system_prompt: str = "",
         base_path: str | None = None,
+        active_bridges: list[str] | None = None,
     ):
         self.base_path = Path(base_path or os.getcwd())
         self.mgr = SessionManager(
@@ -327,6 +328,7 @@ class BagoREPL:
             model=model,
             base_path=str(self.base_path),
             system_prompt=system_prompt,
+            active_bridges=active_bridges,
         )
         self.engine = SwitchEngine(self.mgr.adapters)
 

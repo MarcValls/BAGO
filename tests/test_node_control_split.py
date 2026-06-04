@@ -10,7 +10,9 @@ import json
 import subprocess
 import sys
 import tempfile
+from argparse import Namespace
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = ["python", "-m", "bago_core.launcher"]
@@ -140,7 +142,7 @@ def test_state_module_exposes_pure_helpers() -> None:
     import bago_core.node_control_state as state
     for name in (
         "bootstrap", "status", "list_pieces", "list_connectors",
-        "matrix", "validate", "run_modular_guard",
+        "matrix", "evidence_tail", "preview_mutation", "validate", "run_modular_guard",
     ):
         assert callable(getattr(state, name)), name
 
@@ -187,6 +189,45 @@ def test_connect_set_mode_roundtrip_in_tempdir() -> None:
         assert out2["connector"]["mode"] == "connected"
 
 
+def test_preview_and_evidence_tail_in_tempdir() -> None:
+    import bago_core.node_control_state as state
+    with tempfile.TemporaryDirectory() as td:
+        boot = state.bootstrap(td)
+        installation = boot["state"]["installations"][0]
+        piece = boot["state"]["pieces"][0]
+        preview = state.preview_mutation(
+            td, installation["installation_id"], piece["piece_id"], "overlay"
+        )
+        assert preview["ok"] is True
+        assert preview["proposed"]["mode"] == "writable overlay"
+        assert "enables_modification" in preview["warnings"]
+        ok, _payload = state.validate(td)
+        assert ok is True
+        evidence = state.evidence_tail(td, 5)
+        assert evidence["count"] >= 1
+        assert evidence["entries"][0]["action"] == "validate"
+
+
+def test_matrix_distinguishes_available_from_detached() -> None:
+    import bago_core.node_control_state as state
+    from bago_core.node_control_store import json_write
+    with tempfile.TemporaryDirectory() as td:
+        boot = state.bootstrap(td)
+        paths = boot["paths"]
+        state_data = boot["state"]
+        removed = state_data["connectors"].pop()
+        json_write(paths.connectors, state_data["connectors"])
+        matrix = state.matrix(td)
+        row = next(item for item in matrix["rows"] if item["piece_id"] == removed["piece_id"])
+        cell = next(
+            item for item in row["cells"]
+            if item["installation_id"] == removed["installation_id"]
+        )
+        assert cell["created"] is False
+        assert cell["state"] == "not-created"
+        assert cell["mode"] == "available"
+
+
 def test_export_bundle_in_tempdir() -> None:
     import bago_core.node_control_connect as connect
     with tempfile.TemporaryDirectory() as td:
@@ -227,6 +268,57 @@ def test_launcher_node_status_json_matches_electron_command() -> None:
     payload = json.loads(result.stdout)
     assert payload["installations"] >= 1
     assert payload["pieces"] >= 1
+
+
+def test_launcher_forwards_node_mutation_arguments() -> None:
+    from bago_core import launcher
+    args = Namespace(
+        json=True,
+        base_path=None,
+        node_cmd="set-mode",
+        installation="inst-1",
+        piece="piece-1",
+        mode="shadow",
+        output="",
+        limit=None,
+        type="",
+        scope="",
+    )
+    with mock.patch("bago_core.node_control.main", return_value=0) as delegated:
+        assert launcher.cmd_node(args) == 0
+    forwarded = delegated.call_args.args[0]
+    assert "--installation" in forwarded
+    assert forwarded[forwarded.index("--installation") + 1] == "inst-1"
+    assert "--piece" in forwarded
+    assert forwarded[forwarded.index("--piece") + 1] == "piece-1"
+    assert "--mode" in forwarded
+    assert forwarded[forwarded.index("--mode") + 1] == "shadow"
+
+
+def test_launcher_node_mutation_roundtrip_in_tempdir() -> None:
+    import bago_core.node_control_state as state
+    with tempfile.TemporaryDirectory() as td:
+        boot = state.bootstrap(td)
+        installation = boot["state"]["installations"][0]["installation_id"]
+        piece = boot["state"]["pieces"][0]["piece_id"]
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "bago_core.launcher", "node",
+                "--base-path", td,
+                "set-mode",
+                "--installation", installation,
+                "--piece", piece,
+                "--mode", "shadow",
+                "--json",
+            ],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["connector"]["mode"] == "shadow"
 
 
 def test_cli_validate_passes() -> None:

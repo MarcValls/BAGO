@@ -27,7 +27,12 @@ from bago_core.node_control_store import (
 from bago_core.node_control_policy import (
     build_compatibility,
     build_connectors,
+    connector_id,
+    find_connector,
+    find_installation,
+    find_piece,
     normalize_mode,
+    policy_dict_for_mode,
     policy_for,
 )
 
@@ -95,6 +100,7 @@ def status(base_path: str | Path) -> dict[str, Any]:
     boot = bootstrap(base_path)
     state = boot["state"]
     connectors = state["connectors"]
+    potential_connectors = len(state["installations"]) * len(state["pieces"])
     modes: dict[str, int] = {mode: 0 for mode in ALLOWED_MODES}
     for connector in connectors:
         modes[connector["mode"]] = modes.get(connector["mode"], 0) + 1
@@ -105,6 +111,8 @@ def status(base_path: str | Path) -> dict[str, Any]:
         "pieces": len(state["pieces"]),
         "piece_inventory": state["piece_inventory"],
         "connectors": len(connectors),
+        "potential_connectors": potential_connectors,
+        "unmaterialized_connectors": max(0, potential_connectors - len(connectors)),
         "compatibility_rows": len(state["compatibility"]),
         "evidence_file": boot["paths"].evidence.as_posix(),
         "modes": modes,
@@ -192,7 +200,10 @@ def matrix(base_path: str | Path) -> dict[str, Any]:
                 {
                     "installation_id": install["installation_id"],
                     "installation_path": install["path"],
-                    "mode": connector["mode"] if connector else "detached",
+                    "connector_id": connector["connector_id"] if connector else "",
+                    "state": connector["mode"] if connector else "not-created",
+                    "created": connector is not None,
+                    "mode": connector["mode"] if connector else "available",
                     "allowed": bool(connector and connector["mode"] != "locked"),
                     "can_execute": bool(connector and connector["policy"]["can_execute"]),
                     "can_modify": bool(connector and connector["policy"]["can_modify"]),
@@ -220,6 +231,93 @@ def matrix(base_path: str | Path) -> dict[str, Any]:
             for item in state["pieces"]
         ],
         "rows": rows,
+    }
+
+
+def evidence_tail(base_path: str | Path, limit: int = 25) -> dict[str, Any]:
+    """Return the newest Node Control evidence records without mutating state."""
+    paths, _state = _load_state(base_path)
+    safe_limit = max(1, min(int(limit or 25), 200))
+    entries: list[dict[str, Any]] = []
+    if paths.evidence.exists():
+        for line in paths.evidence.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                payload = {"result": "invalid", "raw": line}
+            entries.append(payload)
+    tail = list(reversed(entries[-safe_limit:]))
+    return {
+        "base_path": str(Path(base_path).resolve()),
+        "evidence_file": paths.evidence.as_posix(),
+        "count": len(tail),
+        "total": len(entries),
+        "entries": tail,
+    }
+
+
+def preview_mutation(
+    base_path: str | Path,
+    installation_key: str,
+    piece_key: str,
+    mode: str,
+) -> dict[str, Any]:
+    """Resolve the before/after connector contract without applying it."""
+    _paths, state = _load_state(base_path)
+    install = find_installation(state, installation_key)
+    piece = find_piece(state, piece_key)
+    if install is None:
+        raise ValueError(f"installation not found: {installation_key}")
+    if piece is None:
+        raise ValueError(f"piece not found: {piece_key}")
+
+    target_mode = normalize_mode(mode)
+    current = find_connector(state, install["installation_id"], piece["piece_id"])
+    recommended = policy_for(install, piece)
+    proposed = {
+        "connector_id": current["connector_id"]
+        if current
+        else connector_id(install["installation_id"], piece["piece_id"]),
+        "installation_id": install["installation_id"],
+        "piece_id": piece["piece_id"],
+        "mode": target_mode,
+        "policy": policy_dict_for_mode(target_mode),
+        "reason": recommended["reason"],
+    }
+    action = "disconnect" if target_mode == "detached" else ("set-mode" if current else "connect")
+    current_mode = current["mode"] if current else "available"
+    warnings: list[str] = []
+    if current is None:
+        warnings.append("connector_not_created")
+    if target_mode != recommended["mode"]:
+        warnings.append(f"differs_from_profile_policy:{recommended['mode']}")
+    if proposed["policy"]["can_execute"] and not bool(current and current["policy"]["can_execute"]):
+        warnings.append("enables_execution")
+    if proposed["policy"]["can_modify"] and not bool(current and current["policy"]["can_modify"]):
+        warnings.append("enables_modification")
+    if target_mode == current_mode:
+        warnings.append("no_state_change")
+
+    risk = "high" if proposed["policy"]["can_modify"] else (
+        "medium" if proposed["policy"]["can_execute"] or target_mode != recommended["mode"] else "low"
+    )
+    return {
+        "ok": True,
+        "action": action,
+        "risk": risk,
+        "requires_confirmation": target_mode != current_mode,
+        "target": {
+            "installation_id": install["installation_id"],
+            "installation_path": install["path"],
+            "piece_id": piece["piece_id"],
+        },
+        "current": current,
+        "current_state": current_mode,
+        "proposed": proposed,
+        "recommended": recommended,
+        "warnings": warnings,
     }
 
 

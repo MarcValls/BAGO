@@ -14,6 +14,7 @@ Comandos soportados:
   /models [provider]
   /status
   /session
+  /mode [B|A|G|O]
   /save
   /load <session_id>
   /providers
@@ -60,6 +61,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
             {"command": "/doctor", "description": "Diagnostico rapido del entorno BAGO"},
             {"command": "/status", "description": "Estado de la sesion activa"},
             {"command": "/session", "description": "Detalles de la sesion"},
+            {"command": "/mode", "description": "Consulta o cambia el modo BAGO", "args_prompt": "[B|A|G|O]"},
             {"command": "/save", "description": "Guarda sesion en disco"},
             {"command": "/load", "description": "Carga una sesion desde disco", "wizard": "load"},
         ],
@@ -69,6 +71,8 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "description": "Cambiar provider, ver modelos y consultar sugerencias.",
         "items": [
             {"command": "/providers", "description": "Lista providers registrados"},
+            {"command": "/bridges", "description": "Consulta o activa providers en paralelo", "args_prompt": "[provider ...]"},
+            {"command": "/orchestrate", "description": "Envia un prompt a los bridges activos", "args_prompt": "<prompt>"},
             {"command": "/models", "description": "Lista modelos disponibles"},
             {"command": "/switch", "description": "Cambia de provider/modelo", "wizard": "switch"},
             {"command": "/suggest", "description": "Sugerencia RL de provider"},
@@ -227,6 +231,9 @@ def cmd_status(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
         f"Session ID : {s['session_id']}",
         f"Provider   : {s['provider']}",
         f"Model      : {s['model']}",
+        f"Modo BAGO  : [{s['bago_mode']}]",
+        f"Agente     : {s['active_agent']}",
+        f"Bridges    : {', '.join(s['active_bridges'])}",
         f"Health     : {'OK' if s['health']['ok'] else 'FAIL'} — {s['health']['detail']}",
         f"Messages   : {s['messages']}",
         f"Tokens     : {s['total_tokens']}",
@@ -242,6 +249,8 @@ def cmd_session(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
         "session_id": s["session_id"],
         "provider": s["provider"],
         "model": s["model"],
+        "bago_mode": s["bago_mode"],
+        "active_agent": s["active_agent"],
         "created_at": s["created_at"],
         "total_calls": s["total_calls"],
         "total_tokens": s["total_tokens"],
@@ -251,11 +260,32 @@ def cmd_session(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
         f"Session ID : {data['session_id']}",
         f"Provider   : {data['provider']}",
         f"Model      : {data['model']}",
+        f"Modo BAGO  : [{data['bago_mode']}]",
+        f"Agente     : {data['active_agent']}",
         f"Created    : {data['created_at']}",
         f"Total calls: {data['total_calls']}",
         f"Total tokens: {data['total_tokens']}",
     ]
     return {"ok": True, "message": "\n".join(lines), "data": data}
+
+
+def cmd_mode(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    """Consulta o cambia el modo operativo BAGO."""
+    if not args:
+        return {
+            "ok": True,
+            "message": f"Modo BAGO activo: [{mgr.bago_mode}]\nUso: /mode B|A|G|O",
+            "data": {"bago_mode": mgr.bago_mode},
+        }
+    try:
+        result = mgr.set_bago_mode(args[0])
+    except ValueError as exc:
+        return {"ok": False, "message": str(exc)}
+    return {
+        "ok": True,
+        "message": f"Modo BAGO: [{result['previous_mode']}] -> [{result['mode']}]",
+        "data": result,
+    }
 
 
 def cmd_save(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
@@ -287,6 +317,9 @@ def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
     mgr.provider = loaded.provider
     mgr.model = loaded.model
     mgr.system_prompt = loaded.system_prompt
+    mgr.bago_mode = loaded.bago_mode
+    mgr.active_bridges = loaded.active_bridges
+    mgr.agent_gateway = loaded.agent_gateway
     mgr.store = loaded.store                     # ← context store de la sesión cargada
     mgr.config = loaded.config
     mgr.credentials = loaded.credentials
@@ -324,6 +357,28 @@ def cmd_providers(mgr: SessionManager, engine: SwitchEngine, args: list[str]) ->
         "message": "Providers registrados:\n" + "\n".join(lines),
         "data": {"providers": providers, "mode": mgr.config.get("model_catalog.mode", "all")},
     }
+
+
+def cmd_bridges(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    if args:
+        result = mgr.set_active_bridges(args)
+        mgr.save()
+    else:
+        result = {"ok": True, "bridges": list(mgr.active_bridges)}
+    return {"ok": True, "message": "Bridges activos: " + ", ".join(result["bridges"]), "data": result}
+
+
+def cmd_orchestrate(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    prompt = " ".join(args).strip()
+    if not prompt:
+        return {"ok": False, "message": "Uso: /orchestrate <prompt>"}
+    responses = mgr.orchestrate(prompt)
+    mgr.save()
+    message = "\n\n".join(
+        f"[{provider} {'OK' if result['ok'] else 'FAIL'}]\n{result['content']}"
+        for provider, result in responses.items()
+    )
+    return {"ok": any(result["ok"] for result in responses.values()), "message": message, "data": {"responses": responses}}
 
 
 def cmd_menu(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
@@ -880,9 +935,12 @@ COMMAND_REGISTRY: dict[str, Any] = {
     "models": cmd_models,
     "status": cmd_status,
     "session": cmd_session,
+    "mode": cmd_mode,
     "save": cmd_save,
     "load": cmd_load,
     "providers": cmd_providers,
+    "bridges": cmd_bridges,
+    "orchestrate": cmd_orchestrate,
     "feedback": cmd_feedback,
     "suggest": cmd_suggest,
     "good": cmd_good,
@@ -976,6 +1034,15 @@ def _run_tests() -> int:
             r = execute("/status", mgr, engine)
             assert r["ok"]
             assert isinstance(r["message"], str)
+            assert "Modo BAGO" in r["message"]
+            r = execute("/mode G", mgr, engine)
+            assert r["ok"]
+            assert mgr.bago_mode == "G"
+            r = execute("/agent coder", mgr, engine)
+            assert r["ok"]
+            assert mgr.agent_gateway.active.name == "coder"
+            assert mgr.provider == "hybrid-test"
+            assert mgr.model == "hybrid-1"
             r = execute("/save", mgr, engine)
             assert r["ok"]
             assert "Sesión guardada" in r["message"]

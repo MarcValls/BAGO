@@ -1,208 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BAGO Installation Manager · Gestor de Instalaciones</title>
-<style>
-  :root{--bg:#0f172a;--panel:#0b1220;--border:#1e293b;--border-h:#334155;--fg:#e2e8f0;--muted:#94a3b8;--accent:#818cf8;--cyan:#22d3ee;--green:#34d399;--red:#fb7185;--warn:#fbbf24;}
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.5;}
-  code,.mono,pre,kbd{font-family:'JetBrains Mono','Cascadia Code','Fira Code',ui-monospace,monospace;font-size:0.92em;}
-  a{color:var(--cyan);text-decoration:none;}a:hover{text-decoration:underline;}
-  header{position:sticky;top:0;z-index:20;background:rgba(15,23,42,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
-  header .wrap{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
-  header h1{font-size:18px;font-weight:700;margin:0;letter-spacing:-0.01em;}
-  header h1 .grad{background:linear-gradient(90deg,#818cf8,#22d3ee,#34d399);-webkit-background-clip:text;background-clip:text;color:transparent;}
-  .wordmark{display:inline-block;font-family:'Arial Black','Impact','Segoe UI Black',sans-serif;font-weight:900;letter-spacing:-0.16em;line-height:0.95;color:#fff;-webkit-text-stroke:4px #000;text-shadow:4px 0 0 #000,-4px 0 0 #000,0 4px 0 #000,0 -4px 0 #000,4px 4px 0 #000,-4px -4px 0 #000,4px -4px 0 #000,-4px 4px 0 #000}
-  .wordmark.sm{font-size:24px}
-  header .meta{margin-left:auto;font-size:12px;color:var(--muted);font-family:'JetBrains Mono',ui-monospace,monospace;}
-  main{max-width:1100px;margin:0 auto;padding:32px 24px 80px;}
-  .hero{padding:8px 0 28px;}
-  .hero h2{font-size:32px;font-weight:800;letter-spacing:-0.02em;margin:0 0 8px;}
-  .hero p{color:var(--muted);max-width:60ch;margin:0;}
-  .steps{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px;}
-  .steps h3{margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);}
-  .steps ol{margin:0;padding-left:20px;}
-  .steps li{margin-bottom:8px;color:var(--fg);}
-  .steps li code{background:rgba(99,102,241,0.1);color:#c7d2fe;padding:1px 6px;border-radius:4px;border:1px solid rgba(99,102,241,0.2);}
-  .notice{background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);color:#fde68a;border-radius:12px;padding:14px 16px;margin:-10px 0 24px;font-size:13px;}
-  .notice b{color:#fbbf24;}
-  .io{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;}
-  textarea#input-area{width:100%;min-height:160px;background:#020617;color:#e2e8f0;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;line-height:1.55;resize:vertical;}
-  textarea#input-area:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,0.18);}
-  .io-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
-  button{font:inherit;cursor:pointer;background:#1e293b;color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-weight:600;font-size:13px;transition:all .15s ease;}
-  button:hover{border-color:var(--border-h);background:#243349;}
-  button.primary{background:linear-gradient(90deg,#4f46e5,#0ea5e9);border-color:transparent;color:white;}
-  button.primary:hover{filter:brightness(1.1);}
-  button.ghost{background:transparent;}
-  button.danger{background:rgba(244,63,94,0.12);color:#fb7185;border-color:rgba(244,63,94,0.3);}
-  button.danger:hover{background:rgba(244,63,94,0.2);}
-  input[type=file]{display:none;}
-  .summary{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;font-size:12px;color:var(--muted);}
-  .summary .chip{background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-family:'JetBrains Mono',ui-monospace,monospace;}
-  .summary .chip b{color:var(--fg);}
-  #installations{display:grid;grid-template-columns:1fr;gap:14px;}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
-  .card-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
-  .card-title{font-size:16px;font-weight:700;letter-spacing:-0.01em;margin:0;}
-  .card-path{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--muted);word-break:break-all;margin:2px 0 12px;}
-  .badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
-  .badge{font-size:11px;padding:3px 9px;border-radius:999px;font-weight:600;letter-spacing:0.02em;font-family:'JetBrains Mono',ui-monospace,monospace;display:inline-flex;align-items:center;gap:4px;}
-  .badge-on{background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
-  .badge-off{background:rgba(244,63,94,0.15);color:#fb7185;border:1px solid rgba(244,63,94,0.3);}
-  .badge-warn{background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);}
-  .badge-neutral{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);}
-  .badge-mode{background:rgba(99,102,241,0.15);color:#c7d2fe;border:1px solid rgba(99,102,241,0.3);}
-  details{background:#020617;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;}
-  details summary{padding:11px 14px;cursor:pointer;font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px;user-select:none;list-style:none;}
-  details summary::-webkit-details-marker{display:none;}
-  details summary .chev{display:inline-block;transition:transform .2s;font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--muted);font-size:11px;}
-  details[open] summary .chev{transform:rotate(90deg);}
-  details summary .count{margin-left:auto;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',ui-monospace,monospace;}
-  details .body{padding:6px 14px 14px;display:grid;gap:6px;}
-  details .row{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;}
-  details .row .label{flex:1;color:var(--fg);min-width:0;}
-  details .row .label .desc{display:block;font-size:11px;color:var(--muted);margin-top:1px;}
-  details .row .actions{display:flex;gap:6px;align-items:center;}
-  details .row .copy,details .row .run{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;background:#1e293b;color:#c7d2fe;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;transition:all .12s;}
-  details .row .copy:hover{background:#312e81;border-color:#4f46e5;color:white;}
-  details .row .run{background:rgba(16,185,129,0.16);color:#86efac;border-color:rgba(16,185,129,0.35);}
-  details .row .run:hover{background:rgba(16,185,129,0.28);border-color:#22c55e;color:white;}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:18px;}
-  .panel-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
-  .panel-head h3{margin:0;font-size:14px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);}
-  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
-  .toolbar input,.toolbar select{background:#020617;color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;min-width:220px;}
-  .toolbar button{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;border-radius:8px;border:1px solid var(--border);background:#1e293b;color:#e2e8f0;padding:8px 12px;cursor:pointer;}
-  .toolbar button.primary{background:linear-gradient(90deg,#4f46e5,#0ea5e9);border-color:transparent;color:#fff;}
-  .release-grid{display:grid;grid-template-columns:1fr;gap:10px;}
-  .release-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);background:#020617;border-radius:10px;padding:12px 14px;}
-  .release-item .meta{font-size:12px;color:var(--muted);}
-  .release-item .title{font-weight:700;margin-bottom:4px;}
-  .release-item .actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
-  .release-item .actions button{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;border-radius:6px;padding:5px 10px;}
-  #empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
-  #empty-state .icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
-  #empty-state h3{margin:0 0 6px;color:var(--fg);font-size:18px;}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0b1220;border:1px solid var(--border);color:var(--fg);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transition:all .25s;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.4);}
-  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
-  .toast.ok{border-color:rgba(16,185,129,0.5);color:#34d399;}
-  .toast.err{border-color:rgba(244,63,94,0.5);color:#fb7185;}
-  footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);margin-top:40px;}
-  footer code{color:#c7d2fe;}
-  @media (max-width:720px){main{padding:20px 16px 60px;}header .wrap{padding:12px 16px;}.hero h2{font-size:24px;}}
-</style>
-</head>
-<body>
-<header>
-  <div class="wrap">
-    <h1><span class="wordmark sm" aria-label="BAGO">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · v4.2.2</span>
-  </div>
-</header>
-<main>
-  <section class="hero">
-    <h2>Gestiona todas tus instalaciones BAGO</h2>
-    <p>Esta página detecta instalaciones y releases automáticamente. En Electron no hace falta pegar JSON: la app consulta GitHub, localiza la ultima release y permite instalar la que quieras.</p>
-  </section>
-  <section class="steps">
-    <h3>Cómo usar</h3>
-    <ol>
-      <li>Abre el gestor y espera a que cargue releases e instalaciones.</li>
-      <li>Si quieres buscar una ruta concreta, usa el campo manual de abajo.</li>
-      <li>En Electron, pulsa <b>ejecutar</b> para abrir PowerShell visible.</li>
-      <li>En navegador, usa <b>copiar</b> para ejecutar los comandos a mano.</li>
-    </ol>
-  </section>
-  <section class="notice">
-    <b>Aviso de ejecución:</b> los botones <b>ejecutar</b> abren una ventana PowerShell visible con el comando. No se ejecuta nada oculto ni silencioso en segundo plano. En la versión web solo se copian comandos.
-  </section>
-  <section class="panel" id="releases-panel">
-    <div class="panel-head">
-      <h3>Versiones GitHub</h3>
-      <div class="toolbar">
-        <input id="manual-scan-path" placeholder="Ruta manual a escanear, por ejemplo C:\\Tools\\BAGO">
-        <input id="target-install-path" value="C:\\Program Files\\BAGO" placeholder="Ruta destino de instalación">
-        <button id="btn-scan-path">Escanear ruta</button>
-        <button id="btn-refresh-data" class="primary">Actualizar todo</button>
-      </div>
-    </div>
-    <div id="release-summary" class="text-sm text-slate-400 mb-3">Cargando releases...</div>
-    <div id="release-list" class="release-grid"></div>
-  </section>
-  <section class="io">
-    <div>
-      <textarea id="input-area" placeholder='Pega aquí la salida de "bago list-installs --plain"&#10;&#10;Ejemplo:&#10;{"summary":{"existing":2,"with_supervisor":1},"installations":[...]}'></textarea>
-      <div class="io-actions">
-        <button class="primary" id="btn-paste">Cargar desde portapapeles</button>
-        <button class="ghost" id="btn-file">Cargar desde archivo…</button>
-        <input type="file" id="file-input" accept=".json,.txt,application/json,text/plain">
-        <button class="ghost" id="btn-render">Parsear textarea</button>
-        <button class="danger" id="btn-clear">Limpiar</button>
-        <button class="ghost" id="btn-sample">Cargar ejemplo</button>
-      </div>
-    </div>
-  </section>
-  <div id="summary-bar" class="summary" style="display:none">
-    <span class="chip">detectadas: <b id="s-total">0</b></span>
-    <span class="chip">existentes: <b id="s-existing">0</b></span>
-    <span class="chip">con supervisor: <b id="s-sup">0</b></span>
-    <span class="chip">con probe: <b id="s-probe">0</b></span>
-  </div>
-  <div id="installations"></div>
-  <div id="empty-state">
-    <div class="icon">📦</div>
-    <h3>Sin instalaciones cargadas</h3>
-    <p>Pega el JSON arriba o carga un archivo para empezar.</p>
-  </div>
-</main>
-<footer>
-  BAGO Installation Manager · v4.2.2 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
-</footer>
-<div id="toast" class="toast"></div>
-<script>
-const toast=document.getElementById('toast');
-function showToast(msg,ok=true){toast.textContent=msg;toast.className='toast '+(ok?'ok':'err');requestAnimationFrame(()=>toast.classList.add('show'));setTimeout(()=>toast.classList.remove('show'),2400);}
-
-function electronApi(){return window.bagoElectron||null;}
-function copyText(t){
-  const api=electronApi();
-  if(api&&api.writeClipboardText){api.writeClipboardText(t);showToast('comando copiado al portapapeles',true);return Promise.resolve();}
-  if(navigator.clipboard&&navigator.clipboard.writeText){return navigator.clipboard.writeText(t).then(()=>showToast('comando copiado al portapapeles',true),()=>fallbackCopy(t));}
-  return Promise.resolve(fallbackCopy(t));
-}
-function readTextClipboard(){
-  const api=electronApi();
-  if(api&&api.readClipboardText)return Promise.resolve(api.readClipboardText());
-  if(navigator.clipboard&&navigator.clipboard.readText)return navigator.clipboard.readText();
-  return Promise.reject(new Error('Clipboard API no disponible'));
-}
-function canRunCommands(){const api=electronApi();return !!(api&&api.runCommand);}
-async function runCommand(t){
-  const api=electronApi();
-  if(!api||!api.runCommand){showToast('ejecución directa solo disponible en Electron',false);return;}
-  try{
-    const result=await api.runCommand(t);
-    showToast('comando lanzado en PowerShell'+(result&&result.pid?' · pid '+result.pid:''),true);
-  }catch(e){
-    showToast('no se pudo ejecutar: '+e.message,false);
-  }
-}
-function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');showToast('comando copiado',true);}catch(e){showToast('no se pudo copiar',false);}document.body.removeChild(ta);}
-
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-
-const inputArea=document.getElementById('input-area');
-const installBox=document.getElementById('installations');
-const emptyState=document.getElementById('empty-state');
-const summaryBar=document.getElementById('summary-bar');
-const releaseSummary=document.getElementById('release-summary');
-const releaseList=document.getElementById('release-list');
-let latestRelease=null;
-let releaseItems=[];
-
 async function loadLatestRelease(){
   try{
     const api=electronApi();
@@ -214,7 +9,7 @@ async function loadLatestRelease(){
     releaseItems=(Array.isArray(releases)?releases:[])
       .filter(r=>!r.draft)
       .sort((a,b)=>new Date(b.published_at||0)-new Date(a.published_at||0));
-    latestRelease=releaseItems[0]||null;
+    latestRelease=releaseItems.find(r=>!r.prerelease)||releaseItems[0]||null;
   }catch(e){
     releaseItems=[];
     latestRelease=null;
@@ -249,6 +44,150 @@ function uninstallCommand(target){
     return api.buildUninstallCommand(target,false);
   }
   return psCommand('& '+psSingle(target+'\\bago-uninstall.ps1')+' -InstallDir '+psSingle(target));
+}
+function roleCommand(role,target){
+  const api=electronApi();
+  if(api&&api.buildRoleCommand){
+    return api.buildRoleCommand(role,target);
+  }
+  const label=(ROLE_DEFS[role]&&ROLE_DEFS[role].label)||role;
+  return psCommand([
+    '$role = '+psSingle(role),
+    '$root = '+psSingle(target),
+    '$label = '+psSingle(label),
+    '$file = Join-Path $env:USERPROFILE '+psSingle('.bago\\install_selection.json'),
+    '$roles = @{}',
+    'if (Test-Path $file) { try { $data = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json; if ($data.roles) { foreach ($p in $data.roles.PSObject.Properties) { $roles[$p.Name] = $p.Value } } } catch {} }',
+    "$now = (Get-Date).ToUniversalTime().ToString('o')",
+    '$roles[$role] = [ordered]@{ path = $root; label = $label; updated_at = $now }',
+    '$out = [ordered]@{ version = 1; updated_at = $now; roles = $roles }',
+    'New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null',
+    '$out | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $file -Encoding UTF8',
+    'Write-Host ("BAGO role " + $role + " -> " + $root)'
+  ].join('; '));
+}
+
+function normalizePathKey(p){
+  return String(p||'').replace(/[\\/]+$/,'').toLowerCase();
+}
+
+function normalizeSelection(raw){
+  const roles=(raw&&raw.roles&&typeof raw.roles==='object')?raw.roles:{};
+  const out={version:1,updated_at:(raw&&raw.updated_at)||'',selection_file:(raw&&raw.selection_file)||(raw&&raw.file)||'',roles:{}};
+  ROLE_ORDER.forEach(role=>{
+    const entry=roles[role];
+    if(typeof entry==='string'&&entry) out.roles[role]={path:entry,label:ROLE_DEFS[role].label};
+    else if(entry&&entry.path) out.roles[role]={path:String(entry.path),label:entry.label||ROLE_DEFS[role].label,updated_at:entry.updated_at||''};
+  });
+  return out;
+}
+
+function rolePathsFromSelection(sel=installSelection){
+  const out={};
+  ROLE_ORDER.forEach(role=>{
+    const entry=sel.roles&&sel.roles[role];
+    if(entry&&entry.path) out[role]=String(entry.path);
+  });
+  return out;
+}
+
+function readLocalSelection(){
+  try{return normalizeSelection(JSON.parse(localStorage.getItem(ROLE_STORAGE_KEY)||'{}'));}catch{return normalizeSelection({});}
+}
+
+function writeLocalSelection(role,target){
+  const sel=normalizeSelection(readLocalSelection());
+  sel.roles[role]={path:target,label:ROLE_DEFS[role].label,updated_at:new Date().toISOString()};
+  sel.updated_at=new Date().toISOString();
+  localStorage.setItem(ROLE_STORAGE_KEY,JSON.stringify(sel));
+  return sel;
+}
+
+async function resolveInstallSelection(data){
+  const api=electronApi();
+  if(api&&api.readInstallSelection){
+    try{return normalizeSelection(await api.readInstallSelection());}catch(e){/* fallback to payload/local */}
+  }
+  if(data&&data.selection){
+    return normalizeSelection({roles:data.selection.roles||{},selection_file:data.selection.file||data.selection.selection_file||''});
+  }
+  return readLocalSelection();
+}
+
+function decorateInstallRoles(items){
+  const selected=rolePathsFromSelection();
+  (items||[]).forEach(inst=>{
+    const roles=ROLE_ORDER.filter(role=>normalizePathKey(selected[role])===normalizePathKey(inst.path));
+    inst.selection_roles=roles;
+    ROLE_ORDER.forEach(role=>{inst['selected_'+role]=roles.includes(role);});
+  });
+}
+
+function existingInstallations(data=currentPayload){
+  return data&&Array.isArray(data.installations)?data.installations.filter(i=>i.exists):[];
+}
+
+function roleBadgeLabel(role){
+  if(role==='active')return 'activa';
+  if(role==='dev')return 'dev';
+  if(role==='launch')return 'launch';
+  return role;
+}
+
+function renderRolePanel(items){
+  if(!rolePanel||!roleCards)return;
+  const selected=rolePathsFromSelection();
+  const file=installSelection.selection_file||'~\\.bago\\install_selection.json';
+  roleFileLabel.textContent=file;
+  rolePanel.style.display='block';
+  roleCards.innerHTML=ROLE_ORDER.map(role=>{
+    const def=ROLE_DEFS[role];
+    const selectedPath=selected[role]||'';
+    const found=items.find(i=>normalizePathKey(i.path)===normalizePathKey(selectedPath));
+    const cmd=selectedPath?roleCommand(role,selectedPath):'';
+    const state=selectedPath?(found?'seleccionada':'seleccionada, no detectada'):'sin seleccionar';
+    const stateBadge='<span class="badge '+(selectedPath?(found?'badge-on':'badge-warn'):'badge-neutral')+'">'+escapeHtml(state)+'</span>';
+    const actions=selectedPath
+      ? '<div class="actions">'
+        +(canRunCommands()?'<button class="run" data-cmd="'+escapeHtml(cmd)+'">reaplicar</button>':'')
+        +'<button class="copy" data-cmd="'+escapeHtml(cmd)+'">copiar comando</button>'
+        +'</div>'
+      : '<div class="actions"><span class="badge badge-neutral">elige una copia en las tarjetas de abajo</span></div>';
+    return '<div class="role-card '+(selectedPath?'selected':'')+'">'
+      +'<div class="role-title">'+escapeHtml(def.label)+' '+stateBadge+'</div>'
+      +'<div class="role-desc">'+escapeHtml(def.desc)+'</div>'
+      +'<div class="role-path">'+escapeHtml(selectedPath||'No asignado')+'</div>'
+      +actions
+      +'</div>';
+  }).join('');
+  roleCards.querySelectorAll('button.copy').forEach(btn=>btn.addEventListener('click',()=>copyText(btn.getAttribute('data-cmd')||'')));
+  roleCards.querySelectorAll('button.run').forEach(btn=>btn.addEventListener('click',()=>runCommand(btn.getAttribute('data-cmd')||'')));
+}
+
+function rerenderInstallationCards(){
+  if(!currentPayload)return;
+  decorateInstallRoles(currentPayload.installations);
+  const existing=existingInstallations(currentPayload);
+  renderRolePanel(existing);
+  installBox.innerHTML=existing.map(renderCard).join('');
+  attachCardHandlers();
+}
+
+async function setInstallRole(role,target){
+  const api=electronApi();
+  try{
+    if(api&&api.writeInstallSelection){
+      installSelection=normalizeSelection(await api.writeInstallSelection(role,target));
+      showToast('rol '+roleBadgeLabel(role)+' guardado',true);
+    }else{
+      installSelection=writeLocalSelection(role,target);
+      await copyText(roleCommand(role,target));
+      showToast('rol guardado localmente; comando copiado para aplicarlo en BAGO',true);
+    }
+    rerenderInstallationCards();
+  }catch(e){
+    showToast('no se pudo guardar rol: '+e.message,false);
+  }
 }
 
 function versionText(v){return String(v||'').replace(/^v/i,'').trim();}
@@ -298,11 +237,15 @@ function renderReleaseList(){
   releaseList.querySelectorAll('button.copy').forEach(btn=>{
     btn.addEventListener('click',()=>copyText(btn.getAttribute('data-cmd')||''));
   });
+  renderPatchManager();
 }
 
-function renderPayload(data){
-  if(!latestRelease && releaseItems.length) latestRelease = releaseItems[0];
+async function renderPayload(data){
+  if(!latestRelease && releaseItems.length) latestRelease = releaseItems.find(r=>!r.prerelease)||releaseItems[0];
   if(!data||!Array.isArray(data.installations)){showToast('el JSON no tiene el campo installations[]',false);return;}
+  currentPayload=data;
+  installSelection=await resolveInstallSelection(data);
+  decorateInstallRoles(data.installations);
   const existing=data.installations.filter(i=>i.exists);
   if(!existing.length){showToast('ninguna instalación existente detectada',false);renderEmpty();return;}
   document.getElementById('s-total').textContent=data.installations.length;
@@ -311,8 +254,10 @@ function renderPayload(data){
   document.getElementById('s-probe').textContent=existing.filter(i=>i.has_probe).length;
   summaryBar.style.display='flex';
   emptyState.style.display='none';
+  renderRolePanel(existing);
   installBox.innerHTML=existing.map(renderCard).join('');
   attachCardHandlers();
+  renderPatchManager();
   showToast(existing.length+' instalación(es) cargada(s)',true);
 }
 
@@ -322,9 +267,9 @@ async function refreshAll(extraPaths){
     if(api&&api.scanInstallations&&api.fetchReleases){
       const [scan,releases]=await Promise.all([api.scanInstallations(Array.isArray(extraPaths)?extraPaths:[]), api.fetchReleases()]);
       releaseItems=Array.isArray(releases)?releases:[];
-      latestRelease=releaseItems[0]||null;
+      latestRelease=releaseItems.find(r=>!r.prerelease)||releaseItems[0]||null;
       renderReleaseList();
-      renderPayload(scan);
+      await renderPayload(scan);
       return;
     }
     await loadLatestRelease();
@@ -353,7 +298,7 @@ async function parseAndRender(raw){
   if(!raw){showToast('pega primero el JSON o usa Cargar desde archivo',false);return;}
   let data;
   try{data=JSON.parse(raw);}catch(e){showToast('JSON inválido: '+e.message,false);return;}
-  renderPayload(data);
+  await renderPayload(data);
 }
 
 function modeBadge(mode,alive){const map={system:['system','badge-mode'],user:['user','badge-mode'],work:['work','badge-mode'],ign:['ign','badge-mode'],dev:['dev','badge-mode'],source:['source','badge-mode']};const[v,c]=map[mode]||[mode,'badge-neutral'];const a=alive==='alive'?'<span class="badge badge-on">● vivo</span>':'<span class="badge badge-off">○ parado</span>';return'<span class="badge '+c+'">'+escapeHtml(v)+'</span>'+a;}
@@ -366,13 +311,18 @@ function renderCard(inst){
   const sealBadge=inst.has_seal?'<span class="badge badge-on">sealed</span>':'<span class="badge badge-warn">unsealed</span>';
   const upd=updateState(inst);
   const updateBadge='<span class="badge '+upd.cls+'">'+escapeHtml(upd.label)+'</span>';
+  const roleBadges=(inst.selection_roles||[]).map(role=>'<span class="badge badge-on">rol '+escapeHtml(roleBadgeLabel(role))+'</span>').join('');
   const isSource=inst.mode==='source';
-  const actions=buildActions(inst,isSource);
   const pathEnc=escapeHtml(inst.path);
+  const roleButtons='<div class="role-actions">'
+    +ROLE_ORDER.map(role=>'<button class="role-select '+(inst['selected_'+role]?'active':'')+'" data-role="'+escapeHtml(role)+'" data-path="'+pathEnc+'">'+escapeHtml(roleBadgeLabel(role))+'</button>').join('')
+    +'</div>';
+  const actions=buildActions(inst,isSource);
   return'<div class="card" data-idx="'+escapeHtml(inst.mode)+'">'
     +'<div class="card-head"><h3 class="card-title">'+pathEnc.split(/[\\\\\\/]/).filter(Boolean).slice(-1)[0]+' <span class="mono" style="color:var(--muted);font-size:13px;font-weight:400">v'+escapeHtml(ver)+'</span></h3></div>'
     +'<div class="card-path">'+pathEnc+'</div>'
-    +'<div class="badges">'+modeBadge(inst.mode,inst.supervisor_alive?'alive':'dead')+supBadge+probeBadge+cliBadge+sealBadge+updateBadge+'</div>'
+    +'<div class="badges">'+modeBadge(inst.mode,inst.supervisor_alive?'alive':'dead')+supBadge+probeBadge+cliBadge+sealBadge+updateBadge+roleBadges+'</div>'
+    +roleButtons
     +actions
     +'</div>';
 }
@@ -398,6 +348,11 @@ function buildActions(inst,isSource){
   const latestAssetName=latestAsset&&latestAsset.name?latestAsset.name:'asset .zip mas reciente';
   const latestReleaseUrl=latestRelease&&latestRelease.html_url?latestRelease.html_url:'https://github.com/MarcValls/BAGO/releases';
   const latestAssetUrl=latestAsset&&latestAsset.browser_download_url?latestAsset.browser_download_url:'https://github.com/MarcValls/BAGO/releases';
+  groups.push(actionGroup('Roles BAGO','🎛',[
+    {label:'Usar como copia activa',desc:'Hace que `bago` apunte a esta copia',cmd:roleCommand('active',path)},
+    {label:'Usar como desarrollo',desc:'Hace que `bago des` apunte a esta copia',cmd:roleCommand('dev',path)},
+    {label:'Usar como lanzamiento',desc:'Hace que `bago ign` apunte a esta copia',cmd:roleCommand('launch',path)},
+  ]));
   groups.push(actionGroup('Ejecutar','▶',[
     {label:'Abrir chat BAGO',desc:'Lanza la CLI interactiva',cmd:cd+'; '+pypath+' bago_core/cli.py chat'},
     {label:'Arrancar supervisor',desc:'Modo silencioso (pythonw)',cmd:cd+'; pythonw scripts/bago_supervisor.pyw'},
@@ -424,6 +379,8 @@ function buildActions(inst,isSource){
     {label:'Listar con experimentales',desc:'Incluye cpp-local y rutas beta',cmd:cd+'; python bago_core/cli.py llm --include-experimental list'},
     {label:'Probar Ollama local',desc:'Dry-run sin abrir chat',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run'},
     {label:'Fijar Ollama como default',desc:'Guarda provider/modelo por defecto en esta instalación',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model llama3.2:3b --persist-default --dry-run'},
+    {label:'Probar BAGO persona',desc:'Modelo Ollama con identidad BAGO',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model bago-llama32-bago-persona --dry-run'},
+    {label:'Fijar BAGO persona',desc:'Usar bago-llama32-bago-persona como modelo por defecto',cmd:cd+'; python bago_core/cli.py llm start --provider ollama-local --model bago-llama32-bago-persona --persist-default --dry-run'},
     {label:'Activar OpenRouter',desc:'Marca provider cloud como habilitado',cmd:cd+'; python bago_core/cli.py config set providers.openrouter.enabled true'},
     {label:'Activar Anthropic',desc:'Marca provider cloud como habilitado',cmd:cd+'; python bago_core/cli.py config set providers.anthropic.enabled true'},
     {label:'Editar .bago/config.json',desc:'Config de providers de esta instalación',cmd:'notepad "'+path+'\\.bago\\config.json"'},
@@ -450,12 +407,15 @@ function buildActions(inst,isSource){
     {label:'Crear backup',desc:'Snapshot de state+config+memory',cmd:cd+'; python bago_core/cli.py backup create'},
     {label:'Listar backups',desc:'Snapshots disponibles',cmd:cd+'; python bago_core/cli.py backup list'},
     {label:'Inventario completo',desc:'Cuenta archivos, tamaños, sellos',cmd:cd+'; python bago_core/cli.py inventory'},
-    {label:'Re-sellar release',desc:'Regenera checksums y firma',cmd:cd+'; python scripts/seal_release_415.py'},
+    {label:'Generar bundle 4.2.2',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
   ]));
   return groups.join('');
 }
 
 function attachCardHandlers(){
+  installBox.querySelectorAll('button.role-select').forEach(btn=>{
+    btn.addEventListener('click',()=>setInstallRole(btn.getAttribute('data-role')||'',btn.getAttribute('data-path')||''));
+  });
   installBox.querySelectorAll('button.copy').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const cmd=btn.getAttribute('data-cmd')||'';
@@ -473,6 +433,7 @@ function attachCardHandlers(){
 function renderEmpty(){
   installBox.innerHTML='';
   summaryBar.style.display='none';
+  if(rolePanel) rolePanel.style.display='none';
   emptyState.style.display='block';
 }
 
@@ -501,15 +462,27 @@ document.getElementById('btn-sample').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-refresh-data').addEventListener('click',()=>refreshAll([]));
+document.getElementById('btn-refresh-roles').addEventListener('click',async()=>{
+  if(currentPayload){
+    installSelection=await resolveInstallSelection(currentPayload);
+    rerenderInstallationCards();
+    showToast('roles recargados',true);
+  }else{
+    await refreshAll([]);
+  }
+});
 document.getElementById('btn-scan-path').addEventListener('click',()=>{
   const p=document.getElementById('manual-scan-path').value.trim();
   if(!p){showToast('indica una ruta primero',false);return;}
   refreshAll([p]);
 });
 
-// Ctrl+Enter en el textarea = parsear
-inputArea.addEventListener('keydown',ev=>{if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ev.preventDefault();parseAndRender(inputArea.value);}});
-bootstrapAuto();
-</script>
-</body>
-</html>
+// Node Control: tabs, refresh, copy buttons (event delegation)
+document.querySelectorAll('.section-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>setNodeTab(tab.getAttribute('data-tab')));
+});
+document.getElementById('btn-refresh-node').addEventListener('click',()=>loadNodeData());
+document.getElementById('node-evidence').addEventListener('click',ev=>{
+  const b=ev.target.closest('button.copy');if(!b)return;
+  copyText(b.getAttribute('data-cmd')||'');
+});

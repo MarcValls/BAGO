@@ -69,7 +69,7 @@ def _default_model_for_provider(base_path: str, provider: str) -> str:
     finally:
         mgr.close()
 
-def _write_llm_start_state(base_path: str, provider: str, model: str, mode: str) -> Path:
+def _write_llm_start_state(base_path: str, provider: str, model: str, mode: str, bridges: list[str] | None = None) -> Path:
     import json as _json
     from datetime import datetime, timezone
 
@@ -80,6 +80,7 @@ def _write_llm_start_state(base_path: str, provider: str, model: str, mode: str)
         "provider": provider,
         "model": model,
         "mode": mode,
+        "bridges": list(dict.fromkeys([provider] + list(bridges or []))),
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
     path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -120,7 +121,8 @@ def cmd_chat(args: argparse.Namespace) -> int:
     model = getattr(args, "model", "unknown") or "unknown"
 
     # Registrar sesion LLM en state/ para que el monitor la vea
-    _write_llm_start_state(args.base_path, provider, model, mode="chat")
+    bridges = list(getattr(args, "active_bridges", None) or getattr(args, "llm_bridges", None) or [])
+    _write_llm_start_state(args.base_path, provider, model, mode="chat", bridges=bridges)
 
     # Auto-arrancar monitor en background (no bloquea el chat)
     if not getattr(args, "no_monitor", False):
@@ -131,6 +133,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
         model=model,
         system_prompt=get_system_prompt(),
         base_path=args.base_path,
+        active_bridges=bridges,
     )
     repl.run()
     return 0
@@ -258,11 +261,18 @@ def cmd_llm(args: argparse.Namespace) -> int:
         print("Usa 'bago llm list' para ver instalados y disponibles.")
         return 1
 
+    bridges = list(dict.fromkeys([provider] + list(getattr(args, "llm_bridges", []) or [])))
+    invalid_bridges = [name for name in bridges if name not in installed_names]
+    if invalid_bridges and not getattr(args, "allow_unconfigured", False):
+        print("Bridges no instalados/configurados: " + ", ".join(invalid_bridges))
+        return 1
+
     if not model:
         model = _default_model_for_provider(args.base_path, provider)
 
-    _write_llm_start_state(args.base_path, provider, model, mode="dry-run" if args.dry_run else "chat")
+    _write_llm_start_state(args.base_path, provider, model, mode="dry-run" if args.dry_run else "chat", bridges=bridges)
     print(f"LLM session: {provider}/{model}")
+    print("Bridges activos: " + ", ".join(bridges))
 
     if getattr(args, "persist_default", False):
         cm = ConfigManager(base_path=args.base_path)
@@ -279,4 +289,5 @@ def cmd_llm(args: argparse.Namespace) -> int:
 
     args.provider = provider
     args.model = model
+    args.active_bridges = bridges
     return cmd_chat(args)

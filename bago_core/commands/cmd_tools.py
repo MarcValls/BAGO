@@ -140,7 +140,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
     return mod.main(argv)
 
 def cmd_route(args: argparse.Namespace) -> int:
-    """Routing presets: status/validate/activate (sub-módulo cmd_route_v2)."""
+    """Routing presets: status/validate/activate (sub-modulo cmd_route_v2)."""
     import importlib.util
     from pathlib import Path
     _here = Path(__file__).resolve().parent
@@ -159,75 +159,8 @@ def cmd_route(args: argparse.Namespace) -> int:
     print(f"unknown subcommand: {sub}")
     return 1
 
-
-def cmd_node(args: argparse.Namespace) -> int:
-    from bago_core import node_control
-
-    argv: list[str] = ["--base-path", args.base_path]
-    if getattr(args, "json", False):
-        argv.append("--json")
-    subcmd = getattr(args, "node_cmd", None) or "status"
-    if subcmd == "status":
-        argv.append("status")
-    elif subcmd == "validate":
-        argv.append("validate")
-    elif subcmd == "pieces":
-        argv += ["pieces"]
-        if getattr(args, "type", ""):
-            argv += ["--type", args.type]
-        if getattr(args, "scope", ""):
-            argv += ["--scope", args.scope]
-    elif subcmd == "connectors":
-        argv += ["connectors"]
-        if getattr(args, "installation", ""):
-            argv += ["--installation", args.installation]
-        if getattr(args, "piece", ""):
-            argv += ["--piece", args.piece]
-        if getattr(args, "mode", ""):
-            argv += ["--mode", args.mode]
-    elif subcmd == "matrix":
-        argv.append("matrix")
-    elif subcmd == "connect":
-        argv += [
-            "connect",
-            "--installation",
-            getattr(args, "installation", ""),
-            "--piece",
-            getattr(args, "piece", ""),
-            "--mode",
-            getattr(args, "mode", "connected"),
-        ]
-    elif subcmd == "disconnect":
-        argv += [
-            "disconnect",
-            "--installation",
-            getattr(args, "installation", ""),
-            "--piece",
-            getattr(args, "piece", ""),
-        ]
-    elif subcmd == "set-mode":
-        argv += [
-            "set-mode",
-            "--installation",
-            getattr(args, "installation", ""),
-            "--piece",
-            getattr(args, "piece", ""),
-            "--mode",
-            getattr(args, "mode", "connected"),
-        ]
-    elif subcmd == "export":
-        argv += ["export"]
-        if getattr(args, "output", ""):
-            argv += ["--output", args.output]
-    elif subcmd in {"tui", "terminal"}:
-        argv.append("tui")
-    else:
-        argv += ["--help"]
-    return node_control.main(argv)
-
-
 def cmd_scan(args: argparse.Namespace) -> int:
-    """Herramientas de análisis portables. Funcionan en cualquier proyecto."""
+    """Herramientas de analisis portables. Funcionan en cualquier proyecto."""
     tools_dir = BAGO_ROOT / ".bago" / "tools"
     if str(tools_dir) not in sys.path:
         sys.path.insert(0, str(tools_dir))

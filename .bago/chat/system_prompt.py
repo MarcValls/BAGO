@@ -11,6 +11,11 @@ Solo se define identidad, contexto de sesión y formato de respuesta.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+
+_BOOTSTRAP_PATH = Path(__file__).resolve().parents[1] / "BOOTSTRAP.md"
+
 BAGO_SYSTEM_PROMPT = """You are BAGO, a session-persistent AI assistant.
 
 IDENTITY
@@ -48,4 +53,11 @@ BEHAVIOR
 
 
 def get_system_prompt() -> str:
-    return BAGO_SYSTEM_PROMPT
+    bootstrap = ""
+    try:
+        bootstrap = _BOOTSTRAP_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    if not bootstrap:
+        return BAGO_SYSTEM_PROMPT
+    return f"{BAGO_SYSTEM_PROMPT.rstrip()}\n\n{bootstrap}"

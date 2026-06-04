@@ -47,19 +47,32 @@ def build_parser() -> argparse.ArgumentParser:
     matrix_p = sub.add_parser("matrix", help="Muestra la matriz Installation x Piece")
     matrix_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
+    evidence_p = sub.add_parser("evidence", help="Muestra el tail real del evidence ledger")
+    evidence_p.add_argument("--limit", type=int, default=25)
+    evidence_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
+    preview_p = sub.add_parser("preview", help="Previsualiza una mutacion sin aplicarla")
+    preview_p.add_argument("--installation", required=True)
+    preview_p.add_argument("--piece", required=True)
+    preview_p.add_argument("--mode", required=True, choices=list(_nc.CLI_MODES.keys()))
+    preview_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
     connect_p = sub.add_parser("connect", help="Conecta una installation con una piece")
     connect_p.add_argument("--installation", required=True)
     connect_p.add_argument("--piece", required=True)
     connect_p.add_argument("--mode", default="connected", choices=list(_nc.CLI_MODES.keys()))
+    connect_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
     disconnect_p = sub.add_parser("disconnect", help="Desconecta una installation de una piece")
     disconnect_p.add_argument("--installation", required=True)
     disconnect_p.add_argument("--piece", required=True)
+    disconnect_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
     setmode_p = sub.add_parser("set-mode", help="Cambia el modo de un connector")
     setmode_p.add_argument("--installation", required=True)
     setmode_p.add_argument("--piece", required=True)
     setmode_p.add_argument("--mode", required=True, choices=list(_nc.CLI_MODES.keys()))
+    setmode_p.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
     export_p = sub.add_parser("export", help="Exporta el estado a un bundle JSON")
     export_p.add_argument("--output", default="")
@@ -134,6 +147,21 @@ def _run_matrix(args: argparse.Namespace) -> int:
         _emit_human(_nc._render_matrix_mod(payload))
     return 0
 
+def _run_evidence(args: argparse.Namespace) -> int:
+    payload = _nc.evidence_tail(args.base_path, getattr(args, "limit", 25))
+    _emit_json(payload, compact=bool(getattr(args, "json", False)))
+    return 0
+
+def _run_preview(args: argparse.Namespace) -> int:
+    payload = _nc.preview_mutation(
+        args.base_path,
+        args.installation,
+        args.piece,
+        args.mode,
+    )
+    _emit_json(payload, compact=bool(getattr(args, "json", False)))
+    return 0
+
 def _run_connect(args: argparse.Namespace) -> int:
     payload = _nc.connect(args.base_path, args.installation, args.piece, args.mode)
     _emit_json(payload, compact=bool(getattr(args, "json", False)))
@@ -181,6 +209,8 @@ HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "pieces": _run_pieces,
     "connectors": _run_connectors,
     "matrix": _run_matrix,
+    "evidence": _run_evidence,
+    "preview": _run_preview,
     "connect": _run_connect,
     "disconnect": _run_disconnect,
     "set-mode": _run_set_mode,

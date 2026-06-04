@@ -2,6 +2,24 @@
 
 This document defines how BAGO v4 connects to installed runtimes, advanced backends, state folders, and optional UI surfaces.
 
+## BAGO Mode Activation
+
+The shared source of truth is `.bago/BOOTSTRAP.md`.
+
+| Surface | Hook | Provider responsibility |
+|---|---|---|
+| Codex CLI/app inside the repo | `AGENTS.md` loads `.bago/BOOTSTRAP.md` | Codex is already the provider; BAGO does not replace it |
+| GitHub Copilot inside the repo | `.github/copilot-instructions.md` loads `.bago/BOOTSTRAP.md` | Copilot is already the provider; BAGO does not replace it |
+| BAGO chat runtime | `.bago/chat/system_prompt.py` loads `.bago/BOOTSTRAP.md` | `SessionManager` manages provider, model, and session |
+| Another chat or API | Inject `.bago/BOOTSTRAP.md` as the system/developer prompt | The host keeps its provider |
+
+Inside the BAGO runtime, `agent_gateway` specializes behavior without changing
+provider, model, or context. Use `/mode B|A|G|O` for the operating mode and
+`/agent <name>` separately for specialization.
+
+There is no portable mechanism that makes every provider detect BAGO only by
+name. Each host requires its native hook or explicit bootstrap injection.
+
 ## Local Workspace
 
 ```text

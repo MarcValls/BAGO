@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 def render_text(summary: dict[str, Any]) -> str:
     lines = [
         "BAGO NODE CONTROL",
@@ -20,7 +19,6 @@ def render_text(summary: dict[str, Any]) -> str:
         lines.append(f"modes       : {mode_bits}")
     return "\n".join(lines)
 
-
 def render_pieces(payload: dict[str, Any]) -> str:
     lines = [
         "BAGO PIECES",
@@ -32,7 +30,6 @@ def render_pieces(payload: dict[str, Any]) -> str:
             f"({piece['scope']}) -> {piece['materialized_path']}"
         )
     return "\n".join(lines)
-
 
 def render_connectors(payload: dict[str, Any]) -> str:
     lines = [
@@ -47,7 +44,6 @@ def render_connectors(payload: dict[str, Any]) -> str:
         )
     return "\n".join(lines)
 
-
 def render_matrix(payload: dict[str, Any]) -> str:
     installs = payload["installations"]
     lines = [
@@ -61,4 +57,57 @@ def render_matrix(payload: dict[str, Any]) -> str:
         for cell in row["cells"]:
             cells.append(cell["mode"])
         lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+def render_translator_list(translators: list[dict[str, Any]]) -> str:
+    lines = [
+        "BAGO TRANSLATOR PIECES",
+        f"count       : {len(translators)}",
+    ]
+    for t in translators:
+        lines.append(f"- {t['piece_id']} [{t['model_family']}] {t['model_id']} v{t['version']}")
+        lines.append(f"     {t['store_path']}")
+    return "\n".join(lines)
+
+def render_translator_manifest(manifest: dict[str, Any]) -> str:
+    lines = [
+        f"PIECE: {manifest.get('piece_id')}",
+        f"family: {manifest.get('model_family')}",
+        f"model : {manifest.get('model_id')}",
+        f"version: {manifest.get('version')}",
+    ]
+    sup = manifest.get("supports", {})
+    for k, v in sup.items():
+        lines.append(f"  supports.{k:22s} = {v}")
+    safety = manifest.get("safety", {})
+    if safety:
+        lines.append("safety:")
+        for k, v in safety.items():
+            lines.append(f"  {k:14s} = {v}")
+    return "\n".join(lines)
+
+def render_translator_validation(results: list[dict[str, Any]]) -> str:
+    lines = []
+    for r in results:
+        status_str = "OK  " if r["ok"] else "FAIL"
+        lines.append(f"  [{status_str}] {r['piece_id']}")
+        if not r["ok"]:
+            for m in r.get("mismatches", []):
+                lines.append(f"        - {m}")
+            if r.get("error"):
+                lines.append(f"        error: {r['error']}")
+    return "\n".join(lines)
+
+def render_translator_map(manifest: dict[str, Any], request: dict[str, Any]) -> str:
+    lines = [
+        f"PIECE: {manifest.get('piece_id')}",
+        f"family: {manifest.get('model_family')}",
+        "REQUEST (preview):",
+    ]
+    for k in sorted(request.keys()):
+        v = request[k]
+        if isinstance(v, list) and len(v) > 3:
+            lines.append(f"  {k}: [{len(v)} items, e.g. {v[0]}]")
+        else:
+            lines.append(f"  {k}: {v}")
     return "\n".join(lines)

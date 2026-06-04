@@ -1,0 +1,140 @@
+/* Patch-first manager shell. The legacy manager remains mounted as a data/action fallback. */
+  body{background:#080b12;}
+  body>header,body>main,body>footer{display:none;}
+  .pm-app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr);background:#080b12;color:#e6edf7;}
+  .pm-sidebar{position:sticky;top:0;height:100vh;border-right:1px solid #263143;background:#0b1019;padding:16px 12px;display:flex;flex-direction:column;gap:14px;}
+  .pm-brand{display:flex;align-items:center;gap:10px;padding:4px 6px 16px;border-bottom:1px solid #263143;}
+  .pm-brand img{width:34px;height:34px;}
+  .pm-brand strong{display:block;font-size:14px;}
+  .pm-brand span{display:block;margin-top:2px;color:#8190a7;font:11px 'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-nav{display:grid;gap:4px;}
+  .pm-nav button{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:0;border-radius:6px;background:transparent;color:#9aa9bd;text-align:left;font-size:12px;}
+  .pm-nav button:hover{background:#151d29;color:#fff;}
+  .pm-nav button.active{background:#1b2636;color:#fff;box-shadow:inset 3px 0 #22d3ee;}
+  .pm-nav .pm-icon{width:22px;color:#67e8f9;text-align:center;font:14px 'Cascadia Code',monospace;}
+  .pm-store{margin-top:auto;border-top:1px solid #263143;padding:13px 7px 0;color:#8190a7;font-size:11px;}
+  .pm-store-row{display:flex;justify-content:space-between;gap:10px;margin-top:7px;}
+  .pm-store-row strong{color:#c9d6e6;font-family:'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-content{min-width:0;padding:18px 20px 40px;}
+  .pm-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;}
+  .pm-title h1{margin:0;font-size:21px;letter-spacing:0;}
+  .pm-title p{margin:5px 0 0;color:#8190a7;font:11px 'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap;}
+  .pm-input,.pm-select,.pm-btn{height:34px;border:1px solid #2a374b;border-radius:6px;background:#0e1520;color:#dce6f3;padding:0 10px;font-size:11px;}
+  .pm-input{width:250px;}
+  .pm-btn{display:inline-flex;align-items:center;gap:6px;font-weight:700;}
+  .pm-btn:hover{border-color:#4b607c;background:#172130;}
+  .pm-btn.primary{background:#0e7490;border-color:#0891b2;color:#fff;}
+  .pm-btn.danger{border-color:#7f1d1d;color:#fecaca;}
+  .pm-btn.warn{border-color:#854d0e;color:#fde68a;}
+  .pm-view{display:none;gap:12px;min-width:0;}
+  .pm-view.active{display:grid;}
+  .pm-grid{display:grid;gap:12px;min-width:0;}
+  .pm-stats{grid-template-columns:repeat(6,minmax(0,1fr));}
+  .pm-stat,.pm-panel{min-width:0;border:1px solid #263143;border-radius:8px;background:#0e1520;}
+  .pm-stat{padding:12px;min-width:0;}
+  .pm-stat span{display:block;color:#718198;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;}
+  .pm-stat strong{display:block;margin-top:7px;font:21px 'JetBrains Mono','Cascadia Code',monospace;color:#eef5ff;}
+  .pm-stat small{display:block;margin-top:4px;color:#8190a7;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pm-panel-head{min-height:49px;padding:10px 12px;border-bottom:1px solid #263143;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .pm-panel-head h2{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#aebdd0;}
+  .pm-panel-head p{margin:3px 0 0;color:#718198;font-size:10px;}
+  .pm-patch-layout{grid-template-columns:minmax(0,1fr) 316px;align-items:start;}
+  .pm-patch-wrap{max-width:100%;padding:10px;overflow:auto;}
+  .pm-stage{position:relative;height:650px;min-width:880px;border:1px solid #263143;border-radius:6px;overflow:hidden;background-color:#090e16;background-image:linear-gradient(#151d29 1px,transparent 1px),linear-gradient(90deg,#151d29 1px,transparent 1px);background-size:24px 24px;}
+  .pm-stage::after{content:"";position:absolute;left:49.8%;top:0;bottom:0;border-left:1px dashed #334155;pointer-events:none;}
+  .pm-patch-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;}
+  .pm-node{position:absolute;z-index:2;transform:translate(-50%,-50%);min-width:132px;max-width:190px;padding:9px 10px;border:1px solid #34445c;border-radius:6px;background:#111a27;box-shadow:0 8px 20px rgba(0,0,0,.28);user-select:none;}
+  .pm-node strong,.pm-node small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pm-node strong{font-size:11px;}
+  .pm-node small{margin-top:3px;color:#8190a7;font:9px 'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-node.installation{left:11%;border-color:#3b82f6;background:#101b2c;}
+  .pm-node.piece{left:89%;text-align:right;}
+  .pm-node.connector{left:50%;min-width:122px;text-align:center;cursor:grab;}
+  .pm-node.connector:active{cursor:grabbing;}
+  .pm-node.connector.selected{outline:2px solid rgba(34,211,238,.42);border-color:#22d3ee;}
+  .pm-node.connector.available{border-style:dashed;opacity:.7;}
+  .pm-mode{display:inline-flex;margin-top:6px;padding:2px 6px;border:1px solid currentColor;border-radius:999px;font:8px 'JetBrains Mono','Cascadia Code',monospace;text-transform:uppercase;}
+  .pm-mode.connected{color:#34d399}.pm-mode.shadow{color:#fbbf24}.pm-mode.locked{color:#fb7185}.pm-mode.read-only{color:#22d3ee}.pm-mode.writable-overlay{color:#c084fc}.pm-mode.detached,.pm-mode.available{color:#94a3b8}
+  .pm-detail{position:sticky;top:18px;}
+  .pm-detail-body{padding:13px;}
+  .pm-detail h3{margin:0;font-size:14px;}
+  .pm-detail-sub{margin:5px 0 12px;color:#8190a7;font:10px 'JetBrains Mono','Cascadia Code',monospace;word-break:break-all;}
+  .pm-kv{display:grid;gap:0;border-top:1px solid #263143;}
+  .pm-kv div{display:grid;grid-template-columns:90px minmax(0,1fr);gap:9px;padding:7px 0;border-bottom:1px solid #263143;font-size:10px;}
+  .pm-kv span{color:#718198}.pm-kv strong{color:#dce6f3;text-align:right;word-break:break-word;}
+  .pm-mode-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;}
+  .pm-mode-actions button{height:30px;border:1px solid #2a374b;border-radius:5px;background:#121b28;color:#cbd7e6;font-size:10px;font-weight:700;}
+  .pm-mode-actions button:hover{border-color:#22d3ee;}
+  .pm-list{display:grid;gap:7px;padding:10px;}
+  .pm-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px;border:1px solid #263143;border-radius:6px;background:#0b111b;cursor:pointer;}
+  .pm-row:hover,.pm-row.selected{border-color:#3c7890;background:#101b28;}
+  .pm-row-icon{width:34px;height:34px;border:1px solid #34445c;border-radius:5px;display:grid;place-items:center;color:#67e8f9;font:10px 'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-row h3{margin:0;font-size:11px;}
+  .pm-row p{margin:3px 0 0;color:#718198;font:9px 'JetBrains Mono','Cascadia Code',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pm-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+  .pm-badge{padding:2px 5px;border:1px solid #34445c;border-radius:999px;color:#9fb0c5;font:8px 'JetBrains Mono','Cascadia Code',monospace;text-transform:uppercase;}
+  .pm-badge.ok{color:#34d399;border-color:#166534}.pm-badge.warn{color:#fbbf24;border-color:#854d0e}.pm-badge.bad{color:#fb7185;border-color:#7f1d1d}.pm-badge.info{color:#67e8f9;border-color:#155e75}.pm-badge.overlay{color:#d8b4fe;border-color:#6b21a8}
+  .pm-row-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+  .pm-row-actions button{height:28px;padding:0 8px;border:1px solid #2a374b;border-radius:5px;background:#121b28;color:#cbd7e6;font-size:9px;}
+  .pm-row-actions button:disabled{opacity:.35;cursor:not-allowed;border-style:dashed;}
+  .pm-matrix-wrap{overflow:auto;max-height:calc(100vh - 150px);}
+  .pm-matrix{min-width:1200px;width:100%;border-collapse:separate;border-spacing:0;font-size:9px;}
+  .pm-matrix th,.pm-matrix td{padding:7px;border-right:1px solid #263143;border-bottom:1px solid #263143;background:#0b111b;vertical-align:top;}
+  .pm-matrix th{position:sticky;top:0;z-index:3;background:#121b28;text-align:left;color:#aebdd0;}
+  .pm-matrix th:first-child,.pm-matrix td:first-child{position:sticky;left:0;z-index:4;min-width:220px;background:#121b28;}
+  .pm-cell{min-width:112px;padding:7px;border:1px solid #34445c;border-radius:5px;background:#101824;cursor:pointer;}
+  .pm-cell:hover{border-color:#22d3ee;}
+  .pm-cell strong{display:block;font:9px 'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-cell span{display:block;margin-top:5px;font-size:8px;color:#8190a7;}
+  .pm-release-list,.pm-piece-grid{display:grid;gap:8px;padding:10px;}
+  .pm-release-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 10px 0;}
+  .pm-release-summary .pm-stat{background:#0b111b;}
+  .pm-jobs-layout{grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);align-items:start;}
+  .pm-jobs-list{display:grid;gap:8px;padding:10px;}
+  .pm-job{display:grid;gap:8px;padding:10px;border:1px solid #263143;border-radius:6px;background:#0b111b;}
+  .pm-job-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .pm-job h3{margin:0;font-size:11px}.pm-job p{margin:3px 0 0;color:#718198;font:9px 'JetBrains Mono','Cascadia Code',monospace;word-break:break-all;}
+  .pm-progress{height:6px;overflow:hidden;border:1px solid #263143;border-radius:999px;background:#080d15;}
+  .pm-progress span{display:block;height:100%;background:#0891b2;transition:width .18s ease;}
+  .pm-job-log{max-height:calc(100vh - 180px);overflow:auto;padding:10px;font:9px 'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-job-log-row{display:grid;grid-template-columns:64px 44px minmax(0,1fr);gap:7px;padding:6px 0;border-bottom:1px solid #263143;}
+  .pm-job-log-row time{color:#67e8f9}.pm-job-log-row strong{color:#9fb0c5}.pm-job-log-row span{color:#8190a7;word-break:break-word;}
+  .pm-piece-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));}
+  .pm-empty{padding:28px;text-align:center;color:#718198;font-size:11px;}
+  .pm-session-audit{display:grid;gap:7px;padding:10px;}
+  .pm-audit-row{display:grid;grid-template-columns:70px 120px 1fr;gap:10px;padding:8px;border-bottom:1px solid #263143;font-size:10px;}
+  .pm-audit-row time{color:#67e8f9;font-family:'JetBrains Mono','Cascadia Code',monospace;}
+  .pm-audit-row strong{color:#dce6f3}.pm-audit-row span{color:#8190a7;}
+  .pm-health-layout{grid-template-columns:1fr 1fr;align-items:start;}
+  .pm-health-list{display:grid;gap:7px;padding:10px;}
+  .pm-health-row{display:grid;grid-template-columns:minmax(120px,.45fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px;border:1px solid #263143;border-radius:6px;background:#0b111b;font-size:10px;}
+  .pm-health-row strong{font-size:11px}.pm-health-row span{color:#8190a7;word-break:break-word}.pm-health-row code{color:#67e8f9;word-break:break-all;}
+  .pm-health-row .pm-badge{justify-self:end;}
+  .pm-session-layout{grid-template-columns:minmax(280px,.65fr) minmax(0,1.35fr);align-items:start;}
+  .pm-session-list{display:grid;gap:7px;padding:10px;max-height:calc(100vh - 150px);overflow:auto;}
+  .pm-session-control{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:12px;border-bottom:1px solid #263143;}
+  .pm-session-control label{display:grid;gap:5px;color:#8190a7;font-size:9px;text-transform:uppercase;letter-spacing:.06em;}
+  .pm-session-control .pm-select{width:100%;}
+  .pm-session-status{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid #263143;}
+  .pm-session-chat{display:grid;gap:7px;padding:12px;max-height:390px;overflow:auto;}
+  .pm-session-message{padding:8px 10px;border:1px solid #263143;border-radius:6px;background:#0b111b;color:#cbd7e6;font-size:10px;white-space:pre-wrap;word-break:break-word;}
+  .pm-session-message.user{border-color:#155e75}.pm-session-message.assistant{border-color:#34445c;}
+  .pm-session-message strong{display:block;margin-bottom:4px;color:#67e8f9;font-size:8px;text-transform:uppercase;}
+  .pm-session-prompt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px;border-top:1px solid #263143;}
+  .pm-session-prompt textarea{min-height:72px;resize:vertical;border:1px solid #2a374b;border-radius:6px;background:#0b111b;color:#dce6f3;padding:9px;font-size:11px;}
+  .pm-dialog{width:min(620px,calc(100vw - 28px));padding:0;border:1px solid #34445c;border-radius:8px;background:#0e1520;color:#e6edf7;box-shadow:0 24px 80px rgba(0,0,0,.6);}
+  .pm-dialog::backdrop{background:rgba(2,6,12,.78);}
+  .pm-dialog form{margin:0;}
+  .pm-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px;border-bottom:1px solid #263143;}
+  .pm-dialog-head h2{margin:0;font-size:14px}.pm-dialog-head p{margin:4px 0 0;color:#8190a7;font:10px 'JetBrains Mono','Cascadia Code',monospace;word-break:break-all;}
+  .pm-risk{padding:3px 7px;border:1px solid #34445c;border-radius:999px;font:9px 'JetBrains Mono','Cascadia Code',monospace;text-transform:uppercase;}
+  .pm-risk.low{color:#34d399;border-color:#166534}.pm-risk.medium{color:#fbbf24;border-color:#854d0e}.pm-risk.high{color:#fb7185;border-color:#7f1d1d}
+  .pm-dialog-body{display:grid;gap:8px;padding:14px;font-size:10px;}
+  .pm-dialog-body .pm-preview-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;padding-bottom:7px;border-bottom:1px solid #263143;}
+  .pm-dialog-body span{color:#8190a7}.pm-dialog-body strong{word-break:break-word;}
+  .pm-dialog-actions{display:flex;justify-content:flex-end;gap:7px;padding:12px 14px;border-top:1px solid #263143;}
+  .pm-dialog-actions button{height:32px;border-radius:5px;font-size:10px;}
+  .pm-busy{opacity:.55;pointer-events:none;}
+  @media(max-width:1180px){.pm-app{grid-template-columns:1fr}.pm-sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid #263143}.pm-nav{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.pm-store{display:none}.pm-patch-layout,.pm-health-layout,.pm-jobs-layout,.pm-session-layout{grid-template-columns:1fr}.pm-detail{position:relative;top:0}.pm-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:760px){.pm-content{padding:12px}.pm-topbar{display:grid}.pm-actions{justify-content:flex-start}.pm-input{width:100%}.pm-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-stats,.pm-release-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-stage{min-width:760px}.pm-piece-grid{grid-template-columns:1fr}.pm-health-row{grid-template-columns:1fr}.pm-health-row .pm-badge{justify-self:start}.pm-audit-row{grid-template-columns:58px minmax(70px,.4fr) minmax(0,1fr)}}

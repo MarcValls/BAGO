@@ -27,7 +27,7 @@
     "La interfaz prioriza instalaciones, roles, piezas, matriz, conectores y evidencia antes que descargas"
   ],
   "components": {
-    "installation_manager": "manager.html",
+    "installation_manager": "manager/index.html",
     "electron_runtime_resolver": "electron/main.cjs",
     "launcher": "bago.ps1",
     "cli": "bago_core/cli.py",

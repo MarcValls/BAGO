@@ -73,6 +73,13 @@ ADAPTER_REGISTRY: dict[str, type[ProviderAdapter]] = {
     "cpp-local": CppLocalAdapter,
 }
 
+BAGO_MODES: dict[str, str] = {
+    "B": "Balanceado: aclara objetivo, alcance, riesgos y criterio de exito.",
+    "A": "Adaptativo: inspecciona el estado real y elige estrategia.",
+    "G": "Generativo: produce artefactos utiles y verificables.",
+    "O": "Organizativo: verifica, registra estado y deja continuidad.",
+}
+
 
 class SessionManager:
     """Gestiona una sesión de chat multi-provider."""
@@ -84,11 +91,16 @@ class SessionManager:
         model: str = "qwen2.5:14b",
         base_path: str | None = None,
         system_prompt: str = "",
+        bago_mode: str = "B",
+        active_agent: str = "default",
+        active_bridges: list[str] | None = None,
     ):
         self.session_id = session_id or str(uuid.uuid4())[:12]
         self.provider = provider
         self.model = model
         self.system_prompt = system_prompt
+        self.bago_mode = self._normalize_bago_mode(bago_mode)
+        self.active_bridges = self._normalize_bridges(active_bridges or [provider], primary=provider)
         self.base_path = Path(base_path or os.getcwd())
         self.state_dir = self.base_path / ".bago" / "state"
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -114,6 +126,7 @@ class SessionManager:
         self.tool_registry = ToolRegistry(script_registry=self.script_registry)
         self.plan_engine = PlanEngine()
         self.agent_gateway = AgentGateway()
+        self.agent_gateway.activate(active_agent)
         self.knowledge = KnowledgeBase(base_path=str(self.base_path))
         self.embedding_store = EmbeddingStore(base_path=str(self.base_path))
         self._adapter: ProviderAdapter | None = None
@@ -134,6 +147,48 @@ class SessionManager:
         self._providers_cache: list[dict[str, Any]] | None = None
         self._providers_cache_at = 0.0
         self._providers_cache_ttl = 30.0
+
+    @staticmethod
+    def _normalize_bago_mode(mode: str) -> str:
+        normalized = str(mode or "B").strip().upper().strip("[]")
+        if normalized not in BAGO_MODES:
+            raise ValueError(f"Modo BAGO invalido: {mode}. Usa B, A, G u O.")
+        return normalized
+
+    def effective_system_prompt(self) -> str:
+        """Compone gobierno BAGO y agente sin alterar provider/modelo."""
+        parts = [
+            self.system_prompt.strip(),
+            (
+                f"MODO BAGO ACTIVO [{self.bago_mode}]\n"
+                f"- {BAGO_MODES[self.bago_mode]}\n"
+                "- La sesion y la evidencia son la fuente de verdad.\n"
+                "- El provider y el modelo son motores de ejecucion; no cambies ninguno sin peticion explicita."
+            ),
+        ]
+        agent = self.agent_gateway.active
+        if agent.name != "default" or not self.system_prompt.strip():
+            parts.append(f"AGENTE ACTIVO [{agent.name}]\n{agent.system_prompt.strip()}")
+        return "\n\n".join(part for part in parts if part)
+
+    def set_bago_mode(self, mode: str) -> dict:
+        previous = self.bago_mode
+        self.bago_mode = self._normalize_bago_mode(mode)
+        return {"ok": True, "mode": self.bago_mode, "previous_mode": previous}
+
+    @staticmethod
+    def _normalize_bridges(providers: list[str], primary: str = "") -> list[str]:
+        normalized: list[str] = []
+        for name in ([primary] if primary else []) + list(providers or []):
+            clean = str(name or "").strip()
+            if clean and clean in ADAPTER_REGISTRY and clean not in normalized:
+                normalized.append(clean)
+        return normalized
+
+    def set_active_bridges(self, providers: list[str]) -> dict:
+        previous = list(self.active_bridges)
+        self.active_bridges = self._normalize_bridges(providers, primary=self.provider)
+        return {"ok": True, "bridges": list(self.active_bridges), "previous_bridges": previous}
 
     def _train_bc_policy(self) -> dict:
         """Entrena la política BC (Behavioral Cloning) desde el historial real.
@@ -213,6 +268,7 @@ class SessionManager:
         # Merge: credenciales tienen prioridad sobre config generica
         merged = dict(cfg)
         merged.update(creds)
+        merged.setdefault("base_path", str(self.base_path))
         return merged
 
     @staticmethod
@@ -280,7 +336,7 @@ class SessionManager:
 
         # --- Auto-training intent engine ----------------------------------
         intent = classify_intent(user_message)
-        dynamic_system = self.system_prompt
+        dynamic_system = self.effective_system_prompt()
         if intent != "chat":
             dynamic_system += "\n\n" + intent_guidance(intent)
             dynamic_system += get_few_shot_examples(intent, max_examples=2)
@@ -355,7 +411,7 @@ class SessionManager:
             resp = adapter.chat(
                 normalized,
                 self.model,
-                system=self.system_prompt,
+                system=self.effective_system_prompt(),
                 tools=tools,
                 **kwargs,
             )
@@ -393,6 +449,38 @@ class SessionManager:
 
         return resp.content
 
+    def orchestrate(self, user_message: str, providers: list[str] | None = None) -> dict[str, dict[str, Any]]:
+        """Envia el mismo mensaje a los bridges activos y persiste todas las respuestas."""
+        selected = self._normalize_bridges(providers or self.active_bridges, primary=self.provider)
+        history = self.store.get_history()
+        responses: dict[str, dict[str, Any]] = {}
+        self.store.append_user(user_message, provider="orchestrator", model="")
+        for provider_name in selected:
+            cls = ADAPTER_REGISTRY[provider_name]
+            adapter = cls(config=self._build_adapter_config(provider_name))
+            models = adapter.list_models()
+            target_model = self.model if provider_name == self.provider else (models[0].model_id if models else self.model)
+            normalized = self.msg_adapter.to_provider(history, provider_name)
+            normalized.append({"role": "user", "content": user_message})
+            response = adapter.chat(normalized, target_model, system=self.effective_system_prompt(), tools=None)
+            failed = bool(response.metadata.get("error")) or response.finish_reason == "error"
+            responses[provider_name] = {"ok": not failed, "content": response.content, "model": response.model_used or target_model}
+            self.store.append_response(
+                response.content,
+                provider=provider_name,
+                model=response.model_used or target_model,
+                metadata={"orchestrated": True, "error": failed, "finish_reason": response.finish_reason},
+            )
+            self.store.record_tokens(
+                provider=provider_name,
+                model=response.model_used or target_model,
+                tokens_in=response.usage.input_tokens,
+                tokens_out=response.usage.output_tokens,
+            )
+            self.total_tokens += response.usage.total_tokens
+            self.total_calls += 1
+        return responses
+
     def send_stream(self, user_message: str, **kwargs: Any):
         """Envía mensaje al provider con streaming real.
 
@@ -420,7 +508,7 @@ class SessionManager:
             for chunk in adapter.chat_stream(
                 normalized,
                 self.model,
-                system=self.system_prompt,
+                system=self.effective_system_prompt(),
                 tools=None,
                 **kwargs,
             ):
@@ -496,7 +584,7 @@ class SessionManager:
         resp = adapter.chat(
             self._pending_normalized,
             self.model,
-            system=self.system_prompt,
+            system=self.effective_system_prompt(),
             tools=tools,
             **self._pending_tools_kwargs,
         )
@@ -630,6 +718,7 @@ class SessionManager:
         # Instanciar nuevo adapter
         self.provider = new_provider
         self.model = new_model
+        self.active_bridges = self._normalize_bridges(self.active_bridges, primary=new_provider)
         self._init_info = self._init_adapter()
         self._providers_cache = None
         self._providers_cache_at = 0.0
@@ -660,6 +749,9 @@ class SessionManager:
             "session_id": self.session_id,
             "provider": self.provider,
             "model": self.model,
+            "bago_mode": self.bago_mode,
+            "active_agent": self.agent_gateway.active.name,
+            "active_bridges": list(self.active_bridges),
             "health": {
                 "ok": health.ok,
                 "detail": health.detail,
@@ -681,7 +773,6 @@ class SessionManager:
         try:
             previous = self.agent_gateway.active.name
             agent = self.agent_gateway.activate(name)
-            self.system_prompt = agent.system_prompt
             warnings: list[str] = []
 
             # Si el agente prefiere provider/modelo, sugerir cambio
@@ -743,6 +834,9 @@ class SessionManager:
         self.store.update_meta({
             "last_provider": self.provider,
             "last_model": self.model,
+            "bago_mode": self.bago_mode,
+            "active_agent": self.agent_gateway.active.name,
+            "active_bridges": list(self.active_bridges),
             "switch_count": self.store.get_meta().get("switch_count", 0),
             "last_switch_at": self.last_switch_at,
         })
@@ -752,6 +846,9 @@ class SessionManager:
             "provider": self.provider,
             "model": self.model,
             "system_prompt": self.system_prompt,
+            "bago_mode": self.bago_mode,
+            "active_agent": self.agent_gateway.active.name,
+            "active_bridges": list(self.active_bridges),
             "created_at": self.created_at,
             "total_tokens": self.total_tokens,
             "total_calls": self.total_calls,
@@ -812,6 +909,9 @@ class SessionManager:
                 model=data["model"],
                 base_path=str(bp),
                 system_prompt=data.get("system_prompt", ""),
+                bago_mode=data.get("bago_mode", "B"),
+                active_agent=data.get("active_agent", "default"),
+                active_bridges=data.get("active_bridges"),
             )
             mgr.total_tokens = data.get("total_tokens", 0)
             mgr.total_calls = data.get("total_calls", 0)
@@ -830,6 +930,9 @@ class SessionManager:
             model=model,
             base_path=str(bp),
             system_prompt=meta.get("system_prompt", ""),
+            bago_mode=meta.get("bago_mode", "B"),
+            active_agent=meta.get("active_agent", "default"),
+            active_bridges=meta.get("active_bridges"),
         )
         mgr.store = store
         token_summary = store.get_token_summary()
@@ -1001,9 +1104,18 @@ def _run_tests() -> int:
         status = mgr.status()
         assert "session_id" in status
         assert status["provider"] == "ollama-local"
+        original_engine = (mgr.provider, mgr.model)
+        assert mgr.set_bago_mode("G")["mode"] == "G"
+        assert mgr.activate_agent("coder")["ok"]
+        assert (mgr.provider, mgr.model) == original_engine
+        effective_prompt = mgr.effective_system_prompt()
+        assert "MODO BAGO ACTIVO [G]" in effective_prompt
+        assert "AGENTE ACTIVO [coder]" in effective_prompt
         mgr.save()
         loaded = SessionManager.load(mgr.session_id, base_path=td)
         assert loaded.provider == "ollama-local"
+        assert loaded.bago_mode == "G"
+        assert loaded.agent_gateway.active.name == "coder"
 
         ADAPTER_REGISTRY["failing"] = FailingAdapter
         failing = SessionManager(base_path=td, provider="failing", model="broken")
@@ -1034,7 +1146,8 @@ def _run_tests() -> int:
             assert hybrid.send("hola") == "cpp-local::hola"
             assert "".join(hybrid.send_stream("streaming")) == "hola stream"
             hybrid.config.set("features.tool_calling", True)
-            tool_reply = hybrid.send("lista directorio con herramienta")
+            hybrid.config.set("features.auto_allow_tools", True)
+            tool_reply = hybrid.send("ejecuta lista directorio con herramienta")
             assert "Tool integrado:" in tool_reply
             hybrid_result = hybrid.memory_add_hybrid("directorio estable")
             assert hybrid_result["embedding_id"] > 0

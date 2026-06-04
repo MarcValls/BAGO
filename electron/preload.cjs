@@ -253,7 +253,12 @@ async function fetchReleases() {
       assets: Array.isArray(r.assets) ? r.assets.map(a => ({
         name: a.name || '',
         browser_download_url: a.browser_download_url || '',
-        content_type: a.content_type || ''
+        content_type: a.content_type || '',
+        size: Number(a.size || 0),
+        digest: a.digest || '',
+        state: a.state || '',
+        updated_at: a.updated_at || '',
+        download_count: Number(a.download_count || 0)
       })) : []
     }));
 }
@@ -317,11 +322,30 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   buildInstallCommand,
   buildUninstallCommand,
   buildRoleCommand,
+  managerHealth: () => ipcRenderer.invoke('bago:manager-health'),
+  runSessionCommand: (args) => ipcRenderer.invoke('bago:session-cmd', Array.isArray(args) ? args.map(String) : []),
+  listReleaseJobs: () => ipcRenderer.invoke('bago:release-jobs-list'),
+  preflightRelease: (payload) => ipcRenderer.invoke('bago:release-job-preflight', payload || {}),
+  startReleaseJob: (payload) => ipcRenderer.invoke('bago:release-job-start', payload || {}),
+  cancelReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-cancel', String(id || '')),
+  resumeReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-resume', String(id || '')),
+  installReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-install', String(id || '')),
+  rollbackReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-rollback', String(id || '')),
+  releaseJobLogs: (id, limit = 200) => ipcRenderer.invoke('bago:release-job-logs', String(id || ''), Number(limit || 200)),
+  onReleaseJobChanged: (callback) => {
+    if (typeof callback !== 'function') return;
+    ipcRenderer.on('bago:release-job-changed', (_event, job) => callback(job));
+  },
   // Node Control: invoca bago node <args> y devuelve {ok, data?, text?, raw?, cmd, error?}
   runNodeCommand: (args) => ipcRenderer.invoke('bago:node-cmd', Array.isArray(args) ? args.map(String) : []),
   runNodeStatus: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'status', '--json']),
   runNodeMatrix: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'matrix', '--json']),
   runNodePieces: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'pieces', '--json']),
   runNodeConnectors: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'connectors', '--json']),
+  runNodeEvidence: (limit = 40) => ipcRenderer.invoke('bago:node-cmd', ['node', 'evidence', '--limit', String(limit), '--json']),
+  runNodePreview: (installation, piece, mode) => ipcRenderer.invoke(
+    'bago:node-cmd',
+    ['node', 'preview', '--installation', String(installation || ''), '--piece', String(piece || ''), '--mode', String(mode || ''), '--json']
+  ),
   runNodeValidate: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'validate', '--json'])
 });
