@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO v4.1.5-r2 — AI Control Plane Local</title>
+  <title>BAGO Installation Manager v4.2.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -35,11 +35,11 @@
     <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold">B</div>
-        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.1.5-r2</span></span>
-        <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">SUPERVISOR · PROBE</span>
+        <span class="font-bold text-lg tracking-tight">BAGO Installation Manager <span class="text-indigo-400 font-normal">v4.2.2</span></span>
+        <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">DESCARGAS · INSTALACIONES · GESTOR</span>
       </div>
       <nav class="hidden md:flex gap-6 text-sm text-slate-300">
-        <a href="#install"        class="hover:text-white transition">Instalar</a>
+        <a href="#download"       class="hover:text-white transition">Descarga</a>
         <a href="#manager"        class="hover:text-white transition">Gestor</a>
         <a href="#installations"  class="hover:text-white transition">Instalaciones</a>
         <a href="#activity"       class="hover:text-white transition">Actividad</a>
@@ -54,81 +54,83 @@
     <div class="grid md:grid-cols-2 gap-10 items-start">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.1.5-r2 con supervisor always-on
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> gestor oficial para descargar, instalar y actualizar BAGO
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
-          Session-First <span class="grad-text">AI Control Plane</span>
+          <span class="grad-text">BAGO Installation Manager</span>
         </h1>
         <p class="text-base md:text-lg text-slate-400 mb-6 leading-relaxed">
-          BAGO orquesta proveedores de IA locales y remotos, mantiene el contexto entre cambios de modelo,
-          y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
+          Este sitio existe para una sola cosa: descargar el gestor y usarlo como punto de entrada para
+          instalar, actualizar y revisar instalaciones BAGO.
         </p>
+        <p class="mb-6 text-sm text-slate-500">La descarga cruda de BAGO sigue disponible, pero queda orientada a developers.</p>
         <div class="flex flex-wrap gap-3">
-          <a id="primary-release-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.1.5-r2/BAGO-Installation-Manager-4.1.5-r2-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Descargar gestor</a>
-          <a href="https://github.com/MarcValls/BAGO/releases/tag/v4.1.5-r2" target="_blank" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Release notes</a>
+          <a id="primary-release-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.2.2/BAGO-Installation-Manager-4.2.2-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Descargar gestor</a>
+          <a href="#manager" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Ver gestor</a>
+          <a href="https://github.com/MarcValls/BAGO/releases/tag/v4.2.2" target="_blank" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Release notes</a>
         </div>
         <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs">
           <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-            <p class="text-slate-500 uppercase tracking-wider">Probe</p>
-            <p class="text-emerald-400 font-semibold mt-0.5">4/5 OK</p>
+            <p class="text-slate-500 uppercase tracking-wider">Gestor</p>
+            <p class="text-emerald-400 font-semibold mt-0.5">Windows · Electron</p>
           </div>
           <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-            <p class="text-slate-500 uppercase tracking-wider">Liveness</p>
-            <p class="text-cyan-400 font-semibold mt-0.5">OpenProcess</p>
+            <p class="text-slate-500 uppercase tracking-wider">Descargas</p>
+            <p class="text-cyan-400 font-semibold mt-0.5">Manager + releases</p>
           </div>
           <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-            <p class="text-slate-500 uppercase tracking-wider">Console</p>
-            <p class="text-amber-400 font-semibold mt-0.5">pythonw</p>
+            <p class="text-slate-500 uppercase tracking-wider">Instalaciones</p>
+            <p class="text-amber-400 font-semibold mt-0.5">desde el gestor</p>
           </div>
         </div>
       </div>
 
-      <div id="install" class="space-y-4">
+      <div id="download" class="space-y-4">
         <!-- One-liner PowerShell -->
         <div class="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
           <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-900/80">
             <span class="w-3 h-3 rounded-full bg-red-500/30"></span>
             <span class="w-3 h-3 rounded-full bg-amber-500/30"></span>
             <span class="w-3 h-3 rounded-full bg-emerald-500/30"></span>
-            <span class="ml-2 text-xs text-slate-500">PowerShell · instalación one-liner</span>
+            <span class="ml-2 text-xs text-slate-500">PowerShell · descarga del gestor</span>
           </div>
           <div class="p-4">
             <pre class="mono text-[12.5px] text-slate-200 overflow-x-auto leading-relaxed"><code>irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex</code></pre>
           </div>
           <div class="px-4 pb-4 flex justify-end">
             <button data-copy="irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex" class="copy-btn px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold border border-indigo-500/30 transition">
-              Copiar
+              Copiar comando del gestor
             </button>
           </div>
         </div>
 
         <!-- Descarga zip + checksums -->
         <div class="grid grid-cols-2 gap-3">
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.1.5-r2/bago-release-20260602T001218Z.zip" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.2.2/bago-v4.2.2.zip" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
             <div class="flex items-start justify-between mb-2">
               <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider">531 KB</span>
+              <span class="text-[10px] text-slate-500 uppercase tracking-wider">ZIP</span>
             </div>
-            <p class="font-semibold text-sm">bago-v4.1.5-r2.zip</p>
-            <p class="text-xs text-slate-500 mt-0.5">Bundle portable · 226 files</p>
+            <p class="font-semibold text-sm">Paquete BAGO</p>
+            <p class="text-xs text-slate-500 mt-0.5">Bundle portable · developers</p>
           </a>
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.1.5-r2/checksums.sha256" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.2.2/bago-v4.2.2.zip.sha256" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
             <div class="flex items-start justify-between mb-2">
               <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span class="text-[10px] text-slate-500 uppercase tracking-wider">SHA-256</span>
             </div>
-            <p class="font-semibold text-sm">checksums.sha256</p>
-            <p class="text-xs text-slate-500 mt-0.5 mono break-all">8a6a5cd89e9bc72b...</p>
+            <p class="font-semibold text-sm">Verificar integridad</p>
+            <p class="text-xs text-slate-500 mt-0.5">SHA-256 del bundle 4.2.2</p>
           </a>
         </div>
         <!-- Descarga gestor standalone -->
-        <a id="manager-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.1.5-r2/BAGO-Installation-Manager-4.1.5-r2-win-x64.exe" class="card block mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+        <a id="manager-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.2.2/BAGO-Installation-Manager-4.2.2-win-x64.exe" class="card block mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
          <div class="flex items-start justify-between mb-2">
            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
            <span class="text-[10px] text-slate-500 uppercase tracking-wider">Windows · Electron</span>
          </div>
-         <p class="font-semibold text-sm">Gestor de instalaciones Electron</p>
-         <p class="text-xs text-slate-500 mt-0.5">Logo de avispa · botones ejecutar/copiar · sin tracking</p>
+         <p class="font-semibold text-sm">Descargar gestor BAGO</p>
+         <p class="text-xs text-slate-500 mt-0.5">Desde aquí entras al gestor que descarga instalaciones y actualizaciones</p>
         </a>
       </div>
     </div>
@@ -142,7 +144,8 @@
           <h2 class="text-2xl md:text-3xl font-bold mb-2">Gestor de instalaciones</h2>
           <p class="text-slate-400 text-sm max-w-2xl">
             Detectá las instalaciones BAGO en tu máquina, inspeccionalas y ejecutá acciones
-            sobre cada una. La web no toca tu PC: corré un comando, pegá el resultado,
+            sobre cada una. Este es el centro desde el que se descargan instalaciones y
+            actualizaciones; la web no toca tu PC: corré un comando, pegá el resultado,
             y operá desde acá con privacidad total.
           </p>
         </div>
@@ -245,7 +248,7 @@
   </section>
 
   <footer class="border-t border-slate-800 py-8 text-center text-xs text-slate-500">
-    <p>© 2026 BAGO — Session-First AI Control Plane</p>
+    <p>© 2026 BAGO Installation Manager</p>
     <p class="mt-1">Distribuido bajo las reglas del <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" class="text-indigo-400 hover:underline">Distribution Contract</a>.</p>
   </footer>
 

@@ -1,6 +1,6 @@
-# BAGO v4.1.5 Distribution Roadmap
+# BAGO v4.2.2 Distribution Roadmap
 
-This is the execution plan for keeping BAGO v4.1.5 small, verifiable, and releaseable.
+This is the execution plan for keeping BAGO v4.2.2 small, verifiable, and releaseable.
 
 ## Decision
 
@@ -13,6 +13,12 @@ Canonical operating docs:
 - `docs/MVP.md` freezes the stable MVP.
 - `docs/MODULES.md` marks working, partial, experimental, planned, and deprecated surfaces.
 - `docs/CLAIMS.md` maps public claims to proof.
+- `docs/NODE_CONTROL_SPEC.md` freezes the connector/node contract.
+- `docs/NODE_CONTROL_BACKLOG.md` turns that contract into implementation phases.
+- `docs/CENTRALIZATION_CONTRACT.md` freezes what is centralized, local, and forbidden.
+- `docs/CENTRALIZATION_IMPLEMENTATION_PLAN.md` turns the centralization contract into phases.
+- `docs/AUTONOMOUS_EXECUTION_CONTRACT.md` freezes headless and interactive execution rules.
+- `docs/AUTONOMOUS_EXECUTION_PLAN.md` turns those rules into phases and validation gates.
 - `docs/SUPPORT_MATRIX.md` declares operating-system support.
 - `RELEASE_CHECKLIST.md` is the release gate.
 
