@@ -267,7 +267,21 @@ def cmd_validate(args: argparse.Namespace) -> int:
             claims_detail = f"error al leer ledger: {exc}"
     _check("no_failed_claims", claims_ok, claims_detail)
 
-    # ── 9. Provider health (comportamiento original, ahora un check más) ───────
+    # ── 9. Node Control: registry/policy/evidence/compatibility ─────────────
+    try:
+        sys.path.insert(0, str(base / "bago_core"))
+        from node_control import validate as node_validate
+        node_ok, node_payload = node_validate(base)
+        node_failures = node_payload.get("failures", 0)
+        _check(
+            "node_control_contract",
+            node_ok,
+            f"{len(node_payload.get('checks', []))} checks, failures={node_failures}",
+        )
+    except Exception as exc:
+        _check("node_control_contract", False, f"error al validar node_control: {exc}")
+
+    # ── 10. Provider health (comportamiento original, ahora un check más) ─────
     print("  [→] provider_health (requiere providers activos):")
     sys.path.insert(0, str(bago_dir / "core"))
     try:

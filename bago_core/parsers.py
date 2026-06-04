@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import argparse
 
+from bago_core.parsers_sections import add_node_parsers
+
 
 def build_parser(
     version: str,
@@ -337,13 +339,8 @@ def build_parser(
     toolsmith_listen = toolsmith_sub.add_parser("listen", help="Escucha eventos del bus neural")
     toolsmith_listen.add_argument("--limit", type=int, default=1)
 
-    issues_parser = sub.add_parser("issues", help="Gestiona issues del repositorio")
-    issues_parser.add_argument("--root", default="", help="Raíz del proyecto (default: cwd)")
-    issues_parser.add_argument("--dry-run", action="store_true", help="No aplica cambios en GitHub")
-    issues_sub = issues_parser.add_subparsers(dest="issues_cmd")
-    issues_take = issues_sub.add_parser("take", help="Toma la siguiente issue abierta")
-    issues_take.add_argument("repo", nargs="?", default="", help="Repositorio owner/name")
-    issues_take.add_argument("--agent", default="", help="Agente/usuario a asignar")
+    # ── node / registry / policy ─────────────────────────────────────────────
+    add_node_parsers(sub)
 
     agent_parser = sub.add_parser("agent", help="Gestiona spiral agents")
     agent_parser.add_argument("--root", default="")

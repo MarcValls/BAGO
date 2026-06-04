@@ -55,6 +55,7 @@ from bago_core.commands.cmd_tools import (  # noqa: E402
     cmd_canary,
     cmd_inventory,
     cmd_issues,
+    cmd_node,
     cmd_preflight,
     cmd_project,
     cmd_route,
@@ -282,6 +283,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_issues(args)
     elif args.command == "agent":
         return cmd_agent(args)
+    elif args.command == "node":
+        return cmd_node(args)
     elif args.command == "route":
         return cmd_route(args)
     elif args.command == "inventory":
@@ -333,6 +336,12 @@ if __name__ == "__main__":
             issue_brief = orc_mod.create_brief(task="CLI issues command smoke test")
             assert main(["--base-path", td, "issues", "--root", td, "take", issue_brief.id, "--agent", "codex"]) == 0
             assert main(["--base-path", td, "issues", "--root", td, "close", issue_brief.id, "--force"]) == 0
+            assert main(["--base-path", td, "node", "status"]) == 0
+            assert main(["--base-path", td, "node", "pieces"]) == 0
+            assert main(["--base-path", td, "node", "connectors"]) == 0
+            assert main(["--base-path", td, "node", "matrix"]) == 0
+            assert main(["--base-path", td, "node", "validate"]) == 0
+            assert main(["--base-path", td, "node", "export", "--output", str(Path(td) / "node-export.json")]) == 0
         print("launcher.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())

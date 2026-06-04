@@ -3,6 +3,7 @@ from .cmd_system import cmd_appdata, cmd_cmd_rl, cmd_cpp_runtime, cmd_engine, cm
 from .cmd_tools import cmd_agent, cmd_backup, cmd_canary, cmd_inventory, cmd_preflight, cmd_project, cmd_route, cmd_scan, cmd_toolsmith
 from .cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve
 from .cmd_lifecycle import cmd_install, cmd_uninstall
+from .cmd_tools import cmd_node
 
 __all__ = [
     "cmd_agent",
@@ -19,6 +20,7 @@ __all__ = [
     "cmd_install",
     "cmd_inventory",
     "cmd_llm",
+    "cmd_node",
     "cmd_preflight",
     "cmd_project",
     "cmd_rl",
