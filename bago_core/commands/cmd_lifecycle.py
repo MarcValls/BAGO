@@ -14,6 +14,41 @@ from pathlib import Path
 from typing import Any
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
+PROFILE_ROOTS = {
+    "stable": Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "BAGO",
+    "des": Path.home() / ".bago" / "dev",
+    "ign": Path.home() / ".bago" / "launch",
+}
+PROFILE_DATA_ROOT = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO"
+
+
+def _normalize_profile(profile: str) -> str:
+    value = profile.strip().lower()
+    aliases = {
+        "prod": "stable",
+        "production": "stable",
+        "release": "stable",
+        "dev": "des",
+        "development": "des",
+        "integration": "ign",
+        "integracion": "ign",
+    }
+    value = aliases.get(value, value)
+    if value not in PROFILE_ROOTS:
+        raise ValueError(f"Perfil desconocido: {profile}")
+    return value
+
+
+def _profile_install_dir(profile: str) -> Path:
+    return PROFILE_ROOTS[_normalize_profile(profile)]
+
+
+def _profile_backup_root(profile: str) -> Path:
+    return PROFILE_DATA_ROOT / "backups" / _normalize_profile(profile)
+
+
+def _profile_user_state_dir(profile: str) -> Path:
+    return PROFILE_DATA_ROOT / "user" / _normalize_profile(profile)
 
 for _path in (
     BAGO_ROOT / "bago_core",
@@ -31,8 +66,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     import subprocess
 
     root = BAGO_ROOT
-    install_dir = Path(args.install_dir)
-    source_root = Path(args.source_root) if args.source_root else root
+    profile = _normalize_profile(args.profile) if getattr(args, "profile", "") else ""
+    install_dir = Path(args.install_dir) if args.install_dir else (_profile_install_dir(profile) if profile else Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "BAGO")
+    if args.source_root:
+        source_root = Path(args.source_root)
+    elif profile == "ign" and not args.package_zip:
+        source_root = _profile_install_dir("des")
+    else:
+        source_root = Path(args.source_root) if args.source_root else root
     same_source_and_target = False
     try:
         same_source_and_target = source_root.resolve() == install_dir.resolve()
@@ -59,6 +100,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         command += ["-PackageZip", args.package_zip]
     if args.install_dir:
         command += ["-InstallDir", args.install_dir]
+    if profile:
+        command += ["-Profile", profile]
     if args.mode:
         command += ["-Mode", args.mode]
     elif repair_only:
@@ -71,7 +114,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         command.append("-NoPathUpdate")
 
     print("BAGO local install")
-    print(f"Fuente local : {args.source_root or str(root)}")
+    print(f"Fuente local : {source_root}")
+    print(f"Perfil       : {profile or 'none'}")
     print(f"Destino      : {install_dir}")
     print(f"Modo         : {'repair' if repair_only else 'install'}")
     print("Red          : no descarga nada")
@@ -195,17 +239,20 @@ def _rmtree_writable(path: Path) -> None:
     shutil.rmtree(path, onerror=_fix_permissions)
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
-    install_dir = Path(args.install_dir or BAGO_ROOT)
-    backup_root = Path(args.backup_root or (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "backups"))
-    user_state_dir = Path(args.user_state_dir or (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "user"))
+    profile = _normalize_profile(args.profile) if getattr(args, "profile", "") else ""
+    install_dir = Path(args.install_dir) if args.install_dir else (_profile_install_dir(profile) if profile else Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "BAGO")
+    backup_root = Path(args.backup_root) if args.backup_root else (_profile_backup_root(profile) if profile else (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "backups"))
+    user_state_dir = Path(args.user_state_dir) if args.user_state_dir else (_profile_user_state_dir(profile) if profile else (Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "BAGO" / "user"))
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     if not install_dir.exists():
         print(f"[ERROR] No se encontro la instalacion: {install_dir}")
         return 1
 
-    backup_zip = backup_root / f"bago-programfiles-uninstall-{stamp}.zip"
+    backup_tag = profile or "install"
+    backup_zip = backup_root / f"bago-{backup_tag}-uninstall-{stamp}.zip"
     print("BAGO local uninstall")
+    print(f"Perfil       : {profile or 'none'}")
     print(f"Destino      : {install_dir}")
     print(f"Backup       : {backup_zip}")
     print(f"Estado user  : {user_state_dir}")

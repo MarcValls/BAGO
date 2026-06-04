@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 
-_CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-cpp_runtime_host.py — Reference host for the cpp-local protocol.
+_CREATED_VERSION = "4.0.0"  # Version en que fue creado este archivo
+cpp_runtime_host.py -- Reference host for the cpp-local protocol.
 
 Sirve como daemon de desarrollo/pruebas para `cpp-local` en entornos donde el
-runtime C++ aún no está compilado. Implementa el mismo contrato HTTP/JSON que
+runtime C++ aun no esta compilado. Implementa el mismo contrato HTTP/JSON que
 el runtime nativo debe respetar.
 """
 
@@ -30,7 +30,6 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-
 def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     length = int(handler.headers.get("Content-Length", "0"))
     raw = handler.rfile.read(length).decode("utf-8") if length else "{}"
@@ -40,14 +39,12 @@ def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
         data = {}
     return data if isinstance(data, dict) else {}
 
-
 def _embedding(text: str, dims: int = 12) -> list[float]:
     digest = sha256(text.encode("utf-8")).digest()
     values: list[float] = []
     for idx in range(dims):
         values.append(round(digest[idx] / 255.0, 6))
     return values
-
 
 def _usage_for_text(text: str) -> dict[str, int]:
     input_tokens = max(len(text) // 4, 1)
@@ -59,13 +56,11 @@ def _usage_for_text(text: str) -> dict[str, int]:
         "calls": 1,
     }
 
-
 def _last_message(messages: list[dict[str, Any]], role: str) -> str:
     for msg in reversed(messages):
         if msg.get("role") == role:
             return str(msg.get("content", ""))
     return ""
-
 
 def _build_chat_payload(model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None) -> dict[str, Any]:
     last_user = _last_message(messages, "user")
@@ -112,7 +107,6 @@ def _build_chat_payload(model: str, messages: list[dict[str, Any]], tools: list[
         "metadata": {"backend": "python-reference", "mode": "chat"},
         "tool_calls": [],
     }
-
 
 class CppRuntimeHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.0"
@@ -203,12 +197,10 @@ class CppRuntimeHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         return
 
-
 class CppRuntimeServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], runtime_model: str):
         super().__init__(server_address, CppRuntimeHandler)
         self.runtime_model = runtime_model
-
 
 def serve(host: str, port: int, model: str) -> int:
     server = CppRuntimeServer((host, port), runtime_model=model)
@@ -221,7 +213,6 @@ def serve(host: str, port: int, model: str) -> int:
         server.shutdown()
         server.server_close()
     return 0
-
 
 def _run_tests() -> int:
     server = CppRuntimeServer(("127.0.0.1", 0), runtime_model="bago-cpp:default")
@@ -281,7 +272,6 @@ def _run_tests() -> int:
         thread.join(timeout=2)
     return 0
 
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Reference host for the cpp-local runtime protocol")
     parser.add_argument("--host", default="127.0.0.1")
@@ -290,13 +280,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test", action="store_true")
     return parser
 
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.test:
         return _run_tests()
     return serve(args.host, args.port, args.model)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

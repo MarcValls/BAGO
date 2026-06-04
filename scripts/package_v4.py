@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import zipfile
@@ -13,6 +14,11 @@ INCLUDE_FILES = [
     ".gitignore",
     "README.md",
     "MANUAL.md",
+    "index.html",
+    "manager.html",
+    "versions.json",
+    "release_version.txt",
+    "BAGO.pyproj",
     "bago.cmd",
     "bago.ps1",
     "bago.sh",
@@ -23,16 +29,24 @@ INCLUDE_FILES = [
     "rollback-v4.ps1",
     "test_e2e.py",
     "test_security_release.py",
+    "test_command_intents.py",
+    "test_translators.py",
 ]
 
 INCLUDE_DIRS = [
+    "assets",
     "bago_core",
+    "electron",
     ".bago/core",
     ".bago/chat",
+    ".bago/knowledge",
     ".bago/providers",
     ".bago/api",
+    ".bago/tools",
     "docs",
     "scripts",
+    "tests",
+    "tools",
     "ui-react/dist",
 ]
 
@@ -47,10 +61,18 @@ EXCLUDED_PARTS = {
 EXCLUDED_PREFIXES = [
     ".bago/state",
     ".bago/logs",
+    ".bago/launch",
+    ".bago/tools/.bago",
     "PLAN_VERTICE",
     "release",
     "dist",
     "build",
+]
+
+EXCLUDED_GLOBS = [
+    "*.py.new",
+    "bago_core/parsers_legacy_*.py",
+    "tools/_diff_*.py",
 ]
 
 FORBIDDEN_NAMES = {
@@ -76,6 +98,8 @@ def is_excluded(relative: Path) -> bool:
     if relative.name in FORBIDDEN_NAMES:
         return True
     rel = rel_posix(relative)
+    if any(fnmatch.fnmatch(rel, pattern) for pattern in EXCLUDED_GLOBS):
+        return True
     return any(rel == prefix or rel.startswith(prefix + "/") for prefix in EXCLUDED_PREFIXES)
 
 
@@ -182,8 +206,13 @@ def _run_tests() -> int:
         root = Path(td)
         (root / "bago_core").mkdir()
         (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
+        (root / "bago_core" / "parsers_legacy_123.py").write_text("no\n", encoding="utf-8")
+        (root / "tools").mkdir()
+        (root / "tools" / "_diff_parsers.py").write_text("no\n", encoding="utf-8")
         (root / ".bago" / "core").mkdir(parents=True)
         (root / ".bago" / "core" / "safe.py").write_text("ok\n", encoding="utf-8")
+        (root / ".bago" / "tools" / ".bago").mkdir(parents=True)
+        (root / ".bago" / "tools" / ".bago" / "config.json").write_text("no\n", encoding="utf-8")
         (root / ".bago" / "state").mkdir(parents=True)
         (root / ".bago" / "state" / "secret.txt").write_text("no\n", encoding="utf-8")
         (root / "ui-react" / "dist").mkdir(parents=True)
@@ -194,9 +223,12 @@ def _run_tests() -> int:
         with zipfile.ZipFile(result["zip"], "r") as zf:
             names = "\n".join(zf.namelist())
         assert "bago_core/x.py" in names
+        assert "bago_core/parsers_legacy_123.py" not in names
+        assert "tools/_diff_parsers.py" not in names
         assert ".bago/core/safe.py" in names
         assert "ui-react/dist/index.html" in names
         assert ".bago/state" not in names
+        assert ".bago/tools/.bago" not in names
         assert "PLAN_VERTICE" not in names
     print("package_v4.py --test: ALL PASS")
     return 0

@@ -40,6 +40,77 @@ function shortSig(filePath) {
   }
 }
 
+const INSTALL_ROLES = ['active', 'dev', 'launch'];
+const ROLE_LABELS = {
+  active: 'Copia activa / uso',
+  dev: 'Copia de desarrollo',
+  launch: 'Plataforma de lanzamiento'
+};
+
+function selectionPath() {
+  return path.join(os.homedir(), '.bago', 'install_selection.json');
+}
+
+function emptySelection() {
+  return { version: 1, updated_at: '', roles: {} };
+}
+
+function readInstallSelection() {
+  const file = selectionPath();
+  if (!exists(file)) return { ...emptySelection(), selection_file: file };
+  try {
+    const data = JSON.parse(readText(file) || '{}');
+    const roles = data && typeof data.roles === 'object' && data.roles ? data.roles : {};
+    return { version: 1, updated_at: data.updated_at || '', roles, selection_file: file };
+  } catch {
+    return { ...emptySelection(), selection_file: file };
+  }
+}
+
+function normalizeForCompare(p) {
+  return full(p).toLowerCase();
+}
+
+function rolePaths(selection = readInstallSelection()) {
+  const out = {};
+  const roles = selection.roles || {};
+  for (const role of INSTALL_ROLES) {
+    const entry = roles[role];
+    if (entry && entry.path) out[role] = String(entry.path);
+  }
+  return out;
+}
+
+function rolesForPath(root, selection = readInstallSelection()) {
+  const needle = normalizeForCompare(root);
+  return Object.entries(rolePaths(selection))
+    .filter(([, selected]) => normalizeForCompare(selected) === needle)
+    .map(([role]) => role);
+}
+
+function writeInstallSelection(role, installPath) {
+  const cleanRole = String(role || '').trim();
+  const cleanPath = full(installPath);
+  if (!INSTALL_ROLES.includes(cleanRole)) throw new Error(`Rol no valido: ${cleanRole}`);
+  if (!exists(cleanPath)) throw new Error(`Ruta no encontrada: ${cleanPath}`);
+  const file = selectionPath();
+  const selection = readInstallSelection();
+  selection.roles = selection.roles || {};
+  selection.roles[cleanRole] = {
+    path: cleanPath,
+    label: ROLE_LABELS[cleanRole] || cleanRole,
+    updated_at: new Date().toISOString()
+  };
+  selection.version = 1;
+  selection.updated_at = new Date().toISOString();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(selection, null, 2) + '\n', 'utf8');
+  fs.renameSync(tmp, file);
+  selection.selection_file = file;
+  return selection;
+}
+
 function readTag(root) {
   try {
     const tagsDir = path.join(root, 'bago_core', 'tags');
@@ -66,7 +137,7 @@ function readVersion(root) {
   return '';
 }
 
-function classifyInstall(root, mode, description) {
+function classifyInstall(root, mode, description, selection = readInstallSelection()) {
   const has = rel => exists(path.join(root, rel));
   const statePath = [path.join(root, 'state', 'supervisor.json'), path.join(os.homedir(), '.bago', 'state', 'supervisor.json')].find(exists);
   let supervisorState = null;
@@ -85,7 +156,8 @@ function classifyInstall(root, mode, description) {
       supervisorState = { error: `${err.name}: ${err.message}` };
     }
   }
-  return {
+  const selectedRoles = rolesForPath(root, selection);
+  const result = {
     path: full(root),
     exists: exists(root),
     mode: exists(root) ? mode : 'missing',
@@ -102,13 +174,19 @@ function classifyInstall(root, mode, description) {
     has_cli: has(path.join('bago_core', 'cli.py')),
     release_sig_short: shortSig(path.join(root, 'release.sig')),
     supervisor_state: supervisorState,
-    supervisor_alive: supervisorAlive
+    supervisor_alive: supervisorAlive,
+    selection_roles: selectedRoles
   };
+  for (const role of INSTALL_ROLES) {
+    result[`selected_${role}`] = selectedRoles.includes(role);
+  }
+  return result;
 }
 
 function scanInstallations(extraPaths = []) {
   const pf = process.env.ProgramFiles || 'C:\\Program Files';
   const home = process.env.USERPROFILE || os.homedir();
+  const selection = readInstallSelection();
   const known = [
     [path.join(pf, 'BAGO'), 'system', 'Instalación de sistema'],
     [path.join(home, '.bago'), 'user', 'User root (default work)'],
@@ -120,6 +198,10 @@ function scanInstallations(extraPaths = []) {
   for (const p of extraPaths) {
     if (p) known.push([p, 'manual', 'Manual path']);
   }
+  const selectedMode = { active: 'work', dev: 'dev', launch: 'ign' };
+  for (const [role, selected] of Object.entries(rolePaths(selection))) {
+    if (selected) known.push([selected, selectedMode[role] || 'manual', `Seleccion ${role}`]);
+  }
   const seen = new Set();
   const installations = [];
   for (const [root, mode, description] of known) {
@@ -127,7 +209,7 @@ function scanInstallations(extraPaths = []) {
     const key = fullRoot.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    installations.push(classifyInstall(fullRoot, mode, description));
+    installations.push(classifyInstall(fullRoot, mode, description, selection));
   }
   const active = installations.filter(i => i.exists);
   const alive = active.filter(i => i.supervisor_alive);
@@ -142,6 +224,10 @@ function scanInstallations(extraPaths = []) {
       missing: installations.length - active.length,
       with_supervisor: active.filter(i => i.has_supervisor).length,
       with_supervisor_alive: alive.length
+    },
+    selection: {
+      file: selection.selection_file || selectionPath(),
+      roles: rolePaths(selection)
     },
     installations
   };
@@ -176,6 +262,10 @@ function psSingle(s) {
   return `'${String(s || '').replace(/'/g, "''")}'`;
 }
 
+function psEncoded(script) {
+  return `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${Buffer.from(String(script || ''), 'utf16le').toString('base64')}`;
+}
+
 function buildInstallCommand(tag, installDir, mode = 'Express') {
   const cleanTag = String(tag || '').trim();
   const cleanDir = String(installDir || 'C:\\Program Files\\BAGO').trim();
@@ -195,12 +285,43 @@ function buildUninstallCommand(installDir, purgeState = false) {
   return `& ${psSingle(script)} ${args.join(' ')}`;
 }
 
+function buildRoleCommand(role, installDir) {
+  const cleanRole = String(role || '').trim();
+  const root = full(String(installDir || '').trim());
+  const label = ROLE_LABELS[cleanRole] || cleanRole;
+  const script = [
+    `$role = ${psSingle(cleanRole)}`,
+    `$root = ${psSingle(root)}`,
+    `$label = ${psSingle(label)}`,
+    "$file = Join-Path $env:USERPROFILE '.bago\\install_selection.json'",
+    '$roles = @{}',
+    "if (Test-Path $file) { try { $data = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json; if ($data.roles) { foreach ($p in $data.roles.PSObject.Properties) { $roles[$p.Name] = $p.Value } } } catch {} }",
+    "$now = (Get-Date).ToUniversalTime().ToString('o')",
+    '$roles[$role] = [ordered]@{ path = $root; label = $label; updated_at = $now }',
+    '$out = [ordered]@{ version = 1; updated_at = $now; roles = $roles }',
+    'New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null',
+    '$out | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $file -Encoding UTF8',
+    'Write-Host ("BAGO role " + $role + " -> " + $root)'
+  ].join('; ');
+  return psEncoded(script);
+}
+
 contextBridge.exposeInMainWorld('bagoElectron', {
   readClipboardText: () => clipboard.readText(),
   writeClipboardText: (text) => clipboard.writeText(String(text || '')),
   runCommand: (command) => ipcRenderer.invoke('bago:run-command', String(command || '')),
   scanInstallations: (extraPaths) => Promise.resolve(scanInstallations(Array.isArray(extraPaths) ? extraPaths : [])),
+  readInstallSelection: () => Promise.resolve(readInstallSelection()),
+  writeInstallSelection: (role, installPath) => Promise.resolve(writeInstallSelection(role, installPath)),
   fetchReleases,
   buildInstallCommand,
-  buildUninstallCommand
+  buildUninstallCommand,
+  buildRoleCommand,
+  // Node Control: invoca bago node <args> y devuelve {ok, data?, text?, raw?, cmd, error?}
+  runNodeCommand: (args) => ipcRenderer.invoke('bago:node-cmd', Array.isArray(args) ? args.map(String) : []),
+  runNodeStatus: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'status', '--json']),
+  runNodeMatrix: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'matrix', '--json']),
+  runNodePieces: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'pieces', '--json']),
+  runNodeConnectors: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'connectors', '--json']),
+  runNodeValidate: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'validate', '--json'])
 });

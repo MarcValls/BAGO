@@ -2,6 +2,7 @@
 param(
     [string]$SourceRoot = "",
     [string]$PackageZip = "",
+    [string]$Profile = "",
     [string]$InstallDir = "C:\Program Files\BAGO",
     [string]$BackupRoot = "$env:ProgramData\BAGO\backups",
     [string]$UserStateDir = "$env:ProgramData\BAGO\user",
@@ -44,6 +45,66 @@ function Assert-SafeTarget {
         throw "Unsafe install target: $full"
     }
     return $full
+}
+
+function Normalize-ProfileName {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    switch ($Name.Trim().ToLowerInvariant()) {
+        "stable" { return "stable" }
+        "prod" { return "stable" }
+        "production" { return "stable" }
+        "release" { return "stable" }
+        "des" { return "des" }
+        "dev" { return "des" }
+        "development" { return "des" }
+        "ign" { return "ign" }
+        "integration" { return "ign" }
+        "integracion" { return "ign" }
+        "" { throw "Perfil invalido: vacio" }
+        default { throw "Perfil invalido: $Name" }
+    }
+}
+
+function Get-ProfileInstallDir {
+    param([Parameter(Mandatory = $true)][string]$ProfileName)
+    $programFiles = $env:ProgramFiles
+    if (-not $programFiles) { $programFiles = "C:\Program Files" }
+    switch ($ProfileName) {
+        "stable" { return (Join-Path $programFiles "BAGO") }
+        "des" { return (Join-Path (Join-Path $HOME ".bago") "dev") }
+        "ign" { return (Join-Path (Join-Path $HOME ".bago") "launch") }
+        default { throw "Perfil invalido: $ProfileName" }
+    }
+}
+
+function Get-ProfileDataRoot {
+    $programData = $env:ProgramData
+    if (-not $programData) { $programData = "C:\ProgramData" }
+    return (Join-Path $programData "BAGO")
+}
+
+function Get-ProfileBackupRoot {
+    param([Parameter(Mandatory = $true)][string]$ProfileName)
+    return (Join-Path (Join-Path (Get-ProfileDataRoot) "backups") $ProfileName)
+}
+
+function Get-ProfileUserStateDir {
+    param([Parameter(Mandatory = $true)][string]$ProfileName)
+    return (Join-Path (Join-Path (Get-ProfileDataRoot) "user") $ProfileName)
+}
+
+$profileName = ""
+if ($Profile) {
+    $profileName = Normalize-ProfileName $Profile
+    if (-not $PSBoundParameters.ContainsKey("InstallDir")) {
+        $InstallDir = Get-ProfileInstallDir -ProfileName $profileName
+    }
+    if (-not $PSBoundParameters.ContainsKey("BackupRoot")) {
+        $BackupRoot = Get-ProfileBackupRoot -ProfileName $profileName
+    }
+    if (-not $PSBoundParameters.ContainsKey("UserStateDir")) {
+        $UserStateDir = Get-ProfileUserStateDir -ProfileName $profileName
+    }
 }
 
 function Test-ReleaseExcluded {
@@ -96,8 +157,18 @@ function Move-PreservedRuntimeState {
         if (Test-Path -LiteralPath $src) {
             $dst = Join-Path $PreservePath $rel
             New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
-            Move-Item -LiteralPath $src -Destination $dst -Force
-            $preserved += $rel
+            try {
+                Move-Item -LiteralPath $src -Destination $dst -Force
+                $preserved += $rel
+            } catch {
+                try {
+                    Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force
+                    $preserved += $rel
+                    Write-Warning "No se pudo mover $rel; se preservo con copia."
+                } catch {
+                    Write-Warning "No se pudo preservar ${rel}: $($_.Exception.Message)"
+                }
+            }
         }
     }
     return $preserved
@@ -478,6 +549,10 @@ if ($PackageZip) {
     $SourceRoot = $tempExtract
 }
 
+if (-not $SourceRoot -and $profileName -eq "ign") {
+    $SourceRoot = Get-ProfileInstallDir -ProfileName "des"
+}
+
 if (-not $SourceRoot) {
     $SourceRoot = $PSScriptRoot
 }
@@ -617,7 +692,11 @@ if (-not $RepairOnly) {
     $preserved = Move-PreservedRuntimeState -InstallPath $installFull -PreservePath $preserveTemp
 
     Get-ChildItem -LiteralPath $installFull -Force | ForEach-Object {
-        Remove-Item -LiteralPath $_.FullName -Recurse -Force
+        try {
+            Remove-Item -LiteralPath $_ -Recurse -Force -ErrorAction Stop
+        } catch {
+            Write-Warning "No se pudo limpiar $($_): $($_.Exception.Message)"
+        }
     }
 
     Copy-ReleaseTree -Source $sourceFull -Destination $installFull
@@ -665,6 +744,7 @@ if (-not $SkipTests) {
 
 $result = [ordered]@{
     ok = $true
+    profile = $profileName
     installed_to = $installFull
     source = $sourceFull
     backup_zip = $backupZip

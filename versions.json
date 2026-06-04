@@ -14,10 +14,22 @@
       "notes": "Mejoras de instalador, correcciones de permisos y bump de versión"
     },
     {
+      "version": "4.2.0",
+      "released": "2026-06-02",
+      "ended": "2026-06-03",
+      "notes": "Nuevo gestor de instalaciones con perfiles stable/des/ign y flujo de promocion"
+    },
+    {
+      "version": "4.2.1",
+      "released": "2026-06-03",
+      "ended": "2026-06-03",
+      "notes": "Patch publico con modo headless para agentes, catalogo JSON de comandos y diagnostico /doctor"
+    },
+    {
       "version": "4.2.2",
       "released": "2026-06-03",
       "ended": null,
-      "notes": "Gestor de instalaciones modernizado, acceso público simplificado y foco en el nuevo manager"
+      "notes": "Patch publico del gestor: Node Control acepta node status --json, runtime BAGO empaquetado y foco de UI en instalaciones, roles, piezas y matriz"
     }
   ]
 }

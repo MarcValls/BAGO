@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cmd_route.py — Routing status & preset management.
+cmd_route.py -- Routing status & preset management.
 
 Expone `bago route status` que reporta el preset activo y valida el contrato
 contra `docs/contracts/bago_v4_routing_presets.json`.
@@ -18,10 +18,8 @@ import json
 import sys
 from pathlib import Path
 
-
 def _user_bago_root() -> Path:
     return Path.home() / ".bago"
-
 
 def _read_runtime(root: Path) -> dict:
     p = root / "routing_runtime.json"
@@ -32,7 +30,6 @@ def _read_runtime(root: Path) -> dict:
     except Exception:
         return {"active_preset": None, "contract": {"text": "", "source": "none"}}
 
-
 def _load_presets(repo: Path) -> dict:
     p = repo / "BAGO" / "docs" / "contracts" / "bago_v4_routing_presets.json"
     if not p.exists():
@@ -41,7 +38,6 @@ def _load_presets(repo: Path) -> dict:
         return json.loads(p.read_text(encoding="utf-8")).get("presets", {})
     except Exception:
         return {}
-
 
 def _is_contract_valid(runtime: dict, presets: dict) -> tuple[bool, str]:
     def _norm(s: str) -> str:
@@ -61,7 +57,6 @@ def _is_contract_valid(runtime: dict, presets: dict) -> tuple[bool, str]:
     if expected and _norm(expected) != _norm(text):
         return False, f"contract.text drift vs preset {preset!r}"
     return True, f"preset={preset} source={source}"
-
 
 def cmd_route_status(args: argparse.Namespace) -> int:
     user_root = Path(args.user_bago or str(_user_bago_root()))
@@ -84,13 +79,12 @@ def cmd_route_status(args: argparse.Namespace) -> int:
         print(f"active_preset: {runtime.get('active_preset')}")
         print(f"contract.source: {(runtime.get('contract') or {}).get('source')}")
         text = (runtime.get("contract") or {}).get("text") or ""
-        preview = text[:80] + ("…" if len(text) > 80 else "")
+        preview = text[:80] + ("..." if len(text) > 80 else "")
         print(f"contract.text: {preview}")
         print(f"valid: {valid}")
         print(f"reason: {reason}")
         print(f"known_presets: {list(presets.keys())}")
     return 0 if valid or args.tolerant else 1
-
 
 def cmd_route_validate(args: argparse.Namespace) -> int:
     user_root = Path(args.user_bago or str(_user_bago_root()))
@@ -110,7 +104,6 @@ def cmd_route_validate(args: argparse.Namespace) -> int:
         return 0
     print(f"preset {preset!r}: contract drift")
     return 1
-
 
 def cmd_route_activate(args: argparse.Namespace) -> int:
     user_root = Path(args.user_bago or str(_user_bago_root()))
@@ -132,7 +125,6 @@ def cmd_route_activate(args: argparse.Namespace) -> int:
     print(f"activated preset {args.preset!r} -> {target}")
     return 0
 
-
 def build_subparser(parser) -> None:
     p_route = parser.add_subparsers(dest="command")
     p_route.required = False
@@ -148,7 +140,6 @@ def build_subparser(parser) -> None:
         sub.add_argument("--repo", default=None, help="Path to BAGO repo root (default: parent of user-bago)")
         sub.add_argument("--json", action="store_true", help="Emit JSON output")
         sub.add_argument("--tolerant", action="store_true", help="Exit 0 even on invalid contract")
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bago")
@@ -166,7 +157,6 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_route_activate(args)
     print(f"unknown subcommand: {cmd}")
     return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -117,6 +117,85 @@ def get_few_shot_examples(intent: str, max_examples: int = 3) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Command-intent classification (maps natural language → slash command)
+# ---------------------------------------------------------------------------
+
+_CMD_DATA_PATH = Path(__file__).with_name("command_intents.json")
+_CMD_INDEX: dict[str, str] = {}   # phrase → command
+
+
+def _build_cmd_index() -> dict[str, str]:
+    """Carga command_intents.json y construye un índice phrase→command."""
+    index: dict[str, str] = {}
+    if not _CMD_DATA_PATH.exists():
+        return index
+    try:
+        data = json.loads(_CMD_DATA_PATH.read_text(encoding="utf-8"))
+        for cmd, info in data.get("commands", {}).items():
+            for phrase in info.get("phrases", []):
+                index[phrase.lower().strip()] = cmd
+    except Exception:
+        pass
+    return index
+
+
+_CMD_INDEX = _build_cmd_index()
+
+
+def reload_command_index() -> int:
+    """Recarga el índice de comandos desde disco. Retorna número de frases cargadas."""
+    global _CMD_INDEX
+    _CMD_INDEX = _build_cmd_index()
+    return len(_CMD_INDEX)
+
+
+def classify_command_intent(user_message: str) -> str | None:
+    """Clasifica si el mensaje es un comando natural y devuelve el comando slash.
+
+    Retorna el comando slash (ej. '/credentials set') si hay coincidencia,
+    o None si el mensaje debe tratarse como chat normal.
+
+    Estrategia:
+    1. Coincidencia exacta en el índice (más rápida y precisa).
+    2. Coincidencia parcial: la frase del índice está contenida en el mensaje
+       y el mensaje es corto (≤ 6 palabras), para evitar falsos positivos.
+    """
+    msg = user_message.lower().strip()
+    if not msg:
+        return None
+
+    # Coincidencia exacta
+    if msg in _CMD_INDEX:
+        return _CMD_INDEX[msg]
+
+    # Coincidencia parcial solo en mensajes cortos
+    if len(msg.split()) <= 6:
+        for phrase, cmd in _CMD_INDEX.items():
+            if phrase in msg and len(phrase) >= 4:
+                return cmd
+
+    return None
+
+
+def command_intent_description(command: str) -> str:
+    """Devuelve la descripción del comando desde command_intents.json."""
+    try:
+        data = json.loads(_CMD_DATA_PATH.read_text(encoding="utf-8"))
+        return data.get("commands", {}).get(command, {}).get("description", "")
+    except Exception:
+        return ""
+
+
+def command_intent_is_wizard(command: str) -> bool:
+    """True si el comando tiene asistente guiado interactivo."""
+    try:
+        data = json.loads(_CMD_DATA_PATH.read_text(encoding="utf-8"))
+        return bool(data.get("commands", {}).get(command, {}).get("wizard", False))
+    except Exception:
+        return False
+
+
 def should_enable_tools(intent: str) -> bool:
     """
     Decide whether tool-calling should be offered to the model
