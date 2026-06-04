@@ -91,6 +91,18 @@ def rel_posix(path: Path) -> str:
     return path.as_posix()
 
 
+def normalize_release_version(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized.startswith("v"):
+        normalized = normalized[1:]
+    if not normalized:
+        raise ValueError("release_version vacío")
+    allowed = set("0123456789.-")
+    if any(ch not in allowed for ch in normalized):
+        raise ValueError(f"release_version inválido: {value}")
+    return normalized
+
+
 def is_excluded(relative: Path) -> bool:
     parts = set(relative.parts)
     if parts & EXCLUDED_PARTS:
@@ -131,11 +143,14 @@ def collect_files(root: Path) -> list[Path]:
     return sorted(set(files), key=lambda p: rel_posix(p.relative_to(root)).lower())
 
 
-def build_package(root: Path, output_dir: Path) -> dict:
+def build_package(root: Path, output_dir: Path, release_version: str = "") -> dict:
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    package_name = f"bago-v4-local-{stamp}.zip"
+    if release_version:
+        package_name = f"bago-v{normalize_release_version(release_version)}.zip"
+    else:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        package_name = f"bago-v4-local-{stamp}.zip"
     zip_path = output_dir / package_name
     files = collect_files(root)
 
@@ -230,6 +245,8 @@ def _run_tests() -> int:
         assert ".bago/state" not in names
         assert ".bago/tools/.bago" not in names
         assert "PLAN_VERTICE" not in names
+        fixed = build_package(root, root / "release" / "v4", release_version="v4.3.0")
+        assert Path(fixed["zip"]).name == "bago-v4.3.0.zip"
     print("package_v4.py --test: ALL PASS")
     return 0
 
@@ -237,9 +254,10 @@ def _run_tests() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build clean BAGO v4 local package.")
     parser.add_argument("--output-dir", default=str(repo_root() / "release" / "v4"))
+    parser.add_argument("--release-version", default="", help="Use fixed release bundle name (e.g. 4.3.0).")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    result = build_package(repo_root(), Path(args.output_dir))
+    result = build_package(repo_root(), Path(args.output_dir), release_version=args.release_version)
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
