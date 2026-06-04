@@ -28,6 +28,33 @@
 
 ## 1. Instalación y Primer Arranque
 
+### Gobernanza de ramas (obligatoria)
+
+Ramas base permitidas:
+
+- `main` (fuente de verdad)
+- `windows` (adaptación de plataforma)
+- `android` (adaptación de plataforma)
+
+Flujo obligatorio:
+
+1. Trabajo común -> `main`.
+2. Sincronización de plataforma -> PR de `main` hacia `windows` y `android`.
+3. Prohibido reverse-merge de `windows`/`android` hacia `main`.
+
+Blindajes implementados:
+
+- Check obligatorio en PR: `.github/workflows/branch-flow-guard.yml`
+- Hook local anti-push directo: `.githooks/pre-push`
+- Activación hooks: `pwsh scripts/setup_git_hooks.ps1`
+- Protección GitHub (main/windows/android): `pwsh scripts/apply_branch_protection.ps1`
+
+Break-glass (emergencia):
+
+1. Desactivar temporalmente protección de rama en GitHub.
+2. Resolver hotfix.
+3. Reaplicar protección con `scripts/apply_branch_protection.ps1`.
+
 ### Requisitos
 - Python 3.11+
 - Ollama (opcional, para provider local)
