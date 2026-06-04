@@ -79,6 +79,18 @@ Android minimal manager (non-local providers):
 manager/android/index.html
 ```
 
+Android compatibility dependencies (calculated):
+
+| Dependency | Required | Purpose | Link |
+|---|---|---|---|
+| Android System WebView / Chrome | Yes (UI web) | Run `manager/android/index.html` with `fetch`, `sessionStorage`, `localStorage` | https://play.google.com/store/apps/details?id=com.google.android.webview |
+| Termux | Yes (CLI in Android) | Run `bago`/`python` commands on Android | https://termux.dev/en/ |
+| Python 3.11+ (Termux package) | Yes (CLI core) | Execute `bago_core/cli.py` and `bago android ...` | https://wiki.termux.com/wiki/Python |
+| Git (Termux package) | Yes (source install/update) | Clone/update repository in Android | https://wiki.termux.com/wiki/Git |
+| OpenRouter API key | Optional (provider) | Cloud provider for Android Mini and CLI | https://openrouter.ai/docs/quickstart |
+| OpenAI API key (Codex) | Optional (provider) | Alternative cloud provider for Android Mini and CLI | https://platform.openai.com/docs/quickstart |
+| Anthropic API key | Optional (CLI) | Provider available in `bago android`; web Android requires proxy due CORS | https://docs.anthropic.com/en/api/getting-started |
+
 Android/Termux minimal profile:
 
 ```bash

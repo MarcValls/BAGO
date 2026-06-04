@@ -99,6 +99,18 @@ Para Android, BAGO 4.3.0 incluye una vista web minima:
 - preparada para `openrouter` y `codex` (OpenAI)
 - sin dependencia de Electron
 
+Dependencias Android (calculadas):
+
+| Dependencia | Obligatoria | Uso | Enlace |
+|---|---|---|---|
+| Android System WebView / Chrome | Sí (UI web) | Ejecutar el gestor `manager/android/index.html` | https://play.google.com/store/apps/details?id=com.google.android.webview |
+| Termux | Sí (CLI Android) | Ejecutar comandos `bago` dentro de Android | https://termux.dev/en/ |
+| Python 3.11+ (pkg Termux) | Sí (CLI core) | Ejecutar `bago_core/cli.py` y `bago android ...` | https://wiki.termux.com/wiki/Python |
+| Git (pkg Termux) | Sí (instalación fuente) | Clonar y actualizar BAGO en Android | https://wiki.termux.com/wiki/Git |
+| OPENROUTER_API_KEY | Opcional (provider) | Provider cloud principal en Android Mini | https://openrouter.ai/docs/quickstart |
+| OPENAI_API_KEY (Codex) | Opcional (provider) | Provider cloud alternativo | https://platform.openai.com/docs/quickstart |
+| ANTHROPIC_API_KEY | Opcional (CLI) | Soportado en CLI; en web móvil requiere proxy por CORS | https://docs.anthropic.com/en/api/getting-started |
+
 Flujo recomendado en Termux:
 
 ```bash
