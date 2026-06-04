@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REMOTE_NAME="${1:-origin}"
+REMOTE_URL="${2:-}"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/windows|refs/heads/android)
+      echo "ERROR: push directo bloqueado a ${remote_ref#refs/heads/}."
+      echo "Regla BAGO: trabaja por PR (main -> windows/android) y evita bypass del flujo."
+      echo "Remote: ${REMOTE_NAME} ${REMOTE_URL}"
+      exit 1
+      ;;
+  esac
+done
+
+exit 0

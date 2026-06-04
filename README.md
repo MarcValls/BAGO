@@ -143,6 +143,33 @@ bago exec /status
 | `python bago_core\cli.py serve --host 127.0.0.1 --port 8080` | starts the local API |
 | `python bago_core\cli.py rl status` | reports RL/shadow state without granting authority |
 
+## Branch Governance (mandatory)
+
+BAGO works with exactly three base branches:
+
+- `main` (source of truth)
+- `windows` (platform adaptation)
+- `android` (platform adaptation)
+
+Mandatory flow:
+
+1. Common work merges into `main`.
+2. Platform branches are updated from `main`.
+3. No reverse-merges from `windows`/`android` into `main`.
+
+Enforcement implemented in-repo:
+
+- GitHub required check: `.github/workflows/branch-flow-guard.yml`
+- Local push guard hook: `.githooks/pre-push`
+- Hook setup: `pwsh scripts/setup_git_hooks.ps1`
+- Branch protection apply script: `pwsh scripts/apply_branch_protection.ps1`
+
+Break-glass (owner only, emergency):
+
+1. Temporarily relax protection in GitHub branch settings.
+2. Apply hotfix via PR flow if possible.
+3. Re-apply guardrails with `pwsh scripts/apply_branch_protection.ps1`.
+
 ## Providers
 
 | Provider | Status | Notes |
