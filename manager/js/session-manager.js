@@ -7,7 +7,7 @@ function pmSessionApi(args){
   return api.runSessionCommand(args);
 }
 function pmSessionOption(value,label,selected){
-  return '<option value="'+escapeHtml(value)+'"'+(value===selected?' selected':'')+'>'+escapeHtml(label||value)+'</option>';
+  return '<option value="'+escapeHtml(value)+'"'+(selected===true||value===selected?' selected':'')+'>'+escapeHtml(label||value)+'</option>';
 }
 function pmRenderSessionList(){
   const box=document.getElementById('pm-session-list');
