@@ -41,6 +41,7 @@ from version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
+from bago_core.commands.cmd_android import cmd_android  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
     cmd_appdata,
     cmd_cmd_rl,
@@ -356,6 +357,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "claim":       "cmd_claim",
     "config":      "cmd_config",
     "llm":         "cmd_llm",
+    "android":     "cmd_android",
     "engine":      "cmd_engine",
     "appdata":     "cmd_appdata",
     "cmd-rl":      "cmd_cmd_rl",

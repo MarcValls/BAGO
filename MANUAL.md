@@ -91,6 +91,22 @@ Capturas del gestor:
 - CLI: `docs/evidence/manual/captures/bago-profiles-cli.png`
 - UI: `docs/evidence/manual/captures/bago-ui-index.png`
 
+### Android minimo (providers no locales)
+
+Para Android, BAGO 4.3.0 incluye una vista web minima:
+
+- `manager/android/index.html`
+- preparada para `openrouter` y `codex` (OpenAI)
+- sin dependencia de Electron
+
+Flujo recomendado en Termux:
+
+```bash
+bago android init --provider openrouter
+export OPENROUTER_API_KEY='<tu_clave>'
+bago llm start --provider openrouter --model openai/gpt-4o-mini --dry-run
+```
+
 ### Modo agente/headless
 
 Todo comando slash visible en `/help` debe poder ejecutarse sin interfaz interactiva:

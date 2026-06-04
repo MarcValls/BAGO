@@ -74,6 +74,16 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     llm_start.add_argument("--dry-run", action="store_true", help="Registra seleccion sin abrir chat")
     llm_start.add_argument("--no-monitor", action="store_true", help="No arrancar bago monitor en background")
 
+    android_parser = sub.add_parser("android", help="Perfil mínimo Android/Termux con providers no locales")
+    android_sub = android_parser.add_subparsers(dest="android_action")
+    android_doctor = android_sub.add_parser("doctor", help="Diagnostica readiness Android")
+    android_doctor.add_argument("--json", dest="android_json", action="store_true", help="Salida JSON")
+    android_init = android_sub.add_parser("init", help="Configura un perfil Android mínimo")
+    android_init.add_argument("--provider", dest="android_provider", default="openrouter", choices=("openrouter", "codex", "anthropic"), help="Provider cloud principal")
+    android_init.add_argument("--model", dest="android_model", default="", help="Modelo por defecto para Android")
+    android_init.add_argument("--base-url", dest="android_base_url", default="", help="Base URL del provider")
+    android_init.add_argument("--json", dest="android_json", action="store_true", help="Salida JSON")
+
     engine_parser = sub.add_parser("engine", help="Estado del backend avanzado bago_true")
     engine_parser.add_argument("--true-root", default="", help="Ruta opcional de bago_true\\.bago")
     engine_parser.add_argument("--appdata-root", default="", help="Ruta opcional de AppData BAGO")

@@ -73,6 +73,20 @@ bago install --profile ign
 bago install --profile stable
 ```
 
+Android minimal manager (non-local providers):
+
+```text
+manager/android/index.html
+```
+
+Android/Termux minimal profile:
+
+```bash
+bago android init --provider openrouter
+export OPENROUTER_API_KEY='<tu_clave>'
+bago llm start --provider openrouter --model openai/gpt-4o-mini --dry-run
+```
+
 ## Minimum Use
 
 ```powershell
