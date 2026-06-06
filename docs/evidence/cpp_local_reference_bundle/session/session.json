@@ -1,0 +1,11 @@
+{
+  "session_id": "5e74844e-0f8",
+  "provider": "cpp-local",
+  "model": "bago-cpp:default",
+  "system_prompt": "",
+  "created_at": 1780092365.1753516,
+  "total_tokens": 56,
+  "total_calls": 1,
+  "last_switch_at": null,
+  "switch_log": []
+}

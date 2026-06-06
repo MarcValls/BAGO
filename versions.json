@@ -1,0 +1,41 @@
+{
+  "current": "4.3.0",
+  "history": [
+    {
+      "version": "4.0.0",
+      "released": "2026-01-01",
+      "ended": "2026-05-28",
+      "notes": "Release inicial BAGO 4.0"
+    },
+    {
+      "version": "4.1.5",
+      "released": "2026-05-29",
+      "ended": "2026-06-02",
+      "notes": "Mejoras de instalador, correcciones de permisos y bump de versión"
+    },
+    {
+      "version": "4.2.0",
+      "released": "2026-06-02",
+      "ended": "2026-06-03",
+      "notes": "Nuevo gestor de instalaciones con perfiles stable/des/ign y flujo de promocion"
+    },
+    {
+      "version": "4.2.1",
+      "released": "2026-06-03",
+      "ended": "2026-06-03",
+      "notes": "Patch publico con modo headless para agentes, catalogo JSON de comandos y diagnostico /doctor"
+    },
+    {
+      "version": "4.2.2",
+      "released": "2026-06-03",
+      "ended": "2026-06-04",
+      "notes": "Patch publico del gestor: Node Control acepta node status --json, runtime BAGO empaquetado y foco de UI en instalaciones, roles, piezas y matriz"
+    },
+    {
+      "version": "4.3.0",
+      "released": "2026-06-04",
+      "ended": null,
+      "notes": "Consolidación post-rebase: SessionManager integrado en el gestor, bridges Codex/Copilot y estabilidad verificada de runtime y release jobs"
+    }
+  ]
+}

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAGO · Gestor de Instalaciones</title>
+<link rel="icon" href="../assets/bago-wasp.svg">
+<link rel="stylesheet" href="styles/legacy.css">
+<link rel="stylesheet" href="styles/patch.css">
+</head>
+<body>
+<div class="pm-app" id="pm-app">
+  <aside class="pm-sidebar">
+    <div class="pm-brand">
+      <img src="../assets/bago-wasp.svg" alt="BAGO">
+      <div><strong>BAGO Patch Manager</strong><span>Installation → Connector → Piece</span></div>
+    </div>
+    <nav class="pm-nav" aria-label="Gestor">
+      <button class="active" data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
+      <button data-pm-view="installations"><span class="pm-icon">▣</span>Instalaciones</button>
+      <button data-pm-view="matrix"><span class="pm-icon">▦</span>Matriz</button>
+      <button data-pm-view="pieces"><span class="pm-icon">◇</span>Piezas</button>
+      <button data-pm-view="releases"><span class="pm-icon">⇧</span>Releases</button>
+      <button data-pm-view="jobs"><span class="pm-icon">≡</span>Trabajos</button>
+      <button data-pm-view="sessions"><span class="pm-icon">◎</span>Sesiones</button>
+      <button data-pm-view="health"><span class="pm-icon">+</span>Salud</button>
+      <button data-pm-view="audit"><span class="pm-icon">☷</span>Auditoría</button>
+    </nav>
+    <div class="pm-store">
+      <div class="pm-store-row"><span>PieceStore</span><strong id="pm-store-root">cargando</strong></div>
+      <div class="pm-store-row"><span>Instalaciones</span><strong id="pm-store-installs">0</strong></div>
+      <div class="pm-store-row"><span>Piezas</span><strong id="pm-store-pieces">0</strong></div>
+      <div class="pm-store-row"><span>Connectors</span><strong id="pm-store-connectors">0</strong></div>
+    </div>
+  </aside>
+  <section class="pm-content">
+    <header class="pm-topbar">
+      <div class="pm-title"><h1 id="pm-title">Patch Bay</h1><p id="pm-status">Cargando detección local, releases y Node Control...</p></div>
+      <div class="pm-actions">
+        <input class="pm-input" id="pm-search" type="search" placeholder="Buscar instalación, pieza o connector">
+        <select class="pm-select" id="pm-mode-filter">
+          <option value="">Todos los modos</option>
+          <option>connected</option><option>shadow</option><option>locked</option>
+          <option>read-only</option><option>writable overlay</option><option>detached</option>
+        </select>
+        <button class="pm-btn" id="pm-open-web-chat">Chat web</button>
+        <button class="pm-btn" id="pm-open-cli-chat">CLI</button>
+        <button class="pm-btn primary" id="pm-refresh">↻ Actualizar</button>
+      </div>
+    </header>
+
+    <section class="pm-view active" id="pm-view-patch">
+      <div class="pm-grid pm-stats" id="pm-stats"></div>
+      <div class="pm-grid pm-patch-layout" id="pm-patch-layout">
+        <article class="pm-panel" id="pm-patch-panel">
+          <div class="pm-panel-head">
+            <div><h2>Patch Bay</h2><p id="pm-patch-caption">Selecciona una instalación</p></div>
+            <div class="pm-actions"><select class="pm-select" id="pm-patch-surface"><option value="connectors">Connectors</option><option value="chain">Cadena</option></select><select class="pm-select" id="pm-patch-chain" hidden></select><select class="pm-select" id="pm-install-filter"></select><button class="pm-btn" id="pm-patch-add-node" data-pm-chain-only hidden>+ Nodo</button><button class="pm-btn" id="pm-patch-add-stage" data-pm-chain-only hidden>+ Etapa</button><button class="pm-btn primary" id="pm-patch-save-chain" data-pm-chain-only hidden>Guardar</button><button class="pm-btn" id="pm-reset-layout">Centrar</button><button class="pm-btn" id="pm-patch-fullscreen">Pantalla completa</button></div>
+          </div>
+          <div class="pm-patch-wrap"><div class="pm-stage" id="pm-stage"></div></div>
+        </article>
+        <aside class="pm-panel pm-detail" id="pm-patch-detail"><div class="pm-panel-head"><h2 id="pm-detail-title">Connector</h2></div><div class="pm-detail-body" id="pm-detail"></div></aside>
+        <datalist id="pm-chain-ref-options"></datalist>
+      </div>
+    </section>
+
+    <section class="pm-view" id="pm-view-installations">
+      <article class="pm-panel"><div class="pm-panel-head"><div><h2>Instalaciones detectadas</h2><p>Estado local, rol, versión y acciones</p></div><button class="pm-btn" id="pm-scan-manual">+ Ruta manual</button></div><div class="pm-list" id="pm-installations-list"></div></article>
+    </section>
+    <section class="pm-view" id="pm-view-matrix">
+      <article class="pm-panel">
+        <div class="pm-panel-head">
+          <div><h2>Matriz Installation × Piece</h2><p>Ordena, transpone y abre connectors desde cualquier celda</p></div>
+          <div class="pm-actions">
+            <select class="pm-select" id="pm-matrix-piece-sort" title="Orden de piezas"><option value="type">Piezas: tipo</option><option value="id">Piezas: id</option><option value="scope">Piezas: scope</option><option value="refs">Piezas: referencias</option></select>
+            <select class="pm-select" id="pm-matrix-install-sort" title="Orden de instalaciones"><option value="profile">Instalaciones: perfil</option><option value="name">Instalaciones: nombre</option><option value="mode">Instalaciones: modo</option></select>
+            <select class="pm-select" id="pm-matrix-direction" title="Dirección"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+            <button class="pm-btn" id="pm-matrix-transpose">Transponer</button>
+          </div>
+        </div>
+        <div class="pm-matrix-wrap" id="pm-matrix"></div>
+      </article>
+      <article class="pm-panel">
+        <div class="pm-panel-head">
+          <div><h2>Cadenas de ejecución</h2><p id="pm-chain-caption">Diseña configuraciones en serie, paralelo, mixtas o atómicas</p></div>
+          <div class="pm-actions"><select class="pm-select" id="pm-chain-select"></select><button class="pm-btn" id="pm-chain-new">Nueva</button><button class="pm-btn primary" id="pm-chain-save">Guardar</button><button class="pm-btn danger" id="pm-chain-delete">Eliminar</button></div>
+        </div>
+        <div class="pm-chain-config">
+          <label>Nombre<input class="pm-input" id="pm-chain-name" placeholder="Nombre de la cadena"></label>
+          <label>Modo<select class="pm-select" id="pm-chain-mode"><option value="serial">Serie</option><option value="parallel">Paralelo</option><option value="mixed">Mixto</option><option value="atomic">Atómico</option></select></label>
+          <button class="pm-btn" id="pm-chain-add-stage">+ Etapa</button>
+        </div>
+        <div class="pm-chain-track-wrap"><div class="pm-chain-track" id="pm-chain-track"></div></div>
+      </article>
+    </section>
+    <section class="pm-view" id="pm-view-pieces">
+      <article class="pm-panel"><div class="pm-panel-head"><div><h2>PieceStore</h2><p>Catálogo, materialización y referencias</p></div></div><div class="pm-piece-grid" id="pm-pieces"></div></article>
+    </section>
+    <section class="pm-view" id="pm-view-releases">
+      <article class="pm-panel"><div class="pm-panel-head"><div><h2>Releases detectadas</h2><p id="pm-release-caption">Consultando GitHub...</p></div><select class="pm-select" id="pm-release-channel"><option value="stable">Stable</option><option value="prerelease">Prerelease</option><option value="all">Todas</option></select></div><div class="pm-release-summary" id="pm-release-summary"></div><div class="pm-release-list" id="pm-releases"></div></article>
+    </section>
+    <section class="pm-view" id="pm-view-jobs">
+      <div class="pm-grid pm-jobs-layout">
+        <article class="pm-panel"><div class="pm-panel-head"><div><h2>Trabajos de release</h2><p id="pm-jobs-caption">Descargas, verificación, instalación y rollback</p></div><button class="pm-btn" id="pm-jobs-refresh">Actualizar</button></div><div class="pm-release-summary" id="pm-jobs-summary"></div><div class="pm-jobs-list" id="pm-jobs"></div></article>
+        <article class="pm-panel"><div class="pm-panel-head"><div><h2>Log del trabajo</h2><p id="pm-job-log-caption">Selecciona un trabajo</p></div></div><div class="pm-job-log" id="pm-job-log"></div></article>
+      </div>
+    </section>
+    <section class="pm-view" id="pm-view-health">
+      <div class="pm-grid pm-health-layout">
+        <article class="pm-panel"><div class="pm-panel-head"><div><h2>Preflight operativo</h2><p id="pm-health-caption">Comprobando runtime y dependencias</p></div><button class="pm-btn" id="pm-health-refresh">Actualizar</button></div><div class="pm-health-list" id="pm-health"></div></article>
+        <article class="pm-panel"><div class="pm-panel-head"><div><h2>Drift de instalaciones</h2><p>Registry frente a detección local</p></div></div><div class="pm-health-list" id="pm-drift"></div></article>
+      </div>
+    </section>
+    <section class="pm-view" id="pm-view-sessions">
+      <div class="pm-grid pm-session-layout">
+        <article class="pm-panel">
+          <div class="pm-panel-head"><div><h2>SessionManager</h2><p id="pm-session-caption">Sesiones persistidas del runtime activo</p></div><div class="pm-actions"><button class="pm-btn primary" id="pm-session-create">Nueva</button><button class="pm-btn" id="pm-session-refresh">Actualizar</button></div></div>
+          <div class="pm-session-list" id="pm-session-list"></div>
+        </article>
+        <article class="pm-panel">
+          <div class="pm-panel-head"><div><h2>Control de sesión</h2><p id="pm-session-active">Selecciona o crea una sesión</p></div><button class="pm-btn primary" id="pm-session-apply">Aplicar</button></div>
+          <div class="pm-session-control">
+            <label>Provider<select class="pm-select" id="pm-session-provider"></select></label>
+            <label>Modelo<select class="pm-select" id="pm-session-model"></select></label>
+            <label>Modo BAGO<select class="pm-select" id="pm-session-mode"><option>B</option><option>A</option><option>G</option><option>O</option></select></label>
+            <label>Agente<select class="pm-select" id="pm-session-agent"></select></label>
+            <label>Bridges<select class="pm-select" id="pm-session-bridges" multiple></select></label>
+          </div>
+          <div class="pm-session-status" id="pm-session-status"></div>
+          <div class="pm-session-chat" id="pm-session-chat"></div>
+          <div class="pm-session-prompt"><textarea id="pm-session-prompt" placeholder="Mensaje para la sesión activa"></textarea><div class="pm-actions"><button class="pm-btn primary" id="pm-session-send">Enviar</button><button class="pm-btn" id="pm-session-orchestrate">A bridges</button></div></div>
+        </article>
+      </div>
+    </section>
+    <section class="pm-view" id="pm-view-audit">
+      <article class="pm-panel"><div class="pm-panel-head"><div><h2>Auditoría</h2><p id="pm-evidence-path">Evidence ledger</p></div><div class="pm-actions"><button class="pm-btn" id="pm-validate">Validar</button><button class="pm-btn" id="pm-export">Exportar</button></div></div><div class="pm-session-audit" id="pm-audit"></div></article>
+    </section>
+  </section>
+</div>
+<dialog class="pm-dialog" id="pm-mutation-dialog">
+  <form method="dialog">
+    <div class="pm-dialog-head"><div><h2 id="pm-mutation-title">Preflight de connector</h2><p id="pm-mutation-target"></p></div><span class="pm-risk" id="pm-mutation-risk">low</span></div>
+    <div class="pm-dialog-body" id="pm-mutation-body"></div>
+    <div class="pm-dialog-actions"><button value="cancel">Cancelar</button><button class="primary" value="apply">Aplicar y validar</button></div>
+  </form>
+</dialog>
+<dialog class="pm-dialog" id="pm-release-dialog">
+  <form method="dialog">
+    <div class="pm-dialog-head"><div><h2 id="pm-release-dialog-title">Preflight de release</h2><p id="pm-release-dialog-target"></p></div><span class="pm-risk" id="pm-release-dialog-risk">medium</span></div>
+    <div class="pm-dialog-body" id="pm-release-dialog-body"></div>
+    <div class="pm-dialog-actions"><button value="cancel">Cancelar</button><button class="primary" value="apply">Crear trabajo verificado</button></div>
+  </form>
+</dialog>
+<header>
+  <div class="wrap">
+    <img src="../assets/bago-wasp.svg" width="32" height="32" alt="BAGO avispa" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
+    <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
+    <span class="meta">standalone · offline · v4.3.0</span>
+  </div>
+</header>
+<main>
+  <section class="hero">
+    <h2>Gestiona todas tus instalaciones BAGO</h2>
+    <p>Controla instalaciones, roles active/des/ign, piezas, compatibilidad y evidencia. Las descargas de GitHub son solo una accion mas del gestor, no el centro de la app.</p>
+  </section>
+  <section class="steps">
+    <h3>Cómo usarlo como gestor</h3>
+    <ol>
+      <li>Revisa primero Node Control: registry, piezas, matriz y conectores.</li>
+      <li>Comprueba roles active/des/ign y las instalaciones detectadas.</li>
+      <li>Usa releases solo para instalar, actualizar o probar una version aparte.</li>
+      <li>En Electron, <b>ejecutar</b> abre PowerShell visible; en navegador, se copian comandos.</li>
+    </ol>
+  </section>
+  <section class="notice">
+    <b>Aviso de ejecución:</b> los botones <b>ejecutar</b> abren una ventana PowerShell visible con el comando. No se ejecuta nada oculto ni silencioso en segundo plano. En la versión web solo se copian comandos.
+  </section>
+  <section class="panel" id="releases-panel">
+    <div class="panel-head">
+      <h3>Actualizar o instalar versiones (GitHub)</h3>
+      <div class="toolbar">
+        <input id="manual-scan-path" placeholder="Ruta manual a escanear, por ejemplo C:\\Tools\\BAGO">
+        <input id="target-install-path" value="C:\\Program Files\\BAGO" placeholder="Ruta destino de instalación">
+        <button id="btn-scan-path">Escanear ruta</button>
+        <button id="btn-refresh-data" class="primary">Actualizar todo</button>
+      </div>
+    </div>
+    <div id="release-summary" class="text-sm text-slate-400 mb-3">Cargando releases...</div>
+    <div id="release-list" class="release-grid"></div>
+  </section>
+  <section class="io">
+    <div>
+      <textarea id="input-area" placeholder='Pega aquí la salida de "bago list-installs --plain"&#10;&#10;Ejemplo:&#10;{"summary":{"existing":2,"with_supervisor":1},"installations":[...]}'></textarea>
+      <div class="io-actions">
+        <button class="primary" id="btn-paste">Cargar desde portapapeles</button>
+        <button class="ghost" id="btn-file">Cargar desde archivo…</button>
+        <input type="file" id="file-input" accept=".json,.txt,application/json,text/plain">
+        <button class="ghost" id="btn-render">Parsear textarea</button>
+        <button class="danger" id="btn-clear">Limpiar</button>
+        <button class="ghost" id="btn-sample">Cargar ejemplo</button>
+      </div>
+    </div>
+  </section>
+  <div id="summary-bar" class="summary" style="display:none">
+    <span class="chip">detectadas: <b id="s-total">0</b></span>
+    <span class="chip">existentes: <b id="s-existing">0</b></span>
+    <span class="chip">con supervisor: <b id="s-sup">0</b></span>
+    <span class="chip">con probe: <b id="s-probe">0</b></span>
+  </div>
+  <section class="panel" id="role-panel" style="display:none">
+    <div class="panel-head">
+      <h3>Roles de instalaciones</h3>
+      <div class="toolbar">
+        <span class="chip" id="role-file" style="font-size:11px;padding:3px 10px;">~\\.bago\\install_selection.json</span>
+        <button id="btn-refresh-roles">Recargar roles</button>
+      </div>
+    </div>
+    <div id="role-cards" class="role-grid"></div>
+  </section>
+  <div id="installations"></div>
+  <section id="empty-state">
+    <div class="icon">📦</div>
+    <h3>Sin instalaciones cargadas</h3>
+    <p>Pega el JSON arriba o carga un archivo para empezar.</p>
+  </section>
+  <section class="panel" id="node-panel" style="display:none">
+    <div class="panel-head">
+      <h3>Node Control · Registry / Policy / Evidence</h3>
+      <div class="toolbar">
+        <span class="chip" id="node-cmd" style="font-size:11px;padding:3px 10px;">bago node status --json</span>
+        <button id="btn-refresh-node" class="primary refresh-small">Actualizar</button>
+      </div>
+    </div>
+    <div class="section-tabs" id="node-tabs">
+      <button class="section-tab active" data-tab="overview">Overview</button>
+      <button class="section-tab" data-tab="pieces">Pieces</button>
+      <button class="section-tab" data-tab="matrix">Compat matrix</button>
+      <button class="section-tab" data-tab="connectors">Connectors</button>
+      <button class="section-tab" data-tab="evidence">Evidence</button>
+    </div>
+    <div id="node-overview" class="node-tab-panel"></div>
+    <div id="node-pieces" class="node-tab-panel" style="display:none"></div>
+    <div id="node-matrix" class="node-tab-panel" style="display:none"></div>
+    <div id="node-connectors" class="node-tab-panel" style="display:none"></div>
+    <div id="node-evidence" class="node-tab-panel" style="display:none"></div>
+  </section>
+</main>
+<footer>
+  BAGO Gestor · v4.3.0 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+</footer>
+<div id="toast" class="toast"></div>
+<script src="js/core.js"></script>
+<script src="js/node-control.js"></script>
+<script src="js/legacy-manager.js"></script>
+<script src="js/patch-manager.js"></script>
+<script src="js/chain-manager.js"></script>
+<script src="js/session-manager.js"></script>
+<script src="js/bootstrap.js"></script>
+</body>
+</html>

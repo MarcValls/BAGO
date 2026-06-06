@@ -1,0 +1,168 @@
+#!/usr/bin/env pwsh
+# BAGO global launcher — despacha por sub-comando:
+#   bago              → instalación de trabajo (~/.bago)
+#   bago des          → plataforma de desarrollo (BAGO source)
+#   bago ign          → plataforma de lanzamiento (BAGO install + ~/.bago/launch)
+#   bago sup <verb>   → supervisor always-on (start|stop|status|attach)
+# Sin sub-comando = "bago" (instalación de trabajo) para retro-compatibilidad.
+$ErrorActionPreference = 'Stop'
+$userBago  = Join-Path $env:USERPROFILE '.bago'
+$srcBago   = "$env:USERPROFILE\BAGO"
+$instBago  = 'C:\Program Files\BAGO'
+$activeBago = Join-Path $userBago 'active'
+$supScript = Join-Path $srcBago 'scripts\bago_supervisor.py'
+
+function Get-SelectedRolePath([string]$role, [string]$fallback) {
+    $selectionFile = Join-Path $userBago 'install_selection.json'
+    if (-not (Test-Path $selectionFile)) { return $fallback }
+    try {
+        $selection = Get-Content -LiteralPath $selectionFile -Raw | ConvertFrom-Json
+        $entry = $selection.roles.$role
+        if ($entry -and $entry.path -and (Test-Path $entry.path)) {
+            return [string]$entry.path
+        }
+    } catch {
+        return $fallback
+    }
+    return $fallback
+}
+
+$activeBago = Get-SelectedRolePath 'active' $activeBago
+$srcBago    = Get-SelectedRolePath 'dev'    $srcBago
+$instBago   = Get-SelectedRolePath 'launch' $instBago
+$supScript  = Join-Path $srcBago 'scripts\bago_supervisor.py'
+
+function Get-BagoVersion([string]$root) {
+    $releaseFile = Join-Path $root 'release_version.txt'
+    if (Test-Path $releaseFile) {
+        $value = (Get-Content -LiteralPath $releaseFile -TotalCount 1).Trim()
+        if ($value) { return $value }
+    }
+    $versionsFile = Join-Path $root 'versions.json'
+    if (Test-Path $versionsFile) {
+        try {
+            $versions = Get-Content -LiteralPath $versionsFile -Raw | ConvertFrom-Json
+            if ($versions.current) { return [string]$versions.current }
+        } catch {
+            return 'unknown'
+        }
+    }
+    return 'unknown'
+}
+
+function Resolve-Target([string]$mode) {
+    switch ($mode) {
+        'work' { return @{ cli = (Join-Path $activeBago 'bago_core\cli.py'); mode = 'work'; home = $userBago } }
+        'dev'  { return @{ cli = (Join-Path $srcBago  'bago_core\cli.py'); mode = 'dev';  home = $srcBago  } }
+        'ign'  { return @{ cli = (Join-Path $instBago 'bago_core\cli.py'); mode = 'ign';  home = $instBago } }
+        default { Write-Error "bago: modo desconocido '$mode'"; exit 1 }
+    }
+}
+
+function Get-ArgsTail([object[]]$values, [int]$start) {
+    if (-not $values -or $values.Count -le $start) { return @() }
+    return $values[$start..($values.Count - 1)]
+}
+
+function Invoke-ControlCommand([object[]]$argv) {
+    $selfRoot = Split-Path -Parent $PSCommandPath
+    $candidates = @(
+        (Join-Path $selfRoot 'bago_core\cli.py'),
+        (Join-Path $srcBago 'bago_core\cli.py'),
+        (Join-Path $instBago 'bago_core\cli.py'),
+        (Join-Path $activeBago 'bago_core\cli.py')
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            & python $candidate @($argv)
+            exit $LASTEXITCODE
+        }
+    }
+    Write-Error "bago: no se encontró cli.py para comando de control"
+    exit 1
+}
+
+$mode = 'work'
+$rest = @()
+if ($args.Count -gt 0) {
+    $first = ([string]$args[0]).ToLower()
+    # `bago sup <verb>` se intercepta SIEMPRE antes del modo, sin importar
+    # si vino solo o detrás de un `des`/`ign`. La razón: el supervisor vive
+    # en un único lugar (el dev tree) y no debería respetar el modo.
+    # Si 'sup' está en cualquier posición, dejamos que el caller decida.
+    $supIdx = -1
+    for ($i = 0; $i -lt $args.Count; $i++) {
+        if ([string]$args[$i] -ieq 'sup') { $supIdx = $i; break }
+    }
+    if ($supIdx -ge 0) {
+        if (-not (Test-Path $supScript)) {
+            Write-Error "bago sup: no se encontró $supScript"
+            exit 1
+        }
+        $supArgs = @()
+        if ($supIdx + 1 -lt $args.Count) {
+            $supArgs = $args[($supIdx + 1)..($args.Count - 1)]
+        }
+        # Usar pythonw.exe (sin consola) para evitar parpadeo de ventana.
+        & pythonw $supScript @($supArgs) 2>$null
+        exit $LASTEXITCODE
+    }
+
+    # `bago probe` se intercepta en cualquier posición (sólo, detrás de `des`/`ign`/`work`).
+    # Igual que `sup`: el probe vive en el dev tree y no respeta el modo.
+    $probeIdx = -1
+    for ($i = 0; $i -lt $args.Count; $i++) {
+        if ([string]$args[$i] -ieq 'probe') { $probeIdx = $i; break }
+    }
+    if ($probeIdx -ge 0) {
+        $probeScript = Join-Path $srcBago 'scripts\probe.py'
+        if (-not (Test-Path $probeScript)) {
+            Write-Error "bago probe: no se encontró $probeScript"
+            exit 1
+        }
+        $probeArgs = @()
+        if ($probeIdx + 1 -lt $args.Count) {
+            $probeArgs = $args[($probeIdx + 1)..($args.Count - 1)]
+        }
+        & python $probeScript @($probeArgs)
+        exit $LASTEXITCODE
+    }
+    if ($first -eq 'des') {
+        $mode = 'dev'; $rest = Get-ArgsTail $args 1
+    } elseif ($first -eq 'ign') {
+        $mode = 'ign'; $rest = Get-ArgsTail $args 1
+    } elseif ($first -eq 'work') {
+        $mode = 'work'; $rest = Get-ArgsTail $args 1
+    } elseif ($first -eq 'help' -or $first -eq '--help' -or $first -eq '-h') {
+        $displayVersion = Get-BagoVersion $activeBago
+        @"
+BAGO launcher ($displayVersion)
+  bago              Copia activa seleccionada [default]
+  bago work         Igual que bago sin sub-comando
+  bago des          Copia de desarrollo seleccionada
+  bago ign          Plataforma de lanzamiento seleccionada
+  bago sup <verb>   Supervisor always-on (start|stop|status|attach)
+  roles             $userBago\install_selection.json
+  bago help         Muestra esta ayuda
+"@
+        exit 0
+    } else {
+        $rest = $args
+    }
+}
+
+$controlArgs = @($rest)
+if ($controlArgs.Count -gt 0) {
+    $controlCmd = [string]$controlArgs[0]
+    if ($controlCmd -ieq 'install-role' -or $controlCmd -ieq 'list-installs') {
+        Invoke-ControlCommand $controlArgs
+    }
+}
+
+$target = Resolve-Target $mode
+if (-not (Test-Path $target.cli)) {
+    Write-Error "bago ($mode): no se encontró $($target.cli)"
+    exit 1
+}
+& python $target.cli @($rest)
+exit $LASTEXITCODE

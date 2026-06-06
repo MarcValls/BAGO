@@ -1,0 +1,63 @@
+# ── Estado vivo de BAGO (no distribuir) ────────────────────────────────────────
+.bago/state/
+.bago/logs/
+.bago/launch/
+.bago/tools/.bago/
+.bago/monitor.html
+.bago/credentials.json
+.bago/config.json
+.bago/session-credentials.json
+install_config.json
+
+# ── Bases de datos ──────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ──────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Node / React ────────────────────────────────────────────────────────────────
+node_modules/
+ui-react/node_modules/
+ui-react/dist/
+ui-react/.vite/
+*.node
+
+# ── Binarios de build ───────────────────────────────────────────────────────────
+esbuild.exe
+*.exe
+*.dll
+*.so
+
+# ── Entornos virtuales ──────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── IDEs ────────────────────────────────────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── Temporales ──────────────────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.py.new
+bago_core/parsers_legacy_*.py
+tools/_diff_*.py
+dist/
+build/
+release/
+
+# ── Capturas y archivos de debug (no distribuir) ────────────────────────────────
+docs/repl_capture*.txt
+docs/terminal_captures.txt
+PLAN_VERTICE/
+SIGUIENTE.txt

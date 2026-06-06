@@ -1,0 +1,21 @@
+topic: image-generation
+status: example
+goal: "Crear una ilustración limpia de un flujo de trabajo BAGO"
+style:
+  mood: "técnico, claro, modular"
+  palette:
+    - "azul oscuro"
+    - "gris claro"
+    - "blanco"
+constraints:
+  - "sin texto pequeño ilegible"
+  - "sin saturación excesiva"
+  - "composición en capas"
+prompt: >
+  Diagrama visual de un flujo de trabajo BAGO con tres capas:
+  entrada, validación y salida. Diseño limpio, técnico y legible.
+validation:
+  - "¿Se entiende la secuencia?"
+  - "¿Hay contraste suficiente?"
+  - "¿La composición explica la función?"
+

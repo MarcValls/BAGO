@@ -1,0 +1,29 @@
+{
+  "tag": "v4.2.0",
+  "version": "4.2.0",
+  "created_at": "2026-06-03T03:34:55+00:00",
+  "release": {
+    "bundle_id": "bago.v4.2.0",
+    "release_url": "https://github.com/MarcValls/BAGO/releases/tag/v4.2.0",
+    "manager_asset": "BAGO-Installation-Manager-4.2.0-win-x64.exe",
+    "bundle_asset": "bago-v4.2.0.zip",
+    "checksum_asset": "bago-v4.2.0.zip.sha256",
+    "default_model": "llama3.2:3b",
+    "profiles": {
+      "stable": "C:\\Program Files\\BAGO",
+      "des": "%USERPROFILE%\\.bago\\dev",
+      "ign": "%USERPROFILE%\\.bago\\launch"
+    }
+  },
+  "signature": {
+    "algorithm": "github-release-sha256",
+    "bundle_sha256_asset": "bago-v4.2.0.zip.sha256",
+    "manager_sha256": "7a7c81d06a77a37b5ffbf700c3e85193a5f6c9789109c20b2d59043e7c8c5c2c"
+  },
+  "components": {
+    "installation_manager": "manager.html",
+    "launcher": "bago.ps1",
+    "cli": "bago_core/cli.py",
+    "install_roles": "bago_core/install_roles.py"
+  }
+}
