@@ -64,8 +64,11 @@
           y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
         </p>
         <div class="flex flex-wrap gap-3">
-          <a id="primary-release-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.3.0/BAGO-Installation-Manager-4.3.0-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Descargar gestor de instalaciones</a>
+          <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Obtener BAGO en GitHub Releases →</a>
           <a href="https://github.com/MarcValls/BAGO/releases/tag/v4.3.0" target="_blank" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Release notes</a>
+        </div>
+        <div class="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <strong class="text-amber-300">Distribución oficial:</strong> BAGO solo se distribuye desde <strong>GitHub Releases</strong>. Esta página es informativa. No se ofrecen descargas directas desde aquí.
         </div>
         <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs">
           <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
@@ -84,52 +87,39 @@
       </div>
 
       <div id="install" class="space-y-4">
-        <!-- One-liner PowerShell -->
+        <!-- Info: flujo correcto -->
         <div class="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
           <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-900/80">
-            <span class="w-3 h-3 rounded-full bg-red-500/30"></span>
-            <span class="w-3 h-3 rounded-full bg-amber-500/30"></span>
             <span class="w-3 h-3 rounded-full bg-emerald-500/30"></span>
-            <span class="ml-2 text-xs text-slate-500">PowerShell · instalación one-liner</span>
+            <span class="ml-2 text-xs text-slate-500">Flujo de instalación correcto</span>
           </div>
-          <div class="p-4">
-            <pre class="mono text-[12.5px] text-slate-200 overflow-x-auto leading-relaxed"><code>irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex</code></pre>
-          </div>
-          <div class="px-4 pb-4 flex justify-end">
-            <button data-copy="irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex" class="copy-btn px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold border border-indigo-500/30 transition">
-              Copiar
-            </button>
+          <div class="p-4 text-sm text-slate-300 space-y-2">
+            <p><strong class="text-indigo-300">1.</strong> Visitá <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="text-indigo-400 underline">GitHub Releases</a> y descargá el paquete ZIP o el Manager.</p>
+            <p><strong class="text-indigo-300">2.</strong> Ejecutá el instalador o descomprimí el ZIP en la ubicación que prefieras.</p>
+            <p><strong class="text-indigo-300">3.</strong> Abrí el <strong>BAGO Manager</strong> para gestionar tus instalaciones, roles y sesiones.</p>
+            <p class="text-slate-500 text-xs mt-2">El Manager no se descarga desde esta página. Se obtiene junto con el paquete de GitHub.</p>
           </div>
         </div>
 
-        <!-- Descarga zip + checksums -->
+        <!-- Enlaces a GitHub -->
         <div class="grid grid-cols-2 gap-3">
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.3.0/bago-v4.3.0.zip" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+          <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
             <div class="flex items-start justify-between mb-2">
               <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider">ZIP</span>
+              <span class="text-[10px] text-slate-500 uppercase tracking-wider">GitHub</span>
             </div>
-            <p class="font-semibold text-sm">Bundle fuente BAGO 4.3.0</p>
-            <p class="text-xs text-slate-500 mt-0.5">Codigo y runtime portable</p>
+            <p class="font-semibold text-sm">Releases oficiales</p>
+            <p class="text-xs text-slate-500 mt-0.5">Única fuente de descarga</p>
           </a>
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.3.0/bago-v4.3.0.zip.sha256" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+          <a href="https://github.com/MarcValls/BAGO" target="_blank" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
             <div class="flex items-start justify-between mb-2">
               <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider">SHA-256</span>
+              <span class="text-[10px] text-slate-500 uppercase tracking-wider">Repo</span>
             </div>
-            <p class="font-semibold text-sm">Verificar integridad</p>
-            <p class="text-xs text-slate-500 mt-0.5">SHA-256 del bundle 4.3.0</p>
+            <p class="font-semibold text-sm">Código fuente</p>
+            <p class="text-xs text-slate-500 mt-0.5">MarcValls/BAGO</p>
           </a>
         </div>
-        <!-- Descarga gestor standalone -->
-        <a id="manager-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.3.0/BAGO-Installation-Manager-4.3.0-win-x64.exe" class="card block mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
-         <div class="flex items-start justify-between mb-2">
-           <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-           <span class="text-[10px] text-slate-500 uppercase tracking-wider">Windows · Electron</span>
-         </div>
-         <p class="font-semibold text-sm">BAGO Installation Manager</p>
-         <p class="text-xs text-slate-500 mt-0.5">App Electron para gestionar stable, des e ign</p>
-        </a>
       </div>
     </div>
   </section>
@@ -157,6 +147,9 @@
 
       <!-- Instrucciones -->
       <div id="instructions" class="rounded-xl bg-slate-900 border border-slate-800 p-5 mb-6">
+        <div class="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100 mb-4">
+          <strong class="text-indigo-300">Solo para instalaciones existentes:</strong> este gestor requiere que BAGO ya esté instalado en tu máquina. Si todavía no lo tenés, descargalo desde <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="underline text-indigo-300">GitHub Releases</a>.
+        </div>
         <p class="text-sm text-slate-300 mb-3 font-semibold">Cómo usar este gestor</p>
         <ol class="text-sm text-slate-400 space-y-2 list-decimal list-inside">
           <li>En tu terminal (PowerShell o cmd), corré: <code class="mono text-emerald-300 bg-slate-950 px-1.5 py-0.5 rounded">bago list-installs --plain</code></li>

@@ -44,12 +44,16 @@ Post-MVP or experimental:
 
 ## Install
 
+> **Distribución oficial:** BAGO solo se distribuye desde **GitHub Releases**. No se ofrecen descargas directas desde la página oficial; esta es informativa. Los paquetes (ZIP, Manager) se obtienen exclusivamente en [github.com/MarcValls/BAGO/releases](https://github.com/MarcValls/BAGO/releases).
+
 Requirements:
 
 - Windows-first runtime.
 - Python 3.11 or newer.
 - Ollama is optional, but required for the local live-model path.
 - Cloud provider keys are optional and must stay outside the repository.
+
+### From source
 
 ```powershell
 git clone https://github.com/MarcValls/BAGO.git
@@ -59,7 +63,7 @@ cd BAGO
 
 By default, installer registers **"Abrir con BAGO"** in the Windows right-click menu for directories (opens the active BAGO with that path as `--base-path`). Disable with `-NoContextMenu`.
 
-Direct source run:
+### Direct source run
 
 ```powershell
 python bago_core\cli.py validate
@@ -67,13 +71,17 @@ python bago_core\cli.py llm list
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```
 
-Remote installer for the latest published release:
+### From GitHub Release (remote installer)
+
+Descarga el instalador remoto desde el repo y ejecutalo. Siempre apunta a la última release estable publicada en GitHub:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
 ```
 
-Installation manager:
+### Installation manager (para instalaciones existentes)
+
+Una vez instalado, usá el Manager para gestionar perfiles, actualizar o hacer rollback:
 
 ```powershell
 bago profiles
