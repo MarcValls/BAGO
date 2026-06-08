@@ -1,5 +1,5 @@
 {
-  "current": "4.3.0",
+  "current": "4.5.0",
   "history": [
     {
       "version": "4.0.0",
@@ -34,8 +34,14 @@
     {
       "version": "4.3.0",
       "released": "2026-06-04",
-      "ended": null,
+      "ended": "2026-06-08",
       "notes": "Consolidación post-rebase: SessionManager integrado en el gestor, bridges Codex/Copilot y estabilidad verificada de runtime y release jobs"
+    },
+    {
+      "version": "4.5.0",
+      "released": "2026-06-08",
+      "ended": null,
+      "notes": "Android compatibility, persistent browser controller, Installation Manager auto-install + repair/reinstall, onboarding out-of-the-box, landing page with direct downloads and Vercel deploy"
     }
   ]
 }

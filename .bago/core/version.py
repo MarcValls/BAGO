@@ -13,7 +13,7 @@ Uso:
 
 from __future__ import annotations
 
-_CREATED_VERSION = "4.3.0"
+_CREATED_VERSION = "4.5.0"
 
 import json
 from datetime import date

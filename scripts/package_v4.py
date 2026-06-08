@@ -245,8 +245,8 @@ def _run_tests() -> int:
         assert ".bago/state" not in names
         assert ".bago/tools/.bago" not in names
         assert "PLAN_VERTICE" not in names
-        fixed = build_package(root, root / "release" / "v4", release_version="v4.3.0")
-        assert Path(fixed["zip"]).name == "bago-v4.3.0.zip"
+        fixed = build_package(root, root / "release" / "v4", release_version="v4.5.0")
+        assert Path(fixed["zip"]).name == "bago-v4.5.0.zip"
     print("package_v4.py --test: ALL PASS")
     return 0
 

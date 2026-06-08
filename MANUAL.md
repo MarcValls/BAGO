@@ -1,4 +1,4 @@
-# BAGO 4.3.0 — Manual de Usuario
+# BAGO 4.5.0 — Manual de Usuario
 
 > **Session-First AI Chat**
 > El contexto de sesión sobrevive al cambio de provider.
@@ -8,12 +8,12 @@
 
 | Campo | Valor |
 |---|---|
-| Producto | BAGO 4.3.0 |
+| Producto | BAGO 4.5.0 |
 | Tipo | Manual de usuario y guía de release |
 | Alcance | `stable` / `des` / `ign` |
 | UI | `manager/index.html` + capturas de CLI/UI |
 | Validación | `validate`, `test_security_release.py`, `test_e2e.py`, `publish_release.py --test` |
-| Artefactos | `dist\BAGO-Installation-Manager-4.3.0-win-x64.exe`, `dist\bago-v4.3.0.zip` |
+| Artefactos | `dist\BAGO-Installation-Manager-4.5.0-win-x64.exe`, `dist\bago-v4.5.0.zip` |
 
 ### Contenido de esta edición
 

@@ -61,3 +61,5 @@ docs/repl_capture*.txt
 docs/terminal_captures.txt
 PLAN_VERTICE/
 SIGUIENTE.txt
+.vercel
+.env*

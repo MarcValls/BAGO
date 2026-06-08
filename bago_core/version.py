@@ -18,7 +18,7 @@ def _read_release_version() -> str:
                 continue
             if value:
                 return value
-    return "4.3.0"
+    return "4.5.0"
 
 
 CURRENT = _read_release_version()
