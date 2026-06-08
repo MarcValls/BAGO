@@ -31,8 +31,11 @@ def resolve_vercel_cmd():
 
 def deploy(prod: bool = False, yes: bool = False, token: str = "") -> str:
     repo_root = Path(__file__).resolve().parents[1]
+    landing_dir = repo_root / "landing"
+    if not landing_dir.exists():
+        raise FileNotFoundError(f"{landing_dir} no existe. Crea la carpeta landing/ con index.html y assets antes de desplegar.")
     vercel = resolve_vercel_cmd()
-    cmd = [vercel, str(repo_root)]
+    cmd = [vercel, str(landing_dir)]
     if prod:
         cmd.append("--prod")
     if yes:
