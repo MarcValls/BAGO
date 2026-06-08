@@ -43,9 +43,9 @@
           <option>connected</option><option>shadow</option><option>locked</option>
           <option>read-only</option><option>writable overlay</option><option>detached</option>
         </select>
-        <button class="pm-btn" id="pm-open-web-chat">Chat web</button>
-        <button class="pm-btn" id="pm-open-cli-chat">CLI</button>
-        <button class="pm-btn primary" id="pm-refresh">↻ Actualizar</button>
+        <button class="pm-btn primary" id="pm-open-web-chat" title="Abrir BAGO en modo web chat">🚀 Abrir BAGO Web</button>
+        <button class="pm-btn" id="pm-open-cli-chat" title="Abrir BAGO en terminal CLI">🖥️ Abrir BAGO CLI</button>
+        <button class="pm-btn" id="pm-refresh">↻ Actualizar</button>
       </div>
     </header>
 
@@ -65,6 +65,18 @@
     </section>
 
     <section class="pm-view" id="pm-view-installations">
+      <div class="pm-hero" id="pm-hero-bago-ready" style="display:none;background:#052e16;border:1px solid #166534;border-radius:8px;padding:16px 20px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <strong style="color:#86efac;font-size:14px;">✅ BAGO está instalado y listo</strong>
+            <p style="margin:4px 0 0;color:#a7f3d0;font-size:12px;">Selecciona cómo quieres usarlo:</p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="pm-btn primary" id="pm-hero-open-web" style="height:38px;font-size:13px;">🚀 Abrir BAGO Web Chat</button>
+            <button class="pm-btn" id="pm-hero-open-cli" style="height:38px;font-size:13px;">🖥️ Abrir BAGO Terminal</button>
+          </div>
+        </div>
+      </div>
       <article class="pm-panel"><div class="pm-panel-head"><div><h2>Instalaciones detectadas</h2><p>Estado local, rol, versión y acciones</p></div><button class="pm-btn" id="pm-scan-manual">+ Ruta manual</button></div><div class="pm-list" id="pm-installations-list"></div></article>
     </section>
     <section class="pm-view" id="pm-view-matrix">

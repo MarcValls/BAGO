@@ -399,6 +399,8 @@ function pmRenderInstallations(){
   const merged=nodeRows.map(node=>Object.assign({},scanRows.find(scan=>normalizePathKey(scan.path)===normalizePathKey(node.path))||{},node));
   scanRows.forEach(scan=>{if(!merged.some(node=>normalizePathKey(node.path)===normalizePathKey(scan.path)))merged.push(scan);});
   const filtered=merged.filter(i=>!pmSearch||[i.path,i.mode,i.profile,i.version,i.tag,i.description].join(' ').toLowerCase().includes(pmSearch));
+  const hero=document.getElementById('pm-hero-bago-ready');
+  if(hero){hero.style.display=filtered.length>0?'block':'none';}
   container.innerHTML=filtered.map(inst=>{
     const nodeId=inst.installation_id||'';
     const version=inst.version||inst.tag||'-';
@@ -726,6 +728,10 @@ function pmInit(){
   document.getElementById('pm-mode-filter').addEventListener('change',ev=>{pmModeFilter=ev.target.value;pmRenderPatch();});
   document.getElementById('pm-open-web-chat').addEventListener('click',openWebChat);
   document.getElementById('pm-open-cli-chat').addEventListener('click',openCliChat);
+  const heroWeb=document.getElementById('pm-hero-open-web');
+  const heroCli=document.getElementById('pm-hero-open-cli');
+  if(heroWeb) heroWeb.addEventListener('click',openWebChat);
+  if(heroCli) heroCli.addEventListener('click',openCliChat);
   document.getElementById('pm-install-filter').addEventListener('change',ev=>{pmSelectedInstallation=ev.target.value;pmRenderPatch();});
   document.getElementById('pm-matrix-piece-sort').value=pmMatrixPieceSort;
   document.getElementById('pm-matrix-install-sort').value=pmMatrixInstallSort;
