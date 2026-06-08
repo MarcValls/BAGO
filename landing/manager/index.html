@@ -23,6 +23,7 @@
       <button data-pm-view="releases"><span class="pm-icon">⇧</span>Releases</button>
       <button data-pm-view="jobs"><span class="pm-icon">≡</span>Trabajos</button>
       <button data-pm-view="sessions"><span class="pm-icon">◎</span>Sesiones</button>
+      <button data-pm-view="system"><span class="pm-icon">◉</span>Sistema</button>
       <button data-pm-view="health"><span class="pm-icon">+</span>Salud</button>
       <button data-pm-view="audit"><span class="pm-icon">☷</span>Auditoría</button>
     </nav>
@@ -115,6 +116,25 @@
       <div class="pm-grid pm-jobs-layout">
         <article class="pm-panel"><div class="pm-panel-head"><div><h2>Trabajos de release</h2><p id="pm-jobs-caption">Descargas, verificación, instalación y rollback</p></div><button class="pm-btn" id="pm-jobs-refresh">Actualizar</button></div><div class="pm-release-summary" id="pm-jobs-summary"></div><div class="pm-jobs-list" id="pm-jobs"></div></article>
         <article class="pm-panel"><div class="pm-panel-head"><div><h2>Log del trabajo</h2><p id="pm-job-log-caption">Selecciona un trabajo</p></div></div><div class="pm-job-log" id="pm-job-log"></div></article>
+      </div>
+    </section>
+    <section class="pm-view" id="pm-view-system">
+      <div class="pm-grid pm-system-layout">
+        <article class="pm-panel">
+          <div class="pm-panel-head">
+            <div><h2>Estado del supervisor</h2><p id="pm-system-caption">Cargando...</p></div>
+            <div class="pm-actions">
+              <button class="pm-btn" id="pm-system-refresh">↻ Actualizar</button>
+              <button class="pm-btn primary" id="pm-supervisor-restart">⟳ Reiniciar supervisor</button>
+              <button class="pm-btn danger" id="pm-zombie-cleanup">✕ Limpiar zombies</button>
+            </div>
+          </div>
+          <div class="pm-system-list" id="pm-system-status"></div>
+        </article>
+        <article class="pm-panel">
+          <div class="pm-panel-head"><div><h2>Health checks del Manager</h2><p>Runtime, Python, Git, Ollama, Node/Electron</p></div></div>
+          <div class="pm-system-list" id="pm-system-health"></div>
+        </article>
       </div>
     </section>
     <section class="pm-view" id="pm-view-health">
@@ -267,6 +287,7 @@
 <script src="js/patch-manager.js"></script>
 <script src="js/chain-manager.js"></script>
 <script src="js/session-manager.js"></script>
+<script src="js/system-status.js"></script>
 <script src="js/bootstrap.js"></script>
 </body>
 </html>

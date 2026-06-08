@@ -556,6 +556,88 @@ function checkTool(name, command, args = ['--version']) {
   });
 }
 
+function runSupervisorCmd(args) {
+  return new Promise((resolve, reject) => {
+    let runtimeRoot;
+    try {
+      runtimeRoot = resolveBagoRuntimeRoot();
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    const script = path.join(runtimeRoot, 'scripts', 'bago_supervisor.py');
+    if (!fs.existsSync(script)) {
+      reject(new Error('bago_supervisor.py no encontrado en ' + runtimeRoot));
+      return;
+    }
+    execFile(
+      'python',
+      [script, ...args],
+      { cwd: runtimeRoot, windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`${error.message}${stderr ? ` · ${stderr.trim()}` : ''}`));
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          resolve({ ok: true, data: parsed, raw: stdout });
+        } catch {
+          resolve({ ok: true, text: stdout.trim(), raw: stdout });
+        }
+      }
+    );
+  });
+}
+
+async function cleanupZombies() {
+  const command = `
+    $ports = @(11434, 8080, 8081, 8082, 8083);
+    $killed = 0;
+    foreach ($p in $ports) {
+      $conns = Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'TimeWait' -or $_.State -eq 'CloseWait' -or $_.State -eq 'FinWait2' };
+      foreach ($c in $conns) {
+        try {
+          $proc = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue;
+          if ($proc -and ($proc.ProcessName -like '*python*' -or $proc.ProcessName -like '*node*' -or $proc.ProcessName -like '*electron*')) {
+            Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue;
+            $killed++;
+          }
+        } catch {}
+      }
+    }
+    # Also kill orphaned python processes without parent that match BAGO patterns
+    Get-WmiObject Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+      try {
+        $parent = Get-Process -Id $_.ParentProcessId -ErrorAction SilentlyContinue;
+        if (-not $parent -or $parent.HasExited) {
+          Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue;
+          $killed++;
+        }
+      } catch {}
+    }
+    Write-Output ('{\"ok\":true,\"cleaned\":' + $killed + '}');
+  `;
+  return new Promise((resolve, reject) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
+      { windowsHide: true, timeout: 20000 },
+      (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        try {
+          resolve(JSON.parse(stdout.trim()));
+        } catch {
+          resolve({ ok: true, text: stdout.trim() });
+        }
+      }
+    );
+  });
+}
+
 async function managerHealth() {
   let runtimeRoot = '';
   let runtimeError = '';
@@ -736,6 +818,8 @@ function createWindow() {
 
 app.setAppUserModelId('com.bago.installation-manager');
 
+ipcMain.handle('bago:supervisor-cmd', (_event, args) => runSupervisorCmd(args));
+ipcMain.handle('bago:zombie-cleanup', () => cleanupZombies());
 ipcMain.handle('bago:run-command', (_event, command) => runVisiblePowerShell(command));
 ipcMain.handle('bago:open-web-chat', (_event, options) => openWebChat(options || {}));
 ipcMain.handle('bago:open-cli-chat', (_event, options) => openCliChat(options || {}));

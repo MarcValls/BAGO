@@ -384,5 +384,7 @@ contextBridge.exposeInMainWorld('bagoElectron', {
     'bago:node-cmd',
     ['node', 'preview', '--installation', String(installation || ''), '--piece', String(piece || ''), '--mode', String(mode || ''), '--json']
   ),
-  runNodeValidate: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'validate', '--json'])
+  runNodeValidate: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'validate', '--json']),
+  runSupervisorCommand: (args) => ipcRenderer.invoke('bago:supervisor-cmd', Array.isArray(args) ? args.map(String) : []),
+  cleanupZombies: () => ipcRenderer.invoke('bago:zombie-cleanup')
 });
