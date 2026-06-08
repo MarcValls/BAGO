@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -90,6 +90,152 @@ function resolveUiDist(runtimeRoot) {
     path.join(DEV_PACKAGED_RUNTIME_ROOT, 'ui-react', 'dist')
   ];
   return candidates.find(candidate => fs.existsSync(path.join(candidate, 'index.html'))) || '';
+}
+
+function findPackagedRuntimeRoot() {
+  const candidates = app.isPackaged
+    ? [PACKAGED_RUNTIME_ROOT, ROOT_DIR]
+    : [ROOT_DIR, PACKAGED_RUNTIME_ROOT];
+  for (const root of candidates) {
+    if (hasBagoRuntime(root)) return root;
+  }
+  const devRoot = DEV_PACKAGED_RUNTIME_ROOT;
+  if (hasBagoRuntime(devRoot)) return devRoot;
+  return '';
+}
+
+async function ensureBagoInstalled() {
+  // Al arrancar el Manager, detecta si BAGO está instalado. Si no, ofrece instalarlo
+  // automáticamente desde el runtime empaquetado.
+  let runtimeRoot = '';
+  try {
+    runtimeRoot = resolveBagoRuntimeRoot();
+    return runtimeRoot;
+  } catch {
+    // No hay instalación detectada
+  }
+
+  const packagedRoot = findPackagedRuntimeRoot();
+  if (!packagedRoot) {
+    await dialog.showErrorBox(
+      'BAGO Installation Manager',
+      'No se encontró el runtime de BAGO empaquetado. El instalador puede estar corrupto.'
+    );
+    app.quit();
+    return '';
+  }
+
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['Instalar ahora', 'Cancelar'],
+    defaultId: 0,
+    cancelId: 1,
+    title: 'BAGO no está instalado',
+    message: 'No se detectó una instalación de BAGO en este equipo.',
+    detail: 'El Installation Manager puede instalar BAGO automáticamente usando el paquete incluido.',
+    icon: ICON_PATH
+  });
+
+  if (result.response !== 0) {
+    app.quit();
+    return '';
+  }
+
+  // Ejecutar install-v4.ps1 desde el empaquetado
+  const installScript = path.join(packagedRoot, 'install-v4.ps1');
+  if (!fs.existsSync(installScript)) {
+    await dialog.showErrorBox(
+      'Error de instalación',
+      `No se encontró install-v4.ps1 en el paquete.\nBuscado en: ${installScript}`
+    );
+    app.quit();
+    return '';
+  }
+
+  const installDir = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BAGO');
+  const command = [
+    'powershell.exe',
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-File', installScript,
+    '-SourceRoot', packagedRoot,
+    '-InstallDir', installDir,
+    '-Profile', 'stable',
+    '-Mode', 'Express'
+  ];
+
+  // Mostrar ventana de progreso
+  const progressWin = new BrowserWindow({
+    width: 480,
+    height: 220,
+    title: 'Instalando BAGO…',
+    icon: ICON_PATH,
+    backgroundColor: '#020617',
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  });
+  progressWin.removeMenu();
+  progressWin.loadURL('data:text/html;base64,' + Buffer.from(`
+    <!DOCTYPE html>
+    <html style="background:#020617;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">
+      <div>
+        <div style="font-size:48px;margin-bottom:12px;">⏳</div>
+        <h2 style="margin:0 0 8px;font-size:18px;">Instalando BAGO…</h2>
+        <p style="margin:0;color:#94a3b8;font-size:14px;">Esto puede tardar unos minutos.<br>No cierres esta ventana.</p>
+      </div>
+    </html>
+  `).toString('base64'));
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(command[0], command.slice(1), {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', d => { stdout += d; });
+    child.stderr.on('data', d => { stderr += d; });
+
+    child.on('exit', async (code) => {
+      progressWin.close();
+      if (code === 0) {
+        // Verificar que ahora se resuelve
+        try {
+          const verified = resolveBagoRuntimeRoot();
+          await dialog.showMessageBox({
+            type: 'info',
+            buttons: ['OK'],
+            title: 'Instalación completada',
+            message: 'BAGO se instaló correctamente.',
+            detail: `Ubicación: ${verified}`
+          });
+          resolve(verified);
+        } catch (e) {
+          await dialog.showErrorBox('Error post-instalación', `La instalación parece haber fallado: ${e.message}`);
+          app.quit();
+          reject(e);
+        }
+      } else {
+        await dialog.showErrorBox(
+          'Instalación fallida',
+          `El instalador retornó código ${code}.\n\nStdout:\n${stdout}\n\nStderr:\n${stderr}`
+        );
+        app.quit();
+        reject(new Error(`install-v4.ps1 exited with ${code}`));
+      }
+    });
+
+    child.on('error', async (err) => {
+      progressWin.close();
+      await dialog.showErrorBox('Error al lanzar instalador', err.message);
+      app.quit();
+      reject(err);
+    });
+  });
 }
 
 function webChatStatus() {
@@ -538,7 +684,8 @@ ipcMain.handle('bago:node-cmd', async (_event, args) => {
   return { ok: true, text: result.stdout, cmd: result.cmd, cwd: result.cwd };
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await ensureBagoInstalled();
   initReleaseJobs();
   createWindow();
   app.on('activate', () => {
