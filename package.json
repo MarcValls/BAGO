@@ -6,6 +6,9 @@
   "main": "electron/main.cjs",
   "author": "BAGO",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "manager:dev": "electron .",
     "manager:pack": "electron-builder --dir",
@@ -81,6 +84,6 @@
   "devDependencies": {
     "electron": "42.3.0",
     "electron-builder": "26.8.1",
-    "playwright": "^1.60.0"
+    "playwright": "1.60.0"
   }
 }
