@@ -353,13 +353,30 @@ class BagoREPL:
             print()
 
     def _interactive_startup(self) -> None:
-        """Ofrece selección interactiva de provider/modelo si estamos en TTY."""
+        """Ofrece selección interactiva de provider/modelo si estamos en TTY.
+        Se activa automáticamente si no hay providers reales configurados."""
         if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
             return
 
+        # Detectar si estamos en modo demo
+        is_echo = self.mgr.provider == "echo"
+
         info = getattr(self.mgr, "_init_info", {})
-        if not info.get("corrected") and not self.mgr.config.get("ui.prompt_provider_on_start", False):
+        force_prompt = is_echo or not info.get("corrected") and self.mgr.config.get("ui.prompt_provider_on_start", False)
+
+        if not info.get("corrected") and not force_prompt:
             return
+
+        if is_echo:
+            print(R.warn("\n⚠ Estás usando el provider de demostración (echo)."))
+            print(R.dim("   No se conecta con ningún modelo de IA real."))
+            print(R.info("¿Querés configurar un provider real ahora? (s/n)"), end=" ")
+            choice = self._timed_input("", timeout=20)
+            if choice is None or choice.strip().lower() not in ("s", "si", "y", "yes"):
+                print(R.dim("   OK. Podés configurar uno después con /switch."))
+                return
+            return self._switch_wizard()
+
         if info.get("corrected"):
             print(R.info("¿Quieres elegir otro modelo? (s/n)"), end=" ")
             choice = self._timed_input("", timeout=15)
@@ -376,6 +393,10 @@ class BagoREPL:
         configured = [p for p in providers if p["configured"]]
         if not configured:
             print(R.error("No hay providers configurados."))
+            print(R.info("¿Querés intentar configurar uno ahora? (s/n)"), end=" ")
+            retry = self._timed_input("", timeout=15)
+            if retry and retry.strip().lower() in ("s", "si", "y", "yes"):
+                return self._switch_wizard()
             return
 
         print(R.bold("\nProviders configurados:"))
@@ -492,6 +513,60 @@ class BagoREPL:
             return True
         self._welcome_done = True
 
+        # ── Auto-detección de providers al primer inicio ──
+        try:
+            providers = self.mgr.available_providers()
+            configured_real = [p for p in providers if p["configured"] and p["name"] != "echo"]
+            has_echo = any(p["name"] == "echo" for p in providers)
+        except Exception:
+            configured_real = []
+            has_echo = False
+
+        # Si no hay providers reales configurados, mostrar onboarding
+        if not configured_real:
+            print(R.warn("⚠ No se detectó ningún provider de IA configurado."))
+            print(R.dim("   BAGO necesita al menos un provider para funcionar."))
+            print()
+            onboarding_choices = [
+                "🚀 Configurar un provider ahora (asistente guiado)",
+                "💡 Usar modo demo (echo) para probar BAGO sin IA",
+                "📖 Ver guía de instalación de Ollama (local, gratis)",
+                "❌ Salir",
+            ]
+            oidx = self._navigate(
+                f"Bienvenido a BAGO {BAGO_VERSION} · Configuración inicial",
+                onboarding_choices,
+                hint="↑↓ navegar   Enter seleccionar   Esc/q cancelar",
+            )
+            if oidx is None or oidx == 3:
+                print(R.ok("Bye."))
+                self.running = False
+                return False
+            if oidx == 0:
+                return self._switch_wizard()
+            if oidx == 1:
+                print(R.info("Activando provider de demostración…"))
+                result = self.mgr.switch("echo", "echo-v1")
+                if result.get("ok"):
+                    print(R.ok("✓ Modo demo activado. Escribí 'hola' para probar BAGO."))
+                    print(R.dim("  Para cambiar a un provider real, usá /switch en cualquier momento."))
+                    self.engine = SwitchEngine(self.mgr.adapters)
+                else:
+                    print(R.error(f"No se pudo activar el modo demo: {result.get('error', '?')}"))
+                return True
+            if oidx == 2:
+                print(R.info("Guía rápida para instalar Ollama:"))
+                print("  1. Visitá https://ollama.com/download y descargá Ollama para Windows.")
+                print("  2. Instalalo (siguiente, siguiente…).")
+                print("  3. Abrí PowerShell y ejecutá: ollama pull llama3.2:3b")
+                print("  4. Una vez listo, reiniciá BAGO y elegí 'ollama-local' como provider.")
+                print()
+                print(R.dim("  Presioná Enter para volver al menú…"))
+                input()
+                return self._welcome_menu()
+            return True
+
+        # Providers reales detectados — menú normal
         choices = [
             "Continuar con la sesión actual",
             "Empezar algo nuevo",

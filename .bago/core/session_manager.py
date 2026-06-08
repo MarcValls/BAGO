@@ -58,6 +58,7 @@ from codex import CodexAdapter
 from openrouter import OpenRouterAdapter
 from opencode import OpenCodeAdapter
 from cpp_local import CppLocalAdapter
+from echo_provider import EchoAdapter
 from provider_adapter import ProviderAdapter, ProviderResponse
 
 
@@ -71,6 +72,7 @@ ADAPTER_REGISTRY: dict[str, type[ProviderAdapter]] = {
     "openrouter": OpenRouterAdapter,
     "opencode": OpenCodeAdapter,
     "cpp-local": CppLocalAdapter,
+    "echo": EchoAdapter,
 }
 
 BAGO_MODES: dict[str, str] = {

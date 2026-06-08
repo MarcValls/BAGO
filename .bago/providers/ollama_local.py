@@ -185,7 +185,12 @@ class OllamaLocalAdapter(ProviderAdapter):
             return HealthStatus(ok=False, provider=self.provider_name, detail=str(exc))
 
     def is_configured(self) -> bool:
-        return True  # No auth needed
+        try:
+            req = urllib.request.Request(f"{self.base_url}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
 
     def supports_tools(self) -> bool:
         return True  # Ollama supports tools
