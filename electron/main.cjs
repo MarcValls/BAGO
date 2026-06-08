@@ -104,56 +104,28 @@ function findPackagedRuntimeRoot() {
   return '';
 }
 
-async function ensureBagoInstalled() {
-  // Al arrancar el Manager, detecta si BAGO está instalado. Si no, ofrece instalarlo
-  // automáticamente desde el runtime empaquetado.
-  let runtimeRoot = '';
+const PREFS_PATH = path.join(app.getPath('userData'), 'bago-manager-prefs.json');
+
+function loadPrefs() {
   try {
-    runtimeRoot = resolveBagoRuntimeRoot();
-    return runtimeRoot;
+    return JSON.parse(fs.readFileSync(PREFS_PATH, 'utf8'));
   } catch {
-    // No hay instalación detectada
+    return {};
   }
+}
 
-  const packagedRoot = findPackagedRuntimeRoot();
-  if (!packagedRoot) {
-    await dialog.showErrorBox(
-      'BAGO Installation Manager',
-      'No se encontró el runtime de BAGO empaquetado. El instalador puede estar corrupto.'
-    );
-    app.quit();
-    return '';
-  }
+function savePrefs(prefs) {
+  try {
+    fs.writeFileSync(PREFS_PATH, JSON.stringify(prefs, null, 2));
+  } catch {}
+}
 
-  const result = await dialog.showMessageBox({
-    type: 'question',
-    buttons: ['Instalar ahora', 'Cancelar'],
-    defaultId: 0,
-    cancelId: 1,
-    title: 'BAGO no está instalado',
-    message: 'No se detectó una instalación de BAGO en este equipo.',
-    detail: 'El Installation Manager puede instalar BAGO automáticamente usando el paquete incluido.',
-    icon: ICON_PATH
-  });
-
-  if (result.response !== 0) {
-    app.quit();
-    return '';
-  }
-
-  // Ejecutar install-v4.ps1 desde el empaquetado
+function buildInstallCommand(packagedRoot, installDir, extraArgs = []) {
   const installScript = path.join(packagedRoot, 'install-v4.ps1');
   if (!fs.existsSync(installScript)) {
-    await dialog.showErrorBox(
-      'Error de instalación',
-      `No se encontró install-v4.ps1 en el paquete.\nBuscado en: ${installScript}`
-    );
-    app.quit();
-    return '';
+    throw new Error(`No se encontró install-v4.ps1 en el paquete. Buscado en: ${installScript}`);
   }
-
-  const installDir = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BAGO');
-  const command = [
+  return [
     'powershell.exe',
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
@@ -161,14 +133,16 @@ async function ensureBagoInstalled() {
     '-SourceRoot', packagedRoot,
     '-InstallDir', installDir,
     '-Profile', 'stable',
-    '-Mode', 'Express'
+    '-Mode', 'Express',
+    ...extraArgs
   ];
+}
 
-  // Mostrar ventana de progreso
-  const progressWin = new BrowserWindow({
+function showProgressWindow(title) {
+  const win = new BrowserWindow({
     width: 480,
     height: 220,
-    title: 'Instalando BAGO…',
+    title: title || 'Procesando…',
     icon: ICON_PATH,
     backgroundColor: '#020617',
     resizable: false,
@@ -177,17 +151,27 @@ async function ensureBagoInstalled() {
     alwaysOnTop: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true }
   });
-  progressWin.removeMenu();
-  progressWin.loadURL('data:text/html;base64,' + Buffer.from(`
+  win.removeMenu();
+  win.loadURL('data:text/html;base64,' + Buffer.from(`
     <!DOCTYPE html>
     <html style="background:#020617;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">
       <div>
         <div style="font-size:48px;margin-bottom:12px;">⏳</div>
-        <h2 style="margin:0 0 8px;font-size:18px;">Instalando BAGO…</h2>
+        <h2 style="margin:0 0 8px;font-size:18px;">${escapeHtml(title || 'Procesando…')}</h2>
         <p style="margin:0;color:#94a3b8;font-size:14px;">Esto puede tardar unos minutos.<br>No cierres esta ventana.</p>
       </div>
     </html>
   `).toString('base64'));
+  return win;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+async function runInstallScript(packagedRoot, installDir, extraArgs = [], progressTitle = 'Instalando BAGO…') {
+  const command = buildInstallCommand(packagedRoot, installDir, extraArgs);
+  const progressWin = showProgressWindow(progressTitle);
 
   return new Promise((resolve, reject) => {
     const child = spawn(command[0], command.slice(1), {
@@ -203,28 +187,12 @@ async function ensureBagoInstalled() {
     child.on('exit', async (code) => {
       progressWin.close();
       if (code === 0) {
-        // Verificar que ahora se resuelve
-        try {
-          const verified = resolveBagoRuntimeRoot();
-          await dialog.showMessageBox({
-            type: 'info',
-            buttons: ['OK'],
-            title: 'Instalación completada',
-            message: 'BAGO se instaló correctamente.',
-            detail: `Ubicación: ${verified}`
-          });
-          resolve(verified);
-        } catch (e) {
-          await dialog.showErrorBox('Error post-instalación', `La instalación parece haber fallado: ${e.message}`);
-          app.quit();
-          reject(e);
-        }
+        resolve({ stdout, stderr });
       } else {
         await dialog.showErrorBox(
           'Instalación fallida',
           `El instalador retornó código ${code}.\n\nStdout:\n${stdout}\n\nStderr:\n${stderr}`
         );
-        app.quit();
         reject(new Error(`install-v4.ps1 exited with ${code}`));
       }
     });
@@ -232,10 +200,123 @@ async function ensureBagoInstalled() {
     child.on('error', async (err) => {
       progressWin.close();
       await dialog.showErrorBox('Error al lanzar instalador', err.message);
-      app.quit();
       reject(err);
     });
   });
+}
+
+async function ensureBagoInstalled() {
+  let runtimeRoot = '';
+  try {
+    runtimeRoot = resolveBagoRuntimeRoot();
+  } catch {
+    runtimeRoot = '';
+  }
+
+  const packagedRoot = findPackagedRuntimeRoot();
+
+  if (!runtimeRoot) {
+    // CASO 1: no hay instalación
+    if (!packagedRoot) {
+      await dialog.showErrorBox('BAGO Installation Manager', 'No se encontró el runtime de BAGO empaquetado. El instalador puede estar corrupto.');
+      app.quit();
+      return '';
+    }
+
+    const result = await dialog.showMessageBox({
+      type: 'question',
+      buttons: ['Instalar ahora', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'BAGO no está instalado',
+      message: 'No se detectó una instalación de BAGO en este equipo.',
+      detail: 'El Installation Manager puede instalar BAGO automáticamente usando el paquete incluido.',
+      icon: ICON_PATH
+    });
+
+    if (result.response !== 0) {
+      app.quit();
+      return '';
+    }
+
+    const installDir = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BAGO');
+    await runInstallScript(packagedRoot, installDir);
+
+    const verified = resolveBagoRuntimeRoot();
+    await dialog.showMessageBox({
+      type: 'info', buttons: ['OK'], title: 'Instalación completada',
+      message: 'BAGO se instaló correctamente.', detail: `Ubicación: ${verified}`
+    });
+    return verified;
+  }
+
+  // CASO 2: hay instalación existente
+  const prefs = loadPrefs();
+  if (prefs.skipInstallPrompt) {
+    return runtimeRoot;
+  }
+
+  const result = await dialog.showMessageBox({
+    type: 'info',
+    buttons: ['Continuar', 'Reparar configuración', 'Reinstalar / Actualizar', 'Nueva copia…'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'BAGO ya está instalado',
+    message: `Se detectó BAGO en:\n${runtimeRoot}`,
+    detail: 'Puedes continuar, reparar la configuración, reinstalar desde cero o crear otra copia en un directorio diferente.',
+    checkboxLabel: 'No volver a preguntar al inicio',
+    checkboxChecked: false,
+    icon: ICON_PATH
+  });
+
+  if (result.checkboxChecked) {
+    prefs.skipInstallPrompt = true;
+    savePrefs(prefs);
+  }
+
+  switch (result.response) {
+    case 0: {
+      return runtimeRoot;
+    }
+    case 1: {
+      await runInstallScript(packagedRoot, runtimeRoot, ['-RepairOnly'], 'Reparando configuración…');
+      await dialog.showMessageBox({
+        type: 'info', buttons: ['OK'], title: 'Reparación completada',
+        message: 'La configuración de BAGO se reparó correctamente.', detail: `Ubicación: ${runtimeRoot}`
+      });
+      return runtimeRoot;
+    }
+    case 2: {
+      await runInstallScript(packagedRoot, runtimeRoot, [], 'Reinstalando BAGO…');
+      const verified = resolveBagoRuntimeRoot();
+      await dialog.showMessageBox({
+        type: 'info', buttons: ['OK'], title: 'Reinstalación completada',
+        message: 'BAGO se reinstaló correctamente.', detail: `Ubicación: ${verified}`
+      });
+      return verified;
+    }
+    case 3: {
+      if (!packagedRoot) {
+        await dialog.showErrorBox('Error', 'No se encontró el runtime empaquetado para crear una nueva copia.');
+        return runtimeRoot;
+      }
+      const { filePaths } = await dialog.showOpenDialog({
+        title: 'Seleccionar directorio para la nueva copia de BAGO',
+        defaultPath: path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BAGO-dev'),
+        properties: ['openDirectory', 'createDirectory', 'promptToCreate']
+      });
+      if (!filePaths || !filePaths[0]) return runtimeRoot;
+      const newDir = filePaths[0];
+      await runInstallScript(packagedRoot, newDir, [], 'Instalando nueva copia…');
+      await dialog.showMessageBox({
+        type: 'info', buttons: ['OK'], title: 'Nueva copia completada',
+        message: 'La nueva copia de BAGO se instaló correctamente.', detail: `Ubicación: ${newDir}`
+      });
+      return runtimeRoot;
+    }
+    default:
+      return runtimeRoot;
+  }
 }
 
 function webChatStatus() {
@@ -660,6 +741,34 @@ ipcMain.handle('bago:open-web-chat', (_event, options) => openWebChat(options ||
 ipcMain.handle('bago:open-cli-chat', (_event, options) => openCliChat(options || {}));
 ipcMain.handle('bago:web-chat-status', () => webChatStatus());
 ipcMain.handle('bago:manager-health', () => managerHealth());
+ipcMain.handle('bago:install-action', async (_event, payload) => {
+  const { action, targetDir } = payload || {};
+  const packagedRoot = findPackagedRuntimeRoot();
+  if (!packagedRoot) {
+    throw new Error('No se encontró el runtime empaquetado.');
+  }
+  let installDir = targetDir;
+  if (action === 'repair') {
+    if (!installDir) {
+      try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para reparar: ' + e.message); }
+    }
+    await runInstallScript(packagedRoot, installDir, ['-RepairOnly'], 'Reparando configuración…');
+    return { ok: true, action: 'repair', installDir };
+  }
+  if (action === 'reinstall') {
+    if (!installDir) {
+      try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para reinstalar: ' + e.message); }
+    }
+    await runInstallScript(packagedRoot, installDir, [], 'Reinstalando BAGO…');
+    return { ok: true, action: 'reinstall', installDir };
+  }
+  if (action === 'new-copy') {
+    if (!installDir) throw new Error('Se requiere targetDir para nueva copia.');
+    await runInstallScript(packagedRoot, installDir, [], 'Instalando nueva copia…');
+    return { ok: true, action: 'new-copy', installDir };
+  }
+  throw new Error(`Acción desconocida: ${action}`);
+});
 ipcMain.handle('bago:session-cmd', (_event, args) => runBagoSession(args));
 ipcMain.handle('bago:release-jobs-list', () => requireReleaseJobs().listJobs());
 ipcMain.handle('bago:release-job-preflight', (_event, payload) => requireReleaseJobs().preflight(payload || {}));
