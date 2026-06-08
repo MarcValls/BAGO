@@ -55,45 +55,46 @@
     </div>
   </header>
 
-  <!-- ───────────────────── HERO + DESCARGA ───────────────────── -->
+  <!-- ───────────────────── HERO ───────────────────── -->
   <section class="hero max-w-6xl mx-auto px-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-10 items-center">
-      <div>
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.5.0 con supervisor always-on
+    <div class="text-center max-w-3xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.5.0 con supervisor always-on
+      </div>
+      <h1 class="text-3xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
+        Session-First <span class="grad-text">AI Control Plane</span>
+      </h1>
+      <p class="text-sm lg:text-base xl:text-lg text-slate-400 mb-6 leading-relaxed">
+        BAGO orquesta proveedores de IA locales y remotos, mantiene el contexto entre cambios de modelo,
+        y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
+      </p>
+      <div class="flex flex-wrap justify-center gap-3 mb-6">
+        <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.0/BAGO-Installation-Manager-4.5.0-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          Descargar BAGO Manager Installer
+        </a>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs max-w-lg mx-auto">
+        <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+          <p class="text-slate-500 uppercase tracking-wider">Probe</p>
+          <p class="text-emerald-400 font-semibold mt-0.5">4/5 OK</p>
         </div>
-        <h1 class="text-3xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
-          Session-First <span class="grad-text">AI Control Plane</span>
-        </h1>
-        <p class="text-sm lg:text-base xl:text-lg text-slate-400 mb-6 leading-relaxed">
-          BAGO orquesta proveedores de IA locales y remotos, mantiene el contexto entre cambios de modelo,
-          y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
-        </p>
-        <div class="flex flex-wrap gap-3">
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.0/BAGO-Installation-Manager-4.5.0-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-            Descargar BAGO Manager Installer
-          </a>
-        <div class="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <strong class="text-amber-300">Distribución oficial:</strong> los paquetes se sirven desde <strong>GitHub Releases</strong>. Esta página ofrece descargas directas, pero la fuente y verificación de integridad están en el repositorio oficial.
+        <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+          <p class="text-slate-500 uppercase tracking-wider">Liveness</p>
+          <p class="text-cyan-400 font-semibold mt-0.5">OpenProcess</p>
         </div>
-        <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs">
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-            <p class="text-slate-500 uppercase tracking-wider">Probe</p>
-            <p class="text-emerald-400 font-semibold mt-0.5">4/5 OK</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-            <p class="text-slate-500 uppercase tracking-wider">Liveness</p>
-            <p class="text-cyan-400 font-semibold mt-0.5">OpenProcess</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-            <p class="text-slate-500 uppercase tracking-wider">Console</p>
-            <p class="text-amber-400 font-semibold mt-0.5">pythonw</p>
-          </div>
+        <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+          <p class="text-slate-500 uppercase tracking-wider">Console</p>
+          <p class="text-amber-400 font-semibold mt-0.5">pythonw</p>
         </div>
       </div>
+    </div>
+  </section>
 
-      <div id="install" class="space-y-4">
+  <!-- ───────────────────── INSTALAR ───────────────────── -->
+  <section id="install" class="border-t border-slate-800">
+    <div class="max-w-6xl mx-auto px-6 py-16">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Info: flujo correcto -->
         <div class="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
           <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-slate-900/80">
