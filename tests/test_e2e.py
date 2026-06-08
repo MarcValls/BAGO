@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_e2e.py — End-to-End Integration Test for BAGO 4.1.5
+tests\test_e2e.py — End-to-End Integration Test for BAGO 4.1.5
 
 Simula el ciclo completo de una sesión multi-provider:
 create → send → mark_good → feedback → switch → compress → save → load

@@ -14,9 +14,9 @@ Use this before publishing a tag, GitHub release, or release ZIP.
 
 ```powershell
 python --version
-python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py .bago\core\config_manager.py test_security_release.py test_e2e.py
-python test_security_release.py
-python test_e2e.py
+python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py .bago\core\config_manager.py tests\test_security_release.py tests\test_e2e.py
+python tests\test_security_release.py
+python tests\test_e2e.py
 python scripts\verify_release_drift.py
 python bago_core\cli.py validate
 python bago_core\cli.py evidence --test
@@ -27,7 +27,7 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --
 Optional live model proof:
 
 ```powershell
-python test_ollama_live_optional.py
+python tests\test_ollama_live_optional.py
 ```
 
 UI gate, only if shipping UI assets:

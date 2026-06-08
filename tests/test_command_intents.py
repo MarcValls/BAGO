@@ -5,9 +5,9 @@ Evidencia de entrenamiento: verifica que cada frase del dataset
 command_intents.json se resuelve al comando correcto.
 
 Uso:
-    python test_command_intents.py            # todos los comandos
-    python test_command_intents.py /autopilot  # solo un comando
-    python test_command_intents.py --fail-only # solo los que fallan
+    python tests\test_command_intents.py            # todos los comandos
+    python tests\test_command_intents.py /autopilot  # solo un comando
+    python tests\test_command_intents.py --fail-only # solo los que fallan
 """
 from __future__ import annotations
 

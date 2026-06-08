@@ -796,7 +796,7 @@ if (-not $SkipTests) {
     try {
         & python "bago_core\launcher.py" "--test"
         if ($LASTEXITCODE -ne 0) { throw "launcher.py --test failed with exit code $LASTEXITCODE" }
-        & python "test_security_release.py"
+        & python "tests\test_security_release.py"
         if ($LASTEXITCODE -ne 0) { throw "test_security_release.py failed with exit code $LASTEXITCODE" }
     } finally {
         Pop-Location

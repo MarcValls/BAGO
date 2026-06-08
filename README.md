@@ -17,12 +17,12 @@ The stable MVP is intentionally small:
 | Capability | Status | Proof |
 |---|---|---|
 | CLI | Working | `python bago_core\cli.py validate` |
-| Persistent session | Working | `python test_e2e.py` |
-| Provider/model switch | Working | `python test_e2e.py` |
+| Persistent session | Working | `python tests\test_e2e.py` |
+| Provider/model switch | Working | `python tests\test_e2e.py` |
 | Ollama local startup | Working when Ollama is installed | `python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run` |
 | Local API | Working, localhost-first | `python .bago\api\bridge.py --test` |
 | Evidence bundles | Working | `python bago_core\cli.py evidence --test` |
-| Security validation | Working | `python test_security_release.py` |
+| Security validation | Working | `python tests\test_security_release.py` |
 | React UI | Optional surface | `cd ui-react; npm run build` |
 
 Post-MVP or experimental:
