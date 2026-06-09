@@ -6,11 +6,13 @@ on:
       - main
       - windows
       - android
+      - sync/path-resolver
   push:
     branches:
       - main
       - windows
       - android
+      - sync/path-resolver
 
 permissions:
   contents: read
