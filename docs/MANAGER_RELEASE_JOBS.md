@@ -17,6 +17,8 @@ The Manager never installs a GitHub release directly from a URL.
 11. Install and validate the new runtime.
 12. Restore the previous runtime automatically on failure or cancellation.
 
+Source/branch updates are a separate local flow: they may pull a selected branch from a checked-out repo and then install from that source, but they do not bypass the release-job contract for GitHub releases.
+
 ## Signature Policy
 
 - Detached `.sig` or `.asc` assets are verified with GPG when published.

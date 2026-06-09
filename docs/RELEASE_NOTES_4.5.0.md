@@ -5,6 +5,7 @@
   - BAGO supervisor monitor (start / stop / restart)
   - zombie connection cleanup (TIME_WAIT / CloseWait / FinWait2)
   - Manager health panel (probes for 5 critical services)
+  - source/branch update path plus latest release install split into two explicit actions
 - Landing page: hero fills the screen on every device (centered flex layout)
 - Distribution: direct Manager Installer download from GitHub Releases
 
@@ -22,3 +23,4 @@
 ### Notes
 - This release uses ASCII only to avoid rendering issues.
 - The remote installer stays pinned to tag v4.5.0.
+- The Manager now separates "update from source/branch" from "install latest release".

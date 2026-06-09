@@ -95,6 +95,11 @@ bago install --profile ign
 bago install --profile stable
 ```
 
+El Manager expone dos rutas distintas:
+
+- `Instalar última release`: usa la release estable publicada en GitHub.
+- `Actualizar desde fuente/branch`: sincroniza una copia local del repositorio y luego instala desde esa fuente.
+
 ## Minimum Use
 
 ```powershell

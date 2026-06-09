@@ -331,6 +331,22 @@ function buildInstallCommand(tag, installDir, mode = 'Express') {
   ].join('; ');
 }
 
+function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', mode = 'Express') {
+  const cleanSource = full(String(sourceRoot || '').trim());
+  const cleanDir = full(String(installDir || 'C:\\Program Files\\BAGO').trim());
+  const cleanBranch = String(branch || 'main').trim() || 'main';
+  const cleanMode = String(mode || 'Express').trim();
+  const installScript = path.join(cleanSource, 'install-v4.ps1');
+  return [
+    `$src = ${psSingle(cleanSource)}`,
+    `$branch = ${psSingle(cleanBranch)}`,
+    `Set-Location ${psSingle(cleanSource)}`,
+    'git fetch --all --prune',
+    `git pull --ff-only origin $branch`,
+    `& ${psSingle(installScript)} -SourceRoot ${psSingle(cleanSource)} -InstallDir ${psSingle(cleanDir)} -Profile stable -Mode ${psSingle(cleanMode)}`
+  ].join('; ');
+}
+
 function buildUninstallCommand(installDir, purgeState = false) {
   const root = String(installDir || '').trim();
   const script = path.join(root, 'bago-uninstall.ps1');
@@ -373,8 +389,10 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   writeChainRegistry: (payload) => Promise.resolve(writeChainRegistry(payload || {})),
   fetchReleases,
   buildInstallCommand,
+  buildSourceInstallCommand,
   buildUninstallCommand,
   buildRoleCommand,
+  installAction: (payload) => ipcRenderer.invoke('bago:install-action', payload || {}),
   managerHealth: () => ipcRenderer.invoke('bago:manager-health'),
   runSessionCommand: (args) => ipcRenderer.invoke('bago:session-cmd', Array.isArray(args) ? args.map(String) : []),
   listReleaseJobs: () => ipcRenderer.invoke('bago:release-jobs-list'),

@@ -138,6 +138,28 @@ function buildInstallCommand(packagedRoot, installDir, extraArgs = []) {
   ];
 }
 
+function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', extraArgs = []) {
+  const installScript = path.join(sourceRoot, 'install-v4.ps1');
+  if (!fs.existsSync(installScript)) {
+    throw new Error(`No se encontró install-v4.ps1 en la fuente. Buscado en: ${installScript}`);
+  }
+  const gitArgs = ['-C', sourceRoot, 'pull', '--ff-only', 'origin', branch];
+  return {
+    gitArgs,
+    installArgs: [
+      'powershell.exe',
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', installScript,
+      '-SourceRoot', sourceRoot,
+      '-InstallDir', installDir,
+      '-Profile', 'stable',
+      '-Mode', 'Express',
+      ...extraArgs
+    ]
+  };
+}
+
 function showProgressWindow(title) {
   const win = new BrowserWindow({
     width: 480,
@@ -202,6 +224,28 @@ async function runInstallScript(packagedRoot, installDir, extraArgs = [], progre
       await dialog.showErrorBox('Error al lanzar instalador', err.message);
       reject(err);
     });
+  });
+}
+
+async function runGitPull(sourceRoot, branch) {
+  const branchName = String(branch || 'main').trim() || 'main';
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', ['-C', sourceRoot, 'pull', '--ff-only', 'origin', branchName], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', d => { stdout += d; });
+    child.stderr.on('data', d => { stderr += d; });
+    child.on('exit', code => {
+      if (code === 0) {
+        resolve({ stdout, stderr, branch: branchName });
+      } else {
+        reject(new Error((stderr || stdout || `git pull terminó con código ${code}`).trim()));
+      }
+    });
+    child.on('error', reject);
   });
 }
 
@@ -825,30 +869,52 @@ ipcMain.handle('bago:open-cli-chat', (_event, options) => openCliChat(options ||
 ipcMain.handle('bago:web-chat-status', () => webChatStatus());
 ipcMain.handle('bago:manager-health', () => managerHealth());
 ipcMain.handle('bago:install-action', async (_event, payload) => {
-  const { action, targetDir } = payload || {};
-  const packagedRoot = findPackagedRuntimeRoot();
-  if (!packagedRoot) {
-    throw new Error('No se encontró el runtime empaquetado.');
-  }
+  const { action, targetDir, sourceRoot, branch } = payload || {};
+  let packagedRoot = '';
+  const requirePackagedRoot = () => {
+    if (!packagedRoot) packagedRoot = findPackagedRuntimeRoot();
+    if (!packagedRoot) {
+      throw new Error('No se encontró el runtime empaquetado.');
+    }
+    return packagedRoot;
+  };
   let installDir = targetDir;
   if (action === 'repair') {
+    const runtimePack = requirePackagedRoot();
     if (!installDir) {
       try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para reparar: ' + e.message); }
     }
-    await runInstallScript(packagedRoot, installDir, ['-RepairOnly'], 'Reparando configuración…');
+    await runInstallScript(runtimePack, installDir, ['-RepairOnly'], 'Reparando configuración…');
     return { ok: true, action: 'repair', installDir };
   }
   if (action === 'reinstall') {
+    const runtimePack = requirePackagedRoot();
     if (!installDir) {
       try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para reinstalar: ' + e.message); }
     }
-    await runInstallScript(packagedRoot, installDir, [], 'Reinstalando BAGO…');
+    await runInstallScript(runtimePack, installDir, [], 'Reinstalando BAGO…');
     return { ok: true, action: 'reinstall', installDir };
   }
   if (action === 'new-copy') {
+    const runtimePack = requirePackagedRoot();
     if (!installDir) throw new Error('Se requiere targetDir para nueva copia.');
-    await runInstallScript(packagedRoot, installDir, [], 'Instalando nueva copia…');
+    await runInstallScript(runtimePack, installDir, [], 'Instalando nueva copia…');
     return { ok: true, action: 'new-copy', installDir };
+  }
+  if (action === 'source-update') {
+    const rawSource = String(sourceRoot || '').trim();
+    if (!rawSource) throw new Error('Se requiere sourceRoot para actualizar desde fuente/branch.');
+    const cleanSource = path.resolve(rawSource);
+    if (!fs.existsSync(path.join(cleanSource, 'install-v4.ps1')) || !fs.existsSync(path.join(cleanSource, 'bago_core', 'launcher.py'))) {
+      throw new Error('La fuente no contiene install-v4.ps1 y bago_core/launcher.py.');
+    }
+    if (!installDir) {
+      try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para actualizar: ' + e.message); }
+    }
+    const branchName = String(branch || 'main').trim() || 'main';
+    await runGitPull(cleanSource, branchName);
+    await runInstallScript(cleanSource, installDir, [], `Actualizando desde fuente/branch (${branchName})…`);
+    return { ok: true, action: 'source-update', installDir, sourceRoot: cleanSource, branch: branchName };
   }
   throw new Error(`Acción desconocida: ${action}`);
 });
