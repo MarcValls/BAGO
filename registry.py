@@ -228,6 +228,11 @@ def _make_piece(spec: dict[str, str]) -> TranslatorPiece:
         **spec,
         "hash": f"sha256:{spec['piece_id'].replace('.', '-').replace('/', '-')}",
         "store_path": spec["piece_id"],
+        "supports": {
+            "roundtrip": True,
+            "evidence": True,
+            "tool_calls": spec["model_family"] != "shared",
+        },
     }
     return TranslatorPiece(
         manifest=manifest,
