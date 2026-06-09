@@ -1,6 +1,11 @@
-# BAGO v4.3.0 Distribution Roadmap
+# BAGO v4.5.1 Distribution Roadmap
 
-This is the execution plan for keeping BAGO v4.3.0 small, verifiable, and releaseable.
+This is the execution plan for keeping BAGO v4.5.1 small, verifiable, and releaseable.
+
+## Release Split Policy (4.5.0 vs 4.5.1)
+
+- **4.5.0** queda congelada como baseline auditada.
+- **4.5.1** es la línea activa para el manager nuevo.
 
 ## Decision
 
