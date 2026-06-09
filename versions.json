@@ -1,5 +1,5 @@
 {
-  "current": "4.3.0",
+  "current": "4.5.1",
   "history": [
     {
       "version": "4.0.0",
@@ -34,8 +34,20 @@
     {
       "version": "4.3.0",
       "released": "2026-06-04",
-      "ended": null,
+      "ended": "2026-06-10",
       "notes": "Consolidación post-rebase: SessionManager integrado en el gestor, bridges Codex/Copilot y estabilidad verificada de runtime y release jobs"
+    },
+    {
+      "version": "4.5.0",
+      "released": "2026-06-10",
+      "ended": "2026-06-10",
+      "notes": "Baseline de auditoría cerrada (11/11 hallazgos P0/P1 resueltos)"
+    },
+    {
+      "version": "4.5.1",
+      "released": "2026-06-10",
+      "ended": null,
+      "notes": "Release de continuidad para manager nuevo sin tapar 4.5.0"
     }
   ]
 }
