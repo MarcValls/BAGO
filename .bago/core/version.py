@@ -17,10 +17,10 @@ _CREATED_VERSION = "4.5.0"
 
 import json
 from datetime import date
-from pathlib import Path
+from paths import resource_path
 
-# versions.json está 2 niveles arriba: .bago/core/ → .bago/ → BAGO_ROOT/
-_INDEX_PATH = Path(__file__).resolve().parents[2] / "versions.json"
+# versions.json vive en la raiz fuente o en el bundle empaquetado.
+_INDEX_PATH = resource_path("versions.json")
 
 
 def _load() -> dict:

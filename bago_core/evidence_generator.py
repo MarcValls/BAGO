@@ -30,6 +30,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+
 from bago_core.evidence_io import (
     collect_file_digests,
     copy_session_artifacts,
@@ -68,13 +70,16 @@ from bago_core.evidence_report import (
 # executor up front and bind it under a private alias, then we set `commands`
 # in sys.modules to that REPL module so any `from commands import execute` in
 # the generator stack keeps resolving correctly.
-_BAGO_ROOT = Path(__file__).resolve().parents[1]
-for _p in (_BAGO_ROOT / ".bago" / "core", _BAGO_ROOT / ".bago" / "chat",
-           _BAGO_ROOT / ".bago" / "providers", _BAGO_ROOT / ".bago" / "api",
-           _BAGO_ROOT / ".bago" / "tools"):
+for _p in (_BOOTSTRAP_ROOT / ".bago" / "core", _BOOTSTRAP_ROOT / ".bago" / "chat",
+           _BOOTSTRAP_ROOT / ".bago" / "providers", _BOOTSTRAP_ROOT / ".bago" / "api",
+           _BOOTSTRAP_ROOT / ".bago" / "tools"):
     _s = str(_p)
     if _s not in sys.path:
         sys.path.insert(0, _s)
+
+from paths import app_base_dir  # noqa: E402
+
+_BAGO_ROOT = app_base_dir()
 
 # The REPL commands module (provides `execute`). Must be importable under the
 # name `commands` so `from commands import execute` keeps working.

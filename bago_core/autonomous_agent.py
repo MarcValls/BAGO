@@ -18,15 +18,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-_BAGO_ROOT = Path(__file__).resolve().parents[1]
-if str(_BAGO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_BAGO_ROOT))
-if str(_BAGO_ROOT / ".bago" / "core") not in sys.path:
-    sys.path.insert(0, str(_BAGO_ROOT / ".bago" / "core"))
-if str(_BAGO_ROOT / ".bago" / "chat") not in sys.path:
-    sys.path.insert(0, str(_BAGO_ROOT / ".bago" / "chat"))
-if str(_BAGO_ROOT / ".bago" / "providers") not in sys.path:
-    sys.path.insert(0, str(_BAGO_ROOT / ".bago" / "providers"))
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+if str(_BOOTSTRAP_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT))
+if str(_BOOTSTRAP_ROOT / ".bago" / "core") not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "core"))
+if str(_BOOTSTRAP_ROOT / ".bago" / "chat") not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "chat"))
+if str(_BOOTSTRAP_ROOT / ".bago" / "providers") not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "providers"))
+
+from paths import app_base_dir
+
+_BAGO_ROOT = app_base_dir()
 
 from session_manager import SessionManager  # noqa: E402
 

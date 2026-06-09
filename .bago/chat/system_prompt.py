@@ -11,10 +11,10 @@ Solo se define identidad, contexto de sesión y formato de respuesta.
 
 from __future__ import annotations
 
-from pathlib import Path
+from paths import resource_path
 
 
-_BOOTSTRAP_PATH = Path(__file__).resolve().parents[1] / "BOOTSTRAP.md"
+_BOOTSTRAP_PATH = resource_path(".bago", "chat", "BOOTSTRAP.md")
 
 BAGO_SYSTEM_PROMPT = """You are BAGO, a session-persistent AI assistant.
 

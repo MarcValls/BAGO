@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from pathlib import Path
+try:
+    from paths import app_base_dir
+except ImportError:
+    from pathlib import Path
+
+    def app_base_dir() -> Path:
+        return Path(__file__).resolve().parents[1]
 
 
 def _read_release_version() -> str:
-    root = Path(__file__).resolve().parents[1]
+    root = app_base_dir()
     candidates = (
         root / "release_version.txt",
         root / ".bago" / "release_version.txt",

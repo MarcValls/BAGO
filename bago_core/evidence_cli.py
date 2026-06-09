@@ -18,18 +18,23 @@ import sys
 import tempfile
 from pathlib import Path
 
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+
 # Mirror the sys.path layout that legacy evidence_bundle.py used:
 # `.bago/chat/commands.py` provides the `execute` function consumed by the
 # generator. Without injecting it, `from commands import execute` resolves
 # to bago_core/commands/__init__.py (a different module) and ImportError
 # fires.
-BAGO_ROOT = Path(__file__).resolve().parents[1]
-for _path in (BAGO_ROOT / ".bago" / "core", BAGO_ROOT / ".bago" / "chat",
-              BAGO_ROOT / ".bago" / "providers", BAGO_ROOT / ".bago" / "api",
-              BAGO_ROOT / ".bago" / "tools"):
+for _path in (_BOOTSTRAP_ROOT / ".bago" / "core", _BOOTSTRAP_ROOT / ".bago" / "chat",
+              _BOOTSTRAP_ROOT / ".bago" / "providers", _BOOTSTRAP_ROOT / ".bago" / "api",
+              _BOOTSTRAP_ROOT / ".bago" / "tools"):
     s = str(_path)
     if s not in sys.path:
         sys.path.insert(0, s)
+
+from paths import app_base_dir  # noqa: E402
+
+BAGO_ROOT = app_base_dir()
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")

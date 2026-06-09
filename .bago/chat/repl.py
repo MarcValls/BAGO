@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
 from version import CURRENT as BAGO_VERSION
+from paths import resource_path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
@@ -140,7 +141,7 @@ def _wrap_transcript(text: str) -> str:
 
 # ─── Keybinds ────────────────────────────────────────────────────────────────
 
-_KEYBINDS_PATH = Path(__file__).resolve().parents[2] / ".bago" / "keybinds.json"
+_KEYBINDS_PATH = resource_path(".bago", "keybinds.json")
 
 _DEFAULT_KEYBINDS: dict = {
     "_hint": "↑↓ navegar   Enter seleccionar   Esc/q cancelar",

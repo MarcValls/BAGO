@@ -29,10 +29,9 @@ try:
     from version import CURRENT as _BAGO_VERSION
 except ImportError:
     import json as _json
-    from pathlib import Path as _Path
-    _BAGO_VERSION = _json.loads(
-        (_Path(__file__).resolve().parents[2] / "versions.json").read_text(encoding="utf-8")
-    )["current"]
+    from paths import resource_path
+
+    _BAGO_VERSION = _json.loads(resource_path("versions.json").read_text(encoding="utf-8"))["current"]
 
 
 def _supports_color() -> bool:
