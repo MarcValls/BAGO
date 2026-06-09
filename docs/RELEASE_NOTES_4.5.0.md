@@ -1,40 +1,24 @@
-# BAGO v4.5.0 Release Notes
+# BAGO 4.5.0 - Manager v1 + Landing Fullscreen
 
-Status: release candidate
+### Novedades
+- **Manager v1**: Nueva pestana "Estado del Sistema" (Sistema) con:
+  - Monitor del supervisor BAGO (iniciar / detener / reiniciar)
+  - Limpieza de conexiones zombie (TIME_WAIT / CloseWait / FinWait2)
+  - Panel de salud del Manager (probes de 5 servicios criticos)
+- **Landing page**: hero ocupa toda la pantalla en cualquier dispositivo (flex layout centrado)
+- **Distribucion**: descarga directa del Manager Installer desde GitHub Releases
 
-## Highlights
+### Assets
+- BAGO-Installation-Manager-4.5.0-win-x64.exe - Instalador del Manager (Electron)
+- bago-v4.5.0.zip - Bundle de fuentes v4
+- bago-v4.5.0.zip.sha256 - Checksum SHA256
 
-- Stable MVP boundary is documented and frozen in `docs/MVP.md`.
-- Public release gates are centralized in `docs/PUBLIC_RELEASE_POLICY.md`.
-- The release checklist now points to the public publication policy and final smoke gates.
-- The repo tracks version 4.5.0 across source, docs, manifests, and release metadata.
+### Instalacion rapida
+1. Descarga el .exe del Manager
+2. Ejecuta el instalador
+3. El Manager detecta si BAGO esta instalado y ofrece instalar / reparar / actualizar
+4. Accede a la pestana "Sistema" para gestionar el supervisor y limpiar conexiones zombie
 
-## Gates Passed
-
-- `python bago_core\cli.py validate`
-- `python -m pytest -q`
-- `python scripts\clean_install_smoke.py`
-- `python scripts\verify_release_drift.py`
-- `python scripts\verify_docs.py --repo .`
-- `python scripts\package_v4.py --test`
-- `python .bago\api\bridge.py --test`
-
-## Public Limits
-
-- RL stays shadow/off by default.
-- Agents and autopilot remain experimental.
-- Browser automation is policy-gated.
-- API access stays localhost-first and token-gated for non-localhost binds.
-- No live state, credentials, or caches are included in release artifacts.
-
-## Install Path
-
-- Official distribution path: GitHub Releases only.
-- Remote installer must remain pinned to the release tag, not a mutable branch.
-
-## Known Non-Stable Surfaces
-
-- `ui-react` is an optional surface.
-- Cloud provider completeness depends on credentials and provider health.
-- Advanced knowledge and embedding paths remain partial unless separately proven.
-
+### Notas
+- Este release usa solo caracteres ASCII para evitar problemas de renderizado.
+- El instalador remoto queda anclado al tag v4.5.0.
