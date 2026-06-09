@@ -15,7 +15,8 @@ import tempfile
 from pathlib import Path
 
 # Setup paths
-BAGO_ROOT = Path(__file__).resolve().parent
+BAGO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BAGO_ROOT))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "chat"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))

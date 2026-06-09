@@ -33,6 +33,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -934,6 +935,10 @@ def cmd_browser(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
       close               — Cierra navegador
       help                — Muestra esta ayuda
     """
+    def _browser_url_allowed(url: str) -> bool:
+        parsed = urlparse(url)
+        return parsed.scheme in {"http", "https", "file", "about"}
+
     if not args:
         return {
             "ok": False,
@@ -955,6 +960,8 @@ def cmd_browser(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
         if sub == "open":
             if len(args) < 2:
                 return {"ok": False, "message": "Uso: /browser open <url>"}
+            if not _browser_url_allowed(args[1]):
+                return {"ok": False, "message": "Esquema no permitido. Usa http, https, file o about."}
             return {"ok": True, "message": ctrl.open(args[1])}
 
         if sub == "snapshot":
@@ -1008,6 +1015,11 @@ def cmd_browser(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
         if sub == "eval":
             if len(args) < 2:
                 return {"ok": False, "message": "Uso: /browser eval <js_expression>"}
+            if not bool(getattr(mgr, "config", {}).get("features.browser_eval", False)):
+                return {
+                    "ok": False,
+                    "message": "Uso: /browser eval <js_expression> (deshabilitado por seguridad; activa features.browser_eval)",
+                }
             return {"ok": True, "message": ctrl.eval(" ".join(args[1:]))}
 
         if sub == "screenshot":

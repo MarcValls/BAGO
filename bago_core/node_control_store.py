@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from io_utils import atomic_write_json, read_json_quarantine
+
 from bago_core.node_control_ssot import DEFAULT_PIECE_CATALOG, PIECE_STORE_TYPES
 
 @dataclass(frozen=True)
@@ -32,16 +34,11 @@ def slug(text: str) -> str:
     return clean.strip("-") or "item"
 
 def json_read(path: Path, default: Any) -> Any:
-    if not path.exists():
-        return default
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return default
+    return read_json_quarantine(path, default=default)
 
 def json_write(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_json(path, payload)
 
 def jsonl_append(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

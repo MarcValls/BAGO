@@ -8,7 +8,8 @@
     "docs\\contracts\\bago_v4_evidence_contract.md",
     "docs\\contracts\\bago_v4_knowledge_contract.md",
     "docs\\contracts\\bago_v4_governance_contract.md",
-    "docs\\contracts\\bago_v4_engineering_contract.md"
+    "docs\\contracts\\bago_v4_engineering_contract.md",
+    "docs\\contracts\\bago_v4_surfaces_contract.md"
   ],
   "validation_commands": [
     "python test_e2e.py",
@@ -63,4 +64,3 @@
     "example_output": "docs\\evidence\\example_bundle"
   }
 }
-

@@ -1,2 +1,5 @@
 # BAGO runtime dependencies
 textual>=0.74.0
+pypdf>=6.0.0
+numpy>=2.4.4
+playwright>=1.59.0

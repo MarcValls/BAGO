@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const ROOT_DIR = path.join(__dirname, '..');
 
 function asPath(p) {
   return String(p || '').trim();
@@ -14,6 +15,18 @@ function exists(p) {
 
 function readText(p) {
   try { return fs.readFileSync(p, 'utf8').trim(); } catch { return ''; }
+}
+
+function readReleaseVersion() {
+  const candidates = [
+    path.join(ROOT_DIR, 'release_version.txt'),
+    path.join(ROOT_DIR, '.bago', 'release_version.txt'),
+  ];
+  for (const candidate of candidates) {
+    const text = readText(candidate);
+    if (text) return text.replace(/^v/i, '').trim();
+  }
+  return '';
 }
 
 function pidAlive(pid) {
@@ -307,10 +320,14 @@ function buildInstallCommand(tag, installDir, mode = 'Express') {
   const cleanTag = String(tag || '').trim();
   const cleanDir = String(installDir || 'C:\\Program Files\\BAGO').trim();
   const cleanMode = String(mode || 'Express').trim();
+  const releaseVersion = readReleaseVersion();
+  const releaseTag = releaseVersion ? `v${releaseVersion}` : '';
+  const targetTag = cleanTag || releaseTag;
+  const remoteInstall = `https://raw.githubusercontent.com/MarcValls/BAGO/${encodeURIComponent(targetTag)}/install-remote.ps1`;
   return [
     '$s = Join-Path $env:TEMP \'install-remote.ps1\'',
-    "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1' -OutFile $s -UseBasicParsing",
-    `& $s -Tag ${psSingle(cleanTag)} -InstallDir ${psSingle(cleanDir)} -Mode ${psSingle(cleanMode)}`
+    `Invoke-WebRequest -Uri '${remoteInstall}' -OutFile $s -UseBasicParsing`,
+    `& $s -Tag ${psSingle(targetTag)} -InstallDir ${psSingle(cleanDir)} -Mode ${psSingle(cleanMode)}`
   ].join('; ');
 }
 
@@ -346,7 +363,6 @@ function buildRoleCommand(role, installDir) {
 contextBridge.exposeInMainWorld('bagoElectron', {
   readClipboardText: () => clipboard.readText(),
   writeClipboardText: (text) => clipboard.writeText(String(text || '')),
-  runCommand: (command) => ipcRenderer.invoke('bago:run-command', String(command || '')),
   openWebChat: (options) => ipcRenderer.invoke('bago:open-web-chat', options || {}),
   openCliChat: (options) => ipcRenderer.invoke('bago:open-cli-chat', options || {}),
   webChatStatus: () => ipcRenderer.invoke('bago:web-chat-status'),

@@ -820,7 +820,6 @@ app.setAppUserModelId('com.bago.installation-manager');
 
 ipcMain.handle('bago:supervisor-cmd', (_event, args) => runSupervisorCmd(args));
 ipcMain.handle('bago:zombie-cleanup', () => cleanupZombies());
-ipcMain.handle('bago:run-command', (_event, command) => runVisiblePowerShell(command));
 ipcMain.handle('bago:open-web-chat', (_event, options) => openWebChat(options || {}));
 ipcMain.handle('bago:open-cli-chat', (_event, options) => openCliChat(options || {}));
 ipcMain.handle('bago:web-chat-status', () => webChatStatus());

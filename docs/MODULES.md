@@ -44,7 +44,8 @@ This inventory marks what exists now, how it is proven, and what must not be cla
 |---|---|---|---|
 | `.bago/api/bridge.py` | working | `python .bago\api\bridge.py --test` | non-localhost bind requires token |
 | `.bago/api/control_shadow.py` | partial | `python .bago\api\bridge.py --test` | observation/control simulation only |
-| `ui-react` | optional working | `cd ui-react; npm run build` | UI consumes backend API and is not authority |
+| `ui-react` | optional working | `cd ui-react; npm run build` | Chat surface only; consumes backend API and is not authority |
+| `manager` | partial | `node --check manager\js\session-manager.js` | Administration/diagnostics only; installed-runtime health must be validated separately |
 | `apps/mobile-expo` | planned | none | not part of current repo gate |
 
 ## Experimental Or Partial Core

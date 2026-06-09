@@ -35,6 +35,11 @@ Post-MVP or experimental:
 | Cloud multiprovider completeness | Partial | depends on configured credentials and provider health |
 | Advanced knowledge/embedding store | Partial | must remain separate from the MVP claim set |
 
+Public release policy and release checklist:
+
+- [`docs/PUBLIC_RELEASE_POLICY.md`](docs/PUBLIC_RELEASE_POLICY.md)
+- [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
+
 ## Responsibility Split
 
 | Surface | Responsibility |
@@ -76,7 +81,7 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --
 Descarga el instalador remoto desde el repo y ejecutalo. Siempre apunta a la última release estable publicada en GitHub:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/v4.5.0/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
 ```
 
 ### Installation manager (para instalaciones existentes)

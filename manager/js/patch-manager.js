@@ -6,7 +6,7 @@ const PM_VIEW_TITLES={
   pieces:'PieceStore',
   releases:'Releases',
   jobs:'Trabajos de release',
-  sessions:'Sesiones',
+  sessions:'Administración de sesiones',
   health:'Salud operativa',
   audit:'Auditoría'
 };

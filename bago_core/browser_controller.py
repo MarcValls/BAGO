@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
 
@@ -62,6 +63,11 @@ class BrowserController:
         self._closed = False
         return self._page
 
+    @staticmethod
+    def _url_allowed(url: str) -> bool:
+        parsed = urlparse(str(url or ""))
+        return parsed.scheme in {"http", "https", "file", "about"}
+
     def close(self) -> None:
         self._closed = True
         if self._context:
@@ -79,6 +85,8 @@ class BrowserController:
     # ── Navigation ─────────────────────────────────────────────────────
 
     def open(self, url: str) -> str:
+        if not self._url_allowed(url):
+            raise ValueError("URL no permitida. Usa http, https, file o about.")
         page = self.ensure_open()
         page.goto(url, wait_until="networkidle")
         self.state.url = page.url
