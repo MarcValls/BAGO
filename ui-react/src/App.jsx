@@ -21,14 +21,40 @@ function compact(text, limit = 34) {
   return value.length > limit ? `${value.slice(0, limit - 1).trim()}…` : value
 }
 
+function resolveManagerUrl() {
+  // P1-03 fix: do NOT hardcode a dev port. Resolve the URL dynamically:
+  //   1) When running inside Electron, ask the main process for the URL of
+  //      the local Manager window (which may not be on port 4174 at all in
+  //      a packaged build).
+  //   2) Otherwise, fall back to the relative path so the React app still
+  //      works in a plain Vite dev server.
+  const api = typeof window !== 'undefined' ? window.bagoElectron : null
+  if (api && typeof api.getManagerUrl === 'function') {
+    try {
+      const resolved = api.getManagerUrl()
+      if (resolved) return String(resolved)
+    } catch {
+      // ignore; we will fall back below
+    }
+  }
+  return 'manager/index.html'
+}
+
 export default function App() {
   const control = useBagoChat()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const sessions = control.menu?.sessions || []
   const openManager = () => {
-    const url = 'http://127.0.0.1:4174/manager/index.html'
-    const win = window.open(url, '_blank', 'noopener,noreferrer')
-    if (!win) window.location.href = url
+    const url = resolveManagerUrl()
+    // file:// URLs must NOT be opened in a new window with noopener because
+    // some browsers block the navigation silently. We open relative paths
+    // in the same window and only use noopener for http(s) URLs.
+    if (/^https?:\/\//i.test(url)) {
+      const win = window.open(url, '_blank', 'noopener,noreferrer')
+      if (!win) window.location.href = url
+    } else {
+      window.location.href = url
+    }
   }
 
   return (

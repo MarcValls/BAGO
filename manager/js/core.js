@@ -14,20 +14,8 @@ function readTextClipboard(){
   if(navigator.clipboard&&navigator.clipboard.readText)return navigator.clipboard.readText();
   return Promise.reject(new Error('Clipboard API no disponible'));
 }
-function canRunCommands(){return false;}
-async function runCommand(t){
-  showToast('ejecucion directa deshabilitada; copia el comando',false);
-}
+function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');showToast('comando copiado',true);}catch(e){showToast('no se pudo copiar',false);}document.body.removeChild(ta);}
 async function openWebChat(){
-  if(typeof window.pmOpenChatTab==='function'){
-    try{
-      await window.pmOpenChatTab();
-      return;
-    }catch(e){
-      showToast('chat tab: '+e.message,false);
-      return;
-    }
-  }
   const api=electronApi();
   if(!api||!api.openWebChat){showToast('chat web solo disponible en Electron',false);return;}
   try{

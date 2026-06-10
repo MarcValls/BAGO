@@ -323,12 +323,17 @@ function buildInstallCommand(tag, installDir, mode = 'Express') {
   const releaseVersion = readReleaseVersion();
   const releaseTag = releaseVersion ? `v${releaseVersion}` : '';
   const targetTag = cleanTag || releaseTag;
-  const remoteInstall = `https://raw.githubusercontent.com/MarcValls/BAGO/${encodeURIComponent(targetTag)}/install-remote.ps1`;
-  return [
-    '$s = Join-Path $env:TEMP \'install-remote.ps1\'',
-    `Invoke-WebRequest -Uri '${remoteInstall}' -OutFile $s -UseBasicParsing`,
+  const bundledInstall = path.join(
+    process.resourcesPath || ROOT_DIR,
+    'app.asar.unpacked',
+    'install-remote.ps1'
+  );
+  const fallbackInstall = path.join(ROOT_DIR, 'install-remote.ps1');
+  const installScript = exists(bundledInstall) ? bundledInstall : fallbackInstall;
+  return psEncoded([
+    `$s = ${psSingle(installScript)}`,
     `& $s -Tag ${psSingle(targetTag)} -InstallDir ${psSingle(cleanDir)} -Mode ${psSingle(cleanMode)}`
-  ].join('; ');
+  ].join('; '));
 }
 
 function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', mode = 'Express') {
@@ -394,6 +399,13 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   buildRoleCommand,
   installAction: (payload) => ipcRenderer.invoke('bago:install-action', payload || {}),
   managerHealth: () => ipcRenderer.invoke('bago:manager-health'),
+  runInstallPreflight: (payload) => ipcRenderer.invoke('bago:install-preflight', payload || {}),
+  getManagerUrl: () => ipcRenderer.invoke('bago:manager-url'),
+  getInstallState: () => ipcRenderer.invoke('bago:install-state-get'),
+  onInstallState: (callback) => {
+    if (typeof callback !== 'function') return;
+    ipcRenderer.on('bago:install-state', (_event, state) => callback(state));
+  },
   runSessionCommand: (args) => ipcRenderer.invoke('bago:session-cmd', Array.isArray(args) ? args.map(String) : []),
   listReleaseJobs: () => ipcRenderer.invoke('bago:release-jobs-list'),
   preflightRelease: (payload) => ipcRenderer.invoke('bago:release-job-preflight', payload || {}),
