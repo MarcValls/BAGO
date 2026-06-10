@@ -47,23 +47,35 @@ def _load_state(base_path: str | Path) -> tuple[RegistryPaths, dict[str, Any]]:
     if not pieces:
         from bago_core.node_control_store import load_default_piece_catalog
         pieces = load_default_piece_catalog()
-        json_write(paths.pieces, pieces)
+        try:
+            json_write(paths.pieces, pieces)
+        except PermissionError:
+            pass
     piece_inventory = materialize_piece_store(pieces)
 
     if not installations:
         installations = discover_installations(base_path)
-        json_write(paths.installations, installations)
+        try:
+            json_write(paths.installations, installations)
+        except PermissionError:
+            pass
 
     connectors = json_read(paths.connectors, [])
     if not connectors:
         from bago_core.node_control_store import now as _now
         connectors = build_connectors(installations, pieces, _now)
-        json_write(paths.connectors, connectors)
+        try:
+            json_write(paths.connectors, connectors)
+        except PermissionError:
+            pass
 
     compatibility = json_read(paths.compatibility, [])
     if not compatibility:
         compatibility = build_compatibility(connectors)
-        json_write(paths.compatibility, compatibility)
+        try:
+            json_write(paths.compatibility, compatibility)
+        except PermissionError:
+            pass
 
     state = {
         "installations": installations,
@@ -92,7 +104,6 @@ def refresh_compatibility(state: dict[str, Any]) -> None:
 
 def bootstrap(base_path: str | Path) -> dict[str, Any]:
     paths, state = _load_state(base_path)
-    _persist_state(paths, state)
     return {"paths": paths, "state": state}
 
 

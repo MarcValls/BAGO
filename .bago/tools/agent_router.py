@@ -60,7 +60,7 @@ configure_paths()
 
 def load_policy() -> dict:
     default = {
-        'default_agent': 'copilot',
+        'default_agent': 'ollama',
         'prefer_local': True,
         'model_preferences': {
             'ollama': 'qwen2.5-coder:7b',
@@ -172,11 +172,11 @@ def _fallback_route(task: str, available: dict[str, dict], policy: dict) -> str:
         scores['copilot'] += int(signals['gh_hits']) * 12
     best_score = max(scores.values()) if scores else 0
     best = [agent_id for agent_id, score in scores.items() if score == best_score]
-    priority = ['copilot', 'codex', 'ollama']
+    priority = ['ollama', 'codex', 'copilot']
     for agent_id in priority:
         if agent_id in best:
             return agent_id
-    return next(iter(available.keys()), policy.get('default_agent', 'copilot'))
+    return next(iter(available.keys()), policy.get('default_agent', 'ollama'))
 
 
 def _record_route(route: dict) -> None:
@@ -208,7 +208,7 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
     # ─────────────────────────────────────────────────────────────────────────
 
     if not available:
-        agent_id = policy.get('default_agent', 'copilot')
+        agent_id = policy.get('default_agent', 'ollama')
         result = {'agent': agent_id, 'model': policy.get('model_preferences', {}).get(agent_id, ''), 'reason': 'default-no-agents', 'task': task, 'timestamp': timestamp_iso()}
         if brief_id:
             result['brief_id'] = brief_id
@@ -261,7 +261,7 @@ def _run_tests() -> int:
     old_host = os.environ.get('OLLAMA_HOST')
     try:
         configure_paths(str(scratch))
-        save_json(ROUTER_POLICY, {'default_agent': 'copilot', 'prefer_local': True})
+        save_json(ROUTER_POLICY, {'default_agent': 'ollama', 'prefer_local': True})
         os.environ['OLLAMA_HOST'] = 'http://localhost:42424'
         agents = [
             {'id': 'ollama', 'available': True},
@@ -274,6 +274,7 @@ def _run_tests() -> int:
         try:
             globals()['_ollama_server_up'] = lambda url=None: False
             fallback = route_task('brainstorm offline notes', agents=agents, use_classifier=True)
+            no_agents = route_task('plain task', agents=[], use_classifier=False)
         finally:
             globals()['_ollama_server_up'] = original_up
         out = io.StringIO()
@@ -286,6 +287,7 @@ def _run_tests() -> int:
             ('route_has_agent', isinstance(route, dict) and route.get('agent') == 'codex', 'route_task returns dict with agent key'),
             ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
             ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
+            ('default_local_when_empty', no_agents.get('agent') == 'ollama', 'no agents defaults to local-first policy'),
             ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
         ]
         return print_test_results(results)

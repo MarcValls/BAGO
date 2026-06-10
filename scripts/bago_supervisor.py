@@ -130,12 +130,42 @@ def _release_lock() -> None:
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+def _windows_no_window_kwargs() -> dict[str, Any]:
+    if sys.platform != "win32":
+        return {}
+    flags = 0
+    for name in ("CREATE_NO_WINDOW", "DETACHED_PROCESS", "CREATE_NEW_PROCESS_GROUP"):
+        flags |= int(getattr(subprocess, name, 0) or 0)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 1)
+    startupinfo.wShowWindow = 0
+    return {
+        "creationflags": flags,
+        "startupinfo": startupinfo,
+    }
+
+def _run_hidden(args: list[str], **kwargs):
+    opts = dict(kwargs)
+    if sys.platform == "win32":
+        command = str(args[0]).lower() if args else ""
+        if command in {"powershell", "powershell.exe"}:
+            args = list(args)
+            extras = ["-NoLogo", "-NonInteractive", "-WindowStyle", "Hidden"]
+            for item in reversed(extras):
+                if item not in args:
+                    args.insert(1 if args else 0, item)
+        opts.update(_windows_no_window_kwargs())
+        if opts.get("text") or opts.get("universal_newlines") or opts.get("capture_output"):
+            opts.setdefault("encoding", "utf-8")
+            opts.setdefault("errors", "replace")
+    return subprocess.run(args, **opts)
+
 def _pid_alive(pid: int) -> bool:
     if pid <= 0 or pid == os.getpid():
         return False
     try:
         if sys.platform == "win32":
-            out = subprocess.run(
+            out = _run_hidden(
                 ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
                 capture_output=True, text=True, timeout=5
             )
@@ -162,7 +192,7 @@ def _list_bago_children() -> list[dict[str, Any]]:
     if sys.platform != "win32":
         return []
     try:
-        ps = subprocess.run(
+        ps = _run_hidden(
             ["powershell", "-NoProfile", "-Command",
              "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" "
              "| Select-Object ProcessId,CommandLine "
@@ -197,14 +227,14 @@ def _ram_pct(pid: int) -> float | None:
     if sys.platform != "win32":
         return None
     try:
-        ps = subprocess.run(
+        ps = _run_hidden(
             ["powershell", "-NoProfile", "-Command",
              f"(Get-Process -Id {pid} -ErrorAction SilentlyContinue)"
              f"|Select-Object -ExpandProperty WorkingSet64"],
             capture_output=True, text=True, timeout=5
         )
         used = int(ps.stdout.strip() or 0)
-        total = int(subprocess.run(
+        total = int(_run_hidden(
             ["powershell", "-NoProfile", "-Command",
              "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"],
             capture_output=True, text=True, timeout=5
@@ -233,7 +263,7 @@ def _time_wait_count(port: int) -> int | None:
     if sys.platform != "win32":
         return None
     try:
-        ps = subprocess.run(
+        ps = _run_hidden(
             ["powershell", "-NoProfile", "-Command",
              f"Get-NetTCPConnection -LocalPort {port} -State TimeWait -ErrorAction SilentlyContinue "
              f"| Measure-Object | Select-Object -ExpandProperty Count"],
@@ -258,8 +288,8 @@ def _graceful_kill(pid: int, why: str) -> None:
     _log("WARN", f"callejón: pid={pid} motivo={why} → SIGTERM")
     try:
         if sys.platform == "win32":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T"],
-                           capture_output=True, timeout=5)
+            _run_hidden(["taskkill", "/PID", str(pid), "/T"],
+                        capture_output=True, timeout=5)
         else:
             os.kill(pid, signal.SIGTERM)
     except OSError:
@@ -271,8 +301,8 @@ def _graceful_kill(pid: int, why: str) -> None:
         _log("ERROR", f"pid={pid} ignoró SIGTERM {GRACEFUL_TERM_WAIT_S}s → SIGKILL")
         try:
             if sys.platform == "win32":
-                subprocess.run(["taskkill", "/PID", str(pid), "/F", "/T"],
-                               capture_output=True, timeout=5)
+                _run_hidden(["taskkill", "/PID", str(pid), "/F", "/T"],
+                            capture_output=True, timeout=5)
             else:
                 os.kill(pid, signal.SIGKILL)
         except OSError:
@@ -300,7 +330,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     if sys.platform == "win32":
         DETACHED = 0x00000008
         NEW_PG   = 0x00000200
-        flags = DETACHED | NEW_PG
+        flags = DETACHED | NEW_PG | int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
         p = subprocess.Popen(
             [sys.executable, str(script), "--loop"],
             stdin=subprocess.DEVNULL,

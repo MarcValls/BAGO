@@ -13,7 +13,7 @@
 | Alcance | `stable` / `des` / `ign` |
 | UI | `manager/index.html` + capturas de CLI/UI |
 | Validación | `validate`, `tests\test_security_release.py`, `tests\test_e2e.py`, `publish_release.py --test` |
-| Artefactos | `dist\BAGO-Installation-Manager-4.5.0-win-x64.exe`, `dist\bago-v4.5.0.zip` |
+| Artefactos | `dist\BAGO-Installation-Manager-4.5.2-win-x64.exe`, `dist\bago-v4.5.2.zip` |
 
 ### Contenido de esta edición
 

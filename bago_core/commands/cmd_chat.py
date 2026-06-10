@@ -123,6 +123,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
     provider = getattr(args, "provider", "unknown") or "unknown"
     model = getattr(args, "model", "unknown") or "unknown"
+    startup_prompt = getattr(args, "command", "") in {"start", "launch"}
 
     # Registrar sesion LLM en state/ para que el monitor la vea
     bridges = list(getattr(args, "active_bridges", None) or getattr(args, "llm_bridges", None) or [])
@@ -138,6 +139,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
         system_prompt=get_system_prompt(),
         base_path=args.base_path,
         active_bridges=bridges,
+        startup_prompt=startup_prompt,
     )
     repl.run()
     return 0

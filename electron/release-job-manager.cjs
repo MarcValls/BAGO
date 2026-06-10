@@ -50,7 +50,14 @@ function isInside(candidate, parent) {
 
 function assetContract(release) {
   const assets = Array.isArray(release && release.assets) ? release.assets : [];
-  const bundles = assets.filter(asset => /\.zip$/i.test(asset.name || '') && !/\.sha256$/i.test(asset.name || ''));
+  const bundles = assets
+    .filter(asset => /\.zip$/i.test(asset.name || '') && !/\.sha256$/i.test(asset.name || ''))
+    .sort((a, b) => {
+      const aIsRuntime = /^bago-v/i.test(String(a.name || ''));
+      const bIsRuntime = /^bago-v/i.test(String(b.name || ''));
+      if (aIsRuntime !== bIsRuntime) return aIsRuntime ? -1 : 1;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
   const exactChecksum = bundle => assets.find(
     asset => String(asset.name || '').toLowerCase() === `${bundle.name}.sha256`.toLowerCase()
   ) || null;

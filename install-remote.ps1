@@ -62,7 +62,13 @@ function Get-TaggedRelease {
 function Get-PairedBundle {
     param([Parameter(Mandatory = $true)]$Release)
     $assets = @($Release.assets)
-    foreach ($bundle in @($assets | Where-Object { $_.name -like "*.zip" -and $_.name -notlike "*.sha256" })) {
+    $bundles = @($assets | Where-Object { $_.name -like "*.zip" -and $_.name -notlike "*.sha256" })
+    $ordered = @($bundles | Sort-Object `
+        @{ Expression = { if ([string]$_.name -match '^bago-v') { 0 } else { 1 } } }, `
+        @{ Expression = { try { [datetime]$_.updated_at } catch { [datetime]::MinValue } }; Descending = $true }, `
+        @{ Expression = { try { [datetime]$_.created_at } catch { [datetime]::MinValue } }; Descending = $true }, `
+        @{ Expression = { [string]$_.name } })
+    foreach ($bundle in $ordered) {
         $checksumName = ([string]$bundle.name) + ".sha256"
         $checksum = $assets | Where-Object { ([string]$_.name).ToLowerInvariant() -eq $checksumName.ToLowerInvariant() } | Select-Object -First 1
         if ($checksum) {

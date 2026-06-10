@@ -92,8 +92,12 @@ function pmPrereleases(){return releaseItems.filter(rel=>rel.prerelease);}
 function pmReleaseContract(rel){
   const assets=Array.isArray(rel&&rel.assets)?rel.assets:[];
   const bundles=assets.filter(asset=>/\.zip$/i.test(asset.name||'')&&!/\.sha256$/i.test(asset.name||''));
+  const ordered=[
+    ...bundles.filter(asset=>/^bago-v/i.test(String(asset.name||''))),
+    ...bundles.filter(asset=>!/^bago-v/i.test(String(asset.name||'')))
+  ];
   const exactChecksum=bundle=>assets.find(asset=>String(asset.name||'').toLowerCase()===(bundle.name+'.sha256').toLowerCase())||null;
-  const bundle=bundles.find(item=>exactChecksum(item))||bundles[0]||null;
+  const bundle=ordered.find(item=>exactChecksum(item))||ordered[0]||null;
   const checksum=bundle&&exactChecksum(bundle)||null;
   const manager=assets.find(asset=>/BAGO-Installation-Manager.*\.exe$/i.test(asset.name||''))||null;
   const warnings=[];

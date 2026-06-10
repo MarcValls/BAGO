@@ -16,9 +16,16 @@ async function loadLatestRelease(){
   }
 }
 
-function latestZipAsset(){
-  if(!latestRelease||!Array.isArray(latestRelease.assets))return null;
-  return latestRelease.assets.find(a=>/\.zip$/i.test(a.name||''))||null;
+function latestZipAsset(release=latestRelease){
+  if(!release||!Array.isArray(release.assets))return null;
+  const assets=release.assets;
+  const bundles=assets.filter(a=>/\.zip$/i.test(a.name||'')&&!/\.sha256$/i.test(a.name||''));
+  const ordered=[
+    ...bundles.filter(a=>/^bago-v/i.test(String(a.name||''))),
+    ...bundles.filter(a=>!/^bago-v/i.test(String(a.name||'')))
+  ];
+  const exactChecksum=bundle=>assets.find(a=>String(a.name||'').toLowerCase()===(String(bundle.name||'')+'.sha256').toLowerCase())||null;
+  return ordered.find(item=>exactChecksum(item))||ordered[0]||null;
 }
 
 function psSingle(s){return "'"+String(s||'').replace(/'/g,"''")+"'";}
@@ -208,7 +215,7 @@ function renderReleaseList(){
     ? `Detectadas ${total} release(s) en GitHub · ${beta} beta(s) · la mas reciente es ${latestRelease ? latestRelease.tag_name : 'n/a'}`
     : 'No se pudieron cargar releases desde GitHub.';
   releaseList.innerHTML = releaseItems.map(rel=>{
-    const asset = (Array.isArray(rel.assets) ? rel.assets.find(a=>/\.zip$/i.test(a.name||'')) : null) || {};
+    const asset = latestZipAsset(rel) || {};
     const betaBadge = rel.prerelease ? '<span class="badge badge-warn">beta</span>' : '<span class="badge badge-on">release</span>';
     const dateText = rel.published_at ? new Date(rel.published_at).toLocaleString() : 'fecha desconocida';
     const target = document.getElementById('target-install-path')?.value || 'C:\\Program Files\\BAGO';
