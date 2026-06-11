@@ -1,12 +1,15 @@
 {
   "name": "bago-installation-manager",
-  "version": "4.5.1",
+  "version": "4.6.0",
   "private": true,
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
   "author": "BAGO",
   "license": "UNLICENSED",
   "scripts": {
+    "manager:build-ui": "npm --prefix ui-react run build",
+    "premanager:pack": "npm run manager:build-ui",
+    "premanager:dist": "npm run manager:build-ui",
     "manager:dev": "electron .",
     "manager:pack": "electron-builder --dir",
     "manager:dist": "electron-builder --win nsis",
@@ -24,6 +27,7 @@
       "scripts/**/*",
       "tools/**/*",
       "docs/**/*",
+      "ui-react/dist/**/*",
       "install-v4.ps1",
       "install-remote.ps1",
       "bago.ps1",
@@ -47,6 +51,7 @@
       "docs/**/*",
       "scripts/**/*",
       "tools/**/*",
+      "ui-react/dist/**/*",
       "install-v4.ps1",
       "install-remote.ps1",
       "bago.ps1",
@@ -80,6 +85,7 @@
   },
   "devDependencies": {
     "electron": "42.3.0",
-    "electron-builder": "26.8.1"
+    "electron-builder": "26.8.1",
+    "playwright": "^1.60.0"
   }
 }

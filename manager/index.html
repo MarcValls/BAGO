@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; frame-src http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
 <title>BAGO · Gestor de Instalaciones</title>
-<link rel="icon" href="../assets/bago-wasp.svg">
+<link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="styles/legacy.css">
 <link rel="stylesheet" href="styles/patch.css">
 </head>
@@ -12,10 +13,11 @@
 <div class="pm-app" id="pm-app">
   <aside class="pm-sidebar">
     <div class="pm-brand">
-      <img src="../assets/bago-wasp.svg" alt="BAGO">
+      <img src="../assets/logo.png" alt="BAGO">
       <div><strong>BAGO Patch Manager</strong><span>Installation → Connector → Piece</span></div>
     </div>
     <nav class="pm-nav" aria-label="Gestor">
+      <button class="pm-nav-bago" data-pm-view="bago"><span class="pm-icon">B</span>BAGO Chat</button>
       <button class="active" data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
       <button data-pm-view="installations"><span class="pm-icon">▣</span>Instalaciones</button>
       <button data-pm-view="matrix"><span class="pm-icon">▦</span>Matriz</button>
@@ -23,6 +25,7 @@
       <button data-pm-view="releases"><span class="pm-icon">⇧</span>Releases</button>
       <button data-pm-view="jobs"><span class="pm-icon">≡</span>Trabajos</button>
       <button data-pm-view="sessions"><span class="pm-icon">◎</span>Sesiones</button>
+      <button data-pm-view="system"><span class="pm-icon">◉</span>Sistema</button>
       <button data-pm-view="health"><span class="pm-icon">+</span>Salud</button>
       <button data-pm-view="audit"><span class="pm-icon">☷</span>Auditoría</button>
     </nav>
@@ -43,29 +46,77 @@
           <option>connected</option><option>shadow</option><option>locked</option>
           <option>read-only</option><option>writable overlay</option><option>detached</option>
         </select>
-        <button class="pm-btn primary" id="pm-refresh">↻ Actualizar</button>
+        <button class="pm-btn primary" id="pm-open-web-chat" title="Abrir BAGO en modo web chat">🚀 Abrir BAGO Web</button>
+        <button class="pm-btn" id="pm-open-cli-chat" title="Abrir BAGO en terminal CLI">🖥️ Abrir BAGO CLI</button>
+        <button class="pm-btn" id="pm-refresh">↻ Actualizar</button>
       </div>
     </header>
 
+    <section class="pm-view" id="pm-view-bago">
+      <div class="pm-bago-wrap">
+        <div class="pm-bago-status" id="pm-bago-status">
+          <span class="pm-bago-icon">B</span>
+          <p>Selecciona esta pestaña para abrir BAGO Chat.</p>
+        </div>
+        <iframe id="pm-bago-frame" class="pm-bago-frame" title="BAGO Chat" style="display:none" allow="clipboard-read; clipboard-write"></iframe>
+      </div>
+    </section>
+
     <section class="pm-view active" id="pm-view-patch">
       <div class="pm-grid pm-stats" id="pm-stats"></div>
-      <div class="pm-grid pm-patch-layout">
-        <article class="pm-panel">
+      <div class="pm-grid pm-patch-layout" id="pm-patch-layout">
+        <article class="pm-panel" id="pm-patch-panel">
           <div class="pm-panel-head">
             <div><h2>Patch Bay</h2><p id="pm-patch-caption">Selecciona una instalación</p></div>
-            <div class="pm-actions"><select class="pm-select" id="pm-install-filter"></select><button class="pm-btn" id="pm-reset-layout">Centrar</button></div>
+            <div class="pm-actions"><select class="pm-select" id="pm-patch-surface"><option value="connectors">Connectors</option><option value="chain">Cadena</option></select><select class="pm-select" id="pm-patch-chain" hidden></select><select class="pm-select" id="pm-install-filter"></select><button class="pm-btn" id="pm-patch-add-node" data-pm-chain-only hidden>+ Nodo</button><button class="pm-btn" id="pm-patch-add-stage" data-pm-chain-only hidden>+ Etapa</button><button class="pm-btn primary" id="pm-patch-save-chain" data-pm-chain-only hidden>Guardar</button><button class="pm-btn" id="pm-reset-layout">Centrar</button><button class="pm-btn" id="pm-patch-fullscreen">Pantalla completa</button></div>
           </div>
           <div class="pm-patch-wrap"><div class="pm-stage" id="pm-stage"></div></div>
         </article>
-        <aside class="pm-panel pm-detail"><div class="pm-panel-head"><h2>Connector</h2></div><div class="pm-detail-body" id="pm-detail"></div></aside>
+        <aside class="pm-panel pm-detail" id="pm-patch-detail"><div class="pm-panel-head"><h2 id="pm-detail-title">Connector</h2></div><div class="pm-detail-body" id="pm-detail"></div></aside>
+        <datalist id="pm-chain-ref-options"></datalist>
       </div>
     </section>
 
     <section class="pm-view" id="pm-view-installations">
+      <div class="pm-hero" id="pm-hero-bago-ready" style="display:none;background:#052e16;border:1px solid #166534;border-radius:8px;padding:16px 20px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <strong style="color:#86efac;font-size:14px;">✅ BAGO está instalado y listo</strong>
+            <p style="margin:4px 0 0;color:#a7f3d0;font-size:12px;">Selecciona cómo quieres usarlo:</p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="pm-btn primary" id="pm-hero-open-web" style="height:38px;font-size:13px;">🚀 Abrir BAGO Web Chat</button>
+            <button class="pm-btn" id="pm-hero-open-cli" style="height:38px;font-size:13px;">🖥️ Abrir BAGO Terminal</button>
+          </div>
+        </div>
+      </div>
       <article class="pm-panel"><div class="pm-panel-head"><div><h2>Instalaciones detectadas</h2><p>Estado local, rol, versión y acciones</p></div><button class="pm-btn" id="pm-scan-manual">+ Ruta manual</button></div><div class="pm-list" id="pm-installations-list"></div></article>
     </section>
     <section class="pm-view" id="pm-view-matrix">
-      <article class="pm-panel"><div class="pm-panel-head"><div><h2>Matriz Installation × Piece</h2><p>Click en una celda para abrir el connector</p></div></div><div class="pm-matrix-wrap" id="pm-matrix"></div></article>
+      <article class="pm-panel">
+        <div class="pm-panel-head">
+          <div><h2>Matriz Installation × Piece</h2><p>Ordena, transpone y abre connectors desde cualquier celda</p></div>
+          <div class="pm-actions">
+            <select class="pm-select" id="pm-matrix-piece-sort" title="Orden de piezas"><option value="type">Piezas: tipo</option><option value="id">Piezas: id</option><option value="scope">Piezas: scope</option><option value="refs">Piezas: referencias</option></select>
+            <select class="pm-select" id="pm-matrix-install-sort" title="Orden de instalaciones"><option value="profile">Instalaciones: perfil</option><option value="name">Instalaciones: nombre</option><option value="mode">Instalaciones: modo</option></select>
+            <select class="pm-select" id="pm-matrix-direction" title="Dirección"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+            <button class="pm-btn" id="pm-matrix-transpose">Transponer</button>
+          </div>
+        </div>
+        <div class="pm-matrix-wrap" id="pm-matrix"></div>
+      </article>
+      <article class="pm-panel">
+        <div class="pm-panel-head">
+          <div><h2>Cadenas de ejecución</h2><p id="pm-chain-caption">Diseña configuraciones en serie, paralelo, mixtas o atómicas</p></div>
+          <div class="pm-actions"><select class="pm-select" id="pm-chain-select"></select><button class="pm-btn" id="pm-chain-new">Nueva</button><button class="pm-btn primary" id="pm-chain-save">Guardar</button><button class="pm-btn danger" id="pm-chain-delete">Eliminar</button></div>
+        </div>
+        <div class="pm-chain-config">
+          <label>Nombre<input class="pm-input" id="pm-chain-name" placeholder="Nombre de la cadena"></label>
+          <label>Modo<select class="pm-select" id="pm-chain-mode"><option value="serial">Serie</option><option value="parallel">Paralelo</option><option value="mixed">Mixto</option><option value="atomic">Atómico</option></select></label>
+          <button class="pm-btn" id="pm-chain-add-stage">+ Etapa</button>
+        </div>
+        <div class="pm-chain-track-wrap"><div class="pm-chain-track" id="pm-chain-track"></div></div>
+      </article>
     </section>
     <section class="pm-view" id="pm-view-pieces">
       <article class="pm-panel"><div class="pm-panel-head"><div><h2>PieceStore</h2><p>Catálogo, materialización y referencias</p></div></div><div class="pm-piece-grid" id="pm-pieces"></div></article>
@@ -77,6 +128,25 @@
       <div class="pm-grid pm-jobs-layout">
         <article class="pm-panel"><div class="pm-panel-head"><div><h2>Trabajos de release</h2><p id="pm-jobs-caption">Descargas, verificación, instalación y rollback</p></div><button class="pm-btn" id="pm-jobs-refresh">Actualizar</button></div><div class="pm-release-summary" id="pm-jobs-summary"></div><div class="pm-jobs-list" id="pm-jobs"></div></article>
         <article class="pm-panel"><div class="pm-panel-head"><div><h2>Log del trabajo</h2><p id="pm-job-log-caption">Selecciona un trabajo</p></div></div><div class="pm-job-log" id="pm-job-log"></div></article>
+      </div>
+    </section>
+    <section class="pm-view" id="pm-view-system">
+      <div class="pm-grid pm-system-layout">
+        <article class="pm-panel">
+          <div class="pm-panel-head">
+            <div><h2>Estado del supervisor</h2><p id="pm-system-caption">Cargando...</p></div>
+            <div class="pm-actions">
+              <button class="pm-btn" id="pm-system-refresh">↻ Actualizar</button>
+              <button class="pm-btn primary" id="pm-supervisor-restart">⟳ Reiniciar supervisor</button>
+              <button class="pm-btn danger" id="pm-zombie-cleanup">✕ Limpiar zombies</button>
+            </div>
+          </div>
+          <div class="pm-system-list" id="pm-system-status"></div>
+        </article>
+        <article class="pm-panel">
+          <div class="pm-panel-head"><div><h2>Health checks del Manager</h2><p>Runtime, Python, Git, Ollama, Node/Electron</p></div></div>
+          <div class="pm-system-list" id="pm-system-health"></div>
+        </article>
       </div>
     </section>
     <section class="pm-view" id="pm-view-health">
@@ -127,9 +197,9 @@
 </dialog>
 <header>
   <div class="wrap">
-    <img src="../assets/bago-wasp.svg" width="32" height="32" alt="BAGO avispa" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
+    <img src="../assets/logo.png" width="32" height="32" alt="BAGO logo" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · v4.3.0</span>
+    <span class="meta">standalone · offline · <span id="bago-version-meta">v4.6.0</span></span>
   </div>
 </header>
 <main>
@@ -220,14 +290,18 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · v4.3.0 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · <span id="bago-version-footer">v4.6.0</span> · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script src="js/core.js"></script>
 <script src="js/node-control.js"></script>
 <script src="js/legacy-manager.js"></script>
 <script src="js/patch-manager.js"></script>
+<script src="js/chain-manager.js"></script>
 <script src="js/session-manager.js"></script>
+<script src="js/system-status.js"></script>
 <script src="js/bootstrap.js"></script>
+<script src="js/bago-chat.js"></script>
+<script src="js/install-banner.js"></script>
 </body>
 </html>

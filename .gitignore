@@ -28,6 +28,9 @@ ui-react/dist/
 ui-react/.vite/
 *.node
 
+# ── Instalaciones de BAGO gestionadas por el Manager (runtime, no fuente) ───────
+installations/
+
 # ── Binarios de build ───────────────────────────────────────────────────────────
 esbuild.exe
 *.exe
@@ -61,3 +64,5 @@ docs/repl_capture*.txt
 docs/terminal_captures.txt
 PLAN_VERTICE/
 SIGUIENTE.txt
+.vercel
+.env*

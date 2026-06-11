@@ -14,15 +14,29 @@ function readTextClipboard(){
   if(navigator.clipboard&&navigator.clipboard.readText)return navigator.clipboard.readText();
   return Promise.reject(new Error('Clipboard API no disponible'));
 }
-function canRunCommands(){const api=electronApi();return !!(api&&api.runCommand);}
-async function runCommand(t){
+function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');showToast('comando copiado',true);}catch(e){showToast('no se pudo copiar',false);}document.body.removeChild(ta);}
+async function openWebChat(){
+  // Navegar al tab BAGO dentro del gestor en lugar de abrir ventana separada
+  const btn = document.querySelector('[data-pm-view="bago"]');
+  if(btn){btn.click();return;}
+  // Fallback si el tab no existe (contexto externo)
   const api=electronApi();
-  if(!api||!api.runCommand){showToast('ejecución directa solo disponible en Electron',false);return;}
+  if(!api||!api.openWebChat){showToast('chat web solo disponible en Electron',false);return;}
   try{
-    const result=await api.runCommand(t);
-    showToast('comando lanzado en PowerShell'+(result&&result.pid?' · pid '+result.pid:''),true);
+    const result=await api.openWebChat({});
+    showToast('chat web abierto'+(result&&result.port?' · puerto '+result.port:''),true);
   }catch(e){
-    showToast('no se pudo ejecutar: '+e.message,false);
+    showToast('chat web: '+e.message,false);
+  }
+}
+async function openCliChat(){
+  const api=electronApi();
+  if(!api||!api.openCliChat){showToast('chat CLI solo disponible en Electron',false);return;}
+  try{
+    const result=await api.openCliChat({});
+    showToast('chat CLI lanzado'+(result&&result.pid?' · pid '+result.pid:''),true);
+  }catch(e){
+    showToast('chat CLI: '+e.message,false);
   }
 }
 function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');showToast('comando copiado',true);}catch(e){showToast('no se pudo copiar',false);}document.body.removeChild(ta);}
