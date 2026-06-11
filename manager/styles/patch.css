@@ -3,6 +3,19 @@
   body>header,body>main,body>footer{display:none;}
   .pm-app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr);background:#080b12;color:#e6edf7;}
   .pm-sidebar{position:sticky;top:0;height:100vh;border-right:1px solid #263143;background:#0b1019;padding:16px 12px;display:flex;flex-direction:column;gap:14px;}
+
+  /* BAGO Chat tab — pestaña especial en el nav del gestor */
+  .pm-nav-bago{border-top:1px solid #263143;margin-top:4px;padding-top:13px !important;}
+  .pm-nav-bago .pm-icon{color:#22d3ee;font-weight:800;font-size:15px;}
+  .pm-nav-bago.active{background:#0e3a52 !important;color:#67e8f9 !important;box-shadow:inset 3px 0 #06b6d4 !important;}
+  .pm-nav-bago:hover{color:#67e8f9 !important;}
+
+  /* BAGO Chat view */
+  #pm-view-bago.active{display:flex;flex-direction:column;}
+  .pm-bago-wrap{display:flex;flex-direction:column;height:calc(100vh - 110px);border:1px solid #263143;border-radius:8px;background:#0b1019;overflow:hidden;}
+  .pm-bago-frame{flex:1;min-height:0;width:100%;border:none;}
+  .pm-bago-status{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#8190a7;font-size:13px;padding:32px;text-align:center;}
+  .pm-bago-icon{font-size:36px;line-height:1;color:#22d3ee;font-weight:800;}
   .pm-brand{display:flex;align-items:center;gap:10px;padding:4px 6px 16px;border-bottom:1px solid #263143;}
   .pm-brand img{width:34px;height:34px;}
   .pm-brand strong{display:block;font-size:14px;}

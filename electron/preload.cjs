@@ -231,8 +231,25 @@ function classifyInstall(root, mode, description, selection = readInstallSelecti
 function scanInstallations(extraPaths = []) {
   const pf = process.env.ProgramFiles || 'C:\\Program Files';
   const home = process.env.USERPROFILE || os.homedir();
+  const installsRoot = process.env.BAGO_INSTALLS_ROOT || '';
   const selection = readInstallSelection();
+
+  // Instalaciones gestionadas por el Manager (tienen prioridad)
+  const managed = [];
+  if (installsRoot) {
+    try {
+      fs.readdirSync(installsRoot, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .forEach(d => managed.push([
+          path.join(installsRoot, d.name),
+          'managed',
+          `Gestionada por Manager: ${d.name}`
+        ]));
+    } catch {}
+  }
+
   const known = [
+    ...managed,
     [path.join(pf, 'BAGO'), 'system', 'Instalación de sistema'],
     [path.join(home, '.bago'), 'user', 'User root (default work)'],
     [path.join(home, '.bago', 'active'), 'work', 'Active / work'],
@@ -401,6 +418,8 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   managerHealth: () => ipcRenderer.invoke('bago:manager-health'),
   runInstallPreflight: (payload) => ipcRenderer.invoke('bago:install-preflight', payload || {}),
   getManagerUrl: () => ipcRenderer.invoke('bago:manager-url'),
+  getChatUrl: () => ipcRenderer.invoke('bago:get-chat-url'),
+  getInstallsRoot: () => ipcRenderer.invoke('bago:get-installs-root'),
   getInstallState: () => ipcRenderer.invoke('bago:install-state-get'),
   onInstallState: (callback) => {
     if (typeof callback !== 'function') return;

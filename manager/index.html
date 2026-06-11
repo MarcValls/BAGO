@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; frame-src http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
 <title>BAGO · Gestor de Instalaciones</title>
 <link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="styles/legacy.css">
@@ -17,6 +17,7 @@
       <div><strong>BAGO Patch Manager</strong><span>Installation → Connector → Piece</span></div>
     </div>
     <nav class="pm-nav" aria-label="Gestor">
+      <button class="pm-nav-bago" data-pm-view="bago"><span class="pm-icon">B</span>BAGO Chat</button>
       <button class="active" data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
       <button data-pm-view="installations"><span class="pm-icon">▣</span>Instalaciones</button>
       <button data-pm-view="matrix"><span class="pm-icon">▦</span>Matriz</button>
@@ -50,6 +51,16 @@
         <button class="pm-btn" id="pm-refresh">↻ Actualizar</button>
       </div>
     </header>
+
+    <section class="pm-view" id="pm-view-bago">
+      <div class="pm-bago-wrap">
+        <div class="pm-bago-status" id="pm-bago-status">
+          <span class="pm-bago-icon">B</span>
+          <p>Selecciona esta pestaña para abrir BAGO Chat.</p>
+        </div>
+        <iframe id="pm-bago-frame" class="pm-bago-frame" title="BAGO Chat" style="display:none" allow="clipboard-read; clipboard-write"></iframe>
+      </div>
+    </section>
 
     <section class="pm-view active" id="pm-view-patch">
       <div class="pm-grid pm-stats" id="pm-stats"></div>
@@ -290,6 +301,7 @@
 <script src="js/session-manager.js"></script>
 <script src="js/system-status.js"></script>
 <script src="js/bootstrap.js"></script>
+<script src="js/bago-chat.js"></script>
 <script src="js/install-banner.js"></script>
 </body>
 </html>

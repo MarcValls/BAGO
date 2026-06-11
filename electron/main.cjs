@@ -11,6 +11,14 @@ const DEV_PACKAGED_RUNTIME_ROOT = path.join(ROOT_DIR, 'dist', 'win-unpacked', 'r
 const MANAGER_HTML = path.join(ROOT_DIR, 'manager', 'index.html');
 const ICON_PATH = path.join(ROOT_DIR, 'bago.ico');
 const PRELOAD_PATH = path.join(__dirname, 'preload.cjs');
+
+// Directorio raíz donde el Manager guarda todas las instalaciones de BAGO.
+// En producción: junto al .exe del Manager (persiste entre actualizaciones del app).
+// En desarrollo: dentro del árbol de fuentes para no ensuciar el sistema.
+const INSTALLS_ROOT = app.isPackaged
+  ? path.join(path.dirname(app.getPath('exe')), 'installations')
+  : path.join(ROOT_DIR, 'installations');
+
 const MUTATING_NODE_COMMANDS = new Set(['connect', 'disconnect', 'set-mode']);
 const SMOKE_TEST = process.env.BAGO_MANAGER_SMOKE_TEST === '1';
 const CHAT_HOST = '127.0.0.1';
@@ -91,8 +99,21 @@ function resolveInstalledRuntimeRoot() {
   const localAppData = process.env.LOCALAPPDATA || (home ? path.join(home, 'AppData', 'Local') : '');
 
   const envOverride = process.env.BAGO_ROOT || '';
+
+  // Primero: escanear el directorio de instalaciones propio del Manager.
+  // Los BAGOs gestionados aquí tienen prioridad sobre instalaciones del sistema.
+  const managedInstalls = [];
+  try {
+    if (fs.existsSync(INSTALLS_ROOT)) {
+      fs.readdirSync(INSTALLS_ROOT, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .forEach(d => managedInstalls.push(path.join(INSTALLS_ROOT, d.name)));
+    }
+  } catch {}
+
   const candidates = [
     envOverride,
+    ...managedInstalls,
     path.join(programFiles, 'BAGO'),
     localAppData ? path.join(localAppData, 'BAGO') : '',
     home ? path.join(home, '.bago', 'active') : '',
@@ -153,30 +174,9 @@ function findPackagedRuntimeRoot() {
 let _defaultInstallDirCache = '';
 function defaultInstallDir() {
   if (_defaultInstallDirCache) return _defaultInstallDirCache;
-  if (process.platform !== 'win32') {
-    _defaultInstallDirCache = process.platform === 'darwin'
-      ? path.join(os.homedir(), 'Applications', 'BAGO')
-      : path.join(os.homedir(), '.local', 'share', 'bago');
-    return _defaultInstallDirCache;
-  }
-  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-  const isAdmin = (() => {
-    try {
-      // Electron exposes the underlying OS user info; for a fast check we
-      // try to write to a probe file in Program Files and clean up. This
-      // is wrapped in try/catch because the access policy on Program Files
-      // can be tightened by 3rd party security tools and we don't want a
-      // permission error to take the whole Manager down.
-      const probe = path.join(programFiles, '.bago-write-probe');
-      fs.writeFileSync(probe, 'ok');
-      fs.unlinkSync(probe);
-      return true;
-    } catch {
-      return false;
-    }
-  })();
-  _defaultInstallDirCache = isAdmin ? path.join(programFiles, 'BAGO') : path.join(localAppData, 'BAGO');
+  // Las instalaciones de BAGO viven dentro del Manager, en INSTALLS_ROOT/active.
+  // El Manager es la fuente de verdad; no se dispersan por %LOCALAPPDATA% ni Program Files.
+  _defaultInstallDirCache = path.join(INSTALLS_ROOT, 'active');
   return _defaultInstallDirCache;
 }
 
@@ -1130,7 +1130,7 @@ function createWindow() {
           && result.patch_chain_surface
           && result.patch_chain_inspector
           && result.release_preflight
-          && result.views >= 7
+          && result.views >= 8
           && result.duplicate_ids.length === 0
         );
         console.log(JSON.stringify({ manager_smoke: ok, ...result }));
@@ -1145,6 +1145,9 @@ function createWindow() {
 }
 
 app.setAppUserModelId('com.bago.installation-manager');
+
+// Propagar INSTALLS_ROOT al preload vía env var para que scanInstallations lo incluya
+process.env.BAGO_INSTALLS_ROOT = INSTALLS_ROOT;
 
 ipcMain.handle('bago:supervisor-cmd', (_event, args) => runSupervisorCmd(args));
 ipcMain.handle('bago:zombie-cleanup', () => cleanupZombies());
@@ -1161,7 +1164,15 @@ ipcMain.handle('bago:install-preflight', (_event, payload) => runInstallPrefligh
 // view. In a packaged build this is a local file:// path or an
 // http://127.0.0.1:<port> URL depending on the surface; the React app
 // must not assume a fixed dev port.
+ipcMain.handle('bago:get-installs-root', () => INSTALLS_ROOT);
 ipcMain.handle('bago:manager-url', () => getManagerUrl());
+// Tab BAGO dentro del manager: inicia el servidor web chat y devuelve la URL
+// sin abrir una BrowserWindow separada. La ventana del manager embebe el chat
+// como iframe dentro de su propia pestaña BAGO.
+ipcMain.handle('bago:get-chat-url', async () => {
+  const state = await ensureWebChatServer({});
+  return state.url;
+});
 ipcMain.handle('bago:install-action', async (_event, payload) => {
   const { action, targetDir, sourceRoot, branch } = payload || {};
   let packagedRoot = '';

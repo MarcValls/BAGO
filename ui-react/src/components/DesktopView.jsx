@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import ComposeBar from './ComposeBar'
+import SlashMenu from './SlashMenu'
+import { useManagerContext } from '../useManagerContext'
 
 function Message({ item }) {
   const role = item.role || 'system'
@@ -27,12 +30,36 @@ function ModelSelector({ control }) {
   )
 }
 
+function ManagerContextBar({ context }) {
+  if (!context?.view || context.view === 'bago') return null
+  return (
+    <div className="manager-context-bar">
+      <span className="context-label">Gestor activo</span>
+      <span className="context-view">{context.viewLabel || context.view}</span>
+      {context.installations != null && (
+        <span className="context-stat">{context.installations} instalaciones</span>
+      )}
+      {context.pieces != null && (
+        <span className="context-stat">{context.pieces} piezas</span>
+      )}
+    </div>
+  )
+}
+
 export default function DesktopView({ control }) {
+  const [showSlash, setShowSlash] = useState(false)
+  const managerContext = useManagerContext()
   const history = [...control.history].slice(-40)
   const hasHistory = history.length > 0
 
   return (
     <section className={`chat-view ${hasHistory ? 'has-history' : 'is-empty'}`}>
+      <ManagerContextBar context={managerContext} />
+
+      {showSlash && (
+        <SlashMenu control={control} menu={control.menu} context={managerContext} />
+      )}
+
       {hasHistory ? (
         <>
           <div className="conversation">
@@ -41,11 +68,12 @@ export default function DesktopView({ control }) {
           <div className="composer-dock">
             <ComposeBar
               busy={control.busy}
-              onSubmit={(value) => control.submit(value, 'desktop')}
+              onSubmit={(value) => { setShowSlash(false); control.submit(value, 'desktop') }}
               placeholder="Escribe un mensaje"
+              onSlash={() => setShowSlash(v => !v)}
               accessory={<ModelSelector control={control} />}
             />
-            <p className="composer-note">BAGO conserva la sesión y el contexto. Enter envía, Shift+Enter añade una línea.</p>
+            <p className="composer-note">Enter envía · Shift+Enter nueva línea · / para acciones rápidas</p>
           </div>
         </>
       ) : (
@@ -58,11 +86,12 @@ export default function DesktopView({ control }) {
           <div className="composer-dock">
             <ComposeBar
               busy={control.busy}
-              onSubmit={(value) => control.submit(value, 'desktop')}
+              onSubmit={(value) => { setShowSlash(false); control.submit(value, 'desktop') }}
               placeholder="Escribe un mensaje"
+              onSlash={() => setShowSlash(v => !v)}
               accessory={<ModelSelector control={control} />}
             />
-            <p className="composer-note">BAGO conserva la sesión y el contexto. Enter envía, Shift+Enter añade una línea.</p>
+            <p className="composer-note">Enter envía · Shift+Enter nueva línea · / para acciones rápidas</p>
           </div>
         </div>
       )}

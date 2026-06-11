@@ -273,6 +273,39 @@ textarea:disabled { cursor: not-allowed; opacity: .48; }
 .compose-actions { display: flex; align-items: center; gap: 8px; }
 .compose-accessory { display: flex; align-items: center; }
 
+.slash-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+}
+.slash-button:hover { background: var(--soft); color: #333; }
+
+/* Manager context bar — aparece en el chat cuando BAGO está dentro del gestor */
+.manager-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #f8f8f8;
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.context-label { font-weight: 650; color: #555; }
+.context-view { color: var(--accent); font-weight: 600; }
+.context-stat { padding: 2px 7px; border-radius: 5px; background: var(--soft); }
+
 .model-select {
   max-width: 210px;
   height: 38px;
@@ -326,6 +359,31 @@ textarea:disabled { cursor: not-allowed; opacity: .48; }
 .utility-popover p { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 
 .terminal-view { display: flex; flex-direction: column; width: min(980px, calc(100% - 64px)); height: 100%; margin: 0 auto; padding: 36px 0 22px; }
+.manager-view { display: flex; width: 100%; height: 100%; }
+.manager-frame { flex: 1; width: 100%; height: 100%; border: none; background: #fff; }
+
+.manager-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.manager-notice {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  max-width: 280px;
+}
+
+.manager-notice-icon { font-size: 32px; line-height: 1; }
+.manager-notice strong { font-size: 14px; font-weight: 650; color: #333; }
+.manager-notice p { margin: 0; font-size: 12px; line-height: 1.5; }
+.manager-notice-hint { color: #aaa !important; font-size: 11px !important; }
 .terminal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
 .terminal-head h1 { margin: 0; font-size: 25px; font-weight: 580; }
 .terminal-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }

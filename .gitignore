@@ -28,6 +28,9 @@ ui-react/dist/
 ui-react/.vite/
 *.node
 
+# ── Instalaciones de BAGO gestionadas por el Manager (runtime, no fuente) ───────
+installations/
+
 # ── Binarios de build ───────────────────────────────────────────────────────────
 esbuild.exe
 *.exe

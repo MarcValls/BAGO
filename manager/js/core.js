@@ -16,6 +16,10 @@ function readTextClipboard(){
 }
 function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');showToast('comando copiado',true);}catch(e){showToast('no se pudo copiar',false);}document.body.removeChild(ta);}
 async function openWebChat(){
+  // Navegar al tab BAGO dentro del gestor en lugar de abrir ventana separada
+  const btn = document.querySelector('[data-pm-view="bago"]');
+  if(btn){btn.click();return;}
+  // Fallback si el tab no existe (contexto externo)
   const api=electronApi();
   if(!api||!api.openWebChat){showToast('chat web solo disponible en Electron',false);return;}
   try{
