@@ -388,10 +388,31 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Campo 'message' requerido"})
             return
         channel = self._channel(body)
+
+        # Inyectar contexto operativo del gestor si viene en la petición.
+        # El prefijo se incluye en el mensaje enviado al AI para que BAGO tenga
+        # contexto de qué vista está activa en el gestor. El prefijo usa el
+        # marcador BAGO_CTX para que la UI pueda filtrarlo en el historial.
+        manager_ctx = body.get("manager_context")
+        ai_message = message
+        if manager_ctx and isinstance(manager_ctx, dict):
+            parts: list[str] = []
+            view_label = (manager_ctx.get("viewLabel") or manager_ctx.get("view") or "").strip()
+            if view_label:
+                parts.append(f"Vista activa del gestor: {view_label}")
+            installs = manager_ctx.get("installations")
+            if installs not in (None, "?"):
+                parts.append(f"{installs} instalaciones")
+            pieces = manager_ctx.get("pieces")
+            if pieces not in (None, "?"):
+                parts.append(f"{pieces} piezas")
+            if parts:
+                ai_message = f"[BAGO_CTX:{'; '.join(parts)}]\n{message}"
+
         pre_state = mgr.status()
         started = time.time()
         try:
-            response = mgr.send(message)
+            response = mgr.send(ai_message)
             payload = {
                 "ok": True,
                 "response": response,

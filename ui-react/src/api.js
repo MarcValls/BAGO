@@ -24,10 +24,14 @@ export const chatApi = {
   getHistory: () => request('/history'),
   getMenu: () => request('/menu'),
   getModels: (provider) => request(`/models/${encodeURIComponent(provider)}`),
-  sendChat: (message, channel) => request('/chat', {
+  sendChat: (message, channel, managerContext) => request('/chat', {
     method: 'POST',
     headers: { 'X-Bago-Channel': channel },
-    body: JSON.stringify({ message, channel }),
+    body: JSON.stringify({
+      message,
+      channel,
+      ...(managerContext ? { manager_context: managerContext } : {}),
+    }),
   }),
   runCommand: (command, channel) => request('/command', {
     method: 'POST',

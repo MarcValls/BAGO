@@ -55,7 +55,7 @@ export function useBagoChat() {
     return () => clearInterval(timer)
   }, [refresh])
 
-  const submit = useCallback(async (input, channel = mode) => {
+  const submit = useCallback(async (input, channel = mode, managerContext = null) => {
     if (!input.trim()) return
     setBusy(true)
     busyRef.current = true
@@ -69,7 +69,7 @@ export function useBagoChat() {
           response,
         })
       } else {
-        await chatApi.sendChat(input.trim(), channel)
+        await chatApi.sendChat(input.trim(), channel, managerContext)
       }
       await refresh()
       setError('')

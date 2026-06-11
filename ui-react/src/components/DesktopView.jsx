@@ -6,11 +6,13 @@ import { useManagerContext } from '../useManagerContext'
 function Message({ item }) {
   const role = item.role || 'system'
   const label = role === 'assistant' ? 'BAGO' : role === 'user' ? 'Tú' : 'Sistema'
+  // Strip the manager context prefix injected for the AI (not for display)
+  const content = String(item.content || '').trim().replace(/^\[BAGO_CTX:[^\]]*\]\n/, '')
 
   return (
     <article className={`message role-${role}`}>
       <div className="message-author">{label}</div>
-      <div className="message-content">{String(item.content || '').trim() || '(sin contenido)'}</div>
+      <div className="message-content">{content || '(sin contenido)'}</div>
     </article>
   )
 }
@@ -68,7 +70,7 @@ export default function DesktopView({ control }) {
           <div className="composer-dock">
             <ComposeBar
               busy={control.busy}
-              onSubmit={(value) => { setShowSlash(false); control.submit(value, 'desktop') }}
+              onSubmit={(value) => { setShowSlash(false); control.submit(value, 'desktop', managerContext) }}
               placeholder="Escribe un mensaje"
               onSlash={() => setShowSlash(v => !v)}
               accessory={<ModelSelector control={control} />}
@@ -86,7 +88,7 @@ export default function DesktopView({ control }) {
           <div className="composer-dock">
             <ComposeBar
               busy={control.busy}
-              onSubmit={(value) => { setShowSlash(false); control.submit(value, 'desktop') }}
+              onSubmit={(value) => { setShowSlash(false); control.submit(value, 'desktop', managerContext) }}
               placeholder="Escribe un mensaje"
               onSlash={() => setShowSlash(v => !v)}
               accessory={<ModelSelector control={control} />}
