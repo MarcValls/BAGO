@@ -420,6 +420,7 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   getManagerUrl: () => ipcRenderer.invoke('bago:manager-url'),
   getChatUrl: () => ipcRenderer.invoke('bago:get-chat-url'),
   getInstallsRoot: () => ipcRenderer.invoke('bago:get-installs-root'),
+  getVersion: () => Promise.resolve(readReleaseVersion() || 'dev'),
   getInstallState: () => ipcRenderer.invoke('bago:install-state-get'),
   onInstallState: (callback) => {
     if (typeof callback !== 'function') return;

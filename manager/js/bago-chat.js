@@ -120,7 +120,21 @@
   // ── Mostrar INSTALLS_ROOT en el sidebar ───────────────────────────────────
   document.addEventListener('DOMContentLoaded', function () {
     const api = window.bagoElectron;
-    if (!api || typeof api.getInstallsRoot !== 'function') return;
+    if (!api) return;
+
+    // Versión dinámica desde release_version.txt (evita hardcode)
+    if (typeof api.getVersion === 'function') {
+      api.getVersion().then(function (v) {
+        if (!v) return;
+        const tag = 'v' + v.replace(/^v/, '');
+        ['bago-version-meta', 'bago-version-footer'].forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el) el.textContent = tag;
+        });
+      }).catch(function () {});
+    }
+
+    if (typeof api.getInstallsRoot !== 'function') return;
     api.getInstallsRoot().then(function (root) {
       if (!root) return;
       const store = document.querySelector('.pm-store');
