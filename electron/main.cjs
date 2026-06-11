@@ -303,6 +303,37 @@ async function runInstallScript(packagedRoot, installDir, extraArgs = [], progre
   });
 }
 
+// fetchReleases corre en el main process (no sujeto a CSP del renderer).
+// El preload solía hacer fetch directamente pero la CSP de manager/index.html
+// bloqueaba la conexión a api.github.com.
+async function fetchReleasesFromMain() {
+  const res = await fetch('https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100', {
+    headers: { Accept: 'application/vnd.github+json' }
+  });
+  if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
+  const releases = await res.json();
+  return (Array.isArray(releases) ? releases : [])
+    .filter(r => !r.draft)
+    .sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0))
+    .map(r => ({
+      tag_name: r.tag_name || '',
+      html_url: r.html_url || '',
+      prerelease: !!r.prerelease,
+      published_at: r.published_at || '',
+      name: r.name || r.tag_name || '',
+      assets: Array.isArray(r.assets) ? r.assets.map(a => ({
+        name: a.name || '',
+        browser_download_url: a.browser_download_url || '',
+        content_type: a.content_type || '',
+        size: Number(a.size || 0),
+        digest: a.digest || '',
+        state: a.state || '',
+        updated_at: a.updated_at || '',
+        download_count: Number(a.download_count || 0)
+      })) : []
+    }));
+}
+
 async function runGitPull(sourceRoot, branch) {
   const branchName = String(branch || 'main').trim() || 'main';
   return new Promise((resolve, reject) => {
@@ -1165,6 +1196,7 @@ ipcMain.handle('bago:install-preflight', (_event, payload) => runInstallPrefligh
 // http://127.0.0.1:<port> URL depending on the surface; the React app
 // must not assume a fixed dev port.
 ipcMain.handle('bago:get-installs-root', () => INSTALLS_ROOT);
+ipcMain.handle('bago:fetch-releases', () => fetchReleasesFromMain());
 ipcMain.handle('bago:manager-url', () => getManagerUrl());
 // Tab BAGO dentro del manager: inicia el servidor web chat y devuelve la URL
 // sin abrir una BrowserWindow separada. La ventana del manager embebe el chat

@@ -409,7 +409,7 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   writeInstallSelection: (role, installPath) => Promise.resolve(writeInstallSelection(role, installPath)),
   readChainRegistry: () => Promise.resolve(readChainRegistry()),
   writeChainRegistry: (payload) => Promise.resolve(writeChainRegistry(payload || {})),
-  fetchReleases,
+  fetchReleases: () => ipcRenderer.invoke('bago:fetch-releases'),
   buildInstallCommand,
   buildSourceInstallCommand,
   buildUninstallCommand,
