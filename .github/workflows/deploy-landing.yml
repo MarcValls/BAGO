@@ -1,0 +1,41 @@
+name: Deploy Landing to Vercel
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/deploy-landing.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+
+      - name: Build landing CSS
+        run: |
+          npm ci
+          npm run landing:build-css
+
+      - name: Install Vercel CLI
+        if: env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != ''
+        run: npm install -g vercel@latest
+
+      - name: Deploy Landing
+        if: env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != ''
+        working-directory: ./landing
+        run: vercel --yes --prod --token="$VERCEL_TOKEN"
+
+      - name: Use Vercel Git integration
+        if: env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID == ''
+        run: echo "Vercel CLI secrets are not configured; deployment is handled by the Vercel Git integration."
