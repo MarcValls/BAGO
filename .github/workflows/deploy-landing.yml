@@ -10,6 +10,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Only run if landing/ directory exists in the pushed commit
+    if: ${{ hashFiles('landing/index.html') != '' }}
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -21,15 +23,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.19.0'
-
-      - name: Build landing CSS
-        run: |
-          npm ci
-          if [ -d landing ] && npm run --silent landing:build-css 2>/dev/null; then
-            echo "Landing CSS built."
-          else
-            echo "No landing CSS step needed (script or directory not present)."
-          fi
 
       - name: Install Vercel CLI
         if: env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != ''
