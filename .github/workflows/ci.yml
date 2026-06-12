@@ -59,8 +59,13 @@ jobs:
         run: python -m compileall -q bago_core
 
       - name: Pytest
-        # test_translators_evidence requires BAGO runtime installed — skip in CI
-        run: python -m pytest -q --ignore=tests/test_translators_evidence.py
+        # Integration tests that require installed BAGO runtime are skipped in CI:
+        # - test_translators_evidence: needs ir_types from C:\ProgramData\BAGO\pieces
+        # - test_node_control_translator: needs translator CLI with BAGO runtime
+        run: >
+          python -m pytest -q
+          --ignore=tests/test_translators_evidence.py
+          --ignore=tests/test_node_control_translator.py
 
       - name: UI build
         run: |
