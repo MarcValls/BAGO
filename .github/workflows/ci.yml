@@ -1,0 +1,89 @@
+name: BAGO CI
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+      - windows
+      - android
+      - "release/**"
+  push:
+    branches:
+      - master
+      - main
+      - windows
+      - android
+      - "release/**"
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ui-react/package-lock.json
+
+      - name: Install Python deps
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt && pip install pytest
+
+      - name: Install Node deps
+        run: |
+          npm ci
+          npm ci --prefix ui-react
+
+      - name: Python compile
+        run: python -m compileall -q bago_core .bago scripts tests
+
+      - name: Python regressions
+        run: |
+          python test_e2e.py
+          python tests/test_security_release.py
+          python tests/test_state_atomic.py
+          python bago_core\cli.py validate
+          python bago_core\cli.py evidence --test
+          python .bago\api\bridge.py --test
+          python .bago\tools\dep_audit.py requirements.txt --format json --out dep-audit.json
+          python scripts\clean_install_smoke.py
+          python scripts\verify_release_drift.py
+          python scripts\verify_docs.py --repo .
+          python scripts\package_v4.py --test
+
+      - name: Pytest
+        run: python -m pytest -q
+
+      - name: UI build
+        run: |
+          npm run landing:build-css
+          git diff --exit-code -- assets/landing.css landing/assets/landing.css
+          npm run manager:build-ui
+          npm --prefix ui-react run build
+
+      - name: Manager release jobs
+        run: npm run manager:test-jobs
+
+      - name: Dependency audit
+        run: |
+          npm audit --audit-level=moderate
+          npm audit --prefix ui-react --audit-level=moderate
