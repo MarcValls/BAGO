@@ -1,6 +1,6 @@
-# BAGO v4.5.2
+# BAGO v4.6.1
 
-[![Version](https://img.shields.io/badge/version-4.5.2-blue)]()
+[![Version](https://img.shields.io/badge/version-4.6.1-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -81,7 +81,7 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --
 Descarga el instalador remoto desde el repo y ejecutalo. Siempre apunta a la última release estable publicada en GitHub:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/v4.5.0/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/v4.6.1/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
 ```
 
 ### Installation manager (para instalaciones existentes)

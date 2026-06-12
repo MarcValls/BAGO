@@ -3,13 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO v4.5.0 — AI Control Plane Local</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>BAGO v4.6.1 — AI Control Plane Local</title>
+  <link rel="icon" href="assets/bago-wasp.svg">
+  <link rel="stylesheet" href="assets/landing.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
-  <script defer src="/_vercel/insights/script.js"></script>
+  <script>
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
+      const analytics = document.createElement('script');
+      analytics.defer = true;
+      analytics.src = '/_vercel/insights/script.js';
+      document.head.appendChild(analytics);
+    }
+  </script>
   <style>
     body{font-family:'Inter',sans-serif;}
     code,.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
@@ -40,7 +48,7 @@
     <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <img src="assets/bago-wasp.svg" width="36" height="36" alt="BAGO avispa" class="drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]">
-        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.5.0</span></span>
+        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.6.1</span></span>
         <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">SUPERVISOR · PROBE</span>
       </div>
       <nav class="hidden md:flex gap-6 text-sm text-slate-300">
@@ -57,7 +65,7 @@
     <div class="grid md:grid-cols-2 gap-10 items-center">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.5.0 con supervisor always-on
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.6.1 con supervisor always-on
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
           Session-First <span class="grad-text">AI Control Plane</span>
@@ -67,13 +75,13 @@
           y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
         </p>
         <div class="flex flex-wrap gap-3">
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.2/BAGO-Installation-Manager-4.5.2-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
+          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.6.1/BAGO-Installation-Manager-4.6.1-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
             Descargar BAGO Manager Installer
           </a>
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.2/BAGO-Installation-Manager-4.5.2-win-x64.zip" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700 flex items-center gap-2">
+          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.6.1/bago-v4.6.1.zip" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700 flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-            ZIP para devs
+            Descargar runtime BAGO (ZIP)
           </a>
         <div class="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           <strong class="text-amber-300">Distribución oficial:</strong> los paquetes se sirven desde <strong>GitHub Releases</strong>. Esta página ofrece descargas directas, pero la fuente y verificación de integridad están en el repositorio oficial.

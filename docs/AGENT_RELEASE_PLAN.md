@@ -234,7 +234,7 @@ Goal:
 
 Tasks:
 - Remove stale version references.
-- Align README, manual, and contracts with `4.5.0`.
+- Align README, manual, and contracts with the current `release_version.txt`.
 - Reduce `innerHTML` usage where possible.
 - Reduce duplication between `manager` and `landing/manager`.
 

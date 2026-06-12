@@ -53,6 +53,35 @@ from control_shadow import ControlShadow
 from rl_bridge import RLBridge
 
 
+_MANAGER_VIEW_LABELS = {
+    "patch": "Patch Bay",
+    "installations": "Instalaciones",
+    "matrix": "Matriz",
+    "pieces": "Piezas",
+    "releases": "Releases",
+    "jobs": "Trabajos",
+    "sessions": "Sesiones",
+    "system": "Sistema",
+    "health": "Salud",
+    "audit": "Auditoría",
+    "bago": "BAGO Chat",
+}
+
+
+def _format_manager_context(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    parts: list[str] = []
+    view = str(value.get("view") or "").strip()
+    if view in _MANAGER_VIEW_LABELS:
+        parts.append(f"Vista activa del gestor: {_MANAGER_VIEW_LABELS[view]}")
+    for key, label in (("installations", "instalaciones"), ("pieces", "piezas")):
+        raw = str(value.get(key) or "").strip()
+        if raw.isdigit() and 0 <= int(raw) <= 1_000_000:
+            parts.append(f"{int(raw)} {label}")
+    return "; ".join(parts)
+
+
 class BagoAPIHandler(BaseHTTPRequestHandler):
     """Handler HTTP para la API de BAGO."""
 
@@ -393,21 +422,10 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         # El prefijo se incluye en el mensaje enviado al AI para que BAGO tenga
         # contexto de qué vista está activa en el gestor. El prefijo usa el
         # marcador BAGO_CTX para que la UI pueda filtrarlo en el historial.
-        manager_ctx = body.get("manager_context")
         ai_message = message
-        if manager_ctx and isinstance(manager_ctx, dict):
-            parts: list[str] = []
-            view_label = (manager_ctx.get("viewLabel") or manager_ctx.get("view") or "").strip()
-            if view_label:
-                parts.append(f"Vista activa del gestor: {view_label}")
-            installs = manager_ctx.get("installations")
-            if installs not in (None, "?"):
-                parts.append(f"{installs} instalaciones")
-            pieces = manager_ctx.get("pieces")
-            if pieces not in (None, "?"):
-                parts.append(f"{pieces} piezas")
-            if parts:
-                ai_message = f"[BAGO_CTX:{'; '.join(parts)}]\n{message}"
+        manager_context = _format_manager_context(body.get("manager_context"))
+        if manager_context:
+            ai_message = f"[BAGO_CTX:{manager_context}]\n{message}"
 
         pre_state = mgr.status()
         started = time.time()

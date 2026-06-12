@@ -52,6 +52,11 @@ def _contains_version(path: Path, version: str) -> bool:
     return version in text or f"v{version}" in text
 
 
+def _stale_versions(path: Path, expected: str) -> list[str]:
+    found = set(re.findall(r"\b4\.\d+\.\d+\b", _read_text(path)))
+    return sorted(version for version in found if version != expected)
+
+
 def _read_version_fallback(root: Path) -> str:
     source = _read_text(root / "bago_core" / "version.py")
     match = re.search(r'return\s+["\']([^"\']+)["\']', source)
@@ -65,16 +70,64 @@ def build_report(root: Path, runtime_dir: Path | None = None) -> dict[str, Any]:
     release_version = _first_existing_version(root, ("release_version.txt",))
     versions_current = _normalize_version(str(_read_json(root / "versions.json").get("current", "")))
     package_version = _normalize_version(str(_read_json(root / "package.json").get("version", "")))
+    package_lock_version = _normalize_version(str(_read_json(root / "package-lock.json").get("version", "")))
     fallback_version = _read_version_fallback(root)
 
     expected = release_version
     _record(checks, "release_version_present", bool(expected), f"release_version={expected or 'missing'}")
     _record(checks, "versions_json_current", versions_current == expected, f"versions.json={versions_current}")
     _record(checks, "package_json_version", package_version == expected, f"package.json={package_version}")
+    _record(checks, "package_lock_version", package_lock_version == expected, f"package-lock.json={package_lock_version}")
     _record(checks, "version_py_fallback", fallback_version == expected, f"fallback={fallback_version}")
 
     for rel in ("README.md", "MANUAL.md", "index.html"):
         _record(checks, f"{rel}:version", _contains_version(root / rel, expected), f"expected={expected}")
+        stale = _stale_versions(root / rel, expected)
+        _record(checks, f"{rel}:stale_versions", not stale, f"stale={','.join(stale) or 'none'}")
+
+    for rel in ("landing/index.html", "landing/manager/index.html"):
+        path = root / rel
+        stale = _stale_versions(path, expected)
+        _record(checks, f"{rel}:version", _contains_version(path, expected), f"expected={expected}")
+        _record(checks, f"{rel}:stale_versions", not stale, f"stale={','.join(stale) or 'none'}")
+
+    deploy_workflow = _read_text(root / ".github" / "workflows" / "deploy-landing.yml")
+    _record(checks, "landing_deploy_master", "branches: [master, main]" in deploy_workflow, "default branch deploy")
+    root_landing = _read_text(root / "index.html")
+    deployed_landing = _read_text(root / "landing" / "index.html")
+    root_css = root / "assets" / "landing.css"
+    deployed_css = root / "landing" / "assets" / "landing.css"
+    css_synced = (
+        root_css.is_file()
+        and deployed_css.is_file()
+        and root_css.stat().st_size > 0
+        and root_css.read_bytes() == deployed_css.read_bytes()
+    )
+    _record(
+        checks,
+        "landing_compiled_css",
+        "cdn.tailwindcss.com" not in root_landing
+        and "cdn.tailwindcss.com" not in deployed_landing
+        and css_synced,
+        "compiled CSS synced",
+    )
+
+    manager_index = _read_text(root / "manager" / "index.html")
+    manager_chat = _read_text(root / "manager" / "js" / "bago-chat.js")
+    preload = _read_text(root / "electron" / "preload.cjs")
+    main = _read_text(root / "electron" / "main.cjs")
+    launcher = _read_text(root / "bago_core" / "launcher.py")
+    _record(checks, "manager_version", expected in manager_index, f"expected={expected}")
+    _record(
+        checks,
+        "manager_assets",
+        "assets/logo.png" not in manager_index and (root / "assets" / "bago-wasp.svg").is_file(),
+        "packaged logo exists",
+    )
+    _record(checks, "manager_release_ipc", "bago:fetch-releases" in preload and "bago:fetch-releases" in main, "IPC")
+    _record(checks, "manager_postmessage_origin", "type, data }, '*'" not in manager_chat, "no wildcard target")
+    headless = all(f'"{command}"' in launcher for command in ("manager", "session", "chain", "release-job"))
+    _record(checks, "launcher_headless_families", headless, "manager/session/chain/release-job")
 
     tag_file = root / "bago_core" / "tags" / f"v{expected}.json"
     tag_version = _normalize_version(str(_read_json(tag_file).get("version", ""))) if tag_file.is_file() else ""

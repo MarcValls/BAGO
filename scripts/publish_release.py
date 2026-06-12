@@ -8,12 +8,12 @@ Produces a local release summary by default and can build a zip artifact on dema
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
 import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
+
+from package_v4 import build_package
 
 
 EXCLUDE_DIRS = {
@@ -62,19 +62,8 @@ def _is_excluded(relative_path: Path) -> bool:
 def build_release_bundle(output_dir: str | None = None, repo_root: str | Path | None = None) -> Path:
     root = Path(repo_root).resolve() if repo_root is not None else _repo_root()
     out_dir = Path(output_dir).resolve() if output_dir else root / "dist"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    zip_path = out_dir / f"bago-release-{stamp}.zip"
-
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for file_path in root.rglob("*"):
-            if not file_path.is_file():
-                continue
-            relative = file_path.relative_to(root)
-            if _is_excluded(relative):
-                continue
-            zf.write(file_path, arcname=str(relative))
-    return zip_path
+    version = (root / "release_version.txt").read_text(encoding="utf-8").strip()
+    return Path(build_package(root, out_dir, release_version=version)["zip"])
 
 
 def release_summary(repo_root: str | Path | None = None) -> str:
@@ -108,21 +97,23 @@ def _run_tests() -> int:
 
     with TemporaryDirectory() as td:
         root = Path(td)
-        (root / "keep.txt").write_text("ok", encoding="utf-8")
+        (root / "README.md").write_text("BAGO 4.5.0", encoding="utf-8")
+        (root / "release_version.txt").write_text("4.5.0\n", encoding="utf-8")
+        (root / "versions.json").write_text('{"current":"4.5.0"}', encoding="utf-8")
+        (root / "package.json").write_text('{"version":"4.5.0"}', encoding="utf-8")
+        (root / "bago_core" / "tags").mkdir(parents=True)
+        (root / "bago_core" / "tags" / "v4.5.0.json").write_text(
+            '{"version":"4.5.0"}', encoding="utf-8"
+        )
         (root / ".git").mkdir()
         (root / ".bago").mkdir()
         (root / ".bago" / "state").mkdir(parents=True)
-        old_cwd = Path.cwd()
-        try:
-            os.chdir(root)
-            bundle = build_release_bundle(output_dir=str(root / "dist"), repo_root=root)
-            assert bundle.exists()
-            with zipfile.ZipFile(bundle, "r") as zf:
-                names = zf.namelist()
-                assert "keep.txt" in names
-                assert ".bago/state" not in "\n".join(names)
-        finally:
-            os.chdir(old_cwd)
+        bundle = build_release_bundle(output_dir=str(root / "dist"), repo_root=root)
+        assert bundle.exists()
+        with zipfile.ZipFile(bundle, "r") as zf:
+            names = zf.namelist()
+            assert "README.md" in names
+            assert ".bago/state" not in "\n".join(names)
     print("publish_release.py --test: ALL PASS")
     return 0
 

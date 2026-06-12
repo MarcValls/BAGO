@@ -12,12 +12,31 @@
   function frame()  { return document.getElementById('pm-bago-frame');  }
   function status() { return document.getElementById('pm-bago-status'); }
 
+  function chatOrigin() {
+    try {
+      const url = new URL(chatUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) return null;
+      if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return null;
+      return url.origin;
+    } catch {
+      return null;
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
   // ── postMessage bridge ────────────────────────────────────────────────────
   function broadcastToChat(type, data) {
     const f = frame();
     if (!f || !f.contentWindow || !chatUrl) return;
+    const targetOrigin = chatOrigin();
+    if (!targetOrigin) return;
     try {
-      f.contentWindow.postMessage({ source: 'bago-manager', type, data }, '*');
+      f.contentWindow.postMessage({ source: 'bago-manager', type, data }, targetOrigin);
     } catch {}
   }
 
@@ -91,12 +110,13 @@
 
     try {
       chatUrl = await api.getChatUrl();
+      if (!chatOrigin()) throw new Error('El chat devolvió una URL no local.');
       showFrame(chatUrl);
     } catch (e) {
       setStatus(
         '<span class="pm-bago-icon">⚠️</span>' +
         '<strong>Error al iniciar el chat</strong>' +
-        '<p>' + String(e && e.message || e) + '</p>' +
+        '<p>' + escapeHtml(e && e.message || e) + '</p>' +
         '<button onclick="window.__bagoChatRetry&&window.__bagoChatRetry()" class="pm-btn" style="margin-top:8px">Reintentar</button>',
         true
       );

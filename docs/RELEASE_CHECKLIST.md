@@ -5,7 +5,7 @@ Use this before publishing a tag, GitHub release, or release ZIP.
 Public release policy:
 
 - [`docs/PUBLIC_RELEASE_POLICY.md`](PUBLIC_RELEASE_POLICY.md) - public publication order, gates, limits, and release note template.
-- [`docs/RELEASE_NOTES_4.5.0.md`](RELEASE_NOTES_4.5.0.md) - canonical 4.5.0 release notes.
+- [`docs/RELEASE_NOTES_4.6.1.md`](RELEASE_NOTES_4.6.1.md) - canonical 4.6.1 release notes.
 
 ## Scope
 

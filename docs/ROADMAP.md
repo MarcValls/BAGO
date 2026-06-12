@@ -1,6 +1,6 @@
-# BAGO v4.5.0 Distribution Roadmap
+# BAGO v4.6.1 Distribution Roadmap
 
-This is the execution plan for keeping BAGO v4.5.0 small, verifiable, and releaseable.
+This is the execution plan for keeping BAGO v4.6.1 small, verifiable, and releaseable.
 
 ## Decision
 

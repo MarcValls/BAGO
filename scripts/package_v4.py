@@ -15,6 +15,7 @@ INCLUDE_FILES = [
     "README.md",
     "MANUAL.md",
     "index.html",
+    "package.json",
     "versions.json",
     "release_version.txt",
     "BAGO.pyproj",
@@ -103,6 +104,51 @@ def normalize_release_version(value: str) -> str:
     return normalized
 
 
+def validate_release_identity(root: Path, requested_version: str) -> str:
+    expected = normalize_release_version(requested_version)
+    release_version = normalize_release_version((root / "release_version.txt").read_text(encoding="utf-8"))
+    versions_current = normalize_release_version(
+        json.loads((root / "versions.json").read_text(encoding="utf-8"))["current"]
+    )
+    package_version = normalize_release_version(
+        json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
+    )
+    tag_path = root / "bago_core" / "tags" / f"v{expected}.json"
+    tag_version = ""
+    if tag_path.is_file():
+        tag_version = normalize_release_version(
+            json.loads(tag_path.read_text(encoding="utf-8"))["version"]
+        )
+    observed = {
+        "release_version.txt": release_version,
+        "versions.json": versions_current,
+        "package.json": package_version,
+        str(tag_path.relative_to(root)): tag_version or "missing",
+    }
+    drift = {name: value for name, value in observed.items() if value != expected}
+    if drift:
+        details = ", ".join(f"{name}={value}" for name, value in drift.items())
+        raise ValueError(f"release identity drift: expected={expected}; {details}")
+    return expected
+
+
+def verify_archive_identity(zip_path: Path, expected_version: str) -> None:
+    expected = normalize_release_version(expected_version)
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        release_version = normalize_release_version(zf.read("release_version.txt").decode("utf-8"))
+        versions_current = normalize_release_version(json.loads(zf.read("versions.json"))["current"])
+        package_version = normalize_release_version(json.loads(zf.read("package.json"))["version"])
+        tag_version = normalize_release_version(
+            json.loads(zf.read(f"bago_core/tags/v{expected}.json"))["version"]
+        )
+    if len({expected, release_version, versions_current, package_version, tag_version}) != 1:
+        raise ValueError(
+            "archive release identity drift: "
+            f"expected={expected}, release={release_version}, versions={versions_current}, "
+            f"package={package_version}, tag={tag_version}"
+        )
+
+
 def is_excluded(relative: Path) -> bool:
     parts = set(relative.parts)
     if parts & EXCLUDED_PARTS:
@@ -147,7 +193,8 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     if release_version:
-        package_name = f"bago-v{normalize_release_version(release_version)}.zip"
+        release_version = validate_release_identity(root, release_version)
+        package_name = f"bago-v{release_version}.zip"
     else:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         package_name = f"bago-v4-local-{stamp}.zip"
@@ -166,10 +213,14 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
                 "sha256": sha256(file_path),
             })
 
+    if release_version:
+        verify_archive_identity(zip_path, release_version)
+
     manifest = {
         "package": package_name,
+        "release_version": release_version or "local",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "root": str(root),
+        "root": ".",
         "file_count": len(manifest_files),
         "zip_sha256": sha256(zip_path),
         "included_files": manifest_files,
@@ -234,6 +285,13 @@ def _run_tests() -> int:
         (root / "ui-react" / "dist" / "index.html").write_text("ui\n", encoding="utf-8")
         (root / "PLAN_VERTICE").mkdir()
         (root / "PLAN_VERTICE" / "events.jsonl").write_text("no\n", encoding="utf-8")
+        (root / "release_version.txt").write_text("4.5.0\n", encoding="utf-8")
+        (root / "versions.json").write_text(json.dumps({"current": "4.5.0"}), encoding="utf-8")
+        (root / "package.json").write_text(json.dumps({"version": "4.5.0"}), encoding="utf-8")
+        (root / "bago_core" / "tags").mkdir()
+        (root / "bago_core" / "tags" / "v4.5.0.json").write_text(
+            json.dumps({"version": "4.5.0"}), encoding="utf-8"
+        )
         result = build_package(root, root / "release" / "v4")
         with zipfile.ZipFile(result["zip"], "r") as zf:
             names = "\n".join(zf.namelist())
@@ -247,6 +305,13 @@ def _run_tests() -> int:
         assert "PLAN_VERTICE" not in names
         fixed = build_package(root, root / "release" / "v4", release_version="v4.5.0")
         assert Path(fixed["zip"]).name == "bago-v4.5.0.zip"
+        (root / "release_version.txt").write_text("4.5.1\n", encoding="utf-8")
+        try:
+            build_package(root, root / "release" / "v4", release_version="v4.5.0")
+        except ValueError as exc:
+            assert "release identity drift" in str(exc)
+        else:
+            raise AssertionError("release identity drift was not rejected")
     print("package_v4.py --test: ALL PASS")
     return 0
 
@@ -254,10 +319,12 @@ def _run_tests() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build clean BAGO v4 local package.")
     parser.add_argument("--output-dir", default=str(repo_root() / "release" / "v4"))
-    parser.add_argument("--release-version", default="", help="Use fixed release bundle name (e.g. 4.3.0).")
+    parser.add_argument("--release-version", default="", help="Release version; defaults to release_version.txt.")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    result = build_package(repo_root(), Path(args.output_dir), release_version=args.release_version)
+    root = repo_root()
+    release_version = args.release_version or (root / "release_version.txt").read_text(encoding="utf-8").strip()
+    result = build_package(root, Path(args.output_dir), release_version=release_version)
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:

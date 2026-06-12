@@ -20,17 +20,16 @@ class SurfaceContractTests(unittest.TestCase):
         for endpoint in forbidden:
             self.assertNotIn(endpoint, source)
 
-    def test_manager_does_not_embed_a_chat(self):
+    def test_manager_chat_bridge_is_local_and_origin_bound(self):
         index = (ROOT / "manager" / "index.html").read_text(encoding="utf-8")
-        script = (ROOT / "manager" / "js" / "session-manager.js").read_text(encoding="utf-8")
-        for marker in (
-            "pm-session-chat",
-            "pm-session-prompt",
-            "pm-session-send",
-            "pm-session-orchestrate",
-        ):
-            self.assertNotIn(marker, index)
-            self.assertNotIn(marker, script)
+        bridge = (ROOT / "manager" / "js" / "bago-chat.js").read_text(encoding="utf-8")
+        receiver = (ROOT / "ui-react" / "src" / "useManagerContext.js").read_text(encoding="utf-8")
+        self.assertIn('id="pm-bago-frame"', index)
+        self.assertIn('sandbox="allow-scripts allow-same-origin allow-forms allow-modals"', index)
+        self.assertIn("targetOrigin", bridge)
+        self.assertNotIn("postMessage({ source: 'bago-manager', type, data }, '*')", bridge)
+        self.assertIn("event.source !== window.parent", receiver)
+        self.assertIn("isTrustedManagerOrigin(event.origin)", receiver)
 
     def test_runtime_contract_references_surface_contract(self):
         runtime = (ROOT / "docs" / "contracts" / "bago_v4_runtime_contract.json").read_text(encoding="utf-8")

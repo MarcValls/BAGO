@@ -18,10 +18,16 @@ python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py 
 python tests\test_security_release.py
 python tests\test_e2e.py
 python scripts\verify_release_drift.py
+python scripts\package_v4.py --test
+python scripts\package_v4.py
 python bago_core\cli.py validate
 python bago_core\cli.py evidence --test
 python bago_core\cli.py llm list
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
+$env:BAGO_MANAGER_SMOKE_TEST='1'; npm run manager:dev
+npm run manager:test-jobs
+npm audit --audit-level=moderate
+npm audit --prefix ui-react --audit-level=moderate
 ```
 
 Optional live model proof:
@@ -57,6 +63,7 @@ npm run build
 - [ ] No temporary release folders.
 - [ ] No large checkpoints unless intentionally published.
 - [ ] Package can be generated cleanly.
+- [ ] ZIP filename, `release_version.txt`, `versions.json`, `package.json`, and tag manifest all match.
 
 ## Install Manager Hardening
 

@@ -1,6 +1,6 @@
 # BAGO Public Release Policy
 
-This document defines the public publication gate for BAGO 4.5.0 and later. It is the single public checklist for release readiness.
+This document defines the public publication gate for BAGO 4.6.1 and later. It is the single public checklist for release readiness.
 
 ## Publication Order
 
@@ -44,7 +44,7 @@ This document defines the public publication gate for BAGO 4.5.0 and later. It i
 - Which limits still apply.
 - Which features are experimental or unavailable.
 - Which install path is official.
-- The canonical 4.5.0 notes live in `docs/RELEASE_NOTES_4.5.0.md`.
+- The canonical 4.6.1 notes live in `docs/RELEASE_NOTES_4.6.1.md`.
 
 ## Stop Conditions
 
@@ -59,7 +59,7 @@ Stop the publication if any of these fail:
 ## Public Release Note Template
 
 ```text
-BAGO v4.5.0
+BAGO v4.6.1
 
 Status: stable release candidate
 

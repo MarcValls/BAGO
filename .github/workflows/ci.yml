@@ -3,16 +3,23 @@ name: BAGO CI
 on:
   pull_request:
     branches:
+      - master
       - main
       - windows
       - android
       - sync/path-resolver
+      - "release/**"
   push:
     branches:
+      - master
       - main
       - windows
       - android
       - sync/path-resolver
+      - "release/**"
+    tags:
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -34,7 +41,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.19.0"
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -70,5 +77,15 @@ jobs:
 
       - name: UI build
         run: |
+          npm run landing:build-css
+          git diff --exit-code -- assets/landing.css landing/assets/landing.css
           npm run manager:build-ui
           npm --prefix ui-react run build
+
+      - name: Manager release jobs
+        run: npm run manager:test-jobs
+
+      - name: Dependency audit
+        run: |
+          npm audit --audit-level=moderate
+          npm audit --prefix ui-react --audit-level=moderate

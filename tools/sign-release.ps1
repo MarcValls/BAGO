@@ -1,6 +1,6 @@
 # P1-04 helper: sign the BAGO Installation Manager artefacts.
 #
-# Background. The BAGO Installation Manager 4.5.2 ships as an unsigned
+# Background. The BAGO Installation Manager ships as an unsigned
 # EXE. Modern Windows (SmartScreen, Defender for Endpoint, AppLocker)
 # blocks or warns on unsigned installers, so the release is not viable
 # for enterprise deployment until we sign it.
@@ -24,8 +24,8 @@
 #
 # Usage:
 #   pwsh -NoProfile -File tools/sign-release.ps1 \
-#     -ExePath "dist/BAGO-Installation-Manager-4.5.2-win-x64.exe" \
-#     -Sha256Path "dist/BAGO-Installation-Manager-4.5.2-win-x64.exe.sha256" \
+#     -ExePath "dist/BAGO-Installation-Manager-4.6.1-win-x64.exe" \
+#     -Sha256Path "dist/BAGO-Installation-Manager-4.6.1-win-x64.exe.sha256" \
 #     -PfxPath "C:\keys\bago-code-sign.pfx" \
 #     -PfxPassword (Read-Host -AsSecureString) \
 #     -TimestampUrl "http://timestamp.digicert.com"

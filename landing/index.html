@@ -3,13 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO v4.5.0 — AI Control Plane Local</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>BAGO v4.6.1 — AI Control Plane Local</title>
+  <link rel="icon" href="assets/bago-wasp.svg">
+  <link rel="stylesheet" href="assets/landing.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
-  <script defer src="/_vercel/insights/script.js"></script>
+  <script>
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
+      const analytics = document.createElement('script');
+      analytics.defer = true;
+      analytics.src = '/_vercel/insights/script.js';
+      document.head.appendChild(analytics);
+    }
+  </script>
   <style>
     body{font-family:'Inter',sans-serif;}
     code,.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
@@ -39,8 +47,8 @@
   <header class="border-b border-slate-800 sticky top-0 z-40 bg-slate-950/95 backdrop-blur" style="flex-shrink:0">
     <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="logo.png" width="36" height="36" alt="BAGO logo" class="drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]">
-        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.5.0</span></span>
+        <img src="assets/bago-wasp.svg" width="36" height="36" alt="BAGO logo" class="drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]">
+        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.6.1</span></span>
         <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">SUPERVISOR · PROBE</span>
       </div>
       <nav id="mobile-nav" class="hidden md:flex gap-6 text-sm text-slate-300 max-md:absolute max-md:top-full max-md:left-0 max-md:right-0 max-md:bg-slate-950/98 max-md:border-b max-md:border-slate-800 max-md:flex-col max-md:px-6 max-md:py-4 max-md:gap-3">
@@ -59,7 +67,7 @@
   <section class="hero max-w-6xl mx-auto px-6">
     <div class="text-center max-w-3xl mx-auto">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.5.0 con supervisor always-on
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.6.1 con supervisor always-on
       </div>
       <h1 class="text-3xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
         Session-First <span class="grad-text">AI Control Plane</span>
@@ -69,13 +77,13 @@
         y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
       </p>
       <div class="flex flex-wrap justify-center gap-3 mb-6">
-        <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.2/BAGO-Installation-Manager-4.5.2-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
+        <a href="https://github.com/MarcValls/BAGO/releases/download/v4.6.1/BAGO-Installation-Manager-4.6.1-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
           Descargar BAGO Manager Installer
         </a>
-        <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.2/BAGO-Installation-Manager-4.5.2-win-x64.zip" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700 flex items-center gap-2">
+        <a href="https://github.com/MarcValls/BAGO/releases/download/v4.6.1/bago-v4.6.1.zip" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700 flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-          ZIP para devs
+          Descargar runtime BAGO (ZIP)
         </a>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs max-w-lg mx-auto">
