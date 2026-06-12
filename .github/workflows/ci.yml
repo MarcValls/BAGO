@@ -59,7 +59,7 @@ jobs:
       - name: Python regressions
         run: |
           python test_e2e.py
-          python tests/test_security_release.py
+          python test_security_release.py
           python tests/test_state_atomic.py
           python bago_core\cli.py validate
           python bago_core\cli.py evidence --test

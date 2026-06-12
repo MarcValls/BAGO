@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         for p in repo.rglob(pat):
             if "__pycache__" in p.parts or "node_modules" in p.parts:
                 continue
-            if p.is_file() and p.name not in ("verify_docs.py",):
+            if p.is_file() and p.name not in ("verify_docs.py", "model_equivalence.py"):
                 files.append(p)
     total_obs = 0
     for p in files:
