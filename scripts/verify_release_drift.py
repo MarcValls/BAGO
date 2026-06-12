@@ -121,8 +121,9 @@ def build_report(root: Path, runtime_dir: Path | None = None) -> dict[str, Any]:
     _record(
         checks,
         "manager_assets",
-        "assets/logo.png" not in manager_index and (root / "assets" / "bago-wasp.svg").is_file(),
-        "packaged logo exists",
+        (root / "assets" / "logo.png").is_file()
+        and "../assets/logo.png" in manager_index,
+        "current packaged logo exists",
     )
     _record(checks, "manager_release_ipc", "bago:fetch-releases" in preload and "bago:fetch-releases" in main, "IPC")
     _record(checks, "manager_postmessage_origin", "type, data }, '*'" not in manager_chat, "no wildcard target")
