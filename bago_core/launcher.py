@@ -26,15 +26,20 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 # Insert .bago paths
-BAGO_ROOT = Path(__file__).resolve().parents[1]
-_repo_root = str(BAGO_ROOT)
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+_repo_root = str(_BOOTSTRAP_ROOT)
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
-sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
-sys.path.insert(0, str(BAGO_ROOT / ".bago" / "chat"))
-sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
+sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "core"))
+sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "chat"))
+sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "providers"))
 
 _CREATED_VERSION = "4.0.0"
+
+# Centralized path helpers.
+from paths import app_base_dir  # noqa: E402
+
+BAGO_ROOT = app_base_dir()
 
 # Lee la version desde el indice central (versions.json)
 from version import CURRENT as _BAGO_VERSION  # noqa: E402
@@ -322,13 +327,13 @@ def main(argv: list[str] | None = None) -> int:
         completed = subprocess.run([sys.executable, str(runner), *argv[1:]], cwd=str(profile_root))
         return completed.returncode
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".bago" / "core"))
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "core"))
     try:
         from config_manager import ConfigManager
     except ModuleNotFoundError:
         ConfigManager = None  # type: ignore[assignment]
 
-    install_root = Path(__file__).resolve().parents[1]
+    install_root = BAGO_ROOT
     install_config = _load_install_config(install_root)
 
     # Leer defaults desde config.json si existe

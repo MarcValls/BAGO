@@ -1,5 +1,5 @@
 {
-  "current": "4.5.0",
+  "current": "4.6.1",
   "history": [
     {
       "version": "4.0.0",
@@ -40,8 +40,20 @@
     {
       "version": "4.5.0",
       "released": "2026-06-08",
-      "ended": null,
+      "ended": "2026-06-11",
       "notes": "Android compatibility, persistent browser controller, Installation Manager auto-install + repair/reinstall, onboarding out-of-the-box, landing page with direct downloads and Vercel deploy"
+    },
+    {
+      "version": "4.6.0",
+      "released": "2026-06-11",
+      "ended": "2026-06-12",
+      "notes": "BAGO Chat integrado como pestaña nativa dentro del Gestor. Copiloto contextual: postMessage bridge gestor→chat, contexto operativo inyectado en cada mensaje al AI (vista activa, instalaciones, piezas). INSTALLS_ROOT: instalaciones de BAGO viven dentro del propio Manager. SlashMenu context-aware por vista del gestor. Vite fix para rutas Windows con º."
+    },
+    {
+      "version": "4.6.1",
+      "released": "2026-06-12",
+      "ended": null,
+      "notes": "Release correctiva auditada: identidad interna del bundle bloqueada, runtime y Manager alineados, releases GitHub por IPC, recursos del Manager reparados, bridge postMessage restringido y CI activo en master y tags."
     }
   ]
 }

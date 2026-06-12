@@ -2,7 +2,7 @@ name: Deploy Landing to Vercel
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
     paths:
       - 'landing/**'
       - '.github/workflows/deploy-landing.yml'
@@ -16,7 +16,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
+
+      - name: Build landing CSS
+        run: |
+          npm ci
+          npm run landing:build-css
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest

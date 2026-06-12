@@ -19,7 +19,7 @@ import os
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -53,8 +53,39 @@ from control_shadow import ControlShadow
 from rl_bridge import RLBridge
 
 
+_MANAGER_VIEW_LABELS = {
+    "patch": "Patch Bay",
+    "installations": "Instalaciones",
+    "matrix": "Matriz",
+    "pieces": "Piezas",
+    "releases": "Releases",
+    "jobs": "Trabajos",
+    "sessions": "Sesiones",
+    "system": "Sistema",
+    "health": "Salud",
+    "audit": "Auditoría",
+    "bago": "BAGO Chat",
+}
+
+
+def _format_manager_context(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    parts: list[str] = []
+    view = str(value.get("view") or "").strip()
+    if view in _MANAGER_VIEW_LABELS:
+        parts.append(f"Vista activa del gestor: {_MANAGER_VIEW_LABELS[view]}")
+    for key, label in (("installations", "instalaciones"), ("pieces", "piezas")):
+        raw = str(value.get(key) or "").strip()
+        if raw.isdigit() and 0 <= int(raw) <= 1_000_000:
+            parts.append(f"{int(raw)} {label}")
+    return "; ".join(parts)
+
+
 class BagoAPIHandler(BaseHTTPRequestHandler):
     """Handler HTTP para la API de BAGO."""
+
+    MAX_BODY_BYTES = 1024 * 1024
 
     # Se establece desde fuera antes de iniciar el servidor
     session_mgr: SessionManager | None = None
@@ -124,7 +155,14 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         return str(value)
 
     def _read_body(self) -> dict[str, Any]:
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            return {}
+        if length < 0:
+            return {}
+        if length > self.MAX_BODY_BYTES:
+            raise ValueError("Payload demasiado grande")
         if length:
             data = self.rfile.read(length).decode("utf-8")
             try:
@@ -224,7 +262,11 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         parsed = urlparse(self.path)
         path = parsed.path
-        body = self._read_body()
+        try:
+            body = self._read_body()
+        except ValueError as exc:
+            self._send_json(413, {"error": str(exc)})
+            return
 
         if path == "/chat":
             self._handle_chat(body)
@@ -375,10 +417,20 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Campo 'message' requerido"})
             return
         channel = self._channel(body)
+
+        # Inyectar contexto operativo del gestor si viene en la petición.
+        # El prefijo se incluye en el mensaje enviado al AI para que BAGO tenga
+        # contexto de qué vista está activa en el gestor. El prefijo usa el
+        # marcador BAGO_CTX para que la UI pueda filtrarlo en el historial.
+        ai_message = message
+        manager_context = _format_manager_context(body.get("manager_context"))
+        if manager_context:
+            ai_message = f"[BAGO_CTX:{manager_context}]\n{message}"
+
         pre_state = mgr.status()
         started = time.time()
         try:
-            response = mgr.send(message)
+            response = mgr.send(ai_message)
             payload = {
                 "ok": True,
                 "response": response,
@@ -398,7 +450,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             )
             self._send_json(200, payload)
         except Exception as exc:
-            payload = {"ok": False, "error": str(exc)}
+            payload = {"ok": False, "error": "Error interno al procesar el mensaje"}
             self._record_shadow(
                 action_kind="chat",
                 channel=channel,
@@ -425,7 +477,11 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         channel = self._channel(body)
         pre_state = mgr.status()
         started = time.time()
-        result = execute_command(command_line, mgr, engine)
+        try:
+            result = execute_command(command_line, mgr, engine)
+        except Exception:
+            self._send_json(500, {"ok": False, "error": "Error interno al ejecutar el comando"})
+            return
         payload = {
             "ok": bool(result.get("ok")),
             "message": result.get("message", ""),
@@ -481,7 +537,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             )
             self._send_json(200 if result.ok else 400, payload)
         except Exception as exc:
-            self._send_json(500, {"error": str(exc)})
+            self._send_json(500, {"error": "Error interno al cambiar provider/modelo"})
 
     def _handle_simulation_status(self) -> None:
         shadow = self.shadow
@@ -568,7 +624,7 @@ class BagoAPIServer:
         BagoAPIHandler.api_token = self.token
         BagoAPIHandler.shadow = self.shadow
         BagoAPIHandler.static_dir = self.static_dir
-        self._server = HTTPServer((self.host, self.port), BagoAPIHandler)
+        self._server = ThreadingHTTPServer((self.host, self.port), BagoAPIHandler)
         self.port = self._server.server_port
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()

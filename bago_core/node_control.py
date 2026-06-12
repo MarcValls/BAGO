@@ -26,10 +26,17 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-BAGO_ROOT = Path(__file__).resolve().parents[1]
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+
+if str(_BOOTSTRAP_ROOT / ".bago" / "core") not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "core"))
+
+from paths import app_base_dir
+
+BAGO_ROOT = app_base_dir()
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT))
 
 from bago_core.node_control_ssot import ALLOWED_MODES, CLI_MODES
 from bago_core.node_control_render import (

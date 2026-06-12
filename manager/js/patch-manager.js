@@ -92,8 +92,17 @@ function pmPrereleases(){return releaseItems.filter(rel=>rel.prerelease);}
 function pmReleaseContract(rel){
   const assets=Array.isArray(rel&&rel.assets)?rel.assets:[];
   const bundles=assets.filter(asset=>/\.zip$/i.test(asset.name||'')&&!/\.sha256$/i.test(asset.name||''));
+  const ordered=[...bundles].sort((a,b)=>{
+    const aRuntime=/^bago-v/i.test(String(a.name||''));
+    const bRuntime=/^bago-v/i.test(String(b.name||''));
+    if(aRuntime!==bRuntime) return aRuntime ? -1 : 1;
+    const aTime=new Date(a.updated_at||a.created_at||0).getTime();
+    const bTime=new Date(b.updated_at||b.created_at||0).getTime();
+    if(aTime!==bTime) return bTime-aTime;
+    return String(a.name||'').localeCompare(String(b.name||''));
+  });
   const exactChecksum=bundle=>assets.find(asset=>String(asset.name||'').toLowerCase()===(bundle.name+'.sha256').toLowerCase())||null;
-  const bundle=bundles.find(item=>exactChecksum(item))||bundles[0]||null;
+  const bundle=ordered.find(item=>exactChecksum(item))||ordered[0]||null;
   const checksum=bundle&&exactChecksum(bundle)||null;
   const manager=assets.find(asset=>/BAGO-Installation-Manager.*\.exe$/i.test(asset.name||''))||null;
   const warnings=[];

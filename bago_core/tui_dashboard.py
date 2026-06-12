@@ -21,9 +21,15 @@ from pathlib import Path
 from typing import Any
 
 # Ensure bago_core is on path when run standalone
-_BAGO_ROOT = Path(__file__).resolve().parents[1]
-if str(_BAGO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_BAGO_ROOT))
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+if str(_BOOTSTRAP_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT))
+if str(_BOOTSTRAP_ROOT / ".bago" / "core") not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "core"))
+
+from paths import app_base_dir
+
+_BAGO_ROOT = app_base_dir()
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical

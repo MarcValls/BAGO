@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
 from version import CURRENT as BAGO_VERSION
+from paths import resource_path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
@@ -140,7 +141,7 @@ def _wrap_transcript(text: str) -> str:
 
 # ─── Keybinds ────────────────────────────────────────────────────────────────
 
-_KEYBINDS_PATH = Path(__file__).resolve().parents[2] / ".bago" / "keybinds.json"
+_KEYBINDS_PATH = resource_path(".bago", "keybinds.json")
 
 _DEFAULT_KEYBINDS: dict = {
     "_hint": "↑↓ navegar   Enter seleccionar   Esc/q cancelar",
@@ -322,8 +323,10 @@ class BagoREPL:
         system_prompt: str = "",
         base_path: str | None = None,
         active_bridges: list[str] | None = None,
+        startup_prompt: bool = False,
     ):
         self.base_path = Path(base_path or os.getcwd())
+        self.startup_prompt = startup_prompt
         self.mgr = SessionManager(
             provider=provider,
             model=model,
@@ -337,6 +340,7 @@ class BagoREPL:
         self.running = False
         self._multiline_buffer: list[str] = []
         self._in_multiline = False
+        self._startup_config_done = False
 
     def _print_init_warnings(self) -> None:
         """Muestra advertencias si el modelo fue auto-corrigido."""
@@ -360,6 +364,12 @@ class BagoREPL:
 
         # Detectar si estamos en modo demo
         is_echo = self.mgr.provider == "echo"
+
+        if self.startup_prompt:
+            if self._startup_config_done:
+                return
+            self._startup_configuration_wizard()
+            return
 
         info = getattr(self.mgr, "_init_info", {})
         force_prompt = is_echo or not info.get("corrected") and self.mgr.config.get("ui.prompt_provider_on_start", False)
@@ -448,6 +458,68 @@ class BagoREPL:
             self.engine = SwitchEngine(self.mgr.adapters)
         else:
             print(R.error(f"Error: {result.get('error', 'unknown')}"))
+
+    def _startup_configuration_wizard(self) -> None:
+        """Asistente de arranque para trabajo nuevo: elegir provider y modelo."""
+        providers = self.mgr.available_providers()
+        configured = [p for p in providers if p["configured"] and p["name"] != "echo"]
+        if not configured:
+            print(R.warn("No hay providers reales configurados para este arranque."))
+            print(R.dim("Configura uno con /switch o /config antes de abrir un trabajo nuevo."))
+            return
+
+        print(R.bold("\nArranque de trabajo nuevo"))
+        print(R.dim("Elige la configuración que vas a usar en esta sesión."))
+        for idx, prov in enumerate(configured, 1):
+            model_count = len(prov["models"])
+            badge = "actual" if prov["name"] == self.mgr.provider else "disponible"
+            print(f"  {R.accent(str(idx))} {prov['name']} ({model_count} modelos, {badge})")
+        print(R.dim("  0 Mantener la sesión actual"))
+
+        sel = self._timed_input(R.dim("Provider: "), timeout=30)
+        if sel is None or sel.strip() == "0":
+            return
+        try:
+            idx = int(sel.strip()) - 1
+            if idx < 0 or idx >= len(configured):
+                print(R.error("Selección inválida."))
+                return
+        except ValueError:
+            print(R.error("Debes introducir un número."))
+            return
+
+        prov = configured[idx]
+        models = prov["models"]
+        if not models:
+            print(R.warn("Este provider no tiene modelos visibles en esta instalación."))
+            return
+
+        print(R.bold(f"\nModelos disponibles en {prov['name']}:"))
+        for midx, model in enumerate(models[:12], 1):
+            print(f"  {R.accent(str(midx))} {model}")
+        if len(models) > 12:
+            print(R.dim(f"   ... y {len(models) - 12} más."))
+        print(R.dim("  0 Mantener el modelo actual"))
+
+        sel = self._timed_input(R.dim("Modelo: "), timeout=30)
+        if sel is None or sel.strip() == "0":
+            return
+        try:
+            midx = int(sel.strip()) - 1
+            if midx < 0 or midx >= len(models):
+                print(R.error("Selección inválida."))
+                return
+        except ValueError:
+            print(R.error("Debes introducir un número."))
+            return
+
+        model = models[midx]
+        result = self.mgr.switch(prov["name"], model, force=True)
+        if result.get("ok"):
+            self.engine = SwitchEngine(self.mgr.adapters)
+            print(R.ok(f"✓ Sesión iniciada con {prov['name']}/{model}"))
+        else:
+            print(R.error(f"No se pudo aplicar la configuración: {result.get('error', '?')}"))
 
     def _setup_readline(self) -> None:
         try:
@@ -584,11 +656,15 @@ class BagoREPL:
         if idx == 0:
             return True
         if idx == 1:
-            print(R.info("Describe lo que quieres hacer:"))
-            goal = self._timed_input(R.dim("Objetivo: "), timeout=60)
-            if goal and goal.strip():
-                print(R.dim("Generando plan…"))
-                self._handle_command(f"/plan {goal.strip()}")
+            if self.startup_prompt:
+                self._startup_configuration_wizard()
+                self._startup_config_done = True
+            else:
+                print(R.info("Describe lo que quieres hacer:"))
+                goal = self._timed_input(R.dim("Objetivo: "), timeout=60)
+                if goal and goal.strip():
+                    print(R.dim("Generando plan…"))
+                    self._handle_command(f"/plan {goal.strip()}")
             return True
         if idx == 2:
             return self._switch_wizard()

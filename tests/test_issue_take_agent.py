@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    source_root = str(Path(__file__).resolve().parent)
+    source_root = str(Path(__file__).resolve().parents[1])
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = source_root if not existing else f"{source_root}{os.pathsep}{existing}"
     return subprocess.run(cmd, cwd=str(cwd), env=env, text=True, capture_output=True)

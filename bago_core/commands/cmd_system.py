@@ -6,19 +6,23 @@ import sys
 from pathlib import Path
 from typing import Any
 
-BAGO_ROOT = Path(__file__).resolve().parents[2]
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[2]
 
 for _path in (
-    BAGO_ROOT / "bago_core",
-    BAGO_ROOT / ".bago" / "core",
-    BAGO_ROOT / ".bago" / "chat",
-    BAGO_ROOT / ".bago" / "providers",
-    BAGO_ROOT / ".bago" / "api",
-    BAGO_ROOT / ".bago" / "tools",
+    _BOOTSTRAP_ROOT / "bago_core",
+    _BOOTSTRAP_ROOT / ".bago" / "core",
+    _BOOTSTRAP_ROOT / ".bago" / "chat",
+    _BOOTSTRAP_ROOT / ".bago" / "providers",
+    _BOOTSTRAP_ROOT / ".bago" / "api",
+    _BOOTSTRAP_ROOT / ".bago" / "tools",
 ):
     _path_s = str(_path)
     if _path_s not in sys.path:
         sys.path.insert(0, _path_s)
+
+from paths import app_base_dir
+
+BAGO_ROOT = app_base_dir()
 
 def cmd_engine(args: argparse.Namespace) -> int:
     from bago_true_bridge import collect_status, render_status

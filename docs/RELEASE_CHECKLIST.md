@@ -2,6 +2,11 @@
 
 Use this before publishing a tag, GitHub release, or release ZIP.
 
+Public release policy:
+
+- [`docs/PUBLIC_RELEASE_POLICY.md`](PUBLIC_RELEASE_POLICY.md) - public publication order, gates, limits, and release note template.
+- [`docs/RELEASE_NOTES_4.6.1.md`](RELEASE_NOTES_4.6.1.md) - canonical 4.6.1 release notes.
+
 ## Scope
 
 - [ ] Stable MVP boundary still matches `docs/MVP.md`.
@@ -14,14 +19,21 @@ Use this before publishing a tag, GitHub release, or release ZIP.
 
 ```powershell
 python --version
+python -m compileall -q bago_core .bago scripts tests
 python -m py_compile bago_core\cli.py bago_core\launcher.py .bago\api\bridge.py .bago\core\config_manager.py tests\test_security_release.py tests\test_e2e.py
 python tests\test_security_release.py
 python tests\test_e2e.py
+python -m pytest -q
+python scripts\clean_install_smoke.py
 python scripts\verify_release_drift.py
+python scripts\verify_docs.py --repo .
 python bago_core\cli.py validate
 python bago_core\cli.py evidence --test
+python .bago\api\bridge.py --test
+python .bago\tools\dep_audit.py requirements.txt --format json --out dep-audit.json
 python bago_core\cli.py llm list
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
+python scripts\package_v4.py --test
 ```
 
 Optional live model proof:

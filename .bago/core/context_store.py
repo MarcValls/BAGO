@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from io_utils import atomic_write_json, atomic_write_text, read_json_quarantine
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -213,7 +215,7 @@ class ContextStore:
                 return False
             self._messages[index].metadata["good"] = True
             # Rewrite file
-            self._context_path.write_text("", encoding="utf-8")
+            atomic_write_text(self._context_path, "")
             for m in self._messages:
                 self._append_jsonl(self._context_path, m.to_dict())
         self.add_timeline_event(TimelineEvent("session", "mark_good", f"Mensaje {index} marcado como good"))
@@ -243,7 +245,7 @@ class ContextStore:
     def clear_history(self) -> None:
         with self._lock:
             self._messages = []
-            self._context_path.write_text("", encoding="utf-8")
+            atomic_write_text(self._context_path, "")
         self.add_timeline_event(TimelineEvent("session", "clear", "Historial limpiado"))
 
     # ── Public API: timeline ─────────────────────────────────────────────────
@@ -321,22 +323,20 @@ class ContextStore:
         return items
 
     def _append_jsonl(self, path: Path, obj: dict) -> None:
-        with path.open("a", encoding="utf-8") as f:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
 
     def _load_json(self, path: Path, default: Any = None) -> Any:
-        if not path.exists():
-            return default
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return default
+        return read_json_quarantine(path, default=default)
 
     def _save_tokens(self) -> None:
-        self._tokens_path.write_text(json.dumps(self._tokens, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_json(self._tokens_path, self._tokens)
 
     def _save_meta(self) -> None:
-        self._meta_path.write_text(json.dumps(self._meta, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_json(self._meta_path, self._meta)
 
     @staticmethod
     def _resolve_base_dir() -> Path:
@@ -367,7 +367,7 @@ class ContextStore:
             kept = system_msgs + other_msgs[-target_messages:]
             self._messages = kept
             # Rewrite file
-            self._context_path.write_text("", encoding="utf-8")
+            atomic_write_text(self._context_path, "")
             for m in self._messages:
                 self._append_jsonl(self._context_path, m.to_dict())
         self.add_timeline_event(

@@ -92,8 +92,12 @@ function pmPrereleases(){return releaseItems.filter(rel=>rel.prerelease);}
 function pmReleaseContract(rel){
   const assets=Array.isArray(rel&&rel.assets)?rel.assets:[];
   const bundles=assets.filter(asset=>/\.zip$/i.test(asset.name||'')&&!/\.sha256$/i.test(asset.name||''));
+  const ordered=[
+    ...bundles.filter(asset=>/^bago-v/i.test(String(asset.name||''))),
+    ...bundles.filter(asset=>!/^bago-v/i.test(String(asset.name||'')))
+  ];
   const exactChecksum=bundle=>assets.find(asset=>String(asset.name||'').toLowerCase()===(bundle.name+'.sha256').toLowerCase())||null;
-  const bundle=bundles.find(item=>exactChecksum(item))||bundles[0]||null;
+  const bundle=ordered.find(item=>exactChecksum(item))||ordered[0]||null;
   const checksum=bundle&&exactChecksum(bundle)||null;
   const manager=assets.find(asset=>/BAGO-Installation-Manager.*\.exe$/i.test(asset.name||''))||null;
   const warnings=[];
@@ -101,6 +105,50 @@ function pmReleaseContract(rel){
   if(!checksum)warnings.push('sin checksum SHA256');
   if(bundle&&!bundle.digest)warnings.push('digest remoto no publicado');
   return {bundle,checksum,manager,warnings,ok:!!(bundle&&checksum)};
+}
+function pmReleaseTargetPath(){
+  const selected=pmFindInstallation(pmSelectedInstallation);
+  return selected&&selected.path||document.getElementById('target-install-path')?.value||'C:\\Program Files\\BAGO';
+}
+function pmSourceRootValue(){
+  return document.getElementById('source-update-root')?.value.trim()||localStorage.getItem('bago.pm.source.root')||'';
+}
+function pmSourceBranchValue(){
+  return document.getElementById('source-update-branch')?.value.trim()||localStorage.getItem('bago.pm.source.branch')||'main';
+}
+function pmPersistSourceInputs(sourceRoot,branch){
+  if(sourceRoot)localStorage.setItem('bago.pm.source.root',sourceRoot);
+  if(branch)localStorage.setItem('bago.pm.source.branch',branch);
+}
+async function pmInstallLatestRelease(){
+  const rel=latestRelease||pmStableReleases()[0]||null;
+  if(!rel){showToast('No hay release stable disponible',false);return;}
+  const target=pmReleaseTargetPath();
+  await pmPrepareRelease(rel,target,'update');
+}
+async function pmSourceBranchUpdate(targetPath){
+  const api=electronApi();
+  const sourceRoot=pmSourceRootValue();
+  const branch=pmSourceBranchValue();
+  const target=targetPath||pmReleaseTargetPath();
+  if(!sourceRoot){showToast('Falta la ruta source/branch',false);return;}
+  pmPersistSourceInputs(sourceRoot,branch);
+  if(!api||!api.installAction){
+    if(api&&api.buildSourceInstallCommand){
+      await copyText(api.buildSourceInstallCommand(sourceRoot,target,branch,'Express'));
+      showToast('Comando source/branch copiado',true);
+      return;
+    }
+    showToast('source/branch solo disponible en Electron',false);
+    return;
+  }
+  if(!window.confirm('Actualizar desde fuente/branch?\n\nFuente: '+sourceRoot+'\nBranch: '+branch+'\nDestino: '+target))return;
+  try{
+    const result=await api.installAction({action:'source-update',sourceRoot,branch,targetDir:target,profile:'stable',mode:'Express'});
+    pmAudit('source-update',branch+' · '+sourceRoot+' → '+(result&&result.installDir||target));
+    showToast('Fuente/branch actualizada',true);
+    await Promise.all([refreshAll([]),loadNodeData(),pmLoadHealth(),pmLoadJobs()]);
+  }catch(e){showToast('Source/branch: '+e.message,false);}
 }
 function pmMatrixCell(installationId,pieceId){
   const rows=Array.isArray(nodeCache.matrix&&nodeCache.matrix.rows)?nodeCache.matrix.rows:[];
@@ -413,7 +461,7 @@ function pmRenderInstallations(){
       +roles.map(r=>pmBadge('rol '+roleBadgeLabel(r),'ok')).join('')+'</div></div>'
       +'<div class="pm-row-actions"><button data-pm-install-action="focus" data-id="'+escapeHtml(nodeId)+'">Patch</button>'
       +'<button data-pm-install-action="active" data-path="'+escapeHtml(inst.path)+'">Activa</button><button data-pm-install-action="dev" data-path="'+escapeHtml(inst.path)+'">Dev</button>'
-      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button></div></article>';
+      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="source-update" data-path="'+escapeHtml(inst.path)+'">Fuente/branch</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button></div></article>';
   }).join('')||'<div class="pm-empty">Sin instalaciones visibles.</div>';
   container.querySelectorAll('[data-pm-install-action]').forEach(btn=>btn.addEventListener('click',async ev=>{
     ev.stopPropagation();
@@ -426,10 +474,7 @@ function pmRenderInstallations(){
       if(!window.confirm('Asignar '+action+' a '+path+'?'))return;
       await setInstallRole(action,path);pmAudit('rol',action+' → '+path);renderPatchManager();return;
     }
-    if(action==='update'){
-      if(!latestRelease){showToast('No hay release stable disponible',false);return;}
-      await pmPrepareRelease(latestRelease,path,'update');
-    }
+    if(action==='source-update')await pmSourceBranchUpdate(path);
     if(action==='uninstall-impact')await pmInspectUninstall(path);
   }));
 }
@@ -481,6 +526,7 @@ function pmRenderReleases(){
   const stable=pmStableReleases(),beta=pmPrereleases();
   const selected=pmReleaseChannel==='stable'?stable:pmReleaseChannel==='prerelease'?beta:releaseItems;
   const stableLatest=stable[0]||null,betaLatest=beta[0]||null;
+  latestRelease=stableLatest;
   document.getElementById('pm-release-caption').textContent=releaseItems.length
     ?'stable '+(stableLatest&&stableLatest.tag_name||'-')+' · prerelease '+(betaLatest&&betaLatest.tag_name||'-')+' · selección explícita'
     :'Sin releases cargadas';
@@ -732,6 +778,10 @@ function pmInit(){
   const heroCli=document.getElementById('pm-hero-open-cli');
   if(heroWeb) heroWeb.addEventListener('click',openWebChat);
   if(heroCli) heroCli.addEventListener('click',openCliChat);
+  const sourceRoot=document.getElementById('source-update-root');
+  const sourceBranch=document.getElementById('source-update-branch');
+  if(sourceRoot) sourceRoot.value=localStorage.getItem('bago.pm.source.root')||sourceRoot.value||'';
+  if(sourceBranch) sourceBranch.value=localStorage.getItem('bago.pm.source.branch')||sourceBranch.value||'main';
   document.getElementById('pm-install-filter').addEventListener('change',ev=>{pmSelectedInstallation=ev.target.value;pmRenderPatch();});
   document.getElementById('pm-matrix-piece-sort').value=pmMatrixPieceSort;
   document.getElementById('pm-matrix-install-sort').value=pmMatrixInstallSort;
@@ -742,6 +792,8 @@ function pmInit(){
   document.getElementById('pm-matrix-direction').addEventListener('change',ev=>{pmMatrixDirection=ev.target.value;pmPersistMatrixPreferences();pmRenderMatrix();});
   document.getElementById('pm-matrix-transpose').addEventListener('click',()=>{pmMatrixTransposed=!pmMatrixTransposed;pmPersistMatrixPreferences();document.getElementById('pm-matrix-transpose').classList.toggle('primary',pmMatrixTransposed);pmRenderMatrix();});
   document.getElementById('pm-release-channel').addEventListener('change',ev=>{pmReleaseChannel=ev.target.value;pmRenderReleases();});
+  document.getElementById('btn-source-update').addEventListener('click',()=>pmSourceBranchUpdate(''));
+  document.getElementById('btn-install-latest').addEventListener('click',pmInstallLatestRelease);
   document.getElementById('pm-jobs-refresh').addEventListener('click',pmLoadJobs);
   document.getElementById('pm-health-refresh').addEventListener('click',pmLoadHealth);
   document.getElementById('pm-refresh').addEventListener('click',async()=>{pmAudit('refresh','Detección local, releases, salud y Node Control');await Promise.all([refreshAll([]),loadNodeData(),pmLoadHealth()]);});

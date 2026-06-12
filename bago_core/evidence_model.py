@@ -18,7 +18,13 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+import sys
+from pathlib import Path
 from typing import Any
+
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
+if str(_BOOTSTRAP_ROOT / ".bago" / "core") not in sys.path:
+    sys.path.insert(0, str(_BOOTSTRAP_ROOT / ".bago" / "core"))
 
 from provider_adapter import (
     HealthStatus,

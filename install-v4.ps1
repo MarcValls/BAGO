@@ -16,6 +16,98 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# P0-02 fix helper: safely quote a value for use in a Start-Process
+# -ArgumentList array. PowerShell re-parses the array as a command line,
+# so we need to wrap anything that may contain spaces or special chars
+# in double quotes and escape any embedded double quotes.
+function Quote-PwshArg {
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Value)
+    if ($null -eq $Value) { return '""' }
+    if ($Value -eq '') { return '""' }
+    if ($Value -notmatch '[\s"`$]') { return $Value }
+    return '"' + ($Value -replace '"','""') + '"'
+}
+
+# P0-02 fix: detect whether the current PowerShell session is elevated.
+# Used to decide between Program Files (needs admin) and a user-writable
+# path. This is a no-op on PowerShell ISE and on non-Windows hosts.
+function Test-IsAdministrator {
+    if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
+        try {
+            $current = [Security.Principal.WindowsIdentity]::GetCurrent()
+            $principal = New-Object Security.Principal.WindowsPrincipal($current)
+            return $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+        } catch {
+            return $false
+        }
+    }
+    # Non-Windows hosts are treated as root for the purposes of installation
+    # tests; the Manager is a Windows-only app so this path is mostly hit by
+    # CI on Linux runners.
+    return $true
+}
+
+# P0-01 fix helpers: surface both the Manager and runtime versions to the
+# install manifest so the Manager can warn when they drift.
+function Get-BagoManagerVersion {
+    param([Parameter(Mandatory = $true)][string]$SourceRoot)
+    try {
+        $pkgPath = Join-Path $SourceRoot "package.json"
+        if (Test-Path -LiteralPath $pkgPath) {
+            $pkg = Get-Content -LiteralPath $pkgPath -Raw | ConvertFrom-Json
+            if ($pkg.version) { return [string]$pkg.version }
+        }
+    } catch {}
+    try {
+        $v = Join-Path $SourceRoot "release_version.txt"
+        if (Test-Path -LiteralPath $v) { return (Get-Content -LiteralPath $v -Raw).Trim() }
+    } catch {}
+    return "unknown"
+}
+
+function Get-BagoRuntimeVersion {
+    param([Parameter(Mandatory = $true)][string]$SourceRoot)
+    try {
+        $v = Join-Path $SourceRoot "release_version.txt"
+        if (Test-Path -LiteralPath $v) { return (Get-Content -LiteralPath $v -Raw).Trim() }
+    } catch {}
+    return "unknown"
+}
+
+# P0-01 fix helper: SHA256 of the source root, used to detect drift between
+# the source tree the installer was built from and the install on disk.
+# Falls back to a fingerprint of the source root path when the tree is
+# huge (we never want to hang an install on a multi-gigabyte copy).
+function Get-BagoSourceSha256 {
+    param([Parameter(Mandatory = $true)][string]$SourceRoot)
+    if (-not (Test-Path -LiteralPath $SourceRoot)) { return "" }
+    try {
+        $files = Get-ChildItem -LiteralPath $SourceRoot -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch "[\\\/](\.git|node_modules|__pycache__|\.pytest_cache|dist|landing|release)([\\\/]|$)" } |
+            Sort-Object FullName
+        if ($files.Count -gt 4000) { return ("fp:" + (Resolve-Path -LiteralPath $SourceRoot).Path.ToLowerInvariant()) }
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $ms = New-Object System.IO.MemoryStream
+            $sw = New-Object System.IO.StreamWriter($ms, [System.Text.Encoding]::UTF8)
+            foreach ($f in $files) {
+                $rel = $f.FullName.Substring($SourceRoot.Length).TrimStart("\","/")
+                $sw.WriteLine($rel)
+                $sw.WriteLine($f.Length.ToString())
+            }
+            $sw.Flush()
+            $ms.Position = 0
+            $bytes = $sha.ComputeHash($ms)
+            return ([BitConverter]::ToString($bytes) -replace "-","").ToLowerInvariant()
+        } finally {
+            $sha.Dispose()
+            $ms.Dispose()
+        }
+    } catch {
+        return ("err:" + $_.Exception.Message)
+    }
+}
+
 function Get-FullPath {
     param([Parameter(Mandatory = $true)][string]$Path)
     return [System.IO.Path]::GetFullPath($Path)
@@ -105,6 +197,64 @@ if ($Profile) {
     }
     if (-not $PSBoundParameters.ContainsKey("UserStateDir")) {
         $UserStateDir = Get-ProfileUserStateDir -ProfileName $profileName
+    }
+}
+
+# P0-02 fix: when the destination is under Program Files and we are not
+# elevated, the install cannot complete reliably. We try two things in order:
+#   1) relaunch ourselves with UAC (Start-Process -Verb RunAs) so the install
+#      continues with admin rights in the same process tree.
+#   2) if elevation is denied, fall back to a user-writable path under
+#      %LOCALAPPDATA%\BAGO so a non-admin user can still install BAGO.
+# Both branches are explicit; the user is informed via console output.
+if ($Profile -eq "stable" -or (-not $Profile)) {
+    $programFilesRoot = $env:ProgramFiles
+    if (-not $programFilesRoot) { $programFilesRoot = "C:\Program Files" }
+    if ($InstallDir.StartsWith($programFilesRoot, [System.StringComparison]::OrdinalIgnoreCase) -and -not (Test-IsAdministrator)) {
+        Write-Warning ("El destino '{0}' requiere privilegios de administrador." -f $InstallDir)
+        try {
+            $self = $MyInvocation.MyCommand.Path
+            if ($self -and (Test-Path -LiteralPath $self)) {
+                Write-Host "Solicitando elevacion UAC para continuar la instalacion..."
+                $argList = @("-NoProfile","-ExecutionPolicy","Bypass","-File", $self)
+                foreach ($k in $PSBoundParameters.Keys) {
+                    $v = $PSBoundParameters[$k]
+                    if ($v -is [switch]) { if ($v.IsPresent) { $argList += "-$k" } }
+                    elseif ($v -is [System.Array]) {
+                        foreach ($item in $v) { $argList += @("-$k", (Quote-PwshArg $item)) }
+                    }
+                    else { $argList += @("-$k", (Quote-PwshArg ([string]$v))) }
+                }
+                # UAC elevation always shows a system prompt; -WindowStyle
+                # only affects the resulting child window. We do not pass it
+                # because Start-Process -Verb RunAs does not honour it on the
+                # consent dialog itself.
+                $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Verb RunAs -PassThru
+                if ($proc) {
+                    # Wait up to 5 minutes for the elevated install. A long
+                    # timeout is needed for large source trees; we still want
+                    # a hard ceiling so a stuck UAC flow does not hang us
+                    # forever.
+                    $waited = $proc.WaitForExit(300000)
+                    if (-not $waited) {
+                        Write-Warning "La elevacion UAC no finalizo en 5 minutos; se aplicara fallback a %LOCALAPPDATA%."
+                        try { $proc | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+                    } elseif ($proc.ExitCode -eq 0) {
+                        Write-Host "Instalacion elevada finalizada con exito (exit 0). Saliendo del proceso no-elevado."
+                        exit 0
+                    } else {
+                        Write-Warning ("La elevacion UAC termino con codigo {0}; se aplicara fallback a %LOCALAPPDATA%." -f $proc.ExitCode)
+                    }
+                }
+            }
+        } catch {
+            Write-Warning ("No se pudo solicitar elevacion UAC: {0}" -f $_.Exception.Message)
+        }
+        $localAppData = $env:LOCALAPPDATA
+        if (-not $localAppData) { $localAppData = (Join-Path $HOME "AppData\Local") }
+        $fallbackDir = Join-Path $localAppData "BAGO"
+        Write-Warning ("Fallback automatico: la instalacion continuara en '{0}' (usuario escribible)." -f $fallbackDir)
+        $InstallDir = $fallbackDir
     }
 }
 
@@ -492,49 +642,75 @@ function New-InstallConfig {
 }
 
 function Invoke-ProviderValidation {
-    param([Parameter(Mandatory = $true)][System.Collections.IDictionary]$Providers)
+    param(
+        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Providers,
+        [bool]$Strict = $true
+    )
     $ok = @{}
     foreach ($name in $Providers.Keys) {
         $cfg = $Providers[$name]
         if (-not $cfg.enabled) { continue }
-        switch ($name) {
-            "ollama-local" {
-                $url = $cfg.base_url
-                $tags = Invoke-RestMethod -Uri "$url/api/tags" -Method Get -TimeoutSec 10
-                $models = @($tags.models | ForEach-Object { $_.name })
-                if ($cfg.model -and ($models -notcontains $cfg.model)) { throw "Modelo local no disponible: $($cfg.model)" }
-                $ok[$name] = [ordered]@{ ok = $true; models = $models.Count; detail = "ollama-local ok" }
-            }
-            "codex" {
-                if (-not $cfg.api_key) { throw "OpenAI/Codex sin api key." }
-                $headers = @{ Authorization = "Bearer $($cfg.api_key)" }
-                $models = Invoke-RestMethod -Uri "https://api.openai.com/v1/models" -Headers $headers -Method Get -TimeoutSec 20
-                $ok[$name] = [ordered]@{ ok = $true; models = @($models.data).Count; detail = "openai ok" }
-            }
-            "copilot" {
-                if ($cfg.auth_mode -eq "device-flow") {
-                    $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
-                    if (-not $gh) { throw "GitHub device-flow requiere gh CLI." }
-                    & gh auth status -h github.com 1>$null 2>$null
-                    if ($LASTEXITCODE -ne 0) { throw "gh auth status fallo para github.com." }
-                    $token = (& gh auth token) | Select-Object -First 1
-                    if (-not $token) { throw "gh auth token no devolvio token." }
-                    $headers = @{ Authorization = "Bearer $token" }
-                } elseif ($cfg.api_key) {
-                    $headers = @{ Authorization = "Bearer $($cfg.api_key)" }
-                } else {
-                    throw "GitHub/Copilot sin token ni device-flow autenticado."
+        try {
+            switch ($name) {
+                "ollama-local" {
+                    $url = $cfg.base_url
+                    $tags = Invoke-RestMethod -Uri "$url/api/tags" -Method Get -TimeoutSec 10
+                    $models = @($tags.models | ForEach-Object { $_.name })
+                    if ($cfg.model -and ($models -notcontains $cfg.model)) {
+                        # P0-04 fix: a missing local model used to abort the
+                        # install. In Express mode we treat it as a warning
+                        # so a user without Ollama can still finish the
+                        # install and decide what to do afterwards.
+                        if ($Strict) {
+                            throw "Modelo local no disponible: $($cfg.model)"
+                        }
+                        $ok[$name] = [ordered]@{ ok = $false; detail = "modelo '$($cfg.model)' no disponible (warning, modo no estricto)"; models = $models.Count }
+                        Write-Warning ("ollama-local: modelo '$($cfg.model)' no disponible. Se omite en modo no-estricto.")
+                    } else {
+                        $ok[$name] = [ordered]@{ ok = $true; models = $models.Count; detail = "ollama-local ok" }
+                    }
                 }
-                $resp = Invoke-RestMethod -Uri "https://api.githubcopilot.com/models" -Headers $headers -Method Get -TimeoutSec 20
-                $ok[$name] = [ordered]@{ ok = $true; models = @($resp.data).Count; detail = "copilot ok" }
+                "codex" {
+                    if (-not $cfg.api_key) { throw "OpenAI/Codex sin api key." }
+                    $headers = @{ Authorization = "Bearer $($cfg.api_key)" }
+                    $models = Invoke-RestMethod -Uri "https://api.openai.com/v1/models" -Headers $headers -Method Get -TimeoutSec 20
+                    $ok[$name] = [ordered]@{ ok = $true; models = @($models.data).Count; detail = "openai ok" }
+                }
+                "copilot" {
+                    if ($cfg.auth_mode -eq "device-flow") {
+                        $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
+                        if (-not $gh) { throw "GitHub device-flow requiere gh CLI." }
+                        & gh auth status -h github.com 1>$null 2>$null
+                        if ($LASTEXITCODE -ne 0) { throw "gh auth status fallo para github.com." }
+                        $token = (& gh auth token) | Select-Object -First 1
+                        if (-not $token) { throw "gh auth token no devolvio token." }
+                        $headers = @{ Authorization = "Bearer $token" }
+                    } elseif ($cfg.api_key) {
+                        $headers = @{ Authorization = "Bearer $($cfg.api_key)" }
+                    } else {
+                        throw "GitHub/Copilot sin token ni device-flow autenticado."
+                    }
+                    $resp = Invoke-RestMethod -Uri "https://api.githubcopilot.com/models" -Headers $headers -Method Get -TimeoutSec 20
+                    $ok[$name] = [ordered]@{ ok = $true; models = @($resp.data).Count; detail = "copilot ok" }
+                }
+                "ollama-cloud" {
+                    if (-not $cfg.base_url) { throw "Ollama Cloud sin base_url." }
+                    $headers = @{}
+                    if ($cfg.api_key) { $headers.Authorization = "Bearer $($cfg.api_key)" }
+                    $tags = Invoke-RestMethod -Uri "$($cfg.base_url)/api/tags" -Headers $headers -Method Get -TimeoutSec 20
+                    $ok[$name] = [ordered]@{ ok = $true; models = @($tags.models).Count; detail = "ollama-cloud ok" }
+                }
             }
-            "ollama-cloud" {
-                if (-not $cfg.base_url) { throw "Ollama Cloud sin base_url." }
-                $headers = @{}
-                if ($cfg.api_key) { $headers.Authorization = "Bearer $($cfg.api_key)" }
-                $tags = Invoke-RestMethod -Uri "$($cfg.base_url)/api/tags" -Headers $headers -Method Get -TimeoutSec 20
-                $ok[$name] = [ordered]@{ ok = $true; models = @($tags.models).Count; detail = "ollama-cloud ok" }
+        } catch {
+            # P0-04 fix: in non-strict mode, network/availability issues for a
+            # provider should not abort the install. They are recorded with
+            # ok=false and the user can re-validate from the Manager later.
+            if (-not $Strict) {
+                $ok[$name] = [ordered]@{ ok = $false; detail = "provider '$name' no disponible: $($_.Exception.Message)" }
+                Write-Warning ("provider '$name' no disponible (modo no-estricto): $($_.Exception.Message)")
+                continue
             }
+            throw
         }
     }
     return $ok
@@ -544,14 +720,23 @@ function Invoke-FinalValidation {
     param(
         [Parameter(Mandatory = $true)][string]$InstallPath,
         [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Providers,
-        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Knowledge
+        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Knowledge,
+        [string]$InstallerMode = "Express"
     )
+    # P0-04 fix: in Express mode a missing/broken provider is a warning, not
+    # a fatal error. Advanced keeps the old strict behaviour.
+    $strictValidation = ($InstallerMode -eq "Advanced")
     $report = [ordered]@{}
     $report.destination = @{ ok = (Test-PathWritable $InstallPath); path = $InstallPath }
-    $report.providers = Invoke-ProviderValidation -Providers $Providers
+    $report.providers = Invoke-ProviderValidation -Providers $Providers -Strict:$strictValidation
     $report.local_model = @{ ok = $true; detail = "no local provider selected" }
     if ($Providers.Contains("ollama-local") -and $Providers["ollama-local"].enabled) {
-        $report.local_model = @{ ok = $true; detail = "ollama-local validated"; model = $Providers["ollama-local"].model }
+        $entry = if ($report.providers.Contains("ollama-local")) { $report.providers["ollama-local"] } else { $null }
+        $report.local_model = @{
+            ok = ($null -ne $entry -and $entry.ok)
+            detail = if ($entry) { $entry.detail } else { "ollama-local no validado" }
+            model = $Providers["ollama-local"].model
+        }
     }
     $report.knowledge = @{ ok = $true; detail = "not shared" }
     if ($Knowledge.mode -eq "existing") {
@@ -766,14 +951,21 @@ if ($credentialStoreCfg.mode -ne "session") {
     Write-EncryptedStore -Path $credentialStoreCfg.path -Payload $secretStorePayload
 }
 
-$validation = Invoke-FinalValidation -InstallPath $installFull -Providers $providerConfigs -Knowledge $knowledgeCfg
+$validation = Invoke-FinalValidation -InstallPath $installFull -Providers $providerConfigs -Knowledge $knowledgeCfg -InstallerMode $installerMode
 Write-Host "Validacion final:"
 Write-Host ("  destination: {0}" -f $(if ($validation.destination.ok) { "ok" } else { "fail" }))
 foreach ($name in $validation.providers.Keys) {
-    $state = if ($validation.providers[$name].ok) { "ok" } else { "fail" }
+    # P0-04 fix: in Express mode a provider warning is "warn", not "fail".
+    $state = if ($validation.providers[$name].ok) { "ok" } elseif ($installerMode -eq "Express") { "warn" } else { "fail" }
     Write-Host ("  provider[{0}]: {1}" -f $name, $state)
 }
 Write-Host ("  knowledge: {0}" -f $(if ($validation.knowledge.ok) { "ok" } else { "fail" }))
+if ($installerMode -eq "Express") {
+    if (-not $validation.destination.ok) {
+        throw "La validacion del destino fallo; no se puede continuar la instalacion."
+    }
+    Write-Host "Modo Express: las advertencias de providers (Ollama/red) no abortan la instalacion."
+}
 
 if (-not $NoPathUpdate) {
     $pathScope = Enable-BagoCommandPath -InstallPath $installFull
@@ -794,13 +986,57 @@ if ($enableContextMenu) {
 if (-not $SkipTests) {
     Push-Location $installFull
     try {
+        # P0-03 fix: in a packaged release the `tests/` folder is not shipped,
+        # so the old call to `tests\test_security_release.py` would fail with
+        # a FileNotFoundException. We always run the stable self-test shipped
+        # with the runtime; the repo test suite is only executed when we are
+        # actually running from a development source tree.
         & python "bago_core\launcher.py" "--test"
         if ($LASTEXITCODE -ne 0) { throw "launcher.py --test failed with exit code $LASTEXITCODE" }
-        & python "tests\test_security_release.py"
-        if ($LASTEXITCODE -ne 0) { throw "test_security_release.py failed with exit code $LASTEXITCODE" }
+        & python ".bago\api\bridge.py" "--test"
+        if ($LASTEXITCODE -ne 0) { throw "bridge.py --test failed with exit code $LASTEXITCODE" }
+        $hasSecurityTest = Test-Path -LiteralPath (Join-Path $installFull "tests\test_security_release.py")
+        if ($hasSecurityTest) {
+            & python "tests\test_security_release.py"
+            if ($LASTEXITCODE -ne 0) { throw "test_security_release.py failed with exit code $LASTEXITCODE" }
+        } else {
+            Write-Host "tests\test_security_release.py no esta en este paquete (release build). Se omite y se mantiene el self-test estable."
+        }
     } finally {
         Pop-Location
     }
+}
+
+# P0-01 fix: write a small marker so the Manager (and other tools) can tell
+# a real install apart from the bundled runtime. The marker carries the
+# install dir, source SHA, profile and timestamp and is a plain JSON file
+# that survives upgrades and is also valid for offline integrity checks.
+$installManifest = [ordered]@{
+    schema_version = 1
+    profile = $profileName
+    install_dir = $installFull
+    source_root = $sourceFull
+    source_sha256 = (Get-BagoSourceSha256 -SourceRoot $sourceFull)
+    installed_at = $stamp
+    install_script = "install-v4.ps1"
+    install_script_version = "v4"
+    manager_version = (Get-BagoManagerVersion -SourceRoot $sourceFull)
+    runtime_version = (Get-BagoRuntimeVersion -SourceRoot $sourceFull)
+    backup_zip = $backupZip
+    timestamp = $stamp
+}
+$installManifestPath = Join-Path $installFull "install_manifest.json"
+$installManifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $installManifestPath -Encoding UTF8
+
+# P0-02 fix: if the destination is under Program Files and we are not
+# elevated, the install is silently broken on most systems. Write a tiny
+# elevation-needed marker so the Manager UI can show a clear message
+# instead of pretending the install succeeded. The Manager already detects
+# this case and offers to fall back to a user-writable path on next launch.
+if (-not (Test-IsAdministrator) -and $installFull.StartsWith($programFiles, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $markerPath = Join-Path $installFull ".needs_elevation"
+    Set-Content -LiteralPath $markerPath -Value $stamp -Encoding UTF8
+    Write-Warning "Instalacion finalizada en Program Files sin privilegios de administrador. Algunas operaciones requeriran elevacion."
 }
 
 $result = [ordered]@{

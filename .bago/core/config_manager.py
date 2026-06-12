@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from io_utils import atomic_write_json, read_json_quarantine
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -104,8 +106,8 @@ class ConfigManager:
     def _load(self) -> None:
         if self.config_path.exists():
             try:
-                self._data = json.loads(self.config_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
+                self._data = read_json_quarantine(self.config_path, default={}) or {}
+            except Exception:
                 self._data = {}
         else:
             self._data = {}
@@ -124,7 +126,7 @@ class ConfigManager:
                 target.setdefault(key, val)
 
     def _save(self) -> None:
-        self.config_path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_json(self.config_path, self._data)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Obtiene valor por clave dot-notation, ej: 'providers.ollama-local.enabled'."""

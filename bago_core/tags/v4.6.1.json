@@ -1,0 +1,31 @@
+{
+  "tag": "v4.6.1",
+  "version": "4.6.1",
+  "created_at": "2026-06-12T00:00:00+00:00",
+  "release": {
+    "bundle_id": "bago.v4.6.1",
+    "release_url": "https://github.com/MarcValls/BAGO/releases/tag/v4.6.1",
+    "manager_asset": "BAGO-Installation-Manager-4.6.1-win-x64.exe",
+    "manager_checksum_asset": "BAGO-Installation-Manager-4.6.1-win-x64.exe.sha256",
+    "bundle_asset": "bago-v4.6.1.zip",
+    "checksum_asset": "bago-v4.6.1.zip.sha256",
+    "default_model": "llama3.2:3b",
+    "profiles": {
+      "stable": "C:\\Program Files\\BAGO",
+      "des": "%USERPROFILE%\\.bago\\dev",
+      "ign": "%USERPROFILE%\\.bago\\launch"
+    }
+  },
+  "signature": {
+    "algorithm": "github-release-sha256-assets",
+    "bundle_sha256_asset": "bago-v4.6.1.zip.sha256",
+    "manager_sha256_asset": "BAGO-Installation-Manager-4.6.1-win-x64.exe.sha256"
+  },
+  "fixes": [
+    "Bloqueo de identidad de versión antes y después de construir el ZIP",
+    "Runtime completo y Manager empaquetado desde la misma revisión",
+    "Consulta de releases por IPC y recursos visuales reparados",
+    "Bridge de contexto restringido a origen y ventana local",
+    "CI habilitado para master, ramas de release y tags"
+  ]
+}

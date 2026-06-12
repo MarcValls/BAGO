@@ -3,13 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO v4.5.0 — AI Control Plane Local</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>BAGO v4.6.1 — AI Control Plane Local</title>
+  <link rel="icon" href="assets/bago-wasp.svg">
+  <link rel="stylesheet" href="assets/landing.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
-  <script defer src="/_vercel/insights/script.js"></script>
+  <script>
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
+      const analytics = document.createElement('script');
+      analytics.defer = true;
+      analytics.src = '/_vercel/insights/script.js';
+      document.head.appendChild(analytics);
+    }
+  </script>
   <style>
     body{font-family:'Inter',sans-serif;}
     code,.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
@@ -40,7 +48,7 @@
     <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <img src="logo.png" width="36" height="36" alt="BAGO logo" class="drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]">
-        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.5.0</span></span>
+        <span class="font-bold text-lg tracking-tight">BAGO <span id="release-version-label" class="text-indigo-400 font-normal">v4.6.1</span></span>
         <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">SUPERVISOR · PROBE</span>
       </div>
       <nav id="mobile-nav" class="hidden md:flex gap-6 text-sm text-slate-300 max-md:absolute max-md:top-full max-md:left-0 max-md:right-0 max-md:bg-slate-950/98 max-md:border-b max-md:border-slate-800 max-md:flex-col max-md:px-6 max-md:py-4 max-md:gap-3">
@@ -59,7 +67,7 @@
   <section class="hero max-w-6xl mx-auto px-6">
     <div class="text-center max-w-3xl mx-auto">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.5.0 con supervisor always-on
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="release-version-chip">v4.6.1</span> con supervisor always-on
       </div>
       <h1 class="text-3xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
         Session-First <span class="grad-text">AI Control Plane</span>
@@ -69,9 +77,13 @@
         y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
       </p>
       <div class="flex flex-wrap justify-center gap-3 mb-6">
-        <a href="https://github.com/MarcValls/BAGO/releases/download/v4.5.0/BAGO-Installation-Manager-4.5.0-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
+        <a id="primary-release-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.6.1/BAGO-Installation-Manager-4.6.1-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
           Descargar BAGO Manager Installer
+        </a>
+        <a id="runtime-release-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.6.1/bago-v4.6.1.zip" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          Descargar runtime BAGO (ZIP)
         </a>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs max-w-lg mx-auto">
@@ -102,9 +114,10 @@
             <span class="ml-2 text-xs text-slate-500">Flujo de instalación correcto</span>
           </div>
           <div class="p-4 text-sm text-slate-300 space-y-2">
-            <p><strong class="text-indigo-300">1.</strong> Descargá el <strong>BAGO Manager Installer</strong> (.exe) o el <strong>ZIP</strong> desde el botón de arriba o <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="text-indigo-400 underline">GitHub Releases</a>.</p>
-            <p><strong class="text-indigo-300">2.</strong> Ejecutá el instalador o descomprimí el ZIP en la ubicación que prefieras.</p>
-            <p><strong class="text-indigo-300">3.</strong> Abrí el <strong>BAGO Manager</strong> para gestionar tus instalaciones, roles y sesiones.</p>
+            <p><strong class="text-indigo-300">1.</strong> Descargá el <strong>BAGO Manager Installer</strong> (.exe) desde el botón principal o <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="text-indigo-400 underline">GitHub Releases</a>.</p>
+            <p><strong class="text-indigo-300">2.</strong> El <strong>ZIP</strong> es solo para desarrollo o inspección manual; no es el camino por defecto.</p>
+            <p><strong class="text-indigo-300">3.</strong> Ejecutá el instalador o, si vas a desarrollar, descomprimí el ZIP donde prefieras.</p>
+            <p><strong class="text-indigo-300">4.</strong> Abrí el <strong>BAGO Manager</strong> para gestionar tus instalaciones, roles y sesiones.</p>
             <p class="text-slate-500 text-xs mt-2">¿Preferís verificar antes? Los hashes SHA-256 y el código fuente están en <a href="https://github.com/MarcValls/BAGO/releases" target="_blank" class="text-indigo-400 underline">GitHub Releases</a>.</p>
           </div>
         </div>
@@ -203,6 +216,34 @@
   </footer>
 
   <script>
+    /* ──── Latest release wiring with v4.6.1 offline fallback ──── */
+    (async function() {
+      try {
+        const relRes = await fetch('https://api.github.com/repos/MarcValls/BAGO/releases/latest');
+        if (!relRes.ok) return;
+        const rel = await relRes.json();
+        const tag = (rel.tag_name || '').trim();
+        if (!tag) return;
+
+        const version = tag.startsWith('v') ? tag : `v${tag}`;
+        document.getElementById('release-version-label').textContent = version;
+        document.getElementById('release-version-chip').textContent = version;
+        document.title = `BAGO ${version} — AI Control Plane Local`;
+
+        const assets = Array.isArray(rel.assets) ? rel.assets : [];
+        const installer = assets.find(a => /BAGO-Installation-Manager-.*-win-x64\.exe$/i.test(a.name));
+        const runtime = assets.find(a => /^bago-v.*\.zip$/i.test(a.name));
+        if (installer && installer.browser_download_url) {
+          document.getElementById('primary-release-download').href = installer.browser_download_url;
+        }
+        if (runtime && runtime.browser_download_url) {
+          document.getElementById('runtime-release-download').href = runtime.browser_download_url;
+        }
+      } catch (_) {
+        // Keep the verified v4.6.1 fallback links.
+      }
+    })();
+
     /* ──── Activity panel ──── */
     (async function() {
       const status = document.getElementById('act-status');

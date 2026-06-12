@@ -17,6 +17,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from io_utils import atomic_write_json
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -57,7 +59,7 @@ class ControlShadow:
     def _save_state(self, state: dict[str, Any] | None = None) -> None:
         self.state = state or self.state
         self.state["updated_at"] = time.time()
-        self.state_path.write_text(json.dumps(self.state, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_json(self.state_path, self.state)
 
     def status(self) -> dict[str, Any]:
         mode = self.state.get("mode", "shadow")
@@ -166,8 +168,11 @@ class ControlShadow:
             },
             "result_ok": bool(result.get("ok", True)),
         }
-        with self.log_path.open("a", encoding="utf-8") as fh:
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.log_path.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
         self.state["events_logged"] = int(self.state.get("events_logged", 0)) + 1
         self._save_state()
         return event

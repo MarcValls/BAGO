@@ -14,18 +14,20 @@ function readTextClipboard(){
   if(navigator.clipboard&&navigator.clipboard.readText)return navigator.clipboard.readText();
   return Promise.reject(new Error('Clipboard API no disponible'));
 }
-function canRunCommands(){const api=electronApi();return !!(api&&api.runCommand);}
+function canRunCommands(){return false;}
 async function runCommand(t){
-  const api=electronApi();
-  if(!api||!api.runCommand){showToast('ejecución directa solo disponible en Electron',false);return;}
-  try{
-    const result=await api.runCommand(t);
-    showToast('comando lanzado en PowerShell'+(result&&result.pid?' · pid '+result.pid:''),true);
-  }catch(e){
-    showToast('no se pudo ejecutar: '+e.message,false);
-  }
+  showToast('ejecucion directa deshabilitada; copia el comando',false);
 }
 async function openWebChat(){
+  if(typeof window.pmOpenChatTab==='function'){
+    try{
+      await window.pmOpenChatTab();
+      return;
+    }catch(e){
+      showToast('chat tab: '+e.message,false);
+      return;
+    }
+  }
   const api=electronApi();
   if(!api||!api.openWebChat){showToast('chat web solo disponible en Electron',false);return;}
   try{

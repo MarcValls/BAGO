@@ -1,6 +1,6 @@
 # BAGO v4 Architecture
 
-BAGO v4.3.0 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
+BAGO v4.6.1 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
 
 The stable MVP boundary is defined in `docs/MVP.md`. Modules outside that boundary must be documented as partial, experimental, or planned.
 
@@ -49,7 +49,8 @@ Release artifacts must not package live state, logs, credentials, caches, `node_
    - `docs/contracts/`
 
 6. UI layer
-   - `ui-react`
+   - `ui-react`: conversation and active-session client
+   - `manager`: installation, policy, diagnostics and release client
    - optional future `apps/mobile-expo`
 
 7. Plan execution layer
@@ -73,11 +74,11 @@ Provider switching is handled by the switch engine and must preserve session con
 ## API Flow
 
 ```text
-ui-react
-  -> local HTTP API
-  -> session/provider/control shadow
-  -> response, status, events
+ui-react (Chat) -> local HTTP API -> SessionManager -> provider/context/evidence
+manager         -> CLI/Electron API -> policy/registry/jobs/evidence
 ```
+
+Chat does not poll or mutate catalog, simulation, RL, installations, releases or connector policy. Manager may administer sessions, but conversation and interactive execution stay in Chat or CLI. The binding rules are defined in `docs/contracts/bago_v4_surfaces_contract.md`.
 
 The API must default to local access. Non-localhost exposure requires explicit token protection.
 

@@ -24,6 +24,8 @@ except ImportError:  # pragma: no cover - Windows-only API
 from pathlib import Path
 from typing import Any
 
+from io_utils import atomic_write_text, read_json_quarantine
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -158,12 +160,15 @@ class CredentialManager:
             return
         if self.cred_path.exists():
             try:
-                raw = self.cred_path.read_text(encoding="utf-8")
-                parsed = json.loads(raw)
-                if isinstance(parsed, dict) and parsed.get("format") == "bago-encrypted-v1":
-                    self._data = json.loads(_dpapi_unprotect(parsed))
+                if self.store_encrypted:
+                    raw = self.cred_path.read_text(encoding="utf-8")
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, dict) and parsed.get("format") == "bago-encrypted-v1":
+                        self._data = json.loads(_dpapi_unprotect(parsed))
+                    else:
+                        self._data = parsed if isinstance(parsed, dict) else {}
                 else:
-                    self._data = parsed if isinstance(parsed, dict) else {}
+                    self._data = read_json_quarantine(self.cred_path, default={}) or {}
             except Exception:
                 self._data = {}
         else:
@@ -191,10 +196,10 @@ class CredentialManager:
         if self.store_encrypted:
             self.cred_path.parent.mkdir(parents=True, exist_ok=True)
             payload = _dpapi_protect(json.dumps(self._data, indent=2, ensure_ascii=False))
-            self.cred_path.write_text(payload, encoding="utf-8")
+            atomic_write_text(self.cred_path, payload)
             return
         self.cred_path.parent.mkdir(parents=True, exist_ok=True)
-        self.cred_path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_text(self.cred_path, json.dumps(self._data, indent=2, ensure_ascii=False) + "\n")
         # Intentar permisos restrictivos (no crítico si falla en Windows)
         try:
             os.chmod(self.cred_path, 0o600)

@@ -7,19 +7,23 @@ import sys
 from pathlib import Path
 from typing import Any
 
-BAGO_ROOT = Path(__file__).resolve().parents[2]
+_BOOTSTRAP_ROOT = Path(__file__).resolve().parents[2]
 
 for _path in (
-    BAGO_ROOT / "bago_core",
-    BAGO_ROOT / ".bago" / "core",
-    BAGO_ROOT / ".bago" / "chat",
-    BAGO_ROOT / ".bago" / "providers",
-    BAGO_ROOT / ".bago" / "api",
-    BAGO_ROOT / ".bago" / "tools",
+    _BOOTSTRAP_ROOT / "bago_core",
+    _BOOTSTRAP_ROOT / ".bago" / "core",
+    _BOOTSTRAP_ROOT / ".bago" / "chat",
+    _BOOTSTRAP_ROOT / ".bago" / "providers",
+    _BOOTSTRAP_ROOT / ".bago" / "api",
+    _BOOTSTRAP_ROOT / ".bago" / "tools",
 ):
     _path_s = str(_path)
     if _path_s not in sys.path:
         sys.path.insert(0, _path_s)
+
+from paths import app_base_dir, resource_path
+
+BAGO_ROOT = app_base_dir()
 
 EXPERIMENTAL_PROVIDERS = {"cpp-local"}
 
@@ -119,6 +123,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
     provider = getattr(args, "provider", "unknown") or "unknown"
     model = getattr(args, "model", "unknown") or "unknown"
+    startup_prompt = getattr(args, "command", "") in {"start", "launch"}
 
     # Registrar sesion LLM en state/ para que el monitor la vea
     bridges = list(getattr(args, "active_bridges", None) or getattr(args, "llm_bridges", None) or [])
@@ -134,6 +139,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
         system_prompt=get_system_prompt(),
         base_path=args.base_path,
         active_bridges=bridges,
+        startup_prompt=startup_prompt,
     )
     repl.run()
     return 0
@@ -147,7 +153,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
     from switch_engine import SwitchEngine
     from system_prompt import get_system_prompt
 
-    repl_commands_path = BAGO_ROOT / ".bago" / "chat" / "commands.py"
+    repl_commands_path = resource_path(".bago", "chat", "commands.py")
     spec = importlib.util.spec_from_file_location("bago_repl_commands_exec", repl_commands_path)
     if spec is None or spec.loader is None:
         print(f"No se pudo cargar el ejecutor REPL desde {repl_commands_path}")

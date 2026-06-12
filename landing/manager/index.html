@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>BAGO · Gestor de Instalaciones</title>
 <link rel="icon" href="../assets/bago-wasp.svg">
 <link rel="stylesheet" href="styles/legacy.css">
@@ -44,7 +45,7 @@
           <option>connected</option><option>shadow</option><option>locked</option>
           <option>read-only</option><option>writable overlay</option><option>detached</option>
         </select>
-        <button class="pm-btn primary" id="pm-open-web-chat" title="Abrir BAGO en modo web chat">🚀 Abrir BAGO Web</button>
+        <button class="pm-btn primary" id="pm-open-web-chat" title="Abrir una nueva pestaña de chat dentro del manager">＋ Nuevo chat</button>
         <button class="pm-btn" id="pm-open-cli-chat" title="Abrir BAGO en terminal CLI">🖥️ Abrir BAGO CLI</button>
         <button class="pm-btn" id="pm-refresh">↻ Actualizar</button>
       </div>
@@ -146,11 +147,11 @@
     <section class="pm-view" id="pm-view-sessions">
       <div class="pm-grid pm-session-layout">
         <article class="pm-panel">
-          <div class="pm-panel-head"><div><h2>SessionManager</h2><p id="pm-session-caption">Sesiones persistidas del runtime activo</p></div><div class="pm-actions"><button class="pm-btn primary" id="pm-session-create">Nueva</button><button class="pm-btn" id="pm-session-refresh">Actualizar</button></div></div>
+          <div class="pm-panel-head"><div><h2>SessionManager</h2><p id="pm-session-caption">Sesiones persistidas del runtime activo</p></div><div class="pm-actions"><button class="pm-btn primary" id="pm-session-create">Nueva pestaña</button><button class="pm-btn" id="pm-session-refresh">Actualizar</button></div></div>
           <div class="pm-session-list" id="pm-session-list"></div>
         </article>
         <article class="pm-panel">
-          <div class="pm-panel-head"><div><h2>Control de sesión</h2><p id="pm-session-active">Selecciona o crea una sesión</p></div><button class="pm-btn primary" id="pm-session-apply">Aplicar</button></div>
+          <div class="pm-panel-head"><div><h2>Chat de sesión</h2><p id="pm-session-active">Selecciona o crea una sesión</p></div><button class="pm-btn primary" id="pm-session-apply">Aplicar</button></div>
           <div class="pm-session-control">
             <label>Provider<select class="pm-select" id="pm-session-provider"></select></label>
             <label>Modelo<select class="pm-select" id="pm-session-model"></select></label>
@@ -159,6 +160,7 @@
             <label>Bridges<select class="pm-select" id="pm-session-bridges" multiple></select></label>
           </div>
           <div class="pm-session-status" id="pm-session-status"></div>
+          <div class="pm-chat-tabs" id="pm-session-tabs"></div>
           <div class="pm-session-chat" id="pm-session-chat"></div>
           <div class="pm-session-prompt"><textarea id="pm-session-prompt" placeholder="Mensaje para la sesión activa"></textarea><div class="pm-actions"><button class="pm-btn primary" id="pm-session-send">Enviar</button><button class="pm-btn" id="pm-session-orchestrate">A bridges</button></div></div>
         </article>
@@ -187,7 +189,7 @@
   <div class="wrap">
     <img src="../assets/bago-wasp.svg" width="32" height="32" alt="BAGO avispa" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · v4.5.0</span>
+    <span class="meta">standalone · offline · v4.6.1</span>
   </div>
 </header>
 <main>
@@ -201,19 +203,23 @@
       <li>Revisa primero Node Control: registry, piezas, matriz y conectores.</li>
       <li>Comprueba roles active/des/ign y las instalaciones detectadas.</li>
       <li>Usa releases solo para instalar, actualizar o probar una version aparte.</li>
-      <li>En Electron, <b>ejecutar</b> abre PowerShell visible; en navegador, se copian comandos.</li>
+      <li>En Electron, las acciones seguras usan botones dedicados; en navegador, se copian comandos.</li>
     </ol>
   </section>
   <section class="notice">
-    <b>Aviso de ejecución:</b> los botones <b>ejecutar</b> abren una ventana PowerShell visible con el comando. No se ejecuta nada oculto ni silencioso en segundo plano. En la versión web solo se copian comandos.
+    <b>Aviso de ejecución:</b> el gestor no expone ejecución genérica de PowerShell. Las acciones seguras usan handlers dedicados y en la versión web solo se copian comandos.
   </section>
   <section class="panel" id="releases-panel">
     <div class="panel-head">
       <h3>Actualizar o instalar versiones (GitHub)</h3>
       <div class="toolbar">
         <input id="manual-scan-path" placeholder="Ruta manual a escanear, por ejemplo C:\\Tools\\BAGO">
+        <input id="source-update-root" placeholder="Ruta source/branch, por ejemplo C:\\bago_fw">
+        <input id="source-update-branch" value="main" placeholder="Branch fuente">
         <input id="target-install-path" value="C:\\Program Files\\BAGO" placeholder="Ruta destino de instalación">
         <button id="btn-scan-path">Escanear ruta</button>
+        <button id="btn-source-update" class="ghost">Actualizar desde fuente/branch</button>
+        <button id="btn-install-latest" class="primary">Instalar última release</button>
         <button id="btn-refresh-data" class="primary">Actualizar todo</button>
       </div>
     </div>
@@ -278,7 +284,7 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · v4.5.0 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · v4.6.1 · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank" rel="noopener noreferrer">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script src="js/core.js"></script>

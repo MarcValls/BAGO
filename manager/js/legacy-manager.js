@@ -16,9 +16,21 @@ async function loadLatestRelease(){
   }
 }
 
-function latestZipAsset(){
-  if(!latestRelease||!Array.isArray(latestRelease.assets))return null;
-  return latestRelease.assets.find(a=>/\.zip$/i.test(a.name||''))||null;
+function latestZipAsset(release=latestRelease){
+  if(!release||!Array.isArray(release.assets))return null;
+  const assets=release.assets;
+  const bundles=assets.filter(a=>/\.zip$/i.test(a.name||'')&&!/\.sha256$/i.test(a.name||''));
+  const ordered=[...bundles].sort((a,b)=>{
+    const aRuntime=/^bago-v/i.test(String(a.name||''));
+    const bRuntime=/^bago-v/i.test(String(b.name||''));
+    if(aRuntime!==bRuntime) return aRuntime ? -1 : 1;
+    const aTime=new Date(a.updated_at||a.created_at||0).getTime();
+    const bTime=new Date(b.updated_at||b.created_at||0).getTime();
+    if(aTime!==bTime) return bTime-aTime;
+    return String(a.name||'').localeCompare(String(b.name||''));
+  });
+  const exactChecksum=bundle=>assets.find(a=>String(a.name||'').toLowerCase()===(String(bundle.name||'')+'.sha256').toLowerCase())||null;
+  return ordered.find(item=>exactChecksum(item))||ordered[0]||null;
 }
 
 function psSingle(s){return "'"+String(s||'').replace(/'/g,"''")+"'";}
@@ -161,7 +173,7 @@ function renderRolePanel(items){
       +'</div>';
   }).join('');
   roleCards.querySelectorAll('button.copy').forEach(btn=>btn.addEventListener('click',()=>copyText(btn.getAttribute('data-cmd')||'')));
-  roleCards.querySelectorAll('button.run').forEach(btn=>btn.addEventListener('click',()=>runCommand(btn.getAttribute('data-cmd')||'')));
+  roleCards.querySelectorAll('button.run').forEach(btn=>btn.addEventListener('click',()=>{const cmd=btn.getAttribute('data-cmd')||'';copyText(cmd).then(()=>showToast('comando copiado; pegalo en PowerShell para ejecutarlo',true));}));
 }
 
 function rerenderInstallationCards(){
@@ -208,7 +220,7 @@ function renderReleaseList(){
     ? `Detectadas ${total} release(s) en GitHub · ${beta} beta(s) · la mas reciente es ${latestRelease ? latestRelease.tag_name : 'n/a'}`
     : 'No se pudieron cargar releases desde GitHub.';
   releaseList.innerHTML = releaseItems.map(rel=>{
-    const asset = (Array.isArray(rel.assets) ? rel.assets.find(a=>/\.zip$/i.test(a.name||'')) : null) || {};
+    const asset = latestZipAsset(rel) || {};
     const betaBadge = rel.prerelease ? '<span class="badge badge-warn">beta</span>' : '<span class="badge badge-on">release</span>';
     const dateText = rel.published_at ? new Date(rel.published_at).toLocaleString() : 'fecha desconocida';
     const target = document.getElementById('target-install-path')?.value || 'C:\\Program Files\\BAGO';
@@ -231,7 +243,8 @@ function renderReleaseList(){
     btn.addEventListener('click',()=>{
       const tag = btn.getAttribute('data-release')||'';
       const target = btn.getAttribute('data-target')||'C:\\Program Files\\BAGO';
-      runCommand(installCommand(tag,target));
+      const cmd = installCommand(tag,target);
+      copyText(cmd).then(()=>showToast('comando copiado; pegalo en PowerShell como admin',true));
     });
   });
   releaseList.querySelectorAll('button.copy').forEach(btn=>{
@@ -407,7 +420,7 @@ function buildActions(inst,isSource){
     {label:'Crear backup',desc:'Snapshot de state+config+memory',cmd:cd+'; python bago_core/cli.py backup create'},
     {label:'Listar backups',desc:'Snapshots disponibles',cmd:cd+'; python bago_core/cli.py backup list'},
     {label:'Inventario completo',desc:'Cuenta archivos, tamaños, sellos',cmd:cd+'; python bago_core/cli.py inventory'},
-    {label:'Generar bundle 4.5.0',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
+    {label:'Generar bundle actual',desc:'Crea un ZIP de release verificado',cmd:cd+'; python scripts/publish_release.py --mode build'},
   ]));
   return groups.join('');
 }
@@ -425,7 +438,7 @@ function attachCardHandlers(){
   installBox.querySelectorAll('button.run').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const cmd=btn.getAttribute('data-cmd')||'';
-      runCommand(cmd);
+      copyText(cmd).then(()=>showToast('comando copiado; pegalo en PowerShell para ejecutarlo',true));
     });
   });
 }
@@ -456,7 +469,7 @@ document.getElementById('file-input').addEventListener('change',ev=>{
   r.readAsText(f);
 });
 document.getElementById('btn-sample').addEventListener('click',()=>{
-  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.5.0","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.6.1","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
   inputArea.value=sample;
   parseAndRender(sample);
 });

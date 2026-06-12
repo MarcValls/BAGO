@@ -11,6 +11,14 @@ const DEV_PACKAGED_RUNTIME_ROOT = path.join(ROOT_DIR, 'dist', 'win-unpacked', 'r
 const MANAGER_HTML = path.join(ROOT_DIR, 'manager', 'index.html');
 const ICON_PATH = path.join(ROOT_DIR, 'bago.ico');
 const PRELOAD_PATH = path.join(__dirname, 'preload.cjs');
+
+// Directorio raíz donde el Manager guarda todas las instalaciones de BAGO.
+// En producción: junto al .exe del Manager (persiste entre actualizaciones del app).
+// En desarrollo: dentro del árbol de fuentes para no ensuciar el sistema.
+const INSTALLS_ROOT = app.isPackaged
+  ? path.join(path.dirname(app.getPath('exe')), 'installations')
+  : path.join(ROOT_DIR, 'installations');
+
 const MUTATING_NODE_COMMANDS = new Set(['connect', 'disconnect', 'set-mode']);
 const SMOKE_TEST = process.env.BAGO_MANAGER_SMOKE_TEST === '1';
 const CHAT_HOST = '127.0.0.1';
@@ -62,24 +70,87 @@ function hasBagoRuntime(root) {
     && fs.existsSync(path.join(root, '.bago', 'core', 'context_store.py'));
 }
 
-function resolveBagoRuntimeRoot() {
+// P0-01 fix: an installation manifest (install_manifest.json) marks a directory
+// as a real system install, not just a runtime copy. Without this marker,
+// `app.asar.unpacked` (or a dev tree) must never be treated as a real install.
+function hasInstallManifest(root) {
+  return !!root && fs.existsSync(path.join(root, 'install_manifest.json'));
+}
+
+// P0-01 fix: the bundled/packaged runtime is the runtime shipped inside the
+// installer (app.asar.unpacked) or the local dev tree. It is valid for
+// copy/repair operations but MUST NOT be confused with a real install.
+function resolveBundledRuntimeRoot() {
+  const candidates = app.isPackaged
+    ? [PACKAGED_RUNTIME_ROOT, DEV_PACKAGED_RUNTIME_ROOT]
+    : [ROOT_DIR, DEV_PACKAGED_RUNTIME_ROOT];
+  for (const root of candidates) {
+    if (hasBagoRuntime(root)) return root;
+  }
+  return '';
+}
+
+// P0-01 fix: a real install is a directory that is NOT the packaged runtime
+// and that either carries an install_manifest.json (preferred) or lives in a
+// well-known system/user location AND is writable from the current process.
+function resolveInstalledRuntimeRoot() {
   const home = process.env.USERPROFILE || process.env.HOME || '';
   const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-  const packagedFirst = app.isPackaged
-    ? [PACKAGED_RUNTIME_ROOT, ROOT_DIR]
-    : [ROOT_DIR, PACKAGED_RUNTIME_ROOT];
+  const localAppData = process.env.LOCALAPPDATA || (home ? path.join(home, 'AppData', 'Local') : '');
+
+  const envOverride = process.env.BAGO_ROOT || '';
+
+  // Primero: escanear el directorio de instalaciones propio del Manager.
+  // Los BAGOs gestionados aquí tienen prioridad sobre instalaciones del sistema.
+  const managedInstalls = [];
+  try {
+    if (fs.existsSync(INSTALLS_ROOT)) {
+      fs.readdirSync(INSTALLS_ROOT, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .forEach(d => managedInstalls.push(path.join(INSTALLS_ROOT, d.name)));
+    }
+  } catch {}
+
   const candidates = [
-    ...packagedFirst,
-    DEV_PACKAGED_RUNTIME_ROOT,
-    process.env.BAGO_ROOT || '',
+    envOverride,
+    ...managedInstalls,
     path.join(programFiles, 'BAGO'),
-    home ? path.join(home, '.bago', 'active') : ''
-  ];
-  const found = candidates.find(hasBagoRuntime);
-  if (!found) {
-    throw new Error('No se encontro runtime BAGO para Node Control');
+    localAppData ? path.join(localAppData, 'BAGO') : '',
+    home ? path.join(home, '.bago', 'active') : '',
+    home ? path.join(home, '.bago', 'launch') : ''
+  ].filter(Boolean);
+
+  // Drop any candidate that resolves to the bundled/packaged runtime. The
+  // bundled runtime is a copy of the Manager itself, not an install.
+  const bundled = resolveBundledRuntimeRoot();
+  const real = candidates.filter(c => {
+    if (!hasBagoRuntime(c)) return false;
+    if (bundled && path.resolve(c) === path.resolve(bundled)) return false;
+    if (c === envOverride) return true; // explicit override always wins
+    return hasInstallManifest(c) || isUserOwnedLocation(c, home);
+  });
+  return real[0] || '';
+}
+
+function isUserOwnedLocation(candidate, home) {
+  if (!candidate || !home) return false;
+  const resolved = path.resolve(candidate).toLowerCase();
+  const homeLc = path.resolve(home).toLowerCase();
+  const localAppDataLc = (process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local')).toLowerCase();
+  return resolved.startsWith(homeLc) || resolved.startsWith(localAppDataLc);
+}
+
+// P0-01 fix: kept for backwards compatibility. By default we resolve a REAL
+// install; the bundled runtime is only used as a fallback when the Manager
+// is running in source/dev mode (e.g. `node electron/main.cjs` for testing).
+function resolveBagoRuntimeRoot() {
+  const installed = resolveInstalledRuntimeRoot();
+  if (installed) return installed;
+  if (!app.isPackaged) {
+    const dev = resolveBundledRuntimeRoot();
+    if (dev) return dev;
   }
-  return found;
+  throw new Error('No se encontro una instalacion real de BAGO');
 }
 
 function resolveUiDist(runtimeRoot) {
@@ -93,15 +164,20 @@ function resolveUiDist(runtimeRoot) {
 }
 
 function findPackagedRuntimeRoot() {
-  const candidates = app.isPackaged
-    ? [PACKAGED_RUNTIME_ROOT, ROOT_DIR]
-    : [ROOT_DIR, PACKAGED_RUNTIME_ROOT];
-  for (const root of candidates) {
-    if (hasBagoRuntime(root)) return root;
-  }
-  const devRoot = DEV_PACKAGED_RUNTIME_ROOT;
-  if (hasBagoRuntime(devRoot)) return devRoot;
-  return '';
+  return resolveBundledRuntimeRoot();
+}
+
+// P0-02 fix: choose a sensible default install dir for the current user.
+// On Windows, Program Files is only writable for admins, so a non-elevated
+// session falls back to %LOCALAPPDATA%\BAGO. The Manager still allows the
+// user to pick any other writable location via the "Nueva copia" dialog.
+let _defaultInstallDirCache = '';
+function defaultInstallDir() {
+  if (_defaultInstallDirCache) return _defaultInstallDirCache;
+  // Las instalaciones de BAGO viven dentro del Manager, en INSTALLS_ROOT/active.
+  // El Manager es la fuente de verdad; no se dispersan por %LOCALAPPDATA% ni Program Files.
+  _defaultInstallDirCache = path.join(INSTALLS_ROOT, 'active');
+  return _defaultInstallDirCache;
 }
 
 const PREFS_PATH = path.join(app.getPath('userData'), 'bago-manager-prefs.json');
@@ -136,6 +212,28 @@ function buildInstallCommand(packagedRoot, installDir, extraArgs = []) {
     '-Mode', 'Express',
     ...extraArgs
   ];
+}
+
+function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', extraArgs = []) {
+  const installScript = path.join(sourceRoot, 'install-v4.ps1');
+  if (!fs.existsSync(installScript)) {
+    throw new Error(`No se encontró install-v4.ps1 en la fuente. Buscado en: ${installScript}`);
+  }
+  const gitArgs = ['-C', sourceRoot, 'pull', '--ff-only', 'origin', branch];
+  return {
+    gitArgs,
+    installArgs: [
+      'powershell.exe',
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', installScript,
+      '-SourceRoot', sourceRoot,
+      '-InstallDir', installDir,
+      '-Profile', 'stable',
+      '-Mode', 'Express',
+      ...extraArgs
+    ]
+  };
 }
 
 function showProgressWindow(title) {
@@ -205,8 +303,66 @@ async function runInstallScript(packagedRoot, installDir, extraArgs = [], progre
   });
 }
 
+async function fetchReleasesFromMain() {
+  const res = await fetch('https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100', {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'BAGO-Installation-Manager'
+    },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
+  const releases = await res.json();
+  return (Array.isArray(releases) ? releases : [])
+    .filter(r => !r.draft)
+    .sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0))
+    .map(r => ({
+      tag_name: r.tag_name || '',
+      html_url: r.html_url || '',
+      prerelease: !!r.prerelease,
+      published_at: r.published_at || '',
+      name: r.name || r.tag_name || '',
+      assets: Array.isArray(r.assets) ? r.assets.map(a => ({
+        name: a.name || '',
+        browser_download_url: a.browser_download_url || '',
+        content_type: a.content_type || '',
+        size: Number(a.size || 0),
+        digest: a.digest || '',
+        state: a.state || '',
+        updated_at: a.updated_at || '',
+        download_count: Number(a.download_count || 0)
+      })) : []
+    }));
+}
+
+async function runGitPull(sourceRoot, branch) {
+  const branchName = String(branch || 'main').trim() || 'main';
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', ['-C', sourceRoot, 'pull', '--ff-only', 'origin', branchName], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', d => { stdout += d; });
+    child.stderr.on('data', d => { stderr += d; });
+    child.on('exit', code => {
+      if (code === 0) {
+        resolve({ stdout, stderr, branch: branchName });
+      } else {
+        reject(new Error((stderr || stdout || `git pull terminó con código ${code}`).trim()));
+      }
+    });
+    child.on('error', reject);
+  });
+}
+
 async function ensureBagoInstalled() {
+  // P0-05 fix: this function is now "best effort" and never kills the app.
+  // It always reports the resulting state to the UI via `bago:install-state`
+  // so the Manager window can offer a recovery panel when something fails.
   let runtimeRoot = '';
+  emitInstallState({ phase: 'detecting' });
   try {
     runtimeRoot = resolveBagoRuntimeRoot();
   } catch {
@@ -216,10 +372,9 @@ async function ensureBagoInstalled() {
   const packagedRoot = findPackagedRuntimeRoot();
 
   if (!runtimeRoot) {
-    // CASO 1: no hay instalación
     if (!packagedRoot) {
+      emitInstallState({ phase: 'failed', error: 'runtime-empaketado-ausente', installDir: '' });
       await dialog.showErrorBox('BAGO Installation Manager', 'No se encontró el runtime de BAGO empaquetado. El instalador puede estar corrupto.');
-      app.quit();
       return '';
     }
 
@@ -235,14 +390,20 @@ async function ensureBagoInstalled() {
     });
 
     if (result.response !== 0) {
-      app.quit();
+      emitInstallState({ phase: 'cancelled' });
       return '';
     }
 
-    const installDir = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BAGO');
-    await runInstallScript(packagedRoot, installDir);
-
+    const installDir = defaultInstallDir();
+    emitInstallState({ phase: 'installing', installDir });
+    try {
+      await runInstallScript(packagedRoot, installDir);
+    } catch (err) {
+      emitInstallState({ phase: 'failed', error: String(err && err.message || err), installDir });
+      return '';
+    }
     const verified = resolveBagoRuntimeRoot();
+    emitInstallState({ phase: 'ready', runtime: verified, installDir });
     await dialog.showMessageBox({
       type: 'info', buttons: ['OK'], title: 'Instalación completada',
       message: 'BAGO se instaló correctamente.', detail: `Ubicación: ${verified}`
@@ -253,6 +414,7 @@ async function ensureBagoInstalled() {
   // CASO 2: hay instalación existente
   const prefs = loadPrefs();
   if (prefs.skipInstallPrompt) {
+    emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
     return runtimeRoot;
   }
 
@@ -274,48 +436,66 @@ async function ensureBagoInstalled() {
     savePrefs(prefs);
   }
 
-  switch (result.response) {
-    case 0: {
-      return runtimeRoot;
-    }
-    case 1: {
-      await runInstallScript(packagedRoot, runtimeRoot, ['-RepairOnly'], 'Reparando configuración…');
-      await dialog.showMessageBox({
-        type: 'info', buttons: ['OK'], title: 'Reparación completada',
-        message: 'La configuración de BAGO se reparó correctamente.', detail: `Ubicación: ${runtimeRoot}`
-      });
-      return runtimeRoot;
-    }
-    case 2: {
-      await runInstallScript(packagedRoot, runtimeRoot, [], 'Reinstalando BAGO…');
-      const verified = resolveBagoRuntimeRoot();
-      await dialog.showMessageBox({
-        type: 'info', buttons: ['OK'], title: 'Reinstalación completada',
-        message: 'BAGO se reinstaló correctamente.', detail: `Ubicación: ${verified}`
-      });
-      return verified;
-    }
-    case 3: {
-      if (!packagedRoot) {
-        await dialog.showErrorBox('Error', 'No se encontró el runtime empaquetado para crear una nueva copia.');
+  try {
+    switch (result.response) {
+      case 0: {
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
         return runtimeRoot;
       }
-      const { filePaths } = await dialog.showOpenDialog({
-        title: 'Seleccionar directorio para la nueva copia de BAGO',
-        defaultPath: path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BAGO-dev'),
-        properties: ['openDirectory', 'createDirectory', 'promptToCreate']
-      });
-      if (!filePaths || !filePaths[0]) return runtimeRoot;
-      const newDir = filePaths[0];
-      await runInstallScript(packagedRoot, newDir, [], 'Instalando nueva copia…');
-      await dialog.showMessageBox({
-        type: 'info', buttons: ['OK'], title: 'Nueva copia completada',
-        message: 'La nueva copia de BAGO se instaló correctamente.', detail: `Ubicación: ${newDir}`
-      });
-      return runtimeRoot;
+      case 1: {
+        emitInstallState({ phase: 'repairing', installDir: runtimeRoot });
+        await runInstallScript(packagedRoot, runtimeRoot, ['-RepairOnly'], 'Reparando configuración…');
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+        await dialog.showMessageBox({
+          type: 'info', buttons: ['OK'], title: 'Reparación completada',
+          message: 'La configuración de BAGO se reparó correctamente.', detail: `Ubicación: ${runtimeRoot}`
+        });
+        return runtimeRoot;
+      }
+      case 2: {
+        emitInstallState({ phase: 'reinstalling', installDir: runtimeRoot });
+        await runInstallScript(packagedRoot, runtimeRoot, [], 'Reinstalando BAGO…');
+        const verified = resolveBagoRuntimeRoot();
+        emitInstallState({ phase: 'ready', runtime: verified, installDir: runtimeRoot });
+        await dialog.showMessageBox({
+          type: 'info', buttons: ['OK'], title: 'Reinstalación completada',
+          message: 'BAGO se reinstaló correctamente.', detail: `Ubicación: ${verified}`
+        });
+        return verified;
+      }
+      case 3: {
+        if (!packagedRoot) {
+          emitInstallState({ phase: 'failed', error: 'runtime-empaketado-ausente' });
+          await dialog.showErrorBox('Error', 'No se encontró el runtime empaquetado para crear una nueva copia.');
+          return runtimeRoot;
+        }
+        const { filePaths } = await dialog.showOpenDialog({
+          title: 'Seleccionar directorio para la nueva copia de BAGO',
+          defaultPath: path.join(path.dirname(defaultInstallDir()), 'BAGO-dev'),
+          properties: ['openDirectory', 'createDirectory', 'promptToCreate']
+        });
+        if (!filePaths || !filePaths[0]) {
+          emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+          return runtimeRoot;
+        }
+        const newDir = filePaths[0];
+        emitInstallState({ phase: 'installing', installDir: newDir });
+        await runInstallScript(packagedRoot, newDir, [], 'Instalando nueva copia…');
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: newDir });
+        await dialog.showMessageBox({
+          type: 'info', buttons: ['OK'], title: 'Nueva copia completada',
+          message: 'La nueva copia de BAGO se instaló correctamente.', detail: `Ubicación: ${newDir}`
+        });
+        return runtimeRoot;
+      }
+      default:
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+        return runtimeRoot;
     }
-    default:
-      return runtimeRoot;
+  } catch (err) {
+    emitInstallState({ phase: 'failed', error: String(err && err.message || err) });
+    await dialog.showErrorBox('BAGO Installation Manager', 'Fallo en la operacion de instalacion: ' + (err && err.message || err));
+    return '';
   }
 }
 
@@ -556,6 +736,85 @@ function checkTool(name, command, args = ['--version']) {
   });
 }
 
+// P1-07 fix: a single preflight that the Manager runs BEFORE showing the
+// install dialog. We check the four hard prerequisites (Python,
+// PowerShell, write access to the install dir, disk space) and surface
+// the result in a single, easy-to-render object. The previous design
+// checked each one inline in the install path, which is why failures
+// surfaced late and with no recovery path.
+async function runInstallPreflight(targetDir) {
+  const dir = targetDir || defaultInstallDir();
+  const checks = await Promise.all([
+    checkTool('Python', 'python', ['--version']),
+    checkTool('PowerShell', 'powershell.exe', ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()']),
+    checkTool('Git', 'git', ['--version']),
+    checkTool('Ollama', 'ollama', ['--version'])
+  ]);
+  // Write probe: the destination must be writable by the current user.
+  let writeOk = false;
+  let writeDetail = '';
+  try {
+    const probe = path.join(dir, '.bago-preflight-' + Date.now());
+    fs.writeFileSync(probe, 'ok');
+    fs.unlinkSync(probe);
+    writeOk = true;
+    writeDetail = 'writable';
+  } catch (err) {
+    writeDetail = err.message || 'not writable';
+  }
+  // Disk space: at least 500 MB free on the volume hosting the install dir.
+  let diskOk = false;
+  let diskDetail = '';
+  try {
+    const root = path.parse(dir).root;
+    if (process.platform === 'win32') {
+      const out = require('child_process').spawnSync('powershell.exe',
+        ['-NoProfile', '-Command', `(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -ne $null -and ('${root}'.TrimEnd('\\') -like ($_.Root + '*')) } | Select-Object -First 1).Free`],
+        { encoding: 'utf8', windowsHide: true, timeout: 6000 });
+      const bytes = parseInt(String(out.stdout || '').replace(/[^0-9]/g, ''), 10);
+      diskOk = bytes > 500 * 1024 * 1024;
+      diskDetail = bytes ? (bytes / (1024 * 1024)).toFixed(0) + ' MB libres' : 'no se pudo leer';
+    } else {
+      const stat = require('child_process').spawnSync('df', ['-k', dir], { encoding: 'utf8', timeout: 6000 });
+      const m = String(stat.stdout || '').split(/\s+/);
+      const kb = parseInt(m[3] || '0', 10);
+      diskOk = kb > 500 * 1024;
+      diskDetail = kb ? (kb / 1024).toFixed(0) + ' MB libres' : 'no se pudo leer';
+    }
+  } catch (err) {
+    diskDetail = err.message || 'no se pudo comprobar';
+  }
+  // Network probe: try to reach api.github.com so the user gets warned
+  // early if the install would fail at the GitHub step.
+  let networkOk = false;
+  let networkDetail = '';
+  try {
+    const res = await new Promise(resolve => {
+      const req = require('http').get('http://api.github.com', { timeout: 5000 }, r => {
+        resolve({ ok: !!r.statusCode, code: r.statusCode });
+        r.resume();
+      });
+      req.on('error', e => resolve({ ok: false, detail: e.message }));
+      req.on('timeout', () => { req.destroy(); resolve({ ok: false, detail: 'timeout' }); });
+    });
+    networkOk = !!res.ok;
+    networkDetail = res.ok ? ('HTTP ' + res.code) : (res.detail || 'sin conexion');
+  } catch (err) {
+    networkDetail = err.message;
+  }
+  return {
+    target_dir: dir,
+    checked_at: new Date().toISOString(),
+    write: { ok: writeOk, detail: writeDetail },
+    disk: { ok: diskOk, detail: diskDetail, minimum_mb: 500 },
+    network: { ok: networkOk, detail: networkDetail },
+    python: checks[0],
+    powershell: checks[1],
+    git: checks[2],
+    ollama: checks[3]
+  };
+}
+
 function runSupervisorCmd(args) {
   return new Promise((resolve, reject) => {
     let runtimeRoot;
@@ -591,32 +850,66 @@ function runSupervisorCmd(args) {
 }
 
 async function cleanupZombies() {
+  // P1-06 fix: NEVER kill a python.exe that we cannot prove belongs to
+  // BAGO. We only target processes whose `CommandLine` mentions a path we
+  // know is part of BAGO (the install root, the bundled runtime, the
+  // home-managed .bago directory) OR a script we ship (bago launcher /
+  // bridge / webchat). Any python process outside that allowlist is left
+  // alone so we do not interfere with other Python projects on the
+  // machine.
+  const managedPaths = [];
+  try { managedPaths.push(resolveBundledRuntimeRoot()); } catch {}
+  try { managedPaths.push(resolveInstalledRuntimeRoot()); } catch {}
+  try { managedPaths.push(path.join(os.homedir(), '.bago')); } catch {}
+  const allowList = managedPaths.filter(Boolean).map(p => p.replace(/\\/g, '\\\\').replace(/'/g, "''"));
+  // Hard-coded script names that always identify a BAGO-owned python process.
+  const scriptMarkers = ['launcher.py', 'bago_webchat.py', 'bago_supervisor.py', 'bridge.py'];
+  const allowListJson = JSON.stringify(allowList);
+  const markersJson = JSON.stringify(scriptMarkers);
   const command = `
     $ports = @(11434, 8080, 8081, 8082, 8083);
+    $allowPaths = ${allowListJson} | Where-Object { $_ -and (Test-Path -LiteralPath $_) };
+    $scriptMarkers = ${markersJson};
     $killed = 0;
+    $matched = @();
+    function Test-IsBagoProcess {
+      param([string]$cmd, [string]$name)
+      if (-not $cmd) { return $false }
+      foreach ($p in $allowPaths) { if ($cmd -like ('*' + $p + '*')) { return $true } }
+      foreach ($m in $scriptMarkers) { if ($cmd -like ('*' + $m)) { return $true } }
+      # Some BAGO invocations go through "python -m bago_core.x"; match
+      # against the module name as a last resort.
+      if ($cmd -match 'bago_core[\\\\\\.\\s]') { return $true }
+      if ($cmd -match 'bago[_-]?(webchat|supervisor|bridge|launcher|node_control)') { return $true }
+      return $false
+    }
     foreach ($p in $ports) {
       $conns = Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'TimeWait' -or $_.State -eq 'CloseWait' -or $_.State -eq 'FinWait2' };
       foreach ($c in $conns) {
         try {
-          $proc = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue;
-          if ($proc -and ($proc.ProcessName -like '*python*' -or $proc.ProcessName -like '*node*' -or $proc.ProcessName -like '*electron*')) {
+          $proc = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $c.OwningProcess) -ErrorAction SilentlyContinue;
+          if ($proc -and (Test-IsBagoProcess -cmd $proc.CommandLine -name $proc.Name)) {
             Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue;
             $killed++;
+            $matched += [ordered]@{ pid = $c.OwningProcess; reason = 'stale-port'; cmd = $proc.CommandLine }
           }
         } catch {}
       }
     }
-    # Also kill orphaned python processes without parent that match BAGO patterns
-    Get-WmiObject Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+    # Also walk python processes and only kill the ones that match the
+    # BAGO allowlist. This used to also kill orphaned python (no parent),
+    # which is unsafe on a multi-project workstation.
+    Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
       try {
-        $parent = Get-Process -Id $_.ParentProcessId -ErrorAction SilentlyContinue;
-        if (-not $parent -or $parent.HasExited) {
+        if (Test-IsBagoProcess -cmd $_.CommandLine -name $_.Name) {
           Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue;
           $killed++;
+          $matched += [ordered]@{ pid = $_.ProcessId; reason = 'bago-process'; cmd = $_.CommandLine }
         }
       } catch {}
     }
-    Write-Output ('{\"ok\":true,\"cleaned\":' + $killed + '}');
+    $payload = [ordered]@{ ok = $true; cleaned = $killed; matched = $matched; allowlist = $allowPaths }
+    Write-Output ($payload | ConvertTo-Json -Depth 4 -Compress)
   `;
   return new Promise((resolve, reject) => {
     execFile(
@@ -638,8 +931,28 @@ async function cleanupZombies() {
   });
 }
 
+// P1-03 fix: the React UI (ui-react) and any other web surface need to
+// open the Manager without hardcoding a dev port. We expose the actual URL
+// from the main process so the URL is computed once and never goes stale.
+function getManagerUrl() {
+  // Prefer the file:// URL of the packaged Manager HTML; that always works
+  // because loadFile() uses a real file path on disk.
+  if (app.isPackaged) {
+    try {
+      return 'file:///' + MANAGER_HTML.replace(/\\/g, '/').replace(/^\//, '');
+    } catch {
+      // fall through to http case
+    }
+  }
+  // When the local API is up we point at the same host on which it serves
+  // the Manager; this is the only path that lets the React app link to the
+  // Manager when it is hosted by the API and not by the Electron shell.
+  const apiPort = (webChatState && webChatState.port) || process.env.BAGO_API_PORT || '';
+  if (apiPort) return `http://${CHAT_HOST}:${apiPort}/manager/index.html`;
+  return 'manager/index.html';
+}
+
 async function managerHealth() {
-  let runtimeRoot = '';
   let runtimeError = '';
   try {
     runtimeRoot = resolveBagoRuntimeRoot();
@@ -665,11 +978,45 @@ async function managerHealth() {
   return {
     checked_at: new Date().toISOString(),
     runtime_root: runtimeRoot,
+    // P1-01 fix: report the Manager version (this Electron app) and the
+    // runtime version (BAGO itself) separately so the UI can warn when
+    // they drift instead of silently showing only one of the two.
+    manager_version: readManagerVersion(),
+    runtime_version: readRuntimeVersion(runtimeRoot),
     mutation: activeNodeMutation,
     lifecycle_job: releaseJobs && releaseJobs.activeLifecycleJob || '',
     release_jobs: releaseJobs ? releaseJobs.listJobs().length : 0,
     checks
   };
+}
+
+// P1-01 fix helpers: surface both the Manager and runtime versions in
+// /healthz so the UI can detect drift and recommend a reinstall.
+function readManagerVersion() {
+  try {
+    const pkg = require(path.join(ROOT_DIR, 'package.json'));
+    if (pkg && pkg.version) return String(pkg.version);
+  } catch {}
+  try {
+    const v = path.join(ROOT_DIR, 'release_version.txt');
+    if (fs.existsSync(v)) return fs.readFileSync(v, 'utf8').trim();
+  } catch {}
+  return 'unknown';
+}
+function readRuntimeVersion(runtimeRoot) {
+  if (!runtimeRoot) return '';
+  try {
+    const v = path.join(runtimeRoot, 'release_version.txt');
+    if (fs.existsSync(v)) return fs.readFileSync(v, 'utf8').trim();
+  } catch {}
+  try {
+    const v = path.join(runtimeRoot, 'install_manifest.json');
+    if (fs.existsSync(v)) {
+      const m = JSON.parse(fs.readFileSync(v, 'utf8'));
+      if (m && m.runtime_version) return String(m.runtime_version);
+    }
+  } catch {}
+  return '';
 }
 
 function requireReleaseJobs() {
@@ -687,6 +1034,19 @@ function initReleaseJobs() {
     }
   });
 }
+
+// P0-05 fix: instead of `app.quit()`-ing on install errors, the Manager now
+// keeps the window alive and pushes the install state to every renderer so
+// the UI can offer a recovery panel (repair / change path / install as user /
+// copy diagnostic). The state is also exposed via `bago:install-state` IPC.
+let lastInstallState = { phase: 'pending', runtime: '', error: '', installDir: '' };
+function emitInstallState(patch) {
+  lastInstallState = { ...lastInstallState, ...patch, ts: Date.now() };
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('bago:install-state', lastInstallState);
+  }
+}
+function getInstallState() { return lastInstallState; }
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -802,7 +1162,7 @@ function createWindow() {
           && result.patch_chain_surface
           && result.patch_chain_inspector
           && result.release_preflight
-          && result.views >= 7
+          && result.views >= 8
           && result.duplicate_ids.length === 0
         );
         console.log(JSON.stringify({ manager_smoke: ok, ...result }));
@@ -818,38 +1178,101 @@ function createWindow() {
 
 app.setAppUserModelId('com.bago.installation-manager');
 
+// Propagar INSTALLS_ROOT al preload vía env var para que scanInstallations lo incluya
+process.env.BAGO_INSTALLS_ROOT = INSTALLS_ROOT;
+
 ipcMain.handle('bago:supervisor-cmd', (_event, args) => runSupervisorCmd(args));
 ipcMain.handle('bago:zombie-cleanup', () => cleanupZombies());
-ipcMain.handle('bago:run-command', (_event, command) => runVisiblePowerShell(command));
+ipcMain.handle('bago:install-state-get', () => getInstallState());
 ipcMain.handle('bago:open-web-chat', (_event, options) => openWebChat(options || {}));
 ipcMain.handle('bago:open-cli-chat', (_event, options) => openCliChat(options || {}));
 ipcMain.handle('bago:web-chat-status', () => webChatStatus());
 ipcMain.handle('bago:manager-health', () => managerHealth());
+// P1-07 fix: preflight endpoint the Manager calls BEFORE showing the
+// install dialog. We return Python / PowerShell / write / disk / network
+// in one payload so the UI can render a single panel.
+ipcMain.handle('bago:install-preflight', (_event, payload) => runInstallPreflight(payload && payload.targetDir));
+// P1-03 fix: report the URL where the Manager can be reached from a web
+// view. In a packaged build this is a local file:// path or an
+// http://127.0.0.1:<port> URL depending on the surface; the React app
+// must not assume a fixed dev port.
+ipcMain.handle('bago:get-installs-root', () => INSTALLS_ROOT);
+ipcMain.handle('bago:fetch-releases', () => fetchReleasesFromMain());
+ipcMain.handle('bago:manager-url', () => getManagerUrl());
+// Tab BAGO dentro del manager: inicia el servidor web chat y devuelve la URL
+// sin abrir una BrowserWindow separada. La ventana del manager embebe el chat
+// como iframe dentro de su propia pestaña BAGO.
+ipcMain.handle('bago:get-chat-url', async () => {
+  const state = await ensureWebChatServer({});
+  return state.url;
+});
 ipcMain.handle('bago:install-action', async (_event, payload) => {
-  const { action, targetDir } = payload || {};
-  const packagedRoot = findPackagedRuntimeRoot();
-  if (!packagedRoot) {
-    throw new Error('No se encontró el runtime empaquetado.');
-  }
+  const { action, targetDir, sourceRoot, branch } = payload || {};
+  let packagedRoot = '';
+  const requirePackagedRoot = () => {
+    if (!packagedRoot) packagedRoot = findPackagedRuntimeRoot();
+    if (!packagedRoot) {
+      throw new Error('No se encontró el runtime empaquetado.');
+    }
+    return packagedRoot;
+  };
   let installDir = targetDir;
   if (action === 'repair') {
+    const runtimePack = requirePackagedRoot();
     if (!installDir) {
       try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para reparar: ' + e.message); }
     }
-    await runInstallScript(packagedRoot, installDir, ['-RepairOnly'], 'Reparando configuración…');
+    emitInstallState({ phase: 'repairing', installDir });
+    try {
+      await runInstallScript(runtimePack, installDir, ['-RepairOnly'], 'Reparando configuración…');
+    } finally {
+      emitInstallState({ phase: 'ready', installDir });
+    }
     return { ok: true, action: 'repair', installDir };
   }
   if (action === 'reinstall') {
+    const runtimePack = requirePackagedRoot();
     if (!installDir) {
       try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para reinstalar: ' + e.message); }
     }
-    await runInstallScript(packagedRoot, installDir, [], 'Reinstalando BAGO…');
+    emitInstallState({ phase: 'reinstalling', installDir });
+    try {
+      await runInstallScript(runtimePack, installDir, [], 'Reinstalando BAGO…');
+    } finally {
+      emitInstallState({ phase: 'ready', installDir });
+    }
     return { ok: true, action: 'reinstall', installDir };
   }
   if (action === 'new-copy') {
+    const runtimePack = requirePackagedRoot();
     if (!installDir) throw new Error('Se requiere targetDir para nueva copia.');
-    await runInstallScript(packagedRoot, installDir, [], 'Instalando nueva copia…');
+    emitInstallState({ phase: 'installing', installDir });
+    try {
+      await runInstallScript(runtimePack, installDir, [], 'Instalando nueva copia…');
+    } finally {
+      emitInstallState({ phase: 'ready', installDir });
+    }
     return { ok: true, action: 'new-copy', installDir };
+  }
+  if (action === 'source-update') {
+    const rawSource = String(sourceRoot || '').trim();
+    if (!rawSource) throw new Error('Se requiere sourceRoot para actualizar desde fuente/branch.');
+    const cleanSource = path.resolve(rawSource);
+    if (!fs.existsSync(path.join(cleanSource, 'install-v4.ps1')) || !fs.existsSync(path.join(cleanSource, 'bago_core', 'launcher.py'))) {
+      throw new Error('La fuente no contiene install-v4.ps1 y bago_core/launcher.py.');
+    }
+    if (!installDir) {
+      try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para actualizar: ' + e.message); }
+    }
+    const branchName = String(branch || 'main').trim() || 'main';
+    await runGitPull(cleanSource, branchName);
+    emitInstallState({ phase: 'reinstalling', installDir });
+    try {
+      await runInstallScript(cleanSource, installDir, [], `Actualizando desde fuente/branch (${branchName})…`);
+    } finally {
+      emitInstallState({ phase: 'ready', installDir });
+    }
+    return { ok: true, action: 'source-update', installDir, sourceRoot: cleanSource, branch: branchName };
   }
   throw new Error(`Acción desconocida: ${action}`);
 });
@@ -878,9 +1301,16 @@ ipcMain.handle('bago:node-cmd', async (_event, args) => {
 });
 
 app.whenReady().then(async () => {
-  await ensureBagoInstalled();
-  initReleaseJobs();
+  // P0-05 fix: create the Manager window FIRST so the user always sees a
+  // recovery/loading UI. The install/repair runs in parallel; its progress
+  // is streamed to the renderer through `bago:install-state` events.
+  // The window is the first thing the user sees; everything else (install,
+  // release jobs) is wired up after the UI is on screen.
   createWindow();
+  initReleaseJobs();
+  ensureBagoInstalled().catch(err => {
+    emitInstallState({ phase: 'failed', error: String(err && err.message || err) });
+  });
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

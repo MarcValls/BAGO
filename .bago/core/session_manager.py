@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from io_utils import atomic_write_json
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -858,7 +860,7 @@ class SessionManager:
             "switch_log": self.switch_log,
         }
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_json(path, data)
 
     def memory_add_hybrid(self, content: str) -> dict[str, Any]:
         adapter = self._ensure_adapter()

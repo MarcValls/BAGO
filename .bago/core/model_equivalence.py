@@ -116,7 +116,7 @@ _DEFAULT_MAP: dict[str, dict] = {
             "llama32-1b": {"wire": "llama3.2:1b", "provider": "ollama-local", "context": 128000, "reasoning": "low", "coding": "low", "best_for": "classification"},
             "qwen25-mini": {"wire": "qwen2.5:0.5b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
             "qwen25-1_5b": {"wire": "qwen2.5:1.5b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
-            "granite32-8b": {"wire": "granite3.2:8b", "provider": "ollama-local", "context": 128000, "reasoning": "medium", "coding": "medium", "best_for": "general"},
+            "granite32-8b": {"wire": "granite3.2:8b", "provider": "ollama-local", "context": 128000, "reasoning": "medium", "coding": "medium", "best_for": "general"},  # alternate alias kept for compatibility
         }
     },
     "tier_4_ultra_light": {
