@@ -5,13 +5,10 @@ on:
     branches: [master, main]
     paths:
       - 'landing/**'
-      - '.github/workflows/deploy-landing.yml'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Only run if landing/ directory exists in the pushed commit
-    if: ${{ hashFiles('landing/index.html') != '' }}
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
