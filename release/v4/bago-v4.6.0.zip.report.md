@@ -1,0 +1,14 @@
+# BAGO v4 Local Package Report
+
+- Package: `bago-v4.6.0.zip`
+- Files: `301`
+- SHA256: `bab2a7d5f36d4293bf1f0291e7a1b3b13faa5944c4cd5546dea8a609bd5bcd7a`
+
+## Exclusions
+
+- live state
+- logs
+- credentials
+- node_modules
+- PLAN_VERTICE execution artifacts
+- root dist/build folders

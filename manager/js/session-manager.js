@@ -3,8 +3,8 @@ let pmSession=null;
 
 function pmSessionApi(args){
   const api=electronApi();
-  if(!api||!api.runSessionCommand)throw new Error('SessionManager solo esta disponible en Electron');
-  return api.runSessionCommand(args);
+  if(api&&api.runSessionCommand)return api.runSessionCommand(args);
+  return Promise.resolve(pmLocalSessionCommand(args));
 }
 function pmSessionOption(value,label,selected){
   return '<option value="'+escapeHtml(value)+'"'+(value===selected?' selected':'')+'>'+escapeHtml(label||value)+'</option>';
@@ -58,12 +58,25 @@ async function pmApplySession(){
   if(!pmSession)return;
   const bridges=[...document.getElementById('pm-session-bridges').selectedOptions].map(option=>option.value).join(',');
   const args=['apply','--session-id',pmSession.session_id,'--provider',document.getElementById('pm-session-provider').value,'--model',document.getElementById('pm-session-model').value,'--mode',document.getElementById('pm-session-mode').value,'--agent',document.getElementById('pm-session-agent').value,'--bridges',bridges,'--force'];
+  window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('session-apply', {
+    session_id: pmSession.session_id,
+    provider: document.getElementById('pm-session-provider').value,
+    model: document.getElementById('pm-session-model').value,
+    mode: document.getElementById('pm-session-mode').value,
+    agent: document.getElementById('pm-session-agent').value,
+    bridges,
+  });
   try{const result=await pmSessionApi(args);pmSession=result.session;await pmLoadSessions();pmRenderSession();showToast('Sesion actualizada',true);}catch(error){showToast(error.message,false);}
 }
 async function pmSendSession(orchestrate=false){
   if(!pmSession)return;
   const input=document.getElementById('pm-session-prompt');
   const prompt=input.value.trim();if(!prompt)return;
+  window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('session-send', {
+    session_id: pmSession.session_id,
+    orchestrate,
+    prompt,
+  });
   input.disabled=true;
   const args=['send','--session-id',pmSession.session_id,'--prompt',prompt];if(orchestrate)args.push('--orchestrate');
   try{const result=await pmSessionApi(args);pmSession=result.session;input.value='';pmRenderSession();if(orchestrate&&Object.values(result.response||{}).some(item=>!item.ok))showToast('Orquestacion parcial: revisa respuestas',false);}catch(error){showToast(error.message,false);}finally{input.disabled=false;}
@@ -79,6 +92,6 @@ function pmInitSessions(){
     const provider=(pmSession.providers||[]).find(item=>item.name===event.target.value);
     document.getElementById('pm-session-model').innerHTML=((provider&&provider.models)||[]).map(model=>pmSessionOption(model,model,'')).join('');
   });
-  pmLoadSessions();
+  pmLoadSessions().then(()=>{ if(!pmSession && pmSessions[0]){ pmSession=pmSessions[0]; pmRenderSession(); } }).catch(()=>{});
 }
 pmInitSessions();

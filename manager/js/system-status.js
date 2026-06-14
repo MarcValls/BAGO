@@ -20,6 +20,39 @@ async function pmLoadSystemStatus() {
   let healthData = null;
   let healthErr = '';
 
+  if (!api || (!api.runSupervisorCommand && !api.managerHealth)) {
+    const localState = pmReadLocalRuntime();
+    const localSystem = localState.system || {};
+    const localPayload = pmGetLocalPayload();
+    const sessions = pmReadLocalSessions().list;
+    const now = new Date().toISOString();
+    const rows = [
+      ['Bridge Electron', 'No disponible en navegador', false],
+      ['Payload local', localPayload ? 'Cargado' : 'Vacío', !!localPayload],
+      ['Sesiones locales', String(sessions.length), sessions.length > 0],
+      ['Última acción', localSystem.lastAction || 'ninguna', !!localSystem.lastAction],
+      ['Última hora', localSystem.lastAt || now, true],
+    ];
+    statusBox.innerHTML = rows.map(r => {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e293b;font-size:12px;">' +
+        '<span style="color:#94a3b8;">' + escapeHtml(r[0]) + '</span>' +
+        '<span style="color:#e2e8f0;font-family:JetBrains Mono,monospace;">' + pmSystemBadge(r[1], r[2]) + '</span>' +
+        '</div>';
+    }).join('');
+    caption.textContent = 'Modo web local · sin Electron';
+    healthBox.innerHTML = [
+      ['Bridge Electron', 'ausente', false],
+      ['Cache local', localPayload ? 'payload guardado' : 'sin payload', !!localPayload],
+      ['Session store', sessions.length ? 'activo' : 'vacío', sessions.length > 0],
+    ].map(r => {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e293b;font-size:12px;">' +
+        '<span style="color:#94a3b8;">' + escapeHtml(r[0]) + '</span>' +
+        '<span style="color:#e2e8f0;font-family:JetBrains Mono,monospace;">' + pmSystemBadge(r[1], r[2]) + '</span>' +
+        '</div>';
+    }).join('');
+    return;
+  }
+
   // Supervisor status
   try {
     if (api && api.runSupervisorCommand) {
@@ -108,7 +141,9 @@ async function pmLoadSystemStatus() {
 async function pmRestartSupervisor() {
   const api = electronApi();
   if (!api || !api.runSupervisorCommand) {
-    showToast('Reinicio solo disponible en Electron', false);
+    pmLocalSystemStamp('restart-supervisor', 'browser-local');
+    await pmLoadSystemStatus();
+    showToast('Sin Electron: reinicio registrado localmente', true);
     return;
   }
   if (!confirm('¿Reiniciar el supervisor BAGO? Esto detendrá y volverá a arrancar el proceso de fondo.')) return;
@@ -129,7 +164,9 @@ async function pmRestartSupervisor() {
 async function pmCleanupZombies() {
   const api = electronApi();
   if (!api || !api.cleanupZombies) {
-    showToast('Limpieza solo disponible en Electron', false);
+    pmLocalSystemStamp('cleanup-zombies', 'browser-local');
+    await pmLoadSystemStatus();
+    showToast('Sin Electron: limpieza registrada localmente', true);
     return;
   }
   if (!confirm('¿Limpiar conexiones zombie y procesos huérfanos? Esto cierra conexiones TIME_WAIT/CloseWait y python.exe sin padre.')) return;

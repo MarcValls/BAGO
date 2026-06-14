@@ -244,6 +244,7 @@ async function renderPayload(data){
   if(!latestRelease && releaseItems.length) latestRelease = releaseItems.find(r=>!r.prerelease)||releaseItems[0];
   if(!data||!Array.isArray(data.installations)){showToast('el JSON no tiene el campo installations[]',false);return;}
   currentPayload=data;
+  pmStoreLocalPayload(data);
   installSelection=await resolveInstallSelection(data);
   decorateInstallRoles(data.installations);
   const existing=data.installations.filter(i=>i.exists);
@@ -289,6 +290,10 @@ async function bootstrapAuto(){
   } else {
     await loadLatestRelease();
     renderReleaseList();
+    const cached=pmGetLocalPayload();
+    if(cached&&Array.isArray(cached.installations)){
+      await renderPayload(cached);
+    }
   }
 }
 
@@ -441,22 +446,24 @@ document.getElementById('btn-paste').addEventListener('click',async()=>{
   try{
     const text=await readTextClipboard();
     inputArea.value=text;
+    window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('paste', { source: 'clipboard', target: 'input-area', value: text });
     parseAndRender(text);
   }catch(e){showToast('no se pudo leer el portapapeles: '+e.message,false);}
 });
-document.getElementById('btn-render').addEventListener('click',()=>{parseAndRender(inputArea.value);});
-document.getElementById('btn-clear').addEventListener('click',()=>{inputArea.value='';renderEmpty();showToast('limpio',true);});
-document.getElementById('btn-file').addEventListener('click',()=>document.getElementById('file-input').click());
+document.getElementById('btn-render').addEventListener('click',()=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('render', { target: 'input-area', value: inputArea.value });parseAndRender(inputArea.value);});
+document.getElementById('btn-clear').addEventListener('click',()=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('clear', { target: 'input-area' });inputArea.value='';pmStoreLocalPayload(null);renderEmpty();showToast('limpio',true);});
+document.getElementById('btn-file').addEventListener('click',()=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('open-file-picker', { target: 'file-input' });document.getElementById('file-input').click();});
 document.getElementById('file-input').addEventListener('change',ev=>{
   const f=ev.target.files&&ev.target.files[0];
   if(!f)return;
   const r=new FileReader();
-  r.onload=e=>{inputArea.value=e.target.result;parseAndRender(e.target.result);};
+  r.onload=e=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('file-load', { file: f.name, size: f.size, target: 'input-area', value: e.target.result });inputArea.value=e.target.result;parseAndRender(e.target.result);};
   r.onerror=()=>showToast('error leyendo archivo',false);
   r.readAsText(f);
 });
 document.getElementById('btn-sample').addEventListener('click',()=>{
   const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.3.0","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('sample', { target: 'input-area', value: sample });
   inputArea.value=sample;
   parseAndRender(sample);
 });

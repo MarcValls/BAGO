@@ -12,7 +12,17 @@ function setNodeTab(name){
 async function loadNodeData(){
   const api=electronApi();
   if(!api||!api.runNodeStatus){
-    showToast('Node Control solo en Electron (ejecuta `npm i electron` y abre con `electron electron/main.cjs`)',false);
+    const local=pmLocalNodeSnapshot();
+    nodePanel.style.display='block';
+    nodeCache.status=local.status;
+    nodeCache.matrix=local.matrix;
+    nodeCache.pieces=local.pieces;
+    nodeCache.connectors=local.connectors;
+    nodeCache.evidence=local.evidence;
+    nodeCmdLabel.textContent='bago node status --json · modo local';
+    renderNodeTab(activeNodeTab);
+    renderPatchManager();
+    showToast('Node Control cargado desde caché local',true);
     return;
   }
   try{

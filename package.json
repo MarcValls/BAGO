@@ -29,12 +29,13 @@
       "docs/**/*",
       "ui-react/dist/**/*",
       "install-v4.ps1",
-      "install-remote.ps1",
-      "bago.ps1",
-      "bago.cmd",
-      "bago.sh",
-      "versions.json",
-      "release_version.txt"
+    "install-remote.ps1",
+    "bago.ps1",
+    "bago.cmd",
+    "bago.sh",
+    "versions.json",
+    "release_version.txt",
+    "release/v4/bago-v4.6.0.zip"
     ],
     "files": [
       "electron/**/*",
@@ -58,7 +59,8 @@
       "bago.cmd",
       "bago.sh",
       "versions.json",
-      "release_version.txt"
+      "release_version.txt",
+      "release/v4/bago-v4.6.0.zip"
     ],
     "directories": {
       "output": "dist"

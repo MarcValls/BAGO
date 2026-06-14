@@ -117,6 +117,7 @@ function pmAudit(action,detail){
 }
 function pmSwitchView(view){
   pmActiveView=view;
+  window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('view-switch', { view });
   document.querySelectorAll('[data-pm-view]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-pm-view')===view));
   document.querySelectorAll('.pm-view').forEach(v=>v.classList.toggle('active',v.id==='pm-view-'+view));
   document.getElementById('pm-title').textContent=PM_VIEW_TITLES[view]||'BAGO Manager';
@@ -275,7 +276,7 @@ function pmRenderDetail(){
 }
 async function pmValidateRegistry(){
   const api=electronApi();
-  if(!api||!api.runNodeValidate)return {ok:false,error:'validación solo disponible en Electron'};
+  if(!api||!api.runNodeValidate)return pmLocalNodeValidate();
   try{
     const result=await api.runNodeValidate();
     const data=result&&result.data||{};
@@ -502,7 +503,12 @@ function pmReleasePreflightDialog(preflight){
 }
 async function pmInspectUninstall(target){
   const api=electronApi();
-  if(!api||!api.preflightRelease){showToast('Preflight disponible solo en Electron',false);return;}
+  if(!api||!api.preflightRelease){
+    await copyText(uninstallCommand(target));
+    pmAudit('uninstall-preflight',target+' · comando copiado');
+    showToast('Sin Electron: comando de desinstalación copiado',true);
+    return;
+  }
   try{
     const preflight=await api.preflightRelease({release:{},target,action:'uninstall'});
     const dialog=document.getElementById('pm-release-dialog');
@@ -531,6 +537,7 @@ async function pmPrepareRelease(release,target,action){
   const api=electronApi();
   if(!api||!api.preflightRelease||!api.startReleaseJob){
     await copyText(installCommand(release&&release.tag_name||'',target));
+    pmAudit('release-copy',(release&&release.tag_name||'release')+' → '+target);
     return;
   }
   try{
@@ -690,9 +697,9 @@ function renderPatchManager(){
 function pmInit(){
   document.querySelectorAll('[data-pm-view]').forEach(btn=>btn.addEventListener('click',()=>pmSwitchView(btn.getAttribute('data-pm-view')||'patch')));
   document.getElementById('pm-search').addEventListener('input',ev=>{pmSearch=ev.target.value.trim().toLowerCase();renderPatchManager();});
-  document.getElementById('pm-mode-filter').addEventListener('change',ev=>{pmModeFilter=ev.target.value;pmRenderPatch();});
-  document.getElementById('pm-install-filter').addEventListener('change',ev=>{pmSelectedInstallation=ev.target.value;pmRenderPatch();});
-  document.getElementById('pm-release-channel').addEventListener('change',ev=>{pmReleaseChannel=ev.target.value;pmRenderReleases();});
+  document.getElementById('pm-mode-filter').addEventListener('change',ev=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('filter-change', { id: 'pm-mode-filter', value: ev.target.value });pmModeFilter=ev.target.value;pmRenderPatch();});
+  document.getElementById('pm-install-filter').addEventListener('change',ev=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('filter-change', { id: 'pm-install-filter', value: ev.target.value });pmSelectedInstallation=ev.target.value;pmRenderPatch();});
+  document.getElementById('pm-release-channel').addEventListener('change',ev=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('filter-change', { id: 'pm-release-channel', value: ev.target.value });pmReleaseChannel=ev.target.value;pmRenderReleases();});
   document.getElementById('pm-jobs-refresh').addEventListener('click',pmLoadJobs);
   document.getElementById('pm-health-refresh').addEventListener('click',pmLoadHealth);
   document.getElementById('pm-refresh').addEventListener('click',async()=>{pmAudit('refresh','Detección local, releases, salud y Node Control');await Promise.all([refreshAll([]),loadNodeData(),pmLoadHealth()]);});
@@ -705,12 +712,25 @@ function pmInit(){
     if(path){pmAudit('scan','Ruta manual: '+path);await refreshAll([path]);}
   });
   document.getElementById('pm-validate').addEventListener('click',async()=>{
-    const api=electronApi();if(!api||!api.runNodeValidate){copyText('bago node validate --json');return;}
+    const api=electronApi();
+    if(!api||!api.runNodeValidate){
+      const result=pmLocalNodeValidate();
+      pmAudit('validate',result.ok?'Node Control válido · local':'Validación con fallos · local');
+      showToast(result.ok?'Node Control válido · local':'Validación con fallos · local',!!result.ok);
+      return;
+    }
     try{const result=await api.runNodeValidate();pmAudit('validate',result&&result.ok?'Node Control válido':'Validación con fallos');showToast(result&&result.ok?'Node Control válido':'Validación con fallos',!!(result&&result.ok));}catch(e){showToast(e.message,false);}
   });
   document.getElementById('pm-export').addEventListener('click',async()=>{
     if(!window.confirm('Exportar el estado Node Control a node-export.json?'))return;
-    const api=electronApi();if(!api||!api.runNodeCommand){copyText('bago node export --output node-export.json');return;}
+    const api=electronApi();
+    if(!api||!api.runNodeCommand){
+      const snapshot=pmLocalNodeSnapshot();
+      pmDownloadJson('node-export.json',snapshot);
+      pmAudit('export','node-export.json · local');
+      showToast('Exportación local preparada',true);
+      return;
+    }
     try{await api.runNodeCommand(['node','export','--output','node-export.json']);pmAudit('export','node-export.json');showToast('Estado exportado',true);}catch(e){showToast(e.message,false);}
   });
   window.addEventListener('resize',pmUpdatePatchLines);
