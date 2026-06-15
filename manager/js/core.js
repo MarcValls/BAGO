@@ -275,6 +275,10 @@ async function openWebChat(){
     showToast('chat web no disponible en Electron; usa la pestaña local BAGO',false);
     return;
   }
+  if(btn){btn.click();return;}
+  // Fallback si el tab no existe (contexto externo)
+  const api=electronApi();
+  if(!api||!api.openWebChat){showToast('chat web solo disponible en Electron',false);return;}
   try{
     const result=await api.openWebChat({});
     showToast('chat web abierto'+(result&&result.port?' · puerto '+result.port:''),true);
@@ -290,6 +294,7 @@ async function openCliChat(){
     showToast('chat CLI no disponible en Electron; comando copiado',false);
     return;
   }
+  if(!api||!api.openCliChat){showToast('chat CLI solo disponible en Electron',false);return;}
   try{
     const result=await api.openCliChat({});
     showToast('chat CLI lanzado'+(result&&result.pid?' · pid '+result.pid:''),true);

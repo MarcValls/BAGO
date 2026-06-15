@@ -212,6 +212,59 @@ function buildInstallCommand(packagedRoot, installDir, extraArgs = []) {
     '-Mode', 'Express',
     ...extraArgs
   ];
+  ];
+  return candidates.find(candidate => fs.existsSync(path.join(candidate, 'index.html'))) || '';
+}
+
+function findPackagedRuntimeRoot() {
+  return resolveBundledRuntimeRoot();
+}
+
+// P0-02 fix: choose a sensible default install dir for the current user.
+// On Windows, Program Files is only writable for admins, so a non-elevated
+// session falls back to %LOCALAPPDATA%\BAGO. The Manager still allows the
+// user to pick any other writable location via the "Nueva copia" dialog.
+let _defaultInstallDirCache = '';
+function defaultInstallDir() {
+  if (_defaultInstallDirCache) return _defaultInstallDirCache;
+  // Las instalaciones de BAGO viven dentro del Manager, en INSTALLS_ROOT/active.
+  // El Manager es la fuente de verdad; no se dispersan por %LOCALAPPDATA% ni Program Files.
+  _defaultInstallDirCache = path.join(INSTALLS_ROOT, 'active');
+  return _defaultInstallDirCache;
+}
+
+const PREFS_PATH = path.join(app.getPath('userData'), 'bago-manager-prefs.json');
+
+function loadPrefs() {
+  try {
+    return JSON.parse(fs.readFileSync(PREFS_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(prefs) {
+  try {
+    fs.writeFileSync(PREFS_PATH, JSON.stringify(prefs, null, 2));
+  } catch {}
+}
+
+function buildInstallCommand(packagedRoot, installDir, extraArgs = []) {
+  const installScript = path.join(packagedRoot, 'install-v4.ps1');
+  if (!fs.existsSync(installScript)) {
+    throw new Error(`No se encontró install-v4.ps1 en el paquete. Buscado en: ${installScript}`);
+  }
+  return [
+    'powershell.exe',
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-File', installScript,
+    '-SourceRoot', packagedRoot,
+    '-InstallDir', installDir,
+    '-Profile', 'stable',
+    '-Mode', 'Express',
+    ...extraArgs
+  ];
 }
 
 function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', extraArgs = []) {
@@ -366,6 +419,241 @@ async function ensureBagoInstalled() {
     runtimeRoot = resolveBagoRuntimeRoot();
   } catch {
     runtimeRoot = '';
+  }
+
+  const packagedRoot = findPackagedRuntimeRoot();
+
+  if (!runtimeRoot) {
+    if (!packagedRoot) {
+      emitInstallState({ phase: 'failed', error: 'runtime-empaketado-ausente', installDir: '' });
+      await dialog.showErrorBox('BAGO Installation Manager', 'No se encontró el runtime de BAGO empaquetado. El instalador puede estar corrupto.');
+      return '';
+    }
+
+    const result = await dialog.showMessageBox({
+      type: 'question',
+      buttons: ['Instalar ahora', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'BAGO no está instalado',
+      message: 'No se detectó una instalación de BAGO en este equipo.',
+      detail: 'El Installation Manager puede instalar BAGO automáticamente usando el paquete incluido.',
+      icon: ICON_PATH
+    });
+
+    if (result.response !== 0) {
+      emitInstallState({ phase: 'cancelled' });
+      return '';
+    }
+
+    const installDir = defaultInstallDir();
+    emitInstallState({ phase: 'installing', installDir });
+    try {
+      await runInstallScript(packagedRoot, installDir);
+    } catch (err) {
+      emitInstallState({ phase: 'failed', error: String(err && err.message || err), installDir });
+      return '';
+    }
+    const verified = resolveBagoRuntimeRoot();
+    emitInstallState({ phase: 'ready', runtime: verified, installDir });
+    await dialog.showMessageBox({
+      type: 'info', buttons: ['OK'], title: 'Instalación completada',
+      message: 'BAGO se instaló correctamente.', detail: `Ubicación: ${verified}`
+    });
+    return verified;
+  }
+
+  // CASO 2: hay instalación existente
+  const prefs = loadPrefs();
+  if (prefs.skipInstallPrompt) {
+    emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+    return runtimeRoot;
+  }
+
+  const result = await dialog.showMessageBox({
+    type: 'info',
+    buttons: ['Continuar', 'Reparar configuración', 'Reinstalar / Actualizar', 'Nueva copia…'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'BAGO ya está instalado',
+    message: `Se detectó BAGO en:\n${runtimeRoot}`,
+    detail: 'Puedes continuar, reparar la configuración, reinstalar desde cero o crear otra copia en un directorio diferente.',
+    checkboxLabel: 'No volver a preguntar al inicio',
+    checkboxChecked: false,
+    icon: ICON_PATH
+  });
+
+  if (result.checkboxChecked) {
+    prefs.skipInstallPrompt = true;
+    savePrefs(prefs);
+  }
+
+  try {
+    switch (result.response) {
+      case 0: {
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+        return runtimeRoot;
+      }
+      case 1: {
+        emitInstallState({ phase: 'repairing', installDir: runtimeRoot });
+        await runInstallScript(packagedRoot, runtimeRoot, ['-RepairOnly'], 'Reparando configuración…');
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+        await dialog.showMessageBox({
+          type: 'info', buttons: ['OK'], title: 'Reparación completada',
+          message: 'La configuración de BAGO se reparó correctamente.', detail: `Ubicación: ${runtimeRoot}`
+        });
+        return runtimeRoot;
+      }
+      case 2: {
+        emitInstallState({ phase: 'reinstalling', installDir: runtimeRoot });
+        await runInstallScript(packagedRoot, runtimeRoot, [], 'Reinstalando BAGO…');
+        const verified = resolveBagoRuntimeRoot();
+        emitInstallState({ phase: 'ready', runtime: verified, installDir: runtimeRoot });
+        await dialog.showMessageBox({
+          type: 'info', buttons: ['OK'], title: 'Reinstalación completada',
+          message: 'BAGO se reinstaló correctamente.', detail: `Ubicación: ${verified}`
+        });
+        return verified;
+      }
+      case 3: {
+        if (!packagedRoot) {
+          emitInstallState({ phase: 'failed', error: 'runtime-empaketado-ausente' });
+          await dialog.showErrorBox('Error', 'No se encontró el runtime empaquetado para crear una nueva copia.');
+          return runtimeRoot;
+        }
+        const { filePaths } = await dialog.showOpenDialog({
+          title: 'Seleccionar directorio para la nueva copia de BAGO',
+          defaultPath: path.join(path.dirname(defaultInstallDir()), 'BAGO-dev'),
+          properties: ['openDirectory', 'createDirectory', 'promptToCreate']
+        });
+        if (!filePaths || !filePaths[0]) {
+          emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+          return runtimeRoot;
+        }
+        const newDir = filePaths[0];
+        emitInstallState({ phase: 'installing', installDir: newDir });
+        await runInstallScript(packagedRoot, newDir, [], 'Instalando nueva copia…');
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: newDir });
+        await dialog.showMessageBox({
+          type: 'info', buttons: ['OK'], title: 'Nueva copia completada',
+          message: 'La nueva copia de BAGO se instaló correctamente.', detail: `Ubicación: ${newDir}`
+        });
+        return runtimeRoot;
+      }
+      default:
+        emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
+        return runtimeRoot;
+    }
+  } catch (err) {
+    emitInstallState({ phase: 'failed', error: String(err && err.message || err) });
+    await dialog.showErrorBox('BAGO Installation Manager', 'Fallo en la operacion de instalacion: ' + (err && err.message || err));
+    return '';
+  }
+}
+
+function webChatStatus() {
+  const procAlive = !!(webChatProcess && webChatProcess.exitCode === null && !webChatProcess.killed);
+  const windowAlive = !!(webChatWindow && !webChatWindow.isDestroyed());
+  return {
+    running: !!(webChatState && (procAlive || windowAlive)),
+    process_alive: procAlive,
+    window_alive: windowAlive,
+    ...(webChatState || {})
+  };
+}
+
+async function probeWebChat(port) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1200);
+  try {
+    const response = await fetch(`http://${CHAT_HOST}:${port}/session`, { signal: controller.signal });
+    if (!response.ok) return false;
+    const data = await response.json();
+    return !!(data && data.session_id && data.provider);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function waitForWebChat(port, timeoutMs = 12000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (await probeWebChat(port)) return true;
+    await new Promise(resolve => setTimeout(resolve, 350));
+  }
+  return false;
+}
+
+async function ensureWebChatServer(options = {}) {
+  const requestedBasePath = String(options.basePath || '').trim();
+  const runtimeRoot = resolveBagoRuntimeRoot();
+  const basePath = requestedBasePath || runtimeRoot;
+  const uiDist = resolveUiDist(runtimeRoot);
+  const mayReuseExternal = !requestedBasePath || requestedBasePath === runtimeRoot;
+  if (!uiDist) {
+    throw new Error(`ui-react/dist no encontrado para ${runtimeRoot}`);
+  }
+
+  if (webChatState && webChatState.base_path === basePath && await probeWebChat(webChatState.port)) {
+    return webChatState;
+  }
+
+  for (let port = CHAT_START_PORT; port < CHAT_START_PORT + 12; port += 1) {
+    if (await probeWebChat(port)) {
+      if (!mayReuseExternal) continue;
+      webChatState = {
+        host: CHAT_HOST,
+        port,
+        url: `http://${CHAT_HOST}:${port}/`,
+        runtime_root: runtimeRoot,
+        base_path: basePath,
+        ui_dist: uiDist,
+        reused: true
+      };
+      return webChatState;
+    }
+
+    const child = spawn(
+      'python',
+      [
+        '-m', 'bago_core.launcher',
+        '--base-path', basePath,
+        'serve',
+        '--host', CHAT_HOST,
+        '--port', String(port),
+        '--ui-dist', uiDist
+      ],
+      {
+        cwd: runtimeRoot,
+        stdio: 'ignore',
+        windowsHide: true
+      }
+    );
+    webChatProcess = child;
+    child.once('exit', () => {
+      if (webChatProcess === child) webChatProcess = null;
+    });
+    child.unref();
+
+    if (await waitForWebChat(port)) {
+      webChatState = {
+        host: CHAT_HOST,
+        port,
+        url: `http://${CHAT_HOST}:${port}/`,
+        pid: child.pid,
+        runtime_root: runtimeRoot,
+        base_path: basePath,
+        ui_dist: uiDist,
+        reused: false
+      };
+      return webChatState;
+    }
+
+    try { child.kill(); } catch {}
+  }
+
   }
 
   const packagedRoot = findPackagedRuntimeRoot();
