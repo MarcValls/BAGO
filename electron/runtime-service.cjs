@@ -213,7 +213,7 @@ function createRuntimeService(ctx) {
           args: safe.slice()
         };
       }
-      const cmd = `python -m bago_core.launcher ${safe.map(a => /[\s'"&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a).join(' ')}`;
+      const cmd = `python -m bago_core.launcher ${safe.map(a => /[\s'"&|<>^]/.test(a) ? `"${a.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : a).join(' ')}`;
       execFile(
         'python',
         ['-m', 'bago_core.launcher', ...safe],
