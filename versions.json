@@ -1,5 +1,5 @@
 {
-  "current": "4.6.1",
+  "current": "4.6.2",
   "history": [
     {
       "version": "4.0.0",
@@ -52,8 +52,14 @@
     {
       "version": "4.6.1",
       "released": "2026-06-12",
-      "ended": null,
+      "ended": "2026-06-17",
       "notes": "Hotfix de release: paquete de distribución coherente, package-lock incluido, verificación de release alineada y pegado completo en la CLI con bloques multilinea."
+    },
+    {
+      "version": "4.6.2",
+      "released": "2026-06-17",
+      "ended": null,
+      "notes": "Refactor agresivo del manager en servicios IPC, endurecimiento de flujos de instalación y base para publicación de una nueva línea de release."
     }
   ]
 }

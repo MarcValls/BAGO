@@ -6,14 +6,14 @@ Lee la versión actual desde versions.json (raíz de BAGO).
 Es la única fuente de verdad de la versión en runtime.
 
 Uso:
-    from version import CURRENT          # "4.6.1"
+    from version import CURRENT          # "4.6.2"
     from version import at_date          # versión activa en una fecha dada
     from version import history          # lista completa de versiones
 """
 
 from __future__ import annotations
 
-_CREATED_VERSION = "4.6.1"
+_CREATED_VERSION = "4.6.2"
 
 import json
 from datetime import date

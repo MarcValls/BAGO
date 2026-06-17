@@ -506,7 +506,7 @@ function buildActions(inst,isSource){
     {label:'Crear backup',desc:'Snapshot de state+config+memory',cmd:cd+'; python bago_core/cli.py backup create'},
     {label:'Listar backups',desc:'Snapshots disponibles',cmd:cd+'; python bago_core/cli.py backup list'},
     {label:'Inventario completo',desc:'Cuenta archivos, tamaños, sellos',cmd:cd+'; python bago_core/cli.py inventory'},
-    {label:'Generar bundle 4.6.1',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
+    {label:'Generar bundle 4.6.2',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
   ]));
   return groups.join('');
 }
@@ -556,7 +556,7 @@ document.getElementById('file-input').addEventListener('change',ev=>{
   r.readAsText(f);
 });
 document.getElementById('btn-sample').addEventListener('click',()=>{
-  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.6.1","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.6.2","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
   window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('sample', { target: 'input-area', value: sample });
   inputArea.value=sample;
   parseAndRender(sample);
