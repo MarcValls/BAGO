@@ -3,5 +3,9 @@
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "manager/index.html", "use": "@vercel/static" }
+  ],
+  "rewrites": [
+    { "source": "/manager", "destination": "/manager/index.html" },
+    { "source": "/manager/", "destination": "/manager/index.html" }
   ]
 }
