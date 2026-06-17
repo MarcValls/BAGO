@@ -781,7 +781,12 @@ class BagoREPL:
             if self.mgr.provider != provider:
                 print(R.error("No se pudo conectar."))
                 return True
+            # Ya conectado por el wizard, mostrar status
+            print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+            self.engine = SwitchEngine(self.mgr.adapters)
+            return True
 
+        # Provider ya configurado: elegir modelo y cambiar
         try:
             catalog = self.mgr.list_model_catalog(provider)
         except Exception:
@@ -825,7 +830,7 @@ class BagoREPL:
             return True
         return self._credential_wizard_provider(providers[pidx])
 
-    def _credential_wizard_provider(self, provider: str) -> bool:
+    def _credential_wizard_provider(self, provider: str, silent: bool = False) -> bool:
         """Flujo de login para un provider específico. Detecta automáticamente o abre URL."""
         import os, subprocess, urllib.request, webbrowser
         from pathlib import Path
@@ -947,16 +952,20 @@ class BagoREPL:
             print(R.ok(f"  ✓ {key} guardado"))
 
         # ── Conectar automáticamente ─────────────────────────────────────
-        print()
-        print(R.ok(f"✓ {provider} configurado."))
+        if not silent:
+            print()
+            print(R.ok(f"✓ {provider} configurado."))
         if provider != "ollama-local":
             result = self.mgr.switch(provider, force=True)
             if result.get("ok"):
-                print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+                if not silent:
+                    print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
                 self.engine = SwitchEngine(self.mgr.adapters)
             else:
                 err = result.get("error") or result.get("warnings", ["?"])[0]
-                print(R.error(f"✗ No se pudo conectar: {err}"))
+                if not silent:
+                    print(R.error(f"✗ No se pudo conectar: {err}"))
+                return False
         return True
 
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:

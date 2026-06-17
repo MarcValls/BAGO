@@ -265,6 +265,8 @@ class SessionManager:
                     creds.setdefault("token", val)
                 if "URL" in upper and "BASE" in upper:
                     creds.setdefault("base_url", val)
+                if upper == "OLLAMA_CLOUD_URL":
+                    creds.setdefault("base_url", val)
         # Merge: credenciales tienen prioridad sobre config generica
         merged = dict(cfg)
         merged.update(creds)
