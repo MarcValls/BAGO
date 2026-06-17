@@ -170,6 +170,7 @@
             <label>Agente<select class="pm-select" id="pm-session-agent"></select></label>
             <label>Bridges<select class="pm-select" id="pm-session-bridges" multiple></select></label>
           </div>
+          <div class="pm-session-provider-actions" id="pm-session-provider-actions"></div>
           <div class="pm-session-status" id="pm-session-status"></div>
           <div class="pm-session-chat" id="pm-session-chat"></div>
           <div class="pm-session-prompt"><textarea id="pm-session-prompt" placeholder="Mensaje para la sesión activa"></textarea><div class="pm-actions"><button class="pm-btn primary" id="pm-session-send">Enviar</button><button class="pm-btn" id="pm-session-orchestrate">A bridges</button></div></div>
@@ -199,7 +200,7 @@
   <div class="wrap">
     <img src="../assets/logo.png" width="32" height="32" alt="BAGO logo" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · <span id="bago-version-meta">v4.6.0</span></span>
+    <span class="meta">standalone · offline · <span id="bago-version-meta">v4.6.1</span></span>
   </div>
 </header>
 <main>
@@ -290,10 +291,11 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · <span id="bago-version-footer">v4.6.0</span> · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · <span id="bago-version-footer">v4.6.1</span> · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script src="js/core.js"></script>
+<script src="js/startup-deps.js"></script>
 <script src="js/node-control.js"></script>
 <script src="js/legacy-manager.js"></script>
 <script src="js/patch-manager.js"></script>

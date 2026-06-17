@@ -38,6 +38,44 @@ function pmLocalProviderCatalog(){
     {name:'openrouter',configured:false,models:['gpt-4.1-mini']}
   ];
 }
+const pmDependencyCatalog={
+  core:[
+    {id:'python',label:'Python',required:true,wingetId:'Python.Python.3.11',installCommand:'winget install -e --id Python.Python.3.11 --accept-package-agreements --accept-source-agreements'},
+    {id:'powershell',label:'PowerShell',required:true,wingetId:'',installCommand:''},
+    {id:'git',label:'Git',required:false,wingetId:'Git.Git',installCommand:'winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements'},
+    {id:'ollama',label:'Ollama',required:false,wingetId:'Ollama.Ollama',installCommand:'winget install -e --id Ollama.Ollama --accept-package-agreements --accept-source-agreements'}
+  ],
+  providers:{
+    'ollama-local':{label:'Ollama local',authModes:['install'],installTarget:'ollama',primaryKey:'OLLAMA_HOST',optionalKeys:[]},
+    'ollama-cloud':{label:'Ollama Cloud',authModes:['api'],primaryKey:'OLLAMA_CLOUD_KEY',optionalKeys:['OLLAMA_CLOUD_URL']},
+    'copilot':{label:'GitHub Copilot',authModes:['api','login'],primaryKey:'GITHUB_TOKEN',optionalKeys:[],loginCommand:'copilot login'},
+    'anthropic':{label:'Anthropic',authModes:['api'],primaryKey:'ANTHROPIC_API_KEY',optionalKeys:[]},
+    'codex':{label:'Codex / OpenAI',authModes:['api','login'],primaryKey:'OPENAI_API_KEY',optionalKeys:['OPENAI_ORG_ID'],loginCommand:'codex login'},
+    'openrouter':{label:'OpenRouter',authModes:['api'],primaryKey:'OPENROUTER_API_KEY',optionalKeys:['OPENROUTER_HTTP_REFERER']},
+    'opencode':{label:'OpenCode',authModes:['api'],primaryKey:'OPENCODE_API_KEY',optionalKeys:['OPENCODE_BASE_URL']}
+  }
+};
+function pmDependencySpec(id){
+  return pmDependencyCatalog.core.find(item=>item.id===id)||null;
+}
+function pmProviderSpec(name){
+  return pmDependencyCatalog.providers[name]||{label:name,authModes:[],primaryKey:'',optionalKeys:[]};
+}
+function pmProviderAuthModes(name){
+  return Array.isArray(pmProviderSpec(name).authModes)?pmProviderSpec(name).authModes.slice():[];
+}
+function pmProviderPrimaryKey(name){
+  return pmProviderSpec(name).primaryKey||'';
+}
+function pmProviderOptionalKeys(name){
+  return Array.isArray(pmProviderSpec(name).optionalKeys)?pmProviderSpec(name).optionalKeys.slice():[];
+}
+function pmProviderLoginCommand(name){
+  return pmProviderSpec(name).loginCommand||'';
+}
+function pmDependencyInstallCommand(id){
+  return (pmDependencySpec(id)||{}).installCommand||'';
+}
 function pmNormalizeLocalSession(session){
   const providers=pmLocalProviderCatalog();
   const modelByProvider=provider=>{

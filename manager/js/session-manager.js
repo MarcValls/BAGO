@@ -9,6 +9,101 @@ function pmSessionApi(args){
 function pmSessionOption(value,label,selected){
   return '<option value="'+escapeHtml(value)+'"'+(value===selected?' selected':'')+'>'+escapeHtml(label||value)+'</option>';
 }
+function pmCurrentProviderInfo(session){
+  const providers=session&&Array.isArray(session.providers)?session.providers:[];
+  const selected=document.getElementById('pm-session-provider');
+  const providerName=(selected&&selected.value)||session&&session.provider||providers[0]&&providers[0].name||'';
+  const provider=providers.find(item=>item.name===providerName)||null;
+  return {providerName,provider,providers};
+}
+function pmRenderProviderActions(){
+  const box=document.getElementById('pm-session-provider-actions');
+  if(!box)return;
+  const session=pmSession;
+  const info=pmCurrentProviderInfo(session);
+  const spec=pmProviderSpec(info.providerName);
+  const configured=!!(info.provider&&info.provider.configured);
+  const authModes=pmProviderAuthModes(info.providerName);
+  const buttons=[];
+  if(authModes.includes('api')){
+    buttons.push('<button class="pm-btn primary" data-provider-action="api">API key</button>');
+  }
+  if(authModes.includes('login')){
+    buttons.push('<button class="pm-btn" data-provider-action="login">Login</button>');
+  }
+  if(authModes.includes('install') && pmDependencySpec(spec.installTarget||'ollama')){
+    buttons.push('<button class="pm-btn" data-provider-action="install">Instalar dependencia</button>');
+  }
+  const badges=[
+    pmBadge(spec.label||info.providerName||'provider',configured?'ok':'warn'),
+    pmBadge(configured?'configurado':'no configurado',configured?'ok':'bad'),
+    authModes.length?pmBadge(authModes.join(' / '),'info'):pmBadge('sin onboarding','warn')
+  ];
+  box.innerHTML='<div class="pm-session-provider-tools" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #334155;border-radius:10px;background:#0f172a;">'
+    +'<div style="min-width:260px;">'
+    +'<div style="font-size:12px;color:#94a3b8;">Proveedor actual</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">'+badges.join('')+'</div>'
+    +'</div>'
+    +'<div class="pm-provider-actions" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">'+buttons.join('')+'</div>'
+    +'</div>';
+  box.querySelectorAll('[data-provider-action]').forEach(btn=>{
+    btn.addEventListener('click',()=>pmProviderAction(btn.getAttribute('data-provider-action')||'',info.providerName));
+  });
+}
+async function pmProviderAction(action,providerName){
+  const api=electronApi();
+  const spec=pmProviderSpec(providerName);
+  if(!api)return;
+  try{
+    if(action==='api'){
+      const primary=pmProviderPrimaryKey(providerName);
+      if(!primary){
+        showToast('No hay key primaria definida para '+providerName,false);
+        return;
+      }
+      const label=spec.label||providerName;
+      const value=window.prompt('Introduce el valor de '+primary+' para '+label,'');
+      if(value===null||!value.trim())return;
+      await api.dependencyAction({action:'set-credential',provider:providerName,key:primary,value:value.trim()});
+      for(const extraKey of pmProviderOptionalKeys(providerName)){
+        if(!window.confirm('¿Quieres registrar también '+extraKey+'?'))continue;
+        const extraValue=window.prompt('Introduce el valor de '+extraKey+' para '+label,'');
+        if(extraValue===null||!extraValue.trim())continue;
+        await api.dependencyAction({action:'set-credential',provider:providerName,key:extraKey,value:extraValue.trim()});
+      }
+      showToast('Credenciales guardadas para '+label,true);
+      if(pmSession&&pmSession.session_id) await pmLoadSession(pmSession.session_id);
+      await pmLoadSessions();
+      return;
+    }
+    if(action==='login'){
+      const loginCommand=pmProviderLoginCommand(providerName);
+      if(!loginCommand){
+        showToast('No hay login definido para '+providerName,false);
+        return;
+      }
+      await api.dependencyAction({action:'login',target:providerName});
+      showToast('Login lanzado para '+(spec.label||providerName),true);
+      return;
+    }
+    if(action==='install'){
+      const dep=pmDependencySpec(spec.installTarget||'ollama');
+      if(!dep||!dep.id){
+        showToast('No hay dependencia instalable para '+providerName,false);
+        return;
+      }
+      await api.dependencyAction({action:'install',target:dep.id});
+      showToast('Instalador lanzado para '+dep.label,true);
+      return;
+    }
+  }catch(error){
+    showToast(error.message||'No se pudo completar la acción',false);
+  }finally{
+    if(pmSession&&pmSession.session_id){
+      try{await pmLoadSession(pmSession.session_id);}catch{}
+    }
+  }
+}
 function pmRenderSessionList(){
   const box=document.getElementById('pm-session-list');
   box.innerHTML=pmSessions.map(item=>'<div class="pm-row '+(pmSession&&pmSession.session_id===item.sid?'selected':'')+'" data-session-id="'+escapeHtml(item.sid)+'"><span class="pm-row-icon">S</span><div><h3>'+escapeHtml(item.sid)+'</h3><p>'+escapeHtml((item.provider||item.last_provider||'sin provider')+' · '+(item.model||item.last_model||'sin modelo'))+'</p><div class="pm-badges">'+pmBadge(item.bago_mode||'B','info')+pmBadge(item.active_agent||'default')+'</div></div></div>').join('')||'<div class="pm-empty">Sin sesiones persistidas.</div>';
@@ -26,6 +121,7 @@ function pmRenderSession(){
   document.getElementById('pm-session-mode').value=session&&session.bago_mode||'B';
   document.getElementById('pm-session-agent').innerHTML=(session&&session.agents||['default']).map(agent=>pmSessionOption(agent,agent,session&&session.active_agent)).join('');
   document.getElementById('pm-session-bridges').innerHTML=providers.map(item=>pmSessionOption(item.name,item.name,session&&(session.active_bridges||[]).includes(item.name))).join('');
+  pmRenderProviderActions();
   document.getElementById('pm-session-status').innerHTML=session?[
     pmBadge(session.health&&session.health.ok?'provider listo':'provider con fallo',session.health&&session.health.ok?'ok':'bad'),
     pmBadge(String(session.messages||0)+' mensajes'),
@@ -91,6 +187,7 @@ function pmInitSessions(){
     if(!pmSession)return;
     const provider=(pmSession.providers||[]).find(item=>item.name===event.target.value);
     document.getElementById('pm-session-model').innerHTML=((provider&&provider.models)||[]).map(model=>pmSessionOption(model,model,'')).join('');
+    pmRenderProviderActions();
   });
   pmLoadSessions().then(()=>{ if(!pmSession && pmSessions[0]){ pmSession=pmSessions[0]; pmRenderSession(); } }).catch(()=>{});
 }

@@ -23,6 +23,15 @@ import time
 from pathlib import Path
 from typing import Any
 
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.formatted_text import ANSI
+    from prompt_toolkit.history import FileHistory
+except Exception:
+    PromptSession = None  # type: ignore[assignment]
+    ANSI = None  # type: ignore[assignment]
+    FileHistory = None  # type: ignore[assignment]
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -336,6 +345,8 @@ class BagoREPL:
         self.running = False
         self._multiline_buffer: list[str] = []
         self._in_multiline = False
+        self._chat_session = None
+        self._chat_history_path = self.base_path / ".bago" / "state" / ".bago_prompt_history"
 
     def _print_init_warnings(self) -> None:
         """Muestra advertencias si el modelo fue auto-corrigido."""
@@ -488,6 +499,39 @@ class BagoREPL:
         print(R.info("Bienvenido a BAGO 4.1.5. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
+
+    def _use_prompt_toolkit(self) -> bool:
+        if os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "").strip().lower() in {"1", "true", "yes", "on"}:
+            return False
+        return bool(PromptSession) and sys.stdin.isatty() and sys.stdout.isatty()
+
+    def _read_main_input(self, prompt: str) -> str:
+        if self._use_prompt_toolkit():
+            try:
+                if self._chat_session is None:
+                    self._chat_history_path.parent.mkdir(parents=True, exist_ok=True)
+                    if FileHistory is not None:
+                        history = FileHistory(str(self._chat_history_path))
+                    else:
+                        history = None
+                    self._chat_session = PromptSession(history=history, enable_history_search=True)
+                if ANSI is not None:
+                    return self._chat_session.prompt(ANSI(prompt))
+                return self._chat_session.prompt(prompt)
+            except (EOFError, KeyboardInterrupt):
+                raise
+            except Exception:
+                self._chat_session = None
+        return input(prompt)
+
+    def _handle_pasted_block(self, text: str) -> bool:
+        pasted = text.rstrip("\r\n")
+        if not pasted.strip():
+            return True
+        R.print_message("user", pasted)
+        self._handle_chat(pasted)
+        self._print_status()
+        return True
 
     # ─── Timeout input ──────────────────────────────────────────────────────
     def _timed_input(self, prompt: str, timeout: int = 60) -> str | None:
@@ -1030,11 +1074,16 @@ class BagoREPL:
 
             while self.running:
                 try:
-                    line = input(self._prompt())
+                    line = self._read_main_input(self._prompt())
                 except (EOFError, KeyboardInterrupt):
                     print()
                     print(R.ok("Bye."))
                     break
+
+                # Pasted multiline blocks should enter as one message, not line-by-line.
+                if ("\n" in line or "\r" in line) and not self._in_multiline:
+                    self._handle_pasted_block(line)
+                    continue
 
                 # Multiline detection: lines starting/ending with ```
                 stripped = line.strip()

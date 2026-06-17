@@ -16,6 +16,7 @@ INCLUDE_FILES = [
     "MANUAL.md",
     "index.html",
     "versions.json",
+    "package-lock.json",
     "release_version.txt",
     "BAGO.pyproj",
     "bago.cmd",
@@ -222,6 +223,7 @@ def _run_tests() -> int:
         (root / "bago_core").mkdir()
         (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
         (root / "bago_core" / "parsers_legacy_123.py").write_text("no\n", encoding="utf-8")
+        (root / "package-lock.json").write_text('{"version":"4.3.0"}\n', encoding="utf-8")
         (root / "tools").mkdir()
         (root / "tools" / "_diff_parsers.py").write_text("no\n", encoding="utf-8")
         (root / ".bago" / "core").mkdir(parents=True)
@@ -242,6 +244,7 @@ def _run_tests() -> int:
         assert "tools/_diff_parsers.py" not in names
         assert ".bago/core/safe.py" in names
         assert "ui-react/dist/index.html" in names
+        assert "package-lock.json" in names
         assert ".bago/state" not in names
         assert ".bago/tools/.bago" not in names
         assert "PLAN_VERTICE" not in names

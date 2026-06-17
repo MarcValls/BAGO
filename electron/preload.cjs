@@ -416,6 +416,7 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   buildRoleCommand,
   installAction: (payload) => ipcRenderer.invoke('bago:install-action', payload || {}),
   managerHealth: () => ipcRenderer.invoke('bago:manager-health'),
+  dependencyAction: (payload) => ipcRenderer.invoke('bago:dependency-action', payload || {}),
   runInstallPreflight: (payload) => ipcRenderer.invoke('bago:install-preflight', payload || {}),
   getManagerUrl: () => ipcRenderer.invoke('bago:manager-url'),
   getChatUrl: () => ipcRenderer.invoke('bago:get-chat-url'),

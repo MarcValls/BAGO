@@ -26,9 +26,9 @@ function waitUntil(manager, predicate, timeoutMs = 20000) {
   });
 }
 
-function writeFixture(source) {
+function writeFixture(source, version = 'v4.6.0') {
   fs.mkdirSync(path.join(source, 'bago_core'), { recursive: true });
-  fs.writeFileSync(path.join(source, 'release_version.txt'), 'v9.9.9\n');
+  fs.writeFileSync(path.join(source, 'release_version.txt'), `${version}\n`);
   fs.writeFileSync(path.join(source, 'bago_core', 'launcher.py'), 'print("ok")\n');
   fs.writeFileSync(path.join(source, 'payload.bin'), crypto.randomBytes(1024 * 1024));
   fs.writeFileSync(path.join(source, 'install-v4.ps1'), [
@@ -101,7 +101,7 @@ async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const release = {
-    tag_name: 'v9.9.9',
+    tag_name: 'v4.6.0',
     prerelease: false,
     assets: [
       {
@@ -127,16 +127,20 @@ async function main() {
     assert.strictEqual(preflight.ok, true);
     assert.strictEqual(preflight.impact.backup_required, true);
     assert.strictEqual(manager.preflight({ release, target, action: 'update', require_signature: true }).ok, false);
+    const blockedFutureRelease = { ...release, tag_name: 'v4.6.2' };
+    const futurePreflight = manager.preflight({ release: blockedFutureRelease, target, action: 'update' });
+    assert.strictEqual(futurePreflight.ok, false);
+    assert.ok(futurePreflight.blockers.some(line => line.includes('futura')));
     const uninstallPreflight = manager.preflight({ target, action: 'uninstall' });
     assert.strictEqual(uninstallPreflight.ok, true);
     assert.strictEqual(uninstallPreflight.impact.remove_runtime_only, true);
     assert.strictEqual(manager.preflight({ target: path.join(root, 'missing'), action: 'uninstall' }).ok, false);
 
-    const created = manager.startPrepare({ release, target, action: 'update' });
-    await waitUntil(manager, job => job.id === created.id && job.state === 'downloading' && job.progress.transferred > 0);
-    manager.cancel(created.id);
-    const cancelled = await manager.waitFor(created.id, ['cancelled']);
-    assert.strictEqual(cancelled.state, 'cancelled');
+  const created = manager.startPrepare({ release, target, action: 'update' });
+  await waitUntil(manager, job => job.id === created.id && job.state === 'downloading' && job.progress.transferred > 0);
+  manager.cancel(created.id);
+  const cancelled = await manager.waitFor(created.id, ['cancelled']);
+  assert.strictEqual(cancelled.state, 'cancelled');
 
     manager.resume(created.id);
     const ready = await manager.waitFor(created.id, ['ready'], 60000);
@@ -150,15 +154,73 @@ async function main() {
     assert.strictEqual(fs.existsSync(path.join(target, 'old.txt')), false);
     assert.strictEqual(installed.rollback_available, true);
 
-    const rolledBack = await manager.rollback(created.id);
-    assert.strictEqual(rolledBack.state, 'rolled-back');
-    assert.strictEqual(fs.readFileSync(path.join(target, 'old.txt'), 'utf8'), 'old runtime\n');
-    assert.ok(manager.getLogs(created.id).length > 0);
-    console.log(JSON.stringify({
-      ok: true,
-      cancel_resume: true,
-      sha256_verified: true,
-      installed: true,
+  const rolledBack = await manager.rollback(created.id);
+  assert.strictEqual(rolledBack.state, 'rolled-back');
+  assert.strictEqual(fs.readFileSync(path.join(target, 'old.txt'), 'utf8'), 'old runtime\n');
+  assert.ok(manager.getLogs(created.id).length > 0);
+
+  const futureSource = path.join(root, 'future-source');
+  const futureBundlePath = path.join(root, 'future-bundle.zip');
+  writeFixture(futureSource, 'v4.6.2');
+  execFileSync('powershell.exe', [
+    '-NoProfile',
+    '-Command',
+    `Compress-Archive -Path '${futureSource.replace(/'/g, "''")}\\*' -DestinationPath '${futureBundlePath.replace(/'/g, "''")}' -Force`
+  ]);
+  const futureBundle = fs.readFileSync(futureBundlePath);
+  const futureSha256 = crypto.createHash('sha256').update(futureBundle).digest('hex');
+  const futureChecksum = `${futureSha256}  bundle.zip\n`;
+  const futureServer = createServer(futureBundle, futureChecksum);
+  await new Promise(resolve => futureServer.listen(0, '127.0.0.1', resolve));
+  const futurePort = futureServer.address().port;
+  const futureTarget = path.join(root, 'future-target');
+  fs.mkdirSync(futureTarget, { recursive: true });
+  const resumeFutureRelease = {
+    tag_name: 'v4.6.2',
+    prerelease: false,
+    assets: [
+      {
+        name: 'bundle.zip',
+        browser_download_url: `http://127.0.0.1:${futurePort}/bundle.zip`,
+        size: futureBundle.length,
+        digest: `sha256:${futureSha256}`
+      },
+      {
+        name: 'bundle.zip.sha256',
+        browser_download_url: `http://127.0.0.1:${futurePort}/bundle.zip.sha256`,
+        size: Buffer.byteLength(futureChecksum)
+      }
+    ]
+  };
+  manager.jobs.set('future-job', {
+    id: 'future-job',
+    state: 'failed',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    release: resumeFutureRelease,
+    target: futureTarget,
+    action: 'update',
+    mode: 'Express',
+    require_signature: false,
+    progress: { phase: 'failed', transferred: 0, total: 0, percent: 0 },
+    verification: null,
+    compatibility: null,
+    source_root: '',
+    bundle_path: '',
+    backup_path: '',
+    rollback_available: false,
+    cancel_requested: false,
+    error: '',
+    log_file: path.join(root, 'future-job.jsonl')
+  });
+  assert.throws(() => manager.resume('future-job'), /futura/);
+  await new Promise(resolve => futureServer.close(resolve));
+
+  console.log(JSON.stringify({
+    ok: true,
+    cancel_resume: true,
+    sha256_verified: true,
+    installed: true,
       rollback: true
     }));
   } finally {
