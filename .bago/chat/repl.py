@@ -527,14 +527,27 @@ class BagoREPL:
         print(line)
         print(R.dim("─" * 60))
 
+    def _print_status(self) -> None:
+        s = self.mgr.status()
+        line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])
+        print(R.dim("═" * 60))
+        print(line)
+        print(R.dim("═" * 60))
+
+    def _print_chat_prompt(self) -> None:
+        """Imprime el prompt de entrada entre líneas finas."""
+        print(R.dim("─" * 60))
+        print(R.accent("bago") + R.bright_black(" ❯ "), end="", flush=True)
+
     def _print_banner(self) -> None:
         print(R.banner())
         print()
-        print(R.info(f"Bienvenido a BAGO {BAGO_VERSION}. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
+        print(R.info(f"Bienvenido a BAGO {BAGO_VERSION}. Escribe / para comandos."))
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
 
-    def _use_prompt_toolkit(self) -> bool:
+    def _prompt(self) -> str:
+        return ""  # El prompt se imprime manualmente con _print_chat_prompt
         if os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "").strip().lower() in {"1", "true", "yes", "on"}:
             return False
         return bool(PromptSession) and sys.stdin.isatty() and sys.stdout.isatty()
@@ -1185,6 +1198,7 @@ class BagoREPL:
         return R.accent("bago") + R.bright_black(" ❯ ")
 
     def run(self) -> None:
+        """REPL principal de BAGO — Chat CLI limpio."""
         try:
             self._setup_readline()
             self._print_banner()
@@ -1195,20 +1209,22 @@ class BagoREPL:
             self.running = True
 
             while self.running:
+                self._print_chat_prompt()
                 try:
-                    line = self._read_main_input(self._prompt())
+                    line = self._read_main_input("")
                 except (EOFError, KeyboardInterrupt):
                     print()
                     print(R.ok("Bye."))
                     break
 
-                # Pasted multiline blocks should enter as one message, not line-by-line.
+                # Pasted multiline
                 if ("\n" in line or "\r" in line) and not self._in_multiline:
                     self._handle_pasted_block(line)
                     continue
 
-                # Multiline detection: lines starting/ending with ```
                 stripped = line.strip()
+
+                # Multiline ```
                 if stripped.startswith("```") and not self._in_multiline:
                     self._in_multiline = True
                     self._multiline_buffer = []
@@ -1225,23 +1241,11 @@ class BagoREPL:
                     self._multiline_buffer.append(line)
                     continue
 
-                # Empty line (Enter solo = Ctrl+M) → abre el menu interactivo en TTY
+                # Enter vacío → solo redibujar
                 if not stripped:
-                    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-                        continue
-                    if not self._show_menu():
-                        break
-                    self._print_status()
                     continue
 
-                # "/" solo → paleta navegable con todos los comandos
-                if stripped == "/":
-                    if not self._show_command_palette():
-                        break
-                    self._print_status()
-                    continue
-
-                # Commands
+                # Comandos slash
                 if stripped.startswith("/"):
                     if not self._handle_command(stripped):
                         break
@@ -1255,22 +1259,20 @@ class BagoREPL:
                     self._print_status()
                     continue
 
-                # Natural-language command intent — engine dinámico (command_intents.json)
+                # Intención natural (alias)
                 _nl_cmd = classify_command_intent(stripped)
                 if _nl_cmd is None:
-                    # Fallback: frozensets hardcoded como red de seguridad
                     if stripped.lower() in _MENU_ALIASES:
                         _nl_cmd = "/"
                     elif stripped.lower() in _LOGIN_ALIASES:
                         _nl_cmd = "/credentials set"
-
                 if _nl_cmd is not None:
                     if not self._dispatch_command_intent(_nl_cmd, stripped):
                         break
                     self._print_status()
                     continue
 
-                # Normal chat
+                # Chat normal
                 R.print_message("user", stripped)
                 self._handle_chat(stripped)
                 self._print_status()
