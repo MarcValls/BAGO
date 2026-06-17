@@ -965,13 +965,13 @@ class BagoREPL:
     # ═════════════════════════════════════════════════════════════════════════
 
     _CREDENTIAL_URLS: dict[str, str] = {
-        "ollama-local":  "http://127.0.0.1:11434",
-        "ollama-cloud":  "",
-        "copilot":       "https://github.com/settings/tokens",
-        "anthropic":     "https://console.anthropic.com/settings/keys",
+        "ollama-local":  "https://ollama.com/download",
+        "ollama-cloud":  "https://ollama.com",
+        "copilot":       "https://github.com/features/copilot",
+        "anthropic":     "https://claude.ai",
         "codex":         "https://chatgpt.com",
-        "openrouter":    "https://openrouter.ai/keys",
-        "opencode":      "",
+        "openrouter":    "https://openrouter.ai",
+        "opencode":      "https://opencode.ai",
     }
 
     _CREDENTIAL_DEFAULTS: dict[str, dict[str, str]] = {
