@@ -778,10 +778,8 @@ class BagoREPL:
             print(R.warn(f"'{provider}' no tiene credenciales."))
             if not self._credential_wizard_provider(provider):
                 return True
-            # Recargar y verificar
-            providers = self.mgr.available_providers()
-            if not any(p["name"] == provider and p.get("configured") for p in providers):
-                print(R.error("No se pudieron guardar las credenciales."))
+            if self.mgr.provider != provider:
+                print(R.error("No se pudo conectar."))
                 return True
 
         try:
