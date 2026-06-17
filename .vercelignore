@@ -1,0 +1,6 @@
+*
+!index.html
+!vercel.json
+!manager/
+!manager/**
+!.vercelignore
