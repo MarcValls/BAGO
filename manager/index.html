@@ -37,8 +37,10 @@
       <div><strong>BAGO Patch Manager</strong><span>Installation → Connector → Piece</span></div>
     </div>
     <nav class="pm-nav" aria-label="Gestor">
+      <button class="active" data-pm-view="control"><span class="pm-icon">⌂</span>Control</button>
+      <button data-pm-view="route"><span class="pm-icon">⟶</span>Ruta</button>
       <button class="pm-nav-bago" data-pm-view="bago"><span class="pm-icon">B</span>BAGO Chat</button>
-      <button class="active" data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
+      <button data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
       <button data-pm-view="installations"><span class="pm-icon">▣</span>Instalaciones</button>
       <button data-pm-view="matrix"><span class="pm-icon">▦</span>Matriz</button>
       <button data-pm-view="pieces"><span class="pm-icon">◇</span>Piezas</button>
@@ -58,7 +60,7 @@
   </aside>
   <section class="pm-content">
     <header class="pm-topbar">
-      <div class="pm-title"><h1 id="pm-title">Patch Bay</h1><p id="pm-status">Cargando detección local, releases y Node Control...</p></div>
+      <div class="pm-title"><h1 id="pm-title">Control</h1><p id="pm-status">Cargando detección local, releases y Node Control...</p></div>
       <div class="pm-actions">
         <input class="pm-input" id="pm-search" type="search" placeholder="Buscar instalación, pieza o connector">
         <select class="pm-select" id="pm-mode-filter">
@@ -71,6 +73,35 @@
         <button class="pm-btn" id="pm-refresh">↻ Actualizar</button>
       </div>
     </header>
+
+    <section class="pm-view active" id="pm-view-control">
+      <div class="pm-control-grid" id="pm-control-grid"></div>
+    </section>
+
+    <section class="pm-view" id="pm-view-route">
+      <div class="pm-grid pm-route-layout">
+        <article class="pm-panel">
+          <div class="pm-panel-head">
+            <div><h2>Ruta de ejecución</h2><p id="pm-route-caption">Entrada → Modelo → Agente → Tool/Skill → Comando → Salida</p></div>
+            <div class="pm-actions">
+              <select class="pm-select" id="pm-route-template">
+                <option value="project">Proyecto</option>
+                <option value="release">Release</option>
+                <option value="provider">Provider</option>
+                <option value="audit">Auditoría</option>
+              </select>
+              <button class="pm-btn primary" id="pm-route-build">Construir ruta</button>
+              <button class="pm-btn" id="pm-route-copy">Copiar plan</button>
+            </div>
+          </div>
+          <div class="pm-route-board" id="pm-route-board"></div>
+        </article>
+        <aside class="pm-panel pm-route-detail">
+          <div class="pm-panel-head"><div><h2>Contrato de salida</h2><p id="pm-route-output-caption">Selecciona o genera una ruta</p></div></div>
+          <div class="pm-route-output" id="pm-route-output"></div>
+        </aside>
+      </div>
+    </section>
 
     <section class="pm-view" id="pm-view-bago">
       <div class="pm-bago-wrap">
@@ -343,6 +374,7 @@
 <script src="js/chain-manager.js"></script>
 <script src="js/session-manager.js"></script>
 <script src="js/system-status.js"></script>
+<script src="js/ops-console.js"></script>
 <script src="js/bootstrap.js"></script>
 <script src="js/interaction-log.js"></script>
 <script src="js/bago-chat.js"></script>

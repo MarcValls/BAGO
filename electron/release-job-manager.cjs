@@ -520,6 +520,26 @@ class ReleaseJobManager extends EventEmitter {
     return this._public(job);
   }
 
+  deleteJob(id) {
+    const job = this._get(id);
+    if (!TERMINAL_STATES.has(job.state)) {
+      throw new Error(`El job ${id} no se puede eliminar mientras está en ${job.state}. Cancélalo primero.`);
+    }
+    this.jobs.delete(job.id);
+    this.runtime.delete(job.id);
+    for (const file of [this._jobFile(job.id), job.log_file]) {
+      try {
+        if (file && fs.existsSync(file)) fs.rmSync(file, { force: true });
+      } catch {}
+    }
+    const stagePath = path.join(this.stagingDir, safeName(job.id));
+    try {
+      if (fs.existsSync(stagePath)) fs.rmSync(stagePath, { recursive: true, force: true });
+    } catch {}
+    this.emit('changed', { id: job.id, deleted: true, state: 'deleted' });
+    return { ok: true, id: job.id, deleted: true };
+  }
+
   async install(id) {
     const job = this._get(id);
     if (job.state !== 'ready') throw new Error(`El job ${id} no está listo para instalar.`);

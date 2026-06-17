@@ -1,5 +1,8 @@
 // ── Patch-first manager experience ───────────────────────────
 const PM_VIEW_TITLES={
+  control:'Control',
+  route:'Ruta nodular',
+  bago:'BAGO Chat',
   patch:'Patch Bay',
   installations:'Instalaciones',
   matrix:'Matriz',
@@ -8,7 +11,8 @@ const PM_VIEW_TITLES={
   jobs:'Trabajos de release',
   sessions:'Sesiones',
   health:'Salud operativa',
-  audit:'Auditoría'
+  audit:'Auditoría',
+  system:'Sistema'
 };
 const PM_MODE_COLORS={
   connected:'#34d399',
@@ -26,7 +30,7 @@ const PM_WIRE_MODES={
   'read-only':'readonly',
   'writable overlay':'overlay'
 };
-let pmActiveView='patch';
+let pmActiveView='control';
 let pmSelectedInstallation='';
 let pmSelectedPiece='';
 let pmSearch='';
@@ -122,6 +126,7 @@ function pmSwitchView(view){
   document.querySelectorAll('.pm-view').forEach(v=>v.classList.toggle('active',v.id==='pm-view-'+view));
   document.getElementById('pm-title').textContent=PM_VIEW_TITLES[view]||'BAGO Manager';
   if(view==='patch')setTimeout(pmUpdatePatchLines,30);
+  if(view==='route'&&typeof pmUpdateRouteLines==='function')setTimeout(pmUpdateRouteLines,30);
 }
 function pmFilteredPieceRows(){
   const inst=pmFindInstallation(pmSelectedInstallation);
@@ -389,7 +394,7 @@ function pmRenderInstallations(){
       +roles.map(r=>pmBadge('rol '+roleBadgeLabel(r),'ok')).join('')+'</div></div>'
       +'<div class="pm-row-actions"><button data-pm-install-action="focus" data-id="'+escapeHtml(nodeId)+'">Patch</button>'
       +'<button data-pm-install-action="active" data-path="'+escapeHtml(inst.path)+'">Activa</button><button data-pm-install-action="dev" data-path="'+escapeHtml(inst.path)+'">Dev</button>'
-      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button></div></article>';
+      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button><button class="danger" data-pm-install-action="uninstall" data-path="'+escapeHtml(inst.path)+'">Eliminar</button></div></article>';
   }).join('')||'<div class="pm-empty">Sin instalaciones visibles.</div>';
   container.querySelectorAll('[data-pm-install-action]').forEach(btn=>btn.addEventListener('click',async ev=>{
     ev.stopPropagation();
@@ -407,6 +412,7 @@ function pmRenderInstallations(){
       await pmPrepareRelease(latestRelease,path,'update');
     }
     if(action==='uninstall-impact')await pmInspectUninstall(path);
+    if(action==='uninstall')await pmUninstallInstallation(path);
   }));
 }
 function pmRenderMatrix(){
@@ -533,6 +539,25 @@ async function pmInspectUninstall(target){
     pmAudit('uninstall-preflight',target+' · '+(preflight.ok?'viable':'bloqueado'));
   }catch(e){showToast('Preflight uninstall: '+e.message,false);}
 }
+async function pmUninstallInstallation(target){
+  const api=electronApi();
+  if(!window.confirm('Eliminar esta instalación de BAGO?\n\n'+target))return;
+  if(!api||!api.installAction){
+    await copyText(uninstallCommand(target));
+    pmAudit('uninstall-copy',target);
+    showToast('Sin Electron: comando de desinstalación copiado',true);
+    return;
+  }
+  try{
+    await api.installAction({action:'uninstall',targetDir:target,purgeState:false});
+    pmAudit('uninstall',target);
+    await refreshAll([]);
+    await pmLoadHealth();
+    showToast('Instalación eliminada',true);
+  }catch(e){
+    showToast('Eliminar instalación: '+e.message,false);
+  }
+}
 async function pmPrepareRelease(release,target,action){
   const api=electronApi();
   if(!api||!api.preflightRelease||!api.startReleaseJob){
@@ -583,6 +608,7 @@ function pmRenderJobs(){
     if(job.state==='ready')actions.push('<button data-pm-job-action="install" data-id="'+escapeHtml(job.id)+'">Instalar verificado</button>');
     if(job.rollback_available)actions.push('<button data-pm-job-action="rollback" data-id="'+escapeHtml(job.id)+'">Rollback</button>');
     actions.push('<button data-pm-job-action="logs" data-id="'+escapeHtml(job.id)+'">Logs</button>');
+    if(['ready','completed','cancelled','failed','rolled-back'].includes(job.state))actions.push('<button class="danger" data-pm-job-action="delete" data-id="'+escapeHtml(job.id)+'">Eliminar</button>');
     return '<article class="pm-job '+(job.id===pmSelectedJobId?'selected':'')+'"><div class="pm-job-head"><div><h3>'+escapeHtml(job.release&&job.release.tag_name||job.id)+' · '+escapeHtml(job.action||'install')+'</h3><p>'+escapeHtml(job.target||'')+'</p></div>'+pmBadge(job.state,pmJobClass(job))+'</div>'
       +'<div class="pm-progress"><span style="width:'+percent+'%"></span></div><div class="pm-badges">'+pmBadge(progress.phase||job.state,'info')+pmBadge(percent+'%')+pmBadge(pmFormatBytes(progress.transferred)+' / '+pmFormatBytes(progress.total))+(job.verification?pmBadge('SHA256 verificado','ok'):'')+(job.error?pmBadge(job.error,'bad'):'')+'</div><div class="pm-row-actions">'+actions.join('')+'</div></article>';
   }).join('')||'<div class="pm-empty">Sin trabajos todavía. Prepara una release desde Releases.</div>';
@@ -602,6 +628,12 @@ async function pmJobAction(action,id){
     if(action==='rollback'){
       if(!window.confirm('Restaurar el runtime anterior mediante rollback?'))return;
       await api.rollbackReleaseJob(id);
+    }
+    if(action==='delete'){
+      if(!api.deleteReleaseJob)throw new Error('deleteReleaseJob no disponible');
+      if(!window.confirm('Eliminar el trabajo persistido?\n\n'+id))return;
+      await api.deleteReleaseJob(id);
+      pmSelectedJobId='';
     }
     await pmLoadJobs();
   }catch(e){showToast('Job: '+e.message,false);}
@@ -693,6 +725,8 @@ function renderPatchManager(){
     ?status.installations+' instalaciones registry · '+detected+' detectadas localmente · '+status.pieces+' piezas · '+status.connectors+' connectors · '+releaseItems.length+' releases'
     :'Cargando detección local, releases y Node Control...';
   pmRenderStats();pmRenderPatch();pmRenderInstallations();pmRenderMatrix();pmRenderPieces();pmRenderReleases();pmRenderJobs();pmRenderHealth();pmRenderAudit();
+  if(typeof pmRenderControl==='function')pmRenderControl();
+  if(typeof pmRenderRoute==='function')pmRenderRoute();
 }
 function pmInit(){
   document.querySelectorAll('[data-pm-view]').forEach(btn=>btn.addEventListener('click',()=>pmSwitchView(btn.getAttribute('data-pm-view')||'patch')));
@@ -739,6 +773,12 @@ function pmInit(){
   pmLoadJobs();
   const api=electronApi();
   if(api&&api.onReleaseJobChanged)api.onReleaseJobChanged(job=>{
+    if(job&&job.deleted){
+      releaseJobs=releaseJobs.filter(item=>item.id!==job.id);
+      if(pmSelectedJobId===job.id)pmSelectedJobId='';
+      pmRenderJobs();pmRenderReleases();pmRenderHealth();
+      return;
+    }
     const index=releaseJobs.findIndex(item=>item.id===job.id);
     if(index>=0)releaseJobs[index]=job;else releaseJobs.unshift(job);
     pmRenderJobs();pmRenderReleases();pmRenderHealth();

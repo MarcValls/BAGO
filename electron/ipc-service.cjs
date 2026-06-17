@@ -39,6 +39,7 @@ function registerIpcHandlers({
   handle('bago:release-job-install', (_event, id) => getReleaseService().requireReleaseJobs().install(id));
   handle('bago:release-job-rollback', (_event, id) => getReleaseService().requireReleaseJobs().rollback(id));
   handle('bago:release-job-logs', (_event, id, limit) => getReleaseService().requireReleaseJobs().getLogs(id, limit));
+  handle('bago:release-job-delete', (_event, id) => getReleaseService().requireReleaseJobs().deleteJob(id));
   handle('bago:node-cmd', async (_event, args) => {
     const result = await getRuntimeService().runBagoNode(args);
     const wantsJson = Array.isArray(args) && args.includes('--json');

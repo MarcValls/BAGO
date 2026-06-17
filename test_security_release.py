@@ -116,6 +116,10 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     html = (BAGO_ROOT / "manager" / "index.html").read_text(encoding="utf-8")
     startup_banner = (BAGO_ROOT / "manager" / "js" / "startup-deps.js").read_text(encoding="utf-8")
     session_script = (BAGO_ROOT / "manager" / "js" / "session-manager.js").read_text(encoding="utf-8")
+    ops_console = (BAGO_ROOT / "manager" / "js" / "ops-console.js").read_text(encoding="utf-8")
+    patch_manager = (BAGO_ROOT / "manager" / "js" / "patch-manager.js").read_text(encoding="utf-8")
+    preload = (BAGO_ROOT / "electron" / "preload.cjs").read_text(encoding="utf-8")
+    release_job_manager = (BAGO_ROOT / "electron" / "release-job-manager.cjs").read_text(encoding="utf-8")
     chat_commands = (BAGO_ROOT / ".bago" / "chat" / "commands.py").read_text(encoding="utf-8")
     chat_repl = (BAGO_ROOT / ".bago" / "chat" / "repl.py").read_text(encoding="utf-8")
     intent_engine = (BAGO_ROOT / ".bago" / "core" / "intent_engine.py").read_text(encoding="utf-8")
@@ -149,6 +153,7 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "bago:dependency-action" in ipc_service
     assert "bago:node-cmd" in ipc_service
     assert "bago:release-job-start" in ipc_service
+    assert "bago:release-job-delete" in ipc_service
     assert "createManagerWindow" in window_service
     assert "SMOKE_TEST" in window_service
     assert "managerHealth" in dependency_service
@@ -160,11 +165,25 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "fetchReleases" in release_service
     assert "verify_release_463.py" in (BAGO_ROOT / "scripts" / "verify_release_463.py").read_text(encoding="utf-8")
     assert "js/startup-deps.js" in html
+    assert "js/ops-console.js" in html
+    assert 'data-pm-view="control"' in html
+    assert 'id="pm-view-route"' in html
     assert "pm-session-provider-actions" in html
     assert "Instalar faltantes" in startup_banner
     assert "data-provider-action" in session_script
     assert "pmRenderProviderActions" in session_script
     assert "pmProviderAction" in session_script
+    assert "pmRenderControl" in ops_console
+    assert "pmRoutePlan" in ops_console
+    assert "Entrada" in ops_console
+    assert "Modelo" in ops_console
+    assert "Agente" in ops_console
+    assert "Tools/Skills" in ops_console
+    assert "Comando" in ops_console
+    assert "Salida" in ops_console
+    assert "deleteReleaseJob" in preload
+    assert "deleteJob" in release_job_manager
+    assert "pmRenderControl" in patch_manager
     assert "\"project\"" in chat_commands
     assert "Analiza el proyecto actual" in chat_commands
     assert "Proyecto detectado" in chat_repl
