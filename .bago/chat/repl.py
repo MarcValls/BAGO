@@ -965,7 +965,7 @@ class BagoREPL:
     # ═════════════════════════════════════════════════════════════════════════
 
     _CREDENTIAL_URLS: dict[str, str] = {
-        "ollama-local":  "https://ollama.com/download",
+        "ollama-local":  "",  # Ollama local no requiere registro; solo instalacion
         "ollama-cloud":  "https://ollama.com",
         "copilot":       "https://github.com/features/copilot",
         "anthropic":     "https://claude.ai",
@@ -1017,6 +1017,12 @@ class BagoREPL:
                 webbrowser.open(url)
             except Exception:
                 pass
+        elif provider == "ollama-local":
+            print(R.info(
+                "  ℹ Ollama local no requiere registro. Descárgalo en: "
+                "https://ollama.com/download  y asegúrate de que esté corriendo en "
+                "http://127.0.0.1:11434"
+            ))
 
         # Recorrer cada campo del provider
         for key in keys:
