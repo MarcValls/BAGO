@@ -961,25 +961,20 @@ class BagoREPL:
         return self._handle_command(f"/memory delete {recent[idx]['id']}")
 
     # ═════════════════════════════════════════════════════════════════════════
-    #  Wizard de credenciales mejorado — flujo por provider, campos guiados
+    #  Wizard de credenciales — flujos de login REALES por provider
     # ═════════════════════════════════════════════════════════════════════════
 
     _CREDENTIAL_URLS: dict[str, str] = {
-        "ollama-local":  "",  # Ollama local no requiere registro; solo instalacion
         "ollama-cloud":  "https://ollama.com",
-        "copilot":       "https://github.com/features/copilot",
-        "anthropic":     "https://claude.ai",
+        "copilot":       "https://github.com/login",
+        "anthropic":     "https://claude.com",
         "codex":         "https://chatgpt.com",
         "openrouter":    "https://openrouter.ai",
         "opencode":      "https://opencode.ai",
     }
 
-    _CREDENTIAL_DEFAULTS: dict[str, dict[str, str]] = {
-        "ollama-local": {"OLLAMA_HOST": "http://127.0.0.1:11434"},
-    }
-
     def _credential_wizard(self) -> bool:
-        """Asistente guiado para registrar credenciales. Flujo fluido por provider."""
+        """Asistente guiado para registrar credenciales con flujos reales por provider."""
         try:
             from credential_manager import CREDENTIAL_SCHEMA
         except Exception as exc:
@@ -1005,99 +1000,304 @@ class BagoREPL:
             return True
         provider = providers[pidx]
 
-        schema = CREDENTIAL_SCHEMA[provider]
-        keys = list(schema.keys())
-        stored = creds.list_for_provider(provider)
-        url = self._CREDENTIAL_URLS.get(provider, "")
+        # Flujos específicos por provider
+        if provider == "copilot":
+            return self._credential_wizard_copilot()
+        if provider == "codex":
+            return self._credential_wizard_codex()
+        if provider == "ollama-local":
+            return self._credential_wizard_ollama_local()
+        if provider == "ollama-cloud":
+            return self._credential_wizard_ollama_cloud()
+        if provider == "anthropic":
+            return self._credential_wizard_anthropic()
+        if provider == "openrouter":
+            return self._credential_wizard_openrouter()
+        if provider == "opencode":
+            return self._credential_wizard_opencode()
 
-        if url:
-            print(R.info(f"  ℹ Consigue tu credencial en: {url}"))
+        return True
+
+    def _credential_wizard_copilot(self) -> bool:
+        """Flujo real de login para GitHub Copilot: detecta gh CLI o pide token."""
+        import subprocess
+        import os
+        import webbrowser
+
+        print(R.info("🔑 Flujo de login para GitHub Copilot"))
+        print()
+
+        # 1. Intentar gh auth token
+        print(R.dim("  Probando GitHub CLI (gh auth token)..."))
+        try:
+            result = subprocess.run(
+                ["gh", "auth", "token"],
+                capture_output=True, text=True, timeout=10,
+                shell=(sys.platform == "win32"),
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                token = result.stdout.strip()
+                self.mgr.credentials.set("copilot", "GITHUB_TOKEN", token)
+                print(R.ok(f"  ✓ Token obtenido automáticamente via gh CLI"))
+                print(R.dim(f"    Guardado: {token[:8]}..."))
+                return True
+        except Exception:
+            pass
+        print(R.dim("    gh CLI no disponible o no autenticado."))
+
+        # 2. Verificar GITHUB_TOKEN en environment
+        env_token = os.environ.get("GITHUB_TOKEN", "")
+        if env_token:
+            print(R.info("  Token detectado en variable de entorno GITHUB_TOKEN."))
+            opts = ["Usar este token", "Introducir otro manualmente"]
+            sidx = self._navigate("Token de entorno detectado", opts)
+            if sidx == 0:
+                self.mgr.credentials.set("copilot", "GITHUB_TOKEN", env_token)
+                print(R.ok(f"  ✓ Token guardado desde entorno"))
+                return True
+        else:
+            print(R.dim("  Variable GITHUB_TOKEN no encontrada en entorno."))
+
+        # 3. Fallback: login manual
+        print()
+        print(R.info("  Abriendo GitHub para obtener token personal..."))
+        try:
+            webbrowser.open("https://github.com/settings/tokens")
+        except Exception:
+            pass
+        print(R.dim("  Crea un token con scope 'read:user' y 'copilot'"))
+        value = self._timed_input(R.accent("  Pega tu GitHub token: "), timeout=120)
+        if not value:
+            print(R.dim("  Operación cancelada."))
+            return True
+        self.mgr.credentials.set("copilot", "GITHUB_TOKEN", value.strip())
+        print(R.ok(f"  ✓ Token de Copilot guardado."))
+        return True
+
+    def _credential_wizard_codex(self) -> bool:
+        """Flujo real de login para Codex: detecta sesión de Codex Desktop o API key."""
+        import os
+        import json
+        from pathlib import Path
+        import webbrowser
+
+        print(R.info("🔑 Flujo de login para OpenAI / Codex"))
+        print()
+
+        # 1. Buscar auth de Codex Desktop
+        codex_auth_paths = [
+            Path.home() / ".codex" / "auth.json",
+            Path.home() / "AppData" / "Roaming" / "OpenAI" / "auth.json",
+            Path.home() / "Library" / "Application Support" / "OpenAI" / "auth.json",
+        ]
+        for auth_path in codex_auth_paths:
+            if auth_path.exists():
+                print(R.info(f"  Sesión de Codex Desktop detectada: {auth_path}"))
+                try:
+                    data = json.loads(auth_path.read_text(encoding="utf-8"))
+                    # Intentar extrair token/session
+                    token = data.get("api_key") or data.get("session_token") or data.get("access_token")
+                    if token:
+                        self.mgr.credentials.set("codex", "OPENAI_API_KEY", token)
+                        print(R.ok(f"  ✓ Token extraído automáticamente de Codex Desktop"))
+                        return True
+                except Exception:
+                    pass
+
+        print(R.dim("  No se encontró sesión de Codex Desktop."))
+
+        # 2. Verificar OPENAI_API_KEY en environment
+        env_key = os.environ.get("OPENAI_API_KEY", "")
+        if env_key:
+            print(R.info("  OPENAI_API_KEY detectada en variable de entorno."))
+            opts = ["Usar esta API key", "Introducir otra manualmente"]
+            sidx = self._navigate("API key de entorno detectada", opts)
+            if sidx == 0:
+                self.mgr.credentials.set("codex", "OPENAI_API_KEY", env_key)
+                print(R.ok(f"  ✓ API key guardada desde entorno"))
+                return True
+        else:
+            print(R.dim("  Variable OPENAI_API_KEY no encontrada."))
+
+        # 3. Fallback: login manual
+        print()
+        print(R.info("  Abriendo OpenAI Platform para obtener API key..."))
+        try:
+            webbrowser.open("https://platform.openai.com/api-keys")
+        except Exception:
+            pass
+        value = self._timed_input(R.accent("  Pega tu OpenAI API key: "), timeout=120)
+        if not value:
+            print(R.dim("  Operación cancelada."))
+            return True
+        self.mgr.credentials.set("codex", "OPENAI_API_KEY", value.strip())
+
+        # OPENAI_ORG_ID opcional
+        org = self._timed_input(R.accent("  OPENAI_ORG_ID (opcional, Enter para omitir): "), timeout=60)
+        if org and org.strip():
+            self.mgr.credentials.set("codex", "OPENAI_ORG_ID", org.strip())
+            print(R.ok(f"  ✓ Org ID guardado."))
+
+        print(R.ok(f"  ✓ Credenciales de Codex configuradas."))
+        return True
+
+    def _credential_wizard_ollama_local(self) -> bool:
+        """Flujo real para Ollama local: detecta servidor o guía instalación."""
+        import urllib.request
+
+        print(R.info("🔑 Configuración de Ollama local"))
+        print()
+
+        # 1. Verificar si ollama responde
+        hosts_to_try = [
+            "http://127.0.0.1:11434",
+            "http://localhost:11434",
+        ]
+        for host in hosts_to_try:
             try:
-                import webbrowser
-                webbrowser.open(url)
+                req = urllib.request.Request(f"{host}/api/tags", method="GET")
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    if resp.status == 200:
+                        self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host)
+                        print(R.ok(f"  ✓ Ollama detectado en {host}"))
+                        return True
             except Exception:
                 pass
-        elif provider == "ollama-local":
-            print(R.info(
-                "  ℹ Ollama local no requiere registro. Descárgalo en: "
-                "https://ollama.com/download  y asegúrate de que esté corriendo en "
-                "http://127.0.0.1:11434"
-            ))
 
-        # Recorrer cada campo del provider
-        for key in keys:
-            desc = schema[key]
-            is_optional = "opcional" in desc.lower()
-            default = self._CREDENTIAL_DEFAULTS.get(provider, {}).get(key, "")
+        print(R.warn("  No se detectó Ollama en localhost:11434"))
+        print()
+        print(R.dim("  Para usar Ollama local:"))
+        print(R.dim("    1. Descarga desde https://ollama.com/download"))
+        print(R.dim("    2. Instala y ejecuta 'ollama serve'"))
+        print(R.dim("    3. Vuelve a ejecutar /credentials set ollama-local"))
+        print()
 
-            # Mostrar contexto
-            print()
-            print(R.bold(f"  {provider} / {key}"))
-            print(R.dim(f"  {desc}"))
+        opts = ["Configurar host manualmente", "Cancelar"]
+        sidx = self._navigate("Ollama no detectado", opts)
+        if sidx != 0:
+            print(R.dim("  Configuración pospuesta."))
+            return True
 
-            if stored.get(key):
-                actual = stored[key]
-                masked = actual[:4] + "***" if len(actual) > 4 else "****"
-                print(R.dim(f"  Actual: {masked} (se sobrescribirá)"))
+        host = self._timed_input(R.accent("  URL de Ollama (default: http://127.0.0.1:11434): "), timeout=60)
+        if not host:
+            host = "http://127.0.0.1:11434"
+        self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host.strip())
+        print(R.ok(f"  ✓ Ollama configurado en {host.strip()}"))
+        return True
 
-            # Si hay default, ofrecer usarlo
-            if default:
-                opts = [f"Usar default: {default}", "Introducir otro valor", "Omitir este campo"]
-                sidx = self._navigate(f"{key}", opts)
-                if sidx is None:
-                    print(R.dim("Wizard cancelado."))
-                    return True
-                if sidx == 0:
-                    value = default
-                elif sidx == 2:
-                    continue
-                else:
-                    value = self._timed_input(R.accent(f"  {key} = "), timeout=120)
-                    if value is None:
-                        return True
-                    value = value.strip()
-                    if not value:
-                        print(R.dim("  Valor vacío — omitido."))
-                        continue
-            # Campo opcional: ofrecer omitir
-            elif is_optional:
-                opts = ["Introducir valor", "Omitir (opcional)"]
-                sidx = self._navigate(f"{key} — opcional", opts)
-                if sidx is None:
-                    print(R.dim("Wizard cancelado."))
-                    return True
-                if sidx == 1:
-                    continue
-                value = self._timed_input(R.accent(f"  {key} = "), timeout=120)
-                if value is None:
-                    return True
-                value = value.strip()
-                if not value:
-                    print(R.dim("  Valor vacío — omitido."))
-                    continue
-            else:
-                value = self._timed_input(R.accent(f"  {key} = "), timeout=120)
-                if value is None:
-                    return True
-                value = value.strip()
-                if not value:
-                    print(R.error("  Este campo es obligatorio. Wizard cancelado."))
-                    return True
+    def _credential_wizard_ollama_cloud(self) -> bool:
+        """Flujo para Ollama Cloud: endpoint + key opcional."""
+        import webbrowser
 
-            try:
-                creds.set(provider, key, value)
-            except Exception as exc:
-                print(R.error(
-                    f"No se pudo guardar {provider}/{key}: {exc}. "
-                    "Revisa permisos de .bago/credentials.json."
-                ))
+        print(R.info("🔑 Configuración de Ollama Cloud"))
+        try:
+            webbrowser.open("https://ollama.com")
+        except Exception:
+            pass
+
+        url = self._timed_input(R.accent("  URL del endpoint: "), timeout=120)
+        if not url:
+            print(R.dim("  Operación cancelada."))
+            return True
+        self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_URL", url.strip())
+
+        key = self._timed_input(R.accent("  API key (opcional, Enter para omitir): "), timeout=60)
+        if key and key.strip():
+            self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_KEY", key.strip())
+
+        print(R.ok("  ✓ Ollama Cloud configurado."))
+        return True
+
+    def _credential_wizard_anthropic(self) -> bool:
+        """Flujo para Anthropic: detecta env o abre Claude."""
+        import os
+        import webbrowser
+
+        print(R.info("🔑 Flujo de login para Anthropic (Claude)"))
+
+        env_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if env_key:
+            print(R.info("  ANTHROPIC_API_KEY detectada en entorno."))
+            opts = ["Usar esta key", "Introducir otra"]
+            sidx = self._navigate("API key detectada", opts)
+            if sidx == 0:
+                self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", env_key)
+                print(R.ok("  ✓ Key guardada."))
                 return True
 
-            masked = value[:4] + "***" if len(value) > 4 else "****"
-            print(R.ok(f"  ✓ Guardado: {provider}/{key} = {masked}"))
+        try:
+            webbrowser.open("https://claude.com")
+        except Exception:
+            pass
+        value = self._timed_input(R.accent("  Pega tu Anthropic API key: "), timeout=120)
+        if not value:
+            print(R.dim("  Cancelado."))
+            return True
+        self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", value.strip())
+        print(R.ok("  ✓ Key de Anthropic guardada."))
+        return True
 
-        print()
-        print(R.ok(f"✓ Configuración de {provider} completada."))
+    def _credential_wizard_openrouter(self) -> bool:
+        """Flujo para OpenRouter."""
+        import os
+        import webbrowser
+
+        print(R.info("🔑 Flujo de login para OpenRouter"))
+
+        env_key = os.environ.get("OPENROUTER_API_KEY", "")
+        if env_key:
+            print(R.info("  OPENROUTER_API_KEY detectada."))
+            opts = ["Usar esta key", "Introducir otra"]
+            if self._navigate("API key detectada", opts) == 0:
+                self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", env_key)
+                print(R.ok("  ✓ Key guardada."))
+                return True
+
+        try:
+            webbrowser.open("https://openrouter.ai")
+        except Exception:
+            pass
+        value = self._timed_input(R.accent("  Pega tu OpenRouter API key: "), timeout=120)
+        if not value:
+            return True
+        self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", value.strip())
+
+        ref = self._timed_input(R.accent("  HTTP Referer (opcional): "), timeout=60)
+        if ref and ref.strip():
+            self.mgr.credentials.set("openrouter", "OPENROUTER_HTTP_REFERER", ref.strip())
+
+        print(R.ok("  ✓ OpenRouter configurado."))
+        return True
+
+    def _credential_wizard_opencode(self) -> bool:
+        """Flujo para OpenCode."""
+        import os
+        import webbrowser
+
+        print(R.info("🔑 Flujo de login para OpenCode"))
+
+        env_key = os.environ.get("OPENCODE_API_KEY", "")
+        if env_key:
+            opts = ["Usar entorno", "Introducir otra"]
+            if self._navigate("Key detectada", opts) == 0:
+                self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", env_key)
+                print(R.ok("  ✓ Key guardada."))
+                return True
+
+        try:
+            webbrowser.open("https://opencode.ai")
+        except Exception:
+            pass
+        value = self._timed_input(R.accent("  Pega tu OpenCode API key: "), timeout=120)
+        if not value:
+            return True
+        self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", value.strip())
+
+        url = self._timed_input(R.accent("  URL base del proxy: "), timeout=120)
+        if url and url.strip():
+            self.mgr.credentials.set("opencode", "OPENCODE_BASE_URL", url.strip())
+
+        print(R.ok("  ✓ OpenCode configurado."))
         return True
 
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
