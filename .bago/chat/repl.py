@@ -751,11 +751,7 @@ class BagoREPL:
         return False
 
     def _switch_wizard(self) -> bool:
-        """Asistente guiado para cambiar de provider/modelo.
-
-        Si el provider elegido no está configurado, ofrece configurarlo
-        directamente desde este wizard.
-        """
+        """Asistente guiado para cambiar de provider/modelo."""
         if not self._wizard_tty_ok("/switch <provider> [modelo]"):
             return True
         try:
@@ -767,625 +763,202 @@ class BagoREPL:
             print(R.warn("No hay providers registrados."))
             return True
 
-        while True:
-            plabels = []
-            for p in providers:
-                estado = "configurado" if p.get("configured") else "sin configurar"
-                nmod = len(p.get("models") or [])
-                plabels.append(f"{p['name']}  —  {estado} · {nmod} modelos")
-            pidx = self._navigate("Cambiar provider · elige uno", plabels)
-            if pidx is None:
-                print(R.dim("Asistente cerrado."))
+        plabels = []
+        for p in providers:
+            estado = "✓" if p.get("configured") else "○"
+            nmod = len(p.get("models") or [])
+            plabels.append(f"{estado} {p['name']}  ·  {nmod} modelos")
+        pidx = self._navigate("Cambiar provider · elige uno", plabels)
+        if pidx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        provider = providers[pidx]["name"]
+
+        if not providers[pidx].get("configured", False):
+            print(R.warn(f"'{provider}' no tiene credenciales."))
+            if not self._credential_wizard_provider(provider):
                 return True
-            provider = providers[pidx]["name"]
-            configured = providers[pidx].get("configured", False)
+            # Recargar y verificar
+            providers = self.mgr.available_providers()
+            if not any(p["name"] == provider and p.get("configured") for p in providers):
+                print(R.error("No se pudieron guardar las credenciales."))
+                return True
 
-            if not configured:
-                print(R.warn(f"Provider '{provider}' no está configurado."))
-                opts = ["Configurar credenciales ahora", "Elegir otro provider", "Cancelar"]
-                sidx = self._navigate("Provider sin configurar", opts)
-                if sidx == 0:
-                    # Arrancar wizard de credenciales para este provider
-                    result = self._credential_wizard_for_provider(provider)
-                    if result:
-                        # Recargar lista de providers
-                        try:
-                            providers = self.mgr.available_providers()
-                        except Exception:
-                            pass
-                        # Verificar si ahora está configurado
-                        for p in providers:
-                            if p["name"] == provider and p.get("configured"):
-                                print(R.ok(f"Provider '{provider}' configurado. Continuando..."))
-                                configured = True
-                                break
-                        if not configured:
-                            print(R.warn("Configuración incompleta. Elige otro provider."))
-                            continue
-                    else:
-                        continue
-                elif sidx == 2 or sidx is None:
-                    print(R.dim("Operación cancelada."))
-                    return True
-                else:
-                    continue  # Elegir otro
-
-            # Provider configurado: elegir modelo
-            try:
-                catalog = self.mgr.list_model_catalog(provider)
-            except Exception:
-                catalog = []
-            model = None
-            if catalog:
-                mlabels = ["(auto / mantener por defecto)"] + [str(item["id"]) for item in catalog]
-                midx = self._navigate(f"{provider} · elige modelo", mlabels)
-                if midx is None:
-                    print(R.dim("Asistente cerrado."))
-                    return True
-                if midx > 0:
-                    model = catalog[midx - 1]["id"]
-
-            command_line = f"/switch {provider}" + (f" {model}" if model else "")
-            return self._handle_command(command_line)
-
-    def _credential_wizard_for_provider(self, provider: str) -> bool:
-        """Arranca el wizard de credenciales para un provider específico (sin elegir)."""
         try:
-            from credential_manager import CREDENTIAL_SCHEMA
-        except Exception as exc:
-            print(R.error(f"No se pudo cargar el esquema de credenciales: {exc}"))
-            return False
-
-        if provider not in CREDENTIAL_SCHEMA:
-            print(R.error(f"Provider desconocido: {provider}"))
-            return False
-
-        # Llamar al flujo específico
-        if provider == "copilot":
-            return self._credential_wizard_copilot()
-        if provider == "codex":
-            return self._credential_wizard_codex()
-        if provider == "ollama-local":
-            return self._credential_wizard_ollama_local()
-        if provider == "ollama-cloud":
-            return self._credential_wizard_ollama_cloud()
-        if provider == "anthropic":
-            return self._credential_wizard_anthropic()
-        if provider == "openrouter":
-            return self._credential_wizard_openrouter()
-        if provider == "opencode":
-            return self._credential_wizard_opencode()
-        return False
-
-    def _offer_switch_after_credentials(self, provider: str) -> None:
-        """Después de configurar credenciales, ofrece cambiar a ese provider."""
-        print()
-        opts = [f"Sí, cambiar a {provider}", "No, quedarme en el actual"]
-        sidx = self._navigate("¿Cambiar a este provider ahora?", opts)
-        if sidx == 0:
-            result = self.mgr.switch(provider, force=True)
-            if result.get("ok"):
-                print(R.ok(f"✓ Provider cambiado a {provider}/{self.mgr.model}"))
-                self.engine = SwitchEngine(self.mgr.adapters)
-            else:
-                err = result.get("error") or "; ".join(result.get("warnings", [])) or "desconocido"
-                print(R.error(f"No se pudo cambiar: {err}"))
-                print(R.dim("  Prueba con /switch manualmente."))
-
-    def _agent_wizard(self) -> bool:
-        """Asistente guiado para activar un agente especializado."""
-        if not self._wizard_tty_ok("/agent <nombre>"):
-            return True
-        try:
-            agents = self.mgr.agent_gateway.list_agents()
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar los agentes: {exc}"))
-            return True
-        if not agents:
-            print(R.warn("No hay agentes registrados."))
-            return True
-        try:
-            active = self.mgr.agent_gateway.active.name
+            catalog = self.mgr.list_model_catalog(provider)
         except Exception:
-            active = ""
-        labels = []
-        for a in agents:
-            mark = "●" if a.name == active else "○"
-            labels.append(f"{mark} {a.name}  —  {a.description}")
-        idx = self._navigate("Activar agente · elige uno", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/agent {agents[idx].name}")
+            catalog = []
+        model = None
+        if catalog:
+            mlabels = ["(auto)"] + [str(item["id"]) for item in catalog]
+            midx = self._navigate(f"{provider} · modelo", mlabels)
+            if midx is None:
+                return True
+            if midx > 0:
+                model = catalog[midx - 1]["id"]
 
-    def _load_wizard(self) -> bool:
-        """Asistente guiado para cargar una sesion guardada (no hay que recordar el id)."""
-        if not self._wizard_tty_ok("/load <session_id>"):
-            return True
-        try:
-            sessions = type(self.mgr.store).list_sessions(self.mgr.store.base_dir)
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar las sesiones guardadas: {exc}"))
-            return True
-        if not sessions:
-            print(R.warn("No hay sesiones guardadas. Usa /save para crear una."))
-            return True
-        sessions = sorted(sessions, key=lambda s: s.get("created_at", ""), reverse=True)
-        labels = []
-        for s in sessions:
-            sid = s.get("sid", "?")
-            when = s.get("created_at", "") or "sin fecha"
-            prov = s.get("last_provider", "") or "?"
-            mod = s.get("last_model", "") or "?"
-            labels.append(f"{sid[:12]}  ·  {when}  ·  {prov}/{mod}")
-        idx = self._navigate("Cargar sesion · elige una", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/load {sessions[idx]['sid']}")
-
-    def _project_wizard(self, project_root: Path) -> bool:
-        """Asistente guiado para analizar o preparar un proyecto local."""
-        if not self._wizard_tty_ok("/project [analyze|status|init|link]"):
-            return True
-        labels = [
-            f"Analizar directorio actual ({project_root.name})",
-            "Ver estado del proyecto",
-            "Inicializar estructura .bago",
-            "Vincular proyecto portable",
-            "Seguir con la sesión",
-        ]
-        idx = self._navigate(f"Proyecto detectado · {project_root}", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        mod = _load_tool_module("project_memory", "project_memory.py")
-        if idx == 0:
-            data = mod.analyze_data(project_root)
-            print(mod.format_analysis(data))
-            return True
-        if idx == 1:
-            data = mod.status_data(project_root)
-            print(mod.format_status(data))
-            return True
-        if idx == 2:
-            data = mod.init_project(project_root)
-            print(R.ok(f"Proyecto inicializado: {data['bago_dir']}"))
-            return True
-        if idx == 3:
-            data = mod.link_project(project_root)
-            print(R.ok(f"Proyecto vinculado: {data['root']} ({data['link_mode']})"))
-            return True
+        result = self.mgr.switch(provider, model, force=True)
+        if result.get("ok"):
+            print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+            self.engine = SwitchEngine(self.mgr.adapters)
+        else:
+            err = result.get("error") or result.get("warnings", ["?"])[0]
+            print(R.error(f"✗ {err}"))
         return True
 
-    def _config_wizard(self) -> bool:
-        """Asistente guiado para cambiar un ajuste de configuracion."""
-        if not self._wizard_tty_ok("/config set <clave> <valor>"):
-            return True
-        labels = []
-        for key, _typ, desc in _CONFIG_EDITABLE:
-            cur = self.mgr.config.get(key, "")
-            labels.append(f"{key} = {cur}  —  {desc}")
-        idx = self._navigate("Configuracion · elige el ajuste a cambiar", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        key, typ, desc = _CONFIG_EDITABLE[idx]
-
-        if typ == "bool":
-            cur = bool(self.mgr.config.get(key, False))
-            sidx = self._navigate(
-                f"{key} (actual: {'true' if cur else 'false'})",
-                ["Activar (true)", "Desactivar (false)"],
-            )
-            if sidx is None:
-                print(R.dim("Asistente cerrado."))
-                return True
-            value = "true" if sidx == 0 else "false"
-        else:
-            print(R.dim(f"  {desc}"))
-            value = self._timed_input(R.accent(f"  {key} = "), timeout=60)
-            if value is None:
-                return True
-            value = value.strip()
-            if not value:
-                print(R.dim("Valor vacio. Operacion cancelada."))
-                return True
-        return self._handle_command(f"/config set {key} {value}")
-
-    def _feedback_wizard(self) -> bool:
-        """Asistente guiado para registrar feedback de la ultima respuesta."""
-        if not self._wizard_tty_ok("/feedback <rating>"):
-            return True
-        opts = ["Positivo (+1)", "Neutro (0)", "Negativo (-1)"]
-        vals = ["1", "0", "-1"]
-        idx = self._navigate("Feedback de la ultima respuesta", opts)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/feedback {vals[idx]}")
-
-    def _tools_wizard(self) -> bool:
-        """Asistente guiado para activar/desactivar las herramientas del modelo."""
-        if not self._wizard_tty_ok("/tools [enable|disable]"):
-            return True
-        cur = bool(self.mgr.config.get("features.tool_calling", False))
-        idx = self._navigate(
-            f"Herramientas del modelo (actual: {'activadas' if cur else 'desactivadas'})",
-            ["Activar herramientas", "Desactivar herramientas", "Listar herramientas"],
-        )
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(["/tools enable", "/tools disable", "/tools list"][idx])
-
-    def _memory_delete_wizard(self) -> bool:
-        """Asistente guiado para eliminar un recuerdo sin recordar su id."""
-        if not self._wizard_tty_ok("/memory delete <id>"):
-            return True
-        try:
-            recent = self.mgr.knowledge.list_recent(limit=20)
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar los recuerdos: {exc}"))
-            return True
-        if not recent:
-            print(R.warn("No hay recuerdos almacenados."))
-            return True
-        labels = []
-        for r in recent:
-            when = str(r.get("created_at", ""))[:19]
-            content = str(r.get("content", "")).replace("\n", " ")[:50]
-            labels.append(f"{r.get('id', '?')}  ·  {when}  ·  {content}")
-        idx = self._navigate("Eliminar recuerdo · elige uno", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/memory delete {recent[idx]['id']}")
-
-    # ═════════════════════════════════════════════════════════════════════════
-    #  Wizard de credenciales — flujos de login REALES por provider
-    # ═════════════════════════════════════════════════════════════════════════
-
     def _credential_wizard(self) -> bool:
-        """Asistente guiado para registrar credenciales con flujos reales por provider."""
+        """Registrar credenciales para cualquier provider."""
+        if not self._wizard_tty_ok("/credentials set <provider> <key> <valor>"):
+            return True
         try:
             from credential_manager import CREDENTIAL_SCHEMA
         except Exception as exc:
-            print(R.error(f"No se pudo cargar el esquema de credenciales: {exc}"))
-            return True
-
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            print(R.warn(
-                "El asistente de credenciales requiere un terminal interactivo. "
-                "Usa: /credentials set <provider> <key> <valor>"
-            ))
+            print(R.error(f"No se pudo cargar el esquema: {exc}"))
             return True
 
         creds = self.mgr.credentials
         providers = list(CREDENTIAL_SCHEMA.keys())
         plabels = []
         for p in providers:
-            estado = "configurado" if creds.is_configured(p) else "sin configurar"
-            plabels.append(f"{p}  —  {estado}")
-        pidx = self._navigate("Registrar credencial · elige el provider", plabels)
+            mark = "✓" if creds.is_configured(p) else "○"
+            plabels.append(f"{mark} {p}")
+        pidx = self._navigate("Registrar credencial · elige provider", plabels)
         if pidx is None:
-            print(R.dim("Asistente de credenciales cerrado."))
             return True
-        provider = providers[pidx]
+        return self._credential_wizard_provider(providers[pidx])
 
-        # Flujos específicos por provider
-        if provider == "copilot":
-            return self._credential_wizard_copilot()
-        if provider == "codex":
-            return self._credential_wizard_codex()
-        if provider == "ollama-local":
-            return self._credential_wizard_ollama_local()
-        if provider == "ollama-cloud":
-            return self._credential_wizard_ollama_cloud()
-        if provider == "anthropic":
-            return self._credential_wizard_anthropic()
-        if provider == "openrouter":
-            return self._credential_wizard_openrouter()
-        if provider == "opencode":
-            return self._credential_wizard_opencode()
-
-        return True
-
-    def _credential_wizard_copilot(self) -> bool:
-        """Flujo real de login para GitHub Copilot: detecta gh CLI o pide token."""
-        import subprocess
-        import os
-        import webbrowser
-
-        print(R.info("🔑 Flujo de login para GitHub Copilot"))
-        print()
-
-        # 1. Intentar gh auth token
-        print(R.dim("  Probando GitHub CLI (gh auth token)..."))
-        try:
-            result = subprocess.run(
-                ["gh", "auth", "token"],
-                capture_output=True, text=True, timeout=10,
-                shell=(sys.platform == "win32"),
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                token = result.stdout.strip()
-                self.mgr.credentials.set("copilot", "GITHUB_TOKEN", token)
-                print(R.ok(f"  ✓ Token obtenido automáticamente via gh CLI"))
-                print(R.dim(f"    Guardado: {token[:8]}..."))
-                self._offer_switch_after_credentials("copilot")
-                return True
-        except Exception:
-            pass
-        print(R.dim("    gh CLI no disponible o no autenticado."))
-
-        # 2. Verificar GITHUB_TOKEN en environment
-        env_token = os.environ.get("GITHUB_TOKEN", "")
-        if env_token:
-            print(R.info("  Token detectado en variable de entorno GITHUB_TOKEN."))
-            opts = ["Usar este token", "Introducir otro manualmente"]
-            sidx = self._navigate("Token de entorno detectado", opts)
-            if sidx == 0:
-                self.mgr.credentials.set("copilot", "GITHUB_TOKEN", env_token)
-                print(R.ok(f"  ✓ Token guardado desde entorno"))
-                self._offer_switch_after_credentials("copilot")
-                return True
-        else:
-            print(R.dim("  Variable GITHUB_TOKEN no encontrada en entorno."))
-
-        # 3. Fallback: login manual
-        print()
-        print(R.info("  Abriendo GitHub para obtener token personal..."))
-        try:
-            webbrowser.open("https://github.com/settings/tokens")
-        except Exception:
-            pass
-        print(R.dim("  Crea un token con scope 'read:user' y 'copilot'"))
-        value = self._timed_input(R.accent("  Pega tu GitHub token: "), timeout=120)
-        if not value:
-            print(R.dim("  Operación cancelada."))
-            return True
-        self.mgr.credentials.set("copilot", "GITHUB_TOKEN", value.strip())
-        print(R.ok(f"  ✓ Token de Copilot guardado."))
-        self._offer_switch_after_credentials("copilot")
-        return True
-
-    def _credential_wizard_codex(self) -> bool:
-        """Flujo real de login para Codex: detecta sesión de Codex Desktop o API key."""
-        import os
-        import json
+    def _credential_wizard_provider(self, provider: str) -> bool:
+        """Flujo de login para un provider específico. Detecta automáticamente o abre URL."""
+        import os, subprocess, urllib.request, webbrowser
         from pathlib import Path
-        import webbrowser
 
-        print(R.info("🔑 Flujo de login para OpenAI / Codex"))
-        print()
+        LOGIN_URLS = {
+            "copilot":       "https://github.com/settings/tokens",
+            "codex":         "https://platform.openai.com/api-keys",
+            "anthropic":     "https://console.anthropic.com/settings/keys",
+            "openrouter":    "https://openrouter.ai/keys",
+            "opencode":      "https://opencode.ai",
+            "ollama-cloud":  "https://ollama.com/signin",
+        }
 
-        # 1. Buscar auth de Codex Desktop
-        codex_auth_paths = [
-            Path.home() / ".codex" / "auth.json",
-            Path.home() / "AppData" / "Roaming" / "OpenAI" / "auth.json",
-            Path.home() / "Library" / "Application Support" / "OpenAI" / "auth.json",
-        ]
-        for auth_path in codex_auth_paths:
-            if auth_path.exists():
-                print(R.info(f"  Sesión de Codex Desktop detectada: {auth_path}"))
+        print(R.info(f"🔑 Configurando {provider}"))
+
+        # ── Detección automática ──────────────────────────────────────────
+        detected = False
+
+        if provider == "copilot":
+            try:
+                r = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10, shell=(sys.platform == "win32"))
+                if r.returncode == 0 and r.stdout.strip():
+                    self.mgr.credentials.set("copilot", "GITHUB_TOKEN", r.stdout.strip())
+                    detected = True
+                    print(R.ok("  ✓ Token detectado via gh CLI"))
+            except Exception:
+                pass
+            if not detected and os.environ.get("GITHUB_TOKEN"):
+                self.mgr.credentials.set("copilot", "GITHUB_TOKEN", os.environ["GITHUB_TOKEN"])
+                detected = True
+                print(R.ok("  ✓ Token detectado en entorno"))
+
+        elif provider == "codex":
+            for p in [Path.home() / ".codex" / "auth.json", Path.home() / "AppData" / "Roaming" / "OpenAI" / "auth.json"]:
+                if p.exists():
+                    try:
+                        import json
+                        data = json.loads(p.read_text(encoding="utf-8"))
+                        token = data.get("api_key") or data.get("session_token") or data.get("access_token")
+                        if token:
+                            self.mgr.credentials.set("codex", "OPENAI_API_KEY", token)
+                            detected = True
+                            print(R.ok("  ✓ Token de Codex Desktop detectado"))
+                            break
+                    except Exception:
+                        pass
+            if not detected and os.environ.get("OPENAI_API_KEY"):
+                self.mgr.credentials.set("codex", "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
+                detected = True
+                print(R.ok("  ✓ API key detectada en entorno"))
+
+        elif provider == "anthropic" and os.environ.get("ANTHROPIC_API_KEY"):
+            self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", os.environ["ANTHROPIC_API_KEY"])
+            detected = True
+            print(R.ok("  ✓ Key detectada en entorno"))
+
+        elif provider == "openrouter" and os.environ.get("OPENROUTER_API_KEY"):
+            self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", os.environ["OPENROUTER_API_KEY"])
+            detected = True
+            print(R.ok("  ✓ Key detectada en entorno"))
+
+        elif provider == "opencode" and os.environ.get("OPENCODE_API_KEY"):
+            self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", os.environ["OPENCODE_API_KEY"])
+            detected = True
+            print(R.ok("  ✓ Key detectada en entorno"))
+
+        elif provider == "ollama-local":
+            for host in ["http://127.0.0.1:11434", "http://localhost:11434"]:
                 try:
-                    data = json.loads(auth_path.read_text(encoding="utf-8"))
-                    # Intentar extrair token/session
-                    token = data.get("api_key") or data.get("session_token") or data.get("access_token")
-                    if token:
-                        self.mgr.credentials.set("codex", "OPENAI_API_KEY", token)
-                        print(R.ok(f"  ✓ Token extraído automáticamente de Codex Desktop"))
-                        self._offer_switch_after_credentials("codex")
-                        return True
+                    req = urllib.request.Request(f"{host}/api/tags", method="GET")
+                    with urllib.request.urlopen(req, timeout=3) as resp:
+                        if resp.status == 200:
+                            self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host)
+                            detected = True
+                            print(R.ok(f"  ✓ Ollama detectado en {host}"))
+                            break
                 except Exception:
                     pass
+            if not detected:
+                self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", "http://127.0.0.1:11434")
+                detected = True
+                print(R.info("  ℹ Ollama no detectado, configurado para localhost:11434"))
 
-        print(R.dim("  No se encontró sesión de Codex Desktop."))
+        elif provider == "ollama-cloud":
+            self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_URL", "https://ollama.com")
 
-        # 2. Verificar OPENAI_API_KEY en environment
-        env_key = os.environ.get("OPENAI_API_KEY", "")
-        if env_key:
-            print(R.info("  OPENAI_API_KEY detectada en variable de entorno."))
-            opts = ["Usar esta API key", "Introducir otra manualmente"]
-            sidx = self._navigate("API key de entorno detectada", opts)
-            if sidx == 0:
-                self.mgr.credentials.set("codex", "OPENAI_API_KEY", env_key)
-                print(R.ok(f"  ✓ API key guardada desde entorno"))
-                self._offer_switch_after_credentials("codex")
-                return True
-        else:
-            print(R.dim("  Variable OPENAI_API_KEY no encontrada."))
-
-        # 3. Fallback: login manual
-        print()
-        print(R.info("  Abriendo OpenAI Platform para obtener API key..."))
-        try:
-            webbrowser.open("https://platform.openai.com/api-keys")
-        except Exception:
-            pass
-        value = self._timed_input(R.accent("  Pega tu OpenAI API key: "), timeout=120)
-        if not value:
-            print(R.dim("  Operación cancelada."))
-            return True
-        self.mgr.credentials.set("codex", "OPENAI_API_KEY", value.strip())
-
-        # OPENAI_ORG_ID opcional
-        org = self._timed_input(R.accent("  OPENAI_ORG_ID (opcional, Enter para omitir): "), timeout=60)
-        if org and org.strip():
-            self.mgr.credentials.set("codex", "OPENAI_ORG_ID", org.strip())
-            print(R.ok(f"  ✓ Org ID guardado."))
-
-        print(R.ok(f"  ✓ Credenciales de Codex configuradas."))
-        self._offer_switch_after_credentials("codex")
-        return True
-
-    def _credential_wizard_ollama_local(self) -> bool:
-        """Flujo real para Ollama local: detecta servidor o guía instalación."""
-        import urllib.request
-
-        print(R.info("🔑 Configuración de Ollama local"))
-        print()
-
-        # 1. Verificar si ollama responde
-        hosts_to_try = [
-            "http://127.0.0.1:11434",
-            "http://localhost:11434",
-        ]
-        for host in hosts_to_try:
+        # ── Login manual (si no se detectó automáticamente) ───────────────
+        if not detected and provider in LOGIN_URLS:
+            url = LOGIN_URLS[provider]
+            print(R.info(f"  Abriendo {url} ..."))
             try:
-                req = urllib.request.Request(f"{host}/api/tags", method="GET")
-                with urllib.request.urlopen(req, timeout=3) as resp:
-                    if resp.status == 200:
-                        self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host)
-                        print(R.ok(f"  ✓ Ollama detectado en {host}"))
-                        self._offer_switch_after_credentials("ollama-local")
-                        return True
+                webbrowser.open(url)
             except Exception:
                 pass
 
-        print(R.warn("  No se detectó Ollama en localhost:11434"))
+        # ── Pedir campos que falten ──────────────────────────────────────
+        from credential_manager import CREDENTIAL_SCHEMA
+        schema = CREDENTIAL_SCHEMA.get(provider, {})
+        stored = self.mgr.credentials.list_for_provider(provider)
+
+        for key, desc in schema.items():
+            if stored.get(key):
+                continue  # Ya guardado
+            is_optional = "opcional" in desc.lower()
+            prompt = f"  {key}: "
+            if is_optional:
+                prompt = f"  {key} (opcional, Enter para omitir): "
+            val = self._timed_input(R.accent(prompt), timeout=120)
+            if val is None:
+                print(R.dim("  Cancelado."))
+                return False
+            val = val.strip()
+            if not val and is_optional:
+                continue
+            if not val and not is_optional:
+                print(R.error("  Campo obligatorio. Cancelado."))
+                return False
+            self.mgr.credentials.set(provider, key, val)
+            print(R.ok(f"  ✓ {key} guardado"))
+
+        # ── Conectar automáticamente ─────────────────────────────────────
         print()
-        print(R.dim("  Para usar Ollama local:"))
-        print(R.dim("    1. Descarga desde https://ollama.com (elige tu SO)"))
-        print(R.dim("    2. Instala y ejecuta 'ollama serve'"))
-        print(R.dim("    3. Vuelve a ejecutar /credentials set ollama-local"))
-        print()
-
-        opts = ["Configurar host manualmente", "Cancelar"]
-        sidx = self._navigate("Ollama no detectado", opts)
-        if sidx != 0:
-            print(R.dim("  Configuración pospuesta."))
-            return True
-
-        host = self._timed_input(R.accent("  URL de Ollama (default: http://127.0.0.1:11434): "), timeout=60)
-        if not host:
-            host = "http://127.0.0.1:11434"
-        self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host.strip())
-        print(R.ok(f"  ✓ Ollama configurado en {host.strip()}"))
-        self._offer_switch_after_credentials("ollama-local")
-        return True
-
-    def _credential_wizard_ollama_cloud(self) -> bool:
-        """Flujo para Ollama Cloud: solo API key, URL fija."""
-        import webbrowser
-
-        print(R.info("🔑 Configuración de Ollama Cloud"))
-        print(R.dim("  Endpoint fijo: https://ollama.com"))
-        print()
-        print(R.info("  Abriendo ollama.com/signin ..."))
-        try:
-            webbrowser.open("https://ollama.com/signin")
-        except Exception:
-            pass
-
-        # URL fija
-        self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_URL", "https://ollama.com")
-
-        key = self._timed_input(R.accent("  Pega tu API key de Ollama Cloud: "), timeout=120)
-        if key and key.strip():
-            self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_KEY", key.strip())
-
-        print(R.ok("  ✓ Ollama Cloud configurado (https://ollama.com)."))
-        self._offer_switch_after_credentials("ollama-cloud")
-        return True
-
-    def _credential_wizard_anthropic(self) -> bool:
-        """Flujo para Anthropic: detecta env o abre Claude."""
-        import os
-        import webbrowser
-
-        print(R.info("🔑 Flujo de login para Anthropic (Claude)"))
-
-        env_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if env_key:
-            print(R.info("  ANTHROPIC_API_KEY detectada en entorno."))
-            opts = ["Usar esta key", "Introducir otra"]
-            sidx = self._navigate("API key detectada", opts)
-            if sidx == 0:
-                self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", env_key)
-                print(R.ok("  ✓ Key guardada."))
-                self._offer_switch_after_credentials("anthropic")
-                return True
-
-        try:
-            webbrowser.open("https://claude.com")
-        except Exception:
-            pass
-        value = self._timed_input(R.accent("  Pega tu Anthropic API key: "), timeout=120)
-        if not value:
-            print(R.dim("  Cancelado."))
-            return True
-        self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", value.strip())
-        print(R.ok("  ✓ Key de Anthropic guardada."))
-        self._offer_switch_after_credentials("anthropic")
-        return True
-
-    def _credential_wizard_openrouter(self) -> bool:
-        """Flujo para OpenRouter."""
-        import os
-        import webbrowser
-
-        print(R.info("🔑 Flujo de login para OpenRouter"))
-
-        env_key = os.environ.get("OPENROUTER_API_KEY", "")
-        if env_key:
-            print(R.info("  OPENROUTER_API_KEY detectada."))
-            opts = ["Usar esta key", "Introducir otra"]
-            if self._navigate("API key detectada", opts) == 0:
-                self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", env_key)
-                print(R.ok("  ✓ Key guardada."))
-                self._offer_switch_after_credentials("openrouter")
-                return True
-
-        try:
-            webbrowser.open("https://openrouter.ai")
-        except Exception:
-            pass
-        value = self._timed_input(R.accent("  Pega tu OpenRouter API key: "), timeout=120)
-        if not value:
-            return True
-        self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", value.strip())
-
-        ref = self._timed_input(R.accent("  HTTP Referer (opcional): "), timeout=60)
-        if ref and ref.strip():
-            self.mgr.credentials.set("openrouter", "OPENROUTER_HTTP_REFERER", ref.strip())
-
-        print(R.ok("  ✓ OpenRouter configurado."))
-        self._offer_switch_after_credentials("openrouter")
-        return True
-
-    def _credential_wizard_opencode(self) -> bool:
-        """Flujo para OpenCode."""
-        import os
-        import webbrowser
-
-        print(R.info("🔑 Flujo de login para OpenCode"))
-
-        env_key = os.environ.get("OPENCODE_API_KEY", "")
-        if env_key:
-            opts = ["Usar entorno", "Introducir otra"]
-            if self._navigate("Key detectada", opts) == 0:
-                self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", env_key)
-                print(R.ok("  ✓ Key guardada."))
-                self._offer_switch_after_credentials("opencode")
-                return True
-
-        try:
-            webbrowser.open("https://opencode.ai")
-        except Exception:
-            pass
-        value = self._timed_input(R.accent("  Pega tu OpenCode API key: "), timeout=120)
-        if not value:
-            return True
-        self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", value.strip())
-
-        url = self._timed_input(R.accent("  URL base del proxy: "), timeout=120)
-        if url and url.strip():
-            self.mgr.credentials.set("opencode", "OPENCODE_BASE_URL", url.strip())
-
-        print(R.ok("  ✓ OpenCode configurado."))
-        self._offer_switch_after_credentials("opencode")
+        print(R.ok(f"✓ {provider} configurado."))
+        if provider != "ollama-local":
+            result = self.mgr.switch(provider, force=True)
+            if result.get("ok"):
+                print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+                self.engine = SwitchEngine(self.mgr.adapters)
+            else:
+                err = result.get("error") or result.get("warnings", ["?"])[0]
+                print(R.error(f"✗ No se pudo conectar: {err}"))
         return True
 
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
