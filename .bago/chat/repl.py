@@ -964,15 +964,6 @@ class BagoREPL:
     #  Wizard de credenciales — flujos de login REALES por provider
     # ═════════════════════════════════════════════════════════════════════════
 
-    _CREDENTIAL_URLS: dict[str, str] = {
-        "ollama-cloud":  "https://ollama.com",
-        "copilot":       "https://github.com/login",
-        "anthropic":     "https://claude.com",
-        "codex":         "https://chatgpt.com",
-        "openrouter":    "https://openrouter.ai",
-        "opencode":      "https://opencode.ai",
-    }
-
     def _credential_wizard(self) -> bool:
         """Asistente guiado para registrar credenciales con flujos reales por provider."""
         try:
@@ -1167,7 +1158,7 @@ class BagoREPL:
         print(R.warn("  No se detectó Ollama en localhost:11434"))
         print()
         print(R.dim("  Para usar Ollama local:"))
-        print(R.dim("    1. Descarga desde https://ollama.com/download"))
+        print(R.dim("    1. Descarga desde https://ollama.com (elige tu SO)"))
         print(R.dim("    2. Instala y ejecuta 'ollama serve'"))
         print(R.dim("    3. Vuelve a ejecutar /credentials set ollama-local"))
         print()
@@ -1186,16 +1177,34 @@ class BagoREPL:
         return True
 
     def _credential_wizard_ollama_cloud(self) -> bool:
-        """Flujo para Ollama Cloud: endpoint + key opcional."""
+        """Flujo para Ollama Cloud: usa 'ollama signin' CLI o abre signin web."""
+        import subprocess
         import webbrowser
 
         print(R.info("🔑 Configuración de Ollama Cloud"))
+        print()
+
+        # 1. Intentar 'ollama signin' que abre el navegador en la URL correcta
+        print(R.dim("  Probando 'ollama signin' (CLI oficial)..."))
         try:
-            webbrowser.open("https://ollama.com")
+            result = subprocess.run(
+                ["ollama", "signin"],
+                capture_output=True, text=True, timeout=15,
+                shell=(sys.platform == "win32"),
+            )
+            # ollama signin abre navegador; no hay output utilizable directamente
+            print(R.info("  Se abrió el navegador para iniciar sesión en Ollama."))
+        except Exception:
+            print(R.dim("  CLI 'ollama' no disponible."))
+
+        # 2. Fallback: abrir página de signin directamente
+        print(R.info("  Abriendo https://ollama.com/signin ..."))
+        try:
+            webbrowser.open("https://ollama.com/signin")
         except Exception:
             pass
 
-        url = self._timed_input(R.accent("  URL del endpoint: "), timeout=120)
+        url = self._timed_input(R.accent("  URL del endpoint de Ollama Cloud: "), timeout=120)
         if not url:
             print(R.dim("  Operación cancelada."))
             return True
