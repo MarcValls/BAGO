@@ -455,25 +455,28 @@ def _make_handler(root: Path, refresh: int, port: int):
     return Handler
 
 
-def serve(root: Path, port: int = 7890, refresh: int = 5) -> None:
+def serve(root: Path, port: int = 7890, refresh: int = 5, silent: bool = False) -> None:
     Handler = _make_handler(root, refresh, port)
     with socketserver.TCPServer(("127.0.0.1", port), Handler) as httpd:
         httpd.allow_reuse_address = True
         url = f"http://127.0.0.1:{port}/"
-        print(f"[BAGO Monitor] Sirviendo en {url}")
-        print(f"[BAGO Monitor] Raíz observada: {root}")
-        print(f"[BAGO Monitor] Auto-refresh: {refresh}s")
-        print("[BAGO Monitor] Ctrl+C para parar")
+        if not silent:
+            print(f"[BAGO Monitor] Sirviendo en {url}")
+            print(f"[BAGO Monitor] Raíz observada: {root}")
+            print(f"[BAGO Monitor] Auto-refresh: {refresh}s")
+            print("[BAGO Monitor] Ctrl+C para parar")
         try:
-            # Intentar abrir navegador
-            import webbrowser
-            threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+            if not silent:
+                # Intentar abrir navegador
+                import webbrowser
+                threading.Timer(0.8, lambda: webbrowser.open(url)).start()
         except Exception:
             pass
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print("\n[BAGO Monitor] Detenido.")
+            if not silent:
+                print("\n[BAGO Monitor] Detenido.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

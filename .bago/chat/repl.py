@@ -43,8 +43,10 @@ for _stream in (sys.stdout, sys.stderr):
 
 # Ensure core path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
+from version import CURRENT as BAGO_VERSION
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
@@ -353,7 +355,7 @@ _CONFIG_EDITABLE: list[tuple[str, str, str]] = [
 
 
 class BagoREPL:
-    """REPL principal de BAGO 4.1.5."""
+    """REPL principal de BAGO."""
 
     def __init__(
         self,
@@ -528,7 +530,7 @@ class BagoREPL:
     def _print_banner(self) -> None:
         print(R.banner())
         print()
-        print(R.info("Bienvenido a BAGO 4.1.5. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
+        print(R.info(f"Bienvenido a BAGO {BAGO_VERSION}. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
 

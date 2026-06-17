@@ -106,7 +106,7 @@ def _start_monitor_bg(base_path: str, port: int = 7890) -> None:
         try:
             sys.path.insert(0, str(BAGO_ROOT / ".bago" / "tools"))
             from process_monitor import serve
-            serve(BAGO_ROOT, port=port, refresh=5)
+            serve(BAGO_ROOT, port=port, refresh=5, silent=True)
         except Exception:
             pass
 
