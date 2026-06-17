@@ -969,7 +969,7 @@ class BagoREPL:
         "ollama-cloud":  "",
         "copilot":       "https://github.com/settings/tokens",
         "anthropic":     "https://console.anthropic.com/settings/keys",
-        "codex":         "https://platform.openai.com/api-keys",
+        "codex":         "https://chatgpt.com",
         "openrouter":    "https://openrouter.ai/keys",
         "opencode":      "",
     }
