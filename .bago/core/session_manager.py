@@ -244,7 +244,7 @@ class SessionManager:
                 "prevencion": (
                     "Verificar acceso de lectura a la base de sesiones "
                     "(~/.copilot/session-store.db) y permisos de escritura en "
-                    ".bago/core/intent_examples.json"
+                    "~/.bago/state/intent_examples.json"
                 ),
             }
 

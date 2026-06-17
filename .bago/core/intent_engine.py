@@ -24,14 +24,40 @@ from typing import Dict, List, Tuple
 # ---------------------------------------------------------------------------
 
 _DEFAULT_EXAMPLES: Dict[str, List[Dict[str, str]]] = {}
-_DATA_PATH = Path(__file__).with_name("intent_examples.json")
+_BUNDLED_DATA_PATH = Path(__file__).with_name("intent_examples.json")
+
+
+def _user_data_path() -> Path:
+    override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    return Path.home() / ".bago" / "state" / "intent_examples.json"
 
 
 def _load_examples() -> Dict[str, List[Dict[str, str]]]:
-    if _DATA_PATH.exists():
-        with open(_DATA_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    def _merge(dst: Dict[str, List[Dict[str, str]]], src: Dict[str, List[Dict[str, str]]]) -> Dict[str, List[Dict[str, str]]]:
+        for intent, rows in src.items():
+            dst.setdefault(intent, [])
+            seen = {item.get("user", "") for item in dst[intent] if item.get("user")}
+            for row in rows:
+                user = row.get("user", "")
+                if not user or user in seen:
+                    continue
+                seen.add(user)
+                dst[intent].append(row)
+        return dst
+
+    merged: Dict[str, List[Dict[str, str]]] = {}
+    for path in (_BUNDLED_DATA_PATH, _user_data_path()):
+        if not path.exists():
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        merged = _merge(merged, data)
+    return merged
 
 
 _DEFAULT_EXAMPLES = _load_examples()

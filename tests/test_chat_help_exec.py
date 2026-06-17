@@ -119,6 +119,15 @@ class ChatHelpExecTests(unittest.TestCase):
 
         self.assertIs(repl.MENU_SECTIONS, commands.MENU_SECTIONS)
 
+    def test_repl_detects_directory_paths(self) -> None:
+        sys.path.insert(0, str(REPO / ".bago" / "chat"))
+        from repl import _looks_like_directory_path
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.assertEqual(_looks_like_directory_path(str(root)), root.resolve())
+        self.assertIsNone(_looks_like_directory_path("hola"))
+
 
 if __name__ == "__main__":
     unittest.main()

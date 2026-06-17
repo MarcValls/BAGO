@@ -116,6 +116,12 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     html = (BAGO_ROOT / "manager" / "index.html").read_text(encoding="utf-8")
     startup_banner = (BAGO_ROOT / "manager" / "js" / "startup-deps.js").read_text(encoding="utf-8")
     session_script = (BAGO_ROOT / "manager" / "js" / "session-manager.js").read_text(encoding="utf-8")
+    chat_commands = (BAGO_ROOT / ".bago" / "chat" / "commands.py").read_text(encoding="utf-8")
+    chat_repl = (BAGO_ROOT / ".bago" / "chat" / "repl.py").read_text(encoding="utf-8")
+    intent_engine = (BAGO_ROOT / ".bago" / "core" / "intent_engine.py").read_text(encoding="utf-8")
+    tool_registry = (BAGO_ROOT / ".bago" / "core" / "tool_registry.py").read_text(encoding="utf-8")
+    command_intents = (BAGO_ROOT / ".bago" / "core" / "command_intents.json").read_text(encoding="utf-8")
+    project_memory = (BAGO_ROOT / ".bago" / "tools" / "project_memory.py").read_text(encoding="utf-8")
 
     assert "createDependencyService" in main_script
     assert "createRuntimeService" in main_script
@@ -159,6 +165,16 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "data-provider-action" in session_script
     assert "pmRenderProviderActions" in session_script
     assert "pmProviderAction" in session_script
+    assert "\"project\"" in chat_commands
+    assert "Analiza el proyecto actual" in chat_commands
+    assert "Proyecto detectado" in chat_repl
+    assert "_looks_like_directory_path" in chat_repl
+    assert "BAGO_INTENT_EXAMPLES_PATH" in tool_registry
+    assert "BAGO_INTENT_EXAMPLES_PATH" in intent_engine
+    assert "\"/project\"" in command_intents
+    assert "analiza el directorio" in command_intents
+    assert "analyze_data" in project_memory
+    assert "format_analysis" in project_memory
 
 
 if __name__ == "__main__":

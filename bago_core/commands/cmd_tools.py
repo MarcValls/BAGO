@@ -46,7 +46,9 @@ def cmd_project(args: argparse.Namespace) -> int:
         return mod.cmd_status(root)
     if action == "link":
         return mod.cmd_link(root)
-    print("Uso: bago project <init|status|link> [--root DIR]")
+    if action == "analyze":
+        return mod.cmd_analyze(root)
+    print("Uso: bago project <init|status|link|analyze> [--root DIR]")
     return 1
 
 def cmd_preflight(args: argparse.Namespace) -> int:

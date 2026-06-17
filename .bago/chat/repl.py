@@ -16,6 +16,7 @@ Loop principal de chat multi-provider.
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import shutil
 import sys
@@ -144,6 +145,37 @@ def _wrap_transcript(text: str) -> str:
         f"{text}\n"
         "─────────────────────────────────────────────────────────────"
     )
+
+
+def _load_tool_module(module_name: str, file_name: str):
+    tool_path = Path(__file__).resolve().parents[2] / ".bago" / "tools" / file_name
+    spec = importlib.util.spec_from_file_location(module_name, tool_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"No se pudo cargar la herramienta: {tool_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+    return mod
+
+
+def _looks_like_directory_path(text: str) -> Path | None:
+    raw = text.strip().strip('"').strip("'")
+    if not raw:
+        return None
+    if not any(sep in raw for sep in ("\\", "/", ":")) and not raw.startswith("."):
+        return None
+    try:
+        candidate = Path(raw).expanduser()
+        resolved = candidate.resolve()
+    except Exception:
+        return None
+    if resolved.exists() and resolved.is_dir():
+        return resolved
+    return None
 
 
 # ─── Keybinds ────────────────────────────────────────────────────────────────
@@ -808,6 +840,40 @@ class BagoREPL:
             return True
         return self._handle_command(f"/load {sessions[idx]['sid']}")
 
+    def _project_wizard(self, project_root: Path) -> bool:
+        """Asistente guiado para analizar o preparar un proyecto local."""
+        if not self._wizard_tty_ok("/project [analyze|status|init|link]"):
+            return True
+        labels = [
+            f"Analizar directorio actual ({project_root.name})",
+            "Ver estado del proyecto",
+            "Inicializar estructura .bago",
+            "Vincular proyecto portable",
+            "Seguir con la sesión",
+        ]
+        idx = self._navigate(f"Proyecto detectado · {project_root}", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        mod = _load_tool_module("project_memory", "project_memory.py")
+        if idx == 0:
+            data = mod.analyze_data(project_root)
+            print(mod.format_analysis(data))
+            return True
+        if idx == 1:
+            data = mod.status_data(project_root)
+            print(mod.format_status(data))
+            return True
+        if idx == 2:
+            data = mod.init_project(project_root)
+            print(R.ok(f"Proyecto inicializado: {data['bago_dir']}"))
+            return True
+        if idx == 3:
+            data = mod.link_project(project_root)
+            print(R.ok(f"Proyecto vinculado: {data['root']} ({data['link_mode']})"))
+            return True
+        return True
+
     def _config_wizard(self) -> bool:
         """Asistente guiado para cambiar un ajuste de configuracion."""
         if not self._wizard_tty_ok("/config set <clave> <valor>"):
@@ -1122,6 +1188,13 @@ class BagoREPL:
                 # Commands
                 if stripped.startswith("/"):
                     if not self._handle_command(stripped):
+                        break
+                    self._print_status()
+                    continue
+
+                project_root = _looks_like_directory_path(stripped)
+                if project_root is not None:
+                    if not self._project_wizard(project_root):
                         break
                     self._print_status()
                     continue
