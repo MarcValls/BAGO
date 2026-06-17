@@ -751,7 +751,11 @@ class BagoREPL:
         return False
 
     def _switch_wizard(self) -> bool:
-        """Asistente guiado para cambiar de provider/modelo sin teclear nombres."""
+        """Asistente guiado para cambiar de provider/modelo.
+
+        Si el provider elegido no está configurado, ofrece configurarlo
+        directamente desde este wizard.
+        """
         if not self._wizard_tty_ok("/switch <provider> [modelo]"):
             return True
         try:
@@ -762,33 +766,109 @@ class BagoREPL:
         if not providers:
             print(R.warn("No hay providers registrados."))
             return True
-        plabels = []
-        for p in providers:
-            estado = "configurado" if p.get("configured") else "sin configurar"
-            nmod = len(p.get("models") or [])
-            plabels.append(f"{p['name']}  —  {estado} · {nmod} modelos")
-        pidx = self._navigate("Cambiar provider · elige uno", plabels)
-        if pidx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        provider = providers[pidx]["name"]
 
-        try:
-            catalog = self.mgr.list_model_catalog(provider)
-        except Exception:
-            catalog = []
-        model = None
-        if catalog:
-            mlabels = ["(auto / mantener por defecto)"] + [str(item["id"]) for item in catalog]
-            midx = self._navigate(f"{provider} · elige modelo", mlabels)
-            if midx is None:
+        while True:
+            plabels = []
+            for p in providers:
+                estado = "configurado" if p.get("configured") else "sin configurar"
+                nmod = len(p.get("models") or [])
+                plabels.append(f"{p['name']}  —  {estado} · {nmod} modelos")
+            pidx = self._navigate("Cambiar provider · elige uno", plabels)
+            if pidx is None:
                 print(R.dim("Asistente cerrado."))
                 return True
-            if midx > 0:
-                model = catalog[midx - 1]["id"]
+            provider = providers[pidx]["name"]
+            configured = providers[pidx].get("configured", False)
 
-        command_line = f"/switch {provider}" + (f" {model}" if model else "")
-        return self._handle_command(command_line)
+            if not configured:
+                print(R.warn(f"Provider '{provider}' no está configurado."))
+                opts = ["Configurar credenciales ahora", "Elegir otro provider", "Cancelar"]
+                sidx = self._navigate("Provider sin configurar", opts)
+                if sidx == 0:
+                    # Arrancar wizard de credenciales para este provider
+                    result = self._credential_wizard_for_provider(provider)
+                    if result:
+                        # Recargar lista de providers
+                        try:
+                            providers = self.mgr.available_providers()
+                        except Exception:
+                            pass
+                        # Verificar si ahora está configurado
+                        for p in providers:
+                            if p["name"] == provider and p.get("configured"):
+                                print(R.ok(f"Provider '{provider}' configurado. Continuando..."))
+                                configured = True
+                                break
+                        if not configured:
+                            print(R.warn("Configuración incompleta. Elige otro provider."))
+                            continue
+                    else:
+                        continue
+                elif sidx == 2 or sidx is None:
+                    print(R.dim("Operación cancelada."))
+                    return True
+                else:
+                    continue  # Elegir otro
+
+            # Provider configurado: elegir modelo
+            try:
+                catalog = self.mgr.list_model_catalog(provider)
+            except Exception:
+                catalog = []
+            model = None
+            if catalog:
+                mlabels = ["(auto / mantener por defecto)"] + [str(item["id"]) for item in catalog]
+                midx = self._navigate(f"{provider} · elige modelo", mlabels)
+                if midx is None:
+                    print(R.dim("Asistente cerrado."))
+                    return True
+                if midx > 0:
+                    model = catalog[midx - 1]["id"]
+
+            command_line = f"/switch {provider}" + (f" {model}" if model else "")
+            return self._handle_command(command_line)
+
+    def _credential_wizard_for_provider(self, provider: str) -> bool:
+        """Arranca el wizard de credenciales para un provider específico (sin elegir)."""
+        try:
+            from credential_manager import CREDENTIAL_SCHEMA
+        except Exception as exc:
+            print(R.error(f"No se pudo cargar el esquema de credenciales: {exc}"))
+            return False
+
+        if provider not in CREDENTIAL_SCHEMA:
+            print(R.error(f"Provider desconocido: {provider}"))
+            return False
+
+        # Llamar al flujo específico
+        if provider == "copilot":
+            return self._credential_wizard_copilot()
+        if provider == "codex":
+            return self._credential_wizard_codex()
+        if provider == "ollama-local":
+            return self._credential_wizard_ollama_local()
+        if provider == "ollama-cloud":
+            return self._credential_wizard_ollama_cloud()
+        if provider == "anthropic":
+            return self._credential_wizard_anthropic()
+        if provider == "openrouter":
+            return self._credential_wizard_openrouter()
+        if provider == "opencode":
+            return self._credential_wizard_opencode()
+        return False
+
+    def _offer_switch_after_credentials(self, provider: str) -> None:
+        """Después de configurar credenciales, ofrece cambiar a ese provider."""
+        print()
+        opts = [f"Sí, cambiar a {provider}", "No, quedarme en el actual"]
+        sidx = self._navigate("¿Cambiar a este provider ahora?", opts)
+        if sidx == 0:
+            result = self.mgr.switch(provider)
+            if result.get("ok"):
+                print(R.ok(f"✓ Provider cambiado a {provider}/{self.mgr.model}"))
+                self.engine = SwitchEngine(self.mgr.adapters)
+            else:
+                print(R.error(f"No se pudo cambiar: {result.get('error', '?')}"))
 
     def _agent_wizard(self) -> bool:
         """Asistente guiado para activar un agente especializado."""
@@ -1031,6 +1111,7 @@ class BagoREPL:
                 self.mgr.credentials.set("copilot", "GITHUB_TOKEN", token)
                 print(R.ok(f"  ✓ Token obtenido automáticamente via gh CLI"))
                 print(R.dim(f"    Guardado: {token[:8]}..."))
+                self._offer_switch_after_credentials("copilot")
                 return True
         except Exception:
             pass
@@ -1045,6 +1126,7 @@ class BagoREPL:
             if sidx == 0:
                 self.mgr.credentials.set("copilot", "GITHUB_TOKEN", env_token)
                 print(R.ok(f"  ✓ Token guardado desde entorno"))
+                self._offer_switch_after_credentials("copilot")
                 return True
         else:
             print(R.dim("  Variable GITHUB_TOKEN no encontrada en entorno."))
@@ -1063,6 +1145,7 @@ class BagoREPL:
             return True
         self.mgr.credentials.set("copilot", "GITHUB_TOKEN", value.strip())
         print(R.ok(f"  ✓ Token de Copilot guardado."))
+        self._offer_switch_after_credentials("copilot")
         return True
 
     def _credential_wizard_codex(self) -> bool:
@@ -1091,6 +1174,7 @@ class BagoREPL:
                     if token:
                         self.mgr.credentials.set("codex", "OPENAI_API_KEY", token)
                         print(R.ok(f"  ✓ Token extraído automáticamente de Codex Desktop"))
+                        self._offer_switch_after_credentials("codex")
                         return True
                 except Exception:
                     pass
@@ -1106,6 +1190,7 @@ class BagoREPL:
             if sidx == 0:
                 self.mgr.credentials.set("codex", "OPENAI_API_KEY", env_key)
                 print(R.ok(f"  ✓ API key guardada desde entorno"))
+                self._offer_switch_after_credentials("codex")
                 return True
         else:
             print(R.dim("  Variable OPENAI_API_KEY no encontrada."))
@@ -1130,6 +1215,7 @@ class BagoREPL:
             print(R.ok(f"  ✓ Org ID guardado."))
 
         print(R.ok(f"  ✓ Credenciales de Codex configuradas."))
+        self._offer_switch_after_credentials("codex")
         return True
 
     def _credential_wizard_ollama_local(self) -> bool:
@@ -1151,6 +1237,7 @@ class BagoREPL:
                     if resp.status == 200:
                         self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host)
                         print(R.ok(f"  ✓ Ollama detectado en {host}"))
+                        self._offer_switch_after_credentials("ollama-local")
                         return True
             except Exception:
                 pass
@@ -1174,6 +1261,7 @@ class BagoREPL:
             host = "http://127.0.0.1:11434"
         self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host.strip())
         print(R.ok(f"  ✓ Ollama configurado en {host.strip()}"))
+        self._offer_switch_after_credentials("ollama-local")
         return True
 
     def _credential_wizard_ollama_cloud(self) -> bool:
@@ -1215,6 +1303,7 @@ class BagoREPL:
             self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_KEY", key.strip())
 
         print(R.ok("  ✓ Ollama Cloud configurado."))
+        self._offer_switch_after_credentials("ollama-cloud")
         return True
 
     def _credential_wizard_anthropic(self) -> bool:
@@ -1232,6 +1321,7 @@ class BagoREPL:
             if sidx == 0:
                 self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", env_key)
                 print(R.ok("  ✓ Key guardada."))
+                self._offer_switch_after_credentials("anthropic")
                 return True
 
         try:
@@ -1244,6 +1334,7 @@ class BagoREPL:
             return True
         self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", value.strip())
         print(R.ok("  ✓ Key de Anthropic guardada."))
+        self._offer_switch_after_credentials("anthropic")
         return True
 
     def _credential_wizard_openrouter(self) -> bool:
@@ -1260,6 +1351,7 @@ class BagoREPL:
             if self._navigate("API key detectada", opts) == 0:
                 self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", env_key)
                 print(R.ok("  ✓ Key guardada."))
+                self._offer_switch_after_credentials("openrouter")
                 return True
 
         try:
@@ -1276,6 +1368,7 @@ class BagoREPL:
             self.mgr.credentials.set("openrouter", "OPENROUTER_HTTP_REFERER", ref.strip())
 
         print(R.ok("  ✓ OpenRouter configurado."))
+        self._offer_switch_after_credentials("openrouter")
         return True
 
     def _credential_wizard_opencode(self) -> bool:
@@ -1291,6 +1384,7 @@ class BagoREPL:
             if self._navigate("Key detectada", opts) == 0:
                 self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", env_key)
                 print(R.ok("  ✓ Key guardada."))
+                self._offer_switch_after_credentials("opencode")
                 return True
 
         try:
@@ -1307,6 +1401,7 @@ class BagoREPL:
             self.mgr.credentials.set("opencode", "OPENCODE_BASE_URL", url.strip())
 
         print(R.ok("  ✓ OpenCode configurado."))
+        self._offer_switch_after_credentials("opencode")
         return True
 
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
