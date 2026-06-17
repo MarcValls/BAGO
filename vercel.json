@@ -1,11 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "manager/index.html", "use": "@vercel/static" }
-  ],
+  "installCommand": "",
+  "buildCommand": "node scripts/build_vercel_site.cjs",
+  "outputDirectory": "site-dist",
   "rewrites": [
-    { "source": "/manager", "destination": "/manager/index.html" },
-    { "source": "/manager/", "destination": "/manager/index.html" }
+    { "source": "/manager", "destination": "/manager.html" },
+    { "source": "/manager/", "destination": "/manager.html" }
   ]
 }
