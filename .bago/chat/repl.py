@@ -809,6 +809,124 @@ class BagoREPL:
             print(R.error(f"✗ {err}"))
         return True
 
+    def _project_wizard(self, project_root: Path) -> bool:
+        """Asistente guiado para analizar o preparar un proyecto local."""
+        if not self._wizard_tty_ok("/project [analyze|status|init|link]"):
+            return True
+        labels = [
+            f"Analizar directorio actual ({project_root.name})",
+            "Ver estado del proyecto",
+            "Inicializar estructura .bago",
+            "Vincular proyecto portable",
+            "Seguir con la sesión",
+        ]
+        idx = self._navigate(f"Proyecto detectado · {project_root}", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        mod = _load_tool_module("project_memory", "project_memory.py")
+        if idx == 0:
+            data = mod.analyze_data(project_root)
+            print(mod.format_analysis(data))
+            return True
+        if idx == 1:
+            data = mod.status_data(project_root)
+            print(mod.format_status(data))
+            return True
+        if idx == 2:
+            data = mod.init_project(project_root)
+            print(R.ok(f"Proyecto inicializado: {data['bago_dir']}"))
+            return True
+        if idx == 3:
+            data = mod.link_project(project_root)
+            print(R.ok(f"Proyecto vinculado: {data['root']} ({data['link_mode']})"))
+            return True
+        return True
+
+    def _config_wizard(self) -> bool:
+        """Asistente guiado para cambiar un ajuste de configuracion."""
+        if not self._wizard_tty_ok("/config set <clave> <valor>"):
+            return True
+        labels = []
+        for key, _typ, desc in _CONFIG_EDITABLE:
+            cur = self.mgr.config.get(key, "")
+            labels.append(f"{key} = {cur}  —  {desc}")
+        idx = self._navigate("Configuracion · elige el ajuste a cambiar", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        key, typ, desc = _CONFIG_EDITABLE[idx]
+
+        if typ == "bool":
+            cur = bool(self.mgr.config.get(key, False))
+            sidx = self._navigate(
+                f"{key} (actual: {'true' if cur else 'false'})",
+                ["Activar (true)", "Desactivar (false)"],
+            )
+            if sidx is None:
+                print(R.dim("Asistente cerrado."))
+                return True
+            value = "true" if sidx == 0 else "false"
+        else:
+            print(R.dim(f"  {desc}"))
+            value = self._timed_input(R.accent(f"  {key} = "), timeout=60)
+            if value is None:
+                return True
+            value = value.strip()
+            if not value:
+                print(R.dim("Valor vacio. Operacion cancelada."))
+                return True
+        return self._handle_command(f"/config set {key} {value}")
+
+    def _feedback_wizard(self) -> bool:
+        """Asistente guiado para registrar feedback de la ultima respuesta."""
+        if not self._wizard_tty_ok("/feedback <rating>"):
+            return True
+        opts = ["Positivo (+1)", "Neutro (0)", "Negativo (-1)"]
+        vals = ["1", "0", "-1"]
+        idx = self._navigate("Feedback de la ultima respuesta", opts)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(f"/feedback {vals[idx]}")
+
+    def _tools_wizard(self) -> bool:
+        """Asistente guiado para activar/desactivar las herramientas del modelo."""
+        if not self._wizard_tty_ok("/tools [enable|disable]"):
+            return True
+        cur = bool(self.mgr.config.get("features.tool_calling", False))
+        idx = self._navigate(
+            f"Herramientas del modelo (actual: {'activadas' if cur else 'desactivadas'})",
+            ["Activar herramientas", "Desactivar herramientas", "Listar herramientas"],
+        )
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(["/tools enable", "/tools disable", "/tools list"][idx])
+
+    def _memory_delete_wizard(self) -> bool:
+        """Asistente guiado para eliminar un recuerdo sin recordar su id."""
+        if not self._wizard_tty_ok("/memory delete <id>"):
+            return True
+        try:
+            recent = self.mgr.knowledge.list_recent(limit=20)
+        except Exception as exc:
+            print(R.error(f"No se pudieron listar los recuerdos: {exc}"))
+            return True
+        if not recent:
+            print(R.warn("No hay recuerdos almacenados."))
+            return True
+        labels = []
+        for r in recent:
+            when = str(r.get("created_at", ""))[:19]
+            content = str(r.get("content", "")).replace("\n", " ")[:50]
+            labels.append(f"{r.get('id', '?')}  ·  {when}  ·  {content}")
+        idx = self._navigate("Eliminar recuerdo · elige uno", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        return self._handle_command(f"/memory delete {recent[idx]['id']}")
+
     def _credential_wizard(self) -> bool:
         """Registrar credenciales para cualquier provider."""
         if not self._wizard_tty_ok("/credentials set <provider> <key> <valor>"):
