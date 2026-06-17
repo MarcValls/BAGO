@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatApi } from './api'
+import { recordInteraction } from './interactionLog'
 
 export function useBagoChat() {
   const [mode, setMode] = useState('desktop')
@@ -57,6 +58,13 @@ export function useBagoChat() {
 
   const submit = useCallback(async (input, channel = mode, managerContext = null) => {
     if (!input.trim()) return
+    recordInteraction('submit', {
+      channel,
+      mode,
+      kind: input.trim().startsWith('/') ? 'command' : 'chat',
+      input: input.trim(),
+      managerContext,
+    })
     setBusy(true)
     busyRef.current = true
     try {
@@ -83,6 +91,11 @@ export function useBagoChat() {
 
   const switchProviderModel = useCallback(async (provider, model = '', channel = 'desktop') => {
     if (!provider) return
+    recordInteraction('switch-provider-model', {
+      channel,
+      provider,
+      model: model || null,
+    })
     setBusy(true)
     busyRef.current = true
     try {

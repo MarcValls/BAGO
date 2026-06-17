@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { recordInteraction } from './interactionLog'
 
 const VIEW_LABELS = {
   patch: 'Patch Bay',
@@ -31,6 +32,7 @@ export function useManagerContext() {
     function handleMessage(event) {
       const msg = parseMessage(event)
       if (!msg) return
+      recordInteraction('manager-postmessage', msg)
 
       if (msg.type === 'view-changed') {
         setContext(prev => ({

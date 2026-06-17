@@ -1,18 +1,90 @@
+let releaseItems=[];
+let latestRelease=null;
+let managerVersion='';
+let hiddenFutureReleaseCount=0;
+
+function normalizeVersionTag(value){
+  return String(value||'').trim().replace(/^v/i,'');
+}
+
+function parseVersionTag(value){
+  const text=normalizeVersionTag(value);
+  const match=text.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+.*)?$/);
+  if(!match)return null;
+  return {major:Number(match[1]),minor:Number(match[2]),patch:Number(match[3]),prerelease:match[4]?match[4].split('.'):[]};
+}
+
+function compareVersionTags(left,right){
+  const a=parseVersionTag(left);
+  const b=parseVersionTag(right);
+  if(!a||!b)return 0;
+  for(const key of ['major','minor','patch']){
+    if(a[key]!==b[key])return a[key]-b[key];
+  }
+  if(!a.prerelease.length&&!b.prerelease.length)return 0;
+  if(!a.prerelease.length)return 1;
+  if(!b.prerelease.length)return -1;
+  const length=Math.max(a.prerelease.length,b.prerelease.length);
+  for(let i=0;i<length;i+=1){
+    if(i>=a.prerelease.length)return -1;
+    if(i>=b.prerelease.length)return 1;
+    const leftPart=a.prerelease[i];
+    const rightPart=b.prerelease[i];
+    const leftNum=/^\d+$/.test(leftPart);
+    const rightNum=/^\d+$/.test(rightPart);
+    if(leftNum&&rightNum){
+      const diff=Number(leftPart)-Number(rightPart);
+      if(diff)return diff;
+      continue;
+    }
+    if(leftNum)return -1;
+    if(rightNum)return 1;
+    const diff=leftPart.localeCompare(rightPart);
+    if(diff)return diff;
+  }
+  return 0;
+}
+
+function isFutureReleaseTag(tagName, ceiling){
+  const tag=normalizeVersionTag(tagName);
+  const current=normalizeVersionTag(ceiling);
+  if(!tag||!current)return false;
+  return compareVersionTags(tag,current)>0;
+}
+
+async function resolveManagerVersion(){
+  if(managerVersion)return managerVersion;
+  const api=typeof electronApi==='function'?electronApi():null;
+  try{
+    if(api&&api.getVersion){
+      managerVersion=normalizeVersionTag(await api.getVersion());
+      if(managerVersion)return managerVersion;
+    }
+  }catch{}
+  const fallback=document.getElementById('bago-version-meta');
+  managerVersion=normalizeVersionTag((fallback&&fallback.textContent)||'');
+  return managerVersion;
+}
+
 async function loadLatestRelease(){
   try{
+    const ceiling=await resolveManagerVersion();
     const api=electronApi();
     const releases=api&&api.fetchReleases ? await api.fetchReleases() : await (async()=>{
       const res=await fetch('https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100');
       if(!res.ok)throw new Error('HTTP '+res.status);
       return await res.json();
     })();
-    releaseItems=(Array.isArray(releases)?releases:[])
-      .filter(r=>!r.draft)
+    const normalized=(Array.isArray(releases)?releases:[]).filter(r=>!r.draft);
+    const allowed=normalized.filter(r=>!isFutureReleaseTag(r.tag_name,ceiling));
+    hiddenFutureReleaseCount=Math.max(0,normalized.length-allowed.length);
+    releaseItems=allowed
       .sort((a,b)=>new Date(b.published_at||0)-new Date(a.published_at||0));
     latestRelease=releaseItems.find(r=>!r.prerelease)||releaseItems[0]||null;
   }catch(e){
     releaseItems=[];
     latestRelease=null;
+    hiddenFutureReleaseCount=0;
   }
 }
 
@@ -30,13 +102,30 @@ function psCommand(script){
   }
   return 'powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand '+btoa(bin);
 }
+function localFilePathFromUrl(relativePath){
+  try{
+    const href=(typeof window!=='undefined'&&window.location&&window.location.href)||'';
+    if(!href)return '';
+    const url=new URL(relativePath,href);
+    if(url.protocol!=='file:')return '';
+    const pathname=decodeURIComponent(url.pathname||'');
+    if(/^\/[A-Za-z]:/.test(pathname))return pathname.slice(1).replace(/\//g,'\\');
+    return pathname.replace(/\//g,'\\');
+  }catch{
+    return '';
+  }
+}
 function installCommand(tag,target){
   const api=electronApi();
   if(api&&api.buildInstallCommand){
     return api.buildInstallCommand(tag,target,'Express');
   }
+  const installScript=localFilePathFromUrl('../install-remote.ps1');
+  if(!installScript){
+    return psCommand('Write-Error '+psSingle('No se pudo resolver install-remote.ps1 local. Usa el Manager empaquetado o lanza el instalador local.'));
+  }
   const tagArg=tag? ' -Tag '+psSingle(tag) : '';
-  return psCommand('$s=Join-Path $env:TEMP '+psSingle('install-remote.ps1')+'; Invoke-WebRequest -Uri '+psSingle('https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1')+' -OutFile $s -UseBasicParsing; & $s'+tagArg+' -InstallDir '+psSingle(target));
+  return psCommand('& '+psSingle(installScript)+tagArg+' -InstallDir '+psSingle(target)+' -Mode Express');
 }
 function uninstallCommand(target){
   const api=electronApi();
@@ -205,8 +294,10 @@ function renderReleaseList(){
   const total = releaseItems.length;
   const beta = releaseItems.filter(r=>r.prerelease).length;
   releaseSummary.textContent = total
-    ? `Detectadas ${total} release(s) en GitHub · ${beta} beta(s) · la mas reciente es ${latestRelease ? latestRelease.tag_name : 'n/a'}`
-    : 'No se pudieron cargar releases desde GitHub.';
+    ? `Detectadas ${total} release(s) compatibles · ${beta} beta(s)${hiddenFutureReleaseCount ? ` · ${hiddenFutureReleaseCount} futura(s) ocultada(s)` : ''} · la mas reciente permitida es ${latestRelease ? latestRelease.tag_name : 'n/a'}`
+    : hiddenFutureReleaseCount
+      ? `No hay releases compatibles con la versión actual${managerVersion ? ` (${managerVersion})` : ''}. Se ocultaron ${hiddenFutureReleaseCount} release(s) futura(s).`
+      : 'No se pudieron cargar releases compatibles desde GitHub.';
   releaseList.innerHTML = releaseItems.map(rel=>{
     const asset = (Array.isArray(rel.assets) ? rel.assets.find(a=>/\.zip$/i.test(a.name||'')) : null) || {};
     const betaBadge = rel.prerelease ? '<span class="badge badge-warn">beta</span>' : '<span class="badge badge-on">release</span>';
@@ -244,6 +335,7 @@ async function renderPayload(data){
   if(!latestRelease && releaseItems.length) latestRelease = releaseItems.find(r=>!r.prerelease)||releaseItems[0];
   if(!data||!Array.isArray(data.installations)){showToast('el JSON no tiene el campo installations[]',false);return;}
   currentPayload=data;
+  pmStoreLocalPayload(data);
   installSelection=await resolveInstallSelection(data);
   decorateInstallRoles(data.installations);
   const existing=data.installations.filter(i=>i.exists);
@@ -266,7 +358,10 @@ async function refreshAll(extraPaths){
   try{
     if(api&&api.scanInstallations&&api.fetchReleases){
       const [scan,releases]=await Promise.all([api.scanInstallations(Array.isArray(extraPaths)?extraPaths:[]), api.fetchReleases()]);
-      releaseItems=Array.isArray(releases)?releases:[];
+      const normalized=(Array.isArray(releases)?releases:[]).filter(r=>!r.draft);
+      const ceiling=await resolveManagerVersion();
+      releaseItems=normalized.filter(r=>!isFutureReleaseTag(r.tag_name,ceiling));
+      hiddenFutureReleaseCount=Math.max(0,normalized.length-releaseItems.length);
       latestRelease=releaseItems.find(r=>!r.prerelease)||releaseItems[0]||null;
       renderReleaseList();
       await renderPayload(scan);
@@ -289,6 +384,10 @@ async function bootstrapAuto(){
   } else {
     await loadLatestRelease();
     renderReleaseList();
+    const cached=pmGetLocalPayload();
+    if(cached&&Array.isArray(cached.installations)){
+      await renderPayload(cached);
+    }
   }
 }
 
@@ -343,7 +442,7 @@ function buildActions(inst,isSource){
   const pypath=isSource?'python':'pythonw';
   const cd='Set-Location -LiteralPath '+psSingle(path);
   const groups=[];
-  const latestTag=latestRelease&&latestRelease.tag_name?latestRelease.tag_name:'latest';
+  const latestTag=latestRelease&&latestRelease.tag_name?latestRelease.tag_name:'';
   const latestAsset=latestZipAsset();
   const latestAssetName=latestAsset&&latestAsset.name?latestAsset.name:'asset .zip mas reciente';
   const latestReleaseUrl=latestRelease&&latestRelease.html_url?latestRelease.html_url:'https://github.com/MarcValls/BAGO/releases';
@@ -367,7 +466,7 @@ function buildActions(inst,isSource){
     {label:'Editar config',desc:'abrir install_config.json en notepad',cmd:'notepad "'+path+'\\install_config.json"'},
   ]));
   groups.push(actionGroup('Actualizaciones','⬆',[
-    {label:'Ver ultima release detectada',desc:'Muestra tag y asset resuelto por el gestor',cmd:psCommand('Write-Host '+psSingle(latestTag+' / '+latestAssetName))},
+    {label:'Ver ultima release compatible',desc:'Muestra el tag y asset permitido por el gestor',cmd:psCommand('Write-Host '+psSingle(latestTag+' / '+latestAssetName))},
     {label:'Actualizar esta instalación',desc:'Instala la release mas reciente encima de esta ruta',cmd:installCommand(latestTag,path)},
     {label:'Instalar aparte',desc:'Crea una instalación separada para probar sin pisar esta',cmd:installCommand(latestTag,path+'-'+latestTag.replace(/[^A-Za-z0-9._-]/g,'_'))},
     {label:'Desinstalar',desc:'Llama al uninstall local de esta ruta',cmd:uninstallCommand(path)},
@@ -407,7 +506,7 @@ function buildActions(inst,isSource){
     {label:'Crear backup',desc:'Snapshot de state+config+memory',cmd:cd+'; python bago_core/cli.py backup create'},
     {label:'Listar backups',desc:'Snapshots disponibles',cmd:cd+'; python bago_core/cli.py backup list'},
     {label:'Inventario completo',desc:'Cuenta archivos, tamaños, sellos',cmd:cd+'; python bago_core/cli.py inventory'},
-    {label:'Generar bundle 4.3.0',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
+    {label:'Generar bundle 4.6.2',desc:'Crea un ZIP de release local',cmd:cd+'; python scripts/publish_release.py --mode build'},
   ]));
   return groups.join('');
 }
@@ -441,22 +540,24 @@ document.getElementById('btn-paste').addEventListener('click',async()=>{
   try{
     const text=await readTextClipboard();
     inputArea.value=text;
+    window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('paste', { source: 'clipboard', target: 'input-area', value: text });
     parseAndRender(text);
   }catch(e){showToast('no se pudo leer el portapapeles: '+e.message,false);}
 });
-document.getElementById('btn-render').addEventListener('click',()=>{parseAndRender(inputArea.value);});
-document.getElementById('btn-clear').addEventListener('click',()=>{inputArea.value='';renderEmpty();showToast('limpio',true);});
-document.getElementById('btn-file').addEventListener('click',()=>document.getElementById('file-input').click());
+document.getElementById('btn-render').addEventListener('click',()=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('render', { target: 'input-area', value: inputArea.value });parseAndRender(inputArea.value);});
+document.getElementById('btn-clear').addEventListener('click',()=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('clear', { target: 'input-area' });inputArea.value='';pmStoreLocalPayload(null);renderEmpty();showToast('limpio',true);});
+document.getElementById('btn-file').addEventListener('click',()=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('open-file-picker', { target: 'file-input' });document.getElementById('file-input').click();});
 document.getElementById('file-input').addEventListener('change',ev=>{
   const f=ev.target.files&&ev.target.files[0];
   if(!f)return;
   const r=new FileReader();
-  r.onload=e=>{inputArea.value=e.target.result;parseAndRender(e.target.result);};
+  r.onload=e=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('file-load', { file: f.name, size: f.size, target: 'input-area', value: e.target.result });inputArea.value=e.target.result;parseAndRender(e.target.result);};
   r.onerror=()=>showToast('error leyendo archivo',false);
   r.readAsText(f);
 });
 document.getElementById('btn-sample').addEventListener('click',()=>{
-  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.3.0","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  const sample=window.__SAMPLE__||'{"summary":{"existing":1,"with_supervisor":0,"with_probe":1},"installations":[{"path":"C:\\\\\\\\BAGO-demo","mode":"source","exists":true,"version":"4.6.2","has_bago_ps1":true,"has_bago_cmd":true,"has_supervisor":false,"supervisor_alive":"dead","has_probe":true,"has_seal":true,"has_cli":true,"description":"Instalación demo","release_sig_short":"abc1234"}]}';
+  window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('sample', { target: 'input-area', value: sample });
   inputArea.value=sample;
   parseAndRender(sample);
 });

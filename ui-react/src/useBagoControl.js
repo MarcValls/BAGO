@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { bagoApi } from './api'
+import { recordInteraction } from './interactionLog'
 
 export function useBagoControl() {
   const [mode, setMode] = useState('terminal')
@@ -72,6 +73,12 @@ export function useBagoControl() {
 
   const submit = useCallback(async (input, channel = mode) => {
     if (!input.trim()) return
+    recordInteraction('submit', {
+      channel,
+      mode,
+      kind: input.trim().startsWith('/') ? 'command' : 'chat',
+      input: input.trim(),
+    })
     setBusy(true)
     busyRef.current = true
     try {
@@ -97,6 +104,7 @@ export function useBagoControl() {
   }, [mode, pushCommandLog, refresh])
 
   const setSimulationMode = useCallback(async (nextMode) => {
+    recordInteraction('simulation-mode', { mode: nextMode })
     setBusy(true)
     busyRef.current = true
     try {
@@ -113,6 +121,7 @@ export function useBagoControl() {
   }, [refresh])
 
   const setRlShadow = useCallback(async (enabled) => {
+    recordInteraction('rl-shadow', { enabled: !!enabled })
     setBusy(true)
     busyRef.current = true
     try {
@@ -129,6 +138,7 @@ export function useBagoControl() {
   }, [refresh])
 
   const setCatalogMode = useCallback(async (nextMode) => {
+    recordInteraction('catalog-mode', { mode: nextMode })
     setBusy(true)
     busyRef.current = true
     try {
@@ -146,6 +156,11 @@ export function useBagoControl() {
 
   const switchProviderModel = useCallback(async (provider, model = '', channel = 'desktop') => {
     if (!provider) return
+    recordInteraction('switch-provider-model', {
+      channel,
+      provider,
+      model: model || null,
+    })
     setBusy(true)
     busyRef.current = true
     try {
