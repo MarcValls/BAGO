@@ -960,12 +960,26 @@ class BagoREPL:
             return True
         return self._handle_command(f"/memory delete {recent[idx]['id']}")
 
-    def _credential_wizard(self) -> bool:
-        """Asistente guiado para registrar/actualizar una credencial sin escribir comandos.
+    # ═════════════════════════════════════════════════════════════════════════
+    #  Wizard de credenciales mejorado — flujo por provider, campos guiados
+    # ═════════════════════════════════════════════════════════════════════════
 
-        Flujo navegable: elegir provider -> elegir dato (key) -> escribir valor.
-        Accesible desde el menu, la paleta '/' o escribiendo '/credentials set', '/login' o '/cred'.
-        """
+    _CREDENTIAL_URLS: dict[str, str] = {
+        "ollama-local":  "http://127.0.0.1:11434",
+        "ollama-cloud":  "",
+        "copilot":       "https://github.com/settings/tokens",
+        "anthropic":     "https://console.anthropic.com/settings/keys",
+        "codex":         "https://platform.openai.com/api-keys",
+        "openrouter":    "https://openrouter.ai/keys",
+        "opencode":      "",
+    }
+
+    _CREDENTIAL_DEFAULTS: dict[str, dict[str, str]] = {
+        "ollama-local": {"OLLAMA_HOST": "http://127.0.0.1:11434"},
+    }
+
+    def _credential_wizard(self) -> bool:
+        """Asistente guiado para registrar credenciales. Flujo fluido por provider."""
         try:
             from credential_manager import CREDENTIAL_SCHEMA
         except Exception as exc:
@@ -980,7 +994,6 @@ class BagoREPL:
             return True
 
         creds = self.mgr.credentials
-
         providers = list(CREDENTIAL_SCHEMA.keys())
         plabels = []
         for p in providers:
@@ -995,41 +1008,90 @@ class BagoREPL:
         schema = CREDENTIAL_SCHEMA[provider]
         keys = list(schema.keys())
         stored = creds.list_for_provider(provider)
-        klabels = []
-        for k in keys:
-            mark = "●" if stored.get(k) else "○"
-            klabels.append(f"{mark} {k}  —  {schema[k]}")
-        kidx = self._navigate(f"{provider} · elige el dato a registrar", klabels)
-        if kidx is None:
-            print(R.dim("Asistente de credenciales cerrado."))
-            return True
-        key = keys[kidx]
+        url = self._CREDENTIAL_URLS.get(provider, "")
 
-        print(R.dim(f"  {schema[key]}"))
-        if stored.get(key):
-            actual = stored[key]
-            masked = actual[:4] + "***" if len(actual) > 4 else "****"
-            print(R.dim(f"  Valor actual: {masked} (se sobrescribira)"))
-        value = self._timed_input(R.accent(f"  {provider}/{key} = "), timeout=60)
-        if value is None:
-            return True
-        value = value.strip()
-        if not value:
-            print(R.dim("Valor vacio. Operacion cancelada."))
-            return True
+        if url:
+            print(R.info(f"  ℹ Consigue tu credencial en: {url}"))
+            try:
+                import webbrowser
+                webbrowser.open(url)
+            except Exception:
+                pass
 
-        try:
-            creds.set(provider, key, value)
-        except Exception as exc:
-            # Culpa tecnica: reportar responsabilidad y causa con claridad.
-            print(R.error(
-                f"No se pudo guardar la credencial {provider}/{key}: {exc}. "
-                "Revisa permisos de .bago/credentials.json o el modo de almacenamiento en install_config.json."
-            ))
-            return True
+        # Recorrer cada campo del provider
+        for key in keys:
+            desc = schema[key]
+            is_optional = "opcional" in desc.lower()
+            default = self._CREDENTIAL_DEFAULTS.get(provider, {}).get(key, "")
 
-        masked = value[:4] + "***" if len(value) > 4 else "****"
-        print(R.ok(f"✓ Credencial guardada: {provider}/{key} = {masked}"))
+            # Mostrar contexto
+            print()
+            print(R.bold(f"  {provider} / {key}"))
+            print(R.dim(f"  {desc}"))
+
+            if stored.get(key):
+                actual = stored[key]
+                masked = actual[:4] + "***" if len(actual) > 4 else "****"
+                print(R.dim(f"  Actual: {masked} (se sobrescribirá)"))
+
+            # Si hay default, ofrecer usarlo
+            if default:
+                opts = [f"Usar default: {default}", "Introducir otro valor", "Omitir este campo"]
+                sidx = self._navigate(f"{key}", opts)
+                if sidx is None:
+                    print(R.dim("Wizard cancelado."))
+                    return True
+                if sidx == 0:
+                    value = default
+                elif sidx == 2:
+                    continue
+                else:
+                    value = self._timed_input(R.accent(f"  {key} = "), timeout=120)
+                    if value is None:
+                        return True
+                    value = value.strip()
+                    if not value:
+                        print(R.dim("  Valor vacío — omitido."))
+                        continue
+            # Campo opcional: ofrecer omitir
+            elif is_optional:
+                opts = ["Introducir valor", "Omitir (opcional)"]
+                sidx = self._navigate(f"{key} — opcional", opts)
+                if sidx is None:
+                    print(R.dim("Wizard cancelado."))
+                    return True
+                if sidx == 1:
+                    continue
+                value = self._timed_input(R.accent(f"  {key} = "), timeout=120)
+                if value is None:
+                    return True
+                value = value.strip()
+                if not value:
+                    print(R.dim("  Valor vacío — omitido."))
+                    continue
+            else:
+                value = self._timed_input(R.accent(f"  {key} = "), timeout=120)
+                if value is None:
+                    return True
+                value = value.strip()
+                if not value:
+                    print(R.error("  Este campo es obligatorio. Wizard cancelado."))
+                    return True
+
+            try:
+                creds.set(provider, key, value)
+            except Exception as exc:
+                print(R.error(
+                    f"No se pudo guardar {provider}/{key}: {exc}. "
+                    "Revisa permisos de .bago/credentials.json."
+                ))
+                return True
+
+            masked = value[:4] + "***" if len(value) > 4 else "****"
+            print(R.ok(f"  ✓ Guardado: {provider}/{key} = {masked}"))
+
+        print()
+        print(R.ok(f"✓ Configuración de {provider} completada."))
         return True
 
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
