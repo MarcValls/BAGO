@@ -5,9 +5,11 @@ let pmPatchSurface=localStorage.getItem('bago.pm.patch.surface')||'connectors';
 let pmSelectedChainStageId='';
 let pmSelectedChainStepId='';
 let pmChainDirty=false;
+let pmChainIdCounter=0;
 
 function pmChainId(prefix){
-  return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+  pmChainIdCounter=(pmChainIdCounter+1)%Number.MAX_SAFE_INTEGER;
+  return prefix+'-'+Date.now().toString(36)+'-'+pmChainIdCounter.toString(36);
 }
 function pmDefaultChain(){
   return {
