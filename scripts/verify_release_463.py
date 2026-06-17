@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-verify_release_462.py
-Gate de verificación pre-publicación para BAGO v4.6.2.
+verify_release_463.py
+Gate de verificación pre-publicación para BAGO v4.6.3.
 
 Comprueba que el EXE, el ZIP oficial, el manifiesto y el checksum del bundle
 son coherentes entre sí. También valida que el ZIP incluya package-lock.json,
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REL_DIR = ROOT / "release" / "v4"
 DIST_DIR = ROOT / "dist"
 
-VERSION = "4.6.2"
+VERSION = "4.6.3"
 EXE_NAME = f"BAGO-Installation-Manager-{VERSION}-win-x64.exe"
 ZIP_NAME = f"bago-v{VERSION}.zip"
 

@@ -1,5 +1,5 @@
 {
-  "current": "4.6.2",
+  "current": "4.6.3",
   "history": [
     {
       "version": "4.0.0",
@@ -58,8 +58,14 @@
     {
       "version": "4.6.2",
       "released": "2026-06-17",
-      "ended": null,
+      "ended": "2026-06-17",
       "notes": "Refactor agresivo del manager en servicios IPC, endurecimiento de flujos de instalación y base para publicación de una nueva línea de release."
+    },
+    {
+      "version": "4.6.3",
+      "released": "2026-06-17",
+      "ended": null,
+      "notes": "Preparación de la siguiente línea de release; el manager y los metadatos quedan listos para el siguiente corte."
     }
   ]
 }

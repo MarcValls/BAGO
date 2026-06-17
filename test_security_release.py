@@ -152,7 +152,7 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "ensureBagoInstalled" in install_service
     assert "ReleaseJobManager" in release_service
     assert "fetchReleases" in release_service
-    assert "verify_release_462.py" in (BAGO_ROOT / "scripts" / "verify_release_462.py").read_text(encoding="utf-8")
+    assert "verify_release_463.py" in (BAGO_ROOT / "scripts" / "verify_release_463.py").read_text(encoding="utf-8")
     assert "js/startup-deps.js" in html
     assert "pm-session-provider-actions" in html
     assert "Instalar faltantes" in startup_banner
