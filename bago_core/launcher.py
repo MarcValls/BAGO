@@ -321,8 +321,9 @@ def main(argv: list[str] | None = None) -> int:
     install_root = Path(__file__).resolve().parents[1]
     install_config = _load_install_config(install_root)
 
-    # Leer defaults desde config.json si existe
-    base = str(install_root) if install_config else os.getcwd()
+    # El base-path operativo es el directorio actual del usuario.
+    # El install_config solo aporta defaults de provider/modelo.
+    base = os.getcwd()
     try:
         cm_defaults = ConfigManager(base_path=base)
         default_provider = install_config.get("runtime", {}).get("default_provider") or cm_defaults.default_provider

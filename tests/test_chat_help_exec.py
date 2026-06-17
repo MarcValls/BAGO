@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -66,6 +67,50 @@ class ChatHelpExecTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("BAGO DOCTOR", result.stdout)
         self.assertIn("command_catalog", result.stdout)
+
+    def test_launcher_defaults_base_path_to_cwd(self) -> None:
+        from bago_core import launcher
+
+        captured: dict[str, str] = {}
+
+        class DummyParser:
+            def parse_args(self, argv: list[str]):
+                return type("Args", (), {"command": None})()
+
+        class DummyConfigManager:
+            def __init__(self, base_path: str) -> None:
+                captured["config_base"] = base_path
+
+            @property
+            def default_provider(self) -> str:
+                return "ollama-local"
+
+            @property
+            def default_model(self) -> str:
+                return "llama3.2:3b"
+
+        def fake_build_parser(version: str, base: str, default_provider: str, default_model: str) -> DummyParser:
+            captured["parser_base"] = base
+            captured["default_provider"] = default_provider
+            captured["default_model"] = default_model
+            return DummyParser()
+
+        with tempfile.TemporaryDirectory() as td:
+            cwd = Path(td)
+            with (
+                patch.object(launcher.os, "getcwd", return_value=str(cwd)),
+                patch.object(launcher, "_load_install_config", return_value={"runtime": {"default_provider": "codex", "default_model": "gpt-5.4-mini"}}),
+                patch("config_manager.ConfigManager", DummyConfigManager),
+                patch.object(launcher, "build_parser", side_effect=fake_build_parser),
+                patch.object(launcher, "_dispatch", return_value=0),
+            ):
+                rc = launcher.main([])
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(captured["parser_base"], str(cwd))
+        self.assertEqual(captured["config_base"], str(cwd))
+        self.assertEqual(captured["default_provider"], "codex")
+        self.assertEqual(captured["default_model"], "gpt-5.4-mini")
 
     def test_repl_uses_shared_menu_sections(self) -> None:
         sys.path.insert(0, str(REPO / ".bago" / "chat"))
