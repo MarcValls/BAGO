@@ -27,6 +27,7 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --
 
 Suggested parallel audit checks:
 
+- Download and extract `bago-release-assets-v4.6.3.zip` outside the audit bundle.
 - `python bago_core\cli.py project analyze --root <repo>`
 - `$env:BAGO_RELEASE_ASSETS = "C:\audit-inputs\bago-release-v4.6.3"`
 - `python scripts\verify_release_463.py`

@@ -21,13 +21,13 @@ El ZIP oficial fue regenerado tras cerrar el lockfile npm y las vulnerabilidades
 
 | Artefacto | SHA256 |
 |---|---|
-| BAGO-Installation-Manager-4.6.3-win-x64.exe | `ceea0b609069db3f9c29867079cd05753342fb80e96132fcb37a98f8ed7efb16` |
-| bago-v4.6.3.zip | `f16e28b302530b043b8e9f0f1fafd9b622bc32b7131c5a12d714714c7423dafb` |
-| bago-user-v4.6.3.zip | `541242fbf6d95ca0de561dd87a1ba39ec9e345ef25e4aa3486f0d304f0ab0f7d` |
+| BAGO-Installation-Manager-4.6.3-win-x64.exe | `7668395228f4d00ad3d219e921287332b9fe92a1c6d756c5f93f58c41e5891bf` |
+| bago-v4.6.3.zip | `adc6799abbd3d595fc0326ec310935ecd9b80310941d4201806adbefeb3ad69a` |
+| bago-user-v4.6.3.zip | `7c2e3679f15c5e21af5769901d4dd920dad0d72a3460bd2d9c20ba200d53d54a` |
 | bago-audit-v4.6.3.zip | publicado con sidecars externos |
 
 ## Estado
 
-- Release publicada y firmada.
+- Release publicada con checksums y manifiestos.
 - Bundle de usuario publicado.
 - Bundle de auditoría externa publicado.
