@@ -21,24 +21,35 @@ function isExternalUrl(url) {
   return /^https?:\/\//i.test(url);
 }
 
-function runVisiblePowerShell(command) {
+function runVisiblePowerShell(command, options = {}) {
   if (!command || typeof command !== 'string') {
     throw new Error('Comando vacío');
   }
   if (command.length > 12000) {
     throw new Error('Comando demasiado largo');
   }
+  const visible = options.visible === true;
+  const noExit = options.noExit === true;
+  const cwd = options.cwd || app.getPath('home');
+  const args = [
+    ...(visible && noExit ? ['-NoExit'] : []),
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    command
+  ];
   const child = spawn(
     'powershell.exe',
-    ['-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
+    args,
     {
-      cwd: app.getPath('home'),
-      detached: true,
+      cwd,
+      detached: visible,
       stdio: 'ignore',
-      windowsHide: false
+      windowsHide: !visible
     }
   );
-  child.unref();
+  if (visible) child.unref();
   return { pid: child.pid };
 }
 

@@ -93,7 +93,7 @@ async function main() {
     '-NoProfile',
     '-Command',
     `Compress-Archive -Path '${source.replace(/'/g, "''")}\\*' -DestinationPath '${bundlePath.replace(/'/g, "''")}' -Force`
-  ]);
+  ], { windowsHide: true });
   const bundle = fs.readFileSync(bundlePath);
   const sha256 = crypto.createHash('sha256').update(bundle).digest('hex');
   const checksum = `${sha256}  bundle.zip\n`;
@@ -170,7 +170,7 @@ async function main() {
     '-NoProfile',
     '-Command',
     `Compress-Archive -Path '${futureSource.replace(/'/g, "''")}\\*' -DestinationPath '${futureBundlePath.replace(/'/g, "''")}' -Force`
-  ]);
+  ], { windowsHide: true });
   const futureBundle = fs.readFileSync(futureBundlePath);
   const futureSha256 = crypto.createHash('sha256').update(futureBundle).digest('hex');
   const futureChecksum = `${futureSha256}  bundle.zip\n`;

@@ -181,7 +181,7 @@ function createRuntimeService(ctx) {
       `Set-Location -LiteralPath ${psSingleArg(runtimeRoot)}`,
       `python -m bago_core.launcher --base-path ${psSingleArg(basePath)} chat`
     ].join('; ');
-    return runVisiblePowerShell(command);
+    return runVisiblePowerShell(command, { visible: true, noExit: true, cwd: runtimeRoot });
   }
 
   function nodeAction(args) {

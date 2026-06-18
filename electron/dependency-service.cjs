@@ -335,7 +335,11 @@ function createDependencyService(ctx) {
     }
     const command = buildDependencyCommand(payload);
     if (!command) throw new Error('Acción de dependencia no soportada');
-    return runVisiblePowerShell(command);
+    return runVisiblePowerShell(command, {
+      visible: true,
+      noExit: true,
+      cwd: ROOT_DIR
+    });
   }
 
   function escapeHtml(s) {
