@@ -16,6 +16,7 @@ import base64
 import argparse
 import hashlib
 import json
+import os
 import sys
 import zipfile
 from pathlib import Path
@@ -23,6 +24,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REL_DIR = ROOT / "release" / "v4"
 DIST_DIR = ROOT / "dist"
+DEFAULT_ASSETS_DIR = Path(
+    os.environ.get("BAGO_RELEASE_ASSETS", ROOT.parent / "bago-release-v4.6.3")
+).resolve()
 
 VERSION = "4.6.3"
 EXE_NAME = f"BAGO-Installation-Manager-{VERSION}-win-x64.exe"
@@ -88,11 +92,11 @@ def run_checks(
 ) -> int:
     errors = 0
 
-    exe_dist = exe_path or (DIST_DIR / EXE_NAME)
-    zip_path = zip_path or (REL_DIR / ZIP_NAME)
-    zip_sha256_file = zip_sha256_path or (REL_DIR / f"{ZIP_NAME}.sha256")
-    manifest_path = manifest_path or (REL_DIR / f"{ZIP_NAME}.manifest.json")
-    dist_latest = latest_yml_path or (DIST_DIR / "latest.yml")
+    exe_dist = exe_path or (DEFAULT_ASSETS_DIR / EXE_NAME)
+    zip_path = zip_path or (DEFAULT_ASSETS_DIR / ZIP_NAME)
+    zip_sha256_file = zip_sha256_path or (DEFAULT_ASSETS_DIR / f"{ZIP_NAME}.sha256")
+    manifest_path = manifest_path or (DEFAULT_ASSETS_DIR / f"{ZIP_NAME}.manifest.json")
+    dist_latest = latest_yml_path or (DEFAULT_ASSETS_DIR / "latest.yml")
 
     print(f"\n=== BAGO {VERSION} release gate ===\n")
 
@@ -239,12 +243,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.test:
         return _run_tests()
+    if not any([args.exe_path, args.zip_path, args.manifest_path, args.zip_sha256_path, args.latest_yml_path]) and not DEFAULT_ASSETS_DIR.exists():
+        _fail(
+            "Directorio de artefactos no encontrado. Define BAGO_RELEASE_ASSETS "
+            f"o crea: {DEFAULT_ASSETS_DIR}"
+        )
+        return 2
     return run_checks(
-        exe_path=_resolve_path(args.exe_path, DIST_DIR / EXE_NAME),
-        zip_path=_resolve_path(args.zip_path, REL_DIR / ZIP_NAME),
-        manifest_path=_resolve_path(args.manifest_path, REL_DIR / f"{ZIP_NAME}.manifest.json"),
-        zip_sha256_path=_resolve_path(args.zip_sha256_path, REL_DIR / f"{ZIP_NAME}.sha256"),
-        latest_yml_path=_resolve_path(args.latest_yml_path, DIST_DIR / "latest.yml"),
+        exe_path=_resolve_path(args.exe_path, DEFAULT_ASSETS_DIR / EXE_NAME),
+        zip_path=_resolve_path(args.zip_path, DEFAULT_ASSETS_DIR / ZIP_NAME),
+        manifest_path=_resolve_path(args.manifest_path, DEFAULT_ASSETS_DIR / f"{ZIP_NAME}.manifest.json"),
+        zip_sha256_path=_resolve_path(args.zip_sha256_path, DEFAULT_ASSETS_DIR / f"{ZIP_NAME}.sha256"),
+        latest_yml_path=_resolve_path(args.latest_yml_path, DEFAULT_ASSETS_DIR / "latest.yml"),
     )
 
 

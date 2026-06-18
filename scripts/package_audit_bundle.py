@@ -5,6 +5,7 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import os
 import subprocess
 import zipfile
 from datetime import datetime, timezone
@@ -92,6 +93,7 @@ EXCLUDED_GLOBS = [
     "*.py.new",
     "bago_core/parsers_legacy_*.py",
     "tools/_diff_*.py",
+    "docs/RELEASE_NOTES_4.6.3.md",
 ]
 
 FORBIDDEN_NAMES = {
@@ -151,6 +153,34 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _git(args: list[str], cwd: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            shell=False,
+            timeout=30,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return (result.stdout or "").strip()
+
+
+def require_clean_git(root: Path) -> None:
+    if not (root / ".git").exists():
+        return
+    status = _git(["status", "--porcelain"], root)
+    if status.strip():
+        raise RuntimeError(
+            "Release bloqueada: el árbol Git contiene cambios sin commit:\n"
+            + status
+        )
+
+
 def collect_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for item in INCLUDE_FILES:
@@ -183,7 +213,7 @@ def _git(args: list[str], cwd: Path) -> str:
 
 def snapshot(root: Path) -> dict:
     branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], root) or "(no git)"
-    commit = _git(["rev-parse", "--short", "HEAD"], root) or "(no commit)"
+    commit = _git(["rev-parse", "HEAD"], root) or "(no commit)"
     status = _git(["status", "--short"], root)
     dirty = [line for line in status.splitlines() if line.strip()] if status else []
     return {
@@ -198,16 +228,24 @@ def snapshot(root: Path) -> dict:
 def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") -> dict:
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    require_clean_git(root)
     version = normalize_release_version(release_version or read_release_version(root))
     package_name = f"bago-audit-v{version}.zip"
     zip_path = output_dir / package_name
     files = collect_files(root)
-    audit_snapshot = snapshot(root)
-    audit_snapshot["package"] = package_name
-    audit_snapshot["file_count"] = len(files)
-    audit_snapshot["release_version"] = version
-    audit_snapshot["excluded_prefixes"] = EXCLUDED_PREFIXES
-    audit_snapshot["forbidden_names"] = sorted(FORBIDDEN_NAMES)
+    embedded_snapshot = snapshot(root)
+    embedded_snapshot["package"] = package_name
+    embedded_snapshot["file_count"] = len(files) + 1
+    embedded_snapshot["release_version"] = version
+    embedded_snapshot["excluded_prefixes"] = EXCLUDED_PREFIXES
+    embedded_snapshot["forbidden_names"] = sorted(FORBIDDEN_NAMES)
+
+    snapshot_bytes = json.dumps(
+        embedded_snapshot,
+        indent=2,
+        ensure_ascii=False,
+    ).encode("utf-8")
+    embedded_snapshot_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
 
     manifest_files = []
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -220,63 +258,39 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
                 "size": file_path.stat().st_size,
                 "sha256": sha256(file_path),
             })
-        snapshot_bytes = json.dumps(audit_snapshot, indent=2, ensure_ascii=False).encode("utf-8")
         zf.writestr("AUDIT_SNAPSHOT.json", snapshot_bytes)
         manifest_files.append({
             "path": "AUDIT_SNAPSHOT.json",
             "size": len(snapshot_bytes),
-            "sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
+            "sha256": embedded_snapshot_sha256,
         })
 
-    audit_snapshot["zip_sha256"] = sha256(zip_path)
-    audit_snapshot["file_count"] = len(manifest_files)
+    zip_sha256 = sha256(zip_path)
+    detached_snapshot = {
+        **embedded_snapshot,
+        "zip_sha256": zip_sha256,
+        "embedded_snapshot_sha256": embedded_snapshot_sha256,
+    }
 
     snapshot_path = output_dir / f"{package_name}.snapshot.json"
     manifest_path = output_dir / f"{package_name}.manifest.json"
     checksums_path = output_dir / f"{package_name}.sha256"
     report_path = output_dir / f"{package_name}.report.md"
 
-    manifest = {
-        "bundle_id": package_name,
-        "contract_version": "audit-v1",
-        "related_to": f"bago release {version}",
-        "summary": "External audit bundle without local model weights",
-        "details": "Includes source, docs, tests, evidence, release notes and audit bootstrap instructions.",
-        "status": "ready",
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
-        "validation_commands": [
-            "python scripts/verify_release_463.py",
-            "python scripts/package_audit_bundle.py --test",
-            "python bago_core/cli.py project analyze --root <repo>",
-        ],
-        "checks": [
-            "zip contains no .ollama, models, weights, or checkpoints",
-            "zip contains audit bootstrap instructions",
-            "zip contains release evidence and contract docs",
-        ],
-        "artifacts": [
-            {"path": package_name, "sha256": audit_snapshot["zip_sha256"]},
-            {"path": f"{package_name}.sha256", "sha256": None},
-            {"path": f"{package_name}.manifest.json", "sha256": None},
-            {"path": f"{package_name}.snapshot.json", "sha256": None},
-            {"path": "AUDIT_SNAPSHOT.json", "sha256": hashlib.sha256(json.dumps(audit_snapshot, indent=2, ensure_ascii=False).encode("utf-8")).hexdigest()},
-        ],
-        "files": manifest_files,
-        "snapshot": audit_snapshot,
-    }
-
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-    snapshot_path.write_text(json.dumps(audit_snapshot, indent=2, ensure_ascii=False), encoding="utf-8")
-    checksums_path.write_text(f"{audit_snapshot['zip_sha256']}  {package_name}\n", encoding="utf-8")
+    snapshot_path.write_text(
+        json.dumps(detached_snapshot, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+        newline="\n",
+    )
     report_path.write_text(
         "\n".join([
             "# BAGO External Audit Bundle",
             "",
             f"- Package: `{package_name}`",
             f"- Files: `{len(manifest_files)}`",
-            f"- Branch: `{audit_snapshot['branch']}`",
-            f"- Commit: `{audit_snapshot['commit']}`",
-            f"- SHA256: `{audit_snapshot['zip_sha256']}`",
+            f"- Branch: `{embedded_snapshot['branch']}`",
+            f"- Commit: `{embedded_snapshot['commit']}`",
+            f"- SHA256: `{zip_sha256}`",
             "",
             "## Included",
             "",
@@ -296,6 +310,51 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
             "",
         ]),
         encoding="utf-8",
+        newline="\n",
+    )
+    snapshot_sha256 = sha256(snapshot_path)
+    report_sha256 = sha256(report_path)
+    manifest = {
+        "bundle_id": package_name,
+        "contract_version": "audit-v1",
+        "related_to": f"bago release {version}",
+        "summary": "External audit bundle without local model weights",
+        "details": "Includes source, docs, tests, evidence, release notes and audit bootstrap instructions.",
+        "status": "ready",
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "validation_commands": [
+            "python scripts/verify_release_463.py",
+            "python scripts/package_audit_bundle.py --test",
+            "python bago_core/cli.py project analyze --root <repo>",
+        ],
+        "checks": [
+            "zip contains no .ollama, models, weights, or checkpoints",
+            "zip contains audit bootstrap instructions",
+            "zip contains release evidence and contract docs",
+        ],
+        "artifacts": [
+            {"path": package_name, "sha256": zip_sha256},
+            {"path": f"{package_name}.snapshot.json", "sha256": snapshot_sha256},
+            {"path": f"{package_name}.report.md", "sha256": report_sha256},
+            {"path": "AUDIT_SNAPSHOT.json", "sha256": embedded_snapshot_sha256},
+        ],
+        "files": manifest_files,
+        "snapshot": detached_snapshot,
+    }
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+        newline="\n",
+    )
+    checksums_path.write_text(
+        "\n".join([
+            f"{zip_sha256}  {package_name}",
+            f"{sha256(manifest_path)}  {package_name}.manifest.json",
+            f"{sha256(snapshot_path)}  {package_name}.snapshot.json",
+            f"{sha256(report_path)}  {package_name}.report.md",
+        ]) + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
 
     return {
@@ -305,7 +364,7 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
         "checksums": str(checksums_path),
         "report": str(report_path),
         "file_count": len(manifest_files),
-        "zip_sha256": audit_snapshot["zip_sha256"],
+        "zip_sha256": zip_sha256,
     }
 
 
@@ -323,15 +382,31 @@ def _run_tests() -> int:
         (root / ".ollama" / "models" / "llama3.2.gguf").write_text("no\n", encoding="utf-8")
         (root / "models").mkdir()
         (root / "models" / "other.gguf").write_text("no\n", encoding="utf-8")
-        result = build_audit_bundle(root, root / "release" / "v4", release_version="4.6.3")
+        real_git = _git
+        try:
+            globals()["_git"] = lambda args, cwd: ""
+            result = build_audit_bundle(root, root / "release" / "v4", release_version="4.6.3")
+        finally:
+            globals()["_git"] = real_git
         with zipfile.ZipFile(result["zip"], "r") as zf:
-            names = set(zf.namelist())
+            names = zf.namelist()
+            embedded_bytes = zf.read("AUDIT_SNAPSHOT.json")
+            embedded = json.loads(embedded_bytes)
+        assert embedded["file_count"] == len(names)
         assert "bago_core/x.py" in names
         assert "docs/evidence/sample/report.md" in names
         assert "AUDIT_PARALLEL_SETUP.md" in names
         assert "AUDIT_SNAPSHOT.json" in names
         assert ".ollama/models/llama3.2.gguf" not in names
         assert "models/other.gguf" not in names
+        manifest = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
+        manifest_names = {entry["path"] for entry in manifest["files"]}
+        assert manifest_names == set(names)
+        snapshot_entry = next(entry for entry in manifest["files"] if entry["path"] == "AUDIT_SNAPSHOT.json")
+        assert snapshot_entry["sha256"] == hashlib.sha256(embedded_bytes).hexdigest()
+        checksum_lines = Path(result["checksums"]).read_text(encoding="utf-8").splitlines()
+        assert len(checksum_lines) == 4
+        assert checksum_lines[0].endswith(f" {Path(result['zip']).name}")
         assert Path(result["zip"]).name == "bago-audit-v4.6.3.zip"
     print("package_audit_bundle.py --test: ALL PASS")
     return 0

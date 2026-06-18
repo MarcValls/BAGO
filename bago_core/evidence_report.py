@@ -41,6 +41,7 @@ def _build_report_header(
     output_dir: Path,
 ) -> list[str]:
     """Markdown header for the evidence report (R4: small helper)."""
+    relative_output = f"docs/evidence/{output_dir.name}"
     return [
         f"# Bundle de evidencia -- {profile.title}",
         "",
@@ -48,7 +49,7 @@ def _build_report_header(
         f"- **Objetivo:** `{profile.objective_id}`",
         f"- **Provider/modelo:** `{provider}/{model}`",
         f"- **Session ID:** `{session_id}`",
-        f"- **Generado en:** `{output_dir}`",
+        f"- **Generado en:** `{relative_output}`",
         "",
     ]
 

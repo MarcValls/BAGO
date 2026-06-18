@@ -38,7 +38,7 @@ _BOLD = "\033[1m"
 _DIM  = "\033[2m"
 
 SKIP_DIRS = {"node_modules", "__pycache__", ".git", "venv", ".venv",
-             "dist", "build", ".mypy_cache", "TESTS"}
+             "dist", "build", ".mypy_cache", "TESTS", ".vercel"}
 SKIP_EXTS = {".pyc", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
              ".zip", ".tar", ".gz", ".pdf", ".woff", ".ttf", ".eot"}
 
