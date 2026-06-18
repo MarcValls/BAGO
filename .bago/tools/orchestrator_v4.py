@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-orchestrator_v4.py — BAGO 4.1.5 Orchestrator
+orchestrator_v4.py — BAGO Orchestrator
 
 Implementa el Flujo Operativo General para Gestión de Tareas con Agentes.
 
@@ -57,7 +57,16 @@ from bago_utils import (
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
-VERSION = "4.1.5"
+def _current_release_version() -> str:
+    release_version = Path(__file__).resolve().parents[2] / "release_version.txt"
+    if release_version.exists():
+        value = release_version.read_text(encoding="utf-8").strip()
+        if value:
+            return value
+    return "4.6.3"
+
+
+VERSION = _current_release_version()
 STATE_SUBDIR = "orchestrator"
 
 PRIORITIES = {"P0", "P1", "P2", "Post-MVP"}
@@ -500,7 +509,7 @@ def _fmt_brief(brief: TaskBrief, verbose: bool = False) -> str:
 def _parse(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="orchestrator_v4",
-        description="BAGO 4.1.5 Orchestrator — Flujo Operativo General",
+        description=f"BAGO {VERSION} Orchestrator — Flujo Operativo General",
     )
     p.add_argument("--root", default="", help="Raíz del proyecto (override)")
     p.add_argument("--json", action="store_true", dest="as_json", help="Salida en JSON")

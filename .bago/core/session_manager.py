@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-session_manager.py — BAGO 4.1.5 Session Manager
+session_manager.py — BAGO Session Manager
 
 Orquesta todo el ciclo de vida de una sesión de chat:
 - Carga/guarda contexto via ContextStore
@@ -34,6 +34,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from version import CURRENT as BAGO_VERSION
 from context_store import ContextStore, ContextMessage, TimelineEvent
 from context_compressor import ContextCompressor, LayerStore
 from state_paths import resolve_state_root
@@ -118,7 +119,7 @@ class SessionManager:
                 "last_provider": "",
                 "last_model": "",
                 "switch_count": 0,
-                "bago_version": "4.1.5",
+                "bago_version": BAGO_VERSION,
             })
             self.store.add_timeline_event(TimelineEvent("session", "start", f"Session {self.session_id} created"))
         self.equiv = EquivalenceMap()

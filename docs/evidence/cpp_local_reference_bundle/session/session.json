@@ -1,5 +1,5 @@
 {
-  "session_id": "171b7c59-445",
+  "session_id": "15a2bb26-634",
   "provider": "mock-contract",
   "model": "contract-assistant-v1",
   "system_prompt": "",
@@ -8,7 +8,7 @@
   "active_bridges": [
     "mock-contract"
   ],
-  "created_at": 1781809708.6884089,
+  "created_at": 1781811206.961174,
   "total_tokens": 225,
   "total_calls": 2,
   "last_switch_at": null,

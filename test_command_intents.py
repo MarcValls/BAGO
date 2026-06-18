@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_command_intents.py — BAGO 4.1.5
+test_command_intents.py — BAGO 4.6.3
 Evidencia de entrenamiento: verifica que cada frase del dataset
 command_intents.json se resuelve al comando correcto.
 

@@ -56,7 +56,16 @@ LOG_FILE     = STATE_DIR / "supervisor.log"
 LOCK_FILE    = STATE_DIR / "supervisor.lock"
 STOP_FILE    = STATE_DIR / "supervisor.stop"  # sentinel: presente = salir limpio
 LOG_MAX_BYTES = 1_000_000  # 1 MB
-SUPERVISOR_VERSION = "4.1.5"
+def _current_release_version() -> str:
+    release_version = Path(__file__).resolve().parents[1] / "release_version.txt"
+    if release_version.exists():
+        value = release_version.read_text(encoding="utf-8").strip()
+        if value:
+            return value
+    return "4.6.3"
+
+
+SUPERVISOR_VERSION = _current_release_version()
 
 # Ventanas (segundos) — todas generosas para no patear a un humano
 WATCHDOG_TICK_S       = 5

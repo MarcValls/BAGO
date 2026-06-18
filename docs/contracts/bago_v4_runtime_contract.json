@@ -1,6 +1,6 @@
 {
   "contract_id": "bago.v4.runtime.session-first",
-  "contract_version": "4.1.5",
+  "contract_version": "4.6.3",
   "scope": "repository",
   "source_of_truth": [
     "docs\\COMMUNITY.md",
@@ -63,4 +63,3 @@
     "example_output": "docs\\evidence\\example_bundle"
   }
 }
-

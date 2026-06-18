@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-context_store.py — BAGO 4.1.5 Context Store
+context_store.py — BAGO Context Store
 
 Persiste el contexto de conversación independientemente del provider.
 Cada sesión tiene su propio directorio en .bago/state/sessions/<sid>/
@@ -34,6 +34,11 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+
+try:
+    from version import CURRENT as BAGO_VERSION
+except Exception:
+    BAGO_VERSION = "4.6.3"
 
 
 class ContextMessage:
@@ -161,7 +166,7 @@ class ContextStore:
             "last_provider": "",
             "last_model": "",
             "switch_count": 0,
-            "bago_version": "4.1.5",
+            "bago_version": BAGO_VERSION,
         }
         instance._save_meta()
         instance.add_timeline_event(TimelineEvent("session", "start", f"Session {sid} created"))
@@ -381,7 +386,7 @@ def _run_tests() -> int:
         base = Path(td)
         store = ContextStore.create_new(base_dir=base)
         sid = store.sid
-        assert store._meta.get("bago_version") == "4.1.5"
+        assert store._meta.get("bago_version") == BAGO_VERSION
 
         store.append_user("Hola BAGO")
         store.append_response("¡Hola! Soy BAGO.", provider="copilot", model="gpt-5.4")
