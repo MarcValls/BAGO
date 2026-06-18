@@ -14,6 +14,7 @@ INCLUDE_FILES = [
     ".gitignore",
     "ir_types.py",
     "protocol.py",
+    "registry.py",
     "README.md",
     "MANUAL.md",
     "index.html",

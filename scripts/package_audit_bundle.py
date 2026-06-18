@@ -15,6 +15,7 @@ INCLUDE_FILES = [
     ".gitignore",
     "ir_types.py",
     "protocol.py",
+    "registry.py",
     "package.json",
     "README.md",
     "MANUAL.md",
@@ -220,9 +221,9 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
                 "sha256": sha256(file_path),
             })
         snapshot_bytes = json.dumps(audit_snapshot, indent=2, ensure_ascii=False).encode("utf-8")
-        zf.writestr("bundle-snapshot.json", snapshot_bytes)
+        zf.writestr("AUDIT_SNAPSHOT.json", snapshot_bytes)
         manifest_files.append({
-            "path": "bundle-snapshot.json",
+            "path": "AUDIT_SNAPSHOT.json",
             "size": len(snapshot_bytes),
             "sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
         })
@@ -258,7 +259,7 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
             {"path": f"{package_name}.sha256", "sha256": None},
             {"path": f"{package_name}.manifest.json", "sha256": None},
             {"path": f"{package_name}.snapshot.json", "sha256": None},
-            {"path": "bundle-snapshot.json", "sha256": hashlib.sha256(json.dumps(audit_snapshot, indent=2, ensure_ascii=False).encode("utf-8")).hexdigest()},
+            {"path": "AUDIT_SNAPSHOT.json", "sha256": hashlib.sha256(json.dumps(audit_snapshot, indent=2, ensure_ascii=False).encode("utf-8")).hexdigest()},
         ],
         "files": manifest_files,
         "snapshot": audit_snapshot,
@@ -328,6 +329,7 @@ def _run_tests() -> int:
         assert "bago_core/x.py" in names
         assert "docs/evidence/sample/report.md" in names
         assert "AUDIT_PARALLEL_SETUP.md" in names
+        assert "AUDIT_SNAPSHOT.json" in names
         assert ".ollama/models/llama3.2.gguf" not in names
         assert "models/other.gguf" not in names
         assert Path(result["zip"]).name == "bago-audit-v4.6.3.zip"

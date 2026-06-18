@@ -188,6 +188,46 @@ def run_checks(
     return 1
 
 
+def _run_tests() -> int:
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory() as td:
+        root = Path(td)
+        dist = root / "dist"
+        rel = root / "release" / "v4"
+        dist.mkdir(parents=True)
+        rel.mkdir(parents=True)
+        exe = dist / EXE_NAME
+        exe.write_bytes(b"exe")
+        zip_path = rel / ZIP_NAME
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("package-lock.json", "{}")
+        sha_path = rel / f"{ZIP_NAME}.sha256"
+        sha_path.write_text(f"{_sha256_file(zip_path)}  {ZIP_NAME}\n", encoding="utf-8")
+        manifest_path = rel / f"{ZIP_NAME}.manifest.json"
+        manifest_path.write_text(json.dumps({"included_files": [{"path": "package-lock.json"}]}), encoding="utf-8")
+        latest = dist / "latest.yml"
+        latest.write_text(
+            "\n".join([
+                f"version: {VERSION}",
+                "path: " + EXE_NAME,
+                f"size: {exe.stat().st_size}",
+                "sha512: " + _sha512_file_b64(exe),
+            ]),
+            encoding="utf-8",
+        )
+        result = run_checks(
+            exe_path=exe,
+            zip_path=zip_path,
+            manifest_path=manifest_path,
+            zip_sha256_path=sha_path,
+            latest_yml_path=latest,
+        )
+        assert result == 0
+    print("verify_release_463.py --test: ALL PASS")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build a release gate for BAGO v4.6.3.")
     parser.add_argument("--exe-path", default="", help="Path to the Windows installer EXE")

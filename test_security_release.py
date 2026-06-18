@@ -206,7 +206,8 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "pmRenderControl" in patch_manager
     assert "\"project\"" in chat_commands
     assert "Analiza el proyecto actual" in chat_commands
-    assert "Proyecto detectado" in chat_repl
+    repl_menu = (BAGO_ROOT / ".bago" / "chat" / "repl_menu.py").read_text(encoding="utf-8")
+    assert "Proyecto detectado" in repl_menu
     assert "_looks_like_directory_path" in chat_repl
     assert "BAGO_INTENT_EXAMPLES_PATH" in tool_registry
     assert "BAGO_INTENT_EXAMPLES_PATH" in intent_engine
