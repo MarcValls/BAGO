@@ -9,20 +9,20 @@
     "docs\\contracts\\bago_v4_governance_contract.md",
     "docs\\contracts\\bago_v4_engineering_contract.md"
   ],
-  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta útil y de forma indirecta preservando conocimiento, planificación y estado reproducible.",
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta util y de forma indirecta preservando conocimiento, planificacion y estado reproducible.",
   "details": {
     "mode": "simulated",
     "provider": "mock-contract",
     "model": "contract-assistant-v1",
-    "session_id": "6ef8cc6c-170",
+    "session_id": "8c2670a0-79d",
     "state_root": ".bago\\state"
   },
   "status": "pass",
-  "recorded_at": "2026-06-01T19:06:46.198764+00:00",
+  "recorded_at": "2026-06-18T19:08:13.717896+00:00",
   "validation_commands": [
     "python test_e2e.py",
     "python bago_core\\cli.py evidence --test",
-    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Users\\AMTEC_Terminal_1º\\BAGO\\docs\\evidence\\release_4_1_5\" --overwrite"
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Users\\AMTEC_Terminal_1º\\bago_fw\\docs\\evidence\\release_4_1_5\" --overwrite"
   ],
   "checks": [
     {
@@ -48,15 +48,15 @@
     {
       "id": "plan-generation",
       "status": "pass",
-      "detail": "El runtime genero un plan reutilizable desde el parser REPL real."
+      "detail": "El runtime definio un plan reutilizable desde el parser REPL real."
     }
   ],
   "artifacts": [
-    "session\\context.jsonl",
-    "session\\timeline.jsonl",
-    "session\\tokens.json",
-    "session\\meta.json",
-    "session\\session.json",
+    "session/context.jsonl",
+    "session/timeline.jsonl",
+    "session/tokens.json",
+    "session/meta.json",
+    "session/session.json",
     "assistant_response.txt",
     "commands\\results.json",
     "knowledge\\recent_memories.json",
@@ -66,66 +66,56 @@
   "files": [
     {
       "path": "assistant_response.txt",
-      "sha256": "a9f3d52c3d496f27f880e214bdee039dd3d0838b3ec63e1b567ed7839711732b",
-      "size_bytes": 226
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f",
+      "size_bytes": 225
     },
     {
-      "path": "checksums.sha256",
-      "sha256": "ebf660cf4c690971699e46067c78eef508c35016165380ff256ebdc7a8a55734",
-      "size_bytes": 1032
+      "path": "commands/results.json",
+      "sha256": "3af0fac393f6ef7bd3c1f5a78f094b0ffbe999fd22eb6129a7dafe96037fc4e1",
+      "size_bytes": 1294
     },
     {
-      "path": "commands\\results.json",
-      "sha256": "92bf31f3b931cc6073a799ec54204753ec8cad5645ac074b45298e1befb86606",
-      "size_bytes": 1251
-    },
-    {
-      "path": "knowledge\\recent_memories.json",
-      "sha256": "371d1eb5c8e68101866c3251879e4caa03218cb3e67782f4114b55e52d976856",
-      "size_bytes": 262
-    },
-    {
-      "path": "manifest.json",
-      "sha256": "ae9e8f31d2d870431ff7400b5aa7a40f9ac359f362db450495f510874c10e048",
-      "size_bytes": 2331
+      "path": "knowledge/recent_memories.json",
+      "sha256": "20a82d0addb1d805881b638f7388f1f6ef7d0e127e1da6f8658042e515af26f1",
+      "size_bytes": 255
     },
     {
       "path": "objective.json",
-      "sha256": "31885c52dc3dbcf7761ec402e105e18950b8853d965903f90bf2535efdefc224",
-      "size_bytes": 382
+      "sha256": "32eee03c3134d8bf2c6ab686896b6efd0eff26291db3c83ebc29bf459b45acea",
+      "size_bytes": 374
     },
     {
       "path": "plan.txt",
-      "sha256": "189b7d71d532615d988c616567afd8b8d1c6e9a5e9a232c1b5fb198e48a2ec85",
-      "size_bytes": 391
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f",
+      "size_bytes": 385
     },
     {
       "path": "report.md",
-      "sha256": "128e11709af32a6da8f821038403bce654cadac40198e81d87702f8ca3de40ab",
-      "size_bytes": 2684
+      "sha256": "0a40cce8ed417fd7ef7fc1c9d8923a9578a19b77d3a855bac53cd21146cf272b",
+      "size_bytes": 2630
     },
     {
-      "path": "session\\context.jsonl",
-      "sha256": "98d673e056e511e585929ec5d329cd46631ca692306d19abf8986adaf6ed680a",
-      "size_bytes": 1650
+      "path": "session/context.jsonl",
+      "sha256": "5e4a0d1e718571294153154ac8910c4b0a2012db7a4bd840d6310a6e1632b8cc",
+      "size_bytes": 1649
     },
     {
-      "path": "session\\meta.json",
-      "sha256": "a9ba54cf1fbcdeff3167fdc2054b83c83093cdbae852eea27eb4cf60d3427199",
-      "size_bytes": 212
+      "path": "session/meta.json",
+      "sha256": "24ccaa38a498fe78b3df0e0982776d11772e95ebd1b033a6191fd6dbcc603370",
+      "size_bytes": 313
     },
     {
-      "path": "session\\session.json",
-      "sha256": "40b60c982604d79cae6dd99d7eeab8aa7a4deaf524f95bf62c2bf5edcc84eb00",
-      "size_bytes": 259
+      "path": "session/session.json",
+      "sha256": "0fccdd99c1f18abe69a6ae53d20ce51e3612b8ab6e21472ef60800f4cd04e01d",
+      "size_bytes": 360
     },
     {
-      "path": "session\\timeline.jsonl",
-      "sha256": "d23d175eb754e971157ea4139dffd5f39b77af44c3190bfffa06443eb1ca2965",
+      "path": "session/timeline.jsonl",
+      "sha256": "48e9e083990d7798d9a772bdac3919ca0d7034b48c70824d706560a39c5533a2",
       "size_bytes": 298
     },
     {
-      "path": "session\\tokens.json",
+      "path": "session/tokens.json",
       "sha256": "212bc182319e99d42c0fadbd1d326bd14bdc56c1d2e832011d35fde66f3b3c50",
       "size_bytes": 125
     }

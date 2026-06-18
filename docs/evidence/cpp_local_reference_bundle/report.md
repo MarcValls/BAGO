@@ -1,34 +1,48 @@
-# Bundle de evidencia — Asistencia comunitaria basada en conocimiento abierto
+# Bundle de evidencia -- Asistencia comunitaria basada en conocimiento abierto
 
-- **Modo:** `real`
+- **Modo:** `simulated`
 - **Objetivo:** `community-knowledge`
-- **Provider/modelo:** `cpp-local/bago-cpp:default`
-- **Session ID:** `5e74844e-0f8`
-- **Generado en:** `C:\Bago_v4\docs\evidence\cpp_local_reference_bundle`
+- **Provider/modelo:** `mock-contract/contract-assistant-v1`
+- **Session ID:** `171b7c59-445`
+- **Generado en:** `docs/evidence/cpp_local_reference_bundle`
 
 ## Resultado directo al usuario
 
-cpp-local runtime dice: En dos frases, explica como puedes asistir a un usuario mientras dejas una huella reutilizable para la comunidad.
+BAGO v4 puede responder a una necesidad concreta del usuario y, al mismo tiempo, guardar el aprendizaje como conocimiento reutilizable para la comunidad. La evidencia valida que la ayuda ofrecida puede repetirse y auditarse.
+
+## Plan generado
+
+```text
+📋 Plan: publicar una mejora pequena y verificable de conocimiento comunitario para que otro usuario la pueda reutilizar
+
+  ○ 1. Definir una necesidad concreta que ayude al usuario.
+  ○ 2. Convertir la necesidad en una mejora pequena y verificable.
+  ○ 3. Registrar el aprendizaje como conocimiento recuperable.
+  ○ 4. Guardar la sesion y publicar la evidencia reutilizable.
+```
 
 ## Comprobaciones demostrables
 
-- **live-provider-health**: pass — El provider real respondio con salud positiva antes de cerrar el bundle.
-- **session-runtime**: pass — La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta.
-- **direct-assistance**: pass — Existe una respuesta util al objetivo planteado por el usuario.
-- **knowledge-persistence**: pass — La evidencia incluye conocimiento recuperable derivado de la sesion.
-- **session-save**: pass — La sesion se guardo en disco con metadatos de continuidad.
+- **session-runtime**: pass -- La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta.
+- **direct-assistance**: pass -- Existe una respuesta util al objetivo planteado por el usuario.
+- **knowledge-persistence**: pass -- La evidencia incluye conocimiento recuperable derivado de la sesion.
+- **session-save**: pass -- La sesion se guardo en disco con metadatos de continuidad.
+- **plan-generation**: pass -- El runtime definio un plan reutilizable desde el parser REPL real.
 
 ## Comandos capturados
 
 ### /status
 
 ```text
-Session ID : 5e74844e-0f8
-Provider   : cpp-local
-Model      : bago-cpp:default
-Health     : OK — cpp-local reference host reachable
+Session ID : 171b7c59-445
+Provider   : mock-contract
+Model      : contract-assistant-v1
+Modo BAGO  : [B]
+Agente     : default
+Bridges    : mock-contract
+Health     : OK — Mock contract runtime ready
 Messages   : 2
-Tokens     : 56
+Tokens     : 91
 Calls      : 1
 Switches   : 0
 ```
@@ -36,18 +50,38 @@ Switches   : 0
 ### /memory add
 
 ```text
-✓ Recuerdo añadido (ID: 1).
+✓ Recuerdo añadido (ID: 4).
 ```
 
 ### /memory search
 
 ```text
 Resultados para 'conocimiento recuperable':
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 5e74844e-0f8)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 171b7c59-445)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 916102b4-9c1)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 644ae0a8-898)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 8c2670a0-79d)
+```
+
+### /plan
+
+```text
+📋 Plan: publicar una mejora pequena y verificable de conocimiento comunitario para que otro usuario la pueda reutilizar
+
+  ○ 1. Definir una necesidad concreta que ayude al usuario.
+  ○ 2. Convertir la necesidad en una mejora pequena y verificable.
+  ○ 3. Registrar el aprendizaje como conocimiento recuperable.
+  ○ 4. Guardar la sesion y publicar la evidencia reutilizable.
+```
+
+### /good
+
+```text
+Mensaje -1 marcado como 'good' — no se diluirá en compresión.
 ```
 
 ### /save
 
 ```text
-Sesión guardada: 5e74844e-0f8
+Sesión guardada: 171b7c59-445
 ```

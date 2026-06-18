@@ -1,8 +1,26 @@
 [
   {
+    "id": 4,
+    "content": "BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificable para la comunidad.",
+    "source_session": "171b7c59-445",
+    "created_at": "2026-06-18T19:08:28.690880+00:00"
+  },
+  {
+    "id": 3,
+    "content": "BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificable para la comunidad.",
+    "source_session": "916102b4-9c1",
+    "created_at": "2026-06-18T19:08:16.487714+00:00"
+  },
+  {
+    "id": 2,
+    "content": "BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificable para la comunidad.",
+    "source_session": "644ae0a8-898",
+    "created_at": "2026-06-18T19:08:15.100393+00:00"
+  },
+  {
     "id": 1,
     "content": "BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificable para la comunidad.",
-    "source_session": "5e74844e-0f8",
-    "created_at": "2026-05-29T22:06:05.210098+00:00"
+    "source_session": "8c2670a0-79d",
+    "created_at": "2026-06-18T19:08:13.696610+00:00"
   }
 ]

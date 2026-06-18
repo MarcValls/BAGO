@@ -7,7 +7,7 @@
   "author": "BAGO",
   "license": "UNLICENSED",
   "scripts": {
-    "manager:build-ui": "npm --prefix ui-react run build",
+    "manager:build-ui": "npm --prefix ui-react ci --ignore-scripts --no-audit --no-fund && npm --prefix ui-react run build",
     "premanager:pack": "npm run manager:build-ui",
     "premanager:dist": "npm run manager:build-ui",
     "manager:dev": "electron .",

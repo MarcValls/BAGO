@@ -1,33 +1,30 @@
 {
-  "bundle_id": "bago.v4.evidence.real.community-knowledge",
-  "contract_version": "4.0.0",
+  "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
+  "contract_version": "4.1.5",
   "related_to": [
     "docs\\contracts\\bago_v4_runtime_contract.json",
     "docs\\contracts\\bago_v4_repl_contract.md",
     "docs\\contracts\\bago_v4_evidence_contract.md",
-    "docs\\contracts\\bago_v4_knowledge_contract.md"
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
   ],
-  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta útil y de forma indirecta preservando conocimiento, planificación y estado reproducible.",
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta util y de forma indirecta preservando conocimiento, planificacion y estado reproducible.",
   "details": {
-    "mode": "real",
-    "provider": "cpp-local",
-    "model": "bago-cpp:default",
-    "session_id": "5e74844e-0f8",
+    "mode": "simulated",
+    "provider": "mock-contract",
+    "model": "contract-assistant-v1",
+    "session_id": "171b7c59-445",
     "state_root": ".bago\\state"
   },
   "status": "pass",
-  "recorded_at": "2026-05-29T22:06:05.231229+00:00",
+  "recorded_at": "2026-06-18T19:08:28.711123+00:00",
   "validation_commands": [
     "python test_e2e.py",
     "python bago_core\\cli.py evidence --test",
-    "python bago_core\\cli.py evidence --mode real --provider cpp-local --model \"bago-cpp:default\" --output \"C:\\Bago_v4\\docs\\evidence\\cpp_local_reference_bundle\" --overwrite"
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Users\\AMTEC_Terminal_1º\\bago_fw\\docs\\evidence\\cpp_local_reference_bundle\" --overwrite"
   ],
   "checks": [
-    {
-      "id": "live-provider-health",
-      "status": "pass",
-      "detail": "El provider real respondio con salud positiva antes de cerrar el bundle."
-    },
     {
       "id": "session-runtime",
       "status": "pass",
@@ -47,79 +44,80 @@
       "id": "session-save",
       "status": "pass",
       "detail": "La sesion se guardo en disco con metadatos de continuidad."
+    },
+    {
+      "id": "plan-generation",
+      "status": "pass",
+      "detail": "El runtime definio un plan reutilizable desde el parser REPL real."
     }
   ],
   "artifacts": [
-    "session\\context.jsonl",
-    "session\\timeline.jsonl",
-    "session\\tokens.json",
-    "session\\meta.json",
-    "session\\session.json",
+    "session/context.jsonl",
+    "session/timeline.jsonl",
+    "session/tokens.json",
+    "session/meta.json",
+    "session/session.json",
     "assistant_response.txt",
     "commands\\results.json",
     "knowledge\\recent_memories.json",
-    "objective.json"
+    "objective.json",
+    "plan.txt"
   ],
   "files": [
     {
       "path": "assistant_response.txt",
-      "sha256": "2921a24a9ddbfccedfec81f7917640645a2560cc41bfb743056f8d4710bd5b06",
-      "size_bytes": 139
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f",
+      "size_bytes": 225
     },
     {
-      "path": "checksums.sha256",
-      "sha256": "825e73fa540e239b35265e35e1fbb3605b15ad67e99182f6a78bbc55d10c4a41",
-      "size_bytes": 956
+      "path": "commands/results.json",
+      "sha256": "e19273ad43564a654301d4c1a0f4a836a6cd5960aba9e32ea60e6b9cfac142c8",
+      "size_bytes": 1699
     },
     {
-      "path": "commands\\results.json",
-      "sha256": "8de1c847b419ff9ec2488af3ddae1f0475fff2f391ab52a4ce4aaa7c62ced37c",
-      "size_bytes": 683
-    },
-    {
-      "path": "knowledge\\recent_memories.json",
-      "sha256": "4c1c861cbaf7651f8cfac5934ae11a901c6b33df86a90bae4b17f50ff360fae5",
-      "size_bytes": 262
-    },
-    {
-      "path": "manifest.json",
-      "sha256": "6717958c34a0c7f86efa718047ab26324e83a1954d4f920be01549515436af85",
-      "size_bytes": 2196
+      "path": "knowledge/recent_memories.json",
+      "sha256": "a56f293b00f84cd1a10dac23a83017583807c732c65633ef16bb5a98d9fa8b64",
+      "size_bytes": 1014
     },
     {
       "path": "objective.json",
-      "sha256": "bffc0264e80856c030451dadd13ab6251cf468cb1b8479d863aa18b0877b8c8a",
-      "size_bytes": 377
+      "sha256": "bd279a19c1554b2c6619d20d004328fa389fcaa45bc251eae91d6a75c58eaee6",
+      "size_bytes": 374
+    },
+    {
+      "path": "plan.txt",
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f",
+      "size_bytes": 385
     },
     {
       "path": "report.md",
-      "sha256": "b8f59373915f677b85abe9dd9ff578774becdf3ea56fb7f3624a0443fa05f9cc",
-      "size_bytes": 1641
+      "sha256": "4bb1acdb2bc7f7922641f69566b1df0ed43ff15d2efcc1153613832e76c6a3ac",
+      "size_bytes": 3045
     },
     {
-      "path": "session\\context.jsonl",
-      "sha256": "26e2b64f9a54778573aa84f661325b44cbd5744b08b35b26747ef108eb9d374f",
-      "size_bytes": 595
+      "path": "session/context.jsonl",
+      "sha256": "97721edf8627fe8ff618a42c6a62bd2242a0c66028a950b9afa3adbbd6b1bc23",
+      "size_bytes": 1649
     },
     {
-      "path": "session\\meta.json",
-      "sha256": "4b5bc6b02724e71a1e316d512f0cdd9dbf20baa5aaf1298e56230e1ccf2348d6",
-      "size_bytes": 151
+      "path": "session/meta.json",
+      "sha256": "dd33069feb89e4fb0729ecc7e136c97a709a168c17604429be7642ffc4feb351",
+      "size_bytes": 313
     },
     {
-      "path": "session\\session.json",
-      "sha256": "19ec1fe6af843eee52afbca8faaffd3d2a36a671adcb428570cd0ff27b8191ee",
-      "size_bytes": 249
+      "path": "session/session.json",
+      "sha256": "2ba221c82bad92533e2ed50d8ae25c83619676824d1d72765f90fc8824ae72f5",
+      "size_bytes": 360
     },
     {
-      "path": "session\\timeline.jsonl",
-      "sha256": "442fd866f3ec66aca415b1ed130aea94b28c8f6fb8d8067dc8378e7055a9554a",
-      "size_bytes": 147
+      "path": "session/timeline.jsonl",
+      "sha256": "61c32eda169446f4205ff225df757d2c8a4118a318fa8abaa877b793e94d1d62",
+      "size_bytes": 298
     },
     {
-      "path": "session\\tokens.json",
-      "sha256": "1b84836e999c2881582c44fd3b854a3fa2ff82468cc01d811fac19525560bdcb",
-      "size_bytes": 114
+      "path": "session/tokens.json",
+      "sha256": "212bc182319e99d42c0fadbd1d326bd14bdc56c1d2e832011d35fde66f3b3c50",
+      "size_bytes": 125
     }
   ]
 }

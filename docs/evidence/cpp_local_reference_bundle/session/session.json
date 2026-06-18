@@ -1,11 +1,16 @@
 {
-  "session_id": "5e74844e-0f8",
-  "provider": "cpp-local",
-  "model": "bago-cpp:default",
+  "session_id": "171b7c59-445",
+  "provider": "mock-contract",
+  "model": "contract-assistant-v1",
   "system_prompt": "",
-  "created_at": 1780092365.1753516,
-  "total_tokens": 56,
-  "total_calls": 1,
+  "bago_mode": "B",
+  "active_agent": "default",
+  "active_bridges": [
+    "mock-contract"
+  ],
+  "created_at": 1781809708.6884089,
+  "total_tokens": 225,
+  "total_calls": 2,
   "last_switch_at": null,
   "switch_log": []
 }
