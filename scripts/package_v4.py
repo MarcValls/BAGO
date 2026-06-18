@@ -175,7 +175,7 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
     manifest = {
         "package": package_name,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "root": str(root),
+        "root": "<repo>",
         "file_count": len(manifest_files),
         "zip_sha256": sha256(zip_path),
         "included_files": manifest_files,

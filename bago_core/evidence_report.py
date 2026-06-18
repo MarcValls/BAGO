@@ -143,17 +143,18 @@ def _build_report(
 def _validation_commands(
     mode: str, objective: str, output_dir: Path, provider: str, model: str
 ) -> list[str]:
+    relative_output = f"docs/evidence/{output_dir.name}"
     commands = [
         "python test_e2e.py",
         "python bago_core\\cli.py evidence --test",
     ]
     if mode == "simulated":
         commands.append(
-            f'python bago_core\\cli.py evidence --mode simulated --objective {objective} --output "{output_dir}" --overwrite'
+            f'python bago_core\\cli.py evidence --mode simulated --objective {objective} --output "{relative_output}" --overwrite'
         )
     else:
         commands.append(
-            f'python bago_core\\cli.py evidence --mode real --provider {provider} --model "{model}" --output "{output_dir}" --overwrite'
+            f'python bago_core\\cli.py evidence --mode real --provider {provider} --model "{model}" --output "{relative_output}" --overwrite'
         )
     return commands
 

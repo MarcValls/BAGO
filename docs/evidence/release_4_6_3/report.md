@@ -3,8 +3,8 @@
 - **Modo:** `simulated`
 - **Objetivo:** `community-knowledge`
 - **Provider/modelo:** `mock-contract/contract-assistant-v1`
-- **Session ID:** `15a2bb26-634`
-- **Generado en:** `docs/evidence/cpp_local_reference_bundle`
+- **Session ID:** `ba18c234-534`
+- **Generado en:** `docs/evidence/release_4_6_3`
 
 ## Resultado directo al usuario
 
@@ -34,7 +34,7 @@ BAGO v4 puede responder a una necesidad concreta del usuario y, al mismo tiempo,
 ### /status
 
 ```text
-Session ID : 15a2bb26-634
+Session ID : ba18c234-534
 Provider   : mock-contract
 Model      : contract-assistant-v1
 Modo BAGO  : [B]
@@ -50,18 +50,18 @@ Switches   : 0
 ### /memory add
 
 ```text
-✓ Recuerdo añadido (ID: 9).
+✓ Recuerdo añadido (ID: 17).
 ```
 
 ### /memory search
 
 ```text
 Resultados para 'conocimiento recuperable':
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 15a2bb26-634)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 0978a015-f2b)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 73908b4c-993)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 4513e597-8ad)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 22c55309-130)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: ba18c234-534)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6861db8b-46b)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6d28af54-823)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: b78ee5c9-9a7)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 8b577eb5-cee)
 ```
 
 ### /plan
@@ -84,5 +84,5 @@ Mensaje -1 marcado como 'good' — no se diluirá en compresión.
 ### /save
 
 ```text
-Sesión guardada: 15a2bb26-634
+Sesión guardada: ba18c234-534
 ```

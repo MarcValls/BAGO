@@ -8,9 +8,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_DIRS = [
-    ROOT / "docs" / "evidence" / "cpp_local_reference_bundle",
+    ROOT / "docs" / "evidence" / "simulated_reference_bundle",
     ROOT / "docs" / "evidence" / "example_bundle",
-    ROOT / "docs" / "evidence" / "release_4_1_5",
+    ROOT / "docs" / "evidence" / "release_4_6_3",
 ]
 
 
@@ -51,6 +51,14 @@ class EvidenceIntegrityTests(unittest.TestCase):
                     self.assertEqual(_sha256(file_path), expected, rel)
                 self.assertIn("manifest.json", checksum_paths)
                 self.assertNotIn("checksums.sha256", checksum_paths)
+
+    def test_current_evidence_names_match_manifest_content(self) -> None:
+        for evidence_dir in EVIDENCE_DIRS:
+            manifest = json.loads((evidence_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["contract_version"], "4.6.3")
+            self.assertNotIn("cpp", evidence_dir.name.lower())
+            self.assertNotIn("4_1_5", evidence_dir.name.lower())
+            self.assertNotIn("C:\\", json.dumps(manifest, ensure_ascii=False))
 
 
 if __name__ == "__main__":

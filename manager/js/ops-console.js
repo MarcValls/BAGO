@@ -170,8 +170,12 @@ async function pmHandleControlAction(btn) {
         await copyText(missing.map(item => item.install_command).join('; '));
         return;
       }
-      await api.dependencyAction({ action: 'install-all', targets: missing.map(item => item.id) });
-      return showToast('Instaladores lanzados', true);
+      const result = await api.dependencyAction({ action: 'install-all', targets: missing.map(item => item.id) });
+      if (result && result.command) {
+        await copyText(result.command);
+        return showToast('Comando copiado; ejecútalo manualmente si procede', true);
+      }
+      return showToast('Instaladores iniciados en segundo plano', true);
     }
     if (action === 'repair' || action === 'reinstall') {
       if (!api || !api.installAction) {

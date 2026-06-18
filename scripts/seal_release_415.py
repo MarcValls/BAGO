@@ -115,7 +115,7 @@ def _release_payload(stats: dict) -> dict:
         ],
         "launcher": r"C:\Program Files\BAGO\bago.ps1",
         "version": "4.1.5",
-        "evidence": r"BAGO\docs\evidence\release_4_1_5\manifest.json",
+        "evidence": "historical-evidence-not-shipped",
         "target": r"C:\Program Files\BAGO",
         "routing": r"BAGO\docs\contracts\bago_v4_routing_presets.json",
         "source": str(ROOT),

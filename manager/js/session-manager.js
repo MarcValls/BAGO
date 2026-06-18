@@ -82,8 +82,13 @@ async function pmProviderAction(action,providerName){
         showToast('No hay login definido para '+providerName,false);
         return;
       }
-      await api.dependencyAction({action:'login',target:providerName});
-      showToast('Login lanzado para '+(spec.label||providerName),true);
+      const result=await api.dependencyAction({action:'login',target:providerName});
+      if(result&&result.command){
+        await copyText(result.command);
+        showToast('Comando de login copiado para '+(spec.label||providerName),true);
+        return;
+      }
+      showToast('Login preparado para '+(spec.label||providerName),true);
       return;
     }
     if(action==='install'){
@@ -92,8 +97,13 @@ async function pmProviderAction(action,providerName){
         showToast('No hay dependencia instalable para '+providerName,false);
         return;
       }
-      await api.dependencyAction({action:'install',target:dep.id});
-      showToast('Instalador lanzado para '+dep.label,true);
+      const result=await api.dependencyAction({action:'install',target:dep.id});
+      if(result&&result.command){
+        await copyText(result.command);
+        showToast('Comando copiado para '+dep.label,true);
+        return;
+      }
+      showToast('Instalador iniciado en segundo plano para '+dep.label,true);
       return;
     }
   }catch(error){

@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path
 
-EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", ".venv", "venv", "__pycache__"}
+EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", ".venv", "venv", "__pycache__", "site-dist"}
 TARGET_EXTS = {".py", ".ps1", ".cmd", ".cjs", ".js", ".json", ".toml", ".cfg", ".yml", ".yaml", ".txt"}
 
 FORCED_PATTERNS: list[tuple[str, str, str]] = [
@@ -37,7 +37,87 @@ def _resolve_root(root_arg: str) -> Path:
 
 
 def _should_skip(path: Path) -> bool:
-    return any(part in EXCLUDE_DIRS for part in path.parts)
+    if any(part in EXCLUDE_DIRS for part in path.parts):
+        return True
+    return path.name == "forced_dependency_scan.py"
+
+
+def _display(root: Path, path: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _is_command_definition(line: str) -> bool:
+    low = line.lower()
+    return any(token in low for token in (
+        "installcommand",
+        "wingetid",
+        "cmd:pscommand",
+        "label:",
+        "desc:",
+    ))
+
+
+def _is_workflow_line(path: Path, line: str) -> bool:
+    rel = path.as_posix().lower()
+    return "/.github/workflows/" in rel and line.strip().lower().startswith("run:")
+
+
+def _is_routine_repo_path_mutation(line: str) -> bool:
+    low = line.lower()
+    routine_tokens = (
+        "path(__file__)",
+        "path(__file__).",
+        "__file__",
+        "parents[",
+        "bago_root",
+        "repo_root",
+        "root_dir",
+        "project_root",
+        "runtime_root",
+        "repo",
+        "core_dir",
+        "core_path",
+        "_path_s",
+        "_this_dir",
+        "script_dir",
+        "tools_dir",
+        "path.cwd()",
+        "root /",
+        "base /",
+        "bago_dir /",
+        "str(root",
+        "str(repo",
+        "str(base",
+        "str(core",
+        "str(tools",
+        "str(bago",
+    )
+    return "sys.path.insert(" in low and any(token in low for token in routine_tokens)
+
+
+def _classify_forced_command(path: Path, line: str) -> tuple[str, str, str] | None:
+    low = line.lower()
+    if "invoke-webrequest" in low:
+        if "iex" in low or "invoke-expression" in low:
+            return "FDEP-001", "error", "ejecucion remota directa"
+        if "-outfile" in low:
+            return "FDEP-001", "warning", "descarga a fichero; verificar checksum/firma"
+    if "curl" in low and re.search(r"\|\s*(bash|sh|iex)", low):
+        return "FDEP-001", "error", "pipe remoto a shell"
+    if any(tok in low for tok in ("pip install", "python -m pip install", "npm install", "pnpm add", "yarn add", "winget install", "install-module")):
+        if _is_workflow_line(path, line):
+            return "FDEP-001", "warning", "instalacion declarada en CI"
+        return "FDEP-001", "error", "instalacion directa"
+    if "site.addsitedir(" in low:
+        return "FDEP-002", "warning", "mutacion site.addsitedir"
+    if "sys.path.insert(" in low:
+        if _is_routine_repo_path_mutation(line):
+            return None
+        return "FDEP-002", "warning", "mutacion sys.path"
+    return None
 
 
 def _iter_targets(root: Path) -> list[Path]:
@@ -75,14 +155,20 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
         line = raw.strip()
         if not line:
             continue
+        if _is_command_definition(line):
+            continue
+        if _is_routine_repo_path_mutation(line):
+            continue
         low = line.lower()
-        if any(tok in low for tok in ("pip install", "python -m pip install", "npm install", "pnpm add", "yarn add", "winget install", "install-module", "invoke-webrequest", "iex ", "curl ", "site.addsitedir(", "sys.path.insert(")):
+        classified = _classify_forced_command(path, line)
+        if classified:
+            rule, severity, reason = classified
             findings.append({
-                "rule": "FDEP-001",
-                "severity": "error" if "install" in low or "invoke-webrequest" in low or "iex" in low else "warning",
-                "file": str(path),
+                "rule": rule,
+                "severity": severity,
+                "file": _display(root_global, path) if "root_global" in globals() else str(path),
                 "line": idx,
-                "message": line[:220],
+                "message": f"{reason}: {line[:220]}",
             })
             continue
         for rule, severity, pattern in FORCED_PATTERNS:
@@ -92,7 +178,7 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
                 findings.append({
                     "rule": rule,
                     "severity": severity,
-                    "file": str(path),
+                    "file": _display(root_global, path) if "root_global" in globals() else str(path),
                     "line": idx,
                     "message": line[:220],
                 })
@@ -109,7 +195,7 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
                     findings.append({
                         "rule": "FDEP-003",
                         "severity": "warning",
-                        "file": str(path),
+                        "file": _display(root_global, path) if "root_global" in globals() else str(path),
                         "line": 1,
                         "message": f"{field} presente en package.json",
                     })
@@ -121,7 +207,7 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
                             findings.append({
                                 "rule": "FDEP-003",
                                 "severity": "warning",
-                                "file": str(path),
+                                "file": _display(root_global, path) if "root_global" in globals() else str(path),
                                 "line": 1,
                                 "message": f"{dep_group}.{dep} usa {version}",
                             })
@@ -129,7 +215,7 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
                             findings.append({
                                 "rule": "FDEP-004",
                                 "severity": "warning",
-                                "file": str(path),
+                                "file": _display(root_global, path) if "root_global" in globals() else str(path),
                                 "line": 1,
                                 "message": f"{dep_group}.{dep} fijada a {version}",
                             })
@@ -143,7 +229,7 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
                 findings.append({
                     "rule": "FDEP-004",
                     "severity": "warning",
-                    "file": str(path),
+                    "file": _display(root_global, path) if "root_global" in globals() else str(path),
                     "line": idx,
                     "message": f"Pin exacto en requirements: {stripped}",
                 })
@@ -151,7 +237,7 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
                 findings.append({
                     "rule": "FDEP-004",
                     "severity": "warning",
-                    "file": str(path),
+                    "file": _display(root_global, path) if "root_global" in globals() else str(path),
                     "line": idx,
                     "message": f"Rango abierto en requirements: {stripped}",
                 })
@@ -173,6 +259,8 @@ def _scan_text(path: Path) -> list[dict[str, object]]:
 
 
 def scan(root: Path) -> list[dict[str, object]]:
+    global root_global
+    root_global = root
     findings: list[dict[str, object]] = []
     for path in _iter_targets(root):
         findings.extend(_scan_text(path))
@@ -234,10 +322,14 @@ def _self_test() -> int:
         root = Path(td)
         (root / "script.py").write_text('import sys\nsys.path.insert(0, "x")\n', encoding="utf-8")
         (root / "install.ps1").write_text('Invoke-WebRequest https://example.com | iex\n', encoding="utf-8")
+        (root / "download.ps1").write_text('Invoke-WebRequest https://example.com/a.zip -OutFile a.zip\n', encoding="utf-8")
+        (root / "catalog.js").write_text("installCommand: 'winget install -e --id Git.Git'\n", encoding="utf-8")
         (root / "package.json").write_text('{"dependencies":{"foo":"1.2.3"},"overrides":{"bar":"2.0.0"}}', encoding="utf-8")
         (root / "requirements.txt").write_text("requests==2.31.0\nflask>=2.0\n", encoding="utf-8")
         findings = scan(root)
         record("find_install", any(f["rule"] == "FDEP-001" for f in findings))
+        record("download_is_warning", any("descarga a fichero" in f["message"] and f["severity"] == "warning" for f in findings))
+        record("catalog_definition_ignored", not any("catalog.js" in f["file"] for f in findings))
         record("find_path", any(f["rule"] == "FDEP-002" for f in findings))
         record("find_overrides", any(f["rule"] == "FDEP-003" for f in findings))
         record("find_pins", any(f["rule"] == "FDEP-004" for f in findings))

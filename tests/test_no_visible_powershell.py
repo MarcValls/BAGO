@@ -12,11 +12,13 @@ class NoVisiblePowerShellTests(unittest.TestCase):
         self.assertIn("detached: visible", source)
         self.assertIn("windowsHide: !visible", source)
 
-    def test_explicit_cli_and_dependency_actions_are_the_only_visible_powershell(self) -> None:
+    def test_manager_does_not_spawn_visible_powershell_for_cli_or_dependencies(self) -> None:
         runtime = (ROOT / "electron" / "runtime-service.cjs").read_text(encoding="utf-8")
         deps = (ROOT / "electron" / "dependency-service.cjs").read_text(encoding="utf-8")
-        self.assertIn("runVisiblePowerShell(command, { visible: true, noExit: true, cwd: runtimeRoot })", runtime)
-        self.assertIn("visible: true", deps)
+        self.assertIn("mode: 'manual-command'", runtime)
+        self.assertNotIn("visible: true", runtime)
+        self.assertIn("mode: 'manual-command'", deps)
+        self.assertNotIn("visible: true", deps)
 
     def test_windows_release_job_fixture_hides_powershell(self) -> None:
         source = (ROOT / "tests" / "test_release_job_manager.cjs").read_text(encoding="utf-8")

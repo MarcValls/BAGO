@@ -53,6 +53,21 @@ def _read_sha256_file(p: Path) -> str:
     return p.read_text(encoding="utf-8").split()[0].lower()
 
 
+def _manifest_entries(manifest: dict) -> list[dict]:
+    entries = manifest.get("included_files", [])
+    return entries if isinstance(entries, list) else []
+
+
+def _entry_size(entry: dict) -> int | None:
+    value = entry.get("size")
+    if value is None:
+        value = entry.get("size_bytes")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _fail(msg: str) -> None:
     print(f"[FAIL] {msg}", file=sys.stderr)
 
@@ -164,9 +179,56 @@ def run_checks(
         errors += 1
     elif zip_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("package") == ZIP_NAME:
+            _ok("Manifest package coincide con el ZIP oficial")
+        else:
+            _fail(f"Manifest package mismatch: {manifest.get('package')} != {ZIP_NAME}")
+            errors += 1
+
+        actual_zip_sha256 = _sha256_file(zip_path)
+        if manifest.get("zip_sha256") == actual_zip_sha256:
+            _ok("Manifest zip_sha256 coincide con el ZIP")
+        else:
+            _fail(
+                "Manifest zip_sha256 mismatch:\n"
+                f"  actual:   {actual_zip_sha256}\n"
+                f"  manifest: {manifest.get('zip_sha256')}"
+            )
+            errors += 1
+
         with zipfile.ZipFile(zip_path, "r") as zf:
-            zip_names = set(zf.namelist())
-        manifest_names = {e["path"] for e in manifest.get("included_files", [])}
+            zip_infos = {info.filename: info for info in zf.infolist()}
+            zip_names = set(zip_infos)
+            manifest_entries = _manifest_entries(manifest)
+            manifest_names = {e.get("path", "") for e in manifest_entries if isinstance(e, dict)}
+            if len(manifest_entries) == manifest.get("file_count"):
+                _ok(f"Manifest file_count coincide: {len(manifest_entries)}")
+            else:
+                _fail(f"Manifest file_count mismatch: {manifest.get('file_count')} != {len(manifest_entries)}")
+                errors += 1
+
+            entry_by_name = {e["path"]: e for e in manifest_entries if isinstance(e, dict) and e.get("path")}
+            for name, entry in entry_by_name.items():
+                if name not in zip_infos:
+                    continue
+                info = zip_infos[name]
+                expected_size = _entry_size(entry)
+                if expected_size == info.file_size:
+                    pass
+                else:
+                    _fail(f"Manifest size mismatch para {name}: {expected_size} != {info.file_size}")
+                    errors += 1
+                with zf.open(info, "r") as handle:
+                    digest = hashlib.sha256()
+                    for chunk in iter(lambda: handle.read(1 << 16), b""):
+                        digest.update(chunk)
+                expected_sha = str(entry.get("sha256", "")).lower()
+                actual_sha = digest.hexdigest()
+                if expected_sha == actual_sha:
+                    pass
+                else:
+                    _fail(f"Manifest sha256 mismatch para {name}: {expected_sha} != {actual_sha}")
+                    errors += 1
         missing_in_zip = manifest_names - zip_names
         extra_in_zip = zip_names - manifest_names
         if not missing_in_zip and not extra_in_zip:
@@ -209,7 +271,16 @@ def _run_tests() -> int:
         sha_path = rel / f"{ZIP_NAME}.sha256"
         sha_path.write_text(f"{_sha256_file(zip_path)}  {ZIP_NAME}\n", encoding="utf-8")
         manifest_path = rel / f"{ZIP_NAME}.manifest.json"
-        manifest_path.write_text(json.dumps({"included_files": [{"path": "package-lock.json"}]}), encoding="utf-8")
+        manifest_path.write_text(json.dumps({
+            "package": ZIP_NAME,
+            "file_count": 1,
+            "zip_sha256": _sha256_file(zip_path),
+            "included_files": [{
+                "path": "package-lock.json",
+                "size": 2,
+                "sha256": hashlib.sha256(b"{}").hexdigest(),
+            }],
+        }), encoding="utf-8")
         latest = dist / "latest.yml"
         latest.write_text(
             "\n".join([
@@ -228,6 +299,16 @@ def _run_tests() -> int:
             latest_yml_path=latest,
         )
         assert result == 0
+        broken_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        broken_manifest["included_files"][0]["sha256"] = "0" * 64
+        manifest_path.write_text(json.dumps(broken_manifest), encoding="utf-8")
+        assert run_checks(
+            exe_path=exe,
+            zip_path=zip_path,
+            manifest_path=manifest_path,
+            zip_sha256_path=sha_path,
+            latest_yml_path=latest,
+        ) == 1
     print("verify_release_463.py --test: ALL PASS")
     return 0
 

@@ -14,15 +14,15 @@
     "mode": "simulated",
     "provider": "mock-contract",
     "model": "contract-assistant-v1",
-    "session_id": "15a2bb26-634",
+    "session_id": "ba18c234-534",
     "state_root": ".bago\\state"
   },
   "status": "pass",
-  "recorded_at": "2026-06-18T19:33:26.998924+00:00",
+  "recorded_at": "2026-06-18T20:22:54.498009+00:00",
   "validation_commands": [
     "python test_e2e.py",
     "python bago_core\\cli.py evidence --test",
-    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"C:\\Users\\AMTEC_Terminal_1º\\bago_fw\\docs\\evidence\\cpp_local_reference_bundle\" --overwrite"
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"docs/evidence/release_4_6_3\" --overwrite"
   ],
   "checks": [
     {
@@ -71,17 +71,17 @@
     },
     {
       "path": "commands/results.json",
-      "sha256": "bc92c5b994ab152e1ba166c5570fe9d1a4417932d5da7d4b291f521857d128ce",
-      "size_bytes": 1834
+      "sha256": "134147317ea8e029f3330bb11ce1211abd8ba23cdfc94638114f660a42c5d273",
+      "size_bytes": 1835
     },
     {
       "path": "knowledge/recent_memories.json",
-      "sha256": "bed360615a40eed42e4f46548db2ad8275edff61d0b852f414edcce7c970f4b8",
-      "size_bytes": 1267
+      "sha256": "64096121870ce2e54c1305a3e7956f5bac9db8b761f13f792b1cd79df40c91e3",
+      "size_bytes": 1272
     },
     {
       "path": "objective.json",
-      "sha256": "61804d84a0fd4a3a1f71708c3aeadafc60966569e0c4aa9f1fe96f6f5fa8cc23",
+      "sha256": "239d7ec91a788778326defa51c1050031112896c14f183bf936b28dc20584b08",
       "size_bytes": 374
     },
     {
@@ -91,27 +91,27 @@
     },
     {
       "path": "report.md",
-      "sha256": "3562f511ffe1faf8bf52af3519982df501a863bf7ad486fd4553f39146ac189b",
-      "size_bytes": 3179
+      "sha256": "e2020040c30b4af93684ec898685be946a8567f294ad2a0b5075763d3dbf882d",
+      "size_bytes": 3167
     },
     {
       "path": "session/context.jsonl",
-      "sha256": "bf6b20720197360923a6ef250d3a0f7cf3072d6ed9f6bfa8b02016aa75159bb1",
+      "sha256": "23eefb1165e269b7661458986ceb5fab285039a14a86343ff187cf0e0de9ab95",
       "size_bytes": 1649
     },
     {
       "path": "session/meta.json",
-      "sha256": "f9ff0e1ea13a917c44b59c08e81676cc425b5ef96aac0b4639c2ca0b1da6aede",
+      "sha256": "e71dca7ada3111fa68ef25786edd4234b243dbfb549664aa6a97b0a958304b86",
       "size_bytes": 313
     },
     {
       "path": "session/session.json",
-      "sha256": "3a0f9c87538e4afa33839a75c4bf58906248653a10eb5d516786b4573274892d",
-      "size_bytes": 359
+      "sha256": "2710b931167c89e7ccf11912481fe56e1a4b42adfb203a91ffe0fd8d11f5e04b",
+      "size_bytes": 360
     },
     {
       "path": "session/timeline.jsonl",
-      "sha256": "3a4ca4a43da80ef4cf6744bbfc289857f07f287c28fa3f155efe4c6221d5bab1",
+      "sha256": "d48097bca7292cfdc0a54a9f060e0ad10b3222c3c4aaa03cef506eccd3a81a14",
       "size_bytes": 298
     },
     {
