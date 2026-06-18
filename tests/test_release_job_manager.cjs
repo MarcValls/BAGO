@@ -160,6 +160,7 @@ async function main() {
   assert.ok(manager.getLogs(created.id).length > 0);
   const deleted = manager.deleteJob(created.id);
   assert.strictEqual(deleted.deleted, true);
+  assert.strictEqual(fs.existsSync(path.join(manager.rootDir, 'archive', 'deleted-jobs', created.id, 'job.json')), true);
   assert.strictEqual(manager.listJobs().some(job => job.id === created.id), false);
 
   const futureSource = path.join(root, 'future-source');

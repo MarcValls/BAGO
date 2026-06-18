@@ -24,6 +24,8 @@ except ImportError:  # pragma: no cover - Windows-only API
 from pathlib import Path
 from typing import Any
 
+from state_paths import resolve_state_root
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -133,9 +135,9 @@ def _dpapi_unprotect(container: dict[str, Any], entropy: str = "BAGO") -> str:
 class CredentialManager:
     """Gestiona `.bago/credentials.json`."""
 
-    def __init__(self, base_path: str | None = None):
+    def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
-        self.config_dir = self.base_path / ".bago"
+        self.config_dir = resolve_state_root(state_root)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.install_config = _load_install_config(self.base_path)
         store_cfg = self.install_config.get("credentials", {})
@@ -156,9 +158,11 @@ class CredentialManager:
             self._data = {}
             self._auto_import_env()
             return
-        if self.cred_path.exists():
+        legacy_path = self.base_path / ".bago" / ("session-credentials.json" if self.store_mode == "session" else "credentials.json")
+        source_path = self.cred_path if self.cred_path.exists() else legacy_path
+        if source_path.exists():
             try:
-                raw = self.cred_path.read_text(encoding="utf-8")
+                raw = source_path.read_text(encoding="utf-8")
                 parsed = json.loads(raw)
                 if isinstance(parsed, dict) and parsed.get("format") == "bago-encrypted-v1":
                     self._data = json.loads(_dpapi_unprotect(parsed))
@@ -267,6 +271,9 @@ def _run_tests() -> int:
                 del os.environ[key]
 
     with tempfile.TemporaryDirectory() as td:
+        state_root = Path(td) / "state"
+        old_state = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = str(state_root)
         cm = CredentialManager(base_path=td)
         assert not cm.is_configured("anthropic")
         cm.set("anthropic", "ANTHROPIC_API_KEY", "sk-test-123")
@@ -279,6 +286,10 @@ def _run_tests() -> int:
         cm2 = CredentialManager(base_path=td)
         assert cm2.get("openrouter", "OPENROUTER_API_KEY") == "sk-or-456"
         print("credential_manager.py --test: ALL PASS")
+        if old_state is None:
+            os.environ.pop("BAGO_STATE_ROOT", None)
+        else:
+            os.environ["BAGO_STATE_ROOT"] = old_state
     return 0
 
 

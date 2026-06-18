@@ -188,7 +188,8 @@ def collect_shadow(state_dir: Path) -> dict:
 
 
 def collect_all(root: Path) -> dict:
-    state_dir = root / ".bago" / "state"
+    override = os.environ.get("BAGO_STATE_ROOT", "").strip()
+    state_dir = Path(override).expanduser().resolve() if override else root / ".bago" / "state"
     now = datetime.now(timezone.utc).isoformat()
     return {
         "generated_at": now,

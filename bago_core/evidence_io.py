@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -104,18 +105,28 @@ def copy_session_artifacts(
     base_path: Path, session_id: str, output_dir: Path,
 ) -> list[str]:
     """Copy the persistent session artifacts into the bundle (R1, R8)."""
-    state_dir = base_path / ".bago" / "state" / "sessions"
-    session_dir = state_dir / session_id
+    override = os.environ.get("BAGO_STATE_ROOT", "").strip()
+    state_root = Path(override).expanduser().resolve() if override else None
+    candidates = [
+        state_root if state_root is not None else base_path / ".bago" / "state",
+        base_path / ".bago" / "state",
+        Path.home() / ".bago" / "state",
+    ]
     copied: list[str] = []
 
-    for name in ("context.jsonl", "timeline.jsonl", "tokens.json", "meta.json"):
-        target = output_dir / "session" / name
-        if copy_if_exists(session_dir / name, target):
-            copied.append(_relative_posix(target, output_dir))
+    for candidate in candidates:
+        state_dir = candidate / "sessions"
+        session_dir = state_dir / session_id
+        for name in ("context.jsonl", "timeline.jsonl", "tokens.json", "meta.json"):
+            target = output_dir / "session" / name
+            if copy_if_exists(session_dir / name, target):
+                copied.append(_relative_posix(target, output_dir))
 
-    session_meta = state_dir / f"{session_id}.json"
-    target = output_dir / "session" / "session.json"
-    if copy_if_exists(session_meta, target):
-        copied.append(_relative_posix(target, output_dir))
+        session_meta = state_dir / f"{session_id}.json"
+        target = output_dir / "session" / "session.json"
+        if copy_if_exists(session_meta, target):
+            copied.append(_relative_posix(target, output_dir))
+        if copied:
+            break
 
     return copied

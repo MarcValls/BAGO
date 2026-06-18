@@ -406,6 +406,8 @@ if __name__ == "__main__":
         # Quick smoke test
         import tempfile
         with tempfile.TemporaryDirectory() as td:
+            state_root = Path(td) / "state"
+            os.environ["BAGO_STATE_ROOT"] = str(state_root)
             cfg = {"runtime": {"default_provider": "codex", "default_model": "gpt-5.4-mini"}}
             (Path(td) / "install_config.json").write_text(json.dumps(cfg), encoding="utf-8")
             assert _load_install_config(Path(td))["runtime"]["default_provider"] == "codex"
@@ -413,7 +415,7 @@ if __name__ == "__main__":
             assert main(["--base-path", td, "config", "get", "providers.cpp-local.enabled"]) == 0
             assert main(["--base-path", td, "llm", "list"]) == 0
             assert main(["--base-path", td, "llm", "start", "--provider", "ollama-local", "--model", "llama3.2:3b", "--dry-run"]) == 0
-            assert (Path(td) / ".bago" / "state" / "llm_start.json").exists()
+            assert (state_root / "llm_start.json").exists()
             assert main(["--base-path", td, "llm", "start", "--provider", "cpp-local", "--dry-run"]) == 1
             assert main(["--base-path", td, "engine", "status"]) == 0
             assert main(["--base-path", td, "appdata", "status"]) == 0
@@ -435,6 +437,7 @@ if __name__ == "__main__":
             issue_brief = orc_mod.create_brief(task="CLI issues command smoke test")
             assert main(["--base-path", td, "issues", "--root", td, "take", issue_brief.id, "--agent", "codex"]) == 0
             assert main(["--base-path", td, "issues", "--root", td, "close", issue_brief.id, "--force"]) == 0
+            os.environ.pop("BAGO_STATE_ROOT", None)
         print("launcher.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())

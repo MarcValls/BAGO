@@ -394,7 +394,7 @@ function pmRenderInstallations(){
       +roles.map(r=>pmBadge('rol '+roleBadgeLabel(r),'ok')).join('')+'</div></div>'
       +'<div class="pm-row-actions"><button data-pm-install-action="focus" data-id="'+escapeHtml(nodeId)+'">Patch</button>'
       +'<button data-pm-install-action="active" data-path="'+escapeHtml(inst.path)+'">Activa</button><button data-pm-install-action="dev" data-path="'+escapeHtml(inst.path)+'">Dev</button>'
-      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button><button class="danger" data-pm-install-action="uninstall" data-path="'+escapeHtml(inst.path)+'">Eliminar</button></div></article>';
+      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button><button class="danger" data-pm-install-action="uninstall" data-path="'+escapeHtml(inst.path)+'">Archivar</button></div></article>';
   }).join('')||'<div class="pm-empty">Sin instalaciones visibles.</div>';
   container.querySelectorAll('[data-pm-install-action]').forEach(btn=>btn.addEventListener('click',async ev=>{
     ev.stopPropagation();
@@ -541,7 +541,7 @@ async function pmInspectUninstall(target){
 }
 async function pmUninstallInstallation(target){
   const api=electronApi();
-  if(!window.confirm('Eliminar esta instalación de BAGO?\n\n'+target))return;
+  if(!window.confirm('Archivar esta instalación de BAGO?\n\n'+target))return;
   if(!api||!api.installAction){
     await copyText(uninstallCommand(target));
     pmAudit('uninstall-copy',target);
@@ -553,9 +553,9 @@ async function pmUninstallInstallation(target){
     pmAudit('uninstall',target);
     await refreshAll([]);
     await pmLoadHealth();
-    showToast('Instalación eliminada',true);
+    showToast('Instalación archivada',true);
   }catch(e){
-    showToast('Eliminar instalación: '+e.message,false);
+    showToast('Archivar instalación: '+e.message,false);
   }
 }
 async function pmPrepareRelease(release,target,action){
@@ -608,7 +608,7 @@ function pmRenderJobs(){
     if(job.state==='ready')actions.push('<button data-pm-job-action="install" data-id="'+escapeHtml(job.id)+'">Instalar verificado</button>');
     if(job.rollback_available)actions.push('<button data-pm-job-action="rollback" data-id="'+escapeHtml(job.id)+'">Rollback</button>');
     actions.push('<button data-pm-job-action="logs" data-id="'+escapeHtml(job.id)+'">Logs</button>');
-    if(['ready','completed','cancelled','failed','rolled-back'].includes(job.state))actions.push('<button class="danger" data-pm-job-action="delete" data-id="'+escapeHtml(job.id)+'">Eliminar</button>');
+    if(['ready','completed','cancelled','failed','rolled-back'].includes(job.state))actions.push('<button class="danger" data-pm-job-action="delete" data-id="'+escapeHtml(job.id)+'">Archivar</button>');
     return '<article class="pm-job '+(job.id===pmSelectedJobId?'selected':'')+'"><div class="pm-job-head"><div><h3>'+escapeHtml(job.release&&job.release.tag_name||job.id)+' · '+escapeHtml(job.action||'install')+'</h3><p>'+escapeHtml(job.target||'')+'</p></div>'+pmBadge(job.state,pmJobClass(job))+'</div>'
       +'<div class="pm-progress"><span style="width:'+percent+'%"></span></div><div class="pm-badges">'+pmBadge(progress.phase||job.state,'info')+pmBadge(percent+'%')+pmBadge(pmFormatBytes(progress.transferred)+' / '+pmFormatBytes(progress.total))+(job.verification?pmBadge('SHA256 verificado','ok'):'')+(job.error?pmBadge(job.error,'bad'):'')+'</div><div class="pm-row-actions">'+actions.join('')+'</div></article>';
   }).join('')||'<div class="pm-empty">Sin trabajos todavía. Prepara una release desde Releases.</div>';
@@ -631,7 +631,7 @@ async function pmJobAction(action,id){
     }
     if(action==='delete'){
       if(!api.deleteReleaseJob)throw new Error('deleteReleaseJob no disponible');
-      if(!window.confirm('Eliminar el trabajo persistido?\n\n'+id))return;
+      if(!window.confirm('Archivar el trabajo persistido?\n\n'+id))return;
       await api.deleteReleaseJob(id);
       pmSelectedJobId='';
     }

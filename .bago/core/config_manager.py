@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from state_paths import resolve_state_root
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -93,18 +95,20 @@ DEFAULT_CONFIG: dict[str, Any] = {
 class ConfigManager:
     """Gestiona `.bago/config.json`."""
 
-    def __init__(self, base_path: str | None = None):
+    def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
-        self.config_dir = self.base_path / ".bago"
+        self.config_dir = resolve_state_root(state_root)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_path = self.config_dir / "config.json"
         self._data: dict[str, Any] = {}
         self._load()
 
     def _load(self) -> None:
-        if self.config_path.exists():
+        legacy_path = self.base_path / ".bago" / "config.json"
+        source_path = self.config_path if self.config_path.exists() else legacy_path
+        if source_path.exists():
             try:
-                self._data = json.loads(self.config_path.read_text(encoding="utf-8"))
+                self._data = json.loads(source_path.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
                 self._data = {}
         else:
@@ -220,6 +224,9 @@ class ConfigManager:
 def _run_tests() -> int:
     import tempfile
     with tempfile.TemporaryDirectory() as td:
+        state_root = Path(td) / "state"
+        old = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = str(state_root)
         cm = ConfigManager(base_path=td)
         assert cm.get("default_provider") == "ollama-local"
         cm.set("default_provider", "openrouter")
@@ -238,6 +245,10 @@ def _run_tests() -> int:
         assert cm.get("default_provider") == "ollama-local"
         assert cm.feature_streaming is True
         print("config_manager.py --test: ALL PASS")
+        if old is None:
+            os.environ.pop("BAGO_STATE_ROOT", None)
+        else:
+            os.environ["BAGO_STATE_ROOT"] = old
     return 0
 
 

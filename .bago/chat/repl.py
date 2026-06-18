@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
 from version import CURRENT as BAGO_VERSION
+from state_paths import resolve_state_root
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
@@ -363,13 +364,16 @@ class BagoREPL:
         model: str = "llama3.2:3b",
         system_prompt: str = "",
         base_path: str | None = None,
+        state_root: str | None = None,
         active_bridges: list[str] | None = None,
     ):
         self.base_path = Path(base_path or os.getcwd())
+        self.state_root = resolve_state_root(state_root)
         self.mgr = SessionManager(
             provider=provider,
             model=model,
             base_path=str(self.base_path),
+            state_root=str(self.state_root),
             system_prompt=system_prompt,
             active_bridges=active_bridges,
         )
@@ -380,7 +384,7 @@ class BagoREPL:
         self._multiline_buffer: list[str] = []
         self._in_multiline = False
         self._chat_session = None
-        self._chat_history_path = self.base_path / ".bago" / "state" / ".bago_prompt_history"
+        self._chat_history_path = self.state_root / ".bago_prompt_history"
 
     def _print_init_warnings(self) -> None:
         """Muestra advertencias si el modelo fue auto-corrigido."""
@@ -523,13 +527,6 @@ class BagoREPL:
     def _print_status(self) -> None:
         s = self.mgr.status()
         line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])
-        print(R.dim("─" * 60))
-        print(line)
-        print(R.dim("─" * 60))
-
-    def _print_status(self) -> None:
-        s = self.mgr.status()
-        line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])
         print(R.dim("═" * 60))
         print(line)
         print(R.dim("═" * 60))
@@ -546,8 +543,7 @@ class BagoREPL:
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
 
-    def _prompt(self) -> str:
-        return ""  # El prompt se imprime manualmente con _print_chat_prompt
+    def _use_prompt_toolkit(self) -> bool:
         if os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "").strip().lower() in {"1", "true", "yes", "on"}:
             return False
         return bool(PromptSession) and sys.stdin.isatty() and sys.stdout.isatty()
@@ -821,6 +817,64 @@ class BagoREPL:
             err = result.get("error") or result.get("warnings", ["?"])[0]
             print(R.error(f"✗ {err}"))
         return True
+
+    def _agent_wizard(self) -> bool:
+        """Asistente guiado para activar un agente especializado."""
+        if not self._wizard_tty_ok("/agent <nombre>"):
+            return True
+        try:
+            agents = self.mgr.agent_gateway.list_agents()
+        except Exception as exc:
+            print(R.error(f"No se pudieron listar los agentes: {exc}"))
+            return True
+        if not agents:
+            print(R.warn("No hay agentes disponibles."))
+            return True
+
+        active = self.mgr.agent_gateway.active.name
+        labels = []
+        for agent in agents:
+            marker = "✓" if agent.name == active else "○"
+            labels.append(f"{marker} {agent.name}  ·  {agent.description}")
+        idx = self._navigate("Agentes especializados · elige uno", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        name = agents[idx].name
+        return self._handle_command(f"/agent {name}")
+
+    def _load_wizard(self) -> bool:
+        """Asistente guiado para cargar sesiones guardadas."""
+        if not self._wizard_tty_ok("/load <session_id>"):
+            return True
+        sessions_dir = self.state_root / "sessions"
+        if not sessions_dir.exists():
+            print(R.warn("No hay sesiones guardadas."))
+            return True
+
+        items: list[tuple[str, str, str]] = []
+        for path in sorted(sessions_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+            sid = str(data.get("session_id") or path.stem)
+            created = str(data.get("created_at") or time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(path.stat().st_mtime)))
+            provider = str(data.get("provider") or "?")
+            model = str(data.get("model") or "?")
+            items.append((sid, created, f"{provider}/{model}"))
+
+        if not items:
+            print(R.warn("No hay sesiones guardadas."))
+            return True
+
+        labels = [f"{sid}  ·  {created}  ·  {prov_model}" for sid, created, prov_model in items]
+        idx = self._navigate("Cargar sesión · elige una", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        sid = items[idx][0]
+        return self._handle_command(f"/load {sid}")
 
     def _project_wizard(self, project_root: Path) -> bool:
         """Asistente guiado para analizar o preparar un proyecto local."""

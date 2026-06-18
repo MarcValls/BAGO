@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from state_paths import resolve_state_root
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -46,9 +48,9 @@ class KnowledgeBase:
     CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(content, source_session);
     """
 
-    def __init__(self, base_path: str | None = None):
+    def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
-        self.db_dir = self.base_path / ".bago" / "state"
+        self.db_dir = resolve_state_root(state_root)
         self.db_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.db_dir / "knowledge.db"
         self._conn: sqlite3.Connection | None = None
@@ -166,6 +168,9 @@ def _run_tests() -> int:
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:
+        state_root = Path(td) / "state"
+        old = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = str(state_root)
         kb = KnowledgeBase(base_path=td)
 
         # Test add
@@ -203,6 +208,10 @@ def _run_tests() -> int:
 
         kb.close()
         print("knowledge_base.py --test: ALL PASS")
+        if old is None:
+            os.environ.pop("BAGO_STATE_ROOT", None)
+        else:
+            os.environ["BAGO_STATE_ROOT"] = old
     return 0
 
 

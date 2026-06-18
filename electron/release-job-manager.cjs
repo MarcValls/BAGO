@@ -283,6 +283,23 @@ class ReleaseJobManager extends EventEmitter {
     fs.renameSync(tmp, file);
   }
 
+  _moveToArchive(source, destination) {
+    if (!source || !fs.existsSync(source)) return false;
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    try {
+      fs.renameSync(source, destination);
+    } catch {
+      if (fs.statSync(source).isDirectory()) {
+        fs.cpSync(source, destination, { recursive: true });
+        fs.rmSync(source, { recursive: true, force: true });
+      } else {
+        fs.copyFileSync(source, destination);
+        fs.rmSync(source, { force: true });
+      }
+    }
+    return true;
+  }
+
   _emit(job) {
     this._persist(job);
     const payload = this._public(job);
@@ -525,19 +542,24 @@ class ReleaseJobManager extends EventEmitter {
     if (!TERMINAL_STATES.has(job.state)) {
       throw new Error(`El job ${id} no se puede eliminar mientras está en ${job.state}. Cancélalo primero.`);
     }
+    const archiveDir = path.join(this.rootDir, 'archive', 'deleted-jobs', safeName(job.id));
+    const archivedAt = nowIso();
+    const archiveJob = {
+      ...this._public(job),
+      state: 'deleted',
+      deleted_at: archivedAt,
+      archived_at: archivedAt
+    };
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, 'job.json'), JSON.stringify(archiveJob, null, 2) + '\n', 'utf8');
+    this._moveToArchive(this._jobFile(job.id), path.join(archiveDir, 'job.active.json'));
+    this._moveToArchive(job.log_file, path.join(archiveDir, 'job.log.jsonl'));
     this.jobs.delete(job.id);
     this.runtime.delete(job.id);
-    for (const file of [this._jobFile(job.id), job.log_file]) {
-      try {
-        if (file && fs.existsSync(file)) fs.rmSync(file, { force: true });
-      } catch {}
-    }
     const stagePath = path.join(this.stagingDir, safeName(job.id));
-    try {
-      if (fs.existsSync(stagePath)) fs.rmSync(stagePath, { recursive: true, force: true });
-    } catch {}
-    this.emit('changed', { id: job.id, deleted: true, state: 'deleted' });
-    return { ok: true, id: job.id, deleted: true };
+    this._moveToArchive(stagePath, path.join(archiveDir, 'staging'));
+    this.emit('changed', { id: job.id, deleted: true, archived_at: archivedAt, archive_dir: archiveDir, state: 'deleted' });
+    return { ok: true, id: job.id, deleted: true, archived_at: archivedAt, archive_dir: archiveDir };
   }
 
   async install(id) {

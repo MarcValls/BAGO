@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import zipfile
@@ -14,12 +15,31 @@ sys.path.insert(0, str(BAGO_ROOT / ".bago" / "api"))
 
 from bridge import BagoAPIHandler, BagoAPIServer
 from config_manager import ConfigManager
+from session_manager import SessionManager
 
 
 def test_default_auto_allow_tools_is_false() -> None:
     with tempfile.TemporaryDirectory() as td:
         cfg = ConfigManager(base_path=td)
         assert cfg.get("features.auto_allow_tools") is False
+
+
+def test_state_root_is_separate_from_cwd() -> None:
+    with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as sd:
+        old = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = sd
+        try:
+            cfg = ConfigManager(base_path=td)
+            assert cfg.config_path.parent.resolve() == Path(sd).resolve()
+            mgr = SessionManager(base_path=td, state_root=sd)
+            assert mgr.state_root.resolve() == Path(sd).resolve()
+            assert mgr.state_dir.resolve() == Path(sd).resolve()
+            mgr.close()
+        finally:
+            if old is None:
+                os.environ.pop("BAGO_STATE_ROOT", None)
+            else:
+                os.environ["BAGO_STATE_ROOT"] = old
 
 
 def test_execute_command_has_no_shell_true() -> None:
@@ -199,6 +219,7 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
 if __name__ == "__main__":
     tests = [
         test_default_auto_allow_tools_is_false,
+        test_state_root_is_separate_from_cwd,
         test_execute_command_has_no_shell_true,
         test_cors_does_not_allow_wildcard,
         test_cors_allows_only_localhost_origins,

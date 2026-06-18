@@ -114,7 +114,7 @@ function pmRenderControl() {
         + pmControlKv('Supervisores vivos', detected.filter(item => item.supervisor_alive).length + '/' + detected.length)
         + pmControlKv('Roles', (installSelection && installSelection.roles ? Object.keys(installSelection.roles).length : 0) + ' asignados'),
       pmControlButton('Ver instalaciones', 'open-installations', 'primary')
-        + pmControlButton('Eliminar seleccionada', 'delete-install', 'danger')
+        + pmControlButton('Archivar seleccionada', 'delete-install', 'danger')
         + pmControlButton('Ruta release', 'route-release'),
       ''
     ),
@@ -126,7 +126,7 @@ function pmRenderControl() {
         + pmControlKv('Terminales', String(terminalJobs.length))
         + pmControlKv('Con rollback', String(releaseJobs.filter(job => job.rollback_available).length)),
       pmControlButton('Ver trabajos', 'open-jobs', 'primary')
-        + pmControlButton('Eliminar terminales', 'delete-terminal-jobs', 'danger', terminalJobs.length ? '' : 'disabled')
+        + pmControlButton('Archivar terminales', 'delete-terminal-jobs', 'danger', terminalJobs.length ? '' : 'disabled')
         + pmControlButton('Ruta completa', 'route-project'),
       ''
     )
@@ -228,10 +228,10 @@ async function pmDeleteTerminalJobs() {
   const jobs = releaseJobs.filter(job => ['ready', 'completed', 'cancelled', 'failed', 'rolled-back'].includes(job.state));
   if (!jobs.length) return showToast('No hay trabajos terminales', true);
   if (!api || !api.deleteReleaseJob) return showToast('deleteReleaseJob no disponible', false);
-  if (!window.confirm('Eliminar ' + jobs.length + ' trabajo(s) terminal(es)?')) return;
+  if (!window.confirm('Archivar ' + jobs.length + ' trabajo(s) terminal(es)?')) return;
   for (const job of jobs) await api.deleteReleaseJob(job.id);
   await pmLoadJobs();
-  showToast('Trabajos eliminados', true);
+  showToast('Trabajos archivados', true);
 }
 
 function pmRouteNode(layer, title, detail, tone = '') {
