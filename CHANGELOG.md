@@ -15,6 +15,9 @@
 - Manager launch actions and transpose action are wired.
 - Audit bundle generation avoids circular hashes and writes deterministic sidecars.
 - Secret scanners ignore explicit test fixtures and skip generated runtime folders.
+- Runtime version drift closed: new sessions, supervisor, orchestrator and E2E now report 4.6.3.
+- Supervisor and Windows release-job helpers no longer open transient PowerShell windows during background checks.
+- Release notes no longer embed stale self-referential artifact hashes; final digests live in external sidecars and GitHub release metadata.
 
 ### Changed
 - `Pipelines`, `Ruta`, `Registry`, `Instalaciones`, `Releases`, `Trabajos`, `Sesiones`, `Sistema`, `Salud`, `Auditoría`, and `Métricas` follow a single visual grammar.
@@ -26,6 +29,7 @@
 - `bago-v4.6.3.zip`
 - `bago-user-v4.6.3.zip`
 - `bago-audit-v4.6.3.zip`
+- `bago-release-assets-v4.6.3.zip`
 
 ### Notes
 - The audit bundle is published with `*.sha256`, `*.manifest.json`, `*.snapshot.json`, and `*.report.md` sidecars.
