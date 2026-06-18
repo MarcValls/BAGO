@@ -5,6 +5,7 @@
 ## Resumen
 
 BAGO v4.6.3 publica la línea de release actual con el manager alineado, el installer firmado y el bundle de auditoría externa separado del bundle de usuario.
+El ZIP oficial fue regenerado tras cerrar el lockfile npm y las vulnerabilidades de `form-data` y `undici`.
 
 ## Cambios principales
 
@@ -20,14 +21,10 @@ BAGO v4.6.3 publica la línea de release actual con el manager alineado, el inst
 
 | Artefacto | SHA256 |
 |---|---|
-| BAGO-Installation-Manager-4.6.3-win-x64.exe | `b3ccf0af578b934d6f5f8ecc690a3ed15e360d91be316a87c20f8465381de0b0` |
-| bago-v4.6.3.zip | `f15c3e49243b61c32e9554f7324e316ba3f501884707c14e3f80ba0b04de5097` |
+| BAGO-Installation-Manager-4.6.3-win-x64.exe | `ceea0b609069db3f9c29867079cd05753342fb80e96132fcb37a98f8ed7efb16` |
+| bago-v4.6.3.zip | `f16e28b302530b043b8e9f0f1fafd9b622bc32b7131c5a12d714714c7423dafb` |
 | bago-user-v4.6.3.zip | `720d6b89a7c27696af6cf11f8edc67c11417c3937dcf1b625f8d8aed98477554` |
-| bago-audit-v4.6.3.zip | `e784ba5ad63df73b764a95d1edf447331d89cefe65cfda4e491bea3426675eb3` |
-
-| Artefacto | SHA256 | Tamaño | Commit |
-|---|---|---:|---|
-| bago-audit-v4.6.3.zip | `e784ba5ad63df73b764a95d1edf447331d89cefe65cfda4e491bea3426675eb3` | `977977` | `37a89f1045680ef0252a8d8267eb10fb6a0011aa` |
+| bago-audit-v4.6.3.zip | publicado con sidecars externos |
 
 ## Estado
 

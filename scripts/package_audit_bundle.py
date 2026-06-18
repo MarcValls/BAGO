@@ -93,7 +93,6 @@ EXCLUDED_GLOBS = [
     "*.py.new",
     "bago_core/parsers_legacy_*.py",
     "tools/_diff_*.py",
-    "docs/RELEASE_NOTES_4.6.3.md",
 ]
 
 FORBIDDEN_NAMES = {
@@ -377,6 +376,8 @@ def _run_tests() -> int:
         (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
         (root / "docs" / "evidence" / "sample").mkdir(parents=True)
         (root / "docs" / "evidence" / "sample" / "report.md").write_text("audit\n", encoding="utf-8")
+        (root / "docs").mkdir(exist_ok=True)
+        (root / "docs" / "RELEASE_NOTES_4.6.3.md").write_text("release notes\n", encoding="utf-8")
         (root / "AUDIT_PARALLEL_SETUP.md").write_text("bootstrap\n", encoding="utf-8")
         (root / ".ollama" / "models").mkdir(parents=True)
         (root / ".ollama" / "models" / "llama3.2.gguf").write_text("no\n", encoding="utf-8")
@@ -395,6 +396,7 @@ def _run_tests() -> int:
         assert embedded["file_count"] == len(names)
         assert "bago_core/x.py" in names
         assert "docs/evidence/sample/report.md" in names
+        assert "docs/RELEASE_NOTES_4.6.3.md" in names
         assert "AUDIT_PARALLEL_SETUP.md" in names
         assert "AUDIT_SNAPSHOT.json" in names
         assert ".ollama/models/llama3.2.gguf" not in names
