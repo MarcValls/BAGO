@@ -7,7 +7,11 @@ let pmSelectedChainStepId='';
 let pmChainDirty=false;
 
 function pmChainId(prefix){
-  return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+  const cryptoApi=typeof globalThis!=='undefined'&&globalThis.crypto?globalThis.crypto:null;
+  const entropy=cryptoApi&&typeof cryptoApi.randomUUID==='function'
+    ? cryptoApi.randomUUID().replace(/-/g,'').slice(0,10)
+    : (()=>{const bytes=new Uint8Array(6); if(cryptoApi&&typeof cryptoApi.getRandomValues==='function') cryptoApi.getRandomValues(bytes); return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');})();
+  return prefix+'-'+Date.now().toString(36)+'-'+entropy;
 }
 function pmDefaultChain(){
   return {
