@@ -223,6 +223,7 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     project_sub.add_parser("init", help="Inicializa la estructura .bago")
     project_sub.add_parser("status", help="Muestra el estado actual")
     project_sub.add_parser("link", help="Crea el enlace portable del proyecto")
+    project_sub.add_parser("analyze", help="Analiza el proyecto y sugiere próximos pasos")
 
     preflight_parser = sub.add_parser("preflight", help="Ejecuta checks de preflight portables")
     preflight_parser.add_argument("--root", default="")

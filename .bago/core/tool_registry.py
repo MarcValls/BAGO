@@ -188,12 +188,48 @@ def _tool_retrain_intents() -> str:
                 deduped.append(ex)
         examples[intent] = deduped[:15]
 
-    out_path = Path(__file__).with_name("intent_examples.json")
+    current_examples: dict[str, list[dict[str, str]]] = {}
+    for source in (_intent_examples_path(), Path(__file__).with_name("intent_examples.json")):
+        if not source.exists():
+            continue
+        try:
+            with open(source, "r", encoding="utf-8") as f:
+                current_examples = json.load(f)
+            break
+        except Exception:
+            continue
+
+    for intent, rows in current_examples.items():
+        if intent not in examples:
+            examples[intent] = []
+        examples[intent].extend(rows)
+
+    for intent in examples:
+        seen = set()
+        merged: list[dict[str, Any]] = []
+        for ex in examples[intent]:
+            key = ex.get("user", "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(ex)
+        examples[intent] = merged[:30]
+
+    out_path = _intent_examples_path()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(examples, f, ensure_ascii=False, indent=2)
 
     total = sum(len(v) for v in examples.values())
     return f"[retrain_intents] Dataset regenerado: {total} ejemplos guardados en {out_path}"
+
+
+def _intent_examples_path() -> Path:
+    """Ruta escribible para el dataset aprendido de intenciones."""
+    override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    return Path.home() / ".bago" / "state" / "intent_examples.json"
 
 
 def _tool_clean_bago_installs(

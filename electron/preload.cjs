@@ -435,6 +435,7 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   resumeReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-resume', String(id || '')),
   installReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-install', String(id || '')),
   rollbackReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-rollback', String(id || '')),
+  deleteReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-delete', String(id || '')),
   releaseJobLogs: (id, limit = 200) => ipcRenderer.invoke('bago:release-job-logs', String(id || ''), Number(limit || 200)),
   onReleaseJobChanged: (callback) => {
     if (typeof callback !== 'function') return;

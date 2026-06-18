@@ -16,6 +16,7 @@ Loop principal de chat multi-provider.
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import shutil
 import sys
@@ -42,8 +43,11 @@ for _stream in (sys.stdout, sys.stderr):
 
 # Ensure core path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
+from version import CURRENT as BAGO_VERSION
+from state_paths import resolve_state_root
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
@@ -144,6 +148,37 @@ def _wrap_transcript(text: str) -> str:
         f"{text}\n"
         "─────────────────────────────────────────────────────────────"
     )
+
+
+def _load_tool_module(module_name: str, file_name: str):
+    tool_path = Path(__file__).resolve().parents[2] / ".bago" / "tools" / file_name
+    spec = importlib.util.spec_from_file_location(module_name, tool_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"No se pudo cargar la herramienta: {tool_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+    return mod
+
+
+def _looks_like_directory_path(text: str) -> Path | None:
+    raw = text.strip().strip('"').strip("'")
+    if not raw:
+        return None
+    if not any(sep in raw for sep in ("\\", "/", ":")) and not raw.startswith("."):
+        return None
+    try:
+        candidate = Path(raw).expanduser()
+        resolved = candidate.resolve()
+    except Exception:
+        return None
+    if resolved.exists() and resolved.is_dir():
+        return resolved
+    return None
 
 
 # ─── Keybinds ────────────────────────────────────────────────────────────────
@@ -321,7 +356,7 @@ _CONFIG_EDITABLE: list[tuple[str, str, str]] = [
 
 
 class BagoREPL:
-    """REPL principal de BAGO 4.1.5."""
+    """REPL principal de BAGO."""
 
     def __init__(
         self,
@@ -329,13 +364,16 @@ class BagoREPL:
         model: str = "llama3.2:3b",
         system_prompt: str = "",
         base_path: str | None = None,
+        state_root: str | None = None,
         active_bridges: list[str] | None = None,
     ):
         self.base_path = Path(base_path or os.getcwd())
+        self.state_root = resolve_state_root(state_root)
         self.mgr = SessionManager(
             provider=provider,
             model=model,
             base_path=str(self.base_path),
+            state_root=str(self.state_root),
             system_prompt=system_prompt,
             active_bridges=active_bridges,
         )
@@ -346,7 +384,7 @@ class BagoREPL:
         self._multiline_buffer: list[str] = []
         self._in_multiline = False
         self._chat_session = None
-        self._chat_history_path = self.base_path / ".bago" / "state" / ".bago_prompt_history"
+        self._chat_history_path = self.state_root / ".bago_prompt_history"
 
     def _print_init_warnings(self) -> None:
         """Muestra advertencias si el modelo fue auto-corrigido."""
@@ -489,14 +527,19 @@ class BagoREPL:
     def _print_status(self) -> None:
         s = self.mgr.status()
         line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])
-        print(R.dim("─" * 60))
+        print(R.dim("═" * 60))
         print(line)
+        print(R.dim("═" * 60))
+
+    def _print_chat_prompt(self) -> None:
+        """Imprime el prompt de entrada entre líneas finas."""
         print(R.dim("─" * 60))
+        print(R.accent("bago") + R.bright_black(" ❯ "), end="", flush=True)
 
     def _print_banner(self) -> None:
         print(R.banner())
         print()
-        print(R.info("Bienvenido a BAGO 4.1.5. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
+        print(R.info(f"Bienvenido a BAGO {BAGO_VERSION}. Escribe / para comandos."))
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
 
@@ -717,7 +760,7 @@ class BagoREPL:
         return False
 
     def _switch_wizard(self) -> bool:
-        """Asistente guiado para cambiar de provider/modelo sin teclear nombres."""
+        """Asistente guiado para cambiar de provider/modelo."""
         if not self._wizard_tty_ok("/switch <provider> [modelo]"):
             return True
         try:
@@ -728,33 +771,52 @@ class BagoREPL:
         if not providers:
             print(R.warn("No hay providers registrados."))
             return True
+
         plabels = []
         for p in providers:
-            estado = "configurado" if p.get("configured") else "sin configurar"
+            estado = "✓" if p.get("configured") else "○"
             nmod = len(p.get("models") or [])
-            plabels.append(f"{p['name']}  —  {estado} · {nmod} modelos")
+            plabels.append(f"{estado} {p['name']}  ·  {nmod} modelos")
         pidx = self._navigate("Cambiar provider · elige uno", plabels)
         if pidx is None:
             print(R.dim("Asistente cerrado."))
             return True
         provider = providers[pidx]["name"]
 
+        if not providers[pidx].get("configured", False):
+            print(R.warn(f"'{provider}' no tiene credenciales."))
+            if not self._credential_wizard_provider(provider):
+                return True
+            if self.mgr.provider != provider:
+                print(R.error("No se pudo conectar."))
+                return True
+            # Ya conectado por el wizard, mostrar status
+            print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+            self.engine = SwitchEngine(self.mgr.adapters)
+            return True
+
+        # Provider ya configurado: elegir modelo y cambiar
         try:
             catalog = self.mgr.list_model_catalog(provider)
         except Exception:
             catalog = []
         model = None
         if catalog:
-            mlabels = ["(auto / mantener por defecto)"] + [str(item["id"]) for item in catalog]
-            midx = self._navigate(f"{provider} · elige modelo", mlabels)
+            mlabels = ["(auto)"] + [str(item["id"]) for item in catalog]
+            midx = self._navigate(f"{provider} · modelo", mlabels)
             if midx is None:
-                print(R.dim("Asistente cerrado."))
                 return True
             if midx > 0:
                 model = catalog[midx - 1]["id"]
 
-        command_line = f"/switch {provider}" + (f" {model}" if model else "")
-        return self._handle_command(command_line)
+        result = self.mgr.switch(provider, model, force=True)
+        if result.get("ok"):
+            print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+            self.engine = SwitchEngine(self.mgr.adapters)
+        else:
+            err = result.get("error") or result.get("warnings", ["?"])[0]
+            print(R.error(f"✗ {err}"))
+        return True
 
     def _agent_wizard(self) -> bool:
         """Asistente guiado para activar un agente especializado."""
@@ -766,47 +828,87 @@ class BagoREPL:
             print(R.error(f"No se pudieron listar los agentes: {exc}"))
             return True
         if not agents:
-            print(R.warn("No hay agentes registrados."))
+            print(R.warn("No hay agentes disponibles."))
             return True
-        try:
-            active = self.mgr.agent_gateway.active.name
-        except Exception:
-            active = ""
+
+        active = self.mgr.agent_gateway.active.name
         labels = []
-        for a in agents:
-            mark = "●" if a.name == active else "○"
-            labels.append(f"{mark} {a.name}  —  {a.description}")
-        idx = self._navigate("Activar agente · elige uno", labels)
+        for agent in agents:
+            marker = "✓" if agent.name == active else "○"
+            labels.append(f"{marker} {agent.name}  ·  {agent.description}")
+        idx = self._navigate("Agentes especializados · elige uno", labels)
         if idx is None:
             print(R.dim("Asistente cerrado."))
             return True
-        return self._handle_command(f"/agent {agents[idx].name}")
+        name = agents[idx].name
+        return self._handle_command(f"/agent {name}")
 
     def _load_wizard(self) -> bool:
-        """Asistente guiado para cargar una sesion guardada (no hay que recordar el id)."""
+        """Asistente guiado para cargar sesiones guardadas."""
         if not self._wizard_tty_ok("/load <session_id>"):
             return True
-        try:
-            sessions = type(self.mgr.store).list_sessions(self.mgr.store.base_dir)
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar las sesiones guardadas: {exc}"))
+        sessions_dir = self.state_root / "sessions"
+        if not sessions_dir.exists():
+            print(R.warn("No hay sesiones guardadas."))
             return True
-        if not sessions:
-            print(R.warn("No hay sesiones guardadas. Usa /save para crear una."))
+
+        items: list[tuple[str, str, str]] = []
+        for path in sorted(sessions_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+            sid = str(data.get("session_id") or path.stem)
+            created = str(data.get("created_at") or time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(path.stat().st_mtime)))
+            provider = str(data.get("provider") or "?")
+            model = str(data.get("model") or "?")
+            items.append((sid, created, f"{provider}/{model}"))
+
+        if not items:
+            print(R.warn("No hay sesiones guardadas."))
             return True
-        sessions = sorted(sessions, key=lambda s: s.get("created_at", ""), reverse=True)
-        labels = []
-        for s in sessions:
-            sid = s.get("sid", "?")
-            when = s.get("created_at", "") or "sin fecha"
-            prov = s.get("last_provider", "") or "?"
-            mod = s.get("last_model", "") or "?"
-            labels.append(f"{sid[:12]}  ·  {when}  ·  {prov}/{mod}")
-        idx = self._navigate("Cargar sesion · elige una", labels)
+
+        labels = [f"{sid}  ·  {created}  ·  {prov_model}" for sid, created, prov_model in items]
+        idx = self._navigate("Cargar sesión · elige una", labels)
         if idx is None:
             print(R.dim("Asistente cerrado."))
             return True
-        return self._handle_command(f"/load {sessions[idx]['sid']}")
+        sid = items[idx][0]
+        return self._handle_command(f"/load {sid}")
+
+    def _project_wizard(self, project_root: Path) -> bool:
+        """Asistente guiado para analizar o preparar un proyecto local."""
+        if not self._wizard_tty_ok("/project [analyze|status|init|link]"):
+            return True
+        labels = [
+            f"Analizar directorio actual ({project_root.name})",
+            "Ver estado del proyecto",
+            "Inicializar estructura .bago",
+            "Vincular proyecto portable",
+            "Seguir con la sesión",
+        ]
+        idx = self._navigate(f"Proyecto detectado · {project_root}", labels)
+        if idx is None:
+            print(R.dim("Asistente cerrado."))
+            return True
+        mod = _load_tool_module("project_memory", "project_memory.py")
+        if idx == 0:
+            data = mod.analyze_data(project_root)
+            print(mod.format_analysis(data))
+            return True
+        if idx == 1:
+            data = mod.status_data(project_root)
+            print(mod.format_status(data))
+            return True
+        if idx == 2:
+            data = mod.init_project(project_root)
+            print(R.ok(f"Proyecto inicializado: {data['bago_dir']}"))
+            return True
+        if idx == 3:
+            data = mod.link_project(project_root)
+            print(R.ok(f"Proyecto vinculado: {data['root']} ({data['link_mode']})"))
+            return True
+        return True
 
     def _config_wizard(self) -> bool:
         """Asistente guiado para cambiar un ajuste de configuracion."""
@@ -893,75 +995,162 @@ class BagoREPL:
         return self._handle_command(f"/memory delete {recent[idx]['id']}")
 
     def _credential_wizard(self) -> bool:
-        """Asistente guiado para registrar/actualizar una credencial sin escribir comandos.
-
-        Flujo navegable: elegir provider -> elegir dato (key) -> escribir valor.
-        Accesible desde el menu, la paleta '/' o escribiendo '/credentials set', '/login' o '/cred'.
-        """
+        """Registrar credenciales para cualquier provider."""
+        if not self._wizard_tty_ok("/credentials set <provider> <key> <valor>"):
+            return True
         try:
             from credential_manager import CREDENTIAL_SCHEMA
         except Exception as exc:
-            print(R.error(f"No se pudo cargar el esquema de credenciales: {exc}"))
-            return True
-
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            print(R.warn(
-                "El asistente de credenciales requiere un terminal interactivo. "
-                "Usa: /credentials set <provider> <key> <valor>"
-            ))
+            print(R.error(f"No se pudo cargar el esquema: {exc}"))
             return True
 
         creds = self.mgr.credentials
-
         providers = list(CREDENTIAL_SCHEMA.keys())
         plabels = []
         for p in providers:
-            estado = "configurado" if creds.is_configured(p) else "sin configurar"
-            plabels.append(f"{p}  —  {estado}")
-        pidx = self._navigate("Registrar credencial · elige el provider", plabels)
+            mark = "✓" if creds.is_configured(p) else "○"
+            plabels.append(f"{mark} {p}")
+        pidx = self._navigate("Registrar credencial · elige provider", plabels)
         if pidx is None:
-            print(R.dim("Asistente de credenciales cerrado."))
             return True
-        provider = providers[pidx]
+        return self._credential_wizard_provider(providers[pidx])
 
-        schema = CREDENTIAL_SCHEMA[provider]
-        keys = list(schema.keys())
-        stored = creds.list_for_provider(provider)
-        klabels = []
-        for k in keys:
-            mark = "●" if stored.get(k) else "○"
-            klabels.append(f"{mark} {k}  —  {schema[k]}")
-        kidx = self._navigate(f"{provider} · elige el dato a registrar", klabels)
-        if kidx is None:
-            print(R.dim("Asistente de credenciales cerrado."))
-            return True
-        key = keys[kidx]
+    def _credential_wizard_provider(self, provider: str, silent: bool = False) -> bool:
+        """Flujo de login para un provider específico. Detecta automáticamente o abre URL."""
+        import os, subprocess, urllib.request, webbrowser
+        from pathlib import Path
 
-        print(R.dim(f"  {schema[key]}"))
-        if stored.get(key):
-            actual = stored[key]
-            masked = actual[:4] + "***" if len(actual) > 4 else "****"
-            print(R.dim(f"  Valor actual: {masked} (se sobrescribira)"))
-        value = self._timed_input(R.accent(f"  {provider}/{key} = "), timeout=60)
-        if value is None:
-            return True
-        value = value.strip()
-        if not value:
-            print(R.dim("Valor vacio. Operacion cancelada."))
-            return True
+        LOGIN_URLS = {
+            "copilot":       "https://github.com/settings/tokens",
+            "codex":         "https://platform.openai.com/api-keys",
+            "anthropic":     "https://console.anthropic.com/settings/keys",
+            "openrouter":    "https://openrouter.ai/keys",
+            "opencode":      "https://opencode.ai",
+            "ollama-cloud":  "https://ollama.com/signin",
+        }
 
-        try:
-            creds.set(provider, key, value)
-        except Exception as exc:
-            # Culpa tecnica: reportar responsabilidad y causa con claridad.
-            print(R.error(
-                f"No se pudo guardar la credencial {provider}/{key}: {exc}. "
-                "Revisa permisos de .bago/credentials.json o el modo de almacenamiento en install_config.json."
-            ))
-            return True
+        print(R.info(f"🔑 Configurando {provider}"))
 
-        masked = value[:4] + "***" if len(value) > 4 else "****"
-        print(R.ok(f"✓ Credencial guardada: {provider}/{key} = {masked}"))
+        # ── Detección automática ──────────────────────────────────────────
+        detected = False
+
+        if provider == "copilot":
+            try:
+                r = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10, shell=(sys.platform == "win32"))
+                if r.returncode == 0 and r.stdout.strip():
+                    self.mgr.credentials.set("copilot", "GITHUB_TOKEN", r.stdout.strip())
+                    detected = True
+                    print(R.ok("  ✓ Token detectado via gh CLI"))
+            except Exception:
+                pass
+            if not detected and os.environ.get("GITHUB_TOKEN"):
+                self.mgr.credentials.set("copilot", "GITHUB_TOKEN", os.environ["GITHUB_TOKEN"])
+                detected = True
+                print(R.ok("  ✓ Token detectado en entorno"))
+
+        elif provider == "codex":
+            for p in [Path.home() / ".codex" / "auth.json", Path.home() / "AppData" / "Roaming" / "OpenAI" / "auth.json"]:
+                if p.exists():
+                    try:
+                        import json
+                        data = json.loads(p.read_text(encoding="utf-8"))
+                        token = data.get("api_key") or data.get("session_token") or data.get("access_token")
+                        if token:
+                            self.mgr.credentials.set("codex", "OPENAI_API_KEY", token)
+                            detected = True
+                            print(R.ok("  ✓ Token de Codex Desktop detectado"))
+                            break
+                    except Exception:
+                        pass
+            if not detected and os.environ.get("OPENAI_API_KEY"):
+                self.mgr.credentials.set("codex", "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
+                detected = True
+                print(R.ok("  ✓ API key detectada en entorno"))
+
+        elif provider == "anthropic" and os.environ.get("ANTHROPIC_API_KEY"):
+            self.mgr.credentials.set("anthropic", "ANTHROPIC_API_KEY", os.environ["ANTHROPIC_API_KEY"])
+            detected = True
+            print(R.ok("  ✓ Key detectada en entorno"))
+
+        elif provider == "openrouter" and os.environ.get("OPENROUTER_API_KEY"):
+            self.mgr.credentials.set("openrouter", "OPENROUTER_API_KEY", os.environ["OPENROUTER_API_KEY"])
+            detected = True
+            print(R.ok("  ✓ Key detectada en entorno"))
+
+        elif provider == "opencode" and os.environ.get("OPENCODE_API_KEY"):
+            self.mgr.credentials.set("opencode", "OPENCODE_API_KEY", os.environ["OPENCODE_API_KEY"])
+            detected = True
+            print(R.ok("  ✓ Key detectada en entorno"))
+
+        elif provider == "ollama-local":
+            for host in ["http://127.0.0.1:11434", "http://localhost:11434"]:
+                try:
+                    req = urllib.request.Request(f"{host}/api/tags", method="GET")
+                    with urllib.request.urlopen(req, timeout=3) as resp:
+                        if resp.status == 200:
+                            self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host)
+                            detected = True
+                            print(R.ok(f"  ✓ Ollama detectado en {host}"))
+                            break
+                except Exception:
+                    pass
+            if not detected:
+                self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", "http://127.0.0.1:11434")
+                detected = True
+                print(R.info("  ℹ Ollama no detectado, configurado para localhost:11434"))
+
+        elif provider == "ollama-cloud":
+            self.mgr.credentials.set("ollama-cloud", "OLLAMA_CLOUD_URL", "https://ollama.com")
+
+        # ── Login manual (si no se detectó automáticamente) ───────────────
+        if not detected and provider in LOGIN_URLS:
+            url = LOGIN_URLS[provider]
+            print(R.info(f"  Abriendo {url} ..."))
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+
+        # ── Pedir campos que falten ──────────────────────────────────────
+        from credential_manager import CREDENTIAL_SCHEMA
+        schema = CREDENTIAL_SCHEMA.get(provider, {})
+        stored = self.mgr.credentials.list_for_provider(provider)
+
+        for key, desc in schema.items():
+            if stored.get(key):
+                continue  # Ya guardado
+            is_optional = "opcional" in desc.lower()
+            prompt = f"  {key}: "
+            if is_optional:
+                prompt = f"  {key} (opcional, Enter para omitir): "
+            val = self._timed_input(R.accent(prompt), timeout=120)
+            if val is None:
+                print(R.dim("  Cancelado."))
+                return False
+            val = val.strip()
+            if not val and is_optional:
+                continue
+            if not val and not is_optional:
+                print(R.error("  Campo obligatorio. Cancelado."))
+                return False
+            self.mgr.credentials.set(provider, key, val)
+            print(R.ok(f"  ✓ {key} guardado"))
+
+        # ── Conectar automáticamente ─────────────────────────────────────
+        if not silent:
+            print()
+            print(R.ok(f"✓ {provider} configurado."))
+        if provider != "ollama-local":
+            result = self.mgr.switch(provider, force=True)
+            if result.get("ok"):
+                if not silent:
+                    print(R.ok(f"✓ Conectado a {provider}/{self.mgr.model}"))
+                self.engine = SwitchEngine(self.mgr.adapters)
+            else:
+                err = result.get("error") or result.get("warnings", ["?"])[0]
+                if not silent:
+                    print(R.error(f"✗ No se pudo conectar: {err}"))
+                return False
         return True
 
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
@@ -1063,6 +1252,7 @@ class BagoREPL:
         return R.accent("bago") + R.bright_black(" ❯ ")
 
     def run(self) -> None:
+        """REPL principal de BAGO — Chat CLI limpio."""
         try:
             self._setup_readline()
             self._print_banner()
@@ -1073,20 +1263,22 @@ class BagoREPL:
             self.running = True
 
             while self.running:
+                self._print_chat_prompt()
                 try:
-                    line = self._read_main_input(self._prompt())
+                    line = self._read_main_input("")
                 except (EOFError, KeyboardInterrupt):
                     print()
                     print(R.ok("Bye."))
                     break
 
-                # Pasted multiline blocks should enter as one message, not line-by-line.
+                # Pasted multiline
                 if ("\n" in line or "\r" in line) and not self._in_multiline:
                     self._handle_pasted_block(line)
                     continue
 
-                # Multiline detection: lines starting/ending with ```
                 stripped = line.strip()
+
+                # Multiline ```
                 if stripped.startswith("```") and not self._in_multiline:
                     self._in_multiline = True
                     self._multiline_buffer = []
@@ -1103,45 +1295,38 @@ class BagoREPL:
                     self._multiline_buffer.append(line)
                     continue
 
-                # Empty line (Enter solo = Ctrl+M) → abre el menu interactivo en TTY
+                # Enter vacío → solo redibujar
                 if not stripped:
-                    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-                        continue
-                    if not self._show_menu():
-                        break
-                    self._print_status()
                     continue
 
-                # "/" solo → paleta navegable con todos los comandos
-                if stripped == "/":
-                    if not self._show_command_palette():
-                        break
-                    self._print_status()
-                    continue
-
-                # Commands
+                # Comandos slash
                 if stripped.startswith("/"):
                     if not self._handle_command(stripped):
                         break
                     self._print_status()
                     continue
 
-                # Natural-language command intent — engine dinámico (command_intents.json)
+                project_root = _looks_like_directory_path(stripped)
+                if project_root is not None:
+                    if not self._project_wizard(project_root):
+                        break
+                    self._print_status()
+                    continue
+
+                # Intención natural (alias)
                 _nl_cmd = classify_command_intent(stripped)
                 if _nl_cmd is None:
-                    # Fallback: frozensets hardcoded como red de seguridad
                     if stripped.lower() in _MENU_ALIASES:
                         _nl_cmd = "/"
                     elif stripped.lower() in _LOGIN_ALIASES:
                         _nl_cmd = "/credentials set"
-
                 if _nl_cmd is not None:
                     if not self._dispatch_command_intent(_nl_cmd, stripped):
                         break
                     self._print_status()
                     continue
 
-                # Normal chat
+                # Chat normal
                 R.print_message("user", stripped)
                 self._handle_chat(stripped)
                 self._print_status()

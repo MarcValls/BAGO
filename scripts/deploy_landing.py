@@ -13,13 +13,15 @@ Requiere:
 import argparse
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 
 
 def deploy(prod: bool = False, yes: bool = False) -> str:
     repo_root = Path(__file__).resolve().parents[1]
     # La landing está en la raíz (index.html + vercel.json)
-    cmd = ["vercel", str(repo_root)]
+    vercel_bin = shutil.which("vercel.cmd") or shutil.which("vercel") or "vercel"
+    cmd = [vercel_bin, str(repo_root)]
     if prod:
         cmd.append("--prod")
     if yes:

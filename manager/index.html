@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; frame-src http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.github.com http://127.0.0.1:* http://localhost:*; frame-src http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
 <title>BAGO · Gestor de Instalaciones</title>
-<link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="styles/legacy.css">
 <link rel="stylesheet" href="styles/patch.css">
 </head>
@@ -13,12 +12,35 @@
 <div class="pm-app" id="pm-app">
   <aside class="pm-sidebar">
     <div class="pm-brand">
-      <img src="../assets/logo.png" alt="BAGO">
+      <svg width="34" height="34" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BAGO" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
+        <defs>
+          <linearGradient id="wg-brand" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="100%" stop-color="#fbbf24"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="22" cy="22" rx="14" ry="9" fill="rgba(125,211,252,0.45)" stroke="rgba(125,211,252,0.7)" stroke-width="1"/>
+        <ellipse cx="42" cy="22" rx="14" ry="9" fill="rgba(125,211,252,0.45)" stroke="rgba(125,211,252,0.7)" stroke-width="1"/>
+        <ellipse cx="32" cy="36" rx="9" ry="16" fill="url(#wg-brand)" stroke="#0f172a" stroke-width="1.5"/>
+        <path d="M23 30 Q32 33 41 30" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+        <path d="M23 38 Q32 41 41 38" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+        <path d="M23 46 Q32 49 41 46" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+        <circle cx="32" cy="14" r="6" fill="#1e293b" stroke="#0f172a" stroke-width="1.5"/>
+        <circle cx="29" cy="13" r="1.2" fill="#fde68a"/>
+        <circle cx="35" cy="13" r="1.2" fill="#fde68a"/>
+        <path d="M30 9 Q28 5 25 4" stroke="#1e293b" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M34 9 Q36 5 39 4" stroke="#1e293b" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <circle cx="25" cy="4" r="1.2" fill="#1e293b"/>
+        <circle cx="39" cy="4" r="1.2" fill="#1e293b"/>
+        <path d="M32 52 L30 58 L34 58 Z" fill="#0f172a"/>
+      </svg>
       <div><strong>BAGO Patch Manager</strong><span>Installation → Connector → Piece</span></div>
     </div>
     <nav class="pm-nav" aria-label="Gestor">
+      <button class="active" data-pm-view="control"><span class="pm-icon">⌂</span>Control</button>
+      <button data-pm-view="route"><span class="pm-icon">⟶</span>Ruta</button>
       <button class="pm-nav-bago" data-pm-view="bago"><span class="pm-icon">B</span>BAGO Chat</button>
-      <button class="active" data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
+      <button data-pm-view="patch"><span class="pm-icon">⇄</span>Patch Bay</button>
       <button data-pm-view="installations"><span class="pm-icon">▣</span>Instalaciones</button>
       <button data-pm-view="matrix"><span class="pm-icon">▦</span>Matriz</button>
       <button data-pm-view="pieces"><span class="pm-icon">◇</span>Piezas</button>
@@ -38,7 +60,7 @@
   </aside>
   <section class="pm-content">
     <header class="pm-topbar">
-      <div class="pm-title"><h1 id="pm-title">Patch Bay</h1><p id="pm-status">Cargando detección local, releases y Node Control...</p></div>
+      <div class="pm-title"><h1 id="pm-title">Control</h1><p id="pm-status">Cargando detección local, releases y Node Control...</p></div>
       <div class="pm-actions">
         <input class="pm-input" id="pm-search" type="search" placeholder="Buscar instalación, pieza o connector">
         <select class="pm-select" id="pm-mode-filter">
@@ -52,6 +74,35 @@
       </div>
     </header>
 
+    <section class="pm-view active" id="pm-view-control">
+      <div class="pm-control-grid" id="pm-control-grid"></div>
+    </section>
+
+    <section class="pm-view" id="pm-view-route">
+      <div class="pm-grid pm-route-layout">
+        <article class="pm-panel">
+          <div class="pm-panel-head">
+            <div><h2>Ruta de ejecución</h2><p id="pm-route-caption">Entrada → Modelo → Agente → Tool/Skill → Comando → Salida</p></div>
+            <div class="pm-actions">
+              <select class="pm-select" id="pm-route-template">
+                <option value="project">Proyecto</option>
+                <option value="release">Release</option>
+                <option value="provider">Provider</option>
+                <option value="audit">Auditoría</option>
+              </select>
+              <button class="pm-btn primary" id="pm-route-build">Construir ruta</button>
+              <button class="pm-btn" id="pm-route-copy">Copiar plan</button>
+            </div>
+          </div>
+          <div class="pm-route-board" id="pm-route-board"></div>
+        </article>
+        <aside class="pm-panel pm-route-detail">
+          <div class="pm-panel-head"><div><h2>Contrato de salida</h2><p id="pm-route-output-caption">Selecciona o genera una ruta</p></div></div>
+          <div class="pm-route-output" id="pm-route-output"></div>
+        </aside>
+      </div>
+    </section>
+
     <section class="pm-view" id="pm-view-bago">
       <div class="pm-bago-wrap">
         <div class="pm-bago-status" id="pm-bago-status">
@@ -62,7 +113,7 @@
       </div>
     </section>
 
-    <section class="pm-view active" id="pm-view-patch">
+    <section class="pm-view" id="pm-view-patch">
       <div class="pm-grid pm-stats" id="pm-stats"></div>
       <div class="pm-grid pm-patch-layout" id="pm-patch-layout">
         <article class="pm-panel" id="pm-patch-panel">
@@ -198,9 +249,30 @@
 </dialog>
 <header>
   <div class="wrap">
-    <img src="../assets/logo.png" width="32" height="32" alt="BAGO logo" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
+    <svg width="32" height="32" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BAGO logo" style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.4));">
+      <defs>
+        <linearGradient id="wg-footer" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#fde68a"/>
+          <stop offset="100%" stop-color="#fbbf24"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="22" cy="22" rx="14" ry="9" fill="rgba(125,211,252,0.45)" stroke="rgba(125,211,252,0.7)" stroke-width="1"/>
+      <ellipse cx="42" cy="22" rx="14" ry="9" fill="rgba(125,211,252,0.45)" stroke="rgba(125,211,252,0.7)" stroke-width="1"/>
+      <ellipse cx="32" cy="36" rx="9" ry="16" fill="url(#wg-footer)" stroke="#0f172a" stroke-width="1.5"/>
+      <path d="M23 30 Q32 33 41 30" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+      <path d="M23 38 Q32 41 41 38" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+      <path d="M23 46 Q32 49 41 46" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+      <circle cx="32" cy="14" r="6" fill="#1e293b" stroke="#0f172a" stroke-width="1.5"/>
+      <circle cx="29" cy="13" r="1.2" fill="#fde68a"/>
+      <circle cx="35" cy="13" r="1.2" fill="#fde68a"/>
+      <path d="M30 9 Q28 5 25 4" stroke="#1e293b" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M34 9 Q36 5 39 4" stroke="#1e293b" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <circle cx="25" cy="4" r="1.2" fill="#1e293b"/>
+      <circle cx="39" cy="4" r="1.2" fill="#1e293b"/>
+      <path d="M32 52 L30 58 L34 58 Z" fill="#0f172a"/>
+    </svg>
     <h1><span class="grad">BAGO</span> · Gestor de Instalaciones</h1>
-    <span class="meta">standalone · offline · <span id="bago-version-meta">v4.6.2</span></span>
+    <span class="meta">standalone · offline · <span id="bago-version-meta">v4.6.3</span></span>
   </div>
 </header>
 <main>
@@ -291,7 +363,7 @@
   </section>
 </main>
 <footer>
-  BAGO Gestor · <span id="bago-version-footer">v4.6.2</span> · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
+  BAGO Gestor · <span id="bago-version-footer">v4.6.3</span> · Hecho para funcionar offline · <a href="https://github.com/MarcValls/BAGO" target="_blank">github.com/MarcValls/BAGO</a>
 </footer>
 <div id="toast" class="toast"></div>
 <script src="js/core.js"></script>
@@ -302,6 +374,7 @@
 <script src="js/chain-manager.js"></script>
 <script src="js/session-manager.js"></script>
 <script src="js/system-status.js"></script>
+<script src="js/ops-console.js"></script>
 <script src="js/bootstrap.js"></script>
 <script src="js/interaction-log.js"></script>
 <script src="js/bago-chat.js"></script>

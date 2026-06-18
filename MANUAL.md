@@ -1,4 +1,4 @@
-# BAGO 4.6.2 — Manual de Usuario
+# BAGO 4.6.3 — Manual de Usuario
 
 > **Session-First AI Chat**
 > El contexto de sesión sobrevive al cambio de provider.
@@ -8,12 +8,12 @@
 
 | Campo | Valor |
 |---|---|
-| Producto | BAGO 4.6.2 |
+| Producto | BAGO 4.6.3 |
 | Tipo | Manual de usuario y guía de release |
 | Alcance | `stable` / `des` / `ign` |
 | UI | `manager/index.html` + capturas de CLI/UI |
 | Validación | `validate`, `test_security_release.py`, `test_e2e.py`, `publish_release.py --test` |
-| Artefactos | `dist\BAGO-Installation-Manager-4.6.2-win-x64.exe`, `dist\bago-v4.6.2.zip` |
+| Artefactos | `dist\BAGO-Installation-Manager-4.6.3-win-x64.exe`, `dist\bago-v4.6.3.zip` |
 
 ### Contenido de esta edición
 
@@ -81,9 +81,9 @@ $ ./bago.sh chat
  |  _ \ / _ \ \___ \| | | |
  | |_) / ___ \ ___) | |_| |
  |____/_/   \_\____/ \___/
-           v4.6.2 — Session-First AI Chat
+           v4.6.3 — Session-First AI Chat
 
-Bienvenido a BAGO 4.6.2. Escribe /help para ver comandos.
+Bienvenido a BAGO 4.6.3. Escribe /help para ver comandos.
 El contexto de sesión sobrevive al cambio de provider.
 
 ────────────────────────────────────────────────────────────
@@ -92,11 +92,11 @@ El contexto de sesión sobrevive al cambio de provider.
 bago ❯
 ```
 
-> **Nota:** Si el modelo por defecto no está disponible en Ollama local, BAGO 4.6.2 **auto-ajusta** al primer modelo disponible automáticamente y te avisa.
+> **Nota:** Si el modelo por defecto no está disponible en Ollama local, BAGO 4.6.3 **auto-ajusta** al primer modelo disponible automáticamente y te avisa.
 
 ### Nuevo gestor de instalaciones
 
-BAGO 4.6.2 separa claramente los perfiles de instalación:
+BAGO 4.6.3 separa claramente los perfiles de instalación:
 
 - `bago` -> copia estable activa
 - `bago des` -> entorno de desarrollo completo del framework
@@ -185,7 +185,7 @@ En el chat:
 
 ### Selección interactiva al inicio
 
-Si el modelo por defecto no está disponible, o siempre que arranques el REPL, BAGO 4.6.2 te ofrece elegir provider y modelo de forma interactiva:
+Si el modelo por defecto no está disponible, o siempre que arranques el REPL, BAGO 4.6.3 te ofrece elegir provider y modelo de forma interactiva:
 
 ```
 Provider actual: ollama-local/llama3.2:3b
@@ -207,7 +207,7 @@ Elige: 2
 
 ### Motor de Intenciones (Auto-Training)
 
-BAGO 4.6.2 incluye un **motor de intenciones** que aprende automáticamente de tu estilo de conversación para decidir cuándo usar herramientas y cuándo no.
+BAGO 4.6.3 incluye un **motor de intenciones** que aprende automáticamente de tu estilo de conversación para decidir cuándo usar herramientas y cuándo no.
 
 Intenciones detectadas:
 - **chat** — saludos, conversación casual. BAGO **no ofrece herramientas** al modelo.
@@ -254,7 +254,7 @@ BAGO también reentrena **automáticamente** justo antes de cada compactación d
 
 ### Servidor API (`bago serve`)
 
-BAGO 4.6.2 expone una API HTTP para integraciones externas:
+BAGO 4.6.3 expone una API HTTP para integraciones externas:
 
 ```bash
 C:\Bago_v4> python bago_core\cli.py serve --port 8080 --token secret123
@@ -329,7 +329,7 @@ Simulación segura (`shadow`):
 
 ### Generador de evidencias (`bago evidence`)
 
-BAGO 4.6.2 puede materializar un bundle de evidencia contractual para demostrar ayuda directa e indirecta al usuario.
+BAGO 4.6.3 puede materializar un bundle de evidencia contractual para demostrar ayuda directa e indirecta al usuario.
 
 ```bash
 C:\Bago_v4> python bago_core\cli.py evidence --mode simulated --objective community-knowledge --output docs\evidence\example_bundle --overwrite
@@ -466,7 +466,7 @@ bago ❯ ```
 
 ## 5. Switch de Provider/Modelo
 
-BAGO 4.6.2 permite cambiar de modelo **sin perder la sesión**. El sistema evalúa la equivalencia entre modelos y aplica la estrategia de transferencia adecuada.
+BAGO 4.6.3 permite cambiar de modelo **sin perder la sesión**. El sistema evalúa la equivalencia entre modelos y aplica la estrategia de transferencia adecuada.
 
 ### Switch básico
 
@@ -493,7 +493,7 @@ Si el switch no es recomendado, el sistema te avisará. Usa `--force` para forza
 
 ### Compresión por capas (downgrade)
 
-Cuando cambias a un modelo menor, BAGO 4.6.2 **no pierde el contexto**: lo comprime por capas jerárquicamente:
+Cuando cambias a un modelo menor, BAGO 4.6.3 **no pierde el contexto**: lo comprime por capas jerárquicamente:
 
 - **Capa 1** → se resume en un bloque A
 - **Capa 2** → se resume + se une con A → bloque unificado B
@@ -540,7 +540,7 @@ Los datos de capas se persisten en:
 
 ## 6. Configuración y Credenciales
 
-BAGO 4.6.2 gestiona su configuración en `.bago/config.json` y las credenciales en `.bago/credentials.json`. Ya no dependes exclusivamente de variables de entorno.
+BAGO 4.6.3 gestiona su configuración en `.bago/config.json` y las credenciales en `.bago/credentials.json`. Ya no dependes exclusivamente de variables de entorno.
 
 ### Desde la línea de comandos
 
@@ -619,7 +619,7 @@ Los archivos de sesión se almacenan en:
 
 ## 8. Aprendizaje por Refuerzo (RL experimental)
 
-BAGO 4.6.2 incluye un motor de RL ligero que aprende de cada interacción. En el producto estable se mantiene como `shadow/off` por defecto y no tiene autoridad de ejecución:
+BAGO 4.6.3 incluye un motor de RL ligero que aprende de cada interacción. En el producto estable se mantiene como `shadow/off` por defecto y no tiene autoridad de ejecución:
 
 - **Recompensa implícita**: se calcula automáticamente por rapidez, longitud de respuesta y ausencia de errores.
 - **Recompensa explícita**: el usuario puede valorar cualquier respuesta con `/feedback <rating>`.
@@ -667,7 +667,7 @@ Los datos RL se persisten en:
 
 ## 9. Plan y Autopilot (experimental/post-MVP)
 
-BAGO 4.6.2 puede generar planes de tareas y preparar ejecución asistida. Esta superficie es experimental y no forma parte del MVP estable hasta que tenga pruebas por escenario, permisos explícitos y evidencia.
+BAGO 4.6.3 puede generar planes de tareas y preparar ejecución asistida. Esta superficie es experimental y no forma parte del MVP estable hasta que tenga pruebas por escenario, permisos explícitos y evidencia.
 
 ### `/plan` — Generar plan paso a paso
 
@@ -714,7 +714,7 @@ En modo **autopilot**, BAGO:
 
 ## 10. Allow All — Control de Ejecución de Herramientas
 
-BAGO 4.6.2 puede ejecutar herramientas automáticamente o pedirte confirmación antes de hacerlo, al estilo **Copilot Allow All**.
+BAGO 4.6.3 puede ejecutar herramientas automáticamente o pedirte confirmación antes de hacerlo, al estilo **Copilot Allow All**.
 
 Regla estable: la sugerencia y la ejecución están separadas. `auto_allow_tools` debe permanecer en `false` por defecto y cualquier ejecución crítica debe pasar por aprobación explícita.
 
@@ -785,7 +785,7 @@ La selección queda registrada en `.bago/state/llm_start.json` y se usa para esa
 
 ## 12. Base de Conocimiento (partial/post-MVP)
 
-BAGO 4.6.2 incluye una **base de conocimiento persistente** que sobrevive a las sesiones. Almacena recuerdos, hechos y notas importantes extraídos de las conversaciones.
+BAGO 4.6.3 incluye una **base de conocimiento persistente** que sobrevive a las sesiones. Almacena recuerdos, hechos y notas importantes extraídos de las conversaciones.
 
 Estado actual: superficie parcial. La sesión persistente entra en el MVP; memoria avanzada, embeddings e inyección automática de recuerdos quedan fuera del MVP hasta tener prueba end-to-end.
 
@@ -831,7 +831,7 @@ En el futuro, la Knowledge Base se puede conectar al `send()` para inyectar recu
 
 ---
 
-## 12. Arquitectura de BAGO 4.6.2
+## 12. Arquitectura de BAGO 4.6.3
 
 ```
 ┌─────────────────────────────────────────┐
@@ -1055,7 +1055,7 @@ BAGO Error Ollama: HTTP Error 404: Not Found
 
 **Causa:** El modelo por defecto no está descargado en Ollama.
 
-**Solución:** BAGO 4.6.2 auto-ajusta al primer modelo disponible. Si aun así falla, descarga un modelo:
+**Solución:** BAGO 4.6.3 auto-ajusta al primer modelo disponible. Si aun así falla, descarga un modelo:
 
 ```bash
 ollama pull llama3.2:3b
@@ -1099,7 +1099,7 @@ O desde línea de comandos:
 python bago_core\cli.py config set providers.anthropic.enabled true
 ```
 
-> **Tip:** Al iniciar el REPL, BAGO 4.6.2 te ofrece una selección interactiva de providers y modelos disponibles.
+> **Tip:** Al iniciar el REPL, BAGO 4.6.3 te ofrece una selección interactiva de providers y modelos disponibles.
 
 ---
 
@@ -1114,7 +1114,7 @@ python bago_core\cli.py config set providers.anthropic.enabled true
 
 ---
 
-**BAGO 4.6.2** — Session-First AI Chat
+**BAGO 4.6.3** — Session-First AI Chat
 *Construido con arquitectura atómica, sin gates, con memoria compartida.*
 
 ---

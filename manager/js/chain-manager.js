@@ -5,11 +5,13 @@ let pmPatchSurface=localStorage.getItem('bago.pm.patch.surface')||'connectors';
 let pmSelectedChainStageId='';
 let pmSelectedChainStepId='';
 let pmChainDirty=false;
-let pmChainIdCounter=0;
 
 function pmChainId(prefix){
-  pmChainIdCounter=(pmChainIdCounter+1)%Number.MAX_SAFE_INTEGER;
-  return prefix+'-'+Date.now().toString(36)+'-'+pmChainIdCounter.toString(36);
+  const cryptoApi=typeof globalThis!=='undefined'&&globalThis.crypto?globalThis.crypto:null;
+  const entropy=cryptoApi&&typeof cryptoApi.randomUUID==='function'
+    ? cryptoApi.randomUUID().replace(/-/g,'').slice(0,10)
+    : (()=>{const bytes=new Uint8Array(6); if(cryptoApi&&typeof cryptoApi.getRandomValues==='function') cryptoApi.getRandomValues(bytes); return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');})();
+  return prefix+'-'+Date.now().toString(36)+'-'+entropy;
 }
 function pmDefaultChain(){
   return {
