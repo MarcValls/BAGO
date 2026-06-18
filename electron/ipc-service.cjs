@@ -4,7 +4,8 @@ function registerIpcHandlers({
   getDependencyService,
   getRuntimeService,
   getInstallService,
-  getReleaseService
+  getReleaseService,
+  getAuditService
 }) {
   if (!ipcMain) {
     throw new Error('ipcMain es obligatorio');
@@ -40,6 +41,9 @@ function registerIpcHandlers({
   handle('bago:release-job-rollback', (_event, id) => getReleaseService().requireReleaseJobs().rollback(id));
   handle('bago:release-job-logs', (_event, id, limit) => getReleaseService().requireReleaseJobs().getLogs(id, limit));
   handle('bago:release-job-delete', (_event, id) => getReleaseService().requireReleaseJobs().deleteJob(id));
+  handle('bago:project-audit', () => getAuditService().projectAudit());
+  handle('bago:bago-audit', () => getAuditService().bagoAudit());
+  handle('bago:event-ledger', (_event, limit) => getAuditService().eventLedger(limit));
   handle('bago:node-cmd', async (_event, args) => {
     const result = await getRuntimeService().runBagoNode(args);
     const wantsJson = Array.isArray(args) && args.includes('--json');

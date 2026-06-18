@@ -13,6 +13,7 @@ Retorna 0 si todo está bien, 1 si hay discrepancias (bloqueante).
 from __future__ import annotations
 
 import base64
+import argparse
 import hashlib
 import json
 import sys
@@ -71,14 +72,27 @@ def _read_latest_yaml(path: Path) -> dict[str, str]:
     return data
 
 
-def run_checks() -> int:
+def _resolve_path(value: str | None, default: Path) -> Path:
+    if value:
+        return Path(value)
+    return default
+
+
+def run_checks(
+    *,
+    exe_path: Path | None = None,
+    zip_path: Path | None = None,
+    manifest_path: Path | None = None,
+    zip_sha256_path: Path | None = None,
+    latest_yml_path: Path | None = None,
+) -> int:
     errors = 0
 
-    exe_dist = DIST_DIR / EXE_NAME
-    zip_path = REL_DIR / ZIP_NAME
-    zip_sha256_file = REL_DIR / f"{ZIP_NAME}.sha256"
-    manifest_path = REL_DIR / f"{ZIP_NAME}.manifest.json"
-    dist_latest = DIST_DIR / "latest.yml"
+    exe_dist = exe_path or (DIST_DIR / EXE_NAME)
+    zip_path = zip_path or (REL_DIR / ZIP_NAME)
+    zip_sha256_file = zip_sha256_path or (REL_DIR / f"{ZIP_NAME}.sha256")
+    manifest_path = manifest_path or (REL_DIR / f"{ZIP_NAME}.manifest.json")
+    dist_latest = latest_yml_path or (DIST_DIR / "latest.yml")
 
     print(f"\n=== BAGO {VERSION} release gate ===\n")
 
@@ -87,35 +101,42 @@ def run_checks() -> int:
         errors += 1
     else:
         _ok(f"EXE encontrado ({exe_dist.stat().st_size:,} bytes)")
-        if dist_latest.exists():
-            latest = _read_latest_yaml(dist_latest)
-            if latest.get("version") == VERSION:
-                _ok(f"dist/latest.yml version == {VERSION}")
-            else:
-                _fail(f"dist/latest.yml version mismatch: {latest.get('version')} != {VERSION}")
-                errors += 1
-            if latest.get("path") == EXE_NAME:
-                _ok("dist/latest.yml apunta al EXE correcto")
-            else:
-                _fail(f"dist/latest.yml path mismatch: {latest.get('path')} != {EXE_NAME}")
-                errors += 1
-            if latest.get("size"):
-                yml_size = int(latest["size"])
-                actual_size = exe_dist.stat().st_size
-                if yml_size == actual_size:
-                    _ok(f"dist/latest.yml size coincide: {yml_size:,}")
-                else:
-                    _fail(f"dist/latest.yml size mismatch: yml={yml_size:,} actual={actual_size:,}")
-                    errors += 1
-            if latest.get("sha512"):
-                actual_sha512 = _sha512_file_b64(exe_dist)
-                if actual_sha512 == latest["sha512"]:
-                    _ok("dist/latest.yml sha512 coincide con el EXE")
-                else:
-                    _fail("dist/latest.yml sha512 NO coincide con el EXE")
-                    errors += 1
+    if not dist_latest.exists():
+        _fail(f"dist/latest.yml no encontrado: {dist_latest}")
+        errors += 1
+    elif exe_dist.exists():
+        latest = _read_latest_yaml(dist_latest)
+        if latest.get("version") == VERSION:
+            _ok(f"dist/latest.yml version == {VERSION}")
         else:
-            _warn(f"dist/latest.yml no encontrado: {dist_latest}")
+            _fail(f"dist/latest.yml version mismatch: {latest.get('version')} != {VERSION}")
+            errors += 1
+        if latest.get("path") == EXE_NAME:
+            _ok("dist/latest.yml apunta al EXE correcto")
+        else:
+            _fail(f"dist/latest.yml path mismatch: {latest.get('path')} != {EXE_NAME}")
+            errors += 1
+        if latest.get("size"):
+            yml_size = int(latest["size"])
+            actual_size = exe_dist.stat().st_size
+            if yml_size == actual_size:
+                _ok(f"dist/latest.yml size coincide: {yml_size:,}")
+            else:
+                _fail(f"dist/latest.yml size mismatch: yml={yml_size:,} actual={actual_size:,}")
+                errors += 1
+        else:
+            _fail("dist/latest.yml size ausente")
+            errors += 1
+        if latest.get("sha512"):
+            actual_sha512 = _sha512_file_b64(exe_dist)
+            if actual_sha512 == latest["sha512"]:
+                _ok("dist/latest.yml sha512 coincide con el EXE")
+            else:
+                _fail("dist/latest.yml sha512 NO coincide con el EXE")
+                errors += 1
+        else:
+            _fail("dist/latest.yml sha512 ausente")
+            errors += 1
 
     if not zip_path.exists():
         _fail(f"ZIP no encontrado: {zip_path}")
@@ -131,9 +152,13 @@ def run_checks() -> int:
                 _fail(f"ZIP SHA256 mismatch:\n  actual:   {actual_zip_sha256}\n  expected: {expected_zip_sha256}")
                 errors += 1
         else:
-            _warn(f".sha256 no encontrado: {zip_sha256_file}")
+            _fail(f".sha256 no encontrado: {zip_sha256_file}")
+            errors += 1
 
-    if manifest_path.exists() and zip_path.exists():
+    if not manifest_path.exists():
+        _fail(f"manifest no encontrado: {manifest_path}")
+        errors += 1
+    elif zip_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         with zipfile.ZipFile(zip_path, "r") as zf:
             zip_names = set(zf.namelist())
@@ -163,5 +188,25 @@ def run_checks() -> int:
     return 1
 
 
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build a release gate for BAGO v4.6.3.")
+    parser.add_argument("--exe-path", default="", help="Path to the Windows installer EXE")
+    parser.add_argument("--zip-path", default="", help="Path to the official release ZIP")
+    parser.add_argument("--manifest-path", default="", help="Path to the ZIP manifest JSON")
+    parser.add_argument("--zip-sha256-path", default="", help="Path to the ZIP SHA256 sidecar")
+    parser.add_argument("--latest-yml-path", default="", help="Path to dist/latest.yml metadata")
+    parser.add_argument("--test", action="store_true", help="Run self tests and exit")
+    args = parser.parse_args(argv)
+    if args.test:
+        return _run_tests()
+    return run_checks(
+        exe_path=_resolve_path(args.exe_path, DIST_DIR / EXE_NAME),
+        zip_path=_resolve_path(args.zip_path, REL_DIR / ZIP_NAME),
+        manifest_path=_resolve_path(args.manifest_path, REL_DIR / f"{ZIP_NAME}.manifest.json"),
+        zip_sha256_path=_resolve_path(args.zip_sha256_path, REL_DIR / f"{ZIP_NAME}.sha256"),
+        latest_yml_path=_resolve_path(args.latest_yml_path, DIST_DIR / "latest.yml"),
+    )
+
+
 if __name__ == "__main__":
-    raise SystemExit(run_checks())
+    raise SystemExit(main())

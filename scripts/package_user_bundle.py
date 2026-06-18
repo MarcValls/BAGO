@@ -30,6 +30,7 @@ INCLUDE_FILES = [
     "bago-uninstall.ps1",
     "bago-uninstall.cmd",
     "rollback-v4.ps1",
+    "MODEL_PARALLEL_SETUP.md",
     "test_e2e.py",
     "test_security_release.py",
     "test_command_intents.py",
@@ -49,8 +50,6 @@ INCLUDE_DIRS = [
     ".bago/api",
     ".bago/tools",
     "docs",
-    "scripts",
-    "tests",
     "tools",
     "ui-react/dist",
 ]
@@ -72,6 +71,12 @@ EXCLUDED_PREFIXES = [
     "release",
     "dist",
     "build",
+    ".ollama",
+    ".cache/ollama",
+    "models",
+    ".bago/models",
+    "weights",
+    "checkpoints",
 ]
 
 EXCLUDED_GLOBS = [
@@ -94,6 +99,15 @@ def repo_root() -> Path:
 
 def rel_posix(path: Path) -> str:
     return path.as_posix()
+
+
+def read_release_version(root: Path) -> str:
+    release_version_file = root / "release_version.txt"
+    if release_version_file.exists():
+        value = release_version_file.read_text(encoding="utf-8").strip()
+        if value:
+            return value
+    return "4.6.3"
 
 
 def normalize_release_version(value: str) -> str:
@@ -148,14 +162,11 @@ def collect_files(root: Path) -> list[Path]:
     return sorted(set(files), key=lambda p: rel_posix(p.relative_to(root)).lower())
 
 
-def build_package(root: Path, output_dir: Path, release_version: str = "") -> dict:
+def build_user_bundle(root: Path, output_dir: Path, release_version: str = "") -> dict:
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    if release_version:
-        package_name = f"bago-v{normalize_release_version(release_version)}.zip"
-    else:
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        package_name = f"bago-v4-local-{stamp}.zip"
+    version = normalize_release_version(release_version or read_release_version(root))
+    package_name = f"bago-user-v{version}.zip"
     zip_path = output_dir / package_name
     files = collect_files(root)
 
@@ -180,6 +191,7 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
         "included_files": manifest_files,
         "excluded_prefixes": EXCLUDED_PREFIXES,
         "forbidden_names": sorted(FORBIDDEN_NAMES),
+        "bootstrap_instructions": "MODEL_PARALLEL_SETUP.md",
     }
 
     manifest_path = output_dir / f"{package_name}.manifest.json"
@@ -190,11 +202,16 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
     checksums_path.write_text(f"{manifest['zip_sha256']}  {package_name}\n", encoding="utf-8")
     report_path.write_text(
         "\n".join([
-            "# BAGO v4 Local Package Report",
+            "# BAGO User Bundle Report",
             "",
             f"- Package: `{package_name}`",
             f"- Files: `{len(manifest_files)}`",
             f"- SHA256: `{manifest['zip_sha256']}`",
+            "",
+            "## Bootstrap",
+            "",
+            "- Local model weights are intentionally excluded.",
+            "- See `MODEL_PARALLEL_SETUP.md` for the parallel local-model setup.",
             "",
             "## Exclusions",
             "",
@@ -202,8 +219,8 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
             "- logs",
             "- credentials",
             "- node_modules",
-            "- PLAN_VERTICE execution artifacts",
-            "- root dist/build folders",
+            "- local model caches and weights",
+            "- root dist/build/release folders",
             "",
         ]),
         encoding="utf-8",
@@ -226,58 +243,40 @@ def _run_tests() -> int:
         root = Path(td)
         (root / "bago_core").mkdir()
         (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
-        (root / "bago_core" / "parsers_legacy_123.py").write_text("no\n", encoding="utf-8")
-        (root / "package-lock.json").write_text('{"version":"4.3.0"}\n', encoding="utf-8")
-        (root / "tools").mkdir()
-        (root / "tools" / "_diff_parsers.py").write_text("no\n", encoding="utf-8")
-        (root / ".bago" / "core").mkdir(parents=True)
-        (root / ".bago" / "core" / "safe.py").write_text("ok\n", encoding="utf-8")
-        (root / ".bago" / "tools" / ".bago").mkdir(parents=True)
-        (root / ".bago" / "tools" / ".bago" / "config.json").write_text("no\n", encoding="utf-8")
-        (root / ".bago" / "state").mkdir(parents=True)
-        (root / ".bago" / "state" / "secret.txt").write_text("no\n", encoding="utf-8")
-        (root / "ui-react" / "dist").mkdir(parents=True)
-        (root / "ui-react" / "dist" / "index.html").write_text("ui\n", encoding="utf-8")
-        (root / "PLAN_VERTICE").mkdir()
-        (root / "PLAN_VERTICE" / "events.jsonl").write_text("no\n", encoding="utf-8")
-        result = build_package(root, root / "release" / "v4")
+        (root / "MODEL_PARALLEL_SETUP.md").write_text("bootstrap\n", encoding="utf-8")
+        (root / ".ollama" / "models").mkdir(parents=True)
+        (root / ".ollama" / "models" / "llama3.2.gguf").write_text("no\n", encoding="utf-8")
+        (root / "models").mkdir()
+        (root / "models" / "other.gguf").write_text("no\n", encoding="utf-8")
+        (root / "weights").mkdir()
+        (root / "weights" / "model.bin").write_text("no\n", encoding="utf-8")
+        result = build_user_bundle(root, root / "dist", release_version="4.6.3")
         with zipfile.ZipFile(result["zip"], "r") as zf:
-            names = "\n".join(zf.namelist())
+            names = set(zf.namelist())
         assert "bago_core/x.py" in names
-        assert "bago_core/parsers_legacy_123.py" not in names
-        assert "tools/_diff_parsers.py" not in names
-        assert ".bago/core/safe.py" in names
-        assert "ui-react/dist/index.html" in names
-        assert "package-lock.json" in names
-        assert ".bago/state" not in names
-        assert ".bago/tools/.bago" not in names
-        assert "PLAN_VERTICE" not in names
-        fixed = build_package(root, root / "release" / "v4", release_version="v4.3.0")
-        assert Path(fixed["zip"]).name == "bago-v4.3.0.zip"
-    print("package_v4.py --test: ALL PASS")
+        assert "MODEL_PARALLEL_SETUP.md" in names
+        assert ".ollama/models/llama3.2.gguf" not in names
+        assert "models/other.gguf" not in names
+        assert "weights/model.bin" not in names
+        assert Path(result["zip"]).name == "bago-user-v4.6.3.zip"
+    print("package_user_bundle.py --test: ALL PASS")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build clean BAGO v4 local package.")
-    parser.add_argument("--output-dir", default=str(repo_root() / "release" / "v4"))
-    parser.add_argument("--release-version", default="", help="Use fixed release bundle name (e.g. 4.3.0).")
-    parser.add_argument("--json", action="store_true")
+    parser = argparse.ArgumentParser(description="Build a user-facing BAGO bundle without local model weights.")
+    parser.add_argument("--output-dir", default=str(repo_root() / "dist" / "user-bundle"))
+    parser.add_argument("--release-version", default="", help="Use fixed bundle name (e.g. 4.6.3). Defaults to release_version.txt.")
+    parser.add_argument("--test", action="store_true", help="Run self tests and exit")
     args = parser.parse_args(argv)
-    result = build_package(repo_root(), Path(args.output_dir), release_version=args.release_version)
-    if args.json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    else:
-        print(f"Package: {result['zip']}")
-        print(f"Files  : {result['file_count']}")
-        print(f"SHA256 : {result['zip_sha256']}")
-        print(f"Report : {result['report']}")
+    if args.test:
+        return _run_tests()
+    result = build_user_bundle(repo_root(), Path(args.output_dir), release_version=args.release_version)
+    print(f"Package: {result['zip']}")
+    print(f"Files  : {result['file_count']}")
+    print(f"SHA256 : {result['zip_sha256']}")
     return 0
 
 
 if __name__ == "__main__":
-    import sys
-
-    if "--test" in sys.argv:
-        raise SystemExit(_run_tests())
     raise SystemExit(main())
