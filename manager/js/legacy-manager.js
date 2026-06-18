@@ -1,5 +1,3 @@
-let releaseItems=[];
-let latestRelease=null;
 let managerVersion='';
 let hiddenFutureReleaseCount=0;
 
