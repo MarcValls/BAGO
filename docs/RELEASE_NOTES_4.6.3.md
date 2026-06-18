@@ -4,7 +4,7 @@
 
 ## Resumen
 
-BAGO v4.6.3 publica la línea de release actual con el manager alineado, el installer firmado y el bundle de auditoría externa separado del bundle de usuario.
+BAGO v4.6.3 publica la línea de release actual con el manager alineado, el installer firmado y los bundles de usuario y auditoría separados.
 El ZIP oficial fue regenerado tras cerrar el lockfile npm y las vulnerabilidades de `form-data` y `undici`.
 
 ## Cambios principales
@@ -23,7 +23,7 @@ El ZIP oficial fue regenerado tras cerrar el lockfile npm y las vulnerabilidades
 |---|---|
 | BAGO-Installation-Manager-4.6.3-win-x64.exe | `ceea0b609069db3f9c29867079cd05753342fb80e96132fcb37a98f8ed7efb16` |
 | bago-v4.6.3.zip | `f16e28b302530b043b8e9f0f1fafd9b622bc32b7131c5a12d714714c7423dafb` |
-| bago-user-v4.6.3.zip | `720d6b89a7c27696af6cf11f8edc67c11417c3937dcf1b625f8d8aed98477554` |
+| bago-user-v4.6.3.zip | `541242fbf6d95ca0de561dd87a1ba39ec9e345ef25e4aa3486f0d304f0ab0f7d` |
 | bago-audit-v4.6.3.zip | publicado con sidecars externos |
 
 ## Estado
