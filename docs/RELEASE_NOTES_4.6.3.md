@@ -4,7 +4,7 @@
 
 ## Resumen
 
-BAGO v4.6.3 publica la línea de release actual con el manager alineado, el installer firmado y los bundles de usuario y auditoría separados.
+BAGO v4.6.3 publica la línea de release actual con el manager alineado y los bundles de usuario y auditoría separados.
 El ZIP oficial fue regenerado tras cerrar el lockfile npm y las vulnerabilidades de `form-data` y `undici`.
 
 ## Cambios principales
