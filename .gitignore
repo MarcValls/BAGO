@@ -67,3 +67,6 @@ PLAN_VERTICE/
 SIGUIENTE.txt
 .vercel
 .env*
+
+# Monitor log (runtime, no distribuir)
+.bago/monitor/tablet.log
