@@ -10,6 +10,18 @@ const DEV_PACKAGED_RUNTIME_ROOT = path.join(ROOT_DIR, 'dist', 'win-unpacked', 'r
 const MANAGER_HTML = path.join(ROOT_DIR, 'manager', 'index.html');
 const ICON_PATH = path.join(ROOT_DIR, 'bago.ico');
 const PRELOAD_PATH = path.join(__dirname, 'preload.cjs');
+
+// Resolve the React UI dist index.html — primary entry point for the main window
+function resolveReactHtml() {
+  const candidates = [
+    path.join(ROOT_DIR, 'ui-react', 'dist', 'index.html'),
+    path.join(PACKAGED_RUNTIME_ROOT, 'ui-react', 'dist', 'index.html'),
+    path.join(DEV_PACKAGED_RUNTIME_ROOT, 'ui-react', 'dist', 'index.html'),
+  ];
+  return candidates.find(c => fs.existsSync(c)) || MANAGER_HTML;
+}
+
+const REACT_HTML = resolveReactHtml();
 const INSTALLS_ROOT = app.isPackaged
   ? path.join(path.dirname(app.getPath('exe')), 'installations')
   : path.join(ROOT_DIR, 'installations');
@@ -174,6 +186,7 @@ module.exports = {
   PACKAGED_RUNTIME_ROOT,
   DEV_PACKAGED_RUNTIME_ROOT,
   MANAGER_HTML,
+  REACT_HTML,
   ICON_PATH,
   PRELOAD_PATH,
   INSTALLS_ROOT,

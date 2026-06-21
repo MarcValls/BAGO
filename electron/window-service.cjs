@@ -1,6 +1,7 @@
 const { app, BrowserWindow, shell } = require('electron');
 const {
   MANAGER_HTML,
+  REACT_HTML,
   ICON_PATH,
   PRELOAD_PATH,
   SMOKE_TEST,
@@ -42,7 +43,8 @@ function createManagerWindow() {
     }
   });
 
-  win.loadFile(MANAGER_HTML);
+  // Load React app as primary interface; falls back to MANAGER_HTML if React dist is unavailable
+  win.loadFile(REACT_HTML);
   if (SMOKE_TEST) {
     const timeout = setTimeout(() => {
       console.error(JSON.stringify({ manager_smoke: false, error: 'timeout' }));

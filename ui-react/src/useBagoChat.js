@@ -3,7 +3,7 @@ import { chatApi } from './api'
 import { recordInteraction } from './interactionLog'
 
 export function useBagoChat() {
-  const [mode, setMode] = useState('desktop')
+  const [mode, setMode] = useState('manager')
   const [session, setSession] = useState(null)
   const [history, setHistory] = useState([])
   const [models, setModels] = useState([])
