@@ -1,5 +1,5 @@
 {
-  "current": "4.6.4",
+  "current": "4.7.0",
   "history": [
     {
       "version": "4.0.0",
@@ -68,10 +68,10 @@
       "notes": "Preparación de la siguiente línea de release; el manager y los metadatos quedan listos para el siguiente corte."
     },
     {
-      "version": "4.6.4",
-      "released": "2026-06-20",
+      "version": "4.7",
+      "released": "2026-06-21",
       "ended": null,
-      "notes": "Consolidación de la fuente de verdad de versión en release_version.txt y limpieza del árbol fuente desde el bundle canónico."
+      "notes": "BAGO Code Forge 3B: deterministic pipeline (classifier \u2192 task compiler \u2192 context builder \u2192 patch parser \u2192 validation pipeline \u2192 repair loop \u2192 code verdict \u2192 atomic patch \u2192 evidence bundle) with SAFE/STAGED/APPLY/AUTONOMOUS modes. llama3.2:3b plans and patches; BAGO stays the validator."
     }
   ]
 }

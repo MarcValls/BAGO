@@ -1,6 +1,6 @@
 {
   "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
-  "contract_version": "4.6.4",
+  "contract_version": "4.7",
   "related_to": [
     "docs\\contracts\\bago_v4_runtime_contract.json",
     "docs\\contracts\\bago_v4_repl_contract.md",

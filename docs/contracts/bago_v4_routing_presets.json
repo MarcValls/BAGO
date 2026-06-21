@@ -7,7 +7,7 @@
       "description": "Default routing preset. Stable quality/cost ratio for chat, review, and execute.",
       "contract": {
         "source": "file:docs/contracts/bago_v4_routing_presets.json#balanced",
-        "text": "BAGO 4.6.4 routing preset 'balanced'. Routing decisions stay within the ollama-local provider unless an explicit override is requested via /switch or --provider. Models must be declared in .bago/config.json providers.*.default_model. The preset does not authorize cross-provider side effects, silent model swaps, or credential retrieval. Any violation is logged to .bago/state/audit.log with correlation_id."
+        "text": "BAGO 4.7 routing preset 'balanced'. Routing decisions stay within the ollama-local provider unless an explicit override is requested via /switch or --provider. Models must be declared in .bago/config.json providers.*.default_model. The preset does not authorize cross-provider side effects, silent model swaps, or credential retrieval. Any violation is logged to .bago/state/audit.log with correlation_id."
       },
       "providers": {
         "primary": "ollama-local",
@@ -28,7 +28,7 @@
       "description": "Lowest-cost local model. Useful for smoke tests and CI dry-runs.",
       "contract": {
         "source": "file:docs/contracts/bago_v4_routing_presets.json#cheap",
-        "text": "BAGO 4.6.4 routing preset 'cheap'. Forces the smallest model advertised by the active provider and disables tool calling to keep cost at zero. Used by --dry-run and CI. Output is informational only and must not be promoted to a release artifact."
+        "text": "BAGO 4.7 routing preset 'cheap'. Forces the smallest model advertised by the active provider and disables tool calling to keep cost at zero. Used by --dry-run and CI. Output is informational only and must not be promoted to a release artifact."
       },
       "providers": {
         "primary": "ollama-local",
@@ -52,7 +52,7 @@
       ],
       "contract": {
         "source": "file:docs/contracts/bago_v4_routing_presets.json#quality",
-        "text": "BAGO 4.6.4 routing preset 'quality'. Routes to the largest local model configured in .bago/config.json. Tool calling and streaming are enabled. Evidence bundles generated under this preset include the preset name in manifest.json#routing_preset for auditability."
+        "text": "BAGO 4.7 routing preset 'quality'. Routes to the largest local model configured in .bago/config.json. Tool calling and streaming are enabled. Evidence bundles generated under this preset include the preset name in manifest.json#routing_preset for auditability."
       },
       "providers": {
         "primary": "ollama-local",

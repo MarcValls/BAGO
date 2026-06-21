@@ -143,7 +143,7 @@ Implemented in this tree:
 - `python test_security_release.py`
 - `python test_ollama_live_optional.py`
 - `python scripts/publish_release.py --test`
-- `python scripts/verify_release.py` with a local release asset bundle at `C:\Users\AMTEC_Terminal_1º\bago-release-v4.6.4`
+- `python scripts/verify_release.py` with a local release asset bundle at `C:\Users\AMTEC_Terminal_1º\bago-release-v4.7`
 
 ## Notes
 

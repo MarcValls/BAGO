@@ -1,6 +1,6 @@
 # BAGO v4 Architecture
 
-BAGO v4.6.4 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
+BAGO v4.7 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
 
 The stable MVP boundary is defined in `docs/MVP.md`. Modules outside that boundary must be documented as partial, experimental, or planned.
 
@@ -46,6 +46,7 @@ Release artifacts must not package live state, logs, credentials, caches, `node_
 5. Evidence and governance layer
    - `bago_core/evidence_bundle.py`
    - `bago_core/claim_ledger.py`
+   - `bago_core/codegen/evidence_builder.py` (Code Forge 3B)
    - `docs/contracts/`
 
 6. UI layer
@@ -56,6 +57,18 @@ Release artifacts must not package live state, logs, credentials, caches, `node_
    - `PLAN_VERTICE`
    - `PLAN_VERTICE/monitor`
    - `PLAN_VERTICE/skill-draft/bago-v4-executor`
+
+8. Code Forge layer (BAGO 4.7)
+   - `bago_core/codegen/task_classifier.py` — request → safe contract
+   - `bago_core/codegen/task_compiler.py` — contract → execution plan
+   - `bago_core/codegen/context_builder.py` — plan → staged file map
+   - `bago_core/codegen/patch_parser.py` — raw output → unified-diff patches
+   - `bago_core/codegen/repair_loop.py` — generate → validate → repair (≤3)
+   - `bago_core/codegen/code_verdict.py` — repair verdict → final decision
+   - `bago_core/codegen/evidence_builder.py` — verdict → audit bundle
+   - `bago_core/validation/validation_pipeline.py` — language adapters + gates
+   - `bago_core/validation/adapters/python_adapter.py` — Python gate stack
+   - `bago_core/execution/atomic_patch.py` — apply patch atomically with snapshot
 
 ## Primary Data Flow
 

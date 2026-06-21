@@ -1,0 +1,123 @@
+{
+  "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
+  "contract_version": "4.7.0",
+  "related_to": [
+    "docs\\contracts\\bago_v4_runtime_contract.json",
+    "docs\\contracts\\bago_v4_repl_contract.md",
+    "docs\\contracts\\bago_v4_evidence_contract.md",
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
+  ],
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta util y de forma indirecta preservando conocimiento, planificacion y estado reproducible.",
+  "details": {
+    "mode": "simulated",
+    "provider": "mock-contract",
+    "model": "contract-assistant-v1",
+    "session_id": "9afb93ab-4be",
+    "state_root": ".bago\\state"
+  },
+  "status": "pass",
+  "recorded_at": "2026-06-21T14:31:41.685320+00:00",
+  "validation_commands": [
+    "python test_e2e.py",
+    "python bago_core\\cli.py evidence --test",
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"docs/evidence/release_4_7_0\" --overwrite"
+  ],
+  "checks": [
+    {
+      "id": "session-runtime",
+      "status": "pass",
+      "detail": "La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta."
+    },
+    {
+      "id": "direct-assistance",
+      "status": "pass",
+      "detail": "Existe una respuesta util al objetivo planteado por el usuario."
+    },
+    {
+      "id": "knowledge-persistence",
+      "status": "pass",
+      "detail": "La evidencia incluye conocimiento recuperable derivado de la sesion."
+    },
+    {
+      "id": "session-save",
+      "status": "pass",
+      "detail": "La sesion se guardo en disco con metadatos de continuidad."
+    },
+    {
+      "id": "plan-generation",
+      "status": "pass",
+      "detail": "El runtime definio un plan reutilizable desde el parser REPL real."
+    }
+  ],
+  "artifacts": [
+    "session/context.jsonl",
+    "session/timeline.jsonl",
+    "session/tokens.json",
+    "session/meta.json",
+    "session/session.json",
+    "assistant_response.txt",
+    "commands\\results.json",
+    "knowledge\\recent_memories.json",
+    "objective.json",
+    "plan.txt"
+  ],
+  "files": [
+    {
+      "path": "assistant_response.txt",
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f",
+      "size_bytes": 225
+    },
+    {
+      "path": "commands/results.json",
+      "sha256": "05e956dde83caf9e820489f94cc0679cd5cb5bbda0855656c2142b14fdb1dc61",
+      "size_bytes": 1835
+    },
+    {
+      "path": "knowledge/recent_memories.json",
+      "sha256": "83a352ceaf7fb37489e84fd0eb2a2db682829fd53fbacebecc5e30726273a34b",
+      "size_bytes": 1272
+    },
+    {
+      "path": "objective.json",
+      "sha256": "99dfb2402005cf97884c5a65a405f69b78a623f06bfcd71b9dec0b020afcaee0",
+      "size_bytes": 374
+    },
+    {
+      "path": "plan.txt",
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f",
+      "size_bytes": 385
+    },
+    {
+      "path": "report.md",
+      "sha256": "3ae657a8446512ad307fd3113e8da4feb5dd16af7ced6a177c6b142e2ef6a6e4",
+      "size_bytes": 3167
+    },
+    {
+      "path": "session/context.jsonl",
+      "sha256": "91c70742ccb627f99562aae4ae4d76645a8effa2b227f5fb6f560a7aaf263e10",
+      "size_bytes": 1649
+    },
+    {
+      "path": "session/meta.json",
+      "sha256": "135479f322321179b973d9a41917e7afcf6dbe34736a1534ad478e0ff8e5874d",
+      "size_bytes": 313
+    },
+    {
+      "path": "session/session.json",
+      "sha256": "8c6a5d27560d76e3ec75108dd0b2e1c5dfb43798ef2634aa8de52022b12a5940",
+      "size_bytes": 360
+    },
+    {
+      "path": "session/timeline.jsonl",
+      "sha256": "fb9859c592e9a8e2150196c1698a6d1745ddf1c5e634b847ecf806dafd7a9d79",
+      "size_bytes": 298
+    },
+    {
+      "path": "session/tokens.json",
+      "sha256": "212bc182319e99d42c0fadbd1d326bd14bdc56c1d2e832011d35fde66f3b3c50",
+      "size_bytes": 125
+    }
+  ]
+}

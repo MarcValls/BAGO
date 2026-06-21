@@ -263,14 +263,14 @@ def _run_tests() -> int:
             required_names = {
                 "bago_core/translators/__init__.py",
                 "ui-react/dist/index.html",
-                "docs/evidence/release_4_6_4/manifest.json",
-                "docs/evidence/release_4_6_4/session/meta.json",
+                "docs/evidence/release_4_7_0/manifest.json",
+                "docs/evidence/release_4_7_0/session/meta.json",
             }
             missing = sorted(required_names - names)
             assert not missing, f"missing bundle entries: {missing}"
             assert any(name.startswith("ui-react/dist/") for name in names)
-            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_6_4/manifest.json"))
-            evidence_meta = json.loads(zf.read("docs/evidence/release_4_6_4/session/meta.json"))
+            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_7_0/manifest.json"))
+            evidence_meta = json.loads(zf.read("docs/evidence/release_4_7_0/session/meta.json"))
             assert evidence_manifest["contract_version"] == bundle_version
             assert evidence_meta["bago_version"] == bundle_version
         extract_dir = Path(td) / "extract"

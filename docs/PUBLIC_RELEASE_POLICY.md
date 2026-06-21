@@ -11,12 +11,12 @@ BAGO release artifacts in `release/v4/` are split into two groups:
   - `release/v4/archive/**`
   - versioned snapshots kept for audit or comparison
 
-Current release claims must point at the 4.6.4 bundle:
+Current release claims must point at the 4.7 bundle:
 
-- ZIP: `release/v4/bago-v4.6.4.zip`
-- ZIP checksum: `release/v4/bago-v4.6.4.zip.sha256`
-- Installer: `dist/BAGO-Installation-Manager-4.6.4-win-x64.exe`
-- Audit bundle: `release/v4/bago-audit-v4.6.4.zip`
+- ZIP: `release/v4/bago-v4.7.zip`
+- ZIP checksum: `release/v4/bago-v4.7.zip.sha256`
+- Installer: `dist/BAGO-Installation-Manager-4.7-win-x64.exe`
+- Audit bundle: `release/v4/bago-audit-v4.7.zip`
 
 Rules:
 

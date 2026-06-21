@@ -343,7 +343,7 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
         "checks": [
             "zip contains no .ollama, models, weights, or checkpoints",
             "zip contains bago_core/translators/__init__.py",
-            "zip contains current 4.6.4 evidence bundle",
+            "zip contains current 4.7 evidence bundle",
             "zip contains audit and model bootstrap instructions",
             "zip contains audit bootstrap instructions",
             "zip contains release evidence and contract docs",
@@ -418,16 +418,16 @@ def _run_tests() -> int:
                 "bago_core/translators/__init__.py",
                 "ui-react/package.json",
                 "ui-react/package-lock.json",
-                "docs/evidence/release_4_6_4/manifest.json",
-                "docs/evidence/release_4_6_4/session/meta.json",
+                "docs/evidence/release_4_7_0/manifest.json",
+                "docs/evidence/release_4_7_0/session/meta.json",
                 "AUDIT_SNAPSHOT.json",
             }
             missing = sorted(required_names - names)
             assert not missing, f"missing bundle entries: {missing}"
             assert any(name.startswith("ui-react/src/") for name in names)
 
-            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_6_4/manifest.json"))
-            evidence_meta = json.loads(zf.read("docs/evidence/release_4_6_4/session/meta.json"))
+            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_7_0/manifest.json"))
+            evidence_meta = json.loads(zf.read("docs/evidence/release_4_7_0/session/meta.json"))
             assert evidence_manifest["contract_version"] == bundle_version
             assert evidence_meta["bago_version"] == bundle_version
 

@@ -1,6 +1,6 @@
 {
-  "bago_version": "4.6.4",
-  "version": "4.6.4",
+  "bago_version": "4.7",
+  "version": "4.7",
   "status": "ok",
   "mode": "balanced",
   "health": {
@@ -23,6 +23,6 @@
     "stashes": 0,
     "note": ""
   },
-  "_comment": "Template for new installs (v4.6.4). Copy to .bago/state/global_state.json"
+  "_comment": "Template for new installs (v4.7). Copy to .bago/state/global_state.json"
 }
 
