@@ -48,6 +48,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bago_core.versioning import read_release_version
+
 # ── Constantes ───────────────────────────────────────────────────────────────
 STATE_DIR = Path(os.path.expanduser("~/.bago/state"))
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,16 +62,7 @@ LOG_FILE     = STATE_DIR / "supervisor.log"
 LOCK_FILE    = STATE_DIR / "supervisor.lock"
 STOP_FILE    = STATE_DIR / "supervisor.stop"  # sentinel: presente = salir limpio
 LOG_MAX_BYTES = 1_000_000  # 1 MB
-def _current_release_version() -> str:
-    release_version = Path(__file__).resolve().parents[1] / "release_version.txt"
-    if release_version.exists():
-        value = release_version.read_text(encoding="utf-8").strip()
-        if value:
-            return value
-    return "4.6.3"
-
-
-SUPERVISOR_VERSION = _current_release_version()
+SUPERVISOR_VERSION = read_release_version(ROOT)
 
 # Ventanas (segundos) — todas generosas para no patear a un humano
 WATCHDOG_TICK_S       = 5

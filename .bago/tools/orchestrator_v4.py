@@ -58,12 +58,24 @@ from bago_utils import (
 # ── Constantes ────────────────────────────────────────────────────────────────
 
 def _current_release_version() -> str:
-    release_version = Path(__file__).resolve().parents[2] / "release_version.txt"
-    if release_version.exists():
-        value = release_version.read_text(encoding="utf-8").strip()
+    root = Path(__file__).resolve().parents[2]
+    for candidate in (
+        root / "release_version.txt",
+        root / ".bago" / "release_version.txt",
+    ):
+        try:
+            value = candidate.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
         if value:
-            return value
-    return "4.6.3"
+            return value.lstrip("vV").strip()
+    versions_path = root / "versions.json"
+    try:
+        data = json.loads(versions_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    current = data.get("current", "")
+    return current.strip() if isinstance(current, str) else ""
 
 
 VERSION = _current_release_version()

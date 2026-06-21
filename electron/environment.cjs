@@ -109,6 +109,34 @@ function resolveInstalledRuntimeRoot() {
   return real[0] || '';
 }
 
+function resolveDevelopmentRuntimeRoot() {
+  const home = process.env.USERPROFILE || process.env.HOME || '';
+  const installed = resolveInstalledRuntimeRoot();
+  const selectionFile = home ? path.join(home, '.bago', 'install_selection.json') : '';
+  const candidates = [];
+
+  if (selectionFile && fs.existsSync(selectionFile)) {
+    try {
+      const payload = JSON.parse(readText(selectionFile) || '{}');
+      const selectedDev = payload && payload.roles && payload.roles.dev && payload.roles.dev.path;
+      if (selectedDev) candidates.push(String(selectedDev));
+    } catch {}
+  }
+
+  if (home) {
+    candidates.push(path.join(home, 'bago_fw'));
+    candidates.push(path.join(home, 'BAGO'));
+    candidates.push(path.join(home, '.bago', 'dev'));
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate || !hasBagoRuntime(candidate)) continue;
+    if (installed && path.resolve(candidate) === path.resolve(installed)) continue;
+    return candidate;
+  }
+  return '';
+}
+
 function isUserOwnedLocation(candidate, home) {
   if (!candidate || !home) return false;
   const resolved = path.resolve(candidate).toLowerCase();
@@ -158,6 +186,7 @@ module.exports = {
   hasInstallManifest,
   resolveBundledRuntimeRoot,
   resolveInstalledRuntimeRoot,
+  resolveDevelopmentRuntimeRoot,
   isUserOwnedLocation,
   resolveBagoRuntimeRoot,
   resolveUiDist,

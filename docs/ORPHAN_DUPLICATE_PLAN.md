@@ -1,5 +1,7 @@
 # Plan de limpieza y conexión
 
+For the row-by-row migration plan, see `docs/BAGO_MIGRATION_SPRINTS.md`.
+
 ## 1. Mantener como canónico
 - `manager/` como fuente editable del manager.
 - `.bago/tools/bago_utils.py` como helper compartido.

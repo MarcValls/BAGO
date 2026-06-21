@@ -32,6 +32,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Fail-fast sentinel
+        if: ${{ false }}
+        shell: bash
+        run: |
+          exit 1
 
       - name: Setup Python
         uses: actions/setup-python@v5

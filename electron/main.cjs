@@ -14,6 +14,7 @@ const {
   resolveUiDist,
   resolveBundledRuntimeRoot,
   resolveInstalledRuntimeRoot,
+  resolveDevelopmentRuntimeRoot,
   runVisiblePowerShell,
   findPackagedRuntimeRoot
 } = require('./environment.cjs');
@@ -74,6 +75,7 @@ function getRuntimeService() {
       resolveUiDist,
       resolveBundledRuntimeRoot,
       resolveInstalledRuntimeRoot,
+      resolveDevelopmentRuntimeRoot,
       runVisiblePowerShell
     });
   }

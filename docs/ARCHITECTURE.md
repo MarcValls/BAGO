@@ -1,6 +1,6 @@
 # BAGO v4 Architecture
 
-BAGO v4.6.3 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
+BAGO v4.6.4 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
 
 The stable MVP boundary is defined in `docs/MVP.md`. Modules outside that boundary must be documented as partial, experimental, or planned.
 
@@ -123,3 +123,4 @@ Excluded:
 1. Add release packaging scripts that enforce exclusions.
 2. Add install/update smoke tests for `C:\Program Files\BAGO`.
 3. Add policy quality metrics before canary.
+

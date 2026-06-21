@@ -27,8 +27,18 @@ function Get-SelectedRolePath([string]$role, [string]$fallback) {
     return $fallback
 }
 
+function Resolve-PreferredDevRoot {
+    $selectedDev = Get-SelectedRolePath 'dev' ''
+    if ($selectedDev) { return $selectedDev }
+    $repoDev = Join-Path $env:USERPROFILE 'bago_fw'
+    if (Test-Path $repoDev) { return $repoDev }
+    $legacyDev = Join-Path $env:USERPROFILE 'BAGO'
+    if (Test-Path $legacyDev) { return $legacyDev }
+    return $repoDev
+}
+
 $activeBago = Get-SelectedRolePath 'active' $activeBago
-$srcBago    = Get-SelectedRolePath 'dev'    $srcBago
+$srcBago    = Resolve-PreferredDevRoot
 $instBago   = Get-SelectedRolePath 'launch' $instBago
 $supScript  = Join-Path $srcBago 'scripts\bago_supervisor.py'
 
@@ -111,6 +121,8 @@ if ($args.Count -gt 0) {
     }
     if ($first -eq 'des') {
         $mode = 'dev'; $rest = Get-ArgsTail $args 1
+    } elseif ($first -eq 'dev') {
+        $mode = 'dev'; $rest = Get-ArgsTail $args 1
     } elseif ($first -eq 'ign') {
         $mode = 'ign'; $rest = Get-ArgsTail $args 1
     } elseif ($first -eq 'work') {
@@ -120,7 +132,7 @@ if ($args.Count -gt 0) {
 BAGO launcher (4.2.0)
   bago              Copia activa seleccionada [default]
   bago work         Igual que bago sin sub-comando
-  bago des          Copia de desarrollo seleccionada
+  bago dev/des      Copia de desarrollo seleccionada
   bago ign          Plataforma de lanzamiento seleccionada
   bago sup <verb>   Supervisor always-on (start|stop|status|attach)
   roles             $userBago\install_selection.json

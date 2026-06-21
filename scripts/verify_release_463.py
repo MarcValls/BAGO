@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 verify_release_463.py
-Gate de verificación pre-publicación para BAGO v4.6.3.
+Gate de verificación pre-publicación para la release activa de BAGO.
 
 Comprueba que el EXE, el ZIP oficial, el manifiesto y el checksum del bundle
 son coherentes entre sí. También valida que el ZIP incluya package-lock.json,
@@ -22,15 +22,20 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bago_core.versioning import read_release_version
+
 REL_DIR = ROOT / "release" / "v4"
 DIST_DIR = ROOT / "dist"
+VERSION = read_release_version(ROOT).strip()
+DISPLAY_VERSION = VERSION or "unknown"
 DEFAULT_ASSETS_DIR = Path(
-    os.environ.get("BAGO_RELEASE_ASSETS", ROOT.parent / "bago-release-v4.6.3")
+    os.environ.get("BAGO_RELEASE_ASSETS", ROOT.parent / f"bago-release-v{DISPLAY_VERSION}")
 ).resolve()
-
-VERSION = "4.6.3"
-EXE_NAME = f"BAGO-Installation-Manager-{VERSION}-win-x64.exe"
-ZIP_NAME = f"bago-v{VERSION}.zip"
+EXE_NAME = f"BAGO-Installation-Manager-{DISPLAY_VERSION}-win-x64.exe"
+ZIP_NAME = f"bago-v{DISPLAY_VERSION}.zip"
 
 
 def _sha256_file(p: Path) -> str:
@@ -113,17 +118,13 @@ def run_checks(
     manifest_path = manifest_path or (DEFAULT_ASSETS_DIR / f"{ZIP_NAME}.manifest.json")
     dist_latest = latest_yml_path or (DEFAULT_ASSETS_DIR / "latest.yml")
 
-    print(f"\n=== BAGO {VERSION} release gate ===\n")
+    print(f"\n=== BAGO {DISPLAY_VERSION} release gate ===\n")
 
-    if not exe_dist.exists():
-        _fail(f"EXE no encontrado: {exe_dist}")
-        errors += 1
-    else:
-        _ok(f"EXE encontrado ({exe_dist.stat().st_size:,} bytes)")
+    latest = None
     if not dist_latest.exists():
         _fail(f"dist/latest.yml no encontrado: {dist_latest}")
         errors += 1
-    elif exe_dist.exists():
+    else:
         latest = _read_latest_yaml(dist_latest)
         if latest.get("version") == VERSION:
             _ok(f"dist/latest.yml version == {VERSION}")
@@ -135,27 +136,34 @@ def run_checks(
         else:
             _fail(f"dist/latest.yml path mismatch: {latest.get('path')} != {EXE_NAME}")
             errors += 1
-        if latest.get("size"):
-            yml_size = int(latest["size"])
-            actual_size = exe_dist.stat().st_size
-            if yml_size == actual_size:
-                _ok(f"dist/latest.yml size coincide: {yml_size:,}")
+
+    if not exe_dist.exists():
+        _fail(f"EXE no encontrado: {exe_dist}")
+        errors += 1
+    else:
+        _ok(f"EXE encontrado ({exe_dist.stat().st_size:,} bytes)")
+        if latest is not None:
+            if latest.get("size"):
+                yml_size = int(latest["size"])
+                actual_size = exe_dist.stat().st_size
+                if yml_size == actual_size:
+                    _ok(f"dist/latest.yml size coincide: {yml_size:,}")
+                else:
+                    _fail(f"dist/latest.yml size mismatch: yml={yml_size:,} actual={actual_size:,}")
+                    errors += 1
             else:
-                _fail(f"dist/latest.yml size mismatch: yml={yml_size:,} actual={actual_size:,}")
+                _fail("dist/latest.yml size ausente")
                 errors += 1
-        else:
-            _fail("dist/latest.yml size ausente")
-            errors += 1
-        if latest.get("sha512"):
-            actual_sha512 = _sha512_file_b64(exe_dist)
-            if actual_sha512 == latest["sha512"]:
-                _ok("dist/latest.yml sha512 coincide con el EXE")
+            if latest.get("sha512"):
+                actual_sha512 = _sha512_file_b64(exe_dist)
+                if actual_sha512 == latest["sha512"]:
+                    _ok("dist/latest.yml sha512 coincide con el EXE")
+                else:
+                    _fail("dist/latest.yml sha512 NO coincide con el EXE")
+                    errors += 1
             else:
-                _fail("dist/latest.yml sha512 NO coincide con el EXE")
+                _fail("dist/latest.yml sha512 ausente")
                 errors += 1
-        else:
-            _fail("dist/latest.yml sha512 ausente")
-            errors += 1
 
     if not zip_path.exists():
         _fail(f"ZIP no encontrado: {zip_path}")
@@ -254,7 +262,7 @@ def run_checks(
     return 1
 
 
-def _run_tests() -> int:
+def _run_tests(script_name: str = "verify_release_463.py") -> int:
     from tempfile import TemporaryDirectory
 
     with TemporaryDirectory() as td:
@@ -309,12 +317,12 @@ def _run_tests() -> int:
             zip_sha256_path=sha_path,
             latest_yml_path=latest,
         ) == 1
-    print("verify_release_463.py --test: ALL PASS")
+    print(f"{script_name} --test: ALL PASS")
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build a release gate for BAGO v4.6.3.")
+def main(argv: list[str] | None = None, *, script_name: str = "verify_release_463.py") -> int:
+    parser = argparse.ArgumentParser(description=f"Build a release gate for BAGO v{DISPLAY_VERSION}.")
     parser.add_argument("--exe-path", default="", help="Path to the Windows installer EXE")
     parser.add_argument("--zip-path", default="", help="Path to the official release ZIP")
     parser.add_argument("--manifest-path", default="", help="Path to the ZIP manifest JSON")
@@ -323,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--test", action="store_true", help="Run self tests and exit")
     args = parser.parse_args(argv)
     if args.test:
-        return _run_tests()
+        return _run_tests(script_name=script_name)
     if not any([args.exe_path, args.zip_path, args.manifest_path, args.zip_sha256_path, args.latest_yml_path]) and not DEFAULT_ASSETS_DIR.exists():
         _fail(
             "Directorio de artefactos no encontrado. Define BAGO_RELEASE_ASSETS "

@@ -5,12 +5,16 @@ import json
 from pathlib import Path
 import unittest
 
+from bago_core.versioning import read_release_version
+
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_RELEASE = read_release_version(ROOT)
+CURRENT_RELEASE_EVIDENCE = ROOT / "docs" / "evidence" / f"release_{CURRENT_RELEASE.replace('.', '_')}"
 EVIDENCE_DIRS = [
     ROOT / "docs" / "evidence" / "simulated_reference_bundle",
     ROOT / "docs" / "evidence" / "example_bundle",
-    ROOT / "docs" / "evidence" / "release_4_6_3",
+    CURRENT_RELEASE_EVIDENCE,
 ]
 
 
@@ -23,6 +27,10 @@ def _sha256(path: Path) -> str:
 
 
 class EvidenceIntegrityTests(unittest.TestCase):
+    def _load_session_version(self, evidence_dir: Path) -> str:
+        session_meta = json.loads((evidence_dir / "session" / "meta.json").read_text(encoding="utf-8"))
+        return session_meta["bago_version"]
+
     def test_historical_evidence_hashes_match_packaged_bytes(self) -> None:
         for evidence_dir in EVIDENCE_DIRS:
             with self.subTest(evidence=str(evidence_dir.relative_to(ROOT))):
@@ -55,7 +63,7 @@ class EvidenceIntegrityTests(unittest.TestCase):
     def test_current_evidence_names_match_manifest_content(self) -> None:
         for evidence_dir in EVIDENCE_DIRS:
             manifest = json.loads((evidence_dir / "manifest.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["contract_version"], "4.6.3")
+            self.assertEqual(manifest["contract_version"], self._load_session_version(evidence_dir))
             self.assertNotIn("cpp", evidence_dir.name.lower())
             self.assertNotIn("4_1_5", evidence_dir.name.lower())
             self.assertNotIn("C:\\", json.dumps(manifest, ensure_ascii=False))

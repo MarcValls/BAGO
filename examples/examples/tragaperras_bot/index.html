@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="ngrok-skip-browser-warning" content="true">
+<title>🎰 Casino BAGO</title>
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CASINO BAGO — CSS puramente de layout + animaciones funcionales.
+   CERO gradientes CSS, box-shadows decorativos, borders visuales.
+   Todo lo visual viene de sprites PNG pre-renderizados.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --gold:  #ffd700;
+  --green: #00ff88;
+}
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  width: 100%; height: 100%;
+  background: #05050d url('/static/ui/bg_main.png') center top / cover no-repeat fixed;
+  color: #eee;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+
+/* ── CANVASES ── */
+#bg-canvas { display: none; }
+#fx-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+
+/* ── WALLET BAR ── */
+#wallet-bar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 8px 14px;
+  height: 50px;
+  background: url('/static/ui/bar_wallet.png') center / cover no-repeat;
+}
+/* brand text baked into bar_wallet.png — span invisible */
+#wallet-bar .brand { display: none; }
+
+/* ── WRAP ── */
+#wrap {
+  position: relative; z-index: 5;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 16px 24px;
+  max-width: 420px; margin: 0 auto;
+}
+
+/* ── LOGO ── */
+h1 { display: none; }
+#logo-img {
+  width: min(340px, 90%); height: auto;
+  display: block; margin: 4px auto 8px;
+}
+
+/* ── BALANCE ── */
+#balance-box {
+  display: flex; align-items: center; gap: 6px;
+  background: url('/static/ui/frame_balance.png') center / 100% 100% no-repeat;
+  padding: 10px 24px 6px 18px;
+  margin-bottom: 12px; min-width: 220px; min-height: 68px;
+}
+#balance-label { font-size: .7rem; color: #a07030; }
+#balance-display {
+  font-size: 1.5rem; font-weight: 900; color: var(--gold);
+  transition: transform .1s;
+}
+#balance-display.bump { animation: bump .15s ease-out; }
+@keyframes bump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+
+/* ── MACHINE ── */
+#machine {
+  background: url('/static/ui/panel_machine.png') center / 100% 100% no-repeat;
+  padding: 14px; width: 100%; margin-bottom: 14px;
+  border-radius: 18px;
+}
+
+/* ── LEDs ── */
+#leds { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.led {
+  width: 14px; height: 14px;
+  animation: blink 1s ease-in-out infinite alternate;
+}
+.led:nth-child(2n)  { animation-delay: .25s; }
+.led:nth-child(3n)  { animation-delay: .5s; }
+.led:nth-child(4n)  { animation-delay: .75s; }
+@keyframes blink { from{opacity:.25} to{opacity:1} }
+
+/* ── PAYLINE ── */
+#payline {
+  width: 100%; height: 8px; margin: 0 0 8px;
+  background: url('/static/ui/payline.png') center / 100% 100% no-repeat;
+}
+
+/* ── REELS CONTAINER ── */
+#reels-container { display: flex; gap: 8px; margin-bottom: 8px; }
+
+/* ── REEL ── */
+.reel-wrapper {
+  flex: 1; height: 114px;
+  overflow: hidden;
+  position: relative;
+  background: url('/static/ui/reel_bg.png') center / 100% 100% no-repeat;
+}
+.reel-wrapper::before,
+.reel-wrapper::after {
+  content: ''; position: absolute; left: 0; right: 0; z-index: 5;
+  pointer-events: none; height: 40px;
+}
+.reel-wrapper::before {
+  top: 0;
+  background: url('/static/ui/reel_fade_top.png') top / 100% 100% no-repeat;
+}
+.reel-wrapper::after {
+  bottom: 0;
+  background: url('/static/ui/reel_fade_bot.png') bottom / 100% 100% no-repeat;
+}
+/* win flash — functional feedback (filter only, no box-shadow) */
+.reel-wrapper.win-flash { animation: win-flash .5s ease-out; }
+@keyframes win-flash {
+  0%,100% { filter: none; }
+  40%      { filter: drop-shadow(0 0 12px gold) brightness(1.3); }
+}
+
+.reel-strip {
+  position: absolute; top: 0; left: 0; width: 100%;
+  display: flex; flex-direction: column; align-items: center;
+  will-change: transform;
+}
+.reel-cell {
+  width: 100%; height: 110px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; user-select: none;
+}
+.reel-cell img.sym-sprite {
+  width: 90px; height: 90px;
+  object-fit: contain; pointer-events: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* ── RESULT ── */
+#result-display {
+  text-align: center; font-size: .95rem; font-weight: 700;
+  min-height: 1.4rem; margin: 4px 0; transition: opacity .2s;
+}
+#result-display.win     { color: var(--green); }
+#result-display.jackpot { color: var(--gold); }
+#result-display.near    { color: #ff8800; }
+#result-display.lose    { color: #666; }
+#win-display {
+  text-align: center; font-size: 1.1rem; font-weight: 900;
+  color: var(--gold); min-height: 1.4rem;
+}
+
+/* ── INFO / BET ── */
+#info-row {
+  display: flex; justify-content: space-around; width: 100%; margin-bottom: 10px;
+}
+.info-box { text-align: center; }
+.info-label { font-size: .65rem; color: #666; display: block; }
+.info-val   { font-size: 1rem; font-weight: 700; }
+#bet-row { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.bet-btn {
+  width: 42px; height: 42px;
+  background: url('/static/ui/btn_minus.png') center / 100% 100% no-repeat;
+  border: none; cursor: pointer;
+  transition: transform .08s;
+}
+#bet-up { background-image: url('/static/ui/btn_plus.png'); }
+.bet-btn:active { transform: scale(.88); }
+#bet-label { font-size: .7rem; color: #888; }
+#bet-value { font-size: 1.1rem; font-weight: 700; color: #eee; }
+
+/* ── SPIN BUTTON ── */
+#spin-btn {
+  width: 100%; height: 70px;
+  background: url('/static/ui/btn_spin.png') center / 100% 100% no-repeat;
+  border: none; cursor: pointer;
+  font-size: 0; color: transparent;
+  margin-bottom: 10px;
+  animation: btn-glow 2s ease-in-out infinite alternate;
+  transition: transform .08s, filter .08s;
+}
+#spin-btn:active:not(:disabled) {
+  background-image: url('/static/ui/btn_spin_pressed.png');
+  transform: scale(.98) translateY(2px);
+  filter: brightness(.9);
+  animation: none;
+}
+#spin-btn:disabled { opacity: .45; animation: none; cursor: default; }
+@keyframes btn-glow {
+  from { filter: brightness(1)   drop-shadow(0 0 6px  rgba(255,34,68,.4)); }
+  to   { filter: brightness(1.1) drop-shadow(0 0 20px rgba(255,34,68,.9)); }
+}
+
+/* ── JACKPOT BAR ── */
+#jackpot-bar {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: url('/static/ui/bar_jackpot.png') center / 100% 100% no-repeat;
+  padding: 5px 14px; margin-bottom: 10px; width: 100%; min-height: 46px;
+}
+#jackpot-bar .jbar-label { display: none; } /* baked into sprite */
+#jackpot-pool-display { font-size: 1.2rem; font-weight: 900; color: var(--gold); }
+#jackpot-pool-coin { font-size: .8rem; color: #ccc; }
+
+/* ── DAILY BUTTON ── */
+#daily-btn {
+  margin-top: 8px; width: 100%; height: 52px;
+  background: url('/static/ui/btn_daily.png') center / 100% 100% no-repeat;
+  border: none; cursor: pointer;
+  font-size: 0; color: transparent;
+  transition: transform .08s, filter .08s;
+}
+#daily-btn:active { transform: scale(.97); filter: brightness(.9); }
+#daily-btn:disabled { opacity: .5; cursor: default; }
+
+/* ── PAYTABLE ── */
+#paytable-toggle { font-size: .8rem; color: #888; cursor: pointer; text-align: center; padding: 4px; }
+#paytable {
+  display: none; width: 100%;
+  background: url('/static/ui/panel_paytable.png') center / 100% 100% no-repeat,
+              rgba(4,3,12,.92);
+  padding: 10px 14px; margin-top: 4px;
+}
+#paytable.open { display: block; }
+.pt-row {
+  display: flex; justify-content: space-between;
+  font-size: .82rem; padding: 3px 0;
+}
+.pt-mult { color: var(--gold); font-weight: 700; }
+.pt-jackpot { color: #fff; font-weight: 900; }
+
+/* ── STATS ── */
+#stats-bar {
+  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  margin-top: 10px; font-size: .75rem; color: #555;
+}
+.stat-val { color: #999; font-weight: 700; }
+
+/* ── JACKPOT OVERLAY ── */
+#jackpot-overlay {
+  position: fixed; inset: 0;
+  background: url('/static/ui/panel_jackpot.png') center / cover no-repeat;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  z-index: 200;
+}
+#jackpot-overlay.show { display: flex; }
+#jackpot-title-img {
+  width: min(380px, 95%); height: auto;
+  animation: jackpot-pulse .4s ease-in-out infinite alternate;
+}
+@keyframes jackpot-pulse { from{transform:scale(1)} to{transform:scale(1.06)} }
+/* legacy text div — hidden */
+#jackpot-title { display: none; }
+#jackpot-win  { font-size: 2.2rem; color: #fff; font-weight: 900; }
+#jackpot-close {
+  width: 220px; height: 58px;
+  background: url('/static/ui/btn_collect.png') center / 100% 100% no-repeat;
+  border: none; cursor: pointer;
+  font-size: 0; color: transparent;
+  transition: transform .08s;
+}
+#jackpot-close:active { transform: scale(.95) translateY(2px); }
+
+/* ── BODY FX ── */
+body.shake { animation: shake .4s ease-out; }
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)}
+  40%{transform:translateX(7px)}   60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+}
+/* ── BET VALUE COIN LABEL ── */
+.bet-coin { font-size: .8rem; color: #666; }
+
+/* ── RESPONSIBLE GAMBLING FOOTER ── */
+#responsible-footer {
+  width: 100%; text-align: center;
+  font-size: .62rem; color: #444;
+  padding: 10px 16px 20px;
+  line-height: 1.5;
+}
+#responsible-footer a { color: #666; text-decoration: underline; }
+
+/* ── SELF-EXCLUSION BUTTON ── */
+#self-exclude-btn {
+  margin-top: 6px; padding: 6px 16px;
+  background: transparent; border: 1px solid #333;
+  color: #666; border-radius: 8px; cursor: pointer;
+  font-size: .72rem;
+}
+#self-exclude-btn:hover { border-color: #ff4444; color: #ff4444; }
+
+/* ── RTP BADGE ── */
+#rtp-badge {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: .65rem; color: #666;
+  margin: 4px 0 8px;
+}
+#rtp-badge .rtp-val { color: var(--gold); font-weight: 700; }
+
+/* ── PAYTABLE inline row — no inline styles ── */
+.pt-row-small { font-size: .7rem; color: #555; margin-top: 6px; }
+
+/* ── WELCOME HEADER (trust) ── */
+#welcome-header {
+  width: 100%; display: block;
+  margin: 6px auto 10px;
+  border-radius: 10px; overflow: hidden;
+}
+
+/* ── TRUST BADGES GRID ── */
+#trust-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%; margin: 10px 0;
+}
+#trust-grid img {
+  width: 100%; height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
+/* ── ABOUT SECTION ── */
+#about-section {
+  width: 100%; margin: 12px 0 6px;
+  padding: 12px 14px;
+  background: rgba(255,215,0,0.04);
+  border: 1px solid rgba(255,215,0,0.12);
+  border-radius: 10px;
+  font-size: .7rem; color: #888;
+  line-height: 1.6;
+}
+#about-section h3 {
+  color: var(--gold); font-size: .75rem;
+  margin-bottom: 6px; letter-spacing: .05em;
+}
+#about-section strong { color: #bbb; }
+#about-section .about-row {
+  display: flex; justify-content: space-between;
+  margin-top: 4px;
+}
+#about-toggle {
+  background: none; border: none;
+  color: #555; font-size: .68rem;
+  cursor: pointer; text-decoration: underline;
+  margin: 4px auto; display: block;
+}
+#about-toggle:hover { color: var(--gold); }
+.hidden { display: none !important; }
+
+/* ── BUY FICHAS BUTTON ── */
+#buy-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: 1.5px solid #ffd700;
+  color: var(--gold); border-radius: 20px;
+  padding: 5px 14px; font-size: .78rem; font-weight: 700;
+  cursor: pointer; margin-left: 8px;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+#buy-btn:hover { background: var(--gold); color: #000; }
+
+/* ── BUY MODAL ── */
+#buy-modal {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.82);
+  align-items: flex-end; justify-content: center;
+}
+#buy-modal.show { display: flex; }
+#buy-modal-inner {
+  background: #0e0e1a;
+  border: 1px solid rgba(255,215,0,0.2);
+  border-radius: 18px 18px 0 0;
+  padding: 20px 18px 32px;
+  width: 100%; max-width: 420px;
+}
+#buy-modal-inner h2 {
+  color: var(--gold); font-size: 1rem;
+  text-align: center; margin-bottom: 14px;
+}
+.pkg-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 16px;
+}
+.pkg-card {
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,215,0,0.18);
+  border-radius: 12px; padding: 12px 8px;
+  text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s;
+  position: relative;
+}
+.pkg-card:hover { border-color: var(--gold); background: rgba(255,215,0,0.07); }
+.pkg-card:active { transform: scale(.96); }
+.pkg-label { font-size: .7rem; color: #aaa; display: block; margin-bottom: 4px; }
+.pkg-amount { font-size: 1.1rem; font-weight: 900; color: #eee; }
+.pkg-ton { font-size: .72rem; color: #6cf; margin-top: 4px; display: block; }
+.pkg-bonus {
+  position: absolute; top: -8px; right: -4px;
+  background: #00cc66; color: #000;
+  font-size: .6rem; font-weight: 900;
+  padding: 2px 6px; border-radius: 8px;
+}
+#buy-modal-status {
+  text-align: center; font-size: .78rem; color: #888;
+  min-height: 1.4em; margin-bottom: 8px;
+}
+#buy-modal-close {
+  display: block; width: 100%;
+  background: transparent; border: 1px solid #333;
+  color: #666; border-radius: 10px; padding: 8px;
+  font-size: .78rem; cursor: pointer; margin-top: 4px;
+}
+#buy-modal-close:hover { border-color: #666; color: #ccc; }
+
+</style>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="fx-canvas"></canvas>
+
+<!-- Jackpot overlay -->
+<div id="jackpot-overlay">
+  <div id="jackpot-title"></div>
+  <img id="jackpot-title-img" src="/static/ui/jackpot_title.png" alt="JACKPOT">
+  <div id="jackpot-win"></div>
+  <button id="jackpot-close">¡COBRAR!</button>
+</div>
+
+<!-- Buy fichas modal -->
+<div id="buy-modal">
+  <div id="buy-modal-inner">
+    <h2>💎 Comprar fichas con TON</h2>
+    <div class="pkg-grid">
+      <div class="pkg-card" onclick="buyPackage('basic')">
+        <span class="pkg-label">🟢 Básico</span>
+        <span class="pkg-amount">250🪙</span>
+        <span class="pkg-ton">0.5 TON</span>
+      </div>
+      <div class="pkg-card" onclick="buyPackage('standard')">
+        <span class="pkg-label">🔵 Estándar</span>
+        <span class="pkg-amount">500🪙</span>
+        <span class="pkg-ton">1 TON</span>
+      </div>
+      <div class="pkg-card" onclick="buyPackage('popular')">
+        <span class="pkg-bonus">+10%</span>
+        <span class="pkg-label">🟣 Popular</span>
+        <span class="pkg-amount">1 100🪙</span>
+        <span class="pkg-ton">2 TON</span>
+      </div>
+      <div class="pkg-card" onclick="buyPackage('premium')">
+        <span class="pkg-bonus">+20%</span>
+        <span class="pkg-label">🔴 Premium</span>
+        <span class="pkg-amount">3 000🪙</span>
+        <span class="pkg-ton">5 TON</span>
+      </div>
+    </div>
+    <div id="buy-modal-status">Selecciona un paquete para continuar</div>
+    <button id="buy-modal-close" onclick="closeBuyModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- Wallet bar — brand text baked in bar_wallet.png -->
+<div id="wallet-bar">
+  <span class="brand"></span>
+  <div id="ton-connect-button"></div>
+</div>
+
+<div id="wrap">
+  <h1>CASINO</h1>
+  <img id="logo-img" src="/static/ui/logo_casino.png" alt="Casino BAGO">
+
+  <!-- Welcome header — entretenimiento verificado -->
+  <img id="welcome-header" src="/static/ui/welcome_header.png"
+       alt="Entretenimiento verificado — fichas virtuales">
+
+  <!-- Trust badges grid -->
+  <div id="trust-grid">
+    <img src="/static/ui/badge_fair.png"       alt="Algoritmo justo — Provably Fair">
+    <img src="/static/ui/badge_rtp.png"        alt="RTP 94.2% auditado y verificable">
+    <img src="/static/ui/badge_nocustody.png"  alt="Sin custodia — tu wallet tu control">
+    <img src="/static/ui/badge_safe.png"       alt="Juego seguro +18 — Autoexclusión">
+  </div>
+
+  <!-- Balance -->
+  <div id="balance-box">
+    <span id="balance-label">🪙 SALDO</span>
+    <span id="balance-display">500</span>
+    <button id="buy-btn" onclick="openBuyModal()">💎 Comprar</button>
+  </div>
+
+  <!-- Machine -->
+  <div id="machine">
+    <!-- LEDs — sprites individuales, animación CSS solo opacity -->
+    <div id="leds">
+      <img class="led" src="/static/ui/led_r.png" alt="">
+      <img class="led" src="/static/ui/led_y.png" alt="">
+      <img class="led" src="/static/ui/led_g.png" alt="">
+      <img class="led" src="/static/ui/led_b.png" alt="">
+      <img class="led" src="/static/ui/led_r.png" alt="">
+      <img class="led" src="/static/ui/led_y.png" alt="">
+      <img class="led" src="/static/ui/led_g.png" alt="">
+      <img class="led" src="/static/ui/led_b.png" alt="">
+      <img class="led" src="/static/ui/led_r.png" alt="">
+      <img class="led" src="/static/ui/led_y.png" alt="">
+      <img class="led" src="/static/ui/led_g.png" alt="">
+      <img class="led" src="/static/ui/led_b.png" alt="">
+    </div>
+
+    <div id="payline"></div>
+
+    <!-- Reels -->
+    <div id="reels-container">
+      <div class="reel-wrapper" id="rw0"><div class="reel-strip" id="reel0"></div></div>
+      <div class="reel-wrapper" id="rw1"><div class="reel-strip" id="reel1"></div></div>
+      <div class="reel-wrapper" id="rw2"><div class="reel-strip" id="reel2"></div></div>
+    </div>
+
+    <div id="result-display">¡Pulsa GIRAR!</div>
+    <div id="win-display">–</div>
+  </div>
+
+  <!-- Jackpot pool -->
+  <div id="jackpot-bar">
+    <span class="jbar-label">🎯 JACKPOT POOL</span>
+    <span id="jackpot-pool-display">…</span>
+    <span id="jackpot-pool-coin">🪙</span>
+  </div>
+
+  <!-- Info row -->
+  <div id="info-row">
+    <div class="info-box"><span class="info-label">GIROS</span><span class="info-val" id="spins-display">0</span></div>
+    <div class="info-box">
+      <span class="info-label">APUESTA</span>
+      <div id="bet-row">
+        <button class="bet-btn" id="bet-down"></button>
+        <span id="bet-value">10</span><span class="bet-coin">🪙</span>
+        <button class="bet-btn" id="bet-up"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spin button -->
+  <button id="spin-btn">🎰  GIRAR</button>
+
+  <!-- Daily bonus button — sprites, sin inline style -->
+  <button id="daily-btn" onclick="claimDaily()"></button>
+
+  <!-- Paytable -->
+  <div id="paytable-toggle" onclick="togglePaytable()">📋 Ver tabla de pagos ▼</div>
+  <div id="paytable">
+    <div class="pt-row"><span>🍒🍒🍒 Triple Cereza</span><span class="pt-mult">×8</span></div>
+    <div class="pt-row"><span>🍋🍋🍋 Triple Limón</span><span class="pt-mult">×8</span></div>
+    <div class="pt-row"><span>🍊🍊🍊 Triple Naranja</span><span class="pt-mult">×15</span></div>
+    <div class="pt-row"><span>🍇🍇🍇 Triple Uvas</span><span class="pt-mult">×25</span></div>
+    <div class="pt-row"><span>⭐⭐⭐ Triple Estrella</span><span class="pt-mult">×60</span></div>
+    <div class="pt-row"><span>💎💎💎 Triple Diamante</span><span class="pt-mult">×150</span></div>
+    <div class="pt-row"><span>7️⃣7️⃣7️⃣ JACKPOT</span><span class="pt-mult pt-jackpot">×500 🎉</span></div>
+    <div class="pt-row pt-row-small">
+      <span>RTP verificado ≈ 94% · Algoritmo público · Solo fichas virtuales</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div id="stats-bar">
+    <span class="stat">Gastado: <span class="stat-val" id="stat-spent">0</span>🪙</span>
+    <span class="stat">Ganado: <span class="stat-val" id="stat-won">0</span>🪙</span>
+    <span class="stat">RTP real: <span class="stat-val" id="stat-rtp">–</span></span>
+  </div>
+
+  <!-- Auto-exclusión (responsabilidad) -->
+  <button id="self-exclude-btn" onclick="requestSelfExclude()">🚫 Autoexclusión</button>
+
+  <!-- About section — copy profesional honesto -->
+  <button id="about-toggle" onclick="document.getElementById('about-section').classList.toggle('hidden')">ℹ️ Sobre Casino BAGO ▾</button>
+  <div id="about-section">
+    <h3>🎰 CASINO BAGO — Entretenimiento verificado</h3>
+    <p>Casino BAGO es una <strong>aplicación de entretenimiento social</strong> que utiliza fichas virtuales sin valor monetario real. Todos los giros se procesan con un algoritmo verificable públicamente.</p>
+    <div class="about-row"><span>📊 Retorno al jugador (RTP)</span><strong>94.2%</strong></div>
+    <div class="about-row"><span>🔒 Custodia de fondos</span><strong>Ninguna — wallet propia</strong></div>
+    <div class="about-row"><span>✓ Algoritmo</span><strong>Transparent &amp; auditable</strong></div>
+    <div class="about-row"><span>💳 Divisa</span><strong>Fichas virtuales (no reales)</strong></div>
+    <p style="margin-top:8px;color:#555;">Las fichas virtuales de Casino BAGO no tienen valor legal ni monetario y no pueden canjearse por dinero real. Este producto es solo para mayores de 18 años.</p>
+  </div>
+</div>
+
+<!-- Footer responsabilidad -->
+<div id="responsible-footer">
+  🎰 Casino BAGO · Entretenimiento social con fichas virtuales sin valor real ·
+  Solo para mayores de 18 años · Juega con responsabilidad ·
+  RTP auditado: 94.2% · Si el juego te causa problemas llama al
+  <a href="tel:900200906">900 200 906</a> (gratuito, 24h) ·
+  <a href="https://www.jugarbien.es" target="_blank">JugarBien.es</a>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   TELEGRAM MINI APP INIT
+═══════════════════════════════════════════════ */
+const TG = window.Telegram?.WebApp || null;
+if (TG) { TG.ready(); TG.expand(); }
+
+// Telegram user info
+const TG_USER = TG?.initDataUnsafe?.user || null;
+const TG_UID  = TG_USER?.id || null;
+
+// API base (misma origin)
+const API = '';
+
+/* ═══════════════════════════════════════════════
+   TON CONNECT WALLET
+═══════════════════════════════════════════════ */
+let tonConnectUI = null;
+try {
+  const MANIFEST_URL = location.origin + '/tonconnect-manifest.json';
+  tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: MANIFEST_URL,
+    buttonRootId: 'ton-connect-button',
+  });
+  tonConnectUI.onStatusChange(wallet => {
+    if (wallet && TG_UID && !localStorage.getItem('wallet_bonus_' + TG_UID)) {
+      localStorage.setItem('wallet_bonus_' + TG_UID, '1');
+      // Bonus aplicado server-side (atómico, solo una vez)
+      apiPost('/api/ensure', {
+        uid: TG_UID, wallet_bonus: 100,
+      }).then(p => {
+        if (p && p.balance != null) {
+          state.balance = p.balance;
+          updateUI();
+          showFloatingText('+100🪙 Bonus Wallet!', window.innerWidth/2, 120, '#00ff88');
+          setResult('💚 ¡+100 fichas por conectar cartera!', 'win');
+        }
+      }).catch(() => {});
+    }
+  });
+} catch(e) {
+  document.getElementById('ton-connect-button').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════
+   API HELPERS
+═══════════════════════════════════════════════ */
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+    body: JSON.stringify(body),
+  });
+  return r.json();
+}
+async function apiGet(path) {
+  const r = await fetch(API + path, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+  return r.json();
+}
+
+/* ═══════════════════════════════════════════════
+   ESTADO
+═══════════════════════════════════════════════ */
+const state = {
+  uid: TG_UID,
+  balance: 500, bet: 10, spins: 0, totalWon: 0, totalSpent: 0, spinning: false,
+};
+
+/* ═══════════════════════════════════════════════
+   INIT — cargar datos del servidor
+═══════════════════════════════════════════════ */
+async function initPlayer() {
+  if (!TG_UID) return; // sin UID, jugamos offline con valores default
+
+  // Detectar referido en startapp param
+  let ref = null;
+  try {
+    const sp = TG?.initDataUnsafe?.start_param || '';
+    if (sp.startsWith('ref_')) ref = parseInt(sp.slice(4));
+  } catch(e) {}
+
+  try {
+    const p = await apiPost('/api/ensure', {
+      uid: TG_UID,
+      username: TG_USER?.username || TG_USER?.first_name || 'jugador',
+      referred_by: ref,
+    });
+    state.balance  = p.balance ?? 500;
+    state.bet      = p.bet ?? 10;
+    state.spins    = p.total_spins ?? 0;
+    state.totalWon = p.total_won ?? 0;
+    state.totalSpent = p.total_spent ?? 0;
+    updateUI();
+
+    if (p.jackpot_pool != null) {
+      document.getElementById('jackpot-pool-display').textContent = p.jackpot_pool;
+    }
+  } catch(e) {
+    console.warn('No se pudo conectar con API, modo offline', e);
+  }
+}
+initPlayer();
+
+/* ═══════════════════════════════════════════════
+   DAILY BONUS
+═══════════════════════════════════════════════ */
+async function claimDaily() {
+  if (!TG_UID) { setResult('⚠️ Abre desde Telegram para el bonus.', ''); return; }
+  const btn = document.getElementById('daily-btn');
+  btn.disabled = true;
+  try {
+    const r = await apiPost('/api/daily', { uid: TG_UID });
+    if (r.granted) {
+      state.balance = r.balance;
+      updateUI();
+      showFloatingText(`+${r.bonus}🪙 Bonus Diario!`, window.innerWidth/2, 150, '#00ff88');
+      setResult('🎁 ¡Bonus diario reclamado!', 'win');
+      btn.textContent = '✅ Bonus reclamado — vuelve mañana';
+    } else {
+      setResult(`⏳ Vuelve en ${r.hours_left?.toFixed(1) || 24}h`, '');
+      btn.textContent = `⏳ Vuelve en ${r.hours_left?.toFixed(1) || 24}h`;
+    }
+  } catch(e) {
+    setResult('⚠️ Error al reclamar bonus.', '');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   MOTOR DEL JUEGO (fallback offline)
+═══════════════════════════════════════════════ */
+const SYMBOLS = [
+  { e: '🍒', w: 40, m3: 8,   id: 'cherry'  },
+  { e: '🍋', w: 25, m3: 8,   id: 'lemon'   },
+  { e: '🍊', w: 15, m3: 15,  id: 'orange'  },
+  { e: '🍇', w: 10, m3: 25,  id: 'grape'   },
+  { e: '⭐', w: 5,  m3: 60,  id: 'star'    },
+  { e: '💎', w: 3,  m3: 150, id: 'diamond' },
+  { e: '7️⃣', w: 2,  m3: 500, id: 'seven'   },
+];
+// Mapa emoji → ruta sprite
+const SPRITE_MAP = Object.fromEntries(SYMBOLS.map(s => [s.e, `/static/symbols/${s.id}.png`]));
+function symImg(emoji) {
+  const img = document.createElement('img');
+  img.className = 'sym-sprite';
+  img.src = SPRITE_MAP[emoji] || '';
+  img.alt = emoji;
+  img.draggable = false;
+  return img;
+}
+const TOTAL_W = SYMBOLS.reduce((a, s) => a + s.w, 0);
+
+function pickSymbol() {
+  let r = Math.random() * TOTAL_W;
+  for (const s of SYMBOLS) { r -= s.w; if (r <= 0) return s.e; }
+  return SYMBOLS[0].e;
+}
+function adjacent(emoji) {
+  const idx = SYMBOLS.findIndex(s => s.e === emoji);
+  const pool = SYMBOLS.filter((_, i) => i !== idx);
+  const weights = pool.map((_, i) => Math.max(1, 5 - Math.abs(i - idx)));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i].e; }
+  return pool[0].e;
+}
+function doSpinOffline(bet) {
+  let r1 = pickSymbol(), r2 = pickSymbol(), r3 = pickSymbol();
+  let win = 0, isJackpot = false, isNearMiss = false, msg = '';
+  if (r1 === r2 && r2 === r3) {
+    const sym = SYMBOLS.find(s => s.e === r1);
+    win = bet * sym.m3; isJackpot = (r1 === '7️⃣');
+    msg = isJackpot ? '🎉🎊 ¡¡JACKPOT!! TRES SIETES 🤑'
+        : r1 === '💎' ? '💎 ¡TRIPLE DIAMANTE!'
+        : `${r1} ¡TRIPLE! ×${sym.m3}`;
+  } else if (Math.random() < 0.30) {
+    if (r1 === r2) r3 = adjacent(r1);
+    else if (r2 === r3) r1 = adjacent(r2);
+    else { r3 = r2; r1 = adjacent(r2); }
+    isNearMiss = true;
+    msg = ['😩 ¡Casi!','🤏 Por un pelo','😤 ¡Mala suerte!','💨 ¡Se escapó!'][Math.floor(Math.random()*4)];
+  } else {
+    msg = ['😕 Sin suerte.','🎰 ¡Sigue!','🤞 ¡La próxima!'][Math.floor(Math.random()*3)];
+  }
+  return { r1, r2, r3, win, isJackpot, isNearMiss, msg };
+}
+
+/* ═══════════════════════════════════════════════
+   AUDIO (todo en try-catch para no bloquear el juego)
+═══════════════════════════════════════════════ */
+let audioCtx = null;
+function getCtx() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  } catch(e) { return null; }
+}
+function playTone(freq, type, t0, dur, gain=0.3) {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.connect(env); env.connect(ctx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    env.gain.setValueAtTime(gain, t0);
+    env.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    osc.start(t0); osc.stop(t0 + dur + 0.01);
+  } catch(e) {}
+}
+function sfxSpin() {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    for (let i = 0; i < 6; i++) playTone(80 + Math.random()*120, 'sawtooth', now + i*0.07, 0.12, 0.06);
+  } catch(e) {}
+}
+function sfxTick() {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    playTone(200 + Math.random()*100, 'square', ctx.currentTime, 0.04, 0.08);
+  } catch(e) {}
+}
+function sfxStop(idx) {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    playTone(120 + idx*40, 'triangle', now, 0.15, 0.2);
+    const buf = ctx.createBuffer(1, ctx.sampleRate*0.1, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * Math.exp(-i/(ctx.sampleRate*0.03));
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g = ctx.createGain(); g.gain.value = 0.25;
+    src.connect(g); g.connect(ctx.destination); src.start(now);
+  } catch(e) {}
+}
+function sfxWin(mult) {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    const scale = [261,294,330,349,392,440,494,523];
+    const steps = Math.min(Math.ceil(mult/10) + 3, 8);
+    for (let i = 0; i < steps; i++) playTone(scale[i], 'sine', now + i*0.1, 0.3, 0.25);
+  } catch(e) {}
+}
+function sfxJackpot() {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    [523,659,784,523,659,784,1047].forEach((f, i) => playTone(f, 'square', now + i*0.15, 0.25, 0.2));
+  } catch(e) {}
+}
+function sfxNearMiss() {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    const now = ctx.currentTime;
+    [440,415,392].forEach((f, i) => playTone(f, 'sine', now + i*0.2, 0.3, 0.2));
+  } catch(e) {}
+}
+function sfxCoin() {
+  try {
+    const ctx = getCtx(); if (!ctx) return;
+    playTone(1200 + Math.random()*400, 'sine', ctx.currentTime, 0.12, 0.18);
+  } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════════
+   ANIMACIÓN DE CARRETES — doble RAF (fiable)
+═══════════════════════════════════════════════ */
+const CELL_H    = 110;
+const STRIP_LEN = 28; // símbolos de "relleno" antes del target
+const SYM_LIST  = SYMBOLS.map(s => s.e);
+
+const reelEls     = [document.getElementById('reel0'), document.getElementById('reel1'), document.getElementById('reel2')];
+const reelWrappers = [document.getElementById('rw0'), document.getElementById('rw1'), document.getElementById('rw2')];
+
+function buildStrip(targetSymbol) {
+  const strip = [];
+  for (let i = 0; i < STRIP_LEN; i++) strip.push(SYM_LIST[Math.floor(Math.random() * SYM_LIST.length)]);
+  strip.push(targetSymbol);  // index STRIP_LEN = target
+  return strip;
+}
+
+function fillReel(reelEl, strip) {
+  reelEl.innerHTML = '';
+  strip.forEach(sym => {
+    const cell = document.createElement('div');
+    cell.className = 'reel-cell';
+    cell.appendChild(symImg(sym));
+    reelEl.appendChild(cell);
+  });
+}
+
+// Inicializar carretes con símbolos aleatorios
+function initReels() {
+  reelEls.forEach(el => {
+    const initSymbol = SYM_LIST[Math.floor(Math.random() * SYM_LIST.length)];
+    el.innerHTML = '';
+    const cell = document.createElement('div');
+    cell.className = 'reel-cell';
+    cell.appendChild(symImg(initSymbol));
+    el.appendChild(cell);
+    el.style.transform = 'translateY(0px)';
+    el.style.transition = 'none';
+  });
+}
+initReels();
+
+// Anima un carrete: construye tira, hace scroll hasta el target, devuelve Promise
+function animateReel(reelIdx, targetSymbol) {
+  return new Promise((resolve, reject) => {
+    const el = reelEls[reelIdx];
+    const delay = reelIdx * 180;        // retraso escalonado entre carretes
+    const duration = 1.0 + reelIdx * 0.4; // duración creciente
+
+    setTimeout(() => {
+      try {
+        const strip = buildStrip(targetSymbol);
+        fillReel(el, strip);
+
+        const targetY = -(CELL_H * STRIP_LEN); // desplazamiento hasta el target
+
+        // Paso 1: posicionar sin transición en 0
+        el.style.transition = 'none';
+        el.style.transform = 'translateY(0px)';
+
+        // Paso 2: doble requestAnimationFrame garantiza que el navegador
+        // ha pintado la posición inicial antes de iniciar la animación
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try {
+              el.style.transition = `transform ${duration}s cubic-bezier(0.12, 0.8, 0.25, 1)`;
+              el.style.transform  = `translateY(${targetY}px)`;
+
+              // Ticks de sonido mientras gira
+              let ticks = 0;
+              const maxTicks = Math.floor(duration * 12);
+              const tickInterval = setInterval(() => {
+                sfxTick();
+                if (++ticks >= maxTicks) clearInterval(tickInterval);
+              }, 1000 / 12);
+
+              // Cuando termina: bounce y resolver
+              setTimeout(() => {
+                clearInterval(tickInterval);
+                sfxStop(reelIdx);
+                // Pequeño bounce hacia abajo y vuelve
+                el.style.transition = 'transform 0.1s cubic-bezier(0.34,1.56,0.64,1)';
+                el.style.transform  = `translateY(${targetY + 10}px)`;
+                setTimeout(() => {
+                  el.style.transition = 'transform 0.1s ease-out';
+                  el.style.transform  = `translateY(${targetY}px)`;
+                  setTimeout(() => resolve(), 110);
+                }, 110);
+              }, duration * 1000);
+            } catch(e) { reject(e); }
+          });
+        });
+      } catch(e) { reject(e); }
+    }, delay);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   PARTÍCULAS FX
+═══════════════════════════════════════════════ */
+const fxCanvas = document.getElementById('fx-canvas');
+const fxCtx    = fxCanvas.getContext('2d');
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx    = bgCanvas.getContext('2d');
+let particles  = [];
+
+function resize() {
+  fxCanvas.width = bgCanvas.width = window.innerWidth;
+  fxCanvas.height = bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize); resize();
+
+class Particle {
+  constructor(x, y, opts={}) {
+    this.x = x; this.y = y;
+    this.vx = (Math.random()-.5) * (opts.spread || 12);
+    this.vy = -Math.random() * (opts.speed || 8) - 2;
+    this.life = 1; this.decay = 0.014 + Math.random()*.02;
+    this.size = opts.size || (4 + Math.random()*6);
+    this.color = opts.color || `hsl(${Math.random()*60+30},100%,60%)`;
+    this.gravity = opts.gravity ?? 0.25;
+    this.shape = opts.shape || 'circle';
+    this.rot = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random()-.5)*.3;
+  }
+  update() { this.x += this.vx; this.y += this.vy; this.vy += this.gravity; this.vx *= .98; this.life -= this.decay; this.rot += this.rotSpeed; }
+  draw(ctx) {
+    ctx.save(); ctx.globalAlpha = Math.max(0, this.life);
+    ctx.translate(this.x, this.y); ctx.rotate(this.rot); ctx.fillStyle = this.color;
+    if (this.shape === 'rect') { ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size*.6); }
+    else if (this.shape === 'star') { drawStar(ctx, 0, 0, this.size*.5, this.size, 5); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0, 0, this.size/2, 0, Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+}
+function drawStar(ctx, cx, cy, ir, or, n) {
+  ctx.beginPath();
+  for (let i = 0; i < n*2; i++) {
+    const r = i%2===0 ? or : ir;
+    const a = (i * Math.PI) / n - Math.PI/2;
+    i===0 ? ctx.moveTo(cx+r*Math.cos(a), cy+r*Math.sin(a)) : ctx.lineTo(cx+r*Math.cos(a), cy+r*Math.sin(a));
+  }
+  ctx.closePath();
+}
+function spawnParticles(x, y, count, opts) {
+  for (let i = 0; i < count; i++) particles.push(new Particle(x, y, opts));
+}
+function spawnWinBurst(x, y) {
+  spawnParticles(x, y, 60, { spread:14, speed:10, color:'#ffd700', shape:'star', size:8 });
+  spawnParticles(x, y, 40, { spread:10, speed:7,  color:'#ffaa00', shape:'rect' });
+  spawnParticles(x, y, 20, { spread:16, speed:12, color:'#ffffff', shape:'circle', size:4 });
+}
+function spawnJackpot() {
+  const w = fxCanvas.width, h = fxCanvas.height;
+  const colors = ['#ffd700','#ff2244','#00ff88','#00aaff','#cc44ff','#fff'];
+  for (let i = 0; i < 300; i++) {
+    spawnParticles(Math.random()*w, Math.random()*h*.6, 1,
+      { spread:18, speed:12, color:colors[i%colors.length], shape:['circle','rect','star'][i%3], size:5+Math.random()*8, gravity:.15 });
+  }
+}
+
+function animFX() {
+  if (!document.hidden) {
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    particles = particles.filter(p => p.life > 0);
+    particles.forEach(p => { p.update(); p.draw(fxCtx); });
+  }
+  requestAnimationFrame(animFX);
+}
+animFX();
+
+/* ── Fondo estrellado ── */
+const STARS = Array.from({ length: 80 }, () => ({
+  x: Math.random(), y: Math.random(),
+  r: .5 + Math.random()*1.5,
+  speed: .00002 + Math.random()*.00005,
+  alpha: .1 + Math.random()*.6,
+  phase: Math.random()*Math.PI*2,
+}));
+function animBG(t) {
+  if (!document.hidden) {
+    const w = bgCanvas.width, h = bgCanvas.height;
+    bgCtx.clearRect(0, 0, w, h);
+    STARS.forEach(s => {
+      const a = s.alpha * (.5 + .5 * Math.sin(t*.001 + s.phase));
+      bgCtx.fillStyle = `rgba(255,255,255,${a})`;
+      bgCtx.beginPath(); bgCtx.arc(s.x*w, s.y*h, s.r, 0, Math.PI*2); bgCtx.fill();
+      s.y = (s.y + s.speed) % 1;
+    });
+  }
+  requestAnimationFrame(animBG);
+}
+animBG(0);
+
+/* ═══════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════ */
+function updateUI() {
+  const bd = document.getElementById('balance-display');
+  bd.textContent = state.balance;
+  bd.classList.remove('bump'); void bd.offsetWidth; bd.classList.add('bump');
+  document.getElementById('spins-display').textContent = state.spins;
+  document.getElementById('bet-value').textContent = state.bet;
+  document.getElementById('stat-spent').textContent = state.totalSpent;
+  document.getElementById('stat-won').textContent = state.totalWon;
+  document.getElementById('stat-rtp').textContent =
+    state.totalSpent > 0 ? (state.totalWon / state.totalSpent * 100).toFixed(1) + '%' : '–';
+}
+
+function setResult(msg, type='') {
+  const el = document.getElementById('result-display');
+  el.textContent = msg; el.className = type;
+}
+function showWinAmount(amount) {
+  const el = document.getElementById('win-display');
+  el.textContent = amount > 0 ? `+${amount}🪙` : '–';
+  el.style.color = amount > 0 ? 'var(--gold)' : '#666';
+}
+function showFloatingText(text, x, y, color='#ffd700') {
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, {
+    position:'fixed', left:x+'px', top:y+'px', transform:'translateX(-50%)',
+    color, fontWeight:'900', fontSize:'1.5rem', textShadow:`0 0 10px ${color}`,
+    pointerEvents:'none', zIndex:'150', opacity:'1', transition:'all 1.1s ease-out',
+  });
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.top = (y-90)+'px'; el.style.opacity = '0'; });
+  setTimeout(() => el.remove(), 1300);
+}
+
+/* ═══════════════════════════════════════════════
+   SPIN PRINCIPAL — API first, fallback offline
+═══════════════════════════════════════════════ */
+async function performSpin() {
+  if (state.spinning) return;
+  if (state.balance < state.bet) { setResult('💸 ¡Sin fichas! Usa el bonus diario.', 'lose'); return; }
+
+  try { getCtx(); } catch(e) {}
+
+  state.spinning = true;
+  document.getElementById('spin-btn').disabled = true;
+  setResult('🎰 Girando…', '');
+  showWinAmount(0);
+  sfxSpin();
+
+  try {
+    let result;
+    if (TG_UID) {
+      // Modo API: spin server-side (house edge garantizado)
+      try {
+        const r = await apiPost('/api/spin', { uid: TG_UID, bet: state.bet });
+        if (r.error) {
+          if (r.error === 'self_excluded') {
+            setResult('🚫 ' + (r.message || 'Cuenta autoexcluida.'), 'lose');
+            document.getElementById('spin-btn').disabled = true;
+            return;
+          }
+          setResult('⚠️ ' + r.error, 'lose');
+          return; // finally will reset spinning
+        }
+        result = {
+          r1: r.reels[0], r2: r.reels[1], r3: r.reels[2],
+          win: r.win, isJackpot: r.is_jackpot, isNearMiss: r.is_near_miss,
+          msg: r.message, balance: r.balance,
+          jackpot_pool: r.jackpot_pool,
+          progressive: r.progressive_jackpot || 0,
+        };
+      } catch(e) {
+        // fallback offline si el servidor no responde
+        const o = doSpinOffline(state.bet);
+        result = { ...o, balance: state.balance - state.bet + o.win, jackpot_pool: null, progressive: 0 };
+      }
+    } else {
+      // Sin UID: modo demo offline
+      const o = doSpinOffline(state.bet);
+      result = { ...o, balance: state.balance - state.bet + o.win, jackpot_pool: null, progressive: 0 };
+    }
+
+    // Animar los 3 carretes
+    await Promise.all([
+      animateReel(0, result.r1),
+      animateReel(1, result.r2),
+      animateReel(2, result.r3),
+    ]);
+
+    // Actualizar estado
+    state.balance    = result.balance;
+    state.spins     += 1;
+    state.totalSpent += state.bet;
+    state.totalWon   += result.win;
+    updateUI();
+    showWinAmount(result.win);
+
+    if (result.jackpot_pool != null) {
+      document.getElementById('jackpot-pool-display').textContent = result.jackpot_pool;
+    }
+
+    if (result.isJackpot) {
+      const jackpotMsg = result.progressive > 0
+        ? `🎉 ¡JACKPOT! +${result.win}🪙 (incluye pozo ${result.progressive}🪙)`
+        : `🎉🎊 ¡¡JACKPOT!! TRES SIETES 🤑`;
+      await triggerJackpot({ win: result.win, msg: jackpotMsg });
+    } else if (result.win > 0) {
+      triggerWin({ win: result.win, msg: result.msg });
+    } else if (result.isNearMiss) {
+      triggerNearMiss({ msg: result.msg });
+    } else {
+      setResult(result.msg || '😕 Sin suerte esta vez.', 'lose');
+    }
+  } catch(e) {
+    setResult('⚠️ Error inesperado, intenta de nuevo.', 'lose');
+    console.error('performSpin error:', e);
+  } finally {
+    state.spinning = false;
+    document.getElementById('spin-btn').disabled = false;
+  }
+}
+
+function triggerWin({ win, msg }) {
+  setResult(msg, 'win');
+  sfxWin(win / state.bet);
+  reelWrappers.forEach(rw => { rw.classList.remove('win-flash'); void rw.offsetWidth; rw.classList.add('win-flash'); });
+  const machine = document.getElementById('machine');
+  const rect = machine.getBoundingClientRect();
+  const cx = rect.left + rect.width/2, cy = rect.top + 70;
+  spawnWinBurst(cx, cy);
+  sfxCoin();
+  showFloatingText(`+${win}🪙`, cx, cy - 30, '#ffd700');
+  // win-bg body class removed (bg es sprite fijo)
+}
+
+async function triggerJackpot({ win, msg }) {
+  setResult(msg || '🎉🎊 ¡¡JACKPOT!! 🤑', 'jackpot');
+  sfxJackpot();
+  reelWrappers.forEach(rw => { rw.classList.remove('win-flash'); void rw.offsetWidth; rw.classList.add('win-flash'); });
+  spawnJackpot();
+  // jackpot-bg removed — overlay sprite handles the visual
+  setTimeout(() => document.body.classList.remove('jackpot-bg'), 1200);
+  document.getElementById('jackpot-win').textContent = `¡Ganaste ${win}🪙!`;
+  await new Promise(r => setTimeout(r, 700));
+  document.getElementById('jackpot-overlay').classList.add('show');
+}
+
+function triggerNearMiss({ msg }) {
+  setResult(msg, 'near');
+  sfxNearMiss();
+  document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+}
+
+/* ═══════════════════════════════════════════════
+   CONTROLES
+═══════════════════════════════════════════════ */
+document.getElementById('spin-btn').addEventListener('click', performSpin);
+
+const BET_STEPS = [5, 10, 20, 50, 100, 200, 500];
+document.getElementById('bet-up').addEventListener('click', () => {
+  const i = BET_STEPS.indexOf(state.bet);
+  if (i < BET_STEPS.length - 1) { state.bet = BET_STEPS[i + 1]; updateUI(); }
+});
+document.getElementById('bet-down').addEventListener('click', () => {
+  const i = BET_STEPS.indexOf(state.bet);
+  if (i > 0) { state.bet = BET_STEPS[i - 1]; updateUI(); }
+});
+
+document.getElementById('jackpot-close').addEventListener('click', () => {
+  document.getElementById('jackpot-overlay').classList.remove('show');
+  document.body.classList.remove('jackpot-bg');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); performSpin(); }
+});
+
+function togglePaytable() {
+  const pt = document.getElementById('paytable');
+  pt.classList.toggle('open');
+  document.getElementById('paytable-toggle').textContent =
+    pt.classList.contains('open') ? '📋 Ocultar tabla de pagos ▲' : '📋 Ver tabla de pagos ▼';
+}
+
+/* ── Auto-exclusión (DGOJ) ── */
+async function requestSelfExclude() {
+  if (!TG_UID) { setResult('⚠️ Abre desde Telegram para esta función.', ''); return; }
+  const confirmed = confirm(
+    '⚠️ AUTOEXCLUSIÓN\n\n' +
+    'Activar la autoexclusión bloqueará tu cuenta de juego.\n' +
+    'Solo podrás reactivarla contactando con soporte.\n\n' +
+    '¿Confirmas que deseas autoexcluirte?'
+  );
+  if (!confirmed) return;
+  try {
+    await apiPost('/api/self-exclude', { uid: TG_UID });
+    setResult('🚫 Autoexclusión activada. Cuenta bloqueada.', 'lose');
+    document.getElementById('spin-btn').disabled = true;
+    document.getElementById('self-exclude-btn').textContent = '🚫 Autoexcluido';
+    document.getElementById('self-exclude-btn').disabled = true;
+  } catch(e) {
+    setResult('⚠️ Error al activar autoexclusión.', '');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   TON COMPRA DE FICHAS
+═══════════════════════════════════════════════ */
+function openBuyModal() {
+  if (!TG_UID) { setResult('⚠️ Abre desde Telegram para comprar fichas.', ''); return; }
+  document.getElementById('buy-modal-status').textContent = 'Selecciona un paquete para continuar';
+  document.getElementById('buy-modal').classList.add('show');
+}
+
+function closeBuyModal() {
+  document.getElementById('buy-modal').classList.remove('show');
+}
+
+async function buyPackage(packageId) {
+  const statusEl = document.getElementById('buy-modal-status');
+  if (!TG_UID) { statusEl.textContent = '⚠️ Abre desde Telegram'; return; }
+
+  // 1. Asegurar wallet conectada
+  if (!tonConnectUI || !tonConnectUI.connected) {
+    statusEl.textContent = '🔗 Conecta tu wallet TON primero...';
+    if (tonConnectUI) {
+      try { await tonConnectUI.openModal(); } catch(e) {}
+      await new Promise(resolve => {
+        const unsub = tonConnectUI.onStatusChange(w => { if (w) { unsub(); resolve(); } });
+        setTimeout(() => { unsub(); resolve(); }, 30000);
+      });
+    }
+    if (!tonConnectUI || !tonConnectUI.connected) {
+      statusEl.textContent = '❌ No se conectó la wallet TON';
+      return;
+    }
+  }
+
+  statusEl.textContent = '⏳ Creando orden...';
+
+  // 2. Crear orden en servidor
+  let order;
+  try {
+    order = await apiPost('/api/ton/order', { uid: TG_UID, package_id: packageId });
+  } catch(e) {
+    statusEl.textContent = '❌ Error al crear orden. Inténtalo de nuevo.';
+    return;
+  }
+  if (!order || order.error) {
+    statusEl.textContent = order?.error === 'ton_not_configured'
+      ? '⚠️ Pagos TON próximamente. ¡Vuelve pronto!'
+      : `❌ Error: ${order?.error || 'desconocido'}`;
+    return;
+  }
+
+  statusEl.textContent = `💸 Enviando ${order.ton} TON → ${order.fichas}🪙...`;
+
+  // 3. Enviar transacción via TonConnect
+  const txRequest = {
+    validUntil: Math.floor(Date.now() / 1000) + 300,
+    messages: [{
+      address: order.to_address,
+      amount: order.amount_nanoton.toString(),
+    }]
+  };
+  let result;
+  try {
+    result = await tonConnectUI.sendTransaction(txRequest);
+  } catch(e) {
+    const msg = e?.message || String(e);
+    statusEl.textContent = msg.includes('rejects') || msg.includes('cancel')
+      ? '❌ Transacción cancelada por el usuario.'
+      : `❌ Error: ${msg}`;
+    return;
+  }
+
+  statusEl.textContent = '✅ TX enviada. Acreditando fichas...';
+
+  // 4. Confirmar en servidor (idempotente)
+  let confirm;
+  try {
+    confirm = await apiPost('/api/ton/confirm', {
+      order_id: order.order_id,
+      boc: result?.boc || '',
+    });
+  } catch(e) {
+    statusEl.textContent = '⚠️ TX enviada pero error al confirmar. Contacta soporte con order_id: ' + order.order_id;
+    return;
+  }
+
+  if (confirm && confirm.ok) {
+    state.balance = confirm.balance;
+    updateUI();
+    closeBuyModal();
+    showFloatingText(`+${confirm.fichas_added}🪙`, window.innerWidth/2, 150, '#ffd700');
+    setResult(`💎 ¡+${confirm.fichas_added}🪙 acreditadas!`, 'win');
+    sfxWin(confirm.fichas_added);
+  } else {
+    statusEl.textContent = `❌ Error al confirmar: ${confirm?.error || 'desconocido'}`;
+  }
+}
+
+document.getElementById('buy-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeBuyModal();
+});
+
+updateUI();
+</script>
+</body>
+</html>

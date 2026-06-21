@@ -16,6 +16,7 @@ function createRuntimeService(ctx) {
     resolveUiDist,
     resolveBundledRuntimeRoot,
     resolveInstalledRuntimeRoot,
+    resolveDevelopmentRuntimeRoot,
     runVisiblePowerShell
   } = ctx;
 
@@ -175,7 +176,8 @@ function createRuntimeService(ctx) {
   }
 
   function openCliChat(options = {}) {
-    const runtimeRoot = resolveBagoRuntimeRoot();
+    const developmentRoot = resolveDevelopmentRuntimeRoot();
+    const runtimeRoot = developmentRoot || resolveBagoRuntimeRoot();
     const basePath = String(options.basePath || '').trim() || runtimeRoot;
     const command = [
       `Set-Location -LiteralPath ${psSingleArg(runtimeRoot)}`,
@@ -186,7 +188,8 @@ function createRuntimeService(ctx) {
       mode: 'manual-command',
       command,
       cwd: runtimeRoot,
-      base_path: basePath
+      base_path: basePath,
+      development_root: developmentRoot || ''
     };
   }
 

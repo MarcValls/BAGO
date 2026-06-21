@@ -5,9 +5,17 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import subprocess
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bago_core.versioning import read_release_version as _read_release_version
 
 
 INCLUDE_FILES = [
@@ -36,7 +44,7 @@ INCLUDE_FILES = [
     "test_security_release.py",
     "test_command_intents.py",
     "test_translators.py",
-    "test_translators_evidence.py",
+    "tests/test_translators_evidence.py",
 ]
 
 INCLUDE_DIRS = [
@@ -95,7 +103,7 @@ FORBIDDEN_NAMES = {
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return ROOT
 
 
 def rel_posix(path: Path) -> str:
@@ -103,12 +111,7 @@ def rel_posix(path: Path) -> str:
 
 
 def read_release_version(root: Path) -> str:
-    release_version_file = root / "release_version.txt"
-    if release_version_file.exists():
-        value = release_version_file.read_text(encoding="utf-8").strip()
-        if value:
-            return value
-    return "4.6.3"
+    return _read_release_version(root)
 
 
 def normalize_release_version(value: str) -> str:
@@ -143,6 +146,16 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def require_inputs(root: Path) -> None:
+    missing_files = [item for item in INCLUDE_FILES if not (root / item).is_file()]
+    missing_dirs = [item for item in INCLUDE_DIRS if not (root / item).exists()]
+    missing = missing_files + missing_dirs
+    if missing:
+        raise FileNotFoundError(
+            "Faltan entradas obligatorias para el bundle:\n" + "\n".join(f"- {item}" for item in missing)
+        )
+
+
 def collect_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for item in INCLUDE_FILES:
@@ -166,6 +179,7 @@ def collect_files(root: Path) -> list[Path]:
 def build_user_bundle(root: Path, output_dir: Path, release_version: str = "") -> dict:
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    require_inputs(root)
     version = normalize_release_version(release_version or read_release_version(root))
     package_name = f"bago-user-v{version}.zip"
     zip_path = output_dir / package_name
@@ -240,26 +254,37 @@ def build_user_bundle(root: Path, output_dir: Path, release_version: str = "") -
 def _run_tests() -> int:
     from tempfile import TemporaryDirectory
 
+    bundle_version = read_release_version(repo_root()) or "unknown"
+    root = repo_root()
     with TemporaryDirectory() as td:
-        root = Path(td)
-        (root / "bago_core").mkdir()
-        (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
-        (root / "MODEL_PARALLEL_SETUP.md").write_text("bootstrap\n", encoding="utf-8")
-        (root / ".ollama" / "models").mkdir(parents=True)
-        (root / ".ollama" / "models" / "llama3.2.gguf").write_text("no\n", encoding="utf-8")
-        (root / "models").mkdir()
-        (root / "models" / "other.gguf").write_text("no\n", encoding="utf-8")
-        (root / "weights").mkdir()
-        (root / "weights" / "model.bin").write_text("no\n", encoding="utf-8")
-        result = build_user_bundle(root, root / "dist", release_version="4.6.3")
+        output_dir = Path(td) / "release" / "v4"
+        result = build_user_bundle(root, output_dir, release_version=bundle_version)
         with zipfile.ZipFile(result["zip"], "r") as zf:
             names = set(zf.namelist())
-        assert "bago_core/x.py" in names
-        assert "MODEL_PARALLEL_SETUP.md" in names
-        assert ".ollama/models/llama3.2.gguf" not in names
-        assert "models/other.gguf" not in names
-        assert "weights/model.bin" not in names
-        assert Path(result["zip"]).name == "bago-user-v4.6.3.zip"
+            required_names = {
+                "bago_core/translators/__init__.py",
+                "MODEL_PARALLEL_SETUP.md",
+                "ui-react/dist/index.html",
+                "docs/evidence/release_4_6_4/manifest.json",
+                "docs/evidence/release_4_6_4/session/meta.json",
+            }
+            missing = sorted(required_names - names)
+            assert not missing, f"missing bundle entries: {missing}"
+            assert any(name.startswith("ui-react/dist/") for name in names)
+            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_6_4/manifest.json"))
+            evidence_meta = json.loads(zf.read("docs/evidence/release_4_6_4/session/meta.json"))
+            assert evidence_manifest["contract_version"] == bundle_version
+            assert evidence_meta["bago_version"] == bundle_version
+        extract_dir = Path(td) / "extract"
+        with zipfile.ZipFile(result["zip"], "r") as zf:
+            zf.extractall(extract_dir)
+        subprocess.run([sys.executable, "test_translators.py"], cwd=extract_dir, check=True)
+        subprocess.run(
+            [sys.executable, "-m", "pytest", "tests/test_translators_evidence.py", "-q"],
+            cwd=extract_dir,
+            check=True,
+        )
+        assert Path(result["zip"]).name == f"bago-user-v{bundle_version}.zip"
     print("package_user_bundle.py --test: ALL PASS")
     return 0
 
@@ -267,7 +292,7 @@ def _run_tests() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build a user-facing BAGO bundle without local model weights.")
     parser.add_argument("--output-dir", default=str(repo_root() / "dist" / "user-bundle"))
-    parser.add_argument("--release-version", default="", help="Use fixed bundle name (e.g. 4.6.3). Defaults to release_version.txt.")
+    parser.add_argument("--release-version", default="", help="Use fixed bundle name (e.g. X.Y.Z). Defaults to release_version.txt.")
     parser.add_argument("--test", action="store_true", help="Run self tests and exit")
     args = parser.parse_args(argv)
     if args.test:

@@ -1,0 +1,257 @@
+{
+  "name": "BAGO Clean Core RC1",
+  "version": "3.5.0-rc1",
+  "built_at": "2026-05-22T23:56:05+00:00",
+  "source_primary_zip": "BAGO-3.5.0.1b.zip",
+  "source_reference_zip": "BAGO-3.4.5-new(2).zip",
+  "policy": {
+    "core": "retains launcher, .bago contracts/tools/roles/workflows/templates, docs, tests, source",
+    "runtime": "not shipped; generated locally",
+    "evidence": "historical state/logs/reports/checks moved out of core",
+    "examples": "projects and generated web tools moved out of core",
+    "release_assets": "APKs, builds, icons and heavy release outputs moved out of core"
+  },
+  "counts": {
+    "files_by_top_level": {
+      ".gitignore": 1,
+      "AGENTS.md": 1,
+      "CHANGELOG.md": 1,
+      "CONTRIBUTING.md": 1,
+      "HANDOFF.md": 1,
+      "INSTALL.md": 1,
+      "INTEGRACION_N8N.md": 1,
+      "LICENSE": 1,
+      "MANIFEST.in": 1,
+      "Makefile": 1,
+      "PLAN_MASTER.md": 1,
+      "QUICKSTART.md": 1,
+      "README.md": 1,
+      "SECURITY.md": 1,
+      "bago": 1,
+      "bago-framework.code-workspace": 1,
+      "bago.cmd": 1,
+      "bago.ico": 1,
+      "bago.ps1": 1,
+      "ideas": 1,
+      "install-bago.cmd": 1,
+      "install-bago.sh": 1,
+      "install.ps1": 1,
+      "install.sh": 1,
+      "pyproject.toml": 1,
+      "stability-summary": 1,
+      "start_telegram.ps1": 1,
+      "CLEAN_CORE_MANIFEST.json": 1,
+      "examples": 71,
+      "evidence": 205,
+      "release-assets": 30,
+      ".bago": 752,
+      ".githooks": 1,
+      ".github": 6,
+      "scripts": 22,
+      "bago_core": 4,
+      "docs": 35,
+      "launcher": 32,
+      "roles": 2,
+      "tests": 52,
+      "vendor": 2,
+      "runtime": 2
+    },
+    "relocations": 1207,
+    "purged": 10,
+    "exported_databases": 3,
+    "files_by_top_level_final": {
+      ".gitignore": 1,
+      "AGENTS.md": 1,
+      "CHANGELOG.md": 1,
+      "CONTRIBUTING.md": 1,
+      "HANDOFF.md": 1,
+      "INSTALL.md": 1,
+      "INTEGRACION_N8N.md": 1,
+      "LICENSE": 1,
+      "MANIFEST.in": 1,
+      "Makefile": 1,
+      "PLAN_MASTER.md": 1,
+      "QUICKSTART.md": 1,
+      "README.md": 1,
+      "SECURITY.md": 1,
+      "bago": 1,
+      "bago-framework.code-workspace": 1,
+      "bago.cmd": 1,
+      "bago.ico": 1,
+      "bago.ps1": 1,
+      "ideas": 1,
+      "install-bago.cmd": 1,
+      "install-bago.sh": 1,
+      "install.ps1": 1,
+      "install.sh": 1,
+      "pyproject.toml": 1,
+      "stability-summary": 1,
+      "start_telegram.ps1": 1,
+      "CLEAN_CORE_MANIFEST.json": 1,
+      "BAGO_3_5_CLEAN_CORE_RC1_RELEASE_REPORT.md": 1,
+      "CHECKSUMS.sha256": 1,
+      "examples": 79,
+      "evidence": 206,
+      "release-assets": 30,
+      ".bago": 1198,
+      ".githooks": 1,
+      ".github": 6,
+      "scripts": 41,
+      "bago_core": 8,
+      "docs": 35,
+      "launcher": 33,
+      "roles": 2,
+      "tests": 86,
+      "vendor": 2,
+      "runtime": 2
+    }
+  },
+  "exported_databases": [
+    {
+      "source": "projects/tragaperras_bot/casino.db",
+      "logical_name": "casino",
+      "tables": [
+        {
+          "table": "jackpot_pool",
+          "rows": 1,
+          "file": "jackpot_pool.jsonl"
+        },
+        {
+          "table": "players",
+          "rows": 4,
+          "file": "players.jsonl"
+        },
+        {
+          "table": "referrals",
+          "rows": 0,
+          "file": "referrals.jsonl"
+        },
+        {
+          "table": "ton_transactions",
+          "rows": 0,
+          "file": "ton_transactions.jsonl"
+        }
+      ],
+      "exported_at": "2026-05-22T23:56:05+00:00"
+    },
+    {
+      "source": ".bago/state/bago.db",
+      "logical_name": "bago",
+      "tables": [
+        {
+          "table": "db_meta",
+          "rows": 1,
+          "file": "db_meta.jsonl"
+        },
+        {
+          "table": "guardian_runs",
+          "rows": 30,
+          "file": "guardian_runs.jsonl"
+        },
+        {
+          "table": "ideas",
+          "rows": 74,
+          "file": "ideas.jsonl"
+        },
+        {
+          "table": "implemented_ideas",
+          "rows": 33,
+          "file": "implemented_ideas.jsonl"
+        },
+        {
+          "table": "pack_cache_entities",
+          "rows": 64,
+          "file": "pack_cache_entities.jsonl"
+        },
+        {
+          "table": "pack_cache_meta",
+          "rows": 4,
+          "file": "pack_cache_meta.jsonl"
+        },
+        {
+          "table": "sessions",
+          "rows": 60,
+          "file": "sessions.jsonl"
+        }
+      ],
+      "exported_at": "2026-05-22T23:56:05+00:00"
+    },
+    {
+      "source": ".bago/state/npath.db",
+      "logical_name": "npath",
+      "tables": [
+        {
+          "table": "branches",
+          "rows": 4,
+          "file": "branches.jsonl"
+        },
+        {
+          "table": "edges",
+          "rows": 3,
+          "file": "edges.jsonl"
+        },
+        {
+          "table": "merges",
+          "rows": 1,
+          "file": "merges.jsonl"
+        },
+        {
+          "table": "node_embeddings",
+          "rows": 0,
+          "file": "node_embeddings.jsonl"
+        },
+        {
+          "table": "nodes",
+          "rows": 4,
+          "file": "nodes.jsonl"
+        },
+        {
+          "table": "nodes_fts",
+          "rows": 4,
+          "file": "nodes_fts.jsonl"
+        },
+        {
+          "table": "nodes_fts_config",
+          "rows": 1,
+          "file": "nodes_fts_config.jsonl"
+        },
+        {
+          "table": "nodes_fts_data",
+          "rows": 2,
+          "file": "nodes_fts_data.jsonl"
+        },
+        {
+          "table": "nodes_fts_docsize",
+          "rows": 0,
+          "file": "nodes_fts_docsize.jsonl"
+        },
+        {
+          "table": "nodes_fts_idx",
+          "rows": 0,
+          "file": "nodes_fts_idx.jsonl"
+        },
+        {
+          "table": "npath_meta",
+          "rows": 1,
+          "file": "npath_meta.jsonl"
+        },
+        {
+          "table": "splits",
+          "rows": 0,
+          "file": "splits.jsonl"
+        }
+      ],
+      "exported_at": "2026-05-22T23:56:05+00:00"
+    }
+  ],
+  "warnings": [
+    {
+      "path": "evidence/quarantine/legacy_credentials_flow_snapshots/_.bago_tools_bago_credentials_flows_openai.py.txt",
+      "warning": "redacted 1 possible secret token(s)"
+    },
+    {
+      "path": "evidence/quarantine/legacy_credentials_flow_snapshots/_.bago_tools_bago_credentials_login_flows.py.txt",
+      "warning": "redacted 3 possible secret token(s)"
+    }
+  ]
+}

@@ -27,18 +27,19 @@ python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --
 
 Suggested parallel audit checks:
 
-- Download and extract `bago-release-assets-v4.6.3.zip` outside the audit bundle.
+- Download and extract `bago-release-assets-v4.6.4.zip` outside the audit bundle.
 - `python bago_core\cli.py project analyze --root <repo>`
-- `$env:BAGO_RELEASE_ASSETS = "C:\audit-inputs\bago-release-v4.6.3"`
-- `python scripts\verify_release_463.py`
+- `$env:BAGO_RELEASE_ASSETS = "C:\audit-inputs\bago-release-v4.6.4"`
+- `python scripts\verify_release.py`
 - or:
 
 ```powershell
-python scripts\verify_release_463.py `
-  --exe-path "C:\audit-inputs\bago-release-v4.6.3\BAGO-Installation-Manager-4.6.3-win-x64.exe" `
-  --latest-yml-path "C:\audit-inputs\bago-release-v4.6.3\latest.yml" `
-  --zip-path "C:\audit-inputs\bago-release-v4.6.3\bago-v4.6.3.zip" `
-  --zip-sha256-path "C:\audit-inputs\bago-release-v4.6.3\bago-v4.6.3.zip.sha256" `
-  --manifest-path "C:\audit-inputs\bago-release-v4.6.3\bago-v4.6.3.zip.manifest.json"
+python scripts\verify_release.py `
+  --exe-path "C:\audit-inputs\bago-release-v4.6.4\BAGO-Installation-Manager-4.6.4-win-x64.exe" `
+  --latest-yml-path "C:\audit-inputs\bago-release-v4.6.4\latest.yml" `
+  --zip-path "C:\audit-inputs\bago-release-v4.6.4\bago-v4.6.4.zip" `
+  --zip-sha256-path "C:\audit-inputs\bago-release-v4.6.4\bago-v4.6.4.zip.sha256" `
+  --manifest-path "C:\audit-inputs\bago-release-v4.6.4\bago-v4.6.4.zip.manifest.json"
 ```
 - `python scripts\package_audit_bundle.py --test`
+

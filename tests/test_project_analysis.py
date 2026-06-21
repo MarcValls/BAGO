@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+EXPECTED_VERSION = (REPO / "release_version.txt").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(REPO / ".bago" / "tools"))
 sys.path.insert(0, str(REPO))
 
@@ -33,21 +34,21 @@ class ProjectAnalysisTests(unittest.TestCase):
             self.assertIn("Directory snapshot:", text)
 
     def test_project_parser_accepts_root_after_analyze(self) -> None:
-        parser = build_parser("4.6.3", str(REPO), "ollama-local", "llama3.2:3b")
+        parser = build_parser(EXPECTED_VERSION, str(REPO), "ollama-local", "llama3.2:3b")
         args = parser.parse_args(["project", "analyze", "--root", str(REPO)])
         self.assertEqual(args.command, "project")
         self.assertEqual(args.project_cmd, "analyze")
         self.assertEqual(args.root, str(REPO))
 
     def test_project_parser_accepts_root_before_analyze(self) -> None:
-        parser = build_parser("4.6.3", str(REPO), "ollama-local", "llama3.2:3b")
+        parser = build_parser(EXPECTED_VERSION, str(REPO), "ollama-local", "llama3.2:3b")
         args = parser.parse_args(["project", "--root", str(REPO), "analyze"])
         self.assertEqual(args.command, "project")
         self.assertEqual(args.project_cmd, "analyze")
         self.assertEqual(args.root, str(REPO))
 
     def test_project_parser_accepts_root_on_all_subcommands(self) -> None:
-        parser = build_parser("4.6.3", str(REPO), "ollama-local", "llama3.2:3b")
+        parser = build_parser(EXPECTED_VERSION, str(REPO), "ollama-local", "llama3.2:3b")
         for cmd in ("init", "status", "link"):
             with self.subTest(cmd=cmd):
                 after = parser.parse_args(["project", cmd, "--root", str(REPO)])

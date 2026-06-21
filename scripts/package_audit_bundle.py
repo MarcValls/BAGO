@@ -10,6 +10,13 @@ import subprocess
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bago_core.versioning import read_release_version as _read_release_version
 
 
 INCLUDE_FILES = [
@@ -43,7 +50,7 @@ INCLUDE_FILES = [
     "test_security_release.py",
     "test_command_intents.py",
     "test_translators.py",
-    "test_translators_evidence.py",
+    "tests/test_translators_evidence.py",
 ]
 
 INCLUDE_DIRS = [
@@ -104,7 +111,7 @@ FORBIDDEN_NAMES = {
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return ROOT
 
 
 def rel_posix(path: Path) -> str:
@@ -112,12 +119,7 @@ def rel_posix(path: Path) -> str:
 
 
 def read_release_version(root: Path) -> str:
-    release_version_file = root / "release_version.txt"
-    if release_version_file.exists():
-        value = release_version_file.read_text(encoding="utf-8").strip()
-        if value:
-            return value
-    return "4.6.3"
+    return _read_release_version(root)
 
 
 def normalize_release_version(value: str) -> str:
@@ -150,6 +152,16 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def require_inputs(root: Path) -> None:
+    missing_files = [item for item in INCLUDE_FILES if not (root / item).is_file()]
+    missing_dirs = [item for item in INCLUDE_DIRS if not (root / item).exists()]
+    missing = missing_files + missing_dirs
+    if missing:
+        raise FileNotFoundError(
+            "Faltan entradas obligatorias para el bundle:\n" + "\n".join(f"- {item}" for item in missing)
+        )
 
 
 def _git(args: list[str], cwd: Path) -> str:
@@ -228,6 +240,7 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     require_clean_git(root)
+    require_inputs(root)
     version = normalize_release_version(release_version or read_release_version(root))
     package_name = f"bago-audit-v{version}.zip"
     zip_path = output_dir / package_name
@@ -322,12 +335,18 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
         "status": "ready",
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "validation_commands": [
-            "python scripts/verify_release_463.py",
+            "python scripts/verify_release.py",
             "python scripts/package_audit_bundle.py --test",
+            "python test_translators.py",
+            "python -m pytest tests/test_translators_evidence.py -q",
+            "npm run manager:build-ui",
             "python bago_core/cli.py project analyze --root <repo>",
         ],
         "checks": [
             "zip contains no .ollama, models, weights, or checkpoints",
+            "zip contains bago_core/translators/__init__.py",
+            "zip contains current 4.6.4 evidence bundle",
+            "zip contains audit and model bootstrap instructions",
             "zip contains audit bootstrap instructions",
             "zip contains release evidence and contract docs",
         ],
@@ -370,37 +389,60 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
 def _run_tests() -> int:
     from tempfile import TemporaryDirectory
 
+    bundle_version = read_release_version(repo_root()) or "unknown"
+    root = repo_root()
+
+    model_bootstrap = (root / "MODEL_PARALLEL_SETUP.md").read_text(encoding="utf-8")
+    assert "ollama pull" in model_bootstrap
+    assert "ollama list" in model_bootstrap
+    assert "ollama-local" in model_bootstrap
+
+    audit_bootstrap = (root / "AUDIT_PARALLEL_SETUP.md").read_text(encoding="utf-8")
+    assert "python scripts\\verify_release.py" in audit_bootstrap
+    assert "ollama pull" in audit_bootstrap
+
     with TemporaryDirectory() as td:
-        root = Path(td)
-        (root / "bago_core").mkdir()
-        (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
-        (root / "docs" / "evidence" / "sample").mkdir(parents=True)
-        (root / "docs" / "evidence" / "sample" / "report.md").write_text("audit\n", encoding="utf-8")
-        (root / "docs").mkdir(exist_ok=True)
-        (root / "docs" / "RELEASE_NOTES_4.6.3.md").write_text("release notes\n", encoding="utf-8")
-        (root / "AUDIT_PARALLEL_SETUP.md").write_text("bootstrap\n", encoding="utf-8")
-        (root / ".ollama" / "models").mkdir(parents=True)
-        (root / ".ollama" / "models" / "llama3.2.gguf").write_text("no\n", encoding="utf-8")
-        (root / "models").mkdir()
-        (root / "models" / "other.gguf").write_text("no\n", encoding="utf-8")
+        work = Path(td)
+        output_dir = work / "release" / "v4"
         real_git = _git
         try:
             globals()["_git"] = lambda args, cwd: ""
-            result = build_audit_bundle(root, root / "release" / "v4", release_version="4.6.3")
+            result = build_audit_bundle(root, output_dir, release_version=bundle_version)
         finally:
             globals()["_git"] = real_git
-        with zipfile.ZipFile(result["zip"], "r") as zf:
-            names = zf.namelist()
+
+        zip_path = Path(result["zip"])
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = set(zf.namelist())
             embedded_bytes = zf.read("AUDIT_SNAPSHOT.json")
             embedded = json.loads(embedded_bytes)
+
+            required_names = {
+                "AUDIT_PARALLEL_SETUP.md",
+                "MODEL_PARALLEL_SETUP.md",
+                "bago_core/translators/__init__.py",
+                "ui-react/package.json",
+                "ui-react/package-lock.json",
+                "docs/evidence/release_4_6_4/manifest.json",
+                "docs/evidence/release_4_6_4/session/meta.json",
+                "AUDIT_SNAPSHOT.json",
+            }
+            missing = sorted(required_names - names)
+            assert not missing, f"missing bundle entries: {missing}"
+            assert any(name.startswith("ui-react/src/") for name in names)
+
+            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_6_4/manifest.json"))
+            evidence_meta = json.loads(zf.read("docs/evidence/release_4_6_4/session/meta.json"))
+            assert evidence_manifest["contract_version"] == bundle_version
+            assert evidence_meta["bago_version"] == bundle_version
+
         assert embedded["file_count"] == len(names)
-        assert "bago_core/x.py" in names
-        assert "docs/evidence/sample/report.md" in names
-        assert "docs/RELEASE_NOTES_4.6.3.md" in names
-        assert "AUDIT_PARALLEL_SETUP.md" in names
-        assert "AUDIT_SNAPSHOT.json" in names
+        assert embedded["release_version"] == bundle_version
+        assert embedded["package"] == f"bago-audit-v{bundle_version}.zip"
+        assert "bago_core/translators/__init__.py" in names
         assert ".ollama/models/llama3.2.gguf" not in names
         assert "models/other.gguf" not in names
+
         manifest = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
         manifest_names = {entry["path"] for entry in manifest["files"]}
         assert manifest_names == set(names)
@@ -409,7 +451,20 @@ def _run_tests() -> int:
         checksum_lines = Path(result["checksums"]).read_text(encoding="utf-8").splitlines()
         assert len(checksum_lines) == 4
         assert checksum_lines[0].endswith(f" {Path(result['zip']).name}")
-        assert Path(result["zip"]).name == "bago-audit-v4.6.3.zip"
+        assert Path(result["zip"]).name == f"bago-audit-v{bundle_version}.zip"
+
+        extract_dir = work / "extract"
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(extract_dir)
+
+        subprocess.run([sys.executable, "test_translators.py"], cwd=extract_dir, check=True)
+        subprocess.run(
+            [sys.executable, "-m", "pytest", "tests/test_translators_evidence.py", "-q"],
+            cwd=extract_dir,
+            check=True,
+        )
+
+    subprocess.run(["cmd", "/c", "npm", "run", "manager:build-ui"], cwd=root, check=True)
     print("package_audit_bundle.py --test: ALL PASS")
     return 0
 
@@ -417,7 +472,7 @@ def _run_tests() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build an external audit BAGO bundle without local model weights.")
     parser.add_argument("--output-dir", default=str(repo_root() / "release" / "v4"))
-    parser.add_argument("--release-version", default="", help="Use fixed bundle name (e.g. 4.6.3). Defaults to release_version.txt.")
+    parser.add_argument("--release-version", default="", help="Use fixed bundle name (e.g. X.Y.Z). Defaults to release_version.txt.")
     parser.add_argument("--test", action="store_true", help="Run self tests and exit")
     args = parser.parse_args(argv)
     if args.test:

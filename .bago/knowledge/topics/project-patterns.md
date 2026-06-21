@@ -314,7 +314,7 @@ Limpieza semanal: find . -name "._*" -delete  (tras confirmar _UNUSED/)
 
 ## PATRÓN: CANVAS + CSS ARCHITECTURE
 
-**Origen:** DERIVA/BIANCA — bug "dos juegos encima" — Apr 2026
+**Origen:** DERIVA/BIANCA — bug de superposición doble — Apr 2026
 
 ### El bug
 

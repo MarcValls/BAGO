@@ -24,6 +24,16 @@ class NoVisiblePowerShellTests(unittest.TestCase):
         source = (ROOT / "tests" / "test_release_job_manager.cjs").read_text(encoding="utf-8")
         self.assertGreaterEqual(source.count("{ windowsHide: true }"), 2)
 
+    def test_dev_terminal_prefers_workspace_root(self) -> None:
+        ps = (ROOT / "bago.ps1").read_text(encoding="utf-8")
+        env = (ROOT / "electron" / "environment.cjs").read_text(encoding="utf-8")
+        runtime = (ROOT / "electron" / "runtime-service.cjs").read_text(encoding="utf-8")
+        self.assertIn("Join-Path $env:USERPROFILE 'bago_fw'", ps)
+        self.assertIn("elseif ($first -eq 'dev')", ps)
+        self.assertIn("resolveDevelopmentRuntimeRoot", env)
+        self.assertIn("development_root: developmentRoot || ''", runtime)
+        self.assertIn("resolveDevelopmentRuntimeRoot()", runtime)
+
 
 if __name__ == "__main__":
     unittest.main()

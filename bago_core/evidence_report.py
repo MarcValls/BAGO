@@ -29,15 +29,7 @@ from typing import Any
 
 from bago_core.evidence_io import now_iso
 from bago_core.evidence_model import ObjectiveProfile
-
-
-def _current_release_version() -> str:
-    release_version = Path(__file__).resolve().parents[1] / "release_version.txt"
-    if release_version.exists():
-        value = release_version.read_text(encoding="utf-8").strip()
-        if value:
-            return value
-    return "4.6.3"
+from bago_core.versioning import read_release_version
 
 
 def _build_report_header(
@@ -256,7 +248,7 @@ def _build_manifest_dict(
         "bundle_id": (
             f"bago.v4.evidence.{mode}.{profile.objective_id}"
         ),
-        "contract_version": _current_release_version(),
+        "contract_version": read_release_version(Path(__file__).resolve().parents[1]),
         "related_to": [
             "docs\\contracts\\bago_v4_runtime_contract.json",
             "docs\\contracts\\bago_v4_repl_contract.md",

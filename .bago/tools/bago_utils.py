@@ -110,10 +110,17 @@ def get_scan_root(override: str | None = None) -> Path:
 
 
 def get_bago_version() -> str:
-    """Obtiene versión BAGO del pack.json."""
-    pack_file = get_bago_root() / "pack.json"
-    data = load_json(pack_file)
-    return data.get("version", "?")
+    """Obtiene versión BAGO desde release_version.txt o versions.json."""
+    root = get_repo_root()
+    release_version = root / "release_version.txt"
+    if release_version.exists():
+        value = release_version.read_text(encoding="utf-8").strip()
+        if value:
+            return value.lstrip("vV").strip()
+    versions_file = root / "versions.json"
+    data = load_json(versions_file)
+    current = data.get("current", "")
+    return current.strip() if isinstance(current, str) and current.strip() else "?"
 
 
 def get_health_status() -> str:

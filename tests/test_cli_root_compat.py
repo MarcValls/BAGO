@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+EXPECTED_VERSION = (REPO / "release_version.txt").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(REPO))
 
 from bago_core.parsers import build_parser  # noqa: E402
@@ -12,7 +13,7 @@ from bago_core.parsers import build_parser  # noqa: E402
 
 class CliRootCompatTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.parser = build_parser("4.6.3", str(REPO), "ollama-local", "llama3.2:3b")
+        self.parser = build_parser(EXPECTED_VERSION, str(REPO), "ollama-local", "llama3.2:3b")
 
     def _assert_root_before_and_after(self, argv_before: list[str], argv_after: list[str], expected_cmd: str, expected_subcmd: str) -> None:
         before = self.parser.parse_args(argv_before)

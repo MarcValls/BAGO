@@ -35,10 +35,32 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
+
+def _read_current_version() -> str:
+    root = Path(__file__).resolve().parents[2]
+    for candidate in (
+        root / "release_version.txt",
+        root / ".bago" / "release_version.txt",
+    ):
+        try:
+            value = candidate.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if value:
+            return value.lstrip("vV").strip()
+    versions_path = root / "versions.json"
+    try:
+        data = json.loads(versions_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    current = data.get("current", "")
+    return current.strip() if isinstance(current, str) else ""
+
+
 try:
     from version import CURRENT as BAGO_VERSION
 except Exception:
-    BAGO_VERSION = "4.6.3"
+    BAGO_VERSION = _read_current_version()
 
 
 class ContextMessage:

@@ -174,7 +174,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
                     break
         except Exception as exc:
             config_detail = f"default config error: {exc}"
-    auto_allow_ok = runtime_val is False and default_val is False
+    # If no runtime config exists, the default governs; only require default_val is False.
+    # If a runtime config exists, it must also explicitly disable auto_allow_tools.
+    if runtime_val is None:
+        auto_allow_ok = default_val is False
+    else:
+        auto_allow_ok = runtime_val is False and default_val is False
     if config_detail.startswith("config.json"):
         config_detail = f"runtime={runtime_val}, default={default_val}"
     _check("auto_allow_tools_false", auto_allow_ok, config_detail)

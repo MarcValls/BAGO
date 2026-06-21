@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_e2e.py — End-to-End Integration Test for BAGO 4.6.3
+test_e2e.py — End-to-End Integration Test for BAGO release
 
 Simula el ciclo completo de una sesión multi-provider:
 create → send → mark_good → feedback → switch → compress → save → load
@@ -16,6 +16,7 @@ from pathlib import Path
 
 # Setup paths
 BAGO_ROOT = Path(__file__).resolve().parent
+EXPECTED_VERSION = (BAGO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip()
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "chat"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
@@ -29,7 +30,7 @@ from credential_manager import CredentialManager
 
 def run_e2e() -> int:
     print("=" * 60)
-    print("BAGO 4.6.3 End-to-End Integration Test")
+    print(f"BAGO {EXPECTED_VERSION} End-to-End Integration Test")
     print("=" * 60)
 
     with tempfile.TemporaryDirectory() as td:

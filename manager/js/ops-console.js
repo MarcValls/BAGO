@@ -70,7 +70,7 @@ function pmRenderControl() {
       'Instalacion activa y reparacion',
       pmBadge(health.runtime_root ? 'detectado' : 'sin runtime', health.runtime_root ? 'ok' : 'bad'),
       pmControlKv('Runtime', health.runtime_root || target)
-        + pmControlKv('Manager', health.manager_version || managerVersion || '4.6.3')
+        + pmControlKv('Manager', health.manager_version || managerVersion || '-')
         + pmControlKv('Runtime version', health.runtime_version || 'sin leer'),
       pmControlButton('Abrir chat', 'open-web-chat', 'primary')
         + pmControlButton('CLI', 'open-cli-chat')

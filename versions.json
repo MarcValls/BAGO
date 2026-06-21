@@ -1,5 +1,5 @@
 {
-  "current": "4.6.3",
+  "current": "4.6.4",
   "history": [
     {
       "version": "4.0.0",
@@ -64,8 +64,14 @@
     {
       "version": "4.6.3",
       "released": "2026-06-17",
-      "ended": null,
+      "ended": "2026-06-20",
       "notes": "Preparación de la siguiente línea de release; el manager y los metadatos quedan listos para el siguiente corte."
+    },
+    {
+      "version": "4.6.4",
+      "released": "2026-06-20",
+      "ended": null,
+      "notes": "Consolidación de la fuente de verdad de versión en release_version.txt y limpieza del árbol fuente desde el bundle canónico."
     }
   ]
 }

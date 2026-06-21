@@ -133,6 +133,7 @@ class SessionManager:
         self.agent_gateway.activate(active_agent)
         self.knowledge = KnowledgeBase(base_path=str(self.base_path), state_root=str(self.state_root))
         self.embedding_store = EmbeddingStore(base_path=str(self.base_path), state_root=str(self.state_root))
+        self.last_code_task: dict[str, Any] | None = None
         self._adapter: ProviderAdapter | None = None
         self._init_info: dict = self._init_adapter()
 
@@ -323,6 +324,16 @@ class SessionManager:
     def _tool_calling_enabled(self) -> bool:
         return bool(self.config.get("features.tool_calling", False))
 
+    def _classify_code_request(self, user_message: str):
+        try:
+            from bago_core.codegen.task_classifier import classify_code_request
+        except Exception:
+            return None
+        try:
+            return classify_code_request(user_message, workspace_root=self.base_path)
+        except Exception:
+            return None
+
     # ── Core API ──────────────────────────────────────────────────────
 
     def send(self, user_message: str, **kwargs: Any) -> str:
@@ -332,6 +343,19 @@ class SessionManager:
         al modelo. Si el modelo responde con tool_calls, las ejecuta y reenvía
         automáticamente para obtener la respuesta final.
         """
+        code_task = self._classify_code_request(user_message)
+        self.last_code_task = code_task.to_dict() if code_task is not None else None
+        if code_task is not None and code_task.blocked:
+            refusal = code_task.refusal_message()
+            self.store.append_user(user_message, provider=self.provider, model=self.model)
+            self.store.append_response(
+                refusal,
+                provider=self.provider,
+                model=self.model,
+                metadata={"code_task": self.last_code_task, "blocked": True},
+            )
+            return refusal
+
         adapter = self._ensure_adapter()
         start = time.time()
 
@@ -348,6 +372,14 @@ class SessionManager:
             dynamic_system += get_few_shot_examples(intent, max_examples=2)
         else:
             dynamic_system += "\n\n" + intent_guidance("chat")
+
+        if code_task is not None and code_task.is_code_request:
+            dynamic_system += (
+                "\n\nCode Forge classifier: "
+                f"kind={code_task.kind}; "
+                f"targets={', '.join(code_task.target_files) if code_task.target_files else 'none'}; "
+                f"blocked={code_task.blocked}"
+            )
 
         # Pasar tools solo si la intención NO es chat
         tools = None
@@ -493,6 +525,20 @@ class SessionManager:
         Yield chunks de texto (str). Al finalizar, persiste el historial
         completo y registra tokens/RL automáticamente.
         """
+        code_task = self._classify_code_request(user_message)
+        self.last_code_task = code_task.to_dict() if code_task is not None else None
+        if code_task is not None and code_task.blocked:
+            refusal = code_task.refusal_message()
+            self.store.append_user(user_message, provider=self.provider, model=self.model)
+            self.store.append_response(
+                refusal,
+                provider=self.provider,
+                model=self.model,
+                metadata={"code_task": self.last_code_task, "blocked": True},
+            )
+            yield refusal
+            return
+
         adapter = self._ensure_adapter()
 
         # Si hay herramientas registradas y el adapter las soporta,
@@ -508,13 +554,22 @@ class SessionManager:
         normalized = self.msg_adapter.to_provider(history, self.provider)
         normalized.append({"role": "user", "content": user_message})
 
+        system_prompt = self.effective_system_prompt()
+        if code_task is not None and code_task.is_code_request:
+            system_prompt += (
+                "\n\nCode Forge classifier: "
+                f"kind={code_task.kind}; "
+                f"targets={', '.join(code_task.target_files) if code_task.target_files else 'none'}; "
+                f"blocked={code_task.blocked}"
+            )
+
         buffer = []
         stream_failed = False
         try:
             for chunk in adapter.chat_stream(
                 normalized,
                 self.model,
-                system=self.effective_system_prompt(),
+                system=system_prompt,
                 tools=None,
                 **kwargs,
             ):

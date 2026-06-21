@@ -17,6 +17,16 @@ function readText(p) {
   try { return fs.readFileSync(p, 'utf8').trim(); } catch { return ''; }
 }
 
+function readVersionsCurrent(root) {
+  try {
+    const payload = JSON.parse(readText(path.join(root, 'versions.json')) || '{}');
+    if (payload && typeof payload.current === 'string' && payload.current.trim()) {
+      return payload.current.trim().replace(/^v/i, '');
+    }
+  } catch {}
+  return '';
+}
+
 function readReleaseVersion() {
   const candidates = [
     path.join(ROOT_DIR, 'release_version.txt'),
@@ -26,7 +36,7 @@ function readReleaseVersion() {
     const text = readText(candidate);
     if (text) return text.replace(/^v/i, '').trim();
   }
-  return '';
+  return readVersionsCurrent(ROOT_DIR);
 }
 
 function pidAlive(pid) {
@@ -179,7 +189,7 @@ function readVersion(root) {
     const text = readText(candidate);
     if (text) return text;
   }
-  return '';
+  return readVersionsCurrent(root);
 }
 
 function classifyInstall(root, mode, description, selection = readInstallSelection()) {

@@ -248,3 +248,7 @@ Ship only when:
 - Security gate passes.
 - Evidence bundle exists.
 - Docs match behavior.
+
+## Related Roadmap
+
+- `docs/BAGO_CODE_FORGE_47_ROADMAP.md` — deterministic code-generation line for BAGO 4.7.

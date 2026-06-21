@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_command_intents.py — BAGO 4.6.3
+test_command_intents.py — BAGO release
 Evidencia de entrenamiento: verifica que cada frase del dataset
 command_intents.json se resuelve al comando correcto.
 
@@ -18,6 +18,7 @@ from pathlib import Path
 
 # ── rutas ──────────────────────────────────────────────────────────────────
 BAGO_ROOT = Path(__file__).resolve().parent
+EXPECTED_VERSION = (BAGO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip()
 CORE_PATH = BAGO_ROOT / ".bago" / "core"
 DATA_PATH = CORE_PATH / "command_intents.json"
 
