@@ -84,3 +84,21 @@ jobs:
         run: |
           npm audit --audit-level=high
           npm audit --prefix ui-react --audit-level=high
+
+  update-repo-description:
+    name: Update repo About description
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: qa
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version and update GitHub repo description
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(cat release_version.txt | tr -d '[:space:]')
+          DESCRIPTION="BAGO v${VERSION} — Session-first AI Control Plane. CLI + Manager Electron. Session-centric, provider-agnostic."
+          gh api repos/${{ github.repository }} -X PATCH -f description="${DESCRIPTION}"
+          echo "Updated repo description to: ${DESCRIPTION}"
