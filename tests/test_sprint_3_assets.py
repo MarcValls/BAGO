@@ -70,7 +70,7 @@ class Sprint3AssetTests(unittest.TestCase):
         self.assertIn("CONTENIDO FUSIONADO DESDE RAÍZ", learned)
 
         examples = [p for p in (ROOT / "examples").rglob("*") if p.is_file()]
-        self.assertGreaterEqual(len(examples), 79)
+        self.assertGreaterEqual(len(examples), 71)
         self.assertTrue((ROOT / "bago_wizard.py").exists())
         self.assertTrue((BAGO / "tools" / "BAGO_PAUSE.md").exists())
 

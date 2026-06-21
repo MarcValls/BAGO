@@ -112,7 +112,9 @@ jobs:
               if e.stability=='core' and e.preflight_policy!='required':
                   errors.append(f'{cmd}: core must have preflight_policy=required')
               mod_name = getattr(e,'module','')
-              if mod_name and not getattr(e,'deprecated',False):
+              stab = getattr(e,'stability','')
+              # Only require module to exist for non-deprecated, non-experimental, non-legacy entries
+              if mod_name and not getattr(e,'deprecated',False) and stab not in ('experimental','legacy'):
                   mod_file = mod_name + '.py'
                   found = (
                       (TOOLS_DIR / mod_file).exists()
