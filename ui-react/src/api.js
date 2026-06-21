@@ -40,6 +40,10 @@ export const chatApi = {
   getHistory: () => request('/history'),
   getMenu: () => request('/menu'),
   getModels: (provider) => request(`/models/${encodeURIComponent(provider)}`),
+  getSimulationStatus: () => request('/simulation/status'),
+  getSimulationEvents: () => request('/simulation/events'),
+  getCatalogStatus: () => request('/catalog/status'),
+  getRlStatus: () => request('/rl/status'),
   sendChat: (message, channel, managerContext) => request('/chat', {
     method: 'POST',
     headers: { 'X-Bago-Channel': channel },

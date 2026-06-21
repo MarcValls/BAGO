@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import DesktopView from './components/DesktopView'
+import { useBagoChat } from './useBagoChat'
+import { useChatCenter } from './useChatCenter'
+import ChatView from './components/ChatView'
 import TerminalView from './components/TerminalView'
 import ManagerView from './components/ManagerView'
-import { useBagoChat } from './useBagoChat'
 
 function Icon({ name }) {
   const paths = {
@@ -24,11 +25,12 @@ function compact(text, limit = 34) {
 
 export default function App() {
   const control = useBagoChat()
+  const center = useChatCenter()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const sessions = control.menu?.sessions || []
 
   return (
-    <main className={`app-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}>
+    <main className={`app-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${control.mode === 'chat' ? 'mode-chat' : `mode-${control.mode}`}`}>
       <aside className="app-sidebar">
         <div className="app-brand">
           <span className="brand-symbol">B</span>
@@ -47,28 +49,27 @@ export default function App() {
         <nav className="primary-nav" aria-label="Navegación principal">
           <button
             type="button"
+            className={control.mode === 'chat' ? 'active' : ''}
+            onClick={() => control.setMode('chat')}
+            title="El chat es la pieza central"
+          >
+            <Icon name="chat" />
+            Chat
+            <span className="nav-pin">●</span>
+          </button>
+          <button
+            type="button"
             className={control.mode === 'manager' ? 'active' : ''}
             onClick={() => control.setMode('manager')}
+            title="Abrir gestor completo (iframe)"
           >
             <Icon name="manager" />
             Gestor
           </button>
           <button
             type="button"
-            className={control.mode === 'desktop' ? 'active' : ''}
-            onClick={() => {
-              control.setMode('desktop')
-            }}
-          >
-            <Icon name="chat" />
-            Chat
-          </button>
-          <button
-            type="button"
             className={control.mode === 'terminal' ? 'active' : ''}
-            onClick={() => {
-              control.setMode('terminal')
-            }}
+            onClick={() => control.setMode('terminal')}
           >
             <Icon name="terminal" />
             Terminal
@@ -82,7 +83,10 @@ export default function App() {
               <button
                 key={session.sid}
                 type="button"
-                onClick={() => control.submit(session.command, 'desktop')}
+                onClick={() => {
+                  control.setMode('chat')
+                  control.submit(session.command, 'chat')
+                }}
                 title={session.command}
               >
                 {compact(session.label || session.sid || 'Sesión')}
@@ -107,8 +111,10 @@ export default function App() {
       <section className="app-workspace">
         {control.error ? <div className="error-banner">{control.error}</div> : null}
         {control.mode === 'manager' ? <ManagerView /> : null}
-        {control.mode === 'desktop' ? <DesktopView control={control} /> : null}
         {control.mode === 'terminal' ? <TerminalView control={control} /> : null}
+        {(!control.mode || control.mode === 'chat' || control.mode === 'desktop') ? (
+          <ChatView control={control} center={center} />
+        ) : null}
       </section>
     </main>
   )

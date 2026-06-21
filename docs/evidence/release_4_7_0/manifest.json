@@ -14,11 +14,11 @@
     "mode": "simulated",
     "provider": "mock-contract",
     "model": "contract-assistant-v1",
-    "session_id": "9afb93ab-4be",
+    "session_id": "bd15605f-bd8",
     "state_root": ".bago\\state"
   },
   "status": "pass",
-  "recorded_at": "2026-06-21T14:31:41.685320+00:00",
+  "recorded_at": "2026-06-21T18:32:10.197963+00:00",
   "validation_commands": [
     "python test_e2e.py",
     "python bago_core\\cli.py evidence --test",
@@ -71,17 +71,17 @@
     },
     {
       "path": "commands/results.json",
-      "sha256": "05e956dde83caf9e820489f94cc0679cd5cb5bbda0855656c2142b14fdb1dc61",
+      "sha256": "7cda8b6f3366c84aec1567d7fad0c9f00cb080e00ee6950d733aea68ed6be2dd",
       "size_bytes": 1835
     },
     {
       "path": "knowledge/recent_memories.json",
-      "sha256": "83a352ceaf7fb37489e84fd0eb2a2db682829fd53fbacebecc5e30726273a34b",
+      "sha256": "8254f323735ea8a29f56a6a8e604d6cfd12bc4372cf1ad443008543f3eee812f",
       "size_bytes": 1272
     },
     {
       "path": "objective.json",
-      "sha256": "99dfb2402005cf97884c5a65a405f69b78a623f06bfcd71b9dec0b020afcaee0",
+      "sha256": "8e66aad14b7b012121ecc83f171218e85cb9c1f9d7a8ec16d2ae85b04e1b6093",
       "size_bytes": 374
     },
     {
@@ -91,27 +91,27 @@
     },
     {
       "path": "report.md",
-      "sha256": "3ae657a8446512ad307fd3113e8da4feb5dd16af7ced6a177c6b142e2ef6a6e4",
+      "sha256": "cbeae01b2b6d819ca2012573be1d48600e6a0779a938d627f157c0f1824ed4df",
       "size_bytes": 3167
     },
     {
       "path": "session/context.jsonl",
-      "sha256": "91c70742ccb627f99562aae4ae4d76645a8effa2b227f5fb6f560a7aaf263e10",
+      "sha256": "528e2e34de7f6956962c9e8c5a930b732841f52d79571d267d99cedce77bbdbb",
       "size_bytes": 1649
     },
     {
       "path": "session/meta.json",
-      "sha256": "135479f322321179b973d9a41917e7afcf6dbe34736a1534ad478e0ff8e5874d",
+      "sha256": "bd44bfbb9341740b4bf4f694f30e1ba5d6f28c83166f8ad19c6d572ce98bbd38",
       "size_bytes": 313
     },
     {
       "path": "session/session.json",
-      "sha256": "8c6a5d27560d76e3ec75108dd0b2e1c5dfb43798ef2634aa8de52022b12a5940",
+      "sha256": "db2ed3a1c0b3b66d44f81ddaf113fcaaf4972e007db1d453ea57d38c35604922",
       "size_bytes": 360
     },
     {
       "path": "session/timeline.jsonl",
-      "sha256": "fb9859c592e9a8e2150196c1698a6d1745ddf1c5e634b847ecf806dafd7a9d79",
+      "sha256": "76f36ffdfecb84cf40c243b3bf1b0fe1e8571ca5a324c896ef852a6dbacfb83a",
       "size_bytes": 298
     },
     {

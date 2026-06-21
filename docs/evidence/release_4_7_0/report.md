@@ -3,7 +3,7 @@
 - **Modo:** `simulated`
 - **Objetivo:** `community-knowledge`
 - **Provider/modelo:** `mock-contract/contract-assistant-v1`
-- **Session ID:** `9afb93ab-4be`
+- **Session ID:** `bd15605f-bd8`
 - **Generado en:** `docs/evidence/release_4_7_0`
 
 ## Resultado directo al usuario
@@ -34,7 +34,7 @@ BAGO v4 puede responder a una necesidad concreta del usuario y, al mismo tiempo,
 ### /status
 
 ```text
-Session ID : 9afb93ab-4be
+Session ID : bd15605f-bd8
 Provider   : mock-contract
 Model      : contract-assistant-v1
 Modo BAGO  : [B]
@@ -50,18 +50,18 @@ Switches   : 0
 ### /memory add
 
 ```text
-✓ Recuerdo añadido (ID: 25).
+✓ Recuerdo añadido (ID: 30).
 ```
 
 ### /memory search
 
 ```text
 Resultados para 'conocimiento recuperable':
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 9afb93ab-4be)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: e57ea4d3-95e)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 18f8f717-71c)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 4883d6df-e5c)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: ace5c910-abf)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: bd15605f-bd8)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: d1c3d327-d08)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: ebced164-d94)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: b6318053-716)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6081ff65-646)
 ```
 
 ### /plan
@@ -84,5 +84,5 @@ Mensaje -1 marcado como 'good' — no se diluirá en compresión.
 ### /save
 
 ```text
-Sesión guardada: 9afb93ab-4be
+Sesión guardada: bd15605f-bd8
 ```
