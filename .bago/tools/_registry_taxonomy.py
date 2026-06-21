@@ -218,7 +218,7 @@ for _cmd, _entry in REGISTRY.items():
 # ── Kernel Lockdown classification (v3.2) ─────────────────────────────────────
 
 _CORE_CMDS: frozenset[str] = frozenset({
-    "health", "audit", "status", "task", "session", "flow",
+    "health", "audit", "status", "task", "session",
     "project", "sync", "scope", "secrets", "validate", "context",
 })
 _DANGEROUS_CMDS: frozenset[str] = frozenset({

@@ -67,7 +67,7 @@ jobs:
           python3 -c "
           import sys
           from pathlib import Path
-          sys.path.insert(0, '.bago/tools')
+          sys.path.insert(0, 'scripts')
           from registry_ast_contract import analyze_registry_literal
           reg = Path('.bago/tools/_registry_entries.py')
           if not reg.exists():
@@ -192,9 +192,9 @@ jobs:
               ".bago/tools/miniapp/tonconnect-manifest.json",
               ".bago/tools/notify.py",
               ".bago/tools/notify_bago.py",
-              "projects/tragaperras_bot/com.bago.tragaperras.plist",
-              "projects/tragaperras_bot/tonconnect-manifest.json",
-              "projects/tragaperras_bot/tunnel_manager.sh",
+              "examples/examples/tragaperras_bot/com.bago.tragaperras.plist",
+              "examples/examples/tragaperras_bot/tonconnect-manifest.json",
+              "examples/examples/tragaperras_bot/tunnel_manager.sh",
           }
 
           found = False
@@ -282,10 +282,10 @@ jobs:
         run: pip install pytest -q
       - name: Build pack
         run: |
-          python3 .bago/tools/build_pack.py --out dist/ --clean
+          python3 scripts/build_pack.py --out dist/ --clean
       - name: Validate pack contents
         run: |
-          python3 .bago/tools/validate_pack_contents.py dist/*.zip
+          python3 scripts/validate_pack_contents.py dist/*.zip
       - name: Run packaging tests against built pack
         run: |
           pytest tests/test_packaging.py -v --tb=short
@@ -309,7 +309,7 @@ jobs:
       - name: Consistency check (no drift)
         run: |
           set +e
-          python3 .bago/tools/bago_consistency_check.py --json > bago-findings.json
+          python3 scripts/bago_consistency_check.py --json > bago-findings.json
           CHECK_RC=$?
           set -e
           if [ ! -s bago-findings.json ]; then
@@ -439,7 +439,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Verify COMMANDS.md matches tool_registry.py
-        run: python3 .bago/tools/generate_commands_doc.py --check
+        run: python3 scripts/generate_commands_doc.py --check
 
   gate-layers:
     name: "[gate] LAYERS.md up to date"
@@ -450,7 +450,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Verify LAYERS.md matches tool_registry.py
-        run: python3 .bago/tools/generate_layers_doc.py --check
+        run: python3 scripts/generate_layers_doc.py --check
 
   gate-wheel:
     name: "[gate] Wheel installability"
