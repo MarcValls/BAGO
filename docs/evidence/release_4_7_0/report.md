@@ -3,7 +3,7 @@
 - **Modo:** `simulated`
 - **Objetivo:** `community-knowledge`
 - **Provider/modelo:** `mock-contract/contract-assistant-v1`
-- **Session ID:** `bd15605f-bd8`
+- **Session ID:** `99e27e5b-c7a`
 - **Generado en:** `docs/evidence/release_4_7_0`
 
 ## Resultado directo al usuario
@@ -34,7 +34,7 @@ BAGO v4 puede responder a una necesidad concreta del usuario y, al mismo tiempo,
 ### /status
 
 ```text
-Session ID : bd15605f-bd8
+Session ID : 99e27e5b-c7a
 Provider   : mock-contract
 Model      : contract-assistant-v1
 Modo BAGO  : [B]
@@ -50,18 +50,18 @@ Switches   : 0
 ### /memory add
 
 ```text
-✓ Recuerdo añadido (ID: 30).
+✓ Recuerdo añadido (ID: 33).
 ```
 
 ### /memory search
 
 ```text
 Resultados para 'conocimiento recuperable':
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 99e27e5b-c7a)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6a6d8f83-a4f)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 8621932a-638)
   • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: bd15605f-bd8)
   • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: d1c3d327-d08)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: ebced164-d94)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: b6318053-716)
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6081ff65-646)
 ```
 
 ### /plan
@@ -84,5 +84,5 @@ Mensaje -1 marcado como 'good' — no se diluirá en compresión.
 ### /save
 
 ```text
-Sesión guardada: bd15605f-bd8
+Sesión guardada: 99e27e5b-c7a
 ```
