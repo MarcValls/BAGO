@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
@@ -10,6 +11,8 @@ import zipfile
 from pathlib import Path
 
 BAGO_ROOT = Path(__file__).resolve().parent
+CURRENT_RELEASE = (BAGO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip().lstrip("v")
+CURRENT_EVIDENCE_DIR = f"docs/evidence/release_{CURRENT_RELEASE.replace('.', '_')}"
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "api"))
 
@@ -83,11 +86,27 @@ def test_release_package_excludes_install_config_and_includes_uninstaller() -> N
         result = build_package(BAGO_ROOT, output_dir)
         with zipfile.ZipFile(result["zip"], "r") as zf:
             names = set(zf.namelist())
+            evidence_manifest = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/manifest.json"))
+            evidence_meta = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/session/meta.json"))
         assert "package-lock.json" in names
         assert "install_config.json" not in names
         assert ".bago/credentials.json" not in names
         assert "bago-uninstall.ps1" in names
         assert "bago-uninstall.cmd" in names
+        assert "bago_core/translators/__init__.py" in names
+        assert f"{CURRENT_EVIDENCE_DIR}/manifest.json" in names
+        assert f"{CURRENT_EVIDENCE_DIR}/session/meta.json" in names
+        assert evidence_manifest["contract_version"] == CURRENT_RELEASE
+        assert evidence_meta["bago_version"] == CURRENT_RELEASE
+
+    model_bootstrap = (BAGO_ROOT / "MODEL_PARALLEL_SETUP.md").read_text(encoding="utf-8")
+    assert "ollama pull" in model_bootstrap
+    assert "ollama list" in model_bootstrap
+    assert "ollama-local" in model_bootstrap
+
+    audit_bootstrap = (BAGO_ROOT / "AUDIT_PARALLEL_SETUP.md").read_text(encoding="utf-8")
+    assert "python scripts\\verify_release.py" in audit_bootstrap
+    assert "ollama pull" in audit_bootstrap
 
 
 def test_repair_only_skips_post_install_tests() -> None:
@@ -183,7 +202,8 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "ensureBagoInstalled" in install_service
     assert "ReleaseJobManager" in release_service
     assert "fetchReleases" in release_service
-    assert "verify_release_463.py" in (BAGO_ROOT / "scripts" / "verify_release_463.py").read_text(encoding="utf-8")
+    assert "verify_release.py" in (BAGO_ROOT / "scripts" / "verify_release.py").read_text(encoding="utf-8")
+    assert (BAGO_ROOT / "scripts" / "verify_release_463.py").exists()
     assert "js/startup-deps.js" in html
     assert "js/ops-console.js" in html
     assert 'data-pm-view="control"' in html
@@ -206,7 +226,8 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "pmRenderControl" in patch_manager
     assert "\"project\"" in chat_commands
     assert "Analiza el proyecto actual" in chat_commands
-    assert "Proyecto detectado" in chat_repl
+    repl_menu = (BAGO_ROOT / ".bago" / "chat" / "repl_menu.py").read_text(encoding="utf-8")
+    assert "Proyecto detectado" in repl_menu
     assert "_looks_like_directory_path" in chat_repl
     assert "BAGO_INTENT_EXAMPLES_PATH" in tool_registry
     assert "BAGO_INTENT_EXAMPLES_PATH" in intent_engine

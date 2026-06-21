@@ -32,13 +32,14 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
+        newline="\n",
     )
 
 
 def write_text(path: Path, content: str) -> None:
     """Write a plain-text file with UTF-8 (R0)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def sha256(path: Path) -> str:
@@ -71,20 +72,28 @@ def prepare_output_dir(output_dir: Path, overwrite: bool) -> None:
 
 
 def _relative_posix(path: Path, base: Path) -> str:
-    """Return `path` relative to `base` using Windows-style backslashes."""
-    return str(path.relative_to(base)).replace("/", "\\")
+    """Return `path` relative to `base` using portable POSIX separators."""
+    return path.relative_to(base).as_posix()
 
 
-def collect_file_digests(output_dir: Path) -> list[dict[str, Any]]:
+def collect_file_digests(
+    output_dir: Path,
+    *,
+    exclude: set[str] | frozenset[str] = frozenset(),
+) -> list[dict[str, Any]]:
     """SHA-256 + size for every file under `output_dir` (R8)."""
     files: list[dict[str, Any]] = []
     for path in sorted(output_dir.rglob("*")):
-        if path.is_file():
-            files.append({
-                "path": _relative_posix(path, output_dir),
-                "sha256": sha256(path),
-                "size_bytes": path.stat().st_size,
-            })
+        if not path.is_file():
+            continue
+        relative = _relative_posix(path, output_dir)
+        if relative in exclude:
+            continue
+        files.append({
+            "path": relative,
+            "sha256": sha256(path),
+            "size_bytes": path.stat().st_size,
+        })
     return files
 
 

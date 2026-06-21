@@ -335,7 +335,19 @@ function createDependencyService(ctx) {
     }
     const command = buildDependencyCommand(payload);
     if (!command) throw new Error('Acción de dependencia no soportada');
-    return runVisiblePowerShell(command);
+    if (action === 'login') {
+      return {
+        ok: true,
+        mode: 'manual-command',
+        command,
+        message: 'Comando de login preparado para ejecucion manual'
+      };
+    }
+    return runVisiblePowerShell(command, {
+      visible: false,
+      noExit: false,
+      cwd: ROOT_DIR
+    });
   }
 
   function escapeHtml(s) {

@@ -17,6 +17,16 @@ function readText(p) {
   try { return fs.readFileSync(p, 'utf8').trim(); } catch { return ''; }
 }
 
+function readVersionsCurrent(root) {
+  try {
+    const payload = JSON.parse(readText(path.join(root, 'versions.json')) || '{}');
+    if (payload && typeof payload.current === 'string' && payload.current.trim()) {
+      return payload.current.trim().replace(/^v/i, '');
+    }
+  } catch {}
+  return '';
+}
+
 function readReleaseVersion() {
   const candidates = [
     path.join(ROOT_DIR, 'release_version.txt'),
@@ -26,7 +36,7 @@ function readReleaseVersion() {
     const text = readText(candidate);
     if (text) return text.replace(/^v/i, '').trim();
   }
-  return '';
+  return readVersionsCurrent(ROOT_DIR);
 }
 
 function pidAlive(pid) {
@@ -179,7 +189,7 @@ function readVersion(root) {
     const text = readText(candidate);
     if (text) return text;
   }
-  return '';
+  return readVersionsCurrent(root);
 }
 
 function classifyInstall(root, mode, description, selection = readInstallSelection()) {
@@ -437,6 +447,9 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   rollbackReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-rollback', String(id || '')),
   deleteReleaseJob: (id) => ipcRenderer.invoke('bago:release-job-delete', String(id || '')),
   releaseJobLogs: (id, limit = 200) => ipcRenderer.invoke('bago:release-job-logs', String(id || ''), Number(limit || 200)),
+  projectAudit: () => ipcRenderer.invoke('bago:project-audit'),
+  bagoAudit: () => ipcRenderer.invoke('bago:bago-audit'),
+  eventLedger: (limit = 60) => ipcRenderer.invoke('bago:event-ledger', Number(limit || 60)),
   onReleaseJobChanged: (callback) => {
     if (typeof callback !== 'function') return;
     ipcRenderer.on('bago:release-job-changed', (_event, job) => callback(job));

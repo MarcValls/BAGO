@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BAGO Agent Contract v1.0",
+  "description": "Schema for AgentRequest and AgentResult in the BAGO multi-agent protocol",
+  "definitions": {
+    "AgentRequest": {
+      "type": "object",
+      "required": ["intent", "source"],
+      "properties": {
+        "intent": {
+          "type": "string",
+          "enum": [
+            "health_check", "scan", "status", "list_tools", "explain",
+            "ideas", "registry", "context", "npath_query",
+            "task_create", "task_done", "cosecha", "siembra_seed",
+            "autonomous_cycle", "heal", "db_migrate"
+          ]
+        },
+        "context": {
+          "type": "object",
+          "properties": {
+            "cwd": {"type": "string"},
+            "bago_version": {"type": "string"},
+            "active_workflow": {"type": "string"},
+            "health_score": {"type": "integer", "minimum": 0, "maximum": 100}
+          }
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "tool": {"type": "string"},
+            "args": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "dry_run": {"type": "boolean", "default": false},
+            "timeout": {"type": "integer", "minimum": 1, "maximum": 300, "default": 30},
+            "unsafe": {"type": "boolean", "default": false}
+          }
+        },
+        "source": {
+          "type": "object",
+          "required": ["adapter"],
+          "properties": {
+            "adapter": {"type": "string", "enum": ["local", "ollama", "mcp", "copilot", "codex", "cloud", "test"]},
+            "model": {"type": "string"},
+            "session_id": {"type": "string"}
+          }
+        }
+      }
+    },
+    "AgentResult": {
+      "type": "object",
+      "required": ["success", "intent", "adapter"],
+      "properties": {
+        "success": {"type": "boolean"},
+        "intent": {"type": "string"},
+        "output": {"type": "string"},
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string"},
+              "path": {"type": "string"},
+              "content": {"type": "string"}
+            }
+          }
+        },
+        "exit_code": {"type": "integer"},
+        "duration_ms": {"type": "integer"},
+        "cost_hint": {"type": "string", "enum": ["free/local", "api_credits", "subscription", "unknown"]},
+        "adapter": {"type": "string"},
+        "timestamp": {"type": "string", "format": "date-time"},
+        "neural_event_id": {"type": "string"},
+        "error": {"type": "string"}
+      }
+    },
+    "AdapterCapability": {
+      "type": "object",
+      "required": ["name", "cost_hint", "supported_intents"],
+      "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "cost_hint": {"type": "string"},
+        "model": {"type": "string"},
+        "supported_intents": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "streaming": {"type": "boolean"},
+        "max_tokens": {"type": "integer"},
+        "available": {"type": "boolean"}
+      }
+    }
+  }
+}

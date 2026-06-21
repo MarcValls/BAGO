@@ -1,0 +1,123 @@
+{
+  "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
+  "contract_version": "4.6.3",
+  "related_to": [
+    "docs\\contracts\\bago_v4_runtime_contract.json",
+    "docs\\contracts\\bago_v4_repl_contract.md",
+    "docs\\contracts\\bago_v4_evidence_contract.md",
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
+  ],
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta util y de forma indirecta preservando conocimiento, planificacion y estado reproducible.",
+  "details": {
+    "mode": "simulated",
+    "provider": "mock-contract",
+    "model": "contract-assistant-v1",
+    "session_id": "6861db8b-46b",
+    "state_root": ".bago\\state"
+  },
+  "status": "pass",
+  "recorded_at": "2026-06-18T20:22:52.999915+00:00",
+  "validation_commands": [
+    "python test_e2e.py",
+    "python bago_core\\cli.py evidence --test",
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"docs/evidence/simulated_reference_bundle\" --overwrite"
+  ],
+  "checks": [
+    {
+      "id": "session-runtime",
+      "status": "pass",
+      "detail": "La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta."
+    },
+    {
+      "id": "direct-assistance",
+      "status": "pass",
+      "detail": "Existe una respuesta util al objetivo planteado por el usuario."
+    },
+    {
+      "id": "knowledge-persistence",
+      "status": "pass",
+      "detail": "La evidencia incluye conocimiento recuperable derivado de la sesion."
+    },
+    {
+      "id": "session-save",
+      "status": "pass",
+      "detail": "La sesion se guardo en disco con metadatos de continuidad."
+    },
+    {
+      "id": "plan-generation",
+      "status": "pass",
+      "detail": "El runtime definio un plan reutilizable desde el parser REPL real."
+    }
+  ],
+  "artifacts": [
+    "session/context.jsonl",
+    "session/timeline.jsonl",
+    "session/tokens.json",
+    "session/meta.json",
+    "session/session.json",
+    "assistant_response.txt",
+    "commands\\results.json",
+    "knowledge\\recent_memories.json",
+    "objective.json",
+    "plan.txt"
+  ],
+  "files": [
+    {
+      "path": "assistant_response.txt",
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f",
+      "size_bytes": 225
+    },
+    {
+      "path": "commands/results.json",
+      "sha256": "3796fb32409e8b55dfe8834a965c093c8d60ca769c0c543f8f261af40c585ccf",
+      "size_bytes": 1835
+    },
+    {
+      "path": "knowledge/recent_memories.json",
+      "sha256": "cc7c221b964af04c0efdf3a3fac05374c3d5cd3bd9355ef9ed6817c0b5b24de4",
+      "size_bytes": 1272
+    },
+    {
+      "path": "objective.json",
+      "sha256": "ec179cb39fa6c1191e225143da1a2ffae5b81e754907b47f10e02abe48ea2732",
+      "size_bytes": 374
+    },
+    {
+      "path": "plan.txt",
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f",
+      "size_bytes": 385
+    },
+    {
+      "path": "report.md",
+      "sha256": "d01f936c395d72ea47a5d2080390d14f9630ea810f14888c93b0cd352779b64c",
+      "size_bytes": 3180
+    },
+    {
+      "path": "session/context.jsonl",
+      "sha256": "b42339a1f685ff54129e2549de5930057265a2e9f1942fac1638432ab2f8a4d0",
+      "size_bytes": 1645
+    },
+    {
+      "path": "session/meta.json",
+      "sha256": "69350cb759aa263e9e0305515a8416b262491bae8bb774b52eb3781cf596fa5d",
+      "size_bytes": 301
+    },
+    {
+      "path": "session/session.json",
+      "sha256": "cfdba0714b1903f214481ab3d7f96334fdd3c65529ecea75415b27ac8622d10e",
+      "size_bytes": 345
+    },
+    {
+      "path": "session/timeline.jsonl",
+      "sha256": "e27a19822b8978718220d04494eea086e5f1597cb82fb0dea266bd234a17ca3e",
+      "size_bytes": 296
+    },
+    {
+      "path": "session/tokens.json",
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec",
+      "size_bytes": 117
+    }
+  ]
+}

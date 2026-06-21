@@ -21,24 +21,35 @@ function isExternalUrl(url) {
   return /^https?:\/\//i.test(url);
 }
 
-function runVisiblePowerShell(command) {
+function runVisiblePowerShell(command, options = {}) {
   if (!command || typeof command !== 'string') {
     throw new Error('Comando vacío');
   }
   if (command.length > 12000) {
     throw new Error('Comando demasiado largo');
   }
+  const visible = options.visible === true;
+  const noExit = options.noExit === true;
+  const cwd = options.cwd || app.getPath('home');
+  const args = [
+    ...(visible && noExit ? ['-NoExit'] : []),
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    command
+  ];
   const child = spawn(
     'powershell.exe',
-    ['-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
+    args,
     {
-      cwd: app.getPath('home'),
-      detached: true,
+      cwd,
+      detached: visible,
       stdio: 'ignore',
-      windowsHide: false
+      windowsHide: !visible
     }
   );
-  child.unref();
+  if (visible) child.unref();
   return { pid: child.pid };
 }
 
@@ -98,6 +109,34 @@ function resolveInstalledRuntimeRoot() {
   return real[0] || '';
 }
 
+function resolveDevelopmentRuntimeRoot() {
+  const home = process.env.USERPROFILE || process.env.HOME || '';
+  const installed = resolveInstalledRuntimeRoot();
+  const selectionFile = home ? path.join(home, '.bago', 'install_selection.json') : '';
+  const candidates = [];
+
+  if (selectionFile && fs.existsSync(selectionFile)) {
+    try {
+      const payload = JSON.parse(readText(selectionFile) || '{}');
+      const selectedDev = payload && payload.roles && payload.roles.dev && payload.roles.dev.path;
+      if (selectedDev) candidates.push(String(selectedDev));
+    } catch {}
+  }
+
+  if (home) {
+    candidates.push(path.join(home, 'bago_fw'));
+    candidates.push(path.join(home, 'BAGO'));
+    candidates.push(path.join(home, '.bago', 'dev'));
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate || !hasBagoRuntime(candidate)) continue;
+    if (installed && path.resolve(candidate) === path.resolve(installed)) continue;
+    return candidate;
+  }
+  return '';
+}
+
 function isUserOwnedLocation(candidate, home) {
   if (!candidate || !home) return false;
   const resolved = path.resolve(candidate).toLowerCase();
@@ -147,6 +186,7 @@ module.exports = {
   hasInstallManifest,
   resolveBundledRuntimeRoot,
   resolveInstalledRuntimeRoot,
+  resolveDevelopmentRuntimeRoot,
   isUserOwnedLocation,
   resolveBagoRuntimeRoot,
   resolveUiDist,

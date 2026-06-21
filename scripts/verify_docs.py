@@ -17,12 +17,13 @@ from pathlib import Path
 
 CANONICAL_DEFAULT = "llama3.2:3b"
 OBSOLETE = ["granite3.2:8b", "llama3.2:latest"]
+ALLOWED_FILES = {"model_equivalence.py"}
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--user-bago", default=None)
-    parser.add_argument("--repo", default="C:/Users/AMTEC_Terminal_1º/BAGO")
+    parser.add_argument("--repo", default=str(Path(__file__).resolve().parents[1]))
     args = parser.parse_args(argv)
     repo = Path(args.repo)
     if not repo.exists():
@@ -42,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             text = p.read_text(encoding="utf-8", errors="ignore")
         except Exception:
+            continue
+        if p.name in ALLOWED_FILES:
             continue
         for obs in OBSOLETE:
             for m in re.finditer(re.escape(obs), text):

@@ -14,6 +14,7 @@ const {
   resolveUiDist,
   resolveBundledRuntimeRoot,
   resolveInstalledRuntimeRoot,
+  resolveDevelopmentRuntimeRoot,
   runVisiblePowerShell,
   findPackagedRuntimeRoot
 } = require('./environment.cjs');
@@ -23,10 +24,12 @@ const { createRuntimeService } = require('./runtime-service.cjs');
 const { createInstallService } = require('./install-service.cjs');
 const { createReleaseService } = require('./release-service.cjs');
 const { createDependencyService } = require('./dependency-service.cjs');
+const { createAuditService } = require('./audit-service.cjs');
 let dependencyService = null;
 let runtimeService = null;
 let installService = null;
 let releaseService = null;
+let auditService = null;
 if (SMOKE_TEST) {
   app.disableHardwareAcceleration();
   app.setPath('userData', path.join(os.tmpdir(), 'bago-manager-smoke'));
@@ -72,6 +75,7 @@ function getRuntimeService() {
       resolveUiDist,
       resolveBundledRuntimeRoot,
       resolveInstalledRuntimeRoot,
+      resolveDevelopmentRuntimeRoot,
       runVisiblePowerShell
     });
   }
@@ -108,6 +112,18 @@ function getReleaseService() {
   return releaseService;
 }
 
+function getAuditService() {
+  if (!auditService) {
+    auditService = createAuditService({
+      ROOT_DIR,
+      resolveInstalledRuntimeRoot,
+      getDependencyService,
+      getReleaseService
+    });
+  }
+  return auditService;
+}
+
 app.setAppUserModelId('com.bago.installation-manager');
 
 // Propagar INSTALLS_ROOT al preload vía env var para que scanInstallations lo incluya
@@ -118,7 +134,8 @@ registerIpcHandlers({
   getDependencyService,
   getRuntimeService,
   getInstallService,
-  getReleaseService
+  getReleaseService,
+  getAuditService
 });
 
 app.whenReady().then(async () => {

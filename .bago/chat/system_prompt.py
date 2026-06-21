@@ -15,6 +15,7 @@ from pathlib import Path
 
 
 _BOOTSTRAP_PATH = Path(__file__).resolve().parents[1] / "BOOTSTRAP.md"
+_AGENT_START_PATH = Path(__file__).resolve().parents[1] / "AGENT_START.md"
 
 BAGO_SYSTEM_PROMPT = """You are BAGO, a session-persistent AI assistant.
 
@@ -54,11 +55,24 @@ BEHAVIOR
 
 
 def get_system_prompt() -> str:
+    parts = [BAGO_SYSTEM_PROMPT.rstrip()]
+
     bootstrap = ""
     try:
         bootstrap = _BOOTSTRAP_PATH.read_text(encoding="utf-8").strip()
     except OSError:
         pass
-    if not bootstrap:
+    if bootstrap:
+        parts.append(bootstrap)
+
+    agent_start = ""
+    try:
+        agent_start = _AGENT_START_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    if agent_start:
+        parts.append(agent_start)
+
+    if len(parts) == 1:
         return BAGO_SYSTEM_PROMPT
-    return f"{BAGO_SYSTEM_PROMPT.rstrip()}\n\n{bootstrap}"
+    return "\n\n".join(parts)

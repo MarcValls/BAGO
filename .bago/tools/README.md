@@ -21,6 +21,16 @@ python .bago/tools/bago_security_audit.py --home          # también el HOME
 python .bago/tools/bago_security_audit.py --output report.json
 ```
 
+### `agent_router.py` — Router de agente para tareas
+Enruta una tarea al mejor agente disponible según señales locales, fallback
+determinista y, si existe, clasificador Ollama.
+
+```bash
+python .bago/tools/agent_router.py --task "implement multi-file auth"
+python .bago/tools/agent_router.py --history --json
+bago agent route --task "review this PR"
+```
+
 ### `secret_scan.py` — Escáner de secretos hardcodeados
 Recorre código fuente buscando contraseñas/API keys/tokens/PEM/strings de
 conexión hardcodeados (AWS, GitHub, OpenAI, Stripe, MongoDB…). Ofusca el valor
@@ -43,6 +53,22 @@ python .bago/tools/dep_audit.py                   # busca ficheros de deps en ./
 python .bago/tools/dep_audit.py requirements.txt --format md --out report.md
 python .bago/tools/dep_audit.py . --pip-audit
 python .bago/tools/dep_audit.py --test            # 6/6 self-tests
+```
+
+### `forced_dependency_scan.py` — Detector de dependencias forzadas
+Busca instalaciones directas, pins raros, `sys.path.insert`, overrides,
+resolutions y rutas `file:` / `link:` / `workspace:` que fuerzan dependencias.
+
+```bash
+python .bago/tools/forced_dependency_scan.py
+python .bago/tools/forced_dependency_scan.py . --format md
+python .bago/tools/forced_dependency_scan.py --test
+
+O desde el CLI:
+
+```bash
+bago scan --root . forced
+```
 ```
 
 Las tres herramientas comparten `bago_utils.py` y son ASCII/UTF-8 safe en
@@ -88,7 +114,7 @@ alineado con la preferencia de "culpa técnica")
 - [ ] `bago_advisor` — advisor LLM contextual (qué hacer ahora).
 - [ ] `insights` — insights accionables desde datos de sesión. *(keystone)*
 - [ ] `project_memory` — memoria distribuida por proyecto. *(keystone)*
-- [ ] `bago_inventory` — cataloga capacidades reutilizables. *(solo stdlib)*
+- [x] `bago_inventory` — cataloga capacidades reutilizables. *(solo stdlib)*
 
 **E. Resiliencia / portabilidad**
 - [ ] `bago_portable` — instalación/sync en pen drive. *(keystone)*

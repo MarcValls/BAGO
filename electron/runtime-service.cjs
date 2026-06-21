@@ -16,6 +16,7 @@ function createRuntimeService(ctx) {
     resolveUiDist,
     resolveBundledRuntimeRoot,
     resolveInstalledRuntimeRoot,
+    resolveDevelopmentRuntimeRoot,
     runVisiblePowerShell
   } = ctx;
 
@@ -175,13 +176,21 @@ function createRuntimeService(ctx) {
   }
 
   function openCliChat(options = {}) {
-    const runtimeRoot = resolveBagoRuntimeRoot();
+    const developmentRoot = resolveDevelopmentRuntimeRoot();
+    const runtimeRoot = developmentRoot || resolveBagoRuntimeRoot();
     const basePath = String(options.basePath || '').trim() || runtimeRoot;
     const command = [
       `Set-Location -LiteralPath ${psSingleArg(runtimeRoot)}`,
       `python -m bago_core.launcher --base-path ${psSingleArg(basePath)} chat`
     ].join('; ');
-    return runVisiblePowerShell(command);
+    return {
+      ok: true,
+      mode: 'manual-command',
+      command,
+      cwd: runtimeRoot,
+      base_path: basePath,
+      development_root: developmentRoot || ''
+    };
   }
 
   function nodeAction(args) {

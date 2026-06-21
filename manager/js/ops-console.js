@@ -1,5 +1,9 @@
 let pmCurrentRoutePlan = null;
 
+function pmCurrentSession() {
+  return typeof pmSession !== 'undefined' ? pmSession : null;
+}
+
 function pmLatestStableRelease() {
   return (typeof pmStableReleases === 'function' ? pmStableReleases() : releaseItems.filter(rel => !rel.prerelease))[0] || latestRelease || null;
 }
@@ -47,7 +51,8 @@ function pmRenderControl() {
   const target = pmSelectedInstallPath();
   const activeJobs = releaseJobs.filter(job => !['ready', 'completed', 'cancelled', 'failed', 'rolled-back'].includes(job.state));
   const terminalJobs = releaseJobs.filter(job => ['ready', 'completed', 'cancelled', 'failed', 'rolled-back'].includes(job.state));
-  const providers = (pmSession && Array.isArray(pmSession.providers) && pmSession.providers.length ? pmSession.providers : pmLocalProviderCatalog());
+  const session = pmCurrentSession();
+  const providers = (session && Array.isArray(session.providers) && session.providers.length ? session.providers : pmLocalProviderCatalog());
   const providerRows = providers.map(provider => {
     const spec = pmProviderSpec(provider.name);
     const actions = [];
@@ -65,7 +70,7 @@ function pmRenderControl() {
       'Instalacion activa y reparacion',
       pmBadge(health.runtime_root ? 'detectado' : 'sin runtime', health.runtime_root ? 'ok' : 'bad'),
       pmControlKv('Runtime', health.runtime_root || target)
-        + pmControlKv('Manager', health.manager_version || managerVersion || '4.6.3')
+        + pmControlKv('Manager', health.manager_version || managerVersion || '-')
         + pmControlKv('Runtime version', health.runtime_version || 'sin leer'),
       pmControlButton('Abrir chat', 'open-web-chat', 'primary')
         + pmControlButton('CLI', 'open-cli-chat')
@@ -165,8 +170,12 @@ async function pmHandleControlAction(btn) {
         await copyText(missing.map(item => item.install_command).join('; '));
         return;
       }
-      await api.dependencyAction({ action: 'install-all', targets: missing.map(item => item.id) });
-      return showToast('Instaladores lanzados', true);
+      const result = await api.dependencyAction({ action: 'install-all', targets: missing.map(item => item.id) });
+      if (result && result.command) {
+        await copyText(result.command);
+        return showToast('Comando copiado; ejecútalo manualmente si procede', true);
+      }
+      return showToast('Instaladores iniciados en segundo plano', true);
     }
     if (action === 'repair' || action === 'reinstall') {
       if (!api || !api.installAction) {
@@ -239,7 +248,7 @@ function pmRouteNode(layer, title, detail, tone = '') {
 }
 
 function pmRoutePlan(kind) {
-  const session = pmSession || {};
+  const session = pmCurrentSession() || {};
   const provider = session.provider || 'ollama-local';
   const model = session.model || 'llama3.2:3b';
   const agent = session.active_agent || 'default';
@@ -247,7 +256,7 @@ function pmRoutePlan(kind) {
   const release = pmLatestStableRelease();
   const templates = {
     project: {
-      title: 'Analizar y trabajar un proyecto',
+      title: 'Pipeline para analizar y trabajar un proyecto',
       command: 'bago project analyze',
       output: 'Mapa del proyecto, bugs probables, mejoras y comandos de build/test.',
       nodes: [
@@ -261,7 +270,7 @@ function pmRoutePlan(kind) {
       ]
     },
     release: {
-      title: 'Actualizar o instalar release',
+      title: 'Pipeline para actualizar o instalar release',
       command: 'release job -> prepare -> install',
       output: 'Job verificable con SHA256, staging, backup atomico y rollback.',
       nodes: [
@@ -275,7 +284,7 @@ function pmRoutePlan(kind) {
       ]
     },
     provider: {
-      title: 'Registrar provider',
+      title: 'Pipeline para registrar provider',
       command: 'dependencyAction: api/login/install',
       output: 'Provider listo para sesion con API key, login o dependencia local.',
       nodes: [
@@ -289,7 +298,7 @@ function pmRoutePlan(kind) {
       ]
     },
     audit: {
-      title: 'Auditar ruta y evidencia',
+      title: 'Pipeline para auditar ruta y evidencia',
       command: 'bago node validate / evidence',
       output: 'Ledger de cambios, validacion y estado de connectors.',
       nodes: [
@@ -328,7 +337,7 @@ function pmRenderRoute() {
   board.innerHTML = '<div class="pm-route-track">' + plan.nodes.map(node => pmRouteNode(node[0], node[1], node[2], node[3])).join('') + '</div>';
   output.innerHTML = pmControlKv('Comando', plan.command)
     + pmControlKv('Salida esperada', plan.output)
-    + pmControlKv('Proveedor', (pmSession && pmSession.provider) || 'ollama-local')
+    + pmControlKv('Proveedor', (pmCurrentSession() && pmCurrentSession().provider) || 'ollama-local')
     + pmControlKv('Instalacion', pmSelectedInstallPath());
 }
 

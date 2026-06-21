@@ -330,7 +330,13 @@ async function openCliChat(){
   }
   try{
     const result=await api.openCliChat({});
-    showToast('chat CLI lanzado'+(result&&result.pid?' · pid '+result.pid:''),true);
+    if(result&&result.command){
+      await copyText(result.command);
+      pmLocalSystemStamp('open-cli-chat','manual command copied');
+      showToast('comando CLI copiado; ejecútalo solo si quieres terminal externa',true);
+      return;
+    }
+    showToast('chat CLI preparado'+(result&&result.pid?' · pid '+result.pid:''),true);
   }catch(e){
     showToast('chat CLI: '+e.message,false);
   }

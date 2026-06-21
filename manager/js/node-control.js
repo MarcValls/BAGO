@@ -106,7 +106,7 @@ function renderNodeMatrix(){
   const d=nodeCache.matrix; if(!d) return;
   const insts=d.installations||[];
   const rows=d.rows||[];
-  if(!rows.length){document.getElementById('node-matrix').innerHTML='<p style="color:var(--muted)">Matriz vacía.</p>';return;}
+  if(!rows.length){document.getElementById('node-matrix').innerHTML='<p style="color:var(--muted)">Registry vacío.</p>';return;}
   const modeCls=m=>'mode-'+(String(m||'detached').replace(/\s+/g,'-'));
   const shortId=id=>String(id||'').replace(/^inst-/,'').slice(0,10);
   const shortPid=pid=>String(pid||'').split('.').pop();

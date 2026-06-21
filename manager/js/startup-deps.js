@@ -39,7 +39,12 @@
     if (!window.confirm('¿Instalar las dependencias faltantes ahora?')) return;
     try {
       const result = await api.dependencyAction({ action: names.length > 1 ? 'install-all' : 'install', targets: names, target: names[0] });
-      showToast('Instalador lanzado', true);
+      if (result && result.command) {
+        await copyText(result.command);
+        showToast('Comando copiado; ejecútalo manualmente si procede', true);
+        return result;
+      }
+      showToast('Instalador iniciado en segundo plano', true);
       return result;
     } catch (error) {
       showToast(error.message || 'No se pudo lanzar la instalación', false);

@@ -48,6 +48,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bago_core.versioning import read_release_version
+
 # ── Constantes ───────────────────────────────────────────────────────────────
 STATE_DIR = Path(os.path.expanduser("~/.bago/state"))
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,7 +62,7 @@ LOG_FILE     = STATE_DIR / "supervisor.log"
 LOCK_FILE    = STATE_DIR / "supervisor.lock"
 STOP_FILE    = STATE_DIR / "supervisor.stop"  # sentinel: presente = salir limpio
 LOG_MAX_BYTES = 1_000_000  # 1 MB
-SUPERVISOR_VERSION = "4.1.5"
+SUPERVISOR_VERSION = read_release_version(ROOT)
 
 # Ventanas (segundos) — todas generosas para no patear a un humano
 WATCHDOG_TICK_S       = 5
@@ -137,7 +143,9 @@ def _pid_alive(pid: int) -> bool:
         if sys.platform == "win32":
             out = subprocess.run(
                 ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5,
+                encoding="utf-8", errors="replace",
+                **_hidden_subprocess_kwargs(),
             )
             if not out.stdout or "INFO:" in out.stdout:
                 return False
@@ -146,6 +154,22 @@ def _pid_alive(pid: int) -> bool:
         return True
     except (OSError, subprocess.TimeoutExpired):
         return False
+
+def _hidden_subprocess_kwargs() -> dict[str, Any]:
+    """Evita ventanas consola al lanzar helpers desde el supervisor en Windows."""
+    if sys.platform != "win32":
+        return {}
+    kwargs: dict[str, Any] = {}
+    create_no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    kwargs["creationflags"] = create_no_window
+    try:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+        kwargs["startupinfo"] = startupinfo
+    except (AttributeError, OSError):
+        pass
+    return kwargs
 
 # ── Inspección: hijos, WAL, RAM, sockets ────────────────────────────────────
 def _list_bago_children() -> list[dict[str, Any]]:
@@ -168,7 +192,8 @@ def _list_bago_children() -> list[dict[str, Any]]:
              "| Select-Object ProcessId,CommandLine "
              "| ConvertTo-Json -Compress"],
             capture_output=True, text=True, timeout=15,
-            encoding="utf-8", errors="replace"
+            encoding="utf-8", errors="replace",
+            **_hidden_subprocess_kwargs(),
         )
         if not ps.stdout.strip():
             return []
@@ -201,13 +226,17 @@ def _ram_pct(pid: int) -> float | None:
             ["powershell", "-NoProfile", "-Command",
              f"(Get-Process -Id {pid} -ErrorAction SilentlyContinue)"
              f"|Select-Object -ExpandProperty WorkingSet64"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            encoding="utf-8", errors="replace",
+            **_hidden_subprocess_kwargs(),
         )
         used = int(ps.stdout.strip() or 0)
         total = int(subprocess.run(
             ["powershell", "-NoProfile", "-Command",
              "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            encoding="utf-8", errors="replace",
+            **_hidden_subprocess_kwargs(),
         ).stdout.strip() or 1)
         return 100.0 * used / max(total, 1)
     except (ValueError, subprocess.TimeoutExpired, OSError):
@@ -237,7 +266,9 @@ def _time_wait_count(port: int) -> int | None:
             ["powershell", "-NoProfile", "-Command",
              f"Get-NetTCPConnection -LocalPort {port} -State TimeWait -ErrorAction SilentlyContinue "
              f"| Measure-Object | Select-Object -ExpandProperty Count"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            encoding="utf-8", errors="replace",
+            **_hidden_subprocess_kwargs(),
         )
         return int(ps.stdout.strip() or 0)
     except (ValueError, subprocess.TimeoutExpired, OSError):
@@ -259,7 +290,8 @@ def _graceful_kill(pid: int, why: str) -> None:
     try:
         if sys.platform == "win32":
             subprocess.run(["taskkill", "/PID", str(pid), "/T"],
-                           capture_output=True, timeout=5)
+                           capture_output=True, timeout=5,
+                           **_hidden_subprocess_kwargs())
         else:
             os.kill(pid, signal.SIGTERM)
     except OSError:
@@ -272,7 +304,8 @@ def _graceful_kill(pid: int, why: str) -> None:
         try:
             if sys.platform == "win32":
                 subprocess.run(["taskkill", "/PID", str(pid), "/F", "/T"],
-                               capture_output=True, timeout=5)
+                               capture_output=True, timeout=5,
+                               **_hidden_subprocess_kwargs())
             else:
                 os.kill(pid, signal.SIGKILL)
         except OSError:
@@ -300,7 +333,8 @@ def _cmd_start(args: argparse.Namespace) -> int:
     if sys.platform == "win32":
         DETACHED = 0x00000008
         NEW_PG   = 0x00000200
-        flags = DETACHED | NEW_PG
+        CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        flags = DETACHED | NEW_PG | CREATE_NO_WINDOW
         p = subprocess.Popen(
             [sys.executable, str(script), "--loop"],
             stdin=subprocess.DEVNULL,
@@ -308,6 +342,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
             stderr=subprocess.DEVNULL,
             env=env,
             creationflags=flags,
+            **{k: v for k, v in _hidden_subprocess_kwargs().items() if k != "creationflags"},
             close_fds=True,
         )
     else:
@@ -514,7 +549,8 @@ def _cmd_stop(args: argparse.Namespace) -> int:  # noqa: ARG001
     _log("WARN", f"pid={pid} no honró sentinel, enviando SIGTERM")
     if sys.platform == "win32":
         subprocess.run(["taskkill", "/PID", str(pid), "/T"],
-                       capture_output=True, timeout=5)
+                       capture_output=True, timeout=5,
+                       **_hidden_subprocess_kwargs())
     else:
         try:
             os.kill(pid, signal.SIGTERM)
@@ -541,7 +577,8 @@ def _cmd_stop(args: argparse.Namespace) -> int:  # noqa: ARG001
     _log("ERROR", f"pid={pid} ignoró sentinel+SIGTERM, escalando a /F")
     if sys.platform == "win32":
         subprocess.run(["taskkill", "/PID", str(pid), "/F", "/T"],
-                       capture_output=True, timeout=5)
+                       capture_output=True, timeout=5,
+                       **_hidden_subprocess_kwargs())
     else:
         try:
             os.kill(pid, signal.SIGKILL)

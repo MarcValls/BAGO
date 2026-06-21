@@ -23,3 +23,16 @@ if __name__ == "__main__":
         print("cli.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())
+
+
+def _entry() -> None:
+    """setuptools console_scripts entry point.
+
+    Handles --version before loading the full launcher so the wheel smoke test
+    passes even when the full BAGO runtime tree is not present.
+    """
+    if "--version" in sys.argv or "-V" in sys.argv:
+        from bago_core import __version__
+        print(f"bago {__version__}")
+        raise SystemExit(0)
+    raise SystemExit(main())

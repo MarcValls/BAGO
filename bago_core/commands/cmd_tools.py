@@ -121,12 +121,31 @@ def cmd_issues(args: argparse.Namespace) -> int:
     return mod.main(argv)
 
 def cmd_agent(args: argparse.Namespace) -> int:
-    mod = _load_tool_module("spiral_agent", "spiral_agent.py")
     argv: list[str] = []
     root = getattr(args, "root", "") or ""
     if root:
         argv += ["--root", root]
     subcmd = getattr(args, "agent_cmd", None)
+    if subcmd == "route":
+        mod = _load_tool_module("agent_router", "agent_router.py")
+        task = getattr(args, "task", "") or ""
+        if task:
+            argv += ["--task", task]
+        if getattr(args, "history", False):
+            argv.append("--history")
+        if getattr(args, "limit", 10) != 10:
+            argv += ["--limit", str(args.limit)]
+        if getattr(args, "json", False):
+            argv.append("--json")
+        if getattr(args, "no_classifier", False):
+            argv.append("--no-classifier")
+        for word in getattr(args, "task_words", []) or []:
+            argv.append(word)
+        if not task and not getattr(args, "task_words", []):
+            argv += ["--help"]
+        return mod.main(argv)
+
+    mod = _load_tool_module("spiral_agent", "spiral_agent.py")
     if subcmd == "spawn":
         argv += ["spawn", getattr(args, "agent_id", "")]
         if getattr(args, "phase", None) is not None:
@@ -193,6 +212,14 @@ def cmd_scan(args: argparse.Namespace) -> int:
             argv.append("--pip-audit")
         return dep_audit.main(argv)
 
+    elif subcmd == "forced":
+        import forced_dependency_scan
+        argv = _base_argv()
+        fmt = getattr(args, "format", "text")
+        if fmt != "text":
+            argv += ["--format", fmt]
+        return forced_dependency_scan.main(argv)
+
     elif subcmd == "todos":
         import todo_scan
         argv = _base_argv()
@@ -231,6 +258,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         scanners = [
             ("secrets", "secret_scan",           _base_argv()),
             ("deps",    "dep_audit",             _base_argv()),
+            ("forced",  "forced_dependency_scan", _base_argv()),
             ("todos",   "todo_scan",             _base_argv() + ["--count"]),
             ("tokens",  "token_rotation_guard",  _base_argv()),
         ]

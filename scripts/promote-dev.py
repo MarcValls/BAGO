@@ -3,8 +3,8 @@
 promote-dev.py — Promote .bago/dev/ into .bago/launch/ and .bago/versions/X.Y.Z/.
 
 Uso:
-    python scripts\\promote-dev.py --version 4.1.5
-    python scripts\\promote-dev.py --version 4.1.6 --note "RL engine bump"
+    python scripts\\promote-dev.py --version X.Y.Z
+    python scripts\\promote-dev.py --version X.Y.Z --note "RL engine bump"
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def _checksums(root: Path, out: Path) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--user-bago", default=None, help="Path to .bago (default: ~/.bago)")
-    parser.add_argument("--version", required=True, help="Target version (e.g. 4.1.6)")
+    parser.add_argument("--version", required=True, help="Target version (e.g. X.Y.Z)")
     parser.add_argument("--note", default="", help="Release note")
     args = parser.parse_args(argv)
     user_bago = Path(args.user_bago or str(_user_bago_root()))

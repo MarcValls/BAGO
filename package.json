@@ -1,13 +1,13 @@
 {
   "name": "bago-installation-manager",
-  "version": "4.6.3",
+  "version": "4.6.4",
   "private": true,
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
   "author": "BAGO",
   "license": "UNLICENSED",
   "scripts": {
-    "manager:build-ui": "npm --prefix ui-react run build",
+    "manager:build-ui": "npm --prefix ui-react ci --ignore-scripts --no-audit --no-fund && npm --prefix ui-react run build",
     "premanager:pack": "npm run manager:build-ui",
     "premanager:dist": "npm run manager:build-ui",
     "manager:dev": "electron .",
@@ -27,6 +27,11 @@
       "scripts/**/*",
       "tools/**/*",
       "docs/**/*",
+      "ui-react/package.json",
+      "ui-react/package-lock.json",
+      "ui-react/index.html",
+      "ui-react/vite.config.js",
+      "ui-react/src/**/*",
       "ui-react/dist/**/*",
       "install-v4.ps1",
     "install-remote.ps1",
@@ -35,7 +40,9 @@
     "bago.sh",
     "versions.json",
     "release_version.txt",
-    "release/v4/bago-v4.6.3.zip"
+    "MODEL_PARALLEL_SETUP.md",
+    "AUDIT_PARALLEL_SETUP.md",
+    "release/v4/bago-v4.6.4.zip"
     ],
     "files": [
       "electron/**/*",
@@ -52,6 +59,11 @@
       "docs/**/*",
       "scripts/**/*",
       "tools/**/*",
+      "ui-react/package.json",
+      "ui-react/package-lock.json",
+      "ui-react/index.html",
+      "ui-react/vite.config.js",
+      "ui-react/src/**/*",
       "ui-react/dist/**/*",
       "install-v4.ps1",
       "install-remote.ps1",
@@ -60,7 +72,9 @@
       "bago.sh",
       "versions.json",
       "release_version.txt",
-      "release/v4/bago-v4.6.3.zip"
+      "MODEL_PARALLEL_SETUP.md",
+      "AUDIT_PARALLEL_SETUP.md",
+      "release/v4/bago-v4.6.4.zip"
     ],
     "directories": {
       "output": "dist"
@@ -89,5 +103,9 @@
     "electron": "42.3.0",
     "electron-builder": "26.8.1",
     "playwright": "^1.60.0"
+  },
+  "overrides": {
+    "form-data": "4.0.6",
+    "undici": "7.28.0"
   }
 }

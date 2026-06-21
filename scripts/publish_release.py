@@ -8,6 +8,7 @@ Produces a local release summary by default and can build a zip artifact on dema
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import subprocess
 import sys
@@ -59,6 +60,14 @@ def _is_excluded(relative_path: Path) -> bool:
     return any(part.lower() in rel_text.lower() for part in EXCLUDE_PATH_PARTS)
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 16), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def build_release_bundle(output_dir: str | None = None, repo_root: str | Path | None = None) -> Path:
     root = Path(repo_root).resolve() if repo_root is not None else _repo_root()
     out_dir = Path(output_dir).resolve() if output_dir else root / "dist"
@@ -74,6 +83,11 @@ def build_release_bundle(output_dir: str | None = None, repo_root: str | Path | 
             if _is_excluded(relative):
                 continue
             zf.write(file_path, arcname=str(relative))
+    zip_sha256 = _sha256_file(zip_path)
+    zip_path.with_suffix(zip_path.suffix + ".sha256").write_text(
+        f"{zip_sha256}  {zip_path.name}\n",
+        encoding="utf-8",
+    )
     return zip_path
 
 
@@ -117,6 +131,7 @@ def _run_tests() -> int:
             os.chdir(root)
             bundle = build_release_bundle(output_dir=str(root / "dist"), repo_root=root)
             assert bundle.exists()
+            assert (bundle.with_suffix(bundle.suffix + ".sha256")).exists()
             with zipfile.ZipFile(bundle, "r") as zf:
                 names = zf.namelist()
                 assert "keep.txt" in names
