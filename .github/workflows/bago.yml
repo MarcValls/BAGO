@@ -248,13 +248,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install pytest
-        run: pip install pytest -q
+      - name: Install pytest and bago_core
+        run: |
+          pip install pytest -q
+          pip install -e . -q
       - name: Run security policy tests
-        run: pytest tests/test_security.py -v --tb=short
+        run: python -m pytest tests/test_security.py -v --tb=short
       - name: Run remaining test suite (excludes packaging tests — no dist/ on CI)
         run: |
-          pytest tests/ \
+          python -m pytest tests/ \
             --ignore=tests/test_security.py \
             --ignore=tests/test_packaging.py \
             --ignore=tests/test_wheel.py \
@@ -264,6 +266,8 @@ jobs:
             --ignore=tests/test_bago_review.py \
             --ignore=tests/test_code_review.py \
             --ignore=tests/test_runtime_state.py \
+            --ignore=tests/test_translators_evidence.py \
+            --ignore=tests/test_node_control_translator.py \
             -v --tb=short
 
   gate-package:

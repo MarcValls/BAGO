@@ -127,7 +127,7 @@ async function main() {
     assert.strictEqual(preflight.ok, true);
     assert.strictEqual(preflight.impact.backup_required, true);
     assert.strictEqual(manager.preflight({ release, target, action: 'update', require_signature: true }).ok, false);
-    const blockedFutureRelease = { ...release, tag_name: 'v4.6.4' };
+    const blockedFutureRelease = { ...release, tag_name: 'v99.0.0' };
     const futurePreflight = manager.preflight({ release: blockedFutureRelease, target, action: 'update' });
     assert.strictEqual(futurePreflight.ok, false);
     assert.ok(futurePreflight.blockers.some(line => line.includes('futura')));
@@ -165,7 +165,7 @@ async function main() {
 
   const futureSource = path.join(root, 'future-source');
   const futureBundlePath = path.join(root, 'future-bundle.zip');
-  writeFixture(futureSource, 'v4.6.4');
+  writeFixture(futureSource, 'v99.0.0');
   execFileSync('powershell.exe', [
     '-NoProfile',
     '-Command',
@@ -180,7 +180,7 @@ async function main() {
   const futureTarget = path.join(root, 'future-target');
   fs.mkdirSync(futureTarget, { recursive: true });
   const resumeFutureRelease = {
-    tag_name: 'v4.6.4',
+    tag_name: 'v99.0.0',
     prerelease: false,
     assets: [
       {
