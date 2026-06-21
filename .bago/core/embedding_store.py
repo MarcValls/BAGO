@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from state_paths import resolve_state_root
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -36,9 +38,9 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 class EmbeddingStore:
-    def __init__(self, base_path: str | None = None):
+    def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
-        self.state_dir = self.base_path / ".bago" / "state"
+        self.state_dir = resolve_state_root(state_root)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.state_dir / "embeddings.db"
         self.conn = sqlite3.connect(str(self.db_path))
@@ -115,6 +117,9 @@ def _run_tests() -> int:
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:
+        state_root = Path(td) / "state"
+        old = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = str(state_root)
         store = EmbeddingStore(base_path=td)
         try:
             a = [1.0, 0.0, 0.0]
@@ -128,6 +133,10 @@ def _run_tests() -> int:
             print("embedding_store.py --test: ALL PASS")
         finally:
             store.close()
+            if old is None:
+                os.environ.pop("BAGO_STATE_ROOT", None)
+            else:
+                os.environ["BAGO_STATE_ROOT"] = old
     return 0
 
 

@@ -1,10 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Instalador remoto de BAGO - siempre usa la ultima release de GitHub.
+  Instalador remoto de BAGO - usa la release compatible mas reciente de GitHub.
 
 .DESCRIPTION
-  Descarga el release oficial de GitHub, lo extrae y ejecuta install-v4.ps1.
+  Descarga una release compatible de GitHub, lo extrae y ejecuta install-v4.ps1.
   Uso desde terminal (sin descargar nada manualmente):
 
       iwr -useb https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex
@@ -42,10 +42,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 function Get-LatestRelease {
+    $ceiling = Get-ManagerVersion
     $apiUrl = "https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100"
     $releases = Invoke-RestMethod -Uri $apiUrl -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
     return @($releases) |
-        Where-Object { -not $_.draft -and -not $_.prerelease } |
+        Where-Object { -not $_.draft -and -not $_.prerelease -and (Test-ReleaseAllowed -ReleaseTag ([string]$_.tag_name) -CeilingTag $ceiling) } |
         Sort-Object { [datetime]$_.published_at } -Descending |
         Select-Object -First 1
 }
@@ -55,7 +56,12 @@ function Get-TaggedRelease {
     $tag = $RequestedTag.Trim()
     if (-not $tag) { return $null }
     $url = "https://api.github.com/repos/MarcValls/BAGO/releases/tags/$tag"
-    return Invoke-RestMethod -Uri $url -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
+    $release = Invoke-RestMethod -Uri $url -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
+    $ceiling = Get-ManagerVersion
+    if (-not (Test-ReleaseAllowed -ReleaseTag ([string]$release.tag_name) -CeilingTag $ceiling)) {
+        throw "La release $($release.tag_name) es futura respecto a la version permitida $ceiling."
+    }
+    return $release
 }
 
 function Get-PairedBundle {
@@ -91,6 +97,97 @@ function Assert-ZipMagic {
     }
 }
 
+function Normalize-VersionTag {
+    param([Parameter(Mandatory = $true)][string]$Value)
+    return ($Value.Trim() -replace '^[vV]', '')
+}
+
+function Parse-VersionTag {
+    param([Parameter(Mandatory = $true)][string]$Value)
+    $text = Normalize-VersionTag $Value
+    if ($text -notmatch '^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<pre>[0-9A-Za-z.-]+))?(?:\+.*)?$') {
+        return $null
+    }
+    $pre = @()
+    if ($Matches.pre) {
+        $pre = $Matches.pre.Split('.')
+    }
+    return [pscustomobject]@{
+        major = [int]$Matches.major
+        minor = [int]$Matches.minor
+        patch = [int]$Matches.patch
+        prerelease = $pre
+    }
+}
+
+function Compare-VersionTags {
+    param(
+        [Parameter(Mandatory = $true)]$Left,
+        [Parameter(Mandatory = $true)]$Right
+    )
+    $a = if ($Left -is [string]) { Parse-VersionTag $Left } else { $Left }
+    $b = if ($Right -is [string]) { Parse-VersionTag $Right } else { $Right }
+    if (-not $a -or -not $b) { return 0 }
+    foreach ($key in @('major', 'minor', 'patch')) {
+        if ($a.$key -ne $b.$key) { return ($a.$key - [int]$b.$key) }
+    }
+    $aPre = @($a.prerelease)
+    $bPre = @($b.prerelease)
+    if (-not $aPre.Count -and -not $bPre.Count) { return 0 }
+    if (-not $aPre.Count) { return 1 }
+    if (-not $bPre.Count) { return -1 }
+    $length = [Math]::Max($aPre.Count, $bPre.Count)
+    for ($i = 0; $i -lt $length; $i++) {
+        if ($i -ge $aPre.Count) { return -1 }
+        if ($i -ge $bPre.Count) { return 1 }
+        $leftPart = [string]$aPre[$i]
+        $rightPart = [string]$bPre[$i]
+        $leftNum = $leftPart -match '^\d+$'
+        $rightNum = $rightPart -match '^\d+$'
+        if ($leftNum -and $rightNum) {
+            $diff = [int]$leftPart - [int]$rightPart
+            if ($diff -ne 0) { return $diff }
+            continue
+        }
+        if ($leftNum) { return -1 }
+        if ($rightNum) { return 1 }
+        $diff = [string]::Compare($leftPart, $rightPart, $true)
+        if ($diff -ne 0) { return $diff }
+    }
+    return 0
+}
+
+function Get-ManagerVersion {
+    $candidates = @(
+        (Join-Path $PSScriptRoot 'release_version.txt'),
+        (Join-Path $PSScriptRoot 'package.json')
+    )
+    foreach ($candidate in $candidates) {
+        if (-not (Test-Path -LiteralPath $candidate)) { continue }
+        try {
+            if ($candidate -like '*.json') {
+                $json = Get-Content -LiteralPath $candidate -Raw | ConvertFrom-Json
+                if ($json.version) { return Normalize-VersionTag ([string]$json.version) }
+            } else {
+                $text = (Get-Content -LiteralPath $candidate -Raw).Trim()
+                if ($text) { return Normalize-VersionTag $text }
+            }
+        } catch {}
+    }
+    return ''
+}
+
+function Test-ReleaseAllowed {
+    param(
+        [Parameter(Mandatory = $true)][string]$ReleaseTag,
+        [Parameter(Mandatory = $true)][string]$CeilingTag
+    )
+    $release = Parse-VersionTag $ReleaseTag
+    $ceiling = Parse-VersionTag $CeilingTag
+    if (-not $release -or -not $ceiling) { return $true }
+    return ((Compare-VersionTags -Left $release -Right $ceiling) -le 0)
+}
+
 if ($Tag) {
     $release = Get-TaggedRelease -RequestedTag $Tag
     if (-not $release) {
@@ -100,7 +197,7 @@ if ($Tag) {
     $release = Get-LatestRelease
 }
 if (-not $release) {
-    throw "No se encontro ninguna release publicada de BAGO."
+    throw "No se encontro ninguna release compatible publicada de BAGO."
 }
 $version = [string]$release.tag_name
 $contract = Get-PairedBundle -Release $release

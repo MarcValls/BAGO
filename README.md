@@ -1,6 +1,8 @@
-# BAGO v4.3.0
+# BAGO v4.6.4
 
-[![Version](https://img.shields.io/badge/version-4.3.0-blue)]()
+**Version 4.6.4**
+
+[![Version](https://img.shields.io/badge/version-4.6.4-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -255,3 +257,4 @@ Future licensing may change, but the current release line remains proprietary.
 - [`docs/SECURITY.md`](docs/SECURITY.md) - security defaults and gates.
 - [`docs/TESTING.md`](docs/TESTING.md) - validation commands.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) - distribution roadmap.
+

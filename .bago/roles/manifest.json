@@ -1,0 +1,233 @@
+{
+  "roles": {
+    "role_government_maestro_bago": {
+      "family": "gobierno",
+      "name": "maestro_bago",
+      "file": "gobierno/MAESTRO_BAGO.md",
+      "description": "Líder visible. Único punto de contacto con el usuario. Recibe petición, decide delegación, entrega resultado final integrado.",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.0-conductor",
+      "conductor": "tools/voice_conductor.py",
+      "tools": []
+    },
+    "role_government_orquestador_central": {
+      "family": "gobierno",
+      "name": "orquestador_central",
+      "file": "gobierno/ORQUESTADOR_CENTRAL.md",
+      "description": "Director interno. Clasifica tarea, selecciona voces, enforcea máx 3 simultáneas (PUERTA_CERRADA), señaliza PUERTA_ABIERTA al completar.",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.0-conductor",
+      "conductor": "tools/voice_conductor.py",
+      "tools": []
+    },
+    "role_production_analista": {
+      "family": "produccion",
+      "name": "ANALISTA",
+      "file": "produccion/ANALISTA.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "code-quality",
+        "context",
+        "debt",
+        "deps",
+        "detector",
+        "diff",
+        "efficiency",
+        "find-tool",
+        "habit",
+        "insights",
+        "lsp",
+        "map",
+        "naming",
+        "research",
+        "review",
+        "risk",
+        "scan",
+        "scope",
+        "stability",
+        "types",
+        "why"
+      ]
+    },
+    "role_production_arquitecto": {
+      "family": "produccion",
+      "name": "ARQUITECTO",
+      "file": "produccion/ARQUITECTO.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "auto",
+        "cabinet",
+        "flow",
+        "hub",
+        "llm",
+        "next",
+        "orchestrate",
+        "peer",
+        "project-init",
+        "project-link",
+        "project-unlink",
+        "repo-clone"
+      ]
+    },
+    "role_production_generador": {
+      "family": "produccion",
+      "name": "GENERADOR",
+      "file": "produccion/GENERADOR.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "banner",
+        "chronicle",
+        "cosecha",
+        "image-studio",
+        "image_gen",
+        "report",
+        "sprite-studio"
+      ]
+    },
+    "role_production_organizador": {
+      "family": "produccion",
+      "name": "ORGANIZADOR",
+      "file": "produccion/ORGANIZADOR.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "ask",
+        "dashboard",
+        "db",
+        "done",
+        "git",
+        "goals",
+        "ideas",
+        "learn",
+        "project",
+        "project-state",
+        "promote",
+        "reopen",
+        "repo",
+        "repo-list",
+        "repo-switch",
+        "select",
+        "session",
+        "session_close",
+        "sprint",
+        "status",
+        "sync",
+        "task",
+        "v2",
+        "workflow"
+      ]
+    },
+    "role_production_validador": {
+      "family": "produccion",
+      "name": "VALIDADOR",
+      "file": "produccion/VALIDADOR.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "audit",
+        "check",
+        "config-check",
+        "consistency",
+        "doctor",
+        "heal",
+        "health",
+        "stale",
+        "validate"
+      ]
+    },
+    "role_supervision_auditor_canonico": {
+      "family": "supervision",
+      "name": "AUDITOR_CANONICO",
+      "file": "supervision/AUDITOR_CANONICO.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "rules"
+      ]
+    },
+    "role_supervision_centinela_sinceridad": {
+      "family": "supervision",
+      "name": "CENTINELA_SINCERIDAD",
+      "file": "supervision/CENTINELA_SINCERIDAD.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "commit",
+        "pre-push",
+        "sincerity"
+      ]
+    },
+    "role_supervision_vertice": {
+      "family": "supervision",
+      "name": "VERTICE",
+      "file": "supervision/VERTICE.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "hello",
+        "install",
+        "start"
+      ]
+    },
+    "role_specialist_security_reviewer": {
+      "family": "especialistas",
+      "name": "security_reviewer",
+      "file": "especialistas/REVISOR_SEGURIDAD.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": [
+        "secrets"
+      ]
+    },
+    "role_specialist_performance_reviewer": {
+      "family": "especialistas",
+      "name": "performance_reviewer",
+      "file": "especialistas/REVISOR_PERFORMANCE.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": []
+    },
+    "role_specialist_ux_reviewer": {
+      "family": "especialistas",
+      "name": "ux_reviewer",
+      "file": "especialistas/REVISOR_UX.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": []
+    },
+    "role_specialist_integrator": {
+      "family": "especialistas",
+      "name": "integrator",
+      "file": "especialistas/INTEGRADOR_REPO.md",
+      "created": "2026-04-28T00:00:00Z",
+      "status": "active",
+      "version": "3.1",
+      "tools": []
+    }
+  },
+  "families": {
+    "gobierno": "GOVERNMENT — Gobierno central de BAGO",
+    "produccion": "PRODUCTION — Operaciones de producción (agentes principales)",
+    "supervision": "SUPERVISION — Verificación de calidad e integridad",
+    "especialistas": "SPECIALIST — Análisis en dominio específico"
+  },
+  "created": "2026-04-28T00:00:00Z",
+  "version": "3.1",
+  "description": "Registro de roles BAGO con Tool-Agent Binding v3.1. Cada rol declara sus herramientas responsables."
+}

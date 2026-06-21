@@ -45,6 +45,7 @@ for _stream in (sys.stdout, sys.stderr):
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
+from bago_core.commands.cmd_tools import _load_tool_module
 
 
 class CommandError(Exception):
@@ -64,6 +65,13 @@ MENU_SECTIONS: list[dict[str, Any]] = [
             {"command": "/mode", "description": "Consulta o cambia el modo BAGO", "args_prompt": "[B|A|G|O]"},
             {"command": "/save", "description": "Guarda sesion en disco"},
             {"command": "/load", "description": "Carga una sesion desde disco", "wizard": "load"},
+        ],
+    },
+    {
+        "title": "Proyectos y directorio",
+        "description": "Analiza un proyecto local y prepara su memoria portable.",
+        "items": [
+            {"command": "/project", "description": "Analiza el proyecto actual", "wizard": "project"},
         ],
     },
     {
@@ -189,6 +197,18 @@ def _parse_args(args: list[str]) -> tuple[list[str], dict[str, str | bool]]:
     return positional, flags
 
 
+def _parse_project_args(args: list[str]) -> tuple[str, str]:
+    actions = {"analyze", "status", "init", "link"}
+    if not args:
+        return "analyze", ""
+    first = args[0].lower()
+    if first in actions:
+        return first, (args[1] if len(args) > 1 else "")
+    root = args[0]
+    action = args[1].lower() if len(args) > 1 and args[1].lower() in actions else "analyze"
+    return action, root
+
+
 def cmd_switch(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
     positional, flags = _parse_args(args)
     if not positional:
@@ -223,6 +243,36 @@ def cmd_models(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
         "message": f"Modelos disponibles ({provider or mgr.provider}):\n" + "\n".join(lines),
         "data": data,
     }
+
+
+def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    mod = _load_tool_module("project_memory", "project_memory.py")
+    action, root = _parse_project_args(args)
+    project_root = Path(root or mgr.base_path).expanduser().resolve()
+
+    if action == "init":
+        report = mod.init_project(project_root)
+        message = (
+            f"Initialized project memory at: {report['bago_dir']}\n"
+            f"Created directories: {len(report['created_dirs'])}\n"
+            f"Created files: {len(report['created_files'])}"
+        )
+        return {"ok": True, "message": message, "data": report}
+    if action == "status":
+        data = mod.status_data(project_root)
+        return {"ok": True, "message": mod.format_status(data), "data": data}
+    if action == "link":
+        data = mod.link_project(project_root)
+        message = (
+            f"Linked project memory at: {data['root']}\n"
+            f"Link mode: {data['link_mode']}\n"
+            f"Marker: {data['marker']}"
+        )
+        return {"ok": True, "message": message, "data": data}
+    if action == "analyze":
+        data = mod.analyze_data(project_root)
+        return {"ok": True, "message": mod.format_analysis(data), "data": data}
+    return {"ok": False, "message": "Uso: /project [analyze|status|init|link] [ruta]"}
 
 
 def cmd_status(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
@@ -931,6 +981,7 @@ COMMAND_REGISTRY: dict[str, Any] = {
     "menu": cmd_menu,
     "commands": cmd_commands,
     "doctor": cmd_doctor,
+    "project": cmd_project,
     "switch": cmd_switch,
     "models": cmd_models,
     "status": cmd_status,

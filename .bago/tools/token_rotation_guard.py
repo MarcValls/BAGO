@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Iterator, NamedTuple
 
 SKIP_PATHS = {
-    "node_modules", ".git", "__pycache__", ".pytest_cache",
+    "node_modules", ".git", "__pycache__", ".pytest_cache", ".vercel",
     "AppData", "site-packages", "dist-packages", "venv", ".venv",
 }
 
@@ -44,6 +44,12 @@ PLACEHOLDERS = frozenset({
     "changeme", "change_me", "replace_with", "xxx",
     "realkey", "abcdefghijklmnopqrstuvwx", "aaaaaaaaaaaaaaaaaaaaaaaa",
 })
+
+_ALLOWLIST_MARKERS = (
+    "# noqa: test fixture",
+    "# nosec: test fixture",
+    "# pragma: allowlist secret",
+)
 
 PATTERNS: list[tuple[str, re.Pattern]] = [
     ("telegram_bot",    re.compile(r'\b(\d{7,10}:[A-Za-z0-9_-]{35})\b')),
@@ -89,6 +95,8 @@ def _line_hash(line: str) -> str:
 def _is_placeholder(line: str, match: str) -> bool:
     low = line.lower()
     low_m = match.lower()
+    if any(marker in low for marker in _ALLOWLIST_MARKERS):
+        return True
     for ph in PLACEHOLDERS:
         if ph in low or ph in low_m:
             return True
@@ -127,6 +135,9 @@ def scan_directory(root: Path) -> list[Hit]:
         except ValueError:
             rel_parts = set(p.parts)
         if rel_parts & SKIP_PATHS:
+            continue
+        rel_str = p.relative_to(root).as_posix().lower()
+        if rel_str.startswith("dist/") or "/dist/" in rel_str or rel_str.startswith(".vercel/") or "/.vercel/" in rel_str:
             continue
         if p.suffix.lower() in SCAN_EXTS or p.name.startswith(".env"):
             hits.extend(scan_file(p))
@@ -231,7 +242,7 @@ def _self_test() -> None:
         root = Path(td)
 
         # T1: AWS key detectada (16 chars uppercase+digits tras AKIA, sin placeholder words)
-        (root / "config.py").write_text('key = "AKIAXR7MNPQ3Z2B1C9D0"\n', encoding="utf-8")
+        (root / "config.py").write_text('key = "AKIAXR7MNPQ3Z2B1C9D0"\n', encoding="utf-8")  # nosec: test fixture
         hits1 = scan_directory(root)
         if any(h.category == "aws_access" for h in hits1):
             ok("token:aws_detected")
@@ -247,9 +258,7 @@ def _self_test() -> None:
             fail("token:placeholder_ignored", f"hits={[h.category for h in hits2]}")
 
         # T3: GitHub PAT detectado (ghp_ + 36 chars sin repetir secuencias de placeholder)
-        (root / "deploy.yml").write_text(
-            "token: ghp_9sK3mXvR7nL2pQ8wY4tH6jB0cU5oI1eA3fDzG\n", encoding="utf-8"
-        )
+        (root / "deploy.yml").write_text("token: ghp_9sK3mXvR7nL2pQ8wY4tH6jB0cU5oI1eA3fDzG\n", encoding="utf-8")  # nosec: test fixture
         hits3 = scan_directory(root)
         if any(h.category == "github_pat" for h in hits3):
             ok("token:github_pat_detected")

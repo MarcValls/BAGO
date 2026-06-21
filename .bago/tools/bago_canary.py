@@ -68,15 +68,15 @@ def save_state(root: Path, data: dict[str, object]) -> None:
 def render_token(token_type: str) -> tuple[str, str]:
     stamp = now_stamp()
     if token_type == "aws_keys":
-        return (f"aws_{stamp}.env", "AWS_ACCESS_KEY_ID=AKIAFAKE123456789012\nAWS_SECRET_ACCESS_KEY=fakeAwsSecretKeyValue000000000000000000000000\n")
+        return (f"aws_{stamp}.env", "AWS_ACCESS_KEY_ID=AKIAFAKE123456789012\nAWS_SECRET_ACCESS_KEY=fakeAwsSecretKeyValue000000000000000000000000\n")  # nosec: test fixture
     if token_type == "openai_api":
-        return (f"openai_{stamp}.env", "OPENAI_API_KEY=sk-fakeOpenAIToken00000000000000000000\n")
+        return (f"openai_{stamp}.env", "OPENAI_API_KEY=sk-fakeOpenAIToken00000000000000000000\n")  # nosec: test fixture
     if token_type == "github_pat":
-        return (f"github_{stamp}.env", "GITHUB_TOKEN=ghp_FAKEGitHubTokenValue123456789012345678\n")
+        return (f"github_{stamp}.env", "GITHUB_TOKEN=ghp_FAKEGitHubTokenValue123456789012345678\n")  # nosec: test fixture
     if token_type == "telegram_bot":
-        return (f"telegram_{stamp}.txt", "987654321:FAKETelegramBotTokenValue1234567890abcd\n")
+        return (f"telegram_{stamp}.txt", "987654321:FAKETelegramBotTokenValue1234567890abcd\n")  # nosec: test fixture
     if token_type == "google_api":
-        return (f"google_{stamp}.env", "GOOGLE_API_KEY=AIzaFakeGoogleApiKeyValue000000000000\n")
+        return (f"google_{stamp}.env", "GOOGLE_API_KEY=AIzaFakeGoogleApiKeyValue000000000000\n")  # nosec: test fixture
     raise ValueError(f"unsupported canary type: {token_type}")
 
 

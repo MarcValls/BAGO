@@ -1,0 +1,504 @@
+{
+  "_meta": {
+    "version": "2.0.0",
+    "description": "Catálogo dinámico de toolboxes BAGO. Fuente canónica para que agentes localicen su caja de herramientas.",
+    "source": ".bago/mcp/toolbox_catalog.json",
+    "updated": "2026-05-11",
+    "usage": "Leer con: bago toolsmith catalog | bago toolsmith assign --task '...' | bago toolsmith sprint <id>"
+  },
+
+  "tool_groups": {
+
+    "session_lifecycle": {
+      "label": "Ciclo de sesión",
+      "description": "Abrir, cerrar, reanudar y hacer seguimiento de sesiones de trabajo",
+      "tags": ["session", "lifecycle", "history"],
+      "cli_cmds": ["session", "reopen", "diff", "next", "start", "recientes"],
+      "scripts": ["session/__main__.py", "bago_reopen.py", "bago_diff.py", "bago_next.py", "bago_start.py", "recientes_cli.py", "session_opener.py", "session_close_generator.py", "session_logger.py", "session_preflight.py", "session_stats.py"],
+      "when_to_use": "Al comenzar o terminar un bloque de trabajo, para mantener historial de decisiones"
+    },
+
+    "code_quality": {
+      "label": "Calidad de código",
+      "description": "Revisión, análisis estático, detección de deuda técnica y consistencia lingüística",
+      "tags": ["quality", "review", "lint", "static-analysis"],
+      "cli_cmds": ["review", "types", "naming", "hardcode", "spanish", "debt", "dead_code"],
+      "scripts": ["code_review.py", "type_check.py", "naming_check.py", "hardcode_detector.py", "spanish_audit.py", "debt_ledger.py", "dead_code.py", "code_metrics.py", "lint_runner.py", "sincerity_detector.py"],
+      "when_to_use": "En PRs, antes de mergear, al refactorizar o cuando la calidad del código cae"
+    },
+
+    "audit_suite": {
+      "label": "Suite de auditoría",
+      "description": "Auditoría completa del pack, escaneo de calidad, commit readiness, push gate",
+      "tags": ["audit", "quality", "gate", "ci"],
+      "cli_cmds": ["audit", "scan", "commit", "pre-push", "review"],
+      "scripts": ["audit/__main__.py", "audit/_v2.py", "audit/_ast.py", "audit/_security.py", "scan.py", "commit_readiness.py", "pre_push_guard.py", "bago_ast_audit.py", "bago_audit_router.py"],
+      "when_to_use": "Antes de commits, pushes, releases o cuando se sospecha regresión de calidad"
+    },
+
+    "project_health": {
+      "label": "Salud del proyecto",
+      "description": "Score de salud, reportes, estabilidad, eficiencia y consistencia del framework",
+      "tags": ["health", "monitoring", "score"],
+      "cli_cmds": ["health", "doctor", "heal-paths", "stability", "efficiency", "consistency"],
+      "scripts": ["health/__main__.py", "health/_score.py", "health/_report.py", "health/_check.py", "bago_doctor.py", "path_healer.py", "stability_summary.py", "efficiency_meter.py", "bago_consistency_check.py", "bago_health_router.py"],
+      "when_to_use": "Al inicio de sesión, antes de releases, cuando algo falla inesperadamente"
+    },
+
+    "security": {
+      "label": "Seguridad y riesgos",
+      "description": "Escaneo de secretos, auditoría de seguridad, matriz de riesgo, roles y contratos",
+      "tags": ["security", "secrets", "risk", "compliance"],
+      "cli_cmds": ["secrets", "risk", "hardcode"],
+      "scripts": ["secret_scan.py", "security_audit.py", "risk_matrix.py", "role_contract_validator.py", "sincerity_detector.py", "hardcode_detector.py"],
+      "when_to_use": "Antes de deploys, en code reviews de seguridad, al incorporar nuevas dependencias"
+    },
+
+    "sprint_management": {
+      "label": "Gestión de sprints",
+      "description": "Crear, gestionar y cerrar sprints; objetivos, flujo y matriz de trabajo",
+      "tags": ["sprint", "planning", "goals", "flow"],
+      "cli_cmds": ["sprint", "goals", "flow", "task", "done", "work_matrix", "timeline", "todo_scan"],
+      "scripts": ["sprint_manager.py", "sprint.py", "sprint_summary.py", "goals.py", "flow.py", "show_task.py", "work_matrix.py", "timeline.py", "todo_scan.py"],
+      "when_to_use": "Para planificar iteraciones, hacer seguimiento de tareas y cerrar sprints"
+    },
+
+    "build_release": {
+      "label": "Build y release",
+      "description": "Pipeline de construcción, CI/CD, changelog, versionado y sincronización",
+      "tags": ["build", "release", "ci", "changelog", "version"],
+      "cli_cmds": ["version", "sync", "validate", "docs"],
+      "scripts": ["build.py", "ci_generator.py", "changelog_gen.py", "bago_version.py", "sync_pack_metadata.py", "validate.py", "validate_manifest.py", "validate_pack.py", "validate_pack_contents.py", "validate_state.py"],
+      "when_to_use": "Al preparar releases, actualizar versiones o regenerar artefactos de build"
+    },
+
+    "environment": {
+      "label": "Entorno y dependencias",
+      "description": "Gestión del entorno Python, dependencias, variables y configuración",
+      "tags": ["env", "deps", "config", "setup"],
+      "cli_cmds": ["deps", "config-check"],
+      "scripts": ["env.py", "env_check.py", "env_diff.py", "env_manager.py", "env_setup.py", "deps_check.py", "dep_audit.py", "outdated_check.py", "config.py", "config_check.py", "config_show.py", "config_wizard.py", "bago_config.py"],
+      "when_to_use": "Al configurar un nuevo entorno, actualizar dependencias o diagnosticar problemas de setup"
+    },
+
+    "repository": {
+      "label": "Repositorios y git",
+      "description": "Gestión de repositorios, contexto git y proyectos vinculados",
+      "tags": ["git", "repo", "context", "project"],
+      "cli_cmds": ["repo", "context", "project", "diff"],
+      "scripts": ["repo.py", "repo_clone.py", "repo_list.py", "repo_switch.py", "git_context.py", "git_status.py", "bago_repo.py", "bago_context.py", "context_detector.py", "context_map.py", "scope_detector.py", "project_memory.py", "project_init.py", "project_summary.py"],
+      "when_to_use": "Para cambiar de proyecto, entender el estado del repo o vincular un nuevo proyecto"
+    },
+
+    "knowledge_graph": {
+      "label": "Grafo de conocimiento",
+      "description": "Neural Path para construir grafos cognitivos versionados con embeddings y LLM",
+      "tags": ["knowledge", "graph", "embeddings", "npath", "neural"],
+      "cli_cmds": ["npath", "neural"],
+      "scripts": ["npath/__main__.py", "npath/_graph.py", "npath/_db.py", "npath/_embeddings.py", "npath/_ollama.py", "npath/_view.py", "npath/_bus.py", "bago_neural.py", "bago_node.py", "neural_router.py"],
+      "when_to_use": "Para mapear arquitectura, recordar decisiones pasadas o encontrar dependencias ocultas"
+    },
+
+    "agent_routing": {
+      "label": "Routing de agentes",
+      "description": "Decidir qué agente (local/cloud) ejecuta cada tipo de tarea, con fallback adaptativo",
+      "tags": ["routing", "agents", "llm", "orchestration"],
+      "cli_cmds": ["route", "cabinet", "orchestrate", "auto", "ask", "work_matrix"],
+      "scripts": ["agent_router.py", "intent_router.py", "bago_hub.py", "cabinet_orchestrator.py", "orchestrator.py", "auto_mode.py", "bago_sac_engine.py", "neural_router.py"],
+      "when_to_use": "Para decidir qué agente usa qué herramienta, o cuando la tarea es ambigua"
+    },
+
+    "documentation": {
+      "label": "Documentación",
+      "description": "Generación y sincronización de docs, COMMANDS.md, README, capas, evolución",
+      "tags": ["docs", "readme", "documentation"],
+      "cli_cmds": ["docs", "why", "context"],
+      "scripts": ["generate_commands_doc.py", "generate_layers_doc.py", "generate_bago_evolution_report.py", "readme_sync.py", "why.py", "bago_context.py"],
+      "when_to_use": "Tras cambios de API, al añadir herramientas o antes de publicar una release"
+    },
+
+    "telemetry_analytics": {
+      "label": "Telemetría y analítica",
+      "description": "Métricas de uso, eficiencia, insights de patrones y dashboards en tiempo real",
+      "tags": ["telemetry", "metrics", "analytics", "dashboard"],
+      "cli_cmds": ["insights", "recientes", "health efficiency"],
+      "scripts": ["bago_telemetry.py", "bago_telemetry_live.py", "bago_telemetry_web.py", "metrics_export.py", "efficiency_meter.py", "insights.py", "stats.py", "habit.py", "dashboard_v2.py", "live_dashboard.py"],
+      "when_to_use": "Para entender cómo se está usando BAGO, identificar cuellos de botella o generar reportes"
+    },
+
+    "notifications": {
+      "label": "Notificaciones",
+      "description": "Envío de alertas por Telegram, WhatsApp y notificaciones del sistema",
+      "tags": ["notifications", "telegram", "whatsapp", "alerts"],
+      "cli_cmds": ["notify"],
+      "scripts": ["notify.py", "bago_telegram_daemon.py", "bago_wa_daemon.py"],
+      "when_to_use": "Para alertas de CI/CD, notificaciones de sprint completado o bloqueos de agentes"
+    },
+
+    "creative_media": {
+      "label": "Medios y creatividad",
+      "description": "Generación musical, imágenes, sprites y assets visuales",
+      "tags": ["music", "image", "creative", "media", "assets"],
+      "cli_cmds": ["music", "image_gen", "image-studio", "sprite-studio", "ableton-template"],
+      "scripts": ["bago_music.py", "karpovich_synth.py", "disc_superstar_synth.py", "musicxml_validate.py", "musicxml_transpose.py", "musicxml_render.py", "musicxml_target_select.py", "music_transpose_plan.py", "music_to_musicxml_pipeline.py", "image_gen.py", "image_studio.py", "sprite_studio.py", "ableton_template.py"],
+      "when_to_use": "Cuando el proyecto requiere assets creativos: partituras, imágenes o sprites de juego"
+    },
+
+    "framework_meta": {
+      "label": "Meta-framework",
+      "description": "Registro de tools, guardián del sistema, auto-registro y reparación automática",
+      "tags": ["meta", "registry", "guardian", "repair"],
+      "cli_cmds": ["heal-paths", "hardcode", "auto"],
+      "scripts": ["tool_registry.py", "tool_guardian.py", "tool_watcher.py", "auto_register.py", "auto_heal.py", "auto_mode.py", "path_healer.py", "preflight_engine.py", "bago_banner.py", "bago_utils.py", "_bago_paths.py"],
+      "when_to_use": "Para mantener el framework, detectar herramientas rotas o auto-reparar el sistema"
+    },
+
+    "snapshot_backup": {
+      "label": "Snapshots y backups",
+      "description": "Crear, restaurar y sincronizar snapshots del estado del framework",
+      "tags": ["snapshot", "backup", "restore", "sync"],
+      "cli_cmds": ["deactivate"],
+      "scripts": ["snapshot.py", "backup_manager.py", "restore.py", "sync_state.py", "reconcile_state.py", "state_manager.py"],
+      "when_to_use": "Antes de cambios estructurales grandes, o al mover el pendrive a otra máquina"
+    },
+
+    "network_discovery": {
+      "label": "Red y descubrimiento",
+      "description": "Escaneo de red, puertos, comunicación peer-to-peer e interacción HTTP",
+      "tags": ["network", "ports", "p2p", "discovery"],
+      "cli_cmds": ["peer"],
+      "scripts": ["net_scan.py", "net_interact.py", "ping_server.py", "ports_check.py", "port_kill.py", "port_table.py", "http_discover.py", "peer_link.py", "lenovo_connect.py"],
+      "when_to_use": "Para conectar máquinas en LAN, liberar puertos ocupados o descubrir servicios"
+    },
+
+    "testing": {
+      "label": "Testing",
+      "description": "Ejecución de tests, smoke tests, integración y preflight",
+      "tags": ["testing", "tests", "smoke", "integration", "preflight"],
+      "cli_cmds": ["audit"],
+      "scripts": ["test_runner.py", "integration_tests.py", "smoke_runner.py", "preflight_engine.py", "session_preflight.py"],
+      "when_to_use": "Antes de commits, al hacer CI/CD o para validar que el framework funciona"
+    },
+
+    "search_discovery": {
+      "label": "Búsqueda y descubrimiento",
+      "description": "Buscar herramientas, código, historial y patrones en el proyecto",
+      "tags": ["search", "discovery", "history", "code-search"],
+      "cli_cmds": ["find-tool", "ask", "why"],
+      "scripts": ["tool_search.py", "code_search.py", "search_history.py", "scope_detector.py", "context_detector.py", "context_map.py", "intent_router.py"],
+      "when_to_use": "Cuando no sabes qué herramienta usar, o necesitas encontrar código específico"
+    }
+  },
+
+  "composite_tools": {
+
+    "release_guard": {
+      "label": "Release Guard — Puerta de release completa",
+      "description": "Pipeline completo antes de publicar una release: quality + security + health + validation",
+      "pipeline": ["health", "secrets", "review", "types", "hardcode", "audit commit", "audit push", "validate", "sync"],
+      "tags": ["release", "gate", "quality", "security"],
+      "trigger": "before:release",
+      "agent": "CENTINELA_SINCERIDAD",
+      "severity_threshold": "block_on_high"
+    },
+
+    "sprint_kickoff": {
+      "label": "Sprint Kickoff — Inicio de sprint completo",
+      "description": "Prepara el entorno, asigna toolboxes, verifica health y abre el sprint",
+      "pipeline": ["health", "deps", "env_check", "sprint create", "work_matrix", "toolsmith assign"],
+      "tags": ["sprint", "start", "planning"],
+      "trigger": "on:sprint_start",
+      "agent": "ORGANIZADOR_Entregables"
+    },
+
+    "sprint_close": {
+      "label": "Sprint Close — Cierre de sprint completo",
+      "description": "Cierra el sprint, genera changelog, reportes y snapshots del estado",
+      "pipeline": ["audit commit", "health report", "sprint summary", "changelog_gen", "session close", "snapshot"],
+      "tags": ["sprint", "close", "reporting"],
+      "trigger": "on:sprint_end",
+      "agent": "ORGANIZADOR_Entregables"
+    },
+
+    "deep_quality": {
+      "label": "Deep Quality — Análisis de calidad máxima",
+      "description": "Revisión exhaustiva: estática, tipos, nombres, deuda, código muerto, hardcodes y español",
+      "pipeline": ["review", "types", "naming", "dead_code", "hardcode", "spanish", "debt", "audit scan"],
+      "tags": ["quality", "deep-review", "refactor"],
+      "trigger": "before:major_refactor",
+      "agent": "ANALISTA_Contexto"
+    },
+
+    "project_snapshot": {
+      "label": "Project Snapshot — Estado completo del proyecto",
+      "description": "Captura el estado actual: git, diff, stats, summary y snapshot persistente",
+      "pipeline": ["context git", "diff", "session stats", "project state", "snapshot"],
+      "tags": ["snapshot", "state", "reporting"],
+      "trigger": "on:checkpoint",
+      "agent": "ANALISTA_Contexto"
+    },
+
+    "onboard_project": {
+      "label": "Onboard Project — Incorporar proyecto nuevo",
+      "description": "Configura BAGO para un proyecto nuevo: init, env, deps, config y validación",
+      "pipeline": ["project init", "env_setup", "deps", "config-check", "doctor", "validate", "hello"],
+      "tags": ["onboarding", "setup", "new-project"],
+      "trigger": "on:new_project",
+      "agent": "ADAPTADOR_PROYECTO"
+    },
+
+    "security_sweep": {
+      "label": "Security Sweep — Barrido de seguridad completo",
+      "description": "Pasa todos los escáneres de seguridad: secretos, riesgo, hardcodes y roles",
+      "pipeline": ["secrets", "risk", "hardcode", "audit scan"],
+      "tags": ["security", "sweep", "compliance"],
+      "trigger": "before:deploy",
+      "agent": "CENTINELA_SINCERIDAD"
+    },
+
+    "debug_focus": {
+      "label": "Debug Focus — Foco de depuración",
+      "description": "Herramientas para entender y resolver un bug: scan, review, riesgo, deuda e insights",
+      "pipeline": ["context", "audit scan", "review", "risk", "debt", "insights", "npath recall"],
+      "tags": ["debug", "bug", "investigation"],
+      "trigger": "on:bug_report",
+      "agent": "ANALISTA_Contexto"
+    },
+
+    "knowledge_sync": {
+      "label": "Knowledge Sync — Sincronizar grafo de conocimiento",
+      "description": "Actualiza el grafo npath con el estado actual: branch, commit, contexto y sesión",
+      "pipeline": ["context git", "npath branch", "npath commit", "session close", "project state"],
+      "tags": ["knowledge", "graph", "sync"],
+      "trigger": "on:session_close",
+      "agent": "MAESTRO_BAGO"
+    },
+
+    "content_batch": {
+      "label": "Content Batch — Generación de contenido en lote",
+      "description": "Regenera toda la documentación, README, COMMANDS y assets del proyecto",
+      "pipeline": ["docs", "readme_sync", "changelog_gen", "context map"],
+      "tags": ["documentation", "content", "batch"],
+      "trigger": "before:release",
+      "agent": "GENERADOR_Contenido"
+    },
+
+    "env_preflight": {
+      "label": "Env Preflight — Verificación pre-vuelo de entorno",
+      "description": "Verifica que el entorno está listo: Python, deps, config, puertos y health",
+      "pipeline": ["doctor", "deps", "env_check", "config-check", "health score"],
+      "tags": ["preflight", "env", "setup"],
+      "trigger": "before:sprint",
+      "agent": "ADAPTADOR_PROYECTO"
+    },
+
+    "monitoring_pulse": {
+      "label": "Monitoring Pulse — Pulso de monitoreo continuo",
+      "description": "Snapshot rápido de estado: health score, eficiencia, telemetría y alertas",
+      "pipeline": ["health score", "recientes", "insights"],
+      "tags": ["monitoring", "pulse", "telemetry"],
+      "trigger": "on:schedule",
+      "agent": "MAESTRO_BAGO"
+    },
+
+    "creative_pipeline": {
+      "label": "Creative Pipeline — Pipeline creativo completo",
+      "description": "Genera assets para proyectos creativos: música, imágenes, sprites",
+      "pipeline": ["music plan", "image_gen", "image-studio", "sprite-studio"],
+      "tags": ["creative", "media", "pipeline"],
+      "trigger": "on:creative_sprint",
+      "agent": "GENERADOR_Contenido"
+    }
+  },
+
+  "task_routing": {
+
+    "fix_bug": {
+      "label": "Arreglar un bug",
+      "keywords": ["bug", "fix", "error", "falla", "crash", "broken", "roto", "arreglar", "corregir"],
+      "tools": ["review", "audit scan", "types", "debt", "risk", "npath recall"],
+      "composite": "debug_focus",
+      "agent": "ANALISTA_Contexto",
+      "toolbox_group": "code_quality"
+    },
+
+    "new_feature": {
+      "label": "Nueva funcionalidad",
+      "keywords": ["feature", "funcionalidad", "nueva", "añadir", "crear", "implementar", "agregar", "add"],
+      "tools": ["scope", "context", "npath branch", "review", "types", "naming", "audit scan"],
+      "composite": null,
+      "agent": "ARQUITECTO_Soluciones",
+      "toolbox_group": "code_quality"
+    },
+
+    "refactor": {
+      "label": "Refactorizar código",
+      "keywords": ["refactor", "refactorizar", "limpiar", "reorganizar", "modularizar", "simplificar", "clean"],
+      "tools": ["review", "types", "dead_code", "naming", "hardcode", "spanish", "audit scan", "snapshot"],
+      "composite": "deep_quality",
+      "agent": "ANALISTA_Contexto",
+      "toolbox_group": "code_quality"
+    },
+
+    "security_fix": {
+      "label": "Arreglo de seguridad",
+      "keywords": ["security", "seguridad", "secreto", "secret", "vulnerabilidad", "vulnerability", "token", "password", "credential"],
+      "tools": ["secrets", "risk", "hardcode", "audit scan", "review"],
+      "composite": "security_sweep",
+      "agent": "CENTINELA_SINCERIDAD",
+      "toolbox_group": "security"
+    },
+
+    "release": {
+      "label": "Preparar release",
+      "keywords": ["release", "deploy", "publicar", "lanzar", "version", "versión", "tag", "publish"],
+      "tools": ["health", "secrets", "review", "validate", "changelog_gen", "sync", "version"],
+      "composite": "release_guard",
+      "agent": "CENTINELA_SINCERIDAD",
+      "toolbox_group": "build_release"
+    },
+
+    "sprint_start": {
+      "label": "Iniciar sprint",
+      "keywords": ["sprint", "iniciar", "start", "comenzar", "nuevo sprint", "planificar"],
+      "tools": ["sprint create", "health", "work_matrix", "goals", "flow"],
+      "composite": "sprint_kickoff",
+      "agent": "ORGANIZADOR_Entregables",
+      "toolbox_group": "sprint_management"
+    },
+
+    "sprint_end": {
+      "label": "Cerrar sprint",
+      "keywords": ["cerrar sprint", "close sprint", "terminar sprint", "sprint done", "sprint review"],
+      "tools": ["sprint summary", "health report", "changelog_gen", "session close"],
+      "composite": "sprint_close",
+      "agent": "ORGANIZADOR_Entregables",
+      "toolbox_group": "sprint_management"
+    },
+
+    "onboarding": {
+      "label": "Incorporar proyecto nuevo",
+      "keywords": ["nuevo proyecto", "new project", "onboard", "inicializar", "setup", "configurar", "pendrive", "instalar"],
+      "tools": ["project init", "doctor", "deps", "config-check", "hello", "work_matrix"],
+      "composite": "onboard_project",
+      "agent": "ADAPTADOR_PROYECTO",
+      "toolbox_group": "environment"
+    },
+
+    "research": {
+      "label": "Investigar o explorar",
+      "keywords": ["investigar", "research", "explorar", "entender", "analizar", "architecture", "arquitectura", "why", "por qué"],
+      "tools": ["context", "npath", "code_search", "why", "insights", "chronicle"],
+      "composite": null,
+      "agent": "ANALISTA_Contexto",
+      "toolbox_group": "search_discovery"
+    },
+
+    "performance": {
+      "label": "Mejorar rendimiento",
+      "keywords": ["performance", "rendimiento", "lento", "slow", "optimizar", "optimize", "eficiencia", "efficiency", "metrics"],
+      "tools": ["health efficiency", "insights", "audit scan", "code_metrics", "recientes"],
+      "composite": "monitoring_pulse",
+      "agent": "ANALISTA_Contexto",
+      "toolbox_group": "telemetry_analytics"
+    },
+
+    "documentation": {
+      "label": "Actualizar documentación",
+      "keywords": ["docs", "documentación", "readme", "commands", "changelog", "document", "escribir", "actualizar docs"],
+      "tools": ["docs", "why", "readme_sync", "changelog_gen", "context map"],
+      "composite": "content_batch",
+      "agent": "GENERADOR_Contenido",
+      "toolbox_group": "documentation"
+    },
+
+    "debug_session": {
+      "label": "Sesión de debugging",
+      "keywords": ["debug", "depurar", "trazar", "trace", "log", "stderr", "exception", "traceback"],
+      "tools": ["audit scan", "review", "npath recall", "risk", "insights", "context git"],
+      "composite": "debug_focus",
+      "agent": "ANALISTA_Contexto",
+      "toolbox_group": "code_quality"
+    },
+
+    "knowledge_update": {
+      "label": "Actualizar conocimiento del sistema",
+      "keywords": ["npath", "grafo", "graph", "knowledge", "aprender", "remember", "recordar", "node", "branch"],
+      "tools": ["npath branch", "npath commit", "npath map", "context", "session stats"],
+      "composite": "knowledge_sync",
+      "agent": "MAESTRO_BAGO",
+      "toolbox_group": "knowledge_graph"
+    },
+
+    "creative_work": {
+      "label": "Trabajo creativo",
+      "keywords": ["música", "music", "imagen", "image", "sprite", "ableton", "creative", "asset", "pixel", "sound"],
+      "tools": ["music", "image_gen", "image-studio", "sprite-studio", "ableton-template"],
+      "composite": "creative_pipeline",
+      "agent": "GENERADOR_Contenido",
+      "toolbox_group": "creative_media"
+    },
+
+    "monitoring": {
+      "label": "Monitoreo del sistema",
+      "keywords": ["monitoreo", "monitor", "estado", "status", "salud", "health", "pulse", "alertas"],
+      "tools": ["health score", "recientes", "insights", "bago_telemetry"],
+      "composite": "monitoring_pulse",
+      "agent": "MAESTRO_BAGO",
+      "toolbox_group": "telemetry_analytics"
+    }
+  },
+
+  "agent_defaults": {
+    "MAESTRO_BAGO": {
+      "always_available": ["session", "health", "flow", "work_matrix", "neural", "npath", "status"],
+      "on_sprint_start": ["sprint_kickoff"],
+      "on_sprint_end": ["sprint_close"],
+      "on_blocked": ["toolsmith assign"],
+      "toolbox_group": ["session_lifecycle", "sprint_management", "agent_routing", "knowledge_graph"]
+    },
+    "ANALISTA_Contexto": {
+      "always_available": ["review", "audit", "scope", "context", "health", "npath"],
+      "on_sprint_start": ["env_preflight"],
+      "on_blocked": ["toolsmith assign", "find-tool"],
+      "toolbox_group": ["code_quality", "audit_suite", "repository", "search_discovery"]
+    },
+    "ARQUITECTO_Soluciones": {
+      "always_available": ["route", "context", "scope", "npath", "lsp", "flow"],
+      "on_sprint_start": ["env_preflight"],
+      "on_blocked": ["toolsmith create"],
+      "toolbox_group": ["knowledge_graph", "agent_routing", "repository", "build_release"]
+    },
+    "CENTINELA_SINCERIDAD": {
+      "always_available": ["secrets", "risk", "audit", "review", "hardcode"],
+      "on_sprint_start": ["security_sweep"],
+      "on_blocked": ["toolsmith assign"],
+      "toolbox_group": ["security", "audit_suite", "code_quality"]
+    },
+    "GENERADOR_Contenido": {
+      "always_available": ["context", "docs", "why", "music", "image_gen"],
+      "on_sprint_start": ["content_batch"],
+      "on_blocked": ["toolsmith assign"],
+      "toolbox_group": ["documentation", "creative_media", "telemetry_analytics"]
+    },
+    "ORGANIZADOR_Entregables": {
+      "always_available": ["sprint", "goals", "flow", "work_matrix", "task", "done"],
+      "on_sprint_start": ["sprint_kickoff"],
+      "on_sprint_end": ["sprint_close"],
+      "on_blocked": ["toolsmith assign"],
+      "toolbox_group": ["sprint_management", "session_lifecycle", "telemetry_analytics"]
+    },
+    "ADAPTADOR_PROYECTO": {
+      "always_available": ["validate", "context", "scope", "project", "env_check", "deps"],
+      "on_sprint_start": ["onboard_project"],
+      "on_blocked": ["toolsmith assign", "doctor"],
+      "toolbox_group": ["environment", "repository", "framework_meta"]
+    },
+    "INICIADOR_MAESTRO": {
+      "always_available": ["ideas", "db", "status", "hello", "next", "start"],
+      "on_sprint_start": ["sprint_kickoff"],
+      "on_blocked": ["toolsmith assign"],
+      "toolbox_group": ["session_lifecycle", "sprint_management"]
+    }
+  }
+}

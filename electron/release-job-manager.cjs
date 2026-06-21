@@ -83,6 +83,71 @@ function readVersion(root) {
   return '';
 }
 
+function normalizeVersionTag(value) {
+  return String(value || '').trim().replace(/^v/i, '');
+}
+
+function parseVersionTag(value) {
+  const text = normalizeVersionTag(value);
+  const match = text.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+.*)?$/);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] ? match[4].split('.') : []
+  };
+}
+
+function compareVersionTags(left, right) {
+  const a = parseVersionTag(left);
+  const b = parseVersionTag(right);
+  if (!a || !b) return 0;
+  for (const key of ['major', 'minor', 'patch']) {
+    if (a[key] !== b[key]) return a[key] - b[key];
+  }
+  if (!a.prerelease.length && !b.prerelease.length) return 0;
+  if (!a.prerelease.length) return 1;
+  if (!b.prerelease.length) return -1;
+  const length = Math.max(a.prerelease.length, b.prerelease.length);
+  for (let i = 0; i < length; i += 1) {
+    if (i >= a.prerelease.length) return -1;
+    if (i >= b.prerelease.length) return 1;
+    const leftPart = a.prerelease[i];
+    const rightPart = b.prerelease[i];
+    const leftNum = /^\d+$/.test(leftPart);
+    const rightNum = /^\d+$/.test(rightPart);
+    if (leftNum && rightNum) {
+      const diff = Number(leftPart) - Number(rightPart);
+      if (diff) return diff;
+      continue;
+    }
+    if (leftNum) return -1;
+    if (rightNum) return 1;
+    const diff = leftPart.localeCompare(rightPart);
+    if (diff) return diff;
+  }
+  return 0;
+}
+
+function currentManagerVersion() {
+  const root = path.join(__dirname, '..');
+  const releaseVersion = normalizeVersionTag(readVersion(root));
+  if (releaseVersion) return releaseVersion;
+  try {
+    return normalizeVersionTag(require(path.join(root, 'package.json')).version);
+  } catch {
+    return '';
+  }
+}
+
+function isFutureReleaseTag(tagName, ceiling = currentManagerVersion()) {
+  const tag = normalizeVersionTag(tagName);
+  const current = normalizeVersionTag(ceiling);
+  if (!tag || !current) return false;
+  return compareVersionTags(tag, current) > 0;
+}
+
 function existingAncestor(target) {
   let current = path.resolve(target);
   while (!fs.existsSync(current)) {
@@ -218,6 +283,23 @@ class ReleaseJobManager extends EventEmitter {
     fs.renameSync(tmp, file);
   }
 
+  _moveToArchive(source, destination) {
+    if (!source || !fs.existsSync(source)) return false;
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    try {
+      fs.renameSync(source, destination);
+    } catch {
+      if (fs.statSync(source).isDirectory()) {
+        fs.cpSync(source, destination, { recursive: true });
+        fs.rmSync(source, { recursive: true, force: true });
+      } else {
+        fs.copyFileSync(source, destination);
+        fs.rmSync(source, { force: true });
+      }
+    }
+    return true;
+  }
+
   _emit(job) {
     this._persist(job);
     const payload = this._public(job);
@@ -306,6 +388,9 @@ class ReleaseJobManager extends EventEmitter {
       if (!contract.checksum) blockPrepare('La release no publica checksum .sha256.');
       if (payload.require_signature && !contract.signature) blockPrepare('La política exige firma y la release no publica .sig/.asc.');
       if (!payload.require_signature && !contract.signature) warnings.push('Firma detached no publicada; SHA256 sigue siendo obligatorio.');
+      if (release.tag_name && isFutureReleaseTag(release.tag_name)) {
+        blockPrepare(`La release ${release.tag_name} es futura respecto a ${currentManagerVersion()} y este manager solo instala versiones anteriores o iguales.`);
+      }
     }
     if (!target || this._unsafeTarget(target)) blockPrepare(`Destino inseguro: ${target || '(vacio)'}`);
 
@@ -421,6 +506,18 @@ class ReleaseJobManager extends EventEmitter {
   resume(id) {
     const job = this._get(id);
     if (!['cancelled', 'failed'].includes(job.state)) throw new Error(`El job ${id} no se puede reanudar desde ${job.state}.`);
+    const preflight = this.preflight({
+      release: job.release,
+      target: job.target,
+      action: job.action,
+      require_signature: job.require_signature
+    });
+    job.preflight = preflight;
+    if (!preflight.ok) {
+      this._update(job, { state: 'failed', error: preflight.blockers.join(' ') });
+      this._log(job, `Reanudación bloqueada por preflight: ${job.error}`, 'warn');
+      throw new Error(job.error);
+    }
     job.cancel_requested = false;
     job.error = '';
     this._update(job, { state: 'queued', progress: { ...job.progress, phase: 'queued' } });
@@ -438,6 +535,31 @@ class ReleaseJobManager extends EventEmitter {
     if (runtime.child) this._killTree(runtime.child.pid);
     this._log(job, 'Cancelación solicitada.', 'warn');
     return this._public(job);
+  }
+
+  deleteJob(id) {
+    const job = this._get(id);
+    if (!TERMINAL_STATES.has(job.state)) {
+      throw new Error(`El job ${id} no se puede eliminar mientras está en ${job.state}. Cancélalo primero.`);
+    }
+    const archiveDir = path.join(this.rootDir, 'archive', 'deleted-jobs', safeName(job.id));
+    const archivedAt = nowIso();
+    const archiveJob = {
+      ...this._public(job),
+      state: 'deleted',
+      deleted_at: archivedAt,
+      archived_at: archivedAt
+    };
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, 'job.json'), JSON.stringify(archiveJob, null, 2) + '\n', 'utf8');
+    this._moveToArchive(this._jobFile(job.id), path.join(archiveDir, 'job.active.json'));
+    this._moveToArchive(job.log_file, path.join(archiveDir, 'job.log.jsonl'));
+    this.jobs.delete(job.id);
+    this.runtime.delete(job.id);
+    const stagePath = path.join(this.stagingDir, safeName(job.id));
+    this._moveToArchive(stagePath, path.join(archiveDir, 'staging'));
+    this.emit('changed', { id: job.id, deleted: true, archived_at: archivedAt, archive_dir: archiveDir, state: 'deleted' });
+    return { ok: true, id: job.id, deleted: true, archived_at: archivedAt, archive_dir: archiveDir };
   }
 
   async install(id) {

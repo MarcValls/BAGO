@@ -1,0 +1,230 @@
+{
+  "version": "1.0",
+  "generated_from": "workflows/W0-W10.md",
+  "description": "Grafo de transiciones entre workflows BAGO. Derivado de los metadatos canónicos de cada W*.md.",
+  "nodes": {
+    "w0_free_session": {
+      "id": "w0_free_session",
+      "file": "W0_FREE_SESSION.md",
+      "label": "W0 · Sesión Libre",
+      "purpose": "Control para sesiones .bago/off — solo ESCENARIO-002 (competición on/off). No usar en producción.",
+      "trigger": "modo bago/off activo",
+      "produces": [],
+      "restricted": true
+    },
+    "w1_cold_start": {
+      "id": "w1_cold_start",
+      "file": "W1_COLD_START.md",
+      "label": "W1 · Cold Start",
+      "purpose": "Convertir un repositorio desconocido en un contexto operativo utilizable.",
+      "trigger": "repo desconocido o sin contexto operativo",
+      "produces": ["contexto operativo", "objetivo inicial", "siguiente paso"]
+    },
+    "w2_implementacion_controlada": {
+      "id": "w2_implementacion_controlada",
+      "file": "W2_IMPLEMENTACION_CONTROLADA.md",
+      "label": "W2 · Implementación Controlada",
+      "purpose": "Implementar una tarea técnica sin dispersión ni pérdida de trazabilidad.",
+      "trigger": "tarea técnica concreta y acotada con criterio de done claro",
+      "produces": ["artefactos implementados", "sesión cerrada", "estado actualizado"]
+    },
+    "w3_refactor_sensible": {
+      "id": "w3_refactor_sensible",
+      "file": "W3_REFACTOR_SENSIBLE.md",
+      "label": "W3 · Refactor Sensible",
+      "purpose": "Refactorizar sin romper contratos ni introducir deriva.",
+      "trigger": "deuda técnica identificada con contratos afectados conocidos",
+      "produces": ["código refactorizado", "contratos verificados", "cambio registrado"]
+    },
+    "w4_debug_multicausa": {
+      "id": "w4_debug_multicausa",
+      "file": "W4_DEBUG_MULTICAUSA.md",
+      "label": "W4 · Debug Multicausa",
+      "purpose": "Investigar y resolver fallos donde hay varias causas plausibles.",
+      "trigger": "fallo con múltiples hipótesis activas",
+      "produces": ["causa raíz identificada", "corrección aplicada", "hallazgos registrados"]
+    },
+    "w5_cierre_y_continuidad": {
+      "id": "w5_cierre_y_continuidad",
+      "file": "W5_CIERRE_Y_CONTINUIDAD.md",
+      "label": "W5 · Cierre y Continuidad",
+      "purpose": "Dejar la sesión retocable y retomable.",
+      "trigger": "objetivo de sesión cumplido o tiempo agotado",
+      "produces": ["sesión cerrada", "siguiente paso claro", "estado persistido"]
+    },
+    "w6_ideacion_aplicada": {
+      "id": "w6_ideacion_aplicada",
+      "file": "W6_IDEACION_APLICADA.md",
+      "label": "W6 · Ideación Aplicada",
+      "purpose": "Analizar el repo y proponer ideas contextualizadas, priorizadas por implementabilidad.",
+      "trigger": "dirección de evolución no clara o solicitud explícita de ideas",
+      "produces": ["lista de ideas priorizadas", "idea seleccionada para W2"]
+    },
+    "w7_foco_sesion": {
+      "id": "w7_foco_sesion",
+      "file": "W7_FOCO_SESION.md",
+      "label": "W7 · Foco de Sesión",
+      "purpose": "Arrancar una sesión con objetivo único, máximo 2 roles y artefactos pre-declarados.",
+      "trigger": "objetivo concreto y acotado; sesión productiva normal",
+      "produces": ["≥3 artefactos pre-declarados", "objetivo cumplido"]
+    },
+    "w8_exploracion": {
+      "id": "w8_exploracion",
+      "file": "W8_EXPLORACION.md",
+      "label": "W8 · Exploración",
+      "purpose": "Sesión exploratoria ligera sin objetivo concreto previo.",
+      "trigger": "no sabes qué vas a cambiar pero quieres hacer algo útil",
+      "produces": ["≥1 artefacto", "≥1 decisión", "posible handoff a W7 o W9"]
+    },
+    "w9_cosecha": {
+      "id": "w9_cosecha",
+      "file": "W9_COSECHA.md",
+      "label": "W9 · Cosecha Contextual",
+      "purpose": "Capturar valor generado durante exploración libre antes de que se pierda.",
+      "trigger": "post-exploración libre o trabajo sin estructura formalizado",
+      "produces": ["sesión harvest", "CHG generado", "EVD generado"]
+    },
+    "w10_auditoria_sinceridad": {
+      "id": "w10_auditoria_sinceridad",
+      "file": "W10_AUDITORIA_SINCERIDAD.md",
+      "label": "W10 · Auditoría de Sinceridad",
+      "purpose": "Detectar patrones de documentación que enmascaran la verdad operativa.",
+      "trigger": "cierre de escenario, auditoría periódica o sospecha de deriva narrativa",
+      "produces": ["informe de sinceridad", "lista de afirmaciones no verificadas"]
+    }
+  },
+  "edges": [
+    {
+      "from": "w1_cold_start",
+      "to": "w7_foco_sesion",
+      "condition": "contexto operativo establecido y objetivo concreto disponible",
+      "label": "cold start → trabajo productivo"
+    },
+    {
+      "from": "w1_cold_start",
+      "to": "w8_exploracion",
+      "condition": "contexto establecido pero sin tarea concreta aún",
+      "label": "cold start → exploración"
+    },
+    {
+      "from": "w6_ideacion_aplicada",
+      "to": "w2_implementacion_controlada",
+      "condition": "idea seleccionada lista para implementar",
+      "label": "idea → implementación"
+    },
+    {
+      "from": "w6_ideacion_aplicada",
+      "to": "w7_foco_sesion",
+      "condition": "idea seleccionada con objetivo claro",
+      "label": "idea → sesión foco"
+    },
+    {
+      "from": "w7_foco_sesion",
+      "to": "w5_cierre_y_continuidad",
+      "condition": "objetivo de sesión cumplido",
+      "label": "foco completado → cierre"
+    },
+    {
+      "from": "w7_foco_sesion",
+      "to": "w4_debug_multicausa",
+      "condition": "fallo inesperado durante implementación con múltiples hipótesis",
+      "label": "foco → debug"
+    },
+    {
+      "from": "w7_foco_sesion",
+      "to": "w3_refactor_sensible",
+      "condition": "implementación revela deuda técnica acotada",
+      "label": "foco → refactor"
+    },
+    {
+      "from": "w8_exploracion",
+      "to": "w9_cosecha",
+      "condition": "exploración generó valor no formalizado",
+      "label": "exploración → cosecha"
+    },
+    {
+      "from": "w8_exploracion",
+      "to": "w7_foco_sesion",
+      "condition": "exploración produjo objetivo concreto",
+      "label": "exploración → foco"
+    },
+    {
+      "from": "w9_cosecha",
+      "to": "w2_implementacion_controlada",
+      "condition": "cosecha generó CHG con tarea accionable",
+      "label": "cosecha → implementación"
+    },
+    {
+      "from": "w9_cosecha",
+      "to": "w7_foco_sesion",
+      "condition": "cosecha generó objetivo claro para sesión",
+      "label": "cosecha → sesión foco"
+    },
+    {
+      "from": "w2_implementacion_controlada",
+      "to": "w5_cierre_y_continuidad",
+      "condition": "tarea implementada y artefactos entregados",
+      "label": "implementación → cierre"
+    },
+    {
+      "from": "w2_implementacion_controlada",
+      "to": "w4_debug_multicausa",
+      "condition": "fallo durante implementación",
+      "label": "implementación → debug"
+    },
+    {
+      "from": "w2_implementacion_controlada",
+      "to": "w3_refactor_sensible",
+      "condition": "implementación revela necesidad de refactor",
+      "label": "implementación → refactor"
+    },
+    {
+      "from": "w3_refactor_sensible",
+      "to": "w5_cierre_y_continuidad",
+      "condition": "refactor completo y contratos verificados",
+      "label": "refactor → cierre"
+    },
+    {
+      "from": "w3_refactor_sensible",
+      "to": "w4_debug_multicausa",
+      "condition": "refactor introduce regresión",
+      "label": "refactor → debug"
+    },
+    {
+      "from": "w4_debug_multicausa",
+      "to": "w2_implementacion_controlada",
+      "condition": "causa raíz identificada, corrección lista para implementar",
+      "label": "debug → implementación"
+    },
+    {
+      "from": "w4_debug_multicausa",
+      "to": "w5_cierre_y_continuidad",
+      "condition": "bug resuelto sin nueva tarea pendiente",
+      "label": "debug → cierre"
+    },
+    {
+      "from": "w5_cierre_y_continuidad",
+      "to": "w7_foco_sesion",
+      "condition": "siguiente paso claro definido, nueva sesión necesaria",
+      "label": "cierre → nueva sesión foco"
+    },
+    {
+      "from": "w5_cierre_y_continuidad",
+      "to": "w6_ideacion_aplicada",
+      "condition": "sesión cerrada sin siguiente tarea clara",
+      "label": "cierre → ideación"
+    },
+    {
+      "from": "w10_auditoria_sinceridad",
+      "to": "w2_implementacion_controlada",
+      "condition": "auditoría revela afirmaciones falsas que requieren corrección técnica",
+      "label": "auditoría → corrección"
+    },
+    {
+      "from": "w10_auditoria_sinceridad",
+      "to": "w5_cierre_y_continuidad",
+      "condition": "auditoría sin hallazgos críticos",
+      "label": "auditoría → cierre"
+    }
+  ]
+}

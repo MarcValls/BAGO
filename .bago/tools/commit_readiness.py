@@ -304,7 +304,7 @@ def run_self_tests() -> int:
         sample.write_text("def bad(:\n    pass\n", encoding="utf-8")
         record("commit:syntax", bool(check_syntax(sample, root)), "syntax flagged")
 
-        sample.write_text('password = "supersecret123"\n', encoding="utf-8")
+        sample.write_text('password = "supersecret123"\n', encoding="utf-8")  # nosec: test fixture
         record("commit:secret", bool(check_secrets(sample, root)), "secret flagged")
 
         sample.write_text("<<<<<<< HEAD\nfoo = 1\n=======\nfoo = 2\n>>>>>>> branch\n", encoding="utf-8")

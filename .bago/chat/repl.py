@@ -16,12 +16,22 @@ Loop principal de chat multi-provider.
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import shutil
 import sys
 import time
 from pathlib import Path
 from typing import Any
+
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.formatted_text import ANSI
+    from prompt_toolkit.history import FileHistory
+except Exception:
+    PromptSession = None  # type: ignore[assignment]
+    ANSI = None  # type: ignore[assignment]
+    FileHistory = None  # type: ignore[assignment]
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -33,13 +43,19 @@ for _stream in (sys.stdout, sys.stderr):
 
 # Ensure core path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
+from version import CURRENT as BAGO_VERSION
+from state_paths import resolve_state_root
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import renderer as R
 from renderer import Color
 from commands import MENU_SECTIONS, execute
+from repl_menu import BagoReplMenuMixin
+from repl_inventory import print_workspace_inventory
 from intent_engine import classify_command_intent  # noqa: E402
 
 # ─── Natural-language aliases que disparan comandos (fallback hardcoded) ──────
@@ -135,6 +151,37 @@ def _wrap_transcript(text: str) -> str:
         f"{text}\n"
         "─────────────────────────────────────────────────────────────"
     )
+
+
+def _load_tool_module(module_name: str, file_name: str):
+    tool_path = Path(__file__).resolve().parents[2] / ".bago" / "tools" / file_name
+    spec = importlib.util.spec_from_file_location(module_name, tool_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"No se pudo cargar la herramienta: {tool_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+    return mod
+
+
+def _looks_like_directory_path(text: str) -> Path | None:
+    raw = text.strip().strip('"').strip("'")
+    if not raw:
+        return None
+    if not any(sep in raw for sep in ("\\", "/", ":")) and not raw.startswith("."):
+        return None
+    try:
+        candidate = Path(raw).expanduser()
+        resolved = candidate.resolve()
+    except Exception:
+        return None
+    if resolved.exists() and resolved.is_dir():
+        return resolved
+    return None
 
 
 # ─── Keybinds ────────────────────────────────────────────────────────────────
@@ -311,8 +358,8 @@ _CONFIG_EDITABLE: list[tuple[str, str, str]] = [
 ]
 
 
-class BagoREPL:
-    """REPL principal de BAGO 4.1.5."""
+class BagoREPL(BagoReplMenuMixin):
+    """REPL principal de BAGO."""
 
     def __init__(
         self,
@@ -320,13 +367,16 @@ class BagoREPL:
         model: str = "llama3.2:3b",
         system_prompt: str = "",
         base_path: str | None = None,
+        state_root: str | None = None,
         active_bridges: list[str] | None = None,
     ):
         self.base_path = Path(base_path or os.getcwd())
+        self.state_root = resolve_state_root(state_root)
         self.mgr = SessionManager(
             provider=provider,
             model=model,
             base_path=str(self.base_path),
+            state_root=str(self.state_root),
             system_prompt=system_prompt,
             active_bridges=active_bridges,
         )
@@ -336,6 +386,8 @@ class BagoREPL:
         self.running = False
         self._multiline_buffer: list[str] = []
         self._in_multiline = False
+        self._chat_session = None
+        self._chat_history_path = self.state_root / ".bago_prompt_history"
 
     def _print_init_warnings(self) -> None:
         """Muestra advertencias si el modelo fue auto-corrigido."""
@@ -478,16 +530,54 @@ class BagoREPL:
     def _print_status(self) -> None:
         s = self.mgr.status()
         line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])
-        print(R.dim("─" * 60))
+        print(R.dim("═" * 60))
         print(line)
+        print(R.dim("═" * 60))
+
+    def _print_chat_prompt(self) -> None:
+        """Imprime el prompt de entrada entre líneas finas."""
         print(R.dim("─" * 60))
+        print(R.accent("bago") + R.bright_black(" ❯ "), end="", flush=True)
 
     def _print_banner(self) -> None:
         print(R.banner())
         print()
-        print(R.info("Bienvenido a BAGO 4.1.5. Escribe / para la paleta de comandos o pulsa Enter (Ctrl+M) para el menu."))
+        print(R.info(f"Bienvenido a BAGO {BAGO_VERSION}. Escribe / para comandos."))
         print(R.dim("El contexto de sesión sobrevive al cambio de provider."))
         print()
+
+    def _use_prompt_toolkit(self) -> bool:
+        if os.environ.get("BAGO_NO_PROMPT_TOOLKIT", "").strip().lower() in {"1", "true", "yes", "on"}:
+            return False
+        return bool(PromptSession) and sys.stdin.isatty() and sys.stdout.isatty()
+
+    def _read_main_input(self, prompt: str) -> str:
+        if self._use_prompt_toolkit():
+            try:
+                if self._chat_session is None:
+                    self._chat_history_path.parent.mkdir(parents=True, exist_ok=True)
+                    if FileHistory is not None:
+                        history = FileHistory(str(self._chat_history_path))
+                    else:
+                        history = None
+                    self._chat_session = PromptSession(history=history, enable_history_search=True)
+                if ANSI is not None:
+                    return self._chat_session.prompt(ANSI(prompt))
+                return self._chat_session.prompt(prompt)
+            except (EOFError, KeyboardInterrupt):
+                raise
+            except Exception:
+                self._chat_session = None
+        return input(prompt)
+
+    def _handle_pasted_block(self, text: str) -> bool:
+        pasted = text.rstrip("\r\n")
+        if not pasted.strip():
+            return True
+        R.print_message("user", pasted)
+        self._handle_chat(pasted)
+        self._print_status()
+        return True
 
     # ─── Timeout input ──────────────────────────────────────────────────────
     def _timed_input(self, prompt: str, timeout: int = 60) -> str | None:
@@ -563,207 +653,6 @@ class BagoREPL:
         finally:
             _restore_windows_console()
 
-    def _command_catalog(self) -> list[dict[str, Any]]:
-        """Lista plana de todos los comandos con su sección de origen."""
-        catalog: list[dict[str, Any]] = []
-        for section in MENU_SECTIONS:
-            for item in section["items"]:
-                catalog.append({**item, "section": section["title"]})
-        return catalog
-
-    def _show_command_palette(self) -> bool:
-        """Paleta navegable con TODOS los comandos y subcomandos (se abre al escribir '/')."""
-        if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
-            print(R.warn("Paleta no disponible en modo no interactivo. Usa /help."))
-            return True
-        catalog = self._command_catalog()
-        labels = []
-        for it in catalog:
-            args = f" {it['args_prompt']}" if it.get("args_prompt") else ""
-            labels.append(f"{it['command']}{args}  —  {it['description']}")
-        idx = self._navigate("Comandos de BAGO  ·  escribe / para abrir", labels)
-        if idx is None:
-            print(R.dim("Paleta cerrada."))
-            return True
-        return self._run_menu_item(catalog[idx])
-
-    def _show_menu(self) -> bool:
-        """Menu interactivo por secciones (se abre con /menu o Ctrl+M)."""
-        if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
-            print(R.warn("Menu no disponible en modo no interactivo. Usa /help."))
-            return True
-        while True:
-            labels = [
-                f"{section['title']}  —  {section['description']}"
-                for section in MENU_SECTIONS
-            ]
-            idx = self._navigate("Menu de funciones", labels)
-            if idx is None:
-                print(R.dim("Menu cerrado."))
-                return True
-            result = self._show_menu_section(MENU_SECTIONS[idx])
-            if result is None:
-                continue
-            return result
-
-    def _show_menu_section(self, section: dict[str, Any]) -> bool | None:
-        labels = []
-        for item in section["items"]:
-            args = f" {item['args_prompt']}" if item.get("args_prompt") else ""
-            labels.append(f"{item['command']}{args}  —  {item['description']}")
-        idx = self._navigate(section["title"], labels)
-        if idx is None:
-            return None
-        return self._run_menu_item(section["items"][idx])
-
-    def _run_menu_item(self, item: dict[str, Any]) -> bool:
-        command_line = item["command"]
-        wizard = item.get("wizard")
-        if wizard:
-            return self._run_wizard(wizard)
-        if item.get("confirm"):
-            try:
-                confirm = input(R.warn(f"Confirma {command_line} (s/N): ")).strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                return True
-            if confirm not in ("s", "si", "y", "yes"):
-                print(R.dim("Operacion cancelada."))
-                return True
-
-        if item.get("args_prompt"):
-            try:
-                tail = input(R.dim(f"{command_line} {item['args_prompt']}: ")).strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                return True
-            if not tail:
-                print(R.dim("Operacion cancelada."))
-                return True
-            command_line = f"{command_line} {tail}"
-
-        return self._handle_command(command_line)
-
-    def _run_wizard(self, name: str) -> bool:
-        """Despacha asistentes guiados navegables por nombre."""
-        if name == "credentials":
-            return self._credential_wizard()
-        if name == "switch":
-            return self._switch_wizard()
-        if name == "agent":
-            return self._agent_wizard()
-        if name == "load":
-            return self._load_wizard()
-        if name == "config":
-            return self._config_wizard()
-        if name == "feedback":
-            return self._feedback_wizard()
-        if name == "tools":
-            return self._tools_wizard()
-        if name == "memory-delete":
-            return self._memory_delete_wizard()
-        print(R.error(f"Asistente desconocido: {name}"))
-        return True
-
-    def _wizard_tty_ok(self, manual_hint: str) -> bool:
-        """Verifica terminal interactivo; si no, informa el equivalente manual."""
-        if sys.stdin.isatty() and sys.stdout.isatty():
-            return True
-        print(R.warn(f"El asistente requiere un terminal interactivo. Usa: {manual_hint}"))
-        return False
-
-    def _switch_wizard(self) -> bool:
-        """Asistente guiado para cambiar de provider/modelo sin teclear nombres."""
-        if not self._wizard_tty_ok("/switch <provider> [modelo]"):
-            return True
-        try:
-            providers = self.mgr.available_providers()
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar los providers: {exc}"))
-            return True
-        if not providers:
-            print(R.warn("No hay providers registrados."))
-            return True
-        plabels = []
-        for p in providers:
-            estado = "configurado" if p.get("configured") else "sin configurar"
-            nmod = len(p.get("models") or [])
-            plabels.append(f"{p['name']}  —  {estado} · {nmod} modelos")
-        pidx = self._navigate("Cambiar provider · elige uno", plabels)
-        if pidx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        provider = providers[pidx]["name"]
-
-        try:
-            catalog = self.mgr.list_model_catalog(provider)
-        except Exception:
-            catalog = []
-        model = None
-        if catalog:
-            mlabels = ["(auto / mantener por defecto)"] + [str(item["id"]) for item in catalog]
-            midx = self._navigate(f"{provider} · elige modelo", mlabels)
-            if midx is None:
-                print(R.dim("Asistente cerrado."))
-                return True
-            if midx > 0:
-                model = catalog[midx - 1]["id"]
-
-        command_line = f"/switch {provider}" + (f" {model}" if model else "")
-        return self._handle_command(command_line)
-
-    def _agent_wizard(self) -> bool:
-        """Asistente guiado para activar un agente especializado."""
-        if not self._wizard_tty_ok("/agent <nombre>"):
-            return True
-        try:
-            agents = self.mgr.agent_gateway.list_agents()
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar los agentes: {exc}"))
-            return True
-        if not agents:
-            print(R.warn("No hay agentes registrados."))
-            return True
-        try:
-            active = self.mgr.agent_gateway.active.name
-        except Exception:
-            active = ""
-        labels = []
-        for a in agents:
-            mark = "●" if a.name == active else "○"
-            labels.append(f"{mark} {a.name}  —  {a.description}")
-        idx = self._navigate("Activar agente · elige uno", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/agent {agents[idx].name}")
-
-    def _load_wizard(self) -> bool:
-        """Asistente guiado para cargar una sesion guardada (no hay que recordar el id)."""
-        if not self._wizard_tty_ok("/load <session_id>"):
-            return True
-        try:
-            sessions = type(self.mgr.store).list_sessions(self.mgr.store.base_dir)
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar las sesiones guardadas: {exc}"))
-            return True
-        if not sessions:
-            print(R.warn("No hay sesiones guardadas. Usa /save para crear una."))
-            return True
-        sessions = sorted(sessions, key=lambda s: s.get("created_at", ""), reverse=True)
-        labels = []
-        for s in sessions:
-            sid = s.get("sid", "?")
-            when = s.get("created_at", "") or "sin fecha"
-            prov = s.get("last_provider", "") or "?"
-            mod = s.get("last_model", "") or "?"
-            labels.append(f"{sid[:12]}  ·  {when}  ·  {prov}/{mod}")
-        idx = self._navigate("Cargar sesion · elige una", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/load {sessions[idx]['sid']}")
-
     def _config_wizard(self) -> bool:
         """Asistente guiado para cambiar un ajuste de configuracion."""
         if not self._wizard_tty_ok("/config set <clave> <valor>"):
@@ -799,127 +688,6 @@ class BagoREPL:
                 return True
         return self._handle_command(f"/config set {key} {value}")
 
-    def _feedback_wizard(self) -> bool:
-        """Asistente guiado para registrar feedback de la ultima respuesta."""
-        if not self._wizard_tty_ok("/feedback <rating>"):
-            return True
-        opts = ["Positivo (+1)", "Neutro (0)", "Negativo (-1)"]
-        vals = ["1", "0", "-1"]
-        idx = self._navigate("Feedback de la ultima respuesta", opts)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/feedback {vals[idx]}")
-
-    def _tools_wizard(self) -> bool:
-        """Asistente guiado para activar/desactivar las herramientas del modelo."""
-        if not self._wizard_tty_ok("/tools [enable|disable]"):
-            return True
-        cur = bool(self.mgr.config.get("features.tool_calling", False))
-        idx = self._navigate(
-            f"Herramientas del modelo (actual: {'activadas' if cur else 'desactivadas'})",
-            ["Activar herramientas", "Desactivar herramientas", "Listar herramientas"],
-        )
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(["/tools enable", "/tools disable", "/tools list"][idx])
-
-    def _memory_delete_wizard(self) -> bool:
-        """Asistente guiado para eliminar un recuerdo sin recordar su id."""
-        if not self._wizard_tty_ok("/memory delete <id>"):
-            return True
-        try:
-            recent = self.mgr.knowledge.list_recent(limit=20)
-        except Exception as exc:
-            print(R.error(f"No se pudieron listar los recuerdos: {exc}"))
-            return True
-        if not recent:
-            print(R.warn("No hay recuerdos almacenados."))
-            return True
-        labels = []
-        for r in recent:
-            when = str(r.get("created_at", ""))[:19]
-            content = str(r.get("content", "")).replace("\n", " ")[:50]
-            labels.append(f"{r.get('id', '?')}  ·  {when}  ·  {content}")
-        idx = self._navigate("Eliminar recuerdo · elige uno", labels)
-        if idx is None:
-            print(R.dim("Asistente cerrado."))
-            return True
-        return self._handle_command(f"/memory delete {recent[idx]['id']}")
-
-    def _credential_wizard(self) -> bool:
-        """Asistente guiado para registrar/actualizar una credencial sin escribir comandos.
-
-        Flujo navegable: elegir provider -> elegir dato (key) -> escribir valor.
-        Accesible desde el menu, la paleta '/' o escribiendo '/credentials set', '/login' o '/cred'.
-        """
-        try:
-            from credential_manager import CREDENTIAL_SCHEMA
-        except Exception as exc:
-            print(R.error(f"No se pudo cargar el esquema de credenciales: {exc}"))
-            return True
-
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            print(R.warn(
-                "El asistente de credenciales requiere un terminal interactivo. "
-                "Usa: /credentials set <provider> <key> <valor>"
-            ))
-            return True
-
-        creds = self.mgr.credentials
-
-        providers = list(CREDENTIAL_SCHEMA.keys())
-        plabels = []
-        for p in providers:
-            estado = "configurado" if creds.is_configured(p) else "sin configurar"
-            plabels.append(f"{p}  —  {estado}")
-        pidx = self._navigate("Registrar credencial · elige el provider", plabels)
-        if pidx is None:
-            print(R.dim("Asistente de credenciales cerrado."))
-            return True
-        provider = providers[pidx]
-
-        schema = CREDENTIAL_SCHEMA[provider]
-        keys = list(schema.keys())
-        stored = creds.list_for_provider(provider)
-        klabels = []
-        for k in keys:
-            mark = "●" if stored.get(k) else "○"
-            klabels.append(f"{mark} {k}  —  {schema[k]}")
-        kidx = self._navigate(f"{provider} · elige el dato a registrar", klabels)
-        if kidx is None:
-            print(R.dim("Asistente de credenciales cerrado."))
-            return True
-        key = keys[kidx]
-
-        print(R.dim(f"  {schema[key]}"))
-        if stored.get(key):
-            actual = stored[key]
-            masked = actual[:4] + "***" if len(actual) > 4 else "****"
-            print(R.dim(f"  Valor actual: {masked} (se sobrescribira)"))
-        value = self._timed_input(R.accent(f"  {provider}/{key} = "), timeout=60)
-        if value is None:
-            return True
-        value = value.strip()
-        if not value:
-            print(R.dim("Valor vacio. Operacion cancelada."))
-            return True
-
-        try:
-            creds.set(provider, key, value)
-        except Exception as exc:
-            # Culpa tecnica: reportar responsabilidad y causa con claridad.
-            print(R.error(
-                f"No se pudo guardar la credencial {provider}/{key}: {exc}. "
-                "Revisa permisos de .bago/credentials.json o el modo de almacenamiento en install_config.json."
-            ))
-            return True
-
-        masked = value[:4] + "***" if len(value) > 4 else "****"
-        print(R.ok(f"✓ Credencial guardada: {provider}/{key} = {masked}"))
-        return True
-
     def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
         """Despacha un comando deducido por el engine de intención natural.
 
@@ -948,6 +716,8 @@ class BagoREPL:
     def _handle_command(self, line: str) -> bool:
         """Ejecuta un comando slash. Retorna True si debe continuar, False si quit."""
         low = line.strip().lower()
+        if low == "/":
+            return self._show_menu()
         if low in ("/credentials set", "/credentials add", "/login", "/cred"):
             return self._credential_wizard()
         if low == "/switch":
@@ -1019,6 +789,7 @@ class BagoREPL:
         return R.accent("bago") + R.bright_black(" ❯ ")
 
     def run(self) -> None:
+        """REPL principal de BAGO — Chat CLI limpio."""
         try:
             self._setup_readline()
             self._print_banner()
@@ -1026,18 +797,26 @@ class BagoREPL:
             self._auto_evolve_startup()
             self._interactive_startup()
             self._print_status()
+            print_workspace_inventory(self.base_path)
             self.running = True
 
             while self.running:
+                self._print_chat_prompt()
                 try:
-                    line = input(self._prompt())
+                    line = self._read_main_input("")
                 except (EOFError, KeyboardInterrupt):
                     print()
                     print(R.ok("Bye."))
                     break
 
-                # Multiline detection: lines starting/ending with ```
+                # Pasted multiline
+                if ("\n" in line or "\r" in line) and not self._in_multiline:
+                    self._handle_pasted_block(line)
+                    continue
+
                 stripped = line.strip()
+
+                # Multiline ```
                 if stripped.startswith("```") and not self._in_multiline:
                     self._in_multiline = True
                     self._multiline_buffer = []
@@ -1054,45 +833,38 @@ class BagoREPL:
                     self._multiline_buffer.append(line)
                     continue
 
-                # Empty line (Enter solo = Ctrl+M) → abre el menu interactivo en TTY
+                # Enter vacío → solo redibujar
                 if not stripped:
-                    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-                        continue
-                    if not self._show_menu():
-                        break
-                    self._print_status()
                     continue
 
-                # "/" solo → paleta navegable con todos los comandos
-                if stripped == "/":
-                    if not self._show_command_palette():
-                        break
-                    self._print_status()
-                    continue
-
-                # Commands
+                # Comandos slash
                 if stripped.startswith("/"):
                     if not self._handle_command(stripped):
                         break
                     self._print_status()
                     continue
 
-                # Natural-language command intent — engine dinámico (command_intents.json)
+                project_root = _looks_like_directory_path(stripped)
+                if project_root is not None:
+                    if not self._project_wizard(project_root):
+                        break
+                    self._print_status()
+                    continue
+
+                # Intención natural (alias)
                 _nl_cmd = classify_command_intent(stripped)
                 if _nl_cmd is None:
-                    # Fallback: frozensets hardcoded como red de seguridad
                     if stripped.lower() in _MENU_ALIASES:
                         _nl_cmd = "/"
                     elif stripped.lower() in _LOGIN_ALIASES:
                         _nl_cmd = "/credentials set"
-
                 if _nl_cmd is not None:
                     if not self._dispatch_command_intent(_nl_cmd, stripped):
                         break
                     self._print_status()
                     continue
 
-                # Normal chat
+                # Chat normal
                 R.print_message("user", stripped)
                 self._handle_chat(stripped)
                 self._print_status()

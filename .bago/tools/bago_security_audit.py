@@ -14,9 +14,9 @@ TOKEN_PATTERNS = {
     "anthropic": re.compile(r"sk-ant-[A-Za-z0-9_-]{16,}"),
     "telegram": re.compile(r"[0-9]{8,10}:[A-Za-z0-9_-]{30,}"),
     "bearer": re.compile(r"Bearer\s+[A-Za-z0-9._-]{16,}", re.IGNORECASE),
-    "api_key": re.compile(r"(?i)(?:api[_-]?key|apikey)\s*[:=]\s*['\"]?[A-Za-z0-9._-]{16,}['\"]?"),
+    "api_key": re.compile(r"(?i)(?:api[_-]?key|apikey)\s*[:=]\s*(?:['\"][A-Za-z0-9._-]{16,}['\"]|[A-Za-z0-9._-]{24,})"),
 }
-EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", ".venv", "venv", "__pycache__", ".bago"}
+EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", ".venv", "venv", "__pycache__", ".bago", ".vercel"}
 EXCLUDE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".zip", ".7z", ".exe", ".dll", ".bin", ".pyc", ".mp3", ".mp4"}
 MAX_SCAN_SIZE = 500_000
 SEVERITY_DEDUCTIONS = {"CRITICAL": 30, "HIGH": 15, "MEDIUM": 8, "LOW": 3}
@@ -49,7 +49,11 @@ def _iter_files(root: Path):
 def _should_skip_line(line: str) -> bool:
     low = line.lower()
     markers = ("example", "fixture", "dummy", "placeholder", "xxxx", "your_", "<token", "<api", "test")
-    return any(marker in low for marker in markers)
+    if any(marker in low for marker in markers):
+        return True
+    if "read-inputordefault" in low or "$env:" in low or "process.env" in low or "os.environ" in low:
+        return True
+    return False
 
 
 def scan_tokens(root: Path) -> list[dict]:
@@ -227,6 +231,7 @@ def run_self_tests() -> int:
         (base / "token.txt").write_text(token_line, encoding="utf-8")
         (base / ".env").write_text("OPENAI_KEY=test\n", encoding="utf-8")
         (base / "example.txt").write_text("example github_pat_placeholder_token\n", encoding="utf-8")
+        (base / "prompt.ps1").write_text('$cfg.api_key = Read-InputOrDefault -Default $env:OPENAI_API_KEY\n', encoding="utf-8")
 
         ok1 = any(item["token_type"] == "github_pat" for item in scan_tokens(base))
         ok2 = _permission_flags(0o777) == ["executable", "world_writable"]
@@ -235,8 +240,9 @@ def run_self_tests() -> int:
         ok4 = not scan_env_gitignore(base)
         ok5 = compute_score([{"severity": "CRITICAL"}] * 10) == 0
         ok6 = not any(item["file"] == "example.txt" for item in scan_tokens(base))
+        ok7 = not any(item["file"] == "prompt.ps1" for item in scan_tokens(base))
 
-        results = [ok1, ok2, ok3, ok4, ok5, ok6]
+        results = [ok1, ok2, ok3, ok4, ok5, ok6, ok7]
         passed = sum(1 for ok in results if ok)
         print(f"{passed}/{len(results)} tests passed")
         return 0 if passed == len(results) else 1

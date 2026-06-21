@@ -52,6 +52,7 @@ def build_parser(
         prog="bago",
         description=f"BAGO {version} -- Session-First AI Chat",
     )
+    parser.add_argument("--version", action="version", version=f"bago {version}")
     parser.add_argument("--provider",  default=default_provider, help="Provider por defecto")
     parser.add_argument("--model",     default=default_model,    help="Modelo por defecto")
     parser.add_argument("--base-path", default=base,             help="Directorio base del proyecto")

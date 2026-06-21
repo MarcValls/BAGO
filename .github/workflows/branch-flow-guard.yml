@@ -19,6 +19,11 @@ jobs:
   branch-flow-guard:
     runs-on: ubuntu-latest
     steps:
+      - name: Fail-fast sentinel
+        if: ${{ false }}
+        shell: bash
+        run: |
+          exit 1
       - name: Validate branch flow
         shell: bash
         run: |

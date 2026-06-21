@@ -82,7 +82,7 @@ def policy_for(installation: dict[str, Any], piece: dict[str, Any]) -> dict[str,
     }
 
 def connector_id(installation_id: str, piece_id: str) -> str:
-    digest = hashlib.sha1(f"{installation_id}:{piece_id}".encode("utf-8")).hexdigest()[:10]
+    digest = hashlib.sha1(f"{installation_id}:{piece_id}".encode("utf-8"), usedforsecurity=False).hexdigest()[:10]
     return f"conn-{digest}"
 
 def build_connectors(installations: list[dict[str, Any]], pieces: list[dict[str, Any]], now_fn) -> list[dict[str, Any]]:

@@ -1,0 +1,123 @@
+{
+  "bundle_id": "bago.v4.evidence.simulated.community-knowledge",
+  "contract_version": "4.6.3",
+  "related_to": [
+    "docs\\contracts\\bago_v4_runtime_contract.json",
+    "docs\\contracts\\bago_v4_repl_contract.md",
+    "docs\\contracts\\bago_v4_evidence_contract.md",
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
+  ],
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta util y de forma indirecta preservando conocimiento, planificacion y estado reproducible.",
+  "details": {
+    "mode": "simulated",
+    "provider": "mock-contract",
+    "model": "contract-assistant-v1",
+    "session_id": "ba18c234-534",
+    "state_root": ".bago\\state"
+  },
+  "status": "pass",
+  "recorded_at": "2026-06-18T20:22:54.498009+00:00",
+  "validation_commands": [
+    "python test_e2e.py",
+    "python bago_core\\cli.py evidence --test",
+    "python bago_core\\cli.py evidence --mode simulated --objective community-knowledge --output \"docs/evidence/release_4_6_3\" --overwrite"
+  ],
+  "checks": [
+    {
+      "id": "session-runtime",
+      "status": "pass",
+      "detail": "La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta."
+    },
+    {
+      "id": "direct-assistance",
+      "status": "pass",
+      "detail": "Existe una respuesta util al objetivo planteado por el usuario."
+    },
+    {
+      "id": "knowledge-persistence",
+      "status": "pass",
+      "detail": "La evidencia incluye conocimiento recuperable derivado de la sesion."
+    },
+    {
+      "id": "session-save",
+      "status": "pass",
+      "detail": "La sesion se guardo en disco con metadatos de continuidad."
+    },
+    {
+      "id": "plan-generation",
+      "status": "pass",
+      "detail": "El runtime definio un plan reutilizable desde el parser REPL real."
+    }
+  ],
+  "artifacts": [
+    "session/context.jsonl",
+    "session/timeline.jsonl",
+    "session/tokens.json",
+    "session/meta.json",
+    "session/session.json",
+    "assistant_response.txt",
+    "commands\\results.json",
+    "knowledge\\recent_memories.json",
+    "objective.json",
+    "plan.txt"
+  ],
+  "files": [
+    {
+      "path": "assistant_response.txt",
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f",
+      "size_bytes": 225
+    },
+    {
+      "path": "commands/results.json",
+      "sha256": "134147317ea8e029f3330bb11ce1211abd8ba23cdfc94638114f660a42c5d273",
+      "size_bytes": 1835
+    },
+    {
+      "path": "knowledge/recent_memories.json",
+      "sha256": "64096121870ce2e54c1305a3e7956f5bac9db8b761f13f792b1cd79df40c91e3",
+      "size_bytes": 1272
+    },
+    {
+      "path": "objective.json",
+      "sha256": "239d7ec91a788778326defa51c1050031112896c14f183bf936b28dc20584b08",
+      "size_bytes": 374
+    },
+    {
+      "path": "plan.txt",
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f",
+      "size_bytes": 385
+    },
+    {
+      "path": "report.md",
+      "sha256": "e2020040c30b4af93684ec898685be946a8567f294ad2a0b5075763d3dbf882d",
+      "size_bytes": 3167
+    },
+    {
+      "path": "session/context.jsonl",
+      "sha256": "84ea7f6a7e9cd0165c3c2bec64d9aea887cf3fc8b25fdc7490909617ca7b44ce",
+      "size_bytes": 1645
+    },
+    {
+      "path": "session/meta.json",
+      "sha256": "73e954c7f1f1b845df2dc6544e09555170efc01c49e7ccf119d34b2e656b87e2",
+      "size_bytes": 301
+    },
+    {
+      "path": "session/session.json",
+      "sha256": "487bc49e5d0e972f94abc7815efdfd0d6144b457ab361d46692946cfcea1856c",
+      "size_bytes": 345
+    },
+    {
+      "path": "session/timeline.jsonl",
+      "sha256": "a37d5d6f40f8aedd27f39bc3b3b5be86c85686c9dbff530226fe6d28eb4fd928",
+      "size_bytes": 296
+    },
+    {
+      "path": "session/tokens.json",
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec",
+      "size_bytes": 117
+    }
+  ]
+}

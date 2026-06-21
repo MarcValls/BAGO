@@ -198,6 +198,7 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     for name, kwargs in (
         ("secrets", {"help": "Detecta secretos hardcodeados"}),
         ("deps", {"help": "Audita dependencias Python"}),
+        ("forced", {"help": "Detecta dependencias forzadas y pins raros"}),
         ("todos", {"help": "Lista TODOs, FIXMEs y HACKs"}),
         ("tokens", {"help": "Detecta tokens de API expuestos"}),
         ("dead", {"help": "Detecta codigo muerto (Python)"}),
@@ -213,7 +214,8 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
         ("commit", {"help": "Pre-commit check rapido"}),
         ("git", {"help": "Snapshot del contexto git"}),
     ):
-        scan_sub.add_parser(name, **kwargs)
+        scan_cmd = scan_sub.add_parser(name, **kwargs)
+        scan_cmd.add_argument("--root", default=argparse.SUPPRESS, help="Directorio raiz a escanear (default: cwd)")
     # arguments for individual scan commands are attached in build_parser for brevity.
 
     canary_parser = sub.add_parser("canary", help="Honeytokens -- trampas de deteccion de intrusos")
@@ -237,9 +239,14 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     project_parser = sub.add_parser("project", help="Gestiona la estructura portable .bago del proyecto")
     project_parser.add_argument("--root", default="")
     project_sub = project_parser.add_subparsers(dest="project_cmd")
-    project_sub.add_parser("init", help="Inicializa la estructura .bago")
-    project_sub.add_parser("status", help="Muestra el estado actual")
-    project_sub.add_parser("link", help="Crea el enlace portable del proyecto")
+    project_init = project_sub.add_parser("init", help="Inicializa la estructura .bago")
+    project_init.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
+    project_status = project_sub.add_parser("status", help="Muestra el estado actual")
+    project_status.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
+    project_link = project_sub.add_parser("link", help="Crea el enlace portable del proyecto")
+    project_link.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
+    project_analyze = project_sub.add_parser("analyze", help="Analiza el proyecto y sugiere próximos pasos")
+    project_analyze.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
 
     preflight_parser = sub.add_parser("preflight", help="Ejecuta checks de preflight portables")
     preflight_parser.add_argument("--root", default="")
@@ -249,20 +256,26 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     toolsmith_parser.add_argument("--root", default="")
     toolsmith_parser.add_argument("--json", dest="toolsmith_json", action="store_true")
     toolsmith_sub = toolsmith_parser.add_subparsers(dest="toolsmith_cmd")
-    toolsmith_sub.add_parser("catalog", help="Muestra el catalogo")
+    toolsmith_catalog = toolsmith_sub.add_parser("catalog", help="Muestra el catalogo")
+    toolsmith_catalog.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     toolsmith_assign = toolsmith_sub.add_parser("assign", help="Asigna herramientas a un agente")
+    toolsmith_assign.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     toolsmith_assign.add_argument("--task", required=True)
     toolsmith_assign.add_argument("--agent", dest="agent_name", default="")
     toolsmith_assign.add_argument("--sprint", default="backlog")
     toolsmith_sprint = toolsmith_sub.add_parser("sprint", help="Crea toolboxes para un sprint")
+    toolsmith_sprint.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     toolsmith_sprint.add_argument("sprint_id")
     toolsmith_sprint.add_argument("--tasks", default="")
-    toolsmith_sub.add_parser("missing", help="Lista herramientas faltantes")
+    toolsmith_missing = toolsmith_sub.add_parser("missing", help="Lista herramientas faltantes")
+    toolsmith_missing.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     toolsmith_create = toolsmith_sub.add_parser("create", help="Crea un nuevo tool stub")
+    toolsmith_create.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     toolsmith_create.add_argument("tool_name")
     toolsmith_create.add_argument("--desc", default="")
     toolsmith_create.add_argument("--category", default="general")
     toolsmith_listen = toolsmith_sub.add_parser("listen", help="Escucha eventos del bus neural")
+    toolsmith_listen.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     toolsmith_listen.add_argument("--limit", type=int, default=1)
 
     issues_gh_parser = sub.add_parser("issues-gh", help="Gestiona issues del repositorio")
@@ -277,15 +290,28 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     agent_parser.add_argument("--root", default="")
     agent_sub = agent_parser.add_subparsers(dest="agent_cmd")
     agent_spawn = agent_sub.add_parser("spawn", help="Crea un agente")
+    agent_spawn.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_spawn.add_argument("agent_id")
     agent_spawn.add_argument("--phase", type=int, default=0)
     agent_spawn.add_argument("--skills", default="")
-    agent_sub.add_parser("list", help="Lista agentes")
+    agent_list = agent_sub.add_parser("list", help="Lista agentes")
+    agent_list.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_run = agent_sub.add_parser("run", help="Ejecuta un agente")
+    agent_run.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_run.add_argument("agent_id")
     agent_kill = agent_sub.add_parser("kill", help="Desactiva un agente")
+    agent_kill.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_kill.add_argument("agent_id")
-    agent_sub.add_parser("status", help="Muestra consonancia entre agentes")
+    agent_status = agent_sub.add_parser("status", help="Muestra consonancia entre agentes")
+    agent_status.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
+    agent_route = agent_sub.add_parser("route", help="Enruta una tarea al mejor agente disponible")
+    agent_route.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
+    agent_route.add_argument("--task", default="", help="Texto de la tarea a enrutar")
+    agent_route.add_argument("--json", action="store_true", help="Salida JSON")
+    agent_route.add_argument("--history", action="store_true", help="Muestra historial de rutas")
+    agent_route.add_argument("--limit", type=int, default=10, help="Limite del historial")
+    agent_route.add_argument("--no-classifier", action="store_true", help="Desactiva clasificador Ollama")
+    agent_route.add_argument("task_words", nargs="*", default=[], help="Texto de la tarea como palabras sueltas")
 
     guard_parser = sub.add_parser("guard", help="Guardian de deuda tecnica -- previene patrones antes de commitear")
     guard_parser.add_argument("--root", default="", help="Raiz del proyecto (default: cwd)")

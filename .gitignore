@@ -28,6 +28,9 @@ ui-react/dist/
 ui-react/.vite/
 *.node
 
+# ── Instalaciones de BAGO gestionadas por el Manager (runtime, no fuente) ───────
+installations/
+
 # ── Binarios de build ───────────────────────────────────────────────────────────
 esbuild.exe
 *.exe
@@ -53,6 +56,7 @@ env/
 bago_core/parsers_legacy_*.py
 tools/_diff_*.py
 dist/
+site-dist/
 build/
 release/
 
@@ -61,3 +65,8 @@ docs/repl_capture*.txt
 docs/terminal_captures.txt
 PLAN_VERTICE/
 SIGUIENTE.txt
+.vercel
+.env*
+
+# Monitor log (runtime, no distribuir)
+.bago/monitor/tablet.log
