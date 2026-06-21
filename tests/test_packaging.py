@@ -68,8 +68,9 @@ def test_zip_contains_bago_core(pack_zip):
 def test_zip_excludes_state(pack_zip):
     with zipfile.ZipFile(pack_zip) as zf:
         names = zf.namelist()
-    state_files = [n for n in names if ".bago/state" in n]
-    assert len(state_files) == 0, f"State files in ZIP: {state_files[:3]}"
+    # Exclude .bago/state/ (live runtime state) but allow .bago/state.example/ (template)
+    state_files = [n for n in names if "/.bago/state/" in ("/" + n) or n.startswith(".bago/state/")]
+    assert len(state_files) == 0, f"Live state files in ZIP: {state_files[:3]}"
 
 
 def test_zip_excludes_credentials(pack_zip):

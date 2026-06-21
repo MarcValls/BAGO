@@ -142,11 +142,11 @@ def sha256(path: Path) -> str:
 
 def require_inputs(root: Path) -> None:
     missing_files = [item for item in INCLUDE_FILES if not (root / item).is_file()]
-    missing_dirs = [item for item in INCLUDE_DIRS if not (root / item).exists()]
-    missing = missing_files + missing_dirs
-    if missing:
+    # Directories are optional (e.g. ui-react/dist requires a UI build step).
+    # Only fail for missing required files.
+    if missing_files:
         raise FileNotFoundError(
-            "Faltan entradas obligatorias para el bundle:\n" + "\n".join(f"- {item}" for item in missing)
+            "Faltan entradas obligatorias para el bundle:\n" + "\n".join(f"- {item}" for item in missing_files)
         )
 
 
