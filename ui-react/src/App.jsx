@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import DesktopView from './components/DesktopView'
 import TerminalView from './components/TerminalView'
+import ManagerView from './components/ManagerView'
 import { useBagoChat } from './useBagoChat'
 
 function Icon({ name }) {
@@ -44,6 +45,14 @@ export default function App() {
         </div>
 
         <nav className="primary-nav" aria-label="Navegación principal">
+          <button
+            type="button"
+            className={control.mode === 'manager' ? 'active' : ''}
+            onClick={() => control.setMode('manager')}
+          >
+            <Icon name="manager" />
+            Gestor
+          </button>
           <button
             type="button"
             className={control.mode === 'desktop' ? 'active' : ''}
@@ -97,6 +106,7 @@ export default function App() {
 
       <section className="app-workspace">
         {control.error ? <div className="error-banner">{control.error}</div> : null}
+        {control.mode === 'manager' ? <ManagerView /> : null}
         {control.mode === 'desktop' ? <DesktopView control={control} /> : null}
         {control.mode === 'terminal' ? <TerminalView control={control} /> : null}
       </section>
