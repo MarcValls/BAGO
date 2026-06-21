@@ -30,13 +30,78 @@ from datetime import datetime, timezone
 _HERE      = Path(__file__).resolve().parent
 _BAGO      = _HERE.parent
 
-# ── Guard: separación estático/dinámico ──────────────────────────────────────
-_guard_spec = importlib.util.spec_from_file_location(
-    "agent_static_guard", _BAGO / "tools" / "agent_static_guard.py"
-)
-_guard_mod = importlib.util.module_from_spec(_guard_spec)   # type: ignore
-_guard_spec.loader.exec_module(_guard_mod)                   # type: ignore
-guard = _guard_mod.guard
+STATIC_AGENTS_DIR  = _BAGO / "agents"
+DYNAMIC_AGENTS_DIR = _BAGO / "state" / "agents"
+DYNAMIC_MANIFEST   = DYNAMIC_AGENTS_DIR / "manifest.json"
+
+
+def _ensure_dynamic_dir() -> None:
+    DYNAMIC_AGENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def dynamic_path(name: str) -> Path:
+    if not name or not name.replace("_", "").replace("-", "").isalnum():
+        raise ValueError(f"agent_factory: nombre inválido {name!r}")
+    _ensure_dynamic_dir()
+    return DYNAMIC_AGENTS_DIR / f"{name}.py"
+
+
+def _empty_manifest() -> dict:
+    return {"schema": 1, "agents": []}
+
+
+def dynamic_manifest() -> dict:
+    return load_manifest()
+
+
+def load_manifest() -> dict:
+    if not DYNAMIC_MANIFEST.exists():
+        return _empty_manifest()
+    try:
+        return json.loads(DYNAMIC_MANIFEST.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {**_empty_manifest(), "_warning": "manifest_unreadable"}
+
+
+def save_manifest(manifest: dict) -> None:
+    _ensure_dynamic_dir()
+    DYNAMIC_MANIFEST.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def audit() -> dict:
+    static_roles = 0
+    contaminated: list[str] = []
+    if STATIC_AGENTS_DIR.exists():
+        for md in STATIC_AGENTS_DIR.glob("*.md"):
+            static_roles += 1
+        whitelist = {
+            "agent_factory.py",
+            "agent_gateway.py",
+            "duplication_finder.py",
+            "logic_checker.py",
+            "security_analyzer.py",
+            "smell_detector.py",
+        }
+        for py in STATIC_AGENTS_DIR.glob("*.py"):
+            if py.name in whitelist:
+                continue
+            if any(py.stem.endswith(suf) for suf in ("_checker", "_finder", "_detector", "_analyzer")):
+                contaminated.append(py.name)
+    dynamic_count = sum(1 for _ in DYNAMIC_AGENTS_DIR.glob("*.py")) if DYNAMIC_AGENTS_DIR.exists() else 0
+    return {"static_roles": static_roles, "dynamic_count": dynamic_count, "contaminated": contaminated}
+
+
+# ── Guard inline (reemplazo de agent_static_guard.py) ──────────────────────
+guard = type("Guard", (), {
+    "dynamic_manifest": staticmethod(dynamic_manifest),
+    "load_manifest": staticmethod(load_manifest),
+    "save_manifest": staticmethod(save_manifest),
+    "dynamic_path": staticmethod(dynamic_path),
+    "audit": staticmethod(audit),
+})()
 
 # Rutas: motor siempre estático, outputs siempre dinámicos
 AGENTS_DIR      = _BAGO / "agents"                  # motor (solo lectura)

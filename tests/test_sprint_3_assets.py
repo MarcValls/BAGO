@@ -44,21 +44,18 @@ class Sprint3AssetTests(unittest.TestCase):
             self.assertRegex(path.name, r"^(?:\d\d_[A-Z_]+|activar_[a-z_]+)\.md$")
 
     def test_core_docs_and_kernel_docs_exist(self) -> None:
-        for name in [
-            "00_CEREBRO_BAGO.md",
-            "01_PLANTILLA_PROMPT.md",
-            "02_FABRICA_PROMPTS.md",
-            "03_ESTADO_BAGO.md",
-            "04_CONTRATOS_DE_ROL.md",
-            "05_GOBERNANZA_DE_SESION.md",
-            "06_MATRIZ_DE_ACTIVACION.md",
-            "07_PROTOCOLO_DE_CAMBIO.md",
-        ]:
-            self.assertTrue((BAGO / "core" / name).exists(), name)
-
+        # 2026-Q2 cleanup: 00-07 v3.5.0-rc1 canon was archived. Active canon lives in
+        # subdirs (canon/, architecture/, orchestrator/, supervision/, workflows/).
         for subdir in ["architecture", "canon", "orchestrator", "supervision", "workflows"]:
             files = [p for p in (BAGO / "core" / subdir).iterdir() if p.is_file()]
             self.assertGreaterEqual(len(files), 1, subdir)
+        # Spot-check that the canonical entry points are still present.
+        for path in [
+            BAGO / "core" / "canon" / "CANON.md",
+            BAGO / "core" / "orchestrator" / "ORQUESTADOR_CENTRAL.md",
+            BAGO / "core" / "workflows" / "workflow_ejecucion.md",
+        ]:
+            self.assertTrue(path.exists(), str(path))
 
         for doc in ["KERNEL_LOCKDOWN.md", "COMMAND_AUDIT.md"]:
             text = (ROOT / "docs" / doc).read_text(encoding="utf-8")
@@ -71,12 +68,15 @@ class Sprint3AssetTests(unittest.TestCase):
 
         examples = [p for p in (ROOT / "examples").rglob("*") if p.is_file()]
         self.assertGreaterEqual(len(examples), 71)
-        self.assertTrue((ROOT / "bago_wizard.py").exists())
-        self.assertTrue((BAGO / "tools" / "BAGO_PAUSE.md").exists())
 
-        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-        for target in ["help", "validate", "pack", "install", "uninstall", "clean"]:
-            self.assertRegex(makefile, rf"(?m)^{target}:")
+        # bago_wizard.py and BAGO_PAUSE.md were removed during 2026-Q2 cleanup.
+        self.assertFalse((ROOT / "bago_wizard.py").exists(),
+                         "bago_wizard.py was a v3.5.0-rc1 asset; removed in 2026-Q2 cleanup")
+        self.assertFalse((BAGO / "tools" / "BAGO_PAUSE.md").exists(),
+                         "BAGO_PAUSE.md was a v3.5.0-rc1 stub; removed in 2026-Q2 cleanup")
+        # Makefile was removed (replaced by pyproject.toml + npm scripts).
+        self.assertFalse((ROOT / "Makefile").exists(),
+                         "Makefile removed in 2026-Q2 cleanup; use pyproject.toml / npm scripts")
 
 
 if __name__ == "__main__":

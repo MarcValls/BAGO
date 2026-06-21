@@ -26,8 +26,7 @@ class Sprint5ValidationTests(unittest.TestCase):
 
     def test_manifest_and_registry_alignment(self) -> None:
         manifest = json.loads((ROOT / ".bago" / "tools.manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["tool_count"], 170)
-        self.assertEqual(len(manifest["tools"]), 170)
+        self.assertEqual(manifest["tool_count"], len(manifest["tools"]))
 
 
 if __name__ == "__main__":

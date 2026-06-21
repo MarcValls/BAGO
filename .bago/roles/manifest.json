@@ -228,6 +228,7 @@
     "especialistas": "SPECIALIST — Análisis en dominio específico"
   },
   "created": "2026-04-28T00:00:00Z",
-  "version": "3.1",
-  "description": "Registro de roles BAGO con Tool-Agent Binding v3.1. Cada rol declara sus herramientas responsables."
+  "version": "4.6.4",
+  "description": "Manifest refreshed during 2026-Q2 .bago audit cleanup",
+  "updated": "2026-06-21T12:45:00Z"
 }

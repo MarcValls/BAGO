@@ -70,3 +70,7 @@ SIGUIENTE.txt
 
 # Monitor log (runtime, no distribuir)
 .bago/monitor/tablet.log
+
+# 2026-Q2 cleanup: archive holds historical artifacts not part of the active repo
+archive/
+

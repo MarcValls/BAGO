@@ -14,13 +14,14 @@ class Sprint4SurfaceTests(unittest.TestCase):
         manifest = json.loads((BAGO / "roles" / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(len(manifest["roles"]), 14)
         self.assertTrue((BAGO / "agents" / "agent_factory.py").exists())
-        self.assertGreaterEqual(len(list((BAGO / "agents").glob("*.md"))), 5)
+        # 2026-Q2 cleanup: 7 v3.5.0-rc1 stubs (MAESTRO_BAGO, CENTINELA_SINCERIDAD, …) were
+        # removed because the active runtime uses inline role contracts. We keep the 4
+        # long-lived agent briefs and a factory entry point.
+        agent_briefs = [p.name for p in (BAGO / "agents").glob("*.md")]
+        self.assertGreaterEqual(len(agent_briefs), 4,
+                                 f"expected >=4 live agent briefs, found {agent_briefs}")
 
-    def test_monitor_and_mcp_are_present(self) -> None:
-        monitor = json.loads((BAGO / "monitor" / "monitor.json").read_text(encoding="utf-8"))
-        self.assertIn("Agents", monitor)
-        self.assertGreaterEqual(len(monitor["Agents"]), 1)
-
+    def test_mcp_and_extensions_are_present(self) -> None:
         for name in ["bago_mcp_server.py", "mcp_config.json", "toolbox_catalog.json", "agent_tool_matrix.json"]:
             self.assertTrue((BAGO / "mcp" / name).exists(), name)
 

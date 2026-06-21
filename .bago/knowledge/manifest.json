@@ -114,115 +114,14 @@
       "title": "Contrato de motor",
       "path": "topics/engine-contract.md",
       "status": "stable"
-    },
-    {
-      "id": "bago-universe",
-      "title": "BAGO Universe",
-      "path": "topics/bago-universe.md",
-      "status": "stable"
-    },
-    {
-      "id": "framework-traps",
-      "title": "Framework Traps",
-      "path": "topics/framework-traps.md",
-      "status": "stable"
-    },
-    {
-      "id": "orchestrator-learnings",
-      "title": "Orchestrator Learnings",
-      "path": "topics/orchestrator-learnings.md",
-      "status": "stable"
-    },
-    {
-      "id": "memory-architecture",
-      "title": "Memory Architecture",
-      "path": "topics/memory-architecture.md",
-      "status": "stable"
-    },
-    {
-      "id": "coherence-principle",
-      "title": "Principio de Coherencia",
-      "path": "topics/coherence-principle.md",
-      "status": "stable"
-    },
-    {
-      "id": "bago-h-architecture",
-      "title": "BAGO H Architecture",
-      "path": "topics/bago-h-architecture.md",
-      "status": "stable"
-    },
-    {
-      "id": "image-generation-guide",
-      "title": "Image Generation Guide",
-      "path": "topics/image-generation-guide.md",
-      "status": "stable"
-    },
-    {
-      "id": "tools-reference",
-      "title": "Tools Reference",
-      "path": "topics/tools-reference.md",
-      "status": "stable"
-    },
-    {
-      "id": "auto-patterns",
-      "title": "Auto Patterns",
-      "path": "topics/auto-patterns.md",
-      "status": "stable"
-    },
-    {
-      "id": "deactivation-procedure",
-      "title": "Deactivation Procedure",
-      "path": "topics/deactivation-procedure.md",
-      "status": "stable"
-    },
-    {
-      "id": "windows-audio-setup",
-      "title": "Windows Audio Setup",
-      "path": "topics/windows-audio-setup.md",
-      "status": "stable"
-    },
-    {
-      "id": "windows-background-automation",
-      "title": "Windows Background Automation",
-      "path": "topics/windows-background-automation.md",
-      "status": "stable"
-    },
-    {
-      "id": "windows-execution-patterns",
-      "title": "Windows Execution Patterns",
-      "path": "topics/windows-execution-patterns.md",
-      "status": "stable"
-    },
-    {
-      "id": "windows-mouse-automation",
-      "title": "Windows Mouse Automation",
-      "path": "topics/windows-mouse-automation.md",
-      "status": "stable"
     }
   ],
-  "projects": [
-    {
-      "id": "bianca",
-      "title": "BIANCA — El Juego",
-      "path": "projects/bianca/",
-      "status": "active"
-    },
-    {
-      "id": "casino",
-      "title": "Casino Telegram Mini App",
-      "path": "projects/casino/",
-      "status": "active"
-    },
-    {
-      "id": "music",
-      "title": "Music Production",
-      "path": "projects/music/",
-      "status": "active"
-    }
-  ],
+  "projects": [],
   "asset_policy": {
     "diagrams": "SVG first",
     "captures": "PNG only when needed",
     "large_media": "No canonical large binaries"
-  }
+  },
+  "last_refresh": "2026-06-21T12:46:00Z",
+  "refresh_note": "Removed topics without filesystem backing; removed projects/ section (not part of BAGO core)"
 }

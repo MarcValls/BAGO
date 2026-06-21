@@ -1,6 +1,13 @@
 {
-  "bago_version": "3.1",
-  "system_health": "ok",
+  "bago_version": "4.6.4",
+  "version": "4.6.4",
+  "status": "ok",
+  "mode": "balanced",
+  "health": {
+    "score": 0,
+    "max": 100,
+    "status": "unknown"
+  },
   "sprint_status": {
     "active_workflow": null,
     "pending_w2_task": "none",
@@ -9,16 +16,13 @@
   "inventory": {
     "sessions": 0,
     "changes": 0,
-    "evidences": 0,
-    "commits": "0",
-    "branch": "main"
+    "evidences": 0
   },
-  "last_validation": {
-    "date": null,
-    "health": "unknown"
+  "last_validation": {},
+  "unresolved": {
+    "stashes": 0,
+    "note": ""
   },
-  "mode": "autonomous",
-  "status": "clean_install",
-  "updated_at": null,
-  "_comment": "Template for new installs. Copy to .bago/state/global_state.json"
+  "_comment": "Template for new installs (v4.6.4). Copy to .bago/state/global_state.json"
 }
+

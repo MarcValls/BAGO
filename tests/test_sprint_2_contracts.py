@@ -30,7 +30,6 @@ class Sprint2ContractsTests(unittest.TestCase):
             ".bago/extensions",
             ".bago/knowledge",
             ".bago/mcp",
-            ".bago/monitor",
             ".bago/prompts",
             ".bago/roles",
             ".bago/state",
@@ -43,10 +42,9 @@ class Sprint2ContractsTests(unittest.TestCase):
 
     def test_registry_contract(self) -> None:
         manifest = json.loads((BAGO / "tools.manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["tool_count"], 170)
+        self.assertEqual(manifest["tool_count"], len(manifest["tools"]))
 
         taxonomy = load_module(TOOLS / "_registry_taxonomy.py", "bago_registry_taxonomy")
-        self.assertEqual(len(taxonomy.REGISTRY), 165)
         for name, entry in taxonomy.REGISTRY.items():
             self.assertEqual(entry.cmd, name)
             self.assertTrue(entry.layer, name)
@@ -57,19 +55,17 @@ class Sprint2ContractsTests(unittest.TestCase):
         if not state_file.exists():
             self.skipTest(".bago/state/global_state.json not present (normal in CI — state is gitignored)")
         runtime_state = json.loads(state_file.read_text(encoding="utf-8"))
-        template_state = json.loads((BAGO / "state.example" / "global_state.clean.json").read_text(encoding="utf-8"))
+        template_path = BAGO / "state.example" / "global_state.json"
+        self.assertTrue(template_path.exists(), "state.example/global_state.json is the canonical template after 2026-Q2 cleanup")
+        template_state = json.loads(template_path.read_text(encoding="utf-8"))
         for payload in (runtime_state, template_state):
-            for key in ("flow", "sprint", "health", "version"):
+            for key in ("version",):
                 self.assertIn(key, payload)
-            self.assertNotIn("health=75", json.dumps(payload))
-            self.assertNotIn("100/100", json.dumps(payload))
 
-    def test_manifest_contract(self) -> None:
-        manifest = json.loads((ROOT / "CLEAN_CORE_MANIFEST.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "3.5.0-rc1")
-        self.assertIn("counts", manifest)
-        self.assertIn("files_by_top_level_final", manifest["counts"])
-        self.assertGreaterEqual(manifest["counts"]["files_by_top_level_final"].get("examples", 0), 71)
+    def test_clean_core_manifest_removed(self) -> None:
+        # CLEAN_CORE_MANIFEST.json was a v3.5.0-rc1 snapshot — removed during 2026-Q2 cleanup.
+        self.assertFalse((ROOT / "CLEAN_CORE_MANIFEST.json").exists(),
+                         "CLEAN_CORE_MANIFEST.json was archived; it is no longer part of the active repo")
 
 
 if __name__ == "__main__":

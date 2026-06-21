@@ -95,9 +95,9 @@ def is_text_file(path: Path) -> bool:
         "BAGO_LAST.zip", ".bago/state", ".bago/state.example",
         ".bago/core", ".bago/tools", ".bago/agents", ".bago/roles",
         ".bago/workflows", ".bago/templates", ".bago/prompts",
-        ".bago/mcp", ".bago/monitor", ".bago/extensions",
+        ".bago/mcp", ".bago/extensions",
         ".bago/knowledge/topics",
-        "BAGO.pyproj", "BAGO.sln",
+        "archive",  # 2026-Q2 cleanup: archive/ holds historical artifacts
     }
     if any(part in skip_dirs for part in path.parts):
         return False
