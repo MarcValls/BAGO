@@ -1,0 +1,2 @@
+[console_scripts]
+bago = bago_core.cli:_entry

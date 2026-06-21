@@ -30,14 +30,21 @@ BAGO_ROOT = Path(__file__).resolve().parents[1]
 _repo_root = str(BAGO_ROOT)
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
-sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
+# Prefer .bago/core/version.py when running from source; bago_core/version.py acts
+# as a fallback when installed as a wheel (see bago_core/version.py).
+_bago_core_dir = str(BAGO_ROOT / ".bago" / "core")
+if Path(_bago_core_dir).exists():
+    sys.path.insert(0, _bago_core_dir)
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "chat"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
 
 _CREATED_VERSION = "4.0.0"
 
 # Lee la version desde el indice central (versions.json)
-from version import CURRENT as _BAGO_VERSION  # noqa: E402
+try:
+    from version import CURRENT as _BAGO_VERSION  # noqa: E402
+except ModuleNotFoundError:
+    from bago_core.version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
