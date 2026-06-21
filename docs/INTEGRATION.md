@@ -4,14 +4,16 @@ This document defines how BAGO v4 connects to installed runtimes, advanced backe
 
 ## BAGO Mode Activation
 
-The shared source of truth is `.bago/BOOTSTRAP.md`.
+The shared base prompt is `.bago/BOOTSTRAP.md`.
+The canonical agent entrypoint is `.bago/AGENT_START.md`.
+`START_AGENT.md` is only a compatibility alias.
 
 | Surface | Hook | Provider responsibility |
 |---|---|---|
-| Codex CLI/app inside the repo | `AGENTS.md` loads `.bago/BOOTSTRAP.md` | Codex is already the provider; BAGO does not replace it |
-| GitHub Copilot inside the repo | `.github/copilot-instructions.md` loads `.bago/BOOTSTRAP.md` | Copilot is already the provider; BAGO does not replace it |
-| BAGO chat runtime | `.bago/chat/system_prompt.py` loads `.bago/BOOTSTRAP.md` | `SessionManager` manages provider, model, and session |
-| Another chat or API | Inject `.bago/BOOTSTRAP.md` as the system/developer prompt | The host keeps its provider |
+| Codex CLI/app inside the repo | `AGENTS.md` loads `.bago/AGENT_START.md` | Codex is already the provider; BAGO does not replace it |
+| GitHub Copilot inside the repo | `.github/copilot-instructions.md` loads `.bago/AGENT_START.md` | Copilot is already the provider; BAGO does not replace it |
+| BAGO chat runtime | `.bago/chat/system_prompt.py` loads `.bago/BOOTSTRAP.md` + `.bago/AGENT_START.md` | `SessionManager` manages provider, model, and session |
+| Another chat or API | Inject `.bago/BOOTSTRAP.md` + `.bago/AGENT_START.md` as the system/developer prompt | The host keeps its provider |
 
 Inside the BAGO runtime, `agent_gateway` specializes behavior without changing
 provider, model, or context. Use `/mode B|A|G|O` for the operating mode and
@@ -23,14 +25,14 @@ name. Each host requires its native hook or explicit bootstrap injection.
 ## Local Workspace
 
 ```text
-C:\Bago_v4
+C:\Users\AMTEC_Terminal_1º\bago_fw
 ```
 
 Role:
 
-- source of truth for v4 development.
-- plan root for `PLAN_VERTICE`.
-- release artifact source after gates pass.
+- editable source tree for current development.
+- primary target for implementation work.
+- source used first before syncing to the installed runtime.
 
 ## Installed Runtime
 

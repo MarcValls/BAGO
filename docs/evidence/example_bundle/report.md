@@ -1,10 +1,10 @@
-# Bundle de evidencia — Asistencia comunitaria basada en conocimiento abierto
+# Bundle de evidencia -- Asistencia comunitaria basada en conocimiento abierto
 
 - **Modo:** `simulated`
 - **Objetivo:** `community-knowledge`
 - **Provider/modelo:** `mock-contract/contract-assistant-v1`
-- **Session ID:** `96137912-1b2`
-- **Generado en:** `C:\Users\AMTEC_Terminal_1º\source\repos\MarcValls\BAGO\docs\evidence\example_bundle`
+- **Session ID:** `62ed8b04-067`
+- **Generado en:** `docs/evidence/example_bundle`
 
 ## Resultado directo al usuario
 
@@ -23,25 +23,45 @@ BAGO v4 puede responder a una necesidad concreta del usuario y, al mismo tiempo,
 
 ## Comprobaciones demostrables
 
-- **session-runtime**: pass — La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta.
-- **direct-assistance**: pass — Existe una respuesta util al objetivo planteado por el usuario.
-- **knowledge-persistence**: pass — La evidencia incluye conocimiento recuperable derivado de la sesion.
-- **session-save**: pass — La sesion se guardo en disco con metadatos de continuidad.
-- **plan-generation**: pass — El runtime genero un plan reutilizable desde el parser REPL real.
+- **session-runtime**: pass -- La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta.
+- **direct-assistance**: pass -- Existe una respuesta util al objetivo planteado por el usuario.
+- **knowledge-persistence**: pass -- La evidencia incluye conocimiento recuperable derivado de la sesion.
+- **session-save**: pass -- La sesion se guardo en disco con metadatos de continuidad.
+- **plan-generation**: pass -- El runtime definio un plan reutilizable desde el parser REPL real.
 
 ## Comandos capturados
 
 ### /status
 
 ```text
-Session ID : 96137912-1b2
+Session ID : 62ed8b04-067
 Provider   : mock-contract
 Model      : contract-assistant-v1
+Modo BAGO  : [B]
+Agente     : default
+Bridges    : mock-contract
 Health     : OK — Mock contract runtime ready
 Messages   : 2
 Tokens     : 91
 Calls      : 1
 Switches   : 0
+```
+
+### /memory add
+
+```text
+✓ Recuerdo añadido (ID: 18).
+```
+
+### /memory search
+
+```text
+Resultados para 'conocimiento recuperable':
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 62ed8b04-067)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: ba18c234-534)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6861db8b-46b)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 6d28af54-823)
+  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: b78ee5c9-9a7)
 ```
 
 ### /plan
@@ -55,19 +75,6 @@ Switches   : 0
   ○ 4. Guardar la sesion y publicar la evidencia reutilizable.
 ```
 
-### /memory add
-
-```text
-✓ Recuerdo añadido (ID: 1).
-```
-
-### /memory search
-
-```text
-Resultados para 'conocimiento recuperable':
-  • BAGO v4 debe convertir una conversacion util en conocimiento recuperable y en un artefacto verificab... (sesión: 96137912-1b2)
-```
-
 ### /good
 
 ```text
@@ -77,5 +84,5 @@ Mensaje -1 marcado como 'good' — no se diluirá en compresión.
 ### /save
 
 ```text
-Sesión guardada: 96137912-1b2
+Sesión guardada: 62ed8b04-067
 ```

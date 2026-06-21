@@ -1,14 +1,18 @@
 // ── Patch-first manager experience ───────────────────────────
 const PM_VIEW_TITLES={
-  patch:'Patch Bay',
+  control:'Control',
+  route:'Ruta nodular',
+  bago:'BAGO Chat',
+  patch:'Registry nodular',
   installations:'Instalaciones',
-  matrix:'Matriz',
+  matrix:'Pipelines',
   pieces:'PieceStore',
   releases:'Releases',
   jobs:'Trabajos de release',
   sessions:'Sesiones',
   health:'Salud operativa',
-  audit:'Auditoría'
+  audit:'Auditoría',
+  system:'Sistema'
 };
 const PM_MODE_COLORS={
   connected:'#34d399',
@@ -26,7 +30,7 @@ const PM_WIRE_MODES={
   'read-only':'readonly',
   'writable overlay':'overlay'
 };
-let pmActiveView='patch';
+let pmActiveView='matrix';
 let pmSelectedInstallation='';
 let pmSelectedPiece='';
 let pmSearch='';
@@ -36,6 +40,10 @@ let pmManagerHealth=null;
 let pmMutationBusy=false;
 let pmSelectedJobId='';
 let pmSessionAudit=[{time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),action:'manager',detail:'Gestor Patch-first iniciado'}];
+let pmAuditTab=localStorage.getItem('bago.pm.audit.tab')||'project';
+let pmAuditMetricsOpen=localStorage.getItem('bago.pm.audit.metrics')==='1';
+let pmAuditState={project:null,bago:null,loaded_at:'',events:[]};
+let pmMatrixTransposed=localStorage.getItem('bago.pm.matrix.transposed')==='1';
 
 function pmModeClass(mode){return String(mode||'available').replace(/\s+/g,'-');}
 function pmFormatBytes(value){
@@ -96,6 +104,38 @@ function pmMatrixCell(installationId,pieceId){
   if(Array.isArray(row.cells))return row.cells.find(c=>c.installation_id===installationId)||null;
   return row.cells&&row.cells[installationId]||null;
 }
+function pmMatrixSortValue(entity, key, refsCount){
+  if(key==='refs') return Number(refsCount||0);
+  if(!entity) return '';
+  if(key==='name') return pmPathName(entity.path||entity.name||entity.installation_id||'');
+  if(key==='mode') return entity.mode||entity.profile||'';
+  if(key==='scope') return entity.scope||'';
+  if(key==='id') return entity.piece_id||entity.installation_id||entity.id||'';
+  return entity.type||entity.profile||entity.piece_id||entity.installation_id||'';
+}
+function pmCompareMatrixValues(a,b,direction){
+  if(a===b)return 0;
+  const factor=direction==='desc'?-1:1;
+  if(typeof a==='number' || typeof b==='number'){
+    return (Number(a||0)-Number(b||0))*factor;
+  }
+  return String(a||'').localeCompare(String(b||''), 'es', { sensitivity:'base' })*factor;
+}
+function pmMatrixToggleTransposed(next){
+  pmMatrixTransposed=!!next;
+  localStorage.setItem('bago.pm.matrix.transposed', pmMatrixTransposed ? '1' : '0');
+}
+function pmTransposeMatrix(){
+  pmMatrixToggleTransposed(!pmMatrixTransposed);
+  const btn=document.getElementById('pm-matrix-transpose');
+  if(btn){
+    btn.title=pmMatrixTransposed ? 'Volver a la vista normal' : 'Cambiar orientación de la matriz';
+    btn.setAttribute('aria-pressed', pmMatrixTransposed ? 'true' : 'false');
+  }
+  pmAudit('matrix', pmMatrixTransposed ? 'Matriz transpuesta' : 'Matriz normal');
+  showToast(pmMatrixTransposed ? 'Matriz transpuesta' : 'Matriz normal', true);
+  pmRenderMatrix();
+}
 function pmEnsureSelection(){
   const installs=pmNodeInstallations();
   if(!installs.some(i=>i.installation_id===pmSelectedInstallation)){
@@ -115,12 +155,70 @@ function pmAudit(action,detail){
   pmSessionAudit=pmSessionAudit.slice(0,60);
   pmRenderAudit();
 }
+function pmAuditSeverityBadge(severity){
+  const tone=severity==='high'?'bad':severity==='medium'?'warn':'info';
+  return pmBadge(severity||'info',tone);
+}
+function pmAuditMetric(label, value){
+  return '<div class="pm-audit-metric"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(String(value || '0'))+'</strong></div>';
+}
+function pmAuditFindingHtml(finding){
+  const sev=String(finding&&finding.severity||'low').toLowerCase();
+  const title=finding&&finding.title||finding&&finding.code||'Hallazgo';
+  const detail=finding&&finding.detail||'';
+  const file=finding&&finding.file||'';
+  return '<div class="pm-audit-finding">'
+    +pmAuditSeverityBadge(sev)
+    +'<div><strong>'+escapeHtml(title)+'</strong><span>'+escapeHtml(detail)+'</span>'+ (file ? '<code>'+escapeHtml(file)+'</code>' : '') +'</div>'
+    +'<div>'+pmBadge(String(finding&&finding.scope||'audit').toUpperCase(),'info')+'</div>'
+    +'</div>';
+}
+function pmAuditEventHtml(entry){
+  return '<div class="pm-audit-event">'
+    +'<time>'+escapeHtml(String(entry&&entry.timestamp||'').slice(11,19))+'</time>'
+    +'<strong>'+escapeHtml(entry&&entry.scope||'event')+'</strong>'
+    +'<span>'+escapeHtml(entry&&entry.detail||entry&&entry.action||'')+'</span>'
+    +'<code>'+escapeHtml(entry&&entry.source||'local')+'</code>'
+    +'</div>';
+}
+function pmAuditActionHtml(label, action, tone=''){
+  return '<button class="pm-btn '+escapeHtml(tone)+'" data-audit-action="'+escapeHtml(action)+'">'+escapeHtml(label)+'</button>';
+}
+function pmAuditQuickActions(kind, payload){
+  const actions=[];
+  if(kind==='project'){
+    const findings=Array.isArray(payload&&payload.findings)?payload.findings:[];
+    const codes=findings.map(item=>String(item.code||item.title||'').toLowerCase());
+    if(codes.some(code=>code.includes('version')||code.includes('drift'))) actions.push(pmAuditActionHtml('Revisar versiones','project-fix-version','primary'));
+    if(codes.some(code=>code.includes('duplicate')||code.includes('duplicate-id'))) actions.push(pmAuditActionHtml('Eliminar duplicados','project-fix-duplicates'));
+    if(codes.some(code=>code.includes('missing')||code.includes('absent'))) actions.push(pmAuditActionHtml('Crear ausentes','project-fix-missing'));
+    actions.push(pmAuditActionHtml('Exportar','project-export'));
+  }
+  if(kind==='bago'){
+    const health=payload&&payload.health||{};
+    const startup=health.startup||{};
+    const missing=Array.isArray(startup.missing_core)?startup.missing_core:[];
+    if(missing.length) actions.push(pmAuditActionHtml('Instalar faltantes','bago-install-missing','primary'));
+    actions.push(pmAuditActionHtml('Abrir salud','bago-open-health'));
+    actions.push(pmAuditActionHtml('Ver jobs','bago-open-jobs'));
+    actions.push(pmAuditActionHtml('Exportar','bago-export'));
+  }
+  if(kind==='events'){
+    actions.push(pmAuditActionHtml('Actualizar','events-refresh','primary'));
+    actions.push(pmAuditActionHtml('Exportar','events-export'));
+    actions.push(pmAuditActionHtml('Filtrar UI','events-filter-ui'));
+  }
+  return actions.join('');
+}
 function pmSwitchView(view){
   pmActiveView=view;
+  window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('view-switch', { view });
   document.querySelectorAll('[data-pm-view]').forEach(b=>b.classList.toggle('active',b.getAttribute('data-pm-view')===view));
   document.querySelectorAll('.pm-view').forEach(v=>v.classList.toggle('active',v.id==='pm-view-'+view));
   document.getElementById('pm-title').textContent=PM_VIEW_TITLES[view]||'BAGO Manager';
   if(view==='patch')setTimeout(pmUpdatePatchLines,30);
+  if(view==='route'&&typeof pmUpdateRouteLines==='function')setTimeout(pmUpdateRouteLines,30);
+  if(view==='matrix'&&typeof pmRenderPipelineRail==='function')setTimeout(pmRenderPipelineRail,30);
 }
 function pmFilteredPieceRows(){
   const inst=pmFindInstallation(pmSelectedInstallation);
@@ -245,7 +343,7 @@ function pmStartDrag(event){
   node.addEventListener('pointerup',up,{once:true});
 }
 function pmRenderDetail(){
-  const container=document.getElementById('pm-detail');
+  const container=document.getElementById('pm-patch-detail-body');
   const inst=pmFindInstallation(pmSelectedInstallation);
   const piece=pmFindPiece(pmSelectedPiece);
   if(!inst||!piece){container.innerHTML='<div class="pm-empty">Selecciona un cruce.</div>';return;}
@@ -275,7 +373,7 @@ function pmRenderDetail(){
 }
 async function pmValidateRegistry(){
   const api=electronApi();
-  if(!api||!api.runNodeValidate)return {ok:false,error:'validación solo disponible en Electron'};
+  if(!api||!api.runNodeValidate)return pmLocalNodeValidate();
   try{
     const result=await api.runNodeValidate();
     const data=result&&result.data||{};
@@ -388,7 +486,7 @@ function pmRenderInstallations(){
       +roles.map(r=>pmBadge('rol '+roleBadgeLabel(r),'ok')).join('')+'</div></div>'
       +'<div class="pm-row-actions"><button data-pm-install-action="focus" data-id="'+escapeHtml(nodeId)+'">Patch</button>'
       +'<button data-pm-install-action="active" data-path="'+escapeHtml(inst.path)+'">Activa</button><button data-pm-install-action="dev" data-path="'+escapeHtml(inst.path)+'">Dev</button>'
-      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button></div></article>';
+      +'<button data-pm-install-action="launch" data-path="'+escapeHtml(inst.path)+'">Ign</button><button data-pm-install-action="update" data-path="'+escapeHtml(inst.path)+'">Actualizar</button><button data-pm-install-action="uninstall-impact" data-path="'+escapeHtml(inst.path)+'">Impacto</button><button class="danger" data-pm-install-action="uninstall" data-path="'+escapeHtml(inst.path)+'">Archivar</button></div></article>';
   }).join('')||'<div class="pm-empty">Sin instalaciones visibles.</div>';
   container.querySelectorAll('[data-pm-install-action]').forEach(btn=>btn.addEventListener('click',async ev=>{
     ev.stopPropagation();
@@ -406,17 +504,44 @@ function pmRenderInstallations(){
       await pmPrepareRelease(latestRelease,path,'update');
     }
     if(action==='uninstall-impact')await pmInspectUninstall(path);
+    if(action==='uninstall')await pmUninstallInstallation(path);
   }));
 }
-function pmRenderMatrix(){
-  const container=document.getElementById('pm-matrix');
+function pmRenderMatrix(containerId='pm-matrix'){
+  const container=document.getElementById(containerId);
+  if(!container)return;
   const installs=pmNodeInstallations();
   const pieces=pmPieces().filter(p=>!pmSearch||[p.piece_id,p.type,p.scope].join(' ').toLowerCase().includes(pmSearch));
-  if(!installs.length||!pieces.length){container.innerHTML='<div class="pm-empty">Matriz sin datos.</div>';return;}
-  let html='<table class="pm-matrix"><thead><tr><th>Pieza</th>'+installs.map(i=>'<th>'+escapeHtml(pmPathName(i.path))+'<br><span>'+escapeHtml(i.profile||i.mode||'')+'</span></th>').join('')+'</tr></thead><tbody>';
-  pieces.forEach(piece=>{
+  if(!installs.length||!pieces.length){container.innerHTML='<div class="pm-empty">Registry sin datos.</div>';return;}
+  const pieceSort=document.getElementById('pm-matrix-piece-sort')&&document.getElementById('pm-matrix-piece-sort').value||'type';
+  const installSort=document.getElementById('pm-matrix-install-sort')&&document.getElementById('pm-matrix-install-sort').value||'profile';
+  const direction=document.getElementById('pm-matrix-direction')&&document.getElementById('pm-matrix-direction').value||'asc';
+  const refsByPiece=new Map(pieces.map(piece=>[piece.piece_id,pmConnectors().filter(c=>c.piece_id===piece.piece_id).length]));
+  const installsSorted=installs.slice().sort((a,b)=>pmCompareMatrixValues(pmMatrixSortValue(a,installSort,0),pmMatrixSortValue(b,installSort,0),direction));
+  const piecesSorted=pieces.slice().sort((a,b)=>pmCompareMatrixValues(pmMatrixSortValue(a,pieceSort,refsByPiece.get(a.piece_id)||0),pmMatrixSortValue(b,pieceSort,refsByPiece.get(b.piece_id)||0),direction));
+  const rows=pmMatrixTransposed?installsSorted:piecesSorted;
+  const cols=pmMatrixTransposed?piecesSorted:installsSorted;
+  let html='<table class="pm-matrix"><thead><tr><th>'+(pmMatrixTransposed?'Instalación':'Pieza')+'</th>'+cols.map(item=>{
+    if(pmMatrixTransposed){
+      return '<th>'+escapeHtml(item.piece_id)+'<br><span>'+escapeHtml(item.type||'')+' · '+escapeHtml(item.scope||'')+'</span></th>';
+    }
+    return '<th>'+escapeHtml(pmPathName(item.path))+'<br><span>'+escapeHtml(item.profile||item.mode||'')+'</span></th>';
+  }).join('')+'</tr></thead><tbody>';
+  rows.forEach(row=>{
+    if(pmMatrixTransposed){
+      const inst=row;
+      html+='<tr><td><strong>'+escapeHtml(pmPathName(inst.path))+'</strong><br><span>'+escapeHtml(inst.profile||inst.mode||'')+'</span></td>';
+      cols.forEach(piece=>{
+        const connector=pmFindConnector(inst.installation_id,piece.piece_id),cell=pmMatrixCell(inst.installation_id,piece.piece_id)||{};
+        const mode=connector&&connector.mode||cell.mode||'available';
+        html+='<td><div class="pm-cell" data-pm-matrix-inst="'+escapeHtml(inst.installation_id)+'" data-pm-matrix-piece="'+escapeHtml(piece.piece_id)+'"><strong>'+escapeHtml(mode)+'</strong><span>exec '+escapeHtml(String((connector&&connector.policy&&connector.policy.can_execute)||cell.can_execute||false))+' · mod '+escapeHtml(String((connector&&connector.policy&&connector.policy.can_modify)||cell.can_modify||false))+'</span>'+pmModeBadge(mode)+'</div></td>';
+      });
+      html+='</tr>';
+      return;
+    }
+    const piece=row;
     html+='<tr><td><strong>'+escapeHtml(piece.piece_id)+'</strong><br><span>'+escapeHtml(piece.type||'')+' · '+escapeHtml(piece.scope||'')+'</span></td>';
-    installs.forEach(inst=>{
+    cols.forEach(inst=>{
       const connector=pmFindConnector(inst.installation_id,piece.piece_id),cell=pmMatrixCell(inst.installation_id,piece.piece_id)||{};
       const mode=connector&&connector.mode||cell.mode||'available';
       html+='<td><div class="pm-cell" data-pm-matrix-inst="'+escapeHtml(inst.installation_id)+'" data-pm-matrix-piece="'+escapeHtml(piece.piece_id)+'"><strong>'+escapeHtml(mode)+'</strong><span>exec '+escapeHtml(String((connector&&connector.policy&&connector.policy.can_execute)||cell.can_execute||false))+' · mod '+escapeHtml(String((connector&&connector.policy&&connector.policy.can_modify)||cell.can_modify||false))+'</span>'+pmModeBadge(mode)+'</div></td>';
@@ -424,6 +549,12 @@ function pmRenderMatrix(){
     html+='</tr>';
   });
   container.innerHTML=html+'</tbody></table>';
+  container.classList.toggle('pm-matrix-transposed',pmMatrixTransposed);
+  const transposeBtn=document.getElementById('pm-matrix-transpose');
+  if(transposeBtn){
+    transposeBtn.setAttribute('aria-pressed',pmMatrixTransposed?'true':'false');
+    transposeBtn.title=pmMatrixTransposed?'Volver a la vista normal':'Cambiar orientación de la matriz';
+  }
   container.querySelectorAll('[data-pm-matrix-inst]').forEach(cell=>cell.addEventListener('click',()=>{
     pmSelectedInstallation=cell.getAttribute('data-pm-matrix-inst')||'';
     pmSelectedPiece=cell.getAttribute('data-pm-matrix-piece')||'';
@@ -502,7 +633,12 @@ function pmReleasePreflightDialog(preflight){
 }
 async function pmInspectUninstall(target){
   const api=electronApi();
-  if(!api||!api.preflightRelease){showToast('Preflight disponible solo en Electron',false);return;}
+  if(!api||!api.preflightRelease){
+    await copyText(uninstallCommand(target));
+    pmAudit('uninstall-preflight',target+' · comando copiado');
+    showToast('Sin Electron: comando de desinstalación copiado',true);
+    return;
+  }
   try{
     const preflight=await api.preflightRelease({release:{},target,action:'uninstall'});
     const dialog=document.getElementById('pm-release-dialog');
@@ -527,10 +663,30 @@ async function pmInspectUninstall(target){
     pmAudit('uninstall-preflight',target+' · '+(preflight.ok?'viable':'bloqueado'));
   }catch(e){showToast('Preflight uninstall: '+e.message,false);}
 }
+async function pmUninstallInstallation(target){
+  const api=electronApi();
+  if(!window.confirm('Archivar esta instalación de BAGO?\n\n'+target))return;
+  if(!api||!api.installAction){
+    await copyText(uninstallCommand(target));
+    pmAudit('uninstall-copy',target);
+    showToast('Sin Electron: comando de desinstalación copiado',true);
+    return;
+  }
+  try{
+    await api.installAction({action:'uninstall',targetDir:target,purgeState:false});
+    pmAudit('uninstall',target);
+    await refreshAll([]);
+    await pmLoadHealth();
+    showToast('Instalación archivada',true);
+  }catch(e){
+    showToast('Archivar instalación: '+e.message,false);
+  }
+}
 async function pmPrepareRelease(release,target,action){
   const api=electronApi();
   if(!api||!api.preflightRelease||!api.startReleaseJob){
     await copyText(installCommand(release&&release.tag_name||'',target));
+    pmAudit('release-copy',(release&&release.tag_name||'release')+' → '+target);
     return;
   }
   try{
@@ -576,6 +732,7 @@ function pmRenderJobs(){
     if(job.state==='ready')actions.push('<button data-pm-job-action="install" data-id="'+escapeHtml(job.id)+'">Instalar verificado</button>');
     if(job.rollback_available)actions.push('<button data-pm-job-action="rollback" data-id="'+escapeHtml(job.id)+'">Rollback</button>');
     actions.push('<button data-pm-job-action="logs" data-id="'+escapeHtml(job.id)+'">Logs</button>');
+    if(['ready','completed','cancelled','failed','rolled-back'].includes(job.state))actions.push('<button class="danger" data-pm-job-action="delete" data-id="'+escapeHtml(job.id)+'">Archivar</button>');
     return '<article class="pm-job '+(job.id===pmSelectedJobId?'selected':'')+'"><div class="pm-job-head"><div><h3>'+escapeHtml(job.release&&job.release.tag_name||job.id)+' · '+escapeHtml(job.action||'install')+'</h3><p>'+escapeHtml(job.target||'')+'</p></div>'+pmBadge(job.state,pmJobClass(job))+'</div>'
       +'<div class="pm-progress"><span style="width:'+percent+'%"></span></div><div class="pm-badges">'+pmBadge(progress.phase||job.state,'info')+pmBadge(percent+'%')+pmBadge(pmFormatBytes(progress.transferred)+' / '+pmFormatBytes(progress.total))+(job.verification?pmBadge('SHA256 verificado','ok'):'')+(job.error?pmBadge(job.error,'bad'):'')+'</div><div class="pm-row-actions">'+actions.join('')+'</div></article>';
   }).join('')||'<div class="pm-empty">Sin trabajos todavía. Prepara una release desde Releases.</div>';
@@ -595,6 +752,12 @@ async function pmJobAction(action,id){
     if(action==='rollback'){
       if(!window.confirm('Restaurar el runtime anterior mediante rollback?'))return;
       await api.rollbackReleaseJob(id);
+    }
+    if(action==='delete'){
+      if(!api.deleteReleaseJob)throw new Error('deleteReleaseJob no disponible');
+      if(!window.confirm('Archivar el trabajo persistido?\n\n'+id))return;
+      await api.deleteReleaseJob(id);
+      pmSelectedJobId='';
     }
     await pmLoadJobs();
   }catch(e){showToast('Job: '+e.message,false);}
@@ -668,15 +831,200 @@ function pmEvidenceDetail(entry){
   const after=entry&&entry.after&&entry.after.mode||'';
   return [entry.actor||'?',entry.result||'?',targetText,before&&after?before+' → '+after:''].filter(Boolean).join(' · ');
 }
+function pmLocalAuditSnapshot(){
+  const interactions=typeof window.__bagoInteractionLogRead==='function'?window.__bagoInteractionLogRead():[];
+  const nodeEvidence=Array.isArray(nodeCache.evidence&&nodeCache.evidence.entries)?nodeCache.evidence.entries:[];
+  const jobs=Array.isArray(releaseJobs)?releaseJobs:[];
+  const releaseRows=jobs.map(job=>({
+    timestamp:job.updated_at||job.created_at||new Date().toISOString(),
+    scope:'release',
+    action:job.state||'job',
+    detail:(job.name||job.id||'trabajo')+' · '+(job.tag_name||''),
+    source:'release-job'
+  }));
+  return {
+    project:{
+      scope:'project',
+      checked_at:new Date().toISOString(),
+      summary:{findings:0,high:0,medium:0,low:0},
+      findings:[{
+        severity:'low',
+        scope:'project',
+        code:'LOCAL_VIEW',
+        title:'Vista local',
+        detail:'Auditoría en modo navegador local; el backend no está conectado',
+        file:'browser'
+      }]
+    },
+    bago:{
+      scope:'bago',
+      checked_at:new Date().toISOString(),
+      runtime_root:'browser-local',
+      summary:{findings:0,high:0,medium:0,low:0},
+      health:null,
+      release_state:{release_jobs:jobs.length,lifecycle_job:''},
+      sources:{runtime_version:'browser-local',manifest:false,launcher:false},
+      findings:[{
+        severity:'low',
+        scope:'bago',
+        code:'LOCAL_VIEW',
+        title:'Vista local',
+        detail:'Auditoría en modo navegador local; el backend no está conectado',
+        file:'browser'
+      }]
+    },
+    events:[]
+      .concat(nodeEvidence.slice(0,40).map(entry=>({
+        timestamp:entry.timestamp,
+        scope:'node',
+        action:entry.action||'event',
+        detail:pmEvidenceDetail(entry),
+        source:'node-evidence',
+        severity:'info'
+      })))
+      .concat(releaseRows.slice(0,40))
+      .concat((interactions||[]).slice(0,40).map(entry=>({
+        timestamp:entry.ts||new Date().toISOString(),
+        scope:'ui',
+        action:entry.event||'event',
+        detail:(entry.payload&&entry.payload.target&&entry.payload.target.text)||entry.payload&&entry.payload.target&&entry.payload.target.id||'interacción',
+        source:'interaction-log',
+        severity:'info'
+      })))
+  };
+}
+async function pmLoadAudit(){
+  const api=electronApi();
+  if(api&&api.projectAudit&&api.bagoAudit){
+    try{
+      const [project,bago]=await Promise.all([api.projectAudit(),api.bagoAudit()]);
+      const events=api.eventLedger?await api.eventLedger(80):[];
+      pmAuditState={project,bago,events:Array.isArray(events&&events.entries)?events.entries:events||[],loaded_at:new Date().toISOString()};
+    }catch(e){
+      pmAuditState={...pmLocalAuditSnapshot(),loaded_at:new Date().toISOString(),error:e.message};
+    }
+  }else{
+    pmAuditState={...pmLocalAuditSnapshot(),loaded_at:new Date().toISOString()};
+  }
+  pmRenderAudit();
+}
 function pmRenderAudit(){
-  const container=document.getElementById('pm-audit');
-  if(!container)return;
-  const evidence=nodeCache.status&&nodeCache.status.evidence_file||'Evidence ledger no cargado';
-  const realEntries=Array.isArray(nodeCache.evidence&&nodeCache.evidence.entries)?nodeCache.evidence.entries:[];
-  document.getElementById('pm-evidence-path').textContent=evidence;
-  const real=realEntries.map(entry=>'<div class="pm-audit-row"><time>'+escapeHtml(String(entry.timestamp||'').slice(11,19))+'</time><strong>'+escapeHtml(entry.action||'event')+'</strong><span>'+escapeHtml(pmEvidenceDetail(entry))+'</span></div>');
-  const session=pmSessionAudit.map(row=>'<div class="pm-audit-row"><time>'+escapeHtml(row.time)+'</time><strong>'+escapeHtml(row.action)+'</strong><span>'+escapeHtml(row.detail)+'</span></div>');
-  container.innerHTML=real.concat(session).join('')||'<div class="pm-empty">Sin evidencia todavía.</div>';
+  const summary=document.getElementById('pm-audit-summary');
+  const metricsSlot=document.getElementById('pm-audit-metrics');
+  const projectSlot=document.getElementById('pm-audit-project');
+  const bagoSlot=document.getElementById('pm-audit-bago');
+  const eventsSlot=document.getElementById('pm-audit-events');
+  const caption=document.getElementById('pm-audit-caption');
+  const metricsToggle=document.getElementById('pm-audit-toggle-metrics');
+  if(!summary||!metricsSlot||!projectSlot||!bagoSlot||!eventsSlot||!caption)return;
+  const project=pmAuditState.project||pmLocalAuditSnapshot().project;
+  const bago=pmAuditState.bago||pmLocalAuditSnapshot().bago;
+  const events=Array.isArray(pmAuditState.events)?pmAuditState.events:[];
+  const projectFindings=Array.isArray(project.findings)?project.findings:[];
+  const bagoFindings=Array.isArray(bago.findings)?bago.findings:[];
+  const activeLabel=pmAuditTab==='project'?'Proyecto':pmAuditTab==='bago'?'BAGO':'Eventos';
+  summary.innerHTML='<div class="pm-audit-callout"><strong>'+escapeHtml(activeLabel)+'</strong><p>Última carga: '+escapeHtml(pmAuditState.loaded_at?new Date(pmAuditState.loaded_at).toLocaleString('es-ES'):'pendiente')+' · Proyecto '+escapeHtml(String(project.summary&&project.summary.findings||projectFindings.length))+' · BAGO '+escapeHtml(String(bago.summary&&bago.summary.findings||bagoFindings.length))+' · Eventos '+escapeHtml(String(events.length))+'</p></div>';
+  metricsSlot.innerHTML='<div class="pm-audit-callout"><strong>Métricas</strong><p>Resumen cuantitativo separado de los hallazgos para mantener cada pestaña enfocada en una sola decisión.</p><div class="pm-audit-list">'
+    +pmAuditMetric('Proyecto', project.summary&&project.summary.findings||projectFindings.length)
+    +pmAuditMetric('Proyecto alto', project.summary&&project.summary.high||projectFindings.filter(item=>item.severity==='high').length)
+    +pmAuditMetric('BAGO', bago.summary&&bago.summary.findings||bagoFindings.length)
+    +pmAuditMetric('Eventos', events.length)
+    +'</div></div>';
+  metricsSlot.classList.toggle('open',!!pmAuditMetricsOpen);
+  if(metricsToggle){
+    metricsToggle.classList.toggle('active',!!pmAuditMetricsOpen);
+    metricsToggle.textContent=pmAuditMetricsOpen?'Ocultar métricas':'Métricas';
+  }
+
+  const tabButtons=document.querySelectorAll('[data-audit-tab]');
+  tabButtons.forEach(btn=>btn.classList.toggle('active',(btn.getAttribute('data-audit-tab')||'')===pmAuditTab));
+
+  const renderProject=()=>{
+    const lead=projectFindings[0]||null;
+    const leadTitle=lead?((lead.title||lead.code||'Hallazgo principal')):'Sin bloqueos';
+    const leadDetail=lead?(lead.detail||'Revisar este punto primero.'):('No hay hallazgos bloqueantes en el proyecto.');
+    projectSlot.innerHTML='<div class="pm-audit-header"><div><h3>Proyecto</h3><p>'+escapeHtml(project.root||'')+'</p></div><div class="pm-actions"><button class="pm-btn" id="pm-audit-project-export">Exportar</button></div></div>'
+      +'<div class="pm-audit-callout"><strong>'+escapeHtml(leadTitle)+'</strong><p>'+escapeHtml(leadDetail)+'</p><div class="pm-audit-actions">'+pmAuditQuickActions('project',project)+'</div></div>'
+      +'<div class="pm-audit-findings">'+(projectFindings.map(pmAuditFindingHtml).join('')||'<div class="pm-empty">Sin hallazgos de proyecto.</div>')+'</div>';
+    const exportBtn=document.getElementById('pm-audit-project-export');
+    if(exportBtn)exportBtn.addEventListener('click',()=>pmDownloadJson('bago-project-audit.json',project));
+  };
+  const renderBago=()=>{
+    const health=bago.health||{};
+    const startup=health.startup||{};
+    const checks=Array.isArray(health.checks)?health.checks:[];
+    const missing=Array.isArray(startup.missing_core)?startup.missing_core:[];
+    const lead=missing[0]||null;
+    const leadTitle=lead?('Falta '+(lead.label||lead.id||'dependencia')):(bagoFindings[0]&&(bagoFindings[0].title||bagoFindings[0].code)||'Estado BAGO');
+    const leadDetail=lead?(lead.detail||lead.install_command||'Instalar ahora'):(bagoFindings[0]&&(bagoFindings[0].detail||'Sin incidencias críticas.'));
+    bagoSlot.innerHTML='<div class="pm-audit-header"><div><h3>BAGO</h3><p>'+escapeHtml(bago.runtime_root||bago.repo_root||'')+'</p></div><div class="pm-actions"><button class="pm-btn" id="pm-audit-bago-export">Exportar</button></div></div>'
+      +'<div class="pm-audit-callout"><strong>'+escapeHtml(leadTitle)+'</strong><p>'+escapeHtml(leadDetail)+'</p><div class="pm-audit-actions">'+pmAuditQuickActions('bago',bago)+'</div></div>'
+      +'<div class="pm-audit-findings">'+(bagoFindings.map(pmAuditFindingHtml).join('')||'<div class="pm-empty">Sin hallazgos de BAGO.</div>')+'</div>'
+      +'<div class="pm-audit-list" style="margin-top:8px">'
+      +(checks.map(check=>'<div class="pm-audit-event"><time>'+escapeHtml(bago.checked_at?new Date(bago.checked_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'--:--')+'</time><strong>'+escapeHtml(check.name||'check')+'</strong><span>'+escapeHtml(check.detail||'')+'</span><code>'+escapeHtml(check.ok?'ok':'fail')+'</code></div>').join('')||'<div class="pm-empty">Sin checks de salud.</div>')
+      +'</div>';
+    const exportBtn=document.getElementById('pm-audit-bago-export');
+    if(exportBtn)exportBtn.addEventListener('click',()=>pmDownloadJson('bago-runtime-audit.json',bago));
+  };
+  const renderEvents=()=>{
+    const interactionLog=typeof window.__bagoInteractionLogRead==='function'?window.__bagoInteractionLogRead():[];
+    const sessionRows=(pmSessionAudit||[]).map(row=>({
+      timestamp:row.time?new Date().toISOString().slice(0,10)+'T'+row.time+':00Z':new Date().toISOString(),
+      scope:'session',
+      action:row.action||'event',
+      detail:row.detail||'',
+      source:'pmSessionAudit'
+    }));
+    const interactionRows=(interactionLog||[]).slice(0,80).map(entry=>({
+      timestamp:entry.ts,
+      scope:'ui',
+      action:entry.event||'event',
+      detail:entry.payload&&entry.payload.target&&entry.payload.target.text || entry.payload&&entry.payload.target&&entry.payload.target.id || 'interacción',
+      source:'interaction-log'
+    }));
+    const combined=(events||[]).concat(sessionRows).concat(interactionRows).sort((a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||'')));
+    const top=combined[0]||null;
+    const topLabel=top?((top.scope||'evento')+' · '+(top.action||'evento')):'Sin eventos';
+    const topDetail=top?(top.detail||''):'No hay eventos para mostrar.';
+    eventsSlot.innerHTML='<div class="pm-audit-header"><div><h3>Eventos</h3><p>Ledger unificado de UI, runtime y Node Control</p></div><div class="pm-actions"><button class="pm-btn" id="pm-audit-events-export">Exportar</button></div></div>'
+      +'<div class="pm-audit-callout"><strong>'+escapeHtml(topLabel)+'</strong><p>'+escapeHtml(topDetail)+'</p><div class="pm-audit-actions">'+pmAuditQuickActions('events',{combined})+'</div></div>'
+      +'<div class="pm-audit-list">'+(combined.slice(0,12).map(pmAuditEventHtml).join('')||'<div class="pm-empty">Sin eventos todavía.</div>')+'</div>';
+    const exportBtn=document.getElementById('pm-audit-events-export');
+    if(exportBtn)exportBtn.addEventListener('click',()=>pmDownloadJson('bago-event-ledger.json',combined));
+  };
+  projectSlot.classList.toggle('active',pmAuditTab==='project');
+  bagoSlot.classList.toggle('active',pmAuditTab==='bago');
+  eventsSlot.classList.toggle('active',pmAuditTab==='events');
+  caption.textContent=pmAuditTab==='project'
+    ?'Auditoría de proyecto'
+    :pmAuditTab==='bago'
+      ?'Auditoría de BAGO'
+      :'Ledger de eventos';
+  renderProject();
+  renderBago();
+  renderEvents();
+  document.querySelectorAll('[data-audit-action]').forEach(btn=>btn.addEventListener('click',async()=>pmHandleAuditAction(btn.getAttribute('data-audit-action')||'')));
+}
+async function pmHandleAuditAction(action){
+  const api=electronApi();
+  if(action==='project-export') return pmDownloadJson('bago-project-audit.json',pmAuditState.project||pmLocalAuditSnapshot().project);
+  if(action==='bago-export') return pmDownloadJson('bago-runtime-audit.json',pmAuditState.bago||pmLocalAuditSnapshot().bago);
+  if(action==='events-export') return pmDownloadJson('bago-event-ledger.json',Array.isArray(pmAuditState.events)?pmAuditState.events:[]);
+  if(action==='events-refresh') return pmLoadAudit();
+  if(action==='events-filter-ui') return showToast('Usa los filtros del ledger en la vista de eventos',true);
+  if(action==='bago-open-health') return pmSwitchView('health');
+  if(action==='bago-open-jobs') return pmSwitchView('jobs');
+  if(action==='bago-install-missing'){
+    const missing=((pmAuditState.bago&&pmAuditState.bago.health&&pmAuditState.bago.health.startup&&pmAuditState.bago.health.startup.missing_core)||[]).filter(item=>item.install_command);
+    if(!missing.length) return showToast('No hay dependencias instalables',true);
+    if(!api||!api.dependencyAction) return copyText(missing.map(item=>item.install_command).join('; '));
+    await api.dependencyAction({action:'install-all',targets:missing.map(item=>item.id)});
+    await pmLoadAudit();
+    return showToast('Instaladores lanzados',true);
+  }
+  if(action==='project-fix-version') return pmSwitchView('system');
+  if(action==='project-fix-duplicates') return pmSwitchView('patch');
+  if(action==='project-fix-missing') return pmSwitchView('installations');
 }
 function renderPatchManager(){
   pmEnsureSelection();
@@ -686,16 +1034,50 @@ function renderPatchManager(){
     ?status.installations+' instalaciones registry · '+detected+' detectadas localmente · '+status.pieces+' piezas · '+status.connectors+' connectors · '+releaseItems.length+' releases'
     :'Cargando detección local, releases y Node Control...';
   pmRenderStats();pmRenderPatch();pmRenderInstallations();pmRenderMatrix();pmRenderPieces();pmRenderReleases();pmRenderJobs();pmRenderHealth();pmRenderAudit();
+  if(typeof pmRenderControl==='function')pmRenderControl();
+  if(typeof pmRenderRoute==='function')pmRenderRoute();
 }
 function pmInit(){
   document.querySelectorAll('[data-pm-view]').forEach(btn=>btn.addEventListener('click',()=>pmSwitchView(btn.getAttribute('data-pm-view')||'patch')));
+  document.querySelectorAll('[data-audit-tab]').forEach(btn=>btn.addEventListener('click',async()=>{
+    pmAuditTab=btn.getAttribute('data-audit-tab')||'project';
+    localStorage.setItem('bago.pm.audit.tab',pmAuditTab);
+    await pmLoadAudit();
+  }));
+  const metricsToggle=document.getElementById('pm-audit-toggle-metrics');
+  if(metricsToggle)metricsToggle.addEventListener('click',()=>{
+    pmAuditMetricsOpen=!pmAuditMetricsOpen;
+    localStorage.setItem('bago.pm.audit.metrics',pmAuditMetricsOpen?'1':'0');
+    pmRenderAudit();
+  });
   document.getElementById('pm-search').addEventListener('input',ev=>{pmSearch=ev.target.value.trim().toLowerCase();renderPatchManager();});
-  document.getElementById('pm-mode-filter').addEventListener('change',ev=>{pmModeFilter=ev.target.value;pmRenderPatch();});
-  document.getElementById('pm-install-filter').addEventListener('change',ev=>{pmSelectedInstallation=ev.target.value;pmRenderPatch();});
-  document.getElementById('pm-release-channel').addEventListener('change',ev=>{pmReleaseChannel=ev.target.value;pmRenderReleases();});
+  document.getElementById('pm-mode-filter').addEventListener('change',ev=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('filter-change', { id: 'pm-mode-filter', value: ev.target.value });pmModeFilter=ev.target.value;pmRenderPatch();});
+  document.getElementById('pm-install-filter').addEventListener('change',ev=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('filter-change', { id: 'pm-install-filter', value: ev.target.value });pmSelectedInstallation=ev.target.value;pmRenderPatch();});
+  document.getElementById('pm-release-channel').addEventListener('change',ev=>{window.__bagoInteractionLogPush && window.__bagoInteractionLogPush('filter-change', { id: 'pm-release-channel', value: ev.target.value });pmReleaseChannel=ev.target.value;pmRenderReleases();});
+  const matrixPieceSort=document.getElementById('pm-matrix-piece-sort');
+  if(matrixPieceSort) matrixPieceSort.addEventListener('change',()=>pmRenderMatrix());
+  const matrixInstallSort=document.getElementById('pm-matrix-install-sort');
+  if(matrixInstallSort) matrixInstallSort.addEventListener('change',()=>pmRenderMatrix());
+  const matrixDirection=document.getElementById('pm-matrix-direction');
+  if(matrixDirection) matrixDirection.addEventListener('change',()=>pmRenderMatrix());
+  const matrixTranspose=document.getElementById('pm-matrix-transpose');
+  if(matrixTranspose) matrixTranspose.addEventListener('click',pmTransposeMatrix);
+  const webChatBtn=document.getElementById('pm-open-web-chat');
+  if(webChatBtn) webChatBtn.addEventListener('click',()=>typeof openWebChat==='function' ? openWebChat() : showToast('Abrir BAGO Web solo disponible en Electron',false));
+  const cliChatBtn=document.getElementById('pm-open-cli-chat');
+  if(cliChatBtn) cliChatBtn.addEventListener('click',()=>typeof openCliChat==='function' ? openCliChat() : showToast('Abrir BAGO CLI solo disponible en Electron',false));
+  const heroWebBtn=document.getElementById('pm-hero-open-web');
+  if(heroWebBtn) heroWebBtn.addEventListener('click',()=>typeof openWebChat==='function' ? openWebChat() : showToast('Abrir BAGO Web solo disponible en Electron',false));
+  const heroCliBtn=document.getElementById('pm-hero-open-cli');
+  if(heroCliBtn) heroCliBtn.addEventListener('click',()=>typeof openCliChat==='function' ? openCliChat() : showToast('Abrir BAGO CLI solo disponible en Electron',false));
   document.getElementById('pm-jobs-refresh').addEventListener('click',pmLoadJobs);
   document.getElementById('pm-health-refresh').addEventListener('click',pmLoadHealth);
-  document.getElementById('pm-refresh').addEventListener('click',async()=>{pmAudit('refresh','Detección local, releases, salud y Node Control');await Promise.all([refreshAll([]),loadNodeData(),pmLoadHealth()]);});
+  const auditRefresh=document.getElementById('pm-audit-refresh');
+  if(auditRefresh) auditRefresh.addEventListener('click',pmLoadAudit);
+  const auditExport=document.getElementById('pm-audit-export');
+  if(auditExport) auditExport.addEventListener('click',()=>pmDownloadJson('bago-audit-state.json',pmAuditState));
+  document.querySelectorAll('[data-audit-action]').forEach(btn=>btn.addEventListener('click',async()=>pmHandleAuditAction(btn.getAttribute('data-audit-action')||'')));
+  document.getElementById('pm-refresh').addEventListener('click',async()=>{pmAudit('refresh','Detección local, releases, salud y Node Control');await Promise.all([refreshAll([]),loadNodeData(),pmLoadHealth(),pmLoadAudit()]);});
   document.getElementById('pm-reset-layout').addEventListener('click',()=>{
     Object.keys(localStorage).filter(k=>k.startsWith('bago.pm.pos.')).forEach(k=>localStorage.removeItem(k));
     pmAudit('layout','Posiciones restablecidas');pmRenderPatch();
@@ -704,21 +1086,43 @@ function pmInit(){
     const path=window.prompt('Ruta BAGO a detectar:','');
     if(path){pmAudit('scan','Ruta manual: '+path);await refreshAll([path]);}
   });
-  document.getElementById('pm-validate').addEventListener('click',async()=>{
-    const api=electronApi();if(!api||!api.runNodeValidate){copyText('bago node validate --json');return;}
+  const validateBtn=document.getElementById('pm-validate');
+  if(validateBtn)validateBtn.addEventListener('click',async()=>{
+    const api=electronApi();
+    if(!api||!api.runNodeValidate){
+      const result=pmLocalNodeValidate();
+      pmAudit('validate',result.ok?'Node Control válido · local':'Validación con fallos · local');
+      showToast(result.ok?'Node Control válido · local':'Validación con fallos · local',!!result.ok);
+      return;
+    }
     try{const result=await api.runNodeValidate();pmAudit('validate',result&&result.ok?'Node Control válido':'Validación con fallos');showToast(result&&result.ok?'Node Control válido':'Validación con fallos',!!(result&&result.ok));}catch(e){showToast(e.message,false);}
   });
-  document.getElementById('pm-export').addEventListener('click',async()=>{
+  const exportBtn=document.getElementById('pm-export');
+  if(exportBtn)exportBtn.addEventListener('click',async()=>{
     if(!window.confirm('Exportar el estado Node Control a node-export.json?'))return;
-    const api=electronApi();if(!api||!api.runNodeCommand){copyText('bago node export --output node-export.json');return;}
+    const api=electronApi();
+    if(!api||!api.runNodeCommand){
+      const snapshot=pmLocalNodeSnapshot();
+      pmDownloadJson('node-export.json',snapshot);
+      pmAudit('export','node-export.json · local');
+      showToast('Exportación local preparada',true);
+      return;
+    }
     try{await api.runNodeCommand(['node','export','--output','node-export.json']);pmAudit('export','node-export.json');showToast('Estado exportado',true);}catch(e){showToast(e.message,false);}
   });
   window.addEventListener('resize',pmUpdatePatchLines);
   renderPatchManager();
   pmLoadHealth();
   pmLoadJobs();
+  pmLoadAudit();
   const api=electronApi();
   if(api&&api.onReleaseJobChanged)api.onReleaseJobChanged(job=>{
+    if(job&&job.deleted){
+      releaseJobs=releaseJobs.filter(item=>item.id!==job.id);
+      if(pmSelectedJobId===job.id)pmSelectedJobId='';
+      pmRenderJobs();pmRenderReleases();pmRenderHealth();
+      return;
+    }
     const index=releaseJobs.findIndex(item=>item.id===job.id);
     if(index>=0)releaseJobs[index]=job;else releaseJobs.unshift(job);
     pmRenderJobs();pmRenderReleases();pmRenderHealth();

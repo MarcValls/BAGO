@@ -67,10 +67,10 @@ function Normalize-ProfileName {
 
 function Get-ProfileInstallDir {
     param([Parameter(Mandatory = $true)][string]$ProfileName)
-    $programFiles = $env:ProgramFiles
-    if (-not $programFiles) { $programFiles = "C:\Program Files" }
+    [string]$programFilesRoot = [System.Environment]::GetEnvironmentVariable("ProgramFiles")
+    if ([string]::IsNullOrWhiteSpace($programFilesRoot)) { $programFilesRoot = "C:\Program Files" }
     switch ($ProfileName) {
-        "stable" { return (Join-Path $programFiles "BAGO") }
+        "stable" { return (Join-Path $programFilesRoot "BAGO") }
         "des" { return (Join-Path (Join-Path $HOME ".bago") "dev") }
         "ign" { return (Join-Path (Join-Path $HOME ".bago") "launch") }
         default { throw "Perfil invalido: $ProfileName" }
@@ -728,6 +728,13 @@ Write-Host ("  knowledge: {0}" -f $(if ($validation.knowledge.ok) { "ok" } else 
 
 if (-not $NoPathUpdate) {
     $pathScope = Enable-BagoCommandPath -InstallPath $installFull
+}
+
+if ($RepairOnly) {
+    # Repair-only updates the runtime config in place. Some managed installs
+    # keep only runtime state and do not ship the full source tree needed by
+    # the post-install tests, so do not fail repair on that missing payload.
+    $SkipTests = $true
 }
 
 if (-not $SkipTests) {

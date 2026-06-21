@@ -16,49 +16,42 @@ import sys
 from pathlib import Path
 
 def _user_bago_root() -> Path:
-    return Path.home() / ".bago"
-
-def _read_config(user_root: Path) -> dict:
-    cfg = user_root / "config.json"
-    if not cfg.exists():
-        return {"providers": {}}
-    try:
-        return json.loads(cfg.read_text(encoding="utf-8"))
-    except Exception:
-        return {"providers": {}}
-
-def _write_config(user_root: Path, data: dict) -> None:
-    cfg = user_root / "config.json"
-    cfg.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return Path.home() / ".bago" / "state"
 
 def cmd_provider_list(args: argparse.Namespace) -> int:
+    from config_manager import ConfigManager
+
     user_root = Path(args.user_bago or str(_user_bago_root()))
-    data = _read_config(user_root)
-    providers = data.get("providers", {})
+    cm = ConfigManager(state_root=str(user_root))
+    providers = cm.get("providers", {})
     for name, body in providers.items():
         print(f"{name}: {json.dumps(body, ensure_ascii=False)}")
-    if data.get("default_model"):
-        print(f"default_model: {data['default_model']}")
+    if cm.get("default_model"):
+        print(f"default_model: {cm.get('default_model')}")
     return 0
 
 def cmd_provider_set_fallback(args: argparse.Namespace) -> int:
+    from config_manager import ConfigManager
+
     user_root = Path(args.user_bago or str(_user_bago_root()))
-    data = _read_config(user_root)
-    providers = data.setdefault("providers", {})
+    cm = ConfigManager(state_root=str(user_root))
+    providers = cm.get("providers", {})
     ollama = providers.setdefault("ollama-local", {"enabled": True, "base_url": "http://127.0.0.1:11434"})
     ollama["fallback_model"] = args.model
-    _write_config(user_root, data)
+    cm.set("providers", providers)
     print(f"set ollama-local.fallback_model={args.model}")
     return 0
 
 def cmd_provider_remove_fallback(args: argparse.Namespace) -> int:
+    from config_manager import ConfigManager
+
     user_root = Path(args.user_bago or str(_user_bago_root()))
-    data = _read_config(user_root)
-    providers = data.get("providers", {})
+    cm = ConfigManager(state_root=str(user_root))
+    providers = cm.get("providers", {})
     ollama = providers.get("ollama-local", {})
     if "fallback_model" in ollama:
         ollama.pop("fallback_model", None)
-        _write_config(user_root, data)
+        cm.set("providers", providers)
         print("removed ollama-local.fallback_model")
     else:
         print("no fallback_model set")

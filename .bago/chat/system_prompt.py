@@ -15,6 +15,7 @@ from pathlib import Path
 
 
 _BOOTSTRAP_PATH = Path(__file__).resolve().parents[1] / "BOOTSTRAP.md"
+_AGENT_START_PATH = Path(__file__).resolve().parents[1] / "AGENT_START.md"
 
 BAGO_SYSTEM_PROMPT = """You are BAGO, a session-persistent AI assistant.
 
@@ -33,6 +34,7 @@ CAPABILITIES
 - If the current model does not support a feature (e.g., tool calls, vision), the system adapts transparently.
 - Prefer the registered script tools when the user's request maps to an explicit Python script battery.
 - If no registered script matches, say which script is missing instead of inventing one.
+- If the user launches BAGO inside a project directory or pastes a filesystem path, treat it as project context: offer to analyze the directory, inspect build/test signals, and suggest next steps before responding generically.
 
 TOOL USE GUIDELINES
 - Only invoke tools when the user explicitly asks for an action that requires them.
@@ -53,11 +55,24 @@ BEHAVIOR
 
 
 def get_system_prompt() -> str:
+    parts = [BAGO_SYSTEM_PROMPT.rstrip()]
+
     bootstrap = ""
     try:
         bootstrap = _BOOTSTRAP_PATH.read_text(encoding="utf-8").strip()
     except OSError:
         pass
-    if not bootstrap:
+    if bootstrap:
+        parts.append(bootstrap)
+
+    agent_start = ""
+    try:
+        agent_start = _AGENT_START_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    if agent_start:
+        parts.append(agent_start)
+
+    if len(parts) == 1:
         return BAGO_SYSTEM_PROMPT
-    return f"{BAGO_SYSTEM_PROMPT.rstrip()}\n\n{bootstrap}"
+    return "\n\n".join(parts)

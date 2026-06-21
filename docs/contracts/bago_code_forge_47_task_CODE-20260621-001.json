@@ -1,0 +1,69 @@
+{
+  "contract_id": "bago.codeforge.sprint1.classifier",
+  "task_id": "CODE-20260621-001",
+  "sprint": 1,
+  "contract_version": "4.7.0-draft",
+  "status": "planned",
+  "model": "ollama-local/llama3.2:3b",
+  "objective": "Implement Sprint 1 of BAGO Code Forge 3B: deterministic request classification before any model call.",
+  "operation": "build_deterministic_classifier",
+  "target_files": [
+    "bago_core\\codegen\\__init__.py",
+    "bago_core\\codegen\\task_classifier.py",
+    ".bago\\core\\session_manager.py",
+    "tests\\test_code_forge_contract.py",
+    "tests\\test_code_forge_classifier.py"
+  ],
+  "allowed_files": [
+    "bago_core\\codegen\\__init__.py",
+    "bago_core\\codegen\\task_classifier.py",
+    ".bago\\core\\session_manager.py",
+    "tests\\test_code_forge_contract.py",
+    "tests\\test_code_forge_classifier.py"
+  ],
+  "forbidden_paths": [
+    ".git",
+    "dist",
+    "release",
+    ".env",
+    "state",
+    ".bago\\state",
+    "node_modules",
+    "__pycache__"
+  ],
+  "classification_kinds": [
+    "explain",
+    "inspect",
+    "create_file",
+    "modify_file",
+    "fix_error",
+    "add_test",
+    "refactor_local",
+    "generate_project",
+    "unsafe_or_unsupported"
+  ],
+  "constraints": [
+    "The classifier must use rules before any generative step.",
+    "The classifier must not execute shell commands.",
+    "The classifier must not inspect files outside the allowed workspace.",
+    "The classifier must return only the allowed classification kinds.",
+    "SessionManager integration must remain backward compatible.",
+    "Python 3.10+ compatibility is required."
+  ],
+  "acceptance": [
+    "Deterministic classifier handles explain, inspect, create_file, modify_file, fix_error, add_test, refactor_local, generate_project, and unsafe_or_unsupported.",
+    "Existing files and missing files are distinguished deterministically.",
+    "Blocked requests are identified before model invocation.",
+    "Targeted classifier tests pass.",
+    "SessionManager can attach the classification to the prompt path without breaking chat behavior."
+  ],
+  "validation_commands": [
+    "python -m unittest tests.test_code_forge_contract tests.test_code_forge_classifier -v",
+    "python -m py_compile bago_core\\codegen\\task_classifier.py",
+    "python -m unittest tests.test_sprint_2_contracts tests.test_sprint_3_assets tests.test_sprint_4_surfaces tests.test_sprint_5_validation -v"
+  ],
+  "evidence_bundle": {
+    "required": true,
+    "bundle_id": "EVD-CODE-20260621-001"
+  }
+}

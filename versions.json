@@ -1,5 +1,5 @@
 {
-  "current": "4.3.0",
+  "current": "4.6.4",
   "history": [
     {
       "version": "4.0.0",
@@ -34,8 +34,44 @@
     {
       "version": "4.3.0",
       "released": "2026-06-04",
-      "ended": null,
+      "ended": "2026-06-08",
       "notes": "Consolidación post-rebase: SessionManager integrado en el gestor, bridges Codex/Copilot y estabilidad verificada de runtime y release jobs"
+    },
+    {
+      "version": "4.5.0",
+      "released": "2026-06-08",
+      "ended": "2026-06-11",
+      "notes": "Android compatibility, persistent browser controller, Installation Manager auto-install + repair/reinstall, onboarding out-of-the-box, landing page with direct downloads and Vercel deploy"
+    },
+    {
+      "version": "4.6.0",
+      "released": "2026-06-11",
+      "ended": "2026-06-12",
+      "notes": "BAGO Chat integrado como pestaña nativa dentro del Gestor. Copiloto contextual: postMessage bridge gestor→chat, contexto operativo inyectado en cada mensaje al AI (vista activa, instalaciones, piezas). INSTALLS_ROOT: instalaciones de BAGO viven dentro del propio Manager. SlashMenu context-aware por vista del gestor. Vite fix para rutas Windows con º."
+    },
+    {
+      "version": "4.6.1",
+      "released": "2026-06-12",
+      "ended": "2026-06-17",
+      "notes": "Hotfix de release: paquete de distribución coherente, package-lock incluido, verificación de release alineada y pegado completo en la CLI con bloques multilinea."
+    },
+    {
+      "version": "4.6.2",
+      "released": "2026-06-17",
+      "ended": "2026-06-17",
+      "notes": "Refactor agresivo del manager en servicios IPC, endurecimiento de flujos de instalación y base para publicación de una nueva línea de release."
+    },
+    {
+      "version": "4.6.3",
+      "released": "2026-06-17",
+      "ended": "2026-06-20",
+      "notes": "Preparación de la siguiente línea de release; el manager y los metadatos quedan listos para el siguiente corte."
+    },
+    {
+      "version": "4.6.4",
+      "released": "2026-06-20",
+      "ended": null,
+      "notes": "Consolidación de la fuente de verdad de versión en release_version.txt y limpieza del árbol fuente desde el bundle canónico."
     }
   ]
 }

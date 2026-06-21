@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-06-18T20:22:54.470545+00:00",
+  "last_provider": "mock-contract",
+  "last_model": "contract-assistant-v1",
+  "switch_count": 0,
+  "bago_version": "4.6.3",
+  "bago_mode": "B",
+  "active_agent": "default",
+  "active_bridges": [
+    "mock-contract"
+  ],
+  "last_switch_at": null
+}

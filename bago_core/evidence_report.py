@@ -29,6 +29,7 @@ from typing import Any
 
 from bago_core.evidence_io import now_iso
 from bago_core.evidence_model import ObjectiveProfile
+from bago_core.versioning import read_release_version
 
 
 def _build_report_header(
@@ -41,6 +42,7 @@ def _build_report_header(
     output_dir: Path,
 ) -> list[str]:
     """Markdown header for the evidence report (R4: small helper)."""
+    relative_output = f"docs/evidence/{output_dir.name}"
     return [
         f"# Bundle de evidencia -- {profile.title}",
         "",
@@ -48,7 +50,7 @@ def _build_report_header(
         f"- **Objetivo:** `{profile.objective_id}`",
         f"- **Provider/modelo:** `{provider}/{model}`",
         f"- **Session ID:** `{session_id}`",
-        f"- **Generado en:** `{output_dir}`",
+        f"- **Generado en:** `{relative_output}`",
         "",
     ]
 
@@ -133,17 +135,18 @@ def _build_report(
 def _validation_commands(
     mode: str, objective: str, output_dir: Path, provider: str, model: str
 ) -> list[str]:
+    relative_output = f"docs/evidence/{output_dir.name}"
     commands = [
         "python test_e2e.py",
         "python bago_core\\cli.py evidence --test",
     ]
     if mode == "simulated":
         commands.append(
-            f'python bago_core\\cli.py evidence --mode simulated --objective {objective} --output "{output_dir}" --overwrite'
+            f'python bago_core\\cli.py evidence --mode simulated --objective {objective} --output "{relative_output}" --overwrite'
         )
     else:
         commands.append(
-            f'python bago_core\\cli.py evidence --mode real --provider {provider} --model "{model}" --output "{output_dir}" --overwrite'
+            f'python bago_core\\cli.py evidence --mode real --provider {provider} --model "{model}" --output "{relative_output}" --overwrite'
         )
     return commands
 
@@ -245,7 +248,7 @@ def _build_manifest_dict(
         "bundle_id": (
             f"bago.v4.evidence.{mode}.{profile.objective_id}"
         ),
-        "contract_version": "4.1.5",
+        "contract_version": read_release_version(Path(__file__).resolve().parents[1]),
         "related_to": [
             "docs\\contracts\\bago_v4_runtime_contract.json",
             "docs\\contracts\\bago_v4_repl_contract.md",

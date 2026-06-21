@@ -70,7 +70,7 @@ def piece_store_dirs() -> list[Path]:
 
 def installation_id(path: str | Path) -> str:
     norm = str(Path(path).resolve()).lower()
-    digest = hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12]
+    digest = hashlib.sha1(norm.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
     return f"inst-{digest}"
 
 def piece_manifest(piece: dict[str, Any]) -> dict[str, Any]:
@@ -228,7 +228,7 @@ def load_default_piece_catalog() -> list[dict[str, Any]]:
 
 def record_evidence(paths: RegistryPaths, action: str, target: dict[str, Any], before: Any, after: Any, result: str) -> dict[str, Any]:
     entry = {
-        "evidence_id": f"evi-{hashlib.sha1(f'{action}:{now()}'.encode('utf-8')).hexdigest()[:10]}",
+        "evidence_id": f"evi-{hashlib.sha1(f'{action}:{now()}'.encode('utf-8'), usedforsecurity=False).hexdigest()[:10]}",
         "action": action,
         "target": target,
         "before": before,

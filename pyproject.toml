@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bago"
+version = "4.6.4"
+description = "BAGO — local-first AI control plane"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+readme = "README.md"
+
+[project.scripts]
+bago = "bago_core.cli:_entry"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bago_core*"]
+
+[tool.setuptools.package-data]
+"bago_core" = ["**/*.json", "**/*.md"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

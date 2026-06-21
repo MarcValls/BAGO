@@ -1,0 +1,42 @@
+{
+  "bago_version": "3.5.0-rc1",
+  "version": "3.5.0-rc1",
+  "flow": null,
+  "sprint": null,
+  "health": {
+    "score": 0,
+    "max": 100,
+    "status": "unknown"
+  },
+  "health_score": {
+    "score": 0,
+    "max": 100,
+    "color": "grey",
+    "status": "unknown"
+  },
+  "status": "ok",
+  "mode": "balanced",
+  "sprint_status": {
+    "active_workflow": null,
+    "pending_w2_task": "none",
+    "last_completed_workflow": null
+  },
+  "inventory": {
+    "sessions": 0,
+    "changes": 0,
+    "evidences": 0
+  },
+  "last_validation": {},
+  "guardian_findings": {
+    "health_pct": 0,
+    "total_tools": 0,
+    "warnings": 0,
+    "critical_errors": 0,
+    "status": "UNKNOWN"
+  },
+  "unresolved": {
+    "stashes": 0,
+    "note": ""
+  }
+}
+

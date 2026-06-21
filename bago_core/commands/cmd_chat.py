@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import os
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,10 @@ def _load_install_config(root: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+def _resolve_state_root() -> Path:
+    from state_paths import resolve_state_root
+    return resolve_state_root()
 
 def _provider_inventory(base_path: str, include_experimental: bool = False) -> list[dict[str, Any]]:
     from session_manager import ADAPTER_REGISTRY, SessionManager
@@ -69,11 +74,11 @@ def _default_model_for_provider(base_path: str, provider: str) -> str:
     finally:
         mgr.close()
 
-def _write_llm_start_state(base_path: str, provider: str, model: str, mode: str, bridges: list[str] | None = None) -> Path:
+def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mode: str, bridges: list[str] | None = None) -> Path:
     import json as _json
     from datetime import datetime, timezone
 
-    state_dir = Path(base_path) / ".bago" / "state"
+    state_dir = Path(state_root)
     state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / "llm_start.json"
     payload = {
@@ -104,9 +109,10 @@ def _start_monitor_bg(base_path: str, port: int = 7890) -> None:
 
     def _run():
         try:
+            os.environ["BAGO_STATE_ROOT"] = str(_resolve_state_root())
             sys.path.insert(0, str(BAGO_ROOT / ".bago" / "tools"))
             from process_monitor import serve
-            serve(BAGO_ROOT, port=port, refresh=5)
+            serve(BAGO_ROOT, port=port, refresh=5, silent=True)
         except Exception:
             pass
 
@@ -119,10 +125,11 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
     provider = getattr(args, "provider", "unknown") or "unknown"
     model = getattr(args, "model", "unknown") or "unknown"
+    state_root = _resolve_state_root()
 
     # Registrar sesion LLM en state/ para que el monitor la vea
     bridges = list(getattr(args, "active_bridges", None) or getattr(args, "llm_bridges", None) or [])
-    _write_llm_start_state(args.base_path, provider, model, mode="chat", bridges=bridges)
+    _write_llm_start_state(state_root, provider, model, mode="chat", bridges=bridges)
 
     # Auto-arrancar monitor en background (no bloquea el chat)
     if not getattr(args, "no_monitor", False):
@@ -133,6 +140,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
         model=model,
         system_prompt=get_system_prompt(),
         base_path=args.base_path,
+        state_root=str(state_root),
         active_bridges=bridges,
     )
     repl.run()
@@ -193,6 +201,7 @@ def cmd_llm(args: argparse.Namespace) -> int:
 
     action = args.llm_action or "list"
     inventory = _provider_inventory(args.base_path, include_experimental=getattr(args, "include_experimental", False))
+    state_root = _resolve_state_root()
 
     if action == "list":
         print("BAGO LLM providers")
@@ -246,7 +255,7 @@ def cmd_llm(args: argparse.Namespace) -> int:
         elif installed:
             provider = installed[0]["name"]
         else:
-            cm = ConfigManager(base_path=args.base_path)
+            cm = ConfigManager(base_path=args.base_path, state_root=str(state_root))
             provider = cm.default_provider
 
     if provider in EXPERIMENTAL_PROVIDERS and not getattr(args, "include_experimental", False):
@@ -270,12 +279,12 @@ def cmd_llm(args: argparse.Namespace) -> int:
     if not model:
         model = _default_model_for_provider(args.base_path, provider)
 
-    _write_llm_start_state(args.base_path, provider, model, mode="dry-run" if args.dry_run else "chat", bridges=bridges)
+    _write_llm_start_state(state_root, provider, model, mode="dry-run" if args.dry_run else "chat", bridges=bridges)
     print(f"LLM session: {provider}/{model}")
     print("Bridges activos: " + ", ".join(bridges))
 
     if getattr(args, "persist_default", False):
-        cm = ConfigManager(base_path=args.base_path)
+        cm = ConfigManager(base_path=args.base_path, state_root=str(state_root))
         cm.default_provider = provider
         cm.default_model = model
         print("Default provider/model actualizado.")

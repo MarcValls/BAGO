@@ -5,17 +5,30 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import subprocess
+import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bago_core.versioning import read_release_version
+
 
 INCLUDE_FILES = [
     ".gitignore",
+    "ir_types.py",
+    "protocol.py",
+    "registry.py",
     "README.md",
     "MANUAL.md",
     "index.html",
     "versions.json",
+    "package-lock.json",
+    "package.json",
     "release_version.txt",
     "BAGO.pyproj",
     "bago.cmd",
@@ -26,10 +39,13 @@ INCLUDE_FILES = [
     "bago-uninstall.ps1",
     "bago-uninstall.cmd",
     "rollback-v4.ps1",
+    "MODEL_PARALLEL_SETUP.md",
+    "AUDIT_PARALLEL_SETUP.md",
     "test_e2e.py",
     "test_security_release.py",
     "test_command_intents.py",
     "test_translators.py",
+    "tests/test_translators_evidence.py",
 ]
 
 INCLUDE_DIRS = [
@@ -47,6 +63,7 @@ INCLUDE_DIRS = [
     "scripts",
     "tests",
     "tools",
+    "ui-react/src",
     "ui-react/dist",
 ]
 
@@ -123,6 +140,16 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def require_inputs(root: Path) -> None:
+    missing_files = [item for item in INCLUDE_FILES if not (root / item).is_file()]
+    # Directories are optional (e.g. ui-react/dist requires a UI build step).
+    # Only fail for missing required files.
+    if missing_files:
+        raise FileNotFoundError(
+            "Faltan entradas obligatorias para el bundle:\n" + "\n".join(f"- {item}" for item in missing_files)
+        )
+
+
 def collect_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for item in INCLUDE_FILES:
@@ -146,6 +173,7 @@ def collect_files(root: Path) -> list[Path]:
 def build_package(root: Path, output_dir: Path, release_version: str = "") -> dict:
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    require_inputs(root)
     if release_version:
         package_name = f"bago-v{normalize_release_version(release_version)}.zip"
     else:
@@ -169,7 +197,7 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
     manifest = {
         "package": package_name,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "root": str(root),
+        "root": "<repo>",
         "file_count": len(manifest_files),
         "zip_sha256": sha256(zip_path),
         "included_files": manifest_files,
@@ -217,36 +245,38 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
 def _run_tests() -> int:
     from tempfile import TemporaryDirectory
 
+    bundle_version = read_release_version(repo_root()) or "unknown"
+    root = repo_root()
     with TemporaryDirectory() as td:
-        root = Path(td)
-        (root / "bago_core").mkdir()
-        (root / "bago_core" / "x.py").write_text("x=1\n", encoding="utf-8")
-        (root / "bago_core" / "parsers_legacy_123.py").write_text("no\n", encoding="utf-8")
-        (root / "tools").mkdir()
-        (root / "tools" / "_diff_parsers.py").write_text("no\n", encoding="utf-8")
-        (root / ".bago" / "core").mkdir(parents=True)
-        (root / ".bago" / "core" / "safe.py").write_text("ok\n", encoding="utf-8")
-        (root / ".bago" / "tools" / ".bago").mkdir(parents=True)
-        (root / ".bago" / "tools" / ".bago" / "config.json").write_text("no\n", encoding="utf-8")
-        (root / ".bago" / "state").mkdir(parents=True)
-        (root / ".bago" / "state" / "secret.txt").write_text("no\n", encoding="utf-8")
-        (root / "ui-react" / "dist").mkdir(parents=True)
-        (root / "ui-react" / "dist" / "index.html").write_text("ui\n", encoding="utf-8")
-        (root / "PLAN_VERTICE").mkdir()
-        (root / "PLAN_VERTICE" / "events.jsonl").write_text("no\n", encoding="utf-8")
-        result = build_package(root, root / "release" / "v4")
+        output_dir = Path(td) / "release" / "v4"
+        result = build_package(root, output_dir, release_version=bundle_version)
         with zipfile.ZipFile(result["zip"], "r") as zf:
-            names = "\n".join(zf.namelist())
-        assert "bago_core/x.py" in names
-        assert "bago_core/parsers_legacy_123.py" not in names
-        assert "tools/_diff_parsers.py" not in names
-        assert ".bago/core/safe.py" in names
-        assert "ui-react/dist/index.html" in names
-        assert ".bago/state" not in names
-        assert ".bago/tools/.bago" not in names
-        assert "PLAN_VERTICE" not in names
-        fixed = build_package(root, root / "release" / "v4", release_version="v4.3.0")
-        assert Path(fixed["zip"]).name == "bago-v4.3.0.zip"
+            names = set(zf.namelist())
+            required_names = {
+                "bago_core/translators/__init__.py",
+                "MODEL_PARALLEL_SETUP.md",
+                "AUDIT_PARALLEL_SETUP.md",
+                "ui-react/dist/index.html",
+                "docs/evidence/release_4_6_4/manifest.json",
+                "docs/evidence/release_4_6_4/session/meta.json",
+            }
+            missing = sorted(required_names - names)
+            assert not missing, f"missing bundle entries: {missing}"
+            assert any(name.startswith("ui-react/src/") for name in names)
+            evidence_manifest = json.loads(zf.read("docs/evidence/release_4_6_4/manifest.json"))
+            evidence_meta = json.loads(zf.read("docs/evidence/release_4_6_4/session/meta.json"))
+            assert evidence_manifest["contract_version"] == bundle_version
+            assert evidence_meta["bago_version"] == bundle_version
+        extract_dir = Path(td) / "extract"
+        with zipfile.ZipFile(result["zip"], "r") as zf:
+            zf.extractall(extract_dir)
+        subprocess.run([sys.executable, "test_translators.py"], cwd=extract_dir, check=True)
+        subprocess.run(
+            [sys.executable, "-m", "pytest", "tests/test_translators_evidence.py", "-q"],
+            cwd=extract_dir,
+            check=True,
+        )
+        assert Path(result["zip"]).name == f"bago-v{bundle_version}.zip"
     print("package_v4.py --test: ALL PASS")
     return 0
 
@@ -254,7 +284,7 @@ def _run_tests() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build clean BAGO v4 local package.")
     parser.add_argument("--output-dir", default=str(repo_root() / "release" / "v4"))
-    parser.add_argument("--release-version", default="", help="Use fixed release bundle name (e.g. 4.3.0).")
+    parser.add_argument("--release-version", default="", help="Use fixed release bundle name (e.g. X.Y.Z).")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_package(repo_root(), Path(args.output_dir), release_version=args.release_version)

@@ -1,0 +1,11 @@
+.git
+.vercel
+.env*
+dist
+release
+.bago
+node_modules
+**/node_modules
+ui-react/dist
+ui-react/node_modules
+docs/evidence

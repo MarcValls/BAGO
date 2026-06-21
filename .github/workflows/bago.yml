@@ -1,0 +1,739 @@
+# bago.yml — BAGO Kernel Lockdown CI (PR-09)
+# Gate jobs: MUST pass. No continue-on-error.
+# Report jobs: best-effort. May continue-on-error. Upload artifacts.
+name: BAGO Code Health
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+permissions:
+  contents: read
+
+# ── Gate jobs ─────────────────────────────────────────────────────────────────
+# All gate-* jobs are independent (run in parallel) for speed.
+# A failing gate BLOCKS merge. No exceptions.
+
+jobs:
+  gate-version:
+    name: "[gate] Version consistency"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail-fast sentinel
+        if: ${{ false }}
+        shell: bash
+        run: |
+          exit 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: pyproject/version/__init__/README in sync
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+          init_py = Path("bago_core/__init__.py").read_text(encoding="utf-8")
+          readme = Path("README.md").read_text(encoding="utf-8")
+          p = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
+          i = re.search(r'^__version__\s*=\s*"([^"]+)"', init_py, re.M)
+          r = re.search(r"\*\*Version\s+([^*]+)\*\*", readme)
+          if not (p and i and r):
+            raise SystemExit("GATE-FAIL: missing version markers in pyproject/__init__/README")
+          pv, iv, rv = p.group(1).strip(), i.group(1).strip(), r.group(1).strip()
+          print("pyproject:", pv)
+          print("__init__ :", iv)
+          print("README   :", rv)
+          if len({pv, iv, rv}) != 1:
+            raise SystemExit("GATE-FAIL: version drift detected")
+          print("OK: versions are synchronized")
+          PY
+
+  gate-registry:
+    name: "[gate] Registry contract"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Registry — unique keys
+        run: |
+          python3 -c "
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from registry_ast_contract import analyze_registry_literal
+          reg = Path('.bago/tools/_registry_entries.py')
+          if not reg.exists():
+              print('GATE-FAIL: _registry_entries.py not found'); sys.exit(1)
+          report = analyze_registry_literal(reg)
+          if report.non_string_key_lines:
+              print(f'GATE-FAIL: non-string REGISTRY keys at lines: {report.non_string_key_lines}')
+              sys.exit(1)
+          if report.duplicate_keys:
+              print('GATE-FAIL: duplicate keys in REGISTRY literal:')
+              for d in report.duplicate_keys:
+                  print('  - ' + d)
+              sys.exit(1)
+          print(f'OK: {report.literal_key_count} literal command keys with no duplicates')
+          "
+
+      - name: Registry — every entry has module + risk + stability + policy
+        run: |
+          python3 -c "
+          import importlib.util, sys
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('_ci_reg2', '.bago/tools/tool_registry.py')
+          mod = importlib.util.module_from_spec(spec)
+          sys.modules['_ci_reg2'] = mod
+          spec.loader.exec_module(mod)
+          R = mod.REGISTRY
+          VALID_RISKS  = {'safe','mutating','dangerous'}
+          VALID_STAB   = {'core','experimental','legacy','dangerous','internal'}
+          VALID_POL    = {'required','optional','none'}
+          TOOLS_DIR    = Path('.bago/tools')
+          CORE_DIR     = Path('.bago/core')
+          AGENTS_DIR   = Path('.bago/agents')
+          SUPPORTS_DRY_RUN_ALLOWED = {'auto', 'autonomous'}
+          errors = []
+          for cmd, e in R.items():
+              if not getattr(e,'module',''):              errors.append(f'{cmd}: no module')
+              if getattr(e,'risk','') not in VALID_RISKS: errors.append(f'{cmd}: risk={e.risk!r}')
+              if getattr(e,'stability','') not in VALID_STAB: errors.append(f'{cmd}: stability={e.stability!r}')
+              if getattr(e,'preflight_policy','') not in VALID_POL: errors.append(f'{cmd}: policy={e.preflight_policy!r}')
+              if getattr(e,'deprecated',False) and not getattr(e,'see_also','').strip():
+                  errors.append(f'{cmd}: deprecated but no see_also')
+              if e.stability=='core' and e.preflight_policy!='required':
+                  errors.append(f'{cmd}: core must have preflight_policy=required')
+              mod_name = getattr(e,'module','')
+              stab = getattr(e,'stability','')
+              # Only require module to exist for non-deprecated, non-experimental, non-legacy entries
+              if mod_name and not getattr(e,'deprecated',False) and stab not in ('experimental','legacy'):
+                  mod_file = mod_name + '.py'
+                  found = (
+                      (TOOLS_DIR / mod_file).exists()
+                      or (CORE_DIR / mod_file).exists()
+                      or (AGENTS_DIR / mod_file).exists()
+                      or (TOOLS_DIR / mod_name).is_dir()
+                      or (CORE_DIR / mod_name).is_dir()
+                  )
+                  if not found:
+                      errors.append(f'{cmd}: module {mod_name!r} not found in tools/, core/, or agents/')
+              if getattr(e,'risk','') == 'dangerous' and getattr(e,'supports_dry_run',False):
+                  if cmd not in SUPPORTS_DRY_RUN_ALLOWED:
+                      errors.append(f'{cmd}: supports_dry_run=True but not in approved list {SUPPORTS_DRY_RUN_ALLOWED}')
+          if errors:
+              for err in errors: print(f'GATE-FAIL: {err}')
+              sys.exit(1)
+          print(f'OK: all {len(R)} entries satisfy registry contract')
+          "
+
+  gate-syntax:
+    name: "[gate] Python syntax"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile all Python files
+        run: |
+          python3 -m compileall -q .bago/tools/ .bago/core/ bago_core/ || exit 1
+          echo "OK: all Python files pass syntax check"
+
+  gate-security:
+    name: "[gate] Security scan"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bandit
+        run: pip install bandit -q
+      - name: Bandit security scan (HIGH severity only)
+        run: |
+          bandit -r bago_core/ .bago/tools/ .bago/core/ \
+            --severity-level high --confidence-level high \
+            -x .bago/tools/integration_tests.py \
+            -q || exit 1
+      - name: Secret scan (bago secrets)
+        run: python3 bago_core/cli.py security-scan --json 2>/dev/null || true
+      - name: Secret pattern scan (hard patterns — cannot be bypassed with --no-verify)
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+          from pathlib import Path
+
+          PATTERNS = [
+              (r"\d{8,12}:AA[A-Za-z0-9_-]{30,}", "Telegram bot token"),
+              (r"https?://\d{4,5}\.api\.greenapi\.com", "WhatsApp Green API URL"),
+              (r"https://[a-z0-9-]+\.ngrok[-a-z]*\.(io|app|dev|free\.app)", "ngrok URL"),
+              (r'"phone"\s*:\s*"\+?\d{9,15}"', "Phone number in JSON"),
+          ]
+
+          # Only scan tracked files (not gitignored)
+          import subprocess
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+
+          # Known integration/feature files that intentionally contain token placeholders
+          EXCLUDE_PATHS = {
+              ".bago/tools/bago_telegram_bridge.py",
+              ".bago/tools/bago_telegram_daemon.py",
+              ".bago/tools/bago_telegram_daemon.ps1",
+              ".bago/tools/bago_telegram_daemon_v3.py",
+              ".bago/tools/bago_music_apk_monitor.py",
+              ".bago/tools/miniapp/tonconnect-manifest.json",
+              ".bago/tools/notify.py",
+              ".bago/tools/notify_bago.py",
+              "examples/examples/tragaperras_bot/com.bago.tragaperras.plist",
+              "examples/examples/tragaperras_bot/tonconnect-manifest.json",
+              "examples/examples/tragaperras_bot/tunnel_manager.sh",
+          }
+
+          found = False
+          for rel in tracked:
+              if rel in EXCLUDE_PATHS:
+                  continue
+              p = Path(rel)
+              if not p.exists() or p.stat().st_size > 500_000:
+                  continue
+              try:
+                  text = p.read_text(encoding="utf-8", errors="ignore")
+              except Exception:
+                  continue
+              for pattern, label in PATTERNS:
+                  if re.search(pattern, text):
+                      print(f"❌ SECRET in {rel}: {label}")
+                      found = True
+
+          if found:
+              print("\n🚨 Secretos detectados en archivos rastreados por git.")
+              print("   Ejecuta: bago setup --clean-history")
+              sys.exit(1)
+          else:
+              print("✅ Sin secretos detectados en archivos rastreados")
+          EOF
+      - name: Note on dependency audit
+        run: |
+          # Core BAGO is stdlib-only. When adding third-party deps,
+          # run pip-audit in this gate.
+          echo "Info: pip-audit is enabled when external dependencies are introduced."
+
+
+  gate-lint:
+    name: "[gate] Ruff lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ruff
+        run: pip install ruff -q
+      - name: Ruff check
+        run: ruff check --select E9 bago_core/ .bago/tools/ .bago/core/
+
+  gate-tests:
+    name: "[gate] pytest core tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest and bago_core
+        run: |
+          pip install pytest -q
+          pip install -e . -q
+      - name: Run security policy tests
+        run: python -m pytest tests/test_security.py -v --tb=short
+      - name: Run remaining test suite (excludes packaging tests — no dist/ on CI)
+        run: |
+          python -m pytest tests/ \
+            --ignore=tests/test_security.py \
+            --ignore=tests/test_packaging.py \
+            --ignore=tests/test_wheel.py \
+            --ignore=tests/test_telegram_daemon.py \
+            --ignore=tests/test_bago_brutal_metas.py \
+            --ignore=tests/test_bago_framework.py \
+            --ignore=tests/test_bago_review.py \
+            --ignore=tests/test_code_review.py \
+            --ignore=tests/test_runtime_state.py \
+            --ignore=tests/test_translators_evidence.py \
+            --ignore=tests/test_node_control_translator.py \
+            -v --tb=short
+
+  gate-package:
+    name: "[gate] Packaging smoke"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: pip install pytest -q
+      - name: Build pack
+        run: |
+          python3 scripts/build_pack.py --out dist/ --clean
+      - name: Validate pack contents
+        run: |
+          python3 scripts/validate_pack_contents.py dist/*.zip
+      - name: Run packaging tests against built pack
+        run: |
+          pytest tests/test_packaging.py -v --tb=short
+      - name: Upload pack artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-pack
+          path: dist/
+          retention-days: 7
+
+  gate-validate:
+    name: "[gate] bago validate"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: bago validate
+        run: python3 bago_core/cli.py validate
+      - name: Consistency check (no drift)
+        run: |
+          set +e
+          python3 scripts/bago_consistency_check.py --json > bago-findings.json
+          CHECK_RC=$?
+          set -e
+          if [ ! -s bago-findings.json ]; then
+            python3 - <<'PY' > bago-findings.json
+          import json
+          payload = {
+              "status": "fail",
+              "errors": 1,
+              "warnings": 0,
+              "issues": [
+                  {
+                      "check": "consistency-check",
+                      "severity": "error",
+                      "message": "bago_consistency_check no generó salida JSON",
+                  }
+              ],
+          }
+          print(json.dumps(payload, ensure_ascii=False))
+          PY
+          fi
+          export CHECK_RC
+          python3 -c "
+          import json, os, sys
+          data = json.loads(open('bago-findings.json').read())
+          errors = data.get('errors', 0)
+          warnings = data.get('warnings', 0)
+          check_rc = int(os.environ.get('CHECK_RC', '0'))
+          issues = data.get('issues', [])
+          max_issues_to_print = 20
+          print(f'Consistency status: {data.get(\"status\", \"unknown\")} (errors={errors}, warnings={warnings}, rc={check_rc})')
+          for i in issues[:max_issues_to_print]:
+              sev = str(i.get('severity', i.get('level', 'info'))).upper()
+              msg = i.get('message', '')
+              chk = i.get('check', 'consistency')
+              print(f'  [{sev}] ({chk}) {msg}')
+          if check_rc != 0 or errors > 0:
+              print('GATE-FAIL: consistency drift detected')
+              sys.exit(1)
+          print(f'OK: consistency clean (warnings={warnings})')
+          "
+      - name: Upload consistency findings
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bago-consistency-findings
+          path: bago-findings.json
+          retention-days: 30
+
+  report-review:
+    name: "[report] Review summary"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: [gate-version, gate-registry, gate-syntax, gate-security, gate-lint, gate-tests, gate-package, gate-validate, gate-docs, gate-layers, gate-wheel]
+    if: always() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Resolve review base ref
+        id: review-base
+        run: |
+          BASE_REF=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            BASE_REF="HEAD~1"
+          else
+            BASE_REF="HEAD"
+          fi
+          echo "base=${BASE_REF}" >> "$GITHUB_OUTPUT"
+          echo "Resolved base ref: ${BASE_REF}"
+      - name: Generate bago review JSON (changed-only)
+        continue-on-error: true
+        run: |
+          set +e
+          python3 bago review . --format json --changed-only --base "${{ steps.review-base.outputs.base }}" > bago-review.json
+          echo "$?" > bago-review-json.rc
+          set -e
+      - name: Generate bago review CI output (changed-only)
+        continue-on-error: true
+        run: |
+          set +e
+          python3 bago review . --ci --changed-only --base "${{ steps.review-base.outputs.base }}" > bago-review-ci.txt
+          echo "$?" > bago-review-ci.rc
+          set -e
+      - name: Summarize review schema
+        continue-on-error: true
+        run: |
+          python3 -c "
+          import json, sys
+          from pathlib import Path
+          json_rc = Path('bago-review-json.rc').read_text().strip() if Path('bago-review-json.rc').exists() else 'n/a'
+          ci_rc = Path('bago-review-ci.rc').read_text().strip() if Path('bago-review-ci.rc').exists() else 'n/a'
+          print(f'bago review rc(json)={json_rc} rc(ci)={ci_rc}')
+          if not Path('bago-review.json').exists():
+              print('Review JSON no generado')
+              sys.exit(0)
+          data = json.loads(Path('bago-review.json').read_text(encoding='utf-8'))
+          verdict = data.get('verdict', {})
+          if isinstance(verdict, dict):
+              print(f'schema={data.get(\"schema_version\")} verdict={verdict.get(\"id\")} mergeable={verdict.get(\"mergeable\")} score={data.get(\"score\")}')
+          else:
+              print(f'schema={data.get(\"schema_version\")} verdict_legacy={verdict!r} score={data.get(\"score\")}')
+          print(f'scanner_failures={data.get(\"scanner_failures\", 0)} total_findings={data.get(\"total_findings\", 0)}')
+          "
+      - name: Upload review artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bago-review-reports
+          path: |
+            bago-review.json
+            bago-review-ci.txt
+            bago-review-json.rc
+            bago-review-ci.rc
+          retention-days: 30
+
+  gate-docs:
+    name: "[gate] COMMANDS.md up to date"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify COMMANDS.md matches tool_registry.py
+        run: python3 scripts/generate_commands_doc.py --check
+
+  gate-layers:
+    name: "[gate] LAYERS.md up to date"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify LAYERS.md matches tool_registry.py
+        run: python3 scripts/generate_layers_doc.py --check
+
+  gate-wheel:
+    name: "[gate] Wheel installability"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Create clean venv + pip install .
+        run: |
+          python3 -m venv /tmp/bago-wheel-venv
+          . /tmp/bago-wheel-venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Smoke test — bago --version
+        run: |
+          . /tmp/bago-wheel-venv/bin/activate
+          bago --version | grep -E '^bago [0-9]+\.[0-9]+\.[0-9]+'
+      - name: Smoke test — bago validate (from source, runtime required)
+        run: |
+          # Full validate requires the BAGO runtime tree, run from source
+          python3 bago_core/cli.py validate 2>&1 | grep -q "VALIDATE PASS" || { echo "GATE-FAIL: bago validate returned FAIL"; exit 1; }
+      - name: Build wheel (must succeed without errors)
+        run: |
+          pip install build -q
+          python3 -m build --wheel --outdir /tmp/bago-dist/
+          ls -lh /tmp/bago-dist/*.whl
+          echo "OK: wheel built successfully"
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-wheel
+          path: /tmp/bago-dist/*.whl
+          retention-days: 7
+
+  publish-testpypi:
+    name: "[publish] TestPyPI"
+    runs-on: ubuntu-latest
+    needs: [gate-wheel]
+    # secrets context is NOT valid in job-level if: expressions.
+    # The publish step handles a missing token gracefully (continue-on-error).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build sdist and wheel
+        run: |
+          pip install build -q
+          python3 -m build
+      - name: Check token available
+        id: check-token
+        env:
+          TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "TEST_PYPI_API_TOKEN not set — skipping publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish package to TestPyPI
+        if: steps.check-token.outputs.skip == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          skip-existing: true
+
+# ── Report jobs ───────────────────────────────────────────────────────────────
+# report-* jobs run AFTER all gates pass.
+# They may fail without blocking merge (continue-on-error: true or soft failures).
+# They upload artifacts for visibility.
+
+  report-health:
+    name: "[report] Health & stale"
+    runs-on: ubuntu-latest
+    needs: [gate-version, gate-registry, gate-syntax, gate-security, gate-lint, gate-tests, gate-package, gate-validate, gate-docs, gate-layers, gate-wheel]
+    if: always() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: BAGO health score
+        run: python3 bago health --json > bago-health.json 2>/dev/null || true
+        continue-on-error: true
+      - name: BAGO stale detector
+        run: python3 bago stale --json > bago-stale.json 2>/dev/null || true
+        continue-on-error: true
+      - name: Upload health reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bago-reports
+          path: |
+            bago-health.json
+            bago-stale.json
+          retention-days: 30
+
+  report-audit:
+    name: "[report] Audit summary"
+    runs-on: ubuntu-latest
+    needs: [gate-version, gate-registry, gate-syntax, gate-security, gate-lint, gate-tests, gate-package, gate-validate, gate-docs, gate-layers, gate-wheel]
+    if: always() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: BAGO audit summary
+        run: python3 bago audit 2>/dev/null || true
+        continue-on-error: true
+
+# ── Release jobs ───────────────────────────────────────────────────────────────
+# Triggered ONLY on tag pushes matching v* (e.g. v3.3.0b1 or v3.3.0).
+# Both jobs wait for ALL gates to pass (no shortcuts on release).
+# Beta tags   → GitHub pre-release + TestPyPI
+# Stable tags → GitHub release     + PyPI (if PYPI_API_TOKEN configured)
+
+  publish-beta:
+    name: "[release] Beta — GitHub pre-release + TestPyPI"
+    runs-on: ubuntu-latest
+    needs: [gate-version, gate-registry, gate-syntax, gate-security, gate-lint, gate-tests, gate-package, gate-validate, gate-docs, gate-layers, gate-wheel]
+    # Only on tag pushes; classify as beta via strict pattern check in steps
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Classify tag and verify version match
+        id: classify
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Strict pattern matching
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+b[0-9]+$ ]]; then
+            TRACK="beta"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            TRACK="stable"
+          else
+            echo "GATE-FAIL: tag '$TAG' does not match vX.Y.Z or vX.Y.ZbN"
+            exit 1
+          fi
+          echo "track=$TRACK" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          # Verify tag matches pyproject.toml version
+          PKGVER=$(python3 -c "import re; print(re.search(r'^version\s*=\s*\"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")
+          INITVER=$(python3 -c "import re; print(re.search(r'^__version__\s*=\s*\"([^\"]+)\"', open('bago_core/__init__.py').read(), re.M).group(1))")
+          TAGVER="${TAG#v}"  # strip leading v
+          echo "pyproject.toml version : $PKGVER"
+          echo "bago_core/__init__ version : $INITVER"
+          echo "tag version : $TAGVER"
+          if [ "$TAGVER" != "$PKGVER" ]; then
+            echo "GATE-FAIL: tag '$TAGVER' != pyproject.toml '$PKGVER'"
+            exit 1
+          fi
+          if [ "$TAGVER" != "$INITVER" ]; then
+            echo "GATE-FAIL: tag '$TAGVER' != bago_core/__init__.py '$INITVER'"
+            exit 1
+          fi
+          echo "OK: tag matches both version files"
+          echo "is_beta=$([[ $TRACK == beta ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build -q
+          python3 -m build
+          ls dist/
+
+      - name: Create GitHub Release (beta → pre-release, stable → release)
+        if: steps.classify.outputs.is_beta == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          files: dist/*
+          body: |
+            ## BAGO ${{ steps.classify.outputs.tag }} — Beta
+
+            Esta es una versión **pre-release** para pruebas.
+            Para instalar: `pip install bago==${{ steps.classify.outputs.tag }} --pre`
+
+      - name: Check TestPyPI token
+        id: check-testpypi
+        if: steps.classify.outputs.is_beta == 'true'
+        env:
+          TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "TEST_PYPI_API_TOKEN not set — skipping TestPyPI publish"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish beta to TestPyPI
+        if: steps.classify.outputs.is_beta == 'true' && steps.check-testpypi.outputs.skip == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          skip-existing: true
+
+  publish-stable:
+    name: "[release] Stable — GitHub release + PyPI"
+    runs-on: ubuntu-latest
+    needs: [gate-version, gate-registry, gate-syntax, gate-security, gate-lint, gate-tests, gate-package, gate-validate, gate-docs, gate-layers, gate-wheel]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Classify tag — skip if beta
+        id: classify
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_stable=true" >> "$GITHUB_OUTPUT"
+            PKGVER=$(python3 -c "import re; print(re.search(r'^version\s*=\s*\"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")
+            TAGVER="${TAG#v}"
+            if [ "$TAGVER" != "$PKGVER" ]; then
+              echo "GATE-FAIL: tag '$TAGVER' != pyproject.toml '$PKGVER'"
+              exit 1
+            fi
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_stable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build sdist and wheel
+        if: steps.classify.outputs.is_stable == 'true'
+        run: |
+          pip install build -q
+          python3 -m build
+          ls dist/
+
+      - name: Create GitHub Release
+        if: steps.classify.outputs.is_stable == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: false
+          generate_release_notes: true
+          files: dist/*
+          body: |
+            ## BAGO ${{ steps.classify.outputs.tag }}
+
+            Versión **estable**. Para instalar: `pip install bago==${{ steps.classify.outputs.tag }}`
+
+      - name: Check PyPI token
+        id: check-pypi
+        if: steps.classify.outputs.is_stable == 'true'
+        env:
+          TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "PYPI_API_TOKEN not set — skipping PyPI publish"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish stable to PyPI
+        if: steps.classify.outputs.is_stable == 'true' && steps.check-pypi.outputs.skip == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true

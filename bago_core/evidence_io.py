@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,13 +32,14 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
+        newline="\n",
     )
 
 
 def write_text(path: Path, content: str) -> None:
     """Write a plain-text file with UTF-8 (R0)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def sha256(path: Path) -> str:
@@ -70,20 +72,28 @@ def prepare_output_dir(output_dir: Path, overwrite: bool) -> None:
 
 
 def _relative_posix(path: Path, base: Path) -> str:
-    """Return `path` relative to `base` using Windows-style backslashes."""
-    return str(path.relative_to(base)).replace("/", "\\")
+    """Return `path` relative to `base` using portable POSIX separators."""
+    return path.relative_to(base).as_posix()
 
 
-def collect_file_digests(output_dir: Path) -> list[dict[str, Any]]:
+def collect_file_digests(
+    output_dir: Path,
+    *,
+    exclude: set[str] | frozenset[str] = frozenset(),
+) -> list[dict[str, Any]]:
     """SHA-256 + size for every file under `output_dir` (R8)."""
     files: list[dict[str, Any]] = []
     for path in sorted(output_dir.rglob("*")):
-        if path.is_file():
-            files.append({
-                "path": _relative_posix(path, output_dir),
-                "sha256": sha256(path),
-                "size_bytes": path.stat().st_size,
-            })
+        if not path.is_file():
+            continue
+        relative = _relative_posix(path, output_dir)
+        if relative in exclude:
+            continue
+        files.append({
+            "path": relative,
+            "sha256": sha256(path),
+            "size_bytes": path.stat().st_size,
+        })
     return files
 
 
@@ -104,18 +114,28 @@ def copy_session_artifacts(
     base_path: Path, session_id: str, output_dir: Path,
 ) -> list[str]:
     """Copy the persistent session artifacts into the bundle (R1, R8)."""
-    state_dir = base_path / ".bago" / "state" / "sessions"
-    session_dir = state_dir / session_id
+    override = os.environ.get("BAGO_STATE_ROOT", "").strip()
+    state_root = Path(override).expanduser().resolve() if override else None
+    candidates = [
+        state_root if state_root is not None else base_path / ".bago" / "state",
+        base_path / ".bago" / "state",
+        Path.home() / ".bago" / "state",
+    ]
     copied: list[str] = []
 
-    for name in ("context.jsonl", "timeline.jsonl", "tokens.json", "meta.json"):
-        target = output_dir / "session" / name
-        if copy_if_exists(session_dir / name, target):
-            copied.append(_relative_posix(target, output_dir))
+    for candidate in candidates:
+        state_dir = candidate / "sessions"
+        session_dir = state_dir / session_id
+        for name in ("context.jsonl", "timeline.jsonl", "tokens.json", "meta.json"):
+            target = output_dir / "session" / name
+            if copy_if_exists(session_dir / name, target):
+                copied.append(_relative_posix(target, output_dir))
 
-    session_meta = state_dir / f"{session_id}.json"
-    target = output_dir / "session" / "session.json"
-    if copy_if_exists(session_meta, target):
-        copied.append(_relative_posix(target, output_dir))
+        session_meta = state_dir / f"{session_id}.json"
+        target = output_dir / "session" / "session.json"
+        if copy_if_exists(session_meta, target):
+            copied.append(_relative_posix(target, output_dir))
+        if copied:
+            break
 
     return copied

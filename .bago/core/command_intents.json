@@ -175,6 +175,18 @@
         "scripts registrados"
       ]
     },
+    "/project": {
+      "description": "Analiza un proyecto o directorio y sugiere los siguientes pasos",
+      "wizard": true,
+      "phrases": [
+        "analiza el directorio", "analizar directorio", "analiza este proyecto",
+        "revisa este proyecto", "trabaja sobre este proyecto",
+        "quiero trabajar sobre este proyecto", "buscar bugs y mejoras",
+        "busca bugs y mejoras", "sugerir compilacion", "sugerir compilación",
+        "compila el proyecto", "inspecciona el proyecto", "inspeccionar proyecto",
+        "proyecto actual", "analiza el proyecto"
+      ]
+    },
     "/allow": {
       "description": "Aprobar la ejecución de herramientas pendientes de autorización",
       "wizard": false,

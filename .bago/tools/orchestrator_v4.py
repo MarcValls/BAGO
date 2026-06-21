@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-orchestrator_v4.py — BAGO 4.1.5 Orchestrator
+orchestrator_v4.py — BAGO Orchestrator
 
 Implementa el Flujo Operativo General para Gestión de Tareas con Agentes.
 
@@ -57,7 +57,28 @@ from bago_utils import (
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
-VERSION = "4.1.5"
+def _current_release_version() -> str:
+    root = Path(__file__).resolve().parents[2]
+    for candidate in (
+        root / "release_version.txt",
+        root / ".bago" / "release_version.txt",
+    ):
+        try:
+            value = candidate.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if value:
+            return value.lstrip("vV").strip()
+    versions_path = root / "versions.json"
+    try:
+        data = json.loads(versions_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    current = data.get("current", "")
+    return current.strip() if isinstance(current, str) else ""
+
+
+VERSION = _current_release_version()
 STATE_SUBDIR = "orchestrator"
 
 PRIORITIES = {"P0", "P1", "P2", "Post-MVP"}
@@ -500,7 +521,7 @@ def _fmt_brief(brief: TaskBrief, verbose: bool = False) -> str:
 def _parse(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="orchestrator_v4",
-        description="BAGO 4.1.5 Orchestrator — Flujo Operativo General",
+        description=f"BAGO {VERSION} Orchestrator — Flujo Operativo General",
     )
     p.add_argument("--root", default="", help="Raíz del proyecto (override)")
     p.add_argument("--json", action="store_true", dest="as_json", help="Salida en JSON")

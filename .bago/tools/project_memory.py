@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib.util
 import io
 import json
 import os
@@ -231,6 +232,101 @@ def status_data(root: Path) -> dict[str, Any]:
     }
 
 
+def _load_scan_directory_module():
+    script = Path(__file__).resolve().parents[2] / "scripts" / "scan_directory.py"
+    if not script.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("bago_scan_directory", script)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["bago_scan_directory"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _detect_stack(root: Path) -> list[str]:
+    stack: list[str] = []
+    if (root / ".git").exists():
+        stack.append("git")
+    if (root / "package.json").exists() or (root / "package-lock.json").exists():
+        stack.append("node")
+    if any((root / name).exists() for name in ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg")):
+        stack.append("python")
+    if any((root / name).exists() for name in ("electron", "manager", "ui-react")):
+        stack.append("electron")
+    if any((root / name).exists() for name in ("README.md", "MANUAL.md", "docs")):
+        stack.append("docs")
+    return stack
+
+
+def analyze_data(root: Path) -> dict[str, Any]:
+    root = Path(root).resolve()
+    data = status_data(root)
+    stack = _detect_stack(root)
+    suggestions: list[str] = []
+    issues: list[str] = []
+
+    if "git" in stack:
+        suggestions.append("git status -sb")
+        suggestions.append("git branch --show-current")
+    else:
+        issues.append("No se detecta .git; el proyecto no parece versionado.")
+
+    if "python" in stack:
+        suggestions.append("python -m pytest -q")
+        suggestions.append("python -m py_compile bago_core .bago")
+
+    if "node" in stack:
+        suggestions.append("npm test")
+        suggestions.append("npm run build")
+
+    if "electron" in stack:
+        suggestions.append("npm run manager:build-ui")
+
+    if not data["configured"]:
+        suggestions.append("bago project init")
+        issues.append("La estructura portable .bago no está inicializada del todo.")
+
+    scan_module = _load_scan_directory_module()
+    tree = ""
+    if scan_module is not None and hasattr(scan_module, "scan_directory"):
+        try:
+            tree = scan_module.scan_directory(str(root), max_depth=2)
+        except Exception as exc:  # noqa: BLE001
+            tree = f"Error al escanear el directorio: {exc}"
+
+    return {
+        **data,
+        "stack": stack,
+        "suggestions": suggestions,
+        "issues": issues,
+        "tree": tree,
+    }
+
+
+def format_analysis(data: dict[str, Any]) -> str:
+    lines = [
+        f"Project root: {data['root']}",
+        f"Configured: {'yes' if data['configured'] else 'no'}",
+        f"Linked: {'yes' if data['linked'] else 'no'} ({data['link_mode']})",
+        f"Stack detected: {', '.join(data.get('stack', [])) or 'unknown'}",
+    ]
+    if data.get("issues"):
+        lines.append("Issues:")
+        for item in data["issues"]:
+            lines.append(f"  - {item}")
+    if data.get("suggestions"):
+        lines.append("Suggested next checks:")
+        for item in data["suggestions"]:
+            lines.append(f"  - {item}")
+    if data.get("tree"):
+        lines.append("")
+        lines.append("Directory snapshot:")
+        lines.append(data["tree"])
+    return "\n".join(lines)
+
+
 def format_status(data: dict[str, Any]) -> str:
     lines = [
         f"Project root: {data['root']}",
@@ -268,6 +364,12 @@ def cmd_link(root: str | None = None) -> int:
     print(f"Linked project memory at: {data['root']}")
     print(f"Link mode: {data['link_mode']}")
     print(f"Marker: {data['marker']}")
+    return 0
+
+
+def cmd_analyze(root: str | None = None) -> int:
+    data = analyze_data(get_scan_root(root))
+    print(format_analysis(data))
     return 0
 
 
@@ -319,6 +421,9 @@ def run_self_tests() -> int:
     _, link_output = _capture_output(cmd_link, str(project_root))
     check("link_output", "Link mode:" in link_output, "link command prints mode")
 
+    (_, analyze_output) = _capture_output(cmd_analyze, str(project_root))
+    check("analyze_output", "Suggested next checks:" in analyze_output, "analyze prints suggestions")
+
     env_root = workspace / "env_project"
     os.environ["BAGO_SCAN_ROOT"] = str(env_root)
     try:
@@ -343,6 +448,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="Initialize .bago structure")
     sub.add_parser("status", help="Show .bago status")
     sub.add_parser("link", help="Create project link marker")
+    sub.add_parser("analyze", help="Analyze the project and suggest next checks")
     return parser
 
 
@@ -358,6 +464,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_status(args.root)
     if args.action == "link":
         return cmd_link(args.root)
+    if args.action == "analyze":
+        return cmd_analyze(args.root)
 
     parser.print_help()
     return 1

@@ -28,6 +28,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from state_paths import resolve_state_root
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -40,8 +42,9 @@ for _stream in (sys.stdout, sys.stderr):
 class RewardStore:
     """Persistencia append-only de recompensas por interacción."""
 
-    def __init__(self, base_dir: Path | str | None = None):
-        self.base_dir = Path(base_dir or os.getcwd()) / ".bago" / "state" / "rl"
+    def __init__(self, base_dir: Path | str | None = None, state_root: str | Path | None = None):
+        root = resolve_state_root(state_root if state_root is not None else base_dir)
+        self.base_dir = root / "rl"
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._file = self.base_dir / "rewards.jsonl"
 
@@ -81,8 +84,8 @@ class RewardStore:
 class PreferenceModel:
     """Aprendizaje de preferencias por combinación (provider, model, fingerprint)."""
 
-    def __init__(self, base_dir: Path | str | None = None):
-        self.store = RewardStore(base_dir)
+    def __init__(self, base_dir: Path | str | None = None, state_root: str | Path | None = None):
+        self.store = RewardStore(base_dir, state_root=state_root)
         self._cache: dict[str, dict] = {}
         self._dirty = True
 
@@ -275,6 +278,9 @@ class FeedbackCollector:
 def _run_tests() -> int:
     import tempfile
     with tempfile.TemporaryDirectory() as td:
+        state_root = Path(td) / "state"
+        old = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = str(state_root)
         # RewardStore
         store = RewardStore(td)
         store.append("s1", "ollama-local", "llama3.2:3b", 0.8, "hola_10")
@@ -319,6 +325,10 @@ def _run_tests() -> int:
         assert pm.score("ollama-local", "llama3.2:3b", "hola_4") >= 0.0
 
     print("rl_engine.py --test: ALL PASS")
+    if old is None:
+        os.environ.pop("BAGO_STATE_ROOT", None)
+    else:
+        os.environ["BAGO_STATE_ROOT"] = old
     return 0
 
 

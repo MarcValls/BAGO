@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-session_manager.py — BAGO 4.1.5 Session Manager
+session_manager.py — BAGO Session Manager
 
 Orquesta todo el ciclo de vida de una sesión de chat:
 - Carga/guarda contexto via ContextStore
@@ -34,8 +34,10 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from version import CURRENT as BAGO_VERSION
 from context_store import ContextStore, ContextMessage, TimelineEvent
 from context_compressor import ContextCompressor, LayerStore
+from state_paths import resolve_state_root
 from model_equivalence import EquivalenceMap, TransferVerdict, TransferStrategy
 from message_adapter import MessageAdapter
 from rl_engine import FeedbackCollector, PreferenceModel
@@ -90,6 +92,7 @@ class SessionManager:
         provider: str = "ollama-local",
         model: str = "qwen2.5:14b",
         base_path: str | None = None,
+        state_root: str | None = None,
         system_prompt: str = "",
         bago_mode: str = "B",
         active_agent: str = "default",
@@ -102,11 +105,12 @@ class SessionManager:
         self.bago_mode = self._normalize_bago_mode(bago_mode)
         self.active_bridges = self._normalize_bridges(active_bridges or [provider], primary=provider)
         self.base_path = Path(base_path or os.getcwd())
-        self.state_dir = self.base_path / ".bago" / "state"
+        self.state_root = resolve_state_root(state_root)
+        self.state_dir = self.state_root
         self.state_dir.mkdir(parents=True, exist_ok=True)
 
-        self.config = ConfigManager(base_path=str(self.base_path))
-        self.credentials = CredentialManager(base_path=str(self.base_path))
+        self.config = ConfigManager(base_path=str(self.base_path), state_root=str(self.state_root))
+        self.credentials = CredentialManager(base_path=str(self.base_path), state_root=str(self.state_root))
 
         self.store = ContextStore(self.session_id, base_dir=self.state_dir)
         if not self.store.get_meta():
@@ -115,20 +119,21 @@ class SessionManager:
                 "last_provider": "",
                 "last_model": "",
                 "switch_count": 0,
-                "bago_version": "4.1.5",
+                "bago_version": BAGO_VERSION,
             })
             self.store.add_timeline_event(TimelineEvent("session", "start", f"Session {self.session_id} created"))
         self.equiv = EquivalenceMap()
         self.msg_adapter = MessageAdapter()
-        self.rl_pref = PreferenceModel(base_dir=self.base_path)
+        self.rl_pref = PreferenceModel(base_dir=self.base_path, state_root=str(self.state_root))
         self.rl_feedback = FeedbackCollector(self.rl_pref)
         self.script_registry = ScriptRegistry(repo_root=self.base_path)
         self.tool_registry = ToolRegistry(script_registry=self.script_registry)
         self.plan_engine = PlanEngine()
         self.agent_gateway = AgentGateway()
         self.agent_gateway.activate(active_agent)
-        self.knowledge = KnowledgeBase(base_path=str(self.base_path))
-        self.embedding_store = EmbeddingStore(base_path=str(self.base_path))
+        self.knowledge = KnowledgeBase(base_path=str(self.base_path), state_root=str(self.state_root))
+        self.embedding_store = EmbeddingStore(base_path=str(self.base_path), state_root=str(self.state_root))
+        self.last_code_task: dict[str, Any] | None = None
         self._adapter: ProviderAdapter | None = None
         self._init_info: dict = self._init_adapter()
 
@@ -244,7 +249,7 @@ class SessionManager:
                 "prevencion": (
                     "Verificar acceso de lectura a la base de sesiones "
                     "(~/.copilot/session-store.db) y permisos de escritura en "
-                    ".bago/core/intent_examples.json"
+                    "~/.bago/state/intent_examples.json"
                 ),
             }
 
@@ -264,6 +269,8 @@ class SessionManager:
                 if "TOKEN" in upper:
                     creds.setdefault("token", val)
                 if "URL" in upper and "BASE" in upper:
+                    creds.setdefault("base_url", val)
+                if upper == "OLLAMA_CLOUD_URL":
                     creds.setdefault("base_url", val)
         # Merge: credenciales tienen prioridad sobre config generica
         merged = dict(cfg)
@@ -317,6 +324,16 @@ class SessionManager:
     def _tool_calling_enabled(self) -> bool:
         return bool(self.config.get("features.tool_calling", False))
 
+    def _classify_code_request(self, user_message: str):
+        try:
+            from bago_core.codegen.task_classifier import classify_code_request
+        except Exception:
+            return None
+        try:
+            return classify_code_request(user_message, workspace_root=self.base_path)
+        except Exception:
+            return None
+
     # ── Core API ──────────────────────────────────────────────────────
 
     def send(self, user_message: str, **kwargs: Any) -> str:
@@ -326,6 +343,19 @@ class SessionManager:
         al modelo. Si el modelo responde con tool_calls, las ejecuta y reenvía
         automáticamente para obtener la respuesta final.
         """
+        code_task = self._classify_code_request(user_message)
+        self.last_code_task = code_task.to_dict() if code_task is not None else None
+        if code_task is not None and code_task.blocked:
+            refusal = code_task.refusal_message()
+            self.store.append_user(user_message, provider=self.provider, model=self.model)
+            self.store.append_response(
+                refusal,
+                provider=self.provider,
+                model=self.model,
+                metadata={"code_task": self.last_code_task, "blocked": True},
+            )
+            return refusal
+
         adapter = self._ensure_adapter()
         start = time.time()
 
@@ -342,6 +372,14 @@ class SessionManager:
             dynamic_system += get_few_shot_examples(intent, max_examples=2)
         else:
             dynamic_system += "\n\n" + intent_guidance("chat")
+
+        if code_task is not None and code_task.is_code_request:
+            dynamic_system += (
+                "\n\nCode Forge classifier: "
+                f"kind={code_task.kind}; "
+                f"targets={', '.join(code_task.target_files) if code_task.target_files else 'none'}; "
+                f"blocked={code_task.blocked}"
+            )
 
         # Pasar tools solo si la intención NO es chat
         tools = None
@@ -487,6 +525,20 @@ class SessionManager:
         Yield chunks de texto (str). Al finalizar, persiste el historial
         completo y registra tokens/RL automáticamente.
         """
+        code_task = self._classify_code_request(user_message)
+        self.last_code_task = code_task.to_dict() if code_task is not None else None
+        if code_task is not None and code_task.blocked:
+            refusal = code_task.refusal_message()
+            self.store.append_user(user_message, provider=self.provider, model=self.model)
+            self.store.append_response(
+                refusal,
+                provider=self.provider,
+                model=self.model,
+                metadata={"code_task": self.last_code_task, "blocked": True},
+            )
+            yield refusal
+            return
+
         adapter = self._ensure_adapter()
 
         # Si hay herramientas registradas y el adapter las soporta,
@@ -502,13 +554,22 @@ class SessionManager:
         normalized = self.msg_adapter.to_provider(history, self.provider)
         normalized.append({"role": "user", "content": user_message})
 
+        system_prompt = self.effective_system_prompt()
+        if code_task is not None and code_task.is_code_request:
+            system_prompt += (
+                "\n\nCode Forge classifier: "
+                f"kind={code_task.kind}; "
+                f"targets={', '.join(code_task.target_files) if code_task.target_files else 'none'}; "
+                f"blocked={code_task.blocked}"
+            )
+
         buffer = []
         stream_failed = False
         try:
             for chunk in adapter.chat_stream(
                 normalized,
                 self.model,
-                system=self.effective_system_prompt(),
+                system=system_prompt,
                 tools=None,
                 **kwargs,
             ):
@@ -897,10 +958,16 @@ class SessionManager:
         return ADAPTER_REGISTRY.copy()
 
     @classmethod
-    def load(cls, session_id: str, base_path: str | None = None) -> "SessionManager":
+    def load(cls, session_id: str, base_path: str | None = None, state_root: str | None = None) -> "SessionManager":
         """Carga una sesión desde disco."""
         bp = Path(base_path or os.getcwd())
-        path = bp / ".bago" / "state" / "sessions" / f"{session_id}.json"
+        sr = resolve_state_root(state_root)
+        legacy_root = bp / ".bago" / "state"
+        path = sr / "sessions" / f"{session_id}.json"
+        if not path.exists():
+            legacy_path = legacy_root / "sessions" / f"{session_id}.json"
+            if legacy_path.exists():
+                path = legacy_path
         if path.exists():
             data = json.loads(path.read_text(encoding="utf-8"))
             mgr = cls(
@@ -908,6 +975,7 @@ class SessionManager:
                 provider=data["provider"],
                 model=data["model"],
                 base_path=str(bp),
+                state_root=str(sr),
                 system_prompt=data.get("system_prompt", ""),
                 bago_mode=data.get("bago_mode", "B"),
                 active_agent=data.get("active_agent", "default"),
@@ -919,9 +987,12 @@ class SessionManager:
             mgr.switch_log = data.get("switch_log", [])
             return mgr
 
-        store = ContextStore.load(session_id, base_dir=bp / ".bago" / "state")
+        store_base = sr
+        if not (sr / "sessions" / f"{session_id}.json").exists() and (legacy_root / "sessions" / f"{session_id}.json").exists():
+            store_base = legacy_root
+        store = ContextStore.load(session_id, base_dir=store_base)
         meta = store.get_meta()
-        defaults = ConfigManager(base_path=str(bp))
+        defaults = ConfigManager(base_path=str(bp), state_root=str(sr))
         provider = meta.get("last_provider") or defaults.default_provider
         model = meta.get("last_model") or defaults.default_model
         mgr = cls(
@@ -929,6 +1000,7 @@ class SessionManager:
             provider=provider,
             model=model,
             base_path=str(bp),
+            state_root=str(sr),
             system_prompt=meta.get("system_prompt", ""),
             bago_mode=meta.get("bago_mode", "B"),
             active_agent=meta.get("active_agent", "default"),
@@ -1098,7 +1170,10 @@ def _run_tests() -> int:
             return
 
     with tempfile.TemporaryDirectory() as td:
-        mgr = SessionManager(base_path=td, provider="ollama-local", model="qwen2.5:14b")
+        state_root = Path(td) / "state"
+        old = os.environ.get("BAGO_STATE_ROOT")
+        os.environ["BAGO_STATE_ROOT"] = str(state_root)
+        mgr = SessionManager(base_path=td, state_root=str(state_root), provider="ollama-local", model="qwen2.5:14b")
         assert mgr.session_id
         assert mgr.provider == "ollama-local"
         status = mgr.status()
@@ -1112,13 +1187,13 @@ def _run_tests() -> int:
         assert "MODO BAGO ACTIVO [G]" in effective_prompt
         assert "AGENTE ACTIVO [coder]" in effective_prompt
         mgr.save()
-        loaded = SessionManager.load(mgr.session_id, base_path=td)
+        loaded = SessionManager.load(mgr.session_id, base_path=td, state_root=str(state_root))
         assert loaded.provider == "ollama-local"
         assert loaded.bago_mode == "G"
         assert loaded.agent_gateway.active.name == "coder"
 
         ADAPTER_REGISTRY["failing"] = FailingAdapter
-        failing = SessionManager(base_path=td, provider="failing", model="broken")
+        failing = SessionManager(base_path=td, state_root=str(state_root), provider="failing", model="broken")
         before = len(failing.store.get_history())
         try:
             failing.send("este turno no debe persistirse")
@@ -1134,7 +1209,7 @@ def _run_tests() -> int:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            hybrid = SessionManager(base_path=td, provider="cpp-local", model="bago-cpp:stub")
+            hybrid = SessionManager(base_path=td, state_root=str(state_root), provider="cpp-local", model="bago-cpp:stub")
             hybrid.config.set("providers.cpp-local.enabled", True)
             hybrid.config.set("providers.cpp-local.base_url", f"http://127.0.0.1:{server.server_port}")
             hybrid.config.set("providers.cpp-local.supports_streaming", True)
@@ -1162,6 +1237,10 @@ def _run_tests() -> int:
         loaded.close()
         mgr.close()
         print("session_manager.py --test: ALL PASS")
+        if old is None:
+            os.environ.pop("BAGO_STATE_ROOT", None)
+        else:
+            os.environ["BAGO_STATE_ROOT"] = old
     return 0
 
 

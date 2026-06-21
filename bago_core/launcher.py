@@ -30,14 +30,21 @@ BAGO_ROOT = Path(__file__).resolve().parents[1]
 _repo_root = str(BAGO_ROOT)
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
-sys.path.insert(0, str(BAGO_ROOT / ".bago" / "core"))
+# Prefer .bago/core/version.py when running from source; bago_core/version.py acts
+# as a fallback when installed as a wheel (see bago_core/version.py).
+_bago_core_dir = str(BAGO_ROOT / ".bago" / "core")
+if Path(_bago_core_dir).exists():
+    sys.path.insert(0, _bago_core_dir)
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "chat"))
 sys.path.insert(0, str(BAGO_ROOT / ".bago" / "providers"))
 
 _CREATED_VERSION = "4.0.0"
 
 # Lee la version desde el indice central (versions.json)
-from version import CURRENT as _BAGO_VERSION  # noqa: E402
+try:
+    from version import CURRENT as _BAGO_VERSION  # noqa: E402
+except ModuleNotFoundError:
+    from bago_core.version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
@@ -321,8 +328,9 @@ def main(argv: list[str] | None = None) -> int:
     install_root = Path(__file__).resolve().parents[1]
     install_config = _load_install_config(install_root)
 
-    # Leer defaults desde config.json si existe
-    base = str(install_root) if install_config else os.getcwd()
+    # El base-path operativo es el directorio actual del usuario.
+    # El install_config solo aporta defaults de provider/modelo.
+    base = os.getcwd()
     try:
         cm_defaults = ConfigManager(base_path=base)
         default_provider = install_config.get("runtime", {}).get("default_provider") or cm_defaults.default_provider
@@ -405,6 +413,8 @@ if __name__ == "__main__":
         # Quick smoke test
         import tempfile
         with tempfile.TemporaryDirectory() as td:
+            state_root = Path(td) / "state"
+            os.environ["BAGO_STATE_ROOT"] = str(state_root)
             cfg = {"runtime": {"default_provider": "codex", "default_model": "gpt-5.4-mini"}}
             (Path(td) / "install_config.json").write_text(json.dumps(cfg), encoding="utf-8")
             assert _load_install_config(Path(td))["runtime"]["default_provider"] == "codex"
@@ -412,7 +422,7 @@ if __name__ == "__main__":
             assert main(["--base-path", td, "config", "get", "providers.cpp-local.enabled"]) == 0
             assert main(["--base-path", td, "llm", "list"]) == 0
             assert main(["--base-path", td, "llm", "start", "--provider", "ollama-local", "--model", "llama3.2:3b", "--dry-run"]) == 0
-            assert (Path(td) / ".bago" / "state" / "llm_start.json").exists()
+            assert (state_root / "llm_start.json").exists()
             assert main(["--base-path", td, "llm", "start", "--provider", "cpp-local", "--dry-run"]) == 1
             assert main(["--base-path", td, "engine", "status"]) == 0
             assert main(["--base-path", td, "appdata", "status"]) == 0
@@ -434,6 +444,7 @@ if __name__ == "__main__":
             issue_brief = orc_mod.create_brief(task="CLI issues command smoke test")
             assert main(["--base-path", td, "issues", "--root", td, "take", issue_brief.id, "--agent", "codex"]) == 0
             assert main(["--base-path", td, "issues", "--root", td, "close", issue_brief.id, "--force"]) == 0
+            os.environ.pop("BAGO_STATE_ROOT", None)
         print("launcher.py --test: ALL PASS")
         raise SystemExit(0)
     raise SystemExit(main())

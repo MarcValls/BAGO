@@ -310,13 +310,6 @@ def _write_report(
     )
 
 
-def _refresh_checksums_and_files(output_dir: Path) -> list[dict[str, Any]]:
-    """Re-digest the bundle and return the file list (R4, R8)."""
-    files = collect_file_digests(output_dir)
-    write_checksums(output_dir, files)
-    return collect_file_digests(output_dir)
-
-
 def _finalize_manifest(
     *,
     output_dir: Path,
@@ -329,8 +322,7 @@ def _finalize_manifest(
     direct_response: str,
     plan_text: str,
 ) -> dict[str, Any]:
-    """Write the manifest, report, and checksums; return the manifest."""
-    write_json(output_dir / "manifest.json", manifest)
+    """Write the manifest, report, and checksums without circular hashes."""
     _write_report(
         output_dir=output_dir,
         mode=mode,
@@ -341,8 +333,16 @@ def _finalize_manifest(
         direct_response=direct_response,
         plan_text=plan_text,
     )
-    manifest["files"] = _refresh_checksums_and_files(output_dir)
+    manifest["files"] = collect_file_digests(
+        output_dir,
+        exclude={"manifest.json", "checksums.sha256"},
+    )
     write_json(output_dir / "manifest.json", manifest)
+    checksum_files = collect_file_digests(
+        output_dir,
+        exclude={"checksums.sha256"},
+    )
+    write_checksums(output_dir, checksum_files)
     return manifest
 
 
