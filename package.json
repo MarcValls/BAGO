@@ -40,8 +40,6 @@
     "bago.sh",
     "versions.json",
     "release_version.txt",
-    "MODEL_PARALLEL_SETUP.md",
-    "AUDIT_PARALLEL_SETUP.md",
     "release/v4/bago-v4.6.4.zip"
     ],
     "files": [
@@ -72,8 +70,6 @@
       "bago.sh",
       "versions.json",
       "release_version.txt",
-      "MODEL_PARALLEL_SETUP.md",
-      "AUDIT_PARALLEL_SETUP.md",
       "release/v4/bago-v4.6.4.zip"
     ],
     "directories": {

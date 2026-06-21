@@ -39,7 +39,6 @@ INCLUDE_FILES = [
     "bago-uninstall.ps1",
     "bago-uninstall.cmd",
     "rollback-v4.ps1",
-    "MODEL_PARALLEL_SETUP.md",
     "test_e2e.py",
     "test_security_release.py",
     "test_command_intents.py",
@@ -206,7 +205,7 @@ def build_user_bundle(root: Path, output_dir: Path, release_version: str = "") -
         "included_files": manifest_files,
         "excluded_prefixes": EXCLUDED_PREFIXES,
         "forbidden_names": sorted(FORBIDDEN_NAMES),
-        "bootstrap_instructions": "MODEL_PARALLEL_SETUP.md",
+        "bootstrap_instructions": "docs/SETUP.md",
     }
 
     manifest_path = output_dir / f"{package_name}.manifest.json"
@@ -226,7 +225,7 @@ def build_user_bundle(root: Path, output_dir: Path, release_version: str = "") -
             "## Bootstrap",
             "",
             "- Local model weights are intentionally excluded.",
-            "- See `MODEL_PARALLEL_SETUP.md` for the parallel local-model setup.",
+            "- See `docs/SETUP.md` for installation and configuration.",
             "",
             "## Exclusions",
             "",
@@ -263,7 +262,6 @@ def _run_tests() -> int:
             names = set(zf.namelist())
             required_names = {
                 "bago_core/translators/__init__.py",
-                "MODEL_PARALLEL_SETUP.md",
                 "ui-react/dist/index.html",
                 "docs/evidence/release_4_6_4/manifest.json",
                 "docs/evidence/release_4_6_4/session/meta.json",

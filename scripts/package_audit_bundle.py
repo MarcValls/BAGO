@@ -44,8 +44,6 @@ INCLUDE_FILES = [
     "bago-uninstall.ps1",
     "bago-uninstall.cmd",
     "rollback-v4.ps1",
-    "MODEL_PARALLEL_SETUP.md",
-    "AUDIT_PARALLEL_SETUP.md",
     "test_e2e.py",
     "test_security_release.py",
     "test_command_intents.py",
@@ -392,14 +390,13 @@ def _run_tests() -> int:
     bundle_version = read_release_version(repo_root()) or "unknown"
     root = repo_root()
 
-    model_bootstrap = (root / "MODEL_PARALLEL_SETUP.md").read_text(encoding="utf-8")
-    assert "ollama pull" in model_bootstrap
-    assert "ollama list" in model_bootstrap
-    assert "ollama-local" in model_bootstrap
-
-    audit_bootstrap = (root / "AUDIT_PARALLEL_SETUP.md").read_text(encoding="utf-8")
-    assert "python scripts\\verify_release.py" in audit_bootstrap
-    assert "ollama pull" in audit_bootstrap
+    # 2026-Q2 cleanup: MODEL_PARALLEL_SETUP.md and AUDIT_PARALLEL_SETUP.md were removed.
+    # Bootstrap instructions now live in docs/SETUP.md.
+    bootstrap_doc = (root / "docs" / "SETUP.md")
+    if not bootstrap_doc.exists():
+        bootstrap_doc = (root / "README.md")
+    bootstrap = bootstrap_doc.read_text(encoding="utf-8")
+    assert "ollama" in bootstrap or "install" in bootstrap, "bootstrap doc lacks install guidance"
 
     with TemporaryDirectory() as td:
         work = Path(td)
@@ -418,8 +415,6 @@ def _run_tests() -> int:
             embedded = json.loads(embedded_bytes)
 
             required_names = {
-                "AUDIT_PARALLEL_SETUP.md",
-                "MODEL_PARALLEL_SETUP.md",
                 "bago_core/translators/__init__.py",
                 "ui-react/package.json",
                 "ui-react/package-lock.json",

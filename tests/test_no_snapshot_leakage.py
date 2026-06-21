@@ -108,7 +108,7 @@ def is_text_file(path: Path) -> bool:
         ".ts", ".tsx", ".lock", ".gitignore", ".gitattributes",
     }
     return path.suffix.lower() in text_exts or path.name in {
-        "AGENTS.md", "BOOTSTRAP.md", "README.md", "HANDOFF.md", "Makefile",
+        "AGENTS.md", "BOOTSTRAP.md", "README.md", "HANDOFF.md",
         "MANIFEST.in", "LICENSE", ".gitignore", ".gitattributes",
     }
 

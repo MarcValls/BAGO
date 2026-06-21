@@ -39,8 +39,6 @@ INCLUDE_FILES = [
     "bago-uninstall.ps1",
     "bago-uninstall.cmd",
     "rollback-v4.ps1",
-    "MODEL_PARALLEL_SETUP.md",
-    "AUDIT_PARALLEL_SETUP.md",
     "test_e2e.py",
     "test_security_release.py",
     "test_command_intents.py",
@@ -254,8 +252,6 @@ def _run_tests() -> int:
             names = set(zf.namelist())
             required_names = {
                 "bago_core/translators/__init__.py",
-                "MODEL_PARALLEL_SETUP.md",
-                "AUDIT_PARALLEL_SETUP.md",
                 "ui-react/dist/index.html",
                 "docs/evidence/release_4_6_4/manifest.json",
                 "docs/evidence/release_4_6_4/session/meta.json",
