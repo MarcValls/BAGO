@@ -467,5 +467,9 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   ),
   runNodeValidate: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'validate', '--json']),
   runSupervisorCommand: (args) => ipcRenderer.invoke('bago:supervisor-cmd', Array.isArray(args) ? args.map(String) : []),
-  cleanupZombies: () => ipcRenderer.invoke('bago:zombie-cleanup')
+  cleanupZombies: () => ipcRenderer.invoke('bago:zombie-cleanup'),
+  onDataChanged: (callback) => {
+    if (typeof callback !== 'function') return;
+    ipcRenderer.on('bago:data-changed', (_event, scope) => callback(scope));
+  }
 });

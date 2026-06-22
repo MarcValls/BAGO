@@ -44,6 +44,7 @@ function makeWinShortPathPlugin() {
 
 export default defineConfig({
   plugins: [makeWinShortPathPlugin(), react()].filter(Boolean),
+  base: './',
   server: {
     port: 4173,
   },

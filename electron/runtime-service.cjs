@@ -10,6 +10,7 @@ function createRuntimeService(ctx) {
     BrowserWindow,
     ROOT_DIR,
     ICON_PATH,
+    REACT_HTML,
     CHAT_HOST,
     CHAT_START_PORT,
     resolveBagoRuntimeRoot,
@@ -21,7 +22,6 @@ function createRuntimeService(ctx) {
   } = ctx;
 
   const MUTATING_NODE_COMMANDS = new Set(['connect', 'disconnect', 'set-mode']);
-  const MANAGER_HTML = path.join(ROOT_DIR, 'manager', 'index.html');
 
   let activeNodeMutation = null;
   let webChatProcess = null;
@@ -380,16 +380,16 @@ function createRuntimeService(ctx) {
   }
 
   function getManagerUrl() {
+    // The legacy manager/ folder no longer exists; the React Control Plane is the primary UI.
+    // Return the React dist path so old callers do not try to load a missing manager/index.html.
     if (app.isPackaged) {
       try {
-        return 'file:///' + MANAGER_HTML.replace(/\\/g, '/').replace(/^\//, '');
+        return REACT_HTML ? 'file:///' + REACT_HTML.replace(/\\/g, '/').replace(/^\//, '') : '';
       } catch {
-        // fall through
+        return '';
       }
     }
-    const apiPort = (webChatState && webChatState.port) || process.env.BAGO_API_PORT || '';
-    if (apiPort) return `http://${CHAT_HOST}:${apiPort}/manager/index.html`;
-    return 'manager/index.html';
+    return '';
   }
 
   function getState() {

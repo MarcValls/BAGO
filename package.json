@@ -1,8 +1,8 @@
 {
-  "name": "bago-installation-manager",
+  "name": "bago-control-plane",
   "version": "4.7.0",
   "private": true,
-  "description": "Electron packaged installation manager for BAGO.",
+  "description": "BAGO Control Plane — session-first AI manager (Electron + React).",
   "main": "electron/main.cjs",
   "author": "BAGO",
   "license": "UNLICENSED",
@@ -17,9 +17,9 @@
     "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
   },
   "build": {
-    "appId": "com.bago.installation-manager",
-    "productName": "BAGO Installation Manager",
-    "artifactName": "BAGO-Installation-Manager-${version}-${os}-${arch}.${ext}",
+    "appId": "com.bago.control-plane",
+    "productName": "BAGO Control Plane",
+    "artifactName": "BAGO-Control-Plane-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "asarUnpack": [
       "bago_core/**/*",
@@ -44,7 +44,6 @@
     ],
     "files": [
       "electron/**/*",
-      "manager/**/*",
       "bago.ico",
       "assets/**/*",
       "bago_core/**/*",
@@ -92,7 +91,7 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "BAGO Installation Manager"
+      "shortcutName": "BAGO Control Plane"
     }
   },
   "devDependencies": {

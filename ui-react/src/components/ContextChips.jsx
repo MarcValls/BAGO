@@ -30,7 +30,7 @@ function writePersisted(value) {
 
 function initialSelected() {
   const persisted = readPersisted()
-  if (persisted?.selected) return persisted.selected
+  if (Array.isArray(persisted?.selected)) return new Set(persisted.selected)
   return new Set(CONTRACT_PRESETS.filter((p) => p.defaultOn).map((p) => p.id))
 }
 

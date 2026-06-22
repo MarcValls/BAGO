@@ -22,7 +22,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -77,6 +77,7 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         "/catalog",
         "/simulation",
         "/rl",
+        "/files",
     )
 
     @staticmethod
@@ -218,6 +219,11 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             elif path.startswith("/models/"):
                 provider = path.split("/")[-1]
                 self._handle_models(provider)
+            elif path == "/files/list":
+                self._handle_files_list()
+            elif path.startswith("/files/read/"):
+                file_path = path[len("/files/read/"):]
+                self._handle_files_read(file_path)
             else:
                 self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
             return
@@ -567,6 +573,59 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         enabled = bool(body.get("enabled", True))
         self._send_json(200, bridge.shadow(enabled))
+    def _handle_files_list(self) -> None:
+        mgr = self.session_mgr
+        if mgr is None:
+            self._send_json(503, {"error": "SessionManager no disponible"})
+            return
+        base = Path(mgr.base_path).resolve()
+        try:
+            entries = []
+            for root, dirs, files in os.walk(base):
+                rel_root = Path(root).relative_to(base)
+                for d in sorted(dirs):
+                    entries.append({
+                        "path": str(rel_root / d).replace("\\", "/"),
+                        "name": d,
+                        "type": "directory",
+                    })
+                for f in sorted(files):
+                    entries.append({
+                        "path": str(rel_root / f).replace("\\", "/"),
+                        "name": f,
+                        "type": "file",
+                    })
+                # Evitar recorrer directorios binarios enormes
+                dirs[:] = [d for d in dirs if d not in {"node_modules", ".git", "__pycache__", "dist", "build"}]
+            self._send_json(200, {"base_path": str(base), "entries": entries})
+        except Exception as exc:
+            self._send_json(500, {"error": f"Error listando archivos: {exc}"})
+
+    def _handle_files_read(self, file_path: str) -> None:
+        mgr = self.session_mgr
+        if mgr is None:
+            self._send_json(503, {"error": "SessionManager no disponible"})
+            return
+        base = Path(mgr.base_path).resolve()
+        try:
+            target = (base / unquote(file_path)).resolve()
+            target.relative_to(base)
+        except (ValueError, Exception):
+            self._send_json(403, {"error": "Ruta de archivo invalida"})
+            return
+        if not target.is_file():
+            self._send_json(404, {"error": "Archivo no encontrado"})
+            return
+        try:
+            content = target.read_text(encoding="utf-8", errors="replace")
+            self._send_json(200, {
+                "path": file_path,
+                "name": target.name,
+                "content": content,
+                "size": target.stat().st_size,
+            })
+        except Exception as exc:
+            self._send_json(500, {"error": f"Error leyendo archivo: {exc}"})
 
 
 class BagoAPIServer:
@@ -694,11 +753,44 @@ def _run_tests() -> int:
 
             with urllib.request.urlopen(urllib.request.Request(f"{base_url}/catalog/status", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
                 catalog_status = json.loads(resp.read().decode("utf-8"))
-            assert catalog_status["mode"] == "all"
+            # The user's persistent config may override the default; only assert a valid shape.
+            assert catalog_status["mode"] in ("all", "available-only")
+            assert "production_mode" in catalog_status
 
             with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
                 models = json.loads(resp.read().decode("utf-8"))
-            assert "offline-model" in models["models"]
+            # Catalog mode may be user-persistent; assert at least the online model is visible.
+            assert "mock-model" in models["models"]
+
+            catalog_req = urllib.request.Request(
+                f"{base_url}/catalog/config",
+                data=json.dumps({"mode": "all"}).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(catalog_req, timeout=5) as resp:
+                catalog = json.loads(resp.read().decode("utf-8"))
+            assert catalog["mode"] == "all"
+
+            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+                all_models = json.loads(resp.read().decode("utf-8"))
+            assert "mock-model" in all_models["models"]
+            assert "offline-model" in all_models["models"]
+
+            catalog_req2 = urllib.request.Request(
+                f"{base_url}/catalog/config",
+                data=json.dumps({"mode": "available-only"}).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(catalog_req2, timeout=5) as resp:
+                catalog2 = json.loads(resp.read().decode("utf-8"))
+            assert catalog2["mode"] == "available-only"
+
+            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+                filtered_models = json.loads(resp.read().decode("utf-8"))
+            assert "mock-model" in filtered_models["models"]
+            assert "offline-model" not in filtered_models["models"]
 
             chat_req = urllib.request.Request(
                 f"{base_url}/chat",
@@ -727,20 +819,7 @@ def _run_tests() -> int:
             assert cmd["data"]["provider"] == "mock-ui"
             assert cmd["data"]["model"] == "mock-model"
 
-            catalog_req = urllib.request.Request(
-                f"{base_url}/catalog/config",
-                data=json.dumps({"mode": "available-only"}).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(catalog_req, timeout=5) as resp:
-                catalog = json.loads(resp.read().decode("utf-8"))
-            assert catalog["mode"] == "available-only"
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
-                filtered_models = json.loads(resp.read().decode("utf-8"))
-            assert "mock-model" in filtered_models["models"]
-            assert "offline-model" not in filtered_models["models"]
 
             sim_req = urllib.request.Request(f"{base_url}/simulation/status", headers={"X-Bago-Token": "test-token"})
             with urllib.request.urlopen(sim_req, timeout=5) as resp:

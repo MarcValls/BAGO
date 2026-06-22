@@ -10,6 +10,7 @@ const {
   SMOKE_TEST,
   CHAT_HOST,
   CHAT_START_PORT,
+  REACT_HTML,
   resolveBagoRuntimeRoot,
   resolveUiDist,
   resolveBundledRuntimeRoot,
@@ -69,6 +70,7 @@ function getRuntimeService() {
       BrowserWindow,
       ROOT_DIR,
       ICON_PATH,
+      REACT_HTML,
       CHAT_HOST,
       CHAT_START_PORT,
       resolveBagoRuntimeRoot,
@@ -154,6 +156,44 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('window-all-closed', () => {
+  app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+// ── File watchers: emiten 'bago:data-changed' al renderer cuando hay cambios reales ──
+let installWatchDebounce = null;
+let runtimeWatchDebounce = null;
+
+function emitDataChanged(scope) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('bago:data-changed', scope);
+  }
+}
+
+function debouncedEmit(scope, delay = 800) {
+  const key = scope === 'installations' ? installWatchDebounce : runtimeWatchDebounce;
+  if (key) clearTimeout(key);
+  const timer = setTimeout(() => {
+    emitDataChanged(scope);
+    if (scope === 'installations') installWatchDebounce = null;
+    else runtimeWatchDebounce = null;
+  }, delay);
+  if (scope === 'installations') installWatchDebounce = timer;
+  else runtimeWatchDebounce = timer;
+}
+
+try {
+  const installsRoot = process.env.BAGO_INSTALLS_ROOT || '';
+  const bagoHome = path.join(os.homedir(), '.bago');
+  const watchTargets = [bagoHome, installsRoot].filter(p => p && fs.existsSync(p));
+  for (const target of watchTargets) {
+    fs.watch(target, { recursive: true }, (_event, filename) => {
+      if (!filename) return;
+      if (/\.tmp$|\.lock$|~$|\.log$/i.test(filename)) return;
+      debouncedEmit('installations');
+      debouncedEmit('health');
+    });
+  }
+} catch (e) {
+  // fs.watch puede fallar en algunos sistemas — no es crítico
+}

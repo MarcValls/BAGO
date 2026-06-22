@@ -69,7 +69,6 @@ function createAuditService(ctx) {
     const latestYml = readText(path.join(ROOT_DIR, 'dist', 'latest.yml'));
     const readme = readText(path.join(ROOT_DIR, 'README.md'));
     const manual = readText(path.join(ROOT_DIR, 'MANUAL.md'));
-    const html = readText(path.join(ROOT_DIR, 'manager', 'index.html'));
     const findings = [];
 
     if (packageVersion && releaseVersion && packageVersion !== releaseVersion) {
@@ -84,16 +83,6 @@ function createAuditService(ctx) {
     const releaseNotes = path.join(ROOT_DIR, 'docs', `RELEASE_NOTES_${packageVersion}.md`);
     if (packageVersion && !fs.existsSync(releaseNotes)) {
       findings.push(makeFinding('medium', 'project', 'MISSING_RELEASE_NOTES', 'Faltan notas de release canónicas', `No existe ${path.relative(ROOT_DIR, releaseNotes)}`, releaseNotes));
-    }
-
-    const duplicateIds = duplicateValues(Array.from(html.matchAll(/id="([^"]+)"/g)).map(match => match[1]));
-    if (duplicateIds.length) {
-      findings.push(makeFinding('high', 'project', 'DUPLICATE_IDS', 'IDs duplicados en manager/index.html', duplicateIds.map(item => `${item.value}×${item.count}`).join(', '), 'manager/index.html'));
-    }
-
-    const pmDetailCount = countMatches(html, 'id="pm-detail"');
-    if (pmDetailCount > 1) {
-      findings.push(makeFinding('high', 'project', 'DUPLICATE_DETAIL', 'pm-detail duplicado', `id="pm-detail" aparece ${pmDetailCount} veces`, 'manager/index.html'));
     }
 
     if (packageVersion && !readme.includes(packageVersion)) {

@@ -11,7 +11,7 @@
 | Producto | BAGO 4.7 |
 | Tipo | Manual de usuario y guía de release |
 | Alcance | `stable` / `des` / `ign` |
-| UI | `manager/index.html` + capturas de CLI/UI |
+| UI | `ui-react/control-plane/` + capturas de CLI/UI |
 | Validación | `validate`, `test_security_release.py`, `test_e2e.py`, `publish_release.py --test` |
 | Artefactos | `dist\BAGO-Installation-Manager-4.7-win-x64.exe`, `dist\bago-v4.7.zip` |
 
@@ -920,7 +920,7 @@ flowchart LR
   end
 
   subgraph UI["Interfaz de gestión"]
-    P["manager/index.html"]
+    P["ui-react / Control Plane"]
     Q["Role cards<br/>active / dev / launch"]
     R["setInstallRole(role, target)"]
     S{"Electron bridge disponible?"}
@@ -963,7 +963,7 @@ sequenceDiagram
   participant Dev as des
   participant Ign as ign
   participant Stable as stable
-  participant UI as manager/index.html
+  participant UI as ui-react Control Plane
   participant Roles as install_selection.json
   participant Release as GitHub Release
 
@@ -1005,7 +1005,7 @@ mindmap
       "C:\\Program Files\\BAGO"
       "release GitHub"
     UI
-      "manager/index.html"
+      "ui-react/dist/index.html"
       "role-select"
       "Electron persiste"
       "web copia comando"
@@ -1127,7 +1127,7 @@ Los diagramas de este anexo recogen la versión final consolidada de los flujos 
 
 ```mermaid
 flowchart LR
-  subgraph UI["manager/index.html / UI"]
+  subgraph UI["Control Plane React / UI"]
     A["Role card click<br/>role-select button"] --> B["setInstallRole(role, target)"]
     B --> C{"electronApi() disponible?"}
     C -- "sí" --> D["api.writeInstallSelection(role, target)"]
@@ -1159,7 +1159,7 @@ flowchart LR
     U --> V["_scan() en cli_installs_discovery.py"]
     V --> W["role_paths(load_selection())"]
     W --> X["selection.roles en JSON de salida"]
-    X --> Y["manager/index.html pinta badges selected_active/dev/launch"]
+    X --> Y["Control Plane pinta badges selected_active/dev/launch"]
   end
 
   I --> Y
@@ -1190,7 +1190,7 @@ flowchart TD
   O --> P
   M --> P
 
-  Q["manager/index.html"] --> R["role-select buttons"]
+  Q["Control Plane React"] --> R["role-select buttons"]
   R --> S["setInstallRole(role, target)"]
   S --> T{"Electron bridge?"}
   T -- "sí" --> U["writeInstallSelection(role, target)"]
@@ -1209,7 +1209,7 @@ sequenceDiagram
   participant Dev as des
   participant Ign as ign
   participant Stable as stable
-  participant UI as manager/index.html
+  participant UI as ui-react Control Plane
   participant Roles as install_selection.json
   participant Release as GitHub Release
 
@@ -1251,7 +1251,7 @@ mindmap
       "C:\\Program Files\\BAGO"
       "release GitHub"
     UI
-      "manager/index.html"
+      "ui-react/dist/index.html"
       "role-select"
       "Electron persiste"
       "web copia comando"

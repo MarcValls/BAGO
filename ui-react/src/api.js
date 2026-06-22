@@ -44,6 +44,8 @@ export const chatApi = {
   getSimulationEvents: () => request('/simulation/events'),
   getCatalogStatus: () => request('/catalog/status'),
   getRlStatus: () => request('/rl/status'),
+  listFiles: () => request('/files/list').then((res) => res.entries || []),
+  readFile: (filePath) => request(`/files/read/${encodeURIComponent(filePath)}`).then((res) => res.content || ''),
   sendChat: (message, channel, managerContext) => request('/chat', {
     method: 'POST',
     headers: { 'X-Bago-Channel': channel },
@@ -62,5 +64,26 @@ export const chatApi = {
     method: 'POST',
     headers: { 'X-Bago-Channel': channel },
     body: JSON.stringify({ provider, model, force, channel }),
+  }),
+}
+
+// bagoApi: alias de chatApi + endpoints adicionales usados por useBagoControl.
+// Los endpoints extra (providers, simulation mode, rl shadow, catalog mode)
+// se asumen soportados por el backend BAGO (VITE_BAGO_API_URL). Si alguno no
+// existe, el hook captura el error y lo muestra en `error`.
+export const bagoApi = {
+  ...chatApi,
+  getProviders: () => request('/providers'),
+  setSimulationMode: (mode, enabled) => request('/simulation/config', {
+    method: 'POST',
+    body: JSON.stringify({ mode, enabled }),
+  }),
+  setRlShadow: (enabled) => request('/rl/shadow', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  }),
+  setCatalogMode: (mode) => request('/catalog/config', {
+    method: 'POST',
+    body: JSON.stringify({ mode }),
   }),
 }

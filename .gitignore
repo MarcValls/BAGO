@@ -71,6 +71,12 @@ SIGUIENTE.txt
 # Monitor log (runtime, no distribuir)
 .bago/monitor/tablet.log
 
+# Electron / UI runtime artifacts
+electron_run.log
+ui-react/ui.zip
+ui-react/ui_audit_report.md
+ui-react/ref-control-plane-demo.html
+
 # 2026-Q2 cleanup: archive holds historical artifacts not part of the active repo
 archive/
 
