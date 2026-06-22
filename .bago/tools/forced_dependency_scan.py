@@ -94,8 +94,23 @@ def _is_routine_repo_path_mutation(line: str) -> bool:
         "str(core",
         "str(tools",
         "str(bago",
+        # single-letter path variables commonly used for repo-relative inserts
+        "_p)",
+        "_s)",
+        " p)",
+        " s)",
+        "value)",
+        "dir)",
+        "_this_file",
+        "_bago_root",
+        "_repo_root",
+        "_root_dir",
     )
     return "sys.path.insert(" in low and any(token in low for token in routine_tokens)
+
+
+def _has_suppression(line: str) -> bool:
+    return "# fdep-ok" in line.lower() or "#fdep-ok" in line.lower()
 
 
 def _classify_forced_command(path: Path, line: str) -> tuple[str, str, str] | None:
