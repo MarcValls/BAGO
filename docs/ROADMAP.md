@@ -251,4 +251,4 @@ Ship only when:
 
 ## Related Roadmap
 
-- `docs/BAGO_CODE_FORGE_47_ROADMAP.md` — deterministic code-generation line for BAGO 4.7.
+- `docs/BAGO_CODE_FORGE_47_ROADMAP.md` — deterministic code-generation line for BAGO 4.7.0.

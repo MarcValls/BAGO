@@ -6,7 +6,7 @@ y sin artefactos compilados.
 
 ## Requisitos
 
-- BAGO v4.7 instalado o disponible en este repositorio.
+- BAGO v4.7.0 instalado o disponible en este repositorio.
 - Python 3.11+.
 - PowerShell (Windows) para el script de demo, o usar los comandos equivalentes.
 

@@ -1,10 +1,10 @@
-# BAGO v4.7 — Notas de Release
+# BAGO v4.7.0 — Notas de Release
 
 **Fecha de publicacion:** 2026-06-21
 
 ## Resumen
 
-BAGO v4.7 incorpora **BAGO Code Forge 3B**, el primer pipeline
+BAGO v4.7.0 incorpora **BAGO Code Forge 3B**, el primer pipeline
 determinista de generacion de codigo controlado por BAGO. El modelo
 local (por defecto `llama3.2:3b`) propone parches, y BAGO se mantiene
 como autoridad unica de aceptacion, validacion y aplicacion.
@@ -27,17 +27,17 @@ como autoridad unica de aceptacion, validacion y aplicacion.
   `task_id`, `CodeVerdict`, historial de intentos, resumen de
   validacion y codigos `LIMIT_*` para que los auditores puedan
   reproducir la decision sin acceso al modelo.
-- **Version bump 4.6.4 → 4.7** consolidado en `release_version.txt`,
+- **Version bump 4.6.4 → 4.7.0** consolidado en `release_version.txt`,
   `versions.json`, `bago_core/__init__.py`, `pyproject.toml`,
   `package.json`/`package-lock.json`, `README.md`, `MANUAL.md` y los
   contratos publicos.
 
 ## Artefactos
 
-- `BAGO-Installation-Manager-4.7-win-x64.exe`
-- `bago-v4.7.zip`
-- `bago-user-v4.7.zip`
-- `bago-audit-v4.7.zip`
+- `BAGO-Installation-Manager-4.7.0-win-x64.exe`
+- `bago-v4.7.0.zip`
+- `bago-user-v4.7.0.zip`
+- `bago-audit-v4.7.0.zip`
 
 ## Compatibilidad
 
@@ -45,7 +45,7 @@ como autoridad unica de aceptacion, validacion y aplicacion.
   pueda enrutar. Por defecto `llama3.2:3b` en `ollama-local`.
 - Sistema: Windows / Linux / macOS. Sin dependencias nuevas en runtime.
 - Contratos publicos: el `bago_v4_runtime_contract.json` queda en
-  `4.7`. Los presets de routing (`balanced`, `cheap`, `quality`) son
+  `4.7.0`. Los presets de routing (`balanced`, `cheap`, `quality`) son
   compatibles hacia atras.
 
 ## Estado

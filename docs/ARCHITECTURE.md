@@ -1,6 +1,6 @@
 # BAGO v4 Architecture
 
-BAGO v4.7 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
+BAGO v4.7.0 is a session-first control plane. The stable product path is Python 3.11+ CLI, local API, optional React UI, contracts, and evidence. C++ stays experimental and cannot block distribution.
 
 The stable MVP boundary is defined in `docs/MVP.md`. Modules outside that boundary must be documented as partial, experimental, or planned.
 
@@ -58,7 +58,7 @@ Release artifacts must not package live state, logs, credentials, caches, `node_
    - `PLAN_VERTICE/monitor`
    - `PLAN_VERTICE/skill-draft/bago-v4-executor`
 
-8. Code Forge layer (BAGO 4.7)
+8. Code Forge layer (BAGO 4.7.0)
    - `bago_core/codegen/task_classifier.py` — request → safe contract
    - `bago_core/codegen/task_compiler.py` — contract → execution plan
    - `bago_core/codegen/context_builder.py` — plan → staged file map

@@ -1,6 +1,40 @@
 # Changelog
 
-## [4.7] - 2026-06-21
+## Unreleased
+
+### Changed
+- Unified version resolution across `bago_core/__init__.py`,
+  `bago_core/version.py`, `bago_core/versioning.py`, `pyproject.toml`,
+  `release_version.txt`, and `versions.json`. Version now flows from the
+  release file and `versions.json` history.
+- Vercel landing page (`index.html`) and build script
+  (`scripts/build_vercel_site.cjs`) now render release URLs and repo
+  identity from `repo.json` instead of hardcoding `MarcValls/BAGO` and
+  `v4.7` literals.
+
+### Added
+- `repo.json` canonical source for repository owner/name/branch/homepage.
+- `scripts/version_site.cjs` exposes `readRepo()` alongside
+  `readReleaseVersion()` for site rendering.
+- `bago provider` CLI subcommand for provider inspection and patching:
+  `list`, `show`, `set-key`, `unset-key`, `set-default-model`,
+  `unset-default-model`, `enable`, `disable`.
+- Backwards-compatible aliases `provider set-fallback` and
+  `provider remove-fallback` that resolve against `default_provider`.
+- `tests/test_cmd_provider.py` covering the new subcommand surface.
+
+### Fixed
+- `bago_core/version.py` now works when executed standalone (wheel/source
+  compatibility shim inserts package root into `sys.path`).
+- `versions.json` history entry for 4.7.0 now uses full semver `4.7.0`.
+- `tests/test_evidence_integrity.py` now inserts repo root into
+  `sys.path` so it can run from source.
+
+### Documentation
+- `MANUAL.md` documents `bago provider` usage and the singular/plural
+  split: CLI uses `provider`, REPL uses `/providers`.
+
+## [4.7.0] - 2026-06-21
 
 ### Added
 - BAGO Code Forge 3B: deterministic generate→validate→repair pipeline that
@@ -52,7 +86,7 @@
 - Manager launch actions and transpose action are wired.
 - Audit bundle generation avoids circular hashes and writes deterministic sidecars.
 - Secret scanners ignore explicit test fixtures and skip generated runtime folders.
-- Runtime version drift closed: new sessions, supervisor, orchestrator and E2E now report 4.7.
+- Runtime version drift closed: new sessions, supervisor, orchestrator and E2E now report 4.7.0.
 - Supervisor and Windows release-job helpers no longer open transient PowerShell windows during background checks.
 - Release notes no longer embed stale self-referential artifact hashes; final digests live in external sidecars and GitHub release metadata.
 
@@ -62,11 +96,11 @@
 - Release verification uses explicit artifact paths or `BAGO_RELEASE_ASSETS`.
 
 ### Published artifacts
-- `BAGO-Installation-Manager-4.7-win-x64.exe`
-- `bago-v4.7.zip`
-- `bago-user-v4.7.zip`
-- `bago-audit-v4.7.zip`
-- `bago-release-assets-v4.7.zip`
+- `BAGO-Installation-Manager-4.7.0-win-x64.exe`
+- `bago-v4.7.0.zip`
+- `bago-user-v4.7.0.zip`
+- `bago-audit-v4.7.0.zip`
+- `bago-release-assets-v4.7.0.zip`
 
 ### Notes
 - The audit bundle is published with `*.sha256`, `*.manifest.json`, `*.snapshot.json`, and `*.report.md` sidecars.

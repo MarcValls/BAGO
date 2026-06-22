@@ -1,8 +1,8 @@
-# BAGO v4.7
+# BAGO v4.7.0
 
-**Version 4.7**
+**Version 4.7.0**
 
-[![Version](https://img.shields.io/badge/version-4.7-blue)]()
+[![Version](https://img.shields.io/badge/version-4.7.0-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -105,9 +105,31 @@ bago exec /status
 | `bago exec /doctor` | checks command catalog, headless execution, install roles, and provider health |
 | `python bago_core\cli.py evidence --test` | validates evidence bundle generation |
 | `python bago_core\cli.py llm list` | lists provider/model availability |
+| `python bago_core\cli.py provider list` | lists configured providers and default model |
 | `python bago_core\cli.py llm start ...` | starts or dry-runs provider-aware startup |
 | `python bago_core\cli.py serve --host 127.0.0.1 --port 8080` | starts the local API |
 | `python bago_core\cli.py rl status` | reports RL/shadow state without granting authority |
+
+## Repository Identity
+
+BAGO release URLs, GitHub API calls and the Vercel landing page read the
+repository owner/name/branch from `repo.json`. If you fork BAGO or publish
+from a different organization, edit `repo.json` before building the site or
+release artifacts:
+
+```json
+{
+  "owner": "MarcValls",
+  "name": "BAGO",
+  "branch": "main",
+  "homepage": "https://bago-ai.vercel.app",
+  "license": "Proprietary"
+}
+```
+
+The site builder (`scripts/build_vercel_site.cjs`) uses this file instead of
+hardcoded `MarcValls/BAGO` literals, so the same source tree can be reused
+for private forks or mirrors without editing HTML/JS by hand.
 
 ## Branch Governance (mandatory)
 
