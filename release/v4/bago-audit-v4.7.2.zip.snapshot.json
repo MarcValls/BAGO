@@ -1,0 +1,34 @@
+{
+  "branch": "release/v4.7.0",
+  "commit": "06f29c600ba954cf9fb6c88828f67d661c87e24d",
+  "dirty_count": 0,
+  "dirty_files": [],
+  "timestamp_utc": "2026-06-22T03:47:16.248363+00:00",
+  "package": "bago-audit-v4.7.2.zip",
+  "file_count": 520,
+  "release_version": "4.7.2",
+  "excluded_prefixes": [
+    ".bago/state",
+    ".bago/logs",
+    ".bago/launch",
+    ".bago/tools/.bago",
+    "PLAN_VERTICE",
+    "release",
+    "dist",
+    "build",
+    ".ollama",
+    ".cache/ollama",
+    "models",
+    ".bago/models",
+    "weights",
+    "checkpoints"
+  ],
+  "forbidden_names": [
+    ".env",
+    ".env.local",
+    "credentials.json",
+    "install_config.json"
+  ],
+  "zip_sha256": "51608645df501da1697301d0f45de1908e4a70d68c675c09b1461be4fa8cf419",
+  "embedded_snapshot_sha256": "2249d4b070ea74da2a233fa80dc2c73adc8bb008191ded39595f828174e94250"
+}

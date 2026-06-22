@@ -1,0 +1,2679 @@
+{
+  "bundle_id": "bago-audit-v4.7.2.zip",
+  "contract_version": "audit-v1",
+  "related_to": "bago release 4.7.2",
+  "summary": "External audit bundle without local model weights",
+  "details": "Includes source, docs, tests, evidence, release notes and audit bootstrap instructions.",
+  "status": "ready",
+  "recorded_at": "2026-06-22T03:47:16.896986+00:00",
+  "validation_commands": [
+    "python scripts/verify_release.py",
+    "python scripts/package_audit_bundle.py --test",
+    "python test_translators.py",
+    "python -m pytest tests/test_translators_evidence.py -q",
+    "npm run manager:build-ui",
+    "python bago_core/cli.py project analyze --root <repo>"
+  ],
+  "checks": [
+    "zip contains no .ollama, models, weights, or checkpoints",
+    "zip contains bago_core/translators/__init__.py",
+    "zip contains current 4.7.2 evidence bundle",
+    "zip contains audit and model bootstrap instructions",
+    "zip contains audit bootstrap instructions",
+    "zip contains release evidence and contract docs"
+  ],
+  "artifacts": [
+    {
+      "path": "bago-audit-v4.7.2.zip",
+      "sha256": "51608645df501da1697301d0f45de1908e4a70d68c675c09b1461be4fa8cf419"
+    },
+    {
+      "path": "bago-audit-v4.7.2.zip.snapshot.json",
+      "sha256": "820865c850e5f04011cef61048888fe650ab3a9fe0bd11cbc227196da86e6520"
+    },
+    {
+      "path": "bago-audit-v4.7.2.zip.report.md",
+      "sha256": "025b6cb041bfb4a1cd136088399bcbeea339ad40e3ea75e42684e0a44e7e93bb"
+    },
+    {
+      "path": "AUDIT_SNAPSHOT.json",
+      "sha256": "2249d4b070ea74da2a233fa80dc2c73adc8bb008191ded39595f828174e94250"
+    }
+  ],
+  "files": [
+    {
+      "path": ".bago/api/bridge.py",
+      "size": 35103,
+      "sha256": "c4824f0b9f40b4999a8a61104d866fa5c011c674c0b62613a8de739329c77a3d"
+    },
+    {
+      "path": ".bago/api/control_shadow.py",
+      "size": 8823,
+      "sha256": "b3c63dc2c7432c011835a54a0583d9ad7a269e8fdacceec618acbddbaa732da4"
+    },
+    {
+      "path": ".bago/chat/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".bago/chat/commands.py",
+      "size": 45282,
+      "sha256": "3ef5a1b7eca034028611de4a54ce855c2af26342393895018a66fa002df3b2d2"
+    },
+    {
+      "path": ".bago/chat/renderer.py",
+      "size": 6731,
+      "sha256": "7d6f3ba70ca674ea7e05c07ed7140fd438b74c388cedff1a6a9d9ad5b166f4d1"
+    },
+    {
+      "path": ".bago/chat/repl.py",
+      "size": 36265,
+      "sha256": "57ae0d5f7dd5a1b77fc2c61f221cafc6bc83ba5458e4739e16a79cf1e7d516fb"
+    },
+    {
+      "path": ".bago/chat/repl_inventory.py",
+      "size": 675,
+      "sha256": "4f1b27635a19a985506246b6a71538e853a4fdbc0b8c0ffddac50fe03a78e658"
+    },
+    {
+      "path": ".bago/chat/repl_menu.py",
+      "size": 19611,
+      "sha256": "85af926b857472376e22fc10891d37daa7a1e41936078d5b54aae19b0677b1ca"
+    },
+    {
+      "path": ".bago/chat/system_prompt.py",
+      "size": 3055,
+      "sha256": "3636b42b68b33cc9b106cae6906cc095b65d1ab8f02346f8d017785f3a643427"
+    },
+    {
+      "path": ".bago/core/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".bago/core/agent_dispatcher.py",
+      "size": 6845,
+      "sha256": "b17de01a1ddcadb08c4eaa602a7fb7a1e7934e8e90bf6ebefa2b74253203177f"
+    },
+    {
+      "path": ".bago/core/agent_gateway.py",
+      "size": 5047,
+      "sha256": "bd2b10d3cf9736d2d29e9d31b501bbc08baa91930676d1c4b993f24e62b21d1c"
+    },
+    {
+      "path": ".bago/core/architecture/PADRE_SIEMBRA.md",
+      "size": 11969,
+      "sha256": "183d75421de13acafed9515aad7b31cc306e4bf6ac7e441bf8e987ace6adb4bc"
+    },
+    {
+      "path": ".bago/core/autonomous_loop.py",
+      "size": 31778,
+      "sha256": "44ad6cc0a7a11428f22e941ad285ea39c1fdf6fd048e337b03d096691d22398c"
+    },
+    {
+      "path": ".bago/core/bago_context.py",
+      "size": 10015,
+      "sha256": "6b879cb1ce4073a4e6332f902b8fe4de812c205a3303357ddf736aaf8b2bdf69"
+    },
+    {
+      "path": ".bago/core/canon/CANON.md",
+      "size": 9381,
+      "sha256": "f5e63d9d4e8a80839205b65964ab4d04525e79d998a26ecd2075d4d60772d59c"
+    },
+    {
+      "path": ".bago/core/canon/CONTRATOS/contrato_cambio.md",
+      "size": 1501,
+      "sha256": "3329c86236db2457efa2ed46f6d259374b6b72767687f1a27fbbfc1db979f6f8"
+    },
+    {
+      "path": ".bago/core/canon/CONTRATOS/contrato_evidencia.md",
+      "size": 497,
+      "sha256": "84aec3be505de1656dd70647f66c14349b5e86853eec9c0efe000fcf55f0d398"
+    },
+    {
+      "path": ".bago/core/canon/CONTRATOS/contrato_rol.md",
+      "size": 1028,
+      "sha256": "cf125e74247f8c0d339994d6c15b853ef3c434996ae7011660716f1795b79090"
+    },
+    {
+      "path": ".bago/core/canon/CONTRATOS/contrato_workflow.md",
+      "size": 682,
+      "sha256": "1c75a82da7f1998940f4c6dcdf634c7cbc2620b06847c47f29e9a0cf3f8d53ea"
+    },
+    {
+      "path": ".bago/core/canon/PROTOCOLO_DE_CAMBIO.md",
+      "size": 1405,
+      "sha256": "4f2c3fbbb9dc4b3f197ae2ce2a8627619e73ea235ece442b73194ce0761b9656"
+    },
+    {
+      "path": ".bago/core/canon/REGLAS_DE_ACTIVACION.md",
+      "size": 3103,
+      "sha256": "8fe68fd725d06dd4ad2eaeca4941570cae24b431e8d827dacdac4ba2c5ae12bb"
+    },
+    {
+      "path": ".bago/core/canon/TAXONOMIA.md",
+      "size": 2319,
+      "sha256": "1f0c6eb1853587d14bfde84630d6945678bd21b8755f8669aefb38440905fa7c"
+    },
+    {
+      "path": ".bago/core/command_intents.json",
+      "size": 19661,
+      "sha256": "98f0db8cf5ece7d0a3ff244bcf6a977d5590ea16c8ce3890d10ae75d65dc2b53"
+    },
+    {
+      "path": ".bago/core/config_manager.py",
+      "size": 8434,
+      "sha256": "87edb1c47e2a60de5975aba3667551cb50d05c5b4f6046e98497e27f051f0857"
+    },
+    {
+      "path": ".bago/core/context_compressor.py",
+      "size": 12845,
+      "sha256": "92b538f62925b5d2c6239d7f5877c5a02f90511bfc8fc7808e345e90257b1132"
+    },
+    {
+      "path": ".bago/core/context_store.py",
+      "size": 16554,
+      "sha256": "a10e048a1aedc35f17a3509f196eb8a66da24677b4ed5bb0f84457249ca6b712"
+    },
+    {
+      "path": ".bago/core/credential_manager.py",
+      "size": 11407,
+      "sha256": "de24375650d7488a181707b9b062327c4bcf038bab76a84962f2d2f603b8e3bf"
+    },
+    {
+      "path": ".bago/core/embedding_store.py",
+      "size": 4811,
+      "sha256": "25a958bc71c52693311f7905c2d7b011ec28332538b9952d87e73f79e7f34358"
+    },
+    {
+      "path": ".bago/core/intent_engine.py",
+      "size": 8923,
+      "sha256": "461513ac083f83ae3d196485b269db55da5b27595e6a4003edf485b9799ddd01"
+    },
+    {
+      "path": ".bago/core/intent_examples.json",
+      "size": 21309,
+      "sha256": "7a3662ae8a88b4df4fa265821de061b93dcd34f26004d3d2d62e315d0e0fbea6"
+    },
+    {
+      "path": ".bago/core/knowledge_base.py",
+      "size": 7419,
+      "sha256": "60142f067bf8a28be741fc1ac8ee2aef9fe9f2909f6f69c39adaf6236e83bba5"
+    },
+    {
+      "path": ".bago/core/learning_writer.py",
+      "size": 14800,
+      "sha256": "524a4ccbf902cc3e984460b10b7e98b20545423358fc6d8a4ef193bdde1173bd"
+    },
+    {
+      "path": ".bago/core/message_adapter.py",
+      "size": 11789,
+      "sha256": "aa3360c291bc5e3e531ad5cc4a326c5c959dea72c91d598047da82f7173a187b"
+    },
+    {
+      "path": ".bago/core/model_equivalence.py",
+      "size": 14771,
+      "sha256": "5e73f367bc3eb3cd0ad18cf49becb5682d660586bec875024c40804003880033"
+    },
+    {
+      "path": ".bago/core/orchestrator/MATRIZ_DE_ENRUTADO.md",
+      "size": 2131,
+      "sha256": "6982d8f6d90deb3586264a35f27b9ff1acf47e35f9f7e8a64e6ddb431d518767"
+    },
+    {
+      "path": ".bago/core/orchestrator/ORQUESTADOR_CENTRAL.md",
+      "size": 2236,
+      "sha256": "ac2b4a4fd3a2010000d7d4d532ca44a1e80461cd73b2cdd440f590c35b957788"
+    },
+    {
+      "path": ".bago/core/orchestrator/ROUTER_DE_ROLES.md",
+      "size": 1740,
+      "sha256": "543c09ed82166b47fe5a9b42bfcb6abaa26ef071515695e5aaeb7ab204d27781"
+    },
+    {
+      "path": ".bago/core/plan_engine.py",
+      "size": 4803,
+      "sha256": "c0d7f4863a0d1d4ac0981a69c573f64725bff0c619b533db96623be88fb1a877"
+    },
+    {
+      "path": ".bago/core/provider_adapter.py",
+      "size": 4223,
+      "sha256": "5806e25b31e618f8de28fc4dc552a3870abbc2e33f9c5ed50daf10c18f3f696a"
+    },
+    {
+      "path": ".bago/core/rl_engine.py",
+      "size": 11690,
+      "sha256": "f073062614205d9b0d76c3a7008bfb8792f14c4f63dca15f8c15d3639b9235db"
+    },
+    {
+      "path": ".bago/core/runtime.py",
+      "size": 2945,
+      "sha256": "0122e600fcd767271b0796933e9068c5c894f239e00ce599fde2cfff9a0e3a81"
+    },
+    {
+      "path": ".bago/core/script_registry.py",
+      "size": 19201,
+      "sha256": "b020999f97c2b700ce0a46731067d24b5f5c2a90312f8f0d8634e8c4dd0c5f80"
+    },
+    {
+      "path": ".bago/core/session_manager.py",
+      "size": 52859,
+      "sha256": "bed8665ae95d4985795d501f9311881fe5114cc1103443401e0503643efc7550"
+    },
+    {
+      "path": ".bago/core/state_paths.py",
+      "size": 433,
+      "sha256": "eee031cf96d969b5e3517bff23be0455081934f23b6f27cda6824ce4fdfda9cc"
+    },
+    {
+      "path": ".bago/core/supervision/AUDITOR_CANONICO.md",
+      "size": 573,
+      "sha256": "345fba2516788ddc29f10f528b97a0da40c05df31d6e9b3451d0d9ac786fcccb"
+    },
+    {
+      "path": ".bago/core/supervision/MATRIZ_DE_ALERTAS.md",
+      "size": 1199,
+      "sha256": "abcdeb6a846cb1185339f72e771da65e5976c6846b9a6062f90c322678588a3e"
+    },
+    {
+      "path": ".bago/core/supervision/VERTICE.md",
+      "size": 682,
+      "sha256": "1bbee3841ce65102b2aaabb480c5b30230af0f9266a8dfd553fc8d17ac630a86"
+    },
+    {
+      "path": ".bago/core/switch_engine.py",
+      "size": 10239,
+      "sha256": "df82f5ef458ed6d73099b9186794b4472e2d1b9c8b4179fa9f62d40df563778b"
+    },
+    {
+      "path": ".bago/core/tool_registry.py",
+      "size": 6885,
+      "sha256": "8f47a3a4288d29fd7c8b77a11bc9cfdf081d90a5f2e1115b623c776869cadf75"
+    },
+    {
+      "path": ".bago/core/version.py",
+      "size": 604,
+      "sha256": "e112c76d6032774894534faad1539966b057e1aa100f84b6f32b41a918969a65"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_analisis.md",
+      "size": 1011,
+      "sha256": "e5faa4ca9381bb784bf611e4b6ce3ad7bff069a1b104fa9e0582fcbfe7a79a87"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_bootstrap_repo_first.md",
+      "size": 1937,
+      "sha256": "f33b446ba452ac6eb045a18b2ce02817fec590cc93dc1d0a4300674ddd9c9641"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_cambio_sistemico.md",
+      "size": 1992,
+      "sha256": "06ac4c506fffc2cdd10470837f784cbc046d14fc8a95f4374125f46691b0e502"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_cross_learning.md",
+      "size": 4840,
+      "sha256": "b85ff130012ebccf1c94359426a680a9228be9aba1ae30bd5286ca70bc175f1c"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_diseno.md",
+      "size": 1578,
+      "sha256": "ea5d5dd42384728155b9ec11da05f63060f967e5b306734ad77b45f992edab3f"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_ejecucion.md",
+      "size": 722,
+      "sha256": "12c2dd02f92ed814203d56a67caa6213766e480d2d69dd3b07ecda05bd456a9f"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_migracion_historial.md",
+      "size": 1524,
+      "sha256": "8ce330ef19b4dd3d590a3e33fdd2f8a53f012691a60a7f7c97983b4d8022107a"
+    },
+    {
+      "path": ".bago/core/workflows/workflow_validacion.md",
+      "size": 1575,
+      "sha256": "aede84a3a36327e9186b33ba537db84c6ee3580472cb73a7f7b675fb3d686361"
+    },
+    {
+      "path": ".bago/knowledge/assets/knowledge-map.svg",
+      "size": 1133,
+      "sha256": "b17ac16ac223a1e2d59d235ab71be42995fd647b49a3e265dfdea9889f2f0132"
+    },
+    {
+      "path": ".bago/knowledge/examples/engine_refresh.yml",
+      "size": 562,
+      "sha256": "ec68d81904c8919d636173231ce51a6a79acb4596c45118f69baa6742a006a15"
+    },
+    {
+      "path": ".bago/knowledge/examples/image_generation_prompt.yml",
+      "size": 586,
+      "sha256": "221c7ba1abb4bfe6c21c3df7cb787f875a82f42e1f88895b0c7da512db4c1017"
+    },
+    {
+      "path": ".bago/knowledge/examples/knowledge_sync.yml",
+      "size": 200,
+      "sha256": "c4a5593f8cd74f0e550998ecd014149e012ebaa27483930b3251ba9ef8220e62"
+    },
+    {
+      "path": ".bago/knowledge/examples/publication_profiles.yml",
+      "size": 629,
+      "sha256": "abfa6ce959f54608f9b1505f77b0d5029ed117653f1f1030860740088751b0bd"
+    },
+    {
+      "path": ".bago/knowledge/examples/transposition_plan.yml",
+      "size": 383,
+      "sha256": "6ba3220340ee69b3f539f1e57cb0bf555d8813784d41012063e74fa75b765640"
+    },
+    {
+      "path": ".bago/knowledge/learned_lessons.md",
+      "size": 4850,
+      "sha256": "b18f29118b4472dd87176e67b15676168e9611c78079dff23b14993e025e66c8"
+    },
+    {
+      "path": ".bago/knowledge/manifest.json",
+      "size": 3589,
+      "sha256": "8dc950230bdcf3153c54c3463d390b6615785bbd529ac0ac39881490ac89e65b"
+    },
+    {
+      "path": ".bago/knowledge/README.md",
+      "size": 1925,
+      "sha256": "ae7e1e1989dbd2029f5067f1606e846e8c0efbe3de457cf471658b68405adef3"
+    },
+    {
+      "path": ".bago/knowledge/schemas/manifest.schema.json",
+      "size": 346,
+      "sha256": "c9f44f20bc6133986ebb8eff543f284f620351a4a8eb2d44fc3e5fb2fcf8e6fb"
+    },
+    {
+      "path": ".bago/knowledge/topics/engine-contract.md",
+      "size": 835,
+      "sha256": "9fd91885177440895ca17e96288254555d45aacc6c8b0a8b16646e75787059f4"
+    },
+    {
+      "path": ".bago/knowledge/topics/image-generation.md",
+      "size": 362,
+      "sha256": "95c13cfefe17ac638720903a7f3a6cf610257aea2d67b549ffe7519ba742e66a"
+    },
+    {
+      "path": ".bago/knowledge/topics/index.md",
+      "size": 924,
+      "sha256": "d60268979b93af762dcaf665bdb98184aecba640413f43a3da6aa57bdc898536"
+    },
+    {
+      "path": ".bago/knowledge/topics/knowledge-curation.md",
+      "size": 353,
+      "sha256": "858aa07bd584084487e97ee80598f1801867bb336bca6ec7f3b82672e2257392"
+    },
+    {
+      "path": ".bago/knowledge/topics/learned-lessons.md",
+      "size": 5159,
+      "sha256": "31eb97f4e50b2e81582649931a8d40993e8e3306888ab6d06186079b033a4cd1"
+    },
+    {
+      "path": ".bago/knowledge/topics/project-patterns.md",
+      "size": 14605,
+      "sha256": "541b5af2690e74548726f4f43734d60b4f93c48dbc7d8755f24de310f017243e"
+    },
+    {
+      "path": ".bago/knowledge/topics/publication-contract.md",
+      "size": 1022,
+      "sha256": "ac667dfebba9a7ffb0958e538ae3091e749c862aa8060ccad6321f8708599cd0"
+    },
+    {
+      "path": ".bago/knowledge/topics/README.md",
+      "size": 1684,
+      "sha256": "f266e3620d3f2b24116d8df1c6d705e9defaffd26b4ad5f56e678a171a937208"
+    },
+    {
+      "path": ".bago/knowledge/topics/release-gates.md",
+      "size": 308,
+      "sha256": "4d1c409cbe63d06e35c9ae9ba3e006a327079cb8a45a6fb4198be10c82e7e8b1"
+    },
+    {
+      "path": ".bago/knowledge/topics/sync-protocol.md",
+      "size": 1861,
+      "sha256": "af53ef96e4eeb626e685b3ea5528546b474b4d77ba43e95dbe5a21da59dc81bf"
+    },
+    {
+      "path": ".bago/knowledge/topics/transposition.md",
+      "size": 327,
+      "sha256": "fd22d365e1cab8b8eab8c6807951425a0ba898e296e04d9a1f33e2c72557a43d"
+    },
+    {
+      "path": ".bago/providers/__init__.py",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".bago/providers/anthropic.py",
+      "size": 8220,
+      "sha256": "23652c539283e8af4c6c5ac4ee619d6a78d60af941142ce9a3513d60cb1ac9e6"
+    },
+    {
+      "path": ".bago/providers/cli_bridge.py",
+      "size": 1659,
+      "sha256": "0f119a9b71a41b65e05b7c454a02e36096095a45cfefa59f742d6713c73af4a6"
+    },
+    {
+      "path": ".bago/providers/codex.py",
+      "size": 10325,
+      "sha256": "12e2adb2f12e68ccc5ffc66f101d2ac93c2c411967ec66341c8f44b46c1f0986"
+    },
+    {
+      "path": ".bago/providers/copilot.py",
+      "size": 10640,
+      "sha256": "9c435f3b950d7130946b5241b254dd9b08db38ba42bd5d9719a7e344cb794791"
+    },
+    {
+      "path": ".bago/providers/cpp_local.py",
+      "size": 15954,
+      "sha256": "5006d11aad86d5ea2043d816828d884d62d7d58d73312c8822d60000f5cf8ce2"
+    },
+    {
+      "path": ".bago/providers/ollama_cloud.py",
+      "size": 7405,
+      "sha256": "3e6b52da9f056c88b6d907d1f141adf311c14fcb49cfcedca52beef5931d2fda"
+    },
+    {
+      "path": ".bago/providers/ollama_local.py",
+      "size": 6973,
+      "sha256": "7ccc994027456afc87c92b2a269742d53247bf6b22d5a874dcd4a714357ea585"
+    },
+    {
+      "path": ".bago/providers/opencode.py",
+      "size": 7344,
+      "sha256": "17d9f1c6347296b836ecf652313a8054d16c6f181c7338f2c9907bf718def463"
+    },
+    {
+      "path": ".bago/providers/openrouter.py",
+      "size": 7424,
+      "sha256": "cb8a2bcd8c3e7e163da0b613de8e0d17d18e18ac662d41a0473879b11b6899d5"
+    },
+    {
+      "path": ".bago/tools/_registry_entries.py",
+      "size": 1580,
+      "sha256": "c2f9f64e8dba167d042224948b96b84160bc328849f43ab7c7e96d11a4821be6"
+    },
+    {
+      "path": ".bago/tools/_registry_models.py",
+      "size": 1735,
+      "sha256": "ecf2560f4519d1135f3b5808dd05b3ebdfcefb08729a69dae1552e3abf66b760"
+    },
+    {
+      "path": ".bago/tools/_registry_paths.py",
+      "size": 399,
+      "sha256": "8fbd9b45cbb1bf85021c3aff6cd7d12599556541d079c424426f34b78e2c572d"
+    },
+    {
+      "path": ".bago/tools/_registry_taxonomy.py",
+      "size": 12259,
+      "sha256": "a864bd97105900d7c6613583ce1e1143bf128893f2973ed777c4a21c68a62ab0"
+    },
+    {
+      "path": ".bago/tools/agent_router.py",
+      "size": 13883,
+      "sha256": "bb7a71dbeaf2501eeeb53f544392342caaccd752ba3cabf04ef5a248f3f30f17"
+    },
+    {
+      "path": ".bago/tools/auto_heal.py",
+      "size": 7678,
+      "sha256": "967884c1154e6a74c076d426171ada68f4d45f4d9937cc88c649d11d75046ed0"
+    },
+    {
+      "path": ".bago/tools/bago_backup_vault.py",
+      "size": 5830,
+      "sha256": "c5f455f7976b742391f0b8d6996cbb59174fa89e82ce08d31551e35ecb62ae30"
+    },
+    {
+      "path": ".bago/tools/bago_canary.py",
+      "size": 8133,
+      "sha256": "a69e18ea86a79535cf1d42352289c6cd30e51e9a9dc2530261d1ac2f1ed1b9c4"
+    },
+    {
+      "path": ".bago/tools/bago_infra_scan.py",
+      "size": 13622,
+      "sha256": "7def498d3a7218f6dc17d174b9ef854d7efea28f27de7b73b1365002f87b2dc7"
+    },
+    {
+      "path": ".bago/tools/bago_inventory.py",
+      "size": 11931,
+      "sha256": "f6b91b5943df026dcbaf5e8b5a49a8d03de65ff34376ebe18214982829d1ec95"
+    },
+    {
+      "path": ".bago/tools/bago_security_audit.py",
+      "size": 9588,
+      "sha256": "77a66b9cf38782a1ce2edc9cb425865295328963cec6dc7b85fb16460da735f3"
+    },
+    {
+      "path": ".bago/tools/bago_utils.py",
+      "size": 4983,
+      "sha256": "926a1cae83396a3f88d6598e5cc94bd1cd1aa2aaeeff22bf00394671b02adb24"
+    },
+    {
+      "path": ".bago/tools/code_metrics.py",
+      "size": 5497,
+      "sha256": "c633c5b83da3e50a32a58bd3ddb43dd6ce3672fcd0953c9bd6d7574abedb9891"
+    },
+    {
+      "path": ".bago/tools/commit_readiness.py",
+      "size": 12969,
+      "sha256": "9977725bd157ebb62d6a3ce7f49bf713547f0793f4006ebbd5fd36fc3bdfbb7c"
+    },
+    {
+      "path": ".bago/tools/dead_code.py",
+      "size": 14173,
+      "sha256": "aeedcdec5e9719424c7896b6582193c2b6d93797088266f48a98f1c91cc43be3"
+    },
+    {
+      "path": ".bago/tools/debt_guard.py",
+      "size": 23370,
+      "sha256": "0e2f7f2b08727411692ac0579adbf3d3efece0aa53d72a4ef45307af131f32e0"
+    },
+    {
+      "path": ".bago/tools/debt_scanner.py",
+      "size": 23571,
+      "sha256": "e616790b7f011c864dc5902fdedb64ff377e30c2a9a1330254125ea1e040cf75"
+    },
+    {
+      "path": ".bago/tools/dep_audit.py",
+      "size": 12435,
+      "sha256": "08b87489f9f0b29bd618a299b9b20968562b3c918ebcfd1f942e74711c69e75c"
+    },
+    {
+      "path": ".bago/tools/doctor.py",
+      "size": 10081,
+      "sha256": "0f3526b3297983a85dc9840e7889f969aec02da3d30f7428199b881bfb8cc971"
+    },
+    {
+      "path": ".bago/tools/forced_dependency_scan.py",
+      "size": 14577,
+      "sha256": "254484e72d3f3fc22293c9b5373d8b5d0f787822d0dc8949598723d36030564c"
+    },
+    {
+      "path": ".bago/tools/git_context.py",
+      "size": 9678,
+      "sha256": "85c8cb79135e262241150e1e29963232690d7e1aa061f88e2b6bcbeaba359d6d"
+    },
+    {
+      "path": ".bago/tools/harmony_gate.py",
+      "size": 4375,
+      "sha256": "8b6b11eb466c1bbbbc6d85a1dcbd3554e867f106dcc1bce28b8cf8bc5019771b"
+    },
+    {
+      "path": ".bago/tools/issues_take.py",
+      "size": 4100,
+      "sha256": "8e44f27cbeb00e0661692521138cf74e0b61452a1efa45b0ab31467447381cf9"
+    },
+    {
+      "path": ".bago/tools/naming_check.py",
+      "size": 11385,
+      "sha256": "ce1fbd5a2facbbae35a05daeb8bc6a7474ef3f3071f4295ad6d88f714aeabbb9"
+    },
+    {
+      "path": ".bago/tools/net_scan.py",
+      "size": 10176,
+      "sha256": "f2a9fb157de43b12474e852556d8e8cf5209e50813e9ded81a33d70a1983b97c"
+    },
+    {
+      "path": ".bago/tools/orchestrator_v4.py",
+      "size": 30920,
+      "sha256": "30ed58057c2d104c9fc1c8d7f38118e7324045c4103242f4f7d29ee64782ebb0"
+    },
+    {
+      "path": ".bago/tools/preflight_engine.py",
+      "size": 11049,
+      "sha256": "5887178f1cf23886f174e4f0fa308167a906b725a112e4848bf1eb8562e72358"
+    },
+    {
+      "path": ".bago/tools/process_monitor.py",
+      "size": 26028,
+      "sha256": "0946de74f5ec96c3a832a8b0894c4fcfd363873a214589c071a8f8634a60df2c"
+    },
+    {
+      "path": ".bago/tools/project_memory.py",
+      "size": 16186,
+      "sha256": "b562a307c99c7cffa28fc4a4a5b24582f82b4594a738d116416e20c78f6f1a73"
+    },
+    {
+      "path": ".bago/tools/README.md",
+      "size": 5832,
+      "sha256": "8f8411ba75d64f89857d1fa0e2d79b124f6bd6c0f793353e481a4afd29b5dbbd"
+    },
+    {
+      "path": ".bago/tools/secret_scan.py",
+      "size": 10779,
+      "sha256": "0a299e54c9946b76d37f61f89f0f2e1823e1bff52333bc5f9717b9d003aa115c"
+    },
+    {
+      "path": ".bago/tools/sincerity_detector.py",
+      "size": 13190,
+      "sha256": "bfe94334c0e0df802b71102d02ec1076afdb4092b0be1bf5560ecc1b49951be0"
+    },
+    {
+      "path": ".bago/tools/skill_engine.py",
+      "size": 8558,
+      "sha256": "11b40cc8cc26fb8a146da1dd0d0695e4eea9ff2d0547bb28fb406d0e1abeeef8"
+    },
+    {
+      "path": ".bago/tools/spiral_agent.py",
+      "size": 20243,
+      "sha256": "a56196118406ac58b9272a0d5b83b96f1f3142e69da252401cd4e3cbcf5803a9"
+    },
+    {
+      "path": ".bago/tools/todo_scan.py",
+      "size": 7803,
+      "sha256": "0b1c3b3e0218763bc15a580b6aa43c5b90143e2df82a1c959b44881ef0eeb64c"
+    },
+    {
+      "path": ".bago/tools/token_rotation_guard.py",
+      "size": 9735,
+      "sha256": "0ecbe7ff655d7d4094f949c7e3a6cbe637ba557e7caf7eef0bd742f964edbdd6"
+    },
+    {
+      "path": ".bago/tools/tool_registry.py",
+      "size": 10890,
+      "sha256": "14d4c6b1ccadf0b235d1e3c9e302bca51c1afaaedb3d35eb337d890d77010594"
+    },
+    {
+      "path": ".bago/tools/toolsmith.py",
+      "size": 17087,
+      "sha256": "c837d4bc48430e914f3797728fea1c7895160533c4485ad2d598bfdc9ddc309e"
+    },
+    {
+      "path": ".gitignore",
+      "size": 2832,
+      "sha256": "9de7488caeb8354c5c993076bcd8f4c0b48fc16780ba1f92e710b0b34b5e4b25"
+    },
+    {
+      "path": "assets/bago-wasp.svg",
+      "size": 1539,
+      "sha256": "11caa5da1a81be8b08028af80fb2854de579bb9ce4bd2542ae5ace64ae5c2a7c"
+    },
+    {
+      "path": "bago-uninstall.cmd",
+      "size": 352,
+      "sha256": "a405617a3566d4f88aa1a31ebba4beac43a562a7d1f38bb74a302b9e4cbeb5b2"
+    },
+    {
+      "path": "bago-uninstall.ps1",
+      "size": 1164,
+      "sha256": "659b3a89b923c52432bab792cb266c061250e138c639d1aebfd9c199f3fc2e5c"
+    },
+    {
+      "path": "bago.cmd",
+      "size": 306,
+      "sha256": "39114531945b60dfd43d048eb784a9679cdfc8e0c04fd28a0b22797b7568b11f"
+    },
+    {
+      "path": "bago.ps1",
+      "size": 6051,
+      "sha256": "cc667300acd97f755d25d75e1a27142cc9e12c7fc093c9da832cfd0099375734"
+    },
+    {
+      "path": "BAGO.pyproj",
+      "size": 8117,
+      "sha256": "b6b16cfab9bc1d56edf7f2b800aa2ef0d16dfe79003c171a407dd73d5565355f"
+    },
+    {
+      "path": "bago.sh",
+      "size": 376,
+      "sha256": "cf3b3c13500a10db80358a7eb32c37497a599d442605e44705caf13d6aeb2391"
+    },
+    {
+      "path": "bago_core/__init__.py",
+      "size": 149,
+      "sha256": "82d34fe35a2177fd04259bc27144413e7330a7601c9d4d6bb84c498ded6473c2"
+    },
+    {
+      "path": "bago_core/bago_true_bridge.py",
+      "size": 6090,
+      "sha256": "14504a31111756754cb69b5d6b8431d8f983a4c7783e1503634672553789a01a"
+    },
+    {
+      "path": "bago_core/claim_cli.py",
+      "size": 5893,
+      "sha256": "18ee397e4ce286ae418a26959d0cff9f43520b466df468b4cdd9c8e7b2beb3ee"
+    },
+    {
+      "path": "bago_core/claim_ledger.py",
+      "size": 1248,
+      "sha256": "d1e080a9f42c5b7b7589959913af005cbf90c636c769eee0be26d4da2e3e5750"
+    },
+    {
+      "path": "bago_core/claim_model.py",
+      "size": 4210,
+      "sha256": "8e98379cae1ec0d6242a8a57c1bfcf402e5fd9317ac7b9d91c600f2598f43ddb"
+    },
+    {
+      "path": "bago_core/claim_storage.py",
+      "size": 6318,
+      "sha256": "8541d65e8b12e408bf9c0ca779fae275a39197364e53194d75f4374903d458e6"
+    },
+    {
+      "path": "bago_core/cli.py",
+      "size": 1051,
+      "sha256": "62e4b0b415be5d8f097cce344aed48d845563f9a6d34ac89885422cfc0b41e9a"
+    },
+    {
+      "path": "bago_core/cli_installs.py",
+      "size": 1378,
+      "sha256": "3e464092e6da0361e6763f099a675a7c4483efbde61f5d384bcae92f6a0e0892"
+    },
+    {
+      "path": "bago_core/cli_installs_cli.py",
+      "size": 1624,
+      "sha256": "08f2ec90c69b4e34d8847b61164bf0ed013cd26535547c3fae0e27317d8fa678"
+    },
+    {
+      "path": "bago_core/cli_installs_discovery.py",
+      "size": 4055,
+      "sha256": "ede86ee6ff3bbfba66a9d05fb7500a3d0e608e73be3ba8a5e0d6e98e6edf7a22"
+    },
+    {
+      "path": "bago_core/cli_installs_facts.py",
+      "size": 3257,
+      "sha256": "71c61f7c0318c51966eff7206e9bafbafa7f3cca8df8f09a2c600587b1dc4e63"
+    },
+    {
+      "path": "bago_core/cli_installs_summary.py",
+      "size": 1112,
+      "sha256": "e7f9498a3f2b7d0bb0722119d4eb3a8170bc2a2de27714807dddc75c0967ae30"
+    },
+    {
+      "path": "bago_core/codegen/__init__.py",
+      "size": 3174,
+      "sha256": "49259efc24a4e123f70eb46860fc9af3c4728d17b2035c21e7bb4b32ed5f7dcd"
+    },
+    {
+      "path": "bago_core/codegen/code_verdict.py",
+      "size": 12832,
+      "sha256": "dca1a456f7fea3f77579c31f598cf3c03dc6fca99aa8a9576196754969100fe9"
+    },
+    {
+      "path": "bago_core/codegen/context_builder.py",
+      "size": 9735,
+      "sha256": "5dc37fee745db9a74e582159c5674a1561b93d71802ed4385a7da8a15d88b2ef"
+    },
+    {
+      "path": "bago_core/codegen/evidence_builder.py",
+      "size": 14754,
+      "sha256": "92f701e951bed6d520286caa301231404c1d7903ee92aff39470774de8a4e3c9"
+    },
+    {
+      "path": "bago_core/codegen/patch_parser.py",
+      "size": 11915,
+      "sha256": "2a2e2f0e82b279442cd92b3e97e254b6a52ad55f435fd6e3a704db8b1fc5e415"
+    },
+    {
+      "path": "bago_core/codegen/repair_loop.py",
+      "size": 21398,
+      "sha256": "a585d12c3b2bcf3f0a450eebceedf4be086dd24063a358bb09bd88c3e39a21d7"
+    },
+    {
+      "path": "bago_core/codegen/task_classifier.py",
+      "size": 14686,
+      "sha256": "c358b1f5e0634af5a92ba362df8119ba1bdf4d7ed80d87ad7990e42fd64e161e"
+    },
+    {
+      "path": "bago_core/codegen/task_compiler.py",
+      "size": 10029,
+      "sha256": "ce3031139fb0e02b59a605867af940413fda1acc03bd2ad7cab30fe02c12cccd"
+    },
+    {
+      "path": "bago_core/commands/__init__.py",
+      "size": 865,
+      "sha256": "56d93ccf96476c9a47416e909bcbbbc00595eddf4c5c376b023f9ca669b71de2"
+    },
+    {
+      "path": "bago_core/commands/cmd_chat.py",
+      "size": 11236,
+      "sha256": "ee6afcf0d4d9b39db90688b724eacdee784aeba3194af57740d1cc7be5e8810b"
+    },
+    {
+      "path": "bago_core/commands/cmd_content.py",
+      "size": 5284,
+      "sha256": "131b5b1b3c50da009bd06560a40f66576f0a78c810ae8dc3c243cfd7765c770a"
+    },
+    {
+      "path": "bago_core/commands/cmd_init.py",
+      "size": 6659,
+      "sha256": "438f12e22d1c53cec2e766989120c23dc906fb77abf10192a73ac5ae4e4c9de2"
+    },
+    {
+      "path": "bago_core/commands/cmd_lifecycle.py",
+      "size": 10495,
+      "sha256": "84c4e96acb3ac89901e81e86289cb93fe2d85c99ee7b700fdf0e4e48631a9c50"
+    },
+    {
+      "path": "bago_core/commands/cmd_provider.py",
+      "size": 10145,
+      "sha256": "c53ccf70ffa9b220fe26272d7daa893095cc9977c10a326d88dd923b30c4eb9c"
+    },
+    {
+      "path": "bago_core/commands/cmd_route_v2.py",
+      "size": 6513,
+      "sha256": "ee981850647c1c41422f39a8d3838fd733c04b292f5a9bc67ee8518b2eea8461"
+    },
+    {
+      "path": "bago_core/commands/cmd_system.py",
+      "size": 14601,
+      "sha256": "9c518b14d8416ae1d26deb5c770cee6871d9397b9785118356ddc6d255cf019a"
+    },
+    {
+      "path": "bago_core/commands/cmd_tools.py",
+      "size": 15944,
+      "sha256": "202f61b1589c6b80c67d8f085e85121eea36125ecf0250ab1e87a601e7f47096"
+    },
+    {
+      "path": "bago_core/cpp_runtime_host.py",
+      "size": 10878,
+      "sha256": "c5f0f22933f4927dd050639c90c59ed8748a02362b70ba289a10d56f95d7593e"
+    },
+    {
+      "path": "bago_core/evidence_bundle.py",
+      "size": 1190,
+      "sha256": "dfd90b3884158d6518fbfb090373e0fb11e27976a4be4a4b995236c92e4dfe82"
+    },
+    {
+      "path": "bago_core/evidence_cli.py",
+      "size": 4525,
+      "sha256": "32021eac461ddb06d46047fd8480ea797c854d3214cfe924c27a810f633a13a8"
+    },
+    {
+      "path": "bago_core/evidence_generator.py",
+      "size": 16564,
+      "sha256": "12b6d644176eff625bf223ad624e3608b309fee492948510fceedea5cae9068c"
+    },
+    {
+      "path": "bago_core/evidence_io.py",
+      "size": 5498,
+      "sha256": "ce7ad7909f13c96b02e017553aa0794606667fec8e611ad2186e7a5964023d6b"
+    },
+    {
+      "path": "bago_core/evidence_model.py",
+      "size": 5877,
+      "sha256": "db87f9954947855ef1f46b54debee6c13fb4d68913209621c2a0e4c2766b83bc"
+    },
+    {
+      "path": "bago_core/evidence_report.py",
+      "size": 8340,
+      "sha256": "d0c823e090f6bcba7ac4864b0575f3276fd2c8246fa56f74ddde953e5e34bd01"
+    },
+    {
+      "path": "bago_core/execution/__init__.py",
+      "size": 1405,
+      "sha256": "c5ce795505f7c54b61eb23e11c38d75581c77c75da6cb6e72a7b9bde9d7f39fa"
+    },
+    {
+      "path": "bago_core/execution/atomic_patch.py",
+      "size": 14584,
+      "sha256": "fa020e7b6c44edaad804b4646c99d883b3454eb8b422c0a2277e57c17e33284f"
+    },
+    {
+      "path": "bago_core/execution/process_runner.py",
+      "size": 9566,
+      "sha256": "dc077be9fcff4251923b1407756ce0851d73b9c6f7965d1f72ecbb4ca4d9dc08"
+    },
+    {
+      "path": "bago_core/execution/staging_workspace.py",
+      "size": 9556,
+      "sha256": "8d9b4ebafc4613c2695f61b242a14138742612e0e22524098ee7f9b28ddf3414"
+    },
+    {
+      "path": "bago_core/install_roles.py",
+      "size": 5958,
+      "sha256": "a317f1f04af43056b60e3ac1b39b2fcb61bc45fa3916ed13ff3bf7be3115adcc"
+    },
+    {
+      "path": "bago_core/launcher.py",
+      "size": 18421,
+      "sha256": "61a643222317cde2eaf7a3b7eae6db9e0bf054720249cf4f2dc98a777171ef06"
+    },
+    {
+      "path": "bago_core/node_control.py",
+      "size": 5624,
+      "sha256": "6331d7ad3e9280eb0c62d7643cb1e7a48d01c549bdda030bafaa190b7734f8b4"
+    },
+    {
+      "path": "bago_core/node_control_backend.py",
+      "size": 13942,
+      "sha256": "56f4181a61b975ce5123bef5f90b5ba3621117839643c2e6772c0ccfa7b8c38c"
+    },
+    {
+      "path": "bago_core/node_control_cli.py",
+      "size": 9242,
+      "sha256": "2052bcfd723adc8120c5ea4d2442188923d08039f53dbf2415b06e0ae92203bf"
+    },
+    {
+      "path": "bago_core/node_control_connect.py",
+      "size": 5220,
+      "sha256": "d12f52ab552aed0238ab62e2778a472d9cae456a9d0dfe3589f7b3dc28da207f"
+    },
+    {
+      "path": "bago_core/node_control_policy.py",
+      "size": 8592,
+      "sha256": "17b94133dbe8bfcf0652ecca0ee3b81b39c528b38f27643a683d92324d6bbc26"
+    },
+    {
+      "path": "bago_core/node_control_render.py",
+      "size": 3970,
+      "sha256": "7e3424476bb47e3b9102790c9800c8ee47e40d44d2f4df96c28bbbd3ebd3bd80"
+    },
+    {
+      "path": "bago_core/node_control_ssot.py",
+      "size": 3962,
+      "sha256": "3c768755137293622b8ca48bb863fc9db58e1cac34cd5e6aaed284e3c75c547d"
+    },
+    {
+      "path": "bago_core/node_control_state.py",
+      "size": 15688,
+      "sha256": "968c14f98b3367ef1122938d22f65eb8e5672325ca1460606b37d0183c0e2c2d"
+    },
+    {
+      "path": "bago_core/node_control_store.py",
+      "size": 8543,
+      "sha256": "2ed5d2774c9e2f9c32768976275d1a22b8373a3030fb49958e5445896148d30d"
+    },
+    {
+      "path": "bago_core/node_control_translator.py",
+      "size": 6439,
+      "sha256": "3bd69c62d8f6233da88ed63806b763c1e18950583a1dc63a571b3d9bd788a85a"
+    },
+    {
+      "path": "bago_core/node_control_tui.py",
+      "size": 2962,
+      "sha256": "730695a6ff53b5ca27e70bc2fb8dd19f0605372a91506ebd7631259f1e5ebf31"
+    },
+    {
+      "path": "bago_core/node_control_tui_info.py",
+      "size": 2844,
+      "sha256": "aa32cb3598994c55052640e1e19341d89f003a6018c41bc8780868e00835bc7c"
+    },
+    {
+      "path": "bago_core/node_control_tui_io.py",
+      "size": 3102,
+      "sha256": "560a85032bfdb47d673bd37ecb2baa73db7c9ecfe45d8037adaf4666687c2fa0"
+    },
+    {
+      "path": "bago_core/node_control_tui_write.py",
+      "size": 5298,
+      "sha256": "d6bd46bc751de202a4a83158589bb9e0e5d48d6276cfe51f97f7b21cf1ba2728"
+    },
+    {
+      "path": "bago_core/parsers.py",
+      "size": 2714,
+      "sha256": "e5bd747da23c745037c73aea802a422951eed3addb45f58dc257e2f9f6e13c69"
+    },
+    {
+      "path": "bago_core/parsers_sections.py",
+      "size": 34361,
+      "sha256": "25b338edf94ef7a0527d6ab7a0538957b70b3d0b83e4ebb899d9b3ef9fd7aa8e"
+    },
+    {
+      "path": "bago_core/rl_bridge.py",
+      "size": 4129,
+      "sha256": "3e6ddb7828320a43dc21a66428e7e546af57b6dedad5f80ce894f47fecfc13bb"
+    },
+    {
+      "path": "bago_core/rl_policies.py",
+      "size": 11916,
+      "sha256": "5d04be5f2d0bfd4545c93aff713b1fcb1e679d49c04b70acc1477b0a38df6d3b"
+    },
+    {
+      "path": "bago_core/session_control.py",
+      "size": 6257,
+      "sha256": "1f698b52d5330f1112780da153e01bad5acf8248b73e256651b5b4030f824ca1"
+    },
+    {
+      "path": "bago_core/tags/v4.1.5.json",
+      "size": 2206,
+      "sha256": "a4b497a11ba5b10a53eaf44c85df270d44e645cc71cb2b6e93dfccb9a41ab660"
+    },
+    {
+      "path": "bago_core/tags/v4.2.0.json",
+      "size": 943,
+      "sha256": "2997d252c32904c11c326a45329fefc3ad9ec214b48ae1aa71091ff42751b0ab"
+    },
+    {
+      "path": "bago_core/tags/v4.2.1.json",
+      "size": 1047,
+      "sha256": "53cd04e4c775eaa999e0b76c5f78c7fd63b2ee02f8dabeb0274feea5e05a2d24"
+    },
+    {
+      "path": "bago_core/tags/v4.2.2.json",
+      "size": 1433,
+      "sha256": "c10f0b4b7e7f3d7c9b2e262e06c1a73467a38ee1741c2271baf9efc5047a9a82"
+    },
+    {
+      "path": "bago_core/tags/v4.3.0.json",
+      "size": 1417,
+      "sha256": "bc14d89232291e81b013c6592a1693b3ae90bbb7b28b1e31e858c6c5d310a0f0"
+    },
+    {
+      "path": "bago_core/translators/__init__.py",
+      "size": 1139,
+      "sha256": "c1c72123709ba5f3aac61d68acb7db0295231094d8ce6b38c04b80e2e0998542"
+    },
+    {
+      "path": "bago_core/translators/bootstrap.py",
+      "size": 7639,
+      "sha256": "25bddaa88f56d89b17c7fe6b42cf61c9eb06baa271b6919eaa3cf8412d03def6"
+    },
+    {
+      "path": "bago_core/translators/evidence_gate.py",
+      "size": 6854,
+      "sha256": "72c001c5f5eaf3951eaf9ef51d8fef4884e72ddb2752cc394589a685823bf2a0"
+    },
+    {
+      "path": "bago_core/validation/__init__.py",
+      "size": 2211,
+      "sha256": "7a7d47af2dea3200da6d4b5205995804cb77dd1e90609fcaf458aed1505a0249"
+    },
+    {
+      "path": "bago_core/validation/adapters/__init__.py",
+      "size": 869,
+      "sha256": "b03a0136b6feb916e215cbb3067d9a7a45c30db6392c5724eaab0d29c5e26dc7"
+    },
+    {
+      "path": "bago_core/validation/adapters/python_adapter.py",
+      "size": 10598,
+      "sha256": "ef8f130651053c88efd0ab3c9bbcab859892805402ac6055ee6331edc691d191"
+    },
+    {
+      "path": "bago_core/validation/language_adapter.py",
+      "size": 5511,
+      "sha256": "348db4dba7afe8ddd0503f7c947a2fde369a0657bbacfd647bb82c77b9e5e835"
+    },
+    {
+      "path": "bago_core/validation/validation_pipeline.py",
+      "size": 8034,
+      "sha256": "6cc36c2ba85d7d9c029db345f8a6e71f94f534d81f20aabae4b0a04849742b1e"
+    },
+    {
+      "path": "bago_core/validation/validation_result.py",
+      "size": 5682,
+      "sha256": "a0c98f42f89a3251a4b9b12fc5b71ab3decac30fed199c2686eb2bdedecd8a65"
+    },
+    {
+      "path": "bago_core/version.py",
+      "size": 759,
+      "sha256": "32040ae8306981ec898a767be370d8ff91adf2d7f9ff01345a0cab0000e5e99c"
+    },
+    {
+      "path": "bago_core/versioning.py",
+      "size": 2112,
+      "sha256": "4783c7bc13ba96e44b37063d7527c315e371cbe5330c41ee1695afb8e043b272"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "size": 4304,
+      "sha256": "0fe024a447314d575474396add0b1d4f85c798a1ced2648394758a8df74d187a"
+    },
+    {
+      "path": "docs/AUTONOMOUS_EXECUTION_CONTRACT.md",
+      "size": 2098,
+      "sha256": "b7d7d5954fada79f2d17975baa90f95432d84b7cdd1ddd297057f6c02c50a9a0"
+    },
+    {
+      "path": "docs/AUTONOMOUS_EXECUTION_PLAN.md",
+      "size": 1868,
+      "sha256": "3ab41f110c52c578690d04779f2198508b4b0699c4130cb843fe154da27cdd15"
+    },
+    {
+      "path": "docs/BAGO_CODE_FORGE_47_ROADMAP.md",
+      "size": 7397,
+      "sha256": "b190dd14cfb0226d205c7642145fc005725e399c74fb937740136bd5da5a4d58"
+    },
+    {
+      "path": "docs/BAGO_MIGRATION_SPRINTS.md",
+      "size": 4509,
+      "sha256": "49810e14fef0004f9e91620474f8cfcb4268a5866e496f158062f6a97859d637"
+    },
+    {
+      "path": "docs/CENTRALIZATION_CONTRACT.md",
+      "size": 1643,
+      "sha256": "80bffedf706a05088dae27fe4dd7e2f6cbdf431cdcc65698157178f640f241f9"
+    },
+    {
+      "path": "docs/CENTRALIZATION_IMPLEMENTATION_PLAN.md",
+      "size": 2273,
+      "sha256": "8c9d522c215d3fa7c4fcd68d7d8b3884cb8f1c29f3b918df119046c3e67426d4"
+    },
+    {
+      "path": "docs/CLAIMS.md",
+      "size": 1764,
+      "sha256": "55ddfb03857bd15c826b04b6913a7cbccf49fcc9351f4c2a13a38d28aae0a938"
+    },
+    {
+      "path": "docs/COMMAND_AUDIT.md",
+      "size": 8706,
+      "sha256": "65d9409a68d112639294fa499cf1ece5ad1cc8027446c0bea1e6b075c15a549e"
+    },
+    {
+      "path": "docs/COMMANDS.md",
+      "size": 13280,
+      "sha256": "74e99e217cad9898dffe1c95653ba5f4d9acc52c505231ec1fce4072b48505b3"
+    },
+    {
+      "path": "docs/COMMUNITY.md",
+      "size": 1868,
+      "sha256": "9dc97d52745c287cf9f685c1ba24ffd48a79d0973a3f8a1fc962d785d9a3b6e8"
+    },
+    {
+      "path": "docs/contracts/bago_code_forge_47_task_CODE-20260621-001.json",
+      "size": 2506,
+      "sha256": "a9e906c7029d8e7fc2d98700f80762e90b51a5627b4c00b461572a1d5685a265"
+    },
+    {
+      "path": "docs/contracts/bago_v4_engineering_contract.md",
+      "size": 10724,
+      "sha256": "ba169c3daee6e5b05a3e1d67dea6cd514d5e2f2c9ce9c0f1984cc472bd5afbe6"
+    },
+    {
+      "path": "docs/contracts/bago_v4_evidence_contract.md",
+      "size": 2342,
+      "sha256": "9183d9860415e50007d2a0ebab191d7a5f98f04e7c0797ea65c3e9e913c5973c"
+    },
+    {
+      "path": "docs/contracts/bago_v4_governance_contract.md",
+      "size": 9043,
+      "sha256": "4a44ccac6497c8a301df6b79d7f1d9ec079fa73aa0e4f73fdd5ec9b22421291e"
+    },
+    {
+      "path": "docs/contracts/bago_v4_knowledge_contract.md",
+      "size": 1408,
+      "sha256": "2055f5295e6000a8d7dbbd1349c96fdb9023af0f1700fd90f58324355d00381e"
+    },
+    {
+      "path": "docs/contracts/bago_v4_repl_contract.md",
+      "size": 2046,
+      "sha256": "cd6e17bed12f54cdc7c7dfbd8402f949875b4951023284111f9c45d494e64581"
+    },
+    {
+      "path": "docs/contracts/bago_v4_routing_presets.json",
+      "size": 2895,
+      "sha256": "c774008a268240c7410473ebe6507e71ecf460af65221cc1f48a85e2cd79f771"
+    },
+    {
+      "path": "docs/contracts/bago_v4_runtime_contract.json",
+      "size": 1967,
+      "sha256": "a52e8868e1618210c1de2f9198a832908fa6696d257a8633866c98a9a99437e9"
+    },
+    {
+      "path": "docs/contracts/cpp_local_runtime_protocol.md",
+      "size": 2919,
+      "sha256": "fe847c84b5b890e33c1bfe8a674bd84c996eb52ebc65776ff2a486cf69022d73"
+    },
+    {
+      "path": "docs/contracts/README.md",
+      "size": 1355,
+      "sha256": "ee7326a3b78cc63720dee83e62e14879871ff2f599b384f5e1ca124b85c0de81"
+    },
+    {
+      "path": "docs/DISTRIBUTION_CONTRACT.md",
+      "size": 4548,
+      "sha256": "937b032f541574d7d03bcc805c7381578801cb66f1dae7f00fd967d1b3350aa0"
+    },
+    {
+      "path": "docs/evidence/autonomous_ui_run/report.md",
+      "size": 2274,
+      "sha256": "b524e94deaabaa46e2cfbf2e9a084721a854ca7620beb1145b4ba1bc8373a614"
+    },
+    {
+      "path": "docs/evidence/example_bundle/assistant_response.txt",
+      "size": 225,
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f"
+    },
+    {
+      "path": "docs/evidence/example_bundle/checksums.sha256",
+      "size": 1020,
+      "sha256": "92b2988b4290a562d24c1629c1a7f6c1039de83437b47e5b67dcafd2fae1b3de"
+    },
+    {
+      "path": "docs/evidence/example_bundle/commands/results.json",
+      "size": 1835,
+      "sha256": "f3278e3417f75dc1b979146ceac218450a6d69484034863f4ed332a2308dbe2a"
+    },
+    {
+      "path": "docs/evidence/example_bundle/knowledge/recent_memories.json",
+      "size": 1272,
+      "sha256": "0a5d66c6cc946dd373a627ef62dd9990dc7709f6b4a892d14df7ea642f32dac7"
+    },
+    {
+      "path": "docs/evidence/example_bundle/manifest.json",
+      "size": 3975,
+      "sha256": "fc84d7a564f7133183dbe15b8f3c4580fe27ae3ba8b9ce44707017d48882bde2"
+    },
+    {
+      "path": "docs/evidence/example_bundle/objective.json",
+      "size": 374,
+      "sha256": "7a3cfe61e4d6cbbeb64dbda7fe1bccb1a75ebe13e414e99533491fbd89ba8a3d"
+    },
+    {
+      "path": "docs/evidence/example_bundle/plan.txt",
+      "size": 385,
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f"
+    },
+    {
+      "path": "docs/evidence/example_bundle/report.md",
+      "size": 3168,
+      "sha256": "20d333da86f54fb32a400f055e2ba7c43406cd0583d38535b8999d820d919859"
+    },
+    {
+      "path": "docs/evidence/example_bundle/session/context.jsonl",
+      "size": 1645,
+      "sha256": "dc3047c1539e880eaaee47429a88cd8d970aea5ffe78b5bef73f10b94f38ea22"
+    },
+    {
+      "path": "docs/evidence/example_bundle/session/meta.json",
+      "size": 301,
+      "sha256": "a2d1d52d7fe9f9a6ee6be449885d570eb46708a9963e5aa47f89339e1ec8aae9"
+    },
+    {
+      "path": "docs/evidence/example_bundle/session/session.json",
+      "size": 345,
+      "sha256": "8a1a52bee00624d36e6617b84b762a98e488f9c50692a03206e1f67943c41ae9"
+    },
+    {
+      "path": "docs/evidence/example_bundle/session/timeline.jsonl",
+      "size": 296,
+      "sha256": "09d1ab375f7f9dc53607a186a18272f3a64a4e859dd3bcd6df6a8a38b8fdbb83"
+    },
+    {
+      "path": "docs/evidence/example_bundle/session/tokens.json",
+      "size": 117,
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec"
+    },
+    {
+      "path": "docs/evidence/manual/captures/bago-profiles-cli.png",
+      "size": 32812,
+      "sha256": "a1588d2c6a57afb6061a3af7662dec32eb75ed44996389dd2da3dbcdd04080c2"
+    },
+    {
+      "path": "docs/evidence/manual/captures/bago-ui-index.png",
+      "size": 166565,
+      "sha256": "c0a58685aae75419d75cb1c611a9a97fd2b93ed6d3d20cb1c422bc4d5de8245d"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/assistant_response.txt",
+      "size": 225,
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/checksums.sha256",
+      "size": 1020,
+      "sha256": "82c33137bb2d1fa89d7aeb2093b62da9cfa18df72d3b78a3d2e47c0bdc937abb"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/commands/results.json",
+      "size": 1835,
+      "sha256": "134147317ea8e029f3330bb11ce1211abd8ba23cdfc94638114f660a42c5d273"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/knowledge/recent_memories.json",
+      "size": 1272,
+      "sha256": "64096121870ce2e54c1305a3e7956f5bac9db8b761f13f792b1cd79df40c91e3"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/manifest.json",
+      "size": 3974,
+      "sha256": "b2050c834cfdcda2214804e8fd522fa6ab4020a166b6a7863f555b11aee2194e"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/objective.json",
+      "size": 374,
+      "sha256": "239d7ec91a788778326defa51c1050031112896c14f183bf936b28dc20584b08"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/plan.txt",
+      "size": 385,
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/report.md",
+      "size": 3167,
+      "sha256": "e2020040c30b4af93684ec898685be946a8567f294ad2a0b5075763d3dbf882d"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/session/context.jsonl",
+      "size": 1645,
+      "sha256": "84ea7f6a7e9cd0165c3c2bec64d9aea887cf3fc8b25fdc7490909617ca7b44ce"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/session/meta.json",
+      "size": 301,
+      "sha256": "73e954c7f1f1b845df2dc6544e09555170efc01c49e7ccf119d34b2e656b87e2"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/session/session.json",
+      "size": 345,
+      "sha256": "487bc49e5d0e972f94abc7815efdfd0d6144b457ab361d46692946cfcea1856c"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/session/timeline.jsonl",
+      "size": 296,
+      "sha256": "a37d5d6f40f8aedd27f39bc3b3b5be86c85686c9dbff530226fe6d28eb4fd928"
+    },
+    {
+      "path": "docs/evidence/release_4_6_3/session/tokens.json",
+      "size": 117,
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/assistant_response.txt",
+      "size": 225,
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/checksums.sha256",
+      "size": 1020,
+      "sha256": "4cecda501b166898aa1ddcc67666f5164212e4145a1b36d25c1ec57ca2758989"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/commands/results.json",
+      "size": 1294,
+      "sha256": "b3992e72e9cdacaf5afe91c6631108242ca13d37f59311ee22be3e993669b880"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/knowledge/recent_memories.json",
+      "size": 255,
+      "sha256": "b6fb2fc2a313625f4dbda3af5d3e073d0b0368c89dd3a6c9a9f98eae8e2d0841"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/manifest.json",
+      "size": 3972,
+      "sha256": "5f7a73edb5a14484f34b5a7947b8c58fd4381154e4daed4a2987d58260b6291a"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/objective.json",
+      "size": 374,
+      "sha256": "464880aeddc6e522db571a5c47bf7a8a6df7d083bca5e48a01b509fd55c0a0f4"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/plan.txt",
+      "size": 385,
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/report.md",
+      "size": 2630,
+      "sha256": "da124ba60d02261398ceda4f6c2bee57113e0471b02e4899af36cd67676632e9"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/session/context.jsonl",
+      "size": 1645,
+      "sha256": "6992947d6653a9c1a56e070d1733596f5db7262ee93309b454ea8a701e0673df"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/session/meta.json",
+      "size": 299,
+      "sha256": "4c4f8c46a257ff4db42f55345e189945392a6e060d27565a9213246ce2af61b0"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/session/session.json",
+      "size": 344,
+      "sha256": "f9614bdb036cd1e1546ba8edcf23526d948a1dae6be6b269ccfa3d5c1fadcedf"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/session/timeline.jsonl",
+      "size": 296,
+      "sha256": "63ff01f3a7663f36db01fa25d96c3d662318981fe6a865fd806341858c3f09a6"
+    },
+    {
+      "path": "docs/evidence/release_4_6_4/session/tokens.json",
+      "size": 117,
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/assistant_response.txt",
+      "size": 225,
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/checksums.sha256",
+      "size": 1020,
+      "sha256": "4660d381023165e566e8eed78f7b0c10ae563dde41b9c32e20f03438e25ba4c0"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/commands/results.json",
+      "size": 1835,
+      "sha256": "fcf465146d1224877d3d638c989b635d1ac80cec2fc62994aa7be7d8f0c85b7d"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/knowledge/recent_memories.json",
+      "size": 1272,
+      "sha256": "0331655efaf7fab416afbae3398256d202f8721412e450146bcd049638f549a6"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/manifest.json",
+      "size": 3974,
+      "sha256": "8996bed10502043ef2b957cca1afb7e88a5c54a594212c47f987be04aeae5b46"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/objective.json",
+      "size": 374,
+      "sha256": "b075718934a7d5eb2e221a5e7951df88e4ec1fb58cdda591267c0c040c38fd1c"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/plan.txt",
+      "size": 385,
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/report.md",
+      "size": 3167,
+      "sha256": "438254b00c85cea48a2f46aab99f4ca375d93086d11e4da3c1b1cc6c2813d2f2"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/session/context.jsonl",
+      "size": 1645,
+      "sha256": "8e3b8d2738873aed4d602bc4d6bb0166ae94bae17c8c6c7f685b0f88e147111a"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/session/meta.json",
+      "size": 301,
+      "sha256": "0cf1045f216b629f71f136e52f8588efd527f5ea6dfbf55bfafc274686c296bf"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/session/session.json",
+      "size": 344,
+      "sha256": "cd0c56ba6c858f0ac5415cf3718b73357a701cbee2e45a72ab96473a2f56141d"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/session/timeline.jsonl",
+      "size": 296,
+      "sha256": "6ce5e39b1b4a407b270e0171499ef56d5b61de29dcf5ee8771a32949af5589e3"
+    },
+    {
+      "path": "docs/evidence/release_4_7_0/session/tokens.json",
+      "size": 117,
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/assistant_response.txt",
+      "size": 225,
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/checksums.sha256",
+      "size": 1020,
+      "sha256": "8effdeed9d85fe52db3d72b6a1eaa7860285183283ecd40374f24c39fa3a00a1"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/commands/results.json",
+      "size": 1835,
+      "sha256": "06fc183eb98e1041b53ea3c886b2bd73e4c88aa3afd7815babbdb636aa1284ca"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/knowledge/recent_memories.json",
+      "size": 1272,
+      "sha256": "3ce389e99678b0330c4936cca6f40fcf712f53e828c22dfb4ff657c88508d3de"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/manifest.json",
+      "size": 3975,
+      "sha256": "575b9b7e67d7b5c12762d99718785e541ea320d08fa8cc632e07fa0c6859b68e"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/objective.json",
+      "size": 374,
+      "sha256": "bc0270066da96e2b7000a31e9178604dcb26b0ff3260e92746a634edfd28396e"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/plan.txt",
+      "size": 385,
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/report.md",
+      "size": 3167,
+      "sha256": "c7d7cd1d397fa9122ff98ab378fd556349efdb5b79bdb95a6794b6cb36f209be"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/session/context.jsonl",
+      "size": 1645,
+      "sha256": "566fcf870aeff9b17773179614cc055845c6e6ab981160a571b9b9c5387bd9e0"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/session/meta.json",
+      "size": 301,
+      "sha256": "88748035175c074e7ece254284c5a784b1566151662679edf01d1bbfd0d17e3d"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/session/session.json",
+      "size": 345,
+      "sha256": "350034b17c5d05c0f3c01f61a3331da78fbce26ca5d92900756f2c3f64027712"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/session/timeline.jsonl",
+      "size": 296,
+      "sha256": "9df8af2ec5b67c01c107bb4d0bdf6eb520fdf7ec13360f980e67f6f944b48f1c"
+    },
+    {
+      "path": "docs/evidence/release_4_7_2/session/tokens.json",
+      "size": 117,
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/assistant_response.txt",
+      "size": 225,
+      "sha256": "1c40aa0778c94b38ddc2a50411281cbfc096b4d13cd2edf088535227ad4a1d1f"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/checksums.sha256",
+      "size": 1020,
+      "sha256": "3f46ed459408b57d01cbe3df40985876124012070f554830afef3ff5516724c1"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/commands/results.json",
+      "size": 1835,
+      "sha256": "3796fb32409e8b55dfe8834a965c093c8d60ca769c0c543f8f261af40c585ccf"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/knowledge/recent_memories.json",
+      "size": 1272,
+      "sha256": "cc7c221b964af04c0efdf3a3fac05374c3d5cd3bd9355ef9ed6817c0b5b24de4"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/manifest.json",
+      "size": 3987,
+      "sha256": "645f4a5f2d7b19a121d276e69c4739b92a9c7980789ec5242913dc98034f5730"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/objective.json",
+      "size": 374,
+      "sha256": "ec179cb39fa6c1191e225143da1a2ffae5b81e754907b47f10e02abe48ea2732"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/plan.txt",
+      "size": 385,
+      "sha256": "c0d4ffeca77ab19a502ad4594e0a6102398700ebe8574d8bcda4dc16fc98930f"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/report.md",
+      "size": 3180,
+      "sha256": "d01f936c395d72ea47a5d2080390d14f9630ea810f14888c93b0cd352779b64c"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/session/context.jsonl",
+      "size": 1645,
+      "sha256": "b42339a1f685ff54129e2549de5930057265a2e9f1942fac1638432ab2f8a4d0"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/session/meta.json",
+      "size": 301,
+      "sha256": "69350cb759aa263e9e0305515a8416b262491bae8bb774b52eb3781cf596fa5d"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/session/session.json",
+      "size": 345,
+      "sha256": "cfdba0714b1903f214481ab3d7f96334fdd3c65529ecea75415b27ac8622d10e"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/session/timeline.jsonl",
+      "size": 296,
+      "sha256": "e27a19822b8978718220d04494eea086e5f1597cb82fb0dea266bd234a17ca3e"
+    },
+    {
+      "path": "docs/evidence/simulated_reference_bundle/session/tokens.json",
+      "size": 117,
+      "sha256": "36f434fd0849d42dbc6d0e22674c40852f40686e1808eb6023d544d4d8235fec"
+    },
+    {
+      "path": "docs/INTEGRATION.md",
+      "size": 9006,
+      "sha256": "050baa7538077311d534713005511a208d122fa4864e1043c7da4c81e243b682"
+    },
+    {
+      "path": "docs/INVENTORY_PIECES.md",
+      "size": 10513,
+      "sha256": "9963206a7b400ae49842d23088e30b5bebd9bfad6b0f046ee7149e672a1dae2b"
+    },
+    {
+      "path": "docs/KERNEL_LOCKDOWN.md",
+      "size": 5482,
+      "sha256": "7291cd3b2b9a31cbffd972eecaa301c79abc979de93ecfc39da368f05bcc26f4"
+    },
+    {
+      "path": "docs/LAYERS.md",
+      "size": 9643,
+      "sha256": "ba79d59e64b4cec165185fca47bcfc4e39df6f1b51374a61632f3634f54bee70"
+    },
+    {
+      "path": "docs/MANAGER_NEXT_PASS.md",
+      "size": 2690,
+      "sha256": "8daca91d129a2f938a10ea59660e6103011c7f61cf0f84599b191a1a9cd5b276"
+    },
+    {
+      "path": "docs/MANAGER_RELEASE_JOBS.md",
+      "size": 1785,
+      "sha256": "6fec0709efa4692d18e032e66e9f80eaab11c3239f17571435ce47d81084cae6"
+    },
+    {
+      "path": "docs/MANAGER_VISUAL_GRAMMAR.md",
+      "size": 1781,
+      "sha256": "4bd98a17ad11b517926b00cbe3e31960a83d3ca2ad2fe30b7ba170f9e68d66e8"
+    },
+    {
+      "path": "docs/MODULES.md",
+      "size": 4910,
+      "sha256": "3bc8b300792d0057c9746ac9ccf11993976717ebe0e9ca682b02e45fcac4614c"
+    },
+    {
+      "path": "docs/MVP.md",
+      "size": 2168,
+      "sha256": "a3a726e38f5b70997e5e3dad1ead0046c3ace54813b9303fcaebf93f0b4681fc"
+    },
+    {
+      "path": "docs/NODE_CONTROL_BACKLOG.md",
+      "size": 4831,
+      "sha256": "83cf581924388cb0ec4aa904db78e729b3e8b6341d4c61cf16d8529bdae3df89"
+    },
+    {
+      "path": "docs/NODE_CONTROL_SPEC.md",
+      "size": 5592,
+      "sha256": "a1eff731ce98354b46cbdc1a699ef94e919ebc4bb90ac5e233a787c52ead67e8"
+    },
+    {
+      "path": "docs/ORPHAN_DUPLICATE_PLAN.md",
+      "size": 1155,
+      "sha256": "f429c9e3c76dca4d59f689241aca48faa2eff371dea9229ccffcfe2fa68681b0"
+    },
+    {
+      "path": "docs/PUBLIC_RELEASE_POLICY.md",
+      "size": 1026,
+      "sha256": "35136e104c9ec2b24f51aa84ee386135fedfe68d6776440c35748873e28ab1ea"
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.6.1.md",
+      "size": 1003,
+      "sha256": "d153898f8c9dd1b2d697213d07a079893082ecd9fad4fd444f2c3a4ce921037a"
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.6.2.md",
+      "size": 973,
+      "sha256": "6ebbd9084aee1edd303661392b531b867f955847d30dab94b698e1a4eb5d1a07"
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.6.3.md",
+      "size": 1832,
+      "sha256": "2f94a93d62e11a5d928435821fc223c495fa821d3865434e490c80d8cda80f38"
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.7.md",
+      "size": 2511,
+      "sha256": "56e3ca8d1704e5e5bedcdb952ac2c1356d9d3e8a5c4cdeb03c949eb065d40987"
+    },
+    {
+      "path": "docs/RL_ENGINE.md",
+      "size": 2429,
+      "sha256": "50a4be59df77c5f56bc8d5151ccd7d6a5ec066b4a07fb33fb256c32f82f4b956"
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "size": 7204,
+      "sha256": "2977b91fc3c72e2873defcbe82557879bc00b512230158322c856bcbd2e95d5a"
+    },
+    {
+      "path": "docs/screenshots/v4.7.1/BAGO-4.7.0-dark-ctrl-plane-1440x900.png",
+      "size": 336105,
+      "sha256": "de58b02852f3156b0b7c406e8d5760ed11497a638c69d2d1dc8f0746e062f6cf"
+    },
+    {
+      "path": "docs/screenshots/v4.7.1/BAGO-4.7.0-dark-ctrl-plane-1600x1000.png",
+      "size": 400572,
+      "sha256": "a0325c0dc309b176c837a7acbb53d7ff091033d84f742c8167193954d71ef328"
+    },
+    {
+      "path": "docs/screenshots/v4.7.1/BAGO-4.7.0-dark-ctrl-plane-1920x1080.png",
+      "size": 501951,
+      "sha256": "ee362db4a67b48c72261ffbf8176b683ab647617465ec8bbbdac361c0ebc6804"
+    },
+    {
+      "path": "docs/SECURITY.md",
+      "size": 3017,
+      "sha256": "ca5677e08bd6831fdae02057219d9d65aa55e835d11586d7eb2cce832c837686"
+    },
+    {
+      "path": "docs/SUPPORT_MATRIX.md",
+      "size": 1239,
+      "sha256": "310af55f56eab89cfd314c321cbaaaedb5f8eeb141b7ed870328316b5c780c22"
+    },
+    {
+      "path": "docs/TESTING.md",
+      "size": 4140,
+      "sha256": "f9d119d57f92d3f640a03288c1a655220a2b4cd8f0d556dbddc7d3bf7525940f"
+    },
+    {
+      "path": "electron/audit-service.cjs",
+      "size": 8526,
+      "sha256": "b7b65274169c417b1422db47f334aaf59f3525d04924c37cf782dcdc53f9332e"
+    },
+    {
+      "path": "electron/dependency-service.cjs",
+      "size": 19967,
+      "sha256": "af8b0a896d43a2d65c812a37f8523945940a5e883a5d6b82452811327ceb0a3c"
+    },
+    {
+      "path": "electron/environment.cjs",
+      "size": 6724,
+      "sha256": "6760afe988e741444dd868d9caf0eff06e61dcc35844c9f2a63ecc5a9bcb6317"
+    },
+    {
+      "path": "electron/install-service.cjs",
+      "size": 12146,
+      "sha256": "982af1b8b4111fb5b37bbfa96d34f7aa09bff1b485e4109aa5a1329e33a6e663"
+    },
+    {
+      "path": "electron/ipc-service.cjs",
+      "size": 3748,
+      "sha256": "fb651e605559c09ef482974509fb38ca5cc1a7056b12e055d5395ced3cf93e03"
+    },
+    {
+      "path": "electron/main.cjs",
+      "size": 5520,
+      "sha256": "475390195d1314f03e1db06cb59d54e0a1dd2f10c90dd634fee7d3b572a49181"
+    },
+    {
+      "path": "electron/preload.cjs",
+      "size": 19039,
+      "sha256": "019cd1b7282c42f2a888af82cf65c7ec6f57c01544dc425b0985e59712497c6a"
+    },
+    {
+      "path": "electron/release-job-manager.cjs",
+      "size": 35353,
+      "sha256": "2eff843fc4cd7f38b0e476bd3483c648f9bf33b4c3ac2e6a3ee1542e16f0c8db"
+    },
+    {
+      "path": "electron/release-service.cjs",
+      "size": 2307,
+      "sha256": "5c90133a411c57d024b254a98ca6cd915b3487fdb0e6f6c1e9787495e193780d"
+    },
+    {
+      "path": "electron/runtime-service.cjs",
+      "size": 13391,
+      "sha256": "f05fe47b05041d7d93fad6697fba97d8ab86c4d090bf9382688e865e16303ecb"
+    },
+    {
+      "path": "electron/window-service.cjs",
+      "size": 3337,
+      "sha256": "ce6fd86e3b2abedf9593318eb9fa289f59e80607978153542fe48198b7afa54b"
+    },
+    {
+      "path": "index.html",
+      "size": 38889,
+      "sha256": "70bc67c21d2705a9645537fa59fcf2d855d3adb5b1a3a9988241c18ae6f2a41c"
+    },
+    {
+      "path": "install-remote.ps1",
+      "size": 12316,
+      "sha256": "ed65c1a9e60e00b7c39c15c5bd5fe2025cb15b8aad727cb134fb233da41599e2"
+    },
+    {
+      "path": "install-v4.ps1",
+      "size": 37651,
+      "sha256": "36da54d818ee10043f4b3f156cf206b92939432097c6e652117bfa0b7aff32f6"
+    },
+    {
+      "path": "ir_types.py",
+      "size": 840,
+      "sha256": "b8ab04aae1a1b2a905ce11318c5c30b34fee5d2e7a767564816997ca2ae39114"
+    },
+    {
+      "path": "MANUAL.md",
+      "size": 42581,
+      "sha256": "bbcbfc1c05842669250efee68f93a37e35b5887e444e009a33c79cc9002db073"
+    },
+    {
+      "path": "package-lock.json",
+      "size": 130549,
+      "sha256": "5ff6ab7dece84afe99e32184d12c5bedd8ed0431b5829cdf01967127048a9b3d"
+    },
+    {
+      "path": "package.json",
+      "size": 2893,
+      "sha256": "acc588149773aa612ecbea185f0e7de46671928fc33ae9b71465b4e66c6f7b93"
+    },
+    {
+      "path": "protocol.py",
+      "size": 2239,
+      "sha256": "0ba6389169d376d7536a27eda7a5dc7585aabd79b158487df347bcd4d6957091"
+    },
+    {
+      "path": "README.md",
+      "size": 8445,
+      "sha256": "66e94f30c3d9c2861640b2fc522eb58fd0ceb22822d7c8e28698764116351865"
+    },
+    {
+      "path": "registry.py",
+      "size": 5323,
+      "sha256": "4b5d9b8ecd9713f346fc520922249b48ed6170fe7284349adf77ec1a4be4474f"
+    },
+    {
+      "path": "release_version.txt",
+      "size": 6,
+      "sha256": "964bf9b089d1e1c9474f4baab1c909ee2affc1fea9464eceaf5d3b8d2ce555f4"
+    },
+    {
+      "path": "rollback-v4.ps1",
+      "size": 4498,
+      "sha256": "b974dc3fb7b11d6624aa5bab93115f26d3b59b4bb7b4547649293378b7a15f14"
+    },
+    {
+      "path": "scripts/_normalize_presets.py",
+      "size": 600,
+      "sha256": "8ed2c978a968c9c41d6e292b9fc9c8ce81680321c9f034c28a3ff279827eaebc"
+    },
+    {
+      "path": "scripts/apply_branch_protection.ps1",
+      "size": 1457,
+      "sha256": "188a588782729e2ca9717896b22a322683b6c253972a273fe93128d2f18a467e"
+    },
+    {
+      "path": "scripts/archive_pi_sessions.py",
+      "size": 2390,
+      "sha256": "3a059076d353c52ed60dedce41e4f6304f64f10e5cb879d980f218d407b387ee"
+    },
+    {
+      "path": "scripts/bago-cpp-local.cmd",
+      "size": 364,
+      "sha256": "db991cbfaab74635468a2a2707f91ead71070938e39c2f5588ebda3e028047d6"
+    },
+    {
+      "path": "scripts/bago_consistency_check.py",
+      "size": 3453,
+      "sha256": "d8f1399618003cb5e3987710ad3adc45261705a6932c0d36d2a1d2319ca3c5da"
+    },
+    {
+      "path": "scripts/bago_cpp_local.py",
+      "size": 1646,
+      "sha256": "fd157cd7dfb0d700e85e55a2c95c7ad4947a998bd6cae1e35157019ba5993c8f"
+    },
+    {
+      "path": "scripts/bago_supervisor.py",
+      "size": 26339,
+      "sha256": "876951556f56cb2b9298290afe7263de66fa3e65532b993f12d23b840afabb52"
+    },
+    {
+      "path": "scripts/bago_supervisor.pyw",
+      "size": 1172,
+      "sha256": "3ff87b84859ceb317d4d33752b39b8296b9da4a986c3cf55695c05bea3b3ffb6"
+    },
+    {
+      "path": "scripts/build_pack.py",
+      "size": 2621,
+      "sha256": "eca03249f0a3612b76af8e92f17f82d48718d22138127c3d05201c6b212399a7"
+    },
+    {
+      "path": "scripts/build_vercel_site.cjs",
+      "size": 3933,
+      "sha256": "b26abb78cc011af36b12a32d98036571198a357f5eab8c195f5ec6f74f4496ec"
+    },
+    {
+      "path": "scripts/clean_ollama_history.py",
+      "size": 1454,
+      "sha256": "c188c5a954836d7cb13af9cbf23904acb50b355b4e120bb4f26e65f62948d6a5"
+    },
+    {
+      "path": "scripts/deploy_landing.py",
+      "size": 1754,
+      "sha256": "225d5742b275659070c485fbf479c6fadf108f6bdf722ecc953db8cda5ea9fc2"
+    },
+    {
+      "path": "scripts/embed_mixed.py",
+      "size": 4018,
+      "sha256": "d2ea12948ae291cbca2537da304e2ea197dfa616a79c7b53d2665a28a5df53a2"
+    },
+    {
+      "path": "scripts/generate_commands_doc.py",
+      "size": 2446,
+      "sha256": "efc6b80b0420c9ef38c7ba121ceee96fb68b63ca89e0c6147f22c02bbee6fd97"
+    },
+    {
+      "path": "scripts/generate_layers_doc.py",
+      "size": 2367,
+      "sha256": "3f7733db0e9537d6fdfd08978235eb83c294182fdeb7c1a7ed233e36f96d6dbd"
+    },
+    {
+      "path": "scripts/ingest_knowledge.py",
+      "size": 11316,
+      "sha256": "17c0ac4acf188ae5dc4682cd32b95af6c2692ecca9ffba8e07c3b92ea45fc605"
+    },
+    {
+      "path": "scripts/inventory_sessions.py",
+      "size": 2535,
+      "sha256": "dd587a6a7134e5384f280538c2eb711a49338f1cd6cf0c95016fe8fc62464bfa"
+    },
+    {
+      "path": "scripts/ollama_embeddings.py",
+      "size": 2387,
+      "sha256": "9bed20c8a08936c0e6177a1a5253941b585c6571b5a070e4343f8f856a4f2248"
+    },
+    {
+      "path": "scripts/Open-BagoUI.ps1",
+      "size": 1416,
+      "sha256": "4b84b4b00c7de0ffb6777a33de24a4b56c08083772071df31f155ea7cc6b92c1"
+    },
+    {
+      "path": "scripts/package_audit_bundle.py",
+      "size": 16147,
+      "sha256": "5ca8a09bd3215d08e6dd5cb1f6ab2d87c1b1e0adc887816aed74eb4628674f40"
+    },
+    {
+      "path": "scripts/package_user_bundle.py",
+      "size": 9477,
+      "sha256": "b7eab580b046615af5d61e1c041177c75e88c289595b59e4b0b5a3d016d60da9"
+    },
+    {
+      "path": "scripts/package_v4.py",
+      "size": 9276,
+      "sha256": "e4d73275dff063e34e2ce089d7c58f5e122cdcdc4d36ac7c62bff6b177f6a0bf"
+    },
+    {
+      "path": "scripts/probe.py",
+      "size": 8882,
+      "sha256": "f5fe71e920f65ce1ab028bfc008061a21edc430de42f9b3ea9e90b75728a0262"
+    },
+    {
+      "path": "scripts/promote-dev.py",
+      "size": 2456,
+      "sha256": "9ef029a18e7268b6000ea473598f139f6fc7922db07d7ac7f2ea6a8b5d3c3380"
+    },
+    {
+      "path": "scripts/publish_release.py",
+      "size": 5183,
+      "sha256": "2c8a52ca11caa0d64d8a567cd1c5a069e00120edd81c80ff23ab892458700112"
+    },
+    {
+      "path": "scripts/real_fallback.py",
+      "size": 3974,
+      "sha256": "50791efe62cd4f647e97a0ae72b61778c77444fdd2340f0619af5e5b7eb51b7b"
+    },
+    {
+      "path": "scripts/registry_ast_contract.py",
+      "size": 2224,
+      "sha256": "eccef3c2c0beba839bd66e2224982a9b8777dc0a556ba2bf9cec675f73af0507"
+    },
+    {
+      "path": "scripts/repair_routing_runtime.py",
+      "size": 785,
+      "sha256": "a5b3b050bb42f83fb17cbc64dd51c1b6efd90603a3c037facc03258b8cd3c107"
+    },
+    {
+      "path": "scripts/rotate_ollama_backups.py",
+      "size": 2358,
+      "sha256": "5a9f4d337a38f789068f74598bd1a9ea619899a9103d4d453993859f9a50c005"
+    },
+    {
+      "path": "scripts/scan_directory.py",
+      "size": 3307,
+      "sha256": "a5bc2f3e4a10a19cd5feccd80a32ff472c92a86f3fa3fb038077dfd1fffd998e"
+    },
+    {
+      "path": "scripts/seal_release_415.py",
+      "size": 8516,
+      "sha256": "bceaccb9e1ce2867f220b83c9861422b1704dac08b5c356c78082e4ffe1337c4"
+    },
+    {
+      "path": "scripts/setup_git_hooks.ps1",
+      "size": 631,
+      "sha256": "dee5f2d3e1195eeb5d1e6a7fb6d48a30a6e7ff92d07f6019972b4cfad86b1bfc"
+    },
+    {
+      "path": "scripts/test_install_rollback.ps1",
+      "size": 2469,
+      "sha256": "e37a501ad488cc9b96e789a4fb4e6677ed73c1e12f4eee15c8f3431010be0a20"
+    },
+    {
+      "path": "scripts/ui-diagnostics.cjs",
+      "size": 1970,
+      "sha256": "3f5409621dd0c5f9ab3624ab33a6545e91efc9ae5dc00d4ee5182a2c1c076769"
+    },
+    {
+      "path": "scripts/validate_pack_contents.py",
+      "size": 2202,
+      "sha256": "3f56ca43b51ce81e1a38eb852c2c7e1704c0fa5758aa14077af9f13b22be0542"
+    },
+    {
+      "path": "scripts/verify_default_model.py",
+      "size": 5312,
+      "sha256": "c915279c7d3a4a2a1da49bd19fcc912a2f285b70183bde9b72de6340fa46c818"
+    },
+    {
+      "path": "scripts/verify_docs.py",
+      "size": 2377,
+      "sha256": "a1bfd6a35036c042d554f944556d912070e841f7196ea90e40ef9ed0ec77d317"
+    },
+    {
+      "path": "scripts/verify_release.py",
+      "size": 748,
+      "sha256": "2eb3d68ca9697b2380022d949f591d625acdc5a04efcd9f6f700908a33dd2b1a"
+    },
+    {
+      "path": "scripts/verify_release_462.py",
+      "size": 5849,
+      "sha256": "a68246a7af862ef18086cc8bae63b5c1c3fcf9e09e299fcca6f47de38291c652"
+    },
+    {
+      "path": "scripts/verify_release_463.py",
+      "size": 13407,
+      "sha256": "c41bce448f896b8894cdc17705f4b29553bda4f4cb11764e75d6ac4f4b20f7cf"
+    },
+    {
+      "path": "scripts/version_site.cjs",
+      "size": 2057,
+      "sha256": "f3681047ad7711fec60b30ab928a688b251ff7ad3723162727ad7af79a69964d"
+    },
+    {
+      "path": "scripts/zip_installer_r3.py",
+      "size": 667,
+      "sha256": "4076afd617305198570c662e0d1b96a63aa3bbd8e2ae251ade4bb56b07bf2b20"
+    },
+    {
+      "path": "test_command_intents.py",
+      "size": 9394,
+      "sha256": "bc06856fb90aca0544031cdc7cedb399cdad65626e82c16c07de6fabea409e4e"
+    },
+    {
+      "path": "test_e2e.py",
+      "size": 4850,
+      "sha256": "f21325ae1e6e2c05c3302d0906976c9b01850bddcc36465d56fb70d9800fbb88"
+    },
+    {
+      "path": "test_security_release.py",
+      "size": 11676,
+      "sha256": "713afb1499bfd5c5610994ca0de49eb0877bdcfb1d5a8ce59b2e2c60b40cac5c"
+    },
+    {
+      "path": "test_translators.py",
+      "size": 1303,
+      "sha256": "274b0af046e8658110d87915be957b4eaa70c851c1427ab0013c386dc7eb829a"
+    },
+    {
+      "path": "tests/test_bago_init.py",
+      "size": 3647,
+      "sha256": "af6e9758e457c451dbd36b792add68113574820c2ad13c6936802b54b34aeef5"
+    },
+    {
+      "path": "tests/test_chat_help_exec.py",
+      "size": 5178,
+      "sha256": "9902080d889dca402ce36aeb80a8957892cc4166b4197d41468f8da194ea6358"
+    },
+    {
+      "path": "tests/test_chat_repl_paste.py",
+      "size": 1218,
+      "sha256": "2b6c1d1766b58406d8c7c0d503c7af197a0b2b92fa805beaa5b6fbe65daeb25e"
+    },
+    {
+      "path": "tests/test_claim_ledger_split.py",
+      "size": 2509,
+      "sha256": "9b2d010ec16f3dbb845a4e8e4f4a3f67abd6bef3720f913dab78a8ed4570b3bb"
+    },
+    {
+      "path": "tests/test_cli_bridge_contract.py",
+      "size": 2285,
+      "sha256": "74c96f27f6d0dc0ac7f22b63ee793a825de97f3cd0a8706eb4b77d419e96e0e8"
+    },
+    {
+      "path": "tests/test_cli_installs_split.py",
+      "size": 3311,
+      "sha256": "285bb432911c20a94486823671cbfddcd9545b6d3c883a2ae5852e4b7994108e"
+    },
+    {
+      "path": "tests/test_cli_root_compat.py",
+      "size": 2060,
+      "sha256": "d7cf795438af23bb199717c95b85a1a73363d613a011a8607c98054d4774343a"
+    },
+    {
+      "path": "tests/test_cmd_provider.py",
+      "size": 9547,
+      "sha256": "800f1ded450c97592f8a360e0678508cbe108153985739910db852dcc91adafb"
+    },
+    {
+      "path": "tests/test_code_forge_classifier.py",
+      "size": 4297,
+      "sha256": "f329e1d734b9ac5f029b0138506d24a1a3f64fba042f189ed25bf125cd43e5de"
+    },
+    {
+      "path": "tests/test_code_forge_code_verdict.py",
+      "size": 12233,
+      "sha256": "fd648b4a65d8f8cfc93390d0629531a0838ba689e6c7e76c906715d7cce656eb"
+    },
+    {
+      "path": "tests/test_code_forge_codegen.py",
+      "size": 19552,
+      "sha256": "f8adda64bdc3fc403cdcd890d9e550aab3ba7b978ec55852e64d6aa68d9ec3f2"
+    },
+    {
+      "path": "tests/test_code_forge_compiler.py",
+      "size": 4913,
+      "sha256": "a1d3a65c363381fe35fc85d296963073c70a0c26e33ad372c80cead26d4ec6e3"
+    },
+    {
+      "path": "tests/test_code_forge_context.py",
+      "size": 4267,
+      "sha256": "07617490e965ec947db65a316a48112f6f614270b3b7ad0d8531acdbf280c21f"
+    },
+    {
+      "path": "tests/test_code_forge_contract.py",
+      "size": 1022,
+      "sha256": "6a101c03597221e4d0ec5c86191b5b9ea910198aa2bd7b59ff892954ffe191cb"
+    },
+    {
+      "path": "tests/test_code_forge_evidence_builder.py",
+      "size": 15694,
+      "sha256": "f6286c5a195cb071467e0f3835b946bd90bdf0964c303a04e5bded2d5eb73b80"
+    },
+    {
+      "path": "tests/test_code_forge_execution.py",
+      "size": 13822,
+      "sha256": "e893899c91fbb79d5a0da6bcfd024c88ecb5b3a496cdba8da11ccf3d77cfa4da"
+    },
+    {
+      "path": "tests/test_code_forge_patch_parser.py",
+      "size": 4197,
+      "sha256": "b8d848935ac501b1f502e05f26fbe9997262ad4ef6c96ea9225b2b47b64cc436"
+    },
+    {
+      "path": "tests/test_code_forge_repair_loop.py",
+      "size": 13326,
+      "sha256": "c7471d099325c459ed4c8198cb9ea9162c0d96778119d865b74f785344054708"
+    },
+    {
+      "path": "tests/test_code_forge_validation.py",
+      "size": 13892,
+      "sha256": "6f2041dfe823fce32407fc98670ac9d74ef1690417d790f5accafffd0b95d643"
+    },
+    {
+      "path": "tests/test_evidence_bundle_split.py",
+      "size": 7472,
+      "sha256": "f814c429fe7070cf5517b16970dee9512010c4cfcd5c5e3d8a1f460504b945c9"
+    },
+    {
+      "path": "tests/test_evidence_integrity.py",
+      "size": 4237,
+      "sha256": "48516d5ac9fd97af029e3e1cb04d879ba42dc1c760b19b8dfdc8533963df881a"
+    },
+    {
+      "path": "tests/test_install_remote_verification.py",
+      "size": 902,
+      "sha256": "1d0720a0b80d05f55bf8cd5f501512d76e9420e47932a32cbe4fe4d7252a806f"
+    },
+    {
+      "path": "tests/test_migration_sprints.py",
+      "size": 1451,
+      "sha256": "8414e7acb41d5f9c996a82d7b02ffd2c11aa90d56e3519cd4db6fe38eda9f47c"
+    },
+    {
+      "path": "tests/test_no_snapshot_leakage.py",
+      "size": 6811,
+      "sha256": "94dad7a9d91c7baf250e4b9ad64902eb784f2a8e338f2f4e7ae7d7264a513dfd"
+    },
+    {
+      "path": "tests/test_no_visible_powershell.py",
+      "size": 1867,
+      "sha256": "991fce5a61052f8603ee421f96a9c062efdb2383d7a6d4cce79c55d3bec0ed21"
+    },
+    {
+      "path": "tests/test_node_control_split.py",
+      "size": 13229,
+      "sha256": "5555c6e5c9b475a49b6f9b329cadf6baf32cd277b308264ed22724bb3d6d6089"
+    },
+    {
+      "path": "tests/test_node_control_translator.py",
+      "size": 4127,
+      "sha256": "6f55e63f7c68fec8ded846b1b6732d19735feffd8af2ce64d857cec3a79e9f82"
+    },
+    {
+      "path": "tests/test_node_control_tui_split.py",
+      "size": 6790,
+      "sha256": "270df3eecd57f9ea42aff228c3c79bd10f5228c9e592851eb33895b7f6226d50"
+    },
+    {
+      "path": "tests/test_packaging.py",
+      "size": 2912,
+      "sha256": "043988b3925de0c6d3e2ca4dfe689d48ff8d545c6a7d0f4bdf3b6075c69401a2"
+    },
+    {
+      "path": "tests/test_project_analysis.py",
+      "size": 2883,
+      "sha256": "5538a6915611634b1b881a74421c74e970c3514655c3470655b59c712e131eb0"
+    },
+    {
+      "path": "tests/test_release_job_manager.cjs",
+      "size": 9382,
+      "sha256": "d1b97353c9407586f28a33fcaffbdb35497bed2261ff6816e98535715202ac86"
+    },
+    {
+      "path": "tests/test_release_job_manager_live.cjs",
+      "size": 2278,
+      "sha256": "3d22a1f334ce1b3f0984a326f2aa8530c16ccfd1c55d76f44ade4d34c399ad28"
+    },
+    {
+      "path": "tests/test_security.py",
+      "size": 4157,
+      "sha256": "df8643cc6c9583f72096f1bc003a9ded123119d41ba97689943e897dbb42775f"
+    },
+    {
+      "path": "tests/test_sprint_2_contracts.py",
+      "size": 2697,
+      "sha256": "8ee6c9a776307b0ab07613699e4bb6cc8eb6869a2e74937888f3f521e21ea72a"
+    },
+    {
+      "path": "tests/test_sprint_3_assets.py",
+      "size": 3508,
+      "sha256": "a4b97c928788671e9217187fa45e2acfe59b05db4ef6dafcfc5dc662a816a6e9"
+    },
+    {
+      "path": "tests/test_sprint_4_surfaces.py",
+      "size": 2346,
+      "sha256": "b1e14a49387e504eccafee27a471af80c9da433f39967d8292081b882a76f7b5"
+    },
+    {
+      "path": "tests/test_sprint_5_validation.py",
+      "size": 1022,
+      "sha256": "713c6f88916c97b5ea25bf7a49a5e816064d9c8197ebe716d3d61e2e367ac17d"
+    },
+    {
+      "path": "tests/test_system_prompt_bootstrap.py",
+      "size": 1435,
+      "sha256": "164d266076de9e23ac3daea29ea73c2550b665084195e59e2caac17d0c9245c2"
+    },
+    {
+      "path": "tests/test_translators_evidence.py",
+      "size": 3136,
+      "sha256": "c94969f2faf82aca710e54f0e03f6eef224ddbee4ec32a085e285e3d12e21c4b"
+    },
+    {
+      "path": "tests/test_version_drift.py",
+      "size": 2026,
+      "sha256": "ebc25a959c436f92b52bca365ddc25e8d13ff023afe62c4b2d2f12ef4912be75"
+    },
+    {
+      "path": "tools/audit_orphans_and_duplicates.py",
+      "size": 12602,
+      "sha256": "299290d3e29856935f12d43611f484d540773ee526d2b661a029ceb87fe7296c"
+    },
+    {
+      "path": "tools/check_modular.py",
+      "size": 17936,
+      "sha256": "693959cf31959289c45077e20e5fd2bac1bde6c816016611cca011a507046902"
+    },
+    {
+      "path": "tools/file_sizes.py",
+      "size": 908,
+      "sha256": "0102cb14fbce4c4fd2e11819e8e5f5ca07cd5f17459d0a5e06bcb6e99c914d30"
+    },
+    {
+      "path": "tools/inspect_encoding.py",
+      "size": 1209,
+      "sha256": "cb61c6cca2ec9f43fb3c68fd65d5df4a7d68ed5708f4f9d9504ea533cb6bd4d5"
+    },
+    {
+      "path": "tools/manager_visual_audit.py",
+      "size": 2131,
+      "sha256": "dcf21293b0a17bab9b05d192035eb60bf7d1a0b52bbcce782edffb2edcfd85dc"
+    },
+    {
+      "path": "tools/normalize_encoding.py",
+      "size": 2295,
+      "sha256": "2ca722864bd0e218261a58ad1cdd4e1dd082ce697c9da4101e3d4b3a8a374564"
+    },
+    {
+      "path": "tools/verify_modular_gate.py",
+      "size": 962,
+      "sha256": "9dd94de77c2866a8dd844ef60ef7c1ae6015fead30a5fc7d90628cf886c07b82"
+    },
+    {
+      "path": "ui-react/index.html",
+      "size": 302,
+      "sha256": "54e3cbd2846d196ba6de86e07232fa5e72ea8b61b2dcf4a3b3e063ba17b90aff"
+    },
+    {
+      "path": "ui-react/package-lock.json",
+      "size": 30906,
+      "sha256": "48f26bd0e0290c5eac5feb4bdd7bf85f571ae14b040272ab20aa70a3b285a936"
+    },
+    {
+      "path": "ui-react/package.json",
+      "size": 351,
+      "sha256": "86865e8c18e5b1e594ead28cd878fa2555c738848a9645c55b852d8071504889"
+    },
+    {
+      "path": "ui-react/src/api.js",
+      "size": 3916,
+      "sha256": "b08dac21c8f094c4f20b8b5c1811ddceb79847fd11f3466fa331094f7646d073"
+    },
+    {
+      "path": "ui-react/src/App.jsx",
+      "size": 117,
+      "sha256": "bcd761cc6e8672c551602c691a4b1e1ba6e2662059e441a0e94c7efa01248f0f"
+    },
+    {
+      "path": "ui-react/src/components/ChatView.jsx",
+      "size": 8238,
+      "sha256": "1b1074f8f3999d6aeac54a48a92934a57acbb9ad6fb60912066823a1f0fc8ba7"
+    },
+    {
+      "path": "ui-react/src/components/CompactKitBar.jsx",
+      "size": 1049,
+      "sha256": "52172ad3a1b7f068e03d4d802553184d54f3f3940e5c421e906b48d3d6766705"
+    },
+    {
+      "path": "ui-react/src/components/CompactPipelineBar.jsx",
+      "size": 1275,
+      "sha256": "ce2c18014c8ff281fd51a6a6b1df5bf391b407126cecb0b9dc774751b33b7896"
+    },
+    {
+      "path": "ui-react/src/components/ComposeBar.jsx",
+      "size": 1551,
+      "sha256": "7dd65c2ce2a915127aa2640f762d9e528cbc22a3bf9545a0ab14334c3730ab57"
+    },
+    {
+      "path": "ui-react/src/components/ContextChips.jsx",
+      "size": 2504,
+      "sha256": "c2b6c5cb096dceaf9c46d109359b6be1bcd1ea39cefb45e0bf82e9ca2ea60425"
+    },
+    {
+      "path": "ui-react/src/components/ManagerInspector.jsx",
+      "size": 5960,
+      "sha256": "703ea464603134252615dde95ab59ab6c10dbb5edef309c7f307d12768e6903a"
+    },
+    {
+      "path": "ui-react/src/components/ManagerOverlay.jsx",
+      "size": 1970,
+      "sha256": "68e3849fb9871a537277dcd2778b5c077416f140c90bf821eaa03bdca9808980"
+    },
+    {
+      "path": "ui-react/src/components/PipelineDock.jsx",
+      "size": 2701,
+      "sha256": "8dce81e8e4536648ac4afc838fe1d089ca2dbd0d2a67bd7c9bffa76a95bae873"
+    },
+    {
+      "path": "ui-react/src/components/SessionKit.jsx",
+      "size": 6584,
+      "sha256": "333af022641682e9fc2dcbfd7e8ed5c43bd5287b6249d2543fa6c9fd173a88c2"
+    },
+    {
+      "path": "ui-react/src/components/SlashMenu.jsx",
+      "size": 1753,
+      "sha256": "118ea3977545d4db215a366a562cbfdceb6469579dc9476a806680f657f77240"
+    },
+    {
+      "path": "ui-react/src/components/TerminalView.jsx",
+      "size": 1709,
+      "sha256": "0db5ca826703bba2ecc3182e547399fab97f816b19d6b4e631863f9ed7336b4b"
+    },
+    {
+      "path": "ui-react/src/components/Toast.jsx",
+      "size": 909,
+      "sha256": "8a65d95b5a62ffe00b1aeee8c6a11b39bb1bcf2f3413c845638587d1ab55cc05"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/ActivityBar.jsx",
+      "size": 2047,
+      "sha256": "b1a8d929ddbc0206d45086080a578b5e92dd0678252d973c15dd56367a65a6c7"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/CommandPalette.jsx",
+      "size": 1614,
+      "sha256": "7058017271346fcbff98adc5899e88caed17def7857cfe5369b804ac9a12ee13"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/constants.js",
+      "size": 4590,
+      "sha256": "917875ae14032ac2418b713f1da31061cbec59560bd4b93d3cdb3b399e235d25"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/EditorArea.jsx",
+      "size": 4188,
+      "sha256": "a4c40e26b68cb56d392d1e73968b750df64fd0be380afe36bc9e131c7fc66248"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/GlobalBar.jsx",
+      "size": 5044,
+      "sha256": "392b91190b879fffe48ad6cef026b00422db4ba571a9badf63eff836dfc909c3"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/Inspector.jsx",
+      "size": 2321,
+      "sha256": "48e23588371958f592cb663db5088b955e12aa9069ef1fe8aca7976eddc6e31f"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/PlanSequencer.jsx",
+      "size": 8387,
+      "sha256": "f6d2ce2a1e99a051de3cd1cf36d5f5d78e3ee9fd7f00444e689d367c95c7009e"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/ProjectExplorer.jsx",
+      "size": 4633,
+      "sha256": "4828f5b0c397980c2553a12bebc18e21d3109747c6b955623c0bd0d8a8e1ea95"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/StatusBar.jsx",
+      "size": 1115,
+      "sha256": "3f398e9523b4908a69c35ec84e2614d84290089cef5ff711a85ac9f5139ec2e3"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/TerminalOverlay.jsx",
+      "size": 1091,
+      "sha256": "7e9305ec7f11f79fcd4d90ab148551aec4b3ef56c7939fa746f9d3237e50b103"
+    },
+    {
+      "path": "ui-react/src/control-plane/components/ui.jsx",
+      "size": 1927,
+      "sha256": "c65b19cd7328ed6beda77b79d352257f230ee6cd80c6bfc7a050f7778cbc6503"
+    },
+    {
+      "path": "ui-react/src/control-plane/control-plane.codex.css",
+      "size": 45998,
+      "sha256": "9a782320cf619dd6c7f68ef1daba017b9ec21e1fadf340d7fbc98662cc21cd63"
+    },
+    {
+      "path": "ui-react/src/control-plane/control-plane.css",
+      "size": 42239,
+      "sha256": "f07c4678cb5f1431552c672f7f977048a1f4b6bc3b74a1a58f91061a59ba1f20"
+    },
+    {
+      "path": "ui-react/src/control-plane/ControlPlane.jsx",
+      "size": 12281,
+      "sha256": "36ea8f5ce438f0135b4586cd914b47c04323e8509e9c826094027306caad3358"
+    },
+    {
+      "path": "ui-react/src/control-plane/data.js",
+      "size": 7347,
+      "sha256": "9fba02d7fa83aae527e12a382fc8b5a29952e1f58317a85920f257c50519b12e"
+    },
+    {
+      "path": "ui-react/src/control-plane/icons.jsx",
+      "size": 7136,
+      "sha256": "ffea22d7fab05b5cedb56411d3ac9758c20cca9a4cd3c3488363b0b488c35abb"
+    },
+    {
+      "path": "ui-react/src/control-plane/planData.js",
+      "size": 2492,
+      "sha256": "15ccd22db64c27b28aff6feb3673506dde1f3166f3bae499a9a3398a2990bc8c"
+    },
+    {
+      "path": "ui-react/src/control-plane/rpg-data.js",
+      "size": 6343,
+      "sha256": "d90e6a7fbd0f19e1a2f7a633fc57abc221c240d1335089052ea7398f3f3ca565"
+    },
+    {
+      "path": "ui-react/src/control-plane/rpg-views.css",
+      "size": 11223,
+      "sha256": "f26def5b877370ab43f764355fa3c6a132bbd731308b514e639c27fda3ee6c6b"
+    },
+    {
+      "path": "ui-react/src/control-plane/useBagoData.js",
+      "size": 5710,
+      "sha256": "093ba90ec13ea045ee08bddc140035ce8d6dfc12b092f8e88a1c7a944dc6fa78"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/AuditView.jsx",
+      "size": 3325,
+      "sha256": "7f87c8537ca3c5fac429a65e5bb4aa3b6e609c53341b26e6624cf3f189aa1dd9"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/DashboardView.jsx",
+      "size": 6464,
+      "sha256": "a6b06fac6be6619658e667f5f7d3f88cf205e24657fdebda70f5a800fb98d837"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/HealthView.jsx",
+      "size": 2364,
+      "sha256": "d6ae4040f373011e9baa0bb31c95363e38e0cf98a593ba158c5345f1c3e47c68"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/InstallationsView.jsx",
+      "size": 5026,
+      "sha256": "75ff11a5d876e84034c0edcc75ddbf8c178ff64565928a76855ea928a689e3b0"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/JobsView.jsx",
+      "size": 1611,
+      "sha256": "d65baffa3014e4d8473dd91610bf6e2084b9cc9d41b7cd6acd85460b7f4c9991"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/NodeMapView.jsx",
+      "size": 8802,
+      "sha256": "f2b8e1b09c9973b49ce098087fed4dd0db298786d7052f9e2a4ed58b37c4d092"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/NodesView.jsx",
+      "size": 2581,
+      "sha256": "68472e168f0b5f62b94f4be90a5a2b61242f4ca8e966a9f12c652d914b19c166"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/PatchbayView.jsx",
+      "size": 4480,
+      "sha256": "9cb615fb882fc3ba6bd17131f25758715f2aa75854413e463430c82eb87ebef8"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/PiecesView.jsx",
+      "size": 4574,
+      "sha256": "dc628b683fa97db29a06739c052f9ed8f8374c7fbc30d0835daf81af122c3594"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/RackView.jsx",
+      "size": 7053,
+      "sha256": "0fd823891fd59ef51a77373c36103e3da3faa5c3696d4f6b2a2ea45994b70877"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/ReleasesView.jsx",
+      "size": 2865,
+      "sha256": "c02cb36f66ddd903733f8f5227bb1b4bf227d48fd859d667c67e894ced534b25"
+    },
+    {
+      "path": "ui-react/src/control-plane/views/RpgGearView.jsx",
+      "size": 6754,
+      "sha256": "c7e9658f93e1ccf884a70382df55597914b476e04846014ca20458400e671443"
+    },
+    {
+      "path": "ui-react/src/ErrorBoundary.jsx",
+      "size": 1287,
+      "sha256": "b00230ff3391dbdbbfdbf129358c6948830bdb204d492621017d497335c6dabe"
+    },
+    {
+      "path": "ui-react/src/interactionLog.js",
+      "size": 1068,
+      "sha256": "daa601f43613e393c11ea85ad439340fd85a2c7bdb61de870f07e7dc4cf81244"
+    },
+    {
+      "path": "ui-react/src/main.jsx",
+      "size": 430,
+      "sha256": "a220ae81e4fc50b301d740d28b1aeac359c2b04f1761f27c612be75ab83c279a"
+    },
+    {
+      "path": "ui-react/src/styles.css",
+      "size": 50174,
+      "sha256": "c18f3d878bba15b3b5f4b07aa85d1164a4853ab427fc2e31953dc58cebfb3367"
+    },
+    {
+      "path": "ui-react/src/useBagoChat.js",
+      "size": 3451,
+      "sha256": "cb05d5fbddc0be7df370cdce56165bfbb91d24e92246e316d8ed65cbe959adeb"
+    },
+    {
+      "path": "ui-react/src/useChatCenter.js",
+      "size": 4247,
+      "sha256": "d45a3b76f90a404b4ba4040692d717f2547d4c5e2279bd7025b21626fcd95f0e"
+    },
+    {
+      "path": "ui-react/src/useInspector.js",
+      "size": 3326,
+      "sha256": "e76cc347cce8b3fe994cb46b8c3264d06f36500e7a9dc10bf106289fe575eca5"
+    },
+    {
+      "path": "ui-react/src/useManagerContext.js",
+      "size": 1389,
+      "sha256": "d6e7199f4853e905e593026ac25cd7a7c4d9469fbb52c649278c2f418dfe0186"
+    },
+    {
+      "path": "ui-react/src/usePipelineNodes.js",
+      "size": 3392,
+      "sha256": "6a0690f6909d94703a3a9dac2fa275062ee3225bbc315bdd552c313ccce2361c"
+    },
+    {
+      "path": "ui-react/src/useSessionKit.js",
+      "size": 3951,
+      "sha256": "d5e1411b53f9a3f091ccfd98055a1f3400e8fd01774e8e7d33bdaf25918f185e"
+    },
+    {
+      "path": "ui-react/src/version.js",
+      "size": 213,
+      "sha256": "8991a23a5f67ce5302eb2cac745d05bcc2918447e3a390f48a31b15289452e3e"
+    },
+    {
+      "path": "ui-react/vite.config.js",
+      "size": 1408,
+      "sha256": "fe482dd86a4ba5e3e924962e137bd4e467ebdd0c1c7ef7591f3d91a7514d12e7"
+    },
+    {
+      "path": "versions.json",
+      "size": 3512,
+      "sha256": "11ec243ba4707b4566b30cb8c8cd9cdb3c913e63ed37f00220b4942167e88c19"
+    },
+    {
+      "path": "AUDIT_SNAPSHOT.json",
+      "size": 656,
+      "sha256": "2249d4b070ea74da2a233fa80dc2c73adc8bb008191ded39595f828174e94250"
+    }
+  ],
+  "snapshot": {
+    "branch": "release/v4.7.0",
+    "commit": "06f29c600ba954cf9fb6c88828f67d661c87e24d",
+    "dirty_count": 0,
+    "dirty_files": [],
+    "timestamp_utc": "2026-06-22T03:47:16.248363+00:00",
+    "package": "bago-audit-v4.7.2.zip",
+    "file_count": 520,
+    "release_version": "4.7.2",
+    "excluded_prefixes": [
+      ".bago/state",
+      ".bago/logs",
+      ".bago/launch",
+      ".bago/tools/.bago",
+      "PLAN_VERTICE",
+      "release",
+      "dist",
+      "build",
+      ".ollama",
+      ".cache/ollama",
+      "models",
+      ".bago/models",
+      "weights",
+      "checkpoints"
+    ],
+    "forbidden_names": [
+      ".env",
+      ".env.local",
+      "credentials.json",
+      "install_config.json"
+    ],
+    "zip_sha256": "51608645df501da1697301d0f45de1908e4a70d68c675c09b1461be4fa8cf419",
+    "embedded_snapshot_sha256": "2249d4b070ea74da2a233fa80dc2c73adc8bb008191ded39595f828174e94250"
+  }
+}
