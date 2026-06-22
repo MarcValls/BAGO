@@ -1,27 +1,39 @@
-import { Badge, Icon, ViewState } from '../components/ui'
-import { useNodeStatus, useNodeMatrix, useNodePieces, useNodeConnectors, useNodeEvidence } from '../useBagoData'
 import { useState } from 'react'
+import { useNodeStatus, useNodeMatrix, useNodePieces, useNodeConnectors, useNodeEvidence } from '../useBagoData'
 import NodeMapView from './NodeMapView'
 
 const TABS = ['Mapa', 'Matrix', 'Pieces', 'Connectors', 'Evidence']
 
 export default function NodesView({ context, onSetContext, onAction }) {
   const [tab, setTab] = useState('Mapa')
-  const { data: statusData, loading: stLoad, error: stErr } = useNodeStatus()
-  const { data: matrixData, loading: mxLoad } = useNodeMatrix()
-  const { data: piecesData, loading: pcLoad } = useNodePieces()
-  const { data: connData, loading: cnLoad } = useNodeConnectors()
-  const { data: evidData, loading: evLoad } = useNodeEvidence(40)
+  const [validationResult, setValidationResult] = useState(null)
+  const { data: statusData, loading: statusLoading, error: statusError, refresh: refreshStatus } = useNodeStatus()
+  const { data: matrixData, loading: matrixLoading, refresh: refreshMatrix } = useNodeMatrix()
+  const { data: piecesData, loading: piecesLoading, refresh: refreshPieces } = useNodePieces()
+  const { data: connectorsData, loading: connectorsLoading, refresh: refreshConnectors } = useNodeConnectors()
+  const { data: evidenceData, loading: evidenceLoading, refresh: refreshEvidence } = useNodeEvidence(40)
 
   const status = statusData?.ok ? (statusData.data || statusData.text || statusData.raw) : null
   const matrix = matrixData?.ok ? (matrixData.data || matrixData.text) : null
   const pieces = piecesData?.ok ? (piecesData.data || piecesData.text) : null
-  const connectors = connData?.ok ? (connData.data || connData.text) : null
-  const evidence = evidData?.ok ? (evidData.data || evidData.text) : null
+  const connectors = connectorsData?.ok ? (connectorsData.data || connectorsData.text) : null
+  const evidence = evidenceData?.ok ? (evidenceData.data || evidenceData.text) : null
 
-  const loading = { Mapa: false, Matrix: mxLoad, Pieces: pcLoad, Connectors: cnLoad, Evidence: evLoad }[tab]
-  const error = stErr || statusData?.error
-  const data = { Matrix: matrix, Pieces: pieces, Connectors: connectors, Evidence: evidence }[tab]
+  const loading = { Mapa: statusLoading, Matrix: matrixLoading, Pieces: piecesLoading, Connectors: connectorsLoading, Evidence: evidenceLoading }[tab]
+  const error = statusError || statusData?.error
+  const data = { Mapa: status, Matrix: matrix, Pieces: pieces, Connectors: connectors, Evidence: evidence }[tab]
+
+  async function refreshAll() {
+    await Promise.all([refreshStatus(), refreshMatrix(), refreshPieces(), refreshConnectors(), refreshEvidence()])
+  }
+
+  async function validate() {
+    const result = await onAction?.('validate-nodes')
+    if (result !== null) {
+      setValidationResult(result)
+      await refreshAll()
+    }
+  }
 
   return (
     <section className="cp-view cp-view-active">
@@ -31,12 +43,11 @@ export default function NodesView({ context, onSetContext, onAction }) {
             <button key={label} type="button" className={`cp-seg-btn ${tab === label ? 'is-active' : ''}`} onClick={() => setTab(label)}>{label}</button>
           ))}
         </div>
-        <button type="button" className="cp-btn" onClick={() => onAction?.('open-node', context.node)}>Abrir</button>
+        <button type="button" className="cp-btn" onClick={refreshAll}>Refrescar</button>
+        <button type="button" className="cp-btn cp-btn-primary" onClick={validate}>Validar nodos</button>
       </div>
 
-      {tab === 'Mapa' && (
-        <NodeMapView context={context} onSetContext={onSetContext} onAction={onAction} />
-      )}
+      {tab === 'Mapa' && <NodeMapView context={context} onSetContext={onSetContext} onAction={onAction} />}
 
       {tab !== 'Mapa' && (
         loading ? (
@@ -51,6 +62,13 @@ export default function NodesView({ context, onSetContext, onAction }) {
           </div>
         )
       )}
+
+      {validationResult ? (
+        <div className="cp-card cp-node-stage">
+          <div className="cp-section-title">Última validación</div>
+          <pre className="cp-json-viewer">{typeof validationResult === 'string' ? validationResult : JSON.stringify(validationResult, null, 2)}</pre>
+        </div>
+      ) : null}
     </section>
   )
 }
