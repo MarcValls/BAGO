@@ -14,6 +14,7 @@ import TerminalOverlay from './components/TerminalOverlay'
 import { ROOMS } from './components/constants'
 import './control-plane.css'
 import './control-plane.codex.css'
+import './rpg-views.css'
 
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'dark'

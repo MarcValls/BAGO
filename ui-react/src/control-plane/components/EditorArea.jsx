@@ -6,6 +6,8 @@ import InstallationsView from '../views/InstallationsView'
 import PatchbayView from '../views/PatchbayView'
 import NodesView from '../views/NodesView'
 import PiecesView from '../views/PiecesView'
+import RpgGearView from '../views/RpgGearView'
+import RackView from '../views/RackView'
 import ReleasesView from '../views/ReleasesView'
 import AuditView from '../views/AuditView'
 import HealthView from '../views/HealthView'
@@ -74,6 +76,8 @@ export default function EditorArea({
         {activeRoom === 'patchbay' && <PatchbayView context={context} onSetContext={setContext} />}
         {activeRoom === 'nodes' && <NodesView context={context} onSetContext={setContext} onAction={onAction} />}
         {activeRoom === 'pieces' && <PiecesView context={context} onAction={onAction} />}
+        {activeRoom === 'gear' && <RpgGearView context={context} onAction={onAction} />}
+        {activeRoom === 'rack' && <RackView context={context} onAction={onAction} />}
         {activeRoom === 'releases' && <ReleasesView context={context} onAction={onAction} />}
         {activeRoom === 'audit' && <AuditView context={context} onAction={onAction} />}
         {activeRoom === 'health' && <HealthView context={context} onSetContext={setContext} />}

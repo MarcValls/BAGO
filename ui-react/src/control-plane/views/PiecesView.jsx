@@ -1,19 +1,73 @@
 import { useState } from 'react'
 import { Badge, Icon, ViewState } from '../components/ui'
 import { useNodePieces } from '../useBagoData'
+import { DEMO_PIECES } from '../data'
+import { toRpgPiece, RARITIES } from '../rpg-data'
+
+function PieceCard({ piece, onAttach, onConfig, onInspect }) {
+  const rpg = toRpgPiece(piece)
+  return (
+    <div
+      className="cp-card cp-piece-card-rpg"
+      style={{ borderColor: rpg.rarityMeta.color, boxShadow: rpg.rarityMeta.glow }}
+    >
+      <div className="cp-piece-card-header">
+        <span className="cp-piece-card-icon" style={{ background: rpg.rarityMeta.color }}>
+          {rpg.slot[0].toUpperCase()}
+        </span>
+        <div className="cp-piece-card-meta">
+          <div className="cp-piece-card-name">{rpg.name}</div>
+          <div className="cp-piece-card-sub">{rpg.type} · {rpg.slot}</div>
+        </div>
+        <Badge variant={rpg.rarity}>{rpg.rarityMeta.label}</Badge>
+      </div>
+
+      <div className="cp-piece-card-desc">{rpg.description}</div>
+
+      <div className="cp-piece-card-stats">
+        {Object.entries(rpg.stats).map(([k, v]) => (
+          <div key={k} className="cp-piece-card-stat">
+            <span className="cp-piece-card-stat-label">{k.slice(0, 3)}</span>
+            <div className="cp-piece-card-stat-dots">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} className={`cp-piece-card-dot ${i < v ? 'is-on' : ''}`} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {rpg.abilities.length > 0 && (
+        <div className="cp-piece-card-abilities">
+          {rpg.abilities.map((a) => (
+            <span key={a} className="cp-piece-card-ability">{a}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="cp-card-foot">
+        <button type="button" className="cp-small-btn" onClick={() => onAttach?.(rpg.id)}>Equipar</button>
+        <button type="button" className="cp-small-btn" onClick={() => onInspect?.(rpg)}>Inspeccionar</button>
+        <button type="button" className="cp-small-btn" onClick={() => onConfig?.(rpg.id)}>Config</button>
+      </div>
+    </div>
+  )
+}
 
 export default function PiecesView({ context, onAction }) {
   const { data, loading, error } = useNodePieces()
   const [filter, setFilter] = useState('Todas')
+  const [selected, setSelected] = useState(null)
 
   const raw = data?.ok ? (data.data || data.text || data.raw) : null
-  const pieces = Array.isArray(raw) ? raw : (raw?.pieces || raw?.items || [])
+  const pieces = Array.isArray(raw) ? raw : DEMO_PIECES
+
   const filtered = filter === 'Todas' ? pieces : pieces.filter((p) => {
     const type = (p.type || p.kind || '').toLowerCase()
     return type.includes(filter.toLowerCase())
   })
 
-  const FILTERS = ['Todas', 'tool', 'agent', 'skill', 'knowledge', 'connector']
+  const FILTERS = ['Todas', 'tool', 'agent', 'skill', 'knowledge', 'connector', 'model', 'translator']
 
   return (
     <section className="cp-view cp-view-active">
@@ -30,24 +84,34 @@ export default function PiecesView({ context, onAction }) {
         </button>
       </div>
 
-      {loading ? <div className="cp-loading">Cargando piezas…</div> :
-       error ? <div className="cp-error">Error: {error}</div> :
-       !pieces.length ? <div className="cp-loading">Sin piezas — ejecuta <code>bago node pieces</code> para ver datos</div> :
-       <ViewState empty={!filtered.length} emptyLabel="Sin piezas para este filtro">
-         <div className="cp-pieces-grid">
-           {filtered.map((piece, i) => (
-             <div className="cp-card cp-piece-card" key={piece.id || piece.name || i}>
-               <div className="cp-piece-type">{piece.type || piece.kind || '—'}</div>
-               <div className="cp-piece-id">{piece.id || piece.name || '—'}</div>
-               <div className="cp-piece-desc">{piece.desc || piece.description || piece.status || ''}</div>
-               <div className="cp-card-foot">
-                 <button type="button" className="cp-small-btn" onClick={() => onAction?.('attach-piece', piece.id || piece.name)}>Attach</button>
-                 <button type="button" className="cp-small-btn" onClick={() => onAction?.('config-piece', piece.id || piece.name)}>Config</button>
-               </div>
-             </div>
-           ))}
-         </div>
-       </ViewState>}
+      {loading ? <ViewState loading /> :
+       error ? <ViewState error={error} /> :
+       !pieces.length ? <ViewState empty emptyLabel="Sin piezas — ejecuta bago node pieces" /> :
+       (
+         <ViewState empty={!filtered.length} emptyLabel="Sin piezas para este filtro">
+           <div className="cp-pieces-grid-rpg">
+             {filtered.map((piece, i) => (
+               <PieceCard
+                 key={piece.id || piece.name || i}
+                 piece={piece}
+                 onAttach={(id) => onAction?.('attach-piece', id)}
+                 onConfig={(id) => onAction?.('config-piece', id)}
+                 onInspect={(rpg) => setSelected(rpg)}
+               />
+             ))}
+           </div>
+         </ViewState>
+       )}
+
+      {selected && (
+        <div className="cp-piece-inspector">
+          <div className="cp-piece-inspector-head">
+            <span style={{ color: selected.rarityMeta.color }}>{selected.name}</span>
+            <button type="button" onClick={() => setSelected(null)}>✕</button>
+          </div>
+          <pre className="cp-piece-inspector-json">{JSON.stringify(selected.raw, null, 2)}</pre>
+        </div>
+      )}
     </section>
   )
 }

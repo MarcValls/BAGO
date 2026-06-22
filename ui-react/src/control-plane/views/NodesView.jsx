@@ -1,11 +1,12 @@
 import { Badge, Icon, ViewState } from '../components/ui'
 import { useNodeStatus, useNodeMatrix, useNodePieces, useNodeConnectors, useNodeEvidence } from '../useBagoData'
 import { useState } from 'react'
+import NodeMapView from './NodeMapView'
 
-const TABS = ['Overview', 'Matrix', 'Pieces', 'Connectors', 'Evidence']
+const TABS = ['Mapa', 'Matrix', 'Pieces', 'Connectors', 'Evidence']
 
 export default function NodesView({ context, onSetContext, onAction }) {
-  const [tab, setTab] = useState('Overview')
+  const [tab, setTab] = useState('Mapa')
   const { data: statusData, loading: stLoad, error: stErr } = useNodeStatus()
   const { data: matrixData, loading: mxLoad } = useNodeMatrix()
   const { data: piecesData, loading: pcLoad } = useNodePieces()
@@ -18,9 +19,9 @@ export default function NodesView({ context, onSetContext, onAction }) {
   const connectors = connData?.ok ? (connData.data || connData.text) : null
   const evidence = evidData?.ok ? (evidData.data || evidData.text) : null
 
-  const loading = { Overview: stLoad, Matrix: mxLoad, Pieces: pcLoad, Connectors: cnLoad, Evidence: evLoad }[tab]
+  const loading = { Mapa: false, Matrix: mxLoad, Pieces: pcLoad, Connectors: cnLoad, Evidence: evLoad }[tab]
   const error = stErr || statusData?.error
-  const data = { Overview: status, Matrix: matrix, Pieces: pieces, Connectors: connectors, Evidence: evidence }[tab]
+  const data = { Matrix: matrix, Pieces: pieces, Connectors: connectors, Evidence: evidence }[tab]
 
   return (
     <section className="cp-view cp-view-active">
@@ -33,16 +34,22 @@ export default function NodesView({ context, onSetContext, onAction }) {
         <button type="button" className="cp-btn" onClick={() => onAction?.('open-node', context.node)}>Abrir</button>
       </div>
 
-      {loading ? (
-        <div className="cp-loading">Cargando {tab}…</div>
-      ) : error && !data ? (
-        <div className="cp-error">Error: {error}</div>
-      ) : !data ? (
-        <div className="cp-loading">Sin datos — verifica que BAGO runtime esté instalado</div>
-      ) : (
-        <div className="cp-card cp-node-stage">
-          <pre className="cp-json-viewer">{typeof data === 'string' ? data : JSON.stringify(data, null, 2)}</pre>
-        </div>
+      {tab === 'Mapa' && (
+        <NodeMapView context={context} onSetContext={onSetContext} onAction={onAction} />
+      )}
+
+      {tab !== 'Mapa' && (
+        loading ? (
+          <div className="cp-loading">Cargando {tab}…</div>
+        ) : error && !data ? (
+          <div className="cp-error">Error: {error}</div>
+        ) : !data ? (
+          <div className="cp-loading">Sin datos — verifica que BAGO runtime esté instalado</div>
+        ) : (
+          <div className="cp-card cp-node-stage">
+            <pre className="cp-json-viewer">{typeof data === 'string' ? data : JSON.stringify(data, null, 2)}</pre>
+          </div>
+        )
       )}
     </section>
   )

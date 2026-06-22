@@ -22,6 +22,17 @@
 - Backwards-compatible aliases `provider set-fallback` and
   `provider remove-fallback` that resolve against `default_provider`.
 - `tests/test_cmd_provider.py` covering the new subcommand surface.
+- New Control Plane views to reduce cognitive load:
+  - `RpgGearView`: equips the chat like an RPG character with slots
+    (helm, chest, gloves, boots, weapon, offhand, rings, amulet),
+    rarity, attributes and abilities.
+  - `RackView`: visual execution chain/rack of pipeline modules with
+    draggable order, run/stop/reset and per-module output.
+  - `NodeMapView`: draggable node graph of installations, pieces,
+    connectors and knowledge with zoom/pan and selection details.
+  - `PiecesView` upgraded to RPG-style item cards with stats dots,
+    rarity glow and abilities.
+  - `NodesView` Overview replaced by `NodeMapView`.
 
 ### Fixed
 - `bago_core/version.py` now works when executed standalone (wheel/source

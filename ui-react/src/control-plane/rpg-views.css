@@ -1,0 +1,701 @@
+/* rpg-views.css — Vistas RPG, Rack y NodeMap del Control Plane.
+ * Reduce carga cognitiva presentando piezas como equipo, planes como rack
+ * modular y topología como grafo de nodos.
+ */
+
+/* ─── Vista Equipo RPG ─── */
+
+.cp-gear-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cp-gear-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-gear-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.cp-gear-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cp-gear-score {
+  color: var(--brand);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.cp-gear-body {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.cp-gear-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.cp-gear-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.cp-gear-slot-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 90px;
+}
+
+.cp-gear-slot-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--panel3);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cp-gear-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: transparent;
+  border: 2px solid;
+  border-radius: 6px;
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cp-gear-item:hover {
+  transform: translateY(-1px);
+}
+
+.cp-gear-item-name {
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-gear-item-type {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.cp-gear-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  border: 2px dashed var(--line);
+  border-radius: 6px;
+}
+
+.cp-gear-alternatives {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cp-gear-alt {
+  font-size: 11px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-gear-alt:hover {
+  background: var(--panel3);
+}
+
+.cp-gear-detail {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.cp-gear-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.cp-gear-detail-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.cp-gear-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-gear-detail-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.cp-gear-detail-stats {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.cp-gear-radar {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.cp-gear-stat-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cp-gear-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.cp-gear-stat-label {
+  width: 45px;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.cp-gear-stat-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--panel3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cp-gear-stat-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 3px;
+}
+
+.cp-gear-stat-value {
+  width: 24px;
+  text-align: right;
+  color: var(--muted);
+}
+
+.cp-gear-abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cp-gear-ability {
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--panel3);
+  border: 1px solid var(--line);
+}
+
+/* ─── Piezas como tarjetas RPG ─── */
+
+.cp-pieces-grid-rpg {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.cp-piece-card-rpg {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border: 2px solid;
+  border-radius: 8px;
+  padding: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cp-piece-card-rpg:hover {
+  transform: translateY(-2px);
+}
+
+.cp-piece-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-piece-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cp-piece-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-piece-card-name {
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-piece-card-sub {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.cp-piece-card-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.cp-piece-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.cp-piece-card-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.cp-piece-card-stat-label {
+  color: var(--muted);
+  width: 22px;
+}
+
+.cp-piece-card-stat-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.cp-piece-card-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--panel3);
+}
+
+.cp-piece-card-dot.is-on {
+  background: var(--brand);
+}
+
+.cp-piece-card-abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cp-piece-card-ability {
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--panel3);
+  border: 1px solid var(--line);
+}
+
+.cp-piece-inspector {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 360px;
+  max-height: 50vh;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+
+.cp-piece-inspector-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cp-piece-inspector-json {
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+}
+
+/* ─── Vista Rack de ejecución ─── */
+
+.cp-rack-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cp-rack-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-rack-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cp-rack-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.cp-rack-body {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.cp-rack-rail {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.cp-rack-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cp-rack-module {
+  width: 160px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--panel);
+  border: 2px solid;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+
+.cp-rack-module.status-running {
+  animation: cp-rack-pulse 1.2s infinite;
+}
+
+.cp-rack-module.status-ok {
+  opacity: 0.85;
+}
+
+.cp-rack-module.status-error {
+  border-color: var(--danger) !important;
+}
+
+@keyframes cp-rack-pulse {
+  0%, 100% { box-shadow: 0 0 0 transparent; }
+  50% { box-shadow: 0 0 12px var(--brand); }
+}
+
+.cp-rack-module-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.cp-rack-module-label {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.cp-rack-module-cmd {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-rack-module-ports {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.cp-rack-port {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line2);
+}
+
+.cp-rack-arrows {
+  display: flex;
+  gap: 4px;
+}
+
+.cp-rack-arrows button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cp-rack-arrows button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cp-rack-detail {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.cp-rack-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.cp-rack-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-rack-detail-cmd {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px;
+  background: var(--panel2);
+  border-radius: 4px;
+}
+
+.cp-rack-detail-deps {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cp-rack-detail-output {
+  font-size: 11px;
+  background: var(--panel2);
+  padding: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ─── Vista NodeMap ─── */
+
+.cp-node-map-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cp-node-map-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-node-map-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cp-node-map-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.cp-node-map-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+.cp-node-map-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  transform-origin: 0 0;
+}
+
+.cp-node-map-svg:active {
+  cursor: grabbing;
+}
+
+.cp-node-map-node {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.cp-node-map-node:hover {
+  filter: brightness(1.2);
+}
+
+.cp-node-map-node.is-selected circle:nth-child(3) {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.cp-node-map-node text {
+  pointer-events: none;
+  user-select: none;
+}
+
+.cp-node-map-detail {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+}
+
+.cp-node-map-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cp-node-map-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-node-map-detail-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cp-node-map-detail-meta {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 900px) {
+  .cp-gear-body {
+    flex-direction: column;
+  }
+  .cp-gear-detail {
+    width: auto;
+    max-height: 40vh;
+  }
+  .cp-rack-body {
+    flex-direction: column;
+  }
+  .cp-rack-detail {
+    width: auto;
+  }
+  .cp-rack-rail {
+    flex-wrap: wrap;
+  }
+}
