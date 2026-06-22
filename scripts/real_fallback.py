@@ -4,7 +4,7 @@ real_fallback.py — Demuestra el contrato `quality` con fallback real de
 ollama-local a cpp-local.
 
 Uso:
-    python scripts\\real_fallback.py --prompt "BAGO 4.1.5 release notes"
+    python scripts\\real_fallback.py --prompt "BAGO release notes"
 """
 from __future__ import annotations
 

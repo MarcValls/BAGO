@@ -27,19 +27,23 @@ def validate(zip_path: Path) -> int:
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     expected_count = manifest.get("file_count", 0)
-    expected_files = set(manifest.get("files", []))
+    expected_entries = manifest.get("files", [])
+    expected_names = {entry["path"] if isinstance(entry, dict) else entry for entry in expected_entries}
 
     with zipfile.ZipFile(zip_path) as zf:
         actual_names = set(zf.namelist())
 
-    if expected_files and actual_names != expected_files:
-        extra = actual_names - expected_files
-        missing = expected_files - actual_names
+    if expected_names and actual_names != expected_names:
+        extra = actual_names - expected_names
+        missing = expected_names - actual_names
         if extra:
             print(f"WARN: {len(extra)} extra files in ZIP")
         if missing:
             print(f"GATE-FAIL: {len(missing)} files missing from ZIP: {sorted(missing)[:5]}")
             return 1
+
+    if expected_count and len(actual_names) != expected_count:
+        print(f"WARN: ZIP file count {len(actual_names)} != manifest {expected_count}")
 
     print(f"OK: ZIP contents valid ({len(actual_names)} files, manifest match)")
     return 0

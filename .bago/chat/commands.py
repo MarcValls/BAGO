@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-commands.py — BAGO 4.1.5 Chat Command Parser
+commands.py — BAGO Chat Command Parser
 
 Parsea y ejecuta comandos slash del REPL.
 Todos los comandos son funciones puras que reciben el SessionManager

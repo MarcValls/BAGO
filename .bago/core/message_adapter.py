@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-message_adapter.py — BAGO 4.1.5 Message Adapter
+message_adapter.py — BAGO Message Adapter
 
 Normaliza el formato de mensajes entre diferentes providers para que
 el ContextStore.history[] sea portable.

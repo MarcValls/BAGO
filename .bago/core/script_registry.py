@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-script_registry.py — BAGO 4.1.5 Script Registry
+script_registry.py — BAGO Script Registry
 
 Índice explícito de scripts Python agrupados por baterías funcionales.
 Permite resolver una tarea hacia un script concreto y decir qué falta cuando

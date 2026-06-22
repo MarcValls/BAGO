@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-model_equivalence.py — BAGO 4.1.5 Model Equivalence Map
+model_equivalence.py — BAGO Model Equivalence Map
 
 Define equivalencias entre modelos para decidir si el contexto es
 transferible sin pérdida al cambiar de provider.

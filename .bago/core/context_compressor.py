@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-context_compressor.py — BAGO 4.1.5 Hierarchical Layer Compression
+context_compressor.py — BAGO Hierarchical Layer Compression
 
 Compresión por capas para downgrades de modelo:
 - Las capas se enlazan formando bloques unificados.

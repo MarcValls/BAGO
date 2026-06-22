@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-bago_context.py — BAGO v3.0 Shared Context Service
+bago_context.py — BAGO Shared Context Service
 
 Singleton context object: path resolution, state management,
 centralized logging, tool execution, and event bus.

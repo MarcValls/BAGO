@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-copilot.py — BAGO 4.1.5 GitHub Copilot Provider Adapter
+copilot.py — BAGO GitHub Copilot Provider Adapter
 
 Adapter para GitHub Copilot Chat.
 Usa el endpoint de Copilot Chat v1/v2 directamente vía HTTP.

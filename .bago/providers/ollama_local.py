@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-ollama_local.py — BAGO 4.1.5 Ollama Local Provider Adapter
+ollama_local.py — BAGO Ollama Local Provider Adapter
 
 Adapter para modelos Ollama ejecutándose en localhost:11434.
 No requiere credenciales.

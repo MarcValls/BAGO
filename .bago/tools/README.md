@@ -1,6 +1,7 @@
-# BAGO 4.1.5 — Herramientas portadas (`.bago/tools/`)
+# BAGO — Herramientas portadas (`.bago/tools/`)
 
-Utilidades **standalone** recuperadas de BAGO 3.x y adaptadas a 4.1.5.
+Utilidades **standalone** recuperadas de versiones anteriores de BAGO y
+adaptadas al runtime actual.
 Son scripts ejecutables directamente (no están cableados al `ToolRegistry`
 del runtime, por lo que no afectan a los contratos del chat).
 
@@ -69,16 +70,15 @@ O desde el CLI:
 ```bash
 bago scan --root . forced
 ```
-```
 
 Las tres herramientas comparten `bago_utils.py` y son ASCII/UTF-8 safe en
 consolas Windows. Verificadas: self-tests al 100% + ejecución funcional sobre el
 repo limpio.
 
-Adaptaciones respecto a la versión 3.x:
+Adaptaciones respecto a versiones anteriores:
 - Raíz parametrizable (`--root`), por defecto la raíz del repo (antes escaneaba
   todo el HOME y `E:/bago_fw` hardcodeado).
-- Sin identidades git hardcodeadas (la 3.x reescribía nombre/email del usuario).
+- Sin identidades git hardcodeadas (las versiones antiguas reescribían nombre/email del usuario).
 - Salida ASCII-safe (sin emojis) para consolas Windows.
 - Filtros anti falso-positivo: descarta placeholders de documentación y solo
   marca como "secreto rastreado por git" ficheros de datos (`.json`/`.env`/…),
@@ -120,7 +120,7 @@ alineado con la preferencia de "culpa técnica")
 - [ ] `bago_portable` — instalación/sync en pen drive. *(keystone)*
 - [ ] `bago_backup_vault` — backups rotados (engine/memory).
 
-El resto de las ~546 herramientas 3.x siguen preservadas. Las grandes
+El resto de las ~546 herramientas heredadas siguen preservadas. Las grandes
 (`agent_router`, `spiral_agent`, `toolsmith`, `neural_toolbox`) arrastran el
-ecosistema 3.x (`tool_registry`, `bago.ollama_runtime`, `harmony_gate`, `numpy`,
-`rich`) y requieren portado individual + wrapping al `ToolRegistry` 4.1.5.
+ecosistema heredado (`tool_registry`, `bago.ollama_runtime`, `harmony_gate`, `numpy`,
+`rich`) y requieren portado individual + wrapping al `ToolRegistry` actual.

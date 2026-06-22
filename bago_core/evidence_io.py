@@ -42,12 +42,33 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
+def _normalize_text_content(data: bytes) -> bytes:
+    """Return content with LF line endings and a single trailing LF where useful.
+
+    Evidence bundles must be reproducible across platforms. Files that are
+    treated as text by Git (JSON, JSONL, MD, TXT) are normalized to LF before
+    being checksummed so Windows CRLF artifacts do not break integrity tests.
+    """
+    if b"\r\n" in data:
+        data = data.replace(b"\r\n", b"\n")
+    # Collapse accidental mixed endings, but preserve existing single LF files.
+    if b"\r" in data:
+        data = data.replace(b"\r", b"\n")
+    return data
+
+
 def sha256(path: Path) -> str:
-    """Hex SHA-256 of a file, streamed in 64 KiB chunks."""
+    """Hex SHA-256 of a file, streamed in 64 KiB chunks.
+
+    For known text artifacts in evidence bundles we normalize line endings to
+    LF so the digest is platform-independent (see R8 reproducibility rule).
+    """
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
+        data = handle.read()
+    if path.suffix.lower() in {".json", ".jsonl", ".md", ".txt"}:
+        data = _normalize_text_content(data)
+    digest.update(data)
     return digest.hexdigest()
 
 

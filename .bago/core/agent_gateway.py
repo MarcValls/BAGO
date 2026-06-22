@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-agent_gateway.py — BAGO 4.1.5 Agent Gateway
+agent_gateway.py — BAGO Agent Gateway
 
 Registro simple de agentes especializados. Cada agente tiene un system prompt
 optimizado para una tarea concreta. Activar un agente cambia el comportamiento

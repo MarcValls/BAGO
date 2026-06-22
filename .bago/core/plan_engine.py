@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-plan_engine.py — BAGO 4.1.5 Plan Engine
+plan_engine.py — BAGO Plan Engine
 
 Genera y ejecuta planes paso a paso usando el provider activo.
 Mantiene el plan en la sesión para ejecución progresiva.

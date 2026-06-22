@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-provider_adapter.py — BAGO 4.1.5 Provider Adapter Base
+provider_adapter.py — BAGO Provider Adapter Base
 
 Interfaz unificada para todos los providers de LLM.
 Cada provider implementa esta interfaz.

@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-cpp_local.py — BAGO 4.1.5 C++ Local Runtime Adapter
+cpp_local.py — BAGO C++ Local Runtime Adapter
 
 Adapter para un runtime local externo escrito en C++.
 Fase 1: define el contrato HTTP/JSON mínimo para salud, modelos y chat.

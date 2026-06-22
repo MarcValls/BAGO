@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-credential_manager.py — BAGO 4.1.5 Credential Manager
+credential_manager.py — BAGO Credential Manager
 
 Almacena y recupera credenciales de providers (API keys, tokens, URLs).
 Las guarda en `.bago/credentials.json` con permisos restrictivos.

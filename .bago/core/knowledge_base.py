@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-knowledge_base.py — BAGO 4.1.5 Knowledge Base
+knowledge_base.py — BAGO Knowledge Base
 
 Almacenamiento persistente de hechos y recuerdos extraídos de las conversaciones.
 Usa SQLite (stdlib) para persistencia sin dependencias externas.

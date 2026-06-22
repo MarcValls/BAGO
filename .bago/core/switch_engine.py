@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-switch_engine.py — BAGO 4.1.5 Switch Engine
+switch_engine.py — BAGO Switch Engine
 
 Motor de cambio de provider/modelo.
 - Valida configuración del destino

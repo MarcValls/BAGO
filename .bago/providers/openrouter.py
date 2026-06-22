@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-openrouter.py — BAGO 4.1.5 OpenRouter Provider Adapter
+openrouter.py — BAGO OpenRouter Provider Adapter
 
 Adapter para OpenRouter (https://openrouter.ai).
 API OpenAI-compatible. Requiere OPENROUTER_API_KEY.
@@ -29,6 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from provider_adapter import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
 
 
+from bago_core.versioning import current as _current_version
+
 OPENROUTER_API = "https://openrouter.ai/api/v1"
 
 
@@ -45,7 +47,7 @@ class OpenRouterAdapter(ProviderAdapter):
             "Authorization": f"Bearer {self.api_key or ''}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://bago.local",
-            "X-Title": "BAGO 4.1.5",
+            "X-Title": f"BAGO {_current_version()}",
         }
 
     def _post(self, url: str, payload: dict, timeout: float = 60.0) -> dict:

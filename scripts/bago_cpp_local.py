@@ -6,7 +6,7 @@ Actúa como provider extremo en la cadena de fallback. Devuelve JSON con
 `{ok, model, output}` y mide latencia simulada.
 
 Uso:
-    python scripts\\bago_cpp_local.py --prompt "BAGO 4.1.5 release notes" --model bago-cpp-local
+    python scripts\\bago_cpp_local.py --prompt "BAGO release notes" --model bago-cpp-local
     set BAGO_CPP_LATENCY_MS=50
     python scripts\\bago_cpp_local.py --prompt "..."
 """

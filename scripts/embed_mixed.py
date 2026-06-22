@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 embed_mixed.py — Ingest híbrido: real para `topics` (≤30 docs), determinista para
-el resto. Sirve para sellar release 4.1.5 con embeddings parciales sin bloquear
+el resto. Sirve para sellar release con embeddings parciales sin bloquear
 el runtime durante horas.
 
 Uso:

@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-repl.py — BAGO 4.1.5 Chat REPL (Rediseño Completo)
+repl.py — BAGO Chat REPL (Rediseño Completo)
 
 Loop principal de chat multi-provider.
 - Barra de estado persistente

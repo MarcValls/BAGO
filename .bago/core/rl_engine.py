@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-rl_engine.py — BAGO 4.1.5 Reinforcement Learning Engine
+rl_engine.py — BAGO Reinforcement Learning Engine
 
 Módulo de aprendizaje por refuerzo ligero para BAGO:
 - Feedback implícito/explícito del usuario sobre respuestas

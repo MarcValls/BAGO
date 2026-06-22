@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-agent_dispatcher.py — BAGO v3.0 Agent Dispatcher
+agent_dispatcher.py — BAGO Agent Dispatcher
 
 Routes BAGO commands to their responsible agents (informational dispatch).
 Provides env-var injection, structured logging, and before/after events.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-verify_default_model.py — BAGO 4.1.5 default_model drift verifier
+verify_default_model.py — BAGO default_model drift verifier
 
 Falla (exit 1) si alguno de los `config.json` canónicos y los strings en
 documentación/scripts no coinciden con un único `default_model`.

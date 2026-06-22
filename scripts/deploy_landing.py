@@ -19,7 +19,8 @@ from pathlib import Path
 
 def deploy(prod: bool = False, yes: bool = False) -> str:
     repo_root = Path(__file__).resolve().parents[1]
-    # La landing está en la raíz (index.html + vercel.json)
+    # Vercel runs the build command defined in vercel.json (build_vercel_site.cjs),
+    # which renders index.html from the template. We just trigger the deployment.
     vercel_bin = shutil.which("vercel.cmd") or shutil.which("vercel") or "vercel"
     cmd = [vercel_bin, str(repo_root)]
     if prod:

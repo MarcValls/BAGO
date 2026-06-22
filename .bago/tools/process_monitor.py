@@ -420,7 +420,7 @@ def generate_html(snapshot: dict, refresh: int = 5, live_port: int = 0) -> str:
   {card_rl}
 </div>
 <footer style="text-align:center;padding:16px;color:var(--text-dim);font-size:0.8em;">
-  BAGO v4.1.5 — Process Monitor — auto-refresh cada {refresh}s
+  BAGO Process Monitor — auto-refresh cada {refresh}s
 </footer>
 </body>
 </html>"""

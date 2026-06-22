@@ -154,7 +154,9 @@ def sha256(path: Path) -> str:
 
 def require_inputs(root: Path) -> None:
     missing_files = [item for item in INCLUDE_FILES if not (root / item).is_file()]
-    missing_dirs = [item for item in INCLUDE_DIRS if not (root / item).exists()]
+    # manager/ is optional: the legacy manager is distributed as manager.zip.
+    required_dirs = [item for item in INCLUDE_DIRS if item != "manager"]
+    missing_dirs = [item for item in required_dirs if not (root / item).exists()]
     missing = missing_files + missing_dirs
     if missing:
         raise FileNotFoundError(
@@ -343,7 +345,7 @@ def build_audit_bundle(root: Path, output_dir: Path, release_version: str = "") 
         "checks": [
             "zip contains no .ollama, models, weights, or checkpoints",
             "zip contains bago_core/translators/__init__.py",
-            "zip contains current 4.7 evidence bundle",
+            f"zip contains current {version} evidence bundle",
             "zip contains audit and model bootstrap instructions",
             "zip contains audit bootstrap instructions",
             "zip contains release evidence and contract docs",

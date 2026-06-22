@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-config_manager.py — BAGO 4.1.5 Configuration Manager
+config_manager.py — BAGO Configuration Manager
 
 Gestiona la configuración persistente del sistema en `.bago/config.json`.
 Soporta defaults de provider, modelos favoritos, timeouts, y flags de features.

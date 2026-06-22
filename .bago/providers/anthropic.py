@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-anthropic.py — BAGO 4.1.5 Anthropic Provider Adapter
+anthropic.py — BAGO Anthropic Provider Adapter
 
 Adapter directo HTTP para la API de Anthropic (Claude).
 Requiere ANTHROPIC_API_KEY.

@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Versión en que fue creado este archivo
-ollama_cloud.py — BAGO 4.1.5 Ollama Cloud Provider Adapter
+ollama_cloud.py — BAGO Ollama Cloud Provider Adapter
 
 Adapter para instancias Ollama remotas (cloud/self-hosted).
 Mismo protocolo que Ollama local pero con URL configurable

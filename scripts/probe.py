@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""probe.py — health check único de todos los proveedores BAGO 4.1.5.
+"""probe.py — health check único de todos los proveedores BAGO.
 
 Ejecuta todas las verificaciones en un solo proceso Python (sin lanzar el
 launcher repetidas veces, evitando consolas fugaces). Imprime un resumen

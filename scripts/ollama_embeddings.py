@@ -3,7 +3,7 @@
 ollama_embeddings.py — Wrapper mínimo para /api/embeddings de Ollama.
 
 Uso:
-    python scripts\\ollama_embeddings.py --text "BAGO 4.1.5 release"
+    python scripts\\ollama_embeddings.py --text "BAGO release"
     python scripts\\ollama_embeddings.py --file README.md
 """
 from __future__ import annotations
