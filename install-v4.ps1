@@ -196,6 +196,109 @@ function Restore-PreservedRuntimeState {
     }
 }
 
+function Invoke-InitSanityTest {
+    param(
+        [Parameter(Mandatory = $true)][string]$InstallPath,
+        [Parameter(Mandatory = $true)][string]$BackupRoot
+    )
+    $stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bago-init-sanity-$stamp"
+    $testBackup = Join-Path $BackupRoot "bago-init-sanity-$stamp.zip"
+    New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+
+    try {
+        # Run bago init from the installed runtime
+        $cli = Join-Path $InstallPath "bago_core\cli.py"
+        if (-not (Test-Path -LiteralPath $cli)) {
+            throw "bago_core\cli.py no encontrado en la instalacion; no se puede verificar bago init."
+        }
+        $initOutput = & python $cli init --with-knowledge $testRoot 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning ($initOutput -join "`n")
+            throw "bago init devolvio exit code $LASTEXITCODE"
+        }
+
+        # Canonical seed must exist
+        $required = @(
+            ".bago\AGENT_START.md",
+            ".bago\BOOTSTRAP.md",
+            ".bago\START_AGENT.md",
+            ".bago\agents",
+            ".bago\api",
+            ".bago\chat",
+            ".bago\core",
+            ".bago\keybinds.json",
+            ".bago\mcp",
+            ".bago\prompts",
+            ".bago\providers",
+            ".bago\roles",
+            ".bago\templates",
+            ".bago\tools",
+            ".bago\workflows"
+        )
+        foreach ($item in $required) {
+            $p = Join-Path $testRoot $item
+            if (-not (Test-Path -LiteralPath $p)) {
+                throw "bago init no sembro elemento canonico: $item"
+            }
+        }
+
+        # Optional overrides must exist when requested
+        foreach ($item in @(".bago\knowledge", ".bago\extensions")) {
+            $p = Join-Path $testRoot $item
+            if (-not (Test-Path -LiteralPath $p)) {
+                throw "bago init --with-knowledge no sembro: $item"
+            }
+        }
+
+        # Runtime artifacts must NOT have been copied
+        $forbidden = Get-ChildItem -Path $testRoot\.bago -Recurse -Force |
+            Where-Object {
+                $n = $_.Name
+                ($n -in @("__pycache__", "credentials.json", "config.json", "session-credentials.json")) -or
+                ($n -like "*.pyc") -or ($n -like "*.pyo") -or ($n -like "*.db") -or ($n -like "*.sqlite*")
+            }
+        if ($forbidden) {
+            $names = ($forbidden | ForEach-Object { $_.FullName }) -join "\n"
+            throw "bago init copio artefactos runtime no deseados:\n$names"
+        }
+
+        # state/ and logs/ must exist and be minimal
+        $stateDir = Join-Path $testRoot ".bago\state"
+        $logsDir = Join-Path $testRoot ".bago\logs"
+        if (-not (Test-Path -LiteralPath $stateDir)) { throw "bago init no creo .bago/state/" }
+        if (-not (Test-Path -LiteralPath $logsDir)) { throw "bago init no creo .bago/logs/" }
+
+        # Backup the successful seed for forensic/rollback
+        Compress-Archive -Path (Join-Path $testRoot "*") -DestinationPath $testBackup -CompressionLevel Optimal -Force
+
+        return [ordered]@{
+            ok = $true
+            test_root = $testRoot
+            backup_zip = $testBackup
+        }
+    } catch {
+        # Preserve failed seed for diagnosis
+        try {
+            if (Test-Path -LiteralPath $testRoot) {
+                Compress-Archive -Path (Join-Path $testRoot "*") -DestinationPath $testBackup -CompressionLevel Optimal -Force
+            }
+        } catch {
+            $testBackup = $null
+        }
+        return [ordered]@{
+            ok = $false
+            error = $_.Exception.Message
+            test_root = $testRoot
+            backup_zip = $testBackup
+        }
+    } finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Normalize-PathEntry {
     param([string]$Entry)
     return ($Entry.Trim().TrimEnd("\")).ToLowerInvariant()
@@ -737,6 +840,8 @@ if ($RepairOnly) {
     $SkipTests = $true
 }
 
+$initSanity = [ordered]@{ ok = $true }
+
 if (-not $SkipTests) {
     Push-Location $installFull
     try {
@@ -747,6 +852,11 @@ if (-not $SkipTests) {
     } finally {
         Pop-Location
     }
+
+    $initSanity = Invoke-InitSanityTest -InstallPath $installFull -BackupRoot $backupFull
+    if (-not $initSanity.ok) {
+        throw "Sanity test de bago init fallo: $($initSanity.error). Backup del seed fallido: $($initSanity.backup_zip)"
+    }
 }
 
 $result = [ordered]@{
@@ -755,6 +865,7 @@ $result = [ordered]@{
     installed_to = $installFull
     source = $sourceFull
     backup_zip = $backupZip
+    init_sanity_backup_zip = $(if ($initSanity -and $initSanity.Contains("backup_zip")) { $initSanity.backup_zip } else { $null })
     preserved_runtime_state = $preserved
     user_state_dir = $userStateFull
     path_scope = $pathScope

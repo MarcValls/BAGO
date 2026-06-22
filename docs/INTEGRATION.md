@@ -244,6 +244,24 @@ bago init --with-knowledge
 
 A complete automated demo lives in `examples/init-project/init-demo.ps1`.
 
+### Installer sanity check
+
+The `install-v4.ps1` installer now validates the seeding pipeline as part of
+the post-install tests (unless `-SkipTests` is used):
+
+1. Creates a temporary project directory.
+2. Runs `bago_core\cli.py init --with-knowledge <temp>` using the freshly
+   installed runtime.
+3. Verifies that all 14 canonical seed entries are present.
+4. Verifies that `knowledge/` and `extensions/` are seeded when requested.
+5. Verifies that `state/` and `logs/` are created but no runtime artifacts
+   (`credentials.json`, `config.json`, `*.pyc`, `__pycache__`, `*.db`) leaked.
+6. Zips the seeded project as a forensic backup under `BackupRoot`.
+7. Cleans the temporary directory.
+
+If the sanity check fails, the installer aborts and the backup of the failed
+seed is available for diagnosis.
+
 ### Future direction
 
 To keep the seed separate from per-project drift, the canonical seed should move to a master template (e.g. `bago_core/templates/dot-bago/`) and `bago init` should copy it into the target project. Project repos should then only version intentional overrides, not the full runtime.
