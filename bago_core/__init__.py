@@ -1,4 +1,6 @@
 """bago_core — BAGO runtime core package."""
 from __future__ import annotations
 
-__version__ = "4.7.0"
+from bago_core.versioning import current
+
+__version__ = current()

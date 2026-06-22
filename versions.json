@@ -68,7 +68,7 @@
       "notes": "Preparación de la siguiente línea de release; el manager y los metadatos quedan listos para el siguiente corte."
     },
     {
-      "version": "4.7",
+      "version": "4.7.0",
       "released": "2026-06-21",
       "ended": null,
       "notes": "BAGO Code Forge 3B: deterministic pipeline (classifier \u2192 task compiler \u2192 context builder \u2192 patch parser \u2192 validation pipeline \u2192 repair loop \u2192 code verdict \u2192 atomic patch \u2192 evidence bundle) with SAFE/STAGED/APPLY/AUTONOMOUS modes. llama3.2:3b plans and patches; BAGO stays the validator."

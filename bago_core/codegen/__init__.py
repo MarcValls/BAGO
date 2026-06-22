@@ -1,4 +1,4 @@
-"""Deterministic Code Forge helpers for BAGO 4.7."""
+"""Deterministic Code Forge helpers for BAGO."""
 
 from .code_verdict import (
     ALL_VERDICTS,

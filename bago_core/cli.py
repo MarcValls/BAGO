@@ -2,7 +2,7 @@
 """
 
 _CREATED_VERSION = "4.0.0"  # Version en que fue creado este archivo
-cli.py -- BAGO 4.5.1 CLI Entrypoint
+cli.py -- BAGO CLI Entrypoint
 
 Wrapper ligero sobre launcher.py para compatibilidad con entrypoints.
 """
