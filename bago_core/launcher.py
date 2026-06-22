@@ -49,6 +49,7 @@ from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
 from bago_core.commands.cmd_init import cmd_init  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
+from bago_core.commands.cmd_provider import cmd_provider  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
     cmd_appdata,
     cmd_cmd_rl,
@@ -382,6 +383,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "toolsmith":   "cmd_toolsmith",
     "issues":      "cmd_issues",
     "agent":       "cmd_agent",
+    "provider":    "cmd_provider",
     "route":       "cmd_route",
     "inventory":   "cmd_inventory",
     "monitor":     "cmd_monitor",

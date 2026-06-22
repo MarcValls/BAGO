@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 
+from bago_core.commands.cmd_provider import build_subparser as add_provider_subparser
 from bago_core.parsers_sections import (
     add_session_parsers,
     add_ops_parsers,
@@ -28,6 +29,7 @@ from bago_core.parsers_sections import (
 )
 
 
+# Kept lightweight: a single ArgumentParser composed from section helpers.
 def build_parser(
     version: str,
     base: str,
@@ -43,7 +45,7 @@ def build_parser(
          cpp-runtime, monitor) -- `add_session_parsers`
       3. ops parsers (orchestrate, issues, scan, canary, backup, project,
          preflight, toolsmith, issues-gh, agent, guard, route, inventory,
-         list-installs) -- `add_ops_parsers`
+         list-installs, provider) -- `add_ops_parsers` + provider helper
       4. node parsers (status, validate, pieces, connectors, matrix,
          connect, disconnect, set-mode, export, tui, translator) --
          `add_node_parsers`
@@ -61,4 +63,5 @@ def build_parser(
     add_session_parsers(sub)
     add_ops_parsers(sub)
     add_node_parsers(sub)
+    add_provider_subparser(sub)
     return parser
