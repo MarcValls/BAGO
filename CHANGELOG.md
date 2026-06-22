@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [4.7.2] - 2026-06-22
 
 ### Changed
 - Unified version resolution across `bago_core/__init__.py`,
@@ -33,6 +33,7 @@
 ### Documentation
 - `MANUAL.md` documents `bago provider` usage and the singular/plural
   split: CLI uses `provider`, REPL uses `/providers`.
+- `README.md` explains `repo.json` for forks/mirrors.
 
 ## [4.7.0] - 2026-06-21
 

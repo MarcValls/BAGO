@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bago"
-version = "4.7.0"
+version = "4.7.2"
 description = "BAGO — local-first AI control plane"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
