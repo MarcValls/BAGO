@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "installCommand": "",
+  "installCommand": "npm install --ignore-scripts --no-audit --no-fund",
   "buildCommand": "node scripts/build_vercel_site.cjs",
   "outputDirectory": "site-dist",
   "rewrites": [
