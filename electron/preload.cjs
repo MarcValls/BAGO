@@ -430,6 +430,7 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   runInstallPreflight: (payload) => ipcRenderer.invoke('bago:install-preflight', payload || {}),
   getManagerUrl: () => ipcRenderer.invoke('bago:manager-url'),
   getChatUrl: () => ipcRenderer.invoke('bago:get-chat-url'),
+  getApiUrl: () => ipcRenderer.invoke('bago:get-chat-url'),
   getInstallsRoot: () => ipcRenderer.invoke('bago:get-installs-root'),
   getVersion: () => Promise.resolve(readReleaseVersion() || 'dev'),
   getInstallState: () => ipcRenderer.invoke('bago:install-state-get'),

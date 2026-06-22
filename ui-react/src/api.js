@@ -1,10 +1,39 @@
 import { recordInteraction } from './interactionLog'
 
-const API_URL = import.meta.env.VITE_BAGO_API_URL
-  || (import.meta.env.DEV ? 'http://127.0.0.1:8080' : window.location.origin)
+async function resolveApiUrl() {
+  // 1. Build-time override
+  if (import.meta.env.VITE_BAGO_API_URL) {
+    return import.meta.env.VITE_BAGO_API_URL
+  }
+  // 2. Electron bridge: the main process runs a local BAGO API server
+  if (typeof window !== 'undefined' && window.bagoElectron?.getApiUrl) {
+    try {
+      const url = await window.bagoElectron.getApiUrl()
+      if (url) return url
+    } catch (e) {
+      // fall through to defaults
+    }
+  }
+  // 3. Vite dev server
+  if (import.meta.env.DEV) {
+    return 'http://127.0.0.1:8080'
+  }
+  // 4. Fallback for plain web preview (should not happen in Electron)
+  return window.location.origin
+}
+
+let _apiUrlPromise = null
+function getApiUrl() {
+  if (!_apiUrlPromise) {
+    _apiUrlPromise = resolveApiUrl()
+  }
+  return _apiUrlPromise
+}
+
 const API_TOKEN = import.meta.env.VITE_BAGO_API_TOKEN || ''
 
 async function request(path, options = {}) {
+  const API_URL = await getApiUrl()
   const headers = {
     'Content-Type': 'application/json',
     ...(API_TOKEN ? { 'X-Bago-Token': API_TOKEN } : {}),
