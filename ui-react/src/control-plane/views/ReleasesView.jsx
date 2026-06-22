@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Icon, ViewState } from '../components/ui'
+import { Badge, ViewState } from '../components/ui'
 import { useReleases } from '../useBagoData'
 
 export default function ReleasesView({ onAction }) {
@@ -7,19 +7,25 @@ export default function ReleasesView({ onAction }) {
   const [channel, setChannel] = useState('Stable')
 
   const releases = Array.isArray(data) ? data : []
-  const filtered = channel === 'Stable' ? releases.filter((r) => !r.prerelease)
-    : channel === 'Beta' ? releases.filter((r) => r.prerelease)
+  const filtered = channel === 'Stable' ? releases.filter((release) => !release.prerelease)
+    : channel === 'Beta' ? releases.filter((release) => release.prerelease)
     : releases
 
-  const CHANNELS = ['Stable', 'Beta', 'Todos']
-  const CHANNEL_VARIANT = { Stable: 'ok', Beta: 'warn', Todos: 'neutral' }
+  const channels = ['Stable', 'Beta', 'Todos']
 
   return (
     <section className="cp-view cp-view-active">
       <div className="cp-toolbar">
         <div className="cp-seg">
-          {CHANNELS.map((label) => (
-            <button key={label} type="button" className={`cp-seg-btn ${channel === label ? 'is-active' : ''}`} onClick={() => setChannel(label)}>{label}</button>
+          {channels.map((label) => (
+            <button
+              key={label}
+              type="button"
+              className={`cp-seg-btn ${channel === label ? 'is-active' : ''}`}
+              onClick={() => setChannel(label)}
+            >
+              {label}
+            </button>
           ))}
         </div>
         <button type="button" className="cp-btn" onClick={() => onAction?.('open-jobs')}>Jobs</button>
@@ -29,22 +35,34 @@ export default function ReleasesView({ onAction }) {
        error ? <div className="cp-error">Error: {error}</div> :
        <ViewState empty={!filtered.length} emptyLabel={`Sin releases en canal ${channel}`}>
          <div className="cp-releases-grid">
-           {filtered.map((rel) => (
-             <div className="cp-card cp-release-card" key={rel.tag_name}>
+           {filtered.map((release) => (
+             <div className="cp-card cp-release-card" key={release.tag_name}>
                <div className="cp-section-head">
                  <div>
-                   <div className="cp-piece-type">{rel.prerelease ? 'Beta' : 'Stable'}</div>
-                   <div className="cp-piece-id">{rel.tag_name}</div>
+                   <div className="cp-piece-type">{release.prerelease ? 'Beta' : 'Stable'}</div>
+                   <div className="cp-piece-id">{release.tag_name}</div>
                  </div>
-                 <Badge variant={rel.prerelease ? 'warn' : 'ok'}>{rel.prerelease ? 'Preview' : 'Firmado'}</Badge>
+                 <Badge variant={release.prerelease ? 'warn' : 'ok'}>{release.prerelease ? 'Preview' : 'Publicada'}</Badge>
                </div>
-               <div className="cp-piece-desc">{rel.name || rel.tag_name}</div>
-               <div className="cp-kv"><span>Assets</span><b>{rel.assets?.length || 0}</b></div>
-               <div className="cp-kv"><span>Fecha</span><b>{rel.published_at ? new Date(rel.published_at).toLocaleDateString() : '—'}</b></div>
-               <div className="cp-kv"><span>Descargas</span><b>{rel.assets?.reduce((s, a) => s + (a.download_count || 0), 0) || 0}</b></div>
+               <div className="cp-piece-desc">{release.name || release.tag_name}</div>
+               <div className="cp-kv"><span>Assets</span><b>{release.assets?.length || 0}</b></div>
+               <div className="cp-kv"><span>Fecha</span><b>{release.published_at ? new Date(release.published_at).toLocaleDateString() : '—'}</b></div>
+               <div className="cp-kv"><span>Descargas</span><b>{release.assets?.reduce((sum, asset) => sum + (asset.download_count || 0), 0) || 0}</b></div>
                <div className="cp-card-foot">
-                 <button type="button" className="cp-small-btn cp-install-release" onClick={() => onAction?.('install-release', rel.tag_name)}>Instalar</button>
-                 <button type="button" className="cp-small-btn" onClick={() => onAction?.('shadow-release', rel.tag_name)}>Shadow</button>
+                 <button
+                   type="button"
+                   className="cp-small-btn cp-install-release"
+                   onClick={() => onAction?.('install-release', release)}
+                 >
+                   Preflight e instalar
+                 </button>
+                 <button
+                   type="button"
+                   className="cp-small-btn"
+                   onClick={() => onAction?.('shadow-release', release)}
+                 >
+                   Preparar separada
+                 </button>
                </div>
              </div>
            ))}
