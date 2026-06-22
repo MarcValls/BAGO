@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { chatApi } from './api'
 import { recordInteraction } from './interactionLog'
+import { DEFAULT_VERSION_LABEL } from './version'
 
 const DEFAULT_KIT = {
-  installation: { id: 'local', label: 'BAGO local', version: '4.7.0', status: 'ready' },
+  installation: { id: 'local', label: 'BAGO local', version: DEFAULT_VERSION_LABEL, status: 'ready' },
   model: { id: 'llama3.2:3b', label: 'llama3.2:3b', provider: 'ollama' },
   pipeline: { id: 'code-forge-3b', label: 'Code Forge', variant: 'staged' },
   policy: { id: 'staged', label: 'Staged', risk: 'bajo' },
@@ -81,7 +82,7 @@ export function useSessionKit() {
         next.model = { id: session.model || 'llama3.2:3b', provider: session.provider }
         next.installation = {
           ...(next.installation || DEFAULT_KIT.installation),
-          version: session.bago_version || next.installation?.version || '4.7.0',
+          version: session.bago_version || next.installation?.version || DEFAULT_VERSION_LABEL,
         }
       }
       if (simulation?.mode) next.simulation = { mode: simulation.mode }

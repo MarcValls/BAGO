@@ -6,6 +6,8 @@ import SessionKit from './SessionKit'
 import PipelineDock from './PipelineDock'
 import ManagerInspector from './ManagerInspector'
 import ManagerOverlay from './ManagerOverlay'
+import CompactKitBar from './CompactKitBar'
+import CompactPipelineBar from './CompactPipelineBar'
 import { useManagerContext } from '../useManagerContext'
 import { useSessionKit } from '../useSessionKit'
 import { usePipelineNodes } from '../usePipelineNodes'
@@ -54,47 +56,6 @@ function ChatFocusButton({ focused, onToggle }) {
   )
 }
 
-function ManagerContextBar({ context, kit, inspectorSummary, panels, onTogglePanel, managerDrawerOpen, onToggleManagerDrawer }) {
-  if (!context?.view || context.view === 'bago') {
-    return (
-      <div className="manager-context-bar">
-        <span className="context-label">Sesión equipada</span>
-        <span className="context-view">{kit.pipeline?.label || 'Code Forge'} · {kit.pipeline?.variant || 'staged'}</span>
-        <span className="context-stat">{kit.installation?.version || '4.7.0'}</span>
-        <span className="context-stat">claims {inspectorSummary.claimsOk}/{inspectorSummary.claimsTotal}</span>
-        <button
-          type="button"
-          className={`context-stat context-stat-btn ${panels.has('manager') ? 'is-active' : ''}`}
-          onClick={onToggleManagerDrawer}
-          aria-pressed={managerDrawerOpen}
-        >
-          {managerDrawerOpen ? '▣ Gestor visible' : '▢ Gestor'}
-        </button>
-      </div>
-    )
-  }
-  return (
-    <div className="manager-context-bar">
-      <span className="context-label">Gestor activo</span>
-      <span className="context-view">{context.viewLabel || context.view}</span>
-      {context.installations != null && (
-        <span className="context-stat">{context.installations} instalaciones</span>
-      )}
-      {context.pieces != null && (
-        <span className="context-stat">{context.pieces} piezas</span>
-      )}
-      <span className="context-stat">claims {inspectorSummary.claimsOk}/{inspectorSummary.claimsTotal}</span>
-      <button
-        type="button"
-        className="context-stat context-stat-btn"
-        onClick={() => onTogglePanel('manager')}
-      >
-        {panels.has('manager') ? 'Ocultar panel gestor' : 'Mostrar panel gestor'}
-      </button>
-    </div>
-  )
-}
-
 export default function ChatView({ control, center }) {
   const [showSlash, setShowSlash] = useState(false)
   const managerContext = useManagerContext()
@@ -107,8 +68,6 @@ export default function ChatView({ control, center }) {
 
   const panels = center.state.panels
   const chatFocus = center.state.chatFocus
-  const showKit = !chatFocus && panels.has('kit')
-  const showDock = !chatFocus && panels.has('pipeline')
   const showInspector = !chatFocus && center.inspectorOpen && panels.has('evidence')
   const showManagerDrawer = !chatFocus && center.managerDrawerOpen && panels.has('manager')
 
@@ -133,43 +92,46 @@ export default function ChatView({ control, center }) {
     chatFocus ? 'is-focused' : 'is-expanded',
     showManagerDrawer ? 'has-manager-drawer' : '',
     showInspector ? 'has-inspector' : '',
+    center.flowOpen ? 'has-flow-open' : '',
+    center.contractOpen ? 'has-contract-open' : '',
   ].filter(Boolean).join(' ')
 
   return (
     <section className={layoutClass}>
       <header className="chat-centered-head">
-        <div className="chat-centered-title">
-          <span className="chat-centered-eyebrow">Conversación equipada</span>
+        <div className="chat-head-main">
           <h1>¿Qué quieres hacer?</h1>
-          <p>
-            {kit.kit.installation?.label || 'BAGO local'} ({kit.kit.installation?.version || '4.7.0'}) ·
-            {' '}{kit.kit.model?.label || 'llama3.2:3b'} ·
-            {' '}{kit.kit.pipeline?.label || 'Code Forge'} · {kit.kit.pipeline?.variant || 'staged'} ·
-            {' '}política {kit.kit.policy?.label || 'Staged'}
-          </p>
+          <CompactKitBar
+            kit={kit.kit}
+            summary={kit.summary}
+            onOpenDetails={() => center.toggleInspector(true)}
+          />
         </div>
         <div className="chat-centered-actions">
+          <button
+            type="button"
+            className={`chat-contract-btn ${center.contractOpen ? 'is-active' : ''}`}
+            onClick={() => center.toggleContract()}
+            aria-pressed={center.contractOpen}
+            title="Ver contrato de ejecución"
+          >
+            Contrato seguro · 6 reglas
+          </button>
           <ChatFocusButton focused={chatFocus} onToggle={() => center.focusChat(!chatFocus)} />
         </div>
       </header>
 
-      <ManagerContextBar
-        context={managerContext}
-        kit={kit.kit}
-        inspectorSummary={inspector.summary}
-        panels={panels}
-        onTogglePanel={center.togglePanel}
-        managerDrawerOpen={center.managerDrawerOpen}
-        onToggleManagerDrawer={center.toggleManagerDrawer}
-      />
-
       <div className="chat-centered-grid">
         <main className="chat-centered-main" role="main">
+          {center.contractOpen ? (
+            <div className="contract-drawer">
+              <ContextChips />
+            </div>
+          ) : null}
+
           {showSlash && (
             <SlashMenu control={control} menu={control.menu} context={managerContext} />
           )}
-
-          <ContextChips />
 
           <div className="conversation" aria-live="polite">
             {hasHistory ? (
@@ -189,7 +151,7 @@ export default function ChatView({ control, center }) {
             <ComposeBar
               busy={control.busy}
               onSubmit={handleSubmit}
-              placeholder="Escribe un mensaje…  el chat es la pieza central"
+              placeholder="Escribe un mensaje…"
               onSlash={() => setShowSlash((v) => !v)}
               accessory={<ModelSelector control={control} kit={kit.kit} />}
             />
@@ -219,39 +181,62 @@ export default function ChatView({ control, center }) {
         ) : null}
       </div>
 
-      {showKit ? (
-        <SessionKit
-          kit={kit.kit}
-          summary={kit.summary}
-          dispatch={kit}
-          onToggleInspector={() => center.toggleInspector()}
-          inspectorOpen={center.inspectorOpen}
-          onOpenFullManager={() => control.setMode('manager')}
-          compact
-        />
+      {panels.has('kit') && center.dockOpen ? (
+        <div className="floating-panel">
+          <header className="floating-panel-head">
+            <span>Equipamiento de sesión</span>
+            <button
+              type="button"
+              className="floating-panel-close"
+              onClick={() => center.toggleDock(false)}
+              aria-label="Cerrar equipamiento"
+            >
+              ✕
+            </button>
+          </header>
+          <SessionKit
+            kit={kit.kit}
+            summary={kit.summary}
+            dispatch={kit}
+            onToggleInspector={() => center.toggleInspector()}
+            inspectorOpen={center.inspectorOpen}
+            onOpenFullManager={() => control.setMode('manager')}
+            compact
+          />
+        </div>
       ) : null}
 
-      {showDock ? (
-        <PipelineDock
+      {panels.has('pipeline') && center.flowOpen ? (
+        <div className="floating-panel">
+          <header className="floating-panel-head">
+            <span>Control Deck · Code Forge</span>
+            <button
+              type="button"
+              className="floating-panel-close"
+              onClick={() => center.toggleFlow(false)}
+              aria-label="Cerrar pipeline"
+            >
+              ✕
+            </button>
+          </header>
+          <PipelineDock
+            pipeline={pipeline}
+            inspectorOpen={center.inspectorOpen}
+            onToggleInspector={() => center.toggleInspector()}
+            compact
+          />
+        </div>
+      ) : panels.has('pipeline') ? (
+        <CompactPipelineBar
           pipeline={pipeline}
-          inspectorOpen={center.inspectorOpen}
-          onToggleInspector={() => center.toggleInspector()}
-          compact
-        />
-      ) : null}
-
-      {hasHistory && !chatFocus ? (
-        <button
-          type="button"
-          className="chat-recapture"
-          onClick={() => {
-            center.focusChat(true)
-            push('Chat centrado de nuevo')
+          onOpenFlow={() => center.toggleFlow(true)}
+          onAdvance={() => {
+            pipeline.advance()
+            push('Pipeline avanzado')
           }}
-        >
-          ◉ Centrar chat
-        </button>
+        />
       ) : null}
     </section>
   )
 }
+

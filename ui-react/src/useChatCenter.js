@@ -7,7 +7,7 @@ export const SESSION_VIEWS = {
   terminal: { id: 'terminal', label: 'Terminal', icon: 'terminal', hint: 'Comandos y logs' },
 }
 
-const STORAGE_KEY = 'bago.centered-chat.v1'
+const STORAGE_KEY = 'bago.centered-chat.v2'
 
 function readPersisted() {
   if (typeof window === 'undefined') return null
@@ -25,7 +25,7 @@ function writePersisted(value) {
   } catch {}
 }
 
-const DEFAULT_PANELS = ['kit', 'pipeline', 'evidence']
+const DEFAULT_PANELS = ['kit', 'pipeline']
 
 export function useChatCenter() {
   const persisted = readPersisted()
@@ -34,10 +34,12 @@ export function useChatCenter() {
     if (Array.isArray(persisted?.panels) && persisted.panels.length) return new Set(persisted.panels)
     return new Set(DEFAULT_PANELS)
   })
-  const [inspectorOpen, setInspectorOpen] = useState(persisted?.inspectorOpen ?? true)
-  const [dockOpen, setDockOpen] = useState(persisted?.dockOpen ?? true)
+  const [inspectorOpen, setInspectorOpen] = useState(persisted?.inspectorOpen ?? false)
+  const [dockOpen, setDockOpen] = useState(persisted?.dockOpen ?? false)
   const [managerDrawerOpen, setManagerDrawerOpen] = useState(persisted?.managerDrawerOpen ?? false)
-  const [chatFocus, setChatFocus] = useState(persisted?.chatFocus ?? true)
+  const [chatFocus, setChatFocus] = useState(persisted?.chatFocus ?? false)
+  const [contractOpen, setContractOpen] = useState(persisted?.contractOpen ?? false)
+  const [flowOpen, setFlowOpen] = useState(persisted?.flowOpen ?? false)
 
   useEffect(() => {
     writePersisted({
@@ -47,8 +49,10 @@ export function useChatCenter() {
       dockOpen,
       managerDrawerOpen,
       chatFocus,
+      contractOpen,
+      flowOpen,
     })
-  }, [rightPanel, panels, inspectorOpen, dockOpen, managerDrawerOpen, chatFocus])
+  }, [rightPanel, panels, inspectorOpen, dockOpen, managerDrawerOpen, chatFocus, contractOpen, flowOpen])
 
   const togglePanel = useCallback((id) => {
     setPanels((current) => {
@@ -85,6 +89,22 @@ export function useChatCenter() {
     })
   }, [])
 
+  const toggleContract = useCallback((force) => {
+    setContractOpen((current) => {
+      const next = typeof force === 'boolean' ? force : !current
+      recordInteraction('contract-toggle', { on: next })
+      return next
+    })
+  }, [])
+
+  const toggleFlow = useCallback((force) => {
+    setFlowOpen((current) => {
+      const next = typeof force === 'boolean' ? force : !current
+      recordInteraction('flow-toggle', { on: next })
+      return next
+    })
+  }, [])
+
   const focusChat = useCallback((force = true) => {
     setChatFocus(!!force)
     recordInteraction('chat-focus', { on: !!force })
@@ -97,7 +117,9 @@ export function useChatCenter() {
     dockOpen,
     managerDrawerOpen,
     chatFocus,
-  }), [rightPanel, panels, inspectorOpen, dockOpen, managerDrawerOpen, chatFocus])
+    contractOpen,
+    flowOpen,
+  }), [rightPanel, panels, inspectorOpen, dockOpen, managerDrawerOpen, chatFocus, contractOpen, flowOpen])
 
   return {
     state,
@@ -107,5 +129,7 @@ export function useChatCenter() {
     dockOpen, toggleDock,
     managerDrawerOpen, toggleManagerDrawer,
     chatFocus, focusChat,
+    contractOpen, toggleContract,
+    flowOpen, toggleFlow,
   }
 }
