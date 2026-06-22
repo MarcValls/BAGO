@@ -186,8 +186,47 @@ Rule:
 - monitor plan execution only.
 - no keylogging, screen capture, or unrelated surveillance.
 
+## Dot-bago seeding contract
+
+Every BAGO project needs a `.bago/` directory, but `.bago/` is **not a single thing**:
+
+| Category | Lives in `.bago/` | Versioned in project? | Seeded by `bago init`? |
+|---|---|---|---|
+| **Canonical runtime / prompts** | `AGENT_START.md`, `BOOTSTRAP.md`, `START_AGENT.md`, `core/`, `api/`, `chat/`, `providers/`, `agents/`, `roles/`, `prompts/`, `workflows/`, `tools/`, `mcp/`, `templates/`, `keybinds.json` | **Yes** | **Yes** |
+| **Project overrides** | `knowledge/`, `extensions/`, per-project prompts/agents | Optional | Optional (empty scaffold) |
+| **Runtime state** | `state/`, `logs/`, `launch/`, `credentials.json`, `config.json`, `session-credentials.json`, `monitor/` | **No** (`*.db`, `state/`, `logs/` are ignored) | Generated empty at runtime |
+| **Minimal state example** | `state.example/` | **Yes** | Copied to `state/` on first init |
+
+### Rule
+
+The canonical files are the **seed**. The project repository may carry them directly (as `bago_fw` does today) or derive them from a master package. The mutable state must never be committed, and must be created on first run if missing.
+
+### Seeding checklist
+
+When creating a new BAGO project, the following must be present:
+
+1. `AGENT_START.md`, `BOOTSTRAP.md`, `START_AGENT.md` — agent adoption contract.
+2. `core/` — session manager, switch engine, config, tool/intent registry, version.
+3. `api/bridge.py` — local HTTP API used by the React UI and external integrations.
+4. `chat/` — REPL, commands, system prompt loader.
+5. `providers/` — provider adapters (ollama-local, codex, copilot, etc.).
+6. `agents/` — agent factory and specialization agents.
+7. `roles/` — role definitions for production/supervision/specialists.
+8. `prompts/` — canonical prompt templates.
+9. `workflows/` — workflow definitions.
+10. `tools/` — tool registry and project memory helpers.
+11. `mcp/` — MCP server configuration and catalog.
+12. `templates/` — Markdown templates for changes, evidence, roles, workflows.
+13. `keybinds.json` — default key bindings.
+14. `state.example/` — minimal empty state layout copied to `state/` on init.
+
+### Future direction
+
+To keep the seed separate from per-project drift, the canonical seed should move to a master template (e.g. `bago_core/templates/dot-bago/`) and `bago init` should copy it into the target project. Project repos should then only version intentional overrides, not the full runtime.
+
 ## Next Steps
 
-1. Implement `bago rl status`.
-2. Add packaging checks for all integration boundaries.
-3. Add backup/rollback before writing to `C:\Program Files\BAGO`.
+1. Implement `bago init` that seeds `.bago/` from the canonical template and creates empty `state/`/`logs/`.
+2. Implement `bago rl status`.
+3. Add packaging checks for all integration boundaries.
+4. Add backup/rollback before writing to `C:\Program Files\BAGO`.
