@@ -11,6 +11,7 @@
     "premanager:pack": "npm run manager:build-ui",
     "premanager:dist": "npm run manager:build-ui",
     "manager:dev": "electron .",
+    "manager:diagnose": "node scripts/ui-diagnostics.cjs",
     "manager:pack": "electron-builder --dir",
     "manager:dist": "electron-builder --win nsis",
     "manager:test-jobs": "node tests/test_release_job_manager.cjs",

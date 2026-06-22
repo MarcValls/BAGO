@@ -45,6 +45,14 @@ function createManagerWindow() {
 
   // Load React app as primary interface; falls back to MANAGER_HTML if React dist is unavailable
   win.loadFile(REACT_HTML);
+
+  // Expose window handle to callers for diagnostics/extensions
+  win.webContents.on('did-finish-load', () => {
+    if (process.env.BAGO_OPEN_DEVTOOLS === '1') {
+      win.webContents.openDevTools({ mode: 'detach' });
+    }
+  });
+
   if (SMOKE_TEST) {
     const timeout = setTimeout(() => {
       console.error(JSON.stringify({ manager_smoke: false, error: 'timeout' }));
@@ -91,6 +99,8 @@ function createManagerWindow() {
       }
     });
   }
+
+  return win;
 }
 
 module.exports = { createManagerWindow };

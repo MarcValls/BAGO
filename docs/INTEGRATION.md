@@ -266,6 +266,45 @@ seed is available for diagnosis.
 
 To keep the seed separate from per-project drift, the canonical seed should move to a master template (e.g. `bago_core/templates/dot-bago/`) and `bago init` should copy it into the target project. Project repos should then only version intentional overrides, not the full runtime.
 
+## UI diagnostics
+
+To open the BAGO UI with a visible console and renderer logs, use the
+PowerShell helper:
+
+```powershell
+.\scripts\Open-BagoUI.ps1 -DevTools
+```
+
+The script:
+- Builds `ui-react/dist` if it is missing.
+- Sets `BAGO_OPEN_DEVTOOLS=1` so Electron opens Chromium DevTools.
+- Launches `npx electron .` with `--enable-logging` and the current console
+  attached, so stdout/stderr are visible immediately.
+
+For headless/CI diagnostics, run the automated renderer console scraper:
+
+```powershell
+npm run manager:diagnose
+```
+
+`scripts/ui-diagnostics.cjs` captures:
+- renderer `console-message` events (log/warn/error)
+- `did-fail-load` events
+- main process `uncaughtException` / `unhandledRejection`
+
+Output is written to `logs/ui-diagnostics.jsonl`.
+
+### Automated smoke test
+
+```powershell
+$env:BAGO_MANAGER_SMOKE_TEST = '1'
+npx electron .
+```
+
+This exits after validating that the React control plane loads, the Electron
+bridge exposes at least 50 methods, the activity bar renders, and there are no
+duplicate DOM IDs.
+
 ## Next Steps
 
 1. Move canonical seed to `bago_core/templates/dot-bago/` and make `bago init` use it as primary source.

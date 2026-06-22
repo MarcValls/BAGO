@@ -8,6 +8,7 @@
 .bago/config.json
 .bago/session-credentials.json
 install_config.json
+/logs/
 
 # ── Bases de datos ──────────────────────────────────────────────────────────────
 *.db
