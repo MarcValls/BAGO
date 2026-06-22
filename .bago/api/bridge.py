@@ -608,10 +608,17 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         base = Path(mgr.base_path).resolve()
         try:
-            target = (base / unquote(file_path)).resolve()
+            decoded = unquote(file_path)
+            rel_path = Path(decoded)
+            if rel_path.is_absolute() or any(part in {"", ".", ".."} for part in rel_path.parts):
+                raise ValueError("Ruta de archivo invalida")
+            target = (base / rel_path).resolve()
             target.relative_to(base)
-        except (ValueError, Exception):
+        except ValueError:
             self._send_json(403, {"error": "Ruta de archivo invalida"})
+            return
+        except Exception as exc:
+            self._send_json(500, {"error": f"Error validando ruta de archivo: {exc}"})
             return
         if not target.is_file():
             self._send_json(404, {"error": "Archivo no encontrado"})
