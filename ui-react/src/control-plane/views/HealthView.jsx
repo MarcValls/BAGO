@@ -9,12 +9,10 @@ function StatusRing({ percent }) {
   )
 }
 
-export default function HealthView({ context }) {
-  const { data, loading, error } = useManagerHealth()
+export default function HealthView({ onAction }) {
+  const { data, loading, error, refresh } = useManagerHealth()
 
   const checks = data?.checks || []
-  const startup = data?.startup || {}
-
   const cards = checks.map((check) => ({
     label: check.name,
     value: check.ok ? 'OK' : 'Fallo',
@@ -43,11 +41,25 @@ export default function HealthView({ context }) {
     })
   }
 
+  async function perform(type) {
+    const result = await onAction?.(type)
+    if (result !== null) await refresh()
+  }
+
   return (
     <section className="cp-view cp-view-active">
+      <div className="cp-toolbar">
+        <div className="cp-section-title">Salud y supervisor</div>
+        <button type="button" className="cp-btn" onClick={refresh}>Diagnosticar</button>
+        <button type="button" className="cp-btn" onClick={() => perform('supervisor-status')}>Estado</button>
+        <button type="button" className="cp-btn" onClick={() => perform('supervisor-start')}>Iniciar</button>
+        <button type="button" className="cp-btn" onClick={() => perform('supervisor-stop')}>Detener</button>
+        <button type="button" className="cp-btn" onClick={() => perform('cleanup-zombies')}>Limpiar procesos</button>
+      </div>
+
       {loading ? <div className="cp-loading">Diagnosticando…</div> :
        error ? <div className="cp-error">Error: {error}</div> :
-       <ViewState empty={!cards.length} emptyLabel="Sin metricas de salud">
+       <ViewState empty={!cards.length} emptyLabel="Sin métricas de salud">
          <div className="cp-health-grid">
            {cards.map((item) => (
              <div className="cp-card cp-health-card" key={item.label}>
