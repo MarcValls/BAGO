@@ -13,6 +13,12 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     sub.add_parser("validate", help="Gate real de validacion: security, contratos, culpas, claims, providers")
     sub.add_parser("profiles", help="Muestra el mapa de stable/des/ign y el flujo recomendado")
 
+    init_parser = sub.add_parser("init", help="Inicializa un proyecto BAGO sembrando .bago/ desde la plantilla canonica")
+    init_parser.add_argument("target", nargs="?", default="", help="Directorio del proyecto a inicializar (default: cwd)")
+    init_parser.add_argument("--dry-run", action="store_true", help="Muestra lo que sembraria sin escribir archivos")
+    init_parser.add_argument("--force", action="store_true", help="Sobrescribe archivos existentes")
+    init_parser.add_argument("--with-knowledge", action="store_true", help="Incluye tambien knowledge/ y extensions/ como plantillas")
+
     install_parser = sub.add_parser("install", help="Instala/repara BAGO desde la copia local, sin descarga")
     install_parser.add_argument("--source-root", default="", help="Raiz local desde la que instalar")
     install_parser.add_argument("--package-zip", default="", help="ZIP local desde el que instalar")

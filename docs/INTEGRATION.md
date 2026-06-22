@@ -220,13 +220,37 @@ When creating a new BAGO project, the following must be present:
 13. `keybinds.json` — default key bindings.
 14. `state.example/` — minimal empty state layout copied to `state/` on init.
 
+### Usage example
+
+Create a new project and seed it:
+
+```powershell
+New-Item -ItemType Directory -Path "C:\Proyectos\mi-nueva-app" -Force
+Set-Location "C:\Proyectos\mi-nueva-app"
+bago init
+```
+
+Preview without writing:
+
+```powershell
+bago init --dry-run
+```
+
+Include project-specific templates:
+
+```powershell
+bago init --with-knowledge
+```
+
+A complete automated demo lives in `examples/init-project/init-demo.ps1`.
+
 ### Future direction
 
 To keep the seed separate from per-project drift, the canonical seed should move to a master template (e.g. `bago_core/templates/dot-bago/`) and `bago init` should copy it into the target project. Project repos should then only version intentional overrides, not the full runtime.
 
 ## Next Steps
 
-1. Implement `bago init` that seeds `.bago/` from the canonical template and creates empty `state/`/`logs/`.
+1. Move canonical seed to `bago_core/templates/dot-bago/` and make `bago init` use it as primary source.
 2. Implement `bago rl status`.
 3. Add packaging checks for all integration boundaries.
 4. Add backup/rollback before writing to `C:\Program Files\BAGO`.

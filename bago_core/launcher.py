@@ -47,6 +47,7 @@ except ModuleNotFoundError:
     from bago_core.version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
+from bago_core.commands.cmd_init import cmd_init  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
     cmd_appdata,
@@ -358,6 +359,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "start":       "cmd_chat",
     "exec":        "cmd_exec",
     "validate":    "cmd_validate",
+    "init":        "cmd_init",
     "install":     "cmd_install",
     "uninstall":   "cmd_uninstall",
     "profiles":    "cmd_profiles",
