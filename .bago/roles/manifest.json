@@ -228,7 +228,7 @@
     "especialistas": "SPECIALIST — Análisis en dominio específico"
   },
   "created": "2026-04-28T00:00:00Z",
-  "version": "4.7.0",
+  "version": "current",
   "description": "Manifest refreshed during 2026-Q2 .bago audit cleanup",
   "updated": "2026-06-21T12:45:00Z"
 }
