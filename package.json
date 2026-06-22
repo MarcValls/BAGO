@@ -35,13 +35,13 @@
       "ui-react/src/**/*",
       "ui-react/dist/**/*",
       "install-v4.ps1",
-    "install-remote.ps1",
-    "bago.ps1",
-    "bago.cmd",
-    "bago.sh",
-    "versions.json",
-    "release_version.txt",
-    "release/v4/bago-v4.7.zip"
+      "install-remote.ps1",
+      "bago.ps1",
+      "bago.cmd",
+      "bago.sh",
+      "versions.json",
+      "release_version.txt",
+      "release/v4/bago-v*.zip"
     ],
     "files": [
       "electron/**/*",
@@ -70,7 +70,7 @@
       "bago.sh",
       "versions.json",
       "release_version.txt",
-      "release/v4/bago-v4.7.zip"
+      "release/v4/bago-v*.zip"
     ],
     "directories": {
       "output": "dist"
@@ -96,6 +96,7 @@
     }
   },
   "devDependencies": {
+    "adm-zip": "^0.5.17",
     "electron": "42.3.0",
     "electron-builder": "26.8.1",
     "playwright": "^1.60.0"

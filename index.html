@@ -3,7 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BAGO v4.7 — AI Control Plane Local</title>
+  <script>window.BAGO_REPO = ${BAGO_REPO_CONFIG_JSON};</script>
+  <!--
+    Esta página es una plantilla. En producción (Vercel) se renderiza mediante
+    scripts/build_vercel_site.cjs, que sustituye ${BAGO_VERSION}, ${BAGO_REPO_*},
+    ${BAGO_GITHUB_URL}, ${BAGO_RAW_URL}, ${BAGO_API_URL}, ${BAGO_RELEASES_URL},
+    ${BAGO_INSTALL_REMOTE_URL}, ${BAGO_MANAGER_DOWNLOAD_URL},
+    ${BAGO_BUNDLE_DOWNLOAD_URL}, ${BAGO_BUNDLE_SHA256_URL} y ${BAGO_RELEASE_NOTES_URL}
+    por los valores de repo.json, release_version.txt y versions.json.
+    No abrir este archivo directamente como página publicada: mostrará los literales ${...}.
+  -->
+  <title>BAGO v${BAGO_VERSION} — AI Control Plane Local</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -56,7 +66,7 @@
           <circle cx="39" cy="4" r="1.2" fill="#1e293b"/>
           <path d="M32 52 L30 58 L34 58 Z" fill="#0f172a"/>
         </svg>
-        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v4.7</span></span>
+        <span class="font-bold text-lg tracking-tight">BAGO <span class="text-indigo-400 font-normal">v${BAGO_VERSION}</span></span>
         <span class="hidden md:inline ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">SUPERVISOR · PROBE</span>
       </div>
       <nav class="hidden md:flex gap-6 text-sm text-slate-300">
@@ -65,7 +75,7 @@
         <a href="#installations"  class="hover:text-white transition">Instalaciones</a>
         <a href="#activity"       class="hover:text-white transition">Actividad</a>
         <a href="#docs"           class="hover:text-white transition">Docs</a>
-        <a href="https://github.com/MarcValls/BAGO" target="_blank" class="hover:text-white transition">GitHub →</a>
+        <a href="${BAGO_GITHUB_URL}" target="_blank" class="hover:text-white transition">GitHub →</a>
       </nav>
     </div>
   </header>
@@ -75,7 +85,7 @@
     <div class="grid md:grid-cols-2 gap-10 items-start">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20 mb-5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v4.7 con BAGO Chat tab + copiloto contextual
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> v${BAGO_VERSION} con BAGO Chat tab + copiloto contextual
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-5 leading-[1.1]">
           Session-First <span class="grad-text">AI Control Plane</span>
@@ -85,9 +95,9 @@
           y se autogestiona con un supervisor en background que vigila hijos, RAM, WAL y conexiones zombie.
         </p>
         <div class="flex flex-wrap gap-3">
-          <a id="primary-release-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.7/BAGO-Installation-Manager-4.7-win-x64.exe" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Descargar gestor de instalaciones</a>
+          <a id="primary-release-download" href="${BAGO_MANAGER_DOWNLOAD_URL}" class="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition">Descargar gestor de instalaciones</a>
           <a href="/manager/" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Abrir gestor web</a>
-          <a href="https://github.com/MarcValls/BAGO/releases/tag/v4.7" target="_blank" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Release notes</a>
+          <a href="${BAGO_RELEASE_NOTES_URL}" target="_blank" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold transition border border-slate-700">Release notes</a>
         </div>
         <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs">
           <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
@@ -115,10 +125,10 @@
             <span class="ml-2 text-xs text-slate-500">PowerShell · instalación one-liner</span>
           </div>
           <div class="p-4">
-            <pre class="mono text-[12.5px] text-slate-200 overflow-x-auto leading-relaxed"><code>irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex</code></pre>
+            <pre class="mono text-[12.5px] text-slate-200 overflow-x-auto leading-relaxed"><code>irm ${BAGO_INSTALL_REMOTE_URL} | iex</code></pre>
           </div>
           <div class="px-4 pb-4 flex justify-end">
-            <button data-copy="irm https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 | iex" class="copy-btn px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold border border-indigo-500/30 transition">
+            <button data-copy="irm ${BAGO_INSTALL_REMOTE_URL} | iex" class="copy-btn px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold border border-indigo-500/30 transition">
               Copiar
             </button>
           </div>
@@ -126,25 +136,25 @@
 
         <!-- Descarga zip + checksums -->
         <div class="grid grid-cols-2 gap-3">
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.7/bago-v4.7.zip" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+          <a href="${BAGO_BUNDLE_DOWNLOAD_URL}" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
             <div class="flex items-start justify-between mb-2">
               <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
               <span class="text-[10px] text-slate-500 uppercase tracking-wider">ZIP</span>
             </div>
-            <p class="font-semibold text-sm">Bundle fuente BAGO 4.7</p>
+            <p class="font-semibold text-sm">Bundle fuente BAGO ${BAGO_VERSION}</p>
             <p class="text-xs text-slate-500 mt-0.5">Codigo y runtime portable</p>
           </a>
-          <a href="https://github.com/MarcValls/BAGO/releases/download/v4.7/bago-v4.7.zip.sha256" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+          <a href="${BAGO_BUNDLE_SHA256_URL}" class="card block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
             <div class="flex items-start justify-between mb-2">
               <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span class="text-[10px] text-slate-500 uppercase tracking-wider">SHA-256</span>
             </div>
             <p class="font-semibold text-sm">Verificar integridad</p>
-            <p class="text-xs text-slate-500 mt-0.5">SHA-256 del bundle 4.7</p>
+            <p class="text-xs text-slate-500 mt-0.5">SHA-256 del bundle ${BAGO_VERSION}</p>
           </a>
         </div>
         <!-- Descarga gestor standalone -->
-        <a id="manager-download" href="https://github.com/MarcValls/BAGO/releases/download/v4.7/BAGO-Installation-Manager-4.7-win-x64.exe" class="card block mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
+        <a id="manager-download" href="${BAGO_MANAGER_DOWNLOAD_URL}" class="card block mt-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800/60">
          <div class="flex items-start justify-between mb-2">
            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
            <span class="text-[10px] text-slate-500 uppercase tracking-wider">Windows · Electron</span>
@@ -230,7 +240,7 @@
       <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <div class="px-5 py-3 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
           <span class="text-sm font-semibold text-slate-200">Últimos commits</span>
-          <a href="https://github.com/MarcValls/BAGO/commits/main" target="_blank" class="text-xs text-indigo-400 hover:underline">Ver todo →</a>
+          <a href="${BAGO_GITHUB_URL}/commits/main" target="_blank" class="text-xs text-indigo-400 hover:underline">Ver todo →</a>
         </div>
         <ul id="act-commits" class="divide-y divide-slate-800">
           <li class="px-5 py-4 text-sm text-slate-500">Cargando commits...</li>
@@ -244,22 +254,22 @@
     <div class="max-w-6xl mx-auto px-6 py-16">
       <h2 class="text-2xl md:text-3xl font-bold mb-6">Documentación</h2>
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <a href="https://github.com/MarcValls/BAGO/blob/main/MANUAL.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+        <a href="${BAGO_GITHUB_URL}/blob/main/MANUAL.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
           <span class="font-medium text-sm">MANUAL.md</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+        <a href="${BAGO_GITHUB_URL}/blob/main/docs/DISTRIBUTION_CONTRACT.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
           <span class="font-medium text-sm">Contrato de distribución</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/ARCHITECTURE.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+        <a href="${BAGO_GITHUB_URL}/blob/main/docs/ARCHITECTURE.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
           <span class="font-medium text-sm">Arquitectura</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/SECURITY.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+        <a href="${BAGO_GITHUB_URL}/blob/main/docs/SECURITY.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
           <span class="font-medium text-sm">Seguridad</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/TESTING.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+        <a href="${BAGO_GITHUB_URL}/blob/main/docs/TESTING.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
           <span class="font-medium text-sm">Testing</span><span class="text-slate-500">→</span>
         </a>
-        <a href="https://github.com/MarcValls/BAGO/blob/main/docs/ROADMAP.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+        <a href="${BAGO_GITHUB_URL}/blob/main/docs/ROADMAP.md" target="_blank" class="card p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
           <span class="font-medium text-sm">Roadmap</span><span class="text-slate-500">→</span>
         </a>
       </div>
@@ -268,25 +278,26 @@
 
   <footer class="border-t border-slate-800 py-8 text-center text-xs text-slate-500">
     <p>© 2026 BAGO — Session-First AI Control Plane</p>
-    <p class="mt-1">Distribuido bajo las reglas del <a href="https://github.com/MarcValls/BAGO/blob/main/docs/DISTRIBUTION_CONTRACT.md" class="text-indigo-400 hover:underline">Distribution Contract</a>.</p>
+    <p class="mt-1">Distribuido bajo las reglas del <a href="${BAGO_GITHUB_URL}/blob/main/docs/DISTRIBUTION_CONTRACT.md" class="text-indigo-400 hover:underline">Distribution Contract</a>.</p>
   </footer>
 
   <script>
     /* ──── Activity panel ──── */
     (async function() {
+      const repo = window.BAGO_REPO || { apiUrl: '${BAGO_API_URL}', githubUrl: '${BAGO_GITHUB_URL}' };
       const status = document.getElementById('act-status');
       try {
-        const [repo, commits] = await Promise.all([
-          fetch('https://api.github.com/repos/MarcValls/BAGO').then(r => r.json()),
-          fetch('https://api.github.com/repos/MarcValls/BAGO/commits?per_page=5').then(r => r.json())
+        const [repoData, commits] = await Promise.all([
+          fetch(`${repo.apiUrl}`).then(r => r.json()),
+          fetch(`${repo.apiUrl}/commits?per_page=5`).then(r => r.json())
         ]);
-        if (repo.stargazers_count != null) document.getElementById('act-stars').textContent = repo.stargazers_count;
-        if (repo.open_issues_count != null) document.getElementById('act-issues').textContent = repo.open_issues_count;
-        if (repo.pushed_at) {
-          const d = new Date(repo.pushed_at);
+        if (repoData.stargazers_count != null) document.getElementById('act-stars').textContent = repoData.stargazers_count;
+        if (repoData.open_issues_count != null) document.getElementById('act-issues').textContent = repoData.open_issues_count;
+        if (repoData.pushed_at) {
+          const d = new Date(repoData.pushed_at);
           document.getElementById('act-pushed').textContent = d.toLocaleDateString('es-ES', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
         }
-        if (repo.size != null) document.getElementById('act-size').textContent = (repo.size / 1024).toFixed(1) + ' MB';
+        if (repoData.size != null) document.getElementById('act-size').textContent = (repoData.size / 1024).toFixed(1) + ' MB';
         const list = document.getElementById('act-commits');
         if (Array.isArray(commits) && commits.length) {
           list.innerHTML = commits.map(c => {
@@ -347,8 +358,9 @@
     let latestRelease = null;
 
     async function loadLatestRelease() {
+      const repo = window.BAGO_REPO || { apiUrl: '${BAGO_API_URL}' };
       try {
-        const res = await fetch('https://api.github.com/repos/MarcValls/BAGO/releases?per_page=20');
+        const res = await fetch(`${repo.apiUrl}/releases?per_page=20`);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const releases = await res.json();
         latestRelease = (Array.isArray(releases) ? releases : [])
@@ -375,7 +387,8 @@
       return 'powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' + btoa(bin);
     }
     function remoteInstallerCommand(target) {
-      return psCommand('$s=Join-Path $env:TEMP ' + psSingle('install-remote.ps1') + '; Invoke-WebRequest -Uri ' + psSingle('https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1') + ' -OutFile $s -UseBasicParsing; & $s -InstallDir ' + psSingle(target));
+      const repo = window.BAGO_REPO || { installRemoteUrl: '${BAGO_INSTALL_REMOTE_URL}' };
+      return psCommand('$s=Join-Path $env:TEMP ' + psSingle('install-remote.ps1') + '; Invoke-WebRequest -Uri ' + psSingle(repo.installRemoteUrl) + ' -OutFile $s -UseBasicParsing; & $s -InstallDir ' + psSingle(target));
     }
     function updateState(inst) {
       if (!latestRelease) return { label: 'release no consultada', cls: 'badge-neutral' };
@@ -500,13 +513,14 @@
     }
 
     function buildActions(inst, isSource) {
+      const repo = window.BAGO_REPO || { releasesUrl: '${BAGO_RELEASES_URL}', installRemoteUrl: '${BAGO_INSTALL_REMOTE_URL}' };
       const path = inst.path;
       const cd = `cd "${path}"`;
       const groups = [];
       const latestTag = latestRelease && latestRelease.tag_name ? latestRelease.tag_name : 'latest';
       const latestAsset = latestZipAsset();
       const latestAssetName = latestAsset && latestAsset.name ? latestAsset.name : 'asset .zip mas reciente';
-      const latestReleaseUrl = latestRelease && latestRelease.html_url ? latestRelease.html_url : 'https://github.com/MarcValls/BAGO/releases';
+      const latestReleaseUrl = latestRelease && latestRelease.html_url ? latestRelease.html_url : repo.releasesUrl;
 
       // 1) Launch
       groups.push(actionGroup('Ejecutar', '▶️', [
@@ -599,4 +613,3 @@
   </script>
 </body>
 </html>
-
