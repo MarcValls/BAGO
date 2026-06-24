@@ -613,12 +613,12 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return False
 
     def _handle_files_read(self, file_path: str) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
+            if not decoded_path:
+                raise ValueError("Ruta vacia")
+            candidate = base.joinpath(decoded_path)
+            target = candidate.resolve(strict=True)
+            if not target.is_relative_to(base):
             return
-        base = Path(mgr.base_path).resolve()
-        try:
             decoded_path = unquote(file_path).strip().replace("\\", "/")
             if not decoded_path or "\x00" in decoded_path or os.path.isabs(decoded_path):
             # Rechazar rutas vacías, absolutas, unidades/UNC y traversal explícito
