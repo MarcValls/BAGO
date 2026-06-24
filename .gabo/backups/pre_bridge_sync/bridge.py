@@ -95,10 +95,11 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         return "".join(ch for ch in value if ch >= " " and ch != "\x7f")
 
     def _send_cors_headers(self) -> None:
-        origin = self.headers.get("Origin", "")
+        origin = self.headers.get("Origin", "").strip()
+        if "\r" in origin or "\n" in origin:
+            return
         if self._cors_origin_allowed(origin):
-            safe_origin = self._sanitize_header_value(origin)
-            self.send_header("Access-Control-Allow-Origin", safe_origin)
+            self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
 
     def _send_json(self, status: int, data: dict[str, Any]) -> None:
