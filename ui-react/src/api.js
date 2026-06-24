@@ -53,6 +53,41 @@ export const chatApi = {
       ...(managerContext ? { manager_context: managerContext } : {}),
     }),
   }),
+  sendChatStream: (message, channel, onChunk) => {
+    const API_URL_LOCAL = API_URL
+    const token = API_TOKEN
+    return fetch(`${API_URL_LOCAL}/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'X-Bago-Token': token } : {}),
+        'X-Bago-Channel': channel,
+      },
+      body: JSON.stringify({ message, channel }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.chunk) onChunk(data.chunk)
+            if (data.done) return data
+            if (data.error) throw new Error(data.error)
+          } catch { /* skip malformed */ }
+        }
+      }
+      return null
+    })
+  },
   runCommand: (command, channel) => request('/command', {
     method: 'POST',
     headers: { 'X-Bago-Channel': channel },
@@ -89,4 +124,8 @@ export const chatApi = {
 
   // ── Providers ────────────────────────────────────────────────────────────
   listProviders: () => request('/providers'),
+
+  // ── Files ────────────────────────────────────────────────────────────────
+  getFilesList: () => request('/files/list'),
+  getFileRead: (filepath) => request(`/files/read/${encodeURIComponent(filepath)}`),
 }

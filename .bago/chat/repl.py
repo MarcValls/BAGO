@@ -688,31 +688,17 @@ class BagoREPL(BagoReplMenuMixin):
                 return True
         return self._handle_command(f"/config set {key} {value}")
 
-    def _dispatch_command_intent(self, cmd: str, original: str) -> bool:
+    def _dispatch_command_intent(self, cmd: str) -> bool:
         """Despacha un comando deducido por el engine de intención natural.
 
         Mapea el comando slash al wizard correcto o lo ejecuta directamente.
         Retorna True para continuar, False para salir.
         """
-        wizards = {
-            "/credentials set": self._credential_wizard,
-            "/switch":          self._switch_wizard,
-            "/agent":           self._agent_wizard,
-            "/load":            self._load_wizard,
-            "/config set":      self._config_wizard,
-            "/feedback":        self._feedback_wizard,
-            "/tools set":       self._tools_wizard,
-            "/memory delete":   self._memory_delete_wizard,
-            "/project":         lambda: self._project_wizard(Path(self.mgr.base_path)),
-            "/ui":              self._ui_wizard,
-        }
-        palette = {"/": self._show_command_palette}
-
-        if cmd in wizards:
-            return wizards[cmd]()
-        if cmd in palette:
-            return palette[cmd]()
-        # Para el resto: ejecutar como comando slash directo
+        short = self._WIZARD_COMMANDS.get(cmd)
+        if short:
+            return self._run_wizard(short)
+        if cmd == "/":
+            return self._show_command_palette()
         return self._handle_command(cmd)
 
     def _handle_command(self, line: str) -> bool:
@@ -722,24 +708,9 @@ class BagoREPL(BagoReplMenuMixin):
             return self._show_menu()
         if low in ("/credentials set", "/credentials add", "/login", "/cred"):
             return self._credential_wizard()
-        if low == "/switch":
-            return self._switch_wizard()
-        if low == "/agent":
-            return self._agent_wizard()
-        if low == "/load":
-            return self._load_wizard()
-        if low == "/config set":
-            return self._config_wizard()
-        if low == "/feedback":
-            return self._feedback_wizard()
-        if low == "/tools set":
-            return self._tools_wizard()
-        if low == "/memory delete":
-            return self._memory_delete_wizard()
-        if low == "/project":
-            return self._project_wizard(Path(self.mgr.base_path))
-        if low == "/ui":
-            return self._ui_wizard()
+        short = self._WIZARD_COMMANDS.get(low)
+        if short:
+            return self._run_wizard(short)
         result = execute(line, self.mgr, self.engine)
         if result.get("action") == "quit":
             print(R.ok(result["message"]))
@@ -865,7 +836,7 @@ class BagoREPL(BagoReplMenuMixin):
                     elif stripped.lower() in _LOGIN_ALIASES:
                         _nl_cmd = "/credentials set"
                 if _nl_cmd is not None:
-                    if not self._dispatch_command_intent(_nl_cmd, stripped):
+                    if not self._dispatch_command_intent(_nl_cmd):
                         break
                     self._print_status()
                     continue

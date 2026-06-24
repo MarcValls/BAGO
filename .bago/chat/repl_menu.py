@@ -35,6 +35,33 @@ def _load_tool_module(module_name: str, file_name: str):
 
 
 class BagoReplMenuMixin:
+
+    _WIZARD_SHORT_NAMES = {
+        "credentials": "credentials",
+        "switch": "switch",
+        "agent": "agent",
+        "load": "load",
+        "feedback": "feedback",
+        "tools": "tools",
+        "memory-delete": "memory-delete",
+        "project": "project",
+        "config": "config",
+        "ui": "ui",
+    }
+
+    _WIZARD_COMMANDS = {
+        "/credentials set": "credentials",
+        "/switch": "switch",
+        "/agent": "agent",
+        "/load": "load",
+        "/config set": "config",
+        "/feedback": "feedback",
+        "/tools set": "tools",
+        "/memory delete": "memory-delete",
+        "/project": "project",
+        "/ui": "ui",
+    }
+
     def _command_catalog(self) -> list[dict[str, Any]]:
         catalog: list[dict[str, Any]] = []
         for section in MENU_SECTIONS:
@@ -116,28 +143,23 @@ class BagoReplMenuMixin:
         return self._handle_command(command_line)
 
     def _run_wizard(self, name: str) -> bool:
-        if name == "credentials":
-            return self._credential_wizard()
-        if name == "switch":
-            return self._switch_wizard()
-        if name == "agent":
-            return self._agent_wizard()
-        if name == "load":
-            return self._load_wizard()
-        if name == "feedback":
-            return self._feedback_wizard()
-        if name == "tools":
-            return self._tools_wizard()
-        if name == "memory-delete":
-            return self._memory_delete_wizard()
-        if name == "project":
-            return self._project_wizard(Path(self.mgr.base_path))
-        if name == "config":
-            return self._config_wizard()
-        if name == "ui":
-            return self._ui_wizard()
-        print(R.error(f"Asistente desconocido: {name}"))
-        return True
+        handlers = {
+            "credentials": self._credential_wizard,
+            "switch": self._switch_wizard,
+            "agent": self._agent_wizard,
+            "load": self._load_wizard,
+            "feedback": self._feedback_wizard,
+            "tools": self._tools_wizard,
+            "memory-delete": self._memory_delete_wizard,
+            "project": lambda: self._project_wizard(Path(self.mgr.base_path)),
+            "config": self._config_wizard,
+            "ui": self._ui_wizard,
+        }
+        handler = handlers.get(name)
+        if handler is None:
+            print(R.error(f"Asistente desconocido: {name}"))
+            return True
+        return handler()
 
     def _wizard_tty_ok(self, manual_hint: str) -> bool:
         if sys.stdin.isatty() and sys.stdout.isatty():

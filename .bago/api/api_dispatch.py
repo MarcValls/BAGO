@@ -69,6 +69,7 @@ ROUTE_META: tuple = (
     ("GET",  "/routes",              "handlers_routes",     "handle"),
     # POST routes
     ("POST", "/chat",                "handlers_chat",       "handle"),
+    ("POST", "/chat/stream",         "handlers_chat_stream", "handle"),
     ("POST", "/command",             "handlers_command",    "handle"),
     ("POST", "/switch",              "handlers_switch",     "handle"),
     ("POST", "/catalog/config",      "handlers_catalog",    "handle_config"),
@@ -142,6 +143,7 @@ API_PREFIXES = (
     "/menu",
     "/models",
     "/chat",
+    "/chat/stream",
     "/command",
     "/switch",
     "/catalog",

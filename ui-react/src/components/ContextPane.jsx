@@ -7,6 +7,7 @@ const VIEWS = [
   { id: 'schedule', label: 'Agenda', icon: '◷' },
   { id: 'subagents', label: 'Agentes', icon: '◐' },
   { id: 'providers', label: 'Providers', icon: '▣' },
+  { id: 'files', label: 'Archivos', icon: '☰' },
   { id: 'router', label: 'Router', icon: '↻' },
   { id: 'simulation', label: 'Simul', icon: '◌' },
 ]
@@ -269,12 +270,48 @@ function SimulationView() {
   )
 }
 
+function FilesView() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    chatApi.getFilesList().then(setData).catch((e) => setError(e.message))
+  }, [])
+
+  if (error) return <div className="ctx-error">{error}</div>
+  if (!data) return <div className="ctx-loading">Cargando archivos…</div>
+
+  const entries = data.entries || []
+  return (
+    <div className="ctx-files">
+      <div className="ctx-files-base">{data.base_path || ''}</div>
+      {entries.length === 0 ? (
+        <div className="ctx-empty">Sin archivos en el workspace</div>
+      ) : (
+        <ul className="ctx-files-list">
+          {entries.slice(0, 200).map((entry, i) => (
+            <li key={i} className={`ctx-file-item ${entry.dir ? 'is-dir' : 'is-file'}`}>
+              <span className="ctx-file-icon">{entry.dir ? '▸' : '·'}</span>
+              <span className="ctx-file-name">{entry.name || entry.path || '—'}</span>
+              {entry.size != null && <span className="ctx-file-size">{entry.size} B</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {entries.length > 200 && (
+        <div className="ctx-files-more">{entries.length - 200} archivos más…</div>
+      )}
+    </div>
+  )
+}
+
 const VIEW_COMPONENTS = {
   routes: RoutesView,
   memory: MemoryView,
   schedule: ScheduleView,
   subagents: SubagentsView,
   providers: ProvidersView,
+  files: FilesView,
   router: RouterView,
   simulation: SimulationView,
 }

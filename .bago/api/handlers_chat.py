@@ -142,6 +142,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
             "history_count": len(ctx.session_mgr.store.get_history()),
             "chat_latency_ms": elapsed_ms,
             "chat_timeout_s": timeout_s,
+            "receipt": ctx.session_mgr.last_receipt.to_dict() if ctx.session_mgr.last_receipt else None,
         }
         ctx.record_shadow(
             action_kind="chat",

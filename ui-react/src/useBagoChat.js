@@ -11,6 +11,7 @@ export function useBagoChat() {
   const [commandLog, setCommandLog] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [lastReceipt, setLastReceipt] = useState(null)
   const busyRef = useRef(false)
 
   const pushCommandLog = useCallback((entry) => {
@@ -77,7 +78,10 @@ export function useBagoChat() {
           response,
         })
       } else {
-        await chatApi.sendChat(input.trim(), channel, managerContext)
+        const chatResponse = await chatApi.sendChat(input.trim(), channel, managerContext)
+        if (chatResponse?.receipt) {
+          setLastReceipt(chatResponse.receipt)
+        }
       }
       await refresh()
       setError('')
@@ -126,6 +130,7 @@ export function useBagoChat() {
     commandLog,
     busy,
     error,
+    lastReceipt,
     refresh,
     submit,
     switchProviderModel,
