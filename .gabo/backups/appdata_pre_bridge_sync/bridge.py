@@ -613,12 +613,14 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         base = Path(mgr.base_path).resolve()
         try:
             decoded_path = unquote(file_path).strip()
-            rel_path = Path(decoded_path)
-            # Rechazar rutas absolutas, unidades de disco y traversal explícito
-            if not decoded_path or rel_path.is_absolute() or rel_path.drive or ".." in rel_path.parts:
+            if not decoded_path or "\x00" in decoded_path or os.path.isabs(decoded_path):
                 raise ValueError("Ruta fuera de base")
-            target = (base / rel_path).resolve()
-            target.relative_to(base)
+
+            candidate = os.path.normpath(os.path.join(str(base), decoded_path))
+            if os.path.commonpath([str(base), candidate]) != str(base):
+                raise ValueError("Ruta fuera de base")
+
+            target = Path(candidate).resolve()
         except (ValueError, RuntimeError, OSError):
             self._send_json(403, {"error": "Ruta de archivo invalida"})
             return
