@@ -605,6 +605,13 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._send_json(500, {"error": f"Error listando archivos: {exc}"})
 
+    def _is_within_base(self, base: Path, candidate: Path) -> bool:
+        try:
+            candidate.relative_to(base)
+            return True
+        except ValueError:
+            return False
+
     def _handle_files_read(self, file_path: str) -> None:
         mgr = self.session_mgr
         if mgr is None:
@@ -612,12 +619,19 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             return
         base = Path(mgr.base_path).resolve()
         try:
-            decoded_path = unquote(file_path).strip()
+            decoded_path = unquote(file_path).strip().replace("\\", "/")
             if not decoded_path or "\x00" in decoded_path or os.path.isabs(decoded_path):
-                raise ValueError("Ruta fuera de base")
-
+            # Rechazar rutas vacías, absolutas, unidades/UNC y traversal explícito
+            if (
+                not decoded_path
+                or rel_path.is_absolute()
+                or rel_path.drive
+                or decoded_path.startswith(("/", "~"))
+                or ".." in rel_path.parts
+            ):
             candidate = os.path.normpath(os.path.join(str(base), decoded_path))
             if os.path.commonpath([str(base), candidate]) != str(base):
+            if not self._is_within_base(base, target):
                 raise ValueError("Ruta fuera de base")
 
             target = Path(candidate).resolve()
