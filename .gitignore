@@ -74,3 +74,15 @@ SIGUIENTE.txt
 # 2026-Q2 cleanup: archive holds historical artifacts not part of the active repo
 archive/
 
+# Debug captures from manual bridge/CLI testing
+chat_body.json
+chat_help.txt
+chat_real.json
+cli_help.txt
+llm_help.txt
+llm_list.txt
+router_body.json
+serve_help.txt
+serve_test.txt
+status_body.json
+
