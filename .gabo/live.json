@@ -1,0 +1,12 @@
+{
+  "command": "bago",
+  "workspace_root_rel": ".",
+  "paths_are": "root-relative except *_abs (informational only)",
+  "version": "4.8.0",
+  "captured_at": "2026-06-24T10:02:47Z",
+  "launcher_abs": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\BAGO\\bago.ps1",
+  "install_selection_active_abs": "C:\\Users\\AMTEC_~1\\BAG4.8",
+  "install_selection_active_resolved_abs": "C:\\Users\\AMTEC_Terminal_1º\\BAG4.8",
+  "workspace_matches_active": true,
+  "note_on_short_form": "active_abs uses short form (AMTEC_~1) to avoid PowerShell 5.1 ANSI bug on 'º'"
+}

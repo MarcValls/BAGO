@@ -46,7 +46,7 @@ try:
 except ModuleNotFoundError:
     from bago_core.version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_exec, cmd_llm  # noqa: E402
-from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve  # noqa: E402
+from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_serve, cmd_api  # noqa: E402
 from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
     cmd_appdata,
@@ -56,6 +56,7 @@ from bago_core.commands.cmd_system import (  # noqa: E402
     cmd_rl,
     cmd_validate,
 )
+from bago_core.commands.cmd_doctor import cmd_doctor  # noqa: E402
 from bago_core.commands.cmd_tools import (  # noqa: E402
     cmd_agent,
     cmd_backup,
@@ -369,6 +370,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "cmd-rl":      "cmd_cmd_rl",
     "rl":          "cmd_rl",
     "serve":       "cmd_serve",
+    "api":         "cmd_api",
     "evidence":    "cmd_evidence",
     "cpp-runtime": "cmd_cpp_runtime",
     "scan":        "cmd_scan",
@@ -387,6 +389,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "list-installs": "cmd_installs",
     "install-role": "cmd_install_role",
     "node":        "cmd_node",
+    "doctor":      "cmd_doctor",
 }
 
 

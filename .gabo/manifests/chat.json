@@ -1,0 +1,17 @@
+{
+  "area": "chat",
+  "root_rel": ".bago/chat",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 7,
+  "files": [
+    "__init__.py",
+    "commands.py",
+    "renderer.py",
+    "repl.py",
+    "repl_inventory.py",
+    "repl_menu.py",
+    "system_prompt.py"
+  ]
+}

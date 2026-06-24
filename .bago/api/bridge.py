@@ -22,7 +22,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -32,9 +32,46 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "bago_core"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "chat"))
+
+def _load_cors_origins_from_env() -> frozenset[str]:
+    """Parsea BAGO_API_CORS_ORIGINS (lista separada por comas) en un frozenset.
+
+    Los espacios alrededor de cada entrada se ignoran. Las entradas vacías se
+    descartan. Si la variable no está definida o queda vacía, devuelve el
+    conjunto vacío (los hosts locales siguen permitidos por defecto).
+    """
+    raw = os.environ.get("BAGO_API_CORS_ORIGINS", "")
+    if not raw:
+        return frozenset()
+    parts = [p.strip() for p in raw.split(",")]
+    return frozenset(p for p in parts if p)
+
+
+def _load_chat_timeout_from_env(default: float) -> float:
+    """Lee BAGO_API_CHAT_TIMEOUT (segundos) y lo convierte a float.
+
+    Valores inválidos se ignoran y se devuelve ``default``. Un valor de 0
+    desactiva el watchdog (las llamadas pueden colgar — útil solo para
+    diagnóstico).
+    """
+    raw = os.environ.get("BAGO_API_CHAT_TIMEOUT", "")
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return default
+    if value < 0:
+        return default
+    return value
+
+# Make the repo root + .bago submodules importable. The repo root lets
+# `import bago_core.version` resolve (bago_core is a real package).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT))                            # repo root
+sys.path.insert(0, str(_REPO_ROOT / "bago_core"))             # direct (legacy)
+sys.path.insert(0, str(_REPO_ROOT / ".bago" / "core"))        # session_manager, switch_engine
+sys.path.insert(0, str(_REPO_ROOT / ".bago" / "chat"))        # repl_*, renderer, etc.
 
 _CREATED_VERSION = "4.0.0"
 
@@ -48,15 +85,36 @@ except ImportError:
 
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
-from commands import execute as execute_command
 from control_shadow import ControlShadow
-from rl_bridge import RLBridge
+
+from api_auth import BagoAuthMixin
+from api_dispatch import API_PREFIXES as _API_PREFIXES, resolve_get, resolve_post, resolve_router
+from api_serializers import json_safe, read_body, send_bytes, send_json
+from rate_limit import get_limiter
+from structured_log import get_logger
 
 
-class BagoAPIHandler(BaseHTTPRequestHandler):
-    """Handler HTTP para la API de BAGO."""
+class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
+    """Handler HTTP para la API de BAGO.
+
+    Responsibilities (post-modularization):
+      - HTTP plumbing (parse request, write response)
+      - Auth + CORS (delegated to BagoAuthMixin)
+      - JSON I/O (delegated to api_serializers)
+      - Routing (delegated to api_dispatch)
+
+    Handler logic for each domain (status, memory, chat, etc.) lives in
+    `handlers_<domain>.py` and is invoked via api_dispatch. The legacy
+    `_handle_*` methods on this class are kept as a fallback for endpoints
+    that haven't been migrated yet.
+    """
 
     MAX_BODY_BYTES = 1024 * 1024
+    api_prefixes = _API_PREFIXES  # used by _is_api_path
+
+    # Timeout por defecto (segundos) para /chat. Se puede sobreescribir con
+    # BAGO_API_CHAT_TIMEOUT. Un valor de 0 desactiva el watchdog.
+    DEFAULT_CHAT_TIMEOUT_S: float = 30.0
 
     # Se establece desde fuera antes de iniciar el servidor
     session_mgr: SessionManager | None = None
@@ -64,31 +122,21 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
     api_token: str = ""
     shadow: ControlShadow | None = None
     static_dir: Path | None = None
-    api_prefixes = (
-        "/status",
-        "/session",
-        "/history",
-        "/providers",
-        "/menu",
-        "/models",
-        "/chat",
-        "/command",
-        "/switch",
-        "/catalog",
-        "/simulation",
-        "/rl",
-    )
+    chat_timeout_s: float = 30.0
+    # api_prefixes comes from api_dispatch.API_PREFIXES so adding a new
+    # route there (e.g. /router) automatically updates _is_api_path.
+    # The attribute is set just below, after the class body opens.
 
     @staticmethod
     def _cors_origin_allowed(origin: str) -> bool:
         if not origin:
             return False
         parsed = urlparse(origin)
-        return parsed.scheme in ("http", "https") and parsed.hostname in {
-            "localhost",
-            "127.0.0.1",
-            "::1",
-        }
+        if parsed.scheme not in ("http", "https"):
+            return False
+        if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
+            return True
+        return origin in BagoAPIHandler.extra_cors_origins
 
     def _send_cors_headers(self) -> None:
         origin = self.headers.get("Origin", "")
@@ -133,6 +181,20 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
         if length < 0:
             return {}
         if length > self.MAX_BODY_BYTES:
+            # Drain the request body so the client can finish writing without
+            # the server tearing down the socket mid-stream. Without this,
+            # the kernel aborts the connection once the client keeps writing
+            # into a socket the server has already half-closed for the
+            # response.
+            try:
+                remaining = length
+                while remaining > 0:
+                    chunk = self.rfile.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+            except Exception:
+                pass
             raise ValueError("Payload demasiado grande")
         if length:
             data = self.rfile.read(length).decode("utf-8")
@@ -194,32 +256,32 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
 
         if self._is_api_path(path):
             if not self._check_auth():
-                self._send_json(401, {"error": "Unauthorized — X-Bago-Token requerido"})
+                get_logger().warn("auth_failed", path=path, client=self.client_address[0])
+                self._send_json(401, {"error": "Unauthorized \u2014 X-Bago-Token requerido"})
                 return
 
-            if path == "/status":
-                self._handle_status()
-            elif path == "/session":
-                self._handle_session()
-            elif path == "/history":
-                self._handle_history()
-            elif path == "/providers":
-                self._handle_providers()
-            elif path == "/menu":
-                self._handle_menu()
-            elif path == "/catalog/status":
-                self._handle_catalog_status()
-            elif path == "/simulation/status":
-                self._handle_simulation_status()
-            elif path == "/simulation/events":
-                self._handle_simulation_events()
-            elif path == "/rl/status":
-                self._handle_rl_status()
-            elif path.startswith("/models/"):
-                provider = path.split("/")[-1]
-                self._handle_models(provider)
-            else:
-                self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
+            get_logger().info("get_request", path=path)
+
+            # 1. Try the modular dispatch table (handlers_<domain>.py).
+            matched, call = resolve_get(self, path)
+            if matched:
+                call(self)
+                return
+
+            # 2. Legacy fallback for endpoints that haven't been migrated
+            #    yet. Each branch calls a _handle_* method defined below.
+            # Legacy fallback: POST /chat, /command, /switch only.
+            # These handlers depend on private helpers (_channel,
+            # All POST routes are now handled by the modular dispatch above.
+            # The legacy_dispatch dict below is intentionally empty;
+            # any future legacy fallback should be added there with a comment
+            # explaining why it isn't migrated yet.
+            self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
+            return
+
+        # API-shaped paths must never fall through to the SPA fallback.
+        if path.startswith("/api/") or any(path.startswith(f"{p}/") for p in self.api_prefixes + ("/node",)):
+            self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
             return
 
         if self._serve_static(path):
@@ -229,344 +291,62 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if not self._check_auth():
-            self._send_json(401, {"error": "Unauthorized — X-Bago-Token requerido"})
+            get_logger().warn("auth_failed", path=self.path, client=self.client_address[0])
+            self._send_json(401, {"error": "Unauthorized \u2014 X-Bago-Token requerido"})
             return
         parsed = urlparse(self.path)
         path = parsed.path
         try:
             body = self._read_body()
         except ValueError as exc:
+            get_logger().warn("payload_too_large", path=path, error=str(exc))
             self._send_json(413, {"error": str(exc)})
             return
 
-        if path == "/chat":
-            self._handle_chat(body)
-        elif path == "/command":
-            self._handle_command(body)
-        elif path == "/switch":
-            self._handle_switch(body)
-        elif path == "/catalog/config":
-            self._handle_catalog_config(body)
-        elif path == "/simulation/config":
-            self._handle_simulation_config(body)
-        elif path == "/rl/shadow":
-            self._handle_rl_shadow(body)
-        else:
-            self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
+        # Rate-limit check for chat/switch (heavy endpoints)
+        if path in ("/chat", "/switch"):
+            provider = self.session_mgr.provider if self.session_mgr else "ollama-local"
+            allowed, detail = get_limiter().check(provider)
+            if not allowed:
+                get_logger().warn("rate_limited", path=path, provider=provider, detail=detail)
+                self._send_json(429, {"error": "Rate limit exceeded", "detail": detail})
+                return
+
+        get_logger().info("post_request", path=path, has_body=bool(body))
+
+        # 1. Try the modular dispatch table.
+        matched, call = resolve_post(self, path, body)
+        if matched:
+            call(self, body)
+            return
+
+        # Pattern routes (e.g. /router/toggle/<key>).
+        matched, call = resolve_router(self, path, body)
+        if matched:
+            call(self, body)
+            return
+
+        self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
 
     # ── Handlers ─────────────────────────────────────────────────────
+    # NOTE: legacy _handle_* methods live below for endpoints that haven't
+    # All legacy _handle_* methods have been migrated to handlers_*.py
+    # modules. New endpoints should go in handlers_<domain>.py and be
+    # registered in api_dispatch. This class only holds HTTP plumbing
+    # and the helpers used by the legacy code that lived here before
+    # the modular split.
 
-    def _handle_status(self) -> None:
+    def _resolve_state_root(self) -> Path:
+        """Resolve the state root from the session manager (mirrors repl.state_root)."""
         mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        self._send_json(200, mgr.status())
-
-    def _handle_session(self) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        self._send_json(200, {
-            "session_id": mgr.session_id,
-            "provider": mgr.provider,
-            "model": mgr.model,
-            "status": mgr.status(),
-            "active_agent": mgr.agent_gateway.active.name,
-            "tool_calling": mgr.config.get("features.tool_calling", False),
-            "model_catalog_mode": mgr.config.get("model_catalog.mode", "all"),
-        })
-
-    def _handle_history(self) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        history = mgr.store.get_history()
-        self._send_json(200, {
-            "session_id": mgr.session_id,
-            "messages": history,
-            "count": len(history),
-        })
-
-    def _handle_providers(self) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        providers = mgr.available_providers()
-        self._send_json(200, {"providers": providers, "mode": mgr.config.get("model_catalog.mode", "all")})
-
-    def _handle_menu(self) -> None:
+        if mgr is not None and hasattr(mgr, "state_root"):
+            return Path(mgr.state_root)
+        # Fallback: pick up REPL state_root via the session_context module.
         try:
-            from repl import MENU_SECTIONS
-        except Exception as exc:  # pragma: no cover - import defensivo
-            # Culpa tecnica: responsable=import de MENU_SECTIONS; causa=ruta/paquete;
-            # prevencion=fallback vacio para no romper la UI.
-            self._send_json(200, {"sections": [], "error": f"menu no disponible: {exc}"})
-            return
-        self._send_json(200, {"sections": MENU_SECTIONS})
-
-    def _handle_models(self, provider: str) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        catalog = mgr.list_model_catalog(provider)
-        self._send_json(200, {
-            "provider": provider,
-            "mode": mgr.config.get("model_catalog.mode", "all"),
-            "models": [item["id"] for item in catalog],
-            "items": catalog,
-        })
-
-    def _handle_catalog_status(self) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        self._send_json(200, {
-            "mode": mgr.config.get("model_catalog.mode", "all"),
-            "production_mode": mgr.config.get("model_catalog.production_mode", "available-only"),
-        })
-
-    def _handle_catalog_config(self, body: dict[str, Any]) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        mode = str(body.get("mode", "")).strip()
-        if mode not in ("all", "available-only"):
-            self._send_json(400, {"error": "Modo inválido. Usa all|available-only"})
-            return
-        mgr.config.set("model_catalog.mode", mode)
-        mgr._providers_cache = None
-        self._send_json(200, {
-            "ok": True,
-            "mode": mode,
-            "production_mode": mgr.config.get("model_catalog.production_mode", "available-only"),
-        })
-
-    def _channel(self, body: dict[str, Any]) -> str:
-        return str(body.get("channel") or self.headers.get("X-Bago-Channel") or "api")
-
-    def _record_shadow(
-        self,
-        *,
-        action_kind: str,
-        channel: str,
-        payload: dict[str, Any],
-        pre_state: dict[str, Any],
-        post_state: dict[str, Any],
-        result: dict[str, Any],
-        elapsed_ms: float,
-    ) -> None:
-        if self.shadow is None or self.session_mgr is None:
-            return
-        try:
-            self.shadow.log_event(
-                mgr=self.session_mgr,
-                channel=channel,
-                action_kind=action_kind,
-                payload=payload,
-                pre_state=pre_state,
-                post_state=post_state,
-                result=result,
-                elapsed_ms=elapsed_ms,
-            )
+            from session_context import current_state_root
+            return current_state_root()
         except Exception:
-            return
-
-    def _handle_chat(self, body: dict[str, Any]) -> None:
-        mgr = self.session_mgr
-        if mgr is None:
-            self._send_json(503, {"error": "SessionManager no disponible"})
-            return
-        message = body.get("message", "")
-        if not message:
-            self._send_json(400, {"error": "Campo 'message' requerido"})
-            return
-        channel = self._channel(body)
-
-        # Inyectar contexto operativo del gestor si viene en la petición.
-        # El prefijo se incluye en el mensaje enviado al AI para que BAGO tenga
-        # contexto de qué vista está activa en el gestor. El prefijo usa el
-        # marcador BAGO_CTX para que la UI pueda filtrarlo en el historial.
-        manager_ctx = body.get("manager_context")
-        ai_message = message
-        if manager_ctx and isinstance(manager_ctx, dict):
-            parts: list[str] = []
-            view_label = (manager_ctx.get("viewLabel") or manager_ctx.get("view") or "").strip()
-            if view_label:
-                parts.append(f"Vista activa del gestor: {view_label}")
-            installs = manager_ctx.get("installations")
-            if installs not in (None, "?"):
-                parts.append(f"{installs} instalaciones")
-            pieces = manager_ctx.get("pieces")
-            if pieces not in (None, "?"):
-                parts.append(f"{pieces} piezas")
-            if parts:
-                ai_message = f"[BAGO_CTX:{'; '.join(parts)}]\n{message}"
-
-        pre_state = mgr.status()
-        started = time.time()
-        try:
-            response = mgr.send(ai_message)
-            payload = {
-                "ok": True,
-                "response": response,
-                "session_id": mgr.session_id,
-                "provider": mgr.provider,
-                "model": mgr.model,
-                "history_count": len(mgr.store.get_history()),
-            }
-            self._record_shadow(
-                action_kind="chat",
-                channel=channel,
-                payload={"message": message},
-                pre_state=pre_state,
-                post_state=mgr.status(),
-                result=payload,
-                elapsed_ms=(time.time() - started) * 1000,
-            )
-            self._send_json(200, payload)
-        except Exception as exc:
-            payload = {"ok": False, "error": "Error interno al procesar el mensaje"}
-            self._record_shadow(
-                action_kind="chat",
-                channel=channel,
-                payload={"message": message},
-                pre_state=pre_state,
-                post_state=mgr.status(),
-                result=payload,
-                elapsed_ms=(time.time() - started) * 1000,
-            )
-            self._send_json(500, payload)
-
-    def _handle_command(self, body: dict[str, Any]) -> None:
-        mgr = self.session_mgr
-        engine = self.switch_engine
-        if mgr is None or engine is None:
-            self._send_json(503, {"error": "SessionManager/SwitchEngine no disponible"})
-            return
-        command_line = str(body.get("command", "")).strip()
-        if not command_line:
-            self._send_json(400, {"error": "Campo 'command' requerido"})
-            return
-        if not command_line.startswith("/"):
-            command_line = "/" + command_line
-        channel = self._channel(body)
-        pre_state = mgr.status()
-        started = time.time()
-        try:
-            result = execute_command(command_line, mgr, engine)
-        except Exception:
-            self._send_json(500, {"ok": False, "error": "Error interno al ejecutar el comando"})
-            return
-        payload = {
-            "ok": bool(result.get("ok")),
-            "message": result.get("message", ""),
-            "action": result.get("action"),
-            "session_id": mgr.session_id,
-            "provider": mgr.provider,
-            "model": mgr.model,
-            "data": self._json_safe(result.get("data", result.get("result"))),
-            "plan": self._json_safe(result.get("plan")),
-        }
-        self._record_shadow(
-            action_kind="command",
-            channel=channel,
-            payload={"command": command_line},
-            pre_state=pre_state,
-            post_state=mgr.status(),
-            result=payload,
-            elapsed_ms=(time.time() - started) * 1000,
-        )
-        self._send_json(200 if payload["ok"] else 400, payload)
-
-    def _handle_switch(self, body: dict[str, Any]) -> None:
-        mgr = self.session_mgr
-        engine = self.switch_engine
-        if mgr is None or engine is None:
-            self._send_json(503, {"error": "SessionManager/SwitchEngine no disponible"})
-            return
-        provider = body.get("provider", "")
-        model = body.get("model")
-        force = body.get("force", False)
-        if not provider:
-            self._send_json(400, {"error": "Campo 'provider' requerido"})
-            return
-        channel = self._channel(body)
-        pre_state = mgr.status()
-        started = time.time()
-        try:
-            result = engine.execute(mgr, provider, model, force=force)
-            payload = {
-                "ok": result.ok,
-                "message": result.message,
-                "provider": mgr.provider,
-                "model": mgr.model,
-            }
-            self._record_shadow(
-                action_kind="switch",
-                channel=channel,
-                payload={"provider": provider, "model": model, "force": force},
-                pre_state=pre_state,
-                post_state=mgr.status(),
-                result=payload,
-                elapsed_ms=(time.time() - started) * 1000,
-            )
-            self._send_json(200 if result.ok else 400, payload)
-        except Exception as exc:
-            self._send_json(500, {"error": "Error interno al cambiar provider/modelo"})
-
-    def _handle_simulation_status(self) -> None:
-        shadow = self.shadow
-        if shadow is None:
-            self._send_json(503, {"error": "ControlShadow no disponible"})
-            return
-        self._send_json(200, shadow.status())
-
-    def _handle_simulation_events(self) -> None:
-        shadow = self.shadow
-        if shadow is None:
-            self._send_json(503, {"error": "ControlShadow no disponible"})
-            return
-        self._send_json(200, {"events": shadow.recent_events()})
-
-    def _handle_simulation_config(self, body: dict[str, Any]) -> None:
-        shadow = self.shadow
-        if shadow is None:
-            self._send_json(503, {"error": "ControlShadow no disponible"})
-            return
-        try:
-            status = shadow.configure(enabled=body.get("enabled"), mode=body.get("mode"))
-        except ValueError as exc:
-            self._send_json(400, {"error": str(exc)})
-            return
-        self._send_json(200, status)
-
-    def _rl_bridge(self) -> RLBridge | None:
-        mgr = self.session_mgr
-        if mgr is None:
-            return None
-        return RLBridge(mgr.base_path)
-
-    def _handle_rl_status(self) -> None:
-        bridge = self._rl_bridge()
-        if bridge is None:
-            self._send_json(503, {"error": "RLBridge no disponible"})
-            return
-        self._send_json(200, bridge.status())
-
-    def _handle_rl_shadow(self, body: dict[str, Any]) -> None:
-        bridge = self._rl_bridge()
-        if bridge is None:
-            self._send_json(503, {"error": "RLBridge no disponible"})
-            return
-        enabled = bool(body.get("enabled", True))
-        self._send_json(200, bridge.shadow(enabled))
+            return Path.home() / ".bago" / "state"
 
 
 class BagoAPIServer:
@@ -606,11 +386,20 @@ class BagoAPIServer:
         BagoAPIHandler.api_token = self.token
         BagoAPIHandler.shadow = self.shadow
         BagoAPIHandler.static_dir = self.static_dir
+        BagoAPIHandler.extra_cors_origins = _load_cors_origins_from_env()
+        if BagoAPIHandler.extra_cors_origins:
+            print(f"[API] CORS extra origins: {sorted(BagoAPIHandler.extra_cors_origins)}")
+        BagoAPIHandler.chat_timeout_s = _load_chat_timeout_from_env(
+            BagoAPIHandler.DEFAULT_CHAT_TIMEOUT_S
+        )
+        print(f"[API] /chat timeout: {BagoAPIHandler.chat_timeout_s:g}s "
+              f"(BAGO_API_CHAT_TIMEOUT, 0=desactivado)")
         self._server = ThreadingHTTPServer((self.host, self.port), BagoAPIHandler)
         self.port = self._server.server_port
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         print(f"[API] Servidor iniciado en http://{self.host}:{self.port}")
+        get_logger().info("server_started", host=self.host, port=self.port, has_token=bool(self.token))
         if self.token:
             print(f"[API] Token requerido: {self.token[:4]}***")
         else:
@@ -624,6 +413,7 @@ class BagoAPIServer:
             self._server.server_close()
             self._server = None
             print("[API] Servidor detenido.")
+            get_logger().info("server_stopped")
 
     @property
     def running(self) -> bool:
@@ -694,11 +484,44 @@ def _run_tests() -> int:
 
             with urllib.request.urlopen(urllib.request.Request(f"{base_url}/catalog/status", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
                 catalog_status = json.loads(resp.read().decode("utf-8"))
-            assert catalog_status["mode"] == "all"
+            # The user's persistent config may override the default; only assert a valid shape.
+            assert catalog_status["mode"] in ("all", "available-only")
+            assert "production_mode" in catalog_status
 
             with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
                 models = json.loads(resp.read().decode("utf-8"))
-            assert "offline-model" in models["models"]
+            # Catalog mode may be user-persistent; assert at least the online model is visible.
+            assert "mock-model" in models["models"]
+
+            catalog_req = urllib.request.Request(
+                f"{base_url}/catalog/config",
+                data=json.dumps({"mode": "all"}).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(catalog_req, timeout=5) as resp:
+                catalog = json.loads(resp.read().decode("utf-8"))
+            assert catalog["mode"] == "all"
+
+            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+                all_models = json.loads(resp.read().decode("utf-8"))
+            assert "mock-model" in all_models["models"]
+            assert "offline-model" in all_models["models"]
+
+            catalog_req2 = urllib.request.Request(
+                f"{base_url}/catalog/config",
+                data=json.dumps({"mode": "available-only"}).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(catalog_req2, timeout=5) as resp:
+                catalog2 = json.loads(resp.read().decode("utf-8"))
+            assert catalog2["mode"] == "available-only"
+
+            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+                filtered_models = json.loads(resp.read().decode("utf-8"))
+            assert "mock-model" in filtered_models["models"]
+            assert "offline-model" not in filtered_models["models"]
 
             chat_req = urllib.request.Request(
                 f"{base_url}/chat",
@@ -727,20 +550,7 @@ def _run_tests() -> int:
             assert cmd["data"]["provider"] == "mock-ui"
             assert cmd["data"]["model"] == "mock-model"
 
-            catalog_req = urllib.request.Request(
-                f"{base_url}/catalog/config",
-                data=json.dumps({"mode": "available-only"}).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(catalog_req, timeout=5) as resp:
-                catalog = json.loads(resp.read().decode("utf-8"))
-            assert catalog["mode"] == "available-only"
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
-                filtered_models = json.loads(resp.read().decode("utf-8"))
-            assert "mock-model" in filtered_models["models"]
-            assert "offline-model" not in filtered_models["models"]
 
             sim_req = urllib.request.Request(f"{base_url}/simulation/status", headers={"X-Bago-Token": "test-token"})
             with urllib.request.urlopen(sim_req, timeout=5) as resp:

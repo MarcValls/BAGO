@@ -1,0 +1,59 @@
+usage: bago [-h] [--version] [--provider PROVIDER] [--model MODEL]
+            [--base-path BASE_PATH]
+            {chat,launch,start,exec,validate,profiles,install,uninstall,claim,config,llm,engine,appdata,cmd-rl,rl,serve,evidence,cpp-runtime,monitor,orchestrate,issues,scan,canary,backup,project,preflight,toolsmith,issues-gh,agent,guard,route,inventory,list-installs,install-role,node} ...
+
+BAGO 4.8.0 -- Session-First AI Chat
+
+positional arguments:
+  {chat,launch,start,exec,validate,profiles,install,uninstall,claim,config,llm,engine,appdata,cmd-rl,rl,serve,evidence,cpp-runtime,monitor,orchestrate,issues,scan,canary,backup,project,preflight,toolsmith,issues-gh,agent,guard,route,inventory,list-installs,install-role,node}
+                        Comandos disponibles
+    chat                Inicia el REPL de chat
+    launch              Alias de chat: inicia BAGO
+    start               Inicia BAGO y autoevoluciona (alias de chat con auto-
+                        aprendizaje al arrancar)
+    exec                Ejecuta un comando slash sin abrir el REPL
+    validate            Gate real de validacion: security, contratos, culpas,
+                        claims, providers
+    profiles            Muestra el mapa de stable/des/ign y el flujo
+                        recomendado
+    install             Instala/repara BAGO desde la copia local, sin descarga
+    uninstall           Desinstala BAGO de la ruta indicada
+    claim               Claim Evidence Ledger -- afirmaciones trazables
+    config              Gestiona configuracion
+    llm                 Gestiona arranque provider-aware
+    engine              Estado del backend avanzado bago_true
+    appdata             Estado de instalacion AppData BAGO
+    cmd-rl              Estado del puente AppData cmd-rl/Spiral
+    rl                  RL shadow bridge
+    serve               Inicia servidor API HTTP
+    evidence            Genera bundle de evidencias verificables
+    cpp-runtime         Inicia host de referencia para cpp-local
+    monitor             Monitor HTML en tiempo real de procesos BAGO
+    orchestrate         Orchestrator v4 -- Flujo Operativo (Regla Fundamental)
+    issues              Flujo rapido de issues (list/take/close)
+    scan                Herramientas de analisis portables (secrets, deps,
+                        todos, tokens, dead, names, sincerity, net, metrics,
+                        infra, heal, security, doctor, commit, git, all)
+    canary              Honeytokens -- trampas de deteccion de intrusos
+    backup              Backups del proyecto con rotacion
+    project             Gestiona la estructura portable .bago del proyecto
+    preflight           Ejecuta checks de preflight portables
+    toolsmith           Gestiona toolboxes de agentes
+    issues-gh           Gestiona issues del repositorio
+    agent               Gestiona spiral agents
+    guard               Guardian de deuda tecnica -- previene patrones antes
+                        de commitear
+    route               Gestion de presets de routing y contrato activo
+    inventory           Cataloga capacidades del proyecto
+    list-installs       Escanea el sistema e imprime JSON con todas las
+                        instalaciones BAGO (para el gestor de la landing)
+    install-role        Elige que copia BAGO se usa como active/dev/launch
+    node                Gestor de registry, policy, evidence y compatibilidad
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  --provider PROVIDER   Provider por defecto
+  --model MODEL         Modelo por defecto
+  --base-path BASE_PATH
+                        Directorio base del proyecto

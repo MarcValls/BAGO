@@ -1,0 +1,20 @@
+{
+  "area": "providers",
+  "root_rel": ".bago/providers",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 10,
+  "files": [
+    "__init__.py",
+    "anthropic.py",
+    "cli_bridge.py",
+    "codex.py",
+    "copilot.py",
+    "cpp_local.py",
+    "ollama_cloud.py",
+    "ollama_local.py",
+    "opencode.py",
+    "openrouter.py"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "area": "agents",
+  "root_rel": ".bago/agents",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 11,
+  "files": [
+    "ADAPTADOR_PROYECTO.md",
+    "COPILOT_ALIADO_BAGO.md",
+    "INICIADOR_MAESTRO.md",
+    "README.md",
+    "agent_contract.json",
+    "agent_factory.py",
+    "agent_gateway.py",
+    "duplication_finder.py",
+    "logic_checker.py",
+    "security_analyzer.py",
+    "smell_detector.py"
+  ]
+}

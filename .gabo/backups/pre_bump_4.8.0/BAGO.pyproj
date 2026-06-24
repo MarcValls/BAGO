@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       BAGO v4.7.0 — Python Tools for Visual Studio (.pyproj)
+       Session-First AI Control Plane
+       https://github.com/MarcValls/BAGO
+  ═══════════════════════════════════════════════════════════ -->
+
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+
+    <!-- Entrypoint principal -->
+    <StartupFile>bago_core\cli.py</StartupFile>
+
+    <!-- Rutas de búsqueda para imports internos -->
+    <SearchPath>
+      $(ProjectDir);
+      $(ProjectDir)bago_core;
+      $(ProjectDir).bago\core;
+      $(ProjectDir).bago\chat;
+      $(ProjectDir).bago\providers;
+      $(ProjectDir).bago\api
+    </SearchPath>
+
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <CommandLineArguments>llm start --provider ollama-local --model llama3.2:3b</CommandLineArguments>
+    <InterpreterId>Global|PythonCore|3.14</InterpreterId>
+    <InterpreterVersion>3.14</InterpreterVersion>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>false</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+
+  <!-- ─── Entrypoints / Scripts raíz ─── -->
+  <ItemGroup>
+    <Compile Include="bago_core\cli.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\launcher.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\claim_ledger.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\cpp_runtime_host.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\evidence_bundle.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\bago_true_bridge.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\rl_bridge.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="bago_core\rl_policies.py">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+
+  <!-- ─── .bago\core ─── -->
+  <ItemGroup>
+    <Compile Include=".bago\core\__init__.py" />
+    <Compile Include=".bago\core\agent_gateway.py" />
+    <Compile Include=".bago\core\config_manager.py" />
+    <Compile Include=".bago\core\context_compressor.py" />
+    <Compile Include=".bago\core\context_store.py" />
+    <Compile Include=".bago\core\credential_manager.py" />
+    <Compile Include=".bago\core\embedding_store.py" />
+    <Compile Include=".bago\core\intent_engine.py" />
+    <Compile Include=".bago\core\knowledge_base.py" />
+    <Compile Include=".bago\core\message_adapter.py" />
+    <Compile Include=".bago\core\model_equivalence.py" />
+    <Compile Include=".bago\core\plan_engine.py" />
+    <Compile Include=".bago\core\provider_adapter.py" />
+    <Compile Include=".bago\core\rl_engine.py" />
+    <Compile Include=".bago\core\script_registry.py" />
+    <Compile Include=".bago\core\session_manager.py" />
+    <Compile Include=".bago\core\switch_engine.py" />
+    <Compile Include=".bago\core\tool_registry.py" />
+    <Compile Include=".bago\core\version.py" />
+  </ItemGroup>
+
+  <!-- ─── .bago\chat ─── -->
+  <ItemGroup>
+    <Compile Include=".bago\chat\__init__.py" />
+    <Compile Include=".bago\chat\commands.py" />
+    <Compile Include=".bago\chat\renderer.py" />
+    <Compile Include=".bago\chat\repl.py" />
+    <Compile Include=".bago\chat\system_prompt.py" />
+  </ItemGroup>
+
+  <!-- ─── .bago\providers ─── -->
+  <ItemGroup>
+    <Compile Include=".bago\providers\__init__.py" />
+    <Compile Include=".bago\providers\anthropic.py" />
+    <Compile Include=".bago\providers\codex.py" />
+    <Compile Include=".bago\providers\copilot.py" />
+    <Compile Include=".bago\providers\cpp_local.py" />
+    <Compile Include=".bago\providers\ollama_cloud.py" />
+    <Compile Include=".bago\providers\ollama_local.py" />
+    <Compile Include=".bago\providers\opencode.py" />
+    <Compile Include=".bago\providers\openrouter.py" />
+  </ItemGroup>
+
+  <!-- ─── .bago\api ─── -->
+  <ItemGroup>
+    <Compile Include=".bago\api\bridge.py" />
+    <Compile Include=".bago\api\control_shadow.py" />
+  </ItemGroup>
+
+  <!-- ─── scripts\ ─── -->
+  <ItemGroup>
+    <Compile Include="scripts\deploy_landing.py" />
+    <Compile Include="scripts\package_v4.py" />
+    <Compile Include="scripts\publish_release.py" />
+    <Compile Include="scripts\scan_directory.py" />
+  </ItemGroup>
+
+  <!-- ─── Tests ─── -->
+  <ItemGroup>
+    <Compile Include="test_e2e.py" />
+    <Compile Include="test_security_release.py" />
+  </ItemGroup>
+
+  <!-- ─── PowerShell / scripts de shell ─── -->
+  <ItemGroup>
+    <Content Include="bago.ps1" />
+    <Content Include="bago.cmd" />
+    <Content Include="bago.sh" />
+    <Content Include="install-v4.ps1" />
+    <Content Include="install-remote.ps1" />
+    <Content Include="install-assistant.ps1" />
+    <Content Include="bago-uninstall.ps1" />
+    <Content Include="bago-uninstall.cmd" />
+    <Content Include="rollback-v4.ps1" />
+    <Content Include="scripts\test_install_rollback.ps1" />
+  </ItemGroup>
+
+  <!-- ─── Config / datos ─── -->
+  <ItemGroup>
+    <Content Include=".bago\config.json" />
+    <Content Include="versions.json" />
+    <Content Include="vercel.json" />
+    <Content Include="release_version.txt" />
+    <Content Include=".bago\core\intent_examples.json" />
+  </ItemGroup>
+
+  <!-- ─── Web / landing ─── -->
+  <ItemGroup>
+    <Content Include="index.html" />
+  </ItemGroup>
+
+  <!-- ─── Documentación ─── -->
+  <ItemGroup>
+    <Content Include="README.md" />
+    <Content Include="MANUAL.md" />
+    <Content Include="docs\ARCHITECTURE.md" />
+    <Content Include="docs\COMMUNITY.md" />
+    <Content Include="docs\DISTRIBUTION_CONTRACT.md" />
+    <Content Include="docs\INTEGRATION.md" />
+    <Content Include="docs\MODULES.md" />
+    <Content Include="docs\RL_ENGINE.md" />
+    <Content Include="docs\ROADMAP.md" />
+    <Content Include="docs\SECURITY.md" />
+    <Content Include="docs\TESTING.md" />
+  </ItemGroup>
+
+  <!-- ─── Interpreter registrado ─── -->
+  <ItemGroup>
+    <InterpreterReference Include="Global|PythonCore|3.14" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+
+  <!-- Fallback si PTVS no está instalado -->
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{888888a0-9f3d-457c-b088-3a5042f75d52}">
+        <ProjectProperties>
+          <StartupFile>bago_core\cli.py</StartupFile>
+          <WorkingDirectory>.</WorkingDirectory>
+          <SearchPath>bago_core;.bago\core;.bago\chat;.bago\providers;.bago\api</SearchPath>
+          <CommandLineArguments>llm start --provider ollama-local --model llama3.2:3b</CommandLineArguments>
+          <LaunchProvider>Standard Python launcher</LaunchProvider>
+        </ProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+
+</Project>

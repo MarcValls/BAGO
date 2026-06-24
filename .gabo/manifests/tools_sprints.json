@@ -1,0 +1,174 @@
+{
+  "area": "tools_sprints",
+  "root_rel": "tools/sprints",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "group_count": 10,
+  "file_count": 113,
+  "groups": {
+    "audit": {
+      "file_count": 6,
+      "files": [
+        "audit_bago_full.py",
+        "audit_commands.py",
+        "audit_full_boot.py",
+        "audit_gaps_orphan_vs_3copies.py",
+        "audit_holes.py",
+        "audit_visual.py"
+      ]
+    },
+    "check": {
+      "file_count": 16,
+      "files": [
+        "check_append.py",
+        "check_autoload.py",
+        "check_autoload_full.py",
+        "check_codegen.py",
+        "check_digest.py",
+        "check_file_size.py",
+        "check_handle.py",
+        "check_ideas.py",
+        "check_iter.py",
+        "check_logo.py",
+        "check_mod.py",
+        "check_path.py",
+        "check_phases.py",
+        "check_renderer.py",
+        "check_repair.py",
+        "check_wizards.py"
+      ]
+    },
+    "diag_debug": {
+      "file_count": 18,
+      "files": [
+        "debug_hooks.py",
+        "debug_out.txt",
+        "debug_repl.py",
+        "diag_modules.py",
+        "diag_modules.txt",
+        "diag_version.py",
+        "heal_modules.py",
+        "modularize_repl.py",
+        "regress_modularizer.py",
+        "rewrite_banner.py",
+        "show_lines.ps1",
+        "simplify_boot.py",
+        "square_letters.py",
+        "strip_relative_imports.py",
+        "stub_handle_chat.py",
+        "sync_bago_core.py",
+        "sync_core_from_huerfano.py",
+        "trace_boot.py"
+      ]
+    },
+    "dump": {
+      "file_count": 3,
+      "files": [
+        "dump_boot.py",
+        "dump_full_boot.py",
+        "dump_hola.txt"
+      ]
+    },
+    "fix": {
+      "file_count": 6,
+      "files": [
+        "fix_b_letter.py",
+        "fix_double_future.py",
+        "fix_evidence_header.py",
+        "fix_repair_models.py",
+        "fix_repl_indent.py",
+        "fix_strings_in_repl.py"
+      ]
+    },
+    "oneoff_tests": {
+      "file_count": 35,
+      "files": [
+        "test_all_banners.py",
+        "test_bago_chat_import.py",
+        "test_banner_appdata.py",
+        "test_banner_fix.py",
+        "test_boot_actual.py",
+        "test_dry_boot_work.py",
+        "test_full_boot.py",
+        "test_group.py",
+        "test_handle_chat.py",
+        "test_helpers.py",
+        "test_hook.py",
+        "test_inv.py",
+        "test_inv_debug.py",
+        "test_inv_debug_out.txt",
+        "test_inventory_coverage.py",
+        "test_inventory_nav.py",
+        "test_inventory_nav2.py",
+        "test_inventory_one_line.py",
+        "test_inventory_root.py",
+        "test_keys.py",
+        "test_launcher_resolution.ps1",
+        "test_layout.py",
+        "test_layout_real.ps1",
+        "test_module_kind.py",
+        "test_nav_out.txt",
+        "test_nav_out2.txt",
+        "test_repl_dry_boot.py",
+        "test_repl_full.py",
+        "test_v6_out.txt",
+        "test_wizard.py",
+        "test_wizard_e2e.py",
+        "test_wizard_full.py",
+        "test_wizard_realistic.py",
+        "test_wizard_v4_final.py",
+        "test_wizard_v6.py"
+      ]
+    },
+    "patch": {
+      "file_count": 11,
+      "files": [
+        "patch_banner_3copies.py",
+        "patch_banner_alineado.py",
+        "patch_banner_estetica.py",
+        "patch_banner_width.py",
+        "patch_handle_chat.py",
+        "patch_logo.py",
+        "patch_qwen_box.py",
+        "patch_qwen_box2.py",
+        "patch_qwen_box3.py",
+        "patch_qwen_box4.py",
+        "patch_qwen_box5.py"
+      ]
+    },
+    "promote": {
+      "file_count": 10,
+      "files": [
+        "promote_48_to_472.py",
+        "promote_all_profiles.ps1",
+        "promote_and_update.ps1",
+        "promote_bago_full.py",
+        "promote_core_full.py",
+        "promote_elevated.cmd",
+        "promote_full_chat_layer.py",
+        "promote_huerfana_to_3copias.py",
+        "promote_missing_only.py",
+        "promote_stable.cmd"
+      ]
+    },
+    "restore": {
+      "file_count": 1,
+      "files": [
+        "restore_v472_official.py"
+      ]
+    },
+    "split": {
+      "file_count": 7,
+      "files": [
+        "split_classifier.py",
+        "split_cred_provider.py",
+        "split_evidence.py",
+        "split_palette.py",
+        "split_renderer.py",
+        "split_repair.py",
+        "split_wizards.py"
+      ]
+    }
+  }
+}

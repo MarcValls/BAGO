@@ -1,0 +1,11 @@
+BAGO LLM providers
+Instalados/configurados:
+  [ok] ollama-local (enabled, configured, 9 modelos)
+  [ok] ollama-cloud (configured, 35 modelos)
+  [ok] copilot (configured, 4 modelos)
+  [ok] codex (configured, 0 modelos)
+Disponibles para configurar:
+  [--] anthropic
+  [--] openrouter
+  [--] opencode
+Experimentales ocultos: usa --include-experimental para verlos.

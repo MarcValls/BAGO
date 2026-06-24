@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import ComposeBar from './ComposeBar'
 import SlashMenu from './SlashMenu'
 import ContextChips from './ContextChips'
 import SessionKit from './SessionKit'
-import PipelineDock from './PipelineDock'
+import ChatBody from './ChatBody'
+import ContextPane from './ContextPane'
+import Dock from './Dock'
 import ManagerInspector from './ManagerInspector'
 import ManagerOverlay from './ManagerOverlay'
 import { useManagerContext } from '../useManagerContext'
@@ -11,19 +12,6 @@ import { useSessionKit } from '../useSessionKit'
 import { usePipelineNodes } from '../usePipelineNodes'
 import { useInspector } from '../useInspector'
 import { useToast } from './Toast'
-
-function Message({ item }) {
-  const role = item.role || 'system'
-  const label = role === 'assistant' ? 'BAGO' : role === 'user' ? 'Tú' : 'Sistema'
-  const content = String(item.content || '').trim().replace(/^\[BAGO_CTX:[^\]]*\]\n/, '')
-
-  return (
-    <article className={`message role-${role}`}>
-      <div className="message-author">{label}</div>
-      <div className="message-content">{content || '(sin contenido)'}</div>
-    </article>
-  )
-}
 
 function ModelSelector({ control, kit }) {
   return (
@@ -102,15 +90,13 @@ export default function ChatView({ control, center }) {
   const pipeline = usePipelineNodes()
   const inspector = useInspector()
   const { push } = useToast()
-  const history = [...control.history].slice(-40)
-  const hasHistory = history.length > 0
-
   const panels = center.state.panels
   const chatFocus = center.state.chatFocus
   const showKit = !chatFocus && panels.has('kit')
   const showDock = !chatFocus && panels.has('pipeline')
   const showInspector = !chatFocus && center.inspectorOpen && panels.has('evidence')
   const showManagerDrawer = !chatFocus && center.managerDrawerOpen && panels.has('manager')
+  const showContextPane = !chatFocus && panels.has('context')
 
   function handleSubmit(value) {
     setShowSlash(false)
@@ -133,6 +119,7 @@ export default function ChatView({ control, center }) {
     chatFocus ? 'is-focused' : 'is-expanded',
     showManagerDrawer ? 'has-manager-drawer' : '',
     showInspector ? 'has-inspector' : '',
+    showContextPane ? 'has-context-pane' : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -171,33 +158,15 @@ export default function ChatView({ control, center }) {
 
           <ContextChips />
 
-          <div className="conversation" aria-live="polite">
-            {hasHistory ? (
-              history.map((item, index) => <Message key={`${item.role}-${index}`} item={item} />)
-            ) : (
-              <div className="conversation-empty">
-                <div className="conversation-empty-mark">B</div>
-                <div>
-                  <h2>El chat es el centro</h2>
-                  <p>Conversa, inspecciona o lanza una tarea. Los paneles laterales aparecen cuando los necesitas.</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="composer-dock composer-dock-floating">
-            <ComposeBar
-              busy={control.busy}
-              onSubmit={handleSubmit}
-              placeholder="Escribe un mensaje…  el chat es la pieza central"
-              onSlash={() => setShowSlash((v) => !v)}
-              accessory={<ModelSelector control={control} kit={kit.kit} />}
-            />
-            <p className="composer-note">
-              Enter envía · Shift+Enter nueva línea · / para acciones rápidas ·
-              {' '}<kbd>Ctrl</kbd>+<kbd>.</kbd> para centrar el chat
-            </p>
-          </div>
+          <ChatBody
+            control={control}
+            onSubmit={handleSubmit}
+            onSlash={() => setShowSlash((v) => !v)}
+            showSlash={showSlash}
+            accessory={<ModelSelector control={control} kit={kit.kit} />}
+            session={control.session}
+            busy={control.busy}
+          />
         </main>
 
         {showManagerDrawer ? (
@@ -217,6 +186,13 @@ export default function ChatView({ control, center }) {
             onClose={() => center.toggleInspector(false)}
           />
         ) : null}
+
+        {showContextPane ? (
+          <ContextPane
+            open={showContextPane}
+            onClose={() => center.togglePanel('context')}
+          />
+        ) : null}
       </div>
 
       {showKit ? (
@@ -232,15 +208,17 @@ export default function ChatView({ control, center }) {
       ) : null}
 
       {showDock ? (
-        <PipelineDock
+        <Dock
           pipeline={pipeline}
-          inspectorOpen={center.inspectorOpen}
-          onToggleInspector={() => center.toggleInspector()}
+          models={control.models}
+          onAssignStep={(stepId, provider, model) => {
+            push(`Paso ${stepId}: ${provider || 'Auto'}/${model || 'Auto'}`)
+          }}
           compact
         />
       ) : null}
 
-      {hasHistory && !chatFocus ? (
+      {control.history.length > 0 && !chatFocus ? (
         <button
           type="button"
           className="chat-recapture"

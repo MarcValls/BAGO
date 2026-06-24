@@ -1,0 +1,9 @@
+{
+  "area": "extensions",
+  "root_rel": ".bago/extensions",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 0,
+  "files": []
+}

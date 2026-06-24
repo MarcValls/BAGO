@@ -1,0 +1,1 @@
+{"session_id": "377377af-b5e", "provider": "ollama-local", "model": "llama3.2:3b", "bago_mode": "B", "active_agent": "default", "active_bridges": ["ollama-local"], "health": {"ok": true, "detail": "Ollama OK (9 models)", "latency_ms": 0.0}, "messages": 0, "total_tokens": 0, "total_calls": 0, "created_at": 1782296914.9453764, "last_switch_at": null, "switches": 0}

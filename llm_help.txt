@@ -1,0 +1,12 @@
+usage: bago llm [-h] [--include-experimental] {list,start} ...
+
+positional arguments:
+  {list,start}
+    list                Lista providers instalados/configurados y disponibles
+    start               Inicia BAGO con provider/modelo seleccionado
+
+options:
+  -h, --help            show this help message and exit
+  --include-experimental
+                        Incluye providers experimentales fuera del release
+                        principal

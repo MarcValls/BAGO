@@ -1,0 +1,5 @@
+usage: bago chat [-h] [--no-monitor]
+
+options:
+  -h, --help    show this help message and exit
+  --no-monitor  No arrancar bago monitor en background

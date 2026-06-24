@@ -1,5 +1,9 @@
 # Changelog
 
+## [4.8.0] - 2026-06-24
+
+### Bumped by bump_version.py
+
 ## [4.7] - 2026-06-21
 
 ### Added

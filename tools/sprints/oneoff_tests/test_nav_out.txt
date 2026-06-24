@@ -1,0 +1,8 @@
+=== browser output ===
+[CALLING browser.inventory_browser(FakeRepl())]
+
+[1mBAGO Inventory Browser — root: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO[0m
+
+[93mNo hay piezas para listar.[0m
+[2mSaliendo del browser.[0m
+

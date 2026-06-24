@@ -25,7 +25,7 @@ function writePersisted(value) {
   } catch {}
 }
 
-const DEFAULT_PANELS = ['kit', 'pipeline', 'evidence']
+const DEFAULT_PANELS = ['kit', 'pipeline', 'evidence', 'context']
 
 export function useChatCenter() {
   const persisted = readPersisted()

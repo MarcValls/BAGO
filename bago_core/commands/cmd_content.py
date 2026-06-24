@@ -149,6 +149,52 @@ def cmd_serve(args: argparse.Namespace) -> int:
         mgr.close()
     return 0
 
+def cmd_api(args: argparse.Namespace) -> int:
+    """Inspeccion offline del bridge HTTP.
+
+    No arranca el server. Importa `api_routes` desde `.bago/api/` y
+    imprime la tabla viva de rutas. Pensado para que un agente (humano
+    o IA) descubra que endpoints existen antes de hacer curl.
+    """
+    root = Path(args.root).resolve() if args.root else BAGO_ROOT
+    sys.path.insert(0, str(root / ".bago" / "api"))
+    try:
+        from api_routes import all_routes, api_prefixes  # type: ignore
+    except Exception as exc:
+        print(f"[bago api] ERROR importando api_routes: {exc}", file=sys.stderr)
+        return 1
+
+    routes = all_routes()
+    method_filter = args.method.upper()
+    if method_filter != "ALL":
+        routes = [r for r in routes if r["method"] == method_filter]
+    if getattr(args, "pattern", False):
+        routes = [r for r in routes if r["pattern"]]
+
+    if getattr(args, "as_json", False):
+        import json as _json
+        print(_json.dumps({
+            "ok": True,
+            "count": len(routes),
+            "method_filter": method_filter,
+            "only_patterns": bool(getattr(args, "pattern", False)),
+            "api_prefixes": list(api_prefixes()),
+            "routes": routes,
+        }, indent=2, ensure_ascii=False))
+        return 0
+
+    print(f"# Bridge BAGO -- {len(routes)} rutas"
+          + (f" (metodo={method_filter})" if method_filter != "ALL" else "")
+          + (" [solo patrones]" if getattr(args, "pattern", False) else ""))
+    print(f"# Auth: X-Bago-Token  |  API prefixes: {len(api_prefixes())}")
+    print()
+    print(f"{'METHOD':6} {'PATH':32} {'HANDLER_MODULE':25} {'HANDLER_FN':18} PATTERN")
+    print("-" * 100)
+    for r in routes:
+        pat = "P" if r["pattern"] else ""
+        print(f"{r['method']:6} {r['path']:32} {r['handler_module']:25} {r['handler_fn']:18} {pat}")
+    return 0
+
 def cmd_evidence(args: argparse.Namespace) -> int:
     from evidence_bundle import run
     return run(args)

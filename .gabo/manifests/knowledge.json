@@ -1,0 +1,13 @@
+{
+  "area": "knowledge",
+  "root_rel": ".bago/knowledge",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 3,
+  "files": [
+    "README.md",
+    "learned_lessons.md",
+    "manifest.json"
+  ]
+}

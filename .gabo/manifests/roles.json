@@ -1,0 +1,14 @@
+{
+  "area": "roles",
+  "root_rel": ".bago/roles",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 4,
+  "files": [
+    "README.md",
+    "ROLE_TEMPLATE.md",
+    "manifest.json",
+    "role_factory.py"
+  ]
+}

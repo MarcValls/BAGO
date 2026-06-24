@@ -1,0 +1,25 @@
+{
+  "area": "workflows",
+  "root_rel": ".bago/workflows",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 15,
+  "files": [
+    "W0_FREE_SESSION.md",
+    "W10_AUDITORIA_SINCERIDAD.md",
+    "W1_COLD_START.md",
+    "W2_IMPLEMENTACION_CONTROLADA.md",
+    "W3_REFACTOR_SENSIBLE.md",
+    "W4_DEBUG_MULTICAUSA.md",
+    "W5_CIERRE_Y_CONTINUIDAD.md",
+    "W6_IDEACION_APLICADA.md",
+    "W7_FOCO_SESION.md",
+    "W8_EXPLORACION.md",
+    "W9_COSECHA.md",
+    "WORKFLOWS_INDEX.md",
+    "WORKFLOW_GRAPH.json",
+    "WORKFLOW_MAESTRO_BAGO.md",
+    "music-score-transposition.md"
+  ]
+}

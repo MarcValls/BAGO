@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: bago
-Version: 4.7
+Version: 4.8.0
 Summary: BAGO — local-first AI control plane
 License: Proprietary
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
-# BAGO v4.7
+# BAGO v4.8.0
 
 **Version 4.7**
 

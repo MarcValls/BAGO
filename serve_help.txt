@@ -1,0 +1,11 @@
+usage: bago serve [-h] [--host HOST] [--port PORT] [--token TOKEN]
+                  [--ui-dist UI_DIST]
+
+options:
+  -h, --help         show this help message and exit
+  --host HOST        Host de escucha (default: 127.0.0.1). Usar 0.0.0.0
+                     requiere --token.
+  --port PORT        Puerto (default: 8080)
+  --token TOKEN      Token de autenticacion API
+  --ui-dist UI_DIST  Directorio dist de la UI React (si se omite, intenta ui-
+                     react\dist)

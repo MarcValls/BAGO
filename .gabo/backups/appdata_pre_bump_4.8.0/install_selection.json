@@ -1,0 +1,16 @@
+{
+  "roles": {
+    "active": {
+      "path": "C:\\Users\\AMTEC_~1\\BAG4.8",
+      "label": "BAG4.8 (base v4.7.0 desde bago_v471_build, creada 2026-06-24)"
+    },
+    "dev": {
+      "path": "C:\\Users\\AMTEC_~1\\.bago\\dev",
+      "label": "dev (parcheada 2026-06-24)"
+    },
+    "launch": {
+      "path": "C:\\Users\\AMTEC_~1\\.bago\\launch",
+      "label": "launch (parcheada 2026-06-24)"
+    }
+  }
+}

@@ -112,6 +112,14 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     serve_parser.add_argument("--token", default="", help="Token de autenticacion API")
     serve_parser.add_argument("--ui-dist", default="", help="Directorio dist de la UI React (si se omite, intenta ui-react\\dist)")
 
+    api_parser = sub.add_parser("api", help="Inspeccion del bridge HTTP (sin arrancarlo)")
+    api_sub = api_parser.add_subparsers(dest="api_cmd")
+    api_list = api_sub.add_parser("list-routes", help="Lista las rutas que sirve el bridge BAGO")
+    api_list.add_argument("--method", choices=("GET", "POST", "ALL"), default="ALL", help="Filtrar por metodo HTTP")
+    api_list.add_argument("--pattern", action="store_true", help="Mostrar solo rutas con parametros (<...>)")
+    api_list.add_argument("--json", dest="as_json", action="store_true", help="Salida en JSON en vez de tabla")
+    api_list.add_argument("--root", default="", help="Raiz del proyecto (default: cwd)")
+
     evidence_parser = sub.add_parser("evidence", help="Genera bundle de evidencias verificables")
     evidence_parser.add_argument("--mode", choices=("simulated", "real"), default="simulated", help="Modo de evidencia")
     evidence_parser.add_argument("--objective", default="community-knowledge", help="Objetivo demostrable")
@@ -132,6 +140,9 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     monitor_sub = monitor_parser.add_subparsers(dest="monitor_cmd")
     monitor_sub.add_parser("serve", help="Sirve el monitor en http://127.0.0.1:PORT/ (default)")
     monitor_sub.add_parser("generate", help="Genera monitor.html estatico en .bago/monitor.html")
+
+    doctor_parser = sub.add_parser("doctor", help="Salud integral de la instalacion BAGO")
+    doctor_parser.add_argument("--json", action="store_true", help="Output JSON")
 
 def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     orc_parser = sub.add_parser("orchestrate", help="Orchestrator v4 -- Flujo Operativo (Regla Fundamental)")

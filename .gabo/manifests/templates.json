@@ -1,0 +1,15 @@
+{
+  "area": "templates",
+  "root_rel": ".bago/templates",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 5,
+  "files": [
+    "plantilla_cambio.md",
+    "plantilla_evaluacion_brutal.md",
+    "plantilla_evidencia.md",
+    "plantilla_rol.md",
+    "plantilla_workflow.md"
+  ]
+}

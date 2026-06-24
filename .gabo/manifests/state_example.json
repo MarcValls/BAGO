@@ -1,0 +1,11 @@
+{
+  "area": "state_example",
+  "root_rel": ".bago/state.example",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 1,
+  "files": [
+    "global_state.json"
+  ]
+}

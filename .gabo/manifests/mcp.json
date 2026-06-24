@@ -1,0 +1,15 @@
+{
+  "area": "mcp",
+  "root_rel": ".bago/mcp",
+  "paths_are": "root-relative",
+  "exists": true,
+  "broken": false,
+  "file_count": 5,
+  "files": [
+    "agent_tool_matrix.json",
+    "bago_mcp_server.py",
+    "mcp_config.json",
+    "run_bago_mcp.cmd",
+    "toolbox_catalog.json"
+  ]
+}

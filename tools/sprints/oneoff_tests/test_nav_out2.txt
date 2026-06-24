@@ -1,0 +1,66 @@
+BAGO Inventory Browser — root: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO
+
+BAGO Inventory — elige grupo (↑↓ navegar, Enter elegir, q salir)
+───────────────────────────────────────────────────
+  ▶ agent (6 piezas)
+    manifest (55 piezas)
+    module (250 piezas)
+    python (0 piezas)
+    script (31 piezas)
+    shell (0 piezas)
+    tool (43 piezas)
+
+  ↑↓ navegar  Enter elegir  Esc/q salir
+You picked: agent
+
+BAGO Inventory — elige pieza (de 6 en este grupo)
+───────────────────────────────────────────────────
+  ▶ .bago\agents\agent_factory.py (14 functions)
+    .bago\agents\agent_gateway.py (3 functions)
+    .bago\agents\duplication_finder.py (2 functions)
+    .bago\agents\logic_checker.py (2 functions)
+    .bago\agents\modularize_repl.py (3 functions)
+    .bago\agents\router.py (4 functions)
+
+  ↑↓ navegar  Enter elegir  Esc/q volver
+You picked: .bago\agents\agent_factory.py
+
+BAGO Inventory — qué acción quieres ejecutar?
+───────────────────────────────────────────────────
+  ▶ Run tool on selected item
+    Generate evidence bundle for item
+    Show item details (JSON)
+    Print item path
+    Cancel
+
+  ↑↓ navegar  Enter elegir  Esc/q cancelar
+You picked: Show item details (JSON)
+
+Detalles de: .bago\agents\agent_factory.py
+{
+  "path": ".bago\\agents\\agent_factory.py",
+  "kind": "agent",
+  "type": "module",
+  "functions": [
+    {
+      "name": "agent_factory",
+      "doc": "agent_factory main entry",
+      "args": []
+    },
+    ...
+  ]
+}
+
+Pulsa Enter para continuar...
+
+BAGO Inventory — elige grupo
+───────────────────────────────────────────────────
+    agent (6 piezas)
+  ▶ manifest (55 piezas)
+    module (250 piezas)
+    python (0 piezas)
+    script (31 piezas)
+    shell (0 piezas)
+    tool (43 piezas)
+
+  ↑↓ navegar  Enter elegir  Esc/q salir

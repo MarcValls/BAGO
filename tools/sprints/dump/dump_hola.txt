@@ -1,0 +1,75 @@
+﻿[?1049h[?25l[2J[H[H[2K                                     █████  ███   ████  ███                                       
+[2K                                     █   █ █   █ █     █   █                                      
+[2K                                     █████ █████ █ ███ █   █                                      
+[2K                                     █   █ █   █ █   █ █   █                                      
+[2K                                     █████ █   █  ████  ███                                       
+[2K                                  v4.7.0 — Session-First AI Chat                                  
+[2K
+[2K                           provider: ollama-local | model: llama3.2:3b                            
+[2K                        cwd: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO                        
+[2K
+[2K────────────────────────────────────────────────────────────
+[2K
+[2K  Bienvenido a BAGO. Escribe / para comandos.
+[2K  El contexto de sesión sobrevive al cambio de provider.
+[H[2K                                     █████  ███   ████  ███                                       
+[2K                                     █   █ █   █ █     █   █                                      
+[2K                                     █████ █████ █ ███ █   █                                      
+[2K                                     █   █ █   █ █   █ █   █                                      
+[2K                                     █████ █   █  ████  ███                                       
+[2K                                  v4.7.0 — Session-First AI Chat                                  
+[2K
+[2K                           provider: ollama-local | model: llama3.2:3b                            
+[2K                        cwd: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO                        
+[2K
+[2K────────────────────────────────────────────────────────────
+[2K
+[2K  Bienvenido a BAGO. Escribe / para comandos.
+[2K  El contexto de sesión sobrevive al cambio de provider.
+[H[2K                                     █████  ███   ████  ███                                       
+[2K                                     █   █ █   █ █     █   █                                      
+[2K                                     █████ █████ █ ███ █   █                                      
+[2K                                     █   █ █   █ █   █ █   █                                      
+[2K                                     █████ █   █  ████  ███                                       
+[2K                                  v4.7.0 — Session-First AI Chat                                  
+[2K
+[2K                           provider: ollama-local | model: llama3.2:3b                            
+[2K                        cwd: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO                        
+[2K
+[2K────────────────────────────────────────────────────────────
+[2K
+[2K  Bienvenido a BAGO. Escribe / para comandos.
+[2K  El contexto de sesión sobrevive al cambio de provider.
+❯ [H[2K                                     █████  ███   ████  ███                                       
+[2K                                     █   █ █   █ █     █   █                                      
+[2K                                     █████ █████ █ ███ █   █                                      
+[2K                                     █   █ █   █ █   █ █   █                                      
+[2K                                     █████ █   █  ████  ███                                       
+[2K                                  v4.7.0 — Session-First AI Chat                                  
+[2K
+[2K                           provider: ollama-local | model: llama3.2:3b                            
+[2K                        cwd: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO                        
+[2K
+[2K────────────────────────────────────────────────────────────
+[2K
+[2K  Bienvenido a BAGO. Escribe / para comandos.
+[2K  El contexto de sesión sobrevive al cambio de provider.
+❯ [H[2K                                     █████  ███   ████  ███                                       
+[2K                                     █   █ █   █ █     █   █                                      
+[2K                                     █████ █████ █ ███ █   █                                      
+[2K                                     █   █ █   █ █   █ █   █                                      
+[2K                                     █████ █   █  ████  ███                                       
+[2K                                  v4.7.0 — Session-First AI Chat                                  
+[2K
+[2K                           provider: ollama-local | model: llama3.2:3b                            
+[2K                        cwd: C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO                        
+[2K
+[2K────────────────────────────────────────────────────────────
+[2K
+[2K  Bienvenido a BAGO. Escribe / para comandos.
+[2K  El contexto de sesión sobrevive al cambio de provider.
+❯ 
+Bye.
+Sesión guardada automáticamente: 4c541406-252
+[?25h[?1049l
+¿Guardamos lo aprendido? /digest → /remember (o /skip)

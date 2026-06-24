@@ -63,4 +63,30 @@ export const chatApi = {
     headers: { 'X-Bago-Channel': channel },
     body: JSON.stringify({ provider, model, force, channel }),
   }),
+
+  // ── Router (model picker) ───────────────────────────────────────────────
+  listRouter: (refresh = false) => request(`/router/list${refresh ? '?refresh=1' : ''}`),
+  toggleRouterModel: (key) => request(`/router/toggle/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }),
+  setRouterAuto: (enabled) => request('/router/auto', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  }),
+
+  // ── Routes (introspection) ──────────────────────────────────────────────
+  listRoutes: () => request('/routes'),
+
+  // ── Memory ──────────────────────────────────────────────────────────────
+  listMemory: (scope = 'user') => request(`/memory/list?scope=${encodeURIComponent(scope)}`),
+
+  // ── Schedule ────────────────────────────────────────────────────────────
+  listSchedule: () => request('/schedule/list'),
+
+  // ── Subagents ───────────────────────────────────────────────────────────
+  listSubagents: () => request('/subagents/catalogue'),
+
+  // ── Providers ────────────────────────────────────────────────────────────
+  listProviders: () => request('/providers'),
 }

@@ -1,0 +1,2489 @@
+{
+  "workspace_root_rel": ".",
+  "depth": 3,
+  "max_depth_supported": 8,
+  "paths_are": "root-relative",
+  "exclude_dirs": [
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "node_modules",
+    "node_modules_cache"
+  ],
+  "exclude_files": [
+    "electron_run.log"
+  ],
+  "count": 494,
+  "files": [
+    {
+      "path": ".bago/AGENT_START.md",
+      "size": 999,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/BOOTSTRAP.md",
+      "size": 1207,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/START_AGENT.md",
+      "size": 97,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/ADAPTADOR_PROYECTO.md",
+      "size": 1789,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/COPILOT_ALIADO_BAGO.md",
+      "size": 386,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/INICIADOR_MAESTRO.md",
+      "size": 1381,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/README.md",
+      "size": 472,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/agent_contract.json",
+      "size": 3302,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/agent_factory.py",
+      "size": 14491,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/agent_gateway.py",
+      "size": 26085,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/duplication_finder.py",
+      "size": 2776,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/logic_checker.py",
+      "size": 2619,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/security_analyzer.py",
+      "size": 3466,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/agents/smell_detector.py",
+      "size": 2647,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/api/__init__.py",
+      "size": 0,
+      "mtime": 1782235082.553465
+    },
+    {
+      "path": ".bago/api/_chk_handlers.py",
+      "size": 314,
+      "mtime": 1782254145.357556
+    },
+    {
+      "path": ".bago/api/api_auth.py",
+      "size": 2263,
+      "mtime": 1782235036.743137
+    },
+    {
+      "path": ".bago/api/api_dispatch.py",
+      "size": 4586,
+      "mtime": 1782258959.7673767
+    },
+    {
+      "path": ".bago/api/api_serializers.py",
+      "size": 3463,
+      "mtime": 1782235022.201681
+    },
+    {
+      "path": ".bago/api/bridge.py",
+      "size": 25513,
+      "mtime": 1782254342.9321034
+    },
+    {
+      "path": ".bago/api/control_shadow.py",
+      "size": 8823,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/api/handlers_catalog.py",
+      "size": 1508,
+      "mtime": 1782235608.6497648
+    },
+    {
+      "path": ".bago/api/handlers_chat.py",
+      "size": 6255,
+      "mtime": 1782253643.176394
+    },
+    {
+      "path": ".bago/api/handlers_command.py",
+      "size": 3049,
+      "mtime": 1782252852.9778337
+    },
+    {
+      "path": ".bago/api/handlers_files.py",
+      "size": 2726,
+      "mtime": 1782235660.0361395
+    },
+    {
+      "path": ".bago/api/handlers_history.py",
+      "size": 1041,
+      "mtime": 1782236135.2274828
+    },
+    {
+      "path": ".bago/api/handlers_memory.py",
+      "size": 1825,
+      "mtime": 1782235047.5821595
+    },
+    {
+      "path": ".bago/api/handlers_menu.py",
+      "size": 687,
+      "mtime": 1782235561.4683282
+    },
+    {
+      "path": ".bago/api/handlers_models.py",
+      "size": 661,
+      "mtime": 1782235579.7299297
+    },
+    {
+      "path": ".bago/api/handlers_providers.py",
+      "size": 808,
+      "mtime": 1782236135.2931194
+    },
+    {
+      "path": ".bago/api/handlers_rl.py",
+      "size": 1298,
+      "mtime": 1782235630.5158906
+    },
+    {
+      "path": ".bago/api/handlers_router.py",
+      "size": 3594,
+      "mtime": 1782251652.8096812
+    },
+    {
+      "path": ".bago/api/handlers_schedule.py",
+      "size": 1869,
+      "mtime": 1782235056.4617054
+    },
+    {
+      "path": ".bago/api/handlers_session.py",
+      "size": 1410,
+      "mtime": 1782236135.348969
+    },
+    {
+      "path": ".bago/api/handlers_simulation.py",
+      "size": 1450,
+      "mtime": 1782235619.5927198
+    },
+    {
+      "path": ".bago/api/handlers_status.py",
+      "size": 989,
+      "mtime": 1782236143.1105225
+    },
+    {
+      "path": ".bago/api/handlers_subagents.py",
+      "size": 909,
+      "mtime": 1782235056.516451
+    },
+    {
+      "path": ".bago/api/handlers_switch.py",
+      "size": 1936,
+      "mtime": 1782252531.8327832
+    },
+    {
+      "path": ".bago/api/request_context.py",
+      "size": 3511,
+      "mtime": 1782252522.4227436
+    },
+    {
+      "path": ".bago/chat/__init__.py",
+      "size": 0,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/chat/commands.py",
+      "size": 45288,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/chat/renderer.py",
+      "size": 6731,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/chat/repl.py",
+      "size": 36271,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/chat/repl_inventory.py",
+      "size": 675,
+      "mtime": 1782100518.576645
+    },
+    {
+      "path": ".bago/chat/repl_menu.py",
+      "size": 19611,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/chat/system_prompt.py",
+      "size": 3061,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/__init__.py",
+      "size": 0,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/agent_dispatcher.py",
+      "size": 6850,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/agent_gateway.py",
+      "size": 5053,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/autonomous_loop.py",
+      "size": 31778,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/bago_context.py",
+      "size": 10020,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/command_intents.json",
+      "size": 19661,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/config_manager.py",
+      "size": 8440,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/context_compressor.py",
+      "size": 12851,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/context_store.py",
+      "size": 16554,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/credential_manager.py",
+      "size": 11413,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/embedding_store.py",
+      "size": 4811,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/intent_engine.py",
+      "size": 8923,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/intent_examples.json",
+      "size": 21309,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/knowledge_base.py",
+      "size": 7425,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/learning_writer.py",
+      "size": 14800,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/message_adapter.py",
+      "size": 11795,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/model_equivalence.py",
+      "size": 14777,
+      "mtime": 1782100518.5922565
+    },
+    {
+      "path": ".bago/core/plan_engine.py",
+      "size": 4809,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/provider_adapter.py",
+      "size": 4229,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/rl_engine.py",
+      "size": 11696,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/runtime.py",
+      "size": 2945,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/script_registry.py",
+      "size": 19207,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/session_manager.py",
+      "size": 52859,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/state_paths.py",
+      "size": 433,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/switch_engine.py",
+      "size": 10245,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/tool_registry.py",
+      "size": 6885,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/core/version.py",
+      "size": 604,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/forma/BAGO_FORMA.md",
+      "size": 7243,
+      "mtime": 1782291649.5143318
+    },
+    {
+      "path": ".bago/keybinds.json",
+      "size": 374,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/knowledge/README.md",
+      "size": 1925,
+      "mtime": 1782100518.6078699
+    },
+    {
+      "path": ".bago/knowledge/learned_lessons.md",
+      "size": 4850,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/knowledge/manifest.json",
+      "size": 3589,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/mcp/agent_tool_matrix.json",
+      "size": 10628,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/mcp/bago_mcp_server.py",
+      "size": 24365,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/mcp/mcp_config.json",
+      "size": 901,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/mcp/run_bago_mcp.cmd",
+      "size": 353,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/mcp/toolbox_catalog.json",
+      "size": 25738,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/00_BOOTSTRAP_PROYECTO.md",
+      "size": 953,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/01_ARRANQUE_MAESTRO.md",
+      "size": 834,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/02_ANALISIS_REPO.md",
+      "size": 761,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/03_TAREA_DE_PROYECTO.md",
+      "size": 717,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/04_REVISION_EVOLUTIVA.md",
+      "size": 756,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/05_ACTUALIZACION_ESTADO_BAGO.md",
+      "size": 711,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/06_PROMPTS_README.md",
+      "size": 723,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/activar_maestro.md",
+      "size": 853,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/activar_migracion_historial.md",
+      "size": 521,
+      "mtime": 1782100518.6234858
+    },
+    {
+      "path": ".bago/prompts/activar_orquestador.md",
+      "size": 684,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/prompts/activar_revision_canonica.md",
+      "size": 670,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/prompts/activar_workflow.md",
+      "size": 519,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/__init__.py",
+      "size": 0,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/anthropic.py",
+      "size": 8226,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/cli_bridge.py",
+      "size": 1659,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/codex.py",
+      "size": 10331,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/copilot.py",
+      "size": 10646,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/cpp_local.py",
+      "size": 15960,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/ollama_cloud.py",
+      "size": 7411,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/ollama_local.py",
+      "size": 6979,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/opencode.py",
+      "size": 7350,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/providers/openrouter.py",
+      "size": 7352,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/roles/README.md",
+      "size": 5817,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/roles/ROLE_TEMPLATE.md",
+      "size": 6174,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/roles/manifest.json",
+      "size": 6169,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/roles/role_factory.py",
+      "size": 9220,
+      "mtime": 1782100518.6391058
+    },
+    {
+      "path": ".bago/state.example/global_state.json",
+      "size": 534,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/templates/plantilla_cambio.md",
+      "size": 344,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/templates/plantilla_evaluacion_brutal.md",
+      "size": 14141,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/templates/plantilla_evidencia.md",
+      "size": 729,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/templates/plantilla_rol.md",
+      "size": 654,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/templates/plantilla_workflow.md",
+      "size": 420,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools.manifest.json",
+      "size": 2511,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/README.md",
+      "size": 5778,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/_registry_entries.py",
+      "size": 1580,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/_registry_models.py",
+      "size": 1735,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/_registry_paths.py",
+      "size": 399,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/_registry_taxonomy.py",
+      "size": 12259,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/agent_router.py",
+      "size": 13883,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/auto_heal.py",
+      "size": 7678,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/bago_backup_vault.py",
+      "size": 5830,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/bago_canary.py",
+      "size": 8133,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/bago_infra_scan.py",
+      "size": 13622,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/bago_inventory.py",
+      "size": 11931,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/bago_security_audit.py",
+      "size": 9588,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/bago_utils.py",
+      "size": 4983,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/code_metrics.py",
+      "size": 5497,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/commit_readiness.py",
+      "size": 12969,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/dead_code.py",
+      "size": 14173,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/debt_guard.py",
+      "size": 23370,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/debt_scanner.py",
+      "size": 23571,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/dep_audit.py",
+      "size": 12435,
+      "mtime": 1782100518.6547277
+    },
+    {
+      "path": ".bago/tools/doctor.py",
+      "size": 10081,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/forced_dependency_scan.py",
+      "size": 14205,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/git_context.py",
+      "size": 9678,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/harmony_gate.py",
+      "size": 4375,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/issues_take.py",
+      "size": 4100,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/naming_check.py",
+      "size": 11385,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/net_scan.py",
+      "size": 10176,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/orchestrator_v4.py",
+      "size": 30920,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/preflight_engine.py",
+      "size": 11049,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/process_monitor.py",
+      "size": 26039,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/project_memory.py",
+      "size": 16186,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/secret_scan.py",
+      "size": 10779,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/sincerity_detector.py",
+      "size": 13190,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/skill_engine.py",
+      "size": 8558,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/spiral_agent.py",
+      "size": 20243,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/todo_scan.py",
+      "size": 7803,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/token_rotation_guard.py",
+      "size": 9735,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/tool_registry.py",
+      "size": 10890,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/tools/toolsmith.py",
+      "size": 17087,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W0_FREE_SESSION.md",
+      "size": 1178,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W10_AUDITORIA_SINCERIDAD.md",
+      "size": 1346,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W1_COLD_START.md",
+      "size": 474,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W2_IMPLEMENTACION_CONTROLADA.md",
+      "size": 311,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W3_REFACTOR_SENSIBLE.md",
+      "size": 275,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W4_DEBUG_MULTICAUSA.md",
+      "size": 316,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W5_CIERRE_Y_CONTINUIDAD.md",
+      "size": 231,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W6_IDEACION_APLICADA.md",
+      "size": 1055,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W7_FOCO_SESION.md",
+      "size": 4484,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W8_EXPLORACION.md",
+      "size": 2697,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/W9_COSECHA.md",
+      "size": 4184,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/WORKFLOWS_INDEX.md",
+      "size": 3117,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/WORKFLOW_GRAPH.json",
+      "size": 8834,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/WORKFLOW_MAESTRO_BAGO.md",
+      "size": 4755,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".bago/workflows/music-score-transposition.md",
+      "size": 5229,
+      "mtime": 1782100518.6703584
+    },
+    {
+      "path": ".gabo/diffs/vs_BAGO.json",
+      "size": 32753,
+      "mtime": 1782295283.5619304
+    },
+    {
+      "path": ".gabo/forma/bump_version.py",
+      "size": 7713,
+      "mtime": 1782292451.8014326
+    },
+    {
+      "path": ".gabo/forma/extract_bago_api_handler.py",
+      "size": 8195,
+      "mtime": 1782295098.5847077
+    },
+    {
+      "path": ".gabo/index.md",
+      "size": 1705,
+      "mtime": 1782295283.5629075
+    },
+    {
+      "path": ".gabo/live.json",
+      "size": 566,
+      "mtime": 1782295283.262712
+    },
+    {
+      "path": ".gabo/manifests/agents.json",
+      "size": 463,
+      "mtime": 1782295283.2856493
+    },
+    {
+      "path": ".gabo/manifests/api.json",
+      "size": 1534,
+      "mtime": 1782295283.2637172
+    },
+    {
+      "path": ".gabo/manifests/bago_core.json",
+      "size": 2874,
+      "mtime": 1782295283.2796965
+    },
+    {
+      "path": ".gabo/manifests/chat.json",
+      "size": 310,
+      "mtime": 1782295283.2966206
+    },
+    {
+      "path": ".gabo/manifests/core.json",
+      "size": 854,
+      "mtime": 1782295283.3006322
+    },
+    {
+      "path": ".gabo/manifests/extensions.json",
+      "size": 171,
+      "mtime": 1782295283.297617
+    },
+    {
+      "path": ".gabo/manifests/knowledge.json",
+      "size": 239,
+      "mtime": 1782295283.29365
+    },
+    {
+      "path": ".gabo/manifests/mcp.json",
+      "size": 296,
+      "mtime": 1782295283.295623
+    },
+    {
+      "path": ".gabo/manifests/prompts.json",
+      "size": 557,
+      "mtime": 1782295283.2946467
+    },
+    {
+      "path": ".gabo/manifests/providers.json",
+      "size": 383,
+      "mtime": 1782295283.2896388
+    },
+    {
+      "path": ".gabo/manifests/roles.json",
+      "size": 253,
+      "mtime": 1782295283.290637
+    },
+    {
+      "path": ".gabo/manifests/state_example.json",
+      "size": 206,
+      "mtime": 1782295283.3016064
+    },
+    {
+      "path": ".gabo/manifests/templates.json",
+      "size": 325,
+      "mtime": 1782295283.2986372
+    },
+    {
+      "path": ".gabo/manifests/tools.json",
+      "size": 1114,
+      "mtime": 1782295283.2886407
+    },
+    {
+      "path": ".gabo/manifests/tools_sprints.json",
+      "size": 4492,
+      "mtime": 1782295283.2696924
+    },
+    {
+      "path": ".gabo/manifests/ui_react.json",
+      "size": 1185,
+      "mtime": 1782295283.283654
+    },
+    {
+      "path": ".gabo/manifests/workflows.json",
+      "size": 630,
+      "mtime": 1782295283.2926521
+    },
+    {
+      "path": ".gabo/seed.py",
+      "size": 16924,
+      "mtime": 1782295248.2745912
+    },
+    {
+      "path": ".gabo/tree.json",
+      "size": 58364,
+      "mtime": 1782295283.2617128
+    },
+    {
+      "path": ".gitattributes",
+      "size": 18,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".githooks/pre-push",
+      "size": 486,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/bago-tests.yml",
+      "size": 1643,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/bago.yml",
+      "size": 29106,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/branch-flow-guard.yml",
+      "size": 1254,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "size": 2752,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/codeql.yml",
+      "size": 825,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/copilot-setup-steps.yml",
+      "size": 1075,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/deploy-landing.yml",
+      "size": 1201,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".github/workflows/njsscan.yml",
+      "size": 863,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".gitignore",
+      "size": 2692,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": ".vercelignore",
+      "size": 117,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "BAGO.pyproj",
+      "size": 8327,
+      "mtime": 1782292537.541194
+    },
+    {
+      "path": "CHANGELOG.md",
+      "size": 4025,
+      "mtime": 1782292537.540197
+    },
+    {
+      "path": "MANUAL.md",
+      "size": 40572,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "README.md",
+      "size": 7715,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "RELEASE_CHECKLIST.md",
+      "size": 1973,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "assets/bago-wasp.svg",
+      "size": 1539,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago",
+      "size": 54,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago-uninstall.cmd",
+      "size": 352,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago-uninstall.ps1",
+      "size": 1164,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.cmd",
+      "size": 306,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.egg-info/PKG-INFO",
+      "size": 8130,
+      "mtime": 1782292537.541194
+    },
+    {
+      "path": "bago.egg-info/SOURCES.txt",
+      "size": 2837,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.egg-info/dependency_links.txt",
+      "size": 1,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.egg-info/entry_points.txt",
+      "size": 46,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.egg-info/top_level.txt",
+      "size": 10,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.ico",
+      "size": 49528,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.ps1",
+      "size": 6051,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago.sh",
+      "size": 376,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago_core/__init__.py",
+      "size": 105,
+      "mtime": 1782100518.68597
+    },
+    {
+      "path": "bago_core/bago_true_bridge.py",
+      "size": 6090,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/claim_cli.py",
+      "size": 5893,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/claim_ledger.py",
+      "size": 1248,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/claim_model.py",
+      "size": 4210,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/claim_storage.py",
+      "size": 6318,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cli.py",
+      "size": 1057,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cli_installs.py",
+      "size": 1378,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cli_installs_cli.py",
+      "size": 1624,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cli_installs_discovery.py",
+      "size": 4055,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cli_installs_facts.py",
+      "size": 3257,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cli_installs_summary.py",
+      "size": 1112,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/__init__.py",
+      "size": 3178,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/code_verdict.py",
+      "size": 12832,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/context_builder.py",
+      "size": 9735,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/evidence_builder.py",
+      "size": 14754,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/patch_parser.py",
+      "size": 11915,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/repair_loop.py",
+      "size": 21398,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/task_classifier.py",
+      "size": 14686,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/codegen/task_compiler.py",
+      "size": 10029,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/__init__.py",
+      "size": 865,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_chat.py",
+      "size": 11236,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_content.py",
+      "size": 5284,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_lifecycle.py",
+      "size": 10495,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_provider.py",
+      "size": 3222,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_route_v2.py",
+      "size": 6513,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_system.py",
+      "size": 14601,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/commands/cmd_tools.py",
+      "size": 15944,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/cpp_runtime_host.py",
+      "size": 10878,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/evidence_bundle.py",
+      "size": 1190,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/evidence_cli.py",
+      "size": 4525,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/evidence_generator.py",
+      "size": 16564,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/evidence_io.py",
+      "size": 4664,
+      "mtime": 1782100518.701592
+    },
+    {
+      "path": "bago_core/evidence_model.py",
+      "size": 5877,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/evidence_report.py",
+      "size": 8340,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/execution/__init__.py",
+      "size": 1405,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/execution/atomic_patch.py",
+      "size": 14584,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/execution/process_runner.py",
+      "size": 9566,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/execution/staging_workspace.py",
+      "size": 9556,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/install_roles.py",
+      "size": 5958,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/launcher.py",
+      "size": 18221,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control.py",
+      "size": 5624,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_backend.py",
+      "size": 13942,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_cli.py",
+      "size": 9242,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_connect.py",
+      "size": 5220,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_policy.py",
+      "size": 8592,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_render.py",
+      "size": 3970,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_ssot.py",
+      "size": 3962,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_state.py",
+      "size": 15688,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_store.py",
+      "size": 8543,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_translator.py",
+      "size": 6439,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_tui.py",
+      "size": 2962,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_tui_info.py",
+      "size": 2844,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_tui_io.py",
+      "size": 3102,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/node_control_tui_write.py",
+      "size": 5298,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/parsers.py",
+      "size": 2493,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/parsers_sections.py",
+      "size": 33761,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/rl_bridge.py",
+      "size": 4129,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/rl_policies.py",
+      "size": 11916,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/session_control.py",
+      "size": 6257,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/tags/v4.1.5.json",
+      "size": 2206,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/tags/v4.2.0.json",
+      "size": 943,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/tags/v4.2.1.json",
+      "size": 1047,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/tags/v4.2.2.json",
+      "size": 1433,
+      "mtime": 1782100518.717214
+    },
+    {
+      "path": "bago_core/tags/v4.3.0.json",
+      "size": 1417,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/translators/__init__.py",
+      "size": 1139,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/translators/bootstrap.py",
+      "size": 7639,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/translators/evidence_gate.py",
+      "size": 6854,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/validation/__init__.py",
+      "size": 2211,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/validation/language_adapter.py",
+      "size": 5511,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/validation/validation_pipeline.py",
+      "size": 8034,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/validation/validation_result.py",
+      "size": 5682,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/version.py",
+      "size": 443,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "bago_core/versioning.py",
+      "size": 2112,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "size": 4300,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/AUTONOMOUS_EXECUTION_CONTRACT.md",
+      "size": 2098,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/AUTONOMOUS_EXECUTION_PLAN.md",
+      "size": 1868,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/BAGO_CODE_FORGE_47_ROADMAP.md",
+      "size": 7397,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/BAGO_MIGRATION_SPRINTS.md",
+      "size": 4509,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/CENTRALIZATION_CONTRACT.md",
+      "size": 1643,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/CENTRALIZATION_IMPLEMENTATION_PLAN.md",
+      "size": 2273,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/CLAIMS.md",
+      "size": 1764,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/COMMANDS.md",
+      "size": 13280,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/COMMAND_AUDIT.md",
+      "size": 8706,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/COMMUNITY.md",
+      "size": 1868,
+      "mtime": 1782100518.7328334
+    },
+    {
+      "path": "docs/DISTRIBUTION_CONTRACT.md",
+      "size": 4548,
+      "mtime": 1782100518.748551
+    },
+    {
+      "path": "docs/INTEGRATION.md",
+      "size": 4198,
+      "mtime": 1782100518.748551
+    },
+    {
+      "path": "docs/INVENTORY_PIECES.md",
+      "size": 10513,
+      "mtime": 1782100518.749548
+    },
+    {
+      "path": "docs/KERNEL_LOCKDOWN.md",
+      "size": 5482,
+      "mtime": 1782100518.749548
+    },
+    {
+      "path": "docs/LAYERS.md",
+      "size": 9643,
+      "mtime": 1782100518.750546
+    },
+    {
+      "path": "docs/MANAGER_NEXT_PASS.md",
+      "size": 2690,
+      "mtime": 1782100518.751543
+    },
+    {
+      "path": "docs/MANAGER_RELEASE_JOBS.md",
+      "size": 1785,
+      "mtime": 1782100518.751543
+    },
+    {
+      "path": "docs/MANAGER_VISUAL_GRAMMAR.md",
+      "size": 1781,
+      "mtime": 1782100518.7525406
+    },
+    {
+      "path": "docs/MODULES.md",
+      "size": 4910,
+      "mtime": 1782100518.7525406
+    },
+    {
+      "path": "docs/MVP.md",
+      "size": 2168,
+      "mtime": 1782100518.7536082
+    },
+    {
+      "path": "docs/NODE_CONTROL_BACKLOG.md",
+      "size": 4831,
+      "mtime": 1782100518.7536082
+    },
+    {
+      "path": "docs/NODE_CONTROL_SPEC.md",
+      "size": 5592,
+      "mtime": 1782100518.7546062
+    },
+    {
+      "path": "docs/ORPHAN_DUPLICATE_PLAN.md",
+      "size": 1155,
+      "mtime": 1782100518.7546062
+    },
+    {
+      "path": "docs/PUBLIC_RELEASE_POLICY.md",
+      "size": 1010,
+      "mtime": 1782100518.7546062
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.6.1.md",
+      "size": 1003,
+      "mtime": 1782100518.7556033
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.6.2.md",
+      "size": 973,
+      "mtime": 1782100518.7556033
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.6.3.md",
+      "size": 1832,
+      "mtime": 1782100518.7566009
+    },
+    {
+      "path": "docs/RELEASE_NOTES_4.7.md",
+      "size": 2495,
+      "mtime": 1782100518.7566009
+    },
+    {
+      "path": "docs/RL_ENGINE.md",
+      "size": 2429,
+      "mtime": 1782100518.7575989
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "size": 7202,
+      "mtime": 1782100518.7575989
+    },
+    {
+      "path": "docs/SECURITY.md",
+      "size": 3017,
+      "mtime": 1782100518.7585957
+    },
+    {
+      "path": "docs/SUPPORT_MATRIX.md",
+      "size": 1239,
+      "mtime": 1782100518.7585957
+    },
+    {
+      "path": "docs/TESTING.md",
+      "size": 4140,
+      "mtime": 1782100518.7595935
+    },
+    {
+      "path": "docs/contracts/README.md",
+      "size": 1355,
+      "mtime": 1782100518.7595935
+    },
+    {
+      "path": "docs/contracts/bago_code_forge_47_task_CODE-20260621-001.json",
+      "size": 2506,
+      "mtime": 1782100518.7605903
+    },
+    {
+      "path": "docs/contracts/bago_v4_engineering_contract.md",
+      "size": 10724,
+      "mtime": 1782100518.7605903
+    },
+    {
+      "path": "docs/contracts/bago_v4_evidence_contract.md",
+      "size": 2342,
+      "mtime": 1782100518.7615879
+    },
+    {
+      "path": "docs/contracts/bago_v4_governance_contract.md",
+      "size": 9043,
+      "mtime": 1782100518.7615879
+    },
+    {
+      "path": "docs/contracts/bago_v4_knowledge_contract.md",
+      "size": 1408,
+      "mtime": 1782100518.762585
+    },
+    {
+      "path": "docs/contracts/bago_v4_repl_contract.md",
+      "size": 2046,
+      "mtime": 1782100518.762585
+    },
+    {
+      "path": "docs/contracts/bago_v4_routing_presets.json",
+      "size": 2907,
+      "mtime": 1782100518.7635822
+    },
+    {
+      "path": "docs/contracts/bago_v4_runtime_contract.json",
+      "size": 1965,
+      "mtime": 1782100518.7635822
+    },
+    {
+      "path": "docs/contracts/cpp_local_runtime_protocol.md",
+      "size": 2919,
+      "mtime": 1782100518.7645807
+    },
+    {
+      "path": "electron/audit-service.cjs",
+      "size": 9214,
+      "mtime": 1782100518.8004723
+    },
+    {
+      "path": "electron/dependency-service.cjs",
+      "size": 19967,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/environment.cjs",
+      "size": 6724,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/install-service.cjs",
+      "size": 12146,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/ipc-service.cjs",
+      "size": 3748,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/main.cjs",
+      "size": 4167,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/preload.cjs",
+      "size": 18816,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/release-job-manager.cjs",
+      "size": 35353,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/release-service.cjs",
+      "size": 2307,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/runtime-service.cjs",
+      "size": 13427,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "electron/window-service.cjs",
+      "size": 6307,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "examples/examples/README.md",
+      "size": 538,
+      "mtime": 1782100518.801625
+    },
+    {
+      "path": "examples/prompts/ejemplo_prompt_arquitectura.md",
+      "size": 1130,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "examples/sesiones/ejemplo_sesion_supervision.md",
+      "size": 942,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "index.html",
+      "size": 38423,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "install-assistant.ps1",
+      "size": 3443,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "install-remote.ps1",
+      "size": 12316,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "install-v4.ps1",
+      "size": 33257,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "ir_types.py",
+      "size": 840,
+      "mtime": 1782100518.8338819
+    },
+    {
+      "path": "manager.zip",
+      "size": 14898612,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/index.html",
+      "size": 29310,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/js/bago-chat.js",
+      "size": 5600,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/js/bootstrap.js",
+      "size": 228,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/js/chain-manager.js",
+      "size": 37216,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/js/core.js",
+      "size": 18036,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/js/install-banner.js",
+      "size": 2678,
+      "mtime": 1782100518.878709
+    },
+    {
+      "path": "manager/js/interaction-log.js",
+      "size": 3798,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/legacy-manager.js",
+      "size": 31416,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/node-control.js",
+      "size": 12252,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/ops-console.js",
+      "size": 18521,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/patch-manager.js",
+      "size": 73862,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/session-manager.js",
+      "size": 11859,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/startup-deps.js",
+      "size": 6212,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/js/system-status.js",
+      "size": 9175,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/styles/legacy.css",
+      "size": 14638,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "manager/styles/patch.css",
+      "size": 38880,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "package-lock.json",
+      "size": 130179,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "package.json",
+      "size": 2957,
+      "mtime": 1782292537.5421908
+    },
+    {
+      "path": "protocol.py",
+      "size": 2239,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "pyproject.toml",
+      "size": 547,
+      "mtime": 1782292537.5382018
+    },
+    {
+      "path": "registry.py",
+      "size": 5323,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "release_version.txt",
+      "size": 7,
+      "mtime": 1782292537.537205
+    },
+    {
+      "path": "rollback-v4.ps1",
+      "size": 4498,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/_normalize_presets.py",
+      "size": 600,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/apply_branch_protection.ps1",
+      "size": 1457,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/archive_pi_sessions.py",
+      "size": 2390,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/bago-cpp-local.cmd",
+      "size": 364,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/bago_consistency_check.py",
+      "size": 3453,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/bago_cpp_local.py",
+      "size": 1652,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/bago_supervisor.py",
+      "size": 26339,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/bago_supervisor.pyw",
+      "size": 1172,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/build_pack.py",
+      "size": 2621,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/build_vercel_site.cjs",
+      "size": 974,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/clean_ollama_history.py",
+      "size": 1454,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/deploy_landing.py",
+      "size": 1650,
+      "mtime": 1782100518.8854983
+    },
+    {
+      "path": "scripts/embed_mixed.py",
+      "size": 4024,
+      "mtime": 1782100518.9008105
+    },
+    {
+      "path": "scripts/generate_commands_doc.py",
+      "size": 2446,
+      "mtime": 1782100518.9008355
+    },
+    {
+      "path": "scripts/generate_layers_doc.py",
+      "size": 2367,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/ingest_knowledge.py",
+      "size": 11316,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/inventory_sessions.py",
+      "size": 2535,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/ollama_embeddings.py",
+      "size": 2393,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/package_audit_bundle.py",
+      "size": 15988,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/package_user_bundle.py",
+      "size": 9477,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/package_v4.py",
+      "size": 9276,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/probe.py",
+      "size": 8888,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/promote-dev.py",
+      "size": 2456,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/publish_release.py",
+      "size": 5183,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/real_fallback.py",
+      "size": 3980,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/registry_ast_contract.py",
+      "size": 2224,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/repair_routing_runtime.py",
+      "size": 785,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/rotate_ollama_backups.py",
+      "size": 2358,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/scan_directory.py",
+      "size": 3307,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/seal_release_415.py",
+      "size": 8516,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/setup_git_hooks.ps1",
+      "size": 631,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/test_install_rollback.ps1",
+      "size": 2469,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/validate_pack_contents.py",
+      "size": 1948,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/verify_default_model.py",
+      "size": 5318,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/verify_docs.py",
+      "size": 2377,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/verify_release.py",
+      "size": 748,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/verify_release_462.py",
+      "size": 5849,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/verify_release_463.py",
+      "size": 13407,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "scripts/zip_installer_r3.py",
+      "size": 667,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "test_command_intents.py",
+      "size": 9394,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "test_e2e.py",
+      "size": 4850,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "test_issue_take_agent.py",
+      "size": 1643,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "test_ollama_live_optional.py",
+      "size": 2624,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "test_security_release.py",
+      "size": 11988,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "test_translators.py",
+      "size": 1303,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "tests/test_chat_help_exec.py",
+      "size": 5178,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "tests/test_chat_repl_paste.py",
+      "size": 1218,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "tests/test_claim_ledger_split.py",
+      "size": 2509,
+      "mtime": 1782100518.9016593
+    },
+    {
+      "path": "tests/test_cli_bridge_contract.py",
+      "size": 2285,
+      "mtime": 1782100518.917051
+    },
+    {
+      "path": "tests/test_cli_installs_split.py",
+      "size": 3311,
+      "mtime": 1782100518.917051
+    },
+    {
+      "path": "tests/test_cli_root_compat.py",
+      "size": 2060,
+      "mtime": 1782100518.917051
+    },
+    {
+      "path": "tests/test_code_forge_classifier.py",
+      "size": 4297,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_code_verdict.py",
+      "size": 12233,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_codegen.py",
+      "size": 19552,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_compiler.py",
+      "size": 4913,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_context.py",
+      "size": 4267,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_contract.py",
+      "size": 1022,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_evidence_builder.py",
+      "size": 15694,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_execution.py",
+      "size": 13822,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_patch_parser.py",
+      "size": 4197,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_repair_loop.py",
+      "size": 13326,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_code_forge_validation.py",
+      "size": 13892,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_evidence_bundle_split.py",
+      "size": 7472,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_evidence_integrity.py",
+      "size": 3266,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_install_remote_verification.py",
+      "size": 902,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_migration_sprints.py",
+      "size": 1451,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_no_snapshot_leakage.py",
+      "size": 6811,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_no_visible_powershell.py",
+      "size": 1867,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_node_control_split.py",
+      "size": 13229,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_node_control_translator.py",
+      "size": 4127,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_node_control_tui_split.py",
+      "size": 6790,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_packaging.py",
+      "size": 2912,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_project_analysis.py",
+      "size": 2883,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_release_job_manager.cjs",
+      "size": 9382,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_release_job_manager_live.cjs",
+      "size": 2278,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_security.py",
+      "size": 4157,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_sprint_2_contracts.py",
+      "size": 2697,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_sprint_3_assets.py",
+      "size": 3508,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_sprint_4_surfaces.py",
+      "size": 2346,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_sprint_5_validation.py",
+      "size": 1022,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_system_prompt_bootstrap.py",
+      "size": 1435,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_translators_evidence.py",
+      "size": 3136,
+      "mtime": 1782100518.9181223
+    },
+    {
+      "path": "tests/test_version_drift.py",
+      "size": 2026,
+      "mtime": 1782100518.9337442
+    },
+    {
+      "path": "tools/audit_orphans_and_duplicates.py",
+      "size": 12602,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "tools/check_modular.py",
+      "size": 17936,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "tools/file_sizes.py",
+      "size": 908,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "tools/inspect_encoding.py",
+      "size": 1209,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "tools/manager_visual_audit.py",
+      "size": 2131,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "tools/normalize_encoding.py",
+      "size": 2295,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "tools/sprints/README.md",
+      "size": 1664,
+      "mtime": 1782292777.8192356
+    },
+    {
+      "path": "tools/verify_modular_gate.py",
+      "size": 962,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/README.md",
+      "size": 1397,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/index.html",
+      "size": 302,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/package-lock.json",
+      "size": 30906,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/package.json",
+      "size": 351,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/App.jsx",
+      "size": 4896,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/api.js",
+      "size": 2264,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/interactionLog.js",
+      "size": 1068,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/main.jsx",
+      "size": 335,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/styles.css",
+      "size": 47222,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/useBagoChat.js",
+      "size": 3451,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/useBagoControl.js",
+      "size": 5717,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/useChatCenter.js",
+      "size": 3449,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/useInspector.js",
+      "size": 3326,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/useManagerContext.js",
+      "size": 1389,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/usePipelineNodes.js",
+      "size": 3392,
+      "mtime": 1782100518.934764
+    },
+    {
+      "path": "ui-react/src/useSessionKit.js",
+      "size": 3873,
+      "mtime": 1782100518.950389
+    },
+    {
+      "path": "ui-react/vite.config.js",
+      "size": 1394,
+      "mtime": 1782100518.950389
+    },
+    {
+      "path": "vercel.json",
+      "size": 332,
+      "mtime": 1782100518.950389
+    },
+    {
+      "path": "versions.json",
+      "size": 3361,
+      "mtime": 1782292537.5391996
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
 
   <!-- ═══════════════════════════════════════════════════════════
-       BAGO v4.7.0 — Python Tools for Visual Studio (.pyproj)
+       BAGO v4.8.0 — Python Tools for Visual Studio (.pyproj)
        Session-First AI Control Plane
        https://github.com/MarcValls/BAGO
   ═══════════════════════════════════════════════════════════ -->

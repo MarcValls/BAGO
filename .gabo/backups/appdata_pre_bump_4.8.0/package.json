@@ -1,0 +1,107 @@
+{
+  "name": "bago-control-plane",
+  "version": "4.7.0",
+  "private": true,
+  "description": "BAGO Control Plane — session-first AI manager (Electron + React).",
+  "main": "electron/main.cjs",
+  "author": "BAGO",
+  "license": "UNLICENSED",
+  "scripts": {
+    "manager:build-ui": "npm --prefix ui-react ci --ignore-scripts --no-audit --no-fund && npm --prefix ui-react run build",
+    "premanager:pack": "npm run manager:build-ui",
+    "premanager:dist": "npm run manager:build-ui",
+    "manager:dev": "electron .",
+    "manager:diagnose": "node scripts/ui-diagnostics.cjs",
+    "manager:pack": "electron-builder --dir",
+    "manager:dist": "electron-builder --win nsis",
+    "manager:test-jobs": "node tests/test_release_job_manager.cjs",
+    "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
+  },
+  "build": {
+    "appId": "com.bago.control-plane",
+    "productName": "BAGO Control Plane",
+    "artifactName": "BAGO-Control-Plane-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "bago_core/**/*",
+      ".bago/**/*",
+      "scripts/**/*",
+      "tools/**/*",
+      "docs/**/*",
+      "ui-react/package.json",
+      "ui-react/package-lock.json",
+      "ui-react/index.html",
+      "ui-react/vite.config.js",
+      "ui-react/src/**/*",
+      "ui-react/dist/**/*",
+      "install-v4.ps1",
+    "install-remote.ps1",
+    "bago.ps1",
+    "bago.cmd",
+    "bago.sh",
+    "versions.json",
+    "release_version.txt",
+    "release/v4/bago-v4.7.zip"
+    ],
+    "files": [
+      "electron/**/*",
+      "bago.ico",
+      "assets/**/*",
+      "bago_core/**/*",
+      ".bago/core/**/*",
+      ".bago/chat/**/*",
+      ".bago/knowledge/**/*",
+      ".bago/providers/**/*",
+      ".bago/api/**/*",
+      ".bago/tools/**/*",
+      "docs/**/*",
+      "scripts/**/*",
+      "tools/**/*",
+      "ui-react/package.json",
+      "ui-react/package-lock.json",
+      "ui-react/index.html",
+      "ui-react/vite.config.js",
+      "ui-react/src/**/*",
+      "ui-react/dist/**/*",
+      "install-v4.ps1",
+      "install-remote.ps1",
+      "bago.ps1",
+      "bago.cmd",
+      "bago.sh",
+      "versions.json",
+      "release_version.txt",
+      "release/v4/bago-v4.7.zip"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "bago.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BAGO Control Plane"
+    }
+  },
+  "devDependencies": {
+    "electron": "42.3.0",
+    "electron-builder": "26.8.1",
+    "playwright": "^1.60.0"
+  },
+  "overrides": {
+    "form-data": "4.0.6",
+    "undici": "7.28.0"
+  }
+}

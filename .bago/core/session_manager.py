@@ -891,7 +891,7 @@ class SessionManager:
         return result
 
     def save(self) -> None:
-        """Persiste metadata de sesión en disco."""
+        """Persiste metadata de sesión en disco y actualiza índice SQLite."""
         self.store.update_meta({
             "last_provider": self.provider,
             "last_model": self.model,
@@ -918,6 +918,25 @@ class SessionManager:
         }
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        # Sync to SQLite index for fast listing/search
+        try:
+            from session_db import get_session_db
+            db = get_session_db(str(self.state_dir))
+            db.upsert(
+                self.session_id,
+                created_at=datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
+                last_provider=self.provider,
+                last_model=self.model,
+                switch_count=len(self.switch_log),
+                bago_mode=self.bago_mode,
+                active_agent=self.agent_gateway.active.name,
+                total_tokens=self.total_tokens,
+                total_calls=self.total_calls,
+                last_switch_at=self.last_switch_at.isoformat() if isinstance(self.last_switch_at, float) else self.last_switch_at,
+            )
+        except Exception:
+            pass
 
     def memory_add_hybrid(self, content: str) -> dict[str, Any]:
         adapter = self._ensure_adapter()

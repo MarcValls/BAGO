@@ -1,0 +1,9 @@
+  repl_banner.print_banner: True
+  repl_status: FAIL -- '(' was never closed (repl_status.py, line 15)
+  repl_prompt: FAIL -- unterminated string literal (detected at line 13) (repl_prompt.py, line 13)
+  repl_prompt: FAIL -- unterminated string literal (detected at line 13) (repl_prompt.py, line 13)
+  repl_prompt: FAIL -- unterminated string literal (detected at line 13) (repl_prompt.py, line 13)
+  repl_navigation.setup_readline: True
+  repl_navigation.navigate: True
+  repl_history: FAIL -- name 'FileHistory' is not defined
+  repl_chat.handle_chat: True
