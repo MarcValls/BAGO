@@ -90,10 +90,15 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             "::1",
         }
 
+    def _sanitize_header_value(self, value: str) -> str:
+        # Prevent HTTP response splitting by removing CR/LF and other control chars.
+        return "".join(ch for ch in value if ch >= " " and ch != "\x7f")
+
     def _send_cors_headers(self) -> None:
         origin = self.headers.get("Origin", "")
         if self._cors_origin_allowed(origin):
-            self.send_header("Access-Control-Allow-Origin", origin)
+            safe_origin = self._sanitize_header_value(origin)
+            self.send_header("Access-Control-Allow-Origin", safe_origin)
             self.send_header("Vary", "Origin")
 
     def _send_json(self, status: int, data: dict[str, Any]) -> None:
