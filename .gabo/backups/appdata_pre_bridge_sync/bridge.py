@@ -616,11 +616,8 @@ class BagoAPIHandler(BaseHTTPRequestHandler):
             if not decoded_path:
                 raise ValueError("Ruta vacia")
             candidate = base.joinpath(decoded_path)
-            target = candidate.resolve(strict=True)
-            if not target.is_relative_to(base):
-            return
-            decoded_path = unquote(file_path).strip().replace("\\", "/")
-            if not decoded_path or "\x00" in decoded_path or os.path.isabs(decoded_path):
+            target = (base / decoded_path).resolve()
+            target.relative_to(base)
             # Rechazar rutas vacías, absolutas, unidades/UNC y traversal explícito
             if (
                 not decoded_path
