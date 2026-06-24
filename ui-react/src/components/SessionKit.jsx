@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useToast } from './Toast'
+import { getUiConfig } from '../useUiConfig'
 
 const PIPELINES = [
   { id: 'code-forge-3b',    label: 'Code Forge 3B',   variant: 'staged' },
@@ -96,9 +97,9 @@ export default function SessionKit({ kit, summary, dispatch, onToggleInspector, 
         <KitButton
           id="installation"
           title={kit.installation?.label || 'BAGO local'}
-          subtitle={`${kit.installation?.version || '4.7.0'} · ${kit.installation?.status || 'ready'}`}
+          subtitle={`${kit.installation?.version || getUiConfig().version} · ${kit.installation?.status || 'ready'}`}
           active
-          onClick={() => push('Instalación fija: BAGO local 4.7.0')}
+          onClick={() => push(`Instalación fija: BAGO local ${getUiConfig().version}`)}
         />
         <KitButton
           id="model"

@@ -20,7 +20,12 @@ from switch_engine import SwitchEngine
 
 
 def _load_tool_module(module_name: str, file_name: str):
-    path = Path(__file__).resolve().with_name(file_name)
+    here = Path(__file__).resolve()
+    path = here.with_name(file_name)
+    if not path.exists():
+        tools_dir = here.parents[1] / "tools" / file_name
+        if tools_dir.exists():
+            path = tools_dir
     spec = importlib.util.spec_from_file_location(f"bago.chat.{module_name}", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"No se pudo cargar {file_name}")
@@ -125,6 +130,12 @@ class BagoReplMenuMixin:
             return self._tools_wizard()
         if name == "memory-delete":
             return self._memory_delete_wizard()
+        if name == "project":
+            return self._project_wizard(Path(self.mgr.base_path))
+        if name == "config":
+            return self._config_wizard()
+        if name == "ui":
+            return self._ui_wizard()
         print(R.error(f"Asistente desconocido: {name}"))
         return True
 
@@ -471,4 +482,136 @@ class BagoReplMenuMixin:
                 if not silent:
                     print(R.error(f"✗ No se pudo conectar: {err}"))
                 return False
+        return True
+
+    def _ui_config_path(self) -> Path:
+        here = Path(__file__).resolve()
+        return here.parents[2] / "ui-react" / "public" / "ui_config.json"
+
+    def _ui_load_config(self) -> dict:
+        path = self._ui_config_path()
+        if path.exists():
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {}
+
+    def _ui_save_config(self, cfg: dict) -> None:
+        path = self._ui_config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    def _ui_wizard(self) -> bool:
+        if not self._wizard_tty_ok("/ui [tema|layout|version|branding]"):
+            return True
+        cfg = self._ui_load_config()
+        labels = [
+            "Tema visual (colores, modo dark/light)",
+            "Layout (paneles visibles)",
+            "Version y branding",
+            "Ver config actual",
+            "Salir",
+        ]
+        idx = self._navigate("Configuracion UI · elige uno", labels)
+        if idx is None or idx == 4:
+            print(R.dim("Asistente cerrado."))
+            return True
+        if idx == 0:
+            return self._ui_theme_wizard(cfg)
+        if idx == 1:
+            return self._ui_layout_wizard(cfg)
+        if idx == 2:
+            return self._ui_version_wizard(cfg)
+        if idx == 3:
+            print(R.dim(json.dumps(cfg, indent=2, ensure_ascii=False)))
+            return True
+        return True
+
+    def _ui_theme_wizard(self, cfg: dict) -> bool:
+        theme = cfg.get("theme", {})
+        presets = {
+            "dark (actual)": {"mode": "dark", "bg": "#050813", "bg2": "#08101f", "panel": "#0f172a", "panel2": "#121d32", "panel3": "#17233d", "text": "#e8eefb", "muted": "#91a5c0", "brand": "#7c8cff", "brandStrong": "#4658ff", "cyan": "#22d3ee", "ok": "#34d399", "warn": "#fbbf24", "danger": "#fb7185", "violet": "#c084fc", "orange": "#fb923c", "radius": "20px"},
+            "light": {"mode": "light", "bg": "#f8fafc", "bg2": "#f1f5f9", "panel": "#ffffff", "panel2": "#f8fafc", "panel3": "#e2e8f0", "text": "#1e293b", "muted": "#64748b", "brand": "#4658ff", "brandStrong": "#4658ff", "cyan": "#0891b2", "ok": "#059669", "warn": "#d97706", "danger": "#e11d48", "violet": "#9333ea", "orange": "#ea580c", "radius": "20px"},
+            "midnight": {"mode": "dark", "bg": "#0a0a0a", "bg2": "#141414", "panel": "#1a1a1a", "panel2": "#222222", "panel3": "#2a2a2a", "text": "#e0e0e0", "muted": "#888888", "brand": "#6366f1", "brandStrong": "#4f46e5", "cyan": "#06b6d4", "ok": "#10b981", "warn": "#f59e0b", "danger": "#ef4444", "violet": "#a855f7", "orange": "#f97316", "radius": "12px"},
+        }
+        labels = list(presets.keys())
+        idx = self._navigate("Tema visual · elige un preset", labels)
+        if idx is None:
+            print(R.dim("Cancelado."))
+            return True
+        chosen = list(presets.values())[idx]
+        cfg.setdefault("theme", {}).update(chosen)
+        self._ui_save_config(cfg)
+        print(R.ok(f"✓ Tema '{labels[idx]}' guardado. Recarga la UI (Ctrl+R en el navegador)."))
+        return True
+
+    def _ui_layout_wizard(self, cfg: dict) -> bool:
+        layout = cfg.get("layout", {})
+        keys = ["showKit", "showDock", "showInspector", "showContextPane", "showManagerDrawer", "sidebarCollapsed", "chatFocus"]
+        labels_ko = {"showKit": "Session Kit", "showDock": "Pipeline Dock", "showInspector": "Inspector", "showContextPane": "Context Pane", "showManagerDrawer": "Manager Drawer", "sidebarCollapsed": "Sidebar colapsado", "chatFocus": "Chat centrado"}
+        current_labels = []
+        for k in keys:
+            val = layout.get(k, False)
+            current_labels.append(f"{'✓' if val else '○'} {labels_ko.get(k, k)}")
+        idx = self._navigate("Layout · toggle un panel", current_labels)
+        if idx is None:
+            print(R.dim("Cancelado."))
+            return True
+        key = keys[idx]
+        cfg.setdefault("layout", {})[key] = not layout.get(key, False)
+        self._ui_save_config(cfg)
+        new_val = cfg["layout"][key]
+        print(R.ok(f"✓ {labels_ko.get(key, key)} = {'visible' if new_val else 'oculto'}. Recarga la UI."))
+        return True
+
+    def _ui_version_wizard(self, cfg: dict) -> bool:
+        current = cfg.get("version", "?")
+        brand = cfg.get("brand", {})
+        labels = [
+            f"Version actual: {current}",
+            "Cambiar version",
+            f"Cambiar nombre de marca (actual: {brand.get('name', 'BAGO')})",
+            f"Cambiar simbolo (actual: {brand.get('symbol', 'B')})",
+            f"Cambiar tagline (actual: {brand.get('tagline', 'Conversacion equipada')})",
+        ]
+        idx = self._navigate("Version y branding", labels)
+        if idx is None or idx == 0:
+            return True
+        if idx == 1:
+            try:
+                val = input(R.accent("Nueva version: ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                return True
+            if val:
+                cfg["version"] = val
+                self._ui_save_config(cfg)
+                print(R.ok(f"✓ Version = {val}. Recarga la UI."))
+        elif idx == 2:
+            try:
+                val = input(R.accent("Nuevo nombre de marca: ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                return True
+            if val:
+                cfg.setdefault("brand", {})["name"] = val
+                self._ui_save_config(cfg)
+                print(R.ok(f"✓ Marca = {val}. Recarga la UI."))
+        elif idx == 3:
+            try:
+                val = input(R.accent("Nuevo simbolo (1-2 caracteres): ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                return True
+            if val:
+                cfg.setdefault("brand", {})["symbol"] = val
+                self._ui_save_config(cfg)
+                print(R.ok(f"✓ Simbolo = {val}. Recarga la UI."))
+        elif idx == 4:
+            try:
+                val = input(R.accent("Nueva tagline: ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                return True
+            if val:
+                cfg.setdefault("brand", {})["tagline"] = val
+                self._ui_save_config(cfg)
+                print(R.ok(f"✓ Tagline = {val}. Recarga la UI."))
         return True

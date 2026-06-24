@@ -21,19 +21,14 @@ function writePersisted(value) {
 }
 
 const DEFAULT_EVIDENCE = {
-  state: 'VALIDADA',
-  tests: { passed: 238, skipped: 8, failed: 0 },
-  subtests: { passed: 16, failed: 0 },
+  state: 'PENDIENTE',
+  tests: { passed: 0, skipped: 0, failed: 0 },
+  subtests: { passed: 0, failed: 0 },
   lastRun: '—',
-  duration: '9.89s',
-  claims: [
-    { text: 'El parche compila',      proof: 'test_result',  ok: true },
-    { text: 'No modifica rutas prohibidas', proof: 'artifact_diff', ok: true },
-    { text: 'Mantiene el contrato de tarea', proof: 'schema_check', ok: true },
-    { text: 'Genera evidencia reproducible', proof: 'sha256_match', ok: true },
-  ],
+  duration: '—',
+  claims: [],
   notes: [
-    'Limitación declarada: cf-plan-pass y cf-generation-pass operan en modo simulado.',
+    'Sin evidencia cargada aún. Ejecuta una verificación para poblar el inspector.',
   ],
 }
 

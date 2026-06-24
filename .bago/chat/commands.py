@@ -119,6 +119,7 @@ MENU_SECTIONS: list[dict[str, Any]] = [
         "items": [
             {"command": "/config", "description": "Gestiona configuracion"},
             {"command": "/config set", "description": "Cambia un ajuste", "wizard": "config"},
+            {"command": "/ui", "description": "Configura la interfaz React (tema, layout, version)", "wizard": "ui"},
             {"command": "/credentials", "description": "Gestiona credenciales API"},
             {"command": "/credentials set", "description": "Registra una credencial", "wizard": "credentials"},
             {"command": "/update", "description": "Actualiza BAGO a la ultima version", "confirm": True},

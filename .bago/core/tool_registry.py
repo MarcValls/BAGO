@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -63,9 +64,11 @@ class ToolResult:
 class ToolRegistry:
     """Runtime compatibility layer around the canonical registry."""
 
-    def __init__(self, script_registry: Any | None = None) -> None:
+    def __init__(self, script_registry: Any | None = None, workspace_root: Path | str | None = None, dev_mode: bool = False) -> None:
         self.script_registry = script_registry
         self._commands = get_commands()
+        self.workspace_root = Path(workspace_root).resolve() if workspace_root else None
+        self.dev_mode = dev_mode
 
     def __len__(self) -> int:
         return len(REGISTRY)
@@ -164,6 +167,11 @@ class ToolRegistry:
             )
 
         cmd = [*command, *self._args_to_cli(call.arguments)]
+        tool_env = os.environ.copy()
+        if self.workspace_root:
+            tool_env["BAGO_WORKSPACE_ROOT"] = str(self.workspace_root)
+        if self.dev_mode:
+            tool_env["BAGO_DEV_MODE"] = "1"
         try:
             completed = subprocess.run(
                 cmd,
@@ -172,6 +180,7 @@ class ToolRegistry:
                 text=True,
                 cwd=str(TOOLS_DIR.parent),
                 timeout=120,
+                env=tool_env,
             )
         except Exception as exc:
             return ToolResult(

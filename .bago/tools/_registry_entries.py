@@ -34,12 +34,16 @@ def _load_manifest() -> dict:
 
 def _entry_from_manifest(cmd: str, payload: dict) -> ToolEntry:
     module = Path(str(payload.get("file", f"{cmd}.py"))).stem
-    description = f"Auto-registered tool: {cmd}"
+    description = str(payload.get("description", f"Auto-registered tool: {cmd}"))
+    schema = payload.get("schema", {})
+    if not isinstance(schema, dict):
+        schema = {}
     return ToolEntry(
         cmd=cmd,
         module=module,
         description=description,
         preflight=[PreflightCheck("file", str(TOOLS_DIR / f"{module}.py"))],
+        schema=schema,
     )
 
 

@@ -1,7 +1,7 @@
 {
   "version": "2",
   "generated_by": "bago-fw-audit-cleanup 2026-Q2",
-  "tool_count": 14,
+  "tool_count": 19,
   "tools": {
     "auto_heal": {
       "file": "auto_heal.py",
@@ -72,6 +72,81 @@
       "file": "tool_registry.py",
       "sha256": "9c87767b1438ab88d869c93df3be601ce4399e89b4e878751233971bc7639f0c",
       "cmd": "tool-registry"
+    },
+    "file_read": {
+      "file": "file_read.py",
+      "sha256": "",
+      "cmd": "file-read",
+      "description": "Read a file from the workspace. Returns file content with optional offset/limit for partial reads. Paths must be inside the workspace root.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "description": "Relative or absolute path to the file inside the workspace"},
+          "offset": {"type": "integer", "description": "Line number to start reading from (0-based)", "default": 0},
+          "limit": {"type": "integer", "description": "Maximum number of lines to read (0 = read all)", "default": 0}
+        },
+        "required": ["path"]
+      }
+    },
+    "file_write": {
+      "file": "file_write.py",
+      "sha256": "",
+      "cmd": "file-write",
+      "description": "Create or overwrite a file in the workspace. Parent directories are created automatically. Paths must be inside the workspace root.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "description": "Relative or absolute path to the file inside the workspace"},
+          "content": {"type": "string", "description": "Full text content to write to the file"}
+        },
+        "required": ["path", "content"]
+      }
+    },
+    "file_edit": {
+      "file": "file_edit.py",
+      "sha256": "",
+      "cmd": "file-edit",
+      "description": "Replace text within a file in the workspace. By default replaces the first occurrence; use replace_all for all occurrences. Paths must be inside the workspace root.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "description": "Relative or absolute path to the file inside the workspace"},
+          "old": {"type": "string", "description": "Exact text to find and replace"},
+          "new": {"type": "string", "description": "Replacement text"},
+          "replace_all": {"type": "boolean", "description": "Replace all occurrences (default: false = first only)", "default": false}
+        },
+        "required": ["path", "old", "new"]
+      }
+    },
+    "dir_list": {
+      "file": "dir_list.py",
+      "sha256": "",
+      "cmd": "dir-list",
+      "description": "List directory contents in the workspace. Returns files and subdirectories with optional recursive listing. Paths must be inside the workspace root.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "description": "Relative path to the directory to list (default: workspace root)", "default": "."},
+          "recursive": {"type": "boolean", "description": "List subdirectories recursively", "default": false},
+          "max_depth": {"type": "integer", "description": "Maximum depth for recursive listing (default: 3)", "default": 3}
+        },
+        "required": []
+      }
+    },
+    "project_scaffold": {
+      "file": "project_scaffold.py",
+      "sha256": "",
+      "cmd": "project-scaffold",
+      "description": "Scaffold a new project with standard files based on a template. Available templates: react-vite, python-fastapi, python-cli, static-web. Use --list to see all templates. The project is created inside the workspace root.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "description": "Project directory name (created inside workspace root)"},
+          "template": {"type": "string", "description": "Template to use: react-vite, python-fastapi, python-cli, static-web", "default": "react-vite"},
+          "list": {"type": "boolean", "description": "If true, list available templates instead of creating a project", "default": false}
+        },
+        "required": ["name"]
+      }
     }
   }
 }

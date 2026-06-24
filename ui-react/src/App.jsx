@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useBagoChat } from './useBagoChat'
 import { useChatCenter } from './useChatCenter'
+import { useUiConfig } from './useUiConfig'
 import ChatView from './components/ChatView'
 import TerminalView from './components/TerminalView'
 import ManagerView from './components/ManagerView'
@@ -26,15 +27,16 @@ function compact(text, limit = 34) {
 export default function App() {
   const control = useBagoChat()
   const center = useChatCenter()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { config } = useUiConfig()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(config.layout.sidebarCollapsed)
   const sessions = control.menu?.sessions || []
 
   return (
     <main className={`app-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${control.mode === 'chat' ? 'mode-chat' : `mode-${control.mode}`}`}>
       <aside className="app-sidebar">
         <div className="app-brand">
-          <span className="brand-symbol">B</span>
-          <span className="brand-name">BAGO</span>
+          <span className="brand-symbol">{config.brand.symbol}</span>
+          <span className="brand-name">{config.brand.name}</span>
           <button
             type="button"
             className="sidebar-toggle"
@@ -47,33 +49,39 @@ export default function App() {
         </div>
 
         <nav className="primary-nav" aria-label="Navegación principal">
-          <button
-            type="button"
-            className={control.mode === 'chat' ? 'active' : ''}
-            onClick={() => control.setMode('chat')}
-            title="El chat es la pieza central"
-          >
-            <Icon name="chat" />
-            Chat
-            <span className="nav-pin">●</span>
-          </button>
-          <button
-            type="button"
-            className={control.mode === 'manager' ? 'active' : ''}
-            onClick={() => control.setMode('manager')}
-            title="Abrir gestor completo (iframe)"
-          >
-            <Icon name="manager" />
-            Gestor
-          </button>
-          <button
-            type="button"
-            className={control.mode === 'terminal' ? 'active' : ''}
-            onClick={() => control.setMode('terminal')}
-          >
-            <Icon name="terminal" />
-            Terminal
-          </button>
+          {config.nav.chat ? (
+            <button
+              type="button"
+              className={control.mode === 'chat' ? 'active' : ''}
+              onClick={() => control.setMode('chat')}
+              title="El chat es la pieza central"
+            >
+              <Icon name="chat" />
+              Chat
+              <span className="nav-pin">●</span>
+            </button>
+          ) : null}
+          {config.nav.manager ? (
+            <button
+              type="button"
+              className={control.mode === 'manager' ? 'active' : ''}
+              onClick={() => control.setMode('manager')}
+              title="Abrir gestor completo (iframe)"
+            >
+              <Icon name="manager" />
+              Gestor
+            </button>
+          ) : null}
+          {config.nav.terminal ? (
+            <button
+              type="button"
+              className={control.mode === 'terminal' ? 'active' : ''}
+              onClick={() => control.setMode('terminal')}
+            >
+              <Icon name="terminal" />
+              Terminal
+            </button>
+          ) : null}
         </nav>
 
         <section className="recent-section">
@@ -113,7 +121,7 @@ export default function App() {
         {control.mode === 'manager' ? <ManagerView /> : null}
         {control.mode === 'terminal' ? <TerminalView control={control} /> : null}
         {(!control.mode || control.mode === 'chat' || control.mode === 'desktop') ? (
-          <ChatView control={control} center={center} />
+          <ChatView control={control} center={center} uiConfig={config} />
         ) : null}
       </section>
     </main>

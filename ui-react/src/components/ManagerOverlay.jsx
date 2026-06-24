@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useToast } from './Toast'
+import { getUiConfig } from '../useUiConfig'
 
 const VIEW_LABELS = {
   patch: 'Patch Bay',
@@ -105,7 +106,7 @@ export default function ManagerOverlay({ onClose, managerContext, kit, inspector
             <div className="overlay-placeholder-mark">{VIEW_LABELS[view]?.[0] || 'B'}</div>
             <strong>{VIEW_LABELS[view] || view}</strong>
             <p>
-              {kit.installation?.label || 'BAGO local'} ({kit.installation?.version || '4.7.0'}) ·
+              {kit.installation?.label || 'BAGO local'} ({kit.installation?.version || getUiConfig().version}) ·
               {' '}{kit.model?.label || 'llama3.2:3b'} ·
               {' '}pipeline {kit.pipeline?.label || 'Code Forge'}
             </p>

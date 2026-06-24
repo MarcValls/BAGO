@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from './Toast'
+import { getUiConfig } from '../useUiConfig'
 
 function Metric({ label, value, accent }) {
   return (
@@ -45,7 +46,7 @@ function RuntimePanel({ runtime }) {
       <strong>Runtime en vivo</strong>
       <Metric label="Provider" value={session.provider || '—'} />
       <Metric label="Modelo" value={session.model || '—'} />
-      <Metric label="BAGO version" value={session.bago_version || '4.7.0'} />
+      <Metric label="BAGO version" value={session.bago_version || getUiConfig().version} />
       <Metric label="Simulación" value={simulation.mode || 'off'} accent={simulation.mode && simulation.mode !== 'off' ? 'warn' : 'muted'} />
       <Metric label="Catálogo" value={catalog.mode || 'off'} />
     </div>

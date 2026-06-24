@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     total_tokens   INTEGER DEFAULT 0,
     total_calls    INTEGER DEFAULT 0,
     last_switch_at TEXT,
+    workspace_root TEXT DEFAULT '',
     updated_at     TEXT
 );
 
@@ -59,6 +60,12 @@ CREATE INDEX IF NOT EXISTS idx_sessions_updated
 CREATE INDEX IF NOT EXISTS idx_sessions_provider
     ON sessions(last_provider);
 """
+
+# Fields that require a column ADD when upgrading from a prior schema.
+# SQLite supports ALTER TABLE ADD COLUMN; we check pragmas to stay safe.
+_MIGRATION_COLUMNS = {
+    "workspace_root": "TEXT DEFAULT ''",
+}
 
 
 class SessionDB:
@@ -86,16 +93,24 @@ class SessionDB:
             conn = self._conn()
             try:
                 conn.executescript(_SCHEMA)
+                self._migrate(conn)
                 conn.commit()
             finally:
                 conn.close()
+
+    def _migrate(self, conn: sqlite3.Connection) -> None:
+        """Add columns that may be missing when upgrading from a prior schema."""
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()}
+        for col, col_type in _MIGRATION_COLUMNS.items():
+            if col not in cols:
+                conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {col_type}")
 
     def upsert(self, sid: str, **fields: Any) -> None:
         """Insert or update a session row. Unknown fields are ignored."""
         allowed = {
             "created_at", "last_provider", "last_model", "switch_count",
             "bago_mode", "active_agent", "total_tokens", "total_calls",
-            "last_switch_at",
+            "last_switch_at", "workspace_root",
         }
         filtered = {k: v for k, v in fields.items() if k in allowed}
         filtered["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")

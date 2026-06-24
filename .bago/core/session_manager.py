@@ -50,6 +50,8 @@ from plan_engine import PlanEngine
 from agent_gateway import AgentGateway
 from knowledge_base import KnowledgeBase
 from embedding_store import EmbeddingStore
+from context_envelope import ContextEnvelope, ContextReceipt, SystemPromptCapsule
+from guardrails import PathGuard, ToolLogger, ClaimValidator
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
 from ollama_local import OllamaLocalAdapter
@@ -127,7 +129,8 @@ class SessionManager:
         self.rl_pref = PreferenceModel(base_dir=self.base_path, state_root=str(self.state_root))
         self.rl_feedback = FeedbackCollector(self.rl_pref)
         self.script_registry = ScriptRegistry(repo_root=self.base_path)
-        self.tool_registry = ToolRegistry(script_registry=self.script_registry)
+        self.dev_mode = os.environ.get("BAGO_DEV_MODE", "").strip() in ("1", "true", "TRUE", "yes", "YES")
+        self.tool_registry = ToolRegistry(script_registry=self.script_registry, workspace_root=self.base_path, dev_mode=self.dev_mode)
         self.plan_engine = PlanEngine()
         self.agent_gateway = AgentGateway()
         self.agent_gateway.activate(active_agent)
@@ -136,6 +139,14 @@ class SessionManager:
         self.last_code_task: dict[str, Any] | None = None
         self._adapter: ProviderAdapter | None = None
         self._init_info: dict = self._init_adapter()
+        self.persistent_goal: str = ""  # F2: goal defined by user, injected into every system prompt
+        self.last_receipt: ContextReceipt | None = None  # F2: receipt of last LLM call
+
+        # F4: Guardrails — forbidden paths, structured tool log, claim validation
+        self.path_guard = PathGuard(dev_mode=self.dev_mode)
+        tool_log_path = self.state_dir / "tool_log.jsonl"
+        self.tool_logger = ToolLogger(log_path=str(tool_log_path))
+        self.claim_validator = ClaimValidator()
 
         # Metadata
         self.created_at = time.time()
@@ -162,24 +173,44 @@ class SessionManager:
 
     def effective_system_prompt(self) -> str:
         """Compone gobierno BAGO y agente sin alterar provider/modelo."""
-        parts = [
-            self.system_prompt.strip(),
-            (
-                f"MODO BAGO ACTIVO [{self.bago_mode}]\n"
-                f"- {BAGO_MODES[self.bago_mode]}\n"
-                "- La sesion y la evidencia son la fuente de verdad.\n"
-                "- El provider y el modelo son motores de ejecucion; no cambies ninguno sin peticion explicita."
-            ),
-        ]
+        bago_mode_block = (
+            f"MODO BAGO ACTIVO [{self.bago_mode}]\n"
+            f"- {BAGO_MODES[self.bago_mode]}\n"
+            "- La sesion y la evidencia son la fuente de verdad.\n"
+            "- El provider y el modelo son motores de ejecucion; no cambies ninguno sin peticion explicita."
+        )
         agent = self.agent_gateway.active
+        active_agent_block = ""
         if agent.name != "default" or not self.system_prompt.strip():
-            parts.append(f"AGENTE ACTIVO [{agent.name}]\n{agent.system_prompt.strip()}")
-        return "\n\n".join(part for part in parts if part)
+            active_agent_block = f"AGENTE ACTIVO [{agent.name}]\n{agent.system_prompt.strip()}"
+
+        goal_block = ""
+        if self.persistent_goal.strip():
+            goal_block = f"OBJETIVO PERSISTENTE\n{self.persistent_goal.strip()}"
+
+        capsule = SystemPromptCapsule(
+            base=self.system_prompt.strip(),
+            bago_mode_block=bago_mode_block,
+            active_agent_block=active_agent_block,
+            goal_block=goal_block,
+            version=BAGO_VERSION,
+        )
+        return capsule.render()
 
     def set_bago_mode(self, mode: str) -> dict:
         previous = self.bago_mode
         self.bago_mode = self._normalize_bago_mode(mode)
         return {"ok": True, "mode": self.bago_mode, "previous_mode": previous}
+
+    def set_goal(self, goal: str) -> dict:
+        """F2: Establece el objetivo persistente de la sesión."""
+        previous = self.persistent_goal
+        self.persistent_goal = str(goal or "").strip()
+        return {"ok": True, "goal": self.persistent_goal, "previous_goal": previous}
+
+    def clear_goal(self) -> dict:
+        """F2: Limpia el objetivo persistente."""
+        return self.set_goal("")
 
     @staticmethod
     def _normalize_bridges(providers: list[str], primary: str = "") -> list[str]:
@@ -211,6 +242,34 @@ class SessionManager:
             return {"ok": report.get("status") == "trained", **report}
         except Exception as exc:
             return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+
+    def _bc_policy_block(self, user_message: str) -> str:
+        """Genera un bloque de system prompt con la recomendación de la política BC.
+
+        Carga la política entrenada desde disco, predice la acción para el mensaje
+        actual, y la traduce a una recomendación legible para el modelo.
+        Devuelve string vacío si no hay política o falla."""
+        try:
+            bago_core = self.base_path / "bago_core"
+            if str(bago_core) not in sys.path:
+                sys.path.insert(0, str(bago_core))
+            from rl_policies import BCPolicy, bc_policy_path, numpy_available, message_features, INTENT_ACTIONS
+            if not numpy_available():
+                return ""
+            path = bc_policy_path(self.base_path)
+            if not path.exists():
+                return ""
+            policy = BCPolicy.load(path)
+            features = message_features(user_message)
+            predicted = policy.predict(features)
+            recommended_intent = INTENT_ACTIONS[predicted] if 0 <= predicted < len(INTENT_ACTIONS) else "unknown"
+            return (
+                f"ORQUESTADOR BC (política entrenada desde historial)\n"
+                f"- Acción recomendada: {recommended_intent}\n"
+                f"- Esta es una sugerencia de la política shadow; síguela si es coherente."
+            )
+        except Exception:
+            return ""
 
     def auto_evolve(self) -> dict:
         """Ciclo de autoevolución de BAGO.
@@ -336,6 +395,62 @@ class SessionManager:
 
     # ── Core API ──────────────────────────────────────────────────────
 
+    def _rag_retrieve(self, user_message: str, limit: int = 3) -> list[dict[str, Any]]:
+        """F3: Recupera conocimiento relevante automático.
+
+        Busca en KnowledgeBase por keywords (siempre) y en EmbeddingStore
+        por similitud vectorial (si el adapter soporta embeddings).
+        Devuelve una lista de fragmentos con score y origen.
+        """
+        fragments: list[dict[str, Any]] = []
+        try:
+            kw_results = self.knowledge.search(user_message, limit=limit)
+            for r in kw_results:
+                fragments.append({
+                    "content": r.get("content", ""),
+                    "source": "keyword",
+                    "score": 1.0,
+                    "memory_id": r.get("id"),
+                })
+        except Exception:
+            pass
+
+        adapter = self._ensure_adapter()
+        if adapter.supports_embeddings():
+            try:
+                query_vector = adapter.embed([user_message], model=self.model)[0]
+                vec_results = self.embedding_store.search(query_vector=query_vector, limit=limit)
+                for r in vec_results:
+                    fragments.append({
+                        "content": r.get("content", ""),
+                        "source": "vector",
+                        "score": r.get("score", 0.0),
+                        "memory_id": r.get("memory_id"),
+                    })
+            except Exception:
+                pass
+
+        # Deduplicate by content, keep highest score
+        seen: dict[str, dict[str, Any]] = {}
+        for frag in fragments:
+            key = frag["content"][:200]
+            if key not in seen or frag["score"] > seen[key]["score"]:
+                seen[key] = frag
+        return list(seen.values())[:limit]
+
+    @staticmethod
+    def _format_rag_context(fragments: list[dict[str, Any]]) -> str:
+        """F3: Formatea los fragmentos RAG como bloque de contexto para el system prompt."""
+        if not fragments:
+            return ""
+        lines = ["CONTEXTO RECUPERADO (RAG)"]
+        for i, frag in enumerate(fragments, 1):
+            source = frag.get("source", "unknown")
+            score = frag.get("score", 0.0)
+            content = frag.get("content", "")[:500]
+            lines.append(f"[{i}] (origen={source}, score={score:.2f})\n{content}")
+        return "\n\n".join(lines)
+
     def send(self, user_message: str, **kwargs: Any) -> str:
         """Envía mensaje al provider activo y guarda respuesta en contexto.
 
@@ -373,6 +488,13 @@ class SessionManager:
         else:
             dynamic_system += "\n\n" + intent_guidance("chat")
 
+        # --- BC Policy injection (orquestador) ---------------------------
+        # La política BC entrenada desde el historial predice la acción
+        # recomendada para este mensaje y la inyecta en el system prompt.
+        bc_block = self._bc_policy_block(user_message)
+        if bc_block:
+            dynamic_system += "\n\n" + bc_block
+
         if code_task is not None and code_task.is_code_request:
             dynamic_system += (
                 "\n\nCode Forge classifier: "
@@ -380,6 +502,12 @@ class SessionManager:
                 f"targets={', '.join(code_task.target_files) if code_task.target_files else 'none'}; "
                 f"blocked={code_task.blocked}"
             )
+
+        # F3: RAG automático — recuperar conocimiento relevante
+        rag_fragments = self._rag_retrieve(user_message)
+        rag_block = self._format_rag_context(rag_fragments)
+        if rag_block:
+            dynamic_system += "\n\n" + rag_block
 
         # Pasar tools solo si la intención NO es chat
         tools = None
@@ -391,12 +519,27 @@ class SessionManager:
         ):
             tools = self.tool_registry.to_openai()
 
+        # F2: Construir ContextEnvelope estructurado
+        envelope = ContextEnvelope(
+            system_prompt=dynamic_system,
+            messages=normalized,
+            tools=tools,
+            metadata={
+                "intent": intent,
+                "bago_mode": self.bago_mode,
+                "goal": self.persistent_goal,
+                "provider": self.provider,
+                "model": self.model,
+                "rag_fragments": len(rag_fragments),
+            },
+        )
+
         # Llamar al provider
         resp: ProviderResponse = adapter.chat(
-            normalized,
+            envelope.messages,
             self.model,
-            system=dynamic_system,
-            tools=tools,
+            system=envelope.system_prompt,
+            tools=envelope.tools,
             **kwargs,
         )
 
@@ -432,7 +575,47 @@ class SessionManager:
             # Ejecutar cada tool call
             for tc in resp.tool_calls:
                 call = self.tool_registry.parse_tool_calls({"tool_calls": [tc]})[0]
+
+                # F4: PathGuard — bloquear paths prohibidos
+                guard_result = self.path_guard.check(call.name, call.arguments)
+                if guard_result.blocked:
+                    self.tool_logger.log(
+                        session_id=self.session_id,
+                        tool_name=call.name,
+                        arguments=call.arguments,
+                        ok=False,
+                        returncode=1,
+                        latency_ms=0.0,
+                        content=guard_result.reason,
+                        blocked=True,
+                        block_reason=guard_result.reason,
+                    )
+                    tool_msg = {
+                        "role": "tool",
+                        "tool_call_id": call.call_id,
+                        "content": f"BLOQUEADO: {guard_result.reason}",
+                    }
+                    normalized.append(tool_msg)
+                    self.store.append_message(ContextMessage(
+                        role="tool",
+                        content=f"BLOQUEADO: {guard_result.reason}",
+                        metadata={"tool_call_id": call.call_id, "name": call.name, "blocked": True, "reason": guard_result.reason},
+                    ))
+                    continue
+
+                # F4: ToolLogger — registrar ejecución estructurada
+                tool_start = time.time()
                 result = self.tool_registry.execute_call(call)
+                tool_latency = (time.time() - tool_start) * 1000
+                self.tool_logger.log(
+                    session_id=self.session_id,
+                    tool_name=result.name,
+                    arguments=call.arguments,
+                    ok=result.ok,
+                    returncode=result.returncode,
+                    latency_ms=tool_latency,
+                    content=result.content,
+                )
                 tool_msg = {
                     "role": "tool",
                     "tool_call_id": result.call_id,
@@ -456,13 +639,33 @@ class SessionManager:
 
         elapsed_ms = (time.time() - start) * 1000
 
+        # F2: Generar ContextReceipt
+        receipt = ContextReceipt.from_response(
+            envelope=envelope,
+            response_content=resp.content,
+            model_used=resp.model_used or self.model,
+            finish_reason=resp.finish_reason,
+            usage_input=resp.usage.input_tokens,
+            usage_output=resp.usage.output_tokens,
+            usage_total=resp.usage.total_tokens,
+            latency_ms=elapsed_ms,
+            extra_metadata={"intent": intent, "tool_calls_used": bool(resp.tool_calls), "rag_fragments": len(rag_fragments)},
+        )
+        self.last_receipt: ContextReceipt | None = receipt
+
+        # F4: ClaimValidator — detectar afirmaciones sin evidencia de ejecución
+        claim_check = self.claim_validator.validate(resp.content, self.tool_logger)
+        final_content = resp.content + claim_check.warning if claim_check.warning else resp.content
+
         # Guardar en contexto universal
         self.store.append_response(
-            resp.content,
+            final_content,
             provider=self.provider,
             model=resp.model_used,
             metadata={
                 "finish_reason": resp.finish_reason,
+                "envelope_id": receipt.envelope_id,
+                "claim_warning": claim_check.has_claim and not claim_check.has_evidence,
             },
         )
         self.store.record_tokens(
@@ -480,12 +683,12 @@ class SessionManager:
             provider=self.provider,
             model=resp.model_used or self.model,
             user_message=user_message,
-            response=resp.content,
+            response=final_content,
             response_time_ms=elapsed_ms,
             tokens_used=resp.usage.total_tokens,
         )
 
-        return resp.content
+        return final_content
 
     def orchestrate(self, user_message: str, providers: list[str] | None = None) -> dict[str, dict[str, Any]]:
         """Envia el mismo mensaje a los bridges activos y persiste todas las respuestas."""
@@ -900,6 +1103,7 @@ class SessionManager:
             "active_bridges": list(self.active_bridges),
             "switch_count": self.store.get_meta().get("switch_count", 0),
             "last_switch_at": self.last_switch_at,
+            "persistent_goal": self.persistent_goal,
         })
         path = self.state_dir / "sessions" / f"{self.session_id}.json"
         data = {
@@ -915,6 +1119,8 @@ class SessionManager:
             "total_calls": self.total_calls,
             "last_switch_at": self.last_switch_at,
             "switch_log": self.switch_log,
+            "workspace_root": str(self.base_path),
+            "persistent_goal": self.persistent_goal,
         }
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -934,6 +1140,7 @@ class SessionManager:
                 total_tokens=self.total_tokens,
                 total_calls=self.total_calls,
                 last_switch_at=self.last_switch_at.isoformat() if isinstance(self.last_switch_at, float) else self.last_switch_at,
+                workspace_root=str(self.base_path),
             )
         except Exception:
             pass
@@ -989,6 +1196,8 @@ class SessionManager:
                 path = legacy_path
         if path.exists():
             data = json.loads(path.read_text(encoding="utf-8"))
+            saved_workspace = data.get("workspace_root")
+            bp = Path(saved_workspace) if saved_workspace and Path(saved_workspace).exists() else Path(base_path or os.getcwd())
             mgr = cls(
                 session_id=data["session_id"],
                 provider=data["provider"],
@@ -1004,6 +1213,7 @@ class SessionManager:
             mgr.total_calls = data.get("total_calls", 0)
             mgr.last_switch_at = data.get("last_switch_at")
             mgr.switch_log = data.get("switch_log", [])
+            mgr.persistent_goal = data.get("persistent_goal", "")
             return mgr
 
         store_base = sr
@@ -1011,6 +1221,8 @@ class SessionManager:
             store_base = legacy_root
         store = ContextStore.load(session_id, base_dir=store_base)
         meta = store.get_meta()
+        saved_workspace = meta.get("workspace_root")
+        bp = Path(saved_workspace) if saved_workspace and Path(saved_workspace).exists() else Path(base_path or os.getcwd())
         defaults = ConfigManager(base_path=str(bp), state_root=str(sr))
         provider = meta.get("last_provider") or defaults.default_provider
         model = meta.get("last_model") or defaults.default_model
@@ -1039,6 +1251,7 @@ class SessionManager:
         )
         mgr.last_switch_at = meta.get("last_switch_at")
         mgr.switch_log = meta.get("switch_log", [])
+        mgr.persistent_goal = meta.get("persistent_goal", "")
         return mgr
 
     def list_models(self, provider: str | None = None) -> list[str]:

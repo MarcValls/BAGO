@@ -703,6 +703,8 @@ class BagoREPL(BagoReplMenuMixin):
             "/feedback":        self._feedback_wizard,
             "/tools set":       self._tools_wizard,
             "/memory delete":   self._memory_delete_wizard,
+            "/project":         lambda: self._project_wizard(Path(self.mgr.base_path)),
+            "/ui":              self._ui_wizard,
         }
         palette = {"/": self._show_command_palette}
 
@@ -734,6 +736,10 @@ class BagoREPL(BagoReplMenuMixin):
             return self._tools_wizard()
         if low == "/memory delete":
             return self._memory_delete_wizard()
+        if low == "/project":
+            return self._project_wizard(Path(self.mgr.base_path))
+        if low == "/ui":
+            return self._ui_wizard()
         result = execute(line, self.mgr, self.engine)
         if result.get("action") == "quit":
             print(R.ok(result["message"]))

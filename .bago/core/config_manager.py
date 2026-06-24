@@ -73,7 +73,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "features": {
         "streaming": True,
-        "tool_calling": False,
+        "tool_calling": True,
         "auto_allow_tools": False,
         "compression_on_downgrade": True,
         "rl_learning": True,

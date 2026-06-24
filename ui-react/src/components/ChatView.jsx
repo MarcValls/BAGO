@@ -12,6 +12,7 @@ import { useSessionKit } from '../useSessionKit'
 import { usePipelineNodes } from '../usePipelineNodes'
 import { useInspector } from '../useInspector'
 import { useToast } from './Toast'
+import { getUiConfig } from '../useUiConfig'
 
 function ModelSelector({ control, kit }) {
   return (
@@ -48,7 +49,7 @@ function ManagerContextBar({ context, kit, inspectorSummary, panels, onTogglePan
       <div className="manager-context-bar">
         <span className="context-label">Sesión equipada</span>
         <span className="context-view">{kit.pipeline?.label || 'Code Forge'} · {kit.pipeline?.variant || 'staged'}</span>
-        <span className="context-stat">{kit.installation?.version || '4.7.0'}</span>
+        <span className="context-stat">{kit.installation?.version || getUiConfig().version}</span>
         <span className="context-stat">claims {inspectorSummary.claimsOk}/{inspectorSummary.claimsTotal}</span>
         <button
           type="button"
@@ -83,7 +84,7 @@ function ManagerContextBar({ context, kit, inspectorSummary, panels, onTogglePan
   )
 }
 
-export default function ChatView({ control, center }) {
+export default function ChatView({ control, center, uiConfig }) {
   const [showSlash, setShowSlash] = useState(false)
   const managerContext = useManagerContext()
   const kit = useSessionKit()
@@ -92,11 +93,12 @@ export default function ChatView({ control, center }) {
   const { push } = useToast()
   const panels = center.state.panels
   const chatFocus = center.state.chatFocus
-  const showKit = !chatFocus && panels.has('kit')
-  const showDock = !chatFocus && panels.has('pipeline')
-  const showInspector = !chatFocus && center.inspectorOpen && panels.has('evidence')
-  const showManagerDrawer = !chatFocus && center.managerDrawerOpen && panels.has('manager')
-  const showContextPane = !chatFocus && panels.has('context')
+  const layout = uiConfig?.layout || {}
+  const showKit = !chatFocus && panels.has('kit') && layout.showKit !== false
+  const showDock = !chatFocus && panels.has('pipeline') && layout.showDock !== false
+  const showInspector = !chatFocus && center.inspectorOpen && panels.has('evidence') && layout.showInspector !== false
+  const showManagerDrawer = !chatFocus && center.managerDrawerOpen && panels.has('manager') && layout.showManagerDrawer !== false
+  const showContextPane = !chatFocus && panels.has('context') && layout.showContextPane !== false
 
   function handleSubmit(value) {
     setShowSlash(false)
@@ -129,7 +131,7 @@ export default function ChatView({ control, center }) {
           <span className="chat-centered-eyebrow">Conversación equipada</span>
           <h1>¿Qué quieres hacer?</h1>
           <p>
-            {kit.kit.installation?.label || 'BAGO local'} ({kit.kit.installation?.version || '4.7.0'}) ·
+            {kit.kit.installation?.label || 'BAGO local'} ({kit.kit.installation?.version || getUiConfig().version}) ·
             {' '}{kit.kit.model?.label || 'llama3.2:3b'} ·
             {' '}{kit.kit.pipeline?.label || 'Code Forge'} · {kit.kit.pipeline?.variant || 'staged'} ·
             {' '}política {kit.kit.policy?.label || 'Staged'}
