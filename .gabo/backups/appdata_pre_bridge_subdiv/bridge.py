@@ -136,8 +136,17 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
             return True
         return origin in BagoAPIHandler.extra_cors_origins
 
+    @staticmethod
+    def _sanitize_header_value(value: str) -> str:
+        if not value:
+            return ""
+        # Prevent HTTP response splitting via CR/LF injection.
+        if "\r" in value or "\n" in value:
+            return ""
+        return value.strip()
+
     def _send_cors_headers(self) -> None:
-        origin = self.headers.get("Origin", "")
+        origin = self._sanitize_header_value(self.headers.get("Origin", ""))
         if self._cors_origin_allowed(origin):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
