@@ -10,7 +10,7 @@ function StatusRing({ percent }) {
 }
 
 export default function HealthView({ context }) {
-  const { data, loading, error } = useManagerHealth()
+  const { data, loading, error, refresh } = useManagerHealth()
 
   const checks = data?.checks || []
   const startup = data?.startup || {}
@@ -45,6 +45,19 @@ export default function HealthView({ context }) {
 
   return (
     <section className="cp-view cp-view-active">
+      <div className="cp-toolbar">
+        <div className="cp-section-title">Salud real del runtime</div>
+        <div className="cp-toolbar-actions">
+          <button type="button" className="cp-btn" onClick={refresh}>Revalidar</button>
+          <button type="button" className="cp-btn" onClick={() => window?.bagoElectron?.runNodeValidate?.()}>
+            Validar nodo
+          </button>
+          <button type="button" className="cp-btn" onClick={() => window?.bagoElectron?.scanInstallations?.().then?.(() => {})}>
+            Releer instalaciones
+          </button>
+        </div>
+      </div>
+
       {loading ? <div className="cp-loading">Diagnosticando…</div> :
        error ? <div className="cp-error">Error: {error}</div> :
        <ViewState empty={!cards.length} emptyLabel="Sin metricas de salud">

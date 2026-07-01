@@ -5,7 +5,7 @@ import { useInstallations } from '../useBagoData'
 const SV_VARIANT = { alive: 'ok', dead: 'danger' }
 
 export default function InstallationsView({ context, onSetContext, onOpenTerminal, onAction }) {
-  const { data, loading, error } = useInstallations()
+  const { data, loading, error, refresh } = useInstallations()
   const [selected, setSelected] = useState(null)
   const [filter, setFilter] = useState('Todas')
 
@@ -36,9 +36,17 @@ export default function InstallationsView({ context, onSetContext, onOpenTermina
             <button key={label} type="button" className={`cp-seg-btn ${filter === label ? 'is-active' : ''}`} onClick={() => setFilter(label)}>{label}</button>
           ))}
         </div>
-        <button type="button" className="cp-btn cp-btn-primary" onClick={() => onAction?.('register')}>
-          <Icon name="plus" /> Registrar
-        </button>
+        <div className="cp-toolbar-actions">
+          <button type="button" className="cp-btn" onClick={() => { refresh(); onAction?.('toast', 'Instalaciones recargadas') }}>
+            Refrescar
+          </button>
+          <button type="button" className="cp-btn" onClick={() => onAction?.('open-health')}>
+            Salud
+          </button>
+          <button type="button" className="cp-btn cp-btn-primary" onClick={() => onAction?.('open-patchbay')}>
+            <Icon name="patchbay" /> Patchbay
+          </button>
+        </div>
       </div>
 
       <div className="cp-install-layout">
@@ -59,7 +67,14 @@ export default function InstallationsView({ context, onSetContext, onOpenTermina
                       <td><Badge variant={SV_VAR(inst)}>{inst.supervisor_alive ? 'alive' : 'dead'}</Badge></td>
                       <td><div className="cp-path">{inst.path}</div></td>
                       <td>
-                        <button type="button" className="cp-small-btn" onClick={(e) => { e.stopPropagation(); onOpenTerminal?.(inst.path) }}>Terminal</button>
+                        <div className="cp-row-actions">
+                          <button type="button" className="cp-small-btn" onClick={(e) => { e.stopPropagation(); onAction?.('set-active-install', inst.path) }}>
+                            Activa
+                          </button>
+                          <button type="button" className="cp-small-btn" onClick={(e) => { e.stopPropagation(); onOpenTerminal?.(inst.path) }}>
+                            Terminal
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -82,10 +97,6 @@ export default function InstallationsView({ context, onSetContext, onOpenTermina
             {install.supervisor_state && (
               <div className="cp-kv"><span>PID</span><span>{install.supervisor_state.pid || '—'}</span></div>
             )}
-            <div className="cp-card-foot">
-              <button type="button" className="cp-small-btn" onClick={() => onAction?.('reload', install.path)}>Reload</button>
-              <button type="button" className="cp-small-btn" onClick={() => onOpenTerminal?.(install.path)}>Abrir</button>
-            </div>
           </aside>
         )}
       </div>

@@ -131,23 +131,3 @@ export function computeGearScore(equipped) {
   }, 0)
   return Math.round(sum / items.length)
 }
-
-// --- Datos de cadena de ejecución (rack) ---
-
-export const RACK_MODULE_TYPES = {
-  input: { label: 'Entrada', color: '#3b82f6', icon: 'in' },
-  parse: { label: 'Parsear', color: '#8b5cf6', icon: 'parse' },
-  think: { label: 'Pensar', color: '#a855f7', icon: 'brain' },
-  tool: { label: 'Tool', color: '#f59e0b', icon: 'tool' },
-  validate: { label: 'Validar', color: '#22c55e', icon: 'shield' },
-  output: { label: 'Salida', color: '#10b981', icon: 'out' },
-}
-
-export const DEMO_RACK_CHAIN = [
-  { id: 'in-1', type: 'input', label: 'Mensaje del usuario', command: 'read_user_input', dependsOn: [] },
-  { id: 'parse-1', type: 'parse', label: 'Clasificar intención', command: 'intent_engine.classify', dependsOn: ['in-1'] },
-  { id: 'think-1', type: 'think', label: 'Estrategia BAGO', command: 'orquestador.plan', dependsOn: ['parse-1'] },
-  { id: 'tool-1', type: 'tool', label: 'Ejecutar herramienta', command: 'tool_registry.call', dependsOn: ['think-1'] },
-  { id: 'validate-1', type: 'validate', label: 'Gate de seguridad', command: 'security_analyzer.check', dependsOn: ['tool-1'] },
-  { id: 'out-1', type: 'output', label: 'Respuesta al chat', command: 'chat.reply', dependsOn: ['validate-1'] },
-]

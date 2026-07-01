@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge, Icon, ViewState } from '../components/ui'
 import { useNodeConnectors, useNodePieces, useNodeStatus } from '../useBagoData'
-import { DEMO_NODES } from '../data'
 
 const NODE_COLORS = {
   installation: '#3b82f6',
@@ -31,9 +30,9 @@ function inferNodeType(node) {
 }
 
 export default function NodeMapView({ context, onSetContext, onAction }) {
-  const { data: statusData, loading: stLoading, error: stError } = useNodeStatus()
-  const { data: piecesData, loading: pcLoading } = useNodePieces()
-  const { data: connData, loading: cnLoading } = useNodeConnectors()
+  const { data: statusData, loading: stLoading, error: stError, refresh: refreshStatus } = useNodeStatus()
+  const { data: piecesData, loading: pcLoading, refresh: refreshPieces } = useNodePieces()
+  const { data: connData, loading: cnLoading, refresh: refreshConnectors } = useNodeConnectors()
   const svgRef = useRef(null)
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -48,15 +47,15 @@ export default function NodeMapView({ context, onSetContext, onAction }) {
   const nodes = useMemo(() => {
     const base = Array.isArray(pieces)
       ? pieces.map((p, i) => ({
-          id: p.id || `piece-${i}`,
-          label: p.id || `piece-${i}`,
-          sub: `${p.type || 'piece'} · ${p.enabled !== false ? 'active' : 'offline'}`,
+          id: p.id || p.name || `piece-${i}`,
+          label: p.id || p.name || `piece-${i}`,
+          sub: `${p.type || p.kind || 'piece'} · ${p.enabled !== false ? 'active' : 'offline'}`,
           left: `${15 + ((i * 17) % 70)}%`,
           top: `${15 + ((i * 13) % 60)}%`,
-          type: p.type,
+          type: p.type || p.kind,
           piece: p,
         }))
-      : DEMO_NODES
+      : []
 
     const installations = status?.installations || []
     installations.forEach((inst, i) => {
@@ -111,7 +110,7 @@ export default function NodeMapView({ context, onSetContext, onAction }) {
     const x = ((e.clientX - rect.left - pan.x) / scale / rect.width) * 100
     const y = ((e.clientY - rect.top - pan.y) / scale / rect.height) * 100
     setLocalNodes((prev) =>
-      prev.map((n) =
+      prev.map((n) =>
         n.id === dragging
           ? { ...n, left: `${Math.max(5, Math.min(95, x))}%`, top: `${Math.max(5, Math.min(95, y))}%` }
           : n
@@ -147,14 +146,19 @@ export default function NodeMapView({ context, onSetContext, onAction }) {
           </div>
         </div>
         <div className="cp-node-map-controls">
+          <button type="button" className="cp-btn" onClick={() => { refreshStatus(); refreshPieces(); refreshConnectors(); }}>
+            Releer
+          </button>
           <button type="button" className="cp-btn" onClick={() => setScale((s) => Math.min(2.5, s * 1.2))}>+</button>
           <button type="button" className="cp-btn" onClick={() => setScale((s) => Math.max(0.5, s * 0.8))}>−</button>
           <button type="button" className="cp-btn" onClick={() => { setScale(1); setPan({ x: 0, y: 0 }) }}>Reset</button>
+          <button type="button" className="cp-btn" onClick={() => onAction?.('validate-node')}>Validar</button>
         </div>
       </div>
 
       {loading ? <ViewState loading /> :
        error ? <ViewState error={error} /> :
+       !displayNodes.length ? <ViewState empty emptyLabel="Sin nodos reales disponibles" /> :
        (
         <div className="cp-node-map-stage">
           <svg
@@ -228,7 +232,7 @@ export default function NodeMapView({ context, onSetContext, onAction }) {
                   className="cp-btn cp-btn-primary"
                   onClick={() => onSetContext?.((c) => ({ ...c, node: selected.id }))}
                 >
-                  Centrar nodo
+                  Fijar nodo
                 </button>
               </div>
             </div>

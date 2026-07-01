@@ -54,6 +54,10 @@ export default function ControlPlane() {
   const searchRef = useRef(null)
   const paletteInputRef = useRef(null)
 
+  function getElectronBridge() {
+    return typeof window !== 'undefined' ? window.bagoElectron : null
+  }
+
   useEffect(() => {
     window.localStorage.setItem('bago-theme', theme)
     document.documentElement.setAttribute('data-bago-theme', theme)
@@ -112,10 +116,48 @@ export default function ControlPlane() {
       navigate('nodes')
     } else if (type === 'open-terminal') {
       onOpenTerminal(payload)
+    } else if (type === 'open-install-terminal') {
+      onOpenTerminal(payload || context.install)
+    } else if (type === 'open-installations') {
+      navigate('installations')
+    } else if (type === 'open-health') {
+      navigate('health')
+    } else if (type === 'open-jobs') {
+      navigate('jobs')
+    } else if (type === 'open-releases') {
+      navigate('releases')
+    } else if (type === 'open-nodes') {
+      navigate('nodes')
+    } else if (type === 'open-patchbay') {
+      navigate('patchbay')
+    } else if (type === 'set-active-install') {
+      const bridge = getElectronBridge()
+      if (!bridge?.writeInstallSelection) {
+        push('No hay bridge Electron para fijar la instalación activa')
+        return
+      }
+      Promise.resolve(bridge.writeInstallSelection('active', payload))
+        .then(() => {
+          setContext((c) => ({ ...c, install: payload }))
+          push('Instalación activa actualizada')
+        })
+        .catch((e) => push(`No se pudo fijar la instalación: ${e.message}`))
+    } else if (type === 'validate-node') {
+      const bridge = getElectronBridge()
+      if (!bridge?.runNodeValidate) {
+        push('No hay bridge Electron para validar nodos')
+        return
+      }
+      Promise.resolve(bridge.runNodeValidate())
+        .then((result) => {
+          if (result?.ok) push('Nodo validado')
+          else push(result?.error || 'Validación de nodo fallida')
+        })
+        .catch((e) => push(`Validación fallida: ${e.message}`))
     } else if (type === 'toast') {
-      push(payload || 'Acción no disponible (SIMULADO)')
+      push(payload || 'Acción ejecutada')
     } else {
-      push(`Acción "${type}" no disponible (SIMULADO)`)
+      push(`Acción no disponible: ${type}`)
     }
   }
 

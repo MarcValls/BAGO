@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Badge, Icon, ViewState } from '../components/ui'
 import { useNodePieces } from '../useBagoData'
-import { DEMO_PIECES } from '../data'
 import { RPG_SLOTS, RARITIES, defaultEquipped, computeGearScore, toRpgPiece } from '../rpg-data'
 
 function GearSlot({ slotKey, equipped, alternatives, onEquip, onOpenDetails }) {
@@ -78,12 +77,12 @@ function StatRadar({ stats }) {
 }
 
 export default function RpgGearView({ context, onAction }) {
-  const { data, loading, error } = useNodePieces()
+  const { data, loading, error, refresh } = useNodePieces()
   const [selected, setSelected] = useState(null)
   const [customEquipped, setCustomEquipped] = useState(null)
 
   const raw = data?.ok ? (data.data || data.text || data.raw) : null
-  const pieces = Array.isArray(raw) ? raw : DEMO_PIECES
+  const pieces = Array.isArray(raw) ? raw : []
 
   const bySlot = useMemo(() => {
     const map = {}
@@ -115,13 +114,19 @@ export default function RpgGearView({ context, onAction }) {
             </div>
           </div>
         </div>
-        <button type="button" className="cp-btn" onClick={() => setCustomEquipped(null)}>
-          Auto-equipar óptimo
-        </button>
+        <div className="cp-toolbar-actions">
+          <button type="button" className="cp-btn" onClick={() => { refresh(); onAction?.('toast', 'Piezas recargadas') }}>
+            Releer
+          </button>
+          <button type="button" className="cp-btn" onClick={() => setCustomEquipped(null)}>
+            Auto-equipar
+          </button>
+        </div>
       </div>
 
       {loading ? <ViewState loading /> :
        error ? <ViewState error={error} /> :
+       !pieces.length ? <ViewState empty emptyLabel="Sin piezas reales disponibles" /> :
        (
         <div className="cp-gear-body">
           <div className="cp-gear-slots">

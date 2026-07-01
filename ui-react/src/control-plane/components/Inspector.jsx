@@ -25,8 +25,13 @@ export default function Inspector({ inspectorOpen, setInspectorOpen, navigate, c
         </div>
         <div className="cp-inspector-block">
           <div className="cp-mode-list">
-            {['Reload', 'Open', 'Copy', 'Detach'].map((label) => (
-              <button key={label} type="button" className="cp-mode-option" onClick={() => push(`${label} (SIMULADO)`)}>{label}</button>
+            {[
+              { label: 'Instalaciones', action: () => navigate('installations') },
+              { label: 'Salud', action: () => navigate('health') },
+              { label: 'Jobs', action: () => navigate('jobs') },
+              { label: 'Nodos', action: () => navigate('nodes') },
+            ].map((item) => (
+              <button key={item.label} type="button" className="cp-mode-option" onClick={item.action}>{item.label}</button>
             ))}
           </div>
         </div>

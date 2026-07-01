@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Badge, Icon, ViewState } from '../components/ui'
 import { useNodePieces } from '../useBagoData'
-import { DEMO_PIECES } from '../data'
 import { toRpgPiece, RARITIES } from '../rpg-data'
 
 function PieceCard({ piece, onAttach, onConfig, onInspect }) {
@@ -55,12 +54,12 @@ function PieceCard({ piece, onAttach, onConfig, onInspect }) {
 }
 
 export default function PiecesView({ context, onAction }) {
-  const { data, loading, error } = useNodePieces()
+  const { data, loading, error, refresh } = useNodePieces()
   const [filter, setFilter] = useState('Todas')
   const [selected, setSelected] = useState(null)
 
   const raw = data?.ok ? (data.data || data.text || data.raw) : null
-  const pieces = Array.isArray(raw) ? raw : DEMO_PIECES
+  const pieces = Array.isArray(raw) ? raw : []
 
   const filtered = filter === 'Todas' ? pieces : pieces.filter((p) => {
     const type = (p.type || p.kind || '').toLowerCase()
@@ -79,14 +78,19 @@ export default function PiecesView({ context, onAction }) {
             </button>
           ))}
         </div>
-        <button type="button" className="cp-btn cp-btn-primary" onClick={() => onAction?.('register-piece')}>
-          <Icon name="plus" /> Registrar
-        </button>
+        <div className="cp-toolbar-actions">
+          <button type="button" className="cp-btn" onClick={() => { refresh(); onAction?.('toast', 'Piezas recargadas') }}>
+            Releer
+          </button>
+          <button type="button" className="cp-btn cp-btn-primary" onClick={() => onAction?.('open-nodes')}>
+            <Icon name="nodes" /> Nodos
+          </button>
+        </div>
       </div>
 
       {loading ? <ViewState loading /> :
        error ? <ViewState error={error} /> :
-       !pieces.length ? <ViewState empty emptyLabel="Sin piezas — ejecuta bago node pieces" /> :
+       !pieces.length ? <ViewState empty emptyLabel="Sin piezas reales disponibles" /> :
        (
          <ViewState empty={!filtered.length} emptyLabel="Sin piezas para este filtro">
            <div className="cp-pieces-grid-rpg">
