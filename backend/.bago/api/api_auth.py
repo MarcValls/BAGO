@@ -41,24 +41,39 @@ class BagoAuthMixin:
     api_token: str = ""
     extra_cors_origins: FrozenSet[str] = frozenset()
 
-    @staticmethod
-    def _cors_origin_allowed(origin: str) -> bool:
-        if not origin:
-            return False
+    @classmethod
+    def _normalized_cors_origin(cls, origin: str) -> str:
+        if not origin or "\r" in origin or "\n" in origin:
+            return ""
         try:
             parsed = urlparse(origin)
-        except Exception:
-            return False
+            port = parsed.port
+        except (TypeError, ValueError):
+            return ""
         if parsed.scheme not in ("http", "https"):
-            return False
-        if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
-            return True
-        return origin in BagoAuthMixin.extra_cors_origins
+            return ""
+        if parsed.username or parsed.password or parsed.path not in ("", "/") or parsed.params or parsed.query or parsed.fragment:
+            return ""
+
+        hostname = (parsed.hostname or "").lower()
+        if hostname in {"localhost", "127.0.0.1", "::1"}:
+            safe_host = f"[{hostname}]" if ":" in hostname else hostname
+            return f"{parsed.scheme}://{safe_host}{f':{port}' if port is not None else ''}"
+
+        for allowed_origin in cls.extra_cors_origins:
+            if origin == allowed_origin:
+                return allowed_origin
+        return ""
+
+    @classmethod
+    def _cors_origin_allowed(cls, origin: str) -> bool:
+        return bool(cls._normalized_cors_origin(origin))
 
     def _send_cors_headers(self) -> None:
         origin = self.headers.get("Origin", "")
-        if self._cors_origin_allowed(origin):
-            self.send_header("Access-Control-Allow-Origin", origin)
+        allowed_origin = self._normalized_cors_origin(origin)
+        if allowed_origin:
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
             self.send_header("Vary", "Origin")
 
     def _check_auth(self) -> bool:

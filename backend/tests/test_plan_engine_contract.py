@@ -43,3 +43,13 @@ def test_plan_engine_rejects_invalid_status():
         raise AssertionError("estado inválido debía fallar")
     except ValueError as exc:
         assert "Estado inválido" in str(exc)
+
+
+def test_plan_step_parser_handles_repeated_prefixes_linearly():
+    from plan_engine import PlanEngine
+
+    adversarial = "Paso 1: " + ("99.paso " * 10_000) + "terminar comprobacion"
+    steps = PlanEngine.parse_steps(adversarial)
+
+    assert len(steps) == 1
+    assert steps[0].description.endswith("terminar comprobacion")

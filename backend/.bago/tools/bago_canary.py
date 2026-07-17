@@ -94,7 +94,8 @@ def deploy(root: Path, token_type: str) -> list[dict[str, object]]:
     for item_type in types:
         filename, content = render_token(item_type)
         path = canary_dir(root) / filename
-        path.write_text(content, encoding="utf-8")
+        # These are synthetic honeytokens, never live credentials.
+        path.write_text(content, encoding="utf-8")  # lgtm[py/clear-text-storage-sensitive-data]
         entry = {
             "type": item_type,
             "path": str(path.relative_to(root)),

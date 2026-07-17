@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { BagoClient } from '@/api/client';
 import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
-import { createBagoClient, persistApiConfig, readStoredApiBase, readStoredApiToken, resolveDefaultApiBase, safeJson } from '@/api/client';
+import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
 import { WorkspaceShell } from '@/layout/WorkspaceShell';
@@ -454,7 +454,7 @@ export function ControlPlane() {
       ...createDefaultUiState(),
       ...loaded,
       apiBase: loaded.apiBase || readStoredApiBase(),
-      apiToken: loaded.apiToken || readStoredApiToken()
+      apiToken: ''
     };
   });
   const [booting, setBooting] = useState(true);
@@ -484,7 +484,7 @@ export function ControlPlane() {
   // para filtrar el desplegable del chat.
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
-  const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken || readStoredApiToken()));
+  const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -513,7 +513,7 @@ export function ControlPlane() {
         workspaceHint: patch.workspaceHint !== undefined ? normalizeWorkspaceHint(patch.workspaceHint) : patch.workspaceHint
       });
       persistUiState(next);
-      persistApiConfig(next.apiBase || readStoredApiBase(), next.apiToken || '');
+      persistApiConfig(next.apiBase || readStoredApiBase());
       clientRef.current.setConfig(next.apiBase || readStoredApiBase(), next.apiToken || '');
       return next;
     });

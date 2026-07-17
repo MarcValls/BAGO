@@ -47,8 +47,11 @@ const COMMON_RULES: Rule[] = [
 ];
 
 const STRING_RULES: Rule[] = [
-  { kind: 'string', pattern: /(["'`])(?:\\.|(?!\1).)*\1/ },
-  { kind: 'string', pattern: /(["'])(?:\\.|(?!\1).)*$/ }
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*"/ },
+  { kind: 'string', pattern: /'(?:\\[\s\S]|[^'\\])*'/ },
+  { kind: 'string', pattern: /`(?:\\[\s\S]|[^`\\])*`/ },
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*$/ },
+  { kind: 'string', pattern: /'(?:\\[\s\S]|[^'\\])*$/ }
 ];
 
 const NUMBER_RULES: Rule[] = [
@@ -83,14 +86,16 @@ const CSS_RULES: Rule[] = [
   { kind: 'selector', pattern: /[.#]?[a-zA-Z_-][\w-]*(?=\s*\{)/ },
   { kind: 'property', pattern: /[a-zA-Z-]+(?=\s*:)/ },
   { kind: 'number', pattern: /-?\d+(?:\.\d+)?(?:px|rem|em|%|vh|vw|s|ms|deg)?/ },
-  { kind: 'string', pattern: /(["'])(?:\\.|(?!\1).)*\1/ }
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*"/ },
+  { kind: 'string', pattern: /'(?:\\[\s\S]|[^'\\])*'/ }
 ];
 
 const HTML_RULES: Rule[] = [
   { kind: 'comment', pattern: /<!--[\s\S]*?-->/ },
   { kind: 'tag', pattern: /<\/?[a-zA-Z][\w-]*/ },
   { kind: 'attribute', pattern: /\b[a-zA-Z_-][\w-]*(?==)/ },
-  { kind: 'string', pattern: /(["'])(?:\\.|(?!\1).)*\1/ }
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*"/ },
+  { kind: 'string', pattern: /'(?:\\[\s\S]|[^'\\])*'/ }
 ];
 
 const SH_RULES: Rule[] = [
@@ -100,14 +105,15 @@ const SH_RULES: Rule[] = [
 
 const JSON_RULES: Rule[] = [
   { kind: 'key', pattern: /"[\w-]+"(?=\s*:)/ },
-  { kind: 'string', pattern: /"(?:\\.|[^"])*"/ },
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*"/ },
   { kind: 'number', pattern: /-?\d+(?:\.\d+)?/ },
   { kind: 'boolean', pattern: /\b(?:true|false|null)\b/ }
 ];
 
 const YAML_RULES: Rule[] = [
   { kind: 'key', pattern: /^[\s-]*[\w-]+(?=\s*:)/ },
-  { kind: 'string', pattern: /(["'])(?:\\.|(?!\1).)*\1/ },
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*"/ },
+  { kind: 'string', pattern: /'(?:\\[\s\S]|[^'\\])*'/ },
   { kind: 'number', pattern: /-?\d+(?:\.\d+)?/ },
   { kind: 'boolean', pattern: /\b(?:true|false|null|yes|no|on|off)\b/i },
   { kind: 'comment', pattern: /#.*/ }
@@ -115,7 +121,8 @@ const YAML_RULES: Rule[] = [
 
 const TOML_RULES: Rule[] = [
   { kind: 'key', pattern: /^[\s[]*[#\w.-]+(?=\s*=)/ },
-  { kind: 'string', pattern: /(["'])(?:\\.|(?!\1).)*\1/ },
+  { kind: 'string', pattern: /"(?:\\[\s\S]|[^"\\])*"/ },
+  { kind: 'string', pattern: /'(?:\\[\s\S]|[^'\\])*'/ },
   { kind: 'number', pattern: /-?\d+(?:\.\d+)?/ },
   { kind: 'boolean', pattern: /\b(?:true|false)\b/ },
   { kind: 'comment', pattern: /#.*/ }

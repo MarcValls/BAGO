@@ -44,7 +44,7 @@ function startServer() {
         res.end(body);
       } catch (error) {
         res.statusCode = 500;
-        res.end(String(error && error.message ? error.message : error));
+        res.end('Internal Server Error');
       }
     });
     server.on('error', reject);

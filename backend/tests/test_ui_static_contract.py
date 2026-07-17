@@ -51,6 +51,16 @@ class UiStaticContractTests(unittest.TestCase):
         bad = [(str(path.relative_to(UI_SRC)), value) for path, value in found if value not in ALLOWED_Z_INDEX]
         self.assertFalse(bad, bad)
 
+    def test_api_token_is_session_only(self) -> None:
+        client = (UI_SRC / "api" / "client.ts").read_text(encoding="utf-8")
+        store = (UI_SRC / "state" / "uiStore.ts").read_text(encoding="utf-8")
+
+        self.assertNotIn("VITE_BAGO_TOKEN", client)
+        self.assertNotIn("localStorage.setItem(STORAGE_TOKEN", client)
+        self.assertIn("Omit<UiState, 'apiToken'>", store)
+        self.assertNotIn("apiToken: state.apiToken", store)
+        self.assertIn("apiToken: _legacyApiToken", store)
+
 
 if __name__ == "__main__":
     unittest.main()

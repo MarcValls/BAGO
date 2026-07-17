@@ -106,11 +106,14 @@ class PlanEngine:
             if not line:
                 continue
             # Patrones: "1. Paso", "1) Paso", "- Paso", "Step 1: Paso"
-            match = re.match(r"^(?:\d+[.\)]\s*|[-*]\s+|(?:Paso\s+|Step\s+)\d+[:.]?\s*)*(.+)$", line, re.IGNORECASE)
-            if match:
-                desc = match.group(1).strip()
-                if desc and len(desc) > 5:
-                    steps.append(Step(number=len(steps) + 1, description=desc))
+            prefix = (
+                re.match(r"^\d+[.)]\s*", line)
+                or re.match(r"^[-*]\s+", line)
+                or re.match(r"^(?:Paso|Step)\s+\d+[:.]?\s*", line, re.IGNORECASE)
+            )
+            desc = line[prefix.end():].strip() if prefix else line
+            if desc and len(desc) > 5:
+                steps.append(Step(number=len(steps) + 1, description=desc))
         return steps
 
     def generate_prompt(self, task: str) -> str:

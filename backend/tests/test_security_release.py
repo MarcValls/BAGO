@@ -78,6 +78,8 @@ def test_cors_allows_only_localhost_origins() -> None:
     assert BagoAPIHandler._cors_origin_allowed("http://[::1]:8080")
     assert not BagoAPIHandler._cors_origin_allowed("https://example.com")
     assert not BagoAPIHandler._cors_origin_allowed("http://localhost.evil.test")
+    assert not BagoAPIHandler._cors_origin_allowed("http://localhost:3000\r\nX-Injected: true")
+    assert BagoAPIHandler._normalized_cors_origin("http://[::1]:8080") == "http://[::1]:8080"
 
 
 def test_non_localhost_api_requires_token() -> None:

@@ -232,13 +232,14 @@ class ContextSourceRouter:
     """Justify source selection for a context plan."""
 
     def route(self, classification: ContextClassification, plan: ContextPlan) -> dict[str, Any]:
-        request_id = f"req-{_stable_hash('|'.join([
+        request_parts = [
             classification.intent,
             classification.domain,
             classification.risk,
             plan.justification,
             ','.join(plan.sources_required),
-        ]))}"
+        ]
+        request_id = f"req-{_stable_hash('|'.join(request_parts))}"
         decisions: list[dict[str, Any]] = []
         for source in plan.order:
             if source == "canonical_cache":

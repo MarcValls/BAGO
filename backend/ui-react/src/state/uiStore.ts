@@ -86,7 +86,7 @@ export function loadUiState(): UiState {
     const raw = localStorage.getItem(KEY);
     if (!raw) return createDefaultUiState();
     const parsed = JSON.parse(raw) as Partial<UiState> & { chatPanel?: unknown };
-    const { chatPanel: _legacyChatPanel, ...rest } = parsed;
+    const { chatPanel: _legacyChatPanel, apiToken: _legacyApiToken, ...rest } = parsed;
     return {
       ...createDefaultUiState(),
       ...rest,
@@ -101,7 +101,20 @@ export function loadUiState(): UiState {
 
 export function persistUiState(state: UiState): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(KEY, JSON.stringify(state));
+  const persistedState: Omit<UiState, 'apiToken'> = {
+    sidebarCollapsed: state.sidebarCollapsed,
+    activeSection: state.activeSection,
+    globalMode: state.globalMode,
+    chatMode: state.chatMode,
+    helpOpen: state.helpOpen,
+    commandPaletteOpen: state.commandPaletteOpen,
+    apiBase: state.apiBase,
+    workspaceHint: state.workspaceHint,
+    drafts: state.drafts,
+    contextBankPending: state.contextBankPending,
+    contextEditPatchId: state.contextEditPatchId
+  };
+  localStorage.setItem(KEY, JSON.stringify(persistedState));
 }
 
 export function patchUiState(state: UiState, patch: UiStatePatch): UiState {

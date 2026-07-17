@@ -13,7 +13,6 @@ import type {
 
 const FALLBACK_BASE = '';
 const STORAGE_BASE = 'bago.ui.apiBase';
-const STORAGE_TOKEN = 'bago.ui.apiToken';
 
 export function resolveDefaultApiBase(): string {
   if (typeof window === 'undefined') {
@@ -36,14 +35,10 @@ export function readStoredApiBase(): string {
   return typeof window === 'undefined' ? FALLBACK_BASE : localStorage.getItem(STORAGE_BASE) || resolveDefaultApiBase();
 }
 
-export function readStoredApiToken(): string {
-  return typeof window === 'undefined' ? '' : localStorage.getItem(STORAGE_TOKEN) || (import.meta.env.VITE_BAGO_TOKEN as string | undefined) || '';
-}
-
-export function persistApiConfig(apiBase: string, apiToken: string): void {
+export function persistApiConfig(apiBase: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_BASE, apiBase.trim().replace(/\/+$/, ''));
-  localStorage.setItem(STORAGE_TOKEN, apiToken.trim());
+  localStorage.removeItem('bago.ui.apiToken');
 }
 
 type JsonValue = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
