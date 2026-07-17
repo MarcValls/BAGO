@@ -4,8 +4,8 @@ Mixins that the BaseHTTPRequestHandler subclass uses. Pulled out of
 bridge.py so that bridge.py can focus on routing, and so the auth
 policy is testable in isolation (no HTTP server required).
 
-CORS policy (mirrors the original implementation):
-  - Allow localhost/127.0.0.1/[::1] implicitly (any port).
+CORS policy:
+  - Allow trusted local development origins.
   - Allow any origin in extra_cors_origins (set from env var
     BAGO_API_CORS_ORIGINS by the server runner).
 
@@ -21,11 +21,39 @@ from typing import FrozenSet
 from urllib.parse import urlparse
 
 
+LOCAL_CORS_ORIGINS: FrozenSet[str] = frozenset(
+    f"http://{host}:{port}"
+    for host in ("localhost", "127.0.0.1", "[::1]")
+    for port in (3000, 4173, 5173, 8080)
+)
+
+
+def _valid_configured_origin(origin: str) -> bool:
+    if not origin or "\r" in origin or "\n" in origin:
+        return False
+    try:
+        parsed = urlparse(origin)
+        _ = parsed.port
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        parsed.scheme in ("http", "https")
+        and parsed.hostname
+        and not parsed.username
+        and not parsed.password
+        and parsed.path in ("", "/")
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
 def _load_cors_origins_from_env() -> FrozenSet[str]:
     raw = os.environ.get("BAGO_API_CORS_ORIGINS", "")
     if not raw:
         return frozenset()
-    return frozenset(p.strip() for p in raw.split(",") if p.strip())
+    origins = (part.strip() for part in raw.split(","))
+    return frozenset(origin for origin in origins if _valid_configured_origin(origin))
 
 
 class BagoAuthMixin:
@@ -45,22 +73,9 @@ class BagoAuthMixin:
     def _normalized_cors_origin(cls, origin: str) -> str:
         if not origin or "\r" in origin or "\n" in origin:
             return ""
-        try:
-            parsed = urlparse(origin)
-            port = parsed.port
-        except (TypeError, ValueError):
-            return ""
-        if parsed.scheme not in ("http", "https"):
-            return ""
-        if parsed.username or parsed.password or parsed.path not in ("", "/") or parsed.params or parsed.query or parsed.fragment:
-            return ""
-
-        hostname = (parsed.hostname or "").lower()
-        if hostname in {"localhost", "127.0.0.1", "::1"}:
-            safe_host = f"[{hostname}]" if ":" in hostname else hostname
-            return f"{parsed.scheme}://{safe_host}{f':{port}' if port is not None else ''}"
-
-        for allowed_origin in cls.extra_cors_origins:
+        for allowed_origin in LOCAL_CORS_ORIGINS | cls.extra_cors_origins:
+            if not _valid_configured_origin(allowed_origin):
+                continue
             if origin == allowed_origin:
                 return allowed_origin
         return ""
