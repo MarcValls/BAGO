@@ -1,0 +1,94 @@
+# ── Estado vivo de BAGO (no distribuir) ────────────────────────────────────────
+.bago/state/
+.bago/logs/
+.bago/launch/
+.bago/tools/.bago/
+.bago/monitor.html
+.bago/credentials.json
+.bago/config.json
+.bago/session-credentials.json
+install_config.json
+.gabo/state/
+.gabo/logs/
+.gabo/cache/
+.gabo/launch/
+.gabo/tools/.gabo/
+.gabo/backups/
+
+# ── Bases de datos ──────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ──────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Node / React ────────────────────────────────────────────────────────────────
+node_modules/
+ui-react/node_modules/
+ui-react/dist/
+ui-react/.vite/
+*.node
+
+# ── Instalaciones de BAGO gestionadas por el Manager (runtime, no fuente) ───────
+installations/
+
+# ── Binarios de build ───────────────────────────────────────────────────────────
+esbuild.exe
+*.exe
+*.dll
+*.so
+
+# ── Entornos virtuales ──────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── IDEs ────────────────────────────────────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── Temporales ──────────────────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.py.new
+.staging/
+bago_core/parsers_legacy_*.py
+tools/_diff_*.py
+dist/
+site-dist/
+build/
+release/
+
+# ── Capturas y archivos de debug (no distribuir) ────────────────────────────────
+docs/repl_capture*.txt
+docs/terminal_captures.txt
+PLAN_VERTICE/
+SIGUIENTE.txt
+.vercel
+.env*
+
+# Monitor log (runtime, no distribuir)
+.bago/monitor/tablet.log
+
+# 2026-Q2 cleanup: archive holds historical artifacts not part of the active repo
+archive/
+
+# Debug captures from manual bridge/CLI testing
+chat_body.json
+chat_help.txt
+chat_real.json
+cli_help.txt
+llm_help.txt
+llm_list.txt
+router_body.json
+serve_help.txt
+serve_test.txt
+status_body.json

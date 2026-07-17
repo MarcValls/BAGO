@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/contracts/pi/bridge_handshake.schema.json",
+  "title": "BagoPiBridge Handshake",
+  "description": "Contrato del handshake inicial entre BAGO y el sidecar PI. El sidecar arranca, reporta su versión, hashes de lockfile y artefacto, modo y capacidades declaradas, y se cierra sin acceder al proyecto. Es la primera interacción BAGO→sidecar y la base de toda la cuarentena.",
+  "contract_id": "bago.pi.bridge.handshake",
+  "contract_version": "0.3.0",
+  "scope": "sidecar",
+  "source_of_truth": [
+    "backend/.bago/integrations/pi/ARQ-v0.3-separacion-autoridad.md",
+    "backend/.bago/integrations/pi/CRIT-v0.3-separacion-autoridad.md",
+    "backend/.bago/integrations/pi/PLAN-v0.3-separacion-autoridad.md"
+  ],
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "pi_version",
+    "pi_lockfile_hash",
+    "sidecar_artifact_hash",
+    "mode",
+    "capabilities",
+    "runtime",
+    "adapter"
+  ],
+  "properties": {
+    "protocol_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Versión del protocolo del bridge (semver). BAGO y sidecar deben acordar la misma."
+    },
+    "pi_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Versión exacta del paquete @earendil-works/pi-ai cargado por el sidecar. Pin exacto, no ^ ni latest."
+    },
+    "pi_lockfile_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 del package-lock.json del sidecar. BAGO compara con el expected_lockfile_hash del policy para detectar drift."
+    },
+    "sidecar_artifact_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 del binario/código del sidecar. Permite detectar cambios en runtime sin re-instalar."
+    },
+    "mode": {
+      "enum": ["rpc", "embedded", "disabled"],
+      "description": "Modo de operación del bridge. 'disabled' = no se carga; 'rpc' = proceso aparte; 'embedded' = inproc."
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["node-sidecar", "python-inproc", "wasm"],
+      "description": "Identidad del runtime que ejecuta el sidecar. Fija en D1; nunca 'pi' (PI no es runtime)."
+    },
+    "adapter": {
+      "type": "string",
+      "enum": ["pi-ai", "bago-native", "litellm"],
+      "description": "Identidad del adapter técnico. 'pi-ai' = subordinado a BAGO. Nunca igual a provider."
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["tools", "skills", "extensions", "packages", "sessions", "mutations", "process_spawn", "network"],
+      "properties": {
+        "tools": { "type": "integer", "minimum": 0, "description": "Número de tools cargadas (0 en Fase 0/1)." },
+        "skills": { "type": "integer", "minimum": 0, "description": "Número de skills importadas (0 por cuarentena)." },
+        "extensions": { "type": "integer", "minimum": 0, "description": "Número de extensions (0 por cuarentena)." },
+        "packages": { "type": "integer", "minimum": 0, "description": "Número de packages (0 por cuarentena)." },
+        "sessions": { "type": "boolean", "description": "false siempre — PI no tiene autoridad de sesión." },
+        "mutations": { "type": "boolean", "description": "false hasta Fase 4 GO con OS sandbox." },
+        "process_spawn": { "type": "boolean", "description": "false siempre — BAGO controla spawn." },
+        "network": { "type": "string", "enum": ["provider_endpoints_only", "loopback_only", "unrestricted"], "description": "Modo de red del sidecar. Default: provider_endpoints_only." }
+      }
+    },
+    "node_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Versión de Node.js del proceso sidecar. pi-ai@0.80.7 requiere >=22.19.0."
+    },
+    "sidecar_pid": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "PID del proceso sidecar. BAGO lo guarda para SIGKILL supervisado."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 UTC del momento del handshake."
+    }
+  },
+  "additionalProperties": false
+}

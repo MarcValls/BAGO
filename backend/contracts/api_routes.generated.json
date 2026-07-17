@@ -1,0 +1,616 @@
+{
+  "api_prefixes": [
+    "/api",
+    "/api/v1",
+    "/status",
+    "/health",
+    "/session",
+    "/workspace",
+    "/project",
+    "/history",
+    "/providers",
+    "/menu",
+    "/sources",
+    "/models",
+    "/chat",
+    "/chat/stream",
+    "/command",
+    "/switch",
+    "/catalog",
+    "/audit",
+    "/simulation",
+    "/rl",
+    "/files",
+    "/evidence",
+    "/memory",
+    "/jobs",
+    "/schedule",
+    "/subagents",
+    "/router",
+    "/interpret",
+    "/routes",
+    "/api/v1/events",
+    "/vision",
+    "/plans",
+    "/configure"
+  ],
+  "dynamic_routes": [
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_models",
+      "method": "GET",
+      "path": "/models/<provider>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_read",
+      "handler_module": "handlers_files",
+      "method": "GET",
+      "path": "/files/read/<path:filepath>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_receipt",
+      "handler_module": "handlers_evidence",
+      "method": "GET",
+      "path": "/evidence/receipts/<receipt_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_claim",
+      "handler_module": "handlers_evidence",
+      "method": "GET",
+      "path": "/evidence/claims/<claim_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_jobs",
+      "method": "GET",
+      "path": "/jobs/<execution_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_cancel",
+      "handler_module": "handlers_jobs",
+      "method": "POST",
+      "path": "/jobs/<execution_id>/cancel",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_retry",
+      "handler_module": "handlers_jobs",
+      "method": "POST",
+      "path": "/jobs/<execution_id>/retry",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_toggle",
+      "handler_module": "handlers_router",
+      "method": "POST",
+      "path": "/router/toggle/<key>",
+      "pattern": true
+    }
+  ],
+  "routes": [
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_status",
+      "method": "GET",
+      "path": "/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_health",
+      "method": "GET",
+      "path": "/health",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_session",
+      "method": "GET",
+      "path": "/session",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_workspace",
+      "method": "GET",
+      "path": "/workspace/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_workspace",
+      "method": "GET",
+      "path": "/workspace/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_workspace",
+      "method": "GET",
+      "path": "/workspaces",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_status",
+      "handler_module": "handlers_project",
+      "method": "GET",
+      "path": "/project/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_analyze",
+      "handler_module": "handlers_project",
+      "method": "GET",
+      "path": "/project/analyze",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_inspect",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/project/inspect",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_history",
+      "method": "GET",
+      "path": "/history",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_cli_detect",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/cli-detect",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_ui_bootstrap",
+      "method": "GET",
+      "path": "/api/v1/ui/bootstrap",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project",
+      "handler_module": "handlers_audit",
+      "method": "GET",
+      "path": "/audit/project",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_bago",
+      "handler_module": "handlers_audit",
+      "method": "GET",
+      "path": "/audit/bago",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_ledger",
+      "handler_module": "handlers_audit",
+      "method": "GET",
+      "path": "/audit/ledger",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_memory",
+      "method": "GET",
+      "path": "/memory/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_schedule",
+      "method": "GET",
+      "path": "/schedule/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_subagents",
+      "method": "GET",
+      "path": "/subagents/catalogue",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_menu",
+      "method": "GET",
+      "path": "/menu",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_sources",
+      "handler_module": "handlers_files",
+      "method": "GET",
+      "path": "/sources",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_status",
+      "handler_module": "handlers_catalog",
+      "method": "GET",
+      "path": "/catalog/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_status",
+      "handler_module": "handlers_simulation",
+      "method": "GET",
+      "path": "/simulation/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_events",
+      "handler_module": "handlers_simulation",
+      "method": "GET",
+      "path": "/simulation/events",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_status",
+      "handler_module": "handlers_rl",
+      "method": "GET",
+      "path": "/rl/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_files",
+      "method": "GET",
+      "path": "/files/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_latest",
+      "handler_module": "handlers_evidence",
+      "method": "GET",
+      "path": "/evidence/latest",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_claims",
+      "handler_module": "handlers_evidence",
+      "method": "GET",
+      "path": "/evidence/claims",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_receipts",
+      "handler_module": "handlers_evidence",
+      "method": "GET",
+      "path": "/evidence/receipts",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_jobs",
+      "method": "GET",
+      "path": "/jobs/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_summary",
+      "handler_module": "handlers_jobs",
+      "method": "GET",
+      "path": "/jobs/summary",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_buffer_status",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/buffer/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_buffer_status",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/buffer",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_blacklist_get",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/blacklist",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_blacklist_modify",
+      "handler_module": "handlers_providers",
+      "method": "POST",
+      "path": "/providers/blacklist",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auto_status",
+      "handler_module": "handlers_auto_config",
+      "method": "GET",
+      "path": "/configure/auto/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auto_start",
+      "handler_module": "handlers_auto_config",
+      "method": "POST",
+      "path": "/configure/auto/start",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auto_apply",
+      "handler_module": "handlers_auto_config",
+      "method": "POST",
+      "path": "/configure/auto/apply",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auto_cancel",
+      "handler_module": "handlers_auto_config",
+      "method": "POST",
+      "path": "/configure/auto/cancel",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_plans_list",
+      "handler_module": "handlers_jobs",
+      "method": "GET",
+      "path": "/plans",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_router",
+      "method": "GET",
+      "path": "/router/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_policy",
+      "handler_module": "handlers_router",
+      "method": "GET",
+      "path": "/router/policy",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_session_model_get",
+      "handler_module": "handlers_router",
+      "method": "GET",
+      "path": "/router/session-model",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_history",
+      "handler_module": "handlers_interpret",
+      "method": "GET",
+      "path": "/interpret/history",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_rules",
+      "handler_module": "handlers_interpret",
+      "method": "GET",
+      "path": "/interpret/rules",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_routes",
+      "method": "GET",
+      "path": "/routes",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_events",
+      "method": "GET",
+      "path": "/api/v1/events",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_chat",
+      "method": "POST",
+      "path": "/chat",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_chat_stream",
+      "method": "POST",
+      "path": "/chat/stream",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_command",
+      "method": "POST",
+      "path": "/api/v1/commands",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_command",
+      "method": "POST",
+      "path": "/command",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_init",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/project/init",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_link",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/project/link",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_seed",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/project/seed",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_sync",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/project/sync",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_workspace_init",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/workspace/init",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_workspace_link",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/workspace/link",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_workspace_seed",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/workspace/seed",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_workspace_sync",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/workspace/sync",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_persist",
+      "handler_module": "handlers_workspace",
+      "method": "POST",
+      "path": "/workspace/persist",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_switch",
+      "method": "POST",
+      "path": "/switch",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_config",
+      "handler_module": "handlers_catalog",
+      "method": "POST",
+      "path": "/catalog/config",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_config",
+      "handler_module": "handlers_simulation",
+      "method": "POST",
+      "path": "/simulation/config",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_shadow",
+      "handler_module": "handlers_rl",
+      "method": "POST",
+      "path": "/rl/shadow",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auto",
+      "handler_module": "handlers_router",
+      "method": "POST",
+      "path": "/router/auto",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_session_model",
+      "handler_module": "handlers_router",
+      "method": "POST",
+      "path": "/router/session-model",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_configure",
+      "handler_module": "handlers_providers",
+      "method": "POST",
+      "path": "/providers/configure",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_buffer_unload",
+      "handler_module": "handlers_providers",
+      "method": "POST",
+      "path": "/providers/buffer/unload",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_buffer_prepare",
+      "handler_module": "handlers_providers",
+      "method": "POST",
+      "path": "/providers/buffer/prepare",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_sources",
+      "handler_module": "handlers_files",
+      "method": "POST",
+      "path": "/sources",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_write",
+      "handler_module": "handlers_files",
+      "method": "POST",
+      "path": "/files/write",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_post",
+      "handler_module": "handlers_interpret",
+      "method": "POST",
+      "path": "/interpret",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_vision",
+      "method": "POST",
+      "path": "/vision",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_plans_create",
+      "handler_module": "handlers_jobs",
+      "method": "POST",
+      "path": "/plans",
+      "pattern": false
+    }
+  ],
+  "source": "backend/.bago/api/api_dispatch.py"
+}

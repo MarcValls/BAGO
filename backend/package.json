@@ -1,0 +1,129 @@
+{
+  "name": "bago-installation-manager",
+  "version": "4.8.0",
+  "private": true,
+  "description": "Electron packaged installation manager for BAGO.",
+  "main": "electron/main.cjs",
+  "author": "BAGO",
+  "license": "UNLICENSED",
+  "scripts": {
+    "manager:build-ui": "python scripts/build_ui_dist.py",
+    "premanager:pack": "npm run manager:build-ui",
+    "premanager:dist": "npm run manager:build-ui",
+    "manager:prepare-release-tree": "python scripts/package_v4.py --output-dir release/v4 --json",
+    "manager:dist-staging": "python scripts/build_installer_staging.py",
+    "manager:dev": "electron .",
+    "manager:pack": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --dir",
+    "manager:dist": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --win nsis",
+    "manager:test-jobs": "node tests/test_release_job_manager.cjs",
+    "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
+  },
+  "build": {
+    "appId": "com.bago.installation-manager",
+    "productName": "BAGO Installation Manager",
+    "artifactName": "BAGO-Installation-Manager-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "bago_core/**/*",
+      ".bago/api/**/*",
+      ".bago/chat/**/*",
+      ".bago/core/**/*",
+      ".bago/knowledge/**/*",
+      ".bago/providers/**/*",
+      ".bago/tools/**/*",
+      ".bago/seed.py",
+      ".bago/tools.manifest.json",
+      "scripts/**/*",
+      "tools/**/*",
+      "!tools/sprints/**/*",
+      "docs/**/*",
+      "ui-react/package.json",
+      "ui-react/package-lock.json",
+      "ui-react/index.html",
+      "ui-react/vite.config.js",
+      "ui-react/src/**/*",
+      "ui-react/public/**/*",
+      "ui-react/dist/**/*",
+      "install-v4.ps1",
+      "install-assistant.ps1",
+      "install-remote.ps1",
+      "ABRIR_UI_BAGO.cmd",
+      "ABRIR_ELECTRON_BAGO.cmd",
+      "bago.ps1",
+      "bago",
+      "bago.cmd",
+      "bago.sh",
+      "versions.json",
+      "release_version.txt"
+    ],
+    "files": [
+      "electron/**/*",
+      "manager/**/*",
+      "bago.ico",
+      "assets/**/*",
+      "bago_core/**/*",
+      ".bago/api/**/*",
+      ".bago/chat/**/*",
+      ".bago/core/**/*",
+      ".bago/knowledge/**/*",
+      ".bago/providers/**/*",
+      ".bago/tools/**/*",
+      ".bago/seed.py",
+      ".bago/tools.manifest.json",
+      "docs/**/*",
+      "scripts/**/*",
+      "tools/**/*",
+      "!tools/sprints/**/*",
+      "ui-react/package.json",
+      "ui-react/package-lock.json",
+      "ui-react/index.html",
+      "ui-react/vite.config.js",
+      "ui-react/src/**/*",
+      "ui-react/public/**/*",
+      "ui-react/dist/**/*",
+      "install-v4.ps1",
+      "install-assistant.ps1",
+      "install-remote.ps1",
+      "ABRIR_UI_BAGO.cmd",
+      "ABRIR_ELECTRON_BAGO.cmd",
+      "bago.ps1",
+      "bago",
+      "bago.cmd",
+      "bago.sh",
+      "versions.json",
+      "release_version.txt"
+    ],
+    "extraResources": [],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "bago.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BAGO Installation Manager"
+    }
+  },
+  "devDependencies": {
+    "electron": "42.3.0",
+    "electron-builder": "26.8.1",
+    "playwright": "^1.60.0"
+  },
+  "overrides": {
+    "form-data": "4.0.6",
+    "undici": "7.28.0"
+  }
+}

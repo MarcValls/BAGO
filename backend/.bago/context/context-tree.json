@@ -1,0 +1,248 @@
+{
+  "id": "ctree_a9cxet7xrxu6",
+  "name": "Árbol 14/7/2026, 19:11:47",
+  "archived": false,
+  "createdAt": "2026-07-14T17:11:47.982Z",
+  "updatedAt": "2026-07-14T17:11:47.982Z",
+  "rootId": "node_gqroquaurxu6",
+  "nodes": {
+    "node_gqroquaurxu6": {
+      "id": "node_gqroquaurxu6",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": null,
+      "type": "root",
+      "status": "active",
+      "title": "Contexto raíz",
+      "summary": "Raíz del árbol de contexto del workspace activo.",
+      "priority": "high",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "root"
+      ],
+      "metadata": {},
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_euxdo5purxu7": {
+      "id": "node_euxdo5purxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "intent",
+      "status": "active",
+      "title": "Intención",
+      "summary": "Objetivo raíz del contexto activo.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "intent"
+      ],
+      "metadata": {
+        "branch": "intent"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_c721yrryrxu7": {
+      "id": "node_c721yrryrxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "source",
+      "status": "active",
+      "title": "Fuentes",
+      "summary": "Origen del contexto: archivos, fuentes y secciones activas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "sources"
+      ],
+      "metadata": {
+        "branch": "sources"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_foxuhng8rxu7": {
+      "id": "node_foxuhng8rxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "decision",
+      "status": "active",
+      "title": "Decisiones",
+      "summary": "Decisiones consolidadas o pendientes de validación.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "decisions"
+      ],
+      "metadata": {
+        "branch": "decisions"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_z9kzd13urxu7": {
+      "id": "node_z9kzd13urxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "rule",
+      "status": "active",
+      "title": "Reglas",
+      "summary": "Reglas interpretativas vigentes.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "rules"
+      ],
+      "metadata": {
+        "branch": "rules"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_q4ub0rxyrxu7": {
+      "id": "node_q4ub0rxyrxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "risk",
+      "status": "active",
+      "title": "Riesgos",
+      "summary": "Riesgos abiertos o mitigados.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "risks"
+      ],
+      "metadata": {
+        "branch": "risks"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_b9xlune4rxu7": {
+      "id": "node_b9xlune4rxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "pending",
+      "status": "active",
+      "title": "Pendientes",
+      "summary": "Tareas y elementos pendientes de resolver.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "pendings"
+      ],
+      "metadata": {
+        "branch": "pendings"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_fk4te84srxu7": {
+      "id": "node_fk4te84srxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "evidence",
+      "status": "active",
+      "title": "Evidencias",
+      "summary": "Claims, receipts y referencias externas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "evidences"
+      ],
+      "metadata": {
+        "branch": "evidences"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_mombz9j7rxu7": {
+      "id": "node_mombz9j7rxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "proposal",
+      "status": "active",
+      "title": "Actividad del Chat",
+      "summary": "Patches propuestos por el chat y validados por el usuario.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "activity"
+      ],
+      "metadata": {
+        "branch": "activity"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    },
+    "node_dsemf8d2rxu7": {
+      "id": "node_dsemf8d2rxu7",
+      "treeId": "ctree_a9cxet7xrxu6",
+      "parentId": "node_gqroquaurxu6",
+      "type": "pack",
+      "status": "active",
+      "title": "Pack activo",
+      "summary": "Nodos que se enviarán al modelo.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "pack"
+      ],
+      "metadata": {
+        "branch": "pack"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-14T17:11:47.982Z",
+      "updatedAt": "2026-07-14T17:11:47.982Z"
+    }
+  }
+}

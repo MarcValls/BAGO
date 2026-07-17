@@ -1,0 +1,269 @@
+"""api_dispatch.py \u2014 HTTP routing for the BAGO API bridge.
+
+Single place where `do_GET` and `do_POST` decide which handler module
+runs. Handlers live in `handlers_<domain>.py` and are called as
+`module.handle(self)` where `self` is the BagoAPIHandler instance.
+
+Adding a new endpoint = adding one entry to `GET_ROUTES` or `POST_ROUTES`.
+No need to edit bridge.py.
+
+This module also defines `API_PREFIXES` (the set of paths the bridge
+treats as API rather than static). Keep it in sync with the actual routes
+or the 404 short-circuit in bridge.py will misbehave.
+"""
+
+from __future__ import annotations
+
+import importlib
+from typing import Callable, Tuple
+
+
+def _call(mod_name: str, fn_name: str, *extra):
+    """Lazy import + call. Re-imports each call so monkey-patching handlers
+    in tests works without reloading the dispatch table.
+
+    Extra positional args are passed to the handler after `handler`.
+    Use this for handlers with signatures like `handle(handler, provider)`.
+    """
+    def _inner(handler, *args):
+        mod = importlib.import_module(mod_name)
+        fn = getattr(mod, fn_name)
+        if extra:
+            return fn(handler, *extra, *args)
+        return fn(handler, *args)
+    return _inner
+
+
+def _post(mod_name: str, fn_name: str):
+    """Build a POST handler closure that ignores URL/body args and calls
+    `fn_name(handler, body)`. Kept as a top-level helper so _from_meta
+    can reference it from below.
+    """
+    def _inner(handler, body):
+        mod = importlib.import_module(mod_name)
+        return getattr(mod, fn_name)(handler, body)
+    return _inner
+
+
+# Single source of truth for static routes.
+# (method, path, handler_module, handler_fn). Order is preserved; route
+# dispatch iterates in this order so callers see deterministic behaviour.
+# Dynamic patterns (/models/<provider>, /files/read/<path>, /router/toggle/<key>)
+# live separately in DYNAMIC_ROUTES below.
+ROUTE_META: tuple = (
+    # GET routes
+    ("GET",  "/status",              "handlers_status",     "handle"),
+    ("GET",  "/health",              "handlers_health",     "handle"),
+    ("GET",  "/session",             "handlers_session",    "handle"),
+    ("GET",  "/workspace/status",    "handlers_workspace",  "handle"),
+    ("GET",  "/workspace/list",      "handlers_workspace",  "handle_list"),
+    ("GET",  "/workspaces",          "handlers_workspace",  "handle_list"),
+    ("GET",  "/project/status",      "handlers_project",    "handle_project_status"),
+    ("GET",  "/project/analyze",     "handlers_project",    "handle_project_analyze"),
+    ("POST", "/project/inspect",     "handlers_project",    "handle_project_inspect"),
+    ("GET",  "/history",             "handlers_history",    "handle"),
+    ("GET",  "/providers",           "handlers_providers",  "handle"),
+    ("GET",  "/providers/cli-detect","handlers_providers",  "handle_cli_detect"),
+    ("GET",  "/api/v1/ui/bootstrap", "handlers_ui_bootstrap", "handle"),
+    ("GET",  "/audit/project",       "handlers_audit",      "handle_project"),
+    ("GET",  "/audit/bago",          "handlers_audit",      "handle_bago"),
+    ("GET",  "/audit/ledger",        "handlers_audit",      "handle_ledger"),
+    ("GET",  "/memory/list",         "handlers_memory",     "handle"),
+    ("GET",  "/schedule/list",       "handlers_schedule",   "handle"),
+    ("GET",  "/subagents/catalogue", "handlers_subagents",  "handle"),
+    ("GET",  "/menu",                "handlers_menu",       "handle"),
+    ("GET",  "/sources",             "handlers_files",      "handle_sources"),
+    ("GET",  "/catalog/status",      "handlers_catalog",    "handle_status"),
+    ("GET",  "/simulation/status",   "handlers_simulation", "handle_status"),
+    ("GET",  "/simulation/events",   "handlers_simulation", "handle_events"),
+    ("GET",  "/rl/status",           "handlers_rl",         "handle_status"),
+    ("GET",  "/files/list",          "handlers_files",      "handle_list"),
+    ("GET",  "/evidence/latest",     "handlers_evidence",   "handle_latest"),
+    ("GET",  "/evidence/claims",     "handlers_evidence",   "handle_claims"),
+    ("GET",  "/evidence/receipts",   "handlers_evidence",   "handle_receipts"),
+    ("GET",  "/jobs/list",           "handlers_jobs",       "handle_list"),
+    ("GET",  "/jobs/summary",        "handlers_jobs",       "handle_summary"),
+    ("GET",  "/providers/buffer/status",  "handlers_providers",  "handle_buffer_status"),
+    ("GET",  "/providers/buffer",          "handlers_providers",  "handle_buffer_status"),
+    ("GET",  "/providers/blacklist",       "handlers_providers",  "handle_blacklist_get"),
+    ("POST", "/providers/blacklist",       "handlers_providers",  "handle_blacklist_modify"),
+    ("GET",  "/configure/auto/status",     "handlers_auto_config", "handle_auto_status"),
+    ("POST", "/configure/auto/start",      "handlers_auto_config", "handle_auto_start"),
+    ("POST", "/configure/auto/apply",      "handlers_auto_config", "handle_auto_apply"),
+    ("POST", "/configure/auto/cancel",     "handlers_auto_config", "handle_auto_cancel"),
+    ("GET",  "/plans",               "handlers_jobs",       "handle_plans_list"),
+    ("GET",  "/router/list",         "handlers_router",     "handle"),
+    ("GET",  "/router/policy",       "handlers_router",     "handle_policy"),
+    ("GET",  "/router/session-model","handlers_router",     "handle_session_model_get"),
+    ("GET",  "/interpret/history",   "handlers_interpret",  "handle_history"),
+    ("GET",  "/interpret/rules",     "handlers_interpret",  "handle_rules"),
+    ("GET",  "/routes",              "handlers_routes",     "handle"),
+    ("GET",  "/api/v1/events",       "handlers_events",     "handle"),
+    # POST routes
+    ("POST", "/chat",                "handlers_chat",       "handle"),
+    ("POST", "/chat/stream",         "handlers_chat_stream", "handle"),
+    ("POST", "/api/v1/commands",     "handlers_command",    "handle"),
+    ("POST", "/command",             "handlers_command",    "handle"),
+    ("POST", "/project/init",        "handlers_project",    "handle_project_init"),
+    ("POST", "/project/link",        "handlers_project",    "handle_project_link"),
+    ("POST", "/project/seed",        "handlers_project",    "handle_project_seed"),
+    ("POST", "/project/sync",        "handlers_project",    "handle_project_sync"),
+    ("POST", "/workspace/init",      "handlers_project",    "handle_workspace_init"),
+    ("POST", "/workspace/link",      "handlers_project",    "handle_workspace_link"),
+    ("POST", "/workspace/seed",      "handlers_project",    "handle_workspace_seed"),
+    ("POST", "/workspace/sync",      "handlers_project",    "handle_workspace_sync"),
+    ("POST", "/workspace/persist",   "handlers_workspace",  "handle_persist"),
+    ("POST", "/switch",              "handlers_switch",     "handle"),
+    ("POST", "/catalog/config",      "handlers_catalog",    "handle_config"),
+    ("POST", "/simulation/config",   "handlers_simulation", "handle_config"),
+    ("POST", "/rl/shadow",           "handlers_rl",         "handle_shadow"),
+    ("POST", "/router/auto",         "handlers_router",     "handle_auto"),
+    ("POST", "/router/session-model","handlers_router",     "handle_session_model"),
+    ("POST", "/providers/configure", "handlers_providers",  "handle_configure"),
+    ("POST", "/providers/buffer/unload", "handlers_providers",  "handle_buffer_unload"),
+    ("POST", "/providers/buffer/prepare", "handlers_providers", "handle_buffer_prepare"),
+    ("POST", "/sources",             "handlers_files",      "handle_sources"),
+    ("POST", "/files/write",         "handlers_files",      "handle_write"),
+    ("POST", "/interpret",           "handlers_interpret",  "handle_post"),
+    ("POST", "/vision",              "handlers_vision",     "handle"),
+    ("POST", "/plans",               "handlers_jobs",       "handle_plans_create"),
+)
+
+
+def _build_static_routes() -> tuple[dict, dict]:
+    """Derive GET_ROUTES / POST_ROUTES from ROUTE_META so the dispatch
+    table cannot diverge from the public metadata. Returns a (get_routes, post_routes)
+    tuple, keeping GET and POST separate so the same path can have both verbs.
+    """
+    get_out: dict = {}
+    post_out: dict = {}
+    for method, path, mod_name, fn_name in ROUTE_META:
+        if method == "GET":
+            get_out[path] = _call(mod_name, fn_name)
+        elif method == "POST":
+            post_out[path] = _post(mod_name, fn_name)
+    return get_out, post_out
+
+
+_GET_ROUTES_BUILT, _POST_ROUTES_BUILT = _build_static_routes()
+
+GET_ROUTES: dict = _GET_ROUTES_BUILT
+POST_ROUTES: dict = _POST_ROUTES_BUILT
+
+
+def resolve_get(handler, path: str) -> Tuple[bool, Callable | None]:
+    """Return (matched, call) for a GET path. matched=False means 404."""
+    if path in GET_ROUTES:
+        return True, GET_ROUTES[path]
+    if path.startswith("/models/"):
+        provider = path[len("/models/"):]
+        if provider:
+            return True, _call("handlers_models", "handle", provider)
+    if path.startswith("/providers/") and path.endswith("/models"):
+        provider = path[len("/providers/"):-len("/models")]
+        if provider and "/" not in provider:
+            return True, _call("handlers_providers", "handle_list_models", provider)
+    if path.startswith("/providers/") and path.endswith("/active-models"):
+        provider = path[len("/providers/"):-len("/active-models")]
+        if provider and "/" not in provider:
+            return True, _call("handlers_providers", "handle_active_models_get", provider)
+    if path.startswith("/files/read/"):
+        file_path = path[len("/files/read/"):]
+        return True, _call("handlers_files", "handle_read", file_path)
+    if path.startswith("/evidence/receipts/"):
+        receipt_id = path[len("/evidence/receipts/"):]
+        return True, _call("handlers_evidence", "handle_receipt", receipt_id)
+    if path.startswith("/evidence/claims/"):
+        claim_id = path[len("/evidence/claims/"):]
+        return True, _call("handlers_evidence", "handle_claim", claim_id)
+    if path.startswith("/jobs/"):
+        execution_id = path[len("/jobs/"):]
+        if execution_id and execution_id != "list":
+            return True, _call("handlers_jobs", "handle_get", execution_id)
+    if path.startswith("/plans/") and path.endswith("/execute"):
+        plan_id = path[len("/plans/"):-len("/execute")].strip("/")
+        if plan_id and "/" not in plan_id:
+            def _execute_closure(handler, body, _p=plan_id):
+                from handlers_jobs import handle_plans_execute
+                return handle_plans_execute(handler, _p, body)
+            return True, _execute_closure
+    if path.startswith("/plans/") and not path.endswith("/execute"):
+        plan_id = path[len("/plans/"):].strip("/")
+        if plan_id and "/" not in plan_id:
+            return True, _call("handlers_jobs", "handle_plans_get", plan_id)
+    return False, None
+
+
+def resolve_post(handler, path: str, body: dict) -> Tuple[bool, Callable | None]:
+    if path in POST_ROUTES:
+        return True, POST_ROUTES[path]
+    if path.startswith("/jobs/") and path.endswith("/cancel"):
+        execution_id = path[len("/jobs/"):-len("/cancel")].strip("/")
+        if execution_id:
+            return True, _call("handlers_jobs", "handle_cancel", execution_id)
+    if path.startswith("/jobs/") and path.endswith("/retry"):
+        execution_id = path[len("/jobs/"):-len("/retry")].strip("/")
+        if execution_id:
+            return True, _call("handlers_jobs", "handle_retry", execution_id)
+    if path.startswith("/providers/") and path.endswith("/active-models"):
+        provider = path[len("/providers/"):-len("/active-models")].strip("/")
+        if provider and "/" not in provider:
+            def _active_set_closure(handler, body, _p=provider):
+                from handlers_providers import handle_active_models_set
+                return handle_active_models_set(handler, _p, body)
+            return True, _active_set_closure
+    return False, None
+
+
+def resolve_router(handler, path: str, body: dict) -> Tuple[bool, Callable | None]:
+    """Pattern route: POST /router/toggle/<provider>/<model>.
+
+    The key is in the URL, not the body, so we wrap the handler to
+    ignore the body argument that do_POST passes in.
+    """
+    if path.startswith("/router/toggle/"):
+        key = path[len("/router/toggle/"):]
+        if key:
+            mod = importlib.import_module("handlers_router")
+            def _toggler(handler, body, _key=key):
+                return mod.handle_toggle(handler, _key)
+            return True, _toggler
+    return False, None
+
+
+API_PREFIXES = (
+    "/api",
+    "/api/v1",
+    "/status",
+    "/health",
+    "/session",
+    "/workspace",
+    "/workspaces",
+    "/project",
+    "/history",
+    "/providers",
+    "/menu",
+    "/sources",
+    "/models",
+    "/chat",
+    "/chat/stream",
+    "/command",
+    "/switch",
+    "/catalog",
+    "/audit",
+    "/simulation",
+    "/rl",
+    "/files",
+    "/evidence",
+    "/memory",
+    "/jobs",
+    "/schedule",
+    "/subagents",
+    "/router",
+    "/interpret",
+    "/routes",
+    "/api/v1/events",
+    "/vision",
+    "/plans",
+    "/configure",
+)

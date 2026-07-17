@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "repo": "MarcValls/bago-knowledge",
+  "purpose": "Memoria operativa de BAGO: procedimientos, decisiones, ejemplos y contratos de conocimiento.",
+  "policy": {
+    "source_of_truth": [
+      "README.md",
+      "manifest.json",
+      "topics/index.md"
+    ],
+    "canonical_formats": [
+      "md",
+      "json",
+      "yml",
+      "yaml",
+      "svg"
+    ],
+    "binary_policy": "Solo usar binarios si aportan evidencia visual o un diagrama que no sea cómodo en SVG."
+  },
+  "sync": {
+    "mode": "path-mirror",
+    "local_root": ".bago/knowledge",
+    "remote_repo": "https://github.com/MarcValls/bago-knowledge",
+    "canonical_paths": [
+      "README.md",
+      "manifest.json",
+      "topics/index.md",
+      "topics/image-generation.md",
+      "topics/image-generation-guide.md",
+      "topics/transposition.md",
+      "topics/knowledge-curation.md",
+      "topics/release-gates.md",
+      "topics/project-patterns.md",
+      "topics/learned-lessons.md",
+      "topics/sync-protocol.md",
+      "topics/publication-contract.md",
+      "topics/engine-contract.md",
+      "topics/bago-universe.md",
+      "topics/framework-traps.md",
+      "topics/orchestrator-learnings.md",
+      "topics/memory-architecture.md",
+      "topics/coherence-principle.md",
+      "topics/bago-h-architecture.md",
+      "topics/tools-reference.md",
+      "topics/auto-patterns.md",
+      "topics/deactivation-procedure.md",
+      "topics/windows-audio-setup.md",
+      "topics/windows-background-automation.md",
+      "topics/windows-execution-patterns.md",
+      "topics/windows-mouse-automation.md",
+      "examples/publication_profiles.yml",
+      "examples/engine_refresh.yml",
+      "examples/",
+      "schemas/",
+      "assets/",
+      "sessions/",
+      "simulations/",
+      "projects/bianca/",
+      "projects/casino/",
+      "projects/music/"
+    ]
+  },
+  "topics": [
+    {
+      "id": "image-generation",
+      "title": "Generación de imágenes",
+      "path": "topics/image-generation.md",
+      "status": "stable"
+    },
+    {
+      "id": "transposition",
+      "title": "Transposición musical",
+      "path": "topics/transposition.md",
+      "status": "stable"
+    },
+    {
+      "id": "knowledge-curation",
+      "title": "Curación de conocimiento",
+      "path": "topics/knowledge-curation.md",
+      "status": "stable"
+    },
+    {
+      "id": "release-gates",
+      "title": "Criterios de estabilidad",
+      "path": "topics/release-gates.md",
+      "status": "stable"
+    },
+    {
+      "id": "project-patterns",
+      "title": "Patrones de proyecto",
+      "path": "topics/project-patterns.md",
+      "status": "stable"
+    },
+    {
+      "id": "learned-lessons",
+      "title": "Lecciones aprendidas",
+      "path": "topics/learned-lessons.md",
+      "status": "stable"
+    },
+    {
+      "id": "sync-protocol",
+      "title": "Protocolo de sincronización",
+      "path": "topics/sync-protocol.md",
+      "status": "stable"
+    },
+    {
+      "id": "publication-contract",
+      "title": "Contrato de publicación",
+      "path": "topics/publication-contract.md",
+      "status": "stable"
+    },
+    {
+      "id": "engine-contract",
+      "title": "Contrato de motor",
+      "path": "topics/engine-contract.md",
+      "status": "stable"
+    }
+  ],
+  "projects": [],
+  "asset_policy": {
+    "diagrams": "SVG first",
+    "captures": "PNG only when needed",
+    "large_media": "No canonical large binaries"
+  },
+  "last_refresh": "2026-06-21T12:46:00Z",
+  "refresh_note": "Removed topics without filesystem backing; removed projects/ section (not part of BAGO core)"
+}

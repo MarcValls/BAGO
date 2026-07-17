@@ -1,0 +1,557 @@
+{
+  "_version": "1.0",
+  "_description": "Dataset de entrenamiento para clasificación de intención → comando BAGO. Cada entrada mapea frases de lenguaje natural al comando slash correspondiente. El engine usa esto para deducir qué quiere el usuario sin que tenga que escribir el slash exacto.",
+  "commands": {
+    "/": {
+      "description": "Abre la paleta de comandos interactiva (menú navegable)",
+      "wizard": false,
+      "phrases": [
+        "menu", "menú", "abre el menu", "abre el menú", "abrir menu", "abrir menú",
+        "abrir la paleta", "paleta", "paleta de comandos", "comandos", "palette",
+        "open menu", "show menu", "ver comandos", "lista de comandos",
+        "muéstrame el menú", "muestrame el menu", "ver el menu"
+      ]
+    },
+    "/status": {
+      "description": "Estado rápido de la sesión activa: provider, modelo, tokens, turnos",
+      "wizard": false,
+      "phrases": [
+        "estado", "status", "estado actual", "cómo estamos", "como estamos",
+        "resumen", "resumen rápido", "qué provider usas", "que provider usas",
+        "qué modelo tienes", "que modelo tienes", "cuántos tokens", "cuantos tokens",
+        "estado de sesion", "estado de la sesión", "info sesion", "info de sesión",
+        "dame el estado", "ver estado",
+        "ESTADO",
+        "COMO ESTAMOS",
+        "bago estado",
+        "bago status",
+        "como va todo",
+        "cómo va todo",
+        "que tal va",
+        "qué tal va",
+        "cuanto llevamos",
+        "cuánto llevamos",
+        "cuantos tokens llevamos",
+        "cuántos tokens llevamos",
+        "donde estamos",
+        "dónde estamos",
+        "DONDE ESTAMOS",
+        "resumen de sesion",
+        "dame un resumen",
+        "en que estamos",
+        "en qué estamos"
+      ]
+    },
+    "/session": {
+      "description": "Detalles completos de la sesión: ID, mensajes, historial",
+      "wizard": false,
+      "phrases": [
+        "sesion", "sesión", "detalles sesion", "detalles de la sesión",
+        "detalles completos", "ver sesion", "info completa", "id de sesion",
+        "session details", "session info", "historial de sesion", "datos de sesión"
+      ]
+    },
+    "/save": {
+      "description": "Guarda la sesión actual en disco",
+      "wizard": false,
+      "phrases": [
+        "guardar", "guarda", "guardar sesion", "guardar la sesión", "save",
+        "salvar sesion", "salva la sesion", "graba sesion", "grabar sesión",
+        "guarda esto", "no pierdas esto", "guardar todo", "save session",
+        "GUARDA",
+        "GUARDA ESTO",
+        "GUARDA LA SESION",
+        "no pierdas nada",
+        "salva todo",
+        "snapshot",
+        "checkpoint",
+        "guarda el punto",
+        "congela esto",
+        "freeze",
+        "quiero un checkpoint",
+        "bago guarda",
+        "guarda antes de seguir",
+        "guarda antes de cambiar",
+        "preserva la sesion"
+      ]
+    },
+    "/load": {
+      "description": "Carga una sesión guardada (sin args = asistente guiado)",
+      "wizard": true,
+      "phrases": [
+        "cargar", "carga sesion", "cargar sesión", "load", "cargar sesion guardada",
+        "recuperar sesion", "restaurar sesion", "abrir sesion anterior",
+        "sesion anterior", "volver a una sesion", "load session", "cargar historial"
+      ]
+    },
+    "/providers": {
+      "description": "Lista todos los providers registrados y su estado",
+      "wizard": false,
+      "phrases": [
+        "providers", "proveedores", "lista providers", "listar providers",
+        "qué providers hay", "que providers hay", "ver providers",
+        "que proveedores tienes", "cuáles son los providers", "cuales son los providers",
+        "providers disponibles", "lista de proveedores"
+      ]
+    },
+    "/models": {
+      "description": "Ver modelos disponibles del provider actual",
+      "wizard": false,
+      "phrases": [
+        "modelos", "lista modelos", "listar modelos", "ver modelos",
+        "qué modelos hay", "que modelos hay", "modelos disponibles",
+        "models", "que modelos tienes", "cuáles son los modelos",
+        "modelos del provider", "que modelo puedo usar"
+      ]
+    },
+    "/switch": {
+      "description": "Cambiar de provider o modelo (sin args = asistente guiado)",
+      "wizard": true,
+      "phrases": [
+        "cambiar", "cambiar modelo", "cambiar provider", "switch", "cambiar de modelo",
+        "cambiar de provider", "otro modelo", "otro provider", "usar otro modelo",
+        "quiero cambiar", "cambiar proveedor", "switch provider", "switch model",
+        "cambia a", "usa otro", "cambiar a", "probar otro modelo",
+        "cambia el modelo", "cambia el provider",
+        "CAMBIA EL MODELO",
+        "OTRO MODELO",
+        "CAMBIA DE PROVIDER",
+        "pon otro modelo",
+        "usa otro modelo",
+        "prueba con otro",
+        "cambia de llm",
+        "otro llm",
+        "quiero probar otro",
+        "bago cambia de modelo",
+        "cambiate a otro",
+        "quiero gpt", "quiero claude", "quiero llama", "quiero mistral",
+        "quiero gemini", "quiero codex",
+        "ponme otro modelo",
+        "pon un modelo mejor",
+        "usa el mejor modelo",
+        "cambia a algo mejor",
+        "cambia a algo mas potente",
+        "modelo mas potente",
+        "MODELO MAS POTENTE",
+        "CON CUAL VAMOS",
+        "con cual trabajamos",
+        "que modelo estamos usando"
+      ]
+    },
+    "/suggest": {
+      "description": "Sugerencia automática del mejor provider/modelo según el contexto",
+      "wizard": false,
+      "phrases": [
+        "sugerir", "sugiere", "sugerencia", "cual es el mejor", "cuál es el mejor",
+        "que modelo usar", "qué modelo usar", "suggest", "recomienda",
+        "recomienda un modelo", "qué recomiendas", "que recomiendas",
+        "mejor provider", "mejor modelo", "provider óptimo"
+      ]
+    },
+    "/tools": {
+      "description": "Listar herramientas disponibles del modelo",
+      "wizard": false,
+      "phrases": [
+        "herramientas", "tools", "listar herramientas", "ver herramientas",
+        "qué herramientas hay", "que herramientas hay", "tools disponibles",
+        "que puede hacer el modelo", "capacidades", "plugins"
+      ]
+    },
+    "/tools set": {
+      "description": "Activar o desactivar herramientas del modelo (asistente guiado)",
+      "wizard": true,
+      "phrases": [
+        "activar herramientas", "desactivar herramientas", "configurar herramientas",
+        "tools set", "habilitar herramientas", "deshabilitar herramientas",
+        "activar tools", "desactivar tools", "gestionar herramientas"
+      ]
+    },
+    "/scripts": {
+      "description": "Listar scripts y baterías registradas en BAGO",
+      "wizard": false,
+      "phrases": [
+        "scripts", "listar scripts", "ver scripts", "baterias", "baterías",
+        "que scripts hay", "qué scripts hay", "scripts disponibles",
+        "scripts registrados"
+      ]
+    },
+    "/project": {
+      "description": "Analiza un proyecto o directorio y sugiere los siguientes pasos",
+      "wizard": true,
+      "phrases": [
+        "analiza el directorio", "analizar directorio", "analiza este proyecto",
+        "revisa este proyecto", "trabaja sobre este proyecto",
+        "quiero trabajar sobre este proyecto", "buscar bugs y mejoras",
+        "busca bugs y mejoras", "sugerir compilacion", "sugerir compilación",
+        "compila el proyecto", "inspecciona el proyecto", "inspeccionar proyecto",
+        "proyecto actual", "analiza el proyecto"
+      ]
+    },
+    "/allow": {
+      "description": "Aprobar la ejecución de herramientas pendientes de autorización",
+      "wizard": false,
+      "phrases": [
+        "allow", "aprobar", "autorizar", "permitir", "sí ejecuta", "si ejecuta",
+        "aprueba la herramienta", "dale permiso", "acepta", "confirmar herramienta",
+        "deja que ejecute", "permite que use"
+      ]
+    },
+    "/deny": {
+      "description": "Rechazar la ejecución de herramientas pendientes",
+      "wizard": false,
+      "phrases": [
+        "deny", "rechazar", "no ejecutes", "deniega", "bloquea la herramienta",
+        "no permitas", "cancela la herramienta", "rechaza", "no le des permiso"
+      ]
+    },
+    "/plan": {
+      "description": "Genera un plan paso a paso para una tarea",
+      "wizard": false,
+      "phrases": [
+        "plan", "planifica", "haz un plan", "genera un plan", "plan para",
+        "planificar", "crea un plan", "dame un plan", "organiza los pasos",
+        "que pasos seguir", "qué pasos seguir", "plan de accion", "plan de acción",
+        "HAME UN PLAN",
+        "HAZ UN PLAN",
+        "PLANIFICA ESTO",
+        "como lo hacemos",
+        "cómo lo hacemos",
+        "por donde empezamos",
+        "por donde empezamos a atacar",
+        "dame los pasos",
+        "dime como hacerlo",
+        "dime los pasos",
+        "que hacemos primero",
+        "qué hacemos primero",
+        "organiza esto",
+        "ordena las tareas",
+        "crea la hoja de ruta",
+        "hoja de ruta",
+        "roadmap",
+        "bago planifica",
+        "bago haz el plan",
+        "necesito un plan",
+        "NECESITO UN PLAN",
+        "de donde empezamos",
+        "primero que hacemos"
+      ]
+    },
+    "/interpret": {
+      "description": "Descompone una pregunta con el Interprete Reflexivo",
+      "wizard": false,
+      "phrases": [
+        "interpreta esta pregunta",
+        "analiza esta pregunta",
+        "descompone esta pregunta",
+        "formaliza esta pregunta",
+        "interprete reflexivo",
+        "intérprete reflexivo",
+        "que estoy preguntando",
+        "qué estoy preguntando",
+        "dime la intencion",
+        "dime la intención",
+        "detecta ambiguedad",
+        "detecta ambigüedad",
+        "convierte la pregunta en formula",
+        "convierte la pregunta en fórmula",
+        "audita la comprension",
+        "audita la comprensión",
+        "historial reflexivo",
+        "ver auditorias reflexivas",
+        "ver auditorías reflexivas",
+        "registro reflexivo",
+        "ultimas interpretaciones",
+        "últimas interpretaciones"
+      ]
+    },
+    "/autopilot": {
+      "description": "Ejecutar una tarea autónomamente en modo autopiloto",
+      "wizard": false,
+      "phrases": [
+        "autopilot", "autopiloto", "hazlo tú", "hazlo tu", "hazlo solo",
+        "ejecútalo tú", "ejecutalo tu", "modo autopiloto", "modo automático",
+        "automático", "automatico", "ejecutar automaticamente", "haz esto solo",
+        "corre solo", "que lo haga bago",
+        "bago autonomo y ejecuta el plan",
+        "bago ejecuta el plan",
+        "ejecuta el plan solo",
+        "ejecuta el plan tu solo",
+        "hazlo tu solo",
+        "hazlo de forma autonoma",
+        "modo autonomo",
+        "bago hazlo tu",
+        "bago take over",
+        "que bago lo haga solo",
+        "bago pilota",
+        "pilota tu",
+        "ejecutalo autonomamente",
+        "bago autonomo",
+        "BAGO HAZLO TU",
+        "EJECUTA EL PLAN",
+        "QUE LO HAGA BAGO SOLO",
+        "MODO AUTONOMO",
+        "AUTOPILOTA",
+        "PILOTA TU SOLO",
+        "dale tu solo",
+        "ya tu solo",
+        "toma el control",
+        "TOMA EL CONTROL",
+        "ejecuta sin que te diga",
+        "ve ejecutando",
+        "sigue tu",
+        "sigue ejecutando",
+        "corre el plan",
+        "lanza el plan",
+        "pon en marcha el plan",
+        "bago en modo autonomo",
+        "bago que ejecute",
+        "bago ejecuta"
+      ]
+    },
+    "/evolve": {
+      "description": "Autoevolución: reentrena intenciones desde el historial de conversaciones",
+      "wizard": false,
+      "phrases": [
+        "evolve", "evolucionar", "reentrenar", "aprender", "autoevolucionar",
+        "aprende del historial", "actualiza el entrenamiento", "reentrena",
+        "mejora tus intenciones", "actualiza intenciones", "evolución",
+        "entrena de nuevo", "bago aprende",
+        "APRENDE",
+        "REENTRENA",
+        "EVOLUCIONA",
+        "bago evoluciona",
+        "actualiza tu modelo",
+        "actualiza tu entrenamiento",
+        "aprende de lo que hemos hecho",
+        "aprende de nuestro historial",
+        "que bago aprenda",
+        "que aprenda de las sesiones",
+        "entrena con el historial",
+        "coge el historial y aprende",
+        "reentrena con lo nuestro",
+        "BAGO APRENDE DE NOSOTROS",
+        "mejora con lo que hemos hablado",
+        "refina tus intenciones",
+        "recalibrate",
+        "recalibra",
+        "autoevolve"
+      ]
+    },
+    "/agents": {
+      "description": "Ver la lista de agentes especializados disponibles",
+      "wizard": false,
+      "phrases": [
+        "agentes", "agents", "lista agentes", "ver agentes", "que agentes hay",
+        "qué agentes hay", "agentes disponibles", "agentes especializados"
+      ]
+    },
+    "/agent": {
+      "description": "Activar un agente especializado (coder, reviewer, etc.; sin args = asistente)",
+      "wizard": true,
+      "phrases": [
+        "agente", "activar agente", "usar agente", "iniciar agente",
+        "modo agente", "agent", "quiero un agente", "activa el agente",
+        "usar modo agente", "agente coder", "agente reviewer",
+        "agente especializado", "cambiar a agente",
+        "ACTIVA UN AGENTE",
+        "QUIERO UN AGENTE",
+        "MODO AGENTE",
+        "ponme en modo agente",
+        "activa el coder",
+        "activa el reviewer",
+        "quiero el agente de codigo",
+        "quiero el agente de review",
+        "modo coder",
+        "modo revisor",
+        "modo review",
+        "activa modo especialista",
+        "especialista",
+        "usa un agente especializado",
+        "bago activa agente",
+        "pon al agente",
+        "que lo haga el agente",
+        "que entre el agente"
+      ]
+    },
+    "/memory": {
+      "description": "Listar y buscar recuerdos en la base de conocimiento",
+      "wizard": false,
+      "phrases": [
+        "memoria", "memory", "recuerdos", "ver recuerdos", "listar recuerdos",
+        "base de conocimiento", "que recuerdas", "qué recuerdas",
+        "buscar en memoria", "memoria de bago", "knowledge base"
+      ]
+    },
+    "/memory delete": {
+      "description": "Eliminar un recuerdo de la base de conocimiento (asistente guiado)",
+      "wizard": true,
+      "phrases": [
+        "borrar recuerdo", "eliminar recuerdo", "olvidar", "borra eso",
+        "elimina ese recuerdo", "memory delete", "borrar de memoria",
+        "quita ese recuerdo", "no recuerdes eso"
+      ]
+    },
+    "/good": {
+      "description": "Marcar el último mensaje del asistente como importante/positivo",
+      "wizard": false,
+      "phrases": [
+        "good", "bien", "muy bien", "excelente respuesta", "marcar como bueno",
+        "esto estuvo bien", "me gustó eso", "me gusto eso", "marca como importante",
+        "guarda esa respuesta", "eso fue correcto", "thumbs up"
+      ]
+    },
+    "/feedback": {
+      "description": "Registrar feedback explícito sobre la respuesta (-1 a 1; asistente guiado)",
+      "wizard": true,
+      "phrases": [
+        "feedback", "dar feedback", "valorar", "puntuar", "calificar",
+        "dar mi opinión", "dar mi opinion", "valorar respuesta",
+        "puntuar respuesta", "rate this", "que tal estuvo"
+      ]
+    },
+    "/config": {
+      "description": "Ver la configuración actual de BAGO",
+      "wizard": false,
+      "phrases": [
+        "config", "configuracion", "configuración", "ver config", "ver configuracion",
+        "ver configuración", "ajustes", "settings", "ver ajustes",
+        "como esta configurado", "cómo está configurado"
+      ]
+    },
+    "/config set": {
+      "description": "Cambiar un ajuste de configuración (asistente guiado)",
+      "wizard": true,
+      "phrases": [
+        "cambiar config", "cambiar configuracion", "cambiar configuración",
+        "config set", "cambiar ajuste", "cambiar setting", "ajustar",
+        "modificar config", "editar configuracion", "personalizar bago"
+      ]
+    },
+    "/credentials": {
+      "description": "Ver credenciales API configuradas",
+      "wizard": false,
+      "phrases": [
+        "credenciales", "credentials", "ver credenciales", "listar credenciales",
+        "que credenciales hay", "qué credenciales hay", "api keys configuradas",
+        "ver api keys", "credenciales guardadas"
+      ]
+    },
+    "/credentials set": {
+      "description": "Registrar o actualizar credenciales de un provider (wizard: elige provider → key → valor)",
+      "wizard": true,
+      "phrases": [
+        "login", "log in", "iniciar login", "iniciar sesion", "iniciar sesión",
+        "autenticar", "autenticarse", "autenticacion", "autenticación",
+        "configurar credenciales", "añadir credenciales", "agregar credenciales",
+        "configurar api key", "añadir api key", "agregar api key",
+        "nueva credencial", "registrar credencial", "poner api key",
+        "configurar proveedor", "configurar provider", "conectar proveedor",
+        "conectar provider", "set credentials", "add credentials",
+        "credenciales set", "api key", "apikey",
+        "LOGIN",
+        "INICIAR LOGIN",
+        "REGISTRA LAS CREDENCIALES",
+        "mete la api key",
+        "pon la api key",
+        "dame acceso al provider",
+        "quiero conectar con openai",
+        "quiero conectar con anthropic",
+        "quiero conectar con openrouter",
+        "configurar openai",
+        "configurar anthropic",
+        "configurar copilot",
+        "configurar codex",
+        "poner el token",
+        "meter el token",
+        "tengo una api key",
+        "TENGO UNA API KEY",
+        "quiero poner mi api key",
+        "actualiza las credenciales",
+        "renueva las credenciales",
+        "credenciales de openai",
+        "credenciales de anthropic"
+      ]
+    },
+    "/train": {
+      "description": "Verificar que las frases de entrenamiento funcionan correctamente",
+      "wizard": false,
+      "phrases": [
+        "train", "entrenar", "test intenciones", "test frases",
+        "verificar entrenamiento", "probar frases", "comprobar frases",
+        "test de entrenamiento", "que frases funcionan", "prueba las frases",
+        "PRUEBA LAS FRASES", "TEST", "TRAIN",
+        "verificar frases", "ver que frases van", "test command intents",
+        "ejecutar el test", "correr el test de frases"
+      ]
+    },
+    "/update": {
+      "description": "Actualizar BAGO a la última versión disponible",
+      "wizard": false,
+      "phrases": [
+        "actualizar", "update", "actualizacion", "actualización",
+        "actualizar bago", "nueva version", "nueva versión",
+        "upgrade", "instalar actualizacion", "buscar actualizaciones",
+        "ACTUALIZAR",
+        "ACTUALIZAR BAGO",
+        "hay version nueva",
+        "hay versión nueva",
+        "bago actualiza",
+        "ponme al dia",
+        "ponme al día",
+        "instala la nueva version",
+        "instala la última version",
+        "update bago",
+        "sube de version",
+        "que bago se actualice"
+      ]
+    },
+    "/help": {
+      "description": "Mostrar la ayuda completa con todos los comandos",
+      "wizard": false,
+      "phrases": [
+        "ayuda", "help", "como funciona", "cómo funciona", "instrucciones",
+        "como se usa", "cómo se usa", "que comandos hay", "qué comandos hay",
+        "explicame bago", "explícame bago", "como usar bago", "cómo usar bago",
+        "manual", "doc", "documentacion", "documentación",
+        "AYUDA",
+        "HELP",
+        "COMO FUNCIONA ESTO",
+        "no se como usarte",
+        "no sé cómo usarte",
+        "explicate",
+        "que puedes hacer",
+        "qué puedes hacer",
+        "dame el manual",
+        "lista de comandos completa",
+        "que opciones tengo",
+        "qué opciones tengo",
+        "QUE PUEDES HACER",
+        "como te uso",
+        "bago como te uso"
+      ]
+    },
+    "/quit": {
+      "description": "Salir del chat BAGO",
+      "wizard": false,
+      "phrases": [
+        "salir", "quit", "exit", "cerrar", "adios", "adiós", "bye",
+        "hasta luego", "chau", "cerrar bago", "terminar", "salir de bago",
+        "fin", "cerrar sesion", "cerrar sesión",
+        "SALIR",
+        "ADIOS",
+        "CERRAR",
+        "hasta pronto",
+        "me voy",
+        "voy a cerrar",
+        "cierro bago",
+        "apaga bago",
+        "para bago",
+        "bye bago",
+        "hasta la proxima",
+        "hasta la próxima",
+        "nos vemos",
+        "cierra todo"
+      ]
+    }
+  }
+}

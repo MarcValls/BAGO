@@ -1,0 +1,33 @@
+name: Canonical CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install frontend workspaces
+        run: npm ci
+      - name: Build canonical frontend
+        run: npm run build
+      - name: Validate backend
+        working-directory: backend
+        run: python bago_core/cli.py validate
+      - name: Test backend
+        working-directory: backend
+        run: python -m pytest -q
+      - name: Install and test manager
+        working-directory: backend
+        run: |
+          npm ci
+          npm run manager:test-jobs
