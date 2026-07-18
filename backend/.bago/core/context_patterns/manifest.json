@@ -1,0 +1,45 @@
+{
+  "pack_id": "bago.context.workspace.core",
+  "pack_version": "1.0.0",
+  "required_schema_version": "context-pattern-schema-v1",
+  "domains": ["context"],
+  "dependencies": [],
+  "priority": 100,
+  "trust_level": "core",
+  "required": true,
+  "runtime": {
+    "min": "4.8.0",
+    "max": "4.8.x"
+  },
+  "discovery": {
+    "roots": ["."],
+    "recursive": false,
+    "authorized_extensions": [".json", ".toml", ".csv", ".md", ".markdown", ".yml", ".yaml", ".blob", ".txt"],
+    "symlinks": "reject",
+    "source_kinds": ["packaged"],
+    "remote_sources": false,
+    "generated_sources": false
+  },
+  "files": [
+    {
+      "path": "workspace_markers.json",
+      "format": "json",
+      "sha256": "594DEB32C8C9A50C1FB728532F7768BDD8B97E6CE95F6CBB07EC8C55C580DA3E"
+    },
+    {
+      "path": "workspace_followups.csv",
+      "format": "csv",
+      "sha256": "E32A29191D4339939398C9177337BF1FC520B233E1383D1B464D041904F64931"
+    },
+    {
+      "path": "workspace_questions.toml",
+      "format": "toml",
+      "sha256": "7B495E9DBB28C109BA4D96C47450BA6685E875ABBF2E6766F8F0C71ADECB46BD"
+    },
+    {
+      "path": "workspace_discourse.md",
+      "format": "markdown",
+      "sha256": "0881C12F6648B1E39FE078BC619A1B926F54E443672C6B5E72F7F97C02142B74"
+    }
+  ]
+}

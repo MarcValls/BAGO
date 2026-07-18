@@ -1,0 +1,61 @@
+{
+  "tag": "v4.1.5",
+  "version": "4.1.5",
+  "created_at": "2026-06-02T05:12:27.902636+00:00",
+  "release": {
+    "checksums": "C:\\Users\\AMTEC_Terminal_1º\\.bago\\launch\\checksums.sha256",
+    "bundle_id": "bago.v4.1.5",
+    "promoted_at": "2026-06-02T05:12:27.894873+00:00",
+    "default_model": "llama3.2:3b",
+    "fallback_chain": [
+      {
+        "provider": "ollama-local",
+        "model": "llama3.2:3b"
+      }
+    ],
+    "launcher": "C:\\Program Files\\BAGO\\bago.ps1",
+    "version": "4.1.5",
+    "evidence": "historical-evidence-not-shipped",
+    "target": "C:\\Program Files\\BAGO",
+    "routing": "BAGO\\docs\\contracts\\bago_v4_routing_presets.json",
+    "source": "C:\\Users\\AMTEC_Terminal_1º\\BAGO",
+    "supervisor": {
+      "script": "scripts/bago_supervisor.py",
+      "always_on": true,
+      "stop_signal": "sentinel_file",
+      "max_grace_seconds": 10
+    },
+    "knowledge": {
+      "kb_rows_total": 2685,
+      "by_table": {
+        "project_file": 13,
+        "session_arc": 2639,
+        "simulation": 7,
+        "topic": 26
+      },
+      "fallback": 2659,
+      "embedding_model": "llama3.2:3b",
+      "real_embeddings": 26,
+      "source_db": "C:\\Users\\AMTEC_Terminal_1º\\.bago\\knowledge\\knowledge.db"
+    }
+  },
+  "signature": {
+    "algorithm": "chained-sha256",
+    "signed_at": "2026-06-02T05:12:27.902624+00:00",
+    "release_sha256": "0e18c4ae06fbbfd0a27f21287c67d7daaf7bb74545bd51785e6c3b79023935b5",
+    "key_sha256": "0e18c4ae06fbbfd0a27f21287c67d7daaf7bb74545bd51785e6c3b79023935b5",
+    "checksums_sha256": "8aa26604821f090af8fcc241040094ca94c6a02134af94fe01133e0b0ef2c486",
+    "seal_sha256": "d80bd14e09eac6e223b978256dcaf0499e68753fee2d566ba2c3c5d405ad647f"
+  },
+  "components": {
+    "supervisor": "scripts/bago_supervisor.py",
+    "launchers": [
+      "C:\\Program Files\\BAGO\\bago.ps1",
+      "C:\\Program Files\\BAGO\\bago.cmd",
+      "C:\\Users\\AMTEC_Terminal_1º\\.bago\\bago.ps1",
+      "C:\\Users\\AMTEC_Terminal_1º\\.bago\\bago.cmd",
+      "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\bago.ps1",
+      "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\bago.cmd"
+    ]
+  }
+}

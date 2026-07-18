@@ -1,0 +1,49 @@
+{
+  "sources": [
+    {
+      "path": "system_prompt_identity.md",
+      "required": true,
+      "kind": "identity"
+    },
+    {
+      "path": "system_prompt_workspace.md",
+      "required": true,
+      "kind": "workspace"
+    },
+    {
+      "path": "system_prompt_understanding.md",
+      "required": true,
+      "kind": "understanding"
+    },
+    {
+      "path": "system_prompt_evidence.md",
+      "required": true,
+      "kind": "evidence"
+    },
+    {
+      "path": "system_prompt_format.md",
+      "required": true,
+      "kind": "format"
+    },
+    {
+      "path": "../BOOTSTRAP.md",
+      "required": true,
+      "kind": "bootstrap"
+    },
+    {
+      "path": "../AGENT_START.md",
+      "required": true,
+      "kind": "agent_start"
+    }
+  ],
+  "validation": {
+    "required_phrases": [
+      "Treat RC4 as the intake and output pattern",
+      "state, evidence, change, validation, next step",
+      "QuestionUnderstandingState",
+      "ResponseContract",
+      "Prefer technical vocabulary, file names, and canonical contracts",
+      "Avoid line-number anchoring unless the user explicitly asks for it"
+    ]
+  }
+}

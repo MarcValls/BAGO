@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/contracts/pi/policy_manifest.schema.json",
+  "title": "BagoPiBridge Policy Manifest",
+  "description": "Manifiesto del policy que BAGO carga antes de cualquier ejecución. Define los 13 flags allow_*, max_phase, network_mode y有效期. El sidecar debe rechazar cualquier ejecución cuyo policy_digest no coincida con el de su handshake.",
+  "contract_id": "bago.pi.bridge.policy",
+  "contract_version": "0.3.0",
+  "scope": "sidecar",
+  "source_of_truth": [
+    "backend/.bago/integrations/pi/ARQ-v0.3-separacion-autoridad.md",
+    "backend/.bago/integrations/pi/config.py"
+  ],
+  "type": "object",
+  "required": [
+    "policy_id",
+    "policy_digest",
+    "profile",
+    "max_phase",
+    "network_mode",
+    "allow_pi_auth_store",
+    "allow_pi_sessions",
+    "allow_pi_settings",
+    "allow_pi_system_prompt_discovery",
+    "allow_skills",
+    "allow_extensions",
+    "allow_packages",
+    "allow_native_tools",
+    "allow_process_spawn",
+    "allow_mutations",
+    "quarantine_mode",
+    "issued_at",
+    "expires_at"
+  ],
+  "properties": {
+    "policy_id": { "type": "string", "pattern": "^pol-[a-zA-Z0-9_-]+$" },
+    "policy_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 del policy serializado (sin digest campo). Usado para comparar contra handshake." },
+    "profile": { "type": "string", "enum": ["disabled", "provider_only", "readonly_tools", "agent_capture"] },
+    "max_phase": { "type": "integer", "minimum": 0, "maximum": 4, "description": "Fase máxima autorizada (0=handshake, 1=provider, 2=read tools, 3=agent, 4=mutations)." },
+    "network_mode": { "type": "string", "enum": ["provider_endpoints_only", "loopback_only", "unrestricted"] },
+    "allow_pi_auth_store": { "type": "boolean", "description": "false siempre — BAGO gestiona credenciales." },
+    "allow_pi_sessions": { "type": "boolean", "description": "false siempre — PI no tiene autoridad de sesión." },
+    "allow_pi_settings": { "type": "boolean", "description": "false siempre — sin acceso a ~/.pi/settings." },
+    "allow_pi_system_prompt_discovery": { "type": "boolean", "description": "false siempre — sin AGENTS.md/CLAUDE.md." },
+    "allow_skills": { "type": "boolean", "description": "false por cuarentena." },
+    "allow_extensions": { "type": "boolean", "description": "false por cuarentena." },
+    "allow_packages": { "type": "boolean", "description": "false por cuarentena." },
+    "allow_native_tools": { "type": "boolean", "description": "false — herramientas siempre vía ToolRegistry BAGO." },
+    "allow_process_spawn": { "type": "boolean", "description": "false — BAGO controla spawn." },
+    "allow_mutations": { "type": "boolean", "description": "false hasta Fase 4 GO con OS sandbox." },
+    "quarantine_mode": { "type": "boolean", "description": "true por defecto; false solo con promoción explícita." },
+    "tools_allowed": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["read", "list", "grep", "find"] },
+      "maxItems": 4,
+      "description": "Solo Fase 2+. Default: []. Vacío en Fase 0/1."
+    },
+    "approved_directories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Rutas absolutas autorizadas. Vacío por defecto."
+    },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time", "description": "Momento en que el policy expira; el sidecar debe rechazar ejecuciones con policy expirado." },
+    "signed_by": { "type": "string", "description": "ID del firmante (BAGO session_mgr instance id)." }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "bago_v4_runtime_contract",
+  "version": 1,
+  "presets": {
+    "balanced": {
+      "label": "Balanced",
+      "description": "Default routing preset. Stable quality/cost ratio for chat, review, and execute.",
+      "contract": {
+        "source": "file:docs/contracts/bago_v4_routing_presets.json#balanced",
+        "text": "BAGO 4.8.0 routing preset 'balanced'. Routing decisions stay within the ollama-local provider unless an explicit override is requested via /switch or --provider. Models must be declared in .bago/config.json providers.*.default_model. The preset does not authorize cross-provider side effects, silent model swaps, or credential retrieval. Any violation is logged to .bago/state/audit.log with correlation_id."
+      },
+      "providers": {
+        "primary": "ollama-local",
+        "fallback": "ollama-local",
+        "allowed": [
+          "ollama-local"
+        ]
+      },
+      "model_policy": {
+        "require_in_config": true,
+        "allow_runtime_override": true,
+        "max_context_tokens": 8192
+      }
+    },
+    "cheap": {
+      "label": "Cheap",
+      "description": "Lowest-cost local model. Useful for smoke tests and CI dry-runs.",
+      "contract": {
+        "source": "file:docs/contracts/bago_v4_routing_presets.json#cheap",
+        "text": "BAGO 4.8.0 routing preset 'cheap'. Forces the smallest model advertised by the active provider and disables tool calling to keep cost at zero. Used by --dry-run and CI. Output is informational only and must not be promoted to a release artifact."
+      },
+      "providers": {
+        "primary": "ollama-local",
+        "fallback": "ollama-local",
+        "allowed": [
+          "ollama-local"
+        ]
+      },
+      "model_policy": {
+        "require_in_config": true,
+        "allow_runtime_override": true,
+        "max_context_tokens": 4096
+      }
+    },
+    "quality": {
+      "label": "Quality",
+      "description": "Highest-quality local model. Used for evidence bundles and release reviews.",
+      "fallback_chain": [
+        {"provider": "ollama-local", "model": "llama3.2:3b"}
+      ],
+      "contract": {
+        "source": "file:docs/contracts/bago_v4_routing_presets.json#quality",
+        "text": "BAGO 4.8.0 routing preset 'quality'. Routes to the largest local model configured in .bago/config.json. Tool calling and streaming are enabled. Evidence bundles generated under this preset include the preset name in manifest.json#routing_preset for auditability."
+      },
+      "providers": {
+        "primary": "ollama-local",
+        "fallback": "ollama-local",
+        "allowed": [
+          "ollama-local"
+        ]
+      },
+      "model_policy": {
+        "require_in_config": true,
+        "allow_runtime_override": false,
+        "max_context_tokens": 16384
+      }
+    }
+  }
+}

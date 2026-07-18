@@ -1,0 +1,45 @@
+name: Canonical CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Python test dependencies
+        run: python -m pip install pytest==9.0.3
+      - name: Install frontend workspaces
+        run: npm ci
+      - name: Build canonical frontend
+        run: npm run build
+      - name: Typecheck canonical frontend
+        run: npm run typecheck
+      - name: Test canonical frontend
+        run: npm run test:frontend
+      - name: Validate backend
+        working-directory: backend
+        run: python bago_core/cli.py validate
+      - name: Test backend
+        working-directory: backend
+        run: python -m pytest -q
+      - name: Test clean Windows install
+        working-directory: backend
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_clean_install.ps1
+      - name: Install and test manager
+        working-directory: backend
+        run: |
+          npm ci
+          npm run manager:test-jobs

@@ -1,0 +1,77 @@
+{
+  "version": "2",
+  "generated_by": "bago canonical repair 2026-07-18",
+  "tool_count": 14,
+  "tools": {
+    "auto_heal": {
+      "file": "auto_heal.py",
+      "sha256": "967884c1154e6a74c076d426171ada68f4d45f4d9937cc88c649d11d75046ed0",
+      "cmd": "auto-heal"
+    },
+    "code_metrics": {
+      "file": "code_metrics.py",
+      "sha256": "c633c5b83da3e50a32a58bd3ddb43dd6ce3672fcd0953c9bd6d7574abedb9891",
+      "cmd": "code-metrics"
+    },
+    "commit_readiness": {
+      "file": "commit_readiness.py",
+      "sha256": "9977725bd157ebb62d6a3ce7f49bf713547f0793f4006ebbd5fd36fc3bdfbb7c",
+      "cmd": "commit-readiness"
+    },
+    "dead_code": {
+      "file": "dead_code.py",
+      "sha256": "aeedcdec5e9719424c7896b6582193c2b6d93797088266f48a98f1c91cc43be3",
+      "cmd": "dead-code"
+    },
+    "dep_audit": {
+      "file": "dep_audit.py",
+      "sha256": "08b87489f9f0b29bd618a299b9b20968562b3c918ebcfd1f942e74711c69e75c",
+      "cmd": "dep-audit"
+    },
+    "doctor": {
+      "file": "doctor.py",
+      "sha256": "0f3526b3297983a85dc9840e7889f969aec02da3d30f7428199b881bfb8cc971",
+      "cmd": "doctor"
+    },
+    "git_context": {
+      "file": "git_context.py",
+      "sha256": "85c8cb79135e262241150e1e29963232690d7e1aa061f88e2b6bcbeaba359d6d",
+      "cmd": "git-context"
+    },
+    "naming_check": {
+      "file": "naming_check.py",
+      "sha256": "ce1fbd5a2facbbae35a05daeb8bc6a7474ef3f3071f4295ad6d88f714aeabbb9",
+      "cmd": "naming-check"
+    },
+    "net_scan": {
+      "file": "net_scan.py",
+      "sha256": "f2a9fb157de43b12474e852556d8e8cf5209e50813e9ded81a33d70a1983b97c",
+      "cmd": "net-scan"
+    },
+    "project_memory": {
+      "file": "project_memory.py",
+      "sha256": "7fe7c1f2eb96df36a5fafa68974c643203ffb6c36c5411623272f7628d9db208",
+      "cmd": "project-memory"
+    },
+    "secret_scan": {
+      "file": "secret_scan.py",
+      "sha256": "12d1ff87d7d93d2d1d86979d4fc7f905e97e95b1c34055e99b91306213efe559",
+      "cmd": "secret-scan"
+    },
+    "sincerity_detector": {
+      "file": "sincerity_detector.py",
+      "sha256": "bfe94334c0e0df802b71102d02ec1076afdb4092b0be1bf5560ecc1b49951be0",
+      "cmd": "sincerity-detector"
+    },
+    "todo_scan": {
+      "file": "todo_scan.py",
+      "sha256": "0b1c3b3e0218763bc15a580b6aa43c5b90143e2df82a1c959b44881ef0eeb64c",
+      "cmd": "todo-scan"
+    },
+    "tool_registry": {
+      "file": "tool_registry.py",
+      "sha256": "14d4c6b1ccadf0b235d1e3c9e302bca51c1afaaedb3d35eb337d890d77010594",
+      "cmd": "tool-registry"
+    }
+  }
+}

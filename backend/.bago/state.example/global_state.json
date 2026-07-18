@@ -1,0 +1,27 @@
+{
+  "bago_version": "current",
+  "version": "current",
+  "status": "ok",
+  "mode": "balanced",
+  "health": {
+    "score": 0,
+    "max": 100,
+    "status": "unknown"
+  },
+  "sprint_status": {
+    "active_workflow": null,
+    "pending_w2_task": "none",
+    "last_completed_workflow": null
+  },
+  "inventory": {
+    "sessions": 0,
+    "changes": 0,
+    "evidences": 0
+  },
+  "last_validation": {},
+  "unresolved": {
+    "stashes": 0,
+    "note": ""
+  },
+  "_comment": "Template for new installs. Copy to .bago/state/global_state.json. The runtime will update bago_version when it initializes the real state."
+}

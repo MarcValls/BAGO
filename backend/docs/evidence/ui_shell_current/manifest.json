@@ -1,0 +1,13 @@
+{
+  "bundle_id": "bago.v4.evidence.ui-shell-current",
+  "contract_version": "4.8.0",
+  "summary": "Current evidence for the new ControlPlane-based UI shell and its mode/navigation contract.",
+  "status": "pass",
+  "recorded_at": "2026-07-05T00:00:00+02:00",
+  "validation_commands": [
+    "python -m pytest -q tests/test_focus_mode_contract.py tests/test_command_palette_contract.py tests/test_ui_cognitive_load_contract.py tests/test_shortcuts_contract.py tests/test_ui_static_contract.py"
+  ],
+  "artifacts": [
+    "report.md"
+  ]
+}
