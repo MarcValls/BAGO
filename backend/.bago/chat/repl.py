@@ -79,6 +79,7 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
             state_root=str(self.state_root),
             system_prompt=system_prompt,
             active_bridges=active_bridges,
+            require_project_identity=True,
         )
         R.set_color_enabled(bool(self.mgr.config.get("ui.color", True)))
         self.engine = SwitchEngine(self.mgr.adapters)
