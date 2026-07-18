@@ -303,3 +303,56 @@ export const PROVIDER_CATALOG: ProviderDescriptor[] = [
 export function findProvider(id: string): ProviderDescriptor | undefined {
   return PROVIDER_CATALOG.find((p) => p.provider_id === id);
 }
+
+const RUNTIME_PROVIDER_DESCRIPTORS: Record<string, ProviderDescriptor> = {
+  copilot: {
+    provider_id: 'copilot',
+    label: 'GitHub Copilot',
+    protocol: 'protocol_openai_compat',
+    auth_kind: 'auth_api_key',
+    runtime_kind: 'runtime_external',
+    base_url: 'https://api.githubcopilot.com',
+    model_discovery: { type: 'manual' },
+    billing_owner: 'user',
+    enabled: false,
+    notes: ['Acepta un token de Copilot o utiliza el CLI autenticado detectado por BAGO.']
+  },
+  opencode: {
+    provider_id: 'opencode',
+    label: 'OpenCode',
+    protocol: 'protocol_openai_compat',
+    auth_kind: 'auth_api_key',
+    runtime_kind: 'runtime_external',
+    base_url: 'https://api.opencode.ai/v1',
+    model_discovery: { type: 'manual' },
+    billing_owner: 'user',
+    enabled: false
+  },
+  'cpp-local': {
+    provider_id: 'cpp-local',
+    label: 'BAGO C++ local',
+    protocol: 'protocol_openai_compat',
+    auth_kind: 'auth_none_local',
+    runtime_kind: 'runtime_local_http',
+    base_url: 'http://127.0.0.1:8765',
+    model_discovery: { type: 'manual' },
+    billing_owner: 'user',
+    enabled: false
+  }
+};
+
+export function resolveProviderDescriptor(id: string, label?: string): ProviderDescriptor {
+  const known = findProvider(id) || RUNTIME_PROVIDER_DESCRIPTORS[id];
+  if (known) return { ...known, provider_id: id };
+  return {
+    provider_id: id,
+    label: label || id,
+    protocol: 'protocol_openai_compat',
+    auth_kind: 'auth_openai_compat',
+    runtime_kind: 'runtime_external',
+    model_discovery: { type: 'manual' },
+    billing_owner: 'user',
+    enabled: false,
+    notes: ['Proveedor expuesto por el registro activo del backend.']
+  };
+}

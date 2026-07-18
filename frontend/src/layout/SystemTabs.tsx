@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { BagoClient, createBagoClient } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
-import { PROVIDER_CATALOG, findProvider } from '@/shared/provider-catalog';
+import { resolveProviderDescriptor } from '@/shared/provider-catalog';
 import { ProviderDescriptor } from '@/shared/provider-config';
+import { normalizeProviderModels } from '@/shared/providerModels';
 import { ProviderConfigModal } from './ProviderConfigModal';
 import type { ContextTargetKind, SelectionRecord } from '@/contracts/backend';
 
@@ -123,16 +124,25 @@ export function SystemTabs(props: Props) {
   const [routes, setRoutes] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [configModal, setConfigModal] = useState<ProviderDescriptor | null>(null);
-  const [configInitial, setConfigInitial] = useState<{ enabled?: boolean; base_url?: string; api_key?: string; default_model?: string } | undefined>(undefined);
+  const [configInitial, setConfigInitial] = useState<{
+    enabled?: boolean;
+    base_url?: string;
+    api_key?: string;
+    default_model?: string;
+    has_secret?: boolean;
+    models?: string[];
+  } | undefined>(undefined);
 
   function openConfigModal(descriptor: ProviderDescriptor) {
     const state = props.providers.find((p) => String(p.name || p.id) === descriptor.provider_id);
     setConfigInitial(state
       ? {
-          enabled: state.enabled !== false,
+          enabled: state.enabled === true,
           base_url: state.base_url ? String(state.base_url) : undefined,
           api_key: undefined, // nunca re-llenar la clave; pedir siempre
-          default_model: state.model ? String(state.model) : undefined
+          default_model: state.default_model ? String(state.default_model) : undefined,
+          has_secret: Boolean(state.has_secret),
+          models: normalizeProviderModels({ models: state.models }).map((entry) => entry.id)
         }
       : undefined);
     setConfigModal(descriptor);
@@ -207,7 +217,7 @@ export function SystemTabs(props: Props) {
     'system-providers',
     'Proveedores',
     `${props.providers.length} proveedores`,
-    [`configured: ${props.providers.filter((provider) => provider.enabled !== false).length}`],
+    [`configured: ${props.providers.filter((provider) => provider.configured === true).length}`],
     props.providers,
     'system.provider'
   );
@@ -331,15 +341,20 @@ export function SystemTabs(props: Props) {
           <section className="system-tab-panel" role="tabpanel">
             <h3>Proveedores</h3>
             <div className="system-tab-description with-actions">
-              <span>Catálogo BAGO. Click en "Configurar" para registrar un proveedor. Las credenciales nunca viven en el bundle del frontend.</span>
+              <span>Registro activo del backend. Configura cada adaptador real y consulta su catálogo canónico de modelos.</span>
               <ActionMenuButton selection={providersSelection} onInspectSelection={props.onInspectSelection} label="Acciones de proveedores" />
             </div>
+            {props.providers.length === 0 ? (
+              <ErrorState error="El backend no ha devuelto proveedores registrados" />
+            ) : (
             <ul className="provider-list">
-              {PROVIDER_CATALOG.map((descriptor) => {
-                const state = props.providers.find(
-                  (p) => String(p.name || p.id) === descriptor.provider_id
-                );
-                const enabled = state ? (state.enabled !== false) : descriptor.enabled;
+              {props.providers.map((state) => {
+                const providerId = String(state.id || state.name || '').trim();
+                const descriptor = resolveProviderDescriptor(providerId);
+                const enabled = state.enabled === true;
+                const configured = state.configured === true;
+                const models = normalizeProviderModels({ models: state.models }).map((entry) => entry.id);
+                const statusLabel = !enabled ? 'inactivo' : configured ? 'listo' : 'pendiente';
                 return (
                   <li
                     key={descriptor.provider_id}
@@ -360,8 +375,8 @@ export function SystemTabs(props: Props) {
                   >
                     <div className="provider-list-head">
                       <strong>{descriptor.label}</strong>
-                      <span className={`provider-status ${enabled ? 'is-on' : 'is-off'}`}>
-                        {enabled ? 'activo' : 'inactivo'}
+                      <span className={`provider-status ${enabled && configured ? 'is-on' : 'is-off'}`}>
+                        {statusLabel}
                       </span>
                     </div>
                     <div className="provider-list-meta">
@@ -369,8 +384,14 @@ export function SystemTabs(props: Props) {
                       <span> · </span>
                       <span>{descriptor.auth_kind.replace('auth_', '')}</span>
                     </div>
-                    {descriptor.base_url && (
-                      <div className="provider-list-meta">{descriptor.base_url}</div>
+                    <div className="provider-list-meta">
+                      {models.length} modelo{models.length === 1 ? '' : 's'} · fuente: {String(state.models_source || 'backend')}
+                    </div>
+                    {models.length > 0 && (
+                      <div className="provider-list-models" aria-label={`Modelos reales de ${descriptor.label}`}>
+                        {models.slice(0, 4).map((modelId) => <code key={modelId}>{modelId}</code>)}
+                        {models.length > 4 && <span>+{models.length - 4}</span>}
+                      </div>
                     )}
                     <button
                       type="button"
@@ -383,22 +404,21 @@ export function SystemTabs(props: Props) {
                 );
               })}
             </ul>
+            )}
           </section>
         )}
 
         {configModal && (
           <ProviderConfigModal
             descriptor={configModal}
-            apiBase={props.apiBase}
+            client={client}
             initial={configInitial}
             onClose={() => setConfigModal(null)}
             onSave={async (cfg) => {
               await props.onConfigureProvider(configModal.provider_id, cfg);
             }}
             onDetectCli={async (tool) => {
-              const res = await fetch(`${props.apiBase}/providers/cli-detect?tool=${tool}`);
-              if (!res.ok) throw new Error('No se pudo detectar el CLI');
-              return res.json();
+              return client.detectProviderCli(tool);
             }}
           />
         )}

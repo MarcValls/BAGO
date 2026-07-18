@@ -68,6 +68,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     from handlers_evidence import _evidence_items
     from handlers_jobs import _job_list, _scheduled_jobs
     from handlers_jobs import _job_summary
+    from handlers_providers import build_providers_payload
     from handlers_router import _policy_payload
     from handlers_workspace import _workspace_payload
 
@@ -87,14 +88,12 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     router_policy = _policy_payload(handler)
     audit = {"project": _project_audit(), "bago": _bago_audit(mgr)}
     history_messages = list(getattr(getattr(mgr, "store", None), "get_history", lambda: [])() or [])
-    cfg = getattr(mgr, "config", None)
-    providers = mgr.available_providers()
-    providers_mode = cfg.get("model_catalog.mode", "all") if cfg else "all"
+    providers_payload = build_providers_payload(mgr)
 
     send_json(handler, 200, {
         "status": status,
         "session": session_payload,
-        "providers": {"providers": providers, "mode": providers_mode},
+        "providers": providers_payload,
         "menu": session_payload.get("menu_state", {}),
         "routes": {"ok": True, "routes": all_routes(), "count": len(all_routes())},
         "history": {"session_id": getattr(mgr, "session_id", "?"), "messages": history_messages, "count": len(history_messages)},

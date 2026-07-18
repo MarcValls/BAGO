@@ -4,25 +4,29 @@
 // tras guardar la configuración.
 
 import { useEffect, useState } from 'react';
-import { ProviderDescriptor, AuthKind } from '../shared/provider-config';
+import type { BagoClient } from '../api/client';
+import { ProviderDescriptor } from '../shared/provider-config';
 import { Icon } from '../shared/Icon';
-
-interface ModelEntry {
-  id: string;
-  available: boolean;
-}
+import { normalizeProviderModels } from '../shared/providerModels';
 
 interface Props {
   descriptor: ProviderDescriptor;
-  apiBase: string;
+  client: BagoClient;
   onClose: () => void;
   onSave: (cfg: { enabled: boolean; base_url?: string; api_key?: string; model?: string }) => Promise<void>;
   onDetectCli?: (tool: 'codex' | 'copilot') => Promise<{ installed: boolean; path: string | null; install_hint: string }>;
   // Estado inicial (lo que el backend ya tiene guardado)
-  initial?: { enabled?: boolean; base_url?: string; api_key?: string; default_model?: string };
+  initial?: {
+    enabled?: boolean;
+    base_url?: string;
+    api_key?: string;
+    default_model?: string;
+    has_secret?: boolean;
+    models?: string[];
+  };
 }
 
-export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDetectCli, initial }: Props) {
+export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDetectCli, initial }: Props) {
   const [enabled, setEnabled] = useState(initial?.enabled ?? descriptor.enabled);
   const [baseUrl, setBaseUrl] = useState(initial?.base_url ?? descriptor.base_url ?? '');
   const [apiKey, setApiKey] = useState(initial?.api_key ?? '');
@@ -33,14 +37,15 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
   const [cliHint, setCliHint] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   // ── Modelos disponibles / activos ──
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [availableModels, setAvailableModels] = useState<string[]>(initial?.models ?? []);
   const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [savingModels, setSavingModels] = useState(false);
-  const [discoverySource, setDiscoverySource] = useState<string>('manual');
+  const [discoverySource, setDiscoverySource] = useState<string>('session-manager');
 
   // Detección de CLI automática para auth_delegated_runtime
   useEffect(() => {
@@ -55,32 +60,30 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
 
   // Cargar modelos activos al abrir (para tenerlos como base)
   useEffect(() => {
-    void fetch(`${apiBase}/providers/${descriptor.provider_id}/active-models`)
-      .then((r) => r.ok ? r.json() : { active_models: [] })
+    void client.getActiveProviderModels(descriptor.provider_id)
       .then((data) => {
         if (Array.isArray(data.active_models)) {
-          setActiveModels(new Set(data.active_models));
+          setActiveModels(new Set(data.active_models.map(String)));
         }
       })
       .catch(() => {});
-  }, [apiBase, descriptor.provider_id]);
+  }, [client, descriptor.provider_id]);
+
+  useEffect(() => {
+    void loadModels();
+  }, [client, descriptor.provider_id]);
 
   async function loadModels() {
     setModelsLoading(true);
     setModelsError(null);
     try {
-      const res = await fetch(`${apiBase}/providers/${descriptor.provider_id}/models`);
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setModelsError(data.error || `HTTP ${res.status}`);
-        setAvailableModels([]);
-      } else {
-        setAvailableModels(Array.isArray(data.models) ? data.models : []);
-        setDiscoverySource(data.discovery_source || 'manual');
-        // Sincronizar default_model si está vacío
-        if (!model && data.default_model) {
-          setModel(data.default_model);
-        }
+      const data = await client.getModels(descriptor.provider_id);
+      const entries = normalizeProviderModels(data);
+      setAvailableModels(entries.map((entry) => entry.id));
+      setDiscoverySource(String(data.models_source || data.discovery_source || 'session-manager'));
+      if (!model) {
+        const selected = String(data.selected_model || data.effective_model || '').trim();
+        if (selected) setModel(selected);
       }
     } catch (e) {
       setModelsError(String(e));
@@ -93,14 +96,9 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
     setSavingModels(true);
     setModelsError(null);
     try {
-      const res = await fetch(`${apiBase}/providers/${descriptor.provider_id}/active-models`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ models: Array.from(activeModels) })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setModelsError(data.error || `HTTP ${res.status}`);
+      const data = await client.setActiveProviderModels(descriptor.provider_id, Array.from(activeModels));
+      if (data.ok === false) {
+        setModelsError(String(data.error || 'No se pudo guardar la selección'));
       }
     } catch (e) {
       setModelsError(String(e));
@@ -132,6 +130,7 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
   const save = async () => {
     setSaving(true);
     setError(null);
+    setSaved(false);
     try {
       await onSave({
         enabled,
@@ -139,7 +138,8 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
         api_key: apiKey || undefined,
         model: model || undefined
       });
-      onClose();
+      await loadModels();
+      setSaved(true);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -220,18 +220,17 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
                   autoComplete="off"
                 />
                 <small>Se guarda en el backend. Nunca en el bundle del frontend.</small>
+                {initial?.has_secret && !apiKey && <small>Ya existe una credencial cifrada. Déjalo vacío para conservarla.</small>}
               </label>
-              {descriptor.model_discovery.type !== 'manual' && (
-                <label className="provider-config-field">
-                  <span>Modelo por defecto (opcional)</span>
-                  <input
-                    type="text"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="se autodetecta si lo dejas vacío"
-                  />
-                </label>
-              )}
+              <label className="provider-config-field">
+                <span>Modelo por defecto (opcional)</span>
+                <input
+                  type="text"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="se autodetecta si lo dejas vacío"
+                />
+              </label>
             </section>
           )}
 
@@ -329,17 +328,15 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
                   autoComplete="off"
                 />
               </label>
-              {descriptor.model_discovery.type !== 'manual' && (
-                <label className="provider-config-field">
-                  <span>Modelo por defecto (opcional)</span>
-                  <input
-                    type="text"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="se autodetecta si lo dejas vacío"
-                  />
-                </label>
-              )}
+              <label className="provider-config-field">
+                <span>Modelo por defecto (opcional)</span>
+                <input
+                  type="text"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="se autodetecta si lo dejas vacío"
+                />
+              </label>
             </section>
           )}
 
@@ -352,10 +349,9 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
             </section>
           )}
 
-          {/* Modelos disponibles (Fase C) */}
           <section className="provider-config-section provider-config-models">
             <div className="provider-config-models-head">
-              <strong>Modelos activos</strong>
+              <strong>Modelos del proveedor</strong>
               <div className="provider-config-models-actions">
                 <button
                   type="button"
@@ -363,7 +359,7 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
                   onClick={() => void loadModels()}
                   disabled={modelsLoading}
                 >
-                  {modelsLoading ? 'Listando…' : 'Listar modelos'}
+                  {modelsLoading ? 'Actualizando…' : 'Actualizar catálogo'}
                 </button>
                 {availableModels.length > 0 && (
                   <button
@@ -377,14 +373,14 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
                 )}
               </div>
             </div>
-            {discoverySource !== 'manual' && availableModels.length > 0 && (
+            {availableModels.length > 0 && (
               <small className="provider-config-models-hint">
-                Detectados vía {discoverySource}. Marca los que quieras usar.
+                {availableModels.length} modelos desde {discoverySource}. Marca los que quieras usar.
               </small>
             )}
-            {discoverySource === 'manual' && availableModels.length === 0 && !modelsLoading && (
+            {availableModels.length === 0 && !modelsLoading && !modelsError && (
               <small className="provider-config-models-hint">
-                Este provider no autodetecta modelos. Los escribes a mano.
+                El backend no ha devuelto modelos para este proveedor.
               </small>
             )}
             {modelsError && (
@@ -422,6 +418,12 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
               <span>{error}</span>
             </div>
           )}
+          {saved && (
+            <div className="provider-config-success" role="status">
+              <Icon name="check" size={14} />
+              <span>Registro guardado y catálogo actualizado.</span>
+            </div>
+          )}
         </div>
 
         <footer className="provider-config-modal-foot">
@@ -434,7 +436,7 @@ export function ProviderConfigModal({ descriptor, apiBase, onClose, onSave, onDe
             onClick={save}
             disabled={saving || (descriptor.auth_kind === 'auth_delegated_runtime' && cliInstalled === false)}
           >
-            {saving ? 'Guardando…' : 'Guardar y listar modelos'}
+            {saving ? 'Guardando…' : 'Guardar y actualizar modelos'}
           </button>
         </footer>
       </div>

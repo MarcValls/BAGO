@@ -170,6 +170,21 @@ export class BagoClient {
     return this.request<Record<string, unknown>>(`/models/${encodeURIComponent(provider)}`, { method: 'GET' });
   }
 
+  getActiveProviderModels(provider: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/providers/${encodeURIComponent(provider)}/active-models`, { method: 'GET' });
+  }
+
+  setActiveProviderModels(provider: string, models: string[]): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/providers/${encodeURIComponent(provider)}/active-models`, {
+      method: 'POST',
+      body: JSON.stringify({ models, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  detectProviderCli(tool: 'codex' | 'copilot'): Promise<{ installed: boolean; path: string | null; install_hint: string }> {
+    return this.request(`/providers/cli-detect?tool=${encodeURIComponent(tool)}`, { method: 'GET' });
+  }
+
   getMenu(): Promise<BackendMenu> {
     return this.request<BackendMenu>('/menu', { method: 'GET' });
   }
