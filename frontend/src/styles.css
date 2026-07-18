@@ -868,6 +868,24 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
   flex: 1;
   min-width: 0;
 }
+.chat-model-control {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.chat-composer-tools .chat-model-selector {
+  min-width: 180px;
+  max-width: min(320px, 38vw);
+}
+.chat-model-error {
+  min-width: 0;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--red);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .chat-tool-button {
   display: inline-flex;
   align-items: center;
@@ -942,27 +960,6 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
   border: 1px solid rgba(103, 136, 247, .3);
   border-radius: 9px;
   margin-left: 6px;
-}
-
-/* Model selector en topbar: compacto */
-.chat-composer-topbar .chat-model-selector {
-  height: 26px;
-  min-width: 140px;
-  max-width: 240px;
-  padding: 0 22px 0 8px;
-  font-size: 10px;
-  background: #0a1018;
-  color: var(--text-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23607087' stroke-width='2'><path d='m6 9 6 6 6-6'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  background-size: 10px;
 }
 
 /* Compatibilidad con reglas anteriores */
@@ -1369,6 +1366,15 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
   color: #ffb450;
   font-size: 12px;
 }
+.provider-config-success {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(80, 200, 120, .1);
+  border: 1px solid rgba(80, 200, 120, .3);
+  color: #5fcc7e;
+  font-size: 12px;
+}
 .provider-config-info {
   display: grid; gap: 8px;
   padding: 12px 14px;
@@ -1591,6 +1597,9 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 .provider-status.is-on { background: rgba(98,215,166,.15); color: var(--green); }
 .provider-status.is-off { background: rgba(255,124,130,.15); color: var(--red); }
 .provider-list-meta { color: var(--text-3); font-size: 10px; font-family: ui-monospace, monospace; word-break: break-all; }
+.provider-list-models { display: flex; flex-wrap: wrap; gap: 4px; }
+.provider-list-models code,
+.provider-list-models span { padding: 2px 6px; border-radius: 4px; background: var(--surface-3); color: var(--text-2); font-size: 10px; }
 
 /* Audit / Interpret / Sim stacks (collapsible) */
 .audit-stack, .interpret-stack, .simulation-stack, .rl-stack { display: flex; flex-direction: column; gap: 8px; }

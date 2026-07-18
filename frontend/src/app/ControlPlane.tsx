@@ -1450,8 +1450,9 @@ export function ControlPlane() {
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
     setLastMessage(modelKey ? `modelo sesión: ${modelKey}` : 'modelo sesión: auto');
-    await clientRef.current.setSessionModel(modelKey);
-    setSessionModelState(modelKey);
+    const result = await clientRef.current.setSessionModel(modelKey);
+    setSessionModelState((result.session_model as string | null | undefined) ?? null);
+    await refreshAfterMutation();
   };
 
   useEffect(() => {

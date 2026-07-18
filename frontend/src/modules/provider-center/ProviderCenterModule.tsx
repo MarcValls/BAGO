@@ -281,11 +281,10 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
     const raw = currentProvider?.raw as Record<string, unknown> | undefined;
     const values = [
       readString(raw?.base_url || raw?.url || raw?.endpoint || ''),
-      configPreset.baseUrlPlaceholder,
       configForm.base_url,
     ].map((item) => item.trim()).filter(Boolean);
     return Array.from(new Set(values));
-  }, [configForm, currentProvider?.raw, configPreset.baseUrlPlaceholder]);
+  }, [configForm, currentProvider?.raw]);
   const configModelCandidates = useMemo(() => {
     if (!configForm) return [];
     const values = [
