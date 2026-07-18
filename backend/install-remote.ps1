@@ -61,8 +61,8 @@ function Get-LatestRelease {
     $apiUrl = "https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100"
     $releases = Invoke-RestMethod -Uri $apiUrl -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
     return @($releases) |
-        Where-Object { -not $_.draft -and -not $_.prerelease -and (Test-ReleaseAllowed -ReleaseTag ([string]$_.tag_name) -CeilingTag $ceiling) } |
-        Sort-Object { [datetime]$_.published_at } -Descending |
+        Where-Object { -not $_.draft -and -not $_.prerelease -and (Parse-VersionTag ([string]$_.tag_name)) -and (Test-ReleaseAllowed -ReleaseTag ([string]$_.tag_name) -CeilingTag $ceiling) } |
+        Sort-Object { Get-VersionSortKey ([string]$_.tag_name) } -Descending |
         Select-Object -First 1
 }
 
@@ -135,6 +135,13 @@ function Parse-VersionTag {
     }
 }
 
+function Get-VersionSortKey {
+    param([Parameter(Mandatory = $true)][string]$Value)
+    $parsed = Parse-VersionTag $Value
+    if (-not $parsed) { return [version]::new(0, 0, 0) }
+    return [version]::new($parsed.major, $parsed.minor, $parsed.patch)
+}
+
 function Compare-VersionTags {
     param(
         [Parameter(Mandatory = $true)]$Left,
@@ -195,8 +202,9 @@ function Get-ManagerVersion {
 function Test-ReleaseAllowed {
     param(
         [Parameter(Mandatory = $true)][string]$ReleaseTag,
-        [Parameter(Mandatory = $true)][string]$CeilingTag
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$CeilingTag
     )
+    if ([string]::IsNullOrWhiteSpace($CeilingTag)) { return $true }
     $release = Parse-VersionTag $ReleaseTag
     $ceiling = Parse-VersionTag $CeilingTag
     if (-not $release -or -not $ceiling) { return $true }
