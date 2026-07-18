@@ -5,6 +5,7 @@ Cubre R10 (cobertura de tests para node_control_translator.py).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,7 @@ def _run_node(*args: str) -> tuple[int, str, str]:
     result = subprocess.run(
         [*LAUNCHER, "node", *args],
         cwd=str(REPO_ROOT),
+        env={**os.environ, "BAGO_PIECES_ROOT": str(REPO_ROOT / "tests" / "_missing_pieces")},
         capture_output=True,
         text=True,
         timeout=30,

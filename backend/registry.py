@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from ir_types import IRConversation, IRMessage
@@ -120,10 +120,10 @@ for item in _PIECES:
     manifest = {
         **item,
         "version": "v1",
-        "vocab": Vocab(),
-        "safety": Safety(),
-        "evidence": EvidenceSpec(),
-        "supports": SupportsSpec(),
+        "vocab": asdict(Vocab()),
+        "safety": asdict(Safety()),
+        "evidence": asdict(EvidenceSpec()),
+        "supports": asdict(SupportsSpec()),
     }
     _REGISTRY.append(_TranslatorPiece(manifest=manifest, encode=codec, decode=codec))
 
