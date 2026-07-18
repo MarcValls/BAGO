@@ -110,7 +110,8 @@ function Build-Frontend {
     # Copiar dist al backend
     $distTarget = Join-Path $Backend "ui-react\dist"
     if (Test-Path $distTarget) { Remove-Item $distTarget -Recurse -Force }
-    Copy-Item -Path (Join-Path $Frontend "dist") -Destination $Backend\ui-react\ -Recurse -Force
+    New-Item -ItemType Directory -Path (Split-Path $distTarget) -Force | Out-Null
+    Copy-Item -Path (Join-Path $Frontend "dist") -Destination $distTarget -Recurse -Force
     Log "frontend compilado y copiado a backend\ui-react\dist"
     return $true
 }
