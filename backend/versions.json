@@ -1,5 +1,5 @@
 {
-  "current": "4.8.0",
+  "current": "4.8.1",
   "history": [
     {
       "version": "4.0.0",
@@ -76,8 +76,14 @@
     {
       "version": "4.8.0",
       "released": "2026-07-18",
-      "ended": null,
+      "ended": "2026-07-18",
       "notes": "Release estable de BAGO 4.8.0: árbol canónico auditado, interfaz actual, instalación limpia reproducible y validación de seguridad cerrada."
+    },
+    {
+      "version": "4.8.1",
+      "released": "2026-07-18",
+      "ended": null,
+      "notes": "Patch estable del instalador público: admite bootstrap sin techo local y selecciona la release compatible más reciente por SemVer."
     }
   ]
 }
