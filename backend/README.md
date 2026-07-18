@@ -1,8 +1,8 @@
-# BAGO v4.8.0
+# BAGO v4.8.1
 
-**Version 4.8.0**
+**Version 4.8.1**
 
-[![Version](https://img.shields.io/badge/version-4.8.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.8.1-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
