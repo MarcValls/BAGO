@@ -5,6 +5,7 @@
 import type { BagoClient } from '@/api/client';
 import type {
   ContextBankItem,
+  ContextBankSnapshot,
   ContextCompiledPack,
   ContextPack,
   ContextPatchRequest,
@@ -254,22 +255,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-export interface ContextBankSnapshot {
-  files: ContextBankItem[];
-  sources: ContextBankItem[];
-  claims: ContextBankItem[];
-  receipts: ContextBankItem[];
-  memory: ContextBankItem[];
-  history: ContextBankItem[];
-  rules: ContextBankItem[];
-  project: ContextBankItem[];
-  // CANON[CTX-022]: items añadidos manualmente por el usuario
-  // (paths explícitos a archivos o directorios que no están en
-  // `/files/list`). Persistidos en `.bago/context/context-bank-manual.json`.
-  manual: ContextBankItem[];
-  errors: string[];
-}
-
 export const CONTEXT_BANK_MANUAL_FILE = `${CONTEXT_DIR}/context-bank-manual.json`;
 export const CONTEXT_SOURCE_DIRECTORIES_FILE = `${CONTEXT_DIR}/context-source-directories.json`;
 
@@ -414,7 +399,8 @@ export async function loadContextBank(client: BagoClient): Promise<ContextBankSn
   // History
   try {
     const payload = await client.getHistory();
-    const entries = asArray<Record<string, unknown>>(payload.messages || payload.entries || payload);
+    const history = asRecord(payload);
+    const entries = asArray<Record<string, unknown>>(history?.messages || history?.entries || payload);
     for (const entry of entries.slice(0, 50)) {
       const text = String(entry.content || entry.text || entry.message || '').trim().slice(0, 80);
       if (!text) continue;

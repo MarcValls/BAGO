@@ -32,7 +32,7 @@
 
 ### UI consumption
 
-- `ui-react/src/app/ControlPlane.tsx` consumes backend snapshots for
+- `frontend/src/app/ControlPlane.tsx` consumes backend snapshots for
   permissions, but the backend snapshot still exposes legacy workspace fields
   and recommendation arrays.
 

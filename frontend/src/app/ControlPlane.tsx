@@ -86,6 +86,12 @@ function readRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function readStringRecord(value: unknown): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(readRecord(value)).map(([key, entry]) => [key, String(entry || '')])
+  );
+}
+
 function readMenuStateValue(raw: any): Record<string, unknown> {
   return readRecord(raw?.menu_state || raw?.session?.menu_state || raw?.status?.menu_state);
 }
@@ -286,7 +292,7 @@ function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
     allowedActions: toStringList(menuStateRaw.allowedActions || status.allowed_actions || session.allowed_actions),
     secondaryActions: toStringList(menuStateRaw.secondaryActions || status.secondary_actions || session.secondary_actions),
     blockedActions: toStringList(menuStateRaw.blockedActions || status.blocked_actions || session.blocked_actions),
-    blockedReasons: readRecord(menuStateRaw.blockedReasons || status.blocked_reasons || session.blocked_reasons),
+    blockedReasons: readStringRecord(menuStateRaw.blockedReasons || status.blocked_reasons || session.blocked_reasons),
     pendingWork: readMenuStateText(menuStateRaw.pendingWork || status.pending_work || session.pending_work),
     latestResult: readMenuStateText(menuStateRaw.latestResult || status.latest_result || session.latest_result),
     version: readMenuStateText(menuStateRaw.version || status.contract_version || status.schema_version || raw.version)
@@ -1326,6 +1332,7 @@ export function ControlPlane() {
     refreshRouterState,
     setRouterAutoSwitch,
     setDraft,
+    ensureChatPanel: () => openShell('chat'),
     writeClipboard,
     setAndPersistUiState,
     confirm: (message) => window.confirm(message),

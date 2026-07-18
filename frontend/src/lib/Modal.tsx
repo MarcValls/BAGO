@@ -1,7 +1,7 @@
 // src/lib/Modal.tsx
 // Modal genérico. Cierra con Escape, click fuera, o botón ×.
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '@/shared/Icon';
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
   title: string;
   subtitle?: string;
   width?: number;
-  height?: number;
+  height?: CSSProperties['height'];
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;

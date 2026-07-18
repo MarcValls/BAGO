@@ -18,8 +18,8 @@ interface Props {
   loading: boolean;
   onToggle: (path: string) => void;
   onOpen: (path: string) => void;
-  onContextMenuFile: (event: MouseEvent<HTMLDivElement>, path: string) => void;
-  onContextMenuDirectory: (event: MouseEvent<HTMLDivElement>, path: string) => void;
+  onContextMenuFile: (event: MouseEvent<HTMLElement>, path: string) => void;
+  onContextMenuDirectory: (event: MouseEvent<HTMLElement>, path: string) => void;
 }
 
 export function FileExplorer(props: Props) {
@@ -64,8 +64,8 @@ interface NodeProps {
   tabs: OpenFileTab[];
   onToggle: (path: string) => void;
   onOpen: (path: string) => void;
-  onContextMenuFile: (event: MouseEvent<HTMLDivElement>, path: string) => void;
-  onContextMenuDirectory: (event: MouseEvent<HTMLDivElement>, path: string) => void;
+  onContextMenuFile: (event: MouseEvent<HTMLElement>, path: string) => void;
+  onContextMenuDirectory: (event: MouseEvent<HTMLElement>, path: string) => void;
 }
 
 function TreeNode(p: NodeProps) {

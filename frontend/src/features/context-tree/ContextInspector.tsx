@@ -408,17 +408,6 @@ export function ContextInspector(props: Props) {
         </section>
       )}
 
-      {openSection === 'history' && (
-        <section className="context-inspector-section">
-          <ul className="context-inspector-history">
-            <li><span>{formatRelativeTime(node.createdAt)}</span> · Creado por <strong>{node.createdBy}</strong></li>
-            <li><span>{formatRelativeTime(node.updatedAt)}</span> · Última edición por <strong>{node.updatedBy}</strong></li>
-            {node.previous && (
-              <li><span>{formatRelativeTime(node.updatedAt)}</span> · Snapshot guardado para revertir.</li>
-            )}
-          </ul>
-        </section>
-      )}
     </aside>
   );
 }

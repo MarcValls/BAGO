@@ -161,6 +161,8 @@ export type ContextBankItemKind =
   | 'workspace_directory'
   | 'source_root'
   | 'claim'
+  | 'risk'
+  | 'pending'
   | 'receipt'
   | 'memory'
   | 'history'
@@ -212,5 +214,21 @@ export interface ContextCompiledPack {
   markdown: string;
   nodeCount: number;
   weightTokens: number;
+  conflicts: number;
+  proposals: number;
+  staleCount: number;
   generatedAt: string;
+}
+
+export interface ContextBankSnapshot {
+  files: ContextBankItem[];
+  sources: ContextBankItem[];
+  claims: ContextBankItem[];
+  receipts: ContextBankItem[];
+  memory: ContextBankItem[];
+  history: ContextBankItem[];
+  rules: ContextBankItem[];
+  project: ContextBankItem[];
+  manual: ContextBankItem[];
+  errors: string[];
 }

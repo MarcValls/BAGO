@@ -47,7 +47,7 @@ function summarizePatch(patch: ContextPatchRequest): string {
       case 'unlink': return `desvincular de ${op.targetId}`;
       case 'add_to_pack': return 'añadir al pack';
       case 'remove_from_pack': return 'quitar del pack';
-      default: return op.op;
+      default: return '';
     }
   }).join(' · ');
 }

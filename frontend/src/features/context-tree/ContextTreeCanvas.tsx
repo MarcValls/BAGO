@@ -56,7 +56,7 @@ function statusLabel(status: ContextNodeStatus): string {
     case 'canon': return 'CANON';
     case 'conflict': return 'CONFLICTO';
     case 'stale': return 'STALE';
-    default: return status.toUpperCase();
+    default: return '';
   }
 }
 

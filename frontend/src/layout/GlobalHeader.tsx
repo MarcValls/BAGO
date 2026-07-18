@@ -127,13 +127,13 @@ export function GlobalHeader(props: Props) {
 
             <div className="connection-mode-row">
               <button
-                className={`header-button ${props.globalMode === 'focus' ? 'is-active' : ''}`}
+                className="header-button"
                 type="button"
-                onClick={() => props.onSetMode(props.globalMode === 'focus' ? 'normal' : 'focus')}
+                onClick={() => props.onSetMode('focus')}
                 title="Modo Focus: oculta chrome y deja solo el contenido (F11)"
               >
                 <Icon name="focus" />
-                <span>{props.globalMode === 'focus' ? 'Salir Focus' : 'Modo Focus'}</span>
+                <span>Modo Focus</span>
                 <kbd>F11</kbd>
               </button>
               <button

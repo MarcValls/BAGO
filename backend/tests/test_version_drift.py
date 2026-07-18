@@ -8,6 +8,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_UI = ROOT.parent / "frontend"
 EXPECTED_VERSION = (ROOT / "release_version.txt").read_text(encoding="utf-8").strip()
 
 
@@ -51,33 +52,19 @@ class VersionDriftTests(unittest.TestCase):
 
     def test_visible_metadata_matches_release_version(self) -> None:
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-        ui_package = json.loads((ROOT / "ui-react" / "package.json").read_text(encoding="utf-8"))
-        ui_config = json.loads((ROOT / "ui-react" / "public" / "ui_config.json").read_text(encoding="utf-8"))
+        ui_package = json.loads((CANONICAL_UI / "package.json").read_text(encoding="utf-8"))
+        ui_config = json.loads((CANONICAL_UI / "public" / "ui_config.json").read_text(encoding="utf-8"))
         versions = json.loads((ROOT / "versions.json").read_text(encoding="utf-8"))
         self.assertEqual(package["version"], EXPECTED_VERSION)
         self.assertEqual(ui_package["version"], EXPECTED_VERSION)
         self.assertEqual(ui_config["version"], EXPECTED_VERSION)
         self.assertEqual(versions["current"], EXPECTED_VERSION)
 
-    def test_workspace_and_runtime_ui_toolchains_match(self) -> None:
-        workspace_ui = ROOT.parents[2] / "ui-react"
-        runtime_ui = ROOT / "ui-react"
-        if not workspace_ui.exists():
-            self.skipTest("workspace ui-react not available in standalone release tree")
-
-        workspace_package = json.loads((workspace_ui / "package.json").read_text(encoding="utf-8"))
-        runtime_package = json.loads((runtime_ui / "package.json").read_text(encoding="utf-8"))
-        for key in ("scripts", "dependencies", "devDependencies"):
-            with self.subTest(key=key):
-                self.assertEqual(runtime_package.get(key), workspace_package.get(key))
-
-        workspace_lock = json.loads((workspace_ui / "package-lock.json").read_text(encoding="utf-8"))
-        runtime_lock = json.loads((runtime_ui / "package-lock.json").read_text(encoding="utf-8"))
-        self.assertEqual(runtime_lock, workspace_lock)
-
-        workspace_tsconfig = json.loads((workspace_ui / "tsconfig.json").read_text(encoding="utf-8"))
-        runtime_tsconfig = json.loads((runtime_ui / "tsconfig.json").read_text(encoding="utf-8"))
-        self.assertEqual(runtime_tsconfig, workspace_tsconfig)
+    def test_canonical_frontend_is_the_only_ui_toolchain(self) -> None:
+        self.assertTrue((CANONICAL_UI / "src" / "main.tsx").is_file())
+        self.assertFalse((ROOT / "ui-react" / "package.json").exists())
+        build_script = (ROOT / "scripts" / "build_ui_dist.py").read_text(encoding="utf-8")
+        self.assertIn('FRONTEND_ROOT = ROOT.parent / "frontend"', build_script)
 
     def test_local_visible_entrypoints_do_not_advertise_stale_runtime(self) -> None:
         home = Path.home()

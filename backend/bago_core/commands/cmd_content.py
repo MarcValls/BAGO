@@ -240,7 +240,7 @@ def cmd_manager(args: argparse.Namespace) -> int:
 
     if not index_html.exists():
         print(f"UI compilada no encontrada: {index_html}")
-        print("Ejecuta `npm run build` dentro de `ui-react/` antes de abrir el manager.")
+        print("Reconstruye `frontend/` desde la raíz canónica y sincroniza `ui-react/dist` antes de abrir el manager.")
         return 1
 
     url = f"http://{host}:{port}/"

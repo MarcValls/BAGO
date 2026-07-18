@@ -23,7 +23,7 @@ function statusBadge(status: ContextNode['status']): string {
     case 'canon': return 'CANON';
     case 'conflict': return 'CONFLICTO';
     case 'stale': return 'STALE';
-    default: return status.toUpperCase();
+    default: return '';
   }
 }
 
@@ -60,6 +60,12 @@ function buildTreeMarkdown(tree: ContextTree, rootId: string, level: number): st
 
 export function compileContextPack(tree: ContextTree, pack: ContextPack): ContextCompiledPack {
   const stamps = new Date().toISOString();
+  const selectedNodes = pack.nodeIds.flatMap((id) => tree.nodes[id] ? [tree.nodes[id]] : []);
+  const treeNodes = Object.values(tree.nodes);
+  const conflicts = treeNodes.filter((node) => node.status === 'conflict' || node.conflictNodeIds.length > 0).length;
+  const proposals = treeNodes.filter((node) => node.status === 'proposed').length;
+  const staleCount = treeNodes.filter((node) => node.status === 'stale').length;
+  const weightTokens = selectedNodes.reduce((total, node) => total + (node.weightTokens || 0), 0);
   const headings: string[] = [];
   headings.push(`# ${pack.name}`);
   headings.push('');
@@ -67,11 +73,11 @@ export function compileContextPack(tree: ContextTree, pack: ContextPack): Contex
   headings.push(`pack: ${pack.id}`);
   headings.push(`status: ${pack.status}`);
   headings.push(`generated_at: ${stamps}`);
-  headings.push(`weight_tokens: ${pack.weightTokens}`);
+  headings.push(`weight_tokens: ${weightTokens}`);
   headings.push(`nodes: ${pack.nodeIds.length}`);
-  headings.push(`conflicts: ${pack.conflicts}`);
-  headings.push(`proposals: ${pack.proposals}`);
-  headings.push(`stale: ${pack.staleCount}`);
+  headings.push(`conflicts: ${conflicts}`);
+  headings.push(`proposals: ${proposals}`);
+  headings.push(`stale: ${staleCount}`);
   headings.push('');
   headings.push('## Contexto activo');
   headings.push('');
@@ -127,7 +133,10 @@ export function compileContextPack(tree: ContextTree, pack: ContextPack): Contex
     packId: pack.id,
     markdown: headings.join('\n'),
     nodeCount: pack.nodeIds.length,
-    weightTokens: pack.weightTokens,
+    weightTokens,
+    conflicts,
+    proposals,
+    staleCount,
     generatedAt: stamps
   };
 }

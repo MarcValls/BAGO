@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import type { BagoClient } from '@/api/client';
-import type { ActiveSection, ContextTargetKind, SelectionRecord, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, ContextTargetKind, InspectorLevel, SelectionRecord, UiBootstrapSnapshot } from '@/contracts/backend';
 import type { UseContextTreeState } from '@/features/context-tree/useContextTree';
 import type { ContextBankItem } from '@/features/context-tree/contextTreeTypes';
 import { useResizable } from '@/lib/useResizable';
@@ -27,7 +27,7 @@ import { ProblemsPanel } from './ProblemsPanel';
 import { PatternsPanel } from './PatternsPanel';
 import { ChangesPanel } from './ChangesPanel';
 import { OutputPanel } from './OutputPanel';
-import { Icon } from '@/shared/Icon';
+import { Icon, type IconName } from '@/shared/Icon';
 
 interface Props {
   client: BagoClient;
@@ -36,9 +36,9 @@ interface Props {
   apiBase: string;
   apiToken: string;
   initialOpenPath?: string | null;
-  onInspect: (selection: SelectionRecord, hint?: { x: number; y: number }) => void;
+  onInspect: (selection: SelectionRecord, hint?: InspectorLevel | { x: number; y: number }) => void;
   onNavigate: (section: ActiveSection) => void;
-  onSendToChat: (selection: SelectionRecord) => void;
+  onSendChat: (message: string) => void;
   onCreatePlan: (title: string, summary: string) => Promise<void> | void;
   onRunCommand: (command: string) => Promise<void>;
   onChooseWorkspace: () => void;
@@ -156,9 +156,7 @@ export function WorkspaceModule(props: Props) {
     );
   }, [editor.tabs, props]);
 
-  const handleCreatePlanFromPattern = useCallback(async (pattern: WorkspacePattern) => {
-    const tab = editor.tabs.find((t) => t.patterns.includes(pattern));
-    if (!tab) return;
+  const handleCreatePlanFromPattern = useCallback(async (tab: typeof editor.tabs[number], pattern: WorkspacePattern) => {
     await props.onCreatePlan(
       `Resolver patrón ${pattern.kind} en ${tab.label}:${pattern.startLine}`,
       `Patrón: ${pattern.title}\nCategoría: ${pattern.category}\nDetalle: ${pattern.detail}\nSugerencia: ${pattern.suggestion || '—'}\nUbicación: ${tab.path}:${pattern.startLine}`
@@ -205,14 +203,14 @@ export function WorkspaceModule(props: Props) {
     setDiffModal({ path: tab.path, baseline: tab.baseline, current: tab.content });
   }, [editor.tabs]);
 
-  const onFileContextMenu = useCallback((event: MouseEvent<HTMLDivElement>, path: string) => {
+  const onFileContextMenu = useCallback((event: MouseEvent<HTMLElement>, path: string) => {
     event.preventDefault();
     setDirectoryContextMenu(null);
     setEditorContextMenu(null);
     setFileContextMenu({ path, x: event.clientX, y: event.clientY });
   }, []);
 
-  const onDirectoryContextMenu = useCallback((event: MouseEvent<HTMLDivElement>, path: string) => {
+  const onDirectoryContextMenu = useCallback((event: MouseEvent<HTMLElement>, path: string) => {
     event.preventDefault();
     setFileContextMenu(null);
     setEditorContextMenu(null);
@@ -369,7 +367,7 @@ export function WorkspaceModule(props: Props) {
             }}
             onCreatePlan={() => {
               if (editor.inspector.kind === 'diagnostic' && onInspectorDiagnostic) void handleCreatePlanFromDiagnostic(onInspectorDiagnostic);
-              else if (editor.inspector.kind === 'pattern' && onInspectorPattern) void handleCreatePlanFromPattern(onInspectorPattern);
+              else if (editor.inspector.kind === 'pattern' && editor.activeTab && onInspectorPattern) void handleCreatePlanFromPattern(editor.activeTab, onInspectorPattern);
             }}
             onCopyPath={() => editor.activeTab && navigator.clipboard?.writeText(editor.activeTab.path)}
             onViewEvidence={() => editor.activeTab && props.onInspect(buildEvidenceSelection(editor.activeTab), 'detail')}
@@ -495,7 +493,7 @@ export function WorkspaceModule(props: Props) {
                 }
                 const firstPattern = tab.patterns[0];
                 if (firstPattern) {
-                  void handleCreatePlanFromPattern(firstPattern);
+                  void handleCreatePlanFromPattern(tab, firstPattern);
                   return;
                 }
               }
@@ -594,7 +592,7 @@ export function WorkspaceModule(props: Props) {
   );
 }
 
-interface Item { label: string; onClick: () => void; icon?: string; disabled?: boolean; }
+interface Item { label: string; onClick: () => void; icon?: IconName; disabled?: boolean; }
 function ContextMenu(p: { x: number; y: number; items: Item[] }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: p.x, top: p.y });
@@ -741,7 +739,7 @@ function DiffView(p: { baseline: string; current: string }) {
 function createWorkspaceFileNode(path: string, title?: string): ContextBankItem {
   return {
     id: `ws-file-${Date.now()}`,
-    kind: 'file',
+    kind: 'workspace_file',
     title: title || path.split(/[\\/]/).pop() || path,
     origin: 'workspace',
     path,

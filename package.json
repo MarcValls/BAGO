@@ -15,6 +15,8 @@
     "status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 status",
     "logs": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 logs",
     "build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 build",
+    "typecheck": "npm run typecheck --workspace frontend",
+    "test:frontend": "npm run test --workspace frontend",
     "backend": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 backend",
     "electron": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 electron",
     "sh:dev": "bash scripts/dev.sh start",

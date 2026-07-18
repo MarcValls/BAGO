@@ -148,7 +148,7 @@ export function summarizePatchText(patch: ContextPatchRequest): string {
       case 'remove_from_pack':
         return `quitar del pack`;
       default:
-        return op.op;
+        return '';
     }
   }).join(' · ');
 }

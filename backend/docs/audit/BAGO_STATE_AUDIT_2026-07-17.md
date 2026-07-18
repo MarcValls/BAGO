@@ -16,7 +16,7 @@
    - `docs/contracts/README.md`
    - `docs/contracts/bago_v4_runtime_contract.json`
    - `docs/contracts/workspace_seed_contract/bago_v4_pipeline_contract.md`
-3. UI activa (`frontend/src` y espejo `backend/ui-react/src`):
+3. UI activa y única fuente canónica (`frontend/src`):
    - `shared/quiet-status.ts`
    - `layout/ChatPanel.tsx`
    - `features/sections.tsx`

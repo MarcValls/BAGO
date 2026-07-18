@@ -34,10 +34,6 @@ INCLUDE_FILES = [
     "index.html",
     "versions.json",
     "package-lock.json",
-    "ui-react/package.json",
-    "ui-react/package-lock.json",
-    "ui-react/index.html",
-    "ui-react/vite.config.js",
     "release_version.txt",
     "BAGO.pyproj",
     "bago.cmd",
@@ -60,7 +56,7 @@ INCLUDE_DIRS = [
     "bago_core",
     "electron",
     "manager",
-    "ui-react/src",
+    "ui-react/dist",
     ".bago/api",
     ".bago/chat",
     ".bago/core",
@@ -389,15 +385,14 @@ def _run_tests() -> int:
 
             required_names = {
                 "bago_core/translators/__init__.py",
-                "ui-react/package.json",
-                "ui-react/package-lock.json",
+                "ui-react/dist/index.html",
                 f"{CURRENT_EVIDENCE_DIR}/manifest.json",
                 f"{CURRENT_EVIDENCE_DIR}/session/meta.json",
                 "AUDIT_SNAPSHOT.json",
             }
             missing = sorted(required_names - names)
             assert not missing, f"missing bundle entries: {missing}"
-            assert any(name.startswith("ui-react/src/") for name in names)
+            assert not any(name.startswith("ui-react/src/") for name in names)
 
             evidence_manifest = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/manifest.json"))
             evidence_meta = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/session/meta.json"))

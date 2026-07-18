@@ -30,7 +30,8 @@ export type TokenKind =
   | 'frontmatter'
   | 'selector'
   | 'property'
-  | 'unit';
+  | 'unit'
+  | 'variable';
 
 export interface Token {
   kind: TokenKind;

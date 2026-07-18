@@ -524,8 +524,8 @@ export function ContextTreeModule(props: Props) {
       <Drawer
         open={inspectorDrawerOpen && Boolean(selectedNode)}
         onClose={() => setInspectorDrawerOpen(false)}
-        title={selectedNode ? (flatNodes.find((n) => n.id === selectedNode)?.title || 'Inspector') : 'Inspector'}
-        subtitle={selectedNode ? (flatNodes.find((n) => n.id === selectedNode)?.summary || '') : 'Selecciona un nodo para ver el detalle.'}
+        title={selectedNode?.title || 'Inspector'}
+        subtitle={selectedNode?.summary || 'Selecciona un nodo para ver el detalle.'}
         width={520}
       >
         <ContextInspector

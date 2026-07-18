@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+UI_SRC = ROOT.parent / "frontend" / "src"
 
 
 class ShortcutContractTests(unittest.TestCase):
@@ -32,7 +33,7 @@ class ShortcutContractTests(unittest.TestCase):
         self.assertIn('"ABRIR_UI_BAGO.cmd"', package_json)
 
     def test_in_app_keyboard_shortcuts_are_wired(self) -> None:
-        app = (ROOT / "ui-react" / "src" / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")
+        app = (UI_SRC / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")
         self.assertIn("event.key.toLowerCase() === 'k'", app)
         self.assertIn("commandPaletteOpen", app)
         self.assertIn("event.key === 'Escape' && entered", app)

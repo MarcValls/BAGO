@@ -24,7 +24,7 @@ function opSummary(op: ContextPatchOp): string {
     case 'unlink': return `desvincular ${op.nodeId} ↔ ${op.targetId}`;
     case 'add_to_pack': return `añadir ${op.nodeId} al pack ${op.packId}`;
     case 'remove_from_pack': return `quitar ${op.nodeId} del pack ${op.packId}`;
-    default: return op.op;
+    default: return '';
   }
 }
 

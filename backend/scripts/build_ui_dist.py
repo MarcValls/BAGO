@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -19,7 +20,7 @@ def _run(args: list[str]) -> None:
 
 
 def main() -> int:
-    _run(["npm.cmd", "run", "build"])
+    _run(["npm.cmd" if os.name == "nt" else "npm", "run", "build"])
     if UI_REACT_DIST.exists():
         shutil.rmtree(UI_REACT_DIST)
     shutil.copytree(FRONTEND_DIST, UI_REACT_DIST)

@@ -25,6 +25,10 @@ jobs:
         run: npm ci
       - name: Build canonical frontend
         run: npm run build
+      - name: Typecheck canonical frontend
+        run: npm run typecheck
+      - name: Test canonical frontend
+        run: npm run test:frontend
       - name: Validate backend
         working-directory: backend
         run: python bago_core/cli.py validate

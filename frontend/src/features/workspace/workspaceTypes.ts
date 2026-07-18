@@ -21,6 +21,7 @@ export type Language =
   | 'unknown';
 
 export interface OpenFileTab {
+  id: string;
   path: string;
   language: Language;
   /** Etiqueta corta (basename). */

@@ -1,18 +1,18 @@
 # Current UI Shell Evidence
 
 - **Date:** 2026-07-05
-- **Target:** `ui-react/src/app/ControlPlane.tsx`
+- **Target:** repository `frontend/src/app/ControlPlane.tsx`
 - **Status:** validated
 
 ## Evidence
 
 Validated files:
 
-- `ui-react/src/app/ControlPlane.tsx`
-- `ui-react/src/layout/GlobalHeader.tsx`
-- `ui-react/src/layout/MainSidebar.tsx`
-- `ui-react/src/layout/WorkspaceShell.tsx`
-- `ui-react/src/styles.css`
+- `frontend/src/app/ControlPlane.tsx`
+- `frontend/src/layout/GlobalHeader.tsx`
+- `frontend/src/layout/MainSidebar.tsx`
+- `frontend/src/layout/WorkspaceShell.tsx`
+- `frontend/src/styles.css`
 
 ## Validation Commands
 

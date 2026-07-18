@@ -16,7 +16,7 @@ export function OutputPanel(props: Props) {
   return (
     <div className="workspace-output">
       <header className="workspace-panel-summary">
-        <span><Icon name="info" size={11} /> {props.entries.length} entradas</span>
+        <span><Icon name="live" size={11} /> {props.entries.length} entradas</span>
         <button type="button" className="workspace-output-clear" onClick={props.onClear}>Limpiar</button>
       </header>
       <ol className="workspace-output-list">

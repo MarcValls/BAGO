@@ -4,7 +4,7 @@
 - SessionDB schema has workspace_state_root column
 - SessionManager.save() persists workspace_state_root in session JSON
 - SessionManager.load() restores workspace_state_root when it exists
-- No '4.7.0' fallbacks remain in ui-react/src/**/*.{js,jsx}
+- No '4.7.0' fallbacks remain in the canonical frontend source
 """
 from __future__ import annotations
 
@@ -1045,13 +1045,12 @@ def test_session_manager_binding_breaks_on_repo_branch_mutation():
 # ── 4. No 4.7.0 fallbacks in UI React ───────────────────────────────
 
 def test_no_47_fallbacks_in_ui_react():
-    """ui-react/src/**/*.{js,jsx} must not contain '4.7.0' fallbacks."""
-    ui_dir = REPO_ROOT / "ui-react" / "src"
-    if not ui_dir.exists():
-        pytest.skip("ui-react/src not found")
+    """The canonical frontend must not contain 4.7.0 fallbacks."""
+    ui_dir = REPO_ROOT.parent / "frontend" / "src"
+    assert ui_dir.is_dir(), f"canonical frontend not found: {ui_dir}"
     offenders = []
     for f in ui_dir.rglob("*"):
-        if f.suffix not in (".js", ".jsx"):
+        if f.suffix not in (".js", ".jsx", ".ts", ".tsx"):
             continue
         content = f.read_text(encoding="utf-8", errors="replace")
         if "4.7.0" in content:

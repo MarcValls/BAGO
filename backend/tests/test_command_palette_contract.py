@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_SRC = ROOT / "ui-react" / "src"
+UI_SRC = ROOT.parent / "frontend" / "src"
 
 
 class CommandPaletteContractTests(unittest.TestCase):

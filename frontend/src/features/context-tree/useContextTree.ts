@@ -12,7 +12,9 @@ import type {
   ContextPack,
   ContextPatchRequest,
   ContextReceipt,
-  ContextTree
+  ContextTree,
+  ContextNodeType,
+  SourceDirectory
 } from './contextTreeTypes';
 import {
   buildDefaultPack,
@@ -36,6 +38,7 @@ import {
 import { applyContextPatch, revertContextPatch, PatchValidationError } from './applyContextPatch';
 import { classifyPatchRisk, worstRisk } from './classifyContextPatchRisk';
 import { compileContextPack } from './compileContextPack';
+import { contextNodeTypeForBankItem, contextSourceKindForBankItem } from './contextBankMapping';
 
 export interface UseContextTreeState {
   ready: boolean;
@@ -238,7 +241,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
         if (type === 'directory' || type === 'dir' || type === 'folder') continue;
         out.push({
           path: String(entry.path || ''),
-          name: String(entry.name || (entry.path || '').split('/').pop() || ''),
+          name: String(entry.name || String(entry.path || '').split('/').pop() || ''),
           type,
           size: entry.size as number | undefined
         });
@@ -654,20 +657,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     const branchType = item.suggestedBranch;
     const branch = Object.values(tree.nodes).find((n) => n.type === branchType && n.parentId === tree.rootId);
     const targetParent = parentId || branch?.id || tree.rootId;
-    const type: ContextNode['type'] = (() => {
-      switch (item.kind) {
-        case 'workspace_file': return 'file';
-        case 'workspace_directory': return 'source';
-        case 'source_root': return 'source';
-        case 'claim': return 'claim';
-        case 'receipt': return 'evidence';
-        case 'memory': return 'note';
-        case 'history': return 'note';
-        case 'rule': return 'rule';
-        case 'project_status': return 'risk';
-        default: return 'note';
-      }
-    })();
+    const type = contextNodeTypeForBankItem(item.kind);
     return createNode({
       parentId: targetParent,
       type,
@@ -675,20 +665,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       summary: `${item.origin}${item.path ? ` · ${item.path}` : ''}`,
       priority: 'medium',
       sourceRefs: [{
-        kind: (() => {
-          switch (item.kind) {
-            case 'workspace_file': return 'workspace_file';
-            case 'workspace_directory': return 'workspace_directory';
-            case 'source_root': return 'manual';
-            case 'claim': return 'evidence';
-            case 'receipt': return 'evidence';
-            case 'memory': return 'memory';
-            case 'history': return 'history';
-            case 'rule': return 'interpret_rule';
-            case 'project_status': return 'project_status';
-            default: return 'manual';
-          }
-        })(),
+        kind: contextSourceKindForBankItem(item.kind),
         path: item.path,
         origin: item.origin
       }]

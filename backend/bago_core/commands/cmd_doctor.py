@@ -7,7 +7,7 @@ Ejecuta chequeos end-to-end y reporta PASS/FAIL/WARN por cada dimensión:
   3. Bridge importa sin errores
   4. Ollama local responde
   5. Modelos locales visibles
-  6. ui-react/src tiene estructura mínima
+  6. ui-react/dist contiene el artefacto canónico generado
   7. la pieza de API tiene los módulos esperados
   8. verify-master.ps1 existe (si aplica)
 
@@ -40,6 +40,11 @@ def _check(name: str, checks: list, ok: bool, detail: str = "") -> dict:
         line += f" — {detail}"
     print(line)
     return entry
+
+
+def _ui_runtime_status(root: Path) -> tuple[bool, str]:
+    index = root / "ui-react" / "dist" / "index.html"
+    return index.is_file(), f"artefacto {'presente' if index.is_file() else 'ausente'}: {index}"
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -169,12 +174,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         fails += 1
     checks.append(_check("ollama_local", checks, ollama_ok, ollama_detail))
 
-    # ── 5. ui-react/src estructura mínima ─────────────────────────────────────
-    src = BAGO_ROOT / "ui-react" / "src"
-    expected_files = ["App.jsx", "main.jsx", "api.js", "styles.css"]
-    present = [f for f in expected_files if (src / f).exists()]
-    ui_ok = len(present) == len(expected_files)
-    ui_detail = f"{len(present)}/{len(expected_files)} archivos base presentes"
+    # ── 5. artefacto UI canónico ──────────────────────────────────────────────
+    ui_ok, ui_detail = _ui_runtime_status(BAGO_ROOT)
     if not ui_ok:
         fails += 1
     checks.append(_check("ui_react_structure", checks, ui_ok, ui_detail))

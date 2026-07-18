@@ -7,7 +7,7 @@ This runtime snapshot validates only surfaces that have an active execution path
 - Installation roles: `bago_core/install_roles.py`, `bago.ps1 roles`, and Electron preload role helpers.
 - Local HTTP API: `.bago/api/bridge.py` with `/session`, `/status`, `/menu`, and `/command`.
 - Command execution safety: `bago_core/execution/process_runner.py`.
-- UI runtime: `ui-react/dist` served by the local BAGO API server, backed by `ui-react/src/app/ControlPlane.tsx`.
+- UI runtime: generated `ui-react/dist` served by the local BAGO API server, built exclusively from repository `frontend/src`.
 - Launch wrappers: `bago`, `bago.cmd`, `bago.ps1`, and `bago.sh`.
 
 ## Retired In This Runtime Snapshot

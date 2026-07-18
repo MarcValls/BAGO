@@ -225,7 +225,10 @@ const TYPE_LABELS: Record<Exclude<WorkspaceFilter, 'all' | 'code'>, string> = {
   web: 'Web',
   shell: 'Shell',
   other: 'Otros',
-  directory: 'Carpetas'
+  directory: 'Carpetas',
+  modified: 'Solo modificados',
+  'in-context': 'Solo en contexto',
+  'with-evidence': 'Solo con evidencia'
 };
 
 interface ExplorerNode {
@@ -1454,7 +1457,7 @@ export function ControlSections(props: Props) {
         onNavigate={props.onSetSection}
         onSendChat={props.onSendChat}
         onCreatePlan={props.onRunPlanTask}
-        onRunCommand={props.onRunCommand}
+        onRunCommand={async (command) => { await props.onRunCommand(command); }}
         onChooseWorkspace={props.onChooseWorkspace}
       />
     );

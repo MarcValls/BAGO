@@ -37,9 +37,6 @@ INCLUDE_FILES = [
     "package-lock.json",
     "package.json",
     "release_version.txt",
-    "ui-react/package-lock.json",
-    "ui-react/package.json",
-    "ui-react/tsconfig.json",
     "BAGO.pyproj",
     "ABRIR_UI_BAGO.cmd",
     "ABRIR_ELECTRON_BAGO.cmd",
@@ -75,8 +72,6 @@ INCLUDE_DIRS = [
     "scripts",
     "tests",
     "tools",
-    "ui-react/src",
-    "ui-react/public",
     "ui-react/dist",
 ]
 
@@ -419,7 +414,7 @@ def _run_tests() -> int:
             missing = sorted(required_names - names)
             assert not missing, f"missing bundle entries: {missing}"
             assert ".gabo/state/context.json" not in names
-            assert any(name.startswith("ui-react/src/") for name in names)
+            assert not any(name.startswith("ui-react/src/") for name in names)
             leaked = sorted(
                 name for name in names
                 if name.startswith(("release/", "dist/", "build/", "node_modules/"))
