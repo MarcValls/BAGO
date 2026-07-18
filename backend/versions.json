@@ -70,7 +70,7 @@
     {
       "version": "4.7",
       "released": "2026-06-21",
-      "ended": null,
+      "ended": "2026-07-18",
       "notes": "BAGO Code Forge 3B: deterministic pipeline (classifier → task compiler → context builder → patch parser → validation pipeline → repair loop → code verdict → atomic patch → evidence bundle) with SAFE/STAGED/APPLY/AUTONOMOUS modes. llama3.2:3b plans and patches; BAGO stays the validator."
     },
     {

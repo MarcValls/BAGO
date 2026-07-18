@@ -64,6 +64,10 @@ class VersionDriftTests(unittest.TestCase):
         current_notes = current_entry["notes"].lower()
         self.assertNotIn("beta", current_notes)
         self.assertNotIn("prerelease", current_notes)
+        self.assertEqual(
+            [item["version"] for item in versions["history"] if item["ended"] is None],
+            [EXPECTED_VERSION],
+        )
 
     def test_canonical_frontend_is_the_only_ui_toolchain(self) -> None:
         self.assertTrue((CANONICAL_UI / "src" / "main.tsx").is_file())
