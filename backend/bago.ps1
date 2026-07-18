@@ -34,10 +34,33 @@ function Get-DefaultInstallDir {
     return (Join-Path $programFilesRoot 'BAGO')
 }
 
+function Resolve-BagoPythonExecutable {
+    $candidates = @()
+    if ($env:BAGO_PYTHON) { $candidates += $env:BAGO_PYTHON }
+    foreach ($name in @('python.exe', 'python3.exe')) {
+        $command = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command -and $command.Source) { $candidates += [string]$command.Source }
+    }
+    [string]$localAppData = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
+    $localPython = if ($localAppData) { Join-Path $localAppData 'Programs\Python' } else { '' }
+    if ($localPython -and (Test-Path -LiteralPath $localPython)) {
+        $candidates += Get-ChildItem -LiteralPath $localPython -Filter 'python.exe' -File -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            ForEach-Object { $_.FullName }
+    }
+    foreach ($candidate in @($candidates | Select-Object -Unique)) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) { return [string]$candidate }
+    }
+    throw 'bago: Python 3.11+ no está disponible. Reejecuta install-remote.ps1 para instalar la dependencia.'
+}
+
 $userBago = Get-DefaultUserRoot
 $instBago  = Get-DefaultInstallDir
 $activeBago = $instBago
 $supScript = Join-Path $srcBago 'scripts\bago_supervisor.py'
+$pythonExe = Resolve-BagoPythonExecutable
+$pythonwExe = Join-Path (Split-Path -Parent $pythonExe) 'pythonw.exe'
+if (-not (Test-Path -LiteralPath $pythonwExe)) { $pythonwExe = $pythonExe }
 
 function Get-LauncherVersion {
     $selfRoot = Split-Path -Parent $PSCommandPath
@@ -55,7 +78,7 @@ function Get-SelectedRolePath([string]$role, [string]$fallback) {
     ) | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $selectionFile) { return $fallback }
     try {
-        $selection = Get-Content -LiteralPath $selectionFile -Raw | ConvertFrom-Json
+        $selection = Get-Content -LiteralPath $selectionFile -Raw -Encoding UTF8 | ConvertFrom-Json
         $entry = $selection.roles.$role
         if ($entry -and $entry.path -and (Test-Path $entry.path)) {
             return [string]$entry.path
@@ -105,7 +128,7 @@ function Invoke-ControlCommand([object[]]$argv) {
     )
     foreach ($candidate in $candidates) {
         if (Test-Path $candidate) {
-            & python $candidate @($argv)
+            & $pythonExe $candidate @($argv)
             exit $LASTEXITCODE
         }
     }
@@ -135,7 +158,7 @@ if ($args.Count -gt 0) {
             $supArgs = $args[($supIdx + 1)..($args.Count - 1)]
         }
         # Usar pythonw.exe (sin consola) para evitar parpadeo de ventana.
-        & pythonw $supScript @($supArgs) 2>$null
+        & $pythonwExe $supScript @($supArgs) 2>$null
         exit $LASTEXITCODE
     }
 
@@ -155,7 +178,7 @@ if ($args.Count -gt 0) {
         if ($probeIdx + 1 -lt $args.Count) {
             $probeArgs = $args[($probeIdx + 1)..($args.Count - 1)]
         }
-        & python $probeScript @($probeArgs)
+        & $pythonExe $probeScript @($probeArgs)
         exit $LASTEXITCODE
     }
     if ($first -eq 'des') {
@@ -197,5 +220,5 @@ if (-not (Test-Path $target.cli)) {
     Write-Error "bago ($mode): no se encontró $($target.cli)"
     exit 1
 }
-& python $target.cli @($rest)
+& $pythonExe $target.cli @($rest)
 exit $LASTEXITCODE

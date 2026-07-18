@@ -10,6 +10,7 @@ param(
 [switch]$SkipTests,
 [switch]$RepairOnly,
 [switch]$NoPathUpdate,
+[switch]$NoShellIntegration,
 [switch]$ExplorerContextMenu,
 [switch]$ElevatedChild,
 [string]$ResultPath = ""
@@ -92,7 +93,7 @@ function Get-InvocationArguments {
         $args.Add("-$name")
         $args.Add([string]$value)
     }
-    foreach ($name in @("SkipTests", "RepairOnly", "NoPathUpdate", "ExplorerContextMenu")) {
+    foreach ($name in @("SkipTests", "RepairOnly", "NoPathUpdate", "NoShellIntegration", "ExplorerContextMenu")) {
         if ($PSBoundParameters.ContainsKey($name) -and [bool](Get-Variable -Name $name -ValueOnly)) {
             $args.Add("-$name")
         }
@@ -287,7 +288,7 @@ function Move-PreservedRuntimeState {
         [Parameter(Mandatory = $true)][string]$PreservePath
     )
     $preserved = @()
-    foreach ($rel in @(".bago\state", ".bago\logs", "state", "logs")) {
+    foreach ($rel in @(".bago\state", ".bago\logs", "state", "logs", "install_config.json", ".bago\config.json")) {
         $src = Join-Path $InstallPath $rel
         if (Test-Path -LiteralPath $src) {
             $dst = Join-Path $PreservePath $rel
@@ -317,7 +318,7 @@ function Restore-PreservedRuntimeState {
     if (-not (Test-Path -LiteralPath $PreservePath)) {
         return
     }
-    foreach ($rel in @(".bago\state", ".bago\logs", "state", "logs")) {
+    foreach ($rel in @(".bago\state", ".bago\logs", "state", "logs", "install_config.json", ".bago\config.json")) {
         $src = Join-Path $PreservePath $rel
         if (-not (Test-Path -LiteralPath $src)) {
             continue
@@ -600,7 +601,8 @@ function Write-JsonFile {
     )
     $parent = Split-Path -Parent $Path
     if ($parent) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-    ($Value | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath $Path -Encoding UTF8
+    $json = ($Value | ConvertTo-Json -Depth 12) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
 }
 
 function Read-Choice {
@@ -676,9 +678,109 @@ function Read-UrlOrDefault {
     }
 }
 
+function Update-InstallSelection {
+    param(
+        [Parameter(Mandatory = $true)][string]$UserRoot,
+        [Parameter(Mandatory = $true)][string]$InstallPath
+    )
+    $selectionPath = Join-Path $UserRoot "install_selection.json"
+    $roles = [ordered]@{}
+    if (Test-Path -LiteralPath $selectionPath) {
+        try {
+            $existing = Get-Content -LiteralPath $selectionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($existing.roles) {
+                foreach ($property in $existing.roles.PSObject.Properties) {
+                    $roles[$property.Name] = $property.Value
+                }
+            }
+        } catch {
+            Write-Warning "install_selection.json existente no es válido; se reconstruirá."
+        }
+    }
+    $now = (Get-Date).ToUniversalTime().ToString("o")
+    $roles["active"] = [ordered]@{
+        path = $InstallPath
+        label = "Copia activa"
+        updated_at = $now
+    }
+    Write-JsonFile -Path $selectionPath -Value ([ordered]@{
+        version = 1
+        updated_at = $now
+        roles = $roles
+    })
+}
+
 function Test-CommandAvailable {
     param([Parameter(Mandatory = $true)][string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Get-PythonCandidates {
+    $candidates = New-Object System.Collections.Generic.List[string]
+    if ($env:BAGO_PYTHON) { $candidates.Add([string]$env:BAGO_PYTHON) }
+    foreach ($name in @("python.exe", "python3.exe")) {
+        $command = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command -and $command.Source) { $candidates.Add([string]$command.Source) }
+    }
+    $localPython = Join-Path ([System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)) "Programs\Python"
+    if (Test-Path -LiteralPath $localPython) {
+        Get-ChildItem -LiteralPath $localPython -Filter "python.exe" -File -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            ForEach-Object { $candidates.Add($_.FullName) }
+    }
+    return @($candidates | Select-Object -Unique)
+}
+
+function Test-Python311 {
+    param([Parameter(Mandatory = $true)][string]$Executable)
+    try {
+        $versionText = & $Executable -c "import sys; print('.'.join(map(str, sys.version_info[:3])))" 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $versionText) { return $false }
+        return ([version]([string]$versionText).Trim() -ge [version]"3.11.0")
+    } catch {
+        return $false
+    }
+}
+
+function Resolve-BagoPython {
+    foreach ($candidate in (Get-PythonCandidates)) {
+        if (Test-Python311 -Executable $candidate) { return $candidate }
+    }
+
+    $winget = Get-Command "winget.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $winget) {
+        throw "BAGO requiere Python 3.11 o superior. Instala Python y vuelve a ejecutar el instalador; winget no está disponible."
+    }
+
+    Write-Host "Python 3.11+ no está disponible; instalando Python 3.12 con winget..." -ForegroundColor Cyan
+    & $winget.Source install --id Python.Python.3.12 --exact --scope user --silent --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        throw "winget no pudo instalar Python 3.12 (código $LASTEXITCODE)."
+    }
+    foreach ($candidate in (Get-PythonCandidates)) {
+        if (Test-Python311 -Executable $candidate) { return $candidate }
+    }
+    throw "Python fue instalado, pero no se encontró un intérprete 3.11+ utilizable. Abre una terminal nueva y reintenta."
+}
+
+function Invoke-QuietPythonCheck {
+    param(
+        [Parameter(Mandatory = $true)][string]$Python,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("bago-install-check-" + [Guid]::NewGuid().ToString("N") + ".log")
+    try {
+        & $Python @Arguments *> $logPath
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "$Name falló. Últimas líneas:" -ForegroundColor Red
+            Get-Content -LiteralPath $logPath -Tail 200
+            throw "$Name failed with exit code $LASTEXITCODE"
+        }
+        Write-Host "${Name}: ok" -ForegroundColor Green
+    } finally {
+        Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Invoke-GhDeviceLogin {
@@ -914,6 +1016,8 @@ if ($sourceFull -eq $installFull -and -not $RepairOnly) {
     throw "SourceRoot and InstallDir cannot be the same path."
 }
 
+$pythonExe = Resolve-BagoPython
+
 New-Item -ItemType Directory -Path $backupFull -Force | Out-Null
 New-Item -ItemType Directory -Path $userStateFull -Force | Out-Null
 
@@ -1021,6 +1125,9 @@ $installConfig = New-InstallConfig -InstallPath $installFull -InstallerMode $ins
 $runtimeConfig = [ordered]@{
     default_provider = $installConfig.runtime.default_provider
     default_model = $installConfig.runtime.default_model
+    features = [ordered]@{
+        auto_allow_tools = $false
+    }
     providers = [ordered]@{}
 }
 foreach ($name in $providerConfigs.Keys) {
@@ -1050,25 +1157,28 @@ if (-not $RepairOnly) {
 
     Get-ChildItem -LiteralPath $installFull -Force | ForEach-Object {
         try {
-            Remove-Item -LiteralPath $_ -Recurse -Force -ErrorAction Stop
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
         } catch {
             Write-Warning "No se pudo limpiar $($_): $($_.Exception.Message)"
         }
     }
 
     Copy-ReleaseTree -Source $sourceFull -Destination $installFull
-    Restore-PreservedRuntimeState -InstallPath $installFull -PreservePath $preserveTemp
 } else {
     if (-not (Test-Path -LiteralPath $installFull)) {
         throw "RepairOnly requires an installed runtime at $installFull"
     }
     $preserved = @()
+    $preserveTemp = ""
 }
 
 $installConfigPath = Join-Path $installFull "install_config.json"
 $runtimeConfigPath = Join-Path $installFull ".bago\config.json"
 Write-JsonFile -Path $installConfigPath -Value $installConfig
 Write-JsonFile -Path $runtimeConfigPath -Value $runtimeConfig
+if (-not $RepairOnly) {
+    Restore-PreservedRuntimeState -InstallPath $installFull -PreservePath $preserveTemp
+}
 
 $defaultUserRoot = Get-DefaultUserRoot
 New-Item -ItemType Directory -Path $defaultUserRoot -Force | Out-Null
@@ -1076,18 +1186,7 @@ New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "state") -Force |
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "cache") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "backups") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "runtime") -Force | Out-Null
-$installSelection = [ordered]@{
-    version = 1
-    updated_at = (Get-Date).ToUniversalTime().ToString("o")
-    roles = [ordered]@{
-        active = [ordered]@{
-            path = $installFull
-            label = "Copia activa"
-            updated_at = (Get-Date).ToUniversalTime().ToString("o")
-        }
-    }
-}
-Write-JsonFile -Path (Join-Path $defaultUserRoot "install_selection.json") -Value $installSelection
+Update-InstallSelection -UserRoot $defaultUserRoot -InstallPath $installFull
 
 if ($credentialStoreCfg.mode -ne "session") {
     if (-not $credentialStoreCfg.path) { throw "La persistencia elegida requiere una ruta de almacenamiento." }
@@ -1103,22 +1202,22 @@ foreach ($name in $validation.providers.Keys) {
 }
 Write-Host ("  knowledge: {0}" -f $(if ($validation.knowledge.ok) { "ok" } else { "fail" }))
 
-if (-not $NoPathUpdate) {
-    $pathScope = Enable-BagoCommandPath -InstallPath $installFull
-}
-
-$profilePaths = Install-BagoProfileBootstrap -InstallPath $installFull
-foreach ($profilePath in $profilePaths) {
-    if ($profilePath -and (Test-Path -LiteralPath $profilePath)) {
-        . $profilePath
+$profilePaths = @()
+if (-not $NoShellIntegration) {
+    if (-not $NoPathUpdate) {
+        $pathScope = Enable-BagoCommandPath -InstallPath $installFull
     }
+    $profilePaths = Install-BagoProfileBootstrap -InstallPath $installFull
 }
 
-$createExplorerContextMenu = $true
-if ($PSBoundParameters.ContainsKey("ExplorerContextMenu")) {
-    $createExplorerContextMenu = [bool]$ExplorerContextMenu
-} elseif ($installerMode -eq "Advanced") {
-    $createExplorerContextMenu = Read-YesNo -Prompt "Crear acceso contextual 'Abrir con BAGO' para directorios" -Default $true
+$createExplorerContextMenu = $false
+if (-not $NoShellIntegration) {
+    $createExplorerContextMenu = $true
+    if ($PSBoundParameters.ContainsKey("ExplorerContextMenu")) {
+        $createExplorerContextMenu = [bool]$ExplorerContextMenu
+    } elseif ($installerMode -eq "Advanced") {
+        $createExplorerContextMenu = Read-YesNo -Prompt "Crear acceso contextual 'Abrir con BAGO' para directorios" -Default $true
+    }
 }
 
 if ($RepairOnly) {
@@ -1131,32 +1230,37 @@ if ($RepairOnly) {
 if (-not $SkipTests) {
     Push-Location $installFull
     try {
-        & python "bago_core\launcher.py" "--test"
-        if ($LASTEXITCODE -ne 0) { throw "launcher.py --test failed with exit code $LASTEXITCODE" }
-        & python "test_security_release.py"
-        if ($LASTEXITCODE -ne 0) { throw "test_security_release.py failed with exit code $LASTEXITCODE" }
+        Invoke-QuietPythonCheck -Python $pythonExe -Arguments @("bago_core\launcher.py", "--test") -Name "launcher.py --test"
+        Invoke-QuietPythonCheck -Python $pythonExe -Arguments @("bago_core\cli.py", "validate") -Name "bago validate"
     } finally {
         Pop-Location
     }
 }
 
-$shortcuts = Install-BagoShortcuts -InstallPath $installFull
+$shortcuts = @{ desktop = ""; start_menu = "" }
+if (-not $NoShellIntegration) {
+    $shortcuts = Install-BagoShortcuts -InstallPath $installFull
+}
 if ($createExplorerContextMenu) {
     $explorerContextMenuInfo = Install-BagoExplorerContextMenu -InstallPath $installFull
 } else {
     $explorerContextMenuInfo = @{ enabled = $false }
 }
-Write-Host "Accesos directos creados:" -ForegroundColor Green
-Write-Host ("  Escritorio: {0}" -f $shortcuts.desktop)
-Write-Host ("  Inicio:     {0}" -f $shortcuts.start_menu)
+if (-not $NoShellIntegration) {
+    Write-Host "Accesos directos creados:" -ForegroundColor Green
+    Write-Host ("  Escritorio: {0}" -f $shortcuts.desktop)
+    Write-Host ("  Inicio:     {0}" -f $shortcuts.start_menu)
+}
 if ($createExplorerContextMenu) {
     Write-Host "Menu contextual instalado:" -ForegroundColor Green
     Write-Host ("  Directorios: {0}" -f $explorerContextMenuInfo.directory)
     Write-Host ("  Fondo:       {0}" -f $explorerContextMenuInfo.background)
 }
-Write-Host "Bootstrap PowerShell instalado:" -ForegroundColor Green
-foreach ($profilePath in $profilePaths) {
-    Write-Host ("  {0}" -f $profilePath)
+if (-not $NoShellIntegration) {
+    Write-Host "Bootstrap PowerShell instalado:" -ForegroundColor Green
+    foreach ($profilePath in $profilePaths) {
+        Write-Host ("  {0}" -f $profilePath)
+    }
 }
 
 $result = [ordered]@{
@@ -1169,6 +1273,7 @@ $result = [ordered]@{
     user_state_dir = $userStateFull
     path_scope = $pathScope
     command_path = (Join-Path $installFull "bago.cmd")
+    python = $pythonExe
     shortcuts = $shortcuts
     explorer_context_menu = $explorerContextMenuInfo
     profile_paths = $profilePaths

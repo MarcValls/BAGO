@@ -38,7 +38,7 @@ Post-MVP or experimental:
 Requirements:
 
 - Windows-first runtime.
-- Python 3.11 or newer.
+- Windows 10/11 with `winget`, or Python 3.11+ already installed. The remote installer installs Python 3.12 automatically when needed.
 - Ollama is optional, but required for the local live-model path.
 - Cloud provider keys are optional and must stay outside the repository.
 

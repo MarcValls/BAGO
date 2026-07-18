@@ -55,7 +55,7 @@ Break-glass (emergencia):
 3. Reaplicar protección con `scripts/apply_branch_protection.ps1`.
 
 ### Requisitos
-- Python 3.11+
+- Windows 10/11 con `winget`, o Python 3.11+ ya instalado. El instalador remoto instala Python 3.12 cuando falta.
 - Ollama (opcional, para provider local)
 - API keys (opcionales, para providers cloud)
 

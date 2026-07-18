@@ -35,6 +35,9 @@ jobs:
       - name: Test backend
         working-directory: backend
         run: python -m pytest -q
+      - name: Test clean Windows install
+        working-directory: backend
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_clean_install.ps1
       - name: Install and test manager
         working-directory: backend
         run: |

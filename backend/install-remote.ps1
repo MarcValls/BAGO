@@ -37,6 +37,7 @@ param(
     [string]$Tag = "",
     [switch]$SkipTests,
     [switch]$NoPathUpdate,
+    [switch]$NoShellIntegration,
     [switch]$RequireSignature
 )
 
@@ -304,6 +305,7 @@ Write-Host "[install-remote] Ejecutando instalador local ..." -ForegroundColor C
 $argsList = @("-SourceRoot", $sourceRoot, "-InstallDir", $InstallDir, "-Mode", $Mode)
 if ($SkipTests) { $argsList += "-SkipTests" }
 if ($NoPathUpdate) { $argsList += "-NoPathUpdate" }
+if ($NoShellIntegration) { $argsList += "-NoShellIntegration" }
 & powershell.exe -ExecutionPolicy Bypass -File $installScript @argsList
 if ($LASTEXITCODE -ne 0) {
     throw "install-v4.ps1 fallo con codigo $LASTEXITCODE."

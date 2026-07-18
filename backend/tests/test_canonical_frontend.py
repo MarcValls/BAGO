@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bago_core.commands.cmd_doctor import _ui_runtime_status
+from bago_core.commands.cmd_doctor import _active_runtime_version_status, _ui_runtime_status
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +26,24 @@ def test_ui_runtime_status_checks_generated_dist(tmp_path: Path) -> None:
     ok, detail = _ui_runtime_status(tmp_path)
     assert ok is True
     assert str(index) in detail
+
+
+def test_active_runtime_version_must_match_canonical(tmp_path: Path) -> None:
+    canonical = tmp_path / "canonical"
+    active = tmp_path / "active"
+    canonical.mkdir()
+    active.mkdir()
+    (canonical / "release_version.txt").write_text("4.8.0\n", encoding="utf-8")
+    (active / "release_version.txt").write_text("4.7.2\n", encoding="utf-8")
+
+    ok, detail = _active_runtime_version_status(canonical, active)
+    assert ok is False
+    assert "v4.7.2 != canónica v4.8.0" in detail
+
+    (active / "release_version.txt").write_text("v4.8.0\n", encoding="utf-8")
+    ok, detail = _active_runtime_version_status(canonical, active)
+    assert ok is True
+    assert detail.startswith("v4.8.0")
 
 
 def test_release_configuration_does_not_package_parallel_ui_source() -> None:

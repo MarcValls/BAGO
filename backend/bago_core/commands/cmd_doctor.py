@@ -4,12 +4,11 @@
 Ejecuta chequeos end-to-end y reporta PASS/FAIL/WARN por cada dimensión:
   1. Versión coherente en 5 archivos
   2. install_selection.json resuelve a la copia activa
-  3. Bridge importa sin errores
-  4. Ollama local responde
-  5. Modelos locales visibles
+  3. La copia activa coincide con la versión canónica
+  4. Bridge importa sin errores
+  5. Ollama local responde y expone modelos
   6. ui-react/dist contiene el artefacto canónico generado
-  7. la pieza de API tiene los módulos esperados
-  8. verify-master.ps1 existe (si aplica)
+  7. La pieza de API tiene los módulos esperados
 
 Uso:
   bago doctor
@@ -45,6 +44,20 @@ def _check(name: str, checks: list, ok: bool, detail: str = "") -> dict:
 def _ui_runtime_status(root: Path) -> tuple[bool, str]:
     index = root / "ui-react" / "dist" / "index.html"
     return index.is_file(), f"artefacto {'presente' if index.is_file() else 'ausente'}: {index}"
+
+
+def _active_runtime_version_status(canonical_root: Path, active_root: Path) -> tuple[bool, str]:
+    canonical_file = canonical_root / "release_version.txt"
+    active_file = active_root / "release_version.txt"
+    if not canonical_file.is_file():
+        return False, f"versión canónica ausente: {canonical_file}"
+    if not active_file.is_file():
+        return False, f"versión activa ausente: {active_file}"
+    canonical = canonical_file.read_text(encoding="utf-8").strip().lstrip("vV")
+    active = active_file.read_text(encoding="utf-8").strip().lstrip("vV")
+    if canonical != active:
+        return False, f"activa v{active} != canónica v{canonical}: {active_root}"
+    return True, f"v{active}: {active_root}"
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -93,7 +106,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             pass
 
     ver_ok = len(versions) == 1
-    ver_detail = f"versiones encontradas: {versions}" if not ver_ok else f"v{versions.pop()}"
+    canonical_version = next(iter(versions)) if ver_ok else ""
+    ver_detail = f"versiones encontradas: {versions}" if not ver_ok else f"v{canonical_version}"
     if not ver_ok:
         fails += 1
     checks.append(_check("version_coherent", checks, ver_ok, ver_detail))
@@ -102,9 +116,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     sel_path = install_selection_file()
     sel_ok = sel_path.exists()
     sel_detail = ""
+    active_path = ""
     if sel_ok:
         try:
-            sel = json.loads(sel_path.read_text(encoding="utf-8"))
+            sel = json.loads(sel_path.read_text(encoding="utf-8-sig"))
             # Support both shapes: {active:{path:...}} and {roles:{active:{path:...}}}
             active = sel.get("active", {})
             if not active:
@@ -122,6 +137,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 sel_detail = "active.path vacío"
                 fails += 1
         except Exception as exc:
+            sel_ok = False
             sel_detail = f"error leyendo JSON: {exc}"
             fails += 1
     else:
@@ -129,7 +145,21 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         fails += 1
     checks.append(_check("install_selection", checks, sel_ok, sel_detail))
 
-    # ── 3. Bridge importa ────────────────────────────────────────────────────
+    # ── 3. Runtime activo alineado con la fuente canónica ───────────────────
+    active_version_ok = False
+    active_version_detail = "runtime activo no disponible"
+    if sel_ok and active_path and canonical_version:
+        try:
+            active_version_ok, active_version_detail = _active_runtime_version_status(
+                BAGO_ROOT, Path(active_path)
+            )
+        except Exception as exc:
+            active_version_detail = f"error leyendo versión activa: {exc}"
+    if not active_version_ok:
+        fails += 1
+    checks.append(_check("active_runtime_version", checks, active_version_ok, active_version_detail))
+
+    # ── 4. Bridge importa ────────────────────────────────────────────────────
     bridge_dir = resolve_piece_path("api.package")
     bridge_ok = bridge_dir.exists() and (bridge_dir / "bridge.py").exists()
     bridge_detail = ""

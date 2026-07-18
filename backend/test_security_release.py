@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import tempfile
@@ -11,9 +10,6 @@ import zipfile
 from pathlib import Path
 
 BAGO_ROOT = Path(__file__).resolve().parent
-CURRENT_RELEASE = (BAGO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip().lstrip("v")
-CURRENT_EVIDENCE_DIR = f"docs/archive/evidence/release_{CURRENT_RELEASE.replace('.', '_')}"
-EXPECTED_EVIDENCE_RELEASE = CURRENT_RELEASE
 sys.path.insert(0, str(BAGO_ROOT))
 
 from bago_core.resolver import resolve_piece_path
@@ -97,18 +93,13 @@ def test_release_package_excludes_install_config_and_includes_uninstaller() -> N
         result = build_package(BAGO_ROOT, output_dir)
         with zipfile.ZipFile(result["zip"], "r") as zf:
             names = set(zf.namelist())
-            evidence_manifest = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/manifest.json"))
-            evidence_meta = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/session/meta.json"))
         assert "package-lock.json" in names
         assert "install_config.json" not in names
         assert ".bago/credentials.json" not in names
         assert "bago-uninstall.ps1" in names
         assert "bago-uninstall.cmd" in names
         assert "bago_core/translators/__init__.py" in names
-        assert f"{CURRENT_EVIDENCE_DIR}/manifest.json" in names
-        assert f"{CURRENT_EVIDENCE_DIR}/session/meta.json" in names
-        assert evidence_manifest["contract_version"] == EXPECTED_EVIDENCE_RELEASE
-        assert evidence_meta["bago_version"] == EXPECTED_EVIDENCE_RELEASE
+        assert not any(name.startswith("docs/archive/") for name in names)
 
     # 2026-Q2 cleanup: bootstrap docs (MODEL_PARALLEL_SETUP.md, AUDIT_PARALLEL_SETUP.md)
     # were removed; install/setup guidance now lives in docs/SETUP.md.

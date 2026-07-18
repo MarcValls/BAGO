@@ -53,7 +53,7 @@ def load_selection(path: str | Path | None = None) -> dict[str, Any]:
     if not target.is_file():
         return _empty()
     try:
-        data = json.loads(target.read_text(encoding="utf-8"))
+        data = json.loads(target.read_text(encoding="utf-8-sig"))
     except Exception:
         return _empty()
     if not isinstance(data, dict):
