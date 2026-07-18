@@ -12,6 +12,10 @@ def test_remote_installer_requires_paired_checksum_and_verifies_bytes():
     assert "bago_core\\launcher.py" in script
     assert "La version del bundle" in script
     assert "-not $_.prerelease" in script
+    assert "[AllowEmptyString()][string]$CeilingTag" in script
+    assert "IsNullOrWhiteSpace($CeilingTag)" in script
+    assert "Get-VersionSortKey" in script
+    assert "Sort-Object { [datetime]$_.published_at }" not in script
 
 
 def test_remote_installer_supports_explicit_signature_policy():
