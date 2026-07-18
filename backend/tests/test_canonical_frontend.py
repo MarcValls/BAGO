@@ -51,3 +51,9 @@ def test_release_configuration_does_not_package_parallel_ui_source() -> None:
         text = (BACKEND_ROOT / relative).read_text(encoding="utf-8")
         assert '"ui-react/src",' not in text
         assert '"ui-react/src/**/*"' not in text
+
+
+def test_shell_launcher_resolves_workspace_electron() -> None:
+    text = (REPOSITORY_ROOT / "scripts" / "dev.sh").read_text(encoding="utf-8")
+    assert 'require("electron")' in text
+    assert "electron-viewer/node_modules/electron/dist/electron.exe" not in text

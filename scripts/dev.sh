@@ -93,12 +93,22 @@ build_frontend() {
 }
 
 # ─── Electron ──────────────────────────────────────────────
+resolve_electron_bin() {
+    local electron_bin
+    electron_bin="$(
+        cd "$ELECTRON_DIR"
+        node -e 'const executable = require("electron"); if (typeof executable !== "string") process.exit(1); process.stdout.write(executable)'
+    )" 2>/dev/null || return 1
+    [[ -f "$electron_bin" ]] || return 1
+    printf '%s\n' "$electron_bin"
+}
+
 start_electron() {
     local pidfile="$RUN/electron.pid"
     local logfile="$RUN/electron.log"
-    local electron_bin="$ELECTRON_DIR/node_modules/electron/dist/electron.exe"
-    if [[ ! -f "$electron_bin" ]]; then
-        err "electron no está instalado. Ejecuta: cd electron-viewer && npm install"
+    local electron_bin
+    if ! electron_bin="$(resolve_electron_bin)"; then
+        err "electron no está instalado. Ejecuta npm ci desde la raíz"
         return 1
     fi
     if is_running "$pidfile"; then
