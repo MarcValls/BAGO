@@ -98,12 +98,12 @@ bago exec /status
 
 | Comando | Descripción |
 |---|---|
-| `python bago_core\cli.py validate` | Valida contratos, defaults de seguridad y configuración de proveedores |
-| `python bago_core\cli.py llm list` | Lista disponibilidad de proveedores y modelos |
-| `python bago_core\cli.py llm start ...` | Arranca o simula el startup con conciencia de proveedor |
-| `python bago_core\cli.py serve --host 127.0.0.1 --port 8080` | Arranca la API local |
-| `python bago_core\cli.py rl status` | Reporta el estado RL/shadow sin conceder autoridad |
-| `python bago_core\cli.py evidence --test` | Valida la generación del bundle de evidencias |
+| `python backend\bago_core\cli.py validate` | Valida contratos, defaults de seguridad y configuración de proveedores |
+| `python backend\bago_core\cli.py llm list` | Lista disponibilidad de proveedores y modelos |
+| `python backend\bago_core\cli.py llm start ...` | Arranca o simula el startup con conciencia de proveedor |
+| `python backend\bago_core\cli.py serve --host 127.0.0.1 --port 8080` | Arranca la API local |
+| `python backend\bago_core\cli.py rl status` | Reporta el estado RL/shadow sin conceder autoridad |
+| `python backend\bago_core\cli.py evidence --test` | Valida la generación del bundle de evidencias |
 | `bago exec /commands json` | Exporta el catálogo de slash-commands para agentes |
 | `bago exec /doctor` | Diagnóstico: catálogo, ejecución headless, roles de instalación y salud de proveedores |
 
