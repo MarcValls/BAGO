@@ -242,7 +242,19 @@ def cmd_context(args: argparse.Namespace) -> int:
 
 def cmd_chat(args: argparse.Namespace) -> int:
     from repl import BagoREPL
+    from session_manager import SessionManager
     from system_prompt import get_system_prompt
+
+    try:
+        project_root = SessionManager._validate_project_root(
+            Path(args.base_path),
+            require_identity=True,
+        )
+    except (OSError, RuntimeError) as exc:
+        print(f"BAGO no puede iniciar el chat: {exc}", file=sys.stderr)
+        return 2
+
+    args.base_path = str(project_root)
 
     provider = getattr(args, "provider", "unknown") or "unknown"
     model = getattr(args, "model", "unknown") or "unknown"

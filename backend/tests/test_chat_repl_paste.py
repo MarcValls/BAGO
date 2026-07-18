@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from pathlib import Path
 
 import repl as repl_module  # noqa: E402
 from repl import BagoREPL  # noqa: E402
@@ -10,6 +11,7 @@ from repl import BagoREPL  # noqa: E402
 class ChatReplPasteTests(unittest.TestCase):
     def test_pasted_block_is_sent_once(self) -> None:
         with tempfile.TemporaryDirectory() as td:
+            (Path(td) / ".gabo").mkdir()
             repl = BagoREPL(base_path=td)
             seen: list[str] = []
             repl._handle_chat = lambda text: seen.append(text)  # type: ignore[method-assign]
