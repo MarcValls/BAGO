@@ -75,9 +75,9 @@
     },
     {
       "version": "4.8.0",
-      "released": "2026-07-04",
+      "released": "2026-07-18",
       "ended": null,
-      "notes": "Beta prerelease de BAGO 4.8.0."
+      "notes": "Release estable de BAGO 4.8.0: árbol canónico auditado, interfaz actual, instalación limpia reproducible y validación de seguridad cerrada."
     }
   ]
 }
