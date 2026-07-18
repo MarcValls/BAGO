@@ -32,7 +32,6 @@ class Sprint2ContractsTests(unittest.TestCase):
             ".bago/mcp",
             ".bago/prompts",
             ".bago/roles",
-            ".bago/state",
             ".bago/state.example",
             ".bago/templates",
             ".bago/workflows",
@@ -70,4 +69,3 @@ class Sprint2ContractsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

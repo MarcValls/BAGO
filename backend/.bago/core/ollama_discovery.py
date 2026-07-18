@@ -56,8 +56,12 @@ def _path_to_model_name(manifest_root: Path, manifest_file: Path) -> str | None:
     if len(tail) < 2:
         return None
 
-    family = tail[-2].strip()
-    tag = tail[-1].strip()
+    if tail[-1].lower() in {"manifest", "manifest.json"} and len(tail) >= 3:
+        family = tail[-3].strip()
+        tag = tail[-2].strip()
+    else:
+        family = tail[-2].strip()
+        tag = tail[-1].strip()
     if tag.endswith(".json"):
         tag = tag[:-5].strip()
     if not family or not tag:

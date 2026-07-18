@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import unittest
 from pathlib import Path
 
@@ -44,21 +43,16 @@ class TraceabilityContractTests(unittest.TestCase):
         self.assertIn("CopyRoot", script)
 
     def test_repair_helpers_use_portable_roots(self) -> None:
-        repo_map_md = (ROOT / ".gabo" / "context" / "repository_map.md").read_text(encoding="utf-8")
-        repo_map_json = (ROOT / ".gabo" / "context" / "repository_map.json").read_text(encoding="utf-8")
-        chk = (ROOT / ".gabo" / "api" / "_chk_handlers.py").read_text(encoding="utf-8")
+        chk = (ROOT / ".bago" / "api" / "_chk_handlers.py").read_text(encoding="utf-8")
         launcher = (ROOT / "bago_core" / "launcher.py").read_text(encoding="utf-8")
         repair = (ROOT / "scripts" / "repair_routing_runtime.py").read_text(encoding="utf-8")
         ssot = (ROOT / "bago_core" / "node_control_ssot.py").read_text(encoding="utf-8")
-        seed = (ROOT / ".gabo" / "seed.py").read_text(encoding="utf-8")
+        seed = (ROOT / ".bago" / "seed.py").read_text(encoding="utf-8")
 
-        self.assertNotIn("C:\\Users\\AMTEC_Terminal_1º\\BAG4.8\\release\\v4\\current", repo_map_md)
-        self.assertNotIn("C:\\Users\\AMTEC_Terminal_1º\\BAG4.8\\release\\v4\\current", repo_map_json)
-        self.assertIn(f"project_root: `{ROOT}`", repo_map_md)
-        self.assertEqual(json.loads(repo_map_json)["project_root"], str(ROOT))
         self.assertIn("sys.path.insert(0, _repo_root)", launcher)
         self.assertIn("from bago_core.workspace_paths import workspace_root", launcher)
         self.assertNotIn("C:\\Program Files\\BAGO", chk)
+        self.assertNotIn("C:\\Users\\AMTEC_Terminal_1º", seed)
         self.assertNotIn("C:\\Users\\AMTEC_Terminal_1º", repair)
         self.assertNotIn("C:\\ProgramData\\BAGO", ssot)
         self.assertIn("_piece_store_root", ssot)

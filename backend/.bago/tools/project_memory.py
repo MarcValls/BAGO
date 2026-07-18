@@ -280,7 +280,7 @@ def _load_scan_directory_module():
 
 
 def _load_seed_module():
-    script = Path(__file__).resolve().parents[2] / ".gabo" / "seed.py"
+    script = Path(__file__).resolve().parents[1] / "seed.py"
     if not script.exists():
         return None
     spec = importlib.util.spec_from_file_location("bago_seed", script)

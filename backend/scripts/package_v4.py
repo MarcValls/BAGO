@@ -20,9 +20,6 @@ from bago_core.versioning import read_release_version
 
 
 CURRENT_RELEASE = read_release_version(ROOT).strip().lstrip("v")
-CURRENT_EVIDENCE_DIR = f"docs/archive/evidence/release_{CURRENT_RELEASE.replace('.', '_')}"
-
-
 INCLUDE_FILES = [
     ".gitignore",
     ".bago/core/context_store.py",
@@ -115,6 +112,7 @@ EXCLUDED_PREFIXES = [
     "build",
     "output",
     "out",
+    "docs/archive",
     "tools/sprints",
 ]
 
@@ -417,8 +415,6 @@ def _run_tests() -> int:
                 "docs/contracts/bago_v4_governance_contract.md",
                 "docs/contracts/bago_v4_engineering_contract.md",
                 "ui-react/dist/index.html",
-                f"{CURRENT_EVIDENCE_DIR}/manifest.json",
-                f"{CURRENT_EVIDENCE_DIR}/session/meta.json",
             }
             missing = sorted(required_names - names)
             assert not missing, f"missing bundle entries: {missing}"
@@ -432,10 +428,7 @@ def _run_tests() -> int:
                 or "win-unpacked/resources" in name
             )
             assert not leaked, f"recursive/build artifacts leaked into package: {leaked[:5]}"
-            evidence_manifest = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/manifest.json"))
-            evidence_meta = json.loads(zf.read(f"{CURRENT_EVIDENCE_DIR}/session/meta.json"))
-            assert evidence_manifest["contract_version"] == CURRENT_RELEASE
-            assert evidence_meta["bago_version"] == CURRENT_RELEASE
+            assert not any(name.startswith("docs/archive/") for name in names)
         extract_dir = Path(td) / "extract"
         with zipfile.ZipFile(result["zip"], "r") as zf:
             zf.extractall(extract_dir)
