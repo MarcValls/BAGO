@@ -113,12 +113,14 @@ def write_checksums(output_dir: Path, files: list[dict[str, Any]]) -> None:
 
 
 def copy_session_artifacts(
-    base_path: Path, session_id: str, output_dir: Path,
+    base_path: Path, session_id: str, output_dir: Path, *,
+    session_state_root: Path | None = None,
 ) -> list[str]:
     """Copy the persistent session artifacts into the bundle (R1, R8)."""
     override = os.environ.get("BAGO_STATE_ROOT", "").strip()
     user_state_root = Path(override).expanduser().resolve() if override else None
     candidates = [
+        session_state_root.resolve() if session_state_root is not None else None,
         user_state_root if user_state_root is not None else state_root(),
         base_path / ".bago" / "state",
         legacy_user_root() / "state",
@@ -126,6 +128,8 @@ def copy_session_artifacts(
     copied: list[str] = []
 
     for candidate in candidates:
+        if candidate is None:
+            continue
         state_dir = candidate / "sessions"
         session_dir = state_dir / session_id
         for name in ("context.jsonl", "timeline.jsonl", "tokens.json", "meta.json"):

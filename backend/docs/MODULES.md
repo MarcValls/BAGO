@@ -31,19 +31,19 @@ Structural layers and runtime flows live in `docs/ARCHITECTURE.md`.
 
 | Module | Status | Proof |
 |---|---|---|
-| `ollama-cloud` | partial | `python bago_core\cli.py llm list` |
-| `copilot` | partial | `python bago_core\cli.py llm list` |
-| `anthropic` | partial | `python bago_core\cli.py llm list` |
-| `codex` | partial | `python bago_core\cli.py llm list` |
-| `openrouter` | partial | `python bago_core\cli.py llm list` |
-| `opencode` | partial | `python bago_core\cli.py llm list` |
+| `ollama-cloud` | working | `python bago_core\cli.py llm verify` |
+| `copilot` | working | `python bago_core\cli.py llm verify` |
+| `anthropic` | working | `python bago_core\cli.py llm verify` |
+| `codex` | working | `python bago_core\cli.py llm verify` |
+| `openrouter` | working | `python bago_core\cli.py llm verify` |
+| `opencode` | working | `python bago_core\cli.py llm verify` |
 | `.bago/core/control_shadow.py` | partial | `python .bago\api\bridge.py --test` |
 | `.bago/core/rl_engine.py` | experimental | `python bago_core\cli.py rl status` |
 | `bago_core/rl_bridge.py` | experimental | `python bago_core\cli.py rl shadow status` |
 | `bago_core/rl_policies.py` | experimental | `python bago_core\cli.py rl eval` |
 | `.bago/core/tool_registry.py` | partial | `python test_e2e.py` |
-| `.bago/core/knowledge_base.py` | partial | no MVP gate |
-| `.bago/core/embedding_store.py` | partial | optional dependency gate |
+| `.bago/core/knowledge_base.py` | working | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
+| `.bago/core/embedding_store.py` | working | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
 | `.bago/core/agent_gateway.py` | experimental | no MVP gate |
 | `.bago/core/plan_engine.py` | experimental | no MVP gate |
 | `apps/mobile-expo` | planned | none |
@@ -59,3 +59,6 @@ Structural layers and runtime flows live in `docs/ARCHITECTURE.md`.
 ## Rule
 
 Only keep a module marked `working` if a command above still proves it.
+
+Cloud verification is deterministic and offline; live use still requires each
+provider's own credential and account access.

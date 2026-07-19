@@ -101,6 +101,7 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     llm_parser.add_argument("--include-experimental", action="store_true", help="Incluye providers experimentales fuera del release principal")
     llm_sub = llm_parser.add_subparsers(dest="llm_action")
     llm_sub.add_parser("list", help="Lista providers instalados/configurados y disponibles")
+    llm_sub.add_parser("verify", help="Verifica offline el contrato de los providers cloud")
     llm_start = llm_sub.add_parser("start", help="Inicia BAGO con provider/modelo seleccionado")
     llm_start.add_argument("--provider", dest="llm_provider", default="", help="Provider instalado/configurado")
     llm_start.add_argument("--model", dest="llm_model", default="", help="Modelo para la sesion")
