@@ -287,12 +287,15 @@ class BagoReplStartupMixin:
             return
 
         new_model = models[idx]
-        result = self.mgr.switch(prov["name"], new_model)
+        # El usuario acaba de escoger explícitamente provider y modelo: no
+        # bloquear el arranque por una equivalencia aún no catalogada.
+        result = self.mgr.switch(prov["name"], new_model, force=True)
         if result["ok"]:
             print(R.ok(f"✓ Conectado a {prov['name']}/{new_model}"))
             self.engine = SwitchEngine(self.mgr.adapters)
         else:
-            print(R.error(f"Error: {result.get('error', 'unknown')}"))
+            detail = result.get("error") or result.get("message") or "; ".join(result.get("warnings") or []) or "sin detalle"
+            print(R.error(f"Error: {detail}"))
 
     # ─── Auto-evolución ────────────────────────────────────────────────
 

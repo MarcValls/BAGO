@@ -91,6 +91,7 @@ _DEFAULT_MAP: dict[str, dict] = {
         "description": "Modelos frontier: razonamiento profundo, contexto largo, edición compleja",
         "models": {
             "gpt-5.5": {"wire": "gpt-5.5", "provider": "copilot", "context": 128000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "frontier"},
+            "gpt-5.6-sol": {"wire": "gpt-5.6-sol", "provider": "codex", "context": 128000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "frontier_agentic_coding"},
             "claude-opus-4.7": {"wire": "claude-opus-4.7", "provider": "copilot", "context": 200000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "complex_reasoning"},
             "gpt-5.4": {"wire": "gpt-5.4", "provider": "copilot", "context": 128000, "reasoning": "high", "coding": "high", "best_for": "everyday"},
             "claude-sonnet-4.6": {"wire": "claude-sonnet-4.6", "provider": "copilot", "context": 200000, "reasoning": "high", "coding": "high", "best_for": "code_review"},
@@ -101,6 +102,7 @@ _DEFAULT_MAP: dict[str, dict] = {
     "tier_2_everyday": {
         "description": "Modelos everyday: código, resúmenes, tareas generales",
         "models": {
+            "gpt-5.6-terra": {"wire": "gpt-5.6-terra", "provider": "codex", "context": 128000, "reasoning": "high", "coding": "high", "best_for": "balanced_agentic_coding"},
             "gpt-5.4-mini": {"wire": "gpt-5.4-mini", "provider": "copilot", "context": 128000, "reasoning": "medium", "coding": "high", "best_for": "fast_coding"},
             "gpt-5.3-codex": {"wire": "gpt-5.3-codex", "provider": "copilot", "context": 128000, "reasoning": "medium", "coding": "xhigh", "best_for": "coding"},
             "gpt-5.2": {"wire": "gpt-5.2", "provider": "copilot", "context": 128000, "reasoning": "medium", "coding": "medium", "best_for": "long_agents"},
@@ -113,6 +115,7 @@ _DEFAULT_MAP: dict[str, dict] = {
     "tier_3_fast": {
         "description": "Modelos rápidos: confirmaciones, clasificación, tareas ligeras",
         "models": {
+            "gpt-5.6-luna": {"wire": "gpt-5.6-luna", "provider": "codex", "context": 128000, "reasoning": "medium", "coding": "high", "best_for": "fast_agentic_coding"},
             "llama32-1b": {"wire": "llama3.2:1b", "provider": "ollama-local", "context": 128000, "reasoning": "low", "coding": "low", "best_for": "classification"},
             "qwen25-mini": {"wire": "qwen2.5:0.5b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
             "qwen25-1_5b": {"wire": "qwen2.5:1.5b", "provider": "ollama-local", "context": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
