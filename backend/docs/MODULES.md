@@ -37,10 +37,10 @@ Structural layers and runtime flows live in `docs/ARCHITECTURE.md`.
 | `codex` | working | `python bago_core\cli.py llm verify` |
 | `openrouter` | working | `python bago_core\cli.py llm verify` |
 | `opencode` | working | `python bago_core\cli.py llm verify` |
-| `.bago/core/control_shadow.py` | partial | `python .bago\api\bridge.py --test` |
-| `.bago/core/rl_engine.py` | experimental | `python bago_core\cli.py rl status` |
-| `bago_core/rl_bridge.py` | experimental | `python bago_core\cli.py rl shadow status` |
-| `bago_core/rl_policies.py` | experimental | `python bago_core\cli.py rl eval` |
+| `.bago/api/control_shadow.py` | working | `python .bago\api\control_shadow.py --test` |
+| `.bago/core/rl_engine.py` | working (observer-only) | `python .bago\core\rl_engine.py --test` |
+| `bago_core/rl_bridge.py` | working (shadow/off only) | `python bago_core\cli.py rl shadow status` |
+| `bago_core/rl_policies.py` | working (non-executing) | `python -m pytest -q tests\test_rl_contract.py` |
 | `.bago/core/tool_registry.py` | partial | `python test_e2e.py` |
 | `.bago/core/knowledge_base.py` | working | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
 | `.bago/core/embedding_store.py` | working | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |

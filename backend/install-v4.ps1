@@ -255,7 +255,11 @@ function Test-ReleaseExcluded {
     if ([System.IO.Path]::GetFileName($rel) -in @("credentials.json", ".env", ".env.local")) {
         return $true
     }
-    foreach ($prefix in @(".bago/state", ".bago/logs", "state", "logs", "PLAN_VERTICE", "release", "dist", "build")) {
+    foreach ($prefix in @(
+        ".bago/state", ".bago/logs",
+        ".gabo/state", ".gabo/logs", ".gabo/cache", ".gabo/launch", ".gabo/backups",
+        "state", "logs", "PLAN_VERTICE", "release", "dist", "build"
+    )) {
         if ($rel -eq $prefix -or $rel.StartsWith("$prefix/")) {
             return $true
         }

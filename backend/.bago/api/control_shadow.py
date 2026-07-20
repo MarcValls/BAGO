@@ -18,6 +18,9 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+
+ALLOWED_MODES = {"off", "shadow"}
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -102,9 +105,9 @@ class ControlShadow:
 
     def status(self) -> dict[str, Any]:
         mode = self.state.get("mode", "shadow")
-        if mode in ("canary", "full"):
-            note = "Modo futuro: hoy sigue siendo observador y solo registra trazas como shadow."
-        elif mode == "off":
+        if mode not in ALLOWED_MODES:
+            mode = "shadow"
+        if mode == "off":
             note = "Simulación desactivada."
         else:
             note = "Modo observador activo: registra recomendaciones sin tomar control."
@@ -122,8 +125,11 @@ class ControlShadow:
         if enabled is not None:
             self.state["enabled"] = bool(enabled)
         if mode is not None:
-            if mode not in ("off", "shadow", "canary", "full"):
-                raise ValueError("Modo inválido. Usa off|shadow|canary|full")
+            if mode not in ALLOWED_MODES:
+                raise ValueError(
+                    "Modo bloqueado. Solo off|shadow están autorizados; "
+                    "canary/full requieren evidencia y un gate de promoción explícito."
+                )
             self.state["mode"] = mode
         self._save_state()
         return self.status()
@@ -253,6 +259,13 @@ def _run_tests() -> int:
         assert shadow.status()["authority"] == "observer-only"
         configured = shadow.configure(mode="shadow", enabled=True)
         assert configured["enabled"] is True
+        try:
+            shadow.configure(mode="canary")
+        except ValueError as exc:
+            assert "gate de promoción" in str(exc)
+        else:
+            raise AssertionError("canary no puede habilitarse sin gate")
+        assert shadow.status()["mode"] == "shadow"
         event = shadow.log_event(
             mgr=DummyMgr(),
             channel="terminal",
