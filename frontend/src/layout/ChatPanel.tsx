@@ -109,8 +109,6 @@ function inspectMenuAttrs(selection: SelectionRecord, onInspect: Props['onInspec
 export function ChatPanel(props: Props) {
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
-  const [modelChanging, setModelChanging] = useState(false);
-  const [modelError, setModelError] = useState<string | null>(null);
   const historyMessages = Array.isArray(props.history?.messages) ? props.history.messages : [];
   const modelOptions = useMemo(
     () => buildChatModelOptions(props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel),
@@ -271,14 +269,7 @@ export function ChatPanel(props: Props) {
                   aria-label="Modelo de esta sesión"
                   value={props.sessionModel || ''}
                   disabled={modelChanging || modelOptions.length === 0}
-                  onChange={(event) => {
-                    const nextModel = event.target.value || null;
-                    setModelChanging(true);
-                    setModelError(null);
-                    void props.onSetSessionModel(nextModel)
-                      .catch((error) => setModelError(error instanceof Error ? error.message : String(error)))
-                      .finally(() => setModelChanging(false));
-                  }}
+                  onChange={(event) => void onModelChange(event)}
                 >
                   <option value="">Automático · router</option>
                   {modelOptions.map((option) => (
@@ -302,24 +293,6 @@ export function ChatPanel(props: Props) {
             />
             <div className="chat-composer-bottombar">
               <div className="chat-composer-tools">
-                <label className="chat-model-control">
-                  <select
-                    className="chat-model-selector"
-                    value={props.sessionModel || ''}
-                    onChange={(event) => void onModelChange(event)}
-                    disabled={modelChanging || modelOptions.length === 0}
-                    aria-label="Modelo de la sesión"
-                    aria-describedby={modelError ? 'chat-model-error' : undefined}
-                    title="Elegir modelo para esta sesión"
-                  >
-                    <option value="">{modelChanging ? 'Cambiando modelo…' : 'Automático'}</option>
-                    {modelOptions.map((option) => (
-                      <option key={option.key} value={option.key}>{option.label}</option>
-                    ))}
-                  </select>
-                  <span className="chat-model-selector-count" aria-hidden="true">{modelOptions.length}</span>
-                </label>
-                {modelError && <span id="chat-model-error" className="chat-model-error" role="alert">{modelError}</span>}
                 <span className="chat-composer-counter">
                   {draft.length.toLocaleString()} / 12.000
                 </span>
