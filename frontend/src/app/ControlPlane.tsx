@@ -1457,7 +1457,11 @@ export function ControlPlane() {
     const previousModel = sessionModel;
     setSessionModelState(modelKey);
     try {
-      await clientRef.current.setSessionModel(modelKey);
+      const result = await clientRef.current.setSessionModel(modelKey);
+      const confirmedModel = (result.session_model as string | null | undefined)
+        ?? (result.model as string | null | undefined)
+        ?? modelKey;
+      setSessionModelState(confirmedModel ?? null);
       await refreshAfterMutation();
     } catch (error) {
       setSessionModelState(previousModel);
@@ -1467,7 +1471,8 @@ export function ControlPlane() {
 
   useEffect(() => {
     clientRef.current.getSessionModel().then((r) => {
-      const m = r?.session_model as string | null | undefined;
+      const m = (r?.session_model as string | null | undefined)
+        ?? (r?.model as string | null | undefined);
       setSessionModelState(m ?? null);
     }).catch(() => null);
   }, []);
