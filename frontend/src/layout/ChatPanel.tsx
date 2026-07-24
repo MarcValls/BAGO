@@ -107,6 +107,8 @@ function inspectMenuAttrs(selection: SelectionRecord, onInspect: Props['onInspec
 }
 
 export function ChatPanel(props: Props) {
+  const [modelChanging, setModelChanging] = useState(false);
+  const [modelError, setModelError] = useState('');
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
   const historyMessages = Array.isArray(props.history?.messages) ? props.history.messages : [];
