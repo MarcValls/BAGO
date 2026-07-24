@@ -4,7 +4,6 @@ import importlib
 from pathlib import Path
 from types import SimpleNamespace
 
-
 class FakeConfig:
     def __init__(self, providers: dict | None = None):
         self.providers = providers or {}
