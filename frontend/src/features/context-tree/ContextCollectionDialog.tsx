@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ContextPatchRequest } from './contextTreeTypes';
 import { Icon } from '@/shared/Icon';
 
@@ -7,6 +7,7 @@ interface Props {
   busy: boolean;
   proposal: ContextPatchRequest | null;
   sourceSummary: string;
+  notice?: { tone: 'info' | 'warning' | 'error'; message: string } | null;
   onClose: () => void;
   onCollect: (question: string) => Promise<void>;
   onAccept: () => Promise<void>;
@@ -15,6 +16,16 @@ interface Props {
 
 export function ContextCollectionDialog(props: Props) {
   const [question, setQuestion] = useState('');
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!props.open) return;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !props.busy) props.onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [props.open, props.busy, props.onClose]);
   if (!props.open) return null;
 
   const hasProposal = Boolean(props.proposal);
@@ -22,13 +33,13 @@ export function ContextCollectionDialog(props: Props) {
 
   return (
     <div className="context-patch-preview-backdrop" role="presentation">
-      <section className="context-patch-preview context-collection-dialog" role="dialog" aria-modal="true" aria-labelledby="context-collection-title">
+      <section className="context-patch-preview context-collection-dialog" role="dialog" aria-modal="true" aria-busy={props.busy} aria-labelledby="context-collection-title">
         <header className="context-patch-preview-header">
           <div>
             <h3 id="context-collection-title"><Icon name="sparkle" size={14} /> Recopilar contexto</h3>
             <p className="context-collection-subtitle">El modelo prepara una propuesta. Nada se añade sin tu permiso.</p>
           </div>
-          <button type="button" className="icon-button" onClick={props.onClose} aria-label="Cerrar" disabled={props.busy}>
+          <button ref={closeRef} type="button" className="icon-button" onClick={props.onClose} aria-label="Cerrar" disabled={props.busy}>
             <Icon name="close" size={14} />
           </button>
         </header>
@@ -39,6 +50,7 @@ export function ContextCollectionDialog(props: Props) {
               <strong>Origen</strong>
               <span>{props.sourceSummary}</span>
             </div>
+            {props.notice && <div className={`context-collection-notice tone-${props.notice.tone}`} role="status">{props.notice.message}</div>}
             <label className="context-collection-question">
               <span>¿Qué debe aclarar o buscar el modelo?</span>
               <textarea
@@ -65,6 +77,10 @@ export function ContextCollectionDialog(props: Props) {
               <div className="context-collection-question-list">
                 <strong>Preguntas / aclaraciones</strong>
                 <p>{props.proposal?.metadata?.clarification || 'No quedan preguntas obligatorias.'}</p>
+              </div>
+              <div className="context-collection-question-list">
+                <strong>Origen de la propuesta</strong>
+                <p>{props.proposal?.metadata?.source === 'model_chat' ? 'Modelo + historial completo del chat' : 'Fallback local: historial del chat'}</p>
               </div>
               <div className="context-collection-operations">
                 <strong>{operationCount} cambios preparados</strong>

@@ -2300,6 +2300,9 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 .context-collection-question-list,
 .context-collection-operations { display: grid; gap: 5px; padding-top: 9px; border-top: 1px solid var(--border); }
 .context-collection-operations div { display: flex; align-items: center; gap: 5px; color: var(--text-2); font-size: 11px; }
+.context-collection-notice { margin: 10px 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-2); font-size: 11px; line-height: 1.45; }
+.context-collection-notice.tone-warning { border-color: color-mix(in srgb, var(--amber) 55%, var(--border)); color: var(--amber); }
+.context-collection-notice.tone-error { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); color: var(--danger); }
 @media (max-width: 720px) {
   .context-collection-toolbar { align-items: stretch; flex-direction: column; }
 }

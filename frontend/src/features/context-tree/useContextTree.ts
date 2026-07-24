@@ -730,11 +730,11 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
   // Patches del chat ----------------------------------------------------
 
   const ingestPatch = useCallback((request: ContextPatchRequest) => {
-    setProposals((current) => {
-      if (current.find((p) => p.id === request.id)) return current;
-      return [request, ...current];
-    });
-  }, []);
+    if (proposals.find((p) => p.id === request.id)) return;
+    const next = [request, ...proposals];
+    setProposals(next);
+    void persistProposals(next);
+  }, [proposals, persistProposals]);
 
   const createProposal = useCallback(async (request: ContextPatchRequest) => {
     const next = proposals.find((item) => item.id === request.id)
