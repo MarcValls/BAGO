@@ -1,6 +1,7 @@
-import { useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type {
   ActiveSection,
+  BackendRouterEntry,
   BackendHistory,
   ChatMode,
   ChatTurn,
@@ -14,6 +15,7 @@ import { Icon } from '@/shared/Icon';
 import { quietStatus } from '@/shared/quiet-status';
 import { ContextPatchValidationCard } from '@/features/context-tree/ContextPatchValidationCard';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
+import { buildChatModelOptions } from '@/layout/chatModelOptions';
 
 export interface ContextPatchDisplay {
   patch: ContextPatchRequest;
@@ -31,7 +33,7 @@ interface Props {
   chatMode: ChatMode;
   history: BackendHistory | null;
   canChat: boolean;
-  routerEntries: Array<Record<string, unknown>>;
+  routerEntries: BackendRouterEntry[];
   sessionModel: string | null;
   activeProvider: string | null;
   activeModels: Set<string>;
@@ -107,7 +109,13 @@ function inspectMenuAttrs(selection: SelectionRecord, onInspect: Props['onInspec
 export function ChatPanel(props: Props) {
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
+  const [modelChanging, setModelChanging] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
   const historyMessages = Array.isArray(props.history?.messages) ? props.history.messages : [];
+  const modelOptions = useMemo(
+    () => buildChatModelOptions(props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel),
+    [props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel]
+  );
   const chatSelection: SelectionRecord = {
     id: 'screen-chat',
     kind: 'screen-chat',
@@ -242,7 +250,32 @@ export function ChatPanel(props: Props) {
           <div className="chat-composer-shell">
             <div className="chat-composer-topbar">
               <span className="chat-composer-title">Mensaje a BAGO</span>
+              <div className="chat-model-control">
+                <label htmlFor="bago-chat-model">Modelo</label>
+                <select
+                  id="bago-chat-model"
+                  className="chat-model-selector"
+                  aria-label="Modelo de esta sesión"
+                  value={props.sessionModel || ''}
+                  disabled={modelChanging || modelOptions.length === 0}
+                  onChange={(event) => {
+                    const nextModel = event.target.value || null;
+                    setModelChanging(true);
+                    setModelError(null);
+                    void props.onSetSessionModel(nextModel)
+                      .catch((error) => setModelError(error instanceof Error ? error.message : String(error)))
+                      .finally(() => setModelChanging(false));
+                  }}
+                >
+                  <option value="">Automático · router</option>
+                  {modelOptions.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+                <span className="chat-model-selector-count" title="Modelos disponibles">{modelOptions.length}</span>
+              </div>
             </div>
+            {modelError && <div className="chat-model-error" role="alert">No se pudo cambiar: {modelError}</div>}
             <textarea
               id="bago-chat-composer"
               className="chat-composer-textarea"

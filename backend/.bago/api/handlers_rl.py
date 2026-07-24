@@ -55,3 +55,30 @@ def handle_shadow(handler, body):
     if isinstance(status, dict):
         status.setdefault("can_execute", False)
     send_json(handler, 200, status)
+
+
+def _base_path(handler):
+    mgr = getattr(handler, "session_mgr", None)
+    return str(getattr(mgr, "base_path", "."))
+
+
+def handle_train_bc(handler, body):
+    from api_serializers import send_json
+    from bago_core.rl_policies import train_bc_policy
+    try:
+        report = train_bc_policy(_base_path(handler), n_actions=4, n_features=4)
+        report.setdefault("can_execute", False)
+        send_json(handler, 200, report)
+    except Exception as exc:
+        send_json(handler, 500, {"error": f"RL BC train falló: {exc}", "can_execute": False})
+
+
+def handle_eval(handler, body):
+    from api_serializers import send_json
+    from bago_core.rl_policies import eval_bc_policy
+    try:
+        report = eval_bc_policy(_base_path(handler), n_features=4)
+        report.setdefault("can_execute", False)
+        send_json(handler, 200, report)
+    except Exception as exc:
+        send_json(handler, 500, {"error": f"RL eval falló: {exc}", "can_execute": False})

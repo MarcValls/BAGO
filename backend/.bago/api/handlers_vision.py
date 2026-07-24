@@ -4,7 +4,7 @@ Accepts a base64-encoded image and a prompt, sends them to a vision
 model via Ollama's /api/generate endpoint (stream=false), and returns
 the textual description without blocking the main HTTP thread.
 
-Configuration (all read from ~/.bago/state/config.json, no hardcoded values):
+Configuration (read from the canonical state config, with legacy read fallback):
   providers.ollama-local.base_url  — Ollama base URL (fallback: OLLAMA_HOST env var)
   vision.model                     — vision model name (fallback: "minicpm-v")
   vision.timeout_s                 — timeout in seconds (fallback: 180)
@@ -19,21 +19,24 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from bago_core.user_state_paths import state_read_candidates, state_root
+
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
 
 def _config_path() -> Path:
-    return Path.home() / ".bago" / "state" / "config.json"
+    return state_root() / "config.json"
 
 
 def _load_config() -> dict:
-    p = _config_path()
-    if p.exists():
+    for path in state_read_candidates("config.json"):
+        if not path.exists():
+            continue
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
-            pass
+            continue
     return {}
 
 
@@ -86,7 +89,7 @@ def _vision_defaults(cfg: dict, ollama_url: str, extra_roots: list[str]) -> tupl
     except Exception as exc:
         raise RuntimeError(
             f"No se pudo descubrir modelos de Ollama ({ollama_url}): {exc}. "
-            "Configura 'vision.model' en ~/.bago/state/config.json."
+            "Configura 'vision.model' en la configuración canónica de BAGO."
         ) from exc
 
     VISION_FAMILIES = (
@@ -100,7 +103,7 @@ def _vision_defaults(cfg: dict, ollama_url: str, extra_roots: list[str]) -> tupl
     raise RuntimeError(
         "No se encontró ningún modelo de visión instalado. "
         "Instala uno compatible (llava, minicpm-v, moondream…) o configura "
-        "'vision.model' en ~/.bago/state/config.json."
+        "'vision.model' en la configuración canónica de BAGO."
     )
 
 

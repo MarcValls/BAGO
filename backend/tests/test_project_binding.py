@@ -129,6 +129,9 @@ class _WorkspaceErrorAdapter(_WorkspaceEchoAdapter):
 def test_session_manager_rebinds_project_root(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
+    (project / ".gabo").mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
     state_root = tmp_path / "state"
 
     monkeypatch.setattr(session_manager, "ConfigManager", _DummyConfig)
@@ -147,7 +150,7 @@ def test_session_manager_rebinds_project_root(tmp_path, monkeypatch):
     monkeypatch.setattr(session_manager, "AgentGateway", _DummyAgentGateway)
     monkeypatch.setattr(session_manager.SessionManager, "_init_adapter", lambda self: {"corrected": False, "requested": self.model, "actual": self.model, "available": []})
 
-    mgr = session_manager.SessionManager(base_path=str(tmp_path / "home"), state_root=str(state_root))
+    mgr = session_manager.SessionManager(base_path=str(home), state_root=str(state_root))
     mgr.rebind_project_root(project)
 
     assert mgr.base_path == mgr.workspace_mirror_root

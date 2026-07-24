@@ -4,6 +4,12 @@ import datetime as _dt
 import os
 from pathlib import Path
 
+# Canonical user-state contract:
+#   BAGO_STATE_ROOT -> exact mutable state directory
+#   BAGO_USER_ROOT  -> user-owned BAGO root (state lives in <root>/state)
+#   default         -> the per-user LocalAppData BAGO root
+# Path.home()/.bago is legacy discovery only; callers must not use it as the
+# default write location.
 USER_ROOT_ENV = "BAGO_USER_ROOT"
 STATE_ROOT_ENV = "BAGO_STATE_ROOT"
 RUNTIME_ROOT_ENV = "BAGO_RUNTIME_ROOT"
@@ -20,7 +26,7 @@ def _env_path(name: str) -> Path | None:
 
 
 def legacy_user_root() -> Path:
-    return user_root()
+    return Path.home() / ".bago"
 
 
 def user_root() -> Path:
@@ -41,6 +47,50 @@ def runtime_root() -> Path:
 def state_root() -> Path:
     override = _env_path(STATE_ROOT_ENV)
     return override if override is not None else user_root() / "state"
+
+
+def logs_root() -> Path:
+    return user_root() / "logs"
+
+
+def secrets_root() -> Path:
+    return user_root() / "secrets"
+
+
+def state_read_roots() -> tuple[Path, ...]:
+    """Canonical state root plus the legacy read-only fallback when safe.
+
+    Explicit BAGO_STATE_ROOT/BAGO_USER_ROOT values are isolation boundaries,
+    so they disable implicit reads from the user's legacy ~/.bago tree.
+    """
+    canonical = state_root()
+    if _env_path(STATE_ROOT_ENV) is not None or _env_path(USER_ROOT_ENV) is not None:
+        return (canonical,)
+    legacy = legacy_user_root() / "state"
+    return (canonical,) if legacy == canonical else (canonical, legacy)
+
+
+def state_read_candidates(relative: str | Path) -> tuple[Path, ...]:
+    target = Path(relative)
+    if target.is_absolute():
+        raise ValueError("state read candidate must be relative")
+    return tuple(root / target for root in state_read_roots())
+
+
+def user_read_roots() -> tuple[Path, ...]:
+    """Canonical user root plus legacy read-only fallback without overrides."""
+    canonical = user_root()
+    if _env_path(USER_ROOT_ENV) is not None:
+        return (canonical,)
+    legacy = legacy_user_root()
+    return (canonical,) if legacy == canonical else (canonical, legacy)
+
+
+def user_read_candidates(relative: str | Path) -> tuple[Path, ...]:
+    target = Path(relative)
+    if target.is_absolute():
+        raise ValueError("user read candidate must be relative")
+    return tuple(root / target for root in user_read_roots())
 
 
 def cache_root() -> Path:

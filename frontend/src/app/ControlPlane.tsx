@@ -551,6 +551,10 @@ export function ControlPlane() {
     try {
       const data = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
       const nextSnapshot = applyBootData(data);
+      // El snapshot moderno puede llegar antes de que el catálogo del router
+      // quede materializado. La lectura dedicada mantiene el selector del chat
+      // operativo incluso en ese arranque parcial.
+      await refreshRouterState();
       setLastMessage(nextSnapshot?.workspace.linkedToSession ? 'backend confirmado' : 'snapshot recuperado');
     } catch (error) {
       const errorSnapshot: UiBootstrapSnapshot = {
@@ -1450,13 +1454,20 @@ export function ControlPlane() {
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
     setLastMessage(modelKey ? `modelo sesión: ${modelKey}` : 'modelo sesión: auto');
-    await clientRef.current.setSessionModel(modelKey);
+    const previousModel = sessionModel;
     setSessionModelState(modelKey);
+    try {
+      await clientRef.current.setSessionModel(modelKey);
+      await refreshAfterMutation();
+    } catch (error) {
+      setSessionModelState(previousModel);
+      throw error;
+    }
   };
 
   useEffect(() => {
     clientRef.current.getSessionModel().then((r) => {
-      const m = r?.model as string | null | undefined;
+      const m = r?.session_model as string | null | undefined;
       setSessionModelState(m ?? null);
     }).catch(() => null);
   }, []);

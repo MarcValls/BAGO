@@ -57,16 +57,67 @@ async function main() {
   const server = await startServer();
   const port = server.address().port;
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 940 } });
+  const consoleErrors = [];
+  const consoleWarnings = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+    if (message.type() === 'warning') consoleWarnings.push(message.text());
+  });
+  page.on('pageerror', (error) => consoleErrors.push(error.message));
   try {
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
-    const title = await page.title();
-    assert.ok(title.includes('BAGO'), `unexpected title: ${title}`);
+    await page.locator('.app-root').waitFor();
+    const contract = await page.evaluate(() => {
+      const surface = document.querySelector('.surface-body');
+      const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+      const scrollbar = surface ? getComputedStyle(surface, '::-webkit-scrollbar') : null;
+      return {
+        title: document.title,
+        header: Boolean(document.querySelector('.global-header')),
+        sidebar: Boolean(document.querySelector('.main-sidebar')),
+        workspace: Boolean(document.querySelector('.workspace-shell')),
+        surface: Boolean(surface),
+        destinations: document.querySelectorAll('.sidebar-item').length,
+        active: document.querySelectorAll('.sidebar-item[aria-current="page"]').length,
+        scrollbarHidden: Boolean(scrollbar && (scrollbar.display === 'none' || scrollbar.width === '0px')),
+        duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
+      };
+    });
+    assert.equal(contract.title, 'BAGO Control Plane');
+    assert.ok(contract.header && contract.sidebar && contract.workspace && contract.surface);
+    assert.ok(contract.destinations >= 8);
+    assert.equal(contract.active, 1);
+    assert.ok(contract.scrollbarHidden);
+    assert.deepEqual(contract.duplicateIds, []);
 
-    const rootText = await page.locator('#root').innerText();
-    assert.ok(rootText.trim().length > 0, 'root rendered empty content');
-    assert.ok(/bago|manager|chat|workspace/i.test(rootText), 'root content does not look like the manager UI');
-    console.log(`UI smoke ok: ${title} (${rootText.trim().slice(0, 80)})`);
+    const chatNav = page.locator('.sidebar-item').filter({ hasText: 'Chat' });
+    assert.equal(await chatNav.count(), 1);
+    await chatNav.click();
+    await page.locator('#bago-chat-model').waitFor({ state: 'visible' });
+    assert.equal(await chatNav.getAttribute('aria-current'), 'page');
+    const renderedText = await page.locator('body').innerText();
+    assert.ok(!renderedText.includes("Unexpected token '<'"), 'raw JSON parser error leaked into the UI');
+    assert.ok(
+      renderedText.includes('La API de BAGO devolvió una respuesta no JSON.'),
+      'offline backend error was not normalized'
+    );
+
+    const screenshotPath = String(process.env.BAGO_UI_SMOKE_SCREENSHOT || '').trim();
+    if (screenshotPath) {
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+      await page.screenshot({ path: screenshotPath, fullPage: false });
+    }
+
+    assert.deepEqual(consoleErrors, [], `browser console errors: ${consoleErrors.join(' | ')}`);
+    console.log(JSON.stringify({
+      ok: true,
+      title: contract.title,
+      destinations: contract.destinations,
+      interaction: 'Chat',
+      consoleWarnings,
+      screenshot: screenshotPath || null,
+    }));
   } finally {
     await page.close().catch(() => {});
     await browser.close().catch(() => {});

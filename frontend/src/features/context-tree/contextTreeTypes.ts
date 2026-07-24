@@ -136,6 +136,7 @@ export interface ContextPatchRequest {
   rejectedAt?: string;
   errorMessage?: string;
   receiptId?: string;
+  metadata?: Record<string, string>;
   // Edición opcional del usuario antes de aplicar.
   editedPatch?: ContextPatchRequest['patch'];
 }

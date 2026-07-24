@@ -413,7 +413,13 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 
 /* Sidebar */
 .main-sidebar { min-width: 0; display: flex; flex-direction: column; padding: 12px 9px 10px; border-right: 1px solid var(--border); background: #0c1018; overflow: hidden; }
-.sidebar-nav { display: grid; gap: 3px; }
+.sidebar-nav {
+  display: grid;
+  gap: 3px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .sidebar-item { position: relative; width: 100%; min-height: 39px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; text-align: left; }
 .sidebar-item:hover { background: var(--surface-2); color: var(--text-2); }
 .sidebar-item.is-active { color: var(--text); background: var(--accent-soft); }
@@ -464,24 +470,36 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 /* Center surface */
 .workspace-shell { width: 100%; min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; background: var(--bg-soft); overflow: hidden; }
 .workspace-shell.mode-review { background: #0b0f16; }
-/* FIX v0.2.1: surface-body SIEMPRE tiene overflow:hidden por defecto
-   para que no aparezca un scroll del contenedor padre cuando el contenido
-   es menor que el alto disponible. Las secciones que necesitan scroll
-   interno (e.g. .section-workspace, .section-system) lo sobreescriben
-   con sus propias reglas.
+/* El cuerpo es el scroller canónico de las pantallas documentales.
+   Las superficies interactivas con scroll interno lo desactivan debajo.
 
    FIX v0.2.1 (segundo): padding lateral 0 para que el contenido se
    "pegue" a los bordes. Las cards internos ya tienen su propio
    padding (17-21px), no se ven afectados visualmente. El padding
    bottom se mantiene en 26px para que el último card no toque el
    borde inferior (espacio de respiración). */
-.surface-body { min-height: 0; flex: 1 1 auto; overflow: hidden; padding: 0 0 26px; scrollbar-color: var(--border-strong) transparent; }
+.surface-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0 26px;
+  scrollbar-color: transparent transparent;
+}
 .workspace-shell.section-workspace { height: 100%; }
 .workspace-shell.section-workspace .surface-body { padding: 0; overflow: hidden; flex: 1 1 auto; min-height: 0; }
 .workspace-shell.section-workspace .workspace-editor { height: 100%; }
 .workspace-shell.section-workspace .workspace-editor-grid { min-height: 0; }
-.workspace-shell.mode-focus .surface-body { padding: 0; overflow: hidden; }
+.workspace-shell.mode-focus .surface-body { padding: 0; }
 .workspace-shell.section-workspace .surface-body { padding: 0; overflow: hidden; flex: 1; min-height: 0; }
+.workspace-shell.section-chat .surface-body,
+.workspace-shell.section-graph .surface-body,
+.workspace-shell.section-context .surface-body,
+.workspace-shell.section-system .surface-body {
+  overflow: hidden;
+  padding-bottom: 0;
+}
 .workspace-shell.mode-review .surface-body { width: min(1040px, 100%); margin: 0 auto; padding: 28px; }
 /* FIX v0.2.1: ya no hace falta sobreescribir el padding aquí. El
    surface-body default ahora es padding: 0 0 26px (sin lateral). */
@@ -834,6 +852,9 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
   text-transform: uppercase;
   color: var(--text-3);
 }
+.chat-model-control { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.chat-model-control label { color: var(--text-3); font-size: 10px; }
+.chat-model-error { padding: 5px 12px; color: var(--red); background: var(--red-soft); border-bottom: 1px solid rgba(255,124,130,.22); font-size: 11px; }
 
 /* Textarea */
 .chat-composer-textarea {
@@ -1065,7 +1086,9 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
    Las cards internos ya tienen padding propio (17-21px), no se ven
    afectados visualmente. El surface-body default ya no tiene padding
    lateral, así que el contenido usa todo el ancho disponible. */
-.pipeline-surface, .evidence-surface, .context-surface, .system-surface { display: grid; gap: 12px; width: 100%; min-height: 0; overflow-y: auto; padding: 0 0 4px; scrollbar-color: var(--border-strong) transparent; }
+.pipeline-surface, .evidence-surface, .context-surface, .system-surface { display: grid; gap: 12px; width: 100%; min-height: 0; padding: 0 0 4px; }
+.pipeline-surface, .evidence-surface { overflow: visible; }
+.context-surface, .system-surface { height: 100%; overflow: hidden; }
 .pipeline-summary, .evidence-primary, .context-budget-card { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 21px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
 .pipeline-summary-copy { min-width: 0; flex: 1; }
 .pipeline-summary h2, .evidence-primary h2, .context-budget-card h2 { margin: 10px 0 5px; font-size: 20px; letter-spacing: -.02em; }
@@ -1246,8 +1269,8 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 }
 
 @media (max-width: 880px) {
-  body { overflow: auto; }
-  .app-root { min-height: 100vh; height: auto; grid-template-rows: var(--header-height) minmax(calc(100vh - var(--header-height)),auto); }
+  body { overflow: hidden; }
+  .app-root { min-height: 0; height: 100vh; grid-template-rows: var(--header-height) minmax(0, 1fr); }
   .app-body, .app-root.sidebar-collapsed .app-body { grid-template-areas: "side main"; grid-template-columns: var(--sidebar-collapsed) minmax(0,1fr); }
   .main-sidebar { width: var(--sidebar-collapsed); }
   .main-sidebar:not(.is-collapsed) .sidebar-item span:nth-child(2), .main-sidebar:not(.is-collapsed) .sidebar-actions, .main-sidebar:not(.is-collapsed) .sidebar-status > div { display: none; }
@@ -1367,6 +1390,15 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
   background: rgba(255, 184, 80, .08);
   border: 1px solid rgba(255, 184, 80, .3);
   color: #ffb450;
+  font-size: 12px;
+}
+.provider-config-success {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(80, 200, 120, .1);
+  border: 1px solid rgba(80, 200, 120, .3);
+  color: #5fcc7e;
   font-size: 12px;
 }
 .provider-config-info {
@@ -1545,7 +1577,7 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 
 /* === System Tabs === */
 .system-tabs { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; min-height: 0; height: 100%; }
-.system-tabs-rail { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-right: 1px solid var(--border); background: rgba(255,255,255,.02); border-radius: 10px; align-self: start; }
+.system-tabs-rail { display: flex; flex-direction: column; gap: 2px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border-right: 1px solid var(--border); background: rgba(255,255,255,.02); border-radius: 10px; align-self: start; }
 .system-tab-button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--text-2); cursor: pointer; text-align: left; font-size: 12px; }
 .system-tab-button:hover { background: var(--surface-2); color: var(--text); }
 .system-tab-button.is-active { background: var(--accent-soft); color: var(--text); }
@@ -1591,9 +1623,14 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 .provider-status.is-on { background: rgba(98,215,166,.15); color: var(--green); }
 .provider-status.is-off { background: rgba(255,124,130,.15); color: var(--red); }
 .provider-list-meta { color: var(--text-3); font-size: 10px; font-family: ui-monospace, monospace; word-break: break-all; }
+.provider-list-models { display: flex; flex-wrap: wrap; gap: 4px; }
+.provider-list-models code,
+.provider-list-models span { padding: 2px 6px; border-radius: 4px; background: var(--surface-3); color: var(--text-2); font-size: 10px; }
 
 /* Audit / Interpret / Sim stacks (collapsible) */
 .audit-stack, .interpret-stack, .simulation-stack, .rl-stack { display: flex; flex-direction: column; gap: 8px; }
+.rl-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.provider-contracts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0 12px; }
 .audit-stack details, .interpret-stack details, .simulation-stack details, .rl-stack details { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 8px 12px; }
 .audit-stack summary, .interpret-stack summary, .simulation-stack summary, .rl-stack summary { cursor: pointer; font-size: 12px; color: var(--text-2); }
 
@@ -2230,26 +2267,67 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 
 .context-flow-shell {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   min-height: 0;
 }
 
+.context-collection-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(103,136,247,.34);
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(103,136,247,.13), rgba(255,255,255,.025));
+}
+.context-collection-toolbar > div { display: grid; gap: 3px; min-width: 0; }
+.context-collection-toolbar strong { color: var(--text); font-size: 13px; }
+.context-collection-toolbar span { color: var(--text-3); font-size: 11px; }
+.context-collection-dialog { width: min(620px, calc(100vw - 32px)); }
+.context-collection-subtitle { margin: 3px 0 0; color: var(--text-3); font-size: 11px; }
+.context-collection-source,
+.context-collection-question,
+.context-collection-review { display: grid; gap: 8px; margin: 14px 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.context-collection-source span { color: var(--text-2); font-size: 11px; }
+.context-collection-question span,
+.context-collection-source strong,
+.context-collection-question-list strong,
+.context-collection-operations strong { color: var(--text); font-size: 11px; }
+.context-collection-question textarea { width: 100%; resize: vertical; padding: 9px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface); font: inherit; font-size: 11px; }
+.context-collection-badge { display: inline-flex; align-items: center; gap: 5px; width: fit-content; padding: 4px 7px; border: 1px solid rgba(242,191,104,.42); border-radius: 999px; color: var(--amber); font-size: 10px; }
+.context-collection-review h4 { margin: 0; color: var(--text); font-size: 16px; }
+.context-collection-review p { margin: 0; color: var(--text-2); font-size: 11px; line-height: 1.5; }
+.context-collection-question-list,
+.context-collection-operations { display: grid; gap: 5px; padding-top: 9px; border-top: 1px solid var(--border); }
+.context-collection-operations div { display: flex; align-items: center; gap: 5px; color: var(--text-2); font-size: 11px; }
+@media (max-width: 720px) {
+  .context-collection-toolbar { align-items: stretch; flex-direction: column; }
+}
+
+@media (max-width: 700px) {
+  .chat-composer-topbar { align-items: flex-start; flex-direction: column; }
+  .chat-model-control { width: 100%; }
+  .chat-model-control .chat-model-selector { flex: 1 1 auto; max-width: none; }
+}
+
 .context-flow-nav {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
-  padding: 10px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
 }
 
-.context-flow-nav-header { display: grid; gap: 2px; }
+.context-flow-nav-header { display: grid; align-content: center; gap: 2px; padding-right: 10px; border-right: 1px solid var(--border); }
 .context-flow-nav-header strong { color: var(--text); font-size: 13px; }
 .context-flow-nav-header small { color: var(--text-3); font-size: 11px; }
-.context-flow-nav-list { display: grid; align-content: start; gap: 6px; }
+.context-flow-nav-list { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); align-content: center; gap: 6px; min-width: 0; }
 .context-flow-nav-item {
   display: flex;
   align-items: center;
@@ -2266,6 +2344,9 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
   cursor: pointer;
 }
 .context-flow-nav-item-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.context-flow-nav-item-label > span:last-child { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.context-flow-nav-index { width: 19px; height: 19px; display: inline-grid; place-items: center; flex: none; border-radius: 999px; background: rgba(255,255,255,.055); color: var(--text-3); font-size: 10px; font-weight: 700; }
+.context-flow-nav-item.is-active .context-flow-nav-index { background: var(--accent); color: #07101f; }
 .context-flow-nav-item.is-active { border-color: rgba(103,136,247,.45); color: var(--text); background: rgba(103,136,247,.14); }
 .context-flow-nav-item.is-next { border-color: rgba(242,191,104,.42); background: rgba(242,191,104,.12); color: var(--text); }
 .context-flow-nav-item.is-completed { border-color: rgba(98,215,166,.4); }
@@ -2280,9 +2361,9 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
 }
 
 .context-flow-screen { display: grid; grid-template-rows: auto 1fr; min-height: 0; height: 100%; }
-/* FIX v0.2.1: .context-flow-screen-header eliminado. El header
-   decorativo (título + subtítulo) ya no se renderiza. Ver
-   FlowStageScreen.tsx. */
+.context-flow-screen-header { display: grid; gap: 3px; padding: 12px 14px 10px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.018); }
+.context-flow-screen-header h3 { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: var(--text); font-size: 14px; }
+.context-flow-screen-header p { margin: 0; color: var(--text-3); font-size: 11px; }
 .context-flow-screen-body { min-height: 0; overflow: auto; padding: 10px; display: grid; gap: 10px; }
 .context-flow-structure { grid-template-rows: minmax(0, 1fr) auto; }
 .context-flow-pack, .context-flow-compile, .context-flow-destination { align-content: start; }
@@ -4245,6 +4326,12 @@ button:disabled { opacity: 0.42; cursor: not-allowed; }
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(280px, 36%);
   }
+}
+
+@media (max-width: 820px) {
+  .context-flow-nav { grid-template-columns: 1fr; }
+  .context-flow-nav-header { padding: 0 0 7px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .context-flow-nav-list { grid-template-columns: repeat(5, minmax(118px, 1fr)); overflow-x: auto; padding-bottom: 2px; }
 }
 
 /* =================================================================

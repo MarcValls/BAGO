@@ -157,6 +157,21 @@ class EmbeddingStore:
         self.conn.commit()
         return cursor.rowcount
 
+    def stats(self) -> dict[str, Any]:
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS total, COUNT(DISTINCT memory_id) AS memories, "
+            "COUNT(DISTINCT provider) AS providers, MIN(vector_dim) AS min_dim, MAX(vector_dim) AS max_dim "
+            "FROM embeddings"
+        ).fetchone()
+        return {
+            "total": int(row["total"] or 0),
+            "memories": int(row["memories"] or 0),
+            "providers": int(row["providers"] or 0),
+            "min_dim": int(row["min_dim"] or 0),
+            "max_dim": int(row["max_dim"] or 0),
+            "database": str(self.db_path),
+        }
+
     def close(self) -> None:
         self.conn.close()
 

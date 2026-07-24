@@ -43,7 +43,25 @@ class SessionAdaptersMixin:
                     creds.setdefault("base_url", val)
                 if upper == "OLLAMA_CLOUD_URL":
                     creds.setdefault("base_url", val)
+
+        # Las credenciales registradas desde la API viven cifradas en el
+        # SecretStore. El import es opcional para mantener el core utilizable
+        # sin cargar la pieza HTTP.
+        if not creds.get("api_key") and not creds.get("token"):
+            try:
+                from secret_store import get_secret_store
+                stored_secret = get_secret_store().get_secret(
+                    f"providers/{target_provider}/api_key"
+                )
+                if stored_secret:
+                    creds["api_key"] = stored_secret
+                    creds["token"] = stored_secret
+            except Exception:
+                pass
+
         merged = dict(cfg)
+        if merged.get("default_model") and not merged.get("model"):
+            merged["model"] = merged["default_model"]
         merged.update(creds)
         merged.setdefault("base_path", str(self.base_path))
         merged.setdefault("timeout_seconds", self.config.get("timeout_seconds", 60.0))

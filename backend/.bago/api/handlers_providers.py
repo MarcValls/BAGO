@@ -29,18 +29,24 @@ def _mgr(handler):
 
 
 def _config_path() -> "Path":
-    from pathlib import Path
-    return Path.home() / ".bago" / "state" / "config.json"
+    from bago_core.user_state_paths import state_root
+    return state_root() / "config.json"
+
+
+def _config_read_paths() -> tuple["Path", ...]:
+    from bago_core.user_state_paths import state_read_candidates
+    return state_read_candidates("config.json")
 
 
 def _load_config() -> dict:
     import json
-    p = _config_path()
-    if p.exists():
+    for path in _config_read_paths():
+        if not path.exists():
+            continue
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
-            pass
+            continue
     return {}
 
 
@@ -74,48 +80,68 @@ def _provider_state(configured: bool, name: str) -> str:
     return "blocked"
 
 
-def handle(handler: "BaseHTTPRequestHandler") -> None:
-    from api_serializers import send_json
-    mgr = _mgr(handler)
-    if mgr is None:
-        # Fallback: read from config.json directly
-        cfg = _load_config()
-        providers_cfg = cfg.get("providers", {})
-        providers = []
-        for name, meta in _PROVIDER_META.items():
-            p_cfg = providers_cfg.get(name, {})
-            enabled = bool(p_cfg.get("enabled", name == "ollama-local"))
-            providers.append({
-                "id": name,
-                "name": name,
-                "description": meta["description"],
-                "state": "confirmed" if enabled else "blocked",
-                "configured": enabled,
-                "models": [],
-            })
-        send_json(handler, 200, {"providers": providers, "mode": "fallback"})
-        return
+def _provider_config(mgr, provider_name: str) -> dict:
+    config_manager = getattr(mgr, "config", None) if mgr is not None else None
+    if config_manager is not None:
+        try:
+            return dict(config_manager.provider_config(provider_name))
+        except (AttributeError, TypeError, ValueError):
+            pass
+    return dict(_load_config().get("providers", {}).get(provider_name, {}))
 
+
+def _has_provider_secret(provider_name: str) -> bool:
+    try:
+        from secret_store import get_secret_store
+        return get_secret_store().has_secret(f"providers/{provider_name}/api_key")
+    except (ImportError, OSError, RuntimeError):
+        return False
+
+
+def build_providers_payload(mgr) -> dict:
+    """Serializa el registro real de adapters para API y bootstrap UI."""
     raw_providers = mgr.available_providers()
     cfg = getattr(mgr, "config", None)
     mode = cfg.get("model_catalog.mode", "all") if cfg else "all"
 
     enriched = []
-    for p in raw_providers:
-        name = p.get("name", "")
+    for provider in raw_providers:
+        name = provider.get("name", "")
         meta = _PROVIDER_META.get(name, {})
-        configured = bool(p.get("configured", False))
+        configured = bool(provider.get("configured", False))
+        provider_cfg = _provider_config(mgr, name)
+        enabled = bool(provider_cfg.get("enabled", name == "ollama-local"))
+        has_secret = _has_provider_secret(name)
+        models = [str(model) for model in provider.get("models", []) if str(model).strip()]
         enriched.append({
             "id": name,
             "name": name,
             "description": meta.get("description", name),
-            "state": _provider_state(configured, name),
+            "state": "disabled" if not enabled else _provider_state(configured, name),
+            "enabled": enabled,
             "configured": configured,
-            "models": p.get("models", []),
-            "modelCount": len(p.get("models", [])),
+            "base_url": str(provider_cfg.get("base_url", "")),
+            "default_model": str(provider_cfg.get("default_model", "")),
+            "has_secret": has_secret,
+            "models": models,
+            "modelCount": len(models),
+            "models_source": "session-manager",
         })
+    return {"providers": enriched, "mode": mode}
 
-    send_json(handler, 200, {"providers": enriched, "mode": mode})
+
+def handle(handler: "BaseHTTPRequestHandler") -> None:
+    from api_serializers import send_json
+    mgr = _mgr(handler)
+    if mgr is None:
+        send_json(handler, 503, {
+            "providers": [],
+            "mode": "unavailable",
+            "error": "SessionManager no disponible; el registro real no puede resolverse",
+        })
+        return
+
+    send_json(handler, 200, build_providers_payload(mgr))
 
 
 def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
@@ -135,13 +161,8 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         send_json(handler, 400, {"error": "provider requerido"})
         return
 
-    cfg = _load_config()
-    if "providers" not in cfg:
-        cfg["providers"] = {}
-    if provider_name not in cfg["providers"]:
-        cfg["providers"][provider_name] = {}
-
-    p_cfg = cfg["providers"][provider_name]
+    mgr = _mgr(handler)
+    p_cfg = _provider_config(mgr, provider_name)
 
     if "enabled" in body:
         p_cfg["enabled"] = bool(body["enabled"])
@@ -165,19 +186,22 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         # Permitir que el cliente apunte a un secreto pre-existente
         p_cfg["secret_ref"] = str(body["secret_ref"]).strip()
 
-    _save_config(cfg)
+    config_manager = getattr(mgr, "config", None) if mgr is not None else None
+    if config_manager is not None:
+        config_manager.set(f"providers.{provider_name}", p_cfg)
+    else:
+        cfg = _load_config()
+        cfg.setdefault("providers", {})[provider_name] = p_cfg
+        _save_config(cfg)
 
     # Devolver config SIN secretos (secret_ref sí, valor NO)
     safe_cfg = {k: v for k, v in p_cfg.items() if k != "api_key"}
-    if "secret_ref" not in safe_cfg:
-        # Indicar al cliente si ya hay un secreto guardado (sin revelarlo)
-        from secret_store import get_secret_store
-        if get_secret_store().has_secret(f"providers/{provider_name}/api_key"):
-            safe_cfg["secret_ref"] = _provider_secret_ref(provider_name)
-            safe_cfg["has_secret"] = True
+    has_secret = _has_provider_secret(provider_name)
+    safe_cfg["has_secret"] = has_secret
+    if has_secret:
+        safe_cfg.setdefault("secret_ref", _provider_secret_ref(provider_name))
 
     # Invalidate provider cache in session manager if available
-    mgr = _mgr(handler)
     if mgr is not None:
         try:
             mgr.invalidate_providers_cache()
@@ -250,6 +274,25 @@ def handle_cli_detect(handler: "BaseHTTPRequestHandler") -> None:
             "copilot": "gh extension install github/gh-copilot  o  descargar desde https://docs.github.com/copilot/cli",
         }.get(tool, ""),
     })
+
+
+def handle_contracts(handler: "BaseHTTPRequestHandler") -> None:
+    """GET /providers/contracts — offline adapter verification, no secrets or traffic."""
+    from api_serializers import send_json
+    try:
+        from bago_core.commands.cmd_chat import _verify_cloud_provider_contracts
+        ok, checked = _verify_cloud_provider_contracts()
+        send_json(handler, 200, {
+            "ok": ok,
+            "mode": "offline-contract",
+            "live_calls": False,
+            "checked": checked,
+            "passed": len(checked) if ok else max(0, len(checked) - 1),
+            "expected": 6,
+            "credential_required_for_live_calls": True,
+        })
+    except Exception as exc:
+        send_json(handler, 500, {"ok": False, "mode": "offline-contract", "error": str(exc)})
 
 
 
@@ -441,24 +484,32 @@ def handle_list_models(handler: "BaseHTTPRequestHandler", provider_id: str) -> N
 
 def _active_models_path(provider_id: str):
     """Archivo donde guardamos qué modelos están activos para el provider."""
-    from pathlib import Path
+    from bago_core.user_state_paths import state_root
     import re
     safe = re.sub(r"[^a-z0-9-]", "-", provider_id.lower()).strip("-")
-    d = Path.home() / ".bago" / "state" / "active_models"
+    d = state_root() / "active_models"
     d.mkdir(parents=True, exist_ok=True)
     return d / f"{safe}.json"
 
 
+def _active_models_read_paths(provider_id: str):
+    from bago_core.user_state_paths import state_read_candidates
+    import re
+    safe = re.sub(r"[^a-z0-9-]", "-", provider_id.lower()).strip("-")
+    return state_read_candidates(f"active_models/{safe}.json")
+
+
 def _load_active_models(provider_id: str) -> list[str]:
     import json
-    p = _active_models_path(provider_id)
-    if p.exists():
+    for path in _active_models_read_paths(provider_id):
+        if not path.exists():
+            continue
         try:
-            data = json.loads(p.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, list):
                 return [str(x) for x in data if isinstance(x, str)]
         except Exception:
-            pass
+            continue
     return []
 
 

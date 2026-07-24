@@ -42,8 +42,8 @@ Structural layers and runtime flows live in `docs/ARCHITECTURE.md`.
 | `bago_core/rl_bridge.py` | working (shadow/off only) | `python bago_core\cli.py rl shadow status` |
 | `bago_core/rl_policies.py` | working (non-executing) | `python -m pytest -q tests\test_rl_contract.py` |
 | `.bago/core/tool_registry.py` | partial | `python test_e2e.py` |
-| `.bago/core/knowledge_base.py` | working | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
-| `.bago/core/embedding_store.py` | working | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
+| `.bago/core/knowledge_base.py` | working: SQLite + FTS5 + deprecation + hybrid API | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
+| `.bago/core/embedding_store.py` | working: validated upsert + cosine search + filters + stats | `python -m pytest -q tests\test_knowledge_embeddings_advanced.py` |
 | `.bago/core/agent_gateway.py` | experimental | no MVP gate |
 | `.bago/core/plan_engine.py` | experimental | no MVP gate |
 | `apps/mobile-expo` | planned | none |

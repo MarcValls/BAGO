@@ -4,8 +4,8 @@ Cada instalación de BAGO puede tener su propio conjunto de modelos
 excluidos. Por ejemplo, una máquina con poca RAM puede querer bloquear
 los modelos de 30B+ que otro nodo más potente sí permite.
 
-Archivo: %USERPROFILE%/.bago/state/model_blacklist.json
-        (o $BAGO_USER_ROOT/state/model_blacklist.json)
+Archivo: <state root canónico>/model_blacklist.json.
+La ruta ~/.bago/state se conserva solo como fallback de lectura legacy.
 
 Formato:
     {
@@ -28,6 +28,8 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Iterable
+
+from bago_core.user_state_paths import state_read_candidates, state_root
 
 
 # Razones por las que bloqueamos por defecto. NO son verdades absolutas:
@@ -54,15 +56,16 @@ _DEFAULT_REASONS: dict[str, str] = {
 
 
 def _state_dir() -> Path:
-    """Resuelve el dir de state del usuario. Respeta BAGO_USER_ROOT."""
-    override = os.environ.get("BAGO_USER_ROOT", "").strip()
-    if override:
-        return Path(override).expanduser().resolve() / "state"
-    return Path.home() / ".bago" / "state"
+    """Resolve the canonical mutable state directory."""
+    return state_root()
 
 
 def _blacklist_path() -> Path:
     return _state_dir() / "model_blacklist.json"
+
+
+def _blacklist_read_paths() -> tuple[Path, ...]:
+    return state_read_candidates("model_blacklist.json")
 
 
 def _read(path: Path) -> dict:
@@ -98,7 +101,11 @@ def _ensure_file() -> dict:
     completa sin pisar lo que el usuario ya tenía.
     """
     path = _blacklist_path()
-    data = _read(path)
+    data: dict = {}
+    for candidate in _blacklist_read_paths():
+        data = _read(candidate)
+        if data:
+            break
     if not data:
         data = {
             "version": 1,

@@ -9,7 +9,7 @@ BAGO is Windows-first.
 | Session persistence | Supported | Experimental | Experimental |
 | Provider switch | Supported | Experimental | Experimental |
 | Ollama local | Supported when installed | Experimental | Experimental |
-| Cloud providers: Ollama, Copilot, Anthropic, Codex, OpenRouter, OpenCode | Supported adapter contract; account and credential required for live calls | Experimental | Experimental |
+| Cloud providers: Ollama, Copilot, Anthropic, Codex, OpenRouter, OpenCode | Supported offline adapter contract (6/6); account and credential/delegated CLI required for live calls | Experimental | Experimental |
 | Local API | Supported | Experimental | Experimental |
 | React UI | Optional | Experimental | Experimental |
 | Packaging | Supported via Windows release flow | Planned | Planned |

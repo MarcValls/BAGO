@@ -40,6 +40,8 @@ function createRuntimeService(ctx) {
   }
 
   function resolveDefaultBasePath(runtimeRoot) {
+    const explicit = String(process.env.BAGO_MANAGER_BASE_PATH || '').trim();
+    if (explicit) return path.resolve(explicit);
     const installedRoot = resolveInstalledRuntimeRoot();
     if (installedRoot) return installedRoot;
     const devRoot = resolveDevelopmentRuntimeRoot();

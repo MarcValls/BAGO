@@ -58,15 +58,11 @@ function detectLanguageFromName(name: string): string {
 export { detectLanguageFromName };
 
 async function readJson<T>(client: BagoClient, path: string, fallback: T): Promise<T> {
-  try {
-    const result = await client.readFile(path);
-    if (!result || typeof result !== 'object') return fallback;
-    const content = (result as { content?: unknown }).content;
-    if (typeof content !== 'string' || !content.trim()) return fallback;
-    return JSON.parse(content) as T;
-  } catch {
-    return fallback;
-  }
+  const result = await client.readFile(path, { optional: true });
+  if (!result || typeof result !== 'object') return fallback;
+  const content = (result as { content?: unknown }).content;
+  if (typeof content !== 'string' || !content.trim()) return fallback;
+  return JSON.parse(content) as T;
 }
 
 async function writeJson(client: BagoClient, path: string, data: unknown): Promise<void> {
@@ -75,13 +71,9 @@ async function writeJson(client: BagoClient, path: string, data: unknown): Promi
 }
 
 async function readText(client: BagoClient, path: string): Promise<string> {
-  try {
-    const result = await client.readFile(path);
-    if (!result || typeof result !== 'object') return '';
-    return String((result as { content?: unknown }).content || '');
-  } catch {
-    return '';
-  }
+  const result = await client.readFile(path, { optional: true });
+  if (!result || typeof result !== 'object') return '';
+  return String((result as { content?: unknown }).content || '');
 }
 
 async function writeText(client: BagoClient, path: string, content: string): Promise<void> {
@@ -207,15 +199,7 @@ export async function saveContextPatchRequests(client: BagoClient, requests: Con
 // --------- Receipts (JSONL) ---------
 
 export async function appendContextReceipt(client: BagoClient, receipt: ContextReceipt): Promise<void> {
-  let existing = '';
-  try {
-    const current = await client.readFile(CONTEXT_RECEIPTS_FILE);
-    if (current && typeof current === 'object') {
-      existing = String((current as { content?: unknown }).content || '');
-    }
-  } catch {
-    existing = '';
-  }
+  const existing = await readText(client, CONTEXT_RECEIPTS_FILE);
   const line = `${JSON.stringify(receipt)}\n`;
   await writeText(client, CONTEXT_RECEIPTS_FILE, `${existing}${line}`);
 }

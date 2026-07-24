@@ -49,3 +49,31 @@ def test_bc_training_and_evaluation_remain_non_executing(tmp_path, monkeypatch):
     assert trained["can_execute"] is False
     assert evaluated["status"] == "ok"
     assert evaluated["can_execute"] is False
+
+
+def test_rl_http_handlers_train_and_eval_remain_non_executing(tmp_path, monkeypatch):
+    import api_serializers
+    from bago_core import rl_policies
+    from handlers_rl import handle_eval, handle_train_bc
+
+    monkeypatch.setattr(rl_policies, "state_root", lambda: tmp_path)
+    (tmp_path / "rl_transitions.jsonl").write_text(
+        json.dumps({"features": [1, 0, 0, 0], "action": 0, "reward": 1}) + "\n",
+        encoding="utf-8",
+    )
+    captured = []
+    monkeypatch.setattr(api_serializers, "send_json", lambda _h, status, payload: captured.append((status, payload)))
+
+    class Manager:
+        base_path = tmp_path
+
+    class Handler:
+        session_mgr = Manager()
+
+    handle_train_bc(Handler(), {})
+    handle_eval(Handler(), {})
+
+    assert [status for status, _ in captured] == [200, 200]
+    assert all(payload["can_execute"] is False for _, payload in captured)
+    assert captured[0][1]["status"] == "trained"
+    assert captured[1][1]["status"] == "ok"

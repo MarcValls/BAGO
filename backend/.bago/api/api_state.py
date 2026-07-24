@@ -7,12 +7,16 @@ handlers_router and bridge.py don't each carry their own copy.
 Resolution order:
   1. session_mgr.state_root  (set by the server runner)
   2. session_context.current_state_root()  (REPL fallback)
-  3. ~/.bago/state  (last resort)
+  3. BAGO_STATE_ROOT
+  4. BAGO_USER_ROOT/state
+  5. per-user LocalAppData BAGO state
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+
+from bago_core.user_state_paths import state_root as configured_state_root
 
 
 def resolve_state_root(handler) -> Path:
@@ -23,7 +27,7 @@ def resolve_state_root(handler) -> Path:
         from session_context import current_state_root
         return current_state_root()
     except Exception:
-        return Path.home() / ".bago" / "state"
+        return configured_state_root()
 
 
 def get_mgr(handler):

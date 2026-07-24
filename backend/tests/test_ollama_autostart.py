@@ -24,6 +24,7 @@ class _DummyRepl:
 
 def test_cmd_chat_autostarts_ollama_for_local(monkeypatch, tmp_path):
     calls = []
+    (tmp_path / ".gabo").mkdir()
 
     monkeypatch.setattr(cmd_chat, "_ensure_ollama_local_ready", lambda base_path: calls.append(base_path) or (True, "Ollama arrancado en 127.0.0.1:11434"))
     monkeypatch.setattr(cmd_chat, "_start_monitor_bg", lambda base_path: None)
@@ -46,6 +47,7 @@ def test_cmd_chat_autostarts_ollama_for_local(monkeypatch, tmp_path):
 
 def test_cmd_chat_skips_autostart_for_cloud(monkeypatch, tmp_path):
     calls = []
+    (tmp_path / ".gabo").mkdir()
 
     monkeypatch.setattr(cmd_chat, "_ensure_ollama_local_ready", lambda base_path: calls.append(base_path) or (True, "Ollama arrancado"))
     monkeypatch.setattr(cmd_chat, "_start_monitor_bg", lambda base_path: None)
@@ -64,6 +66,27 @@ def test_cmd_chat_skips_autostart_for_cloud(monkeypatch, tmp_path):
 
     assert cmd_chat.cmd_chat(args) == 0
     assert calls == []
+
+
+def test_cmd_chat_rejects_unidentified_root_before_autostart(monkeypatch, tmp_path, capsys):
+    calls = []
+
+    monkeypatch.setattr(cmd_chat, "_ensure_ollama_local_ready", lambda base_path: calls.append(base_path) or (True, "ok"))
+    monkeypatch.setitem(sys.modules, "repl", types.SimpleNamespace(BagoREPL=_DummyRepl))
+    monkeypatch.setitem(sys.modules, "system_prompt", types.SimpleNamespace(get_system_prompt=lambda: ""))
+
+    args = argparse.Namespace(
+        provider="ollama-local",
+        model="llama3.2:3b",
+        base_path=str(tmp_path),
+        active_bridges=[],
+        llm_bridges=[],
+        no_monitor=True,
+    )
+
+    assert cmd_chat.cmd_chat(args) == 2
+    assert calls == []
+    assert "No se ha detectado un proyecto" in capsys.readouterr().err
 
 
 def test_parser_exposes_ollama_autostart_flag():

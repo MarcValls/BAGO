@@ -27,7 +27,7 @@ QUÉ HACE:
   5. El usuario revisa y confirma con /configure/auto/apply.
 
 RESULTADO:
-  Configuración escrita en %USERPROFILE%/.bago/state/config.json
+  Configuración escrita en el state root canónico de BAGO
   (sección "auto_generated_config"), separada del "translation_middleware"
   manual para que sean reversibles independientemente.
 """
@@ -42,6 +42,8 @@ import urllib.request
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable
+
+from bago_core.user_state_paths import state_read_candidates, state_root
 
 
 # ─── Estado global del job ────────────────────────────────────────────
@@ -102,7 +104,22 @@ JOB = AutoConfigJob()
 JOB_LOCK = threading.Lock()
 
 # Persistencia del último job terminado, para que sobreviva reinicios.
-_LAST_JOB_PATH = Path.home() / ".bago" / "state" / "last_auto_config.json"
+def _last_job_path() -> Path:
+    return state_root() / "last_auto_config.json"
+
+
+def _read_state_json(relative: str) -> dict | None:
+    """Read canonical JSON, then the read-only legacy fallback if enabled."""
+    for path in state_read_candidates(relative):
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            return data
+    return None
 
 
 def _persist_last_job() -> None:
@@ -112,13 +129,14 @@ def _persist_last_job() -> None:
             if JOB.status not in ("done", "error", "cancelled"):
                 return
             data = JOB.to_dict()
-        _LAST_JOB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        target = _last_job_path()
+        target.parent.mkdir(parents=True, exist_ok=True)
         import tempfile
-        fd, tmp = tempfile.mkstemp(prefix="last_auto.", suffix=".tmp", dir=str(_LAST_JOB_PATH.parent))
+        fd, tmp = tempfile.mkstemp(prefix="last_auto.", suffix=".tmp", dir=str(target.parent))
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-            os.replace(tmp, _LAST_JOB_PATH)
+            os.replace(tmp, target)
         except Exception:
             try: os.unlink(tmp)
             except Exception: pass
@@ -128,12 +146,7 @@ def _persist_last_job() -> None:
 
 
 def _load_last_job() -> dict | None:
-    if not _LAST_JOB_PATH.exists():
-        return None
-    try:
-        return json.loads(_LAST_JOB_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    return _read_state_json("last_auto_config.json")
 
 
 # ─── Helpers HTTP ─────────────────────────────────────────────────────
@@ -358,13 +371,8 @@ def _heuristic_score_reasoning(prompt: str, response: str, latency_s: float) -> 
     """Juez usando ollama-cloud. Si falla, devuelve 5.0."""
     # La key está en credentials.json (no en secret_store)
     api_key = ""
-    creds_path = Path.home() / ".bago" / "state" / "credentials.json"
-    if creds_path.exists():
-        try:
-            creds = json.loads(creds_path.read_text(encoding="utf-8"))
-            api_key = (creds.get("ollama-cloud", {}) or {}).get("OLLAMA_CLOUD_KEY", "")
-        except Exception:
-            pass
+    creds = _read_state_json("credentials.json") or {}
+    api_key = (creds.get("ollama-cloud", {}) or {}).get("OLLAMA_CLOUD_KEY", "")
     if not api_key:
         # Intentar también por secret_store y env
         try:
@@ -461,14 +469,9 @@ def _judge_copilot(prompt: str, response: str) -> float:
 def _select_judge() -> tuple[Callable, str, str]:
     """Devuelve (judge_fn, provider_name, model_name). Prioridad: copilot, ollama-cloud, sin juez."""
     # Comprobar ollama-cloud primero (más probable que esté configurado)
-    creds_path = Path.home() / ".bago" / "state" / "credentials.json"
-    if creds_path.exists():
-        try:
-            creds = json.loads(creds_path.read_text(encoding="utf-8"))
-            if creds.get("ollama-cloud", {}).get("OLLAMA_CLOUD_KEY"):
-                return _judge_ollama_cloud, "ollama-cloud", "gpt-oss:20b"
-        except Exception:
-            pass
+    creds = _read_state_json("credentials.json") or {}
+    if creds.get("ollama-cloud", {}).get("OLLAMA_CLOUD_KEY"):
+        return _judge_ollama_cloud, "ollama-cloud", "gpt-oss:20b"
     # Comprobar copilot
     try:
         from secret_store import get_secret_store
@@ -710,21 +713,11 @@ def apply_generated_config(force: bool = False) -> dict:
     if not cfg:
         return {"ok": False, "error": "no hay config generada"}
 
-    # Path del config del usuario
-    override = os.environ.get("BAGO_USER_ROOT", "").strip()
-    if override:
-        cfg_path = Path(override).expanduser().resolve() / "state" / "config.json"
-    else:
-        cfg_path = Path.home() / ".bago" / "state" / "config.json"
+    # Escritura siempre canónica; legacy solo participa en la lectura inicial.
+    cfg_path = state_root() / "config.json"
 
     # Leer config existente
-    if cfg_path.exists():
-        try:
-            existing = json.loads(cfg_path.read_text(encoding="utf-8"))
-        except Exception:
-            existing = {}
-    else:
-        existing = {}
+    existing = _read_state_json("config.json") or {}
 
     # Aplicar default_model
     if cfg.get("default_model"):

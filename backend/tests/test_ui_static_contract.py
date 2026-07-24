@@ -61,6 +61,29 @@ class UiStaticContractTests(unittest.TestCase):
         self.assertNotIn("apiToken: state.apiToken", store)
         self.assertIn("apiToken: _legacyApiToken", store)
 
+    def test_chat_composer_exposes_real_session_model_selector(self) -> None:
+        chat = (UI_SRC / "layout" / "ChatPanel.tsx").read_text(encoding="utf-8")
+        control_plane = (UI_SRC / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")
+        sections = (UI_SRC / "features" / "sections.tsx").read_text(encoding="utf-8")
+
+        self.assertIn('aria-label="Modelo de esta sesión"', chat)
+        self.assertIn("props.onSetSessionModel(nextModel)", chat)
+        self.assertIn("Automático · router", chat)
+        self.assertIn("r?.session_model", control_plane)
+        self.assertNotIn("const m = r?.model", control_plane)
+        self.assertIn("if (policyEntries.length > 0) return policyEntries", sections)
+        self.assertNotIn("policy?.entries || props.router?.list?.entries", sections)
+
+    def test_context_flow_has_numbered_navigation_and_visible_stage_heading(self) -> None:
+        nav = (UI_SRC / "lib" / "flow-shell" / "FlowNav.tsx").read_text(encoding="utf-8")
+        stage = (UI_SRC / "lib" / "flow-shell" / "FlowStageScreen.tsx").read_text(encoding="utf-8")
+        styles = (UI_SRC / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn("context-flow-nav-index", nav)
+        self.assertIn("aria-current={stage.id === props.activeStage ? 'step' : undefined}", nav)
+        self.assertIn("context-flow-screen-header", stage)
+        self.assertIn("grid-template-rows: auto minmax(0, 1fr)", styles)
+
 
 if __name__ == "__main__":
     unittest.main()

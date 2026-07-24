@@ -97,6 +97,19 @@ SESSION_MIRROR_EXCLUDED_DIRS = {
     "venv",
 }
 
+PROJECT_ROOT_MARKERS = (
+    ".gabo",
+    ".git",
+    "pyproject.toml",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+)
+
+MAX_MIRROR_BYTES = 2 * 1024 * 1024 * 1024
+MAX_MIRROR_FILES = 200_000
+MAX_MIRROR_SCAN_SECONDS = 30.0
+
 
 # CANON[SS-001]: SessionManager owns the authoritative chat/session state.
 class SessionManager(
@@ -117,35 +130,173 @@ class SessionManager(
         return Path(tempfile.gettempdir()) / "BAGO" / "sessions" / session_id
 
     @staticmethod
-    def _workspace_size_bytes(root: Path) -> int:
+    def _validate_project_root(project_root: Path, *, require_identity: bool = False) -> Path:
+        """Resolve a project root and reject unsafe or unidentified locations."""
+        expanded_root = project_root.expanduser()
+        try:
+            resolved_root = expanded_root.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise RuntimeError(f"No se puede resolver el proyecto: {project_root}. {exc}") from exc
+
+        if not resolved_root.is_dir():
+            raise RuntimeError(f"La ruta del proyecto no es un directorio: {resolved_root}.")
+
+        home = Path.home().resolve()
+        drive_root = Path(resolved_root.anchor).resolve() if resolved_root.anchor else None
+
+        if resolved_root == home:
+            raise RuntimeError(
+                "BAGO no puede utilizar el perfil completo del usuario como proyecto: "
+                f"{resolved_root}. Abre PowerShell dentro de un proyecto o workspace concreto."
+            )
+
+        if drive_root is not None and resolved_root == drive_root:
+            raise RuntimeError(
+                "BAGO no puede utilizar la raíz completa de la unidad como proyecto: "
+                f"{resolved_root}."
+            )
+
+        if require_identity and not any((resolved_root / marker).exists() for marker in PROJECT_ROOT_MARKERS):
+            markers = ", ".join(PROJECT_ROOT_MARKERS)
+            raise RuntimeError(
+                "No se ha detectado un proyecto o workspace válido en "
+                f"{resolved_root}. Marcadores aceptados: {markers}."
+            )
+
+        return Path(os.path.abspath(str(expanded_root)))
+
+    @staticmethod
+    def _workspace_stats(root: Path) -> dict[str, Any]:
+        """Measure a workspace while pruning excluded directories and links."""
+        try:
+            root = root.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            return {"bytes": 0, "files": 0, "error": f"workspace unavailable: {exc}"}
+
+        if not root.is_dir():
+            return {"bytes": 0, "files": 0, "error": f"workspace is not a directory: {root}"}
+
+        excluded = {name.casefold() for name in SESSION_MIRROR_EXCLUDED_DIRS}
         total = 0
-        if not root.exists():
-            return total
-        for path in root.rglob("*"):
-            try:
-                rel = path.relative_to(root)
-            except Exception:
-                continue
-            if any(part in SESSION_MIRROR_EXCLUDED_DIRS for part in rel.parts):
-                continue
-            try:
-                if path.is_file():
+        file_count = 0
+        started_at = time.monotonic()
+
+        def ignore_error(_error: OSError) -> None:
+            return None
+
+        for dirpath, dirnames, filenames in os.walk(
+            root,
+            topdown=True,
+            followlinks=False,
+            onerror=ignore_error,
+        ):
+            if time.monotonic() - started_at > MAX_MIRROR_SCAN_SECONDS:
+                return {
+                    "bytes": total,
+                    "files": file_count,
+                    "error": f"workspace scan timed out after {MAX_MIRROR_SCAN_SECONDS:g} seconds",
+                }
+
+            current_dir = Path(dirpath)
+            allowed_dirs: list[str] = []
+            for dirname in dirnames:
+                candidate = current_dir / dirname
+                if dirname.casefold() in excluded:
+                    continue
+                try:
+                    if candidate.is_symlink():
+                        continue
+                except OSError:
+                    continue
+                allowed_dirs.append(dirname)
+            dirnames[:] = allowed_dirs
+
+            for filename in filenames:
+                if time.monotonic() - started_at > MAX_MIRROR_SCAN_SECONDS:
+                    return {
+                        "bytes": total,
+                        "files": file_count,
+                        "error": f"workspace scan timed out after {MAX_MIRROR_SCAN_SECONDS:g} seconds",
+                    }
+
+                path = current_dir / filename
+                try:
+                    if path.is_symlink():
+                        continue
                     total += path.stat().st_size
-            except Exception:
+                    file_count += 1
+                except (OSError, PermissionError):
+                    continue
+
+                if total > MAX_MIRROR_BYTES:
+                    return {
+                        "bytes": total,
+                        "files": file_count,
+                        "error": (
+                            "workspace too large for session mirror: "
+                            f"{total} bytes (limit {MAX_MIRROR_BYTES})"
+                        ),
+                    }
+                if file_count > MAX_MIRROR_FILES:
+                    return {
+                        "bytes": total,
+                        "files": file_count,
+                        "error": (
+                            "workspace has too many files for session mirror: "
+                            f"{file_count} (limit {MAX_MIRROR_FILES})"
+                        ),
+                    }
+
+        return {"bytes": total, "files": file_count, "error": ""}
+
+    @classmethod
+    def _workspace_size_bytes(cls, root: Path) -> int:
+        return int(cls._workspace_stats(root)["bytes"])
+
+    @staticmethod
+    def _mirror_ignore(directory: str, names: list[str]) -> set[str]:
+        excluded = {name.casefold() for name in SESSION_MIRROR_EXCLUDED_DIRS}
+        ignored: set[str] = set()
+        current_dir = Path(directory)
+        for name in names:
+            if name.casefold() in excluded:
+                ignored.add(name)
                 continue
-        return total
+            try:
+                if (current_dir / name).is_symlink():
+                    ignored.add(name)
+            except OSError:
+                ignored.add(name)
+        return ignored
 
     def _prepare_session_mirror(self, project_root: Path) -> dict[str, Any]:
         session_root = self._mirror_session_root(self.session_id)
         mirror_root = session_root / "workspace"
         context_root = session_root / "context"
-        required_bytes = max(self._workspace_size_bytes(project_root) * 2, 0)
+        mirror_enabled = os.environ.get("BAGO_SESSION_MIRROR", "1").strip().casefold()
+        if mirror_enabled in {"0", "false", "no", "off"}:
+            return {
+                "ok": False,
+                "mirror_root": project_root,
+                "context_root": project_root / ".gabo" / "context",
+                "session_root": session_root,
+                "required_bytes": 0,
+                "free_bytes": 0,
+                "file_count": 0,
+                "error": "session mirror disabled by BAGO_SESSION_MIRROR",
+            }
+
+        stats = self._workspace_stats(project_root)
+        workspace_bytes = int(stats["bytes"])
+        file_count = int(stats["files"])
+        required_bytes = max(workspace_bytes * 2, 0)
         free_bytes = 0
-        error = ""
+        error = str(stats.get("error", ""))
         try:
             free_bytes = shutil.disk_usage(tempfile.gettempdir()).free
         except Exception as exc:
-            error = str(exc)
+            if not error:
+                error = str(exc)
         if not error and required_bytes and free_bytes < required_bytes:
             error = f"insufficient disk space: free={free_bytes} required={required_bytes}"
         if error:
@@ -156,6 +307,7 @@ class SessionManager(
                 "session_root": session_root,
                 "required_bytes": required_bytes,
                 "free_bytes": free_bytes,
+                "file_count": file_count,
                 "error": error,
             }
         try:
@@ -165,7 +317,8 @@ class SessionManager(
             shutil.copytree(
                 project_root,
                 mirror_root,
-                ignore=shutil.ignore_patterns(*SESSION_MIRROR_EXCLUDED_DIRS),
+                ignore=self._mirror_ignore,
+                symlinks=True,
             )
             context_root.mkdir(parents=True, exist_ok=True)
             return {
@@ -175,6 +328,7 @@ class SessionManager(
                 "session_root": session_root,
                 "required_bytes": required_bytes,
                 "free_bytes": free_bytes,
+                "file_count": file_count,
                 "error": "",
             }
         except Exception as exc:
@@ -185,6 +339,7 @@ class SessionManager(
                 "session_root": session_root,
                 "required_bytes": required_bytes,
                 "free_bytes": free_bytes,
+                "file_count": file_count,
                 "error": str(exc),
             }
 
@@ -199,6 +354,7 @@ class SessionManager(
         bago_mode: str = "B",
         active_agent: str = "default",
         active_bridges: list[str] | None = None,
+        require_project_identity: bool = False,
     ):
         self.session_id = session_id or str(uuid.uuid4())[:12]
         self.provider = provider
@@ -206,7 +362,10 @@ class SessionManager(
         self.system_prompt = system_prompt
         self.bago_mode = normalize_bago_mode(bago_mode)
         self.active_bridges = normalize_bridges(active_bridges or [provider], primary=provider)
-        self.base_path = Path(base_path or os.getcwd())
+        self.base_path = self._validate_project_root(
+            Path(base_path or os.getcwd()),
+            require_identity=require_project_identity,
+        )
         self.state_root = resolve_state_root(state_root)
         self.state_dir = self.state_root
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -312,9 +471,10 @@ class SessionManager(
 
     def rebind_project_root(self, new_project_root: str | Path) -> None:
         """Rebindea la sesión al proyecto activo sin perder el estado de chat."""
-        project_root = Path(new_project_root).expanduser().resolve()
-        if not project_root.exists():
-            raise FileNotFoundError(f"Project root not found: {project_root}")
+        project_root = self._validate_project_root(
+            Path(new_project_root),
+            require_identity=True,
+        )
 
         def _close_safe(value: Any) -> None:
             try:

@@ -9,7 +9,9 @@ con una clave derivada del hostname + usuario (mejor que nada, no
 criptografía real). Documentado en el README.
 
 Estructura en disco:
-  ~/.bago/secrets/<provider_id>.bin    -> bytes cifrados con DPAPI
+  <BAGO_USER_ROOT>/secrets/<provider_id>.bin -> bytes cifrados con DPAPI
+
+La raíz legacy ~/.bago/secrets se consulta solo como fallback de lectura.
 
 Interfaz:
     store = SecretStore()
@@ -29,6 +31,8 @@ import sys
 from ctypes import wintypes
 from pathlib import Path
 from typing import Optional
+
+from bago_core.user_state_paths import secrets_root, user_read_candidates
 
 
 # ─── DPAPI bindings (Windows) ─────────────────────────────────────────
@@ -107,21 +111,30 @@ def _fallback_unprotect(ciphertext: bytes) -> bytes:
 
 # ─── API pública ─────────────────────────────────────────────────────
 
-def _secret_dir() -> Path:
-    p = Path.home() / ".bago" / "secrets"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+def _secret_dir(*, create: bool = True) -> Path:
+    path = secrets_root()
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _is_windows() -> bool:
     return sys.platform.startswith("win")
 
 
-def _key_to_path(key: str) -> Path:
+def _safe_key_name(key: str) -> str:
     # Solo [a-z0-9-]
     import re
     safe = re.sub(r"[^a-z0-9-]", "-", key.lower()).strip("-") or "key"
-    return _secret_dir() / f"{safe}.bin"
+    return f"{safe}.bin"
+
+
+def _key_to_path(key: str, *, create: bool = True) -> Path:
+    return _secret_dir(create=create) / _safe_key_name(key)
+
+
+def _key_read_candidates(key: str) -> tuple[Path, ...]:
+    return user_read_candidates(Path("secrets") / _safe_key_name(key))
 
 
 class SecretStore:
@@ -135,7 +148,7 @@ class SecretStore:
             cipher = _dpapi_protect(raw)
         else:
             cipher = _fallback_protect(raw)
-        path = _key_to_path(key)
+        path = _key_to_path(key, create=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_bytes(cipher)
         os.replace(str(tmp), str(path))
@@ -145,36 +158,41 @@ class SecretStore:
             pass
 
     def get_secret(self, key: str) -> Optional[str]:
-        path = _key_to_path(key)
-        if not path.exists():
-            return None
-        cipher = path.read_bytes()
-        try:
-            if _is_windows():
-                plain = _dpapi_unprotect(cipher)
-            else:
-                plain = _fallback_unprotect(cipher)
-        except Exception:
-            # Cifrado corrupto o de otro usuario
-            return None
-        return plain.decode("utf-8", errors="replace")
+        for path in _key_read_candidates(key):
+            if not path.exists():
+                continue
+            cipher = path.read_bytes()
+            try:
+                if _is_windows():
+                    plain = _dpapi_unprotect(cipher)
+                else:
+                    plain = _fallback_unprotect(cipher)
+            except Exception:
+                # Cifrado corrupto o de otro usuario: probar fallback legacy.
+                continue
+            return plain.decode("utf-8", errors="replace")
+        return None
 
     def delete_secret(self, key: str) -> bool:
-        path = _key_to_path(key)
+        # Legacy storage is read-only: deletion only targets the canonical root.
+        path = _key_to_path(key, create=False)
         if path.exists():
             path.unlink()
             return True
         return False
 
     def list_keys(self) -> list[str]:
-        out = []
-        for p in _secret_dir().glob("*.bin"):
-            if p.stem:
-                out.append(p.stem)
-        return sorted(out)
+        keys: set[str] = set()
+        for directory in user_read_candidates("secrets"):
+            if not directory.is_dir():
+                continue
+            for path in directory.glob("*.bin"):
+                if path.stem:
+                    keys.add(path.stem)
+        return sorted(keys)
 
     def has_secret(self, key: str) -> bool:
-        return _key_to_path(key).exists()
+        return any(path.exists() for path in _key_read_candidates(key))
 
 
 # ─── Singleton (importable directo) ─────────────────────────────────

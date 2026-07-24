@@ -207,17 +207,22 @@ def _ensure_ollama_local_ready(base_path: str) -> tuple[bool, str]:
 
 
 def _open_context_session(base_path: str):
+    from bago_core.user_state_paths import state_read_roots
     from context_store import ContextStore
     from session_manager import SessionManager
 
     state_root = _resolve_state_root()
     project_root = Path(base_path).resolve()
-    sessions = ContextStore.list_sessions(base_dir=state_root)
+    sessions_by_id: dict[str, dict[str, Any]] = {}
+    for read_root in state_read_roots():
+        for item in ContextStore.list_sessions(base_dir=read_root):
+            sessions_by_id.setdefault(str(item.get("sid", "")), item)
+    sessions = list(sessions_by_id.values())
     if sessions:
         for item in reversed(sessions):
             sid = item["sid"]
             try:
-                mgr = SessionManager.load(sid, base_path=base_path, state_root=str(state_root))
+                mgr = SessionManager.load(sid, base_path=base_path)
             except Exception:
                 continue
             try:
@@ -271,7 +276,19 @@ def cmd_context(args: argparse.Namespace) -> int:
 
 def cmd_chat(args: argparse.Namespace) -> int:
     from repl import BagoREPL
+    from session_manager import SessionManager
     from system_prompt import get_system_prompt
+
+    try:
+        project_root = SessionManager._validate_project_root(
+            Path(args.base_path),
+            require_identity=True,
+        )
+    except (OSError, RuntimeError) as exc:
+        print(f"BAGO no puede iniciar el chat: {exc}", file=sys.stderr)
+        return 2
+
+    args.base_path = str(project_root)
 
     provider = getattr(args, "provider", "unknown") or "unknown"
     model = getattr(args, "model", "unknown") or "unknown"

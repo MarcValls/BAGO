@@ -93,6 +93,7 @@ export interface UseContextTreeState {
   linkSourceDirectoryToTree: (id: string) => Promise<ContextNode[]>;
   // patches del chat
   ingestPatch: (request: ContextPatchRequest) => void;
+  createProposal: (request: ContextPatchRequest) => Promise<void>;
   acceptPatch: (patchId: string) => Promise<{ ok: boolean; error?: string }>;
   rejectPatch: (patchId: string) => Promise<void>;
   applyPatchedEdited: (patchId: string, editedOperations: ContextPatchRequest['patch']['operations']) => Promise<{ ok: boolean; error?: string }>;
@@ -735,6 +736,14 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     });
   }, []);
 
+  const createProposal = useCallback(async (request: ContextPatchRequest) => {
+    const next = proposals.find((item) => item.id === request.id)
+      ? proposals
+      : [request, ...proposals];
+    setProposals(next);
+    await persistProposals(next);
+  }, [proposals, persistProposals]);
+
   const acceptPatch = useCallback(async (patchId: string) => {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const request = proposals.find((p) => p.id === patchId);
@@ -880,6 +889,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     setSourceFileBranch,
     linkSourceDirectoryToTree,
     ingestPatch,
+    createProposal,
     acceptPatch,
     rejectPatch,
     applyPatchedEdited,

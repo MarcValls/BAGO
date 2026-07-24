@@ -91,6 +91,8 @@ async function main() {
   fs.writeFileSync(path.join(target, 'old.txt'), 'old runtime\n');
   execFileSync('powershell.exe', [
     '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
     '-Command',
     `Compress-Archive -Path '${source.replace(/'/g, "''")}\\*' -DestinationPath '${bundlePath.replace(/'/g, "''")}' -Force`
   ], { windowsHide: true });
@@ -149,7 +151,11 @@ async function main() {
     assert.strictEqual(ready.verification.signature.status, 'not-published');
 
     const installed = await manager.install(created.id);
-    assert.strictEqual(installed.state, 'completed');
+    assert.strictEqual(
+      installed.state,
+      'completed',
+      JSON.stringify({ error: installed.error, logs: manager.getLogs(created.id) })
+    );
     assert.strictEqual(fs.existsSync(path.join(target, 'bago_core', 'launcher.py')), true);
     assert.strictEqual(fs.existsSync(path.join(target, 'old.txt')), false);
     assert.strictEqual(installed.rollback_available, true);
@@ -168,6 +174,8 @@ async function main() {
   writeFixture(futureSource, 'v99.0.0');
   execFileSync('powershell.exe', [
     '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
     '-Command',
     `Compress-Archive -Path '${futureSource.replace(/'/g, "''")}\\*' -DestinationPath '${futureBundlePath.replace(/'/g, "''")}' -Force`
   ], { windowsHide: true });
