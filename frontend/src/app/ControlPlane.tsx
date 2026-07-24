@@ -1170,6 +1170,7 @@ export function ControlPlane() {
     // slash commands al modelo: deben pasar por la autoridad /command para
     // cambiar el estado real de la sesión (por ejemplo, /mode A).
     if (text.startsWith('/') && !text.startsWith('//')) {
+      setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
       await runCommand(text);
       return;
     }
