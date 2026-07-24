@@ -293,7 +293,7 @@ export function ContextTreeModule(props: Props) {
     setCollectionBusy(true);
     setCollectionNotice(null);
     try {
-      const history: CollectionHistoryItem[] = ctx.bank.history.slice(0, 20).map((item) => {
+      const history: CollectionHistoryItem[] = ctx.bank.history.slice(-20).map((item) => {
         const raw = item.raw || {};
         return {
           role: String(raw.role || raw.type || 'chat'),

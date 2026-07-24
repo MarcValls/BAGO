@@ -710,6 +710,26 @@ class SessionPersistenceMixin:
             sr,
         )
         store = ContextStore.load(session_id, base_dir=store_base)
+        if store_base.resolve() != sr.resolve():
+            # Legacy roots are read-only discovery sources. Hydrate a canonical
+            # store before handing it to the manager so future writes stay in sr.
+            canonical_store = ContextStore.load(session_id, base_dir=sr)
+            if not canonical_store.get_history() and store.get_history():
+                canonical_store._messages = store.get_raw_messages()
+                canonical_store._timeline = store._timeline
+                canonical_store._tokens = store._tokens
+                canonical_store._meta = store.get_meta()
+                canonical_store._context_path.write_text(
+                    "\n".join(json.dumps(item.to_dict(), ensure_ascii=False) for item in canonical_store._messages) + ("\n" if canonical_store._messages else ""),
+                    encoding="utf-8",
+                )
+                canonical_store._timeline_path.write_text(
+                    "\n".join(json.dumps(item.to_dict(), ensure_ascii=False) for item in canonical_store._timeline) + ("\n" if canonical_store._timeline else ""),
+                    encoding="utf-8",
+                )
+                canonical_store._save_tokens()
+                canonical_store._save_meta()
+            store = canonical_store
         meta = store.get_meta()
         saved_project = meta.get("project_root") or meta.get("workspace_state_root")
         bp = Path(saved_project) if saved_project and Path(saved_project).exists() else Path(base_path or os.getcwd())
