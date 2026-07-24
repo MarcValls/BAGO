@@ -1166,6 +1166,15 @@ export function ControlPlane() {
       return;
     }
 
+    // El composer de Chat también es una superficie de comandos. No envíes
+    // slash commands al modelo: deben pasar por la autoridad /command para
+    // cambiar el estado real de la sesión (por ejemplo, /mode A).
+    if (text.startsWith('/') && !text.startsWith('//')) {
+      setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
+      await runCommand(text);
+      return;
+    }
+
     const stamp = Date.now();
     const userTurn: ChatTurn = {
       id: `user-${stamp}`,
