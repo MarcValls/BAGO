@@ -263,7 +263,25 @@ export function ChatPanel(props: Props) {
           <div className="chat-composer-shell">
             <div className="chat-composer-topbar">
               <span className="chat-composer-title">Mensaje a BAGO</span>
+              <div className="chat-model-control">
+                <label htmlFor="bago-chat-model">Modelo</label>
+                <select
+                  id="bago-chat-model"
+                  className="chat-model-selector"
+                  aria-label="Modelo de esta sesión"
+                  value={props.sessionModel || ''}
+                  disabled={modelChanging || modelOptions.length === 0}
+                  onChange={(event) => void onModelChange(event)}
+                >
+                  <option value="">Automático · router</option>
+                  {modelOptions.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+                <span className="chat-model-selector-count" title="Modelos disponibles">{modelOptions.length}</span>
+              </div>
             </div>
+            {modelError && <div className="chat-model-error" role="alert">No se pudo cambiar: {modelError}</div>}
             <textarea
               id="bago-chat-composer"
               className="chat-composer-textarea"
@@ -277,24 +295,6 @@ export function ChatPanel(props: Props) {
             />
             <div className="chat-composer-bottombar">
               <div className="chat-composer-tools">
-                <label className="chat-model-control">
-                  <select
-                    className="chat-model-selector"
-                    value={props.sessionModel || ''}
-                    onChange={(event) => void onModelChange(event)}
-                    disabled={modelChanging || modelOptions.length === 0}
-                    aria-label="Modelo de la sesión"
-                    aria-describedby={modelError ? 'chat-model-error' : undefined}
-                    title="Elegir modelo para esta sesión"
-                  >
-                    <option value="">{modelChanging ? 'Cambiando modelo…' : 'Automático'}</option>
-                    {modelOptions.map((option) => (
-                      <option key={option.key} value={option.key}>{option.label}</option>
-                    ))}
-                  </select>
-                  <span className="chat-model-selector-count" aria-hidden="true">{modelOptions.length}</span>
-                </label>
-                {modelError && <span id="chat-model-error" className="chat-model-error" role="alert">{modelError}</span>}
                 <span className="chat-composer-counter">
                   {draft.length.toLocaleString()} / 12.000
                 </span>

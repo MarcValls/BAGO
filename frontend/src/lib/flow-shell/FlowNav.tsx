@@ -25,7 +25,7 @@ export function FlowNav(props: Props) {
         {props.subtitle && <small>{props.subtitle}</small>}
       </header>
       <nav className="context-flow-nav-list">
-        {props.stages.map((stage) => (
+        {props.stages.map((stage, index) => (
           <button
             key={stage.id}
             type="button"
@@ -40,10 +40,11 @@ export function FlowNav(props: Props) {
               if (stage.state !== 'locked') props.onStageChange(stage.id);
             }}
             disabled={stage.state === 'locked'}
+            aria-current={stage.id === props.activeStage ? 'step' : undefined}
           >
             <span className="context-flow-nav-item-label">
-              <Icon name={stage.icon} size={12} />
-              {stage.label}
+              <span className="context-flow-nav-index">{index + 1}</span>
+              <span><Icon name={stage.icon} size={12} /> {stage.label}</span>
             </span>
             {stage.state === 'completed' && <Icon name="check" size={11} />}
           </button>

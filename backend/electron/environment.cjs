@@ -190,7 +190,9 @@ function hasInstallManifest(root) {
 function resolveBundledRuntimeRoot() {
   const candidates = app.isPackaged
     ? [PACKAGED_INSTALL_TREE_ROOT, PACKAGED_RUNTIME_ROOT, DEV_INSTALL_TREE_ROOT, DEV_PACKAGED_RUNTIME_ROOT]
-    : [DEV_INSTALL_TREE_ROOT, ROOT_DIR, DEV_PACKAGED_RUNTIME_ROOT];
+    // In development the editable checkout is authoritative. release/v4/current
+    // is a generated staging tree and may legitimately lag behind source.
+    : [ROOT_DIR, DEV_INSTALL_TREE_ROOT, DEV_PACKAGED_RUNTIME_ROOT];
   for (const root of candidates) {
     if (hasBagoRuntime(root)) return root;
   }

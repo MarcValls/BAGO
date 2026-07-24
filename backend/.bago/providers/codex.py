@@ -163,9 +163,10 @@ class CodexAdapter(ProviderAdapter):
     def list_models(self) -> list[ModelInfo]:
         if self._use_cli():
             return [
-                ModelInfo("gpt-5.4-mini", "gpt-5.4-mini", self.provider_name, 128000, 16384, "fast_coding", "subscription"),
-                ModelInfo("gpt-5.3-codex", "gpt-5.3-codex", self.provider_name, 128000, 16384, "coding", "subscription"),
-                ModelInfo("gpt-5.2", "gpt-5.2", self.provider_name, 128000, 16384, "general", "subscription"),
+                ModelInfo("gpt-5.6-sol", "gpt-5.6-sol", self.provider_name, 128000, 16384, "frontier_agentic_coding", "subscription"),
+                ModelInfo("gpt-5.6-terra", "gpt-5.6-terra", self.provider_name, 128000, 16384, "balanced_agentic_coding", "subscription"),
+                ModelInfo("gpt-5.6-luna", "gpt-5.6-luna", self.provider_name, 128000, 16384, "fast_agentic_coding", "subscription"),
+                ModelInfo("gpt-5.5", "gpt-5.5", self.provider_name, 128000, 16384, "complex_coding", "subscription"),
             ]
         try:
             data = self._get(f"{self.base_url}/models")

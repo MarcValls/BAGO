@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from bago_core.user_state_paths import state_read_roots
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from session_utils import ADAPTER_REGISTRY, BAGO_MODES, normalize_bago_mode, normalize_bridges
 from state_paths import resolve_state_root
@@ -643,14 +645,18 @@ class SessionPersistenceMixin:
         """Carga una sesión desde disco."""
         bp = Path(base_path or os.getcwd())
         sr = resolve_state_root(state_root)
-        # LEGACY[SP-L001]: old .bago/state files are read only for compatibility and migration.
-        legacy_root = bp / ".bago" / "state"
-        path = sr / "sessions" / f"{session_id}.json"
-        if not path.exists():
-            legacy_path = legacy_root / "sessions" / f"{session_id}.json"
-            if legacy_path.exists():
-                # LEGACY[SP-L002]: prefer the canonical state root; fall back to legacy only if needed.
-                path = legacy_path
+        # LEGACY[SP-L001]: legacy roots are discovery-only; loaded sessions
+        # continue writing through the canonical state root ``sr``.
+        read_roots = [sr]
+        if state_root is None or (isinstance(state_root, str) and not state_root.strip()):
+            read_roots.extend(state_read_roots())
+        read_roots.append(bp / ".bago" / "state")
+        read_roots = list(dict.fromkeys(read_roots))
+        relative_session = Path("sessions") / f"{session_id}.json"
+        path = next(
+            (root / relative_session for root in read_roots if (root / relative_session).exists()),
+            sr / relative_session,
+        )
         if path.exists():
             data = json.loads(path.read_text(encoding="utf-8"))
             saved_project = data.get("project_root") or data.get("workspace_state_root")
@@ -695,10 +701,35 @@ class SessionPersistenceMixin:
             mgr.repo_branch = data.get("repo_branch", "")
             return mgr
 
-        store_base = sr
-        if not (sr / "sessions" / f"{session_id}.json").exists() and (legacy_root / "sessions" / f"{session_id}.json").exists():
-            store_base = legacy_root
+        store_base = next(
+            (
+                root
+                for root in read_roots
+                if (root / "sessions" / session_id).is_dir()
+            ),
+            sr,
+        )
         store = ContextStore.load(session_id, base_dir=store_base)
+        if store_base.resolve() != sr.resolve():
+            # Legacy roots are read-only discovery sources. Hydrate a canonical
+            # store before handing it to the manager so future writes stay in sr.
+            canonical_store = ContextStore.load(session_id, base_dir=sr)
+            if not canonical_store.get_history() and store.get_history():
+                canonical_store._messages = store.get_raw_messages()
+                canonical_store._timeline = store._timeline
+                canonical_store._tokens = store._tokens
+                canonical_store._meta = store.get_meta()
+                canonical_store._context_path.write_text(
+                    "\n".join(json.dumps(item.to_dict(), ensure_ascii=False) for item in canonical_store._messages) + ("\n" if canonical_store._messages else ""),
+                    encoding="utf-8",
+                )
+                canonical_store._timeline_path.write_text(
+                    "\n".join(json.dumps(item.to_dict(), ensure_ascii=False) for item in canonical_store._timeline) + ("\n" if canonical_store._timeline else ""),
+                    encoding="utf-8",
+                )
+                canonical_store._save_tokens()
+                canonical_store._save_meta()
+            store = canonical_store
         meta = store.get_meta()
         saved_project = meta.get("project_root") or meta.get("workspace_state_root")
         bp = Path(saved_project) if saved_project and Path(saved_project).exists() else Path(base_path or os.getcwd())

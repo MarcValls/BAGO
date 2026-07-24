@@ -118,7 +118,17 @@ export class BagoClient {
       return undefined as T;
     }
     const text = await response.text();
-    return (text ? JSON.parse(text) : undefined) as T;
+    if (!text) {
+      return undefined as T;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new BagoHttpError(
+        response.status,
+        'La API de BAGO devolvió una respuesta no JSON. Comprueba la URL del backend.'
+      );
+    }
   }
 
   async bootstrap(): Promise<UiBootData> {
@@ -164,6 +174,10 @@ export class BagoClient {
 
   getProviders(): Promise<BackendProviders> {
     return this.request<BackendProviders>('/providers', { method: 'GET' });
+  }
+
+  verifyProviderContracts(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/providers/contracts', { method: 'GET' });
   }
 
   getModels(provider: string): Promise<Record<string, unknown>> {
@@ -282,10 +296,31 @@ export class BagoClient {
       body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
     });
   }
+  trainRlBc(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/rl/train-bc', {
+      method: 'POST',
+      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+  evalRlPolicy(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/rl/eval', {
+      method: 'POST',
+      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
 
   // --- Memory & Subagents ---
   listMemory(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/memory/list', { method: 'GET' });
+  }
+  getMemoryStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/memory/status', { method: 'GET' });
+  }
+  searchMemory(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/memory/search', { method: 'POST', body: JSON.stringify(payload) });
+  }
+  upsertEmbedding(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/memory/embeddings/upsert', { method: 'POST', body: JSON.stringify(payload) });
   }
   getSubagentsCatalogue(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/subagents/catalogue', { method: 'GET' });
@@ -391,8 +426,9 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/schedule/list', { method: 'GET' });
   }
 
-  readFile(filePath: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/files/read/${encodeURIComponent(filePath)}`, { method: 'GET' });
+  readFile(filePath: string, options: { optional?: boolean } = {}): Promise<Record<string, unknown>> {
+    const query = options.optional ? '?optional=1' : '';
+    return this.request<Record<string, unknown>>(`/files/read/${encodeURIComponent(filePath)}${query}`, { method: 'GET' });
   }
 
   writeFile(path: string, content: string): Promise<Record<string, unknown>> {

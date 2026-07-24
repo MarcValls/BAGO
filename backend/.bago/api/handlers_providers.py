@@ -29,18 +29,24 @@ def _mgr(handler):
 
 
 def _config_path() -> "Path":
-    from pathlib import Path
-    return Path.home() / ".bago" / "state" / "config.json"
+    from bago_core.user_state_paths import state_root
+    return state_root() / "config.json"
+
+
+def _config_read_paths() -> tuple["Path", ...]:
+    from bago_core.user_state_paths import state_read_candidates
+    return state_read_candidates("config.json")
 
 
 def _load_config() -> dict:
     import json
-    p = _config_path()
-    if p.exists():
+    for path in _config_read_paths():
+        if not path.exists():
+            continue
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
-            pass
+            continue
     return {}
 
 
@@ -270,6 +276,25 @@ def handle_cli_detect(handler: "BaseHTTPRequestHandler") -> None:
     })
 
 
+def handle_contracts(handler: "BaseHTTPRequestHandler") -> None:
+    """GET /providers/contracts — offline adapter verification, no secrets or traffic."""
+    from api_serializers import send_json
+    try:
+        from bago_core.commands.cmd_chat import _verify_cloud_provider_contracts
+        ok, checked = _verify_cloud_provider_contracts()
+        send_json(handler, 200, {
+            "ok": ok,
+            "mode": "offline-contract",
+            "live_calls": False,
+            "checked": checked,
+            "passed": len(checked) if ok else max(0, len(checked) - 1),
+            "expected": 6,
+            "credential_required_for_live_calls": True,
+        })
+    except Exception as exc:
+        send_json(handler, 500, {"ok": False, "mode": "offline-contract", "error": str(exc)})
+
+
 
 # ─── Catálogo de discovery (paralelo al del frontend) ─────────────────
 # provider_id -> tipo de discovery. Mantener sincronizado con
@@ -459,24 +484,32 @@ def handle_list_models(handler: "BaseHTTPRequestHandler", provider_id: str) -> N
 
 def _active_models_path(provider_id: str):
     """Archivo donde guardamos qué modelos están activos para el provider."""
-    from pathlib import Path
+    from bago_core.user_state_paths import state_root
     import re
     safe = re.sub(r"[^a-z0-9-]", "-", provider_id.lower()).strip("-")
-    d = Path.home() / ".bago" / "state" / "active_models"
+    d = state_root() / "active_models"
     d.mkdir(parents=True, exist_ok=True)
     return d / f"{safe}.json"
 
 
+def _active_models_read_paths(provider_id: str):
+    from bago_core.user_state_paths import state_read_candidates
+    import re
+    safe = re.sub(r"[^a-z0-9-]", "-", provider_id.lower()).strip("-")
+    return state_read_candidates(f"active_models/{safe}.json")
+
+
 def _load_active_models(provider_id: str) -> list[str]:
     import json
-    p = _active_models_path(provider_id)
-    if p.exists():
+    for path in _active_models_read_paths(provider_id):
+        if not path.exists():
+            continue
         try:
-            data = json.loads(p.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, list):
                 return [str(x) for x in data if isinstance(x, str)]
         except Exception:
-            pass
+            continue
     return []
 
 

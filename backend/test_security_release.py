@@ -96,6 +96,8 @@ def test_release_package_excludes_install_config_and_includes_uninstaller() -> N
         assert "package-lock.json" in names
         assert "install_config.json" not in names
         assert ".bago/credentials.json" not in names
+        assert not any(name.startswith(".gabo/state/") for name in names)
+        assert not any(name.startswith(".gabo/logs/") for name in names)
         assert "bago-uninstall.ps1" in names
         assert "bago-uninstall.cmd" in names
         assert "bago_core/translators/__init__.py" in names
@@ -115,6 +117,19 @@ def test_repair_only_skips_post_install_tests() -> None:
 
     assert "if ($RepairOnly)" in script
     assert "$SkipTests = $true" in script
+
+
+def test_installer_excludes_live_gabo_state() -> None:
+    script = (BAGO_ROOT / "install-v4.ps1").read_text(encoding="utf-8")
+
+    for prefix in (
+        ".gabo/state",
+        ".gabo/logs",
+        ".gabo/cache",
+        ".gabo/launch",
+        ".gabo/backups",
+    ):
+        assert f'"{prefix}"' in script, f"installer does not exclude {prefix}"
 
 
 def test_remote_installer_blocks_future_versions() -> None:
@@ -248,6 +263,7 @@ if __name__ == "__main__":
         test_non_localhost_api_requires_token,
         test_release_package_excludes_install_config_and_includes_uninstaller,
         test_repair_only_skips_post_install_tests,
+        test_installer_excludes_live_gabo_state,
         test_remote_installer_blocks_future_versions,
         test_manager_hides_future_versions,
         test_main_process_hides_future_versions,

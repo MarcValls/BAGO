@@ -372,6 +372,7 @@ def _run_session_phase(
     exported_memory = _collect_evidence(mgr=mgr, profile=profile)
     copied_artifacts = copy_session_artifacts(
         workspace_path, mgr.session_id, output_dir,
+        session_state_root=mgr.state_root,
     )
     return direct_response, commands, plan_text, exported_memory, copied_artifacts
 

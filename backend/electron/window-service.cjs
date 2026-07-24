@@ -155,70 +155,34 @@ function createManagerWindow(options = {}) {
         const result = await win.webContents.executeJavaScript(`
           new Promise(resolve => {
             const started = Date.now();
-            const timer = setInterval(async () => {
-              const status = typeof nodeCache !== 'undefined' && nodeCache.status;
-              const health = typeof pmManagerHealth !== 'undefined' && pmManagerHealth;
-              const releasesReady = typeof releaseItems !== 'undefined' && releaseItems.length > 0;
-              if ((status && health && (releasesReady || Date.now() - started > 8000)) || Date.now() - started > 24000) {
+            const timer = setInterval(() => {
+              const root = document.querySelector('.app-root');
+              const header = document.querySelector('.global-header');
+              const sidebar = document.querySelector('.main-sidebar');
+              const workspace = document.querySelector('.workspace-shell');
+              const surface = document.querySelector('.surface-body');
+              if ((root && header && sidebar && workspace && surface) || Date.now() - started > 24000) {
                 clearInterval(timer);
-                const sample = status && Array.isArray(status.connectors_data)
-                  ? status.connectors_data.find(item => item.mode === 'connected')
-                  : null;
-                const preview = sample && window.bagoElectron && window.bagoElectron.runNodePreview
-                  ? await window.bagoElectron.runNodePreview(sample.installation_id, sample.piece_id, 'connected')
-                  : null;
-                const jobs = window.bagoElectron && window.bagoElectron.listReleaseJobs
-                  ? await window.bagoElectron.listReleaseJobs()
-                  : null;
-                const sessions = window.bagoElectron && window.bagoElectron.runSessionCommand
-                  ? await window.bagoElectron.runSessionCommand(['list'])
-                  : null;
-                const validRelease = typeof releaseItems !== 'undefined' && releaseItems.find(rel => {
-                  const names = new Set((rel.assets || []).map(asset => String(asset.name || '').toLowerCase()));
-                  return (rel.assets || []).some(asset => /\\.zip$/i.test(asset.name || '') && names.has(String(asset.name || '').toLowerCase() + '.sha256'));
-                });
-                const releasePreflight = validRelease && health && health.runtime_root && window.bagoElectron && window.bagoElectron.preflightRelease
-                  ? await window.bagoElectron.preflightRelease({ release: validRelease, target: health.runtime_root, action: 'update' })
-                  : null;
-                const selectedSession = sessions && sessions.ok && Array.isArray(sessions.sessions) && sessions.sessions[0]
-                  ? sessions.sessions[0]
-                  : null;
-                let sessionSync = null;
-                if (selectedSession && window.bagoElectron && window.bagoElectron.getChatUrl) {
-                  const chatUrl = await window.bagoElectron.getChatUrl({
-                    sessionId: selectedSession.session_id || selectedSession.sid || '',
-                    provider: selectedSession.provider || '',
-                    model: selectedSession.model || '',
-                    bridges: Array.isArray(selectedSession.active_bridges) ? selectedSession.active_bridges : [],
-                    basePath: health && health.runtime_root ? health.runtime_root : ''
-                  });
-                  sessionSync = chatUrl
-                    ? await fetch(String(chatUrl).replace(/\/?$/, '') + 'session').then(async response => response.ok ? response.json() : null).catch(() => null)
-                    : null;
-                }
+                const ids = [...document.querySelectorAll('[id]')].map(el => el.id);
+                const scrollbar = surface ? getComputedStyle(surface, '::-webkit-scrollbar') : null;
+                const bridge = window.bagoElectron;
                 resolve({
                   title: document.title,
-                  status_loaded: !!status,
-                  installations: status && status.installations || 0,
-                  pieces: status && status.pieces || 0,
-                  connectors: status && status.connectors || 0,
-                  evidence: !!(typeof nodeCache !== 'undefined' && nodeCache.evidence),
-                  health_checks: health && Array.isArray(health.checks) ? health.checks.length : 0,
-                  releases: typeof releaseItems !== 'undefined' && Array.isArray(releaseItems) ? releaseItems.length : 0,
-                  preview_ok: !!(preview && preview.ok && preview.data && preview.data.ok),
-                  jobs_bridge: Array.isArray(jobs),
-                  sessions_bridge: !!(sessions && sessions.ok && Array.isArray(sessions.sessions)),
-                  session_sync_ok: !!(sessionSync && selectedSession && sessionSync.provider === selectedSession.provider && sessionSync.model === selectedSession.model && String(sessionSync.session_id || '') === String(selectedSession.session_id || selectedSession.sid || '')),
-                  chains_bridge: !!(window.bagoElectron && window.bagoElectron.readChainRegistry && window.bagoElectron.writeChainRegistry),
-                  chain_editor: !!document.getElementById('pm-chain-track'),
-                  patch_chain_surface: !!document.getElementById('pm-patch-surface'),
-                  patch_chain_inspector: !!(document.getElementById('pm-detail-title') && document.getElementById('pm-patch-add-node') && typeof pmRenderChainDetail === 'function'),
-                  release_preflight: !!(releasePreflight && releasePreflight.prepare_ready),
-                  views: document.querySelectorAll('.pm-view').length,
-                  duplicate_ids: (() => {
-                    const ids = [...document.querySelectorAll('[id]')].map(el => el.id);
-                    return ids.filter((id, index) => ids.indexOf(id) !== index);
-                  })()
+                  react_root: !!root,
+                  header: !!header,
+                  sidebar: !!sidebar,
+                  workspace: !!workspace,
+                  surface: !!surface,
+                  destinations: document.querySelectorAll('.sidebar-item').length,
+                  active_destination: document.querySelectorAll('.sidebar-item[aria-current="page"]').length,
+                  bridge: !!bridge,
+                  bridge_contract: !!(bridge
+                    && typeof bridge.managerHealth === 'function'
+                    && typeof bridge.getChatUrl === 'function'
+                    && typeof bridge.readInstallSelection === 'function'),
+                  scroll_overflow: surface ? getComputedStyle(surface).overflowY : '',
+                  scrollbar_hidden: !!(scrollbar && (scrollbar.display === 'none' || scrollbar.width === '0px')),
+                  duplicate_ids: ids.filter((id, index) => ids.indexOf(id) !== index)
                 });
               }
             }, 250);
@@ -226,22 +190,18 @@ function createManagerWindow(options = {}) {
         `);
         clearTimeout(timeout);
         const ok = !!(
-          result.status_loaded
-          && result.installations > 0
-          && result.pieces > 0
-          && result.connectors > 0
-          && result.evidence
-          && result.health_checks > 0
-          && result.preview_ok
-          && result.jobs_bridge
-          && result.sessions_bridge
-          && result.session_sync_ok
-          && result.chains_bridge
-          && result.chain_editor
-          && result.patch_chain_surface
-          && result.patch_chain_inspector
-          && result.release_preflight
-          && result.views >= 8
+          result.title === 'BAGO Control Plane'
+          && result.react_root
+          && result.header
+          && result.sidebar
+          && result.workspace
+          && result.surface
+          && result.destinations >= 8
+          && result.active_destination === 1
+          && result.bridge
+          && result.bridge_contract
+          && ['auto', 'scroll', 'hidden'].includes(result.scroll_overflow)
+          && result.scrollbar_hidden
           && result.duplicate_ids.length === 0
         );
         console.log(JSON.stringify({ manager_smoke: ok, ...result }));

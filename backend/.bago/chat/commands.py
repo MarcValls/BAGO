@@ -35,6 +35,8 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from bago_core.user_state_paths import user_read_candidates
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -73,6 +75,11 @@ def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> d
 
 class CommandError(Exception):
     pass
+
+
+def _install_roles_read_path() -> Path:
+    candidates = user_read_candidates("install_selection.json")
+    return next((path for path in candidates if path.is_file()), candidates[0])
 
 
 MENU_SECTIONS: list[dict[str, Any]] = [
@@ -539,7 +546,7 @@ def cmd_doctor(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
     add("base_path", base_path.exists(), str(base_path))
     add("base_writable", os.access(base_path, os.W_OK), str(base_path))
 
-    roles_file = Path.home() / ".bago" / "install_selection.json"
+    roles_file = _install_roles_read_path()
     if roles_file.exists():
         add("install_roles", True, str(roles_file))
     else:

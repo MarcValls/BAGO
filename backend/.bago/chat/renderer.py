@@ -229,7 +229,8 @@ def print_message_qwen(role: str, content: str, state: str = "static", provider:
 def print_switch_notification(result: dict) -> None:
     """Notificación visual de cambio de provider."""
     if not result.get("ok"):
-        print(error(f"❌ Switch fallido: {result.get('error', 'unknown')}"))
+        detail = result.get("error") or result.get("message") or "; ".join(result.get("warnings") or []) or "sin detalle"
+        print(error(f"❌ Switch fallido: {detail}"))
         return
 
     old = f"{result.get('old_provider')}/{result.get('old_model')}"

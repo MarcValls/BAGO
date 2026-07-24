@@ -22,6 +22,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from bago_core.user_state_paths import state_read_candidates, state_root
+
 # ---------------------------------------------------------------------------
 # Load few-shot dataset (auto-generated from session_store)
 # ---------------------------------------------------------------------------
@@ -34,7 +36,14 @@ def _user_data_path() -> Path:
     override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
     if override:
         return Path(override).expanduser().resolve()
-    return Path.home() / ".bago" / "state" / "intent_examples.json"
+    return state_root() / "intent_examples.json"
+
+
+def _user_data_read_paths() -> tuple[Path, ...]:
+    override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
+    if override:
+        return (Path(override).expanduser().resolve(),)
+    return state_read_candidates("intent_examples.json")
 
 
 def _load_examples() -> Dict[str, List[Dict[str, str]]]:
@@ -51,7 +60,7 @@ def _load_examples() -> Dict[str, List[Dict[str, str]]]:
         return dst
 
     merged: Dict[str, List[Dict[str, str]]] = {}
-    for path in (_BUNDLED_DATA_PATH, _user_data_path()):
+    for path in (_BUNDLED_DATA_PATH, *_user_data_read_paths()):
         if not path.exists():
             continue
         try:

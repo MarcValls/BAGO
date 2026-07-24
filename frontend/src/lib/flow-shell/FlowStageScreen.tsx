@@ -8,12 +8,14 @@ interface Props {
 }
 
 export function FlowStageScreen(props: Props) {
-  // FIX v0.2.1: el header (título + subtítulo) era decorativo. Los
-  // 5 stages (Sources, Structure, Pack, Compile, Destination) ya
-  // tienen headers semánticos en el árbol de contexto padre. Se
-  // elimina el header de este wrapper para evitar duplicación.
   return (
     <section className={`context-flow-screen ${props.className || ''}`.trim()}>
+      {(props.title || props.subtitle) && (
+        <header className="context-flow-screen-header">
+          {props.title && <h3>{props.title}</h3>}
+          {props.subtitle && <p>{props.subtitle}</p>}
+        </header>
+      )}
       <div className="context-flow-screen-body">{props.children}</div>
     </section>
   );

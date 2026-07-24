@@ -119,11 +119,15 @@ export function SystemTabs(props: Props) {
   const [audit, setAudit] = useState<Record<string, unknown> | null>(null);
   const [simulation, setSimulation] = useState<Record<string, unknown> | null>(null);
   const [rl, setRl] = useState<Record<string, unknown> | null>(null);
+  const [rlBusy, setRlBusy] = useState<string>('');
+  const [rlResult, setRlResult] = useState<Record<string, unknown> | null>(null);
   const [subagents, setSubagents] = useState<Record<string, unknown> | null>(null);
   const [interpret, setInterpret] = useState<{ rules: Record<string, unknown> | null; history: Record<string, unknown> | null }>({ rules: null, history: null });
   const [routes, setRoutes] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [configModal, setConfigModal] = useState<ProviderDescriptor | null>(null);
+  const [providerContracts, setProviderContracts] = useState<Record<string, unknown> | null>(null);
+  const [providerContractsBusy, setProviderContractsBusy] = useState(false);
   const [configInitial, setConfigInitial] = useState<{
     enabled?: boolean;
     base_url?: string;
@@ -194,6 +198,26 @@ export function SystemTabs(props: Props) {
 
   const simulationStatus = asRecord(simulation?.status);
   const rlStatus = asRecord(rl);
+
+  async function runRlAction(action: 'refresh' | 'shadow' | 'train' | 'eval') {
+    setRlBusy(action);
+    setError(null);
+    try {
+      const result = action === 'refresh'
+        ? await client.getRlStatus()
+        : action === 'shadow'
+          ? await client.setRlShadow({ enabled: !Boolean(rlStatus.enabled) })
+          : action === 'train'
+            ? await client.trainRlBc()
+            : await client.evalRlPolicy();
+      if (action === 'refresh' || action === 'shadow') setRl(result);
+      setRlResult(result);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRlBusy('');
+    }
+  }
   const overviewSelection = systemSelection(
     'system-overview',
     'system-overview',
@@ -344,13 +368,36 @@ export function SystemTabs(props: Props) {
               <span>Registro activo del backend. Configura cada adaptador real y consulta su catálogo canónico de modelos.</span>
               <ActionMenuButton selection={providersSelection} onInspectSelection={props.onInspectSelection} label="Acciones de proveedores" />
             </div>
+            <div className="provider-contracts">
+              <button
+                type="button"
+                className="secondary-button compact"
+                disabled={providerContractsBusy}
+                onClick={() => {
+                  setProviderContractsBusy(true);
+                  setError(null);
+                  void client.verifyProviderContracts()
+                    .then(setProviderContracts)
+                    .catch((e) => setError(String(e)))
+                    .finally(() => setProviderContractsBusy(false));
+                }}
+              >
+                {providerContractsBusy ? 'Verificando…' : 'Verificar 6 contratos cloud'}
+              </button>
+              {providerContracts && (
+                <span className={`provider-status ${providerContracts.ok ? 'is-on' : 'is-off'}`}>
+                  {String(providerContracts.passed ?? 0)}/{String(providerContracts.expected ?? 6)} offline · sin tráfico
+                </span>
+              )}
+            </div>
+            {error && <ErrorState error={error} />}
             {props.providers.length === 0 ? (
               <ErrorState error="El backend no ha devuelto proveedores registrados" />
             ) : (
             <ul className="provider-list">
               {props.providers.map((state) => {
                 const providerId = String(state.id || state.name || '').trim();
-                const descriptor = resolveProviderDescriptor(providerId);
+                const descriptor = resolveProviderDescriptor(providerId, String(state.label || state.name || providerId));
                 const enabled = state.enabled === true;
                 const configured = state.configured === true;
                 const models = normalizeProviderModels({ models: state.models }).map((entry) => entry.id);
@@ -468,12 +515,22 @@ export function SystemTabs(props: Props) {
         {active === 'rl' && (
           <section className="system-tab-panel" role="tabpanel">
             <h3>RL <span className="system-tab-badge-experimental">experimental</span></h3>
-            <p className="system-tab-description">Refuerzo de aprendizaje en modo observador. No toma decisiones automáticamente.</p>
+            <p className="system-tab-description">Entrena, evalúa y registra recomendaciones. La autoridad permanece en observer-only: nunca ejecuta acciones.</p>
+            {error && <ErrorState error={error} />}
             {!rl ? <LoadingState label="RL" /> : (
               <div className="rl-stack">
                 <DataBlock label="Estado" value={String(rlStatus.enabled ? 'ON' : 'OFF')} hint={String(rlStatus.mode || '?')} />
                 <DataBlock label="Autoridad" value={String(rlStatus.authority || '?')} />
                 <DataBlock label="Eventos" value={String(rlStatus.events_logged ?? '?')} />
+                <DataBlock label="Puede ejecutar" value={rlStatus.can_execute === true ? 'SÍ' : 'NO'} hint="Bloqueo de seguridad permanente" />
+                <div className="rl-actions" aria-label="Controles RL">
+                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('refresh')}>Actualizar</button>
+                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('shadow')}>{rlStatus.enabled ? 'Desactivar shadow' : 'Activar shadow'}</button>
+                  <button className="primary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('train')}>Entrenar BC</button>
+                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('eval')}>Evaluar política</button>
+                </div>
+                {rlBusy && <div className="system-tab-meta">Ejecutando {rlBusy}…</div>}
+                {rlResult && <details open><summary>Resultado de la última acción</summary><JsonView data={rlResult} /></details>}
                 {Boolean(rlStatus.log_path) && <div className="system-tab-meta">Log: {String(rlStatus.log_path)}</div>}
                 <details>
                   <summary>Detalle completo</summary>

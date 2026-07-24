@@ -551,6 +551,10 @@ export function ControlPlane() {
     try {
       const data = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
       const nextSnapshot = applyBootData(data);
+      // El snapshot moderno puede llegar antes de que el catálogo del router
+      // quede materializado. La lectura dedicada mantiene el selector del chat
+      // operativo incluso en ese arranque parcial.
+      await refreshRouterState();
       setLastMessage(nextSnapshot?.workspace.linkedToSession ? 'backend confirmado' : 'snapshot recuperado');
     } catch (error) {
       const errorSnapshot: UiBootstrapSnapshot = {
@@ -853,8 +857,49 @@ export function ControlPlane() {
         result.push({ patch: { ...entry.patch, id: stableId, createdAt: turn.timestamp || entry.patch.createdAt }, turnId: turn.id });
       }
     }
+    const assistant = [...turns].reverse().find((turn) => turn.role === 'assistant' && turn.text.trim());
+    const assistantIndex = assistant ? turns.findIndex((turn) => turn.id === assistant.id) : -1;
+    const user = assistantIndex > 0 ? [...turns.slice(0, assistantIndex)].reverse().find((turn) => turn.role === 'user' && turn.text.trim()) : undefined;
+    const opportunityText = `${user?.text || ''}\n${assistant?.text || ''}`.trim();
+    const opportunity = /\b(ui|pantalla|interfaz|frontend|vista|componente|tarea|pendiente|decisión|decidir|proyecto|flujo)\b/i.test(opportunityText);
+    if (assistant && user && contextTree.tree?.rootId && opportunity && !result.some((entry) => entry.turnId === assistant.id)) {
+      const stableId = `proactive:${assistant.id}:${hashString(opportunityText)}`;
+      if (!handledContextPatches.has(stableId)) {
+        result.push({
+          turnId: assistant.id,
+          patch: {
+            id: stableId,
+            treeId: fallbackTreeId,
+            validationMode: 'modal',
+            proposalType: 'chat_opportunity',
+            title: 'Oportunidad de añadir contexto',
+            reason: 'El chat contiene una tarea, decisión o elemento de UI que puede quedar como rama abierta.',
+            riskLevel: 'low',
+            patch: {
+              operations: [{
+                op: 'create',
+                nodeId: `proactive_task_${hashString(opportunityText)}`,
+                parentId: contextTree.tree.rootId,
+                type: 'pending',
+                title: user.text.slice(0, 120),
+                summary: opportunityText.slice(0, 500),
+                status: 'proposed',
+                priority: 'medium'
+              }]
+            },
+            createdAt: assistant.timestamp,
+            createdBy: 'chat',
+            status: 'pending',
+            metadata: {
+              source: 'chat_opportunity_detector',
+              consent: 'required'
+            }
+          }
+        });
+      }
+    }
     return result;
-  }, [turns, handledContextPatches, snapshot?.workspace.id]);
+  }, [turns, handledContextPatches, snapshot?.workspace.id, contextTree.tree?.rootId]);
 
   const onContextPatchHandled = useCallback((patchId: string) => {
     setHandledContextPatches((current) => {
@@ -1450,14 +1495,25 @@ export function ControlPlane() {
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
     setLastMessage(modelKey ? `modelo sesión: ${modelKey}` : 'modelo sesión: auto');
-    const result = await clientRef.current.setSessionModel(modelKey);
-    setSessionModelState((result.session_model as string | null | undefined) ?? null);
-    await refreshAfterMutation();
+    const previousModel = sessionModel;
+    setSessionModelState(modelKey);
+    try {
+      const result = await clientRef.current.setSessionModel(modelKey);
+      const confirmedModel = (result.session_model as string | null | undefined)
+        ?? (result.model as string | null | undefined)
+        ?? modelKey;
+      setSessionModelState(confirmedModel ?? null);
+      await refreshAfterMutation();
+    } catch (error) {
+      setSessionModelState(previousModel);
+      throw error;
+    }
   };
 
   useEffect(() => {
     clientRef.current.getSessionModel().then((r) => {
-      const m = r?.model as string | null | undefined;
+      const m = (r?.session_model as string | null | undefined)
+        ?? (r?.model as string | null | undefined);
       setSessionModelState(m ?? null);
     }).catch(() => null);
   }, []);

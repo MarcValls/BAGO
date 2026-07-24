@@ -9,7 +9,7 @@ Usage:
     log.info("server_started", host="127.0.0.1", port=8091)
     log.error("chat_failed", provider="ollama-local", error="timeout")
 
-Output: JSON lines in ~/.bago/logs/bridge.jsonl (rotated at 5 MB, 3 backups kept).
+Output: JSON lines in the canonical user log root (5 MB, 3 backups kept).
 """
 
 from __future__ import annotations
@@ -20,6 +20,8 @@ import sys
 import threading
 import time
 from pathlib import Path
+
+from bago_core.user_state_paths import logs_root
 
 
 class StructuredLogger:
@@ -32,7 +34,7 @@ class StructuredLogger:
         backup_count: int = 3,
     ):
         if log_dir is None:
-            log_dir = Path.home() / ".bago" / "logs"
+            log_dir = logs_root()
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_path = self.log_dir / "bridge.jsonl"

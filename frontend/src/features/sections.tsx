@@ -117,6 +117,12 @@ interface Props {
   onInitialContextStateConsumed?: () => void;
 }
 
+function resolveRouterEntries(router: Props['router']): Array<Record<string, unknown>> {
+  const policyEntries = router?.policy?.entries || [];
+  if (policyEntries.length > 0) return policyEntries;
+  return router?.list?.entries || [];
+}
+
 type RecordValue = Record<string, unknown>;
 type GraphLayout = 'radial' | 'linear' | 'hierarchical';
 type ExplorerKind = 'file' | 'directory';
@@ -586,6 +592,7 @@ export function ControlSections(props: Props) {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
+  const [routerFallbackEntries, setRouterFallbackEntries] = useState<Array<Record<string, unknown>>>([]);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
   const snapshot = props.snapshot;
@@ -644,10 +651,26 @@ export function ControlSections(props: Props) {
     targetKindForSection(props.section)
   );
   const providers = props.providers?.providers || [];
-  const routerEntries = props.router?.policy?.entries || props.router?.list?.entries || [];
+  const routerStateEntries = resolveRouterEntries(props.router);
+  const routerEntries = routerStateEntries.length ? routerStateEntries : routerFallbackEntries;
   const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
   const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
   const routerLastPick = String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—');
+
+  useEffect(() => {
+    if (routerStateEntries.length > 0 || props.section !== 'chat') return;
+    let cancelled = false;
+    props.client.getRouterPolicy()
+      .then((policy) => {
+        if (!cancelled && Array.isArray(policy?.entries)) {
+          setRouterFallbackEntries(policy.entries);
+        }
+      })
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
+  }, [props.client, props.section, routerStateEntries.length]);
 
   useEffect(() => {
     const topLevel = explorerTree.filter((node) => node.kind === 'directory').map((node) => node.path);
@@ -1250,7 +1273,6 @@ export function ControlSections(props: Props) {
   }, [snapshot, props.apiBase]);
 
   if (props.section === 'chat') {
-    const routerEntries = props.router?.policy?.entries || props.router?.list?.entries || [];
     return (
       <ChatPanel
         snapshot={snapshot}
@@ -1798,7 +1820,7 @@ export function ControlSections(props: Props) {
 
   if (props.section === "system") {
     const providers = props.providers?.providers || [];
-    const routerEntries = props.router?.policy?.entries || props.router?.list?.entries || [];
+    const routerEntries = resolveRouterEntries(props.router);
     const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
     const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
     const routerLastPick = String(props.router?.policy?.last_pick || props.router?.list?.last_pick || "—");

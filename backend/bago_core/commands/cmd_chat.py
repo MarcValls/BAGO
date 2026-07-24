@@ -70,6 +70,35 @@ def _default_model_for_provider(base_path: str, provider: str) -> str:
     finally:
         mgr.close()
 
+def _verify_cloud_provider_contracts() -> tuple[bool, list[str]]:
+    """Ejercita la normalización cloud sin red ni credenciales reales."""
+    from anthropic import AnthropicAdapter
+    from codex import CodexAdapter
+    from copilot import CopilotAdapter
+    from ollama_cloud import OllamaCloudAdapter
+    from opencode import OpenCodeAdapter
+    from openrouter import OpenRouterAdapter
+
+    openai_reply = {"id": "contract", "model": "contract-model", "choices": [{"message": {"content": "contract-ok"}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}
+    ollama_reply = {"message": {"content": "contract-ok"}, "done": True, "prompt_eval_count": 1, "eval_count": 1}
+    anthropic_reply = {"id": "contract", "model": "contract-model", "content": [{"type": "text", "text": "contract-ok"}], "stop_reason": "end_turn", "usage": {"input_tokens": 1, "output_tokens": 1}}
+    cases = [
+        ("ollama-cloud", OllamaCloudAdapter({"base_url": "https://contract.invalid", "api_key": "test"}), ollama_reply),
+        ("copilot", CopilotAdapter({"token": "test", "base_url": "https://contract.invalid"}), openai_reply),
+        ("anthropic", AnthropicAdapter({"api_key": "test"}), anthropic_reply),
+        ("codex", CodexAdapter({"api_key": "test", "base_url": "https://contract.invalid"}), openai_reply),
+        ("openrouter", OpenRouterAdapter({"api_key": "test"}), openai_reply),
+        ("opencode", OpenCodeAdapter({"api_key": "test", "base_url": "https://contract.invalid"}), openai_reply),
+    ]
+    passed: list[str] = []
+    for name, adapter, reply in cases:
+        adapter._post = lambda _url, _payload, timeout=60.0, reply=reply: reply  # type: ignore[method-assign]
+        response = adapter.chat([{"role": "user", "content": "contract"}], "contract-model", system="system")
+        if not adapter.is_configured() or response.provider != name or response.content != "contract-ok":
+            return False, passed + [f"{name}: failed"]
+        passed.append(name)
+    return True, passed
+
 def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mode: str, bridges: list[str] | None = None) -> Path:
     import json as _json
     from datetime import datetime, timezone
@@ -178,17 +207,22 @@ def _ensure_ollama_local_ready(base_path: str) -> tuple[bool, str]:
 
 
 def _open_context_session(base_path: str):
+    from bago_core.user_state_paths import state_read_roots
     from context_store import ContextStore
     from session_manager import SessionManager
 
     state_root = _resolve_state_root()
     project_root = Path(base_path).resolve()
-    sessions = ContextStore.list_sessions(base_dir=state_root)
+    sessions_by_id: dict[str, dict[str, Any]] = {}
+    for read_root in state_read_roots():
+        for item in ContextStore.list_sessions(base_dir=read_root):
+            sessions_by_id.setdefault(str(item.get("sid", "")), item)
+    sessions = list(sessions_by_id.values())
     if sessions:
         for item in reversed(sessions):
             sid = item["sid"]
             try:
-                mgr = SessionManager.load(sid, base_path=base_path, state_root=str(state_root))
+                mgr = SessionManager.load(sid, base_path=base_path)
             except Exception:
                 continue
             try:
@@ -356,8 +390,14 @@ def cmd_llm(args: argparse.Namespace) -> int:
             print("Experimentales ocultos: usa --include-experimental para verlos.")
         return 0
 
+    if action == "verify":
+        ok, checked = _verify_cloud_provider_contracts()
+        print(f"Cloud provider contracts: {len(checked)}/6 passed")
+        print(", ".join(checked))
+        return 0 if ok else 1
+
     if action != "start":
-        print("Uso: bago llm [list|start]")
+        print("Uso: bago llm [list|verify|start]")
         return 1
 
     provider = getattr(args, "llm_provider", "") or ""

@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from bago_core.user_state_paths import state_read_candidates
 from state_paths import resolve_state_root
 
 os.environ.setdefault("PYTHONUTF8", "1")
@@ -99,15 +100,24 @@ class ConfigManager:
 
     def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
+        self._allow_user_legacy_read = state_root is None or (
+            isinstance(state_root, str) and not state_root.strip()
+        )
         self.config_dir = resolve_state_root(state_root)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_path = self.config_dir / "config.json"
+        self.config_source_path = self.config_path
         self._data: dict[str, Any] = {}
         self._load()
 
     def _load(self) -> None:
-        legacy_path = self.base_path / ".bago" / "config.json"
-        source_path = self.config_path if self.config_path.exists() else legacy_path
+        candidates = [self.config_path]
+        if self._allow_user_legacy_read:
+            candidates.extend(state_read_candidates("config.json"))
+        candidates.append(self.base_path / ".bago" / "config.json")
+        candidates = list(dict.fromkeys(candidates))
+        source_path = next((path for path in candidates if path.exists()), self.config_path)
+        self.config_source_path = source_path
         if source_path.exists():
             try:
                 self._data = json.loads(source_path.read_text(encoding="utf-8"))
@@ -117,7 +127,10 @@ class ConfigManager:
             self._data = {}
         # Merge with defaults (preserving user values)
         self._merge_defaults(DEFAULT_CONFIG)
-        self._save()
+        # A legacy source is discovery-only. A later explicit mutation writes
+        # the merged configuration to the canonical path.
+        if source_path == self.config_path:
+            self._save()
 
     def _merge_defaults(self, defaults: dict, target: dict | None = None) -> None:
         if target is None:

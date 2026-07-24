@@ -76,11 +76,20 @@ class RLBridge:
     def status(self) -> dict[str, Any]:
         state = self._read_state()
         external = detect_bago_true(self.true_root)
+        try:
+            from .rl_policies import bc_policy_path
+            local_policy_path = bc_policy_path(self.base_path)
+        except Exception:
+            local_policy_path = None
         return {
             **state,
             "state_file": str(self.state_file),
             "transition_log": str(self.transition_log),
             "external_rl": external["rl"],
+            "local_policy": {
+                "available": bool(local_policy_path and local_policy_path.is_file()),
+                "path": str(local_policy_path) if local_policy_path else "",
+            },
             "rules": {
                 "executes_actions": False,
                 "default_mode": DEFAULT_MODE,
@@ -101,6 +110,7 @@ class RLBridge:
 
 def render_status(status: dict[str, Any]) -> str:
     external = status.get("external_rl", {})
+    local_policy = status.get("local_policy", {})
     lines = [
         "BAGO RL STATUS",
         "-" * 40,
@@ -110,6 +120,8 @@ def render_status(status: dict[str, Any]) -> str:
         f"external rl: {'available' if external.get('available') else 'unavailable'}",
         f"shadow src : {'yes' if external.get('shadow_adapter') else 'no'}",
         f"policy src : {'yes' if external.get('policies_py') else 'no'}",
+        f"local policy: {'yes' if local_policy.get('available') else 'no'}",
+        f"policy file : {local_policy.get('path', '')}",
         f"state file : {status['state_file']}",
         f"log file   : {status['transition_log']}",
         "rule       : RL observes/recommends only; v4 decides",

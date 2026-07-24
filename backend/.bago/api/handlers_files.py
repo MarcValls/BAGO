@@ -12,7 +12,7 @@ import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -236,6 +236,9 @@ def handle_read(handler, file_path: str):
         send_json(handler, 503, {"ok": False, "state": "blocked", "error_code": "SESSION_MANAGER_MISSING", "message": "SessionManager no disponible"})
         return
     raw_path = unquote(file_path)
+    optional = parse_qs(urlparse(str(getattr(handler, "path", ""))).query).get("optional", [""])[0].strip().lower() in {
+        "1", "true", "yes",
+    }
     base, relative_path = _resolve_namespaced_target(mgr, raw_path)
     target = (base / relative_path).resolve()
     try:
@@ -244,12 +247,25 @@ def handle_read(handler, file_path: str):
         send_json(handler, 403, {"ok": False, "state": "blocked", "error_code": "PATH_OUT_OF_SCOPE", "message": "La ruta está fuera del alcance autorizado.", "path": raw_path, "workspace_mirror_root": str(base)})
         return
     if not target.is_file():
+        if optional:
+            send_json(handler, 200, {
+                "ok": True,
+                "exists": False,
+                "path": raw_path,
+                "workspace_id": str(getattr(mgr, "workspace_id", "")),
+                "workspace_mirror_root": str(base),
+                "content": "",
+                "encoding": "utf-8",
+                "size": 0,
+            })
+            return
         send_json(handler, 404, {"ok": False, "state": "blocked", "error_code": "FILE_NOT_FOUND", "message": "Archivo no encontrado", "path": raw_path, "workspace_mirror_root": str(base)})
         return
     try:
         content = target.read_text(encoding="utf-8", errors="replace")
         send_json(handler, 200, {
             "ok": True,
+            "exists": True,
             "path": raw_path,
             "absolute_path": str(target),
             "workspace_id": str(getattr(mgr, "workspace_id", "")),

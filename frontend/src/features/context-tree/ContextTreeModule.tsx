@@ -14,6 +14,7 @@ import type {
 import type { UseContextTreeState } from './useContextTree';
 import { ContextInspector } from './ContextInspector';
 import { ContextPatchPreview } from './ContextPatchPreview';
+import { ContextCollectionDialog } from './ContextCollectionDialog';
 import {
   ContextStageCompile,
   ContextStageDestination,
@@ -24,7 +25,13 @@ import {
 import { FlowShell } from '@/lib/flow-shell/FlowShell';
 import type { FlowStageItem } from '@/lib/flow-shell/FlowNav';
 import { Icon } from '@/shared/Icon';
-import { safeJson } from '@/api/client';
+import { BagoClient, safeJson } from '@/api/client';
+import {
+  buildCollectionPrompt,
+  collectionOperationToPatch,
+  parseStructuredCollection,
+  type CollectionHistoryItem
+} from './contextCollection';
 
 interface Props {
   ctx: UseContextTreeState;
@@ -77,6 +84,10 @@ export function ContextTreeModule(props: Props) {
   const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState<boolean>(false);
   const [exportingPack, setExportingPack] = useState(false);
   const [compiledModal, setCompiledModal] = useState<string | null>(null);
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const [collectionBusy, setCollectionBusy] = useState(false);
+  const [collectionProposal, setCollectionProposal] = useState<ContextPatchRequest | null>(null);
+  const [collectionNotice, setCollectionNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
 
   // CANON[CTX-016]: el chat puede pedir abrir un patch en modo edición.
   // Cuando lo recibimos, abrimos el preview y limpiamos el flag.
@@ -270,6 +281,140 @@ export function ContextTreeModule(props: Props) {
     await props.onCreatePlan('Tarea desde Árbol de Contexto', summary);
   };
 
+  const openCollection = () => {
+    const pending = ctx.proposals.find((proposal) => proposal.proposalType === 'context_collection' && proposal.status === 'pending') || null;
+    setCollectionProposal(pending);
+    setCollectionNotice(null);
+    setCollectionOpen(true);
+  };
+
+  const collectFromChat = async (question: string) => {
+    if (!ctx.tree) return;
+    setCollectionBusy(true);
+    setCollectionNotice(null);
+    try {
+      const history: CollectionHistoryItem[] = ctx.bank.history.slice(-20).map((item) => {
+        const raw = item.raw || {};
+        return {
+          role: String(raw.role || raw.type || 'chat'),
+          text: String(raw.content || raw.text || raw.message || item.title || '').trim().slice(0, 4000),
+          timestamp: String(raw.timestamp || raw.created_at || '').trim() || undefined
+        };
+      }).filter((item) => item.text);
+      const treePaths = Object.values(ctx.tree.nodes)
+        .filter((node) => node.parentId && node.status !== 'archived')
+        .map((node) => node.title)
+        .slice(0, 100);
+      const historyText = history.length ? `${history.length} mensajes completos` : 'No hay mensajes disponibles en el historial.';
+      let modelText = '';
+      let structured = null;
+      let modelError = '';
+      try {
+        const collector = new BagoClient(props.apiBase, props.apiToken);
+        const response = await collector.sendChat(buildCollectionPrompt(question, history, treePaths));
+        modelText = String(response.response || response.message || response.response_content || response.content || '').trim().slice(0, 16000);
+        structured = parseStructuredCollection(modelText);
+        if (!structured) modelError = 'El modelo respondió, pero no devolvió una propuesta JSON válida.';
+      } catch (error) {
+        modelError = error instanceof Error ? error.message : 'No se pudo consultar el modelo.';
+      }
+      if (!structured) {
+        setCollectionNotice({ tone: 'warning', message: `${modelError || 'El modelo no respondió'} Se muestra un fallback local para revisión; no se añadirá nada sin tu permiso.` });
+      }
+      const fallbackUi = history.some((item) => /ui|pantalla|interfaz|frontend|vista|componente/i.test(item.text)) || /ui|pantalla|interfaz|frontend|vista|componente/i.test(question);
+      const fallbackArea = fallbackUi ? 'UI' : 'Tarea activa';
+      const fallbackOperations = [{
+        op: 'create' as const,
+        parent_path: fallbackUi ? ['UI', 'Pantallas'] : ['Tarea activa'],
+        type: 'pending' as const,
+        title: fallbackUi ? 'Pantalla o tarea detectada en el chat' : 'Contexto recopilado del chat',
+        summary: history.map((item) => item.text).join(' ').slice(0, 320),
+        priority: 'medium' as const
+      }];
+      const proposalData = structured || {
+        summary: historyText,
+        clarification: question.trim() || 'Confirma si la rama y la tarea detectadas representan correctamente el trabajo actual.',
+        operations: fallbackOperations
+      };
+      const operations: ContextPatchOp[] = [];
+      const nodeByPath = new Map<string, string>();
+      for (const node of Object.values(ctx.tree.nodes)) {
+        const segments: string[] = [];
+        let current: typeof node | undefined = node;
+        while (current && current.parentId) {
+          segments.unshift(current.title);
+          current = ctx.tree.nodes[current.parentId];
+        }
+        if (segments.length) nodeByPath.set(segments.join('/').toLowerCase(), node.id);
+      }
+      for (const [index, operation] of proposalData.operations.entries()) {
+        const path = (operation.parent_path || []).map((part) => String(part).trim()).filter(Boolean).slice(0, 5);
+        let parentId = ctx.tree.rootId;
+        const builtPath: string[] = [];
+        for (const part of path) {
+          builtPath.push(part);
+          const key = builtPath.join('/').toLowerCase();
+          const existingId = nodeByPath.get(key);
+          if (existingId) {
+            parentId = existingId;
+            continue;
+          }
+          const nodeId = `collect_branch_${Date.now()}_${index}_${builtPath.length}`;
+          operations.push({
+            op: 'create', nodeId, parentId, type: 'note', title: part,
+            summary: `Rama propuesta por recopilación: ${builtPath.join(' / ')}`, status: 'proposed', priority: 'medium'
+          });
+          nodeByPath.set(key, nodeId);
+          parentId = nodeId;
+        }
+        operations.push(collectionOperationToPatch(operation, parentId, `collect_task_${Date.now()}_${index}`));
+      }
+      if (!operations.length) throw new Error('No se pudo construir ninguna operación de contexto.');
+      const proposal: ContextPatchRequest = {
+        id: `collect_${Date.now()}`,
+        treeId: ctx.tree.id,
+        validationMode: 'modal',
+        proposalType: 'context_collection',
+        title: `Recopilar contexto: ${structured ? 'propuesta del modelo' : fallbackArea}`,
+        reason: proposalData.summary,
+        riskLevel: 'low',
+        patch: { operations },
+        createdAt: new Date().toISOString(),
+        createdBy: 'chat',
+        status: 'pending',
+        metadata: {
+          clarification: proposalData.clarification || question.trim() || 'Confirma la propuesta antes de añadirla.',
+          source: structured ? 'model_chat' : 'chat_history_fallback',
+          model_error: modelError || '',
+          history_items: String(history.length)
+        }
+      };
+      await ctx.createProposal(proposal);
+      setCollectionProposal(proposal);
+    } finally {
+      setCollectionBusy(false);
+    }
+  };
+
+  const acceptCollection = async () => {
+    if (!collectionProposal) return;
+    setCollectionBusy(true);
+    const result = await ctx.acceptPatch(collectionProposal.id);
+    setCollectionBusy(false);
+    if (!result.ok) {
+      window.alert(result.error || 'No se pudo aplicar la propuesta.');
+      return;
+    }
+    setCollectionProposal(null);
+    setCollectionOpen(false);
+  };
+
+  const rejectCollection = async () => {
+    if (collectionProposal) await ctx.rejectPatch(collectionProposal.id);
+    setCollectionProposal(null);
+    setCollectionOpen(false);
+  };
+
   const handleCopyId = (id: string) => {
     navigator.clipboard?.writeText(id);
   };
@@ -421,9 +566,18 @@ export function ContextTreeModule(props: Props) {
 
   return (
     <div className="context-tree-module">
+      <div className="context-collection-toolbar">
+        <div>
+          <strong>Contexto vivo del proyecto</strong>
+          <span>Las tareas permanecen abiertas como ramas hasta que se cierran con evidencia.</span>
+        </div>
+        <button type="button" className="primary-button compact" onClick={openCollection}>
+          <Icon name="sparkle" size={12} /> Recopilar contexto
+        </button>
+      </div>
       <FlowShell
-        title="Contexto"
-        subtitle={`Siguiente: ${FLOW_STAGES.find((item) => item.id === nextStage)?.label || 'Fuentes'}`}
+        title="Flujo"
+        subtitle={`Paso recomendado: ${FLOW_STAGES.find((item) => item.id === nextStage)?.label || 'Fuentes'}`}
         stages={flowStages}
         activeStage={activeStage}
         onStageChange={(stageId) => setActiveStage(stageId as ContextFlowStage)}
@@ -613,6 +767,18 @@ export function ContextTreeModule(props: Props) {
           </div>
         </div>
       )}
+
+      <ContextCollectionDialog
+        open={collectionOpen}
+        busy={collectionBusy}
+        proposal={collectionProposal}
+        sourceSummary={`${ctx.bank.history.length} mensajes del historial disponibles; se envía el contenido completo acotado para la propuesta`}
+        notice={collectionNotice}
+        onClose={() => { if (!collectionBusy) setCollectionOpen(false); }}
+        onCollect={collectFromChat}
+        onAccept={acceptCollection}
+        onReject={rejectCollection}
+      />
     </div>
   );
 }
