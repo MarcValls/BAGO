@@ -32,13 +32,37 @@ def test_codex_cli_bridge_uses_read_only_sandbox(tmp_path: Path) -> None:
 def test_copilot_cli_bridge_does_not_auto_approve_tools(tmp_path: Path) -> None:
     adapter = CopilotAdapter({"cli_path": "copilot", "cli_authenticated": True, "base_path": str(tmp_path)})
     adapter.token = None
-    with patch.object(copilot_module, "run_cli", return_value="ok") as run:
+    with patch.object(adapter, "_configured_mcp_servers", return_value=["memory"]), patch.object(copilot_module, "run_cli", return_value="ok") as run:
         response = adapter._chat_cli([{"role": "user", "content": "hola"}], "gpt-5.4-mini", "")
     command = run.call_args.args[0]
     assert response.content == "ok"
     assert "--no-ask-user" in command
     assert "--allow-all" not in command
     assert "--allow-all-tools" not in command
+    assert command[command.index("--mode") + 1] == "plan"
+    assert "--deny-tool=shell(*)" in command
+    assert "--deny-tool=write" in command
+    assert command[command.index("--disable-mcp-server") + 1] == "memory"
+
+
+def test_copilot_cli_bridge_uses_temporary_attachment_for_long_prompts(tmp_path: Path) -> None:
+    adapter = CopilotAdapter({"cli_path": "copilot", "cli_authenticated": True, "base_path": str(tmp_path)})
+    adapter.token = None
+    attached: list[Path] = []
+
+    def fake_run(command, cwd, timeout):
+        path = Path(command[command.index("--attachment") + 1])
+        assert path.exists()
+        assert "BAGO_PROVIDER_BRIDGE_JSON=" in path.read_text(encoding="utf-8")
+        attached.append(path)
+        return "ok"
+
+    with patch.object(copilot_module, "run_cli", side_effect=fake_run):
+        response = adapter._chat_cli([{"role": "user", "content": "x" * 25000}], "gpt-5.4-mini", "")
+
+    assert response.content == "ok"
+    assert response.metadata["prompt_transport"] == "attachment"
+    assert attached and not attached[0].exists()
 
 
 def test_cli_failure_is_structured_and_sanitized(tmp_path: Path) -> None:

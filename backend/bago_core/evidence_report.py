@@ -32,6 +32,14 @@ from bago_core.evidence_model import ObjectiveProfile
 from bago_core.versioning import read_release_version
 
 
+def _relative_output_path(output_dir: Path) -> str:
+    root = Path(__file__).resolve().parents[1]
+    try:
+        return output_dir.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return output_dir.name
+
+
 def _build_report_header(
     *,
     profile: ObjectiveProfile,
@@ -42,7 +50,7 @@ def _build_report_header(
     output_dir: Path,
 ) -> list[str]:
     """Markdown header for the evidence report (R4: small helper)."""
-    relative_output = f"docs/evidence/{output_dir.name}"
+    relative_output = _relative_output_path(output_dir)
     return [
         f"# Bundle de evidencia -- {profile.title}",
         "",
@@ -135,18 +143,18 @@ def _build_report(
 def _validation_commands(
     mode: str, objective: str, output_dir: Path, provider: str, model: str
 ) -> list[str]:
-    relative_output = f"docs/evidence/{output_dir.name}"
+    relative_output = _relative_output_path(output_dir)
     commands = [
         "python test_e2e.py",
-        "python bago_core\\cli.py evidence --test",
+        "python -m bago_core.evidence_cli --test",
     ]
     if mode == "simulated":
         commands.append(
-            f'python bago_core\\cli.py evidence --mode simulated --objective {objective} --output "{relative_output}" --overwrite'
+            f'python -m bago_core.evidence_cli --mode simulated --objective {objective} --output "{relative_output}" --overwrite'
         )
     else:
         commands.append(
-            f'python bago_core\\cli.py evidence --mode real --provider {provider} --model "{model}" --output "{relative_output}" --overwrite'
+            f'python -m bago_core.evidence_cli --mode real --objective {objective} --provider {provider} --model "{model}" --base-path . --output "{relative_output}" --overwrite'
         )
     return commands
 

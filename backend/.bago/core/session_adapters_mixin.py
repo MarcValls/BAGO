@@ -47,17 +47,21 @@ class SessionAdaptersMixin:
         # Las credenciales registradas desde la API viven cifradas en el
         # SecretStore. El import es opcional para mantener el core utilizable
         # sin cargar la pieza HTTP.
-        if not creds.get("api_key") and not creds.get("token"):
-            try:
-                from secret_store import get_secret_store
-                stored_secret = get_secret_store().get_secret(
-                    f"providers/{target_provider}/api_key"
-                )
-                if stored_secret:
-                    creds["api_key"] = stored_secret
-                    creds["token"] = stored_secret
-            except Exception:
-                pass
+        try:
+            from secret_store import get_secret_store
+            stored_secret = get_secret_store().get_secret(
+                f"providers/{target_provider}/api_key"
+            )
+            if stored_secret:
+                previous_secret = creds.get("api_key") or creds.get("token") or ""
+                # API/UI registration writes here. It is the canonical and
+                # newest source, so it must override legacy credentials.json.
+                creds["api_key"] = stored_secret
+                creds["token"] = stored_secret
+                if previous_secret and previous_secret != stored_secret:
+                    creds["fallback_api_key"] = previous_secret
+        except Exception:
+            pass
 
         merged = dict(cfg)
         if merged.get("default_model") and not merged.get("model"):
@@ -183,6 +187,28 @@ class SessionAdaptersMixin:
                 configured = inst.is_configured()
             except Exception:
                 configured = False
+
+            # Las sesiones autenticadas de Codex/Copilot pertenecen al CLI y
+            # no deben convertirse en tokens BAGO. Cuando el adapter confirma
+            # esa sesión delegada, BAGO registra el provider automáticamente
+            # para que quede disponible en la UI y en el selector de modelo.
+            # La operación es idempotente y solo escribe cambios reales.
+            if configured and bool(getattr(inst, "cli_authenticated", False)) and name in {"codex", "copilot"}:
+                provider_cfg = self.config.provider_config(name)
+                registration = dict(provider_cfg)
+                changed = False
+                if registration.get("enabled") is not True:
+                    registration["enabled"] = True
+                    changed = True
+                if registration.get("auth_source") != "cli":
+                    registration["auth_source"] = "cli"
+                    changed = True
+                if registration.get("transport") != "cli":
+                    registration["transport"] = "cli"
+                    changed = True
+                if changed:
+                    self.config.set(f"providers.{name}", registration)
+
             models: list[str] = []
             if configured or name == self.provider:
                 try:

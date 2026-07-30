@@ -55,6 +55,12 @@ interface Props {
   onRevertContextPatch?: (patchId: string) => void;
   onReviewContextPatch?: (patchId: string) => void;
   onOpenContextInTree?: (patchId: string) => void;
+  startScreen?: boolean;
+  recentProjects?: Array<{ id: string; title: string; summary: string; updatedAt: string; status: string }>;
+  onStartNew?: () => void;
+  onContinue?: () => void;
+  onChooseRecent?: (id: string) => void;
+  onRefresh?: () => void;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -66,7 +72,7 @@ function statusTone(status: string): string {
   if (['done', 'confirmed', 'valid', 'certified', 'ok'].some((e) => value.includes(e))) return 'confirmed';
   if (['running', 'pending', 'loading', 'partial', 'stale'].some((e) => value.includes(e))) return 'running';
   if (['failed', 'error', 'invalid', 'rejected'].some((e) => value.includes(e))) return 'error';
-  if (['blocked', 'missing', 'legacy'].some((e) => value.includes(e))) return 'blocked';
+  if (['blocked', 'missing', 'legacy', 'needs_confirmation'].some((e) => value.includes(e))) return 'blocked';
   return 'unknown';
 }
 
@@ -109,6 +115,7 @@ function inspectMenuAttrs(selection: SelectionRecord, onInspect: Props['onInspec
 export function ChatPanel(props: Props) {
   const [modelChanging, setModelChanging] = useState(false);
   const [modelError, setModelError] = useState('');
+  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
   const historyMessages = Array.isArray(props.history?.messages) ? props.history.messages : [];
@@ -116,6 +123,7 @@ export function ChatPanel(props: Props) {
     () => buildChatModelOptions(props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel),
     [props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel]
   );
+  const showWelcome = welcomeOpen && props.turns.length === 0;
   const chatSelection: SelectionRecord = {
     id: 'screen-chat',
     kind: 'screen-chat',
@@ -150,7 +158,7 @@ export function ChatPanel(props: Props) {
   };
 
   return (
-    <div className="chat-panel is-full" {...inspectMenuAttrs(chatSelection, props.onInspect)}>
+    <div className={`chat-panel is-full ${showWelcome ? 'is-start-screen' : ''}`} {...inspectMenuAttrs(chatSelection, props.onInspect)}>
       <header className="chat-panel-header">
         <div className="chat-panel-header-title">
           <Icon name="chat" size={14} />
@@ -195,8 +203,36 @@ export function ChatPanel(props: Props) {
           {props.turns.length === 0 ? (
             <div className="chat-empty">
               <span className="chat-empty-icon"><Icon name="chat" size={26} /></span>
-              <h3>Empieza por la tarea</h3>
-              <p>Pregunta, describe un objetivo o solicita una acción. El chat es una pantalla más del workspace.</p>
+              {welcomeOpen ? (
+                <>
+                  <span className="start-chat-eyebrow">INICIO · CHAT</span>
+                  <h3>Hola, bienvenido. Soy BAGO.</h3>
+                  <p>¿Vas a trabajar en algo nuevo o quieres continuar?</p>
+                  <div className="start-chat-actions">
+                    <button type="button" className="primary-button" onClick={() => { setWelcomeOpen(false); props.onStartNew?.(); }}><span className="start-chat-key">1</span> Nuevo</button>
+                    <button type="button" className="secondary-button" onClick={props.onContinue}><span className="start-chat-key">2</span> Continuar</button>
+                  </div>
+                  <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} />
+                  {props.recentProjects?.length ? (
+                    <section className="start-chat-recent" aria-label="Cinco proyectos recientes">
+                      <div className="start-chat-recent-head"><strong>3 · Proyectos recientes</strong><span>Elige uno para continuar</span></div>
+                      <div className="start-chat-recent-list">
+                        {props.recentProjects.map((project, index) => (
+                          <button key={project.id} type="button" className="start-chat-recent-item" onClick={() => props.onChooseRecent?.(project.id)}>
+                            <span className="start-chat-recent-number">{index + 1}</span>
+                            <span><strong>{project.title}</strong><small>{project.summary || project.status}</small></span>
+                            <Icon name="chevron" size={13} />
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ) : (
+                    <p className="start-chat-no-recent">Todavía no hay proyectos recientes. Al crear uno aparecerá aquí.</p>
+                  )}
+                </>
+              ) : (
+                <><h3>Empieza por la tarea</h3><p>Pregunta, describe un objetivo o solicita una acción. El chat es una pantalla más del workspace.</p></>
+              )}
             </div>
           ) : props.turns.map((turn) => {
             const turnSelection: SelectionRecord = {
@@ -208,11 +244,16 @@ export function ChatPanel(props: Props) {
               detail: [
                 `status: ${turn.status || 'done'}`,
                 `timestamp: ${turn.timestamp}`,
-                `receipt: ${turn.receipt ? 'available' : 'none'}`
+                `receipt: ${turn.receipt ? 'available' : 'none'}`,
+                `provider: ${turn.provider || 'unknown'}`,
+                `model: ${turn.model || 'unknown'}`
               ],
               raw: turn.raw || turn
             };
             const turnPatches = (props.contextPatches || []).filter((entry) => entry.turnId === turn.id);
+            const clarificationOptions = Array.isArray(turn.clarification?.options)
+              ? turn.clarification.options as Array<Record<string, unknown>>
+              : [];
             return (
             <article
               key={turn.id}
@@ -227,9 +268,24 @@ export function ChatPanel(props: Props) {
                 <div className="message-meta">
                   <strong>{turn.role === 'user' ? 'Tú' : turn.role === 'command' ? 'Comando' : 'BAGO'}</strong>
                   <span>{new Date(turn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  {turn.role === 'assistant' && (turn.provider || turn.model) && <span>{[turn.provider, turn.model].filter(Boolean).join(' · ')}</span>}
                   {turn.status && <StatusBadge status={turn.status} />}
                 </div>
                 <div className="message-text">{turn.text || (turn.status === 'running' ? '...' : '')}</div>
+                {clarificationOptions.length > 0 && (
+                  <div className="message-patches" onClick={(event) => event.stopPropagation()}>
+                    {clarificationOptions.map((option, index) => (
+                      <button
+                        key={String(option.id || index)}
+                        type="button"
+                        className="secondary-button compact"
+                        onClick={() => void props.onSendChat(`${String(option.prefix || option.label || '').trim()}: ${String(turn.clarification?.original || '').trim()}`)}
+                      >
+                        {String(option.label || option.id || 'Continuar')}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {turnPatches.length > 0 && (
                   <div className="message-patches" onClick={(event) => event.stopPropagation()}>
                     {turnPatches.map((entry) => (
@@ -273,7 +329,7 @@ export function ChatPanel(props: Props) {
                   disabled={modelChanging || modelOptions.length === 0}
                   onChange={(event) => void onModelChange(event)}
                 >
-                  <option value="">Automático · router</option>
+                  <option value="">Automático · router · {[props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'sin modelo'}</option>
                   {modelOptions.map((option) => (
                     <option key={option.key} value={option.key}>{option.label}</option>
                   ))}
@@ -315,4 +371,29 @@ export function ChatPanel(props: Props) {
       </div>
     </div>
   );
+}
+
+function RuntimeStatus({ snapshot, onRefresh }: { snapshot: UiBootstrapSnapshot | null; onRefresh?: () => void }) {
+  const backend = snapshot?.system.backendAvailable ? snapshot.system.state : 'error';
+  const provider = snapshot?.model.provider && snapshot.model.effectiveModel
+    ? `${snapshot.model.provider} · ${snapshot.model.effectiveModel}` : 'No configurado';
+  const workspace = snapshot?.workspace.linkedToSession
+    ? `Vinculado · ${snapshot.workspace.manifestState}` : 'No vinculado';
+  const context = snapshot?.context.state || 'unknown';
+  const session = snapshot?.session.state || 'missing';
+  return <section className="start-chat-runtime-status" aria-label="Estado real de BAGO">
+    <div className="start-chat-runtime-head"><strong>Estado real de BAGO</strong><span>Leído del backend activo</span>{onRefresh && <button type="button" className="text-button" onClick={onRefresh}>Actualizar</button>}</div>
+    <div className="start-chat-runtime-grid">
+      <RuntimeStatusItem label="Backend" value={backend} ok={backend === 'confirmed' || backend === 'degraded'} />
+      <RuntimeStatusItem label="Sesión" value={session} ok={session === 'valid' || session === 'recoverable'} />
+      <RuntimeStatusItem label="Proveedor / modelo" value={provider} ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'} />
+      <RuntimeStatusItem label="Workspace" value={workspace} ok={Boolean(snapshot?.workspace.linkedToSession && snapshot.workspace.manifestState === 'valid')} />
+      <RuntimeStatusItem label="Contexto" value={context} ok={context === 'confirmed' || context === 'partial'} />
+      <RuntimeStatusItem label="Versión runtime" value={snapshot?.system.version || snapshot?.framework.version || 'No observada'} ok={Boolean(snapshot?.system.version || snapshot?.framework.version)} />
+    </div>
+  </section>;
+}
+
+function RuntimeStatusItem({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+  return <div className={`start-chat-runtime-item ${ok ? 'is-ok' : 'is-pending'}`}><span className="start-chat-runtime-dot" /><div><small>{label}</small><strong title={value}>{value}</strong></div></div>;
 }

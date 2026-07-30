@@ -3,7 +3,7 @@ import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 
 const copy: Record<ActiveSection, { title: string; eyebrow: string; description: string }> = {
-  home: { title: 'Centro operativo', eyebrow: 'Inicio', description: 'Estado, siguiente acción y accesos de trabajo.' },
+  home: { title: 'Inicio', eyebrow: 'Chat', description: 'Elige si vas a empezar algo nuevo o continuar un proyecto.' },
   chat: { title: 'Conversación', eyebrow: 'Chat', description: 'Panel lateral para preguntar, decidir y ejecutar.' },
   workspace: { title: 'Workspace', eyebrow: 'Trabajo estructurado', description: 'Archivos, fuentes y alcance autorizado.' },
   graph: { title: 'Grafo', eyebrow: 'Relaciones', description: 'Mapa operativo de sesión, contexto, workspace y evidencia.' },
@@ -63,10 +63,11 @@ export function WorkspaceShell(props: Props) {
   ];
   const confirmed = stages.filter((stage) => tone(stage.state) === 'confirmed').length;
   const readiness = Math.round((confirmed / stages.length) * 100);
+  const isContext = props.activeSection === 'context';
 
   return (
     <section className={`workspace-shell mode-${props.mode} section-${props.activeSection}`} data-section={props.activeSection}>
-      {props.mode !== 'focus' && (
+      {props.mode !== 'focus' && (props.showReadiness !== false || props.showGlobalChips !== false) && (
         <header className="workspace-shell-header is-compact" aria-label={`Estado operativo de ${meta.title}`}>
           {props.showReadiness !== false && (
             <div className="workspace-readiness" aria-label={`Preparación operativa ${readiness}%`}>
@@ -84,7 +85,7 @@ export function WorkspaceShell(props: Props) {
               </div>
             </div>
           )}
-          <div className="workspace-shell-meta" aria-label="Resumen del estado">
+          {!isContext && <div className="workspace-shell-meta" aria-label="Resumen del estado">
             {props.showGlobalChips !== false && (
               <>
                 {state && (
@@ -100,10 +101,17 @@ export function WorkspaceShell(props: Props) {
                 </span>
               </>
             )}
-          </div>
+          </div>}
         </header>
       )}
       <div className="surface-body">{props.children}</div>
+      {isContext && props.showGlobalChips !== false && (
+        <footer className="workspace-shell-footer" aria-label="Estado del contexto de trabajo">
+          {state && <span className={`workspace-shell-chip state-${props.snapshot?.system.state || 'unknown'}`}><Icon name="system" size={12} /> {state}</span>}
+          <span className="workspace-shell-chip" title={workspace}><Icon name="workspace" size={12} /> {workspace}</span>
+          <span className="workspace-shell-chip" title={model}><Icon name="model" size={12} /> {model}</span>
+        </footer>
+      )}
     </section>
   );
 }

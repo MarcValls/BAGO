@@ -11,6 +11,8 @@ from bago_core.versioning import read_release_version
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_RELEASE = read_release_version(ROOT)
 CURRENT_RELEASE_EVIDENCE = ROOT / "docs" / "evidence" / f"release_{CURRENT_RELEASE.replace('.', '_')}"
+CURRENT_RELEASE_ARCHIVE = ROOT / "docs" / "archive" / "evidence" / f"release_{CURRENT_RELEASE.replace('.', '_')}"
+CURRENT_PROVIDER_VALIDATION = ROOT / "docs" / "evidence" / f"provider_validation_{CURRENT_RELEASE.replace('.', '_')}"
 EVIDENCE_DIRS = [
     ROOT / "docs" / "evidence" / "simulated_reference_bundle",
     ROOT / "docs" / "evidence" / "example_bundle",
@@ -20,6 +22,13 @@ EVIDENCE_DIRS = [
 # before the evidence bundle is produced.
 if CURRENT_RELEASE_EVIDENCE.is_dir():
     EVIDENCE_DIRS.append(CURRENT_RELEASE_EVIDENCE)
+if CURRENT_RELEASE_ARCHIVE.is_dir():
+    EVIDENCE_DIRS.append(CURRENT_RELEASE_ARCHIVE)
+if CURRENT_PROVIDER_VALIDATION.is_dir():
+    EVIDENCE_DIRS.extend(
+        path for path in sorted(CURRENT_PROVIDER_VALIDATION.iterdir())
+        if path.is_dir() and (path / "manifest.json").is_file()
+    )
 EVIDENCE_DIRS = [path for path in EVIDENCE_DIRS if path.is_dir()]
 
 

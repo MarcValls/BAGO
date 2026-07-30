@@ -10,6 +10,7 @@ import type {
   BackendStatus,
   UiBootData
 } from '@/contracts/backend';
+import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
 
 const FALLBACK_BASE = '';
 const STORAGE_BASE = 'bago.ui.apiBase';
@@ -45,11 +46,17 @@ type JsonValue = Record<string, unknown> | Array<unknown> | string | number | bo
 
 class BagoHttpError extends Error {
   status: number;
+  payload: Record<string, unknown>;
+  provider: string;
+  model: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, payload: Record<string, unknown> = {}) {
     super(message);
     this.name = 'BagoHttpError';
     this.status = status;
+    this.payload = payload;
+    this.provider = String(payload.provider || '');
+    this.model = String(payload.model || '');
   }
 }
 
@@ -112,7 +119,22 @@ export class BagoClient {
       clearTimeout(timer);
     }
     if (!response.ok) {
-      throw new BagoHttpError(response.status, `HTTP ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      let errorPayload: Record<string, unknown> = {};
+      try {
+        const parsed = errorText ? JSON.parse(errorText) : {};
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          errorPayload = parsed as Record<string, unknown>;
+        }
+      } catch {
+        // Preserve the stable HTTP fallback when an intermediary returns HTML/text.
+      }
+      const backendMessage = String(errorPayload.error || errorPayload.message || '').trim();
+      throw new BagoHttpError(
+        response.status,
+        backendMessage || `HTTP ${response.status} ${response.statusText}`,
+        errorPayload
+      );
     }
     if (response.status === 204) {
       return undefined as T;
@@ -176,8 +198,59 @@ export class BagoClient {
     return this.request<BackendProviders>('/providers', { method: 'GET' });
   }
 
+  checkReleaseUpdate(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/release/check', { method: 'GET' }, 30_000);
+  }
+
+  getReleaseUpdateStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/release/status', { method: 'GET' });
+  }
+
+  startReleaseUpdate(tag?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/release/update', {
+      method: 'POST',
+      body: JSON.stringify(tag ? { tag } : {})
+    }, 30_000);
+  }
+
   verifyProviderContracts(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/providers/contracts', { method: 'GET' });
+  }
+
+  getAutoConfigStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/configure/auto/status', { method: 'GET' });
+  }
+
+  startAutoConfig(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/configure/auto/start', {
+      method: 'POST',
+      body: JSON.stringify({})
+    }, 60_000);
+  }
+
+  applyAutoConfig(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/configure/auto/apply', {
+      method: 'POST',
+      body: JSON.stringify({})
+    }, 60_000);
+  }
+
+  cancelAutoConfig(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/configure/auto/cancel', {
+      method: 'POST',
+      body: JSON.stringify({})
+    }, 60_000);
+  }
+
+  getModelBlacklist(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/providers/blacklist', { method: 'GET' });
+  }
+
+  modifyModelBlacklist(payload: { action: 'add' | 'remove'; model: string; reason?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/providers/blacklist', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }, 60_000);
   }
 
   getModels(provider: string): Promise<Record<string, unknown>> {
@@ -295,6 +368,21 @@ export class BagoClient {
       method: 'POST',
       body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
     });
+  }
+
+  testProvider(provider: string, config: { base_url?: string; api_key?: string; model?: string }): Promise<{ ok: boolean; provider?: string; model?: string; detail?: string }> {
+    return this.request('/providers/test', {
+      method: 'POST',
+      body: JSON.stringify({ provider, ...config, channel: 'ui-react', surface: 'first-run' })
+    });
+  }
+
+  listCapabilities(): Promise<CapabilityListResponse> {
+    return this.request<CapabilityListResponse>('/api/v1/capabilities', { method: 'GET' });
+  }
+
+  getCapability(capabilityId: string): Promise<CapabilitySnapshot> {
+    return this.request<CapabilitySnapshot>(`/api/v1/capabilities/${encodeURIComponent(capabilityId)}`, { method: 'GET' });
   }
   trainRlBc(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/rl/train-bc', {
@@ -547,6 +635,18 @@ export class BagoClient {
     }, 150_000);
   }
 
+  createDemoProject(root: string): Promise<BackendCommandResult> {
+    return this.request<BackendCommandResult>('/project/demo', {
+      method: 'POST',
+      body: this.projectBody(root)
+    });
+  }
+
+  async sendInternalChat(message: string): Promise<Record<string, unknown>> {
+    const body = JSON.stringify({ message, internal: true, channel: 'ui-react', surface: 'context-internal' });
+    return this.request<Record<string, unknown>>('/chat', { method: 'POST', body }, 150_000);
+  }
+
   async sendChatModern(message: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/api/v1/commands', {
       method: 'POST',
@@ -570,6 +670,7 @@ export class BagoClient {
     const decoder = new TextDecoder();
     let buffer = '';
     let finalPayload: Record<string, unknown> = {};
+    let fullText = '';
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -588,14 +689,15 @@ export class BagoClient {
           const payload = JSON.parse(payloadText) as Record<string, unknown>;
           if (typeof payload.chunk === 'string') {
             onChunk(payload.chunk);
+            fullText += payload.chunk;
           }
-          finalPayload = payload;
+          finalPayload = { ...finalPayload, ...payload };
         } catch {
           // ignore malformed packet
         }
       }
     }
-    return finalPayload;
+    return { ...finalPayload, response: fullText || finalPayload.response || finalPayload.message || '' };
   }
 
   async streamEvents(

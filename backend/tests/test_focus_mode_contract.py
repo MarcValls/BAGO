@@ -21,7 +21,9 @@ class FocusModeContractTests(unittest.TestCase):
         self.assertIn("mode-${props.mode}", shell)
         self.assertIn("focus-header", header)
         self.assertIn("Salir de Focus", header)
-        self.assertIn("Modo Lectura", header)
+        # La cabecera permanece limpia; Lectura sigue siendo accesible por
+        # F12 y por la paleta de comandos del ControlPlane.
+        self.assertIn("Entrar en Lectura", app)
 
     def test_normal_mode_is_the_only_mode_with_sidebar_and_inspector(self) -> None:
         app = (UI_SRC / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")

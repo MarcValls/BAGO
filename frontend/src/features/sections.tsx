@@ -23,6 +23,7 @@ import { safeJson } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
 import { quietStatus } from '@/shared/quiet-status';
 import { ProviderCenterModule, type ProviderCenterProvider, type ProviderCenterRouterEntry } from '@/modules/provider-center';
+import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { SystemTabs } from '@/layout/SystemTabs';
 import { ChatPanel } from '@/layout/ChatPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
@@ -30,6 +31,7 @@ import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
 import { WorkspaceModule } from '@/features/workspace/WorkspaceModule';
 import type { BagoClient } from '@/api/client';
 import type { UseContextTreeState } from '@/features/context-tree/useContextTree';
+import { mergeProviderStates } from '@/shared/providerStates';
 
 interface Props {
   section: 'home' | 'chat' | 'workspace' | 'graph' | 'pipeline' | 'evidence' | 'context' | 'system';
@@ -587,6 +589,7 @@ export function ControlSections(props: Props) {
   const [sourceMessage, setSourceMessage] = useState('');
   const [graphLayout, setGraphLayout] = useState<GraphLayout>('hierarchical');
   const [graphFiltered, setGraphFiltered] = useState(true);
+  const [graphView, setGraphView] = useState<'flow' | 'capabilities'>('flow');
   const [evidenceCompare, setEvidenceCompare] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -650,9 +653,27 @@ export function ControlSections(props: Props) {
     { section: props.section, snapshot, workspaceHint: props.workspaceHint },
     targetKindForSection(props.section)
   );
-  const providers = props.providers?.providers || [];
+  const providers = useMemo(() => mergeProviderStates(props.providers), [props.providers]);
   const routerStateEntries = resolveRouterEntries(props.router);
   const routerEntries = routerStateEntries.length ? routerStateEntries : routerFallbackEntries;
+  const chatModelEntries = useMemo(() => {
+    const merged = [...routerEntries];
+    for (const provider of providers) {
+      const providerId = String(provider.id || provider.name || '').trim();
+      if (!providerId || !Array.isArray(provider.models)) continue;
+      for (const rawModel of provider.models) {
+        const model = typeof rawModel === 'string'
+          ? rawModel
+          : String((rawModel as Record<string, unknown>)?.id || (rawModel as Record<string, unknown>)?.model_id || (rawModel as Record<string, unknown>)?.name || '');
+        if (!model) continue;
+        const key = `${providerId}/${model}`;
+        if (!merged.some((entry) => String(entry.key || `${entry.provider || ''}/${entry.model_id || entry.wire_name || ''}`) === key)) {
+          merged.push({ provider: providerId, model_id: model, wire_name: model, key, available: true });
+        }
+      }
+    }
+    return merged;
+  }, [providers, routerEntries]);
   const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
   const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
   const routerLastPick = String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—');
@@ -1259,18 +1280,16 @@ export function ControlSections(props: Props) {
       return;
     }
     setActiveProvider(provider);
-    const url = `${props.apiBase}/providers/${provider}/active-models`;
-    fetch(url)
-      .then((r) => r.ok ? r.json() : { active_models: [] })
+    props.client.getActiveProviderModels(provider)
       .then((data) => {
-        if (Array.isArray(data?.active_models)) {
+        if (Array.isArray(data.active_models)) {
           setActiveModels(new Set(data.active_models));
         } else {
           setActiveModels(new Set());
         }
       })
       .catch(() => setActiveModels(new Set()));
-  }, [snapshot, props.apiBase]);
+  }, [snapshot, props.client]);
 
   if (props.section === 'chat') {
     return (
@@ -1305,160 +1324,59 @@ export function ControlSections(props: Props) {
   }
 
   if (props.section === 'home') {
-    const canChat = snapshot?.permissions.canChat ?? false;
-    const workspaceRoot = snapshot?.workspace.root || props.workspaceHint || '';
-    // CANON[WS-008]: El backend envía el path incluyendo '.gabo'.
-    // El nombre visible debe ser el PADRE del '.gabo', no el .gabo mismo.
-    // Si el path no termina en '.gabo', usamos el último segmento normal.
-    function deriveWorkspaceName(p: string): string {
-      if (!p) return 'Sin workspace';
-      const norm = p.replace(/[\\/]+$/, '');
-      const parts = norm.split(/[\\/]/).filter(Boolean);
-      const last = parts[parts.length - 1] || '';
-      const prev = parts[parts.length - 2] || '';
-      if (last.toLowerCase() === '.gabo' || last.toLowerCase() === '.bago') {
-        return prev || last;
-      }
-      return last || norm;
-    }
-    const workspaceName = deriveWorkspaceName(workspaceRoot);
-    const contextState = snapshot?.context.state || 'unknown';
-    const isOffline = !snapshot?.system.backendAvailable;
-    const homeActions = (snapshot?.recommendedActions || []).filter((action) => action.visible).slice(0, 4);
-    const menuState = snapshot?.menuState;
-    const guidedAction = menuState?.recommendedAction
-      ? homeActions.find((action) => actionMatchesText(action, menuState.recommendedAction || ''))
-      : homeActions[0];
-    const workspaceLinked = !!snapshot?.workspace.linkedToSession;
-    const workspaceManifest = snapshot?.workspace.manifestState || 'unknown';
-    const workspaceStateText = workspaceLinked
-      ? `Vinculado a ${snapshot?.workspace.id || 'la sesión'}`
-      : (workspaceRoot ? 'Pendiente de confirmación' : 'Sin workspace activo');
+    const chatModeOpen = (() => {
+      try { return window.sessionStorage.getItem('bago.start.chat-mode') === 'open'; } catch { return false; }
+    })();
+    const recentProjects = props.contextTree.tree
+      ? Object.values(props.contextTree.tree.nodes)
+        .filter((node) => node.parentId === props.contextTree.tree?.rootId && (node.type === 'pending' || node.metadata?.branch === true))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 5)
+        .map((node) => ({ id: node.id, title: node.title, summary: node.summary || '', updatedAt: node.updatedAt, status: node.status }))
+      : [];
     return (
-      <div className="home-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-        {/* CANON[WS-007]: Solo la tarjeta del workspace. Sin tarjeta de
-           identidad, sin texto 'BAGO' repetido, sin reclamar marca. */}
-        <section className="home-hero" aria-label="Workspace activo">
-          <div className="home-hero-workspace">
-            <div className="home-hero-workspace-icon"><Icon name="workspace" size={20} /></div>
-            <div className="home-hero-workspace-body">
-              <span className="home-hero-workspace-label">Workspace activo</span>
-              <strong
-                className="home-hero-workspace-name"
-                title={workspaceRoot || 'Sin ruta'}
-              >
-                {workspaceName}
-              </strong>
-              <span className="home-hero-workspace-state">
-                {quietStatus(workspaceManifest) || workspaceStateText}
-              </span>
-              {workspaceRoot && (
-                <small className="home-hero-workspace-path">
-                  {workspaceRoot.replace(/[\\/]\.gabo[\\/]*$/i, '').replace(/[\\/]\.bago[\\/]*$/i, '') || workspaceRoot}
-                </small>
-              )}
-            </div>
-            <div className="home-hero-workspace-actions">
-              {workspaceLinked ? (
-                <button
-                  type="button"
-                  className="home-hero-workspace-btn primary"
-                  onClick={() => props.onSetSection('workspace')}
-                >
-                  Abrir <Icon name="arrowRight" size={14} />
-                </button>
-              ) : workspaceRoot ? (
-                <button
-                  type="button"
-                  className="home-hero-workspace-btn primary"
-                  onClick={() => props.onSetSection('workspace')}
-                >
-                  Confirmar <Icon name="arrowRight" size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="home-hero-workspace-btn primary"
-                  onClick={() => props.onSetSection('workspace')}
-                >
-                  Elegir <Icon name="arrowRight" size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {menuState && (
-          <section className={`home-card home-workflow-banner ${guidedAction ? 'is-guided-path' : ''}`} aria-label="Camino recomendado">
-            <div className="home-card-head">
-              <strong>Camino recomendado</strong>
-              <span>{menuState.activeCenter || menuState.currentScreen || 'Backend'}</span>
-            </div>
-            <div className="home-workflow-grid">
-              {menuState.operationState && <span className="home-pill">Estado: {menuState.operationState}</span>}
-              {menuState.pendingWork && <span className="home-pill">Pendiente: {menuState.pendingWork}</span>}
-              {menuState.latestResult && <span className="home-pill">Último: {menuState.latestResult}</span>}
-              {menuState.recommendedAction && <span className="home-pill">Acción: {menuState.recommendedAction}</span>}
-            </div>
-            {guidedAction && (
-              <p className="home-card-copy" title={actionGuidanceSnapshot(guidedAction)}>
-                La acción principal ahora es <strong>{guidedAction.label}</strong>. El resto de la superficie se atenúa para mantener un único camino visible.
-              </p>
-            )}
-          </section>
-        )}
-
-        <section className="home-bento home-bento-operational">
-          <article className={`home-card home-next-card ${guidedAction ? 'is-guided-path' : ''}`}>
-            <div className="home-card-head">
-              <strong>Siguiente acción</strong>
-              <span>{props.opening.id}</span>
-            </div>
-            <p className="home-card-copy">La pantalla inicial ahora prioriza una decisión clara: entrar, reparar vínculo, elegir workspace o revisar estado.</p>
-            <div className="home-action-stack">
-              {homeActions.length ? homeActions.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  className={`home-action-row ${guidedAction?.id === action.id ? 'is-guided-target' : ''}`}
-                  disabled={!action.enabled}
-                  onClick={() => props.onRunAction(action)}
-                  title={action.reasonDisabled || action.label}
-                >
-                  <span className="home-action-icon"><Icon name={action.kind === 'navigate' ? 'chevron' : action.kind === 'danger' ? 'warning' : 'actions'} size={15} /></span>
-                  <span><strong>{action.label}</strong><small>{action.reasonDisabled || String(action.payload?.command || action.kind)}</small></span>
-                  <Icon name="chevron" size={14} />
-                </button>
-              )) : (
-                <div className="empty-state compact"><Icon name="check" size={18} /><p>No hay acciones pendientes del backend.</p></div>
-              )}
-            </div>
-          </article>
-        </section>
-
-        <div className="opening-actions home-actions">
-          <ActionButton icon="plus" primary onClick={props.onPrimary} disabled={props.booting || (!canChat && props.opening.targetSection === 'chat')}>{props.opening.actionLabel}</ActionButton>
-          {!workspaceRoot && <ActionButton icon="folder" onClick={props.onChooseWorkspace} disabled={props.booting}>Elegir workspace</ActionButton>}
-          {isOffline && <ActionButton icon="refresh" onClick={props.onRefresh} disabled={props.booting}>Reintentar</ActionButton>}
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho para continuar última, elegir workspace, refrescar o copiar estado.</span>
-        </div>
-
-        {isOffline && (
-          <details className="opening-connection">
-            <summary>Configurar conexión</summary>
-            <div className="connection-grid">
-              <label>
-                <span>API base</span>
-                <input value={props.apiBase} onChange={(event) => props.onApiConfigChange({ apiBase: event.target.value })} />
-              </label>
-              <label>
-                <span>Token</span>
-                <input type="password" value={props.apiToken} onChange={(event) => props.onApiConfigChange({ apiToken: event.target.value })} />
-              </label>
-            </div>
-          </details>
-        )}
-      </div>
+      <ChatPanel
+        snapshot={snapshot}
+        turns={props.turns}
+        drafts={props.drafts}
+        chatMode={props.chatMode}
+        history={props.history}
+        routerEntries={chatModelEntries}
+        sessionModel={props.sessionModel ?? null}
+        activeProvider={activeProvider}
+        activeModels={activeModels}
+        onSetChatMode={props.onSetChatMode}
+        onDraftChange={props.onDraftChange}
+        onSendChat={props.onSendChat}
+        onInspect={props.onInspect}
+        onRunCommand={props.onRunCommand}
+        onRunContextCommand={props.onRunContextCommand}
+        onNavigate={props.onSetSection}
+        onSetSessionModel={(key) => props.onSetSessionModel ? props.onSetSessionModel(key) : Promise.resolve()}
+        canChat={Boolean(snapshot?.permissions.canChat)}
+        contextPatches={props.contextPatchDisplay}
+        onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
+        onRejectContextPatch={(id) => props.onRejectContextPatch?.(id)}
+        onEditContextPatch={(id) => props.onEditContextPatch?.(id)}
+        onRevertContextPatch={(id) => props.onRevertContextPatch?.(id)}
+        onReviewContextPatch={(id) => props.onReviewContextPatch?.(id)}
+        onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
+        startScreen={!chatModeOpen}
+        recentProjects={recentProjects}
+        onStartNew={() => {
+          try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
+          window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+        }}
+        onContinue={() => {
+          try { window.sessionStorage.removeItem('bago.context.initial-branch'); } catch { /* storage unavailable */ }
+          props.onSetSection('context');
+        }}
+        onChooseRecent={(id) => {
+          try { window.sessionStorage.setItem('bago.context.initial-branch', id); } catch { /* storage unavailable */ }
+          props.onSetSection('context');
+        }}
+        onRefresh={props.onRefresh}
+      />
     );
   }
 
@@ -1497,7 +1415,12 @@ export function ControlSections(props: Props) {
     const nodes = graphFiltered ? baseNodes.slice(0, 6) : baseNodes;
     const nextLayout = () => setGraphLayout((current) => current === 'hierarchical' ? 'radial' : current === 'radial' ? 'linear' : 'hierarchical');
     return (
-      <div className="graph-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+      <div className={`graph-surface graph-view-${graphView}`} {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        <nav className="graph-primary-tabs" aria-label="Vista del grafo">
+          <button type="button" className={graphView === 'flow' ? 'is-active' : ''} onClick={() => setGraphView('flow')}><Icon name="graph" size={13} /> Flujo</button>
+          <button type="button" className={graphView === 'capabilities' ? 'is-active' : ''} onClick={() => setGraphView('capabilities')}><Icon name="spark" size={13} /> Capacidades</button>
+        </nav>
+        {graphView === 'capabilities' ? <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection)} /> : <>
         <div className="surface-toolbar graph-toolbar">
           <div className="toolbar-group">
             <button className={`toolbar-button ${graphFiltered ? 'is-active' : ''}`} type="button" onClick={() => setGraphFiltered((value) => !value)}><Icon name="filter" size={16} /> {graphFiltered ? 'Subárbol' : 'Todo'}</button>
@@ -1554,6 +1477,7 @@ export function ControlSections(props: Props) {
             })}
           </aside>
         </div>
+        </>}
       </div>
     );
   }
@@ -1583,7 +1507,7 @@ export function ControlSections(props: Props) {
     );
     return (
       <div className="pipeline-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-        <section className="pipeline-summary">
+        <section className="pipeline-page-head">
           <div className="pipeline-summary-copy">
             <StatusBadge status={pipelineStatus} />
             <h2>{pipelineTitle}</h2>
@@ -1665,14 +1589,23 @@ export function ControlSections(props: Props) {
           </section>
         )}
 
-        <section className="pipeline-create">
-          <textarea value={task} onChange={(event) => props.onDraftChange('pipeline', event.target.value)} placeholder="Describe una tarea para crear un nuevo flujo…" rows={2} />
-          <button className="primary-button compact" type="button" disabled={!task.trim()} onClick={() => void props.onRunPlanTask(task)}><Icon name="pipeline" size={16} /> Generar plan</button>
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho para roadmap, reintentar, detener o abrir evidencia.</span>
-          <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Acciones del pipeline" />
+        <section className="pipeline-command">
+          <div className="pipeline-command-head">
+            <div><span className="surface-eyebrow">Siguiente acción</span><strong>{steps.length ? 'Añadir una tarea al flujo' : 'Crear un flujo de trabajo'}</strong></div>
+            <span>El backend generará el plan y sus evidencias.</span>
+          </div>
+          <textarea value={task} onChange={(event) => props.onDraftChange('pipeline', event.target.value)} placeholder="Describe el resultado que quieres conseguir…" rows={2} />
+          <div className="pipeline-command-footer">
+            <span className="context-hint">Enter no ejecuta; revisa el plan antes de lanzarlo.</span>
+            <div className="pipeline-command-actions">
+              <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Más acciones" />
+              <button className="primary-button compact" type="button" disabled={!task.trim()} onClick={() => void props.onRunPlanTask(task)}><Icon name="pipeline" size={16} /> {steps.length ? 'Añadir tarea' : 'Generar plan'}</button>
+            </div>
+          </div>
         </section>
 
         <section className="pipeline-timeline">
+          <div className="pipeline-section-head"><div><span className="surface-eyebrow">Flujo</span><strong>{steps.length ? `${steps.length} pasos` : 'Sin pasos todavía'}</strong></div><span>{doneCount} completados · {blockedCount + failedCount} requieren atención</span></div>
           {steps.length ? steps.map((step, index) => {
             const status = String(step.status || 'pending');
             const stepSelection = buildSelection(
@@ -1819,7 +1752,6 @@ export function ControlSections(props: Props) {
   }
 
   if (props.section === "system") {
-    const providers = props.providers?.providers || [];
     const routerEntries = resolveRouterEntries(props.router);
     const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
     const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
@@ -1830,7 +1762,7 @@ export function ControlSections(props: Props) {
           apiBase={props.apiBase}
           apiToken={props.apiToken}
           providers={providers}
-          routerEntries={routerEntries}
+        routerEntries={chatModelEntries}
           routerAuto={routerAuto}
           routerSelectedCount={routerSelectedCount}
           routerLastPick={routerLastPick}
@@ -1992,15 +1924,9 @@ export function ControlSections(props: Props) {
           </div>
         </article>
 
-        <AutoConfigCard
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-        />
+        <AutoConfigCard client={props.client} />
 
-        <BlacklistCard
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-        />
+        <BlacklistCard client={props.client} />
 
         <ProviderCenterModule
           title="Catálogo del sistema"
@@ -2124,30 +2050,25 @@ export function ControlSections(props: Props) {
 // AutoConfigCard: lanza y muestra el estado de la auto-configuración
 // generada por tests (backend en /configure/auto/*).
 // ────────────────────────────────────────────────────────────────────
-function AutoConfigCard({ apiBase, apiToken }: { apiBase: string; apiToken: string }) {
+function AutoConfigCard({ client }: { client: BagoClient }) {
   const [status, setStatus] = useState<{ kind: 'idle' | 'running' | 'done' | 'error'; data: Record<string, unknown> | null; lastApplied?: Record<string, unknown> }>({ kind: 'idle', data: null });
   const [busy, setBusy] = useState(false);
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
-
   const refresh = async () => {
     try {
-      const r = await fetch(`${apiBase}/configure/auto/status`, { headers });
-      const d = await r.json();
+      const d = await client.getAutoConfigStatus();
       setStatus((prev) => ({ ...prev, kind: (d.status as typeof status.kind) || 'idle', data: d }));
-    } catch (exc) {
+    } catch {
       setStatus({ kind: 'error', data: null });
     }
   };
 
-  useEffect(() => { void refresh(); }, [apiBase]);
+  useEffect(() => { void refresh(); }, [client]);
 
   const start = async () => {
     setBusy(true);
     try {
-      const r = await fetch(`${apiBase}/configure/auto/start`, { method: 'POST', headers, body: JSON.stringify({}) });
-      await r.json();
+      await client.startAutoConfig();
       await refresh();
     } finally {
       setBusy(false);
@@ -2156,8 +2077,7 @@ function AutoConfigCard({ apiBase, apiToken }: { apiBase: string; apiToken: stri
   const apply = async () => {
     setBusy(true);
     try {
-      const r = await fetch(`${apiBase}/configure/auto/apply`, { method: 'POST', headers, body: JSON.stringify({}) });
-      const d = await r.json();
+      const d = await client.applyAutoConfig();
       if (d.applied) setStatus((prev) => ({ ...prev, lastApplied: d.applied as Record<string, unknown> }));
       await refresh();
     } finally {
@@ -2210,28 +2130,26 @@ function AutoConfigCard({ apiBase, apiToken }: { apiBase: string; apiToken: stri
 // ────────────────────────────────────────────────────────────────────
 // BlacklistCard: muestra y permite editar la blacklist local de modelos.
 // ────────────────────────────────────────────────────────────────────
-function BlacklistCard({ apiBase, apiToken }: { apiBase: string; apiToken: string }) {
+function BlacklistCard({ client }: { client: BagoClient }) {
   const [data, setData] = useState<{ models: string[]; reasons: Record<string, string>; path?: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
 
   const refresh = async () => {
     try {
-      const r = await fetch(`${apiBase}/providers/blacklist`, { headers });
-      const d = await r.json();
-      setData({ models: d.models || [], reasons: d.reasons || {}, path: d.path });
+      const d = await client.getModelBlacklist();
+      setData({
+        models: Array.isArray(d.models) ? d.models.map(String) : [],
+        reasons: d.reasons && typeof d.reasons === 'object' && !Array.isArray(d.reasons) ? d.reasons as Record<string, string> : {},
+        path: typeof d.path === 'string' ? d.path : undefined
+      });
     } catch { setData(null); }
   };
-  useEffect(() => { void refresh(); }, [apiBase]);
+  useEffect(() => { void refresh(); }, [client]);
 
   const remove = async (model: string) => {
     setBusy(true);
     try {
-      await fetch(`${apiBase}/providers/blacklist`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ action: 'remove', model }),
-      });
+      await client.modifyModelBlacklist({ action: 'remove', model });
       await refresh();
     } finally { setBusy(false); }
   };

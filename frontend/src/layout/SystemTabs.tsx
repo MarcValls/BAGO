@@ -293,6 +293,7 @@ export function SystemTabs(props: Props) {
               <Icon name="refresh" size={14} /> Refrescar router
             </button>
             <ActionMenuButton selection={overviewSelection} onInspectSelection={props.onInspectSelection} label="Acciones de sistema" />
+            <ReleaseUpdateCard client={client} />
           </section>
         )}
 
@@ -584,6 +585,36 @@ export function SystemTabs(props: Props) {
       </div>
     </div>
   );
+}
+
+function ReleaseUpdateCard({ client }: { client: BagoClient }) {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const refresh = async () => {
+    setBusy(true);
+    try { setData(await client.checkReleaseUpdate()); setMessage(''); }
+    catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+
+  useEffect(() => { void refresh(); }, [client]);
+
+  const update = async () => {
+    setBusy(true);
+    try {
+      const result = await client.startReleaseUpdate(String(data?.latest || ''));
+      setMessage(String(result.message || 'Actualización iniciada.'));
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+
+  const available = Boolean(data?.available);
+  return <article className="release-update-card">
+    <div><span className="surface-eyebrow"><Icon name="refresh" size={13} /> Actualización de BAGO</span><strong>{available ? `Nueva versión ${String(data?.latest || '')}` : 'BAGO está actualizado'}</strong><small>{message || `Versión instalada: ${String(data?.current || '—')}. Se conserva el estado, memoria y proyectos.`}</small></div>
+    <div className="system-panel-actions"><button className="text-button" type="button" onClick={() => void refresh()} disabled={busy}>Comprobar</button>{available && <button className="primary-button compact" type="button" onClick={() => void update()} disabled={busy}>Actualizar ahora</button>}</div>
+  </article>;
 }
 
 function RoutesView({ routes }: { routes: Record<string, unknown> }) {

@@ -54,9 +54,8 @@ function createViewerWindow() {
       window.bagoElectron = window.bagoElectron || {};
       window.bagoElectron.isViewer = true;
     `).catch(() => {});
-    // FIX v0.2.1: abrir DevTools automáticamente para diagnóstico de UI.
-    // El usuario puede cerrarlos con F12 o Ctrl+Shift+I si no los necesita.
-    if (process.env.BAGO_DEVTOOLS !== '0') {
+    // DevTools solo se abren cuando se solicitan explícitamente para diagnóstico.
+    if (process.env.BAGO_DEVTOOLS === '1') {
       win.webContents.openDevTools({ mode: 'detach' });
     }
   });

@@ -20,15 +20,9 @@ export function buildChatModelOptions(
   sessionModel: string | null
 ): ChatModelOption[] {
   const available = entries.filter((entry) => entry.available !== false && entryKey(entry));
-  const scoped = activeProvider && activeModels.size > 0
-    ? available.filter((entry) => {
-        const provider = String(entry.provider || '').trim();
-        const model = String(entry.model_id || entry.wire_name || '').trim();
-        const key = entryKey(entry);
-        return provider === activeProvider
-          && (activeModels.has(model) || activeModels.has(key) || activeModels.has(String(entry.wire_name || '').trim()));
-      })
-    : available;
+  // El selector de sesión debe mostrar el catálogo disponible completo,
+  // incluidos modelos locales de providers distintos al activo.
+  const scoped = available;
 
   const options: ChatModelOption[] = [];
   const seen = new Set<string>();

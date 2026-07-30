@@ -339,6 +339,7 @@ export interface BackendSession {
 
 export interface BackendProviders {
   providers?: Array<Record<string, unknown>>;
+  catalog?: Array<Record<string, unknown>>;
   mode?: string;
 }
 
@@ -420,8 +421,11 @@ export interface ChatTurn {
   id: string;
   role: 'user' | 'assistant' | 'system' | 'command';
   text: string;
-  status?: 'sending' | 'running' | 'validating' | 'done' | 'failed' | 'blocked';
+  status?: 'sending' | 'running' | 'validating' | 'needs_confirmation' | 'done' | 'failed' | 'blocked';
   receipt?: Record<string, unknown> | null;
+  provider?: string;
+  model?: string;
+  clarification?: Record<string, unknown>;
   raw?: unknown;
   timestamp: string;
 }

@@ -105,4 +105,5 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         "jobs_summary": jobs_summary,
         "router_policy": router_policy,
         "audit": audit,
+        "features": {"capability_anatomy_v02": True},
     })
