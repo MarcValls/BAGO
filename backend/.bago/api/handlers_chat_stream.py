@@ -57,6 +57,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
 
     started = time.time()
     leaked_error: str | None = None
+    stream_failed = False
     try:
         for chunk in ctx.session_mgr.send_stream(message):
             if is_canonical_error_payload(chunk):
@@ -69,6 +70,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
             handler.wfile.write(line.encode("utf-8"))
             handler.wfile.flush()
     except Exception as exc:
+        stream_failed = True
         import os
         import traceback
         if os.environ.get("BAGO_DEBUG"):
@@ -89,12 +91,12 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     receipt = ctx.session_mgr.last_receipt.to_dict() if ctx.session_mgr.last_receipt else None
     done_payload = {
         "done": True,
-        "ok": leaked_error is None,
+        "ok": not stream_failed and leaked_error is None,
         "latency_ms": round((time.time() - started) * 1000, 2),
         "session_id": ctx.session_mgr.session_id,
         "provider": ctx.session_mgr.provider,
         "model": ctx.session_mgr.model,
-        "response_state": str(getattr(ctx.session_mgr, "last_response_state", "done") or "done"),
+        "response_state": "failed" if stream_failed else str(getattr(ctx.session_mgr, "last_response_state", "done") or "done"),
         "clarification": getattr(ctx.session_mgr, "last_clarification", None),
         "context_receipt": receipt,
     }

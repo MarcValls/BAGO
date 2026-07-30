@@ -59,7 +59,10 @@ def check() -> dict:
     try:
         result = _find_release()
         with _lock:
-            _state.update({"current": result.get("current", ""), "latest": result.get("latest", ""), "detail": result, "status": "ready", "message": result.get("message", "Nueva versión disponible")})
+            running = _state.get("status") == "running"
+            _state.update({"current": result.get("current", ""), "latest": result.get("latest", ""), "detail": result, "message": result.get("message", "Nueva versión disponible")})
+            if not running:
+                _state["status"] = "ready"
         return result
     except Exception as exc:
         result = {"available": False, "current": _current(), "error": str(exc)}
@@ -88,7 +91,7 @@ def _backup_runtime() -> str:
 def start_update(tag: str = "") -> dict:
     with _lock:
         if _state.get("status") == "running":
-            return {"ok": False, "error": "Ya hay una actualización en curso", **status()}
+            return {"ok": False, "error": "Ya hay una actualización en curso", **dict(_state)}
         _state.update({"status": "running", "message": "Preparando actualización…"})
 
     def worker() -> None:
