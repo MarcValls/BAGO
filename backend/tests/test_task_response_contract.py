@@ -10,7 +10,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 from provider_adapter import HealthStatus, ModelInfo, ProviderAdapter, ProviderResponse, TokenUsage  # noqa: E402
 from task_response_contract import validate_task_response  # noqa: E402
+from task_response_presenter import present_legacy_task_content, present_task_response, task_response_state  # noqa: E402
 import session_manager  # noqa: E402
+from session_turn_mixin import _requests_no_execution  # noqa: E402
 
 
 def test_task_response_contract_validates_json_payload():
@@ -36,6 +38,39 @@ def test_task_response_contract_validates_json_payload():
     assert report.ok is True
     assert report.data["intent"] == "work"
     assert report.data["confidence"] == 0.9
+
+
+def test_task_response_contract_rejects_empty_objective():
+    payload = {key: [] for key in (
+        "facts", "assumptions", "files_required", "symbols_required", "evidence", "risks",
+        "proposed_changes", "validation_actions", "missing_information",
+    )}
+    payload.update({"intent": "work", "objective": "", "confidence": 1.0})
+    report = validate_task_response(json.dumps(payload), intent="work")
+    assert report.ok is False
+    assert any(error.get("key") == "objective" for error in report.errors)
+
+
+def test_explicit_read_only_request_does_not_enable_tools():
+    assert _requests_no_execution("Traza un plan, sin ejecutar cambios.") is True
+    assert _requests_no_execution("Corrige el archivo y ejecuta las pruebas") is False
+
+
+def test_task_response_presenter_hides_internal_json():
+    data = {
+        "intent": "work", "objective": "Actualizar el flujo", "facts": [], "assumptions": [],
+        "files_required": [], "symbols_required": [], "evidence": ["prueba ejecutada"], "risks": [],
+        "proposed_changes": ["Separar contrato y respuesta"], "validation_actions": ["pytest"],
+        "missing_information": [], "confidence": 0.9,
+    }
+    text = present_task_response(data)
+    assert task_response_state(data) == "done"
+    assert text.startswith("Actualizar el flujo")
+    assert '"intent"' not in text
+    legacy_text, state, parsed = present_legacy_task_content(json.dumps(data))
+    assert legacy_text == text
+    assert state == "done"
+    assert parsed == data
 
 
 def test_session_manager_repairs_invalid_task_json_once(tmp_path, monkeypatch):
@@ -112,12 +147,19 @@ def test_session_manager_repairs_invalid_task_json_once(tmp_path, monkeypatch):
         )
         try:
             response = mgr.send("crea un plan para actualizar el flujo")
-            data = json.loads(response)
             assert adapter.calls == 2
-            assert data["intent"] == "work"
-            assert data["confidence"] == 0.8
-            assert data["files_required"] == ["src/parser.py"]
+            assert response.startswith("actualizar el flujo")
+            assert '"intent"' not in response
             assert mgr.last_receipt is not None
-            assert mgr.last_receipt.metadata.get("task_contract", {}).get("ok") is True
+            contract = mgr.last_receipt.metadata.get("task_contract", {})
+            assert contract.get("ok") is True
+            assert contract.get("data", {}).get("intent") == "work"
+            assert mgr.last_receipt.metadata.get("response_state") == "done"
+            history_count = len(mgr.store.get_history())
+            receipt = mgr.last_receipt
+            internal = mgr.send_internal("devuelve el JSON solicitado")
+            assert json.loads(internal)["intent"] == "work"
+            assert len(mgr.store.get_history()) == history_count
+            assert mgr.last_receipt is receipt
         finally:
             mgr.close()

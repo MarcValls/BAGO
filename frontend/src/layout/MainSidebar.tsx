@@ -21,26 +21,25 @@ const GROUPS: SectionGroup[] = [
     id: 'main',
     label: 'Principal',
     items: [
-      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Entrada y estado operativo', shortcut: 'Ctrl+1' },
-      { id: 'chat', label: 'Chat', icon: 'chat', helper: 'Conversación y comandos', shortcut: 'Ctrl+2' },
-      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos y fuentes', shortcut: 'Ctrl+3' }
+      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Chat de bienvenida y elección de trabajo', shortcut: 'Ctrl+1' },
+      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos y fuentes', shortcut: 'Ctrl+2' }
     ]
   },
   {
     id: 'work',
     label: 'Trabajo',
     items: [
-      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+4' },
-      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Presupuesto y receipts', shortcut: 'Ctrl+5' },
-      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims y trazas', shortcut: 'Ctrl+6' },
-      { id: 'graph', label: 'Grafo', icon: 'graph', helper: 'Mapa operativo del workspace', shortcut: 'Ctrl+7' }
+      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+3' },
+      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Ramas, decisiones y contexto de trabajo', shortcut: 'Ctrl+4' },
+      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims y trazas', shortcut: 'Ctrl+5' },
+      { id: 'graph', label: 'Grafo', icon: 'graph', helper: 'Mapa operativo del workspace', shortcut: 'Ctrl+6' }
     ]
   },
   {
     id: 'system',
     label: 'Sistema',
     items: [
-      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+8' }
+      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+7' }
     ]
   }
 ];
@@ -138,7 +137,7 @@ export function MainSidebar(props: Props) {
 
       <div className="sidebar-spacer" />
 
-      {!props.collapsed && visibleActions.length > 0 && (
+      {!props.collapsed && props.activeSection !== 'home' && props.activeSection !== 'context' && visibleActions.length > 0 && (
         <section className="sidebar-actions" aria-label="Acciones recomendadas">
           <div className="sidebar-section-title">Siguiente</div>
           {visibleActions.map((action) => (

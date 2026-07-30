@@ -64,6 +64,28 @@ def test_legacy_config_readers_do_not_migrate_on_read(monkeypatch, tmp_path: Pat
     assert not (canonical_state / "config.json").exists()
 
 
+def test_session_credentials_can_read_legacy_state_without_writing(monkeypatch, tmp_path: Path) -> None:
+    home, _, canonical_state = _isolate_user_roots(monkeypatch, tmp_path)
+    legacy_credentials = home / ".bago" / "state" / "credentials.json"
+    legacy_credentials.parent.mkdir(parents=True)
+    legacy_credentials.write_text(
+        json.dumps({"ollama-cloud": {"OLLAMA_CLOUD_KEY": "legacy-fixture"}}),
+        encoding="utf-8",
+    )
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "install_config.json").write_text(
+        json.dumps({"credentials": {"mode": "session"}}),
+        encoding="utf-8",
+    )
+
+    credential_manager = importlib.import_module("credential_manager")
+    manager = credential_manager.CredentialManager(base_path=str(project))
+
+    assert manager.get("ollama-cloud", "OLLAMA_CLOUD_KEY") == "legacy-fixture"
+    assert not (canonical_state / "session-credentials.json").exists()
+
+
 def test_secret_and_other_legacy_readers_keep_writes_canonical(monkeypatch, tmp_path: Path) -> None:
     home, canonical_user, canonical_state = _isolate_user_roots(monkeypatch, tmp_path)
     legacy_state = home / ".bago" / "state"
@@ -157,3 +179,10 @@ def test_mutable_state_modules_do_not_construct_direct_home_bago_paths() -> None
         if direct_home.search(source) or duplicate_env.search(source):
             violations.append(relative)
     assert violations == []
+
+
+def test_chat_monitor_does_not_mutate_process_state_root() -> None:
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "bago_core/commands/cmd_chat.py").read_text(encoding="utf-8")
+
+    assert 'os.environ["BAGO_STATE_ROOT"] =' not in source

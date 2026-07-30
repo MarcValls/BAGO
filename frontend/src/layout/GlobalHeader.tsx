@@ -110,64 +110,6 @@ export function GlobalHeader(props: Props) {
         <button className="icon-button" type="button" onClick={props.onOpenHelp} title="Atajos y ayuda (?)">
           <Icon name="prompt" />
         </button>
-        <details className="header-connection">
-          <summary className="icon-button" title="Más opciones y configuración">
-            <Icon name="more" />
-          </summary>
-          <div className="connection-popover">
-            <div className="connection-popover-head">
-              <div>
-                <strong>Modos y opciones</strong>
-                <span>{props.snapshot?.system.backendAvailable ? 'Backend accesible' : 'Backend no disponible'}</span>
-              </div>
-              <button className="icon-button" type="button" onClick={props.onRefresh} title="Actualizar snapshot">
-                <Icon name="refresh" />
-              </button>
-            </div>
-
-            <div className="connection-mode-row">
-              <button
-                className="header-button"
-                type="button"
-                onClick={() => props.onSetMode('focus')}
-                title="Modo Focus: oculta chrome y deja solo el contenido (F11)"
-              >
-                <Icon name="focus" />
-                <span>Modo Focus</span>
-                <kbd>F11</kbd>
-              </button>
-              <button
-                className={`header-button ${props.globalMode === 'review' ? 'is-active' : ''}`}
-                type="button"
-                aria-pressed={props.globalMode === 'review'}
-                onClick={() => props.onSetMode(props.globalMode === 'review' ? 'normal' : 'review')}
-                title="Modo Lectura: solo inspeccionar, no ejecutar (F12)"
-              >
-                <Icon name="review" />
-                <span>{props.globalMode === 'review' ? 'Salir Lectura' : 'Modo Lectura'}</span>
-                <kbd>F12</kbd>
-              </button>
-            </div>
-
-            <div className="connection-divider" />
-
-            <label>
-              <span>API base</span>
-              <input value={props.apiBase} onChange={(event) => props.onApiConfigChange({ apiBase: event.target.value })} />
-            </label>
-            <label>
-              <span>Token</span>
-              <input type="password" value={props.apiToken} onChange={(event) => props.onApiConfigChange({ apiToken: event.target.value })} />
-            </label>
-
-            <div className="connection-divider" />
-
-            <div className="connection-command-row">
-              <button type="button" onClick={() => props.onRunCommand('/status')}>Estado</button>
-              <button type="button" onClick={() => props.onRunCommand('/session')}>Sesión</button>
-            </div>
-          </div>
-        </details>
       </div>
     </header>
   );

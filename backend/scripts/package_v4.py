@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bago_core.versioning import read_release_version
+from scripts.packaging_common import normalize_release_version, rel_posix, sha256
 
 
 CURRENT_RELEASE = read_release_version(ROOT).strip().lstrip("v")
@@ -144,22 +145,6 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def rel_posix(path: Path) -> str:
-    return path.as_posix()
-
-
-def normalize_release_version(value: str) -> str:
-    normalized = str(value or "").strip().lower()
-    if normalized.startswith("v"):
-        normalized = normalized[1:]
-    if not normalized:
-        raise ValueError("release_version vacío")
-    allowed = set("abcdefghijklmnopqrstuvwxyz0123456789.-")
-    if any(ch not in allowed for ch in normalized):
-        raise ValueError(f"release_version inválido: {value}")
-    return normalized
-
-
 def is_excluded(relative: Path) -> bool:
     rel = rel_posix(relative)
     if rel in ALLOWED_LEGACY_PATHS:
@@ -172,14 +157,6 @@ def is_excluded(relative: Path) -> bool:
     if any(fnmatch.fnmatch(rel, pattern) for pattern in EXCLUDED_GLOBS):
         return True
     return any(rel == prefix or rel.startswith(prefix + "/") for prefix in EXCLUDED_PREFIXES)
-
-
-def sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def require_inputs(root: Path) -> None:

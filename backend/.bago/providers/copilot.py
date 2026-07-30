@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import sys
 import urllib.request
 from pathlib import Path
@@ -54,30 +55,70 @@ class CopilotAdapter(ProviderAdapter):
     def _use_cli(self) -> bool:
         return not self.token and self.cli_authenticated
 
+    def _configured_mcp_servers(self) -> list[str]:
+        names: set[str] = set()
+        candidates = [Path.home() / ".copilot" / "mcp-config.json", self.base_path / ".copilot" / "mcp-config.json"]
+        for path in candidates:
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                servers = payload.get("mcpServers", {})
+                if isinstance(servers, dict):
+                    names.update(str(name).strip() for name in servers if str(name).strip())
+            except Exception:
+                continue
+        return sorted(names)
+
     def _chat_cli(self, messages: list[dict], model: str, system: str) -> ProviderResponse:
         prompt = build_prompt(messages, system)
+        prompt_file: Path | None = None
+        cli_prompt = prompt
+        # Windows accepts command lines up to roughly 32 KiB. Stay below that
+        # limit, but prefer the normal prompt argument because Copilot treats
+        # attachments as agent context and may attempt its own actions.
+        if len(prompt.encode("utf-8")) > 24000:
+            handle = tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", suffix=".txt", prefix="bago-copilot-", delete=False,
+            )
+            try:
+                handle.write(prompt)
+                prompt_file = Path(handle.name)
+            finally:
+                handle.close()
+            cli_prompt = "Read the attached BAGO request and follow it exactly. Return only the requested answer."
         command = [
             self.cli_path,
             "-p",
-            prompt,
+            cli_prompt,
             "--silent",
             "--no-color",
             "--no-ask-user",
             "--no-auto-update",
             "--disable-builtin-mcps",
             "--no-custom-instructions",
+            "--mode",
+            "plan",
+            "--deny-tool=shell(*)",
+            "--deny-tool=write",
             "-C",
             str(self.base_path),
         ]
         if model:
             command += ["--model", model]
-        content = run_cli(command, self.base_path, self.cli_timeout)
+        for server_name in self._configured_mcp_servers():
+            command += ["--disable-mcp-server", server_name]
+        if prompt_file is not None:
+            command += ["--attachment", str(prompt_file)]
+        try:
+            content = run_cli(command, self.base_path, self.cli_timeout)
+        finally:
+            if prompt_file is not None:
+                prompt_file.unlink(missing_ok=True)
         return ProviderResponse(
             content=content,
             model_used=model,
             provider=self.provider_name,
             finish_reason="stop",
-            metadata={"transport": "cli"},
+            metadata={"transport": "cli", "prompt_transport": "attachment" if prompt_file is not None else "argument"},
         )
 
     def _gh_token(self) -> str | None:

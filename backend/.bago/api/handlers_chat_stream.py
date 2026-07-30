@@ -86,6 +86,18 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         handler.wfile.write(diag_line.encode("utf-8"))
         handler.wfile.flush()
 
-    done_line = f"data: {json.dumps({'done': True, 'latency_ms': round((time.time() - started) * 1000, 2)})}\n\n"
+    receipt = ctx.session_mgr.last_receipt.to_dict() if ctx.session_mgr.last_receipt else None
+    done_payload = {
+        "done": True,
+        "ok": leaked_error is None,
+        "latency_ms": round((time.time() - started) * 1000, 2),
+        "session_id": ctx.session_mgr.session_id,
+        "provider": ctx.session_mgr.provider,
+        "model": ctx.session_mgr.model,
+        "response_state": str(getattr(ctx.session_mgr, "last_response_state", "done") or "done"),
+        "clarification": getattr(ctx.session_mgr, "last_clarification", None),
+        "context_receipt": receipt,
+    }
+    done_line = f"data: {json.dumps(done_payload)}\n\n"
     handler.wfile.write(done_line.encode("utf-8"))
     handler.wfile.flush()

@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import './provider-center.css';
+import { normalizeProviderBaseUrl } from '../../shared/providerRegistration';
 
 export interface ProviderCenterProvider {
   id: string;
@@ -126,7 +127,7 @@ const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
     registrationMode: 'api-key',
     registrationSteps: ['Introduce la URL cloud', 'Pega el token de acceso', 'Guarda el modelo cloud'],
     baseUrlLabel: 'Base URL',
-    baseUrlPlaceholder: 'https://ollama.com/api',
+    baseUrlPlaceholder: 'https://ollama.com',
     apiKeyLabel: 'Token / API key',
     apiKeyPlaceholder: 'Bearer token',
     modelLabel: 'Modelo cloud',
@@ -281,8 +282,9 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
     const raw = currentProvider?.raw as Record<string, unknown> | undefined;
     const values = [
       readString(raw?.base_url || raw?.url || raw?.endpoint || ''),
+      readString(raw?.default_base_url || ''),
       configForm.base_url,
-    ].map((item) => item.trim()).filter(Boolean);
+    ].map((item) => normalizeProviderBaseUrl(configForm.providerId, item)).filter(Boolean);
     return Array.from(new Set(values));
   }, [configForm, currentProvider?.raw]);
   const configModelCandidates = useMemo(() => {
@@ -296,16 +298,19 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
 
   function openConfigForm(provider: ProviderCenterProvider) {
     const raw = provider.raw as Record<string, unknown> | undefined;
+    const preset = getProviderPreset(provider.id);
+    const configuredUrl = readString(raw?.base_url || raw?.url || raw?.endpoint || '');
+    const defaultUrl = readString(raw?.default_base_url || '') || preset.baseUrlPlaceholder;
     setConfigForm({
       providerId: provider.id,
       providerName: provider.name,
-      enabled: Boolean(provider.configured),
-      base_url: readString(raw?.base_url || raw?.url || raw?.endpoint || ''),
+      enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : Boolean(provider.configured),
+      base_url: normalizeProviderBaseUrl(provider.id, configuredUrl, defaultUrl),
       api_key: readString(raw?.api_key || raw?.token || ''),
       model: readString(raw?.default_model || raw?.model || ''),
       models: readModels(raw?.models || raw?.available_models || provider.models || []),
     });
-    setManualFieldsOpen(false);
+    setManualFieldsOpen(!provider.configured);
     setConfigError(null);
   }
 
@@ -323,7 +328,9 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
     try {
       await props.onConfigureProvider(configForm.providerId, {
         enabled: configForm.enabled,
-        ...(configForm.base_url ? { base_url: configForm.base_url.trim() } : {}),
+        ...(configForm.base_url ? {
+          base_url: normalizeProviderBaseUrl(configForm.providerId, configForm.base_url)
+        } : {}),
         ...(configForm.api_key ? { api_key: configForm.api_key.trim() } : {}),
         ...(configForm.model ? { model: configForm.model.trim() } : {}),
       });

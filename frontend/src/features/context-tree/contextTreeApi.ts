@@ -93,7 +93,6 @@ export async function saveContextTree(client: BagoClient, tree: ContextTree): Pr
 export function buildDefaultTree(): ContextTree {
   const id = newId('ctree');
   const rootId = newId('node');
-  const branchIds = ['intent', 'sources', 'decisions', 'rules', 'risks', 'pendings', 'evidences', 'activity', 'pack'] as const;
   const nodes: Record<string, ContextTree['nodes'][string]> = {};
   const stamp = nowStamp();
   nodes[rootId] = {
@@ -116,41 +115,6 @@ export function buildDefaultTree(): ContextTree {
     createdAt: stamp,
     updatedAt: stamp
   };
-  const branchLabels: Record<typeof branchIds[number], { type: ContextTree['nodes'][string]['type']; title: string; summary: string }> = {
-    intent: { type: 'intent', title: 'Intención', summary: 'Objetivo raíz del contexto activo.' },
-    sources: { type: 'source', title: 'Fuentes', summary: 'Origen del contexto: archivos, fuentes y secciones activas.' },
-    decisions: { type: 'decision', title: 'Decisiones', summary: 'Decisiones consolidadas o pendientes de validación.' },
-    rules: { type: 'rule', title: 'Reglas', summary: 'Reglas interpretativas vigentes.' },
-    risks: { type: 'risk', title: 'Riesgos', summary: 'Riesgos abiertos o mitigados.' },
-    pendings: { type: 'pending', title: 'Pendientes', summary: 'Tareas y elementos pendientes de resolver.' },
-    evidences: { type: 'evidence', title: 'Evidencias', summary: 'Claims, receipts y referencias externas.' },
-    activity: { type: 'proposal', title: 'Actividad del Chat', summary: 'Patches propuestos por el chat y validados por el usuario.' },
-    pack: { type: 'pack', title: 'Pack activo', summary: 'Nodos que se enviarán al modelo.' }
-  };
-  for (const key of branchIds) {
-    const childId = newId('node');
-    const meta = branchLabels[key];
-    nodes[childId] = {
-      id: childId,
-      treeId: id,
-      parentId: rootId,
-      type: meta.type,
-      status: 'active',
-      title: meta.title,
-      summary: meta.summary,
-      priority: 'medium',
-      sourceRefs: [],
-      evidenceRefs: [],
-      linkedNodeIds: [],
-      conflictNodeIds: [],
-      tags: [key],
-      metadata: { branch: key },
-      createdBy: 'system',
-      updatedBy: 'system',
-      createdAt: stamp,
-      updatedAt: stamp
-    };
-  }
   return {
     id,
     name: `Árbol ${new Date().toLocaleString()}`,

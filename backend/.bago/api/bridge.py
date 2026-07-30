@@ -517,6 +517,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     mgr = SessionManager(provider=args.provider, model=args.model)
+    from handlers_router import restore_session_model
+    restore_session_model(mgr)
     # Auto-allow tool execution so file-write and other tools run without a manual approval step
     mgr.set_tool_approval_policy("always")
     engine = SwitchEngine(mgr.adapters)
@@ -528,4 +530,3 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         server.stop()
-

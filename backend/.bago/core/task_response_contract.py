@@ -165,10 +165,14 @@ def validate_task_response(text: str, *, intent: str = "") -> TaskResponseValida
 
     if "intent" in data and not isinstance(data["intent"], str):
         errors.append({"name": "invalid_type", "key": "intent", "detail": "intent must be string"})
+    elif isinstance(data.get("intent"), str) and not data["intent"].strip():
+        errors.append({"name": "empty_value", "key": "intent", "detail": "intent must not be empty"})
     if intent and isinstance(data.get("intent"), str) and data["intent"].strip().lower() != intent.strip().lower():
         warnings.append("intent_mismatch")
     if "objective" in data and not isinstance(data["objective"], str):
         errors.append({"name": "invalid_type", "key": "objective", "detail": "objective must be string"})
+    elif isinstance(data.get("objective"), str) and not data["objective"].strip():
+        errors.append({"name": "empty_value", "key": "objective", "detail": "objective must not be empty"})
 
     for key in ("facts", "assumptions", "files_required", "symbols_required", "evidence", "risks", "proposed_changes", "validation_actions", "missing_information"):
         if key in data and not isinstance(data[key], list):
@@ -184,6 +188,8 @@ def validate_task_response(text: str, *, intent: str = "") -> TaskResponseValida
         warnings.append("empty_evidence")
     if isinstance(data.get("files_required"), list) and not data["files_required"]:
         warnings.append("empty_files_required")
+    if all(isinstance(data.get(key), list) and not data[key] for key in ("evidence", "proposed_changes", "validation_actions", "missing_information")):
+        warnings.append("empty_actionable_result")
 
     return TaskResponseValidationReport(
         ok=not errors,

@@ -19,6 +19,7 @@ class RouteMetaTests(unittest.TestCase):
 
     def test_imports(self):
         self.assertTrue(hasattr(api_dispatch, "ROUTE_META"))
+        self.assertTrue(hasattr(api_dispatch, "DYNAMIC_ROUTE_META"))
         self.assertTrue(hasattr(api_dispatch, "GET_ROUTES"))
         self.assertTrue(hasattr(api_dispatch, "POST_ROUTES"))
 
@@ -42,6 +43,7 @@ class RouteMetaTests(unittest.TestCase):
         self.assertIn("/interpret/rules", api_dispatch.GET_ROUTES)
         self.assertIn("/interpret", api_dispatch.POST_ROUTES)
         self.assertIn("/interpret", api_dispatch.API_PREFIXES)
+        self.assertIn("/api/v1/capabilities", api_dispatch.GET_ROUTES)
 
     def test_api_prefixes_covers_all_routes(self):
         # Cada ruta estatica debe tener un prefijo coincidente en API_PREFIXES.
@@ -74,6 +76,35 @@ class RouteMetaTests(unittest.TestCase):
                     hasattr(mod, fn_name),
                     f"{mod_name}.{fn_name} no existe",
                 )
+
+    def test_dynamic_routes_are_complete_and_resolvable(self):
+        import importlib
+
+        expected = {
+            ("GET", "/providers/<provider>/models"),
+            ("GET", "/providers/<provider>/active-models"),
+            ("POST", "/providers/<provider>/active-models"),
+            ("GET", "/plans/<plan_id>"),
+            ("POST", "/plans/<plan_id>/execute"),
+            ("GET", "/api/v1/capabilities/<capability_id>"),
+        }
+        declared = {(method, path) for method, path, _, _ in api_dispatch.DYNAMIC_ROUTE_META}
+        self.assertTrue(expected.issubset(declared))
+        for method, path, mod_name, fn_name in api_dispatch.DYNAMIC_ROUTE_META:
+            with self.subTest(route=f"{method} {path}"):
+                self.assertTrue(hasattr(importlib.import_module(mod_name), fn_name))
+
+    def test_plan_execute_is_post_not_get(self):
+        matched_get, _ = api_dispatch.resolve_get(object(), "/plans/p-1/execute")
+        matched_post, call = api_dispatch.resolve_post(object(), "/plans/p-1/execute", {})
+        self.assertFalse(matched_get)
+        self.assertTrue(matched_post)
+        self.assertTrue(callable(call))
+
+    def test_capability_detail_route_is_get(self):
+        matched, call = api_dispatch.resolve_get(object(), "/api/v1/capabilities/bago-runtime-inventory")
+        self.assertTrue(matched)
+        self.assertTrue(callable(call))
 
     def test_api_routes_auth_header(self):
         self.assertEqual(api_routes.auth_header(), "X-Bago-Token")

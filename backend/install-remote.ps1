@@ -38,7 +38,8 @@ param(
     [switch]$SkipTests,
     [switch]$NoPathUpdate,
     [switch]$NoShellIntegration,
-    [switch]$RequireSignature
+    [switch]$RequireSignature,
+    [switch]$AllowUpgrade
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,7 +62,7 @@ function Get-LatestRelease {
     $apiUrl = "https://api.github.com/repos/MarcValls/BAGO/releases?per_page=100"
     $releases = Invoke-RestMethod -Uri $apiUrl -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
     return @($releases) |
-        Where-Object { -not $_.draft -and -not $_.prerelease -and (Parse-VersionTag ([string]$_.tag_name)) -and (Test-ReleaseAllowed -ReleaseTag ([string]$_.tag_name) -CeilingTag $ceiling) } |
+        Where-Object { -not $_.draft -and -not $_.prerelease -and (Parse-VersionTag ([string]$_.tag_name)) -and ($AllowUpgrade -or (Test-ReleaseAllowed -ReleaseTag ([string]$_.tag_name) -CeilingTag $ceiling)) } |
         Sort-Object { Get-VersionSortKey ([string]$_.tag_name) } -Descending |
         Select-Object -First 1
 }
@@ -73,7 +74,7 @@ function Get-TaggedRelease {
     $url = "https://api.github.com/repos/MarcValls/BAGO/releases/tags/$tag"
     $release = Invoke-RestMethod -Uri $url -Headers @{ Accept = "application/vnd.github+json" } -UseBasicParsing
     $ceiling = Get-ManagerVersion
-    if (-not (Test-ReleaseAllowed -ReleaseTag ([string]$release.tag_name) -CeilingTag $ceiling)) {
+    if (-not $AllowUpgrade -and -not (Test-ReleaseAllowed -ReleaseTag ([string]$release.tag_name) -CeilingTag $ceiling)) {
         throw "La release $($release.tag_name) es futura respecto a la version permitida $ceiling."
     }
     return $release

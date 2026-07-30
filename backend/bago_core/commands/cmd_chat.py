@@ -134,7 +134,6 @@ def _start_monitor_bg(base_path: str, port: int = 7890) -> None:
 
     def _run():
         try:
-            os.environ["BAGO_STATE_ROOT"] = str(_resolve_state_root())
             add_piece_paths("tools.package")
             from process_monitor import serve
             serve(BAGO_ROOT, port=port, refresh=5, silent=True)

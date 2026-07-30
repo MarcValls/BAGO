@@ -17,9 +17,11 @@ describe('chat model selector', () => {
     ]);
   });
 
-  it('limits choices to active models for the current provider', () => {
+  it('keeps every available provider visible when a local active-model filter exists', () => {
     expect(buildChatModelOptions(entries, 'ollama-local', new Set(['phi4:latest']), null)).toEqual([
-      { key: 'ollama-local/phi4:latest', label: 'ollama-local · phi4:latest' }
+      { key: 'ollama-local/qwen3:8b', label: 'ollama-local · qwen3:8b' },
+      { key: 'ollama-local/phi4:latest', label: 'ollama-local · phi4:latest' },
+      { key: 'openai/gpt-5-mini', label: 'openai · gpt-5-mini' }
     ]);
   });
 

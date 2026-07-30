@@ -1,0 +1,117 @@
+{
+  "bundle_id": "bago.v4.evidence.real.community-knowledge",
+  "contract_version": "4.8.1",
+  "related_to": [
+    "docs\\contracts\\bago_v4_runtime_contract.json",
+    "docs\\contracts\\bago_v4_repl_contract.md",
+    "docs\\contracts\\bago_v4_evidence_contract.md",
+    "docs\\contracts\\bago_v4_knowledge_contract.md",
+    "docs\\contracts\\bago_v4_governance_contract.md",
+    "docs\\contracts\\bago_v4_engineering_contract.md"
+  ],
+  "summary": "Demuestra que BAGO v4 puede asistir al usuario de forma directa con una respuesta util y de forma indirecta preservando conocimiento, planificacion y estado reproducible.",
+  "details": {
+    "mode": "real",
+    "provider": "ollama-cloud",
+    "model": "gpt-oss:20b",
+    "session_id": "0531df8d-e7d",
+    "state_root": ".gabo\\state"
+  },
+  "status": "pass",
+  "recorded_at": "2026-07-30T05:21:16.526124+00:00",
+  "validation_commands": [
+    "python test_e2e.py",
+    "python -m bago_core.evidence_cli --test",
+    "python -m bago_core.evidence_cli --mode real --objective community-knowledge --provider ollama-cloud --model \"gpt-oss:20b\" --base-path . --output \"docs/evidence/provider_validation_4_8_1/ollama-cloud__gpt-oss-20b\" --overwrite"
+  ],
+  "checks": [
+    {
+      "id": "live-provider-health",
+      "status": "pass",
+      "detail": "El provider real respondio con salud positiva antes de cerrar el bundle."
+    },
+    {
+      "id": "session-runtime",
+      "status": "pass",
+      "detail": "La sesion genero artefactos persistentes en context.jsonl/timeline/tokens/meta."
+    },
+    {
+      "id": "direct-assistance",
+      "status": "pass",
+      "detail": "Existe una respuesta util al objetivo planteado por el usuario."
+    },
+    {
+      "id": "knowledge-persistence",
+      "status": "pass",
+      "detail": "La evidencia incluye conocimiento recuperable derivado de la sesion."
+    },
+    {
+      "id": "session-save",
+      "status": "pass",
+      "detail": "La sesion se guardo en disco con metadatos de continuidad."
+    }
+  ],
+  "artifacts": [
+    "session/context.jsonl",
+    "session/timeline.jsonl",
+    "session/tokens.json",
+    "session/meta.json",
+    "session/session.json",
+    "assistant_response.txt",
+    "commands\\results.json",
+    "knowledge\\recent_memories.json",
+    "objective.json"
+  ],
+  "files": [
+    {
+      "path": "assistant_response.txt",
+      "sha256": "e523170c0e096a16581f7f99666f1d13305cf78ab7bf20d34b2136b21a620afe",
+      "size_bytes": 89
+    },
+    {
+      "path": "commands/results.json",
+      "sha256": "db4935a3cafa17dc0f3c179781c0587913ec1574db0e24388785e3a01d3437b0",
+      "size_bytes": 1499
+    },
+    {
+      "path": "knowledge/recent_memories.json",
+      "sha256": "b78b206e0b94dbcac74287fb0361c555c733a1271af79345f8eda394c8c742f0",
+      "size_bytes": 1389
+    },
+    {
+      "path": "objective.json",
+      "sha256": "2769d9741e96f2d76c48fdf54af355dc42b4454488d251ef06857de281cd6ce3",
+      "size_bytes": 369
+    },
+    {
+      "path": "report.md",
+      "sha256": "d40ecedcda8adcfa8fb902f86a28f48e1a57d5667d6f06253686ab967912e9e4",
+      "size_bytes": 2355
+    },
+    {
+      "path": "session/context.jsonl",
+      "sha256": "5c8077c4d92aaf7731dc072ec72c0eb820c4688c4c7a9d3ca284be71d5ef92ae",
+      "size_bytes": 8630
+    },
+    {
+      "path": "session/meta.json",
+      "sha256": "760609b92b891b1ff8584b33059a1316ccad461598bbf17d06426e79dbb63664",
+      "size_bytes": 395994
+    },
+    {
+      "path": "session/session.json",
+      "sha256": "bef0db1a2ac0b914776954caff073d3151661472b3faf03a520a6969afe86776",
+      "size_bytes": 331548
+    },
+    {
+      "path": "session/timeline.jsonl",
+      "sha256": "c066b8e16567f250563402cf2f31be945a57fa5496908dbdeeb23d1694cddd70",
+      "size_bytes": 147
+    },
+    {
+      "path": "session/tokens.json",
+      "sha256": "ae00d5fe579b14ee68868d64a5e0cf118770498fedff9b9f65bf0db63427e924",
+      "size_bytes": 115
+    }
+  ]
+}

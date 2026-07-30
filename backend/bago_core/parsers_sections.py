@@ -180,6 +180,9 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
 
     doctor_parser = sub.add_parser("doctor", help="Salud integral de la instalacion BAGO")
     doctor_parser.add_argument("--json", action="store_true", help="Output JSON")
+    release_parser = sub.add_parser("release-check", help="Verifica tests, runtime, instalador y contratos de release")
+    release_parser.add_argument("--skip-tests", action="store_true", help="Omite tests largos")
+    release_parser.add_argument("--json", action="store_true", help="Output JSON")
 
 def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     orc_parser = sub.add_parser("orchestrate", help="Orchestrator v4 -- Flujo Operativo (Regla Fundamental)")

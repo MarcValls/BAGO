@@ -15,6 +15,11 @@ import { Icon } from '@/shared/Icon';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
+import { buildSnapshot } from '@/app/bootstrapSnapshot';
+import { readRecord, readText, toStringList } from '@/shared/unknownValue';
+import { normalizeChatResponse } from '@/shared/chatResponse';
+import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
+import { markFirstRunComplete, shouldShowFirstRun } from '@/features/first-run/firstRun';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -30,74 +35,6 @@ function hashString(input: string): string {
     hash = hash & 0x7fffffff;
   }
   return hash.toString(36);
-}
-
-function toStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter(Boolean);
-}
-
-function toNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function toBoolean(value: unknown): boolean | undefined {
-  return typeof value === 'boolean' ? value : undefined;
-}
-
-function readText(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asRecordArray(value: unknown): Array<Record<string, unknown>> {
-  return Array.isArray(value) ? value.filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)) as Array<Record<string, unknown>> : [];
-}
-
-function extractRecordArray(value: unknown, keys: string[]): Array<Record<string, unknown>> {
-  if (Array.isArray(value)) {
-    return asRecordArray(value);
-  }
-  if (!value || typeof value !== 'object') {
-    return [];
-  }
-  const data = value as Record<string, unknown>;
-  for (const key of keys) {
-    const candidate = data[key];
-    if (Array.isArray(candidate)) {
-      return asRecordArray(candidate);
-    }
-  }
-  return [];
-}
-
-function readReceiptId(receipt: unknown): string | undefined {
-  if (!receipt || typeof receipt !== 'object') return undefined;
-  const data = receipt as Record<string, unknown>;
-  return readText(data.envelope_id || data.id || data.receipt_id);
-}
-
-function readCertificationStatus(value: unknown): string | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const data = value as Record<string, unknown>;
-  return readText(data.status || data.state);
-}
-
-function readRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function readStringRecord(value: unknown): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(readRecord(value)).map(([key, entry]) => [key, String(entry || '')])
-  );
-}
-
-function readMenuStateValue(raw: any): Record<string, unknown> {
-  return readRecord(raw?.menu_state || raw?.session?.menu_state || raw?.status?.menu_state);
-}
-
-function readMenuStateText(value: unknown): string {
-  return String(value || '').trim();
 }
 
 function shouldOfferSeed(snapshot: UiBootstrapSnapshot | null, selectedRoot: string): boolean {
@@ -147,287 +84,8 @@ function normalizeWorkspaceHint(value: string): string {
   return clean;
 }
 
-function normalizeActions(snapshot: UiBootstrapSnapshot | null): UiAction[] {
-  const actions: UiAction[] = [];
-  if (!snapshot) return actions;
-  const enabled = snapshot.permissions.canChat;
-  actions.push({
-    id: 'open-chat',
-    label: 'Open chat',
-    kind: 'navigate',
-    enabled,
-    visible: true,
-    reasonDisabled: enabled ? undefined : 'Backend is not ready for chat',
-    payload: { section: 'chat' }
-  });
-  actions.push({
-    id: 'inspect-system',
-    label: 'Inspect system',
-    kind: 'inspect',
-    enabled: true,
-    visible: true,
-    payload: { command: '/status' }
-  });
-  if (snapshot.permissions.canInspectContext) {
-    actions.push({
-      id: 'inspect-context',
-      label: 'Inspect context',
-      kind: 'inspect',
-      enabled: true,
-      visible: true,
-      payload: { command: '/context inspect' }
-    });
-  }
-  if (snapshot.permissions.canViewEvidence) {
-    actions.push({
-      id: 'view-evidence',
-      label: 'Review evidence',
-      kind: 'navigate',
-      enabled: true,
-      visible: true,
-      payload: { section: 'evidence' }
-    });
-  }
-  if (snapshot.workspace.manifestState === 'missing') {
-    actions.push({
-      id: 'workspace-init',
-      label: 'Initialize workspace',
-      kind: 'mutation',
-      enabled: snapshot.permissions.canInitializeWorkspace,
-      visible: true,
-      reasonDisabled: snapshot.permissions.canInitializeWorkspace ? undefined : 'Not allowed by backend',
-      payload: { endpoint: 'project:init' }
-    });
-  }
-  if (snapshot.permissions.canLinkWorkspace && snapshot.workspace.root) {
-    actions.push({
-      id: 'workspace-link',
-      label: 'Link workspace',
-      kind: 'mutation',
-      enabled: true,
-      visible: true,
-      payload: { endpoint: 'project:link', root: snapshot.project.root || snapshot.workspace.repoRoot || snapshot.workspace.root }
-    });
-  }
-  if (snapshot.workspace.manifestState === 'invalid') {
-    actions.push({
-      id: 'workspace-repair',
-      label: 'Repair workspace',
-      kind: 'danger',
-      enabled: snapshot.permissions.canRepairWorkspace,
-      visible: true,
-      reasonDisabled: snapshot.permissions.canRepairWorkspace ? undefined : 'Repair disabled',
-      payload: { endpoint: 'project:init' }
-    });
-  }
-  return actions;
-}
-
 function commandKey(command: string): string {
   return command.trim().replace(/^\/+/, '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'command';
-}
-
-function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
-  if (!raw) return null;
-  const status = raw.status || {};
-  const session = raw.session || {};
-  const menuStateRaw = readMenuStateValue(raw);
-  const workspaceMeta = raw.workspace || {};
-  const binding = session.binding || {};
-  const projectRoot = String(status.project_root || status.repo_root || binding.project_root || '');
-  const workspaceRoot = String(status.workspace_state_root || session.binding?.workspace_state_root || '');
-  const scopeRoot = String(status.workspace_scope_root || binding.workspace_scope_root || projectRoot || '');
-  const mirrorRoot = String(status.workspace_mirror_root || binding.workspace_mirror_root || '');
-  const contextRoot = String(status.workspace_context_root || binding.workspace_context_root || '');
-  const authorizedRoot = String(status.authorized_root || binding.authorized_root || scopeRoot || '');
-  const repoRoot = String(status.repo_root || binding.repo_root || projectRoot || '');
-  const repoBranch = String(status.repo_branch || binding.repo_branch || '');
-  const activeBridges = toStringList(status.active_bridges || session.active_bridges);
-  const bindingConfirmed = Boolean(
-    status.workspace_state?.binding_confirmed
-    || session.workspace_state?.binding_confirmed
-    || binding.binding_confirmed
-    || status.binding_confirmed
-  );
-  const bindingReason = String(
-    status.workspace_state?.binding_reason
-    || session.workspace_state?.binding_reason
-    || binding.binding_reason
-    || status.binding_reason
-    || ''
-  );
-  const workspaceState = String(status.workspace_state || session.workspace_state?.workspace_state || '');
-  const seedSuggested = Boolean(workspaceMeta.seed_suggested);
-  const seedReason = String(workspaceMeta.seed_reason || '');
-  const manifestState: UiBootstrapSnapshot['workspace']['manifestState'] = workspaceState.includes('legacy')
-    ? 'legacy'
-    : workspaceState.includes('invalid')
-      ? 'invalid'
-      : workspaceState.includes('missing')
-        ? 'missing'
-        : bindingConfirmed
-          ? 'valid'
-          : workspaceRoot
-            ? 'unknown'
-            : 'missing';
-  const health = status.health || {};
-  const healthDetail = readText(health.detail);
-  const healthLatencyMs = toNumber(health.latency_ms);
-  const objective = String(status.objective || binding.objective || '');
-  const activeAgent = String(status.active_agent || session.active_agent || '');
-  const lastEnvelope = readRecord(raw.last_envelope);
-  const lastEnvelopeMeta = readRecord(lastEnvelope.metadata);
-  const lastReceipt = readRecord(raw.last_receipt);
-  const lastReceiptMeta = readRecord(lastReceipt.metadata);
-  const codeTaskClassification = readRecord(status.code_task || lastEnvelopeMeta.code_task || lastReceiptMeta.code_task);
-  const codeTaskContract = readRecord(status.code_task_contract || lastEnvelopeMeta.code_task_contract || lastReceiptMeta.code_task_contract);
-  const codeTaskContext = readRecord(lastEnvelopeMeta.code_context || lastReceiptMeta.code_context);
-  const lastReceiptId = readReceiptId(status.last_receipt);
-  const certificationStatus = readCertificationStatus(status.context_certification);
-  const menuState = {
-    activeCenter: readMenuStateText(menuStateRaw.activeCenter || status.active_center || session.active_center),
-    currentScreen: readMenuStateText(menuStateRaw.currentScreen || status.current_screen || session.current_screen),
-    operationState: readMenuStateText(menuStateRaw.operationState || status.operation_state || session.operation_state),
-    recommendedAction: readMenuStateText(menuStateRaw.recommendedAction || status.recommended_action || session.recommended_action),
-    allowedActions: toStringList(menuStateRaw.allowedActions || status.allowed_actions || session.allowed_actions),
-    secondaryActions: toStringList(menuStateRaw.secondaryActions || status.secondary_actions || session.secondary_actions),
-    blockedActions: toStringList(menuStateRaw.blockedActions || status.blocked_actions || session.blocked_actions),
-    blockedReasons: readStringRecord(menuStateRaw.blockedReasons || status.blocked_reasons || session.blocked_reasons),
-    pendingWork: readMenuStateText(menuStateRaw.pendingWork || status.pending_work || session.pending_work),
-    latestResult: readMenuStateText(menuStateRaw.latestResult || status.latest_result || session.latest_result),
-    version: readMenuStateText(menuStateRaw.version || status.contract_version || status.schema_version || raw.version)
-  };
-  const rawPermissions = readRecord(raw.permissions);
-  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false
-    ? 'error'
-    : bindingConfirmed ? 'confirmed'
-      : bindingReason ? 'degraded'
-        : !raw.status
-          ? 'loading'
-          : 'unknown';
-  const contextRevision = status.context_revision ?? session.status?.context_revision;
-  const contextState: UiBootstrapSnapshot['context']['state'] = certificationStatus === 'CERTIFIED'
-    ? 'confirmed'
-    : contextRevision && lastReceiptId
-      ? 'partial'
-      : contextRevision
-        ? 'stale'
-        : bindingConfirmed
-          ? 'unknown'
-          : 'blocked';
-  const explicitModelState = String(status.model_state || '').toLowerCase();
-  const modelState: UiBootstrapSnapshot['model']['state'] = explicitModelState === 'error'
-    ? 'error'
-    : explicitModelState === 'degraded'
-      ? 'degraded'
-      : (status.provider || session.provider) && (status.model || session.model || status.effective_model)
-        ? 'confirmed'
-        : 'unknown';
-  const effectiveProvider = String(status.provider || session.provider || '');
-  const effectiveModel = String(status.model || session.model || status.effective_model || '');
-  const permissions = {
-    canChat: toBoolean(rawPermissions.canChat) ?? (bindingConfirmed && Boolean(effectiveProvider) && Boolean(effectiveModel)),
-    canInitializeWorkspace: toBoolean(rawPermissions.canInitializeWorkspace) ?? !workspaceRoot,
-    canLinkWorkspace: toBoolean(rawPermissions.canLinkWorkspace) ?? (Boolean(workspaceRoot) && !bindingConfirmed),
-    canRepairWorkspace: toBoolean(rawPermissions.canRepairWorkspace) ?? (Boolean(workspaceRoot) && /manifest|workspace root|scope|legacy|invalid/i.test(bindingReason || workspaceState)),
-    canSeedWorkspace: toBoolean(rawPermissions.canSeedWorkspace) ?? Boolean(workspaceRoot),
-    canRunTools: toBoolean(rawPermissions.canRunTools) ?? (bindingConfirmed && activeBridges.length > 0),
-    canInspectContext: toBoolean(rawPermissions.canInspectContext) ?? (bindingConfirmed && Boolean(contextRevision || lastReceiptId)),
-    canViewEvidence: toBoolean(rawPermissions.canViewEvidence) ?? Boolean(lastReceiptId || (Array.isArray(raw.history?.messages) && raw.history.messages.length)),
-    canStopPipeline: toBoolean(rawPermissions.canStopPipeline) ?? Boolean(objective || contextRevision),
-    canRetryPipeline: toBoolean(rawPermissions.canRetryPipeline) ?? Boolean(objective || lastReceiptId || contextRevision)
-  };
-  const sessionState: UiBootstrapSnapshot['session']['state'] = session.session_id
-    ? (bindingConfirmed
-      ? 'valid'
-      : /manifest|workspace root|scope|legacy|invalid/i.test(bindingReason) ? 'blocked' : 'recoverable')
-    : 'missing';
-  const codeTask = Object.keys(codeTaskClassification).length || Object.keys(codeTaskContract).length || Object.keys(codeTaskContext).length
-    ? ({
-      classification: Object.keys(codeTaskClassification).length ? codeTaskClassification : undefined,
-      contract: Object.keys(codeTaskContract).length ? codeTaskContract : undefined,
-      context: Object.keys(codeTaskContext).length ? codeTaskContext : undefined
-    } as UiBootstrapSnapshot['codeTask'])
-    : undefined;
-
-  const snapshot: UiBootstrapSnapshot = {
-    system: {
-      state: systemState,
-      backendAvailable: true,
-      version: String(status.framework_version || status.version || ''),
-      apiVersion: String(status.api_version || ''),
-      contractVersion: String(status.contract_version || ''),
-      schemaVersion: String(status.schema_version || ''),
-      healthDetail: healthDetail || undefined,
-      healthLatencyMs,
-      bindingReason: bindingReason || undefined,
-      objective: objective || undefined,
-      activeAgent: activeAgent || undefined,
-      activeBridges: activeBridges.length ? activeBridges : undefined,
-      errorCode: readText(status.error_code || status.health?.error_code || '')
-    },
-    framework: {
-      root: String(status.framework_root || ''),
-      version: String(status.framework_version || status.version || ''),
-      confirmed: Boolean(status.framework_root),
-    },
-    project: {
-      root: projectRoot || undefined,
-      state: projectRoot ? 'confirmed' : 'not_detected'
-    },
-    workspace: {
-      id: String(status.workspace_id || session.binding?.workspace_id || ''),
-      root: workspaceRoot || undefined,
-      scopeRoot: scopeRoot || undefined,
-      mirrorRoot: mirrorRoot || undefined,
-      contextRoot: contextRoot || undefined,
-      authorizedRoot: authorizedRoot || undefined,
-      repoRoot: repoRoot || undefined,
-      repoBranch: repoBranch || undefined,
-      bindingReason: bindingReason || undefined,
-      mirrorReady: Boolean(status.workspace_mirror_ready),
-      manifestState,
-      linkedToSession: bindingConfirmed,
-      seedSuggested,
-      seedReason: seedReason || undefined
-    },
-    session: {
-      id: String(status.session_id || session.session_id || ''),
-      state: sessionState,
-      activeAgent: activeAgent || undefined
-    },
-    model: {
-      provider: String(status.provider || session.provider || ''),
-      adapter: String(status.adapter || ''),
-      runtime: String(status.runtime || status.model_runtime || ''),
-      configuredModel: String(status.model || session.model || ''),
-      effectiveModel: String(status.effective_model || status.model || session.model || ''),
-      state: modelState
-    },
-    context: {
-      state: contextState,
-      revision: contextRevision || undefined,
-      occupied: typeof status.context_occupied === 'number' ? status.context_occupied : undefined,
-      available: typeof status.context_available === 'number' ? status.context_available : undefined,
-      limit: typeof status.context_limit === 'number' ? status.context_limit : undefined,
-      reserve: typeof status.context_reserve === 'number' ? status.context_reserve : undefined,
-      limitingFactor: String(status.context_limiting_factor || ''),
-      receiptId: lastReceiptId || undefined,
-      certificationStatus: certificationStatus || undefined
-    },
-    permissions: {
-      ...permissions
-    },
-    capabilities: (status.capabilities as UiBootstrapSnapshot['capabilities']) || undefined,
-    error: raw.error && typeof raw.error === 'object' ? raw.error : undefined,
-    evidence: extractRecordArray(raw.evidence, ['items', 'receipts', 'claims', 'latest']),
-    jobs: extractRecordArray(raw.jobs, ['jobs', 'items']),
-    codeTask,
-    recommendedActions: [],
-    menuState
-  };
-  snapshot.recommendedActions = normalizeActions(snapshot);
-  return snapshot;
 }
 
 function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
@@ -435,12 +93,20 @@ function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
   return history.messages.slice(-30).map((message, index) => {
     const roleValue = String(message.role || 'assistant');
     const role: ChatTurn['role'] = roleValue === 'user' || roleValue === 'system' || roleValue === 'command' ? roleValue : 'assistant';
+    const metadata = readRecord(message.metadata);
+    const normalized = normalizeChatResponse(
+      String(message.content || message.text || message.message || ''),
+      metadata.response_state
+    );
     return {
       id: String(message.id || `history-${index}`),
       role,
-      text: String(message.content || message.text || message.message || ''),
-      status: 'done',
+      text: normalized.text,
+      status: normalized.state,
       receipt: (message.receipt || message.context_receipt || null) as Record<string, unknown> | null,
+      provider: String(message.provider || metadata.provider || ''),
+      model: String(message.model || metadata.model || ''),
+      clarification: normalized.clarification,
       raw: message,
       timestamp: String(message.timestamp || message.created_at || nowStamp())
     };
@@ -486,10 +152,9 @@ export function ControlPlane() {
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
+  const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
-  const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
@@ -549,7 +214,7 @@ export function ControlPlane() {
     setBooting(true);
     setLastMessage('consultando backend');
     try {
-      const data = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
+      const data = await clientRef.current.bootstrap();
       const nextSnapshot = applyBootData(data);
       // El snapshot moderno puede llegar antes de que el catálogo del router
       // quede materializado. La lectura dedicada mantiene el selector del chat
@@ -763,7 +428,7 @@ export function ControlPlane() {
       // Ctrl+1..8: navegar a la vista N (orden de MainSidebar)
       if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
         event.preventDefault();
-        const order: ActiveSection[] = ['home', 'chat', 'workspace', 'pipeline', 'context', 'evidence', 'graph', 'system'];
+        const order: ActiveSection[] = ['home', 'workspace', 'pipeline', 'context', 'evidence', 'graph', 'system'];
         const idx = parseInt(event.key, 10) - 1;
         const target = order[idx];
         if (target) {
@@ -808,34 +473,6 @@ export function ControlPlane() {
     persistUiState(uiState);
   }, [uiState]);
 
-  // Carga modelos activos del provider activo cuando cambia.
-  // Si no hay lista guardada, devuelve set vacío y el chat muestra todos
-  // los del router (fallback). Se mantiene aquí para que el GlobalHeader
-  // (que también los necesita) siga funcionando.
-  useEffect(() => {
-    const provider = (snapshot as any)?.model?.provider
-      || (snapshot as any)?.provider
-      || (snapshot as any)?.session?.provider
-      || (snapshot as any)?.system?.provider
-      || null;
-    if (!provider) {
-      setActiveProvider(null);
-      setActiveModels(new Set());
-      return;
-    }
-    setActiveProvider(provider);
-    const url = `${uiState.apiBase || readStoredApiBase()}/providers/${provider}/active-models`;
-    fetch(url)
-      .then((r) => r.ok ? r.json() : { active_models: [] })
-      .then((data) => {
-        if (Array.isArray(data?.active_models)) {
-          setActiveModels(new Set(data.active_models));
-        } else {
-          setActiveModels(new Set());
-        }
-      })
-      .catch(() => setActiveModels(new Set()));
-  }, [snapshot, uiState.apiBase]);
   const combinedActions = useMemo(() => snapshot?.recommendedActions || [], [snapshot]);
 
   // CANON[CTX-003]: cada vez que los turnos cambian, parseamos los
@@ -971,7 +608,7 @@ export function ControlPlane() {
     });
   };
 
-  const activateWorkspaceRoot = async (selectedRoot: string, sourceLabel: string, options?: { seedAfterLink?: boolean }): Promise<boolean> => {
+  const activateWorkspaceRoot = async (selectedRoot: string, sourceLabel: string, options?: { seedAfterLink?: boolean; forceInit?: boolean }): Promise<boolean> => {
     const cleanRoot = selectedRoot.trim();
     if (!cleanRoot) {
       setLastMessage('selección de workspace cancelada');
@@ -983,7 +620,7 @@ export function ControlPlane() {
 
     try {
       const nextRepairableState = snapshot?.workspace.manifestState;
-      if (nextRepairableState === 'missing' || nextRepairableState === 'invalid' || nextRepairableState === 'legacy') {
+      if (options?.forceInit || nextRepairableState === 'missing' || nextRepairableState === 'invalid' || nextRepairableState === 'legacy') {
         await clientRef.current.initProject(cleanRoot);
       }
       const linkResult = await clientRef.current.linkProject(cleanRoot);
@@ -1042,46 +679,34 @@ export function ControlPlane() {
     // /blacklist show
     if (clean.startsWith('/auto-config') || clean.startsWith('/blacklist')) {
       const [ns, action] = clean.replace(/^\/+/, '').split(/\s+/, 2);
-      const base = uiState.apiBase || readStoredApiBase();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (uiState.apiToken) headers['Authorization'] = `Bearer ${uiState.apiToken}`;
-      let endpoint = '';
-      let method = 'GET';
-      let body: any = undefined;
-      if (ns === 'auto-config') {
-        if (action === 'start')   { endpoint = '/configure/auto/start';   method = 'POST'; body = {}; }
-        else if (action === 'apply')  { endpoint = '/configure/auto/apply';   method = 'POST'; body = {}; }
-        else if (action === 'cancel') { endpoint = '/configure/auto/cancel';  method = 'POST'; body = {}; }
-        else                          { endpoint = '/configure/auto/status';  method = 'GET';  }
-      } else if (ns === 'blacklist') {
-        endpoint = '/providers/blacklist';
-      }
-      if (!endpoint) {
-        const result: BackendCommandResult = { ok: false, message: `comando no reconocido: ${clean}` };
-        setLastMessage(result.message || clean);
-        return result;
-      }
       try {
-        // FIX v0.2.1 (R2): timeout de 60s para comandos redirigidos
-        // (/configure/auto/*, /providers/blacklist). Evita que la UI
-        // quede esperando indefinidamente si el backend cuelga.
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 60_000);
-        let res: Response;
-        try {
-          res = await fetch(`${base}${endpoint}`, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
-        } finally {
-          clearTimeout(timer);
+        let data: Record<string, unknown>;
+        if (ns === 'blacklist') {
+          data = await clientRef.current.getModelBlacklist();
+        } else if (action === 'start') {
+          data = await clientRef.current.startAutoConfig();
+        } else if (action === 'apply') {
+          data = await clientRef.current.applyAutoConfig();
+        } else if (action === 'cancel') {
+          data = await clientRef.current.cancelAutoConfig();
+        } else if (!action || action === 'status') {
+          data = await clientRef.current.getAutoConfigStatus();
+        } else {
+          const result: BackendCommandResult = { ok: false, message: `comando no reconocido: ${clean}` };
+          setLastMessage(result.message || clean);
+          return result;
         }
-        const data = await res.json().catch(() => ({}));
         let summary = '';
         if (ns === 'auto-config') {
           if (action === 'start') summary = `Auto-config lanzada (${data.models_to_test ?? 0} modelos a probar)`;
-          else if (action === 'apply') summary = data.ok ? `Config aplicada: default=${data.applied?.default_model}` : data.error || 'falló';
+          else if (action === 'apply') {
+            const applied = readRecord(data.applied);
+            summary = data.ok ? `Config aplicada: default=${readText(applied.default_model)}` : readText(data.error) || 'falló';
+          }
           else if (action === 'cancel') summary = 'Auto-config cancelada';
           else summary = `Auto-config status: ${data.status} (${data.tested_models ?? 0}/${data.total_models ?? 0})`;
         } else {
-          const models = (data.models || []) as string[];
+          const models = toStringList(data.models);
           summary = models.length ? `Blacklist (${models.length}): ${models.slice(0, 3).join(', ')}${models.length > 3 ? '…' : ''}` : 'Blacklist vacía';
         }
         const result: BackendCommandResult = { ok: true, message: summary, data };
@@ -1176,6 +801,8 @@ export function ControlPlane() {
     }
 
     const stamp = Date.now();
+    const attemptedProvider = String(snapshot.model.provider || '');
+    const attemptedModel = String(snapshot.model.effectiveModel || snapshot.model.configuredModel || '');
     const userTurn: ChatTurn = {
       id: `user-${stamp}`,
       role: 'user',
@@ -1188,6 +815,8 @@ export function ControlPlane() {
       role: 'assistant',
       text: '',
       status: 'running',
+      provider: attemptedProvider,
+      model: attemptedModel,
       timestamp: nowStamp()
     };
     setTurns((current) => [...current, userTurn, assistantBuffer]);
@@ -1201,38 +830,36 @@ export function ControlPlane() {
         })
         : await clientRef.current.sendChat(text);
       const receipt = (payload.receipt || payload.context_receipt || null) as Record<string, unknown> | null;
+      const normalized = normalizeChatResponse(
+        String(payload.response || payload.message || ''),
+        payload.ok === false ? 'failed' : payload.response_state
+      );
+      const clarification = readRecord(payload.clarification);
       setTurns((current) => current.map((turn) => {
         if (turn.id !== assistantBuffer.id) return turn;
-        const responseText = String(payload.response || payload.message || turn.text || '');
         return {
           ...turn,
-          text: responseText,
-          status: payload.ok === false ? 'failed' : receipt ? 'done' : 'validating',
+          text: normalized.text || turn.text,
+          status: payload.ok === false ? 'failed' : normalized.state,
           receipt,
+          provider: String(payload.provider || snapshot.model.provider || ''),
+          model: String(payload.model || snapshot.model.effectiveModel || snapshot.model.configuredModel || ''),
+          clarification: Object.keys(clarification).length ? clarification : normalized.clarification,
           raw: payload
         };
       }));
-      if (payload.ok !== false) {
-        onInspect({
-          id: String(payload.session_id || assistantBuffer.id),
-          kind: 'chat-response',
-          title: 'Respuesta de BAGO',
-          summary: String(payload.response || payload.message || 'Respuesta recibida'),
-          detail: [
-            `provider: ${String(payload.provider || snapshot.model.provider || 'unknown')}`,
-            `receipt: ${receipt ? 'available' : 'pending'}`
-          ],
-          raw: safeJson(payload)
-        });
-      }
-      setLastMessage(String(payload.response || payload.message || 'respuesta recibida'));
+      setLastMessage(normalized.state === 'needs_confirmation' ? 'BAGO necesita confirmación' : normalized.text || 'respuesta recibida');
       await refreshAfterMutation();
-      if (receipt) {
-        setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, status: 'done' } : turn));
-      }
     } catch (error) {
       const messageText = error instanceof Error ? error.message : 'falló el chat';
-      setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, status: 'failed', text: turn.text || messageText } : turn));
+      const errorRecord = readRecord(error);
+      setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? {
+        ...turn,
+        status: 'failed',
+        text: turn.text || messageText,
+        provider: String(errorRecord.provider || turn.provider || attemptedProvider),
+        model: String(errorRecord.model || turn.model || attemptedModel)
+      } : turn));
       setLastMessage(messageText);
     } finally {
       setBusyCount((count) => Math.max(0, count - 1));
@@ -1442,13 +1069,12 @@ export function ControlPlane() {
     const base: PaletteItem[] = [
       // ─── Navegación ───
       { id: 'nav-home',     label: 'Inicio',      group: 'Navegación', icon: 'home',       shortcut: 'Ctrl+1', action: () => navigate('home') },
-      { id: 'nav-chat',     label: 'Chat',        group: 'Navegación', icon: 'chat',       shortcut: 'Ctrl+2', action: () => navigate('chat') },
-      { id: 'nav-workspace',label: 'Workspace',   group: 'Navegación', icon: 'workspace',  shortcut: 'Ctrl+3', action: () => navigate('workspace') },
-      { id: 'nav-pipeline', label: 'Pipeline',    group: 'Navegación', icon: 'pipeline',   shortcut: 'Ctrl+4', action: () => navigate('pipeline') },
-      { id: 'nav-context',  label: 'Contexto',    group: 'Navegación', icon: 'context',    shortcut: 'Ctrl+5', action: () => navigate('context') },
-      { id: 'nav-evidence', label: 'Evidencia',   group: 'Navegación', icon: 'evidence',   shortcut: 'Ctrl+6', action: () => navigate('evidence') },
-      { id: 'nav-graph',    label: 'Grafo',       group: 'Navegación', icon: 'graph',      shortcut: 'Ctrl+7', action: () => navigate('graph') },
-      { id: 'nav-system',   label: 'Operación',   group: 'Navegación', icon: 'system',     shortcut: 'Ctrl+8', action: () => navigate('system') },
+      { id: 'nav-workspace',label: 'Workspace',   group: 'Navegación', icon: 'workspace',  shortcut: 'Ctrl+2', action: () => navigate('workspace') },
+      { id: 'nav-pipeline', label: 'Pipeline',    group: 'Navegación', icon: 'pipeline',   shortcut: 'Ctrl+3', action: () => navigate('pipeline') },
+      { id: 'nav-context',  label: 'Contexto',    group: 'Navegación', icon: 'context',    shortcut: 'Ctrl+4', action: () => navigate('context') },
+      { id: 'nav-evidence', label: 'Evidencia',   group: 'Navegación', icon: 'evidence',   shortcut: 'Ctrl+5', action: () => navigate('evidence') },
+      { id: 'nav-graph',    label: 'Grafo',       group: 'Navegación', icon: 'graph',      shortcut: 'Ctrl+6', action: () => navigate('graph') },
+      { id: 'nav-system',   label: 'Operación',   group: 'Navegación', icon: 'system',     shortcut: 'Ctrl+7', action: () => navigate('system') },
       // ─── Vistas / paneles ───
       { id: 'toggle-sidebar', label: uiState.sidebarCollapsed ? 'Mostrar navegación' : 'Ocultar navegación', group: 'Paneles', icon: 'menu', shortcut: 'Ctrl+B', action: () => setUiState((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed })) },
       // ─── Modos ───
@@ -1500,6 +1126,15 @@ export function ControlPlane() {
     setLastMessage(`configurando proveedor ${provider}`);
     await clientRef.current.configureProvider(provider, config);
     await refreshAfterMutation();
+  };
+
+  const testProvider = (provider: string, config: { base_url?: string; api_key?: string; model?: string }) => clientRef.current.testProvider(provider, config);
+
+  const createAndActivateDemo = async (root: string): Promise<boolean> => {
+    setLastMessage('creando proyecto demo');
+    const result = await clientRef.current.createDemoProject(root);
+    if (result.ok === false) throw new Error(String(result.message || 'No se pudo crear el proyecto demo'));
+    return activateWorkspaceRoot(root, 'proyecto demo activado', { seedAfterLink: true, forceInit: true });
   };
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
@@ -1569,8 +1204,8 @@ export function ControlPlane() {
                 activeSection={uiState.activeSection}
                 snapshot={snapshot}
                 mode={uiState.globalMode}
-                showReadiness={uiState.activeSection !== 'workspace'}
-                showGlobalChips={uiState.activeSection !== 'workspace'}
+                showReadiness={false}
+                showGlobalChips={false}
               >
                 <ControlSections
                   section={uiState.activeSection}
@@ -1648,14 +1283,40 @@ export function ControlPlane() {
 
           </div>
         </div>
-        <ActivityToast message={lastMessage} busy={booting || busyCount > 0} state={snapshot?.system.state || 'unknown'} />
+        {(booting || busyCount > 0 || snapshot?.system.state === 'error') && (
+          <ActivityToast message={lastMessage} busy={booting || busyCount > 0} state={snapshot?.system.state || 'unknown'} />
+        )}
       </div>
 
       {uiState.commandPaletteOpen && (
         <CommandPalette actions={paletteActions} onClose={() => setAndPersistUiState({ commandPaletteOpen: false })} />
       )}
       {uiState.helpOpen && (
-        <HelpOverlay onClose={() => setAndPersistUiState({ helpOpen: false })} />
+        <HelpOverlay
+          onClose={() => setAndPersistUiState({ helpOpen: false })}
+          onOpenFirstRun={() => {
+            setAndPersistUiState({ helpOpen: false });
+            setFirstRunOpen(true);
+          }}
+        />
+      )}
+      {firstRunOpen && !booting && snapshot && (
+        <FirstRunWizard
+          snapshot={snapshot}
+          providers={providers}
+          busy={busyCount > 0}
+          onRefresh={bootstrap}
+          onConfigureProvider={configureProvider}
+          onTestProvider={testProvider}
+          onActivateWorkspace={(root) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: true })}
+          onCreateDemo={createAndActivateDemo}
+          onClose={() => setFirstRunOpen(false)}
+          onFinish={() => {
+            markFirstRunComplete(window.localStorage);
+            setFirstRunOpen(false);
+            openShell(snapshot.permissions.canChat ? 'chat' : 'home');
+          }}
+        />
       )}
       {workspacePickerOpen && (
       <WorkspacePickerDialog
@@ -1716,9 +1377,10 @@ function ActivityToast({ message, busy, state }: ActivityToastProps) {
 
 interface HelpOverlayProps {
   onClose: () => void;
+  onOpenFirstRun: () => void;
 }
 
-function HelpOverlay({ onClose }: HelpOverlayProps) {
+function HelpOverlay({ onClose, onOpenFirstRun }: HelpOverlayProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' || event.key === '?') onClose();
@@ -1756,6 +1418,7 @@ function HelpOverlay({ onClose }: HelpOverlayProps) {
             </div>
           ))}
         </section>
+        <button type="button" className="secondary-button" onClick={onOpenFirstRun}>Abrir recorrido inicial</button>
         <p className="help-note">El sidebar contiene destinos. El chat es un panel conmutado, no una pantalla. El inspector aparece como drawer y no reduce el espacio vertical del workspace.</p>
       </div>
     </div>
