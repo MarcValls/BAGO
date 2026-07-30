@@ -1375,6 +1375,7 @@ export function ControlSections(props: Props) {
           try { window.sessionStorage.setItem('bago.context.initial-branch', id); } catch { /* storage unavailable */ }
           props.onSetSection('context');
         }}
+        onRefresh={props.onRefresh}
       />
     );
   }

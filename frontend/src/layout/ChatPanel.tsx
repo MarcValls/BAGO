@@ -60,6 +60,7 @@ interface Props {
   onStartNew?: () => void;
   onContinue?: () => void;
   onChooseRecent?: (id: string) => void;
+  onRefresh?: () => void;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -211,6 +212,7 @@ export function ChatPanel(props: Props) {
                     <button type="button" className="primary-button" onClick={() => { setWelcomeOpen(false); props.onStartNew?.(); }}><span className="start-chat-key">1</span> Nuevo</button>
                     <button type="button" className="secondary-button" onClick={props.onContinue}><span className="start-chat-key">2</span> Continuar</button>
                   </div>
+                  <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} />
                   {props.recentProjects?.length ? (
                     <section className="start-chat-recent" aria-label="Cinco proyectos recientes">
                       <div className="start-chat-recent-head"><strong>3 · Proyectos recientes</strong><span>Elige uno para continuar</span></div>
@@ -369,4 +371,29 @@ export function ChatPanel(props: Props) {
       </div>
     </div>
   );
+}
+
+function RuntimeStatus({ snapshot, onRefresh }: { snapshot: UiBootstrapSnapshot | null; onRefresh?: () => void }) {
+  const backend = snapshot?.system.backendAvailable ? snapshot.system.state : 'error';
+  const provider = snapshot?.model.provider && snapshot.model.effectiveModel
+    ? `${snapshot.model.provider} · ${snapshot.model.effectiveModel}` : 'No configurado';
+  const workspace = snapshot?.workspace.linkedToSession
+    ? `Vinculado · ${snapshot.workspace.manifestState}` : 'No vinculado';
+  const context = snapshot?.context.state || 'unknown';
+  const session = snapshot?.session.state || 'missing';
+  return <section className="start-chat-runtime-status" aria-label="Estado real de BAGO">
+    <div className="start-chat-runtime-head"><strong>Estado real de BAGO</strong><span>Leído del backend activo</span>{onRefresh && <button type="button" className="text-button" onClick={onRefresh}>Actualizar</button>}</div>
+    <div className="start-chat-runtime-grid">
+      <RuntimeStatusItem label="Backend" value={backend} ok={backend === 'confirmed' || backend === 'degraded'} />
+      <RuntimeStatusItem label="Sesión" value={session} ok={session === 'valid' || session === 'recoverable'} />
+      <RuntimeStatusItem label="Proveedor / modelo" value={provider} ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'} />
+      <RuntimeStatusItem label="Workspace" value={workspace} ok={Boolean(snapshot?.workspace.linkedToSession && snapshot.workspace.manifestState === 'valid')} />
+      <RuntimeStatusItem label="Contexto" value={context} ok={context === 'confirmed' || context === 'partial'} />
+      <RuntimeStatusItem label="Versión runtime" value={snapshot?.system.version || snapshot?.framework.version || 'No observada'} ok={Boolean(snapshot?.system.version || snapshot?.framework.version)} />
+    </div>
+  </section>;
+}
+
+function RuntimeStatusItem({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+  return <div className={`start-chat-runtime-item ${ok ? 'is-ok' : 'is-pending'}`}><span className="start-chat-runtime-dot" /><div><small>{label}</small><strong title={value}>{value}</strong></div></div>;
 }
