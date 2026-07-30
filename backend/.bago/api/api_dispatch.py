@@ -302,4 +302,5 @@ API_PREFIXES = (
     "/vision",
     "/plans",
     "/configure",
+    "/release",
 )
