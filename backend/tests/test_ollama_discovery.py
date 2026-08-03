@@ -68,3 +68,44 @@ def test_router_discovers_disk_models(tmp_path, monkeypatch):
     names = [entry.model_id for entry in entries]
 
     assert "granite3.2:8b" in names
+
+
+def test_manual_toggle_disables_auto_and_marks_active_model():
+    sel = repl_model_router.Selection(
+        entries=[
+            repl_model_router.ModelEntry("ollama-local", "llama3.2:3b", selected=False),
+            repl_model_router.ModelEntry("ollama-cloud", "gpt-4o", selected=False),
+        ],
+        auto_switch=True,
+        last_pick="",
+        last_pick_at="",
+    )
+
+    repl_model_router.toggle(sel, "ollama-cloud/gpt-4o")
+
+    assert sel.auto_switch is False
+    assert sel.last_pick == "ollama-cloud/gpt-4o"
+    assert sel.entries[1].selected is True
+    assert "activo=ollama-cloud/gpt-4o" in repl_model_router.render_selection(sel)
+
+
+def test_manager_catalog_keeps_cloud_fallback_entries():
+    class FakeManager:
+        def list_model_catalog(self):
+            return [
+                {
+                    "provider": "ollama-local",
+                    "id": "llama3.2:3b",
+                    "wire_name": "llama3.2:3b",
+                    "context_tokens": 32768,
+                    "best_for": "general",
+                    "available": True,
+                }
+            ]
+
+    entries = repl_model_router.discover_models(FakeManager())
+    keys = {entry.key() for entry in entries}
+
+    assert "ollama-local/llama3.2:3b" in keys
+    assert "openai/gpt-4o" in keys
+    assert "anthropic/claude-sonnet-4" in keys

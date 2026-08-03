@@ -34,6 +34,11 @@ class NoVisiblePowerShellTests(unittest.TestCase):
         self.assertIn("development_root: developmentRoot || ''", runtime)
         self.assertIn("resolveDevelopmentRuntimeRoot()", runtime)
 
+    def test_cmd_wrapper_uses_absolute_powershell_path(self) -> None:
+        cmd = (ROOT / "bago.cmd").read_text(encoding="utf-8")
+        self.assertIn(r"WindowsPowerShell\v1.0\powershell.exe", cmd)
+        self.assertNotIn("powershell -NoProfile -ExecutionPolicy Bypass -File", cmd)
+
 
 if __name__ == "__main__":
     unittest.main()

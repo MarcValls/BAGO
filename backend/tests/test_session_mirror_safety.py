@@ -60,6 +60,20 @@ def test_validate_project_root_requires_a_marker(tmp_path):
     ) == project.resolve()
 
 
+def test_validate_project_root_rejects_protected_system_paths(tmp_path, monkeypatch):
+    protected_root = tmp_path / "Windows"
+    protected_root.mkdir()
+    system32 = protected_root / "System32"
+    system32.mkdir()
+
+    monkeypatch.setattr(session_manager, "SYSTEM_ROOT", protected_root)
+    monkeypatch.setattr(session_manager, "PROGRAM_FILES_ROOT", tmp_path / "Program Files")
+    monkeypatch.setattr(session_manager, "PROGRAM_FILES_X86_ROOT", tmp_path / "Program Files (x86)")
+
+    with pytest.raises(RuntimeError, match="ruta protegida"):
+        session_manager.SessionManager._validate_project_root(system32)
+
+
 def test_prepare_session_mirror_stops_at_size_limit(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()

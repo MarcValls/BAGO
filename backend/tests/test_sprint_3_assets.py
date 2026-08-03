@@ -57,16 +57,16 @@ class Sprint3AssetTests(unittest.TestCase):
         ]:
             self.assertTrue(path.exists(), str(path))
 
-        commands = (ROOT / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+        commands = (ROOT / "docs" / "commands.md").read_text(encoding="utf-8")
         self.assertIn("# BAGO Commands", commands)
         self.assertIn("AUTO-GENERATED", commands)
 
-        testing = (ROOT / "docs" / "TESTING.md").read_text(encoding="utf-8")
+        testing = (ROOT / "docs" / "testing.md").read_text(encoding="utf-8")
         self.assertIn("# BAGO Testing", testing)
         self.assertIn("Required Gates", testing)
         self.assertIn("Optional Gates", testing)
 
-        security = (ROOT / "docs" / "SECURITY.md").read_text(encoding="utf-8")
+        security = (ROOT / "docs" / "security.md").read_text(encoding="utf-8")
         self.assertIn("# BAGO Security", security)
         self.assertIn("Command Policy", security)
         self.assertIn("Interface Authority", security)
@@ -74,15 +74,15 @@ class Sprint3AssetTests(unittest.TestCase):
         self.assertIn("Agents And Automation", security)
         self.assertIn("Stop Rules", security)
 
-        mvp = (ROOT / "docs" / "MVP.md").read_text(encoding="utf-8")
+        mvp = (ROOT / "docs" / "mvp.md").read_text(encoding="utf-8")
         self.assertIn("# BAGO MVP Boundary", mvp)
         self.assertIn("Stable MVP", mvp)
         self.assertIn("Outside The MVP", mvp)
         self.assertIn("Product Rule", mvp)
-        self.assertIn("docs/CLAIMS.md", mvp)
-        self.assertIn("docs/SECURITY.md", mvp)
+        self.assertIn("docs/claims.md", mvp)
+        self.assertIn("docs/security.md", mvp)
 
-        resolver = (ROOT / "docs" / "RESOLVER_ARCHITECTURE.md").read_text(encoding="utf-8")
+        resolver = (ROOT / "docs" / "resolver-architecture.md").read_text(encoding="utf-8")
         self.assertIn("# BAGO Resolver Architecture", resolver)
         self.assertIn("Live Authority", resolver)
         self.assertIn("Responsibilities", resolver)
@@ -90,12 +90,12 @@ class Sprint3AssetTests(unittest.TestCase):
         self.assertNotIn("## Goal", resolver)
         self.assertNotIn("## Implementation Phases", resolver)
 
-        rl = (ROOT / "docs" / "RL_ENGINE.md").read_text(encoding="utf-8")
+        rl = (ROOT / "docs" / "rl-engine.md").read_text(encoding="utf-8")
         self.assertIn("# BAGO RL Engine", rl)
         self.assertIn("Live Authority", rl)
         self.assertIn("Current Contract", rl)
         self.assertIn("shadow/off", rl)
-        self.assertIn("docs/SECURITY.md", rl)
+        self.assertIn("docs/security.md", rl)
         self.assertNotIn("## Policy Layer", rl)
         self.assertNotIn("## Authority Model", rl)
 

@@ -41,11 +41,11 @@ def run_e2e() -> int:
         print(f"   ✓ Session ID: {mgr.session_id}")
 
         print("\n[2/10] Testing ConfigManager...")
-        assert mgr.config.get("default_provider") == "ollama-local"
+        assert mgr.config.get("default_provider") == "ollama-cloud"
         mgr.config.set("default_provider", "openrouter")
         assert mgr.config.get("default_provider") == "openrouter"
         mgr.config.reset()
-        assert mgr.config.get("default_provider") == "ollama-local"
+        assert mgr.config.get("default_provider") == "ollama-cloud"
         print("   ✓ Config get/set/reset OK")
 
         print("\n[3/10] Testing CredentialManager...")

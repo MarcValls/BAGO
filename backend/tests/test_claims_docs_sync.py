@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
-CLAIMS = ROOT / "docs" / "CLAIMS.md"
+CLAIMS = ROOT / "docs" / "claims.md"
 
 
 class ClaimsDocsSyncTests(unittest.TestCase):
@@ -20,9 +20,9 @@ class ClaimsDocsSyncTests(unittest.TestCase):
         self.assertIn("docs/claims.md", readme)
         self.assertIn("docs/testing.md", readme)
         self.assertIn("docs/mvp.md", readme)
-        self.assertIn("docs/support_matrix.md", readme)
+        self.assertIn("docs/support-matrix.md", readme)
         self.assertIn("docs/security.md", readme)
-        self.assertIn("docs/ui_canonical_contract.md", readme)
+        self.assertIn("docs/ui-canonical-contract.md", readme)
 
         for label in [
             "| persistent session |",
@@ -47,7 +47,7 @@ class ClaimsDocsSyncTests(unittest.TestCase):
         expected = {
             "rl policy layer": "docs/mvp.md",
             "agents and autopilot": "docs/mvp.md",
-            "cloud multiprovider completeness": "docs/support_matrix.md",
+            "cloud multiprovider completeness": "docs/support-matrix.md",
         }
 
         for label, docref in expected.items():

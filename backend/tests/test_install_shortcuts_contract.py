@@ -39,8 +39,8 @@ def test_install_service_reports_shortcuts_and_install_path():
 def test_uninstall_and_launchers_propagate_context_menu_flag():
     root = Path(__file__).resolve().parents[1]
     cli = (root / "bago_core" / "cli.py").read_text(encoding="utf-8")
-    uninstall_ps1 = (root / "bago-uninstall.ps1").read_text(encoding="utf-8")
-    uninstall_cmd = (root / "bago-uninstall.cmd").read_text(encoding="utf-8")
+    uninstall_ps1 = (root / "uninstall-bago.ps1").read_text(encoding="utf-8")
+    uninstall_cmd = (root / "uninstall-bago.cmd").read_text(encoding="utf-8")
     lifecycle = (root / "bago_core" / "commands" / "cmd_lifecycle.py").read_text(encoding="utf-8")
     preload = (root / "electron" / "preload.cjs").read_text(encoding="utf-8")
     dependency = (root / "electron" / "dependency-service.cjs").read_text(encoding="utf-8")

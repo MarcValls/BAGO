@@ -20,7 +20,7 @@ class UiCognitiveLoadContractTests(unittest.TestCase):
         self.assertIn("GROUPS", sidebar)
 
     def test_review_defines_required_cognitive_load_methods(self) -> None:
-        review = (ROOT / "docs" / "UI_COGNITIVE_LOAD_REVIEW.md").read_text(encoding="utf-8")
+        review = (ROOT / "docs" / "ui-cognitive-load-review.md").read_text(encoding="utf-8")
         for phrase in [
             "one canonical destination navigator",
             "Progressive disclosure",
