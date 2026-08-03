@@ -9,6 +9,7 @@ import { ProviderDescriptor } from '../shared/provider-config';
 import { Icon } from '../shared/Icon';
 import { normalizeProviderModels } from '../shared/providerModels';
 import { normalizeProviderBaseUrl } from '../shared/providerRegistration';
+import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 interface Props {
   descriptor: ProviderDescriptor;
@@ -49,6 +50,7 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
   const [modelsLoading, setModelsLoading] = useState(false);
   const [savingModels, setSavingModels] = useState(false);
   const [discoverySource, setDiscoverySource] = useState<string>('session-manager');
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose, { closeDisabled: saving || savingModels });
 
   // Detección de CLI automática para auth_delegated_runtime
   useEffect(() => {
@@ -160,8 +162,8 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
   };
 
   return (
-    <div className="provider-config-modal-backdrop" role="dialog" aria-modal="true" aria-label={`Configurar ${descriptor.label}`}>
-      <div className="provider-config-modal">
+    <div className="provider-config-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving && !savingModels) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} className="provider-config-modal" role="dialog" aria-modal="true" aria-label={`Configurar ${descriptor.label}`}>
         <header className="provider-config-modal-head">
           <div>
             <span className="provider-config-modal-eyebrow">{descriptor.protocol.replace('protocol_', '')}</span>

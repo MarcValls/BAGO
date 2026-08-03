@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { BagoClient, createBagoClient } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
 import { resolveProviderDescriptor } from '@/shared/provider-catalog';
 import { ProviderDescriptor } from '@/shared/provider-config';
 import { normalizeProviderModels } from '@/shared/providerModels';
 import { ProviderConfigModal } from './ProviderConfigModal';
+import { InterpretControls, MemoryOperations, ProviderRuntimeTools, SimulationControls, SubagentCatalogue, VisionOperations } from './OperationalTools';
 import type { ContextTargetKind, SelectionRecord } from '@/contracts/backend';
 
-type TabId = 'overview' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
+type TabId = 'overview' | 'router' | 'providers' | 'memory' | 'vision' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
 
 interface Tab {
   id: TabId;
@@ -20,6 +21,8 @@ const TABS: Tab[] = [
   { id: 'overview', label: 'Resumen', icon: 'system' },
   { id: 'router', label: 'Router', icon: 'model' },
   { id: 'providers', label: 'Proveedores', icon: 'server' },
+  { id: 'memory', label: 'Memoria', icon: 'bank' },
+  { id: 'vision', label: 'Visión', icon: 'review' },
   { id: 'audit', label: 'Auditoría', icon: 'inspector' },
   { id: 'simulation', label: 'Simulación', icon: 'pipeline' },
   { id: 'rl', label: 'RL', icon: 'live', experimental: true },
@@ -27,6 +30,15 @@ const TABS: Tab[] = [
   { id: 'interpret', label: 'Interpret', icon: 'command' },
   { id: 'routes', label: 'Rutas API', icon: 'actions' }
 ];
+
+function runtimeValueLabel(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  const normalized = raw.toLowerCase();
+  if (normalized === 'observer-only') return 'Solo observación';
+  if (normalized === 'off') return 'Inactivo';
+  if (normalized === 'on') return 'Activo';
+  return raw || '?';
+}
 
 interface Props {
   apiBase: string;
@@ -197,6 +209,7 @@ export function SystemTabs(props: Props) {
   }, [active, client]);
 
   const simulationStatus = asRecord(simulation?.status);
+  const simulationActive = simulationStatus.enabled === true && String(simulationStatus.mode || 'off') !== 'off';
   const rlStatus = asRecord(rl);
 
   async function runRlAction(action: 'refresh' | 'shadow' | 'train' | 'eval') {
@@ -359,6 +372,7 @@ export function SystemTabs(props: Props) {
                 })}
               </ul>
             )}
+            <AutoConfigTool client={client} />
           </section>
         )}
 
@@ -453,6 +467,8 @@ export function SystemTabs(props: Props) {
               })}
             </ul>
             )}
+            <BlacklistTool client={client} />
+            <ProviderRuntimeTools client={client} />
           </section>
         )}
 
@@ -498,12 +514,13 @@ export function SystemTabs(props: Props) {
         {active === 'simulation' && (
           <section className="system-tab-panel" role="tabpanel">
             <h3>Simulación</h3>
-            <p className="system-tab-description">Estado y eventos de la simulación shadow (observer-only).</p>
+            <p className="system-tab-description">Estado y eventos de la simulación en modo de observación.</p>
             {!simulation ? <LoadingState label="simulación" /> : (
               <div className="simulation-stack">
-                <DataBlock label="Estado" value={String(simulationStatus.enabled ? 'ON' : 'OFF')} hint={String(simulationStatus.mode || '?')} />
-                <DataBlock label="Autoridad" value={String(simulationStatus.authority || '?')} hint={String(simulationStatus.mode_note || '').slice(0, 60)} />
+                <DataBlock label="Estado" value={simulationActive ? 'Activo' : 'Inactivo'} hint={runtimeValueLabel(simulationStatus.mode)} />
+                <DataBlock label="Autoridad" value={runtimeValueLabel(simulationStatus.authority)} hint={String(simulationStatus.mode_note || '').slice(0, 60)} />
                 <DataBlock label="Eventos registrados" value={String(simulationStatus.events_logged ?? '?')} />
+                <SimulationControls client={client} current={simulationStatus} onChanged={(next) => setSimulation((current) => ({ ...(current || {}), status: next }))} />
                 <details>
                   <summary>Eventos</summary>
                   <JsonView data={simulation.events} />
@@ -515,24 +532,24 @@ export function SystemTabs(props: Props) {
 
         {active === 'rl' && (
           <section className="system-tab-panel" role="tabpanel">
-            <h3>RL <span className="system-tab-badge-experimental">experimental</span></h3>
-            <p className="system-tab-description">Entrena, evalúa y registra recomendaciones. La autoridad permanece en observer-only: nunca ejecuta acciones.</p>
+            <h3>RL <span className="system-tab-badge-experimental">Experimental</span></h3>
+            <p className="system-tab-description">Entrena, evalúa y registra recomendaciones. La autoridad permanece en solo observación: nunca ejecuta acciones.</p>
             {error && <ErrorState error={error} />}
             {!rl ? <LoadingState label="RL" /> : (
               <div className="rl-stack">
-                <DataBlock label="Estado" value={String(rlStatus.enabled ? 'ON' : 'OFF')} hint={String(rlStatus.mode || '?')} />
-                <DataBlock label="Autoridad" value={String(rlStatus.authority || '?')} />
+                <DataBlock label="Estado" value={rlStatus.enabled ? 'Activo' : 'Inactivo'} hint={runtimeValueLabel(rlStatus.mode)} />
+                <DataBlock label="Autoridad" value={runtimeValueLabel(rlStatus.authority)} />
                 <DataBlock label="Eventos" value={String(rlStatus.events_logged ?? '?')} />
                 <DataBlock label="Puede ejecutar" value={rlStatus.can_execute === true ? 'SÍ' : 'NO'} hint="Bloqueo de seguridad permanente" />
                 <div className="rl-actions" aria-label="Controles RL">
                   <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('refresh')}>Actualizar</button>
-                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('shadow')}>{rlStatus.enabled ? 'Desactivar shadow' : 'Activar shadow'}</button>
+                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('shadow')}>{rlStatus.enabled ? 'Desactivar simulación' : 'Activar simulación'}</button>
                   <button className="primary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('train')}>Entrenar BC</button>
                   <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('eval')}>Evaluar política</button>
                 </div>
                 {rlBusy && <div className="system-tab-meta">Ejecutando {rlBusy}…</div>}
                 {rlResult && <details open><summary>Resultado de la última acción</summary><JsonView data={rlResult} /></details>}
-                {Boolean(rlStatus.log_path) && <div className="system-tab-meta">Log: {String(rlStatus.log_path)}</div>}
+                {Boolean(rlStatus.log_path) && <div className="system-tab-meta">Registro: {String(rlStatus.log_path)}</div>}
                 <details>
                   <summary>Detalle completo</summary>
                   <JsonView data={rl} />
@@ -547,9 +564,7 @@ export function SystemTabs(props: Props) {
             <h3>Subagentes</h3>
             <p className="system-tab-description">Catálogo de subagentes disponibles para el pipeline.</p>
             {!subagents ? <LoadingState label="subagentes" /> : (
-              subagents.error
-                ? <ErrorState error={String(subagents.error)} />
-                : <JsonView data={subagents} />
+              <SubagentCatalogue payload={subagents} />
             )}
           </section>
         )}
@@ -558,6 +573,10 @@ export function SystemTabs(props: Props) {
           <section className="system-tab-panel" role="tabpanel">
             <h3>Interpret</h3>
             <p className="system-tab-description">Reglas de interpretación e historial de invocaciones.</p>
+            <InterpretControls client={client} onCompleted={async () => {
+              const [rules, history] = await Promise.all([client.getInterpretRules(), client.getInterpretHistory()]);
+              setInterpret({ rules, history });
+            }} />
             {!interpret.rules && !interpret.history ? <LoadingState label="interpret" /> : (
               <div className="interpret-stack">
                 <details open>
@@ -573,6 +592,10 @@ export function SystemTabs(props: Props) {
           </section>
         )}
 
+        {active === 'memory' && <MemoryOperations client={client} />}
+
+        {active === 'vision' && <VisionOperations client={client} />}
+
         {active === 'routes' && (
           <section className="system-tab-panel" role="tabpanel">
             <h3>Rutas API</h3>
@@ -584,6 +607,236 @@ export function SystemTabs(props: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+function AutoConfigTool({ client }: { client: BagoClient }) {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [busy, setBusy] = useState<'refresh' | 'start' | 'apply' | 'cancel' | ''>('');
+  const [message, setMessage] = useState('');
+  const [hasError, setHasError] = useState(false);
+  const status = String(data?.status || 'idle').toLowerCase();
+  const lastJob = asRecord(data?.last_job);
+  const generatedConfig = asRecord(lastJob.generated_config);
+  const savedProposal = status === 'idle' && String(lastJob.status || '').toLowerCase() === 'done';
+  const total = Number(data?.total_models ?? lastJob.total_models ?? 0);
+  const tested = Number(data?.tested_models ?? lastJob.tested_models ?? 0);
+  const progress = total > 0 ? Math.min(100, Math.round((tested / total) * 100)) : 0;
+  const canApply = (status === 'done' || savedProposal) && Object.keys(generatedConfig).length > 0;
+  const statusLabel = status === 'running'
+    ? 'Probando modelos · ' + tested + '/' + (total || '?')
+    : savedProposal
+      ? 'Última propuesta lista para revisar'
+      : status === 'done'
+      ? 'Propuesta lista para revisar'
+      : status === 'error'
+        ? 'La última ejecución falló'
+        : 'Lista para ejecutar';
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const next = await client.getAutoConfigStatus();
+        if (!cancelled) {
+          setData(next);
+          setMessage('');
+          setHasError(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : String(error));
+          setHasError(true);
+        }
+      }
+    };
+    void refresh();
+    const timer = status === 'running' ? window.setInterval(() => void refresh(), 2500) : undefined;
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearInterval(timer);
+    };
+  }, [client, status]);
+
+  async function run(action: 'refresh' | 'start' | 'apply' | 'cancel') {
+    setBusy(action);
+    setMessage('');
+    setHasError(false);
+    try {
+      const nextResult = action === 'start'
+        ? await client.startAutoConfig()
+        : action === 'apply'
+          ? await client.applyAutoConfig()
+          : action === 'cancel'
+            ? await client.cancelAutoConfig()
+            : await client.getAutoConfigStatus();
+      setResult(nextResult);
+      setData(action === 'refresh' ? nextResult : await client.getAutoConfigStatus());
+      if (action === 'start') setMessage('Auto-configuración iniciada. El progreso se actualizará automáticamente.');
+      if (action === 'apply') setMessage('Configuración propuesta aplicada.');
+      if (action === 'cancel') setMessage('Auto-configuración cancelada.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      setHasError(true);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <details className="system-tool-card" data-system-tool="auto-config">
+      <summary>
+        <span className="system-tool-icon"><Icon name="sparkle" size={16} /></span>
+        <span className="system-tool-summary">
+          <strong>Auto-configuración local</strong>
+          <small>{statusLabel}</small>
+        </span>
+        <span className={'provider-status ' + (status === 'error' ? 'is-off' : status === 'done' || savedProposal ? 'is-on' : '')}>
+          {status === 'running' ? progress + '%' : status === 'done' || savedProposal ? 'lista' : status === 'error' ? 'error' : 'manual'}
+        </span>
+      </summary>
+      <div className="system-tool-content">
+        <p>Prueba modelos disponibles y propone default, traductor, blacklist y timeouts para esta máquina. Nunca aplica cambios sin tu confirmación.</p>
+        <div className="system-tool-metrics">
+          <DataBlock label="Estado" value={statusLabel} />
+          <DataBlock label="Progreso" value={status === 'running' ? progress + '%' : '—'} hint={total ? tested + ' de ' + total + ' modelos' : 'Sin ejecución activa'} />
+          <DataBlock label="Default propuesto" value={String(generatedConfig.default_model || '—')} />
+        </div>
+        <div className="system-tool-actions">
+          <button className="secondary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void run('refresh')}>
+            <Icon name="refresh" size={13} /> Refrescar
+          </button>
+          {status === 'running' ? (
+            <button className="secondary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void run('cancel')}>
+              <Icon name="close" size={13} /> Cancelar prueba
+            </button>
+          ) : (
+            <button className="primary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void run('start')}>
+              <Icon name="sparkle" size={13} /> Lanzar auto-test
+            </button>
+          )}
+          <button className="secondary-button compact" type="button" disabled={Boolean(busy) || !canApply} onClick={() => void run('apply')}>
+            <Icon name="check" size={13} /> Aplicar propuesta
+          </button>
+        </div>
+        {message && <div className={'system-tool-message ' + (hasError ? 'is-error' : '')} role="status">{message}</div>}
+        {result && <details className="system-tool-result"><summary>Resultado de la última acción</summary><JsonView data={result} /></details>}
+      </div>
+    </details>
+  );
+}
+
+function BlacklistTool({ client }: { client: BagoClient }) {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [model, setModel] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState('');
+  const [hasError, setHasError] = useState(false);
+  const models = Array.isArray(data?.models) ? data.models.map(String) : [];
+  const reasons = asRecord(data?.reasons);
+
+  async function refresh() {
+    try {
+      const next = await client.getModelBlacklist();
+      setData(next);
+      setMessage('');
+      setHasError(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      setHasError(true);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void client.getModelBlacklist()
+      .then((next) => { if (!cancelled) { setData(next); setHasError(false); } })
+      .catch((error) => { if (!cancelled) { setMessage(error instanceof Error ? error.message : String(error)); setHasError(true); } });
+    return () => { cancelled = true; };
+  }, [client]);
+
+  async function add(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextModel = model.trim();
+    if (!nextModel) return;
+    setBusy(nextModel);
+    setMessage('');
+    setHasError(false);
+    try {
+      await client.modifyModelBlacklist({ action: 'add', model: nextModel, ...(reason.trim() ? { reason: reason.trim() } : {}) });
+      setModel('');
+      setReason('');
+      await refresh();
+      setMessage(nextModel + ' añadido a la blacklist local.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      setHasError(true);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function remove(modelId: string) {
+    setBusy(modelId);
+    setMessage('');
+    setHasError(false);
+    try {
+      await client.modifyModelBlacklist({ action: 'remove', model: modelId });
+      await refresh();
+      setMessage(modelId + ' retirado de la blacklist.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      setHasError(true);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <details className="system-tool-card" data-system-tool="blacklist">
+      <summary>
+        <span className="system-tool-icon"><Icon name="shield" size={16} /></span>
+        <span className="system-tool-summary">
+          <strong>Blacklist local de modelos</strong>
+          <small>{models.length ? models.length + ' excluidos en esta máquina' : 'Sin modelos excluidos'}</small>
+        </span>
+        <span className={'provider-status ' + (models.length ? 'is-off' : 'is-on')}>{models.length}</span>
+      </summary>
+      <div className="system-tool-content">
+        <p>Impide que el router use modelos problemáticos en este equipo. No modifica otros dispositivos ni el catálogo global.</p>
+        <form className="system-tool-form" onSubmit={add}>
+          <label>
+            <span>Modelo</span>
+            <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="provider/modelo" aria-label="Modelo para blacklist" />
+          </label>
+          <label>
+            <span>Motivo opcional</span>
+            <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Falla localmente, lento…" aria-label="Motivo de blacklist" />
+          </label>
+          <button className="primary-button compact" type="submit" disabled={Boolean(busy) || !model.trim()}>
+            <Icon name="plus" size={13} /> Añadir
+          </button>
+        </form>
+        {data === null ? <LoadingState label="blacklist" /> : models.length === 0 ? (
+          <div className="system-tool-empty">Blacklist vacía.</div>
+        ) : (
+          <ul className="system-tool-list">
+            {models.map((modelId) => (
+              <li key={modelId}>
+                <span><strong>{modelId}</strong><small>{String(reasons[modelId] || 'Sin motivo registrado')}</small></span>
+                <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void remove(modelId)} aria-label={'Quitar ' + modelId + ' de la blacklist'}>
+                  <Icon name="close" size={12} /> Quitar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {Boolean(data?.path) && <div className="system-tab-meta">Registro local: {String(data?.path)}</div>}
+        {message && <div className={'system-tool-message ' + (hasError ? 'is-error' : '')} role="status">{message}</div>}
+      </div>
+    </details>
   );
 }
 
