@@ -9,6 +9,7 @@ import shutil
 import socket
 import subprocess
 import time
+import tempfile
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -115,6 +116,12 @@ def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mo
     }
     path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def _headless_project_root() -> Path:
+    root = Path(tempfile.gettempdir()) / "BAGO" / "headless"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
 def _start_monitor_bg(base_path: str, port: int = 7890) -> None:
     """Arranca bago monitor serve en un hilo daemon si el puerto no esta en uso."""
@@ -335,10 +342,15 @@ def cmd_exec(args: argparse.Namespace) -> int:
     if not command_line.startswith("/"):
         command_line = f"/{command_line}"
 
-    provider = getattr(args, "provider", "ollama-local") or "ollama-local"
-    model = getattr(args, "model", "llama3.2:3b") or "llama3.2:3b"
+    provider = getattr(args, "provider", "ollama-cloud") or "ollama-cloud"
+    model = getattr(args, "model", "deepseek-v3.1:671b") or "deepseek-v3.1:671b"
+    base_path = Path(getattr(args, "base_path", BAGO_ROOT) or BAGO_ROOT)
+    try:
+        resolved_base_path = SessionManager._validate_project_root(base_path, require_identity=False)
+    except Exception:
+        resolved_base_path = _headless_project_root()
     mgr = SessionManager(
-        base_path=args.base_path,
+        base_path=str(resolved_base_path),
         provider=provider,
         model=model,
         system_prompt=get_system_prompt(),
@@ -414,14 +426,22 @@ def cmd_llm(args: argparse.Namespace) -> int:
             for item in inventory:
                 if not item["installed"]:
                     print(f"  - {item['name']}")
-            choice = input("Elige provider instalado: ").strip()
-            try:
-                provider = installed[int(choice) - 1]["name"]
-            except Exception:
-                print("Seleccion invalida.")
-                return 1
+            default_provider = ConfigManager(base_path=args.base_path, state_root=str(state_root)).default_provider
+            choice = input(f"Elige provider instalado/configurado [{default_provider}]: ").strip()
+            if not choice:
+                provider = default_provider
+            else:
+                try:
+                    provider = installed[int(choice) - 1]["name"]
+                except Exception:
+                    if choice in all_names:
+                        provider = choice
+                    else:
+                        print("Seleccion invalida.")
+                        return 1
         elif installed:
-            provider = installed[0]["name"]
+            cm = ConfigManager(base_path=args.base_path, state_root=str(state_root))
+            provider = cm.default_provider
         else:
             cm = ConfigManager(base_path=args.base_path, state_root=str(state_root))
             provider = cm.default_provider
