@@ -16,7 +16,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from bago_core.user_state_paths import state_read_candidates
 from state_paths import resolve_state_root
 
 os.environ.setdefault("PYTHONUTF8", "1")
@@ -29,8 +28,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "default_provider": "ollama-local",
-    "default_model": "llama3.2:3b",
+    "default_provider": "ollama-cloud",
+    "default_model": "deepseek-v3.1:671b",
     "system_prompt": "",
     "temperature": 0.7,
     "max_tokens": None,
@@ -41,7 +40,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "base_url": "http://127.0.0.1:11434",
         },
         "ollama-cloud": {
-            "enabled": False,
+            "enabled": True,
             "base_url": "",
         },
         "copilot": {
@@ -100,24 +99,15 @@ class ConfigManager:
 
     def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
-        self._allow_user_legacy_read = state_root is None or (
-            isinstance(state_root, str) and not state_root.strip()
-        )
         self.config_dir = resolve_state_root(state_root)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_path = self.config_dir / "config.json"
-        self.config_source_path = self.config_path
         self._data: dict[str, Any] = {}
         self._load()
 
     def _load(self) -> None:
-        candidates = [self.config_path]
-        if self._allow_user_legacy_read:
-            candidates.extend(state_read_candidates("config.json"))
-        candidates.append(self.base_path / ".bago" / "config.json")
-        candidates = list(dict.fromkeys(candidates))
-        source_path = next((path for path in candidates if path.exists()), self.config_path)
-        self.config_source_path = source_path
+        legacy_path = self.base_path / ".bago" / "config.json"
+        source_path = self.config_path if self.config_path.exists() else legacy_path
         if source_path.exists():
             try:
                 self._data = json.loads(source_path.read_text(encoding="utf-8"))
@@ -127,10 +117,11 @@ class ConfigManager:
             self._data = {}
         # Merge with defaults (preserving user values)
         self._merge_defaults(DEFAULT_CONFIG)
-        # A legacy source is discovery-only. A later explicit mutation writes
-        # the merged configuration to the canonical path.
-        if source_path == self.config_path:
-            self._save()
+        if self._data.get("default_provider") == "ollama-local":
+            self._data["default_provider"] = "ollama-cloud"
+        if self._data.get("default_model") == "llama3.2:3b":
+            self._data["default_model"] = "deepseek-v3.1:671b"
+        self._save()
 
     def _merge_defaults(self, defaults: dict, target: dict | None = None) -> None:
         if target is None:
@@ -201,7 +192,7 @@ class ConfigManager:
 
     @property
     def default_provider(self) -> str:
-        return self._data.get("default_provider", "ollama-local")
+        return self._data.get("default_provider", "ollama-cloud")
 
     @default_provider.setter
     def default_provider(self, value: str) -> None:
@@ -210,7 +201,7 @@ class ConfigManager:
 
     @property
     def default_model(self) -> str:
-        return self._data.get("default_model", "llama3.2:3b")
+        return self._data.get("default_model", "deepseek-v3.1:671b")
 
     @default_model.setter
     def default_model(self, value: str) -> None:
@@ -266,7 +257,7 @@ def _run_tests() -> int:
         old = os.environ.get("BAGO_STATE_ROOT")
         os.environ["BAGO_STATE_ROOT"] = str(state_root)
         cm = ConfigManager(base_path=td)
-        assert cm.get("default_provider") == "ollama-local"
+        assert cm.get("default_provider") == "ollama-cloud"
         cm.set("default_provider", "openrouter")
         assert cm.get("default_provider") == "openrouter"
         cm.set("providers.openrouter.enabled", True)
@@ -278,7 +269,7 @@ def _run_tests() -> int:
         assert cm.get("model_catalog.mode") == "all"
         assert cm.get("model_catalog.production_mode") == "available-only"
         cm.reset()
-        assert cm.get("default_provider") == "ollama-local"
+        assert cm.get("default_provider") == "ollama-cloud"
         assert cm.feature_streaming is True
         print("config_manager.py --test: ALL PASS")
         if old is None:

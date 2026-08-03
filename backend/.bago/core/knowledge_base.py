@@ -45,9 +45,7 @@ class KnowledgeBase:
         created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at);
-    CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-        content, source_session, content='memories', content_rowid='id'
-    );
+    CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(content, source_session);
     """
 
     def __init__(self, base_path: str | None = None, state_root: str | None = None):
@@ -66,34 +64,7 @@ class KnowledgeBase:
 
     def _init_db(self) -> None:
         conn = self._connect()
-        conn.executescript(self.SCHEMA.split("CREATE VIRTUAL TABLE")[0])
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(memories)")}
-        if "status" not in columns:
-            conn.execute("ALTER TABLE memories ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
-        if "updated_at" not in columns:
-            conn.execute("ALTER TABLE memories ADD COLUMN updated_at TEXT")
-        fts_sql = conn.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='memories_fts'"
-        ).fetchone()
-        if fts_sql and "content='memories'" not in (fts_sql["sql"] or ""):
-            conn.execute("DROP TABLE memories_fts")
-        conn.execute(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5("
-            "content, source_session, content='memories', content_rowid='id')"
-        )
-        conn.executescript("""
-        CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
-          INSERT INTO memories_fts(rowid, content, source_session) VALUES (new.id, new.content, new.source_session);
-        END;
-        CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
-          INSERT INTO memories_fts(memories_fts, rowid, content, source_session) VALUES ('delete', old.id, old.content, old.source_session);
-        END;
-        CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE OF content, source_session ON memories BEGIN
-          INSERT INTO memories_fts(memories_fts, rowid, content, source_session) VALUES ('delete', old.id, old.content, old.source_session);
-          INSERT INTO memories_fts(rowid, content, source_session) VALUES (new.id, new.content, new.source_session);
-        END;
-        """)
-        conn.execute("INSERT INTO memories_fts(memories_fts) VALUES ('rebuild')")
+        conn.executescript(self.SCHEMA)
         conn.commit()
 
     def add(self, content: str, source_session: str = "") -> int:
@@ -101,21 +72,19 @@ class KnowledgeBase:
         now = datetime.now(timezone.utc).isoformat()
         conn = self._connect()
         cursor = conn.execute(
-            "INSERT INTO memories (content, source_session, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (content, source_session, now, now),
+            "INSERT INTO memories (content, source_session, created_at) VALUES (?, ?, ?)",
+            (content, source_session, now),
         )
+        # Sync FTS table if available; ignore errors if FTS5 not supported
+        try:
+            conn.execute(
+                "INSERT INTO memories_fts (content, source_session) VALUES (?, ?)",
+                (content, source_session),
+            )
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
         return cursor.lastrowid  # type: ignore[return-value]
-
-    def deprecate(self, memory_id: int) -> bool:
-        """Retira un recuerdo de la recuperación sin destruir su historial."""
-        now = datetime.now(timezone.utc).isoformat()
-        cursor = self._connect().execute(
-            "UPDATE memories SET status = 'deprecated', updated_at = ? WHERE id = ? AND status = 'active'",
-            (now, memory_id),
-        )
-        self._connect().commit()
-        return cursor.rowcount > 0
 
     def search(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
         """Búsqueda por coincidencia de palabras (LIKE) o FTS si está disponible."""
@@ -125,18 +94,15 @@ class KnowledgeBase:
         # Intentar FTS primero
         try:
             rows = conn.execute(
-                "SELECT m.id, m.content, m.source_session, m.created_at, m.status "
-                "FROM memories_fts f JOIN memories m ON m.id = f.rowid "
-                "WHERE f MATCH ? AND m.status = 'active' ORDER BY rank LIMIT ?",
+                "SELECT rowid, content, source_session, created_at FROM memories_fts WHERE memories_fts MATCH ? LIMIT ?",
                 (query, limit),
             ).fetchall()
             for row in rows:
                 results.append({
-                    "id": row["id"],
+                    "id": row["rowid"],
                     "content": row["content"],
                     "source_session": row["source_session"],
                     "created_at": row["created_at"],
-                    "status": row["status"],
                 })
             if results:
                 return results
@@ -146,8 +112,7 @@ class KnowledgeBase:
         # Fallback a LIKE
         pattern = f"%{query}%"
         rows = conn.execute(
-            "SELECT id, content, source_session, created_at, status FROM memories "
-            "WHERE content LIKE ? AND status = 'active' ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, content, source_session, created_at FROM memories WHERE content LIKE ? ORDER BY created_at DESC LIMIT ?",
             (pattern, limit),
         ).fetchall()
         for row in rows:
@@ -156,7 +121,6 @@ class KnowledgeBase:
                 "content": row["content"],
                 "source_session": row["source_session"],
                 "created_at": row["created_at"],
-                "status": row["status"],
             })
         return results
 
@@ -164,8 +128,7 @@ class KnowledgeBase:
         """Devuelve los recuerdos más recientes."""
         conn = self._connect()
         rows = conn.execute(
-            "SELECT id, content, source_session, created_at, status FROM memories "
-            "WHERE status = 'active' ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, content, source_session, created_at FROM memories ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [
@@ -174,7 +137,6 @@ class KnowledgeBase:
                 "content": row["content"],
                 "source_session": row["source_session"],
                 "created_at": row["created_at"],
-                "status": row["status"],
             }
             for row in rows
         ]
@@ -190,11 +152,28 @@ class KnowledgeBase:
         conn.commit()
         return cursor.rowcount > 0
 
-    def count(self, include_deprecated: bool = False) -> int:
+    def delete_by_source_prefix(self, source_prefix: str) -> int:
+        """Elimina recuerdos cuyo source_session empieza por el prefijo dado."""
+        conn = self._connect()
+        rows = conn.execute(
+            "SELECT id FROM memories WHERE source_session LIKE ?",
+            (f"{source_prefix}%",),
+        ).fetchall()
+        if not rows:
+            return 0
+        ids = [int(row["id"]) for row in rows]
+        conn.executemany("DELETE FROM memories WHERE id = ?", [(mid,) for mid in ids])
+        try:
+            conn.executemany("DELETE FROM memories_fts WHERE rowid = ?", [(mid,) for mid in ids])
+        except sqlite3.OperationalError:
+            pass
+        conn.commit()
+        return len(ids)
+
+    def count(self) -> int:
         """Número total de recuerdos almacenados."""
         conn = self._connect()
-        sql = "SELECT COUNT(*) FROM memories" if include_deprecated else "SELECT COUNT(*) FROM memories WHERE status = 'active'"
-        row = conn.execute(sql).fetchone()
+        row = conn.execute("SELECT COUNT(*) FROM memories").fetchone()
         return row[0] if row else 0
 
     def close(self) -> None:
@@ -240,6 +219,12 @@ def _run_tests() -> int:
         ok = kb.delete(mid)
         assert ok
         assert kb.count() == 2
+
+        # Test delete_by_source_prefix
+        kb.add("Corpus entry alpha", source_session="behavior-policy:vol-01")
+        kb.add("Corpus entry beta", source_session="behavior-policy:vol-02")
+        removed = kb.delete_by_source_prefix("behavior-policy:")
+        assert removed == 2
 
         # Test empty search
         results = kb.search("inexistente")
