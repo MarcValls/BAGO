@@ -48,52 +48,76 @@ function readMenuStateText(value: unknown): string {
   return String(value || '').trim();
 }
 
+function actionAuthority(snapshot: UiBootstrapSnapshot, contractActions: string[], fallback: boolean) {
+  const allowed = new Set(snapshot.menuState?.allowedActions || []);
+  const blocked = new Set(snapshot.menuState?.blockedActions || []);
+  const hasContract = allowed.size > 0 || blocked.size > 0;
+  const blockedAction = contractActions.find((action) => blocked.has(action));
+  if (blockedAction) {
+    return { enabled: false, reason: snapshot.menuState?.blockedReasons?.[blockedAction] || 'Acción bloqueada por el backend' };
+  }
+  if (!hasContract) return { enabled: fallback, reason: fallback ? undefined : 'Acción no disponible' };
+  const enabled = contractActions.some((action) => allowed.has(action));
+  return { enabled, reason: enabled ? undefined : 'Acción no permitida por el estado actual' };
+}
+
 function normalizeActions(snapshot: UiBootstrapSnapshot): UiAction[] {
   const actions: UiAction[] = [];
-  const enabled = snapshot.permissions.canChat;
+  const chat = actionAuthority(snapshot, ['chat.send'], snapshot.permissions.canChat);
   actions.push({
-    id: 'open-chat', label: 'Open chat', kind: 'navigate', enabled, visible: true,
-    reasonDisabled: enabled ? undefined : 'Backend is not ready for chat', payload: { section: 'chat' }
+    id: 'open-chat', label: 'Abrir Inicio', kind: 'navigate', enabled: chat.enabled, visible: true,
+    reasonDisabled: chat.reason, payload: { section: 'home', contractAction: 'chat.send' }
   });
+  const inspectSystem = actionAuthority(snapshot, ['session.status', 'system.doctor', 'workspace.inspect'], true);
   actions.push({
-    id: 'inspect-system', label: 'Inspect system', kind: 'inspect', enabled: true, visible: true,
-    payload: { command: '/status' }
+    id: 'inspect-system', label: 'Inspeccionar sistema', kind: 'inspect', enabled: inspectSystem.enabled, visible: true,
+    reasonDisabled: inspectSystem.reason, payload: { command: '/status', contractAction: 'session.status' }
   });
   if (snapshot.permissions.canInspectContext) {
+    const inspectContext = actionAuthority(snapshot, ['context.inspect'], true);
     actions.push({
-      id: 'inspect-context', label: 'Inspect context', kind: 'inspect', enabled: true, visible: true,
-      payload: { command: '/context inspect' }
+      id: 'inspect-context', label: 'Inspeccionar contexto', kind: 'inspect', enabled: inspectContext.enabled, visible: true,
+      reasonDisabled: inspectContext.reason, payload: { command: '/context inspect', contractAction: 'context.inspect' }
     });
   }
   if (snapshot.permissions.canViewEvidence) {
     actions.push({
-      id: 'view-evidence', label: 'Review evidence', kind: 'navigate', enabled: true, visible: true,
+      id: 'view-evidence', label: 'Revisar evidencia', kind: 'navigate', enabled: true, visible: true,
       payload: { section: 'evidence' }
     });
   }
   if (snapshot.workspace.manifestState === 'missing') {
+    const initialize = actionAuthority(snapshot, ['workspace.init'], snapshot.permissions.canInitializeWorkspace);
     actions.push({
-      id: 'workspace-init', label: 'Initialize workspace', kind: 'mutation',
-      enabled: snapshot.permissions.canInitializeWorkspace, visible: true,
-      reasonDisabled: snapshot.permissions.canInitializeWorkspace ? undefined : 'Not allowed by backend',
-      payload: { endpoint: 'project:init' }
+      id: 'workspace-init', label: 'Inicializar workspace', kind: 'mutation',
+      enabled: initialize.enabled, visible: true, reasonDisabled: initialize.reason,
+      confirmation: { required: true, title: 'Inicializar workspace', description: 'BAGO creará únicamente la estructura de estado que falte en el workspace activo.' },
+      payload: { endpoint: 'project:init', contractAction: 'workspace.init' }
     });
   }
-  if (snapshot.permissions.canLinkWorkspace && snapshot.workspace.root) {
+  if (snapshot.workspace.root) {
+    const link = actionAuthority(snapshot, ['workspace.link'], snapshot.permissions.canLinkWorkspace);
     actions.push({
-      id: 'workspace-link', label: 'Link workspace', kind: 'mutation', enabled: true, visible: true,
-      payload: { endpoint: 'project:link', root: snapshot.project.root || snapshot.workspace.repoRoot || snapshot.workspace.root }
+      id: 'workspace-link', label: 'Vincular workspace', kind: 'mutation', enabled: link.enabled, visible: true,
+      reasonDisabled: link.reason,
+      payload: { endpoint: 'project:link', contractAction: 'workspace.link', root: snapshot.project.root || snapshot.workspace.repoRoot || snapshot.workspace.root }
     });
   }
   if (snapshot.workspace.manifestState === 'invalid') {
+    const repair = actionAuthority(snapshot, ['workspace.repair'], snapshot.permissions.canRepairWorkspace);
     actions.push({
-      id: 'workspace-repair', label: 'Repair workspace', kind: 'danger',
-      enabled: snapshot.permissions.canRepairWorkspace, visible: true,
-      reasonDisabled: snapshot.permissions.canRepairWorkspace ? undefined : 'Repair disabled',
-      payload: { endpoint: 'project:init' }
+      id: 'workspace-repair', label: 'Revisar reparación', kind: 'navigate',
+      enabled: repair.enabled, visible: true, reasonDisabled: repair.reason,
+      payload: { section: 'workspace', contractAction: 'workspace.repair' }
     });
   }
-  return actions;
+  const recommended = snapshot.menuState?.recommendedActions || [];
+  if (!recommended.length) return actions;
+  return [...actions].sort((left: UiAction, right: UiAction) => {
+    const leftIndex = recommended.indexOf(String(left.payload?.contractAction || ''));
+    const rightIndex = recommended.indexOf(String(right.payload?.contractAction || ''));
+    return (leftIndex < 0 ? Number.MAX_SAFE_INTEGER : leftIndex) - (rightIndex < 0 ? Number.MAX_SAFE_INTEGER : rightIndex);
+  });
 }
 
 export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
@@ -120,7 +144,11 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
     status.workspace_state?.binding_reason || session.workspace_state?.binding_reason
     || binding.binding_reason || status.binding_reason || ''
   );
-  const workspaceState = String(status.workspace_state || session.workspace_state?.workspace_state || '');
+  const workspaceStateRecord = readRecord(status.workspace_state || session.workspace_state || workspaceMeta.workspace_state);
+  const workspaceState = readMenuStateText(
+    workspaceStateRecord.workspace_state || workspaceStateRecord.state || workspaceMeta.summary?.state
+      || status.workspace_state_name || session.workspace_state_name
+  );
   const seedSuggested = Boolean(workspaceMeta.seed_suggested);
   const seedReason = String(workspaceMeta.seed_reason || '');
   const manifestState: UiBootstrapSnapshot['workspace']['manifestState'] = workspaceState.includes('legacy')
@@ -140,22 +168,29 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   const codeTaskContext = readRecord(lastEnvelopeMeta.code_context || lastReceiptMeta.code_context);
   const lastReceiptId = readReceiptId(status.last_receipt);
   const certificationStatus = readCertificationStatus(status.context_certification);
+  const recommendedActions = toStringList(
+    menuStateRaw.recommendedActions || menuStateRaw.acciones_recomendadas || workspaceMeta.recommended_actions
+      || workspaceMeta.recommendations || status.recommended_actions || session.recommended_actions
+  );
   const menuState = {
-    activeCenter: readMenuStateText(menuStateRaw.activeCenter || status.active_center || session.active_center),
-    currentScreen: readMenuStateText(menuStateRaw.currentScreen || status.current_screen || session.current_screen),
-    operationState: readMenuStateText(menuStateRaw.operationState || status.operation_state || session.operation_state),
-    recommendedAction: readMenuStateText(menuStateRaw.recommendedAction || status.recommended_action || session.recommended_action),
-    allowedActions: toStringList(menuStateRaw.allowedActions || status.allowed_actions || session.allowed_actions),
-    secondaryActions: toStringList(menuStateRaw.secondaryActions || status.secondary_actions || session.secondary_actions),
-    blockedActions: toStringList(menuStateRaw.blockedActions || status.blocked_actions || session.blocked_actions),
-    blockedReasons: readStringRecord(menuStateRaw.blockedReasons || status.blocked_reasons || session.blocked_reasons),
+    activeCenter: readMenuStateText(menuStateRaw.activeCenter || menuStateRaw.active_center || menuStateRaw.centro_activo || status.active_center || session.active_center),
+    currentScreen: readMenuStateText(menuStateRaw.currentScreen || menuStateRaw.current_screen || status.current_screen || session.current_screen),
+    operationState: readMenuStateText(menuStateRaw.operationState || menuStateRaw.operation_state || status.operation_state || session.operation_state),
+    recommendedAction: readMenuStateText(menuStateRaw.recommendedAction || menuStateRaw.recommended_action || recommendedActions[0] || status.recommended_action || session.recommended_action),
+    recommendedActions,
+    allowedActions: toStringList(menuStateRaw.allowedActions || menuStateRaw.allowed_actions || menuStateRaw.acciones_permitidas || workspaceMeta.allowed_actions || status.allowed_actions || session.allowed_actions),
+    secondaryActions: toStringList(menuStateRaw.secondaryActions || menuStateRaw.secondary_actions || menuStateRaw.acciones_secundarias || status.secondary_actions || session.secondary_actions),
+    blockedActions: toStringList(menuStateRaw.blockedActions || menuStateRaw.blocked_actions || menuStateRaw.acciones_bloqueadas || workspaceMeta.blocked_actions || workspaceMeta.blocked_operations || status.blocked_actions || session.blocked_actions),
+    blockedReasons: readStringRecord(menuStateRaw.blockedReasons || menuStateRaw.blocked_reasons || menuStateRaw.razones_de_bloqueo || status.blocked_reasons || session.blocked_reasons),
     pendingWork: readMenuStateText(menuStateRaw.pendingWork || status.pending_work || session.pending_work),
     latestResult: readMenuStateText(menuStateRaw.latestResult || status.latest_result || session.latest_result),
     version: readMenuStateText(menuStateRaw.version || status.contract_version || status.schema_version || raw.version)
   };
-  const rawPermissions = readRecord(raw.permissions);
-  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false
-    ? 'error' : bindingConfirmed ? 'confirmed' : bindingReason ? 'degraded' : !raw.status ? 'loading' : 'unknown';
+  const rawPermissions = readRecord(raw.permissions || workspaceMeta.permissions);
+  const explicitSystemState = readMenuStateText(status.system_state || status.operation_state || health.state).toLowerCase();
+  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false || explicitSystemState === 'error'
+    ? 'error' : explicitSystemState === 'degraded' || explicitSystemState === 'limited'
+      ? 'degraded' : bindingConfirmed ? 'confirmed' : bindingReason ? 'degraded' : !raw.status ? 'loading' : 'unknown';
   const contextRevision = status.context_revision ?? session.status?.context_revision;
   const contextState: UiBootstrapSnapshot['context']['state'] = certificationStatus === 'CERTIFIED'
     ? 'confirmed' : contextRevision && lastReceiptId ? 'partial' : contextRevision ? 'stale'

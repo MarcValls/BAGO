@@ -1,5 +1,6 @@
 import type {
   BackendCommandResult,
+  BackendConversations,
   BackendHistory,
   BackendMenu,
   BackendRouterList,
@@ -7,10 +8,17 @@ import type {
   BackendProviders,
   BackendRoutes,
   BackendSession,
+  BackendSessions,
   BackendStatus,
   UiBootData
 } from '@/contracts/backend';
 import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
+import type {
+  CapabilityExecutionResponse,
+  CapabilityPackageResponse,
+  CapabilityPackagesResponse,
+  CapabilityReceiptsResponse
+} from '@/modules/capability-anatomy/packageContract';
 
 const FALLBACK_BASE = '';
 const STORAGE_BASE = 'bago.ui.apiBase';
@@ -165,13 +173,15 @@ export class BagoClient {
   }
 
   async bootstrapLegacy(): Promise<UiBootData> {
-    const [status, session, providers, menu, routes, history, files, evidence, jobs, schedule, routerList, routerPolicy] = await Promise.all([
+    const [status, session, sessions, providers, menu, routes, history, conversations, files, evidence, jobs, schedule, routerList, routerPolicy] = await Promise.all([
       this.getStatus().catch(() => undefined),
       this.getSession().catch(() => undefined),
+      this.getSessions().catch(() => undefined),
       this.getProviders().catch(() => undefined),
       this.getMenu().catch(() => undefined),
       this.getRoutes().catch(() => undefined),
       this.getHistory().catch(() => undefined),
+      this.getConversations().catch(() => undefined),
       this.listFiles().catch(() => undefined),
       this.getEvidenceLatest().catch(() => undefined),
       this.listJobs().catch(() => undefined),
@@ -179,7 +189,7 @@ export class BagoClient {
       this.getRouterList().catch(() => undefined),
       this.getRouterPolicy().catch(() => undefined)
     ]);
-    return { status, session, providers, menu, routes, history, files, evidence, jobs, schedule, router_list: routerList, router_policy: routerPolicy };
+    return { status, session, sessions, providers, menu, routes, history, conversations, files, evidence, jobs, schedule, router_list: routerList, router_policy: routerPolicy };
   }
 
   async bootstrapModern(): Promise<UiBootData> {
@@ -192,6 +202,17 @@ export class BagoClient {
 
   getSession(): Promise<BackendSession> {
     return this.request<BackendSession>('/session', { method: 'GET' });
+  }
+
+  getSessions(): Promise<BackendSessions> {
+    return this.request('/sessions', { method: 'GET' });
+  }
+
+  modifySession(payload: { action: 'create' | 'switch' | 'rename' | 'archive' | 'restore'; session_id?: string; title?: string }): Promise<BackendSessions> {
+    return this.request('/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }, 60_000);
   }
 
   getProviders(): Promise<BackendProviders> {
@@ -215,6 +236,24 @@ export class BagoClient {
 
   verifyProviderContracts(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/providers/contracts', { method: 'GET' });
+  }
+
+  getProviderBufferStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/providers/buffer/status', { method: 'GET' });
+  }
+
+  prepareProviderBuffer(model: string, policy: 'LRU' | 'SAFE' | 'HARD' | 'KEEP_ACTIVE' = 'LRU'): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/providers/buffer/prepare', {
+      method: 'POST',
+      body: JSON.stringify({ model, policy, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
+  }
+
+  unloadProviderBuffer(model?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/providers/buffer/unload', {
+      method: 'POST',
+      body: JSON.stringify({ ...(model ? { model } : {}), channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
   }
 
   getAutoConfigStatus(): Promise<Record<string, unknown>> {
@@ -384,6 +423,42 @@ export class BagoClient {
   getCapability(capabilityId: string): Promise<CapabilitySnapshot> {
     return this.request<CapabilitySnapshot>(`/api/v1/capabilities/${encodeURIComponent(capabilityId)}`, { method: 'GET' });
   }
+
+  listCapabilityPackages(): Promise<CapabilityPackagesResponse> {
+    return this.request<CapabilityPackagesResponse>('/api/v1/capability-packages', { method: 'GET' });
+  }
+
+  importCapabilityPackage(fileName: string, contentBase64: string, confirmTrust: boolean): Promise<CapabilityPackageResponse> {
+    return this.request<CapabilityPackageResponse>('/api/v1/capability-packages/import', {
+      method: 'POST',
+      body: JSON.stringify({ file_name: fileName, content_base64: contentBase64, confirm_trust: confirmTrust })
+    }, 60_000);
+  }
+
+  setCapabilityPackageEnabled(capabilityId: string, enabled: boolean): Promise<CapabilityPackageResponse> {
+    return this.request<CapabilityPackageResponse>(`/api/v1/capability-packages/${encodeURIComponent(capabilityId)}/enable`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled })
+    });
+  }
+
+  configureCapabilityPackage(capabilityId: string, config: Record<string, unknown>): Promise<CapabilityPackageResponse> {
+    return this.request<CapabilityPackageResponse>(`/api/v1/capability-packages/${encodeURIComponent(capabilityId)}/configure`, {
+      method: 'POST',
+      body: JSON.stringify({ config })
+    });
+  }
+
+  executeCapabilityPackage(capabilityId: string, input: Record<string, unknown>, confirmed: boolean, approvedPermissions: string[]): Promise<CapabilityExecutionResponse> {
+    return this.request<CapabilityExecutionResponse>(`/api/v1/capability-packages/${encodeURIComponent(capabilityId)}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ input, confirmed, approved_permissions: approvedPermissions })
+    }, 910_000);
+  }
+
+  listCapabilityReceipts(): Promise<CapabilityReceiptsResponse> {
+    return this.request<CapabilityReceiptsResponse>('/api/v1/capability-receipts', { method: 'GET' });
+  }
   trainRlBc(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/rl/train-bc', {
       method: 'POST',
@@ -435,6 +510,9 @@ export class BagoClient {
       body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
     }, 60_000);
   }
+  getCatalogStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/catalog/status', { method: 'GET' });
+  }
   setCatalogConfig(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/catalog/config', {
       method: 'POST',
@@ -449,6 +527,17 @@ export class BagoClient {
 
   getHistory(): Promise<BackendHistory> {
     return this.request<BackendHistory>('/history', { method: 'GET' });
+  }
+
+  getConversations(): Promise<BackendConversations> {
+    return this.request<BackendConversations>('/conversations', { method: 'GET' });
+  }
+
+  modifyConversation(payload: { action: 'create' | 'switch' | 'rename' | 'archive'; conversation_id?: string; title?: string }): Promise<BackendConversations> {
+    return this.request<BackendConversations>('/conversations', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   }
 
   listFiles(): Promise<Record<string, unknown>> {
@@ -498,6 +587,10 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/jobs/list', { method: 'GET' });
   }
 
+  getJobsSummary(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/jobs/summary', { method: 'GET' });
+  }
+
   getJob(executionId: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(`/jobs/${encodeURIComponent(executionId)}`, { method: 'GET' });
   }
@@ -517,6 +610,28 @@ export class BagoClient {
   readFile(filePath: string, options: { optional?: boolean } = {}): Promise<Record<string, unknown>> {
     const query = options.optional ? '?optional=1' : '';
     return this.request<Record<string, unknown>>(`/files/read/${encodeURIComponent(filePath)}${query}`, { method: 'GET' });
+  }
+
+  listPlans(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/plans', { method: 'GET' });
+  }
+
+  getPlan(planId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/plans/${encodeURIComponent(planId)}`, { method: 'GET' });
+  }
+
+  createPlan(task: string, autoExecute = false): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/plans', {
+      method: 'POST',
+      body: JSON.stringify({ task, auto_execute: autoExecute, channel: 'ui-react', surface: 'pipeline' })
+    }, 150_000);
+  }
+
+  executePlan(planId: string, stopOnFailure = true): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/plans/${encodeURIComponent(planId)}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ stop_on_failure: stopOnFailure, channel: 'ui-react', surface: 'pipeline' })
+    }, 150_000);
   }
 
   writeFile(path: string, content: string): Promise<Record<string, unknown>> {
@@ -627,12 +742,21 @@ export class BagoClient {
     }, 150_000);
   }
 
-  async sendChat(message: string): Promise<Record<string, unknown>> {
-    const body = JSON.stringify({ message, channel: 'ui-react', surface: 'ui-react' });
+  async sendChat(message: string, conversationId?: string): Promise<Record<string, unknown>> {
+    const body = JSON.stringify({ message, conversation_id: conversationId || undefined, channel: 'ui-react', surface: 'ui-react' });
     return this.request<Record<string, unknown>>('/chat', {
       method: 'POST',
       body
     }, 150_000);
+  }
+
+  analyzeVision(payload: { image_base64: string; prompt?: string; model?: string; timeout_s?: number }): Promise<Record<string, unknown>> {
+    const requestedTimeoutS = Number(payload.timeout_s || 180);
+    const timeoutS = Number.isFinite(requestedTimeoutS) && requestedTimeoutS > 0 ? requestedTimeoutS : 180;
+    return this.request<Record<string, unknown>>('/vision', {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, timeout_s: timeoutS, channel: 'ui-react', surface: 'vision' })
+    }, timeoutS * 1000 + 10_000);
   }
 
   createDemoProject(root: string): Promise<BackendCommandResult> {
@@ -656,15 +780,16 @@ export class BagoClient {
 
   async streamChat(
     message: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    conversationId?: string
   ): Promise<Record<string, unknown>> {
     const response = await fetch(this.url('/chat/stream'), {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ message, channel: 'ui-react' })
+      body: JSON.stringify({ message, conversation_id: conversationId || undefined, channel: 'ui-react' })
     });
     if (!response.ok || !response.body) {
-      return this.sendChat(message);
+      return this.sendChat(message, conversationId);
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();

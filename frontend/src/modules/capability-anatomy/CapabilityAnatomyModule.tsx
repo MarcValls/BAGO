@@ -3,13 +3,16 @@ import type { BagoClient } from '@/api/client';
 import type { SelectionRecord } from '@/contracts/backend';
 import { Icon, type IconName } from '@/shared/Icon';
 import { CapabilityContractError, validateCapabilitySnapshot, type CapabilityPiece, type CapabilityRoute, type CapabilitySnapshot } from './contract';
+import { ExternalCapabilitiesPanel } from './ExternalCapabilitiesPanel';
 
 interface Props {
   client: BagoClient;
   onInspect: (selection: SelectionRecord) => void;
 }
 
-type CapabilityTab = 'anatomy' | 'routes' | 'contract';
+type CapabilityTab = 'anatomy' | 'routes' | 'contract' | 'external';
+
+const CAPABILITY_TABS = [['anatomy', 'Anatomía'], ['routes', 'Rutas'], ['contract', 'Contrato'], ['external', 'Externas']] as const;
 
 function pieceIcon(piece: CapabilityPiece): IconName {
   if (piece.type === 'input') return 'inbox';
@@ -82,15 +85,24 @@ export function CapabilityAnatomyModule(props: Props) {
   };
 
   if (loading) return <div className="capability-state"><Icon name="refresh" size={22} /><strong>Construyendo anatomía desde el backend…</strong></div>;
-  if (error || !snapshot) return <div className="capability-state is-error" role="alert"><Icon name="warning" size={22} /><strong>Capacidades no disponibles</strong><p>{error}</p></div>;
+  if (error || !snapshot) return <section className="capability-anatomy">
+    <header className="capability-heading"><div><span>BACKEND</span><h2>Capacidades</h2><p>Inventario interno y paquetes externos gobernados.</p></div></header>
+    <nav className="capability-tabs" aria-label="Vista de capacidad">
+      {CAPABILITY_TABS.map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}</button>)}
+    </nav>
+    {tab === 'external'
+      ? <ExternalCapabilitiesPanel client={props.client} />
+      : <div className="capability-state is-error" role="alert"><Icon name="warning" size={22} /><strong>Anatomía interna no disponible</strong><p>{error}</p></div>}
+    <footer><span><Icon name="shield" size={12} /> El backend conserva autoridad sobre instalación y ejecución.</span></footer>
+  </section>;
 
   return <section className="capability-anatomy">
     <header className="capability-heading">
-      <div><span>BACKEND · SOLO LECTURA</span><h2>{snapshot.capability.name}</h2><p>{snapshot.capability.description}</p></div>
-      <div><span><Icon name="lock" size={12} /> {snapshot.contract_version}</span><b>{operativePieces.length} piezas · {snapshot.routes.length} rutas</b></div>
+      <div><span>{tab === 'external' ? 'PAQUETES LOCALES · BACKEND' : 'BACKEND · SOLO LECTURA'}</span><h2>{tab === 'external' ? 'Capacidades externas' : snapshot.capability.name}</h2><p>{tab === 'external' ? 'Importa, activa y ejecuta extensiones con confirmación y receipt.' : snapshot.capability.description}</p></div>
+      <div><span><Icon name="lock" size={12} /> {tab === 'external' ? 'bago.capability/v1' : snapshot.contract_version}</span><b>{tab === 'external' ? 'UI declarativa · runner aislado del renderer' : `${operativePieces.length} piezas · ${snapshot.routes.length} rutas`}</b></div>
     </header>
     <nav className="capability-tabs" aria-label="Vista de capacidad">
-      {([['anatomy', 'Anatomía'], ['routes', 'Rutas'], ['contract', 'Contrato']] as const).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}</button>)}
+      {CAPABILITY_TABS.map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}</button>)}
     </nav>
 
     {tab === 'anatomy' && <div className="capability-anatomy-view">
@@ -124,6 +136,8 @@ export function CapabilityAnatomyModule(props: Props) {
       <details><summary>Snapshot contractual</summary><pre>{JSON.stringify(snapshot, null, 2)}</pre></details>
     </div>}
 
-    <footer><span><Icon name="shield" size={12} /> La UI inspecciona; ejecución y verificación pertenecen al backend.</span>{selectedPiece && <small>{selectedPiece.implementation.ref || selectedPiece.id}</small>}</footer>
+    {tab === 'external' && <ExternalCapabilitiesPanel client={props.client} />}
+
+    <footer><span><Icon name="shield" size={12} /> {tab === 'external' ? 'La UI declara intención; el backend valida, ejecuta y emite el receipt.' : 'La UI inspecciona; ejecución y verificación pertenecen al backend.'}</span>{tab !== 'external' && selectedPiece && <small>{selectedPiece.implementation.ref || selectedPiece.id}</small>}</footer>
   </section>;
 }
