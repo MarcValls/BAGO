@@ -516,11 +516,23 @@ if __name__ == "__main__":
     parser.add_argument("--ui-dist", default="")
     args = parser.parse_args()
 
-    mgr = SessionManager(provider=args.provider, model=args.model)
+    from bago_core.user_state_paths import state_root as configured_state_root
+    from session_registry import mark_active_session, restore_active_session
+
+    state_root = configured_state_root()
+    resume_enabled = os.environ.get("BAGO_RESUME_SESSION", "1").strip().lower() not in {"0", "false", "no", "off"}
+    if resume_enabled:
+        try:
+            mgr = restore_active_session(SessionManager, state_root) or SessionManager(provider=args.provider, model=args.model, state_root=str(state_root))
+        except Exception:
+            mgr = SessionManager(provider=args.provider, model=args.model, state_root=str(state_root))
+    else:
+        mgr = SessionManager(provider=args.provider, model=args.model, state_root=str(state_root))
     from handlers_router import restore_session_model
     restore_session_model(mgr)
     # Auto-allow tool execution so file-write and other tools run without a manual approval step
     mgr.set_tool_approval_policy("always")
+    mark_active_session(mgr)
     engine = SwitchEngine(mgr.adapters)
     server = BagoAPIServer(mgr, engine, port=args.port, token=args.token, static_dir=args.ui_dist or None)
     server.start()

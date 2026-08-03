@@ -30,9 +30,14 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     cfg = getattr(mgr, "config", None)
     tool_calling = cfg.get("features.tool_calling", False) if cfg else False
     catalog_mode = cfg.get("model_catalog.mode", "all") if cfg else "all"
+    store = getattr(mgr, "store", None)
+    active_conversation_id = str(getattr(store, "active_conversation_id", status.get("active_conversation_id", "main")) or "main")
+    conversations = store.list_conversations() if store is not None and hasattr(store, "list_conversations") else []
     send_json(handler, 200, {
         "contract_version": status.get("contract_version", "bago.contract.ui.v1"),
         "session_id": getattr(mgr, "session_id", "?"),
+        "active_conversation_id": active_conversation_id,
+        "conversation_count": len(conversations) or int(status.get("conversation_count", 1) or 1),
         "provider": getattr(mgr, "provider", "?"),
         "model": getattr(mgr, "model", "?"),
         "status": status,

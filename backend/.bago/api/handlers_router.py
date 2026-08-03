@@ -156,10 +156,14 @@ def handle_policy(handler: "BaseHTTPRequestHandler") -> None:
 # ── Session model override ────────────────────────────────────────────────────
 
 _SESSION_OVERRIDE_FILE = ".bago_session_model.json"
+_SESSION_OVERRIDE_DIR = "session-models"
 
 
-def _override_path(state: "Path") -> "Path":
-    return Path(state) / _SESSION_OVERRIDE_FILE
+def _override_path(state: "Path", session_id: str = "") -> "Path":
+    if not session_id:
+        return Path(state) / _SESSION_OVERRIDE_FILE
+    from session_registry import validate_session_id
+    return Path(state) / _SESSION_OVERRIDE_DIR / f"{validate_session_id(session_id)}.json"
 
 
 def restore_session_model(mgr) -> dict:
@@ -168,7 +172,15 @@ def restore_session_model(mgr) -> dict:
 
     if mgr is None:
         return {"ok": False, "restored": False, "reason": "manager_unavailable"}
-    path = _override_path(Path(mgr.state_root))
+    state = Path(mgr.state_root)
+    path = _override_path(state, str(getattr(mgr, "session_id", "legacy")))
+    legacy_path = _override_path(state)
+    if not path.exists() and legacy_path.exists():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            legacy_path.replace(path)
+        except OSError:
+            path = legacy_path
     if not path.exists():
         return {"ok": True, "restored": False, "reason": "no_override"}
     try:
@@ -198,7 +210,8 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     state = _state_root(handler)
     model_key = body.get("model")  # None means clear override
 
-    override_path = _override_path(state)
+    mgr = getattr(handler, "session_mgr", None)
+    override_path = _override_path(state, str(getattr(mgr, "session_id", "")))
 
     if model_key is None or model_key == "":
         # Clear override
@@ -211,7 +224,6 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     # Apply through SessionManager so the adapter is rebuilt. Mutating only
     # provider/model leaves the previous adapter alive (for example Ollama
     # answering after the user selected Copilot).
-    mgr = getattr(handler, "session_mgr", None)
     if mgr is not None:
         try:
             parts = str(model_key).split("/", 1)
@@ -228,7 +240,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
     override = {"model": str(model_key)}
     tmp = override_path.with_suffix(".tmp")
-    Path(state).mkdir(parents=True, exist_ok=True)
+    override_path.parent.mkdir(parents=True, exist_ok=True)
     tmp.write_text(json.dumps(override, indent=2), encoding="utf-8")
     os.replace(str(tmp), str(override_path))
 
@@ -265,9 +277,8 @@ def handle_session_model_get(handler: "BaseHTTPRequestHandler") -> None:
     import json
 
     state = _state_root(handler)
-    override_path = _override_path(state)
-
     mgr = getattr(handler, "session_mgr", None)
+    override_path = _override_path(state, str(getattr(mgr, "session_id", "")))
     restore_report = restore_session_model(mgr)
 
     if override_path.exists():
