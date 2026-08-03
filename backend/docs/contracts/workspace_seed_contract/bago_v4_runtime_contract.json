@@ -19,7 +19,7 @@
     ".bago",
     "bago_core",
     "docs",
-    "MANUAL.md",
+    "manual.md",
     "test_e2e.py"
   ],
   "runtime_layout": {

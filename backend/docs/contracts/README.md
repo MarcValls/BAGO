@@ -12,3 +12,4 @@ Active contract documents:
 - `resolver_contract.json`
 - `workspace_seed_contract.md`
 - `workspace_seed_tests.md`
+- `workspace_seed_contract/CONTEXT_PATTERN_REGISTRY.md`
