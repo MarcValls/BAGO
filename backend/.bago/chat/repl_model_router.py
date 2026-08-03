@@ -103,11 +103,24 @@ def save_selection(state_root: Path, sel: Selection) -> None:
 
 # ── Toggle / auto_switch helpers ─────────────────────────────────────────────
 
+def _mark_manual_pick(sel: Selection, key: str | None = None) -> Selection:
+    """Manual choice disables auto-switch and stamps the active model."""
+    sel.auto_switch = False
+    if key:
+        sel.last_pick = key
+        sel.last_pick_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    return sel
+
+
 def toggle(sel: Selection, key: str) -> Selection:
     """Toggle the `selected` flag for the entry matching key."""
     for e in sel.entries:
         if e.key() == key:
             e.selected = not e.selected
+            if e.selected:
+                _mark_manual_pick(sel, key)
+            else:
+                sel.auto_switch = False
             return sel
     raise KeyError(f"Modelo no encontrado: {key}")
 
@@ -218,6 +231,9 @@ def discover_models(manager=None) -> list[ModelEntry]:
                         best_for=item.get("best_for", "general"),
                         available=item.get("available", True),
                     ))
+                cloud_entries = [e for e in _FALLBACK if e.provider not in ("ollama-local",)]
+                known_keys = {e.key() for e in entries}
+                entries.extend(e for e in cloud_entries if e.key() not in known_keys)
                 return entries
         except Exception:
             pass
@@ -228,7 +244,7 @@ def discover_models(manager=None) -> list[ModelEntry]:
         # Merge with cloud fallback (cloud entries remain unavailable)
         local_keys = {e.key() for e in ollama_entries}
         cloud_entries = [e for e in _FALLBACK if e.provider not in ("ollama-local",)]
-        return ollama_entries + cloud_entries
+        return ollama_entries + [e for e in cloud_entries if e.key() not in local_keys]
 
     # 3. Hardcoded fallback
     return list(_FALLBACK)
@@ -252,4 +268,5 @@ def render_picker(sel: Selection) -> str:
 def render_selection(sel: Selection) -> str:
     """One-line summary of current selection."""
     count = sum(1 for e in sel.entries if e.selected)
-    return f"{count} modelos seleccionados · auto_switch={'ON' if sel.auto_switch else 'OFF'}"
+    active = sel.last_pick or "ninguno"
+    return f"{count} modelos seleccionados · activo={active} · auto_switch={'ON' if sel.auto_switch else 'OFF'}"

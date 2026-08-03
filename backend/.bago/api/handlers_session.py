@@ -35,6 +35,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         "session_id": getattr(mgr, "session_id", "?"),
         "provider": getattr(mgr, "provider", "?"),
         "model": getattr(mgr, "model", "?"),
+        "default_provider": status.get("default_provider", getattr(getattr(mgr, "config", None), "default_provider", "ollama-cloud")),
         "status": status,
         "workspace_state": workspace_state,
         "welcome_state": welcome_state,

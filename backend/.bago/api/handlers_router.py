@@ -92,10 +92,15 @@ def handle_toggle(handler: "BaseHTTPRequestHandler", key: str) -> None:
         "ok": True,
         "key": key,
         "selected_count": selected_count,
+        "auto_switch": sel.auto_switch,
+        "last_pick": sel.last_pick,
+        "last_pick_at": sel.last_pick_at,
     })
     emit("router.toggled", {
         "key": key,
         "selected_count": selected_count,
+        "auto_switch": sel.auto_switch,
+        "last_pick": sel.last_pick,
     })
 
 
@@ -231,6 +236,35 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     Path(state).mkdir(parents=True, exist_ok=True)
     tmp.write_text(json.dumps(override, indent=2), encoding="utf-8")
     os.replace(str(tmp), str(override_path))
+
+
+    # Manual selection must turn auto-switch off so the user stays in control.
+    try:
+        from repl_model_router import (
+            Selection, discover_models, load_selection, save_selection, _mark_manual_pick,
+        )
+        sel = load_selection(state)
+        if not sel.entries:
+            mgr = getattr(handler, "session_mgr", None)
+            sel = Selection(entries=discover_models(mgr), auto_switch=sel.auto_switch)
+        sel = _mark_manual_pick(sel, str(model_key))
+        save_selection(state, sel)
+    except Exception:
+        pass
+
+    # Apply to live session manager if available
+    mgr = getattr(handler, "session_mgr", None)
+    if mgr is not None:
+        try:
+            # model key is "provider/model_id"
+            parts = str(model_key).split("/", 1)
+            if len(parts) == 2:
+                mgr.provider = parts[0]
+                mgr.model = parts[1]
+            else:
+                mgr.model = model_key
+        except Exception:
+            pass
 
     # Buffer cleaner: prepara Ollama para el modelo nuevo.
     # Solo aplica si el provider es local (ollama). No rompe nada si

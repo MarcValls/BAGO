@@ -221,7 +221,7 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
 
         # Rate-limit check for chat/switch (heavy endpoints)
         if path in ("/chat", "/switch"):
-            provider = self.session_mgr.provider if self.session_mgr else "ollama-local"
+            provider = self.session_mgr.provider if self.session_mgr else "ollama-cloud"
             allowed, detail = get_limiter().check(provider)
             if not allowed:
                 get_logger().warn("rate_limited", path=path, provider=provider, detail=detail)
@@ -511,8 +511,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=f"BAGO {_BAGO_VERSION} API Bridge")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--token", default="")
-    parser.add_argument("--provider", default="ollama-local")
-    parser.add_argument("--model", default="llama3.2:3b")
+    parser.add_argument("--provider", default="ollama-cloud")
+    parser.add_argument("--model", default="deepseek-v3.1:671b")
     parser.add_argument("--ui-dist", default="")
     args = parser.parse_args()
 
