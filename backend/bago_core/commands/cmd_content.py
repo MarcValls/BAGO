@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from bago_core.resolver import add_piece_paths
-from bago_core.user_state_paths import bago_lock_file, ensure_user_roots
+from bago_core.user_state_paths import bago_lock_file, ensure_user_roots, state_root as configured_state_root
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
 add_piece_paths("core.package", "chat.package", "providers.package", "api.package", "tools.package")
@@ -166,8 +166,10 @@ def cmd_serve(args: argparse.Namespace) -> int:
     import sys
     add_piece_paths("core.package", "api.package")
     from session_manager import SessionManager
+    from session_registry import mark_active_session, restore_active_session
     from switch_engine import SwitchEngine
     from bridge import BagoAPIServer
+    from handlers_router import restore_session_model
 
     acquired, lock_path, existing_pid = _acquire_bago_lock()
     if not acquired:
@@ -179,11 +181,22 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     mgr = None
     try:
-        mgr = SessionManager(
-            provider=args.provider,
-            model=args.model,
-            base_path=args.base_path,
-        )
+        state_root = configured_state_root()
+        resume_enabled = os.environ.get("BAGO_RESUME_SESSION", "1").strip().lower() not in {"0", "false", "no", "off"}
+        if resume_enabled:
+            try:
+                mgr = restore_active_session(SessionManager, state_root, base_path=args.base_path)
+            except Exception:
+                mgr = None
+        if mgr is None:
+            mgr = SessionManager(
+                provider=args.provider,
+                model=args.model,
+                base_path=args.base_path,
+                state_root=str(state_root),
+            )
+        restore_session_model(mgr)
+        mark_active_session(mgr)
         engine = SwitchEngine(mgr.adapters)
         host = str(getattr(args, "host", "") or "127.0.0.1").strip() or "127.0.0.1"
         port = int(getattr(args, "port", 0) or 0)
