@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""generate_commands_doc.py — Generate or verify COMMANDS.md from tool_registry.py.
+"""generate_commands_doc.py — Generate or verify commands.md from tool_registry.py.
 
 Usage:
-    python3 generate_commands_doc.py           # write docs/COMMANDS.md
-    python3 generate_commands_doc.py --check   # exit 1 if COMMANDS.md is stale
+    python3 generate_commands_doc.py           # write docs/commands.md
+    python3 generate_commands_doc.py --check   # exit 1 if commands.md is stale
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 TOOLS_DIR = Path(__file__).parent.parent / ".gabo" / "tools"
 REPO_ROOT = Path(__file__).parent.parent
-OUT_PATH = REPO_ROOT / "docs" / "COMMANDS.md"
+OUT_PATH = REPO_ROOT / "docs" / "commands.md"
 
 
 def _load_registry():

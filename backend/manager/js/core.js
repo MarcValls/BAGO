@@ -111,6 +111,48 @@ function pmLocalSystemStamp(action,detail){
 }
 
 function electronApi(){return window.bagoElectron||null;}
+let pmProvidersState = null;
+let pmProvidersStateLoading = null;
+function pmManagerBaseUrl(){
+  const api=electronApi();
+  if(!api||typeof api.getManagerUrl!=='function')return '';
+  try{
+    const url=String(api.getManagerUrl()||'').trim();
+    return /^https?:\/\//i.test(url)?url:'';
+  }catch{return '';}
+}
+function pmProvidersEndpoint(){
+  const base=pmManagerBaseUrl();
+  if(!base)return '';
+  try{
+    return new URL('../providers', base).toString();
+  }catch{return '';}
+}
+async function pmRefreshProvidersState(){
+  const endpoint=pmProvidersEndpoint();
+  if(!endpoint)return null;
+  if(pmProvidersStateLoading)return pmProvidersStateLoading;
+  pmProvidersStateLoading=fetch(endpoint,{cache:'no-store'})
+    .then(async response=>response.ok?response.json():null)
+    .then(data=>{
+      pmProvidersState=data&&Array.isArray(data.providers)?data:null;
+      pmProvidersStateLoading=null;
+      return pmProvidersState;
+    })
+    .catch(()=>{
+      pmProvidersStateLoading=null;
+      return null;
+    });
+  const state=await pmProvidersStateLoading;
+  if(typeof pmRenderControl==='function'){
+    try{pmRenderControl();}catch{}
+  }
+  return state;
+}
+function pmProviderRuntimeState(name){
+  const providers=pmProvidersState&&Array.isArray(pmProvidersState.providers)?pmProvidersState.providers:[];
+  return providers.find(item=>item.name===name)||null;
+}
 function copyText(t){
   const api=electronApi();
   if(api&&api.writeClipboardText){api.writeClipboardText(t);showToast('comando copiado al portapapeles',true);return Promise.resolve();}

@@ -68,7 +68,7 @@ function createAuditService(ctx) {
     const releaseVersion = normalizeVersion(readText(path.join(ROOT_DIR, 'release_version.txt')));
     const latestYml = readText(path.join(ROOT_DIR, 'dist', 'latest.yml'));
     const readme = readText(path.join(ROOT_DIR, 'README.md'));
-    const manual = readText(path.join(ROOT_DIR, 'MANUAL.md'));
+    const manual = readText(path.join(ROOT_DIR, 'manual.md'));
     const html = readText(path.join(ROOT_DIR, 'manager', 'index.html'));
     const findings = [];
 
@@ -101,7 +101,7 @@ function createAuditService(ctx) {
     }
 
     if (packageVersion && !manual.includes(packageVersion)) {
-      findings.push(makeFinding('low', 'project', 'MANUAL_VERSION', 'MANUAL no menciona la versión actual', `No aparece ${packageVersion}`, 'MANUAL.md'));
+      findings.push(makeFinding('low', 'project', 'MANUAL_VERSION', 'MANUAL no menciona la versión actual', `No aparece ${packageVersion}`, 'manual.md'));
     }
 
     return {

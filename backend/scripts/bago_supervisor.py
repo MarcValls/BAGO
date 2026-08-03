@@ -183,7 +183,7 @@ def _list_bago_children() -> list[dict[str, Any]]:
     """
     needles = ("BAGO", "bago_core", "ingest_knowledge",
                "real_fallback", "embed_mixed", "watcher_inbox",
-               "auto_daily_kb", "auto_wal_vacuum", "promote-dev")
+               "auto_daily_kb", "auto_wal_vacuum", "promote_dev")
     if sys.platform != "win32":
         return []
     try:

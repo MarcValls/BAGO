@@ -144,7 +144,7 @@ function uninstallCommand(target){
   if(api){
     return psCommand('Write-Error '+psSingle('buildUninstallCommand no disponible en Electron'));
   }
-  return psCommand('& '+psSingle(target+'\\bago-uninstall.ps1')+' -InstallDir '+psSingle(target));
+  return psCommand('& '+psSingle(target+'\\uninstall-bago.ps1')+' -InstallDir '+psSingle(target));
 }
 function roleCommand(role,target){
   const api=electronApi();
