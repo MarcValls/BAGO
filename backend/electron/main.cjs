@@ -34,14 +34,19 @@ let releaseService = null;
 let auditService = null;
 let shutdownRequested = false;
 
+const ISOLATED_TEST = SMOKE_TEST || process.env.BAGO_MANAGER_AUTOMATION_TEST === '1';
+if (ISOLATED_TEST) {
+  app.disableHardwareAcceleration();
+  app.setPath(
+    'userData',
+    process.env.BAGO_MANAGER_SMOKE_USER_DATA || path.join(os.tmpdir(), `bago-manager-smoke-${process.pid}`)
+  );
+}
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
   process.exit(0);
-}
-if (SMOKE_TEST) {
-  app.disableHardwareAcceleration();
-  app.setPath('userData', path.join(os.tmpdir(), 'bago-manager-smoke'));
 }
 
 function getDependencyService() {
@@ -170,7 +175,7 @@ registerIpcHandlers({
 
 app.whenReady().then(async () => {
   try {
-    await getRuntimeService().ensureWebChatServer({ reuseExternal: true });
+    await getRuntimeService().ensureWebChatServer({ reuseExternal: !ISOLATED_TEST });
   } catch (error) {
     const message = `BAGO backend warmup failed: ${error && error.message ? error.message : error}`;
     console.error(message);

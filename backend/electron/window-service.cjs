@@ -196,7 +196,7 @@ function createManagerWindow(options = {}) {
           && result.sidebar
           && result.workspace
           && result.surface
-          && result.destinations >= 8
+          && result.destinations === 7
           && result.active_destination === 1
           && result.bridge
           && result.bridge_contract

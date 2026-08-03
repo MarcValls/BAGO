@@ -96,23 +96,18 @@ function Stop-Backend {
 function Build-Frontend {
     Log "compilando frontend..."
     $buildLog = Join-Path $Run "frontend-build.log"
-    Push-Location $Frontend
+    Push-Location $Root
     try {
-        cmd /d /c "npm run build > `"$buildLog`" 2>&1"
+        cmd /d /c "python backend\scripts\build_ui_dist.py > `"$buildLog`" 2>&1"
         $buildExit = $LASTEXITCODE
     } finally {
         Pop-Location
     }
-    if ($buildExit -ne 0 -or -not (Test-Path (Join-Path $Frontend "dist\index.html"))) {
+    if ($buildExit -ne 0 -or -not (Test-Path (Join-Path $Backend "ui-react\dist\index.html"))) {
         Err "build del frontend fallo. Log: $buildLog"
         return $false
     }
-    # Copiar dist al backend
-    $distTarget = Join-Path $Backend "ui-react\dist"
-    if (Test-Path $distTarget) { Remove-Item $distTarget -Recurse -Force }
-    New-Item -ItemType Directory -Path (Split-Path $distTarget) -Force | Out-Null
-    Copy-Item -Path (Join-Path $Frontend "dist") -Destination $distTarget -Recurse -Force
-    Log "frontend compilado y copiado a backend\ui-react\dist"
+    Log "frontend interactivo compilado y sincronizado a backend\ui-react\dist"
     return $true
 }
 
