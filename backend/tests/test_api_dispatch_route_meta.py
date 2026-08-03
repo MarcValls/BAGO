@@ -44,6 +44,8 @@ class RouteMetaTests(unittest.TestCase):
         self.assertIn("/interpret", api_dispatch.POST_ROUTES)
         self.assertIn("/interpret", api_dispatch.API_PREFIXES)
         self.assertIn("/api/v1/capabilities", api_dispatch.GET_ROUTES)
+        self.assertIn("/api/v1/capability-packages", api_dispatch.GET_ROUTES)
+        self.assertIn("/api/v1/capability-packages/import", api_dispatch.POST_ROUTES)
 
     def test_api_prefixes_covers_all_routes(self):
         # Cada ruta estatica debe tener un prefijo coincidente en API_PREFIXES.
@@ -87,6 +89,8 @@ class RouteMetaTests(unittest.TestCase):
             ("GET", "/plans/<plan_id>"),
             ("POST", "/plans/<plan_id>/execute"),
             ("GET", "/api/v1/capabilities/<capability_id>"),
+            ("GET", "/api/v1/capability-packages/<capability_id>"),
+            ("POST", "/api/v1/capability-packages/<capability_id>/execute"),
         }
         declared = {(method, path) for method, path, _, _ in api_dispatch.DYNAMIC_ROUTE_META}
         self.assertTrue(expected.issubset(declared))
@@ -105,6 +109,14 @@ class RouteMetaTests(unittest.TestCase):
         matched, call = api_dispatch.resolve_get(object(), "/api/v1/capabilities/bago-runtime-inventory")
         self.assertTrue(matched)
         self.assertTrue(callable(call))
+
+    def test_capability_package_lifecycle_routes(self):
+        matched_get, get_call = api_dispatch.resolve_get(object(), "/api/v1/capability-packages/local.text-stats")
+        matched_post, post_call = api_dispatch.resolve_post(object(), "/api/v1/capability-packages/local.text-stats/execute", {})
+        self.assertTrue(matched_get)
+        self.assertTrue(callable(get_call))
+        self.assertTrue(matched_post)
+        self.assertTrue(callable(post_call))
 
     def test_api_routes_auth_header(self):
         self.assertEqual(api_routes.auth_header(), "X-Bago-Token")

@@ -9,6 +9,7 @@ from handlers_router import restore_session_model
 class FakeManager:
     def __init__(self, state_root: Path):
         self.state_root = state_root
+        self.session_id = "session-model-test"
         self.provider = "ollama-local"
         self.model = "llama3.2:3b"
         self.switches: list[tuple[str, str, bool]] = []
@@ -32,3 +33,5 @@ def test_restore_session_model_reapplies_persisted_provider_and_model(tmp_path: 
     assert report["restored"] is True
     assert manager.switches == [("copilot", "gpt-5.4-mini", True)]
     assert (manager.provider, manager.model) == ("copilot", "gpt-5.4-mini")
+    assert not (tmp_path / ".bago_session_model.json").exists()
+    assert (tmp_path / "session-models" / "session-model-test.json").exists()
