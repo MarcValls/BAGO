@@ -18,7 +18,7 @@
 ### PASO 0 · Ejecutar preflight (antes del PASO 1)
 
 ```bash
-python3 tools/session_preflight.py \
+python tools/session_preflight.py \
   --objetivo "..." \
   --roles "role_principal[,role_apoyo]" \
   --artefactos "ruta1,ruta2,ruta3" \
@@ -101,7 +101,7 @@ Antes de cerrar la sesión, verificar:
 
 **Medir producción:**
 ```bash
-python3 tools/artifact_counter.py -n 1 -v
+python tools/artifact_counter.py -n 1 -v
 ```
 
 Si algún punto falla: documentarlo en `decisions` con causa y siguiente paso.
