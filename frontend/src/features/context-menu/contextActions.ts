@@ -28,7 +28,7 @@ export interface ContextActionDeps {
   ensureChatPanel: () => void;
   writeClipboard: (label: string, value: string) => Promise<void>;
   setAndPersistUiState: (patch: Partial<{ commandPaletteOpen: boolean; chatMode: ChatMode }>) => void;
-  confirm: (message: string) => boolean;
+  confirm: (request: { title: string; description: string; confirmLabel?: string }) => Promise<boolean>;
   // CANON[CTX-005]: acciones de Workspace → Árbol de Contexto. Permiten
   // crear un nodo de tipo file/source con un sourceRef, añadirlo al
   // pack activo o crear un claim a partir de un archivo.
@@ -97,8 +97,8 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
   switch (targetKind) {
     case 'screen.home':
       actions.push(
-        { id: 'home-primary', label: deps.opening.actionLabel || 'Ejecutar acción principal', icon: 'plus', onClick: () => deps.openShell(deps.opening.targetSection === 'home' && deps.snapshot?.permissions.canChat ? 'chat' : deps.opening.targetSection), disabled: deps.booting || (!deps.snapshot?.permissions.canChat && deps.opening.targetSection === 'chat') },
-        { id: 'home-continue', label: 'Continuar última sesión', icon: 'history', onClick: () => { void deps.runCommand('/session').then(() => deps.openShell(deps.snapshot?.permissions.canChat ? 'chat' : 'home')); }, disabled: deps.booting || !deps.snapshot?.system.backendAvailable },
+        { id: 'home-primary', label: deps.opening.actionLabel || 'Ejecutar acción principal', icon: 'plus', onClick: () => deps.opening.targetSection === 'home' && deps.snapshot?.permissions.canChat ? deps.ensureChatPanel() : deps.openShell(deps.opening.targetSection), disabled: deps.booting },
+        { id: 'home-continue', label: 'Continuar última sesión', icon: 'history', onClick: () => { void deps.runCommand('/session').then(() => deps.snapshot?.permissions.canChat ? deps.ensureChatPanel() : deps.openShell('home')); }, disabled: deps.booting || !deps.snapshot?.system.backendAvailable },
         { id: 'home-workspace', label: 'Elegir workspace', icon: 'folder', onClick: deps.openWorkspacePicker, disabled: deps.booting },
         { id: 'home-refresh', label: 'Refrescar estado', icon: 'refresh', onClick: () => void deps.bootstrap(), disabled: deps.booting }
       );
@@ -127,8 +127,13 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
       actions.push(
         { id: 'open-workspace', label: isDirectory ? 'Ir a carpeta' : 'Abrir en workspace', icon: isDirectory ? 'folder' : 'file', onClick: () => deps.openWorkspaceFileFromMenu(path, isDirectory ? 'directory' : 'file'), disabled: !path },
         { id: 'attach-context', label: isDirectory ? 'Adjuntar carpeta a contexto' : 'Adjuntar archivo a contexto', icon: 'attach', onClick: () => {
-          if (isDirectory && !deps.confirm(`Adjuntar la carpeta al contexto puede incorporar muchos archivos.\n\n${path}\n\n¿Continuar?`)) return;
-          void deps.runContextCommand(`/context attach ${path}`);
+          if (!isDirectory) {
+            void deps.runContextCommand(`/context attach ${path}`);
+            return;
+          }
+          void deps.confirm({ title: 'Adjuntar carpeta', description: `La carpeta puede incorporar muchos archivos al contexto.\n\n${path}`, confirmLabel: 'Adjuntar carpeta' }).then((confirmed) => {
+            if (confirmed) void deps.runContextCommand(`/context attach ${path}`);
+          });
         }, disabled: !path || !deps.snapshot?.permissions.canInspectContext },
         { id: 'plan-from-file', label: 'Planificar sobre este elemento', icon: 'pipeline', onClick: () => draftCommand(`/plan Revisar ${path}`), disabled: !path },
         { id: 'open-evidence', label: 'Abrir Evidencia', icon: 'evidence', onClick: () => deps.navigate('evidence') }
@@ -162,7 +167,9 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
         { id: 'open-evidence', label: 'Abrir evidencia', icon: 'evidence', onClick: () => deps.navigate('evidence') },
         { id: 'retry-task', label: 'Reintentar flujo', icon: 'retry', onClick: () => void deps.runCommand('/task retry'), disabled: !deps.snapshot?.permissions.canRetryPipeline },
         { id: 'stop-task', label: 'Detener flujo', icon: 'stop', emphasis: 'danger', onClick: () => {
-          if (deps.confirm('Detener el flujo activo puede dejar pasos incompletos. ¿Continuar?')) void deps.runCommand('/task cancel');
+          void deps.confirm({ title: 'Detener flujo', description: 'Detener el flujo activo puede dejar pasos incompletos.', confirmLabel: 'Detener flujo' }).then((confirmed) => {
+            if (confirmed) void deps.runCommand('/task cancel');
+          });
         }, disabled: !deps.snapshot?.permissions.canStopPipeline }
       );
       break;
@@ -203,7 +210,9 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
         { id: 'refresh-system', label: 'Refrescar estado', icon: 'refresh', onClick: () => void deps.refreshAfterMutation() },
         { id: 'refresh-router', label: 'Refrescar router', icon: 'model', onClick: () => void deps.refreshRouterState() },
         { id: 'toggle-auto-router', label: 'Alternar auto-router', icon: 'layout', onClick: () => {
-          if (deps.confirm('Cambiar el auto-router afecta la selección de modelo de la sesión. ¿Continuar?')) void deps.setRouterAutoSwitch(!Boolean(deps.routerState.policy?.auto_switch ?? deps.routerState.list?.auto_switch));
+          void deps.confirm({ title: 'Cambiar auto-router', description: 'Este cambio afecta a la selección de modelo de la sesión.', confirmLabel: 'Cambiar auto-router' }).then((confirmed) => {
+            if (confirmed) void deps.setRouterAutoSwitch(!Boolean(deps.routerState.policy?.auto_switch ?? deps.routerState.list?.auto_switch));
+          });
         } },
         { id: 'open-palette', label: 'Abrir comandos', icon: 'command', onClick: () => deps.setAndPersistUiState({ commandPaletteOpen: true }) }
       );

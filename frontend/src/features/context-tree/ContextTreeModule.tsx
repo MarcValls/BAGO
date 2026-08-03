@@ -3,6 +3,7 @@
 // Pack bar. Reemplaza la antigua pantalla pasiva de métricas.
 import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '@/lib/Drawer';
+import { ConfirmDialog } from '@/lib/ConfirmDialog';
 import type { ActiveSection, ContextTargetKind, SelectionRecord } from '@/contracts/backend';
 import type {
   ContextBankItem,
@@ -79,6 +80,24 @@ const FLOW_STAGES: Array<{ id: ContextFlowStage; label: string; icon: 'folder' |
   { id: 'destination', label: 'Destino', icon: 'send' }
 ];
 
+const NODE_TYPE_LABELS: Record<ContextNodeType, string> = {
+  root: 'Raíz', intent: 'Intención', source: 'Fuente', file: 'Archivo', decision: 'Decisión',
+  rule: 'Regla', claim: 'Afirmación', risk: 'Riesgo', pending: 'Pendiente', evidence: 'Evidencia',
+  proposal: 'Propuesta', pack: 'Pack', note: 'Nota'
+};
+
+const NODE_STATUS_LABELS: Record<ContextNode['status'], string> = {
+  active: 'Activo', proposed: 'Propuesto', excluded: 'Excluido', archived: 'Archivado',
+  canon: 'Cerrado', conflict: 'En conflicto', stale: 'Desactualizado'
+};
+
+type PageNotice = { tone: 'info' | 'success' | 'error'; message: string };
+type ConfirmationRequest = { title: string; description: string; confirmLabel: string; run: () => Promise<void> };
+
+function humanizeReceiptSummary(value: string): string {
+  return value.replace(/^Pack\s+Pack\s+/i, 'Pack ').replace(/\bal chat\b/gi, 'a Inicio');
+}
+
 function newNodeDraft(parentId: string, type: ContextNodeType): { parentId: string; type: ContextNodeType; title: string } {
   return { parentId, type, title: '' };
 }
@@ -124,6 +143,9 @@ export function ContextTreeModule(props: Props) {
   const [focusedCategoryNodeId, setFocusedCategoryNodeId] = useState<string | null>(null);
   const [reviewingNodeId, setReviewingNodeId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string>('');
+  const [pageNotice, setPageNotice] = useState<PageNotice | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationRequest | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   // CANON[CTX-016]: el chat puede pedir abrir un patch en modo edición.
   // Cuando lo recibimos, abrimos el preview y limpiamos el flag.
@@ -624,7 +646,7 @@ export function ContextTreeModule(props: Props) {
     const result = await ctx.acceptPatch(collectionProposal.id);
     setCollectionBusy(false);
     if (!result.ok) {
-      window.alert(result.error || 'No se pudo aplicar la propuesta.');
+      setCollectionNotice({ tone: 'error', message: result.error || 'No se pudo aplicar la propuesta.' });
       return;
     }
     setCollectionProposal(null);
@@ -654,17 +676,20 @@ export function ContextTreeModule(props: Props) {
     if (!selectedBranch || !closeNote.trim()) return;
     const result = await ctx.closeTask(selectedBranch.id, closeNote.trim());
     if (!result.ok) {
-      window.alert(result.error || 'No se pudo cerrar la tarea.');
+      setPageNotice({ tone: 'error', message: result.error || 'No se pudo cerrar la tarea.' });
       return;
     }
     setCloseNote('');
     setCloseOpen(false);
+    setPageNotice({ tone: 'success', message: 'Tarea cerrada y conclusión guardada.' });
   };
 
   const reopenSelectedTask = async () => {
     if (!selectedBranch) return;
     const result = await ctx.reopenTask(selectedBranch.id);
-    if (!result.ok) window.alert(result.error || 'No se pudo reabrir la tarea.');
+    setPageNotice(result.ok
+      ? { tone: 'success', message: 'Tarea reabierta.' }
+      : { tone: 'error', message: result.error || 'No se pudo reabrir la tarea.' });
   };
 
   const handleCopyId = (id: string) => {
@@ -697,12 +722,16 @@ export function ContextTreeModule(props: Props) {
   const handleAcceptPatch = async (patchId: string) => {
     const result = await ctx.acceptPatch(patchId);
     if (!result.ok && result.error) {
-      window.alert(result.error);
+      setPageNotice({ tone: 'error', message: result.error });
     }
   };
-  const handleRejectPatch = async (patchId: string) => {
-    if (!window.confirm('¿Rechazar el patch? El árbol no se modificará.')) return;
-    await ctx.rejectPatch(patchId);
+  const handleRejectPatch = (patchId: string) => {
+    setConfirmation({
+      title: 'Rechazar propuesta',
+      description: 'El árbol no se modificará y la propuesta quedará registrada como rechazada.',
+      confirmLabel: 'Rechazar',
+      run: async () => { await ctx.rejectPatch(patchId); }
+    });
   };
   const handleEditPatch = (patchId: string) => {
     const patch = ctx.proposals.find((p) => p.id === patchId);
@@ -712,16 +741,22 @@ export function ContextTreeModule(props: Props) {
     if (!editingPatch) return;
     const result = await ctx.applyPatchedEdited(editingPatch.id, operations);
     if (!result.ok) {
-      window.alert(result.error || 'No se pudo aplicar el patch.');
+      setPageNotice({ tone: 'error', message: result.error || 'No se pudo aplicar la propuesta editada.' });
     }
     setEditingPatch(null);
   };
-  const handleRevertPatch = async (patchId: string) => {
-    if (!window.confirm('¿Revertir este cambio? Volverá al snapshot previo.')) return;
-    const result = await ctx.revertPatch(patchId);
-    if (!result.ok && result.error) {
-      window.alert(result.error);
-    }
+  const handleRevertPatch = (patchId: string) => {
+    setConfirmation({
+      title: 'Revertir cambio',
+      description: 'El contexto volverá al snapshot anterior a esta propuesta.',
+      confirmLabel: 'Revertir',
+      run: async () => {
+        const result = await ctx.revertPatch(patchId);
+        setPageNotice(result.ok
+          ? { tone: 'success', message: 'Cambio revertido.' }
+          : { tone: 'error', message: result.error || 'No se pudo revertir el cambio.' });
+      }
+    });
   };
   const handleOpenInTree = (patchId: string) => {
     const patch = ctx.proposals.find((p) => p.id === patchId);
@@ -731,9 +766,26 @@ export function ContextTreeModule(props: Props) {
     }
   };
   const handleReviewPatch = (patchId: string) => {
-    if (!window.confirm('Marcar el patch como revisión CRIT. Se creará una nueva versión y se rechazará el patch actual. ¿Continuar?')) return;
-    // Para CRIT: no aplicamos. Sugerimos crear nueva versión (no-op por ahora).
-    void ctx.rejectPatch(patchId);
+    setConfirmation({
+      title: 'Solicitar revisión crítica',
+      description: 'Se rechazará la propuesta actual para conservarla sin aplicar y preparar una nueva revisión.',
+      confirmLabel: 'Solicitar revisión',
+      run: async () => { await ctx.rejectPatch(patchId); }
+    });
+  };
+
+  const runConfirmation = async () => {
+    const request = confirmation;
+    if (!request || confirming) return;
+    setConfirming(true);
+    try {
+      await request.run();
+      setConfirmation(null);
+    } catch (error) {
+      setPageNotice({ tone: 'error', message: error instanceof Error ? error.message : 'No se pudo completar la acción.' });
+    } finally {
+      setConfirming(false);
+    }
   };
 
   const handleAddChild = (parentId: string) => {
@@ -796,7 +848,6 @@ export function ContextTreeModule(props: Props) {
     </div>
   );
 
-  const recentChat = ctx.bank.history.slice(-5).reverse();
   const branchStatus = (branch: ContextNode) => branch.status === 'archived' ? 'Archivada' : branch.status === 'canon' ? 'Cerrada' : 'Abierta';
   const activeCategory = activeContextView === 'summary' ? null : CONTEXT_CATEGORIES.find((entry) => entry.id === activeContextView) || null;
   const rawReview = selectedNode?.metadata?.context_review;
@@ -815,6 +866,13 @@ export function ContextTreeModule(props: Props) {
           </button>
         ))}
       </nav>
+      {pageNotice && (
+        <div className={`task-context-page-notice tone-${pageNotice.tone}`} role={pageNotice.tone === 'error' ? 'alert' : 'status'}>
+          <Icon name={pageNotice.tone === 'error' ? 'warning' : 'check'} size={14} />
+          <span>{pageNotice.message}</span>
+          <button type="button" className="icon-button" aria-label="Cerrar aviso" onClick={() => setPageNotice(null)}><Icon name="close" size={12} /></button>
+        </div>
+      )}
       {activeContextView === 'summary' ? (
       <div className="task-context-layout">
         <aside className="task-context-branches" aria-label="Ramas de tareas">
@@ -840,7 +898,7 @@ export function ContextTreeModule(props: Props) {
 
         <main className="task-context-main">
           {!selectedBranch ? (
-            <section className="task-context-empty-main"><Icon name="context" size={28} /><h2>Empieza por una rama de tarea</h2><p>Escribe el nombre en la columna izquierda o usa Recopilar contexto para detectar trabajo abierto en el chat.</p><div className="task-context-empty-actions"><button type="button" className="secondary-button" onClick={openChat}><Icon name="chat" size={12} /> Ir al chat</button><button type="button" className="primary-button" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar contexto</button></div></section>
+            <section className="task-context-empty-main"><Icon name="context" size={28} /><h2>Empieza por una rama de tarea</h2><p>Escribe el nombre en la columna izquierda o usa Recopilar contexto para detectar trabajo abierto en Inicio.</p><div className="task-context-empty-actions"><button type="button" className="secondary-button" onClick={openChat}><Icon name="chat" size={12} /> Ir a Inicio</button><button type="button" className="primary-button" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar contexto</button></div></section>
           ) : (
             <>
               <section className="task-context-task-head">
@@ -850,12 +908,11 @@ export function ContextTreeModule(props: Props) {
               {closeOpen && selectedBranch.status !== 'canon' && selectedBranch.status !== 'archived' && <section className="task-context-close-form"><strong>Cerrar esta rama</strong><span>Escribe qué se ha resuelto. Quedará guardado como conclusión y podrás reabrirla después.</span><textarea aria-label="Conclusión de la tarea" value={closeNote} onChange={(event) => setCloseNote(event.target.value)} placeholder="Conclusión o evidencia de cierre…" rows={3} /><div><button type="button" className="secondary-button compact" onClick={() => { setCloseOpen(false); setCloseNote(''); }}>Cancelar</button><button type="button" className="primary-button compact" disabled={!closeNote.trim()} onClick={() => void closeSelectedTask()}><Icon name="check" size={12} /> Confirmar cierre</button></div></section>}
               <section className="task-context-grid">
                 <div className="task-context-card task-context-card-wide"><div className="task-context-card-title"><span>CONTENIDO DE LA RAMA</span><b>{selectedBranchNodes.length} elementos</b></div>
-                  {selectedBranchNodes.length === 0 ? <div className="task-context-card-empty">Aún no hay decisiones, pantallas, archivos o evidencias en esta rama.</div> : <div className="task-context-items">{selectedBranchNodes.map((node) => <article key={node.id} className="task-context-item"><span className="task-context-item-type">{node.type}</span><div><strong>{node.title}</strong><p>{node.summary || 'Sin resumen todavía.'}</p>{node.sourceRefs[0]?.path && <button type="button" className="task-context-link" onClick={() => props.onOpenInWorkspace?.(String(node.sourceRefs[0].path))}>Abrir origen</button>}</div><span className="task-context-item-status">{node.status}</span></article>)}</div>}
+                  {selectedBranchNodes.length === 0 ? <div className="task-context-card-empty">Aún no hay decisiones, pantallas, archivos o evidencias en esta rama.</div> : <div className="task-context-items">{selectedBranchNodes.map((node) => <article key={node.id} className="task-context-item"><span className="task-context-item-type">{NODE_TYPE_LABELS[node.type]}</span><div><strong>{node.title}</strong><p>{node.summary || 'Sin resumen todavía.'}</p>{node.sourceRefs[0]?.path && <button type="button" className="task-context-link" onClick={() => props.onOpenInWorkspace?.(String(node.sourceRefs[0].path))}>Abrir origen</button>}</div><span className="task-context-item-status">{NODE_STATUS_LABELS[node.status]}</span></article>)}</div>}
                 </div>
                 <div className="task-context-card"><div className="task-context-card-title"><span>PROPUESTAS PENDIENTES</span><b>{pendingProposals.length}</b></div>{pendingProposals.length === 0 ? <div className="task-context-card-empty">No hay propuestas esperando permiso.</div> : <div className="task-context-proposals">{pendingProposals.slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-proposal" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><Icon name="sparkle" size={13} /><span><strong>{proposal.title}</strong><small>{proposal.patch.operations.length} cambios · requiere revisión</small></span><Icon name="chevron" size={12} /></button>)}</div>}</div>
                 <div className="task-context-card"><div className="task-context-card-title"><span>PREGUNTAS PENDIENTES</span><b>{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).length}</b></div>{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).length === 0 ? <div className="task-context-card-empty">No hay aclaraciones pendientes.</div> : <div className="task-context-question-list">{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-question" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><span>?</span><div><strong>{proposal.metadata?.clarification}</strong><small>Responder revisando la propuesta</small></div></button>)}</div>}</div>
-                <div className="task-context-card"><div className="task-context-card-title"><span>CHAT RECIENTE</span><b>{ctx.bank.history.length}</b></div>{recentChat.length === 0 ? <div className="task-context-card-empty">Todavía no hay conversación disponible.</div> : <div className="task-context-chat-list">{recentChat.map((item, index) => <div key={`${item.id}-${index}`}><span>{String(item.raw?.role || 'chat')}</span><p>{String(item.raw?.content || item.raw?.text || item.title || '').slice(0, 180)}</p></div>)}</div>}</div>
-                <div className="task-context-card task-context-card-wide"><div className="task-context-card-title"><span>HISTORIAL DE LA RAMA</span><b>{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).length}</b></div>{ctx.receipts.length === 0 ? <div className="task-context-card-empty">Aún no hay actividad registrada.</div> : <div className="task-context-timeline">{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).slice(0, 12).map((receipt) => <div key={receipt.id} className="task-context-timeline-item"><span className="task-context-timeline-dot" /><div><strong>{receipt.summary}</strong><small>{new Date(receipt.createdAt).toLocaleString()} · {receipt.createdBy}</small></div></div>)}</div>}</div>
+                <div className="task-context-card task-context-card-full"><div className="task-context-card-title"><span>HISTORIAL DE LA RAMA</span><b>{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).length}</b></div>{ctx.receipts.length === 0 ? <div className="task-context-card-empty">Aún no hay actividad registrada.</div> : <div className="task-context-timeline">{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).slice(0, 12).map((receipt) => <div key={receipt.id} className="task-context-timeline-item"><span className="task-context-timeline-dot" /><div><strong>{humanizeReceiptSummary(receipt.summary)}</strong><small>{new Date(receipt.createdAt).toLocaleString()} · {receipt.createdBy === 'user' ? 'Usuario' : receipt.createdBy === 'chat' ? 'Inicio' : 'Sistema'}</small></div></div>)}</div>}</div>
               </section>
             </>
           )}
@@ -901,7 +958,21 @@ export function ContextTreeModule(props: Props) {
         </section>
       )}
 
-      <ContextCollectionDialog open={collectionOpen} busy={collectionBusy} proposal={collectionProposal} sourceSummary={`${ctx.bank.history.length} mensajes del chat disponibles; se analizará el historial de esta tarea`} notice={collectionNotice} onClose={() => { if (!collectionBusy) setCollectionOpen(false); }} onCollect={collectFromChat} onAccept={acceptCollection} onAcceptOperations={acceptCollectionOperations} onReject={rejectCollection} />
+      <ContextCollectionDialog open={collectionOpen} busy={collectionBusy} proposal={collectionProposal} sourceSummary={`${ctx.bank.history.length} mensajes de Inicio disponibles; se analizará el historial de esta tarea`} notice={collectionNotice} onClose={() => { if (!collectionBusy) setCollectionOpen(false); }} onCollect={collectFromChat} onAccept={acceptCollection} onAcceptOperations={acceptCollectionOperations} onReject={rejectCollection} />
+      {editingPatch && (
+        <div className="context-patch-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingPatch(null); }}>
+          <ContextPatchPreview patch={editingPatch} onCancel={() => setEditingPatch(null)} onApply={(operations) => void handleApplyEdited(operations)} />
+        </div>
+      )}
+      <ConfirmDialog
+        open={Boolean(confirmation)}
+        title={confirmation?.title || 'Confirmar acción'}
+        description={confirmation?.description || 'Revisa la acción antes de continuar.'}
+        confirmLabel={confirmation?.confirmLabel}
+        busy={confirming}
+        onClose={() => { if (!confirming) setConfirmation(null); }}
+        onConfirm={() => void runConfirmation()}
+      />
     </div>
   );
 }
