@@ -40,6 +40,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         "conversation_count": len(conversations) or int(status.get("conversation_count", 1) or 1),
         "provider": getattr(mgr, "provider", "?"),
         "model": getattr(mgr, "model", "?"),
+        "default_provider": status.get("default_provider", getattr(getattr(mgr, "config", None), "default_provider", "ollama-cloud")),
         "status": status,
         "workspace_state": workspace_state,
         "welcome_state": welcome_state,

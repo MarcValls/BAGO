@@ -389,7 +389,7 @@ function Enable-BagoCommandPath {
 function Get-BagoShortcutTargets {
     param([Parameter(Mandatory = $true)][string]$InstallPath)
     $launcherCandidates = @(
-        (Join-Path $InstallPath "ABRIR_ELECTRON_BAGO.cmd"),
+        (Join-Path $InstallPath "open-electron-bago.cmd"),
         (Join-Path $InstallPath "bago.cmd"),
         (Join-Path $InstallPath "bago.ps1")
     )
@@ -884,7 +884,17 @@ function New-InstallConfig {
         $publicProviders[$pair.Key] = $copy
     }
     $selected = @($publicProviders.GetEnumerator() | Where-Object { $_.Value.enabled } | ForEach-Object { $_.Key })
-    $defaultProvider = if ($selected.Count -gt 0) { $selected[0] } else { "ollama-local" }
+    $defaultProvider = if ($selected -contains "ollama-cloud") {
+        "ollama-cloud"
+    } elseif ($selected -contains "copilot") {
+        "copilot"
+    } elseif ($selected -contains "codex") {
+        "codex"
+    } elseif ($selected.Count -gt 0) {
+        $selected[0]
+    } else {
+        "ollama-local"
+    }
     $defaultModel = switch ($defaultProvider) {
         "codex" { "gpt-5.4-mini" }
         "copilot" { "gpt-4o-copilot" }
@@ -1071,7 +1081,7 @@ if ($installerMode -eq "Express") {
         }
         $providerConfigs["copilot"].model = Read-InputOrDefault -Prompt "Modelo Copilot por defecto (por ejemplo gpt-4o-copilot)" -Default "gpt-4o-copilot"
     }
-    $providerConfigs["ollama-cloud"].enabled = Read-YesNo -Prompt "Activar Ollama Cloud" -Default $false
+    $providerConfigs["ollama-cloud"].enabled = Read-YesNo -Prompt "Activar Ollama Cloud" -Default $true
     if ($providerConfigs["ollama-cloud"].enabled) {
         Write-Host "Autenticacion Ollama Cloud:"
         Write-Host "  signin  = login interactivo con navegador"

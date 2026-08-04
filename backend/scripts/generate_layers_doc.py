@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""generate_layers_doc.py — Generate or verify LAYERS.md from tool_registry.py.
+"""generate_layers_doc.py — Generate or verify layers.md from tool_registry.py.
 
 Usage:
-    python3 generate_layers_doc.py           # write docs/LAYERS.md
-    python3 generate_layers_doc.py --check   # exit 1 if LAYERS.md is stale
+    python3 generate_layers_doc.py           # write docs/layers.md
+    python3 generate_layers_doc.py --check   # exit 1 if layers.md is stale
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 TOOLS_DIR = Path(__file__).parent.parent / ".gabo" / "tools"
 REPO_ROOT = Path(__file__).parent.parent
-OUT_PATH = REPO_ROOT / "docs" / "LAYERS.md"
+OUT_PATH = REPO_ROOT / "docs" / "layers.md"
 
 
 def _load_registry():

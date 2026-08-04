@@ -26,7 +26,7 @@ Esto **es** el Bucle de Shepard aplicado a sí mismo:
 - **SCAN**: `bago health monolith` / `file_size_guard --json` detecta los CRITs
 - **ALERT**: `health check` los muestra como `✗` con nombre y líneas
 - **REMEDIATE**: agentes paralelos modularizan — cada uno con 3 archivos, splits claros
-- **VERIFY**: cada agente corre `python3 bago validate` antes de commit
+- **VERIFY**: cada agente corre `python bago validate` antes de commit
 - **EVOLVE**: el propio conocimiento de "cómo partir" queda en el código nuevo
 
 ### Por qué funcionó

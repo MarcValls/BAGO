@@ -13,7 +13,7 @@ Config en .bago/config.json (sección "translation_middleware"):
     {
       "enabled": true,
       "translator_model": "llama3.2:3b",
-      "translator_provider": "ollama-local",
+      "translator_provider": "ollama-cloud",
       "target_models": ["granite3.2:8b", "granite3.2:*"],
       "skip_if_same_language": true,
       "max_input_chars": 4000
@@ -30,6 +30,8 @@ import time
 import urllib.error
 import urllib.request
 from typing import Any, Iterator
+
+from prompt_loader import load_prompt
 
 
 # ─── Detección de idioma (heurística barata) ────────────────────────────
@@ -121,26 +123,6 @@ def _ollama_generate(
         return "", time.time() - t0, f"{type(exc).__name__}: {exc}"
 
 
-# ─── Prompts de traducción ──────────────────────────────────────────────
-
-_PROMPT_ES_TO_EN = (
-    "You are a professional EN→ES translator. Translate the following text "
-    "from Spanish to English. Preserve technical terms, code blocks, URLs, "
-    "and proper nouns. Output ONLY the translation, no preamble, no quotes, "
-    "no explanations.\n\n"
-    "TEXT:\n{text}\n\n"
-    "ENGLISH TRANSLATION:"
-)
-
-_PROMPT_EN_TO_ES = (
-    "Eres un traductor profesional EN→ES. Traduce el siguiente texto del "
-    "inglés al español. Conserva términos técnicos, bloques de código, URLs "
-    "y nombres propios. Responde SOLO con la traducción, sin preámbulo, "
-    "sin comillas, sin explicaciones.\n\n"
-    "TEXTO:\n{text}\n\n"
-    "TRADUCCIÓN AL ESPAÑOL:"
-)
-
 # Patrones que NO deben traducirse
 _CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE = re.compile(r"`[^`]+`")
@@ -187,7 +169,7 @@ def _strip_translation_chatter(text: str) -> str:
 DEFAULT_CONFIG: dict[str, Any] = {
     "enabled": True,
     "translator_model": "llama3.2:3b",
-    "translator_provider": "ollama-local",
+    "translator_provider": "ollama-cloud",
     # Lista de modelos (soporta wildcards con *) cuyo input/salida debe
     # pasar por traducción. Por defecto solo granite3.2:*, pero se puede
     # extender.
@@ -195,7 +177,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "skip_if_same_language": True,
     "max_input_chars": 4000,
     "timeout_s": 60.0,
-    "translator_base_url": "http://127.0.0.1:11434",
+    "translator_base_url": "https://ollama.com",
     # Liberar RAM tras usar el modelo objetivo (e.g. granite3.2 ~5GB).
     # Por defecto DESACTIVADO: modelos lentos de cargar (granite3.2:8b
     # tarda 3-5min en arrancar desde cero) hacen que unload_after_use sea
@@ -293,9 +275,9 @@ def translate(
         return text, info
 
     if target_lang == "en":
-        prompt = _PROMPT_ES_TO_EN.format(text=text)
+        prompt = load_prompt("translation_es_to_en.md").format(text=text)
     elif target_lang == "es":
-        prompt = _PROMPT_EN_TO_ES.format(text=text)
+        prompt = load_prompt("translation_en_to_es.md").format(text=text)
     else:
         info["error"] = f"target_lang no soportado: {target_lang}"
         return text, info

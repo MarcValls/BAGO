@@ -4,7 +4,7 @@
 
 - `falta cerrar` **no aparece** en superficies operativas auditadas (UI activa, contratos y canon operativo).
 - La ambigüedad actual no viene de ese literal, sino de mezclar estados de dominios distintos bajo etiquetas genéricas como `pending` o `partial`.
-- Se detectó una incoherencia documental: se referenciaba `docs/contracts/bago_v4_pipeline_contract.md` como fuente vigente, pero el archivo estaba solo en `docs/contracts/workspace_seed_contract/`.
+- Se detectó una incoherencia documental: se referenciaba `docs/contracts/bago_v4_pipeline_contract.md` como fuente vigente. En este árbol el contenido equivalente también estaba presente en `docs/contracts/workspace_seed_contract/`, así que el riesgo era de espejo/ruta y no de ausencia total.
 
 ## Evidencia revisada
 
@@ -15,6 +15,7 @@
 2. Contratos operativos v4:
    - `docs/contracts/README.md`
    - `docs/contracts/bago_v4_runtime_contract.json`
+   - `docs/contracts/bago_v4_pipeline_contract.md`
    - `docs/contracts/workspace_seed_contract/bago_v4_pipeline_contract.md`
 3. UI activa y única fuente canónica (`frontend/src`):
    - `shared/quiet-status.ts`
@@ -44,11 +45,11 @@ Conclusión: dos estados con semántica distinta pueden verse casi iguales para 
 ### 3) Incoherencia de fuente de verdad contractual
 
 Varios documentos apuntan a `docs/contracts/bago_v4_pipeline_contract.md` como referencia vigente.
-Ese archivo no estaba en esa ruta principal.
+La ruta principal existe ahora, pero el auditor debe seguir vigilando espejos para evitar divergencia futura.
 
 Acción tomada en esta auditoría:
 
-- Se añadió `docs/contracts/bago_v4_pipeline_contract.md` para alinear contrato, runtime y documentación.
+- Se mantuvo `docs/contracts/bago_v4_pipeline_contract.md` como referencia principal y se conservó el espejo en `workspace_seed_contract` como material de legado/seed.
 
 ## Regla operativa propuesta para BAGO
 

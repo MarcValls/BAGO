@@ -36,7 +36,7 @@ function Get-FullPath {
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $root "bago_core\cli.py"
 if (-not (Test-Path -LiteralPath $script)) {
-    throw "No se encontro bago_core\cli.py junto a bago-uninstall.ps1: $script"
+    throw "No se encontro bago_core\cli.py junto a uninstall-bago.ps1: $script"
 }
 
 $installFull = Get-FullPath $InstallDir

@@ -259,7 +259,7 @@ Las de tipo `WARN` se reportan pero no bloquean.
 [FAIL] si la sincerity scan detecta ERROR en docs/
 [FAIL] si existen dos instancias del loop autónomo con el mismo BAGO_ROOT
 [WARN] si hay herramienta core sin --test implementado
-[WARN] si hay deriva entre docs/COMMANDS.md y el registry
+[WARN] si hay deriva entre docs/commands.md y el registry
 ```
 
 ```powershell

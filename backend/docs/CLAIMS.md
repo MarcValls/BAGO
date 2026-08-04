@@ -13,7 +13,7 @@ Every public claim must map to at least one proof. Claims without proof stay `pa
 | BAGO install/update/uninstall flow is supported | Working | `tests/test_install_assistant_contract.py`, `tests/test_install_shortcuts_contract.py`, and `tests/test_install_remote_verification.py` | Windows-first install flow only |
 | BAGO security validation is executable | Working | `tests/test_security.py` and `test_security_release.py` | security gates must fail closed |
 | React UI is available | Optional | `tests/test_ui_dist_contract.py` and `tests/test_ui_live_smoke.cjs` | UI is not system authority |
-| Cloud providers are supported | Partial | `docs/SUPPORT_MATRIX.md` | requires credentials and provider availability |
+| Cloud providers are supported | Partial | `docs/support-matrix.md` | requires credentials and provider availability |
 | RL learns preferences | Experimental | `tests/test_ollama_tool_calling.py` and `tests/test_f4_guardrails.py` | shadow/off by default; no authority |
 | Agents/autopilot can execute work | Experimental | no stable MVP proof | must not be advertised as stable |
 

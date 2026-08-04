@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import io
 import contextlib
+import os
 import subprocess
 import sys
 import tempfile
@@ -81,6 +82,28 @@ class ChatHelpExecTests(unittest.TestCase):
         self.assertIn("BAGO DOCTOR", result.stdout)
         self.assertIn("command_catalog", result.stdout)
 
+    def test_headless_exec_doctor_from_home_uses_safe_fallback(self) -> None:
+        env = os.environ.copy()
+        env["BAGO_SESSION_MIRROR"] = "0"
+        env["PYTHONPATH"] = str(REPO) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bago_core.launcher",
+                "exec",
+                "/doctor",
+            ],
+            cwd=str(Path.home()),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("BAGO DOCTOR", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
+
     def test_launcher_defaults_base_path_to_cwd(self) -> None:
         from bago_core import launcher
 
@@ -124,6 +147,21 @@ class ChatHelpExecTests(unittest.TestCase):
         self.assertEqual(captured["config_base"], str(cwd))
         self.assertEqual(captured["default_provider"], "codex")
         self.assertEqual(captured["default_model"], "gpt-5.4-mini")
+
+    def test_launcher_profiles_uses_profile_root_helper(self) -> None:
+        from bago_core import launcher
+
+        buf = io.StringIO()
+        with (
+            patch.object(launcher, "_profile_root", return_value=Path(r"C:\Program Files\BAGO")) as profile_root,
+            patch.object(launcher, "workspace_root", return_value=Path(r"C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO")),
+            contextlib.redirect_stdout(buf),
+        ):
+            rc = launcher.cmd_profiles(type("Args", (), {})())
+
+        self.assertEqual(rc, 0)
+        self.assertIn("stable : C:\\Program Files\\BAGO", buf.getvalue())
+        profile_root.assert_called_once_with("stable")
 
     def test_repl_uses_shared_menu_sections(self) -> None:
         import commands

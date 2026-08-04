@@ -2,7 +2,7 @@ export type SystemState = 'confirmed' | 'loading' | 'degraded' | 'error' | 'unkn
 export type GlobalMode = 'normal' | 'focus' | 'review';
 export type ChatMode = 'live' | 'trace';
 export type InspectorLevel = 'summary' | 'detail' | 'raw';
-export type ActiveSection = 'home' | 'workspace' | 'graph' | 'pipeline' | 'evidence' | 'context' | 'system';
+export type ActiveSection = 'home' | 'chat' | 'workspace' | 'graph' | 'pipeline' | 'evidence' | 'context' | 'system';
 
 export type ContextTargetKind =
   | 'screen.home'
@@ -174,7 +174,6 @@ export interface BackendMenuState {
   currentScreen?: string;
   operationState?: string;
   recommendedAction?: string;
-  recommendedActions?: string[];
   allowedActions?: string[];
   secondaryActions?: string[];
   blockedActions?: string[];
@@ -274,8 +273,6 @@ export interface UiBootstrapSnapshot {
 export interface BackendStatus {
   [key: string]: unknown;
   session_id?: string;
-  active_conversation_id?: string;
-  conversation_count?: number;
   provider?: string;
   model?: string;
   contract_version?: string;
@@ -328,8 +325,6 @@ export interface BackendStatus {
 export interface BackendSession {
   [key: string]: unknown;
   session_id?: string;
-  active_conversation_id?: string;
-  conversation_count?: number;
   provider?: string;
   model?: string;
   status?: BackendStatus;
@@ -340,34 +335,6 @@ export interface BackendSession {
   active_agent?: string;
   tool_calling?: boolean;
   model_catalog_mode?: string;
-}
-
-export interface BackendSessionSummary {
-  session_id: string;
-  title: string;
-  preview?: string;
-  created_at?: string;
-  updated_at?: string;
-  last_opened_at?: string;
-  project_root?: string;
-  workspace_name?: string;
-  provider?: string;
-  model?: string;
-  message_count: number;
-  conversation_count: number;
-  active_conversation_id?: string;
-  active?: boolean;
-  archived?: boolean;
-  archived_at?: string;
-}
-
-export interface BackendSessions {
-  ok?: boolean;
-  active_session_id: string;
-  sessions: BackendSessionSummary[];
-  count: number;
-  archived_sessions?: BackendSessionSummary[];
-  archived_count?: number;
 }
 
 export interface BackendProviders {
@@ -419,31 +386,8 @@ export interface BackendRoutes {
 
 export interface BackendHistory {
   session_id?: string;
-  conversation_id?: string;
   messages?: Array<Record<string, unknown>>;
   count?: number;
-}
-
-export interface BackendConversation {
-  conversation_id: string;
-  title: string;
-  created_at?: string;
-  updated_at?: string;
-  last_opened_at?: string;
-  message_count: number;
-  active?: boolean;
-  archived?: boolean;
-  preview?: string;
-}
-
-export interface BackendConversations {
-  ok?: boolean;
-  session_id?: string;
-  active_conversation_id: string;
-  conversations: BackendConversation[];
-  count: number;
-  conversation?: BackendConversation;
-  history?: BackendHistory;
 }
 
 export interface BackendFileSourceRoot {
@@ -481,7 +425,6 @@ export interface ChatTurn {
   receipt?: Record<string, unknown> | null;
   provider?: string;
   model?: string;
-  conversationId?: string;
   clarification?: Record<string, unknown>;
   raw?: unknown;
   timestamp: string;
@@ -515,12 +458,10 @@ export interface OpeningDecision {
 export interface UiBootData {
   status?: BackendStatus;
   session?: BackendSession;
-  sessions?: BackendSessions;
   providers?: BackendProviders;
   menu?: BackendMenu;
   routes?: BackendRoutes;
   history?: BackendHistory;
-  conversations?: BackendConversations;
   files?: Record<string, unknown>;
   evidence?: Record<string, unknown>;
   jobs?: Record<string, unknown>;

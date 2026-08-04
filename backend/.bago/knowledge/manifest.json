@@ -114,7 +114,7 @@
       "title": "Contrato de motor",
       "path": "topics/engine-contract.md",
       "status": "stable"
-    }
+    },
   ],
   "projects": [],
   "asset_policy": {
@@ -122,6 +122,6 @@
     "captures": "PNG only when needed",
     "large_media": "No canonical large binaries"
   },
-  "last_refresh": "2026-06-21T12:46:00Z",
-  "refresh_note": "Removed topics without filesystem backing; removed projects/ section (not part of BAGO core)"
+  "last_refresh": "2026-07-23T00:00:00Z",
+  "refresh_note": "Kept behavior-only policy and removed corpus index"
 }

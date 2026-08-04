@@ -1,14 +1,14 @@
 {
-  "id": "ctree_qy2hotew1hvk",
-  "name": "Árbol 25/7/2026, 0:15:52",
+  "id": "ctree_juxteekzl0kn",
+  "name": "Árbol 24/7/2026, 3:59:19",
   "archived": false,
-  "createdAt": "2026-07-24T22:15:52.256Z",
-  "updatedAt": "2026-07-29T11:34:36.015Z",
-  "rootId": "node_phmnx5cb1hvk",
+  "createdAt": "2026-07-24T01:59:19.847Z",
+  "updatedAt": "2026-07-24T01:59:19.847Z",
+  "rootId": "node_15cyq83gl0kn",
   "nodes": {
-    "node_phmnx5cb1hvk": {
-      "id": "node_phmnx5cb1hvk",
-      "treeId": "ctree_qy2hotew1hvk",
+    "node_15cyq83gl0kn": {
+      "id": "node_15cyq83gl0kn",
+      "treeId": "ctree_juxteekzl0kn",
       "parentId": null,
       "type": "root",
       "status": "active",
@@ -25,42 +25,224 @@
       "metadata": {},
       "createdBy": "system",
       "updatedBy": "system",
-      "createdAt": "2026-07-24T22:15:52.256Z",
-      "updatedAt": "2026-07-24T22:15:52.256Z"
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
     },
-    "node_cb6ou104": {
-      "id": "node_cb6ou104",
-      "treeId": "ctree_qy2hotew1hvk",
-      "parentId": "node_phmnx5cb1hvk",
+    "node_239mj2ckl0ko": {
+      "id": "node_239mj2ckl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
       "type": "intent",
       "status": "active",
-      "title": "Objetivo del proyecto BAGO",
-      "summary": "Ofrecer un entorno coherente e intuitivo para crear, ejecutar y verificar aplicaciones con proveedores de IA configurables.",
+      "title": "Intención",
+      "summary": "Objetivo raíz del contexto activo.",
       "priority": "medium",
       "sourceRefs": [],
       "evidenceRefs": [],
       "linkedNodeIds": [],
       "conflictNodeIds": [],
       "tags": [
-        "producto",
-        "ui",
-        "contexto"
+        "intent"
       ],
       "metadata": {
-        "context_review": {
-          "status": "unavailable",
-          "summary": "HTTP 504 Gateway Timeout",
-          "findings": [],
-          "reviewedAt": "2026-07-29T11:34:36.015Z",
-          "provider": "",
-          "model": ""
-        }
+        "branch": "intent"
       },
-      "createdBy": "user",
-      "updatedBy": "user",
-      "createdAt": "2026-07-29T11:31:54.197Z",
-      "updatedAt": "2026-07-29T11:34:36.015Z",
-      "body": "El usuario debe poder trabajar desde una UI limpia, conservar el contexto del proyecto y validar los cambios sin perder funciones existentes."
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_9qbx8ki1l0ko": {
+      "id": "node_9qbx8ki1l0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "source",
+      "status": "active",
+      "title": "Fuentes",
+      "summary": "Origen del contexto: archivos, fuentes y secciones activas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "sources"
+      ],
+      "metadata": {
+        "branch": "sources"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_uhk5w5dtl0ko": {
+      "id": "node_uhk5w5dtl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "decision",
+      "status": "active",
+      "title": "Decisiones",
+      "summary": "Decisiones consolidadas o pendientes de validación.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "decisions"
+      ],
+      "metadata": {
+        "branch": "decisions"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_yry0s5uwl0ko": {
+      "id": "node_yry0s5uwl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "rule",
+      "status": "active",
+      "title": "Reglas",
+      "summary": "Reglas interpretativas vigentes.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "rules"
+      ],
+      "metadata": {
+        "branch": "rules"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_jxr0gvy8l0ko": {
+      "id": "node_jxr0gvy8l0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "risk",
+      "status": "active",
+      "title": "Riesgos",
+      "summary": "Riesgos abiertos o mitigados.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "risks"
+      ],
+      "metadata": {
+        "branch": "risks"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_33lb7vfel0ko": {
+      "id": "node_33lb7vfel0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "pending",
+      "status": "active",
+      "title": "Pendientes",
+      "summary": "Tareas y elementos pendientes de resolver.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "pendings"
+      ],
+      "metadata": {
+        "branch": "pendings"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_bgaabjzsl0ko": {
+      "id": "node_bgaabjzsl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "evidence",
+      "status": "active",
+      "title": "Evidencias",
+      "summary": "Claims, receipts y referencias externas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "evidences"
+      ],
+      "metadata": {
+        "branch": "evidences"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_2fl16oa6l0ko": {
+      "id": "node_2fl16oa6l0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "proposal",
+      "status": "active",
+      "title": "Actividad del Chat",
+      "summary": "Patches propuestos por el chat y validados por el usuario.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "activity"
+      ],
+      "metadata": {
+        "branch": "activity"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_8046moitl0ko": {
+      "id": "node_8046moitl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "pack",
+      "status": "active",
+      "title": "Pack activo",
+      "summary": "Nodos que se enviarán al modelo.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "pack"
+      ],
+      "metadata": {
+        "branch": "pack"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
     }
   }
 }

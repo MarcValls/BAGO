@@ -584,14 +584,12 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const current = tree.nodes[nodeId];
     if (!current) return { ok: false, error: 'Rama no encontrada.' };
-    const trimmed = conclusion.trim();
-    if (!trimmed) return { ok: false, error: 'La conclusión es requerida para cerrar la tarea.' };
     const now = new Date().toISOString();
-    const nextNode = { ...current, status: 'canon' as const, summary: trimmed, updatedAt: now, updatedBy: 'user' as const };
+    const nextNode = { ...current, status: 'canon' as const, summary: conclusion.trim(), updatedAt: now, updatedBy: 'user' as const };
     const nextTree = { ...tree, nodes: { ...tree.nodes, [nodeId]: nextNode }, updatedAt: now };
     setTree(nextTree);
     await persistTree(nextTree);
-    await appendReceipt({ id: `rcpt_${Math.random().toString(36).slice(2, 10)}`, kind: 'node_canon', treeId: tree.id, nodeId, summary: `Tarea cerrada: ${current.title}`, before: { status: current.status }, after: { status: 'canon', conclusion: trimmed }, createdAt: now, createdBy: 'user' });
+    await appendReceipt({ id: `rcpt_${Math.random().toString(36).slice(2, 10)}`, kind: 'node_canon', treeId: tree.id, nodeId, summary: `Tarea cerrada: ${current.title}`, before: { status: current.status }, after: { status: 'canon', conclusion: conclusion.trim() }, createdAt: now, createdBy: 'user' });
     return { ok: true };
   }, [tree, persistTree, appendReceipt]);
 

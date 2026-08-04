@@ -18,8 +18,8 @@ class _DummySimple:
 
 class _PolicyConfig:
     def __init__(self, *args, **kwargs):
-        self.default_provider = "ollama-local"
-        self.default_model = "llama3.2:3b"
+        self.default_provider = "ollama-cloud"
+        self.default_model = "deepseek-v3.1:671b"
         self.data = {
             "features": {
                 "tool_calling": True,

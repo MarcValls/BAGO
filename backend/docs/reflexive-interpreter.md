@@ -14,7 +14,7 @@ The Complemento operativo CAPTAR is accepted as an operational complement to the
 It does not replace `ReflexiveQuestionRecord`, `ContextEnvelope` or `ContextReceipt`.
 It defines the pre-response sequence used to turn a question into a response contract.
 
-Reference: `docs/CAPTAR_INTERPRETATION_MAPPING.md`.
+Reference: `docs/question-interpretation-mapping.md`.
 
 ## Scope
 

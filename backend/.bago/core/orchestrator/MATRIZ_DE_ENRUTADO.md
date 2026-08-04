@@ -1,5 +1,7 @@
 # MATRIZ DE ENRUTADO · BAGO AMTEC línea canónica previa CORREGIDO
 
+La tabla de esta página es la vista compacta canónica. La explicación de por qué cada ruta existe vive en `ROUTER_DE_ROLES.md`.
+
 | Tipo de tarea     |     Riesgo | Workflow                   | Roles mínimos                                      | Escalado típico         |
 | ----------------- | ---------: | -------------------------- | -------------------------------------------------- | ----------------------- |
 | analysis          |       bajo | workflow_analysis          | Orquestador, Analista, Validador                   | Arquitecto              |

@@ -3,7 +3,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN = ROOT / "docs" / "MIGRATION_SPRINTS_CURRENT.md"
+PLAN = ROOT / "docs" / "migration-sprints-current.md"
 
 
 class MigrationSprintPlanTests(unittest.TestCase):

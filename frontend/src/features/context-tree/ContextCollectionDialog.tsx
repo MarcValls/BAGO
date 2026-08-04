@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ContextPatchOp, ContextPatchRequest } from './contextTreeTypes';
 import { Icon } from '@/shared/Icon';
-import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 interface Props {
   open: boolean;
@@ -19,7 +18,16 @@ interface Props {
 export function ContextCollectionDialog(props: Props) {
   const [question, setQuestion] = useState('');
   const [selectedOperations, setSelectedOperations] = useState<number[]>([]);
-  const dialogRef = useDialogAccessibility<HTMLElement>(props.open, props.onClose, { closeDisabled: props.busy });
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!props.open) return;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !props.busy) props.onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [props.open, props.busy, props.onClose]);
   useEffect(() => {
     setSelectedOperations(props.proposal?.patch.operations.map((_, index) => index) || []);
   }, [props.proposal?.id]);
@@ -29,15 +37,15 @@ export function ContextCollectionDialog(props: Props) {
   const operationCount = props.proposal?.patch.operations.length || 0;
 
   return (
-    <div className="task-context-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !props.busy) props.onClose(); }}>
-      <section ref={dialogRef} tabIndex={-1} className="task-context-dialog" role="dialog" aria-modal="true" aria-busy={props.busy} aria-labelledby="context-collection-title">
+    <div className="task-context-dialog-backdrop" role="presentation">
+      <section className="task-context-dialog" role="dialog" aria-modal="true" aria-busy={props.busy} aria-labelledby="context-collection-title">
         <header className="task-context-dialog-header">
           <div>
             <span className="task-context-eyebrow">ASISTENTE DE CONTEXTO</span>
             <h3 id="context-collection-title"><Icon name="sparkle" size={14} /> Recopilar y ordenar</h3>
             <p>El modelo lee el chat, detecta la rama de trabajo y te pide aclaraciones si las necesita.</p>
           </div>
-          <button type="button" className="task-context-close" onClick={props.onClose} aria-label="Cerrar recopilación" disabled={props.busy}>
+          <button ref={closeRef} type="button" className="task-context-close" onClick={props.onClose} aria-label="Cerrar recopilación" disabled={props.busy}>
             <Icon name="close" size={14} />
           </button>
         </header>
@@ -49,7 +57,6 @@ export function ContextCollectionDialog(props: Props) {
             <label className="task-context-dialog-question">
               <span>Pregunta opcional para orientar la recopilación</span>
               <textarea
-                data-autofocus
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder="Ejemplo: separa las pantallas de UI y conserva las tareas abiertas como ramas."
@@ -91,7 +98,7 @@ export function ContextCollectionDialog(props: Props) {
             </div>
             <footer className="task-context-dialog-actions">
               <button type="button" className="secondary-button" onClick={() => void props.onReject()} disabled={props.busy}>Descartar propuesta</button>
-              <button type="button" className="primary-button" data-autofocus onClick={() => void (props.onAcceptOperations ? props.onAcceptOperations((props.proposal?.patch.operations || []).filter((_, index) => selectedOperations.includes(index))) : props.onAccept())} disabled={props.busy || selectedOperations.length === 0}>
+              <button type="button" className="primary-button" onClick={() => void (props.onAcceptOperations ? props.onAcceptOperations((props.proposal?.patch.operations || []).filter((_, index) => selectedOperations.includes(index))) : props.onAccept())} disabled={props.busy || selectedOperations.length === 0}>
                 <Icon name="check" size={12} /> {props.busy ? 'Guardando…' : `Añadir seleccionados (${selectedOperations.length})`}
               </button>
             </footer>

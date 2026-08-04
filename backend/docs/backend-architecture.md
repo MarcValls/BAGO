@@ -11,7 +11,7 @@ graph TD
         R4["ir_types.py\nTipos del protocolo IR"]
         R5["version.py / release_version.txt\nVersión del sistema"]
         R6["install-v4.ps1 / install-assistant.ps1\nInstaladores PowerShell"]
-        R7["ABRIR_ELECTRON_BAGO.cmd / ABRIR_UI_BAGO.cmd\nLanzadores de escritorio"]
+        R7["open-electron-bago.cmd / open-ui-bago.cmd\nLanzadores de escritorio"]
     end
 
     subgraph API[".bago/api — Capa HTTP"]
@@ -215,7 +215,7 @@ graph TD
 | `ir_types.py` | Tipos del protocolo IR |
 | `version.py` / `release_version.txt` | Versión del sistema |
 | `install-v4.ps1` / `install-assistant.ps1` | Instaladores |
-| `ABRIR_*.cmd` | Lanzadores de escritorio |
-| `bago-uninstall.*` / `rollback-v4.ps1` | Desinstalación y rollback |
+| `open-*.cmd` | Lanzadores de escritorio |
+| `uninstall-bago.*` / `rollback-bago.ps1` | Desinstalación y rollback |
 | `package.json` / `.gitignore` | Config del workspace |
-| `MANUAL.md` / `README.md` | Documentación |
+| `manual.md` / `README.md` | Documentación |

@@ -92,10 +92,15 @@ def handle_toggle(handler: "BaseHTTPRequestHandler", key: str) -> None:
         "ok": True,
         "key": key,
         "selected_count": selected_count,
+        "auto_switch": sel.auto_switch,
+        "last_pick": sel.last_pick,
+        "last_pick_at": sel.last_pick_at,
     })
     emit("router.toggled", {
         "key": key,
         "selected_count": selected_count,
+        "auto_switch": sel.auto_switch,
+        "last_pick": sel.last_pick,
     })
 
 
@@ -156,14 +161,10 @@ def handle_policy(handler: "BaseHTTPRequestHandler") -> None:
 # ── Session model override ────────────────────────────────────────────────────
 
 _SESSION_OVERRIDE_FILE = ".bago_session_model.json"
-_SESSION_OVERRIDE_DIR = "session-models"
 
 
-def _override_path(state: "Path", session_id: str = "") -> "Path":
-    if not session_id:
-        return Path(state) / _SESSION_OVERRIDE_FILE
-    from session_registry import validate_session_id
-    return Path(state) / _SESSION_OVERRIDE_DIR / f"{validate_session_id(session_id)}.json"
+def _override_path(state: "Path") -> "Path":
+    return Path(state) / _SESSION_OVERRIDE_FILE
 
 
 def restore_session_model(mgr) -> dict:
@@ -172,15 +173,7 @@ def restore_session_model(mgr) -> dict:
 
     if mgr is None:
         return {"ok": False, "restored": False, "reason": "manager_unavailable"}
-    state = Path(mgr.state_root)
-    path = _override_path(state, str(getattr(mgr, "session_id", "legacy")))
-    legacy_path = _override_path(state)
-    if not path.exists() and legacy_path.exists():
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            legacy_path.replace(path)
-        except OSError:
-            path = legacy_path
+    path = _override_path(Path(mgr.state_root))
     if not path.exists():
         return {"ok": True, "restored": False, "reason": "no_override"}
     try:
@@ -210,8 +203,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     state = _state_root(handler)
     model_key = body.get("model")  # None means clear override
 
-    mgr = getattr(handler, "session_mgr", None)
-    override_path = _override_path(state, str(getattr(mgr, "session_id", "")))
+    override_path = _override_path(state)
 
     if model_key is None or model_key == "":
         # Clear override
@@ -224,6 +216,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     # Apply through SessionManager so the adapter is rebuilt. Mutating only
     # provider/model leaves the previous adapter alive (for example Ollama
     # answering after the user selected Copilot).
+    mgr = getattr(handler, "session_mgr", None)
     if mgr is not None:
         try:
             parts = str(model_key).split("/", 1)
@@ -240,9 +233,38 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
     override = {"model": str(model_key)}
     tmp = override_path.with_suffix(".tmp")
-    override_path.parent.mkdir(parents=True, exist_ok=True)
+    Path(state).mkdir(parents=True, exist_ok=True)
     tmp.write_text(json.dumps(override, indent=2), encoding="utf-8")
     os.replace(str(tmp), str(override_path))
+
+
+    # Manual selection must turn auto-switch off so the user stays in control.
+    try:
+        from repl_model_router import (
+            Selection, discover_models, load_selection, save_selection, _mark_manual_pick,
+        )
+        sel = load_selection(state)
+        if not sel.entries:
+            mgr = getattr(handler, "session_mgr", None)
+            sel = Selection(entries=discover_models(mgr), auto_switch=sel.auto_switch)
+        sel = _mark_manual_pick(sel, str(model_key))
+        save_selection(state, sel)
+    except Exception:
+        pass
+
+    # Apply to live session manager if available
+    mgr = getattr(handler, "session_mgr", None)
+    if mgr is not None:
+        try:
+            # model key is "provider/model_id"
+            parts = str(model_key).split("/", 1)
+            if len(parts) == 2:
+                mgr.provider = parts[0]
+                mgr.model = parts[1]
+            else:
+                mgr.model = model_key
+        except Exception:
+            pass
 
     # Buffer cleaner: prepara Ollama para el modelo nuevo.
     # Solo aplica si el provider es local (ollama). No rompe nada si
@@ -277,8 +299,9 @@ def handle_session_model_get(handler: "BaseHTTPRequestHandler") -> None:
     import json
 
     state = _state_root(handler)
+    override_path = _override_path(state)
+
     mgr = getattr(handler, "session_mgr", None)
-    override_path = _override_path(state, str(getattr(mgr, "session_id", "")))
     restore_report = restore_session_model(mgr)
 
     if override_path.exists():

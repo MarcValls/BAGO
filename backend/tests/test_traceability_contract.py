@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class TraceabilityContractTests(unittest.TestCase):
     def test_snapshot_declares_non_git_traceability(self) -> None:
-        doc = (ROOT / "docs" / "TRACEABILITY.md").read_text(encoding="utf-8")
+        doc = (ROOT / "docs" / "traceability.md").read_text(encoding="utf-8")
         self.assertIn("file-manifest based", doc)
         self.assertIn("current.manifest.json", doc)
         self.assertIn("historical one-off material stays out of generated packages", doc)
@@ -20,7 +20,7 @@ class TraceabilityContractTests(unittest.TestCase):
             self.assertTrue((ROOT / relative).exists(), relative)
 
     def test_historical_sprints_are_excluded_from_packages(self) -> None:
-        testing = (ROOT / "docs" / "TESTING.md").read_text(encoding="utf-8")
+        testing = (ROOT / "docs" / "testing.md").read_text(encoding="utf-8")
         self.assertIn("python scripts\\package_v4.py --test", testing)
         self.assertIn("python scripts\\package_v4.py", testing)
         for script in [
@@ -37,7 +37,7 @@ class TraceabilityContractTests(unittest.TestCase):
         self.assertFalse((ROOT / "scripts" / "_verify_new.py").exists())
 
     def test_verify_copies_is_not_bound_to_this_workspace(self) -> None:
-        script = (ROOT / "scripts" / "verify-copies.ps1").read_text(encoding="utf-8")
+        script = (ROOT / "scripts" / "verify_copies.ps1").read_text(encoding="utf-8")
         self.assertNotIn("C:\\Users\\AMTEC_Terminal_1º\\BAG4.8", script)
         self.assertIn("$RuntimeRoot", script)
         self.assertIn("CopyRoot", script)

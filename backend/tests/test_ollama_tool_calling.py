@@ -26,8 +26,8 @@ class _DummySimple:
 
 
 class _DummyConfig:
-    default_provider = "ollama-local"
-    default_model = "llama3.2:3b"
+    default_provider = "ollama-cloud"
+    default_model = "deepseek-v3.1:671b"
 
     def __init__(self, *args, **kwargs):
         self.values = {
@@ -264,7 +264,7 @@ def test_ollama_adapter_uses_configured_timeout():
     assert adapter.timeout_seconds == 12.5
 
 
-def test_ollama_local_system_prompt_includes_tool_fallback(tmp_path, monkeypatch):
+def test_ollama_cloud_system_prompt_keeps_cloud_policy(tmp_path, monkeypatch):
     adapter = _CaptureOllamaAdapter()
     project = tmp_path / "project"
     project.mkdir()
@@ -295,9 +295,9 @@ def test_ollama_local_system_prompt_includes_tool_fallback(tmp_path, monkeypatch
     finally:
         mgr.close()
 
-    assert any("OLLAMA LOCAL TOOL FORMAT" in system for system in adapter.systems)
-    assert any("<tool_call>" in system for system in adapter.systems)
-    assert 1024 in adapter.max_tokens
+    assert any("POLÍTICA DE COMPORTAMIENTO CANÓNICA" in system for system in adapter.systems)
+    assert any("cloud" in system.lower() for system in adapter.systems)
+    assert not any("OLLAMA LOCAL TOOL FORMAT" in system for system in adapter.systems)
 
 
 def test_plain_chat_streams_even_when_tools_are_registered(tmp_path, monkeypatch):
@@ -334,7 +334,7 @@ def test_plain_chat_streams_even_when_tools_are_registered(tmp_path, monkeypatch
     assert response == "stream-ok"
     assert adapter.stream_calls == 1
     assert adapter.chat_calls == 0
-    assert adapter.max_tokens[0] == 160
+    assert adapter.max_tokens[0] is None
 
 
 def test_session_manager_allows_read_then_edit_tool_rounds(tmp_path, monkeypatch):

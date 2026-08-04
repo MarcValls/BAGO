@@ -1,7 +1,7 @@
 # BAGO Centralization Contract
 
 Status: closed for review
-Depends on: `docs/NODE_CONTROL_SPEC.md`
+Depends on: `docs/node-control-spec.md`
 
 ## Principle
 

@@ -4,6 +4,7 @@ import { Icon } from '@/shared/Icon';
 
 const copy: Record<ActiveSection, { title: string; eyebrow: string; description: string }> = {
   home: { title: 'Inicio', eyebrow: 'Chat', description: 'Elige si vas a empezar algo nuevo o continuar un proyecto.' },
+  chat: { title: 'Conversación', eyebrow: 'Chat', description: 'Panel lateral para preguntar, decidir y ejecutar.' },
   workspace: { title: 'Workspace', eyebrow: 'Trabajo estructurado', description: 'Archivos, fuentes y alcance autorizado.' },
   graph: { title: 'Grafo', eyebrow: 'Relaciones', description: 'Mapa operativo de sesión, contexto, workspace y evidencia.' },
   pipeline: { title: 'Pipeline', eyebrow: 'Ejecución', description: 'Pasos, jobs, bloqueos y evidencias asociadas.' },

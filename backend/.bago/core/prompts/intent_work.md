@@ -1,0 +1,1 @@
+The user wants you to WORK on code or content. Use dir-list and file-read to inspect current state first, then file-write or file-edit as needed. If the task is large, confirm the plan before changing files.

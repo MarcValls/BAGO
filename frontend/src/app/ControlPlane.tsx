@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { BagoClient } from '@/api/client';
-import type { ActiveSection, BackendCommandResult, BackendConversations, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, BackendSessions, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
@@ -10,7 +10,7 @@ import { InspectorDrawer } from '@/layout/InspectorDrawer';
 import { createContextActions } from '@/features/context-menu/contextActions';
 import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
-import { createDefaultUiState, loadUiState, normalizeActiveSection, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
+import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -20,8 +20,6 @@ import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 import { normalizeChatResponse } from '@/shared/chatResponse';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
 import { markFirstRunComplete, shouldShowFirstRun } from '@/features/first-run/firstRun';
-import { ConfirmDialog } from '@/lib/ConfirmDialog';
-import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -108,7 +106,6 @@ function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
       receipt: (message.receipt || message.context_receipt || null) as Record<string, unknown> | null,
       provider: String(message.provider || metadata.provider || ''),
       model: String(message.model || metadata.model || ''),
-      conversationId: String(message.conversation_id || history.conversation_id || 'main'),
       clarification: normalized.clarification,
       raw: message,
       timestamp: String(message.timestamp || message.created_at || nowStamp())
@@ -120,12 +117,6 @@ function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
 // Mantiene estado compartido entre renders sin reasignar el ref.
 const persistWorkspace = {
   everPersistedRef: { current: false } as { current: boolean }
-};
-
-type AppConfirmationRequest = {
-  title: string;
-  description: string;
-  confirmLabel?: string;
 };
 
 export function ControlPlane() {
@@ -140,16 +131,12 @@ export function ControlPlane() {
   });
   const [booting, setBooting] = useState(true);
   const [busyCount, setBusyCount] = useState(0);
-  const [chatRequestCount, setChatRequestCount] = useState(0);
-  const [sessionChanging, setSessionChanging] = useState(false);
   const [snapshot, setSnapshot] = useState<UiBootstrapSnapshot | null>(null);
   const [menu, setMenu] = useState<BackendMenu | null>(null);
   const [routes, setRoutes] = useState<BackendRoutes | null>(null);
   const [providers, setProviders] = useState<BackendProviders | null>(null);
   const [routerState, setRouterState] = useState<{ list: BackendRouterList | null; policy: BackendRouterPolicy | null }>({ list: null, policy: null });
   const [history, setHistory] = useState<BackendHistory | null>(null);
-  const [conversations, setConversations] = useState<BackendConversations | null>(null);
-  const [sessions, setSessions] = useState<BackendSessions | null>(null);
   const [files, setFiles] = useState<Record<string, unknown> | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   // CANON[CTX-002]: Patches que ya fueron entregados al módulo de
@@ -166,9 +153,6 @@ export function ControlPlane() {
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
-  const [confirmation, setConfirmation] = useState<AppConfirmationRequest | null>(null);
-  const confirmationResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
-  const activeSessionIdRef = useRef('');
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
@@ -206,7 +190,7 @@ export function ControlPlane() {
     });
   };
 
-  const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>, options?: { replaceTurns?: boolean }) => {
+  const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>) => {
     const nextSnapshot = buildSnapshot(data);
     const nextOpening = resolveOpeningState(nextSnapshot);
     setSnapshot(nextSnapshot);
@@ -217,13 +201,12 @@ export function ControlPlane() {
     setRouterState({
       list: (data.router_list || null) as BackendRouterList | null,
       policy: (data.router_policy || null) as BackendRouterPolicy | null
-    });
-    setHistory((data.history || null) as BackendHistory | null);
-    setConversations((data.conversations || null) as BackendConversations | null);
-    setSessions((data.sessions || null) as BackendSessions | null);
-    activeSessionIdRef.current = String(data.sessions?.active_session_id || data.session?.session_id || '');
+    });    setHistory((data.history || null) as BackendHistory | null);
     setFiles((data.files || null) as Record<string, unknown> | null);
-    setTurns((current) => options?.replaceTurns ? historyToTurns(data.history) : (current.length ? current : historyToTurns(data.history)));
+    setTurns((current) => current.length ? current : historyToTurns(data.history));
+    if (nextOpening.id === 'enter_directly') {
+      setUiState((current) => current.activeSection === 'chat' ? current : patchUiState(current, { activeSection: 'home' }));
+    }
     return nextSnapshot;
   };
 
@@ -292,11 +275,7 @@ export function ControlPlane() {
         return null;
       }
       const seedAfterLink = shouldOfferSeed(snapshot, selectedRoot)
-        ? await requestConfirmation({
-          title: 'Preparar workspace',
-          description: `La ruta todavía no está validada. BAGO puede prepararla ahora.\n\n${selectedRoot}`,
-          confirmLabel: 'Preparar y vincular'
-        })
+        ? window.confirm(`La ruta ${selectedRoot} no está validada todavía.\n\n¿Sembrar ahora para dejarla válida?`)
         : false;
       const activated = await activateWorkspaceRoot(selectedRoot, 'workspace activado', { seedAfterLink });
       return activated ? selectedRoot : null;
@@ -618,95 +597,6 @@ export function ControlPlane() {
     return applyBootData(next);
   };
 
-  const applyConversationData = (data: BackendConversations): void => {
-    const nextHistory = data.history || { conversation_id: data.active_conversation_id, messages: [], count: 0 };
-    setConversations(data);
-    setHistory(nextHistory);
-    setTurns(historyToTurns(nextHistory));
-  };
-
-  const createConversation = async (): Promise<void> => {
-    setBusyCount((count) => count + 1);
-    try {
-      const data = await clientRef.current.modifyConversation({ action: 'create' });
-      applyConversationData(data);
-      setLastMessage('nueva conversación creada');
-      window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
-    } catch (error) {
-      setLastMessage(error instanceof Error ? error.message : 'no se pudo crear la conversación');
-    } finally {
-      setBusyCount((count) => Math.max(0, count - 1));
-    }
-  };
-
-  const switchConversation = async (conversationId: string): Promise<void> => {
-    if (!conversationId || conversationId === conversations?.active_conversation_id) return;
-    setBusyCount((count) => count + 1);
-    try {
-      const data = await clientRef.current.modifyConversation({ action: 'switch', conversation_id: conversationId });
-      applyConversationData(data);
-      setLastMessage('conversación recuperada');
-    } catch (error) {
-      setLastMessage(error instanceof Error ? error.message : 'no se pudo abrir la conversación');
-    } finally {
-      setBusyCount((count) => Math.max(0, count - 1));
-    }
-  };
-
-  const applySessionChange = async (
-    action: 'create' | 'switch' | 'rename' | 'archive' | 'restore',
-    sessionId?: string,
-    title?: string
-  ): Promise<boolean> => {
-    if (action === 'switch' && (!sessionId || sessionId === sessions?.active_session_id)) return true;
-    if ((action === 'switch' || action === 'create' || action === 'restore') && chatRequestCount > 0) {
-      const confirmed = await requestConfirmation({
-        title: action === 'create' ? 'Crear otra sesión' : action === 'restore' ? 'Restaurar sesión' : 'Cambiar de sesión',
-        description: 'BAGO todavía está respondiendo. La respuesta continuará guardándose en la sesión actual, pero dejarás de verla hasta volver.',
-        confirmLabel: action === 'create' ? 'Crear sesión' : action === 'restore' ? 'Restaurar sesión' : 'Cambiar de sesión'
-      });
-      if (!confirmed) return false;
-    }
-    if (action === 'archive') {
-      const confirmed = await requestConfirmation({
-        title: 'Archivar sesión',
-        description: `La sesión desaparecerá del selector, pero podrás recuperarla desde Gestionar sesión.${chatRequestCount > 0 ? ' La respuesta en curso seguirá guardándose en ella.' : ''}`,
-        confirmLabel: 'Archivar sesión'
-      });
-      if (!confirmed) return false;
-    }
-    setBusyCount((count) => count + 1);
-    setSessionChanging(true);
-    try {
-      const changed = await clientRef.current.modifySession({ action, session_id: sessionId, title });
-      if (action === 'rename') {
-        setSessions(changed);
-        setLastMessage('sesión renombrada');
-        return true;
-      }
-      const data = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
-      applyBootData(data, { replaceTurns: true });
-      setHandledContextPatches(new Set());
-      setInitialContextSelectedNodeId(null);
-      const [, , , modelState] = await Promise.all([
-        refreshRouterState(),
-        contextTreeRef.current.refresh(),
-        contextTreeRef.current.refreshBank(),
-        clientRef.current.getSessionModel().catch(() => ({ session_model: null }))
-      ]);
-      setSessionModelState((modelState.session_model as string | null | undefined) ?? null);
-      setLastMessage(action === 'create' ? 'nueva sesión creada' : action === 'archive' ? 'sesión archivada' : action === 'restore' ? 'sesión restaurada' : 'sesión recuperada');
-      window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
-      return true;
-    } catch (error) {
-      setLastMessage(error instanceof Error ? error.message : 'no se pudo cambiar de sesión');
-      return false;
-    } finally {
-      setSessionChanging(false);
-      setBusyCount((count) => Math.max(0, count - 1));
-    }
-  };
-
   const refreshRouterState = async (): Promise<void> => {
     const [list, policy] = await Promise.all([
       clientRef.current.getRouterList().catch(() => undefined),
@@ -911,8 +801,6 @@ export function ControlPlane() {
     }
 
     const stamp = Date.now();
-    const conversationId = conversations?.active_conversation_id || history?.conversation_id || 'main';
-    const requestSessionId = activeSessionIdRef.current || sessions?.active_session_id || history?.session_id || '';
     const attemptedProvider = String(snapshot.model.provider || '');
     const attemptedModel = String(snapshot.model.effectiveModel || snapshot.model.configuredModel || '');
     const userTurn: ChatTurn = {
@@ -920,7 +808,6 @@ export function ControlPlane() {
       role: 'user',
       text,
       status: 'done',
-      conversationId,
       timestamp: nowStamp()
     };
     const assistantBuffer: ChatTurn = {
@@ -930,22 +817,18 @@ export function ControlPlane() {
       status: 'running',
       provider: attemptedProvider,
       model: attemptedModel,
-      conversationId,
       timestamp: nowStamp()
     };
     setTurns((current) => [...current, userTurn, assistantBuffer]);
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
     setBusyCount((count) => count + 1);
-    setChatRequestCount((count) => count + 1);
 
     try {
       const payload = uiState.chatMode === 'trace'
         ? await clientRef.current.streamChat(text, (chunk) => {
-          if (activeSessionIdRef.current !== requestSessionId) return;
           setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, text: turn.text + chunk } : turn));
-        }, conversationId)
-        : await clientRef.current.sendChat(text, conversationId);
-      if (activeSessionIdRef.current !== requestSessionId) return;
+        })
+        : await clientRef.current.sendChat(text);
       const receipt = (payload.receipt || payload.context_receipt || null) as Record<string, unknown> | null;
       const normalized = normalizeChatResponse(
         String(payload.response || payload.message || ''),
@@ -968,7 +851,6 @@ export function ControlPlane() {
       setLastMessage(normalized.state === 'needs_confirmation' ? 'BAGO necesita confirmación' : normalized.text || 'respuesta recibida');
       await refreshAfterMutation();
     } catch (error) {
-      if (activeSessionIdRef.current !== requestSessionId) return;
       const messageText = error instanceof Error ? error.message : 'falló el chat';
       const errorRecord = readRecord(error);
       setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? {
@@ -980,7 +862,6 @@ export function ControlPlane() {
       } : turn));
       setLastMessage(messageText);
     } finally {
-      setChatRequestCount((count) => Math.max(0, count - 1));
       setBusyCount((count) => Math.max(0, count - 1));
     }
   };
@@ -1013,31 +894,6 @@ export function ControlPlane() {
     openInspector(eventOrSelection, typeof hint === 'string' ? hint : 'detail');
   }
 
-  const openConversation = (mode: UiState['globalMode'] = 'normal') => {
-    try { window.sessionStorage.setItem('bago.start.chat-mode', 'open'); } catch { /* storage unavailable */ }
-    setAndPersistUiState({ activeSection: 'home', globalMode: mode });
-  };
-
-  const requestConfirmation = useCallback((request: AppConfirmationRequest): Promise<boolean> => {
-    confirmationResolverRef.current?.(false);
-    return new Promise((resolve) => {
-      confirmationResolverRef.current = resolve;
-      setConfirmation(request);
-    });
-  }, []);
-
-  const settleConfirmation = useCallback((confirmed: boolean) => {
-    const resolve = confirmationResolverRef.current;
-    confirmationResolverRef.current = null;
-    setConfirmation(null);
-    resolve?.(confirmed);
-  }, []);
-
-  useEffect(() => () => {
-    confirmationResolverRef.current?.(false);
-    confirmationResolverRef.current = null;
-  }, []);
-
   const useSelectionInChat = (nextSelection: SelectionRecord) => {
     const text = [
       `Revisa esto: ${nextSelection.title}`,
@@ -1048,7 +904,7 @@ export function ControlPlane() {
       ...nextSelection.detail.map((line) => `- ${line}`)
     ].join('\n');
     setDraft('chat', text);
-    openConversation();
+    setAndPersistUiState({ activeSection: 'chat' });
     setLastMessage(`selección enviada al chat: ${nextSelection.title}`);
   };
 
@@ -1074,7 +930,7 @@ export function ControlPlane() {
     if (targetKind.startsWith('evidence.')) return navigate('evidence');
     if (targetKind.startsWith('context.')) return navigate('context');
     if (targetKind.startsWith('system.')) return navigate('system');
-    if (targetKind === 'screen.chat') return openConversation();
+    if (targetKind === 'screen.chat') return navigate('chat');
     if (targetKind === 'screen.home') return navigate('home');
     const kind = selection.kind.toLowerCase();
     const id = selection.id.toLowerCase();
@@ -1084,7 +940,7 @@ export function ControlPlane() {
     if (kind.includes('context') || id.includes('context')) return navigate('context');
     if (kind.includes('router') || kind.includes('system') || kind.includes('provider')) return navigate('system');
     if (kind.includes('graph') || kind.includes('node')) return navigate('graph');
-    return openConversation();
+    return navigate('chat');
   };
 
   const openWorkspaceFileFromMenu = (path: string, kind: 'file' | 'directory' = 'file') => {
@@ -1157,10 +1013,10 @@ export function ControlPlane() {
     refreshRouterState,
     setRouterAutoSwitch,
     setDraft,
-    ensureChatPanel: openConversation,
+    ensureChatPanel: () => openShell('chat'),
     writeClipboard,
     setAndPersistUiState,
-    confirm: requestConfirmation,
+    confirm: (message) => window.confirm(message),
     addWorkspacePathToContextTree: (path, kind) => enqueueContextBankItem(path, kind, 'tree'),
     addWorkspacePathToContextPack: (path) => enqueueContextBankItem(path, 'file', 'pack'),
     createContextClaimFromWorkspacePath: (path) => enqueueContextBankItem(path, 'file', 'tree', 'claim'),
@@ -1171,17 +1027,13 @@ export function ControlPlane() {
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, [key]: text } }));
   };
 
-  const navigate = (section: ActiveSection | string) => {
-    setAndPersistUiState({ activeSection: normalizeActiveSection(section) });
+  const navigate = (section: ActiveSection) => {
+    setAndPersistUiState({ activeSection: section });
   };
 
   const runAction = async (action: UiAction) => {
     if (!action.enabled) return;
-    if (action.confirmation?.required && !await requestConfirmation({
-      title: action.confirmation.title || action.label,
-      description: action.confirmation.description || 'Esta acción requiere confirmación.',
-      confirmLabel: action.label
-    })) return;
+    if (action.confirmation?.required && !window.confirm(action.confirmation.description || action.label)) return;
     if (action.kind === 'navigate' && action.payload?.section) {
       navigate(String(action.payload.section) as ActiveSection);
       return;
@@ -1199,11 +1051,7 @@ export function ControlPlane() {
         return;
       }
       const seedAfterLink = shouldOfferSeed(snapshot, root)
-        ? await requestConfirmation({
-          title: 'Preparar workspace',
-          description: `La ruta todavía no está validada. BAGO puede prepararla ahora.\n\n${root}`,
-          confirmLabel: 'Preparar y vincular'
-        })
+        ? window.confirm(`La ruta ${root} no está validada todavía.\n\n¿Sembrar ahora para dejarla válida?`)
         : false;
       await activateWorkspaceRoot(root, 'workspace enlazado', { seedAfterLink });
       return;
@@ -1249,37 +1097,11 @@ export function ControlPlane() {
     const clean = task.trim();
     if (!clean) return;
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, pipeline: clean } }));
-    const turnId = `plan-${Date.now()}`;
-    setTurns((current) => [...current, { id: turnId, role: 'command', text: `Crear plan: ${clean}`, status: 'running', timestamp: nowStamp() }]);
-    setBusyCount((count) => count + 1);
-    setLastMessage('generando plan persistente');
-    try {
-      const payload = await clientRef.current.createPlan(clean);
-      const plan = payload.plan;
-      const result: BackendCommandResult = {
-        ...payload,
-        ok: payload.ok !== false,
-        state: payload.ok === false ? 'failed' : 'done',
-        execution_id: String(payload.plan_id || ''),
-        message: payload.ok === false ? String(payload.error || 'No se pudo crear el plan') : 'Plan creado y guardado en la sesión.',
-        data: plan,
-        plan
-      };
-      setCommandResults((current) => ({ ...current, plan: result }));
-      setTurns((current) => current.map((turn) => turn.id === turnId ? { ...turn, status: result.ok === false ? 'failed' : 'done', receipt: payload, raw: payload } : turn));
-      setLastMessage(result.message || 'Plan creado');
-      await refreshAfterMutation();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo crear el plan';
-      setTurns((current) => current.map((turn) => turn.id === turnId ? { ...turn, status: 'failed', text: `Crear plan: ${clean}\n${message}` } : turn));
-      setLastMessage(message);
-    } finally {
-      setBusyCount((count) => Math.max(0, count - 1));
-    }
+    await runCommand(`/plan ${clean}`);
   };
 
-  const openShell = (section: ActiveSection | string, mode: UiState['globalMode'] = 'normal') => {
-    setAndPersistUiState({ activeSection: normalizeActiveSection(section), globalMode: mode });
+  const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
+    setAndPersistUiState({ activeSection: section, globalMode: mode });
   };
 
   const toggleRouterSelection = async (key: string): Promise<void> => {
@@ -1342,7 +1164,7 @@ export function ControlPlane() {
 
   return (
     <>
-      <div className={`app-root mode-${uiState.globalMode} ${uiState.sidebarCollapsed ? 'sidebar-collapsed' : ''} section-${uiState.activeSection}`}>
+      <div className={`app-root mode-${uiState.globalMode} theme-${uiState.appearanceTheme} ${uiState.sidebarCollapsed ? 'sidebar-collapsed' : ''} section-${uiState.activeSection}`}>
         <GlobalHeader
           snapshot={snapshot}
           workspaceHint={uiState.workspaceHint}
@@ -1355,10 +1177,12 @@ export function ControlPlane() {
           onToggleSidebar={() => setAndPersistUiState({ sidebarCollapsed: !uiState.sidebarCollapsed })}
           onRefresh={bootstrap}
           onSetMode={(mode) => setAndPersistUiState({ globalMode: mode })}
+          onSetAppearanceTheme={(theme) => setAndPersistUiState({ appearanceTheme: theme })}
           onRunCommand={(command) => void runCommand(command)}
           onChooseWorkspace={chooseWorkspaceFromHeader}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
           globalMode={uiState.globalMode}
+          appearanceTheme={uiState.appearanceTheme}
           sidebarCollapsed={uiState.sidebarCollapsed}
         />
 
@@ -1395,8 +1219,8 @@ export function ControlPlane() {
                   apiToken={uiState.apiToken}
                   client={clientRef.current}
                   onApiConfigChange={(patch) => setAndPersistUiState(patch)}
-                  onPrimary={() => opening.targetSection === 'home' && snapshot?.permissions.canChat ? openConversation() : openShell(opening.targetSection)}
-                  onContinue={() => { void runCommand('/session').then(() => snapshot?.permissions.canChat ? openConversation() : openShell('home')); }}
+                  onPrimary={() => openShell(opening.targetSection === 'home' && snapshot?.permissions.canChat ? 'chat' : opening.targetSection)}
+                  onContinue={() => { void runCommand('/session').then(() => openShell(snapshot?.permissions.canChat ? 'chat' : 'home')); }}
                   onChooseWorkspace={openWorkspacePicker}
                   onOpenPalette={() => setAndPersistUiState({ commandPaletteOpen: true })}
                   onRefresh={bootstrap}
@@ -1405,8 +1229,6 @@ export function ControlPlane() {
                   providers={providers}
                   router={routerState}
                   history={history}
-                  conversations={conversations}
-                  sessions={sessions}
                   files={files}
                   commandResults={commandResults}
                   turns={turns}
@@ -1415,16 +1237,6 @@ export function ControlPlane() {
                   globalMode={uiState.globalMode}
                   onDraftChange={setDraft}
                   onSendChat={sendChat}
-                  onCreateConversation={createConversation}
-                  onSwitchConversation={switchConversation}
-                  onCreateSession={() => applySessionChange('create')}
-                  onSwitchSession={(sessionId) => applySessionChange('switch', sessionId)}
-                  onRenameSession={(sessionId, title) => applySessionChange('rename', sessionId, title)}
-                  onArchiveSession={(sessionId) => applySessionChange('archive', sessionId)}
-                  onRestoreSession={(sessionId) => applySessionChange('restore', sessionId)}
-                  sessionBusy={sessionChanging}
-                  chatInProgress={chatRequestCount > 0}
-                  conversationBusy={busyCount > 0}
                   onInspect={onInspect}
                   onRunCommand={runCommand}
                   onRunContextCommand={runContextCommand}
@@ -1504,7 +1316,7 @@ export function ControlPlane() {
           onFinish={() => {
             markFirstRunComplete(window.localStorage);
             setFirstRunOpen(false);
-            snapshot.permissions.canChat ? openConversation() : openShell('home');
+            openShell(snapshot.permissions.canChat ? 'chat' : 'home');
           }}
         />
       )}
@@ -1519,14 +1331,6 @@ export function ControlPlane() {
           client={clientRef.current}
         />
       )}
-      <ConfirmDialog
-        open={Boolean(confirmation)}
-        title={confirmation?.title || 'Confirmar acción'}
-        description={confirmation?.description || 'Revisa la acción antes de continuar.'}
-        confirmLabel={confirmation?.confirmLabel}
-        onClose={() => settleConfirmation(false)}
-        onConfirm={() => settleConfirmation(true)}
-      />
 
       {selectionMenu && (
         <ContextMenu
@@ -1579,7 +1383,13 @@ interface HelpOverlayProps {
 }
 
 function HelpOverlay({ onClose, onOpenFirstRun }: HelpOverlayProps) {
-  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' || event.key === '?') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   const shortcuts = [
     ['Ctrl K', 'Abrir comandos y búsqueda'],
@@ -1591,14 +1401,14 @@ function HelpOverlay({ onClose, onOpenFirstRun }: HelpOverlayProps) {
   ];
 
   return (
-    <div className="command-palette-backdrop help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={dialogRef} tabIndex={-1} className="help-panel" role="dialog" aria-modal="true" aria-label="Atajos de teclado">
+    <div className="command-palette-backdrop help-backdrop" role="dialog" aria-modal="true" aria-label="Atajos de teclado">
+      <div className="help-panel">
         <header>
           <div>
             <span className="surface-eyebrow">Ayuda rápida</span>
             <h2>Atajos y modelo de navegación</h2>
           </div>
-          <button className="icon-button" type="button" data-autofocus onClick={onClose} title="Cerrar ayuda" aria-label="Cerrar ayuda">
+          <button className="icon-button" type="button" onClick={onClose} title="Cerrar ayuda">
             <Icon name="close" />
           </button>
         </header>
@@ -1611,7 +1421,7 @@ function HelpOverlay({ onClose, onOpenFirstRun }: HelpOverlayProps) {
           ))}
         </section>
         <button type="button" className="secondary-button" onClick={onOpenFirstRun}>Abrir recorrido inicial</button>
-        <p className="help-note">El sidebar contiene destinos. El chat vive únicamente en Inicio. Workspace, Pipeline y Pack son nombres funcionales de BAGO; el resto de la interfaz se expresa en español.</p>
+        <p className="help-note">El sidebar contiene destinos. El chat es un panel conmutado, no una pantalla. El inspector aparece como drawer y no reduce el espacio vertical del workspace.</p>
       </div>
     </div>
   );
@@ -1625,14 +1435,21 @@ interface PaletteProps {
 function CommandPalette({ actions, onClose }: PaletteProps) {
   const [query, setQuery] = useState('');
   const filtered = actions.filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
-  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   return (
-    <div className="command-palette-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={dialogRef} tabIndex={-1} className="command-palette" role="dialog" aria-modal="true" aria-label="Comandos rápidos">
+    <div className="command-palette-backdrop" role="dialog" aria-modal="true" aria-label="Comandos rápidos">
+      <div className="command-palette">
         <div className="command-palette-search">
           <span>/</span>
-          <input data-autofocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
+          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
           <kbd>Esc</kbd>
         </div>
         <div className="command-palette-list">
@@ -1675,7 +1492,6 @@ function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, see
   const bridge = getElectronBridge();
   const bridgeAvailable = Boolean(bridge?.chooseProjectRoot || bridge?.chooseWorkspaceRoot);
   const [inspect, setInspect] = useState<InspectState>({ kind: 'idle' });
-  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose);
 
   // Inspecciona el estado REAL del workspace en la ruta actual.
   // Esto consulta directamente el filesystem (vía /project/inspect) y NO
@@ -1715,6 +1531,7 @@ function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, see
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) onConfirm(!isRealReady);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1722,11 +1539,11 @@ function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, see
   }, [onClose, onConfirm, isRealReady]);
 
   return (
-    <div className="command-palette-backdrop workspace-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={dialogRef} tabIndex={-1} className="command-palette workspace-picker" role="dialog" aria-modal="true" aria-label="Elegir workspace">
+    <div className="command-palette-backdrop workspace-picker-backdrop" role="dialog" aria-modal="true" aria-label="Elegir workspace">
+      <div className="command-palette workspace-picker">
         <div className="command-palette-search workspace-picker-search">
           <span>⌂</span>
-          <input data-autofocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="Ruta completa del workspace" />
+          <input autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="Ruta completa del workspace" />
           <kbd>Ctrl+Enter</kbd>
         </div>
         <div className="workspace-picker-body">

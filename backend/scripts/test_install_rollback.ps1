@@ -48,7 +48,7 @@ if (-not $backup) {
     throw "Install did not create rollback backup."
 }
 
-& pwsh -NoProfile -ExecutionPolicy Bypass -File "C:\Bago_v4\rollback-v4.ps1" `
+& pwsh -NoProfile -ExecutionPolicy Bypass -File "C:\Bago_v4\rollback-bago.ps1" `
     -BackupZip $backup.FullName `
     -InstallDir $installDir `
     -BackupRoot $backupRoot `

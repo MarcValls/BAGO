@@ -50,8 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--objective", choices=sorted(PROFILES), default="community-knowledge",
                         help="Objetivo demostrable")
     parser.add_argument("--output", help="Directorio de salida del bundle")
-    parser.add_argument("--provider", default="ollama-local", help="Provider para modo real")
-    parser.add_argument("--model", default="llama3.2:3b", help="Modelo para modo real")
+    parser.add_argument("--provider", default="ollama-cloud", help="Provider para modo real")
+    parser.add_argument("--model", default="deepseek-v3.1:671b", help="Modelo para modo real")
     parser.add_argument("--base-path", default=str(BAGO_ROOT),
                         help="Base path para config/estado en modo real")
     parser.add_argument("--overwrite", action="store_true",

@@ -13,10 +13,12 @@ interface Props {
   onToggleSidebar: () => void;
   onRefresh: () => void;
   onSetMode: (mode: 'normal' | 'focus' | 'review') => void;
+  onSetAppearanceTheme: (theme: 'dark' | 'light') => void;
   onRunCommand: (command: string) => void;
   onChooseWorkspace: () => void;
   onOpenHelp?: () => void;
   globalMode: 'normal' | 'focus' | 'review';
+  appearanceTheme: 'dark' | 'light';
   sidebarCollapsed: boolean;
 }
 
@@ -64,6 +66,16 @@ export function GlobalHeader(props: Props) {
           </div>
         </div>
         <div className="focus-header-actions">
+          <label className="header-theme-picker" title="Opciones de apariencia">
+            <span>Tema</span>
+            <select
+              value={props.appearanceTheme}
+              onChange={(event) => props.onSetAppearanceTheme(event.target.value === 'light' ? 'light' : 'dark')}
+            >
+              <option value="dark">Oscuro</option>
+              <option value="light">Claro</option>
+            </select>
+          </label>
           <button className="header-button" type="button" onClick={props.onOpenPalette} title="Abrir comandos con Ctrl K">
             <Icon name="search" /> Comandos <kbd>Ctrl K</kbd>
           </button>
@@ -100,6 +112,16 @@ export function GlobalHeader(props: Props) {
       </div>
 
       <div className="header-actions">
+        <label className="header-theme-picker" title="Opciones de apariencia">
+          <span>Tema</span>
+          <select
+            value={props.appearanceTheme}
+            onChange={(event) => props.onSetAppearanceTheme(event.target.value === 'light' ? 'light' : 'dark')}
+          >
+            <option value="dark">Oscuro</option>
+            <option value="light">Claro</option>
+          </select>
+        </label>
         <StatePill state={state} busy={props.busy} />
         <button className="header-button command-entry" type="button" onClick={props.onOpenPalette} title="Comandos y búsqueda">
           <Icon name="search" />

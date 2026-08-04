@@ -1,10 +1,10 @@
 # BAGO v4 Architecture
 
 This document captures the structural architecture of BAGO v4.
-Operational state, live surfaces, and UI authority live in `docs/SYSTEM_OVERVIEW.md`, `docs/LIVE_SURFACES.md`, and `docs/UI_CANONICAL_CONTRACT.md`.
+Operational state, live surfaces, and UI authority live in `docs/system-overview.md`, `docs/live-surfaces.md`, and `docs/ui-canonical-contract.md`.
 
 BAGO v4.8.0 is a session-first control plane.
-Product boundary lives in `docs/MVP.md`.
+Product boundary lives in `docs/mvp.md`.
 
 ## Authority Model
 
@@ -30,28 +30,28 @@ Release artifacts must not package live state, logs, credentials, caches, `node_
 ## Runtime Layers
 
 1. Launcher layer
-   - See `docs/MODULES.md` for the current launcher and CLI inventory.
+   - See `docs/modules.md` for the current launcher and CLI inventory.
 
 2. Core session layer
-   - See `docs/MODULES.md` for the current session/control inventory.
+   - See `docs/modules.md` for the current session/control inventory.
 
 3. Provider layer
-   - See `docs/MODULES.md` for the current provider inventory.
+   - See `docs/modules.md` for the current provider inventory.
 
 4. Control/API layer
-   - See `docs/MODULES.md` for the current control/API inventory.
+   - See `docs/modules.md` for the current control/API inventory.
 
 5. Evidence and governance layer
-   - Evidence and claim authorities live in `docs/CLAIMS.md`, `docs/TRACEABILITY.md`, and the evidence bundle docs.
+   - Evidence and claim authorities live in `docs/claims.md`, `docs/traceability.md`, and the evidence bundle docs.
 
 6. UI layer
-   - UI authority lives in `docs/UI_CANONICAL_CONTRACT.md` and the visual grammar/review docs.
+   - UI authority lives in `docs/ui-canonical-contract.md` and the visual grammar/review docs.
 
 7. Plan execution layer
    - Plan execution remains evidence-only and is documented separately from runtime modules.
 
 8. Code Forge layer (BAGO 4.8.0)
-   - See the codegen and validation modules in `docs/MODULES.md`.
+   - See the codegen and validation modules in `docs/modules.md`.
 
 ## Primary Data Flow
 
@@ -90,6 +90,6 @@ These bridges are detection or shadow surfaces, not execution authority:
 
 ## Structural Notes
 
-- Distribution rules live in `docs/DISTRIBUTION_CONTRACT.md`.
-- Runtime eligibility and MVP bounds live in `docs/MVP.md`.
-- Live operational inventory lives in `docs/LIVE_SURFACES.md`.
+- Distribution rules live in `docs/distribution-contract.md`.
+- Runtime eligibility and MVP bounds live in `docs/mvp.md`.
+- Live operational inventory lives in `docs/live-surfaces.md`.

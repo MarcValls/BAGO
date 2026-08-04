@@ -8,7 +8,7 @@
       "created": "2026-04-28T00:00:00Z",
       "status": "active",
       "version": "3.0-conductor",
-      "conductor": "tools/voice_conductor.py",
+      "conductor": "tools/agent_router.py",
       "tools": []
     },
     "role_government_orquestador_central": {
@@ -19,7 +19,7 @@
       "created": "2026-04-28T00:00:00Z",
       "status": "active",
       "version": "3.0-conductor",
-      "conductor": "tools/voice_conductor.py",
+      "conductor": "tools/agent_router.py",
       "tools": []
     },
     "role_production_analista": {

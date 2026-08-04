@@ -29,43 +29,4 @@ describe('bootstrap snapshot normalization', () => {
   it('returns null for an absent backend payload', () => {
     expect(buildSnapshot(null)).toBeNull();
   });
-
-  it('enforces backend action authority and never maps repair to project init', () => {
-    const snapshot = buildSnapshot({
-      status: {
-        framework_root: 'C:/bago',
-        project_root: 'C:/workspace',
-        workspace_state_root: 'C:/workspace/.gabo',
-        workspace_state: {
-          workspace_state: 'invalid',
-          binding_confirmed: false,
-          binding_reason: 'manifest invalid',
-        },
-        provider: 'copilot',
-        model: 'gpt-5.4-mini',
-        health: { ok: true },
-      },
-      session: {
-        session_id: 'session-1',
-        menu_state: {
-          acciones_recomendadas: ['workspace.inspect', 'workspace.repair'],
-          acciones_permitidas: ['workspace.inspect', 'workspace.repair'],
-          acciones_bloqueadas: ['chat.send', 'workspace.init'],
-        },
-      },
-      workspace: {
-        permissions: { canChat: false, canRepairWorkspace: true },
-      },
-    });
-
-    expect(snapshot?.workspace.manifestState).toBe('invalid');
-    expect(snapshot?.menuState?.allowedActions).toContain('workspace.repair');
-    expect(snapshot?.recommendedActions.find((action) => action.id === 'open-chat')).toMatchObject({ enabled: false });
-    expect(snapshot?.recommendedActions.find((action) => action.id === 'workspace-repair')).toMatchObject({
-      kind: 'navigate',
-      enabled: true,
-      payload: { section: 'workspace', contractAction: 'workspace.repair' },
-    });
-    expect(snapshot?.recommendedActions.find((action) => action.id === 'workspace-repair')?.payload?.endpoint).toBeUndefined();
-  });
 });

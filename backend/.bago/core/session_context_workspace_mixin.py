@@ -9,6 +9,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from context_envelope import SystemPromptCapsule
 from intent_engine import classify_intent
+from prompt_loader import load_prompt
 from session_utils import format_rag_context
 from version import CURRENT as BAGO_VERSION
 
@@ -40,22 +41,22 @@ class SessionContextWorkspaceMixin:
         workspace_mirror_root = str(getattr(self, "workspace_mirror_root", getattr(self, "base_path", "")))
         workspace_id = str(getattr(self, "workspace_id", ""))
         lines = [
-            "AUTORIDADES DE RUTA",
-            f"framework_root={getattr(self, 'framework_root', '')}",
-            f"project_root={project_root}",
-            f"workspace_state_root={workspace_state_root}",
-            f"workspace_scope_root={workspace_scope_root}",
-            f"workspace_mirror_root={workspace_mirror_root}",
-            f"workspace_id={workspace_id}",
-            "REGLA DE CONTEXTO",
-            "Si el usuario pregunta desde qué directorio trabajas, qué proyecto está activo, cuál es el workspace, o dónde operas, responde con project_root y workspace_state_root de esta sesión.",
-            "No contestes con respuestas genéricas sobre no tener directorio si la sesión ya tiene project_root y workspace_state_root.",
-            "project_root es el checkout del proyecto; workspace_mirror_root es el worktree operativo; workspace_state_root es el estado portable de la sesión.",
+            load_prompt("workspace_authority.md").format(
+                framework_root=getattr(self, "framework_root", ""),
+                project_root=project_root,
+                workspace_state_root=workspace_state_root,
+                workspace_scope_root=workspace_scope_root,
+                workspace_mirror_root=workspace_mirror_root,
+                workspace_id=workspace_id,
+            )
         ]
         project_block = self._active_project_summary_block()
         if project_block:
             lines.extend(["", project_block])
         return "\n".join(lines)
+
+    def _canonical_behavior_policy_block(self) -> str:
+        return load_prompt("behavior_policy.md")
 
     def _workspace_fallback_reply(self) -> str:
         state = self.workspace_state() if hasattr(self, "workspace_state") else {}
@@ -90,13 +91,11 @@ class SessionContextWorkspaceMixin:
         state = self.workspace_state() if hasattr(self, "workspace_state") else {}
         project_root = str(state.get("project_root") or getattr(self, "project_root", getattr(self, "base_path", "")))
         workspace_state_root = str(state.get("workspace_state_root") or getattr(self, "workspace_state_root", ""))
-        return "\n".join([
-            "PREGUNTA SOBRE EL PROYECTO ACTIVO",
-            f"user_question={user_message}",
-            f"answer_project_root={project_root}",
-            f"answer_workspace_state_root={workspace_state_root}",
-            "Responde como el modelo de chat, en una frase natural y breve, usando esos valores exactos.",
-        ])
+        return load_prompt("workspace_question.md").format(
+            user_message=user_message,
+            project_root=project_root,
+            workspace_state_root=workspace_state_root,
+        )
 
     def _workspace_answer_mentions_active_project(self, response: str) -> bool:
         text = (response or "").lower()
@@ -130,8 +129,13 @@ class SessionContextWorkspaceMixin:
         if self.persistent_goal.strip():
             goal_block = f"OBJETIVO PERSISTENTE\n{self.persistent_goal.strip()}"
 
+        base_prompt = self.system_prompt.strip()
+        behavior_policy_block = self._canonical_behavior_policy_block()
+        if behavior_policy_block:
+            base_prompt = "\n\n".join([part for part in (base_prompt, behavior_policy_block) if part.strip()])
+
         capsule = SystemPromptCapsule(
-            base=self.system_prompt.strip(),
+            base=base_prompt,
             bago_mode_block=bago_mode_block,
             active_agent_block=active_agent_block,
             goal_block=goal_block,

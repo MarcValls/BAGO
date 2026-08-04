@@ -1,8 +1,8 @@
 # BAGO UI Canonical Contract
 
 This document defines the active UI contract for BAG4.8. The new React shell is the starting point for all interface work.
-Layout, visual grammar, and presentation language live in `backend/docs/UI_SYSTEM_VISUAL_GRAMMAR.md`.
-The canonical maturity taxonomy lives in `backend/docs/BAGO_STATE_TAXONOMY.md`.
+Layout, visual grammar, and presentation language live in `docs/ui-system-visual-grammar.md`.
+The canonical maturity taxonomy lives in `docs/state-taxonomy.md`.
 
 ## Source Of Truth
 
@@ -12,7 +12,7 @@ The canonical maturity taxonomy lives in `backend/docs/BAGO_STATE_TAXONOMY.md`.
 - `frontend/src/layout/WorkspaceShell.tsx`
 - `frontend/src/features/sections.tsx`
 - `frontend/src/layout/InspectorDrawer.tsx`
-- `backend/docs/BAGO_STATE_TAXONOMY.md`
+- `docs/state-taxonomy.md`
 
 ## Canonical Shell
 
@@ -22,7 +22,7 @@ The canonical maturity taxonomy lives in `backend/docs/BAGO_STATE_TAXONOMY.md`.
 - `WorkspaceShell` is the active content surface for the current destination.
 - `InspectorDrawer` is the contextual inspection surface.
 - `frontend/src/features/sections.tsx` renders the task-oriented screens and their backend-driven guidance.
-- `backend/docs/BAGO_STATE_TAXONOMY.md` is the reference for implementation maturity labels.
+- `docs/state-taxonomy.md` is the reference for implementation maturity labels.
 
 ## Destinations
 
@@ -43,7 +43,7 @@ These are switched from `MainSidebar` and from the command palette, never duplic
 - `focus`
 - `review`
 
-Behavioral mode rules are defined in `docs/UI_SYSTEM_VISUAL_GRAMMAR.md` only as presentation guidance; the canonical mode contract is here.
+Behavioral mode rules are defined in `docs/ui-system-visual-grammar.md` only as presentation guidance; the canonical mode contract is here.
 
 ## Command And Shortcut Contract
 

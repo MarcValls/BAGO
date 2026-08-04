@@ -26,8 +26,8 @@
 ## PASO 0 — Preflight mínimo
 
 ```bash
-python3 .bago/tools/validate_pack.py   # debe ser GO
-python3 .bago/tools/pack_dashboard.py  # leer estado de producción
+python .bago/tools/validate_pack.py   # debe ser GO
+python .bago/tools/pack_dashboard.py  # leer estado de producción
 ```
 
 Si KO → resolver antes de continuar.

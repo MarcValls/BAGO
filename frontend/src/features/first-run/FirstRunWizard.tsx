@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { firstRunProviderOptions, firstRunReadiness } from './firstRun';
-import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 interface Props {
   snapshot: UiBootstrapSnapshot | null;
@@ -31,7 +30,6 @@ export function FirstRunWizard(props: Props) {
   const [tested, setTested] = useState<Record<string, { ok: boolean; detail: string }>>({});
   const options = useMemo(() => firstRunProviderOptions(props.providers), [props.providers]);
   const readiness = firstRunReadiness(props.snapshot);
-  const dialogRef = useDialogAccessibility<HTMLElement>(true, props.onClose, { closeDisabled: working || props.busy });
 
   const chooseProvider = (id: string) => {
     setProviderId(id);
@@ -95,8 +93,8 @@ export function FirstRunWizard(props: Props) {
   };
 
   return (
-    <div className="first-run-backdrop" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} className="first-run-wizard" role="dialog" aria-modal="true" aria-labelledby="first-run-title">
+    <div className="first-run-backdrop" role="dialog" aria-modal="true" aria-labelledby="first-run-title">
+      <section className="first-run-wizard">
         <header className="first-run-head">
           <div><span className="first-run-eyebrow">Primera puesta en marcha</span><h2 id="first-run-title">Prepara BAGO en pocos minutos</h2></div>
           <button type="button" className="icon-button" onClick={props.onClose} aria-label="Cerrar recorrido"><Icon name="close" size={17} /></button>
@@ -134,7 +132,7 @@ export function FirstRunWizard(props: Props) {
           {step === 3 && <div className="first-run-panel first-run-ready"><span className="first-run-ready-icon"><Icon name="check" size={28} /></span><h3>BAGO está listo</h3><p>Ya puedes conversar, reunir contexto y convertir decisiones en tareas del Pipeline.</p><button type="button" className="primary-button" onClick={props.onFinish}>Entrar en BAGO</button></div>}
           {message && <p className="first-run-message" role="status">{message}</p>}
         </div>
-        {step < 3 && <footer className="first-run-foot"><button type="button" className="text-button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Atrás</button><button type="button" className="primary-button" data-autofocus onClick={() => setStep(Math.min(3, step + 1))}>Continuar</button></footer>}
+        {step < 3 && <footer className="first-run-foot"><button type="button" className="text-button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Atrás</button><button type="button" className="primary-button" onClick={() => setStep(Math.min(3, step + 1))}>Continuar</button></footer>}
       </section>
     </div>
   );

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from prompt_loader import load_prompt
 from session_utils import format_rag_context
 
 
@@ -26,11 +27,7 @@ class SessionContextPolicyMixin:
             features = message_features(user_message)
             predicted = policy.predict(features)
             recommended_intent = INTENT_ACTIONS[predicted] if 0 <= predicted < len(INTENT_ACTIONS) else "unknown"
-            return (
-                f"ORQUESTADOR BC (política entrenada desde historial)\n"
-                f"- Acción recomendada: {recommended_intent}\n"
-                f"- Esta es una sugerencia de la política shadow; síguela si es coherente."
-            )
+            return load_prompt("bc_policy.md").format(recommended_intent=recommended_intent)
         except Exception:
             return ""
 
