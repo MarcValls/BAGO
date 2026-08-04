@@ -42,7 +42,8 @@ class KnowledgeBase:
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         content TEXT NOT NULL,
         source_session TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        deprecated INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at);
     CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(content, source_session);
@@ -65,7 +66,13 @@ class KnowledgeBase:
     def _init_db(self) -> None:
         conn = self._connect()
         conn.executescript(self.SCHEMA)
+        self._migrate_schema(conn)
         conn.commit()
+
+    def _migrate_schema(self, conn: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
+        if "deprecated" not in columns:
+            conn.execute("ALTER TABLE memories ADD COLUMN deprecated INTEGER NOT NULL DEFAULT 0")
 
     def add(self, content: str, source_session: str = "") -> int:
         """Añade un recuerdo y retorna su ID."""
@@ -94,12 +101,18 @@ class KnowledgeBase:
         # Intentar FTS primero
         try:
             rows = conn.execute(
-                "SELECT rowid, content, source_session, created_at FROM memories_fts WHERE memories_fts MATCH ? LIMIT ?",
+                """
+                SELECT m.id, m.content, m.source_session, m.created_at
+                FROM memories_fts
+                JOIN memories m ON m.id = memories_fts.rowid
+                WHERE memories_fts MATCH ? AND m.deprecated = 0
+                LIMIT ?
+                """,
                 (query, limit),
             ).fetchall()
             for row in rows:
                 results.append({
-                    "id": row["rowid"],
+                    "id": row["id"],
                     "content": row["content"],
                     "source_session": row["source_session"],
                     "created_at": row["created_at"],
@@ -112,7 +125,7 @@ class KnowledgeBase:
         # Fallback a LIKE
         pattern = f"%{query}%"
         rows = conn.execute(
-            "SELECT id, content, source_session, created_at FROM memories WHERE content LIKE ? ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, content, source_session, created_at FROM memories WHERE deprecated = 0 AND content LIKE ? ORDER BY created_at DESC LIMIT ?",
             (pattern, limit),
         ).fetchall()
         for row in rows:
@@ -152,6 +165,13 @@ class KnowledgeBase:
         conn.commit()
         return cursor.rowcount > 0
 
+    def deprecate(self, memory_id: int) -> bool:
+        """Marca un recuerdo como deprecated sin borrarlo."""
+        conn = self._connect()
+        cursor = conn.execute("UPDATE memories SET deprecated = 1 WHERE id = ?", (memory_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
     def delete_by_source_prefix(self, source_prefix: str) -> int:
         """Elimina recuerdos cuyo source_session empieza por el prefijo dado."""
         conn = self._connect()
@@ -170,10 +190,11 @@ class KnowledgeBase:
         conn.commit()
         return len(ids)
 
-    def count(self) -> int:
+    def count(self, include_deprecated: bool = False) -> int:
         """Número total de recuerdos almacenados."""
         conn = self._connect()
-        row = conn.execute("SELECT COUNT(*) FROM memories").fetchone()
+        query = "SELECT COUNT(*) FROM memories" if include_deprecated else "SELECT COUNT(*) FROM memories WHERE deprecated = 0"
+        row = conn.execute(query).fetchone()
         return row[0] if row else 0
 
     def close(self) -> None:

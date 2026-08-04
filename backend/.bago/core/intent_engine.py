@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from prompt_loader import load_prompt
+from bago_core.user_state_paths import user_legacy_read_candidates
 
 # ---------------------------------------------------------------------------
 # Load few-shot dataset (auto-generated from session_store)
@@ -36,7 +37,7 @@ def _user_data_path() -> Path:
     override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
     if override:
         return Path(override).expanduser().resolve()
-    return Path.home() / ".bago" / "state" / "intent_examples.json"
+    return user_legacy_read_candidates("state/intent_examples.json")[0]
 
 
 def _load_examples() -> Dict[str, List[Dict[str, str]]]:
@@ -655,5 +656,4 @@ def intent_guidance(intent: str) -> str:
     if key not in {"chat", "review", "execute", "work"}:
         return ""
     return load_prompt(f"intent_{key}.md")
-
 

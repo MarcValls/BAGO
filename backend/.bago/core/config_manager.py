@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from state_paths import resolve_state_root
+from bago_core.user_state_paths import state_read_candidates
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -102,26 +103,33 @@ class ConfigManager:
         self.config_dir = resolve_state_root(state_root)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_path = self.config_dir / "config.json"
+        self.config_source_path = self.config_path
         self._data: dict[str, Any] = {}
         self._load()
 
     def _load(self) -> None:
-        legacy_path = self.base_path / ".bago" / "config.json"
-        source_path = self.config_path if self.config_path.exists() else legacy_path
-        if source_path.exists():
+        source_path = None
+        for path in state_read_candidates("config.json"):
+            if path.exists():
+                source_path = path
+                break
+        if source_path is not None:
             try:
                 self._data = json.loads(source_path.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
                 self._data = {}
         else:
             self._data = {}
+            source_path = self.config_path
         # Merge with defaults (preserving user values)
         self._merge_defaults(DEFAULT_CONFIG)
         if self._data.get("default_provider") == "ollama-local":
             self._data["default_provider"] = "ollama-cloud"
         if self._data.get("default_model") == "llama3.2:3b":
             self._data["default_model"] = "deepseek-v3.1:671b"
-        self._save()
+        self.config_source_path = source_path
+        if source_path == self.config_path or source_path is None:
+            self._save()
 
     def _merge_defaults(self, defaults: dict, target: dict | None = None) -> None:
         if target is None:

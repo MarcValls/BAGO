@@ -93,6 +93,14 @@ def user_read_candidates(relative: str | Path) -> tuple[Path, ...]:
     return tuple(root / target for root in user_read_roots())
 
 
+def user_legacy_read_candidates(relative: str | Path) -> tuple[Path, ...]:
+    """Legacy-only user paths, used for compatibility reads without writes."""
+    target = Path(relative)
+    if target.is_absolute():
+        raise ValueError("user read candidate must be relative")
+    return (legacy_user_root() / target,)
+
+
 def cache_root() -> Path:
     return user_root() / "cache"
 
