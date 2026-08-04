@@ -236,6 +236,28 @@ def test_workspace_authority_block_is_explicit():
             mgr.close()
 
 
+def test_canonical_behavior_policy_is_active_in_system_prompt():
+    """effective_system_prompt must surface the canonical behavior policy."""
+    from session_manager import SessionManager
+    with tempfile.TemporaryDirectory() as td:
+        ws = tempfile.mkdtemp()
+        mgr = SessionManager(
+            session_id="test-f2-canonical-policy",
+            provider="ollama-local",
+            model="qwen2.5:14b",
+            base_path=ws,
+            state_root=td,
+        )
+        try:
+            prompt = mgr.effective_system_prompt()
+            assert "POLÍTICA DE COMPORTAMIENTO CANÓNICA" in prompt
+            assert "local-first" in prompt
+            assert "cloud" in prompt
+            assert "Volumen 12" in prompt
+        finally:
+            mgr.close()
+
+
 def test_goal_persisted_in_save_load():
     """save/load must round-trip persistent_goal."""
     from session_manager import SessionManager

@@ -222,7 +222,7 @@ python role_factory.py validate .bago/roles/especialistas/COMPLIANCE_AUDITOR.md
 ## 🔴 Troubleshooting
 
 ### `python: command not found`
-Python no está en PATH. Usa `python3` o instala Python.
+Python no está en PATH. Usa `python` o instala Python.
 
 ### `Archivo ya existe`
 Cambia el nombre del rol: `python role_factory.py create --family X --name Y_v2`

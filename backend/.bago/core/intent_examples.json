@@ -27,7 +27,7 @@
     },
     {
       "user": "porque cuesta tanto iniciar estado bago?",
-      "assistant": "BAGO arrancado. Resumen:\n\n- **Problema raíz:** `tool_registry.py` usaba `\"python3\"` hardcoded en lugar de `PYTHON = sys.executable`, que en Windows apuntaba al stub inservible de Microsoft Store.\n- **Fix:** 1 línea en `E:\\.bago\\tools\\tool_registry.py` — ahora usa `sys.executable`.\n\n**Estado actual:**\n- 73 ideas | 71 disponibles | último health: **95%**\n- Sin flujo activo → próximo paso: `bago ideas`",
+      "assistant": "BAGO arrancado. Resumen:\n\n- **Problema raíz:** `tool_registry.py` usaba `python` hardcoded en lugar de `PYTHON = sys.executable`, que en Windows podía apuntar al stub inservible de Microsoft Store.\n- **Fix:** 1 línea en `E:\\.bago\\tools\\tool_registry.py` — ahora usa `sys.executable`.\n\n**Estado actual:**\n- 73 ideas | 71 disponibles | último health: **95%**\n- Sin flujo activo → próximo paso: `bago ideas`",
       "session": "958a424f-b36d-4933-9592-6903aa3d553e"
     },
     {

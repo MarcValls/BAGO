@@ -248,9 +248,9 @@ function createDependencyService(ctx) {
   }
 
   function buildUninstallCommand(installDir, extraArgs = []) {
-    const installScript = path.join(installDir, 'bago-uninstall.ps1');
+    const installScript = path.join(installDir, 'uninstall-bago.ps1');
     if (!fs.existsSync(installScript)) {
-      throw new Error(`No se encontró bago-uninstall.ps1 en el destino. Buscado en: ${installScript}`);
+      throw new Error(`No se encontró uninstall-bago.ps1 en el destino. Buscado en: ${installScript}`);
     }
     return [
       'powershell.exe',
@@ -443,7 +443,7 @@ function createDependencyService(ctx) {
             'Desinstalación fallida',
             `El desinstalador retornó código ${code}.\n\nStdout:\n${stdout}\n\nStderr:\n${stderr}`
           );
-          reject(new Error(`bago-uninstall.ps1 exited with ${code}`));
+          reject(new Error(`uninstall-bago.ps1 exited with ${code}`));
         }
       });
 

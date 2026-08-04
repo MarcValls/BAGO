@@ -6,5 +6,7 @@ if not exist "%SCRIPT%" (
     echo bago: no se encontro %SCRIPT% 1>&2
     exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" %*
+set "POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "%POWERSHELL%" set "POWERSHELL=powershell.exe"
+"%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" %*
 exit /b %ERRORLEVEL%

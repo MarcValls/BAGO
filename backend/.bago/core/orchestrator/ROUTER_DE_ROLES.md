@@ -2,7 +2,9 @@
 
 ## Objetivo
 
-Traducir tipo de tarea, alcance, riesgo y necesidad de trazabilidad en un conjunto de roles. Esta versión corrige la ambigüedad anterior reforzando un caso específico: el de migración histórica fiel.
+Traducir tipo de tarea, alcance, riesgo y necesidad de trazabilidad en un conjunto de roles.
+La vista compacta canónica de combinaciones vive en `MATRIZ_DE_ENRUTADO.md`.
+Este archivo solo explica el criterio y las excepciones.
 
 ## Variables
 
@@ -13,50 +15,14 @@ Traducir tipo de tarea, alcance, riesgo y necesidad de trazabilidad en un conjun
 - necesidad de empaquetado,
 - necesidad de preservación histórica.
 
-## Rutas principales
+## Regla práctica
 
-### Diagnóstico
+Usa `MATRIZ_DE_ENRUTADO.md` como vista compacta canónica.
+Este archivo solo añade criterios de ajuste para casos con migración histórica o deuda repetida.
 
-- Orquestador
-- Analista
-- Validador
-
-### Diseño
-
-- Orquestador
-- Analista
-- Arquitecto
-- Validador
-
-### Ejecución simple
-
-- Orquestador
-- Generador
-- Validador
-
-### Ejecución estructural
-
-- Orquestador
-- Arquitecto
-- Generador
-- Validador
-
-### Organización y empaquetado
-
-- Orquestador
-- Organizador
-- Validador
-
-### Migración histórica fiel
-
-- Orquestador
-- Analista
-- Auditor Canónico
-- Validador
-
-Añadir Arquitecto si la migración requiere rediseñar estructura.
-Añadir Organizador si la salida final es un pack o ZIP.
-Añadir role_vertice solo si la migración revela deuda evolutiva repetida.
+- añadir Arquitecto si la migración requiere rediseñar estructura;
+- añadir Organizador si la salida final es un pack o ZIP;
+- añadir role_vertice solo si la migración revela deuda evolutiva repetida.
 
 ## Señales de mal enrutado
 

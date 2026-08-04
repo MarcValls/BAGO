@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DOC = ROOT / "docs" / "CAPTAR_INTERPRETATION_MAPPING.md"
+DOC = ROOT / "docs" / "question-interpretation-mapping.md"
 
 
 def test_captar_mapping_document_exists_and_declares_scope() -> None:
@@ -45,7 +45,7 @@ def test_captar_preserves_boundaries_required_by_canon() -> None:
 
 
 def test_reflexive_implementation_references_captar_mapping() -> None:
-    doc = (ROOT / "docs" / "REFLEXIVE_INTERPRETER.md").read_text(encoding="utf-8")
+    doc = (ROOT / "docs" / "reflexive-interpreter.md").read_text(encoding="utf-8")
 
     assert "Complemento operativo CAPTAR" in doc
-    assert "docs/CAPTAR_INTERPRETATION_MAPPING.md" in doc
+    assert "docs/question-interpretation-mapping.md" in doc

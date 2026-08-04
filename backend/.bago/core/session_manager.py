@@ -106,6 +106,10 @@ PROJECT_ROOT_MARKERS = (
     "go.mod",
 )
 
+SYSTEM_ROOT = Path(os.environ.get("SystemRoot", r"C:\Windows")).expanduser().resolve()
+PROGRAM_FILES_ROOT = Path(os.environ.get("ProgramFiles", r"C:\Program Files")).expanduser().resolve()
+PROGRAM_FILES_X86_ROOT = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")).expanduser().resolve()
+
 MAX_MIRROR_BYTES = 2 * 1024 * 1024 * 1024
 MAX_MIRROR_FILES = 200_000
 MAX_MIRROR_SCAN_SECONDS = 30.0
@@ -128,6 +132,14 @@ class SessionManager(
     @staticmethod
     def _mirror_session_root(session_id: str) -> Path:
         return Path(tempfile.gettempdir()) / "BAGO" / "sessions" / session_id
+
+    @staticmethod
+    def _is_relative_to(path: Path, root: Path) -> bool:
+        try:
+            path.relative_to(root)
+            return True
+        except ValueError:
+            return False
 
     @staticmethod
     def _validate_project_root(project_root: Path, *, require_identity: bool = False) -> Path:
@@ -155,6 +167,21 @@ class SessionManager(
                 "BAGO no puede utilizar la raíz completa de la unidad como proyecto: "
                 f"{resolved_root}."
             )
+
+        protected_roots = (
+            SYSTEM_ROOT,
+            PROGRAM_FILES_ROOT,
+            PROGRAM_FILES_X86_ROOT,
+        )
+        for protected_root in protected_roots:
+            if protected_root and (
+                resolved_root == protected_root
+                or SessionManager._is_relative_to(resolved_root, protected_root)
+            ):
+                raise RuntimeError(
+                    "BAGO no puede utilizar una ruta protegida del sistema como proyecto: "
+                    f"{resolved_root}."
+                )
 
         if require_identity and not any((resolved_root / marker).exists() for marker in PROJECT_ROOT_MARKERS):
             markers = ", ".join(PROJECT_ROOT_MARKERS)
@@ -346,8 +373,8 @@ class SessionManager(
     def __init__(
         self,
         session_id: str | None = None,
-        provider: str = "ollama-local",
-        model: str = "qwen2.5:14b",
+        provider: str = "ollama-cloud",
+        model: str = "deepseek-v3.1:671b",
         base_path: str | None = None,
         state_root: str | None = None,
         system_prompt: str = "",

@@ -1,7 +1,7 @@
 /* Patch-first manager shell. The legacy manager remains mounted as a data/action fallback. */
   body{background:#080b12;}
   body>header,body>main,body>footer{display:none;}
-  .pm-app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr);background:#080b12;color:#e6edf7;}
+  .pm-app{height:100vh;min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr);background:#080b12;color:#e6edf7;overflow:hidden;}
   .pm-sidebar{position:sticky;top:0;height:100vh;border-right:1px solid #263143;background:#0b1019;padding:16px 12px;display:flex;flex-direction:column;gap:14px;}
 
   /* BAGO Chat tab — pestaña especial en el nav del gestor */
@@ -87,7 +87,7 @@
   .pm-store{margin-top:auto;border-top:1px solid #263143;padding:13px 7px 0;color:#8190a7;font-size:11px;}
   .pm-store-row{display:flex;justify-content:space-between;gap:10px;margin-top:7px;}
   .pm-store-row strong{color:#c9d6e6;font-family:'JetBrains Mono','Cascadia Code',monospace;}
-  .pm-content{min-width:0;padding:18px 20px 40px;}
+  .pm-content{min-width:0;padding:18px 20px 40px;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
   .pm-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;}
   .pm-title h1{margin:0;font-size:21px;letter-spacing:0;}
   .pm-title p{margin:5px 0 0;color:#8190a7;font:11px 'JetBrains Mono','Cascadia Code',monospace;}
@@ -99,9 +99,9 @@
   .pm-btn.primary{background:#0e7490;border-color:#0891b2;color:#fff;}
   .pm-btn.danger{border-color:#7f1d1d;color:#fecaca;}
   .pm-btn.warn{border-color:#854d0e;color:#fde68a;}
-  .pm-view{display:none;gap:12px;min-width:0;}
-  .pm-view.active{display:grid;}
-  .pm-grid{display:grid;gap:12px;min-width:0;}
+  .pm-view{display:none;gap:12px;min-width:0;min-height:0;}
+  .pm-view.active{display:grid;min-height:0;flex:1;overflow:auto;scrollbar-gutter:stable both-edges;}
+  .pm-grid{display:grid;gap:12px;min-width:0;min-height:0;}
   .pm-stats{grid-template-columns:repeat(6,minmax(0,1fr));}
   .pm-stat,.pm-panel{min-width:0;border:1px solid #263143;border-radius:8px;background:#0e1520;}
   .pm-stat{padding:12px;min-width:0;}
@@ -209,10 +209,10 @@
   .pm-chain-stage-actions button:disabled,.pm-chain-step-actions button:disabled{opacity:.3;}
   .pm-chain-empty{padding:18px;text-align:center;color:#718198;font-size:9px;border:1px dashed #263143;border-radius:5px;}
   .pm-release-list,.pm-piece-grid{display:grid;gap:8px;padding:10px;}
-  .pm-release-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 10px 0;}
+  .pm-release-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 10px 0;max-height:calc(100vh - 240px);overflow:auto;scrollbar-gutter:stable both-edges;}
   .pm-release-summary .pm-stat{background:#0b111b;}
   .pm-jobs-layout{grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);align-items:start;}
-  .pm-jobs-list{display:grid;gap:8px;padding:10px;}
+  .pm-jobs-list{display:grid;gap:8px;padding:10px;max-height:calc(100vh - 260px);overflow:auto;scrollbar-gutter:stable both-edges;}
   .pm-job{display:grid;gap:8px;padding:10px;border:1px solid #263143;border-radius:6px;background:#0b111b;}
   .pm-job-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
   .pm-job h3{margin:0;font-size:11px}.pm-job p{margin:3px 0 0;color:#718198;font:9px 'JetBrains Mono','Cascadia Code',monospace;word-break:break-all;}
@@ -244,7 +244,7 @@
     letter-spacing:.06em;
   }
   .pm-audit-tabs button.active{background:linear-gradient(90deg,#0e7490,#22d3ee);color:#fff;border-color:#0891b2;}
-  .pm-audit-panels{display:grid;gap:12px;padding:12px 14px 14px;}
+  .pm-audit-panels{display:grid;gap:12px;padding:12px 14px 14px;max-height:calc(100vh - 240px);overflow:auto;scrollbar-gutter:stable both-edges;}
   .pm-audit-slot{display:none;gap:8px;padding:12px;border:1px solid #263143;border-radius:14px;background:#0b111b;}
   .pm-audit-slot.active{display:grid;}
   .pm-audit-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
@@ -289,7 +289,7 @@
   .pm-session-message strong{display:block;margin-bottom:4px;color:#67e8f9;font-size:8px;text-transform:uppercase;}
   .pm-session-prompt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px;border-top:1px solid #263143;}
   .pm-session-prompt textarea{min-height:72px;resize:vertical;border:1px solid #2a374b;border-radius:6px;background:#0b111b;color:#dce6f3;padding:9px;font-size:11px;}
-  .pm-control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;}
+  .pm-control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;min-height:0;}
   .pm-control-card{min-width:0;border:1px solid #263143;border-radius:8px;background:#0e1520;display:grid;grid-template-rows:auto minmax(118px,1fr) auto;}
   .pm-control-card.warn{border-color:#854d0e;background:#161309;}
   .pm-control-head{min-height:64px;padding:11px 12px;border-bottom:1px solid #263143;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
@@ -303,11 +303,12 @@
   .pm-control-kv strong.ok{color:#34d399}.pm-control-kv strong.warn{color:#fbbf24}.pm-control-kv strong.bad{color:#fb7185}
   .pm-control-actions{display:flex;flex-wrap:wrap;gap:7px;padding:10px 12px;border-top:1px solid #263143;}
   .pm-control-actions .pm-btn{height:30px;font-size:10px;}
-  .pm-provider-stack{display:grid;gap:7px;}
+  .pm-provider-stack{display:grid;gap:7px;max-height:calc(100vh - 310px);overflow:auto;scrollbar-gutter:stable both-edges;padding-right:4px;}
   .pm-provider-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px;border:1px solid #263143;border-radius:6px;background:#0b111b;}
   .pm-provider-line strong{display:block;font-size:10px;color:#dce6f3;}
   .pm-provider-line span{display:block;margin-top:2px;color:#718198;font:9px 'JetBrains Mono','Cascadia Code',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pm-provider-actions-inline{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;}
+  .pm-provider-state{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;}
   .pm-provider-actions-inline .pm-btn{height:27px;font-size:9px;}
   .pm-route-layout{grid-template-columns:minmax(0,1fr) 330px;align-items:start;}
   .pm-route-board{padding:14px;overflow:auto;min-height:520px;background:#090e16;}
@@ -462,6 +463,7 @@
   .pm-stage{border-radius:10px;}
   .pm-matrix th,.pm-matrix td{font-size:10px;}
   .pm-system-list,.pm-health-list,.pm-session-list,.pm-release-list,.pm-piece-grid,.pm-jobs-list,.pm-session-audit,.pm-route-output,.pm-detail-body{padding:12px;}
+  .pm-system-list,.pm-health-list,.pm-session-list,.pm-session-chat,.pm-route-output,.pm-detail-body{overflow:auto;scrollbar-gutter:stable both-edges;}
   .pm-empty{padding:34px 24px;color:#94a3b8;}
   @media(max-width:1180px){
     .pm-app{grid-template-columns:1fr;}

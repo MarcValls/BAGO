@@ -12,10 +12,10 @@ Ser el **director interno del sistema**. Recibe la tarea de MAESTRO_BAGO bajo PU
 
 ## Responsabilidades
 
-- Clasificar la tarea usando `intents_catalog.json`.
-- Seleccionar el workflow adecuado consultando `workflow_guidance.json`.
+- Clasificar la tarea usando `.bago/core/command_intents.json`.
+- Seleccionar el workflow adecuado consultando `.bago/workflows/WORKFLOWS_INDEX.md` y `.bago/workflows/WORKFLOW_MAESTRO_BAGO.md`.
 - Seleccionar los roles (voces) necesarios de `roles/manifest.json` sin solapamiento.
-- Activar las voces secuencialmente via `voice_conductor.py`, respetando `MAX_CONCURRENT = 3`.
+- Activar las voces secuencialmente via `agent_router.py`, respetando `MAX_CONCURRENT = 3`.
 - Monitorear el progreso de cada voz activa.
 - Señalizar PUERTA_ABIERTA al completar el ciclo de trabajo.
 - Gestionar escalado si una voz requiere apoyo adicional.
@@ -31,7 +31,7 @@ Ser el **director interno del sistema**. Recibe la tarea de MAESTRO_BAGO bajo PU
 
 ## Límites
 
-- Máximo `MAX_CONCURRENT = 3` voces activas simultáneamente (enforceado por `voice_conductor.py`);
+- Máximo `MAX_CONCURRENT = 3` voces activas simultáneamente (enforceado por `agent_router.py`);
 - no coloniza producción directamente;
 - no sustituye análisis especializado de las voces;
 - no se comunica con el usuario (solo con MAESTRO_BAGO);
@@ -41,10 +41,10 @@ Ser el **director interno del sistema**. Recibe la tarea de MAESTRO_BAGO bajo PU
 
 - tarea delegada por MAESTRO_BAGO (bajo PUERTA CERRADA);
 - estado del sistema (`global_state.json`);
-- catálogo de intenciones (`intents_catalog.json`);
-- guía de workflows (`workflow_guidance.json`);
+- catálogo de intenciones (`.bago/core/command_intents.json`);
+- guía de workflows (`.bago/workflows/WORKFLOWS_INDEX.md` y `.bago/workflows/WORKFLOW_MAESTRO_BAGO.md`);
 - roles disponibles (`roles/manifest.json`);
-- estado del conductor (`conductor_state.json`).
+- estado operativo (`.bago/state/context.json`, `.bago/state/route_history.json`, `.bago/state/llm_config.json`).
 
 ## Salidas
 
@@ -64,9 +64,9 @@ No necesario en respuestas directas que MAESTRO resuelve sin delegación. No se 
 
 ## Dependencias
 
-- `voice_conductor.py` — motor de activación y contención de voces;
-- `intents_catalog.json` — clasificación de intenciones;
-- `workflow_guidance.json` — selección de workflow;
+- `agent_router.py` — motor de activación y contención de voces;
+- `.bago/core/command_intents.json` — clasificación de intenciones;
+- `.bago/workflows/WORKFLOWS_INDEX.md` — selección de workflow;
 - `roles/manifest.json` — catálogo de roles/voces disponibles;
 - `agent_router.py` — enrutado a agentes funcionales si aplica.
 
@@ -74,13 +74,13 @@ No necesario en respuestas directas que MAESTRO resuelve sin delegación. No se 
 
 ```
 PUERTA CERRADA
-  1. Clasificar tarea → intents_catalog → intent_id
-  2. Seleccionar workflow → workflow_guidance → workflow_id
+  1. Clasificar tarea → command_intents.json → intent_id
+  2. Seleccionar workflow → WORKFLOWS_INDEX/WORKFLOW_MAESTRO_BAGO → workflow_id
   3. Seleccionar voces necesarias (complementarias, no solapadas)
-  4. voice_conductor.activate_voices([v1, v2, ...])   # máx. 3 a la vez
+  4. agent_router.activate_voices([v1, v2, ...])   # máx. 3 a la vez
   5. Secuenciar: si se necesitan >3 roles, activarlos en oleadas
-  6. Monitorear: voice_conductor.get_active_voices()
-  7. Cuando work complete → voice_conductor.open_door()
+  6. Monitorear: agent_router.get_active_agents()
+  7. Cuando work complete → agent_router.open_door()
 PUERTA ABIERTA → MAESTRO_BAGO recibe resultado
 ```
 

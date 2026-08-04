@@ -52,17 +52,46 @@ function pmRenderControl() {
   const activeJobs = releaseJobs.filter(job => !['ready', 'completed', 'cancelled', 'failed', 'rolled-back'].includes(job.state));
   const terminalJobs = releaseJobs.filter(job => ['ready', 'completed', 'cancelled', 'failed', 'rolled-back'].includes(job.state));
   const session = pmCurrentSession();
+  const sessionStatus = session && session.status ? session.status : {};
+  const defaultProvider = sessionStatus.default_provider || session.default_provider || 'ollama-cloud';
   const providers = (session && Array.isArray(session.providers) && session.providers.length ? session.providers : pmLocalProviderCatalog());
+  if (!pmProvidersState && !pmProvidersStateLoading) {
+    pmRefreshProvidersState().catch(() => {});
+  }
+  const providerRuntime = name => pmProviderRuntimeState(name);
   const providerRows = providers.map(provider => {
+    const runtime = providerRuntime(provider.name);
     const spec = pmProviderSpec(provider.name);
+    const configured = runtime ? !!runtime.configured : !!provider.configured;
+    const enabled = runtime && Object.prototype.hasOwnProperty.call(runtime, 'enabled') ? !!runtime.enabled : configured;
+    const isActual = (session && (session.provider || sessionStatus.provider) === provider.name);
+    const isDefault = defaultProvider === provider.name;
+    const models = runtime && Array.isArray(runtime.models) && runtime.models.length ? runtime.models : (provider.models || []);
+    const defaultModel = runtime && runtime.default_model ? runtime.default_model : '';
+    const state = runtime && runtime.state ? runtime.state : '';
     const actions = [];
     if (pmProviderAuthModes(provider.name).includes('api')) actions.push(pmControlButton('API', 'provider-api', 'primary', 'data-provider="' + escapeHtml(provider.name) + '"'));
     if (pmProviderAuthModes(provider.name).includes('login')) actions.push(pmControlButton('Login', 'provider-login', '', 'data-provider="' + escapeHtml(provider.name) + '"'));
     if (pmProviderAuthModes(provider.name).includes('install')) actions.push(pmControlButton('Instalar', 'provider-install', '', 'data-provider="' + escapeHtml(provider.name) + '"'));
-    return '<div class="pm-provider-line"><div><strong>' + escapeHtml(spec.label || provider.name) + '</strong><span>' + escapeHtml((provider.models || []).slice(0, 2).join(' / ') || 'sin modelos') + '</span></div>'
-      + pmBadge(provider.configured ? 'listo' : 'pendiente', provider.configured ? 'ok' : 'warn')
+    return '<div class="pm-provider-line"><div><strong>' + escapeHtml(spec.label || provider.name) + '</strong><span>' + escapeHtml(models.slice(0, 2).join(' / ') || 'sin modelos') + (defaultModel ? ' · default_model: ' + escapeHtml(defaultModel) : '') + (state ? ' · state: ' + escapeHtml(state) : '') + '</span></div>'
+      + '<div class="pm-provider-state">'
+      + pmBadge(isDefault ? 'default' : 'no default', isDefault ? 'ok' : 'warn')
+      + pmBadge(isActual ? 'actual' : 'no actual', isActual ? 'ok' : 'warn')
+      + pmBadge(enabled ? 'enabled' : 'disabled', enabled ? 'ok' : 'bad')
+      + pmBadge(configured ? 'configured' : 'pending', configured ? 'ok' : 'warn')
+      + '</div>'
       + '<div class="pm-provider-actions-inline">' + actions.join('') + '</div></div>';
   }).join('');
+  const configuredCount = providers.filter(item => {
+    const runtime = providerRuntime(item.name);
+    return runtime ? !!runtime.configured : !!item.configured;
+  }).length;
+  const enabledCount = providers.filter(item => {
+    const runtime = providerRuntime(item.name);
+    if (runtime && Object.prototype.hasOwnProperty.call(runtime, 'enabled')) return !!runtime.enabled;
+    return runtime ? !!runtime.configured : !!item.configured;
+  }).length;
+  const actualProvider = (session && (session.provider || sessionStatus.provider)) || '-';
 
   box.innerHTML = [
     pmControlCard(
@@ -93,7 +122,7 @@ function pmRenderControl() {
     pmControlCard(
       'Providers',
       'API key o login segun proveedor',
-      pmBadge(providers.filter(item => item.configured).length + '/' + providers.length, 'info'),
+      pmBadge('default: ' + defaultProvider, 'info') + pmBadge('actual: ' + actualProvider, 'info') + pmBadge(enabledCount + '/' + configuredCount + ' enabled', 'info'),
       '<div class="pm-provider-stack">' + providerRows + '</div>',
       pmControlButton('Configurar sesion', 'open-sessions', 'primary')
         + pmControlButton('Ruta provider', 'route-provider'),
@@ -351,9 +380,11 @@ function pmRenderRoute() {
   pmCurrentRoutePlan = plan;
   if (caption) caption.textContent = plan.title;
   board.innerHTML = '<div class="pm-route-track">' + plan.nodes.map(node => pmRouteNode(node[0], node[1], node[2], node[3])).join('') + '</div>';
+  const session = pmCurrentSession() || {};
+  const sessionStatus = session.status || {};
   output.innerHTML = pmControlKv('Comando', plan.command)
     + pmControlKv('Salida esperada', plan.output)
-    + pmControlKv('Proveedor', (pmCurrentSession() && pmCurrentSession().provider) || 'ollama-local')
+    + pmControlKv('Proveedor', session.provider || sessionStatus.provider || 'ollama-local')
     + pmControlKv('Instalacion', pmSelectedInstallPath());
 }
 
@@ -369,6 +400,9 @@ function pmInitOpsConsole() {
   if (copy) copy.addEventListener('click', () => copyText(JSON.stringify(pmCurrentRoutePlan || pmRoutePlan(template && template.value || 'project'), null, 2)));
   if (template) template.addEventListener('change', () => pmRenderRoute());
   pmRenderControl();
+  if (!pmProvidersState && !pmProvidersStateLoading) {
+    pmRefreshProvidersState().catch(() => {});
+  }
   pmRenderRoute();
 }
 

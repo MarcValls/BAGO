@@ -68,8 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list")
 
     create = sub.add_parser("create")
-    create.add_argument("--provider", default="ollama-local", choices=sorted(ADAPTER_REGISTRY))
-    create.add_argument("--model", default="qwen2.5:14b")
+    create.add_argument("--provider", default="ollama-cloud", choices=sorted(ADAPTER_REGISTRY))
+    create.add_argument("--model", default="deepseek-v3.1:671b")
     create.add_argument("--mode", default="B", choices=sorted(BAGO_MODES))
     create.add_argument("--agent", default="default")
     create.add_argument("--bridges", default="")

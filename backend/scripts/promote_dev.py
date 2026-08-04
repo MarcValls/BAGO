@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-promote-dev.py — Promote .gabo/dev/ into .gabo/launch/ and .gabo/versions/X.Y.Z/.
+promote_dev.py — Promote .gabo/dev/ into .gabo/launch/ and .gabo/versions/X.Y.Z/.
 
 Uso:
-    python scripts\\promote-dev.py --version X.Y.Z
-    python scripts\\promote-dev.py --version X.Y.Z --note "RL engine bump"
+    python scripts\\promote_dev.py --version X.Y.Z
+    python scripts\\promote_dev.py --version X.Y.Z --note "RL engine bump"
 """
 from __future__ import annotations
 

@@ -19,10 +19,19 @@ function pmCurrentProviderInfo(session){
 function pmRenderProviderActions(){
   const box=document.getElementById('pm-session-provider-actions');
   if(!box)return;
+  if(!pmProvidersState && !pmProvidersStateLoading && typeof pmRefreshProvidersState==='function'){
+    pmRefreshProvidersState().catch(()=>{});
+  }
   const session=pmSession;
+  const status=session&&session.status?session.status:{};
+  const defaultProvider=status.default_provider||session&&session.default_provider||'ollama-cloud';
   const info=pmCurrentProviderInfo(session);
   const spec=pmProviderSpec(info.providerName);
-  const configured=!!(info.provider&&info.provider.configured);
+  const runtime=typeof pmProviderRuntimeState==='function'?pmProviderRuntimeState(info.providerName):null;
+  const configured=runtime?!!runtime.configured:!!(info.provider&&info.provider.configured);
+  const enabled=runtime&&Object.prototype.hasOwnProperty.call(runtime,'enabled')?!!runtime.enabled:configured;
+  const isActual=(session&&(session.provider||status.provider)===info.providerName);
+  const isDefault=defaultProvider===info.providerName;
   const authModes=pmProviderAuthModes(info.providerName);
   const buttons=[];
   if(authModes.includes('api')){
@@ -36,6 +45,9 @@ function pmRenderProviderActions(){
   }
   const badges=[
     pmBadge(spec.label||info.providerName||'provider',configured?'ok':'warn'),
+    pmBadge(isDefault?'default':'no default',isDefault?'ok':'warn'),
+    pmBadge(isActual?'actual':'no actual',isActual?'ok':'warn'),
+    pmBadge(enabled?'enabled':'disabled',enabled?'ok':'bad'),
     pmBadge(configured?'configurado':'no configurado',configured?'ok':'bad'),
     authModes.length?pmBadge(authModes.join(' / '),'info'):pmBadge('sin onboarding','warn')
   ];
@@ -133,7 +145,15 @@ function pmRenderSessionList(){
 function pmRenderSession(){
   pmRenderSessionList();
   const session=pmSession;
-  document.getElementById('pm-session-active').textContent=session?session.session_id+' · '+session.provider+' / '+session.model:'Selecciona o crea una sesion';
+  document.getElementById('pm-session-active').textContent=session?session.session_id:'Selecciona o crea una sesion';
+  const meta=document.getElementById('pm-session-active-meta');
+  if(meta){
+    meta.innerHTML=session?[
+      pmBadge('Modelo en uso: '+(session.provider||'sin provider')+' / '+(session.model||'sin modelo'),'info'),
+      pmBadge('Provider: '+(session.provider||'—'),'ok'),
+      pmBadge('Modelo: '+(session.model||'—'),'warn')
+    ].join(''):'';
+  }
   const providers=session&&Array.isArray(session.providers)?session.providers:[];
   document.getElementById('pm-session-provider').innerHTML=providers.map(item=>pmSessionOption(item.name,item.name+(item.configured?' · listo':' · no configurado'),session&&session.provider)).join('');
   const current=providers.find(item=>session&&item.name===session.provider);

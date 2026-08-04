@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BAGO = ROOT / ".bago"
-LIVE_SURFACES = ROOT / "docs" / "LIVE_SURFACES.md"
+LIVE_SURFACES = ROOT / "docs" / "live-surfaces.md"
 
 
 def load_module(path: Path, name: str):
@@ -55,11 +55,11 @@ class Sprint4SurfaceTests(unittest.TestCase):
         text = LIVE_SURFACES.read_text(encoding="utf-8").lower()
         self.assertIn(".github/workflows", text)
         self.assertIn("source repository", text)
-        for doc in ["README.md", "MANUAL.md"]:
+        for doc in ["README.md", "manual.md"]:
             self.assertNotIn("`.github/workflows/branch-flow-guard.yml`", (ROOT / doc).read_text(encoding="utf-8"))
 
     def test_daemons_are_not_stable_surface(self) -> None:
-        text = (ROOT / "docs" / "MODULES.md").read_text(encoding="utf-8").lower()
+        text = (ROOT / "docs" / "modules.md").read_text(encoding="utf-8").lower()
         self.assertNotRegex(text, r"(whatsapp|telegram).*(working|stable)")
 
 

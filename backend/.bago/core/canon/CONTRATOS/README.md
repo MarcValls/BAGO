@@ -3,6 +3,13 @@
 Este directorio preserva la línea contractual histórica de BAGO.
 No es la fuente de verdad operativa actual.
 
+## Archivos locales
+
+- [contrato_cambio.md](contrato_cambio.md)
+- [contrato_evidencia.md](contrato_evidencia.md)
+- [contrato_rol.md](contrato_rol.md)
+- [contrato_workflow.md](contrato_workflow.md)
+
 La autoridad operativa vigente está en:
 
 - `docs/contracts/bago_v4_runtime_contract.json`

@@ -70,6 +70,7 @@ from bago_core.commands.cmd_tools import (  # noqa: E402
 )
 from bago_core.commands.cmd_tools import _load_tool_module as _load_tool_module  # noqa: F401,E402
 from bago_core.parsers import build_parser  # noqa: E402
+from bago_core.workspace_paths import workspace_root  # noqa: E402
 
 def cmd_guard(args: argparse.Namespace) -> int:
     """Guardian de deuda tecnica -- previene patrones antes de commitear."""
@@ -222,6 +223,34 @@ def cmd_install_role(args: argparse.Namespace) -> int:
     return _roles_main(argv)
 
 
+def _profile_root(profile: str) -> Path:
+    value = profile.strip().lower()
+    aliases = {
+        "prod": "stable",
+        "production": "stable",
+        "release": "stable",
+        "dev": "des",
+        "development": "des",
+        "integration": "ign",
+        "integracion": "ign",
+    }
+    value = aliases.get(value, value)
+    if value == "stable":
+        override = os.environ.get("BAGO_INSTALL_DIR", "").strip()
+        if override:
+            install_root = Path(override).expanduser().resolve()
+            return install_root.parent if install_root.name.lower() == "bago" else install_root
+        program_files = os.environ.get("ProgramFiles", "").strip()
+        if program_files:
+            return Path(program_files).resolve() / "BAGO"
+        return Path.home() / "AppData" / "Local" / "Programs" / "BAGO"
+    if value == "des":
+        return workspace_root() / "dev"
+    if value == "ign":
+        return workspace_root() / "launch"
+    raise ValueError(f"Perfil desconocido: {profile}")
+
+
 def cmd_profiles(args: argparse.Namespace) -> int:
     """Muestra el mapa estable de active/des/ign y el flujo recomendado."""
     dev_root = workspace_root() / "dev"
@@ -339,8 +368,8 @@ def main(argv: list[str] | None = None) -> int:
         default_provider = install_config.get("runtime", {}).get("default_provider") or cm_defaults.default_provider
         default_model = install_config.get("runtime", {}).get("default_model") or cm_defaults.default_model
     except Exception:
-        default_provider = "ollama-local"
-        default_model = "llama3.2:3b"
+        default_provider = "ollama-cloud"
+        default_model = "deepseek-v3.1:671b"
 
     parser = build_parser(_BAGO_VERSION, base, default_provider, default_model)
     args = parser.parse_args(argv)

@@ -62,8 +62,8 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
 
     def __init__(
         self,
-        provider: str = "ollama-local",
-        model: str = "llama3.2:3b",
+        provider: str = "ollama-cloud",
+        model: str = "deepseek-v3.1:671b",
         system_prompt: str = "",
         base_path: str | None = None,
         state_root: str | None = None,
@@ -201,6 +201,7 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
         try:
             self._setup_readline()
             self._print_banner()
+            self._print_startup_guide()
             self._print_init_warnings()
             self._auto_evolve_startup()
             self._interactive_startup()

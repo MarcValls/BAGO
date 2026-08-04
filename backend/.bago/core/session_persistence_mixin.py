@@ -331,6 +331,7 @@ class SessionPersistenceMixin:
             "session_id": self.session_id,
             "provider": self.provider,
             "model": self.model,
+            "default_provider": getattr(getattr(self, "config", None), "default_provider", "ollama-cloud"),
             "tool_approval_policy": str(getattr(self, "tool_approval_policy", lambda: "ask")()),
             "auto_allow_tools": bool(self.config.get("features.auto_allow_tools", False)),
             "framework_root": str(getattr(self, "framework_root", resolve_framework_root())),

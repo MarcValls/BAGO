@@ -103,7 +103,7 @@ Trigger de `workflow_validacion` automático.
 ```bash
 # Mac (servidor):
 cd /directorio/con/archivos
-python3 -m http.server 8080
+python -m http.server 8080
 
 # PC Windows (cliente — en navegador o PowerShell):
 # http://169.254.X.X:8080/archivo.zip
@@ -117,7 +117,7 @@ arp -a | grep en0              # tabla ARP para ver dispositivos conectados
 ### Jerarquía de métodos por simplicidad
 
 ```
-1. python3 -m http.server  ← más simple, siempre disponible
+1. python -m http.server  ← más simple, siempre disponible
 2. SMB/Samba              ← más robusto pero requiere configuración
 3. SSH/SCP                ← potente pero puede no estar disponible en Windows
 4. USB/pendrive           ← fallback físico
@@ -454,10 +454,10 @@ npm run build 2>&1 | tail -20
 ### Comando
 
 ```bash
-python3 .bago/tools/workflow_selector.py --workflow validacion
+python .bago/tools/workflow_selector.py --workflow validacion
 
 # O directamente:
-python3 .bago/tools/validate_manifest.py --corpus docs/
+python .bago/tools/validate_manifest.py --corpus docs/
 ```
 
 ### Output esperado

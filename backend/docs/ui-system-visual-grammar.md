@@ -1,7 +1,7 @@
 # BAGO UI System Visual Grammar
 
 This document describes the active visual grammar of the new React shell.
-Behavioral navigation and mode rules live in `docs/UI_CANONICAL_CONTRACT.md`.
+Behavioral navigation and mode rules live in `docs/ui-canonical-contract.md`.
 
 ## Purpose
 

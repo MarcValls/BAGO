@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  verify-copies.ps1 — Detector de divergencia multi-copia para BAGO.
+  verify_copies.ps1 — Detector de divergencia multi-copia para BAGO.
 
 .DESCRIPTION
   Compara hashes SHA-256 de archivos clave entre este runtime y otras copias
@@ -10,9 +10,9 @@
   los edits aterricen en una copia distinta a la que el launcher ejecuta.
 
 .USAGE
-  powershell -File verify-copies.ps1
-  powershell -File verify-copies.ps1 -Json   # salida JSON
-  powershell -File verify-copies.ps1 -CopyRoot C:\ruta\otra\copia
+  powershell -File verify_copies.ps1
+  powershell -File verify_copies.ps1 -Json   # salida JSON
+  powershell -File verify_copies.ps1 -CopyRoot C:\ruta\otra\copia
 
 .EXITCODE
   0 = sin divergencia
@@ -112,7 +112,7 @@ foreach ($file in $KeyFiles) {
 if ($Json) {
   $Results | ConvertTo-Json -Depth 3
 } else {
-  Write-Host "`n=== BAGO verify-copies ===`n"
+  Write-Host "`n=== BAGO verify_copies ===`n"
   Write-Host "Comparando $($KeyFiles.Count) archivos clave entre $($Copies.Count) copias.`n"
 
   $identical = ($Results | Where-Object { -not $_.Divergent }).Count

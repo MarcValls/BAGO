@@ -17,7 +17,7 @@ operativa para agradar al usuario.
 
 ## Flujo
 
-1. Ejecutar centinela: `./bago sincerity` (o `python3 .bago/tools/sincerity_detector.py`).
+1. Ejecutar centinela: `./bago sincerity` (o `python .bago/tools/sincerity_detector.py`).
 2. Ejecutar gabinete unificado: `./bago cabinet` para contexto cruzado.
 3. Clasificar hallazgos por severidad (ERROR bloquea cierre; WARN exige ticket).
 4. Por cada ERROR: eliminar adulación, añadir evidencia o rebajar la afirmación.

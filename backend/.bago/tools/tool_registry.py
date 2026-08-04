@@ -11,9 +11,9 @@ Importado por: bago (script), tool_guardian.py, auto_register.py,
                contracts.py, ci_generator.py
 
 Uso:
-    python3 tool_registry.py --list          # lista todos los comandos
-    python3 tool_registry.py --json          # JSON del registro completo
-    python3 tool_registry.py --test          # self-tests (7/7)
+    python tool_registry.py --list          # lista todos los comandos
+    python tool_registry.py --json          # JSON del registro completo
+    python tool_registry.py --test          # self-tests (7/7)
 
 Arquitectura interna (sub-módulos privados en el mismo directorio):
     _registry_paths.py    — constantes de ruta (TOOLS_DIR, BAGO_ROOT, PYTHON)
@@ -113,7 +113,7 @@ def get_by_layer(include_deprecated: bool = False) -> dict[str, list[ToolEntry]]
 def get_commands() -> dict[str, list[str]]:
     """Returns COMMANDS-compatible dict for the bago script.
 
-    Format: {"cmd": ["python3", "/path/to/module.py", ...extra_args]}
+    Format: {"cmd": ["python", "/path/to/module.py", ...extra_args]}
     Searches TOOLS_DIR first, then BAGO_ROOT/core/, then rglob anywhere under
     BAGO_ROOT as fallback (resilient to subdirectory reorganisation).
     """
@@ -254,7 +254,7 @@ def _self_tests() -> None:
     cmds = get_commands()
     fmt_ok = all(
         isinstance(v, list) and len(v) >= 2
-        and v[0] in (PYTHON, "python3") and v[1].endswith(".py")
+        and v[0] in (PYTHON, "python") and v[1].endswith(".py")
         for v in cmds.values()
     )
     _check("T4:get-commands-format", fmt_ok,

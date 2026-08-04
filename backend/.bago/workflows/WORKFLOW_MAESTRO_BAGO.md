@@ -200,5 +200,4 @@ Para iteracion normal:
 ## Navegacion tactica
 
 - `WORKFLOWS_INDEX.md`: indice de acceso a `W1..W6` y a la ruta maestra.
-- `workflow-info`: inspector de un workflow concreto para contexto, preguntas y prerequisitos.
-- `workflow-info`: inspector para una WF concreta con contexto, preguntas y prerequisitos.
+- Inspector de workflow concreto para contexto, preguntas y prerequisitos.

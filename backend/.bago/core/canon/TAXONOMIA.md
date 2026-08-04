@@ -94,9 +94,4 @@ Un término nuevo solo entra si:
 4. se documenta aquí y, si procede, en esquema.
 
 ## Extensión V2.2.1 · Bootstrap de proyecto
-
-Se añade el tipo de tarea:
-
-- `project_bootstrap`
-
-Este tipo debe usarse cuando la tarea depende de un repositorio real y el contexto del proyecto aún no está suficientemente cargado.
+`project_bootstrap` debe usarse cuando la tarea depende de un repositorio real y el contexto del proyecto aún no está suficientemente cargado.

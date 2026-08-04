@@ -10,17 +10,17 @@ This is the current system-level overview for BAG4.8.
 
 ## Live Surfaces
 
-See `docs/LIVE_SURFACES.md` for the operational surface inventory.
+See `docs/live-surfaces.md` for the operational surface inventory.
 
 ## Interface Authority
 
-See `docs/UI_CANONICAL_CONTRACT.md` for the active UI contract and navigation rules.
+See `docs/ui-canonical-contract.md` for the active UI contract and navigation rules.
 
 ## Evidence Sources
 
-- `docs/UI_CANONICAL_CONTRACT.md`
-- `docs/UI_SYSTEM_VISUAL_GRAMMAR.md`
-- `docs/UI_COGNITIVE_LOAD_REVIEW.md`
+- `docs/ui-canonical-contract.md`
+- `docs/ui-system-visual-grammar.md`
+- `docs/ui-cognitive-load-review.md`
 - `docs/evidence/ui_shell_current/`
 
 ## Historical Material

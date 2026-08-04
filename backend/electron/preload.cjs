@@ -423,7 +423,7 @@ function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', mode
 
 function buildUninstallCommand(installDir, purgeState = false) {
   const root = String(installDir || '').trim();
-  const script = path.join(root, 'bago-uninstall.ps1');
+  const script = path.join(root, 'uninstall-bago.ps1');
   const args = [`-InstallDir ${psSingle(root)}`];
   if (purgeState) args.push('-PurgeState');
   return `& ${psSingle(script)} ${args.join(' ')}`;

@@ -22,7 +22,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from bago_core.user_state_paths import state_read_candidates, state_root
+from prompt_loader import load_prompt
+from bago_core.user_state_paths import user_legacy_read_candidates
 
 # ---------------------------------------------------------------------------
 # Load few-shot dataset (auto-generated from session_store)
@@ -36,14 +37,7 @@ def _user_data_path() -> Path:
     override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
     if override:
         return Path(override).expanduser().resolve()
-    return state_root() / "intent_examples.json"
-
-
-def _user_data_read_paths() -> tuple[Path, ...]:
-    override = os.environ.get("BAGO_INTENT_EXAMPLES_PATH", "").strip()
-    if override:
-        return (Path(override).expanduser().resolve(),)
-    return state_read_candidates("intent_examples.json")
+    return user_legacy_read_candidates("state/intent_examples.json")[0]
 
 
 def _load_examples() -> Dict[str, List[Dict[str, str]]]:
@@ -60,7 +54,7 @@ def _load_examples() -> Dict[str, List[Dict[str, str]]]:
         return dst
 
     merged: Dict[str, List[Dict[str, str]]] = {}
-    for path in (_BUNDLED_DATA_PATH, *_user_data_read_paths()):
+    for path in (_BUNDLED_DATA_PATH, _user_data_path()):
         if not path.exists():
             continue
         try:
@@ -658,27 +652,8 @@ def intent_guidance(intent: str) -> str:
     """
     Extra system-guidance text tailored to the detected intent.
     """
-    guidance = {
-        "chat": (
-            "The user is just chatting. Do NOT call any tools. "
-            "Respond naturally and concisely."
-        ),
-        "review": (
-            "The user wants to REVIEW or EXAMINE something. "
-            "Use file-read or dir-list tools ONLY if a path is mentioned. "
-            "Summarize findings, do NOT modify anything unless explicitly asked."
-        ),
-        "execute": (
-            "The user wants to EXECUTE or RUN something. "
-            "Use execute_command tool if a command is provided, "
-            "otherwise ask for clarification."
-        ),
-        "work": (
-            "The user wants you to WORK on code or content. "
-            "Use dir-list and file-read to inspect current state first, then file-write or file-edit as needed. "
-            "If the task is large, confirm the plan before changing files."
-        ),
-    }
-    return guidance.get(intent, "")
-
+    key = (intent or "").strip().lower()
+    if key not in {"chat", "review", "execute", "work"}:
+        return ""
+    return load_prompt(f"intent_{key}.md")
 

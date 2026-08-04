@@ -59,7 +59,7 @@ from reflexive_interpreter import analyze_question, format_reflexive_report, rul
 from command_utils import load_tool_module as _load_tool_module, parse_args as _parse_args
 import renderer as R
 from context_commands import cmd_context
-from memory_commands import cmd_memory
+from memory_commands import cmd_memory as _cmd_memory_impl
 from project_commands import cmd_project as _cmd_project_impl
 from tool_approval_commands import (
     current_tool_approval_policy,
@@ -71,6 +71,10 @@ from tool_approval_commands import (
 
 def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
     return _cmd_project_impl(mgr, engine, args, load_module=_load_tool_module)
+
+
+def cmd_memory(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+    return _cmd_memory_impl(mgr, engine, args)
 
 
 class CommandError(Exception):

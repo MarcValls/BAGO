@@ -75,6 +75,33 @@ class BagoReplStartupMixin:
         print(R.response_contract_line())
         print()
 
+    def _print_startup_guide(self) -> None:
+        """Muestra una guía corta de arranque basada en el estado real."""
+        try:
+            workspace = self.mgr.workspace_state()
+            welcome = self.mgr.welcome_state()
+        except Exception:
+            workspace = {}
+            welcome = {}
+
+        workspace_state = str(workspace.get("workspace_state", "")).lower()
+        workspace_root = str(workspace.get("workspace_state_root", "") or workspace.get("project_root", "")).strip()
+        provider = str(getattr(self.mgr, "provider", "") or "").strip()
+        model = str(getattr(self.mgr, "model", "") or "").strip()
+
+        print(R.bold("Inicio guiado"))
+        if workspace_state == "linked_confirmed":
+            print(R.ok(f"Workspace confirmado: {workspace_root or '—'}"))
+        else:
+            summary = str(welcome.get("summary", "") or "Workspace pendiente").strip()
+            print(R.warn(summary))
+            print(R.dim("1) Elige o vincula workspace"))
+            print(R.dim("   - usa el selector de workspace o /workspace/list"))
+            print(R.dim("2) Confirma provider/modelo"))
+        print(R.dim(f"3) Provider actual: {provider or '—'} / {model or '—'}"))
+        print(R.dim("4) Si cambias modelo manualmente, el modo auto se desactiva"))
+        print()
+
     def _print_status(self) -> None:
         s = self.mgr.status()
         line = R.status_line(s["provider"], s["model"], s["total_tokens"], s["health"]["ok"])

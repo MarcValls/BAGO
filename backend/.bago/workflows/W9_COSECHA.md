@@ -39,7 +39,7 @@ No activar W9 si:
 **Disparador automático:**
 
 ```bash
-python3 .bago/tools/context_detector.py
+python .bago/tools/context_detector.py
 # Si dice HARVEST → ejecutar W9
 ```
 
@@ -48,7 +48,7 @@ python3 .bago/tools/context_detector.py
 ## 3. Protocolo — 3 preguntas, ≤5 minutos
 
 ```bash
-python3 .bago/tools/cosecha.py
+python .bago/tools/cosecha.py
 ```
 
 El script hace exactamente 3 preguntas:
@@ -73,7 +73,7 @@ Con esas 3 respuestas genera automáticamente:
 ```bash
 # Regenerar TREE+CHECKSUMS
 cd /ruta/a/tu/proyecto
-python3 -c "
+python -c "
 from pathlib import Path; import hashlib
 root = Path('.bago')
 entries = sorted(str(p.relative_to(root))+('/' if p.is_dir() else '') for p in root.rglob('*'))
@@ -84,7 +84,7 @@ for p in sorted(root.rglob('*')):
         lines.append(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(root)}')
 (root/'CHECKSUMS.sha256').write_text('\n'.join(lines)+'\n')
 "
-python3 .bago/tools/validate_pack.py
+python .bago/tools/validate_pack.py
 ```
 
 ---

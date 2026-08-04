@@ -33,9 +33,9 @@ No generar brainstorming abstracto. Toda idea debe poder aterrizarse en una tare
 
 ## Comando sugerido
 
-- `./ideas`
-- `./ideas --detail N`
-- `./ideas --accept N`
-- `make ideas`
-- `./workflow-info W1`
-- `make workflow-info WF=W1`
+- selector de ideas
+- selector de ideas con detalle N
+- selector de ideas con aceptación N
+- selector de ideas tipo make
+- inspector de workflow concreto
+- inspector de workflow concreto con parámetro WF

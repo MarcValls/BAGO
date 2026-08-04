@@ -7,9 +7,8 @@
 ## Ruta maestra
 
 - [WORKFLOW_MAESTRO_BAGO](./WORKFLOW_MAESTRO_BAGO.md): canon -> integracion -> entorno -> validacion_escalonada -> baseline -> regresion -> operacion_continua
-- [launch_workflow_maestro.sh](../tools/launch_workflow_maestro.sh): lanzador minimo para abrir la ruta maestra o un workflow tactico.
-- `make WF`: selector rapido que enumera los workflows tacticos con su funcion.
-- `workflow-info`: inspector de un workflow concreto para ver contexto, preguntas y prerequisitos.
+- Selector rapido de workflows tacticos para ver su funcion.
+- Inspector de workflow concreto para ver contexto, preguntas y prerequisitos.
 
 ## Workflows tacticos
 
@@ -30,9 +29,9 @@
 
 1. Empezar por `WORKFLOW_MAESTRO_BAGO` si el objetivo es orientar una sesion completa.
 2. Elegir `W1..W7` segun la fase tactica concreta.
-3. Usar `make WF` para ver la lista resumida.
-4. Usar `workflow-info` cuando se quiera preparar una WF para configuración humana.
-5. Usar `launch_workflow_maestro.sh` cuando se quiera entrada ejecutable.
+3. Usar el selector rapido de workflows para ver la lista resumida.
+4. Usar el inspector de workflow concreto cuando se quiera preparar una WF para configuración humana.
+5. Usar el selector rapido cuando se quiera entrada ejecutable.
 6. Mantener `ESTADO_BAGO_ACTUAL.md` alineado con el workflow ejecutado.
 
 ## Nota de conteo público

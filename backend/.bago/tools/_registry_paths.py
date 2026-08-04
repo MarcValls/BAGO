@@ -10,4 +10,4 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).parent   # .bago/tools/
 BAGO_ROOT = TOOLS_DIR.parent        # .bago/
 REPO_ROOT = BAGO_ROOT.parent        # repo raíz
-PYTHON: str = sys.executable or "python3"
+PYTHON: str = sys.executable or "python"

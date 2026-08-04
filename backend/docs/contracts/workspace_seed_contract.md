@@ -14,3 +14,4 @@ Path resolution and canonical roots are owned by `docs/contracts/resolver_contra
 ## Current Rule
 
 The seed contract is active, but the detailed historical bundle now lives in `docs/archive/contracts/workspace_seed_contract/`.
+The live executable subset for context pattern loading is `CONTEXT_PATTERN_REGISTRY.md`.

@@ -133,7 +133,7 @@ def finalize_dispatch(ctx: "BagoContext", cmd: str, agent: str, returncode: int)
 def list_agent_commands(registry: dict) -> dict[str, list[str]]:
     """
     Return a mapping of {agent_name: [cmd1, cmd2, ...]} from the full registry.
-    Useful for `bago dispatch --list` (future command).
+    Useful for tooling that needs a dispatch map from the registry.
     """
     result: dict[str, list[str]] = {}
     for cmd, entry in registry.items():
