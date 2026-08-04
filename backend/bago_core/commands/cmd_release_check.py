@@ -24,7 +24,7 @@ def cmd_release_check(args: argparse.Namespace) -> int:
         _run("backend tests", [sys.executable, "-m", "pytest", "-q"], BAGO_ROOT, checks)
         frontend = BAGO_ROOT.parent / "frontend"
         if (frontend / "package.json").exists():
-            _run("frontend tests", ["npm", "test", "--", "--run"], frontend, checks)
+            _run("frontend tests", ["npm", "test"], frontend, checks)
             _run("frontend typecheck", ["npm", "run", "typecheck"], frontend, checks)
     release = (BAGO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip()
     version = release.lstrip("vV")
