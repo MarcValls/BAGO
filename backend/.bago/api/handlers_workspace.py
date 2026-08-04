@@ -138,6 +138,32 @@ def _save_last_workspace(path: str) -> None:
         pass
 
 
+def _persist_workspace(mgr: Any, path: str) -> dict[str, Any]:
+    """Persist and activate a workspace path for the current session."""
+    if not path:
+        return {"ok": False, "error": "no se pudo determinar path"}
+
+    workspace_path = Path(path).expanduser().resolve()
+    if not workspace_path.exists():
+        return {"ok": False, "error": f"Ruta no existe: {workspace_path}"}
+
+    rebinding_error = ""
+    rebind = getattr(mgr, "rebind_project_root", None)
+    if callable(rebind):
+        try:
+            rebind(workspace_path)
+        except Exception as exc:
+            return {"ok": False, "error": f"No se pudo activar el workspace {workspace_path}: {exc}"}
+    else:
+        rebinding_error = "SessionManager no expone rebind_project_root()"
+
+    _save_last_workspace(str(workspace_path))
+    payload: dict[str, Any] = {"ok": True, "saved": str(workspace_path)}
+    if rebinding_error:
+        payload["warning"] = rebinding_error
+    return payload
+
+
 def handle_persist(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """POST /workspace/persist — guarda el path actual como último workspace.
 
@@ -154,11 +180,8 @@ def handle_persist(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     if not path:
         # CANON[WS-002]: project_root es el path del workspace del usuario.
         path = str(getattr(mgr, "project_root", "") or getattr(mgr, "base_path", ""))
-    if not path:
-        send_json(handler, 400, {"ok": False, "error": "no se pudo determinar path"})
-        return
-    _save_last_workspace(path)
-    send_json(handler, 200, {"ok": True, "saved": path})
+    result = _persist_workspace(mgr, path)
+    send_json(handler, 200 if result.get("ok") else 400, result)
 
 
 def handle_list(handler: "BaseHTTPRequestHandler") -> None:

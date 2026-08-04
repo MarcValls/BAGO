@@ -1,8 +1,9 @@
 // src/lib/Modal.tsx
 // Modal genérico. Cierra con Escape, click fuera, o botón ×.
 
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '@/shared/Icon';
+import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 interface Props {
   open: boolean;
@@ -16,17 +17,9 @@ interface Props {
 }
 
 export function Modal(props: Props) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!props.open) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') props.onClose();
-    };
-    window.addEventListener('keydown', handler);
-    // Foco al abrir.
-    setTimeout(() => ref.current?.focus(), 30);
-    return () => window.removeEventListener('keydown', handler);
-  }, [props.open, props.onClose]);
+  const ref = useDialogAccessibility<HTMLDivElement>(props.open, props.onClose);
+  const titleId = useId();
+  const subtitleId = useId();
 
   if (!props.open) return null;
 
@@ -43,12 +36,14 @@ export function Modal(props: Props) {
         }}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
-        aria-label={props.title}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={props.subtitle ? subtitleId : undefined}
       >
         <header className="modal-header">
           <div>
-            <strong>{props.title}</strong>
-            {props.subtitle && <small>{props.subtitle}</small>}
+            <strong id={titleId}>{props.title}</strong>
+            {props.subtitle && <small id={subtitleId}>{props.subtitle}</small>}
           </div>
           <button
             type="button"

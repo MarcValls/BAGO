@@ -431,6 +431,7 @@ def handle_plans_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     engine = getattr(mgr, "plan_engine", None)
     if engine is None:
         send_json(handler, 503, {"ok": False, "error": "PlanEngine no disponible"})
+        return
 
     # Genera el plan con el LLM (mismo flujo que /plan)
     prompt = engine.generate_prompt(task)
