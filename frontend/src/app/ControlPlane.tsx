@@ -1164,7 +1164,7 @@ export function ControlPlane() {
 
   return (
     <>
-      <div className={`app-root mode-${uiState.globalMode} ${uiState.sidebarCollapsed ? 'sidebar-collapsed' : ''} section-${uiState.activeSection}`}>
+      <div className={`app-root mode-${uiState.globalMode} theme-${uiState.appearanceTheme} ${uiState.sidebarCollapsed ? 'sidebar-collapsed' : ''} section-${uiState.activeSection}`}>
         <GlobalHeader
           snapshot={snapshot}
           workspaceHint={uiState.workspaceHint}
@@ -1177,10 +1177,12 @@ export function ControlPlane() {
           onToggleSidebar={() => setAndPersistUiState({ sidebarCollapsed: !uiState.sidebarCollapsed })}
           onRefresh={bootstrap}
           onSetMode={(mode) => setAndPersistUiState({ globalMode: mode })}
+          onSetAppearanceTheme={(theme) => setAndPersistUiState({ appearanceTheme: theme })}
           onRunCommand={(command) => void runCommand(command)}
           onChooseWorkspace={chooseWorkspaceFromHeader}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
           globalMode={uiState.globalMode}
+          appearanceTheme={uiState.appearanceTheme}
           sidebarCollapsed={uiState.sidebarCollapsed}
         />
 

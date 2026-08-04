@@ -19,6 +19,7 @@ export interface UiState {
   activeSection: ActiveSection;
   globalMode: GlobalMode;
   chatMode: ChatMode;
+  appearanceTheme: 'dark' | 'light';
   helpOpen: boolean;
   commandPaletteOpen: boolean;
   apiBase: string;
@@ -39,6 +40,7 @@ export interface UiStatePatch {
   activeSection?: ActiveSection;
   globalMode?: GlobalMode;
   chatMode?: ChatMode;
+  appearanceTheme?: 'dark' | 'light';
   helpOpen?: boolean;
   commandPaletteOpen?: boolean;
   apiBase?: string;
@@ -55,6 +57,10 @@ function normalizeGlobalMode(value: unknown): GlobalMode {
   return 'normal';
 }
 
+function normalizeAppearanceTheme(value: unknown): 'dark' | 'light' {
+  return value === 'light' ? 'light' : 'dark';
+}
+
 function normalizeActiveSection(value: unknown): ActiveSection {
   const allowed: ActiveSection[] = ['home', 'chat', 'workspace', 'graph', 'pipeline', 'evidence', 'context', 'system'];
   if (value === 'providers') return 'system';
@@ -67,6 +73,7 @@ export function createDefaultUiState(): UiState {
     activeSection: 'home',
     globalMode: 'normal',
     chatMode: 'live',
+    appearanceTheme: 'dark',
     helpOpen: false,
     commandPaletteOpen: false,
     apiBase: '',
@@ -92,7 +99,8 @@ export function loadUiState(): UiState {
       ...rest,
       drafts: rest.drafts || {},
       activeSection: normalizeActiveSection(rest.activeSection),
-      globalMode: normalizeGlobalMode(rest.globalMode)
+      globalMode: normalizeGlobalMode(rest.globalMode),
+      appearanceTheme: normalizeAppearanceTheme(rest.appearanceTheme)
     };
   } catch {
     return createDefaultUiState();
@@ -106,6 +114,7 @@ export function persistUiState(state: UiState): void {
     activeSection: state.activeSection,
     globalMode: state.globalMode,
     chatMode: state.chatMode,
+    appearanceTheme: state.appearanceTheme,
     helpOpen: state.helpOpen,
     commandPaletteOpen: state.commandPaletteOpen,
     apiBase: state.apiBase,
