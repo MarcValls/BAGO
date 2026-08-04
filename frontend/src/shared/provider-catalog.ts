@@ -37,8 +37,8 @@ export const PROVIDER_CATALOG: ProviderDescriptor[] = [
     auth_kind: 'auth_api_key',
     runtime_kind: 'runtime_external',
     base_url: 'https://ollama.com',
-    model_discovery: { type: 'openai_models', path: '/v1/models' },
-    test: { method: 'GET', path: '/v1/models' },
+    model_discovery: { type: 'ollama_tags', path: '/api/tags' },
+    test: { method: 'GET', path: '/api/tags' },
     billing_owner: 'user',
     enabled: false,
     notes: [

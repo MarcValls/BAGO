@@ -8,6 +8,7 @@ but as first-class HTTP endpoints so the UI does not need to tunnel through
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -23,6 +24,39 @@ sys.modules.setdefault("_bago_project_commands", _mod)
 _spec.loader.exec_module(_mod)
 
 cmd_project = _mod.cmd_project
+
+
+def _create_demo_project(root_value: str) -> dict[str, Any]:
+    """Create the small first-run project without overwriting user content."""
+    root_text = str(root_value or "").strip()
+    if not root_text:
+        raise ValueError("Campo 'root' requerido")
+    root = Path(root_text).expanduser()
+    if not root.is_absolute():
+        raise ValueError("La ruta del proyecto demo debe ser absoluta")
+    root = root.resolve()
+    if root == Path(root.anchor) or root == Path.home().resolve():
+        raise ValueError("Elige una subcarpeta dedicada para el proyecto demo")
+    if root.exists() and any(root.iterdir()):
+        raise FileExistsError(f"La carpeta no esta vacia: {root}")
+
+    (root / "src").mkdir(parents=True, exist_ok=True)
+    files = {
+        "README.md": "# BAGO Demo\n\nProyecto inicial creado por el asistente de BAGO.\n",
+        "AGENTS.md": "# BAGO Demo\n\nMantener cambios pequenos, verificables y documentados.\n",
+        "package.json": json.dumps({
+            "name": "bago-demo",
+            "private": True,
+            "version": "0.1.0",
+            "scripts": {"start": "node src/app.js"},
+        }, ensure_ascii=False, indent=2) + "\n",
+        "src/app.js": "console.log('BAGO Demo listo');\n",
+    }
+    for relative, content in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    return {"root": str(root), "files": sorted(files), "template": "bago-demo-v1"}
 
 
 def _mgr(handler):
@@ -203,6 +237,20 @@ def handle_project_seed(handler: "BaseHTTPRequestHandler", body: dict[str, Any])
 
 def handle_project_sync(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     _handle(handler, "sync", body)
+
+
+def handle_project_demo(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+    from api_serializers import send_json
+
+    try:
+        data = _create_demo_project(str(body.get("root", "") or ""))
+    except (ValueError, FileExistsError) as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc)})
+        return
+    except OSError as exc:
+        send_json(handler, 500, {"ok": False, "error": f"No se pudo crear el proyecto demo: {exc}"})
+        return
+    send_json(handler, 201, {"ok": True, "message": "Proyecto demo creado", "data": data})
 
 
 def handle_workspace_init(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:

@@ -70,6 +70,8 @@ export interface UseContextTreeState {
   // mutaciones de nodo
   createNode: (input: { parentId: string; type: ContextNode['type']; title: string; summary?: string; status?: ContextNode['status']; priority?: ContextNode['priority']; sourceRefs?: ContextNode['sourceRefs'] }) => Promise<ContextNode | null>;
   updateNode: (nodeId: string, patch: Partial<ContextNode>) => Promise<void>;
+  closeTask: (nodeId: string, conclusion: string) => Promise<{ ok: boolean; error?: string }>;
+  reopenTask: (nodeId: string) => Promise<{ ok: boolean; error?: string }>;
   moveNode: (nodeId: string, newParentId: string) => Promise<void>;
   excludeNode: (nodeId: string) => Promise<void>;
   restoreNode: (nodeId: string) => Promise<void>;
@@ -578,6 +580,33 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     await persistTree(next);
   }, [tree, persistTree]);
 
+  const closeTask = useCallback(async (nodeId: string, conclusion: string) => {
+    if (!tree) return { ok: false, error: 'No hay árbol activo.' };
+    const current = tree.nodes[nodeId];
+    if (!current) return { ok: false, error: 'Rama no encontrada.' };
+    const trimmed = conclusion.trim();
+    if (!trimmed) return { ok: false, error: 'La conclusión es requerida para cerrar la tarea.' };
+    const now = new Date().toISOString();
+    const nextNode = { ...current, status: 'canon' as const, summary: trimmed, updatedAt: now, updatedBy: 'user' as const };
+    const nextTree = { ...tree, nodes: { ...tree.nodes, [nodeId]: nextNode }, updatedAt: now };
+    setTree(nextTree);
+    await persistTree(nextTree);
+    await appendReceipt({ id: `rcpt_${Math.random().toString(36).slice(2, 10)}`, kind: 'node_canon', treeId: tree.id, nodeId, summary: `Tarea cerrada: ${current.title}`, before: { status: current.status }, after: { status: 'canon', conclusion: trimmed }, createdAt: now, createdBy: 'user' });
+    return { ok: true };
+  }, [tree, persistTree, appendReceipt]);
+
+  const reopenTask = useCallback(async (nodeId: string) => {
+    if (!tree) return { ok: false, error: 'No hay árbol activo.' };
+    const current = tree.nodes[nodeId];
+    if (!current) return { ok: false, error: 'Rama no encontrada.' };
+    const now = new Date().toISOString();
+    const nextTree = { ...tree, nodes: { ...tree.nodes, [nodeId]: { ...current, status: 'active' as const, updatedAt: now, updatedBy: 'user' as const } }, updatedAt: now };
+    setTree(nextTree);
+    await persistTree(nextTree);
+    await appendReceipt({ id: `rcpt_${Math.random().toString(36).slice(2, 10)}`, kind: 'tree_mutation', treeId: tree.id, nodeId, summary: `Tarea reabierta: ${current.title}`, before: { status: current.status }, after: { status: 'active' }, createdAt: now, createdBy: 'user' });
+    return { ok: true };
+  }, [tree, persistTree, appendReceipt]);
+
   const moveNode = useCallback(async (nodeId: string, newParentId: string) => {
     await updateNode(nodeId, { parentId: newParentId });
   }, [updateNode]);
@@ -875,6 +904,8 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     sendActivePackToChat,
     createNode,
     updateNode,
+    closeTask,
+    reopenTask,
     moveNode,
     excludeNode,
     restoreNode,

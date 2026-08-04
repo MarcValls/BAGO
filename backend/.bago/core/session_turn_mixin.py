@@ -25,6 +25,7 @@ from task_response_contract import (
     task_response_guidance,
     validate_task_response,
 )
+from task_response_presenter import present_legacy_task_content, present_task_response, task_response_state
 from reflexive_interpreter import analyze_question
 from reflexive_audit_ledger import ReflexiveAuditLedger
 from session_utils import ADAPTER_REGISTRY, normalize_bridges, format_rag_context
@@ -38,6 +39,10 @@ _FILE_CREATE_RE = re.compile(
 )
 _ESCRIBELO_RE = re.compile(r"^\s*(es[cC]r[ií]b[ea]lo|escri[bv]elo|wr[ií]t[ei]\s*it|write\s+it)\s*$", re.IGNORECASE)
 _WRITE_BLOCK_RE = re.compile(r"\[WRITE:([^\]\r\n]+)\]\n(.*?)\[/WRITE\]", re.DOTALL)
+_NO_EXECUTION_RE = re.compile(
+    r"\b(sin\s+(?:ejecutar|aplicar|hacer)\s+(?:cambios|acciones)?|solo\s+(?:un\s+)?plan|no\s+uses?\s+herramientas|read[- ]?only)\b",
+    re.IGNORECASE | re.UNICODE,
+)
 
 
 def _is_file_creation_request(text: str) -> bool:
@@ -45,6 +50,10 @@ def _is_file_creation_request(text: str) -> bool:
     if _ESCRIBELO_RE.match(t):
         return True
     return bool(_FILE_CREATE_RE.search(t))
+
+
+def _requests_no_execution(text: str) -> bool:
+    return bool(_NO_EXECUTION_RE.search(text or ""))
 
 
 def _extract_and_write_files(content: str, write_root: "Path") -> tuple[list[dict], str]:
@@ -77,6 +86,32 @@ def _extract_and_write_files(content: str, write_root: "Path") -> tuple[list[dic
 
 class SessionTurnMixin:
     """Mixin: one user turn, streaming turn, and bridge orchestration."""
+
+    def _sanitize_provider_history(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        sanitized: list[dict[str, Any]] = []
+        for message in messages:
+            item = dict(message)
+            if item.get("role") == "assistant" and isinstance(item.get("content"), str):
+                item["content"] = present_legacy_task_content(item["content"])[0]
+            sanitized.append(item)
+        return sanitized
+
+    def send_internal(self, user_message: str, **kwargs: Any) -> str:
+        """Run a structured helper prompt without polluting chat history or receipts."""
+        adapter = self._ensure_adapter()
+        system = self.effective_system_prompt() + (
+            "\n\nINTERNAL BAGO ANALYSIS\n"
+            "This is an internal structured request. Return exactly the format requested by the prompt. "
+            "Do not call tools and do not address the end user."
+        )
+        response = adapter.chat(
+            [{"role": "user", "content": user_message}],
+            self.model,
+            system=system,
+            tools=None,
+            **self._provider_call_kwargs("chat", kwargs),
+        )
+        return response.content
 
     def _default_max_tokens_for_intent(self, intent: str) -> int:
         """Keep local Ollama turns bounded unless the caller overrides it."""
@@ -427,6 +462,8 @@ class SessionTurnMixin:
 
     def send(self, user_message: str, **kwargs: Any) -> str:
         """Send a user message to the active provider and persist the turn."""
+        self.last_clarification = None
+        self.last_response_state = "running"
         route_info = kwargs.pop("route_info", None) or self.route_user_message(user_message)
         code_task = self._classify_code_request(user_message)
         self.last_code_task = code_task.to_dict() if code_task is not None else None
@@ -458,13 +495,16 @@ class SessionTurnMixin:
                     ],
                     "original": user_message,
                 }, ensure_ascii=False)
-                clarify_response = f"__BAGO_CLARIFY__{_clarify}"
+                clarify_payload = _json.loads(_clarify)
+                clarify_response = clarify_payload["question"]
+                self.last_clarification = clarify_payload
+                self.last_response_state = "needs_confirmation"
                 self.store.append_user(user_message, provider=self.provider, model=self.model)
                 self.store.append_response(
                     clarify_response,
                     provider=self.provider,
                     model=self.model,
-                    metadata={"code_task": self.last_code_task, "clarify": True},
+                    metadata={"code_task": self.last_code_task, "clarify": True, "clarification": clarify_payload, "response_state": self.last_response_state},
                 )
                 return clarify_response
 
@@ -474,7 +514,7 @@ class SessionTurnMixin:
         start = time.time()
 
         history = self.store.get_history()
-        normalized = self.msg_adapter.to_provider(history, self.provider)
+        normalized = self._sanitize_provider_history(self.msg_adapter.to_provider(history, self.provider))
         normalized.append({"role": "user", "content": user_message})
 
         intent = "chat" if workspace_question else classify_intent(user_message)
@@ -525,12 +565,30 @@ class SessionTurnMixin:
         if gabo_block:
             dynamic_system += "\n\n" + gabo_block
 
+        # CLI-backed providers are already isolated from BAGO tools. Feeding
+        # them the full agent/tool system prompt can make the external CLI try
+        # to execute shell actions of its own. Keep the same task contract and
+        # useful workspace context in a compact, non-agentic envelope.
+        uses_cli_bridge = False
+        try:
+            uses_cli_bridge = self.provider in {"copilot", "codex"} and bool(adapter._use_cli())
+        except Exception:
+            uses_cli_bridge = False
+        uses_compact_human_bridge = uses_cli_bridge or self.provider == "ollama-local"
+        if uses_compact_human_bridge and task_contract_block:
+            compact_blocks = [
+                "You are BAGO's response model. Analyze the request without running tools, shell commands, or editing files.",
+                "Answer the user directly in concise, readable prose. Do not return an internal JSON contract.",
+            ]
+            dynamic_system = "\n\n".join(block for block in compact_blocks if block)
+
         tools = None
         if (
             self._tool_calling_enabled()
             and adapter.supports_tools()
             and len(self.tool_registry) > 0
             and should_enable_tools(intent)
+            and not _requests_no_execution(user_message)
         ):
             tools = self.tool_registry.to_openai()
             if self.provider == "ollama-local":
@@ -698,7 +756,11 @@ class SessionTurnMixin:
 
         task_contract_meta: dict[str, Any] = {"ok": True, "skipped": True}
         final_content = resp.content
-        if self._needs_task_response_contract(intent) and tool_rounds == 0 and not _is_file_write_request:
+        response_state = "done"
+        provider_failed = resp.finish_reason == "error" or bool(resp.metadata.get("error"))
+        provider_error = resp.content if provider_failed else ""
+        task_contract_required = self._needs_task_response_contract(intent) and not uses_compact_human_bridge
+        if task_contract_required and tool_rounds == 0 and not _is_file_write_request and not provider_failed:
             ok, validated_content, contract_meta = self._validate_task_response(
                 intent=intent,
                 user_message=user_message,
@@ -716,9 +778,8 @@ class SessionTurnMixin:
                     call_kwargs=call_kwargs,
                 )
                 task_contract_meta = contract_meta
-            final_content = validated_content
             resp = ProviderResponse(
-                content=final_content,
+                content=validated_content,
                 model_used=resp.model_used,
                 provider=resp.provider,
                 finish_reason=resp.finish_reason,
@@ -726,12 +787,18 @@ class SessionTurnMixin:
                 metadata={**resp.metadata, "task_contract": task_contract_meta, "code_task": self.last_code_task, "code_task_contract": self.last_code_task_contract},
                 tool_calls=resp.tool_calls,
             )
-        elif self._needs_task_response_contract(intent):
+        elif task_contract_required:
             task_contract_meta = {
-                "ok": True,
+                "ok": not provider_failed,
                 "skipped": True,
-                "reason": "tool_rounds_used",
+                "reason": "provider_error" if provider_failed else "tool_rounds_used",
                 "tool_rounds": tool_rounds,
+            }
+        elif self._needs_task_response_contract(intent) and uses_compact_human_bridge:
+            task_contract_meta = {
+                "ok": not provider_failed,
+                "skipped": True,
+                "reason": "compact_human_response",
             }
 
         claim_check = self.claim_validator.validate(resp.content, self.tool_logger)
@@ -776,7 +843,19 @@ class SessionTurnMixin:
                 }
         if claim_verification.get("unverified"):
             claim_warning = True
-        final_content = resp.content + claim_check.warning if claim_check.warning else resp.content
+        if provider_failed:
+            response_state = "failed"
+            final_content = f"{self.provider} no pudo completar la solicitud. Puedes reintentar o elegir otro modelo."
+        elif task_contract_required and not task_contract_meta.get("skipped"):
+            contract_data = task_contract_meta.get("data") if isinstance(task_contract_meta.get("data"), dict) else {}
+            contract_ok = bool(task_contract_meta.get("ok"))
+            response_state = task_response_state(contract_data, contract_ok=contract_ok)
+            final_content = present_task_response(contract_data, user_message=user_message, contract_ok=contract_ok)
+        else:
+            final_content = resp.content
+        if claim_check.warning:
+            final_content += claim_check.warning
+        self.last_response_state = response_state
         workspace_fallback_used = False
         if workspace_question and not self._workspace_answer_mentions_active_project(final_content):
             final_content = self._workspace_fallback_reply()
@@ -809,6 +888,8 @@ class SessionTurnMixin:
                 "tool_rounds": tool_rounds,
                 "rag_fragments": len(rag_fragments),
                 "task_contract": task_contract_meta,
+                "response_state": response_state,
+                "provider_error": provider_error,
                 "code_task": self.last_code_task,
                 "code_task_contract": self.last_code_task_contract,
                 "claim_warning": claim_warning,
@@ -901,6 +982,8 @@ class SessionTurnMixin:
                 "claim_warning": claim_warning,
                 "workspace_fallback_used": workspace_fallback_used,
                 "task_contract": task_contract_meta,
+                "response_state": response_state,
+                "provider_error": provider_error,
                 "code_task": self.last_code_task,
                 "code_task_contract": self.last_code_task_contract,
                 "reflexive_interpretation": reflexive_analysis,
@@ -963,20 +1046,14 @@ class SessionTurnMixin:
 
     def send_stream(self, user_message: str, **kwargs: Any):
         """Send a user message with streaming and persist the completed turn."""
+        self.last_clarification = None
+        self.last_response_state = "running"
         route_info = kwargs.pop("route_info", None) or self.route_user_message(user_message)
         code_task = self._classify_code_request(user_message)
         self.last_code_task = code_task.to_dict() if code_task is not None else None
         self.last_code_task_contract = self._compile_code_task_contract(code_task, objective=user_message) if code_task is not None else None
         if code_task is not None and code_task.blocked:
-            refusal = code_task.refusal_message()
-            self.store.append_user(user_message, provider=self.provider, model=self.model)
-            self.store.append_response(
-                refusal,
-                provider=self.provider,
-                model=self.model,
-                metadata={"code_task": self.last_code_task, "code_task_contract": self.last_code_task_contract, "blocked": True},
-            )
-            yield refusal
+            yield self.send(user_message, route_info=route_info, **kwargs)
             return
 
         if route_info.get("kind") == "workspace_question":
@@ -1001,6 +1078,7 @@ class SessionTurnMixin:
             and adapter.supports_tools()
             and len(self.tool_registry) > 0
             and should_enable_tools(intent)
+            and not _requests_no_execution(user_message)
         ):
             result = self.send(user_message, **kwargs)
             yield result
@@ -1009,7 +1087,7 @@ class SessionTurnMixin:
         start = time.time()
 
         history = self.store.get_history()
-        normalized = self.msg_adapter.to_provider(history, self.provider)
+        normalized = self._sanitize_provider_history(self.msg_adapter.to_provider(history, self.provider))
         normalized.append({"role": "user", "content": user_message})
 
         system_prompt = self.effective_system_prompt()
@@ -1097,6 +1175,7 @@ class SessionTurnMixin:
             return
 
         full_response = "".join(buffer)
+        self.last_response_state = "done"
         elapsed_ms = (time.time() - start) * 1000
 
         est_in = len(user_message) // 4
@@ -1139,6 +1218,7 @@ class SessionTurnMixin:
             extra_metadata={
                 "intent": intent,
                 "streaming": True,
+                "response_state": "done",
                 "reflexive_interpretation": reflexive_analysis,
                 "claim_verification": claim_verification,
                 **(getattr(self, "last_context_retrieval", {}) or {}),
@@ -1219,6 +1299,7 @@ class SessionTurnMixin:
                 "reflexive_audit": reflexive_audit,
                 "code_task": self.last_code_task,
                 "code_task_contract": self.last_code_task_contract,
+                "response_state": "done",
             },
         )
         est_tokens = max(len(full_response) // 4, 1)
@@ -1246,9 +1327,3 @@ class SessionTurnMixin:
             "last_receipt": receipt.to_dict(),
             "last_envelope": envelope.to_dict(),
         })
-
-
-
-
-
-

@@ -1,14 +1,14 @@
 {
-  "id": "ctree_a9cxet7xrxu6",
-  "name": "Árbol 14/7/2026, 19:11:47",
+  "id": "ctree_qy2hotew1hvk",
+  "name": "Árbol 25/7/2026, 0:15:52",
   "archived": false,
-  "createdAt": "2026-07-14T17:11:47.982Z",
-  "updatedAt": "2026-07-14T17:11:47.982Z",
-  "rootId": "node_gqroquaurxu6",
+  "createdAt": "2026-07-24T22:15:52.256Z",
+  "updatedAt": "2026-07-29T11:34:36.015Z",
+  "rootId": "node_phmnx5cb1hvk",
   "nodes": {
-    "node_gqroquaurxu6": {
-      "id": "node_gqroquaurxu6",
-      "treeId": "ctree_a9cxet7xrxu6",
+    "node_phmnx5cb1hvk": {
+      "id": "node_phmnx5cb1hvk",
+      "treeId": "ctree_qy2hotew1hvk",
       "parentId": null,
       "type": "root",
       "status": "active",
@@ -25,224 +25,42 @@
       "metadata": {},
       "createdBy": "system",
       "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
+      "createdAt": "2026-07-24T22:15:52.256Z",
+      "updatedAt": "2026-07-24T22:15:52.256Z"
     },
-    "node_euxdo5purxu7": {
-      "id": "node_euxdo5purxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
+    "node_cb6ou104": {
+      "id": "node_cb6ou104",
+      "treeId": "ctree_qy2hotew1hvk",
+      "parentId": "node_phmnx5cb1hvk",
       "type": "intent",
       "status": "active",
-      "title": "Intención",
-      "summary": "Objetivo raíz del contexto activo.",
+      "title": "Objetivo del proyecto BAGO",
+      "summary": "Ofrecer un entorno coherente e intuitivo para crear, ejecutar y verificar aplicaciones con proveedores de IA configurables.",
       "priority": "medium",
       "sourceRefs": [],
       "evidenceRefs": [],
       "linkedNodeIds": [],
       "conflictNodeIds": [],
       "tags": [
-        "intent"
+        "producto",
+        "ui",
+        "contexto"
       ],
       "metadata": {
-        "branch": "intent"
+        "context_review": {
+          "status": "unavailable",
+          "summary": "HTTP 504 Gateway Timeout",
+          "findings": [],
+          "reviewedAt": "2026-07-29T11:34:36.015Z",
+          "provider": "",
+          "model": ""
+        }
       },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_c721yrryrxu7": {
-      "id": "node_c721yrryrxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "source",
-      "status": "active",
-      "title": "Fuentes",
-      "summary": "Origen del contexto: archivos, fuentes y secciones activas.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "sources"
-      ],
-      "metadata": {
-        "branch": "sources"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_foxuhng8rxu7": {
-      "id": "node_foxuhng8rxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "decision",
-      "status": "active",
-      "title": "Decisiones",
-      "summary": "Decisiones consolidadas o pendientes de validación.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "decisions"
-      ],
-      "metadata": {
-        "branch": "decisions"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_z9kzd13urxu7": {
-      "id": "node_z9kzd13urxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "rule",
-      "status": "active",
-      "title": "Reglas",
-      "summary": "Reglas interpretativas vigentes.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "rules"
-      ],
-      "metadata": {
-        "branch": "rules"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_q4ub0rxyrxu7": {
-      "id": "node_q4ub0rxyrxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "risk",
-      "status": "active",
-      "title": "Riesgos",
-      "summary": "Riesgos abiertos o mitigados.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "risks"
-      ],
-      "metadata": {
-        "branch": "risks"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_b9xlune4rxu7": {
-      "id": "node_b9xlune4rxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "pending",
-      "status": "active",
-      "title": "Pendientes",
-      "summary": "Tareas y elementos pendientes de resolver.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "pendings"
-      ],
-      "metadata": {
-        "branch": "pendings"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_fk4te84srxu7": {
-      "id": "node_fk4te84srxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "evidence",
-      "status": "active",
-      "title": "Evidencias",
-      "summary": "Claims, receipts y referencias externas.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "evidences"
-      ],
-      "metadata": {
-        "branch": "evidences"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_mombz9j7rxu7": {
-      "id": "node_mombz9j7rxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "proposal",
-      "status": "active",
-      "title": "Actividad del Chat",
-      "summary": "Patches propuestos por el chat y validados por el usuario.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "activity"
-      ],
-      "metadata": {
-        "branch": "activity"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
-    },
-    "node_dsemf8d2rxu7": {
-      "id": "node_dsemf8d2rxu7",
-      "treeId": "ctree_a9cxet7xrxu6",
-      "parentId": "node_gqroquaurxu6",
-      "type": "pack",
-      "status": "active",
-      "title": "Pack activo",
-      "summary": "Nodos que se enviarán al modelo.",
-      "priority": "medium",
-      "sourceRefs": [],
-      "evidenceRefs": [],
-      "linkedNodeIds": [],
-      "conflictNodeIds": [],
-      "tags": [
-        "pack"
-      ],
-      "metadata": {
-        "branch": "pack"
-      },
-      "createdBy": "system",
-      "updatedBy": "system",
-      "createdAt": "2026-07-14T17:11:47.982Z",
-      "updatedAt": "2026-07-14T17:11:47.982Z"
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-07-29T11:31:54.197Z",
+      "updatedAt": "2026-07-29T11:34:36.015Z",
+      "body": "El usuario debe poder trabajar desde una UI limpia, conservar el contexto del proyecto y validar los cambios sin perder funciones existentes."
     }
   }
 }

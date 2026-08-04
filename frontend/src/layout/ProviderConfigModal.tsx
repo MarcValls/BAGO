@@ -8,6 +8,8 @@ import type { BagoClient } from '../api/client';
 import { ProviderDescriptor } from '../shared/provider-config';
 import { Icon } from '../shared/Icon';
 import { normalizeProviderModels } from '../shared/providerModels';
+import { normalizeProviderBaseUrl } from '../shared/providerRegistration';
+import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 interface Props {
   descriptor: ProviderDescriptor;
@@ -28,7 +30,9 @@ interface Props {
 
 export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDetectCli, initial }: Props) {
   const [enabled, setEnabled] = useState(initial?.enabled ?? descriptor.enabled);
-  const [baseUrl, setBaseUrl] = useState(initial?.base_url ?? descriptor.base_url ?? '');
+  const [baseUrl, setBaseUrl] = useState(() =>
+    normalizeProviderBaseUrl(descriptor.provider_id, initial?.base_url, descriptor.base_url)
+  );
   const [apiKey, setApiKey] = useState(initial?.api_key ?? '');
   const [model, setModel] = useState(initial?.default_model ?? '');
   const [credentialsRef, setCredentialsRef] = useState('');
@@ -46,6 +50,7 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
   const [modelsLoading, setModelsLoading] = useState(false);
   const [savingModels, setSavingModels] = useState(false);
   const [discoverySource, setDiscoverySource] = useState<string>('session-manager');
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose, { closeDisabled: saving || savingModels });
 
   // Detección de CLI automática para auth_delegated_runtime
   useEffect(() => {
@@ -73,11 +78,14 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
     void loadModels();
   }, [client, descriptor.provider_id]);
 
-  async function loadModels() {
+  async function loadModels(): Promise<boolean> {
     setModelsLoading(true);
     setModelsError(null);
     try {
       const data = await client.getModels(descriptor.provider_id);
+      if (data.ok === false) {
+        throw new Error(String(data.error || 'No se pudo validar el catálogo del proveedor'));
+      }
       const entries = normalizeProviderModels(data);
       setAvailableModels(entries.map((entry) => entry.id));
       setDiscoverySource(String(data.models_source || data.discovery_source || 'session-manager'));
@@ -85,8 +93,10 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
         const selected = String(data.selected_model || data.effective_model || '').trim();
         if (selected) setModel(selected);
       }
+      return true;
     } catch (e) {
       setModelsError(String(e));
+      return false;
     } finally {
       setModelsLoading(false);
     }
@@ -134,12 +144,16 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
     try {
       await onSave({
         enabled,
-        base_url: baseUrl || undefined,
+        base_url: normalizeProviderBaseUrl(descriptor.provider_id, baseUrl, descriptor.base_url) || undefined,
         api_key: apiKey || undefined,
         model: model || undefined
       });
-      await loadModels();
-      setSaved(true);
+      const catalogValidated = await loadModels();
+      if (catalogValidated) {
+        setSaved(true);
+      } else {
+        setError('Registro guardado, pero el proveedor no pudo validar su catálogo. Revisa URL y credenciales.');
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -148,8 +162,8 @@ export function ProviderConfigModal({ descriptor, client, onClose, onSave, onDet
   };
 
   return (
-    <div className="provider-config-modal-backdrop" role="dialog" aria-modal="true" aria-label={`Configurar ${descriptor.label}`}>
-      <div className="provider-config-modal">
+    <div className="provider-config-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving && !savingModels) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} className="provider-config-modal" role="dialog" aria-modal="true" aria-label={`Configurar ${descriptor.label}`}>
         <header className="provider-config-modal-head">
           <div>
             <span className="provider-config-modal-eyebrow">{descriptor.protocol.replace('protocol_', '')}</span>

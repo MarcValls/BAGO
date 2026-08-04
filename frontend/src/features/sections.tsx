@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type {
   BackendCommandResult,
+  BackendConversations,
+  BackendSessions,
   BackendHistory,
   BackendMenu,
   BackendProviders,
@@ -22,14 +24,17 @@ import type { ModuleAction, ModuleBridge } from '@/contracts/modules';
 import { safeJson } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
 import { quietStatus } from '@/shared/quiet-status';
-import { ProviderCenterModule, type ProviderCenterProvider, type ProviderCenterRouterEntry } from '@/modules/provider-center';
+import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { SystemTabs } from '@/layout/SystemTabs';
 import { ChatPanel } from '@/layout/ChatPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
 import { WorkspaceModule } from '@/features/workspace/WorkspaceModule';
+import { PipelineControlPanel } from '@/features/pipeline/PipelineControlPanel';
+import { OperationalGraph, type GraphLayout } from '@/features/graph/OperationalGraph';
 import type { BagoClient } from '@/api/client';
 import type { UseContextTreeState } from '@/features/context-tree/useContextTree';
+import { mergeProviderStates } from '@/shared/providerStates';
 
 interface Props {
   section: 'home' | 'chat' | 'workspace' | 'graph' | 'pipeline' | 'evidence' | 'context' | 'system';
@@ -51,6 +56,8 @@ interface Props {
   providers: BackendProviders | null;
   router: { list: BackendRouterList | null; policy: BackendRouterPolicy | null } | null;
   history: BackendHistory | null;
+  conversations: BackendConversations | null;
+  sessions: BackendSessions | null;
   files: Record<string, unknown> | null;
   onManageSource?: (action: 'add' | 'remove', path: string, label?: string) => Promise<Record<string, unknown> | null>;
   commandResults: Record<string, BackendCommandResult | null>;
@@ -60,6 +67,16 @@ interface Props {
   globalMode: GlobalMode;
   onDraftChange: (section: string, text: string) => void;
   onSendChat: (message: string) => Promise<void>;
+  onCreateConversation: () => Promise<void>;
+  onSwitchConversation: (conversationId: string) => Promise<void>;
+  onCreateSession: () => Promise<boolean>;
+  onSwitchSession: (sessionId: string) => Promise<boolean>;
+  onRenameSession: (sessionId: string, title: string) => Promise<boolean>;
+  onArchiveSession: (sessionId: string) => Promise<boolean>;
+  onRestoreSession: (sessionId: string) => Promise<boolean>;
+  sessionBusy: boolean;
+  chatInProgress: boolean;
+  conversationBusy: boolean;
   onInspect: (eventOrSelection: SelectionRecord | ReactMouseEvent<HTMLElement>, hint?: InspectorLevel | { x: number; y: number }) => void;
   onReadFile: (path: string) => Promise<Record<string, unknown> | null>;
   onRunCommand: (command: string) => Promise<BackendCommandResult | null>;
@@ -124,7 +141,6 @@ function resolveRouterEntries(router: Props['router']): Array<Record<string, unk
 }
 
 type RecordValue = Record<string, unknown>;
-type GraphLayout = 'radial' | 'linear' | 'hierarchical';
 type ExplorerKind = 'file' | 'directory';
 type WorkspaceFilter = 'all' | 'code' | 'python' | 'text' | 'json' | 'web' | 'shell' | 'other' | 'directory' | 'modified' | 'in-context' | 'with-evidence';
 
@@ -524,7 +540,6 @@ function openContextMenuFromElement(event: ReactMouseEvent<HTMLElement>, selecti
 
 function targetKindForSection(section: Props['section']): ContextTargetKind {
   if (section === 'home') return 'screen.home';
-  if (section === 'chat') return 'screen.chat';
   if (section === 'pipeline') return 'pipeline.surface';
   if (section === 'evidence') return 'evidence.item';
   if (section === 'context') return 'context.item';
@@ -587,6 +602,7 @@ export function ControlSections(props: Props) {
   const [sourceMessage, setSourceMessage] = useState('');
   const [graphLayout, setGraphLayout] = useState<GraphLayout>('hierarchical');
   const [graphFiltered, setGraphFiltered] = useState(true);
+  const [graphView, setGraphView] = useState<'flow' | 'capabilities'>('flow');
   const [evidenceCompare, setEvidenceCompare] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -650,9 +666,27 @@ export function ControlSections(props: Props) {
     { section: props.section, snapshot, workspaceHint: props.workspaceHint },
     targetKindForSection(props.section)
   );
-  const providers = props.providers?.providers || [];
+  const providers = useMemo(() => mergeProviderStates(props.providers), [props.providers]);
   const routerStateEntries = resolveRouterEntries(props.router);
   const routerEntries = routerStateEntries.length ? routerStateEntries : routerFallbackEntries;
+  const chatModelEntries = useMemo(() => {
+    const merged = [...routerEntries];
+    for (const provider of providers) {
+      const providerId = String(provider.id || provider.name || '').trim();
+      if (!providerId || !Array.isArray(provider.models)) continue;
+      for (const rawModel of provider.models) {
+        const model = typeof rawModel === 'string'
+          ? rawModel
+          : String((rawModel as Record<string, unknown>)?.id || (rawModel as Record<string, unknown>)?.model_id || (rawModel as Record<string, unknown>)?.name || '');
+        if (!model) continue;
+        const key = `${providerId}/${model}`;
+        if (!merged.some((entry) => String(entry.key || `${entry.provider || ''}/${entry.model_id || entry.wire_name || ''}`) === key)) {
+          merged.push({ provider: providerId, model_id: model, wire_name: model, key, available: true });
+        }
+      }
+    }
+    return merged;
+  }, [providers, routerEntries]);
   const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
   const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
   const routerLastPick = String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—');
@@ -1259,34 +1293,55 @@ export function ControlSections(props: Props) {
       return;
     }
     setActiveProvider(provider);
-    const url = `${props.apiBase}/providers/${provider}/active-models`;
-    fetch(url)
-      .then((r) => r.ok ? r.json() : { active_models: [] })
+    props.client.getActiveProviderModels(provider)
       .then((data) => {
-        if (Array.isArray(data?.active_models)) {
+        if (Array.isArray(data.active_models)) {
           setActiveModels(new Set(data.active_models));
         } else {
           setActiveModels(new Set());
         }
       })
       .catch(() => setActiveModels(new Set()));
-  }, [snapshot, props.apiBase]);
+  }, [snapshot, props.client]);
 
-  if (props.section === 'chat') {
+  if (props.section === 'home') {
+    const chatModeOpen = (() => {
+      try { return window.sessionStorage.getItem('bago.start.chat-mode') === 'open'; } catch { return false; }
+    })();
+    const recentProjects = props.contextTree.tree
+      ? Object.values(props.contextTree.tree.nodes)
+        .filter((node) => node.parentId === props.contextTree.tree?.rootId && (node.type === 'pending' || node.metadata?.branch === true))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 5)
+        .map((node) => ({ id: node.id, title: node.title, summary: node.summary || '', updatedAt: node.updatedAt, status: node.status }))
+      : [];
     return (
       <ChatPanel
         snapshot={snapshot}
+        opening={props.opening}
         turns={props.turns}
         drafts={props.drafts}
         chatMode={props.chatMode}
         history={props.history}
-        routerEntries={routerEntries}
+        conversations={props.conversations}
+        sessions={props.sessions}
+        routerEntries={chatModelEntries}
         sessionModel={props.sessionModel ?? null}
         activeProvider={activeProvider}
         activeModels={activeModels}
         onSetChatMode={props.onSetChatMode}
         onDraftChange={props.onDraftChange}
         onSendChat={props.onSendChat}
+        onCreateConversation={props.onCreateConversation}
+        onSwitchConversation={props.onSwitchConversation}
+        onCreateSession={props.onCreateSession}
+        onSwitchSession={props.onSwitchSession}
+        onRenameSession={props.onRenameSession}
+        onArchiveSession={props.onArchiveSession}
+        onRestoreSession={props.onRestoreSession}
+        sessionBusy={props.sessionBusy}
+        chatInProgress={props.chatInProgress}
+        conversationBusy={props.conversationBusy}
         onInspect={props.onInspect}
         onRunCommand={props.onRunCommand}
         onRunContextCommand={props.onRunContextCommand}
@@ -1300,171 +1355,24 @@ export function ControlSections(props: Props) {
         onRevertContextPatch={(id) => props.onRevertContextPatch?.(id)}
         onReviewContextPatch={(id) => props.onReviewContextPatch?.(id)}
         onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
+        startScreen={!chatModeOpen}
+        recentProjects={recentProjects}
+        onStartNew={() => {
+          try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
+          window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+        }}
+        onContinue={() => {
+          try { window.sessionStorage.removeItem('bago.context.initial-branch'); } catch { /* storage unavailable */ }
+          props.onSetSection('context');
+        }}
+        onChooseRecent={(id) => {
+          try { window.sessionStorage.setItem('bago.context.initial-branch', id); } catch { /* storage unavailable */ }
+          props.onSetSection('context');
+        }}
+        onRefresh={props.onRefresh}
       />
     );
   }
-
-  if (props.section === 'home') {
-    const canChat = snapshot?.permissions.canChat ?? false;
-    const workspaceRoot = snapshot?.workspace.root || props.workspaceHint || '';
-    // CANON[WS-008]: El backend envía el path incluyendo '.gabo'.
-    // El nombre visible debe ser el PADRE del '.gabo', no el .gabo mismo.
-    // Si el path no termina en '.gabo', usamos el último segmento normal.
-    function deriveWorkspaceName(p: string): string {
-      if (!p) return 'Sin workspace';
-      const norm = p.replace(/[\\/]+$/, '');
-      const parts = norm.split(/[\\/]/).filter(Boolean);
-      const last = parts[parts.length - 1] || '';
-      const prev = parts[parts.length - 2] || '';
-      if (last.toLowerCase() === '.gabo' || last.toLowerCase() === '.bago') {
-        return prev || last;
-      }
-      return last || norm;
-    }
-    const workspaceName = deriveWorkspaceName(workspaceRoot);
-    const contextState = snapshot?.context.state || 'unknown';
-    const isOffline = !snapshot?.system.backendAvailable;
-    const homeActions = (snapshot?.recommendedActions || []).filter((action) => action.visible).slice(0, 4);
-    const menuState = snapshot?.menuState;
-    const guidedAction = menuState?.recommendedAction
-      ? homeActions.find((action) => actionMatchesText(action, menuState.recommendedAction || ''))
-      : homeActions[0];
-    const workspaceLinked = !!snapshot?.workspace.linkedToSession;
-    const workspaceManifest = snapshot?.workspace.manifestState || 'unknown';
-    const workspaceStateText = workspaceLinked
-      ? `Vinculado a ${snapshot?.workspace.id || 'la sesión'}`
-      : (workspaceRoot ? 'Pendiente de confirmación' : 'Sin workspace activo');
-    return (
-      <div className="home-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-        {/* CANON[WS-007]: Solo la tarjeta del workspace. Sin tarjeta de
-           identidad, sin texto 'BAGO' repetido, sin reclamar marca. */}
-        <section className="home-hero" aria-label="Workspace activo">
-          <div className="home-hero-workspace">
-            <div className="home-hero-workspace-icon"><Icon name="workspace" size={20} /></div>
-            <div className="home-hero-workspace-body">
-              <span className="home-hero-workspace-label">Workspace activo</span>
-              <strong
-                className="home-hero-workspace-name"
-                title={workspaceRoot || 'Sin ruta'}
-              >
-                {workspaceName}
-              </strong>
-              <span className="home-hero-workspace-state">
-                {quietStatus(workspaceManifest) || workspaceStateText}
-              </span>
-              {workspaceRoot && (
-                <small className="home-hero-workspace-path">
-                  {workspaceRoot.replace(/[\\/]\.gabo[\\/]*$/i, '').replace(/[\\/]\.bago[\\/]*$/i, '') || workspaceRoot}
-                </small>
-              )}
-            </div>
-            <div className="home-hero-workspace-actions">
-              {workspaceLinked ? (
-                <button
-                  type="button"
-                  className="home-hero-workspace-btn primary"
-                  onClick={() => props.onSetSection('workspace')}
-                >
-                  Abrir <Icon name="arrowRight" size={14} />
-                </button>
-              ) : workspaceRoot ? (
-                <button
-                  type="button"
-                  className="home-hero-workspace-btn primary"
-                  onClick={() => props.onSetSection('workspace')}
-                >
-                  Confirmar <Icon name="arrowRight" size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="home-hero-workspace-btn primary"
-                  onClick={() => props.onSetSection('workspace')}
-                >
-                  Elegir <Icon name="arrowRight" size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {menuState && (
-          <section className={`home-card home-workflow-banner ${guidedAction ? 'is-guided-path' : ''}`} aria-label="Camino recomendado">
-            <div className="home-card-head">
-              <strong>Camino recomendado</strong>
-              <span>{menuState.activeCenter || menuState.currentScreen || 'Backend'}</span>
-            </div>
-            <div className="home-workflow-grid">
-              {menuState.operationState && <span className="home-pill">Estado: {menuState.operationState}</span>}
-              {menuState.pendingWork && <span className="home-pill">Pendiente: {menuState.pendingWork}</span>}
-              {menuState.latestResult && <span className="home-pill">Último: {menuState.latestResult}</span>}
-              {menuState.recommendedAction && <span className="home-pill">Acción: {menuState.recommendedAction}</span>}
-            </div>
-            {guidedAction && (
-              <p className="home-card-copy" title={actionGuidanceSnapshot(guidedAction)}>
-                La acción principal ahora es <strong>{guidedAction.label}</strong>. El resto de la superficie se atenúa para mantener un único camino visible.
-              </p>
-            )}
-          </section>
-        )}
-
-        <section className="home-bento home-bento-operational">
-          <article className={`home-card home-next-card ${guidedAction ? 'is-guided-path' : ''}`}>
-            <div className="home-card-head">
-              <strong>Siguiente acción</strong>
-              <span>{props.opening.id}</span>
-            </div>
-            <p className="home-card-copy">La pantalla inicial ahora prioriza una decisión clara: entrar, reparar vínculo, elegir workspace o revisar estado.</p>
-            <div className="home-action-stack">
-              {homeActions.length ? homeActions.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  className={`home-action-row ${guidedAction?.id === action.id ? 'is-guided-target' : ''}`}
-                  disabled={!action.enabled}
-                  onClick={() => props.onRunAction(action)}
-                  title={action.reasonDisabled || action.label}
-                >
-                  <span className="home-action-icon"><Icon name={action.kind === 'navigate' ? 'chevron' : action.kind === 'danger' ? 'warning' : 'actions'} size={15} /></span>
-                  <span><strong>{action.label}</strong><small>{action.reasonDisabled || String(action.payload?.command || action.kind)}</small></span>
-                  <Icon name="chevron" size={14} />
-                </button>
-              )) : (
-                <div className="empty-state compact"><Icon name="check" size={18} /><p>No hay acciones pendientes del backend.</p></div>
-              )}
-            </div>
-          </article>
-        </section>
-
-        <div className="opening-actions home-actions">
-          <ActionButton icon="plus" primary onClick={props.onPrimary} disabled={props.booting || (!canChat && props.opening.targetSection === 'chat')}>{props.opening.actionLabel}</ActionButton>
-          {!workspaceRoot && <ActionButton icon="folder" onClick={props.onChooseWorkspace} disabled={props.booting}>Elegir workspace</ActionButton>}
-          {isOffline && <ActionButton icon="refresh" onClick={props.onRefresh} disabled={props.booting}>Reintentar</ActionButton>}
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho para continuar última, elegir workspace, refrescar o copiar estado.</span>
-        </div>
-
-        {isOffline && (
-          <details className="opening-connection">
-            <summary>Configurar conexión</summary>
-            <div className="connection-grid">
-              <label>
-                <span>API base</span>
-                <input value={props.apiBase} onChange={(event) => props.onApiConfigChange({ apiBase: event.target.value })} />
-              </label>
-              <label>
-                <span>Token</span>
-                <input type="password" value={props.apiToken} onChange={(event) => props.onApiConfigChange({ apiToken: event.target.value })} />
-              </label>
-            </div>
-          </details>
-        )}
-      </div>
-    );
-  }
-
-  // Chat is rendered exclusively in the ChatPanel (always-on, side or focus).
-  // When the user selects the chat destination from the sidebar, the
-  // ControlPlane activates the chat panel instead of mounting a second chat here.
 
   if (props.section === 'workspace') {
     return (
@@ -1494,35 +1402,67 @@ export function ControlSections(props: Props) {
       { id: 'evidence', type: 'evidencia', label: 'Receipt', value: snapshot?.context.receiptId || 'sin receipt', icon: 'evidence' as IconName },
       { id: 'output', type: 'salida', label: 'Resultado', value: snapshot?.system.objective || 'objetivo', icon: 'artifact' as IconName }
     ];
-    const nodes = graphFiltered ? baseNodes.slice(0, 6) : baseNodes;
-    const nextLayout = () => setGraphLayout((current) => current === 'hierarchical' ? 'radial' : current === 'radial' ? 'linear' : 'hierarchical');
     return (
-      <div className="graph-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+      <div className={`graph-surface graph-view-${graphView}`} {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        <nav className="graph-primary-tabs" aria-label="Vista del grafo">
+          <button type="button" className={graphView === 'flow' ? 'is-active' : ''} onClick={() => setGraphView('flow')}><Icon name="graph" size={13} /> Flujo</button>
+          <button type="button" className={graphView === 'capabilities' ? 'is-active' : ''} onClick={() => setGraphView('capabilities')}><Icon name="spark" size={13} /> Capacidades</button>
+        </nav>
+        {graphView === 'capabilities'
+          ? <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection)} />
+          : <OperationalGraph
+              nodes={baseNodes}
+              layout={graphLayout}
+              filtered={graphFiltered}
+              isLive={Boolean(snapshot?.system.backendAvailable)}
+              onLayoutChange={setGraphLayout}
+              onFilteredChange={setGraphFiltered}
+              onInspect={(node) => props.onInspect(buildSelection(node.id, node.type, node.label, node.value, [`type: ${node.type}`, `layout: ${graphLayout}`], node, 'graph.node'))}
+            />}
+        {/* Legacy graph markup retained below only as a source-edit boundary.
         <div className="surface-toolbar graph-toolbar">
           <div className="toolbar-group">
             <button className={`toolbar-button ${graphFiltered ? 'is-active' : ''}`} type="button" onClick={() => setGraphFiltered((value) => !value)}><Icon name="filter" size={16} /> {graphFiltered ? 'Subárbol' : 'Todo'}</button>
             <button className="toolbar-button" type="button" onClick={nextLayout}><Icon name="layout" size={16} /> {graphLayout}</button>
+            <div className="graph-zoom-controls" role="group" aria-label="Controles del grafo">
+              <button type="button" className="toolbar-button" aria-label="Alejar grafo" onClick={() => setGraphZoom((value) => Math.max(.65, Number((value - .1).toFixed(2))))}>−</button>
+              <span aria-live="polite">{Math.round(graphZoom * 100)}%</span>
+              <button type="button" className="toolbar-button" aria-label="Acercar grafo" onClick={() => setGraphZoom((value) => Math.min(1.6, Number((value + .1).toFixed(2))))}>+</button>
+              <button type="button" className="toolbar-button" aria-label="Restablecer grafo" onClick={resetGraph}><Icon name="center" size={14} /></button>
+            </div>
           </div>
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho sobre nodos o lienzo para abrir secciones relacionadas.</span>
+          <span className="context-hint"><Icon name="expand" size={14} /> Arrastra nodos o el lienzo · rueda para zoom · click para inspeccionar.</span>
           <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Acciones del grafo" />
         </div>
 
         <div className="graph-layout">
-          <section className={`graph-canvas graph-${graphLayout}`}>
-            <svg className="graph-lines" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M180 160 C330 160 330 300 500 300" />
-              <path d="M500 300 C670 300 670 150 820 150" />
-              <path d="M500 300 C670 300 670 430 820 430" />
-              <path d="M180 460 C330 460 330 300 500 300" />
-              <path d="M500 300 C500 420 500 470 500 540" />
-            </svg>
-            {nodes.map((node, index) => {
+          <section
+            ref={graphCanvasRef}
+            className={`graph-canvas graph-${graphLayout} ${graphDrag?.kind === 'pan' ? 'is-panning' : ''}`}
+            onPointerDown={(event) => { if (event.target === event.currentTarget) startGraphDrag(event, 'pan'); }}
+            onPointerMove={moveGraphDrag}
+            onPointerUp={finishGraphDrag}
+            onPointerCancel={finishGraphDrag}
+            onPointerLeave={finishGraphDrag}
+            onWheel={(event) => { event.preventDefault(); setGraphZoom((value) => Math.max(.65, Math.min(1.6, Number((value + (event.deltaY < 0 ? .08 : -.08)).toFixed(2))))); }}
+            aria-label="Lienzo interactivo del grafo"
+          >
+            <div className="graph-stage" style={{ transform: `translate(${graphPan.x}px, ${graphPan.y}px) scale(${graphZoom})` }}>
+              <svg className="graph-lines" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
+                {edges.map(([from, to]) => {
+                  const start = graphPositions[from] || GRAPH_LAYOUT_POINTS[graphLayout][from];
+                  const end = graphPositions[to] || GRAPH_LAYOUT_POINTS[graphLayout][to];
+                  const middle = (start.x + end.x) / 2;
+                  return <path key={`${from}-${to}`} d={`M${start.x} ${start.y} C${middle} ${start.y}, ${middle} ${end.y}, ${end.x} ${end.y}`} />;
+                })}
+              </svg>
+              {nodes.map((node) => {
               const nodeSelection = buildSelection(
                 node.id,
                 node.type,
                 node.label,
                 node.value,
-                [`type: ${node.type}`, `position: ${index + 1}`, `layout: ${graphLayout}`],
+                [`type: ${node.type}`, `layout: ${graphLayout}`, `zoom: ${Math.round(graphZoom * 100)}%`],
                 node,
                 'graph.node'
               );
@@ -1530,22 +1470,25 @@ export function ControlSections(props: Props) {
               <button
                 key={node.id}
                 type="button"
-                className={`graph-node node-${node.type} graph-position-${index}`}
+                className={`graph-node node-${node.type} ${graphSelectedId === node.id ? 'is-selected' : ''}`}
+                style={{ left: `${(graphPositions[node.id]?.x || GRAPH_LAYOUT_POINTS[graphLayout][node.id].x) / 10}%`, top: `${(graphPositions[node.id]?.y || GRAPH_LAYOUT_POINTS[graphLayout][node.id].y) / 6.2}%`, transform: 'translate(-50%, -50%)' }}
                 {...inspectMenuAttrs(nodeSelection, props.onInspect)}
-                onClick={() => props.onInspect(nodeSelection)}
+                onPointerDown={(event) => startGraphDrag(event, 'node', node.id)}
+                onClick={() => selectGraphNode(node)}
               >
                 <span className="graph-node-icon"><Icon name={node.icon} size={17} /></span>
                 <span><small>{node.type}</small><strong>{node.label}</strong><em>{node.value}</em></span>
               </button>
               );
             })}
+            </div>
           </section>
 
           <aside className="recent-nodes">
             {nodes.slice(0, 5).map((node) => {
               const nodeSelection = buildSelection(node.id, node.type, node.label, node.value, [`type: ${node.type}`], node, 'graph.node');
               return (
-              <button key={node.id} type="button" {...inspectMenuAttrs(nodeSelection, props.onInspect)} onClick={() => props.onInspect(nodeSelection)}>
+              <button key={node.id} type="button" className={graphSelectedId === node.id ? 'is-selected' : ''} {...inspectMenuAttrs(nodeSelection, props.onInspect)} onClick={() => selectGraphNode(node)}>
                 <span className={`node-type-mark type-${node.type}`} />
                 <span><strong>{node.label}</strong><small>{node.value}</small></span>
                 <Icon name="chevron" size={14} />
@@ -1554,6 +1497,7 @@ export function ControlSections(props: Props) {
             })}
           </aside>
         </div>
+        </>} */}
       </div>
     );
   }
@@ -1583,7 +1527,7 @@ export function ControlSections(props: Props) {
     );
     return (
       <div className="pipeline-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-        <section className="pipeline-summary">
+        <section className="pipeline-page-head">
           <div className="pipeline-summary-copy">
             <StatusBadge status={pipelineStatus} />
             <h2>{pipelineTitle}</h2>
@@ -1665,14 +1609,23 @@ export function ControlSections(props: Props) {
           </section>
         )}
 
-        <section className="pipeline-create">
-          <textarea value={task} onChange={(event) => props.onDraftChange('pipeline', event.target.value)} placeholder="Describe una tarea para crear un nuevo flujo…" rows={2} />
-          <button className="primary-button compact" type="button" disabled={!task.trim()} onClick={() => void props.onRunPlanTask(task)}><Icon name="pipeline" size={16} /> Generar plan</button>
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho para roadmap, reintentar, detener o abrir evidencia.</span>
-          <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Acciones del pipeline" />
+        <section className="pipeline-command">
+          <div className="pipeline-command-head">
+            <div><span className="surface-eyebrow">Siguiente acción</span><strong>{steps.length ? 'Añadir una tarea al flujo' : 'Crear un flujo de trabajo'}</strong></div>
+            <span>El backend generará el plan y sus evidencias.</span>
+          </div>
+          <textarea value={task} onChange={(event) => props.onDraftChange('pipeline', event.target.value)} placeholder="Describe el resultado que quieres conseguir…" rows={2} />
+          <div className="pipeline-command-footer">
+            <span className="context-hint">Enter no ejecuta; revisa el plan antes de lanzarlo.</span>
+            <div className="pipeline-command-actions">
+              <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Más acciones" />
+              <button className="primary-button compact" type="button" disabled={!task.trim()} onClick={() => void props.onRunPlanTask(task)}><Icon name="pipeline" size={16} /> {steps.length ? 'Añadir tarea' : 'Generar plan'}</button>
+            </div>
+          </div>
         </section>
 
         <section className="pipeline-timeline">
+          <div className="pipeline-section-head"><div><span className="surface-eyebrow">Flujo</span><strong>{steps.length ? `${steps.length} pasos` : 'Sin pasos todavía'}</strong></div><span>{doneCount} completados · {blockedCount + failedCount} requieren atención</span></div>
           {steps.length ? steps.map((step, index) => {
             const status = String(step.status || 'pending');
             const stepSelection = buildSelection(
@@ -1702,6 +1655,8 @@ export function ControlSections(props: Props) {
             <div className="empty-state"><Icon name="pipeline" size={25} /><h3>Sin pasos todavía</h3><p>Genera un plan para visualizar su ejecución.</p></div>
           )}
         </section>
+
+        <PipelineControlPanel client={props.client} onRefreshSnapshot={props.onRefresh} />
 
       </div>
     );
@@ -1819,7 +1774,6 @@ export function ControlSections(props: Props) {
   }
 
   if (props.section === "system") {
-    const providers = props.providers?.providers || [];
     const routerEntries = resolveRouterEntries(props.router);
     const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
     const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
@@ -1830,7 +1784,7 @@ export function ControlSections(props: Props) {
           apiBase={props.apiBase}
           apiToken={props.apiToken}
           providers={providers}
-          routerEntries={routerEntries}
+        routerEntries={chatModelEntries}
           routerAuto={routerAuto}
           routerSelectedCount={routerSelectedCount}
           routerLastPick={routerLastPick}
@@ -1844,430 +1798,7 @@ export function ControlSections(props: Props) {
     );
   }
 
-  const recentJobs = Array.isArray(snapshot?.jobs) ? snapshot.jobs.slice(0, 6) : [];
-  const systemItems = [
-    { label: 'Herramientas', state: snapshot?.permissions.canRunTools ? 'confirmed' : 'blocked', detail: `${snapshot?.system.activeBridges?.length || 0} bridges activos`, icon: 'actions' as IconName },
-    { label: 'Contexto', state: snapshot?.context.state || 'unknown', detail: snapshot?.context.receiptId || 'Sin receipt', icon: 'context' as IconName },
-    { label: 'Router', state: routerSelectedCount > 0 ? 'confirmed' : 'blocked', detail: routerSelectedCount > 0 ? `${routerSelectedCount} rutas activas` : 'sin rutas activas', icon: 'model' as IconName }
-  ];
-  return (
-    <div className="system-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-      <section className="system-grid">
-        {systemItems.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            className="system-item"
-            onClick={() => props.onInspect(buildSelection(item.label.toLowerCase(), 'system-component', item.label, item.detail, [`state: ${item.state}`], item))}
-          >
-            <span className="system-item-icon"><Icon name={item.icon} size={18} /></span>
-            <span><small>{item.label}</small><strong>{item.detail}</strong></span>
-            <StatusBadge status={item.state} />
-          </button>
-        ))}
-      </section>
-
-      <section className="system-secondary-grid">
-        <article className="system-panel">
-          <div className="system-panel-head">
-            <div>
-              <span className="surface-eyebrow">Router</span>
-              <strong>{routerSelectedCount ? `${routerSelectedCount} seleccionados` : 'Sin selección activa'}</strong>
-            </div>
-            <div className="system-panel-actions">
-              <button className="text-button" type="button" onClick={() => void props.onRefreshRouter?.()}>
-                <Icon name="refresh" size={14} /> Refrescar
-              </button>
-              <button className={`text-button ${routerAuto ? 'is-active' : ''}`} type="button" onClick={() => void props.onSetRouterAuto(!routerAuto)}>
-                <Icon name="layout" size={14} /> Auto {routerAuto ? 'on' : 'off'}
-              </button>
-            </div>
-          </div>
-          <div className="compact-list">
-            {routerEntries.slice(0, 8).map((entry, index) => {
-              const key = String(entry.key || `${entry.provider || 'provider'}:${entry.model_id || entry.wire_name || index}`);
-              return (
-                <div key={key} className="system-router-row">
-                  <button
-                    type="button"
-                    onClick={() => props.onInspect(buildSelection(
-                      key,
-                      'router-entry',
-                      String(entry.wire_name || entry.model_id || entry.provider || 'Modelo'),
-                      String(entry.best_for || entry.wire_name || entry.model_id || 'Sin descripción'),
-                      [
-                        `provider: ${String(entry.provider || 'unknown')}`,
-                        `available: ${String(Boolean(entry.available))}`,
-                        `selected: ${String(Boolean(entry.selected))}`,
-                        `context_tokens: ${String(entry.context_tokens ?? 'unknown')}`
-                      ],
-                      entry
-                    ))}
-                  >
-                    <span className="compact-list-icon"><Icon name="model" size={16} /></span>
-                    <span><strong>{String(entry.wire_name || entry.model_id || entry.provider || 'Modelo')}</strong><small>{String(entry.best_for || entry.provider || '')}</small></span>
-                    <StatusBadge status={entry.selected ? 'confirmed' : entry.available === false ? 'blocked' : 'unknown'} />
-                  </button>
-                  <button className="secondary-button compact" type="button" onClick={() => void props.onToggleRouter(key)}>
-                    {entry.selected ? 'Quitar' : 'Usar'}
-                  </button>
-                </div>
-              );
-            })}
-            {!routerEntries.length && (
-              <div className="palette-empty">No hay política de router disponible.</div>
-            )}
-          </div>
-          <div className="system-panel-foot">
-            <span>Última selección: {routerLastPick}</span>
-          </div>
-        </article>
-
-        <article className="system-panel">
-          <dl className="authority-list">
-            <div><dt>Framework</dt><dd>{snapshot?.framework.root || 'No confirmado'}</dd></div>
-            <div><dt>Proyecto</dt><dd>{snapshot?.project.root || 'No confirmado'}</dd></div>
-            <div><dt>Scope</dt><dd>{snapshot?.workspace.scopeRoot || 'No confirmado'}</dd></div>
-            <div><dt>Jobs</dt><dd>{recentJobs.length}</dd></div>
-          </dl>
-          <div className="system-panel-actions">
-            <button className="text-button" type="button" onClick={() => void props.onRunCommand('/project status')}>
-              Estado proyecto <Icon name="chevron" size={14} />
-            </button>
-            <button className="text-button" type="button" onClick={() => void props.onRunCommand('/project analyze')}>
-              Analizar proyecto <Icon name="chevron" size={14} />
-            </button>
-            <button className="text-button" type="button" onClick={() => props.onSetSection('workspace')}>
-              Abrir workspace <Icon name="chevron" size={14} />
-            </button>
-            <button className="text-button" type="button" onClick={() => props.onSetSection('evidence')}>
-              Abrir evidencia <Icon name="chevron" size={14} />
-            </button>
-          </div>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => props.onInspect(buildSelection('routes', 'backend-routes', 'Rutas del backend', `${props.routes?.count || 0} rutas`, [`auth: ${String(props.routes?.auth || 'unknown')}`, `prefixes: ${props.routes?.api_prefixes?.join(', ') || 'none'}`], props.routes), 'raw')}
-          >
-            Inspeccionar rutas API <Icon name="chevron" size={14} />
-          </button>
-        </article>
-
-        <article className="system-panel">
-          <div className="system-panel-head">
-            <div>
-              <span className="surface-eyebrow">Jobs</span>
-              <strong>{recentJobs.length ? `${recentJobs.length} recientes` : 'Sin jobs visibles'}</strong>
-            </div>
-            <button className="text-button" type="button" onClick={() => props.onSetSection('pipeline')}>
-              Ir a pipeline <Icon name="chevron" size={14} />
-            </button>
-          </div>
-          <div className="compact-list">
-            {recentJobs.map((job, index) => (
-              <button
-                key={String(job.execution_id || index)}
-                type="button"
-                onClick={() => props.onInspect(buildSelection(
-                  String(job.execution_id || index),
-                  'job',
-                  String(job.kind || 'job'),
-                  String(job.status || 'unknown'),
-                  [
-                    `execution_id: ${String(job.execution_id || 'unknown')}`,
-                    `status: ${String(job.status || 'unknown')}`,
-                    `kind: ${String(job.kind || 'unknown')}`
-                  ],
-                  job
-                ))}
-              >
-                <span className="compact-list-icon"><Icon name="history" size={16} /></span>
-                <span><strong>{String(job.kind || 'job')}</strong><small>{String(job.status || 'unknown')}</small></span>
-                <Icon name="chevron" size={14} />
-              </button>
-            ))}
-          </div>
-          <div className="system-panel-foot">
-            <span>Los jobs cancelables se resuelven en Pipeline.</span>
-          </div>
-        </article>
-
-        <AutoConfigCard
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-        />
-
-        <BlacklistCard
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-        />
-
-        <ProviderCenterModule
-          title="Catálogo del sistema"
-          subtitle="Las tarjetas de esta superficie son reutilizables y pueden extraerse a otra app sin depender del shell de BAGO."
-          frameworkLabel={String(snapshot?.framework.root || 'No confirmado')}
-          projectLabel={String(snapshot?.project.root || 'No confirmado')}
-          scopeLabel={String(snapshot?.workspace.scopeRoot || 'No confirmado')}
-          providers={providers.map((provider, index): ProviderCenterProvider => ({
-            id: String(provider.id || provider.name || index),
-            name: String(provider.name || provider.id || 'Provider'),
-            description: String(provider.description || ''),
-            state: String(provider.state || ''),
-            configured: Boolean(provider.configured ?? false),
-            modelCount: Array.isArray(provider.models) ? provider.models.length : Number(provider.modelCount ?? 0),
-            models: Array.isArray(provider.models) ? provider.models.map((model) => String(model)).filter(Boolean) : [],
-            raw: provider
-          }))}
-          routerEntries={routerEntries.map((entry, index): ProviderCenterRouterEntry => ({
-            id: String(entry.key || `${entry.provider || 'provider'}:${entry.model_id || entry.wire_name || index}`),
-            label: String(entry.wire_name || entry.model_id || entry.provider || 'Modelo'),
-            provider: String(entry.provider || ''),
-            bestFor: String(entry.best_for || entry.provider || ''),
-            available: Boolean(entry.available),
-            selected: Boolean(entry.selected),
-            contextTokens: Number(entry.context_tokens ?? 0) || undefined,
-            raw: entry
-          }))}
-          routerAuto={routerAuto}
-          routerSelectedCount={routerSelectedCount}
-          routerLastPick={routerLastPick}
-          sessionModel={props.sessionModel}
-          onRefreshRouter={() => void props.onRefreshRouter?.()}
-          onSetRouterAuto={(enabled) => void props.onSetRouterAuto(enabled)}
-          onToggleRouter={(key) => void props.onToggleRouter(key)}
-          onConfigureProvider={props.onConfigureProvider}
-          onSetSessionModel={props.onSetSessionModel}
-          onInspectProvider={(provider) => props.onInspect(buildSelection(
-            provider.id,
-            'provider',
-            provider.name,
-            provider.description || provider.state || 'Sin descripción',
-            [
-              `configured: ${String(provider.configured ?? false)}`,
-              `models: ${String(provider.modelCount ?? 0)}`
-            ],
-            provider.raw,
-            'system.provider'
-          ))}
-          onProviderContextMenu={(provider, event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            props.onInspect(buildSelection(
-              provider.id,
-              'provider',
-              provider.name,
-              provider.description || provider.state || 'Sin descripción',
-              [
-                `configured: ${String(provider.configured ?? false)}`,
-                `models: ${String(provider.modelCount ?? 0)}`
-              ],
-              provider.raw,
-              'system.provider'
-            ), { x: event.clientX, y: event.clientY });
-          }}
-          onInspectRouterEntry={(entry) => props.onInspect(buildSelection(
-            entry.id,
-            'router-entry',
-            entry.label,
-            entry.bestFor || entry.provider || 'Sin descripción',
-            [
-              `provider: ${String(entry.provider || 'unknown')}`,
-              `available: ${String(Boolean(entry.available))}`,
-              `selected: ${String(Boolean(entry.selected))}`,
-              `context_tokens: ${String(entry.contextTokens ?? 'unknown')}`
-            ],
-            entry.raw,
-            'system.router'
-          ))}
-          onRouterEntryContextMenu={(entry, event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            props.onInspect(buildSelection(
-              entry.id,
-              'router-entry',
-              entry.label,
-              entry.bestFor || entry.provider || 'Sin descripción',
-              [
-                `provider: ${String(entry.provider || 'unknown')}`,
-                `available: ${String(Boolean(entry.available))}`,
-                `selected: ${String(Boolean(entry.selected))}`,
-                `context_tokens: ${String(entry.contextTokens ?? 'unknown')}`
-              ],
-              entry.raw,
-              'system.router'
-            ), { x: event.clientX, y: event.clientY });
-          }}
-          onPanelContextMenu={(panel, event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            props.onInspect(buildSelection(
-              `provider-center-${panel}`,
-              `provider-center-${panel}`,
-              panel === 'router' ? 'Router / Orquestador' : panel === 'providers' ? 'Catálogo de proveedores' : 'Centro de proveedores',
-              `${providers.length} proveedores · ${routerEntries.length} rutas`,
-              [
-                `router_auto: ${String(routerAuto)}`,
-                `selected: ${String(routerSelectedCount)}`,
-                `last_pick: ${routerLastPick}`
-              ],
-              { panel, providers, routerEntries, routerAuto, routerSelectedCount, routerLastPick },
-              panel === 'router' ? 'system.router' : panel === 'providers' ? 'system.provider' : 'system.surface'
-            ), { x: event.clientX, y: event.clientY });
-          }}
-        />
-      </section>
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────
-// AutoConfigCard: lanza y muestra el estado de la auto-configuración
-// generada por tests (backend en /configure/auto/*).
-// ────────────────────────────────────────────────────────────────────
-function AutoConfigCard({ apiBase, apiToken }: { apiBase: string; apiToken: string }) {
-  const [status, setStatus] = useState<{ kind: 'idle' | 'running' | 'done' | 'error'; data: Record<string, unknown> | null; lastApplied?: Record<string, unknown> }>({ kind: 'idle', data: null });
-  const [busy, setBusy] = useState(false);
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
-
-  const refresh = async () => {
-    try {
-      const r = await fetch(`${apiBase}/configure/auto/status`, { headers });
-      const d = await r.json();
-      setStatus((prev) => ({ ...prev, kind: (d.status as typeof status.kind) || 'idle', data: d }));
-    } catch (exc) {
-      setStatus({ kind: 'error', data: null });
-    }
-  };
-
-  useEffect(() => { void refresh(); }, [apiBase]);
-
-  const start = async () => {
-    setBusy(true);
-    try {
-      const r = await fetch(`${apiBase}/configure/auto/start`, { method: 'POST', headers, body: JSON.stringify({}) });
-      await r.json();
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
-  const apply = async () => {
-    setBusy(true);
-    try {
-      const r = await fetch(`${apiBase}/configure/auto/apply`, { method: 'POST', headers, body: JSON.stringify({}) });
-      const d = await r.json();
-      if (d.applied) setStatus((prev) => ({ ...prev, lastApplied: d.applied as Record<string, unknown> }));
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const last = status.data?.last_job as Record<string, unknown> | undefined;
-  const isRunning = status.kind === 'running';
-  const total = (status.data?.total_models ?? last?.total_models ?? 0) as number;
-  const tested = (status.data?.tested_models ?? last?.tested_models ?? 0) as number;
-  const progress = total ? Math.round((tested / total) * 100) : 0;
-
-  return (
-    <article className="system-panel auto-config-card">
-      <div className="system-panel-head">
-        <div>
-          <span className="surface-eyebrow"><Icon name="sparkle" size={14} /> Auto-configuración</span>
-          <strong>{isRunning ? `Probando modelos… ${progress}%` : 'Genera la config óptima para esta máquina'}</strong>
-          <small>Corre tests contra los modelos y propone default, traductor, blacklist y timeouts. Todo en LOCALAPPDATA.</small>
-        </div>
-        <div className="system-panel-actions">
-          {isRunning ? (
-            <button className="text-button" type="button" disabled>
-              <Icon name="live" size={14} /> {tested}/{total}
-            </button>
-          ) : (
-            <button className="primary-button compact" type="button" onClick={start} disabled={busy}>
-              <Icon name="sparkle" size={14} /> Lanzar auto-test
-            </button>
-          )}
-          {last && status.kind === 'done' && (
-            <button className="secondary-button compact" type="button" onClick={apply} disabled={busy}>
-              <Icon name="check" size={14} /> Aplicar
-            </button>
-          )}
-        </div>
-      </div>
-      {last && (
-        <div className="auto-config-summary">
-          <span className="auto-config-pill"><Icon name="model" size={12} /> default: <strong>{(last as any).generated_config?.default_model || '—'}</strong></span>
-          <span className="auto-config-pill"><Icon name="copy" size={12} /> traductor: <strong>{(last as any).generated_config?.translation_middleware?.translator_model || '—'}</strong></span>
-          <span className="auto-config-pill"><Icon name="warning" size={12} /> blacklist: <strong>{((last as any).generated_config?.blacklist || []).length}</strong></span>
-        </div>
-      )}
-    </article>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────
-// BlacklistCard: muestra y permite editar la blacklist local de modelos.
-// ────────────────────────────────────────────────────────────────────
-function BlacklistCard({ apiBase, apiToken }: { apiBase: string; apiToken: string }) {
-  const [data, setData] = useState<{ models: string[]; reasons: Record<string, string>; path?: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
-
-  const refresh = async () => {
-    try {
-      const r = await fetch(`${apiBase}/providers/blacklist`, { headers });
-      const d = await r.json();
-      setData({ models: d.models || [], reasons: d.reasons || {}, path: d.path });
-    } catch { setData(null); }
-  };
-  useEffect(() => { void refresh(); }, [apiBase]);
-
-  const remove = async (model: string) => {
-    setBusy(true);
-    try {
-      await fetch(`${apiBase}/providers/blacklist`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ action: 'remove', model }),
-      });
-      await refresh();
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <article className="system-panel blacklist-card">
-      <div className="system-panel-head">
-        <div>
-          <span className="surface-eyebrow"><Icon name="shield" size={14} /> Blacklist local</span>
-          <strong>{(data?.models.length ?? 0)} modelos bloqueados en esta máquina</strong>
-          <small>Solo afecta a este PC. El archivo vive en {data?.path || 'LOCALAPPDATA\\.bago\\state\\'}.</small>
-        </div>
-        <div className="system-panel-actions">
-          <button className="text-button" type="button" onClick={refresh} disabled={busy}>
-            <Icon name="refresh" size={14} /> Refrescar
-          </button>
-        </div>
-      </div>
-      {data && data.models.length > 0 && (
-        <ul className="blacklist-list">
-          {data.models.map((model) => (
-            <li key={model} className="blacklist-item">
-              <span className="blacklist-model"><Icon name="warning" size={12} /> {model}</span>
-              <span className="blacklist-reason">{data.reasons[model] || 'Sin razón'}</span>
-              <button className="text-button" type="button" onClick={() => remove(model)} disabled={busy} title={`Quitar ${model} de la blacklist`}>
-                <Icon name="close" size={12} /> Quitar
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {data && data.models.length === 0 && (
-        <p className="blacklist-empty">Blacklist vacía. Añade modelos con `POST /providers/blacklist {`{action:"add", model:"x", reason:"y"}`}`.</p>
-      )}
-    </article>
-  );
+  return null;
 }
 
 // ────────────────────────────────────────────────────────────────────

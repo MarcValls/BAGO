@@ -27,9 +27,14 @@ def _session_payload(mgr: Any) -> dict[str, Any]:
     cfg = getattr(mgr, "config", None)
     tool_calling = cfg.get("features.tool_calling", False) if cfg else False
     catalog_mode = cfg.get("model_catalog.mode", "all") if cfg else "all"
+    store = getattr(mgr, "store", None)
+    active_conversation_id = str(getattr(store, "active_conversation_id", status.get("active_conversation_id", "main")) or "main")
+    conversation_count = len(store.list_conversations()) if store is not None and hasattr(store, "list_conversations") else int(status.get("conversation_count", 1) or 1)
     return {
         "contract_version": status.get("contract_version", "bago.contract.ui.v1"),
         "session_id": getattr(mgr, "session_id", "?"),
+        "active_conversation_id": active_conversation_id,
+        "conversation_count": conversation_count,
         "provider": getattr(mgr, "provider", "?"),
         "model": getattr(mgr, "model", "?"),
         "status": status,
@@ -61,6 +66,38 @@ def _files_payload(mgr: Any) -> dict[str, Any]:
     return build_files_payload(mgr)
 
 
+def _sessions_payload(mgr: Any) -> dict[str, Any]:
+    try:
+        from session_registry import list_session_summaries
+        sessions = list_session_summaries(
+            mgr.state_root,
+            current_session_id=mgr.session_id,
+        )
+        archived_sessions = list_session_summaries(
+            mgr.state_root,
+            current_session_id="",
+            archived_only=True,
+            limit=100,
+        )
+    except (AttributeError, OSError, ValueError):
+        sessions = [{
+            "session_id": getattr(mgr, "session_id", "?"),
+            "title": f"Sesión {getattr(mgr, 'session_id', '?')}",
+            "message_count": len(getattr(getattr(mgr, "store", None), "get_raw_messages", lambda: [])()),
+            "conversation_count": len(getattr(getattr(mgr, "store", None), "list_conversations", lambda: [])()),
+            "active": True,
+        }]
+        archived_sessions = []
+    return {
+        "ok": True,
+        "active_session_id": getattr(mgr, "session_id", "?"),
+        "sessions": sessions,
+        "count": len(sessions),
+        "archived_sessions": archived_sessions,
+        "archived_count": len(archived_sessions),
+    }
+
+
 def handle(handler: "BaseHTTPRequestHandler") -> None:
     from api_serializers import send_json
     from api_routes import all_routes
@@ -89,6 +126,10 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     audit = {"project": _project_audit(), "bago": _bago_audit(mgr)}
     history_messages = list(getattr(getattr(mgr, "store", None), "get_history", lambda: [])() or [])
     providers_payload = build_providers_payload(mgr)
+    conversations = mgr.store.list_conversations() if hasattr(mgr.store, "list_conversations") else [{
+        "conversation_id": "main", "title": "Principal", "message_count": len(history_messages), "active": True,
+    }]
+    active_conversation_id = str(getattr(mgr.store, "active_conversation_id", "main") or "main")
 
     send_json(handler, 200, {
         "status": status,
@@ -96,7 +137,15 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         "providers": providers_payload,
         "menu": session_payload.get("menu_state", {}),
         "routes": {"ok": True, "routes": all_routes(), "count": len(all_routes())},
-        "history": {"session_id": getattr(mgr, "session_id", "?"), "messages": history_messages, "count": len(history_messages)},
+        "history": {"session_id": getattr(mgr, "session_id", "?"), "conversation_id": active_conversation_id, "messages": history_messages, "count": len(history_messages)},
+        "conversations": {
+            "ok": True,
+            "session_id": getattr(mgr, "session_id", "?"),
+            "active_conversation_id": active_conversation_id,
+            "conversations": conversations,
+            "count": len(conversations),
+        },
+        "sessions": _sessions_payload(mgr),
         "files": _files_payload(mgr),
         "evidence": {"ok": True, "latest": latest_evidence, "items": evidence_items[:20], "count": len(evidence_items)},
         "jobs": {"ok": True, "jobs": jobs, "count": len(jobs)},
@@ -105,4 +154,5 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         "jobs_summary": jobs_summary,
         "router_policy": router_policy,
         "audit": audit,
+        "features": {"capability_anatomy_v02": True},
     })

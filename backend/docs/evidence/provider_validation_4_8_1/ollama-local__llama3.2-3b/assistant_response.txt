@@ -1,0 +1,32 @@
+{
+  "assumptions": [],
+  "confidence": 0.0,
+  "evidence": [
+    {
+      "errors": [
+        {
+          "detail": "json_object_not_found",
+          "name": "json_parse"
+        }
+      ],
+      "previous_response_excerpt": "",
+      "type": "validation_error"
+    }
+  ],
+  "facts": [],
+  "files_required": [],
+  "intent": "work",
+  "missing_information": [
+    "json_object_not_found"
+  ],
+  "objective": "En dos frases, explica como puedes asistir a un usuario mientras dejas una huella reutilizable para la comunidad.",
+  "proposed_changes": [],
+  "risks": [
+    "invalid_model_response"
+  ],
+  "symbols_required": [],
+  "validation_actions": [
+    "repair_response",
+    "revalidate_contract"
+  ]
+}

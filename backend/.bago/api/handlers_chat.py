@@ -14,10 +14,27 @@ get a RequestContext. Uses RequestContext for everything else.
 from __future__ import annotations
 import threading
 import time
+from contextlib import nullcontext
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
+
+
+def _active_conversation(store) -> str:
+    return str(getattr(store, "active_conversation_id", "main") or "main")
+
+
+def _conversation_scope(store, conversation_id: str):
+    factory = getattr(store, "conversation_scope", None)
+    return factory(conversation_id) if callable(factory) else nullcontext()
+
+
+def _conversation_history(store, conversation_id: str) -> list:
+    try:
+        return store.get_history(conversation_id=conversation_id)
+    except TypeError:
+        return store.get_history()
 
 
 def _inject_manager_context(message: str, body: dict[str, Any]) -> str:
@@ -43,7 +60,7 @@ def _inject_manager_context(message: str, body: dict[str, Any]) -> str:
     return f"[BAGO_CTX:{'; '.join(parts)}]\n{message}"
 
 
-def _send_with_watchdog(ctx, ai_message: str, timeout_s: float) -> tuple[str | None, dict | None, float]:
+def _send_with_watchdog(ctx, ai_message: str, timeout_s: float, *, internal: bool = False, conversation_id: str = "") -> tuple[str | None, dict | None, float]:
     """Run mgr.send(ai_message) on a background thread with a timeout.
 
     Returns (response, error_payload, elapsed_ms). Exactly one of
@@ -52,7 +69,10 @@ def _send_with_watchdog(ctx, ai_message: str, timeout_s: float) -> tuple[str | N
     started = time.time()
     if timeout_s <= 0:
         try:
-            return ctx.session_mgr.send(ai_message), None, (time.time() - started) * 1000
+            method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
+            scope = _conversation_scope(ctx.session_mgr.store, conversation_id)
+            with scope:
+                return method(ai_message), None, (time.time() - started) * 1000
         except Exception as exc:
             return None, {"ok": False, "error": f"Error interno: {exc}"}, (time.time() - started) * 1000
 
@@ -62,7 +82,10 @@ def _send_with_watchdog(ctx, ai_message: str, timeout_s: float) -> tuple[str | N
 
     def _runner() -> None:
         try:
-            worker_result["response"] = ctx.session_mgr.send(ai_message)
+            method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
+            scope = _conversation_scope(ctx.session_mgr.store, conversation_id)
+            with scope:
+                worker_result["response"] = method(ai_message)
         except BaseException as exc:  # propagate after the wait
             worker_exc["exc"] = exc
         finally:
@@ -109,15 +132,28 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     message = raw_message
     ai_message = _inject_manager_context(message, body)
     channel = ctx.channel(body)
+    internal = body.get("internal") is True
+    requested_conversation = str(body.get("conversation_id") or "").strip()
+    try:
+        if requested_conversation and requested_conversation != _active_conversation(ctx.session_mgr.store):
+            ctx.session_mgr.store.switch_conversation(requested_conversation)
+        conversation_id = _active_conversation(ctx.session_mgr.store)
+    except ValueError as exc:
+        ctx.send_json(409, {"ok": False, "error": str(exc)})
+        return
     pre_state = ctx.session_mgr.status()
     timeout_s = float(ctx.chat_timeout_s or 0.0)
 
-    response, error_payload, elapsed_ms = _send_with_watchdog(ctx, ai_message, timeout_s)
+    response, error_payload, elapsed_ms = _send_with_watchdog(ctx, ai_message, timeout_s, internal=internal, conversation_id=conversation_id)
 
     if error_payload is not None:
+        error_payload.setdefault("provider", ctx.session_mgr.provider)
+        error_payload.setdefault("model", ctx.session_mgr.model)
+        error_payload.setdefault("session_id", ctx.session_mgr.session_id)
+        error_payload.setdefault("conversation_id", conversation_id)
         # Timeout or worker exception \u2014 still record the shadow event.
         ctx.record_shadow(
-            action_kind="chat",
+            action_kind="internal_chat" if internal else "chat",
             channel=channel,
             payload={"message": message},
             pre_state=pre_state,
@@ -148,15 +184,27 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         else:
             user_response = response
 
+        current_receipt = ctx.session_mgr.last_receipt
+        # The receipt is canonical session evidence. Some adapters update the
+        # existing object in place, so object identity cannot determine whether
+        # it belongs in the public response. Internal turns remain private.
+        receipt_payload = current_receipt.to_dict() if current_receipt is not None and not internal else None
+        receipt_metadata = receipt_payload.get("metadata", {}) if isinstance(receipt_payload, dict) else {}
+        response_state = "done" if internal else str(getattr(ctx.session_mgr, "last_response_state", "done") or "done")
         payload = {
             "ok": True,
             "response": user_response,
             "session_id": ctx.session_mgr.session_id,
+            "conversation_id": conversation_id,
             "provider": ctx.session_mgr.provider,
             "model": ctx.session_mgr.model,
-            "history_count": len(ctx.session_mgr.store.get_history()),
+            "history_count": len(_conversation_history(ctx.session_mgr.store, conversation_id)),
             "chat_latency_ms": elapsed_ms,
-            "context_receipt": ctx.session_mgr.last_receipt.to_dict() if ctx.session_mgr.last_receipt else None,
+            "context_receipt": receipt_payload,
+            "response_state": response_state,
+            "clarification": None if internal else getattr(ctx.session_mgr, "last_clarification", None),
+            "task_contract": receipt_metadata.get("task_contract") if isinstance(receipt_metadata, dict) else None,
+            "internal": internal,
             "binding": ctx.session_mgr.status(),
         }
         if leaked_error is not None:
@@ -164,7 +212,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         if timeout_s > 0:
             payload["chat_timeout_s"] = timeout_s
         ctx.record_shadow(
-            action_kind="chat",
+            action_kind="internal_chat" if internal else "chat",
             channel=channel,
             payload={"message": message},
             pre_state=pre_state,
@@ -175,6 +223,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         ctx.send_json(200, payload)
         emit("chat.completed", {
             "session_id": ctx.session_mgr.session_id,
+            "conversation_id": conversation_id,
             "provider": ctx.session_mgr.provider,
             "model": ctx.session_mgr.model,
             "latency_ms": elapsed_ms,
@@ -187,9 +236,17 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
                 "envelope_id": payload["context_receipt"].get("envelope_id"),
                 "state": payload["context_receipt"].get("state", "unknown"),
                 "session_id": ctx.session_mgr.session_id,
+                "conversation_id": conversation_id,
             })
     except Exception:
-        payload = {"ok": False, "error": "Error interno al procesar el mensaje"}
+        payload = {
+            "ok": False,
+            "error": "Error interno al procesar el mensaje",
+            "provider": ctx.session_mgr.provider,
+            "model": ctx.session_mgr.model,
+            "session_id": ctx.session_mgr.session_id,
+            "conversation_id": conversation_id,
+        }
         ctx.record_shadow(
             action_kind="chat",
             channel=channel,

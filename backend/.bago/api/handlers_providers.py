@@ -7,20 +7,18 @@ POST /providers/configure — enable/disable a provider, set URL or API key.
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from provider_catalog import (
+    PROVIDER_CATALOG,
+    normalize_provider_base_url,
+    provider_base_url,
+    provider_descriptor,
+    provider_discovery,
+)
+
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
-_PROVIDER_META = {
-    "ollama-local":   {"description": "Ollama local (CPU/GPU)",      "icon": "local"},
-    "ollama-cloud":   {"description": "Ollama Cloud",                 "icon": "cloud"},
-    "anthropic":      {"description": "Anthropic Claude (API key)",   "icon": "cloud"},
-    "openai":         {"description": "OpenAI GPT (API key)",         "icon": "cloud"},
-    "copilot":        {"description": "GitHub Copilot",               "icon": "cloud"},
-    "codex":          {"description": "OpenAI Codex",                 "icon": "cloud"},
-    "openrouter":     {"description": "OpenRouter (API key)",         "icon": "cloud"},
-    "opencode":       {"description": "OpenCode (local server)",      "icon": "local"},
-    "cpp-local":      {"description": "llama.cpp local server",       "icon": "local"},
-}
+_PROVIDER_META = PROVIDER_CATALOG
 
 
 def _mgr(handler):
@@ -107,7 +105,7 @@ def build_providers_payload(mgr) -> dict:
     enriched = []
     for provider in raw_providers:
         name = provider.get("name", "")
-        meta = _PROVIDER_META.get(name, {})
+        meta = provider_descriptor(name)
         configured = bool(provider.get("configured", False))
         provider_cfg = _provider_config(mgr, name)
         enabled = bool(provider_cfg.get("enabled", name == "ollama-local"))
@@ -117,17 +115,31 @@ def build_providers_payload(mgr) -> dict:
             "id": name,
             "name": name,
             "description": meta.get("description", name),
+            "icon": meta.get("icon", "cloud"),
+            "canonical_id": meta.get("canonical_id", name),
+            "aliases": list(meta.get("aliases", [])),
+            "runtime_kind": meta.get("runtime", "cloud"),
+            "protocol": meta.get("protocol", "openai-compatible"),
+            "auth_kind": meta.get("auth_kind", "api-key"),
+            "model_discovery": dict(meta.get("model_discovery", {"type": "manual"})),
             "state": "disabled" if not enabled else _provider_state(configured, name),
             "enabled": enabled,
             "configured": configured,
             "base_url": str(provider_cfg.get("base_url", "")),
+            "default_base_url": str(meta.get("base_url", "")),
             "default_model": str(provider_cfg.get("default_model", "")),
             "has_secret": has_secret,
+            "auth_source": str(provider_cfg.get("auth_source", "")),
+            "transport": str(provider_cfg.get("transport", "")),
             "models": models,
             "modelCount": len(models),
             "models_source": "session-manager",
         })
-    return {"providers": enriched, "mode": mode}
+    catalog = [
+        {"id": provider_id, **provider_descriptor(provider_id)}
+        for provider_id in PROVIDER_CATALOG
+    ]
+    return {"providers": enriched, "catalog": catalog, "mode": mode}
 
 
 def handle(handler: "BaseHTTPRequestHandler") -> None:
@@ -167,7 +179,7 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     if "enabled" in body:
         p_cfg["enabled"] = bool(body["enabled"])
     if "base_url" in body and str(body["base_url"]).strip():
-        p_cfg["base_url"] = str(body["base_url"]).strip()
+        p_cfg["base_url"] = normalize_provider_base_url(provider_name, body["base_url"])
     if "model" in body and str(body["model"]).strip():
         p_cfg["default_model"] = str(body["model"]).strip()
 
@@ -209,6 +221,49 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
             pass
 
     send_json(handler, 200, {"ok": True, "provider": provider_name, "config": safe_cfg})
+
+
+def handle_test(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Prueba viva efímera del proveedor seleccionado, sin persistir chat."""
+    from api_serializers import send_json
+    provider_name = str(body.get("provider", "")).strip()
+    if not provider_name:
+        send_json(handler, 400, {"ok": False, "error": "provider requerido"})
+        return
+    mgr = _mgr(handler)
+    try:
+        from session_utils import ADAPTER_REGISTRY
+        cls = ADAPTER_REGISTRY.get(provider_name)
+        if cls is None:
+            raise ValueError(f"Provider '{provider_name}' no registrado")
+        config = dict(mgr._build_adapter_config(provider_name)) if mgr is not None else {}
+        for key in ("base_url", "api_key", "model"):
+            value = str(body.get(key, "")).strip()
+            if value:
+                config["default_model" if key == "model" else key] = value
+        model = str(body.get("model", "")).strip() or config.get("default_model") or ""
+        adapter = cls(config=config)
+        if not model:
+            models = adapter.list_models()
+            model = models[0].model_id if models else ""
+        if not model:
+            raise RuntimeError("No hay modelo disponible para probar")
+        response = adapter.chat(
+            [{"role": "user", "content": "Responde únicamente: BAGO_OK"}],
+            model,
+            system="Prueba de conexión BAGO. Responde con una confirmación breve.",
+            tools=None,
+        )
+        error = response.metadata.get("error") if getattr(response, "metadata", None) else ""
+        ok = not error and getattr(response, "finish_reason", "") != "error" and bool(str(response.content).strip())
+        send_json(handler, 200 if ok else 502, {
+            "ok": ok,
+            "provider": provider_name,
+            "model": response.model_used or model,
+            "detail": str(error or response.content or "Sin respuesta")[:240],
+        })
+    except Exception as exc:
+        send_json(handler, 502, {"ok": False, "provider": provider_name, "detail": str(exc)[:240]})
 
 
 def handle_cli_detect(handler: "BaseHTTPRequestHandler") -> None:
@@ -300,52 +355,14 @@ def handle_contracts(handler: "BaseHTTPRequestHandler") -> None:
 # provider_id -> tipo de discovery. Mantener sincronizado con
 # frontend/src/shared/provider-catalog.ts.
 _DISCOVERY = {
-    "ollama-local":  {"type": "ollama_tags",   "path": "/api/tags"},
-    "ollama-cloud":  {"type": "openai_models", "path": "/v1/models"},
-    "openai":        {"type": "openai_models", "path": "/models"},
-    "anthropic":     {"type": "manual"},
-    "openrouter":    {"type": "openai_models", "path": "/models"},
-    "google-gemini": {"type": "manual"},
-    "vertex-ai":     {"type": "manual"},
-    "azure-openai":  {"type": "manual"},
-    "aws-bedrock":   {"type": "manual"},
-    "huggingface":   {"type": "openai_models", "path": "/models"},
-    "mistral":       {"type": "openai_models", "path": "/models"},
-    "groq":          {"type": "openai_models", "path": "/models"},
-    "deepseek":      {"type": "manual"},
-    "xai":           {"type": "openai_models", "path": "/models"},
-    "llama-cpp-local": {"type": "openai_models", "path": "/models"},
-    "vllm-local":    {"type": "openai_models", "path": "/models"},
-    "codex":         {"type": "manual"},
-    "github-copilot-oauth": {"type": "openai_models", "path": "/models"},
-    "github-copilot-cli":   {"type": "manual"},
-    "custom-openai-compatible": {"type": "openai_models", "path": "/models"},
+    provider_id: provider_discovery(provider_id)
+    for provider_id in PROVIDER_CATALOG
 }
 
 
 def _provider_base_url(provider_id: str, cfg: dict) -> str:
     """Devuelve la base_url del provider desde config.json."""
-    p = cfg.get("providers", {}).get(provider_id, {})
-    url = p.get("base_url", "").strip()
-    if url:
-        return url.rstrip("/")
-    # defaults razonables
-    defaults = {
-        "ollama-local": "http://localhost:11434",
-        "ollama-cloud": "https://ollama.com",
-        "openai": "https://api.openai.com/v1",
-        "openrouter": "https://openrouter.ai/api/v1",
-        "huggingface": "https://router.huggingface.co/v1",
-        "mistral": "https://api.mistral.ai/v1",
-        "groq": "https://api.groq.com/openai/v1",
-        "deepseek": "https://api.deepseek.com",
-        "xai": "https://api.x.ai/v1",
-        "llama-cpp-local": "http://localhost:8080/v1",
-        "vllm-local": "http://localhost:8000/v1",
-        "github-copilot-oauth": "https://api.githubcopilot.com",
-        "google-gemini": "https://generativelanguage.googleapis.com",
-    }
-    return defaults.get(provider_id, "")
+    return provider_base_url(provider_id, cfg)
 
 
 def _get_api_key(provider_id: str) -> str:

@@ -55,8 +55,9 @@ function normalizeGlobalMode(value: unknown): GlobalMode {
   return 'normal';
 }
 
-function normalizeActiveSection(value: unknown): ActiveSection {
-  const allowed: ActiveSection[] = ['home', 'chat', 'workspace', 'graph', 'pipeline', 'evidence', 'context', 'system'];
+export function normalizeActiveSection(value: unknown): ActiveSection {
+  const allowed: ActiveSection[] = ['home', 'workspace', 'graph', 'pipeline', 'evidence', 'context', 'system'];
+  if (value === 'chat') return 'home';
   if (value === 'providers') return 'system';
   return allowed.includes(value as ActiveSection) ? value as ActiveSection : 'home';
 }

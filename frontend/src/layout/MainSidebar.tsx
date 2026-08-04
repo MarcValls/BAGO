@@ -21,26 +21,25 @@ const GROUPS: SectionGroup[] = [
     id: 'main',
     label: 'Principal',
     items: [
-      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Entrada y estado operativo', shortcut: 'Ctrl+1' },
-      { id: 'chat', label: 'Chat', icon: 'chat', helper: 'Conversación y comandos', shortcut: 'Ctrl+2' },
-      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos y fuentes', shortcut: 'Ctrl+3' }
+      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Chat de bienvenida y elección de trabajo', shortcut: 'Ctrl+1' },
+      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos y fuentes', shortcut: 'Ctrl+2' }
     ]
   },
   {
     id: 'work',
     label: 'Trabajo',
     items: [
-      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+4' },
-      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Presupuesto y receipts', shortcut: 'Ctrl+5' },
-      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims y trazas', shortcut: 'Ctrl+6' },
-      { id: 'graph', label: 'Grafo', icon: 'graph', helper: 'Mapa operativo del workspace', shortcut: 'Ctrl+7' }
+      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+3' },
+      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Ramas, decisiones y contexto de trabajo', shortcut: 'Ctrl+4' },
+      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims y trazas', shortcut: 'Ctrl+5' },
+      { id: 'graph', label: 'Grafo', icon: 'graph', helper: 'Mapa operativo del workspace', shortcut: 'Ctrl+6' }
     ]
   },
   {
     id: 'system',
     label: 'Sistema',
     items: [
-      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+8' }
+      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+7' }
     ]
   }
 ];
@@ -57,29 +56,13 @@ function sectionStatus(section: ActiveSection, snapshot: UiBootstrapSnapshot | n
   return 'unknown';
 }
 
-function recommendedSectionForAction(action: UiAction | null | undefined): ActiveSection | null {
-  if (!action) return null;
-  const payloadSection = String(action.payload?.section || action.payload?.targetSection || '').toLowerCase();
-  if (payloadSection === 'home' || payloadSection === 'chat' || payloadSection === 'workspace' || payloadSection === 'graph' || payloadSection === 'pipeline' || payloadSection === 'evidence' || payloadSection === 'context' || payloadSection === 'system') {
-    return payloadSection as ActiveSection;
-  }
-  const key = `${action.id} ${action.label}`.toLowerCase();
-  if (key.includes('workspace')) return 'workspace';
-  if (key.includes('evidence')) return 'evidence';
-  if (key.includes('context')) return 'context';
-  if (key.includes('pipeline') || key.includes('job') || key.includes('run')) return 'pipeline';
-  if (key.includes('system') || key.includes('model') || key.includes('provider') || key.includes('router')) return 'system';
-  if (key.includes('chat') || key.includes('continue') || key.includes('command')) return 'chat';
-  if (key.includes('home') || key.includes('inicio')) return 'home';
-  return null;
-}
-
 function actionTextMatches(action: UiAction, text: string): boolean {
   const needle = text.trim().toLowerCase();
   if (!needle) return false;
   const id = action.id.toLowerCase();
   const label = action.label.toLowerCase();
-  return id === needle || label === needle || id.includes(needle) || label.includes(needle) || needle.includes(id) || needle.includes(label);
+  const contractAction = String(action.payload?.contractAction || '').toLowerCase();
+  return id === needle || label === needle || contractAction === needle || id.includes(needle) || label.includes(needle) || needle.includes(id) || needle.includes(label);
 }
 
 interface Props {
@@ -94,11 +77,10 @@ interface Props {
 }
 
 export function MainSidebar(props: Props) {
-  const visibleActions = props.actions.filter((action) => action.visible && action.enabled).slice(0, 2);
+  const visibleActions = props.actions.filter((action) => action.visible).slice(0, 2);
   const guidedAction = props.snapshot?.menuState?.recommendedAction
     ? props.actions.find((action) => actionTextMatches(action, props.snapshot?.menuState?.recommendedAction || ''))
     : visibleActions[0];
-  const guidedSection = recommendedSectionForAction(guidedAction);
   const workspaceState = props.snapshot?.workspace.linkedToSession
     ? 'Vinculado'
     : props.workspaceHint
@@ -117,7 +99,7 @@ export function MainSidebar(props: Props) {
                 <button
                   key={section.id}
                   type="button"
-                  className={`sidebar-item ${isActive ? 'is-active' : ''} ${guidedSection === section.id ? 'is-guided-target' : ''} ${guidedSection && guidedSection !== section.id ? 'is-guided-dim' : ''}`}
+                  className={`sidebar-item ${isActive ? 'is-active' : ''}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={props.collapsed ? `${section.label} · ${section.helper || ''}` : section.helper}
                   onClick={() => props.onNavigate(section.id)}
@@ -138,11 +120,11 @@ export function MainSidebar(props: Props) {
 
       <div className="sidebar-spacer" />
 
-      {!props.collapsed && visibleActions.length > 0 && (
+      {!props.collapsed && props.activeSection !== 'home' && props.activeSection !== 'context' && visibleActions.length > 0 && (
         <section className="sidebar-actions" aria-label="Acciones recomendadas">
           <div className="sidebar-section-title">Siguiente</div>
           {visibleActions.map((action) => (
-            <button key={action.id} type="button" className={guidedAction?.id === action.id ? 'is-guided-target' : ''} onClick={() => props.onRunAction(action)}>
+            <button key={action.id} type="button" disabled={!action.enabled} title={action.reasonDisabled} className={guidedAction?.id === action.id ? 'is-guided-target' : ''} onClick={() => props.onRunAction(action)}>
               <span>{action.label}</span>
               <Icon name="chevron" size={15} />
             </button>

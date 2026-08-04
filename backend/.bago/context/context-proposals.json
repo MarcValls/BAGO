@@ -1,0 +1,32 @@
+[
+  {
+    "id": "proactive:assistant-1785325739917:l5bx4v",
+    "treeId": "ws-13af6c692a73",
+    "validationMode": "modal",
+    "proposalType": "chat_opportunity",
+    "title": "Oportunidad de añadir contexto",
+    "reason": "El chat contiene una tarea, decisión o elemento de UI que puede quedar como rama abierta.",
+    "riskLevel": "low",
+    "patch": {
+      "operations": [
+        {
+          "op": "create",
+          "nodeId": "proactive_task_l5bx4v",
+          "parentId": "node_visbatz9v6oy",
+          "type": "pending",
+          "title": "Generemos un proyecto de evidencias BAGO",
+          "summary": "Generemos un proyecto de evidencias BAGO\n{\n  \"assumptions\": [],\n  \"confidence\": 1.0,\n  \"evidence\": [],\n  \"facts\": [\n    {\n      \"key\": \"workspace_state_root\",\n      \"value\": \"C:\\\\Users\\\\AMTEC_Terminal_1º\\\\Documents\\\\pruebas bago\\\\.gabo\"\n    },\n    {\n      \"key\": \"project_root\",\n      \"value\": \"C:\\\\Users\\\\AMTEC_Terminal_1º\\\\Documents\\\\pruebas bago\"\n    }\n  ],\n  \"files_required\": [\n    \"workspace_state_root\"\n  ],\n  \"intent\": \"generate_bago_project\",\n  \"missing_information\": [],\n  \"objective\": \"\",\n",
+          "status": "proposed",
+          "priority": "medium"
+        }
+      ]
+    },
+    "createdAt": "2026-07-29T11:48:59.921Z",
+    "createdBy": "chat",
+    "status": "pending",
+    "metadata": {
+      "source": "chat_opportunity_detector",
+      "consent": "required"
+    }
+  }
+]

@@ -148,7 +148,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     try:
         ollama_url = _ollama_base_url(cfg)
     except RuntimeError as exc:
-        ctx.send_json({"ok": False, "error": str(exc)}, status=503)
+        ctx.send_json(503, {"ok": False, "error": str(exc)})
         return
 
     # Resolve vision model from config or auto-discover from Ollama
@@ -156,7 +156,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     try:
         default_model, default_timeout = _vision_defaults(cfg, ollama_url, extra_roots)
     except RuntimeError as exc:
-        ctx.send_json({"ok": False, "error": str(exc)}, status=503)
+        ctx.send_json(503, {"ok": False, "error": str(exc)})
         return
 
     image_base64: str = str(body.get("image_base64") or "").strip()
@@ -167,7 +167,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     timeout_s: float = float(body.get("timeout_s") or default_timeout)
 
     if not image_base64:
-        ctx.send_json({"ok": False, "error": "image_base64 es requerido"}, status=400)
+        ctx.send_json(400, {"ok": False, "error": "image_base64 es requerido"})
         return
 
     started = time.time()
@@ -184,24 +184,24 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
     if not result_holder:
         ctx.send_json(
+            504,
             {
                 "ok": False,
                 "error": f"Timeout: el modelo de visión ({model}) no respondió en {int(timeout_s)}s",
                 "duration_ms": elapsed_ms,
             },
-            status=504,
         )
         return
 
     result = result_holder[0]
     if not result.get("ok"):
         ctx.send_json(
+            502,
             {
                 "ok": False,
                 "error": result.get("error", "Error desconocido en el modelo de visión"),
                 "duration_ms": elapsed_ms,
             },
-            status=502,
         )
         return
 
@@ -209,6 +209,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         data = json.loads(result["raw"])
         response_text = data.get("response", "")
         ctx.send_json(
+            200,
             {
                 "ok": True,
                 "response": response_text,
@@ -219,10 +220,10 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         ctx.send_json(
+            502,
             {
                 "ok": False,
                 "error": f"No se pudo parsear la respuesta de Ollama: {exc}",
                 "duration_ms": elapsed_ms,
             },
-            status=502,
         )

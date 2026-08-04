@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.capability/v1",
+  "id": "music.score-transform",
+  "name": "Analizar y transformar partitura",
+  "version": "1.3.0",
+  "description": "Convierte partituras mediante Audiveris, analiza MusicXML, transpone notas y separa voces.",
+  "author": "BAGO",
+  "permissions": [
+    "filesystem.read",
+    "filesystem.write",
+    "process"
+  ],
+  "runtime": {
+    "kind": "python",
+    "entrypoint": "run.py",
+    "timeout_s": 600
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "audiveris_path": {
+        "type": "string",
+        "title": "Ejecutable de Audiveris",
+        "default": "C:\\Program Files\\Audiveris\\Audiveris.exe"
+      },
+      "output_dir": {
+        "type": "string",
+        "title": "Carpeta de salida",
+        "description": "Vacía: crea una carpeta junto a la partitura.",
+        "default": ""
+      },
+      "audiveris_timeout_s": {
+        "type": "integer",
+        "title": "Límite OMR en segundos",
+        "description": "Tiempo máximo para reconocer PDFs o imágenes.",
+        "default": 540
+      },
+      "separate_voices_in_full": {
+        "type": "boolean",
+        "title": "Separar voces en operación completa",
+        "default": true
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "source_path": {
+        "type": "string",
+        "title": "Ruta de la partitura",
+        "description": "PDF, PNG, JPG, TIFF, BMP, MusicXML, XML o MXL."
+      },
+      "operation": {
+        "type": "string",
+        "title": "Operación",
+        "enum": [
+          "analizar",
+          "convertir",
+          "transponer",
+          "separar_voces",
+          "completo"
+        ],
+        "default": "completo"
+      },
+      "semitones": {
+        "type": "integer",
+        "title": "Semitonos",
+        "description": "Se usa al transponer; admite valores negativos.",
+        "default": 0
+      }
+    },
+    "required": [
+      "source_path",
+      "operation"
+    ]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "tags": [
+    "música",
+    "partitura",
+    "musicxml",
+    "omr"
+  ]
+}

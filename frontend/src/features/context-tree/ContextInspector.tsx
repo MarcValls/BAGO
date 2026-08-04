@@ -22,6 +22,8 @@ interface Props {
   onOpenInChat?: (text: string) => void;
   onCreateTree?: () => void;
   onCompilePack?: () => void;
+  hideIdentity?: boolean;
+  hideTitle?: boolean;
 }
 
 function typeIcon(type: ContextNodeType): IconName {
@@ -165,24 +167,26 @@ export function ContextInspector(props: Props) {
   return (
     <aside className="context-inspector" aria-label={`Inspector de ${node.title}`}>
       <header className="context-inspector-header">
-        <span className="context-inspector-icon"><Icon name={typeIcon(node.type)} size={14} /></span>
-        <div className="context-inspector-meta">
-          <small>{typeLabel(node.type)}</small>
-          <strong title={node.title}>{node.title}</strong>
-          <span className="context-inspector-status-row">
-            {node.status !== 'active' && (
-              <span className={`context-inspector-status is-${node.status}`}>{node.status}</span>
-            )}
-            {node.conflictNodeIds.length > 0 && (
-              <span className="context-inspector-status is-conflict">
-                <Icon name="conflict" size={10} /> {node.conflictNodeIds.length} conflicto{node.conflictNodeIds.length > 1 ? 's' : ''}
-              </span>
-            )}
-            {typeof node.weightTokens === 'number' && node.weightTokens > 0 && (
-              <span className="context-inspector-weight">{node.weightTokens}t</span>
-            )}
-          </span>
-        </div>
+        {!props.hideIdentity && <>
+          <span className="context-inspector-icon"><Icon name={typeIcon(node.type)} size={14} /></span>
+          <div className="context-inspector-meta">
+            <small>{typeLabel(node.type)}</small>
+            <strong title={node.title}>{node.title}</strong>
+            <span className="context-inspector-status-row">
+              {node.status !== 'active' && (
+                <span className={`context-inspector-status is-${node.status}`}>{node.status}</span>
+              )}
+              {node.conflictNodeIds.length > 0 && (
+                <span className="context-inspector-status is-conflict">
+                  <Icon name="conflict" size={10} /> {node.conflictNodeIds.length} conflicto{node.conflictNodeIds.length > 1 ? 's' : ''}
+                </span>
+              )}
+              {typeof node.weightTokens === 'number' && node.weightTokens > 0 && (
+                <span className="context-inspector-weight">{node.weightTokens}t</span>
+              )}
+            </span>
+          </div>
+        </>}
         <button
           type="button"
           className={`primary-button compact context-inspector-primary`}
@@ -217,7 +221,7 @@ export function ContextInspector(props: Props) {
 
       {openSection === 'summary' && (
         <section className="context-inspector-section">
-          <label>
+          {!props.hideTitle && <label>
             <small>Título</small>
             <input
               value={titleDraft}
@@ -225,7 +229,7 @@ export function ContextInspector(props: Props) {
               disabled={!isEditable}
               aria-label="Título del nodo"
             />
-          </label>
+          </label>}
           <label>
             <small>Resumen</small>
             <textarea

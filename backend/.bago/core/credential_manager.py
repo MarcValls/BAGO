@@ -24,6 +24,7 @@ except ImportError:  # pragma: no cover - Windows-only API
 from pathlib import Path
 from typing import Any
 
+from bago_core.user_state_paths import state_read_candidates
 from state_paths import resolve_state_root
 
 os.environ.setdefault("PYTHONUTF8", "1")
@@ -154,12 +155,9 @@ class CredentialManager:
         self._load()
 
     def _load(self) -> None:
-        if self.store_mode == "session":
-            self._data = {}
-            self._auto_import_env()
-            return
         legacy_path = self.base_path / ".bago" / ("session-credentials.json" if self.store_mode == "session" else "credentials.json")
-        source_path = self.cred_path if self.cred_path.exists() else legacy_path
+        candidates = [self.cred_path, *state_read_candidates("credentials.json"), legacy_path]
+        source_path = next((path for path in dict.fromkeys(candidates) if path.exists()), self.cred_path)
         if source_path.exists():
             try:
                 raw = source_path.read_text(encoding="utf-8")

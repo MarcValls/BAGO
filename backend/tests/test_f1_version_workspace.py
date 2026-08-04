@@ -136,6 +136,39 @@ def test_session_manager_load_restores_workspace_state_root():
             os.chdir(ws)  # restore
 
 
+def test_session_manager_load_uses_current_runtime_framework_root():
+    """A restored session must not reactivate a stale source/runtime path."""
+    from session_manager import SessionManager
+    from workspace_binding import resolve_framework_root
+
+    with tempfile.TemporaryDirectory() as td:
+        ws = tempfile.mkdtemp()
+        mgr = SessionManager(
+            session_id="test-f1-runtime-root",
+            provider="ollama-local",
+            model="qwen2.5:14b",
+            base_path=ws,
+            state_root=td,
+        )
+        try:
+            mgr.save()
+        finally:
+            mgr.close()
+
+        session_path = Path(td) / "sessions" / "test-f1-runtime-root.json"
+        saved = json.loads(session_path.read_text(encoding="utf-8"))
+        saved["framework_root"] = "C:/stale-checkout/.bago"
+        session_path.write_text(json.dumps(saved), encoding="utf-8")
+
+        loaded = SessionManager.load("test-f1-runtime-root", state_root=td)
+        try:
+            assert Path(loaded.framework_root).resolve() == resolve_framework_root().resolve()
+            assert loaded.status()["framework_root"] == str(resolve_framework_root())
+            assert str(loaded.project_root) == ws
+        finally:
+            loaded.close()
+
+
 def test_session_manager_status_exposes_workspace_binding():
     """SessionManager.status() must expose workspace/repo binding and context revision."""
     from session_manager import ADAPTER_REGISTRY, SessionManager

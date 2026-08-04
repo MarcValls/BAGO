@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -44,11 +45,13 @@ class OllamaCloudAdapter(ProviderAdapter):
         super().__init__("ollama-cloud", config)
         self.base_url = (config or {}).get("base_url", DEFAULT_URL).rstrip("/")
         self.api_key = (config or {}).get("api_key") or os.environ.get("OLLAMA_CLOUD_KEY", "")
+        self.fallback_api_key = (config or {}).get("fallback_api_key", "")
 
-    def _headers(self) -> dict:
+    def _headers(self, api_key: str | None = None) -> dict:
         h = {"Content-Type": "application/json"}
-        if self.api_key:
-            h["Authorization"] = f"Bearer {self.api_key}"
+        selected_key = self.api_key if api_key is None else api_key
+        if selected_key:
+            h["Authorization"] = f"Bearer {selected_key}"
         return h
 
     def _api(self, path: str) -> str:
@@ -57,13 +60,44 @@ class OllamaCloudAdapter(ProviderAdapter):
     def _post(self, url: str, payload: dict, timeout: float = 60.0) -> dict:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=self._headers(), method="POST")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code != 401 or not self.fallback_api_key or self.fallback_api_key == self.api_key:
+                raise
+            retry = urllib.request.Request(
+                url,
+                data=data,
+                headers=self._headers(self.fallback_api_key),
+                method="POST",
+            )
+            with urllib.request.urlopen(retry, timeout=timeout) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+            self.api_key = self.fallback_api_key
+            return result
 
     def _get(self, url: str, timeout: float = 5.0) -> dict:
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code != 401 or not self.fallback_api_key or self.fallback_api_key == self.api_key:
+                raise
+            retry = urllib.request.Request(url, headers=self._headers(self.fallback_api_key), method="GET")
+            with urllib.request.urlopen(retry, timeout=timeout) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+            self.api_key = self.fallback_api_key
+            return result
+
+    @staticmethod
+    def _format_messages(messages: list[dict], system: str = "") -> list[dict]:
+        """Ollama /api/chat accepts the system prompt as a chat message."""
+        payload_messages = [dict(message) for message in messages]
+        if system and not any(message.get("role") == "system" for message in payload_messages):
+            payload_messages.insert(0, {"role": "system", "content": system})
+        return payload_messages
 
     def chat(
         self,
@@ -78,12 +112,10 @@ class OllamaCloudAdapter(ProviderAdapter):
     ) -> ProviderResponse:
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": self._format_messages(messages, system),
             "stream": stream,
             "options": {"temperature": temperature},
         }
-        if system:
-            payload["system"] = system
         if max_tokens:
             payload["options"]["num_predict"] = max_tokens
         if tools:
@@ -148,23 +180,21 @@ class OllamaCloudAdapter(ProviderAdapter):
         """Streaming real para Ollama Cloud (NDJSON)."""
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": self._format_messages(messages, system),
             "stream": True,
             "options": {"temperature": temperature},
         }
-        if system:
-            payload["system"] = system
         if max_tokens:
             payload["options"]["num_predict"] = max_tokens
         if tools:
             payload["tools"] = tools
 
         data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            self._api("/chat"), data=data, headers=self._headers(), method="POST"
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=60.0) as resp:
+        url = self._api("/chat")
+        req = urllib.request.Request(url, data=data, headers=self._headers(), method="POST")
+
+        def _stream(request):
+            with urllib.request.urlopen(request, timeout=60.0) as resp:
                 for line in resp:
                     line = line.decode("utf-8").strip()
                     if not line:
@@ -179,6 +209,26 @@ class OllamaCloudAdapter(ProviderAdapter):
                         yield content
                     if chunk.get("done"):
                         break
+
+        try:
+            yield from _stream(req)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 401 or not self.fallback_api_key or self.fallback_api_key == self.api_key:
+                self._set_error(str(exc))
+                yield f"Error Ollama Cloud: {exc}"
+                return
+            retry = urllib.request.Request(
+                url,
+                data=data,
+                headers=self._headers(self.fallback_api_key),
+                method="POST",
+            )
+            try:
+                yield from _stream(retry)
+                self.api_key = self.fallback_api_key
+            except Exception as retry_exc:
+                self._set_error(str(retry_exc))
+                yield f"Error Ollama Cloud: {retry_exc}"
         except Exception as exc:
             self._set_error(str(exc))
             yield f"Error Ollama Cloud: {exc}"

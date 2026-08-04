@@ -1,8 +1,8 @@
 """api_routes.py \u2014 Indice vivo de rutas del bridge BAGO.
 
-Fuente de verdad: `api_dispatch.ROUTE_META` (estaticas) + lista local
-de patrones dinamicos. Sin regex sobre codigo fuente, sin closure
-walking: ROUTE_META ya declara `(method, path, mod, fn)` explicitamente.
+Fuente de verdad: `api_dispatch.ROUTE_META` (estaticas) y
+`api_dispatch.DYNAMIC_ROUTE_META` (patrones). Sin regex sobre codigo fuente
+ni closure walking: ambas declaran `(method, path, mod, fn)` explicitamente.
 
 Consumidores:
 - `bago api list-routes` (offline)
@@ -22,25 +22,9 @@ class RouteEntry(TypedDict):
     pattern: bool
 
 
-# Patrones dinamicos que viven en `resolve_get/post/router()`. Mantener
-# en sync con el codigo de dispatch (no hay reflexion posible aqui).
-_DYNAMIC_PATTERNS: tuple = (
-    ("GET",  "/models/<provider>",          "handlers_models",  "handle"),
-    ("GET",  "/files/read/<path:filepath>", "handlers_files",   "handle_read"),
-    ("GET",  "/sources",                   "handlers_files",   "handle_sources"),
-    ("GET",  "/evidence/receipts/<receipt_id>", "handlers_evidence", "handle_receipt"),
-    ("GET",  "/evidence/claims/<claim_id>",     "handlers_evidence", "handle_claim"),
-    ("GET",  "/jobs/<execution_id>",            "handlers_jobs",     "handle_get"),
-    ("POST", "/jobs/<execution_id>/cancel",     "handlers_jobs",     "handle_cancel"),
-    ("POST", "/jobs/<execution_id>/retry",      "handlers_jobs",     "handle_retry"),
-    ("POST", "/router/toggle/<key>",        "handlers_router",  "handle_toggle"),
-    ("POST", "/sources",                   "handlers_files",   "handle_sources"),
-)
-
-
 def all_routes() -> List[RouteEntry]:
     """Lista completa de rutas del bridge (estaticas + dinamicas)."""
-    from api_dispatch import ROUTE_META
+    from api_dispatch import DYNAMIC_ROUTE_META, ROUTE_META
     out: List[RouteEntry] = []
     for method, path, mod_name, fn_name in ROUTE_META:
         out.append({
@@ -50,7 +34,7 @@ def all_routes() -> List[RouteEntry]:
             "handler_fn": fn_name,
             "pattern": "<" in path,
         })
-    for method, path, mod_name, fn_name in _DYNAMIC_PATTERNS:
+    for method, path, mod_name, fn_name in DYNAMIC_ROUTE_META:
         out.append({
             "method": method,
             "path": path,

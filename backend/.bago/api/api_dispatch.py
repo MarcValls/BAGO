@@ -48,13 +48,16 @@ def _post(mod_name: str, fn_name: str):
 # Single source of truth for static routes.
 # (method, path, handler_module, handler_fn). Order is preserved; route
 # dispatch iterates in this order so callers see deterministic behaviour.
-# Dynamic patterns (/models/<provider>, /files/read/<path>, /router/toggle/<key>)
-# live separately in DYNAMIC_ROUTES below.
+# Dynamic patterns are declared in DYNAMIC_ROUTE_META below. The matcher code
+# remains explicit because each pattern has different validation/extraction.
 ROUTE_META: tuple = (
     # GET routes
     ("GET",  "/status",              "handlers_status",     "handle"),
     ("GET",  "/health",              "handlers_health",     "handle"),
+    ("GET",  "/release/check",       "handlers_release",    "handle_check"),
+    ("GET",  "/release/status",      "handlers_release",    "handle_status"),
     ("GET",  "/session",             "handlers_session",    "handle"),
+    ("GET",  "/sessions",            "handlers_sessions",   "handle_get"),
     ("GET",  "/workspace/status",    "handlers_workspace",  "handle"),
     ("GET",  "/workspace/list",      "handlers_workspace",  "handle_list"),
     ("GET",  "/workspaces",          "handlers_workspace",  "handle_list"),
@@ -62,10 +65,14 @@ ROUTE_META: tuple = (
     ("GET",  "/project/analyze",     "handlers_project",    "handle_project_analyze"),
     ("POST", "/project/inspect",     "handlers_project",    "handle_project_inspect"),
     ("GET",  "/history",             "handlers_history",    "handle"),
+    ("GET",  "/conversations",       "handlers_conversations", "handle_get"),
     ("GET",  "/providers",           "handlers_providers",  "handle"),
     ("GET",  "/providers/cli-detect","handlers_providers",  "handle_cli_detect"),
     ("GET",  "/providers/contracts", "handlers_providers",  "handle_contracts"),
     ("GET",  "/api/v1/ui/bootstrap", "handlers_ui_bootstrap", "handle"),
+    ("GET",  "/api/v1/capabilities", "handlers_capabilities", "handle_list"),
+    ("GET",  "/api/v1/capability-packages", "handlers_capability_packages", "handle_list"),
+    ("GET",  "/api/v1/capability-receipts", "handlers_capability_packages", "handle_receipts"),
     ("GET",  "/audit/project",       "handlers_audit",      "handle_project"),
     ("GET",  "/audit/bago",          "handlers_audit",      "handle_bago"),
     ("GET",  "/audit/ledger",        "handlers_audit",      "handle_ledger"),
@@ -104,12 +111,16 @@ ROUTE_META: tuple = (
     # POST routes
     ("POST", "/chat",                "handlers_chat",       "handle"),
     ("POST", "/chat/stream",         "handlers_chat_stream", "handle"),
+    ("POST", "/sessions",            "handlers_sessions",   "handle_post"),
+    ("POST", "/conversations",       "handlers_conversations", "handle_post"),
     ("POST", "/api/v1/commands",     "handlers_command",    "handle"),
+    ("POST", "/api/v1/capability-packages/import", "handlers_capability_packages", "handle_import"),
     ("POST", "/command",             "handlers_command",    "handle"),
     ("POST", "/project/init",        "handlers_project",    "handle_project_init"),
     ("POST", "/project/link",        "handlers_project",    "handle_project_link"),
     ("POST", "/project/seed",        "handlers_project",    "handle_project_seed"),
     ("POST", "/project/sync",        "handlers_project",    "handle_project_sync"),
+    ("POST", "/project/demo",        "handlers_project",    "handle_project_demo"),
     ("POST", "/workspace/init",      "handlers_project",    "handle_workspace_init"),
     ("POST", "/workspace/link",      "handlers_project",    "handle_workspace_link"),
     ("POST", "/workspace/seed",      "handlers_project",    "handle_workspace_seed"),
@@ -126,6 +137,8 @@ ROUTE_META: tuple = (
     ("POST", "/router/auto",         "handlers_router",     "handle_auto"),
     ("POST", "/router/session-model","handlers_router",     "handle_session_model"),
     ("POST", "/providers/configure", "handlers_providers",  "handle_configure"),
+    ("POST", "/release/update",      "handlers_release",    "handle_update"),
+    ("POST", "/providers/test",      "handlers_providers",  "handle_test"),
     ("POST", "/providers/buffer/unload", "handlers_providers",  "handle_buffer_unload"),
     ("POST", "/providers/buffer/prepare", "handlers_providers", "handle_buffer_prepare"),
     ("POST", "/sources",             "handlers_files",      "handle_sources"),
@@ -133,6 +146,30 @@ ROUTE_META: tuple = (
     ("POST", "/interpret",           "handlers_interpret",  "handle_post"),
     ("POST", "/vision",              "handlers_vision",     "handle"),
     ("POST", "/plans",               "handlers_jobs",       "handle_plans_create"),
+)
+
+
+# Single source of truth for dynamic route discovery/documentation.
+# (method, path_pattern, handler_module, handler_fn)
+DYNAMIC_ROUTE_META: tuple = (
+    ("GET",  "/models/<provider>",                    "handlers_models",    "handle"),
+    ("GET",  "/providers/<provider>/models",         "handlers_providers", "handle_list_models"),
+    ("GET",  "/providers/<provider>/active-models",  "handlers_providers", "handle_active_models_get"),
+    ("POST", "/providers/<provider>/active-models",  "handlers_providers", "handle_active_models_set"),
+    ("GET",  "/files/read/<path:filepath>",          "handlers_files",     "handle_read"),
+    ("GET",  "/evidence/receipts/<receipt_id>",      "handlers_evidence",  "handle_receipt"),
+    ("GET",  "/evidence/claims/<claim_id>",          "handlers_evidence",  "handle_claim"),
+    ("GET",  "/jobs/<execution_id>",                 "handlers_jobs",      "handle_get"),
+    ("POST", "/jobs/<execution_id>/cancel",          "handlers_jobs",      "handle_cancel"),
+    ("POST", "/jobs/<execution_id>/retry",           "handlers_jobs",      "handle_retry"),
+    ("GET",  "/plans/<plan_id>",                     "handlers_jobs",      "handle_plans_get"),
+    ("GET",  "/api/v1/capabilities/<capability_id>", "handlers_capabilities", "handle_get"),
+    ("GET",  "/api/v1/capability-packages/<capability_id>", "handlers_capability_packages", "handle_get"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/enable", "handlers_capability_packages", "handle_enable"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/configure", "handlers_capability_packages", "handle_configure"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/execute", "handlers_capability_packages", "handle_execute"),
+    ("POST", "/plans/<plan_id>/execute",             "handlers_jobs",      "handle_plans_execute"),
+    ("POST", "/router/toggle/<key>",                 "handlers_router",    "handle_toggle"),
 )
 
 
@@ -186,23 +223,33 @@ def resolve_get(handler, path: str) -> Tuple[bool, Callable | None]:
         execution_id = path[len("/jobs/"):]
         if execution_id and execution_id != "list":
             return True, _call("handlers_jobs", "handle_get", execution_id)
-    if path.startswith("/plans/") and path.endswith("/execute"):
-        plan_id = path[len("/plans/"):-len("/execute")].strip("/")
-        if plan_id and "/" not in plan_id:
-            def _execute_closure(handler, body, _p=plan_id):
-                from handlers_jobs import handle_plans_execute
-                return handle_plans_execute(handler, _p, body)
-            return True, _execute_closure
     if path.startswith("/plans/") and not path.endswith("/execute"):
         plan_id = path[len("/plans/"):].strip("/")
         if plan_id and "/" not in plan_id:
             return True, _call("handlers_jobs", "handle_plans_get", plan_id)
+    if path.startswith("/api/v1/capabilities/"):
+        capability_id = path[len("/api/v1/capabilities/"):].strip("/")
+        if capability_id and "/" not in capability_id:
+            return True, _call("handlers_capabilities", "handle_get", capability_id)
+    if path.startswith("/api/v1/capability-packages/"):
+        capability_id = path[len("/api/v1/capability-packages/"):].strip("/")
+        if capability_id and "/" not in capability_id:
+            return True, _call("handlers_capability_packages", "handle_get", capability_id)
     return False, None
 
 
 def resolve_post(handler, path: str, body: dict) -> Tuple[bool, Callable | None]:
     if path in POST_ROUTES:
         return True, POST_ROUTES[path]
+    package_prefix = "/api/v1/capability-packages/"
+    for suffix, fn_name in (("/enable", "handle_enable"), ("/configure", "handle_configure"), ("/execute", "handle_execute")):
+        if path.startswith(package_prefix) and path.endswith(suffix):
+            capability_id = path[len(package_prefix):-len(suffix)].strip("/")
+            if capability_id and "/" not in capability_id:
+                def _package_closure(handler, body, _id=capability_id, _fn=fn_name):
+                    mod = importlib.import_module("handlers_capability_packages")
+                    return getattr(mod, _fn)(handler, _id, body)
+                return True, _package_closure
     if path.startswith("/jobs/") and path.endswith("/cancel"):
         execution_id = path[len("/jobs/"):-len("/cancel")].strip("/")
         if execution_id:
@@ -218,6 +265,13 @@ def resolve_post(handler, path: str, body: dict) -> Tuple[bool, Callable | None]
                 from handlers_providers import handle_active_models_set
                 return handle_active_models_set(handler, _p, body)
             return True, _active_set_closure
+    if path.startswith("/plans/") and path.endswith("/execute"):
+        plan_id = path[len("/plans/"):-len("/execute")].strip("/")
+        if plan_id and "/" not in plan_id:
+            def _execute_closure(handler, body, _p=plan_id):
+                from handlers_jobs import handle_plans_execute
+                return handle_plans_execute(handler, _p, body)
+            return True, _execute_closure
     return False, None
 
 
@@ -247,6 +301,8 @@ API_PREFIXES = (
     "/workspaces",
     "/project",
     "/history",
+    "/conversations",
+    "/sessions",
     "/providers",
     "/menu",
     "/sources",
@@ -272,4 +328,5 @@ API_PREFIXES = (
     "/vision",
     "/plans",
     "/configure",
+    "/release",
 )

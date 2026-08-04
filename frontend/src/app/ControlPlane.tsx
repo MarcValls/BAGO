@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { BagoClient } from '@/api/client';
-import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, BackendCommandResult, BackendConversations, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, BackendSessions, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
@@ -10,11 +10,18 @@ import { InspectorDrawer } from '@/layout/InspectorDrawer';
 import { createContextActions } from '@/features/context-menu/contextActions';
 import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
-import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
+import { createDefaultUiState, loadUiState, normalizeActiveSection, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
+import { buildSnapshot } from '@/app/bootstrapSnapshot';
+import { readRecord, readText, toStringList } from '@/shared/unknownValue';
+import { normalizeChatResponse } from '@/shared/chatResponse';
+import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
+import { markFirstRunComplete, shouldShowFirstRun } from '@/features/first-run/firstRun';
+import { ConfirmDialog } from '@/lib/ConfirmDialog';
+import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -30,74 +37,6 @@ function hashString(input: string): string {
     hash = hash & 0x7fffffff;
   }
   return hash.toString(36);
-}
-
-function toStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter(Boolean);
-}
-
-function toNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function toBoolean(value: unknown): boolean | undefined {
-  return typeof value === 'boolean' ? value : undefined;
-}
-
-function readText(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asRecordArray(value: unknown): Array<Record<string, unknown>> {
-  return Array.isArray(value) ? value.filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)) as Array<Record<string, unknown>> : [];
-}
-
-function extractRecordArray(value: unknown, keys: string[]): Array<Record<string, unknown>> {
-  if (Array.isArray(value)) {
-    return asRecordArray(value);
-  }
-  if (!value || typeof value !== 'object') {
-    return [];
-  }
-  const data = value as Record<string, unknown>;
-  for (const key of keys) {
-    const candidate = data[key];
-    if (Array.isArray(candidate)) {
-      return asRecordArray(candidate);
-    }
-  }
-  return [];
-}
-
-function readReceiptId(receipt: unknown): string | undefined {
-  if (!receipt || typeof receipt !== 'object') return undefined;
-  const data = receipt as Record<string, unknown>;
-  return readText(data.envelope_id || data.id || data.receipt_id);
-}
-
-function readCertificationStatus(value: unknown): string | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const data = value as Record<string, unknown>;
-  return readText(data.status || data.state);
-}
-
-function readRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function readStringRecord(value: unknown): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(readRecord(value)).map(([key, entry]) => [key, String(entry || '')])
-  );
-}
-
-function readMenuStateValue(raw: any): Record<string, unknown> {
-  return readRecord(raw?.menu_state || raw?.session?.menu_state || raw?.status?.menu_state);
-}
-
-function readMenuStateText(value: unknown): string {
-  return String(value || '').trim();
 }
 
 function shouldOfferSeed(snapshot: UiBootstrapSnapshot | null, selectedRoot: string): boolean {
@@ -147,287 +86,8 @@ function normalizeWorkspaceHint(value: string): string {
   return clean;
 }
 
-function normalizeActions(snapshot: UiBootstrapSnapshot | null): UiAction[] {
-  const actions: UiAction[] = [];
-  if (!snapshot) return actions;
-  const enabled = snapshot.permissions.canChat;
-  actions.push({
-    id: 'open-chat',
-    label: 'Open chat',
-    kind: 'navigate',
-    enabled,
-    visible: true,
-    reasonDisabled: enabled ? undefined : 'Backend is not ready for chat',
-    payload: { section: 'chat' }
-  });
-  actions.push({
-    id: 'inspect-system',
-    label: 'Inspect system',
-    kind: 'inspect',
-    enabled: true,
-    visible: true,
-    payload: { command: '/status' }
-  });
-  if (snapshot.permissions.canInspectContext) {
-    actions.push({
-      id: 'inspect-context',
-      label: 'Inspect context',
-      kind: 'inspect',
-      enabled: true,
-      visible: true,
-      payload: { command: '/context inspect' }
-    });
-  }
-  if (snapshot.permissions.canViewEvidence) {
-    actions.push({
-      id: 'view-evidence',
-      label: 'Review evidence',
-      kind: 'navigate',
-      enabled: true,
-      visible: true,
-      payload: { section: 'evidence' }
-    });
-  }
-  if (snapshot.workspace.manifestState === 'missing') {
-    actions.push({
-      id: 'workspace-init',
-      label: 'Initialize workspace',
-      kind: 'mutation',
-      enabled: snapshot.permissions.canInitializeWorkspace,
-      visible: true,
-      reasonDisabled: snapshot.permissions.canInitializeWorkspace ? undefined : 'Not allowed by backend',
-      payload: { endpoint: 'project:init' }
-    });
-  }
-  if (snapshot.permissions.canLinkWorkspace && snapshot.workspace.root) {
-    actions.push({
-      id: 'workspace-link',
-      label: 'Link workspace',
-      kind: 'mutation',
-      enabled: true,
-      visible: true,
-      payload: { endpoint: 'project:link', root: snapshot.project.root || snapshot.workspace.repoRoot || snapshot.workspace.root }
-    });
-  }
-  if (snapshot.workspace.manifestState === 'invalid') {
-    actions.push({
-      id: 'workspace-repair',
-      label: 'Repair workspace',
-      kind: 'danger',
-      enabled: snapshot.permissions.canRepairWorkspace,
-      visible: true,
-      reasonDisabled: snapshot.permissions.canRepairWorkspace ? undefined : 'Repair disabled',
-      payload: { endpoint: 'project:init' }
-    });
-  }
-  return actions;
-}
-
 function commandKey(command: string): string {
   return command.trim().replace(/^\/+/, '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'command';
-}
-
-function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
-  if (!raw) return null;
-  const status = raw.status || {};
-  const session = raw.session || {};
-  const menuStateRaw = readMenuStateValue(raw);
-  const workspaceMeta = raw.workspace || {};
-  const binding = session.binding || {};
-  const projectRoot = String(status.project_root || status.repo_root || binding.project_root || '');
-  const workspaceRoot = String(status.workspace_state_root || session.binding?.workspace_state_root || '');
-  const scopeRoot = String(status.workspace_scope_root || binding.workspace_scope_root || projectRoot || '');
-  const mirrorRoot = String(status.workspace_mirror_root || binding.workspace_mirror_root || '');
-  const contextRoot = String(status.workspace_context_root || binding.workspace_context_root || '');
-  const authorizedRoot = String(status.authorized_root || binding.authorized_root || scopeRoot || '');
-  const repoRoot = String(status.repo_root || binding.repo_root || projectRoot || '');
-  const repoBranch = String(status.repo_branch || binding.repo_branch || '');
-  const activeBridges = toStringList(status.active_bridges || session.active_bridges);
-  const bindingConfirmed = Boolean(
-    status.workspace_state?.binding_confirmed
-    || session.workspace_state?.binding_confirmed
-    || binding.binding_confirmed
-    || status.binding_confirmed
-  );
-  const bindingReason = String(
-    status.workspace_state?.binding_reason
-    || session.workspace_state?.binding_reason
-    || binding.binding_reason
-    || status.binding_reason
-    || ''
-  );
-  const workspaceState = String(status.workspace_state || session.workspace_state?.workspace_state || '');
-  const seedSuggested = Boolean(workspaceMeta.seed_suggested);
-  const seedReason = String(workspaceMeta.seed_reason || '');
-  const manifestState: UiBootstrapSnapshot['workspace']['manifestState'] = workspaceState.includes('legacy')
-    ? 'legacy'
-    : workspaceState.includes('invalid')
-      ? 'invalid'
-      : workspaceState.includes('missing')
-        ? 'missing'
-        : bindingConfirmed
-          ? 'valid'
-          : workspaceRoot
-            ? 'unknown'
-            : 'missing';
-  const health = status.health || {};
-  const healthDetail = readText(health.detail);
-  const healthLatencyMs = toNumber(health.latency_ms);
-  const objective = String(status.objective || binding.objective || '');
-  const activeAgent = String(status.active_agent || session.active_agent || '');
-  const lastEnvelope = readRecord(raw.last_envelope);
-  const lastEnvelopeMeta = readRecord(lastEnvelope.metadata);
-  const lastReceipt = readRecord(raw.last_receipt);
-  const lastReceiptMeta = readRecord(lastReceipt.metadata);
-  const codeTaskClassification = readRecord(status.code_task || lastEnvelopeMeta.code_task || lastReceiptMeta.code_task);
-  const codeTaskContract = readRecord(status.code_task_contract || lastEnvelopeMeta.code_task_contract || lastReceiptMeta.code_task_contract);
-  const codeTaskContext = readRecord(lastEnvelopeMeta.code_context || lastReceiptMeta.code_context);
-  const lastReceiptId = readReceiptId(status.last_receipt);
-  const certificationStatus = readCertificationStatus(status.context_certification);
-  const menuState = {
-    activeCenter: readMenuStateText(menuStateRaw.activeCenter || status.active_center || session.active_center),
-    currentScreen: readMenuStateText(menuStateRaw.currentScreen || status.current_screen || session.current_screen),
-    operationState: readMenuStateText(menuStateRaw.operationState || status.operation_state || session.operation_state),
-    recommendedAction: readMenuStateText(menuStateRaw.recommendedAction || status.recommended_action || session.recommended_action),
-    allowedActions: toStringList(menuStateRaw.allowedActions || status.allowed_actions || session.allowed_actions),
-    secondaryActions: toStringList(menuStateRaw.secondaryActions || status.secondary_actions || session.secondary_actions),
-    blockedActions: toStringList(menuStateRaw.blockedActions || status.blocked_actions || session.blocked_actions),
-    blockedReasons: readStringRecord(menuStateRaw.blockedReasons || status.blocked_reasons || session.blocked_reasons),
-    pendingWork: readMenuStateText(menuStateRaw.pendingWork || status.pending_work || session.pending_work),
-    latestResult: readMenuStateText(menuStateRaw.latestResult || status.latest_result || session.latest_result),
-    version: readMenuStateText(menuStateRaw.version || status.contract_version || status.schema_version || raw.version)
-  };
-  const rawPermissions = readRecord(raw.permissions);
-  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false
-    ? 'error'
-    : bindingConfirmed ? 'confirmed'
-      : bindingReason ? 'degraded'
-        : !raw.status
-          ? 'loading'
-          : 'unknown';
-  const contextRevision = status.context_revision ?? session.status?.context_revision;
-  const contextState: UiBootstrapSnapshot['context']['state'] = certificationStatus === 'CERTIFIED'
-    ? 'confirmed'
-    : contextRevision && lastReceiptId
-      ? 'partial'
-      : contextRevision
-        ? 'stale'
-        : bindingConfirmed
-          ? 'unknown'
-          : 'blocked';
-  const explicitModelState = String(status.model_state || '').toLowerCase();
-  const modelState: UiBootstrapSnapshot['model']['state'] = explicitModelState === 'error'
-    ? 'error'
-    : explicitModelState === 'degraded'
-      ? 'degraded'
-      : (status.provider || session.provider) && (status.model || session.model || status.effective_model)
-        ? 'confirmed'
-        : 'unknown';
-  const effectiveProvider = String(status.provider || session.provider || '');
-  const effectiveModel = String(status.model || session.model || status.effective_model || '');
-  const permissions = {
-    canChat: toBoolean(rawPermissions.canChat) ?? (bindingConfirmed && Boolean(effectiveProvider) && Boolean(effectiveModel)),
-    canInitializeWorkspace: toBoolean(rawPermissions.canInitializeWorkspace) ?? !workspaceRoot,
-    canLinkWorkspace: toBoolean(rawPermissions.canLinkWorkspace) ?? (Boolean(workspaceRoot) && !bindingConfirmed),
-    canRepairWorkspace: toBoolean(rawPermissions.canRepairWorkspace) ?? (Boolean(workspaceRoot) && /manifest|workspace root|scope|legacy|invalid/i.test(bindingReason || workspaceState)),
-    canSeedWorkspace: toBoolean(rawPermissions.canSeedWorkspace) ?? Boolean(workspaceRoot),
-    canRunTools: toBoolean(rawPermissions.canRunTools) ?? (bindingConfirmed && activeBridges.length > 0),
-    canInspectContext: toBoolean(rawPermissions.canInspectContext) ?? (bindingConfirmed && Boolean(contextRevision || lastReceiptId)),
-    canViewEvidence: toBoolean(rawPermissions.canViewEvidence) ?? Boolean(lastReceiptId || (Array.isArray(raw.history?.messages) && raw.history.messages.length)),
-    canStopPipeline: toBoolean(rawPermissions.canStopPipeline) ?? Boolean(objective || contextRevision),
-    canRetryPipeline: toBoolean(rawPermissions.canRetryPipeline) ?? Boolean(objective || lastReceiptId || contextRevision)
-  };
-  const sessionState: UiBootstrapSnapshot['session']['state'] = session.session_id
-    ? (bindingConfirmed
-      ? 'valid'
-      : /manifest|workspace root|scope|legacy|invalid/i.test(bindingReason) ? 'blocked' : 'recoverable')
-    : 'missing';
-  const codeTask = Object.keys(codeTaskClassification).length || Object.keys(codeTaskContract).length || Object.keys(codeTaskContext).length
-    ? ({
-      classification: Object.keys(codeTaskClassification).length ? codeTaskClassification : undefined,
-      contract: Object.keys(codeTaskContract).length ? codeTaskContract : undefined,
-      context: Object.keys(codeTaskContext).length ? codeTaskContext : undefined
-    } as UiBootstrapSnapshot['codeTask'])
-    : undefined;
-
-  const snapshot: UiBootstrapSnapshot = {
-    system: {
-      state: systemState,
-      backendAvailable: true,
-      version: String(status.framework_version || status.version || ''),
-      apiVersion: String(status.api_version || ''),
-      contractVersion: String(status.contract_version || ''),
-      schemaVersion: String(status.schema_version || ''),
-      healthDetail: healthDetail || undefined,
-      healthLatencyMs,
-      bindingReason: bindingReason || undefined,
-      objective: objective || undefined,
-      activeAgent: activeAgent || undefined,
-      activeBridges: activeBridges.length ? activeBridges : undefined,
-      errorCode: readText(status.error_code || status.health?.error_code || '')
-    },
-    framework: {
-      root: String(status.framework_root || ''),
-      version: String(status.framework_version || status.version || ''),
-      confirmed: Boolean(status.framework_root),
-    },
-    project: {
-      root: projectRoot || undefined,
-      state: projectRoot ? 'confirmed' : 'not_detected'
-    },
-    workspace: {
-      id: String(status.workspace_id || session.binding?.workspace_id || ''),
-      root: workspaceRoot || undefined,
-      scopeRoot: scopeRoot || undefined,
-      mirrorRoot: mirrorRoot || undefined,
-      contextRoot: contextRoot || undefined,
-      authorizedRoot: authorizedRoot || undefined,
-      repoRoot: repoRoot || undefined,
-      repoBranch: repoBranch || undefined,
-      bindingReason: bindingReason || undefined,
-      mirrorReady: Boolean(status.workspace_mirror_ready),
-      manifestState,
-      linkedToSession: bindingConfirmed,
-      seedSuggested,
-      seedReason: seedReason || undefined
-    },
-    session: {
-      id: String(status.session_id || session.session_id || ''),
-      state: sessionState,
-      activeAgent: activeAgent || undefined
-    },
-    model: {
-      provider: String(status.provider || session.provider || ''),
-      adapter: String(status.adapter || ''),
-      runtime: String(status.runtime || status.model_runtime || ''),
-      configuredModel: String(status.model || session.model || ''),
-      effectiveModel: String(status.effective_model || status.model || session.model || ''),
-      state: modelState
-    },
-    context: {
-      state: contextState,
-      revision: contextRevision || undefined,
-      occupied: typeof status.context_occupied === 'number' ? status.context_occupied : undefined,
-      available: typeof status.context_available === 'number' ? status.context_available : undefined,
-      limit: typeof status.context_limit === 'number' ? status.context_limit : undefined,
-      reserve: typeof status.context_reserve === 'number' ? status.context_reserve : undefined,
-      limitingFactor: String(status.context_limiting_factor || ''),
-      receiptId: lastReceiptId || undefined,
-      certificationStatus: certificationStatus || undefined
-    },
-    permissions: {
-      ...permissions
-    },
-    capabilities: (status.capabilities as UiBootstrapSnapshot['capabilities']) || undefined,
-    error: raw.error && typeof raw.error === 'object' ? raw.error : undefined,
-    evidence: extractRecordArray(raw.evidence, ['items', 'receipts', 'claims', 'latest']),
-    jobs: extractRecordArray(raw.jobs, ['jobs', 'items']),
-    codeTask,
-    recommendedActions: [],
-    menuState
-  };
-  snapshot.recommendedActions = normalizeActions(snapshot);
-  return snapshot;
 }
 
 function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
@@ -435,12 +95,21 @@ function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
   return history.messages.slice(-30).map((message, index) => {
     const roleValue = String(message.role || 'assistant');
     const role: ChatTurn['role'] = roleValue === 'user' || roleValue === 'system' || roleValue === 'command' ? roleValue : 'assistant';
+    const metadata = readRecord(message.metadata);
+    const normalized = normalizeChatResponse(
+      String(message.content || message.text || message.message || ''),
+      metadata.response_state
+    );
     return {
       id: String(message.id || `history-${index}`),
       role,
-      text: String(message.content || message.text || message.message || ''),
-      status: 'done',
+      text: normalized.text,
+      status: normalized.state,
       receipt: (message.receipt || message.context_receipt || null) as Record<string, unknown> | null,
+      provider: String(message.provider || metadata.provider || ''),
+      model: String(message.model || metadata.model || ''),
+      conversationId: String(message.conversation_id || history.conversation_id || 'main'),
+      clarification: normalized.clarification,
       raw: message,
       timestamp: String(message.timestamp || message.created_at || nowStamp())
     };
@@ -451,6 +120,12 @@ function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
 // Mantiene estado compartido entre renders sin reasignar el ref.
 const persistWorkspace = {
   everPersistedRef: { current: false } as { current: boolean }
+};
+
+type AppConfirmationRequest = {
+  title: string;
+  description: string;
+  confirmLabel?: string;
 };
 
 export function ControlPlane() {
@@ -465,12 +140,16 @@ export function ControlPlane() {
   });
   const [booting, setBooting] = useState(true);
   const [busyCount, setBusyCount] = useState(0);
+  const [chatRequestCount, setChatRequestCount] = useState(0);
+  const [sessionChanging, setSessionChanging] = useState(false);
   const [snapshot, setSnapshot] = useState<UiBootstrapSnapshot | null>(null);
   const [menu, setMenu] = useState<BackendMenu | null>(null);
   const [routes, setRoutes] = useState<BackendRoutes | null>(null);
   const [providers, setProviders] = useState<BackendProviders | null>(null);
   const [routerState, setRouterState] = useState<{ list: BackendRouterList | null; policy: BackendRouterPolicy | null }>({ list: null, policy: null });
   const [history, setHistory] = useState<BackendHistory | null>(null);
+  const [conversations, setConversations] = useState<BackendConversations | null>(null);
+  const [sessions, setSessions] = useState<BackendSessions | null>(null);
   const [files, setFiles] = useState<Record<string, unknown> | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   // CANON[CTX-002]: Patches que ya fueron entregados al módulo de
@@ -486,10 +165,12 @@ export function ControlPlane() {
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
+  const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
+  const [confirmation, setConfirmation] = useState<AppConfirmationRequest | null>(null);
+  const confirmationResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
+  const activeSessionIdRef = useRef('');
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
-  const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
@@ -525,7 +206,7 @@ export function ControlPlane() {
     });
   };
 
-  const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>) => {
+  const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>, options?: { replaceTurns?: boolean }) => {
     const nextSnapshot = buildSnapshot(data);
     const nextOpening = resolveOpeningState(nextSnapshot);
     setSnapshot(nextSnapshot);
@@ -536,12 +217,13 @@ export function ControlPlane() {
     setRouterState({
       list: (data.router_list || null) as BackendRouterList | null,
       policy: (data.router_policy || null) as BackendRouterPolicy | null
-    });    setHistory((data.history || null) as BackendHistory | null);
+    });
+    setHistory((data.history || null) as BackendHistory | null);
+    setConversations((data.conversations || null) as BackendConversations | null);
+    setSessions((data.sessions || null) as BackendSessions | null);
+    activeSessionIdRef.current = String(data.sessions?.active_session_id || data.session?.session_id || '');
     setFiles((data.files || null) as Record<string, unknown> | null);
-    setTurns((current) => current.length ? current : historyToTurns(data.history));
-    if (nextOpening.id === 'enter_directly') {
-      setUiState((current) => current.activeSection === 'chat' ? current : patchUiState(current, { activeSection: 'home' }));
-    }
+    setTurns((current) => options?.replaceTurns ? historyToTurns(data.history) : (current.length ? current : historyToTurns(data.history)));
     return nextSnapshot;
   };
 
@@ -549,7 +231,7 @@ export function ControlPlane() {
     setBooting(true);
     setLastMessage('consultando backend');
     try {
-      const data = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
+      const data = await clientRef.current.bootstrap();
       const nextSnapshot = applyBootData(data);
       // El snapshot moderno puede llegar antes de que el catálogo del router
       // quede materializado. La lectura dedicada mantiene el selector del chat
@@ -610,7 +292,11 @@ export function ControlPlane() {
         return null;
       }
       const seedAfterLink = shouldOfferSeed(snapshot, selectedRoot)
-        ? window.confirm(`La ruta ${selectedRoot} no está validada todavía.\n\n¿Sembrar ahora para dejarla válida?`)
+        ? await requestConfirmation({
+          title: 'Preparar workspace',
+          description: `La ruta todavía no está validada. BAGO puede prepararla ahora.\n\n${selectedRoot}`,
+          confirmLabel: 'Preparar y vincular'
+        })
         : false;
       const activated = await activateWorkspaceRoot(selectedRoot, 'workspace activado', { seedAfterLink });
       return activated ? selectedRoot : null;
@@ -763,7 +449,7 @@ export function ControlPlane() {
       // Ctrl+1..8: navegar a la vista N (orden de MainSidebar)
       if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
         event.preventDefault();
-        const order: ActiveSection[] = ['home', 'chat', 'workspace', 'pipeline', 'context', 'evidence', 'graph', 'system'];
+        const order: ActiveSection[] = ['home', 'workspace', 'pipeline', 'context', 'evidence', 'graph', 'system'];
         const idx = parseInt(event.key, 10) - 1;
         const target = order[idx];
         if (target) {
@@ -808,34 +494,6 @@ export function ControlPlane() {
     persistUiState(uiState);
   }, [uiState]);
 
-  // Carga modelos activos del provider activo cuando cambia.
-  // Si no hay lista guardada, devuelve set vacío y el chat muestra todos
-  // los del router (fallback). Se mantiene aquí para que el GlobalHeader
-  // (que también los necesita) siga funcionando.
-  useEffect(() => {
-    const provider = (snapshot as any)?.model?.provider
-      || (snapshot as any)?.provider
-      || (snapshot as any)?.session?.provider
-      || (snapshot as any)?.system?.provider
-      || null;
-    if (!provider) {
-      setActiveProvider(null);
-      setActiveModels(new Set());
-      return;
-    }
-    setActiveProvider(provider);
-    const url = `${uiState.apiBase || readStoredApiBase()}/providers/${provider}/active-models`;
-    fetch(url)
-      .then((r) => r.ok ? r.json() : { active_models: [] })
-      .then((data) => {
-        if (Array.isArray(data?.active_models)) {
-          setActiveModels(new Set(data.active_models));
-        } else {
-          setActiveModels(new Set());
-        }
-      })
-      .catch(() => setActiveModels(new Set()));
-  }, [snapshot, uiState.apiBase]);
   const combinedActions = useMemo(() => snapshot?.recommendedActions || [], [snapshot]);
 
   // CANON[CTX-003]: cada vez que los turnos cambian, parseamos los
@@ -960,6 +618,95 @@ export function ControlPlane() {
     return applyBootData(next);
   };
 
+  const applyConversationData = (data: BackendConversations): void => {
+    const nextHistory = data.history || { conversation_id: data.active_conversation_id, messages: [], count: 0 };
+    setConversations(data);
+    setHistory(nextHistory);
+    setTurns(historyToTurns(nextHistory));
+  };
+
+  const createConversation = async (): Promise<void> => {
+    setBusyCount((count) => count + 1);
+    try {
+      const data = await clientRef.current.modifyConversation({ action: 'create' });
+      applyConversationData(data);
+      setLastMessage('nueva conversación creada');
+      window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+    } catch (error) {
+      setLastMessage(error instanceof Error ? error.message : 'no se pudo crear la conversación');
+    } finally {
+      setBusyCount((count) => Math.max(0, count - 1));
+    }
+  };
+
+  const switchConversation = async (conversationId: string): Promise<void> => {
+    if (!conversationId || conversationId === conversations?.active_conversation_id) return;
+    setBusyCount((count) => count + 1);
+    try {
+      const data = await clientRef.current.modifyConversation({ action: 'switch', conversation_id: conversationId });
+      applyConversationData(data);
+      setLastMessage('conversación recuperada');
+    } catch (error) {
+      setLastMessage(error instanceof Error ? error.message : 'no se pudo abrir la conversación');
+    } finally {
+      setBusyCount((count) => Math.max(0, count - 1));
+    }
+  };
+
+  const applySessionChange = async (
+    action: 'create' | 'switch' | 'rename' | 'archive' | 'restore',
+    sessionId?: string,
+    title?: string
+  ): Promise<boolean> => {
+    if (action === 'switch' && (!sessionId || sessionId === sessions?.active_session_id)) return true;
+    if ((action === 'switch' || action === 'create' || action === 'restore') && chatRequestCount > 0) {
+      const confirmed = await requestConfirmation({
+        title: action === 'create' ? 'Crear otra sesión' : action === 'restore' ? 'Restaurar sesión' : 'Cambiar de sesión',
+        description: 'BAGO todavía está respondiendo. La respuesta continuará guardándose en la sesión actual, pero dejarás de verla hasta volver.',
+        confirmLabel: action === 'create' ? 'Crear sesión' : action === 'restore' ? 'Restaurar sesión' : 'Cambiar de sesión'
+      });
+      if (!confirmed) return false;
+    }
+    if (action === 'archive') {
+      const confirmed = await requestConfirmation({
+        title: 'Archivar sesión',
+        description: `La sesión desaparecerá del selector, pero podrás recuperarla desde Gestionar sesión.${chatRequestCount > 0 ? ' La respuesta en curso seguirá guardándose en ella.' : ''}`,
+        confirmLabel: 'Archivar sesión'
+      });
+      if (!confirmed) return false;
+    }
+    setBusyCount((count) => count + 1);
+    setSessionChanging(true);
+    try {
+      const changed = await clientRef.current.modifySession({ action, session_id: sessionId, title });
+      if (action === 'rename') {
+        setSessions(changed);
+        setLastMessage('sesión renombrada');
+        return true;
+      }
+      const data = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
+      applyBootData(data, { replaceTurns: true });
+      setHandledContextPatches(new Set());
+      setInitialContextSelectedNodeId(null);
+      const [, , , modelState] = await Promise.all([
+        refreshRouterState(),
+        contextTreeRef.current.refresh(),
+        contextTreeRef.current.refreshBank(),
+        clientRef.current.getSessionModel().catch(() => ({ session_model: null }))
+      ]);
+      setSessionModelState((modelState.session_model as string | null | undefined) ?? null);
+      setLastMessage(action === 'create' ? 'nueva sesión creada' : action === 'archive' ? 'sesión archivada' : action === 'restore' ? 'sesión restaurada' : 'sesión recuperada');
+      window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+      return true;
+    } catch (error) {
+      setLastMessage(error instanceof Error ? error.message : 'no se pudo cambiar de sesión');
+      return false;
+    } finally {
+      setSessionChanging(false);
+      setBusyCount((count) => Math.max(0, count - 1));
+    }
+  };
+
   const refreshRouterState = async (): Promise<void> => {
     const [list, policy] = await Promise.all([
       clientRef.current.getRouterList().catch(() => undefined),
@@ -971,7 +718,7 @@ export function ControlPlane() {
     });
   };
 
-  const activateWorkspaceRoot = async (selectedRoot: string, sourceLabel: string, options?: { seedAfterLink?: boolean }): Promise<boolean> => {
+  const activateWorkspaceRoot = async (selectedRoot: string, sourceLabel: string, options?: { seedAfterLink?: boolean; forceInit?: boolean }): Promise<boolean> => {
     const cleanRoot = selectedRoot.trim();
     if (!cleanRoot) {
       setLastMessage('selección de workspace cancelada');
@@ -983,7 +730,7 @@ export function ControlPlane() {
 
     try {
       const nextRepairableState = snapshot?.workspace.manifestState;
-      if (nextRepairableState === 'missing' || nextRepairableState === 'invalid' || nextRepairableState === 'legacy') {
+      if (options?.forceInit || nextRepairableState === 'missing' || nextRepairableState === 'invalid' || nextRepairableState === 'legacy') {
         await clientRef.current.initProject(cleanRoot);
       }
       const linkResult = await clientRef.current.linkProject(cleanRoot);
@@ -1042,46 +789,34 @@ export function ControlPlane() {
     // /blacklist show
     if (clean.startsWith('/auto-config') || clean.startsWith('/blacklist')) {
       const [ns, action] = clean.replace(/^\/+/, '').split(/\s+/, 2);
-      const base = uiState.apiBase || readStoredApiBase();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (uiState.apiToken) headers['Authorization'] = `Bearer ${uiState.apiToken}`;
-      let endpoint = '';
-      let method = 'GET';
-      let body: any = undefined;
-      if (ns === 'auto-config') {
-        if (action === 'start')   { endpoint = '/configure/auto/start';   method = 'POST'; body = {}; }
-        else if (action === 'apply')  { endpoint = '/configure/auto/apply';   method = 'POST'; body = {}; }
-        else if (action === 'cancel') { endpoint = '/configure/auto/cancel';  method = 'POST'; body = {}; }
-        else                          { endpoint = '/configure/auto/status';  method = 'GET';  }
-      } else if (ns === 'blacklist') {
-        endpoint = '/providers/blacklist';
-      }
-      if (!endpoint) {
-        const result: BackendCommandResult = { ok: false, message: `comando no reconocido: ${clean}` };
-        setLastMessage(result.message || clean);
-        return result;
-      }
       try {
-        // FIX v0.2.1 (R2): timeout de 60s para comandos redirigidos
-        // (/configure/auto/*, /providers/blacklist). Evita que la UI
-        // quede esperando indefinidamente si el backend cuelga.
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 60_000);
-        let res: Response;
-        try {
-          res = await fetch(`${base}${endpoint}`, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
-        } finally {
-          clearTimeout(timer);
+        let data: Record<string, unknown>;
+        if (ns === 'blacklist') {
+          data = await clientRef.current.getModelBlacklist();
+        } else if (action === 'start') {
+          data = await clientRef.current.startAutoConfig();
+        } else if (action === 'apply') {
+          data = await clientRef.current.applyAutoConfig();
+        } else if (action === 'cancel') {
+          data = await clientRef.current.cancelAutoConfig();
+        } else if (!action || action === 'status') {
+          data = await clientRef.current.getAutoConfigStatus();
+        } else {
+          const result: BackendCommandResult = { ok: false, message: `comando no reconocido: ${clean}` };
+          setLastMessage(result.message || clean);
+          return result;
         }
-        const data = await res.json().catch(() => ({}));
         let summary = '';
         if (ns === 'auto-config') {
           if (action === 'start') summary = `Auto-config lanzada (${data.models_to_test ?? 0} modelos a probar)`;
-          else if (action === 'apply') summary = data.ok ? `Config aplicada: default=${data.applied?.default_model}` : data.error || 'falló';
+          else if (action === 'apply') {
+            const applied = readRecord(data.applied);
+            summary = data.ok ? `Config aplicada: default=${readText(applied.default_model)}` : readText(data.error) || 'falló';
+          }
           else if (action === 'cancel') summary = 'Auto-config cancelada';
           else summary = `Auto-config status: ${data.status} (${data.tested_models ?? 0}/${data.total_models ?? 0})`;
         } else {
-          const models = (data.models || []) as string[];
+          const models = toStringList(data.models);
           summary = models.length ? `Blacklist (${models.length}): ${models.slice(0, 3).join(', ')}${models.length > 3 ? '…' : ''}` : 'Blacklist vacía';
         }
         const result: BackendCommandResult = { ok: true, message: summary, data };
@@ -1166,12 +901,26 @@ export function ControlPlane() {
       return;
     }
 
+    // El composer de Chat también es una superficie de comandos. No envíes
+    // slash commands al modelo: deben pasar por la autoridad /command para
+    // cambiar el estado real de la sesión (por ejemplo, /mode A).
+    if (text.startsWith('/') && !text.startsWith('//')) {
+      setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
+      await runCommand(text);
+      return;
+    }
+
     const stamp = Date.now();
+    const conversationId = conversations?.active_conversation_id || history?.conversation_id || 'main';
+    const requestSessionId = activeSessionIdRef.current || sessions?.active_session_id || history?.session_id || '';
+    const attemptedProvider = String(snapshot.model.provider || '');
+    const attemptedModel = String(snapshot.model.effectiveModel || snapshot.model.configuredModel || '');
     const userTurn: ChatTurn = {
       id: `user-${stamp}`,
       role: 'user',
       text,
       status: 'done',
+      conversationId,
       timestamp: nowStamp()
     };
     const assistantBuffer: ChatTurn = {
@@ -1179,53 +928,59 @@ export function ControlPlane() {
       role: 'assistant',
       text: '',
       status: 'running',
+      provider: attemptedProvider,
+      model: attemptedModel,
+      conversationId,
       timestamp: nowStamp()
     };
     setTurns((current) => [...current, userTurn, assistantBuffer]);
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
     setBusyCount((count) => count + 1);
+    setChatRequestCount((count) => count + 1);
 
     try {
       const payload = uiState.chatMode === 'trace'
         ? await clientRef.current.streamChat(text, (chunk) => {
+          if (activeSessionIdRef.current !== requestSessionId) return;
           setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, text: turn.text + chunk } : turn));
-        })
-        : await clientRef.current.sendChat(text);
+        }, conversationId)
+        : await clientRef.current.sendChat(text, conversationId);
+      if (activeSessionIdRef.current !== requestSessionId) return;
       const receipt = (payload.receipt || payload.context_receipt || null) as Record<string, unknown> | null;
+      const normalized = normalizeChatResponse(
+        String(payload.response || payload.message || ''),
+        payload.ok === false ? 'failed' : payload.response_state
+      );
+      const clarification = readRecord(payload.clarification);
       setTurns((current) => current.map((turn) => {
         if (turn.id !== assistantBuffer.id) return turn;
-        const responseText = String(payload.response || payload.message || turn.text || '');
         return {
           ...turn,
-          text: responseText,
-          status: payload.ok === false ? 'failed' : receipt ? 'done' : 'validating',
+          text: normalized.text || turn.text,
+          status: payload.ok === false ? 'failed' : normalized.state,
           receipt,
+          provider: String(payload.provider || snapshot.model.provider || ''),
+          model: String(payload.model || snapshot.model.effectiveModel || snapshot.model.configuredModel || ''),
+          clarification: Object.keys(clarification).length ? clarification : normalized.clarification,
           raw: payload
         };
       }));
-      if (payload.ok !== false) {
-        onInspect({
-          id: String(payload.session_id || assistantBuffer.id),
-          kind: 'chat-response',
-          title: 'Respuesta de BAGO',
-          summary: String(payload.response || payload.message || 'Respuesta recibida'),
-          detail: [
-            `provider: ${String(payload.provider || snapshot.model.provider || 'unknown')}`,
-            `receipt: ${receipt ? 'available' : 'pending'}`
-          ],
-          raw: safeJson(payload)
-        });
-      }
-      setLastMessage(String(payload.response || payload.message || 'respuesta recibida'));
+      setLastMessage(normalized.state === 'needs_confirmation' ? 'BAGO necesita confirmación' : normalized.text || 'respuesta recibida');
       await refreshAfterMutation();
-      if (receipt) {
-        setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, status: 'done' } : turn));
-      }
     } catch (error) {
+      if (activeSessionIdRef.current !== requestSessionId) return;
       const messageText = error instanceof Error ? error.message : 'falló el chat';
-      setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, status: 'failed', text: turn.text || messageText } : turn));
+      const errorRecord = readRecord(error);
+      setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? {
+        ...turn,
+        status: 'failed',
+        text: turn.text || messageText,
+        provider: String(errorRecord.provider || turn.provider || attemptedProvider),
+        model: String(errorRecord.model || turn.model || attemptedModel)
+      } : turn));
       setLastMessage(messageText);
     } finally {
+      setChatRequestCount((count) => Math.max(0, count - 1));
       setBusyCount((count) => Math.max(0, count - 1));
     }
   };
@@ -1258,6 +1013,31 @@ export function ControlPlane() {
     openInspector(eventOrSelection, typeof hint === 'string' ? hint : 'detail');
   }
 
+  const openConversation = (mode: UiState['globalMode'] = 'normal') => {
+    try { window.sessionStorage.setItem('bago.start.chat-mode', 'open'); } catch { /* storage unavailable */ }
+    setAndPersistUiState({ activeSection: 'home', globalMode: mode });
+  };
+
+  const requestConfirmation = useCallback((request: AppConfirmationRequest): Promise<boolean> => {
+    confirmationResolverRef.current?.(false);
+    return new Promise((resolve) => {
+      confirmationResolverRef.current = resolve;
+      setConfirmation(request);
+    });
+  }, []);
+
+  const settleConfirmation = useCallback((confirmed: boolean) => {
+    const resolve = confirmationResolverRef.current;
+    confirmationResolverRef.current = null;
+    setConfirmation(null);
+    resolve?.(confirmed);
+  }, []);
+
+  useEffect(() => () => {
+    confirmationResolverRef.current?.(false);
+    confirmationResolverRef.current = null;
+  }, []);
+
   const useSelectionInChat = (nextSelection: SelectionRecord) => {
     const text = [
       `Revisa esto: ${nextSelection.title}`,
@@ -1268,7 +1048,7 @@ export function ControlPlane() {
       ...nextSelection.detail.map((line) => `- ${line}`)
     ].join('\n');
     setDraft('chat', text);
-    setAndPersistUiState({ activeSection: 'chat' });
+    openConversation();
     setLastMessage(`selección enviada al chat: ${nextSelection.title}`);
   };
 
@@ -1294,7 +1074,7 @@ export function ControlPlane() {
     if (targetKind.startsWith('evidence.')) return navigate('evidence');
     if (targetKind.startsWith('context.')) return navigate('context');
     if (targetKind.startsWith('system.')) return navigate('system');
-    if (targetKind === 'screen.chat') return navigate('chat');
+    if (targetKind === 'screen.chat') return openConversation();
     if (targetKind === 'screen.home') return navigate('home');
     const kind = selection.kind.toLowerCase();
     const id = selection.id.toLowerCase();
@@ -1304,7 +1084,7 @@ export function ControlPlane() {
     if (kind.includes('context') || id.includes('context')) return navigate('context');
     if (kind.includes('router') || kind.includes('system') || kind.includes('provider')) return navigate('system');
     if (kind.includes('graph') || kind.includes('node')) return navigate('graph');
-    return navigate('chat');
+    return openConversation();
   };
 
   const openWorkspaceFileFromMenu = (path: string, kind: 'file' | 'directory' = 'file') => {
@@ -1377,10 +1157,10 @@ export function ControlPlane() {
     refreshRouterState,
     setRouterAutoSwitch,
     setDraft,
-    ensureChatPanel: () => openShell('chat'),
+    ensureChatPanel: openConversation,
     writeClipboard,
     setAndPersistUiState,
-    confirm: (message) => window.confirm(message),
+    confirm: requestConfirmation,
     addWorkspacePathToContextTree: (path, kind) => enqueueContextBankItem(path, kind, 'tree'),
     addWorkspacePathToContextPack: (path) => enqueueContextBankItem(path, 'file', 'pack'),
     createContextClaimFromWorkspacePath: (path) => enqueueContextBankItem(path, 'file', 'tree', 'claim'),
@@ -1391,13 +1171,17 @@ export function ControlPlane() {
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, [key]: text } }));
   };
 
-  const navigate = (section: ActiveSection) => {
-    setAndPersistUiState({ activeSection: section });
+  const navigate = (section: ActiveSection | string) => {
+    setAndPersistUiState({ activeSection: normalizeActiveSection(section) });
   };
 
   const runAction = async (action: UiAction) => {
     if (!action.enabled) return;
-    if (action.confirmation?.required && !window.confirm(action.confirmation.description || action.label)) return;
+    if (action.confirmation?.required && !await requestConfirmation({
+      title: action.confirmation.title || action.label,
+      description: action.confirmation.description || 'Esta acción requiere confirmación.',
+      confirmLabel: action.label
+    })) return;
     if (action.kind === 'navigate' && action.payload?.section) {
       navigate(String(action.payload.section) as ActiveSection);
       return;
@@ -1415,7 +1199,11 @@ export function ControlPlane() {
         return;
       }
       const seedAfterLink = shouldOfferSeed(snapshot, root)
-        ? window.confirm(`La ruta ${root} no está validada todavía.\n\n¿Sembrar ahora para dejarla válida?`)
+        ? await requestConfirmation({
+          title: 'Preparar workspace',
+          description: `La ruta todavía no está validada. BAGO puede prepararla ahora.\n\n${root}`,
+          confirmLabel: 'Preparar y vincular'
+        })
         : false;
       await activateWorkspaceRoot(root, 'workspace enlazado', { seedAfterLink });
       return;
@@ -1433,13 +1221,12 @@ export function ControlPlane() {
     const base: PaletteItem[] = [
       // ─── Navegación ───
       { id: 'nav-home',     label: 'Inicio',      group: 'Navegación', icon: 'home',       shortcut: 'Ctrl+1', action: () => navigate('home') },
-      { id: 'nav-chat',     label: 'Chat',        group: 'Navegación', icon: 'chat',       shortcut: 'Ctrl+2', action: () => navigate('chat') },
-      { id: 'nav-workspace',label: 'Workspace',   group: 'Navegación', icon: 'workspace',  shortcut: 'Ctrl+3', action: () => navigate('workspace') },
-      { id: 'nav-pipeline', label: 'Pipeline',    group: 'Navegación', icon: 'pipeline',   shortcut: 'Ctrl+4', action: () => navigate('pipeline') },
-      { id: 'nav-context',  label: 'Contexto',    group: 'Navegación', icon: 'context',    shortcut: 'Ctrl+5', action: () => navigate('context') },
-      { id: 'nav-evidence', label: 'Evidencia',   group: 'Navegación', icon: 'evidence',   shortcut: 'Ctrl+6', action: () => navigate('evidence') },
-      { id: 'nav-graph',    label: 'Grafo',       group: 'Navegación', icon: 'graph',      shortcut: 'Ctrl+7', action: () => navigate('graph') },
-      { id: 'nav-system',   label: 'Operación',   group: 'Navegación', icon: 'system',     shortcut: 'Ctrl+8', action: () => navigate('system') },
+      { id: 'nav-workspace',label: 'Workspace',   group: 'Navegación', icon: 'workspace',  shortcut: 'Ctrl+2', action: () => navigate('workspace') },
+      { id: 'nav-pipeline', label: 'Pipeline',    group: 'Navegación', icon: 'pipeline',   shortcut: 'Ctrl+3', action: () => navigate('pipeline') },
+      { id: 'nav-context',  label: 'Contexto',    group: 'Navegación', icon: 'context',    shortcut: 'Ctrl+4', action: () => navigate('context') },
+      { id: 'nav-evidence', label: 'Evidencia',   group: 'Navegación', icon: 'evidence',   shortcut: 'Ctrl+5', action: () => navigate('evidence') },
+      { id: 'nav-graph',    label: 'Grafo',       group: 'Navegación', icon: 'graph',      shortcut: 'Ctrl+6', action: () => navigate('graph') },
+      { id: 'nav-system',   label: 'Operación',   group: 'Navegación', icon: 'system',     shortcut: 'Ctrl+7', action: () => navigate('system') },
       // ─── Vistas / paneles ───
       { id: 'toggle-sidebar', label: uiState.sidebarCollapsed ? 'Mostrar navegación' : 'Ocultar navegación', group: 'Paneles', icon: 'menu', shortcut: 'Ctrl+B', action: () => setUiState((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed })) },
       // ─── Modos ───
@@ -1462,11 +1249,37 @@ export function ControlPlane() {
     const clean = task.trim();
     if (!clean) return;
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, pipeline: clean } }));
-    await runCommand(`/plan ${clean}`);
+    const turnId = `plan-${Date.now()}`;
+    setTurns((current) => [...current, { id: turnId, role: 'command', text: `Crear plan: ${clean}`, status: 'running', timestamp: nowStamp() }]);
+    setBusyCount((count) => count + 1);
+    setLastMessage('generando plan persistente');
+    try {
+      const payload = await clientRef.current.createPlan(clean);
+      const plan = payload.plan;
+      const result: BackendCommandResult = {
+        ...payload,
+        ok: payload.ok !== false,
+        state: payload.ok === false ? 'failed' : 'done',
+        execution_id: String(payload.plan_id || ''),
+        message: payload.ok === false ? String(payload.error || 'No se pudo crear el plan') : 'Plan creado y guardado en la sesión.',
+        data: plan,
+        plan
+      };
+      setCommandResults((current) => ({ ...current, plan: result }));
+      setTurns((current) => current.map((turn) => turn.id === turnId ? { ...turn, status: result.ok === false ? 'failed' : 'done', receipt: payload, raw: payload } : turn));
+      setLastMessage(result.message || 'Plan creado');
+      await refreshAfterMutation();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo crear el plan';
+      setTurns((current) => current.map((turn) => turn.id === turnId ? { ...turn, status: 'failed', text: `Crear plan: ${clean}\n${message}` } : turn));
+      setLastMessage(message);
+    } finally {
+      setBusyCount((count) => Math.max(0, count - 1));
+    }
   };
 
-  const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
-    setAndPersistUiState({ activeSection: section, globalMode: mode });
+  const openShell = (section: ActiveSection | string, mode: UiState['globalMode'] = 'normal') => {
+    setAndPersistUiState({ activeSection: normalizeActiveSection(section), globalMode: mode });
   };
 
   const toggleRouterSelection = async (key: string): Promise<void> => {
@@ -1491,6 +1304,15 @@ export function ControlPlane() {
     setLastMessage(`configurando proveedor ${provider}`);
     await clientRef.current.configureProvider(provider, config);
     await refreshAfterMutation();
+  };
+
+  const testProvider = (provider: string, config: { base_url?: string; api_key?: string; model?: string }) => clientRef.current.testProvider(provider, config);
+
+  const createAndActivateDemo = async (root: string): Promise<boolean> => {
+    setLastMessage('creando proyecto demo');
+    const result = await clientRef.current.createDemoProject(root);
+    if (result.ok === false) throw new Error(String(result.message || 'No se pudo crear el proyecto demo'));
+    return activateWorkspaceRoot(root, 'proyecto demo activado', { seedAfterLink: true, forceInit: true });
   };
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
@@ -1560,8 +1382,8 @@ export function ControlPlane() {
                 activeSection={uiState.activeSection}
                 snapshot={snapshot}
                 mode={uiState.globalMode}
-                showReadiness={uiState.activeSection !== 'workspace'}
-                showGlobalChips={uiState.activeSection !== 'workspace'}
+                showReadiness={false}
+                showGlobalChips={false}
               >
                 <ControlSections
                   section={uiState.activeSection}
@@ -1573,8 +1395,8 @@ export function ControlPlane() {
                   apiToken={uiState.apiToken}
                   client={clientRef.current}
                   onApiConfigChange={(patch) => setAndPersistUiState(patch)}
-                  onPrimary={() => openShell(opening.targetSection === 'home' && snapshot?.permissions.canChat ? 'chat' : opening.targetSection)}
-                  onContinue={() => { void runCommand('/session').then(() => openShell(snapshot?.permissions.canChat ? 'chat' : 'home')); }}
+                  onPrimary={() => opening.targetSection === 'home' && snapshot?.permissions.canChat ? openConversation() : openShell(opening.targetSection)}
+                  onContinue={() => { void runCommand('/session').then(() => snapshot?.permissions.canChat ? openConversation() : openShell('home')); }}
                   onChooseWorkspace={openWorkspacePicker}
                   onOpenPalette={() => setAndPersistUiState({ commandPaletteOpen: true })}
                   onRefresh={bootstrap}
@@ -1583,6 +1405,8 @@ export function ControlPlane() {
                   providers={providers}
                   router={routerState}
                   history={history}
+                  conversations={conversations}
+                  sessions={sessions}
                   files={files}
                   commandResults={commandResults}
                   turns={turns}
@@ -1591,6 +1415,16 @@ export function ControlPlane() {
                   globalMode={uiState.globalMode}
                   onDraftChange={setDraft}
                   onSendChat={sendChat}
+                  onCreateConversation={createConversation}
+                  onSwitchConversation={switchConversation}
+                  onCreateSession={() => applySessionChange('create')}
+                  onSwitchSession={(sessionId) => applySessionChange('switch', sessionId)}
+                  onRenameSession={(sessionId, title) => applySessionChange('rename', sessionId, title)}
+                  onArchiveSession={(sessionId) => applySessionChange('archive', sessionId)}
+                  onRestoreSession={(sessionId) => applySessionChange('restore', sessionId)}
+                  sessionBusy={sessionChanging}
+                  chatInProgress={chatRequestCount > 0}
+                  conversationBusy={busyCount > 0}
                   onInspect={onInspect}
                   onRunCommand={runCommand}
                   onRunContextCommand={runContextCommand}
@@ -1639,14 +1473,40 @@ export function ControlPlane() {
 
           </div>
         </div>
-        <ActivityToast message={lastMessage} busy={booting || busyCount > 0} state={snapshot?.system.state || 'unknown'} />
+        {(booting || busyCount > 0 || snapshot?.system.state === 'error') && (
+          <ActivityToast message={lastMessage} busy={booting || busyCount > 0} state={snapshot?.system.state || 'unknown'} />
+        )}
       </div>
 
       {uiState.commandPaletteOpen && (
         <CommandPalette actions={paletteActions} onClose={() => setAndPersistUiState({ commandPaletteOpen: false })} />
       )}
       {uiState.helpOpen && (
-        <HelpOverlay onClose={() => setAndPersistUiState({ helpOpen: false })} />
+        <HelpOverlay
+          onClose={() => setAndPersistUiState({ helpOpen: false })}
+          onOpenFirstRun={() => {
+            setAndPersistUiState({ helpOpen: false });
+            setFirstRunOpen(true);
+          }}
+        />
+      )}
+      {firstRunOpen && !booting && snapshot && (
+        <FirstRunWizard
+          snapshot={snapshot}
+          providers={providers}
+          busy={busyCount > 0}
+          onRefresh={bootstrap}
+          onConfigureProvider={configureProvider}
+          onTestProvider={testProvider}
+          onActivateWorkspace={(root) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: true })}
+          onCreateDemo={createAndActivateDemo}
+          onClose={() => setFirstRunOpen(false)}
+          onFinish={() => {
+            markFirstRunComplete(window.localStorage);
+            setFirstRunOpen(false);
+            snapshot.permissions.canChat ? openConversation() : openShell('home');
+          }}
+        />
       )}
       {workspacePickerOpen && (
       <WorkspacePickerDialog
@@ -1659,6 +1519,14 @@ export function ControlPlane() {
           client={clientRef.current}
         />
       )}
+      <ConfirmDialog
+        open={Boolean(confirmation)}
+        title={confirmation?.title || 'Confirmar acción'}
+        description={confirmation?.description || 'Revisa la acción antes de continuar.'}
+        confirmLabel={confirmation?.confirmLabel}
+        onClose={() => settleConfirmation(false)}
+        onConfirm={() => settleConfirmation(true)}
+      />
 
       {selectionMenu && (
         <ContextMenu
@@ -1707,16 +1575,11 @@ function ActivityToast({ message, busy, state }: ActivityToastProps) {
 
 interface HelpOverlayProps {
   onClose: () => void;
+  onOpenFirstRun: () => void;
 }
 
-function HelpOverlay({ onClose }: HelpOverlayProps) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' || event.key === '?') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+function HelpOverlay({ onClose, onOpenFirstRun }: HelpOverlayProps) {
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose);
 
   const shortcuts = [
     ['Ctrl K', 'Abrir comandos y búsqueda'],
@@ -1728,14 +1591,14 @@ function HelpOverlay({ onClose }: HelpOverlayProps) {
   ];
 
   return (
-    <div className="command-palette-backdrop help-backdrop" role="dialog" aria-modal="true" aria-label="Atajos de teclado">
-      <div className="help-panel">
+    <div className="command-palette-backdrop help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} className="help-panel" role="dialog" aria-modal="true" aria-label="Atajos de teclado">
         <header>
           <div>
             <span className="surface-eyebrow">Ayuda rápida</span>
             <h2>Atajos y modelo de navegación</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} title="Cerrar ayuda">
+          <button className="icon-button" type="button" data-autofocus onClick={onClose} title="Cerrar ayuda" aria-label="Cerrar ayuda">
             <Icon name="close" />
           </button>
         </header>
@@ -1747,7 +1610,8 @@ function HelpOverlay({ onClose }: HelpOverlayProps) {
             </div>
           ))}
         </section>
-        <p className="help-note">El sidebar contiene destinos. El chat es un panel conmutado, no una pantalla. El inspector aparece como drawer y no reduce el espacio vertical del workspace.</p>
+        <button type="button" className="secondary-button" onClick={onOpenFirstRun}>Abrir recorrido inicial</button>
+        <p className="help-note">El sidebar contiene destinos. El chat vive únicamente en Inicio. Workspace, Pipeline y Pack son nombres funcionales de BAGO; el resto de la interfaz se expresa en español.</p>
       </div>
     </div>
   );
@@ -1761,21 +1625,14 @@ interface PaletteProps {
 function CommandPalette({ actions, onClose }: PaletteProps) {
   const [query, setQuery] = useState('');
   const filtered = actions.filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose);
 
   return (
-    <div className="command-palette-backdrop" role="dialog" aria-modal="true" aria-label="Comandos rápidos">
-      <div className="command-palette">
+    <div className="command-palette-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} className="command-palette" role="dialog" aria-modal="true" aria-label="Comandos rápidos">
         <div className="command-palette-search">
           <span>/</span>
-          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
+          <input data-autofocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
           <kbd>Esc</kbd>
         </div>
         <div className="command-palette-list">
@@ -1818,6 +1675,7 @@ function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, see
   const bridge = getElectronBridge();
   const bridgeAvailable = Boolean(bridge?.chooseProjectRoot || bridge?.chooseWorkspaceRoot);
   const [inspect, setInspect] = useState<InspectState>({ kind: 'idle' });
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose);
 
   // Inspecciona el estado REAL del workspace en la ruta actual.
   // Esto consulta directamente el filesystem (vía /project/inspect) y NO
@@ -1857,7 +1715,6 @@ function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, see
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) onConfirm(!isRealReady);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1865,11 +1722,11 @@ function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, see
   }, [onClose, onConfirm, isRealReady]);
 
   return (
-    <div className="command-palette-backdrop workspace-picker-backdrop" role="dialog" aria-modal="true" aria-label="Elegir workspace">
-      <div className="command-palette workspace-picker">
+    <div className="command-palette-backdrop workspace-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} className="command-palette workspace-picker" role="dialog" aria-modal="true" aria-label="Elegir workspace">
         <div className="command-palette-search workspace-picker-search">
           <span>⌂</span>
-          <input autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="Ruta completa del workspace" />
+          <input data-autofocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="Ruta completa del workspace" />
           <kbd>Ctrl+Enter</kbd>
         </div>
         <div className="workspace-picker-body">
