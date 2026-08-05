@@ -29,6 +29,7 @@ const sectionLabels: Record<ActiveSection, string> = {
   pipeline: 'Pipeline',
   evidence: 'Evidencia',
   context: 'Contexto',
+  chat: 'Chat',
   system: 'Operación'
 };
 

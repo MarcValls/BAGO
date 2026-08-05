@@ -1,0 +1,14 @@
+/* Provider Center Styles */
+
+.provider-center-container {
+  padding: 20px;
+}
+
+.provider-center-header {
+  margin-bottom: 20px;
+}
+
+.provider-center-content {
+  display: flex;
+  flex-direction: column;
+}

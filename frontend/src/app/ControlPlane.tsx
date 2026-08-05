@@ -1016,7 +1016,10 @@ export function ControlPlane() {
     ensureChatPanel: () => openShell('chat'),
     writeClipboard,
     setAndPersistUiState,
-    confirm: (message) => window.confirm(message),
+    confirm: async (options: { title: string; description: string; confirmLabel?: string }) => {
+      // TODO: Replace with proper dialog implementation
+      return window.confirm(options.description || options.title);
+    },
     addWorkspacePathToContextTree: (path, kind) => enqueueContextBankItem(path, kind, 'tree'),
     addWorkspacePathToContextPack: (path) => enqueueContextBankItem(path, 'file', 'pack'),
     createContextClaimFromWorkspacePath: (path) => enqueueContextBankItem(path, 'file', 'tree', 'claim'),

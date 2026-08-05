@@ -71,7 +71,7 @@ export function ProviderRuntimeTools({ client }: { client: BagoClient }) {
     <details className="system-tool-card" data-system-tool="model-buffer">
       <summary><span className="system-tool-icon"><Icon name="server" size={16} /></span><span className="system-tool-summary"><strong>Buffer local de modelos</strong><small>Prepara o descarga modelos de Ollama con política explícita</small></span><span className="provider-status">{loaded.length} cargados</span></summary>
       <div className="system-tool-content">
-        <form className="system-tool-form" onSubmit={(event) => { event.preventDefault(); if (model.trim()) void run('prepare', () => client.prepareProviderBuffer(model.trim(), policy)); }}>
+        <form className="system-tool-form" onSubmit={(event) => { event.preventDefault(); if (model.trim()) void run('prepare', () => client.prepareProviderBuffer({ model: model.trim(), policy })); }}>
           <label><span>Modelo</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="qwen3:8b" /></label>
           <label><span>Política</span><select value={policy} onChange={(event) => setPolicy(event.target.value as typeof policy)}><option>LRU</option><option>SAFE</option><option>KEEP_ACTIVE</option><option>HARD</option></select></label>
           <button className="primary-button compact" type="submit" disabled={Boolean(busy) || !model.trim()}><Icon name="plus" size={13} /> Preparar</button>

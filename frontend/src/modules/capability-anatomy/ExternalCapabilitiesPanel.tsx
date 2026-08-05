@@ -101,9 +101,9 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
         client.listCapabilityPackages(),
         client.listCapabilityReceipts()
       ]);
-      setPackages(packageData.packages);
-      setReceipts(receiptData.receipts);
-      setSelectedId((current) => current && packageData.packages.some((item) => item.id === current) ? current : packageData.packages[0]?.id || '');
+      setPackages((packageData as Record<string, any>).packages || []);
+      setReceipts((receiptData as Record<string, any>).receipts || []);
+      setSelectedId((current) => current && (packageData as Record<string, any>).packages?.some((item: any) => item.id === current) ? current : (packageData as Record<string, any>).packages?.[0]?.id || '');
       setError('');
     } catch (reason) {
       setError(errorMessage(reason));
@@ -142,9 +142,9 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
     if (!file) throw new Error('Selecciona un archivo ZIP.');
     if (file.size > MAX_PACKAGE_BYTES) throw new Error('El ZIP supera el límite de 600 KB.');
     if (!trust) throw new Error('Confirma que confías en el código del paquete.');
-    const response = await client.importCapabilityPackage(file.name, encodeBase64(await file.arrayBuffer()), true);
-    setNotice(response.already_installed ? 'El mismo paquete ya estaba instalado.' : 'Paquete importado y pendiente de activación.');
-    setSelectedId(response.package.id);
+    const response = await client.importCapabilityPackage({ filename: file.name, data: encodeBase64(await file.arrayBuffer()), trust });
+    setNotice((response as Record<string, any>).already_installed ? 'El mismo paquete ya estaba instalado.' : 'Paquete importado y pendiente de activación.');
+    setSelectedId((response as Record<string, any>).package?.id);
     setFile(null);
     setFileInputKey((value) => value + 1);
     setTrust(false);
@@ -164,9 +164,9 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
   });
 
   const execute = () => selected && runAction('execute', async () => {
-    const response = await client.executeCapabilityPackage(selected.id, input, confirmed, selected.permissions);
-    setLatestReceipt(response.receipt);
-    setNotice(response.ok ? 'Ejecución completada con receipt.' : 'La ejecución terminó con error; se conservó el receipt.');
+    const response = await client.executeCapabilityPackage(selected.id, { input, confirmed, permissions: selected.permissions });
+    setLatestReceipt((response as Record<string, any>).receipt);
+    setNotice((response as Record<string, any>).ok ? 'Ejecución completada con receipt.' : 'La ejecución terminó con error; se conservó el receipt.');
     setConfirmed(false);
     await load();
   });
