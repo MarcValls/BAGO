@@ -397,7 +397,84 @@ export class BagoClient {
     });
   }
 
-  // --- Memory & Subagents ---
+  // --- Pipeline ---
+  listPlans(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/pipeline/plans', { method: 'GET' });
+  }
+
+  executePlan(planId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/pipeline/plans/${encodeURIComponent(planId)}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
+  }
+
+  // --- Catalog & Provider Buffer ---
+  getCatalogStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/catalog/status', { method: 'GET' });
+  }
+
+  getProviderBufferStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/provider/buffer/status', { method: 'GET' });
+  }
+
+  prepareProviderBuffer(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/provider/buffer/prepare', {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
+  }
+
+  unloadProviderBuffer(modelName?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(modelName ? `/provider/buffer/unload/${encodeURIComponent(modelName)}` : '/provider/buffer/unload', {
+      method: 'POST',
+      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  analyzeVision(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/analyze/vision', {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
+  }
+
+  // --- Capability Packages ---
+  listCapabilityPackages(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/capabilities/packages', { method: 'GET' });
+  }
+
+  listCapabilityReceipts(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/capabilities/receipts', { method: 'GET' });
+  }
+
+  importCapabilityPackage(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/capabilities/packages/import', {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
+  }
+
+  setCapabilityPackageEnabled(packageId: string, enabled: boolean): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/capabilities/packages/${encodeURIComponent(packageId)}/enabled`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  configureCapabilityPackage(packageId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/capabilities/packages/${encodeURIComponent(packageId)}/config`, {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  executeCapabilityPackage(packageId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/capabilities/packages/${encodeURIComponent(packageId)}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
+  }
   listMemory(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/memory/list', { method: 'GET' });
   }

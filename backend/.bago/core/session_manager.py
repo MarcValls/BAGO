@@ -441,6 +441,7 @@ class SessionManager(
                 "backend_clock_ticks": 0,
             })
             self.store.add_timeline_event(TimelineEvent("session", "start", f"Session {self.session_id} created"))
+        self.store.ensure_conversation_state()
         self.equiv = EquivalenceMap()
         self.msg_adapter = MessageAdapter()
 

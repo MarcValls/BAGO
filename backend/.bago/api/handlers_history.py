@@ -26,6 +26,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     if store is None:
         send_json(handler, 200, {
             "session_id": getattr(mgr, "session_id", "?"),
+            "conversation_id": "main",
             "messages": [],
             "count": 0,
         })
@@ -33,6 +34,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     history = store.get_history()
     send_json(handler, 200, {
         "session_id": getattr(mgr, "session_id", "?"),
+        "conversation_id": str(getattr(store, "active_conversation_id", "main") or "main"),
         "messages": history,
         "count": len(history),
     })

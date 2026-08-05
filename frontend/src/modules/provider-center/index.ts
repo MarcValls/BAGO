@@ -1,6 +1,2 @@
-export type {
-  ProviderCenterModuleProps,
-  ProviderCenterProvider,
-  ProviderCenterRouterEntry
-} from './ProviderCenterModule';
 export { ProviderCenterModule } from './ProviderCenterModule';
+export type { ProviderCenterProvider, ProviderCenterRouterEntry } from './ProviderCenterModule';

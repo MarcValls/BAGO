@@ -227,7 +227,12 @@ Evidencia:
             "plan": {"read_files": ["src/demo.py"], "edit_files": ["src/demo.py"], "create_files": [], "verify_steps": ["check"]},
         }
         mgr.config = SimpleNamespace(get=lambda *_args, **_kwargs: False)
-        mgr.store = SimpleNamespace(get_meta=lambda: {}, get_history=lambda: [])
+        mgr.store = SimpleNamespace(
+            get_meta=lambda: {}, 
+            get_history=lambda: [], 
+            active_conversation_id="conv-test-123",
+            list_conversations=lambda: []
+        )
         mgr.agent_gateway = SimpleNamespace(active=SimpleNamespace(name="default"))
         mgr._ensure_adapter = lambda: SimpleNamespace(health_check=lambda: SimpleNamespace(ok=True, detail="ok", latency_ms=0.0))
         mgr._git_info = lambda: ("repo", "main")

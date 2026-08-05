@@ -329,6 +329,8 @@ class SessionPersistenceMixin:
         return {
             "contract_version": CONTRACT_VERSION,
             "session_id": self.session_id,
+            "active_conversation_id": self.store.active_conversation_id,
+            "conversation_count": len(self.store.list_conversations()),
             "provider": self.provider,
             "model": self.model,
             "default_provider": getattr(getattr(self, "config", None), "default_provider", "ollama-cloud"),
@@ -413,6 +415,8 @@ class SessionPersistenceMixin:
         return {
             "ok": True,
             "session_id": self.session_id,
+            "active_conversation_id": self.store.active_conversation_id,
+            "conversation_count": len(self.store.list_conversations()),
             "framework_root": str(getattr(self, "framework_root", resolve_framework_root())),
             "project_root": str(getattr(self, "project_root", self.base_path)),
             "workspace_state_root": str(getattr(self, "workspace_state_root", Path(self.base_path) / ".gabo")),
@@ -567,6 +571,8 @@ class SessionPersistenceMixin:
         path = self.state_dir / "sessions" / f"{self.session_id}.json"
         data = {
             "session_id": self.session_id,
+            "active_conversation_id": self.store.active_conversation_id,
+            "conversation_count": len(self.store.list_conversations()),
             "provider": self.provider,
             "model": self.model,
             "system_prompt": self.system_prompt,
@@ -688,7 +694,10 @@ class SessionPersistenceMixin:
             mgr.last_context_route = data.get("context_route", {})
             mgr.last_context_retrieval = data.get("context_retrieval", {})
             mgr.last_global_review = data.get("last_global_review", {})
-            mgr.framework_root = data.get("framework_root", str(resolve_framework_root()))
+            # CANON[WS-005]: framework_root belongs to the runtime that is
+            # loading the session. A persisted value is historical metadata,
+            # never authority after moving between source and an installation.
+            mgr.framework_root = resolve_framework_root()
             mgr.project_root = data.get("project_root", str(bp))
             mgr.workspace_state_root = data.get("workspace_state_root", str(Path(bp) / ".gabo"))
             mgr.workspace_scope_root = data.get("workspace_scope_root", str(bp))
@@ -773,7 +782,9 @@ class SessionPersistenceMixin:
         mgr.last_context_route = meta.get("context_route", {})
         mgr.last_context_retrieval = meta.get("context_retrieval", {})
         mgr.last_global_review = meta.get("last_global_review", {})
-        mgr.framework_root = meta.get("framework_root", str(resolve_framework_root()))
+        # CANON[WS-005]: legacy directory sessions follow the same runtime
+        # authority rule as JSON sessions.
+        mgr.framework_root = resolve_framework_root()
         mgr.project_root = meta.get("project_root", str(bp))
         mgr.workspace_state_root = meta.get("workspace_state_root", str(Path(bp) / ".gabo"))
         mgr.workspace_scope_root = meta.get("workspace_scope_root", str(bp))

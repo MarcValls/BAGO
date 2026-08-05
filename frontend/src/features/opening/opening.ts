@@ -4,9 +4,9 @@ export function resolveOpeningState(snapshot: UiBootstrapSnapshot | null): Openi
   if (!snapshot) {
     return {
       id: 'show_blocked_state',
-      label: 'Loading backend snapshot',
-      reason: 'The control plane has not bootstrapped yet.',
-      actionLabel: 'Retry bootstrap',
+      label: 'Conectando con el backend',
+      reason: 'El panel todavía no ha recibido el estado operativo.',
+      actionLabel: 'Reintentar conexión',
       targetSection: 'home'
     };
   }
@@ -14,9 +14,9 @@ export function resolveOpeningState(snapshot: UiBootstrapSnapshot | null): Openi
   if (!snapshot.system.backendAvailable || snapshot.system.state === 'error') {
     return {
       id: 'show_blocked_state',
-      label: 'Backend unavailable',
-      reason: 'BAGO API did not return a usable snapshot.',
-      actionLabel: 'Check backend',
+      label: 'Backend no disponible',
+      reason: 'La API de BAGO no devolvió un estado utilizable.',
+      actionLabel: 'Revisar backend',
       targetSection: 'system'
     };
   }
@@ -24,9 +24,9 @@ export function resolveOpeningState(snapshot: UiBootstrapSnapshot | null): Openi
   if (snapshot.workspace.manifestState === 'legacy') {
     return {
       id: 'show_legacy_migration',
-      label: 'Legacy workspace detected',
-      reason: 'A legacy .bago workspace is present and should be reviewed before proceeding.',
-      actionLabel: 'Inspect migration',
+      label: 'Workspace antiguo detectado',
+      reason: 'Existe un workspace .bago antiguo que debe revisarse antes de continuar.',
+      actionLabel: 'Revisar migración',
       targetSection: 'workspace'
     };
   }
@@ -34,9 +34,9 @@ export function resolveOpeningState(snapshot: UiBootstrapSnapshot | null): Openi
   if (snapshot.workspace.manifestState === 'invalid' || snapshot.session.state === 'blocked') {
     return {
       id: 'show_workspace_repair',
-      label: 'Workspace needs repair',
-      reason: 'The backend reports an invalid binding or blocked session.',
-      actionLabel: 'Open repair',
+      label: 'El workspace necesita reparación',
+      reason: 'El backend informa de una vinculación no válida o una sesión bloqueada.',
+      actionLabel: 'Abrir reparación',
       targetSection: 'workspace'
     };
   }
@@ -44,29 +44,9 @@ export function resolveOpeningState(snapshot: UiBootstrapSnapshot | null): Openi
   if (!snapshot.workspace.root || snapshot.project.state === 'not_detected') {
     return {
       id: 'show_workspace_init',
-      label: 'No workspace detected',
-      reason: 'The backend did not report an active project root.',
-      actionLabel: 'Initialize workspace',
-      targetSection: 'home'
-    };
-  }
-
-  if (snapshot.workspace.linkedToSession && snapshot.session.state === 'valid' && snapshot.system.state !== 'degraded') {
-    return {
-      id: 'enter_directly',
-      label: 'Workspace linked and session valid',
-      reason: 'The backend reports a confirmed workspace binding.',
-      actionLabel: 'Open chat',
-      targetSection: 'chat'
-    };
-  }
-
-  if (snapshot.workspace.root && !snapshot.workspace.linkedToSession) {
-    return {
-      id: 'show_workspace_link',
-      label: 'Workspace ready to link',
-      reason: 'A workspace exists but the session is not linked yet. You can link it and seed it to make it valid.',
-      actionLabel: 'Link and seed',
+      label: 'No hay workspace activo',
+      reason: 'El backend no informó de una raíz de proyecto activa.',
+      actionLabel: 'Inicializar workspace',
       targetSection: 'home'
     };
   }
@@ -74,18 +54,38 @@ export function resolveOpeningState(snapshot: UiBootstrapSnapshot | null): Openi
   if (snapshot.system.state === 'degraded' || snapshot.context.state === 'stale') {
     return {
       id: 'show_recovery',
-      label: 'Recovery recommended',
-      reason: 'The session is valid, but some backend signals are degraded or stale.',
-      actionLabel: 'Open recovery',
+      label: 'Se recomienda recuperar el estado',
+      reason: 'La sesión es válida, pero algunas señales están limitadas o desactualizadas.',
+      actionLabel: 'Abrir recuperación',
+      targetSection: 'home'
+    };
+  }
+
+  if (snapshot.workspace.linkedToSession && snapshot.session.state === 'valid') {
+    return {
+      id: 'enter_directly',
+      label: 'Workspace vinculado',
+      reason: 'El backend confirma que la sesión y el workspace están vinculados.',
+      actionLabel: 'Abrir conversación',
+      targetSection: 'home'
+    };
+  }
+
+  if (snapshot.workspace.root && !snapshot.workspace.linkedToSession) {
+    return {
+      id: 'show_workspace_link',
+      label: 'Workspace listo para vincular',
+      reason: 'El workspace existe, pero todavía no está vinculado a la sesión.',
+      actionLabel: 'Vincular y preparar',
       targetSection: 'home'
     };
   }
 
   return {
     id: 'show_recovery',
-    label: 'Recovery recommended',
-    reason: 'The backend state is ambiguous; opening the shell in recovery mode.',
-    actionLabel: 'Open recovery',
+    label: 'Se recomienda recuperar el estado',
+    reason: 'El estado del backend es ambiguo; BAGO abrirá el modo de recuperación.',
+    actionLabel: 'Abrir recuperación',
     targetSection: 'home'
   };
 }

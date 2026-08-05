@@ -23,6 +23,7 @@ import os
 import sys
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -63,6 +64,14 @@ except Exception:
     BAGO_VERSION = _read_current_version()
 
 
+DEFAULT_CONVERSATION_ID = "main"
+
+
+def _conversation_id(value: Any) -> str:
+    clean = str(value or "").strip()
+    return clean or DEFAULT_CONVERSATION_ID
+
+
 class ContextMessage:
     """Mensaje normalizado del historial. Provider-agnostic."""
 
@@ -75,6 +84,7 @@ class ContextMessage:
         model: str = "",
         timestamp: str = "",
         metadata: dict | None = None,
+        conversation_id: str = "",
     ):
         self.role = role
         self.content = content
@@ -82,6 +92,7 @@ class ContextMessage:
         self.model = model
         self.timestamp = timestamp or datetime.now(timezone.utc).isoformat()
         self.metadata = metadata or {}
+        self.conversation_id = str(conversation_id or "").strip()
 
     def to_dict(self) -> dict:
         return {
@@ -91,6 +102,7 @@ class ContextMessage:
             "model": self.model,
             "timestamp": self.timestamp,
             "metadata": self.metadata,
+            "conversation_id": _conversation_id(self.conversation_id),
         }
 
     @classmethod
@@ -102,6 +114,7 @@ class ContextMessage:
             model=d.get("model", ""),
             timestamp=d.get("timestamp", ""),
             metadata=d.get("metadata", {}),
+            conversation_id=d.get("conversation_id", DEFAULT_CONVERSATION_ID),
         )
 
 
@@ -173,6 +186,7 @@ class ContextStore:
         self._timeline: list[TimelineEvent] = []
         self._tokens: dict[str, dict[str, dict[str, int]]] = {}  # provider -> model -> {in, out, calls}
         self._meta: dict[str, Any] = {}
+        self._conversation_local = threading.local()
 
         self._load_all()
 
@@ -195,6 +209,16 @@ class ContextStore:
             "backend_clock_last_reason": "session_start",
             "backend_clock_last_message": "Session created",
             "backend_clock_ticks": 0,
+            "active_conversation_id": DEFAULT_CONVERSATION_ID,
+            "conversations": {
+                DEFAULT_CONVERSATION_ID: {
+                    "conversation_id": DEFAULT_CONVERSATION_ID,
+                    "title": "Principal",
+                    "created_at": now,
+                    "updated_at": now,
+                    "archived": False,
+                }
+            },
         }
         instance._save_meta()
         instance.add_timeline_event(TimelineEvent("session", "start", f"Session {sid} created"))
@@ -227,10 +251,158 @@ class ContextStore:
 
     # ── Public API: messages ─────────────────────────────────────────────────
 
-    def append_message(self, msg: ContextMessage) -> None:
+    @property
+    def active_conversation_id(self) -> str:
+        scoped = getattr(self._conversation_local, "conversation_id", "")
+        return _conversation_id(scoped or self._meta.get("active_conversation_id"))
+
+    @contextmanager
+    def conversation_scope(self, conversation_id: str):
+        """Fija la conversación para el hilo actual durante un envío."""
+        target = self.require_conversation(conversation_id)
+        previous = getattr(self._conversation_local, "conversation_id", "")
+        self._conversation_local.conversation_id = target
+        try:
+            yield target
+        finally:
+            self._conversation_local.conversation_id = previous
+
+    def ensure_conversation_state(self) -> None:
+        """Materializa el contrato multi-chat sin reescribir el historial legacy."""
         with self._lock:
+            now = datetime.now(timezone.utc).isoformat()
+            raw = self._meta.get("conversations")
+            conversations = dict(raw) if isinstance(raw, dict) else {}
+            message_ids = {_conversation_id(message.conversation_id) for message in self._messages}
+            if not message_ids:
+                message_ids.add(DEFAULT_CONVERSATION_ID)
+            for conversation_id in message_ids:
+                current = conversations.get(conversation_id)
+                if not isinstance(current, dict):
+                    current = {}
+                messages = [message for message in self._messages if _conversation_id(message.conversation_id) == conversation_id]
+                first_at = messages[0].timestamp if messages else str(self._meta.get("created_at") or now)
+                last_at = messages[-1].timestamp if messages else first_at
+                conversations[conversation_id] = {
+                    "conversation_id": conversation_id,
+                    "title": str(current.get("title") or ("Principal" if conversation_id == DEFAULT_CONVERSATION_ID else "Conversación")),
+                    "created_at": str(current.get("created_at") or first_at),
+                    "updated_at": str(current.get("updated_at") or last_at),
+                    "archived": bool(current.get("archived", False)),
+                }
+            active = _conversation_id(self._meta.get("active_conversation_id"))
+            if active not in conversations or conversations[active].get("archived"):
+                active = next((key for key, item in conversations.items() if not item.get("archived")), DEFAULT_CONVERSATION_ID)
+            self._meta["active_conversation_id"] = active
+            self._meta["conversations"] = conversations
+            self._save_meta()
+
+    def list_conversations(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
+        if not self._meta.get("conversations"):
+            self.ensure_conversation_state()
+        conversations = self._meta.get("conversations", {})
+        result: list[dict[str, Any]] = []
+        for conversation_id, raw in conversations.items():
+            item = dict(raw) if isinstance(raw, dict) else {}
+            archived = bool(item.get("archived", False))
+            if archived and not include_archived:
+                continue
+            messages = [message for message in self._messages if _conversation_id(message.conversation_id) == conversation_id]
+            item.update({
+                "conversation_id": conversation_id,
+                "message_count": len(messages),
+                "active": conversation_id == self.active_conversation_id,
+                "preview": next((message.content[:120] for message in reversed(messages) if message.content.strip()), ""),
+            })
+            result.append(item)
+        return sorted(result, key=lambda item: (bool(item["active"]), str(item.get("updated_at", ""))), reverse=True)
+
+    def require_conversation(self, conversation_id: str) -> str:
+        if not self._meta.get("conversations"):
+            self.ensure_conversation_state()
+        target = _conversation_id(conversation_id)
+        conversations = self._meta.get("conversations")
+        if not isinstance(conversations, dict) or target not in conversations:
+            raise ValueError(f"Conversación no encontrada: {target}")
+        if bool(conversations[target].get("archived", False)):
+            raise ValueError(f"Conversación archivada: {target}")
+        return target
+
+    def create_conversation(self, title: str = "") -> dict[str, Any]:
+        if not self._meta.get("conversations"):
+            self.ensure_conversation_state()
+        with self._lock:
+            now = datetime.now(timezone.utc).isoformat()
+            conversations = self._meta.setdefault("conversations", {})
+            if not isinstance(conversations, dict):
+                conversations = {}
+                self._meta["conversations"] = conversations
+            conversation_id = f"chat-{uuid.uuid4().hex[:12]}"
+            item = {
+                "conversation_id": conversation_id,
+                "title": str(title or "Nueva conversación").strip()[:80] or "Nueva conversación",
+                "created_at": now,
+                "updated_at": now,
+                "archived": False,
+            }
+            conversations[conversation_id] = item
+            self._meta["active_conversation_id"] = conversation_id
+            self._save_meta()
+        self.add_timeline_event(TimelineEvent("conversation", "Conversación creada", conversation_id))
+        return {**item, "message_count": 0, "active": True, "preview": ""}
+
+    def switch_conversation(self, conversation_id: str) -> dict[str, Any]:
+        target = self.require_conversation(conversation_id)
+        with self._lock:
+            self._meta["active_conversation_id"] = target
+            conversations = self._meta["conversations"]
+            item = conversations[target]
+            item["last_opened_at"] = datetime.now(timezone.utc).isoformat()
+            self._save_meta()
+        self.add_timeline_event(TimelineEvent("conversation", "Conversación activada", target))
+        return next(item for item in self.list_conversations() if item["conversation_id"] == target)
+
+    def rename_conversation(self, conversation_id: str, title: str) -> dict[str, Any]:
+        target = self.require_conversation(conversation_id)
+        clean_title = str(title or "").strip()[:80]
+        if not clean_title:
+            raise ValueError("El título de la conversación es obligatorio")
+        with self._lock:
+            self._meta["conversations"][target]["title"] = clean_title
+            self._meta["conversations"][target]["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._save_meta()
+        return next(item for item in self.list_conversations() if item["conversation_id"] == target)
+
+    def archive_conversation(self, conversation_id: str) -> dict[str, Any]:
+        target = self.require_conversation(conversation_id)
+        visible = [item for item in self.list_conversations() if item["conversation_id"] != target]
+        if not visible:
+            raise ValueError("No se puede archivar la única conversación activa")
+        with self._lock:
+            self._meta["conversations"][target]["archived"] = True
+            if self._meta.get("active_conversation_id") == target:
+                self._meta["active_conversation_id"] = visible[0]["conversation_id"]
+            self._save_meta()
+        self.add_timeline_event(TimelineEvent("conversation", "Conversación archivada", target))
+        return {"conversation_id": target, "archived": True, "active_conversation_id": self.active_conversation_id}
+
+    def append_message(self, msg: ContextMessage) -> None:
+        if not self._meta.get("conversations"):
+            self.ensure_conversation_state()
+        with self._lock:
+            conversation_id = _conversation_id(msg.conversation_id or self.active_conversation_id)
+            conversations = self._meta.setdefault("conversations", {})
+            if not isinstance(conversations, dict) or conversation_id not in conversations:
+                raise ValueError(f"Conversación no encontrada: {conversation_id}")
+            msg.conversation_id = conversation_id
             self._messages.append(msg)
             self._append_jsonl(self._context_path, msg.to_dict())
+            item = conversations[conversation_id]
+            item["updated_at"] = msg.timestamp
+            previous_count = sum(1 for message in self._messages[:-1] if _conversation_id(message.conversation_id) == conversation_id)
+            if msg.role == "user" and previous_count == 0 and item.get("title") in {"Principal", "Nueva conversación", "Conversación"}:
+                item["title"] = " ".join(msg.content.strip().split())[:80] or item["title"]
+            self._save_meta()
 
     def append_user(self, content: str, provider: str = "", model: str = "", good: bool = False) -> None:
         self.append_message(ContextMessage("user", content, provider=provider, model=model, metadata={"good": good}))
@@ -242,9 +414,10 @@ class ContextStore:
     def mark_good(self, index: int = -1) -> bool:
         """Marca un mensaje del historial como 'good' (importante, no diluible)."""
         with self._lock:
-            if not self._messages or abs(index) > len(self._messages):
+            messages = [message for message in self._messages if _conversation_id(message.conversation_id) == self.active_conversation_id]
+            if not messages or abs(index) > len(messages):
                 return False
-            self._messages[index].metadata["good"] = True
+            messages[index].metadata["good"] = True
             # Rewrite file
             self._context_path.write_text("", encoding="utf-8")
             for m in self._messages:
@@ -252,9 +425,10 @@ class ContextStore:
         self.add_timeline_event(TimelineEvent("session", "mark_good", f"Mensaje {index} marcado como good"))
         return True
 
-    def get_history(self, limit: int | None = None) -> list[dict]:
+    def get_history(self, limit: int | None = None, *, conversation_id: str | None = None) -> list[dict]:
         """Devuelve el historial como lista de dicts compatibles con cualquier LLM."""
-        msgs = self._messages
+        target = self.require_conversation(conversation_id or self.active_conversation_id)
+        msgs = [message for message in self._messages if _conversation_id(message.conversation_id) == target]
         if limit:
             msgs = msgs[-limit:]
         return [m.to_dict() for m in msgs]
@@ -275,8 +449,13 @@ class ContextStore:
 
     def clear_history(self) -> None:
         with self._lock:
-            self._messages = []
+            target = self.active_conversation_id
+            self._messages = [message for message in self._messages if _conversation_id(message.conversation_id) != target]
             self._context_path.write_text("", encoding="utf-8")
+            for message in self._messages:
+                self._append_jsonl(self._context_path, message.to_dict())
+            self._meta["conversations"][target]["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._save_meta()
         self.add_timeline_event(TimelineEvent("session", "clear", "Historial limpiado"))
 
     # ── Public API: timeline ─────────────────────────────────────────────────
@@ -367,6 +546,8 @@ class ContextStore:
         self._timeline = self._load_jsonl(self._timeline_path, TimelineEvent.from_dict)
         self._tokens = self._load_json(self._tokens_path, default={})
         self._meta = self._load_json(self._meta_path, default={})
+        if self._meta:
+            self.ensure_conversation_state()
 
     def _load_jsonl(self, path: Path, factory) -> list:
         items: list = []
@@ -422,19 +603,25 @@ class ContextStore:
         usar un modelo ligero para resumir.
         """
         with self._lock:
-            if len(self._messages) <= target_messages:
+            target = self.active_conversation_id
+            active_messages = [message for message in self._messages if _conversation_id(message.conversation_id) == target]
+            if len(active_messages) <= target_messages:
                 return
             # Keep system messages and last target_messages
-            system_msgs = [m for m in self._messages if m.role == "system"]
-            other_msgs = [m for m in self._messages if m.role != "system"]
+            system_msgs = [m for m in active_messages if m.role == "system"]
+            other_msgs = [m for m in active_messages if m.role != "system"]
             kept = system_msgs + other_msgs[-target_messages:]
-            self._messages = kept
+            kept_ids = {id(message) for message in kept}
+            self._messages = [
+                message for message in self._messages
+                if _conversation_id(message.conversation_id) != target or id(message) in kept_ids
+            ]
             # Rewrite file
             self._context_path.write_text("", encoding="utf-8")
             for m in self._messages:
                 self._append_jsonl(self._context_path, m.to_dict())
         self.add_timeline_event(
-            TimelineEvent("session", "compress", f"Historial comprimido a {len(self._messages)} mensajes")
+            TimelineEvent("conversation", "compress", f"Historial {target} comprimido a {len(kept)} mensajes")
         )
 
 

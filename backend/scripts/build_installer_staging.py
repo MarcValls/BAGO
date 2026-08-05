@@ -52,13 +52,7 @@ def main() -> int:
     RELEASE_OUT.mkdir(parents=True, exist_ok=True)
     DIST_OUT.mkdir(parents=True, exist_ok=True)
 
-    ui_dist = ROOT / "ui-react" / "dist" / "index.html"
-    try:
-        subprocess.run([_exe("npm"), "run", "manager:build-ui"], cwd=ROOT, check=True, text=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        if not ui_dist.exists():
-            raise
-        print("UI build failed, reusing existing ui-react/dist")
+    subprocess.run([_exe("npm"), "run", "manager:build-ui"], cwd=ROOT, check=True)
     _run([
         sys.executable,
         "scripts/package_v4.py",

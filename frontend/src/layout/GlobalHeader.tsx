@@ -24,20 +24,24 @@ interface Props {
 
 const sectionLabels: Record<ActiveSection, string> = {
   home: 'Inicio',
-  chat: 'Chat',
   workspace: 'Workspace',
   graph: 'Grafo',
   pipeline: 'Pipeline',
   evidence: 'Evidencia',
   context: 'Contexto',
+  chat: 'Chat',
   system: 'Operación'
 };
 
 function StatePill({ state, busy }: { state: string; busy?: boolean }) {
+  const labels: Record<string, string> = {
+    confirmed: 'Operativo', degraded: 'Limitado', error: 'Con error', blocked: 'Bloqueado',
+    loading: 'Cargando', unknown: 'Sin confirmar'
+  };
   return (
     <span className={`header-state state-${busy ? 'loading' : state}`}>
       <span className="status-dot" />
-      {busy ? 'cargando' : state}
+      {busy ? 'Cargando' : labels[state] || state}
     </span>
   );
 }

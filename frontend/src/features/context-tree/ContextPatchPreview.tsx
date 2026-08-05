@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import type { ContextPatchOp, ContextPatchRequest } from './contextTreeTypes';
 import { Icon } from '@/shared/Icon';
+import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 
 interface Props {
   patch: ContextPatchRequest;
@@ -47,6 +48,7 @@ function parseOperation(text: string): ContextPatchOp | null {
 export function ContextPatchPreview(props: Props) {
   const [drafts, setDrafts] = useState<string[]>(props.patch.patch.operations.map(operationAsText));
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, props.onCancel);
 
   useEffect(() => {
     setDrafts(props.patch.patch.operations.map(operationAsText));
@@ -71,7 +73,7 @@ export function ContextPatchPreview(props: Props) {
   };
 
   return (
-    <div className="context-patch-preview" role="dialog" aria-modal="true" aria-label="Editar patch">
+    <div ref={dialogRef} tabIndex={-1} className="context-patch-preview" role="dialog" aria-modal="true" aria-label="Editar patch">
       <header className="context-patch-preview-header">
         <h3><Icon name="inspector" size={14} /> Editar patch: {props.patch.title}</h3>
         <button type="button" className="icon-button" onClick={props.onCancel} aria-label="Cerrar">
@@ -94,6 +96,7 @@ export function ContextPatchPreview(props: Props) {
                 </button>
               </header>
               <textarea
+                {...(idx === 0 ? { 'data-autofocus': true } : {})}
                 value={draft}
                 onChange={(event) => update(idx, event.target.value)}
                 rows={5}

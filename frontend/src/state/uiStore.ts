@@ -61,9 +61,10 @@ function normalizeAppearanceTheme(value: unknown): 'dark' | 'light' {
   return value === 'light' ? 'light' : 'dark';
 }
 
-function normalizeActiveSection(value: unknown): ActiveSection {
+export function normalizeActiveSection(value: unknown): ActiveSection {
   const allowed: ActiveSection[] = ['home', 'chat', 'workspace', 'graph', 'pipeline', 'evidence', 'context', 'system'];
   if (value === 'providers') return 'system';
+  if (value === 'chat') return 'home';
   return allowed.includes(value as ActiveSection) ? value as ActiveSection : 'home';
 }
 
