@@ -1,6 +1,6 @@
 {
   "name": "bago-installation-manager",
-  "version": "4.8.1",
+  "version": "4.8.2",
   "private": true,
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
@@ -108,7 +108,7 @@
   "devDependencies": {
     "electron": "42.3.0",
     "electron-builder": "26.8.1",
-    "playwright": "^1.60.0"
+    "playwright": "^1.62.1"
   },
   "overrides": {
     "form-data": "4.0.6",
