@@ -8,6 +8,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync, execSync } = require('child_process');
+const http = require('http');
 
 // ── Resolver raíz del repo ────────────────────────────────────────────────────
 function resolveRepoRoot() {
@@ -34,6 +35,12 @@ const RUN_DIR   = path.join(REPO_ROOT, '.run');
 const REQUEST_LOG = path.join(RUN_DIR, 'electron-requests.log');
 
 const UI_URL = 'http://127.0.0.1:8080/';
+const HEALTH_URL = 'http://127.0.0.1:8080/health';
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function requestPath(rawUrl) {
@@ -45,13 +52,61 @@ function appendRequestLog(line) {
 }
 
 function runDevPs1(cmd) {
-  if (process.platform !== 'win32') return;
+  if (process.platform !== 'win32') return true;
   try {
-    spawnSync('powershell.exe', [
+    const result = spawnSync('powershell.exe', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass',
       '-File', DEV_PS1, cmd
-    ], { cwd: REPO_ROOT, stdio: 'ignore', timeout: 20000 });
-  } catch { /* ignorar errores al arrancar/parar */ }
+    ], { cwd: REPO_ROOT, stdio: 'ignore', timeout: 30000 });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isAllowedExternalUrl(raw) {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function probeHealthOnce(url) {
+  return new Promise((resolve) => {
+    const req = http.get(url, { timeout: 2000 }, (res) => {
+      const ok = res.statusCode === 200;
+      res.resume();
+      resolve(ok);
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function waitForBackendHealth(url, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await probeHealthOnce(url)) return true;
+    await sleep(500);
+  }
+  return false;
+}
+
+function getAutoCloseSeconds() {
+  const raw = process.env.BAGO_E2E_AUTOCLOSE_SECONDS;
+  if (!raw) return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(Math.floor(n), 600);
 }
 
 // ── Ventana principal ─────────────────────────────────────────────────────────
@@ -76,7 +131,7 @@ function createViewerWindow() {
 
   // Abrir links externos en el navegador del sistema, no en la app.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http')) {
+    if (isAllowedExternalUrl(url)) {
       shell.openExternal(url);
     }
     return { action: 'deny' };
@@ -148,13 +203,40 @@ ipcMain.handle('bago:choose-workspace-root', async (event, options = {}) => {
   return { canceled: false, path: result.filePaths[0] };
 });
 
-app.whenReady().then(() => {
-  // Arrancar el backend antes de abrir la ventana
+app.on('second-instance', () => {
+  const windows = BrowserWindow.getAllWindows();
+  if (windows.length > 0) {
+    const win = windows[0];
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+
+app.whenReady().then(async () => {
+  // Arrancar y validar backend antes de abrir la ventana empaquetada.
   if (app.isPackaged) {
     try { fs.mkdirSync(RUN_DIR, { recursive: true }); } catch {}
-    runDevPs1('start');
+    const started = runDevPs1('start');
+    if (!started) {
+      dialog.showErrorBox('BAGO: error de arranque', 'No se pudo iniciar el backend (dev.ps1 start).');
+      app.exit(1);
+      return;
+    }
+    const healthy = await waitForBackendHealth(HEALTH_URL, 30000);
+    if (!healthy) {
+      dialog.showErrorBox('BAGO: backend no disponible', 'El backend no respondió en /health dentro del tiempo esperado.');
+      runDevPs1('stop');
+      app.exit(1);
+      return;
+    }
   }
-  createViewerWindow();
+  const mainWin = createViewerWindow();
+  const autoCloseSeconds = getAutoCloseSeconds();
+  if (autoCloseSeconds > 0) {
+    setTimeout(() => {
+      if (!mainWin.isDestroyed()) app.quit();
+    }, autoCloseSeconds * 1000);
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createViewerWindow();
   });
@@ -166,5 +248,7 @@ app.on('window-all-closed', () => {
 
 // Al cerrar, detiene el backend automáticamente.
 app.on('before-quit', () => {
-  runDevPs1('stop');
+  if (!runDevPs1('stop')) {
+    appendRequestLog('[LIFECYCLE] backend stop command returned non-zero');
+  }
 });
