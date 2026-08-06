@@ -1,5 +1,5 @@
 {
-  "current": "4.8.1",
+  "current": "4.8.2",
   "history": [
     {
       "version": "4.0.0",
@@ -82,8 +82,14 @@
     {
       "version": "4.8.1",
       "released": "2026-07-18",
-      "ended": null,
+      "ended": "2026-08-06",
       "notes": "Patch estable del instalador público: admite bootstrap sin techo local y selecciona la release compatible más reciente por SemVer."
+    },
+    {
+      "version": "4.8.2",
+      "released": "2026-08-06",
+      "ended": null,
+      "notes": "Release estable reproducible: instalador fail-closed, ref de instalación inmutable, smoke empaquetado en CI y hardening de ciclo de vida Electron."
     }
   ]
 }
