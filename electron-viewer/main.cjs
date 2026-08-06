@@ -7,6 +7,11 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
+
+// Raíz del monorepo (un nivel arriba del directorio electron-viewer)
+const REPO_ROOT = path.resolve(__dirname, '..');
+const DEV_PS1 = path.join(REPO_ROOT, 'scripts', 'dev.ps1');
 
 const UI_URL = 'http://127.0.0.1:8080/';
 const REQUEST_LOG = path.join(__dirname, '..', '.run', 'electron-requests.log');
@@ -123,4 +128,17 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Al cerrar la ventana, detiene el backend automáticamente.
+app.on('before-quit', () => {
+  if (process.platform !== 'win32') return;
+  try {
+    spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', DEV_PS1, 'stop'
+    ], { cwd: REPO_ROOT, stdio: 'ignore', timeout: 15000 });
+  } catch {
+    // Si falla el stop (p.ej. backend ya parado), no bloquear la salida.
+  }
 });
