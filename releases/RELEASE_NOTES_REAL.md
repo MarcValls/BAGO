@@ -12,7 +12,7 @@ Release estable centrada en reproducibilidad, trazabilidad y robustez del instal
 
 ### Artefactos
 
-| Archivo | Tamano (bytes) | SHA-256 |
+| Archivo | Tamaño (bytes) | SHA-256 |
 |---|---:|---|
 | `bago-4.8.2-setup.exe` | 79,571 | `8c131d5bc7c21b046e0f9cf587a913bb634df2ad78a9f727682c4d46248b9ddc` |
 | `bago-4.8.2-backend.zip` | 214,569,936 | `66d45e999f86e2d2ec0220fd49fdca0f815758884038a8fe6864dc29300437c9` |

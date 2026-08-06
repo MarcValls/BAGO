@@ -436,7 +436,7 @@ async function main() {
 
         // Buscar el botón/selector de tema en el header y hacer clic
         const themeToggle = themePage.locator('.global-header').locator('[aria-label*="tema" i], [aria-label*="theme" i], [data-theme-toggle], button[title*="tema" i], button[title*="theme" i]').first();
-        const themeSelect = themePage.locator('.global-header').locator('select[aria-label*="tema" i], select[aria-label*="theme" i]').first();
+        const themeSelect = themePage.locator('.global-header').locator('.header-theme-picker select, select[aria-label*="tema" i], select[aria-label*="theme" i]').first();
 
         let themeToggled = false;
         if (await themeToggle.count() > 0) {
@@ -448,7 +448,12 @@ async function main() {
           themeToggled = true;
         }
 
-        assert.ok(themeToggled, 'No theme toggle or select found in header; cannot verify theme switching');
+        if (themeToggled) {
+          await themePage.waitForFunction((previous) => {
+            const root = document.querySelector('.app-root') || document.documentElement;
+            return root.className !== previous;
+          }, initialTheme, { timeout: 10000 });
+        }
 
         const themeInfo = await themePage.evaluate(() => {
           const root = document.querySelector('.app-root') || document.documentElement;
@@ -460,6 +465,8 @@ async function main() {
           };
         });
 
+        assert.ok(themeToggled, 'no theme toggle/select found in .global-header');
+        assert.notEqual(themeInfo.className, initialTheme, 'theme class did not change after toggling the theme control');
         assert.deepEqual(themeErrors, [], `theme test console errors: ${themeErrors.join(' | ')}`);
         return { toggled: themeToggled, initialTheme, afterClassName: themeInfo.className, bg: themeInfo.bg, surface: themeInfo.surface };
       } finally {
