@@ -115,7 +115,7 @@ async function main() {
       ]));
     });
     for (const [surface, ratio] of Object.entries(contrastRatios)) {
-      assert.ok(ratio >= 3.9, `--text-3 contrast on ${surface} is ${ratio.toFixed(2)}:1`);
+      assert.ok(ratio >= 4.5, `--text-3 contrast on ${surface} is ${ratio.toFixed(2)}:1`);
     }
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -447,6 +447,8 @@ async function main() {
           await themeSelect.selectOption(currentVal === 'light' ? 'dark' : 'light');
           themeToggled = true;
         }
+
+        assert.ok(themeToggled, 'No theme toggle or select found in header; cannot verify theme switching');
 
         const themeInfo = await themePage.evaluate(() => {
           const root = document.querySelector('.app-root') || document.documentElement;
