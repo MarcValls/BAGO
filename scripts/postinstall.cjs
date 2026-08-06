@@ -10,7 +10,9 @@ if (!fs.existsSync(localBin)) {
   process.exit(0);
 }
 
-const result = spawnSync(localBin, { stdio: 'inherit', shell: false });
+const result = process.platform === 'win32'
+  ? spawnSync('cmd.exe', ['/d', '/s', '/c', localBin], { stdio: 'inherit', shell: false })
+  : spawnSync(localBin, { stdio: 'inherit', shell: false });
 if (result.error || result.status !== 0) {
   const code = typeof result.status === 'number' ? result.status : 1;
   console.warn(`[postinstall] install-electron falló con código ${code}; se continúa para no bloquear install.`);

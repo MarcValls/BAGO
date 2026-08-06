@@ -17,7 +17,6 @@
 
 !macro AbortWithMessage MSG
   MessageBox MB_ICONSTOP|MB_OK "${MSG}"
-  RMDir /r "$INSTDIR"
   Abort
 !macroend
 
@@ -89,7 +88,7 @@ Section "BAGO Core" SecCore
 
   update_repo:
     DetailPrint "Actualizando instalacion existente a ${APP_GIT_REF}..."
-    nsExec::ExecToLog 'git -C "$INSTDIR" fetch --depth 1 origin "${APP_GIT_REF}"'
+    nsExec::ExecToLog 'git -C "$INSTDIR" fetch --depth 1 origin "refs/tags/${APP_GIT_REF}:refs/tags/${APP_GIT_REF}"'
     Pop $0
     IntCmp $0 0 fetch_ok 0 0
       !insertmacro AbortWithMessage "Fallo al descargar la ref ${APP_GIT_REF}."

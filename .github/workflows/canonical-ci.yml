@@ -61,9 +61,6 @@ jobs:
         run: npm ci
       - name: Build canonical frontend
         run: npm run build
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
-        run: npm install
       - name: Build packaged Electron app
         working-directory: electron-viewer
         run: npm run dist
