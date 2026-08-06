@@ -1,15 +1,42 @@
 # BAGO v4.8.1
 
-[![Version](https://img.shields.io/badge/version-4.8.1-blue)]()
+[![Version](https://img.shields.io/badge/version-4.8.1-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.1)
+[![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
+[![Tests](https://img.shields.io/badge/tests-858%20backend%20%7C%2052%20frontend-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 **BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
 
 ---
 
-## ¿Qué problema resuelve?
+## Novedades en 4.8.1
+
+### UI
+- **Selector de tema claro/oscuro** en la cabecera principal — persiste en sesión
+- **Modo claro** completamente funcional: todos los fondos oscuros hardcodeados migrados a variables CSS
+- **Arquitectura CSS por tokens** — `frontend/src/styles/` dividido en `tokens.css`, `reset.css`, `utilities.css`, `components.css` con tokens semánticos de espaciado, tipografía, radios, sombras y duraciones
+
+### Ciclo de vida (Windows)
+- `ARRANCAR_BAGO.bat` — lanzador de un clic: inicia el backend, abre Electron y detiene el backend al cerrar la ventana
+- Hook `before-quit` en Electron: llama a `dev.ps1 stop` de forma síncrona antes de salir
+- Acceso directo en el Menú Inicio y Escritorio instalados por el instalador
+
+### Backend y sesiones
+- Sistema de capacidades avanzado (`capability-anatomy`)
+- Soporte multi-conversación con `active_conversation_id`
+- Registro de sesiones (`session registry`)
+- Integración del módulo Vision
+- Provider Center con grid de proveedores configurables
+
+### Instalación
+- Instalador Windows `bago-4.8.1-setup.exe` (NSIS) — instala todos los componentes y crea accesos directos
+- Script `install-v4.ps1` con soporte para `-PackageZip`
+
+---
+
+
 
 La mayoría de herramientas de IA vinculan el contexto a un único proveedor o modelo. BAGO separa el estado de sesión de la ejecución del modelo, permitiendo al usuario mantener la continuidad al cambiar de proveedor, modelo, superficie de API o superficie de UI.
 
@@ -19,12 +46,33 @@ La mayoría de herramientas de IA vinculan el contexto a un único proveedor o m
 
 ```
 BAGO/
-├── backend/          # Runtime Python (core, CLI, API local, contratos)
-├── frontend/         # UI React + TypeScript (Vite)
-├── electron-viewer/  # Visor Electron (opcional)
-├── scripts/          # Scripts de desarrollo (PowerShell / Bash)
-├── package.json      # Raíz del workspace npm
-└── README.md
+├── backend/                  # Runtime Python (core, CLI, API local, contratos)
+│   ├── bago_core/            # Núcleo: sesiones, proveedores, capacidades, RL
+│   ├── tests/                # 858 tests (pytest)
+│   ├── docs/                 # Documentación técnica
+│   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build)
+├── frontend/                 # UI React + TypeScript (Vite)
+│   └── src/
+│       ├── styles/           # Sistema de tokens CSS modular
+│       │   ├── tokens.css    # Variables de diseño centralizadas
+│       │   ├── reset.css     # Reset y elementos base
+│       │   ├── utilities.css # Controles y utilidades compartidas
+│       │   ├── components.css# Reglas de componentes
+│       │   └── index.css     # Entry point
+│       ├── api/              # Cliente HTTP hacia el backend
+│       ├── app/              # ControlPlane principal
+│       ├── layout/           # GlobalHeader, ChatPanel, etc.
+│       ├── modules/          # Módulos funcionales (capabilities, vision, etc.)
+│       └── state/            # uiStore (Zustand)
+├── electron-viewer/          # Visor Electron con ciclo de vida automático
+├── scripts/
+│   ├── dev.ps1               # start / stop / build / status
+│   └── bago-launcher.ps1     # Lanzador de un clic (usado por accesos directos)
+├── releases/
+│   ├── bago-installer.nsi    # Script NSIS para generar setup.exe
+│   └── bago-4.8.1-*.zip      # Artefactos de release
+├── ARRANCAR_BAGO.bat         # Lanzador principal Windows
+└── package.json              # Raíz del workspace npm
 ```
 
 ---
@@ -45,7 +93,14 @@ BAGO/
 
 ## Instalación
 
-### Instalación rápida (Windows)
+### Opción A — Instalador Windows (recomendado)
+
+Descarga `bago-4.8.1-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.8.1) y ejecútalo. El instalador:
+- Instala backend (Python), frontend compilado y Electron viewer
+- Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
+- El acceso directo arranca el backend y abre la ventana; al cerrar la ventana el backend se para solo
+
+### Opción B — Instalación desde fuentes (Windows)
 
 ```powershell
 git clone https://github.com/MarcValls/BAGO.git
@@ -53,7 +108,7 @@ cd BAGO
 .\backend\install-v4.ps1 -Mode Express
 ```
 
-### Instalador remoto (última release publicada)
+### Opción C — Instalador remoto (última release publicada)
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
@@ -71,6 +126,26 @@ bago install --profile stable   # producción estable
 ---
 
 ## Uso mínimo
+
+### Arrancar BAGO (Windows)
+
+Doble clic en `ARRANCAR_BAGO.bat` o en el acceso directo del Menú Inicio/Escritorio.  
+Esto inicia el backend en `http://127.0.0.1:8080` y abre la ventana Electron. **Al cerrar la ventana, el backend se detiene automáticamente.**
+
+### Arrancar manualmente
+
+```powershell
+# Arrancar backend + abrir UI en el navegador
+npm run start
+
+# Sólo el backend
+npm run start:backend
+
+# Build de producción
+npm run build
+```
+
+### CLI
 
 ```powershell
 # Arrancar con modelo local (Ollama)
@@ -148,17 +223,36 @@ npm run sh:status
 
 ## Estado del producto
 
-| Área | Estado | Documentación |
+| Área | Estado | Notas |
 |---|---|---|
-| Runtime core | ✅ Estable | `backend/docs/CLAIMS.md`, `backend/docs/TESTING.md` |
-| Instalación y soporte de plataforma | ✅ Estable | `backend/docs/MVP.md`, `backend/docs/SUPPORT_MATRIX.md` |
+| Runtime core | ✅ Estable | 858 tests backend pasando |
+| Instalación Windows | ✅ Estable | Instalador NSIS + `ARRANCAR_BAGO.bat` |
+| Ciclo de vida Electron | ✅ Estable | Auto-stop al cerrar ventana |
+| UI React | ✅ Funcional | 52 tests frontend, tema claro/oscuro, tokens CSS |
 | Seguridad y postura API | ✅ Estable | `backend/docs/SECURITY.md` |
-| UI React | 🔶 Superficie opcional | `backend/docs/UI_CANONICAL_CONTRACT.md` |
-| Capa RL policy | 🧪 Experimental | `backend/docs/MVP.md` |
-| Agentes y autopilot | 🧪 Experimental | `backend/docs/MVP.md` |
-| Runtime C++ | 🧪 Experimental | `backend/docs/MVP.md` |
-| Multiprovider cloud completo | 🔶 Parcial | `backend/docs/SUPPORT_MATRIX.md` |
-| Store de conocimiento/embeddings avanzado | 🔶 Parcial | `backend/docs/MODULES.md` |
+| Soporte de plataforma | ✅ Windows | macOS/Linux: experimental |
+| Sistema de capacidades | ✅ Funcional | `capability-anatomy`, provider center |
+| Conversaciones multi-turno | ✅ Funcional | `active_conversation_id`, session registry |
+| Módulo Vision | 🔶 Integrado | Requiere proveedor compatible |
+| Capa RL policy | 🧪 Experimental | Shadow mode, sin autoridad de ejecución |
+| Agentes y autopilot | 🧪 Experimental | En desarrollo |
+| Runtime C++ | 🧪 Experimental | Gates de plataforma pendientes |
+| Store embeddings avanzado | 🔶 Parcial | `backend/docs/MODULES.md` |
+
+---
+
+## Releases
+
+| Versión | Fecha | Artefactos |
+|---|---|---|
+| [v4.8.1](https://github.com/MarcValls/BAGO/releases/tag/v4.8.1) | 2026-08-06 | `bago-4.8.1-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
+
+Los artefactos se generan automáticamente desde `main` con:
+
+```powershell
+npm run build
+# luego reempaquetar con releases/bago-installer.nsi y gh release upload
+```
 
 ---
 
