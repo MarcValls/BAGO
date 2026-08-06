@@ -1,41 +1,69 @@
-// Visor minimo de la BAGO UI para desarrollo.
-// Apunta al bridge local (127.0.0.1:8080) que sirve el dist/ compilado.
-// Electron provee window.bagoElectron con APIs nativas:
-// - chooseProjectRoot / chooseWorkspaceRoot: diálogo nativo de selección de carpeta
-// - onInstanceActive: notificación de instancia única
+// BAGO Electron App
+// En modo empaquetado (electron-builder): lee la ruta de instalacion desde
+// el registro de Windows para localizar dev.ps1, arranca el backend al
+// abrirse y lo para al cerrarse.
+// En modo desarrollo: usa la raiz del repo relativa a __dirname.
 
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawnSync, execSync } = require('child_process');
 
-// Raíz del monorepo (un nivel arriba del directorio electron-viewer)
-const REPO_ROOT = path.resolve(__dirname, '..');
-const DEV_PS1 = path.join(REPO_ROOT, 'scripts', 'dev.ps1');
+// ── Resolver raíz del repo ────────────────────────────────────────────────────
+function resolveRepoRoot() {
+  if (!app.isPackaged) {
+    // Modo dev: electron-viewer/../
+    return path.resolve(__dirname, '..');
+  }
+  // Modo empaquetado: leer registro HKCU\Software\BAGO\InstallPath
+  try {
+    const out = execSync(
+      'reg query HKCU\\Software\\BAGO /v InstallPath',
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+    );
+    const m = out.match(/InstallPath\s+REG_SZ\s+(.+)/);
+    if (m) return m[1].trim();
+  } catch { /* registry key not found */ }
+  // Fallback: cuatro niveles arriba del .exe (win-unpacked/BAGO.exe)
+  return path.resolve(path.dirname(process.execPath), '..', '..', '..', '..');
+}
+
+const REPO_ROOT = resolveRepoRoot();
+const DEV_PS1   = path.join(REPO_ROOT, 'scripts', 'dev.ps1');
+const RUN_DIR   = path.join(REPO_ROOT, '.run');
+const REQUEST_LOG = path.join(RUN_DIR, 'electron-requests.log');
 
 const UI_URL = 'http://127.0.0.1:8080/';
-const REQUEST_LOG = path.join(__dirname, '..', '.run', 'electron-requests.log');
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function requestPath(rawUrl) {
-  try {
-    return new URL(rawUrl).pathname;
-  } catch {
-    return '<invalid-url>';
-  }
+  try { return new URL(rawUrl).pathname; } catch { return '<invalid-url>'; }
 }
 
 function appendRequestLog(line) {
   fs.appendFile(REQUEST_LOG, `${line}\n`, () => {});
 }
 
+function runDevPs1(cmd) {
+  if (process.platform !== 'win32') return;
+  try {
+    spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', DEV_PS1, cmd
+    ], { cwd: REPO_ROOT, stdio: 'ignore', timeout: 20000 });
+  } catch { /* ignorar errores al arrancar/parar */ }
+}
+
+// ── Ventana principal ─────────────────────────────────────────────────────────
 function createViewerWindow() {
+  const iconPath = path.join(__dirname, 'bago.ico');
   const win = new BrowserWindow({
     width: 1600,
     height: 1000,
     minWidth: 1100,
     minHeight: 700,
     title: 'BAGO',
-    icon: path.join(__dirname, 'bago.ico'),
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#07090d',
     autoHideMenuBar: true,
     webPreferences: {
@@ -121,6 +149,11 @@ ipcMain.handle('bago:choose-workspace-root', async (event, options = {}) => {
 });
 
 app.whenReady().then(() => {
+  // Arrancar el backend antes de abrir la ventana
+  if (app.isPackaged) {
+    try { fs.mkdirSync(RUN_DIR, { recursive: true }); } catch {}
+    runDevPs1('start');
+  }
   createViewerWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createViewerWindow();
@@ -131,15 +164,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Al cerrar la ventana, detiene el backend automáticamente.
+// Al cerrar, detiene el backend automáticamente.
 app.on('before-quit', () => {
-  if (process.platform !== 'win32') return;
-  try {
-    spawnSync('powershell.exe', [
-      '-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', DEV_PS1, 'stop'
-    ], { cwd: REPO_ROOT, stdio: 'ignore', timeout: 15000 });
-  } catch {
-    // Si falla el stop (p.ej. backend ya parado), no bloquear la salida.
-  }
+  runDevPs1('stop');
 });

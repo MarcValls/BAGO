@@ -1,18 +1,24 @@
-; BAGO 4.8.1 Windows Installer
+﻿; BAGO 4.8.1 Windows Installer
 ; Built with NSIS 3.x
+;
+; Estrategia: clona el repositorio GitHub en el directorio de instalacion,
+; instala dependencias, compila el frontend y empaqueta el app con
+; electron-builder para obtener un BAGO.exe nativo.
 
 !define APP_NAME "BAGO"
 !define APP_VERSION "4.8.1"
 !define APP_PUBLISHER "MarcValls"
+!define APP_REPO "https://github.com/MarcValls/BAGO.git"
 !define APP_URL "https://github.com/MarcValls/BAGO"
-!define INSTALL_DIR "$PROGRAMFILES64\BAGO"
+!define INSTALL_DIR "$LOCALAPPDATA\BAGO"
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
+!define EXE_PATH "$INSTDIR\electron-viewer\dist\win-unpacked\BAGO.exe"
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "bago-4.8.1-setup.exe"
 InstallDir "${INSTALL_DIR}"
-InstallDirRegKey HKLM "Software\BAGO" "InstallPath"
-RequestExecutionLevel admin
+InstallDirRegKey HKCU "Software\BAGO" "InstallPath"
+RequestExecutionLevel user
 SetCompressor /SOLID lzma
 ShowInstDetails show
 ShowUnInstDetails show
@@ -36,76 +42,122 @@ ShowUnInstDetails show
 ;--- Installer ---
 Section "BAGO Core" SecCore
   SectionIn RO
-  SetOutPath "$INSTDIR"
 
-  ; Archivos raíz
-  File /oname=ARRANCAR_BAGO.bat "..\ARRANCAR_BAGO.bat"
-  File /oname=DETENER_BAGO.bat "..\DETENER_BAGO.bat"
-  File /oname=README.md "..\README.md"
+  ; ---- 1. Verificar prerequisitos -----------------------------------------
+  DetailPrint "Verificando prerequisitos..."
+
+  nsExec::ExecToLog 'git --version'
+  Pop $0
+  IntCmp $0 0 git_ok 0 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "Git no esta instalado.$\nDescargalo desde https://git-scm.com y vuelve a ejecutar el instalador."
+    Abort
+  git_ok:
+
+  nsExec::ExecToLog 'node --version'
+  Pop $0
+  IntCmp $0 0 node_ok 0 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "Node.js no esta instalado.$\nDescargalo desde https://nodejs.org (v20 o v22) y vuelve a ejecutar el instalador."
+    Abort
+  node_ok:
+
+  nsExec::ExecToLog 'python --version'
+  Pop $0
+  IntCmp $0 0 python_ok 0 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "Python no esta instalado.$\nDescargalo desde https://python.org (3.11+) y vuelve a ejecutar el instalador."
+    Abort
+  python_ok:
+
+  ; ---- 2. Clonar o actualizar repositorio ---------------------------------
+  IfFileExists "$INSTDIR\.git\HEAD" update_repo clone_repo
+
+  clone_repo:
+    DetailPrint "Clonando repositorio BAGO (requiere conexion a Internet)..."
+    nsExec::ExecToLog 'git clone --depth 1 "${APP_REPO}" "$INSTDIR"'
+    Pop $0
+    IntCmp $0 0 clone_ok 0 0
+      MessageBox MB_ICONEXCLAMATION|MB_OK "Error al clonar el repositorio.$\nComprueba tu conexion a Internet y que tienes acceso a GitHub."
+      Abort
+    clone_ok:
+    Goto deps
+
+  update_repo:
+    DetailPrint "Actualizando instalacion existente..."
+    nsExec::ExecToLog 'git -C "$INSTDIR" fetch --depth 1 origin main'
+    Pop $0
+    nsExec::ExecToLog 'git -C "$INSTDIR" reset --hard origin/main'
+    Pop $0
+    Goto deps
+
+  ; ---- 3. Instalar dependencias Node.js (incluye Electron) ----------------
+  deps:
+  DetailPrint "Instalando dependencias Node.js del monorepo..."
+  nsExec::ExecToLog 'cmd /c "cd /d "$INSTDIR" && npm install 2>&1"'
+  Pop $0
+  DetailPrint "npm install (raiz): codigo $0"
+
+  DetailPrint "Instalando dependencias del electron-viewer (con electron-builder)..."
+  nsExec::ExecToLog 'cmd /c "cd /d "$INSTDIR\electron-viewer" && npm install 2>&1"'
+  Pop $0
+  DetailPrint "npm install (electron-viewer): codigo $0"
+
+  ; ---- 4. Instalar entorno Python (backend) --------------------------------
+  DetailPrint "Configurando entorno Python del backend..."
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\backend\install-v4.ps1" -Mode Express -SkipTests'
+  Pop $0
+  DetailPrint "Backend: codigo $0"
+
+  ; ---- 5. Build del frontend -----------------------------------------------
+  DetailPrint "Compilando interfaz de usuario..."
+  nsExec::ExecToLog 'cmd /c "cd /d "$INSTDIR" && npm run build 2>&1"'
+  Pop $0
+  DetailPrint "Build frontend: codigo $0"
+
+  ; ---- 6. Empaquetar app Electron (genera BAGO.exe) -----------------------
+  DetailPrint "Empaquetando BAGO.exe con electron-builder..."
+  nsExec::ExecToLog 'cmd /c "cd /d "$INSTDIR\electron-viewer" && npx electron-builder --dir 2>&1"'
+  Pop $0
+  DetailPrint "electron-builder: codigo $0"
+
+  ; ---- 7. Copiar icono al directorio empaquetado ---------------------------
+  SetOutPath "$INSTDIR\electron-viewer"
   File /oname=bago.ico "..\releases\bago.ico"
 
-  ; Scripts
-  SetOutPath "$INSTDIR\scripts"
-  File /oname=dev.ps1 "..\scripts\dev.ps1"
-  File /oname=bago-launcher.ps1 "..\scripts\bago-launcher.ps1"
+  ; ---- 8. Registro ---------------------------------------------------------
+  WriteRegStr HKCU "Software\BAGO" "InstallPath" "$INSTDIR"
+  WriteRegStr HKCU "Software\BAGO" "Version" "${APP_VERSION}"
+  WriteRegStr HKCU "${UNINSTALL_REG}" "DisplayName" "${APP_NAME} ${APP_VERSION}"
+  WriteRegStr HKCU "${UNINSTALL_REG}" "UninstallString" '"$INSTDIR\uninstall.exe"'
+  WriteRegStr HKCU "${UNINSTALL_REG}" "Publisher" "${APP_PUBLISHER}"
+  WriteRegStr HKCU "${UNINSTALL_REG}" "DisplayVersion" "${APP_VERSION}"
+  WriteRegStr HKCU "${UNINSTALL_REG}" "URLInfoAbout" "${APP_URL}"
+  WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoModify" 1
+  WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoRepair" 1
 
-  ; Backend y frontend como ZIPs (se extraen mediante install-v4.ps1)
-  SetOutPath "$INSTDIR"
-  File /oname=install-v4.ps1 "..\backend\install-v4.ps1"
-  File /oname=bago-4.8.1-backend.zip "..\releases\bago-4.8.1-backend.zip"
-  File /oname=bago-4.8.1-frontend.zip "..\releases\bago-4.8.1-frontend.zip"
-
-  ; Instalar backend extrayendo el ZIP
-  DetailPrint "Instalando BAGO backend..."
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install-v4.ps1" -Mode Express -PackageZip "$INSTDIR\bago-4.8.1-backend.zip" -SkipTests'
-  Pop $0
-  DetailPrint "Resultado del instalador: $0"
-
-  ; Registry
-  WriteRegStr HKLM "Software\BAGO" "InstallPath" "$INSTDIR"
-  WriteRegStr HKLM "Software\BAGO" "Version" "${APP_VERSION}"
-  WriteRegStr HKLM "${UNINSTALL_REG}" "DisplayName" "${APP_NAME} ${APP_VERSION}"
-  WriteRegStr HKLM "${UNINSTALL_REG}" "UninstallString" '"$INSTDIR\uninstall.exe"'
-  WriteRegStr HKLM "${UNINSTALL_REG}" "Publisher" "${APP_PUBLISHER}"
-  WriteRegStr HKLM "${UNINSTALL_REG}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKLM "${UNINSTALL_REG}" "URLInfoAbout" "${APP_URL}"
-  WriteRegDWORD HKLM "${UNINSTALL_REG}" "NoModify" 1
-  WriteRegDWORD HKLM "${UNINSTALL_REG}" "NoRepair" 1
-
-  ; Uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  ; ── Accesos directos ──────────────────────────────────────────────────────
-  ; Un icono "BAGO" que arranca el backend + abre la ventana.
-  ; Al cerrar la ventana el backend para solo (hook before-quit en main.cjs).
+  ; ---- 9. Accesos directos al BAGO.exe nativo ------------------------------
+  ; Apunta directamente al ejecutable empaquetado: sin consola, sin powershell.
   CreateDirectory "$SMPROGRAMS\BAGO"
-
-  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "powershell.exe" '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$INSTDIR\scripts\bago-launcher.ps1"' "$INSTDIR\bago.ico" 0 SW_SHOWMINIMIZED "" "Abrir BAGO"
-  CreateShortcut "$DESKTOP\BAGO.lnk" "powershell.exe" '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$INSTDIR\scripts\bago-launcher.ps1"' "$INSTDIR\bago.ico" 0 SW_SHOWMINIMIZED "" "Abrir BAGO"
+  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "${EXE_PATH}" "" "$INSTDIR\electron-viewer\bago.ico" 0 "" "" "Abrir BAGO"
+  CreateShortcut "$DESKTOP\BAGO.lnk" "${EXE_PATH}" "" "$INSTDIR\electron-viewer\bago.ico" 0 "" "" "Abrir BAGO"
   CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "$INSTDIR\uninstall.exe"
 
 SectionEnd
 
 ;--- Uninstaller ---
 Section "Uninstall"
-  Delete "$INSTDIR\bago-4.8.1-backend.zip"
-  Delete "$INSTDIR\bago-4.8.1-frontend.zip"
-  Delete "$INSTDIR\install-v4.ps1"
-  Delete "$INSTDIR\ARRANCAR_BAGO.bat"
-  Delete "$INSTDIR\DETENER_BAGO.bat"
-  Delete "$INSTDIR\README.md"
-  Delete "$INSTDIR\bago.ico"
-  Delete "$INSTDIR\scripts\dev.ps1"
-  Delete "$INSTDIR\scripts\bago-launcher.ps1"
-  RMDir  "$INSTDIR\scripts"
-  Delete "$INSTDIR\uninstall.exe"
-  RMDir  "$INSTDIR"
+  ; Intentar detener el backend antes de borrar
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\dev.ps1" stop'
+  Pop $0
+
+  ; Eliminar todo el directorio (incluye el repo clonado y node_modules)
+  RMDir /r "$INSTDIR"
 
   Delete "$SMPROGRAMS\BAGO\BAGO.lnk"
   Delete "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk"
   RMDir  "$SMPROGRAMS\BAGO"
   Delete "$DESKTOP\BAGO.lnk"
 
-  DeleteRegKey HKLM "Software\BAGO"
-  DeleteRegKey HKLM "${UNINSTALL_REG}"
+  DeleteRegKey HKCU "Software\BAGO"
+  DeleteRegKey HKCU "${UNINSTALL_REG}"
 SectionEnd
