@@ -34,7 +34,8 @@ function createViewerWindow() {
     height: 1000,
     minWidth: 1100,
     minHeight: 700,
-    title: 'BAGO UI (visor de desarrollo)',
+    title: 'BAGO',
+    icon: path.join(__dirname, 'bago.ico'),
     backgroundColor: '#07090d',
     autoHideMenuBar: true,
     webPreferences: {
