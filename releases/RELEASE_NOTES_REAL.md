@@ -1,29 +1,33 @@
-## BAGO 4.8.2
+﻿## BAGO v4.8.2
 
-Release enfocada en **consistencia de distribución**, **trazabilidad** y **endurecimiento del ciclo de instalación/arranque**.
+Release estable centrada en **reproducibilidad**, **trazabilidad** y **robustez del instalador**.
 
 ### Cambios clave
 
-- Instalador NSIS fail-closed (aborta en errores críticos).
-- Instalación fijada a referencia Git inmutable (`v4.8.2`).
-- Gate de verificación final de `BAGO.exe` antes de registrar instalación.
-- Electron reforzado:
-  - lock de instancia única,
-  - validación de backend `/health` antes de abrir UI,
-  - endurecimiento de apertura de enlaces externos.
-- CI con smoke empaquetado de `BAGO.exe` (arranque, salud, cierre, parada backend).
-
-### Instalación rápida (Windows)
-
-Descarga `bago-4.8.2-setup.exe` y ejecútalo.  
-Los accesos directos creados en Escritorio e Inicio abren `BAGO.exe` directamente.
+- Instalador NSIS **fail-closed**: aborta ante cualquier paso crítico fallido.
+- Instalación fijada a referencia inmutable (4.8.2) en lugar de main mutable.
+- Verificación final de BAGO.exe antes de registrar instalación y accesos directos.
+- Endurecimiento Electron: lock de instancia única + espera activa de backend /health.
+- CI canónica con validación completa (alidate) para el corte de release.
 
 ### Artefactos
 
-| Archivo | Descripción |
-|---|---|
-| `bago-4.8.2-setup.exe` | Instalador Windows NSIS |
-| `bago-4.8.2-backend.zip` | Backend Python |
-| `bago-4.8.2-frontend.zip` | Frontend compilado |
-| `bago-4.8.2-electron-viewer.zip` | Fuente mínima del viewer Electron |
-| `bago-4.8.2-installer.ps1` | Instalador remoto por PowerShell |
+| Archivo | Tamaño (bytes) | SHA-256 |
+|---|---:|---|
+| $f | 79571 | $sha |
+| $f | 214569936 | $sha |
+| $f | 178546 | $sha |
+| $f | 13097 | $sha |
+| $f | 2774 | $sha |
+
+### Instalación recomendada (Windows)
+
+1. Descarga y ejecuta ago-4.8.2-setup.exe.
+2. Abre BAGO desde el acceso directo de Escritorio o Menú Inicio.
+3. Verifica integridad comparando checksums .sha256.
+
+### Notas de trazabilidad
+
+- Tag objetivo: 4.8.2
+- Instalación por usuario: %LOCALAPPDATA%\\BAGO
+- Registro de instalación: HKCU\\Software\\BAGO (InstallPath, InstallRef)
