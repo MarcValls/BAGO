@@ -1,13 +1,13 @@
 {
   "name": "bago-monorepo",
-  "version": "4.8.1",
+  "version": "4.8.2",
   "private": true,
   "description": "BAGO monorepo (frontend + backend + electron viewer)",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "postinstall": "install-electron",
+    "postinstall": "node scripts/postinstall.cjs",
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 start",
     "start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 start",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 stop",

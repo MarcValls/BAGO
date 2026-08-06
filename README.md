@@ -1,17 +1,17 @@
-# BAGO v4.8.1
+# BAGO v4.8.2
 
-[![Version](https://img.shields.io/badge/version-4.8.1-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.1)
+[![Version](https://img.shields.io/badge/version-4.8.2-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
-[![Tests](https://img.shields.io/badge/tests-858%20backend%20%7C%2052%20frontend-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-844%20passed%20%7C%2014%20skipped%20backend%20%7C%2052%20frontend-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 **BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
 
 ---
 
-## Novedades en 4.8.1
+## Novedades en 4.8.2
 
 ### UI
 - **Selector de tema claro/oscuro** en la cabecera principal — persiste en sesión
@@ -31,7 +31,7 @@
 - Provider Center con grid de proveedores configurables
 
 ### Instalación
-- Instalador Windows `bago-4.8.1-setup.exe` (NSIS) — instala todos los componentes y crea accesos directos
+- Instalador Windows `bago-4.8.2-setup.exe` (NSIS) — instala todos los componentes y crea accesos directos
 - Script `install-v4.ps1` con soporte para `-PackageZip`
 
 ---
@@ -48,7 +48,7 @@ La mayoría de herramientas de IA vinculan el contexto a un único proveedor o m
 BAGO/
 ├── backend/                  # Runtime Python (core, CLI, API local, contratos)
 │   ├── bago_core/            # Núcleo: sesiones, proveedores, capacidades, RL
-│   ├── tests/                # 858 tests (pytest)
+│   ├── tests/                # 844 passed, 14 skipped (pytest)
 │   ├── docs/                 # Documentación técnica
 │   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build)
 ├── frontend/                 # UI React + TypeScript (Vite)
@@ -67,10 +67,10 @@ BAGO/
 ├── electron-viewer/          # Visor Electron con ciclo de vida automático
 ├── scripts/
 │   ├── dev.ps1               # start / stop / build / status
-│   └── bago-launcher.ps1     # Lanzador de un clic (usado por accesos directos)
+│   └── bago-launcher.ps1     # Lanzador manual legacy (los accesos directos apuntan a BAGO.exe)
 ├── releases/
 │   ├── bago-installer.nsi    # Script NSIS para generar setup.exe
-│   └── bago-4.8.1-*.zip      # Artefactos de release
+│   └── bago-4.8.2-*.zip      # Artefactos de release
 ├── ARRANCAR_BAGO.bat         # Lanzador principal Windows
 └── package.json              # Raíz del workspace npm
 ```
@@ -95,10 +95,11 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `bago-4.8.1-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.8.1) y ejecútalo. El instalador:
+Descarga `bago-4.8.2-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) y ejecútalo. El instalador:
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
-- El acceso directo arranca el backend y abre la ventana; al cerrar la ventana el backend se para solo
+- El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
+- La instalación queda fijada a una referencia Git inmutable (`InstallRef`) en lugar de `main`
 
 ### Opción B — Instalación desde fuentes (Windows)
 
@@ -225,7 +226,7 @@ npm run sh:status
 
 | Área | Estado | Notas |
 |---|---|---|
-| Runtime core | ✅ Estable | 858 tests backend pasando |
+| Runtime core | ✅ Estable | 844 passed, 14 skipped en backend |
 | Instalación Windows | ✅ Estable | Instalador NSIS + `ARRANCAR_BAGO.bat` |
 | Ciclo de vida Electron | ✅ Estable | Auto-stop al cerrar ventana |
 | UI React | ✅ Funcional | 52 tests frontend, tema claro/oscuro, tokens CSS |
@@ -245,9 +246,9 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
-| [v4.8.1](https://github.com/MarcValls/BAGO/releases/tag/v4.8.1) | 2026-08-06 | `bago-4.8.1-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
+| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
 
-Los artefactos se generan automáticamente desde `main` con:
+Los artefactos de release deben generarse desde una referencia etiquetada/inmutable (no desde `main`) con:
 
 ```powershell
 npm run build

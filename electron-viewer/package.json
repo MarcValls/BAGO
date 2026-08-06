@@ -1,6 +1,6 @@
 {
   "name": "bago-ui-viewer",
-  "version": "4.8.1",
+  "version": "4.8.2",
   "description": "Visor Electron minimo de la BAGO UI contra el bridge local",
   "main": "main.cjs",
   "engines": {
@@ -11,6 +11,7 @@
     "dist": "electron-builder --dir"
   },
   "devDependencies": {
+    "app-builder-bin": "5.0.0-alpha.10",
     "electron": "42.3.0",
     "electron-builder": "^25.0.0"
   },

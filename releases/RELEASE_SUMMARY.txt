@@ -1,0 +1,17 @@
+BAGO 4.8.2 RELEASE SUMMARY
+======================================================================
+
+Release Date: 2026-08-06
+Tag: v4.8.2
+Branch: main
+
+ARTIFACTS:
+  - bago-4.8.2-setup.exe (79,571 B)
+  - bago-4.8.2-backend.zip (214,569,936 B)
+  - bago-4.8.2-frontend.zip (178,546 B)
+  - bago-4.8.2-electron-viewer.zip (13,097 B)
+  - bago-4.8.2-installer.ps1 (2,774 B)
+  - MANIFEST.md
+  - RELEASE_NOTES_REAL.md
+
+URL: https://github.com/MarcValls/BAGO/releases/tag/v4.8.2

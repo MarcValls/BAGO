@@ -43,3 +43,81 @@ jobs:
         run: |
           npm ci
           npm run manager:test-jobs
+
+  packaged-smoke:
+    runs-on: windows-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install monorepo dependencies
+        run: npm ci
+      - name: Build canonical frontend
+        run: npm run build
+      - name: Install electron-viewer dependencies
+        working-directory: electron-viewer
+        run: npm install
+      - name: Build packaged Electron app
+        working-directory: electron-viewer
+        run: npm run dist
+      - name: Ensure NSIS is available
+        shell: pwsh
+        run: |
+          $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
+          if (-not (Test-Path $mk)) {
+            choco install nsis -y --no-progress
+          }
+          if (-not (Test-Path $mk)) {
+            throw "makensis.exe no disponible"
+          }
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          & 'C:\Program Files (x86)\NSIS\makensis.exe' 'releases\bago-installer.nsi'
+          if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
+      - name: Smoke packaged BAGO.exe lifecycle
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'electron-viewer\dist\win-unpacked\BAGO.exe'
+          if (-not (Test-Path $exe)) { throw "No existe BAGO.exe empaquetado" }
+
+          $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
+          $proc = Start-Process -FilePath $exe -PassThru
+          $ok = $false
+          for ($i=0; $i -lt 60; $i++) {
+            try {
+              $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8080/health' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+              if ($r.StatusCode -eq 200) { $ok = $true; break }
+            } catch {}
+            Start-Sleep -Seconds 1
+          }
+          if (-not $ok) {
+            try { if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force } } catch {}
+            throw "BAGO.exe no levantó backend saludable en tiempo"
+          }
+
+          Wait-Process -Id $proc.Id -Timeout 60 -ErrorAction SilentlyContinue
+          if (-not $proc.HasExited) {
+            try { Stop-Process -Id $proc.Id -Force } catch {}
+            throw "BAGO.exe no cerró automáticamente para smoke test"
+          }
+
+          $stopped = $false
+          for ($i=0; $i -lt 30; $i++) {
+            try {
+              Invoke-WebRequest -Uri 'http://127.0.0.1:8080/health' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop | Out-Null
+            } catch {
+              $stopped = $true
+              break
+            }
+            Start-Sleep -Seconds 1
+          }
+          if (-not $stopped) {
+            throw "El backend siguió levantado tras cerrar BAGO.exe"
+          }
