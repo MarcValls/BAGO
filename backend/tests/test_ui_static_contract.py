@@ -31,8 +31,15 @@ def contrast_ratio(fg: str, bg: str) -> float:
 
 
 class UiStaticContractTests(unittest.TestCase):
+    def _all_css(self) -> str:
+        """Concatenate all CSS files under frontend/src/styles/ (or fall back to styles.css)."""
+        styles_dir = UI_SRC / "styles"
+        if styles_dir.is_dir():
+            return "\n".join(p.read_text(encoding="utf-8") for p in sorted(styles_dir.rglob("*.css")))
+        return (UI_SRC / "styles.css").read_text(encoding="utf-8")
+
     def root_tokens(self) -> dict[str, str]:
-        text = (UI_SRC / "styles.css").read_text(encoding="utf-8")
+        text = self._all_css()
         return dict(re.findall(r"(--[a-z0-9-]+):\s*(#[0-9A-Fa-f]{6})", text))
 
     def test_text_2_contrast_uses_actual_css_token(self) -> None:
@@ -77,7 +84,7 @@ class UiStaticContractTests(unittest.TestCase):
     def test_context_flow_has_numbered_navigation_and_visible_stage_heading(self) -> None:
         nav = (UI_SRC / "lib" / "flow-shell" / "FlowNav.tsx").read_text(encoding="utf-8")
         stage = (UI_SRC / "lib" / "flow-shell" / "FlowStageScreen.tsx").read_text(encoding="utf-8")
-        styles = (UI_SRC / "styles.css").read_text(encoding="utf-8")
+        styles = self._all_css()
 
         self.assertIn("context-flow-nav-index", nav)
         self.assertIn("aria-current={stage.id === props.activeStage ? 'step' : undefined}", nav)
