@@ -10,13 +10,12 @@ if (!fs.existsSync(localBin)) {
   process.exit(0);
 }
 
-const result = process.platform === 'win32'
-  ? spawnSync('cmd.exe', ['/d', '/s', '/c', localBin], {
-      stdio: 'inherit',
-      shell: false,
-      windowsHide: true,
-    })
-  : spawnSync(localBin, [], { stdio: 'inherit', shell: false });
+const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const result = spawnSync(npxBin, ['--no-install', 'install-electron'], {
+  stdio: 'inherit',
+  shell: false,
+  windowsHide: true,
+});
 if (result.error || result.status !== 0) {
   const code = typeof result.status === 'number' ? result.status : 1;
   console.error(`[postinstall] install-electron falló con código ${code}.`);
