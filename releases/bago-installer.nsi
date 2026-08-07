@@ -82,7 +82,29 @@ Section "BAGO Core" SecCore
     nsExec::ExecToLog 'git clone --depth 1 --branch "${APP_GIT_REF}" "${APP_REPO}" "$INSTDIR"'
     Pop $0
     IntCmp $0 0 clone_ok 0 0
-      !insertmacro AbortWithMessage "Error al clonar ${APP_REPO} en ref ${APP_GIT_REF}.$\nComprueba conexion y que la ref existe."
+      DetailPrint "Clone shallow por tag fallido. Reintentando con init + fetch de ref inmutable..."
+      RMDir /r "$INSTDIR"
+      CreateDirectory "$INSTDIR"
+      nsExec::ExecToLog 'git -C "$INSTDIR" init'
+      Pop $0
+      IntCmp $0 0 clone_fallback_ok 0 0
+        !insertmacro AbortWithMessage "Error al inicializar el repositorio local en $INSTDIR."
+      clone_fallback_ok:
+      nsExec::ExecToLog 'git -C "$INSTDIR" remote add origin "${APP_REPO}"'
+      Pop $0
+      IntCmp $0 0 clone_remote_ok 0 0
+        !insertmacro AbortWithMessage "Error al configurar origin (${APP_REPO})."
+      clone_remote_ok:
+      nsExec::ExecToLog 'git -C "$INSTDIR" fetch --depth 1 --tags --force origin "${APP_GIT_REF}"'
+      Pop $0
+      IntCmp $0 0 clone_fetch_tags_ok 0 0
+        !insertmacro AbortWithMessage "Fallo al descargar la ref inmutable ${APP_GIT_REF} desde origin."
+      clone_fetch_tags_ok:
+      nsExec::ExecToLog 'git -C "$INSTDIR" checkout --force "${APP_GIT_REF}^{commit}"'
+      Pop $0
+      IntCmp $0 0 clone_checkout_ok 0 0
+        !insertmacro AbortWithMessage "Fallo al fijar la ref inmutable ${APP_GIT_REF}."
+      clone_checkout_ok:
     clone_ok:
     Goto deps
 
@@ -91,14 +113,14 @@ Section "BAGO Core" SecCore
     nsExec::ExecToLog 'git -C "$INSTDIR" fetch --depth 1 origin "refs/tags/${APP_GIT_REF}:refs/tags/${APP_GIT_REF}"'
     Pop $0
     IntCmp $0 0 fetch_ok 0 0
-      !insertmacro AbortWithMessage "Fallo al descargar la ref ${APP_GIT_REF}."
+      !insertmacro AbortWithMessage "Fallo al sincronizar origin y sus tags."
     fetch_ok:
-    nsExec::ExecToLog 'git -C "$INSTDIR" checkout --force "${APP_GIT_REF}"'
+    nsExec::ExecToLog 'git -C "$INSTDIR" checkout --force "${APP_GIT_REF}^{commit}"'
     Pop $0
     IntCmp $0 0 checkout_ok 0 0
       !insertmacro AbortWithMessage "Fallo al hacer checkout de la ref ${APP_GIT_REF}."
     checkout_ok:
-    nsExec::ExecToLog 'git -C "$INSTDIR" reset --hard "${APP_GIT_REF}"'
+    nsExec::ExecToLog 'git -C "$INSTDIR" reset --hard "${APP_GIT_REF}^{commit}"'
     Pop $0
     IntCmp $0 0 update_ok 0 0
       !insertmacro AbortWithMessage "Fallo al fijar el estado exacto de ${APP_GIT_REF}."
