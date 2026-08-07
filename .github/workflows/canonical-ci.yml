@@ -79,11 +79,26 @@ jobs:
         run: |
           & 'C:\Program Files (x86)\NSIS\makensis.exe' 'releases\bago-installer.nsi'
           if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
-      - name: Smoke packaged BAGO.exe lifecycle
+      - name: Smoke NSIS setup.exe lifecycle
         shell: pwsh
         run: |
-          $exe = Join-Path $PWD 'electron-viewer\dist\win-unpacked\BAGO.exe'
-          if (-not (Test-Path $exe)) { throw "No existe BAGO.exe empaquetado" }
+          $setup = Join-Path $PWD 'bago-4.8.2-setup.exe'
+          if (-not (Test-Path $setup)) { throw "No existe bago-4.8.2-setup.exe" }
+
+          $defaultInstall = Join-Path $env:LOCALAPPDATA 'BAGO'
+          if (Test-Path $defaultInstall) { Remove-Item -LiteralPath $defaultInstall -Recurse -Force }
+          Remove-Item -LiteralPath 'HKCU:\Software\BAGO' -Recurse -Force -ErrorAction SilentlyContinue
+
+          $installProc = Start-Process -FilePath $setup -ArgumentList '/S' -PassThru -Wait
+          if ($installProc.ExitCode -ne 0) { throw "El instalador terminó con código $($installProc.ExitCode)" }
+
+          $reg = Get-ItemProperty -LiteralPath 'HKCU:\Software\BAGO' -ErrorAction Stop
+          if ($reg.InstallRef -ne 'v4.8.2') { throw "InstallRef inesperado: $($reg.InstallRef)" }
+          $installPath = $reg.InstallPath
+          if (-not (Test-Path $installPath)) { throw "InstallPath no existe: $installPath" }
+
+          $exe = Join-Path $installPath 'electron-viewer\dist\win-unpacked\BAGO.exe'
+          if (-not (Test-Path $exe)) { throw "No existe BAGO.exe instalado en $exe" }
 
           $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
           $proc = Start-Process -FilePath $exe -PassThru
@@ -119,3 +134,11 @@ jobs:
           if (-not $stopped) {
             throw "El backend siguió levantado tras cerrar BAGO.exe"
           }
+
+          $uninstallExe = Join-Path $installPath 'uninstall.exe'
+          if (-not (Test-Path $uninstallExe)) { throw "No existe desinstalador en $uninstallExe" }
+          $unProc = Start-Process -FilePath $uninstallExe -ArgumentList '/S' -PassThru -Wait
+          if ($unProc.ExitCode -ne 0) { throw "El desinstalador terminó con código $($unProc.ExitCode)" }
+
+          if (Test-Path $installPath) { throw "El directorio de instalación no se eliminó: $installPath" }
+          if (Test-Path 'HKCU:\Software\BAGO') { throw "La clave HKCU\\Software\\BAGO sigue presente tras desinstalar" }
