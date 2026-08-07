@@ -70,14 +70,17 @@ jobs:
       - name: Audit Node dependencies
         shell: pwsh
         run: |
-          npm audit --audit-level=critical --json | Out-File -Encoding utf8 npm-audit.json
+          $auditJson = npm audit --audit-level=critical --json 2>&1
           $auditExit = $LASTEXITCODE
-          if ($auditExit -ne 0) {
-            if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
-              throw "Dependencias con severidad critica detectadas en release tag"
-            }
-            Write-Host "ADVERTENCIA: npm audit detecto vulnerabilidades criticas (no bloqueante fuera de tags)."
+          $auditJson | Out-File -Encoding utf8 npm-audit.json
+
+          if ($auditExit -eq 0) { exit 0 }
+          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
+            throw "Dependencias con severidad critica detectadas en release tag"
           }
+
+          Write-Host "ADVERTENCIA: npm audit detecto vulnerabilidades criticas (no bloqueante fuera de tags)."
+          exit 0
 
       - name: Build canonical frontend
         run: npm run build
