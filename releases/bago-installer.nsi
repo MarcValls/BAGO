@@ -34,8 +34,8 @@ Section "BAGO Core" SecCore
   
   DetailPrint "Extrayendo scripts..."
   SetOutPath "$TEMP"
-  File /oname=bago-install.ps1 "..\releases\bago-install.ps1"
-  File /oname=bago-install.cmd "..\releases\run-install.cmd"
+  File /oname=bago-install.ps1 "Install-BAGO.ps1"
+  File /oname=bago-install.cmd "install-bago-setup.cmd"
   
   DetailPrint "Ejecutando instalación (10-15 minutos)..."
   ExecWait 'cmd.exe /c "$TEMP\bago-install.cmd"' $0
