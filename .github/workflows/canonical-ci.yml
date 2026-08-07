@@ -84,13 +84,24 @@ jobs:
           exit 0
 
       - name: Build canonical frontend
-        run: npm run build --workspace frontend
+        run: npm run build
 
       - name: Typecheck canonical frontend
         run: npm run typecheck
 
       - name: Test canonical frontend
         run: npm run test:frontend
+
+      - name: Ensure backend UI dist is present
+        shell: pwsh
+        run: |
+          $frontendDist = Join-Path $PWD 'frontend\dist'
+          $backendDist = Join-Path $PWD 'backend\ui-react\dist'
+          if (-not (Test-Path $frontendDist)) {
+            throw "frontend/dist no existe tras build"
+          }
+          New-Item -ItemType Directory -Path $backendDist -Force | Out-Null
+          Copy-Item -Path (Join-Path $frontendDist '*') -Destination $backendDist -Recurse -Force
 
       - name: Validate backend
         working-directory: backend
@@ -151,10 +162,6 @@ jobs:
           cache: npm
 
       - name: Install monorepo dependencies
-        run: npm ci
-
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
         run: npm ci
 
       - name: Ensure app-builder binary is present
@@ -286,10 +293,6 @@ jobs:
           cache: npm
 
       - name: Install monorepo dependencies
-        run: npm ci
-
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
         run: npm ci
 
       - name: Ensure app-builder binary is present
