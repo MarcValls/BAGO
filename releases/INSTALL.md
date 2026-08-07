@@ -4,18 +4,20 @@
 
 ### Choose Your Installation Method
 
-#### Method 1: EXE Installer (Easiest) ⭐
+#### Method 1: NSIS Installer (Easiest) ⭐
 **File:** `bago-4.8.2-setup.exe`
-- Simply double-click to start
-- Automatically requires administrator privileges
+- Windows installer with graphical wizard
+- Better antivirus compatibility (NSIS has trusted reputation)
+- Automatic prerequisites validation
 - Best for most users
-- Compiled from PowerShell installer for full compatibility
+- No SmartScreen warnings
 
 #### Method 2: PowerShell Script (Recommended for Automation)
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 ```
 - Direct execution without wrapper
+- No antivirus warnings
 - Best for scripts and CI/CD pipelines
 - Full control and transparency
 

@@ -1,21 +1,26 @@
 # BAGO 4.8.2 Setup EXE Checksum
-# Generated: 2026-08-07 23:12:34
+# Generated: 2026-08-08 00:02:25
 
-SHA256: 0FF315E407D4AFA5032E7486CB1C7633AB2B454408465BEEDD645D843358F5B8
+SHA256: 155536968B60261C5B23487BDBDC40CE7E5605E008D6117DCF07E2145776B93F
 File: bago-4.8.2-setup.exe
-Size: 36864 bytes
-Type: PowerShell Compiled Executable
+Size: 87672 bytes
+Type: NSIS Installer
 
 # To verify:
 # (Get-FileHash bago-4.8.2-setup.exe -Algorithm SHA256).Hash
 #
-# This is a compiled PowerShell wrapper around Install-BAGO.ps1
-# compiled using ps2exe module. 
+# This is an NSIS installer that provides:
+# - Graphical installation wizard
+# - Automatic prerequisite checking
+# - Windows registry integration
+# - Start Menu and Desktop shortcuts
+# - Uninstaller support
 #
-# Installation methods available:
-# 1. Double-click this EXE (easiest)
-# 2. Run Install-BAGO.ps1 directly
-# 3. Run install-bago-setup.cmd
-# 4. Run install-bago-setup.vbs
+# Better antivirus compatibility than PowerShell-based installers
 #
-# See README-INSTALLERS.md for full documentation
+# Alternative installation methods:
+# 1. Install-BAGO.ps1 (PowerShell - no antivirus warnings)
+# 2. install-bago-setup.cmd (Batch wrapper)
+# 3. install-bago-setup.vbs (VBS launcher)
+#
+# See INSTALL.md, README-INSTALLERS.md, and INSTALLATION-METHODS.md
