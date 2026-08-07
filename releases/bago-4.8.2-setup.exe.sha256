@@ -1,1 +1,21 @@
-0dcf39dc4fe15732ae189d9b0887ff40ecc9206e0edc83975110030d6c1b984e  bago-4.8.2-setup.exe
+# BAGO 4.8.2 Setup EXE Checksum
+# Generated: 2026-08-07 23:12:34
+
+SHA256: 0FF315E407D4AFA5032E7486CB1C7633AB2B454408465BEEDD645D843358F5B8
+File: bago-4.8.2-setup.exe
+Size: 36864 bytes
+Type: PowerShell Compiled Executable
+
+# To verify:
+# (Get-FileHash bago-4.8.2-setup.exe -Algorithm SHA256).Hash
+#
+# This is a compiled PowerShell wrapper around Install-BAGO.ps1
+# compiled using ps2exe module. 
+#
+# Installation methods available:
+# 1. Double-click this EXE (easiest)
+# 2. Run Install-BAGO.ps1 directly
+# 3. Run install-bago-setup.cmd
+# 4. Run install-bago-setup.vbs
+#
+# See README-INSTALLERS.md for full documentation

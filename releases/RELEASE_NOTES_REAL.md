@@ -14,7 +14,7 @@ Release estable centrada en reproducibilidad, trazabilidad y robustez del instal
 
 | Archivo | Tamaño (bytes) | SHA-256 |
 |---|---:|---|
-| `bago-4.8.2-setup.exe` | 79,709 | `0dcf39dc4fe15732ae189d9b0887ff40ecc9206e0edc83975110030d6c1b984e` |
+| `bago-4.8.2-setup.exe` | 79,673 | `e37304e7f8e44b7486e9e0643ff1a843583a77ada9512561c4786e69f3c88492` |
 | `bago-4.8.2-backend.zip` | 214,569,936 | `66d45e999f86e2d2ec0220fd49fdca0f815758884038a8fe6864dc29300437c9` |
 | `bago-4.8.2-frontend.zip` | 178,546 | `d3b853e36dfeafd2f14632a52055b95165d85ceb66460b935d428f15c9612805` |
 | `bago-4.8.2-electron-viewer.zip` | 13,097 | `01e5e34cad39274902fda5fd3531f630210d08c39d53cd7d8deb71046ef38fa3` |

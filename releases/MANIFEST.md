@@ -6,7 +6,7 @@
 
 ## Artifacts
 
-1. `bago-4.8.2-setup.exe` (79,709 bytes)  
+1. `bago-4.8.2-setup.exe` (79,673 bytes)  
 2. `bago-4.8.2-backend.zip` (214,569,936 bytes)  
 3. `bago-4.8.2-frontend.zip` (178,546 bytes)  
 4. `bago-4.8.2-electron-viewer.zip` (13,097 bytes)  
