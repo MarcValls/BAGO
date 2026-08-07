@@ -190,6 +190,15 @@ function Get-ProfileUserStateDir {
     return (Join-Path (Join-Path (Get-ProfileDataRoot) "user") $ProfileName)
 }
 
+function Get-DefaultInstallDir {
+    [string]$override = [System.Environment]::GetEnvironmentVariable("BAGO_INSTALL_DIR")
+    if (-not [string]::IsNullOrWhiteSpace($override)) { return (Get-FullPath $override) }
+    [string]$programFilesRoot = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFiles)
+    if ([string]::IsNullOrWhiteSpace($programFilesRoot)) { $programFilesRoot = [System.Environment]::GetEnvironmentVariable("ProgramFiles") }
+    if ([string]::IsNullOrWhiteSpace($programFilesRoot)) { $programFilesRoot = [System.IO.Path]::GetTempPath() }
+    return (Join-Path $programFilesRoot "BAGO")
+}
+
 $profileName = ""
 if ($Profile) {
     $profileName = Normalize-ProfileName $Profile
@@ -226,15 +235,6 @@ if (-not $PSBoundParameters.ContainsKey("InstallDir") -or [string]::IsNullOrWhit
     } else {
         $InstallDir = Get-DefaultInstallDir
     }
-}
-
-function Get-DefaultInstallDir {
-    [string]$override = [System.Environment]::GetEnvironmentVariable("BAGO_INSTALL_DIR")
-    if (-not [string]::IsNullOrWhiteSpace($override)) { return (Get-FullPath $override) }
-    [string]$programFilesRoot = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFiles)
-    if ([string]::IsNullOrWhiteSpace($programFilesRoot)) { $programFilesRoot = [System.Environment]::GetEnvironmentVariable("ProgramFiles") }
-    if ([string]::IsNullOrWhiteSpace($programFilesRoot)) { $programFilesRoot = [System.IO.Path]::GetTempPath() }
-    return (Join-Path $programFilesRoot "BAGO")
 }
 
 if (-not $ElevatedChild -and -not (Test-IsAdministrator)) {

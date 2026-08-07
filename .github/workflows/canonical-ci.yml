@@ -164,10 +164,6 @@ jobs:
       - name: Install monorepo dependencies
         run: npm ci
 
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
-        run: npm ci
-
       - name: Ensure app-builder binary is present
         shell: pwsh
         run: |
@@ -297,10 +293,6 @@ jobs:
           cache: npm
 
       - name: Install monorepo dependencies
-        run: npm ci
-
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
         run: npm ci
 
       - name: Ensure app-builder binary is present
