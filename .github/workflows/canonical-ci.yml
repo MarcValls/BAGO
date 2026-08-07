@@ -84,7 +84,7 @@ jobs:
           exit 0
 
       - name: Build canonical frontend
-        run: npm run build --workspace frontend
+        run: npm run build
 
       - name: Typecheck canonical frontend
         run: npm run typecheck
