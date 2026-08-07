@@ -153,6 +153,21 @@ jobs:
       - name: Install monorepo dependencies
         run: npm ci
 
+      - name: Install electron-viewer dependencies
+        working-directory: electron-viewer
+        run: npm ci
+
+      - name: Ensure app-builder binary is present
+        shell: pwsh
+        run: |
+          $appBuilder = Join-Path $PWD 'node_modules\app-builder-bin\win\x64\app-builder.exe'
+          if (-not (Test-Path $appBuilder)) {
+            npm install --no-save app-builder-bin@5.0.0-alpha.10
+          }
+          if (-not (Test-Path $appBuilder)) {
+            throw "app-builder.exe no disponible en $appBuilder"
+          }
+
       - name: Build canonical frontend
         run: npm run build
 
@@ -272,6 +287,21 @@ jobs:
 
       - name: Install monorepo dependencies
         run: npm ci
+
+      - name: Install electron-viewer dependencies
+        working-directory: electron-viewer
+        run: npm ci
+
+      - name: Ensure app-builder binary is present
+        shell: pwsh
+        run: |
+          $appBuilder = Join-Path $PWD 'node_modules\app-builder-bin\win\x64\app-builder.exe'
+          if (-not (Test-Path $appBuilder)) {
+            npm install --no-save app-builder-bin@5.0.0-alpha.10
+          }
+          if (-not (Test-Path $appBuilder)) {
+            throw "app-builder.exe no disponible en $appBuilder"
+          }
 
       - name: Build canonical frontend
         run: npm run build
