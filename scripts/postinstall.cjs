@@ -11,7 +11,7 @@ if (!fs.existsSync(localBin)) {
 }
 
 const result = process.platform === 'win32'
-  ? spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', localBin], {
+  ? spawnSync('cmd.exe', ['/d', '/s', '/c', localBin], {
       stdio: 'inherit',
       shell: false,
       windowsHide: true,
