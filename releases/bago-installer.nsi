@@ -6,9 +6,15 @@
 ; electron-builder para obtener un BAGO.exe nativo.
 
 !define APP_NAME "BAGO"
+!ifndef APP_VERSION
 !define APP_VERSION "4.8.2"
+!endif
+!ifndef APP_GIT_REF
 !define APP_GIT_REF "v4.8.2"
+!endif
+!ifndef APP_GIT_SHA
 !define APP_GIT_SHA "6ed4e9daf7201e90dcb429ad8654a71ed1766db3"
+!endif
 !define APP_PUBLISHER "MarcValls"
 !define APP_REPO "https://github.com/MarcValls/BAGO.git"
 !define APP_URL "https://github.com/MarcValls/BAGO"
