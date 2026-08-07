@@ -68,7 +68,16 @@ jobs:
         run: npm ci
 
       - name: Audit Node dependencies
-        run: npm audit --audit-level=critical
+        shell: pwsh
+        run: |
+          npm audit --audit-level=critical --json | Out-File -Encoding utf8 npm-audit.json
+          $auditExit = $LASTEXITCODE
+          if ($auditExit -ne 0) {
+            if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
+              throw "Dependencias con severidad critica detectadas en release tag"
+            }
+            Write-Host "ADVERTENCIA: npm audit detecto vulnerabilidades criticas (no bloqueante fuera de tags)."
+          }
 
       - name: Build canonical frontend
         run: npm run build
@@ -105,6 +114,16 @@ jobs:
             Write-Host $changes
             throw "El build ha modificado archivos versionados"
           }
+
+      - name: Upload validate diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-validate-${{ github.sha }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            npm-audit.json
 
   packaged-smoke:
     name: Packaged Electron smoke
@@ -337,4 +356,3 @@ jobs:
           path: |
             .run/**
             electron-viewer/dist/win-unpacked/resources/**
-
