@@ -6,7 +6,7 @@ Tag: v4.8.2
 Branch: main
 
 ARTIFACTS:
-  - bago-4.8.2-setup.exe (79,709 B)
+  - bago-4.8.2-setup.exe (79,673 B)
   - bago-4.8.2-backend.zip (214,569,936 B)
   - bago-4.8.2-frontend.zip (178,546 B)
   - bago-4.8.2-electron-viewer.zip (13,097 B)
