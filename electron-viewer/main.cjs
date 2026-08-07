@@ -301,7 +301,7 @@ app.whenReady().then(async () => {
   // Arrancar y validar backend antes de abrir la ventana empaquetada.
   if (app.isPackaged) {
     try { fs.mkdirSync(runtime.runDir, { recursive: true }); } catch {}
-    const started = runDevPs1('start');
+    const started = runDevPs1('backend');
     if (!started) {
       dialog.showErrorBox('BAGO: error de arranque', 'No se pudo iniciar el backend (dev.ps1 start).');
       app.exit(1);
