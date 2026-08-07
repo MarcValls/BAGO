@@ -84,7 +84,7 @@ jobs:
           exit 0
 
       - name: Build canonical frontend
-        run: npm run build
+        run: npm run build --workspace frontend
 
       - name: Typecheck canonical frontend
         run: npm run typecheck
@@ -169,7 +169,7 @@ jobs:
           }
 
       - name: Build canonical frontend
-        run: npm run build
+        run: npm run build --workspace frontend
 
       - name: Build packaged Electron app
         working-directory: electron-viewer
@@ -304,7 +304,7 @@ jobs:
           }
 
       - name: Build canonical frontend
-        run: npm run build
+        run: npm run build --workspace frontend
 
       - name: Build packaged Electron app
         working-directory: electron-viewer
