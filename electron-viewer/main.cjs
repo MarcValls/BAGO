@@ -11,28 +11,100 @@ const { spawnSync, execSync } = require('child_process');
 const http = require('http');
 
 // ── Resolver raíz del repo ────────────────────────────────────────────────────
-function resolveRepoRoot() {
+function hasDevScript(rootPath) {
+  return !!rootPath && fs.existsSync(path.join(rootPath, 'scripts', 'dev.ps1'));
+}
+
+function resolveRuntimePaths() {
   if (!app.isPackaged) {
-    // Modo dev: electron-viewer/../
-    return path.resolve(__dirname, '..');
+    const repoRoot = path.resolve(__dirname, '..');
+    return {
+      repoRoot,
+      devPs1: path.join(repoRoot, 'scripts', 'dev.ps1'),
+      runDir: path.join(repoRoot, '.run'),
+      source: 'dev',
+    };
   }
-  // Modo empaquetado: leer registro HKCU\Software\BAGO\InstallPath
+
+  const explicitInstallRoot = (process.env.BAGO_INSTALL_ROOT || '').trim();
+  if (hasDevScript(explicitInstallRoot)) {
+    return {
+      repoRoot: explicitInstallRoot,
+      devPs1: path.join(explicitInstallRoot, 'scripts', 'dev.ps1'),
+      runDir: path.join(explicitInstallRoot, '.run'),
+      source: 'env',
+    };
+  }
+
   try {
     const out = execSync(
       'reg query HKCU\\Software\\BAGO /v InstallPath',
       { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
     );
     const m = out.match(/InstallPath\s+REG_SZ\s+(.+)/);
-    if (m) return m[1].trim();
-  } catch { /* registry key not found */ }
-  // Fallback: cuatro niveles arriba del .exe (win-unpacked/BAGO.exe)
-  return path.resolve(path.dirname(process.execPath), '..', '..', '..', '..');
+    const installRoot = m ? m[1].trim() : '';
+    if (hasDevScript(installRoot)) {
+      return {
+        repoRoot: installRoot,
+        devPs1: path.join(installRoot, 'scripts', 'dev.ps1'),
+        runDir: path.join(installRoot, '.run'),
+        source: 'registry',
+      };
+    }
+  } catch {
+    // registry key not found
+  }
+
+  const packagedDevPs1 = path.join(process.resourcesPath, 'scripts', 'dev.ps1');
+  if (fs.existsSync(packagedDevPs1)) {
+    return {
+      repoRoot: process.resourcesPath,
+      devPs1: packagedDevPs1,
+      runDir: path.join(app.getPath('userData'), '.run'),
+      source: 'resources',
+    };
+  }
+
+  const fallbackDevRoot = path.resolve(__dirname, '..');
+  if (hasDevScript(fallbackDevRoot)) {
+    return {
+      repoRoot: fallbackDevRoot,
+      devPs1: path.join(fallbackDevRoot, 'scripts', 'dev.ps1'),
+      runDir: path.join(fallbackDevRoot, '.run'),
+      source: 'fallback-dev',
+    };
+  }
+
+  return null;
 }
 
-const REPO_ROOT = resolveRepoRoot();
-const DEV_PS1   = path.join(REPO_ROOT, 'scripts', 'dev.ps1');
-const RUN_DIR   = path.join(REPO_ROOT, '.run');
-const REQUEST_LOG = path.join(RUN_DIR, 'electron-requests.log');
+let RUNTIME_PATHS = null;
+
+function getRuntimePaths() {
+  if (!RUNTIME_PATHS) {
+    RUNTIME_PATHS = resolveRuntimePaths();
+  }
+  return RUNTIME_PATHS;
+}
+
+function getRepoRoot() {
+  const runtime = getRuntimePaths();
+  return runtime ? runtime.repoRoot : '';
+}
+
+function getDevPs1Path() {
+  const runtime = getRuntimePaths();
+  return runtime ? runtime.devPs1 : '';
+}
+
+function getRunDir() {
+  const runtime = getRuntimePaths();
+  return runtime ? runtime.runDir : path.join(app.getPath('userData'), '.run');
+}
+
+function getRequestLogPath() {
+  return path.join(getRunDir(), 'electron-requests.log');
+}
 
 const UI_URL = 'http://127.0.0.1:8080/';
 const HEALTH_URL = 'http://127.0.0.1:8080/health';
@@ -48,16 +120,19 @@ function requestPath(rawUrl) {
 }
 
 function appendRequestLog(line) {
-  fs.appendFile(REQUEST_LOG, `${line}\n`, () => {});
+  fs.appendFile(getRequestLogPath(), `${line}\n`, () => {});
 }
 
 function runDevPs1(cmd) {
   if (process.platform !== 'win32') return true;
+  const devPs1Path = getDevPs1Path();
+  const repoRoot = getRepoRoot();
+  if (!devPs1Path || !repoRoot) return false;
   try {
     const result = spawnSync('powershell.exe', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', DEV_PS1, cmd
-    ], { cwd: REPO_ROOT, stdio: 'ignore', timeout: 30000 });
+      '-File', devPs1Path, cmd
+    ], { cwd: repoRoot, stdio: 'ignore', timeout: 30000 });
     return result.status === 0;
   } catch {
     return false;
@@ -213,9 +288,19 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  const runtime = getRuntimePaths();
+  if (!runtime) {
+    dialog.showErrorBox(
+      'BAGO: runtime no resuelto',
+      'No se pudo resolver la raiz de ejecucion. Configure BAGO_INSTALL_ROOT o HKCU\\Software\\BAGO\\InstallPath.'
+    );
+    app.exit(1);
+    return;
+  }
+
   // Arrancar y validar backend antes de abrir la ventana empaquetada.
   if (app.isPackaged) {
-    try { fs.mkdirSync(RUN_DIR, { recursive: true }); } catch {}
+    try { fs.mkdirSync(runtime.runDir, { recursive: true }); } catch {}
     const started = runDevPs1('start');
     if (!started) {
       dialog.showErrorBox('BAGO: error de arranque', 'No se pudo iniciar el backend (dev.ps1 start).');

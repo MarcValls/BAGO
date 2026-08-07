@@ -6,8 +6,15 @@
 ; electron-builder para obtener un BAGO.exe nativo.
 
 !define APP_NAME "BAGO"
+!ifndef APP_VERSION
 !define APP_VERSION "4.8.2"
+!endif
+!ifndef APP_GIT_REF
 !define APP_GIT_REF "v4.8.2"
+!endif
+!ifndef APP_GIT_SHA
+!define APP_GIT_SHA "6ed4e9daf7201e90dcb429ad8654a71ed1766db3"
+!endif
 !define APP_PUBLISHER "MarcValls"
 !define APP_REPO "https://github.com/MarcValls/BAGO.git"
 !define APP_URL "https://github.com/MarcValls/BAGO"
@@ -105,6 +112,11 @@ Section "BAGO Core" SecCore
       IntCmp $0 0 clone_checkout_ok 0 0
         !insertmacro AbortWithMessage "Fallo al fijar la ref inmutable ${APP_GIT_REF}."
       clone_checkout_ok:
+      nsExec::ExecToLog 'git -C "$INSTDIR" checkout --force "${APP_GIT_SHA}"'
+      Pop $0
+      IntCmp $0 0 clone_sha_ok 0 0
+        !insertmacro AbortWithMessage "La release no coincide con el commit esperado ${APP_GIT_SHA}."
+      clone_sha_ok:
     clone_ok:
     Goto deps
 
@@ -125,6 +137,11 @@ Section "BAGO Core" SecCore
     IntCmp $0 0 update_ok 0 0
       !insertmacro AbortWithMessage "Fallo al fijar el estado exacto de ${APP_GIT_REF}."
     update_ok:
+    nsExec::ExecToLog 'git -C "$INSTDIR" checkout --force "${APP_GIT_SHA}"'
+    Pop $0
+    IntCmp $0 0 update_sha_ok 0 0
+      !insertmacro AbortWithMessage "La release no coincide con el commit esperado ${APP_GIT_SHA}."
+    update_sha_ok:
     Goto deps
 
   ; ---- 3. Instalar dependencias Node.js (incluye Electron) ----------------
