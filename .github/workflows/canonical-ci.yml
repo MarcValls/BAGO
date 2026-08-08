@@ -327,7 +327,7 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag.TrimStart('v')
-          $setup = Join-Path $PWD "bago-$version-setup.exe"
+          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
           if (-not (Test-Path $setup)) { throw "No existe $setup" }
 
           $installProc = Start-Process -FilePath $setup -ArgumentList '/S' -PassThru -Wait
