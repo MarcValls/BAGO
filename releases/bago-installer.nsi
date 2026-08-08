@@ -44,12 +44,12 @@ Section "BAGO Core" SecCore
   CreateDirectory "${INSTALL_DIR}"
 
   DetailPrint "Extrayendo payload offline..."
-  SetOutPath "$TEMP"
+  SetOutPath "$PLUGINSDIR"
   File /oname=bago-4.8.2-distribution.zip "${DISTRIBUTION_ZIP_FILE}"
   File /oname=install-embedded-payload.ps1 "install-embedded-payload.ps1"
 
   DetailPrint "Instalando BAGO 4.8.2 desde payload embebido..."
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$TEMP\install-embedded-payload.ps1" -RepoRoot "${INSTALL_DIR}" -ZipPath "$TEMP\bago-4.8.2-distribution.zip"' $0
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -ZipPath "$PLUGINSDIR\bago-4.8.2-distribution.zip"' $0
 
   ${If} $0 != 0
     MessageBox MB_ICONSTOP|MB_OK "Instalación fallida (código $0)."
