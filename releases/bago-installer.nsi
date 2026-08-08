@@ -20,7 +20,7 @@ ShowInstDetails show
 
 !include "MUI2.nsh"
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\releases\bago.ico"
+!define MUI_ICON "bago.ico"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -46,35 +46,35 @@ Section "BAGO Core" SecCore
   ${EndIf}
   
   DetailPrint "Verificando..."
-  ${IfNot} ${FileExists} "$INSTALL_DIR\electron-viewer\dist\win-unpacked\BAGO.exe"
+  ${IfNot} ${FileExists} "${INSTALL_DIR}\electron-viewer\dist\win-unpacked\BAGO.exe"
     MessageBox MB_ICONSTOP|MB_OK "Error: BAGO.exe no se encontró."
     Abort
   ${EndIf}
   
   DetailPrint "Finalizando..."
-  SetOutPath "$INSTALL_DIR\electron-viewer"
-  File /oname=bago.ico "..\releases\bago.ico"
+  SetOutPath "${INSTALL_DIR}\electron-viewer"
+  File /oname=bago.ico "bago.ico"
   
-  WriteRegStr HKCU "Software\BAGO" "InstallPath" "$INSTALL_DIR"
+  WriteRegStr HKCU "Software\BAGO" "InstallPath" "${INSTALL_DIR}"
   WriteRegStr HKCU "Software\BAGO" "Version" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_REG}" "DisplayName" "${APP_NAME} ${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_REG}" "UninstallString" '"$INSTALL_DIR\uninstall.exe"'
+  WriteRegStr HKCU "${UNINSTALL_REG}" "UninstallString" '"${INSTALL_DIR}\uninstall.exe"'
   WriteRegStr HKCU "${UNINSTALL_REG}" "Publisher" "${APP_PUBLISHER}"
   WriteRegStr HKCU "${UNINSTALL_REG}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_REG}" "URLInfoAbout" "${APP_URL}"
   WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoRepair" 1
-  WriteUninstaller "$INSTALL_DIR\uninstall.exe"
+  WriteUninstaller "${INSTALL_DIR}\uninstall.exe"
   
   CreateDirectory "$SMPROGRAMS\BAGO"
-  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "$INSTALL_DIR\electron-viewer\dist\win-unpacked\BAGO.exe" "" "$INSTALL_DIR\electron-viewer\bago.ico" 0
-  CreateShortcut "$DESKTOP\BAGO.lnk" "$INSTALL_DIR\electron-viewer\dist\win-unpacked\BAGO.exe" "" "$INSTALL_DIR\electron-viewer\bago.ico" 0
-  CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "$INSTALL_DIR\uninstall.exe"
+  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "${INSTALL_DIR}\electron-viewer\dist\win-unpacked\BAGO.exe" "" "${INSTALL_DIR}\electron-viewer\bago.ico" 0
+  CreateShortcut "$DESKTOP\BAGO.lnk" "${INSTALL_DIR}\electron-viewer\dist\win-unpacked\BAGO.exe" "" "${INSTALL_DIR}\electron-viewer\bago.ico" 0
+  CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "${INSTALL_DIR}\uninstall.exe"
 
 SectionEnd
 
 Section "Uninstall"
-  RMDir /r "$INSTALL_DIR"
+  RMDir /r "${INSTALL_DIR}"
   DeleteRegKey HKCU "Software\BAGO"
   DeleteRegKey HKCU "${UNINSTALL_REG}"
   Delete "$SMPROGRAMS\BAGO\*.*"
