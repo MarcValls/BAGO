@@ -38,33 +38,34 @@ ShowInstDetails show
 
 Section "BAGO Core" SecCore
   SectionIn RO
-  
+
   DetailPrint "Preparando directorio de instalación..."
   RMDir /r "${INSTALL_DIR}"
   CreateDirectory "${INSTALL_DIR}"
-  
+
   DetailPrint "Extrayendo payload offline..."
   SetOutPath "$TEMP"
   File /oname=bago-4.8.2-distribution.zip "${DISTRIBUTION_ZIP_FILE}"
+  File /oname=install-embedded-payload.ps1 "install-embedded-payload.ps1"
 
   DetailPrint "Instalando BAGO 4.8.2 desde payload embebido..."
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {$$ErrorActionPreference=''Stop''; $$repoRoot=''${INSTALL_DIR}''; $$tempZip=Join-Path $$env:TEMP ''bago-4.8.2-distribution.zip''; $$tempExtract=Join-Path $$env:TEMP ''bago-dist-tmp''; try { if (Test-Path $$tempExtract) { Remove-Item $$tempExtract -Recurse -Force -ErrorAction SilentlyContinue }; Write-Host ''Extrayendo...''; Expand-Archive -LiteralPath $$tempZip -DestinationPath $$tempExtract -Force; $$sourceRoot=Join-Path $$tempExtract ''compiled''; if (-not (Test-Path $$sourceRoot)) { $$sourceRoot=$$tempExtract }; Write-Host ''Instalando payload...''; Copy-Item -Path (Join-Path $$sourceRoot ''backend'') -Destination (Join-Path $$repoRoot ''backend'') -Recurse -Force; Copy-Item -Path (Join-Path $$sourceRoot ''electron-viewer'') -Destination (Join-Path $$repoRoot ''electron-viewer'') -Recurse -Force; if (-not (Test-Path (Join-Path $$repoRoot ''electron-viewer\BAGO.exe''))) { throw ''No se encontró BAGO.exe tras instalar el payload'' }; Write-Host ''Limpiando temporales...''; Remove-Item $$tempZip -Force -ErrorAction SilentlyContinue; Remove-Item $$tempExtract -Recurse -Force -ErrorAction SilentlyContinue; Write-Host ''OK'' } catch { throw $$_ } }"' $0
-  
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$TEMP\install-embedded-payload.ps1" -RepoRoot "${INSTALL_DIR}" -ZipPath "$TEMP\bago-4.8.2-distribution.zip"' $0
+
   ${If} $0 != 0
     MessageBox MB_ICONSTOP|MB_OK "Instalación fallida (código $0)."
     Abort
   ${EndIf}
-  
+
   DetailPrint "Verificando instalación..."
   ${IfNot} ${FileExists} "${INSTALL_DIR}\electron-viewer\BAGO.exe"
-    MessageBox MB_ICONSTOP|MB_OK "Error: BAGO.exe no se encontró tras descargar."
+    MessageBox MB_ICONSTOP|MB_OK "Error: BAGO.exe no se encontró tras instalar."
     Abort
   ${EndIf}
-  
+
   DetailPrint "Creando accesos directos..."
   SetOutPath "${INSTALL_DIR}\electron-viewer"
   File /oname=bago.ico "bago.ico"
-  
+
   DetailPrint "Registrando aplicación..."
   WriteRegStr HKCU "Software\BAGO" "InstallPath" "${INSTALL_DIR}"
   WriteRegStr HKCU "Software\BAGO" "Version" "${APP_VERSION}"
@@ -78,14 +79,13 @@ Section "BAGO Core" SecCore
   WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoRepair" 1
   WriteUninstaller "${INSTALL_DIR}\uninstall.exe"
-  
+
   CreateDirectory "$SMPROGRAMS\BAGO"
   CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "${INSTALL_DIR}\electron-viewer\BAGO.exe" "" "${INSTALL_DIR}\electron-viewer\bago.ico" 0
   CreateShortcut "$DESKTOP\BAGO.lnk" "${INSTALL_DIR}\electron-viewer\BAGO.exe" "" "${INSTALL_DIR}\electron-viewer\bago.ico" 0
   CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "${INSTALL_DIR}\uninstall.exe"
-  
-  DetailPrint "¡Instalación completada!"
 
+  DetailPrint "¡Instalación completada!"
 SectionEnd
 
 Section "Uninstall"

@@ -6,7 +6,7 @@
 
 ## Artifacts
 
-1. `bago-4.8.2-setup.exe` (79,673 bytes)  
+1. `bago-4.8.2-setup.exe` (362,245,017 bytes)  
 2. `bago-4.8.2-backend.zip` (214,569,936 bytes)  
 3. `bago-4.8.2-frontend.zip` (178,546 bytes)  
 4. `bago-4.8.2-electron-viewer.zip` (13,097 bytes)  
@@ -15,6 +15,7 @@
 ## Distribution guarantees in 4.8.2
 
 - NSIS is fail-closed: every critical command aborts on non-zero exit.
+- `bago-4.8.2-setup.exe` is offline-first: embeds `bago-4.8.2-distribution.zip` as payload.
 - Installer source is pinned to immutable tag+commit (`APP_GIT_REF` + `APP_GIT_SHA`).
 - Final gate verifies `BAGO.exe` exists before writing registry/shortcuts.
 - Electron app startup validates backend readiness (`/health`) before opening UI.
