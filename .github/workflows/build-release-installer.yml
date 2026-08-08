@@ -1,0 +1,66 @@
+name: Build Release Installer Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag used for URLs and metadata (e.g., v4.8.2)
+        required: true
+        default: v4.8.2
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer:
+    name: Build NSIS installer artifact
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure NSIS is available
+        shell: pwsh
+        run: |
+          $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
+          if (-not (Test-Path $mk)) {
+            choco install nsis -y --no-progress
+          }
+          if (-not (Test-Path $mk)) {
+            throw "makensis.exe no disponible"
+          }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          & 'C:\Program Files (x86)\NSIS\makensis.exe' `
+            "/DAPP_GIT_REF=$tag" `
+            "/DAPP_GIT_SHA=${{ github.sha }}" `
+            "/DAPP_VERSION=$version" `
+            'releases\bago-installer.nsi'
+          if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
+          Move-Item -Path "bago-$version-setup.exe" -Destination "releases\" -Force
+
+      - name: Hash installer
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
+          if (-not (Test-Path $setup)) { throw "No existe $setup" }
+          $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
+          Set-Content -Path (Join-Path $PWD "releases/bago-$version-setup.exe.sha256") -Value $hash
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-setup-${{ inputs.release_tag }}
+          path: |
+            releases/bago-*-setup.exe
+            releases/bago-*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
