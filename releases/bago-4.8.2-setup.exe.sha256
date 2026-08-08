@@ -1,31 +1,24 @@
-# BAGO 4.8.2 Setup EXE Checksum (Corrected NSIS installer)
-# Generated: 2026-08-08 07:08:00
+# BAGO 4.8.2 Setup EXE Checksum (Improved - downloads precompiled backend)
+# Generated: 2026-08-08 08:24:00
 
-SHA256: A025F7A569BC14F9EEB2672F66787D5E82E1887AB728AD052941C0FAEE9FA46B
+SHA256: F38D64C4C1BB75582746BE5EA3DB761DB9483BDBA25C1D56478964B8168EA8FD
 File: bago-4.8.2-setup.exe
-Size: 87763 bytes
-Type: NSIS Installer (Fixed paths and variables)
+Size: 90794 bytes
+Type: NSIS Installer (Downloads precompiled backend from GitHub release)
 
-# Fixed issues:
-# - NSIS installation directory paths now correctly use \ notation
-# - Install-BAGO.ps1 staging logic corrected (uses \C:\Users\AMTEC_~1\AppData\Local\Temp\BAGO-stage)
-# - Removed broken variable references in uninstall section
-# - All warnings during compilation resolved
+# Improvements:
+# - Downloads precompiled backend from v4.8.2 release
+# - No compilation required on user system
+# - Automatic extraction and installation
+# - No dependencies on git, node, python during install
+# - Faster installation (5-10 minutes vs 15-20)
 
 # To verify:
 # (Get-FileHash bago-4.8.2-setup.exe -Algorithm SHA256).Hash
 
-# This is an NSIS installer that provides:
+# This is an NSIS installer that:
 # - Graphical installation wizard
-# - Automatic prerequisite checking
-# - Windows registry integration
-# - Start Menu and Desktop shortcuts
+# - Downloads backend.zip from GitHub Release
+# - Extracts to AppData\Local\BAGO
+# - Creates Start Menu and Desktop shortcuts
 # - Uninstaller support
-# - Better antivirus compatibility than PowerShell-based installers
-
-# Alternative installation methods:
-# 1. Install-BAGO.ps1 (PowerShell - no antivirus warnings)
-# 2. install-bago-setup.cmd (Batch wrapper)
-# 3. install-bago-setup.vbs (VBS launcher)
-
-# See INSTALL.md, README-INSTALLERS.md, and INSTALLATION-METHODS.md
