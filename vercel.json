@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "github": {
+    "enabled": false,
+    "silent": true
+  },
   "framework": "vite",
   "installCommand": "npm ci --ignore-scripts",
   "buildCommand": "npm run build --workspace frontend",
