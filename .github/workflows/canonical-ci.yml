@@ -321,6 +321,7 @@ jobs:
             "/DAPP_VERSION=$version" `
             'releases\bago-installer.nsi'
           if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS tag-locked" }
+          Move-Item -Path "bago-$version-setup.exe" -Destination "releases\" -Force
 
       - name: Run installer and verify lifecycle
         shell: pwsh
