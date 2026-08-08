@@ -1,26 +1,31 @@
-# BAGO 4.8.2 Setup EXE Checksum
-# Generated: 2026-08-08 00:02:25
+# BAGO 4.8.2 Setup EXE Checksum (Corrected NSIS installer)
+# Generated: 2026-08-08 07:08:00
 
-SHA256: 155536968B60261C5B23487BDBDC40CE7E5605E008D6117DCF07E2145776B93F
+SHA256: A025F7A569BC14F9EEB2672F66787D5E82E1887AB728AD052941C0FAEE9FA46B
 File: bago-4.8.2-setup.exe
-Size: 87672 bytes
-Type: NSIS Installer
+Size: 87763 bytes
+Type: NSIS Installer (Fixed paths and variables)
+
+# Fixed issues:
+# - NSIS installation directory paths now correctly use \ notation
+# - Install-BAGO.ps1 staging logic corrected (uses \C:\Users\AMTEC_~1\AppData\Local\Temp\BAGO-stage)
+# - Removed broken variable references in uninstall section
+# - All warnings during compilation resolved
 
 # To verify:
 # (Get-FileHash bago-4.8.2-setup.exe -Algorithm SHA256).Hash
-#
+
 # This is an NSIS installer that provides:
 # - Graphical installation wizard
 # - Automatic prerequisite checking
 # - Windows registry integration
 # - Start Menu and Desktop shortcuts
 # - Uninstaller support
-#
-# Better antivirus compatibility than PowerShell-based installers
-#
+# - Better antivirus compatibility than PowerShell-based installers
+
 # Alternative installation methods:
 # 1. Install-BAGO.ps1 (PowerShell - no antivirus warnings)
 # 2. install-bago-setup.cmd (Batch wrapper)
 # 3. install-bago-setup.vbs (VBS launcher)
-#
+
 # See INSTALL.md, README-INSTALLERS.md, and INSTALLATION-METHODS.md

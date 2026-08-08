@@ -100,7 +100,7 @@ Write-Host ""
 Write-Host "Installing backend..." -ForegroundColor Cyan
 Push-Location $InstallDir
 try {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File backend\install-v4.ps1 -Mode Express -SkipTests -ErrorAction Stop | Select-Object -Last 5
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $InstallDir "backend\install-v4.ps1") -Mode Express -SkipTests -ErrorAction Stop | Select-Object -Last 5
     Write-Host "  ✓ Backend installed" -ForegroundColor Green
 } finally {
     Pop-Location
@@ -142,7 +142,7 @@ if (Test-Path $exePath) {
 # Create shortcuts
 Write-Host ""
 Write-Host "Creating shortcuts..." -ForegroundColor Cyan
-$shortcutDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\BAGO"
+$shortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\BAGO"
 New-Item -ItemType Directory -Path $shortcutDir -Force | Out-Null
 
 $shell = New-Object -COM WScript.Shell
