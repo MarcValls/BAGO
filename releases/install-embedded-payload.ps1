@@ -8,6 +8,36 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Assert-SafeInstallRoot {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+    $root = [System.IO.Path]::GetPathRoot($full).TrimEnd('\')
+    if ($full -eq $root) {
+        throw "Ruta de instalación insegura: no se permite usar la raíz del disco ($full)."
+    }
+
+    $leaf = [System.IO.Path]::GetFileName($full)
+    if ($leaf -ne "BAGO") {
+        throw "Ruta de instalación insegura: debe terminar en 'BAGO'. Ruta recibida: $full"
+    }
+}
+
+function Test-IsSameOrChildPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$BasePath,
+        [Parameter(Mandatory = $true)][string]$CandidatePath
+    )
+
+    $baseNorm = [System.IO.Path]::GetFullPath($BasePath).TrimEnd('\')
+    $candNorm = [System.IO.Path]::GetFullPath($CandidatePath).TrimEnd('\')
+    if ($candNorm.Equals($baseNorm, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+    $prefix = $baseNorm + [System.IO.Path]::DirectorySeparatorChar
+    return $candNorm.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Stop-BagoProcessesForPath {
     param([Parameter(Mandatory = $true)][string]$TargetRoot)
 
@@ -16,7 +46,7 @@ function Stop-BagoProcessesForPath {
     foreach ($proc in $procs) {
         $exePath = $proc.ExecutablePath
         if (-not $exePath) { continue }
-        if ($exePath.StartsWith($normalized, [System.StringComparison]::OrdinalIgnoreCase)) {
+        if (Test-IsSameOrChildPath -BasePath $normalized -CandidatePath $exePath) {
             Write-Host "Cerrando proceso BAGO en uso: PID $($proc.ProcessId)"
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
         }
@@ -80,6 +110,7 @@ if (-not (Test-Path -LiteralPath $ZipPath)) {
     throw "No existe el ZIP embebido: $ZipPath"
 }
 
+Assert-SafeInstallRoot -Path $RepoRoot
 Stop-BagoProcessesForPath -TargetRoot $RepoRoot
 if (Test-Path -LiteralPath $RepoRoot) {
     Write-Host "Eliminando instalación previa..."
