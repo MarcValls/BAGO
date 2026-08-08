@@ -180,11 +180,22 @@ jobs:
         run: |
           $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
           if (-not (Test-Path $mk)) {
-            choco install nsis -y --no-progress
+            try {
+              choco install nsis -y --no-progress
+            } catch {
+              Write-Host "Chocolatey NSIS failed, using portable fallback..."
+            }
           }
           if (-not (Test-Path $mk)) {
-            throw "makensis.exe no disponible"
+            $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
+            New-Item -ItemType Directory -Path $tools -Force | Out-Null
+            $zip = Join-Path $tools 'nsis.zip'
+            Invoke-WebRequest -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $tools -Force
+            $mk = Join-Path $tools 'nsis-3.10\makensis.exe'
           }
+          if (-not (Test-Path $mk)) { throw "makensis.exe no disponible" }
+          "NSIS_MAKENSIS=$mk" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Download embedded distribution payload
         shell: pwsh
@@ -201,7 +212,7 @@ jobs:
       - name: Build NSIS installer
         shell: pwsh
         run: |
-          & 'C:\Program Files (x86)\NSIS\makensis.exe' 'releases\bago-installer.nsi'
+          & $env:NSIS_MAKENSIS 'releases\bago-installer.nsi'
           if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
 
       - name: Smoke packaged BAGO.exe lifecycle
@@ -316,11 +327,22 @@ jobs:
         run: |
           $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
           if (-not (Test-Path $mk)) {
-            choco install nsis -y --no-progress
+            try {
+              choco install nsis -y --no-progress
+            } catch {
+              Write-Host "Chocolatey NSIS failed, using portable fallback..."
+            }
           }
           if (-not (Test-Path $mk)) {
-            throw "makensis.exe no disponible"
+            $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
+            New-Item -ItemType Directory -Path $tools -Force | Out-Null
+            $zip = Join-Path $tools 'nsis.zip'
+            Invoke-WebRequest -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $tools -Force
+            $mk = Join-Path $tools 'nsis-3.10\makensis.exe'
           }
+          if (-not (Test-Path $mk)) { throw "makensis.exe no disponible" }
+          "NSIS_MAKENSIS=$mk" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Download embedded distribution payload
         shell: pwsh
@@ -339,7 +361,7 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag.TrimStart('v')
-          & 'C:\Program Files (x86)\NSIS\makensis.exe' `
+          & $env:NSIS_MAKENSIS `
             "/DAPP_GIT_REF=$tag" `
             "/DAPP_GIT_SHA=${{ github.sha }}" `
             "/DAPP_VERSION=$version" `
