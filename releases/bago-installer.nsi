@@ -1,5 +1,5 @@
 ; BAGO 4.8.2 Windows Installer - NSIS 3.x
-; Descargar paquete precompilado desde GitHub Release
+; Instalador offline con payload embebido (distribution.zip)
 
 !define APP_NAME "BAGO"
 !ifndef APP_VERSION
@@ -15,7 +15,7 @@
 !define APP_URL "https://github.com/MarcValls/BAGO"
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
 !define INSTALL_DIR "$LOCALAPPDATA\BAGO"
-!define DISTRIBUTION_ZIP_URL "https://github.com/MarcValls/BAGO/releases/download/v4.8.2/bago-4.8.2-distribution.zip"
+!define DISTRIBUTION_ZIP_FILE "bago-4.8.2-distribution.zip"
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "bago-4.8.2-setup.exe"
@@ -43,11 +43,15 @@ Section "BAGO Core" SecCore
   RMDir /r "${INSTALL_DIR}"
   CreateDirectory "${INSTALL_DIR}"
   
-  DetailPrint "Descargando e instalando BAGO 4.8.2 (2-5 minutos)..."
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {$$ErrorActionPreference=''Stop''; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $$repoRoot=''${INSTALL_DIR}''; $$zipUrl=''${DISTRIBUTION_ZIP_URL}''; $$tempZip=Join-Path $$env:TEMP ''bago-4.8.2-distribution.zip''; $$tempExtract=Join-Path $$env:TEMP ''bago-dist-tmp''; try { if (Test-Path $$tempExtract) { Remove-Item $$tempExtract -Recurse -Force -ErrorAction SilentlyContinue }; Write-Host ''Descargando distribution.zip...''; Invoke-WebRequest -Uri $$zipUrl -OutFile $$tempZip -UseBasicParsing; Write-Host ''Extrayendo...''; Expand-Archive -LiteralPath $$tempZip -DestinationPath $$tempExtract -Force; $$sourceRoot=Join-Path $$tempExtract ''compiled''; if (-not (Test-Path $$sourceRoot)) { $$sourceRoot=$$tempExtract }; Write-Host ''Instalando payload...''; Copy-Item -Path (Join-Path $$sourceRoot ''backend'') -Destination (Join-Path $$repoRoot ''backend'') -Recurse -Force; Copy-Item -Path (Join-Path $$sourceRoot ''electron-viewer'') -Destination (Join-Path $$repoRoot ''electron-viewer'') -Recurse -Force; if (-not (Test-Path (Join-Path $$repoRoot ''electron-viewer\BAGO.exe''))) { throw ''No se encontró BAGO.exe tras instalar el payload'' }; Write-Host ''Limpiando temporales...''; Remove-Item $$tempZip -Force -ErrorAction SilentlyContinue; Remove-Item $$tempExtract -Recurse -Force -ErrorAction SilentlyContinue; Write-Host ''OK'' } catch { throw $$_ } }"' $0
+  DetailPrint "Extrayendo payload offline..."
+  SetOutPath "$TEMP"
+  File /oname=bago-4.8.2-distribution.zip "${DISTRIBUTION_ZIP_FILE}"
+
+  DetailPrint "Instalando BAGO 4.8.2 desde payload embebido..."
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {$$ErrorActionPreference=''Stop''; $$repoRoot=''${INSTALL_DIR}''; $$tempZip=Join-Path $$env:TEMP ''bago-4.8.2-distribution.zip''; $$tempExtract=Join-Path $$env:TEMP ''bago-dist-tmp''; try { if (Test-Path $$tempExtract) { Remove-Item $$tempExtract -Recurse -Force -ErrorAction SilentlyContinue }; Write-Host ''Extrayendo...''; Expand-Archive -LiteralPath $$tempZip -DestinationPath $$tempExtract -Force; $$sourceRoot=Join-Path $$tempExtract ''compiled''; if (-not (Test-Path $$sourceRoot)) { $$sourceRoot=$$tempExtract }; Write-Host ''Instalando payload...''; Copy-Item -Path (Join-Path $$sourceRoot ''backend'') -Destination (Join-Path $$repoRoot ''backend'') -Recurse -Force; Copy-Item -Path (Join-Path $$sourceRoot ''electron-viewer'') -Destination (Join-Path $$repoRoot ''electron-viewer'') -Recurse -Force; if (-not (Test-Path (Join-Path $$repoRoot ''electron-viewer\BAGO.exe''))) { throw ''No se encontró BAGO.exe tras instalar el payload'' }; Write-Host ''Limpiando temporales...''; Remove-Item $$tempZip -Force -ErrorAction SilentlyContinue; Remove-Item $$tempExtract -Recurse -Force -ErrorAction SilentlyContinue; Write-Host ''OK'' } catch { throw $$_ } }"' $0
   
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "Instalación fallida (código $0).$\n$\nAsegúrate de tener conexión a Internet."
+    MessageBox MB_ICONSTOP|MB_OK "Instalación fallida (código $0)."
     Abort
   ${EndIf}
   
