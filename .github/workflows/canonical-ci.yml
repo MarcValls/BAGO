@@ -310,6 +310,18 @@ jobs:
             throw "makensis.exe no disponible"
           }
 
+      - name: Download embedded distribution payload
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          $url = "https://github.com/MarcValls/BAGO/releases/download/$tag/bago-$version-distribution.zip"
+          $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
+          if (-not (Test-Path $dst)) {
+            throw "No se pudo descargar bago-$version-distribution.zip desde la release $tag"
+          }
+
       - name: Build tag-locked NSIS installer
         shell: pwsh
         run: |
