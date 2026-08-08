@@ -15,6 +15,9 @@ on:
       - 'releases/build-installer.ps1'
       - '.github/workflows/build-installer.yml'
 
+permissions:
+  contents: read
+
 jobs:
   build-nsis:
     runs-on: windows-latest
