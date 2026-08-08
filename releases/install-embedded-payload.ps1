@@ -8,6 +8,41 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Stop-BagoProcessesForPath {
+    param([Parameter(Mandatory = $true)][string]$TargetRoot)
+
+    $normalized = [System.IO.Path]::GetFullPath($TargetRoot).TrimEnd('\')
+    $procs = Get-CimInstance Win32_Process -Filter "Name = 'BAGO.exe'" -ErrorAction SilentlyContinue
+    foreach ($proc in $procs) {
+        $exePath = $proc.ExecutablePath
+        if (-not $exePath) { continue }
+        if ($exePath.StartsWith($normalized, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Host "Cerrando proceso BAGO en uso: PID $($proc.ProcessId)"
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Remove-TreeWithRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [int]$Attempts = 5
+    )
+
+    for ($i = 1; $i -le $Attempts; $i++) {
+        if (-not (Test-Path -LiteralPath $Path)) { return }
+        try {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+            return
+        }
+        catch {
+            if ($i -eq $Attempts) { throw }
+            Start-Sleep -Seconds 1
+        }
+    }
+}
+
 function Resolve-SourceRoot {
     param(
         [Parameter(Mandatory = $true)]
@@ -45,6 +80,11 @@ if (-not (Test-Path -LiteralPath $ZipPath)) {
     throw "No existe el ZIP embebido: $ZipPath"
 }
 
+Stop-BagoProcessesForPath -TargetRoot $RepoRoot
+if (Test-Path -LiteralPath $RepoRoot) {
+    Write-Host "Eliminando instalación previa..."
+    Remove-TreeWithRetry -Path $RepoRoot
+}
 New-Item -ItemType Directory -Path $RepoRoot -Force | Out-Null
 
 $tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) ("bago-dist-tmp-" + [Guid]::NewGuid().ToString("N"))

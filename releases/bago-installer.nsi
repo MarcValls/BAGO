@@ -39,9 +39,7 @@ ShowInstDetails show
 Section "BAGO Core" SecCore
   SectionIn RO
 
-  DetailPrint "Preparando directorio de instalación..."
-  RMDir /r "${INSTALL_DIR}"
-  CreateDirectory "${INSTALL_DIR}"
+  DetailPrint "Preparando instalación..."
 
   DetailPrint "Extrayendo payload offline..."
   SetOutPath "$PLUGINSDIR"
