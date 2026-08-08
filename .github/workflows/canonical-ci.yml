@@ -323,6 +323,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS tag-locked" }
           Move-Item -Path "bago-$version-setup.exe" -Destination "releases\" -Force
 
+      - name: Hash installer artifact
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
+          if (-not (Test-Path $setup)) { throw "No existe $setup" }
+          $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
+          Set-Content -Path (Join-Path $PWD "releases/bago-$version-setup.exe.sha256") -Value $hash
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-setup-${{ github.ref_name }}
+          path: |
+            releases/bago-*-setup.exe
+            releases/bago-*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Run installer and verify lifecycle
         shell: pwsh
         run: |
@@ -339,8 +359,12 @@ jobs:
           $installPath = $reg.InstallPath
           if (-not (Test-Path $installPath)) { throw "InstallPath no existe: $installPath" }
 
-          $exe = Join-Path $installPath 'electron-viewer\dist\win-unpacked\BAGO.exe'
-          if (-not (Test-Path $exe)) { throw "No existe BAGO.exe instalado" }
+          $exeCandidates = @(
+            (Join-Path $installPath 'electron-viewer\BAGO.exe'),
+            (Join-Path $installPath 'electron-viewer\dist\win-unpacked\BAGO.exe')
+          )
+          $exe = $exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) { throw "No existe BAGO.exe instalado" }
           $startMenuLnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\BAGO\BAGO.lnk'
           if (-not (Test-Path $startMenuLnk)) { throw "No existe acceso directo en menú inicio" }
 

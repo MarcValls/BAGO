@@ -12,15 +12,13 @@
 
 ## Installation Files
 
-### Required Files (All Directories)
-All installer methods require these files to be in the same directory:
+### EXE installer requirements
+For end users, `bago-4.8.2-setup.exe` is self-contained from the user perspective:
 
-- `bago-4.8.2-backend.zip` - Backend application code
-- `bago-4.8.2-electron-viewer.zip` - Desktop application (Electron)
-- `bago-4.8.2-frontend.zip` - Frontend assets
-- `bago.ico` - Application icon
+1. Download `bago-4.8.2-setup.exe`
+2. Double-click it
 
-**Note**: These ZIP files are downloaded automatically by the installers if not present.
+No extra ZIPs or `.ps1` files are required from the user.
 
 ## How to Use Each Method
 
@@ -28,10 +26,9 @@ All installer methods require these files to be in the same directory:
 
 ```
 1. Download bago-4.8.2-setup.exe
-2. Place it in a folder with Install-BAGO.ps1 and the ZIP files
-3. Double-click bago-4.8.2-setup.exe
-4. Accept the admin prompt (UAC)
-5. Wait for installation to complete
+2. Double-click bago-4.8.2-setup.exe
+3. Accept the admin prompt (UAC) if requested
+4. Wait for installation to complete
 ```
 
 **Advantages:**

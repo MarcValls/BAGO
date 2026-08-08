@@ -8,7 +8,7 @@
 **File:** `bago-4.8.2-setup.exe`
 - Windows installer with graphical wizard
 - Better antivirus compatibility (NSIS has trusted reputation)
-- Automatic prerequisites validation
+- Single-file experience for end users (no ZIP + PS1 manual steps)
 - Best for most users
 - No SmartScreen warnings
 
@@ -58,10 +58,14 @@ cd electron-viewer && npx electron-builder --dir && cd ..
 
 ## Requirements
 
+### For EXE installer (`bago-4.8.2-setup.exe`)
+- **Windows 7+** or **Windows Server 2008 R2+**
+- Internet connection during installation
+
+### For script/manual methods
 - **Git**: https://git-scm.com
 - **Node.js 20+**: https://nodejs.org
 - **Python 3.11+**: https://python.org
-- **Windows 7+** or **Windows Server 2008 R2+**
 
 ## Installation Directory
 
