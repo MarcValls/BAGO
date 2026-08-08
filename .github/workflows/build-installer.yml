@@ -1,0 +1,116 @@
+name: Build BAGO Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v4.8.2)'
+        required: true
+  push:
+    branches:
+      - main
+      - fix/installer-e2e-path
+    paths:
+      - 'releases/bago-installer-local.nsi'
+      - 'releases/build-installer.ps1'
+      - '.github/workflows/build-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-nsis:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install NSIS
+        run: |
+          choco install nsis -y
+
+      - name: Compile electron-viewer (if needed)
+        working-directory: electron-viewer
+        run: |
+          if (-not (Test-Path "dist/win-unpacked/BAGO.exe")) {
+            Write-Host "Compiling BAGO.exe..."
+            npm install
+            npm run dist
+          } else {
+            Write-Host "BAGO.exe already compiled"
+          }
+        shell: pwsh
+
+      - name: Build installer
+        working-directory: releases
+        run: |
+          Write-Host "Building installer with NSIS..."
+          $makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+          & $makensis /V4 "bago-installer-local.nsi"
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: NSIS compilation failed"
+            exit 1
+          }
+          
+          # Verify
+          if (Test-Path "bago-4.8.2-setup.exe") {
+            $size = [Math]::Round((Get-Item "bago-4.8.2-setup.exe").Length / 1MB, 2)
+            Write-Host "✓ Installer created: bago-4.8.2-setup.exe ($size MB)"
+          } else {
+            Write-Host "ERROR: Installer file not created"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Calculate SHA256
+        working-directory: releases
+        run: |
+          $sha256 = (Get-FileHash -Path "bago-4.8.2-setup.exe" -Algorithm SHA256).Hash
+          Set-Content -Path "bago-4.8.2-setup.exe.sha256" -Value $sha256
+          Write-Host "SHA256: $sha256"
+        shell: pwsh
+
+      - name: Upload installer as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-4.8.2-setup
+          path: |
+            releases/bago-4.8.2-setup.exe
+            releases/bago-4.8.2-setup.exe.sha256
+          retention-days: 30
+
+      - name: Create Release (if triggered manually with version)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          release_name: BAGO ${{ github.event.inputs.version }}
+          body: |
+            BAGO ${{ github.event.inputs.version }} Release
+            
+            ## Installation
+            Download `bago-4.8.2-setup.exe` and run it.
+            
+            ## SHA256
+            See `bago-4.8.2-setup.exe.sha256`
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: releases/bago-4.8.2-setup.exe
+          asset_name: bago-4.8.2-setup.exe
+          asset_content_type: application/x-executable
