@@ -1,9 +1,7 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$RepoRoot,
-    [Parameter(Mandatory = $true)]
-    [string]$ZipPath
+    [string]$RepoRoot = "$env:LOCALAPPDATA\BAGO",
+    [string]$ZipPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -104,6 +102,12 @@ function Resolve-SourceRoot {
     }
 
     throw "No se encontraron carpetas backend y electron-viewer en el payload extraído."
+}
+
+if (-not (Test-Path -LiteralPath $ZipPath)) {
+    if (-not $ZipPath) {
+        $ZipPath = Join-Path $PSScriptRoot "bago-4.8.2-distribution.zip"
+    }
 }
 
 if (-not (Test-Path -LiteralPath $ZipPath)) {
