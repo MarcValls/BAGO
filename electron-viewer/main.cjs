@@ -15,6 +15,26 @@ function hasDevScript(rootPath) {
   return !!rootPath && fs.existsSync(path.join(rootPath, 'scripts', 'dev.ps1'));
 }
 
+function readRegistryInstallPath() {
+  try {
+    return execSync(
+      'powershell.exe -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; (Get-ItemProperty -Path HKCU:\\Software\\BAGO -Name InstallPath -ErrorAction Stop).InstallPath"',
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+    ).trim();
+  } catch {
+    try {
+      const out = execSync(
+        'reg query HKCU\\Software\\BAGO /v InstallPath',
+        { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+      );
+      const m = out.match(/InstallPath\s+REG_SZ\s+(.+)/);
+      return m ? m[1].trim() : '';
+    } catch {
+      return '';
+    }
+  }
+}
+
 function resolveRuntimePaths() {
   if (!app.isPackaged) {
     const repoRoot = path.resolve(__dirname, '..');
@@ -36,23 +56,14 @@ function resolveRuntimePaths() {
     };
   }
 
-  try {
-    const out = execSync(
-      'reg query HKCU\\Software\\BAGO /v InstallPath',
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
-    );
-    const m = out.match(/InstallPath\s+REG_SZ\s+(.+)/);
-    const installRoot = m ? m[1].trim() : '';
-    if (hasDevScript(installRoot)) {
-      return {
-        repoRoot: installRoot,
-        devPs1: path.join(installRoot, 'scripts', 'dev.ps1'),
-        runDir: path.join(installRoot, '.run'),
-        source: 'registry',
-      };
-    }
-  } catch {
-    // registry key not found
+  const installRoot = readRegistryInstallPath();
+  if (hasDevScript(installRoot)) {
+    return {
+      repoRoot: installRoot,
+      devPs1: path.join(installRoot, 'scripts', 'dev.ps1'),
+      runDir: path.join(installRoot, '.run'),
+      source: 'registry',
+    };
   }
 
   const packagedDevPs1 = path.join(process.resourcesPath, 'scripts', 'dev.ps1');
