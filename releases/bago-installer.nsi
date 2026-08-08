@@ -15,7 +15,12 @@
 !define APP_URL "https://github.com/MarcValls/BAGO"
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
 !define INSTALL_DIR "$LOCALAPPDATA\BAGO"
+!ifndef DISTRIBUTION_ZIP_FILE
 !define DISTRIBUTION_ZIP_FILE "bago-4.8.2-distribution.zip"
+!endif
+!ifndef DEV_PS1_FILE
+!define DEV_PS1_FILE "..\scripts\dev.ps1"
+!endif
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "bago-4.8.2-setup.exe"
@@ -47,47 +52,53 @@ Section "BAGO Core" SecCore
   File /oname=install-embedded-payload.ps1 "install-embedded-payload.ps1"
 
   DetailPrint "Instalando BAGO 4.8.2 desde payload embebido..."
-  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot ''$INSTDIR''' $0
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -ZipPath "$PLUGINSDIR\bago-4.8.2-distribution.zip"' $0
 
   ${If} $0 != 0
+    IfSilent +2
     MessageBox MB_ICONSTOP|MB_OK "Instalación fallida (código $0)."
     Abort
   ${EndIf}
 
   DetailPrint "Verificando instalación..."
-  ${IfNot} ${FileExists} "${INSTALL_DIR}\electron-viewer\BAGO.exe"
+  ${IfNot} ${FileExists} "$INSTDIR\electron-viewer\BAGO.exe"
+    IfSilent +2
     MessageBox MB_ICONSTOP|MB_OK "Error: BAGO.exe no se encontró tras instalar."
     Abort
   ${EndIf}
 
+  DetailPrint "Instalando launcher de backend..."
+  SetOutPath "$INSTDIR\scripts"
+  File /oname=dev.ps1 "${DEV_PS1_FILE}"
+
   DetailPrint "Creando accesos directos..."
-  SetOutPath "${INSTALL_DIR}\electron-viewer"
+  SetOutPath "$INSTDIR\electron-viewer"
   File /oname=bago.ico "bago.ico"
 
   DetailPrint "Registrando aplicación..."
-  WriteRegStr HKCU "Software\BAGO" "InstallPath" "${INSTALL_DIR}"
+  WriteRegStr HKCU "Software\BAGO" "InstallPath" "$INSTDIR"
   WriteRegStr HKCU "Software\BAGO" "Version" "${APP_VERSION}"
   WriteRegStr HKCU "Software\BAGO" "InstallRef" "${APP_GIT_REF}"
   WriteRegStr HKCU "Software\BAGO" "InstallSha" "${APP_GIT_SHA}"
   WriteRegStr HKCU "${UNINSTALL_REG}" "DisplayName" "${APP_NAME} ${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_REG}" "UninstallString" '"${INSTALL_DIR}\uninstall.exe"'
+  WriteRegStr HKCU "${UNINSTALL_REG}" "UninstallString" '"$INSTDIR\uninstall.exe"'
   WriteRegStr HKCU "${UNINSTALL_REG}" "Publisher" "${APP_PUBLISHER}"
   WriteRegStr HKCU "${UNINSTALL_REG}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_REG}" "URLInfoAbout" "${APP_URL}"
   WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_REG}" "NoRepair" 1
-  WriteUninstaller "${INSTALL_DIR}\uninstall.exe"
+  WriteUninstaller "$INSTDIR\uninstall.exe"
 
   CreateDirectory "$SMPROGRAMS\BAGO"
-  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "${INSTALL_DIR}\electron-viewer\BAGO.exe" "" "${INSTALL_DIR}\electron-viewer\bago.ico" 0
-  CreateShortcut "$DESKTOP\BAGO.lnk" "${INSTALL_DIR}\electron-viewer\BAGO.exe" "" "${INSTALL_DIR}\electron-viewer\bago.ico" 0
-  CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "${INSTALL_DIR}\uninstall.exe"
+  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "$INSTDIR\electron-viewer\BAGO.exe" "" "$INSTDIR\electron-viewer\bago.ico" 0
+  CreateShortcut "$DESKTOP\BAGO.lnk" "$INSTDIR\electron-viewer\BAGO.exe" "" "$INSTDIR\electron-viewer\bago.ico" 0
+  CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "$INSTDIR\uninstall.exe"
 
   DetailPrint "¡Instalación completada!"
 SectionEnd
 
 Section "Uninstall"
-  RMDir /r "${INSTALL_DIR}"
+  RMDir /r "$INSTDIR"
   DeleteRegKey HKCU "Software\BAGO"
   DeleteRegKey HKCU "${UNINSTALL_REG}"
   Delete "$SMPROGRAMS\BAGO\*.*"

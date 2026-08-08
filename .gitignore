@@ -11,6 +11,13 @@
 
 # Node
 node_modules/
+
+# Generated release payloads/installers. Build workflows create and publish these.
+electron-viewer/dist/
+releases/compiled/
+releases/bago-*-distribution.zip
+releases/bago-*-setup.exe
+releases/bago-*-setup.exe.sha256
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

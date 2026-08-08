@@ -213,12 +213,29 @@ jobs:
           if (-not (Test-Path $dst)) {
             throw "No se pudo descargar bago-$version-distribution.zip desde la release $tag"
           }
+          $dist = Get-Item -LiteralPath $dst
+          if ($dist.Length -lt 300MB) {
+            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
+          }
 
       - name: Build NSIS installer
         shell: pwsh
         run: |
-          & $env:NSIS_MAKENSIS 'releases\bago-installer.nsi'
-          if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $setup = Join-Path $PWD "releases\bago-$version-setup.exe"
+          Remove-Item -LiteralPath $setup -Force -ErrorAction SilentlyContinue
+          Push-Location releases
+          try {
+            & $env:NSIS_MAKENSIS "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" "/DDEV_PS1_FILE=..\scripts\dev.ps1" 'bago-installer.nsi'
+            if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
+          } finally {
+            Pop-Location
+          }
+          $dist = Get-Item -LiteralPath (Join-Path $PWD "releases\bago-$version-distribution.zip")
+          $setup = Get-Item -LiteralPath $setup
+          if ($setup.Length -lt ($dist.Length * 0.9)) {
+            throw "Instalador incompleto: $($setup.Length) bytes para payload de $($dist.Length) bytes"
+          }
 
       - name: Smoke packaged BAGO.exe lifecycle
         shell: pwsh

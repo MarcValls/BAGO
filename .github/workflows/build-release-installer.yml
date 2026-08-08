@@ -59,24 +59,121 @@ jobs:
           if (-not (Test-Path $dst)) {
             throw "No se pudo descargar bago-$version-distribution.zip desde la release $tag"
           }
+          $dist = Get-Item -LiteralPath $dst
+          if ($dist.Length -lt 300MB) {
+            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
+          }
+          $entries = tar -tf $dst | Select-Object -First 200
+          if (-not ($entries -contains "compiled/backend/")) {
+            throw "Payload inválido: falta compiled/backend/"
+          }
+          if (-not ($entries -contains "compiled/electron-viewer/")) {
+            throw "Payload inválido: falta compiled/electron-viewer/"
+          }
 
       - name: Build installer
         shell: pwsh
         run: |
           $tag = "${{ inputs.release_tag }}"
           $version = $tag.TrimStart('v')
-          & $env:NSIS_MAKENSIS `
-            "/DAPP_GIT_REF=$tag" `
-            "/DAPP_GIT_SHA=${{ github.sha }}" `
-            "/DAPP_VERSION=$version" `
-            'releases\bago-installer.nsi'
-          if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
           $setupInRoot = Join-Path $PWD "bago-$version-setup.exe"
           $setupInReleases = Join-Path $PWD "releases/bago-$version-setup.exe"
+          Remove-Item -LiteralPath $setupInRoot -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath $setupInReleases -Force -ErrorAction SilentlyContinue
+
+          Push-Location releases
+          try {
+            & $env:NSIS_MAKENSIS `
+              "/DAPP_GIT_REF=$tag" `
+              "/DAPP_GIT_SHA=${{ github.sha }}" `
+              "/DAPP_VERSION=$version" `
+              "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
+              "/DDEV_PS1_FILE=..\scripts\dev.ps1" `
+              'bago-installer.nsi'
+            if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
+          } finally {
+            Pop-Location
+          }
+
           if (Test-Path $setupInRoot) {
             Move-Item -Path $setupInRoot -Destination "releases\" -Force
           } elseif (-not (Test-Path $setupInReleases)) {
             throw "No existe bago-$version-setup.exe ni en raíz ni en releases/"
+          }
+          $dist = Get-Item -LiteralPath (Join-Path $PWD "releases/bago-$version-distribution.zip")
+          $setup = Get-Item -LiteralPath $setupInReleases
+          if ($setup.Length -lt ($dist.Length * 0.9)) {
+            throw "Instalador incompleto: $($setup.Length) bytes para payload de $($dist.Length) bytes"
+          }
+
+      - name: Smoke installer artifact
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
+          $installRoot = Join-Path $env:LOCALAPPDATA "BAGO"
+          Remove-Item -LiteralPath $installRoot -Recurse -Force -ErrorAction SilentlyContinue
+
+          $proc = Start-Process -FilePath $setup -ArgumentList '/S' -PassThru -WindowStyle Hidden
+          $finished = $proc.WaitForExit(300000)
+          if (-not $finished) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "El instalador no terminó en 5 minutos"
+          }
+          if ($proc.ExitCode -ne 0) {
+            throw "El instalador terminó con código $($proc.ExitCode)"
+          }
+
+          $exe = Join-Path $installRoot "electron-viewer\BAGO.exe"
+          if (-not (Test-Path -LiteralPath $exe)) {
+            throw "BAGO.exe no existe tras instalar: $exe"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot "backend"))) {
+            throw "backend no existe tras instalar"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot "scripts\dev.ps1"))) {
+            throw "scripts\dev.ps1 no existe tras instalar"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot "uninstall.exe"))) {
+            throw "uninstall.exe no existe tras instalar"
+          }
+
+          $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
+          $exe = Join-Path $installRoot "electron-viewer\BAGO.exe"
+          $bago = $null
+          try {
+            $bago = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru -WindowStyle Hidden
+            $healthy = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              $bago.Refresh()
+              if ($bago.HasExited) {
+                throw "BAGO.exe terminó antes de /health con código $($bago.ExitCode)"
+              }
+              try {
+                $r = Invoke-WebRequest -Uri "http://127.0.0.1:8080/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                if ($r.StatusCode -eq 200) { $healthy = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $healthy) { throw "BAGO.exe no levantó backend saludable" }
+
+            Wait-Process -Id $bago.Id -Timeout 90 -ErrorAction SilentlyContinue
+            $bago.Refresh()
+            if (-not $bago.HasExited) { throw "BAGO.exe no cerró automáticamente" }
+            if ($bago.ExitCode -ne 0) { throw "BAGO.exe terminó con código $($bago.ExitCode)" }
+          } finally {
+            if ($bago) {
+              $bago.Refresh()
+              if (-not $bago.HasExited) {
+                Stop-Process -Id $bago.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+            Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue |
+              Where-Object { $_.OwningProcess -ne 0 } |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+            Remove-Item Env:BAGO_E2E_AUTOCLOSE_SECONDS -ErrorAction SilentlyContinue
           }
 
       - name: Hash installer
