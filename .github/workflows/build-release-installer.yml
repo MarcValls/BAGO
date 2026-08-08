@@ -63,11 +63,16 @@ jobs:
           if ($dist.Length -lt 300MB) {
             throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
           }
-          $entries = tar -tf $dst | Select-Object -First 200
-          if (-not ($entries -contains "compiled/backend/")) {
+          $hasBackend = $false
+          $hasViewer = $false
+          tar -tf $dst | ForEach-Object {
+            if ($_ -like "compiled/backend/*") { $hasBackend = $true }
+            if ($_ -like "compiled/electron-viewer/*") { $hasViewer = $true }
+          }
+          if (-not $hasBackend) {
             throw "Payload inválido: falta compiled/backend/"
           }
-          if (-not ($entries -contains "compiled/electron-viewer/")) {
+          if (-not $hasViewer) {
             throw "Payload inválido: falta compiled/electron-viewer/"
           }
 
