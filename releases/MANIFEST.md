@@ -24,7 +24,8 @@
 
 - Install root: `%LOCALAPPDATA%\\BAGO`
 - Start Menu and Desktop shortcuts target:
-  - `%LOCALAPPDATA%\\BAGO\\electron-viewer\\dist\\win-unpacked\\BAGO.exe`
+  - `%LOCALAPPDATA%\\BAGO\\electron-viewer\\BAGO.exe` (layout actual)
+  - `%LOCALAPPDATA%\\BAGO\\electron-viewer\\dist\\win-unpacked\\BAGO.exe` (legacy layout)
 - Registry traceability keys:
   - `HKCU\\Software\\BAGO\\InstallPath`
   - `HKCU\\Software\\BAGO\\InstallRef`
