@@ -1,5 +1,5 @@
 {
-  "current": "4.8.2",
+  "current": "4.8.3",
   "history": [
     {
       "version": "4.0.0",
@@ -88,8 +88,14 @@
     {
       "version": "4.8.2",
       "released": "2026-08-06",
-      "ended": null,
+      "ended": "2026-08-09",
       "notes": "Release estable reproducible: instalador fail-closed, ref de instalación inmutable, smoke empaquetado en CI y hardening de ciclo de vida Electron."
+    },
+    {
+      "version": "4.8.3",
+      "released": "2026-08-09",
+      "ended": null,
+      "notes": "Workspace UX: conversación aislada por carpeta, activación confirmada por backend, profundidad de razonamiento y acciones GitHub con permisos explícitos."
     }
   ]
 }

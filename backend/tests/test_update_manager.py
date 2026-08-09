@@ -20,7 +20,7 @@ if str(API_DIR) not in sys.path:
 import update_manager as updater
 
 
-def _bundle(version: str = "4.8.3") -> bytes:
+def _bundle(version: str = "4.8.4") -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("compiled/backend/release_version.txt", version)
@@ -32,22 +32,22 @@ def _bundle(version: str = "4.8.3") -> bytes:
 def _release(payload: bytes, *, digest: str | None = None) -> dict:
     sha = digest or hashlib.sha256(payload).hexdigest()
     return {
-        "tag_name": "v4.8.3",
-        "name": "BAGO 4.8.3",
+        "tag_name": "v4.8.4",
+        "name": "BAGO 4.8.4",
         "body": "Actualización de prueba",
         "published_at": "2026-08-10T00:00:00Z",
-        "html_url": "https://github.com/MarcValls/BAGO/releases/tag/v4.8.3",
+        "html_url": "https://github.com/MarcValls/BAGO/releases/tag/v4.8.4",
         "draft": False,
         "prerelease": False,
         "assets": [
             {
-                "name": "bago-4.8.3-backend.zip",
+                "name": "bago-4.8.4-backend.zip",
                 "browser_download_url": "https://github.com/example/backend.zip",
                 "size": 10,
                 "digest": f"sha256:{sha}",
             },
             {
-                "name": "bago-4.8.3-distribution.zip",
+                "name": "bago-4.8.4-distribution.zip",
                 "browser_download_url": "http://127.0.0.1/distribution.zip",
                 "size": len(payload),
                 "digest": f"sha256:{sha}",
@@ -103,20 +103,20 @@ def test_check_uses_latest_stable_distribution_asset(isolated: Path, monkeypatch
     result = updater.check()
 
     assert result["available"] is True
-    assert result["latest"] == "v4.8.3"
-    assert result["asset"]["name"] == "bago-4.8.3-distribution.zip"
+    assert result["latest"] == "v4.8.4"
+    assert result["asset"]["name"] == "bago-4.8.4-distribution.zip"
     assert result["installation"]["root"] == str(isolated)
 
 
 def test_check_uses_cached_release_when_github_is_temporarily_offline(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _bundle()
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload))
-    assert updater.check()["latest"] == "v4.8.3"
+    assert updater.check()["latest"] == "v4.8.4"
     monkeypatch.setattr(updater, "_request_json", lambda _url: (_ for _ in ()).throw(OSError("dns unavailable")))
 
     result = updater.check()
 
-    assert result["latest"] == "v4.8.3"
+    assert result["latest"] == "v4.8.4"
     assert result["offline"] is True
     assert "última comprobación" in result["warning"]
     assert "error" not in result
@@ -127,7 +127,7 @@ def test_prepare_download_verifies_sha_and_payload(isolated: Path, monkeypatch: 
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload))
     monkeypatch.setattr(updater.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response(payload))
 
-    started = updater.start_update("v4.8.3")
+    started = updater.start_update("v4.8.4")
     state = _wait_for("ready")
 
     assert started["ok"] is True
@@ -142,7 +142,7 @@ def test_prepare_rejects_changed_payload(isolated: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload, digest=wrong_digest))
     monkeypatch.setattr(updater.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response(payload))
 
-    assert updater.start_update("v4.8.3")["ok"] is True
+    assert updater.start_update("v4.8.4")["ok"] is True
     state = _wait_for("error")
 
     assert "SHA-256 no coincide" in state["error"]
@@ -166,7 +166,7 @@ def test_apply_launches_external_helper_for_active_installation(isolated: Path, 
     monkeypatch.setattr(updater.subprocess, "Popen", fake_popen)
     updater._set_state(
         status="ready",
-        latest="v4.8.3",
+        latest="v4.8.4",
         detail={"bundle_path": str(bundle), "sha256": "a" * 64},
     )
 
@@ -209,12 +209,12 @@ def test_external_helper_swaps_components_and_keeps_state(tmp_path: Path) -> Non
         "-BundlePath", str(bundle),
         "-InstallRoot", str(install_root),
         "-StatePath", str(state_path),
-        "-ExpectedVersion", "v4.8.3",
+        "-ExpectedVersion", "v4.8.4",
         "-ExpectedSha256", hashlib.sha256(payload).hexdigest(),
     ], check=True, timeout=30)
 
     state = json.loads(state_path.read_text(encoding="utf-8-sig"))
     assert state["status"] == "completed"
-    assert (backend / "release_version.txt").read_text(encoding="utf-8").strip() == "4.8.3"
+    assert (backend / "release_version.txt").read_text(encoding="utf-8").strip() == "4.8.4"
     assert (viewer / "BAGO.exe").read_bytes() == b"MZfixture"
     assert list((install_root / "backups" / "updates").glob("*/backend/release_version.txt"))
