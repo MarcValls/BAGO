@@ -46,6 +46,8 @@ interface Props {
   onRunContextCommand: (command: string) => Promise<void>;
   onNavigate: (section: ActiveSection) => void;
   onSetSessionModel: (modelKey: string | null) => Promise<void>;
+  reasoningDepth: string;
+  onSetReasoningDepth: (depth: string) => Promise<void>;
   // CANON[CTX-011]: patches del árbol de contexto que aparecieron
   // en cada turno del chat. El panel los muestra como tarjeta inline
   // para validación. Las acciones se delegan al módulo de contexto.
@@ -197,6 +199,7 @@ export function ChatPanel(props: Props) {
   const [modelChanging, setModelChanging] = useState(false);
   const [modelError, setModelError] = useState('');
   const [modelQuery, setModelQuery] = useState('');
+  const [reasoningChanging, setReasoningChanging] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
@@ -244,6 +247,11 @@ export function ChatPanel(props: Props) {
     } finally {
       setModelChanging(false);
     }
+  };
+
+  const onReasoningChange = async (depth: string) => {
+    setReasoningChanging(true);
+    try { await props.onSetReasoningDepth(depth); } finally { setReasoningChanging(false); }
   };
 
   return (
@@ -356,6 +364,15 @@ export function ChatPanel(props: Props) {
             <div className="chat-composer-topbar">
               <span className="chat-composer-title">Mensaje a BAGO</span>
               <div className="chat-model-control">
+                <label className="chat-reasoning-control">
+                  <span>Profundidad</span>
+                  <select aria-label="Profundidad de pensamiento" value={props.reasoningDepth} disabled={reasoningChanging} onChange={(event) => void onReasoningChange(event.target.value)}>
+                    <option value="normal">Normal</option>
+                    <option value="media">Media</option>
+                    <option value="alta">Alta</option>
+                    <option value="maxima">Máxima</option>
+                  </select>
+                </label>
                 <details className="chat-model-picker">
                   <summary className="chat-model-selector" aria-label="Modelo de esta sesión" aria-disabled={modelChanging} onClick={(event) => { if (modelChanging) event.preventDefault(); }}>
                     <span>Modelo</span><strong>{currentModel?.model || (props.sessionModel ? props.sessionModel.split('/').pop() : 'Automático')}</strong><Icon name="chevron" size={11} />

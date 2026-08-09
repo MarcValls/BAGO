@@ -325,6 +325,33 @@ export class BagoClient {
     return this.request('/workspace/list', { method: 'GET' });
   }
 
+  getReasoningDepth(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/router/reasoning-depth', { method: 'GET' });
+  }
+
+  setReasoningDepth(depth: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/router/reasoning-depth', {
+      method: 'POST',
+      body: JSON.stringify({ depth, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  getGitHubStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/status', { method: 'GET' });
+  }
+
+  connectGitHubRepository(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/connect', { method: 'POST', body: JSON.stringify({ repo }) });
+  }
+
+  getGitHubContents(path = ''): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/github/contents?path=${encodeURIComponent(path)}`, { method: 'GET' });
+  }
+
+  createGitHubRepository(name: string, options: { private?: boolean; description?: string } = {}): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
+  }
+
   browseWorkspace(path?: string): Promise<{
     ok: boolean;
     path: string;

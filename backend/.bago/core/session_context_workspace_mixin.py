@@ -150,6 +150,8 @@ class SessionContextWorkspaceMixin:
                 f"adapter={adapter_name}",
                 f"runtime={runtime_name}",
                 f"model={getattr(self, 'model', '')}",
+                f"reasoning_depth={getattr(self, 'reasoning_depth', 'normal')}",
+                f"reasoning_effort={getattr(self, 'reasoning_effort', 'low')}",
                 f"session_id={getattr(self, 'session_id', '')}",
             ]),
             version=BAGO_VERSION,

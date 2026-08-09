@@ -1115,6 +1115,7 @@ export function ControlPlane() {
   };
 
   const [sessionModel, setSessionModelState] = useState<string | null>(null);
+  const [reasoningDepth, setReasoningDepthState] = useState('normal');
 
   const configureProvider = async (provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string }): Promise<void> => {
     setLastMessage(`configurando proveedor ${provider}`);
@@ -1148,6 +1149,19 @@ export function ControlPlane() {
     }
   };
 
+  const setReasoningDepthCb = async (depth: string): Promise<void> => {
+    const previous = reasoningDepth;
+    setReasoningDepthState(depth);
+    try {
+      const result = await clientRef.current.setReasoningDepth(depth);
+      setReasoningDepthState(String(result.depth || depth));
+      setLastMessage(`profundidad: ${String(result.label || depth)}`);
+    } catch (error) {
+      setReasoningDepthState(previous);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('theme-light', uiState.appearanceTheme === 'light');
@@ -1165,6 +1179,9 @@ export function ControlPlane() {
       const m = (r?.session_model as string | null | undefined)
         ?? (r?.model as string | null | undefined);
       setSessionModelState(m ?? null);
+    }).catch(() => null);
+    clientRef.current.getReasoningDepth().then((r) => {
+      setReasoningDepthState(String(r?.depth || 'normal'));
     }).catch(() => null);
   }, []);
 
@@ -1258,6 +1275,8 @@ export function ControlPlane() {
                   onConfigureProvider={configureProvider}
                   onSetSessionModel={setSessionModelCb}
                   sessionModel={sessionModel}
+                  reasoningDepth={reasoningDepth}
+                  onSetReasoningDepth={setReasoningDepthCb}
                   workspaceOpenRequest={workspaceOpenRequest}
                   contextClient={clientRef.current}
                   contextTree={contextTree}

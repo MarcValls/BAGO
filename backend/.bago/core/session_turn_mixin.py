@@ -124,7 +124,9 @@ class SessionTurnMixin:
 
     def _provider_call_kwargs(self, intent: str, provided: dict[str, Any]) -> dict[str, Any]:
         call_kwargs = dict(provided)
-        call_kwargs.setdefault("temperature", float(self.config.get("temperature", 0.7) or 0.7))
+        depth = str(getattr(self, "reasoning_depth", "normal") or "normal").lower()
+        depth_temperature = {"normal": 0.7, "media": 0.5, "alta": 0.3, "maxima": 0.2}.get(depth, 0.7)
+        call_kwargs.setdefault("temperature", float(self.config.get("temperature", depth_temperature) or depth_temperature))
         if call_kwargs.get("max_tokens") is None:
             configured_max = self.config.get("max_tokens")
             if configured_max:
