@@ -1,12 +1,12 @@
-; BAGO 4.8.2 Windows Installer - NSIS 3.x
+; BAGO Windows Installer - NSIS 3.x
 ; Instalador offline con payload embebido (distribution.zip)
 
 !define APP_NAME "BAGO"
 !ifndef APP_VERSION
-!define APP_VERSION "4.8.2"
+!define APP_VERSION "4.8.3"
 !endif
 !ifndef APP_GIT_REF
-!define APP_GIT_REF "v4.8.2"
+!define APP_GIT_REF "v4.8.3"
 !endif
 !ifndef APP_GIT_SHA
 !define APP_GIT_SHA "local"
@@ -16,14 +16,14 @@
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
 !define INSTALL_DIR "$LOCALAPPDATA\BAGO"
 !ifndef DISTRIBUTION_ZIP_FILE
-!define DISTRIBUTION_ZIP_FILE "bago-4.8.2-distribution.zip"
+!define DISTRIBUTION_ZIP_FILE "bago-${APP_VERSION}-distribution.zip"
 !endif
 !ifndef DEV_PS1_FILE
 !define DEV_PS1_FILE "..\scripts\dev.ps1"
 !endif
 
 Name "${APP_NAME} ${APP_VERSION}"
-OutFile "bago-4.8.2-setup.exe"
+OutFile "bago-${APP_VERSION}-setup.exe"
 InstallDir "${INSTALL_DIR}"
 InstallDirRegKey HKCU "Software\BAGO" "InstallPath"
 RequestExecutionLevel user
@@ -48,11 +48,11 @@ Section "BAGO Core" SecCore
 
   DetailPrint "Extrayendo payload offline..."
   SetOutPath "$PLUGINSDIR"
-  File /oname=bago-4.8.2-distribution.zip "${DISTRIBUTION_ZIP_FILE}"
+  File /oname=bago-${APP_VERSION}-distribution.zip "${DISTRIBUTION_ZIP_FILE}"
   File /oname=install-embedded-payload.ps1 "install-embedded-payload.ps1"
 
-  DetailPrint "Instalando BAGO 4.8.2 desde payload embebido..."
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -ZipPath "$PLUGINSDIR\bago-4.8.2-distribution.zip"' $0
+  DetailPrint "Instalando BAGO ${APP_VERSION} desde payload embebido..."
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -ZipPath "$PLUGINSDIR\bago-${APP_VERSION}-distribution.zip"' $0
 
   ${If} $0 != 0
     IfSilent +2
