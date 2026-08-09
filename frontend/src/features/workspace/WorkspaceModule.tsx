@@ -115,6 +115,17 @@ export function WorkspaceModule(props: Props) {
     }
   };
 
+  const createGitHubViaMcp = async () => {
+    const name = window.prompt('Nombre del nuevo repositorio GitHub vía MCP');
+    if (!name || !window.confirm(`Crear ${name} vía MCP como repositorio privado?`)) return;
+    try {
+      const result = await props.client.createGitHubRepositoryViaMcp(name, { private: true, confirm: true });
+      setGithubMessage(`Repositorio creado vía MCP: ${String(result.url || name)}`);
+    } catch (error) {
+      setGithubMessage(error instanceof Error ? error.message : 'No se pudo crear el repositorio vía MCP');
+    }
+  };
+
   // Atajo de teclado: Ctrl+S ya está capturado en CodeEditorPane.
   // Ctrl+F: focus al buscador. Ctrl+Shift+P: problems. Etc.
   useEffect(() => {
@@ -335,6 +346,7 @@ export function WorkspaceModule(props: Props) {
           <input aria-label="Repositorio GitHub" value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} placeholder="owner/repo" />
           <button type="button" className="secondary-button compact" onClick={() => void connectGitHub()} disabled={!githubRepo.trim()}>Conectar y leer</button>
           <button type="button" className="secondary-button compact" onClick={() => void createGitHub()} disabled={githubState?.authenticated !== true}>Crear repositorio</button>
+          <button type="button" className="secondary-button compact" onClick={() => void createGitHubViaMcp()} disabled={githubState?.authenticated !== true}>Crear vía MCP</button>
           <button type="button" className="text-button" onClick={() => void refreshGitHub()}>Actualizar</button>
         </div>
         {githubMessage && <small className="workspace-github-message" role="status">{githubMessage}</small>}

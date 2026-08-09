@@ -352,6 +352,10 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/github/create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
   }
 
+  createGitHubRepositoryViaMcp(name: string, options: { private?: boolean; description?: string; confirm: boolean }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/mcp-create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
+  }
+
   browseWorkspace(path?: string): Promise<{
     ok: boolean;
     path: string;

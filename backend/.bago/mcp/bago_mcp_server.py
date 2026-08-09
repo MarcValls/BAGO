@@ -83,6 +83,21 @@ ALLOW_DANGEROUS = os.environ.get("BAGO_ALLOW_DANGEROUS", "0").strip() == "1"
 # MCP tool name -> BAGO command.
 # Keep this small. This is the control-plane surface.
 DEFAULT_TOOLS: dict[str, dict[str, Any]] = {
+    "github_create_repository": {
+        "cmd": None,
+        "description": "Crea un repositorio GitHub. Solo disponible en modo MCP write, con permisos gh y confirm=true.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 100},
+                "private": {"type": "boolean", "default": True},
+                "description": {"type": "string", "maxLength": 500},
+                "confirm": {"type": "boolean", "description": "Confirmación explícita de la mutación."},
+            },
+            "required": ["name", "confirm"],
+            "additionalProperties": False,
+        },
+    },
     "bago_status": {
         "cmd": "status",
         "description": "Estado actual de BAGO: flujo activo, tarea pendiente y salud del sistema.",
@@ -518,6 +533,31 @@ def _run_bago(cmd: str, args: list[str] | None = None, timeout: int = 90) -> tup
 _CMD_RE = re.compile(r"^[a-z][a-z0-9_-]{0,64}$")
 
 
+def _github_create_repository(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Narrow, opt-in GitHub mutation for MCP callers."""
+    if READONLY_MODE or not ALLOW_MUTATING:
+        raise ValueError("Creación GitHub bloqueada: inicia MCP con BAGO_MCP_MODE=write y BAGO_ALLOW_MUTATING=1")
+    if arguments.get("confirm") is not True:
+        raise ValueError("La creación GitHub requiere confirm=true")
+    name = str(arguments.get("name") or "").strip()
+    if not re.match(r"^[A-Za-z0-9_.-]{1,100}$", name):
+        raise ValueError("Nombre de repositorio no válido")
+    visibility = "--private" if bool(arguments.get("private", True)) else "--public"
+    command = ["gh", "repo", "create", name, visibility]
+    description = str(arguments.get("description") or "").strip()
+    if description:
+        command.extend(["--description", description[:500]])
+    try:
+        proc = subprocess.run(command, cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8", timeout=30)
+    except FileNotFoundError as exc:
+        raise ValueError("gh no está instalado") from exc
+    output = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        raise ValueError(output or "GitHub rechazó la creación del repositorio")
+    url = next((line.strip() for line in output.splitlines() if "github.com/" in line), output)
+    return {"content": [{"type": "text", "text": json.dumps({"ok": True, "url": url}, ensure_ascii=False)}], "isError": False}
+
+
 def _args_for_tool(tool_name: str, params: dict[str, Any]) -> tuple[str | None, list[str]]:
     meta = DEFAULT_TOOLS[tool_name]
     cmd = meta.get("cmd")
@@ -601,6 +641,8 @@ def _call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     arguments = arguments or {}
 
     try:
+        if name == "github_create_repository":
+            return _github_create_repository(arguments)
         cmd, args = _args_for_tool(name, arguments)
 
         if cmd is None:

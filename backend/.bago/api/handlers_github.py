@@ -126,3 +126,27 @@ def handle_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         return
     url = next((line.strip() for line in raw.splitlines() if "github.com/" in line), raw.splitlines()[-1].strip() if raw else "")
     _send(handler, 200, {"ok": True, "url": url, "output": raw})
+
+
+def handle_mcp_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Invoke the same explicit write policy through BAGO's MCP tool surface."""
+    try:
+        import importlib.util
+        mcp_path = Path(__file__).resolve().parents[1] / "mcp" / "bago_mcp_server.py"
+        spec = importlib.util.spec_from_file_location("bago_mcp_server_ui", mcp_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("MCP GitHub no disponible")
+        mcp_server = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mcp_server)
+        mcp_server.READONLY_MODE = False
+        mcp_server.ALLOW_MUTATING = True
+        result = mcp_server._github_create_repository({
+            "name": body.get("name"),
+            "private": body.get("private", True),
+            "description": body.get("description", ""),
+            "confirm": body.get("confirm") is True,
+        })
+        text = str(result.get("content", [{}])[0].get("text", "{}"))
+        _send(handler, 200, json.loads(text))
+    except Exception as exc:
+        _send(handler, 400, {"ok": False, "error": str(exc)})
