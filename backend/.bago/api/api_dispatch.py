@@ -137,6 +137,7 @@ ROUTE_META: tuple = (
     ("POST", "/github/connect",      "handlers_github",  "handle_connect"),
     ("POST", "/github/create",       "handlers_github",  "handle_create"),
     ("POST", "/github/mcp-create",   "handlers_github",  "handle_mcp_create"),
+    ("POST", "/workspace/conversation", "handlers_workspace_conversation", "handle"),
     ("POST", "/providers/configure", "handlers_providers",  "handle_configure"),
     ("POST", "/release/update",      "handlers_release",    "handle_update"),
     ("POST", "/release/apply",       "handlers_release",    "handle_apply"),

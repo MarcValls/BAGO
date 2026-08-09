@@ -623,6 +623,11 @@ export function ControlPlane() {
         return false;
       }
 
+      // El historial es parte del alcance del workspace confirmado. Se cambia
+      // antes del bootstrap para no reutilizar turnos de la carpeta anterior.
+      await clientRef.current.scopeWorkspaceConversation(cleanRoot);
+      setTurns([]);
+      setHistory(null);
       let nextSnapshot = await refreshAfterMutation();
       if (options?.seedAfterLink) {
         const seedResult = await clientRef.current.seedProject(cleanRoot);
@@ -638,9 +643,14 @@ export function ControlPlane() {
         nextSnapshot = await refreshAfterMutation();
       }
 
-      const activated = Boolean(nextSnapshot?.project.root) && Boolean(nextSnapshot?.permissions.canChat);
+      const backendRoot = String(nextSnapshot?.workspace.root || nextSnapshot?.project.root || '').trim();
+      const normalizeRoot = (value: string) => value.replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+      const activated = Boolean(nextSnapshot?.project.root)
+        && Boolean(nextSnapshot?.permissions.canChat)
+        && Boolean(nextSnapshot?.workspace.linkedToSession)
+        && normalizeRoot(backendRoot) === normalizeRoot(cleanRoot);
       if (!activated) {
-        setLastMessage(`el backend no pudo autorizar el chat para ${cleanRoot}`);
+        setLastMessage(`el backend no confirmó el workspace seleccionado: ${cleanRoot}`);
         return false;
       }
 
