@@ -28,6 +28,7 @@ import { SystemTabs } from '@/layout/SystemTabs';
 import { ChatPanel } from '@/layout/ChatPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
+import { WorkGraph } from '@/features/graph/WorkGraph';
 import { WorkspaceModule } from '@/features/workspace/WorkspaceModule';
 import type { BagoClient } from '@/api/client';
 import type { UseContextTreeState } from '@/features/context-tree/useContextTree';
@@ -126,7 +127,6 @@ function resolveRouterEntries(router: Props['router']): Array<Record<string, unk
 }
 
 type RecordValue = Record<string, unknown>;
-type GraphLayout = 'radial' | 'linear' | 'hierarchical';
 type ExplorerKind = 'file' | 'directory';
 type WorkspaceFilter = 'all' | 'code' | 'python' | 'text' | 'json' | 'web' | 'shell' | 'other' | 'directory' | 'modified' | 'in-context' | 'with-evidence';
 
@@ -587,7 +587,6 @@ export function ControlSections(props: Props) {
   const [sourceLabel, setSourceLabel] = useState('');
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceMessage, setSourceMessage] = useState('');
-  const [graphLayout, setGraphLayout] = useState<GraphLayout>('hierarchical');
   const [graphFiltered, setGraphFiltered] = useState(true);
   const [graphView, setGraphView] = useState<'flow' | 'capabilities'>('flow');
   const [evidenceCompare, setEvidenceCompare] = useState(false);
@@ -970,41 +969,43 @@ export function ControlSections(props: Props) {
     },
     {
       id: 'graph',
-      label: 'Nodos',
-      description: 'Vista de grafo y agrupación',
-      state: graphLayout,
+      label: 'Mapa de trabajo',
+      description: 'Menciones, tareas y ejecución accionables',
+      state: graphFiltered ? 'pending' : 'all',
       capabilities: ['read', 'write', 'inspect', 'select'],
       actions: [
-        { id: 'layout-hierarchical', label: 'Jerárquico', kind: 'write', enabled: true, payload: { layout: 'hierarchical' } },
-        { id: 'layout-radial', label: 'Radial', kind: 'write', enabled: true, payload: { layout: 'radial' } },
-        { id: 'toggle-filter', label: 'Cambiar filtro', kind: 'write', enabled: true, payload: { filtered: !graphFiltered } }
+        { id: 'show-pending', label: 'Mostrar pendientes', kind: 'write', enabled: true, payload: { filtered: true } },
+        { id: 'show-all', label: 'Mostrar todo', kind: 'write', enabled: true, payload: { filtered: false } },
+        { id: 'open-context', label: 'Abrir Contexto', kind: 'write', enabled: true, payload: { section: 'context' } },
+        { id: 'open-pipeline', label: 'Abrir Pipeline', kind: 'write', enabled: true, payload: { section: 'pipeline' } }
       ],
       read: () => ({
         moduleId: 'graph',
-        label: 'Nodos',
-        state: graphLayout,
-        summary: `${graphLayout} · ${graphFiltered ? 'filtrado' : 'sin filtro'}`,
-        data: { layout: graphLayout, filtered: graphFiltered }
+        label: 'Mapa de trabajo',
+        state: graphFiltered ? 'pending' : 'all',
+        summary: `${props.contextTree.proposals.filter((proposal) => proposal.status === 'pending').length} menciones · ${steps.length} pasos`,
+        data: { filtered: graphFiltered, proposals: props.contextTree.proposals.length, steps: steps.length }
       }),
       write: async (payload) => {
-        if (payload.layout) setGraphLayout(String(payload.layout) as GraphLayout);
         if (typeof payload.filtered === 'boolean') setGraphFiltered(payload.filtered);
-        return { moduleId: 'graph', ok: true, message: 'Grafo actualizado' };
+        if (payload.section === 'context' || payload.section === 'pipeline') props.onSetSection(payload.section);
+        return { moduleId: 'graph', ok: true, message: 'Mapa de trabajo actualizado' };
       },
       inspect: () => {
+        const pendingMentions = props.contextTree.proposals.filter((proposal) => proposal.status === 'pending').length;
         const selection = buildSelection(
           'graph',
           'module-graph',
-          'Nodos',
-          `${graphLayout} · ${graphFiltered ? 'filtrado' : 'sin filtro'}`,
+          'Mapa de trabajo',
+          `${pendingMentions} menciones · ${steps.length} pasos`,
           [
-            `layout: ${graphLayout}`,
-            `filtered: ${String(graphFiltered)}`
+            `scope: ${graphFiltered ? 'pending' : 'all'}`,
+            `steps: ${String(steps.length)}`
           ],
-          { layout: graphLayout, filtered: graphFiltered }
+          { filtered: graphFiltered, proposals: props.contextTree.proposals.length, steps: steps.length }
         );
         props.onInspect(selection, 'detail');
-        return { moduleId: 'graph', selection, message: 'Grafo inspeccionado', data: { layout: graphLayout, filtered: graphFiltered } };
+        return { moduleId: 'graph', selection, message: 'Mapa de trabajo inspeccionado', data: { filtered: graphFiltered } };
       }
     },
     {
@@ -1236,7 +1237,6 @@ export function ControlSections(props: Props) {
     evidenceItems,
     failedCount,
     graphFiltered,
-    graphLayout,
     historyMessages,
     plan,
     pipelineStatus,
@@ -1404,80 +1404,36 @@ export function ControlSections(props: Props) {
   }
 
   if (props.section === 'graph') {
-    const baseNodes = [
-      { id: 'input', type: 'entrada', label: 'Sesión', value: snapshot?.session.id || 'sin sesión', icon: 'session' as IconName },
-      { id: 'context', type: 'contexto', label: 'Contexto', value: snapshot?.context.state || 'unknown', icon: 'context' as IconName },
-      { id: 'workspace', type: 'transformación', label: 'Workspace', value: snapshot?.workspace.id || 'unknown', icon: 'workspace' as IconName },
-      { id: 'validation', type: 'validación', label: 'Vínculo', value: snapshot?.workspace.linkedToSession ? 'confirmado' : 'pendiente', icon: 'check' as IconName },
-      { id: 'evidence', type: 'evidencia', label: 'Receipt', value: snapshot?.context.receiptId || 'sin receipt', icon: 'evidence' as IconName },
-      { id: 'output', type: 'salida', label: 'Resultado', value: snapshot?.system.objective || 'objetivo', icon: 'artifact' as IconName }
-    ];
-    const nodes = graphFiltered ? baseNodes.slice(0, 6) : baseNodes;
-    const nextLayout = () => setGraphLayout((current) => current === 'hierarchical' ? 'radial' : current === 'radial' ? 'linear' : 'hierarchical');
+    const taskNodes = props.contextTree.tree
+      ? Object.values(props.contextTree.tree.nodes)
+        .filter((node) => node.parentId === props.contextTree.tree?.rootId && (node.type === 'pending' || node.metadata?.branch === true))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      : [];
+    const startGraphTask = (title: string, summary: string) => {
+      props.onSetSection('pipeline');
+      void props.onRunPlanTask([title.trim(), summary.trim()].filter(Boolean).join('\n\n'));
+    };
     return (
       <div className={`graph-surface graph-view-${graphView}`} {...inspectMenuAttrs(screenSelection, props.onInspect)}>
         <nav className="graph-primary-tabs" aria-label="Vista del grafo">
-          <button type="button" className={graphView === 'flow' ? 'is-active' : ''} onClick={() => setGraphView('flow')}><Icon name="graph" size={13} /> Flujo</button>
+          <button type="button" className={graphView === 'flow' ? 'is-active' : ''} onClick={() => setGraphView('flow')}><Icon name="graph" size={13} /> Trabajo</button>
           <button type="button" className={graphView === 'capabilities' ? 'is-active' : ''} onClick={() => setGraphView('capabilities')}><Icon name="spark" size={13} /> Capacidades</button>
         </nav>
-        {graphView === 'capabilities' ? <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection)} /> : <>
-        <div className="surface-toolbar graph-toolbar">
-          <div className="toolbar-group">
-            <button className={`toolbar-button ${graphFiltered ? 'is-active' : ''}`} type="button" onClick={() => setGraphFiltered((value) => !value)}><Icon name="filter" size={16} /> {graphFiltered ? 'Subárbol' : 'Todo'}</button>
-            <button className="toolbar-button" type="button" onClick={nextLayout}><Icon name="layout" size={16} /> {graphLayout}</button>
-          </div>
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho sobre nodos o lienzo para abrir secciones relacionadas.</span>
-          <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Acciones del grafo" />
-        </div>
-
-        <div className="graph-layout">
-          <section className={`graph-canvas graph-${graphLayout}`}>
-            <svg className="graph-lines" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M180 160 C330 160 330 300 500 300" />
-              <path d="M500 300 C670 300 670 150 820 150" />
-              <path d="M500 300 C670 300 670 430 820 430" />
-              <path d="M180 460 C330 460 330 300 500 300" />
-              <path d="M500 300 C500 420 500 470 500 540" />
-            </svg>
-            {nodes.map((node, index) => {
-              const nodeSelection = buildSelection(
-                node.id,
-                node.type,
-                node.label,
-                node.value,
-                [`type: ${node.type}`, `position: ${index + 1}`, `layout: ${graphLayout}`],
-                node,
-                'graph.node'
-              );
-              return (
-              <button
-                key={node.id}
-                type="button"
-                className={`graph-node node-${node.type} graph-position-${index}`}
-                {...inspectMenuAttrs(nodeSelection, props.onInspect)}
-                onClick={() => props.onInspect(nodeSelection)}
-              >
-                <span className="graph-node-icon"><Icon name={node.icon} size={17} /></span>
-                <span><small>{node.type}</small><strong>{node.label}</strong><em>{node.value}</em></span>
-              </button>
-              );
-            })}
-          </section>
-
-          <aside className="recent-nodes">
-            {nodes.slice(0, 5).map((node) => {
-              const nodeSelection = buildSelection(node.id, node.type, node.label, node.value, [`type: ${node.type}`], node, 'graph.node');
-              return (
-              <button key={node.id} type="button" {...inspectMenuAttrs(nodeSelection, props.onInspect)} onClick={() => props.onInspect(nodeSelection)}>
-                <span className={`node-type-mark type-${node.type}`} />
-                <span><strong>{node.label}</strong><small>{node.value}</small></span>
-                <Icon name="chevron" size={14} />
-              </button>
-              );
-            })}
-          </aside>
-        </div>
-        </>}
+        {graphView === 'capabilities' ? <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection)} /> : <WorkGraph
+          proposals={props.contextTree.proposals}
+          tasks={taskNodes}
+          steps={steps}
+          pipelineStatus={pipelineStatus}
+          focused={graphFiltered}
+          onFocusedChange={setGraphFiltered}
+          onValidate={(proposal) => { void props.contextTree.acceptPatch(proposal.id).then((result) => { if (!result.ok) window.alert(result.error || 'No se pudo validar la mención.'); }); }}
+          onEdit={(proposal) => { props.onEditContextPatch?.(proposal.id); props.onSetSection('context'); }}
+          onStartProposal={(proposal) => startGraphTask(proposal.title, proposal.reason || 'Ejecutar la tarea mencionada en el contexto.')}
+          onStartTask={(task) => startGraphTask(task.title, task.summary || 'Ejecutar la tarea abierta desde el contexto de trabajo.')}
+          onOpenTask={(task) => { try { window.sessionStorage.setItem('bago.context.initial-branch', task.id); } catch { /* unavailable */ } props.onSetSection('context'); }}
+          onOpenContext={() => props.onSetSection('context')}
+          onOpenPipeline={() => props.onSetSection('pipeline')}
+        />}
       </div>
     );
   }
@@ -1719,7 +1675,10 @@ export function ControlSections(props: Props) {
         apiToken={props.apiToken}
         workspaceRoot={snapshot?.workspace.root || ''}
         onSetSection={props.onSetSection}
-        onCreatePlan={props.onRunPlanTask}
+        onCreatePlan={(title, summary) => {
+          props.onSetSection('pipeline');
+          return props.onRunPlanTask([title.trim(), summary.trim()].filter(Boolean).join('\n\n'));
+        }}
         onRunContextCommand={props.onRunContextCommand}
         onOpenInWorkspace={(path) => {
           // CANON[WS-009]: abrir un archivo desde el árbol de contexto
