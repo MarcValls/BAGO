@@ -14,7 +14,9 @@
   --text: #edf2fa;
   --text-2: #aeb8c8;
   --text-3: #7d8ba1;
+  --text-1: var(--text);
   --accent: #89a7ff;
+  --accent-1: var(--accent);
   --accent-strong: #6788f7;
   --accent-soft: rgba(103, 136, 247, 0.14);
   --green: #62d7a6;
@@ -22,6 +24,7 @@
   --amber: #f2bf68;
   --amber-soft: rgba(242, 191, 104, 0.13);
   --red: #ff7c82;
+  --danger: var(--red);
   --red-soft: rgba(255, 124, 130, 0.12);
   --cyan: #66c9dc;
   --cyan-soft: rgba(102, 201, 220, 0.12);
@@ -86,12 +89,23 @@
   --bg-deep: #07090e;
   --bg-overlay: rgba(0, 0, 0, 0.6);
 
+  /* Superficies semánticas: conservan la intención al cambiar de tema. */
+  --surface-glass: color-mix(in srgb, var(--surface) 82%, transparent);
+  --surface-glass-strong: color-mix(in srgb, var(--surface) 94%, transparent);
+  --surface-glass-subtle: color-mix(in srgb, var(--surface) 56%, transparent);
+  --control-bg: color-mix(in srgb, var(--bg) 72%, var(--surface));
+  --canvas-bg: color-mix(in srgb, var(--bg) 58%, var(--surface));
+  --canvas-grid: color-mix(in srgb, var(--text) 3%, transparent);
+  --canvas-node: color-mix(in srgb, var(--surface-2) 95%, transparent);
+  --text-wash: color-mix(in srgb, var(--text) 5%, transparent);
+
   /* Estado (usa los mismos valores que --green/--amber/--red pero con nombre semántico) */
   --status-ok: var(--green);
   --status-warn: var(--amber);
   --status-error: var(--red);
 }
 
+:root.theme-light,
 .app-root.theme-light {
   --bg: #f2f4f8;
   --bg-soft: #e9edf3;
@@ -115,4 +129,16 @@
   --cyan: #0a7b8f;
   --cyan-soft: rgba(10, 123, 143, 0.12);
   --shadow: 0 10px 30px rgba(12, 24, 45, 0.14);
+}
+
+/* Recalcular derivados en el mismo elemento que posee la paleta activa. */
+.app-root {
+  --surface-glass: color-mix(in srgb, var(--surface) 82%, transparent);
+  --surface-glass-strong: color-mix(in srgb, var(--surface) 94%, transparent);
+  --surface-glass-subtle: color-mix(in srgb, var(--surface) 56%, transparent);
+  --control-bg: color-mix(in srgb, var(--bg) 72%, var(--surface));
+  --canvas-bg: color-mix(in srgb, var(--bg) 58%, var(--surface));
+  --canvas-grid: color-mix(in srgb, var(--text) 3%, transparent);
+  --canvas-node: color-mix(in srgb, var(--surface-2) 95%, transparent);
+  --text-wash: color-mix(in srgb, var(--text) 5%, transparent);
 }

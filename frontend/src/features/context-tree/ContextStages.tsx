@@ -196,7 +196,7 @@ export interface ContextStageCompileProps {
   onRevertPatch: (patchId: string) => void;
   onEditPatch: (patchId: string) => void;
   onOpenRelated: (nodeId: string) => void;
-  onClear: () => void;
+  onClear?: () => void;
   onCompile: () => void;
 }
 

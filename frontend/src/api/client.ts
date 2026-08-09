@@ -318,6 +318,20 @@ export class BagoClient {
     return this.request('/workspace/list', { method: 'GET' });
   }
 
+  browseWorkspace(path?: string): Promise<{
+    ok: boolean;
+    path: string;
+    parent: string;
+    roots: Array<{ label: string; path: string }>;
+    recent: Array<{ label: string; path: string }>;
+    breadcrumbs: Array<{ label: string; path: string }>;
+    directories: Array<{ name: string; path: string }>;
+    truncated?: boolean;
+  }> {
+    const query = path?.trim() ? `?path=${encodeURIComponent(path.trim())}` : '';
+    return this.request(`/workspace/browse${query}`, { method: 'GET' });
+  }
+
   persistWorkspace(path?: string): Promise<{ ok: boolean; saved: string }> {
     const body: Record<string, unknown> = {};
     if (path) body.path = path;

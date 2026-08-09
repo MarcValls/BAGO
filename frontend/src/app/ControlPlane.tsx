@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import type { BagoClient } from '@/api/client';
 import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
@@ -20,11 +19,12 @@ import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 import { normalizeChatResponse } from '@/shared/chatResponse';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
 import { markFirstRunComplete, shouldShowFirstRun } from '@/features/first-run/firstRun';
+import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
+import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 
 function nowStamp(): string {
   return new Date().toISOString();
 }
-
 // CANON[CTX-004]: Hash determinista y muy corto para identificar un
 // patch emitido por el chat. Usado para deduplicar el mismo bloque a
 // lo largo de renders y para etiquetar receipts de manera estable.
@@ -164,10 +164,6 @@ export function ControlPlane() {
   const contextTree = useContextTree(clientRef.current);
   const contextTreeRef = useRef(contextTree);
   contextTreeRef.current = contextTree;
-  const workspaceBridgeAvailable = Boolean(
-    getElectronBridge()?.chooseProjectRoot || getElectronBridge()?.chooseWorkspaceRoot
-  );
-
   const runBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusyCount((count) => count + 1);
     try {
@@ -264,7 +260,7 @@ export function ControlPlane() {
       || '';
   };
 
-  const chooseWorkspaceExplorer = async (defaultPath?: string): Promise<string | null> => {
+  const chooseWorkspacePath = async (defaultPath?: string): Promise<string | null> => {
     const bridge = getElectronBridge();
     const chooseRoot = bridge?.chooseProjectRoot || bridge?.chooseWorkspaceRoot;
     if (chooseRoot) {
@@ -274,11 +270,7 @@ export function ControlPlane() {
         setLastMessage('selección de workspace cancelada');
         return null;
       }
-      const seedAfterLink = shouldOfferSeed(snapshot, selectedRoot)
-        ? window.confirm(`La ruta ${selectedRoot} no está validada todavía.\n\n¿Sembrar ahora para dejarla válida?`)
-        : false;
-      const activated = await activateWorkspaceRoot(selectedRoot, 'workspace activado', { seedAfterLink });
-      return activated ? selectedRoot : null;
+      return selectedRoot;
     }
     setLastMessage('el explorador nativo solo está disponible en Electron');
     return null;
@@ -290,10 +282,6 @@ export function ControlPlane() {
   };
 
   const chooseWorkspaceFromHeader = (): void => {
-    if (workspaceBridgeAvailable) {
-      void chooseWorkspaceExplorer(resolveWorkspaceStartPath());
-      return;
-    }
     openWorkspacePicker();
   };
 
@@ -425,12 +413,11 @@ export function ControlPlane() {
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
         return;
       }
-      // Ctrl+1..8: navegar a la vista N (orden de MainSidebar)
+      // Ctrl+1..7: navegar según el registro canónico compartido con el sidebar.
       if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
         event.preventDefault();
-        const order: ActiveSection[] = ['home', 'workspace', 'pipeline', 'context', 'evidence', 'graph', 'system'];
         const idx = parseInt(event.key, 10) - 1;
-        const target = order[idx];
+        const target = NAVIGATION_ORDER[idx];
         if (target) {
           setAndPersistUiState({ activeSection: target });
         }
@@ -455,6 +442,7 @@ export function ControlPlane() {
       }
       if (event.key === 'Escape' && entered) {
         setUiState((current) => ({ ...current, commandPaletteOpen: false, helpOpen: false }));
+        setWorkspacePickerOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1068,30 +1056,27 @@ export function ControlPlane() {
   };
 
   const paletteActions = useMemo(() => {
-    type PaletteItem = { id: string; label: string; group: string; icon: string; shortcut?: string; action: () => void };
-    const base: PaletteItem[] = [
-      // ─── Navegación ───
-      { id: 'nav-home',     label: 'Inicio',      group: 'Navegación', icon: 'home',       shortcut: 'Ctrl+1', action: () => navigate('home') },
-      { id: 'nav-workspace',label: 'Workspace',   group: 'Navegación', icon: 'workspace',  shortcut: 'Ctrl+2', action: () => navigate('workspace') },
-      { id: 'nav-pipeline', label: 'Pipeline',    group: 'Navegación', icon: 'pipeline',   shortcut: 'Ctrl+3', action: () => navigate('pipeline') },
-      { id: 'nav-context',  label: 'Contexto',    group: 'Navegación', icon: 'context',    shortcut: 'Ctrl+4', action: () => navigate('context') },
-      { id: 'nav-evidence', label: 'Evidencia',   group: 'Navegación', icon: 'evidence',   shortcut: 'Ctrl+5', action: () => navigate('evidence') },
-      { id: 'nav-graph',    label: 'Grafo',       group: 'Navegación', icon: 'graph',      shortcut: 'Ctrl+6', action: () => navigate('graph') },
-      { id: 'nav-system',   label: 'Operación',   group: 'Navegación', icon: 'system',     shortcut: 'Ctrl+7', action: () => navigate('system') },
-      // ─── Vistas / paneles ───
-      { id: 'toggle-sidebar', label: uiState.sidebarCollapsed ? 'Mostrar navegación' : 'Ocultar navegación', group: 'Paneles', icon: 'menu', shortcut: 'Ctrl+B', action: () => setUiState((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed })) },
-      // ─── Modos ───
-      { id: 'focus',  label: uiState.globalMode === 'focus'  ? 'Salir de Focus'  : 'Entrar en Focus',  group: 'Modos', icon: 'focus',  shortcut: 'F11', action: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus'  ? 'normal' : 'focus' }) },
-      { id: 'review', label: uiState.globalMode === 'review' ? 'Salir de Lectura' : 'Entrar en Lectura', group: 'Modos', icon: 'review', shortcut: 'F12', action: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'review' ? 'normal' : 'review' }) },
-      // ─── Comandos del sistema ───
-      { id: 'cmd-status',    label: 'Ejecutar /status',            group: 'Comandos', icon: 'live',      action: () => void runCommand('/status') },
-      { id: 'cmd-session',   label: 'Ejecutar /session',           group: 'Comandos', icon: 'session',   action: () => void runCommand('/session') },
-      { id: 'ctx-attach',    label: 'Adjuntar contexto',           group: 'Comandos', icon: 'attach',    action: () => void runContextCommand('/context attach') },
-      { id: 'ctx-measure',   label: 'Medir contexto',              group: 'Comandos', icon: 'inspector', action: () => void runContextCommand('/context measure') },
-      { id: 'ctx-certify',   label: 'Certificar contexto',         group: 'Comandos', icon: 'check',     action: () => void runContextCommand('/context certify') },
-    ];
+    const base = createShellActions({
+      navigate,
+      openWorkspace: openWorkspacePicker,
+      toggleSidebar: () => setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
+      toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
+      toggleReview: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'review' ? 'normal' : 'review' }),
+      runCommand: (command) => { void runCommand(command); },
+      runContextCommand: (command) => { void runContextCommand(command); },
+      sidebarCollapsed: uiState.sidebarCollapsed,
+      globalMode: uiState.globalMode
+    });
     for (const action of combinedActions.filter((item) => item.visible && item.enabled)) {
-      base.push({ id: `backend-${action.id}`, label: action.label, group: 'Acciones recomendadas', icon: 'plus', action: () => void runAction(action) });
+      base.push({
+        id: `backend-${action.id}`,
+        object: 'Recomendación',
+        verb: action.label,
+        label: `Recomendación · ${action.label}`,
+        group: 'Acciones recomendadas',
+        icon: 'plus',
+        action: () => { void runAction(action); }
+      });
     }
     return base;
   }, [combinedActions, uiState.globalMode, uiState.sidebarCollapsed]);
@@ -1156,6 +1141,18 @@ export function ControlPlane() {
       throw error;
     }
   };
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('theme-light', uiState.appearanceTheme === 'light');
+    root.classList.toggle('theme-dark', uiState.appearanceTheme === 'dark');
+    root.style.colorScheme = uiState.appearanceTheme;
+
+    return () => {
+      root.classList.remove('theme-light', 'theme-dark');
+      root.style.removeProperty('color-scheme');
+    };
+  }, [uiState.appearanceTheme]);
 
   useEffect(() => {
     clientRef.current.getSessionModel().then((r) => {
@@ -1315,6 +1312,8 @@ export function ControlPlane() {
           onTestProvider={testProvider}
           onActivateWorkspace={(root) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: true })}
           onCreateDemo={createAndActivateDemo}
+          client={clientRef.current}
+          onChooseWorkspace={chooseWorkspacePath}
           onClose={() => setFirstRunOpen(false)}
           onFinish={() => {
             markFirstRunComplete(window.localStorage);
@@ -1328,8 +1327,7 @@ export function ControlPlane() {
           value={workspacePickerValue}
           onChange={setWorkspacePickerValue}
           onClose={() => setWorkspacePickerOpen(false)}
-          onChooseExplorer={() => { void chooseWorkspaceExplorer(workspacePickerValue || resolveWorkspaceStartPath()); }}
-          seedSuggested={shouldOfferSeed(snapshot, workspacePickerValue || resolveWorkspaceStartPath())}
+          onChooseExplorer={chooseWorkspacePath}
           onConfirm={(seed) => { void confirmWorkspacePicker(seed); }}
           client={clientRef.current}
         />
@@ -1431,13 +1429,14 @@ function HelpOverlay({ onClose, onOpenFirstRun }: HelpOverlayProps) {
 }
 
 interface PaletteProps {
-  actions: Array<{ id: string; label: string; action: () => void }>;
+  actions: BagoAction[];
   onClose: () => void;
 }
 
 function CommandPalette({ actions, onClose }: PaletteProps) {
   const [query, setQuery] = useState('');
-  const filtered = actions.filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
+  const needle = query.trim().toLowerCase();
+  const filtered = actions.filter((item) => [item.label, item.object, item.verb, item.group, ...(item.keywords || [])].join(' ').toLowerCase().includes(needle));
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1458,133 +1457,10 @@ function CommandPalette({ actions, onClose }: PaletteProps) {
         <div className="command-palette-list">
           {filtered.length ? filtered.map((item) => (
             <button key={item.id} type="button" onClick={() => { item.action(); onClose(); }}>
-              <span>{item.label}</span>
-              <span>↵</span>
+              <span className="palette-item-main"><Icon name={item.icon} size={14} /><span><strong>{item.label}</strong><small>{item.group}</small></span></span>
+              <kbd>{item.shortcut || '↵'}</kbd>
             </button>
           )) : <div className="palette-empty">No hay acciones que coincidan.</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface WorkspacePickerDialogProps {
-  value: string;
-  onChange: (value: string) => void;
-  onClose: () => void;
-  onChooseExplorer: () => void;
-  seedSuggested: boolean;
-  onConfirm: (seed: boolean) => void;
-  client: BagoClient;
-}
-
-type InspectState =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | {
-      kind: 'ready';
-      configured: boolean;
-      linked: boolean;
-      bindingConfirmed: boolean;
-      bindingReason: string;
-      manifestExists: boolean;
-    };
-
-function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, seedSuggested, onConfirm, client }: WorkspacePickerDialogProps) {
-  const bridge = getElectronBridge();
-  const bridgeAvailable = Boolean(bridge?.chooseProjectRoot || bridge?.chooseWorkspaceRoot);
-  const [inspect, setInspect] = useState<InspectState>({ kind: 'idle' });
-
-  // Inspecciona el estado REAL del workspace en la ruta actual.
-  // Esto consulta directamente el filesystem (vía /project/inspect) y NO
-  // el snapshot cacheado del session manager. Es lo que evita ofrecer
-  // "Sembrar y activar" cuando el workspace ya está OK.
-  useEffect(() => {
-    const clean = value.trim();
-    if (!clean) {
-      setInspect({ kind: 'idle' });
-      return;
-    }
-    let cancelled = false;
-    setInspect({ kind: 'loading' });
-    const t = setTimeout(async () => {
-      try {
-        const data = await client.inspectProject(clean);
-        if (cancelled) return;
-        setInspect({
-          kind: 'ready',
-          configured: Boolean(data.configured),
-          linked: Boolean(data.linked),
-          bindingConfirmed: Boolean(data.binding_confirmed),
-          bindingReason: String(data.binding_reason || ''),
-          manifestExists: Boolean(data.manifest_exists)
-        });
-      } catch (err) {
-        if (cancelled) return;
-        setInspect({ kind: 'error', message: err instanceof Error ? err.message : 'Error al inspeccionar' });
-      }
-    }, 350);  // debounce: no lanzar por cada keystroke
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [value, client]);
-
-  // El workspace está REALMENTE listo si configured && linked && bindingConfirmed.
-  // En ese caso NO se debe ofrecer "Sembrar y activar".
-  const isRealReady = inspect.kind === 'ready' && inspect.configured && inspect.linked && inspect.bindingConfirmed;
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) onConfirm(!isRealReady);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, onConfirm, isRealReady]);
-
-  return (
-    <div className="command-palette-backdrop workspace-picker-backdrop" role="dialog" aria-modal="true" aria-label="Elegir workspace">
-      <div className="command-palette workspace-picker">
-        <div className="command-palette-search workspace-picker-search">
-          <span>⌂</span>
-          <input autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="Ruta completa del workspace" />
-          <kbd>Ctrl+Enter</kbd>
-        </div>
-        <div className="workspace-picker-body">
-          <p>Elige el workspace con el explorador nativo o pega la ruta completa manualmente.</p>
-          {inspect.kind === 'loading' && <p className="workspace-picker-status">Inspeccionando…</p>}
-          {inspect.kind === 'error' && <p className="workspace-picker-status is-error">⚠ {inspect.message}</p>}
-          {inspect.kind === 'ready' && isRealReady && (
-            <p className="workspace-picker-status is-ok">
-              ✓ Workspace listo (configurado y vinculado{inspect.bindingReason ? `, ${inspect.bindingReason}` : ''}).
-              Puedes activarlo directamente.
-            </p>
-          )}
-          {inspect.kind === 'ready' && !isRealReady && (
-            <p className="workspace-picker-status is-warn">
-              ⚠ Workspace no configurado
-              {!inspect.configured && ' · faltan archivos en .bago/'}
-              {!inspect.linked && ' · no vinculado'}
-              {!inspect.bindingConfirmed && ' · binding no confirmado'}
-              {inspect.bindingReason ? ` (${inspect.bindingReason})` : ''}.
-              Puedes inicializarlo al activarlo.
-            </p>
-          )}
-          <div className="workspace-picker-example">
-            <span>Ejemplo</span>
-            <code>C:\Users\AMTEC_Terminal_1º\BAG4.8</code>
-          </div>
-        </div>
-        <div className="workspace-picker-actions">
-          <button type="button" className="secondary-button compact" onClick={onChooseExplorer} disabled={!bridgeAvailable}>Abrir Explorer</button>
-          <button type="button" className="secondary-button compact" onClick={onClose}>Cancelar</button>
-          {isRealReady ? (
-            <button type="button" className="primary-button compact" onClick={() => onConfirm(false)}>Activar workspace</button>
-          ) : (
-            <>
-              <button type="button" className="secondary-button compact" onClick={() => onConfirm(false)} disabled={inspect.kind === 'loading'}>Activar sin sembrar</button>
-              <button type="button" className="primary-button compact" onClick={() => onConfirm(true)} disabled={inspect.kind === 'loading' || !value.trim()}>Sembrar y activar</button>
-            </>
-          )}
         </div>
       </div>
     </div>

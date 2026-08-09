@@ -59,6 +59,7 @@ ROUTE_META: tuple = (
     ("GET",  "/session",             "handlers_session",    "handle"),
     ("GET",  "/workspace/status",    "handlers_workspace",  "handle"),
     ("GET",  "/workspace/list",      "handlers_workspace",  "handle_list"),
+    ("GET",  "/workspace/browse",    "handlers_workspace",  "handle_browse"),
     ("GET",  "/workspaces",          "handlers_workspace",  "handle_list"),
     ("GET",  "/project/status",      "handlers_project",    "handle_project_status"),
     ("GET",  "/project/analyze",     "handlers_project",    "handle_project_analyze"),

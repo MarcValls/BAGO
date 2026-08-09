@@ -1,48 +1,7 @@
 import type { ActiveSection, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import type { OpeningDecision } from '@/contracts/backend';
-import { Icon, type IconName } from '@/shared/Icon';
-
-type SectionItem = {
-  id: ActiveSection;
-  label: string;
-  icon: IconName;
-  helper?: string;
-  shortcut?: string;
-};
-
-type SectionGroup = {
-  id: string;
-  label: string;
-  items: SectionItem[];
-};
-
-const GROUPS: SectionGroup[] = [
-  {
-    id: 'main',
-    label: 'Principal',
-    items: [
-      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Chat de bienvenida y elección de trabajo', shortcut: 'Ctrl+1' },
-      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos y fuentes', shortcut: 'Ctrl+2' }
-    ]
-  },
-  {
-    id: 'work',
-    label: 'Trabajo',
-    items: [
-      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+3' },
-      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Ramas, decisiones y contexto de trabajo', shortcut: 'Ctrl+4' },
-      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims y trazas', shortcut: 'Ctrl+5' },
-      { id: 'graph', label: 'Grafo', icon: 'graph', helper: 'Mapa operativo del workspace', shortcut: 'Ctrl+6' }
-    ]
-  },
-  {
-    id: 'system',
-    label: 'Sistema',
-    items: [
-      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+7' }
-    ]
-  }
-];
+import { Icon } from '@/shared/Icon';
+import { NAVIGATION_GROUPS } from '@/navigation/actionRegistry';
 
 function sectionStatus(section: ActiveSection, snapshot: UiBootstrapSnapshot | null): 'ok' | 'warn' | 'error' | 'unknown' {
   if (!snapshot) return 'unknown';
@@ -90,7 +49,7 @@ export function MainSidebar(props: Props) {
   return (
     <aside className={`main-sidebar ${props.collapsed ? 'is-collapsed' : ''}`} aria-label="Navegación principal">
       <nav className="sidebar-nav" aria-label="Destinos">
-        {GROUPS.map((group) => (
+        {NAVIGATION_GROUPS.map((group) => (
           <section key={group.id} className="sidebar-group" aria-label={group.label}>
             {!props.collapsed && <div className="sidebar-section-title">{group.label}</div>}
             {group.items.map((section) => {

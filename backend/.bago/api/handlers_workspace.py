@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlparse
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -231,3 +232,130 @@ def handle_list(handler: "BaseHTTPRequestHandler") -> None:
             pass
 
     send_json(handler, 200, {"ok": True, "workspaces": out, "count": len(out)})
+
+
+def _is_loopback_request(handler: "BaseHTTPRequestHandler") -> bool:
+    """Fail closed: filesystem browsing is only exposed to the local UI bridge."""
+    from ipaddress import ip_address
+
+    try:
+        address = ip_address(str(handler.client_address[0]))
+        if address.is_loopback:
+            return True
+        return bool(address.version == 6 and address.ipv4_mapped and address.ipv4_mapped.is_loopback)
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return False
+
+
+def _browse_roots() -> list[dict[str, str]]:
+    import os
+    import string
+
+    candidates: list[Path] = [Path.home()]
+    if os.name == "nt":
+        candidates.extend(Path(f"{letter}:\\") for letter in string.ascii_uppercase)
+    else:
+        candidates.append(Path("/"))
+
+    roots: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.expanduser().resolve()
+            key = str(resolved).casefold()
+            if not resolved.is_dir() or key in seen:
+                continue
+            seen.add(key)
+            roots.append({"label": "Inicio" if candidate == Path.home() else str(resolved), "path": str(resolved)})
+        except OSError:
+            continue
+    return roots
+
+
+def _browse_breadcrumbs(path: Path) -> list[dict[str, str]]:
+    parts = list(path.parts)
+    if not parts:
+        return [{"label": str(path), "path": str(path)}]
+    crumbs: list[dict[str, str]] = []
+    current = Path(parts[0])
+    crumbs.append({"label": parts[0], "path": str(current)})
+    for part in parts[1:]:
+        current = current / part
+        crumbs.append({"label": part, "path": str(current)})
+    return crumbs
+
+
+def _recent_workspace_locations(mgr: Any) -> list[dict[str, str]]:
+    import json
+
+    candidates = [str(getattr(mgr, "project_root", "") or getattr(mgr, "base_path", "")).strip()] if mgr else []
+    last_ws = Path.home() / ".bago" / "last_workspace.json"
+    if last_ws.exists():
+        try:
+            candidates.append(str(json.loads(last_ws.read_text(encoding="utf-8")).get("path", "")).strip())
+        except (OSError, json.JSONDecodeError):
+            pass
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in candidates:
+        try:
+            path = Path(raw).expanduser().resolve()
+            key = str(path).casefold()
+            if not raw or key in seen or not path.is_dir():
+                continue
+            seen.add(key)
+            result.append({"label": path.name or str(path), "path": str(path)})
+        except OSError:
+            continue
+    return result
+
+
+def handle_browse(handler: "BaseHTTPRequestHandler") -> None:
+    """GET /workspace/browse?path=... — local, read-only directory browser."""
+    import os
+    from api_serializers import send_json
+
+    if not _is_loopback_request(handler):
+        send_json(handler, 403, {"ok": False, "error": "Explorador disponible solo desde el equipo local", "error_code": "workspace_browse_local_only"})
+        return
+
+    mgr = _mgr(handler)
+    query = parse_qs(urlparse(handler.path).query)
+    raw_path = str((query.get("path") or [""])[0]).strip()
+    fallback = str(getattr(mgr, "project_root", "") or getattr(mgr, "base_path", "")).strip() if mgr else ""
+    try:
+        current = Path(raw_path or fallback or Path.home()).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        send_json(handler, 400, {"ok": False, "error": "Ruta no válida", "error_code": "workspace_browse_invalid_path"})
+        return
+    if not current.is_dir():
+        send_json(handler, 404, {"ok": False, "error": f"Directorio no encontrado: {current}", "error_code": "workspace_browse_not_found"})
+        return
+
+    directories: list[dict[str, str]] = []
+    try:
+        with os.scandir(current) as entries:
+            for entry in entries:
+                if entry.name.startswith(".") or entry.is_symlink():
+                    continue
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        directories.append({"name": entry.name, "path": str(Path(entry.path).resolve())})
+                except OSError:
+                    continue
+    except OSError as exc:
+        send_json(handler, 403, {"ok": False, "error": f"No se puede leer el directorio: {exc}", "error_code": "workspace_browse_unreadable"})
+        return
+
+    directories.sort(key=lambda item: item["name"].casefold())
+    parent = current.parent
+    send_json(handler, 200, {
+        "ok": True,
+        "path": str(current),
+        "parent": "" if parent == current else str(parent),
+        "roots": _browse_roots(),
+        "recent": _recent_workspace_locations(mgr),
+        "breadcrumbs": _browse_breadcrumbs(current),
+        "directories": directories[:500],
+        "truncated": len(directories) > 500,
+    })

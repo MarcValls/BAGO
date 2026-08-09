@@ -1,5 +1,6 @@
 import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
+import { SECTION_LABELS } from '@/navigation/actionRegistry';
 
 interface Props {
   snapshot: UiBootstrapSnapshot | null;
@@ -21,17 +22,6 @@ interface Props {
   appearanceTheme: 'dark' | 'light';
   sidebarCollapsed: boolean;
 }
-
-const sectionLabels: Record<ActiveSection, string> = {
-  home: 'Inicio',
-  workspace: 'Workspace',
-  graph: 'Grafo',
-  pipeline: 'Pipeline',
-  evidence: 'Evidencia',
-  context: 'Contexto',
-  chat: 'Chat',
-  system: 'Operación'
-};
 
 function StatePill({ state, busy }: { state: string; busy?: boolean }) {
   const labels: Record<string, string> = {
@@ -63,7 +53,7 @@ export function GlobalHeader(props: Props) {
           <div className="brand-mark">B</div>
           <div>
             <strong>Focus</strong>
-            <span>{sectionLabels[props.activeSection]} · {workspace}</span>
+            <span>{SECTION_LABELS[props.activeSection]} · {workspace}</span>
           </div>
         </div>
         <div className="focus-header-actions">
@@ -106,7 +96,7 @@ export function GlobalHeader(props: Props) {
         </div>
         <div className="header-divider" />
         <div className="header-location">
-          <span>{sectionLabels[props.activeSection]}</span>
+          <span>{SECTION_LABELS[props.activeSection]}</span>
           {props.snapshot?.system.objective && <small>{props.snapshot.system.objective}</small>}
           {guidance && <small title={menuState?.version ? `Contrato ${menuState.version}` : undefined}>{guidance}</small>}
         </div>
