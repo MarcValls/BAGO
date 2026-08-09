@@ -58,7 +58,7 @@ class CodexAdapter(ProviderAdapter):
             "--ephemeral",
             "--skip-git-repo-check",
             "--sandbox",
-            "read-only",
+            "workspace-write",
             "--color",
             "never",
             "-C",

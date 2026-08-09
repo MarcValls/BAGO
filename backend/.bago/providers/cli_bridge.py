@@ -16,7 +16,12 @@ def find_cli(name: str, configured_path: str = "") -> str:
 
 def build_prompt(messages: list[dict], system: str = "") -> str:
     payload = {
-        "instruction": "Answer the final user message directly. Do not edit files or run tools.",
+        "instruction": (
+            "Work on the final user request directly in the active workspace. "
+            "When the user asks to create, modify, or validate a project, inspect and edit files "
+            "and run the required checks. Keep changes inside the authorized workspace and report "
+            "what was executed. For questions that do not request changes, answer directly."
+        ),
         "system": system,
         "messages": [
             {"role": str(message.get("role", "user")), "content": str(message.get("content", ""))}
