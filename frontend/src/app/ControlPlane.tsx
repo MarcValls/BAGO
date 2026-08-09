@@ -1159,6 +1159,18 @@ export function ControlPlane() {
     }
   };
 
+  const createNewConversation = async (): Promise<void> => {
+    const created = await clientRef.current.createConversation();
+    const conversation = created.conversation as Record<string, unknown> | undefined;
+    const conversationId = String(created.active_conversation_id || conversation?.conversation_id || '').trim();
+    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    if (conversationId && root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+    setTurns([]);
+    setHistory(null);
+    await refreshAfterMutation();
+    setLastMessage('nuevo chat creado');
+  };
+
   const setReasoningDepthCb = async (depth: string): Promise<void> => {
     const previous = reasoningDepth;
     setReasoningDepthState(depth);
@@ -1287,6 +1299,7 @@ export function ControlPlane() {
                   sessionModel={sessionModel}
                   reasoningDepth={reasoningDepth}
                   onSetReasoningDepth={setReasoningDepthCb}
+                  onCreateConversation={createNewConversation}
                   workspaceOpenRequest={workspaceOpenRequest}
                   contextClient={clientRef.current}
                   contextTree={contextTree}

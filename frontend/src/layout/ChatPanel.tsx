@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type {
   ActiveSection,
   BackendRouterEntry,
@@ -64,6 +64,7 @@ interface Props {
   onContinue?: () => void;
   onChooseRecent?: (id: string) => void;
   onRefresh?: () => void;
+  onCreateConversation?: () => Promise<void>;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -201,6 +202,7 @@ export function ChatPanel(props: Props) {
   const [modelQuery, setModelQuery] = useState('');
   const [reasoningChanging, setReasoningChanging] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
+  const timelineRef = useRef<HTMLElement>(null);
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
   const historyMessages = Array.isArray(props.history?.messages) ? props.history.messages : [];
@@ -217,6 +219,9 @@ export function ChatPanel(props: Props) {
   const currentModel = modelOptions.find((option) => option.key === props.sessionModel) || null;
   const automaticModel = [props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'router del sistema';
   const showWelcome = welcomeOpen && props.turns.length === 0;
+  useEffect(() => {
+    if (timelineRef.current) timelineRef.current.scrollTop = 0;
+  }, [props.history?.conversation_id]);
   const chatSelection: SelectionRecord = {
     id: 'screen-chat',
     kind: 'screen-chat',
@@ -262,6 +267,9 @@ export function ChatPanel(props: Props) {
           <span>Chat</span>
         </div>
         <div className="chat-panel-header-actions">
+          <button className="secondary-button chat-new-button" type="button" onClick={() => void props.onCreateConversation?.()} title="Crear un chat nuevo en esta sesión">
+            <Icon name="plus" size={12} /> Nuevo chat
+          </button>
           <div className="segmented-control" role="group" aria-label="Modo de chat">
             <button
               className={props.chatMode === 'live' ? 'is-active' : ''}
@@ -296,7 +304,7 @@ export function ChatPanel(props: Props) {
       </header>
 
       <div className="chat-surface">
-        <section className="chat-timeline" aria-live="polite">
+        <section ref={timelineRef} className="chat-timeline" aria-live="polite">
           {props.turns.length === 0 ? (
             <div className="chat-empty">
               <span className="chat-empty-icon"><Icon name="chat" size={26} /></span>

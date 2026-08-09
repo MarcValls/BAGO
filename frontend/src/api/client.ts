@@ -356,8 +356,12 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/github/mcp-create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
   }
 
-  scopeWorkspaceConversation(root: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/workspace/conversation', { method: 'POST', body: JSON.stringify({ root }) });
+  scopeWorkspaceConversation(root: string, conversationId?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/workspace/conversation', { method: 'POST', body: JSON.stringify({ root, conversation_id: conversationId }) });
+  }
+
+  createConversation(title?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/conversations', { method: 'POST', body: JSON.stringify({ action: 'create', title: title || 'Nuevo chat' }) });
   }
 
   browseWorkspace(path?: string): Promise<{

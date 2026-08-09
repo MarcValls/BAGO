@@ -13,6 +13,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
     mgr = get_mgr(handler)
     root = str((body or {}).get("root") or "").strip()
+    requested_conversation = str((body or {}).get("conversation_id") or "").strip()
     store = getattr(mgr, "store", None)
     if mgr is None or store is None or not root:
         send_json(handler, 400, {"ok": False, "error": "Workspace o SessionManager no disponible"})
@@ -21,7 +22,12 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     mappings = store._meta.setdefault("workspace_conversations", {})
     conversation_id = str(mappings.get(normalized) or "")
     existing = {str(item.get("conversation_id")) for item in store.list_conversations()}
-    if not conversation_id or conversation_id not in existing:
+    if requested_conversation and requested_conversation in existing:
+        conversation_id = requested_conversation
+        store.switch_conversation(conversation_id)
+        mappings[normalized] = conversation_id
+        store._save_meta()
+    elif not conversation_id or conversation_id not in existing:
         workspace_name = root.rstrip("\\/").replace("/", "\\").split("\\")[-1] or root
         store.create_conversation(f"Workspace · {workspace_name}")
         conversation_id = store.active_conversation_id

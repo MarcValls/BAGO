@@ -386,6 +386,7 @@ export interface BackendRoutes {
 
 export interface BackendHistory {
   session_id?: string;
+  conversation_id?: string;
   messages?: Array<Record<string, unknown>>;
   count?: number;
 }

@@ -79,6 +79,7 @@ interface Props {
   onSetSessionModel?: (modelKey: string | null) => Promise<void>;
   reasoningDepth?: string;
   onSetReasoningDepth?: (depth: string) => Promise<void>;
+  onCreateConversation?: () => Promise<void>;
   sessionModel?: string | null;
   workspaceOpenRequest?: { path: string; kind?: 'file' | 'directory'; token: number } | null;
   // CANON[CTX-001]: el módulo de contexto necesita un cliente HTTP
@@ -1313,6 +1314,7 @@ export function ControlSections(props: Props) {
         onSetSessionModel={(key) => props.onSetSessionModel ? props.onSetSessionModel(key) : Promise.resolve()}
         reasoningDepth={props.reasoningDepth || 'normal'}
         onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
+        onCreateConversation={props.onCreateConversation}
         canChat={Boolean(snapshot?.permissions.canChat)}
         contextPatches={props.contextPatchDisplay}
         onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
@@ -1357,6 +1359,7 @@ export function ControlSections(props: Props) {
         onSetSessionModel={(key) => props.onSetSessionModel ? props.onSetSessionModel(key) : Promise.resolve()}
         reasoningDepth={props.reasoningDepth || 'normal'}
         onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
+        onCreateConversation={props.onCreateConversation}
         canChat={Boolean(snapshot?.permissions.canChat)}
         contextPatches={props.contextPatchDisplay}
         onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
