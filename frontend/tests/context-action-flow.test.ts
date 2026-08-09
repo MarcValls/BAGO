@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const contextModule = readFileSync(new URL('../src/features/context-tree/ContextTreeModule.tsx', import.meta.url), 'utf8');
+const contextModule = readFileSync(new URL('../src/features/context-tree/ContextTreeModule.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const activityTray = readFileSync(new URL('../src/features/context-tree/ContextActivityTray.tsx', import.meta.url), 'utf8');
 const sections = readFileSync(new URL('../src/features/sections.tsx', import.meta.url), 'utf8');
 const workGraph = readFileSync(new URL('../src/features/graph/WorkGraph.tsx', import.meta.url), 'utf8');
