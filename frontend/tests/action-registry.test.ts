@@ -3,8 +3,8 @@ import { createShellActions, NAVIGATION_GROUPS, NAVIGATION_ORDER } from '../src/
 
 describe('canonical shell action registry', () => {
   it('uses the same product order for sidebar, shortcuts and palette', () => {
-    expect(NAVIGATION_ORDER).toEqual(['home', 'workspace', 'context', 'pipeline', 'evidence', 'graph', 'system']);
-    expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.shortcut))).toEqual(['Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7']);
+    expect(NAVIGATION_ORDER).toEqual(['home', 'workspace', 'context', 'pipeline', 'evidence', 'system']);
+    expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.shortcut))).toEqual(['Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6']);
   });
 
   it('exposes object and verb labels plus the reusable workspace action', () => {

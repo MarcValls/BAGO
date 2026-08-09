@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { BagoClient, createBagoClient } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
 import { resolveProviderDescriptor } from '@/shared/provider-catalog';
@@ -6,8 +6,9 @@ import { ProviderDescriptor } from '@/shared/provider-config';
 import { normalizeProviderModels } from '@/shared/providerModels';
 import { ProviderConfigModal } from './ProviderConfigModal';
 import type { ContextTargetKind, SelectionRecord } from '@/contracts/backend';
+import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 
-type TabId = 'overview' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
+type TabId = 'overview' | 'capabilities' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
 
 interface Tab {
   id: TabId;
@@ -18,6 +19,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'overview', label: 'Resumen', icon: 'system' },
+  { id: 'capabilities', label: 'Capacidades', icon: 'spark' },
   { id: 'router', label: 'Router', icon: 'model' },
   { id: 'providers', label: 'Proveedores', icon: 'server' },
   { id: 'audit', label: 'Auditoría', icon: 'inspector' },
@@ -294,6 +296,12 @@ export function SystemTabs(props: Props) {
             </button>
             <ActionMenuButton selection={overviewSelection} onInspectSelection={props.onInspectSelection} label="Acciones de sistema" />
             <ReleaseUpdateCard client={client} />
+          </section>
+        )}
+
+        {active === 'capabilities' && (
+          <section className="system-tab-panel system-capabilities-panel" role="tabpanel">
+            <CapabilityAnatomyModule client={client} onInspect={(selection) => props.onInspectSelection?.(selection)} />
           </section>
         )}
 
@@ -589,31 +597,86 @@ export function SystemTabs(props: Props) {
 
 function ReleaseUpdateCard({ client }: { client: BagoClient }) {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [updateState, setUpdateState] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setBusy(true);
-    try { setData(await client.checkReleaseUpdate()); setMessage(''); }
+    try {
+      const checked = await client.checkReleaseUpdate();
+      setData(checked);
+      setUpdateState(await client.getReleaseUpdateStatus());
+      setMessage(String(checked.warning || ''));
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
-  };
+  }, [client]);
 
-  useEffect(() => { void refresh(); }, [client]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  const update = async () => {
+  const stateName = String(updateState?.status || 'idle');
+  useEffect(() => {
+    if (!['queued', 'downloading', 'verifying', 'applying'].includes(stateName)) return;
+    const timer = window.setInterval(() => {
+      void client.getReleaseUpdateStatus()
+        .then(setUpdateState)
+        .catch((error) => setMessage(error instanceof Error ? error.message : String(error)));
+    }, 750);
+    return () => window.clearInterval(timer);
+  }, [client, stateName]);
+
+  const download = async () => {
     setBusy(true);
     try {
       const result = await client.startReleaseUpdate(String(data?.latest || ''));
-      setMessage(String(result.message || 'Actualización iniciada.'));
+      setUpdateState(result);
+      setMessage(String(result.message || 'Descarga iniciada.'));
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
 
-  const available = Boolean(data?.available);
+  const apply = async () => {
+    if (!window.confirm('BAGO se cerrará y volverá a abrirse al terminar. ¿Instalar la actualización ahora?')) return;
+    setBusy(true);
+    try {
+      const result = await client.applyReleaseUpdate();
+      setUpdateState(result);
+      setMessage(String(result.message || 'Instalando actualización…'));
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+
+  const installation = asRecord(data?.installation || updateState?.installation);
+  const canInstall = installation.ready === true;
+  const available = Boolean(data?.available || updateState?.available);
+  const progress = Math.max(0, Math.min(100, Number(updateState?.percent || 0)));
+  const active = ['queued', 'downloading', 'verifying', 'applying'].includes(stateName);
+  const ready = stateName === 'ready';
+  const completed = stateName === 'completed';
+  const statusMessage = message || String(updateState?.message || '');
+  const title = completed
+    ? 'Actualización completada'
+    : available
+      ? `Nueva versión ${String(data?.latest || updateState?.latest || '')}`
+      : 'BAGO está actualizado';
+  const detail = statusMessage || (!canInstall && available
+    ? String(installation.reason || 'Esta copia no admite actualización integrada.')
+    : `Versión instalada: ${String(data?.current || updateState?.current || '—')}. Se conservan estado, memoria y proyectos.`);
+
   return <article className="release-update-card">
-    <div><span className="surface-eyebrow"><Icon name="refresh" size={13} /> Actualización de BAGO</span><strong>{available ? `Nueva versión ${String(data?.latest || '')}` : 'BAGO está actualizado'}</strong><small>{message || `Versión instalada: ${String(data?.current || '—')}. Se conserva el estado, memoria y proyectos.`}</small></div>
-    <div className="system-panel-actions"><button className="text-button" type="button" onClick={() => void refresh()} disabled={busy}>Comprobar</button>{available && <button className="primary-button compact" type="button" onClick={() => void update()} disabled={busy}>Actualizar ahora</button>}</div>
+    <div className="release-update-copy">
+      <span className="surface-eyebrow"><Icon name="refresh" size={13} /> Actualización de BAGO</span>
+      <strong>{title}</strong>
+      <small>{detail}</small>
+      {(active || ready) && <div className="release-update-progress" role="progressbar" aria-label="Progreso de actualización" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>}
+      {Boolean(data?.release_url) && <a className="release-update-link" href={String(data?.release_url)} target="_blank" rel="noreferrer">Ver detalles de la release</a>}
+    </div>
+    <div className="system-panel-actions">
+      <button className="text-button" type="button" onClick={() => void refresh()} disabled={busy || active}>Comprobar</button>
+      {available && !ready && !active && <button className="primary-button compact" type="button" onClick={() => void download()} disabled={busy || !canInstall}>Descargar y verificar</button>}
+      {ready && <button className="primary-button compact" type="button" onClick={() => void apply()} disabled={busy}>Instalar y reiniciar</button>}
+    </div>
   </article>;
 }
 

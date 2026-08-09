@@ -2,7 +2,7 @@ export type SystemState = 'confirmed' | 'loading' | 'degraded' | 'error' | 'unkn
 export type GlobalMode = 'normal' | 'focus' | 'review';
 export type ChatMode = 'live' | 'trace';
 export type InspectorLevel = 'summary' | 'detail' | 'raw';
-export type ActiveSection = 'home' | 'chat' | 'workspace' | 'graph' | 'pipeline' | 'evidence' | 'context' | 'system';
+export type ActiveSection = 'home' | 'chat' | 'workspace' | 'pipeline' | 'evidence' | 'context' | 'system';
 
 export type ContextTargetKind =
   | 'screen.home'

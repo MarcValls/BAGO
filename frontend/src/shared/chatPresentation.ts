@@ -60,6 +60,23 @@ export function presentChatTurn(text: string, status?: string): ChatPresentation
     };
   }
 
+  if (record) {
+    const entries = Array.isArray(record.entries) ? record.entries.length : 0;
+    const files = Array.isArray(record.files) ? record.files.length : 0;
+    const count = Number(record.count || entries || files || 0);
+    const path = String(record.path || record.root || '').trim();
+    const location = path === '.' ? 'la carpeta actual' : path;
+    const summary = String(record.message || '').trim()
+      || (count ? `La herramienta devolvió ${count} ${count === 1 ? 'elemento' : 'elementos'}${location ? ` de ${location}` : ''}.` : '')
+      || (location ? `La herramienta completó la acción sobre ${location}.` : 'La herramienta completó la acción.');
+    return {
+      kind: 'activity',
+      title: 'Acción completada',
+      summary,
+      technicalDetail: JSON.stringify(record, null, 2)
+    };
+  }
+
   if ((status === 'failed' || status === 'blocked') && clean) {
     return {
       kind: 'error',

@@ -28,6 +28,7 @@ import { FlowShell } from '@/lib/flow-shell/FlowShell';
 import type { FlowStageItem } from '@/lib/flow-shell/FlowNav';
 import { Icon } from '@/shared/Icon';
 import { BagoClient, safeJson } from '@/api/client';
+import { compactTaskTitle } from '@/shared/taskPresentation';
 import {
   buildCollectionPrompt,
   collectionOperationToPatch,
@@ -268,6 +269,7 @@ export function ContextTreeModule(props: Props) {
 
   const selectedBranch = taskBranches.find((branch) => branch.id === selectedBranchId) || taskBranches[0] || null;
   const pendingProposals = ctx.proposals.filter((proposal) => proposal.status === 'pending');
+  const openTaskBranches = taskBranches.filter((branch) => branch.status !== 'canon' && branch.status !== 'archived');
   const filteredBranches = useMemo(() => taskBranches.filter((branch) => {
     const branchNodes = flatNodes.filter((node) => node.parentId === branch.id);
     const hasQuestion = pendingProposals.some((proposal) => proposal.metadata?.clarification && proposal.status === 'pending');
@@ -496,13 +498,13 @@ export function ContextTreeModule(props: Props) {
       return `${operation.op} ${'nodeId' in operation ? operation.nodeId : ''}`.trim();
     }).filter(Boolean);
     await props.onCreatePlan(
-      proposal.title,
+      compactTaskTitle(proposal.title),
       [proposal.reason, operationTitles.length ? `Cambios mencionados: ${operationTitles.join(', ')}.` : ''].filter(Boolean).join('\n\n')
     );
   };
 
   const startBranchTask = async (branch: ContextNode) => {
-    await props.onCreatePlan(branch.title, branch.summary || 'Ejecutar la tarea abierta desde el contexto de trabajo.');
+    await props.onCreatePlan(compactTaskTitle(branch.title), branch.summary || 'Ejecutar la tarea abierta desde el contexto de trabajo.');
   };
 
   const createTaskBranch = async () => {
@@ -827,18 +829,22 @@ export function ContextTreeModule(props: Props) {
     ? rawReview as Partial<ContextReviewResult> & { reviewedAt?: string; provider?: string; model?: string }
     : null;
   const reviewFindings = Array.isArray(selectedReview?.findings) ? selectedReview.findings : [];
+  const projectName = props.workspaceRoot.split(/[\\/]/).filter(Boolean).pop() || 'proyecto activo';
 
   return (
     <div className="task-context-page">
       <header className="context-workbench-header">
         <div className="context-workbench-title">
-          <span className="surface-eyebrow">Contexto de trabajo</span>
-          <h1>{ctx.tree.name}</h1>
-          <p title={props.workspaceRoot}>{props.workspaceRoot || 'Workspace activo'} · {taskBranches.length} ramas · {pendingProposals.length} propuestas pendientes</p>
+          <span className="surface-eyebrow">Proyecto activo</span>
+          <h1>Contexto de {projectName}</h1>
+          <p>{openTaskBranches.length} tareas abiertas · {pendingProposals.length} menciones por validar</p>
         </div>
-        <div className="context-workbench-actions"><button type="button" className="primary-button compact" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar contexto</button></div>
         <nav className="context-workbench-tabs" aria-label="Vistas de contexto">
-          {([['focus', 'Ahora', 'live'], ['tasks', 'Tareas', 'context'], ['library', 'Contexto', 'folder'], ['advanced', 'Avanzado', 'tree']] as const).map(([id, label, icon]) => <button type="button" key={id} className={workbenchView === id ? 'is-active' : ''} onClick={() => changeWorkbenchView(id)}><Icon name={icon} size={12} /> {label}{id === 'focus' && pendingProposals.length > 0 && <span>{pendingProposals.length}</span>}</button>)}
+          {([['focus', 'Ahora', 'live'], ['tasks', 'Tareas', 'context'], ['library', 'Biblioteca', 'folder']] as const).map(([id, label, icon]) => <button type="button" key={id} className={workbenchView === id ? 'is-active' : ''} onClick={() => changeWorkbenchView(id)}><Icon name={icon} size={12} /> {label}{id === 'focus' && pendingProposals.length > 0 && <span>{pendingProposals.length}</span>}</button>)}
+          <details className="context-workbench-more">
+            <summary className={workbenchView === 'advanced' ? 'is-active' : ''}><Icon name="more" size={12} /> Más</summary>
+            <button type="button" onClick={() => changeWorkbenchView('advanced')}><Icon name="tree" size={12} /> Configuración avanzada</button>
+          </details>
         </nav>
       </header>
       {workbenchView === 'focus' ? (
@@ -857,7 +863,7 @@ export function ContextTreeModule(props: Props) {
                 <article key={proposal.id} className="context-focus-item">
                   <div className="context-focus-item-copy">
                     <div><span className={`context-focus-risk risk-${proposal.riskLevel}`}>{proposal.riskLevel === 'low' ? 'Riesgo bajo' : proposal.riskLevel === 'medium' ? 'Riesgo medio' : proposal.riskLevel === 'high' ? 'Riesgo alto' : 'Crítico'}</span><small>{proposal.patch.operations.length} cambios</small></div>
-                    <h3>{proposal.title}</h3>
+                    <h3>{compactTaskTitle(proposal.title)}</h3>
                     <p>{proposal.reason || 'Propuesta de contexto sin explicación adicional.'}</p>
                     {proposal.metadata?.clarification && <blockquote><b>Pregunta</b>{proposal.metadata.clarification}</blockquote>}
                   </div>
@@ -873,22 +879,23 @@ export function ContextTreeModule(props: Props) {
           </section>
 
           <section className="context-focus-panel context-focus-tasks" aria-label="Tareas de contexto">
-            <header><div><span>TAREAS</span><strong>Trabajo disponible</strong></div><b>{taskBranches.filter((branch) => branch.status !== 'canon' && branch.status !== 'archived').length}</b></header>
+            <header><div><span>TAREAS</span><strong>Trabajo disponible</strong></div><b>{openTaskBranches.length}</b></header>
             <div className="context-focus-new-task">
               <input aria-label="Nombre de la nueva tarea" value={newBranchTitle} onChange={(event) => setNewBranchTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void createTaskBranch(); }} placeholder="Nueva tarea…" />
               <button type="button" className="secondary-button compact" onClick={() => void createTaskBranch()} disabled={!newBranchTitle.trim()}><Icon name="plus" size={11} /> Crear</button>
             </div>
             <div className="context-focus-list">
-              {taskBranches.length === 0 && <div className="context-focus-empty"><Icon name="context" size={20} /><strong>No hay tareas todavía</strong><span>Crea una aquí o recopila las mencionadas en la conversación.</span></div>}
-              {taskBranches.slice(0, 8).map((branch) => (
+              {openTaskBranches.length === 0 && <div className="context-focus-empty"><Icon name="context" size={20} /><strong>No hay tareas abiertas</strong><span>Crea una aquí o recopila las mencionadas en la conversación.</span></div>}
+              {openTaskBranches.slice(0, 2).map((branch) => (
                 <article key={branch.id} className="context-focus-task">
                   <button type="button" className="context-focus-task-copy" onClick={() => { setSelectedBranchId(branch.id); changeWorkbenchView('tasks'); }}>
                     <span className="task-context-branch-dot" data-status={branch.status} />
-                    <span><strong>{branch.title}</strong><small>{branchStatus(branch)}</small><p>{branch.summary || 'Sin resumen.'}</p></span>
+                    <span><strong>{compactTaskTitle(branch.title)}</strong><small>{branchStatus(branch)}</small><p>{branch.summary || 'Sin resumen.'}</p></span>
                   </button>
                   <div><button type="button" className="secondary-button compact" onClick={() => void startBranchTask(branch)}><Icon name="pipeline" size={11} /> Iniciar</button><button type="button" className="text-button" onClick={() => { setSelectedBranchId(branch.id); changeWorkbenchView('tasks'); }}>Abrir</button></div>
                 </article>
               ))}
+              {openTaskBranches.length > 2 && <button type="button" className="context-focus-show-all" onClick={() => changeWorkbenchView('tasks')}>Ver todas las tareas ({openTaskBranches.length}) <Icon name="arrowRight" size={11} /></button>}
             </div>
           </section>
         </div>
@@ -901,7 +908,7 @@ export function ContextTreeModule(props: Props) {
       ) : workbenchView === 'tasks' ? (
       <div className="task-context-layout">
         <aside className="task-context-branches" aria-label="Ramas de tareas">
-          <div className="task-context-panel-heading"><div><span>PROYECTO</span><strong>{ctx.tree.name}</strong></div><b>{taskBranches.length}</b></div>
+          <div className="task-context-panel-heading"><div><span>PROYECTO</span><strong>{projectName}</strong></div><b>{taskBranches.length}</b></div>
           <div className="task-context-new-branch">
             <input aria-label="Nombre de la nueva tarea" value={newBranchTitle} onChange={(event) => setNewBranchTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void createTaskBranch(); }} placeholder="Nueva tarea o rama…" />
             <button type="button" aria-label="Crear nueva rama" onClick={() => void createTaskBranch()} disabled={!newBranchTitle.trim()}><Icon name="plus" size={13} /></button>
@@ -914,7 +921,7 @@ export function ContextTreeModule(props: Props) {
             {filteredBranches.map((branch) => {
               const count = flatNodes.filter((node) => node.id !== branch.id && (node.sourceRefs.some((ref) => ref.id === branch.id) || node.parentId === branch.id)).length;
               return <button key={branch.id} type="button" className={`task-context-branch ${selectedBranch?.id === branch.id ? 'is-selected' : ''}`} onClick={() => setSelectedBranchId(branch.id)}>
-                <span className="task-context-branch-dot" data-status={branch.status} /><span className="task-context-branch-copy"><strong>{branch.title}</strong><small>{branchStatus(branch)} · {count} elementos</small></span><Icon name="chevron" size={12} />
+                <span className="task-context-branch-dot" data-status={branch.status} /><span className="task-context-branch-copy"><strong>{compactTaskTitle(branch.title)}</strong><small>{branchStatus(branch)} · {count} elementos</small></span><Icon name="chevron" size={12} />
               </button>;
             })}
           </div>
@@ -927,7 +934,7 @@ export function ContextTreeModule(props: Props) {
           ) : (
             <>
               <section className="task-context-task-head">
-                <div><span className="task-context-status" data-status={selectedBranch.status}>{branchStatus(selectedBranch)}</span><h2>{selectedBranch.title}</h2><p>{selectedBranch.summary || 'Esta rama todavía no tiene un resumen. Recopila el chat para construirlo.'}</p></div>
+                <div><span className="task-context-status" data-status={selectedBranch.status}>{branchStatus(selectedBranch)}</span><h2>{compactTaskTitle(selectedBranch.title)}</h2><p>{selectedBranch.summary || 'Esta rama todavía no tiene un resumen. Recopila el chat para construirlo.'}</p></div>
                 <div className="task-context-task-actions"><button type="button" className="secondary-button compact" onClick={openChat}><Icon name="chat" size={12} /> Ver conversación</button><button type="button" className="primary-button compact" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar de esta tarea</button>{selectedBranch.status === 'canon' || selectedBranch.status === 'archived' ? <button type="button" className="secondary-button compact" onClick={() => void reopenSelectedTask()}><Icon name="refresh" size={12} /> Reabrir tarea</button> : <button type="button" className="secondary-button compact" onClick={() => setCloseOpen((value) => !value)}><Icon name="check" size={12} /> Cerrar tarea</button>}</div>
               </section>
               {closeOpen && selectedBranch.status !== 'canon' && selectedBranch.status !== 'archived' && <section className="task-context-close-form"><strong>Cerrar esta rama</strong><span>Escribe qué se ha resuelto. Quedará guardado como conclusión y podrás reabrirla después.</span><textarea aria-label="Conclusión de la tarea" value={closeNote} onChange={(event) => setCloseNote(event.target.value)} placeholder="Conclusión o evidencia de cierre…" rows={3} /><div><button type="button" className="secondary-button compact" onClick={() => { setCloseOpen(false); setCloseNote(''); }}>Cancelar</button><button type="button" className="primary-button compact" disabled={!closeNote.trim()} onClick={() => void closeSelectedTask()}><Icon name="check" size={12} /> Confirmar cierre</button></div></section>}
@@ -935,7 +942,7 @@ export function ContextTreeModule(props: Props) {
                 <div className="task-context-card task-context-card-wide"><div className="task-context-card-title"><span>CONTENIDO DE LA RAMA</span><b>{selectedBranchNodes.length} elementos</b></div>
                   {selectedBranchNodes.length === 0 ? <div className="task-context-card-empty">Aún no hay decisiones, pantallas, archivos o evidencias en esta rama.</div> : <div className="task-context-items">{selectedBranchNodes.map((node) => <article key={node.id} className="task-context-item"><span className="task-context-item-type">{node.type}</span><div><strong>{node.title}</strong><p>{node.summary || 'Sin resumen todavía.'}</p>{node.sourceRefs[0]?.path && <button type="button" className="task-context-link" onClick={() => props.onOpenInWorkspace?.(String(node.sourceRefs[0].path))}>Abrir origen</button>}</div><span className="task-context-item-status">{node.status}</span></article>)}</div>}
                 </div>
-                <div className="task-context-card"><div className="task-context-card-title"><span>PROPUESTAS PENDIENTES</span><b>{pendingProposals.length}</b></div>{pendingProposals.length === 0 ? <div className="task-context-card-empty">No hay propuestas esperando permiso.</div> : <div className="task-context-proposals">{pendingProposals.slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-proposal" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><Icon name="sparkle" size={13} /><span><strong>{proposal.title}</strong><small>{proposal.patch.operations.length} cambios · requiere revisión</small></span><Icon name="chevron" size={12} /></button>)}</div>}</div>
+                <div className="task-context-card"><div className="task-context-card-title"><span>PROPUESTAS PENDIENTES</span><b>{pendingProposals.length}</b></div>{pendingProposals.length === 0 ? <div className="task-context-card-empty">No hay propuestas esperando permiso.</div> : <div className="task-context-proposals">{pendingProposals.slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-proposal" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><Icon name="sparkle" size={13} /><span><strong>{compactTaskTitle(proposal.title)}</strong><small>{proposal.patch.operations.length} cambios · requiere revisión</small></span><Icon name="chevron" size={12} /></button>)}</div>}</div>
                 <div className="task-context-card"><div className="task-context-card-title"><span>PREGUNTAS PENDIENTES</span><b>{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).length}</b></div>{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).length === 0 ? <div className="task-context-card-empty">No hay aclaraciones pendientes.</div> : <div className="task-context-question-list">{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-question" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><span>?</span><div><strong>{proposal.metadata?.clarification}</strong><small>Responder revisando la propuesta</small></div></button>)}</div>}</div>
                 <div className="task-context-card"><div className="task-context-card-title"><span>CHAT RECIENTE</span><b>{ctx.bank.history.length}</b></div>{recentChat.length === 0 ? <div className="task-context-card-empty">Todavía no hay conversación disponible.</div> : <div className="task-context-chat-list">{recentChat.map((item, index) => <div key={`${item.id}-${index}`}><span>{String(item.raw?.role || 'chat')}</span><p>{String(item.raw?.content || item.raw?.text || item.title || '').slice(0, 180)}</p></div>)}</div>}</div>
                 <div className="task-context-card task-context-card-wide"><div className="task-context-card-title"><span>HISTORIAL DE LA RAMA</span><b>{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).length}</b></div>{ctx.receipts.length === 0 ? <div className="task-context-card-empty">Aún no hay actividad registrada.</div> : <div className="task-context-timeline">{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).slice(0, 12).map((receipt) => <div key={receipt.id} className="task-context-timeline-item"><span className="task-context-timeline-dot" /><div><strong>{receipt.summary}</strong><small>{new Date(receipt.createdAt).toLocaleString()} · {receipt.createdBy}</small></div></div>)}</div>}</div>

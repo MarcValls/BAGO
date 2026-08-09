@@ -1,6 +1,6 @@
 import type { ActiveSection, SelectionRecord } from './backend';
 
-export type ModuleId = ActiveSection | 'chat' | 'provider-center';
+export type ModuleId = ActiveSection | 'chat' | 'graph' | 'provider-center';
 
 export type ModuleCapability =
   | 'read'

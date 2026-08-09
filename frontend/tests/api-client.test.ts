@@ -134,4 +134,18 @@ describe('BagoClient response parsing', () => {
 
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/ui/bootstrap')).toHaveLength(1);
   });
+
+  it('applies a verified release through the dedicated endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, status: 'applying' }), {
+      status: 202,
+      headers: { 'Content-Type': 'application/json' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(createBagoClient('', '').applyReleaseUpdate()).resolves.toMatchObject({ status: 'applying' });
+    expect(fetchMock).toHaveBeenCalledWith('/release/apply', expect.objectContaining({
+      method: 'POST',
+      body: '{}'
+    }));
+  });
 });

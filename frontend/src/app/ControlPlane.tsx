@@ -18,9 +18,10 @@ import { buildSnapshot } from '@/app/bootstrapSnapshot';
 import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 import { normalizeChatResponse } from '@/shared/chatResponse';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
-import { markFirstRunComplete, shouldShowFirstRun } from '@/features/first-run/firstRun';
+import { markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
 import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
+import { canPersistWorkspaceAuthority } from '@/shared/workspaceAuthority';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -153,6 +154,7 @@ export function ControlPlane() {
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
+  const [firstRunRequested, setFirstRunRequested] = useState(false);
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
@@ -164,6 +166,11 @@ export function ControlPlane() {
   const contextTree = useContextTree(clientRef.current);
   const contextTreeRef = useRef(contextTree);
   contextTreeRef.current = contextTree;
+  useEffect(() => {
+    if (!firstRunOpen || firstRunRequested || !shouldSkipAutomaticFirstRun(snapshot)) return;
+    markFirstRunComplete(window.localStorage);
+    setFirstRunOpen(false);
+  }, [firstRunOpen, firstRunRequested, snapshot]);
   const runBusy = async <T,>(task: () => Promise<T>): Promise<T> => {
     setBusyCount((count) => count + 1);
     try {
@@ -310,9 +317,8 @@ export function ControlPlane() {
       snapshot.project?.root || snapshot.workspace?.repoRoot || snapshot.workspace?.root || ''
     ).trim();
     if (!root) return;
-    // Solo persistir si está vinculado (binding confirmado) o es la primera vez
-    const linked = !!snapshot.workspace?.linkedToSession;
-    if (!linked && !persistWorkspace.everPersistedRef.current) return;
+    // Un snapshot inválido nunca puede reemplazar el último workspace válido.
+    if (!canPersistWorkspaceAuthority(snapshot)) return;
     persistWorkspace.everPersistedRef.current = true;
     void clientRef.current.persistWorkspace(root).catch(() => {
       // Silenciar: la persistencia es best-effort
@@ -927,7 +933,7 @@ export function ControlPlane() {
     if (kind.includes('evidence') || kind.includes('receipt') || id.includes('evidence')) return navigate('evidence');
     if (kind.includes('context') || id.includes('context')) return navigate('context');
     if (kind.includes('router') || kind.includes('system') || kind.includes('provider')) return navigate('system');
-    if (kind.includes('graph') || kind.includes('node')) return navigate('graph');
+    if (kind.includes('graph') || kind.includes('node')) return navigate('pipeline');
     return navigate('chat');
   };
 
@@ -1191,12 +1197,9 @@ export function ControlPlane() {
             <MainSidebar
               activeSection={uiState.activeSection}
               snapshot={snapshot}
-              opening={opening}
-              actions={combinedActions}
               workspaceHint={uiState.workspaceHint}
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
-              onRunAction={runAction}
             />
           )}
 
@@ -1208,6 +1211,8 @@ export function ControlPlane() {
                 mode={uiState.globalMode}
                 showReadiness={false}
                 showGlobalChips={false}
+                onChooseWorkspace={openWorkspacePicker}
+                onRefresh={bootstrap}
               >
                 <ControlSections
                   section={uiState.activeSection}
@@ -1298,11 +1303,12 @@ export function ControlPlane() {
           onClose={() => setAndPersistUiState({ helpOpen: false })}
           onOpenFirstRun={() => {
             setAndPersistUiState({ helpOpen: false });
+            setFirstRunRequested(true);
             setFirstRunOpen(true);
           }}
         />
       )}
-      {firstRunOpen && !booting && snapshot && (
+      {firstRunOpen && !booting && snapshot && (firstRunRequested || !shouldSkipAutomaticFirstRun(snapshot)) && (
         <FirstRunWizard
           snapshot={snapshot}
           providers={providers}
@@ -1314,9 +1320,14 @@ export function ControlPlane() {
           onCreateDemo={createAndActivateDemo}
           client={clientRef.current}
           onChooseWorkspace={chooseWorkspacePath}
-          onClose={() => setFirstRunOpen(false)}
+          onClose={() => {
+            markFirstRunComplete(window.localStorage);
+            setFirstRunRequested(false);
+            setFirstRunOpen(false);
+          }}
           onFinish={() => {
             markFirstRunComplete(window.localStorage);
+            setFirstRunRequested(false);
             setFirstRunOpen(false);
             openShell(snapshot.permissions.canChat ? 'chat' : 'home');
           }}

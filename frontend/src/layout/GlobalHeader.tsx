@@ -1,6 +1,7 @@
 import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { SECTION_LABELS } from '@/navigation/actionRegistry';
+import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
 
 interface Props {
   snapshot: UiBootstrapSnapshot | null;
@@ -23,22 +24,23 @@ interface Props {
   sidebarCollapsed: boolean;
 }
 
-function StatePill({ state, busy }: { state: string; busy?: boolean }) {
+function StatePill({ state, busy, label }: { state: string; busy?: boolean; label?: string }) {
   const labels: Record<string, string> = {
-    confirmed: 'Operativo', degraded: 'Limitado', error: 'Con error', blocked: 'Bloqueado',
+    confirmed: 'Operativo', degraded: 'Limitado', error: 'Con error', blocked: 'Requiere atención',
     loading: 'Cargando', unknown: 'Sin confirmar'
   };
   return (
     <span className={`header-state state-${busy ? 'loading' : state}`}>
       <span className="status-dot" />
-      {busy ? 'Cargando' : labels[state] || state}
+      {busy ? 'Cargando' : label || labels[state] || state}
     </span>
   );
 }
 
 export function GlobalHeader(props: Props) {
-  const workspace = props.snapshot?.workspace.id || props.workspaceHint || 'Sin workspace';
-  const state = props.snapshot?.system.state || 'unknown';
+  const authority = resolveWorkspaceAuthority(props.snapshot);
+  const workspace = authority.projectLabel || props.workspaceHint || 'Sin proyecto';
+  const state = authority.state;
   const menuState = props.snapshot?.menuState;
   const guidance = [
     menuState?.activeCenter,
@@ -113,7 +115,7 @@ export function GlobalHeader(props: Props) {
             <option value="light">Claro</option>
           </select>
         </label>
-        <StatePill state={state} busy={props.busy} />
+        <StatePill state={state} busy={props.busy} label={authority.label} />
         <button className="header-button command-entry" type="button" onClick={props.onOpenPalette} title="Comandos y búsqueda">
           <Icon name="search" />
           <span>Comandos</span>

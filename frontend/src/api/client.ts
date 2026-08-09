@@ -213,6 +213,13 @@ export class BagoClient {
     }, 30_000);
   }
 
+  applyReleaseUpdate(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/release/apply', {
+      method: 'POST',
+      body: JSON.stringify({})
+    }, 30_000);
+  }
+
   verifyProviderContracts(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/providers/contracts', { method: 'GET' });
   }

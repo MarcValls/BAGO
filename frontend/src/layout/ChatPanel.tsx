@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type {
   ActiveSection,
   BackendRouterEntry,
@@ -16,6 +16,7 @@ import { quietStatus } from '@/shared/quiet-status';
 import { ContextPatchValidationCard } from '@/features/context-tree/ContextPatchValidationCard';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildChatModelOptions } from '@/layout/chatModelOptions';
+import { groupTechnicalTurns, presentChatTurn } from '@/shared/chatPresentation';
 
 export interface ContextPatchDisplay {
   patch: ContextPatchRequest;
@@ -112,9 +113,90 @@ function inspectMenuAttrs(selection: SelectionRecord, onInspect: Props['onInspec
   };
 }
 
+interface TurnArticleProps {
+  turn: ChatTurn;
+  contextPatches: ContextPatchDisplay[];
+  onInspect: Props['onInspect'];
+  onSendChat: Props['onSendChat'];
+  onAcceptContextPatch?: Props['onAcceptContextPatch'];
+  onRejectContextPatch?: Props['onRejectContextPatch'];
+  onEditContextPatch?: Props['onEditContextPatch'];
+  onRevertContextPatch?: Props['onRevertContextPatch'];
+  onReviewContextPatch?: Props['onReviewContextPatch'];
+  onOpenContextInTree?: Props['onOpenContextInTree'];
+  onNavigate: Props['onNavigate'];
+}
+
+type TechnicalPresentation = Extract<ReturnType<typeof presentChatTurn>, { kind: 'activity' | 'error' }>;
+
+function TurnArticle(props: TurnArticleProps) {
+  const { turn } = props;
+  const turnSelection: SelectionRecord = {
+    id: turn.id,
+    kind: 'chat-turn',
+    targetKind: 'screen.chat' as ContextTargetKind,
+    title: turn.role === 'user' ? 'Mensaje del usuario' : turn.role === 'command' ? 'Comando' : 'Respuesta de BAGO',
+    summary: turn.text.slice(0, 240),
+    detail: [
+      `status: ${turn.status || 'done'}`,
+      `timestamp: ${turn.timestamp}`,
+      `receipt: ${turn.receipt ? 'available' : 'none'}`,
+      `provider: ${turn.provider || 'unknown'}`,
+      `model: ${turn.model || 'unknown'}`
+    ],
+    raw: turn.raw || turn
+  };
+  const turnPatches = props.contextPatches.filter((entry) => entry.turnId === turn.id);
+  const clarificationOptions = Array.isArray(turn.clarification?.options)
+    ? turn.clarification.options as Array<Record<string, unknown>>
+    : [];
+
+  return <article
+    className={`chat-message role-${turn.role} status-${turn.status || 'done'}`}
+    {...inspectMenuAttrs(turnSelection, props.onInspect)}
+    onClick={() => props.onInspect(turnSelection)}
+  >
+    <div className="message-avatar">{turn.role === 'user' ? 'TÚ' : turn.role === 'command' ? '/' : 'B'}</div>
+    <div className="message-body">
+      <div className="message-meta">
+        <strong>{turn.role === 'user' ? 'Tú' : turn.role === 'command' ? 'Comando' : 'BAGO'}</strong>
+        <span>{new Date(turn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        {turn.role === 'assistant' && (turn.provider || turn.model) && <span>{[turn.provider, turn.model].filter(Boolean).join(' · ')}</span>}
+        {turn.status && <StatusBadge status={turn.status} />}
+      </div>
+      <div className="message-text">{turn.text || (turn.status === 'running' ? '...' : '')}</div>
+      {clarificationOptions.length > 0 && <div className="message-patches" onClick={(event) => event.stopPropagation()}>
+        {clarificationOptions.map((option, index) => <button
+          key={String(option.id || index)}
+          type="button"
+          className="secondary-button compact"
+          onClick={() => void props.onSendChat(`${String(option.prefix || option.label || '').trim()}: ${String(turn.clarification?.original || '').trim()}`)}
+        >{String(option.label || option.id || 'Continuar')}</button>)}
+      </div>}
+      {turnPatches.length > 0 && <div className="message-patches" onClick={(event) => event.stopPropagation()}>
+        {turnPatches.map((entry) => <ContextPatchValidationCard
+          key={entry.patch.id}
+          patch={entry.patch}
+          status={entry.status}
+          errorMessage={entry.errorMessage}
+          appliedAt={entry.appliedAt}
+          receiptId={entry.receiptId}
+          onAccept={(id) => props.onAcceptContextPatch?.(id)}
+          onReject={(id) => props.onRejectContextPatch?.(id)}
+          onEdit={(id) => props.onEditContextPatch?.(id)}
+          onRevert={(id) => props.onRevertContextPatch?.(id)}
+          onReview={(id) => props.onReviewContextPatch?.(id)}
+          onOpenInTree={(id) => { props.onOpenContextInTree?.(id); props.onNavigate('context'); }}
+        />)}
+      </div>}
+    </div>
+  </article>;
+}
+
 export function ChatPanel(props: Props) {
   const [modelChanging, setModelChanging] = useState(false);
   const [modelError, setModelError] = useState('');
+  const [modelQuery, setModelQuery] = useState('');
   const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
@@ -123,6 +205,14 @@ export function ChatPanel(props: Props) {
     () => buildChatModelOptions(props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel),
     [props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel]
   );
+  const timelineGroups = useMemo(() => groupTechnicalTurns(props.turns), [props.turns]);
+  const filteredModelOptions = useMemo(() => {
+    const query = modelQuery.trim().toLocaleLowerCase();
+    return query ? modelOptions.filter((option) => `${option.provider} ${option.model} ${option.key}`.toLocaleLowerCase().includes(query)) : modelOptions;
+  }, [modelOptions, modelQuery]);
+  const modelProviders = useMemo(() => Array.from(new Set(filteredModelOptions.map((option) => option.provider))), [filteredModelOptions]);
+  const currentModel = modelOptions.find((option) => option.key === props.sessionModel) || null;
+  const automaticModel = [props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'router del sistema';
   const showWelcome = welcomeOpen && props.turns.length === 0;
   const chatSelection: SelectionRecord = {
     id: 'screen-chat',
@@ -144,8 +234,7 @@ export function ChatPanel(props: Props) {
     }
   };
 
-  const onModelChange = async (event: ChangeEvent<HTMLSelectElement>) => {
-    const nextModel = event.target.value || null;
+  const onModelChange = async (nextModel: string | null) => {
     setModelChanging(true);
     setModelError('');
     try {
@@ -234,84 +323,31 @@ export function ChatPanel(props: Props) {
                 <><h3>Empieza por la tarea</h3><p>Pregunta, describe un objetivo o solicita una acción. El chat es una pantalla más del workspace.</p></>
               )}
             </div>
-          ) : props.turns.map((turn) => {
-            const turnSelection: SelectionRecord = {
-              id: turn.id,
-              kind: 'chat-turn',
-              targetKind: 'screen.chat' as ContextTargetKind,
-              title: turn.role === 'user' ? 'Mensaje del usuario' : turn.role === 'command' ? 'Comando' : 'Respuesta de BAGO',
-              summary: turn.text.slice(0, 240),
-              detail: [
-                `status: ${turn.status || 'done'}`,
-                `timestamp: ${turn.timestamp}`,
-                `receipt: ${turn.receipt ? 'available' : 'none'}`,
-                `provider: ${turn.provider || 'unknown'}`,
-                `model: ${turn.model || 'unknown'}`
-              ],
-              raw: turn.raw || turn
-            };
-            const turnPatches = (props.contextPatches || []).filter((entry) => entry.turnId === turn.id);
-            const clarificationOptions = Array.isArray(turn.clarification?.options)
-              ? turn.clarification.options as Array<Record<string, unknown>>
-              : [];
-            return (
-            <article
-              key={turn.id}
-              className={`chat-message role-${turn.role} status-${turn.status || 'done'}`}
-              {...inspectMenuAttrs(turnSelection, props.onInspect)}
-              onClick={() => props.onInspect(turnSelection)}
-            >
-              <div className="message-avatar">
-                {turn.role === 'user' ? 'TÚ' : turn.role === 'command' ? '/' : 'B'}
-              </div>
-              <div className="message-body">
-                <div className="message-meta">
-                  <strong>{turn.role === 'user' ? 'Tú' : turn.role === 'command' ? 'Comando' : 'BAGO'}</strong>
-                  <span>{new Date(turn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  {turn.role === 'assistant' && (turn.provider || turn.model) && <span>{[turn.provider, turn.model].filter(Boolean).join(' · ')}</span>}
-                  {turn.status && <StatusBadge status={turn.status} />}
+          ) : timelineGroups.map((group) => {
+            if (group.kind === 'turn') {
+              return <TurnArticle key={group.id} {...props} turn={group.turns[0]} contextPatches={props.contextPatches || []} />;
+            }
+            const entries = group.turns.map((turn) => ({ turn, presentation: presentChatTurn(turn.text, turn.status) }));
+            const technical = entries.filter((entry): entry is { turn: ChatTurn; presentation: TechnicalPresentation } => entry.presentation.kind !== 'message');
+            const finalMessages = entries.filter((entry) => entry.presentation.kind === 'message');
+            const failed = technical.some((entry) => entry.presentation.kind === 'error');
+            return <section key={group.id} className={`chat-execution-group ${failed ? 'has-error' : ''}`} aria-label="Actividad técnica de BAGO">
+              <details>
+                <summary>
+                  <span className="chat-execution-icon"><Icon name={failed ? 'warning' : 'command'} size={14} /></span>
+                  <span><strong>{failed ? 'Acción no completada' : 'Actividad de BAGO'}</strong><small>{technical.length} {technical.length === 1 ? 'paso técnico' : 'pasos técnicos'} · detalle plegado</small></span>
+                  <Icon name="chevron" size={12} />
+                </summary>
+                <div className="chat-execution-details">
+                  {technical.map(({ turn, presentation }) => <article key={turn.id} className={`chat-execution-entry kind-${presentation.kind}`}>
+                    <div><strong>{presentation.title}</strong><span>{new Date(turn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+                    <p>{presentation.summary}</p>
+                    {presentation.technicalDetail && <details><summary>Ver detalle técnico</summary><pre>{presentation.technicalDetail}</pre></details>}
+                  </article>)}
                 </div>
-                <div className="message-text">{turn.text || (turn.status === 'running' ? '...' : '')}</div>
-                {clarificationOptions.length > 0 && (
-                  <div className="message-patches" onClick={(event) => event.stopPropagation()}>
-                    {clarificationOptions.map((option, index) => (
-                      <button
-                        key={String(option.id || index)}
-                        type="button"
-                        className="secondary-button compact"
-                        onClick={() => void props.onSendChat(`${String(option.prefix || option.label || '').trim()}: ${String(turn.clarification?.original || '').trim()}`)}
-                      >
-                        {String(option.label || option.id || 'Continuar')}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {turnPatches.length > 0 && (
-                  <div className="message-patches" onClick={(event) => event.stopPropagation()}>
-                    {turnPatches.map((entry) => (
-                      <ContextPatchValidationCard
-                        key={entry.patch.id}
-                        patch={entry.patch}
-                        status={entry.status}
-                        errorMessage={entry.errorMessage}
-                        appliedAt={entry.appliedAt}
-                        receiptId={entry.receiptId}
-                        onAccept={(id) => props.onAcceptContextPatch?.(id)}
-                        onReject={(id) => props.onRejectContextPatch?.(id)}
-                        onEdit={(id) => props.onEditContextPatch?.(id)}
-                        onRevert={(id) => props.onRevertContextPatch?.(id)}
-                        onReview={(id) => props.onReviewContextPatch?.(id)}
-                        onOpenInTree={(id) => {
-                          props.onOpenContextInTree?.(id);
-                          props.onNavigate('context');
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-            );
+              </details>
+              {finalMessages.map(({ turn }) => <TurnArticle key={turn.id} {...props} turn={turn} contextPatches={props.contextPatches || []} />)}
+            </section>;
           })}
         </section>
 
@@ -320,21 +356,27 @@ export function ChatPanel(props: Props) {
             <div className="chat-composer-topbar">
               <span className="chat-composer-title">Mensaje a BAGO</span>
               <div className="chat-model-control">
-                <label htmlFor="bago-chat-model">Modelo</label>
-                <select
-                  id="bago-chat-model"
-                  className="chat-model-selector"
-                  aria-label="Modelo de esta sesión"
-                  value={props.sessionModel || ''}
-                  disabled={modelChanging || modelOptions.length === 0}
-                  onChange={(event) => void onModelChange(event)}
-                >
-                  <option value="">Automático · router · {[props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'sin modelo'}</option>
-                  {modelOptions.map((option) => (
-                    <option key={option.key} value={option.key}>{option.label}</option>
-                  ))}
-                </select>
-                <span className="chat-model-selector-count" title="Modelos disponibles">{modelOptions.length}</span>
+                <details className="chat-model-picker">
+                  <summary className="chat-model-selector" aria-label="Modelo de esta sesión" aria-disabled={modelChanging} onClick={(event) => { if (modelChanging) event.preventDefault(); }}>
+                    <span>Modelo</span><strong>{currentModel?.model || (props.sessionModel ? props.sessionModel.split('/').pop() : 'Automático')}</strong><Icon name="chevron" size={11} />
+                  </summary>
+                  <div className="chat-model-popover">
+                    <label className="chat-model-search"><Icon name="search" size={12} /><input value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} placeholder="Buscar modelo…" aria-label="Buscar modelo" /></label>
+                    <div className="chat-model-options" role="listbox" aria-label="Modelos disponibles">
+                      <button type="button" className={!props.sessionModel ? 'is-selected' : ''} role="option" aria-selected={!props.sessionModel} onClick={(event) => { void onModelChange(null); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                        <span><strong>Automático</strong><small>{automaticModel}</small></span>{!props.sessionModel && <Icon name="check" size={12} />}
+                      </button>
+                      {modelProviders.map((provider) => <section key={provider} className="chat-model-provider">
+                        <header>{provider}</header>
+                        {filteredModelOptions.filter((option) => option.provider === provider).map((option) => <button key={option.key} type="button" className={props.sessionModel === option.key ? 'is-selected' : ''} role="option" aria-selected={props.sessionModel === option.key} onClick={(event) => { void onModelChange(option.key); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                          <span><strong>{option.model}</strong><small>{option.provider}</small></span>{props.sessionModel === option.key && <Icon name="check" size={12} />}
+                        </button>)}
+                      </section>)}
+                      {filteredModelOptions.length === 0 && <p className="chat-model-empty">No hay modelos que coincidan.</p>}
+                    </div>
+                    <footer>{modelOptions.length} modelos disponibles</footer>
+                  </div>
+                </details>
               </div>
             </div>
             {modelError && <div className="chat-model-error" role="alert">No se pudo cambiar: {modelError}</div>}

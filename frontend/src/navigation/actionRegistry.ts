@@ -42,15 +42,14 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     items: [
       { id: 'context', label: 'Contexto', icon: 'context', helper: 'Recopilar y preparar el contexto de trabajo', shortcut: 'Ctrl+3' },
       { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+4' },
-      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims, recibos y trazas', shortcut: 'Ctrl+5' },
-      { id: 'graph', label: 'Grafo', icon: 'graph', helper: 'Mapa operativo del workspace', shortcut: 'Ctrl+6' }
+      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims, recibos y trazas', shortcut: 'Ctrl+5' }
     ]
   },
   {
     id: 'system',
     label: 'Sistema',
     items: [
-      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+7' }
+      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+6' }
     ]
   }
 ];
@@ -63,7 +62,6 @@ export const SECTION_LABELS: Record<ActiveSection, string> = {
   context: 'Contexto',
   pipeline: 'Pipeline',
   evidence: 'Evidencia',
-  graph: 'Grafo',
   system: 'Operación',
   chat: 'Inicio'
 };

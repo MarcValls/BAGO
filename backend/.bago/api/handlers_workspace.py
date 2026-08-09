@@ -158,6 +158,13 @@ def _persist_workspace(mgr: Any, path: str) -> dict[str, Any]:
     else:
         rebinding_error = "SessionManager no expone rebind_project_root()"
 
+    save = getattr(mgr, "save", None)
+    if callable(save):
+        try:
+            save()
+        except Exception as exc:
+            return {"ok": False, "error": f"El workspace se activó, pero no pudo persistirse: {exc}"}
+
     _save_last_workspace(str(workspace_path))
     payload: dict[str, Any] = {"ok": True, "saved": str(workspace_path)}
     if rebinding_error:

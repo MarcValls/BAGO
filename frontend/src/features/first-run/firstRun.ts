@@ -52,3 +52,8 @@ export function firstRunReadiness(snapshot: UiBootstrapSnapshot | null) {
     workspace: Boolean(snapshot?.workspace.linkedToSession && snapshot.workspace.manifestState === 'valid')
   };
 }
+
+export function shouldSkipAutomaticFirstRun(snapshot: UiBootstrapSnapshot | null): boolean {
+  const readiness = firstRunReadiness(snapshot);
+  return readiness.backend && readiness.provider && readiness.workspace;
+}

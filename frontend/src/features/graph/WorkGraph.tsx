@@ -1,5 +1,6 @@
 import type { ContextNode, ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { Icon } from '@/shared/Icon';
+import { compactTaskTitle, priorityLabel, statusLabel } from '@/shared/taskPresentation';
 
 type PipelineStep = Record<string, unknown>;
 
@@ -38,7 +39,7 @@ function stepTitle(step: PipelineStep, index: number): string {
 }
 
 function stepStatus(step: PipelineStep): string {
-  return String(step.status || step.state || 'pendiente');
+  return statusLabel(step.status || step.state || 'pending');
 }
 
 export function WorkGraph(props: Props) {
@@ -65,7 +66,7 @@ export function WorkGraph(props: Props) {
           {proposals.length === 0 && <div className="work-graph-empty"><Icon name="verified" size={18} /><strong>Sin menciones pendientes</strong><button type="button" className="text-button" onClick={props.onOpenContext}>Abrir Contexto</button></div>}
           {proposals.map((proposal) => <article key={proposal.id} className="work-graph-node" data-state={proposal.status}>
             <div className="work-graph-node-head"><span>{proposalStatus(proposal)}</span><small>{proposal.patch.operations.length} cambios</small></div>
-            <h3>{proposal.title}</h3><p>{proposal.reason || 'Sin explicación adicional.'}</p>
+            <h3>{compactTaskTitle(proposal.title)}</h3><p>{proposal.reason || 'Sin explicación adicional.'}</p>
             <div className="work-graph-node-actions">
               {proposal.status === 'pending' && <button type="button" className="primary-button compact" onClick={() => props.onValidate(proposal)}><Icon name="check" size={11} /> Validar</button>}
               <button type="button" className="secondary-button compact" onClick={() => props.onStartProposal(proposal)}><Icon name="pipeline" size={11} /> Iniciar tarea</button>
@@ -80,8 +81,8 @@ export function WorkGraph(props: Props) {
         <div className="work-graph-items">
           {tasks.length === 0 && <div className="work-graph-empty"><Icon name="context" size={18} /><strong>Sin tareas de contexto</strong><button type="button" className="text-button" onClick={props.onOpenContext}>Crear tarea</button></div>}
           {tasks.map((task) => <article key={task.id} className="work-graph-node" data-state={task.status}>
-            <div className="work-graph-node-head"><span>{taskStatus(task)}</span><small>{task.priority}</small></div>
-            <button type="button" className="work-graph-node-title" onClick={() => props.onOpenTask(task)}><h3>{task.title}</h3><Icon name="chevron" size={12} /></button><p>{task.summary || 'Sin resumen.'}</p>
+            <div className="work-graph-node-head"><span>{taskStatus(task)}</span><small>{priorityLabel(task.priority)}</small></div>
+            <button type="button" className="work-graph-node-title" onClick={() => props.onOpenTask(task)}><h3>{compactTaskTitle(task.title)}</h3><Icon name="chevron" size={12} /></button><p>{task.summary || 'Sin resumen.'}</p>
             <div className="work-graph-node-actions"><button type="button" className="primary-button compact" onClick={() => props.onStartTask(task)}><Icon name="pipeline" size={11} /> Iniciar</button><button type="button" className="text-button" onClick={() => props.onOpenTask(task)}>Abrir</button></div>
           </article>)}
         </div>
@@ -93,11 +94,11 @@ export function WorkGraph(props: Props) {
           {steps.length === 0 && <div className="work-graph-empty"><Icon name="pipeline" size={18} /><strong>Pipeline sin pasos</strong><span>Inicia una tarea desde cualquiera de las columnas anteriores.</span></div>}
           {steps.map((step, index) => <article key={String(step.id || index)} className="work-graph-node" data-state={stepStatus(step)}>
             <div className="work-graph-node-head"><span>{stepStatus(step)}</span><small>Paso {index + 1}</small></div>
-            <h3>{stepTitle(step, index)}</h3><p>{String(step.summary || step.description || 'Paso generado por el Pipeline.')}</p>
+            <h3>{compactTaskTitle(stepTitle(step, index))}</h3><p>{String(step.summary || step.description || 'Paso generado por el Pipeline.')}</p>
             <div className="work-graph-node-actions"><button type="button" className="secondary-button compact" onClick={props.onOpenPipeline}>Abrir Pipeline <Icon name="arrowRight" size={11} /></button></div>
           </article>)}
         </div>
-        <footer><span>Estado: {props.pipelineStatus}</span><button type="button" className="text-button" onClick={props.onOpenPipeline}>Ver ejecución completa</button></footer>
+        <footer><span>Estado: {statusLabel(props.pipelineStatus)}</span><button type="button" className="text-button" onClick={props.onOpenPipeline}>Ver ejecución completa</button></footer>
       </section>
     </div>
   </section>;

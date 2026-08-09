@@ -19,7 +19,9 @@ describe('workspace and context UX contract', () => {
   });
 
   it('keeps advanced context capabilities behind progressive disclosure', () => {
-    for (const view of ['Ahora', 'Tareas', 'Contexto', 'Avanzado']) expect(context).toContain(`'${view}'`);
+    for (const view of ['Ahora', 'Tareas', 'Biblioteca']) expect(context).toContain(`'${view}'`);
+    expect(context).toContain('context-workbench-more');
+    expect(context).toContain('Configuración avanzada');
     for (const stage of ['ContextStageSources', 'ContextStageStructure', 'ContextStagePack', 'ContextStageCompile', 'ContextStageDestination']) expect(context).toContain(stage);
   });
 });

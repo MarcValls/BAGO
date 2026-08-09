@@ -3,6 +3,8 @@ import type { BackendRouterEntry } from '@/contracts/backend';
 export interface ChatModelOption {
   key: string;
   label: string;
+  provider: string;
+  model: string;
 }
 
 function entryKey(entry: BackendRouterEntry): string {
@@ -32,12 +34,15 @@ export function buildChatModelOptions(
     seen.add(key);
     const provider = String(entry.provider || key.split('/', 1)[0] || '').trim();
     const model = String(entry.model_id || entry.wire_name || key.slice(key.indexOf('/') + 1)).trim();
-    options.push({ key, label: provider ? `${provider} · ${model}` : model });
+    options.push({ key, label: provider ? `${provider} · ${model}` : model, provider: provider || 'Otros', model });
   }
 
   const current = String(sessionModel || '').trim();
   if (current && !seen.has(current)) {
-    options.unshift({ key: current, label: `${current.replace('/', ' · ')} · actual` });
+    const separator = current.indexOf('/');
+    const provider = separator > 0 ? current.slice(0, separator) : 'Otros';
+    const model = separator > 0 ? current.slice(separator + 1) : current;
+    options.unshift({ key: current, label: `${current.replace('/', ' · ')} · actual`, provider, model });
   }
   return options;
 }

@@ -10,7 +10,8 @@ describe('context action flow', () => {
   it('opens Contexto in the focused action view and keeps advanced tools available', () => {
     expect(contextModule).toContain("type ContextWorkbenchView = 'focus' | 'tasks' | 'library' | 'advanced'");
     expect(contextModule).toContain("return 'focus'");
-    for (const label of ['Ahora', 'Tareas', 'Contexto', 'Avanzado']) expect(contextModule).toContain(`'${label}'`);
+    for (const label of ['Ahora', 'Tareas', 'Biblioteca']) expect(contextModule).toContain(`'${label}'`);
+    expect(contextModule).toContain('Configuración avanzada');
   });
 
   it('offers validation and task launch beside every pending mention', () => {
@@ -34,6 +35,6 @@ describe('context action flow', () => {
 
   it('passes both the specific title and summary to Pipeline', () => {
     expect(sections).toContain("[title.trim(), summary.trim()].filter(Boolean).join('\\n\\n')");
-    expect(contextModule).toContain('await props.onCreatePlan(\n      proposal.title,');
+    expect(contextModule).toContain('await props.onCreatePlan(\n      compactTaskTitle(proposal.title),');
   });
 });

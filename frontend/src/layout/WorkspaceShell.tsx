@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
+import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
 
 const copy: Record<ActiveSection, { title: string; eyebrow: string; description: string }> = {
   home: { title: 'Inicio', eyebrow: 'Chat', description: 'Elige si vas a empezar algo nuevo o continuar un proyecto.' },
   chat: { title: 'Conversación', eyebrow: 'Chat', description: 'Panel lateral para preguntar, decidir y ejecutar.' },
   workspace: { title: 'Workspace', eyebrow: 'Trabajo estructurado', description: 'Archivos, fuentes y alcance autorizado.' },
-  graph: { title: 'Grafo', eyebrow: 'Relaciones', description: 'Mapa operativo de sesión, contexto, workspace y evidencia.' },
   pipeline: { title: 'Pipeline', eyebrow: 'Ejecución', description: 'Pasos, jobs, bloqueos y evidencias asociadas.' },
   evidence: { title: 'Evidencia', eyebrow: 'Trazabilidad', description: 'Receipts, claims e historial verificable.' },
   context: { title: 'Contexto', eyebrow: 'Presupuesto', description: 'Uso, reserva, límite y factor limitante.' },
@@ -30,6 +30,8 @@ interface Props {
    * local y evita duplicar lo que ya está en el Topbar global).
    */
   showGlobalChips?: boolean;
+  onChooseWorkspace?: () => void;
+  onRefresh?: () => void;
   children: ReactNode;
 }
 
@@ -52,6 +54,7 @@ function tone(value: boolean | string | undefined): string {
 }
 
 export function WorkspaceShell(props: Props) {
+  const authority = resolveWorkspaceAuthority(props.snapshot);
   const meta = copy[props.activeSection];
   const workspace = props.snapshot?.workspace.id || props.snapshot?.workspace.root || 'Sin workspace';
   const model = props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel || 'Sin modelo';
@@ -67,6 +70,20 @@ export function WorkspaceShell(props: Props) {
 
   return (
     <section className={`workspace-shell mode-${props.mode} section-${props.activeSection}`} data-section={props.activeSection}>
+      {authority.requiresAction && (
+        <section className="workspace-authority-notice" role="alert" aria-label="Workspace requiere atención">
+          <span className="workspace-authority-icon"><Icon name="warning" size={18} /></span>
+          <div>
+            <strong>{authority.label}</strong>
+            <p>{authority.reason}</p>
+            {authority.projectRoot && <small title={authority.projectRoot}>Proyecto observado: {authority.projectLabel}</small>}
+          </div>
+          <div className="workspace-authority-actions">
+            {props.onRefresh && <button type="button" className="secondary-button compact" onClick={props.onRefresh}>Volver a comprobar</button>}
+            {props.onChooseWorkspace && <button type="button" className="primary-button compact" onClick={props.onChooseWorkspace}>Elegir proyecto</button>}
+          </div>
+        </section>
+      )}
       {props.mode !== 'focus' && (props.showReadiness !== false || props.showGlobalChips !== false) && (
         <header className="workspace-shell-header is-compact" aria-label={`Estado operativo de ${meta.title}`}>
           {props.showReadiness !== false && (

@@ -132,6 +132,7 @@ ROUTE_META: tuple = (
     ("POST", "/router/session-model","handlers_router",     "handle_session_model"),
     ("POST", "/providers/configure", "handlers_providers",  "handle_configure"),
     ("POST", "/release/update",      "handlers_release",    "handle_update"),
+    ("POST", "/release/apply",       "handlers_release",    "handle_apply"),
     ("POST", "/providers/test",      "handlers_providers",  "handle_test"),
     ("POST", "/providers/buffer/unload", "handlers_providers",  "handle_buffer_unload"),
     ("POST", "/providers/buffer/prepare", "handlers_providers", "handle_buffer_prepare"),

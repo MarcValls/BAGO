@@ -21,6 +21,13 @@ describe('presentChatTurn', () => {
     expect(presentChatTurn('Proyecto inspeccionado.')).toEqual({ kind: 'message', text: 'Proyecto inspeccionado.' });
   });
 
+  it('folds successful JSON tool output into readable activity', () => {
+    const result = presentChatTurn('{"ok":true,"path":".","entries":[{"name":"src"}],"count":1}');
+    expect(result).toMatchObject({
+      kind: 'activity', title: 'Acción completada', summary: 'La herramienta devolvió 1 elemento de la carpeta actual.'
+    });
+  });
+
   it('groups tool activity, error and final assistant response', () => {
     const turns = [
       { id: '1', role: 'assistant', text: '[tool_calls]' },
