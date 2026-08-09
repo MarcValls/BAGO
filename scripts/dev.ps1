@@ -67,11 +67,11 @@ function Start-Backend {
         return $false
     }
     $proc.Id | Set-Content $pidfile
-    if (Wait-ForUrl "$ApiUrl/health" 30) {
+    if (Wait-ForUrl "$ApiUrl/health" 90) {
         Log "backend listo (pid $(Get-Content $pidfile))"
         return $true
     } else {
-        Err "backend no respondio en 30s. Logs: $logfile, $errfile"
+        Err "backend no respondio en 90s. Logs: $logfile, $errfile"
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
         Remove-Item $pidfile -ErrorAction SilentlyContinue
         return $false
@@ -94,6 +94,16 @@ function Stop-Backend {
 
 # --- Frontend build ----------------------------------------
 function Build-Frontend {
+    $frontendPackage = Join-Path $Frontend "package.json"
+    $packagedDist = Join-Path $Backend "ui-react\dist\index.html"
+    if (-not (Test-Path $frontendPackage) -and (Test-Path $packagedDist)) {
+        Log "frontend precompilado disponible en backend\ui-react\dist"
+        return $true
+    }
+    if (-not (Test-Path $frontendPackage)) {
+        Err "frontend fuente no existe y no hay dist precompilado: $Frontend"
+        return $false
+    }
     Log "compilando frontend..."
     $buildLog = Join-Path $Run "frontend-build.log"
     Push-Location $Root

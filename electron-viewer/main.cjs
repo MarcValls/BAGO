@@ -140,10 +140,11 @@ function runDevPs1(cmd) {
   const repoRoot = getRepoRoot();
   if (!devPs1Path || !repoRoot) return false;
   try {
+    const timeout = (cmd === 'backend' || cmd === 'start') ? 120000 : 30000;
     const result = spawnSync('powershell.exe', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass',
       '-File', devPs1Path, cmd
-    ], { cwd: repoRoot, stdio: 'ignore', timeout: 30000 });
+    ], { cwd: repoRoot, stdio: 'ignore', timeout });
     return result.status === 0;
   } catch {
     return false;

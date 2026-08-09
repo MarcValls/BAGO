@@ -76,6 +76,36 @@ jobs:
             throw "Payload inválido: falta compiled/electron-viewer/"
           }
 
+      - name: Rebuild Electron payload from checkout
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
+          if (-not (Test-Path $dst)) { throw "No existe payload: $dst" }
+
+          npm install --no-fund --no-audit
+          if ($LASTEXITCODE -ne 0) { throw "npm install falló" }
+          npm run dist --workspace electron-viewer
+          if ($LASTEXITCODE -ne 0) { throw "npm run dist --workspace electron-viewer falló" }
+
+          $stage = Join-Path $env:RUNNER_TEMP "bago-distribution-$version"
+          $tmp = Join-Path $env:RUNNER_TEMP "bago-$version-distribution-patched.zip"
+          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Expand-Archive -LiteralPath $dst -DestinationPath $stage -Force
+
+          $viewerSource = Join-Path $PWD "electron-viewer\dist\win-unpacked"
+          $viewerTarget = Join-Path $stage "compiled\electron-viewer"
+          if (-not (Test-Path $viewerSource)) { throw "Electron recompilado no existe: $viewerSource" }
+          if (-not (Test-Path (Split-Path $viewerTarget))) { throw "Payload inválido: falta compiled/" }
+          Remove-Item -LiteralPath $viewerTarget -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -LiteralPath $viewerSource -Destination $viewerTarget -Recurse -Force
+
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $tmp -Force
+          Move-Item -LiteralPath $tmp -Destination $dst -Force
+
       - name: Build installer
         shell: pwsh
         run: |
@@ -142,6 +172,12 @@ jobs:
           }
           if (-not (Test-Path -LiteralPath (Join-Path $installRoot "uninstall.exe"))) {
             throw "uninstall.exe no existe tras instalar"
+          }
+
+          $devPs1 = Join-Path $installRoot "scripts\dev.ps1"
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $devPs1 build
+          if ($LASTEXITCODE -ne 0) {
+            throw "dev.ps1 build falló en runtime instalado"
           }
 
           $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
