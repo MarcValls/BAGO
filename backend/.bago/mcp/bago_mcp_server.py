@@ -30,6 +30,7 @@ import sys
 import traceback
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 # ---------------------------------------------------------------------------
@@ -554,7 +555,13 @@ def _github_create_repository(arguments: dict[str, Any]) -> dict[str, Any]:
     output = ((proc.stdout or "") + (proc.stderr or "")).strip()
     if proc.returncode != 0:
         raise ValueError(output or "GitHub rechazó la creación del repositorio")
-    url = next((line.strip() for line in output.splitlines() if "github.com/" in line), output)
+    url = output
+    for raw_line in output.splitlines():
+        candidate = raw_line.strip()
+        parsed = urlparse(candidate)
+        if parsed.scheme in {"http", "https"} and parsed.hostname == "github.com":
+            url = candidate
+            break
     return {"content": [{"type": "text", "text": json.dumps({"ok": True, "url": url}, ensure_ascii=False)}], "isError": False}
 
 
