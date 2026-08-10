@@ -120,8 +120,8 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
     ?? toBoolean(status.binding_confirmed)
     ?? false;
   const bindingReason = String(
-    statusWorkspaceState.binding_reason || sessionWorkspaceState.binding_reason
-    || binding.binding_reason || status.binding_reason || ''
+    statusWorkspaceState.binding_reason ?? sessionWorkspaceState.binding_reason
+    ?? binding.binding_reason ?? status.binding_reason ?? ''
   );
   const workspaceState = String(
     statusWorkspaceState.workspace_state || statusWorkspaceState.state
