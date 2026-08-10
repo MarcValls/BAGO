@@ -256,7 +256,14 @@ export function ChatPanel(props: Props) {
 
   const onReasoningChange = async (depth: string) => {
     setReasoningChanging(true);
-    try { await props.onSetReasoningDepth(depth); } finally { setReasoningChanging(false); }
+    setModelError('');
+    try {
+      await props.onSetReasoningDepth(depth);
+    } catch (error) {
+      setModelError(error instanceof Error ? error.message : 'No se pudo cambiar la profundidad');
+    } finally {
+      setReasoningChanging(false);
+    }
   };
 
   return (
