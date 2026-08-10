@@ -158,6 +158,7 @@ export function ControlPlane() {
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
+  const pendingConversationIdRef = useRef('');
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -195,6 +196,8 @@ export function ControlPlane() {
 
   const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>) => {
     const nextSnapshot = buildSnapshot(data);
+    const nextHistory = (data.history || null) as BackendHistory | null;
+    const nextConversationId = String(nextHistory?.conversation_id || '').trim();
     const nextOpening = resolveOpeningState(nextSnapshot);
     setSnapshot(nextSnapshot);
     setOpening(nextOpening);
@@ -204,9 +207,16 @@ export function ControlPlane() {
     setRouterState({
       list: (data.router_list || null) as BackendRouterList | null,
       policy: (data.router_policy || null) as BackendRouterPolicy | null
-    });    setHistory((data.history || null) as BackendHistory | null);
+    });
+    setHistory(nextHistory);
     setFiles((data.files || null) as Record<string, unknown> | null);
-    setTurns((current) => current.length ? current : historyToTurns(data.history));
+    setTurns((current) => {
+      if (pendingConversationIdRef.current) {
+        if (!nextConversationId || nextConversationId !== pendingConversationIdRef.current) return current;
+        pendingConversationIdRef.current = '';
+      }
+      return current.length ? current : historyToTurns(nextHistory || undefined);
+    });
     if (nextOpening.id === 'enter_directly') {
       setUiState((current) => current.activeSection === 'chat' ? current : patchUiState(current, { activeSection: 'home' }));
     }
@@ -1176,6 +1186,7 @@ export function ControlPlane() {
       || ''
     ).trim();
     const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    if (conversationId) pendingConversationIdRef.current = conversationId;
     if (conversationId && root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     setTurns([]);
     const sessionId = String(created.session_id || snapshot?.session.id || '').trim();
