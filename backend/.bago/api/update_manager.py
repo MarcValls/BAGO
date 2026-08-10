@@ -152,6 +152,16 @@ def _set_state(**changes) -> dict:
     return snapshot
 
 
+def _replace_state(snapshot: dict) -> dict:
+    with _lock:
+        _state.clear()
+        _state.update(snapshot)
+        _state["updated_at"] = _now()
+        restored = dict(_state)
+    _persist(restored)
+    return restored
+
+
 def _request_json(url: str):
     request = urllib.request.Request(
         url,
@@ -398,14 +408,29 @@ def start_update(tag: str = "") -> dict:
     with _lock:
         if _state.get("status") in ACTIVE_STATES:
             return {**dict(_state), "ok": False, "error": "Ya hay una actualización en curso"}
+        previous = dict(_state)
+        _state.update(
+            status="queued",
+            phase="prepare",
+            message="Preparando descarga…",
+            error="",
+            percent=0,
+            transferred=0,
+            total=0,
+        )
+        _state["updated_at"] = _now()
+        reserved = dict(_state)
+    _persist(reserved)
     try:
         release = _find_release(tag)
         if not release.get("available"):
+            _replace_state(previous)
             return {**release, "ok": False, "error": "No hay una versión más reciente disponible"}
         if not release["installation"].get("ready"):
+            _replace_state(previous)
             return {**release, "ok": False, "error": release["installation"].get("reason")}
     except Exception as exc:
-        _set_state(status="error", phase="prepare", message=str(exc), error=str(exc))
+        _replace_state(previous)
         return {**status(), "ok": False, "error": str(exc)}
 
     _set_state(
@@ -446,18 +471,30 @@ def start_update(tag: str = "") -> dict:
 
 
 def apply_update() -> dict:
-    snapshot = status()
-    if snapshot.get("status") != "ready":
-        return {**snapshot, "ok": False, "error": "La actualización aún no está descargada y verificada"}
-    installation = _installation()
+    with _lock:
+        if _state.get("status") != "ready":
+            return {**dict(_state), "ok": False, "error": "La actualización aún no está descargada y verificada"}
+        previous = dict(_state)
+        _state.update(
+            status="applying",
+            phase="apply",
+            message="BAGO se cerrará, instalará la actualización y volverá a abrirse.",
+            error="",
+        )
+        _state["updated_at"] = _now()
+        snapshot = dict(_state)
+    _persist(snapshot)
+    installation = snapshot.get("installation") if isinstance(snapshot.get("installation"), dict) else _installation()
     if not installation.get("ready"):
-        return {**snapshot, "ok": False, "error": installation.get("reason", "Instalación no actualizable")}
+        _replace_state(previous)
+        return {**previous, "ok": False, "error": installation.get("reason", "Instalación no actualizable")}
     detail = snapshot.get("detail") if isinstance(snapshot.get("detail"), dict) else {}
     bundle = Path(str(detail.get("bundle_path", "")))
     expected_sha = str(detail.get("sha256", ""))
     helper = Path(__file__).with_name("apply_release_update.ps1")
     if not bundle.is_file() or not helper.is_file() or not _SHA_RE.fullmatch(expected_sha):
-        return {**snapshot, "ok": False, "error": "Faltan archivos verificados para aplicar la actualización"}
+        _replace_state(previous)
+        return {**previous, "ok": False, "error": "Faltan archivos verificados para aplicar la actualización"}
 
     latest = str(snapshot.get("latest", ""))
     powershell = os.environ.get("SystemRoot", r"C:\Windows") + r"\System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -491,12 +528,6 @@ def apply_update() -> dict:
                 close_fds=True,
             )
     except OSError as exc:
-        _set_state(status="error", phase="apply", message=str(exc), error=str(exc))
-        return {**status(), "ok": False, "error": str(exc)}
-    _set_state(
-        status="applying",
-        phase="apply",
-        message="BAGO se cerrará, instalará la actualización y volverá a abrirse.",
-        error="",
-    )
+        _replace_state(previous)
+        return {**previous, "ok": False, "error": str(exc)}
     return {"ok": True, **status()}

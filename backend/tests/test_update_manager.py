@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import zipfile
 from pathlib import Path
@@ -149,6 +150,39 @@ def test_prepare_rejects_changed_payload(isolated: Path, monkeypatch: pytest.Mon
     assert not list((Path(updater._update_root())).glob("*.part"))
 
 
+def test_start_update_blocks_parallel_release_discovery(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    results: list[dict] = []
+
+    def slow_find(_tag: str = "") -> dict:
+        entered.set()
+        assert release.wait(timeout=3)
+        return {
+            "available": False,
+            "current": "4.8.3",
+            "latest": "v4.8.4",
+            "installation": updater._installation(),
+            "message": "BAGO ya está actualizado",
+        }
+
+    monkeypatch.setattr(updater, "_find_release", slow_find)
+
+    worker = threading.Thread(target=lambda: results.append(updater.start_update("v4.8.4")))
+    worker.start()
+    assert entered.wait(timeout=3)
+
+    concurrent = updater.start_update("v4.8.4")
+
+    release.set()
+    worker.join(timeout=3)
+
+    assert concurrent["ok"] is False
+    assert concurrent["error"] == "Ya hay una actualización en curso"
+    assert results and results[0]["ok"] is False
+    assert updater.status()["status"] == "idle"
+
+
 def test_apply_launches_external_helper_for_active_installation(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bundle = Path(updater._update_root()) / "verified.zip"
     bundle.parent.mkdir(parents=True, exist_ok=True)
@@ -176,6 +210,44 @@ def test_apply_launches_external_helper_for_active_installation(isolated: Path, 
     assert result["status"] == "applying"
     assert "-InstallRoot" in captured["command"]
     assert str(isolated) in captured["command"]
+
+
+def test_apply_update_blocks_parallel_requests(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bundle = Path(updater._update_root()) / "verified.zip"
+    bundle.parent.mkdir(parents=True, exist_ok=True)
+    bundle.write_bytes(b"verified")
+    entered = threading.Event()
+    release = threading.Event()
+    results: list[dict] = []
+
+    class _Process:
+        pass
+
+    def fake_popen(command, **kwargs):
+        entered.set()
+        assert release.wait(timeout=3)
+        return _Process()
+
+    monkeypatch.setattr(updater.subprocess, "Popen", fake_popen)
+    updater._set_state(
+        status="ready",
+        latest="v4.8.4",
+        detail={"bundle_path": str(bundle), "sha256": "a" * 64},
+    )
+
+    worker = threading.Thread(target=lambda: results.append(updater.apply_update()))
+    worker.start()
+    assert entered.wait(timeout=3)
+
+    concurrent = updater.apply_update()
+
+    release.set()
+    worker.join(timeout=3)
+
+    assert concurrent["ok"] is False
+    assert concurrent["error"] == "La actualización aún no está descargada y verificada"
+    assert results and results[0]["ok"] is True
+    assert updater.status()["status"] == "applying"
 
 
 def test_apply_rejects_unprepared_update_with_actionable_error(isolated: Path) -> None:
