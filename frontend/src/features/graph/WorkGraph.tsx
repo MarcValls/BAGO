@@ -92,11 +92,14 @@ export function WorkGraph(props: Props) {
         <header><span><Icon name="pipeline" size={13} /> 3. Ejecución</span><b>{steps.length}</b></header>
         <div className="work-graph-items">
           {steps.length === 0 && <div className="work-graph-empty"><Icon name="pipeline" size={18} /><strong>Pipeline sin pasos</strong><span>Inicia una tarea desde cualquiera de las columnas anteriores.</span></div>}
-          {steps.map((step, index) => <article key={String(step.id || index)} className="work-graph-node" data-state={stepStatus(step)}>
-            <div className="work-graph-node-head"><span>{stepStatus(step)}</span><small>Paso {index + 1}</small></div>
-            <h3>{compactTaskTitle(stepTitle(step, index))}</h3><p>{String(step.summary || step.description || 'Paso generado por el Pipeline.')}</p>
-            <div className="work-graph-node-actions"><button type="button" className="secondary-button compact" onClick={props.onOpenPipeline}>Abrir Pipeline <Icon name="arrowRight" size={11} /></button></div>
-          </article>)}
+          {steps.map((step, index) => {
+            const rawStatus = String(step.status || step.state || 'pending');
+            return <article key={String(step.id || index)} className="work-graph-node" data-state={rawStatus}>
+              <div className="work-graph-node-head"><span>{stepStatus(step)}</span><small>Paso {index + 1}</small></div>
+              <h3>{compactTaskTitle(stepTitle(step, index))}</h3><p>{String(step.summary || step.description || 'Paso generado por el Pipeline.')}</p>
+              <div className="work-graph-node-actions"><button type="button" className="secondary-button compact" onClick={props.onOpenPipeline}>Abrir Pipeline <Icon name="arrowRight" size={11} /></button></div>
+            </article>;
+          })}
         </div>
         <footer><span>Estado: {statusLabel(props.pipelineStatus)}</span><button type="button" className="text-button" onClick={props.onOpenPipeline}>Ver ejecución completa</button></footer>
       </section>
