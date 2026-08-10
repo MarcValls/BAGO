@@ -882,7 +882,7 @@
 .chat-model-selector[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .chat-model-selector:hover { border-color: var(--border-strong); color: var(--text); }
 .chat-model-selector:focus { outline: 2px solid rgba(103,136,247,.4); outline-offset: 1px; }
-.chat-model-popover { z-index: var(--z-modal); display: grid; width: min(380px, calc(100vw - 34px)); max-height: 430px; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface); box-shadow: var(--shadow-lg); }
+.chat-model-popover { z-index: var(--z-modal); display: grid; grid-template-rows: auto 1fr auto; width: min(380px, calc(100vw - 34px)); max-height: min(430px, calc(100vh - 80px)); overflow: hidden; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface); box-shadow: var(--shadow-lg); }
 .chat-model-search { display: flex; align-items: center; gap: 7px; margin: 9px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-3); background: var(--surface-2); }
 .chat-model-search input { width: 100%; height: 32px; border: 0; outline: 0; color: var(--text); background: transparent; font: inherit; font-size: 11px; }
 .chat-model-options { min-height: 0; overflow-y: auto; padding: 0 6px 6px; }
@@ -891,6 +891,8 @@
 .chat-model-options button > span { display: grid; gap: 2px; min-width: 0; }
 .chat-model-options button strong, .chat-model-options button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-model-options button strong { font-size: 11px; }.chat-model-options button small { color: var(--text-3); font-size: 9px; }
+.chat-model-options button.is-unavailable { opacity: 0.45; cursor: not-allowed; }
+.chat-model-options button.is-unavailable:hover { background: transparent; }
 .chat-model-provider > header { padding: 9px 9px 4px; color: var(--text-3); font-size: 8px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .chat-model-empty { padding: 18px; color: var(--text-3); font-size: 10px; text-align: center; }
 .chat-model-popover > footer { padding: 7px 10px; border-top: 1px solid var(--border); color: var(--text-3); background: var(--surface-2); font-size: 9px; }

@@ -5,6 +5,7 @@ export interface ChatModelOption {
   label: string;
   provider: string;
   model: string;
+  unavailable?: boolean;
 }
 
 function entryKey(entry: BackendRouterEntry): string {
@@ -21,20 +22,18 @@ export function buildChatModelOptions(
   activeModels: Set<string>,
   sessionModel: string | null
 ): ChatModelOption[] {
-  const available = entries.filter((entry) => entry.available !== false && entryKey(entry));
-  // El selector de sesión debe mostrar el catálogo disponible completo,
-  // incluidos modelos locales de providers distintos al activo.
-  const scoped = available;
+  const allEntries = entries.filter((entry) => entryKey(entry));
 
   const options: ChatModelOption[] = [];
   const seen = new Set<string>();
-  for (const entry of scoped) {
+  for (const entry of allEntries) {
     const key = entryKey(entry);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const provider = String(entry.provider || key.split('/', 1)[0] || '').trim();
     const model = String(entry.model_id || entry.wire_name || key.slice(key.indexOf('/') + 1)).trim();
-    options.push({ key, label: provider ? `${provider} · ${model}` : model, provider: provider || 'Otros', model });
+    const unavailable = entry.available === false;
+    options.push({ key, label: provider ? `${provider} · ${model}` : model, provider: provider || 'Otros', model, unavailable });
   }
 
   const current = String(sessionModel || '').trim();
