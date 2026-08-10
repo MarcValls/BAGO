@@ -40,9 +40,10 @@ def _payload(manager: Any) -> dict[str, Any]:
 
 
 def _activate(handler: "BaseHTTPRequestHandler", manager: Any) -> None:
-    from handlers_router import restore_session_model
+    from handlers_router import restore_session_model, restore_session_reasoning
     from session_registry import mark_active_session
     restore_session_model(manager)
+    restore_session_reasoning(manager)
     mark_active_session(manager)
     handler_type = type(handler)
     handler_type.session_mgr = manager

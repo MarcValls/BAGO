@@ -224,6 +224,20 @@ def handle_reasoning_depth_get(handler: "BaseHTTPRequestHandler") -> None:
     send_json(handler, 200, {"ok": True, "depth": depth, **_REASONING_DEPTHS[depth], "allowed": list(_REASONING_DEPTHS)})
 
 
+def restore_session_reasoning(mgr) -> dict:
+    """Restore a persisted session reasoning depth into the live manager."""
+    if mgr is None:
+        return {"ok": False, "restored": False, "reason": "manager_unavailable"}
+    try:
+        state = Path(mgr.state_root)
+        depth = _read_reasoning(state)
+        mgr.reasoning_depth = depth
+        mgr.reasoning_effort = _REASONING_DEPTHS[depth]["effort"]
+        return {"ok": True, "restored": _reasoning_path(state).exists(), "depth": depth, **_REASONING_DEPTHS[depth]}
+    except Exception as exc:
+        return {"ok": False, "restored": False, "reason": str(exc)}
+
+
 def restore_session_model(mgr) -> dict:
     """Restore a persisted session override and rebuild its live adapter."""
     import json
