@@ -79,4 +79,10 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\BAGO\*.*"
   RMDir "$SMPROGRAMS\BAGO"
   Delete "$DESKTOP\BAGO.lnk"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2f23f79 (fix: resolve merge conflicts in release files)
 SectionEnd
+
+
