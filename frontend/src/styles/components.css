@@ -697,7 +697,9 @@
   border-top: 1px solid var(--border);
   background: var(--bg-soft, #0c111a);
   box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.18);
-  z-index: var(--z-raised);
+  /* FIX: z-index elevado para que el popover del selector de modelo
+     salga por encima del resto del layout (sidebar, paneles, etc.). */
+  z-index: var(--z-overlay-low);
 }
 
 /* Prompt chips (atajos) */
