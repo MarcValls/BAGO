@@ -13,21 +13,9 @@ $ErrorActionPreference = "Stop"
 $installFull = [System.IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
 $bundleFull = [System.IO.Path]::GetFullPath($BundlePath)
 $stateFull = [System.IO.Path]::GetFullPath($StatePath)
-$rootPath = [System.IO.Path]::GetPathRoot($installFull).TrimEnd('\')
-if ($installFull -eq $rootPath -or [System.IO.Path]::GetFileName($installFull) -ne "BAGO") {
-    throw "Destino de actualización inseguro: $installFull"
-}
-if (-not $stateFull.StartsWith($installFull + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "El estado del actualizador debe permanecer dentro de la instalación."
-}
-
 $backendTarget = Join-Path $installFull "backend"
 $viewerTarget = Join-Path $installFull "electron-viewer"
-if (-not (Test-Path -LiteralPath $backendTarget) -or -not (Test-Path -LiteralPath (Join-Path $viewerTarget "BAGO.exe"))) {
-    throw "La instalación no contiene backend y electron-viewer esperados."
-}
-$previousVersionPath = Join-Path $backendTarget "release_version.txt"
-$previousVersion = if (Test-Path -LiteralPath $previousVersionPath) { (Get-Content -LiteralPath $previousVersionPath -Raw).Trim().TrimStart('v', 'V') } else { "" }
+$previousVersion = ""
 
 function Write-UpdateState {
     param(
@@ -86,6 +74,18 @@ $newViewerInstalled = $false
 $processesStopped = $false
 
 try {
+    $rootPath = [System.IO.Path]::GetPathRoot($installFull).TrimEnd('\')
+    if ($installFull -eq $rootPath -or [System.IO.Path]::GetFileName($installFull) -ne "BAGO") {
+        throw "Destino de actualización inseguro: $installFull"
+    }
+    if (-not $stateFull.StartsWith($installFull + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "El estado del actualizador debe permanecer dentro de la instalación."
+    }
+    if (-not (Test-Path -LiteralPath $backendTarget) -or -not (Test-Path -LiteralPath (Join-Path $viewerTarget "BAGO.exe"))) {
+        throw "La instalación no contiene backend y electron-viewer esperados."
+    }
+    $previousVersionPath = Join-Path $backendTarget "release_version.txt"
+    $previousVersion = if (Test-Path -LiteralPath $previousVersionPath) { (Get-Content -LiteralPath $previousVersionPath -Raw).Trim().TrimStart('v', 'V') } else { "" }
     $actualSha = Get-Sha256 -Path $bundleFull
     if ($actualSha -ne $ExpectedSha256.ToLowerInvariant()) {
         throw "SHA-256 del payload cambió antes de instalar."

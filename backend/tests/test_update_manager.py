@@ -259,6 +259,30 @@ def test_apply_rejects_unprepared_update_with_actionable_error(isolated: Path) -
     assert result["error"] == "La actualización aún no está descargada y verificada"
 
 
+def test_external_helper_persists_error_state_when_preflight_fails(tmp_path: Path) -> None:
+    install_root = tmp_path / "invalid-install"
+    install_root.mkdir()
+    state_path = install_root / "state" / "updates" / "release-update.json"
+    bundle = tmp_path / "release.zip"
+    bundle.write_bytes(b"placeholder")
+    helper = API_DIR / "apply_release_update.ps1"
+
+    completed = subprocess.run([
+        "pwsh", "-NoProfile",
+        "-File", str(helper),
+        "-BundlePath", str(bundle),
+        "-InstallRoot", str(install_root),
+        "-StatePath", str(state_path),
+        "-ExpectedVersion", "v4.8.4",
+        "-ExpectedSha256", "0" * 64,
+    ], check=False, timeout=30, capture_output=True, text=True)
+
+    assert completed.returncode != 0
+    state = json.loads(state_path.read_text(encoding="utf-8-sig"))
+    assert state["status"] == "error"
+    assert "Destino de actualización inseguro" in state["error"]
+
+
 @pytest.mark.skipif(os.name != "nt", reason="El helper de aplicación es específico de Windows")
 def test_external_helper_swaps_components_and_keeps_state(tmp_path: Path) -> None:
     install_root = tmp_path / "BAGO"
