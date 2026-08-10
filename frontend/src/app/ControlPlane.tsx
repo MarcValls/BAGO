@@ -1178,8 +1178,9 @@ export function ControlPlane() {
     const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
     if (conversationId && root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     setTurns([]);
+    const sessionId = String(created.session_id || snapshot?.session.id || '').trim();
     setHistory(history ?? {
-      session_id: String(created.session_id || history?.session_id || snapshot?.session.id || '').trim() || undefined,
+      session_id: sessionId || undefined,
       conversation_id: conversationId || undefined,
       messages: [],
       count: 0
