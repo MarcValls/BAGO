@@ -316,4 +316,5 @@ API_PREFIXES = (
     "/configure",
     "/release",
     "/github",
+    "/conversations",
 )
