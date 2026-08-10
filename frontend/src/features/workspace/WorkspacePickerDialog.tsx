@@ -83,11 +83,16 @@ export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplor
         onClose();
         return;
       }
-      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && value.trim()) onConfirm(mode === 'activate' && !isReady);
+      if (
+        event.key === 'Enter'
+        && (event.ctrlKey || event.metaKey)
+        && value.trim()
+        && (mode === 'select' || inspect.kind !== 'loading')
+      ) onConfirm(mode === 'activate' && !isReady);
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [isReady, mode, onClose, onConfirm, value]);
+  }, [inspect.kind, isReady, mode, onClose, onConfirm, value]);
 
   const chooseNative = async () => {
     if (!onChooseExplorer) return;
