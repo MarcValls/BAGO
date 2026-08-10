@@ -18,7 +18,7 @@ import time
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from ollama_discovery import discover_ollama_model_names
@@ -34,6 +34,9 @@ class ModelEntry:
     best_for: str = ""
     available: bool = True
     selected: bool = False
+    available_tokens: int | None = None
+    token_source: str = ""
+    token_limited: bool = False
 
     def key(self) -> str:
         return f"{self.provider}/{self.model_id}"
@@ -140,6 +143,25 @@ def pick(sel: Selection) -> Optional[ModelEntry]:
     return None
 
 
+def pick_best(sel: Selection) -> Optional[ModelEntry]:
+    """Pick the best selected usable model, preferring higher reported token headroom."""
+    selected = [entry for entry in sel.entries if entry.selected and entry.available]
+    if not selected:
+        return None
+    selected.sort(
+        key=lambda entry: (
+            0 if entry.available_tokens is None else -int(entry.available_tokens or 0),
+            -int(entry.context_tokens or 0),
+            entry.provider,
+            entry.model_id,
+        ),
+    )
+    chosen = selected[0]
+    sel.last_pick = chosen.key()
+    sel.last_pick_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    return chosen
+
+
 # ── Discovery ────────────────────────────────────────────────────────────────
 
 # Hardcoded fallback roster (used when neither SessionManager nor Ollama
@@ -205,6 +227,19 @@ def _guess_best_for(model_name: str) -> str:
     return "general"
 
 
+def _availability_map(manager) -> dict[str, dict[str, Any]]:
+    if manager is None or not hasattr(manager, "provider_availability"):
+        return {}
+    try:
+        return {
+            str(item.get("name") or ""): dict(item)
+            for item in manager.provider_availability()
+            if str(item.get("name") or "").strip()
+        }
+    except Exception:
+        return {}
+
+
 def discover_models(manager=None) -> list[ModelEntry]:
     """Discover available models.
 
@@ -218,18 +253,24 @@ def discover_models(manager=None) -> list[ModelEntry]:
         try:
             catalog = manager.list_model_catalog()
             if catalog:
+                availability = _availability_map(manager)
                 entries = []
                 for item in catalog:
                     model_id = item.get("model_id", item.get("id", ""))
                     if model_id in _DISABLED_LOCAL_MODELS:
                         continue
+                    provider = item.get("provider", "unknown")
+                    provider_state = availability.get(str(provider), {})
                     entries.append(ModelEntry(
-                        provider=item.get("provider", "unknown"),
+                        provider=provider,
                         model_id=model_id,
                         wire_name=item.get("wire_name", item.get("model_id", "")),
                         context_tokens=item.get("context_tokens", 32768),
                         best_for=item.get("best_for", "general"),
-                        available=item.get("available", True),
+                        available=bool(item.get("available", True)) and bool(provider_state.get("usable", True)),
+                        available_tokens=provider_state.get("available_tokens"),
+                        token_source=str(provider_state.get("token_source", "") or ""),
+                        token_limited=bool(provider_state.get("token_limited", False)),
                     ))
                 cloud_entries = [e for e in _FALLBACK if e.provider not in ("ollama-local",)]
                 known_keys = {e.key() for e in entries}
@@ -258,7 +299,12 @@ def render_picker(sel: Selection) -> str:
     for e in sel.entries:
         check = "☑" if e.selected else "☐"
         avail = "●" if e.available else "○"
-        lines.append(f"│  {check} {avail} {e.provider}/{e.model_id:30s} │")
+        suffix = ""
+        if e.available_tokens is not None:
+            suffix = f" [{e.available_tokens}]"
+        elif e.token_limited:
+            suffix = " [sin tokens]"
+        lines.append(f"│  {check} {avail} {e.provider}/{e.model_id:30s}{suffix[:12]:12s} │")
     lines.append("├──────────────────────────────────────────┤")
     lines.append(f"│  auto_switch: {'ON ' if sel.auto_switch else 'OFF'}{'':26s}│")
     lines.append("╰──────────────────────────────────────────╯")

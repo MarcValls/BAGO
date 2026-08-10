@@ -6,9 +6,7 @@ import { ProviderDescriptor } from '@/shared/provider-config';
 import { normalizeProviderModels } from '@/shared/providerModels';
 import { ProviderConfigModal } from './ProviderConfigModal';
 import type { ContextTargetKind, SelectionRecord } from '@/contracts/backend';
-import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
-
-type TabId = 'overview' | 'capabilities' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
+type TabId = 'overview' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
 
 interface Tab {
   id: TabId;
@@ -19,7 +17,6 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'overview', label: 'Resumen', icon: 'system' },
-  { id: 'capabilities', label: 'Capacidades', icon: 'spark' },
   { id: 'router', label: 'Router', icon: 'model' },
   { id: 'providers', label: 'Proveedores', icon: 'server' },
   { id: 'audit', label: 'Auditoría', icon: 'inspector' },
@@ -296,12 +293,6 @@ export function SystemTabs(props: Props) {
             </button>
             <ActionMenuButton selection={overviewSelection} onInspectSelection={props.onInspectSelection} label="Acciones de sistema" />
             <ReleaseUpdateCard client={client} />
-          </section>
-        )}
-
-        {active === 'capabilities' && (
-          <section className="system-tab-panel system-capabilities-panel" role="tabpanel">
-            <CapabilityAnatomyModule client={client} onInspect={(selection) => props.onInspectSelection?.(selection)} />
           </section>
         )}
 

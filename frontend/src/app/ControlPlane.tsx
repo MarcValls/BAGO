@@ -1254,6 +1254,12 @@ export function ControlPlane() {
           onSetAppearanceTheme={(theme) => setAndPersistUiState({ appearanceTheme: theme })}
           onRunCommand={(command) => void runCommand(command)}
           onChooseWorkspace={chooseWorkspaceFromHeader}
+          onGoHome={() => {
+            try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
+            setTurns([]);
+            setHistory(null);
+            navigate('home');
+          }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
           globalMode={uiState.globalMode}
           appearanceTheme={uiState.appearanceTheme}

@@ -217,6 +217,9 @@
 .header-leading, .header-actions, .header-brand, .header-brand > div:last-child, .header-location { display: flex; align-items: center; min-width: 0; max-width: 100%; }
 .header-leading { gap: 11px; flex: 1 1 auto; overflow: hidden; }
 .header-brand { gap: 10px; }
+.header-brand.is-clickable { padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: left; }
+.header-brand.is-clickable:hover strong, .header-brand.is-clickable:hover span { color: var(--text); }
+.header-brand.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
 .header-brand > div:last-child { align-items: flex-start; flex-direction: column; }
 .header-brand strong { font-size: 13px; letter-spacing: .07em; }
 .header-brand span { max-width: 160px; color: var(--text-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

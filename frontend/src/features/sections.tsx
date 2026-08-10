@@ -24,6 +24,7 @@ import { Icon, type IconName } from '@/shared/Icon';
 import { quietStatus } from '@/shared/quiet-status';
 import { ProviderCenterModule, type ProviderCenterProvider, type ProviderCenterRouterEntry } from '@/modules/provider-center';
 import { SystemTabs } from '@/layout/SystemTabs';
+import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { ChatPanel } from '@/layout/ChatPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
@@ -1232,6 +1233,35 @@ export function ControlSections(props: Props) {
         props.onInspect(selection, 'detail');
         return { moduleId: 'provider-center', selection, message: 'Centro de proveedores inspeccionado', data: providers };
       }
+    },
+    {
+      id: 'capability-anatomy',
+      label: 'Capacidades',
+      description: 'Anatomía de capacidades del backend desde Pipeline',
+      state: 'ready',
+      capabilities: ['read', 'inspect', 'navigate'],
+      actions: [
+        { id: 'open-pipeline', label: 'Abrir pipeline', kind: 'navigate', enabled: true, payload: { section: 'pipeline' } }
+      ],
+      read: () => ({
+        moduleId: 'capability-anatomy',
+        label: 'Capacidades',
+        state: 'ready',
+        summary: 'Anatomía y rutas del backend',
+        data: { source: 'pipeline' }
+      }),
+      inspect: () => {
+        const selection = buildSelection(
+          'capability-anatomy',
+          'module-capability-anatomy',
+          'Capacidades',
+          'Anatomía y contrato de capacidades del backend',
+          ['surface: pipeline', 'source: backend'],
+          { source: 'pipeline' }
+        );
+        props.onInspect(selection, 'detail');
+        return { moduleId: 'capability-anatomy', selection, message: 'Capacidades inspeccionadas', data: { source: 'pipeline' } };
+      }
     }
   ]), [
     evidenceCompare,
@@ -1469,6 +1499,9 @@ export function ControlSections(props: Props) {
     return (
       <div className="pipeline-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
         {pipelineTabs}
+        <section className="system-tab-panel system-capabilities-panel">
+          <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection, 'detail')} />
+        </section>
         <section className="pipeline-page-head">
           <div className="pipeline-summary-copy">
             <StatusBadge status={pipelineStatus} />

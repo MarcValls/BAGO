@@ -53,6 +53,9 @@ class HealthStatus:
     detail: str = ""
     latency_ms: float = 0.0
     models_available: int = 0
+    available_tokens: int | None = None
+    token_source: str = ""
+    token_limited: bool = False
 
 
 @dataclass
@@ -149,6 +152,28 @@ class ProviderAdapter(ABC):
 
     def _set_error(self, msg: str) -> None:
         self._last_error = msg
+
+    def availability_snapshot(self, timeout: float = 5.0) -> dict[str, Any]:
+        """Describe whether the provider is currently usable for auto-routing."""
+        health = self.health_check(timeout=timeout)
+        available_tokens = getattr(health, "available_tokens", None)
+        token_limited = bool(getattr(health, "token_limited", False))
+        configured = False
+        try:
+            configured = self.is_configured()
+        except Exception:
+            configured = False
+        return {
+            "provider": self.provider_name,
+            "configured": configured,
+            "healthy": bool(getattr(health, "ok", False)),
+            "detail": str(getattr(health, "detail", "") or ""),
+            "models_available": int(getattr(health, "models_available", 0) or 0),
+            "available_tokens": int(available_tokens) if isinstance(available_tokens, int) and available_tokens >= 0 else None,
+            "token_source": str(getattr(health, "token_source", "") or ""),
+            "token_limited": token_limited,
+            "usable": configured and bool(getattr(health, "ok", False)) and not token_limited,
+        }
 
     def embed(self, texts: list[str], *, model: str = "") -> list[list[float]]:
         raise NotImplementedError(f"{self.provider_name} no soporta embeddings")

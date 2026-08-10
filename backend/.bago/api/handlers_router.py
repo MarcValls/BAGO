@@ -109,16 +109,32 @@ def handle_auto(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     from event_bus import emit
 
     from repl_model_router import (
-        load_selection, save_selection, set_auto_switch,
+        Selection, discover_models, load_selection, pick_best, save_selection, set_auto_switch,
     )
 
     state = _state_root(handler)
     sel = load_selection(state)
     enabled = bool(body.get("enabled", True))
+    mgr = getattr(handler, "session_mgr", None)
+    if not sel.entries:
+        sel = Selection(entries=discover_models(mgr), auto_switch=sel.auto_switch)
     sel = set_auto_switch(sel, enabled)
+    chosen_key = None
+    if enabled:
+        chosen = pick_best(sel)
+        if chosen is not None:
+            chosen_key = chosen.key()
+            if mgr is not None and (mgr.provider != chosen.provider or mgr.model != chosen.model_id):
+                switch_result = mgr.switch(chosen.provider, chosen.model_id, force=True)
+                if not switch_result.get("ok"):
+                    send_json(handler, 400, {
+                        "ok": False,
+                        "error": switch_result.get("error") or "No se pudo activar el auto-router",
+                    })
+                    return
     save_selection(state, sel)
-    send_json(handler, 200, {"ok": True, "auto_switch": enabled})
-    emit("router.auto_changed", {"enabled": enabled})
+    send_json(handler, 200, {"ok": True, "auto_switch": enabled, "picked": chosen_key})
+    emit("router.auto_changed", {"enabled": enabled, "picked": chosen_key})
 
 
 def _policy_payload(handler) -> dict:
@@ -137,6 +153,9 @@ def _policy_payload(handler) -> dict:
             "context_tokens": e.context_tokens,
             "best_for": e.best_for,
             "available": e.available,
+            "available_tokens": e.available_tokens,
+            "token_source": e.token_source,
+            "token_limited": e.token_limited,
             "selected": e.selected,
             "key": e.key(),
         }
