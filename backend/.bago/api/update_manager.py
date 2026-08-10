@@ -241,7 +241,11 @@ def check() -> dict:
     try:
         result = _find_release()
         with _lock:
-            active = _state.get("status") in PRESERVED_STATES
+            ready_stale = (
+                _state.get("status") == "ready"
+                and _state.get("latest") != result["latest"]
+            )
+            active = _state.get("status") in PRESERVED_STATES and not ready_stale
             completed = _state.get("status") == "completed" and not result["available"]
         changes = {
             "current": result["current"],
