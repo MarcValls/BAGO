@@ -48,7 +48,12 @@ Section "BAGO Core" SecCore
   ${EndIf}
   
   DetailPrint "Creando accesos directos..."
+<<<<<<< Updated upstream
   SetOutPath "${INSTALL_DIR}"
+=======
+  SetOutPath "${INSTALL_DIR}\win-unpacked"
+  File /oname=bago.ico "compiled\electron-viewer\bago.ico"
+>>>>>>> Stashed changes
   
   DetailPrint "Registrando aplicacion..."
   WriteRegStr HKCU "Software\BAGO" "InstallPath" "${INSTALL_DIR}"
@@ -63,8 +68,13 @@ Section "BAGO Core" SecCore
   WriteUninstaller "${INSTALL_DIR}\uninstall.exe"
   
   CreateDirectory "$SMPROGRAMS\BAGO"
+<<<<<<< Updated upstream
   CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "${INSTALL_DIR}\BAGO.exe" "" "${INSTALL_DIR}\BAGO.exe" 0
   CreateShortcut "$DESKTOP\BAGO.lnk" "${INSTALL_DIR}\BAGO.exe" "" "${INSTALL_DIR}\BAGO.exe" 0
+=======
+  CreateShortcut "$SMPROGRAMS\BAGO\BAGO.lnk" "${INSTALL_DIR}\BAGO.exe" "" "${INSTALL_DIR}\bago.ico" 0
+  CreateShortcut "$DESKTOP\BAGO.lnk" "${INSTALL_DIR}\BAGO.exe" "" "${INSTALL_DIR}\bago.ico" 0
+>>>>>>> Stashed changes
   CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "${INSTALL_DIR}\uninstall.exe"
   
   DetailPrint "Instalacion completada!"
@@ -78,5 +88,8 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\BAGO\*.*"
   RMDir "$SMPROGRAMS\BAGO"
   Delete "$DESKTOP\BAGO.lnk"
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 SectionEnd
