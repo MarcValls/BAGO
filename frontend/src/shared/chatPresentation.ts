@@ -60,6 +60,15 @@ export function presentChatTurn(text: string, status?: string): ChatPresentation
     };
   }
 
+  if (record && (status === 'failed' || status === 'blocked')) {
+    return {
+      kind: 'error',
+      title: status === 'blocked' ? 'Acción bloqueada' : 'Respuesta con error',
+      summary: String(record.message || clean),
+      technicalDetail: JSON.stringify(record, null, 2)
+    };
+  }
+
   if (record) {
     const entries = Array.isArray(record.entries) ? record.entries.length : 0;
     const files = Array.isArray(record.files) ? record.files.length : 0;
