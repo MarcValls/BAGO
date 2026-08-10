@@ -1363,7 +1363,6 @@ export function ControlPlane() {
           client={clientRef.current}
           onChooseWorkspace={chooseWorkspacePath}
           onClose={() => {
-            markFirstRunComplete(window.localStorage);
             setFirstRunRequested(false);
             setFirstRunOpen(false);
           }}
