@@ -123,6 +123,8 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
     statusWorkspaceState.binding_reason ?? sessionWorkspaceState.binding_reason
     ?? binding.binding_reason ?? status.binding_reason ?? ''
   );
+  // NOTE: bindingReason intentionally uses ?? (nullish) not || so an explicitly
+  // empty authoritative reason does not fall through to a stale legacy value.
   const workspaceState = String(
     statusWorkspaceState.workspace_state || statusWorkspaceState.state
     || sessionWorkspaceState.workspace_state || sessionWorkspaceState.state

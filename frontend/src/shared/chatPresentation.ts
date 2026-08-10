@@ -74,6 +74,12 @@ export function presentChatTurn(text: string, status?: string): ChatPresentation
     const files = Array.isArray(record.files) ? record.files.length : 0;
     const count = Number(record.count || entries || files || 0);
     const path = String(record.path || record.root || '').trim();
+    const hasToolProvenance = 'ok' in record || 'path' in record || 'root' in record
+      || 'count' in record || 'entries' in record || 'files' in record
+      || 'tool' in record || 'action' in record;
+    if (!hasToolProvenance) {
+      return { kind: 'message', text: clean };
+    }
     const location = path === '.' ? 'la carpeta actual' : path;
     const summary = String(record.message || '').trim()
       || (count ? `La herramienta devolvió ${count} ${count === 1 ? 'elemento' : 'elementos'}${location ? ` de ${location}` : ''}.` : '')

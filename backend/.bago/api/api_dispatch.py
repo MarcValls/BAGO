@@ -148,6 +148,8 @@ ROUTE_META: tuple = (
     ("POST", "/files/write",         "handlers_files",      "handle_write"),
     ("POST", "/interpret",           "handlers_interpret",  "handle_post"),
     ("POST", "/vision",              "handlers_vision",     "handle"),
+    ("POST", "/conversations",          "handlers_conversations", "handle_post"),
+    ("GET",  "/conversations",           "handlers_conversations", "handle_get"),
     ("POST", "/plans",               "handlers_jobs",       "handle_plans_create"),
 )
 

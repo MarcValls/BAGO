@@ -1,6 +1,7 @@
 """Keep chat history scoped to the confirmed workspace."""
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -18,7 +19,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     if mgr is None or store is None or not root:
         send_json(handler, 400, {"ok": False, "error": "Workspace o SessionManager no disponible"})
         return
-    normalized = root.lower().replace("/", "\\").rstrip("\\")
+    normalized = os.path.normcase(os.path.normpath(root))
     mappings = store._meta.setdefault("workspace_conversations", {})
     conversation_id = str(mappings.get(normalized) or "")
     existing = {str(item.get("conversation_id")) for item in store.list_conversations()}

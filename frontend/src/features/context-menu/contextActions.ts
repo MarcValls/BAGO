@@ -106,7 +106,9 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
 
     case 'screen.chat':
       actions.push(
-        { id: 'chat-command-prefix', label: 'Preparar comando /', icon: 'command', onClick: () => draftCommand((deps.uiState.drafts.chat || '').trim().startsWith('/') ? deps.uiState.drafts.chat : '/') },
+        { id: 'chat-copy-selection', label: 'Copiar selección', icon: 'copy', onClick: () => { const sel = (typeof window !== 'undefined' ? window.getSelection() : null)?.toString().trim(); if (sel) void deps.writeClipboard('Texto', sel); }, disabled: !(typeof window !== 'undefined' && window.getSelection()?.toString().trim()) },
+        { id: 'chat-paste-to-input', label: 'Pegar en el chat', icon: 'send', onClick: () => { void navigator.clipboard.readText().then((text) => { if (text) draftCommand((deps.uiState.drafts.chat || '') + text); }).catch(() => { /* permisos denegados */ }); } },
+        { id: 'chat-command-prefix', label: 'Preparar comando /', icon: 'command', separatorBefore: true, onClick: () => draftCommand((deps.uiState.drafts.chat || '').trim().startsWith('/') ? deps.uiState.drafts.chat : '/') },
         { id: 'chat-last-command', label: 'Pegar último comando', icon: 'history', onClick: () => lastCommand && draftCommand(lastCommand.text), disabled: !lastCommand },
         { id: 'chat-attach-context', label: 'Adjuntar contexto', icon: 'attach', onClick: () => void deps.runContextCommand('/context attach'), disabled: !deps.snapshot?.permissions.canInspectContext },
         { id: 'chat-plan', label: 'Preparar /plan', icon: 'pipeline', onClick: () => draftCommand('/plan ') },

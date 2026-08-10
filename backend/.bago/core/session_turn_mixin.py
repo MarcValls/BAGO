@@ -126,8 +126,8 @@ class SessionTurnMixin:
         call_kwargs = dict(provided)
         depth = str(getattr(self, "reasoning_depth", "normal") or "normal").lower()
         depth_temperature = {"normal": 0.7, "media": 0.5, "alta": 0.3, "maxima": 0.2}.get(depth, 0.7)
-        configured_temperature = self.config.get("temperature", depth_temperature)
-        call_kwargs.setdefault("temperature", float(configured_temperature if depth == "normal" else depth_temperature))
+        temperature = float(self.config.get("temperature", depth_temperature)) if depth == "normal" else float(depth_temperature)
+        call_kwargs.setdefault("temperature", temperature)
         if call_kwargs.get("max_tokens") is None:
             configured_max = self.config.get("max_tokens")
             if configured_max:
