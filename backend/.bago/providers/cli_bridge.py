@@ -47,7 +47,11 @@ def run_cli(command: list[str], cwd: str | Path, timeout: float = 180.0, input_t
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
         lines = [line.strip() for line in detail.splitlines() if line.strip()]
-        decisive = [line for line in lines if "error" in line.lower() or "limit" in line.lower()]
-        detail = "\n".join((decisive or lines[-4:])[-4:])
+        visible_lines = [
+            line for line in lines
+            if not line.startswith("BAGO_PROVIDER_BRIDGE_JSON=") and len(line) <= 1200
+        ]
+        decisive = [line for line in visible_lines if "error" in line.lower() or "limit" in line.lower()]
+        detail = "\n".join((decisive or visible_lines[-4:] or lines[-1:])[-4:])
         raise RuntimeError(detail)
     return (result.stdout or result.stderr).strip()

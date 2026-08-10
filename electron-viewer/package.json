@@ -1,6 +1,6 @@
 {
   "name": "bago-ui-viewer",
-  "version": "4.8.3",
+  "version": "4.8.4",
   "description": "Visor Electron minimo de la BAGO UI contra el bridge local",
   "main": "main.cjs",
   "engines": {
