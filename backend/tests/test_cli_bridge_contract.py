@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
+import cli_bridge
 from cli_bridge import build_prompt
 import codex as codex_module
 import copilot as copilot_module
@@ -18,14 +20,15 @@ def test_cli_bridge_prompt_is_single_line_and_keeps_final_user_message() -> None
     assert "BAGO_BRIDGE_OK" in prompt
 
 
-def test_codex_cli_bridge_uses_read_only_sandbox(tmp_path: Path) -> None:
+def test_codex_cli_bridge_uses_approved_workspace(tmp_path: Path) -> None:
     adapter = CodexAdapter({"cli_path": "codex", "cli_authenticated": True, "base_path": str(tmp_path)})
     adapter.api_key = None
     with patch.object(codex_module, "run_cli", return_value="ok") as run:
         response = adapter._chat_cli([{"role": "user", "content": "hola"}], "gpt-5.4-mini", "")
     command = run.call_args.args[0]
     assert response.content == "ok"
-    assert ["--sandbox", "read-only"] == command[command.index("--sandbox"):command.index("--sandbox") + 2]
+    assert "--approve-for-me" in command
+    assert "--sandbox" not in command
     assert run.call_args.kwargs["input_text"].startswith("BAGO_PROVIDER_BRIDGE_JSON=")
 
 
@@ -72,3 +75,20 @@ def test_cli_failure_is_structured_and_sanitized(tmp_path: Path) -> None:
         response = adapter.chat([{"role": "user", "content": "hola"}], "gpt-5.4-mini")
     assert response.finish_reason == "error"
     assert response.metadata["error"] is True
+
+
+def test_cli_failure_hides_bridge_payload_and_keeps_usage_limit() -> None:
+    result = subprocess.CompletedProcess(
+        args=["codex"],
+        returncode=1,
+        stdout='BAGO_PROVIDER_BRIDGE_JSON={"messages":["previous error"]}',
+        stderr="ERROR: You've hit your usage limit.",
+    )
+    with patch.object(cli_bridge.subprocess, "run", return_value=result):
+        try:
+            cli_bridge.run_cli(["codex"], ROOT, timeout=1)
+        except RuntimeError as exc:
+            assert "usage limit" in str(exc)
+            assert "BAGO_PROVIDER_BRIDGE_JSON" not in str(exc)
+        else:
+            raise AssertionError("run_cli must raise for a failing command")

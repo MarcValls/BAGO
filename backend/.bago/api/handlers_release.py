@@ -26,3 +26,10 @@ def handle_update(handler: "BaseHTTPRequestHandler", body: dict | None = None) -
     tag = str((body or {}).get("tag", "")).strip()
     result = start_update(tag)
     send_json(handler, 202 if result.get("ok") else 409, result)
+
+
+def handle_apply(handler: "BaseHTTPRequestHandler", body: dict | None = None) -> None:
+    from api_serializers import send_json
+    from update_manager import apply_update
+    result = apply_update()
+    send_json(handler, 202 if result.get("ok") else 409, result)

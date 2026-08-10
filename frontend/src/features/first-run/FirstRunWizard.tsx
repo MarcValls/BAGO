@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { firstRunProviderOptions, firstRunReadiness } from './firstRun';
+import type { BagoClient } from '@/api/client';
+import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 
 interface Props {
   snapshot: UiBootstrapSnapshot | null;
@@ -12,6 +14,8 @@ interface Props {
   onTestProvider: (provider: string, config: { base_url?: string; api_key?: string; model?: string }) => Promise<{ ok: boolean; detail?: string }>;
   onActivateWorkspace: (root: string) => Promise<boolean>;
   onCreateDemo: (root: string) => Promise<boolean>;
+  client: BagoClient;
+  onChooseWorkspace?: (defaultPath?: string) => Promise<string | null>;
   onFinish: () => void;
   onClose: () => void;
 }
@@ -27,6 +31,7 @@ export function FirstRunWizard(props: Props) {
   const [projectRoot, setProjectRoot] = useState('');
   const [message, setMessage] = useState('');
   const [working, setWorking] = useState(false);
+  const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [tested, setTested] = useState<Record<string, { ok: boolean; detail: string }>>({});
   const options = useMemo(() => firstRunProviderOptions(props.providers), [props.providers]);
   const readiness = firstRunReadiness(props.snapshot);
@@ -92,7 +97,7 @@ export function FirstRunWizard(props: Props) {
     }
   };
 
-  return (
+  return (<>
     <div className="first-run-backdrop" role="dialog" aria-modal="true" aria-labelledby="first-run-title">
       <section className="first-run-wizard">
         <header className="first-run-head">
@@ -127,6 +132,7 @@ export function FirstRunWizard(props: Props) {
           {step === 2 && <div className="first-run-panel">
             <h3>Activa tu primer proyecto</h3><p>Usa una carpeta existente o crea una demo ejecutable desde cero.</p>
             <label className="first-run-field"><span>Ruta absoluta</span><input value={projectRoot} onChange={(event) => setProjectRoot(event.target.value)} placeholder="C:\\Users\\tu_usuario\\Documents\\BAGO-Demo" /></label>
+            <button type="button" className="secondary-button" onClick={() => setWorkspacePickerOpen(true)}><Icon name="folder" size={14} /> Examinar carpetas</button>
             <div className="first-run-actions"><button type="button" className="secondary-button" onClick={() => void prepareProject(false)} disabled={working}>Usar proyecto existente</button><button type="button" className="primary-button" onClick={() => void prepareProject(true)} disabled={working}>Crear proyecto demo</button></div><small>La demo solo se crea si la carpeta no existe o está vacía.</small>
           </div>}
           {step === 3 && <div className="first-run-panel first-run-ready"><span className="first-run-ready-icon"><Icon name="check" size={28} /></span><h3>BAGO está listo</h3><p>Ya puedes conversar, reunir contexto y convertir decisiones en tareas del Pipeline.</p><button type="button" className="primary-button" onClick={props.onFinish}>Entrar en BAGO</button></div>}
@@ -135,7 +141,8 @@ export function FirstRunWizard(props: Props) {
         {step < 3 && <footer className="first-run-foot"><button type="button" className="text-button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Atrás</button><button type="button" className="primary-button" onClick={() => setStep(Math.min(3, step + 1))}>Continuar</button></footer>}
       </section>
     </div>
-  );
+    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={() => setWorkspacePickerOpen(false)} client={props.client} mode="select" title="Selecciona el primer proyecto" />}
+  </>);
 }
 
 function StatusRow({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {

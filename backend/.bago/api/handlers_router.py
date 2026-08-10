@@ -161,10 +161,81 @@ def handle_policy(handler: "BaseHTTPRequestHandler") -> None:
 # ── Session model override ────────────────────────────────────────────────────
 
 _SESSION_OVERRIDE_FILE = ".bago_session_model.json"
+_REASONING_DEPTH_FILE = ".bago_reasoning_depth.json"
+_REASONING_DEPTHS = {
+    "normal": {"label": "Normal", "effort": "low"},
+    "media": {"label": "Media", "effort": "medium"},
+    "alta": {"label": "Alta", "effort": "high"},
+    "maxima": {"label": "Máxima", "effort": "xhigh"},
+}
 
 
 def _override_path(state: "Path") -> "Path":
     return Path(state) / _SESSION_OVERRIDE_FILE
+
+
+def _reasoning_path(state: "Path") -> "Path":
+    return Path(state) / _REASONING_DEPTH_FILE
+
+
+def _read_reasoning(state: "Path") -> str:
+    import json
+    path = _reasoning_path(state)
+    if path.exists():
+        try:
+            value = str(json.loads(path.read_text(encoding="utf-8")).get("depth") or "").lower()
+            if value in _REASONING_DEPTHS:
+                return value
+        except Exception:
+            pass
+    return "normal"
+
+
+def handle_reasoning_depth(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Persist the session thinking depth and expose its provider effort mapping."""
+    from api_serializers import send_json
+    import json, os
+
+    state = _state_root(handler)
+    requested = str(body.get("depth") or "normal").strip().lower()
+    if requested not in _REASONING_DEPTHS:
+        send_json(handler, 400, {"ok": False, "error": "Profundidad no válida", "allowed": list(_REASONING_DEPTHS)})
+        return
+    path = _reasoning_path(state)
+    Path(state).mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"depth": requested}, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(str(tmp), str(path))
+    mgr = getattr(handler, "session_mgr", None)
+    if mgr is not None:
+        mgr.reasoning_depth = requested
+        mgr.reasoning_effort = _REASONING_DEPTHS[requested]["effort"]
+    send_json(handler, 200, {"ok": True, "depth": requested, **_REASONING_DEPTHS[requested], "allowed": list(_REASONING_DEPTHS)})
+
+
+def handle_reasoning_depth_get(handler: "BaseHTTPRequestHandler") -> None:
+    from api_serializers import send_json
+    state = _state_root(handler)
+    depth = _read_reasoning(state)
+    mgr = getattr(handler, "session_mgr", None)
+    if mgr is not None:
+        mgr.reasoning_depth = depth
+        mgr.reasoning_effort = _REASONING_DEPTHS[depth]["effort"]
+    send_json(handler, 200, {"ok": True, "depth": depth, **_REASONING_DEPTHS[depth], "allowed": list(_REASONING_DEPTHS)})
+
+
+def restore_session_reasoning(mgr) -> dict:
+    """Restore a persisted session reasoning depth into the live manager."""
+    if mgr is None:
+        return {"ok": False, "restored": False, "reason": "manager_unavailable"}
+    try:
+        state = Path(mgr.state_root)
+        depth = _read_reasoning(state)
+        mgr.reasoning_depth = depth
+        mgr.reasoning_effort = _REASONING_DEPTHS[depth]["effort"]
+        return {"ok": True, "restored": _reasoning_path(state).exists(), "depth": depth, **_REASONING_DEPTHS[depth]}
+    except Exception as exc:
+        return {"ok": False, "restored": False, "reason": str(exc)}
 
 
 def restore_session_model(mgr) -> dict:

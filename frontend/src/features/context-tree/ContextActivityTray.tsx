@@ -16,7 +16,8 @@ interface Props {
   onRevertPatch: (patchId: string) => void;
   onEditPatch: (patchId: string) => void;
   onOpenRelated: (nodeId: string) => void;
-  onClear: () => void;
+  onStartTask?: (patch: ContextPatchRequest) => void;
+  onClear?: () => void;
 }
 
 type Tab = 'pending' | 'applied' | 'rejected' | 'failed' | 'reverted' | 'receipts';
@@ -127,9 +128,9 @@ export function ContextActivityTray(props: Props) {
             <button type="button" role="tab" aria-selected={tab === 'receipts'} className={tab === 'receipts' ? 'is-active' : ''} onClick={() => setTab('receipts')}>
               Receipts <small>{groups.receipts.length}</small>
             </button>
-            <button type="button" className="text-button" onClick={props.onClear}>
+            {props.onClear && <button type="button" className="text-button" onClick={props.onClear}>
               <Icon name="close" size={11} /> Limpiar bandeja
-            </button>
+            </button>}
           </nav>
         )}
       </header>
@@ -172,6 +173,9 @@ export function ContextActivityTray(props: Props) {
                         <button type="button" className="secondary-button compact" onClick={() => props.onEditPatch(patch.id)}>
                           <Icon name="inspector" size={11} /> Editar
                         </button>
+                        {props.onStartTask && <button type="button" className="secondary-button compact" onClick={() => props.onStartTask?.(patch)}>
+                          <Icon name="pipeline" size={11} /> Iniciar tarea
+                        </button>}
                         <button type="button" className="secondary-button compact" onClick={() => props.onRejectPatch(patch.id)}>
                           <Icon name="close" size={11} /> Rechazar
                         </button>

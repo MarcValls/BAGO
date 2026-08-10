@@ -16,6 +16,7 @@ import { ContextInspector } from './ContextInspector';
 import { ContextCategoryExplorer, type ContextDisplayMode } from './ContextCategoryExplorer';
 import { ContextPatchPreview } from './ContextPatchPreview';
 import { ContextCollectionDialog } from './ContextCollectionDialog';
+import { ContextActivityTray } from './ContextActivityTray';
 import {
   ContextStageCompile,
   ContextStageDestination,
@@ -27,6 +28,7 @@ import { FlowShell } from '@/lib/flow-shell/FlowShell';
 import type { FlowStageItem } from '@/lib/flow-shell/FlowNav';
 import { Icon } from '@/shared/Icon';
 import { BagoClient, safeJson } from '@/api/client';
+import { compactTaskTitle } from '@/shared/taskPresentation';
 import {
   buildCollectionPrompt,
   collectionOperationToPatch,
@@ -70,7 +72,7 @@ interface Props {
 
 const ROOT_TYPES: ContextNodeType[] = ['intent', 'source', 'decision', 'rule', 'claim', 'risk', 'pending', 'evidence', 'proposal', 'note'];
 type ContextFlowStage = 'sources' | 'structure' | 'pack' | 'compile' | 'destination';
-type ContextView = 'summary' | ContextCategoryType;
+type ContextWorkbenchView = 'focus' | 'tasks' | 'library' | 'advanced';
 const FLOW_STAGES: Array<{ id: ContextFlowStage; label: string; icon: 'folder' | 'tree' | 'pack' | 'refresh' | 'send' }> = [
   { id: 'sources', label: 'Fuentes', icon: 'folder' },
   { id: 'structure', label: 'Estructura', icon: 'tree' },
@@ -112,7 +114,15 @@ export function ContextTreeModule(props: Props) {
   const [branchFilter, setBranchFilter] = useState<'all' | 'open' | 'closed' | 'questions' | 'proposals' | 'errors'>('all');
   const [closeNote, setCloseNote] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
-  const [activeContextView, setActiveContextView] = useState<ContextView>('summary');
+  const [workbenchView, setWorkbenchView] = useState<ContextWorkbenchView>(() => {
+    try {
+      const stored = window.sessionStorage.getItem('bago.context.workbench-view');
+      return stored === 'tasks' || stored === 'library' || stored === 'advanced' ? stored : 'focus';
+    } catch {
+      return 'focus';
+    }
+  });
+  const [activeContextView, setActiveContextView] = useState<ContextCategoryType>('intent');
   const [contextDisplayMode, setContextDisplayMode] = useState<ContextDisplayMode>(() => {
     try {
       const stored = window.sessionStorage.getItem('bago.context.display-mode');
@@ -210,7 +220,6 @@ export function ContextTreeModule(props: Props) {
   }, [ctx.tree, flatNodes]);
 
   const categoryNodes = useMemo(() => {
-    if (activeContextView === 'summary') return [] as ContextNode[];
     return flatNodes
       .filter((node) => node.type === activeContextView && node.status !== 'archived')
       .sort((a, b) => {
@@ -221,7 +230,6 @@ export function ContextTreeModule(props: Props) {
   }, [activeContextView, flatNodes, ctx.tree?.rootId]);
 
   useEffect(() => {
-    if (activeContextView === 'summary') return;
     if (!selectedNodeId || ctx.tree?.nodes[selectedNodeId]?.type !== activeContextView) {
       setSelectedNodeId(categoryNodes[0]?.id || null);
     }
@@ -231,6 +239,12 @@ export function ContextTreeModule(props: Props) {
   useEffect(() => {
     setFocusedCategoryNodeId(null);
   }, [activeContextView]);
+
+  const changeWorkbenchView = (view: ContextWorkbenchView) => {
+    if (view === 'advanced' && workbenchView !== 'advanced') setActiveStage(nextStage);
+    setWorkbenchView(view);
+    try { window.sessionStorage.setItem('bago.context.workbench-view', view); } catch { /* storage unavailable */ }
+  };
 
   const changeContextDisplayMode = (mode: ContextDisplayMode) => {
     setContextDisplayMode(mode);
@@ -255,6 +269,7 @@ export function ContextTreeModule(props: Props) {
 
   const selectedBranch = taskBranches.find((branch) => branch.id === selectedBranchId) || taskBranches[0] || null;
   const pendingProposals = ctx.proposals.filter((proposal) => proposal.status === 'pending');
+  const openTaskBranches = taskBranches.filter((branch) => branch.status !== 'canon' && branch.status !== 'archived');
   const filteredBranches = useMemo(() => taskBranches.filter((branch) => {
     const branchNodes = flatNodes.filter((node) => node.parentId === branch.id);
     const hasQuestion = pendingProposals.some((proposal) => proposal.metadata?.clarification && proposal.status === 'pending');
@@ -393,7 +408,7 @@ export function ContextTreeModule(props: Props) {
   };
 
   const createCategoryNode = async () => {
-    if (!ctx.tree || activeContextView === 'summary') return;
+    if (!ctx.tree) return;
     const category = CONTEXT_CATEGORIES.find((entry) => entry.id === activeContextView);
     const categoryRoot = flatNodes.find((node) => node.type === activeContextView && node.parentId === ctx.tree!.rootId);
     const node = await ctx.createNode({
@@ -412,7 +427,7 @@ export function ContextTreeModule(props: Props) {
   };
 
   const saveAndReviewCategoryNode = async (patch: Partial<ContextNode>) => {
-    if (!selectedNode || activeContextView === 'summary') return;
+    if (!selectedNode) return;
     const nodeId = selectedNode.id;
     const reviewedNode = { ...selectedNode, ...patch };
     const pendingMetadata = {
@@ -474,6 +489,22 @@ export function ContextTreeModule(props: Props) {
 
   const handleCreatePlan = async (summary: string) => {
     await props.onCreatePlan('Tarea desde Árbol de Contexto', summary);
+  };
+
+  const startProposalTask = async (proposal: ContextPatchRequest) => {
+    const operationTitles = proposal.patch.operations.map((operation) => {
+      if (operation.op === 'create') return operation.title;
+      if (operation.op === 'update') return `Actualizar ${operation.nodeId}`;
+      return `${operation.op} ${'nodeId' in operation ? operation.nodeId : ''}`.trim();
+    }).filter(Boolean);
+    await props.onCreatePlan(
+      compactTaskTitle(proposal.title),
+      [proposal.reason, operationTitles.length ? `Cambios mencionados: ${operationTitles.join(', ')}.` : ''].filter(Boolean).join('\n\n')
+    );
+  };
+
+  const startBranchTask = async (branch: ContextNode) => {
+    await props.onCreatePlan(compactTaskTitle(branch.title), branch.summary || 'Ejecutar la tarea abierta desde el contexto de trabajo.');
   };
 
   const createTaskBranch = async () => {
@@ -757,12 +788,6 @@ export function ContextTreeModule(props: Props) {
   // packBlockedReason también se movió arriba (lo consume destinationReady).
   // Ver comentario sobre FIX v0.3 más arriba.
 
-  useEffect(() => {
-    if (stageIndex(activeStage) < stageIndex(nextStage)) {
-      setActiveStage(nextStage);
-    }
-  }, [activeStage, nextStage]);
-
   const packNodes = useMemo(() => {
     if (!ctx.tree || !ctx.activePack) return [] as ContextNode[];
     return ctx.activePack.nodeIds
@@ -798,27 +823,92 @@ export function ContextTreeModule(props: Props) {
 
   const recentChat = ctx.bank.history.slice(-5).reverse();
   const branchStatus = (branch: ContextNode) => branch.status === 'archived' ? 'Archivada' : branch.status === 'canon' ? 'Cerrada' : 'Abierta';
-  const activeCategory = activeContextView === 'summary' ? null : CONTEXT_CATEGORIES.find((entry) => entry.id === activeContextView) || null;
+  const activeCategory = CONTEXT_CATEGORIES.find((entry) => entry.id === activeContextView) || null;
   const rawReview = selectedNode?.metadata?.context_review;
   const selectedReview = rawReview && typeof rawReview === 'object' && !Array.isArray(rawReview)
     ? rawReview as Partial<ContextReviewResult> & { reviewedAt?: string; provider?: string; model?: string }
     : null;
   const reviewFindings = Array.isArray(selectedReview?.findings) ? selectedReview.findings : [];
+  const projectName = props.workspaceRoot.split(/[\\/]/).filter(Boolean).pop() || 'proyecto activo';
 
   return (
     <div className="task-context-page">
-      <nav className="context-category-tabs" aria-label="Secciones del contexto">
-        <button type="button" className={activeContextView === 'summary' ? 'is-active' : ''} onClick={() => { setActiveContextView('summary'); setFocusedCategoryNodeId(null); }}>Resumen</button>
-        {CONTEXT_CATEGORIES.map((category) => (
-          <button key={category.id} type="button" className={activeContextView === category.id ? 'is-active' : ''} onClick={() => { setActiveContextView(category.id); setFocusedCategoryNodeId(null); }}>
-            {category.label}<span>{flatNodes.filter((node) => node.type === category.id && node.status !== 'archived').length}</span>
-          </button>
-        ))}
-      </nav>
-      {activeContextView === 'summary' ? (
+      <header className="context-workbench-header">
+        <div className="context-workbench-title">
+          <span className="surface-eyebrow">Proyecto activo</span>
+          <h1>Contexto de {projectName}</h1>
+          <p>{openTaskBranches.length} tareas abiertas · {pendingProposals.length} menciones por validar</p>
+        </div>
+        <nav className="context-workbench-tabs" aria-label="Vistas de contexto">
+          {([['focus', 'Ahora', 'live'], ['tasks', 'Tareas', 'context'], ['library', 'Biblioteca', 'folder']] as const).map(([id, label, icon]) => <button type="button" key={id} className={workbenchView === id ? 'is-active' : ''} onClick={() => changeWorkbenchView(id)}><Icon name={icon} size={12} /> {label}{id === 'focus' && pendingProposals.length > 0 && <span>{pendingProposals.length}</span>}</button>)}
+          <details className="context-workbench-more">
+            <summary className={workbenchView === 'advanced' ? 'is-active' : ''}><Icon name="more" size={12} /> Más</summary>
+            <button type="button" onClick={() => changeWorkbenchView('advanced')}><Icon name="tree" size={12} /> Configuración avanzada</button>
+          </details>
+        </nav>
+      </header>
+      {workbenchView === 'focus' ? (
+      <main className="context-focus-view">
+        <section className="context-focus-intro">
+          <div><span className="surface-eyebrow">SIGUIENTE ACCIÓN</span><h2>{pendingProposals.length ? `${pendingProposals.length} menciones esperan tu validación` : 'Contexto al día'}</h2><p>{pendingProposals.length ? 'Valida, edita o convierte cada mención en una tarea sin abandonar esta pantalla.' : 'No hay propuestas pendientes. Puedes recopilar el chat o iniciar una tarea abierta.'}</p></div>
+          <button type="button" className="secondary-button compact" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar del chat</button>
+        </section>
+
+        <div className="context-focus-grid">
+          <section className="context-focus-panel context-focus-review" aria-label="Menciones por validar">
+            <header><div><span>POR VALIDAR</span><strong>Menciones detectadas</strong></div><b>{pendingProposals.length}</b></header>
+            <div className="context-focus-list">
+              {pendingProposals.length === 0 && <div className="context-focus-empty"><Icon name="verified" size={20} /><strong>No hay menciones pendientes</strong><span>Los cambios aceptados y descartados siguen disponibles en el historial.</span></div>}
+              {pendingProposals.map((proposal) => (
+                <article key={proposal.id} className="context-focus-item">
+                  <div className="context-focus-item-copy">
+                    <div><span className={`context-focus-risk risk-${proposal.riskLevel}`}>{proposal.riskLevel === 'low' ? 'Riesgo bajo' : proposal.riskLevel === 'medium' ? 'Riesgo medio' : proposal.riskLevel === 'high' ? 'Riesgo alto' : 'Crítico'}</span><small>{proposal.patch.operations.length} cambios</small></div>
+                    <h3>{compactTaskTitle(proposal.title)}</h3>
+                    <p>{proposal.reason || 'Propuesta de contexto sin explicación adicional.'}</p>
+                    {proposal.metadata?.clarification && <blockquote><b>Pregunta</b>{proposal.metadata.clarification}</blockquote>}
+                  </div>
+                  <div className="context-focus-item-actions">
+                    <button type="button" className="primary-button compact" onClick={() => void handleAcceptPatch(proposal.id)}><Icon name="check" size={11} /> Validar</button>
+                    <button type="button" className="secondary-button compact" onClick={() => void startProposalTask(proposal)}><Icon name="pipeline" size={11} /> Iniciar tarea</button>
+                    <button type="button" className="text-button" onClick={() => handleEditPatch(proposal.id)}>Editar</button>
+                    <button type="button" className="text-button" onClick={() => void handleRejectPatch(proposal.id)}>Descartar</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="context-focus-panel context-focus-tasks" aria-label="Tareas de contexto">
+            <header><div><span>TAREAS</span><strong>Trabajo disponible</strong></div><b>{openTaskBranches.length}</b></header>
+            <div className="context-focus-new-task">
+              <input aria-label="Nombre de la nueva tarea" value={newBranchTitle} onChange={(event) => setNewBranchTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void createTaskBranch(); }} placeholder="Nueva tarea…" />
+              <button type="button" className="secondary-button compact" onClick={() => void createTaskBranch()} disabled={!newBranchTitle.trim()}><Icon name="plus" size={11} /> Crear</button>
+            </div>
+            <div className="context-focus-list">
+              {openTaskBranches.length === 0 && <div className="context-focus-empty"><Icon name="context" size={20} /><strong>No hay tareas abiertas</strong><span>Crea una aquí o recopila las mencionadas en la conversación.</span></div>}
+              {openTaskBranches.slice(0, 2).map((branch) => (
+                <article key={branch.id} className="context-focus-task">
+                  <button type="button" className="context-focus-task-copy" onClick={() => { setSelectedBranchId(branch.id); changeWorkbenchView('tasks'); }}>
+                    <span className="task-context-branch-dot" data-status={branch.status} />
+                    <span><strong>{compactTaskTitle(branch.title)}</strong><small>{branchStatus(branch)}</small><p>{branch.summary || 'Sin resumen.'}</p></span>
+                  </button>
+                  <div><button type="button" className="secondary-button compact" onClick={() => void startBranchTask(branch)}><Icon name="pipeline" size={11} /> Iniciar</button><button type="button" className="text-button" onClick={() => { setSelectedBranchId(branch.id); changeWorkbenchView('tasks'); }}>Abrir</button></div>
+                </article>
+              ))}
+              {openTaskBranches.length > 2 && <button type="button" className="context-focus-show-all" onClick={() => changeWorkbenchView('tasks')}>Ver todas las tareas ({openTaskBranches.length}) <Icon name="arrowRight" size={11} /></button>}
+            </div>
+          </section>
+        </div>
+
+        <details className="context-focus-history">
+          <summary><span><Icon name="evidence" size={12} /> Historial y receipts</span><small>{ctx.receipts.length} registros</small></summary>
+          <ContextActivityTray proposals={ctx.proposals} receipts={ctx.receipts} defaultOpen onAcceptPatch={(id) => void handleAcceptPatch(id)} onRejectPatch={(id) => void handleRejectPatch(id)} onRevertPatch={(id) => void handleRevertPatch(id)} onEditPatch={handleEditPatch} onOpenRelated={openRelated} onStartTask={(proposal) => void startProposalTask(proposal)} />
+        </details>
+      </main>
+      ) : workbenchView === 'tasks' ? (
       <div className="task-context-layout">
         <aside className="task-context-branches" aria-label="Ramas de tareas">
-          <div className="task-context-panel-heading"><div><span>PROYECTO</span><strong>{ctx.tree.name}</strong></div><b>{taskBranches.length}</b></div>
+          <div className="task-context-panel-heading"><div><span>PROYECTO</span><strong>{projectName}</strong></div><b>{taskBranches.length}</b></div>
           <div className="task-context-new-branch">
             <input aria-label="Nombre de la nueva tarea" value={newBranchTitle} onChange={(event) => setNewBranchTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void createTaskBranch(); }} placeholder="Nueva tarea o rama…" />
             <button type="button" aria-label="Crear nueva rama" onClick={() => void createTaskBranch()} disabled={!newBranchTitle.trim()}><Icon name="plus" size={13} /></button>
@@ -831,7 +921,7 @@ export function ContextTreeModule(props: Props) {
             {filteredBranches.map((branch) => {
               const count = flatNodes.filter((node) => node.id !== branch.id && (node.sourceRefs.some((ref) => ref.id === branch.id) || node.parentId === branch.id)).length;
               return <button key={branch.id} type="button" className={`task-context-branch ${selectedBranch?.id === branch.id ? 'is-selected' : ''}`} onClick={() => setSelectedBranchId(branch.id)}>
-                <span className="task-context-branch-dot" data-status={branch.status} /><span className="task-context-branch-copy"><strong>{branch.title}</strong><small>{branchStatus(branch)} · {count} elementos</small></span><Icon name="chevron" size={12} />
+                <span className="task-context-branch-dot" data-status={branch.status} /><span className="task-context-branch-copy"><strong>{compactTaskTitle(branch.title)}</strong><small>{branchStatus(branch)} · {count} elementos</small></span><Icon name="chevron" size={12} />
               </button>;
             })}
           </div>
@@ -844,7 +934,7 @@ export function ContextTreeModule(props: Props) {
           ) : (
             <>
               <section className="task-context-task-head">
-                <div><span className="task-context-status" data-status={selectedBranch.status}>{branchStatus(selectedBranch)}</span><h2>{selectedBranch.title}</h2><p>{selectedBranch.summary || 'Esta rama todavía no tiene un resumen. Recopila el chat para construirlo.'}</p></div>
+                <div><span className="task-context-status" data-status={selectedBranch.status}>{branchStatus(selectedBranch)}</span><h2>{compactTaskTitle(selectedBranch.title)}</h2><p>{selectedBranch.summary || 'Esta rama todavía no tiene un resumen. Recopila el chat para construirlo.'}</p></div>
                 <div className="task-context-task-actions"><button type="button" className="secondary-button compact" onClick={openChat}><Icon name="chat" size={12} /> Ver conversación</button><button type="button" className="primary-button compact" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar de esta tarea</button>{selectedBranch.status === 'canon' || selectedBranch.status === 'archived' ? <button type="button" className="secondary-button compact" onClick={() => void reopenSelectedTask()}><Icon name="refresh" size={12} /> Reabrir tarea</button> : <button type="button" className="secondary-button compact" onClick={() => setCloseOpen((value) => !value)}><Icon name="check" size={12} /> Cerrar tarea</button>}</div>
               </section>
               {closeOpen && selectedBranch.status !== 'canon' && selectedBranch.status !== 'archived' && <section className="task-context-close-form"><strong>Cerrar esta rama</strong><span>Escribe qué se ha resuelto. Quedará guardado como conclusión y podrás reabrirla después.</span><textarea aria-label="Conclusión de la tarea" value={closeNote} onChange={(event) => setCloseNote(event.target.value)} placeholder="Conclusión o evidencia de cierre…" rows={3} /><div><button type="button" className="secondary-button compact" onClick={() => { setCloseOpen(false); setCloseNote(''); }}>Cancelar</button><button type="button" className="primary-button compact" disabled={!closeNote.trim()} onClick={() => void closeSelectedTask()}><Icon name="check" size={12} /> Confirmar cierre</button></div></section>}
@@ -852,7 +942,7 @@ export function ContextTreeModule(props: Props) {
                 <div className="task-context-card task-context-card-wide"><div className="task-context-card-title"><span>CONTENIDO DE LA RAMA</span><b>{selectedBranchNodes.length} elementos</b></div>
                   {selectedBranchNodes.length === 0 ? <div className="task-context-card-empty">Aún no hay decisiones, pantallas, archivos o evidencias en esta rama.</div> : <div className="task-context-items">{selectedBranchNodes.map((node) => <article key={node.id} className="task-context-item"><span className="task-context-item-type">{node.type}</span><div><strong>{node.title}</strong><p>{node.summary || 'Sin resumen todavía.'}</p>{node.sourceRefs[0]?.path && <button type="button" className="task-context-link" onClick={() => props.onOpenInWorkspace?.(String(node.sourceRefs[0].path))}>Abrir origen</button>}</div><span className="task-context-item-status">{node.status}</span></article>)}</div>}
                 </div>
-                <div className="task-context-card"><div className="task-context-card-title"><span>PROPUESTAS PENDIENTES</span><b>{pendingProposals.length}</b></div>{pendingProposals.length === 0 ? <div className="task-context-card-empty">No hay propuestas esperando permiso.</div> : <div className="task-context-proposals">{pendingProposals.slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-proposal" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><Icon name="sparkle" size={13} /><span><strong>{proposal.title}</strong><small>{proposal.patch.operations.length} cambios · requiere revisión</small></span><Icon name="chevron" size={12} /></button>)}</div>}</div>
+                <div className="task-context-card"><div className="task-context-card-title"><span>PROPUESTAS PENDIENTES</span><b>{pendingProposals.length}</b></div>{pendingProposals.length === 0 ? <div className="task-context-card-empty">No hay propuestas esperando permiso.</div> : <div className="task-context-proposals">{pendingProposals.slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-proposal" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><Icon name="sparkle" size={13} /><span><strong>{compactTaskTitle(proposal.title)}</strong><small>{proposal.patch.operations.length} cambios · requiere revisión</small></span><Icon name="chevron" size={12} /></button>)}</div>}</div>
                 <div className="task-context-card"><div className="task-context-card-title"><span>PREGUNTAS PENDIENTES</span><b>{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).length}</b></div>{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).length === 0 ? <div className="task-context-card-empty">No hay aclaraciones pendientes.</div> : <div className="task-context-question-list">{pendingProposals.filter((proposal) => Boolean(proposal.metadata?.clarification)).slice(0, 4).map((proposal) => <button key={proposal.id} type="button" className="task-context-question" onClick={() => { setCollectionProposal(proposal); setCollectionOpen(true); }}><span>?</span><div><strong>{proposal.metadata?.clarification}</strong><small>Responder revisando la propuesta</small></div></button>)}</div>}</div>
                 <div className="task-context-card"><div className="task-context-card-title"><span>CHAT RECIENTE</span><b>{ctx.bank.history.length}</b></div>{recentChat.length === 0 ? <div className="task-context-card-empty">Todavía no hay conversación disponible.</div> : <div className="task-context-chat-list">{recentChat.map((item, index) => <div key={`${item.id}-${index}`}><span>{String(item.raw?.role || 'chat')}</span><p>{String(item.raw?.content || item.raw?.text || item.title || '').slice(0, 180)}</p></div>)}</div>}</div>
                 <div className="task-context-card task-context-card-wide"><div className="task-context-card-title"><span>HISTORIAL DE LA RAMA</span><b>{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).length}</b></div>{ctx.receipts.length === 0 ? <div className="task-context-card-empty">Aún no hay actividad registrada.</div> : <div className="task-context-timeline">{ctx.receipts.filter((receipt) => !receipt.nodeId || receipt.nodeId === selectedBranch.id || selectedBranchNodes.some((node) => node.id === receipt.nodeId)).slice(0, 12).map((receipt) => <div key={receipt.id} className="task-context-timeline-item"><span className="task-context-timeline-dot" /><div><strong>{receipt.summary}</strong><small>{new Date(receipt.createdAt).toLocaleString()} · {receipt.createdBy}</small></div></div>)}</div>}</div>
@@ -861,7 +951,15 @@ export function ContextTreeModule(props: Props) {
           )}
         </main>
       </div>
-      ) : (
+      ) : workbenchView === 'library' ? (
+        <div className="context-library-view">
+        <nav className="context-category-tabs" aria-label="Categorías de contexto">
+          {CONTEXT_CATEGORIES.map((category) => (
+            <button key={category.id} type="button" className={activeContextView === category.id ? 'is-active' : ''} onClick={() => { setActiveContextView(category.id); setFocusedCategoryNodeId(null); }}>
+              {category.label}<span>{flatNodes.filter((node) => node.type === category.id && node.status !== 'archived').length}</span>
+            </button>
+          ))}
+        </nav>
         <section className="context-category-workspace" aria-label={`Contexto: ${activeCategory?.label || activeContextView}`}>
           {!focusedCategoryNodeId ? <ContextCategoryExplorer nodes={categoryNodes} mode={contextDisplayMode} onModeChange={changeContextDisplayMode} onOpen={openCategoryNode} onCreate={() => void createCategoryNode()} /> : <main className="context-category-editor context-focus-editor">
             <header className="context-focus-head">
@@ -899,9 +997,24 @@ export function ContextTreeModule(props: Props) {
             </div>}
           </main>}
         </section>
+        </div>
+      ) : (
+        <FlowShell title="Flujo avanzado" subtitle="Fuentes → estructura → pack → compilación → destino" stages={flowStages} activeStage={activeStage} onStageChange={(stage) => { const next = stage as ContextFlowStage; if (!isStageLocked(next)) setActiveStage(next); }}>
+          {activeStage === 'sources' && <ContextStageSources bank={ctx.bank} loading={ctx.bankLoading} treeNodes={flatNodes} onOpenRelatedNode={(id) => { openRelated(id); setActiveStage('structure'); }} sourceDirectories={ctx.sourceDirectories} sourceDirectoriesLoading={ctx.sourceDirectoriesLoading} onReloadBank={() => void refreshBank()} onAddToTree={(item) => void handleAddBankItem(item)} onAddToPack={(item) => void handleAddBankToPack(item)} onAddManualItem={async (path, kind) => { await ctx.addManualBankItem(path, kind); }} onRemoveManualItem={ctx.removeManualBankItem} onAddSourceDirectory={async (path) => { await ctx.addSourceDirectory(path); }} onRemoveSourceDirectory={ctx.removeSourceDirectory} onRefreshSourceDirectoryFiles={ctx.refreshSourceDirectoryFiles} onToggleSourceFileInclude={ctx.toggleSourceFileInclude} onSetSourceFileBranch={ctx.setSourceFileBranch} onLinkSourceDirectoryToTree={async (id) => { await ctx.linkSourceDirectoryToTree(id); }} />}
+          {activeStage === 'structure' && <ContextStageStructure tree={ctx.tree} selectedNodeId={selectedNodeId} expanded={expanded} packNodeIds={ctx.activePack?.nodeIds || []} hasSelectedNode={Boolean(selectedNode)} onSelectNode={setSelectedNodeId} onToggleExpand={toggleExpand} onMoveNode={(id, parent) => void ctx.moveNode(id, parent)} onExcludeNode={(id) => void ctx.excludeNode(id)} onRestoreNode={(id) => void ctx.restoreNode(id)} onToggleCanon={(id) => void ctx.toggleCanon(id)} onAddChild={handleAddChild} onToggleInPack={(id) => void ctx.toggleNodeInPack(id)} onOpenInWorkspace={props.onOpenInWorkspace} onCopyId={handleCopyId} onOpenInspectorDrawer={() => setInspectorDrawerOpen(true)} onContinueToPack={() => setActiveStage('pack')} canContinueToPack={hasStructuredNodes} />}
+          {activeStage === 'pack' && <ContextStagePack pack={ctx.activePack} packBlockedReason={packBlockedReason} packNodes={packNodes} selectableNodes={selectableNodes} onToggleNodeInPack={(id) => void ctx.toggleNodeInPack(id)} onCompile={() => void ctx.compileActivePack()} onSendToChat={() => void sendToChat()} onSendToPipeline={() => void sendToPipeline()} onShowCompiled={showCompiledRaw} onCopyPack={() => void copyPack()} />}
+          {activeStage === 'compile' && <ContextStageCompile pack={ctx.activePack} proposals={ctx.proposals} receipts={ctx.receipts} compiledMarkdown={ctx.activePack?.markdown} onAcceptPatch={(id) => void handleAcceptPatch(id)} onRejectPatch={(id) => void handleRejectPatch(id)} onRevertPatch={(id) => void handleRevertPatch(id)} onEditPatch={handleEditPatch} onOpenRelated={openRelated} onCompile={() => void ctx.compileActivePack()} />}
+          {activeStage === 'destination' && <ContextStageDestination pack={ctx.activePack} packBlockedReason={packBlockedReason} onCompile={() => void ctx.compileActivePack()} onSendToChat={() => void sendToChat()} onSendToPipeline={() => void sendToPipeline()} onShowCompiled={showCompiledRaw} onCopyPack={() => void copyPack()} />}
+        </FlowShell>
       )}
 
       <ContextCollectionDialog open={collectionOpen} busy={collectionBusy} proposal={collectionProposal} sourceSummary={`${ctx.bank.history.length} mensajes del chat disponibles; se analizará el historial de esta tarea`} notice={collectionNotice} onClose={() => { if (!collectionBusy) setCollectionOpen(false); }} onCollect={collectFromChat} onAccept={acceptCollection} onAcceptOperations={acceptCollectionOperations} onReject={rejectCollection} />
+      {editingPatch && <ContextPatchPreview patch={editingPatch} onCancel={() => setEditingPatch(null)} onApply={(operations) => void handleApplyEdited(operations)} />}
+      <Drawer open={inspectorDrawerOpen} title="Inspector de contexto" subtitle={selectedNode?.title} onClose={() => setInspectorDrawerOpen(false)}>
+        <ContextInspector node={selectedNode} relatedNodes={flatNodes} treeName={ctx.tree.name} packName={ctx.activePack?.name} packStatus={ctx.activePack?.status || null} packNodeCount={packNodeCount} packConflicts={ctx.activePack?.conflicts || 0} onChange={() => undefined} onSave={(patch) => void handleSaveNode(patch)} onSelectRelated={openRelated} onOpenInWorkspace={props.onOpenInWorkspace} onCreatePlan={(summary) => void handleCreatePlan(summary)} onOpenInChat={(text) => { try { window.sessionStorage.setItem('bago.context.chat-draft', text); } catch { /* unavailable */ } openChat(); }} />
+      </Drawer>
+      {newChildDraft && <div className="task-context-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Crear nodo"><section className="task-context-dialog context-compact-dialog"><header className="task-context-dialog-header"><div><span className="surface-eyebrow">Estructura</span><h3>Crear nodo hijo</h3></div><button type="button" className="task-context-close" onClick={() => setNewChildDraft(null)}><Icon name="close" size={12} /></button></header><label className="first-run-field"><span>Título</span><input autoFocus value={newChildDraft.title} onChange={(event) => setNewChildDraft({ ...newChildDraft, title: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') void submitNewChild(); }} /></label><div className="task-context-dialog-actions"><button type="button" className="secondary-button compact" onClick={() => setNewChildDraft(null)}>Cancelar</button><button type="button" className="primary-button compact" disabled={!newChildDraft.title.trim()} onClick={() => void submitNewChild()}>Crear</button></div></section></div>}
+      {compiledModal && <div className="task-context-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Pack compilado"><section className="task-context-dialog context-compiled-dialog"><header className="task-context-dialog-header"><div><span className="surface-eyebrow">Pack compilado</span><h3>{ctx.activePack?.name}</h3></div><button type="button" className="task-context-close" onClick={() => setCompiledModal(null)}><Icon name="close" size={12} /></button></header><pre className="context-compiled-markdown">{compiledModal}</pre><div className="task-context-dialog-actions"><button type="button" className="secondary-button compact" onClick={() => void copyPack()} disabled={exportingPack}>Copiar</button><button type="button" className="primary-button compact" onClick={() => setCompiledModal(null)}>Cerrar</button></div></section></div>}
     </div>
   );
 }

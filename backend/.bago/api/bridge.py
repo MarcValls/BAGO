@@ -517,8 +517,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     mgr = SessionManager(provider=args.provider, model=args.model)
-    from handlers_router import restore_session_model
+    from handlers_router import restore_session_model, restore_session_reasoning
     restore_session_model(mgr)
+    restore_session_reasoning(mgr)
     # Auto-allow tool execution so file-write and other tools run without a manual approval step
     mgr.set_tool_approval_policy("always")
     engine = SwitchEngine(mgr.adapters)

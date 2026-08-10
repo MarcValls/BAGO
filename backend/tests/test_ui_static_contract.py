@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI_SRC = ROOT.parent / "frontend" / "src"
-ALLOWED_Z_INDEX = {30, 45, 50, 100}
+ALLOWED_Z_INDEX = {20, 30, 45, 50, 60, 100}
 
 
 def hex_to_rgb(value: str) -> tuple[float, float, float]:
@@ -75,7 +75,8 @@ class UiStaticContractTests(unittest.TestCase):
 
         self.assertIn('aria-label="Modelo de esta sesión"', chat)
         self.assertIn("props.onSetSessionModel(nextModel)", chat)
-        self.assertIn("Automático · router", chat)
+        self.assertIn('<strong>Automático</strong>', chat)
+        self.assertIn("router del sistema", chat)
         self.assertIn("r?.session_model", control_plane)
         self.assertNotIn("const m = r?.model", control_plane)
         self.assertIn("if (policyEntries.length > 0) return policyEntries", sections)

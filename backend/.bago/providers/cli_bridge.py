@@ -16,7 +16,12 @@ def find_cli(name: str, configured_path: str = "") -> str:
 
 def build_prompt(messages: list[dict], system: str = "") -> str:
     payload = {
-        "instruction": "Answer the final user message directly. Do not edit files or run tools.",
+        "instruction": (
+            "Work on the final user request directly in the active workspace. "
+            "When the user asks to create, modify, or validate a project, inspect and edit files "
+            "and run the required checks. Keep changes inside the authorized workspace and report "
+            "what was executed. For questions that do not request changes, answer directly."
+        ),
         "system": system,
         "messages": [
             {"role": str(message.get("role", "user")), "content": str(message.get("content", ""))}
@@ -42,7 +47,11 @@ def run_cli(command: list[str], cwd: str | Path, timeout: float = 180.0, input_t
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
         lines = [line.strip() for line in detail.splitlines() if line.strip()]
-        decisive = [line for line in lines if "error" in line.lower() or "limit" in line.lower()]
-        detail = "\n".join((decisive or lines[-4:])[-4:])
+        visible_lines = [
+            line for line in lines
+            if not line.startswith("BAGO_PROVIDER_BRIDGE_JSON=") and len(line) <= 1200
+        ]
+        decisive = [line for line in visible_lines if "error" in line.lower() or "limit" in line.lower()]
+        detail = "\n".join((decisive or visible_lines[-4:] or lines[-1:])[-4:])
         raise RuntimeError(detail)
     return (result.stdout or result.stderr).strip()

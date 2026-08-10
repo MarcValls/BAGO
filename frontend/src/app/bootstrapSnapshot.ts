@@ -52,44 +52,44 @@ function normalizeActions(snapshot: UiBootstrapSnapshot): UiAction[] {
   const actions: UiAction[] = [];
   const enabled = snapshot.permissions.canChat;
   actions.push({
-    id: 'open-chat', label: 'Open chat', kind: 'navigate', enabled, visible: true,
-    reasonDisabled: enabled ? undefined : 'Backend is not ready for chat', payload: { section: 'chat' }
+    id: 'open-chat', label: 'Abrir Inicio', kind: 'navigate', enabled, visible: true,
+    reasonDisabled: enabled ? undefined : 'El workspace no autoriza el chat', payload: { section: 'home' }
   });
   actions.push({
-    id: 'inspect-system', label: 'Inspect system', kind: 'inspect', enabled: true, visible: true,
+    id: 'inspect-system', label: 'Comprobar sistema', kind: 'inspect', enabled: true, visible: true,
     payload: { command: '/status' }
   });
   if (snapshot.permissions.canInspectContext) {
     actions.push({
-      id: 'inspect-context', label: 'Inspect context', kind: 'inspect', enabled: true, visible: true,
+      id: 'inspect-context', label: 'Comprobar contexto', kind: 'inspect', enabled: true, visible: true,
       payload: { command: '/context inspect' }
     });
   }
   if (snapshot.permissions.canViewEvidence) {
     actions.push({
-      id: 'view-evidence', label: 'Review evidence', kind: 'navigate', enabled: true, visible: true,
+      id: 'view-evidence', label: 'Revisar evidencia', kind: 'navigate', enabled: true, visible: true,
       payload: { section: 'evidence' }
     });
   }
   if (snapshot.workspace.manifestState === 'missing') {
     actions.push({
-      id: 'workspace-init', label: 'Initialize workspace', kind: 'mutation',
+      id: 'workspace-init', label: 'Preparar workspace', kind: 'mutation',
       enabled: snapshot.permissions.canInitializeWorkspace, visible: true,
-      reasonDisabled: snapshot.permissions.canInitializeWorkspace ? undefined : 'Not allowed by backend',
+      reasonDisabled: snapshot.permissions.canInitializeWorkspace ? undefined : 'El backend no permite inicializarlo',
       payload: { endpoint: 'project:init' }
     });
   }
   if (snapshot.permissions.canLinkWorkspace && snapshot.workspace.root) {
     actions.push({
-      id: 'workspace-link', label: 'Link workspace', kind: 'mutation', enabled: true, visible: true,
+      id: 'workspace-link', label: 'Vincular workspace', kind: 'mutation', enabled: true, visible: true,
       payload: { endpoint: 'project:link', root: snapshot.project.root || snapshot.workspace.repoRoot || snapshot.workspace.root }
     });
   }
   if (snapshot.workspace.manifestState === 'invalid') {
     actions.push({
-      id: 'workspace-repair', label: 'Repair workspace', kind: 'danger',
+      id: 'workspace-repair', label: 'Reparar workspace', kind: 'danger',
       enabled: snapshot.permissions.canRepairWorkspace, visible: true,
-      reasonDisabled: snapshot.permissions.canRepairWorkspace ? undefined : 'Repair disabled',
+      reasonDisabled: snapshot.permissions.canRepairWorkspace ? undefined : 'La reparación no está autorizada',
       payload: { endpoint: 'project:init' }
     });
   }
@@ -103,6 +103,8 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   const menuStateRaw = readMenuStateValue(raw);
   const workspaceMeta = raw.workspace || {};
   const binding = session.binding || {};
+  const statusWorkspaceState = readRecord(status.workspace_state);
+  const sessionWorkspaceState = readRecord(session.workspace_state);
   const projectRoot = String(status.project_root || status.repo_root || binding.project_root || '');
   const workspaceRoot = String(status.workspace_state_root || session.binding?.workspace_state_root || '');
   const scopeRoot = String(status.workspace_scope_root || binding.workspace_scope_root || projectRoot || '');
@@ -112,15 +114,21 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   const repoRoot = String(status.repo_root || binding.repo_root || projectRoot || '');
   const repoBranch = String(status.repo_branch || binding.repo_branch || '');
   const activeBridges = toStringList(status.active_bridges || session.active_bridges);
-  const bindingConfirmed = Boolean(
-    status.workspace_state?.binding_confirmed || session.workspace_state?.binding_confirmed
-    || binding.binding_confirmed || status.binding_confirmed
-  );
+  const bindingConfirmed = toBoolean(statusWorkspaceState.binding_confirmed)
+    ?? toBoolean(sessionWorkspaceState.binding_confirmed)
+    ?? toBoolean(binding.binding_confirmed)
+    ?? toBoolean(status.binding_confirmed)
+    ?? false;
   const bindingReason = String(
-    status.workspace_state?.binding_reason || session.workspace_state?.binding_reason
-    || binding.binding_reason || status.binding_reason || ''
+    statusWorkspaceState.binding_reason ?? sessionWorkspaceState.binding_reason
+    ?? binding.binding_reason ?? status.binding_reason ?? ''
   );
-  const workspaceState = String(status.workspace_state || session.workspace_state?.workspace_state || '');
+  const workspaceState = String(
+    statusWorkspaceState.workspace_state || statusWorkspaceState.state
+    || sessionWorkspaceState.workspace_state || sessionWorkspaceState.state
+    || (typeof status.workspace_state === 'string' ? status.workspace_state : '')
+    || (typeof session.workspace_state === 'string' ? session.workspace_state : '')
+  );
   const seedSuggested = Boolean(workspaceMeta.seed_suggested);
   const seedReason = String(workspaceMeta.seed_reason || '');
   const manifestState: UiBootstrapSnapshot['workspace']['manifestState'] = workspaceState.includes('legacy')
@@ -155,7 +163,8 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   };
   const rawPermissions = readRecord(raw.permissions);
   const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false
-    ? 'error' : bindingConfirmed ? 'confirmed' : bindingReason ? 'degraded' : !raw.status ? 'loading' : 'unknown';
+    ? 'error' : bindingConfirmed ? 'confirmed' : bindingReason || ['invalid', 'legacy', 'missing'].includes(manifestState)
+      ? 'blocked' : !raw.status ? 'loading' : 'unknown';
   const contextRevision = status.context_revision ?? session.status?.context_revision;
   const contextState: UiBootstrapSnapshot['context']['state'] = certificationStatus === 'CERTIFIED'
     ? 'confirmed' : contextRevision && lastReceiptId ? 'partial' : contextRevision ? 'stale'
@@ -201,7 +210,7 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
       errorCode: readText(status.error_code || status.health?.error_code || '')
     },
     framework: { root: String(status.framework_root || ''), version: String(status.framework_version || status.version || ''), confirmed: Boolean(status.framework_root) },
-    project: { root: projectRoot || undefined, state: projectRoot ? 'confirmed' : 'not_detected' },
+    project: { root: projectRoot || undefined, state: projectRoot ? bindingConfirmed ? 'confirmed' : 'invalid' : 'not_detected' },
     workspace: {
       id: String(status.workspace_id || session.binding?.workspace_id || ''), root: workspaceRoot || undefined,
       scopeRoot: scopeRoot || undefined, mirrorRoot: mirrorRoot || undefined, contextRoot: contextRoot || undefined,

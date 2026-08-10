@@ -124,7 +124,10 @@ class SessionTurnMixin:
 
     def _provider_call_kwargs(self, intent: str, provided: dict[str, Any]) -> dict[str, Any]:
         call_kwargs = dict(provided)
-        call_kwargs.setdefault("temperature", float(self.config.get("temperature", 0.7) or 0.7))
+        depth = str(getattr(self, "reasoning_depth", "normal") or "normal").lower()
+        depth_temperature = {"normal": 0.7, "media": 0.5, "alta": 0.3, "maxima": 0.2}.get(depth, 0.7)
+        configured_temperature = self.config.get("temperature", depth_temperature)
+        call_kwargs.setdefault("temperature", float(configured_temperature if depth == "normal" else depth_temperature))
         if call_kwargs.get("max_tokens") is None:
             configured_max = self.config.get("max_tokens")
             if configured_max:
@@ -544,10 +547,9 @@ class SessionTurnMixin:
         if gabo_block:
             dynamic_system += "\n\n" + gabo_block
 
-        # CLI-backed providers are already isolated from BAGO tools. Feeding
-        # them the full agent/tool system prompt can make the external CLI try
-        # to execute shell actions of its own. Keep the same task contract and
-        # useful workspace context in a compact, non-agentic envelope.
+        # CLI-backed providers run their own workspace tools. Keep their
+        # envelope compact, but never tell them to avoid edits: a BAGO task
+        # may explicitly require the CLI to create or validate project files.
         uses_cli_bridge = False
         try:
             uses_cli_bridge = self.provider in {"copilot", "codex"} and bool(adapter._use_cli())
@@ -556,8 +558,9 @@ class SessionTurnMixin:
         uses_compact_human_bridge = uses_cli_bridge or self.provider == "ollama-local"
         if uses_compact_human_bridge and task_contract_block:
             compact_blocks = [
-                "You are BAGO's response model. Analyze the request without running tools, shell commands, or editing files.",
-                "Answer the user directly in concise, readable prose. Do not return an internal JSON contract.",
+                "You are BAGO's execution model for the authorized workspace.",
+                "When the user requests project changes or validation, use your workspace tools to execute them and then report the result concisely.",
+                "Do not return an internal JSON contract.",
             ]
             dynamic_system = "\n\n".join(block for block in compact_blocks if block)
 
@@ -824,7 +827,14 @@ class SessionTurnMixin:
             claim_warning = True
         if provider_failed:
             response_state = "failed"
-            final_content = f"{self.provider} no pudo completar la solicitud. Puedes reintentar o elegir otro modelo."
+            provider_detail = str(resp.content or "").strip()
+            if ":" in provider_detail:
+                provider_detail = provider_detail.split(":", 1)[1].strip()
+            provider_detail = " ".join(provider_detail.split())[:500]
+            final_content = f"{self.provider} no pudo completar la solicitud."
+            if provider_detail:
+                final_content += f" Motivo: {provider_detail}"
+            final_content += " Puedes reintentar o elegir otro modelo."
         elif task_contract_required and not task_contract_meta.get("skipped"):
             contract_data = task_contract_meta.get("data") if isinstance(task_contract_meta.get("data"), dict) else {}
             contract_ok = bool(task_contract_meta.get("ok"))

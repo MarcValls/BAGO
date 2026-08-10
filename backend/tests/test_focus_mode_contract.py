@@ -13,6 +13,7 @@ class FocusModeContractTests(unittest.TestCase):
         app = (UI_SRC / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")
         header = (UI_SRC / "layout" / "GlobalHeader.tsx").read_text(encoding="utf-8")
         shell = (UI_SRC / "layout" / "WorkspaceShell.tsx").read_text(encoding="utf-8")
+        actions = (UI_SRC / "navigation" / "actionRegistry.ts").read_text(encoding="utf-8")
 
         self.assertIn("globalMode: 'normal' | 'focus' | 'review'", header)
         self.assertIn("uiState.globalMode === 'normal' && (", app)
@@ -22,8 +23,9 @@ class FocusModeContractTests(unittest.TestCase):
         self.assertIn("focus-header", header)
         self.assertIn("Salir de Focus", header)
         # La cabecera permanece limpia; Lectura sigue siendo accesible por
-        # F12 y por la paleta de comandos del ControlPlane.
-        self.assertIn("Entrar en Lectura", app)
+        # F12 y por la paleta construida desde el registro canónico.
+        self.assertIn("event.key === 'F12'", app)
+        self.assertIn("Activar Lectura", actions)
 
     def test_normal_mode_is_the_only_mode_with_sidebar_and_inspector(self) -> None:
         app = (UI_SRC / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")

@@ -69,12 +69,62 @@ export function WorkspaceModule(props: Props) {
   });
   // Modal separado del editor principal (abre en una ventana propia).
   const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [githubRepo, setGithubRepo] = useState('');
+  const [githubState, setGithubState] = useState<Record<string, unknown> | null>(null);
+  const [githubMessage, setGithubMessage] = useState('');
   const editorRef = useRef<HTMLDivElement | null>(null);
 
   const hasDirty = editor.tabs.some((tab) => tab.state === 'dirty');
   const isSaving = editor.tabs.some((tab) => tab.state === 'saving');
   const workspaceLabel = props.snapshot?.workspace.id || (props.snapshot?.workspace.root?.split(/[\\/]/).filter(Boolean).pop() || 'Workspace');
   const workspaceTitle = props.snapshot?.workspace.root || 'Sin ruta';
+  const connectedRepo = typeof githubState?.repo === 'string' ? githubState.repo : '';
+
+  const refreshGitHub = useCallback(async () => {
+    try {
+      const result = await props.client.getGitHubStatus();
+      setGithubState(result);
+      if (typeof result.repo === 'string') setGithubRepo(result.repo);
+      setGithubMessage('');
+    } catch (error) {
+      setGithubMessage(error instanceof Error ? error.message : 'No se pudo consultar GitHub');
+    }
+  }, [props.client]);
+
+  useEffect(() => { void refreshGitHub(); }, [refreshGitHub]);
+
+  const connectGitHub = async () => {
+    try {
+      const result = await props.client.connectGitHubRepository(githubRepo);
+      setGithubState(result);
+      setGithubMessage(`Repositorio conectado: ${String(result.repo || githubRepo)}`);
+    } catch (error) {
+      setGithubMessage(error instanceof Error ? error.message : 'No se pudo conectar el repositorio');
+    }
+  };
+
+  const createGitHub = async () => {
+    const name = window.prompt('Nombre del nuevo repositorio GitHub');
+    if (!name) return;
+    if (!window.confirm(`Crear ${name} en GitHub como repositorio privado?`)) return;
+    try {
+      const result = await props.client.createGitHubRepository(name, { private: true });
+      setGithubMessage(`Repositorio creado: ${String(result.url || name)}`);
+    } catch (error) {
+      setGithubMessage(error instanceof Error ? error.message : 'No se pudo crear el repositorio');
+    }
+  };
+
+  const createGitHubViaMcp = async () => {
+    const name = window.prompt('Nombre del nuevo repositorio GitHub vía MCP');
+    if (!name || !window.confirm(`Crear ${name} vía MCP como repositorio privado?`)) return;
+    try {
+      const result = await props.client.createGitHubRepositoryViaMcp(name, { private: true, confirm: true });
+      setGithubMessage(`Repositorio creado vía MCP: ${String(result.url || name)}`);
+    } catch (error) {
+      setGithubMessage(error instanceof Error ? error.message : 'No se pudo crear el repositorio vía MCP');
+    }
+  };
 
   // Atajo de teclado: Ctrl+S ya está capturado en CodeEditorPane.
   // Ctrl+F: focus al buscador. Ctrl+Shift+P: problems. Etc.
@@ -289,6 +339,18 @@ export function WorkspaceModule(props: Props) {
         onReread={() => void editor.refreshExplorer()}
         onToggleBottom={(panel) => editor.setBottomPanel(editor.bottomPanel === panel ? null : panel)}
       />
+
+      <section className="workspace-github-card" aria-label="Conexión con GitHub">
+        <div><strong>GitHub</strong><span>{githubState?.authenticated === true ? 'Autenticado' : 'No autenticado'}</span>{connectedRepo ? <small> · {connectedRepo}</small> : null}</div>
+        <div className="workspace-github-actions">
+          <input aria-label="Repositorio GitHub" value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} placeholder="owner/repo" />
+          <button type="button" className="secondary-button compact" onClick={() => void connectGitHub()} disabled={!githubRepo.trim()}>Conectar y leer</button>
+          <button type="button" className="secondary-button compact" onClick={() => void createGitHub()} disabled={githubState?.authenticated !== true}>Crear repositorio</button>
+          <button type="button" className="secondary-button compact" onClick={() => void createGitHubViaMcp()} disabled={githubState?.authenticated !== true}>Crear vía MCP</button>
+          <button type="button" className="text-button" onClick={() => void refreshGitHub()}>Actualizar</button>
+        </div>
+        {githubMessage && <small className="workspace-github-message" role="status">{githubMessage}</small>}
+      </section>
 
       <div className="workspace-editor-split" ref={bottomResizable.containerRef}>
       <div className="workspace-editor-body" style={bottomResizable.getPanelStyle('body')}>

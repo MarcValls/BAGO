@@ -90,7 +90,7 @@ async function main() {
     });
     assert.equal(contract.title, 'BAGO Control Plane');
     assert.ok(contract.header && contract.sidebar && contract.workspace && contract.surface);
-    assert.ok(contract.destinations >= 7);
+    assert.equal(contract.destinations, 6);
     assert.equal(contract.active, 1);
     assert.ok(contract.scrollbarHidden);
     assert.deepEqual(contract.duplicateIds, []);
@@ -157,7 +157,7 @@ async function main() {
     const homeNav = page.locator('.sidebar-item').filter({ hasText: 'Inicio' });
     assert.equal(await homeNav.count(), 1);
     await homeNav.click();
-    await page.locator('#bago-chat-model').waitFor({ state: 'visible' });
+    await page.locator('.chat-model-selector').waitFor({ state: 'visible' });
     assert.equal(await homeNav.getAttribute('aria-current'), 'page');
     const renderedText = await page.locator('body').innerText();
     assert.ok(!renderedText.includes("Unexpected token '<'"), 'raw JSON parser error leaked into the UI');
@@ -306,7 +306,7 @@ async function main() {
           }
         }
         if (assertSystemTools) {
-          await statePage.keyboard.press('Control+7');
+          await statePage.keyboard.press('Control+6');
           await statePage.getByRole('tab', { name: 'Router', exact: true }).click();
           const autoConfig = statePage.locator('[data-system-tool="auto-config"]');
           await autoConfig.locator('summary').click();
@@ -354,7 +354,7 @@ async function main() {
       session: { session_id: 'state-empty', menu_state: { acciones_permitidas: ['workspace.init'], acciones_bloqueadas: ['chat.send'] } },
       workspace: { permissions: { canChat: false, canInitializeWorkspace: true } },
       expectedState: 'show_workspace_init',
-      expectedText: 'No hay workspace activo',
+      expectedText: 'Proyecto sin preparar',
     });
     await renderState({
       name: 'degraded',
@@ -370,7 +370,7 @@ async function main() {
       session: { session_id: 'state-blocked', menu_state: { acciones_permitidas: ['workspace.inspect', 'workspace.repair'], acciones_bloqueadas: ['chat.send', 'workspace.init'] } },
       workspace: { permissions: { canChat: false, canRepairWorkspace: true } },
       expectedState: 'show_workspace_repair',
-      expectedText: 'El workspace necesita reparación',
+      expectedText: 'Workspace requiere atención',
     });
 
     const responsiveViewports = [
@@ -600,15 +600,15 @@ async function main() {
           const providerGrid = provPage.locator('.provider-grid, [data-provider-grid], .provider-center, [data-section="providers"], .providers-list').first();
           providerGridFound = await providerGrid.isVisible({ timeout: 10000 }).catch(() => false);
           if (!providerGridFound) {
-            // Intentar via keyboard shortcut (Ctrl+7 abre system tools con tab Proveedores)
-            await provPage.keyboard.press('Control+7');
+            // Intentar via keyboard shortcut (Ctrl+6 abre Operación con la pestaña Proveedores)
+            await provPage.keyboard.press('Control+6');
             await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).click();
             providerGridFound = true;
           }
         } else {
           // Fallback: abrir system tools
-          await provPage.keyboard.press('Control+7');
+          await provPage.keyboard.press('Control+6');
           await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
           await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).click();
           providerGridFound = true;
@@ -751,15 +751,15 @@ async function main() {
           return {
             selects,
             bodyText: bodyText.slice(0, 800),
-            hasSessionModel: document.querySelector('#bago-chat-model') !== null,
-            modelSelectOptions: [...(document.querySelector('#bago-chat-model')?.options || [])].map((o) => o.text),
+            hasSessionModel: document.querySelector('.chat-model-selector') !== null,
+            modelSelectOptions: [...document.querySelectorAll('.chat-model-options [role="option"]')].map((option) => option.textContent?.trim()),
             sidebarStatusText,
           };
         });
 
         // The bootstrap mock had 2 sessions — verify the app loaded without error
-        // and the model select (session-scoped) exists
-        assert.ok(sessionInfo.hasSessionModel, 'Session picker: #bago-chat-model no encontrado');
+        // and the progressive session-scoped model picker exists
+        assert.ok(sessionInfo.hasSessionModel, 'Session picker: .chat-model-selector no encontrado');
         assert.deepEqual(sessErrors, [], `session picker console errors: ${sessErrors.join(' | ')}`);
         return { sessionInfo };
       } finally {

@@ -213,6 +213,13 @@ export class BagoClient {
     }, 30_000);
   }
 
+  applyReleaseUpdate(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/release/apply', {
+      method: 'POST',
+      body: JSON.stringify({})
+    }, 30_000);
+  }
+
   verifyProviderContracts(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/providers/contracts', { method: 'GET' });
   }
@@ -316,6 +323,59 @@ export class BagoClient {
   // CANON[WS-004]: Listar y persistir workspaces desde el frontend.
   listWorkspaces(): Promise<{ ok: boolean; workspaces: Array<{ path: string; name: string; is_current: boolean; id: string; binding_confirmed: boolean }>; count: number }> {
     return this.request('/workspace/list', { method: 'GET' });
+  }
+
+  getReasoningDepth(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/router/reasoning-depth', { method: 'GET' });
+  }
+
+  setReasoningDepth(depth: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/router/reasoning-depth', {
+      method: 'POST',
+      body: JSON.stringify({ depth, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  getGitHubStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/status', { method: 'GET' });
+  }
+
+  connectGitHubRepository(repo: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/connect', { method: 'POST', body: JSON.stringify({ repo }) });
+  }
+
+  getGitHubContents(path = ''): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/github/contents?path=${encodeURIComponent(path)}`, { method: 'GET' });
+  }
+
+  createGitHubRepository(name: string, options: { private?: boolean; description?: string } = {}): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
+  }
+
+  createGitHubRepositoryViaMcp(name: string, options: { private?: boolean; description?: string; confirm: boolean }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/github/mcp-create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
+  }
+
+  scopeWorkspaceConversation(root: string, conversationId?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/workspace/conversation', { method: 'POST', body: JSON.stringify({ root, conversation_id: conversationId }) });
+  }
+
+  createConversation(title?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/conversations', { method: 'POST', body: JSON.stringify({ action: 'create', title: title || 'Nuevo chat' }) });
+  }
+
+  browseWorkspace(path?: string): Promise<{
+    ok: boolean;
+    path: string;
+    parent: string;
+    roots: Array<{ label: string; path: string }>;
+    recent: Array<{ label: string; path: string }>;
+    breadcrumbs: Array<{ label: string; path: string }>;
+    directories: Array<{ name: string; path: string }>;
+    truncated?: boolean;
+  }> {
+    const query = path?.trim() ? `?path=${encodeURIComponent(path.trim())}` : '';
+    return this.request(`/workspace/browse${query}`, { method: 'GET' });
   }
 
   persistWorkspace(path?: string): Promise<{ ok: boolean; saved: string }> {

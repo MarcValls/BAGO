@@ -23,18 +23,19 @@ import { safeJson } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
 import { quietStatus } from '@/shared/quiet-status';
 import { ProviderCenterModule, type ProviderCenterProvider, type ProviderCenterRouterEntry } from '@/modules/provider-center';
-import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { SystemTabs } from '@/layout/SystemTabs';
 import { ChatPanel } from '@/layout/ChatPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
+import { WorkGraph } from '@/features/graph/WorkGraph';
 import { WorkspaceModule } from '@/features/workspace/WorkspaceModule';
 import type { BagoClient } from '@/api/client';
 import type { UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { mergeProviderStates } from '@/shared/providerStates';
+import { PIPELINE_TASK_MAX_LENGTH } from '@/shared/inputLimits';
 
 interface Props {
-  section: 'home' | 'chat' | 'workspace' | 'graph' | 'pipeline' | 'evidence' | 'context' | 'system';
+  section: 'home' | 'chat' | 'workspace' | 'pipeline' | 'evidence' | 'context' | 'system';
   snapshot: UiBootstrapSnapshot | null;
   opening: OpeningDecision;
   booting: boolean;
@@ -76,6 +77,9 @@ interface Props {
   onSetRouterAuto: (enabled: boolean) => Promise<void>;
   onConfigureProvider?: (provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string }) => Promise<void>;
   onSetSessionModel?: (modelKey: string | null) => Promise<void>;
+  reasoningDepth?: string;
+  onSetReasoningDepth?: (depth: string) => Promise<void>;
+  onCreateConversation?: () => Promise<void>;
   sessionModel?: string | null;
   workspaceOpenRequest?: { path: string; kind?: 'file' | 'directory'; token: number } | null;
   // CANON[CTX-001]: el módulo de contexto necesita un cliente HTTP
@@ -126,7 +130,6 @@ function resolveRouterEntries(router: Props['router']): Array<Record<string, unk
 }
 
 type RecordValue = Record<string, unknown>;
-type GraphLayout = 'radial' | 'linear' | 'hierarchical';
 type ExplorerKind = 'file' | 'directory';
 type WorkspaceFilter = 'all' | 'code' | 'python' | 'text' | 'json' | 'web' | 'shell' | 'other' | 'directory' | 'modified' | 'in-context' | 'with-evidence';
 
@@ -370,7 +373,6 @@ function screenLabel(section: Props['section']): string {
     home: 'Inicio',
     chat: 'Chat',
     workspace: 'Workspace',
-    graph: 'Grafo',
     pipeline: 'Pipeline',
     evidence: 'Evidencia',
     context: 'Contexto',
@@ -531,7 +533,6 @@ function targetKindForSection(section: Props['section']): ContextTargetKind {
   if (section === 'evidence') return 'evidence.item';
   if (section === 'context') return 'context.item';
   if (section === 'system') return 'system.surface';
-  if (section === 'graph') return 'graph.node';
   return 'screen.other';
 }
 
@@ -587,9 +588,8 @@ export function ControlSections(props: Props) {
   const [sourceLabel, setSourceLabel] = useState('');
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceMessage, setSourceMessage] = useState('');
-  const [graphLayout, setGraphLayout] = useState<GraphLayout>('hierarchical');
   const [graphFiltered, setGraphFiltered] = useState(true);
-  const [graphView, setGraphView] = useState<'flow' | 'capabilities'>('flow');
+  const [pipelineView, setPipelineView] = useState<'execution' | 'flow'>('execution');
   const [evidenceCompare, setEvidenceCompare] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -970,41 +970,43 @@ export function ControlSections(props: Props) {
     },
     {
       id: 'graph',
-      label: 'Nodos',
-      description: 'Vista de grafo y agrupación',
-      state: graphLayout,
+      label: 'Mapa de trabajo',
+      description: 'Menciones, tareas y ejecución accionables',
+      state: graphFiltered ? 'pending' : 'all',
       capabilities: ['read', 'write', 'inspect', 'select'],
       actions: [
-        { id: 'layout-hierarchical', label: 'Jerárquico', kind: 'write', enabled: true, payload: { layout: 'hierarchical' } },
-        { id: 'layout-radial', label: 'Radial', kind: 'write', enabled: true, payload: { layout: 'radial' } },
-        { id: 'toggle-filter', label: 'Cambiar filtro', kind: 'write', enabled: true, payload: { filtered: !graphFiltered } }
+        { id: 'show-pending', label: 'Mostrar pendientes', kind: 'write', enabled: true, payload: { filtered: true } },
+        { id: 'show-all', label: 'Mostrar todo', kind: 'write', enabled: true, payload: { filtered: false } },
+        { id: 'open-context', label: 'Abrir Contexto', kind: 'write', enabled: true, payload: { section: 'context' } },
+        { id: 'open-pipeline', label: 'Abrir Pipeline', kind: 'write', enabled: true, payload: { section: 'pipeline' } }
       ],
       read: () => ({
         moduleId: 'graph',
-        label: 'Nodos',
-        state: graphLayout,
-        summary: `${graphLayout} · ${graphFiltered ? 'filtrado' : 'sin filtro'}`,
-        data: { layout: graphLayout, filtered: graphFiltered }
+        label: 'Mapa de trabajo',
+        state: graphFiltered ? 'pending' : 'all',
+        summary: `${props.contextTree.proposals.filter((proposal) => proposal.status === 'pending').length} menciones · ${steps.length} pasos`,
+        data: { filtered: graphFiltered, proposals: props.contextTree.proposals.length, steps: steps.length }
       }),
       write: async (payload) => {
-        if (payload.layout) setGraphLayout(String(payload.layout) as GraphLayout);
         if (typeof payload.filtered === 'boolean') setGraphFiltered(payload.filtered);
-        return { moduleId: 'graph', ok: true, message: 'Grafo actualizado' };
+        if (payload.section === 'context' || payload.section === 'pipeline') props.onSetSection(payload.section);
+        return { moduleId: 'graph', ok: true, message: 'Mapa de trabajo actualizado' };
       },
       inspect: () => {
+        const pendingMentions = props.contextTree.proposals.filter((proposal) => proposal.status === 'pending').length;
         const selection = buildSelection(
           'graph',
           'module-graph',
-          'Nodos',
-          `${graphLayout} · ${graphFiltered ? 'filtrado' : 'sin filtro'}`,
+          'Mapa de trabajo',
+          `${pendingMentions} menciones · ${steps.length} pasos`,
           [
-            `layout: ${graphLayout}`,
-            `filtered: ${String(graphFiltered)}`
+            `scope: ${graphFiltered ? 'pending' : 'all'}`,
+            `steps: ${String(steps.length)}`
           ],
-          { layout: graphLayout, filtered: graphFiltered }
+          { filtered: graphFiltered, proposals: props.contextTree.proposals.length, steps: steps.length }
         );
         props.onInspect(selection, 'detail');
-        return { moduleId: 'graph', selection, message: 'Grafo inspeccionado', data: { layout: graphLayout, filtered: graphFiltered } };
+        return { moduleId: 'graph', selection, message: 'Mapa de trabajo inspeccionado', data: { filtered: graphFiltered } };
       }
     },
     {
@@ -1236,7 +1238,6 @@ export function ControlSections(props: Props) {
     evidenceItems,
     failedCount,
     graphFiltered,
-    graphLayout,
     historyMessages,
     plan,
     pipelineStatus,
@@ -1311,6 +1312,9 @@ export function ControlSections(props: Props) {
         onRunContextCommand={props.onRunContextCommand}
         onNavigate={props.onSetSection}
         onSetSessionModel={(key) => props.onSetSessionModel ? props.onSetSessionModel(key) : Promise.resolve()}
+        reasoningDepth={props.reasoningDepth || 'normal'}
+        onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
+        onCreateConversation={props.onCreateConversation}
         canChat={Boolean(snapshot?.permissions.canChat)}
         contextPatches={props.contextPatchDisplay}
         onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
@@ -1353,6 +1357,9 @@ export function ControlSections(props: Props) {
         onRunContextCommand={props.onRunContextCommand}
         onNavigate={props.onSetSection}
         onSetSessionModel={(key) => props.onSetSessionModel ? props.onSetSessionModel(key) : Promise.resolve()}
+        reasoningDepth={props.reasoningDepth || 'normal'}
+        onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
+        onCreateConversation={props.onCreateConversation}
         canChat={Boolean(snapshot?.permissions.canChat)}
         contextPatches={props.contextPatchDisplay}
         onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
@@ -1403,87 +1410,13 @@ export function ControlSections(props: Props) {
     );
   }
 
-  if (props.section === 'graph') {
-    const baseNodes = [
-      { id: 'input', type: 'entrada', label: 'Sesión', value: snapshot?.session.id || 'sin sesión', icon: 'session' as IconName },
-      { id: 'context', type: 'contexto', label: 'Contexto', value: snapshot?.context.state || 'unknown', icon: 'context' as IconName },
-      { id: 'workspace', type: 'transformación', label: 'Workspace', value: snapshot?.workspace.id || 'unknown', icon: 'workspace' as IconName },
-      { id: 'validation', type: 'validación', label: 'Vínculo', value: snapshot?.workspace.linkedToSession ? 'confirmado' : 'pendiente', icon: 'check' as IconName },
-      { id: 'evidence', type: 'evidencia', label: 'Receipt', value: snapshot?.context.receiptId || 'sin receipt', icon: 'evidence' as IconName },
-      { id: 'output', type: 'salida', label: 'Resultado', value: snapshot?.system.objective || 'objetivo', icon: 'artifact' as IconName }
-    ];
-    const nodes = graphFiltered ? baseNodes.slice(0, 6) : baseNodes;
-    const nextLayout = () => setGraphLayout((current) => current === 'hierarchical' ? 'radial' : current === 'radial' ? 'linear' : 'hierarchical');
-    return (
-      <div className={`graph-surface graph-view-${graphView}`} {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-        <nav className="graph-primary-tabs" aria-label="Vista del grafo">
-          <button type="button" className={graphView === 'flow' ? 'is-active' : ''} onClick={() => setGraphView('flow')}><Icon name="graph" size={13} /> Flujo</button>
-          <button type="button" className={graphView === 'capabilities' ? 'is-active' : ''} onClick={() => setGraphView('capabilities')}><Icon name="spark" size={13} /> Capacidades</button>
-        </nav>
-        {graphView === 'capabilities' ? <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection)} /> : <>
-        <div className="surface-toolbar graph-toolbar">
-          <div className="toolbar-group">
-            <button className={`toolbar-button ${graphFiltered ? 'is-active' : ''}`} type="button" onClick={() => setGraphFiltered((value) => !value)}><Icon name="filter" size={16} /> {graphFiltered ? 'Subárbol' : 'Todo'}</button>
-            <button className="toolbar-button" type="button" onClick={nextLayout}><Icon name="layout" size={16} /> {graphLayout}</button>
-          </div>
-          <span className="context-hint"><Icon name="more" size={14} /> Click derecho sobre nodos o lienzo para abrir secciones relacionadas.</span>
-          <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Acciones del grafo" />
-        </div>
-
-        <div className="graph-layout">
-          <section className={`graph-canvas graph-${graphLayout}`}>
-            <svg className="graph-lines" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M180 160 C330 160 330 300 500 300" />
-              <path d="M500 300 C670 300 670 150 820 150" />
-              <path d="M500 300 C670 300 670 430 820 430" />
-              <path d="M180 460 C330 460 330 300 500 300" />
-              <path d="M500 300 C500 420 500 470 500 540" />
-            </svg>
-            {nodes.map((node, index) => {
-              const nodeSelection = buildSelection(
-                node.id,
-                node.type,
-                node.label,
-                node.value,
-                [`type: ${node.type}`, `position: ${index + 1}`, `layout: ${graphLayout}`],
-                node,
-                'graph.node'
-              );
-              return (
-              <button
-                key={node.id}
-                type="button"
-                className={`graph-node node-${node.type} graph-position-${index}`}
-                {...inspectMenuAttrs(nodeSelection, props.onInspect)}
-                onClick={() => props.onInspect(nodeSelection)}
-              >
-                <span className="graph-node-icon"><Icon name={node.icon} size={17} /></span>
-                <span><small>{node.type}</small><strong>{node.label}</strong><em>{node.value}</em></span>
-              </button>
-              );
-            })}
-          </section>
-
-          <aside className="recent-nodes">
-            {nodes.slice(0, 5).map((node) => {
-              const nodeSelection = buildSelection(node.id, node.type, node.label, node.value, [`type: ${node.type}`], node, 'graph.node');
-              return (
-              <button key={node.id} type="button" {...inspectMenuAttrs(nodeSelection, props.onInspect)} onClick={() => props.onInspect(nodeSelection)}>
-                <span className={`node-type-mark type-${node.type}`} />
-                <span><strong>{node.label}</strong><small>{node.value}</small></span>
-                <Icon name="chevron" size={14} />
-              </button>
-              );
-            })}
-          </aside>
-        </div>
-        </>}
-      </div>
-    );
-  }
-
   if (props.section === 'pipeline') {
     const task = props.drafts.pipeline || '';
+    const taskNodes = props.contextTree.tree
+      ? Object.values(props.contextTree.tree.nodes)
+        .filter((node) => node.parentId === props.contextTree.tree?.rootId && (node.type === 'pending' || node.metadata?.branch === true))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      : [];
     const canRetry = statusTone(pipelineStatus) === 'error' && Boolean(task.trim()) && Boolean(snapshot?.permissions.canRetryPipeline);
     const stopCommand = commandAvailable(props.menu, props.routes, /task cancel|\/stop|pipeline stop/) ? '/task cancel' : null;
     const canStop = statusTone(pipelineStatus) === 'running' && Boolean(stopCommand) && Boolean(snapshot?.permissions.canStopPipeline);
@@ -1505,8 +1438,37 @@ export function ControlSections(props: Props) {
       || snapshot?.system.objective
       || (steps.length ? 'Flujo en ejecución' : 'No hay un flujo activo')
     );
+    const startFlowTask = (title: string, summary: string) => {
+      setPipelineView('execution');
+      void props.onRunPlanTask([title.trim(), summary.trim()].filter(Boolean).join('\n\n'));
+    };
+    const pipelineTabs = <nav className="pipeline-view-tabs" aria-label="Vistas de Pipeline">
+      <button type="button" className={pipelineView === 'execution' ? 'is-active' : ''} onClick={() => setPipelineView('execution')}><Icon name="pipeline" size={13} /> Ejecución</button>
+      <button type="button" className={pipelineView === 'flow' ? 'is-active' : ''} onClick={() => setPipelineView('flow')}><Icon name="graph" size={13} /> Flujo</button>
+    </nav>;
+    if (pipelineView === 'flow') {
+      return <div className="pipeline-surface pipeline-flow-view" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        {pipelineTabs}
+        <WorkGraph
+          proposals={props.contextTree.proposals}
+          tasks={taskNodes}
+          steps={steps}
+          pipelineStatus={pipelineStatus}
+          focused={graphFiltered}
+          onFocusedChange={setGraphFiltered}
+          onValidate={(proposal) => { void props.contextTree.acceptPatch(proposal.id).then((result) => { if (!result.ok) window.alert(result.error || 'No se pudo validar la mención.'); }); }}
+          onEdit={(proposal) => { props.onEditContextPatch?.(proposal.id); props.onSetSection('context'); }}
+          onStartProposal={(proposal) => startFlowTask(proposal.title, proposal.reason || 'Ejecutar la tarea mencionada en el contexto.')}
+          onStartTask={(taskNode) => startFlowTask(taskNode.title, taskNode.summary || 'Ejecutar la tarea abierta desde el contexto de trabajo.')}
+          onOpenTask={(taskNode) => { try { window.sessionStorage.setItem('bago.context.initial-branch', taskNode.id); } catch { /* unavailable */ } props.onSetSection('context'); }}
+          onOpenContext={() => props.onSetSection('context')}
+          onOpenPipeline={() => setPipelineView('execution')}
+        />
+      </div>;
+    }
     return (
       <div className="pipeline-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        {pipelineTabs}
         <section className="pipeline-page-head">
           <div className="pipeline-summary-copy">
             <StatusBadge status={pipelineStatus} />
@@ -1594,9 +1556,16 @@ export function ControlSections(props: Props) {
             <div><span className="surface-eyebrow">Siguiente acción</span><strong>{steps.length ? 'Añadir una tarea al flujo' : 'Crear un flujo de trabajo'}</strong></div>
             <span>El backend generará el plan y sus evidencias.</span>
           </div>
-          <textarea value={task} onChange={(event) => props.onDraftChange('pipeline', event.target.value)} placeholder="Describe el resultado que quieres conseguir…" rows={2} />
+          <textarea
+            aria-label="Descripción del flujo de trabajo"
+            value={task}
+            onChange={(event) => props.onDraftChange('pipeline', event.target.value)}
+            placeholder="Describe el resultado que quieres conseguir…"
+            rows={5}
+            maxLength={PIPELINE_TASK_MAX_LENGTH}
+          />
           <div className="pipeline-command-footer">
-            <span className="context-hint">Enter no ejecuta; revisa el plan antes de lanzarlo.</span>
+            <span className="context-hint">Enter no ejecuta · {task.length.toLocaleString()} / {PIPELINE_TASK_MAX_LENGTH.toLocaleString()} caracteres</span>
             <div className="pipeline-command-actions">
               <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Más acciones" />
               <button className="primary-button compact" type="button" disabled={!task.trim()} onClick={() => void props.onRunPlanTask(task)}><Icon name="pipeline" size={16} /> {steps.length ? 'Añadir tarea' : 'Generar plan'}</button>
@@ -1717,9 +1686,12 @@ export function ControlSections(props: Props) {
         ctx={props.contextTree}
         apiBase={props.apiBase}
         apiToken={props.apiToken}
-        workspaceRoot={snapshot?.workspace.root || ''}
+        workspaceRoot={snapshot?.project.root || snapshot?.workspace.scopeRoot || snapshot?.workspace.repoRoot || ''}
         onSetSection={props.onSetSection}
-        onCreatePlan={props.onRunPlanTask}
+        onCreatePlan={(title, summary) => {
+          props.onSetSection('pipeline');
+          return props.onRunPlanTask([title.trim(), summary.trim()].filter(Boolean).join('\n\n'));
+        }}
         onRunContextCommand={props.onRunContextCommand}
         onOpenInWorkspace={(path) => {
           // CANON[WS-009]: abrir un archivo desde el árbol de contexto

@@ -1,4 +1,5 @@
 import type { ContextNodeType, ContextPatchOp } from './contextTreeTypes';
+import { compactTaskTitle } from '@/shared/taskPresentation';
 
 export interface CollectionHistoryItem {
   role: string;
@@ -44,7 +45,7 @@ export function buildCollectionPrompt(
     question.trim() ? `Pregunta del usuario: ${question.trim()}` : 'Pregunta del usuario: ninguna; identifica solo contexto claramente respaldado.',
     'Historial completo disponible:',
     transcript || '(vacío)',
-    'Reglas: máximo 12 operaciones; usa solo op=create; cada operación debe tener título y resumen breve; conserva las tareas abiertas como pending.'
+    'Reglas: máximo 12 operaciones; usa solo op=create; cada título debe describir la tarea en 8 palabras o menos, sin copiar instrucciones del chat; añade el detalle al resumen; conserva las tareas abiertas como pending.'
   ].join('\n');
 }
 
@@ -74,8 +75,9 @@ export function parseStructuredCollection(raw: string): StructuredCollectionProp
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     const operation = item as Record<string, unknown>;
     if (String(operation.op || 'create').toLowerCase() !== 'create') continue;
-    const title = String(operation.title || '').trim().slice(0, 160);
-    if (!title) continue;
+    const rawTitle = String(operation.title || '').trim();
+    if (!rawTitle) continue;
+    const title = compactTaskTitle(rawTitle, 72);
     const parentPath = Array.isArray(operation.parent_path)
       ? operation.parent_path.map((entry) => String(entry).trim()).filter(Boolean).slice(0, 5)
       : [];

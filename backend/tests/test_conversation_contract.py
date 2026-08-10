@@ -64,3 +64,26 @@ def test_conversation_handler_create_and_switch_returns_active_history(tmp_path,
     assert status == 200
     assert switched["active_conversation_id"] == "main"
     assert switched["history"]["messages"][0]["content"] == "principal"
+
+
+def test_workspace_conversation_scopes_history_by_root(tmp_path, monkeypatch):
+    import api_serializers
+    import handlers_workspace_conversation
+
+    store = ContextStore.create_new(base_dir=tmp_path)
+    manager = SimpleNamespace(session_id="session-test", store=store, save=lambda: None)
+    handler = SimpleNamespace(session_mgr=manager)
+    responses: list[tuple[int, dict]] = []
+    monkeypatch.setattr(api_serializers, "send_json", lambda _handler, status, payload: responses.append((status, payload)))
+
+    handlers_workspace_conversation.handle(handler, {"root": "C:/repo-one"})
+    first = responses[-1][1]
+    first_id = first["conversation_id"]
+    handlers_workspace_conversation.handle(handler, {"root": "C:/repo-two"})
+    second = responses[-1][1]
+    handlers_workspace_conversation.handle(handler, {"root": "C:/repo-one/"})
+    returned = responses[-1][1]
+
+    assert first_id != second["conversation_id"]
+    assert returned["conversation_id"] == first_id
+    assert store.active_conversation_id == first_id

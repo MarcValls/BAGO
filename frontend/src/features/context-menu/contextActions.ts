@@ -196,7 +196,7 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
     case 'graph.node':
       actions.push(
         { id: 'open-related', label: 'Abrir sección relacionada', icon: 'chevron', onClick: () => deps.openSectionFromSelection(selection) },
-        { id: 'open-graph', label: 'Abrir grafo', icon: 'graph', onClick: () => deps.navigate('graph') },
+        { id: 'open-graph', label: 'Abrir flujo', icon: 'graph', onClick: () => deps.navigate('pipeline') },
         { id: 'open-evidence', label: 'Abrir evidencia', icon: 'evidence', onClick: () => deps.navigate('evidence') },
         { id: 'open-context', label: 'Abrir contexto', icon: 'context', onClick: () => deps.navigate('context') }
       );
