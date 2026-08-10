@@ -7,6 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -35,6 +36,16 @@ def _repo_value(value: object) -> str:
     if not match:
         raise ValueError("Usa owner/repo o una URL de GitHub válida")
     return f"{match.group(1)}/{match.group(2)}"
+
+
+def _extract_github_url(raw: str) -> str:
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    for line in lines:
+        parsed = urlparse(line)
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme in ("http", "https") and (host == "github.com" or host.endswith(".github.com")):
+            return line
+    return lines[-1] if lines else ""
 
 
 def _saved_repo(state: Path) -> str | None:
@@ -124,7 +135,7 @@ def handle_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     if code != 0:
         _send(handler, 403, {"ok": False, "error": error or raw or "No se pudo crear el repositorio; revisa tus permisos"})
         return
-    url = next((line.strip() for line in raw.splitlines() if "github.com/" in line), raw.splitlines()[-1].strip() if raw else "")
+    url = _extract_github_url(raw)
     _send(handler, 200, {"ok": True, "url": url, "output": raw})
 
 
