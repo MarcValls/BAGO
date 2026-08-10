@@ -323,7 +323,13 @@ export function ControlPlane() {
     void clientRef.current.persistWorkspace(root).catch(() => {
       // Silenciar: la persistencia es best-effort
     });
-  }, [snapshot?.workspace?.linkedToSession, snapshot?.workspace?.root, snapshot?.project?.root]);
+  }, [
+    snapshot?.workspace?.linkedToSession,
+    snapshot?.workspace?.manifestState,
+    snapshot?.workspace?.repoRoot,
+    snapshot?.workspace?.root,
+    snapshot?.project?.root
+  ]);
 
   // Live event stream (SSE). Reconnects on disconnect with exponential
   // backoff (1s, 2s, 4s, 8s, capped at 30s). Maps backend events to
