@@ -504,6 +504,31 @@ async function main() {
           await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, response: 'Respuesta de prueba del panel de chat', session_id: 'session-chat', conversation_id: 'main' }) });
           return;
         }
+        if (url.pathname === '/conversations' && route.request().method() === 'POST') {
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+            ok: true,
+            session_id: 'session-chat',
+            active_conversation_id: 'chat-new-1',
+            conversation: { conversation_id: 'chat-new-1', title: 'Nuevo chat', message_count: 0, active: true, preview: '' },
+            history: { session_id: 'session-chat', conversation_id: 'chat-new-1', messages: [], count: 0 },
+            conversations: [
+              { conversation_id: 'main', title: 'Principal', message_count: 0, active: false },
+              { conversation_id: 'chat-new-1', title: 'Nuevo chat', message_count: 0, active: true }
+            ],
+            count: 2
+          }) });
+          return;
+        }
+        if (url.pathname === '/workspace/conversation' && route.request().method() === 'POST') {
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+            ok: true,
+            workspace_root: 'C:\\BAGO',
+            conversation_id: 'chat-new-1',
+            history: [],
+            count: 0
+          }) });
+          return;
+        }
         if (url.pathname.startsWith('/api/') || ['/router/list', '/router/policy', '/router/session-model', '/files/read'].includes(url.pathname)) {
           await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, entries: [], messages: [], session_model: null }) });
           return;
@@ -532,6 +557,13 @@ async function main() {
         await chatInput.fill('Mensaje de prueba automatizado');
         const inputValue = await chatInput.inputValue();
         assert.ok(inputValue.includes('prueba'), 'Chat panel: el mensaje no se escribió en el input');
+
+        const newChatButton = chatPage.getByRole('button', { name: /nuevo chat/i }).first();
+        await newChatButton.click();
+        await chatPage.waitForFunction(() => {
+          const timeline = document.querySelector('.chat-timeline');
+          return Boolean(timeline && timeline.textContent && timeline.textContent.includes('Elige cómo quieres empezar'));
+        }, { timeout: 15000 });
 
         assert.deepEqual(chatErrors, [], `chat panel console errors: ${chatErrors.join(' | ')}`);
         return { inputVisible: true, sendButtonVisible, inputValue };

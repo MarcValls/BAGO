@@ -1168,11 +1168,22 @@ export function ControlPlane() {
   const createNewConversation = async (): Promise<void> => {
     const created = await clientRef.current.createConversation();
     const conversation = created.conversation as Record<string, unknown> | undefined;
-    const conversationId = String(created.active_conversation_id || conversation?.conversation_id || '').trim();
+    const history = created.history as BackendHistory | undefined;
+    const conversationId = String(
+      conversation?.conversation_id
+      || created.active_conversation_id
+      || history?.conversation_id
+      || ''
+    ).trim();
     const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
     if (conversationId && root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     setTurns([]);
-    setHistory(null);
+    setHistory(history ?? {
+      session_id: String(created.session_id || history?.session_id || snapshot?.session.id || '').trim() || undefined,
+      conversation_id: conversationId || undefined,
+      messages: [],
+      count: 0
+    });
     await refreshAfterMutation();
     setLastMessage('nuevo chat creado');
   };
