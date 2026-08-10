@@ -81,5 +81,3 @@ Section "Uninstall"
   Delete "$DESKTOP\BAGO.lnk"
 
 SectionEnd
-
-
