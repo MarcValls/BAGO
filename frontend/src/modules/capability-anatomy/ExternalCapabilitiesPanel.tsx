@@ -257,89 +257,131 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
     setNotice(`Paquete exportado con digest ${String(response.digest || '').slice(0, 12)}.`);
   });
 
-  return <div className="capability-packages">
-    <aside className="capability-package-catalog">
-      <form className="capability-package-import" onSubmit={(event) => { event.preventDefault(); void importPackage(); }}>
-        <header><Icon name="pack" size={15} /><strong>Importar paquete</strong></header>
-        <input key={fileInputKey} aria-label="Paquete ZIP" type="file" accept=".zip,application/zip" onChange={(event) => inspectFile(event.target.files?.[0] || null)} />
-        <small>ZIP BAGO Package v1 o capability.json legado · máximo 600 KB</small>
-        {inspection && <div className={`capability-inspection ${inspection.ok ? 'is-ok' : 'is-error'}`}>
+  const [examplesCollapsed, setExamplesCollapsed] = useState(false);
+
+  return <div className="capability-redesign">
+    <aside className="capability-catalog">
+      <div className="capability-catalog-header">
+        <strong>Capacidades</strong>
+        <button className="icon-button" type="button" aria-label="Actualizar" onClick={() => void load()}><Icon name="refresh" size={13} /></button>
+      </div>
+      <div className="capability-import-section">
+        <form onSubmit={(event) => { event.preventDefault(); void importPackage(); }}>
+          <input key={fileInputKey} aria-label="Paquete ZIP" type="file" accept=".zip,application/zip" onChange={(event) => inspectFile(event.target.files?.[0] || null)} />
+          <small>Importar ZIP · máximo 600 KB</small>
+        </form>
+        {inspection && <div className={`capability-inspection-compact ${inspection.ok ? 'is-ok' : 'is-error'}`}>
           <strong>{inspection.identity?.name || 'Paquete'}</strong>
-          <span>{inspection.kind} · {inspection.execution_mode} · firma {inspection.signature_state} · digest {inspection.digest_state}</span>
-          <small>{inspection.files?.length || 0} archivos · {inspection.permissions?.length ? `permisos: ${inspection.permissions.join(', ')}` : 'sin permisos'}</small>
-          {inspection.warnings?.map((warning) => <em key={warning}>{warning}</em>)}
+          <span>{inspection.kind} · {inspection.execution_mode} · {inspection.signature_state}</span>
+          {inspection.warnings?.length ? <em>{inspection.warnings[0]}</em> : null}
         </div>}
-        <button className="primary-button compact" type="submit" disabled={!file || !inspection?.ok || Boolean(busy)}>{busy === 'inspect' ? 'Inspeccionando…' : busy === 'import' ? 'Importando…' : 'Importar sin activar'}</button>
-      </form>
-      <section className="capability-example-list" aria-label="Ejemplos incluidos">
-        <header><strong>Ejemplos incluidos</strong><span>{examples.length}</span></header>
-        {examples.map((example) => {
-          const installed = packages.some((item) => item.id === example.id);
-          return <article key={example.id}>
-            <span><strong>{example.name}</strong><small>{example.kind} · {example.description}</small></span>
-            <button className="text-button" type="button" disabled={installed || Boolean(busy)} onClick={() => void installExample(example)}>{installed ? 'Instalado' : busy === `example:${example.id}` ? 'Instalando…' : 'Instalar'}</button>
-          </article>;
-        })}
-      </section>
-      <div className="capability-package-list" aria-label="Capacidades externas">
-        <header><strong>Instaladas</strong><button className="icon-button" type="button" aria-label="Actualizar capacidades" onClick={() => void load()}><Icon name="refresh" size={13} /></button></header>
-        {loading && <p>Consultando backend…</p>}
-        {!loading && !packages.length && <p>No hay paquetes instalados.</p>}
+        <button className="primary-button compact" type="button" disabled={!file || !inspection?.ok || Boolean(busy)} onClick={() => void importPackage()}>{busy === 'import' ? 'Importando…' : 'Importar'}</button>
+      </div>
+      <div className="capability-package-list">
+        <header><strong>Instaladas</strong><span>{packages.length}</span></header>
+        {loading && <p>Cargando…</p>}
+        {!loading && !packages.length && <p>Vacío</p>}
         {packages.map((item) => <button key={item.id} type="button" className={selectedId === item.id ? 'is-selected' : ''} onClick={() => setSelectedId(item.id)}>
           <span className={`status-orb ${item.enabled ? 'state-confirmed' : ''}`} />
-          <span><strong>{item.name}</strong><small>{item.id} · v{item.version}</small></span>
+          <span><strong>{item.name}</strong><small>v{item.version}</small></span>
         </button>)}
+      </div>
+      <div className="capability-examples-drawer">
+        <div className="capability-examples-drawer-header" onClick={() => setExamplesCollapsed(!examplesCollapsed)}>
+          <strong>Ejemplos</strong>
+          <Icon name={examplesCollapsed ? 'chevron-down' : 'chevron-up'} size={13} />
+        </div>
+        {!examplesCollapsed && <div className="capability-examples-drawer-content">
+          {examples.map((example) => {
+            const installed = packages.some((item) => item.id === example.id);
+            return <article key={example.id}>
+              <span><strong>{example.name}</strong><small>{example.description}</small></span>
+              <button className="text-button" type="button" disabled={installed || Boolean(busy)} onClick={() => void installExample(example)}>{installed ? '✓' : busy === `example:${example.id}` ? '…' : '+'}</button>
+            </article>;
+          })}
+        </div>}
       </div>
     </aside>
 
-    <main className="capability-package-detail">
-      {(error || notice) && <div className={`capability-package-message ${error ? 'is-error' : 'is-ok'}`} role={error ? 'alert' : 'status'}>{error || notice}</div>}
-      {!selected && !loading && <div className="capability-package-empty"><Icon name="pack" size={24} /><strong>Importa una capacidad para comenzar</strong><p>La interfaz se genera desde su manifest; no se carga JavaScript externo.</p></div>}
+    <main className="capability-detail">
+      <div className="capability-detail-header">
+        <div>
+          {!selected ? <span>Capacidades</span> : <span>{selected.kind === 'pipeline' ? 'PIPELINE' : 'CAPACIDAD'} · {selected.author}</span>}
+          <h3>{selected ? selected.name : 'Importa una capacidad'}</h3>
+          {!selected && <p>La interfaz se genera desde su manifest</p>}
+        </div>
+        {selected && <div className="capability-detail-header-actions">
+          <button className="secondary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void exportSelected()}><Icon name="pack" size={12} /></button>
+          <button className={selected.enabled ? 'secondary-button compact' : 'primary-button compact'} type="button" disabled={Boolean(busy) || !selected.available || (!selected.enabled && !activationConfirmed)} onClick={() => void toggleEnabled()}>{busy === 'enable' ? '…' : selected.enabled ? 'Desactivar' : 'Activar'}</button>
+        </div>}
+      </div>
+
+      {(error || notice) && <div className={`capability-message ${error ? 'is-error' : ''}`} role={error ? 'alert' : 'status'}>{error || notice}</div>}
+
       {selected && <>
-        <header className="capability-package-title">
-          <div><span>{selected.kind === 'pipeline' ? 'PIPELINE' : 'CAPACIDAD'} EXTERNA · {selected.author}</span><h3>{selected.name}</h3><p>{selected.description}</p></div>
-          <div className="capability-package-title-actions">
-            <button className="secondary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void exportSelected()}><Icon name="pack" size={12} /> Exportar</button>
-            <button className={selected.enabled ? 'secondary-button compact' : 'primary-button compact'} type="button" disabled={Boolean(busy) || !selected.available || (!selected.enabled && !activationConfirmed)} onClick={() => void toggleEnabled()}>{busy === 'enable' ? 'Guardando…' : selected.enabled ? 'Desactivar' : 'Activar'}</button>
+        {!selected.available && <div className="capability-message is-error">{selected.error}</div>}
+        {selected.warnings?.map((warning) => <div key={warning} className="capability-message is-warning">{warning}</div>)}
+
+        <div className="capability-detail-meta">
+          <span><b>Ejecución</b>{selected.execution_mode || 'declarative'}</span>
+          <span><b>Confianza</b>{selected.trust_state || 'untrusted'}</span>
+          <span><b>Firma</b>{selected.signature_state || 'unsigned'}</span>
+          <span><b>Digest</b>{selected.digest.slice(0, 12)}</span>
+        </div>
+
+        <div className="capability-detail-content">
+          {!selected.enabled && <div className="capability-check is-warning">
+            <input type="checkbox" checked={activationConfirmed} onChange={(event) => setActivationConfirmed(event.target.checked)} />
+            <span>Confío en el origen y permisos para activar</span>
+          </div>}
+
+          <div className="capability-section">
+            <div className="capability-section-header">Configuración</div>
+            <div className="capability-form-grid">
+              <SchemaForm legend="" schema={selected.configuration_schema || { type: 'object', properties: {}, required: [] }} values={config} disabled={Boolean(busy)} onChange={setConfig} />
+              <div className="capability-actions-row">
+                <button className="secondary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void saveConfig()}>{busy === 'configure' ? 'Guardando…' : 'Guardar'}</button>
+              </div>
+            </div>
           </div>
-        </header>
-        {!selected.available && <p className="capability-package-message is-error">{selected.error}</p>}
-        {selected.warnings?.map((warning) => <p key={warning} className="capability-package-message is-warning">{warning}</p>)}
-        <div className="capability-package-metadata">
-          <span><b>Ejecución</b>{selected.execution_mode || selected.runtime?.kind || 'declarative'}{selected.runtime?.entrypoint ? ` · ${selected.runtime.entrypoint}` : ''}</span>
-          <span><b>Confianza</b>{selected.trust_state || 'untrusted'} · firma {selected.signature_state || 'unsigned'}</span>
-          <span><b>Permisos solicitados</b>{selected.permissions.length ? selected.permissions.join(', ') : 'ninguno'}</span>
-          <span><b>Integridad</b>{selected.digest_state || 'unknown'} · {selected.digest.slice(0, 12)}</span>
-          <span><b>Dependencias</b>{selected.dependencies?.length ? selected.dependencies.map((item) => `${item.id}@${item.version}`).join(', ') : 'ninguna'}</span>
-          <span><b>Estado</b>{selected.last_status}</span>
+
+          <div className="capability-section">
+            <div className="capability-section-header">Entrada</div>
+            <div className="capability-form-grid">
+              <SchemaForm legend="" schema={selected.input_schema || { type: 'object', properties: {}, required: [] }} values={input} disabled={Boolean(busy) || !selected.enabled} onChange={setInput} />
+              <label className="capability-check">
+                <input type="checkbox" checked={confirmed} disabled={!selected.enabled || Boolean(busy)} onChange={(event) => setConfirmed(event.target.checked)} />
+                <span>Confirmo ejecución{selected.permissions.length ? ` y permisos: ${selected.permissions.join(', ')}` : ''}</span>
+              </label>
+              <div className="capability-actions-row">
+                <button className="primary-button compact" type="button" disabled={!selected.enabled || !confirmed || Boolean(busy)} onClick={() => void execute()}>{busy === 'execute' ? 'Ejecutando…' : 'Ejecutar'}</button>
+              </div>
+            </div>
+          </div>
+
+          {selected.schedule_defaults?.length ? <div className="capability-section">
+            <div className="capability-section-header">Programación sugerida</div>
+            {selected.schedule_defaults.map((suggestion) => <div key={`${suggestion.name}-${suggestion.cron_expr || suggestion.interval_s}`} className="capability-check">
+              <input type="checkbox" checked={scheduleConfirmed} disabled={!selected.enabled || Boolean(busy)} onChange={(event) => setScheduleConfirmed(event.target.checked)} />
+              <span><strong>{suggestion.name}</strong> {suggestion.schedule_type === 'cron' ? suggestion.cron_expr : `cada ${Math.round(Number(suggestion.interval_s || 0) / 60)} min`}</span>
+            </div>)}
+            <div className="capability-actions-row">
+              <button className="secondary-button compact" type="button" disabled={!selected.enabled || !scheduleConfirmed || Boolean(busy)} onClick={() => void createSuggestedSchedule(selected.schedule_defaults![0])}>Crear programación</button>
+            </div>
+          </div> : null}
+
+          <div className="capability-section">
+            <div className="capability-section-header">Receipts</div>
+            <div className="capability-receipts">
+              {latestReceipt && <ReceiptView receipt={latestReceipt} />}
+              {!latestReceipt && selectedReceipts[0] && <ReceiptView receipt={selectedReceipts[0]} />}
+              {!latestReceipt && !selectedReceipts.length && <p className="capability-empty">Sin ejecuciones</p>}
+            </div>
+          </div>
         </div>
-        {!selected.enabled && <label className="capability-package-check capability-activation-check"><input type="checkbox" checked={activationConfirmed} onChange={(event) => setActivationConfirmed(event.target.checked)} /><span>Confío en el origen, código y permisos mostrados para activar este paquete</span></label>}
-        <div className="capability-package-workbench">
-          <section>
-            <SchemaForm legend="Configuración" schema={selected.configuration_schema || { type: 'object', properties: {}, required: [] }} values={config} disabled={Boolean(busy)} onChange={setConfig} />
-            <button className="secondary-button compact" type="button" disabled={Boolean(busy)} onClick={() => void saveConfig()}>{busy === 'configure' ? 'Guardando…' : 'Guardar configuración'}</button>
-          </section>
-          <section>
-            <SchemaForm legend="Entrada" schema={selected.input_schema || { type: 'object', properties: {}, required: [] }} values={input} disabled={Boolean(busy) || !selected.enabled} onChange={setInput} />
-            <label className="capability-package-check"><input type="checkbox" checked={confirmed} disabled={!selected.enabled || Boolean(busy)} onChange={(event) => setConfirmed(event.target.checked)} /><span>Confirmo esta ejecución{selected.permissions.length ? ` y sus permisos: ${selected.permissions.join(', ')}` : ''}</span></label>
-            <button className="primary-button compact" type="button" disabled={!selected.enabled || !confirmed || Boolean(busy)} onClick={() => void execute()}>{busy === 'execute' ? 'Ejecutando…' : 'Ejecutar con receipt'}</button>
-          </section>
-        </div>
-        {selected.schedule_defaults?.length ? <section className="capability-package-schedules">
-          <header><strong>Programación sugerida</strong><span>No se activa durante la importación</span></header>
-          {selected.schedule_defaults.map((suggestion) => <article key={`${suggestion.name}-${suggestion.cron_expr || suggestion.interval_s}`}>
-            <span><strong>{suggestion.name}</strong><small>{suggestion.schedule_type === 'cron' ? suggestion.cron_expr : `cada ${Math.round(Number(suggestion.interval_s || 0) / 60)} minutos`} · {suggestion.timezone}</small></span>
-            <button className="secondary-button compact" type="button" disabled={!selected.enabled || !scheduleConfirmed || Boolean(busy)} onClick={() => void createSuggestedSchedule(suggestion)}>{busy === 'schedule' ? 'Creando…' : 'Crear programación'}</button>
-          </article>)}
-          <label className="capability-package-check"><input type="checkbox" checked={scheduleConfirmed} disabled={!selected.enabled || Boolean(busy)} onChange={(event) => setScheduleConfirmed(event.target.checked)} /><span>Confirmo que BAGO podrá ejecutar este paquete automáticamente</span></label>
-        </section> : null}
-        <section className="capability-package-results">
-          <header><strong>Resultado y evidencia</strong><span>{selectedReceipts.length} receipts recientes</span></header>
-          {latestReceipt && <ReceiptView receipt={latestReceipt} />}
-          {!latestReceipt && selectedReceipts[0] && <ReceiptView receipt={selectedReceipts[0]} />}
-          {!latestReceipt && !selectedReceipts.length && <p className="capability-package-muted">Todavía no hay ejecuciones.</p>}
-        </section>
       </>}
+
+      {!selected && !loading && <div className="capability-empty"><Icon name="pack" size={32} /><strong>Importa una capacidad</strong><p>La interfaz se genera desde su manifest</p></div>}
     </main>
   </div>;
 }
