@@ -1126,12 +1126,12 @@ export function ControlPlane() {
     await runCommand(`/plan ${clean}`);
   };
 
-  const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
-    setAndPersistUiState({ activeSection: section, globalMode: mode });
-  };
-
   const openPanel = (panelId: PanelId) => {
     setAndPersistUiState({ activePanel: panelId });
+  };
+
+  const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
+    setAndPersistUiState({ activeSection: section, globalMode: mode });
   };
 
   const toggleRouterSelection = async (key: string): Promise<void> => {

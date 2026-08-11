@@ -8,6 +8,7 @@ import type {
   BackendRoutes,
   BackendSession,
   BackendStatus,
+  InterpretationResult,
   UiBootData
 } from '@/contracts/backend';
 import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
@@ -817,15 +818,15 @@ export class BagoClient {
   }
 
   // --- Interpretations ---
-  listInterpretations(limit = 20): Promise<{ ok: boolean; interpretations: Array<Record<string, unknown>>; count: number }> {
+  listInterpretations(limit = 20): Promise<{ ok: boolean; interpretations: InterpretationResult[]; count: number }> {
     return this.request(`/interpretations?limit=${encodeURIComponent(String(limit))}`, { method: 'GET' });
   }
 
-  getInterpretation(interpretationId: string): Promise<{ ok: boolean; interpretation?: Record<string, unknown> }> {
+  getInterpretation(interpretationId: string): Promise<{ ok: boolean; interpretation?: InterpretationResult }> {
     return this.request(`/interpretations/${encodeURIComponent(interpretationId)}`, { method: 'GET' });
   }
 
-  createInterpretation(payload: Record<string, unknown>): Promise<{ ok: boolean; interpretation?: Record<string, unknown>; error?: string }> {
+  createInterpretation(payload: { input: string }): Promise<{ ok: boolean; interpretation?: InterpretationResult; error?: string }> {
     return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) });
   }
 

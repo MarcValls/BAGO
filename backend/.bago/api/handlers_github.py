@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
 _REPO_FILE = ".bago_github_repo.json"
 _REPO_RE = re.compile(r"^(?:https?://github\.com/)?([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
+_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def _state(handler) -> Path:
@@ -21,14 +23,62 @@ def _state(handler) -> Path:
     return Path(resolve_state_root(handler))
 
 
+def _non_interactive_env() -> dict:
+    env = dict(os.environ)
+    env["GH_PROMPT_DISABLED"] = "1"
+    return env
+
+
 def _run_gh(args: list[str], timeout: int = 30) -> tuple[int, str, str]:
     try:
-        proc = subprocess.run(["gh", *args], capture_output=True, text=True, encoding="utf-8", timeout=timeout)
+        proc = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+            env=_non_interactive_env(),
+        )
         return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
     except FileNotFoundError:
         return 127, "", "gh no está instalado"
     except subprocess.TimeoutExpired:
         return 124, "", "GitHub tardó demasiado en responder"
+
+
+def _run_git(args: list[str], timeout: int = 30) -> tuple[int, str, str]:
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
+        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+    except FileNotFoundError:
+        return 127, "", "git no está instalado"
+    except subprocess.TimeoutExpired:
+        return 124, "", "git tardó demasiado en responder"
+
+
+def _launch_gh_detached(args: list[str]) -> None:
+    """Launch gh in the background so the UI can poll status while the user auths."""
+    kwargs: dict = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if os.name == "nt":
+        kwargs["creationflags"] = (
+            getattr(subprocess, "DETACHED_PROCESS", 0)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        )
+    else:
+        kwargs["start_new_session"] = True
+    subprocess.Popen(["gh", *args], **kwargs)
 
 
 def _repo_value(value: object) -> str:
@@ -177,84 +227,78 @@ def _scrub_payload(payload: dict) -> dict:
     return {k: v for k, v in payload.items() if k not in _FORBIDDEN_FIELDS}
 
 
-def _credential_storage() -> str:
-    """Determine credential storage type from gh config."""
-    code, output, _ = _run_gh(["auth", "status", "--format", "json"])
-    if code != 0:
-        return "unknown"
+def _parse_status_hosts(output: str) -> dict[str, list[dict]]:
+    """Parse `gh auth status --json hosts` output into a hostname -> accounts map."""
     try:
-        data = json.loads(output)
-        accounts = data.get("accounts", [])
-        if not accounts:
-            return "unknown"
-        # Check if token is stored in keychain (secure) or plaintext
-        for account in accounts:
-            if account.get("user", {}).get("type") == "oauth" or account.get("auth_method") == "oauth":
-                return "unknown"  # OAuth, uncertain storage
-            if account.get("active"):
-                # Try to detect storage type
-                code2, out2, _ = _run_gh(["auth", "token", "--format", "json"])
-                if code2 == 0:
-                    return "secure"  # gh can read token from keychain
-                return "plaintext"
+        data = json.loads(output) if output else {}
+    except json.JSONDecodeError:
+        return {}
+    hosts = data.get("hosts", {}) if isinstance(data, dict) else {}
+    if not isinstance(hosts, dict):
+        return {}
+    return {str(host): [a for a in (accts or []) if isinstance(a, dict)] for host, accts in hosts.items()}
+
+
+def _valid_accounts(hosts: dict[str, list[dict]]) -> list[dict]:
+    return [acct for accts in hosts.values() for acct in accts if acct.get("state") == "success"]
+
+
+def _credential_storage_for(account: dict) -> str:
+    """Map the account tokenSource reported by gh to the public credentialStorage contract."""
+    src = str(account.get("tokenSource") or "")
+    if not src:
         return "unknown"
-    except Exception:
-        return "unknown"
+    low = src.lower()
+    if "keyring" in low or "keychain" in low:
+        return "secure"
+    if "_TOKEN" in src or src.startswith(("GH_", "GITHUB_", "COPILOT_")):
+        return "unknown"  # environment-provided, not stored locally
+    return "plaintext"  # remaining sources are on-disk config files
 
 
 def _extract_auth_info(code: int, output: str, error: str) -> dict:
-    """Extract auth info from gh auth status, never exposing tokens."""
+    """Extract auth info from `gh auth status --json hosts`, never exposing tokens.
+
+    With --json, gh exits zero even when there are authentication issues, so
+    `authenticated` is derived strictly from the hosts/accounts payload.
+    """
+    checked_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     if code == 127:
         return {
             "installed": False,
             "authenticated": False,
             "credentialStorage": "unknown",
             "error": error or "gh no está instalado",
-            "checkedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            "checkedAt": checked_at,
         }
 
-    authenticated = code == 0
+    hosts = _parse_status_hosts(output)
+    valid = _valid_accounts(hosts)
 
-    if not authenticated:
+    if not valid:
         return {
             "installed": True,
             "authenticated": False,
             "credentialStorage": "unknown",
             "error": error or None,
-            "checkedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            "checkedAt": checked_at,
         }
 
-    # Authenticated — extract safe fields
-    hostname: str | None = None
-    username: str | None = None
-    active_account: str | None = None
-    scopes: list[str] = []
-
-    try:
-        status_data = json.loads(output) if output else {}
-        accounts = status_data.get("accounts", [])
-        if accounts:
-            active = next((a for a in accounts if a.get("active", False)), accounts[0])
-            username = active.get("user", {}).get("login")
-            active_account = active.get("name") or active.get("user", {}).get("name") or username
-            hostname = active.get("name")  # may be None for github.com
-            # Extract scopes
-            token_info = active.get("token", {})
-            if isinstance(token_info, dict):
-                scopes = token_info.get("scopes", [])
-    except Exception:
-        pass
+    active = next((a for a in valid if a.get("active")), valid[0])
+    username = str(active.get("login") or "") or None
+    hostname = str(active.get("host") or "") or None
+    scopes = [s.strip() for s in str(active.get("scopes") or "").split(",") if s.strip()]
 
     return {
         "installed": True,
         "authenticated": True,
         "hostname": hostname,
         "username": username,
-        "activeAccount": active_account,
+        "activeAccount": username,
         "scopes": scopes,
-        "credentialStorage": _credential_storage(),
+        "credentialStorage": _credential_storage_for(active),
         "error": None,
-        "checkedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "checkedAt": checked_at,
     }
 
 
@@ -262,10 +306,23 @@ def _extract_auth_info(code: int, output: str, error: str) -> dict:
 
 
 def handle_github_status(handler: "BaseHTTPRequestHandler") -> None:
-    """Return GitHub auth state — no secrets exposed."""
-    code, output, error = _run_gh(["auth", "status", "--format", "json"])
+    """Return GitHub auth state — no secrets exposed.
+
+    Keeps the previous /github/status contract (repo/repository fields) while
+    reporting the richer auth-panel state derived from the hosts payload.
+    """
+    code, output, error = _run_gh(["auth", "status", "--json", "hosts"])
     info = _extract_auth_info(code, output, error)
-    _send(handler, 200, {"ok": True, **_scrub_payload(info)})
+    repo = _saved_repo(_state(handler))
+    repository = None
+    if repo and info.get("authenticated"):
+        rcode, raw, _ = _run_gh(["api", f"repos/{repo}"])
+        if rcode == 0:
+            try:
+                repository = json.loads(raw)
+            except json.JSONDecodeError:
+                repository = None
+    _send(handler, 200, {"ok": True, **_scrub_payload(info), "repo": repo, "repository": repository})
 
 
 # ─── POST /github/auth/start ───────────────────────────────────────────
@@ -273,8 +330,19 @@ def handle_github_status(handler: "BaseHTTPRequestHandler") -> None:
 
 def handle_github_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Start GitHub auth flow. Backend decides the strategy."""
-    code, output, error = _run_gh(["auth", "status"])
-    if code == 0:
+    code, output, _ = _run_gh(["auth", "status", "--json", "hosts"])
+    if code == 127:
+        _send(handler, 200, {
+            "ok": True,
+            "authenticated": False,
+            "installed": False,
+            "pending": False,
+            "error": "gh no está instalado",
+        })
+        return
+
+    info = _extract_auth_info(code, output, "")
+    if info.get("authenticated"):
         _send(handler, 200, {
             "ok": True,
             "message": "Ya autenticado",
@@ -282,17 +350,48 @@ def handle_github_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> N
         })
         return
 
-    # Try device flow
-    code, _, error = _run_gh(["auth", "login", "--device", "--scopes", "repo:iac workflow"], timeout=120)
-    if code == 0:
-        handle_github_status(handler)
+    hostname = str(body.get("hostname") or "github.com").strip() or "github.com"
+    if not _HOSTNAME_RE.match(hostname):
+        _send(handler, 400, {"ok": False, "error": "hostname no válido"})
+        return
+
+    # Web-based device flow launched in the background: gh opens the browser and
+    # copies the one-time code to the clipboard, while the UI polls for status.
+    try:
+        _launch_gh_detached([
+            "auth", "login",
+            "--hostname", hostname,
+            "--web",
+            "--clipboard",
+            "--git-protocol", "https",
+            "--skip-ssh-key",
+            "--scopes", "repo,workflow",
+        ])
+    except FileNotFoundError:
+        _send(handler, 200, {
+            "ok": True,
+            "authenticated": False,
+            "installed": False,
+            "pending": False,
+            "error": "gh no está instalado",
+        })
+        return
+    except OSError as exc:
+        _send(handler, 200, {
+            "ok": True,
+            "authenticated": False,
+            "pending": False,
+            "error": f"No se pudo iniciar el flujo de autenticación: {exc}",
+        })
         return
 
     _send(handler, 200, {
         "ok": True,
-        "message": "Flujo de autenticación iniciado — completa en el navegador o CLI",
+        "message": "Se abrió el navegador: autoriza el dispositivo con el código del portapapeles y pulsa Refrescar",
         "authenticated": False,
-        "error": error or None,
+        "hostname": hostname,
+        "pending": True,
+        "error": None,
     })
 
 
@@ -308,8 +407,28 @@ def handle_github_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) ->
 
 
 def handle_github_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Logout from GitHub."""
-    code, _, error = _run_gh(["auth", "logout", "--hostname", body.get("hostname", "github.com") or "github.com", "-y"])
+    """Logout from GitHub non-interactively (no -y flag in supported gh versions)."""
+    hostname = str(body.get("hostname") or "github.com").strip() or "github.com"
+    if not _HOSTNAME_RE.match(hostname):
+        _send(handler, 400, {"ok": False, "error": "hostname no válido"})
+        return
+
+    args = ["auth", "logout", "--hostname", hostname]
+
+    # gh requires an explicit --user in non-interactive mode; resolve the active
+    # account for the host from the status payload when the body omits it.
+    user = str(body.get("user") or "").strip()
+    if not user:
+        code, output, _ = _run_gh(["auth", "status", "--json", "hosts"])
+        if code == 0:
+            accounts = _parse_status_hosts(output).get(hostname, [])
+            active = next((a for a in accounts if a.get("active")), accounts[0] if accounts else None)
+            if active:
+                user = str(active.get("login") or "").strip()
+    if user:
+        args.extend(["--user", user])
+
+    code, _, error = _run_gh(args)
     if code == 0:
         handle_github_status(handler)
     else:
@@ -324,21 +443,24 @@ def handle_github_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> 
 
 
 def handle_github_setup_git(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Configure git with GitHub credentials."""
+    """Configure git identity for the workspace (git config, not gh config)."""
     email = str(body.get("email") or "").strip()
     username = str(body.get("username") or "").strip()
 
     if not email or not username:
         _send(handler, 400, {"ok": False, "error": "email y username son obligatorios"})
         return
+    if email.startswith("-") or username.startswith("-") or len(email) > 254 or len(username) > 254:
+        _send(handler, 400, {"ok": False, "error": "email o username no válidos"})
+        return
 
     errors: list[str] = []
 
-    code1, _, err1 = _run_gh(["config", "git", "--email", email])
+    code1, _, err1 = _run_git(["config", "user.email", email])
     if code1 != 0:
         errors.append(f"git config email: {err1}")
 
-    code2, _, err2 = _run_gh(["config", "git", "--name", username])
+    code2, _, err2 = _run_git(["config", "user.name", username])
     if code2 != 0:
         errors.append(f"git config name: {err2}")
 
@@ -361,22 +483,23 @@ def handle_github_setup_git(handler: "BaseHTTPRequestHandler", body: dict) -> No
 
 def handle_github_accounts(handler: "BaseHTTPRequestHandler") -> None:
     """List all configured GitHub accounts."""
-    code, output, error = _run_gh(["auth", "status", "--format", "json"])
+    code, output, error = _run_gh(["auth", "status", "--json", "hosts"])
     if code != 0:
         _send(handler, 200, {"ok": True, "accounts": [], "count": 0, "error": error or None})
         return
 
     try:
-        data = json.loads(output)
-        accounts = data.get("accounts", [])
+        hosts = _parse_status_hosts(output)
         safe_accounts = []
-        for acct in accounts:
-            safe_accounts.append({
-                "username": acct.get("user", {}).get("login"),
-                "name": acct.get("name") or acct.get("user", {}).get("name"),
-                "active": acct.get("active", False),
-                "hostname": acct.get("name"),
-            })
+        for host, accounts in sorted(hosts.items()):
+            for acct in accounts:
+                login = str(acct.get("login") or "") or None
+                safe_accounts.append({
+                    "username": login,
+                    "name": login,
+                    "active": bool(acct.get("active")) and acct.get("state") == "success",
+                    "hostname": str(acct.get("host") or host),
+                })
         _send(handler, 200, {
             "ok": True,
             "accounts": safe_accounts,

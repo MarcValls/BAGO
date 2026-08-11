@@ -1,26 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/shared/Icon';
-
-interface InterpretationStage {
-  stage: string;
-  status: 'pending' | 'active' | 'done' | 'error';
-  evidence?: Record<string, unknown>;
-  durationMs?: number;
-}
-
-interface Interpretation {
-  id: string;
-  query: string;
-  stages: InterpretationStage[];
-  result?: string;
-  error?: string;
-  createdAt: string;
-}
-
-interface InterpreterPanelProps {
-  client?: ReturnType<typeof import('@/api/client').createBagoClient>;
-  onClose?: () => void;
-}
+import type { InterpretationStageType, InterpretationStage, InterpretationResult, InterpretationEvidence } from '@/contracts/backend';
 
 const STAGE_LABELS: Record<string, string> = {
   input: 'Entrada',
@@ -33,12 +13,17 @@ const STAGE_LABELS: Record<string, string> = {
   output: 'Salida',
 };
 
-const STAGE_ORDER = ['input', 'normalization', 'intent', 'context', 'constraints', 'routing', 'decision', 'output'];
+const STAGE_ORDER: InterpretationStageType[] = ['input', 'normalization', 'intent', 'context', 'constraints', 'routing', 'decision', 'output'];
+
+interface InterpreterPanelProps {
+  client?: ReturnType<typeof import('@/api/client').createBagoClient>;
+  onClose?: () => void;
+}
 
 export function InterpreterPanel({ client, onClose }: InterpreterPanelProps) {
-  const [interpretations, setInterpretations] = useState<Interpretation[]>([]);
+  const [interpretations, setInterpretations] = useState<InterpretationResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Interpretation | null>(null);
+  const [selected, setSelected] = useState<InterpretationResult | null>(null);
   const [query, setQuery] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +33,7 @@ export function InterpreterPanel({ client, onClose }: InterpreterPanelProps) {
     setLoading(true);
     try {
       const res = await client.listInterpretations(20);
-      if (res.interpretations) setInterpretations(res.interpretations as unknown as Interpretation[]);
+      if (res.interpretations) setInterpretations(res.interpretations);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -63,10 +48,10 @@ export function InterpreterPanel({ client, onClose }: InterpreterPanelProps) {
     setRunning(true);
     setError(null);
     try {
-      const res = await client.createInterpretation({ query: query.trim() });
+      const res = await client.createInterpretation({ input: query.trim() });
       if (res.interpretation) {
-        setInterpretations([res.interpretation as unknown as Interpretation, ...interpretations]);
-        setSelected(res.interpretation as unknown as Interpretation);
+        setInterpretations([res.interpretation, ...interpretations]);
+        setSelected(res.interpretation);
       } else if (res.error) {
         setError(res.error);
       }
@@ -77,7 +62,8 @@ export function InterpreterPanel({ client, onClose }: InterpreterPanelProps) {
     }
   }
 
-  function renderStageIcon(status: InterpretationStage['status']) {
+  function renderStageIcon(stage: InterpretationStage | undefined): import('react').ReactElement {
+    const status = stage?.metadata?.['status'] as string | undefined ?? 'pending';
     if (status === 'done') return <Icon name="check-circle" className="stage-icon done" />;
     if (status === 'error') return <Icon name="alert-circle" className="stage-icon error" />;
     if (status === 'active') return <Icon name="loader" className="stage-icon active" />;
@@ -118,27 +104,27 @@ export function InterpreterPanel({ client, onClose }: InterpreterPanelProps) {
           {!loading && interpretations.length === 0 && <div className="panel-empty">Sin interpretaciones</div>}
           {interpretations.map((interp) => (
             <button
-              key={interp.id}
+              key={interp.interpretationId}
               type="button"
-              className={`interpretation-item ${selected?.id === interp.id ? 'is-selected' : ''}`}
+              className={`interpretation-item ${selected?.interpretationId === interp.interpretationId ? 'is-selected' : ''}`}
               onClick={() => setSelected(interp)}
             >
-              <span className="interp-query">{interp.query}</span>
-              <span className="interp-date">{new Date(interp.createdAt).toLocaleTimeString()}</span>
+              <span className="interp-query">{interp.input}</span>
+              <span className="interp-date">{new Date(interp.startedAt).toLocaleTimeString()}</span>
             </button>
           ))}
         </div>
 
         {selected && (
           <div className="interpretation-detail">
-            <h4>Detalle: {selected.query}</h4>
+            <h4>Detalle: {selected.input}</h4>
             <div className="stages-timeline">
-              {STAGE_ORDER.map((stageKey) => {
-                const stage = selected.stages.find((s) => s.stage === stageKey);
-                const label = STAGE_LABELS[stageKey] || stageKey;
+              {STAGE_ORDER.map((stageType) => {
+                const stage = selected.stages.find((s) => s.type === stageType);
+                const label = STAGE_LABELS[stageType] || stageType;
                 return (
-                  <div key={stageKey} className={`stage-row stage-${stage?.status || 'pending'}`}>
-                    {renderStageIcon(stage?.status || 'pending')}
+                  <div key={stageType} className={`stage-row stage-${stage?.metadata?.['status'] as string ?? 'pending'}`}>
+                    {renderStageIcon(stage)}
                     <span className="stage-label">{label}</span>
                     {stage?.durationMs !== undefined && (
                       <span className="stage-duration">{(stage.durationMs / 1000).toFixed(2)}s</span>
@@ -147,16 +133,15 @@ export function InterpreterPanel({ client, onClose }: InterpreterPanelProps) {
                 );
               })}
             </div>
-            {selected.result && (
+            {selected.finalOutput && (
               <div className="interpretation-result">
                 <h5>Resultado</h5>
-                <pre>{selected.result}</pre>
+                <pre>{selected.finalOutput}</pre>
               </div>
             )}
-            {selected.error && (
-              <div className="interpretation-error">
-                <h5>Error</h5>
-                <pre>{selected.error}</pre>
+            {selected.confidence !== undefined && (
+              <div className="interpretation-confidence">
+                <span>Confianza: {(selected.confidence * 100).toFixed(0)}%</span>
               </div>
             )}
           </div>

@@ -34,6 +34,7 @@ export function GitHubAuthPanel({ client, onClose }: GitHubAuthPanelProps) {
   const [gitUsername, setGitUsername] = useState('');
   const [gitConfigured, setGitConfigured] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function loadStatus() {
     if (!client) return;
@@ -59,8 +60,11 @@ export function GitHubAuthPanel({ client, onClose }: GitHubAuthPanelProps) {
     if (!client) return;
     setActionInProgress(true);
     setError(null);
+    setNotice(null);
     try {
-      await client.startGitHubAuth();
+      const res = await client.startGitHubAuth() as { authenticated?: boolean; pending?: boolean; message?: string; error?: string };
+      if (res.error) setError(res.error);
+      if (res.pending) setNotice(res.message || 'Completa la autorización en el navegador y pulsa Refrescar.');
       await loadStatus();
     } catch (e) {
       setError(String(e));
@@ -73,6 +77,7 @@ export function GitHubAuthPanel({ client, onClose }: GitHubAuthPanelProps) {
     if (!client) return;
     setActionInProgress(true);
     setError(null);
+    setNotice(null);
     try {
       await client.refreshGitHubAuth();
       await loadStatus();
@@ -88,6 +93,7 @@ export function GitHubAuthPanel({ client, onClose }: GitHubAuthPanelProps) {
     if (!confirm('¿Cerrar sesión de GitHub?')) return;
     setActionInProgress(true);
     setError(null);
+    setNotice(null);
     try {
       await client.logoutGitHub(state.hostname);
       await loadStatus();
@@ -158,6 +164,8 @@ export function GitHubAuthPanel({ client, onClose }: GitHubAuthPanelProps) {
           <div className="auth-unauthenticated">
             <Icon name="github" size={32} />
             <p>No has iniciado sesión en GitHub.</p>
+            {notice && <div className="form-notice">{notice}</div>}
+            {error && <div className="form-error">{error}</div>}
             <button
               type="button"
               className="btn-primary"
@@ -165,6 +173,14 @@ export function GitHubAuthPanel({ client, onClose }: GitHubAuthPanelProps) {
               disabled={actionInProgress}
             >
               {actionInProgress ? 'Conectando...' : 'Iniciar sesión con gh'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleRefresh}
+              disabled={actionInProgress}
+            >
+              Refrescar estado
             </button>
           </div>
         ) : (

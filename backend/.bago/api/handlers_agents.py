@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,39 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
+
+_AGENT_ID_RE = re.compile(r"[A-Za-z0-9\-_]{1,64}")
+
+
+def _validate_agent_id(raw: Any) -> str | None:
+    """Validate that raw is a safe agent ID. Returns the ID string or None."""
+    if not isinstance(raw, str) or len(raw) > 64 or len(raw) < 1:
+        return None
+    raw = raw.strip()
+    if not _AGENT_ID_RE.fullmatch(raw):
+        return None
+    return raw
+
+
+def _resolve_agent_path(state: Path, agent_id: str) -> Path | None:
+    canonical_dir = _canonical_agents_dir(state)
+    candidate = canonical_dir / f"{agent_id}.json"
+    try:
+        candidate_real = candidate.resolve()
+        if not candidate_real.is_relative_to(canonical_dir):
+            return None
+    except (OSError, ValueError):
+        return None
+    return candidate
+
+
+def _canonical_agents_dir(state: Path) -> Path:
+    return _agents_dir(state).resolve()
+
+
+def _send_error(handler, code: int, message: str) -> None:
+    from api_serializers import send_json
+    send_json(handler, code, {"ok": False, "error": message})
 
 
 def _state(handler) -> Path:
@@ -37,7 +71,11 @@ def _load_agents(state: Path) -> list[dict[str, Any]]:
 
 def _save_agent(state: Path, agent: dict[str, Any]) -> None:
     agents_dir = _agents_dir(state)
-    fp = agents_dir / f"{agent['id']}.json"
+    agent_id = str(agent.get('id', ''))
+    safe_id = _validate_agent_id(agent_id)
+    if safe_id is None:
+        raise ValueError(f"Invalid agent id: {agent_id!r}")
+    fp = agents_dir / f"{safe_id}.json"
     fp.write_text(json.dumps(agent, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -72,8 +110,11 @@ def handle_list(handler: "BaseHTTPRequestHandler") -> None:
 
 
 def _agent_by_id(state: Path, agent_id: str) -> dict[str, Any] | None:
-    fp = _agents_dir(state) / f"{agent_id}.json"
-    if not fp.exists():
+    safe_id = _validate_agent_id(agent_id)
+    if safe_id is None:
+        return None
+    fp = _resolve_agent_path(state, safe_id)
+    if fp is None or not fp.exists():
         return None
     try:
         return json.loads(fp.read_text(encoding="utf-8"))
@@ -83,7 +124,11 @@ def _agent_by_id(state: Path, agent_id: str) -> dict[str, Any] | None:
 
 def handle_get(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
     state = _state(handler)
-    agent = _agent_by_id(state, agent_id)
+    safe_id = _validate_agent_id(agent_id)
+    if safe_id is None:
+        _send(handler, 400, {"ok": False, "error": "ID de agente inválido"})
+        return
+    agent = _agent_by_id(state, safe_id)
     if agent is None:
         _send(handler, 404, {"ok": False, "error": "Agente no encontrado"})
         return
@@ -101,7 +146,14 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         _send(handler, 400, {"ok": False, "error": "El campo 'name' es obligatorio"})
         return
 
-    agent_id = str(body.get("id") or uuid.uuid4().hex[:12])
+    raw_id = body.get("id")
+    if raw_id is not None:
+        agent_id = _validate_agent_id(str(raw_id))
+        if agent_id is None:
+            _send(handler, 400, {"ok": False, "error": "ID de agente inválido (usa solo letras, números, - y _)"})
+            return
+    else:
+        agent_id = uuid.uuid4().hex[:12]
     existing = _agent_by_id(state, agent_id)
     if existing is not None:
         _send(handler, 409, {"ok": False, "error": "Ya existe un agente con ese id"})
@@ -139,7 +191,11 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
 def handle_put(handler: "BaseHTTPRequestHandler", agent_id: str, body: dict) -> None:
     state = _state(handler)
-    agent = _agent_by_id(state, agent_id)
+    safe_id = _validate_agent_id(agent_id)
+    if safe_id is None:
+        _send(handler, 400, {"ok": False, "error": "ID de agente inválido"})
+        return
+    agent = _agent_by_id(state, safe_id)
     if agent is None:
         _send(handler, 404, {"ok": False, "error": "Agente no encontrado"})
         return
@@ -182,14 +238,19 @@ def handle_put(handler: "BaseHTTPRequestHandler", agent_id: str, body: dict) -> 
 
 def handle_delete(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
     state = _state(handler)
-    agent = _agent_by_id(state, agent_id)
+    safe_id = _validate_agent_id(agent_id)
+    if safe_id is None:
+        _send(handler, 400, {"ok": False, "error": "ID de agente inválido"})
+        return
+    agent = _agent_by_id(state, safe_id)
     if agent is None:
         _send(handler, 404, {"ok": False, "error": "Agente no encontrado"})
         return
 
-    fp = _agents_dir(state) / f"{agent_id}.json"
-    fp.unlink(missing_ok=True)
-    _send(handler, 200, {"ok": True, "deleted": agent_id})
+    fp = _resolve_agent_path(state, safe_id)
+    if fp is not None:
+        fp.unlink(missing_ok=True)
+    _send(handler, 200, {"ok": True, "deleted": safe_id})
 
 
 # ─── POST /agents/:id/test ───────────────────────────────────────────────
@@ -197,7 +258,11 @@ def handle_delete(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
 
 def handle_test(handler: "BaseHTTPRequestHandler", agent_id: str, body: dict) -> None:
     state = _state(handler)
-    agent = _agent_by_id(state, agent_id)
+    safe_id = _validate_agent_id(agent_id)
+    if safe_id is None:
+        _send(handler, 400, {"ok": False, "error": "ID de agente inválido"})
+        return
+    agent = _agent_by_id(state, safe_id)
     if agent is None:
         _send(handler, 404, {"ok": False, "error": "Agente no encontrado"})
         return
