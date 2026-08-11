@@ -139,6 +139,49 @@ def handle_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     _send(handler, 200, {"ok": True, "url": url, "output": raw})
 
 
+def handle_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Initiate GitHub authentication via gh CLI — returns auth URL for manual flow."""
+    _send(handler, 200, {
+        "ok": True,
+        "auth_url": "https://github.com/login/device/code",
+        "instructions": "Ejecuta `gh auth login` en tu terminal o visita la URL proporcionada por `gh auth login`.",
+    })
+
+
+def handle_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Refresh gh auth token by re-checking auth status."""
+    code, output, error = _run_gh(["auth", "status"])
+    _send(handler, 200, {
+        "ok": True,
+        "authenticated": code == 0,
+        "output": output,
+        "error": error or None,
+    })
+
+
+def handle_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Logout from gh CLI."""
+    code, _, error = _run_gh(["auth", "logout", "--hostname", "github.com"])
+    if code == 0:
+        _send(handler, 200, {"ok": True, "message": "Sesión de GitHub cerrada"})
+    else:
+        _send(handler, 400, {"ok": False, "error": error or "No se pudo cerrar sesión"})
+
+
+def handle_setup(handler: "BaseHTTPRequestHandler", body: dict) -> None:
+    """Configure gh with a token directly (token never stored by BAGO)."""
+    token = str(body.get("token") or "").strip()
+    hostname = str(body.get("hostname") or "github.com").strip()
+    if not token:
+        _send(handler, 400, {"ok": False, "error": "'token' es obligatorio"})
+        return
+    code, _, error = _run_gh(["auth", "login", "--hostname", hostname, "--token", token])
+    if code == 0:
+        _send(handler, 200, {"ok": True, "authenticated": True, "hostname": hostname})
+    else:
+        _send(handler, 400, {"ok": False, "error": error or "Falló la autenticación con gh"})
+
+
 def handle_mcp_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Invoke the same explicit write policy through BAGO's MCP tool surface."""
     try:
