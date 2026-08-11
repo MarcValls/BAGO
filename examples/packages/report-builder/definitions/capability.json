@@ -1,0 +1,40 @@
+{
+  "id": "local.report-builder",
+  "runtime": {
+    "kind": "python",
+    "timeout_s": 10
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "type": "string",
+        "title": "Formato",
+        "enum": ["markdown", "json"],
+        "default": "markdown"
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "title": "Titulo"
+      },
+      "summary": {
+        "type": "string",
+        "title": "Resumen"
+      },
+      "sections_json": {
+        "type": "string",
+        "title": "Secciones JSON"
+      }
+    },
+    "required": ["title", "sections_json"]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "tags": ["example", "report", "productivity"]
+}

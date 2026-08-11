@@ -182,6 +182,7 @@ def handle_policy(handler: "BaseHTTPRequestHandler") -> None:
 _SESSION_OVERRIDE_FILE = ".bago_session_model.json"
 _REASONING_DEPTH_FILE = ".bago_reasoning_depth.json"
 _REASONING_DEPTHS = {
+    "auto": {"label": "Automática", "effort": "auto"},
     "normal": {"label": "Normal", "effort": "low"},
     "media": {"label": "Media", "effort": "medium"},
     "alta": {"label": "Alta", "effort": "high"},

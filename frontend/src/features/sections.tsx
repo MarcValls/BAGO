@@ -25,7 +25,10 @@ import { quietStatus } from '@/shared/quiet-status';
 import { ProviderCenterModule, type ProviderCenterProvider, type ProviderCenterRouterEntry } from '@/modules/provider-center';
 import { SystemTabs } from '@/layout/SystemTabs';
 import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
+import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 import { ChatPanel } from '@/layout/ChatPanel';
+import { PipelineControlPanel } from '@/features/pipeline/PipelineControlPanel';
+import { PipelineGuidedBuilder } from '@/features/pipeline/PipelineGuidedBuilder';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
 import { WorkGraph } from '@/features/graph/WorkGraph';
@@ -34,6 +37,8 @@ import type { BagoClient } from '@/api/client';
 import type { UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { mergeProviderStates } from '@/shared/providerStates';
 import { PIPELINE_TASK_MAX_LENGTH } from '@/shared/inputLimits';
+import { ConfirmDialog } from '@/lib/ConfirmDialog';
+import { MemoryOperations, ProviderRuntimeTools, VisionOperations } from '@/layout/OperationalTools';
 
 interface Props {
   section: 'home' | 'chat' | 'workspace' | 'pipeline' | 'evidence' | 'context' | 'system';
@@ -55,6 +60,7 @@ interface Props {
   providers: BackendProviders | null;
   router: { list: BackendRouterList | null; policy: BackendRouterPolicy | null } | null;
   history: BackendHistory | null;
+  conversations: import('@/contracts/backend').BackendConversations | null;
   files: Record<string, unknown> | null;
   onManageSource?: (action: 'add' | 'remove', path: string, label?: string) => Promise<Record<string, unknown> | null>;
   commandResults: Record<string, BackendCommandResult | null>;
@@ -81,6 +87,9 @@ interface Props {
   reasoningDepth?: string;
   onSetReasoningDepth?: (depth: string) => Promise<void>;
   onCreateConversation?: () => Promise<void>;
+  onSwitchConversation?: (conversationId: string) => Promise<void>;
+  onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
+  onArchiveConversation?: (conversationId: string) => Promise<void>;
   sessionModel?: string | null;
   workspaceOpenRequest?: { path: string; kind?: 'file' | 'directory'; token: number } | null;
   // CANON[CTX-001]: el módulo de contexto necesita un cliente HTTP
@@ -590,7 +599,14 @@ export function ControlSections(props: Props) {
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceMessage, setSourceMessage] = useState('');
   const [graphFiltered, setGraphFiltered] = useState(true);
-  const [pipelineView, setPipelineView] = useState<'execution' | 'flow'>('execution');
+  const [chatView, setChatView] = useState<'conversation' | 'router' | 'providers' | 'subagents' | 'interpret'>('conversation');
+  const [pipelineView, setPipelineView] = useState<'create' | 'execution' | 'flow' | 'control' | 'capabilities' | 'simulation' | 'rl'>('create');
+  const [operationView, setOperationView] = useState<'providers' | 'runtime' | 'memory' | 'vision' | 'configuration'>('providers');
+  const [pendingStep, setPendingStep] = useState<RecordValue | null>(null);
+  const [pendingStepBusy, setPendingStepBusy] = useState(false);
+  const [pendingStepError, setPendingStepError] = useState('');
+  const [evidenceView, setEvidenceView] = useState<'receipts' | 'audit'>('receipts');
+  const [contextView, setContextView] = useState<'work' | 'routes'>('work');
   const [evidenceCompare, setEvidenceCompare] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -1323,14 +1339,52 @@ export function ControlSections(props: Props) {
   }, [snapshot, props.client]);
 
   if (props.section === 'chat') {
+    const chatTabs = <nav className="contextual-subnav" aria-label="Herramientas de Chat">
+      {([
+        ['conversation', 'Conversación', 'chat'],
+        ['router', 'Modelos', 'model'],
+        ['providers', 'Proveedores', 'server'],
+        ['subagents', 'Agentes', 'node'],
+        ['interpret', 'Interpretación', 'command']
+      ] as const).map(([id, label, icon]) => (
+        <button key={id} type="button" className={chatView === id ? 'is-active' : ''} onClick={() => setChatView(id)}>
+          <Icon name={icon} size={13} /> {label}
+        </button>
+      ))}
+    </nav>;
+    if (chatView !== 'conversation') {
+      return <div className="contextual-surface system-surface chat-tools-surface">
+        {chatTabs}
+        <SystemTabs
+          apiBase={props.apiBase}
+          apiToken={props.apiToken}
+          providers={providers}
+          routerEntries={routerEntries}
+          routerAuto={Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch)}
+          routerSelectedCount={props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length}
+          routerLastPick={String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—')}
+          onRefreshRouter={props.onRefreshRouter}
+          onToggleRouter={props.onToggleRouter}
+          onSetRouterAuto={props.onSetRouterAuto}
+          onConfigureProvider={(name, config) => props.onConfigureProvider ? props.onConfigureProvider(name, config) : Promise.resolve()}
+          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
+          allowedTabs={[chatView]}
+          activeTab={chatView}
+          hideTabList
+        />
+      </div>;
+    }
     return (
-      <ChatPanel
+      <div className="contextual-surface chat-contextual-surface">
+        {chatTabs}
+        <ChatPanel
         snapshot={snapshot}
         turns={props.turns}
         drafts={props.drafts}
         chatMode={props.chatMode}
         history={props.history}
-        routerEntries={routerEntries}
+        conversations={props.conversations}
+        routerEntries={chatModelEntries}
         sessionModel={props.sessionModel ?? null}
         activeProvider={activeProvider}
         activeModels={activeModels}
@@ -1345,6 +1399,9 @@ export function ControlSections(props: Props) {
         reasoningDepth={props.reasoningDepth || 'normal'}
         onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
         onCreateConversation={props.onCreateConversation}
+        onSwitchConversation={props.onSwitchConversation}
+        onRenameConversation={props.onRenameConversation}
+        onArchiveConversation={props.onArchiveConversation}
         canChat={Boolean(snapshot?.permissions.canChat)}
         contextPatches={props.contextPatchDisplay}
         onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
@@ -1353,7 +1410,8 @@ export function ControlSections(props: Props) {
         onRevertContextPatch={(id) => props.onRevertContextPatch?.(id)}
         onReviewContextPatch={(id) => props.onReviewContextPatch?.(id)}
         onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
-      />
+        />
+      </div>
     );
   }
 
@@ -1375,6 +1433,7 @@ export function ControlSections(props: Props) {
         drafts={props.drafts}
         chatMode={props.chatMode}
         history={props.history}
+        conversations={props.conversations}
         routerEntries={chatModelEntries}
         sessionModel={props.sessionModel ?? null}
         activeProvider={activeProvider}
@@ -1390,6 +1449,9 @@ export function ControlSections(props: Props) {
         reasoningDepth={props.reasoningDepth || 'normal'}
         onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
         onCreateConversation={props.onCreateConversation}
+        onSwitchConversation={props.onSwitchConversation}
+        onRenameConversation={props.onRenameConversation}
+        onArchiveConversation={props.onArchiveConversation}
         canChat={Boolean(snapshot?.permissions.canChat)}
         contextPatches={props.contextPatchDisplay}
         onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
@@ -1468,14 +1530,59 @@ export function ControlSections(props: Props) {
       || snapshot?.system.objective
       || (steps.length ? 'Flujo en ejecución' : 'No hay un flujo activo')
     );
-    const startFlowTask = (title: string, summary: string) => {
-      setPipelineView('execution');
-      void props.onRunPlanTask([title.trim(), summary.trim()].filter(Boolean).join('\n\n'));
+    const startPendingPlan = async () => {
+      if (!pendingStep) return;
+      setPendingStepBusy(true);
+      setPendingStepError('');
+      try {
+        const listed = await props.client.listPlans();
+        const availablePlans = Array.isArray(listed.plans)
+          ? listed.plans.filter((item): item is RecordValue => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+          : [];
+        const taskName = String(planData?.task || planData?.objective || '').trim();
+        const matchedPlan = availablePlans.find((item) => String(item.id || item.plan_id || '') === String(planData?.id || planData?.plan_id || ''))
+          || availablePlans.find((item) => taskName && String(item.task || item.objective || '').trim() === taskName)
+          || availablePlans.find((item) => String(item.status || '').toLowerCase() === 'pending');
+        const planId = String(planData?.id || planData?.plan_id || matchedPlan?.id || matchedPlan?.plan_id || '').trim();
+        if (!planId) throw new Error('No se encontró un plan ejecutable para este paso. Vuelve a generar el plan antes de iniciarlo.');
+        const result = await props.client.executePlan(planId, { stop_on_failure: true });
+        if (result.ok === false) throw new Error(String(result.error || 'El backend no pudo iniciar el plan.'));
+        setPendingStep(null);
+        props.onRefresh();
+      } catch (error) {
+        setPendingStepError(error instanceof Error ? error.message : 'No se pudo iniciar el plan.');
+      } finally {
+        setPendingStepBusy(false);
+      }
     };
-    const pipelineTabs = <nav className="pipeline-view-tabs" aria-label="Vistas de Pipeline">
-      <button type="button" className={pipelineView === 'execution' ? 'is-active' : ''} onClick={() => setPipelineView('execution')}><Icon name="pipeline" size={13} /> Ejecución</button>
-      <button type="button" className={pipelineView === 'flow' ? 'is-active' : ''} onClick={() => setPipelineView('flow')}><Icon name="graph" size={13} /> Flujo</button>
+    const startFlowTask = (title: string, summary: string) => {
+      const task = [title.trim(), summary.trim()].filter(Boolean).join('\n\n');
+      props.onDraftChange('pipeline', task);
+      setPipelineView('create');
+    };
+    const pipelineTabs = <nav className="pipeline-view-tabs contextual-subnav" aria-label="Vistas de Pipeline">
+      <button type="button" aria-current={pipelineView === 'create' ? 'page' : undefined} className={pipelineView === 'create' ? 'is-active' : ''} onClick={() => setPipelineView('create')}><Icon name="plus" size={16} /> Crear</button>
+      <button type="button" aria-current={pipelineView === 'execution' ? 'page' : undefined} className={pipelineView === 'execution' ? 'is-active' : ''} onClick={() => setPipelineView('execution')}><Icon name="pipeline" size={16} /> Ejecución</button>
+      <button type="button" aria-current={pipelineView === 'flow' ? 'page' : undefined} className={pipelineView === 'flow' ? 'is-active' : ''} onClick={() => setPipelineView('flow')}><Icon name="graph" size={16} /> Flujo</button>
+      <button type="button" aria-current={pipelineView === 'control' ? 'page' : undefined} className={pipelineView === 'control' ? 'is-active' : ''} onClick={() => setPipelineView('control')}><Icon name="history" size={16} /> Planes y programación</button>
+      <button type="button" aria-current={pipelineView === 'capabilities' ? 'page' : undefined} className={pipelineView === 'capabilities' ? 'is-active' : ''} onClick={() => setPipelineView('capabilities')}><Icon name="pack" size={16} /> Capacidades</button>
+      <button type="button" aria-current={pipelineView === 'simulation' ? 'page' : undefined} className={pipelineView === 'simulation' ? 'is-active' : ''} onClick={() => setPipelineView('simulation')}><Icon name="trace" size={16} /> Simulación</button>
+      <button type="button" aria-current={pipelineView === 'rl' ? 'page' : undefined} className={pipelineView === 'rl' ? 'is-active' : ''} onClick={() => setPipelineView('rl')}><Icon name="live" size={16} /> Entrenamiento RL</button>
     </nav>;
+    if (pipelineView === 'create') {
+      return <div className="pipeline-surface contextual-surface pipeline-create-view" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        {pipelineTabs}
+        <PipelineGuidedBuilder
+          client={props.client}
+          task={task}
+          hasSteps={steps.length > 0}
+          onTaskChange={(value) => props.onDraftChange('pipeline', value)}
+          onCreatePlan={props.onRunPlanTask}
+          onOpenCapabilities={() => setPipelineView('capabilities')}
+          onCreated={() => { props.onRefresh(); setPipelineView('execution'); }}
+        />
+      </div>;
+    }
     if (pipelineView === 'flow') {
       return <div className="pipeline-surface pipeline-flow-view" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
         {pipelineTabs}
@@ -1496,17 +1603,51 @@ export function ControlSections(props: Props) {
         />
       </div>;
     }
-    return (
-      <div className="pipeline-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+    if (pipelineView === 'control') {
+      return <div className="pipeline-surface contextual-surface">
         {pipelineTabs}
-        <section className="system-tab-panel system-capabilities-panel">
+        <PipelineControlPanel client={props.client} onRefreshSnapshot={props.onRefresh} onSetSection={props.onSetSection} />
+      </div>;
+    }
+    if (pipelineView === 'capabilities') {
+      return <div className="pipeline-surface contextual-surface">
+        {pipelineTabs}
+        <section className="capability-workspace">
           <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection, 'detail')} />
+          <ExternalCapabilitiesPanel client={props.client} />
         </section>
+      </div>;
+    }
+    if (pipelineView === 'simulation' || pipelineView === 'rl') {
+      return <div className="pipeline-surface contextual-surface system-surface">
+        {pipelineTabs}
+        <SystemTabs
+          apiBase={props.apiBase}
+          apiToken={props.apiToken}
+          providers={providers}
+          routerEntries={chatModelEntries}
+          routerAuto={Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch)}
+          routerSelectedCount={props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? chatModelEntries.filter((entry) => Boolean(entry.selected)).length}
+          routerLastPick={String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—')}
+          onRefreshRouter={props.onRefreshRouter}
+          onToggleRouter={props.onToggleRouter}
+          onSetRouterAuto={props.onSetRouterAuto}
+          onConfigureProvider={(name, config) => props.onConfigureProvider ? props.onConfigureProvider(name, config) : Promise.resolve()}
+          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
+          allowedTabs={[pipelineView]}
+          activeTab={pipelineView}
+          hideTabList
+        />
+      </div>;
+    }
+    return (
+      <div className="pipeline-surface pipeline-execution-view" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        {pipelineTabs}
         <section className="pipeline-page-head">
           <div className="pipeline-summary-copy">
             <StatusBadge status={pipelineStatus} />
             <h2>{pipelineTitle}</h2>
-            <p>{steps.length ? `${steps.length} pasos · ${doneCount} completados · ${blockedCount + failedCount} requieren atención` : 'Describe una tarea para generar un plan mediante el backend existente.'}</p>
+            <p>{steps.length ? `${doneCount} de ${steps.length} pasos completados${blockedCount + failedCount ? ` · ${blockedCount + failedCount} requieren atención` : ''}` : 'Describe el resultado que necesitas.'}</p>
           </div>
           <div className="pipeline-summary-actions">
             {canRetry && <ActionButton icon="retry" onClick={() => void props.onRunPlanTask(task)}>Reintentar</ActionButton>}
@@ -1584,30 +1725,8 @@ export function ControlSections(props: Props) {
           </section>
         )}
 
-        <section className="pipeline-command">
-          <div className="pipeline-command-head">
-            <div><span className="surface-eyebrow">Siguiente acción</span><strong>{steps.length ? 'Añadir una tarea al flujo' : 'Crear un flujo de trabajo'}</strong></div>
-            <span>El backend generará el plan y sus evidencias.</span>
-          </div>
-          <textarea
-            aria-label="Descripción del flujo de trabajo"
-            value={task}
-            onChange={(event) => props.onDraftChange('pipeline', event.target.value)}
-            placeholder="Describe el resultado que quieres conseguir…"
-            rows={5}
-            maxLength={PIPELINE_TASK_MAX_LENGTH}
-          />
-          <div className="pipeline-command-footer">
-            <span className="context-hint">Enter no ejecuta · {task.length.toLocaleString()} / {PIPELINE_TASK_MAX_LENGTH.toLocaleString()} caracteres</span>
-            <div className="pipeline-command-actions">
-              <ContextActionButton selection={screenSelection} onInspect={props.onInspect} label="Más acciones" />
-              <button className="primary-button compact" type="button" disabled={!task.trim()} onClick={() => void props.onRunPlanTask(task)}><Icon name="pipeline" size={16} /> {steps.length ? 'Añadir tarea' : 'Generar plan'}</button>
-            </div>
-          </div>
-        </section>
-
         <section className="pipeline-timeline">
-          <div className="pipeline-section-head"><div><span className="surface-eyebrow">Flujo</span><strong>{steps.length ? `${steps.length} pasos` : 'Sin pasos todavía'}</strong></div><span>{doneCount} completados · {blockedCount + failedCount} requieren atención</span></div>
+          <div className="pipeline-section-head"><strong>Pasos</strong><span>{steps.length ? `${doneCount} completados · ${steps.length - doneCount} pendientes` : 'Aún no hay pasos'}</span></div>
           {steps.length ? steps.map((step, index) => {
             const status = String(step.status || 'pending');
             const stepSelection = buildSelection(
@@ -1625,7 +1744,14 @@ export function ControlSections(props: Props) {
                 type="button"
                 className={`pipeline-step state-${statusTone(status)}`}
                 {...inspectMenuAttrs(stepSelection, props.onInspect)}
-                onClick={() => props.onInspect(stepSelection)}
+                onClick={() => {
+                  if (status.toLowerCase() === 'pending') {
+                    setPendingStep(step);
+                    setPendingStepError('');
+                    return;
+                  }
+                  props.onInspect(stepSelection);
+                }}
               >
                 <span className="step-index">{String(step.number || index + 1)}</span>
                 <span className="step-copy"><strong>{String(step.description || `Paso ${index + 1}`)}</strong><small>{String(step.block_reason || step.result || status)}</small></span>
@@ -1638,11 +1764,51 @@ export function ControlSections(props: Props) {
           )}
         </section>
 
+        <ConfirmDialog
+          open={Boolean(pendingStep)}
+          title={`¿Iniciar ${String(pendingStep?.description || pendingStep?.label || `Paso ${pendingStep?.number || ''}`)}?`}
+          description="BAGO ejecutará el plan desde el primer paso pendiente y se detendrá si encuentra un bloqueo."
+          confirmLabel="Sí, iniciar"
+          busy={pendingStepBusy}
+          error={pendingStepError}
+          onConfirm={() => void startPendingPlan()}
+          onClose={() => {
+            if (pendingStepBusy) return;
+            setPendingStep(null);
+            setPendingStepError('');
+          }}
+        />
       </div>
     );
   }
 
   if (props.section === 'evidence') {
+    const evidenceTabs = <nav className="contextual-subnav" aria-label="Vistas de Evidencia">
+      <button type="button" className={evidenceView === 'receipts' ? 'is-active' : ''} onClick={() => setEvidenceView('receipts')}><Icon name="evidence" size={13} /> Recibos y trazas</button>
+      <button type="button" className={evidenceView === 'audit' ? 'is-active' : ''} onClick={() => setEvidenceView('audit')}><Icon name="inspector" size={13} /> Auditoría</button>
+    </nav>;
+    if (evidenceView === 'audit') {
+      return <div className="evidence-surface contextual-surface system-surface">
+        {evidenceTabs}
+        <SystemTabs
+          apiBase={props.apiBase}
+          apiToken={props.apiToken}
+          providers={providers}
+          routerEntries={chatModelEntries}
+          routerAuto={false}
+          routerSelectedCount={0}
+          routerLastPick=""
+          onRefreshRouter={props.onRefreshRouter}
+          onToggleRouter={props.onToggleRouter}
+          onSetRouterAuto={props.onSetRouterAuto}
+          onConfigureProvider={(name, config) => props.onConfigureProvider ? props.onConfigureProvider(name, config) : Promise.resolve()}
+          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
+          allowedTabs={['audit']}
+          activeTab="audit"
+          hideTabList
+        />
+      </div>;
+    }
     const latest = evidenceItems.length ? (evidenceItems[0] as RecordValue) : historyMessages.length ? historyMessages[historyMessages.length - 1] : (asRecord(snapshot?.context) || {});
     const previous = historyMessages.length > 1 ? historyMessages[historyMessages.length - 2] : null;
     const receiptId = snapshot?.context.receiptId || String(latest.id || latest.receipt_id || latest.envelope_id || 'No disponible');
@@ -1657,6 +1823,7 @@ export function ControlSections(props: Props) {
     );
     return (
       <div className="evidence-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        {evidenceTabs}
         <section className="evidence-primary" {...inspectMenuAttrs(latestSelection, props.onInspect)}>
           <div className="evidence-heading">
             <div>
@@ -1714,16 +1881,46 @@ export function ControlSections(props: Props) {
   }
 
   if (props.section === 'context') {
+    const contextTabs = <nav className="contextual-subnav" aria-label="Vistas de Contexto">
+      <button type="button" className={contextView === 'work' ? 'is-active' : ''} onClick={() => setContextView('work')}><Icon name="context" size={13} /> Contexto de trabajo</button>
+      <button type="button" className={contextView === 'routes' ? 'is-active' : ''} onClick={() => setContextView('routes')}><Icon name="actions" size={13} /> API avanzada</button>
+    </nav>;
+    if (contextView === 'routes') {
+      return <div className="contextual-surface system-surface">
+        {contextTabs}
+        <SystemTabs
+          apiBase={props.apiBase}
+          apiToken={props.apiToken}
+          providers={providers}
+          routerEntries={chatModelEntries}
+          routerAuto={false}
+          routerSelectedCount={0}
+          routerLastPick=""
+          onRefreshRouter={props.onRefreshRouter}
+          onToggleRouter={props.onToggleRouter}
+          onSetRouterAuto={props.onSetRouterAuto}
+          onConfigureProvider={(name, config) => props.onConfigureProvider ? props.onConfigureProvider(name, config) : Promise.resolve()}
+          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
+          allowedTabs={['routes']}
+          activeTab="routes"
+          hideTabList
+        />
+      </div>;
+    }
     return (
-      <ContextTreeModule
+      <div className="contextual-surface context-contextual-surface">
+        {contextTabs}
+        <ContextTreeModule
         ctx={props.contextTree}
         apiBase={props.apiBase}
         apiToken={props.apiToken}
         workspaceRoot={snapshot?.project.root || snapshot?.workspace.scopeRoot || snapshot?.workspace.repoRoot || ''}
         onSetSection={props.onSetSection}
         onCreatePlan={(title, summary) => {
+          const task = [title.trim(), summary.trim()].filter(Boolean).join('\n\n');
+          props.onDraftChange('pipeline', task);
           props.onSetSection('pipeline');
-          return props.onRunPlanTask([title.trim(), summary.trim()].filter(Boolean).join('\n\n'));
+          return Promise.resolve();
         }}
         onRunContextCommand={props.onRunContextCommand}
         onOpenInWorkspace={(path) => {
@@ -1752,7 +1949,8 @@ export function ControlSections(props: Props) {
         initialSelectedNodeId={props.initialContextSelectedNodeId}
         initialEditingPatchId={props.initialContextEditingPatchId}
         onInitialStateConsumed={props.onInitialContextStateConsumed}
-      />
+        />
+      </div>
     );
   }
 
@@ -1761,22 +1959,81 @@ export function ControlSections(props: Props) {
     const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
     const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
     const routerLastPick = String(props.router?.policy?.last_pick || props.router?.list?.last_pick || "—");
+    const operationTabs = [
+      ['providers', 'Proveedores', 'server'],
+      ['runtime', 'Runtime', 'live'],
+      ['memory', 'Memoria', 'bank'],
+      ['vision', 'Visión', 'review'],
+      ['configuration', 'Configuración', 'cog']
+    ] as const;
+    const providerCenter = <ProviderCenterModule
+      title="Centro de proveedores"
+      subtitle="Configura proveedores, elige modelos para la sesión y controla el router desde una sola superficie."
+      frameworkLabel={String(snapshot?.framework.root || 'Framework no confirmado')}
+      projectLabel={String(snapshot?.project.root || 'Proyecto no confirmado')}
+      scopeLabel={String(snapshot?.workspace.scopeRoot || 'Scope no confirmado')}
+      providers={providers.map((provider, index): ProviderCenterProvider => ({
+        id: String(provider.id || provider.name || index),
+        name: String(provider.name || provider.id || 'Proveedor'),
+        description: String(provider.description || ''),
+        state: String(provider.state || ''),
+        configured: Boolean(provider.configured ?? false),
+        modelCount: Array.isArray(provider.models) ? provider.models.length : Number(provider.modelCount ?? 0),
+        models: Array.isArray(provider.models) ? provider.models.map((model) => typeof model === 'string' ? model : String((model as RecordValue).id || (model as RecordValue).model_id || '')).filter(Boolean) : [],
+        raw: provider
+      }))}
+      routerEntries={chatModelEntries.map((entry, index): ProviderCenterRouterEntry => ({
+        id: String(entry.key || `${entry.provider || 'provider'}/${entry.model_id || entry.wire_name || index}`),
+        label: String(entry.wire_name || entry.model_id || entry.provider || 'Modelo'),
+        provider: String(entry.provider || ''),
+        bestFor: String(entry.best_for || entry.provider || ''),
+        available: entry.available !== false,
+        selected: Boolean(entry.selected),
+        contextTokens: Number(entry.context_tokens ?? 0) || undefined,
+        raw: entry
+      }))}
+      routerAuto={routerAuto}
+      routerSelectedCount={routerSelectedCount}
+      routerLastPick={routerLastPick}
+      sessionModel={props.sessionModel}
+      onRefreshRouter={() => void props.onRefreshRouter()}
+      onSetRouterAuto={(enabled) => void props.onSetRouterAuto(enabled)}
+      onToggleRouter={(key) => void props.onToggleRouter(key)}
+      onConfigureProvider={props.onConfigureProvider}
+      onSetSessionModel={props.onSetSessionModel}
+      onInspectProvider={(provider) => props.onInspect(buildSelection(
+        provider.id,
+        'provider',
+        provider.name,
+        provider.description || provider.state || 'Sin descripción',
+        [`configured: ${String(provider.configured ?? false)}`, `models: ${String(provider.modelCount ?? 0)}`],
+        provider.raw,
+        'system.provider'
+      ))}
+      onInspectRouterEntry={(entry) => props.onInspect(buildSelection(
+        entry.id,
+        'router-entry',
+        entry.label,
+        entry.bestFor || entry.provider || 'Sin descripción',
+        [`provider: ${entry.provider || 'unknown'}`, `selected: ${String(Boolean(entry.selected))}`, `context_tokens: ${String(entry.contextTokens ?? 'unknown')}`],
+        entry.raw,
+        'system.router'
+      ))}
+    />;
     return (
-      <div className="system-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
-        <SystemTabs
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-          providers={providers}
-        routerEntries={chatModelEntries}
-          routerAuto={routerAuto}
-          routerSelectedCount={routerSelectedCount}
-          routerLastPick={routerLastPick}
-          onRefreshRouter={() => props.onRefreshRouter()}
-          onToggleRouter={(key) => props.onToggleRouter(key)}
-          onSetRouterAuto={(enabled) => props.onSetRouterAuto(enabled)}
-          onConfigureProvider={(name, cfg) => props.onConfigureProvider ? props.onConfigureProvider(name, cfg) : Promise.resolve()}
-          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
-        />
+      <div className="system-surface contextual-surface operation-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
+        <nav className="contextual-subnav operation-subnav" aria-label="Herramientas de Operaciones">
+          {operationTabs.map(([id, label, icon]) => <button key={id} type="button" className={operationView === id ? 'is-active' : ''} aria-current={operationView === id ? 'page' : undefined} onClick={() => setOperationView(id)}>
+            <Icon name={icon} size={14} /> {label}
+          </button>)}
+        </nav>
+        <div className="operation-workspace">
+          {operationView === 'providers' && providerCenter}
+          {operationView === 'runtime' && <section className="operation-tool-view"><header><h2>Runtime de modelos</h2><p>Catálogo visible, modelos locales cargados y políticas de descarga.</p></header><ProviderRuntimeTools client={props.client} /></section>}
+          {operationView === 'memory' && <MemoryOperations client={props.client} />}
+          {operationView === 'vision' && <VisionOperations client={props.client} />}
+          {operationView === 'configuration' && <section className="operation-tool-view"><header><h2>Configuración operativa</h2><p>Descubrimiento automático y exclusiones del catálogo local.</p></header><div className="operation-configuration-grid"><AutoConfigCard client={props.client} /><BlacklistCard client={props.client} /></div></section>}
+        </div>
       </div>
     );
   }

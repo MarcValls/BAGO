@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.package/v1",
+  "kind": "capability",
+  "execution_mode": "executable",
+  "id": "local.report-builder",
+  "name": "Constructor de informes",
+  "version": "1.0.0",
+  "description": "Convierte secciones estructuradas en un informe Markdown o JSON.",
+  "author": "BAGO examples",
+  "definition": "definitions/capability.json",
+  "entrypoint": "runtime/run.py",
+  "permissions": [],
+  "compatibility": {
+    "bago_package": "^1.0"
+  },
+  "dependencies": [],
+  "files": [
+    {
+      "path": "definitions/capability.json",
+      "size": 791,
+      "sha256": "4c4a6c2270ab2f2cd534d3bac1cd56c0ba362a93d444c0d5a1aef6bc860992f4"
+    },
+    {
+      "path": "docs/README.md",
+      "size": 228,
+      "sha256": "82e4e474225bb3e06ee13beeec4327b3633a86c43277d640fc2be56dac724cb7"
+    },
+    {
+      "path": "examples/input.json",
+      "size": 162,
+      "sha256": "662c2d25a3cf3cc5fabdc2431fe614e8937d76482f96096e00e9ce8e392bd2b2"
+    },
+    {
+      "path": "runtime/run.py",
+      "size": 1028,
+      "sha256": "edc1eea6d76f7f145bdc4b51a839a1b15526ac87599461265d37028f7dde0b66"
+    }
+  ]
+}

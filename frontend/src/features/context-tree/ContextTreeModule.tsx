@@ -835,9 +835,7 @@ export function ContextTreeModule(props: Props) {
     <div className="task-context-page">
       <header className="context-workbench-header">
         <div className="context-workbench-title">
-          <span className="surface-eyebrow">Proyecto activo</span>
-          <h1>Contexto de {projectName}</h1>
-          <p>{openTaskBranches.length} tareas abiertas · {pendingProposals.length} menciones por validar</p>
+          <p>{openTaskBranches.length} {openTaskBranches.length === 1 ? 'tarea abierta' : 'tareas abiertas'} · {pendingProposals.length} {pendingProposals.length === 1 ? 'mención por validar' : 'menciones por validar'}</p>
         </div>
         <nav className="context-workbench-tabs" aria-label="Vistas de contexto">
           {([['focus', 'Ahora', 'live'], ['tasks', 'Tareas', 'context'], ['library', 'Biblioteca', 'folder']] as const).map(([id, label, icon]) => <button type="button" key={id} className={workbenchView === id ? 'is-active' : ''} onClick={() => changeWorkbenchView(id)}><Icon name={icon} size={12} /> {label}{id === 'focus' && pendingProposals.length > 0 && <span>{pendingProposals.length}</span>}</button>)}
@@ -908,13 +906,15 @@ export function ContextTreeModule(props: Props) {
       ) : workbenchView === 'tasks' ? (
       <div className="task-context-layout">
         <aside className="task-context-branches" aria-label="Ramas de tareas">
-          <div className="task-context-panel-heading"><div><span>PROYECTO</span><strong>{projectName}</strong></div><b>{taskBranches.length}</b></div>
+          <div className="task-context-panel-heading"><strong>Tareas</strong><b>{taskBranches.length}</b></div>
           <div className="task-context-new-branch">
             <input aria-label="Nombre de la nueva tarea" value={newBranchTitle} onChange={(event) => setNewBranchTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void createTaskBranch(); }} placeholder="Nueva tarea o rama…" />
             <button type="button" aria-label="Crear nueva rama" onClick={() => void createTaskBranch()} disabled={!newBranchTitle.trim()}><Icon name="plus" size={13} /></button>
           </div>
-          <div className="task-context-filters" aria-label="Filtrar ramas">
-            {([['all', 'Todas'], ['open', 'Abiertas'], ['closed', 'Cerradas'], ['questions', 'Preguntas'], ['proposals', 'Propuestas'], ['errors', 'Alertas']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={branchFilter === value} className={branchFilter === value ? 'is-active' : ''} onClick={() => setBranchFilter(value)}>{label}</button>)}
+          <div className="task-context-filters">
+            <select aria-label="Filtrar ramas" value={branchFilter} onChange={(event) => setBranchFilter(event.target.value as typeof branchFilter)}>
+              {([['all', 'Todas'], ['open', 'Abiertas'], ['closed', 'Cerradas'], ['questions', 'Preguntas'], ['proposals', 'Propuestas'], ['errors', 'Alertas']] as const).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
           </div>
           <div className="task-context-branch-list">
             {filteredBranches.length === 0 && <div className="task-context-inline-empty">No hay ramas en este filtro.</div>}
@@ -934,7 +934,7 @@ export function ContextTreeModule(props: Props) {
           ) : (
             <>
               <section className="task-context-task-head">
-                <div><span className="task-context-status" data-status={selectedBranch.status}>{branchStatus(selectedBranch)}</span><h2>{compactTaskTitle(selectedBranch.title)}</h2><p>{selectedBranch.summary || 'Esta rama todavía no tiene un resumen. Recopila el chat para construirlo.'}</p></div>
+                <div><span className="task-context-status" data-status={selectedBranch.status}>{branchStatus(selectedBranch)}</span><h2>{compactTaskTitle(selectedBranch.title)}</h2><p>ID: {selectedBranch.id}</p></div>
                 <div className="task-context-task-actions"><button type="button" className="secondary-button compact" onClick={openChat}><Icon name="chat" size={12} /> Ver conversación</button><button type="button" className="primary-button compact" onClick={openCollection}><Icon name="sparkle" size={12} /> Recopilar de esta tarea</button>{selectedBranch.status === 'canon' || selectedBranch.status === 'archived' ? <button type="button" className="secondary-button compact" onClick={() => void reopenSelectedTask()}><Icon name="refresh" size={12} /> Reabrir tarea</button> : <button type="button" className="secondary-button compact" onClick={() => setCloseOpen((value) => !value)}><Icon name="check" size={12} /> Cerrar tarea</button>}</div>
               </section>
               {closeOpen && selectedBranch.status !== 'canon' && selectedBranch.status !== 'archived' && <section className="task-context-close-form"><strong>Cerrar esta rama</strong><span>Escribe qué se ha resuelto. Quedará guardado como conclusión y podrás reabrirla después.</span><textarea aria-label="Conclusión de la tarea" value={closeNote} onChange={(event) => setCloseNote(event.target.value)} placeholder="Conclusión o evidencia de cierre…" rows={3} /><div><button type="button" className="secondary-button compact" onClick={() => { setCloseOpen(false); setCloseNote(''); }}>Cancelar</button><button type="button" className="primary-button compact" disabled={!closeNote.trim()} onClick={() => void closeSelectedTask()}><Icon name="check" size={12} /> Confirmar cierre</button></div></section>}

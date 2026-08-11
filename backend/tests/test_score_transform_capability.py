@@ -33,7 +33,7 @@ def test_package_executes_musicxml_pipeline_with_receipt(tmp_path, monkeypatch):
         confirm_trust=True,
     )
     assert imported["package"]["permissions"] == ["filesystem.read", "filesystem.write", "process"]
-    packages.set_enabled("music.score-transform", True)
+    packages.set_enabled("music.score-transform", True, confirm_trust=True)
     packages.configure_package("music.score-transform", {
         "audiveris_path": str(AUDIVERIS),
         "output_dir": str(tmp_path / "output"),

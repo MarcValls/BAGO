@@ -10,6 +10,7 @@ import type {
   BackendStatus,
   UiBootData
 } from '@/contracts/backend';
+import type { CapabilityExecutionResponse, CapabilityPackageResponse, PackageInspection } from '@/modules/capability-anatomy/packageContract';
 import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
 
 const FALLBACK_BASE = '';
@@ -165,13 +166,14 @@ export class BagoClient {
   }
 
   async bootstrapLegacy(): Promise<UiBootData> {
-    const [status, session, providers, menu, routes, history, files, evidence, jobs, schedule, routerList, routerPolicy] = await Promise.all([
+    const [status, session, providers, menu, routes, history, conversations, files, evidence, jobs, schedule, routerList, routerPolicy] = await Promise.all([
       this.getStatus().catch(() => undefined),
       this.getSession().catch(() => undefined),
       this.getProviders().catch(() => undefined),
       this.getMenu().catch(() => undefined),
       this.getRoutes().catch(() => undefined),
       this.getHistory().catch(() => undefined),
+      this.listConversations().catch(() => undefined),
       this.listFiles().catch(() => undefined),
       this.getEvidenceLatest().catch(() => undefined),
       this.listJobs().catch(() => undefined),
@@ -179,7 +181,7 @@ export class BagoClient {
       this.getRouterList().catch(() => undefined),
       this.getRouterPolicy().catch(() => undefined)
     ]);
-    return { status, session, providers, menu, routes, history, files, evidence, jobs, schedule, router_list: routerList, router_policy: routerPolicy };
+    return { status, session, providers, menu, routes, history, conversations, files, evidence, jobs, schedule, router_list: routerList, router_policy: routerPolicy };
   }
 
   async bootstrapModern(): Promise<UiBootData> {
@@ -360,8 +362,24 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/workspace/conversation', { method: 'POST', body: JSON.stringify({ root, conversation_id: conversationId }) });
   }
 
-  createConversation(title?: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/conversations', { method: 'POST', body: JSON.stringify({ action: 'create', title: title || 'Nuevo chat' }) });
+  listConversations(): Promise<import('@/contracts/backend').BackendConversations> {
+    return this.request('/conversations', { method: 'GET' });
+  }
+
+  createConversation(title?: string): Promise<import('@/contracts/backend').BackendConversations> {
+    return this.request('/conversations', { method: 'POST', body: JSON.stringify({ action: 'create', title: title || 'Nuevo chat' }) });
+  }
+
+  switchConversation(conversationId: string): Promise<import('@/contracts/backend').BackendConversations> {
+    return this.request('/conversations', { method: 'POST', body: JSON.stringify({ action: 'switch', conversation_id: conversationId }) });
+  }
+
+  renameConversation(conversationId: string, title: string): Promise<import('@/contracts/backend').BackendConversations> {
+    return this.request('/conversations', { method: 'POST', body: JSON.stringify({ action: 'rename', conversation_id: conversationId, title }) });
+  }
+
+  archiveConversation(conversationId: string): Promise<import('@/contracts/backend').BackendConversations> {
+    return this.request('/conversations', { method: 'POST', body: JSON.stringify({ action: 'archive', conversation_id: conversationId }) });
   }
 
   browseWorkspace(path?: string): Promise<{
@@ -459,11 +477,18 @@ export class BagoClient {
 
   // --- Pipeline ---
   listPlans(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/pipeline/plans', { method: 'GET' });
+    return this.request<Record<string, unknown>>('/plans', { method: 'GET' });
+  }
+
+  createPlan(task: string, autoExecute = false): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/plans', {
+      method: 'POST',
+      body: JSON.stringify({ task, auto_execute: autoExecute, channel: 'ui-react', surface: 'ui-react' })
+    }, 60_000);
   }
 
   executePlan(planId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/pipeline/plans/${encodeURIComponent(planId)}/execute`, {
+    return this.request<Record<string, unknown>>(`/plans/${encodeURIComponent(planId)}/execute`, {
       method: 'POST',
       body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
     }, 60_000);
@@ -493,7 +518,7 @@ export class BagoClient {
   }
 
   analyzeVision(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/analyze/vision', {
+    return this.request<Record<string, unknown>>('/vision', {
       method: 'POST',
       body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
     }, 60_000);
@@ -501,36 +526,65 @@ export class BagoClient {
 
   // --- Capability Packages ---
   listCapabilityPackages(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/capabilities/packages', { method: 'GET' });
+    return this.request<Record<string, unknown>>('/api/v1/capability-packages', { method: 'GET' });
   }
 
   listCapabilityReceipts(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/capabilities/receipts', { method: 'GET' });
+    return this.request<Record<string, unknown>>('/api/v1/capability-packages/receipts', { method: 'GET' });
   }
 
-  importCapabilityPackage(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/capabilities/packages/import', {
+
+  listCapabilityExamples(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/api/v1/capability-packages/examples', { method: 'GET' });
+  }
+
+  installCapabilityExample(packageId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/v1/capability-packages/${encodeURIComponent(packageId)}/install-example`, {
       method: 'POST',
-      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  inspectCapabilityPackage(fileName: string, contentBase64: string): Promise<PackageInspection> {
+    return this.request<PackageInspection>('/api/v1/capability-packages/inspect', {
+      method: 'POST',
+      body: JSON.stringify({ file_name: fileName, content_base64: contentBase64, channel: 'ui-react', surface: 'ui-react' })
     }, 60_000);
   }
 
-  setCapabilityPackageEnabled(packageId: string, enabled: boolean): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/capabilities/packages/${encodeURIComponent(packageId)}/enabled`, {
+  importCapabilityPackage(payload: { fileName: string; contentBase64: string; confirmTrust?: boolean }): Promise<CapabilityPackageResponse> {
+    return this.request<CapabilityPackageResponse>('/api/v1/capability-packages/import', {
       method: 'POST',
-      body: JSON.stringify({ enabled, channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({
+        file_name: payload.fileName,
+        content_base64: payload.contentBase64,
+        confirm_trust: payload.confirmTrust === true,
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
+    }, 60_000);
+  }
+
+  exportCapabilityPackage(packageId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/v1/capability-packages/${encodeURIComponent(packageId)}/export`, { method: 'GET' });
+  }
+
+  setCapabilityPackageEnabled(packageId: string, enabled: boolean, confirmTrust = false): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/v1/capability-packages/${encodeURIComponent(packageId)}/enable`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled, confirm_trust: confirmTrust, channel: 'ui-react', surface: 'ui-react' })
     });
   }
 
   configureCapabilityPackage(packageId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/capabilities/packages/${encodeURIComponent(packageId)}/config`, {
+    return this.request<Record<string, unknown>>(`/api/v1/capability-packages/${encodeURIComponent(packageId)}/configure`, {
       method: 'POST',
-      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({ config: payload, channel: 'ui-react', surface: 'ui-react' })
     });
   }
 
-  executeCapabilityPackage(packageId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/capabilities/packages/${encodeURIComponent(packageId)}/execute`, {
+  executeCapabilityPackage(packageId: string, payload?: Record<string, unknown>): Promise<CapabilityExecutionResponse> {
+    return this.request<CapabilityExecutionResponse>(`/api/v1/capability-packages/${encodeURIComponent(packageId)}/execute`, {
       method: 'POST',
       body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
     }, 60_000);
@@ -649,6 +703,34 @@ export class BagoClient {
 
   listSchedule(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/schedule/list', { method: 'GET' });
+  }
+
+  createSchedule(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/schedule', {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  updateSchedule(scheduleId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/schedule/${encodeURIComponent(scheduleId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
+    });
+  }
+
+  runSchedule(scheduleId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/schedule/${encodeURIComponent(scheduleId)}/run`, {
+      method: 'POST',
+      body: '{}'
+    }, 60_000);
+  }
+
+  deleteSchedule(scheduleId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/schedule/${encodeURIComponent(scheduleId)}/delete`, {
+      method: 'POST',
+      body: '{}'
+    });
   }
 
   readFile(filePath: string, options: { optional?: boolean } = {}): Promise<Record<string, unknown>> {

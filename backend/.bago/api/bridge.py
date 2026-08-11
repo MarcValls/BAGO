@@ -277,6 +277,8 @@ class BagoAPIServer:
         self.token = token
         self._server: HTTPServer | None = None
         self._thread: threading.Thread | None = None
+        self._schedule_thread: threading.Thread | None = None
+        self._schedule_stop = threading.Event()
         # v0.3: pasar state_root canónico; base_path solo como fallback legacy.
         # session_mgr.state_root existe siempre (ver session_manager.py:210).
         _sm_state_root = getattr(session_mgr, "state_root", None)
@@ -308,6 +310,9 @@ class BagoAPIServer:
         self.port = self._server.server_port
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
+        self._schedule_stop.clear()
+        self._schedule_thread = threading.Thread(target=self._schedule_loop, daemon=True, name="bago-scheduler")
+        self._schedule_thread.start()
         print(f"[API] Servidor iniciado en http://{self.host}:{self.port}")
         get_logger().info("server_started", host=self.host, port=self.port, has_token=bool(self.token))
         if self.token:
@@ -318,12 +323,33 @@ class BagoAPIServer:
             print(f"[API] UI React servida desde: {self.static_dir}")
 
     def stop(self) -> None:
+        self._schedule_stop.set()
+        if self._schedule_thread and self._schedule_thread.is_alive():
+            self._schedule_thread.join(timeout=6)
+        self._schedule_thread = None
         if self._server:
             self._server.shutdown()
             self._server.server_close()
             self._server = None
             print("[API] Servidor detenido.")
             get_logger().info("server_stopped")
+
+    def _schedule_loop(self) -> None:
+        from handlers_schedule import run_due_schedules
+        while not self._schedule_stop.wait(5):
+            try:
+                results = run_due_schedules(self.session_mgr)
+            except Exception as exc:
+                get_logger().error("schedule_tick_failed", error=str(exc))
+                continue
+            for result in results:
+                schedule = result.get("schedule", {})
+                get_logger().info(
+                    "schedule_executed",
+                    schedule_id=str(schedule.get("id") or ""),
+                    ok=bool(result.get("ok")),
+                    receipt_id=str(schedule.get("last_receipt_id") or ""),
+                )
 
     @property
     def running(self) -> bool:

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/schemas/bago.capability-definition.v1.schema.json",
+  "title": "BAGO capability definition v1",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string"},
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "kind": {"const": "python"},
+        "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900}
+      }
+    },
+    "configuration_schema": {"type": "object"},
+    "input_schema": {"type": "object"},
+    "output_schema": {"type": "object"},
+    "tags": {"type": "array", "items": {"type": "string"}}
+  }
+}

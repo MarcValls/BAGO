@@ -15,23 +15,30 @@ function statusOf(item: RecordValue): string {
 interface Props {
   client: BagoClient;
   onRefreshSnapshot: () => void;
+  onSetSection?: (section: 'chat' | 'pipeline' | 'workspace' | 'system' | 'home' | 'context' | 'evidence') => void;
 }
 
-export function PipelineControlPanel({ client, onRefreshSnapshot }: Props) {
+export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection }: Props) {
   const [plans, setPlans] = useState<RecordValue[]>([]);
   const [jobs, setJobs] = useState<RecordValue[]>([]);
+  const [schedules, setSchedules] = useState<RecordValue[]>([]);
   const [selectedJob, setSelectedJob] = useState<RecordValue | null>(null);
   const [pendingPlan, setPendingPlan] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [scheduleName, setScheduleName] = useState('');
+  const [scheduleTask, setScheduleTask] = useState('');
+  const [scheduleMinutes, setScheduleMinutes] = useState(60);
+  const [scheduleConfirmed, setScheduleConfirmed] = useState(false);
 
   async function load() {
     setError('');
     try {
-      const [planPayload, jobPayload] = await Promise.all([client.listPlans(), client.listJobs()]);
+      const [planPayload, jobPayload, schedulePayload] = await Promise.all([client.listPlans(), client.listJobs(), client.listSchedule()]);
       setPlans(records(planPayload.plans));
       setJobs(records(jobPayload.jobs));
+      setSchedules(records(schedulePayload.jobs));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -39,11 +46,12 @@ export function PipelineControlPanel({ client, onRefreshSnapshot }: Props) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([client.listPlans(), client.listJobs()])
-      .then(([planPayload, jobPayload]) => {
+    Promise.all([client.listPlans(), client.listJobs(), client.listSchedule()])
+      .then(([planPayload, jobPayload, schedulePayload]) => {
         if (!active) return;
         setPlans(records(planPayload.plans));
         setJobs(records(jobPayload.jobs));
+        setSchedules(records(schedulePayload.jobs));
       })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
     return () => { active = false; };
@@ -58,6 +66,9 @@ export function PipelineControlPanel({ client, onRefreshSnapshot }: Props) {
       setMessage(String(result.message || (result.ok === false ? 'La operación no se completó.' : 'Operación completada.')));
       await load();
       onRefreshSnapshot();
+      if (action.startsWith('execute:') && typeof onSetSection === 'function') {
+        setTimeout(() => onSetSection('chat'), 0);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -78,17 +89,35 @@ export function PipelineControlPanel({ client, onRefreshSnapshot }: Props) {
     }
   }
 
+  const createSchedule = () => run('schedule:create', async () => {
+    const response = await client.createSchedule({
+      name: scheduleName.trim(),
+      target_type: 'task',
+      target: { task: scheduleTask.trim() },
+      schedule_type: 'interval',
+      interval_s: Math.max(1, scheduleMinutes) * 60,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      enabled: true,
+      confirmed: scheduleConfirmed,
+      approved_permissions: []
+    });
+    setScheduleName('');
+    setScheduleTask('');
+    setScheduleConfirmed(false);
+    return response;
+  });
+
   return (
     <section className="pipeline-control-center" aria-label="Planes guardados y jobs">
       <div className="pipeline-section-head">
-        <div><span className="surface-eyebrow">Control de ejecución</span><strong>Planes guardados y jobs</strong></div>
+        <strong>Planes y ejecuciones</strong>
         <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void load()}><Icon name="refresh" size={13} /> Refrescar</button>
       </div>
 
       <div className="pipeline-runtime-grid">
         <article>
           <div className="pipeline-runtime-title"><strong>Planes</strong><span>{plans.length}</span></div>
-          {plans.length === 0 ? <p className="pipeline-runtime-empty">No hay planes persistentes en esta sesión.</p> : (
+          {plans.length === 0 ? <p className="pipeline-runtime-empty">No hay planes guardados.</p> : (
             <ul className="pipeline-runtime-list">
               {plans.map((plan, index) => {
                 const planId = String(plan.id || plan.plan_id || `plan-${index}`);
@@ -112,7 +141,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot }: Props) {
 
         <article>
           <div className="pipeline-runtime-title"><strong>Jobs</strong><span>{jobs.length}</span></div>
-          {jobs.length === 0 ? <p className="pipeline-runtime-empty">No hay jobs activos ni programados.</p> : (
+          {jobs.length === 0 ? <p className="pipeline-runtime-empty">No hay ejecuciones.</p> : (
             <ul className="pipeline-runtime-list">
               {jobs.map((job, index) => {
                 const executionId = String(job.execution_id || job.id || `job-${index}`);
@@ -131,6 +160,35 @@ export function PipelineControlPanel({ client, onRefreshSnapshot }: Props) {
           )}
         </article>
       </div>
+
+      <section className="pipeline-schedule-workbench">
+        <div className="pipeline-section-head">
+          <strong>Programaciones</strong>
+          <span>{schedules.length} configuradas</span>
+        </div>
+        <form className="pipeline-schedule-form" onSubmit={(event) => { event.preventDefault(); void createSchedule(); }}>
+          <label><span>Nombre</span><input value={scheduleName} required maxLength={120} onChange={(event) => setScheduleName(event.target.value)} placeholder="Informe semanal" /></label>
+          <label className="pipeline-schedule-task"><span>Tarea</span><textarea value={scheduleTask} required rows={2} onChange={(event) => setScheduleTask(event.target.value)} placeholder="Genera un informe de los archivos modificados..." /></label>
+          <label><span>Cada (minutos)</span><input type="number" min={1} value={scheduleMinutes} onChange={(event) => setScheduleMinutes(Math.max(1, Number(event.target.value) || 1))} /></label>
+          <label className="capability-package-check"><input type="checkbox" checked={scheduleConfirmed} onChange={(event) => setScheduleConfirmed(event.target.checked)} /><span>Confirmo la creación y ejecución recurrente</span></label>
+          <button className="primary-button compact" type="submit" disabled={Boolean(busy) || !scheduleName.trim() || !scheduleTask.trim() || !scheduleConfirmed}>{busy === 'schedule:create' ? 'Creando…' : 'Crear programación'}</button>
+        </form>
+        <div className="pipeline-schedule-list">
+          {schedules.length === 0 && <p className="pipeline-runtime-empty">No hay tareas programadas.</p>}
+          {schedules.map((schedule) => {
+            const id = String(schedule.id || '');
+            const enabled = schedule.enabled === true;
+            return <article key={id}>
+              <span><strong>{String(schedule.name || id)}</strong><small>{enabled ? 'Activa' : 'Pausada'} · próxima {String(schedule.next_run_at || 'sin fecha')} · {Number(schedule.run_count || 0)} ejecuciones</small>{schedule.error ? <em>{String(schedule.error)}</em> : null}</span>
+              <div>
+                <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void run(`schedule:run:${id}`, () => client.runSchedule(id))}>Ejecutar ahora</button>
+                <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void run(`schedule:toggle:${id}`, () => client.updateSchedule(id, { enabled: !enabled, confirmed: true }))}>{enabled ? 'Pausar' : 'Reanudar'}</button>
+                <button className="text-button danger" type="button" disabled={Boolean(busy)} onClick={() => void run(`schedule:delete:${id}`, () => client.deleteSchedule(id))}>Eliminar</button>
+              </div>
+            </article>;
+          })}
+        </div>
+      </section>
 
       {message && <div className="system-tool-message" role="status">{message}</div>}
       {error && <div className="system-tool-message is-error" role="alert">{error}</div>}

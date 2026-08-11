@@ -54,12 +54,12 @@ def isolated_state(tmp_path, monkeypatch):
 
 
 def test_import_enable_configure_execute_and_persist_receipt():
-    with pytest.raises(packages.CapabilityPackageError, match="confirma"):
-        packages.import_package(content_base64=archive(), file_name="text-stats.zip", confirm_trust=False)
-
-    imported = packages.import_package(content_base64=archive(), file_name="text-stats.zip", confirm_trust=True)
+    imported = packages.import_package(content_base64=archive(), file_name="text-stats.zip", confirm_trust=False)
     assert imported["package"]["enabled"] is False
-    assert packages.set_enabled("local.text-stats", True)["enabled"] is True
+    assert imported["package"]["trust_state"] == "untrusted"
+    with pytest.raises(packages.CapabilityPackageError, match="confianza"):
+        packages.set_enabled("local.text-stats", True)
+    assert packages.set_enabled("local.text-stats", True, confirm_trust=True)["enabled"] is True
     assert packages.configure_package("local.text-stats", {"lowercase": True})["config"] == {"lowercase": True}
 
     result = packages.execute_package(
@@ -102,7 +102,7 @@ def test_execution_requires_activation_confirmation_and_permissions():
     packages.import_package(content_base64=content, file_name="permissions.zip", confirm_trust=True)
     with pytest.raises(packages.CapabilityPackageError, match="Activa"):
         packages.execute_package("local.text-stats", inputs={"text": "x"}, confirmed=True, approved_permissions=[])
-    packages.set_enabled("local.text-stats", True)
+    packages.set_enabled("local.text-stats", True, confirm_trust=True)
     with pytest.raises(packages.CapabilityPackageError, match="confirmación"):
         packages.execute_package("local.text-stats", inputs={"text": "x"}, confirmed=False, approved_permissions=[])
     with pytest.raises(packages.CapabilityPackageError, match="filesystem.read"):

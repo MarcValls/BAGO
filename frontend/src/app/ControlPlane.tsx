@@ -138,6 +138,7 @@ export function ControlPlane() {
   const [providers, setProviders] = useState<BackendProviders | null>(null);
   const [routerState, setRouterState] = useState<{ list: BackendRouterList | null; policy: BackendRouterPolicy | null }>({ list: null, policy: null });
   const [history, setHistory] = useState<BackendHistory | null>(null);
+  const [conversations, setConversations] = useState<import('@/contracts/backend').BackendConversations | null>(null);
   const [files, setFiles] = useState<Record<string, unknown> | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   // CANON[CTX-002]: Patches que ya fueron entregados al módulo de
@@ -158,7 +159,7 @@ export function ControlPlane() {
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
-  const pendingConversationIdRef = useRef('');
+  const conversationRevisionRef = useRef(0);
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -194,10 +195,13 @@ export function ControlPlane() {
     });
   };
 
-  const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>) => {
+  const applyBootData = (
+    data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
+    requestedConversationRevision = conversationRevisionRef.current
+  ) => {
     const nextSnapshot = buildSnapshot(data);
     const nextHistory = (data.history || null) as BackendHistory | null;
-    const nextConversationId = String(nextHistory?.conversation_id || '').trim();
+    const conversationStateIsCurrent = requestedConversationRevision === conversationRevisionRef.current;
     const nextOpening = resolveOpeningState(nextSnapshot);
     setSnapshot(nextSnapshot);
     setOpening(nextOpening);
@@ -208,13 +212,13 @@ export function ControlPlane() {
       list: (data.router_list || null) as BackendRouterList | null,
       policy: (data.router_policy || null) as BackendRouterPolicy | null
     });
-    setHistory(nextHistory);
+    if (conversationStateIsCurrent) {
+      setHistory(nextHistory);
+      setConversations(data.conversations || null);
+    }
     setFiles((data.files || null) as Record<string, unknown> | null);
     setTurns((current) => {
-      if (pendingConversationIdRef.current) {
-        if (!nextConversationId || nextConversationId !== pendingConversationIdRef.current) return current;
-        pendingConversationIdRef.current = '';
-      }
+      if (!conversationStateIsCurrent) return current;
       return current.length ? current : historyToTurns(nextHistory || undefined);
     });
     if (nextOpening.id === 'enter_directly') {
@@ -226,9 +230,10 @@ export function ControlPlane() {
   const bootstrap = async () => {
     setBooting(true);
     setLastMessage('consultando backend');
+    const requestedConversationRevision = conversationRevisionRef.current;
     try {
       const data = await clientRef.current.bootstrap();
-      const nextSnapshot = applyBootData(data);
+      const nextSnapshot = applyBootData(data, requestedConversationRevision);
       // El snapshot moderno puede llegar antes de que el catálogo del router
       // quede materializado. La lectura dedicada mantiene el selector del chat
       // operativo incluso en ese arranque parcial.
@@ -603,8 +608,9 @@ export function ControlPlane() {
   }, [contextTree.proposals, setAndPersistUiState]);
 
   const refreshAfterMutation = async (): Promise<UiBootstrapSnapshot | null> => {
+    const requestedConversationRevision = conversationRevisionRef.current;
     const next = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
-    return applyBootData(next);
+    return applyBootData(next, requestedConversationRevision);
   };
 
   const refreshRouterState = async (): Promise<void> => {
@@ -1175,29 +1181,57 @@ export function ControlPlane() {
     }
   };
 
+  const replaceConversationState = (payload: import('@/contracts/backend').BackendConversations): void => {
+    const nextHistory = payload.history || null;
+    setConversations(payload);
+    setHistory(nextHistory);
+    setTurns(historyToTurns(nextHistory || undefined));
+  };
+
   const createNewConversation = async (): Promise<void> => {
+    conversationRevisionRef.current += 1;
     const created = await clientRef.current.createConversation();
-    const conversation = created.conversation as Record<string, unknown> | undefined;
-    const history = created.history as BackendHistory | undefined;
     const conversationId = String(
-      conversation?.conversation_id
+      created.conversation?.conversation_id
       || created.active_conversation_id
-      || history?.conversation_id
+      || created.history?.conversation_id
       || ''
     ).trim();
+    if (!conversationId) throw new Error('El backend no confirmó la nueva conversación.');
+    replaceConversationState(created);
     const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
-    if (conversationId) pendingConversationIdRef.current = conversationId;
-    if (conversationId && root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
-    setTurns([]);
-    const sessionId = String(created.session_id || snapshot?.session.id || '').trim();
-    setHistory(history ?? {
-      session_id: sessionId || undefined,
-      conversation_id: conversationId || undefined,
-      messages: [],
-      count: 0
-    });
+    if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     await refreshAfterMutation();
     setLastMessage('nuevo chat creado');
+    window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+  };
+
+  const switchConversation = async (conversationId: string): Promise<void> => {
+    conversationRevisionRef.current += 1;
+    const switched = await clientRef.current.switchConversation(conversationId);
+    replaceConversationState(switched);
+    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+    await refreshAfterMutation();
+    setLastMessage('conversación activada');
+    window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+  };
+
+  const renameConversation = async (conversationId: string, title: string): Promise<void> => {
+    const renamed = await clientRef.current.renameConversation(conversationId, title);
+    setConversations(renamed);
+    setLastMessage('conversación renombrada');
+  };
+
+  const archiveConversation = async (conversationId: string): Promise<void> => {
+    conversationRevisionRef.current += 1;
+    const archived = await clientRef.current.archiveConversation(conversationId);
+    replaceConversationState(archived);
+    const activeId = String(archived.active_conversation_id || archived.history?.conversation_id || '').trim();
+    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    if (root && activeId) await clientRef.current.scopeWorkspaceConversation(root, activeId);
+    await refreshAfterMutation();
+    setLastMessage('conversación archivada');
   };
 
   const setReasoningDepthCb = async (depth: string): Promise<void> => {
@@ -1256,8 +1290,6 @@ export function ControlPlane() {
           onChooseWorkspace={chooseWorkspaceFromHeader}
           onGoHome={() => {
             try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
-            setTurns([]);
-            setHistory(null);
             navigate('home');
           }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
@@ -1308,6 +1340,7 @@ export function ControlPlane() {
                   providers={providers}
                   router={routerState}
                   history={history}
+                  conversations={conversations}
                   files={files}
                   commandResults={commandResults}
                   turns={turns}
@@ -1335,6 +1368,9 @@ export function ControlPlane() {
                   reasoningDepth={reasoningDepth}
                   onSetReasoningDepth={setReasoningDepthCb}
                   onCreateConversation={createNewConversation}
+                  onSwitchConversation={switchConversation}
+                  onRenameConversation={renameConversation}
+                  onArchiveConversation={archiveConversation}
                   workspaceOpenRequest={workspaceOpenRequest}
                   contextClient={clientRef.current}
                   contextTree={contextTree}

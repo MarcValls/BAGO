@@ -49,32 +49,14 @@ def _plan_payload(mgr: Any) -> dict[str, Any]:
 
 def _scheduled_jobs(mgr: Any) -> list[dict[str, Any]]:
     try:
-        from repl_schedule import load_jobs
-    except Exception:
-        return []
-    base_path = getattr(mgr, "base_path", None)
-    if not base_path:
+        from handlers_schedule import _serialised_jobs
+    except ImportError:
         return []
     try:
-        jobs = load_jobs(base_path)
-    except Exception:
+        jobs = _serialised_jobs(mgr)
+    except (OSError, ValueError):
         return []
-    return [
-        {
-            "execution_id": str(j.id),
-            "kind": str(getattr(j, "kind", "schedule")),
-            "prompt": str(getattr(j, "prompt", "")),
-            "cron_expr": str(getattr(j, "cron_expr", "")),
-            "interval_s": getattr(j, "interval_s", None),
-            "next_run_at": str(getattr(j, "next_run_at", "")),
-            "last_run_at": str(getattr(j, "last_run_at", "")),
-            "status": str(getattr(j, "status", "")),
-            "created_at": str(getattr(j, "created_at", "")),
-            "run_count": int(getattr(j, "run_count", 0) or 0),
-            "error": str(getattr(j, "error", "")),
-        }
-        for j in jobs
-    ]
+    return [{**job, "execution_id": str(job.get("id") or ""), "kind": "schedule", "prompt": str(job.get("name") or "")} for job in jobs]
 
 
 def _job_list(mgr: Any) -> list[dict[str, Any]]:

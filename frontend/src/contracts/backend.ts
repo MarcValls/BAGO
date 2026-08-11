@@ -391,6 +391,28 @@ export interface BackendHistory {
   count?: number;
 }
 
+export interface BackendConversation {
+  conversation_id: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
+  last_opened_at?: string;
+  message_count: number;
+  active: boolean;
+  archived?: boolean;
+  preview?: string;
+}
+
+export interface BackendConversations {
+  ok?: boolean;
+  session_id?: string;
+  active_conversation_id?: string;
+  conversations: BackendConversation[];
+  count: number;
+  history?: BackendHistory;
+  conversation?: BackendConversation;
+}
+
 export interface BackendFileSourceRoot {
   key?: string;
   label?: string;
@@ -463,6 +485,7 @@ export interface UiBootData {
   menu?: BackendMenu;
   routes?: BackendRoutes;
   history?: BackendHistory;
+  conversations?: BackendConversations;
   files?: Record<string, unknown>;
   evidence?: Record<string, unknown>;
   jobs?: Record<string, unknown>;

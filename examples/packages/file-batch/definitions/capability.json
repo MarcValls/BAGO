@@ -1,0 +1,36 @@
+{
+  "id": "local.file-batch",
+  "runtime": {
+    "kind": "python",
+    "timeout_s": 15
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "max_files": {
+        "type": "integer",
+        "title": "Limite de archivos",
+        "default": 100
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "root": {
+        "type": "string",
+        "title": "Carpeta"
+      },
+      "pattern": {
+        "type": "string",
+        "title": "Patron glob",
+        "default": "*"
+      }
+    },
+    "required": ["root"]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "tags": ["example", "files", "productivity"]
+}
