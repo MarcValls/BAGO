@@ -151,8 +151,141 @@ export interface CapabilityMap {
   can_retry_pipeline?: boolean;
   can_stop_pipeline?: boolean;
   can_view_raw?: boolean;
+  can_view_agents?: boolean;
+  can_manage_agents?: boolean;
+  can_delete_agents?: boolean;
+  can_test_agents?: boolean;
+  can_interpret?: boolean;
+  can_view_interpretation_history?: boolean;
+  can_manage_github_auth?: boolean;
   [key: string]: boolean | undefined;
 }
+
+// ─── AGENTS ───────────────────────────────────────────────────────────────
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  description?: string;
+  systemPrompt: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  enabled: boolean;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentRuntimeState {
+  agentId: string;
+  available: boolean;
+  configurationValid: boolean;
+  effectiveProvider?: string;
+  effectiveModel?: string;
+  errors: string[];
+}
+
+export interface AgentUpdateRequest {
+  revision: number;
+  name?: string;
+  description?: string;
+  systemPrompt?: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  enabled?: boolean;
+}
+
+export interface AgentTestResult {
+  success: boolean;
+  provider?: string;
+  model?: string;
+  durationMs: number;
+  output?: string;
+  error?: string;
+}
+
+// ─── INTERPRETATION ──────────────────────────────────────────────────────
+
+export type InterpretationStageType =
+  | 'input'
+  | 'normalization'
+  | 'intent'
+  | 'context'
+  | 'constraints'
+  | 'routing'
+  | 'decision'
+  | 'output';
+
+export interface InterpretationStage {
+  id: string;
+  order: number;
+  type: InterpretationStageType;
+  label: string;
+  summary: string;
+  confidence?: number;
+  evidence?: InterpretationEvidence[];
+  metadata?: Record<string, unknown>;
+  durationMs?: number;
+}
+
+export interface InterpretationEvidence {
+  type: string;
+  source?: string;
+  reference?: string;
+  value?: unknown;
+}
+
+export interface InterpretationResult {
+  interpretationId: string;
+  input: string;
+  stages: InterpretationStage[];
+  interpretedIntent: string;
+  finalOutput?: string;
+  confidence?: number;
+  agentId?: string;
+  provider?: string;
+  model?: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+}
+
+export interface InterpretationRequest {
+  input: string;
+  agentId?: string;
+  context?: Record<string, unknown>;
+  options?: Record<string, unknown>;
+}
+
+// ─── GITHUB AUTH ─────────────────────────────────────────────────────────
+
+export type GitHubCredentialStorage = 'secure' | 'plaintext' | 'unknown';
+
+export interface GitHubAuthState {
+  installed: boolean;
+  authenticated: boolean;
+  hostname?: string;
+  username?: string;
+  activeAccount?: string;
+  scopes?: string[];
+  credentialStorage?: GitHubCredentialStorage;
+  error?: string;
+  checkedAt: string;
+}
+
+// ─── PANELS ──────────────────────────────────────────────────────────────
+
+export type PanelId =
+  | 'agents'
+  | 'interpreter'
+  | 'github-auth'
+  | 'tools'
+  | 'system'
+  | 'capabilities';
 
 export interface UiAction {
   id: string;

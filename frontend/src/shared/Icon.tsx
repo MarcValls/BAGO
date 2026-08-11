@@ -12,7 +12,11 @@ export type IconName =
   | 'chatOff' | 'chatSplit' | 'chatFull' | 'sparkle' | 'cog' | 'shield'
   | 'lock' | 'intent' | 'risk' | 'claim' | 'decision' | 'pack' | 'stale'
   | 'conflict' | 'proposed' | 'canon' | 'target' | 'tree' | 'bank' | 'tray'
-  | 'inbox' | 'rule' | 'verified' | 'dot' | 'collapse' | 'alert' | 'flag' | 'brace' | 'spark';
+  | 'inbox' | 'rule' | 'verified' | 'dot' | 'collapse' | 'alert' | 'flag' | 'brace' | 'spark'
+  | 'agents' | 'interpreter' | 'github'
+  | 'play-circle' | 'pause-circle' | 'trash'
+  | 'check-circle' | 'alert-circle' | 'x-circle' | 'circle' | 'x'
+  | 'loader';
 
 interface Props extends SVGProps<SVGSVGElement> {
   name: IconName;
@@ -98,7 +102,19 @@ const paths: Record<IconName, ReactElement> = {
   alert: <><path d="M12 3 2 21h20Z"/><path d="M12 9v6M12 18h.01"/></>,
   flag: <><path d="M5 21V4h11l-2 4 2 4H5"/></>,
   brace: <><path d="M9 4H5v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4h4M15 4h4v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4h-4"/></>,
-  spark: <><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></>
+  spark: <><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></>,
+  agents: <><circle cx="8" cy="6" r="2.5"/><circle cx="16" cy="6" r="2.5"/><circle cx="12" cy="16" r="2.5"/><path d="M8.5 8.5v5M15.5 8.5v5M12 11v3"/></>,
+  interpreter: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h4M7 12h10M7 16h6"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/></>,
+  github: <><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.84c.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10.02 10.02 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></>,
+  'play-circle': <><circle cx="12" cy="12" r="9"/><path d="M10 8.5l5 3-5 3z"/></>,
+  'pause-circle': <><circle cx="12" cy="12" r="9"/><path d="M10 8h3v8h-3zM14 8h3v8h-3z"/></>,
+  trash: <><path d="M3 6h18M8 6V4h8v2M5 6v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6"/></>,
+  'check-circle': <><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></>,
+  'alert-circle': <><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></>,
+  'x-circle': <><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></>,
+  circle: <circle cx="12" cy="12" r="9" />,
+  x: <><path d="M18 6 6 18M6 6l12 12"/></>,
+  loader: <><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></>
 };
 
 export function Icon({ name, size = 18, ...props }: Props) {

@@ -791,6 +791,70 @@ export class BagoClient {
     });
   }
 
+  // --- Agents ---
+  listAgents(): Promise<{ ok: boolean; agents: Array<Record<string, unknown>>; count: number }> {
+    return this.request('/agents', { method: 'GET' });
+  }
+
+  getAgent(agentId: string): Promise<{ ok: boolean; agent: Record<string, unknown> }> {
+    return this.request(`/agents/${encodeURIComponent(agentId)}`, { method: 'GET' });
+  }
+
+  createAgent(payload: Record<string, unknown>): Promise<{ ok: boolean; agent?: Record<string, unknown>; error?: string }> {
+    return this.request('/agents', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  updateAgent(agentId: string, payload: Record<string, unknown>): Promise<{ ok: boolean; agent?: Record<string, unknown>; error?: string }> {
+    return this.request(`/agents/${encodeURIComponent(agentId)}`, { method: 'PUT', body: JSON.stringify(payload) });
+  }
+
+  deleteAgent(agentId: string): Promise<{ ok: boolean; error?: string }> {
+    return this.request(`/agents/${encodeURIComponent(agentId)}`, { method: 'DELETE' });
+  }
+
+  testAgent(agentId: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    return this.request(`/agents/${encodeURIComponent(agentId)}/test`, { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  // --- Interpretations ---
+  listInterpretations(limit = 20): Promise<{ ok: boolean; interpretations: Array<Record<string, unknown>>; count: number }> {
+    return this.request(`/interpretations?limit=${encodeURIComponent(String(limit))}`, { method: 'GET' });
+  }
+
+  getInterpretation(interpretationId: string): Promise<{ ok: boolean; interpretation?: Record<string, unknown> }> {
+    return this.request(`/interpretations/${encodeURIComponent(interpretationId)}`, { method: 'GET' });
+  }
+
+  createInterpretation(payload: Record<string, unknown>): Promise<{ ok: boolean; interpretation?: Record<string, unknown>; error?: string }> {
+    return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  // --- GitHub Auth ---
+  getGitHubAuthStatus(): Promise<Record<string, unknown>> {
+    return this.request('/github/status', { method: 'GET' });
+  }
+
+  getGitHubAccounts(): Promise<{ ok: boolean; accounts: Array<Record<string, unknown>>; count: number }> {
+    return this.request('/github/accounts', { method: 'GET' });
+  }
+
+  startGitHubAuth(): Promise<Record<string, unknown>> {
+    return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  refreshGitHubAuth(): Promise<Record<string, unknown>> {
+    return this.request('/github/auth/refresh', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  logoutGitHub(hostname?: string): Promise<Record<string, unknown>> {
+    return this.request('/github/auth/logout', { method: 'POST', body: JSON.stringify({ hostname: hostname || 'github.com' }) });
+  }
+
+  setupGitGitHub(email: string, username: string): Promise<Record<string, unknown>> {
+    return this.request('/github/setup-git', { method: 'POST', body: JSON.stringify({ email, username }) });
+  }
+
+  // --- Streaming ---
   async streamChat(
     message: string,
     onChunk: (chunk: string) => void

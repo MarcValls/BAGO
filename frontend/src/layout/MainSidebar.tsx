@@ -1,10 +1,12 @@
-import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, PanelId, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { NAVIGATION_GROUPS } from '@/navigation/actionRegistry';
 import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
 
-function sectionStatus(section: ActiveSection, snapshot: UiBootstrapSnapshot | null): 'ok' | 'warn' | 'error' | 'unknown' {
+function sectionStatus(section: ActiveSection | PanelId, snapshot: UiBootstrapSnapshot | null): 'ok' | 'warn' | 'error' | 'unknown' {
   if (!snapshot) return 'unknown';
+  // Panels don't have status in the bootstrap snapshot
+  if (section === 'agents' || section === 'interpreter' || section === 'github-auth' || section === 'tools' || section === 'capabilities') return 'unknown';
   if (section === 'home') return snapshot.workspace.linkedToSession ? 'ok' : 'warn';
   if (section === 'workspace') return snapshot.workspace.linkedToSession ? 'ok' : snapshot.workspace.manifestState === 'invalid' ? 'error' : 'warn';
   if (section === 'pipeline') return snapshot.jobs?.some((job) => String(job.status || '').toLowerCase().includes('running')) ? 'warn' : 'ok';
@@ -16,10 +18,12 @@ function sectionStatus(section: ActiveSection, snapshot: UiBootstrapSnapshot | n
 
 interface Props {
   activeSection: ActiveSection;
+  activePanel: PanelId | null;
   snapshot: UiBootstrapSnapshot | null;
   workspaceHint?: string;
   collapsed: boolean;
   onNavigate: (section: ActiveSection) => void;
+  onOpenPanel: (panelId: PanelId) => void;
 }
 
 export function MainSidebar(props: Props) {
@@ -33,7 +37,9 @@ export function MainSidebar(props: Props) {
           <section key={group.id} className="sidebar-group" aria-label={group.label}>
             {!props.collapsed && <div className="sidebar-section-title">{group.label}</div>}
             {group.items.map((section) => {
-              const isActive = props.activeSection === section.id;
+              const isActive = section.isPanel
+                ? props.activePanel === section.id
+                : props.activeSection === section.id;
               return (
                 <button
                   key={section.id}
@@ -41,7 +47,7 @@ export function MainSidebar(props: Props) {
                   className={`sidebar-item ${isActive ? 'is-active' : ''}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={props.collapsed ? `${section.label} · ${section.helper || ''}` : section.helper}
-                  onClick={() => props.onNavigate(section.id)}
+                  onClick={() => section.isPanel ? props.onOpenPanel(section.id as PanelId) : props.onNavigate(section.id as ActiveSection)}
                 >
                   <Icon name={section.icon} />
                   {!props.collapsed && <span className="sidebar-item-label">{section.label}</span>}

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, PanelId, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
 import { WorkspaceShell } from '@/layout/WorkspaceShell';
 import { ContextMenu } from '@/layout/ContextMenu';
 import { InspectorDrawer } from '@/layout/InspectorDrawer';
+import { PanelHost } from '@/layout/PanelHost';
 import { createContextActions } from '@/features/context-menu/contextActions';
 import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
@@ -435,13 +436,17 @@ export function ControlPlane() {
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
         return;
       }
-      // Ctrl+1..7: navegar según el registro canónico compartido con el sidebar.
-      if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
+      // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
+      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const target = NAVIGATION_ORDER[idx];
         if (target) {
-          setAndPersistUiState({ activeSection: target });
+          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
+            openPanel(target);
+          } else {
+            setAndPersistUiState({ activeSection: target as ActiveSection });
+          }
         }
         return;
       }
@@ -1090,6 +1095,7 @@ export function ControlPlane() {
   const paletteActions = useMemo(() => {
     const base = createShellActions({
       navigate,
+      openPanel,
       openWorkspace: openWorkspacePicker,
       toggleSidebar: () => setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
@@ -1122,6 +1128,10 @@ export function ControlPlane() {
 
   const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
     setAndPersistUiState({ activeSection: section, globalMode: mode });
+  };
+
+  const openPanel = (panelId: PanelId) => {
+    setAndPersistUiState({ activePanel: panelId });
   };
 
   const toggleRouterSelection = async (key: string): Promise<void> => {
@@ -1264,10 +1274,12 @@ export function ControlPlane() {
           {uiState.globalMode === 'normal' && (
             <MainSidebar
               activeSection={uiState.activeSection}
+              activePanel={uiState.activePanel}
               snapshot={snapshot}
               workspaceHint={uiState.workspaceHint}
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
+              onOpenPanel={openPanel}
             />
           )}
 
@@ -1428,6 +1440,13 @@ export function ControlPlane() {
           level={inspectorSelection.level}
           onClose={() => setInspectorSelection(null)}
           onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
+        />
+      )}
+      {uiState.activePanel && (
+        <PanelHost
+          activePanel={uiState.activePanel}
+          client={clientRef.current ?? undefined}
+          onClose={() => setAndPersistUiState({ activePanel: null })}
         />
       )}
     </>

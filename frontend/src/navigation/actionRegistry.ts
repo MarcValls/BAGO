@@ -1,12 +1,13 @@
-import type { ActiveSection } from '@/contracts/backend';
+import type { ActiveSection, PanelId } from '@/contracts/backend';
 import type { IconName } from '@/shared/Icon';
 
 export interface NavigationItem {
-  id: ActiveSection;
+  id: ActiveSection | PanelId;
   label: string;
   icon: IconName;
   helper: string;
   shortcut: string;
+  isPanel?: boolean;
 }
 
 export interface NavigationGroup {
@@ -51,23 +52,38 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     items: [
       { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+6' }
     ]
+  },
+  {
+    id: 'tools',
+    label: 'Herramientas',
+    items: [
+      { id: 'agents', label: 'Agentes', icon: 'agents', helper: 'Editar y probar agentes', shortcut: 'Ctrl+7', isPanel: true },
+      { id: 'interpreter', label: 'Intérprete', icon: 'interpreter', helper: 'Observar interpretación de consultas', shortcut: 'Ctrl+8', isPanel: true },
+      { id: 'github-auth', label: 'GitHub', icon: 'github', helper: 'Autenticación y scopes de GitHub', shortcut: 'Ctrl+9', isPanel: true }
+    ]
   }
 ];
 
-export const NAVIGATION_ORDER: ActiveSection[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
+export const NAVIGATION_ORDER: (ActiveSection | PanelId)[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
 
-export const SECTION_LABELS: Record<ActiveSection, string> = {
+export const SECTION_LABELS: Record<ActiveSection | PanelId, string> = {
   home: 'Inicio',
   workspace: 'Workspace',
   context: 'Contexto',
   pipeline: 'Pipeline',
   evidence: 'Evidencia',
   system: 'Operación',
-  chat: 'Inicio'
+  chat: 'Inicio',
+  agents: 'Agentes',
+  interpreter: 'Intérprete',
+  'github-auth': 'GitHub',
+  tools: 'Herramientas',
+  capabilities: 'Capacidades'
 };
 
 interface ShellActionHandlers {
   navigate: (section: ActiveSection) => void;
+  openPanel: (panelId: PanelId) => void;
   openWorkspace: () => void;
   toggleSidebar: () => void;
   toggleFocus: () => void;
@@ -88,7 +104,7 @@ export function createShellActions(handlers: ShellActionHandlers): BagoAction[] 
     icon: item.icon,
     shortcut: item.shortcut,
     keywords: [item.helper],
-    action: () => handlers.navigate(item.id)
+    action: () => item.isPanel ? handlers.openPanel(item.id as PanelId) : handlers.navigate(item.id as ActiveSection)
   } satisfies BagoAction));
 
   return [
