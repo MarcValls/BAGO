@@ -7,6 +7,7 @@ import type { MouseEvent } from 'react';
 import type { ExplorerNode, OpenFileTab, WorkspaceFilter } from './workspaceTypes';
 import { languageLabel } from './detectLanguage';
 import { Icon } from '@/shared/Icon';
+import { FileTypeIcon } from './FileTypeIcon';
 
 interface Props {
   explorer: ExplorerNode[];
@@ -91,7 +92,7 @@ function TreeNode(p: NodeProps) {
           aria-expanded={isOpen}
         >
           <span className={`workspace-explorer-caret ${isOpen ? 'is-open' : ''}`}><Icon name="chevron" size={11} /></span>
-          <span className="workspace-explorer-icon"><Icon name="folder" size={14} /></span>
+          <span className="workspace-explorer-icon"><FileTypeIcon node={p.node} size={14} /></span>
           <span className="workspace-explorer-name">{p.node.name}</span>
         </button>
         {isOpen && p.node.children.length > 0 && (
@@ -126,7 +127,7 @@ function TreeNode(p: NodeProps) {
         onContextMenu={(event) => p.onContextMenuFile(event, p.node.path)}
         title={p.node.path}
       >
-        <span className="workspace-explorer-icon"><Icon name="file" size={13} /></span>
+        <span className="workspace-explorer-icon"><FileTypeIcon node={p.node} size={13} /></span>
         <span className="workspace-explorer-name">{p.node.name}</span>
         <span className="workspace-explorer-kind">{languageLabel(p.node.language)}</span>
         <span className="workspace-explorer-flags">

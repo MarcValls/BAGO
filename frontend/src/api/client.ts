@@ -475,6 +475,73 @@ export class BagoClient {
     });
   }
 
+  // --- Agents ---
+  listAgents(): Promise<{ ok: boolean; agents: import('@/contracts/backend').AgentConfig[] }> {
+    return this.request('/agents', { method: 'GET' });
+  }
+
+  getAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'GET' });
+  }
+
+  createAgent(payload: Omit<import('@/contracts/backend').AgentConfig, 'id' | 'revision' | 'createdAt' | 'updatedAt'>): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request('/agents', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  updateAgent(id: string, payload: import('@/contracts/backend').AgentUpdateRequest): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+  }
+
+  deleteAgent(id: string): Promise<void> {
+    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  duplicateAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request(`/agents/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  testAgent(id: string): Promise<import('@/contracts/backend').AgentTestResult> {
+    return this.request(`/agents/${encodeURIComponent(id)}/test`, { method: 'POST', body: JSON.stringify({}) }, 60_000);
+  }
+
+  // --- Interpretations ---
+  createInterpretation(payload: import('@/contracts/backend').InterpretationRequest): Promise<import('@/contracts/backend').InterpretationResult> {
+    return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) }, 60_000);
+  }
+
+  getInterpretation(id: string): Promise<import('@/contracts/backend').InterpretationResult> {
+    return this.request(`/interpretations/${encodeURIComponent(id)}`, { method: 'GET' });
+  }
+
+  listInterpretations(): Promise<{ ok: boolean; interpretations: import('@/contracts/backend').InterpretationResult[] }> {
+    return this.request('/interpretations', { method: 'GET' });
+  }
+
+  cancelInterpretation(id: string): Promise<void> {
+    return this.request(`/interpretations/${encodeURIComponent(id)}/cancel`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  // --- GitHub Auth ---
+  getGitHubAuthStatus(): Promise<import('@/contracts/backend').GitHubAuthState> {
+    return this.request('/github/status', { method: 'GET' });
+  }
+
+  startGitHubAuth(): Promise<{ auth_url: string }> {
+    return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  refreshGitHubAuth(): Promise<import('@/contracts/backend').GitHubAuthState> {
+    return this.request('/github/auth/refresh', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  logoutGitHub(): Promise<void> {
+    return this.request('/github/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  setupGitHub(options: { hostname?: string; token?: string }): Promise<import('@/contracts/backend').GitHubAuthState> {
+    return this.request('/github/setup-git', { method: 'POST', body: JSON.stringify(options) });
+  }
+
   // --- Pipeline ---
   listPlans(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/plans', { method: 'GET' });

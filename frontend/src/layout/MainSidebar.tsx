@@ -1,4 +1,4 @@
-import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, UiBootstrapSnapshot, PanelId } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { NAVIGATION_GROUPS } from '@/navigation/actionRegistry';
 import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
@@ -20,8 +20,8 @@ interface Props {
   workspaceHint?: string;
   collapsed: boolean;
   onNavigate: (section: ActiveSection) => void;
-  onOpenDrawer: (drawer: 'capabilities' | 'pipeline' | 'tools') => void;
-  openDrawer: 'capabilities' | 'pipeline' | 'tools' | null;
+  onOpenDrawer: (drawer: PanelId) => void;
+  openDrawer: PanelId | null;
 }
 
 export function MainSidebar(props: Props) {
@@ -69,6 +69,16 @@ export function MainSidebar(props: Props) {
       <button className={`sidebar-drawer-button ${props.openDrawer === 'pipeline' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Pipeline' : undefined} aria-label="Abrir pipeline" onClick={() => props.onOpenDrawer('pipeline')}>
         <Icon name="pipeline" />
         {!props.collapsed && <span>Pipeline</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'agents' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Agentes' : undefined} aria-label="Abrir agentes" onClick={() => props.onOpenDrawer('agents')}>
+        <Icon name="agent" />
+        {!props.collapsed && <span>Agentes</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'interpreter' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Interprete' : undefined} aria-label="Abrir interprete" onClick={() => props.onOpenDrawer('interpreter')}>
+        <Icon name="interpret" />
+        {!props.collapsed && <span>Interprete</span>}
       </button>
 
       <button className={`sidebar-drawer-button ${props.openDrawer === 'tools' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Herramientas' : undefined} aria-label="Abrir herramientas" onClick={() => props.onOpenDrawer('tools')}>

@@ -12,7 +12,8 @@ export type IconName =
   | 'chatOff' | 'chatSplit' | 'chatFull' | 'sparkle' | 'cog' | 'shield' | 'settings' | 'tools'
   | 'lock' | 'intent' | 'risk' | 'claim' | 'decision' | 'pack' | 'stale'
   | 'conflict' | 'proposed' | 'canon' | 'target' | 'tree' | 'bank' | 'tray'
-  | 'inbox' | 'rule' | 'verified' | 'dot' | 'collapse' | 'alert' | 'flag' | 'brace' | 'spark';
+  | 'inbox' | 'rule' | 'verified' | 'dot' | 'collapse' | 'alert' | 'flag' | 'brace' | 'spark'
+  | 'agent' | 'interpret';
 
 interface Props extends SVGProps<SVGSVGElement> {
   name: IconName;
@@ -99,6 +100,10 @@ const paths: Record<IconName, ReactElement> = {
   flag: <><path d="M5 21V4h11l-2 4 2 4H5"/></>,
   brace: <><path d="M9 4H5v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4h4M15 4h4v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4h-4"/></>,
   spark: <><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></>,
+  // Agent: persona/bust with gear — represents configurable AI agent
+  agent: <><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M12 2v2M12 14v2M2 12h2M20 12h2"/></>,
+  // Interpret: radar/signal wave — represents text interpretation
+  interpret: <><circle cx="12" cy="12" r="2"/><path d="M12 5a7 7 0 0 1 7 7M12 5a7 7 0 0 0-7 7M5 12a7 7 0 0 0 7 7M19 12a7 7 0 0 1-7 7M12 19v3M12 2v3"/></>,
   settings: <><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>,
   tools: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 9h8M8 13h6M8 17h10"/></>,
   chevronDown: <><path d="m6 9 6 6 6-6"/></>,

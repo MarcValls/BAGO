@@ -108,7 +108,19 @@
   --status-ok: var(--green);
   --status-warn: var(--amber);
   --status-error: var(--red);
-}
+
+  /* File type colors (Phase J) */
+  --color-file-javascript: #f7df1e;
+  --color-file-typescript: #3178c6;
+  --color-file-python: #3572A5;
+  --color-file-json: #a6cc75;
+  --color-file-html: #e34c26;
+  --color-file-css: #563d7c;
+  --color-file-markdown: #083fa1;
+  --color-file-shell: #89e051;
+  --color-file-config: #8d8d8d;
+  --color-file-image: #c57dde;
+  --color-file-default: var(--text-3);
 
 :root.theme-light,
 .app-root.theme-light {
@@ -134,7 +146,19 @@
   --cyan: #0a7b8f;
   --cyan-soft: rgba(10, 123, 143, 0.12);
   --shadow: 0 10px 30px rgba(12, 24, 45, 0.14);
-}
+
+  /* File type colors — light theme */
+  --color-file-javascript: #b5a600;
+  --color-file-typescript: #2564a6;
+  --color-file-python: #2b6491;
+  --color-file-json: #547A3A;
+  --color-file-html: #c23d1a;
+  --color-file-css: #3d2f7a;
+  --color-file-markdown: #0737a5;
+  --color-file-shell: #4c9036;
+  --color-file-config: #707070;
+  --color-file-image: #9b4db8;
+  --color-file-default: var(--text-3);
 
 /* Recalcular derivados en el mismo elemento que posee la paleta activa. */
 .app-root {

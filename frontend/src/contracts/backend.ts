@@ -140,20 +140,6 @@ export interface CodeTaskSnapshot {
   context?: Record<string, unknown>;
 }
 
-export interface CapabilityMap {
-  can_chat?: boolean;
-  can_run_command?: boolean;
-  can_initialize_workspace?: boolean;
-  can_link_workspace?: boolean;
-  can_repair_workspace?: boolean;
-  can_read_files?: boolean;
-  can_write_files?: boolean;
-  can_retry_pipeline?: boolean;
-  can_stop_pipeline?: boolean;
-  can_view_raw?: boolean;
-  [key: string]: boolean | undefined;
-}
-
 export interface UiAction {
   id: string;
   label: string;
@@ -494,3 +480,147 @@ export interface UiBootData {
   router_list?: BackendRouterList;
   router_policy?: BackendRouterPolicy;
 }
+
+// ─── AGENTS ───────────────────────────────────────────────────────────────────
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  systemPrompt: string;
+  model?: string;
+  provider?: string;
+  temperature?: number;
+  maxTokens?: number;
+  enabled: boolean;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentRuntimeState {
+  id: string;
+  status: 'idle' | 'running' | 'error' | 'unavailable';
+  model?: string;
+  provider?: string;
+  reason?: string;
+}
+
+export interface AgentUpdateRequest {
+  name?: string;
+  systemPrompt?: string;
+  model?: string | null;
+  provider?: string | null;
+  temperature?: number | null;
+  maxTokens?: number | null;
+  enabled?: boolean;
+  revision: number;
+}
+
+export interface AgentTestResult {
+  ok: boolean;
+  output: string;
+  model: string;
+  provider: string;
+  durationMs: number;
+  tokenCount?: number;
+  error?: string;
+}
+
+// ─── INTERPRETATION ──────────────────────────────────────────────────────────
+
+export type InterpretationStageId =
+  | 'input'
+  | 'normalization'
+  | 'intent'
+  | 'context'
+  | 'constraints'
+  | 'routing'
+  | 'decision'
+  | 'output';
+
+export interface InterpretationStage {
+  stage: InterpretationStageId;
+  label: string;
+  status: 'pending' | 'running' | 'succeeded' | 'failed';
+  input?: string;
+  output?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface InterpretationEvidence {
+  type: string;
+  content: string;
+  source?: string;
+}
+
+export interface InterpretationResult {
+  id: string;
+  input: string;
+  stages: InterpretationStage[];
+  finalOutput: string;
+  confidence: number | null;
+  agentId?: string;
+  model?: string;
+  provider?: string;
+  durationMs: number;
+  createdAt: string;
+  cancelledAt?: string;
+  error?: string;
+}
+
+export interface InterpretationRequest {
+  input: string;
+  agentId?: string;
+}
+
+// ─── GITHUB AUTH ─────────────────────────────────────────────────────────────
+
+export type GitHubCredentialStorage = 'secure' | 'plaintext' | 'unknown';
+
+export interface GitHubAuthState {
+  checkedAt: string;
+  installed: boolean;
+  authenticated: boolean;
+  hostname?: string;
+  username?: string;
+  activeAccount?: string;
+  scopes?: string[];
+  credentialStorage: GitHubCredentialStorage;
+  error?: string;
+}
+
+export type GitHubStatusState =
+  | 'checking'
+  | 'cli_unavailable'
+  | 'unauthenticated'
+  | 'authenticating'
+  | 'authenticated'
+  | 'error';
+
+// ─── EXTENDED TYPES ───────────────────────────────────────────────────────────
+
+export interface CapabilityMap {
+  can_chat?: boolean;
+  can_run_command?: boolean;
+  can_initialize_workspace?: boolean;
+  can_link_workspace?: boolean;
+  can_repair_workspace?: boolean;
+  can_read_files?: boolean;
+  can_write_files?: boolean;
+  can_retry_pipeline?: boolean;
+  can_stop_pipeline?: boolean;
+  can_view_raw?: boolean;
+  // Agent management
+  can_view_agents?: boolean;
+  can_manage_agents?: boolean;
+  can_delete_agents?: boolean;
+  can_test_agents?: boolean;
+  // Interpretation
+  can_interpret?: boolean;
+  can_view_interpretation_history?: boolean;
+  // GitHub auth
+  can_manage_github_auth?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+export type PanelId = 'capabilities' | 'system' | 'pipeline' | 'tools' | 'agents' | 'interpreter' | 'github-auth';

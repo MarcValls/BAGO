@@ -1,19 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
-
-export type DrawerId = 'capabilities' | 'system' | 'pipeline' | 'tools';
+import type { PanelId } from '../contracts/backend';
 
 interface UsePanelManagerReturn {
-  openDrawer: DrawerId | null;
-  open: (drawer: DrawerId) => void;
+  openDrawer: PanelId | null;
+  open: (drawer: PanelId) => void;
   close: () => void;
-  toggle: (drawer: DrawerId) => void;
-  isOpen: (drawer: DrawerId) => boolean;
+  toggle: (drawer: PanelId) => void;
+  isOpen: (drawer: PanelId) => boolean;
 }
 
 export function usePanelManager(): UsePanelManagerReturn {
-  const [openDrawer, setOpenDrawer] = useState<DrawerId | null>(null);
+  const [openDrawer, setOpenDrawer] = useState<PanelId | null>(null);
 
-  const open = useCallback((drawer: DrawerId) => {
+  const open = useCallback((drawer: PanelId) => {
     setOpenDrawer(drawer);
   }, []);
 
@@ -21,12 +20,12 @@ export function usePanelManager(): UsePanelManagerReturn {
     setOpenDrawer(null);
   }, []);
 
-  const toggle = useCallback((drawer: DrawerId) => {
+  const toggle = useCallback((drawer: PanelId) => {
     setOpenDrawer((current) => (current === drawer ? null : drawer));
   }, []);
 
   const isOpen = useCallback(
-    (drawer: DrawerId) => openDrawer === drawer,
+    (drawer: PanelId) => openDrawer === drawer,
     [openDrawer]
   );
 

@@ -15,6 +15,9 @@ import { DrawerOverlay } from '@/components/DrawerOverlay';
 import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 import { ToolsPanel } from '@/features/tools/ToolsPanel';
+import { AgentEditorPanel } from '@/features/agents/AgentEditorPanel';
+import { InterpreterPanel } from '@/features/interpretation/InterpreterPanel';
+import { GitHubAuthPanel } from '@/features/github/GitHubAuthPanel';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -1567,13 +1570,25 @@ export function ControlPlane() {
       </DrawerOverlay>
 
       <DrawerOverlay isOpen={isOpen('tools')} onClose={closeDrawer} position="right" width={280}>
-      <div className="drawer-tools-header">
-        <h3>Herramientas</h3>
-        <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
-      </div>
-      <div className="drawer-tools-content">
-        <ToolsPanel client={clientRef.current} />
-      </div>
+        <div className="drawer-tools-header">
+          <h3>Herramientas</h3>
+          <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
+        </div>
+        <div className="drawer-tools-content">
+          <ToolsPanel client={clientRef.current} />
+        </div>
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('agents')} onClose={closeDrawer} position="right" width={480}>
+        <AgentEditorPanel client={clientRef.current} onClose={closeDrawer} />
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('interpreter')} onClose={closeDrawer} position="right" width={440}>
+        <InterpreterPanel client={clientRef.current} onClose={closeDrawer} />
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('github-auth')} onClose={closeDrawer} position="right" width={400}>
+        <GitHubAuthPanel client={clientRef.current} onClose={closeDrawer} />
       </DrawerOverlay>
     </>
   );
