@@ -627,30 +627,90 @@ function ReleaseUpdateCard({ client }: { client: BagoClient }) {
 
 function RoutesView({ routes }: { routes: Record<string, unknown> }) {
   const list = Array.isArray(routes.routes) ? (routes.routes as Array<Record<string, unknown>>) : [];
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const grouped = useMemo(() => {
+    const groups: Record<string, Array<Record<string, unknown>>> = {};
+    for (const r of list) {
+      const path = String(r.path || '');
+      const segment = path.split('/').filter(Boolean)[0] || '/';
+      const key = segment === '' || segment === '/' ? '/' : `/${segment}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    }
+    // Sort groups alphabetically
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [list]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return grouped;
+    const q = query.toLowerCase();
+    return grouped
+      .map(([key, items]) => [key, items.filter((r) => String(r.path || '').toLowerCase().includes(q) || String(r.handler_fn || '').toLowerCase().includes(q))] as [string, Array<Record<string, unknown>>])
+      .filter(([, items]) => items.length > 0);
+  }, [grouped, query]);
+
+  const total = list.length;
+  const shown = filtered.reduce((acc, [, items]) => acc + items.length, 0);
+
+  function toggle(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
   return (
     <div className="routes-view">
-      <DataBlock label="Total" value={String(routes.count ?? list.length)} />
-      <details open>
-        <summary>Listado ({list.length})</summary>
-        <table className="routes-table">
-          <thead>
-            <tr>
-              <th>Método</th>
-              <th>Ruta</th>
-              <th>Handler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((r, idx) => (
-              <tr key={`${r.method}-${r.path}-${idx}`}>
-                <td><span className={`route-method method-${String(r.method || 'GET').toLowerCase()}`}>{String(r.method || '?')}</span></td>
-                <td className="route-path">{String(r.path || '?')}</td>
-                <td className="route-handler">{String(r.handler_module || '?')}.{String(r.handler_fn || '?')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
+      <div className="routes-toolbar">
+        <input
+          className="routes-search"
+          type="search"
+          placeholder="Buscar ruta o handler…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <span className="routes-count">{shown}/{total}</span>
+      </div>
+      <div className="routes-groups">
+        {filtered.length === 0 && (
+          <p className="routes-empty">Sin coincidencias</p>
+        )}
+        {filtered.map(([key, items]) => {
+          const isOpen = expanded.has(key);
+          return (
+            <details key={key} open={isOpen}>
+              <summary onClick={(e) => { e.preventDefault(); toggle(key); }}>
+                <span className="routes-group-label">
+                  <span className={`route-chevron ${isOpen ? 'is-open' : ''}`}><Icon name="chevron" size={11} /></span>
+                  <strong>{key}</strong>
+                  <span className="routes-group-count">{items.length}</span>
+                </span>
+              </summary>
+              <table className="routes-table">
+                <thead>
+                  <tr>
+                    <th>Método</th>
+                    <th>Ruta</th>
+                    <th>Handler</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((r, idx) => (
+                    <tr key={`${r.method}-${r.path}-${idx}`}>
+                      <td><span className={`route-method method-${String(r.method || 'GET').toLowerCase()}`}>{String(r.method || '?')}</span></td>
+                      <td className="route-path">{String(r.path || '?')}</td>
+                      <td className="route-handler">{String(r.handler_module || '?')}.{String(r.handler_fn || '?')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          );
+        })}
+      </div>
     </div>
   );
 }
