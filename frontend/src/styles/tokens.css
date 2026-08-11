@@ -121,6 +121,7 @@
   --color-file-config: #8d8d8d;
   --color-file-image: #c57dde;
   --color-file-default: var(--text-3);
+}
 
 :root.theme-light,
 .app-root.theme-light {
@@ -159,6 +160,7 @@
   --color-file-config: #707070;
   --color-file-image: #9b4db8;
   --color-file-default: var(--text-3);
+}
 
 /* Recalcular derivados en el mismo elemento que posee la paleta activa. */
 .app-root {
