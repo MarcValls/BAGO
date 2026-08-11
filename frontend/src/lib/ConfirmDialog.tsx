@@ -7,6 +7,7 @@ interface Props {
   confirmLabel?: string;
   cancelLabel?: string;
   busy?: boolean;
+  error?: string;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -31,6 +32,7 @@ export function ConfirmDialog(props: Props) {
       )}
     >
       <p className="confirmation-copy">Revisa la acción antes de continuar.</p>
+      {props.error && <p className="confirmation-error" role="alert">{props.error}</p>}
     </Modal>
   );
 }

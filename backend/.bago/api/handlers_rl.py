@@ -38,6 +38,18 @@ def handle_status(handler):
         return
     status = bridge.status()
     status.setdefault("can_execute", False)
+    try:
+        from bago_core.rl_policies import bc_policy_status
+        status["training"] = bc_policy_status(_base_path(handler), n_features=4)
+    except Exception as exc:
+        status["training"] = {
+            "numpy_available": False,
+            "samples": 0,
+            "policy_exists": False,
+            "actions": ["chat", "review", "execute", "work"],
+            "can_execute": False,
+            "error": str(exc),
+        }
     send_json(handler, 200, status)
 
 

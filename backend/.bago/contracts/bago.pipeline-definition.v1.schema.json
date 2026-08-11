@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/schemas/bago.pipeline-definition.v1.schema.json",
+  "title": "BAGO pipeline definition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "steps"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_version": {"const": "bago.pipeline/v1"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"},
+    "description": {"type": "string"},
+    "variables": {"type": "object"},
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"const": "python"},
+        "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900}
+      }
+    },
+    "input_schema": {"type": "object"},
+    "output_schema": {"type": "object"},
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+          "type": {"enum": ["capability", "pipeline", "approval", "noop"]},
+          "depends_on": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string"}
+          },
+          "uses": {"type": "string"},
+          "with": {"type": "object"},
+          "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900},
+          "retry": {
+            "oneOf": [
+              {"type": "integer", "minimum": 0, "maximum": 5},
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "max_attempts": {"type": "integer", "minimum": 1, "maximum": 6},
+                  "delay_s": {"type": "number", "minimum": 0, "maximum": 60}
+                }
+              }
+            ]
+          },
+          "condition": {
+            "oneOf": [
+              {"type": "boolean"},
+              {
+                "type": "string",
+                "pattern": "^(?:!|not )?(?:(?:inputs|variables)\\.[A-Za-z0-9_.-]+|steps\\.[A-Za-z0-9._-]+\\.(?:ok|status))$"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"type": {"enum": ["capability", "pipeline"]}}},
+            "then": {"required": ["uses"]}
+          }
+        ]
+      }
+    }
+  }
+}

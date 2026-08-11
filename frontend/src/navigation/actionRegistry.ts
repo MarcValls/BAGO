@@ -33,23 +33,24 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     label: 'Principal',
     items: [
       { id: 'home', label: 'Inicio', icon: 'home', helper: 'Conversación y punto de entrada', shortcut: 'Ctrl+1' },
-      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos, fuentes y directorio de trabajo', shortcut: 'Ctrl+2' }
+      { id: 'chat', label: 'Chat', icon: 'chat', helper: 'Conversación, modelos, proveedores y agentes', shortcut: 'Ctrl+2' },
+      { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos, fuentes y directorio de trabajo', shortcut: 'Ctrl+3' }
     ]
   },
   {
     id: 'work',
     label: 'Trabajo',
     items: [
-      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Recopilar y preparar el contexto de trabajo', shortcut: 'Ctrl+3' },
-      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+4' },
-      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims, recibos y trazas', shortcut: 'Ctrl+5' }
+      { id: 'context', label: 'Contexto', icon: 'context', helper: 'Recopilar y preparar el contexto de trabajo', shortcut: 'Ctrl+4' },
+      { id: 'pipeline', label: 'Pipeline', icon: 'pipeline', helper: 'Plan, pasos y jobs', shortcut: 'Ctrl+5' },
+      { id: 'evidence', label: 'Evidencia', icon: 'evidence', helper: 'Claims, recibos y trazas', shortcut: 'Ctrl+6' }
     ]
   },
   {
     id: 'system',
     label: 'Sistema',
     items: [
-      { id: 'system', label: 'Operación', icon: 'system', helper: 'Router, proveedores y runtime', shortcut: 'Ctrl+6' }
+      { id: 'system', label: 'Operaciones', icon: 'system', helper: 'Proveedores, router, runtime, memoria y herramientas', shortcut: 'Ctrl+7' }
     ]
   }
 ];
@@ -62,8 +63,8 @@ export const SECTION_LABELS: Record<ActiveSection, string> = {
   context: 'Contexto',
   pipeline: 'Pipeline',
   evidence: 'Evidencia',
-  system: 'Operación',
-  chat: 'Inicio'
+  system: 'Operaciones',
+  chat: 'Chat'
 };
 
 interface ShellActionHandlers {

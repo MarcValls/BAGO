@@ -220,5 +220,37 @@ export function SubagentCatalogue({ payload }: { payload: RecordValue }) {
   const agents = records(payload.agents);
   if (payload.error) return <Message value={String(payload.error)} error />;
   if (agents.length === 0) return <div className="system-tool-empty">No hay roles activos registrados.</div>;
-  return <div className="subagent-catalogue"><div className="system-tab-meta">{agents.length} roles activos · fuente: {String(payload.source || 'backend')}</div><ul className="system-tool-list">{agents.map((agent) => <li key={String(agent.id)}><span><strong>{String(agent.name)}</strong><small>{String(agent.family)} · {records(agent.tools).length || (Array.isArray(agent.tools) ? agent.tools.length : 0)} herramientas · {agent.available === false ? 'archivo ausente' : 'disponible'}</small><small>{String(agent.description || '')}</small></span><span className={`provider-status ${agent.available === false ? 'is-off' : 'is-on'}`}>{agent.available === false ? 'roto' : 'activo'}</span></li>)}</ul></div>;
+  const families = Array.from(new Set(agents.map((agent) => String(agent.family || 'otros'))));
+  return <div className="subagent-catalogue">
+    <div className="system-tab-meta">{agents.length} roles activos · {families.length} familias · fuente: {String(payload.source || 'backend')}</div>
+    <div className="subagent-groups">
+      {families.map((family) => {
+        const familyAgents = agents.filter((agent) => String(agent.family || 'otros') === family);
+        return <section key={family} className="subagent-group">
+          <header><strong>{family}</strong><span>{familyAgents.length}</span></header>
+          <div className="subagent-list">
+            {familyAgents.map((agent) => {
+              const tools = Array.isArray(agent.tools) ? agent.tools.map(String) : [];
+              const available = agent.available !== false;
+              return <details key={String(agent.id)} className="subagent-item">
+                <summary>
+                  <span><strong>{String(agent.name)}</strong><small>{String(agent.description || 'Rol operativo de BAGO')}</small></span>
+                  <span className={`provider-status ${available ? 'is-on' : 'is-off'}`}>{available ? 'activo' : 'no disponible'}</span>
+                  <Icon name="chevron" size={12} />
+                </summary>
+                <div className="subagent-detail">
+                  <dl>
+                    <div><dt>ID</dt><dd>{String(agent.id)}</dd></div>
+                    <div><dt>Versión</dt><dd>{String(agent.version || payload.version || '—')}</dd></div>
+                    <div><dt>Origen</dt><dd>{String(agent.source || 'no informado')}</dd></div>
+                  </dl>
+                  <div className="subagent-tools"><strong>Herramientas</strong>{tools.length ? <div>{tools.map((tool) => <span key={tool}>{tool}</span>)}</div> : <small>Este rol no declara herramientas directas.</small>}</div>
+                </div>
+              </details>;
+            })}
+          </div>
+        </section>;
+      })}
+    </div>
+  </div>;
 }

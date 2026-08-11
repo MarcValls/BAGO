@@ -1,4 +1,4 @@
-import type { ActiveSection, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, UiBootstrapSnapshot, PanelId } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { NAVIGATION_GROUPS } from '@/navigation/actionRegistry';
 import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
@@ -20,6 +20,8 @@ interface Props {
   workspaceHint?: string;
   collapsed: boolean;
   onNavigate: (section: ActiveSection) => void;
+  onOpenDrawer: (drawer: PanelId) => void;
+  openDrawer: PanelId | null;
 }
 
 export function MainSidebar(props: Props) {
@@ -59,15 +61,35 @@ export function MainSidebar(props: Props) {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-status" title={workspaceState}>
-        <span className={`status-orb state-${authority.state}`} />
-        {!props.collapsed && (
-          <div>
-            <strong>{authority.projectLabel || props.workspaceHint || 'BAGO'}</strong>
-            <span>{workspaceState}</span>
-          </div>
-        )}
-      </div>
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'capabilities' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Capacidades' : undefined} aria-label="Abrir capacidades" onClick={() => props.onOpenDrawer('capabilities')}>
+        <Icon name="pack" />
+        {!props.collapsed && <span>Capacidades</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'pipeline' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Pipeline' : undefined} aria-label="Abrir pipeline" onClick={() => props.onOpenDrawer('pipeline')}>
+        <Icon name="pipeline" />
+        {!props.collapsed && <span>Pipeline</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'agents' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Agentes' : undefined} aria-label="Abrir agentes" onClick={() => props.onOpenDrawer('agents')}>
+        <Icon name="agent" />
+        {!props.collapsed && <span>Agentes</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'interpreter' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Interprete' : undefined} aria-label="Abrir interprete" onClick={() => props.onOpenDrawer('interpreter')}>
+        <Icon name="interpret" />
+        {!props.collapsed && <span>Interprete</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'tools' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Herramientas' : undefined} aria-label="Abrir herramientas" onClick={() => props.onOpenDrawer('tools')}>
+        <Icon name="tools" />
+        {!props.collapsed && <span>Herramientas</span>}
+      </button>
+
+      <button className="sidebar-config-button" type="button" title={props.collapsed ? 'Configuración' : undefined} onClick={() => props.onNavigate('system')}>
+        <Icon name="settings" />
+        {!props.collapsed && <span>Configuración</span>}
+      </button>
     </aside>
   );
 }

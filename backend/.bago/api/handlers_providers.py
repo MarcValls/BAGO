@@ -134,6 +134,12 @@ def build_providers_payload(mgr) -> dict:
             "models": models,
             "modelCount": len(models),
             "models_source": "session-manager",
+            "healthy": bool(provider.get("healthy", False)),
+            "usable": bool(provider.get("usable", False)),
+            "available_tokens": provider.get("available_tokens"),
+            "token_source": str(provider.get("token_source", "")),
+            "token_limited": bool(provider.get("token_limited", False)),
+            "availability_detail": str(provider.get("detail", "")),
         })
     catalog = [
         {"id": provider_id, **provider_descriptor(provider_id)}
