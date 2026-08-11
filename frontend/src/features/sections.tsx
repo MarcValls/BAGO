@@ -29,6 +29,7 @@ import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/External
 import { ChatPanel } from '@/layout/ChatPanel';
 import { PipelineControlPanel } from '@/features/pipeline/PipelineControlPanel';
 import { PipelineGuidedBuilder } from '@/features/pipeline/PipelineGuidedBuilder';
+import { SimulationLaboratory, RlTrainingLaboratory } from '@/features/pipeline/LaboratoryPanels';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
 import { WorkGraph } from '@/features/graph/WorkGraph';
@@ -1618,26 +1619,16 @@ export function ControlSections(props: Props) {
         </section>
       </div>;
     }
-    if (pipelineView === 'simulation' || pipelineView === 'rl') {
+    if (pipelineView === 'simulation') {
       return <div className="pipeline-surface contextual-surface system-surface">
         {pipelineTabs}
-        <SystemTabs
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-          providers={providers}
-          routerEntries={chatModelEntries}
-          routerAuto={Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch)}
-          routerSelectedCount={props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? chatModelEntries.filter((entry) => Boolean(entry.selected)).length}
-          routerLastPick={String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—')}
-          onRefreshRouter={props.onRefreshRouter}
-          onToggleRouter={props.onToggleRouter}
-          onSetRouterAuto={props.onSetRouterAuto}
-          onConfigureProvider={(name, config) => props.onConfigureProvider ? props.onConfigureProvider(name, config) : Promise.resolve()}
-          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
-          allowedTabs={[pipelineView]}
-          activeTab={pipelineView}
-          hideTabList
-        />
+        <SimulationLaboratory client={props.client} />
+      </div>;
+    }
+    if (pipelineView === 'rl') {
+      return <div className="pipeline-surface contextual-surface system-surface">
+        {pipelineTabs}
+        <RlTrainingLaboratory client={props.client} />
       </div>;
     }
     return (
