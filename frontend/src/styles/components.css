@@ -6031,6 +6031,7 @@ body::-webkit-scrollbar { display: none !important; width: 0 !important; height:
   flex-shrink: 0;
 }
 .panel-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.capability-package-schedules {
   display: grid;
   gap: 9px;
   margin-top: 10px;
