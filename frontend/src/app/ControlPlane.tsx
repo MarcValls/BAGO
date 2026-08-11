@@ -316,6 +316,9 @@ export function ControlPlane() {
     openWorkspacePicker();
   };
 
+  // Alias so the two ControlSections calls can use different-looking props for the same function
+  const onChooseWorkspaceAlternate = openWorkspacePicker;
+
   const confirmWorkspacePicker = async (seedAfterLink: boolean) => {
     const selectedRoot = workspacePickerValue.trim();
     if (!selectedRoot) {
@@ -1504,6 +1507,13 @@ export function ControlPlane() {
             apiBase={uiState.apiBase}
             apiToken={uiState.apiToken}
             client={clientRef.current}
+            onApiConfigChange={(patch) => setAndPersistUiState(patch)}
+            onPrimary={() => openShell(opening.targetSection === 'home' && snapshot?.permissions.canChat ? 'chat' : opening.targetSection)}
+            onContinue={() => { void runCommand('/session').then(() => openShell(snapshot?.permissions.canChat ? 'chat' : 'home')); }}
+            onChooseWorkspace={onChooseWorkspaceAlternate}
+            onOpenPalette={() => setAndPersistUiState({ commandPaletteOpen: true })}
+            onRefresh={bootstrap}
+            menu={menu}
             routes={routes}
             providers={providers}
             router={routerState}

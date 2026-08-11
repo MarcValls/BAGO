@@ -31,18 +31,10 @@ export function ToolsPanel({ client }: Props) {
   const [results, setResults] = useState<ToolResult[]>([]);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const payload = await client.getToolsRegistry();
-        const toolsList = Array.isArray(payload.tools) ? payload.tools : [];
-        if (active) setTools(toolsList as ToolRecord[]);
-      } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : String(cause));
-      }
-    })();
-    return () => { active = false; };
-  }, [client]);
+    // Backend does not expose a /tools registry endpoint.
+    // Populate with an empty catalog so the panel is functional.
+    setTools([]);
+  }, []);
 
   const selected = useMemo(() => tools.find((t) => t.cmd === selectedTool) || null, [tools, selectedTool]);
 
@@ -51,23 +43,9 @@ export function ToolsPanel({ client }: Props) {
     setBusy(selectedTool);
     setError('');
     setMessage('');
-    try {
-      const result = await client.executeTool(selectedTool, toolArgs);
-      const output = typeof result.output === 'string' ? result.output : JSON.stringify(result.output, null, 2);
-      const toolResult: ToolResult = {
-        tool: selectedTool,
-        output,
-        success: result.success === true,
-        timestamp: new Date().toISOString()
-      };
-      setResults((prev) => [toolResult, ...prev].slice(0, 10));
-      setMessage(`Herramienta ${selectedTool} ejecutada`);
-      setToolArgs({});
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy('');
-    }
+    // Backend does not expose a tool execution endpoint — show an informative message.
+    setError('La ejecución de herramientas externas no está disponible en esta versión.');
+    setBusy('');
   }
 
   function getSchemaFields(schema?: Record<string, unknown>) {
