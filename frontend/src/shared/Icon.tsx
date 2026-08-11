@@ -4,12 +4,12 @@ export type IconName =
   | 'home' | 'chat' | 'workspace' | 'graph' | 'pipeline' | 'evidence'
   | 'context' | 'system' | 'search' | 'actions' | 'plus' | 'inspector'
   | 'focus' | 'review' | 'refresh' | 'menu' | 'close' | 'send'
-  | 'attach' | 'history' | 'command' | 'chevron' | 'zoomIn' | 'zoomOut'
+  | 'attach' | 'history' | 'command' | 'chevron' | 'chevronDown' | 'chevronUp' | 'zoomIn' | 'zoomOut'
   | 'center' | 'filter' | 'layout' | 'retry' | 'stop' | 'compare'
   | 'copy' | 'check' | 'warning' | 'server' | 'model' | 'link'
   | 'file' | 'folder' | 'session' | 'prompt' | 'artifact' | 'node'
   | 'trace' | 'live' | 'more' | 'arrowLeft' | 'arrowRight' | 'expand'
-  | 'chatOff' | 'chatSplit' | 'chatFull' | 'sparkle' | 'cog' | 'shield'
+  | 'chatOff' | 'chatSplit' | 'chatFull' | 'sparkle' | 'cog' | 'shield' | 'settings' | 'tools'
   | 'lock' | 'intent' | 'risk' | 'claim' | 'decision' | 'pack' | 'stale'
   | 'conflict' | 'proposed' | 'canon' | 'target' | 'tree' | 'bank' | 'tray'
   | 'inbox' | 'rule' | 'verified' | 'dot' | 'collapse' | 'alert' | 'flag' | 'brace' | 'spark';
@@ -98,7 +98,11 @@ const paths: Record<IconName, ReactElement> = {
   alert: <><path d="M12 3 2 21h20Z"/><path d="M12 9v6M12 18h.01"/></>,
   flag: <><path d="M5 21V4h11l-2 4 2 4H5"/></>,
   brace: <><path d="M9 4H5v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4h4M15 4h4v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4h-4"/></>,
-  spark: <><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></>
+  spark: <><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></>,
+  settings: <><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>,
+  tools: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 9h8M8 13h6M8 17h10"/></>,
+  chevronDown: <><path d="m6 9 6 6 6-6"/></>,
+  chevronUp: <><path d="m18 15-6-6-6 6"/></>
 };
 
 export function Icon({ name, size = 18, ...props }: Props) {

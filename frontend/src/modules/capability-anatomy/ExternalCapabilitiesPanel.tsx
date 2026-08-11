@@ -266,16 +266,19 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
         <button className="icon-button" type="button" aria-label="Actualizar" onClick={() => void load()}><Icon name="refresh" size={13} /></button>
       </div>
       <div className="capability-import-section">
-        <form onSubmit={(event) => { event.preventDefault(); void importPackage(); }}>
+        <label className="capability-import-button" tabIndex={0}>
           <input key={fileInputKey} aria-label="Paquete ZIP" type="file" accept=".zip,application/zip" onChange={(event) => inspectFile(event.target.files?.[0] || null)} />
-          <small>Importar ZIP · máximo 600 KB</small>
-        </form>
+          <span className="capability-import-label">
+            <Icon name="pack" size={14} />
+            <strong>Elegir e importar</strong>
+            <small>ZIP · máx 600 KB</small>
+          </span>
+        </label>
         {inspection && <div className={`capability-inspection-compact ${inspection.ok ? 'is-ok' : 'is-error'}`}>
           <strong>{inspection.identity?.name || 'Paquete'}</strong>
           <span>{inspection.kind} · {inspection.execution_mode} · {inspection.signature_state}</span>
           {inspection.warnings?.length ? <em>{inspection.warnings[0]}</em> : null}
         </div>}
-        <button className="primary-button compact" type="button" disabled={!file || !inspection?.ok || Boolean(busy)} onClick={() => void importPackage()}>{busy === 'import' ? 'Importando…' : 'Importar'}</button>
       </div>
       <div className="capability-package-list">
         <header><strong>Instaladas</strong><span>{packages.length}</span></header>
@@ -289,7 +292,7 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
       <div className="capability-examples-drawer">
         <div className="capability-examples-drawer-header" onClick={() => setExamplesCollapsed(!examplesCollapsed)}>
           <strong>Ejemplos</strong>
-          <Icon name={examplesCollapsed ? 'chevron-down' : 'chevron-up'} size={13} />
+          <Icon name={examplesCollapsed ? 'chevronDown' : 'chevronUp'} size={13} />
         </div>
         {!examplesCollapsed && <div className="capability-examples-drawer-content">
           {examples.map((example) => {

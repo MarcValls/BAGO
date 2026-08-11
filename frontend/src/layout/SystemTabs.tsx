@@ -7,8 +7,9 @@ import { normalizeProviderModels } from '@/shared/providerModels';
 import { ProviderConfigModal } from './ProviderConfigModal';
 import { InterpretControls, SubagentCatalogue } from './OperationalTools';
 import { RlTrainingLaboratory, SimulationLaboratory } from '@/features/pipeline/LaboratoryPanels';
+import { ToolsPanel } from '@/features/tools/ToolsPanel';
 import type { ContextTargetKind, SelectionRecord } from '@/contracts/backend';
-export type SystemTabId = 'overview' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
+export type SystemTabId = 'overview' | 'router' | 'providers' | 'audit' | 'tools' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
 
 interface Tab {
   id: SystemTabId;
@@ -22,6 +23,7 @@ const TABS: Tab[] = [
   { id: 'router', label: 'Router', icon: 'model' },
   { id: 'providers', label: 'Proveedores', icon: 'server' },
   { id: 'audit', label: 'Auditoría', icon: 'inspector' },
+  { id: 'tools', label: 'Herramientas', icon: 'tools' },
   { id: 'simulation', label: 'Simulación', icon: 'pipeline' },
   { id: 'rl', label: 'RL', icon: 'live', experimental: true },
   { id: 'subagents', label: 'Subagentes', icon: 'node' },
@@ -474,6 +476,12 @@ export function SystemTabs(props: Props) {
                 </details>
               </div>
             )}
+          </section>
+        )}
+
+        {active === 'tools' && (
+          <section className="system-tab-panel" role="tabpanel">
+            <ToolsPanel client={client} />
           </section>
         )}
 

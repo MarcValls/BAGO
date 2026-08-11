@@ -30,6 +30,7 @@ import { ChatPanel } from '@/layout/ChatPanel';
 import { PipelineControlPanel } from '@/features/pipeline/PipelineControlPanel';
 import { PipelineGuidedBuilder } from '@/features/pipeline/PipelineGuidedBuilder';
 import { SimulationLaboratory, RlTrainingLaboratory } from '@/features/pipeline/LaboratoryPanels';
+import { ToolsPanel } from '@/features/tools/ToolsPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
 import { WorkGraph } from '@/features/graph/WorkGraph';
@@ -1613,10 +1614,8 @@ export function ControlSections(props: Props) {
     if (pipelineView === 'capabilities') {
       return <div className="pipeline-surface contextual-surface">
         {pipelineTabs}
-        <section className="capability-workspace">
-          <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection, 'detail')} />
-          <ExternalCapabilitiesPanel client={props.client} />
-        </section>
+        <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection, 'detail')} />
+        <ExternalCapabilitiesPanel client={props.client} />
       </div>;
     }
     if (pipelineView === 'simulation') {
