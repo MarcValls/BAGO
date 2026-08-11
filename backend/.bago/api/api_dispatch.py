@@ -387,4 +387,5 @@ API_PREFIXES = (
     "/github",
     "/agents",
     "/interpretations",
+    "/conversations",
 )
