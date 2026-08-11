@@ -1,0 +1,42 @@
+{
+  "id": "local.text-transform",
+  "runtime": {
+    "kind": "python",
+    "timeout_s": 10
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "title": "Operacion",
+        "enum": ["clean", "uppercase", "lowercase", "replace"],
+        "default": "clean"
+      },
+      "find": {
+        "type": "string",
+        "title": "Buscar",
+        "default": ""
+      },
+      "replacement": {
+        "type": "string",
+        "title": "Reemplazo",
+        "default": ""
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "title": "Texto"
+      }
+    },
+    "required": ["text"]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "tags": ["example", "text", "productivity"]
+}

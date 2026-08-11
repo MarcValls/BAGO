@@ -15,6 +15,7 @@ or the 404 short-circuit in bridge.py will misbehave.
 from __future__ import annotations
 
 import importlib
+import re
 from typing import Callable, Tuple
 
 
@@ -70,6 +71,9 @@ ROUTE_META: tuple = (
     ("GET",  "/providers/contracts", "handlers_providers",  "handle_contracts"),
     ("GET",  "/api/v1/ui/bootstrap", "handlers_ui_bootstrap", "handle"),
     ("GET",  "/api/v1/capabilities", "handlers_capabilities", "handle_list"),
+    ("GET",  "/api/v1/capability-packages", "handlers_capability_packages", "handle_list"),
+    ("GET",  "/api/v1/capability-packages/receipts", "handlers_capability_packages", "handle_receipts"),
+    ("GET",  "/api/v1/capability-packages/examples", "handlers_capability_packages", "handle_examples"),
     ("GET",  "/audit/project",       "handlers_audit",      "handle_project"),
     ("GET",  "/audit/bago",          "handlers_audit",      "handle_bago"),
     ("GET",  "/audit/ledger",        "handlers_audit",      "handle_ledger"),
@@ -103,18 +107,25 @@ ROUTE_META: tuple = (
     ("GET",  "/router/session-model","handlers_router",     "handle_session_model_get"),
     ("GET",  "/router/reasoning-depth","handlers_router", "handle_reasoning_depth_get"),
     ("GET",  "/github/status",       "handlers_github",  "handle_github_status"),
-    ("GET",  "/github/accounts",    "handlers_github",  "handle_github_accounts"),
+    ("GET",  "/github/accounts",     "handlers_github",  "handle_github_accounts"),
     ("GET",  "/github/contents",     "handlers_github",  "handle_contents"),
-    ("GET",  "/interpret/history",  "handlers_interpret",  "handle_history"),
-    ("GET",  "/interpret/rules",    "handlers_interpret",  "handle_rules"),
-    ("GET",  "/agents",             "handlers_agents",   "handle_list"),
-    ("GET",  "/interpretations",    "handlers_interpretations", "handle_list"),
+    ("POST", "/github/auth/start",    "handlers_github",  "handle_github_auth_start"),
+    ("POST", "/github/auth/refresh", "handlers_github",  "handle_github_auth_refresh"),
+    ("POST", "/github/auth/logout",  "handlers_github",  "handle_github_auth_logout"),
+    ("POST", "/github/setup",        "handlers_github",  "handle_github_setup_git"),
+    ("GET",  "/agents",             "handlers_agents",  "handle_get_list"),
+    ("POST", "/agents",             "handlers_agents",  "handle_post"),
+    ("GET",  "/interpret/history",   "handlers_interpret",  "handle_history"),
+    ("GET",  "/interpret/rules",     "handlers_interpret",  "handle_rules"),
+    ("GET",  "/interpretations",     "handlers_interpretations", "handle_list"),
     ("GET",  "/routes",              "handlers_routes",     "handle"),
     ("GET",  "/api/v1/events",       "handlers_events",     "handle"),
     # POST routes
     ("POST", "/chat",                "handlers_chat",       "handle"),
     ("POST", "/chat/stream",         "handlers_chat_stream", "handle"),
     ("POST", "/api/v1/commands",     "handlers_command",    "handle"),
+    ("POST", "/api/v1/capability-packages/import", "handlers_capability_packages", "handle_import"),
+    ("POST", "/api/v1/capability-packages/inspect", "handlers_capability_packages", "handle_inspect"),
     ("POST", "/command",             "handlers_command",    "handle"),
     ("POST", "/project/init",        "handlers_project",    "handle_project_init"),
     ("POST", "/project/link",        "handlers_project",    "handle_project_link"),
@@ -140,13 +151,6 @@ ROUTE_META: tuple = (
     ("POST", "/github/connect",      "handlers_github",  "handle_connect"),
     ("POST", "/github/create",       "handlers_github",  "handle_create"),
     ("POST", "/github/mcp-create",   "handlers_github",  "handle_mcp_create"),
-    ("POST", "/github/auth/start",   "handlers_github",  "handle_github_auth_start"),
-    ("POST", "/github/auth/refresh", "handlers_github",  "handle_github_auth_refresh"),
-    ("POST", "/github/auth/logout",  "handlers_github",  "handle_github_auth_logout"),
-    ("POST", "/github/setup-git",    "handlers_github",  "handle_github_setup_git"),
-    ("POST", "/agents",             "handlers_agents",   "handle_post"),
-    ("POST", "/agents/:id/test",    "handlers_agents",   "handle_test"),
-    ("POST", "/interpretations",     "handlers_interpretations", "handle_post"),
     ("POST", "/workspace/conversation", "handlers_workspace_conversation", "handle"),
     ("POST", "/providers/configure", "handlers_providers",  "handle_configure"),
     ("POST", "/release/update",      "handlers_release",    "handle_update"),
@@ -157,10 +161,12 @@ ROUTE_META: tuple = (
     ("POST", "/sources",             "handlers_files",      "handle_sources"),
     ("POST", "/files/write",         "handlers_files",      "handle_write"),
     ("POST", "/interpret",           "handlers_interpret",  "handle_post"),
+    ("POST", "/interpretations",     "handlers_interpretations", "handle_post"),
     ("POST", "/vision",              "handlers_vision",     "handle"),
     ("POST", "/conversations",          "handlers_conversations", "handle_post"),
     ("GET",  "/conversations",           "handlers_conversations", "handle_get"),
     ("POST", "/plans",               "handlers_jobs",       "handle_plans_create"),
+    ("POST", "/schedule",            "handlers_schedule",   "handle_create"),
 )
 
 
@@ -179,13 +185,24 @@ DYNAMIC_ROUTE_META: tuple = (
     ("POST", "/jobs/<execution_id>/retry",           "handlers_jobs",      "handle_retry"),
     ("GET",  "/plans/<plan_id>",                     "handlers_jobs",      "handle_plans_get"),
     ("GET",  "/api/v1/capabilities/<capability_id>", "handlers_capabilities", "handle_get"),
+    ("GET",  "/api/v1/capability-packages/<capability_id>", "handlers_capability_packages", "handle_get"),
+    ("GET",  "/api/v1/capability-packages/<capability_id>/export", "handlers_capability_packages", "handle_export"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/enable", "handlers_capability_packages", "handle_enable"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/configure", "handlers_capability_packages", "handle_configure"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/execute", "handlers_capability_packages", "handle_execute"),
+    ("POST", "/api/v1/capability-packages/<capability_id>/install-example", "handlers_capability_packages", "handle_install_example"),
     ("POST", "/plans/<plan_id>/execute",             "handlers_jobs",      "handle_plans_execute"),
-    ("POST", "/router/toggle/<key>",                 "handlers_router",    "handle_toggle"),
-    ("GET",  "/agents/<agent_id>",                   "handlers_agents",    "handle_get"),
-    ("PUT",  "/agents/<agent_id>",                   "handlers_agents",    "handle_put"),
-    ("DELETE", "/agents/<agent_id>",                "handlers_agents",    "handle_delete"),
+    ("GET",  "/schedule/<schedule_id>",               "handlers_schedule",  "handle_get"),
     ("GET",  "/interpretations/<interpretation_id>", "handlers_interpretations", "handle_get"),
-    ("GET",  "/routes",                              "handlers_routes",    "handle"),
+    ("GET",  "/agents/<agent_id>", "handlers_agents", "handle_get"),
+    ("PUT",  "/agents/<agent_id>", "handlers_agents", "handle_put"),
+    ("DELETE", "/agents/<agent_id>", "handlers_agents", "handle_delete"),
+    ("POST", "/agents/<agent_id>/duplicate", "handlers_agents", "handle_duplicate"),
+    ("POST", "/agents/<agent_id>/test", "handlers_agents", "handle_test"),
+    ("POST", "/schedule/<schedule_id>",               "handlers_schedule",  "handle_update"),
+    ("POST", "/schedule/<schedule_id>/run",           "handlers_schedule",  "handle_run"),
+    ("POST", "/schedule/<schedule_id>/delete",        "handlers_schedule",  "handle_delete"),
+    ("POST", "/router/toggle/<key>",                 "handlers_router",    "handle_toggle"),
 )
 
 
@@ -208,6 +225,12 @@ _GET_ROUTES_BUILT, _POST_ROUTES_BUILT = _build_static_routes()
 
 GET_ROUTES: dict = _GET_ROUTES_BUILT
 POST_ROUTES: dict = _POST_ROUTES_BUILT
+
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _safe_id(value: str) -> bool:
+    return isinstance(value, str) and bool(_SAFE_ID_RE.match(value))
 
 
 def resolve_get(handler, path: str) -> Tuple[bool, Callable | None]:
@@ -243,18 +266,31 @@ def resolve_get(handler, path: str) -> Tuple[bool, Callable | None]:
         plan_id = path[len("/plans/"):].strip("/")
         if plan_id and "/" not in plan_id:
             return True, _call("handlers_jobs", "handle_plans_get", plan_id)
+    if path.startswith("/schedule/"):
+        schedule_id = path[len("/schedule/"):].strip("/")
+        if schedule_id and "/" not in schedule_id:
+            return True, _call("handlers_schedule", "handle_get", schedule_id)
     if path.startswith("/api/v1/capabilities/"):
         capability_id = path[len("/api/v1/capabilities/"):].strip("/")
         if capability_id and "/" not in capability_id:
             return True, _call("handlers_capabilities", "handle_get", capability_id)
-    if path.startswith("/agents/"):
-        agent_id = path[len("/agents/"):].strip("/")
-        if agent_id and "/" not in agent_id:
-            return True, _call("handlers_agents", "handle_get", agent_id)
+    package_prefix = "/api/v1/capability-packages/"
+    if path.startswith(package_prefix):
+        suffix = path[len(package_prefix):].strip("/")
+        if suffix.endswith("/export"):
+            package_id = suffix[:-len("/export")].strip("/")
+            if package_id and "/" not in package_id:
+                return True, _call("handlers_capability_packages", "handle_export", package_id)
+        if suffix and "/" not in suffix:
+            return True, _call("handlers_capability_packages", "handle_get", suffix)
     if path.startswith("/interpretations/"):
         interpretation_id = path[len("/interpretations/"):].strip("/")
         if interpretation_id and "/" not in interpretation_id:
             return True, _call("handlers_interpretations", "handle_get", interpretation_id)
+    if path.startswith("/agents/"):
+        agent_id = path[len("/agents/"):].strip("/")
+        if _safe_id(agent_id):
+            return True, _call("handlers_agents", "handle_get", agent_id)
     return False, None
 
 
@@ -283,52 +319,63 @@ def resolve_post(handler, path: str, body: dict) -> Tuple[bool, Callable | None]
                 from handlers_jobs import handle_plans_execute
                 return handle_plans_execute(handler, _p, body)
             return True, _execute_closure
+    if path.startswith("/schedule/"):
+        suffix = path[len("/schedule/"):].strip("/")
+        for action, function in (("run", "handle_run"), ("delete", "handle_delete")):
+            ending = f"/{action}"
+            if suffix.endswith(ending):
+                schedule_id = suffix[:-len(ending)].strip("/")
+                if schedule_id and "/" not in schedule_id:
+                    def _schedule_action(handler, body, _id=schedule_id, _fn=function):
+                        module = importlib.import_module("handlers_schedule")
+                        return getattr(module, _fn)(handler, _id)
+                    return True, _schedule_action
+        if suffix and "/" not in suffix:
+            def _schedule_update(handler, body, _id=suffix):
+                from handlers_schedule import handle_update
+                return handle_update(handler, _id, body)
+            return True, _schedule_update
+    package_prefix = "/api/v1/capability-packages/"
+    if path.startswith(package_prefix):
+        suffix = path[len(package_prefix):].strip("/")
+        for action, function in (
+            ("enable", "handle_enable"),
+            ("configure", "handle_configure"),
+            ("execute", "handle_execute"),
+            ("install-example", "handle_install_example"),
+        ):
+            ending = f"/{action}"
+            if suffix.endswith(ending):
+                package_id = suffix[:-len(ending)].strip("/")
+                if package_id and "/" not in package_id:
+                    return True, _call("handlers_capability_packages", function, package_id)
     if path.startswith("/agents/"):
-        agent_id = path[len("/agents/"):].strip("/")
-        if agent_id:
-            if agent_id.endswith("/test"):
-                real_id = agent_id[:-5].rstrip("/")
-                if real_id:
-                    def _test_closure(handler, body, _id=real_id):
-                        from handlers_agents import handle_test
-                        return handle_test(handler, _id, body)
-                    return True, _test_closure
-            elif "/" not in agent_id:
-                def _agent_closure(handler, body, _id=agent_id):
-                    from handlers_agents import handle_delete
-                    return handle_delete(handler, _id, body)
-                return True, _agent_closure
-    if path.startswith("/interpretations/"):
-        interpretation_id = path[len("/interpretations/"):].strip("/")
-        if interpretation_id and "/" not in interpretation_id:
-            def _interp_closure(handler, body, _id=interpretation_id):
-                from handlers_interpretations import handle_get
-                return handle_get(handler, _id)
-            return True, _interp_closure
+        suffix = path[len("/agents/"):].strip("/")
+        for action, function in (
+            ("duplicate", "handle_duplicate"),
+            ("test", "handle_test"),
+        ):
+            ending = f"/{action}"
+            if suffix.endswith(ending):
+                agent_id = suffix[:-len(ending)].strip("/")
+                if _safe_id(agent_id):
+                    return True, _call("handlers_agents", function, agent_id)
     return False, None
 
 
 def resolve_put(handler, path: str, body: dict) -> Tuple[bool, Callable | None]:
-    """Handle PUT requests for resource updates."""
     if path.startswith("/agents/"):
         agent_id = path[len("/agents/"):].strip("/")
-        if agent_id and "/" not in agent_id:
-            def _put_closure(handler, body, _id=agent_id):
-                from handlers_agents import handle_put
-                return handle_put(handler, _id, body)
-            return True, _put_closure
+        if _safe_id(agent_id):
+            return True, _post("handlers_agents", "handle_put")
     return False, None
 
 
 def resolve_delete(handler, path: str) -> Tuple[bool, Callable | None]:
-    """Handle DELETE requests for resource removal."""
     if path.startswith("/agents/"):
         agent_id = path[len("/agents/"):].strip("/")
-        if agent_id and "/" not in agent_id:
-            def _del_closure(handler, _id=agent_id):
-                from handlers_agents import handle_delete
-                return handle_delete(handler, _id)
-            return True, _del_closure
+        if _safe_id(agent_id):
+            return True, _call("handlers_agents", "handle_delete", agent_id)
     return False, None
 
 
@@ -358,6 +405,7 @@ API_PREFIXES = (
     "/workspaces",
     "/project",
     "/history",
+    "/conversations",
     "/providers",
     "/menu",
     "/sources",
@@ -387,5 +435,4 @@ API_PREFIXES = (
     "/github",
     "/agents",
     "/interpretations",
-    "/conversations",
 )

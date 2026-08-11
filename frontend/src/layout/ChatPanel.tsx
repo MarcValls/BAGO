@@ -3,6 +3,7 @@ import type {
   ActiveSection,
   BackendRouterEntry,
   BackendHistory,
+  BackendConversations,
   ChatMode,
   ChatTurn,
   ContextTargetKind,
@@ -33,6 +34,7 @@ interface Props {
   drafts: Record<string, string>;
   chatMode: ChatMode;
   history: BackendHistory | null;
+  conversations: BackendConversations | null;
   canChat: boolean;
   routerEntries: BackendRouterEntry[];
   sessionModel: string | null;
@@ -65,6 +67,9 @@ interface Props {
   onChooseRecent?: (id: string) => void;
   onRefresh?: () => void;
   onCreateConversation?: () => Promise<void>;
+  onSwitchConversation?: (conversationId: string) => Promise<void>;
+  onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
+  onArchiveConversation?: (conversationId: string) => Promise<void>;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -202,6 +207,10 @@ export function ChatPanel(props: Props) {
   const [modelQuery, setModelQuery] = useState('');
   const [reasoningChanging, setReasoningChanging] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
+  const [conversationBusy, setConversationBusy] = useState('');
+  const [conversationError, setConversationError] = useState('');
+  const [renamingId, setRenamingId] = useState('');
+  const [renameTitle, setRenameTitle] = useState('');
   const timelineRef = useRef<HTMLElement>(null);
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
@@ -218,7 +227,10 @@ export function ChatPanel(props: Props) {
   const modelProviders = useMemo(() => Array.from(new Set(filteredModelOptions.map((option) => option.provider))), [filteredModelOptions]);
   const currentModel = modelOptions.find((option) => option.key === props.sessionModel) || null;
   const automaticModel = [props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'router del sistema';
-  const showWelcome = welcomeOpen && props.turns.length === 0;
+  const showWelcome = welcomeOpen;
+  const conversationItems = props.conversations?.conversations || [];
+  const activeConversationId = props.conversations?.active_conversation_id || props.history?.conversation_id || '';
+  const activeConversation = conversationItems.find((item) => item.conversation_id === activeConversationId) || null;
   useEffect(() => {
     if (timelineRef.current) timelineRef.current.scrollTop = 0;
   }, [props.history?.conversation_id]);
@@ -266,16 +278,62 @@ export function ChatPanel(props: Props) {
     }
   };
 
+  const runConversationAction = async (key: string, action: () => Promise<void>) => {
+    setConversationBusy(key);
+    setConversationError('');
+    try {
+      await action();
+      setWelcomeOpen(false);
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : 'No se pudo actualizar la conversación.');
+    } finally {
+      setConversationBusy('');
+    }
+  };
+
   return (
     <div className={`chat-panel is-full ${showWelcome ? 'is-start-screen' : ''}`} {...inspectMenuAttrs(chatSelection, props.onInspect)}>
       <header className="chat-panel-header">
         <div className="chat-panel-header-title">
           <Icon name="chat" size={14} />
-          <span>Chat</span>
+          <span>{activeConversation?.title || 'Chat'}</span>
         </div>
         <div className="chat-panel-header-actions">
-          <button className="secondary-button chat-new-button" type="button" onClick={() => void props.onCreateConversation?.()} title="Crear un chat nuevo en esta sesión">
-            <Icon name="plus" size={12} /> Nuevo chat
+          {conversationItems.length > 0 && <details className="chat-conversation-menu">
+            <summary title="Abrir historial de conversaciones"><Icon name="history" size={12} /> Historial <span>{conversationItems.length}</span></summary>
+            <div className="chat-conversation-popover">
+              <header><strong>Conversaciones</strong><small>Persistentes en esta sesión</small></header>
+              <div className="chat-conversation-list">
+                {conversationItems.map((item) => <article key={item.conversation_id} className={item.active ? 'is-active' : ''}>
+                  {renamingId === item.conversation_id ? (
+                    <form onSubmit={(event) => {
+                      event.preventDefault();
+                      const title = renameTitle.trim();
+                      if (!title || !props.onRenameConversation) return;
+                      void runConversationAction(`rename:${item.conversation_id}`, () => props.onRenameConversation!(item.conversation_id, title)).then(() => setRenamingId(''));
+                    }}>
+                      <input aria-label="Título de conversación" value={renameTitle} maxLength={80} autoFocus onChange={(event) => setRenameTitle(event.target.value)} />
+                      <button type="submit" disabled={!renameTitle.trim() || Boolean(conversationBusy)}>Guardar</button>
+                      <button type="button" onClick={() => setRenamingId('')}>Cancelar</button>
+                    </form>
+                  ) : (
+                    <>
+                      <button type="button" className="chat-conversation-open" disabled={item.active || Boolean(conversationBusy)} onClick={() => props.onSwitchConversation && void runConversationAction(`switch:${item.conversation_id}`, () => props.onSwitchConversation!(item.conversation_id))}>
+                        <strong>{item.title}</strong>
+                        <small>{item.message_count} mensajes{item.preview ? ` · ${item.preview}` : ''}</small>
+                      </button>
+                      <div>
+                        <button type="button" aria-label={`Renombrar ${item.title}`} onClick={() => { setRenamingId(item.conversation_id); setRenameTitle(item.title); }}><Icon name="prompt" size={11} /></button>
+                        <button type="button" aria-label={`Archivar ${item.title}`} disabled={conversationItems.length < 2 || Boolean(conversationBusy)} onClick={() => props.onArchiveConversation && void runConversationAction(`archive:${item.conversation_id}`, () => props.onArchiveConversation!(item.conversation_id))}><Icon name="tray" size={11} /></button>
+                      </div>
+                    </>
+                  )}
+                </article>)}
+              </div>
+            </div>
+          </details>}
+          <button className="secondary-button chat-new-button" type="button" disabled={Boolean(conversationBusy)} onClick={() => props.onCreateConversation && void runConversationAction('create', props.onCreateConversation)} title="Crear un chat nuevo y persistente en esta sesión">
+            <Icon name="plus" size={12} /> {conversationBusy === 'create' ? 'Creando…' : 'Nuevo chat'}
           </button>
           <div className="segmented-control" role="group" aria-label="Modo de chat">
             <button
@@ -309,41 +367,62 @@ export function ChatPanel(props: Props) {
           </button>
         </div>
       </header>
+      {conversationError && <div className="chat-conversation-error" role="alert">{conversationError}</div>}
 
       <div className="chat-surface">
         <section ref={timelineRef} className="chat-timeline" aria-live="polite">
-          {props.turns.length === 0 ? (
-            <div className="chat-empty">
-              <span className="chat-empty-icon"><Icon name="chat" size={26} /></span>
+          {welcomeOpen || props.turns.length === 0 ? (
+            <div className={`chat-empty ${welcomeOpen ? 'is-home-start' : ''}`}>
               {welcomeOpen ? (
-                <>
-                  <span className="start-chat-eyebrow">INICIO · CHAT</span>
-                  <h3>Hola, bienvenido. Soy BAGO.</h3>
-                  <p>¿Vas a trabajar en algo nuevo o quieres continuar?</p>
-                  <div className="start-chat-actions">
-                    <button type="button" className="primary-button" onClick={() => { setWelcomeOpen(false); props.onStartNew?.(); }}><span className="start-chat-key">1</span> Nuevo</button>
-                    <button type="button" className="secondary-button" onClick={props.onContinue}><span className="start-chat-key">2</span> Continuar</button>
+                <div className="start-chat-home">
+                  <header className="start-chat-welcome">
+                    <span className="chat-empty-icon"><Icon name="chat" size={24} /></span>
+                    <div>
+                      <h2>¿Qué quieres hacer ahora?</h2>
+                      <p>Empieza un objetivo nuevo o recupera el contexto de un trabajo anterior. BAGO conservará cada conversación y su evidencia.</p>
+                    </div>
+                  </header>
+
+                  <div className="start-chat-paths" aria-label="Formas de empezar">
+                    <button type="button" className="start-chat-path is-primary" disabled={conversationBusy === 'create'} onClick={() => {
+                      const begin = props.onCreateConversation
+                        ? runConversationAction('create', props.onCreateConversation)
+                        : Promise.resolve().then(() => setWelcomeOpen(false));
+                      void begin.then(() => props.onStartNew?.());
+                    }}>
+                      <span className="start-chat-path-icon"><Icon name="plus" size={18} /></span>
+                      <span><strong>{conversationBusy === 'create' ? 'Creando conversación…' : 'Empezar algo nuevo'}</strong><small>Abre una conversación limpia para describir el objetivo.</small></span>
+                      <Icon name="chevron" size={14} />
+                    </button>
+                    <button type="button" className="start-chat-path" onClick={props.onContinue}>
+                      <span className="start-chat-path-icon"><Icon name="context" size={18} /></span>
+                      <span><strong>Continuar un trabajo</strong><small>Recupera contexto, tareas y decisiones existentes.</small></span>
+                      <Icon name="chevron" size={14} />
+                    </button>
                   </div>
-                  <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} />
-                  {props.recentProjects?.length ? (
-                    <section className="start-chat-recent" aria-label="Cinco proyectos recientes">
-                      <div className="start-chat-recent-head"><strong>3 · Proyectos recientes</strong><span>Elige uno para continuar</span></div>
-                      <div className="start-chat-recent-list">
-                        {props.recentProjects.map((project, index) => (
-                          <button key={project.id} type="button" className="start-chat-recent-item" onClick={() => props.onChooseRecent?.(project.id)}>
-                            <span className="start-chat-recent-number">{index + 1}</span>
-                            <span><strong>{project.title}</strong><small>{project.summary || project.status}</small></span>
-                            <Icon name="chevron" size={13} />
-                          </button>
-                        ))}
-                      </div>
+
+                  <div className="start-chat-home-grid">
+                    <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} />
+                    <section className="start-chat-recent" aria-label="Trabajos recientes">
+                      <div className="start-chat-recent-head"><strong>Trabajos recientes</strong><span>{props.recentProjects?.length ? 'Selecciona uno para abrirlo' : 'Aún no hay actividad'}</span></div>
+                      {props.recentProjects?.length ? (
+                        <div className="start-chat-recent-list">
+                          {props.recentProjects.map((project) => (
+                            <button key={project.id} type="button" className="start-chat-recent-item" onClick={() => props.onChooseRecent?.(project.id)}>
+                              <span className="start-chat-recent-state" data-status={project.status} />
+                              <span><strong>{project.title}</strong><small>{project.summary || project.status}</small></span>
+                              <Icon name="chevron" size={13} />
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="start-chat-no-recent"><Icon name="history" size={16} /><span>Los trabajos que abras o crees aparecerán aquí.</span></div>
+                      )}
                     </section>
-                  ) : (
-                    <p className="start-chat-no-recent">Todavía no hay proyectos recientes. Al crear uno aparecerá aquí.</p>
-                  )}
-                </>
+                  </div>
+                </div>
               ) : (
-                <><h3>Empieza por la tarea</h3><p>Pregunta, describe un objetivo o solicita una acción. El chat es una pantalla más del workspace.</p></>
+                <><span className="chat-empty-icon"><Icon name="chat" size={26} /></span><h3>Empieza por la tarea</h3><p>Pregunta, describe un objetivo o solicita una acción. El chat es una pantalla más del workspace.</p></>
               )}
             </div>
           ) : timelineGroups.map((group) => {
@@ -382,6 +461,7 @@ export function ChatPanel(props: Props) {
                 <label className="chat-reasoning-control">
                   <span>Profundidad</span>
                   <select aria-label="Profundidad de pensamiento" value={props.reasoningDepth} disabled={reasoningChanging} onChange={(event) => void onReasoningChange(event.target.value)}>
+                    <option value="auto">Automática</option>
                     <option value="normal">Normal</option>
                     <option value="media">Media</option>
                     <option value="alta">Alta</option>

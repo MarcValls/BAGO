@@ -192,10 +192,10 @@ export interface AgentUpdateRequest {
   name?: string;
   description?: string;
   systemPrompt?: string;
-  provider?: string;
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  maxTokens?: number | null;
   enabled?: boolean;
 }
 
@@ -252,6 +252,8 @@ export interface InterpretationResult {
   startedAt: string;
   finishedAt: string;
   durationMs: number;
+  cancelledAt?: string;
+  error?: string;
 }
 
 export interface InterpretationRequest {
@@ -277,15 +279,13 @@ export interface GitHubAuthState {
   checkedAt: string;
 }
 
-// ─── PANELS ──────────────────────────────────────────────────────────────
-
-export type PanelId =
-  | 'agents'
-  | 'interpreter'
-  | 'github-auth'
-  | 'tools'
-  | 'system'
-  | 'capabilities';
+export type GitHubStatusState =
+  | 'checking'
+  | 'cli_unavailable'
+  | 'unauthenticated'
+  | 'authenticating'
+  | 'authenticated'
+  | 'error';
 
 export interface UiAction {
   id: string;
@@ -524,6 +524,28 @@ export interface BackendHistory {
   count?: number;
 }
 
+export interface BackendConversation {
+  conversation_id: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
+  last_opened_at?: string;
+  message_count: number;
+  active: boolean;
+  archived?: boolean;
+  preview?: string;
+}
+
+export interface BackendConversations {
+  ok?: boolean;
+  session_id?: string;
+  active_conversation_id?: string;
+  conversations: BackendConversation[];
+  count: number;
+  history?: BackendHistory;
+  conversation?: BackendConversation;
+}
+
 export interface BackendFileSourceRoot {
   key?: string;
   label?: string;
@@ -596,6 +618,7 @@ export interface UiBootData {
   menu?: BackendMenu;
   routes?: BackendRoutes;
   history?: BackendHistory;
+  conversations?: BackendConversations;
   files?: Record<string, unknown>;
   evidence?: Record<string, unknown>;
   jobs?: Record<string, unknown>;
@@ -604,3 +627,5 @@ export interface UiBootData {
   router_list?: BackendRouterList;
   router_policy?: BackendRouterPolicy;
 }
+
+export type PanelId = 'capabilities' | 'system' | 'pipeline' | 'tools' | 'agents' | 'interpreter' | 'github-auth';

@@ -1,4 +1,4 @@
-import type { ActiveSection, PanelId, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, UiBootstrapSnapshot, PanelId } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { NAVIGATION_GROUPS } from '@/navigation/actionRegistry';
 import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
@@ -18,12 +18,12 @@ function sectionStatus(section: ActiveSection | PanelId, snapshot: UiBootstrapSn
 
 interface Props {
   activeSection: ActiveSection;
-  activePanel: PanelId | null;
   snapshot: UiBootstrapSnapshot | null;
   workspaceHint?: string;
   collapsed: boolean;
   onNavigate: (section: ActiveSection) => void;
-  onOpenPanel: (panelId: PanelId) => void;
+  onOpenDrawer: (drawer: PanelId) => void;
+  openDrawer: PanelId | null;
 }
 
 export function MainSidebar(props: Props) {
@@ -38,7 +38,7 @@ export function MainSidebar(props: Props) {
             {!props.collapsed && <div className="sidebar-section-title">{group.label}</div>}
             {group.items.map((section) => {
               const isActive = section.isPanel
-                ? props.activePanel === section.id
+                ? props.openDrawer === section.id
                 : props.activeSection === section.id;
               return (
                 <button
@@ -47,7 +47,7 @@ export function MainSidebar(props: Props) {
                   className={`sidebar-item ${isActive ? 'is-active' : ''}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={props.collapsed ? `${section.label} · ${section.helper || ''}` : section.helper}
-                  onClick={() => section.isPanel ? props.onOpenPanel(section.id as PanelId) : props.onNavigate(section.id as ActiveSection)}
+                  onClick={() => section.isPanel ? props.onOpenDrawer(section.id as PanelId) : props.onNavigate(section.id as ActiveSection)}
                 >
                   <Icon name={section.icon} />
                   {!props.collapsed && <span className="sidebar-item-label">{section.label}</span>}
@@ -65,15 +65,35 @@ export function MainSidebar(props: Props) {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-status" title={workspaceState}>
-        <span className={`status-orb state-${authority.state}`} />
-        {!props.collapsed && (
-          <div>
-            <strong>{authority.projectLabel || props.workspaceHint || 'BAGO'}</strong>
-            <span>{workspaceState}</span>
-          </div>
-        )}
-      </div>
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'capabilities' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Capacidades' : undefined} aria-label="Abrir capacidades" onClick={() => props.onOpenDrawer('capabilities')}>
+        <Icon name="pack" />
+        {!props.collapsed && <span>Capacidades</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'pipeline' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Pipeline' : undefined} aria-label="Abrir pipeline" onClick={() => props.onOpenDrawer('pipeline')}>
+        <Icon name="pipeline" />
+        {!props.collapsed && <span>Pipeline</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'agents' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Agentes' : undefined} aria-label="Abrir agentes" onClick={() => props.onOpenDrawer('agents')}>
+        <Icon name="agent" />
+        {!props.collapsed && <span>Agentes</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'interpreter' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Interprete' : undefined} aria-label="Abrir interprete" onClick={() => props.onOpenDrawer('interpreter')}>
+        <Icon name="interpret" />
+        {!props.collapsed && <span>Interprete</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'tools' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Herramientas' : undefined} aria-label="Abrir herramientas" onClick={() => props.onOpenDrawer('tools')}>
+        <Icon name="tools" />
+        {!props.collapsed && <span>Herramientas</span>}
+      </button>
+
+      <button className="sidebar-config-button" type="button" title={props.collapsed ? 'Configuración' : undefined} onClick={() => props.onNavigate('system')}>
+        <Icon name="settings" />
+        {!props.collapsed && <span>Configuración</span>}
+      </button>
     </aside>
   );
 }

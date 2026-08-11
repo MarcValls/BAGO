@@ -1,231 +1,363 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type { BagoClient } from '@/api/client';
+import type { AgentConfig, AgentUpdateRequest } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 
-interface Agent {
-  id: string;
+interface Props {
+  client: BagoClient;
+  onClose: () => void;
+}
+
+interface AgentEditorState {
+  agents: AgentConfig[];
+  selectedAgent: AgentConfig | null;
+  loading: boolean;
+  saving: boolean;
+  testing: boolean;
+  error: string | null;
+  savedMessage: string | null;
+  testOutput: string | null;
+  // form fields
   name: string;
-  description?: string;
-  systemPrompt?: string;
-  provider?: string;
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
+  systemPrompt: string;
+  model: string;
+  provider: string;
+  temperature: number;
+  maxTokens: number;
   enabled: boolean;
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
+  isDirty: boolean;
 }
 
-interface AgentEditorPanelProps {
-  client?: ReturnType<typeof import('@/api/client').createBagoClient>;
-  onClose?: () => void;
-}
+export function AgentEditorPanel({ client, onClose }: Props) {
+  const [state, setState] = useState<AgentEditorState>({
+    agents: [],
+    selectedAgent: null,
+    loading: true,
+    saving: false,
+    testing: false,
+    error: null,
+    savedMessage: null,
+    testOutput: null,
+    name: '',
+    systemPrompt: '',
+    model: '',
+    provider: '',
+    temperature: 0.7,
+    maxTokens: 4096,
+    enabled: true,
+    isDirty: false,
+  });
 
-export function AgentEditorPanel({ client, onClose }: AgentEditorPanelProps) {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Agent | null>(null);
-  const [form, setForm] = useState<Partial<Agent>>({});
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
-
-  async function loadAgents() {
-    if (!client) return;
-    setLoading(true);
-    setError(null);
+  const loadAgents = useCallback(async () => {
     try {
-      const res = await client.listAgents();
-      if (res.agents) setAgents(res.agents as unknown as Agent[]);
+      const data = await client.listAgents();
+      setState((s) => ({ ...s, agents: data.agents, loading: false, error: null }));
     } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
+      setState((s) => ({ ...s, loading: false, error: String(e) }));
     }
-  }
+  }, [client]);
 
-  useEffect(() => { loadAgents(); }, [client]);
+  useEffect(() => {
+    loadAgents();
+  }, [loadAgents]);
 
-  function startCreate() {
-    setSelected(null);
-    setForm({ name: '', description: '', systemPrompt: '', provider: '', model: '', enabled: true });
-  }
+  const selectAgent = useCallback((agent: AgentConfig) => {
+    setState((s) => ({
+      ...s,
+      selectedAgent: agent,
+      name: agent.name,
+      systemPrompt: agent.systemPrompt,
+      model: agent.model || '',
+      provider: agent.provider || '',
+      temperature: agent.temperature ?? 0.7,
+      maxTokens: agent.maxTokens ?? 4096,
+      enabled: agent.enabled,
+      isDirty: false,
+      savedMessage: null,
+      testOutput: null,
+      error: null,
+    }));
+  }, []);
 
-  function startEdit(agent: Agent) {
-    setSelected(agent);
-    setForm({ ...agent });
-  }
-
-  async function handleSave() {
-    if (!client || !form.name?.trim()) return;
-    setSaving(true);
-    setError(null);
+  const handleSave = useCallback(async () => {
+    if (!state.selectedAgent) return;
+    setState((s) => ({ ...s, saving: true, error: null, savedMessage: null }));
     try {
-      if (selected) {
-        await client.updateAgent(selected.id, { ...form, revision: selected.revision });
-      } else {
-        await client.createAgent(form);
+      const payload: AgentUpdateRequest = {
+        name: state.name,
+        systemPrompt: state.systemPrompt,
+        model: state.model || null,
+        provider: state.provider || null,
+        temperature: state.temperature,
+        maxTokens: state.maxTokens,
+        enabled: state.enabled,
+        revision: state.selectedAgent.revision,
+      };
+      const result = await client.updateAgent(state.selectedAgent.id, payload);
+      if (!result.ok || !result.agent) {
+        throw new Error(result.error || 'No se pudo guardar el agente');
       }
-      await loadAgents();
-      setSelected(null);
-      setForm({});
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSaving(false);
+      const updated = result.agent;
+      setState((s) => ({
+        ...s,
+        saving: false,
+        savedMessage: 'Guardado',
+        selectedAgent: updated,
+        agents: s.agents.map((a) => (a.id === updated.id ? updated : a)),
+        isDirty: false,
+      }));
+      setTimeout(() => setState((s) => ({ ...s, savedMessage: null })), 2000);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isConflict = msg.includes('409') || msg.toLowerCase().includes('conflict');
+      setState((s) => ({
+        ...s,
+        saving: false,
+        error: isConflict
+          ? 'Conflicto de revisión: otro proceso ha modificado este agente. Recarga e intenta de nuevo.'
+          : msg,
+      }));
     }
-  }
+  }, [client, state.selectedAgent, state.name, state.systemPrompt, state.model, state.provider, state.temperature, state.maxTokens, state.enabled]);
 
-  async function handleDelete(agent: Agent) {
-    if (!client) return;
-    if (!confirm(`Eliminar agente "${agent.name}"?`)) return;
+  const handleTest = useCallback(async () => {
+    if (!state.selectedAgent) return;
+    setState((s) => ({ ...s, testing: true, error: null, testOutput: null }));
     try {
-      await client.deleteAgent(agent.id);
-      await loadAgents();
-      if (selected?.id === agent.id) { setSelected(null); setForm({}); }
-    } catch (e) {
-      setError(String(e));
+      const result = await client.testAgent(state.selectedAgent.id);
+      setState((s) => ({
+        ...s,
+        testing: false,
+        testOutput: result.output || `OK — ${result.model} via ${result.provider} · ${result.durationMs}ms`,
+      }));
+    } catch (e: unknown) {
+      setState((s) => ({
+        ...s,
+        testing: false,
+        error: e instanceof Error ? e.message : String(e),
+      }));
     }
-  }
+  }, [client, state.selectedAgent]);
 
-  async function handleTest() {
-    if (!client || !selected) return;
-    setTesting(true);
-    setTestResult(null);
+  const handleDelete = useCallback(async () => {
+    if (!state.selectedAgent) return;
+    if (!window.confirm(`Eliminar "${state.selectedAgent.name}"? Esta acción no se puede deshacer.`)) return;
     try {
-      const res = await client.testAgent(selected.id);
-      setTestResult(JSON.stringify(res, null, 2));
-    } catch (e) {
-      setTestResult(`Error: ${e}`);
-    } finally {
-      setTesting(false);
+      await client.deleteAgent(state.selectedAgent.id);
+      setState((s) => ({
+        ...s,
+        agents: s.agents.filter((a) => a.id !== s.selectedAgent!.id),
+        selectedAgent: null,
+        name: '', systemPrompt: '', model: '', provider: '',
+        temperature: 0.7, maxTokens: 4096, enabled: true,
+        isDirty: false, error: null,
+      }));
+    } catch (e: unknown) {
+      setState((s) => ({ ...s, error: e instanceof Error ? e.message : String(e) }));
     }
-  }
+  }, [client, state.selectedAgent]);
+
+  const handleFieldChange = <K extends keyof AgentEditorState>(field: K, value: AgentEditorState[K]) => {
+    setState((s) => ({ ...s, [field]: value, isDirty: true }));
+  };
 
   return (
-    <div className="panel agents-panel">
+    <div className="agent-editor-panel" role="region" aria-label="Editor de Agentes">
+      {/* Header */}
       <div className="panel-header">
-        <span className="panel-title">Agentes</span>
-        <button type="button" className="btn-icon" onClick={onClose} title="Cerrar"><Icon name="x" /></button>
+        <h3>Agentes</h3>
+        <button type="button" className="panel-close-btn" onClick={onClose} aria-label="Cerrar">
+          <Icon name="close" size={16} />
+        </button>
       </div>
 
-      <div className="panel-body">
-        <div className="agents-list">
-          <button type="button" className="btn-create-agent" onClick={startCreate}>+ Nuevo agente</button>
-          {loading && <div className="panel-loading">Cargando...</div>}
-          {!loading && agents.length === 0 && <div className="panel-empty">Sin agentes creados</div>}
-          {agents.map((agent) => (
-            <div key={agent.id} className={`agent-item ${selected?.id === agent.id ? 'is-selected' : ''}`}>
-              <button type="button" className="agent-name-btn" onClick={() => startEdit(agent)}>
-                <Icon name={agent.enabled ? 'play-circle' : 'pause-circle'} />
-                <span>{agent.name}</span>
-              </button>
-              <button type="button" className="btn-delete-agent" onClick={() => handleDelete(agent)} title="Eliminar">
-                <Icon name="trash" />
-              </button>
-            </div>
-          ))}
+      <div className="agent-editor-body">
+        {/* Left: agent list */}
+        <div className="agent-list-pane">
+          <div className="agent-list-header">
+            <span>Agentes</span>
+          </div>
+          {state.loading && <div className="panel-loading">Cargando...</div>}
+          {!state.loading && state.agents.length === 0 && (
+            <div className="panel-empty">No hay agentes definidos</div>
+          )}
+          <ul className="agent-list" role="listbox" aria-label="Lista de agentes">
+            {state.agents.map((agent) => (
+              <li
+                key={agent.id}
+                role="option"
+                aria-selected={state.selectedAgent?.id === agent.id}
+                className={`agent-list-item ${state.selectedAgent?.id === agent.id ? 'is-selected' : ''}`}
+                onClick={() => selectAgent(agent)}
+              >
+                <span className="agent-list-name">{agent.name}</span>
+                <span className={`agent-list-status agent-status-${agent.enabled ? 'enabled' : 'disabled'}`}>
+                  {agent.enabled ? 'Activo' : 'Inactivo'}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {(selected !== null || form.name !== undefined) && (
-          <div className="agent-editor">
-            <h3>{selected ? `Editar: ${selected.name}` : 'Nuevo agente'}</h3>
-            <div className="form-field">
-              <label>Nombre</label>
-              <input
-                type="text"
-                value={form.name || ''}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Mi agente"
-              />
+        {/* Right: editor form */}
+        <div className="agent-form-pane">
+          {!state.selectedAgent && (
+            <div className="agent-form-empty">
+              <p>Selecciona un agente para editarlo</p>
             </div>
-            <div className="form-field">
-              <label>Descripción</label>
-              <textarea
-                value={form.description || ''}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Descripción opcional..."
-              />
-            </div>
-            <div className="form-field">
-              <label>System Prompt</label>
-              <textarea
-                value={form.systemPrompt || ''}
-                onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
-                placeholder="Eres un asistente útil que..."
-              />
-            </div>
-            <div className="form-row">
-              <div className="form-field">
-                <label>Provider</label>
-                <input
-                  type="text"
-                  value={form.provider || ''}
-                  onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                  placeholder="anthropic"
+          )}
+
+          {state.selectedAgent && (
+            <form
+              className="agent-form"
+              onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+            >
+              <div className="agent-form-header">
+                <div className="form-group form-group--name">
+                  <label htmlFor="agent-name">Nombre</label>
+                  <input
+                    id="agent-name"
+                    type="text"
+                    value={state.name}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    placeholder="Nombre del agente"
+                  />
+                </div>
+
+                <div className="form-group form-group--enabled">
+                  <label htmlFor="agent-enabled" className="toggle-label">
+                    <input
+                      id="agent-enabled"
+                      type="checkbox"
+                      checked={state.enabled}
+                      onChange={(e) => handleFieldChange('enabled', e.target.checked)}
+                    />
+                    <span>Activo</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="agent-prompt">System Prompt</label>
+                <textarea
+                  id="agent-prompt"
+                  value={state.systemPrompt}
+                  onChange={(e) => handleFieldChange('systemPrompt', e.target.value)}
+                  placeholder="Instrucciones del agente..."
+                  rows={8}
+                  className="agent-prompt-textarea"
                 />
               </div>
-              <div className="form-field">
-                <label>Modelo</label>
-                <input
-                  type="text"
-                  value={form.model || ''}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="claude-sonnet-4"
-                />
+
+              <div className="agent-form-row">
+                <div className="form-group">
+                  <label htmlFor="agent-model">Modelo</label>
+                  <input
+                    id="agent-model"
+                    type="text"
+                    value={state.model}
+                    onChange={(e) => handleFieldChange('model', e.target.value)}
+                    placeholder="gpt-4, claude-3..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="agent-provider">Proveedor</label>
+                  <input
+                    id="agent-provider"
+                    type="text"
+                    value={state.provider}
+                    onChange={(e) => handleFieldChange('provider', e.target.value)}
+                    placeholder="openai, anthropic..."
+                  />
+                </div>
               </div>
-            </div>
-            <div className="form-row">
-              <div className="form-field">
-                <label>Temperature</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  value={form.temperature ?? ''}
-                  onChange={(e) => setForm({ ...form, temperature: e.target.value ? parseFloat(e.target.value) : undefined })}
-                />
+
+              <div className="agent-form-row">
+                <div className="form-group">
+                  <label htmlFor="agent-temp">Temperatura: {state.temperature}</label>
+                  <input
+                    id="agent-temp"
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={state.temperature}
+                    onChange={(e) => handleFieldChange('temperature', parseFloat(e.target.value))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="agent-tokens">Max Tokens: {state.maxTokens}</label>
+                  <input
+                    id="agent-tokens"
+                    type="number"
+                    min={256}
+                    max={128000}
+                    value={state.maxTokens}
+                    onChange={(e) => handleFieldChange('maxTokens', parseInt(e.target.value, 10))}
+                  />
+                </div>
               </div>
-              <div className="form-field">
-                <label>Max Tokens</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.maxTokens ?? ''}
-                  onChange={(e) => setForm({ ...form, maxTokens: e.target.value ? parseInt(e.target.value) : undefined })}
-                />
-              </div>
-            </div>
-            <div className="form-field">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={form.enabled ?? true}
-                  onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
-                />
-                Habilitado
-              </label>
-            </div>
-            {error && <div className="form-error">{error}</div>}
-            <div className="form-actions">
-              <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? 'Guardando...' : 'Guardar'}
-              </button>
-              {selected && (
-                <button type="button" className="btn-secondary" onClick={handleTest} disabled={testing}>
-                  {testing ? 'Probando...' : 'Probar'}
-                </button>
+
+              {state.error && (
+                <div className="form-error" role="alert">
+                  <Icon name="alert" size={14} />
+                  <span>{state.error}</span>
+                </div>
               )}
-            </div>
-            {testResult && (
-              <div className="test-result">
-                <pre>{testResult}</pre>
+
+              {state.savedMessage && (
+                <div className="form-success" role="status">
+                  <Icon name="check" size={14} />
+                  <span>{state.savedMessage}</span>
+                </div>
+              )}
+
+              <div className="agent-form-actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={handleTest}
+                  disabled={state.testing}
+                  title="Prueba el agente con un mensaje de prueba"
+                >
+                  <Icon name={state.testing ? 'refresh' : 'sparkle'} size={14} />
+                  {state.testing ? 'Probando...' : 'Probar'}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={handleDelete}
+                  title="Eliminar agente"
+                >
+                  <Icon name="alert" size={14} />
+                  Eliminar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={state.saving || !state.isDirty}
+                >
+                  <Icon name={state.saving ? 'refresh' : 'check'} size={14} />
+                  {state.saving ? 'Guardando...' : 'Guardar'}
+                </button>
               </div>
-            )}
-          </div>
-        )}
+
+              {state.testOutput && (
+                <div className="agent-test-output" role="region" aria-label="Resultado de prueba">
+                  <div className="agent-test-output-header">
+                    <Icon name="sparkle" size={14} />
+                    <span>Resultado de prueba</span>
+                  </div>
+                  <pre className="agent-test-output-body">{state.testOutput}</pre>
+                </div>
+              )}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

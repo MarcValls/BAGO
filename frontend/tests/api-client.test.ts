@@ -148,4 +148,94 @@ describe('BagoClient response parsing', () => {
       body: '{}'
     }));
   });
+
+  it('creates a persistent empty conversation through the conversation contract', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: true,
+      active_conversation_id: 'chat-new',
+      conversations: [],
+      history: { conversation_id: 'chat-new', messages: [], count: 0 }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createBagoClient('', '').createConversation();
+
+    expect(fetchMock).toHaveBeenCalledWith('/conversations', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', title: 'Nuevo chat' })
+    }));
+  });
+
+  it('uses the canonical inspect and import package routes', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createBagoClient('', '');
+
+    await client.inspectCapabilityPackage('example.bago.zip', 'YWJj');
+    await client.importCapabilityPackage({ fileName: 'example.bago.zip', contentBase64: 'YWJj' });
+
+    expect(fetchMock.mock.calls[0]).toEqual([
+      '/api/v1/capability-packages/inspect',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"content_base64":"YWJj"')
+      })
+    ]);
+    expect(fetchMock.mock.calls[1]).toEqual([
+      '/api/v1/capability-packages/import',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"confirm_trust":false')
+      })
+    ]);
+  });
+
+  it('lists and installs bundled capability examples through canonical routes', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ok: true, examples: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createBagoClient('', '');
+
+    await client.listCapabilityExamples();
+    await client.installCapabilityExample('local.scheduled-report');
+
+    expect(fetchMock.mock.calls[0]).toEqual([
+      '/api/v1/capability-packages/examples',
+      expect.objectContaining({ method: 'GET' })
+    ]);
+    expect(fetchMock.mock.calls[1]).toEqual([
+      '/api/v1/capability-packages/local.scheduled-report/install-example',
+      expect.objectContaining({ method: 'POST' })
+    ]);
+  });
+
+
+  it('uses the real Simulation and RL laboratory endpoints', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createBagoClient('', '');
+
+    await client.setSimulationConfig({ enabled: true, mode: 'shadow' });
+    await client.trainRlBc();
+    await client.evalRlPolicy();
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/simulation/config',
+      '/rl/train-bc',
+      '/rl/eval'
+    ]);
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toMatchObject({ enabled: true, mode: 'shadow' });
+  });
+
 });

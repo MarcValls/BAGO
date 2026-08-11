@@ -284,6 +284,20 @@ def train_bc_policy(base_path: str | Path, n_actions: int, n_features: int) -> d
         "can_execute": False,
     }
 
+def bc_policy_status(base_path: str | Path, n_features: int = 4) -> dict[str, Any]:
+    """Return a read-only summary for the Laboratory UI."""
+    policy_path = bc_policy_path(base_path)
+    samples = load_transition_samples(base_path, n_features)
+    return {
+        "numpy_available": numpy_available(),
+        "samples": len(samples),
+        "policy_exists": policy_path.is_file(),
+        "policy_file": str(policy_path),
+        "actions": list(INTENT_ACTIONS),
+        "can_execute": False,
+    }
+
+
 def eval_bc_policy(base_path: str | Path, n_features: int) -> dict[str, Any]:
     if not numpy_available():
         return {"status": "disabled", "reason": "numpy not installed", "can_execute": False}

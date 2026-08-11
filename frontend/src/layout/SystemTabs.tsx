@@ -5,13 +5,14 @@ import { resolveProviderDescriptor } from '@/shared/provider-catalog';
 import { ProviderDescriptor } from '@/shared/provider-config';
 import { normalizeProviderModels } from '@/shared/providerModels';
 import { ProviderConfigModal } from './ProviderConfigModal';
+import { InterpretControls, SubagentCatalogue } from './OperationalTools';
+import { RlTrainingLaboratory, SimulationLaboratory } from '@/features/pipeline/LaboratoryPanels';
+import { ToolsPanel } from '@/features/tools/ToolsPanel';
 import type { ContextTargetKind, SelectionRecord } from '@/contracts/backend';
-import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
-
-type TabId = 'overview' | 'capabilities' | 'router' | 'providers' | 'audit' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
+export type SystemTabId = 'overview' | 'router' | 'providers' | 'audit' | 'tools' | 'simulation' | 'rl' | 'subagents' | 'interpret' | 'routes';
 
 interface Tab {
-  id: TabId;
+  id: SystemTabId;
   label: string;
   icon: IconName;
   experimental?: boolean;
@@ -19,10 +20,10 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'overview', label: 'Resumen', icon: 'system' },
-  { id: 'capabilities', label: 'Capacidades', icon: 'spark' },
   { id: 'router', label: 'Router', icon: 'model' },
   { id: 'providers', label: 'Proveedores', icon: 'server' },
   { id: 'audit', label: 'Auditoría', icon: 'inspector' },
+  { id: 'tools', label: 'Herramientas', icon: 'tools' },
   { id: 'simulation', label: 'Simulación', icon: 'pipeline' },
   { id: 'rl', label: 'RL', icon: 'live', experimental: true },
   { id: 'subagents', label: 'Subagentes', icon: 'node' },
@@ -43,6 +44,10 @@ interface Props {
   onConfigureProvider: (provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string }) => Promise<void>;
   providers: Array<Record<string, unknown>>;
   onInspectSelection?: (selection: SelectionRecord, position?: { x: number; y: number }) => void;
+  allowedTabs?: SystemTabId[];
+  activeTab?: SystemTabId;
+  onActiveTabChange?: (tab: SystemTabId) => void;
+  hideTabList?: boolean;
 }
 
 function DataBlock({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
@@ -117,12 +122,18 @@ function openContextMenu(
 
 export function SystemTabs(props: Props) {
   const client = useMemo(() => createBagoClient(props.apiBase, props.apiToken), [props.apiBase, props.apiToken]);
-  const [active, setActive] = useState<TabId>('overview');
+  const [internalActive, setInternalActive] = useState<SystemTabId>(props.allowedTabs?.[0] || 'overview');
+  const visibleTabs = props.allowedTabs?.length ? TABS.filter((tab) => props.allowedTabs?.includes(tab.id)) : TABS;
+  const active = visibleTabs.some((tab) => tab.id === props.activeTab)
+    ? props.activeTab!
+    : visibleTabs.some((tab) => tab.id === internalActive)
+      ? internalActive
+      : visibleTabs[0]?.id || 'overview';
+  const setActive = (tab: SystemTabId) => {
+    setInternalActive(tab);
+    props.onActiveTabChange?.(tab);
+  };
   const [audit, setAudit] = useState<Record<string, unknown> | null>(null);
-  const [simulation, setSimulation] = useState<Record<string, unknown> | null>(null);
-  const [rl, setRl] = useState<Record<string, unknown> | null>(null);
-  const [rlBusy, setRlBusy] = useState<string>('');
-  const [rlResult, setRlResult] = useState<Record<string, unknown> | null>(null);
   const [subagents, setSubagents] = useState<Record<string, unknown> | null>(null);
   const [interpret, setInterpret] = useState<{ rules: Record<string, unknown> | null; history: Record<string, unknown> | null }>({ rules: null, history: null });
   const [routes, setRoutes] = useState<Record<string, unknown> | null>(null);
@@ -166,15 +177,8 @@ export function SystemTabs(props: Props) {
             client.getAuditLedger().catch((e) => ({ error: String(e) }))
           ]);
           if (!cancelled) setAudit({ project: proj, bago, ledger });
-        } else if (active === 'simulation') {
-          const [status, events] = await Promise.all([
-            client.getSimulationStatus().catch((e) => ({ error: String(e) })),
-            client.getSimulationEvents().catch((e) => ({ error: String(e) }))
-          ]);
-          if (!cancelled) setSimulation({ status, events });
-        } else if (active === 'rl') {
-          const status = await client.getRlStatus().catch((e) => ({ error: String(e) }));
-          if (!cancelled) setRl(status);
+        } else if (active === 'simulation' || active === 'rl') {
+          return;
         } else if (active === 'subagents') {
           const cat = await client.getSubagentsCatalogue().catch((e) => ({ error: String(e) }));
           if (!cancelled) setSubagents(cat);
@@ -198,28 +202,6 @@ export function SystemTabs(props: Props) {
     return () => { cancelled = true; };
   }, [active, client]);
 
-  const simulationStatus = asRecord(simulation?.status);
-  const rlStatus = asRecord(rl);
-
-  async function runRlAction(action: 'refresh' | 'shadow' | 'train' | 'eval') {
-    setRlBusy(action);
-    setError(null);
-    try {
-      const result = action === 'refresh'
-        ? await client.getRlStatus()
-        : action === 'shadow'
-          ? await client.setRlShadow({ enabled: !Boolean(rlStatus.enabled) })
-          : action === 'train'
-            ? await client.trainRlBc()
-            : await client.evalRlPolicy();
-      if (action === 'refresh' || action === 'shadow') setRl(result);
-      setRlResult(result);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setRlBusy('');
-    }
-  }
   const overviewSelection = systemSelection(
     'system-overview',
     'system-overview',
@@ -249,9 +231,9 @@ export function SystemTabs(props: Props) {
   );
 
   return (
-    <div className="system-tabs">
-      <div className="system-tabs-rail" role="tablist" aria-label="Secciones del sistema">
-        {TABS.map((tab) => (
+    <div className={`system-tabs ${props.hideTabList ? 'is-full-width' : ''}`}>
+      {!props.hideTabList && <div className="system-tabs-rail" role="tablist" aria-label="Secciones del sistema">
+        {visibleTabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -274,7 +256,7 @@ export function SystemTabs(props: Props) {
             {tab.experimental && <span className="system-tab-experimental" title="Experimental">·</span>}
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="system-tabs-content">
         {active === 'overview' && (
@@ -296,12 +278,6 @@ export function SystemTabs(props: Props) {
             </button>
             <ActionMenuButton selection={overviewSelection} onInspectSelection={props.onInspectSelection} label="Acciones de sistema" />
             <ReleaseUpdateCard client={client} />
-          </section>
-        )}
-
-        {active === 'capabilities' && (
-          <section className="system-tab-panel system-capabilities-panel" role="tabpanel">
-            <CapabilityAnatomyModule client={client} onInspect={(selection) => props.onInspectSelection?.(selection)} />
           </section>
         )}
 
@@ -503,52 +479,15 @@ export function SystemTabs(props: Props) {
           </section>
         )}
 
-        {active === 'simulation' && (
+        {active === 'tools' && (
           <section className="system-tab-panel" role="tabpanel">
-            <h3>Simulación</h3>
-            <p className="system-tab-description">Estado y eventos de la simulación shadow (observer-only).</p>
-            {!simulation ? <LoadingState label="simulación" /> : (
-              <div className="simulation-stack">
-                <DataBlock label="Estado" value={String(simulationStatus.enabled ? 'ON' : 'OFF')} hint={String(simulationStatus.mode || '?')} />
-                <DataBlock label="Autoridad" value={String(simulationStatus.authority || '?')} hint={String(simulationStatus.mode_note || '').slice(0, 60)} />
-                <DataBlock label="Eventos registrados" value={String(simulationStatus.events_logged ?? '?')} />
-                <details>
-                  <summary>Eventos</summary>
-                  <JsonView data={simulation.events} />
-                </details>
-              </div>
-            )}
+            <ToolsPanel client={client} />
           </section>
         )}
 
-        {active === 'rl' && (
-          <section className="system-tab-panel" role="tabpanel">
-            <h3>RL <span className="system-tab-badge-experimental">experimental</span></h3>
-            <p className="system-tab-description">Entrena, evalúa y registra recomendaciones. La autoridad permanece en observer-only: nunca ejecuta acciones.</p>
-            {error && <ErrorState error={error} />}
-            {!rl ? <LoadingState label="RL" /> : (
-              <div className="rl-stack">
-                <DataBlock label="Estado" value={String(rlStatus.enabled ? 'ON' : 'OFF')} hint={String(rlStatus.mode || '?')} />
-                <DataBlock label="Autoridad" value={String(rlStatus.authority || '?')} />
-                <DataBlock label="Eventos" value={String(rlStatus.events_logged ?? '?')} />
-                <DataBlock label="Puede ejecutar" value={rlStatus.can_execute === true ? 'SÍ' : 'NO'} hint="Bloqueo de seguridad permanente" />
-                <div className="rl-actions" aria-label="Controles RL">
-                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('refresh')}>Actualizar</button>
-                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('shadow')}>{rlStatus.enabled ? 'Desactivar shadow' : 'Activar shadow'}</button>
-                  <button className="primary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('train')}>Entrenar BC</button>
-                  <button className="secondary-button compact" type="button" disabled={Boolean(rlBusy)} onClick={() => void runRlAction('eval')}>Evaluar política</button>
-                </div>
-                {rlBusy && <div className="system-tab-meta">Ejecutando {rlBusy}…</div>}
-                {rlResult && <details open><summary>Resultado de la última acción</summary><JsonView data={rlResult} /></details>}
-                {Boolean(rlStatus.log_path) && <div className="system-tab-meta">Log: {String(rlStatus.log_path)}</div>}
-                <details>
-                  <summary>Detalle completo</summary>
-                  <JsonView data={rl} />
-                </details>
-              </div>
-            )}
-          </section>
-        )}
+        {active === 'simulation' && <SimulationLaboratory client={client} />}
+
+        {active === 'rl' && <RlTrainingLaboratory client={client} />}
 
         {active === 'subagents' && (
           <section className="system-tab-panel" role="tabpanel">
@@ -557,7 +496,7 @@ export function SystemTabs(props: Props) {
             {!subagents ? <LoadingState label="subagentes" /> : (
               subagents.error
                 ? <ErrorState error={String(subagents.error)} />
-                : <JsonView data={subagents} />
+                : <SubagentCatalogue payload={subagents} />
             )}
           </section>
         )}
@@ -567,15 +506,21 @@ export function SystemTabs(props: Props) {
             <h3>Interpret</h3>
             <p className="system-tab-description">Reglas de interpretación e historial de invocaciones.</p>
             {!interpret.rules && !interpret.history ? <LoadingState label="interpret" /> : (
-              <div className="interpret-stack">
-                <details open>
-                  <summary>Reglas</summary>
-                  <JsonView data={interpret.rules} />
-                </details>
-                <details>
-                  <summary>Historial</summary>
-                  <JsonView data={interpret.history} />
-                </details>
+              <div className="interpret-workspace">
+                <InterpretControls client={client} onCompleted={async () => {
+                  const [rules, history] = await Promise.all([client.getInterpretRules(), client.getInterpretHistory()]);
+                  setInterpret({ rules, history });
+                }} />
+                <div className="interpret-stack">
+                  <details open>
+                    <summary>Reglas activas</summary>
+                    <JsonView data={interpret.rules} />
+                  </details>
+                  <details>
+                    <summary>Historial técnico</summary>
+                    <JsonView data={interpret.history} />
+                  </details>
+                </div>
               </div>
             )}
           </section>
@@ -682,30 +627,90 @@ function ReleaseUpdateCard({ client }: { client: BagoClient }) {
 
 function RoutesView({ routes }: { routes: Record<string, unknown> }) {
   const list = Array.isArray(routes.routes) ? (routes.routes as Array<Record<string, unknown>>) : [];
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const grouped = useMemo(() => {
+    const groups: Record<string, Array<Record<string, unknown>>> = {};
+    for (const r of list) {
+      const path = String(r.path || '');
+      const segment = path.split('/').filter(Boolean)[0] || '/';
+      const key = segment === '' || segment === '/' ? '/' : `/${segment}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    }
+    // Sort groups alphabetically
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [list]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return grouped;
+    const q = query.toLowerCase();
+    return grouped
+      .map(([key, items]) => [key, items.filter((r) => String(r.path || '').toLowerCase().includes(q) || String(r.handler_fn || '').toLowerCase().includes(q))] as [string, Array<Record<string, unknown>>])
+      .filter(([, items]) => items.length > 0);
+  }, [grouped, query]);
+
+  const total = list.length;
+  const shown = filtered.reduce((acc, [, items]) => acc + items.length, 0);
+
+  function toggle(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
   return (
     <div className="routes-view">
-      <DataBlock label="Total" value={String(routes.count ?? list.length)} />
-      <details open>
-        <summary>Listado ({list.length})</summary>
-        <table className="routes-table">
-          <thead>
-            <tr>
-              <th>Método</th>
-              <th>Ruta</th>
-              <th>Handler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((r, idx) => (
-              <tr key={`${r.method}-${r.path}-${idx}`}>
-                <td><span className={`route-method method-${String(r.method || 'GET').toLowerCase()}`}>{String(r.method || '?')}</span></td>
-                <td className="route-path">{String(r.path || '?')}</td>
-                <td className="route-handler">{String(r.handler_module || '?')}.{String(r.handler_fn || '?')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
+      <div className="routes-toolbar">
+        <input
+          className="routes-search"
+          type="search"
+          placeholder="Buscar ruta o handler…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <span className="routes-count">{shown}/{total}</span>
+      </div>
+      <div className="routes-groups">
+        {filtered.length === 0 && (
+          <p className="routes-empty">Sin coincidencias</p>
+        )}
+        {filtered.map(([key, items]) => {
+          const isOpen = expanded.has(key);
+          return (
+            <details key={key} open={isOpen}>
+              <summary onClick={(e) => { e.preventDefault(); toggle(key); }}>
+                <span className="routes-group-label">
+                  <span className={`route-chevron ${isOpen ? 'is-open' : ''}`}><Icon name="chevron" size={11} /></span>
+                  <strong>{key}</strong>
+                  <span className="routes-group-count">{items.length}</span>
+                </span>
+              </summary>
+              <table className="routes-table">
+                <thead>
+                  <tr>
+                    <th>Método</th>
+                    <th>Ruta</th>
+                    <th>Handler</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((r, idx) => (
+                    <tr key={`${r.method}-${r.path}-${idx}`}>
+                      <td><span className={`route-method method-${String(r.method || 'GET').toLowerCase()}`}>{String(r.method || '?')}</span></td>
+                      <td className="route-path">{String(r.path || '?')}</td>
+                      <td className="route-handler">{String(r.handler_module || '?')}.{String(r.handler_fn || '?')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          );
+        })}
+      </div>
     </div>
   );
 }

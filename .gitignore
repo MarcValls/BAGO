@@ -69,3 +69,7 @@ credentials.json
 accounts.json
 *.pem
 *.key
+
+# Impeccable hook cache
+.impeccable/hook.cache.json
+.impeccable/hook.cache.*

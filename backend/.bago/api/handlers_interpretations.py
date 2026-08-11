@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -147,14 +148,39 @@ def _build_stages(interpretation_id: str, input_text: str) -> list[dict[str, Any
     return stages
 
 
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+
+
+def _validate_interpretation_id(interpretation_id: str) -> bool:
+    if not isinstance(interpretation_id, str) or not _SAFE_ID_RE.match(interpretation_id):
+        return False
+    return True
+
+
+def _interpretation_path(state: Path, interpretation_id: str) -> Path | None:
+    if not _validate_interpretation_id(interpretation_id):
+        return None
+    interpretations_dir = _interpretations_dir(state).resolve()
+    fp = (interpretations_dir / f"{interpretation_id}.json").resolve()
+    try:
+        fp.relative_to(interpretations_dir)
+    except ValueError:
+        return None
+    return fp
+
+
 def _save_interpretation(state: Path, interpretation: dict[str, Any]) -> None:
-    interpretations_dir = _interpretations_dir(state)
-    fp = interpretations_dir / f"{interpretation['interpretationId']}.json"
+    interpretation_id = str(interpretation.get("interpretationId", ""))
+    fp = _interpretation_path(state, interpretation_id)
+    if fp is None:
+        raise ValueError("Invalid interpretation id")
     fp.write_text(__import__("json").dumps(interpretation, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _load_interpretation(state: Path, interpretation_id: str) -> dict[str, Any] | None:
-    fp = _interpretations_dir(state) / f"{interpretation_id}.json"
+    fp = _interpretation_path(state, interpretation_id)
+    if fp is None:
+        return None
     if not fp.exists():
         return None
     try:
@@ -252,6 +278,9 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
 def handle_get(handler: "BaseHTTPRequestHandler", interpretation_id: str) -> None:
     state = _state(handler)
+    if not _validate_interpretation_id(interpretation_id):
+        _send(handler, 400, {"ok": False, "error": "Invalid interpretation id"})
+        return
     interpretation = _load_interpretation(state, interpretation_id)
     if interpretation is None:
         _send(handler, 404, {"ok": False, "error": "Interpretación no encontrada"})

@@ -18,6 +18,7 @@ interface Props {
   onSetAppearanceTheme: (theme: 'dark' | 'light') => void;
   onRunCommand: (command: string) => void;
   onChooseWorkspace: () => void;
+  onGoHome?: () => void;
   onOpenHelp?: () => void;
   globalMode: 'normal' | 'focus' | 'review';
   appearanceTheme: 'dark' | 'light';
@@ -51,13 +52,13 @@ export function GlobalHeader(props: Props) {
   if (props.globalMode === 'focus') {
     return (
       <header className="global-header focus-header">
-        <div className="header-brand compact">
+        <button className="header-brand compact is-clickable" type="button" onClick={props.onGoHome} title="Volver al inicio de BAGO">
           <div className="brand-mark">B</div>
           <div>
             <strong>Focus</strong>
             <span>{SECTION_LABELS[props.activeSection]} · {workspace}</span>
           </div>
-        </div>
+        </button>
         <div className="focus-header-actions">
           <label className="header-theme-picker" title="Opciones de apariencia">
             <span>Tema</span>
@@ -89,13 +90,13 @@ export function GlobalHeader(props: Props) {
         <button className="icon-button" type="button" onClick={props.onToggleSidebar} title={props.sidebarCollapsed ? 'Mostrar navegación (Ctrl B)' : 'Ocultar navegación (Ctrl B)'}>
           <Icon name="menu" />
         </button>
-        <div className="header-brand">
+        <button className="header-brand is-clickable" type="button" onClick={props.onGoHome} title="Volver al recorrido inicial">
           <div className="brand-mark">B</div>
           <div>
             <strong>BAGO</strong>
             <span>{workspace}</span>
           </div>
-        </div>
+        </button>
         <div className="header-divider" />
         <div className="header-location">
           <span>{SECTION_LABELS[props.activeSection]}</span>

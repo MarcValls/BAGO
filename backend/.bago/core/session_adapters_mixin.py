@@ -170,7 +170,17 @@ class SessionAdaptersMixin:
         """Lista providers registrados con estado de configuración."""
         if self._providers_cache is not None and (time.time() - self._providers_cache_at) < self._providers_cache_ttl:
             return [
-                {"name": item["name"], "configured": item["configured"], "models": list(item["models"])}
+                {
+                    "name": item["name"],
+                    "configured": item["configured"],
+                    "models": list(item["models"]),
+                    "healthy": item.get("healthy", False),
+                    "available_tokens": item.get("available_tokens"),
+                    "token_source": item.get("token_source", ""),
+                    "token_limited": item.get("token_limited", False),
+                    "usable": item.get("usable", False),
+                    "detail": item.get("detail", ""),
+                }
                 for item in self._providers_cache
             ]
 
@@ -187,6 +197,21 @@ class SessionAdaptersMixin:
                 configured = inst.is_configured()
             except Exception:
                 configured = False
+            availability = {}
+            try:
+                availability = dict(inst.availability_snapshot())
+            except Exception:
+                availability = {
+                    "provider": name,
+                    "configured": configured,
+                    "healthy": False,
+                    "detail": "",
+                    "models_available": 0,
+                    "available_tokens": None,
+                    "token_source": "",
+                    "token_limited": False,
+                    "usable": configured,
+                }
 
             # Las sesiones autenticadas de Codex/Copilot pertenecen al CLI y
             # no deben convertirse en tokens BAGO. Cuando el adapter confirma
@@ -219,13 +244,55 @@ class SessionAdaptersMixin:
                 "name": name,
                 "configured": configured,
                 "models": models,
+                "healthy": bool(availability.get("healthy", False)),
+                "available_tokens": availability.get("available_tokens"),
+                "token_source": str(availability.get("token_source", "") or ""),
+                "token_limited": bool(availability.get("token_limited", False)),
+                "usable": bool(availability.get("usable", configured and bool(models))),
+                "detail": str(availability.get("detail", "") or ""),
             })
         self._providers_cache = [
-            {"name": item["name"], "configured": item["configured"], "models": list(item["models"])}
+            {
+                "name": item["name"],
+                "configured": item["configured"],
+                "models": list(item["models"]),
+                "healthy": item.get("healthy", False),
+                "available_tokens": item.get("available_tokens"),
+                "token_source": item.get("token_source", ""),
+                "token_limited": item.get("token_limited", False),
+                "usable": item.get("usable", False),
+                "detail": item.get("detail", ""),
+            }
             for item in result
         ]
         self._providers_cache_at = time.time()
         return result
+
+    def provider_availability(self) -> list[dict[str, Any]]:
+        providers = self.available_providers()
+        ranked = sorted(
+            providers,
+            key=lambda item: (
+                0 if item.get("usable") else 1,
+                0 if item.get("available_tokens") is None else -int(item.get("available_tokens") or 0),
+                0 if item.get("healthy") else 1,
+                item.get("name", ""),
+            ),
+        )
+        return [
+            {
+                "name": item.get("name", ""),
+                "configured": bool(item.get("configured", False)),
+                "healthy": bool(item.get("healthy", False)),
+                "usable": bool(item.get("usable", False)),
+                "available_tokens": item.get("available_tokens"),
+                "token_source": str(item.get("token_source", "") or ""),
+                "token_limited": bool(item.get("token_limited", False)),
+                "models": list(item.get("models", [])),
+                "detail": str(item.get("detail", "") or ""),
+            }
+            for item in ranked
+        ]
 
     def invalidate_providers_cache(self) -> None:
         """Invalida el cache de providers. Llamar tras POST /providers/configure."""

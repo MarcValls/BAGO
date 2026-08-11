@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.package/v1",
+  "kind": "capability",
+  "execution_mode": "executable",
+  "id": "local.text-transform",
+  "name": "Transformar texto",
+  "version": "1.0.0",
+  "description": "Limpia, normaliza o reemplaza texto localmente.",
+  "author": "BAGO examples",
+  "definition": "definitions/capability.json",
+  "entrypoint": "runtime/run.py",
+  "permissions": [],
+  "compatibility": {
+    "bago_package": "^1.0"
+  },
+  "dependencies": [],
+  "files": [
+    {
+      "path": "definitions/capability.json",
+      "size": 832,
+      "sha256": "618be1f472948aab3affce337e655401974f67c08f03e4105dc113982fd2c62e"
+    },
+    {
+      "path": "docs/README.md",
+      "size": 215,
+      "sha256": "0b881260e731b00fd382a895a4d91fea38a6cfe1108b63f99138d3c82519457a"
+    },
+    {
+      "path": "examples/input.json",
+      "size": 45,
+      "sha256": "6ef110d66e999fdb860a2eb10fa26a578cd4aab1741d77116b5d216a814e4b6a"
+    },
+    {
+      "path": "runtime/run.py",
+      "size": 566,
+      "sha256": "75e28bfb41702f637e2a389833b37d9b92dba8887c7eca81f0eead3d8d4d1ddd"
+    }
+  ]
+}
