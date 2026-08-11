@@ -11,7 +11,11 @@ import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
 import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
+import { DrawerOverlay } from '@/components/DrawerOverlay';
+import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
+import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
+import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildSnapshot } from '@/app/bootstrapSnapshot';
@@ -152,6 +156,7 @@ export function ControlPlane() {
   const [lastMessage, setLastMessage] = useState('iniciando');
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
+  const { openDrawer, close: closeDrawer, isOpen } = usePanelManager();
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -1306,6 +1311,8 @@ export function ControlPlane() {
               workspaceHint={uiState.workspaceHint}
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
+              openDrawer={openDrawer}
+              onOpenDrawer={(id) => openDrawer ? closeDrawer() : open(id)}
             />
           )}
 
@@ -1472,6 +1479,102 @@ export function ControlPlane() {
           onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
         />
       )}
+
+      <DrawerOverlay isOpen={isOpen('capabilities')} onClose={closeDrawer} position="left" width={320}>
+        <CapabilityAnatomyModule client={clientRef.current} onInspect={(selection) => onInspect(selection, 'detail')} />
+        <ExternalCapabilitiesPanel client={clientRef.current} />
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('pipeline')} onClose={closeDrawer} position="bottom" height={400}>
+        <div className="drawer-pipeline-header">
+          <h3>Pipeline</h3>
+        <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
+        </div>
+        <div className="drawer-pipeline-content">
+          <ControlSections
+            section="pipeline"
+            snapshot={snapshot}
+            opening={opening}
+            booting={booting}
+            workspaceHint={uiState.workspaceHint}
+            apiBase={uiState.apiBase}
+            apiToken={uiState.apiToken}
+            client={clientRef.current}
+            routes={routes}
+            providers={providers}
+            router={routerState}
+            history={history}
+            conversations={conversations}
+            files={files}
+            commandResults={commandResults}
+            turns={turns}
+            drafts={uiState.drafts}
+            chatMode={uiState.chatMode}
+            globalMode={uiState.globalMode}
+            onDraftChange={setDraft}
+            onSendChat={sendChat}
+            onInspect={onInspect}
+            onRunCommand={runCommand}
+            onRunContextCommand={runContextCommand}
+            onRunAction={runAction}
+            onRunPlanTask={runPlanTask}
+            onSetSection={navigate}
+            onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
+            onSetGlobalMode={(mode) => setAndPersistUiState({ globalMode: mode })}
+            onReadFile={(path) => clientRef.current.readFile(path).catch(() => null)}
+            onManageSource={(action, path, label) => clientRef.current.manageSource(action, path, label).catch(() => null)}
+            onRefreshRouter={refreshRouterState}
+            onToggleRouter={toggleRouterSelection}
+            onSetRouterAuto={setRouterAutoSwitch}
+            onConfigureProvider={configureProvider}
+            onSetSessionModel={setSessionModelCb}
+            sessionModel={sessionModel}
+            reasoningDepth={reasoningDepth}
+            onSetReasoningDepth={setReasoningDepthCb}
+            onCreateConversation={createNewConversation}
+            onSwitchConversation={switchConversation}
+            onRenameConversation={renameConversation}
+            onArchiveConversation={archiveConversation}
+            workspaceOpenRequest={workspaceOpenRequest}
+            contextClient={clientRef.current}
+            contextTree={contextTree}
+            incomingContextPatches={incomingContextPatches}
+            onContextPatchHandled={onContextPatchHandled}
+            contextBankPending={uiState.contextBankPending || []}
+            onContextBankPendingConsumed={(id) => {
+              setUiState((current) => {
+                const next = patchUiState(current, { contextBankPending: (current.contextBankPending || []).filter((p) => p.id !== id) });
+                persistUiState(next);
+                return next;
+              });
+            }}
+            contextPatchDisplay={contextPatchDisplay}
+            onAcceptContextPatch={acceptContextPatch}
+            onRejectContextPatch={rejectContextPatch}
+            onEditContextPatch={editContextPatch}
+            onRevertContextPatch={revertContextPatch}
+            onReviewContextPatch={reviewContextPatch}
+            onOpenContextInTree={openContextInTree}
+            initialContextSelectedNodeId={initialContextSelectedNodeId}
+            initialContextEditingPatchId={uiState.contextEditPatchId}
+            onInitialContextStateConsumed={() => {
+              setInitialContextSelectedNodeId(null);
+              setAndPersistUiState({ contextEditPatchId: null });
+            }}
+          />
+        </div>
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('tools')} onClose={closeDrawer} position="right" width={280}>
+        <div className="drawer-tools-header">
+          <h3>Herramientas</h3>
+        <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
+        </div>
+        <div className="drawer-tools-content">
+          {/* ToolsPanel placeholder — wire to actual ToolsPanel component */}
+          <p style="padding:16px;color:var(--text-2);font-size:12px;">Panel de herramientas en desarrollo.</p>
+        </div>
+      </DrawerOverlay>
     </>
   );
 }

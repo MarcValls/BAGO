@@ -20,6 +20,8 @@ interface Props {
   workspaceHint?: string;
   collapsed: boolean;
   onNavigate: (section: ActiveSection) => void;
+  onOpenDrawer: (drawer: 'capabilities' | 'pipeline' | 'tools') => void;
+  openDrawer: 'capabilities' | 'pipeline' | 'tools' | null;
 }
 
 export function MainSidebar(props: Props) {
@@ -58,6 +60,21 @@ export function MainSidebar(props: Props) {
       </nav>
 
       <div className="sidebar-spacer" />
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'capabilities' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Capacidades' : undefined} aria-label="Abrir capacidades" onClick={() => props.onOpenDrawer('capabilities')}>
+        <Icon name="pack" />
+        {!props.collapsed && <span>Capacidades</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'pipeline' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Pipeline' : undefined} aria-label="Abrir pipeline" onClick={() => props.onOpenDrawer('pipeline')}>
+        <Icon name="pipeline" />
+        {!props.collapsed && <span>Pipeline</span>}
+      </button>
+
+      <button className={`sidebar-drawer-button ${props.openDrawer === 'tools' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Herramientas' : undefined} aria-label="Abrir herramientas" onClick={() => props.onOpenDrawer('tools')}>
+        <Icon name="tools" />
+        {!props.collapsed && <span>Herramientas</span>}
+      </button>
 
       <button className="sidebar-config-button" type="button" title={props.collapsed ? 'Configuración' : undefined} onClick={() => props.onNavigate('system')}>
         <Icon name="settings" />
