@@ -59,15 +59,10 @@ export function MainSidebar(props: Props) {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-status" title={workspaceState}>
-        <span className={`status-orb state-${authority.state}`} />
-        {!props.collapsed && (
-          <div>
-            <strong>{authority.projectLabel || props.workspaceHint || 'BAGO'}</strong>
-            <span>{workspaceState}</span>
-          </div>
-        )}
-      </div>
+      <button className="sidebar-config-button" type="button" title={props.collapsed ? 'Configuración' : undefined} onClick={() => props.onNavigate('system')}>
+        <Icon name="settings" />
+        {!props.collapsed && <span>Configuración</span>}
+      </button>
     </aside>
   );
 }
