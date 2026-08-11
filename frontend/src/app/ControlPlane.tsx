@@ -14,6 +14,7 @@ import { Icon } from '@/shared/Icon';
 import { DrawerOverlay } from '@/components/DrawerOverlay';
 import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
+import { ToolsPanel } from '@/features/tools/ToolsPanel';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -1566,14 +1567,13 @@ export function ControlPlane() {
       </DrawerOverlay>
 
       <DrawerOverlay isOpen={isOpen('tools')} onClose={closeDrawer} position="right" width={280}>
-        <div className="drawer-tools-header">
-          <h3>Herramientas</h3>
+      <div className="drawer-tools-header">
+        <h3>Herramientas</h3>
         <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
-        </div>
-        <div className="drawer-tools-content">
-          {/* ToolsPanel placeholder — wire to actual ToolsPanel component */}
-          <p style="padding:16px;color:var(--text-2);font-size:12px;">Panel de herramientas en desarrollo.</p>
-        </div>
+      </div>
+      <div className="drawer-tools-content">
+        <ToolsPanel client={clientRef.current} />
+      </div>
       </DrawerOverlay>
     </>
   );
