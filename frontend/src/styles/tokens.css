@@ -33,8 +33,13 @@
   --radius-sm: 5px;
   --header-height: 66px;
   --status-height: 34px;
-  --sidebar-width: 214px;
-  --sidebar-collapsed: 68px;
+  --sidebar-width: 60px;
+  --sidebar-collapsed: 60px;
+  --drawer-width-left: 320px;
+  --drawer-width-right: 360px;
+  --drawer-width-tools: 280px;
+  --drawer-height-bottom: 400px;
+  --drawer-animation: 250ms;
   --inspector-width: 350px;
   --chat-width: 460px;
   --z-base: 1;
