@@ -36,7 +36,7 @@ const FILE_TYPE_RULES: Array<{
     presentation: { kind: 'config', label: 'Env', colorToken: 'var(--color-file-config)', iconName: 'settings' },
   },
   {
-    test: (name) => name.startsWith('.env.')!,
+    test: (name) => name.startsWith('.env.'),
     presentation: { kind: 'config', label: 'Env', colorToken: 'var(--color-file-config)', iconName: 'settings' },
   },
   {
