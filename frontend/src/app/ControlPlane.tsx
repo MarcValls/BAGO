@@ -15,9 +15,7 @@ import { DrawerOverlay } from '@/components/DrawerOverlay';
 import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 import { ToolsPanel } from '@/features/tools/ToolsPanel';
-import { AgentEditorPanel } from '@/features/agents/AgentEditorPanel';
-import { InterpreterPanel } from '@/features/interpretation/InterpreterPanel';
-import { GitHubAuthPanel } from '@/features/github/GitHubAuthPanel';
+import { PanelHost, PANEL_WIDTHS } from '@/components/PanelHost';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -161,7 +159,8 @@ export function ControlPlane() {
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
   const { openDrawer, close: closeDrawer, isOpen, open: openDrawerFn } = usePanelManager();
-  const openPanel = (panelId: PanelId) => openDrawerFn(panelId);
+  const openPanel = (panelId: PanelId) => setAndPersistUiState({ activePanel: panelId });
+  const panelCloseDrawer = () => setAndPersistUiState({ activePanel: null });
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -1324,8 +1323,8 @@ export function ControlPlane() {
               workspaceHint={uiState.workspaceHint}
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
-              openDrawer={openDrawer}
-              onOpenDrawer={(id) => openDrawer ? closeDrawer() : openDrawerFn(id)}
+              openDrawer={uiState.activePanel}
+              onOpenDrawer={openPanel}
             />
           )}
 
@@ -1594,17 +1593,11 @@ export function ControlPlane() {
         </div>
       </DrawerOverlay>
 
-      <DrawerOverlay isOpen={isOpen('agents')} onClose={closeDrawer} position="right" width={480}>
-        <AgentEditorPanel client={clientRef.current} onClose={closeDrawer} />
-      </DrawerOverlay>
-
-      <DrawerOverlay isOpen={isOpen('interpreter')} onClose={closeDrawer} position="right" width={440}>
-        <InterpreterPanel client={clientRef.current} onClose={closeDrawer} />
-      </DrawerOverlay>
-
-      <DrawerOverlay isOpen={isOpen('github-auth')} onClose={closeDrawer} position="right" width={400}>
-        <GitHubAuthPanel client={clientRef.current} onClose={closeDrawer} />
-      </DrawerOverlay>
+      {uiState.activePanel && (
+        <DrawerOverlay isOpen={true} onClose={panelCloseDrawer} position="right" width={PANEL_WIDTHS[uiState.activePanel] ?? 400}>
+          <PanelHost panelId={uiState.activePanel} client={clientRef.current} onClose={panelCloseDrawer} />
+        </DrawerOverlay>
+      )}
     </>
   );
 }
