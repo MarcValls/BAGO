@@ -168,9 +168,42 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self._send_cors_headers()
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Bago-Token, X-Bago-Channel")
         self.end_headers()
+
+    def do_PUT(self) -> None:
+        if not self._check_auth():
+            self._send_json(401, {"error": "Unauthorized"})
+            return
+        parsed = urlparse(self.path)
+        path = parsed.path
+        try:
+            body = self._read_body()
+        except ValueError:
+            self._send_json(413, {"error": "Payload demasiado grande"})
+            return
+
+        from api_dispatch import resolve_put
+        matched, call = resolve_put(self, path, body)
+        if matched:
+            call(self, body)
+            return
+        self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
+
+    def do_DELETE(self) -> None:
+        if not self._check_auth():
+            self._send_json(401, {"error": "Unauthorized"})
+            return
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        from api_dispatch import resolve_delete
+        matched, call = resolve_delete(self, path)
+        if matched:
+            call(self)
+            return
+        self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
