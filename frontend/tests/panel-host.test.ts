@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PANEL_WIDTHS } from '../src/components/PanelHost';
+import { PANEL_WIDTHS } from '../src/components/ui/PanelHost';
 
 describe('PANEL_WIDTHS', () => {
   it('exports correct widths for each panel', () => {
