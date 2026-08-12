@@ -361,6 +361,7 @@ API_PREFIXES = (
     "/history",
     "/conversations",
     "/providers",
+    "/provider",  # CANON[LA-001]: singular alias for backwards-compat
     "/menu",
     "/sources",
     "/models",
@@ -380,6 +381,8 @@ API_PREFIXES = (
     "/subagents",
     "/router",
     "/interpret",
+    "/interpretations",
+    "/agents",
     "/routes",
     "/api/v1/events",
     "/vision",
@@ -387,4 +390,12 @@ API_PREFIXES = (
     "/configure",
     "/release",
     "/github",
+    # CANON[LA-001]: additional API prefixes for legacy aliases
+    "/auto-config",
+    "/blacklist",
+    "/context",
+    "/interpretations",
+    "/roadmap",
+    "/project",
+    "/workspace",
 )

@@ -6,9 +6,12 @@
     "/health",
     "/session",
     "/workspace",
+    "/workspaces",
     "/project",
     "/history",
+    "/conversations",
     "/providers",
+    "/provider",
     "/menu",
     "/sources",
     "/models",
@@ -28,11 +31,22 @@
     "/subagents",
     "/router",
     "/interpret",
+    "/interpretations",
+    "/agents",
     "/routes",
     "/api/v1/events",
     "/vision",
     "/plans",
-    "/configure"
+    "/configure",
+    "/release",
+    "/github",
+    "/auto-config",
+    "/blacklist",
+    "/context",
+    "/interpretations",
+    "/roadmap",
+    "/project",
+    "/workspace"
   ],
   "dynamic_routes": [
     {
@@ -108,6 +122,20 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_check",
+      "handler_module": "handlers_release",
+      "method": "GET",
+      "path": "/release/check",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_status",
+      "handler_module": "handlers_release",
+      "method": "GET",
+      "path": "/release/status",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle",
       "handler_module": "handlers_session",
       "method": "GET",
@@ -126,6 +154,13 @@
       "handler_module": "handlers_workspace",
       "method": "GET",
       "path": "/workspace/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_browse",
+      "handler_module": "handlers_workspace",
+      "method": "GET",
+      "path": "/workspace/browse",
       "pattern": false
     },
     {
@@ -178,10 +213,45 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_contracts",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/contracts",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle",
       "handler_module": "handlers_ui_bootstrap",
       "method": "GET",
       "path": "/api/v1/ui/bootstrap",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_capabilities",
+      "method": "GET",
+      "path": "/api/v1/capabilities",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_capability_packages",
+      "method": "GET",
+      "path": "/api/v1/capability-packages",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_receipts",
+      "handler_module": "handlers_capability_packages",
+      "method": "GET",
+      "path": "/api/v1/capability-packages/receipts",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_examples",
+      "handler_module": "handlers_capability_packages",
+      "method": "GET",
+      "path": "/api/v1/capability-packages/examples",
       "pattern": false
     },
     {
@@ -210,6 +280,13 @@
       "handler_module": "handlers_memory",
       "method": "GET",
       "path": "/memory/list",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_status",
+      "handler_module": "handlers_memory",
+      "method": "GET",
+      "path": "/memory/status",
       "pattern": false
     },
     {
@@ -395,6 +472,104 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_reasoning_depth_get",
+      "handler_module": "handlers_router",
+      "method": "GET",
+      "path": "/router/reasoning-depth",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_status",
+      "handler_module": "handlers_github",
+      "method": "GET",
+      "path": "/github/status",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_contents",
+      "handler_module": "handlers_github",
+      "method": "GET",
+      "path": "/github/contents",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auth_start",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/auth/start",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auth_refresh",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/auth/refresh",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_auth_logout",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/auth/logout",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_setup",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/setup",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_get_list",
+      "handler_module": "handlers_agents",
+      "method": "GET",
+      "path": "/agents",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_agents",
+      "method": "GET",
+      "path": "/agents/<agent_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_post",
+      "handler_module": "handlers_agents",
+      "method": "POST",
+      "path": "/agents",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_duplicate",
+      "handler_module": "handlers_agents",
+      "method": "POST",
+      "path": "/agents/<agent_id>/duplicate",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_test",
+      "handler_module": "handlers_agents",
+      "method": "POST",
+      "path": "/agents/<agent_id>/test",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_delete",
+      "handler_module": "handlers_agents",
+      "method": "DELETE",
+      "path": "/agents/<agent_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_put",
+      "handler_module": "handlers_agents",
+      "method": "PUT",
+      "path": "/agents/<agent_id>",
+      "pattern": true
+    },
+    {
       "handler_fn": "handle_history",
       "handler_module": "handlers_interpret",
       "method": "GET",
@@ -444,6 +619,20 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_import",
+      "handler_module": "handlers_capability_packages",
+      "method": "POST",
+      "path": "/api/v1/capability-packages/import",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_inspect",
+      "handler_module": "handlers_capability_packages",
+      "method": "POST",
+      "path": "/api/v1/capability-packages/inspect",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle",
       "handler_module": "handlers_command",
       "method": "POST",
@@ -476,6 +665,13 @@
       "handler_module": "handlers_project",
       "method": "POST",
       "path": "/project/sync",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_project_demo",
+      "handler_module": "handlers_project",
+      "method": "POST",
+      "path": "/project/demo",
       "pattern": false
     },
     {
@@ -542,6 +738,34 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_train_bc",
+      "handler_module": "handlers_rl",
+      "method": "POST",
+      "path": "/rl/train-bc",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_eval",
+      "handler_module": "handlers_rl",
+      "method": "POST",
+      "path": "/rl/eval",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_search",
+      "handler_module": "handlers_memory",
+      "method": "POST",
+      "path": "/memory/search",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_embedding_upsert",
+      "handler_module": "handlers_memory",
+      "method": "POST",
+      "path": "/memory/embeddings/upsert",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle_auto",
       "handler_module": "handlers_router",
       "method": "POST",
@@ -556,10 +780,66 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_reasoning_depth",
+      "handler_module": "handlers_router",
+      "method": "POST",
+      "path": "/router/reasoning-depth",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_connect",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/connect",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_create",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/create",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_mcp_create",
+      "handler_module": "handlers_github",
+      "method": "POST",
+      "path": "/github/mcp-create",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_workspace_conversation",
+      "method": "POST",
+      "path": "/workspace/conversation",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle_configure",
       "handler_module": "handlers_providers",
       "method": "POST",
       "path": "/providers/configure",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_update",
+      "handler_module": "handlers_release",
+      "method": "POST",
+      "path": "/release/update",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_apply",
+      "handler_module": "handlers_release",
+      "method": "POST",
+      "path": "/release/apply",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_test",
+      "handler_module": "handlers_providers",
+      "method": "POST",
+      "path": "/providers/test",
       "pattern": false
     },
     {
@@ -605,10 +885,31 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_post",
+      "handler_module": "handlers_conversations",
+      "method": "POST",
+      "path": "/conversations",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_conversations",
+      "method": "GET",
+      "path": "/conversations",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle_plans_create",
       "handler_module": "handlers_jobs",
       "method": "POST",
       "path": "/plans",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_create",
+      "handler_module": "handlers_schedule",
+      "method": "POST",
+      "path": "/schedule",
       "pattern": false
     }
   ],
