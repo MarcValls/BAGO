@@ -8,12 +8,7 @@ import type {
   BackendRoutes,
   BackendSession,
   BackendStatus,
-  InterpretationResult,
-  UiBootData,
-  AgentConfig,
-  AgentUpdateRequest,
-  AgentTestResult,
-  GitHubAuthState
+  UiBootData
 } from '@/contracts/backend';
 import type { CapabilityExecutionResponse, CapabilityPackageResponse, PackageInspection } from '@/modules/capability-anatomy/packageContract';
 import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
@@ -480,7 +475,72 @@ export class BagoClient {
     });
   }
 
+  // --- Agents ---
+  listAgents(): Promise<{ ok: boolean; agents: import('@/contracts/backend').AgentConfig[] }> {
+    return this.request('/agents', { method: 'GET' });
+  }
 
+  getAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'GET' });
+  }
+
+  createAgent(payload: Omit<import('@/contracts/backend').AgentConfig, 'id' | 'revision' | 'createdAt' | 'updatedAt'>): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request('/agents', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  updateAgent(id: string, payload: import('@/contracts/backend').AgentUpdateRequest): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+  }
+
+  deleteAgent(id: string): Promise<void> {
+    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  duplicateAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    return this.request(`/agents/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  testAgent(id: string): Promise<import('@/contracts/backend').AgentTestResult> {
+    return this.request(`/agents/${encodeURIComponent(id)}/test`, { method: 'POST', body: JSON.stringify({}) }, 60_000);
+  }
+
+  // --- Interpretations ---
+  createInterpretation(payload: import('@/contracts/backend').InterpretationRequest): Promise<import('@/contracts/backend').InterpretationResult> {
+    return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) }, 60_000);
+  }
+
+  getInterpretation(id: string): Promise<import('@/contracts/backend').InterpretationResult> {
+    return this.request(`/interpretations/${encodeURIComponent(id)}`, { method: 'GET' });
+  }
+
+  listInterpretations(): Promise<{ ok: boolean; interpretations: import('@/contracts/backend').InterpretationResult[] }> {
+    return this.request('/interpretations', { method: 'GET' });
+  }
+
+  cancelInterpretation(id: string): Promise<void> {
+    return this.request(`/interpretations/${encodeURIComponent(id)}/cancel`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  // --- GitHub Auth ---
+  getGitHubAuthStatus(): Promise<import('@/contracts/backend').GitHubAuthState> {
+    return this.request('/github/status', { method: 'GET' });
+  }
+
+  startGitHubAuth(): Promise<{ auth_url: string }> {
+    return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  refreshGitHubAuth(): Promise<import('@/contracts/backend').GitHubAuthState> {
+    return this.request('/github/auth/refresh', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  logoutGitHub(): Promise<void> {
+    return this.request('/github/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  setupGitHub(options: { hostname?: string; token?: string }): Promise<import('@/contracts/backend').GitHubAuthState> {
+    return this.request('/github/setup-git', { method: 'POST', body: JSON.stringify(options) });
+  }
 
   // --- Pipeline ---
   listPlans(): Promise<Record<string, unknown>> {
@@ -880,74 +940,6 @@ export class BagoClient {
     });
   }
 
-  // --- Agents ---
-  listAgents(): Promise<{ ok: boolean; agents: AgentConfig[]; count: number }> {
-    return this.request('/agents', { method: 'GET' });
-  }
-
-  getAgent(agentId: string): Promise<{ ok: boolean; agent: AgentConfig }> {
-    return this.request(`/agents/${encodeURIComponent(agentId)}`, { method: 'GET' });
-  }
-
-  createAgent(payload: Record<string, unknown>): Promise<{ ok: boolean; agent?: AgentConfig; error?: string }> {
-    return this.request('/agents', { method: 'POST', body: JSON.stringify(payload) });
-  }
-
-  updateAgent(agentId: string, payload: AgentUpdateRequest): Promise<{ ok: boolean; agent?: AgentConfig; error?: string }> {
-    return this.request(`/agents/${encodeURIComponent(agentId)}`, { method: 'PUT', body: JSON.stringify(payload) });
-  }
-
-  deleteAgent(agentId: string): Promise<{ ok: boolean; error?: string }> {
-    return this.request(`/agents/${encodeURIComponent(agentId)}`, { method: 'DELETE' });
-  }
-
-  testAgent(agentId: string, payload: Record<string, unknown> = {}): Promise<AgentTestResult> {
-    return this.request(`/agents/${encodeURIComponent(agentId)}/test`, { method: 'POST', body: JSON.stringify(payload) });
-  }
-
-  // --- Interpretations ---
-  listInterpretations(limit = 20): Promise<{ ok: boolean; interpretations: InterpretationResult[]; count: number }> {
-    return this.request(`/interpretations?limit=${encodeURIComponent(String(limit))}`, { method: 'GET' });
-  }
-
-  getInterpretation(interpretationId: string): Promise<{ ok: boolean; interpretation?: InterpretationResult }> {
-    return this.request(`/interpretations/${encodeURIComponent(interpretationId)}`, { method: 'GET' });
-  }
-
-  createInterpretation(payload: { input: string }): Promise<{ ok: boolean; interpretation?: InterpretationResult; error?: string }> {
-    return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) });
-  }
-
-  cancelInterpretation(interpretationId: string): Promise<{ ok: boolean; error?: string }> {
-    return this.request(`/interpretations/${encodeURIComponent(interpretationId)}/cancel`, { method: 'POST' });
-  }
-
-  // --- GitHub Auth ---
-  getGitHubAuthStatus(): Promise<import('@/contracts/backend').GitHubAuthState> {
-    return this.request('/github/status', { method: 'GET' });
-  }
-
-  getGitHubAccounts(): Promise<{ ok: boolean; accounts: Array<Record<string, unknown>>; count: number }> {
-    return this.request('/github/accounts', { method: 'GET' });
-  }
-
-  startGitHubAuth(): Promise<Record<string, unknown>> {
-    return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
-  }
-
-  refreshGitHubAuth(): Promise<GitHubAuthState> {
-    return this.request('/github/auth/refresh', { method: 'POST', body: JSON.stringify({}) });
-  }
-
-  logoutGitHub(hostname?: string): Promise<Record<string, unknown>> {
-    return this.request('/github/auth/logout', { method: 'POST', body: JSON.stringify({ hostname: hostname || 'github.com' }) });
-  }
-
-  setupGitGitHub(email: string, username: string): Promise<Record<string, unknown>> {
-    return this.request('/github/setup-git', { method: 'POST', body: JSON.stringify({ email, username }) });
-  }
-
-  // --- Streaming ---
   async streamChat(
     message: string,
     onChunk: (chunk: string) => void

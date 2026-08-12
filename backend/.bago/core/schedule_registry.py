@@ -41,10 +41,15 @@ def _parse_datetime(value: Any) -> datetime | None:
 
 
 def _timezone(name: str) -> ZoneInfo:
-    try:
-        return ZoneInfo(name or "UTC")
-    except ZoneInfoNotFoundError as exc:
-        raise ScheduleError(f"Zona horaria desconocida: {name}") from exc
+    if not name:
+        name = "UTC"
+    # zoneinfo keys vary across platforms; try known aliases before giving up
+    for key in (name, "Etc/" + name, name.upper(), "UTC", "Etc/UTC", "GMT", "Etc/GMT"):
+        try:
+            return ZoneInfo(key)
+        except ZoneInfoNotFoundError:
+            pass
+    raise ScheduleError(f"Zona horaria desconocida: {name}")
 
 
 def _cron_values(expression: str, minimum: int, maximum: int, *, sunday: bool = False) -> set[int]:

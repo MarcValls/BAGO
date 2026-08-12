@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import re
 import uuid
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
@@ -10,13 +9,9 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
+from handler_support import safe_handler
+
 AGENTS_STATE_DIR = Path(".bago/state/agents")
-
-_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
-
-
-def _is_safe_agent_id(agent_id: str) -> bool:
-    return isinstance(agent_id, str) and bool(_SAFE_ID_RE.match(agent_id))
 
 
 def _send(handler, code: int, payload: dict) -> None:
@@ -58,20 +53,19 @@ def _agent_to_contract(agent_data: dict) -> dict:
     }
 
 
+@safe_handler
 def handle_get_list(handler: "BaseHTTPRequestHandler") -> None:
     registry = _load_agents_registry()
     agents = [_agent_to_contract(a) for a in registry.get("agents", [])]
     _send(handler, 200, {"ok": True, "agents": agents})
 
 
+@safe_handler
 def handle_get(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
-    if not _is_safe_agent_id(agent_id):
-        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
-        return
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:
-            _send(handler, 200, _agent_to_contract(agent))
+            _send(handler, 200, {"ok": True, "agent": _agent_to_contract(agent)})
             return
     _send(handler, 404, {"ok": False, "error": f"Agente '{agent_id}' no encontrado"})
 
@@ -80,6 +74,7 @@ def _generate_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
+@safe_handler
 def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     name = str(body.get("name") or "").strip()
     if not name:
@@ -112,13 +107,11 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     }
     registry.setdefault("agents", []).append(agent)
     _save_agents_registry(registry)
-    _send(handler, 201, _agent_to_contract(agent))
+    _send(handler, 201, {"ok": True, "agent": _agent_to_contract(agent)})
 
 
+@safe_handler
 def handle_put(handler: "BaseHTTPRequestHandler", body: dict, agent_id: str) -> None:
-    if not _is_safe_agent_id(agent_id):
-        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
-        return
     registry = _load_agents_registry()
     for i, agent in enumerate(registry.get("agents", [])):
         if agent.get("id") == agent_id:
@@ -151,15 +144,13 @@ def handle_put(handler: "BaseHTTPRequestHandler", body: dict, agent_id: str) -> 
                 "revision": str(int(agent.get("revision", "1")) + 1),
             }
             _save_agents_registry(registry)
-            _send(handler, 200, _agent_to_contract(registry["agents"][i]))
+            _send(handler, 200, {"ok": True, "agent": _agent_to_contract(registry["agents"][i])})
             return
     _send(handler, 404, {"ok": False, "error": f"Agente '{agent_id}' no encontrado"})
 
 
+@safe_handler
 def handle_delete(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
-    if not _is_safe_agent_id(agent_id):
-        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
-        return
     registry = _load_agents_registry()
     original_len = len(registry.get("agents", []))
     registry["agents"] = [a for a in registry.get("agents", []) if a.get("id") != agent_id]
@@ -167,13 +158,11 @@ def handle_delete(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
         _send(handler, 404, {"ok": False, "error": f"Agente '{agent_id}' no encontrado"})
         return
     _save_agents_registry(registry)
-    _send(handler, 204, {})
+    _send(handler, 200, {"ok": True})
 
 
+@safe_handler
 def handle_duplicate(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
-    if not _is_safe_agent_id(agent_id):
-        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
-        return
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:
@@ -191,16 +180,14 @@ def handle_duplicate(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
             copy["revision"] = "1"
             registry.setdefault("agents", []).append(copy)
             _save_agents_registry(registry)
-            _send(handler, 201, _agent_to_contract(copy))
+            _send(handler, 201, {"ok": True, "agent": _agent_to_contract(copy)})
             return
     _send(handler, 404, {"ok": False, "error": f"Agente '{agent_id}' no encontrado"})
 
 
+@safe_handler
 def handle_test(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
     """Run a no-op test of the agent configuration — validates model/provider resolution."""
-    if not _is_safe_agent_id(agent_id):
-        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
-        return
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:

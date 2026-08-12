@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
+from handler_support import safe_handler
+
 _REPO_FILE = ".bago_github_repo.json"
 _REPO_RE = re.compile(r"^(?:https?://github\.com/)?([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 _HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -113,6 +115,7 @@ def _send(handler, code: int, payload: dict) -> None:
     send_json(handler, code, payload)
 
 
+@safe_handler
 def handle_status(handler: "BaseHTTPRequestHandler") -> None:
     state = _state(handler)
     code, output, error = _run_gh(["auth", "status"])
@@ -128,6 +131,7 @@ def handle_status(handler: "BaseHTTPRequestHandler") -> None:
     _send(handler, 200, {"ok": True, "authenticated": code == 0, "repo": repo, "repository": details, "error": error or None})
 
 
+@safe_handler
 def handle_connect(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     try:
         repo = _repo_value(body.get("repo"))
@@ -149,6 +153,7 @@ def handle_connect(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     _send(handler, 200, {"ok": True, "repo": repo, "repository": details, "knowledge_source": f"github:{repo}"})
 
 
+@safe_handler
 def handle_contents(handler: "BaseHTTPRequestHandler") -> None:
     from urllib.parse import parse_qs, urlparse
     query = parse_qs(urlparse(handler.path).query)
@@ -171,6 +176,7 @@ def handle_contents(handler: "BaseHTTPRequestHandler") -> None:
         _send(handler, 502, {"ok": False, "error": "GitHub devolvió una respuesta no válida"})
 
 
+@safe_handler
 def handle_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     name = str(body.get("name") or "").strip()
     if not re.match(r"^[A-Za-z0-9_.-]{1,100}$", name):
@@ -189,6 +195,7 @@ def handle_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     _send(handler, 200, {"ok": True, "url": url, "output": raw})
 
 
+@safe_handler
 def handle_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Initiate GitHub authentication via gh CLI — returns auth URL for manual flow."""
     _send(handler, 200, {
@@ -198,6 +205,7 @@ def handle_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     })
 
 
+@safe_handler
 def handle_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Refresh gh auth token by re-checking auth status."""
     code, output, error = _run_gh(["auth", "status"])
@@ -209,6 +217,7 @@ def handle_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     })
 
 
+@safe_handler
 def handle_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Logout from gh CLI."""
     code, _, error = _run_gh(["auth", "logout", "--hostname", "github.com"])
@@ -218,6 +227,7 @@ def handle_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         _send(handler, 400, {"ok": False, "error": error or "No se pudo cerrar sesión"})
 
 
+@safe_handler
 def handle_setup(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Configure gh with a token directly (token never stored by BAGO)."""
     token = str(body.get("token") or "").strip()
@@ -232,6 +242,7 @@ def handle_setup(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         _send(handler, 400, {"ok": False, "error": error or "Falló la autenticación con gh"})
 
 
+@safe_handler
 def handle_mcp_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Invoke the same explicit write policy through BAGO's MCP tool surface."""
     try:
@@ -348,6 +359,7 @@ def _extract_auth_info(code: int, output: str, error: str) -> dict:
 # ─── GET /github/status ─────────────────────────────────────────────────
 
 
+@safe_handler
 def handle_github_status(handler: "BaseHTTPRequestHandler") -> None:
     """Return GitHub auth state — no secrets exposed.
 
@@ -371,6 +383,7 @@ def handle_github_status(handler: "BaseHTTPRequestHandler") -> None:
 # ─── POST /github/auth/start ───────────────────────────────────────────
 
 
+@safe_handler
 def handle_github_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Start GitHub auth flow. Backend decides the strategy."""
     code, output, _ = _run_gh(["auth", "status", "--json", "hosts"])
@@ -441,6 +454,7 @@ def handle_github_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> N
 # ─── POST /github/auth/refresh ─────────────────────────────────────────
 
 
+@safe_handler
 def handle_github_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Refresh GitHub auth by re-checking status."""
     handle_github_status(handler)
@@ -449,6 +463,7 @@ def handle_github_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) ->
 # ─── POST /github/auth/logout ─────────────────────────────────────────
 
 
+@safe_handler
 def handle_github_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Logout from GitHub non-interactively (no -y flag in supported gh versions)."""
     hostname = str(body.get("hostname") or "github.com").strip() or "github.com"
@@ -485,6 +500,7 @@ def handle_github_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> 
 # ─── POST /github/setup-git ────────────────────────────────────────────
 
 
+@safe_handler
 def handle_github_setup_git(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Configure git identity for the workspace (git config, not gh config)."""
     email = str(body.get("email") or "").strip()
@@ -524,6 +540,7 @@ def handle_github_setup_git(handler: "BaseHTTPRequestHandler", body: dict) -> No
 # ─── GET /github/accounts ──────────────────────────────────────────────
 
 
+@safe_handler
 def handle_github_accounts(handler: "BaseHTTPRequestHandler") -> None:
     """List all configured GitHub accounts."""
     code, output, error = _run_gh(["auth", "status", "--json", "hosts"])

@@ -5,8 +5,6 @@ import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
 
 function sectionStatus(section: ActiveSection | PanelId, snapshot: UiBootstrapSnapshot | null): 'ok' | 'warn' | 'error' | 'unknown' {
   if (!snapshot) return 'unknown';
-  // Panels don't have status in the bootstrap snapshot
-  if (section === 'agents' || section === 'interpreter' || section === 'github-auth' || section === 'tools' || section === 'capabilities') return 'unknown';
   if (section === 'home') return snapshot.workspace.linkedToSession ? 'ok' : 'warn';
   if (section === 'workspace') return snapshot.workspace.linkedToSession ? 'ok' : snapshot.workspace.manifestState === 'invalid' ? 'error' : 'warn';
   if (section === 'pipeline') return snapshot.jobs?.some((job) => String(job.status || '').toLowerCase().includes('running')) ? 'warn' : 'ok';
