@@ -151,8 +151,141 @@ export interface CapabilityMap {
   can_retry_pipeline?: boolean;
   can_stop_pipeline?: boolean;
   can_view_raw?: boolean;
+  can_view_agents?: boolean;
+  can_manage_agents?: boolean;
+  can_delete_agents?: boolean;
+  can_test_agents?: boolean;
+  can_interpret?: boolean;
+  can_view_interpretation_history?: boolean;
+  can_manage_github_auth?: boolean;
   [key: string]: boolean | undefined;
 }
+
+// ─── AGENTS ───────────────────────────────────────────────────────────────
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  description?: string;
+  systemPrompt: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  enabled: boolean;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentRuntimeState {
+  agentId: string;
+  available: boolean;
+  configurationValid: boolean;
+  effectiveProvider?: string;
+  effectiveModel?: string;
+  errors: string[];
+}
+
+export interface AgentUpdateRequest {
+  revision: number;
+  name?: string;
+  description?: string;
+  systemPrompt?: string;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  maxTokens?: number | null;
+  enabled?: boolean;
+}
+
+export interface AgentTestResult {
+  success: boolean;
+  provider?: string;
+  model?: string;
+  durationMs: number;
+  output?: string;
+  error?: string;
+}
+
+// ─── INTERPRETATION ──────────────────────────────────────────────────────
+
+export type InterpretationStageType =
+  | 'input'
+  | 'normalization'
+  | 'intent'
+  | 'context'
+  | 'constraints'
+  | 'routing'
+  | 'decision'
+  | 'output';
+
+export interface InterpretationStage {
+  id: string;
+  order: number;
+  type: InterpretationStageType;
+  label: string;
+  summary: string;
+  confidence?: number;
+  evidence?: InterpretationEvidence[];
+  metadata?: Record<string, unknown>;
+  durationMs?: number;
+}
+
+export interface InterpretationEvidence {
+  type: string;
+  source?: string;
+  reference?: string;
+  value?: unknown;
+}
+
+export interface InterpretationResult {
+  interpretationId: string;
+  input: string;
+  stages: InterpretationStage[];
+  interpretedIntent: string;
+  finalOutput?: string;
+  confidence?: number;
+  agentId?: string;
+  provider?: string;
+  model?: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  cancelledAt?: string;
+  error?: string;
+}
+
+export interface InterpretationRequest {
+  input: string;
+  agentId?: string;
+  context?: Record<string, unknown>;
+  options?: Record<string, unknown>;
+}
+
+// ─── GITHUB AUTH ─────────────────────────────────────────────────────────
+
+export type GitHubCredentialStorage = 'secure' | 'plaintext' | 'unknown';
+
+export interface GitHubAuthState {
+  installed: boolean;
+  authenticated: boolean;
+  hostname?: string;
+  username?: string;
+  activeAccount?: string;
+  scopes?: string[];
+  credentialStorage?: GitHubCredentialStorage;
+  error?: string;
+  checkedAt: string;
+}
+
+export type GitHubStatusState =
+  | 'checking'
+  | 'cli_unavailable'
+  | 'unauthenticated'
+  | 'authenticating'
+  | 'authenticated'
+  | 'error';
 
 export interface UiAction {
   id: string;
@@ -391,6 +524,28 @@ export interface BackendHistory {
   count?: number;
 }
 
+export interface BackendConversation {
+  conversation_id: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
+  last_opened_at?: string;
+  message_count: number;
+  active: boolean;
+  archived?: boolean;
+  preview?: string;
+}
+
+export interface BackendConversations {
+  ok?: boolean;
+  session_id?: string;
+  active_conversation_id?: string;
+  conversations: BackendConversation[];
+  count: number;
+  history?: BackendHistory;
+  conversation?: BackendConversation;
+}
+
 export interface BackendFileSourceRoot {
   key?: string;
   label?: string;
@@ -463,6 +618,7 @@ export interface UiBootData {
   menu?: BackendMenu;
   routes?: BackendRoutes;
   history?: BackendHistory;
+  conversations?: BackendConversations;
   files?: Record<string, unknown>;
   evidence?: Record<string, unknown>;
   jobs?: Record<string, unknown>;
@@ -471,3 +627,5 @@ export interface UiBootData {
   router_list?: BackendRouterList;
   router_policy?: BackendRouterPolicy;
 }
+
+export type PanelId = 'capabilities' | 'system' | 'pipeline' | 'tools' | 'agents' | 'interpreter' | 'github-auth';

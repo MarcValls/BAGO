@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.package/v1",
+  "kind": "capability",
+  "execution_mode": "executable",
+  "id": "local.file-batch",
+  "name": "Inventario de archivos",
+  "version": "1.0.0",
+  "description": "Recorre una carpeta permitida y genera un inventario acotado.",
+  "author": "BAGO examples",
+  "definition": "definitions/capability.json",
+  "entrypoint": "runtime/run.py",
+  "permissions": [
+    "filesystem.read"
+  ],
+  "compatibility": {
+    "bago_package": "^1.0"
+  },
+  "dependencies": [],
+  "files": [
+    {
+      "path": "definitions/capability.json",
+      "size": 672,
+      "sha256": "de80bbcbb96b25deba9cd2a19a9f3f06310b0c97acca54deee14a48473b69d33"
+    },
+    {
+      "path": "docs/README.md",
+      "size": 234,
+      "sha256": "af6b565cad65548a64dfa35219d66ca0c991c2bc44331aedcda0f2115ffe5d83"
+    },
+    {
+      "path": "examples/input.json",
+      "size": 39,
+      "sha256": "cb1f79f1350a1ff1b7eed7ca23b7bff2f60ffebebb6c3183f2b8e44ffc977078"
+    },
+    {
+      "path": "runtime/run.py",
+      "size": 783,
+      "sha256": "45900b31a4ea961c96ceb7dc118895552f081262d9bf735bf6ab5b4e029e408d"
+    }
+  ]
+}

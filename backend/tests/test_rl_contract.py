@@ -77,3 +77,23 @@ def test_rl_http_handlers_train_and_eval_remain_non_executing(tmp_path, monkeypa
     assert all(payload["can_execute"] is False for _, payload in captured)
     assert captured[0][1]["status"] == "trained"
     assert captured[1][1]["status"] == "ok"
+
+
+def test_rl_policy_status_reports_samples_and_policy_without_execution(tmp_path, monkeypatch):
+    from bago_core import rl_policies
+
+    monkeypatch.setattr(rl_policies, "state_root", lambda: tmp_path)
+    (tmp_path / "rl_transitions.jsonl").write_text(
+        json.dumps({"features": [1, 0, 0, 0], "action": 0, "reward": 1}) + "\n",
+        encoding="utf-8",
+    )
+    before = rl_policies.bc_policy_status(tmp_path)
+    assert before["samples"] == 1
+    assert before["policy_exists"] is False
+    assert before["actions"] == ["chat", "review", "execute", "work"]
+    assert before["can_execute"] is False
+
+    rl_policies.train_bc_policy(tmp_path, n_actions=4, n_features=4)
+    after = rl_policies.bc_policy_status(tmp_path)
+    assert after["policy_exists"] is True
+    assert after["can_execute"] is False

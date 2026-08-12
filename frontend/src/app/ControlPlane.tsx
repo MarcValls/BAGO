@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, PanelId, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
@@ -11,7 +11,15 @@ import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
 import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
+import { DrawerOverlay } from '@/components/DrawerOverlay';
+import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
+import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
+import { ToolsPanel } from '@/features/tools/ToolsPanel';
+import { AgentEditorPanel } from '@/features/agents/AgentEditorPanel';
+import { InterpreterPanel } from '@/features/interpretation/InterpreterPanel';
+import { GitHubAuthPanel } from '@/features/github/GitHubAuthPanel';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
+import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildSnapshot } from '@/app/bootstrapSnapshot';
@@ -138,6 +146,7 @@ export function ControlPlane() {
   const [providers, setProviders] = useState<BackendProviders | null>(null);
   const [routerState, setRouterState] = useState<{ list: BackendRouterList | null; policy: BackendRouterPolicy | null }>({ list: null, policy: null });
   const [history, setHistory] = useState<BackendHistory | null>(null);
+  const [conversations, setConversations] = useState<import('@/contracts/backend').BackendConversations | null>(null);
   const [files, setFiles] = useState<Record<string, unknown> | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   // CANON[CTX-002]: Patches que ya fueron entregados al módulo de
@@ -151,6 +160,8 @@ export function ControlPlane() {
   const [lastMessage, setLastMessage] = useState('iniciando');
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
+  const { openDrawer, close: closeDrawer, isOpen, open: openDrawerFn } = usePanelManager();
+  const openPanel = (panelId: PanelId) => openDrawerFn(panelId);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -158,7 +169,7 @@ export function ControlPlane() {
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
-  const pendingConversationIdRef = useRef('');
+  const conversationRevisionRef = useRef(0);
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -194,10 +205,13 @@ export function ControlPlane() {
     });
   };
 
-  const applyBootData = (data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>) => {
+  const applyBootData = (
+    data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
+    requestedConversationRevision = conversationRevisionRef.current
+  ) => {
     const nextSnapshot = buildSnapshot(data);
     const nextHistory = (data.history || null) as BackendHistory | null;
-    const nextConversationId = String(nextHistory?.conversation_id || '').trim();
+    const conversationStateIsCurrent = requestedConversationRevision === conversationRevisionRef.current;
     const nextOpening = resolveOpeningState(nextSnapshot);
     setSnapshot(nextSnapshot);
     setOpening(nextOpening);
@@ -208,13 +222,13 @@ export function ControlPlane() {
       list: (data.router_list || null) as BackendRouterList | null,
       policy: (data.router_policy || null) as BackendRouterPolicy | null
     });
-    setHistory(nextHistory);
+    if (conversationStateIsCurrent) {
+      setHistory(nextHistory);
+      setConversations(data.conversations || null);
+    }
     setFiles((data.files || null) as Record<string, unknown> | null);
     setTurns((current) => {
-      if (pendingConversationIdRef.current) {
-        if (!nextConversationId || nextConversationId !== pendingConversationIdRef.current) return current;
-        pendingConversationIdRef.current = '';
-      }
+      if (!conversationStateIsCurrent) return current;
       return current.length ? current : historyToTurns(nextHistory || undefined);
     });
     if (nextOpening.id === 'enter_directly') {
@@ -226,9 +240,10 @@ export function ControlPlane() {
   const bootstrap = async () => {
     setBooting(true);
     setLastMessage('consultando backend');
+    const requestedConversationRevision = conversationRevisionRef.current;
     try {
       const data = await clientRef.current.bootstrap();
-      const nextSnapshot = applyBootData(data);
+      const nextSnapshot = applyBootData(data, requestedConversationRevision);
       // El snapshot moderno puede llegar antes de que el catálogo del router
       // quede materializado. La lectura dedicada mantiene el selector del chat
       // operativo incluso en ese arranque parcial.
@@ -301,6 +316,9 @@ export function ControlPlane() {
   const chooseWorkspaceFromHeader = (): void => {
     openWorkspacePicker();
   };
+
+  // Alias so the two ControlSections calls can use different-looking props for the same function
+  const onChooseWorkspaceAlternate = openWorkspacePicker;
 
   const confirmWorkspacePicker = async (seedAfterLink: boolean) => {
     const selectedRoot = workspacePickerValue.trim();
@@ -435,13 +453,17 @@ export function ControlPlane() {
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
         return;
       }
-      // Ctrl+1..7: navegar según el registro canónico compartido con el sidebar.
-      if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
+      // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
+      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const target = NAVIGATION_ORDER[idx];
         if (target) {
-          setAndPersistUiState({ activeSection: target });
+          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
+            openPanel(target);
+          } else {
+            setAndPersistUiState({ activeSection: target as ActiveSection });
+          }
         }
         return;
       }
@@ -603,8 +625,9 @@ export function ControlPlane() {
   }, [contextTree.proposals, setAndPersistUiState]);
 
   const refreshAfterMutation = async (): Promise<UiBootstrapSnapshot | null> => {
+    const requestedConversationRevision = conversationRevisionRef.current;
     const next = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
-    return applyBootData(next);
+    return applyBootData(next, requestedConversationRevision);
   };
 
   const refreshRouterState = async (): Promise<void> => {
@@ -1090,6 +1113,7 @@ export function ControlPlane() {
   const paletteActions = useMemo(() => {
     const base = createShellActions({
       navigate,
+      openPanel,
       openWorkspace: openWorkspacePicker,
       toggleSidebar: () => setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
@@ -1175,29 +1199,57 @@ export function ControlPlane() {
     }
   };
 
+  const replaceConversationState = (payload: import('@/contracts/backend').BackendConversations): void => {
+    const nextHistory = payload.history || null;
+    setConversations(payload);
+    setHistory(nextHistory);
+    setTurns(historyToTurns(nextHistory || undefined));
+  };
+
   const createNewConversation = async (): Promise<void> => {
+    conversationRevisionRef.current += 1;
     const created = await clientRef.current.createConversation();
-    const conversation = created.conversation as Record<string, unknown> | undefined;
-    const history = created.history as BackendHistory | undefined;
     const conversationId = String(
-      conversation?.conversation_id
+      created.conversation?.conversation_id
       || created.active_conversation_id
-      || history?.conversation_id
+      || created.history?.conversation_id
       || ''
     ).trim();
+    if (!conversationId) throw new Error('El backend no confirmó la nueva conversación.');
+    replaceConversationState(created);
     const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
-    if (conversationId) pendingConversationIdRef.current = conversationId;
-    if (conversationId && root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
-    setTurns([]);
-    const sessionId = String(created.session_id || snapshot?.session.id || '').trim();
-    setHistory(history ?? {
-      session_id: sessionId || undefined,
-      conversation_id: conversationId || undefined,
-      messages: [],
-      count: 0
-    });
+    if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     await refreshAfterMutation();
     setLastMessage('nuevo chat creado');
+    window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+  };
+
+  const switchConversation = async (conversationId: string): Promise<void> => {
+    conversationRevisionRef.current += 1;
+    const switched = await clientRef.current.switchConversation(conversationId);
+    replaceConversationState(switched);
+    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+    await refreshAfterMutation();
+    setLastMessage('conversación activada');
+    window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
+  };
+
+  const renameConversation = async (conversationId: string, title: string): Promise<void> => {
+    const renamed = await clientRef.current.renameConversation(conversationId, title);
+    setConversations(renamed);
+    setLastMessage('conversación renombrada');
+  };
+
+  const archiveConversation = async (conversationId: string): Promise<void> => {
+    conversationRevisionRef.current += 1;
+    const archived = await clientRef.current.archiveConversation(conversationId);
+    replaceConversationState(archived);
+    const activeId = String(archived.active_conversation_id || archived.history?.conversation_id || '').trim();
+    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    if (root && activeId) await clientRef.current.scopeWorkspaceConversation(root, activeId);
+    await refreshAfterMutation();
+    setLastMessage('conversación archivada');
   };
 
   const setReasoningDepthCb = async (depth: string): Promise<void> => {
@@ -1254,6 +1306,10 @@ export function ControlPlane() {
           onSetAppearanceTheme={(theme) => setAndPersistUiState({ appearanceTheme: theme })}
           onRunCommand={(command) => void runCommand(command)}
           onChooseWorkspace={chooseWorkspaceFromHeader}
+          onGoHome={() => {
+            try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
+            navigate('home');
+          }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
           globalMode={uiState.globalMode}
           appearanceTheme={uiState.appearanceTheme}
@@ -1268,6 +1324,8 @@ export function ControlPlane() {
               workspaceHint={uiState.workspaceHint}
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
+              openDrawer={openDrawer}
+              onOpenDrawer={(id) => openDrawer ? closeDrawer() : openDrawerFn(id)}
             />
           )}
 
@@ -1302,6 +1360,7 @@ export function ControlPlane() {
                   providers={providers}
                   router={routerState}
                   history={history}
+                  conversations={conversations}
                   files={files}
                   commandResults={commandResults}
                   turns={turns}
@@ -1329,6 +1388,9 @@ export function ControlPlane() {
                   reasoningDepth={reasoningDepth}
                   onSetReasoningDepth={setReasoningDepthCb}
                   onCreateConversation={createNewConversation}
+                  onSwitchConversation={switchConversation}
+                  onRenameConversation={renameConversation}
+                  onArchiveConversation={archiveConversation}
                   workspaceOpenRequest={workspaceOpenRequest}
                   contextClient={clientRef.current}
                   contextTree={contextTree}
@@ -1430,6 +1492,119 @@ export function ControlPlane() {
           onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
         />
       )}
+      <DrawerOverlay isOpen={isOpen('capabilities')} onClose={closeDrawer} position="left" width={320}>
+        <CapabilityAnatomyModule client={clientRef.current} onInspect={(selection) => onInspect(selection, 'detail')} />
+        <ExternalCapabilitiesPanel client={clientRef.current} />
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('pipeline')} onClose={closeDrawer} position="bottom" height={400}>
+        <div className="drawer-pipeline-header">
+          <h3>Pipeline</h3>
+        <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
+        </div>
+        <div className="drawer-pipeline-content">
+          <ControlSections
+            section="pipeline"
+            snapshot={snapshot}
+            opening={opening}
+            booting={booting}
+            workspaceHint={uiState.workspaceHint}
+            apiBase={uiState.apiBase}
+            apiToken={uiState.apiToken}
+            client={clientRef.current}
+            onApiConfigChange={(patch) => setAndPersistUiState(patch)}
+            onPrimary={() => openShell(opening.targetSection === 'home' && snapshot?.permissions.canChat ? 'chat' : opening.targetSection)}
+            onContinue={() => { void runCommand('/session').then(() => openShell(snapshot?.permissions.canChat ? 'chat' : 'home')); }}
+            onChooseWorkspace={onChooseWorkspaceAlternate}
+            onOpenPalette={() => setAndPersistUiState({ commandPaletteOpen: true })}
+            onRefresh={bootstrap}
+            menu={menu}
+            routes={routes}
+            providers={providers}
+            router={routerState}
+            history={history}
+            conversations={conversations}
+            files={files}
+            commandResults={commandResults}
+            turns={turns}
+            drafts={uiState.drafts}
+            chatMode={uiState.chatMode}
+            globalMode={uiState.globalMode}
+            onDraftChange={setDraft}
+            onSendChat={sendChat}
+            onInspect={onInspect}
+            onRunCommand={runCommand}
+            onRunContextCommand={runContextCommand}
+            onRunAction={runAction}
+            onRunPlanTask={runPlanTask}
+            onSetSection={navigate}
+            onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
+            onSetGlobalMode={(mode) => setAndPersistUiState({ globalMode: mode })}
+            onReadFile={(path) => clientRef.current.readFile(path).catch(() => null)}
+            onManageSource={(action, path, label) => clientRef.current.manageSource(action, path, label).catch(() => null)}
+            onRefreshRouter={refreshRouterState}
+            onToggleRouter={toggleRouterSelection}
+            onSetRouterAuto={setRouterAutoSwitch}
+            onConfigureProvider={configureProvider}
+            onSetSessionModel={setSessionModelCb}
+            sessionModel={sessionModel}
+            reasoningDepth={reasoningDepth}
+            onSetReasoningDepth={setReasoningDepthCb}
+            onCreateConversation={createNewConversation}
+            onSwitchConversation={switchConversation}
+            onRenameConversation={renameConversation}
+            onArchiveConversation={archiveConversation}
+            workspaceOpenRequest={workspaceOpenRequest}
+            contextClient={clientRef.current}
+            contextTree={contextTree}
+            incomingContextPatches={incomingContextPatches}
+            onContextPatchHandled={onContextPatchHandled}
+            contextBankPending={uiState.contextBankPending || []}
+            onContextBankPendingConsumed={(id) => {
+              setUiState((current) => {
+                const next = patchUiState(current, { contextBankPending: (current.contextBankPending || []).filter((p) => p.id !== id) });
+                persistUiState(next);
+                return next;
+              });
+            }}
+            contextPatchDisplay={contextPatchDisplay}
+            onAcceptContextPatch={acceptContextPatch}
+            onRejectContextPatch={rejectContextPatch}
+            onEditContextPatch={editContextPatch}
+            onRevertContextPatch={revertContextPatch}
+            onReviewContextPatch={reviewContextPatch}
+            onOpenContextInTree={openContextInTree}
+            initialContextSelectedNodeId={initialContextSelectedNodeId}
+            initialContextEditingPatchId={uiState.contextEditPatchId}
+            onInitialContextStateConsumed={() => {
+              setInitialContextSelectedNodeId(null);
+              setAndPersistUiState({ contextEditPatchId: null });
+            }}
+          />
+        </div>
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('tools')} onClose={closeDrawer} position="right" width={280}>
+        <div className="drawer-tools-header">
+          <h3>Herramientas</h3>
+          <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
+        </div>
+        <div className="drawer-tools-content">
+          <ToolsPanel client={clientRef.current} />
+        </div>
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('agents')} onClose={closeDrawer} position="right" width={480}>
+        <AgentEditorPanel client={clientRef.current} onClose={closeDrawer} />
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('interpreter')} onClose={closeDrawer} position="right" width={440}>
+        <InterpreterPanel client={clientRef.current} onClose={closeDrawer} />
+      </DrawerOverlay>
+
+      <DrawerOverlay isOpen={isOpen('github-auth')} onClose={closeDrawer} position="right" width={400}>
+        <GitHubAuthPanel client={clientRef.current} onClose={closeDrawer} />
+      </DrawerOverlay>
     </>
   );
 }

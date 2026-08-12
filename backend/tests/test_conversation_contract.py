@@ -66,6 +66,29 @@ def test_conversation_handler_create_and_switch_returns_active_history(tmp_path,
     assert switched["history"]["messages"][0]["content"] == "principal"
 
 
+def test_conversation_rename_and_archive_keep_recoverable_history(tmp_path):
+    store = ContextStore.create_new(base_dir=tmp_path)
+    store.append_user("mensaje conservado")
+    created = store.create_conversation("Temporal")
+    conversation_id = created["conversation_id"]
+    store.append_user("mensaje secundario")
+
+    renamed = store.rename_conversation(conversation_id, "Informe semanal")
+    archived = store.archive_conversation(conversation_id)
+
+    assert renamed["title"] == "Informe semanal"
+    assert archived["archived"] is True
+    assert store.active_conversation_id == "main"
+    assert [item["content"] for item in store.get_history(conversation_id="main")] == ["mensaje conservado"]
+
+    reloaded = ContextStore.load(store.sid, base_dir=tmp_path)
+    archived_record = next(item for item in reloaded.list_conversations(include_archived=True) if item["conversation_id"] == conversation_id)
+    assert archived_record["title"] == "Informe semanal"
+    assert archived_record["archived"] is True
+    assert archived_record["message_count"] == 1
+    assert archived_record["preview"] == "mensaje secundario"
+
+
 def test_workspace_conversation_scopes_history_by_root(tmp_path, monkeypatch):
     import api_serializers
     import handlers_workspace_conversation

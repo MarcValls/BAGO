@@ -131,6 +131,79 @@ class CanonicalContractStateTests(unittest.TestCase):
         finally:
             sm.ADAPTER_REGISTRY.pop("catalog-provider", None)
 
+    def test_session_manager_provider_availability_marks_token_limited_providers_unusable(self) -> None:
+        class TokenAwareAdapter(ProviderAdapter):
+            def __init__(self, config=None):
+                super().__init__("token-aware", config)
+
+            def chat(self, messages, model, *, system="", temperature=0.7, max_tokens=None, stream=False, tools=None):
+                return ProviderResponse(content="ok", model_used=model, provider=self.provider_name, finish_reason="stop")
+
+            def list_models(self):
+                return [ModelInfo("alpha", "alpha", self.provider_name, 4096, 512, "draft", "free", available=True)]
+
+            def health_check(self, timeout=5.0):
+                return HealthStatus(
+                    ok=True,
+                    provider=self.provider_name,
+                    detail="quota exhausted",
+                    models_available=1,
+                    available_tokens=0,
+                    token_source="provider-quota",
+                    token_limited=True,
+                )
+
+            def is_configured(self):
+                return True
+
+            def supports_tools(self):
+                return False
+
+            def supports_streaming(self):
+                return False
+
+        class HealthyAdapter(TokenAwareAdapter):
+            def __init__(self, config=None):
+                super().__init__(config)
+                self.provider_name = "healthy-provider"
+
+            def health_check(self, timeout=5.0):
+                return HealthStatus(
+                    ok=True,
+                    provider=self.provider_name,
+                    detail="ready",
+                    models_available=1,
+                    available_tokens=12000,
+                    token_source="provider-quota",
+                    token_limited=False,
+                )
+
+        sm.ADAPTER_REGISTRY["token-aware"] = TokenAwareAdapter
+        sm.ADAPTER_REGISTRY["healthy-provider"] = HealthyAdapter
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                workspace = Path(td) / "workspace"
+                workspace.mkdir()
+                state_root = Path(td) / "state"
+                mgr = sm.SessionManager(
+                    session_id="availability-routing",
+                    provider="healthy-provider",
+                    model="alpha",
+                    base_path=str(workspace),
+                    state_root=str(state_root),
+                )
+                try:
+                    availability = {item["name"]: item for item in mgr.provider_availability()}
+                    self.assertFalse(availability["token-aware"]["usable"])
+                    self.assertTrue(availability["token-aware"]["token_limited"])
+                    self.assertEqual(availability["healthy-provider"]["available_tokens"], 12000)
+                    self.assertTrue(availability["healthy-provider"]["usable"])
+                finally:
+                    mgr.close()
+        finally:
+            sm.ADAPTER_REGISTRY.pop("token-aware", None)
+            sm.ADAPTER_REGISTRY.pop("healthy-provider", None)
+
 
 if __name__ == "__main__":
     unittest.main()

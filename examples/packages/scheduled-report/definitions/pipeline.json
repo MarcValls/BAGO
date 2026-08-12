@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.pipeline/v1",
+  "id": "local.scheduled-report",
+  "description": "Inventaría una carpeta y produce un informe Markdown.",
+  "variables": {
+    "pattern": "*"
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "root": {
+        "type": "string",
+        "title": "Carpeta"
+      },
+      "title": {
+        "type": "string",
+        "title": "Título",
+        "default": "Informe del workspace"
+      }
+    },
+    "required": [
+      "root"
+    ]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "steps": [
+    {
+      "id": "inventory",
+      "type": "capability",
+      "uses": "local.file-batch",
+      "depends_on": [],
+      "with": {
+        "root": "${inputs.root}",
+        "pattern": "${variables.pattern}"
+      },
+      "retry": 0,
+      "condition": true
+    },
+    {
+      "id": "report",
+      "type": "capability",
+      "uses": "local.report-builder",
+      "depends_on": [
+        "inventory"
+      ],
+      "with": {
+        "title": "${inputs.title}",
+        "summary": "Inventario completado: ${steps.inventory.result.count} archivos encontrados.",
+        "sections_json": "[{\"title\":\"Inventario\",\"content\":\"El inventario del workspace se completó correctamente.\"}]"
+      },
+      "retry": 0,
+      "condition": "steps.inventory.ok"
+    }
+  ]
+}

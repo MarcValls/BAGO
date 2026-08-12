@@ -199,7 +199,9 @@ def test_cli_authenticated_provider_is_registered_without_copying_token(monkeypa
 
     providers = manager.available_providers()
 
-    assert providers == [{"name": "codex", "configured": True, "models": []}]
+    assert len(providers) == 1
+    assert {key: providers[0][key] for key in ("name", "configured", "models")} == {"name": "codex", "configured": True, "models": []}
+    assert providers[0]["usable"] is True
     assert manager.config.providers["codex"]["enabled"] is True
     assert manager.config.providers["codex"]["auth_source"] == "cli"
     assert manager.config.providers["codex"]["transport"] == "cli"

@@ -1,4 +1,4 @@
-import type { ActiveSection, ChatMode, GlobalMode } from '@/contracts/backend';
+import type { ActiveSection, ChatMode, GlobalMode, PanelId } from '@/contracts/backend';
 
 const KEY = 'bago.ui.state';
 
@@ -33,6 +33,10 @@ export interface UiState {
   // CANON[CTX-015]: id de patch a abrir en modo edición cuando el
   // usuario hace click en "Editar" desde el chat.
   contextEditPatchId: string | null;
+  // Panel auxiliar activo (agents | interpreter | github-auth | tools | system | capabilities | null)
+  activePanel: PanelId | null;
+  // Pila de historial de panels para focus return
+  panelHistory: PanelId[];
 }
 
 export interface UiStatePatch {
@@ -49,6 +53,8 @@ export interface UiStatePatch {
   drafts?: Record<string, string>;
   contextBankPending?: ContextBankPending[];
   contextEditPatchId?: string | null;
+  activePanel?: PanelId | null;
+  panelHistory?: PanelId[];
 }
 
 
@@ -71,7 +77,7 @@ export function normalizeActiveSection(value: unknown): ActiveSection {
 
 export function createDefaultUiState(): UiState {
   return {
-    sidebarCollapsed: false,
+    sidebarCollapsed: true,
     activeSection: 'home',
     globalMode: 'normal',
     chatMode: 'live',
@@ -83,7 +89,9 @@ export function createDefaultUiState(): UiState {
     workspaceHint: '',
     drafts: {},
     contextBankPending: [],
-    contextEditPatchId: null
+    contextEditPatchId: null,
+    activePanel: null,
+    panelHistory: []
   };
 }
 
@@ -102,7 +110,9 @@ export function loadUiState(): UiState {
       drafts: rest.drafts || {},
       activeSection: normalizeActiveSection(rest.activeSection),
       globalMode: normalizeGlobalMode(rest.globalMode),
-      appearanceTheme: normalizeAppearanceTheme(rest.appearanceTheme)
+      appearanceTheme: normalizeAppearanceTheme(rest.appearanceTheme),
+      activePanel: rest.activePanel ?? null,
+      panelHistory: rest.panelHistory ?? []
     };
   } catch {
     return createDefaultUiState();
@@ -123,7 +133,9 @@ export function persistUiState(state: UiState): void {
     workspaceHint: state.workspaceHint,
     drafts: state.drafts,
     contextBankPending: state.contextBankPending,
-    contextEditPatchId: state.contextEditPatchId
+    contextEditPatchId: state.contextEditPatchId,
+    activePanel: state.activePanel,
+    panelHistory: state.panelHistory
   };
   localStorage.setItem(KEY, JSON.stringify(persistedState));
 }
