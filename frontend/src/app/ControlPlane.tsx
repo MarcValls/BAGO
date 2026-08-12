@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, PanelId, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
@@ -15,9 +15,7 @@ import { DrawerOverlay } from '@/components/DrawerOverlay';
 import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 import { ToolsPanel } from '@/features/tools/ToolsPanel';
-import { AgentEditorPanel } from '@/features/agents/AgentEditorPanel';
-import { InterpreterPanel } from '@/features/interpretation/InterpreterPanel';
-import { GitHubAuthPanel } from '@/features/github/GitHubAuthPanel';
+import { PanelHost, PANEL_WIDTHS } from '@/components/PanelHost';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -160,7 +158,9 @@ export function ControlPlane() {
   const [lastMessage, setLastMessage] = useState('iniciando');
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
-  const { openDrawer, close: closeDrawer, isOpen } = usePanelManager();
+  const { openDrawer, close: closeDrawer, isOpen, open: openDrawerFn } = usePanelManager();
+  const openPanel = (panelId: PanelId) => setAndPersistUiState({ activePanel: panelId });
+  const panelCloseDrawer = () => setAndPersistUiState({ activePanel: null });
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -452,13 +452,17 @@ export function ControlPlane() {
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
         return;
       }
-      // Ctrl+1..7: navegar según el registro canónico compartido con el sidebar.
-      if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
+      // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
+      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const target = NAVIGATION_ORDER[idx];
         if (target) {
-          setAndPersistUiState({ activeSection: target });
+          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
+            openPanel(target);
+          } else {
+            setAndPersistUiState({ activeSection: target as ActiveSection });
+          }
         }
         return;
       }
@@ -1108,6 +1112,7 @@ export function ControlPlane() {
   const paletteActions = useMemo(() => {
     const base = createShellActions({
       navigate,
+      openPanel,
       openWorkspace: openWorkspacePicker,
       toggleSidebar: () => setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
@@ -1318,8 +1323,8 @@ export function ControlPlane() {
               workspaceHint={uiState.workspaceHint}
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
-              openDrawer={openDrawer}
-              onOpenDrawer={(id) => openDrawer ? closeDrawer() : open(id)}
+              openDrawer={uiState.activePanel}
+              onOpenDrawer={openPanel}
             />
           )}
 
@@ -1486,7 +1491,6 @@ export function ControlPlane() {
           onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
         />
       )}
-
       <DrawerOverlay isOpen={isOpen('capabilities')} onClose={closeDrawer} position="left" width={320}>
         <CapabilityAnatomyModule client={clientRef.current} onInspect={(selection) => onInspect(selection, 'detail')} />
         <ExternalCapabilitiesPanel client={clientRef.current} />
@@ -1589,17 +1593,11 @@ export function ControlPlane() {
         </div>
       </DrawerOverlay>
 
-      <DrawerOverlay isOpen={isOpen('agents')} onClose={closeDrawer} position="right" width={480}>
-        <AgentEditorPanel client={clientRef.current} onClose={closeDrawer} />
-      </DrawerOverlay>
-
-      <DrawerOverlay isOpen={isOpen('interpreter')} onClose={closeDrawer} position="right" width={440}>
-        <InterpreterPanel client={clientRef.current} onClose={closeDrawer} />
-      </DrawerOverlay>
-
-      <DrawerOverlay isOpen={isOpen('github-auth')} onClose={closeDrawer} position="right" width={400}>
-        <GitHubAuthPanel client={clientRef.current} onClose={closeDrawer} />
-      </DrawerOverlay>
+      {uiState.activePanel && (
+        <DrawerOverlay isOpen={true} onClose={panelCloseDrawer} position="right" width={PANEL_WIDTHS[uiState.activePanel] ?? 400}>
+          <PanelHost panelId={uiState.activePanel} client={clientRef.current} onClose={panelCloseDrawer} />
+        </DrawerOverlay>
+      )}
     </>
   );
 }

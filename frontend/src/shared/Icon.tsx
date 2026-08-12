@@ -13,7 +13,10 @@ export type IconName =
   | 'lock' | 'intent' | 'risk' | 'claim' | 'decision' | 'pack' | 'stale'
   | 'conflict' | 'proposed' | 'canon' | 'target' | 'tree' | 'bank' | 'tray'
   | 'inbox' | 'rule' | 'verified' | 'dot' | 'collapse' | 'alert' | 'flag' | 'brace' | 'spark'
-  | 'agent' | 'interpret';
+  | 'agents' | 'interpreter' | 'github' | 'agent' | 'interpret'
+  | 'play-circle' | 'pause-circle' | 'trash'
+  | 'check-circle' | 'alert-circle' | 'x-circle' | 'circle' | 'x'
+  | 'loader';
 
 interface Props extends SVGProps<SVGSVGElement> {
   name: IconName;
@@ -43,6 +46,10 @@ const paths: Record<IconName, ReactElement> = {
   history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></>,
   command: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></>,
   chevron: <path d="m9 6 6 6-6 6"/>,
+  chevronDown: <path d="m6 9 6 6 6-6"/>,
+  chevronUp: <path d="m6 15 6-6 6 6"/>,
+  settings: <><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></>,
+  tools: <><path d="M14.5 6.5 21 3l-3.5 6.5"/><path d="m3 21 8-8"/><path d="m5 19 8-8 2-2 3.5-3.5"/></>,
   zoomIn: <><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M10 7v6M7 10h6"/></>,
   zoomOut: <><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M7 10h6"/></>,
   center: <><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></>,
@@ -100,14 +107,20 @@ const paths: Record<IconName, ReactElement> = {
   flag: <><path d="M5 21V4h11l-2 4 2 4H5"/></>,
   brace: <><path d="M9 4H5v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4h4M15 4h4v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4h-4"/></>,
   spark: <><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></>,
-  // Agent: persona/bust with gear — represents configurable AI agent
+  agents: <><circle cx="8" cy="6" r="2.5"/><circle cx="16" cy="6" r="2.5"/><circle cx="12" cy="16" r="2.5"/><path d="M8.5 8.5v5M15.5 8.5v5M12 11v3"/></>,
   agent: <><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M12 2v2M12 14v2M2 12h2M20 12h2"/></>,
-  // Interpret: radar/signal wave — represents text interpretation
+  interpreter: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h4M7 12h10M7 16h6"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/></>,
   interpret: <><circle cx="12" cy="12" r="2"/><path d="M12 5a7 7 0 0 1 7 7M12 5a7 7 0 0 0-7 7M5 12a7 7 0 0 0 7 7M19 12a7 7 0 0 1-7 7M12 19v3M12 2v3"/></>,
-  settings: <><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>,
-  tools: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 9h8M8 13h6M8 17h10"/></>,
-  chevronDown: <><path d="m6 9 6 6 6-6"/></>,
-  chevronUp: <><path d="m18 15-6-6-6 6"/></>
+  github: <><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.84c.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10.02 10.02 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></>,
+  'play-circle': <><circle cx="12" cy="12" r="9"/><path d="M10 8.5l5 3-5 3z"/></>,
+  'pause-circle': <><circle cx="12" cy="12" r="9"/><path d="M10 8h3v8h-3zM14 8h3v8h-3z"/></>,
+  trash: <><path d="M3 6h18M8 6V4h8v2M5 6v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6"/></>,
+  'check-circle': <><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></>,
+  'alert-circle': <><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></>,
+  'x-circle': <><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></>,
+  circle: <circle cx="12" cy="12" r="9" />,
+  x: <><path d="M18 6 6 18M6 6l12 12"/></>,
+  loader: <><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></>
 };
 
 export function Icon({ name, size = 18, ...props }: Props) {

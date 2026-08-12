@@ -3,7 +3,7 @@ import { Icon } from '@/shared/Icon';
 import { NAVIGATION_GROUPS } from '@/navigation/actionRegistry';
 import { resolveWorkspaceAuthority } from '@/shared/workspaceAuthority';
 
-function sectionStatus(section: ActiveSection, snapshot: UiBootstrapSnapshot | null): 'ok' | 'warn' | 'error' | 'unknown' {
+function sectionStatus(section: ActiveSection | PanelId, snapshot: UiBootstrapSnapshot | null): 'ok' | 'warn' | 'error' | 'unknown' {
   if (!snapshot) return 'unknown';
   if (section === 'home') return snapshot.workspace.linkedToSession ? 'ok' : 'warn';
   if (section === 'workspace') return snapshot.workspace.linkedToSession ? 'ok' : snapshot.workspace.manifestState === 'invalid' ? 'error' : 'warn';

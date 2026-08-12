@@ -165,7 +165,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
                 <div className="github-detail-row">
                   <span className="github-detail-label">Almacenamiento</span>
                   <span className="github-detail-value">
-                    {CREDENTIAL_STORAGE_LABELS[authState.credentialStorage] || authState.credentialStorage}
+                    {authState.credentialStorage ? CREDENTIAL_STORAGE_LABELS[authState.credentialStorage] || authState.credentialStorage : '—'}
                   </span>
                 </div>
                 <div className="github-detail-row">
