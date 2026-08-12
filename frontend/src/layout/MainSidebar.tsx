@@ -35,7 +35,9 @@ export function MainSidebar(props: Props) {
           <section key={group.id} className="sidebar-group" aria-label={group.label}>
             {!props.collapsed && <div className="sidebar-section-title">{group.label}</div>}
             {group.items.map((section) => {
-              const isActive = props.activeSection === section.id;
+              const isActive = section.isPanel
+                ? props.openDrawer === section.id
+                : props.activeSection === section.id;
               return (
                 <button
                   key={section.id}
@@ -43,7 +45,7 @@ export function MainSidebar(props: Props) {
                   className={`sidebar-item ${isActive ? 'is-active' : ''}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={props.collapsed ? `${section.label} · ${section.helper || ''}` : section.helper}
-                  onClick={() => props.onNavigate(section.id)}
+                  onClick={() => section.isPanel ? props.onOpenDrawer(section.id as PanelId) : props.onNavigate(section.id as ActiveSection)}
                 >
                   <Icon name={section.icon} />
                   {!props.collapsed && <span className="sidebar-item-label">{section.label}</span>}
