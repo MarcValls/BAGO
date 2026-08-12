@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
+from handler_support import safe_handler
+
 
 def _state(handler) -> Path:
     from api_state import resolve_state_root
@@ -205,6 +207,7 @@ def _list_interpretations(state: Path, limit: int = 20) -> list[dict[str, Any]]:
 # ─── POST /interpretations ───────────────────────────────────────────────
 
 
+@safe_handler
 def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     state = _state(handler)
     input_text = str(body.get("input") or "").strip()
@@ -276,6 +279,7 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 # ─── GET /interpretations/:id ───────────────────────────────────────────
 
 
+@safe_handler
 def handle_get(handler: "BaseHTTPRequestHandler", interpretation_id: str) -> None:
     state = _state(handler)
     if not _validate_interpretation_id(interpretation_id):
@@ -291,6 +295,7 @@ def handle_get(handler: "BaseHTTPRequestHandler", interpretation_id: str) -> Non
 # ─── GET /interpretations ───────────────────────────────────────────────
 
 
+@safe_handler
 def handle_list(handler: "BaseHTTPRequestHandler") -> None:
     from urllib.parse import parse_qs, urlparse
     state = _state(handler)
