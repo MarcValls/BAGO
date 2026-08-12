@@ -36,18 +36,18 @@
   "files": [
     {
       "path": "definitions/pipeline.json",
-      "size": 1420,
-      "sha256": "b05bcd2bf866a308746b48f8381f0253952711658f22562851391bb53df000fa"
+      "size": 1362,
+      "sha256": "95a9da99ada9e6e0ffc14a259ee9b0e4a7b141b0f421e02c90aa10e2dada308c"
     },
     {
       "path": "docs/README.md",
-      "size": 184,
-      "sha256": "ab069581cacbb797cfc68715567c0f01dac1216e09d13bbf040d884cb42b1e38"
+      "size": 181,
+      "sha256": "3b80fee77f698db51c04e5deb20d333dfe031978c93529af58c18c49634026df"
     },
     {
       "path": "examples/input.json",
-      "size": 50,
-      "sha256": "3627305d9918e9f25f357791209e50894aab2db1bc4875b8053d69a133bbe233"
+      "size": 46,
+      "sha256": "5727543844ae4131f30f24e902736cb233cb3a4afa2c69502d146b66c3540830"
     }
   ]
 }
