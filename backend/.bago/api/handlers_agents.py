@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
@@ -10,6 +11,12 @@ if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
 AGENTS_STATE_DIR = Path(".bago/state/agents")
+
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _is_safe_agent_id(agent_id: str) -> bool:
+    return isinstance(agent_id, str) and bool(_SAFE_ID_RE.match(agent_id))
 
 
 def _send(handler, code: int, payload: dict) -> None:
@@ -58,6 +65,9 @@ def handle_get_list(handler: "BaseHTTPRequestHandler") -> None:
 
 
 def handle_get(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
+    if not _is_safe_agent_id(agent_id):
+        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
+        return
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:
@@ -106,6 +116,9 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
 
 def handle_put(handler: "BaseHTTPRequestHandler", body: dict, agent_id: str) -> None:
+    if not _is_safe_agent_id(agent_id):
+        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
+        return
     registry = _load_agents_registry()
     for i, agent in enumerate(registry.get("agents", [])):
         if agent.get("id") == agent_id:
@@ -144,6 +157,9 @@ def handle_put(handler: "BaseHTTPRequestHandler", body: dict, agent_id: str) -> 
 
 
 def handle_delete(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
+    if not _is_safe_agent_id(agent_id):
+        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
+        return
     registry = _load_agents_registry()
     original_len = len(registry.get("agents", []))
     registry["agents"] = [a for a in registry.get("agents", []) if a.get("id") != agent_id]
@@ -155,6 +171,9 @@ def handle_delete(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
 
 
 def handle_duplicate(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
+    if not _is_safe_agent_id(agent_id):
+        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
+        return
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:
@@ -179,6 +198,9 @@ def handle_duplicate(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
 
 def handle_test(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
     """Run a no-op test of the agent configuration — validates model/provider resolution."""
+    if not _is_safe_agent_id(agent_id):
+        _send(handler, 400, {"ok": False, "error": "Invalid agent id"})
+        return
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:

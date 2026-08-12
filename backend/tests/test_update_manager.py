@@ -83,6 +83,7 @@ def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         "viewer": str(install_root / "electron-viewer" / "BAGO.exe"),
         "reason": "",
     })
+    monkeypatch.setattr(updater, "_current", lambda: "4.8.3")
     updater._state = updater._default_state()
     yield install_root
 

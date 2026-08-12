@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
+import type { ActiveSection, BackendCommandResult, BackendHistory, BackendMenu, BackendProviders, BackendRouterList, BackendRouterPolicy, BackendRoutes, ChatTurn, InspectorLevel, PanelId, SelectionRecord, UiAction, UiBootstrapSnapshot } from '@/contracts/backend';
 import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultApiBase, safeJson } from '@/api/client';
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
@@ -160,7 +160,8 @@ export function ControlPlane() {
   const [lastMessage, setLastMessage] = useState('iniciando');
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
-  const { openDrawer, close: closeDrawer, isOpen } = usePanelManager();
+  const { openDrawer, close: closeDrawer, isOpen, open: openDrawerFn } = usePanelManager();
+  const openPanel = (panelId: PanelId) => openDrawerFn(panelId);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -452,13 +453,17 @@ export function ControlPlane() {
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
         return;
       }
-      // Ctrl+1..7: navegar según el registro canónico compartido con el sidebar.
-      if ((event.ctrlKey || event.metaKey) && /^[1-8]$/.test(event.key)) {
+      // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
+      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const target = NAVIGATION_ORDER[idx];
         if (target) {
-          setAndPersistUiState({ activeSection: target });
+          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
+            openPanel(target);
+          } else {
+            setAndPersistUiState({ activeSection: target as ActiveSection });
+          }
         }
         return;
       }
@@ -1108,6 +1113,7 @@ export function ControlPlane() {
   const paletteActions = useMemo(() => {
     const base = createShellActions({
       navigate,
+      openPanel,
       openWorkspace: openWorkspacePicker,
       toggleSidebar: () => setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
@@ -1319,7 +1325,7 @@ export function ControlPlane() {
               collapsed={uiState.sidebarCollapsed}
               onNavigate={navigate}
               openDrawer={openDrawer}
-              onOpenDrawer={(id) => openDrawer ? closeDrawer() : open(id)}
+              onOpenDrawer={(id) => openDrawer ? closeDrawer() : openDrawerFn(id)}
             />
           )}
 
@@ -1486,7 +1492,6 @@ export function ControlPlane() {
           onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
         />
       )}
-
       <DrawerOverlay isOpen={isOpen('capabilities')} onClose={closeDrawer} position="left" width={320}>
         <CapabilityAnatomyModule client={clientRef.current} onInspect={(selection) => onInspect(selection, 'detail')} />
         <ExternalCapabilitiesPanel client={clientRef.current} />
