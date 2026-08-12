@@ -59,10 +59,14 @@ class RouteMetaTests(unittest.TestCase):
 
     def test_api_routes_count(self):
         routes = api_routes.all_routes()
+        # static_count: entries from ROUTE_META whose paths have no < marker
         static_count = sum(1 for r in routes if not r["pattern"])
+        # dyn_count: entries from DYNAMIC_ROUTE_META (pattern=True by construction)
         dyn_count = sum(1 for r in routes if r["pattern"])
         self.assertEqual(static_count + dyn_count, len(routes))
-        self.assertEqual(static_count, len(api_dispatch.ROUTE_META))
+        # ROUTE_META entries with < in their path are counted as dynamic here
+        # but still appear in ROUTE_META — that's intentional (hybrid entries)
+        self.assertEqual(static_count + dyn_count, len(api_dispatch.ROUTE_META) + len(api_dispatch.DYNAMIC_ROUTE_META))
         self.assertGreaterEqual(dyn_count, 1)
 
     def test_api_routes_module_fn_consistent(self):

@@ -93,11 +93,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
         enabled: state.enabled,
         revision: state.selectedAgent.revision,
       };
-      const result = await client.updateAgent(state.selectedAgent.id, payload);
-      if (!result.ok || !result.agent) {
-        throw new Error(result.error || 'No se pudo guardar el agente');
-      }
-      const updated = result.agent;
+      const updated = await client.updateAgent(state.selectedAgent.id, payload);
       setState((s) => ({
         ...s,
         saving: false,
