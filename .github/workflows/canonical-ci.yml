@@ -226,7 +226,12 @@ jobs:
           Remove-Item -LiteralPath $setup -Force -ErrorAction SilentlyContinue
           Push-Location releases
           try {
-            & $env:NSIS_MAKENSIS "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" "/DDEV_PS1_FILE=..\scripts\dev.ps1" 'bago-installer.nsi'
+            & $env:NSIS_MAKENSIS `
+              "/DAPP_VERSION=$version" `
+              "/DAPP_GIT_REF=v$version" `
+              "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
+              "/DDEV_PS1_FILE=..\scripts\dev.ps1" `
+              'bago-installer.nsi'
             if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
           } finally {
             Pop-Location
