@@ -1877,10 +1877,6 @@
 .route-handler { font-family: ui-monospace, monospace; color: var(--text-2); font-size: 11px; }
 
 /* Refactor proposal v2: canonical snapshot, hierarchical navigation, chat toggle, drawer inspector. */
-.app-root {
-  grid-template-rows: var(--header-height) minmax(0, 1fr);
-}
-
 .app-root.mode-focus,
 .app-root.mode-review {
   grid-template-rows: var(--header-height) minmax(0, 1fr);
