@@ -1,0 +1,183 @@
+/* Banco ---------------------------------------------------------------*/
+.context-bank {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.context-bank-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.context-bank-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.context-bank-count { color: var(--text-3); font-size: 11px; margin-left: auto; }
+
+.context-bank-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+}
+.context-bank-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+.context-bank-search > .filter-dropdown > summary {
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+}
+
+.context-bank-list {
+  display: grid;
+  gap: 6px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.context-bank-manual {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
+  gap: 4px;
+  padding: 0 12px 10px;
+  align-items: center;
+}
+.context-bank-manual select,
+.context-bank-manual input {
+  font-size: 11px;
+  padding: 4px 7px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 0;
+}
+.context-bank-manual select { font-family: inherit; }
+.context-bank-manual input { font-family: ui-monospace, SFMono-Regular, monospace; }
+.context-bank-manual button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; font-size: 11px;
+  background: var(--surface-3); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer;
+}
+.context-bank-manual button:disabled { opacity: 0.5; cursor: default; }
+.context-bank-manual button:hover:not(:disabled) { background: var(--accent-soft, rgba(120,180,255,0.12)); }
+
+.context-bank-phase {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,.01);
+}
+.context-bank-phase-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  font-weight: 600;
+  padding: 2px 4px 6px;
+}
+.context-bank-section {
+  display: grid;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 10px;
+  border-left: 1px dashed rgba(114, 128, 150, .35);
+}
+
+.context-bank-item {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(255,255,255,.02);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.context-bank-item::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 14px;
+  width: 8px;
+  border-top: 1px dashed rgba(114, 128, 150, .35);
+}
+.context-bank-item:hover { background: var(--surface-2); border-color: rgba(103,136,247,.4); }
+.context-bank-item.is-used { border-style: dashed; border-color: rgba(98,215,166,.4); }
+.context-bank-item header { display: flex; align-items: center; gap: 6px; }
+.context-bank-item-icon { display: inline-flex; align-items: center; color: var(--text-3); }
+.context-bank-item-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12px; }
+.context-bank-item-meta { margin: 0; color: var(--text-3); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.context-bank-item footer { display: inline-flex; align-items: center; gap: 4px; }
+.context-bank-item-used { font-size: 9px; color: var(--green); }
+.context-bank-item-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: var(--z-dropdown);
+  display: grid;
+  gap: 1px;
+  min-width: 220px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  box-shadow: 0 12px 28px rgba(0,0,0,.45);
+}
+.context-bank-item-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.context-bank-item-menu button:hover { background: var(--surface-2); color: var(--text); }
+
+.context-bank-empty { color: var(--text-3); font-size: 11px; padding: 8px 4px; }
+.context-bank-errors { color: var(--text-3); font-size: 11px; }
+.context-bank-errors summary { cursor: pointer; }
+.context-bank-errors ul { margin: 4px 0 0; padding-left: 16px; }
+.context-inspector-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(242,191,104,.35);
+  border-radius: 10px;
+  background: rgba(242,191,104,.08);
+  color: var(--text-2);
+}
+.context-inspector-callout p { margin: 0; font-size: 11px; line-height: 1.5; }
+

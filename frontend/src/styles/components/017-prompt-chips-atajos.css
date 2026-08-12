@@ -1,0 +1,28 @@
+/* Prompt chips (atajos) */
+.chat-prompt-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 4px;
+}
+.chat-prompt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.025);
+  color: var(--text-2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.chat-prompt-chip:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.chat-prompt-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-prompt-chip-icon { font-size: 11px; opacity: 0.7; }
+

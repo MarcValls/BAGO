@@ -1,0 +1,77 @@
+/* Refactor proposal v2: canonical snapshot, hierarchical navigation, chat toggle, drawer inspector. */
+.app-root.mode-focus,
+.app-root.mode-review {
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+}
+
+.app-main-area {
+  position: relative;
+  grid-template-areas: "ws";
+  grid-template-rows: minmax(0, 1fr);
+}
+
+
+.global-header {
+  gap: 12px;
+}
+
+.header-actions {
+  gap: 7px;
+}
+
+.header-button.command-entry kbd {
+  margin-left: 2px;
+}
+
+.header-state.state-loading .status-dot {
+  animation: bago-pulse 1s infinite ease-in-out;
+}
+
+@keyframes bago-pulse {
+  0%, 100% { opacity: .35; transform: scale(.85); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.main-sidebar {
+  gap: 10px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg-soft) 100%);
+}
+
+.sidebar-nav {
+  gap: 12px;
+}
+
+.sidebar-group {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar-group .sidebar-section-title {
+  margin: 4px 8px 5px;
+}
+
+.help-shortcut-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0,1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+}
+
+.help-shortcut-row kbd {
+  width: fit-content;
+}
+
+.help-note {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.status-bar {
+  display: none;
+}
+

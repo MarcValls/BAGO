@@ -1,0 +1,6 @@
+/* Status bar */
+.status-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 13px; border-top: 1px solid var(--border); background: var(--surface); color: var(--text-3); font-size: 9px; }
+.status-bar-leading, .status-bar-meta { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.status-bar-leading span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-bar-meta span { padding-left: 10px; border-left: 1px solid var(--border); white-space: nowrap; }
+

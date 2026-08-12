@@ -1,11 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const picker = readFileSync(new URL('../src/features/workspace/WorkspacePickerDialog.tsx', import.meta.url), 'utf8');
 const firstRun = readFileSync(new URL('../src/features/first-run/FirstRunWizard.tsx', import.meta.url), 'utf8');
 const context = readFileSync(new URL('../src/features/context-tree/ContextTreeModule.tsx', import.meta.url), 'utf8');
 const controlPlane = readFileSync(new URL('../src/app/ControlPlane.tsx', import.meta.url), 'utf8');
-const components = readFileSync(new URL('../src/styles/components.css', import.meta.url), 'utf8');
+const componentsDir = new URL('../src/styles/components/', import.meta.url);
+const components = readdirSync(componentsDir)
+  .filter((f) => f.endsWith('.css'))
+  .map((f) => readFileSync(new URL(`./${f}`, componentsDir), 'utf8'))
+  .join('\n');
 
 describe('workspace and context UX contract', () => {
   it('offers the same browser selector during first run', () => {

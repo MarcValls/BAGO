@@ -1,0 +1,53 @@
+/* WorkspaceMenuButton: mismo patrón que FilterDropdown, usado para el
+   selector de workspace (cambiar / persistir / sincronizar / copiar). */
+.workspace-menu-button { position: relative; }
+.workspace-menu-button > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.workspace-menu-button > summary::-webkit-details-marker { display: none; }
+.workspace-menu-button[open] > summary { border-color: rgba(103,136,247,.5); color: var(--text); }
+.workspace-menu-button-label { display: grid; gap: 0; line-height: 1.05; min-width: 0; }
+.workspace-menu-button-label small { color: var(--text-3); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.workspace-menu-button-label strong { color: var(--text); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.workspace-menu-button-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 240px;
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  box-shadow: 0 12px 28px rgba(0,0,0,.45);
+}
+.workspace-menu-button-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.workspace-menu-button-item:hover { background: var(--surface-2); color: var(--text); }
+.workspace-menu-button-item:disabled { opacity: .5; cursor: not-allowed; }
+

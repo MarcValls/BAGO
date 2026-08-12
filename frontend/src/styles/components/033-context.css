@@ -1,0 +1,12 @@
+/* Context */
+.context-budget-card { display: block; }
+.context-progress { height: 10px; margin-top: 22px; overflow: hidden; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); }
+.context-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); }
+.context-scale { display: flex; justify-content: space-between; margin-top: 6px; color: var(--text-3); font-size: 9px; }
+.context-alert { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 9px 10px; border-radius: 8px; color: var(--amber); background: var(--amber-soft); font-size: 10px; }
+.context-details { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+.context-detail-card { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.context-detail-card span { color: var(--text-3); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.context-detail-card strong { font-size: 11px; }
+.context-detail-card button { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; font-size: 10px; }
+

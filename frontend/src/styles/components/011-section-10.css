@@ -1,0 +1,192 @@
+/* CANON[WS-007]: La home-hero es solo el contenedor de la tarjeta
+   del workspace. No hay identidad BAGO aquí. El topbar ya muestra la
+   marca. */
+.home-hero {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.home-hero-identity {
+  display: none;
+}
+.home-hero-workspace {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-glass-subtle);
+  min-width: 0;
+}
+.home-hero-workspace-icon {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: rgba(103, 136, 247, .18);
+  color: var(--accent-1);
+  flex: none;
+}
+.home-hero-workspace-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.home-hero-workspace-label {
+  font-size: 10px;
+  font-weight: 760;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--text-3);
+}
+.home-hero-workspace-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.home-hero-workspace-state {
+  font-size: 11px;
+  color: var(--text-2);
+  text-transform: lowercase;
+  letter-spacing: .02em;
+}
+.home-hero-workspace-path {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin-top: 2px;
+}
+.home-hero-workspace-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.home-hero-workspace-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--control-bg);
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease, border-color .15s ease;
+}
+.home-hero-workspace-btn:hover {
+  background: rgba(103, 136, 247, .12);
+  border-color: var(--accent-1);
+  transform: translateY(-1px);
+}
+.home-hero-workspace-btn.primary {
+  background: linear-gradient(135deg, var(--accent-1), #5a78d8);
+  color: #fff;
+  border-color: var(--accent-1);
+}
+.home-hero-workspace-btn.primary:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 720px) {
+  .home-hero-workspace { grid-template-columns: auto 1fr; }
+  .home-hero-workspace-actions { grid-column: 1 / -1; }
+  .home-hero-workspace-btn { width: 100%; justify-content: center; }
+}
+.home-pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.home-pill { min-height: 25px; display: inline-flex; align-items: center; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--control-bg); color: var(--text-2); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.home-hero-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; min-width: min(560px, 48%); align-self: stretch; }
+.home-bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.home-bento-operational { grid-template-columns: 1fr; }
+.home-card { display: grid; gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface-glass); box-shadow: 0 14px 34px rgba(0, 0, 0, .18); }
+.home-next-card { max-width: 680px; }
+.home-workflow-banner.is-guided-path,
+.home-next-card.is-guided-path {
+  border-color: rgba(103, 136, 247, .34);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .2), 0 0 0 1px rgba(103, 136, 247, .08), 0 0 0 999px rgba(103, 136, 247, .03) inset;
+}
+.home-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.home-card-head strong { color: var(--text); font-size: 12px; letter-spacing: .05em; }
+.home-card-copy { margin: 0; color: var(--text-2); line-height: 1.55; font-size: 13px; }
+.home-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.home-workflow-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.home-action-stack { display: grid; gap: 8px; }
+.home-action-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--control-bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .12s ease;
+}
+.home-action-row:hover:not(:disabled) {
+  border-color: rgba(103, 136, 247, .4);
+  background: rgba(103, 136, 247, .12);
+  transform: translateY(-1px);
+}
+.home-action-row.is-guided-target {
+  border-color: rgba(103, 136, 247, .34);
+  background: linear-gradient(135deg, rgba(103, 136, 247, .2), rgba(103, 136, 247, .08));
+  box-shadow: inset 0 0 0 1px rgba(103, 136, 247, .12);
+}
+.home-action-row:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+  color: var(--text-3);
+}
+.home-action-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--text-wash);
+  color: var(--text-2);
+}
+.home-action-row > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.home-action-row strong {
+  display: block;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-action-row small {
+  display: block;
+  color: var(--text-3);
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-action-row > svg:last-child { color: var(--text-3); }
+.home-actions { margin-top: 0; }
+.home-actions .primary-button { min-width: 0; }
+.home-connection { grid-column: 1 / -1; }
+.home-hero-stats .metric-card { background: var(--surface-glass); }

@@ -1,0 +1,13 @@
+/* Provider list */
+.provider-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.provider-list-item { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.provider-list-head { display: flex; align-items: center; justify-content: space-between; }
+.provider-list-head strong { font-size: 13px; }
+.provider-status { padding: 2px 8px; border-radius: 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+.provider-status.is-on { background: rgba(98,215,166,.15); color: var(--green); }
+.provider-status.is-off { background: rgba(255,124,130,.15); color: var(--red); }
+.provider-list-meta { color: var(--text-3); font-size: 10px; font-family: ui-monospace, monospace; word-break: break-all; }
+.provider-list-models { display: flex; flex-wrap: wrap; gap: 4px; }
+.provider-list-models code,
+.provider-list-models span { padding: 2px 6px; border-radius: 4px; background: var(--surface-3); color: var(--text-2); font-size: 10px; }
+

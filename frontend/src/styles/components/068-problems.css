@@ -1,0 +1,34 @@
+/* Problems */
+.workspace-problems { display: grid; gap: 6px; }
+.workspace-panel-summary { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-3); }
+.workspace-problems-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.workspace-problem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+}
+.workspace-problem.severity-error { border-color: rgba(224,83,61,0.4); }
+.workspace-problem.severity-warning { border-color: rgba(245,166,35,0.35); }
+.workspace-problem-jump {
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  background: transparent; border: 0; color: var(--text); cursor: pointer; padding: 0;
+  font-size: 11.5px;
+}
+.workspace-problem-severity { text-transform: uppercase; font-size: 9.5px; color: var(--text-3); padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; }
+.workspace-problem.severity-error .workspace-problem-severity { color: var(--red); border-color: rgba(224,83,61,0.4); }
+.workspace-problem.severity-warning .workspace-problem-severity { color: var(--amber); border-color: rgba(245,166,35,0.4); }
+.workspace-problem-location { color: var(--text-3); font-family: ui-monospace, monospace; font-size: 11px; }
+.workspace-problem-message { color: var(--text-2); }
+.workspace-problem-actions { display: flex; gap: 4px; }
+.workspace-problem-actions button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 7px; font-size: 10.5px; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.workspace-problem-actions button:hover { background: var(--surface-3); color: var(--text); }
+

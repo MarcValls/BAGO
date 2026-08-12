@@ -1,0 +1,23 @@
+/* Pack bar -----------------------------------------------------------*/
+.context-pack-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.014));
+}
+.context-pack-bar.empty { color: var(--text-3); }
+.context-pack-bar-empty-text { color: var(--text-3); font-size: 11px; }
+.context-pack-bar.state-blocked { border-color: rgba(255,124,130,.5); }
+.context-pack-bar.state-warning { border-color: rgba(242,191,104,.5); }
+.context-pack-bar.state-confirmed, .context-pack-bar.state-compiled, .context-pack-bar.state-valid { border-color: rgba(98,215,166,.4); }
+.context-pack-bar-summary { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 auto; }
+.context-pack-bar-name { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-weight: 700; font-size: 12px; }
+.context-pack-bar-stat { color: var(--text-2); font-size: 11px; }
+.context-pack-bar-stats { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text-2); font-size: 11px; }
+.context-pack-bar-blocked { display: inline-flex; align-items: center; gap: 4px; color: var(--red); font-size: 11px; }
+.context-pack-bar-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+

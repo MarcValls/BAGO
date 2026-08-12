@@ -1,0 +1,66 @@
+/* Workspace toolbar popovers (botones, no <details>) */
+.filter-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.filter-dropdown-trigger:hover,
+.filter-dropdown-trigger[aria-expanded="true"] {
+  border-color: rgba(103,136,247,.5);
+  color: var(--text);
+  background: rgba(103,136,247,.08);
+}
+.filter-dropdown-item.is-selected,
+.filter-dropdown-item.is-active {
+  background: rgba(103,136,247,.16);
+  color: var(--text);
+}
+
+.workspace-menu-button-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.workspace-menu-button-menu > button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.workspace-menu-button-menu > button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.workspace-actions-menu-items > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.workspace-actions-menu-items > button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+

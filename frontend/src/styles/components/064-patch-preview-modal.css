@@ -1,0 +1,68 @@
+/* Patch preview modal -----------------------------------------------*/
+.context-patch-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 5, 10, .55);
+  display: grid;
+  place-items: center;
+  z-index: var(--z-overlay-low);
+}
+.context-patch-preview {
+  display: grid;
+  gap: 8px;
+  width: min(640px, 92vw);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.context-patch-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.context-patch-preview-header h3 { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 14px; }
+.context-patch-preview-hint { color: var(--text-2); font-size: 11px; margin: 0; }
+.context-patch-preview-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.context-patch-preview-list li { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.02); }
+.context-patch-preview-list header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.context-patch-preview-list header span { color: var(--text-2); font-size: 11px; }
+.context-patch-preview-list textarea {
+  width: 100%;
+  min-height: 110px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control-bg);
+  color: var(--text);
+  padding: 6px 8px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  outline: 0;
+}
+.context-patch-preview-error { color: var(--red); font-size: 11px; margin: 0; }
+.context-patch-preview-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
+.context-new-child-form { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.context-new-child-form input, .context-new-child-form select {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control-bg);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 12px;
+  outline: 0;
+}
+
+.context-compiled-modal { width: min(820px, 94vw); }
+.context-compiled-markdown {
+  max-height: 60vh;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-2);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+

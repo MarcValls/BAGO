@@ -1,0 +1,78 @@
+/* Activity tray ------------------------------------------------------*/
+.context-activity-tray {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.context-activity-tray-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.context-activity-tray-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.context-activity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(242,191,104,.16);
+  color: var(--amber);
+  font-size: 10px;
+  font-weight: 600;
+}
+.context-activity-tray.is-collapsed .context-activity-tray-body { display: none; }
+.context-activity-tray-tabs { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.context-activity-tray-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11px;
+  cursor: pointer;
+}
+.context-activity-tray-tabs button small { color: var(--text-3); font-size: 9px; }
+.context-activity-tray-tabs button.is-active { background: rgba(103,136,247,.16); border-color: rgba(103,136,247,.45); color: var(--text); }
+.context-activity-tray-body { padding: 8px; max-height: 220px; overflow: auto; }
+.context-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.context-activity-empty { color: var(--text-3); font-size: 11px; padding: 4px 0; }
+.context-activity-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.02);
+}
+.context-activity-item .context-activity-icon { color: var(--text-3); }
+.context-activity-item strong { color: var(--text); font-size: 12px; }
+.context-activity-item small { color: var(--text-3); font-size: 10px; }
+.context-activity-reason, .context-activity-error { margin: 2px 0 0; color: var(--text-2); font-size: 11px; }
+.context-activity-error { color: var(--red); }
+.context-activity-actions { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.context-activity-hint { color: var(--text-3); font-size: 10px; }
+.context-activity-error-tag { color: var(--red); font-size: 10px; display: inline-flex; align-items: center; gap: 4px; }
+.context-activity-item.status-pending { border-color: rgba(242,191,104,.4); }
+.context-activity-item.status-accepted, .context-activity-item.status-edited { border-color: rgba(98,215,166,.4); }
+.context-activity-item.status-rejected, .context-activity-item.status-failed { border-color: rgba(255,124,130,.4); }
+

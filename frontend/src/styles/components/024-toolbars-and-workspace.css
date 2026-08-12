@@ -1,0 +1,9 @@
+/* Toolbars and workspace */
+.surface-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.surface-search { width: min(370px, 45%); min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-3); }
+.surface-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 12px; }
+.surface-toolbar-actions, .toolbar-group { display: flex; align-items: center; gap: 4px; }
+.empty-state { min-height: 260px; display: grid; place-items: center; align-content: center; color: var(--text-3); text-align: center; }
+.empty-state h3 { margin: 11px 0 4px; color: var(--text-2); font-size: 14px; }
+.empty-state p { margin: 0; font-size: 11px; }
+

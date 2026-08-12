@@ -1,0 +1,16 @@
+/* Output */
+.workspace-output { display: grid; gap: 6px; }
+.workspace-output-clear { font-size: 10.5px; padding: 2px 7px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-2); cursor: pointer; }
+.workspace-output-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.workspace-output-entry {
+  display: grid; grid-template-columns: 76px 100px 1fr; gap: 8px;
+  font-size: 11px; font-family: ui-monospace, monospace;
+  padding: 3px 6px; border-radius: 4px;
+}
+.workspace-output-entry.level-error { color: var(--red); background: rgba(224,83,61,0.07); }
+.workspace-output-entry.level-warn { color: var(--amber); }
+.workspace-output-entry.level-ok { color: var(--green); }
+.workspace-output-time { color: var(--text-3); }
+.workspace-output-channel { color: var(--text-3); text-transform: uppercase; font-size: 9.5px; }
+.workspace-output-text { white-space: pre-wrap; word-break: break-word; }
+

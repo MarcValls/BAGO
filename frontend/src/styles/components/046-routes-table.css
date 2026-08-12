@@ -1,0 +1,31 @@
+/* Routes table */
+.routes-view { display: flex; flex-direction: column; gap: 12px; }
+.routes-view details { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); overflow: hidden; }
+.routes-view summary { padding: 10px 14px; color: var(--text); background: var(--surface); cursor: pointer; font-size: 13px; font-weight: 650; user-select: none; list-style: none; display: flex; align-items: center; }
+.routes-view summary::-webkit-details-marker { display: none; }
+.routes-view summary:hover { background: var(--surface-2); }
+.routes-group-label { display: flex; align-items: center; gap: 8px; }
+.routes-group-label strong { font-family: ui-monospace, monospace; }
+.routes-group-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--surface-2); color: var(--text-2); font-size: 10px; font-weight: 700; }
+.route-chevron { display: flex; transition: transform 150ms ease; }
+.route-chevron.is-open { transform: rotate(90deg); }
+.routes-toolbar { display: flex; align-items: center; gap: 10px; }
+.routes-search { flex: 1; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; }
+.routes-search:focus { outline: none; border-color: var(--accent); }
+.routes-count { color: var(--text-2); font-size: 11px; white-space: nowrap; }
+.routes-empty { padding: 20px; text-align: center; color: var(--text-2); font-size: 12px; }
+.routes-groups { display: flex; flex-direction: column; gap: 6px; }
+.routes-groups > details > table { display: none; }
+.routes-groups > details[open] > table { display: table; }
+.routes-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.routes-table thead { display: none; }
+.routes-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.routes-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.routes-table th { position: sticky; z-index: var(--z-base); top: 43px; text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); background: var(--surface-2); font-weight: 650; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.routes-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.route-method { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace; }
+.route-method.method-get { background: rgba(98,215,166,.15); color: var(--green); }
+.route-method.method-post { background: rgba(103,136,247,.15); color: var(--accent); }
+.route-path { font-family: ui-monospace, monospace; color: var(--text); }
+.route-handler { font-family: ui-monospace, monospace; color: var(--text-2); font-size: 11px; }
+

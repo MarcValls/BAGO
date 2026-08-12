@@ -1,0 +1,7 @@
+/* FIX v0.2.1: padding lateral eliminado para que la home se pegue
+   a los bordes del panel. El grid de cards mantiene su gap interno. */
+.home-surface { display: grid; gap: 16px; width: 100%; margin: 0; min-width: 0; min-height: 0; }
+.home-launch-card { width: 100%; min-width: 0; }
+.home-snapshot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.opening-brand-row { flex-wrap: wrap; }
+.opening-command { margin-left: auto; min-width: 0; }

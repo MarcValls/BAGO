@@ -1,0 +1,17 @@
+/* Composer shell: el "cajón" con borde y fondo */
+.chat-composer-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  box-shadow: 0 -8px 28px rgba(9,12,18,.25);
+  transition: border-color .15s ease, box-shadow .15s ease;
+  overflow: visible;
+}
+.chat-composer-shell:focus-within {
+  border-color: rgba(103,136,247,.5);
+  box-shadow: 0 -8px 32px rgba(103,136,247,.18);
+}
+

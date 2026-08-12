@@ -1,0 +1,106 @@
+/* =================================================================
+   SOURCE DIRECTORIES · gestión de directorios fuente.
+   ================================================================= */
+
+.context-source-directories {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  display: grid;
+  gap: 6px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.context-source-directories-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.context-source-directories-head small { color: var(--text-3); }
+.context-source-directories-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+}
+.context-source-directories-form input {
+  font-size: 11px;
+  padding: 4px 7px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.context-source-directories-form button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; font-size: 11px;
+  background: var(--surface-3); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer;
+}
+.context-source-directories-form button:disabled { opacity: 0.5; cursor: default; }
+.context-source-directories-empty { font-size: 11px; color: var(--text-3); margin: 0; }
+
+.context-source-directories-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.context-source-directory {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.context-source-directory-head {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 11.5px;
+}
+.context-source-directory-toggle {
+  background: transparent; border: 0; color: var(--text-3);
+  cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  transform: rotate(0deg);
+  transition: transform 0.15s ease;
+}
+.context-source-directory.is-expanded .context-source-directory-toggle { transform: rotate(90deg); }
+.context-source-directory-name {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+}
+.context-source-directory-name strong { color: var(--text); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.context-source-directory-name code { color: var(--text-3); font-size: 10px; font-family: ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.context-source-directory-head small { color: var(--text-3); font-size: 10px; }
+.context-source-directory-actions { display: flex; gap: 4px; }
+.context-source-directory-actions .text-button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 6px; font-size: 10.5px; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
+}
+.context-source-directory-actions .text-button.is-primary { color: var(--accent); border-color: rgba(120,180,255,0.4); }
+.context-source-directory-actions .text-button.is-danger { color: var(--red, #e0533d); }
+.context-source-directory-actions .text-button:hover:not(:disabled) { background: var(--surface-3); }
+.context-source-directory-actions .text-button:disabled { opacity: 0.5; cursor: default; }
+
+.context-source-directory-body { padding: 4px 8px 8px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.context-source-files { width: 100%; border-collapse: collapse; font-size: 11px; }
+.context-source-files th {
+  text-align: left; font-weight: 500; color: var(--text-3);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 4px 6px;
+}
+.context-source-files td { padding: 4px 6px; vertical-align: middle; }
+.context-source-files tr.is-excluded { opacity: 0.5; }
+.context-source-files tr.is-excluded .context-source-file-name strong { text-decoration: line-through; }
+.context-source-file-name {
+  display: flex; align-items: center; gap: 5px; min-width: 0;
+}
+.context-source-file-name strong { color: var(--text); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.context-source-file-name code { color: var(--text-3); font-size: 10px; font-family: ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.context-source-files select {
+  font-size: 10.5px; padding: 2px 4px; background: var(--surface);
+  color: var(--text); border: 1px solid var(--border); border-radius: 4px;
+  width: 100%;
+}
+

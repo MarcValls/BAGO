@@ -1,0 +1,69 @@
+/* First-run assistant */
+.first-run-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 8, 18, .78);
+  backdrop-filter: blur(10px);
+}
+
+.first-run-wizard {
+  width: min(760px, 100%);
+  max-height: min(820px, calc(100vh - 48px));
+  overflow: auto;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.first-run-head,
+.first-run-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px;
+}
+
+.first-run-head { border-bottom: 1px solid var(--border); }
+.first-run-head h2 { margin: 4px 0 0; font-size: clamp(20px, 3vw, 28px); }
+.first-run-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.first-run-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; padding: 18px 24px; list-style: none; border-bottom: 1px solid var(--border); }
+.first-run-steps li { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--text-2); font-size: 12px; }
+.first-run-steps li span { display: grid; flex: 0 0 25px; width: 25px; height: 25px; place-items: center; border: 1px solid var(--border-strong); border-radius: 50%; }
+.first-run-steps li.active { color: var(--text); font-weight: 700; }
+.first-run-steps li.active span { color: #07101e; background: var(--accent); border-color: var(--accent); }
+.first-run-steps li.done span { color: var(--green); border-color: color-mix(in srgb, var(--green) 55%, transparent); }
+.first-run-content { padding: 26px 24px; }
+.first-run-panel { display: grid; gap: 16px; }
+.first-run-panel h3, .first-run-panel p { margin: 0; }
+.first-run-panel p, .first-run-panel small { color: var(--text-2); line-height: 1.55; }
+.first-run-checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.first-run-status { display: flex; gap: 10px; min-width: 0; padding: 13px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+.first-run-status > span { display: grid; flex: 0 0 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--amber-soft); color: var(--amber); }
+.first-run-status.ok > span { background: var(--green-soft); color: var(--green); }
+.first-run-status div { display: grid; gap: 3px; min-width: 0; }
+.first-run-status small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.first-run-field { display: grid; gap: 7px; color: var(--text-2); font-size: 12px; }
+.first-run-field input, .first-run-field select { width: 100%; min-height: 42px; padding: 0 12px; color: var(--text); background: var(--bg-soft); border: 1px solid var(--border-strong); border-radius: 10px; }
+.first-run-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.first-run-provider-matrix { display: grid; gap: 8px; max-height: 220px; overflow-y: auto; padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+.first-run-provider-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; }
+.first-run-provider-row > div { display: grid; gap: 3px; min-width: 0; }
+.first-run-provider-row small { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.release-update-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+.release-update-card > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.release-update-card strong { color: var(--text); }
+.release-update-card small { color: var(--text-2); line-height: 1.45; }
+.release-update-copy { flex: 1; }
+.release-update-progress { width: min(420px, 100%); height: 7px; margin-top: 5px; overflow: hidden; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+.release-update-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 180ms ease; }
+.release-update-link { width: fit-content; margin-top: 2px; color: var(--accent); font-size: 11px; text-decoration: none; }
+.release-update-link:hover { text-decoration: underline; }
+@media (max-width: 700px) { .release-update-card { align-items: stretch; flex-direction: column; } .release-update-card .system-panel-actions { justify-content: flex-start; } }
+

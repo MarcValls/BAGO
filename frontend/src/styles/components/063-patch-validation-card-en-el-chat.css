@@ -1,0 +1,36 @@
+/* Patch validation card (en el chat) ---------------------------------*/
+.context-patch-card {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.014));
+}
+.context-patch-card.risk-low { border-color: rgba(98,215,166,.4); }
+.context-patch-card.risk-medium { border-color: rgba(242,191,104,.5); }
+.context-patch-card.risk-high { border-color: rgba(255,124,130,.5); }
+.context-patch-card.risk-critical { border-color: rgba(255,124,130,.7); background: linear-gradient(180deg, rgba(255,124,130,.10), rgba(255,124,130,.02)); }
+.context-patch-card-header { display: flex; align-items: center; gap: 8px; }
+.context-patch-card-header strong { color: var(--text); font-size: 12px; }
+.context-patch-card-header small { color: var(--text-3); font-size: 10px; }
+.context-patch-card-header > div { flex: 1 1 auto; min-width: 0; display: grid; gap: 0; }
+.context-patch-card-icon { color: var(--text-3); }
+.context-patch-card-title { margin: 0; color: var(--text); font-size: 13px; }
+.context-patch-card-summary { margin: 0; color: var(--text-2); font-size: 12px; }
+.context-patch-card-reason { margin: 0; color: var(--text-2); font-size: 12px; }
+.context-patch-card-operations {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+}
+.context-patch-card-operations ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 11px; color: var(--text-2); }
+.context-patch-card-operations code { background: rgba(255,255,255,.05); padding: 0 4px; border-radius: 4px; }
+.context-patch-card-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.context-patch-card-result { color: var(--text-3); font-size: 11px; }
+.context-patch-card-result.danger { color: var(--red); }
+

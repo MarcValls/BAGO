@@ -1,0 +1,36 @@
+/* App body grid. Layout fijo [sidebar][main]: el chat es una
+   sección más del workspace y se renderiza dentro de main, no como
+   columna aparte. */
+.app-body {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-areas: "side main";
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.app-root.sidebar-collapsed .app-body { grid-template-columns: var(--sidebar-collapsed) minmax(0,1fr); }
+.app-root.mode-focus .app-body, .app-root.mode-review .app-body { grid-template-areas: "main"; grid-template-columns: minmax(0,1fr); }
+
+.app-main-area {
+  grid-area: main;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-areas: "ws";
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.workspace-area {
+  grid-area: ws;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.main-sidebar { grid-area: side; }
+
