@@ -264,8 +264,15 @@ export function ChatPanel(props: Props) {
     const close = (event: MouseEvent) => {
       if (!modelPickerRootRef.current?.contains(event.target as Node)) closeModelPicker();
     };
+    const closeForViewportChange = () => closeModelPicker();
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('resize', closeForViewportChange);
+    window.addEventListener('scroll', closeForViewportChange, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('resize', closeForViewportChange);
+      window.removeEventListener('scroll', closeForViewportChange, true);
+    };
   }, [closeModelPicker, modelPickerOpen]);
   const chatSelection: SelectionRecord = {
     id: 'screen-chat',
