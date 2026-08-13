@@ -1,0 +1,39 @@
+/* =================================================================
+   FIX v0.2.3 — SCROLL INVISIBLE EN TODAS LAS SUPERFICIES.
+   Aplica `scrollbar-width: none !important` y oculta la barra en
+   webkit para GANAR a las reglas `scrollbar-color` declaradas en
+   superficies individuales (chat-timeline, pipeline/evidence/context/
+   system-surface, surface-body, context-bank-list, code-editor-*).
+   Reglas !important se requieren porque el shorthand `scrollbar-color`
+   activa el rendering de la barra en Chromium/Electron.
+   ================================================================= */
+
+*,
+*::before,
+*::after {
+  scrollbar-width: none !important;            /* Firefox */
+  -ms-overflow-style: none !important;         /* IE/legacy Edge */
+}
+
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;                    /* webkit antiguo */
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
+}
+
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }

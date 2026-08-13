@@ -181,7 +181,7 @@ jobs:
           $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
           if (-not (Test-Path $mk)) {
             try {
-              choco install nsis -y --no-progress
+              choco install nsis.install -y --no-progress
             } catch {
               Write-Host "Chocolatey NSIS failed, using portable fallback..."
             }
@@ -355,7 +355,7 @@ jobs:
           $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
           if (-not (Test-Path $mk)) {
             try {
-              choco install nsis -y --no-progress
+              choco install nsis.install -y --no-progress
             } catch {
               Write-Host "Chocolatey NSIS failed, using portable fallback..."
             }

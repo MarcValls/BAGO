@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from bago_core.user_state_paths import state_read_roots
+from bago_core.atomic_json import write_json_atomic, write_text_atomic
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from session_utils import ADAPTER_REGISTRY, BAGO_MODES, normalize_bago_mode, normalize_bridges
@@ -607,8 +608,7 @@ class SessionPersistenceMixin:
             "binding_confirmed": binding["binding_confirmed"],
             "binding_reason": binding["binding_reason"],
         }
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_json_atomic(path, data)
 
         try:
             from session_db import get_session_db
@@ -729,13 +729,13 @@ class SessionPersistenceMixin:
                 canonical_store._timeline = store._timeline
                 canonical_store._tokens = store._tokens
                 canonical_store._meta = store.get_meta()
-                canonical_store._context_path.write_text(
+                write_text_atomic(
+                    canonical_store._context_path,
                     "\n".join(json.dumps(item.to_dict(), ensure_ascii=False) for item in canonical_store._messages) + ("\n" if canonical_store._messages else ""),
-                    encoding="utf-8",
                 )
-                canonical_store._timeline_path.write_text(
+                write_text_atomic(
+                    canonical_store._timeline_path,
                     "\n".join(json.dumps(item.to_dict(), ensure_ascii=False) for item in canonical_store._timeline) + ("\n" if canonical_store._timeline else ""),
-                    encoding="utf-8",
                 )
                 canonical_store._save_tokens()
                 canonical_store._save_meta()

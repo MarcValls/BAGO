@@ -3,7 +3,7 @@
 // tokens resaltados. Numeración de líneas, gutter de diagnósticos y
 // patrones, soporte de selección, atajos de teclado y pegado masivo.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import type { OpenFileTab, SelectedRange, WorkspaceDiagnostic, WorkspacePattern } from './workspaceTypes';
 import { tokenizeContent, type Token } from './highlight';
@@ -85,16 +85,16 @@ export function CodeEditorPane(props: Props) {
       overlayRef.current.scrollTop = textareaRef.current.scrollTop;
       overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
     }
-  });
+  }, [tab.content, tab.language]);
 
   const markers = useMemo(() => gutterForTab(tab), [tab]);
 
-  const handleScroll = useCallback(() => {
+  const handleScroll = () => {
     if (overlayRef.current && textareaRef.current) {
       overlayRef.current.scrollTop = textareaRef.current.scrollTop;
       overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
     }
-  }, []);
+  };
   const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (tab.state === 'readonly') return;
     props.onChange(event.target.value);

@@ -52,7 +52,7 @@ export function ContextPatchPreview(props: Props) {
 
   useEffect(() => {
     setDrafts(props.patch.patch.operations.map(operationAsText));
-  }, [props.patch.id]);
+  }, [props.patch]);
 
   const update = (index: number, value: string) => {
     setDrafts((current) => current.map((entry, idx) => idx === index ? value : entry));

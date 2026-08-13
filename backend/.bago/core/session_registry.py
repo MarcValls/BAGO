@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from bago_core.atomic_json import write_json_atomic
+
 
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 ACTIVE_SESSION_FILE = "active-session.json"
+_REGISTRY_LOCK = threading.RLock()
 
 
 def validate_session_id(session_id: str) -> str:
@@ -42,13 +46,10 @@ def mark_active_session(manager: Any) -> None:
     state_root.mkdir(parents=True, exist_ok=True)
     manager.store.update_meta({"last_opened_at": now})
     manager.save()
-    target = state_root / ACTIVE_SESSION_FILE
-    temporary = target.with_suffix(".tmp")
-    temporary.write_text(json.dumps({
+    write_json_atomic(state_root / ACTIVE_SESSION_FILE, {
         "session_id": validate_session_id(manager.session_id),
         "updated_at": now,
-    }, indent=2, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(target)
+    })
 
 
 def session_exists(state_root: str | Path, session_id: str) -> bool:
@@ -67,12 +68,11 @@ def update_session_meta(state_root: str | Path, session_id: str, patch: dict[str
     meta_path = Path(state_root) / "sessions" / sid / "meta.json"
     if not meta_path.exists():
         raise ValueError(f"Sesión no encontrada: {sid}")
-    meta = _read_json(meta_path)
-    meta.update(patch)
-    temporary = meta_path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(meta_path)
-    return meta
+    with _REGISTRY_LOCK:
+        meta = _read_json(meta_path)
+        meta.update(patch)
+        write_json_atomic(meta_path, meta)
+        return meta
 
 
 def rename_session(state_root: str | Path, session_id: str, title: str) -> dict[str, Any]:

@@ -27,6 +27,7 @@ import {
 import { FlowShell } from '@/lib/flow-shell/FlowShell';
 import type { FlowStageItem } from '@/lib/flow-shell/FlowNav';
 import { Icon } from '@/shared/Icon';
+import { readWorkspaceStorageValue, writeWorkspaceStorageValue } from '@/shared/workspaceStateKeys';
 import { BagoClient, safeJson } from '@/api/client';
 import { compactTaskTitle } from '@/shared/taskPresentation';
 import {
@@ -85,10 +86,29 @@ function newNodeDraft(parentId: string, type: ContextNodeType): { parentId: stri
   return { parentId, type, title: '' };
 }
 
+export function workspaceContextStorageKey(workspaceRoot: string, suffix: string): string {
+  const cleanRoot = String(workspaceRoot || '').trim();
+  return cleanRoot ? `bago.context.${cleanRoot}::${suffix}` : `bago.context.global::${suffix}`;
+}
+
+function readWorkspaceContextSessionValue(
+  workspaceRoot: string,
+  suffix: string,
+  allowed: readonly string[],
+  fallback: string
+): string {
+  const stored = readWorkspaceStorageValue(workspaceRoot, `context.${suffix}`);
+  return stored && (allowed.length === 0 || allowed.includes(stored)) ? stored : fallback;
+}
+
+function writeWorkspaceContextSessionValue(workspaceRoot: string, suffix: string, value: string): void {
+  writeWorkspaceStorageValue(workspaceRoot, `context.${suffix}`, value);
+}
+
 export function ContextTreeModule(props: Props) {
   const ctx = props.ctx;
   const openChat = () => {
-    try { window.sessionStorage.setItem('bago.start.chat-mode', 'open'); } catch { /* storage unavailable */ }
+    writeWorkspaceStorageValue(props.workspaceRoot, 'chat-mode', 'open');
     props.onSetSection('home');
   };
   const [activeStage, setActiveStage] = useState<ContextFlowStage>('sources');
@@ -104,32 +124,18 @@ export function ContextTreeModule(props: Props) {
   const [collectionProposal, setCollectionProposal] = useState<ContextPatchRequest | null>(null);
   const [collectionNotice, setCollectionNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(() => {
-    try {
-      return window.sessionStorage.getItem('bago.context.initial-branch') || null;
-    } catch {
-      return null;
-    }
+    return readWorkspaceStorageValue(props.workspaceRoot, 'context.initial-branch') || null;
   });
   const [newBranchTitle, setNewBranchTitle] = useState('');
   const [branchFilter, setBranchFilter] = useState<'all' | 'open' | 'closed' | 'questions' | 'proposals' | 'errors'>('all');
   const [closeNote, setCloseNote] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
   const [workbenchView, setWorkbenchView] = useState<ContextWorkbenchView>(() => {
-    try {
-      const stored = window.sessionStorage.getItem('bago.context.workbench-view');
-      return stored === 'tasks' || stored === 'library' || stored === 'advanced' ? stored : 'focus';
-    } catch {
-      return 'focus';
-    }
+    return (readWorkspaceStorageValue(props.workspaceRoot, 'context.workbench-view') || 'focus') as ContextWorkbenchView;
   });
   const [activeContextView, setActiveContextView] = useState<ContextCategoryType>('intent');
   const [contextDisplayMode, setContextDisplayMode] = useState<ContextDisplayMode>(() => {
-    try {
-      const stored = window.sessionStorage.getItem('bago.context.display-mode');
-      return stored === 'board' || stored === 'document' ? stored : 'map';
-    } catch {
-      return 'map';
-    }
+    return (readWorkspaceStorageValue(props.workspaceRoot, 'context.display-mode') || 'map') as ContextDisplayMode;
   });
   const [focusedCategoryNodeId, setFocusedCategoryNodeId] = useState<string | null>(null);
   const [reviewingNodeId, setReviewingNodeId] = useState<string | null>(null);
@@ -203,7 +209,7 @@ export function ContextTreeModule(props: Props) {
         props.onBankPendingConsumed?.(item.id);
       })();
     }
-  }, [ctx.tree?.id, ctx.ready, props.bankPending?.length]);
+  }, [ctx.tree?.id, ctx.ready, props.bankPending, props.onBankPendingConsumed]);
 
   const selectedNode = useMemo(() => {
     if (!selectedNodeId || !ctx.tree) return null;
@@ -243,12 +249,12 @@ export function ContextTreeModule(props: Props) {
   const changeWorkbenchView = (view: ContextWorkbenchView) => {
     if (view === 'advanced' && workbenchView !== 'advanced') setActiveStage(nextStage);
     setWorkbenchView(view);
-    try { window.sessionStorage.setItem('bago.context.workbench-view', view); } catch { /* storage unavailable */ }
+    writeWorkspaceContextSessionValue(props.workspaceRoot, 'workbench-view', view);
   };
 
   const changeContextDisplayMode = (mode: ContextDisplayMode) => {
     setContextDisplayMode(mode);
-    try { window.sessionStorage.setItem('bago.context.display-mode', mode); } catch { /* storage unavailable */ }
+    writeWorkspaceContextSessionValue(props.workspaceRoot, 'display-mode', mode);
   };
 
   const openCategoryNode = (nodeId: string) => {
@@ -258,8 +264,12 @@ export function ContextTreeModule(props: Props) {
   };
 
   useEffect(() => {
-    try { window.sessionStorage.removeItem('bago.context.initial-branch'); } catch { /* storage unavailable */ }
-  }, []);
+    const nextSelectedBranchId = readWorkspaceContextSessionValue(props.workspaceRoot, 'initial-branch', [], '') || null;
+    setSelectedBranchId(nextSelectedBranchId);
+    if (!nextSelectedBranchId) {
+      writeWorkspaceStorageValue(props.workspaceRoot, 'context.initial-branch', '');
+    }
+  }, [props.workspaceRoot]);
 
   useEffect(() => {
     if (!selectedBranchId || !taskBranches.some((branch) => branch.id === selectedBranchId)) {
@@ -981,7 +991,7 @@ export function ContextTreeModule(props: Props) {
                 onSelectRelated={openCategoryNode}
                 onOpenInWorkspace={props.onOpenInWorkspace}
                 onCreatePlan={(summary) => void handleCreatePlan(summary)}
-                onOpenInChat={(text) => { try { window.sessionStorage.setItem('bago.context.chat-draft', text); } catch { /* unavailable */ } openChat(); }}
+                onOpenInChat={(text) => { writeWorkspaceStorageValue(props.workspaceRoot, 'chat-draft', text); openChat(); }}
                 hideIdentity
                 hideTitle={selectedNode?.parentId === ctx.tree.rootId && selectedNode?.title === activeCategory?.label}
               />
@@ -1011,7 +1021,7 @@ export function ContextTreeModule(props: Props) {
       <ContextCollectionDialog open={collectionOpen} busy={collectionBusy} proposal={collectionProposal} sourceSummary={`${ctx.bank.history.length} mensajes del chat disponibles; se analizará el historial de esta tarea`} notice={collectionNotice} onClose={() => { if (!collectionBusy) setCollectionOpen(false); }} onCollect={collectFromChat} onAccept={acceptCollection} onAcceptOperations={acceptCollectionOperations} onReject={rejectCollection} />
       {editingPatch && <ContextPatchPreview patch={editingPatch} onCancel={() => setEditingPatch(null)} onApply={(operations) => void handleApplyEdited(operations)} />}
       <Drawer open={inspectorDrawerOpen} title="Inspector de contexto" subtitle={selectedNode?.title} onClose={() => setInspectorDrawerOpen(false)}>
-        <ContextInspector node={selectedNode} relatedNodes={flatNodes} treeName={ctx.tree.name} packName={ctx.activePack?.name} packStatus={ctx.activePack?.status || null} packNodeCount={packNodeCount} packConflicts={ctx.activePack?.conflicts || 0} onChange={() => undefined} onSave={(patch) => void handleSaveNode(patch)} onSelectRelated={openRelated} onOpenInWorkspace={props.onOpenInWorkspace} onCreatePlan={(summary) => void handleCreatePlan(summary)} onOpenInChat={(text) => { try { window.sessionStorage.setItem('bago.context.chat-draft', text); } catch { /* unavailable */ } openChat(); }} />
+        <ContextInspector node={selectedNode} relatedNodes={flatNodes} treeName={ctx.tree.name} packName={ctx.activePack?.name} packStatus={ctx.activePack?.status || null} packNodeCount={packNodeCount} packConflicts={ctx.activePack?.conflicts || 0} onChange={() => undefined} onSave={(patch) => void handleSaveNode(patch)} onSelectRelated={openRelated} onOpenInWorkspace={props.onOpenInWorkspace} onCreatePlan={(summary) => void handleCreatePlan(summary)} onOpenInChat={(text) => { writeWorkspaceStorageValue(props.workspaceRoot, 'chat-draft', text); openChat(); }} />
       </Drawer>
       {newChildDraft && <div className="task-context-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Crear nodo"><section className="task-context-dialog context-compact-dialog"><header className="task-context-dialog-header"><div><span className="surface-eyebrow">Estructura</span><h3>Crear nodo hijo</h3></div><button type="button" className="task-context-close" onClick={() => setNewChildDraft(null)}><Icon name="close" size={12} /></button></header><label className="first-run-field"><span>Título</span><input autoFocus value={newChildDraft.title} onChange={(event) => setNewChildDraft({ ...newChildDraft, title: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') void submitNewChild(); }} /></label><div className="task-context-dialog-actions"><button type="button" className="secondary-button compact" onClick={() => setNewChildDraft(null)}>Cancelar</button><button type="button" className="primary-button compact" disabled={!newChildDraft.title.trim()} onClick={() => void submitNewChild()}>Crear</button></div></section></div>}
       {compiledModal && <div className="task-context-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Pack compilado"><section className="task-context-dialog context-compiled-dialog"><header className="task-context-dialog-header"><div><span className="surface-eyebrow">Pack compilado</span><h3>{ctx.activePack?.name}</h3></div><button type="button" className="task-context-close" onClick={() => setCompiledModal(null)}><Icon name="close" size={12} /></button></header><pre className="context-compiled-markdown">{compiledModal}</pre><div className="task-context-dialog-actions"><button type="button" className="secondary-button compact" onClick={() => void copyPack()} disabled={exportingPack}>Copiar</button><button type="button" className="primary-button compact" onClick={() => setCompiledModal(null)}>Cerrar</button></div></section></div>}

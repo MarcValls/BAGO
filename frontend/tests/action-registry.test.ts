@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createShellActions, NAVIGATION_GROUPS, NAVIGATION_ORDER } from '../src/navigation/actionRegistry';
+import { createShellActions, NAVIGATION_GROUPS, NAVIGATION_ORDER, resolveNavigationShortcut } from '../src/navigation/actionRegistry';
 
 describe('canonical shell action registry', () => {
   it('uses the same product order for sidebar, shortcuts and palette', () => {
@@ -18,5 +18,11 @@ describe('canonical shell action registry', () => {
     expect(new Set(actions.map((action) => action.id)).size).toBe(actions.length);
     expect(actions.find((action) => action.id === 'workspace-change')?.label).toBe('Workspace · Cambiar');
     expect(actions.every((action) => Boolean(action.object && action.verb && action.group))).toBe(true);
+  });
+
+  it('resolves every advertised shortcut from the same registry', () => {
+    const items = NAVIGATION_GROUPS.flatMap((group) => group.items);
+    expect(items.map((item) => resolveNavigationShortcut(item.shortcut.slice(-1)))).toEqual(NAVIGATION_ORDER);
+    expect(resolveNavigationShortcut('x')).toBeNull();
   });
 });

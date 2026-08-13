@@ -23,16 +23,24 @@ def test_installer_is_safe_for_clean_and_repeat_installs() -> None:
     assert "Resolve-BagoPython" in installer
     assert "Python.Python.3.12" in installer
     assert "Update-InstallSelection" in installer
+    assert '$roles["launch"]' in installer
+    assert "-DevPath $selectionDevPath" in installer
     assert "$selectionPath -Raw -Encoding UTF8" in installer
     assert "NoShellIntegration" in installer
+    assert "PreserveDevRole" in installer
+    assert '$selectionDevPath = if ($PreserveDevRole) { "" } else { $sourceFull }' in installer
     assert '"install_config.json", ".bago\\config.json"' in installer
     assert "UTF8Encoding" in installer
     assert "auto_allow_tools = $false" in installer
+    assert '$ok[$name] = [ordered]@{ ok = $false; detail = $_.Exception.Message }' in installer
+    assert '"warn"' in installer
 
     launcher = (BACKEND_ROOT / "bago.ps1").read_text(encoding="utf-8")
     assert "Resolve-BagoPythonExecutable" in launcher
     assert "$selectionFile -Raw -Encoding UTF8" in launcher
     assert "& python " not in launcher
+    assert "BAGO\\backend" in launcher
+    assert "Join-Path $entry.path 'bago.ps1'" in installer
     assert 'Arguments @("bago_core\\cli.py", "validate")' in installer
     assert '& $pythonExe "test_security_release.py"' not in installer
 

@@ -11,6 +11,7 @@ param(
 [switch]$RepairOnly,
 [switch]$NoPathUpdate,
 [switch]$NoShellIntegration,
+[switch]$PreserveDevRole,
 [switch]$ExplorerContextMenu,
 [switch]$ElevatedChild,
 [string]$ResultPath = ""
@@ -93,7 +94,7 @@ function Get-InvocationArguments {
         $args.Add("-$name")
         $args.Add([string]$value)
     }
-    foreach ($name in @("SkipTests", "RepairOnly", "NoPathUpdate", "NoShellIntegration", "ExplorerContextMenu")) {
+    foreach ($name in @("SkipTests", "RepairOnly", "NoPathUpdate", "NoShellIntegration", "PreserveDevRole", "ExplorerContextMenu")) {
         if ($PSBoundParameters.ContainsKey($name) -and [bool](Get-Variable -Name $name -ValueOnly)) {
             $args.Add("-$name")
         }
@@ -545,7 +546,7 @@ function global:bago {
         try {
             $selection = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
             $entry = $selection.roles.active
-            if ($entry -and $entry.path -and (Test-Path -LiteralPath $entry.path)) {
+            if ($entry -and $entry.path -and (Test-Path -LiteralPath (Join-Path $entry.path 'bago.ps1'))) {
                 $root = [string]$entry.path
                 break
             }
@@ -685,7 +686,8 @@ function Read-UrlOrDefault {
 function Update-InstallSelection {
     param(
         [Parameter(Mandatory = $true)][string]$UserRoot,
-        [Parameter(Mandatory = $true)][string]$InstallPath
+        [Parameter(Mandatory = $true)][string]$InstallPath,
+        [string]$DevPath = ""
     )
     $selectionPath = Join-Path $UserRoot "install_selection.json"
     $roles = [ordered]@{}
@@ -706,6 +708,18 @@ function Update-InstallSelection {
         path = $InstallPath
         label = "Copia activa"
         updated_at = $now
+    }
+    $roles["launch"] = [ordered]@{
+        path = $InstallPath
+        label = "Arranque principal"
+        updated_at = $now
+    }
+    if ($DevPath -and (Test-Path -LiteralPath (Join-Path $DevPath "bago_core\cli.py"))) {
+        $roles["dev"] = [ordered]@{
+            path = $DevPath
+            label = "Copia de desarrollo"
+            updated_at = $now
+        }
     }
     Write-JsonFile -Path $selectionPath -Value ([ordered]@{
         version = 1
@@ -922,7 +936,8 @@ function Invoke-ProviderValidation {
     foreach ($name in $Providers.Keys) {
         $cfg = $Providers[$name]
         if (-not $cfg.enabled) { continue }
-        switch ($name) {
+        try {
+            switch ($name) {
             "ollama-local" {
                 $url = $cfg.base_url
                 $tags = Invoke-RestMethod -Uri "$url/api/tags" -Method Get -TimeoutSec 10
@@ -960,6 +975,9 @@ function Invoke-ProviderValidation {
                 $tags = Invoke-RestMethod -Uri "$($cfg.base_url)/api/tags" -Headers $headers -Method Get -TimeoutSec 20
                 $ok[$name] = [ordered]@{ ok = $true; models = @($tags.models).Count; detail = "ollama-cloud ok" }
             }
+            }
+        } catch {
+            $ok[$name] = [ordered]@{ ok = $false; detail = $_.Exception.Message }
         }
     }
     return $ok
@@ -991,9 +1009,6 @@ function Invoke-FinalValidation {
             if ($LASTEXITCODE -ne 0) { throw "No se pudo inicializar el repo de conocimiento." }
         }
         $report.knowledge = @{ ok = $true; detail = "new repo ready"; path = $repoPath; visibility = $Knowledge.visibility }
-    }
-    foreach ($item in $report.providers.GetEnumerator()) {
-        if (-not $item.Value.ok) { throw "Validacion de provider fallida: $($item.Key)" }
     }
     if (-not $report.destination.ok) { throw "No se puede escribir en el destino de instalacion." }
     if (-not $report.local_model.ok) { throw "La resolucion del modelo local fallo." }
@@ -1200,7 +1215,8 @@ New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "state") -Force |
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "cache") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "backups") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "runtime") -Force | Out-Null
-Update-InstallSelection -UserRoot $defaultUserRoot -InstallPath $installFull
+$selectionDevPath = if ($PreserveDevRole) { "" } else { $sourceFull }
+Update-InstallSelection -UserRoot $defaultUserRoot -InstallPath $installFull -DevPath $selectionDevPath
 
 if ($credentialStoreCfg.mode -ne "session") {
     if (-not $credentialStoreCfg.path) { throw "La persistencia elegida requiere una ruta de almacenamiento." }
@@ -1211,8 +1227,8 @@ $validation = Invoke-FinalValidation -InstallPath $installFull -Providers $provi
 Write-Host "Validacion final:"
 Write-Host ("  destination: {0}" -f $(if ($validation.destination.ok) { "ok" } else { "fail" }))
 foreach ($name in $validation.providers.Keys) {
-    $state = if ($validation.providers[$name].ok) { "ok" } else { "fail" }
-    Write-Host ("  provider[{0}]: {1}" -f $name, $state)
+    $state = if ($validation.providers[$name].ok) { "ok" } else { "warn" }
+    Write-Host ("  provider[{0}]: {1} - {2}" -f $name, $state, $validation.providers[$name].detail)
 }
 Write-Host ("  knowledge: {0}" -f $(if ($validation.knowledge.ok) { "ok" } else { "fail" }))
 

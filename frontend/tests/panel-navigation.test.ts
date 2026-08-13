@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NAVIGATION_GROUPS } from '../src/navigation/actionRegistry';
-import { PANEL_WIDTHS } from '../src/components/PanelHost';
+import { PANEL_WIDTHS } from '../src/components/ui/PanelHost';
 
 describe('panel navigation', () => {
   it('has panel items for agents, interpreter, github-auth', () => {

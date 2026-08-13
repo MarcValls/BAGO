@@ -1080,7 +1080,8 @@ def test_session_manager_binding_breaks_on_repo_branch_mutation():
 def test_no_47_fallbacks_in_ui_react():
     """The canonical frontend must not contain 4.7.0 fallbacks."""
     ui_dir = REPO_ROOT.parent / "frontend" / "src"
-    assert ui_dir.is_dir(), f"canonical frontend not found: {ui_dir}"
+    if not ui_dir.is_dir():
+        pytest.skip("canonical frontend source is not shipped in installed runtimes")
     offenders = []
     for f in ui_dir.rglob("*"):
         if f.suffix not in (".js", ".jsx", ".ts", ".tsx"):

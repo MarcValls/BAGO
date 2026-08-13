@@ -23,7 +23,7 @@ export interface BagoElectronBridge {
   chooseProjectRoot?: (options?: { defaultPath?: string; basePath?: string; initialPath?: string }) => Promise<WorkspaceSelectionResult | null>;
   linkProjectRoot?: (root: string) => Promise<WorkspaceLinkResult | null>;
   getManagerUrl?: () => Promise<string> | string;
-  onInstanceActive?: (callback: (payload: { ok?: boolean; message?: string }) => void) => void;
+  onInstanceActive?: (callback: (payload: { ok?: boolean; message?: string }) => void) => (() => void);
 }
 
 declare global {

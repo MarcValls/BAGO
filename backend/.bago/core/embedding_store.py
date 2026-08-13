@@ -12,6 +12,7 @@ import math
 import os
 import sqlite3
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -43,31 +44,36 @@ class EmbeddingStore:
         self.state_dir = resolve_state_root(state_root)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.state_dir / "embeddings.db"
-        self.conn = sqlite3.connect(str(self.db_path))
+        self._lock = threading.RLock()
+        self.conn = sqlite3.connect(str(self.db_path), timeout=30.0, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA busy_timeout=30000")
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
         self._init_schema()
 
     def _init_schema(self) -> None:
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS embeddings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                memory_id TEXT,
-                content TEXT NOT NULL,
-                vector_json TEXT NOT NULL,
-                source_session TEXT,
-                provider TEXT,
-                model TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_memory_id ON embeddings(memory_id)")
-        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(embeddings)")}
-        if "vector_dim" not in columns:
-            self.conn.execute("ALTER TABLE embeddings ADD COLUMN vector_dim INTEGER NOT NULL DEFAULT 0")
-        if "updated_at" not in columns:
-            self.conn.execute("ALTER TABLE embeddings ADD COLUMN updated_at TEXT")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_scope ON embeddings(memory_id, provider, model)")
-        self.conn.commit()
+        with self._lock:
+            self.conn.execute("""
+                CREATE TABLE IF NOT EXISTS embeddings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    memory_id TEXT,
+                    content TEXT NOT NULL,
+                    vector_json TEXT NOT NULL,
+                    source_session TEXT,
+                    provider TEXT,
+                    model TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_memory_id ON embeddings(memory_id)")
+            columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(embeddings)")}
+            if "vector_dim" not in columns:
+                self.conn.execute("ALTER TABLE embeddings ADD COLUMN vector_dim INTEGER NOT NULL DEFAULT 0")
+            if "updated_at" not in columns:
+                self.conn.execute("ALTER TABLE embeddings ADD COLUMN updated_at TEXT")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_scope ON embeddings(memory_id, provider, model)")
+            self.conn.commit()
 
     @staticmethod
     def _validate_vector(vector: list[float]) -> list[float]:
@@ -89,28 +95,33 @@ class EmbeddingStore:
         model: str = "",
     ) -> int:
         vector = self._validate_vector(vector)
-        existing = self.conn.execute(
-            "SELECT id FROM embeddings WHERE memory_id = ? AND provider = ? AND model = ? ORDER BY id DESC LIMIT 1",
-            (memory_id, provider, model),
-        ).fetchone()
-        payload = (content, json.dumps(vector), len(vector), source_session, provider, model)
-        if existing:
-            self.conn.execute(
-                "UPDATE embeddings SET content=?, vector_json=?, vector_dim=?, source_session=?, provider=?, model=?, "
-                "updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (*payload, int(existing["id"])),
-            )
-            self.conn.commit()
-            return int(existing["id"])
-        cur = self.conn.execute(
-            """
-            INSERT INTO embeddings(memory_id, content, vector_json, vector_dim, source_session, provider, model, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """,
-            (memory_id, *payload),
-        )
-        self.conn.commit()
-        return int(cur.lastrowid)
+        with self._lock:
+            try:
+                existing = self.conn.execute(
+                    "SELECT id FROM embeddings WHERE memory_id = ? AND provider = ? AND model = ? ORDER BY id DESC LIMIT 1",
+                    (memory_id, provider, model),
+                ).fetchone()
+                payload = (content, json.dumps(vector), len(vector), source_session, provider, model)
+                if existing:
+                    self.conn.execute(
+                        "UPDATE embeddings SET content=?, vector_json=?, vector_dim=?, source_session=?, provider=?, model=?, "
+                        "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (*payload, int(existing["id"])),
+                    )
+                    self.conn.commit()
+                    return int(existing["id"])
+                cursor = self.conn.execute(
+                    """
+                    INSERT INTO embeddings(memory_id, content, vector_json, vector_dim, source_session, provider, model, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                    (memory_id, *payload),
+                )
+                self.conn.commit()
+                return int(cursor.lastrowid)
+            except Exception:
+                self.conn.rollback()
+                raise
 
     def search(self, *, query_vector: list[float], limit: int = 5, provider: str = "", model: str = "") -> list[dict[str, Any]]:
         query_vector = self._validate_vector(query_vector)
@@ -124,11 +135,12 @@ class EmbeddingStore:
             where.append("model = ?")
             params.append(model)
         clause = (" WHERE " + " AND ".join(where)) if where else ""
-        rows = self.conn.execute(
-            """
-            SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at
-            FROM embeddings
-            """ + clause + " ORDER BY id DESC", params).fetchall()
+        with self._lock:
+            rows = self.conn.execute(
+                """
+                SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at
+                FROM embeddings
+                """ + clause + " ORDER BY id DESC", params).fetchall()
 
         results: list[dict[str, Any]] = []
         for row in rows:
@@ -153,16 +165,22 @@ class EmbeddingStore:
         return results[:limit]
 
     def remove_for_memory(self, memory_id: str) -> int:
-        cursor = self.conn.execute("DELETE FROM embeddings WHERE memory_id = ?", (memory_id,))
-        self.conn.commit()
-        return cursor.rowcount
+        with self._lock:
+            try:
+                cursor = self.conn.execute("DELETE FROM embeddings WHERE memory_id = ?", (memory_id,))
+                self.conn.commit()
+                return cursor.rowcount
+            except Exception:
+                self.conn.rollback()
+                raise
 
     def stats(self) -> dict[str, Any]:
-        row = self.conn.execute(
-            "SELECT COUNT(*) AS total, COUNT(DISTINCT memory_id) AS memories, "
-            "COUNT(DISTINCT provider) AS providers, MIN(vector_dim) AS min_dim, MAX(vector_dim) AS max_dim "
-            "FROM embeddings"
-        ).fetchone()
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT COUNT(*) AS total, COUNT(DISTINCT memory_id) AS memories, "
+                "COUNT(DISTINCT provider) AS providers, MIN(vector_dim) AS min_dim, MAX(vector_dim) AS max_dim "
+                "FROM embeddings"
+            ).fetchone()
         return {
             "total": int(row["total"] or 0),
             "memories": int(row["memories"] or 0),
@@ -173,7 +191,8 @@ class EmbeddingStore:
         }
 
     def close(self) -> None:
-        self.conn.close()
+        with self._lock:
+            self.conn.close()
 
 
 def _run_tests() -> int:

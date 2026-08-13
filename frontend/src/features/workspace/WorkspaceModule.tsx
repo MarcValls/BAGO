@@ -44,6 +44,10 @@ interface Props {
   onChooseWorkspace: () => void;
 }
 
+export function deriveWorkspaceGitHubKey(snapshot: UiBootstrapSnapshot | null | undefined): string {
+  return String(snapshot?.workspace?.root || snapshot?.workspace?.id || '').trim();
+}
+
 export function WorkspaceModule(props: Props) {
   const editor = useWorkspaceEditor({
     client: props.client,
@@ -73,6 +77,7 @@ export function WorkspaceModule(props: Props) {
   const [githubState, setGithubState] = useState<Record<string, unknown> | null>(null);
   const [githubMessage, setGithubMessage] = useState('');
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const githubWorkspaceKey = deriveWorkspaceGitHubKey(props.snapshot);
 
   const hasDirty = editor.tabs.some((tab) => tab.state === 'dirty');
   const isSaving = editor.tabs.some((tab) => tab.state === 'saving');
@@ -80,7 +85,30 @@ export function WorkspaceModule(props: Props) {
   const workspaceTitle = props.snapshot?.workspace.root || 'Sin ruta';
   const connectedRepo = typeof githubState?.repo === 'string' ? githubState.repo : '';
 
-  const refreshGitHub = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
+    setGithubRepo('');
+    setGithubState(null);
+    setGithubMessage('');
+    const run = async () => {
+      try {
+        const result = await props.client.getGitHubStatus();
+        if (cancelled) return;
+        setGithubState(result);
+        if (typeof result.repo === 'string') setGithubRepo(result.repo);
+        setGithubMessage('');
+      } catch (error) {
+        if (cancelled) return;
+        setGithubMessage(error instanceof Error ? error.message : 'No se pudo consultar GitHub');
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.client, githubWorkspaceKey]);
+
+  const refreshGitHub = async () => {
     try {
       const result = await props.client.getGitHubStatus();
       setGithubState(result);
@@ -89,9 +117,7 @@ export function WorkspaceModule(props: Props) {
     } catch (error) {
       setGithubMessage(error instanceof Error ? error.message : 'No se pudo consultar GitHub');
     }
-  }, [props.client]);
-
-  useEffect(() => { void refreshGitHub(); }, [refreshGitHub]);
+  };
 
   const connectGitHub = async () => {
     try {

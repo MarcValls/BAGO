@@ -1,0 +1,28 @@
+/* Workspace: menu button (workspace selector) trigger ----------------- */
+.workspace-menu-button {
+  position: relative;
+}
+.workspace-menu-button-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11.5px;
+  cursor: pointer;
+  min-height: 30px;
+  white-space: nowrap;
+}
+.workspace-menu-button-trigger:hover {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: rgba(103, 136, 247, 0.34);
+}
+.workspace-menu-button-trigger[aria-expanded="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: rgba(103, 136, 247, 0.5);
+}

@@ -1,0 +1,6 @@
+/* Audit / Interpret / Sim stacks (collapsible) */
+.audit-stack, .interpret-stack, .simulation-stack, .rl-stack { display: flex; flex-direction: column; gap: 8px; }
+.rl-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.provider-contracts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0 12px; }
+.audit-stack details, .interpret-stack details, .simulation-stack details, .rl-stack details { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 8px 12px; }
+.audit-stack summary, .interpret-stack summary, .simulation-stack summary, .rl-stack summary { cursor: pointer; font-size: 12px; color: var(--text-2); }

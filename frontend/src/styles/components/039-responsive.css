@@ -1,0 +1,75 @@
+/* Responsive */
+@media (max-width: 1180px) {
+  :root { --inspector-width: 310px; --sidebar-width: 190px; }
+  .header-state, .header-button span, .header-button kbd { display: none; }
+  .header-button { width: 36px; padding: 0; }
+  .metrics-row, .context-metrics { grid-template-columns: repeat(2,1fr); }
+  .graph-layout { grid-template-columns: minmax(0,1fr); }
+  .workspace-layout { grid-template-columns: 1fr; }
+  .workspace-tree-panel, .workspace-viewer { min-height: 420px; }
+  .recent-nodes { display: none; }
+  .graph-linear .graph-node { width: 132px; }
+  .system-grid { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 880px) {
+  body { overflow: hidden; }
+  .app-root { min-height: 0; height: 100vh; grid-template-rows: var(--header-height) minmax(0, 1fr); }
+  .app-body, .app-root.sidebar-collapsed .app-body { grid-template-areas: "side main"; grid-template-columns: var(--sidebar-collapsed) minmax(0,1fr); }
+  .main-sidebar { width: var(--sidebar-collapsed); }
+  .main-sidebar:not(.is-collapsed) .sidebar-item span:nth-child(2), .main-sidebar:not(.is-collapsed) .sidebar-actions, .main-sidebar:not(.is-collapsed) .sidebar-status > div { display: none; }
+  .main-sidebar:not(.is-collapsed) .sidebar-item { justify-content: center; padding: 0; }
+  .status-bar { display: none; }
+  .surface-context { display: none; }
+  .surface-body { padding: 14px; }
+  .home-snapshot-grid { grid-template-columns: 1fr; }
+  .home-hero { align-items: flex-start; flex-direction: column; }
+  .home-hero-actions { flex-direction: row; min-width: 0; }
+  .home-destinations { grid-template-columns: 1fr; }
+  .workspace-layout { grid-template-columns: 180px minmax(0,1fr); }
+  .chat-toolbar { align-items: flex-start; }
+  .chat-toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .chat-toolbar-actions .toolbar-button { width: 34px; padding: 0; font-size: 0; }
+  .chat-toolbar-actions .toolbar-button svg { width: 17px; }
+  .system-secondary-grid, .comparison-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .opening-screen { padding: 12px; }
+  .opening-card { padding: 20px; }
+  .opening-facts, .connection-grid { grid-template-columns: 1fr; }
+  .opening-actions { flex-wrap: wrap; }
+  .opening-actions .primary-button { width: 100%; margin-right: 0; }
+  .header-location, .model-chip { display: none; }
+  .global-header { padding-inline: 8px; }
+  .main-sidebar { position: fixed; z-index: 45; left: 0; top: var(--header-height); bottom: 0; width: var(--sidebar-collapsed); box-shadow: var(--shadow); transform: translateX(-100%); }
+  .app-root:not(.sidebar-collapsed) .main-sidebar { transform: translateX(0); }
+  .surface-body { padding: 10px; }
+  .metrics-row, .context-metrics, .system-grid, .context-details { grid-template-columns: 1fr; }
+  .home-hero { padding: 18px; }
+  .home-hero-actions { width: 100%; flex-direction: column; }
+  .destination-card { min-height: 90px; }
+  .chat-surface { min-height: calc(100vh - 165px); }
+  .chat-toolbar { gap: 6px; }
+  .segmented-control button { padding-inline: 7px; font-size: 10px; }
+  .brief-history { grid-template-columns: 1fr; }
+  .message-body { max-width: 88%; }
+  .workspace-layout { display: block; min-height: 0; }
+  .workspace-tree-panel, .workspace-viewer { min-height: 340px; }
+  .surface-toolbar { align-items: stretch; flex-direction: column; }
+  .surface-search { width: 100%; }
+  .surface-toolbar-actions { overflow-x: auto; }
+  .graph-canvas { min-height: 520px; }
+  .graph-node { width: 132px; }
+  .graph-hierarchical .graph-position-0 { left: 2%; }
+  .graph-hierarchical .graph-position-1 { left: 2%; }
+  .graph-hierarchical .graph-position-2 { left: calc(50% - 66px); }
+  .graph-hierarchical .graph-position-3 { right: 2%; }
+  .graph-hierarchical .graph-position-4 { right: 2%; }
+  .pipeline-summary { align-items: flex-start; flex-direction: column; }
+  .pipeline-create { grid-template-columns: 1fr; }
+  .pipeline-step { grid-template-columns: 30px minmax(0,1fr) 16px; }
+  .pipeline-step .status-badge { display: none; }
+  .evidence-primary, .context-budget-card { padding: 15px; }
+  .inspector-actions { grid-template-columns: 1fr; }
+}

@@ -418,17 +418,19 @@ def handle_write(handler, body: dict):
             send_json(handler, 403, {"ok": False, "error_code": "FORBIDDEN_SOURCE_WRITE", "message": "Solo se puede escribir en el workspace principal."})
             return
         target = (target_root / relative).resolve()
+        scope_root = target_root
     else:
         target_raw = Path(raw_path)
         if not target_raw.is_absolute():
             target = (base / target_raw).resolve()
         else:
             target = target_raw.resolve()
+        scope_root = base
 
     try:
-        target.relative_to(base)
+        target.relative_to(scope_root)
     except ValueError:
-        send_json(handler, 403, {"ok": False, "error_code": "PATH_OUT_OF_SCOPE", "message": "La ruta está fuera del proyecto activo.", "path": raw_path, "project_root": str(base)})
+        send_json(handler, 403, {"ok": False, "error_code": "PATH_OUT_OF_SCOPE", "message": "La ruta está fuera del proyecto activo.", "path": raw_path, "project_root": str(scope_root)})
         return
 
     existed = target.exists()
@@ -448,7 +450,7 @@ def handle_write(handler, body: dict):
         "ok": True,
         "path": rel,
         "absolute_path": str(target),
-        "project_root": str(base),
+        "project_root": str(scope_root),
         "created": not existed,
         "overwritten": existed,
         "bytes_written": len(str(content).encode("utf-8")),
