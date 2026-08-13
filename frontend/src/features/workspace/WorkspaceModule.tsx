@@ -78,7 +78,6 @@ export function WorkspaceModule(props: Props) {
   const [githubMessage, setGithubMessage] = useState('');
   const editorRef = useRef<HTMLDivElement | null>(null);
   const githubWorkspaceKey = deriveWorkspaceGitHubKey(props.snapshot);
-  const githubWorkspaceKeyRef = useRef(githubWorkspaceKey);
 
   const hasDirty = editor.tabs.some((tab) => tab.state === 'dirty');
   const isSaving = editor.tabs.some((tab) => tab.state === 'saving');
@@ -88,6 +87,9 @@ export function WorkspaceModule(props: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setGithubRepo('');
+    setGithubState(null);
+    setGithubMessage('');
     const run = async () => {
       try {
         const result = await props.client.getGitHubStatus();
@@ -104,7 +106,7 @@ export function WorkspaceModule(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [props.client]);
+  }, [props.client, githubWorkspaceKey]);
 
   const refreshGitHub = async () => {
     try {
@@ -116,14 +118,6 @@ export function WorkspaceModule(props: Props) {
       setGithubMessage(error instanceof Error ? error.message : 'No se pudo consultar GitHub');
     }
   };
-
-  useEffect(() => {
-    if (githubWorkspaceKeyRef.current === githubWorkspaceKey) return;
-    githubWorkspaceKeyRef.current = githubWorkspaceKey;
-    setGithubRepo('');
-    setGithubState(null);
-    setGithubMessage('');
-  }, [githubWorkspaceKey]);
 
   const connectGitHub = async () => {
     try {

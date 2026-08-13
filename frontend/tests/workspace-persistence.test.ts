@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   persistWorkspaceEditorState,
-  readPersistedWorkspaceEditorState
+  readPersistedWorkspaceEditorState,
+  workspaceEditorStorageKey
 } from '../src/features/workspace/useWorkspaceEditor';
 
 describe('workspace editor persistence', () => {
@@ -43,5 +44,6 @@ describe('workspace editor persistence', () => {
 
     expect(readPersistedWorkspaceEditorState('C:/work/a')?.activePath).toBe('a.txt');
     expect(readPersistedWorkspaceEditorState('C:/work/b')).toBeNull();
+    expect(workspaceEditorStorageKey('C:/work/a')).not.toBe(workspaceEditorStorageKey('C:/work/b'));
   });
 });

@@ -25,9 +25,14 @@ import {
 import { detectLanguage, isBinaryHeuristic } from './detectLanguage';
 import { runLocalDiagnostics } from './runLocalDiagnostics';
 import { detectPatterns } from './detectCodePatterns';
+import { workspaceScopedStorageKey } from '@/shared/workspaceStateKeys';
 
 const MAX_FILE_SIZE = 5_000_000; // 5 MB.
 const WORKSPACE_EDITOR_STATE_KEY = 'bago.workspace.editor.state';
+
+export function workspaceEditorStorageKey(workspaceRoot: string): string {
+  return workspaceScopedStorageKey(WORKSPACE_EDITOR_STATE_KEY, workspaceRoot);
+}
 
 let tabCounter = 0;
 function nextTabId() {
@@ -122,7 +127,7 @@ export interface PersistedWorkspaceEditorState {
 export function readPersistedWorkspaceEditorState(workspaceRoot: string): PersistedWorkspaceEditorState | null {
   if (typeof window === 'undefined' || !workspaceRoot) return null;
   try {
-    const raw = window.localStorage.getItem(WORKSPACE_EDITOR_STATE_KEY);
+    const raw = window.localStorage.getItem(workspaceEditorStorageKey(workspaceRoot));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceEditorState> | null;
     if (!parsed || parsed.workspaceRoot !== workspaceRoot) return null;
@@ -148,7 +153,7 @@ export function readPersistedWorkspaceEditorState(workspaceRoot: string): Persis
 export function persistWorkspaceEditorState(state: PersistedWorkspaceEditorState): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(WORKSPACE_EDITOR_STATE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(workspaceEditorStorageKey(state.workspaceRoot), JSON.stringify(state));
   } catch {
     // Persistencia best-effort.
   }
@@ -187,7 +192,7 @@ export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
   const [explorer, setExplorer] = useState<ExplorerNode[]>(() => persisted?.explorer || []);
   const [loadingExplorer, setLoadingExplorer] = useState<boolean>(() => persisted?.loadingExplorer || false);
   const workspaceRootRef = useRef(props.workspaceRoot);
-  const previousWorkspaceRootRef = useRef(props.workspaceRoot);
+  const stateWorkspaceRootRef = useRef(props.workspaceRoot);
   workspaceRootRef.current = props.workspaceRoot;
 
   const appendOutput = useCallback((entry: Omit<OutputEntry, 'id' | 'ts'>) => {
@@ -222,7 +227,7 @@ export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
 
   useEffect(() => {
     persistWorkspaceEditorState({
-      workspaceRoot: props.workspaceRoot,
+      workspaceRoot: stateWorkspaceRootRef.current,
       tabs,
       activePath,
       selectedRange,
@@ -248,21 +253,22 @@ export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
   }, [tabs]);
 
   useEffect(() => {
-    const workspaceChanged = previousWorkspaceRootRef.current !== props.workspaceRoot;
-    previousWorkspaceRootRef.current = props.workspaceRoot;
+    const workspaceChanged = stateWorkspaceRootRef.current !== props.workspaceRoot;
     if (workspaceChanged) {
-      const reset = createWorkspaceEditorResetState();
-      setTabs(reset.tabs);
-      setActivePath(reset.activePath);
-      setSelectedRange(reset.selectedRange);
-      setInspector(reset.inspector);
-      setBottomPanel(reset.bottomPanel);
-      setExplorer(reset.explorer);
-      setLoadingExplorer(reset.loadingExplorer);
-      setError(reset.error);
-      setBusy(reset.busy);
-      setOutput(reset.output);
-      setExpandedDirectories(reset.expandedDirectories);
+      const restored = readPersistedWorkspaceEditorState(props.workspaceRoot);
+      const next = restored || createWorkspaceEditorResetState();
+      stateWorkspaceRootRef.current = props.workspaceRoot;
+      setTabs(next.tabs);
+      setActivePath(next.activePath);
+      setSelectedRange(next.selectedRange);
+      setInspector(next.inspector);
+      setBottomPanel(next.bottomPanel);
+      setExplorer(next.explorer);
+      setLoadingExplorer(next.loadingExplorer);
+      setError(next.error);
+      setBusy(next.busy);
+      setOutput(next.output);
+      setExpandedDirectories(next.expandedDirectories);
     }
     void refreshExplorer();
   }, [props.workspaceRoot, refreshExplorer]);

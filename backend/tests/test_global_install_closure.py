@@ -23,6 +23,8 @@ def test_viewer_supports_monorepo_and_flat_runtime_layouts() -> None:
     assert "flatBackend" in viewer
     assert "runtime-service.ps1" in viewer
     assert "runRuntimeService('backend')" in viewer
+    assert "if (app.isPackaged)" in viewer
+    assert "win.loadURL(UI_URL);" in viewer
 
 
 def test_global_payload_validator_requires_complete_viewer() -> None:

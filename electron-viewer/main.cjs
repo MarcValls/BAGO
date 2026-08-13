@@ -268,7 +268,9 @@ function createViewerWindow() {
     }
   });
 
-  if (uiDist && fs.existsSync(uiDist)) {
+  if (app.isPackaged) {
+    win.loadURL(UI_URL);
+  } else if (uiDist && fs.existsSync(uiDist)) {
     win.loadFile(uiDist).catch(() => { win.loadURL(UI_URL); });
   } else {
     win.loadURL(UI_URL);
