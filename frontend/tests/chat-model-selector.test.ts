@@ -9,19 +9,21 @@ const entries = [
 ];
 
 describe('chat model selector', () => {
-  it('lists available router models when no active-model filter exists', () => {
+  it('lists all router models when no active-model filter exists', () => {
     expect(buildChatModelOptions(entries, null, new Set(), null).map((option) => option.key)).toEqual([
       'ollama-local/qwen3:8b',
       'ollama-local/phi4:latest',
-      'openai/gpt-5-mini'
+      'openai/gpt-5-mini',
+      'openai/offline'
     ]);
   });
 
-  it('keeps every available provider visible when a local active-model filter exists', () => {
+  it('keeps available and unavailable providers visible when a local active-model filter exists', () => {
     expect(buildChatModelOptions(entries, 'ollama-local', new Set(['phi4:latest']), null)).toEqual([
-      { key: 'ollama-local/qwen3:8b', label: 'ollama-local · qwen3:8b', provider: 'ollama-local', model: 'qwen3:8b' },
-      { key: 'ollama-local/phi4:latest', label: 'ollama-local · phi4:latest', provider: 'ollama-local', model: 'phi4:latest' },
-      { key: 'openai/gpt-5-mini', label: 'openai · gpt-5-mini', provider: 'openai', model: 'gpt-5-mini' }
+      { key: 'ollama-local/qwen3:8b', label: 'ollama-local · qwen3:8b', provider: 'ollama-local', model: 'qwen3:8b', unavailable: false },
+      { key: 'ollama-local/phi4:latest', label: 'ollama-local · phi4:latest', provider: 'ollama-local', model: 'phi4:latest', unavailable: false },
+      { key: 'openai/gpt-5-mini', label: 'openai · gpt-5-mini', provider: 'openai', model: 'gpt-5-mini', unavailable: false },
+      { key: 'openai/offline', label: 'openai · offline', provider: 'openai', model: 'offline', unavailable: true }
     ]);
   });
 

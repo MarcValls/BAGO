@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type {
   ActiveSection,
   BackendRouterEntry,
@@ -205,6 +205,9 @@ export function ChatPanel(props: Props) {
   const [modelChanging, setModelChanging] = useState(false);
   const [modelError, setModelError] = useState('');
   const [modelQuery, setModelQuery] = useState('');
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelPickerPos, setModelPickerPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
+  const modelPickerRootRef = useRef<HTMLDivElement>(null);
   const [reasoningChanging, setReasoningChanging] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
   const [conversationBusy, setConversationBusy] = useState('');
@@ -234,6 +237,36 @@ export function ChatPanel(props: Props) {
   useEffect(() => {
     if (timelineRef.current) timelineRef.current.scrollTop = 0;
   }, [props.history?.conversation_id]);
+
+  const closeModelPicker = useCallback(() => {
+    setModelPickerOpen(false);
+    setModelPickerPos(null);
+    setModelQuery('');
+  }, []);
+
+  const openModelPicker = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+    if (modelChanging) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const spaceAbove = rect.top - 16;
+    const spaceBelow = window.innerHeight - rect.bottom - 16;
+    const openAbove = spaceAbove >= spaceBelow || spaceAbove >= 200;
+    const maxHeight = Math.min(430, Math.max(200, openAbove ? spaceAbove : spaceBelow));
+    setModelPickerPos({
+      top: openAbove ? Math.max(8, rect.top - maxHeight - 6) : rect.bottom + 6,
+      right: Math.max(8, window.innerWidth - rect.right),
+      maxHeight
+    });
+    setModelPickerOpen((current) => !current);
+  }, [modelChanging]);
+
+  useEffect(() => {
+    if (!modelPickerOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!modelPickerRootRef.current?.contains(event.target as Node)) closeModelPicker();
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [closeModelPicker, modelPickerOpen]);
   const chatSelection: SelectionRecord = {
     id: 'screen-chat',
     kind: 'screen-chat',
@@ -468,27 +501,27 @@ export function ChatPanel(props: Props) {
                     <option value="maxima">Máxima</option>
                   </select>
                 </label>
-                <details className="chat-model-picker">
-                  <summary className="chat-model-selector" aria-label="Modelo de esta sesión" aria-disabled={modelChanging} onClick={(event) => { if (modelChanging) event.preventDefault(); }}>
+                <div className="chat-model-picker" ref={modelPickerRootRef}>
+                  <button type="button" className="chat-model-selector" aria-label="Modelo de esta sesión" aria-expanded={modelPickerOpen} aria-disabled={modelChanging} onClick={openModelPicker}>
                     <span>Modelo</span><strong>{currentModel?.model || (props.sessionModel ? props.sessionModel.split('/').pop() : 'Automático')}</strong><Icon name="chevron" size={11} />
-                  </summary>
-                  <div className="chat-model-popover">
+                  </button>
+                  {modelPickerOpen && modelPickerPos && <div className="chat-model-popover" style={{ position: 'fixed', top: modelPickerPos.top, right: modelPickerPos.right, maxHeight: modelPickerPos.maxHeight }}>
                     <label className="chat-model-search"><Icon name="search" size={12} /><input value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} placeholder="Buscar modelo…" aria-label="Buscar modelo" /></label>
                     <div className="chat-model-options" role="listbox" aria-label="Modelos disponibles">
-                      <button type="button" className={!props.sessionModel ? 'is-selected' : ''} role="option" aria-selected={!props.sessionModel} onClick={(event) => { void onModelChange(null); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                      <button type="button" className={!props.sessionModel ? 'is-selected' : ''} role="option" aria-selected={!props.sessionModel} onClick={() => { void onModelChange(null); closeModelPicker(); }}>
                         <span><strong>Automático</strong><small>{automaticModel}</small></span>{!props.sessionModel && <Icon name="check" size={12} />}
                       </button>
                       {modelProviders.map((provider) => <section key={provider} className="chat-model-provider">
                         <header>{provider}</header>
-                        {filteredModelOptions.filter((option) => option.provider === provider).map((option) => <button key={option.key} type="button" className={props.sessionModel === option.key ? 'is-selected' : ''} role="option" aria-selected={props.sessionModel === option.key} onClick={(event) => { void onModelChange(option.key); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
-                          <span><strong>{option.model}</strong><small>{option.provider}</small></span>{props.sessionModel === option.key && <Icon name="check" size={12} />}
+                        {filteredModelOptions.filter((option) => option.provider === provider).map((option) => <button key={option.key} type="button" className={[props.sessionModel === option.key ? 'is-selected' : '', option.unavailable ? 'is-unavailable' : ''].filter(Boolean).join(' ')} role="option" aria-selected={props.sessionModel === option.key} aria-disabled={option.unavailable} onClick={() => { if (!option.unavailable) { void onModelChange(option.key); closeModelPicker(); } }}>
+                          <span><strong>{option.model}</strong><small>{option.unavailable ? `${option.provider} · no configurado` : option.provider}</small></span>{props.sessionModel === option.key && <Icon name="check" size={12} />}
                         </button>)}
                       </section>)}
                       {filteredModelOptions.length === 0 && <p className="chat-model-empty">No hay modelos que coincidan.</p>}
                     </div>
-                    <footer>{modelOptions.length} modelos disponibles</footer>
-                  </div>
-                </details>
+                    <footer>{modelOptions.length} modelos en catálogo</footer>
+                  </div>}
+                </div>
               </div>
             </div>
             {modelError && <div className="chat-model-error" role="alert">No se pudo cambiar: {modelError}</div>}
