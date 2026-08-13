@@ -1,7 +1,7 @@
 // BAGO Electron App
 // En modo empaquetado (electron-builder): lee la ruta de instalacion desde
-// el registro de Windows para localizar dev.ps1, arranca el backend al
-// abrirse y lo para al cerrarse.
+// el registro de Windows para localizar el payload instalado, arranca el
+// backend al abrirse y lo para al cerrarse.
 // En modo desarrollo: usa la raiz del repo relativa a __dirname.
 
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
@@ -13,6 +13,49 @@ const http = require('http');
 // ── Resolver raíz del repo ────────────────────────────────────────────────────
 function hasDevScript(rootPath) {
   return !!rootPath && fs.existsSync(path.join(rootPath, 'scripts', 'dev.ps1'));
+}
+
+function describeRuntimeRoot(rootPath, source) {
+  if (!rootPath) return null;
+  const root = path.resolve(rootPath);
+  const monorepoBackend = path.join(root, 'backend');
+  const flatBackend = root;
+  const backendRoot = fs.existsSync(path.join(monorepoBackend, 'bago_core', 'cli.py'))
+    ? monorepoBackend
+    : fs.existsSync(path.join(flatBackend, 'bago_core', 'cli.py'))
+      ? flatBackend
+      : '';
+  if (!backendRoot) return null;
+
+  const serviceCandidates = [
+    path.join(root, 'scripts', 'runtime-service.ps1'),
+    path.join(root, 'scripts', 'dev.ps1'),
+  ];
+  const servicePs1 = serviceCandidates.find((candidate) => fs.existsSync(candidate)) || '';
+  if (!servicePs1) return null;
+
+  return {
+    repoRoot: root,
+    backendRoot,
+    uiDist: path.join(backendRoot, 'ui-react', 'dist'),
+    servicePs1,
+    runDir: path.join(root, '.run'),
+    source,
+  };
+}
+
+function findWorkspaceRoot(startPath) {
+  if (!startPath) return '';
+  let current = path.resolve(startPath);
+  for (let i = 0; i < 6; i += 1) {
+    if (describeRuntimeRoot(current, 'detected-source')) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return '';
 }
 
 function readRegistryInstallPath() {
@@ -38,53 +81,31 @@ function readRegistryInstallPath() {
 function resolveRuntimePaths() {
   if (!app.isPackaged) {
     const repoRoot = path.resolve(__dirname, '..');
-    return {
-      repoRoot,
-      devPs1: path.join(repoRoot, 'scripts', 'dev.ps1'),
-      runDir: path.join(repoRoot, '.run'),
-      source: 'dev',
-    };
+    return describeRuntimeRoot(repoRoot, 'dev');
+  }
+
+  const sourceRoot = findWorkspaceRoot(process.cwd()) || findWorkspaceRoot(path.dirname(process.execPath));
+  if (sourceRoot) {
+    return describeRuntimeRoot(sourceRoot, 'detected-source');
   }
 
   const explicitInstallRoot = (process.env.BAGO_INSTALL_ROOT || '').trim();
-  if (hasDevScript(explicitInstallRoot)) {
-    return {
-      repoRoot: explicitInstallRoot,
-      devPs1: path.join(explicitInstallRoot, 'scripts', 'dev.ps1'),
-      runDir: path.join(explicitInstallRoot, '.run'),
-      source: 'env',
-    };
-  }
+  const explicitRuntime = describeRuntimeRoot(explicitInstallRoot, 'env');
+  if (explicitRuntime) return explicitRuntime;
 
   const installRoot = readRegistryInstallPath();
-  if (hasDevScript(installRoot)) {
-    return {
-      repoRoot: installRoot,
-      devPs1: path.join(installRoot, 'scripts', 'dev.ps1'),
-      runDir: path.join(installRoot, '.run'),
-      source: 'registry',
-    };
-  }
+  const registeredRuntime = describeRuntimeRoot(installRoot, 'registry');
+  if (registeredRuntime) return registeredRuntime;
 
-  const packagedDevPs1 = path.join(process.resourcesPath, 'scripts', 'dev.ps1');
-  if (fs.existsSync(packagedDevPs1)) {
-    return {
-      repoRoot: process.resourcesPath,
-      devPs1: packagedDevPs1,
-      runDir: path.join(app.getPath('userData'), '.run'),
-      source: 'resources',
-    };
+  const packagedRuntime = describeRuntimeRoot(process.resourcesPath, 'resources');
+  if (packagedRuntime) {
+    packagedRuntime.runDir = path.join(app.getPath('userData'), '.run');
+    return packagedRuntime;
   }
 
   const fallbackDevRoot = path.resolve(__dirname, '..');
-  if (hasDevScript(fallbackDevRoot)) {
-    return {
-      repoRoot: fallbackDevRoot,
-      devPs1: path.join(fallbackDevRoot, 'scripts', 'dev.ps1'),
-      runDir: path.join(fallbackDevRoot, '.run'),
-      source: 'fallback-dev',
-    };
-  }
+  const fallbackRuntime = describeRuntimeRoot(fallbackDevRoot, 'fallback-dev');
+  if (fallbackRuntime) return fallbackRuntime;
 
   return null;
 }
@@ -103,9 +124,9 @@ function getRepoRoot() {
   return runtime ? runtime.repoRoot : '';
 }
 
-function getDevPs1Path() {
+function getServicePs1Path() {
   const runtime = getRuntimePaths();
-  return runtime ? runtime.devPs1 : '';
+  return runtime ? runtime.servicePs1 : '';
 }
 
 function getRunDir() {
@@ -115,6 +136,13 @@ function getRunDir() {
 
 function getRequestLogPath() {
   return path.join(getRunDir(), 'electron-requests.log');
+}
+
+function bootLog(message) {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'boot.log');
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${message}\n`);
+  } catch {}
 }
 
 const UI_URL = 'http://127.0.0.1:8080/';
@@ -134,19 +162,21 @@ function appendRequestLog(line) {
   fs.appendFile(getRequestLogPath(), `${line}\n`, () => {});
 }
 
-function runDevPs1(cmd) {
+function runRuntimeService(cmd) {
   if (process.platform !== 'win32') return true;
-  const devPs1Path = getDevPs1Path();
+  const servicePs1Path = getServicePs1Path();
   const repoRoot = getRepoRoot();
-  if (!devPs1Path || !repoRoot) return false;
+  if (!servicePs1Path || !repoRoot) return false;
   try {
     const timeout = (cmd === 'backend' || cmd === 'start') ? 120000 : 30000;
     const result = spawnSync('powershell.exe', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', devPs1Path, cmd
+      '-File', servicePs1Path, cmd
     ], { cwd: repoRoot, stdio: 'ignore', timeout });
+    bootLog(`runRuntimeService(${cmd}) path=${servicePs1Path} cwd=${repoRoot} status=${String(result.status)} error=${String(result.error?.message || '')}`);
     return result.status === 0;
   } catch {
+    bootLog(`runRuntimeService(${cmd}) threw`);
     return false;
   }
 }
@@ -198,6 +228,8 @@ function getAutoCloseSeconds() {
 
 // ── Ventana principal ─────────────────────────────────────────────────────────
 function createViewerWindow() {
+  const runtime = getRuntimePaths();
+  const uiDist = runtime ? path.join(runtime.uiDist, 'index.html') : '';
   const iconPath = path.join(__dirname, 'bago.ico');
   const win = new BrowserWindow({
     width: 1600,
@@ -236,7 +268,11 @@ function createViewerWindow() {
     }
   });
 
-  win.loadURL(UI_URL);
+  if (uiDist && fs.existsSync(uiDist)) {
+    win.loadFile(uiDist).catch(() => { win.loadURL(UI_URL); });
+  } else {
+    win.loadURL(UI_URL);
+  }
 
   // Request diagnostics deliberately omit bodies and query strings.
   win.webContents.session.webRequest.onCompleted((details) => {
@@ -301,6 +337,10 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   const runtime = getRuntimePaths();
+  bootLog(`runtime source=${runtime ? runtime.source : 'none'} repoRoot=${runtime ? runtime.repoRoot : 'none'} servicePs1=${runtime ? runtime.servicePs1 : 'none'}`);
+  const uiDist = runtime ? path.join(runtime.uiDist, 'index.html') : '';
+  bootLog(`uiDist=${uiDist} exists=${uiDist ? fs.existsSync(uiDist) : false}`);
+  bootLog(`runtime source=${runtime?.source || 'null'} repoRoot=${runtime?.repoRoot || ''} servicePs1=${runtime?.servicePs1 || ''} runDir=${runtime?.runDir || ''}`);
   if (!runtime) {
     dialog.showErrorBox(
       'BAGO: runtime no resuelto',
@@ -313,7 +353,7 @@ app.whenReady().then(async () => {
   // Arrancar y validar backend antes de abrir la ventana empaquetada.
   if (app.isPackaged) {
     try { fs.mkdirSync(runtime.runDir, { recursive: true }); } catch {}
-    const started = runDevPs1('backend');
+    const started = runRuntimeService('backend');
     if (!started) {
       dialog.showErrorBox('BAGO: error de arranque', 'No se pudo iniciar el backend (dev.ps1 start).');
       app.exit(1);
@@ -322,7 +362,7 @@ app.whenReady().then(async () => {
     const healthy = await waitForBackendHealth(HEALTH_URL, 30000);
     if (!healthy) {
       dialog.showErrorBox('BAGO: backend no disponible', 'El backend no respondió en /health dentro del tiempo esperado.');
-      runDevPs1('stop');
+      runRuntimeService('stop');
       app.exit(1);
       return;
     }
@@ -345,7 +385,7 @@ app.on('window-all-closed', () => {
 
 // Al cerrar, detiene el backend automáticamente.
 app.on('before-quit', () => {
-  if (!runDevPs1('stop')) {
+  if (!runRuntimeService('stop')) {
     appendRequestLog('[LIFECYCLE] backend stop command returned non-zero');
   }
 });

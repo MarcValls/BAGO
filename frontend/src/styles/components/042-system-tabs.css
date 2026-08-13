@@ -1,0 +1,25 @@
+/* === System Tabs === */
+.system-tabs { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; min-height: 0; height: 100%; }
+.system-tabs.is-full-width { grid-template-columns: minmax(0, 1fr); gap: 0; width: 100%; }
+.system-tabs-rail { display: flex; flex-direction: column; gap: 2px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 8px; border-right: 1px solid var(--border); background: rgba(255,255,255,.02); border-radius: 10px; align-self: start; }
+.system-tab-button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--text-2); cursor: pointer; text-align: left; font-size: 12px; }
+.system-tab-button:hover { background: var(--surface-2); color: var(--text); }
+.system-tab-button.is-active { background: var(--accent-soft); color: var(--text); }
+.system-tab-button.is-active::before { content: ''; width: 3px; height: 14px; background: var(--accent); border-radius: 0 2px 2px 0; margin-left: -8px; margin-right: 5px; }
+.system-tab-button span { flex: 1; }
+.system-tab-experimental { color: var(--amber); font-size: 14px; }
+.system-tabs-content { min-width: 0; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.system-tabs.is-full-width .system-tabs-content { width: 100%; padding-right: 0; }
+.system-tab-panel { display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
+.system-tab-panel h3 { margin: 0; font-size: 18px; }
+.system-tab-description { max-width: 70ch; margin: -7px 0 0; color: var(--text-2); font-size: 13px; }
+.system-tab-loading, .system-tab-error { padding: 24px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-3); font-size: 12px; text-align: center; }
+.system-tab-error { color: var(--red); border-color: rgba(255,124,130,.3); background: var(--red-soft); }
+.system-tab-meta { color: var(--text-3); font-size: 10px; font-family: ui-monospace, SFMono-Regular, monospace; word-break: break-all; }
+.system-tab-badge-experimental { display: inline-block; padding: 2px 6px; border-radius: 4px; background: rgba(242,191,104,.15); color: var(--amber); font-size: 9px; font-weight: 700; letter-spacing: .05em; vertical-align: middle; }
+.system-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.system-data-block { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.system-data-label { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.system-data-block strong { font-size: 16px; color: var(--text); }
+.system-data-hint { color: var(--text-2); font-size: 12px; }
+.system-json { margin: 8px 0 0; padding: 12px 14px; border-radius: 8px; background: var(--bg-deep); color: var(--text-2); font-size: 11px; line-height: 1.55; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }

@@ -77,8 +77,8 @@ class UiStaticContractTests(unittest.TestCase):
         self.assertIn("props.onSetSessionModel(nextModel)", chat)
         self.assertIn('<strong>Automático</strong>', chat)
         self.assertIn("router del sistema", chat)
-        self.assertIn("r?.session_model", control_plane)
-        self.assertNotIn("const m = r?.model", control_plane)
+        self.assertIn("sessionModelResult?.session_model", control_plane)
+        self.assertIn("sessionModelResult?.model", control_plane)
         self.assertIn("if (policyEntries.length > 0) return policyEntries", sections)
         self.assertNotIn("policy?.entries || props.router?.list?.entries", sections)
 

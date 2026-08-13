@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -55,19 +56,25 @@ class KnowledgeBase:
         self.db_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.db_dir / "knowledge.db"
         self._conn: sqlite3.Connection | None = None
+        self._lock = threading.RLock()
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-            self._conn.row_factory = sqlite3.Row
-        return self._conn
+        with self._lock:
+            if self._conn is None:
+                self._conn = sqlite3.connect(str(self.db_path), timeout=30.0, check_same_thread=False)
+                self._conn.row_factory = sqlite3.Row
+                self._conn.execute("PRAGMA busy_timeout=30000")
+                self._conn.execute("PRAGMA journal_mode=WAL")
+                self._conn.execute("PRAGMA synchronous=NORMAL")
+            return self._conn
 
     def _init_db(self) -> None:
-        conn = self._connect()
-        conn.executescript(self.SCHEMA)
-        self._migrate_schema(conn)
-        conn.commit()
+        with self._lock:
+            conn = self._connect()
+            conn.executescript(self.SCHEMA)
+            self._migrate_schema(conn)
+            conn.commit()
 
     def _migrate_schema(self, conn: sqlite3.Connection) -> None:
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
@@ -77,30 +84,35 @@ class KnowledgeBase:
     def add(self, content: str, source_session: str = "") -> int:
         """Añade un recuerdo y retorna su ID."""
         now = datetime.now(timezone.utc).isoformat()
-        conn = self._connect()
-        cursor = conn.execute(
-            "INSERT INTO memories (content, source_session, created_at) VALUES (?, ?, ?)",
-            (content, source_session, now),
-        )
-        # Sync FTS table if available; ignore errors if FTS5 not supported
-        try:
-            conn.execute(
-                "INSERT INTO memories_fts (content, source_session) VALUES (?, ?)",
-                (content, source_session),
-            )
-        except sqlite3.OperationalError:
-            pass
-        conn.commit()
-        return cursor.lastrowid  # type: ignore[return-value]
+        with self._lock:
+            conn = self._connect()
+            try:
+                cursor = conn.execute(
+                    "INSERT INTO memories (content, source_session, created_at) VALUES (?, ?, ?)",
+                    (content, source_session, now),
+                )
+                try:
+                    conn.execute(
+                        "INSERT INTO memories_fts (content, source_session) VALUES (?, ?)",
+                        (content, source_session),
+                    )
+                except sqlite3.OperationalError:
+                    pass
+                conn.commit()
+                return cursor.lastrowid  # type: ignore[return-value]
+            except Exception:
+                conn.rollback()
+                raise
 
     def search(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
         """Búsqueda por coincidencia de palabras (LIKE) o FTS si está disponible."""
-        conn = self._connect()
-        results: list[dict[str, Any]] = []
+        with self._lock:
+            conn = self._connect()
+            results: list[dict[str, Any]] = []
 
         # Intentar FTS primero
-        try:
-            rows = conn.execute(
+            try:
+                rows = conn.execute(
                 """
                 SELECT m.id, m.content, m.source_session, m.created_at
                 FROM memories_fts
@@ -109,42 +121,43 @@ class KnowledgeBase:
                 LIMIT ?
                 """,
                 (query, limit),
-            ).fetchall()
-            for row in rows:
-                results.append({
+                ).fetchall()
+                for row in rows:
+                    results.append({
                     "id": row["id"],
                     "content": row["content"],
                     "source_session": row["source_session"],
                     "created_at": row["created_at"],
-                })
-            if results:
-                return results
-        except sqlite3.OperationalError:
-            pass
+                    })
+                if results:
+                    return results
+            except sqlite3.OperationalError:
+                pass
 
         # Fallback a LIKE
-        pattern = f"%{query}%"
-        rows = conn.execute(
-            "SELECT id, content, source_session, created_at FROM memories WHERE deprecated = 0 AND content LIKE ? ORDER BY created_at DESC LIMIT ?",
-            (pattern, limit),
-        ).fetchall()
-        for row in rows:
-            results.append({
+            pattern = f"%{query}%"
+            rows = conn.execute(
+                "SELECT id, content, source_session, created_at FROM memories WHERE deprecated = 0 AND content LIKE ? ORDER BY created_at DESC LIMIT ?",
+                (pattern, limit),
+            ).fetchall()
+            for row in rows:
+                results.append({
                 "id": row["id"],
                 "content": row["content"],
                 "source_session": row["source_session"],
                 "created_at": row["created_at"],
-            })
-        return results
+                })
+            return results
 
     def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         """Devuelve los recuerdos más recientes."""
-        conn = self._connect()
-        rows = conn.execute(
-            "SELECT id, content, source_session, created_at FROM memories ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        return [
+        with self._lock:
+            conn = self._connect()
+            rows = conn.execute(
+                "SELECT id, content, source_session, created_at FROM memories ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [
             {
                 "id": row["id"],
                 "content": row["content"],
@@ -152,55 +165,72 @@ class KnowledgeBase:
                 "created_at": row["created_at"],
             }
             for row in rows
-        ]
+            ]
 
     def delete(self, memory_id: int) -> bool:
         """Elimina un recuerdo por ID."""
-        conn = self._connect()
-        cursor = conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
-        try:
-            conn.execute("DELETE FROM memories_fts WHERE rowid = ?", (memory_id,))
-        except sqlite3.OperationalError:
-            pass
-        conn.commit()
-        return cursor.rowcount > 0
+        with self._lock:
+            conn = self._connect()
+            try:
+                cursor = conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+                try:
+                    conn.execute("DELETE FROM memories_fts WHERE rowid = ?", (memory_id,))
+                except sqlite3.OperationalError:
+                    pass
+                conn.commit()
+                return cursor.rowcount > 0
+            except Exception:
+                conn.rollback()
+                raise
 
     def deprecate(self, memory_id: int) -> bool:
         """Marca un recuerdo como deprecated sin borrarlo."""
-        conn = self._connect()
-        cursor = conn.execute("UPDATE memories SET deprecated = 1 WHERE id = ?", (memory_id,))
-        conn.commit()
-        return cursor.rowcount > 0
+        with self._lock:
+            conn = self._connect()
+            try:
+                cursor = conn.execute("UPDATE memories SET deprecated = 1 WHERE id = ?", (memory_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+            except Exception:
+                conn.rollback()
+                raise
 
     def delete_by_source_prefix(self, source_prefix: str) -> int:
         """Elimina recuerdos cuyo source_session empieza por el prefijo dado."""
-        conn = self._connect()
-        rows = conn.execute(
-            "SELECT id FROM memories WHERE source_session LIKE ?",
-            (f"{source_prefix}%",),
-        ).fetchall()
-        if not rows:
-            return 0
-        ids = [int(row["id"]) for row in rows]
-        conn.executemany("DELETE FROM memories WHERE id = ?", [(mid,) for mid in ids])
-        try:
-            conn.executemany("DELETE FROM memories_fts WHERE rowid = ?", [(mid,) for mid in ids])
-        except sqlite3.OperationalError:
-            pass
-        conn.commit()
-        return len(ids)
+        with self._lock:
+            conn = self._connect()
+            try:
+                rows = conn.execute(
+                    "SELECT id FROM memories WHERE source_session LIKE ?",
+                    (f"{source_prefix}%",),
+                ).fetchall()
+                if not rows:
+                    return 0
+                ids = [int(row["id"]) for row in rows]
+                conn.executemany("DELETE FROM memories WHERE id = ?", [(mid,) for mid in ids])
+                try:
+                    conn.executemany("DELETE FROM memories_fts WHERE rowid = ?", [(mid,) for mid in ids])
+                except sqlite3.OperationalError:
+                    pass
+                conn.commit()
+                return len(ids)
+            except Exception:
+                conn.rollback()
+                raise
 
     def count(self, include_deprecated: bool = False) -> int:
         """Número total de recuerdos almacenados."""
-        conn = self._connect()
-        query = "SELECT COUNT(*) FROM memories" if include_deprecated else "SELECT COUNT(*) FROM memories WHERE deprecated = 0"
-        row = conn.execute(query).fetchone()
-        return row[0] if row else 0
+        with self._lock:
+            conn = self._connect()
+            query = "SELECT COUNT(*) FROM memories" if include_deprecated else "SELECT COUNT(*) FROM memories WHERE deprecated = 0"
+            row = conn.execute(query).fetchone()
+            return row[0] if row else 0
 
     def close(self) -> None:
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        with self._lock:
+            if self._conn:
+                self._conn.close()
+                self._conn = None
 
 
 def _run_tests() -> int:

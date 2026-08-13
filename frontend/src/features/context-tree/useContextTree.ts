@@ -2,8 +2,9 @@
 // árbol, packs, propuestas y receipts. Ofrece acciones de alto nivel
 // (compilar pack, enviar a chat, aceptar/rechazar/editar patch, etc.)
 // para que los componentes solo tengan que llamar funciones.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BagoClient } from '@/api/client';
+import type { BackendStatus } from '@/contracts/backend';
 import type {
   ContextBankItem,
   ContextBankSnapshot,
@@ -111,6 +112,23 @@ function emptyBank(): ContextBankSnapshot {
   };
 }
 
+export function deriveWorkspaceKey(status: Pick<BackendStatus, 'workspace_id' | 'workspace_state_root' | 'workspace_scope_root' | 'project_root' | 'repo_root'> | null | undefined): string | null {
+  if (!status) return null;
+  const candidates = [
+    status.workspace_id,
+    status.workspace_state_root,
+    status.workspace_scope_root,
+    status.project_root,
+    status.repo_root
+  ];
+  const key = candidates.map((value) => String(value || '').trim()).find((value) => Boolean(value));
+  return key || null;
+}
+
+export function shouldResetWorkspaceState(previousKey: string | null, nextKey: string | null): boolean {
+  return Boolean(previousKey && nextKey && previousKey !== nextKey);
+}
+
 export function useContextTree(client: BagoClient | null): UseContextTreeState {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -126,35 +144,51 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
   const [sourceDirectoriesLoading, setSourceDirectoriesLoading] = useState(false);
   const [workspaceKey, setWorkspaceKey] = useState<string | null>(null);
   const initialLoadRan = useRef(false);
+  const lastWorkspaceKeyRef = useRef<string | null>(null);
 
-  const persistTree = useCallback(async (next: ContextTree) => {
+  const resetWorkspaceState = () => {
+    setTree(null);
+    setPacks([]);
+    setActivePackId(null);
+    setProposals([]);
+    setReceipts([]);
+    setBank(emptyBank());
+    setSourceDirectories([]);
+    setSourceDirectoriesLoading(false);
+    setBankLoading(false);
+    setLoading(false);
+    setReady(false);
+    setError(null);
+  };
+
+  const persistTree = async (next: ContextTree) => {
     if (!client) return;
     try {
       await saveContextTree(client, next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client]);
+  };
 
-  const persistPacks = useCallback(async (next: ContextPack[]) => {
+  const persistPacks = async (next: ContextPack[]) => {
     if (!client) return;
     try {
       await saveContextPacks(client, next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client]);
+  };
 
-  const persistProposals = useCallback(async (next: ContextPatchRequest[]) => {
+  const persistProposals = async (next: ContextPatchRequest[]) => {
     if (!client) return;
     try {
       await saveContextPatchRequests(client, next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client]);
+  };
 
-  const appendReceipt = useCallback(async (receipt: ContextReceipt) => {
+  const appendReceipt = async (receipt: ContextReceipt) => {
     if (!client) return;
     try {
       await appendContextReceipt(client, receipt);
@@ -162,13 +196,21 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client]);
+  };
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     if (!client) return;
     setLoading(true);
     setError(null);
     try {
+      const status = await client.getStatus().catch(() => null);
+      const nextWorkspaceKey = deriveWorkspaceKey(status);
+      const previousWorkspaceKey = lastWorkspaceKeyRef.current;
+      if (shouldResetWorkspaceState(previousWorkspaceKey, nextWorkspaceKey)) {
+        resetWorkspaceState();
+      }
+      lastWorkspaceKeyRef.current = nextWorkspaceKey;
+      setWorkspaceKey(nextWorkspaceKey);
       const [loadedTree, loadedPacks, loadedProposals, loadedReceipts] = await Promise.all([
         loadContextTree(client),
         loadContextPacks(client),
@@ -189,6 +231,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       setPacks(nextPacks);
       setProposals(loadedProposals);
       setReceipts(loadedReceipts);
+      await refreshSourceDirectories();
       if (loadedPacks[0] && !activePackId) {
         setActivePackId(loadedPacks[0].id);
       }
@@ -198,9 +241,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       setLoading(false);
       setReady(true);
     }
-  }, [client, activePackId]);
+  };
 
-  const refreshBank = useCallback(async () => {
+  const refreshBank = async () => {
     if (!client) return;
     setBankLoading(true);
     try {
@@ -211,13 +254,13 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } finally {
       setBankLoading(false);
     }
-  }, [client]);
+  };
 
   // CANON[CTX-023]: gestión de directorios fuente. Carga la lista
   // persistida y permite alta, baja, listado de archivos y vínculo al
   // árbol. Los archivos se listan desde el mirror del workspace
   // filtrando por prefijo del path que el usuario añadió.
-  const refreshSourceDirectories = useCallback(async () => {
+  const refreshSourceDirectories = async () => {
     if (!client) return;
     setSourceDirectoriesLoading(true);
     try {
@@ -228,9 +271,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } finally {
       setSourceDirectoriesLoading(false);
     }
-  }, [client]);
+  };
 
-  const listFilesForDirectory = useCallback(async (path: string): Promise<Array<{ path: string; name: string; type: string; size?: number }>> => {
+  const listFilesForDirectory = async (path: string): Promise<Array<{ path: string; name: string; type: string; size?: number }>> => {
     if (!client) return [];
     try {
       const payload = await client.listFiles();
@@ -253,9 +296,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch {
       return [];
     }
-  }, [client]);
+  };
 
-  const addSourceDirectory = useCallback(async (path: string, title?: string): Promise<SourceDirectory | null> => {
+  const addSourceDirectory = async (path: string, title?: string): Promise<SourceDirectory | null> => {
     if (!client) return null;
     const cleanPath = String(path || '').trim();
     if (!cleanPath) return null;
@@ -297,9 +340,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       setError(e instanceof Error ? e.message : String(e));
       return null;
     }
-  }, [client, listFilesForDirectory]);
+  };
 
-  const removeSourceDirectory = useCallback(async (id: string) => {
+  const removeSourceDirectory = async (id: string) => {
     if (!client) return;
     try {
       const current = await loadSourceDirectories(client);
@@ -310,9 +353,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client]);
+  };
 
-  const refreshSourceDirectoryFiles = useCallback(async (id: string) => {
+  const refreshSourceDirectoryFiles = async (id: string) => {
     if (!client) return;
     const current = sourceDirectories.find((d) => d.id === id);
     if (!current) return;
@@ -339,9 +382,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, sourceDirectories, listFilesForDirectory]);
+  };
 
-  const toggleSourceFileInclude = useCallback(async (id: string, filePath: string, include: boolean) => {
+  const toggleSourceFileInclude = async (id: string, filePath: string, include: boolean) => {
     if (!client) return;
     const next = sourceDirectories.map((d) => {
       if (d.id !== id) return d;
@@ -357,9 +400,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, sourceDirectories]);
+  };
 
-  const setSourceFileBranch = useCallback(async (id: string, filePath: string, branch: ContextNodeType) => {
+  const setSourceFileBranch = async (id: string, filePath: string, branch: ContextNodeType) => {
     if (!client) return;
     const next = sourceDirectories.map((d) => {
       if (d.id !== id) return d;
@@ -375,14 +418,13 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, sourceDirectories]);
+  };
 
   useEffect(() => {
     if (initialLoadRan.current) return;
     initialLoadRan.current = true;
     void refresh();
     void refreshBank();
-    void refreshSourceDirectories();
   }, [refresh, refreshBank]);
 
   const activePack = useMemo(() => {
@@ -405,28 +447,28 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
   }, [tree]);
 
   // Handlers ------------------------------------------------------------
-  const createDefaultTree = useCallback(async () => {
+  const createDefaultTree = async () => {
     if (!client) return;
     const next = buildDefaultTree();
     setTree(next);
     await persistTree(next);
-  }, [client, persistTree]);
+  };
 
-  const renameTree = useCallback(async (name: string) => {
+  const renameTree = async (name: string) => {
     if (!tree) return;
     const next = { ...tree, name, updatedAt: new Date().toISOString() };
     setTree(next);
     await persistTree(next);
-  }, [tree, persistTree]);
+  };
 
-  const archiveTree = useCallback(async () => {
+  const archiveTree = async () => {
     if (!tree) return;
     const next = { ...tree, archived: true, updatedAt: new Date().toISOString() };
     setTree(next);
     await persistTree(next);
-  }, [tree, persistTree]);
+  };
 
-  const createPack = useCallback(async (name?: string) => {
+  const createPack = async (name?: string) => {
     if (!client || !tree) return null;
     const pack: ContextPack = {
       id: `pack_${Math.random().toString(36).slice(2, 10)}`,
@@ -444,19 +486,19 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     setActivePackId(pack.id);
     await persistPacks(next);
     return pack;
-  }, [client, tree, packs, persistPacks]);
+  };
 
-  const renamePack = useCallback(async (packId: string, name: string) => {
+  const renamePack = async (packId: string, name: string) => {
     const next = packs.map((p) => p.id === packId ? { ...p, name } : p);
     setPacks(next);
     await persistPacks(next);
-  }, [packs, persistPacks]);
+  };
 
-  const setActivePack = useCallback((packId: string) => {
+  const setActivePack = (packId: string) => {
     setActivePackId(packId);
-  }, []);
+  };
 
-  const toggleNodeInPack = useCallback(async (nodeId: string) => {
+  const toggleNodeInPack = async (nodeId: string) => {
     if (!activePack) return;
     const nextPack = {
       ...activePack,
@@ -467,9 +509,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     const nextPacks = packs.map((p) => p.id === activePack.id ? nextPack : p);
     setPacks(nextPacks);
     await persistPacks(nextPacks);
-  }, [packs, activePack, persistPacks]);
+  };
 
-  const compileActivePack = useCallback(async () => {
+  const compileActivePack = async () => {
     if (!tree || !activePack) return null;
     const compiled = compileContextPack(tree, activePack);
     const nextPack: ContextPack = {
@@ -496,9 +538,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       createdBy: 'user'
     });
     return compiled;
-  }, [tree, packs, activePack, persistPacks, appendReceipt]);
+  };
 
-  const sendActivePackToChat = useCallback(async (extra?: string) => {
+  const sendActivePackToChat = async (extra?: string) => {
     if (!client || !tree || !activePack || !activePack.markdown) {
       return { ok: false, message: 'El pack activo todavía no está compilado.' };
     }
@@ -514,9 +556,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       createdBy: 'user'
     });
     return result;
-  }, [client, tree, activePack, appendReceipt]);
+  };
 
-  const createNode = useCallback(async (input: { parentId: string; type: ContextNode['type']; title: string; summary?: string; status?: ContextNode['status']; priority?: ContextNode['priority']; sourceRefs?: ContextNode['sourceRefs'] }): Promise<ContextNode | null> => {
+  const createNode = async (input: { parentId: string; type: ContextNode['type']; title: string; summary?: string; status?: ContextNode['status']; priority?: ContextNode['priority']; sourceRefs?: ContextNode['sourceRefs'] }): Promise<ContextNode | null> => {
     if (!tree) return null;
     const id = `node_${Math.random().toString(36).slice(2, 10)}`;
     const now = new Date().toISOString();
@@ -558,9 +600,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       createdBy: 'user'
     });
     return node;
-  }, [tree, persistTree, appendReceipt]);
+  };
 
-  const updateNode = useCallback(async (nodeId: string, patch: Partial<ContextNode>) => {
+  const updateNode = async (nodeId: string, patch: Partial<ContextNode>) => {
     if (!tree) return;
     const current = tree.nodes[nodeId];
     if (!current) return;
@@ -578,9 +620,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     };
     setTree(next);
     await persistTree(next);
-  }, [tree, persistTree]);
+  };
 
-  const closeTask = useCallback(async (nodeId: string, conclusion: string) => {
+  const closeTask = async (nodeId: string, conclusion: string) => {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const current = tree.nodes[nodeId];
     if (!current) return { ok: false, error: 'Rama no encontrada.' };
@@ -591,9 +633,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     await persistTree(nextTree);
     await appendReceipt({ id: `rcpt_${Math.random().toString(36).slice(2, 10)}`, kind: 'node_canon', treeId: tree.id, nodeId, summary: `Tarea cerrada: ${current.title}`, before: { status: current.status }, after: { status: 'canon', conclusion: conclusion.trim() }, createdAt: now, createdBy: 'user' });
     return { ok: true };
-  }, [tree, persistTree, appendReceipt]);
+  };
 
-  const reopenTask = useCallback(async (nodeId: string) => {
+  const reopenTask = async (nodeId: string) => {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const current = tree.nodes[nodeId];
     if (!current) return { ok: false, error: 'Rama no encontrada.' };
@@ -603,21 +645,21 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     await persistTree(nextTree);
     await appendReceipt({ id: `rcpt_${Math.random().toString(36).slice(2, 10)}`, kind: 'tree_mutation', treeId: tree.id, nodeId, summary: `Tarea reabierta: ${current.title}`, before: { status: current.status }, after: { status: 'active' }, createdAt: now, createdBy: 'user' });
     return { ok: true };
-  }, [tree, persistTree, appendReceipt]);
+  };
 
-  const moveNode = useCallback(async (nodeId: string, newParentId: string) => {
+  const moveNode = async (nodeId: string, newParentId: string) => {
     await updateNode(nodeId, { parentId: newParentId });
-  }, [updateNode]);
+  };
 
-  const excludeNode = useCallback(async (nodeId: string) => {
+  const excludeNode = async (nodeId: string) => {
     await updateNode(nodeId, { status: 'excluded' });
-  }, [updateNode]);
+  };
 
-  const restoreNode = useCallback(async (nodeId: string) => {
+  const restoreNode = async (nodeId: string) => {
     await updateNode(nodeId, { status: 'active' });
-  }, [updateNode]);
+  };
 
-  const toggleCanon = useCallback(async (nodeId: string) => {
+  const toggleCanon = async (nodeId: string) => {
     if (!tree) return;
     const current = tree.nodes[nodeId];
     if (!current) return;
@@ -644,12 +686,12 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       createdAt: new Date().toISOString(),
       createdBy: 'user'
     });
-  }, [tree, persistTree, appendReceipt]);
+  };
 
   // CANON[CTX-023]: vincular un directorio fuente al árbol. Crea un
   // nodo `file` por cada archivo activo y lo mueve a la rama del
   // árbol que el usuario eligió (intent/source/decision/rule/etc.).
-  const linkSourceDirectoryToTree = useCallback(async (id: string): Promise<ContextNode[]> => {
+  const linkSourceDirectoryToTree = async (id: string): Promise<ContextNode[]> => {
     const dir = sourceDirectories.find((d) => d.id === id);
     if (!dir || !tree) return [];
     const created: ContextNode[] = [];
@@ -678,9 +720,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       }
     }
     return created;
-  }, [sourceDirectories, tree, createNode, moveNode]);
+  };
 
-  const addBankItemToTree = useCallback(async (item: ContextBankItem, parentId?: string) => {
+  const addBankItemToTree = async (item: ContextBankItem, parentId?: string) => {
     if (!tree) return null;
     const branchType = item.suggestedBranch;
     const branch = Object.values(tree.nodes).find((n) => n.type === branchType && n.parentId === tree.rootId);
@@ -698,13 +740,13 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
         origin: item.origin
       }]
     });
-  }, [tree, createNode]);
+  };
 
   // CANON[CTX-022]: alta y baja de items manuales del Banco. El usuario
   // introduce un path explícito (archivo o directorio) y se persiste
   // en `.bago/context/context-bank-manual.json` para sobrevivir
   // recargas. El doble-click lo añade al árbol como nodo `source`.
-  const addManualBankItem = useCallback(async (
+  const addManualBankItem = async (
     path: string,
     kind: 'source_root' | 'workspace_file' | 'workspace_directory',
     title?: string
@@ -737,9 +779,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       setError(e instanceof Error ? e.message : String(e));
       return null;
     }
-  }, [client]);
+  };
 
-  const removeManualBankItem = useCallback(async (itemId: string): Promise<void> => {
+  const removeManualBankItem = async (itemId: string): Promise<void> => {
     if (!client) return;
     try {
       const current = await loadContextBankManual(client);
@@ -752,28 +794,28 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client]);
+  };
 
   // Patches del chat ----------------------------------------------------
 
-  const ingestPatch = useCallback((request: ContextPatchRequest) => {
+  const ingestPatch = (request: ContextPatchRequest) => {
     setProposals((current) => {
       if (current.some((p) => p.id === request.id)) return current;
       const next = [request, ...current];
       void persistProposals(next);
       return next;
     });
-  }, [persistProposals]);
+  };
 
-  const createProposal = useCallback(async (request: ContextPatchRequest) => {
+  const createProposal = async (request: ContextPatchRequest) => {
     const next = proposals.find((item) => item.id === request.id)
       ? proposals
       : [request, ...proposals];
     setProposals(next);
     await persistProposals(next);
-  }, [proposals, persistProposals]);
+  };
 
-  const acceptPatch = useCallback(async (patchId: string) => {
+  const acceptPatch = async (patchId: string) => {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const request = proposals.find((p) => p.id === patchId);
     if (!request) return { ok: false, error: 'Patch no encontrado.' };
@@ -802,9 +844,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await persistProposals(nextProposals);
       return { ok: false, error: message };
     }
-  }, [tree, proposals, packs, activePack, persistTree, persistPacks, persistProposals, appendReceipt]);
+  };
 
-  const rejectPatch = useCallback(async (patchId: string) => {
+  const rejectPatch = async (patchId: string) => {
     const request = proposals.find((p) => p.id === patchId);
     if (!request) return;
     const nextProposals = proposals.map((p) => p.id === patchId ? { ...p, status: 'rejected' as const, rejectedAt: new Date().toISOString() } : p);
@@ -820,9 +862,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       createdAt: new Date().toISOString(),
       createdBy: 'user'
     });
-  }, [proposals, persistProposals, appendReceipt, tree]);
+  };
 
-  const applyPatchedEdited = useCallback(async (patchId: string, editedOperations: ContextPatchRequest['patch']['operations']) => {
+  const applyPatchedEdited = async (patchId: string, editedOperations: ContextPatchRequest['patch']['operations']) => {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const request = proposals.find((p) => p.id === patchId);
     if (!request) return { ok: false, error: 'Patch no encontrado.' };
@@ -857,9 +899,9 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await persistProposals(nextProposals);
       return { ok: false, error: message };
     }
-  }, [tree, proposals, packs, activePack, persistTree, persistPacks, persistProposals, appendReceipt]);
+  };
 
-  const revertPatch = useCallback(async (patchId: string) => {
+  const revertPatch = async (patchId: string) => {
     if (!tree) return { ok: false, error: 'No hay árbol activo.' };
     const request = proposals.find((p) => p.id === patchId);
     if (!request) return { ok: false, error: 'Patch no encontrado.' };
@@ -875,7 +917,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
-  }, [tree, proposals, persistTree, persistProposals, appendReceipt]);
+  };
 
   return {
     ready,

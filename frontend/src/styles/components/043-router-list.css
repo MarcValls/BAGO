@@ -1,0 +1,14 @@
+/* Router list */
+.router-toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.router-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+.router-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.router-list-item { padding: 0; }
+.router-list-toggle { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-2); cursor: pointer; text-align: left; font-size: 12px; }
+.router-list-item.is-selected .router-list-toggle { border-color: rgba(103,136,247,.4); background: var(--accent-soft); }
+.router-list-toggle:hover { background: var(--surface-2); }
+.router-list-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.router-list-dot.is-on { background: var(--green); box-shadow: 0 0 6px rgba(98,215,166,.5); }
+.router-list-dot.is-off { background: var(--text-3); }
+.router-list-name { flex: 1; font-weight: 500; color: var(--text); }
+.router-list-meta { color: var(--text-3); font-size: 10px; }
+.router-list-tag { padding: 2px 6px; border-radius: 4px; background: var(--surface-3); color: var(--text-2); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }

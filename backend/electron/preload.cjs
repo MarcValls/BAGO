@@ -477,8 +477,10 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   runInstallPreflight: (payload) => ipcRenderer.invoke('bago:install-preflight', payload || {}),
   getManagerUrl: () => ipcRenderer.invoke('bago:manager-url'),
   onInstanceActive: (callback) => {
-    if (typeof callback !== 'function') return;
-    ipcRenderer.on('bago:instance-active', (_event, payload) => callback(payload));
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('bago:instance-active', handler);
+    return () => ipcRenderer.removeListener('bago:instance-active', handler);
   },
   chooseWorkspaceRoot: (options) => ipcRenderer.invoke('bago:workspace-choose-root', options || {}),
   chooseProjectRoot: (options) => ipcRenderer.invoke('bago:workspace-choose-root', options || {}),

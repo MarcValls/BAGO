@@ -1,0 +1,67 @@
+/* Main grid -----------------------------------------------------------*/
+.context-tree-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 34%);
+  gap: 10px;
+  min-height: 0;
+}
+
+.context-tree-explorer {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.context-tree-bank-rail {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.context-tree-bank-rail > .context-bank {
+  height: 100%;
+}
+
+.context-tree-module-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.context-tree-main {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.context-tree-main.resizable-layout {
+  align-items: stretch;
+}
+.context-tree-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+.context-tree-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.context-tree-tray {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+.context-tree-tray.is-collapsed {
+  flex: 0 0 38px;
+}

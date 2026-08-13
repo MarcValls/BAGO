@@ -27,6 +27,7 @@ import { runLocalDiagnostics } from './runLocalDiagnostics';
 import { detectPatterns } from './detectCodePatterns';
 
 const MAX_FILE_SIZE = 5_000_000; // 5 MB.
+const WORKSPACE_EDITOR_STATE_KEY = 'bago.workspace.editor.state';
 
 let tabCounter = 0;
 function nextTabId() {
@@ -88,22 +89,105 @@ interface HookProps {
   contextBank?: ContextBankItem[];
   contextTreeNodes?: ContextNode[];
 }
+
+export interface WorkspaceEditorResetState {
+  tabs: OpenFileTab[];
+  activePath: string | null;
+  selectedRange: SelectedRange | null;
+  inspector: InspectorState;
+  bottomPanel: BottomPanel;
+  explorer: ExplorerNode[];
+  loadingExplorer: boolean;
+  error: string | null;
+  busy: boolean;
+  output: OutputEntry[];
+  expandedDirectories: string[];
+}
+
+export interface PersistedWorkspaceEditorState {
+  workspaceRoot: string;
+  tabs: OpenFileTab[];
+  activePath: string | null;
+  selectedRange: SelectedRange | null;
+  inspector: InspectorState;
+  bottomPanel: BottomPanel;
+  explorer: ExplorerNode[];
+  loadingExplorer: boolean;
+  error: string | null;
+  busy: boolean;
+  output: OutputEntry[];
+  expandedDirectories: string[];
+}
+
+export function readPersistedWorkspaceEditorState(workspaceRoot: string): PersistedWorkspaceEditorState | null {
+  if (typeof window === 'undefined' || !workspaceRoot) return null;
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_EDITOR_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceEditorState> | null;
+    if (!parsed || parsed.workspaceRoot !== workspaceRoot) return null;
+    return {
+      workspaceRoot,
+      tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
+      activePath: typeof parsed.activePath === 'string' ? parsed.activePath : null,
+      selectedRange: parsed.selectedRange && typeof parsed.selectedRange === 'object' ? parsed.selectedRange as SelectedRange : null,
+      inspector: parsed.inspector && typeof parsed.inspector === 'object' ? parsed.inspector as InspectorState : { kind: null },
+      bottomPanel: parsed.bottomPanel === 'problems' || parsed.bottomPanel === 'changes' || parsed.bottomPanel === 'patterns' || parsed.bottomPanel === 'output' ? parsed.bottomPanel : null,
+      explorer: Array.isArray(parsed.explorer) ? parsed.explorer as ExplorerNode[] : [],
+      loadingExplorer: Boolean(parsed.loadingExplorer),
+      error: typeof parsed.error === 'string' ? parsed.error : null,
+      busy: Boolean(parsed.busy),
+      output: Array.isArray(parsed.output) ? parsed.output as OutputEntry[] : [],
+      expandedDirectories: Array.isArray(parsed.expandedDirectories) ? parsed.expandedDirectories.filter((value): value is string => typeof value === 'string') : []
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function persistWorkspaceEditorState(state: PersistedWorkspaceEditorState): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(WORKSPACE_EDITOR_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // Persistencia best-effort.
+  }
+}
+
+export function createWorkspaceEditorResetState(): WorkspaceEditorResetState {
+  return {
+    tabs: [],
+    activePath: null,
+    selectedRange: null,
+    inspector: { kind: null },
+    bottomPanel: null,
+    explorer: [],
+    loadingExplorer: false,
+    error: null,
+    busy: false,
+    output: [],
+    expandedDirectories: []
+  };
+}
+
 export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
-  const [tabs, setTabs] = useState<OpenFileTab[]>([]);
-  const [activePath, setActivePath] = useState<string | null>(null);
+  const persisted = readPersistedWorkspaceEditorState(props.workspaceRoot);
+  const [tabs, setTabs] = useState<OpenFileTab[]>(() => persisted?.tabs || []);
+  const [activePath, setActivePath] = useState<string | null>(() => persisted?.activePath || null);
   const [filter, setFilter] = useState<WorkspaceFilter>('all');
   const [query, setQuery] = useState('');
-  const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
-  const [inspector, setInspector] = useState<InspectorState>({ kind: null });
-  const [bottomPanel, setBottomPanel] = useState<BottomPanel>(null);
+  const [expandedDirectories, setExpandedDirectories] = useState<string[]>(() => persisted?.expandedDirectories || []);
+  const [inspector, setInspector] = useState<InspectorState>(() => persisted?.inspector || { kind: null });
+  const [bottomPanel, setBottomPanel] = useState<BottomPanel>(() => persisted?.bottomPanel || null);
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(true);
-  const [selectedRange, setSelectedRange] = useState<SelectedRange | null>(null);
-  const [output, setOutput] = useState<OutputEntry[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<boolean>(false);
-  const [explorer, setExplorer] = useState<ExplorerNode[]>([]);
-  const [loadingExplorer, setLoadingExplorer] = useState<boolean>(false);
+  const [selectedRange, setSelectedRange] = useState<SelectedRange | null>(() => persisted?.selectedRange || null);
+  const [output, setOutput] = useState<OutputEntry[]>(() => persisted?.output || []);
+  const [error, setError] = useState<string | null>(() => persisted?.error || null);
+  const [busy, setBusy] = useState<boolean>(() => persisted?.busy || false);
+  const [explorer, setExplorer] = useState<ExplorerNode[]>(() => persisted?.explorer || []);
+  const [loadingExplorer, setLoadingExplorer] = useState<boolean>(() => persisted?.loadingExplorer || false);
   const workspaceRootRef = useRef(props.workspaceRoot);
+  const previousWorkspaceRootRef = useRef(props.workspaceRoot);
   workspaceRootRef.current = props.workspaceRoot;
 
   const appendOutput = useCallback((entry: Omit<OutputEntry, 'id' | 'ts'>) => {
@@ -137,8 +221,51 @@ export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
   }, [props.client]);
 
   useEffect(() => {
+    persistWorkspaceEditorState({
+      workspaceRoot: props.workspaceRoot,
+      tabs,
+      activePath,
+      selectedRange,
+      inspector,
+      bottomPanel,
+      explorer,
+      loadingExplorer,
+      error,
+      busy,
+      output,
+      expandedDirectories
+    });
+  }, [props.workspaceRoot, tabs, activePath, selectedRange, inspector, bottomPanel, explorer, loadingExplorer, error, busy, output, expandedDirectories]);
+
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!tabs.some((tab) => tab.state === 'dirty')) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [tabs]);
+
+  useEffect(() => {
+    const workspaceChanged = previousWorkspaceRootRef.current !== props.workspaceRoot;
+    previousWorkspaceRootRef.current = props.workspaceRoot;
+    if (workspaceChanged) {
+      const reset = createWorkspaceEditorResetState();
+      setTabs(reset.tabs);
+      setActivePath(reset.activePath);
+      setSelectedRange(reset.selectedRange);
+      setInspector(reset.inspector);
+      setBottomPanel(reset.bottomPanel);
+      setExplorer(reset.explorer);
+      setLoadingExplorer(reset.loadingExplorer);
+      setError(reset.error);
+      setBusy(reset.busy);
+      setOutput(reset.output);
+      setExpandedDirectories(reset.expandedDirectories);
+    }
     void refreshExplorer();
-  }, [refreshExplorer]);
+  }, [props.workspaceRoot, refreshExplorer]);
 
   const runDiagnosticsForTab = useCallback(async (path: string) => {
     setTabs((current) => current.map((tab) => {
@@ -239,6 +366,12 @@ export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
   }, [props.initialPath]);
 
   const closeTab = useCallback((path: string) => {
+    const target = tabs.find((tab) => tab.path === path);
+    if (target?.state === 'dirty') {
+      setError(`Guarda o revierte ${path} antes de cerrarlo.`);
+      appendOutput({ channel: 'info', level: 'warn', text: `Cierre bloqueado para ${path} por cambios sin guardar` });
+      return;
+    }
     setTabs((current) => {
       const next = current.filter((tab) => tab.path !== path);
       return next;
@@ -251,7 +384,7 @@ export function useWorkspaceEditor(props: HookProps): UseWorkspaceEditorState {
     if (inspector.kind === 'file' && inspector.refId === path) {
       setInspector({ kind: null });
     }
-  }, [tabs, inspector]);
+  }, [tabs, inspector, appendOutput]);
 
   const setActive = useCallback((path: string) => {
     setActivePath(path);

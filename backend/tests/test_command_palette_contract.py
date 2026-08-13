@@ -11,9 +11,11 @@ UI_SRC = ROOT.parent / "frontend" / "src"
 class CommandPaletteContractTests(unittest.TestCase):
     def test_palette_surface_exists(self) -> None:
         app = (UI_SRC / "app" / "ControlPlane.tsx").read_text(encoding="utf-8")
+        overlays = (UI_SRC / "app" / "ControlPlaneOverlays.tsx").read_text(encoding="utf-8")
         header = (UI_SRC / "layout" / "GlobalHeader.tsx").read_text(encoding="utf-8")
-        self.assertIn("command-palette-backdrop", app)
-        self.assertIn("Comandos rápidos", app)
+        self.assertIn("command-palette-backdrop", overlays)
+        self.assertIn("Comandos rápidos", overlays)
+        self.assertIn("CommandPalette", app)
         self.assertIn("WorkspacePickerDialog", app)
         self.assertIn("Abrir comandos con Ctrl K", header)
 

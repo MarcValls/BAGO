@@ -1,0 +1,11 @@
+/* Toolbar extras */
+.toolbar-save-button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; font-size: 12px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-2);
+  cursor: pointer;
+}
+.toolbar-save-button:disabled { opacity: 0.6; cursor: default; }
+.toolbar-save-button.state-dirty { color: var(--text); border-color: rgba(120,180,255,0.4); background: rgba(120,180,255,0.08); }
+.toolbar-save-button.state-saving { color: var(--accent); }

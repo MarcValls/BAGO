@@ -1,0 +1,194 @@
+{
+  "name": "BAGO Codex Workpack",
+  "version": "1.0.0",
+  "generated_for": "MarcValls/BAGO",
+  "generated_on": "2026-08-12",
+  "minimum_codex_cli": "0.144.0",
+  "notes": [
+    "GPT-5.6 Sol/Terra/Luna routing is explicit.",
+    "Audit tasks do not use danger-full-access.",
+    "Source-changing tasks are separated from audit tasks."
+  ],
+  "tasks": [
+    {
+      "id": "00-preflight",
+      "title": "Fijar objeto auditado",
+      "model": "gpt-5.6-luna",
+      "reasoning": "low",
+      "sandbox": "read-only",
+      "agent": "bago_repo_explorer",
+      "prompt": "tasks/00-preflight.md",
+      "requires_extra": false
+    },
+    {
+      "id": "01-inventory",
+      "title": "Inventario completo",
+      "model": "gpt-5.6-terra",
+      "reasoning": "medium",
+      "sandbox": "read-only",
+      "agent": "bago_repo_explorer",
+      "prompt": "tasks/01-inventory.md",
+      "requires_extra": false
+    },
+    {
+      "id": "02-architecture",
+      "title": "Arquitectura real y God Components",
+      "model": "gpt-5.6-sol",
+      "reasoning": "max",
+      "sandbox": "read-only",
+      "agent": "bago_architecture_auditor",
+      "prompt": "tasks/02-architecture.md",
+      "requires_extra": false
+    },
+    {
+      "id": "03-frontend",
+      "title": "Frontend completo",
+      "model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "sandbox": "read-only",
+      "agent": "bago_frontend_auditor",
+      "prompt": "tasks/03-frontend.md",
+      "requires_extra": false
+    },
+    {
+      "id": "04-backend",
+      "title": "Backend completo",
+      "model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "sandbox": "read-only",
+      "agent": "bago_backend_auditor",
+      "prompt": "tasks/04-backend.md",
+      "requires_extra": false
+    },
+    {
+      "id": "05-contracts",
+      "title": "Contratos frontend-backend",
+      "model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "sandbox": "read-only",
+      "agent": "bago_contracts_auditor",
+      "prompt": "tasks/05-contracts.md",
+      "requires_extra": false
+    },
+    {
+      "id": "06-workspace",
+      "title": "Workspace en profundidad",
+      "model": "gpt-5.6-sol",
+      "reasoning": "high",
+      "sandbox": "read-only",
+      "agent": "bago_architecture_auditor",
+      "prompt": "tasks/06-workspace.md",
+      "requires_extra": false
+    },
+    {
+      "id": "07-features",
+      "title": "Agents, Interpreter y GitHub",
+      "model": "gpt-5.6-sol",
+      "reasoning": "high",
+      "sandbox": "read-only",
+      "agent": "bago_architecture_auditor",
+      "prompt": "tasks/07-features.md",
+      "requires_extra": false
+    },
+    {
+      "id": "08-security",
+      "title": "Seguridad y trust boundaries",
+      "model": "gpt-5.6-sol",
+      "reasoning": "max",
+      "sandbox": "read-only",
+      "agent": "bago_security_auditor",
+      "prompt": "tasks/08-security.md",
+      "requires_extra": false
+    },
+    {
+      "id": "09-tests-ci",
+      "title": "Tests, build, CI y runtime",
+      "model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "sandbox": "workspace-write",
+      "agent": "bago_test_auditor",
+      "prompt": "tasks/09-tests-ci.md",
+      "requires_extra": false
+    },
+    {
+      "id": "10-hygiene",
+      "title": "Dead code, legacy, dependencias, CSS y docs",
+      "model": "gpt-5.6-luna",
+      "reasoning": "medium",
+      "sandbox": "read-only",
+      "agent": "bago_hygiene_scanner",
+      "prompt": "tasks/10-hygiene.md",
+      "requires_extra": false
+    },
+    {
+      "id": "11-performance",
+      "title": "Performance",
+      "model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "sandbox": "read-only",
+      "agent": "bago_performance_auditor",
+      "prompt": "tasks/11-performance.md",
+      "requires_extra": false
+    },
+    {
+      "id": "12-truth-authority",
+      "title": "Estado, evidencia y verdad operacional",
+      "model": "gpt-5.6-sol",
+      "reasoning": "max",
+      "sandbox": "read-only",
+      "agent": "bago_truth_auditor",
+      "prompt": "tasks/12-truth-authority.md",
+      "requires_extra": false
+    },
+    {
+      "id": "13-synthesis",
+      "title": "Síntesis integral",
+      "model": "gpt-5.6-sol",
+      "reasoning": "max",
+      "sandbox": "read-only",
+      "agent": "bago_architecture_auditor",
+      "prompt": "tasks/13-synthesis.md",
+      "requires_extra": false
+    },
+    {
+      "id": "14-refactor-plan",
+      "title": "Plan de corrección por PR",
+      "model": "gpt-5.6-sol",
+      "reasoning": "max",
+      "sandbox": "read-only",
+      "agent": "bago_refactor_planner",
+      "prompt": "tasks/14-refactor-plan.md",
+      "requires_extra": false
+    },
+    {
+      "id": "20-implement-approved-pr",
+      "title": "Implementar PR aprobado",
+      "model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "sandbox": "workspace-write",
+      "agent": "bago_implementation_worker",
+      "prompt": "tasks/20-implement-approved-pr.md",
+      "requires_extra": true
+    },
+    {
+      "id": "21-mechanical-approved",
+      "title": "Cambio mecánico aprobado",
+      "model": "gpt-5.6-luna",
+      "reasoning": "medium",
+      "sandbox": "workspace-write",
+      "agent": "bago_mechanical_worker",
+      "prompt": "tasks/21-mechanical-approved.md",
+      "requires_extra": true
+    },
+    {
+      "id": "22-verify-change",
+      "title": "Verificación independiente",
+      "model": "gpt-5.6-sol",
+      "reasoning": "max",
+      "sandbox": "read-only",
+      "agent": "bago_final_verifier",
+      "prompt": "tasks/22-verify-change.md",
+      "requires_extra": true
+    }
+  ]
+}

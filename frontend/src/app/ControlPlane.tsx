@@ -11,11 +11,11 @@ import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
 import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
-import { DrawerOverlay } from '@/components/DrawerOverlay';
+import { DrawerOverlay } from '@/components/ui/DrawerOverlay';
 import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
 import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 import { ToolsPanel } from '@/features/tools/ToolsPanel';
-import { PanelHost, PANEL_WIDTHS } from '@/components/PanelHost';
+import { PanelHost, PANEL_WIDTHS } from '@/components/ui/PanelHost';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -1186,9 +1186,9 @@ export function ControlPlane() {
     const previousModel = sessionModel;
     setSessionModelState(modelKey);
     try {
-      const result = await clientRef.current.setSessionModel(modelKey);
-      const confirmedModel = (result.session_model as string | null | undefined)
-        ?? (result.model as string | null | undefined)
+      const sessionModelResult = await clientRef.current.setSessionModel(modelKey);
+      const confirmedModel = (sessionModelResult?.session_model as string | null | undefined)
+        ?? (sessionModelResult?.model as string | null | undefined)
         ?? modelKey;
       setSessionModelState(confirmedModel ?? null);
       await refreshAfterMutation();

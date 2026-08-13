@@ -1,0 +1,72 @@
+/* App shell */
+.app-root { width: 100%; min-width: 0; height: 100vh; display: grid; grid-template-rows: var(--header-height) minmax(0,1fr) var(--status-height); background: var(--bg); overflow-x: clip; }
+.app-root.mode-focus, .app-root.mode-review { grid-template-rows: var(--header-height) minmax(0,1fr); }
+.global-header {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(16px);
+}
+.header-leading, .header-actions, .header-brand, .header-brand > div:last-child, .header-location { display: flex; align-items: center; min-width: 0; max-width: 100%; }
+.header-leading { gap: 11px; flex: 1 1 auto; overflow: hidden; }
+.header-brand { gap: 10px; }
+.header-brand.is-clickable { padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: left; }
+.header-brand.is-clickable:hover strong, .header-brand.is-clickable:hover span { color: var(--text); }
+.header-brand.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.header-brand > div:last-child { align-items: flex-start; flex-direction: column; }
+.header-brand strong { font-size: 13px; letter-spacing: .07em; }
+.header-brand span { max-width: 160px; color: var(--text-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-mark { width: 32px; height: 32px; border-radius: var(--radius-sm); font-size: 13px; }
+.header-divider { width: 1px; height: 24px; background: var(--border); }
+.header-location { flex-direction: column; align-items: flex-start; }
+.header-location > span { font-weight: 670; font-size: 13px; }
+.header-location small { max-width: min(32vw, 410px); color: var(--text-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-actions { gap: 5px; justify-content: flex-end; flex: 0 1 auto; flex-wrap: nowrap; overflow: hidden; }
+.header-state { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border-radius: var(--radius-sm); font-size: 11px; border: 1px solid transparent; }
+.model-chip { display: flex; align-items: center; gap: 7px; max-width: 180px; height: 32px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); color: var(--text-2); font-size: 11px; }
+.model-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-button { min-width: 0; min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); background: transparent; color: var(--text-2); font-size: 12px; }
+.header-button:hover, .header-button.is-active { color: var(--text); background: var(--surface-3); }
+.header-button kbd { padding: 2px 5px; border-radius: 4px; color: var(--text-3); background: var(--bg-soft); border: 1px solid var(--border); font-size: 9px; }
+.connection-popover { position: absolute; top: 45px; right: 0; width: 320px; display: grid; gap: 13px; padding: 16px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.connection-popover-head { display: flex; align-items: center; justify-content: space-between; }
+.connection-popover-head > div { display: grid; gap: 3px; }
+.connection-popover-head span { color: var(--text-3); font-size: 11px; }
+.connection-command-row { display: flex; gap: 8px; }
+.connection-command-row button { flex: 1; min-height: 32px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+.focus-header .header-brand.compact { gap: 10px; }
+.focus-header-actions { display: flex; gap: 8px; }
+
+.header-theme-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.header-theme-picker span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.header-theme-picker select {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  height: 24px;
+  padding: 0 6px;
+}

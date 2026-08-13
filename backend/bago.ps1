@@ -92,10 +92,10 @@ function Get-SelectedRolePath([string]$role, [string]$fallback) {
 function Resolve-PreferredDevRoot {
     $selectedDev = Get-SelectedRolePath 'dev' ''
     if ($selectedDev) { return $selectedDev }
+    $monorepoBackend = Join-Path $env:USERPROFILE 'BAGO\backend'
+    if (Test-Path (Join-Path $monorepoBackend 'bago_core\cli.py')) { return $monorepoBackend }
     $repoDev = Join-Path $env:USERPROFILE 'bago_fw'
     if (Test-Path $repoDev) { return $repoDev }
-    $legacyDev = Join-Path $env:USERPROFILE 'BAGO'
-    if (Test-Path $legacyDev) { return $legacyDev }
     return $repoDev
 }
 

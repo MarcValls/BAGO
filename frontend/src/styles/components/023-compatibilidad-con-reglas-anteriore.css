@@ -1,0 +1,15 @@
+/* Compatibilidad con reglas anteriores */
+.chat-composer-label { display: none; }
+.chat-composer-meta { display: none; }
+.chat-composer-model-info { display: none; }
+.composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 7px; border-top: 1px solid var(--border); }
+.composer-hint { color: var(--text-3); font-size: 9px; }
+.composer-hint kbd { padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
+.composer-buttons { display: flex; align-items: center; gap: 6px; }
+.send-button { min-height: 34px; padding: 0 13px; border-radius: 8px; font-size: 12px; }
+.composer-blocked { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; padding: 7px 9px; border-radius: 7px; color: var(--red); background: var(--red-soft); font-size: 10px; }
+
+@media (max-width: 980px) {
+  .home-hero-stats { min-width: 0; width: 100%; grid-template-columns: 1fr; }
+  .home-bento, .home-card-grid, .home-snapshot-grid { grid-template-columns: 1fr; }
+}

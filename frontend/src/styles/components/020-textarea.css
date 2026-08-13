@@ -1,0 +1,17 @@
+/* Textarea */
+.chat-composer-textarea {
+  width: 100%;
+  min-height: 64px;
+  max-height: 240px;
+  padding: 10px 12px 6px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  resize: none;
+  font-family: inherit;
+}
+.chat-composer-textarea::placeholder { color: var(--text-3); }
+.chat-composer-textarea:disabled { opacity: 0.5; cursor: not-allowed; }

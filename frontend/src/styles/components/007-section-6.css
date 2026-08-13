@@ -1,0 +1,31 @@
+/* El cuerpo es el scroller canónico de las pantallas documentales.
+   Las superficies interactivas con scroll interno lo desactivan debajo.
+
+   FIX v0.2.1 (segundo): padding lateral 0 para que el contenido se
+   "pegue" a los bordes. Las cards internos ya tienen su propio
+   padding (17-21px), no se ven afectados visualmente. El padding
+   bottom se mantiene en 26px para que el último card no toque el
+   borde inferior (espacio de respiración). */
+.surface-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0 26px;
+  scrollbar-color: transparent transparent;
+}
+.workspace-shell.section-workspace { height: 100%; }
+.workspace-shell.section-workspace .surface-body { padding: 0; overflow: hidden; flex: 1 1 auto; min-height: 0; }
+.workspace-shell.section-workspace .workspace-editor { height: 100%; }
+.workspace-shell.section-workspace .workspace-editor-grid { min-height: 0; }
+.workspace-shell.mode-focus .surface-body { padding: 0; }
+.workspace-shell.section-workspace .surface-body { padding: 0; overflow: hidden; flex: 1; min-height: 0; }
+.workspace-shell.section-chat .surface-body,
+.workspace-shell.section-graph .surface-body,
+.workspace-shell.section-context .surface-body,
+.workspace-shell.section-system .surface-body {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.workspace-shell.mode-review .surface-body { width: min(1040px, 100%); margin: 0 auto; padding: 28px; }

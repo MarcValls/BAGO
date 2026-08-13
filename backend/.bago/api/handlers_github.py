@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
 from handler_support import safe_handler
+from api_response import send_error
+from bago_core.atomic_json import write_json_atomic
 
 _REPO_FILE = ".bago_github_repo.json"
 _REPO_RE = re.compile(r"^(?:https?://github\.com/)?([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
@@ -136,20 +138,20 @@ def handle_connect(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     try:
         repo = _repo_value(body.get("repo"))
     except ValueError as exc:
-        _send(handler, 400, {"ok": False, "error": str(exc)})
+        send_error(handler, 400, "invalid_repository", str(exc))
         return
     code, raw, error = _run_gh(["api", f"repos/{repo}"])
     if code != 0:
-        _send(handler, 403 if code == 4 else 400, {"ok": False, "error": error or raw or "No se pudo leer el repositorio"})
+        send_error(handler, 403 if code == 4 else 400, "github_repository_unavailable", error or raw or "No se pudo leer el repositorio")
         return
     try:
         details = json.loads(raw)
     except json.JSONDecodeError:
-        _send(handler, 502, {"ok": False, "error": "GitHub devolvió una respuesta no válida"})
+        send_error(handler, 502, "github_invalid_response", "GitHub devolvió una respuesta no válida")
         return
     state = _state(handler)
     state.mkdir(parents=True, exist_ok=True)
-    (state / _REPO_FILE).write_text(json.dumps({"repo": repo}, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json_atomic(state / _REPO_FILE, {"repo": repo})
     _send(handler, 200, {"ok": True, "repo": repo, "repository": details, "knowledge_source": f"github:{repo}"})
 
 

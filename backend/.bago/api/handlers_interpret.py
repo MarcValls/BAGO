@@ -46,15 +46,16 @@ def _analyze(mgr: Any, question: str) -> dict[str, Any]:
 
 def handle_post(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     from api_serializers import send_json
+    from api_response import send_error
     from reflexive_interpreter import format_reflexive_report
 
     mgr = _mgr(handler)
     if mgr is None:
-        send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+        send_error(handler, 503, "session_manager_unavailable", "SessionManager no disponible")
         return
     question = _question_from_body(body)
     if not question:
-        send_json(handler, 400, {"ok": False, "error": "Campo 'question' requerido"})
+        send_error(handler, 400, "question_required", "Campo 'question' requerido")
         return
 
     analysis = _analyze(mgr, question)
@@ -82,13 +83,14 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None
 
 def handle_history(handler: "BaseHTTPRequestHandler") -> None:
     from api_serializers import send_json
+    from api_response import send_error
 
     mgr = _mgr(handler)
     if mgr is None:
-        send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+        send_error(handler, 503, "session_manager_unavailable", "SessionManager no disponible")
         return
     if not hasattr(mgr, "reflexive_audit_tail"):
-        send_json(handler, 503, {"ok": False, "error": "Auditoria reflexiva no disponible"})
+        send_error(handler, 503, "reflexive_audit_unavailable", "Auditoria reflexiva no disponible")
         return
 
     parsed = urlparse(getattr(handler, "path", ""))

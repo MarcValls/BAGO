@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from bago_core.atomic_json import append_text_durable, read_json, write_json_atomic, write_text_atomic
+
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 for _stream in (sys.stdout, sys.stderr):
@@ -419,9 +421,7 @@ class ContextStore:
                 return False
             messages[index].metadata["good"] = True
             # Rewrite file
-            self._context_path.write_text("", encoding="utf-8")
-            for m in self._messages:
-                self._append_jsonl(self._context_path, m.to_dict())
+            self._write_jsonl(self._context_path, (message.to_dict() for message in self._messages))
         self.add_timeline_event(TimelineEvent("session", "mark_good", f"Mensaje {index} marcado como good"))
         return True
 
@@ -451,9 +451,7 @@ class ContextStore:
         with self._lock:
             target = self.active_conversation_id
             self._messages = [message for message in self._messages if _conversation_id(message.conversation_id) != target]
-            self._context_path.write_text("", encoding="utf-8")
-            for message in self._messages:
-                self._append_jsonl(self._context_path, message.to_dict())
+            self._write_jsonl(self._context_path, (message.to_dict() for message in self._messages))
             self._meta["conversations"][target]["updated_at"] = datetime.now(timezone.utc).isoformat()
             self._save_meta()
         self.add_timeline_event(TimelineEvent("session", "clear", "Historial limpiado"))
@@ -565,22 +563,20 @@ class ContextStore:
         return items
 
     def _append_jsonl(self, path: Path, obj: dict) -> None:
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        append_text_durable(path, json.dumps(obj, ensure_ascii=False) + "\n")
+
+    def _write_jsonl(self, path: Path, items: Iterable[dict[str, Any]]) -> None:
+        lines = [json.dumps(item, ensure_ascii=False) for item in items]
+        write_text_atomic(path, "\n".join(lines) + ("\n" if lines else ""))
 
     def _load_json(self, path: Path, default: Any = None) -> Any:
-        if not path.exists():
-            return default
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return default
+        return read_json(path, default)
 
     def _save_tokens(self) -> None:
-        self._tokens_path.write_text(json.dumps(self._tokens, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_json_atomic(self._tokens_path, self._tokens)
 
     def _save_meta(self) -> None:
-        self._meta_path.write_text(json.dumps(self._meta, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_json_atomic(self._meta_path, self._meta)
 
     @staticmethod
     def _resolve_base_dir() -> Path:
@@ -617,9 +613,7 @@ class ContextStore:
                 if _conversation_id(message.conversation_id) != target or id(message) in kept_ids
             ]
             # Rewrite file
-            self._context_path.write_text("", encoding="utf-8")
-            for m in self._messages:
-                self._append_jsonl(self._context_path, m.to_dict())
+            self._write_jsonl(self._context_path, (message.to_dict() for message in self._messages))
         self.add_timeline_event(
             TimelineEvent("conversation", "compress", f"Historial {target} comprimido a {len(kept)} mensajes")
         )

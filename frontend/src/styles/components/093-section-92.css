@@ -1,0 +1,84 @@
+/* =====================
+   Agent Editor Panel
+   ===================== */
+.agent-editor-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.agent-editor-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.agent-editor-panel .panel-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.agent-editor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.agent-list-pane {
+  width: 200px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.agent-list-pane ul { list-style: none; margin: 0; padding: 8px; }
+.agent-list-pane li { margin-bottom: 2px; }
+.agent-list-pane button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.agent-list-pane button:hover { background: var(--surface-2); color: var(--text); }
+.agent-list-pane button.active { background: var(--accent-soft); color: var(--accent); }
+.agent-form-pane {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.agent-form-group { display: flex; flex-direction: column; gap: 4px; }
+.agent-form-group label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; }
+.agent-form-group input,
+.agent-form-group textarea,
+.agent-form-group select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.agent-form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; line-height: 1.5; }
+.agent-form-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.agent-dirty-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--amber-soft);
+  color: var(--amber);
+}

@@ -9,7 +9,7 @@ const workGraph = readFileSync(new URL('../src/features/graph/WorkGraph.tsx', im
 describe('context action flow', () => {
   it('opens Contexto in the focused action view and keeps advanced tools available', () => {
     expect(contextModule).toContain("type ContextWorkbenchView = 'focus' | 'tasks' | 'library' | 'advanced'");
-    expect(contextModule).toContain("return 'focus'");
+    expect(contextModule).toContain("|| 'focus'");
     for (const label of ['Ahora', 'Tareas', 'Biblioteca']) expect(contextModule).toContain(`'${label}'`);
     expect(contextModule).toContain('Configuración avanzada');
   });

@@ -121,6 +121,28 @@ function Build-Frontend {
     return $true
 }
 
+function Ensure-PackagedViewer {
+    $viewerRoot = $ElectronDir
+    $electronBin = Join-Path $viewerRoot "node_modules\electron\dist\electron.exe"
+    if (-not (Test-Path $electronBin)) {
+        Err "electron no esta instalado en $viewerRoot"
+        return $false
+    }
+    Log "empaquetando electron viewer..."
+    Push-Location $viewerRoot
+    try {
+        npm run build
+        $exitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    if ($exitCode -ne 0) {
+        Err "no se pudo empaquetar electron viewer"
+        return $false
+    }
+    return $true
+}
+
 # --- Electron ----------------------------------------------
 function Start-Electron {
     $pidfile = Join-Path $Run "electron.pid"
@@ -206,6 +228,7 @@ $action = if ($args.Count -gt 0) { $args[0] } else { "start" }
 switch ($action) {
     "start"   {
         if (-not (Build-Frontend)) { exit 1 }
+        if (-not (Ensure-PackagedViewer)) { exit 1 }
         if (-not (Start-Backend)) { exit 1 }
         if (-not (Start-Electron)) { Stop-Backend; exit 1 }
         ""; Show-Status; ""; Log "logs: .\scripts\dev.ps1 logs  |  parar: .\scripts\dev.ps1 stop"

@@ -41,6 +41,11 @@ import { mergeProviderStates } from '@/shared/providerStates';
 import { PIPELINE_TASK_MAX_LENGTH } from '@/shared/inputLimits';
 import { ConfirmDialog } from '@/lib/ConfirmDialog';
 import { MemoryOperations, ProviderRuntimeTools, VisionOperations } from '@/layout/OperationalTools';
+import { workspaceScopedStorageKey } from '@/shared/workspaceStateKeys';
+
+export function workspaceSectionStorageKey(workspaceRoot: string, suffix: string): string {
+  return workspaceScopedStorageKey(workspaceRoot, `section.${suffix}`);
+}
 
 interface Props {
   section: 'home' | 'chat' | 'workspace' | 'pipeline' | 'evidence' | 'context' | 'system';

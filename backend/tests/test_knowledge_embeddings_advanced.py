@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import tempfile
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 
 
 def test_fts_tracks_ids_and_deprecation():
@@ -19,6 +21,37 @@ def test_fts_tracks_ids_and_deprecation():
             assert store.count(include_deprecated=True) == 2
         finally:
             store.close()
+
+
+def test_knowledge_store_uses_concurrency_pragmas_and_serializes_threads(tmp_path):
+    from knowledge_base import KnowledgeBase
+
+    store = KnowledgeBase(state_root=str(tmp_path))
+    try:
+        conn = store._connect()
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 30000
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            ids = list(pool.map(lambda index: store.add(f"memory-{index}", "thread-test"), range(20)))
+        assert len(set(ids)) == 20
+        assert store.count() == 20
+    finally:
+        store.close()
+
+
+def test_two_knowledge_instances_share_one_wal_database(tmp_path):
+    from knowledge_base import KnowledgeBase
+
+    first = KnowledgeBase(state_root=str(tmp_path))
+    second = KnowledgeBase(state_root=str(tmp_path))
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            list(pool.map(lambda item: item[0].add(item[1], "multi-instance"), [(first, "one"), (second, "two")]))
+        assert first.count() == 2
+        assert second.count() == 2
+    finally:
+        first.close()
+        second.close()
 
 
 def test_embedding_store_validates_upserts_filters_and_removes():
@@ -41,6 +74,67 @@ def test_embedding_store_validates_upserts_filters_and_removes():
             assert stats["min_dim"] == stats["max_dim"] == 2
         finally:
             store.close()
+
+
+def test_embedding_store_uses_wal_and_serializes_threaded_writes(tmp_path):
+    from embedding_store import EmbeddingStore
+
+    store = EmbeddingStore(state_root=str(tmp_path))
+    try:
+        assert store.conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert store.conn.execute("PRAGMA busy_timeout").fetchone()[0] == 30000
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            ids = list(pool.map(
+                lambda index: store.add(memory_id=f"m-{index}", content=f"value-{index}", vector=[1.0, float(index)]),
+                range(20),
+            ))
+        assert len(set(ids)) == 20
+        assert store.stats()["total"] == 20
+    finally:
+        store.close()
+
+
+def test_two_embedding_instances_share_one_wal_database(tmp_path):
+    from embedding_store import EmbeddingStore
+
+    first = EmbeddingStore(state_root=str(tmp_path))
+    second = EmbeddingStore(state_root=str(tmp_path))
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            list(pool.map(
+                lambda item: item[0].add(memory_id=item[1], content=item[1], vector=[1.0, 0.0]),
+                [(first, "first"), (second, "second")],
+            ))
+        assert first.stats()["total"] == 2
+        assert second.stats()["total"] == 2
+    finally:
+        first.close()
+        second.close()
+
+
+def test_embedding_failed_write_rolls_back_transaction(tmp_path):
+    from embedding_store import EmbeddingStore
+
+    store = EmbeddingStore(state_root=str(tmp_path))
+    try:
+        store.add(memory_id="kept", content="kept", vector=[1.0, 0.0])
+        store.conn.execute(
+            """CREATE TRIGGER reject_embedding BEFORE INSERT ON embeddings
+               WHEN NEW.memory_id = 'rejected'
+               BEGIN SELECT RAISE(ABORT, 'forced failure'); END"""
+        )
+        store.conn.commit()
+        try:
+            store.add(memory_id="rejected", content="rejected", vector=[0.0, 1.0])
+        except sqlite3.IntegrityError:
+            pass
+        else:
+            raise AssertionError("forced SQLite failure was not raised")
+        assert store.stats()["total"] == 1
+        store.add(memory_id="after", content="after", vector=[0.5, 0.5])
+        assert store.stats()["total"] == 2
+    finally:
+        store.close()
 
 
 def test_memory_http_contract_supports_status_hybrid_search_and_upsert(tmp_path, monkeypatch):

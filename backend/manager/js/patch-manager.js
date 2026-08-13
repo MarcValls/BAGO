@@ -40,10 +40,18 @@ let pmManagerHealth=null;
 let pmMutationBusy=false;
 let pmSelectedJobId='';
 let pmSessionAudit=[{time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),action:'manager',detail:'Gestor Patch-first iniciado'}];
-let pmAuditTab=localStorage.getItem('bago.pm.audit.tab')||'project';
-let pmAuditMetricsOpen=localStorage.getItem('bago.pm.audit.metrics')==='1';
+function pmWorkspaceScopeKey(){
+  const status=(typeof nodeCache!=='undefined'&&nodeCache&&nodeCache.status)||{};
+  const raw=status.project_root||status.workspace_state_root||status.workspace_scope_root||status.repo_root||status.store_root||'global';
+  return String(raw).trim().replace(/[\\/:*?"<>|]+/g,'_')||'global';
+}
+function pmStorageKey(suffix){return 'bago.pm.'+pmWorkspaceScopeKey()+'::'+suffix;}
+function pmReadStored(key,fallback){try{return localStorage.getItem(pmStorageKey(key))||fallback;}catch{return fallback;}}
+function pmWriteStored(key,value){try{localStorage.setItem(pmStorageKey(key),value);}catch{}}
+let pmAuditTab=pmReadStored('audit.tab','project');
+let pmAuditMetricsOpen=pmReadStored('audit.metrics','1')==='1';
 let pmAuditState={project:null,bago:null,loaded_at:'',events:[]};
-let pmMatrixTransposed=localStorage.getItem('bago.pm.matrix.transposed')==='1';
+let pmMatrixTransposed=pmReadStored('matrix.transposed','1')==='1';
 
 function pmModeClass(mode){return String(mode||'available').replace(/\s+/g,'-');}
 function pmFormatBytes(value){
@@ -130,7 +138,7 @@ function pmCompareMatrixValues(a,b,direction){
 }
 function pmMatrixToggleTransposed(next){
   pmMatrixTransposed=!!next;
-  localStorage.setItem('bago.pm.matrix.transposed', pmMatrixTransposed ? '1' : '0');
+  pmWriteStored('matrix.transposed', pmMatrixTransposed ? '1' : '0');
 }
 function pmTransposeMatrix(){
   pmMatrixToggleTransposed(!pmMatrixTransposed);
@@ -272,7 +280,7 @@ function pmRenderInstallSelector(){
   select.value=pmSelectedInstallation;
 }
 function pmStoredPosition(key){
-  try{return JSON.parse(localStorage.getItem('bago.pm.pos.'+key)||'null');}catch{return null;}
+  try{return JSON.parse(pmReadStored('pos.'+key,'null')||'null');}catch{return null;}
 }
 function pmRenderPatch(){
   pmEnsureSelection();
@@ -342,7 +350,7 @@ function pmStartDrag(event){
     const y=Math.max(5,Math.min(95,originY+(ev.clientY-startY)/rect.height*100));
     if(Math.abs(ev.clientX-startX)+Math.abs(ev.clientY-startY)>4)moved=true;
     node.style.left=x+'%';node.style.top=y+'%';
-    localStorage.setItem('bago.pm.pos.'+key,JSON.stringify({x,y}));
+    pmWriteStored('pos.'+key,JSON.stringify({x,y}));
     pmUpdatePatchLines();
   };
   const up=()=>{node.removeEventListener('pointermove',move);if(moved)pmAudit('layout','Connector recolocado: '+key);};
@@ -1022,13 +1030,13 @@ function pmInit(){
   document.querySelectorAll('[data-pm-view]').forEach(btn=>btn.addEventListener('click',()=>pmSwitchView(btn.getAttribute('data-pm-view')||'patch')));
   document.querySelectorAll('[data-audit-tab]').forEach(btn=>btn.addEventListener('click',async()=>{
     pmAuditTab=btn.getAttribute('data-audit-tab')||'project';
-    localStorage.setItem('bago.pm.audit.tab',pmAuditTab);
+    pmWriteStored('audit.tab',pmAuditTab);
     await pmLoadAudit();
   }));
   const metricsToggle=document.getElementById('pm-audit-toggle-metrics');
   if(metricsToggle)metricsToggle.addEventListener('click',()=>{
     pmAuditMetricsOpen=!pmAuditMetricsOpen;
-    localStorage.setItem('bago.pm.audit.metrics',pmAuditMetricsOpen?'1':'0');
+    pmWriteStored('audit.metrics',pmAuditMetricsOpen?'1':'0');
     pmRenderAudit();
   });
   document.getElementById('pm-search').addEventListener('input',ev=>{pmSearch=ev.target.value.trim().toLowerCase();renderPatchManager();});
@@ -1060,7 +1068,7 @@ function pmInit(){
   document.querySelectorAll('[data-audit-action]').forEach(btn=>btn.addEventListener('click',async()=>pmHandleAuditAction(btn.getAttribute('data-audit-action')||'')));
   document.getElementById('pm-refresh').addEventListener('click',async()=>{pmAudit('refresh','Runtime, releases, salud y Node Control');await Promise.all([refreshAll([]),loadNodeData(),pmLoadHealth(),pmLoadAudit()]);});
   document.getElementById('pm-reset-layout').addEventListener('click',()=>{
-    Object.keys(localStorage).filter(k=>k.startsWith('bago.pm.pos.')).forEach(k=>localStorage.removeItem(k));
+    Object.keys(localStorage).filter(k=>k.startsWith(pmStorageKey('pos.'))).forEach(k=>localStorage.removeItem(k));
     pmAudit('layout','Posiciones restablecidas');pmRenderPatch();
   });
   document.getElementById('pm-scan-manual').addEventListener('click',async()=>{

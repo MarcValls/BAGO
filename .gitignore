@@ -54,6 +54,12 @@ desktop.ini
 *.swo
 *~
 
+# Local audit executions and screenshots
+/.codex/agents/*.bak.*
+/.codex/bago-workpack/reports/
+/output/
+/releases/bago-*-assets/
+
 # Backups
 *.tar.gz
 *.zip

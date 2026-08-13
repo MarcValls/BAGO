@@ -60,6 +60,9 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None
     try:
         if action == "create":
             conversation = mgr.store.create_conversation(str(body.get("title") or ""))
+            history = mgr.store.get_history(conversation_id=conversation["conversation_id"])
+            conversation["message_count"] = len(history)
+            conversation["preview"] = ""
         elif action == "switch":
             conversation = mgr.store.switch_conversation(conversation_id)
         elif action == "rename":

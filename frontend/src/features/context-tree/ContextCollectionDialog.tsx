@@ -30,7 +30,7 @@ export function ContextCollectionDialog(props: Props) {
   }, [props.open, props.busy, props.onClose]);
   useEffect(() => {
     setSelectedOperations(props.proposal?.patch.operations.map((_, index) => index) || []);
-  }, [props.proposal?.id]);
+  }, [props.proposal]);
   if (!props.open) return null;
 
   const hasProposal = Boolean(props.proposal);

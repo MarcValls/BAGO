@@ -66,7 +66,7 @@ function riskTone(risk: ContextPatchRequest['riskLevel']): string {
 }
 
 export function ContextActivityTray(props: Props) {
-  const [open, setOpen] = useState(Boolean(props.defaultOpen));
+  const [manuallyClosed, setManuallyClosed] = useState(false);
   const [tab, setTab] = useState<Tab>('pending');
 
   const groups = useMemo(() => {
@@ -84,15 +84,7 @@ export function ContextActivityTray(props: Props) {
     groups.pending.length + groups.applied.length + groups.rejected.length +
     groups.failed.length + groups.reverted.length;
 
-  useEffect(() => {
-    if (props.defaultOpen) {
-      setOpen(true);
-      return;
-    }
-    if (totalActivity === 0 && groups.receipts.length === 0) {
-      setOpen(false);
-    }
-  }, [props.defaultOpen, totalActivity, groups.receipts.length]);
+  const open = Boolean(props.defaultOpen) || (!manuallyClosed && (totalActivity > 0 || groups.receipts.length > 0));
 
   return (
     <section className={`context-activity-tray ${open ? 'is-open' : 'is-collapsed'} ${props.height ? 'is-resizable' : ''}`} style={props.height ? { flex: `0 0 ${props.height}px`, minHeight: 0 } : undefined} aria-label="Actividad contextual">
@@ -100,7 +92,7 @@ export function ContextActivityTray(props: Props) {
         <button
           type="button"
           className="context-activity-tray-toggle"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => setManuallyClosed((value) => !value)}
           aria-expanded={open}
         >
           <Icon name="tray" size={13} />

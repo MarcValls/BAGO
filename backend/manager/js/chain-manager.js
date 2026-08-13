@@ -1,9 +1,17 @@
 const PM_CHAIN_TYPES=['prompt','agent','command','tool','script','config'];
 let pmChainRegistry={version:1,updated_at:'',chains:[]};
 let pmActiveChain=null;
-let pmPatchSurface=localStorage.getItem('bago.pm.patch.surface')||'connectors';
-let pmPipelineRailMode=localStorage.getItem('bago.pm.pipeline.rail')||'library';
-let pmPipelineQuery=localStorage.getItem('bago.pm.pipeline.query')||'';
+function pmWorkspaceScopeKey(){
+  const status=(typeof nodeCache!=='undefined'&&nodeCache&&nodeCache.status)||{};
+  const raw=status.project_root||status.workspace_state_root||status.workspace_scope_root||status.repo_root||status.store_root||'global';
+  return String(raw).trim().replace(/[\\/:*?"<>|]+/g,'_')||'global';
+}
+function pmStorageKey(suffix){return 'bago.pm.'+pmWorkspaceScopeKey()+'::'+suffix;}
+function pmReadStored(key,fallback){try{return localStorage.getItem(pmStorageKey(key))||fallback;}catch{return fallback;}}
+function pmWriteStored(key,value){try{localStorage.setItem(pmStorageKey(key),value);}catch{}}
+let pmPatchSurface=pmReadStored('patch.surface','connectors');
+let pmPipelineRailMode=pmReadStored('pipeline.rail','library');
+let pmPipelineQuery=pmReadStored('pipeline.query','');
 let pmSelectedChainStageId='';
 let pmSelectedChainStepId='';
 let pmChainDirty=false;
@@ -412,7 +420,7 @@ async function pmLoadChains(){
   if(api&&api.readChainRegistry){
     try{pmChainRegistry=await api.readChainRegistry();}catch(e){showToast('No se pudieron cargar las cadenas: '+e.message,false);}
   }else{
-    try{pmChainRegistry=JSON.parse(localStorage.getItem('bago.pm.chains')||'null')||pmChainRegistry;}catch{}
+    try{pmChainRegistry=JSON.parse(pmReadStored('chains','null'))||pmChainRegistry;}catch{}
   }
   pmActiveChain=pmChainClone((pmChainRegistry.chains||[])[0]||pmDefaultChain());
   if(pmActiveChain.mode==='atomic')pmActiveChain=pmNormalizeAtomicChain(pmActiveChain);
@@ -428,7 +436,7 @@ async function pmSaveChains(){
   const api=electronApi();
   try{
     if(api&&api.writeChainRegistry)pmChainRegistry=await api.writeChainRegistry(pmChainRegistry);
-    else localStorage.setItem('bago.pm.chains',JSON.stringify(pmChainRegistry));
+    else pmWriteStored('chains',JSON.stringify(pmChainRegistry));
     pmChainDirty=false;
     pmAudit('chain','Cadena guardada: '+pmActiveChain.name);showToast('Cadena guardada',true);pmRenderChain();
   }catch(e){showToast('No se pudo guardar: '+e.message,false);}
@@ -445,15 +453,15 @@ function pmInitChains(){
   const librarySearch=document.getElementById('pm-pipeline-search');
   surface.value=pmPatchSurface;
   pmSetPatchSurfaceControls();
-  if(surface)surface.addEventListener('change',ev=>{pmPatchSurface=ev.target.value;localStorage.setItem('bago.pm.patch.surface',pmPatchSurface);pmSetPatchSurfaceControls();pmRenderPatch();});
+  if(surface)surface.addEventListener('change',ev=>{pmPatchSurface=ev.target.value;pmWriteStored('patch.surface',pmPatchSurface);pmSetPatchSurfaceControls();pmRenderPatch();});
   if(patchChain)patchChain.addEventListener('change',ev=>{const chain=(pmChainRegistry.chains||[]).find(row=>row.id===ev.target.value);if(chain){pmActiveChain=pmChainClone(chain);pmChainDirty=false;pmSelectedChainStageId='';pmSelectedChainStepId='';pmRenderChain();}});
   if(libraryRefresh)libraryRefresh.addEventListener('click',()=>pmRenderPipelineRail());
-  if(libraryMatrix)libraryMatrix.addEventListener('click',()=>{pmPipelineRailMode='matrix';localStorage.setItem('bago.pm.pipeline.rail',pmPipelineRailMode);pmRenderPipelineRail();});
+  if(libraryMatrix)libraryMatrix.addEventListener('click',()=>{pmPipelineRailMode='matrix';pmWriteStored('pipeline.rail',pmPipelineRailMode);pmRenderPipelineRail();});
   if(librarySearch)librarySearch.value=pmPipelineQuery;
-  if(librarySearch)librarySearch.addEventListener('input',ev=>{pmPipelineQuery=ev.target.value||'';localStorage.setItem('bago.pm.pipeline.query',pmPipelineQuery);pmRenderPipelineRail();});
+  if(librarySearch)librarySearch.addEventListener('input',ev=>{pmPipelineQuery=ev.target.value||'';pmWriteStored('pipeline.query',pmPipelineQuery);pmRenderPipelineRail();});
   document.querySelectorAll('[data-pipeline-rail]').forEach(tab=>tab.addEventListener('click',()=>{
     pmPipelineRailMode=tab.getAttribute('data-pipeline-rail')||'library';
-    localStorage.setItem('bago.pm.pipeline.rail',pmPipelineRailMode);
+    pmWriteStored('pipeline.rail',pmPipelineRailMode);
     pmRenderPipelineRail();
   }));
   if(fullscreen)fullscreen.addEventListener('click',async()=>{

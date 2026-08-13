@@ -1,0 +1,30 @@
+/* Autoridad del workspace: una sola señal visible, derivada del backend. */
+.workspace-authority-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-lg);
+  background: var(--amber-soft);
+  color: var(--text);
+}
+.workspace-authority-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--amber);
+}
+.workspace-authority-notice div { min-width: 0; }
+.workspace-authority-notice p { margin: 3px 0 0; color: var(--text-2); }
+.workspace-authority-notice small { display: block; margin-top: 3px; overflow: hidden; color: var(--text-3); text-overflow: ellipsis; white-space: nowrap; }
+.workspace-authority-actions { display: flex; gap: 8px; }
+@media (max-width: 760px) {
+  .workspace-authority-notice { grid-template-columns: auto minmax(0, 1fr); }
+  .workspace-authority-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}

@@ -67,6 +67,13 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
 
 export const NAVIGATION_ORDER: (ActiveSection | PanelId)[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
 
+export function resolveNavigationShortcut(key: string): ActiveSection | PanelId | null {
+  const shortcut = `Ctrl+${key}`.toLowerCase();
+  return NAVIGATION_GROUPS
+    .flatMap((group) => group.items)
+    .find((item) => item.shortcut.toLowerCase() === shortcut)?.id || null;
+}
+
 export const SECTION_LABELS: Record<ActiveSection | PanelId, string> = {
   home: 'Inicio',
   workspace: 'Workspace',

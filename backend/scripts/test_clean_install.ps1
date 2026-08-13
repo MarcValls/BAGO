@@ -60,6 +60,9 @@ try {
     if (-not $selection.roles.dev -or [System.IO.Path]::GetFullPath([string]$selection.roles.dev.path) -ne $sourceRoot) {
         throw "el instalador no preservó el rol dev existente"
     }
+    if (-not $selection.roles.launch -or [System.IO.Path]::GetFullPath([string]$selection.roles.launch.path) -ne $expectedActive) {
+        throw "el instalador no fijó el rol launch al runtime instalado"
+    }
 
     $runtimeConfigPath = Join-Path $installRoot ".bago\config.json"
     $runtimeConfig = Get-Content -LiteralPath $runtimeConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
