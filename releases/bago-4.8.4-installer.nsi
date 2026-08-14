@@ -42,6 +42,7 @@ Section "BAGO 4.8.4" SecCore
   SetShellVarContext current
 
   DetailPrint "Extrayendo payload validado..."
+  InitPluginsDir
   SetOutPath "$PLUGINSDIR\runtime"
   File /r "compiled\runtime\*.*"
 

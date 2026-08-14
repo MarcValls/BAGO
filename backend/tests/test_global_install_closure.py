@@ -40,3 +40,9 @@ def test_global_payload_validator_requires_complete_viewer() -> None:
         "scripts\\global-install-shell.ps1",
     ):
         assert required in text
+
+
+def test_nsis_initializes_plugin_directory_before_extracting_payload() -> None:
+    installer = REPOSITORY_ROOT / "releases" / "bago-4.8.4-installer.nsi"
+    text = installer.read_text(encoding="utf-8")
+    assert text.index("InitPluginsDir") < text.index('SetOutPath "$PLUGINSDIR\\runtime"')
