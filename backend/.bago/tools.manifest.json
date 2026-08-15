@@ -25,7 +25,7 @@
     },
     "cosecha": {
       "file": "cosecha.py",
-      "sha256": "42c6d9b7fd516ad582a4ead73e32f03cfc182f0722e21c0e86073ae8a690eacb",
+      "sha256": "dc48caa25e511c837471a449cd892cb480e246ce2b825f7d703e32c92e120b02",
       "cmd": "cosecha"
     },
     "dead_code": {

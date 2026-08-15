@@ -20,6 +20,7 @@ def _run_cosecha(args: list[str], *, input_text: str | None = None) -> subproces
         [PYTHON, str(TOOLS_DIR / "cosecha.py"), *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         input=input_text,
         env=env,
         timeout=30,
@@ -110,7 +111,14 @@ class TestCosechaTool(unittest.TestCase):
             project = root / "project"
             state = root / "state"
             project.mkdir()
-            subprocess.run(["git", "init"], cwd=project, capture_output=True, text=True, check=True)
+            subprocess.run(
+                ["git", "init"],
+                cwd=project,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            )
             (project / "notes.md").write_text("pendiente\n", encoding="utf-8")
 
             result = _run_cosecha(

@@ -91,6 +91,7 @@ def _git_modified_files(project_root: Path) -> list[str]:
             ["git", "-C", str(project_root), "status", "--porcelain"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=15,
         )
     except Exception:
