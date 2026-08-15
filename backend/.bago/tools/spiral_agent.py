@@ -64,6 +64,7 @@ class AgentResult:
     skill_results: list[SkillResult] = field(default_factory=list)
     state_vector: dict = field(default_factory=dict)
     harmony_scores: dict[str, float] = field(default_factory=dict)
+    llm_result: dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=timestamp_iso)
 
     def to_dict(self) -> dict:
@@ -77,6 +78,7 @@ class AgentResult:
             'skill_results': [item.to_dict() for item in self.skill_results],
             'state_vector': dict(self.state_vector),
             'harmony_scores': dict(self.harmony_scores),
+            'llm_result': dict(self.llm_result),
             'timestamp': self.timestamp,
         }
 
@@ -101,6 +103,7 @@ class BagoAgent:
         self._state_file = self._state_dir / 'state.json'
         self._gradient_file = self._state_dir / 'gradient.json'
         self._episodic_file = self._state_dir / 'episodic.json'
+        self._last_task_file = self._state_dir / 'last_task.json'
         self._state_dir.mkdir(parents=True, exist_ok=True)
         state = load_json(self._state_file, {})
         self._cycles = int(state.get('cycles', 0))
@@ -181,9 +184,80 @@ class BagoAgent:
         ctx['skill_results'] = results
         ctx['gate_log'] = gate_log
         ctx['harmony_scores'] = harmony_scores
+        task = str(ctx.get('task', '')).strip()
+        if task:
+            ctx['llm_result'] = self._run_llm_task(
+                task,
+                provider=str(ctx.get('provider', '')).strip(),
+                model=str(ctx.get('model', '')).strip(),
+            )
+
+    def _run_llm_task(self, task: str, *, provider: str, model: str) -> dict[str, Any]:
+        """Run one auditable task through BAGO's real session/provider layer."""
+        if not provider or not model:
+            result = {
+                'ok': False,
+                'error': 'agent task requires an explicit provider and model',
+                'task': task,
+            }
+            save_json(self._last_task_file, result)
+            return result
+
+        core_dir = TOOLS_DIR.parent / 'core'
+        chat_dir = TOOLS_DIR.parent / 'chat'
+        providers_dir = TOOLS_DIR.parent / 'providers'
+        for path in (core_dir, chat_dir, providers_dir):
+            text = str(path)
+            if text not in sys.path:
+                sys.path.insert(0, text)
+
+        try:
+            from session_manager import SessionManager
+
+            manager = SessionManager(
+                base_path=str(SCAN_ROOT),
+                provider=provider,
+                model=model,
+            )
+            try:
+                health = manager.status().get('health', {})
+                if not health.get('ok'):
+                    raise RuntimeError(health.get('detail', 'provider unavailable'))
+                response = manager.send(task)
+                if not response or response.lstrip().startswith('Error '):
+                    raise RuntimeError(response or 'empty provider response')
+                result = {
+                    'ok': True,
+                    'task': task,
+                    'provider': provider,
+                    'model': model,
+                    'session_id': manager.session_id,
+                    'response': response,
+                    'timestamp': timestamp_iso(),
+                }
+            finally:
+                manager.close()
+        except Exception as exc:
+            result = {
+                'ok': False,
+                'task': task,
+                'provider': provider,
+                'model': model,
+                'error': str(exc),
+                'timestamp': timestamp_iso(),
+            }
+        save_json(self._last_task_file, result)
+        return result
 
     def _step_validate(self, ctx: dict) -> None:
         results = ctx.get('skill_results', [])
+        llm_result = ctx.get('llm_result', {})
+        if llm_result and not llm_result.get('ok'):
+            ctx['validate'] = 'FAIL'
+            return
+        if llm_result and llm_result.get('ok') and not results:
+            ctx['validate'] = 'GO'
+            return
         if not results:
             ctx['validate'] = 'WARN'
             return
@@ -257,13 +331,23 @@ class BagoAgent:
                 pass  # Orchestrator no disponible — continúa sin él
         # ─────────────────────────────────────────────────────────────────────
 
-    def run(self, parent_ctx: dict | None = None) -> AgentResult:
+    def run(
+        self,
+        parent_ctx: dict | None = None,
+        *,
+        task: str = '',
+        provider: str = '',
+        model: str = '',
+    ) -> AgentResult:
         ctx: dict[str, Any] = {
             'agent_id': self.agent_id,
             'phase': self.phase,
             'parent_sv': (parent_ctx or {}).get('state_vector', {}),
             'parent_tags': (parent_ctx or {}).get('fingerprint', []),
             'last_step': '',
+            'task': task,
+            'provider': provider,
+            'model': model,
         }
         steps = [
             ('OBSERVE', self._step_observe),
@@ -301,6 +385,7 @@ class BagoAgent:
                 'next_phase': ctx.get('next_phase', self.phase),
             },
             harmony_scores=dict(ctx.get('harmony_scores', {})),
+            llm_result=dict(ctx.get('llm_result', {})),
         )
         self._save_episodic(result)
         return result
@@ -403,7 +488,22 @@ def _cmd_run(args: list[str]) -> int:
     if agent is None:
         print(f'agent not found: {args[0]}', file=sys.stderr)
         return 1
-    result = agent.run()
+    task = ''
+    provider = ''
+    model = ''
+    index = 1
+    while index < len(args):
+        option = args[index]
+        if option == '--task' and index + 1 < len(args):
+            task = args[index + 1]; index += 2
+        elif option == '--provider' and index + 1 < len(args):
+            provider = args[index + 1]; index += 2
+        elif option == '--model' and index + 1 < len(args):
+            model = args[index + 1]; index += 2
+        else:
+            print(f'unknown agent run option: {option}', file=sys.stderr)
+            return 1
+    result = agent.run(task=task, provider=provider, model=model)
     print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
     return 0 if result.validate != 'FAIL' else 1
 
@@ -468,6 +568,17 @@ def _run_tests() -> int:
         spawn_rc = _cmd_spawn(['alpha', '--phase', '3', '--skills', 'probe'])
         agent = agent_from_registry('alpha')
         result = agent.run() if agent else None
+        original_llm_runner = BagoAgent._run_llm_task
+        try:
+            BagoAgent._run_llm_task = lambda self, task, *, provider, model: {
+                'ok': True, 'task': task, 'provider': provider, 'model': model,
+                'response': 'mock response',
+            }
+            llm_result = agent.run(
+                task='inspect the workspace', provider='mock-contract', model='mock-v1',
+            ) if agent else None
+        finally:
+            BagoAgent._run_llm_task = original_llm_runner
         registry = load_agents_registry()
         state = load_json(AGENTS_STATE_DIR / 'alpha' / 'state.json', {})
         listing = list_agents()
@@ -481,6 +592,7 @@ def _run_tests() -> int:
             ('spiral_step', isinstance(result, AgentResult) and result.state_vector.get('last_step') in STEP_NAMES, 'agent completes spiral cycle'),
             ('agent_list', any(item['id'] == 'alpha' for item in listing) and list_rc == 0, 'list returns registered agent'),
             ('agent_output', 'alpha' in capture.getvalue(), 'list command prints agent id'),
+            ('agent_llm_task', isinstance(llm_result, AgentResult) and llm_result.validate == 'GO' and llm_result.llm_result.get('response') == 'mock response', 'agent task uses the provider execution bridge'),
         ]
         return print_test_results(results)
     finally:
