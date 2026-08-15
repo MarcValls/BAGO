@@ -24,8 +24,8 @@ Puedo ayudarte a resolver problemas, escribir código, depurar errores y convert
 
 ```text
 Session ID : a7da20ee-671
-Project    : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend
-Workspace  : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
+Project    : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend
+Workspace  : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
 Provider   : copilot
 Model      : gpt-5.4-mini
 Tool policy: ask (auto_allow_tools=False)

@@ -154,7 +154,7 @@ class ChatHelpExecTests(unittest.TestCase):
         buf = io.StringIO()
         with (
             patch.object(launcher, "_profile_root", return_value=Path(r"C:\Program Files\BAGO")) as profile_root,
-            patch.object(launcher, "workspace_root", return_value=Path(r"C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO")),
+            patch.object(launcher, "workspace_root", return_value=Path.home() / "AppData" / "Local" / "BAGO"),
             contextlib.redirect_stdout(buf),
         ):
             rc = launcher.cmd_profiles(type("Args", (), {})())

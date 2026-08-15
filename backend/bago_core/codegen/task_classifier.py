@@ -227,6 +227,54 @@ _TRACEBACK_RE = re.compile(
     r"(Traceback \(most recent call last\)|SyntaxError|IndentationError|ValueError|TypeError|NameError|AttributeError|ImportError|AssertionError)",
     re.IGNORECASE,
 )
+_NEGATED_MUTATION_RE = re.compile(
+    r"""
+    \b(?:
+        (?:no|nunca|jam[aá]s)\s+
+        (?:(?:quiero|queremos|necesito|necesitamos)\s+(?:que\s+)?)?
+        (?:(?:me|nos|lo|la|los|las|le|les)\s+)?
+        (?:(?:se|debes?|deber[ií]as?|vayas?\s+a)\s+)?
+        (?:
+            modificar|modifiques?|modifiquen|modifica|
+            cambiar|cambies?|cambien|cambia|
+            editar|edites?|editen|edita|
+            tocar|toques?|toquen|toca|
+            crear|crees?|creen|crea|
+            generar|generes?|generen|genera|
+            escribir|escribas?|escriban|escribe|
+            borrar|borres?|borren|borra|
+            eliminar|elimines?|eliminen|elimina|
+            refactorizar|refactorices?|refactoricen|refactoriza|
+            arreglar|arregles?|arreglen|arregla|
+            corregir|corrijas?|corrijan|corrige|
+            hacer|hagas?|hagan|haz|
+            realizar|realices?|realicen|realiza|
+            aplicar|apliques?|apliquen|aplica|
+            actualizar|actualices?|actualicen|actualiza
+        )
+        |
+        sin\s+(?:modificar|cambiar|editar|tocar|crear|generar|escribir|borrar|eliminar|refactorizar|arreglar|actualizar)
+        |
+        (?:do\s+not|don['’]?t|dont|never)\s+(?:modify|change|edit|touch|create|generate|write|delete|remove|refactor|fix|update)
+        |
+        without\s+(?:modifying|changing|editing|touching|creating|generating|writing|deleting|removing|refactoring|fixing|updating)
+    )\b
+    (?:
+        \s+(?:(?:ning[uú]n|ninguna|ningunos|ningunas|los?|las?|el|un|una|este|esta|estos|estas|ese|esa|esos|esas|any|the|this|these)\s+)?
+        (?:
+            archivos?|ficheros?|c[oó]digo|repositorios?|repos?|m[oó]dulos?|funci[oó]n|funciones|scripts?|
+            tests?|pruebas?|error(?:es)?|bugs?|cambios?|modificaciones?|ediciones?|
+            files?|code|repositories|modules|functions|changes|modifications|edits
+        )
+    )?
+    (?:
+        \s+(?:en|a|sobre|to)\s+
+        (?:(?:los?|las?|el|un|una|the)\s+)?
+        (?:archivos?|ficheros?|c[oó]digo|repositorios?|repos?|m[oó]dulos?|files?|code|repositories|modules)
+    )?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 
 
 def _looks_like_pasted_document(text: str) -> bool:
@@ -296,6 +344,17 @@ def _has_any(text: str, needles: Iterable[str]) -> bool:
     return any(needle in text for needle in needles)
 
 
+def _strip_negated_mutations(text: str) -> str:
+    """Remove explicit write prohibitions from the text used for routing.
+
+    The original request is preserved for path extraction and auditing. This
+    only prevents phrases such as ``no modifiques archivos`` from becoming a
+    positive Code Forge action because they contain ``archivo`` or ``edit``.
+    """
+
+    return " ".join(_NEGATED_MUTATION_RE.sub(" ", text).split())
+
+
 def _extract_paths(text: str) -> tuple[str, ...]:
     seen: dict[str, None] = {}
     for match in _FILE_RE.finditer(text):
@@ -347,6 +406,8 @@ def classify_code_request(
 ) -> CodeTaskClassification:
     text = (request or "").strip()
     lowered = text.lower()
+    routing_text = _strip_negated_mutations(lowered)
+    negated_mutation_ignored = routing_text != lowered
     if not text:
         return CodeTaskClassification(
             kind="unsafe_or_unsupported",
@@ -370,7 +431,7 @@ def classify_code_request(
             missing_files=(),
         )
 
-    code_signals = _has_any(lowered, _CODE_HINTS) or bool(_TRACEBACK_RE.search(text))
+    code_signals = _has_any(routing_text, _CODE_HINTS) or bool(_TRACEBACK_RE.search(routing_text))
     if allowed_files is not None:
         allowed_norm = {str(Path(path)).replace("/", "\\").lower() for path in allowed_files}
         disallowed = [
@@ -381,6 +442,8 @@ def classify_code_request(
         disallowed = []
 
     reasons: list[str] = []
+    if negated_mutation_ignored:
+        reasons.append("negated_mutation_ignored")
     if file_mentions:
         reasons.append("file_mentioned")
     if existing_files:
@@ -389,7 +452,7 @@ def classify_code_request(
         reasons.append("missing_target_detected")
 
     if _has_any(lowered, _DANGEROUS_TOKENS) or (
-        _has_any(lowered, _UNSAFE_PATH_TOKENS) and _has_any(lowered, _MODIFY_HINTS + _CREATE_HINTS + _INSPECT_HINTS)
+        _has_any(routing_text, _UNSAFE_PATH_TOKENS) and _has_any(routing_text, _MODIFY_HINTS + _CREATE_HINTS + _INSPECT_HINTS)
     ):
         reasons.append("dangerous_or_sensitive_request")
         if disallowed:
@@ -405,7 +468,7 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if file_mentions and not _has_any(lowered, _ACTION_HINTS):
+    if file_mentions and not _has_any(routing_text, _ACTION_HINTS):
         reasons.append("file_mentioned_reference_only")
         return CodeTaskClassification(
             kind="unsafe_or_unsupported",
@@ -431,15 +494,15 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _TRACEBACK_RE.search(text) or _has_any(lowered, _ERROR_HINTS):
-        if _has_any(lowered, _CREATE_HINTS):
+    if _TRACEBACK_RE.search(routing_text) or _has_any(routing_text, _ERROR_HINTS):
+        if _has_any(routing_text, _CREATE_HINTS):
             kind = "create_file"
         else:
             kind = "fix_error"
         reasons.append("error_signal_detected")
         return CodeTaskClassification(
             kind=kind,
-            confidence=_confidence(0.78, bonus=0.12 if _TRACEBACK_RE.search(text) else 0.0),
+            confidence=_confidence(0.78, bonus=0.12 if _TRACEBACK_RE.search(routing_text) else 0.0),
             reasons=tuple(reasons),
             target_files=target_files,
             is_code_request=True,
@@ -448,7 +511,7 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _REFACTOR_HINTS):
+    if _has_any(routing_text, _REFACTOR_HINTS):
         reasons.append("refactor_signal_detected")
         return CodeTaskClassification(
             kind="refactor_local",
@@ -461,7 +524,7 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _PROJECT_HINTS) and _has_any(lowered, _GENERATE_HINTS):
+    if _has_any(routing_text, _PROJECT_HINTS) and _has_any(routing_text, _GENERATE_HINTS):
         reasons.append("project_generation_signal_detected")
         return CodeTaskClassification(
             kind="generate_project",
@@ -474,9 +537,9 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if file_mentions and _has_any(lowered, _CREATE_HINTS):
+    if file_mentions and _has_any(routing_text, _CREATE_HINTS):
         reasons.append("create_signal_detected")
-        if not file_mentions and _has_any(lowered, _ADD_TEST_PHRASES):
+        if not file_mentions and _has_any(routing_text, _ADD_TEST_PHRASES):
             return CodeTaskClassification(
                 kind="add_test",
                 confidence=_confidence(0.83, bonus=0.08 if target_files else 0.0),
@@ -502,7 +565,7 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _ADD_TEST_PHRASES):
+    if _has_any(routing_text, _ADD_TEST_PHRASES):
         reasons.append("test_signal_detected")
         return CodeTaskClassification(
             kind="add_test",
@@ -515,9 +578,9 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _CREATE_HINTS):
+    if _has_any(routing_text, _CREATE_HINTS):
         reasons.append("create_signal_detected")
-        if not file_mentions and _has_any(lowered, _ADD_TEST_PHRASES):
+        if not file_mentions and _has_any(routing_text, _ADD_TEST_PHRASES):
             return CodeTaskClassification(
                 kind="add_test",
                 confidence=_confidence(0.82, bonus=0.08 if target_files else 0.0),
@@ -543,10 +606,10 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _MODIFY_HINTS):
+    if _has_any(routing_text, _MODIFY_HINTS):
         reasons.append("modify_signal_detected")
         kind = "modify_file"
-        if not target_files and not _has_any(lowered, _CODE_HINTS):
+        if not target_files and not _has_any(routing_text, _CODE_HINTS):
             kind = "unsafe_or_unsupported"
             reasons.append("no_target_or_code_hint")
             return CodeTaskClassification(
@@ -554,8 +617,8 @@ def classify_code_request(
                 confidence=_confidence(0.65),
                 reasons=tuple(reasons),
                 target_files=target_files,
-                is_code_request=bool(file_mentions or _has_any(lowered, _CODE_HINTS)),
-                blocked=bool(file_mentions or _has_any(lowered, _CODE_HINTS)),
+                is_code_request=bool(file_mentions or _has_any(routing_text, _CODE_HINTS)),
+                blocked=bool(file_mentions or _has_any(routing_text, _CODE_HINTS)),
                 existing_files=existing_files,
                 missing_files=missing_files,
             )
@@ -570,27 +633,27 @@ def classify_code_request(
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _INSPECT_HINTS):
+    if _has_any(routing_text, _INSPECT_HINTS):
         reasons.append("inspect_signal_detected")
         return CodeTaskClassification(
             kind="inspect",
             confidence=_confidence(0.74, bonus=0.08 if target_files else 0.0),
             reasons=tuple(reasons),
             target_files=target_files,
-            is_code_request=bool(file_mentions or _has_any(lowered, _CODE_HINTS)),
+            is_code_request=bool(file_mentions or _has_any(routing_text, _CODE_HINTS)),
             blocked=False,
             existing_files=existing_files,
             missing_files=missing_files,
         )
 
-    if _has_any(lowered, _EXPLAIN_HINTS):
+    if _has_any(routing_text, _EXPLAIN_HINTS):
         reasons.append("explain_signal_detected")
         return CodeTaskClassification(
             kind="explain",
             confidence=_confidence(0.72, bonus=0.08 if target_files else 0.0),
             reasons=tuple(reasons),
             target_files=target_files,
-            is_code_request=bool(file_mentions or _has_any(lowered, _CODE_HINTS)),
+            is_code_request=bool(file_mentions or _has_any(routing_text, _CODE_HINTS)),
             blocked=False,
             existing_files=existing_files,
             missing_files=missing_files,
@@ -612,7 +675,7 @@ def classify_code_request(
     return CodeTaskClassification(
         kind="unsafe_or_unsupported",
         confidence=0.0,
-        reasons=("not_a_code_request",),
+        reasons=tuple(reasons + ["not_a_code_request"]),
         target_files=(),
         is_code_request=False,
         blocked=False,

@@ -13,7 +13,6 @@ INSTALLED_MARKERS = (
     "AppData\\Local\\BAGO",
     "Program Files\\BAGO",
     "C:\\Program Files\\BAGO",
-    "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\BAGO",
 )
 MODULE_NAMES = {
     "renderer",

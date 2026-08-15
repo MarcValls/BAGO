@@ -108,7 +108,7 @@ export class BagoClient {
     }
     const effectiveTimeout = timeoutMs ?? 30_000;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+    const timer = effectiveTimeout > 0 ? setTimeout(() => controller.abort(), effectiveTimeout) : undefined;
     let response: Response;
     try {
       response = await fetch(this.url(path), {
@@ -117,7 +117,7 @@ export class BagoClient {
         signal: controller.signal
       });
     } finally {
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
     }
     if (!response.ok) {
       const errorText = await response.text();
@@ -918,7 +918,7 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/chat', {
       method: 'POST',
       body
-    }, 150_000);
+    }, 0);
   }
 
   createDemoProject(root: string): Promise<BackendCommandResult> {
@@ -930,7 +930,7 @@ export class BagoClient {
 
   async sendInternalChat(message: string): Promise<Record<string, unknown>> {
     const body = JSON.stringify({ message, internal: true, channel: 'ui-react', surface: 'context-internal' });
-    return this.request<Record<string, unknown>>('/chat', { method: 'POST', body }, 150_000);
+    return this.request<Record<string, unknown>>('/chat', { method: 'POST', body }, 0);
   }
 
   async sendChatModern(message: string): Promise<Record<string, unknown>> {

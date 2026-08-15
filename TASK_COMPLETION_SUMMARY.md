@@ -100,7 +100,7 @@ Para actualizar GitHub Release con los binarios correctos, ejecute:
 
 **Windows (PowerShell)**:
 ```powershell
-cd C:\Users\AMTEC_Terminal_1º\BAGO
+cd C:\Users\<USER>\BAGO
 .\update-release-v4.8.4.ps1
 ```
 

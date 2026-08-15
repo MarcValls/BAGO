@@ -71,6 +71,33 @@ class CodeForgeClassifierTests(unittest.TestCase):
         self.assertFalse(result.is_code_request)
         self.assertFalse(result.blocked)
 
+    def test_negated_file_mutation_is_not_a_code_request(self) -> None:
+        for request in (
+            "no modifiques archivos",
+            "sin modificar ningún archivo",
+            "no crees tests",
+            "no arregles este error",
+            "no me modifiques archivos",
+            "no quiero modificar archivos",
+            "no corrijas errores",
+            "no hagas cambios en archivos",
+            "do not edit files",
+            "don't change functions",
+        ):
+            with self.subTest(request=request):
+                result = classify_code_request(request)
+                self.assertEqual(result.kind, "unsafe_or_unsupported")
+                self.assertFalse(result.is_code_request)
+                self.assertFalse(result.blocked)
+                self.assertIn("negated_mutation_ignored", result.reasons)
+
+    def test_positive_inspection_survives_negated_mutation_constraint(self) -> None:
+        result = classify_code_request("revisa el código sin modificar archivos")
+        self.assertEqual(result.kind, "inspect")
+        self.assertTrue(result.is_code_request)
+        self.assertFalse(result.blocked)
+        self.assertIn("negated_mutation_ignored", result.reasons)
+
     def test_pasted_document_with_paths_is_not_treated_as_code_request(self) -> None:
         text = """
 # Auditoría fina de `src.zip`
@@ -188,6 +215,18 @@ Evidencia:
             mgr = SessionManager(base_path=td, state_root=str(state_root), provider="ollama-local", model="llama3.2:3b")
             try:
                 task = mgr._classify_code_request(text)
+                self.assertIsNone(task)
+            finally:
+                mgr.close()
+
+    def test_session_manager_drops_negated_mutation_before_clarification(self) -> None:
+        from session_manager import SessionManager
+
+        with tempfile.TemporaryDirectory() as td:
+            state_root = Path(td) / "state"
+            mgr = SessionManager(base_path=td, state_root=str(state_root), provider="ollama-local", model="llama3.2:3b")
+            try:
+                task = mgr._classify_code_request("no modifiques archivos")
                 self.assertIsNone(task)
             finally:
                 mgr.close()

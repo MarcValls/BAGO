@@ -10,6 +10,7 @@ import sys
 import time
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from context_store import ContextMessage
 from context_envelope import ContextReceipt
 from context_budget import compute_budget, truncate_context
-from intent_engine import classify_intent, should_enable_tools, get_few_shot_examples, intent_guidance
+from intent_engine import classify_command_intent, classify_intent, should_enable_tools, get_few_shot_examples, intent_guidance
 from prompt_loader import load_prompt
 from provider_adapter import ProviderResponse
 from task_response_contract import (
@@ -105,12 +106,16 @@ class SessionTurnMixin:
             "This is an internal structured request. Return exactly the format requested by the prompt. "
             "Do not call tools and do not address the end user."
         )
+        activity_callback = kwargs.pop("activity_callback", None)
+        call_kwargs = self._provider_call_kwargs("chat", kwargs)
+        if activity_callback is not None and bool(getattr(adapter, "supports_activity_events", lambda: False)()):
+            call_kwargs["activity_callback"] = activity_callback
         response = adapter.chat(
             [{"role": "user", "content": user_message}],
             self.model,
             system=system,
             tools=None,
-            **self._provider_call_kwargs("chat", kwargs),
+            **call_kwargs,
         )
         return response.content
 
@@ -142,6 +147,83 @@ class SessionTurnMixin:
 
     def _route_fallback(self, user_message: str) -> dict[str, Any]:
         return {"kind": "chat", "command": "", "args": [], "confidence": 0.0, "reason": "model unavailable"}
+
+    @staticmethod
+    def _normalize_route_text(value: str) -> str:
+        decomposed = unicodedata.normalize("NFKD", value or "")
+        plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+        return " ".join(plain.lower().strip().split())
+
+    def _is_workspace_question_fast(self, user_message: str) -> bool:
+        text = self._normalize_route_text(user_message)
+        if not text:
+            return False
+        question_like = "?" in user_message or text.startswith((
+            "que ", "cual ", "donde ", "desde que ", "en que ", "sobre que ", "de que ",
+        ))
+        workspace_terms = ("workspace", "proyecto", "directorio", "carpeta", "ruta")
+        active_terms = ("activo", "abierto", "actual", "estado", "trabaj", "oper", "vinculad", "tienes")
+        if question_like and any(term in text for term in workspace_terms):
+            if any(term in text for term in active_terms) or "ruta" in text:
+                return True
+        if question_like and any(phrase in text for phrase in ("donde trabajas", "donde estas trabajando", "desde donde trabajas")):
+            return True
+
+        followups = {"y ahora", "ahora", "de que hablamos", "sobre que trabajamos"}
+        if text not in followups:
+            return False
+        try:
+            history = list(getattr(self, "store", None).get_history() or [])
+        except Exception:
+            history = []
+        for item in reversed(history[-6:]):
+            content = str(item.get("content", "")) if isinstance(item, dict) else ""
+            normalized = self._normalize_route_text(content)
+            if any(term in normalized for term in workspace_terms) and any(term in normalized for term in active_terms):
+                return True
+        return False
+
+    def _route_without_model(self, user_message: str) -> dict[str, Any]:
+        text = (user_message or "").strip()
+        if not text:
+            return {"kind": "chat", "command": "", "args": [], "confidence": 1.0, "reason": "empty", "source": "deterministic_cli"}
+        if self._is_workspace_question_fast(text):
+            return {
+                "kind": "workspace_question",
+                "command": "",
+                "args": [],
+                "confidence": 0.96,
+                "reason": "explicit active workspace question",
+                "source": "deterministic_cli",
+            }
+        if text.startswith("/"):
+            parts = text.split()
+            return {
+                "kind": "command",
+                "command": parts[0],
+                "args": parts[1:],
+                "confidence": 1.0,
+                "reason": "explicit slash command",
+                "source": "deterministic_cli",
+            }
+        command = classify_command_intent(text) if len(text.split()) <= 12 else None
+        if command:
+            return {
+                "kind": "command",
+                "command": command,
+                "args": [],
+                "confidence": 0.9,
+                "reason": "deterministic command intent",
+                "source": "deterministic_cli",
+            }
+        return {
+            "kind": "chat",
+            "command": "",
+            "args": [],
+            "confidence": 0.99,
+            "reason": "CLI provider skips model routing preflight",
+            "source": "deterministic_cli",
+        }
 
     def _route_from_model(self, user_message: str) -> dict[str, Any]:
         text = (user_message or "").strip()
@@ -228,6 +310,13 @@ class SessionTurnMixin:
 
     def route_user_message(self, user_message: str) -> dict[str, Any]:
         """Consulta al modelo si el texto activa un comando o sigue como chat."""
+        try:
+            adapter = self._ensure_adapter()
+            use_cli = getattr(adapter, "_use_cli", None)
+            if callable(use_cli) and bool(use_cli()):
+                return self._route_without_model(user_message)
+        except Exception:
+            pass
         return self._route_from_model(user_message)
 
     def _needs_task_response_contract(self, intent: str) -> bool:
@@ -445,6 +534,7 @@ class SessionTurnMixin:
 
     def send(self, user_message: str, **kwargs: Any) -> str:
         """Send a user message to the active provider and persist the turn."""
+        activity_callback = kwargs.pop("activity_callback", None)
         self.last_clarification = None
         self.last_response_state = "running"
         route_info = kwargs.pop("route_info", None) or self.route_user_message(user_message)
@@ -609,6 +699,8 @@ class SessionTurnMixin:
         )
 
         call_kwargs = self._provider_call_kwargs(intent, kwargs)
+        if activity_callback is not None and bool(getattr(adapter, "supports_activity_events", lambda: False)()):
+            call_kwargs["activity_callback"] = activity_callback
         resp = adapter.chat(
             envelope.messages,
             self.model,
