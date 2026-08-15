@@ -156,7 +156,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
     config_detail = "config.json/config_manager.py no encontrados"
     if config_file.exists():
         try:
-            cfg = _json.loads(config_file.read_text(encoding="utf-8"))
+            # PowerShell 5.1 emits a BOM for `Set-Content -Encoding UTF8`.
+            # Installed runtime configs must be accepted in either UTF-8 form.
+            cfg = _json.loads(config_file.read_text(encoding="utf-8-sig"))
             runtime_val = cfg.get("features", {}).get("auto_allow_tools", True)
         except Exception as exc:
             config_detail = f"runtime config error: {exc}"
