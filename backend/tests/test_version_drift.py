@@ -70,6 +70,10 @@ class VersionDriftTests(unittest.TestCase):
             [item["version"] for item in versions["history"] if item["ended"] is None],
             [EXPECTED_VERSION],
         )
+        readme = (ROOT.parent / "README.md").read_text(encoding="utf-8")
+        self.assertIn(f"# BAGO v{EXPECTED_VERSION}", readme)
+        self.assertIn(f"badge/version-{EXPECTED_VERSION}-blue", readme)
+        self.assertIn(f"releases/tag/v{EXPECTED_VERSION}", readme)
 
     def test_canonical_frontend_is_the_only_ui_toolchain(self) -> None:
         if not (CANONICAL_UI / "src" / "main.tsx").is_file():
