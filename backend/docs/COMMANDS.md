@@ -1,6 +1,6 @@
 # BAGO Commands
 <!-- AUTO-GENERATED from tool_registry.py — do not edit manually -->
-<!-- 165 commands registered -->
+<!-- 167 commands registered -->
 
 | Command | Description | Risk | Stability |
 |---|---|---|---|

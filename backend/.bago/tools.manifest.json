@@ -1,7 +1,7 @@
 {
   "version": "3",
   "generated_by": "auto",
-  "tool_count": 32,
+  "tool_count": 34,
   "tools": {
     "auto_heal": {
       "file": "auto_heal.py",
@@ -17,6 +17,16 @@
       "file": "commit_readiness.py",
       "sha256": "191ed162f730fdadb6b49285203b7e5b173049f46ed8e4ef877c2cfc85947b6c",
       "cmd": "commit-readiness"
+    },
+    "context_detector": {
+      "file": "context_detector.py",
+      "sha256": "ca8b83199205bc7371ff31d9365bfdb39da4b5e558498376bbd2877a1cd15d00",
+      "cmd": "context-detector"
+    },
+    "cosecha": {
+      "file": "cosecha.py",
+      "sha256": "42c6d9b7fd516ad582a4ead73e32f03cfc182f0722e21c0e86073ae8a690eacb",
+      "cmd": "cosecha"
     },
     "dead_code": {
       "file": "dead_code.py",
