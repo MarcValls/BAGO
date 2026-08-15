@@ -58,8 +58,10 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     id: 'tools',
     label: 'Herramientas',
     items: [
-      { id: 'agents', label: 'Agentes', icon: 'agents', helper: 'Editar y probar agentes', shortcut: 'Ctrl+8', isPanel: true },
-      { id: 'interpreter', label: 'Intérprete', icon: 'interpreter', helper: 'Observar interpretación de consultas', shortcut: 'Ctrl+9', isPanel: true },
+      { id: 'agents', label: 'Agentes', icon: 'agents', helper: 'Editar y probar agentes', shortcut: 'Ctrl+8' },
+      { id: 'interpreter', label: 'Intérprete', icon: 'interpreter', helper: 'Interpretar una consulta y revisar sus etapas', shortcut: 'Ctrl+9' },
+      { id: 'capabilities', label: 'Capacidades', icon: 'pack', helper: 'Catálogo y contratos de capacidades', shortcut: 'Ctrl+Shift+C' },
+      { id: 'tools', label: 'Herramientas', icon: 'tools', helper: 'Catálogo operativo y ejecución de comandos', shortcut: 'Ctrl+Shift+T' },
       { id: 'github-auth', label: 'GitHub', icon: 'github', helper: 'Autenticación y scopes de GitHub', shortcut: 'Ctrl+0', isPanel: true }
     ]
   }
@@ -68,7 +70,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
 export const NAVIGATION_ORDER: (ActiveSection | PanelId)[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
 
 export function resolveNavigationShortcut(key: string): ActiveSection | PanelId | null {
-  const shortcut = `Ctrl+${key}`.toLowerCase();
+  const shortcut = (key.toLowerCase().startsWith('ctrl+') ? key : `Ctrl+${key}`).toLowerCase();
   return NAVIGATION_GROUPS
     .flatMap((group) => group.items)
     .find((item) => item.shortcut.toLowerCase() === shortcut)?.id || null;
