@@ -63,31 +63,6 @@ export function MainSidebar(props: Props) {
 
       <div className="sidebar-spacer" />
 
-      <button className={`sidebar-drawer-button ${props.openDrawer === 'capabilities' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Capacidades' : undefined} aria-label="Abrir capacidades" onClick={() => props.onOpenDrawer('capabilities')}>
-        <Icon name="pack" />
-        {!props.collapsed && <span>Capacidades</span>}
-      </button>
-
-      <button className={`sidebar-drawer-button ${props.openDrawer === 'pipeline' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Pipeline' : undefined} aria-label="Abrir pipeline" onClick={() => props.onOpenDrawer('pipeline')}>
-        <Icon name="pipeline" />
-        {!props.collapsed && <span>Pipeline</span>}
-      </button>
-
-      <button className={`sidebar-drawer-button ${props.openDrawer === 'agents' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Agentes' : undefined} aria-label="Abrir agentes" onClick={() => props.onOpenDrawer('agents')}>
-        <Icon name="agent" />
-        {!props.collapsed && <span>Agentes</span>}
-      </button>
-
-      <button className={`sidebar-drawer-button ${props.openDrawer === 'interpreter' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Interprete' : undefined} aria-label="Abrir interprete" onClick={() => props.onOpenDrawer('interpreter')}>
-        <Icon name="interpret" />
-        {!props.collapsed && <span>Interprete</span>}
-      </button>
-
-      <button className={`sidebar-drawer-button ${props.openDrawer === 'tools' ? 'is-active' : ''}`} type="button" title={props.collapsed ? 'Herramientas' : undefined} aria-label="Abrir herramientas" onClick={() => props.onOpenDrawer('tools')}>
-        <Icon name="tools" />
-        {!props.collapsed && <span>Herramientas</span>}
-      </button>
-
       <button className="sidebar-config-button" type="button" title={props.collapsed ? 'Configuración' : undefined} onClick={() => props.onNavigate('system')}>
         <Icon name="settings" />
         {!props.collapsed && <span>Configuración</span>}

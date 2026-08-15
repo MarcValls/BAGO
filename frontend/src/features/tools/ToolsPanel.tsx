@@ -24,6 +24,7 @@ interface Props {
 export function ToolsPanel({ client }: Props) {
   const [tools, setTools] = useState<ToolRecord[]>([]);
   const [selectedTool, setSelectedTool] = useState<string>('');
+  const [query, setQuery] = useState('');
   const [toolArgs, setToolArgs] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
@@ -31,11 +32,28 @@ export function ToolsPanel({ client }: Props) {
   const [results, setResults] = useState<ToolResult[]>([]);
 
   useEffect(() => {
-    // Backend does not expose a /tools registry endpoint.
-    // Populate with an empty catalog so the panel is functional.
-    setTools([]);
-  }, []);
+    let cancelled = false;
+    void client.runCommand('/commands json').then((result) => {
+      const data = result.data && typeof result.data === 'object' ? result.data as Record<string, unknown> : {};
+      const names = Array.isArray(data.catalog_commands)
+        ? data.catalog_commands
+        : Array.isArray(data.registered_commands) ? data.registered_commands : [];
+      const catalog = names.map((name) => String(name).trim()).filter(Boolean).map((name) => ({
+        cmd: name.startsWith('/') ? name : `/${name}`,
+        module: 'BAGO command catalog',
+        description: `Ejecutar ${name} con el contexto de la sesión`
+      }));
+      if (!cancelled) setTools(catalog);
+    }).catch((cause) => {
+      if (!cancelled) setError(cause instanceof Error ? cause.message : 'No se pudo cargar el catálogo de herramientas.');
+    });
+    return () => { cancelled = true; };
+  }, [client]);
 
+  const visibleTools = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle ? tools.filter((tool) => `${tool.cmd} ${tool.description}`.toLowerCase().includes(needle)) : tools;
+  }, [query, tools]);
   const selected = useMemo(() => tools.find((t) => t.cmd === selectedTool) || null, [tools, selectedTool]);
 
   async function runTool() {
@@ -43,9 +61,15 @@ export function ToolsPanel({ client }: Props) {
     setBusy(selectedTool);
     setError('');
     setMessage('');
-    // Backend does not expose a tool execution endpoint — show an informative message.
-    setError('La ejecución de herramientas externas no está disponible en esta versión.');
-    setBusy('');
+    try {
+      const result = await client.runCommand(selected.cmd);
+      const output = typeof result.data === 'string' ? result.data : result.message || JSON.stringify(result.data || result, null, 2);
+      setResults((current) => [{ tool: selected.cmd, output, success: result.ok !== false && result.state !== 'failed', timestamp: new Date().toISOString() }, ...current].slice(0, 10));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La herramienta no pudo ejecutarse.');
+    } finally {
+      setBusy('');
+    }
   }
 
   function getSchemaFields(schema?: Record<string, unknown>) {
@@ -77,12 +101,12 @@ export function ToolsPanel({ client }: Props) {
             <input
               type="text"
               placeholder="Buscar herramienta..."
-              value={selectedTool}
-              onChange={(e) => { setSelectedTool(e.target.value); setToolArgs({}); }}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <div className="tools-list">
-            {tools.map((tool) => (
+            {visibleTools.map((tool) => (
               <button
                 key={tool.cmd}
                 type="button"

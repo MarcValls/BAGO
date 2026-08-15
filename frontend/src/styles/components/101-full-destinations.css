@@ -1,0 +1,25 @@
+.full-destination-surface {
+  min-height: 100%;
+  display: grid;
+  gap: 18px;
+  padding: 24px clamp(18px, 3vw, 42px) 36px;
+  background: var(--surface);
+}
+
+.destination-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.destination-header h2 { margin: 4px 0 6px; color: var(--text); font-size: clamp(22px, 2vw, 30px); letter-spacing: -.02em; }
+.destination-header p { max-width: 720px; margin: 0; color: var(--text-3); font-size: 13px; line-height: 1.55; }
+.full-destination-surface .agent-editor-panel,
+.full-destination-surface .interpreter-panel,
+.full-destination-surface .tools-panel { min-height: 0; height: auto; border: 0; background: transparent; }
+.full-destination-surface .panel-header { display: none; }
+.full-destination-surface .agent-editor-body { min-height: 520px; }
+.full-destination-surface .tools-panel-header { display: none; }
