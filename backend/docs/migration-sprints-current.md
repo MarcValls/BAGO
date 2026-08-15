@@ -2,7 +2,7 @@
 
 Status: completed
 Depends on: `BAGO_MIGRATE_TARGET.md`
-Applies to: `C:\Users\AMTEC_Terminal_1º\bago_fw`
+Applies to: `C:\Users\<USER>\bago_fw`
 
 This contract records the current-tree migration slices that are already reflected in the active system.
 

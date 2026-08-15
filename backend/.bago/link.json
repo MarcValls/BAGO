@@ -1,8 +1,7 @@
 {
   "schema": 1,
-  "project_root": "C:\\Users\\AMTEC_Terminal_1\u00ba\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-  "tools_dir": "C:\\Users\\AMTEC_Terminal_1\u00ba\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago\\tools",
+  "project_root": "..",
+  "tools_dir": "tools",
   "linked_at": "2026-07-09T12:15:57.547237+00:00",
-  "mode": "symlink+marker",
-  "symlink": "C:\\Users\\AMTEC_Terminal_1\u00ba\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago\\bundle"
+  "mode": "marker"
 }

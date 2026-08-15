@@ -33,6 +33,29 @@ describe('BagoClient response parsing', () => {
     });
   });
 
+  it('leaves long chat requests under the backend inactivity watchdog', async () => {
+    vi.useFakeTimers();
+    let resolveFetch: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      return new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = createBagoClient('', '').sendChat('trabajo largo');
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(false);
+
+    resolveFetch?.(new Response(JSON.stringify({ ok: true, response: 'terminado' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    }));
+    await expect(request).resolves.toMatchObject({ response: 'terminado' });
+    vi.useRealTimers();
+  });
+
   it('preserves attempted provider and model on backend chat failures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       ok: false,

@@ -11,9 +11,9 @@ registro y selector de roles usan BAGO 4.8.4.
 
 - Runtime activo: `C:\Program Files\BAGO`
 - Arranque principal: `C:\Program Files\BAGO`
-- Desarrollo: `C:\Users\AMTEC_Terminal_1º\BAGO\backend`
-- Estado de usuario: `C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO`
-- Selector: `C:\Users\AMTEC_Terminal_1º\AppData\Local\BAGO\install_selection.json`
+- Desarrollo: `C:\Users\<USER>\BAGO\backend`
+- Estado de usuario: `C:\Users\<USER>\AppData\Local\BAGO`
+- Selector: `C:\Users\<USER>\AppData\Local\BAGO\install_selection.json`
 
 ## Correcciones
 
@@ -57,7 +57,7 @@ registro y selector de roles usan BAGO 4.8.4.
 
 ## Respaldo
 
-`C:\Users\AMTEC_Terminal_1º\Documents\ARQUITECTURA_DE_CONTEXTO\BAGO-global-closure-backup-20260813-223223`
+`C:\Users\<USER>\Documents\ARQUITECTURA_DE_CONTEXTO\BAGO-global-closure-backup-20260813-223223`
 
 ## Advertencias no bloqueantes
 

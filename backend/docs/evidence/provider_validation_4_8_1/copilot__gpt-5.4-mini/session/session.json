@@ -13,14 +13,14 @@
   "total_calls": 1,
   "last_switch_at": null,
   "switch_log": [],
-  "framework_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
-  "project_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-  "workspace_state_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
-  "workspace_scope_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-  "workspace_mirror_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+  "framework_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
+  "project_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+  "workspace_state_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
+  "workspace_scope_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+  "workspace_mirror_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
   "workspace_id": "ws-13af6c692a73",
-  "authorized_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
-  "repo_root": "C:/Users/AMTEC_Terminal_1º/Desktop/BAGO-frontend-backend/BAGO",
+  "authorized_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+  "repo_root": "C:/Users/<USER>/Desktop/BAGO-frontend-backend/BAGO",
   "repo_branch": "fix/chat-slash-commands",
   "persistent_goal": "",
   "context_revision": "5a4e21583259cb3f",
@@ -135,7 +135,7 @@
           },
           {
             "kind": "context_constraint",
-            "value": "workspace=C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+            "value": "workspace=C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
             "source": "context"
           }
         ],
@@ -223,7 +223,7 @@
             },
             {
               "kind": "context_constraint",
-              "value": "workspace=C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+              "value": "workspace=C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
               "source": "context"
             }
           ],
@@ -297,7 +297,7 @@
                 "provider=copilot",
                 "model=gpt-5.4-mini",
                 "bago_mode=B",
-                "workspace=C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace"
+                "workspace=C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace"
               ]
             }
           }
@@ -371,7 +371,7 @@
         "rules": {
           "contract_version": "bago.reflexive.rules.v1",
           "source": "file",
-          "path": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago\\core\\reflexive_rules.json",
+          "path": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago\\core\\reflexive_rules.json",
           "objective_count": 8,
           "interrogative_marker_count": 10,
           "deictic_term_count": 9,
@@ -398,7 +398,7 @@
         ],
         "required_verification_level": "standard",
         "signals": {
-          "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+          "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
           "user_message_length": 113
         }
       },
@@ -435,7 +435,7 @@
           ],
           "required_verification_level": "standard",
           "signals": {
-            "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+            "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
             "user_message_length": 113
           }
         },
@@ -945,19 +945,19 @@
       "envelope_messages_count": 1,
       "reflexive_audit": {
         "audit_id": "RA-de60135caf0d",
-        "path": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\BAGO\\state\\evidence\\reflexive_interpretations.jsonl",
+        "path": "C:\\Users\\<USER>\\AppData\\Local\\BAGO\\state\\evidence\\reflexive_interpretations.jsonl",
         "receipt_id": "5a4e21583259cb3f",
         "question_id": "Q-DD351ECAAA"
       }
     },
     "request_id": "req-79321de5a9c0c535",
     "session_id": "8027f035-976",
-    "framework_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
-    "project_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+    "framework_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
+    "project_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
     "workspace_id": "ws-13af6c692a73",
-    "workspace_used": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
-    "workspace_state_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
-    "workspace_scope_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+    "workspace_used": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+    "workspace_state_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
+    "workspace_scope_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
     "context_revision": "5a4e21583259cb3f",
     "provider_used": "copilot",
     "adapter_used": "CopilotAdapter",
@@ -1581,13 +1581,13 @@
     "limitations": [],
     "session_summary_loaded": {
       "session_id": "8027f035-976",
-      "framework_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
-      "project_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-      "workspace_state_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
-      "workspace_scope_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-      "workspace_mirror_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+      "framework_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
+      "project_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+      "workspace_state_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
+      "workspace_scope_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+      "workspace_mirror_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
       "workspace_id": "ws-13af6c692a73",
-      "authorized_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+      "authorized_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
       "provider": "copilot",
       "model": "gpt-5.4-mini",
       "bago_mode": "B",
@@ -1639,7 +1639,7 @@
         ],
         "required_verification_level": "standard",
         "signals": {
-          "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+          "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
           "user_message_length": 113
         }
       },
@@ -1676,7 +1676,7 @@
           ],
           "required_verification_level": "standard",
           "signals": {
-            "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+            "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
             "user_message_length": 113
           }
         },
@@ -1727,7 +1727,7 @@
           ],
           "required_verification_level": "standard",
           "signals": {
-            "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+            "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
             "user_message_length": 113
           }
         },
@@ -1764,7 +1764,7 @@
             ],
             "required_verification_level": "standard",
             "signals": {
-              "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+              "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
               "user_message_length": 113
             }
           },
@@ -2275,14 +2275,14 @@
       "creation_timestamp": "1785388842.454347"
     },
     "session_id": "8027f035-976",
-    "framework_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
-    "project_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+    "framework_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
+    "project_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
     "workspace_id": "ws-13af6c692a73",
-    "workspace_state_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
-    "workspace_scope_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+    "workspace_state_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
+    "workspace_scope_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
     "source_of_truth_version": "gabo-workspace-v1",
     "context_revision": "",
-    "authorized_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+    "authorized_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
     "objective": "",
     "decisions": [],
     "restrictions": [],
@@ -2292,8 +2292,8 @@
     "model": "gpt-5.4-mini",
     "mode": "work",
     "request_id": "req-79321de5a9c0c535",
-    "workspace": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
-    "repository": "C:/Users/AMTEC_Terminal_1º/Desktop/BAGO-frontend-backend/BAGO",
+    "workspace": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+    "repository": "C:/Users/<USER>/Desktop/BAGO-frontend-backend/BAGO",
     "branch": "fix/chat-slash-commands",
     "revision": "",
     "interpreted_intent": "work",
@@ -2629,7 +2629,7 @@
         ],
         "required_verification_level": "standard",
         "signals": {
-          "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+          "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
           "user_message_length": 113
         }
       },
@@ -2666,7 +2666,7 @@
           ],
           "required_verification_level": "standard",
           "signals": {
-            "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+            "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
             "user_message_length": 113
           }
         },
@@ -2742,13 +2742,13 @@
     },
     "session_summary": {
       "session_id": "8027f035-976",
-      "framework_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
-      "project_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-      "workspace_state_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
-      "workspace_scope_root": "C:\\Users\\AMTEC_Terminal_1º\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
-      "workspace_mirror_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+      "framework_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.bago",
+      "project_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+      "workspace_state_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend\\.gabo",
+      "workspace_scope_root": "C:\\Users\\<USER>\\Desktop\\BAGO-frontend-backend\\BAGO\\backend",
+      "workspace_mirror_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
       "workspace_id": "ws-13af6c692a73",
-      "authorized_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+      "authorized_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
       "provider": "copilot",
       "model": "gpt-5.4-mini",
       "bago_mode": "B",
@@ -2769,7 +2769,7 @@
     ],
     "required_verification_level": "standard",
     "signals": {
-      "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+      "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
       "user_message_length": 113
     }
   },
@@ -2806,7 +2806,7 @@
       ],
       "required_verification_level": "standard",
       "signals": {
-        "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+        "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
         "user_message_length": 113
       }
     },
@@ -2857,7 +2857,7 @@
       ],
       "required_verification_level": "standard",
       "signals": {
-        "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+        "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
         "user_message_length": 113
       }
     },
@@ -2894,7 +2894,7 @@
         ],
         "required_verification_level": "standard",
         "signals": {
-          "workspace_root": "C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
+          "workspace_root": "C:\\Users\\<USER>\\AppData\\Local\\Temp\\BAGO\\sessions\\8027f035-976\\workspace",
           "user_message_length": 113
         }
       },
