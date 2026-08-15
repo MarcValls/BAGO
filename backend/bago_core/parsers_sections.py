@@ -345,6 +345,8 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     agent_route.add_argument("--history", action="store_true", help="Muestra historial de rutas")
     agent_route.add_argument("--limit", type=int, default=10, help="Limite del historial")
     agent_route.add_argument("--no-classifier", action="store_true", help="Desactiva clasificador Ollama")
+    agent_route.add_argument("--provider", default="", help="Provider explícito para la tarea")
+    agent_route.add_argument("--model", default="", help="Modelo explícito para la tarea")
     agent_route.add_argument("task_words", nargs="*", default=[], help="Texto de la tarea como palabras sueltas")
 
     guard_parser = sub.add_parser("guard", help="Guardian de deuda tecnica -- previene patrones antes de commitear")

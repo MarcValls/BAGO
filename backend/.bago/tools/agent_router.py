@@ -187,7 +187,14 @@ def _record_route(route: dict) -> None:
     save_json(ROUTER_HISTORY, history[-200:])
 
 
-def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool = True, record: bool = False) -> dict:
+def route_task(
+    task: str,
+    agents: list[dict] | None = None,
+    use_classifier: bool = True,
+    record: bool = False,
+    provider: str = '',
+    model: str = '',
+) -> dict:
     policy = load_policy()
     available = _available_agents(agents)
 
@@ -209,7 +216,14 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
 
     if not available:
         agent_id = policy.get('default_agent', 'copilot')
-        result = {'agent': agent_id, 'model': policy.get('model_preferences', {}).get(agent_id, ''), 'reason': 'default-no-agents', 'task': task, 'timestamp': timestamp_iso()}
+        result = {
+            'agent': agent_id,
+            'provider': provider.strip() or policy.get('provider_preferences', {}).get(agent_id, agent_id),
+            'model': model.strip() or policy.get('model_preferences', {}).get(agent_id, ''),
+            'reason': 'explicit-provider' if provider.strip() else 'default-no-agents',
+            'task': task,
+            'timestamp': timestamp_iso(),
+        }
         if brief_id:
             result['brief_id'] = brief_id
         if record:
@@ -229,9 +243,14 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
         agent_id = _fallback_route(task, available, policy)
         reason = reason or 'fallback'
 
+    requested_provider = provider.strip()
+    requested_model = model.strip()
+    if requested_provider:
+        reason = 'explicit-provider'
     result = {
         'agent': agent_id,
-        'model': policy.get('model_preferences', {}).get(agent_id, ''),
+        'provider': requested_provider or policy.get('provider_preferences', {}).get(agent_id, agent_id),
+        'model': requested_model or policy.get('model_preferences', {}).get(agent_id, ''),
         'reason': reason,
         'task': task,
         'timestamp': timestamp_iso(),
@@ -269,6 +288,13 @@ def _run_tests() -> int:
             {'id': 'copilot', 'available': True},
         ]
         route = route_task('implement multi-file auth and run tests', agents=agents, use_classifier=False)
+        explicit = route_task(
+            'implement the BAGO UI',
+            agents=agents,
+            use_classifier=False,
+            provider='ollama-cloud',
+            model='deepseek-v3.1:671b',
+        )
         detected = detect_agents()
         original_up = _ollama_server_up
         try:
@@ -284,6 +310,7 @@ def _run_tests() -> int:
             ('default_ollama_url', isinstance(_default_ollama_url(), str) and _default_ollama_url().startswith('http'), 'default ollama url is a string'),
             ('resolve_models_dir', isinstance(_resolve_ollama_models_dir(), Path), 'ollama models dir resolves to Path'),
             ('route_has_agent', isinstance(route, dict) and route.get('agent') == 'codex', 'route_task returns dict with agent key'),
+            ('explicit_provider_model', explicit.get('provider') == 'ollama-cloud' and explicit.get('model') == 'deepseek-v3.1:671b' and explicit.get('reason') == 'explicit-provider', 'explicit provider/model override is preserved'),
             ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
             ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
             ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
@@ -308,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--history', action='store_true', help='Show routing history and exit')
     parser.add_argument('--limit', type=int, default=10, help='History entry limit')
     parser.add_argument('--no-classifier', action='store_true', help='Disable ollama classifier')
+    parser.add_argument('--provider', default='', help='Explicit provider override, e.g. ollama-cloud')
+    parser.add_argument('--model', default='', help='Explicit model override, e.g. deepseek-v3.1:671b')
     parser.add_argument('task_words', nargs='*')
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
@@ -330,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
     if not task_text:
         parser.print_help()
         return 0
-    route = route_task(task_text, use_classifier=not args.no_classifier, record=True)
+    route = route_task(task_text, use_classifier=not args.no_classifier, record=True, provider=args.provider, model=args.model)
     if args.json:
         print(json.dumps(route, indent=2, ensure_ascii=False))
     else:
