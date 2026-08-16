@@ -96,7 +96,7 @@ function ActionMenuButton({ selection, onInspectSelection, label = 'Acciones' }:
       className="icon-button context-action-button"
       title={label}
       aria-label={label}
-      aria-haspopup="menu"
+      aria-haspopup="dialog"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

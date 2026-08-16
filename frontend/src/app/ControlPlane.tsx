@@ -4,7 +4,7 @@ import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultAp
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
 import { WorkspaceShell } from '@/layout/WorkspaceShell';
-import { ContextMenu } from '@/layout/ContextMenu';
+import { ActionScreen } from '@/layout/ActionScreen';
 import { InspectorDrawer } from '@/layout/InspectorDrawer';
 import { createContextActions } from '@/features/context-menu/contextActions';
 import { ControlSections } from '@/features/sections';
@@ -908,7 +908,7 @@ export function ControlPlane() {
     }
   };
 
-  const [selectionMenu, setSelectionMenu] = useState<{ selection: SelectionRecord; position: { x: number; y: number } } | null>(null);
+  const [actionScreenSelection, setActionScreenSelection] = useState<SelectionRecord | null>(null);
   const [inspectorSelection, setInspectorSelection] = useState<{ selection: SelectionRecord; level: InspectorLevel } | null>(null);
   const [workspaceOpenRequest, setWorkspaceOpenRequest] = useState<{ path: string; kind?: 'file' | 'directory'; token: number } | null>(null);
 
@@ -916,8 +916,8 @@ export function ControlPlane() {
     setInspectorSelection({ selection, level });
   }
 
-  function openContextMenu(selection: SelectionRecord, position: { x: number; y: number }) {
-    setSelectionMenu({ selection, position });
+  function openActionScreen(selection: SelectionRecord) {
+    setActionScreenSelection(selection);
   }
 
   function onInspect(eventOrSelection: ReactMouseEvent<HTMLElement> | SelectionRecord, hint?: InspectorLevel | { x: number; y: number }) {
@@ -929,7 +929,7 @@ export function ControlPlane() {
     }
 
     if (hint && typeof hint === 'object' && 'x' in hint && 'y' in hint) {
-      openContextMenu(eventOrSelection, hint);
+      openActionScreen(eventOrSelection);
       return;
     }
 
@@ -1475,12 +1475,13 @@ export function ControlPlane() {
         />
       )}
 
-      {selectionMenu && (
-        <ContextMenu
-          selection={selectionMenu.selection}
-          position={selectionMenu.position}
-          actions={buildContextActions(selectionMenu.selection)}
-          onClose={() => setSelectionMenu(null)}
+      {actionScreenSelection && (
+        <ActionScreen
+          title={actionScreenSelection.title}
+          kind={actionScreenSelection.kind}
+          summary={actionScreenSelection.summary}
+          actions={buildContextActions(actionScreenSelection)}
+          onClose={() => setActionScreenSelection(null)}
         />
       )}
       {inspectorSelection && (
@@ -1488,7 +1489,7 @@ export function ControlPlane() {
           selection={inspectorSelection.selection}
           level={inspectorSelection.level}
           onClose={() => setInspectorSelection(null)}
-          onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
+          onOpenActionScreen={(selection) => openActionScreen(selection)}
         />
       )}
       <DrawerOverlay isOpen={isOpen('capabilities')} onClose={closeDrawer} position="left" width={320}>

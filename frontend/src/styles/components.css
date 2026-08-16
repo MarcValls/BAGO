@@ -37,7 +37,6 @@
 @import './components/037-command-palette.css';
 @import './components/038-review.css';
 @import './components/039-responsive.css';
-@import './components/040-context-menu-reemplaza-al-inspector.css';
 @import './components/041-provider-config-modal.css';
 @import './components/042-system-tabs.css';
 @import './components/043-router-list.css';
@@ -69,7 +68,6 @@
 @import './components/069-changes.css';
 @import './components/070-patterns.css';
 @import './components/071-output.css';
-@import './components/072-context-menu.css';
 @import './components/073-toolbar-extras.css';
 @import './components/074-diff-modal.css';
 @import './components/075-section-74.css';
@@ -98,3 +96,4 @@
 @import './components/098-section-97.css';
 @import './components/099-section-98.css';
 @import './components/100-pipeline-laboratory.css';
+@import './components/101-action-screen.css';

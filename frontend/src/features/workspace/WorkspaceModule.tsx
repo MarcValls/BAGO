@@ -13,6 +13,7 @@ import { ResizableHandle } from '@/lib/ResizableHandle';
 import { Modal } from '@/lib/Modal';
 import { Drawer } from '@/lib/Drawer';
 import type {
+  OpenFileTab,
   SelectedRange,
   WorkspaceDiagnostic,
   WorkspacePattern
@@ -27,6 +28,7 @@ import { ProblemsPanel } from './ProblemsPanel';
 import { PatternsPanel } from './PatternsPanel';
 import { ChangesPanel } from './ChangesPanel';
 import { OutputPanel } from './OutputPanel';
+import { ActionScreen, type ActionScreenAction } from '@/layout/ActionScreen';
 import { Icon, type IconName } from '@/shared/Icon';
 
 interface Props {
@@ -56,9 +58,9 @@ export function WorkspaceModule(props: Props) {
     contextTreeNodes: props.contextTree.tree ? Object.values(props.contextTree.tree.nodes) : []
   });
   const [ignoredDiagnosticIds, setIgnoredDiagnosticIds] = useState<Set<string>>(new Set());
-  const [fileContextMenu, setFileContextMenu] = useState<{ path: string; x: number; y: number } | null>(null);
-  const [directoryContextMenu, setDirectoryContextMenu] = useState<{ path: string; x: number; y: number } | null>(null);
-  const [editorContextMenu, setEditorContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [fileActionScreen, setFileActionScreen] = useState<string | null>(null);
+  const [directoryActionScreen, setDirectoryActionScreen] = useState<string | null>(null);
+  const [editorActionScreen, setEditorActionScreen] = useState<{ tab: OpenFileTab; range: SelectedRange | null } | null>(null);
   const [diffModal, setDiffModal] = useState<{ path: string; baseline: string; current: string } | null>(null);
   // CANON[WS-013]: panel inferior redimensionable verticalmente.
   // Splitter vertical entre el cuerpo del editor (explorer + center + inspector)
@@ -281,24 +283,26 @@ export function WorkspaceModule(props: Props) {
 
   const onFileContextMenu = useCallback((event: MouseEvent<HTMLElement>, path: string) => {
     event.preventDefault();
-    setDirectoryContextMenu(null);
-    setEditorContextMenu(null);
-    setFileContextMenu({ path, x: event.clientX, y: event.clientY });
+    setDirectoryActionScreen(null);
+    setEditorActionScreen(null);
+    setFileActionScreen(path);
   }, []);
 
   const onDirectoryContextMenu = useCallback((event: MouseEvent<HTMLElement>, path: string) => {
     event.preventDefault();
-    setFileContextMenu(null);
-    setEditorContextMenu(null);
-    setDirectoryContextMenu({ path, x: event.clientX, y: event.clientY });
+    setFileActionScreen(null);
+    setEditorActionScreen(null);
+    setDirectoryActionScreen(path);
   }, []);
 
   const onEditorContextMenu = useCallback((event: MouseEvent<HTMLDivElement>, range: SelectedRange | null) => {
     event.preventDefault();
-    setFileContextMenu(null);
-    setDirectoryContextMenu(null);
-    setEditorContextMenu({ x: event.clientX, y: event.clientY });
-  }, []);
+    setFileActionScreen(null);
+    setDirectoryActionScreen(null);
+    if (editor.activeTab) {
+      setEditorActionScreen({ tab: editor.activeTab, range });
+    }
+  }, [editor.activeTab]);
 
   const allDirectoryPaths = useMemo(() => {
     const paths: string[] = [];
@@ -314,17 +318,19 @@ export function WorkspaceModule(props: Props) {
     return paths;
   }, [editor.explorer]);
 
-  const closeContextMenus = useCallback(() => {
-    setFileContextMenu(null);
-    setDirectoryContextMenu(null);
-    setEditorContextMenu(null);
+  const closeActionScreens = useCallback(() => {
+    setFileActionScreen(null);
+    setDirectoryActionScreen(null);
+    setEditorActionScreen(null);
   }, []);
 
   useEffect(() => {
-    const handler = () => closeContextMenus();
-    window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
-  }, [closeContextMenus]);
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeActionScreens();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [closeActionScreens]);
 
   // Al entrar en la pantalla, abrimos el panel inferior si hay algo.
   useEffect(() => {
@@ -341,7 +347,7 @@ export function WorkspaceModule(props: Props) {
   const onInspectorPattern = editor.tabs.flatMap((t) => t.patterns).find((p) => p.id === editor.inspector.refId) || null;
 
   return (
-    <div className="workspace-editor" onClick={closeContextMenus}>
+    <div className="workspace-editor">
       <WorkspaceToolbar
         query={editor.query}
         onQueryChange={editor.setQuery}
@@ -541,38 +547,39 @@ export function WorkspaceModule(props: Props) {
       </div>
       </div>
 
-      {fileContextMenu && (
-        <ContextMenu
-          x={fileContextMenu.x}
-          y={fileContextMenu.y}
-          items={fileMenuItems(fileContextMenu.path, {
-            onOpen: () => void editor.openFile(fileContextMenu.path),
-            onCopyPath: () => navigator.clipboard?.writeText(fileContextMenu.path),
+      {fileActionScreen && (
+        <ActionScreen
+          title={fileActionScreen.split(/[\\/]/).pop() || fileActionScreen}
+          kind="workspace-file"
+          summary={fileActionScreen}
+          actions={fileMenuItems(fileActionScreen, {
+            onOpen: () => void editor.openFile(fileActionScreen),
+            onCopyPath: () => navigator.clipboard?.writeText(fileActionScreen),
             onCopyContent: () => {
-              const tab = editor.tabs.find((t) => t.path === fileContextMenu.path);
+              const tab = editor.tabs.find((t) => t.path === fileActionScreen);
               if (tab) {
                 navigator.clipboard?.writeText(tab.content || '');
                 return;
               }
-              void editor.openFile(fileContextMenu.path).then(() => {
-                const t = editor.tabs.find((x) => x.path === fileContextMenu.path);
+              void editor.openFile(fileActionScreen).then(() => {
+                const t = editor.tabs.find((x) => x.path === fileActionScreen);
                 if (t) navigator.clipboard?.writeText(t.content || '');
               });
             },
-            onAddToContext: () => handleAddFileToContext(fileContextMenu.path, fileContextMenu.path.split(/[\\/]/).pop()),
+            onAddToContext: () => handleAddFileToContext(fileActionScreen, fileActionScreen.split(/[\\/]/).pop()),
             onSendToChat: () => {
-              const tab = editor.tabs.find((t) => t.path === fileContextMenu.path);
+              const tab = editor.tabs.find((t) => t.path === fileActionScreen);
               if (tab) {
                 void props.onSendChat(formatWorkspaceMessage(tab, null));
               } else {
-                void editor.openFile(fileContextMenu.path).then(() => {
-                  const t = editor.tabs.find((x) => x.path === fileContextMenu.path);
+                void editor.openFile(fileActionScreen).then(() => {
+                  const t = editor.tabs.find((x) => x.path === fileActionScreen);
                   if (t) void props.onSendChat(formatWorkspaceMessage(t, null));
                 });
               }
             },
             onCreatePlan: () => {
-              const tab = editor.tabs.find((t) => t.path === fileContextMenu.path);
+              const tab = editor.tabs.find((t) => t.path === fileActionScreen);
               if (tab) {
                 const firstDiag = tab.diagnostics[0];
                 if (firstDiag) {
@@ -586,78 +593,83 @@ export function WorkspaceModule(props: Props) {
                 }
               }
               void props.onCreatePlan(
-                `Revisar ${fileContextMenu.path.split(/[\\/]/).pop() || fileContextMenu.path}`,
-                `Tarea creada desde el menú contextual de archivo en ${fileContextMenu.path}. El archivo no tiene diagnósticos ni patrones pendientes; abrir y revisar manualmente.`
+                `Revisar ${fileActionScreen.split(/[\\/]/).pop() || fileActionScreen}`,
+                `Tarea creada desde acciones de archivo en ${fileActionScreen}. El archivo no tiene diagnósticos ni patrones pendientes; abrir y revisar manualmente.`
               );
             },
             onViewProblems: () => editor.setBottomPanel('problems'),
-            onViewEvidence: () => props.onInspect(buildEvidenceSelectionFromPath(fileContextMenu.path), 'detail'),
-            onRevert: () => editor.revertTab(fileContextMenu.path),
-            onSave: () => void editor.saveTab(fileContextMenu.path)
+            onViewEvidence: () => props.onInspect(buildEvidenceSelectionFromPath(fileActionScreen), 'detail'),
+            onRevert: () => editor.revertTab(fileActionScreen),
+            onSave: () => void editor.saveTab(fileActionScreen)
           })}
+          onClose={() => setFileActionScreen(null)}
         />
       )}
 
-      {directoryContextMenu && (
-        <ContextMenu
-          x={directoryContextMenu.x}
-          y={directoryContextMenu.y}
-          items={directoryMenuItems(directoryContextMenu.path, {
-            onExpand: () => editor.toggleDirectory(directoryContextMenu.path),
-            onCollapse: () => editor.toggleDirectory(directoryContextMenu.path),
-            onCopyPath: () => navigator.clipboard?.writeText(directoryContextMenu.path),
-            onAddToContext: () => handleAddFileToContext(directoryContextMenu.path, directoryContextMenu.path.split(/[\\/]/).pop()),
+      {directoryActionScreen && (
+        <ActionScreen
+          title={directoryActionScreen.split(/[\\/]/).pop() || directoryActionScreen}
+          kind="workspace-directory"
+          summary={directoryActionScreen}
+          actions={directoryMenuItems(directoryActionScreen, {
+            onExpand: () => editor.toggleDirectory(directoryActionScreen),
+            onCollapse: () => editor.toggleDirectory(directoryActionScreen),
+            onCopyPath: () => navigator.clipboard?.writeText(directoryActionScreen),
+            onAddToContext: () => handleAddFileToContext(directoryActionScreen, directoryActionScreen.split(/[\\/]/).pop()),
             onSendToChat: () => {
-              const message = `Resumen de la carpeta ${directoryContextMenu.path} solicitado desde Workspace.`;
+              const message = `Resumen de la carpeta ${directoryActionScreen} solicitado desde Workspace.`;
               void props.onSendChat(message);
             },
-            onCreatePlan: () => props.onCreatePlan(`Revisar ${directoryContextMenu.path}`, `Tarea generada desde menú contextual de carpeta en ${directoryContextMenu.path}`),
+            onCreatePlan: () => props.onCreatePlan(`Revisar ${directoryActionScreen}`, `Tarea generada desde acciones de carpeta en ${directoryActionScreen}`),
             onReread: () => void editor.refreshExplorer()
           })}
+          onClose={() => setDirectoryActionScreen(null)}
         />
       )}
 
-      {editorContextMenu && editor.activeTab && (
-        <ContextMenu
-          x={editorContextMenu.x}
-          y={editorContextMenu.y}
-          items={selectionMenuItems({
-            tab: editor.activeTab,
-            range: editor.selectedRange,
+      {editorActionScreen && (
+        <ActionScreen
+          title={editorActionScreen.tab.label}
+          kind="workspace-selection"
+          summary={editorActionScreen.range ? `Líneas ${editorActionScreen.range.startLine}-${editorActionScreen.range.endLine}` : 'Sin selección'}
+          actions={selectionMenuItems({
+            tab: editorActionScreen.tab,
+            range: editorActionScreen.range,
             onSendToChat: handleSendSelectionToChat,
             onAskExplain: () => {
-              if (!editor.activeTab || !editor.selectedRange) return;
-              const tab = editor.activeTab;
-              const range = editor.selectedRange;
+              if (!editorActionScreen.range) return;
+              const tab = editorActionScreen.tab;
+              const range = editorActionScreen.range;
               const message = `Explica esta selección de ${tab.label} (líneas ${range.startLine}-${range.endLine}).\n\n${formatWorkspaceMessage(tab, range)}`;
               void props.onSendChat(message);
             },
             onAskRefactor: () => {
-              if (!editor.activeTab || !editor.selectedRange) return;
-              const tab = editor.activeTab;
-              const range = editor.selectedRange;
+              if (!editorActionScreen.range) return;
+              const tab = editorActionScreen.tab;
+              const range = editorActionScreen.range;
               const message = `Refactoriza esta selección de ${tab.label} (líneas ${range.startLine}-${range.endLine}).\n\n${formatWorkspaceMessage(tab, range)}`;
               void props.onSendChat(message);
             },
             onAddAsContextRule: () => {
-              if (!editor.activeTab || !editor.selectedRange) return;
-              const node = createSelectionRuleNode(editor.activeTab, editor.selectedRange);
+              if (!editorActionScreen.range) return;
+              const node = createSelectionRuleNode(editorActionScreen.tab, editorActionScreen.range);
               void props.contextTree.addBankItemToTree(node);
             },
             onAddAsClaim: () => {
-              if (!editor.activeTab || !editor.selectedRange) return;
-              const node = createSelectionClaimNode(editor.activeTab, editor.selectedRange);
+              if (!editorActionScreen.range) return;
+              const node = createSelectionClaimNode(editorActionScreen.tab, editorActionScreen.range);
               void props.contextTree.addBankItemToTree(node);
             },
             onAddToContext: handleAddSelectionToContext,
             onCreatePlan: () => {
-              if (!editor.activeTab || !editor.selectedRange) return;
+              if (!editorActionScreen.range) return;
               props.onCreatePlan(
-                `Refactor en ${editor.activeTab.label}:${editor.selectedRange.startLine}-${editor.selectedRange.endLine}`,
-                `Tarea generada desde selección en ${editor.activeTab.path}:${editor.selectedRange.startLine}-${editor.selectedRange.endLine}\n\nSelección:\n${editor.selectedRange.text}`
+                `Refactor en ${editorActionScreen.tab.label}:${editorActionScreen.range.startLine}-${editorActionScreen.range.endLine}`,
+                `Tarea generada desde selección en ${editorActionScreen.tab.path}:${editorActionScreen.range.startLine}-${editorActionScreen.range.endLine}\n\nSelección:\n${editorActionScreen.range.text}`
               );
             }
           })}
+          onClose={() => setEditorActionScreen(null)}
         />
       )}
 
@@ -680,44 +692,7 @@ export function WorkspaceModule(props: Props) {
   );
 }
 
-interface Item { label: string; onClick: () => void; icon?: IconName; disabled?: boolean; }
-function ContextMenu(p: { x: number; y: number; items: Item[] }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState<{ left: number; top: number }>({ left: p.x, top: p.y });
-  useEffect(() => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const left = p.x + rect.width > vw - 8 ? Math.max(8, vw - rect.width - 8) : p.x;
-    const top = p.y + rect.height > vh - 8 ? Math.max(8, vh - rect.height - 8) : p.y;
-    setPos({ left, top });
-  }, [p.x, p.y, p.items.length]);
-  return (
-    <div
-      ref={ref}
-      className="workspace-context-menu"
-      style={{ left: pos.left, top: pos.top }}
-      onClick={(e) => e.stopPropagation()}
-      role="menu"
-    >
-      {p.items.map((item, idx) => (
-        <button
-          key={idx}
-          type="button"
-          role="menuitem"
-          disabled={item.disabled}
-          onClick={() => { if (!item.disabled) item.onClick(); }}
-        >
-          {item.icon && <Icon name={item.icon} size={12} />}
-          <span>{item.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function fileMenuItems(_path: string, h: {
+function fileMenuItems(path: string, h: {
   onOpen: () => void;
   onCopyPath: () => void;
   onCopyContent: () => void;
@@ -728,22 +703,23 @@ function fileMenuItems(_path: string, h: {
   onViewEvidence: () => void;
   onRevert: () => void;
   onSave: () => void;
-}): Item[] {
+}): ActionScreenAction[] {
+  const name = path.split(/[\\/]/).pop() || path;
   return [
-    { label: 'Abrir', onClick: h.onOpen },
-    { label: 'Copiar ruta', onClick: h.onCopyPath, icon: 'copy' },
-    { label: 'Copiar contenido', onClick: h.onCopyContent, icon: 'copy' },
-    { label: 'Enviar al Chat', onClick: h.onSendToChat, icon: 'send' },
-    { label: 'Añadir al Árbol de Contexto', onClick: h.onAddToContext, icon: 'tree' },
-    { label: 'Crear tarea en Pipeline', onClick: h.onCreatePlan, icon: 'pipeline' },
-    { label: 'Ver problemas', onClick: h.onViewProblems, icon: 'alert' },
-    { label: 'Ver evidencia', onClick: h.onViewEvidence, icon: 'evidence' },
-    { label: 'Guardar', onClick: h.onSave, icon: 'check' },
-    { label: 'Revertir cambios', onClick: h.onRevert, icon: 'refresh' }
+    { id: 'file-open', label: 'Abrir', onClick: h.onOpen },
+    { id: 'file-copy-path', label: 'Copiar ruta', onClick: h.onCopyPath, icon: 'copy' },
+    { id: 'file-copy-content', label: 'Copiar contenido', onClick: h.onCopyContent, icon: 'copy' },
+    { id: 'file-send-chat', label: 'Enviar al Chat', onClick: h.onSendToChat, icon: 'send' },
+    { id: 'file-add-context-tree', label: 'Añadir al Árbol de Contexto', onClick: h.onAddToContext, icon: 'tree' },
+    { id: 'file-create-plan', label: 'Crear tarea en Pipeline', onClick: h.onCreatePlan, icon: 'pipeline' },
+    { id: 'file-view-problems', label: 'Ver problemas', onClick: h.onViewProblems, icon: 'alert' },
+    { id: 'file-view-evidence', label: 'Ver evidencia', onClick: h.onViewEvidence, icon: 'evidence' },
+    { id: 'file-save', label: 'Guardar', onClick: h.onSave, icon: 'check' },
+    { id: 'file-revert', label: 'Revertir cambios', onClick: h.onRevert, icon: 'refresh', emphasis: 'danger' }
   ];
 }
 
-function directoryMenuItems(_path: string, h: {
+function directoryMenuItems(path: string, h: {
   onExpand: () => void;
   onCollapse: () => void;
   onCopyPath: () => void;
@@ -751,15 +727,16 @@ function directoryMenuItems(_path: string, h: {
   onSendToChat: () => void;
   onCreatePlan: () => void;
   onReread: () => void;
-}): Item[] {
+}): ActionScreenAction[] {
+  const name = path.split(/[\\/]/).pop() || path;
   return [
-    { label: 'Expandir', onClick: h.onExpand, icon: 'expand' },
-    { label: 'Contraer', onClick: h.onCollapse, icon: 'collapse' },
-    { label: 'Copiar ruta', onClick: h.onCopyPath, icon: 'copy' },
-    { label: 'Enviar al Chat', onClick: h.onSendToChat, icon: 'send' },
-    { label: 'Añadir al Árbol de Contexto', onClick: h.onAddToContext, icon: 'tree' },
-    { label: 'Crear tarea en Pipeline', onClick: h.onCreatePlan, icon: 'pipeline' },
-    { label: 'Releer carpeta', onClick: h.onReread, icon: 'refresh' }
+    { id: 'dir-expand', label: 'Expandir', onClick: h.onExpand, icon: 'expand' },
+    { id: 'dir-collapse', label: 'Contraer', onClick: h.onCollapse, icon: 'collapse' },
+    { id: 'dir-copy-path', label: 'Copiar ruta', onClick: h.onCopyPath, icon: 'copy' },
+    { id: 'dir-send-chat', label: 'Enviar al Chat', onClick: h.onSendToChat, icon: 'send' },
+    { id: 'dir-add-context-tree', label: 'Añadir al Árbol de Contexto', onClick: h.onAddToContext, icon: 'tree' },
+    { id: 'dir-create-plan', label: 'Crear tarea en Pipeline', onClick: h.onCreatePlan, icon: 'pipeline' },
+    { id: 'dir-reread', label: 'Releer carpeta', onClick: h.onReread, icon: 'refresh' }
   ];
 }
 
@@ -773,15 +750,15 @@ function selectionMenuItems(h: {
   onAddAsClaim: () => void;
   onAddToContext: () => void;
   onCreatePlan: () => void;
-}): Item[] {
+}): ActionScreenAction[] {
   return [
-    { label: 'Enviar selección al Chat', onClick: h.onSendToChat, icon: 'send' },
-    { label: 'Pedir explicación', onClick: h.onAskExplain, icon: 'chat' },
-    { label: 'Pedir refactor', onClick: h.onAskRefactor, icon: 'spark' },
-    { label: 'Añadir al Árbol de Contexto', onClick: h.onAddToContext, icon: 'tree' },
-    { label: 'Crear claim', onClick: h.onAddAsClaim, icon: 'claim' },
-    { label: 'Crear regla', onClick: h.onAddAsContextRule, icon: 'rule' },
-    { label: 'Crear tarea en Pipeline', onClick: h.onCreatePlan, icon: 'pipeline' }
+    { id: 'sel-send-chat', label: 'Enviar selección al Chat', onClick: h.onSendToChat, icon: 'send' },
+    { id: 'sel-explain', label: 'Pedir explicación', onClick: h.onAskExplain, icon: 'chat' },
+    { id: 'sel-refactor', label: 'Pedir refactor', onClick: h.onAskRefactor, icon: 'spark' },
+    { id: 'sel-add-context-tree', label: 'Añadir al Árbol de Contexto', onClick: h.onAddToContext, icon: 'tree' },
+    { id: 'sel-add-claim', label: 'Crear claim', onClick: h.onAddAsClaim, icon: 'claim' },
+    { id: 'sel-add-rule', label: 'Crear regla', onClick: h.onAddAsContextRule, icon: 'rule' },
+    { id: 'sel-create-plan', label: 'Crear tarea en Pipeline', onClick: h.onCreatePlan, icon: 'pipeline' }
   ];
 }
 

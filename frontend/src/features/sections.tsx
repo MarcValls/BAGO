@@ -564,8 +564,8 @@ function inspectMenuAttrs(selection: SelectionRecord, onInspect: Props['onInspec
         onInspect(selection, { x: rect.left + 12, y: rect.bottom + 6 });
       }
     },
-    'aria-haspopup': 'menu' as const,
-    title: 'Click derecho o Shift+F10 para acciones contextuales'
+    'aria-haspopup': 'dialog' as const,
+    title: 'Abrir acciones para este elemento'
   };
 }
 
@@ -578,7 +578,7 @@ function ContextActionButton({ selection, onInspect, label = 'Acciones' }: { sel
       className="icon-button context-action-button"
       title={label}
       aria-label={label}
-      aria-haspopup="menu"
+      aria-haspopup="dialog"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
