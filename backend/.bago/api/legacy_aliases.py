@@ -45,6 +45,22 @@ LEGACY_ALIASES = [
     # Workspace: el frontend a veces llama /workspace directo
     ("GET", "/workspace", "GET", "/workspace/status"),
 
+    # Workspace actions: rutas duplicadas eliminadas de ROUTE_META;
+    # se redirigen a los endpoints de projecto canonical.
+    ("POST", "/workspace/init", "POST", "/project/init"),
+    ("POST", "/workspace/link", "POST", "/project/link"),
+    ("POST", "/workspace/seed", "POST", "/project/seed"),
+    ("POST", "/workspace/sync", "POST", "/project/sync"),
+
+    # Command: el endpoint legacy /command se elimino; el canonical es /api/v1/commands.
+    ("POST", "/command", "POST", "/api/v1/commands"),
+
+    # Workspaces list: /workspaces era un duplicado de /workspace/list.
+    ("GET", "/workspaces", "GET", "/workspace/list"),
+
+    # Provider buffer: /providers/buffer era un duplicado de /providers/buffer/status.
+    ("GET", "/providers/buffer", "GET", "/providers/buffer/status"),
+
     # Interpretations: el frontend tiene 4 metodos que llaman a /interpretations/*
     # pero el backend solo tiene /interpret (POST) y /interpret/history (GET).
     # Mapeamos para mantener compat.

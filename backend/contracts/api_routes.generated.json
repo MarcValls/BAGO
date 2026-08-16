@@ -6,7 +6,6 @@
     "/health",
     "/session",
     "/workspace",
-    "/workspaces",
     "/project",
     "/history",
     "/conversations",
@@ -17,7 +16,6 @@
     "/models",
     "/chat",
     "/chat/stream",
-    "/command",
     "/switch",
     "/catalog",
     "/audit",
@@ -161,13 +159,6 @@
       "handler_module": "handlers_workspace",
       "method": "GET",
       "path": "/workspace/browse",
-      "pattern": false
-    },
-    {
-      "handler_fn": "handle_list",
-      "handler_module": "handlers_workspace",
-      "method": "GET",
-      "path": "/workspaces",
       "pattern": false
     },
     {
@@ -395,13 +386,6 @@
       "pattern": false
     },
     {
-      "handler_fn": "handle_buffer_status",
-      "handler_module": "handlers_providers",
-      "method": "GET",
-      "path": "/providers/buffer",
-      "pattern": false
-    },
-    {
       "handler_fn": "handle_blacklist_get",
       "handler_module": "handlers_providers",
       "method": "GET",
@@ -479,7 +463,7 @@
       "pattern": false
     },
     {
-      "handler_fn": "handle_status",
+      "handler_fn": "handle_github_status",
       "handler_module": "handlers_github",
       "method": "GET",
       "path": "/github/status",
@@ -493,28 +477,28 @@
       "pattern": false
     },
     {
-      "handler_fn": "handle_auth_start",
+      "handler_fn": "handle_github_auth_start",
       "handler_module": "handlers_github",
       "method": "POST",
       "path": "/github/auth/start",
       "pattern": false
     },
     {
-      "handler_fn": "handle_auth_refresh",
+      "handler_fn": "handle_github_auth_refresh",
       "handler_module": "handlers_github",
       "method": "POST",
       "path": "/github/auth/refresh",
       "pattern": false
     },
     {
-      "handler_fn": "handle_auth_logout",
+      "handler_fn": "handle_github_auth_logout",
       "handler_module": "handlers_github",
       "method": "POST",
       "path": "/github/auth/logout",
       "pattern": false
     },
     {
-      "handler_fn": "handle_setup",
+      "handler_fn": "handle_github_setup_git",
       "handler_module": "handlers_github",
       "method": "POST",
       "path": "/github/setup",
@@ -633,13 +617,6 @@
       "pattern": false
     },
     {
-      "handler_fn": "handle",
-      "handler_module": "handlers_command",
-      "method": "POST",
-      "path": "/command",
-      "pattern": false
-    },
-    {
       "handler_fn": "handle_project_init",
       "handler_module": "handlers_project",
       "method": "POST",
@@ -672,34 +649,6 @@
       "handler_module": "handlers_project",
       "method": "POST",
       "path": "/project/demo",
-      "pattern": false
-    },
-    {
-      "handler_fn": "handle_workspace_init",
-      "handler_module": "handlers_project",
-      "method": "POST",
-      "path": "/workspace/init",
-      "pattern": false
-    },
-    {
-      "handler_fn": "handle_workspace_link",
-      "handler_module": "handlers_project",
-      "method": "POST",
-      "path": "/workspace/link",
-      "pattern": false
-    },
-    {
-      "handler_fn": "handle_workspace_seed",
-      "handler_module": "handlers_project",
-      "method": "POST",
-      "path": "/workspace/seed",
-      "pattern": false
-    },
-    {
-      "handler_fn": "handle_workspace_sync",
-      "handler_module": "handlers_project",
-      "method": "POST",
-      "path": "/workspace/sync",
       "pattern": false
     },
     {

@@ -106,10 +106,10 @@ export async function runCommand(
 ): Promise<{ ok: boolean; output: string; error?: string }> {
   try {
     const response = await client.request<{ output?: string; result?: string; error?: string; ok?: boolean }>(
-      '/command',
+      '/api/v1/commands',
       {
         method: 'POST',
-        body: JSON.stringify({ command })
+        body: JSON.stringify({ command, channel: 'ui-react', surface: 'ui-react' })
       }
     );
     return {

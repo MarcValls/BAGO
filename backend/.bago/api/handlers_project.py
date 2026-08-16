@@ -251,19 +251,3 @@ def handle_project_demo(handler: "BaseHTTPRequestHandler", body: dict[str, Any])
         send_json(handler, 500, {"ok": False, "error": f"No se pudo crear el proyecto demo: {exc}"})
         return
     send_json(handler, 201, {"ok": True, "message": "Proyecto demo creado", "data": data})
-
-
-def handle_workspace_init(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
-    _handle(handler, "init", body)
-
-
-def handle_workspace_link(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
-    _handle(handler, "link", body)
-
-
-def handle_workspace_seed(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
-    _handle(handler, "seed", body)
-
-
-def handle_workspace_sync(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
-    _handle(handler, "sync", body)
