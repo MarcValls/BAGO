@@ -19,9 +19,10 @@ interface ToolResult {
 
 interface Props {
   client: BagoClient;
+  onClose?: () => void;
 }
 
-export function ToolsPanel({ client }: Props) {
+export function ToolsPanel({ client, onClose }: Props) {
   const [tools, setTools] = useState<ToolRecord[]>([]);
   const [selectedTool, setSelectedTool] = useState<string>('');
   const [toolArgs, setToolArgs] = useState<Record<string, unknown>>({});
@@ -68,6 +69,11 @@ export function ToolsPanel({ client }: Props) {
       <header className="tools-panel-header">
         <strong>Herramientas</strong>
         <span>{tools.length} disponibles</span>
+        {onClose && (
+          <button type="button" className="panel-close-btn" onClick={onClose} aria-label="Cerrar">
+            <Icon name="close" size={16} />
+          </button>
+        )}
       </header>
 
       <div className="tools-panel-layout">

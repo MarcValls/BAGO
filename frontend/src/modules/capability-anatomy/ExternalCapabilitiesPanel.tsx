@@ -10,6 +10,7 @@ import type {
 
 interface Props {
   client: BagoClient;
+  onClose?: () => void;
 }
 
 interface CapabilityExampleRecord {
@@ -91,7 +92,7 @@ function ReceiptView({ receipt }: { receipt: CapabilityReceipt }) {
   </article>;
 }
 
-export function ExternalCapabilitiesPanel({ client }: Props) {
+export function ExternalCapabilitiesPanel({ client, onClose }: Props) {
   const [packages, setPackages] = useState<CapabilityPackageRecord[]>([]);
   const [receipts, setReceipts] = useState<CapabilityReceipt[]>([]);
   const [examples, setExamples] = useState<CapabilityExampleRecord[]>([]);
@@ -263,7 +264,10 @@ export function ExternalCapabilitiesPanel({ client }: Props) {
     <aside className="capability-catalog">
       <div className="capability-catalog-header">
         <strong>Capacidades</strong>
-        <button className="icon-button" type="button" aria-label="Actualizar" onClick={() => void load()}><Icon name="refresh" size={13} /></button>
+        <div className="capability-catalog-header-actions">
+          <button className="icon-button" type="button" aria-label="Actualizar" onClick={() => void load()}><Icon name="refresh" size={13} /></button>
+          {onClose && <button className="icon-button" type="button" aria-label="Cerrar" onClick={onClose}><Icon name="close" size={13} /></button>}
+        </div>
       </div>
       <div className="capability-import-section">
         <label className="capability-import-button" tabIndex={0}>
