@@ -10,9 +10,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-TOOLS_DIR = Path(__file__).resolve().parent
-if str(TOOLS_DIR) not in sys.path:
-    sys.path.insert(0, str(TOOLS_DIR))
+from _path_helper import ensure_tools_path
+ensure_tools_path()
 
 from _registry_entries import REGISTRY  # noqa: F401 — re-exported
 
@@ -283,3 +282,15 @@ SCOPE_BADGE: dict[str, str] = {
     "project":   "🟢",
     "both":      "⚪",
 }
+
+
+def _self_test() -> int:
+    """Minimal R001 self-test: verify this tool compiles."""
+    import py_compile
+    py_compile.compile(__file__, doraise=True)
+    print(f"{__file__}: self-test ok")
+    return 0
+
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_self_test())

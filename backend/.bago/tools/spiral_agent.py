@@ -11,7 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent))
+from _path_helper import ensure_tools_path
+ensure_tools_path()  # noqa: E402
 from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
 from harmony_gate import HarmonyGate, SpiralState
 import skill_engine

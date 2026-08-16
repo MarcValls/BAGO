@@ -1,6 +1,6 @@
-# BAGO v4.8.2
+# BAGO v4.8.6
 
-[![Version](https://img.shields.io/badge/version-4.8.2-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2)
+[![Version](https://img.shields.io/badge/version-4.8.6-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,7 +11,7 @@
 
 ---
 
-## Novedades en 4.8.2
+## Novedades en 4.8.6
 
 ### UI
 - **Selector de tema claro/oscuro** en la cabecera principal — persiste en sesión
@@ -31,7 +31,7 @@
 - Provider Center con grid de proveedores configurables
 
 ### Instalación
-- Instalador Windows `bago-4.8.2-setup.exe` (NSIS) — instala todos los componentes y crea accesos directos
+- Instalador Windows `BAGO-Installation-Manager-4.8.6-win-x64.exe` (NSIS) — instala todos los componentes y crea accesos directos
 - Script `install-v4.ps1` con soporte para `-PackageZip`
 
 ---
@@ -70,7 +70,7 @@ BAGO/
 │   └── bago-launcher.ps1     # Lanzador manual legacy (los accesos directos apuntan a BAGO.exe)
 ├── releases/
 │   ├── bago-installer.nsi    # Script NSIS para generar setup.exe
-│   └── bago-4.8.2-*.zip      # Artefactos de release
+│   └── bago-v4.8.6.zip      # Artefactos de release
 ├── ARRANCAR_BAGO.bat         # Lanzador principal Windows
 └── package.json              # Raíz del workspace npm
 ```
@@ -95,7 +95,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `bago-4.8.2-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) y ejecútalo. El instalador:
+Descarga `BAGO-Installation-Manager-4.8.6-win-x64.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6) y ejecútalo. El instalador:
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -246,7 +246,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
-| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
+| [v4.8.6](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6) | 2026-08-16 | `BAGO-Installation-Manager-4.8.6-win-x64.exe` · `bago-v4.8.6.zip` |\n| [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |\n| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
 
 Los artefactos de release deben generarse desde una referencia etiquetada/inmutable (no desde `main`) con:
 

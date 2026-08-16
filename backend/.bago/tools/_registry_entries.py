@@ -5,6 +5,7 @@ aligned with the actual tool inventory. The registry intentionally excludes a
 small set of internal plumbing tools so the public count matches the contract.
 """
 from __future__ import annotations
+import sys
 
 import json
 from pathlib import Path
@@ -107,3 +108,14 @@ for _name, _payload in _merged_tools.items():
     REGISTRY[_cmd] = _entry_from_manifest(_cmd, _payload if isinstance(_payload, dict) else {})
 
 
+
+def _self_test() -> int:
+    """Minimal R001 self-test: verify this tool compiles."""
+    import py_compile
+    py_compile.compile(__file__, doraise=True)
+    print(f"{__file__}: self-test ok")
+    return 0
+
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_self_test())

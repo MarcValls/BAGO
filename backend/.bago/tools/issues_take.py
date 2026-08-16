@@ -137,6 +137,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     return _assign_next_issue(repo, agent)
 
+def _self_test() -> int:
+    """Minimal R001 self-test: verify this tool compiles."""
+    import py_compile
+    py_compile.compile(__file__, doraise=True)
+    print(f"{__file__}: self-test ok")
+    return 0
 
 if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_self_test())
     raise SystemExit(main())
