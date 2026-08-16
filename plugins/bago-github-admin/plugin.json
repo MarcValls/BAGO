@@ -1,0 +1,17 @@
+{
+  "name": "bago-github-admin",
+  "description": "BAGO-scoped GitHub repository creation with read-after-write identity verification.",
+  "version": "0.1.1",
+  "author": {
+    "name": "BAGO adapter pack"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "bago",
+    "github",
+    "repository",
+    "mcp"
+  ],
+  "skills": "skills/",
+  "mcpServers": ".mcp.json"
+}

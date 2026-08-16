@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "github-repository-admin": {
+      "type": "local",
+      "command": "python3",
+      "args": [
+        "${PLUGIN_ROOT}/mcp/github_repository_admin.py",
+        "--stdio"
+      ],
+      "env": {},
+      "tools": [
+        "create_repository"
+      ]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/bago_hook.py",
+        "powershell": "python .github/hooks/bago_hook.py",
+        "cwd": ".",
+        "env": {
+          "BAGO_COPILOT_HOOK_EVENT": "sessionStart"
+        },
+        "timeoutSec": 10
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/bago_hook.py",
+        "powershell": "python .github/hooks/bago_hook.py",
+        "cwd": ".",
+        "env": {
+          "BAGO_COPILOT_HOOK_EVENT": "postToolUse"
+        },
+        "timeoutSec": 10
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/bago_hook.py",
+        "powershell": "python .github/hooks/bago_hook.py",
+        "cwd": ".",
+        "env": {
+          "BAGO_COPILOT_HOOK_EVENT": "postToolUseFailure"
+        },
+        "timeoutSec": 10
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/bago_hook.py",
+        "powershell": "python .github/hooks/bago_hook.py",
+        "cwd": ".",
+        "env": {
+          "BAGO_COPILOT_HOOK_EVENT": "agentStop"
+        },
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
