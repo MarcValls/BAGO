@@ -125,13 +125,16 @@ function Ensure-PackagedViewer {
     $viewerRoot = $ElectronDir
     $electronBin = Join-Path $viewerRoot "node_modules\electron\dist\electron.exe"
     if (-not (Test-Path $electronBin)) {
-        Err "electron no esta instalado en $viewerRoot"
-        return $false
+        $electronBin = Join-Path $Root "node_modules\electron\dist\electron.exe"
+        if (-not (Test-Path $electronBin)) {
+            Err "electron no esta instalado ni en $viewerRoot ni en $Root"
+            return $false
+        }
     }
     Log "empaquetando electron viewer..."
     Push-Location $viewerRoot
     try {
-        npm run build
+        npm run dist
         $exitCode = $LASTEXITCODE
     } finally {
         Pop-Location
@@ -149,8 +152,8 @@ function Start-Electron {
     $logfile = Join-Path $Run "electron.log"
     $errfile = Join-Path $Run "electron.err.log"
     $electronCandidates = @(
-        (Join-Path $Root "node_modules\electron\dist\electron.exe"),
-        (Join-Path $ElectronDir "node_modules\electron\dist\electron.exe")
+        (Join-Path $ElectronDir "node_modules\electron\dist\electron.exe"),
+        (Join-Path $Root "node_modules\electron\dist\electron.exe")
     )
     $electronBin = $electronCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $electronBin) {

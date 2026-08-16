@@ -26,8 +26,8 @@ if ($LASTEXITCODE -ne 0) {
 
 # ── 2. Arrancar Electron y esperar a que el usuario cierre la ventana ─────────
 $electronCandidates = @(
-    (Join-Path $Root "node_modules\electron\dist\electron.exe"),
-    (Join-Path $Root "electron-viewer\node_modules\electron\dist\electron.exe")
+    (Join-Path $Root "electron-viewer\node_modules\electron\dist\electron.exe"),
+    (Join-Path $Root "node_modules\electron\dist\electron.exe")
 )
 $electronBin = $electronCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
