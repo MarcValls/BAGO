@@ -1,4 +1,4 @@
-# BAGO 4.8.2 Release Readiness Checklist
+# BAGO 4.8.6 Release Readiness Checklist
 
 ## Release Status: ✅ READY FOR PRODUCTION
 
@@ -6,135 +6,60 @@
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **BAGO.exe Compiled** | ✅ | Generated via `npm run dist`, stored in `releases/compiled/` (216 MB, gitignored) |
-| **Installation Infrastructure** | ✅ | PowerShell installer script (`Install-BAGO-4.8.2.ps1`), tested end-to-end |
-| **Distribution Package** | ✅ | `bago-4.8.2-distribution.zip` with complete BAGO.exe + backend (346.77 MB) |
-| **Documentation** | ✅ | INSTALLER-DELIVERY.md with complete architecture and troubleshooting |
-| **Installer Testing** | ✅ | Extraction, restructuring, shortcut creation, registry verified |
-| **Git Integration** | ✅ | Installer scripts and docs in git; large binaries gitignored |
+| **Installation Manager** | ✅ | `BAGO-Installation-Manager-4.8.6-win-x64.exe` built with electron-builder (NSIS-based, ~95 MB) |
+| **Distribution Package** | ✅ | `bago-v4.8.6.zip` — clean runtime package built by `backend/scripts/package_v4.py` |
+| **Version Coherence** | ✅ | Repo, `release_version.txt`, installer, and README all at `4.8.6` |
+| **Backend Tests** | ✅ | 928 passed / 13 skipped |
+| **Frontend Tests** | ✅ | 52 passed |
+| **Local Installer Smoke** | ✅ | `bago doctor` passes on the installed runtime |
+| **CI Source Checks** | ✅ | `validate`, `Validate source`, and CodeQL passing; packaged-smoke rebuilt to use local payload |
 
-### Files in Git (This Release)
+### Files NOT in Git (Generated Release Artifacts)
 
-1. **`releases/Install-BAGO-4.8.2.ps1`** (4 KB)
-   - PowerShell installer script
-   - No dependencies, pure Windows PowerShell
-   - Users can run: `powershell -ExecutionPolicy Bypass -File Install-BAGO-4.8.2.ps1`
+| Artifact | Purpose |
+|----------|---------|
+| `backend/release/v4/BAGO-Installation-Manager-4.8.6-win-x64.exe` | Windows setup (download + install) |
+| `backend/release/v4/BAGO-Installation-Manager-4.8.6-win-x64.exe.sha256` | SHA256 sidecar |
+| `backend/release/v4/bago-v4.8.6.zip` | Thin runtime payload for the manager / remote install |
+| `backend/release/v4/bago-v4.8.6.zip.sha256` | SHA256 sidecar |
 
-2. **`INSTALLER-DELIVERY.md`** (220+ lines)
-   - Complete delivery documentation
-   - Installation instructions, architecture decisions, troubleshooting
-   - Distribution and support information
-
-3. **`.gitignore` Updates**
-   - Excludes `releases/compiled/` (contains binaries)
-   - Excludes large ZIPs and checksums
-
-### Files NOT in Git (Too Large, User-Downloadable)
-
-1. **`bago-4.8.2-distribution.zip`** (346.77 MB)
-   - To be uploaded to GitHub Releases
-   - Users download + place in same directory as installer script
-   - SHA256: `706E9E4497BD900573E8F92EA2F89BAC4F4DE1BC7E36FBAF506F3CCF1A422851`
-
-2. **`releases/compiled/`** (500 MB+)
-   - Generated locally via `npm run dist`
-   - Used to create distribution ZIP
-   - Regenerated with each BAGO.exe update
-   - Never pushed to GitHub (too large)
+These live under `backend/release/v4/` (gitignored) and are uploaded to the GitHub Release.
 
 ### Release Workflow
 
-**For Users:**
-```bash
-# 1. Download installer script from GitHub repo
-#    (In releases/ directory)
+**For Users (recommended path):**
 
-# 2. Download distribution package from GitHub Release
-#    bago-4.8.2-distribution.zip (346.77 MB)
+1. Download `BAGO-Installation-Manager-4.8.6-win-x64.exe` from [GitHub Releases v4.8.6](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6).
+2. Run it. It installs backend, frontend build, Electron viewer, and creates Desktop / Start Menu shortcuts.
+3. Double-click the shortcut. Backend starts on `http://127.0.0.1:8080` and the Electron viewer opens. Closing the window stops the backend.
 
-# 3. Place ZIP in same directory as installer script
+**For Maintainers:**
 
-# 4. Run installer
-powershell -ExecutionPolicy Bypass -File Install-BAGO-4.8.2.ps1
+```powershell
+# Full build
+npm run build
 
-# 5. BAGO installs to %LOCALAPPDATA%\BAGO
-#    - Creates Desktop shortcut
-#    - Creates Start Menu shortcut
-#    - Registers in Windows Add/Remove Programs
-```
+# Distribution package
+cd backend
+python scripts/package_v4.py --output-dir release/v4 --release-version 4.8.6
 
-**For Maintainers (Local):**
-```bash
-# 1. Build compiled BAGO
-cd electron-viewer
+# Installation Manager
+cd ../electron-viewer
 npm run dist
-# Outputs: dist/win-unpacked/BAGO.exe + Electron runtime
-
-# 2. Prepare for distribution
-cp -r electron-viewer/dist/win-unpacked releases/compiled/electron-viewer
-cp -r backend releases/compiled/
-
-# 3. Create distribution package (local, not in git)
-Compress-Archive releases/compiled/ -DestinationPath releases/bago-4.8.2-distribution.zip
-
-# 4. Commit installer scripts and documentation
-git add releases/Install-BAGO-4.8.2.ps1
-git add INSTALLER-DELIVERY.md
-git add .gitignore
-git commit -m "Add BAGO 4.8.2 installation infrastructure"
-
-# 5. Push to GitHub
-git push origin main
-
-# 6. Create GitHub Release v4.8.2
-#    - Tag: v4.8.2
-#    - Upload: bago-4.8.2-distribution.zip
-#    - Users can now download and install
 ```
-
-### Installation Verification
-
-When user runs `Install-BAGO-4.8.2.ps1`:
-
-1. ✅ Locates `bago-4.8.2-distribution.zip` (same directory)
-2. ✅ Extracts to `%LOCALAPPDATA%\BAGO`
-3. ✅ Verifies `BAGO.exe` exists
-4. ✅ Restructures directory layout (moves `compiled/*` up)
-5. ✅ Creates Desktop shortcut (`BAGO.lnk`)
-6. ✅ Creates Start Menu shortcut
-7. ✅ Registers in Windows Uninstall list
-8. ✅ Reports success with launch instructions
-
-### Known Constraints
-
-1. **Compiled Binaries Not in Git**
-   - Reason: BAGO.exe (216 MB) + ZIP (346 MB) exceed GitHub 100 MB file size limit
-   - Solution: Binaries generated locally, distributed via GitHub Releases
-   - Updated: Always regenerate `releases/compiled/` when BAGO source changes
-
-2. **No External Dependencies**
-   - PowerShell native (Windows built-in)
-   - No installation of Node.js, Python, git required
-   - Clean offline installation (~2-3 minutes)
-
-3. **User Requirement**
-   - Per user instruction: "compiled BAGO.exe always in same folder as repo"
-   - Implementation: Maintained in `releases/compiled/` locally
-   - In Git: Only installer scripts and documentation
 
 ### Post-Release Checklist
 
-- [ ] Create Git tag: `git tag v4.8.2`
-- [ ] Create GitHub Release v4.8.2
-- [ ] Upload `bago-4.8.2-distribution.zip` to release
-- [ ] Upload `bago-4.8.2-distribution.zip.sha256` for verification
-- [ ] Test installation on clean Windows VM
-- [ ] Verify shortcuts created correctly
-- [ ] Test launching from Desktop and Start Menu
-- [ ] Verify backend health endpoint responding
-- [ ] Announce release in project channels
+- [x] Bump all canonical version files to `4.8.6`
+- [x] Update README badges, release table, and installer references
+- [x] Rebuild release artifacts and verify checksums
+- [x] Run backend tests and integral smoke
+- [x] Merge `fix/drift-4.8.6` into `main`
+- [x] Create and push Git tag `v4.8.6`
+- [x] Create GitHub Release `v4.8.6` and upload artifacts + sidecars
+- [x] Set release as latest
 
 ---
 
-**Release Date:** 2025-01-17  
-**Next Update:** When BAGO.exe source code changes
+**Release Date:** 2026-08-16  
+**Next Update:** When BAGO source code changes
