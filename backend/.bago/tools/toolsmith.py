@@ -15,7 +15,8 @@ from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+from _path_helper import ensure_tools_path
+ensure_tools_path()  # noqa: E402
 from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
 
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -219,7 +220,8 @@ import shutil
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+from _path_helper import ensure_tools_path
+ensure_tools_path()  # noqa: E402
 from bago_utils import get_scan_root, print_test_results
 
 

@@ -30,10 +30,8 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-sys.path.insert(0, str(Path(__file__).parent))
-core_dir = Path(__file__).resolve().parents[1] / "core"
-if str(core_dir) not in sys.path:
-    sys.path.insert(0, str(core_dir))
+from _path_helper import ensure_core_path
+ensure_core_path()  # noqa: E402
 from bago_utils import get_scan_root
 from directory_context import DirectoryContextEngine
 from workspace_binding import resolve_framework_root, resolve_workspace_binding
@@ -74,7 +72,7 @@ def resolve_project_root(root: str | Path | None = None, *, allow_fallback_cwd: 
     if detected is not None:
         return detected
     if allow_fallback_cwd:
-        return Path.cwd().resolve()
+        return get_scan_root()
     return None
 
 
@@ -327,6 +325,9 @@ def analyze_data(root: Path) -> dict[str, Any]:
         suggestions.append("bago project init")
         issues.append("La estructura portable .bago no está inicializada del todo.")
 
+    if not suggestions:
+        suggestions.append("Review project status with `bago status`.")
+
     scan_module = _load_scan_directory_module()
     tree = ""
     if scan_module is not None and hasattr(scan_module, "scan_directory"):
@@ -526,7 +527,7 @@ def format_status(data: dict[str, Any]) -> str:
 
 
 def cmd_init(root: str | None = None) -> int:
-    project_root = resolve_project_root(root, allow_fallback_cwd=False)
+    project_root = resolve_project_root(root, allow_fallback_cwd=True)
     if project_root is None:
         print("Error: no se detecta un proyecto. Usa --root <ruta>.")
         return 1

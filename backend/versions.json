@@ -1,5 +1,5 @@
 {
-  "current": "4.8.4",
+  "current": "4.8.6",
   "history": [
     {
       "version": "4.0.0",
@@ -100,8 +100,14 @@
     {
       "version": "4.8.4",
       "released": "2026-08-10",
-      "ended": null,
+      "ended": "2026-08-16",
       "notes": "Hotfix del bridge Codex: edición aprobada en el workspace, cierre de turnos y diagnóstico visible de límites del proveedor."
+    },
+    {
+      "version": "4.8.6",
+      "released": "2026-08-16",
+      "ended": null,
+      "notes": "Corrección de deriva entre repo, runtime y release: doctor version_coherent multi-componente, release_version.txt en instalaciones, selección legacy ~/.bago, y re-empaquetado alineado."
     }
   ]
 }

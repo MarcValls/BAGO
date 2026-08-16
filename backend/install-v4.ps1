@@ -1205,6 +1205,14 @@ $installConfigPath = Join-Path $installFull "install_config.json"
 $runtimeConfigPath = Join-Path $installFull ".bago\config.json"
 Write-JsonFile -Path $installConfigPath -Value $installConfig
 Write-JsonFile -Path $runtimeConfigPath -Value $runtimeConfig
+
+# Propagar la versión canónica al runtime instalado para que el doctor la valide.
+$sourceVersionPath = Join-Path $sourceFull "release_version.txt"
+$targetVersionPath = Join-Path $installFull "release_version.txt"
+if (Test-Path -LiteralPath $sourceVersionPath) {
+    Copy-Item -LiteralPath $sourceVersionPath -Destination $targetVersionPath -Force
+}
+
 if (-not $RepairOnly) {
     Restore-PreservedRuntimeState -InstallPath $installFull -PreservePath $preserveTemp
 }
@@ -1217,6 +1225,14 @@ New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "backups") -Force
 New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "runtime") -Force | Out-Null
 $selectionDevPath = if ($PreserveDevRole) { "" } else { $sourceFull }
 Update-InstallSelection -UserRoot $defaultUserRoot -InstallPath $installFull -DevPath $selectionDevPath
+
+# Mantener la ruta legacy ~/.bago sincronizada para compatibilidad con shell antiguo.
+$legacyUserRoot = [System.Environment]::GetEnvironmentVariable("USERPROFILE")
+if (-not [string]::IsNullOrWhiteSpace($legacyUserRoot)) {
+    $legacyUserRoot = Join-Path $legacyUserRoot ".bago"
+    New-Item -ItemType Directory -Path $legacyUserRoot -Force | Out-Null
+    Update-InstallSelection -UserRoot $legacyUserRoot -InstallPath $installFull -DevPath ""
+}
 
 if ($credentialStoreCfg.mode -ne "session") {
     if (-not $credentialStoreCfg.path) { throw "La persistencia elegida requiere una ruta de almacenamiento." }

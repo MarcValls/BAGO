@@ -2,7 +2,7 @@
 """cmd_doctor.py — bago doctor: salud integral de la instalación BAGO.
 
 Ejecuta chequeos end-to-end y reporta PASS/FAIL/WARN por cada dimensión:
-  1. Versión coherente en 5 archivos
+  1. Versión coherente en backend + componentes del repo (cuando están presentes)
   2. install_selection.json resuelve a la copia activa
   3. La copia activa coincide con la versión canónica
   4. Bridge importa sin errores
@@ -27,6 +27,7 @@ from pathlib import Path
 from bago_core.resolver import resolve_piece_path
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = BAGO_ROOT.parent
 from bago_core.user_state_paths import install_selection_file, user_root, legacy_user_root
 
 
@@ -51,10 +52,31 @@ def _active_runtime_version_status(canonical_root: Path, active_root: Path) -> t
     active_file = active_root / "release_version.txt"
     if not canonical_file.is_file():
         return False, f"versión canónica ausente: {canonical_file}"
-    if not active_file.is_file():
-        return False, f"versión activa ausente: {active_file}"
+
     canonical = canonical_file.read_text(encoding="utf-8").strip().lstrip("vV")
-    active = active_file.read_text(encoding="utf-8").strip().lstrip("vV")
+
+    def _read_active_version() -> str:
+        if active_file.is_file():
+            return active_file.read_text(encoding="utf-8").strip().lstrip("vV")
+        # Fallback: managed installs before 4.8.6 may only have config metadata.
+        for cfg_path in [
+            active_root / ".bago" / "config.json",
+            active_root / "install_config.json",
+        ]:
+            if cfg_path.is_file():
+                try:
+                    data = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
+                    for key in ("release_version", "version", "installed_version"):
+                        val = data.get(key, "")
+                        if val:
+                            return str(val).strip().lstrip("vV")
+                except Exception:
+                    continue
+        return ""
+
+    active = _read_active_version()
+    if not active:
+        return False, f"versión activa ausente: {active_file}"
     if canonical != active:
         return False, f"activa v{active} != canónica v{canonical}: {active_root}"
     return True, f"v{active}: {active_root}"
@@ -72,7 +94,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "release_version.txt": BAGO_ROOT / "release_version.txt",
         "pyproject.toml": BAGO_ROOT / "pyproject.toml",
         "versions.json": BAGO_ROOT / "versions.json",
-        "package.json": BAGO_ROOT / "package.json",
+        "backend/package.json": BAGO_ROOT / "package.json",
+        "root/package.json": REPO_ROOT / "package.json",
+        "frontend/ui_config.json": REPO_ROOT / "frontend" / "public" / "ui_config.json",
+        "electron/package.json": REPO_ROOT / "electron-viewer" / "package.json",
         "cli.py --version": BAGO_ROOT / "bago_core" / "cli.py",
     }
     versions = set()
@@ -86,7 +111,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 m = re.search(r'^version\s*=\s*["\']([^"\']+)', text, re.M)
                 if m:
                     versions.add(m.group(1))
-            elif label == "package.json":
+            elif label.endswith("package.json") or label.endswith("ui_config.json"):
                 data = json.loads(text)
                 versions.add(data.get("version", ""))
             elif label == "versions.json":
@@ -143,7 +168,26 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     else:
         sel_detail = f"{sel_path} no existe"
         fails += 1
+
     checks.append(_check("install_selection", checks, sel_ok, sel_detail))
+
+    # ── 2b. legacy install_selection.json (backward compatibility) ─────────
+    legacy_sel_path = legacy_user_root() / "install_selection.json"
+    legacy_ok = False
+    legacy_detail = ""
+    if legacy_sel_path.exists():
+        try:
+            legacy_sel = json.loads(legacy_sel_path.read_text(encoding="utf-8-sig"))
+            legacy_ok = bool(
+                legacy_sel.get("active", {}).get("path")
+                or legacy_sel.get("roles", {}).get("active", {}).get("path")
+            )
+            legacy_detail = "legacy selection presente" if legacy_ok else "legacy selection sin path activo"
+        except Exception as exc:
+            legacy_detail = f"JSON inválido: {exc}"
+    else:
+        legacy_detail = f"{legacy_sel_path} no existe"
+    checks.append(_check("legacy_install_selection", checks, legacy_ok, legacy_detail))
 
     # ── 3. Runtime activo alineado con la fuente canónica ───────────────────
     active_version_ok = False

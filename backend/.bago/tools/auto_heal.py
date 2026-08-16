@@ -12,7 +12,35 @@ RULE_R001 = "R001"
 RULE_R004 = "R004"
 RULE_RGEN = "RGEN"
 RULE_RLARGE = "RLARGE"
-MAX_LARGE_SIZE = 500 * 1024
+MAX_LARGE_SIZE = 250 * 1024
+
+EXCLUDED_SCAN_PARTS = frozenset({
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".gabo/state",
+    ".gabo/cache",
+    ".gabo/logs",
+    ".bago/state",
+    ".bago/cache",
+    ".bago/logs",
+    "docs/archive",
+    "release",
+})
+
+
+def _is_excluded_path(path: Path, root: Path | None = None) -> bool:
+    try:
+        rel = path.relative_to(root) if root else path
+        rel_posix = str(rel).replace("\\", "/")
+    except ValueError:
+        rel_posix = str(path).replace("\\", "/")
+    for prefix in EXCLUDED_SCAN_PARTS:
+        if rel_posix == prefix or rel_posix.startswith(prefix + "/"):
+            return True
+    return False
 
 
 def _iter_tool_files(root: Path) -> list[Path]:
@@ -68,6 +96,8 @@ def scan_missing_test_flag(root: Path) -> list[dict]:
 def scan_invalid_json(root: Path) -> list[dict]:
     findings = []
     for path in root.rglob("*.json"):
+        if _is_excluded_path(path, root):
+            continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
             json.loads(text)
@@ -81,6 +111,8 @@ def scan_invalid_json(root: Path) -> list[dict]:
 def scan_invalid_python(root: Path) -> list[dict]:
     findings = []
     for path in root.rglob("*.py"):
+        if _is_excluded_path(path, root):
+            continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
             ast.parse(text, filename=str(path))
@@ -95,6 +127,8 @@ def scan_large_files(root: Path) -> list[dict]:
     findings = []
     for path in root.rglob("*"):
         if not path.is_file():
+            continue
+        if _is_excluded_path(path, root):
             continue
         try:
             size = path.stat().st_size

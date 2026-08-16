@@ -39,9 +39,8 @@ for _stream in (sys.stdout, sys.stderr):
 # Ensure sub-modules in this directory are importable even when this file is
 # loaded via importlib.util.spec_from_file_location (which does NOT add the
 # file's directory to sys.path automatically).
-_TOOLS_DIR = Path(__file__).parent
-if str(_TOOLS_DIR) not in sys.path:
-    sys.path.insert(0, str(_TOOLS_DIR))
+from _path_helper import ensure_tools_path, ensure_path
+ensure_tools_path()
 
 # ── Imports from sub-modules ───────────────────────────────────────────────────
 # Public re-exports — consumers import from tool_registry, not sub-modules.
@@ -180,9 +179,7 @@ def load_registry(registry_path: "Path | None" = None) -> "dict[str, ToolEntry]"
     if not path.exists():
         return REGISTRY
     # Ensure the target's directory is importable (sub-modules need it)
-    target_dir = str(path.parent)
-    if target_dir not in sys.path:
-        sys.path.insert(0, target_dir)
+    ensure_path(path.parent)
     spec = importlib.util.spec_from_file_location("_tool_registry_loaded", path)
     if spec is None:
         return REGISTRY

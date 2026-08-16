@@ -32,7 +32,8 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-sys.path.insert(0, str(Path(__file__).parent))
+from _path_helper import ensure_tools_path
+ensure_tools_path()  # noqa: E402
 from bago_utils import get_scan_root
 
 OLLAMA_DEFAULT_PORT = 11434
