@@ -333,9 +333,6 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     agent_run = agent_sub.add_parser("run", help="Ejecuta un agente")
     agent_run.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_run.add_argument("agent_id")
-    agent_run.add_argument("--task", default="", help="Tarea que ejecutará el agente mediante una sesión BAGO")
-    agent_run.add_argument("--provider", default="", help="Provider explícito requerido para --task")
-    agent_run.add_argument("--model", default="", help="Modelo explícito requerido para --task")
     agent_kill = agent_sub.add_parser("kill", help="Desactiva un agente")
     agent_kill.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_kill.add_argument("agent_id")
@@ -348,8 +345,6 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     agent_route.add_argument("--history", action="store_true", help="Muestra historial de rutas")
     agent_route.add_argument("--limit", type=int, default=10, help="Limite del historial")
     agent_route.add_argument("--no-classifier", action="store_true", help="Desactiva clasificador Ollama")
-    agent_route.add_argument("--provider", default="", help="Provider explícito para la tarea")
-    agent_route.add_argument("--model", default="", help="Modelo explícito para la tarea")
     agent_route.add_argument("task_words", nargs="*", default=[], help="Texto de la tarea como palabras sueltas")
 
     guard_parser = sub.add_parser("guard", help="Guardian de deuda tecnica -- previene patrones antes de commitear")

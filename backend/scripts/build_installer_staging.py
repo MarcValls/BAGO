@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import base64
 from datetime import datetime, timezone
-import hashlib
 import shutil
 import subprocess
 import sys
@@ -46,35 +44,6 @@ def _exe(name: str) -> str:
     return name
 
 
-def _sha512_b64(path: Path) -> str:
-    digest = hashlib.sha512()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 16), b""):
-            digest.update(chunk)
-    return base64.b64encode(digest.digest()).decode("ascii")
-
-
-def _write_latest_yml(dist_out: Path) -> Path:
-    """Emit updater metadata required by the release integrity gate."""
-    version = (ROOT / "release_version.txt").read_text(encoding="utf-8").strip().lstrip("vV")
-    installer = dist_out / f"BAGO-Installation-Manager-{version}-win-x64.exe"
-    if not installer.is_file():
-        raise FileNotFoundError(f"Installer missing after build: {installer}")
-    latest = dist_out / "latest.yml"
-    latest.write_text(
-        "\n".join([
-            f"version: {version}",
-            f"path: {installer.name}",
-            f"size: {installer.stat().st_size}",
-            f"sha512: {_sha512_b64(installer)}",
-            f"releaseDate: '{datetime.now(timezone.utc).isoformat()}'",
-            "",
-        ]),
-        encoding="utf-8",
-    )
-    return latest
-
-
 def main() -> int:
     staging_root = _make_staging_root()
     _safe_remove(staging_root)
@@ -98,7 +67,6 @@ def main() -> int:
         "nsis",
         "--config.directories.output=" + str(DIST_OUT),
     ])
-    latest = _write_latest_yml(DIST_OUT)
 
     ARTIFACTS_OUT.mkdir(parents=True, exist_ok=True)
     for item in DIST_OUT.iterdir():
@@ -116,7 +84,6 @@ def main() -> int:
     print(f"Staging root: {staging_root}")
     print(f"Release tree: {RELEASE_OUT}")
     print(f"Installer out: {DIST_OUT}")
-    print(f"Updater metadata: {latest}")
     print(f"Artifacts out: {ARTIFACTS_OUT}")
     return 0
 

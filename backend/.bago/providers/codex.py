@@ -15,7 +15,7 @@ import os
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -33,42 +33,6 @@ from cli_bridge import build_prompt, find_cli, run_cli
 OPENAI_API = "https://api.openai.com/v1"
 
 
-def _extract_codex_jsonl_message(output: str) -> str:
-    """Return the last agent message from ``codex exec --json`` output.
-
-    Keep a plain-text fallback for older CLIs and test doubles. Once at least
-    one JSONL event is observed, an absent agent message is a malformed
-    successful run and must not be rendered as raw protocol data.
-    """
-    event_count = 0
-    final_message = ""
-    for raw_line in output.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(event, dict) or not event.get("type"):
-            continue
-        event_count += 1
-        item = event.get("item")
-        if (
-            event.get("type") == "item.completed"
-            and isinstance(item, dict)
-            and item.get("type") == "agent_message"
-            and isinstance(item.get("text"), str)
-        ):
-            final_message = item["text"]
-
-    if final_message:
-        return final_message
-    if event_count:
-        raise RuntimeError("Codex CLI finalizó sin emitir un mensaje final")
-    return output.strip()
-
-
 class CodexAdapter(ProviderAdapter):
     """Adapter para OpenAI / Codex."""
 
@@ -78,7 +42,7 @@ class CodexAdapter(ProviderAdapter):
         self.base_url = (config or {}).get("base_url", OPENAI_API).rstrip("/")
         self.base_path = Path((config or {}).get("base_path") or os.getcwd()).resolve()
         self.cli_path = find_cli("codex", (config or {}).get("cli_path", ""))
-        self.cli_timeout = float((config or {}).get("cli_timeout", 600))
+        self.cli_timeout = float((config or {}).get("cli_timeout", 180))
         self.cli_authenticated = bool((config or {}).get("cli_authenticated")) or (
             bool(self.cli_path) and (Path.home() / ".codex" / "auth.json").exists()
         )
@@ -86,13 +50,7 @@ class CodexAdapter(ProviderAdapter):
     def _use_cli(self) -> bool:
         return not self.api_key and self.cli_authenticated
 
-    def _chat_cli(
-        self,
-        messages: list[dict],
-        model: str,
-        system: str,
-        activity_callback: Callable[[], None] | None = None,
-    ) -> ProviderResponse:
+    def _chat_cli(self, messages: list[dict], model: str, system: str) -> ProviderResponse:
         prompt = build_prompt(messages, system)
         command = [
             self.cli_path,
@@ -100,7 +58,6 @@ class CodexAdapter(ProviderAdapter):
             "--ephemeral",
             "--skip-git-repo-check",
             "--approve-for-me",
-            "--json",
             "--color",
             "never",
             "-C",
@@ -109,17 +66,13 @@ class CodexAdapter(ProviderAdapter):
         if model:
             command += ["--model", model]
         command.append("-")
-        run_kwargs: dict[str, Any] = {"input_text": prompt}
-        if activity_callback is not None:
-            run_kwargs["on_activity"] = activity_callback
-        raw_output = run_cli(command, self.base_path, self.cli_timeout, **run_kwargs)
-        content = _extract_codex_jsonl_message(raw_output)
+        content = run_cli(command, self.base_path, self.cli_timeout, input_text=prompt)
         return ProviderResponse(
             content=content,
             model_used=model,
             provider=self.provider_name,
             finish_reason="stop",
-            metadata={"transport": "cli", "output_format": "jsonl"},
+            metadata={"transport": "cli"},
         )
 
     def _headers(self) -> dict:
@@ -149,11 +102,10 @@ class CodexAdapter(ProviderAdapter):
         max_tokens: int | None = None,
         stream: bool = False,
         tools: list[dict] | None = None,
-        activity_callback: Callable[[], None] | None = None,
     ) -> ProviderResponse:
         if self._use_cli():
             try:
-                return self._chat_cli(messages, model, system, activity_callback)
+                return self._chat_cli(messages, model, system)
             except Exception as exc:
                 self._set_error(str(exc))
                 return ProviderResponse(
@@ -313,9 +265,6 @@ class CodexAdapter(ProviderAdapter):
 
     def supports_streaming(self) -> bool:
         return bool(self.api_key)
-
-    def supports_activity_events(self) -> bool:
-        return self._use_cli()
 
 
 def _run_tests() -> int:

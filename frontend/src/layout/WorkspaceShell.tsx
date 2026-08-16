@@ -10,11 +10,7 @@ const copy: Record<ActiveSection, { title: string; eyebrow: string; description:
   pipeline: { title: 'Pipeline', eyebrow: 'Ejecución', description: 'Pasos, jobs, bloqueos y evidencias asociadas.' },
   evidence: { title: 'Evidencia', eyebrow: 'Trazabilidad', description: 'Receipts, claims e historial verificable.' },
   context: { title: 'Contexto', eyebrow: 'Presupuesto', description: 'Uso, reserva, límite y factor limitante.' },
-  system: { title: 'Operación', eyebrow: 'Sistema', description: 'Router, proveedores, runtime y rutas API.' },
-  capabilities: { title: 'Capacidades', eyebrow: 'Catálogo operativo', description: 'Contratos, paquetes y capacidades disponibles.' },
-  agents: { title: 'Agentes', eyebrow: 'Ejecución delegada', description: 'Configura, prueba y activa agentes del workspace.' },
-  interpreter: { title: 'Intérprete', eyebrow: 'Lectura de intención', description: 'Interpreta una consulta y revisa sus etapas.' },
-  tools: { title: 'Herramientas', eyebrow: 'Ejecución controlada', description: 'Catálogo operativo y comandos autorizados.' }
+  system: { title: 'Operación', eyebrow: 'Sistema', description: 'Router, proveedores, runtime y rutas API.' }
 };
 
 interface Props {

@@ -14,7 +14,6 @@ get a RequestContext. Uses RequestContext for everything else.
 from __future__ import annotations
 import threading
 import time
-import inspect
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -45,87 +44,43 @@ def _inject_manager_context(message: str, body: dict[str, Any]) -> str:
 
 
 def _send_with_watchdog(ctx, ai_message: str, timeout_s: float, *, internal: bool = False) -> tuple[str | None, dict | None, float]:
-    """Run mgr.send(ai_message) with a renewable inactivity timeout."""
+    """Run mgr.send(ai_message) on a background thread with a timeout.
+
+    Returns (response, error_payload, elapsed_ms). Exactly one of
+    `response` or `error_payload` is non-None on success vs. timeout.
+    """
     started = time.time()
-    started_monotonic = time.monotonic()
-    method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
-    try:
-        signature = inspect.signature(method)
-        accepts_callback = "activity_callback" in signature.parameters or any(
-            parameter.kind is inspect.Parameter.VAR_KEYWORD
-            for parameter in signature.parameters.values()
-        )
-    except (TypeError, ValueError):
-        accepts_callback = False
     if timeout_s <= 0:
         try:
+            method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
             return method(ai_message), None, (time.time() - started) * 1000
         except Exception as exc:
             return None, {"ok": False, "error": f"Error interno: {exc}"}, (time.time() - started) * 1000
 
     done = threading.Event()
-    wake = threading.Event()
     worker_result: dict[str, Any] = {}
     worker_exc: dict[str, BaseException] = {}
-    activity_lock = threading.Lock()
-    last_activity = time.monotonic()
-
-    def _touch() -> None:
-        nonlocal last_activity
-        with activity_lock:
-            last_activity = time.monotonic()
-        wake.set()
 
     def _runner() -> None:
         try:
-            if accepts_callback:
-                worker_result["response"] = method(ai_message, activity_callback=_touch)
-            else:
-                worker_result["response"] = method(ai_message)
+            method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
+            worker_result["response"] = method(ai_message)
         except BaseException as exc:  # propagate after the wait
             worker_exc["exc"] = exc
         finally:
             done.set()
-            wake.set()
 
     t = threading.Thread(target=_runner, daemon=True)
     t.start()
-    hard_timeout_s = max(timeout_s * 10.0, 1800.0)
-    worker_heartbeat_s = max(min(timeout_s / 3.0, 30.0), 0.01)
-    timeout_reason = ""
-    while not done.is_set():
-        now = time.monotonic()
-        with activity_lock:
-            idle_for = now - last_activity
-        total_for = now - started_monotonic
-        if accepts_callback and t.is_alive() and idle_for >= worker_heartbeat_s:
-            # A cooperative manager owns the provider process and its
-            # cancellation policy. Its live worker is a valid request-level
-            # heartbeat even when the provider emits no token events while
-            # reasoning or initializing.
-            _touch()
-            continue
-        if idle_for >= timeout_s:
-            timeout_reason = "inactivity"
-            break
-        if total_for >= hard_timeout_s:
-            timeout_reason = "total"
-            break
-        wake.wait(timeout=min(timeout_s - idle_for, hard_timeout_s - total_for, 0.25))
-        wake.clear()
-
-    if timeout_reason:
-        detail = (
-            f"El modelo no mostr\u00f3 actividad durante {timeout_s:g}s (timeout de inactividad)."
-            if timeout_reason == "inactivity"
-            else f"El modelo super\u00f3 el l\u00edmite total de {hard_timeout_s:g}s."
-        )
+    finished = done.wait(timeout=timeout_s)
+    if not finished:
         return None, {
             "ok": False,
-            "error": detail,
+            "error": (
+                f"El modelo no respondi\u00f3 en {timeout_s:g}s "
+                "(timeout). Posible cuelgue del provider o del modelo."
+            ),
             "chat_timeout_s": timeout_s,
-            "chat_timeout_mode": timeout_reason,
-            "chat_total_timeout_s": hard_timeout_s,
             "timed_out": True,
         }, (time.time() - started) * 1000
 

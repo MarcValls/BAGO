@@ -118,10 +118,6 @@ def cmd_agent(args: argparse.Namespace) -> int:
             argv.append("--json")
         if getattr(args, "no_classifier", False):
             argv.append("--no-classifier")
-        if getattr(args, "provider", ""):
-            argv += ["--provider", args.provider]
-        if getattr(args, "model", ""):
-            argv += ["--model", args.model]
         for word in getattr(args, "task_words", []) or []:
             argv.append(word)
         if not task and not getattr(args, "task_words", []):
@@ -139,13 +135,6 @@ def cmd_agent(args: argparse.Namespace) -> int:
         argv += [subcmd]
     elif subcmd in {"run", "kill"}:
         argv += [subcmd, getattr(args, "agent_id", "")]
-        if subcmd == "run":
-            if getattr(args, "task", ""):
-                argv += ["--task", args.task]
-            if getattr(args, "provider", ""):
-                argv += ["--provider", args.provider]
-            if getattr(args, "model", ""):
-                argv += ["--model", args.model]
     else:
         argv += ["--help"]
     return mod.main(argv)

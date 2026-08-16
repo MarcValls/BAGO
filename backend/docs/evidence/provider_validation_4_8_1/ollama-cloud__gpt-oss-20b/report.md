@@ -24,8 +24,8 @@ No he podido validar la respuesta del modelo. No se ha marcado la tarea como com
 
 ```text
 Session ID : 0531df8d-e7d
-Project    : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend
-Workspace  : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
+Project    : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend
+Workspace  : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
 Provider   : ollama-cloud
 Model      : gpt-oss:20b
 Tool policy: ask (auto_allow_tools=False)

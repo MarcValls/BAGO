@@ -31,7 +31,7 @@
       "session": "958a424f-b36d-4933-9592-6903aa3d553e"
     },
     {
-      "user": "BAGO start on C:\\Users\\<USER>\\Desktop\\PACK_PRODUCCION",
+      "user": "BAGO start on C:\\Users\\AMTEC_Terminal_1º\\Desktop\\PACK_PRODUCCION",
       "assistant": "Estado BAGO cargado. Aquí el resumen completo del arranque:\n\n---\n\n## 🟢 BAGO — Estado del sistema\n\n| | |\n|---|---|\n| **Versión** | 2.5-stable |\n| **Health** | 100/100 |\n| **Último commit** | `96b8d56` — fix(validate_pack): saltar archivos no-UTF-8 |\n| **Flujo activo** | W2 \"Velocidad de sprint en dashboard\" |\n| **Tarea pendiente** | ninguna (CHG-002 completado) |\n\n## 📦 PACK_PRODUCCION — BIANCA: La Tejedora de Universos\n\n| | |\n|---|---|\n| **Estado** | ⚠️ GO preproducción / KO producción |\n| **Moti",
       "session": "958a424f-b36d-4933-9592-6903aa3d553e"
     },
@@ -129,7 +129,7 @@
     },
     {
       "user": "BUSCA INFO SOBRE ULTIMAS SESIONES CON CODEX",
-      "assistant": "Ahora tengo todo el historial real. Aquí está el resumen:\n\n---\n\n## 🗂️ Últimas sesiones con Codex CLI\n\n| Fecha | Session ID | Modelo usado | CWD | Primera msg | Tokens |\n|-------|-----------|-------------|-----|-------------|--------|\n| **16/05 02:08** | `019e2e1d` | **kimi-k2.6:cloud** (ollama-launch) | `C:\\Users\\<USER>` | `\"bago\"` / `\"INICIAR EL FRAMEWORK\"` | 45K |\n| **16/05 01:48** | `019e2e0a` | **gpt-5.4-mini** (ollama-launch) | `C:\\Users\\<USER>` | `\"BAGO\"` | 11K |\n| **",
+      "assistant": "Ahora tengo todo el historial real. Aquí está el resumen:\n\n---\n\n## 🗂️ Últimas sesiones con Codex CLI\n\n| Fecha | Session ID | Modelo usado | CWD | Primera msg | Tokens |\n|-------|-----------|-------------|-----|-------------|--------|\n| **16/05 02:08** | `019e2e1d` | **kimi-k2.6:cloud** (ollama-launch) | `C:\\Users\\AMTEC_Terminal_1º` | `\"bago\"` / `\"INICIAR EL FRAMEWORK\"` | 45K |\n| **16/05 01:48** | `019e2e0a` | **gpt-5.4-mini** (ollama-launch) | `C:\\Users\\AMTEC_Terminal_1º` | `\"BAGO\"` | 11K |\n| **",
       "session": "ad83a56d-24e1-4844-967e-8aed9800158d"
     },
     {
@@ -144,7 +144,7 @@
     },
     {
       "user": "busca detenidamente en c: y subcarpetas y en e: tiene que estar algun ollama",
-      "assistant": "Ahora tengo todo el panorama. Aquí el **resumen completo** del hallazgo:\n\n---\n\n## ✅ Ollama encontrado — diagnóstico completo\n\n### Instalación\n- **Ejecutable**: `C:\\Users\\<USER>\\AppData\\Local\\Programs\\Ollama\\ollama.exe`\n- **Versión**: `0.24.0`\n- **Estado**: **CORRIENDO** ahora mismo (4 procesos activos: `ollama.exe` ×3 + `ollama app.exe`)\n- **API**: ✅ Responde en `http://localhost:11434`\n\n### Modelos\n- **`OLLAMA_MODELS`** apunta a `E:\\.bago\\.models`\n- **E: tiene 23 GB libres**\n- **Un m",
+      "assistant": "Ahora tengo todo el panorama. Aquí el **resumen completo** del hallazgo:\n\n---\n\n## ✅ Ollama encontrado — diagnóstico completo\n\n### Instalación\n- **Ejecutable**: `C:\\Users\\AMTEC_Terminal_1º\\AppData\\Local\\Programs\\Ollama\\ollama.exe`\n- **Versión**: `0.24.0`\n- **Estado**: **CORRIENDO** ahora mismo (4 procesos activos: `ollama.exe` ×3 + `ollama app.exe`)\n- **API**: ✅ Responde en `http://localhost:11434`\n\n### Modelos\n- **`OLLAMA_MODELS`** apunta a `E:\\.bago\\.models`\n- **E: tiene 23 GB libres**\n- **Un m",
       "session": "f11866dc-0f2a-4fee-baa5-1f3af354c4c7"
     },
     {
@@ -237,7 +237,7 @@
       "session": "958a424f-b36d-4933-9592-6903aa3d553e"
     },
     {
-      "user": "tambien podriamos poner en el generador de imagenes un wizard para crear contratos de arte tipo este C:\\Users\\<USER>\\Desktop\\PACK_PRODUCCION\\CONTRATOS\\CONTRATO_ARTE_v1.md",
+      "user": "tambien podriamos poner en el generador de imagenes un wizard para crear contratos de arte tipo este C:\\Users\\AMTEC_Terminal_1º\\Desktop\\PACK_PRODUCCION\\CONTRATOS\\CONTRATO_ARTE_v1.md",
       "assistant": "",
       "session": "958a424f-b36d-4933-9592-6903aa3d553e"
     },

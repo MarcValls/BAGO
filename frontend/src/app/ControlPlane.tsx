@@ -452,28 +452,13 @@ export function ControlPlane() {
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
         return;
       }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'c') {
-        event.preventDefault();
-        navigate('capabilities');
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 't') {
-        event.preventDefault();
-        navigate('tools');
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key === '0') {
-        event.preventDefault();
-        openPanel('github-auth');
-        return;
-      }
       // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
       if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const target = NAVIGATION_ORDER[idx];
         if (target) {
-          if ('github-auth' === target) {
+          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
             openPanel(target);
           } else {
             setAndPersistUiState({ activeSection: target as ActiveSection });
@@ -1088,7 +1073,7 @@ export function ControlPlane() {
   };
 
   const navigate = (section: ActiveSection) => {
-    setAndPersistUiState({ activeSection: section, activePanel: null });
+    setAndPersistUiState({ activeSection: section });
   };
 
   const runAction = async (action: UiAction) => {

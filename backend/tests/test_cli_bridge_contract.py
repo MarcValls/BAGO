@@ -12,64 +12,12 @@ import codex as codex_module
 import copilot as copilot_module
 from codex import CodexAdapter
 from copilot import CopilotAdapter
-from session_turn_mixin import SessionTurnMixin
-
-
-class _RouteStore:
-    def __init__(self, history: list[dict] | None = None):
-        self.history = history or []
-
-    def get_history(self):
-        return list(self.history)
-
-
-class _CliRouteAdapter:
-    def __init__(self):
-        self.chat_calls = 0
-
-    def _use_cli(self) -> bool:
-        return True
-
-    def chat(self, *args, **kwargs):
-        self.chat_calls += 1
-        raise AssertionError("CLI routing must not launch a model preflight")
-
-
-class _CliRouteHarness(SessionTurnMixin):
-    provider = "codex"
-
-    def __init__(self, history: list[dict] | None = None):
-        self.store = _RouteStore(history)
-        self.adapter = _CliRouteAdapter()
-
-    def _ensure_adapter(self):
-        return self.adapter
 
 
 def test_cli_bridge_prompt_is_single_line_and_keeps_final_user_message() -> None:
     prompt = build_prompt([{"role": "user", "content": "BAGO_BRIDGE_OK"}], "system")
     assert "\n" not in prompt
     assert "BAGO_BRIDGE_OK" in prompt
-
-
-def test_cli_route_skips_the_extra_model_preflight() -> None:
-    harness = _CliRouteHarness()
-
-    route = harness.route_user_message("Crea una aplicación web con index.html y app.js")
-
-    assert route["kind"] == "chat"
-    assert route["source"] == "deterministic_cli"
-    assert harness.adapter.chat_calls == 0
-
-
-def test_cli_route_keeps_workspace_questions_deterministic() -> None:
-    harness = _CliRouteHarness()
-
-    route = harness.route_user_message("¿Desde qué directorio trabajas?")
-
-    assert route["kind"] == "workspace_question"
-    assert route["source"] == "deterministic_cli"
-    assert harness.adapter.chat_calls == 0
 
 
 def test_codex_cli_bridge_uses_approved_workspace(tmp_path: Path) -> None:
@@ -80,26 +28,8 @@ def test_codex_cli_bridge_uses_approved_workspace(tmp_path: Path) -> None:
     command = run.call_args.args[0]
     assert response.content == "ok"
     assert "--approve-for-me" in command
-    assert "--json" in command
     assert "--sandbox" not in command
     assert run.call_args.kwargs["input_text"].startswith("BAGO_PROVIDER_BRIDGE_JSON=")
-
-
-def test_codex_cli_bridge_extracts_final_message_from_jsonl(tmp_path: Path) -> None:
-    adapter = CodexAdapter({"cli_path": "codex", "cli_authenticated": True, "base_path": str(tmp_path)})
-    adapter.api_key = None
-    output = "\n".join([
-        '{"type":"thread.started","thread_id":"thread-1"}',
-        '{"type":"turn.started"}',
-        '{"type":"item.completed","item":{"id":"item-1","type":"agent_message","text":"respuesta final"}}',
-        '{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":2}}',
-    ])
-
-    with patch.object(codex_module, "run_cli", return_value=output):
-        response = adapter._chat_cli([{"role": "user", "content": "hola"}], "gpt-5.6-terra", "")
-
-    assert response.content == "respuesta final"
-    assert response.metadata["output_format"] == "jsonl"
 
 
 def test_copilot_cli_bridge_does_not_auto_approve_tools(tmp_path: Path) -> None:

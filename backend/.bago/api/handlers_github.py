@@ -5,7 +5,6 @@ import base64
 import json
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -34,27 +33,10 @@ def _non_interactive_env() -> dict:
     return env
 
 
-def _gh_executable() -> str:
-    """Resolve GitHub CLI even when Electron starts with a stale PATH."""
-    discovered = shutil.which("gh")
-    if discovered:
-        return discovered
-    candidates = [
-        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "GitHub CLI" / "gh.exe",
-        Path.home() / "AppData" / "Local" / "Programs" / "GitHub CLI" / "gh.exe",
-        Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "GitHub CLI" / "gh.exe",
-        Path(os.environ.get("USERPROFILE", "")) / "scoop" / "shims" / "gh.exe",
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return str(candidate)
-    return "gh"
-
-
 def _run_gh(args: list[str], timeout: int = 30) -> tuple[int, str, str]:
     try:
         proc = subprocess.run(
-            [_gh_executable(), *args],
+            ["gh", *args],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -100,7 +82,7 @@ def _launch_gh_detached(args: list[str]) -> None:
         )
     else:
         kwargs["start_new_session"] = True
-    subprocess.Popen([_gh_executable(), *args], **kwargs)
+    subprocess.Popen(["gh", *args], **kwargs)
 
 
 def _repo_value(value: object) -> str:

@@ -357,7 +357,7 @@
           "parentId": "node_visbatz9v6oy",
           "type": "pending",
           "title": "Generemos un proyecto de evidencias BAGO",
-          "summary": "Generemos un proyecto de evidencias BAGO\n{\n  \"assumptions\": [],\n  \"confidence\": 1.0,\n  \"evidence\": [],\n  \"facts\": [\n    {\n      \"key\": \"workspace_state_root\",\n      \"value\": \"C:\\\\Users\\\\<USER>\\\\Documents\\\\pruebas bago\\\\.gabo\"\n    },\n    {\n      \"key\": \"project_root\",\n      \"value\": \"C:\\\\Users\\\\<USER>\\\\Documents\\\\pruebas bago\"\n    }\n  ],\n  \"files_required\": [\n    \"workspace_state_root\"\n  ],\n  \"intent\": \"generate_bago_project\",\n  \"missing_information\": [],\n  \"objective\": \"\",\n",
+          "summary": "Generemos un proyecto de evidencias BAGO\n{\n  \"assumptions\": [],\n  \"confidence\": 1.0,\n  \"evidence\": [],\n  \"facts\": [\n    {\n      \"key\": \"workspace_state_root\",\n      \"value\": \"C:\\\\Users\\\\AMTEC_Terminal_1º\\\\Documents\\\\pruebas bago\\\\.gabo\"\n    },\n    {\n      \"key\": \"project_root\",\n      \"value\": \"C:\\\\Users\\\\AMTEC_Terminal_1º\\\\Documents\\\\pruebas bago\"\n    }\n  ],\n  \"files_required\": [\n    \"workspace_state_root\"\n  ],\n  \"intent\": \"generate_bago_project\",\n  \"missing_information\": [],\n  \"objective\": \"\",\n",
           "status": "proposed",
           "priority": "medium"
         }

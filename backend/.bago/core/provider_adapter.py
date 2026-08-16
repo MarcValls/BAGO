@@ -125,10 +125,6 @@ class ProviderAdapter(ABC):
         """True si soporta streaming de respuestas."""
         ...
 
-    def supports_activity_events(self) -> bool:
-        """True when ``chat`` accepts an activity_callback keyword."""
-        return False
-
     def supports_embeddings(self) -> bool:
         """True si soporta generar embeddings localmente/remotamente."""
         return False
