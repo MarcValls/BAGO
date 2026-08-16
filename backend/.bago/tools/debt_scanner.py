@@ -36,7 +36,8 @@ from typing import Iterator
 
 # ── portabilidad ──────────────────────────────────────────────────────────────
 _THIS_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(_THIS_DIR))
+from _path_helper import ensure_tools_path
+ensure_tools_path()  # noqa: E402
 try:
     from bago_utils import get_scan_root
 except ImportError:

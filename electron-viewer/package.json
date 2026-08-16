@@ -1,6 +1,6 @@
 {
   "name": "bago-ui-viewer",
-  "version": "4.8.4",
+  "version": "4.8.7",
   "description": "Visor Electron minimo de la BAGO UI contra el bridge local",
   "main": "main.cjs",
   "engines": {
@@ -18,7 +18,9 @@
     "appId": "com.marcvalls.bago",
     "productName": "BAGO",
     "icon": "bago.ico",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "main.cjs",
       "preload.cjs",
@@ -26,14 +28,20 @@
       "package.json"
     ],
     "win": {
-      "target": [{ "target": "dir" }],
+      "target": [
+        {
+          "target": "dir"
+        }
+      ],
       "icon": "bago.ico"
     },
     "extraResources": [
       {
         "from": "../scripts",
         "to": "scripts",
-        "filter": ["dev.ps1"]
+        "filter": [
+          "dev.ps1"
+        ]
       }
     ]
   }

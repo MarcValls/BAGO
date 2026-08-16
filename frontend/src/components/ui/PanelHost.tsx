@@ -3,6 +3,9 @@ import type { PanelId } from '@/contracts/backend';
 import { AgentEditorPanel } from '@/features/agents/AgentEditorPanel';
 import { InterpreterPanel } from '@/features/interpretation/InterpreterPanel';
 import { GitHubAuthPanel } from '@/features/github/GitHubAuthPanel';
+import { ToolsPanel } from '@/features/tools/ToolsPanel';
+import { PipelineControlPanel } from '@/features/pipeline/PipelineControlPanel';
+import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
 
 interface Props {
   panelId: PanelId;
@@ -28,6 +31,12 @@ export function PanelHost({ panelId, client, onClose }: Props) {
       return <InterpreterPanel client={client} onClose={onClose} />;
     case 'github-auth':
       return <GitHubAuthPanel client={client} onClose={onClose} />;
+    case 'tools':
+      return <ToolsPanel client={client} onClose={onClose} />;
+    case 'pipeline':
+      return <PipelineControlPanel client={client} onClose={onClose} onRefreshSnapshot={() => {}} onSetSection={() => {}} />;
+    case 'capabilities':
+      return <ExternalCapabilitiesPanel client={client} onClose={onClose} />;
     default:
       return null;
   }

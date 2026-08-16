@@ -10,6 +10,7 @@ Usage:
     python tools/audit_orphans_and_duplicates.py [--root DIR] [--json]
 """
 from __future__ import annotations
+import sys
 
 import argparse
 import importlib.util
@@ -344,6 +345,14 @@ def main(argv: list[str] | None = None) -> int:
         print(build_plan(report))
     return 0
 
+def _self_test() -> int:
+    """Minimal R001 self-test: verify this tool compiles."""
+    import py_compile
+    py_compile.compile(__file__, doraise=True)
+    print(f"{__file__}: self-test ok")
+    return 0
 
 if __name__ == "__main__":
+    if "--test" in sys.argv:
+        raise SystemExit(_self_test())
     raise SystemExit(main())

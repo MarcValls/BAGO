@@ -85,20 +85,33 @@ function Resolve-SourceRoot {
     foreach ($candidate in $candidates) {
         $backendPath = Join-Path $candidate "backend"
         $viewerPath = Join-Path $candidate "electron-viewer"
+        $flatBackendMarker = Join-Path $candidate "bago_core/cli.py"
         if ((Test-Path $backendPath) -and (Test-Path $viewerPath)) {
-            return $candidate
+            return @{ Root = $candidate; Backend = $backendPath; Viewer = $viewerPath }
+        }
+        if ((Test-Path $flatBackendMarker) -and (Test-Path $viewerPath)) {
+            return @{ Root = $candidate; Backend = $candidate; Viewer = $viewerPath }
         }
     }
 
     $nested = Get-ChildItem -Path $ExtractRoot -Directory -Recurse -ErrorAction SilentlyContinue |
         Where-Object {
-            (Test-Path (Join-Path $_.FullName "backend")) -and
-            (Test-Path (Join-Path $_.FullName "electron-viewer"))
+            (
+                (Test-Path (Join-Path $_.FullName "backend")) -and
+                (Test-Path (Join-Path $_.FullName "electron-viewer"))
+            ) -or (
+                (Test-Path (Join-Path $_.FullName "bago_core/cli.py")) -and
+                (Test-Path (Join-Path $_.FullName "electron-viewer"))
+            )
         } |
         Select-Object -First 1
 
     if ($nested) {
-        return $nested.FullName
+        $nestedBackend = Join-Path $nested.FullName "backend"
+        if (Test-Path $nestedBackend) {
+            return @{ Root = $nested.FullName; Backend = $nestedBackend; Viewer = (Join-Path $nested.FullName "electron-viewer") }
+        }
+        return @{ Root = $nested.FullName; Backend = $nested.FullName; Viewer = (Join-Path $nested.FullName "electron-viewer") }
     }
 
     throw "No se encontraron carpetas backend y electron-viewer en el payload extraído."
@@ -128,8 +141,8 @@ try {
 
     $sourceRoot = Resolve-SourceRoot -ExtractRoot $tempExtract
 
-    Copy-Item -Path (Join-Path $sourceRoot "backend") -Destination (Join-Path $RepoRoot "backend") -Recurse -Force
-    Copy-Item -Path (Join-Path $sourceRoot "electron-viewer") -Destination (Join-Path $RepoRoot "electron-viewer") -Recurse -Force
+    Copy-Item -Path $sourceRoot.Backend -Destination (Join-Path $RepoRoot "backend") -Recurse -Force
+    Copy-Item -Path $sourceRoot.Viewer -Destination (Join-Path $RepoRoot "electron-viewer") -Recurse -Force
 
     $exeCandidates = @(
         (Join-Path $RepoRoot "electron-viewer\BAGO.exe"),

@@ -1,6 +1,6 @@
 {
   "name": "bago-monorepo",
-  "version": "4.8.4",
+  "version": "4.8.7",
   "private": true,
   "description": "BAGO monorepo (frontend + backend + electron viewer)",
   "engines": {

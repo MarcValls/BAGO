@@ -5,7 +5,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+from _path_helper import ensure_tools_path
+ensure_tools_path()  # noqa: E402
 from bago_utils import print_test_results
 
 _CONSONANCE = {
