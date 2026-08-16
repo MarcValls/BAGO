@@ -16,9 +16,10 @@ interface Props {
   client: BagoClient;
   onRefreshSnapshot: () => void;
   onSetSection?: (section: 'chat' | 'pipeline' | 'workspace' | 'system' | 'home' | 'context' | 'evidence') => void;
+  onClose?: () => void;
 }
 
-export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection }: Props) {
+export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, onClose }: Props) {
   const [plans, setPlans] = useState<RecordValue[]>([]);
   const [jobs, setJobs] = useState<RecordValue[]>([]);
   const [schedules, setSchedules] = useState<RecordValue[]>([]);
@@ -111,7 +112,10 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection }
     <section className="pipeline-control-center" aria-label="Planes guardados y jobs">
       <div className="pipeline-section-head">
         <strong>Planes y ejecuciones</strong>
-        <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void load()}><Icon name="refresh" size={13} /> Refrescar</button>
+        <div className="pipeline-section-head-actions">
+          <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void load()}><Icon name="refresh" size={13} /> Refrescar</button>
+          {onClose && <button className="text-button" type="button" aria-label="Cerrar" onClick={onClose}><Icon name="close" size={13} /></button>}
+        </div>
       </div>
 
       <div className="pipeline-runtime-grid">
