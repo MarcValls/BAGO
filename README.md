@@ -1,6 +1,6 @@
-# BAGO v4.8.4
+# BAGO v4.8.5
 
-[![Version](https://img.shields.io/badge/version-4.8.4-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4)
+[![Version](https://img.shields.io/badge/version-4.8.5-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.5)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -95,7 +95,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `bago-4.8.4-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) y ejecútalo. El instalador:
+Descarga `BAGO-Installation-Manager-4.8.5-win-x64.exe` desde [Releases v4.8.5](https://github.com/MarcValls/BAGO/releases/tag/v4.8.5) y ejecútalo. El instalador:
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -246,6 +246,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
+| [v4.8.5](https://github.com/MarcValls/BAGO/releases/tag/v4.8.5) | 2026-08-16 | `BAGO-Installation-Manager-4.8.5-win-x64.exe` · `bago-v4.8.5.zip` |
 | [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |
 | [v4.8.3](https://github.com/MarcValls/BAGO/releases/tag/v4.8.3) | 2026-08-09 | `bago-4.8.3-distribution.zip` |
 | [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
