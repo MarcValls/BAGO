@@ -4,7 +4,7 @@
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
-[![Tests](https://img.shields.io/badge/tests-844%20passed%20%7C%2014%20skipped%20backend%20%7C%2052%20frontend-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-928%20passed%20%7C%2013%20skipped%20backend%20%7C%2052%20frontend-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 **BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
@@ -48,7 +48,7 @@ La mayoría de herramientas de IA vinculan el contexto a un único proveedor o m
 BAGO/
 ├── backend/                  # Runtime Python (core, CLI, API local, contratos)
 │   ├── bago_core/            # Núcleo: sesiones, proveedores, capacidades, RL
-│   ├── tests/                # 844 passed, 14 skipped (pytest)
+│   ├── tests/                # 928 passed, 13 skipped (pytest)
 │   ├── docs/                 # Documentación técnica
 │   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build)
 ├── frontend/                 # UI React + TypeScript (Vite)
