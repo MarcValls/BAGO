@@ -42,15 +42,13 @@ import { PIPELINE_TASK_MAX_LENGTH } from '@/shared/inputLimits';
 import { ConfirmDialog } from '@/lib/ConfirmDialog';
 import { MemoryOperations, ProviderRuntimeTools, VisionOperations } from '@/layout/OperationalTools';
 import { workspaceScopedStorageKey } from '@/shared/workspaceStateKeys';
-import { AgentEditorPanel } from '@/features/agents/AgentEditorPanel';
-import { InterpreterPanel } from '@/features/interpretation/InterpreterPanel';
 
 export function workspaceSectionStorageKey(workspaceRoot: string, suffix: string): string {
   return workspaceScopedStorageKey(workspaceRoot, `section.${suffix}`);
 }
 
 interface Props {
-  section: 'home' | 'chat' | 'workspace' | 'pipeline' | 'evidence' | 'context' | 'system' | 'capabilities' | 'agents' | 'interpreter' | 'tools';
+  section: 'home' | 'chat' | 'workspace' | 'pipeline' | 'evidence' | 'context' | 'system';
   snapshot: UiBootstrapSnapshot | null;
   opening: OpeningDecision;
   booting: boolean;
@@ -395,11 +393,7 @@ function screenLabel(section: Props['section']): string {
     pipeline: 'Pipeline',
     evidence: 'Evidencia',
     context: 'Contexto',
-    system: 'Sistema',
-    capabilities: 'Capacidades',
-    agents: 'Agentes',
-    interpreter: 'Intérprete',
-    tools: 'Herramientas'
+    system: 'Sistema'
   };
   return labels[section] || section;
 }
@@ -1490,29 +1484,6 @@ export function ControlSections(props: Props) {
         onRefresh={props.onRefresh}
       />
     );
-  }
-
-  if (props.section === 'capabilities') {
-    return <div className="full-destination-surface capabilities-destination">
-      <header className="destination-header"><div><span className="surface-eyebrow">Catálogo operativo</span><h2>Capacidades</h2><p>Contratos, paquetes y capacidades disponibles para el trabajo actual.</p></div></header>
-      <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection, 'detail')} />
-      <ExternalCapabilitiesPanel client={props.client} />
-    </div>;
-  }
-
-  if (props.section === 'agents') {
-    return <div className="full-destination-surface agents-destination"><AgentEditorPanel client={props.client} onClose={() => props.onSetSection('chat')} /></div>;
-  }
-
-  if (props.section === 'interpreter') {
-    return <div className="full-destination-surface interpreter-destination"><InterpreterPanel client={props.client} onClose={() => props.onSetSection('chat')} /></div>;
-  }
-
-  if (props.section === 'tools') {
-    return <div className="full-destination-surface tools-destination">
-      <header className="destination-header"><div><span className="surface-eyebrow">Ejecución controlada</span><h2>Herramientas</h2><p>Consulta el catálogo operativo y ejecuta comandos con el contexto del workspace.</p></div></header>
-      <ToolsPanel client={props.client} />
-    </div>;
   }
 
   // Chat is rendered exclusively in the ChatPanel (always-on, side or focus).

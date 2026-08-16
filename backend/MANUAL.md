@@ -852,7 +852,7 @@ En el futuro, la Knowledge Base se puede conectar al `send()` para inyectar recu
 ```mermaid
 flowchart LR
   subgraph Source["Fuente / Workspace"]
-    A["Repo BAGO<br/>C:\\Users\\<USER>\\source\\repos\\BAGO"]
+    A["Repo BAGO<br/>C:\\Users\\AMTEC_Terminal_1º\\source\\repos\\BAGO"]
     B["Estado de selección<br/>~\\.bago\\install_selection.json"]
     C["Capturas manual<br/>docs\\evidence\\manual\\captures"]
   end

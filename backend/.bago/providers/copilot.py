@@ -17,7 +17,7 @@ import tempfile
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -68,13 +68,7 @@ class CopilotAdapter(ProviderAdapter):
                 continue
         return sorted(names)
 
-    def _chat_cli(
-        self,
-        messages: list[dict],
-        model: str,
-        system: str,
-        activity_callback: Callable[[], None] | None = None,
-    ) -> ProviderResponse:
+    def _chat_cli(self, messages: list[dict], model: str, system: str) -> ProviderResponse:
         prompt = build_prompt(messages, system)
         prompt_file: Path | None = None
         cli_prompt = prompt
@@ -115,10 +109,7 @@ class CopilotAdapter(ProviderAdapter):
         if prompt_file is not None:
             command += ["--attachment", str(prompt_file)]
         try:
-            run_kwargs: dict[str, Any] = {}
-            if activity_callback is not None:
-                run_kwargs["on_activity"] = activity_callback
-            content = run_cli(command, self.base_path, self.cli_timeout, **run_kwargs)
+            content = run_cli(command, self.base_path, self.cli_timeout)
         finally:
             if prompt_file is not None:
                 prompt_file.unlink(missing_ok=True)
@@ -176,11 +167,10 @@ class CopilotAdapter(ProviderAdapter):
         max_tokens: int | None = None,
         stream: bool = False,
         tools: list[dict] | None = None,
-        activity_callback: Callable[[], None] | None = None,
     ) -> ProviderResponse:
         if self._use_cli():
             try:
-                return self._chat_cli(messages, model, system, activity_callback)
+                return self._chat_cli(messages, model, system)
             except Exception as exc:
                 self._set_error(str(exc))
                 return ProviderResponse(
@@ -318,9 +308,6 @@ class CopilotAdapter(ProviderAdapter):
 
     def supports_streaming(self) -> bool:
         return bool(self.token)
-
-    def supports_activity_events(self) -> bool:
-        return self._use_cli()
 
 
 def _run_tests() -> int:

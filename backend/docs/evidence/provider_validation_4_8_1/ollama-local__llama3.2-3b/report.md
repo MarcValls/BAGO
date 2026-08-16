@@ -55,8 +55,8 @@
 
 ```text
 Session ID : a1da70de-83e
-Project    : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend
-Workspace  : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
+Project    : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend
+Workspace  : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
 Provider   : ollama-local
 Model      : llama3.2:3b
 Tool policy: ask (auto_allow_tools=False)

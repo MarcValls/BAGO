@@ -4,10 +4,10 @@ import { createShellActions, NAVIGATION_GROUPS, NAVIGATION_ORDER, resolveNavigat
 describe('canonical shell action registry', () => {
   it('uses the same product order for sidebar, shortcuts and palette', () => {
     expect(NAVIGATION_ORDER).toEqual([
-      'home', 'chat', 'workspace', 'context', 'pipeline', 'evidence', 'system', 'agents', 'interpreter', 'capabilities', 'tools', 'github-auth'
+      'home', 'chat', 'workspace', 'context', 'pipeline', 'evidence', 'system', 'agents', 'interpreter', 'github-auth'
     ]);
     expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.shortcut))).toEqual([
-      'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9', 'Ctrl+Shift+C', 'Ctrl+Shift+T', 'Ctrl+0'
+      'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9', 'Ctrl+0'
     ]);
     expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.label))).toContain('Operaciones');
   });
@@ -22,7 +22,7 @@ describe('canonical shell action registry', () => {
 
   it('resolves every advertised shortcut from the same registry', () => {
     const items = NAVIGATION_GROUPS.flatMap((group) => group.items);
-    expect(items.map((item) => resolveNavigationShortcut(item.shortcut))).toEqual(NAVIGATION_ORDER);
+    expect(items.map((item) => resolveNavigationShortcut(item.shortcut.slice(-1)))).toEqual(NAVIGATION_ORDER);
     expect(resolveNavigationShortcut('x')).toBeNull();
   });
 });

@@ -303,7 +303,7 @@ class TestToolRegistryIntegration(unittest.TestCase):
         names = list(get_cmd_names())
         self.assertGreater(len(names), 0)
         self.assertEqual(load_registry(), REGISTRY)
-        for expected in ["auto-heal", "context-detector", "cosecha", "secret-scan", "todo-scan"]:
+        for expected in ["auto-heal", "secret-scan", "todo-scan"]:
             self.assertIn(expected, names, f"Missing tool: {expected}")
 
     def test_to_openai_has_schemas(self):

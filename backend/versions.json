@@ -1,5 +1,5 @@
 {
-  "current": "4.8.5",
+  "current": "4.8.4",
   "history": [
     {
       "version": "4.0.0",
@@ -100,14 +100,8 @@
     {
       "version": "4.8.4",
       "released": "2026-08-10",
-      "ended": "2026-08-16",
-      "notes": "Hotfix del bridge Codex: edición aprobada en el workspace, cierre de turnos y diagnóstico visible de límites del proveedor."
-    },
-    {
-      "version": "4.8.5",
-      "released": "2026-08-16",
       "ended": null,
-      "notes": "Maintenance release: hardening de doctor, instalador, y limpieza del repositorio."
+      "notes": "Hotfix del bridge Codex: edición aprobada en el workspace, cierre de turnos y diagnóstico visible de límites del proveedor."
     }
   ]
 }

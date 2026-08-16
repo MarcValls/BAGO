@@ -16,4 +16,3 @@ This folder stores evidence artifacts produced by tests or captures.
 
 - Evidence supports claims.
 - Evidence does not define behavior by itself.
-- Captured user-home segments are redacted as `<USER>` before versioning; paths remain illustrative evidence, not runtime configuration.

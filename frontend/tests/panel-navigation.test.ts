@@ -3,20 +3,22 @@ import { NAVIGATION_GROUPS } from '../src/navigation/actionRegistry';
 import { PANEL_WIDTHS } from '../src/components/ui/PanelHost';
 
 describe('panel navigation', () => {
-  it('keeps only GitHub auth as a panel; destinations are full screens', () => {
+  it('has panel items for agents, interpreter, github-auth', () => {
     const allItems = NAVIGATION_GROUPS.flatMap((g) => g.items);
     const panelIds = allItems.filter((i) => i.isPanel).map((i) => i.id);
+    expect(panelIds).toContain('agents');
+    expect(panelIds).toContain('interpreter');
     expect(panelIds).toContain('github-auth');
   });
 
   it('has exactly 3 panel navigation items', () => {
     const allItems = NAVIGATION_GROUPS.flatMap((g) => g.items);
     const panelItems = allItems.filter((i) => i.isPanel);
-    expect(panelItems).toHaveLength(1);
+    expect(panelItems).toHaveLength(3);
   });
 
   it('PANEL_WIDTHS has entries for all panel ids', () => {
-    const panelIds = ['github-auth'] as const;
+    const panelIds = ['agents', 'interpreter', 'github-auth'] as const;
     for (const id of panelIds) {
       expect(typeof PANEL_WIDTHS[id]).toBe('number');
       expect(PANEL_WIDTHS[id]).toBeGreaterThan(0);

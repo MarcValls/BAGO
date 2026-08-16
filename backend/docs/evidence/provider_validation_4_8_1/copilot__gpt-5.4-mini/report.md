@@ -25,8 +25,8 @@ Y puedo dejar una huella reutilizable al documentar la solución, reforzarla con
 
 ```text
 Session ID : 8027f035-976
-Project    : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend
-Workspace  : C:\Users\<USER>\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
+Project    : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend
+Workspace  : C:\Users\AMTEC_Terminal_1º\Desktop\BAGO-frontend-backend\BAGO\backend\.gabo
 Provider   : copilot
 Model      : gpt-5.4-mini
 Tool policy: ask (auto_allow_tools=False)

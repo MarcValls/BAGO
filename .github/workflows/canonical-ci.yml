@@ -214,7 +214,7 @@ jobs:
             throw "No se pudo descargar bago-$version-distribution.zip desde la release $tag"
           }
           $dist = Get-Item -LiteralPath $dst
-          if ($dist.Length -lt 140MB) {
+          if ($dist.Length -lt 150MB) {
             throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
           }
 
