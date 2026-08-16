@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Root,
-    [string]$ExpectedVersion = "4.8.5"
+    [string]$ExpectedVersion = "4.9.0"
 )
 
 $ErrorActionPreference = "Stop"

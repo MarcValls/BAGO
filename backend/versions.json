@@ -1,5 +1,5 @@
 {
-  "current": "4.8.5",
+  "current": "4.9.0",
   "history": [
     {
       "version": "4.0.0",
@@ -106,8 +106,14 @@
     {
       "version": "4.8.5",
       "released": "2026-08-16",
-      "ended": null,
+      "ended": "2026-08-16",
       "notes": "Maintenance release: hardening de doctor, instalador, y limpieza del repositorio."
+    },
+    {
+      "version": "4.9.0",
+      "released": "2026-08-16",
+      "ended": null,
+      "notes": "BAGO Code Forge y runtime avanzado: agentes ejecutan tareas en sesiones, proveedor/modelo explícitos, destinos de herramientas a pantalla completa, contexto portable y herramienta de recolección, instalador staged con metadatos de actualización."
     }
   ]
 }

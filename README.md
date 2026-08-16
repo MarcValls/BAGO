@@ -1,6 +1,6 @@
-# BAGO v4.8.5
+# BAGO v4.9.0
 
-[![Version](https://img.shields.io/badge/version-4.8.5-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.8.5)
+[![Version](https://img.shields.io/badge/version-4.9.0-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,24 +11,23 @@
 
 ---
 
-## Novedades en 4.8.5
+## Novedades en 4.9.0
 
-### Mantenimiento y fiabilidad del instalador / runtime
-- **Coherencia de versión** — `bago doctor` y los gates de CI ahora validan que la release, el repo y el payload offline comparten la misma versión (`4.8.5`).
-- **Restauración de `~/.bago/install_selection.json`** — el instalador conserva y respeta la selección de componentes del usuario entre actualizaciones.
-- **Verificación de integridad** — `install-remote.ps1` comprueba checksum/firma del paquete descargado antes de ejecutarlo.
-- **Eliminación de rutas hardcodeadas** — `scripts/_verify_new.py` ya no depende de `C:\Users\AMTEC_Terminal_1º\BAG4.8`.
+### Agentes y runtime
+- **Ejecución de tareas de agente** a través de sesiones BAGO — el agente opera dentro del estado de sesión, no como proxy externo.
+- **Proveedor y modelo explícitos** — el planificador de agentes respeta la elección de provider/modelo del usuario y del contrato.
+- **Destinos de herramientas a pantalla completa** — los paneles de herramientas ocupan el área de trabajo completa y son accionables desde el registro de navegación.
+- **Contexto portable y herramienta de recolección** — `tools/cosecha.py` captura contexto operativo y lo transfiere entre workspaces de forma segura para UTF-8 en Windows.
 
-### Limpieza de dependencias y herramientas
-- **Pins relajados** — `examples/tragaperras_bot/requirements.txt` usa rangos de versión en lugar de pins exactos.
-- **Reducción de mutaciones de `sys.path`** — los scripts de `tools/*.py` cargan módulos mediante imports normales en vez de manipular `sys.path`.
-- **Flag `--test`** — añadido a las herramientas Python que no tenían auto-test (`R001`).
-- **Gestión de deuda técnica** — atendidos 1 FIXME, 1 HACK y 2 XXX de `bago_fw`.
+### Instalador y actualizaciones
+- **Metadatos de actualización staged** — el instalador emite y consume metadatos de updater para releases parciales y canales.
+- **Config BOM-safe** — el runtime acepta archivos de configuración codificados con BOM sin abortar el inicio.
+- **Todas las mejoras de 4.8.5** incluidas: coherencia de versión en `bago doctor`, checksums en `install-remote.ps1`, restauración de `install_selection.json`, eliminación de rutas hardcodeadas, pins relajados, menos mutaciones de `sys.path`, flag `--test` y limpieza de FIXME/HACK/XXX.
 
 ### Artefactos de release
-- Payload offline `bago-4.8.5-distribution.zip` (backend + electron-viewer) publicado como asset de release.
-- Instalador `BAGO-Installation-Manager-4.8.5-win-x64.exe` construido desde la misma referencia etiquetada `v4.8.5`.
-- `main` alineada a `4.8.5` en todas las fuentes de versión validadas por CI.
+- Payload offline `bago-4.9.0-distribution.zip` (backend + electron-viewer) publicado como asset de release.
+- Instalador `BAGO-Installation-Manager-4.9.0-win-x64.exe` construido desde la referencia etiquetada `v4.9.0`.
+- `main` alineada a `4.9.0` en todas las fuentes de versión validadas por CI.
 
 ---
 
@@ -66,8 +65,8 @@ BAGO/
 │   └── bago-launcher.ps1     # Lanzador manual legacy (los accesos directos apuntan a BAGO.exe)
 ├── releases/
 │   ├── bago-installer.nsi              # Script NSIS para generar setup.exe
-│   ├── bago-4.8.5-distribution.zip     # Payload offline (backend + electron-viewer)
-│   └── bago-v4.8.5.zip                 # Bundle de backend
+│   ├── bago-4.9.0-distribution.zip     # Payload offline (backend + electron-viewer)
+│   └── bago-v4.9.0.zip                 # Bundle de backend
 ├── ARRANCAR_BAGO.bat         # Lanzador principal Windows
 └── package.json              # Raíz del workspace npm
 ```
@@ -92,7 +91,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `BAGO-Installation-Manager-4.8.5-win-x64.exe` desde [Releases v4.8.5](https://github.com/MarcValls/BAGO/releases/tag/v4.8.5) y ejecútalo. El instalador:
+Descarga `BAGO-Installation-Manager-4.9.0-win-x64.exe` desde [Releases v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) y ejecútalo. El instalador:
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -243,6 +242,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
+| [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-16 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-4.9.0-distribution.zip` · `bago-v4.9.0.zip` |
 | [v4.8.5](https://github.com/MarcValls/BAGO/releases/tag/v4.8.5) | 2026-08-16 | `BAGO-Installation-Manager-4.8.5-win-x64.exe` · `bago-4.8.5-distribution.zip` · `bago-v4.8.5.zip` |
 | [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |
 | [v4.8.3](https://github.com/MarcValls/BAGO/releases/tag/v4.8.3) | 2026-08-09 | `bago-4.8.3-distribution.zip` |
