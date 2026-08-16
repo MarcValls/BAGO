@@ -211,22 +211,33 @@ jobs:
           Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
-          # Clean backend runtime package
+          # Clean backend runtime package under backend/ (layout expected by NSIS payload script)
           python backend/scripts/package_v4.py --output-dir backend/release/v4 --release-version $version | Out-Null
           $thinZip = Join-Path $PWD "backend/release/v4/bago-v$version.zip"
           if (-not (Test-Path $thinZip)) { throw "No se genero bago-v$version.zip" }
-          Expand-Archive -LiteralPath $thinZip -DestinationPath $stage -Force
+          $backendStage = Join-Path $stage "backend"
+          New-Item -ItemType Directory -Path $backendStage -Force | Out-Null
+          Expand-Archive -LiteralPath $thinZip -DestinationPath $backendStage -Force
 
           # Electron viewer payload
           $viewerSource = Join-Path $PWD "electron-viewer/dist/win-unpacked"
           if (-not (Test-Path $viewerSource)) { throw "No existe electron-viewer/dist/win-unpacked" }
           Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $stage "electron-viewer") -Recurse -Force
 
+          # Validate expected layout before compressing
+          if (-not (Test-Path (Join-Path $backendStage "bago_core/cli.py"))) {
+            throw "Backend payload no contiene bago_core/cli.py"
+          }
+          if (-not (Test-Path (Join-Path $stage "electron-viewer/BAGO.exe"))) {
+            throw "Electron viewer payload no contiene BAGO.exe"
+          }
+
           Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $dst -Force
 
           $dist = Get-Item -LiteralPath $dst
-          if ($dist.Length -lt 150MB) {
+          # Compressed payload must contain both slices; ~80 MB is a safe floor for backend + Electron viewer.
+          if ($dist.Length -lt 80MB) {
             throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
           }
 
