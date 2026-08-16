@@ -711,7 +711,7 @@ export function ControlPlane() {
   const runCommand = async (command: string): Promise<BackendCommandResult | null> => {
     const clean = command.trim();
     if (!clean) return null;
-    // Comandos nativos del frontend (no van al backend como /command).
+    // Comandos nativos del frontend (no van al backend como /api/v1/commands).
     // /auto-config start|status|apply|cancel
     // /blacklist show
     if (clean.startsWith('/auto-config') || clean.startsWith('/blacklist')) {
@@ -829,7 +829,7 @@ export function ControlPlane() {
     }
 
     // El composer de Chat también es una superficie de comandos. No envíes
-    // slash commands al modelo: deben pasar por la autoridad /command para
+    // slash commands al modelo: deben pasar por la autoridad /api/v1/commands para
     // cambiar el estado real de la sesión (por ejemplo, /mode A).
     if (text.startsWith('/') && !text.startsWith('//')) {
       setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
