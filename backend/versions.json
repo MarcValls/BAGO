@@ -1,5 +1,5 @@
 {
-  "current": "4.8.6",
+  "current": "4.8.7",
   "history": [
     {
       "version": "4.0.0",
@@ -106,8 +106,14 @@
     {
       "version": "4.8.6",
       "released": "2026-08-16",
-      "ended": null,
+      "ended": "2026-08-16",
       "notes": "Corrección de deriva entre repo, runtime y release: doctor version_coherent multi-componente, release_version.txt en instalaciones, selección legacy ~/.bago, y re-empaquetado alineado."
+    },
+    {
+      "version": "4.8.7",
+      "released": "2026-08-16",
+      "ended": null,
+      "notes": "Hotfix: restaura detección de GitHub en el panel de autenticación y repara la navegación de los drawers laterales (herramientas, pipeline, capacidades)."
     }
   ]
 }
