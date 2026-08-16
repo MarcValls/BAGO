@@ -18,7 +18,6 @@ export const PANEL_WIDTHS: Record<PanelId, number> = {
   interpreter: 440,
   'github-auth': 400,
   capabilities: 320,
-  system: 360,
   pipeline: 360,
   tools: 280,
 };
