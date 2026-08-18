@@ -94,7 +94,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 - **RAM**: Minimum 2 GB
 - **Disk Space**: 2 GB free space (for installation)
 - **Internet**: Required for first installation
-- **Prerequisites**: Git, Node.js 20+, Python 3.11+
+- **Prerequisites**: Git, Node.js 20+, Python 3.14+
 
 ## Verification
 
@@ -154,7 +154,7 @@ The installer performs these steps in order:
 ### Build Specifications
 
 - **Node Version**: 20.14.0+
-- **Python Version**: 3.11+
+- **Python Version**: 3.14+
 - **Electron Version**: 42.3.0 (embedded in electron-viewer)
 - **Backend**: Python FastAPI
 - **Frontend**: React
