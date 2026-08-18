@@ -1,37 +1,46 @@
-# BAGO 4.8.2 Release Manifest
+# BAGO 4.9.0 Release Manifest
 
-**Release Date:** 2026-08-06  
-**Version:** 4.8.2  
-**Tag:** `v4.8.2`
+**Release Date:** 2026-08-18  
+**Version:** 4.9.0  
+**Tag:** `v4.9.0` (`f1dcd765f63989e1a66a774c8fba9805fdfef3ee`)  
+**Commit `main`:** `4ad27a0a4a154d20740d62bfbc20c888a0f2f3cc`
 
-## Artifacts
+## Official Artifacts
 
-1. `bago-4.8.2-setup.exe` (362,245,017 bytes)  
-2. `bago-4.8.2-backend.zip` (214,569,936 bytes)  
-3. `bago-4.8.2-frontend.zip` (178,546 bytes)  
-4. `bago-4.8.2-electron-viewer.zip` (13,097 bytes)  
-5. `bago-4.8.2-installer.ps1` (3,611 bytes)
+1. `BAGO-Installation-Manager-4.9.0-win-x64.exe` (102,371,750 bytes) — official NSIS installer
+2. `BAGO-Installation-Manager-4.9.0-win-x64.exe.sha256` (66 bytes)
+3. `bago-v4.9.0.zip` (1,800,073 bytes) — thin update package
+4. `bago-v4.9.0.zip.sha256` (83 bytes)
+5. `bago-v4.9.0.zip.manifest.json` (122,275 bytes)
+6. `latest.yml` (182 bytes) — auto-update metadata
 
-## Distribution guarantees in 4.8.2
+## Legacy / Offline Alternatives
 
-- NSIS is fail-closed: every critical command aborts on non-zero exit.
-- `bago-4.8.2-setup.exe` is offline-first: embeds `bago-4.8.2-distribution.zip` as payload.
+- `bago-4.9.0-setup.exe` (150,568,960 bytes aprox.) — legacy offline installer, SHA256 `D2DD1004230346CB2648E2070408AE2C6DEF65AB6F9DB9822BAB4ABBCEBB8C72`
+
+## Distribution Guarantees in 4.9.0
+
+- Official installer is fail-closed: every critical NSIS step aborts on non-zero exit.
+- `BAGO-Installation-Manager-4.9.0-win-x64.exe` embeds the full backend + frontend + Electron payload.
 - Installer source is pinned to immutable tag+commit (`APP_GIT_REF` + `APP_GIT_SHA`).
 - Final gate verifies `BAGO.exe` exists before writing registry/shortcuts.
 - Electron app startup validates backend readiness (`/health`) before opening UI.
 - CI includes packaged smoke for `BAGO.exe` lifecycle on Windows.
+- `latest.yml` always points to the matching official installer SHA512/size.
 
-## Install paths and shortcuts
+## Install Paths and Shortcuts
 
 - Install root: `%LOCALAPPDATA%\\BAGO`
 - Start Menu and Desktop shortcuts target:
-  - `%LOCALAPPDATA%\\BAGO\\electron-viewer\\BAGO.exe` (layout actual)
+  - `%LOCALAPPDATA%\\BAGO\\BAGO.exe` (official NSIS layout)
   - `%LOCALAPPDATA%\\BAGO\\electron-viewer\\dist\\win-unpacked\\BAGO.exe` (legacy layout)
 - Registry traceability keys:
   - `HKCU\\Software\\BAGO\\InstallPath`
   - `HKCU\\Software\\BAGO\\InstallRef`
+  - `HKCU\\Software\\BAGO\\Version`
 
 ## Notes
 
-- The installer and release assets are version-locked to `4.8.2`.
+- The installer and release assets are version-locked to `4.9.0`.
 - Release generation must use a tagged immutable ref, never mutable `main`.
+- The official release format uses electron-builder NSIS, not the older PowerShell/NSIS hybrid.

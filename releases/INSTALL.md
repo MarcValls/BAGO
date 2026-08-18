@@ -1,44 +1,53 @@
-# BAGO 4.8.2 Installation Guide
+# BAGO 4.9.0 Installation Guide
 
 ## Quick Start
 
 ### Choose Your Installation Method
 
-#### Method 1: NSIS Installer (Easiest) ⭐
-**File:** `bago-4.8.2-setup.exe`
-- Windows installer with graphical wizard
-- Better antivirus compatibility (NSIS has trusted reputation)
-- Single-file experience for end users (no ZIP + PS1 manual steps)
+#### Method 1: Official NSIS Installer (Easiest) ⭐
+**File:** `BAGO-Installation-Manager-4.9.0-win-x64.exe`
+- Official electron-builder NSIS installer
+- Bundles backend, frontend and Electron payload
+- Single-file experience for end users
+- Automatic administrator elevation
 - Best for most users
-- No SmartScreen warnings
+- SHA256: `9AE9507F435DEBF978A3D268E5B59FC98BD37F45567E652DD976B4B85A012230`
 
-#### Method 2: PowerShell Script (Recommended for Automation)
+#### Method 2: Package-Driven PowerShell Installer (Recommended for Automation)
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
+```
+- Uses the thin `bago-v4.9.0.zip` update package
+- Fast, reproducible deployment
+- Best for scripts and CI/CD pipelines
+- Full control and transparency
+
+#### Method 3: Legacy PowerShell Script
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 ```
 - Direct execution without wrapper
-- No antivirus warnings
-- Best for scripts and CI/CD pipelines
-- Full control and transparency
+- Clones repository and builds locally
+- Best for development / non-packaged installs
 
-#### Method 3: Batch Wrapper (Command Line)
+#### Method 4: Batch Wrapper (Command Line)
 ```cmd
 install-bago-setup.cmd
 ```
-- Lightweight wrapper around PowerShell installer
+- Lightweight wrapper around legacy PowerShell installer
 - Best for command-line tools and legacy systems
 
-#### Method 4: VBS Launcher (Alternative GUI)
+#### Method 5: VBS Launcher (Alternative GUI)
 **File:** `install-bago-setup.vbs`
 - Double-click to start
 - Windows Script Host based launcher
-- Alternative if PowerShell has restrictions
+- Alternative if PowerShell is restricted
 
-#### Method 5: Manual Installation
+#### Method 6: Manual Installation
 
 ```powershell
 # Clone repository
-git clone --depth 1 --branch main https://github.com/MarcValls/BAGO.git
+git clone --depth 1 --branch v4.9.0 https://github.com/MarcValls/BAGO.git
 cd BAGO
 
 # Install dependencies
@@ -58,9 +67,9 @@ cd electron-viewer && npx electron-builder --dir && cd ..
 
 ## Requirements
 
-### For EXE installer (`bago-4.8.2-setup.exe`)
-- **Windows 7+** or **Windows Server 2008 R2+**
-- Internet connection during installation
+### For EXE installer (`BAGO-Installation-Manager-4.9.0-win-x64.exe`)
+- **Windows 10/11** x64
+- Internet connection during installation (unless using offline legacy installer)
 
 ### For script/manual methods
 - **Git**: https://git-scm.com
@@ -73,6 +82,8 @@ Default: `C:\Users\{username}\AppData\Local\BAGO`
 
 ## Uninstallation
 
+Use Windows Settings → Apps → BAGO → Uninstall, or run:
+
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Uninstall-BAGO.ps1
 ```
@@ -81,7 +92,7 @@ Or manually:
 
 ```powershell
 Remove-Item $env:LOCALAPPDATA\BAGO -Recurse -Force
-Remove-Item $env:APPDATA\Microsoft\Windows\Start\ Menu\Programs\BAGO -Recurse -Force
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\BAGO" -Recurse -Force
 ```
 
 ## Troubleshooting
@@ -133,9 +144,10 @@ npx electron-builder --dir
 
 ## Version Info
 
-- **Version**: 4.8.2
-- **Release**: August 7, 2026
-- **Git Commit**: 9e1c49bb3f5388b991ed21ad0287059f4d4d9875
+- **Version**: 4.9.0
+- **Release**: August 18, 2026
+- **Git Commit**: 4ad27a0a4a154d20740d62bfbc20c888a0f2f3cc
+- **Git Tag**: v4.9.0 (f1dcd765f63989e1a66a774c8fba9805fdfef3ee)
 - **Build**: Electron 42.3.0
 
 ## Support

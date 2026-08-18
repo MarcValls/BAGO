@@ -1,37 +1,41 @@
-# BAGO 4.8.2 - Quick Reference
+# BAGO 4.9.0 - Quick Reference
 
 ## 🚀 Installation - Choose One Method
 
-### Easiest: Double-Click EXE
+### Easiest: Official NSIS EXE
 ```
-bago-4.8.2-setup.exe  →  (double-click)  →  Installation starts
+BAGO-Installation-Manager-4.9.0-win-x64.exe  →  (double-click)  →  Installation starts
 ```
 ✓ Automatic admin elevation
 ✓ No configuration needed
-✓ Full progress shown
+✓ Full payload bundled
 
-### PowerShell Script
+### Package-Driven PowerShell (Best for Automation)
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
+```
+✓ Fast, reproducible
+✓ Scriptable with parameters
+✓ Best for CI/CD
+
+### Legacy PowerShell Script
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 ```
-✓ Scriptable with parameters
-✓ Best for automation
-✓ Full control
+✓ Clones and builds from source
+✓ Best for development
 
 ### Batch/Command Line
 ```cmd
 install-bago-setup.cmd
 ```
-✓ No PowerShell needed
-✓ Works in batch scripts
-✓ Legacy compatible
+✓ Legacy wrapper
 
 ### Alternative VBS
 ```
 install-bago-setup.vbs  →  (double-click)
 ```
 ✓ Alternative GUI launcher
-✓ Works if PowerShell restricted
 
 ---
 
@@ -39,11 +43,13 @@ install-bago-setup.vbs  →  (double-click)
 
 | File | Purpose | Usage |
 |------|---------|-------|
-| **bago-4.8.2-setup.exe** | Main installer | Double-click |
-| **Install-BAGO.ps1** | PowerShell installer | `powershell -File ...` |
+| **BAGO-Installation-Manager-4.9.0-win-x64.exe** | Official NSIS installer | Double-click |
+| **bago-v4.9.0.zip** | Thin update package | Used by `install-v4.ps1` |
+| **install-v4.ps1** | Package-driven installer | `powershell -File install-v4.ps1 -PackageZip bago-v4.9.0.zip` |
+| **Install-BAGO.ps1** | Legacy source installer | `powershell -File Install-BAGO.ps1` |
 | **install-bago-setup.cmd** | Batch wrapper | Run in cmd.exe |
 | **install-bago-setup.vbs** | VBS launcher | Double-click |
-| **Uninstall-BAGO.ps1** | Uninstaller | `powershell -File ...` |
+| **Uninstall-BAGO.ps1** | Uninstaller | `powershell -File Uninstall-BAGO.ps1` |
 
 ---
 
@@ -63,10 +69,10 @@ install-bago-setup.vbs  →  (double-click)
 Before installation:
 - [ ] Have administrator access
 - [ ] 2 GB free disk space
-- [ ] Internet connection (for downloads)
+- [ ] Internet connection (for downloads, unless offline installer)
 
 After installation:
-- [ ] BAGO.exe appears in `%LOCALAPPDATA%\BAGO`
+- [ ] `BAGO.exe` appears in `%LOCALAPPDATA%\BAGO`
 - [ ] Start Menu shortcut appears
 - [ ] Desktop shortcut appears
 - [ ] Can launch from Start Menu or desktop
@@ -82,20 +88,25 @@ C:\Users\YourUsername\AppData\Local\BAGO
 
 ### Custom Location (PowerShell only)
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
-  -InstallDir "C:\MyCustomPath\BAGO"
+powershell -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 `
+  -PackageZip bago-v4.9.0.zip -InstallDir "C:\MyCustomPath\BAGO"
 ```
 
 ---
 
 ## ⚡ Quick Commands
 
-### Run Installer (PowerShell)
+### Run Official Installer (PowerShell package-driven)
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
+```
+
+### Run Legacy Installer (PowerShell)
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 ```
 
-### Run Installer (Batch)
+### Run Legacy Installer (Batch)
 ```cmd
 install-bago-setup.cmd
 ```
@@ -107,12 +118,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Uninstall-BAGO.ps1
 
 ### Verify Installation
 ```powershell
-Test-Path "$env:LOCALAPPDATA\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe"
+Test-Path "$env:LOCALAPPDATA\BAGO\BAGO.exe"
 ```
 
 ### Launch BAGO
 ```powershell
-& "$env:LOCALAPPDATA\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe"
+& "$env:LOCALAPPDATA\BAGO\BAGO.exe"
 ```
 
 ### Check Prerequisites
@@ -132,7 +143,7 @@ python --version
 ### PowerShell Script Won't Run
 **Solution**: Copy-paste the entire command exactly:
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
 ```
 
 ### Prerequisites Missing
@@ -142,8 +153,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 - Python: https://python.org (3.14+)
 
 ### Installation Too Slow
-**Note**: This is normal. Installation takes 10-15 minutes.
-- Cloning repo: ~30 seconds
+**Note**: This is normal. Installation takes 5-10 minutes with the official installer, or 10-15 minutes from source.
+- Extracting payload: ~30 seconds
 - npm installs: ~15 seconds each
 - Backend install: ~5 seconds
 - Build process: ~2 seconds
@@ -158,11 +169,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 
 ```
 %LOCALAPPDATA%\BAGO\
-├── .git/                      (Git repository)
 ├── backend/                   (Python backend)
-├── electron-viewer/           (Electron app)
-│   └── dist/win-unpacked/BAGO.exe
+│   └── .bago/bin/bago.py      (runtime wrapper)
 ├── frontend/                  (React frontend)
+├── BAGO.exe                   (Electron app)
 ├── node_modules/              (npm dependencies)
 ├── package.json
 └── ...other files...
@@ -173,11 +183,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 ## 🎯 Your Next Steps
 
 1. **Choose installation method**
-   - Easiest: Double-click EXE
-   - Most control: Run PowerShell script
+   - Easiest: Double-click official EXE
+   - Automation: `install-v4.ps1 -PackageZip bago-v4.9.0.zip`
 
 2. **Run installer**
-   - Takes 10-15 minutes
+   - Takes 5-10 minutes
    - Don't close window during installation
 
 3. **Launch BAGO**
@@ -185,7 +195,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
    - From Desktop shortcut
    - Or: Search for "BAGO" in Windows
 
-4. **Enjoy BAGO 4.8.2!**
+4. **Enjoy BAGO 4.9.0!**
 
 ---
 
@@ -196,8 +206,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 
 ---
 
-**Version**: BAGO 4.8.2 (August 7, 2026)
+**Version**: BAGO 4.9.0 (August 18, 2026)
 
 **Status**: ✓ Ready to Install
 
-**All methods produce identical installations** — use whichever suits you.
+**Official and package-driven methods produce identical installations** — use whichever suits you.

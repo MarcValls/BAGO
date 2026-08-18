@@ -1,8 +1,8 @@
-# BAGO 4.8.2 - Windows Defender / SmartScreen Alert Solution
+# BAGO 4.9.0 - Windows Defender / SmartScreen Alert Solution
 
 ## Problem
 
-When downloading `bago-4.8.2-setup.exe`, Windows Defender or SmartScreen may show:
+When downloading `BAGO-Installation-Manager-4.9.0-win-x64.exe` (or the legacy `bago-4.9.0-setup.exe`), Windows Defender or SmartScreen may show:
 
 > "No se pudo completar la operación porque el archivo contiene un virus o software potencialmente no deseado"
 > 
@@ -13,17 +13,17 @@ When downloading `bago-4.8.2-setup.exe`, Windows Defender or SmartScreen may sho
 This is a **false positive** caused by:
 - The EXE file is not digitally signed with a certificate
 - Newly compiled executables without certificates trigger SmartScreen
-- The file contains embedded PowerShell code
+- The installer contains bundled binaries and PowerShell code
 - Windows doesn't recognize the publisher
 
 **This is completely safe** - it's a protection mechanism that flags unsigned executables.
 
-## Solution 1: Use PowerShell Script Instead (Recommended)
+## Solution 1: Use Package-Driven PowerShell Installer (Recommended)
 
-Instead of the EXE, use the PowerShell script directly:
+Instead of the EXE, use the package-driven installer:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
 ```
 
 **Advantages:**
@@ -31,6 +31,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 - Full transparency (see the code)
 - Identical installation result
 - Works with stricter security policies
+- Smaller payload
 
 ## Solution 2: Override SmartScreen Warning
 
@@ -45,7 +46,7 @@ If you want to use the EXE:
 
 ### Visual Steps:
 ```
-Right-click bago-4.8.2-setup.exe
+Right-click BAGO-Installation-Manager-4.9.0-win-x64.exe
     ↓
 Properties
     ↓
@@ -60,7 +61,7 @@ Double-click to run
 
 ## Solution 3: Use VBS or Batch Wrapper
 
-Instead of EXE, use alternative launchers:
+Instead of the official EXE, use alternative launchers:
 
 ```cmd
 install-bago-setup.cmd
@@ -79,20 +80,17 @@ These bypass some SmartScreen checks.
 You can verify the downloaded file hasn't been tampered with:
 
 ```powershell
-$hash = (Get-FileHash bago-4.8.2-setup.exe -Algorithm SHA256).Hash
-$expected = "0FF315E407D4AFA5032E7486CB1C7633AB2B454408465BEEDD645D843358F5B8"
+$hash = (Get-FileHash BAGO-Installation-Manager-4.9.0-win-x64.exe -Algorithm SHA256).Hash
+$expected = "9AE9507F435DEBF978A3D268E5B59FC98BD37F45567E652DD976B4B85A012230"
 $hash -eq $expected  # Should show: True
 ```
 
 ## Why It's Safe
 
 - ✓ Open source code (available on GitHub)
-- ✓ File is only a wrapper around Install-BAGO.ps1
-- ✓ Compiled with Microsoft's ps2exe tool
-- ✓ You can extract and inspect the PowerShell code:
-  ```powershell
-  C:\path\to\bago-4.8.2-setup.exe -extract:source.ps1
-  ```
+- ✓ Official installer built with electron-builder NSIS
+- ✓ Legacy installer is a wrapper around `Install-BAGO.ps1`
+- ✓ All hashes are published for verification
 
 ## Digital Signing (Future)
 
@@ -119,22 +117,22 @@ The warning may appear in different ways depending on your security software:
 Given the SmartScreen issue, we recommend:
 
 **For End Users:**
-- Use the PowerShell script: `Install-BAGO.ps1`
+- Use the package-driven installer: `install-v4.ps1 -PackageZip bago-v4.9.0.zip`
 - Or batch wrapper: `install-bago-setup.cmd`
 
 **For CI/CD:**
-- Use the PowerShell script with parameters
+- Use the package-driven installer
 - No antivirus issues in automated environments
 
 **If You Prefer EXE:**
 - Unblock in Properties (see Solution 2)
-- Or download directly from GitHub Actions artifacts
+- Or download directly from GitHub Releases
 - Or build it yourself from source
 
 ## Still Having Issues?
 
 1. **Check SHA256 hash** - verify file integrity
-2. **Use PowerShell script instead** - no warnings
+2. **Use package-driven PowerShell installer instead** - no warnings
 3. **Check your antivirus settings** - may need to whitelist
 4. **Disable antivirus temporarily** - during installation only
 5. **Report to antivirus vendor** - they can whitelist

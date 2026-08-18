@@ -1,5 +1,5 @@
 @echo off
-REM BAGO 4.8.2 Installer Wrapper
+REM BAGO 4.9.0 Installer Wrapper
 REM This script invokes the PowerShell installer with proper permissions
 REM
 REM Usage: install-bago-setup.cmd [options]

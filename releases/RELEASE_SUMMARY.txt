@@ -1,17 +1,33 @@
-BAGO 4.8.2 RELEASE SUMMARY
+BAGO 4.9.0 RELEASE SUMMARY
 ======================================================================
 
-Release Date: 2026-08-06
-Tag: v4.8.2
+Release Date: 2026-08-18
+Tag: v4.9.0
 Branch: main
+Commit: 4ad27a0a4a154d20740d62bfbc20c888a0f2f3cc
 
-ARTIFACTS:
-  - bago-4.8.2-setup.exe (79,673 B)
-  - bago-4.8.2-backend.zip (214,569,936 B)
-  - bago-4.8.2-frontend.zip (178,546 B)
-  - bago-4.8.2-electron-viewer.zip (13,097 B)
-  - bago-4.8.2-installer.ps1 (3,611 B)
+ARTIFACTS (Official GitHub Release):
+  - BAGO-Installation-Manager-4.9.0-win-x64.exe (102,371,750 B)
+    SHA256: 9ae9507f435debf978a3d268e5b59fc98bd37f45567e652dd976b4b85a012230
+  - BAGO-Installation-Manager-4.9.0-win-x64.exe.sha256 (66 B)
+  - bago-v4.9.0.zip (1,800,073 B)
+    SHA256: 7d67ccde3bf77702daf0f79941da662f316af7fff1df48cbaffd902cafcd8f65
+  - bago-v4.9.0.zip.sha256 (83 B)
+  - bago-v4.9.0.zip.manifest.json (122,275 B)
+  - latest.yml (182 B)
+
+ARTIFACTS (Legacy Offline Installer):
+  - bago-4.9.0-setup.exe (~150,568,960 B)
+    SHA256: d2dd1004230346cb2648e2070408ae2c6def65ab6f9db9822bab4abbcebb8c72
+
+DOCUMENTATION:
+  - DELIVERY.md
+  - INDEX.md
+  - INSTALL.md
+  - INSTALLATION-METHODS.md
   - MANIFEST.md
+  - QUICK-REFERENCE.md
+  - README-INSTALLERS.md
   - RELEASE_NOTES_REAL.md
 
-URL: https://github.com/MarcValls/BAGO/releases/tag/v4.8.2
+URL: https://github.com/MarcValls/BAGO/releases/tag/v4.9.0

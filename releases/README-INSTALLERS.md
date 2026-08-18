@@ -1,32 +1,39 @@
-# BAGO 4.8.2 Installers
+# BAGO 4.9.0 Installers
 
 ## Available Installation Packages
 
 | File | Method | For Users | Notes |
 |------|--------|-----------|-------|
-| **bago-4.8.2-setup.exe** | GUI Clickable | ✓ Recommended | Easy, requires admin, all-in-one |
-| **Install-BAGO.ps1** | PowerShell Script | ✓ Power Users | Direct, full transparency, scriptable |
-| **install-bago-setup.cmd** | Batch File | ✓ Developers | Command-line wrapper, CI/CD friendly |
+| **BAGO-Installation-Manager-4.9.0-win-x64.exe** | NSIS GUI | ✓ Recommended | Official installer, all-in-one |
+| **bago-v4.9.0.zip** | Thin update package | ✓ Automation | Used with `install-v4.ps1` |
+| **install-v4.ps1** | PowerShell Package | ✓ CI/CD / Fast installs | Reproducible, scriptable |
+| **Install-BAGO.ps1** | PowerShell Source | ✓ Power Users | Clones and builds from source |
+| **install-bago-setup.cmd** | Batch File | ✓ Developers | Legacy command-line wrapper |
 | **install-bago-setup.vbs** | VBS Launcher | ✓ Alternative | GUI-based, WSH alternative |
-| **bago-installer-launcher.ps1** | PowerShell GUI | ✓ Automation | Pretty output, easy debugging |
+| **bago-installer-launcher.ps1** | PowerShell GUI | ✓ Automation | Pretty output wrapper |
 
 ## Installation Files
 
-### EXE installer requirements
-For end users, `bago-4.8.2-setup.exe` is self-contained from the user perspective:
+### Official EXE installer requirements
+For end users, `BAGO-Installation-Manager-4.9.0-win-x64.exe` is self-contained:
 
-1. Download `bago-4.8.2-setup.exe`
+1. Download `BAGO-Installation-Manager-4.9.0-win-x64.exe`
 2. Double-click it
+3. Accept the UAC prompt
+4. Wait 5-10 minutes
 
 No extra ZIPs or `.ps1` files are required from the user.
 
+### Package-driven requirements
+For automation or fast installs, pair `bago-v4.9.0.zip` with `install-v4.ps1`.
+
 ## How to Use Each Method
 
-### 1. EXE Installer (Recommended for End Users)
+### 1. Official EXE Installer (Recommended for End Users)
 
 ```
-1. Download bago-4.8.2-setup.exe
-2. Double-click bago-4.8.2-setup.exe
+1. Download BAGO-Installation-Manager-4.9.0-win-x64.exe
+2. Double-click it
 3. Accept the admin prompt (UAC) if requested
 4. Wait for installation to complete
 ```
@@ -35,9 +42,38 @@ No extra ZIPs or `.ps1` files are required from the user.
 - No technical knowledge required
 - Single clickable file
 - Automatic admin elevation
-- Full installer output in console
+- Full payload bundled (no extra downloads)
 
-### 2. PowerShell Script (Recommended for Automation)
+**Checksum:**
+```powershell
+(Get-FileHash BAGO-Installation-Manager-4.9.0-win-x64.exe -Algorithm SHA256).Hash
+# Should equal: 9AE9507F435DEBF978A3D268E5B59FC98BD37F45567E652DD976B4B85A012230
+```
+
+### 2. Package-Driven PowerShell (Recommended for Automation)
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
+```
+
+**Advantages:**
+- Fast (thin package)
+- Reproducible
+- Full transparency
+- Easy to debug
+- Perfect for CI/CD
+- Scriptable parameters
+
+**Parameters:**
+```powershell
+# Custom install directory
+-InstallDir "C:\MyBAGO"
+
+# Custom package source
+-PackageZip "\\server\share\bago-v4.9.0.zip"
+```
+
+### 3. Legacy PowerShell Script (Source Install)
 
 ```powershell
 # Open PowerShell as Administrator
@@ -46,9 +82,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 
 **Advantages:**
 - Direct, no wrapper
+- Clones repo at runtime
 - Full transparency
-- Easy to debug
-- Perfect for CI/CD
 - Scriptable parameters
 
 **Parameters:**
@@ -64,7 +99,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 -AppRepo "https://github.com/custom/repo.git"
 ```
 
-### 3. Batch Wrapper (Command Line)
+### 4. Batch Wrapper (Command Line)
 
 ```cmd
 cd C:\path\to\installers
@@ -76,7 +111,7 @@ install-bago-setup.cmd
 - Simple for batch scripts
 - Legacy Windows compatible
 
-### 4. VBS Launcher (Alternative GUI)
+### 5. VBS Launcher (Alternative GUI)
 
 ```
 1. Place install-bago-setup.vbs with other installer files
@@ -90,9 +125,28 @@ install-bago-setup.cmd
 - Alternative if PowerShell is restricted
 - Shows installation status
 
-## Installation What Happens
+## What Happens During Installation
 
-Both the EXE and PowerShell installer will:
+### Official NSIS installer
+
+1. ✓ Extract bundled backend, frontend and Electron payload
+2. ✓ Install Python backend environment
+3. ✓ Install npm dependencies
+4. ✓ Build frontend assets
+5. ✓ Create Windows shortcuts (Start Menu, Desktop)
+6. ✓ Register application in Windows registry
+7. ✓ Verify all components are present
+
+### Package-driven installer
+
+1. ✓ Validate package checksum
+2. ✓ Extract `bago-v4.9.0.zip` to install directory
+3. ✓ Install runtime dependencies
+4. ✓ Build/package as needed
+5. ✓ Create shortcuts and registry entries
+6. ✓ Verify all components
+
+### Legacy source installer
 
 1. ✓ Validate prerequisites (Git, Node.js, Python)
 2. ✓ Clone BAGO repository from GitHub
@@ -104,7 +158,10 @@ Both the EXE and PowerShell installer will:
 8. ✓ Register application in Windows registry
 9. ✓ Verify all components are present
 
-**Installation Time**: 10-15 minutes (depends on internet speed and hardware)
+**Installation Time**:
+- Official EXE: 5-10 minutes
+- Package-driven: 3-5 minutes
+- Source install: 10-15 minutes (depends on internet speed and hardware)
 
 **Installed Location**: `%LOCALAPPDATA%\BAGO` (usually `C:\Users\YourUsername\AppData\Local\BAGO`)
 
@@ -113,17 +170,17 @@ Both the EXE and PowerShell installer will:
 ### Launch BAGO
 - Double-click the desktop shortcut
 - Or search for "BAGO" in Windows Start Menu
+- The executable is `%LOCALAPPDATA%\BAGO\BAGO.exe`
 
 ### Uninstall BAGO
+Use Windows Settings → Apps → BAGO → Uninstall, or run:
+
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Uninstall-BAGO.ps1
 ```
 
 ### Update BAGO
-```powershell
-# Clean reinstall by running the installer again
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
-```
+Download the latest `BAGO-Installation-Manager-{version}-win-x64.exe` from GitHub Releases and run it.
 
 ## Troubleshooting
 
@@ -174,20 +231,23 @@ On Windows 11:
 Verify installation package integrity:
 
 ```powershell
-$file = "bago-4.8.2-setup.exe"
-(Get-FileHash $file -Algorithm SHA256).Hash
+# Official installer
+(Get-FileHash BAGO-Installation-Manager-4.9.0-win-x64.exe -Algorithm SHA256).Hash
+
+# Update package
+(Get-FileHash bago-v4.9.0.zip -Algorithm SHA256).Hash
 ```
 
-Compare against `bago-4.8.2-setup.exe.sha256`
+Compare against the corresponding `.sha256` files.
 
 ## Version Information
 
-- **BAGO Version**: 4.8.2
-- **Release Date**: August 7, 2026
+- **BAGO Version**: 4.9.0
+- **Release Date**: August 18, 2026
 - **Node.js Required**: 20.0 or later
 - **Python Required**: 3.14 or later
 - **Git Required**: 2.20 or later
-- **Windows**: Windows 7 SP1 or later
+- **Windows**: Windows 10/11 x64
 
 ## Support
 
@@ -198,4 +258,4 @@ For installation issues:
 
 ---
 
-**Note:** All installer methods are equivalent—use whichever is most convenient for your situation.
+**Note:** The official EXE and the package-driven method produce identical installations. Use whichever is most convenient for your situation.
