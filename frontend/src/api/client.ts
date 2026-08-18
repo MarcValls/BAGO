@@ -539,7 +539,7 @@ export class BagoClient {
   }
 
   setupGitHub(options: { hostname?: string; token?: string }): Promise<import('@/contracts/backend').GitHubAuthState> {
-    return this.request('/github/setup-git', { method: 'POST', body: JSON.stringify(options) });
+    return this.request('/github/setup', { method: 'POST', body: JSON.stringify(options) });
   }
 
   // --- Pipeline ---
@@ -862,54 +862,10 @@ export class BagoClient {
     });
   }
 
-  initWorkspace(root?: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/workspace/init', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
-  }
-
-  linkWorkspace(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/workspace/link', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
-  }
-
-  seedWorkspace(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/workspace/seed', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
-  }
-
-  syncWorkspace(root?: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/workspace/sync', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
-  }
-
   runCommand(command: string): Promise<BackendCommandResult> {
-    const body = JSON.stringify({ command, channel: 'ui-react', surface: 'ui-react' });
     return this.request<BackendCommandResult>('/api/v1/commands', {
       method: 'POST',
-      body
-    }, 150_000).catch((error) => {
-      if (!shouldFallbackToLegacy(error)) {
-        throw error;
-      }
-      return this.request<BackendCommandResult>('/command', {
-        method: 'POST',
-        body
-      }, 150_000);
-    });
-  }
-
-  runCommandLegacy(command: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/command', {
-      method: 'POST',
-      body: JSON.stringify({ command, channel: 'ui-react' })
+      body: JSON.stringify({ command, channel: 'ui-react', surface: 'ui-react' })
     }, 150_000);
   }
 
@@ -931,13 +887,6 @@ export class BagoClient {
   async sendInternalChat(message: string): Promise<Record<string, unknown>> {
     const body = JSON.stringify({ message, internal: true, channel: 'ui-react', surface: 'context-internal' });
     return this.request<Record<string, unknown>>('/chat', { method: 'POST', body }, 150_000);
-  }
-
-  async sendChatModern(message: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/api/v1/commands', {
-      method: 'POST',
-      body: JSON.stringify({ command: 'chat', message, channel: 'ui-react', surface: 'ui-react' })
-    });
   }
 
   async streamChat(

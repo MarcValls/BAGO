@@ -1,5 +1,5 @@
 import type { ActiveSection, BackendCommandResult, BackendRouterList, BackendRouterPolicy, ChatMode, ChatTurn, ContextTargetKind, OpeningDecision, SelectionRecord, UiBootstrapSnapshot } from '@/contracts/backend';
-import type { ContextMenuAction } from '@/layout/ContextMenu';
+import type { ActionScreenAction } from '@/layout/ActionScreen';
 
 type GlobalMode = 'normal' | 'focus' | 'review';
 
@@ -65,7 +65,7 @@ export function classifyContextTarget(selection: SelectionRecord): ContextTarget
 }
 
 
-function actionGroup(action: ContextMenuAction): string {
+function actionGroup(action: ActionScreenAction): string {
   if (['inspect-detail', 'use-in-chat', 'home-primary', 'open-workspace', 'open-pipeline', 'open-evidence', 'open-context', 'open-system', 'open-related'].includes(action.id)) return 'Principal';
   if (action.id.includes('context') || action.id.includes('certify') || action.id.includes('tune')) return 'Contexto';
   if (action.id.includes('chat') || action.id.includes('command') || action.id.includes('plan') || action.id.includes('project') || action.id.includes('audit') || action.id.includes('roadmap') || action.id.includes('task')) return 'Comandos';
@@ -74,10 +74,10 @@ function actionGroup(action: ContextMenuAction): string {
   return 'Acciones';
 }
 
-function grouped(actions: ContextMenuAction[]): ContextMenuAction[] {
+function grouped(actions: ActionScreenAction[]): ActionScreenAction[] {
   return actions.map((action) => ({ ...action, group: action.group || actionGroup(action) }));
 }
-export function createContextActions(selection: SelectionRecord, deps: ContextActionDeps): ContextMenuAction[] {
+export function createContextActions(selection: SelectionRecord, deps: ContextActionDeps): ActionScreenAction[] {
   const targetKind = classifyContextTarget(selection);
   const id = selection.id || selection.title;
   const path = deps.readSelectionPath(selection);
@@ -89,7 +89,7 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
   };
   const isWorkspaceTarget = targetKind.startsWith('workspace.');
 
-  const actions: ContextMenuAction[] = [
+  const actions: ActionScreenAction[] = [
     { id: 'inspect-detail', label: 'Ver detalle', icon: 'inspector', emphasis: 'primary', onClick: () => deps.openInspector(selection, 'detail') },
     { id: 'use-in-chat', label: 'Enviar al chat', icon: 'send', onClick: () => deps.useSelectionInChat(selection) }
   ];

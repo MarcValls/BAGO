@@ -350,7 +350,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print("    --json        Output estructurado en JSON")
         print()
         print("  Estas herramientas tambien funcionan standalone:")
-        print("    python .gabo/tools/secret_scan.py --root /mi/proyecto")
+        print("    python backend/.bago/tools/secret_scan.py --root /mi/proyecto")
         return 0
 
 def cmd_canary(args):

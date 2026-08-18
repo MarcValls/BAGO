@@ -77,6 +77,7 @@ from api_auth import BagoAuthMixin, _load_cors_origins_from_env
 from api_dispatch import API_PREFIXES as _API_PREFIXES, resolve_get, resolve_post, resolve_router
 from api_serializers import json_safe, read_body, send_bytes, send_json
 from api_state import resolve_state_root
+from legacy_aliases import handle_legacy_alias
 from rate_limit import get_limiter
 from structured_log import get_logger
 
@@ -223,6 +224,10 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
                 call(self)
                 return
 
+            # 2. Try legacy aliases so old frontend paths keep working.
+            if handle_legacy_alias(self, "GET", path):
+                return
+
             # LEGACY[API-L002]: keep fallback only for endpoints not yet migrated.
             # Each branch below calls a _handle_* method defined elsewhere.
             self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
@@ -273,6 +278,10 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
         matched, call = resolve_router(self, path, body)
         if matched:
             call(self, body)
+            return
+
+        # 3. Try legacy aliases so old frontend paths keep working.
+        if handle_legacy_alias(self, "POST", path, body):
             return
 
         self._send_json(404, {"error": f"Ruta no encontrada: {path}"})

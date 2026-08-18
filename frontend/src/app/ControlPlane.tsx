@@ -4,7 +4,7 @@ import { createBagoClient, persistApiConfig, readStoredApiBase, resolveDefaultAp
 import { GlobalHeader } from '@/layout/GlobalHeader';
 import { MainSidebar } from '@/layout/MainSidebar';
 import { WorkspaceShell } from '@/layout/WorkspaceShell';
-import { ContextMenu } from '@/layout/ContextMenu';
+import { ActionScreen } from '@/layout/ActionScreen';
 import { InspectorDrawer } from '@/layout/InspectorDrawer';
 import { createContextActions } from '@/features/context-menu/contextActions';
 import { ControlSections } from '@/features/sections';
@@ -12,12 +12,8 @@ import { resolveOpeningState } from '@/features/opening/opening';
 import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
 import { DrawerOverlay } from '@/components/ui/DrawerOverlay';
-import { CapabilityAnatomyModule } from '@/modules/capability-anatomy';
-import { ExternalCapabilitiesPanel } from '@/modules/capability-anatomy/ExternalCapabilitiesPanel';
-import { ToolsPanel } from '@/features/tools/ToolsPanel';
 import { PanelHost, PANEL_WIDTHS } from '@/components/ui/PanelHost';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
-import { usePanelManager } from '@/hooks/usePanelManager';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildSnapshot } from '@/app/bootstrapSnapshot';
@@ -158,7 +154,6 @@ export function ControlPlane() {
   const [lastMessage, setLastMessage] = useState('iniciando');
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
-  const { openDrawer, close: closeDrawer, isOpen, open: openDrawerFn } = usePanelManager();
   const openPanel = (panelId: PanelId) => setAndPersistUiState({ activePanel: panelId });
   const panelCloseDrawer = () => setAndPersistUiState({ activePanel: null });
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
@@ -716,7 +711,7 @@ export function ControlPlane() {
   const runCommand = async (command: string): Promise<BackendCommandResult | null> => {
     const clean = command.trim();
     if (!clean) return null;
-    // Comandos nativos del frontend (no van al backend como /command).
+    // Comandos nativos del frontend (no van al backend como /api/v1/commands).
     // /auto-config start|status|apply|cancel
     // /blacklist show
     if (clean.startsWith('/auto-config') || clean.startsWith('/blacklist')) {
@@ -834,7 +829,7 @@ export function ControlPlane() {
     }
 
     // El composer de Chat también es una superficie de comandos. No envíes
-    // slash commands al modelo: deben pasar por la autoridad /command para
+    // slash commands al modelo: deben pasar por la autoridad /api/v1/commands para
     // cambiar el estado real de la sesión (por ejemplo, /mode A).
     if (text.startsWith('/') && !text.startsWith('//')) {
       setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
@@ -908,7 +903,7 @@ export function ControlPlane() {
     }
   };
 
-  const [selectionMenu, setSelectionMenu] = useState<{ selection: SelectionRecord; position: { x: number; y: number } } | null>(null);
+  const [actionScreenSelection, setActionScreenSelection] = useState<SelectionRecord | null>(null);
   const [inspectorSelection, setInspectorSelection] = useState<{ selection: SelectionRecord; level: InspectorLevel } | null>(null);
   const [workspaceOpenRequest, setWorkspaceOpenRequest] = useState<{ path: string; kind?: 'file' | 'directory'; token: number } | null>(null);
 
@@ -916,8 +911,8 @@ export function ControlPlane() {
     setInspectorSelection({ selection, level });
   }
 
-  function openContextMenu(selection: SelectionRecord, position: { x: number; y: number }) {
-    setSelectionMenu({ selection, position });
+  function openActionScreen(selection: SelectionRecord) {
+    setActionScreenSelection(selection);
   }
 
   function onInspect(eventOrSelection: ReactMouseEvent<HTMLElement> | SelectionRecord, hint?: InspectorLevel | { x: number; y: number }) {
@@ -929,7 +924,7 @@ export function ControlPlane() {
     }
 
     if (hint && typeof hint === 'object' && 'x' in hint && 'y' in hint) {
-      openContextMenu(eventOrSelection, hint);
+      openActionScreen(eventOrSelection);
       return;
     }
 
@@ -1475,12 +1470,13 @@ export function ControlPlane() {
         />
       )}
 
-      {selectionMenu && (
-        <ContextMenu
-          selection={selectionMenu.selection}
-          position={selectionMenu.position}
-          actions={buildContextActions(selectionMenu.selection)}
-          onClose={() => setSelectionMenu(null)}
+      {actionScreenSelection && (
+        <ActionScreen
+          title={actionScreenSelection.title}
+          kind={actionScreenSelection.kind}
+          summary={actionScreenSelection.summary}
+          actions={buildContextActions(actionScreenSelection)}
+          onClose={() => setActionScreenSelection(null)}
         />
       )}
       {inspectorSelection && (
@@ -1488,111 +1484,9 @@ export function ControlPlane() {
           selection={inspectorSelection.selection}
           level={inspectorSelection.level}
           onClose={() => setInspectorSelection(null)}
-          onOpenContextMenu={(selection, position) => openContextMenu(selection, position)}
+          onOpenActionScreen={(selection) => openActionScreen(selection)}
         />
       )}
-      <DrawerOverlay isOpen={isOpen('capabilities')} onClose={closeDrawer} position="left" width={320}>
-        <CapabilityAnatomyModule client={clientRef.current} onInspect={(selection) => onInspect(selection, 'detail')} />
-        <ExternalCapabilitiesPanel client={clientRef.current} />
-      </DrawerOverlay>
-
-      <DrawerOverlay isOpen={isOpen('pipeline')} onClose={closeDrawer} position="bottom" height={400}>
-        <div className="drawer-pipeline-header">
-          <h3>Pipeline</h3>
-        <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
-        </div>
-        <div className="drawer-pipeline-content">
-          <ControlSections
-            section="pipeline"
-            snapshot={snapshot}
-            opening={opening}
-            booting={booting}
-            workspaceHint={uiState.workspaceHint}
-            apiBase={uiState.apiBase}
-            apiToken={uiState.apiToken}
-            client={clientRef.current}
-            onApiConfigChange={(patch) => setAndPersistUiState(patch)}
-            onPrimary={() => openShell(opening.targetSection === 'home' && snapshot?.permissions.canChat ? 'chat' : opening.targetSection)}
-            onContinue={() => { void runCommand('/session').then(() => openShell(snapshot?.permissions.canChat ? 'chat' : 'home')); }}
-            onChooseWorkspace={onChooseWorkspaceAlternate}
-            onOpenPalette={() => setAndPersistUiState({ commandPaletteOpen: true })}
-            onRefresh={bootstrap}
-            menu={menu}
-            routes={routes}
-            providers={providers}
-            router={routerState}
-            history={history}
-            conversations={conversations}
-            files={files}
-            commandResults={commandResults}
-            turns={turns}
-            drafts={uiState.drafts}
-            chatMode={uiState.chatMode}
-            globalMode={uiState.globalMode}
-            onDraftChange={setDraft}
-            onSendChat={sendChat}
-            onInspect={onInspect}
-            onRunCommand={runCommand}
-            onRunContextCommand={runContextCommand}
-            onRunAction={runAction}
-            onRunPlanTask={runPlanTask}
-            onSetSection={navigate}
-            onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
-            onSetGlobalMode={(mode) => setAndPersistUiState({ globalMode: mode })}
-            onReadFile={(path) => clientRef.current.readFile(path).catch(() => null)}
-            onManageSource={(action, path, label) => clientRef.current.manageSource(action, path, label).catch(() => null)}
-            onRefreshRouter={refreshRouterState}
-            onToggleRouter={toggleRouterSelection}
-            onSetRouterAuto={setRouterAutoSwitch}
-            onConfigureProvider={configureProvider}
-            onSetSessionModel={setSessionModelCb}
-            sessionModel={sessionModel}
-            reasoningDepth={reasoningDepth}
-            onSetReasoningDepth={setReasoningDepthCb}
-            onCreateConversation={createNewConversation}
-            onSwitchConversation={switchConversation}
-            onRenameConversation={renameConversation}
-            onArchiveConversation={archiveConversation}
-            workspaceOpenRequest={workspaceOpenRequest}
-            contextClient={clientRef.current}
-            contextTree={contextTree}
-            incomingContextPatches={incomingContextPatches}
-            onContextPatchHandled={onContextPatchHandled}
-            contextBankPending={uiState.contextBankPending || []}
-            onContextBankPendingConsumed={(id) => {
-              setUiState((current) => {
-                const next = patchUiState(current, { contextBankPending: (current.contextBankPending || []).filter((p) => p.id !== id) });
-                persistUiState(next);
-                return next;
-              });
-            }}
-            contextPatchDisplay={contextPatchDisplay}
-            onAcceptContextPatch={acceptContextPatch}
-            onRejectContextPatch={rejectContextPatch}
-            onEditContextPatch={editContextPatch}
-            onRevertContextPatch={revertContextPatch}
-            onReviewContextPatch={reviewContextPatch}
-            onOpenContextInTree={openContextInTree}
-            initialContextSelectedNodeId={initialContextSelectedNodeId}
-            initialContextEditingPatchId={uiState.contextEditPatchId}
-            onInitialContextStateConsumed={() => {
-              setInitialContextSelectedNodeId(null);
-              setAndPersistUiState({ contextEditPatchId: null });
-            }}
-          />
-        </div>
-      </DrawerOverlay>
-
-      <DrawerOverlay isOpen={isOpen('tools')} onClose={closeDrawer} position="right" width={280}>
-        <div className="drawer-tools-header">
-          <h3>Herramientas</h3>
-          <button type="button" onClick={closeDrawer} aria-label="Cerrar"><Icon name="close" size={16} /></button>
-        </div>
-        <div className="drawer-tools-content">
-          <ToolsPanel client={clientRef.current} />
-        </div>
-      </DrawerOverlay>
-
       {uiState.activePanel && (
         <DrawerOverlay isOpen={true} onClose={panelCloseDrawer} position="right" width={PANEL_WIDTHS[uiState.activePanel] ?? 400}>
           <PanelHost panelId={uiState.activePanel} client={clientRef.current} onClose={panelCloseDrawer} />

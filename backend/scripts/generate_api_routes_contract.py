@@ -88,15 +88,18 @@ def validate(contract: dict) -> int:
     if not route_index:
         errors.append("no static routes found")
 
-    try:
-        gabo_meta, _ = _load_dispatch_meta(GABO_API_DIR)
-    except Exception as exc:
-        errors.append(f"could not load .gabo api_dispatch: {exc}")
-        gabo_meta = []
-    gabo_routes = {(method, path) for method, path, *_ in gabo_meta}
-    missing_in_gabo = sorted(route_index - gabo_routes)
-    if missing_in_gabo:
-        errors.append(f".gabo missing routes: {missing_in_gabo[:10]}")
+    if GABO_API_DIR.exists():
+        try:
+            gabo_meta, _ = _load_dispatch_meta(GABO_API_DIR)
+        except Exception as exc:
+            errors.append(f"could not load .gabo api_dispatch: {exc}")
+            gabo_meta = []
+        gabo_routes = {(method, path) for method, path, *_ in gabo_meta}
+        missing_in_gabo = sorted(route_index - gabo_routes)
+        if missing_in_gabo:
+            errors.append(f".gabo missing routes: {missing_in_gabo[:10]}")
+    else:
+        print(f"[routes-contract] .gabo/api/ not present; skipping optional legacy override cross-check", file=sys.stderr)
 
     frontend_endpoints = _extract_frontend_endpoints(FRONTEND_CLIENT) if FRONTEND_CLIENT.exists() else set()
     missing_frontend = []

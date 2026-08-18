@@ -6,14 +6,14 @@ interface InspectorDrawerProps {
   selection: SelectionRecord;
   level: InspectorLevel;
   onClose: () => void;
-  onOpenContextMenu: (selection: SelectionRecord, position: { x: number; y: number }) => void;
+  onOpenActionScreen: (selection: SelectionRecord) => void;
 }
 
 function rawText(selection: SelectionRecord): string {
   return JSON.stringify(selection.raw ?? {}, null, 2) || '';
 }
 
-export function InspectorDrawer({ selection, level, onClose, onOpenContextMenu }: InspectorDrawerProps) {
+export function InspectorDrawer({ selection, level, onClose, onOpenActionScreen }: InspectorDrawerProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -25,8 +25,7 @@ export function InspectorDrawer({ selection, level, onClose, onOpenContextMenu }
   const openActions = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    onOpenContextMenu(selection, { x: rect.left, y: rect.bottom + 6 });
+    onOpenActionScreen(selection);
   };
 
   const showRaw = level === 'raw';

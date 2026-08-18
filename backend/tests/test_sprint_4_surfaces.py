@@ -33,7 +33,7 @@ class Sprint4SurfaceTests(unittest.TestCase):
     def test_http_api_is_the_live_integration_surface(self) -> None:
         dispatch = load_module(BAGO / "api" / "api_dispatch.py", "bago_api_dispatch")
         routes = {(method, path) for method, path, _module, _fn in dispatch.ROUTE_META}
-        for route in [("GET", "/status"), ("GET", "/session"), ("GET", "/menu"), ("POST", "/command")]:
+        for route in [("GET", "/status"), ("GET", "/session"), ("GET", "/menu"), ("POST", "/api/v1/commands")]:
             self.assertIn(route, routes)
         text = LIVE_SURFACES.read_text(encoding="utf-8").lower()
         self.assertIn(".bago/mcp", text)
