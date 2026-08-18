@@ -1,7 +1,7 @@
 #!/usr/bin/env powershell
 <#
 .SYNOPSIS
-BAGO 4.8.2 Windows Installer
+BAGO 4.9.0 Windows Installer
 .DESCRIPTION
 Instala BAGO y todas sus dependencias en C:\Users\{user}\AppData\Local\BAGO
 #>
@@ -10,7 +10,7 @@ param(
     [switch]$Help,
     [string]$InstallDir = "$env:LOCALAPPDATA\BAGO",
     [string]$GitRef = "main",
-    [string]$GitSha = "9e1c49bb3f5388b991ed21ad0287059f4d4d9875"
+    [string]$GitSha = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +18,7 @@ $ProgressPreference = "SilentlyContinue"
 
 if ($Help) {
     Write-Host @"
-BAGO 4.8.2 Installation Script
+BAGO 4.9.0 Installation Script
 
 Usage:
   .\Install-BAGO.ps1 [options]
@@ -26,19 +26,19 @@ Usage:
 Options:
   -InstallDir <path>    Directory to install BAGO (default: $env:LOCALAPPDATA\BAGO)
   -GitRef <ref>         Git ref to install (default: main)
-  -GitSha <sha>         Git commit SHA (default: 9e1c49bb3f5388b991ed21ad0287059f4d4d9875)
+  -GitSha <sha>         Git commit SHA (default: none, uses latest $GitRef)
   -Help                 Show this help
 
 Requirements:
   - Git
   - Node.js 20+
-  - Python 3.11+
+  - Python 3.14+
 
 "@
     exit 0
 }
 
-Write-Host "BAGO 4.8.2 Installation" -ForegroundColor Cyan
+Write-Host "BAGO 4.9.0 Installation" -ForegroundColor Cyan
 Write-Host "Installation directory: $InstallDir" -ForegroundColor Gray
 Write-Host ""
 
@@ -164,20 +164,20 @@ Write-Host "Registering application..." -ForegroundColor Cyan
 $regPath = "HKCU:\Software\BAGO"
 New-Item -Path $regPath -Force | Out-Null
 Set-ItemProperty -Path $regPath -Name "InstallPath" -Value $InstallDir
-Set-ItemProperty -Path $regPath -Name "Version" -Value "4.8.2"
+Set-ItemProperty -Path $regPath -Name "Version" -Value "4.9.0"
 
 $uninstallPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
 New-Item -Path $uninstallPath -Force | Out-Null
-Set-ItemProperty -Path $uninstallPath -Name "DisplayName" -Value "BAGO 4.8.2"
+Set-ItemProperty -Path $uninstallPath -Name "DisplayName" -Value "BAGO 4.9.0"
 Set-ItemProperty -Path $uninstallPath -Name "Publisher" -Value "MarcValls"
 Set-ItemProperty -Path $uninstallPath -Name "UninstallString" -Value "PowerShell -NoProfile -ExecutionPolicy Bypass -Command `"Remove-Item '$InstallDir' -Recurse -Force`""
-Set-ItemProperty -Path $uninstallPath -Name "DisplayVersion" -Value "4.8.2"
+Set-ItemProperty -Path $uninstallPath -Name "DisplayVersion" -Value "4.9.0"
 
 Write-Host "  ✓ Application registered" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  BAGO 4.8.2 Installed Successfully!    ║" -ForegroundColor Green
+Write-Host "║  BAGO 4.9.0 Installed Successfully!    ║" -ForegroundColor Green
 Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 Write-Host "Location: $InstallDir" -ForegroundColor Cyan

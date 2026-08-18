@@ -21,7 +21,7 @@ def test_installer_is_safe_for_clean_and_repeat_installs() -> None:
     assert "Remove-Item -LiteralPath $_.FullName" in installer
     assert "Remove-Item -LiteralPath $_ -Recurse" not in installer
     assert "Resolve-BagoPython" in installer
-    assert "Python.Python.3.12" in installer
+    assert "Python.Python.3.14" in installer
     assert "Update-InstallSelection" in installer
     assert '$roles["launch"]' in installer
     assert "-DevPath $selectionDevPath" in installer

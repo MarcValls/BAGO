@@ -44,11 +44,27 @@ def _timezone(name: str) -> ZoneInfo:
     if not name:
         name = "UTC"
     # zoneinfo keys vary across platforms; try known aliases before giving up
-    for key in (name, "Etc/" + name, name.upper(), "UTC", "Etc/UTC", "GMT", "Etc/GMT"):
+    candidates = (name, "Etc/" + name, name.upper(), "UTC", "Etc/UTC", "GMT", "Etc/GMT")
+    for key in candidates:
         try:
             return ZoneInfo(key)
         except ZoneInfoNotFoundError:
             pass
+    # Windows and other minimal environments may lack system IANA data;
+    # fall back to the tzdata package if it is installed.
+    try:
+        import tzdata
+
+        tzdata_dir = str(Path(tzdata.__file__).resolve().parent / "zoneinfo")
+        if tzdata_dir not in zoneinfo.TZPATH:
+            zoneinfo.reset_tzpath(list(zoneinfo.TZPATH) + [tzdata_dir])
+        for key in candidates:
+            try:
+                return ZoneInfo(key)
+            except ZoneInfoNotFoundError:
+                pass
+    except Exception:
+        pass
     raise ScheduleError(f"Zona horaria desconocida: {name}")
 
 

@@ -1,4 +1,4 @@
-# BAGO 4.8.2 Installer Build Process
+# BAGO 4.9.0 Installer Build Process
 
 ## Quick Start
 
@@ -7,7 +7,7 @@ cd releases
 .\build-installer.ps1
 ```
 
-Esto compilará **bago-4.8.2-setup.exe** con BAGO.exe embebido.
+Esto compilará **bago-4.9.0-setup.exe** con BAGO.exe embebido.
 
 ## Prerequisitos
 
@@ -41,21 +41,21 @@ cd ..\releases
 El script:
 - ✓ Copia BAGO.exe compilado a `compiled/electron-viewer/`
 - ✓ Copia backend a `compiled/backend/`
-- ✓ Ejecuta NSIS para crear `bago-4.8.2-setup.exe`
+- ✓ Ejecuta NSIS para crear `bago-4.9.0-setup.exe`
 - ✓ Calcula SHA256
 
 ### 3. Subir a GitHub
 
 ```powershell
-git add releases/compiled/ releases/bago-4.8.2-setup.exe releases/bago-4.8.2-setup.exe.sha256
-git commit -m "Update BAGO 4.8.2 installer with precompiled binaries"
+git add releases/compiled/ releases/bago-4.9.0-setup.exe releases/bago-4.9.0-setup.exe.sha256
+git commit -m "Update BAGO 4.9.0 installer with precompiled binaries"
 git push
-git tag -a v4.8.2 -m "BAGO 4.8.2 Release"
-git push origin v4.8.2
+git tag -a v4.9.0 -m "BAGO 4.9.0 Release"
+git push origin v4.9.0
 ```
 
 Luego subir a GitHub Releases:
-- bago-4.8.2-setup.exe
+- bago-4.9.0-setup.exe
 
 ## Estructura de instalación
 
@@ -81,7 +81,7 @@ El instalador copia recursivamente desde `releases/compiled/` preservando la est
 2. Agregarlo a `.gitignore` y compilar localmente antes de cada release
 3. Usar GitHub LFS para reducir tamaño del repositorio
 
-Actualmente se recomienda incluirlo en git para que cada tag v4.8.2 tenga BAGO.exe embebido.
+Actualmente se recomienda incluirlo en git para que cada tag v4.9.0 tenga BAGO.exe embebido.
 
 ## Verificación
 
@@ -89,10 +89,10 @@ Después de compilar:
 
 ```powershell
 # Verificar tamaño
-ls -lh bago-4.8.2-setup.exe
+ls -lh bago-4.9.0-setup.exe
 
 # Verificar SHA256
-cat bago-4.8.2-setup.exe.sha256
+cat bago-4.9.0-setup.exe.sha256
 
 # Verificar que NSIS embebió los archivos correctamente
 # (Abre el .exe con 7-Zip si quieres inspeccionar)
@@ -107,4 +107,4 @@ cat bago-4.8.2-setup.exe.sha256
 → Ejecuta `cd electron-viewer && npm run dist`
 
 ### Error compilando NSIS
-→ Revisa la salida de NSIS, normalmente es un error en `bago-installer-local.nsi`
+→ Revisa la salida de NSIS, normalmente es un error en `bago-installer.nsi`

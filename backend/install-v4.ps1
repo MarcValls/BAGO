@@ -749,12 +749,12 @@ function Get-PythonCandidates {
     return @($candidates | Select-Object -Unique)
 }
 
-function Test-Python311 {
+function Test-Python314 {
     param([Parameter(Mandatory = $true)][string]$Executable)
     try {
         $versionText = & $Executable -c "import sys; print('.'.join(map(str, sys.version_info[:3])))" 2>$null
         if ($LASTEXITCODE -ne 0 -or -not $versionText) { return $false }
-        return ([version]([string]$versionText).Trim() -ge [version]"3.11.0")
+        return ([version]([string]$versionText).Trim() -ge [version]"3.14.0")
     } catch {
         return $false
     }
@@ -762,23 +762,23 @@ function Test-Python311 {
 
 function Resolve-BagoPython {
     foreach ($candidate in (Get-PythonCandidates)) {
-        if (Test-Python311 -Executable $candidate) { return $candidate }
+        if (Test-Python314 -Executable $candidate) { return $candidate }
     }
 
     $winget = Get-Command "winget.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $winget) {
-        throw "BAGO requiere Python 3.11 o superior. Instala Python y vuelve a ejecutar el instalador; winget no está disponible."
+        throw "BAGO requiere Python 3.14 o superior. Instala Python y vuelve a ejecutar el instalador; winget no está disponible."
     }
 
-    Write-Host "Python 3.11+ no está disponible; instalando Python 3.12 con winget..." -ForegroundColor Cyan
-    & $winget.Source install --id Python.Python.3.12 --exact --scope user --silent --accept-package-agreements --accept-source-agreements
+    Write-Host "Python 3.14+ no está disponible; instalando Python 3.14 con winget..." -ForegroundColor Cyan
+    & $winget.Source install --id Python.Python.3.14 --exact --scope user --silent --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -ne 0) {
-        throw "winget no pudo instalar Python 3.12 (código $LASTEXITCODE)."
+        throw "winget no pudo instalar Python 3.14 (código $LASTEXITCODE)."
     }
     foreach ($candidate in (Get-PythonCandidates)) {
-        if (Test-Python311 -Executable $candidate) { return $candidate }
+        if (Test-Python314 -Executable $candidate) { return $candidate }
     }
-    throw "Python fue instalado, pero no se encontró un intérprete 3.11+ utilizable. Abre una terminal nueva y reintenta."
+    throw "Python fue instalado, pero no se encontró un intérprete 3.14+ utilizable. Abre una terminal nueva y reintenta."
 }
 
 function Invoke-QuietPythonCheck {

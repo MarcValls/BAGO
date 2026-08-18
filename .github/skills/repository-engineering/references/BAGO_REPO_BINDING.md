@@ -5,10 +5,10 @@ Generated against live repository data on 2026-08-16.
 - Repository: `MarcValls/BAGO`
 - Default branch: `main`
 - Generation baseline HEAD: `4b6a70211959d598490b2df4c3f18424ce11bf4d`
-- Declared product version at baseline: `4.8.7`
+- Declared product version at baseline: `4.9.0`
 - Primary language: Python
 - Frontend: React 18 + TypeScript + Vite + Vitest
-- Python requirement: 3.11+
+- Python requirement: 3.14+
 - Node requirement: `^20.19.0 || >=22.12.0`
 - Root build: `npm run build`
 - Frontend tests: `npm run test:frontend`

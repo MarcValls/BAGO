@@ -1,15 +1,15 @@
-; BAGO 4.8.2 Windows Installer - NSIS 3.x
+; BAGO 4.9.0 Windows Installer - NSIS 3.x
 ; Instala BAGO copiando archivos compilados locales
 
 !define APP_NAME "BAGO"
-!define APP_VERSION "4.8.2"
+!define APP_VERSION "4.9.0"
 !define APP_PUBLISHER "MarcValls"
 !define APP_URL "https://github.com/MarcValls/BAGO"
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
 !define INSTALL_DIR "$LOCALAPPDATA\BAGO"
 
 Name "${APP_NAME} ${APP_VERSION}"
-OutFile "bago-4.8.2-setup.exe"
+OutFile "bago-${APP_VERSION}-setup.exe"
 InstallDir "${INSTALL_DIR}"
 InstallDirRegKey HKCU "Software\BAGO" "InstallPath"
 RequestExecutionLevel user

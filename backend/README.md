@@ -1,9 +1,9 @@
-# BAGO v4.8.1
+# BAGO v4.9.0
 
-**Version 4.8.1**
+**Version 4.9.0**
 
-[![Version](https://img.shields.io/badge/version-4.8.1-blue)]()
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
+[![Version](https://img.shields.io/badge/version-4.9.0-blue)]()
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 BAGO is a local-first AI control plane. Its main job is to keep the session as the source of truth while providers and models remain interchangeable execution engines.
@@ -38,7 +38,7 @@ Post-MVP or experimental:
 Requirements:
 
 - Windows-first runtime.
-- Windows 10/11 with `winget`, or Python 3.11+ already installed. The remote installer installs Python 3.12 automatically when needed.
+- Windows 10/11 with `winget`, or Python 3.14+ already installed. The remote installer installs Python 3.14 automatically when needed.
 - Ollama is optional, but required for the local live-model path.
 - Cloud provider keys are optional and must stay outside the repository.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env powershell
 <#
 .SYNOPSIS
-BAGO 4.8.2 Uninstaller
+BAGO 4.9.0 Uninstaller
 .DESCRIPTION
 Removes BAGO and all its files
 #>
@@ -12,7 +12,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "BAGO 4.8.2 Uninstaller" -ForegroundColor Cyan
+Write-Host "BAGO 4.9.0 Uninstaller" -ForegroundColor Cyan
 Write-Host ""
 
 # Kill any running BAGO processes
@@ -68,5 +68,5 @@ Write-Host "Removing registry entries..." -ForegroundColor Cyan
 
 Write-Host ""
 Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  BAGO 4.8.2 Uninstalled Successfully   ║" -ForegroundColor Green
+Write-Host "║  BAGO 4.9.0 Uninstalled Successfully   ║" -ForegroundColor Green
 Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Green

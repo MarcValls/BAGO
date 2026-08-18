@@ -65,7 +65,7 @@ cd electron-viewer && npx electron-builder --dir && cd ..
 ### For script/manual methods
 - **Git**: https://git-scm.com
 - **Node.js 20+**: https://nodejs.org
-- **Python 3.11+**: https://python.org
+- **Python 3.14+**: https://python.org
 
 ## Installation Directory
 

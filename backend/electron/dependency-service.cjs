@@ -20,8 +20,8 @@ function createDependencyService(ctx) {
       id: 'python',
       label: 'Python',
       required: true,
-      wingetId: 'Python.Python.3.11',
-      installCommand: 'winget install -e --id Python.Python.3.11 --accept-package-agreements --accept-source-agreements'
+      wingetId: 'Python.Python.3.14',
+      installCommand: 'winget install -e --id Python.Python.3.14 --accept-package-agreements --accept-source-agreements'
     },
     {
       id: 'powershell',

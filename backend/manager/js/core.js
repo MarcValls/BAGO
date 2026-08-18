@@ -40,7 +40,7 @@ function pmLocalProviderCatalog(){
 }
 const pmDependencyCatalog={
   core:[
-    {id:'python',label:'Python',required:true,wingetId:'Python.Python.3.11',installCommand:'winget install -e --id Python.Python.3.11 --accept-package-agreements --accept-source-agreements'},
+    {id:'python',label:'Python',required:true,wingetId:'Python.Python.3.14',installCommand:'winget install -e --id Python.Python.3.14 --accept-package-agreements --accept-source-agreements'},
     {id:'powershell',label:'PowerShell',required:true,wingetId:'',installCommand:''},
     {id:'git',label:'Git',required:false,wingetId:'Git.Git',installCommand:'winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements'},
     {id:'ollama',label:'Ollama',required:false,wingetId:'Ollama.Ollama',installCommand:'winget install -e --id Ollama.Ollama --accept-package-agreements --accept-source-agreements'}

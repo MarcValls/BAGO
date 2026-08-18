@@ -1,7 +1,7 @@
 #!/usr/bin/env powershell
 <#
 .SYNOPSIS
-    BAGO 4.8.2 Installer Launcher
+    BAGO 4.9.0 Installer Launcher
     
 .DESCRIPTION
     This script launches the main BAGO installer (Install-BAGO.ps1)
@@ -30,7 +30,7 @@ if (-not (Test-Path $installerScript)) {
 # Display welcome message
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  BAGO 4.8.2 Installer" -ForegroundColor Cyan
+Write-Host "  BAGO 4.9.0 Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Starting installation..." -ForegroundColor Green
