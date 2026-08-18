@@ -4,7 +4,7 @@
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
-[![Tests](https://img.shields.io/badge/tests-928%20passed%20%7C%2013%20skipped%20backend%20%7C%2052%20frontend-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-927%20passed%20%7C%2014%20skipped%20backend%20%7C%2099%20frontend-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 **BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
@@ -42,21 +42,15 @@
 
 ---
 
-
-
-La mayoría de herramientas de IA vinculan el contexto a un único proveedor o modelo. BAGO separa el estado de sesión de la ejecución del modelo, permitiendo al usuario mantener la continuidad al cambiar de proveedor, modelo, superficie de API o superficie de UI.
-
----
-
 ## Estructura del monorepo
 
 ```
 BAGO/
 ├── backend/                  # Runtime Python (core, CLI, API local, contratos)
 │   ├── bago_core/            # Núcleo: sesiones, proveedores, capacidades, RL
-│   ├── tests/                # 928 passed, 13 skipped (pytest)
+│   ├── tests/                # 927 passed, 14 skipped (pytest)
 │   ├── docs/                 # Documentación técnica
-│   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build)
+│   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build; no en el repo)
 ├── frontend/                 # UI React + TypeScript (Vite)
 │   └── src/
 │       ├── styles/           # Sistema de tokens CSS modular
@@ -72,11 +66,10 @@ BAGO/
 │       └── state/            # uiStore (Zustand)
 ├── electron-viewer/          # Visor Electron con ciclo de vida automático
 ├── scripts/
-│   ├── dev.ps1               # start / stop / build / status
-│   └── bago-launcher.ps1     # Lanzador manual legacy (los accesos directos apuntan a BAGO.exe)
+│   ├── dev.ps1               # start / stop / build / status / backend / electron
+│   └── bago-launcher.ps1     # Lanzador manual legacy
 ├── releases/
-│   ├── bago-installer.nsi    # Script NSIS para generar setup.exe
-│   └── bago-v4.9.0.zip      # Artefactos de release
+│   └── bago-installer.nsi    # Script NSIS para generar setup.exe legacy
 ├── ARRANCAR_BAGO.bat         # Lanzador principal Windows
 └── package.json              # Raíz del workspace npm
 ```
@@ -142,11 +135,11 @@ Esto inicia el backend en `http://127.0.0.1:8080` y abre la ventana Electron. **
 ### Arrancar manualmente
 
 ```powershell
-# Arrancar backend + abrir UI en el navegador
+# Arrancar backend + build del frontend + ventana Electron
 npm run start
 
 # Sólo el backend
-npm run start:backend
+npm run backend
 
 # Build de producción
 npm run build
@@ -194,7 +187,7 @@ bago exec /status
 ## Scripts de desarrollo (monorepo)
 
 ```powershell
-npm run start      # Arrancar frontend + backend
+npm run start      # Arrancar backend + build frontend + Electron
 npm run stop       # Detener servicios
 npm run restart    # Reiniciar
 npm run status     # Estado de los servicios
@@ -232,10 +225,10 @@ npm run sh:status
 
 | Área | Estado | Notas |
 |---|---|---|
-| Runtime core | ✅ Estable | 844 passed, 14 skipped en backend |
+| Runtime core | ✅ Estable | 927 passed, 14 skipped en backend |
 | Instalación Windows | ✅ Estable | Instalador NSIS + `ARRANCAR_BAGO.bat` |
 | Ciclo de vida Electron | ✅ Estable | Auto-stop al cerrar ventana |
-| UI React | ✅ Funcional | 52 tests frontend, tema claro/oscuro, tokens CSS |
+| UI React | ✅ Funcional | 99 tests frontend, tema claro/oscuro, tokens CSS |
 | Seguridad y postura API | ✅ Estable | `backend/docs/SECURITY.md` |
 | Soporte de plataforma | ✅ Windows | macOS/Linux: experimental |
 | Sistema de capacidades | ✅ Funcional | `capability-anatomy`, provider center |
@@ -254,13 +247,25 @@ npm run sh:status
 |---|---|---|
 | [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-18 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-v4.9.0.zip` |
 | [v4.8.7](https://github.com/MarcValls/BAGO/releases/tag/v4.8.7) | 2026-08-16 | `BAGO-Installation-Manager-4.8.7-win-x64.exe` · `bago-v4.8.7.zip` |
-| [v4.8.6](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6) | 2026-08-16 | `BAGO-Installation-Manager-4.8.6-win-x64.exe` · `bago-v4.8.6.zip` |\n| [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |\n| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
+| [v4.8.6](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6) | 2026-08-16 | `BAGO-Installation-Manager-4.8.6-win-x64.exe` · `bago-v4.8.6.zip` |\n| [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |
+| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
 
-Los artefactos de release deben generarse desde una referencia etiquetada/inmutable (no desde `main`) con:
+Los artefactos oficiales (`BAGO-Installation-Manager-{version}-win-x64.exe` y `bago-v{version}.zip`) se generan en CI desde una referencia etiquetada/inmutable, no desde `main`. El flujo local de referencia es:
 
 ```powershell
+# 1. Validar backend
+python -m pytest backend/tests
+
+# 2. Build del frontend y del visor Electron
 npm run build
-# luego reempaquetar con releases/bago-installer.nsi y gh release upload
+
+# 3. Empaquetar backend runtime
+python backend/scripts/package_v4.py --version 4.9.0
+
+# 4. Crear o mover el tag a HEAD
+# git tag -a v4.9.0 -m "BAGO v4.9.0" --force
+# git push origin v4.9.0 --force
+# La subida del release corre vía .github/workflows/release.yml usando gh release upload
 ```
 
 ---
