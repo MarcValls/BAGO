@@ -1,5 +1,5 @@
 {
-  "current": "4.8.7",
+  "current": "4.9.0",
   "history": [
     {
       "version": "4.0.0",
@@ -112,8 +112,14 @@
     {
       "version": "4.8.7",
       "released": "2026-08-16",
-      "ended": null,
+      "ended": "2026-08-18",
       "notes": "Hotfix: restaura detección de GitHub en el panel de autenticación y repara la navegación de los drawers laterales (herramientas, pipeline, capacidades)."
+    },
+    {
+      "version": "4.9.0",
+      "released": "2026-08-18",
+      "ended": null,
+      "notes": "Release candidate 4.9.0: integra todos los fixes de 4.8.7 y prepara el payload de release."
     }
   ]
 }
