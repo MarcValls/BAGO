@@ -45,6 +45,7 @@ Section "BAGO Core" SecCore
   SectionIn RO
 
   DetailPrint "Preparando instalación..."
+  InitPluginsDir
 
   DetailPrint "Extrayendo payload offline..."
   SetOutPath "$PLUGINSDIR"

@@ -1,11 +1,12 @@
-# BAGO 4.8.2 - Installation Methods Comparison
+# BAGO 4.9.0 - Installation Methods Comparison
 
 ## Quick Decision Guide
 
 | Need | Use | File |
 |------|-----|------|
-| **"Just let me install it"** | EXE Installer | `bago-4.8.2-setup.exe` |
-| **"I need to automate this"** | PowerShell Script | `Install-BAGO.ps1` |
+| **"Just let me install it"** | Official NSIS EXE | `BAGO-Installation-Manager-4.9.0-win-x64.exe` |
+| **"I need fast/reproducible automation"** | Package-driven PowerShell | `install-v4.ps1 -PackageZip bago-v4.9.0.zip` |
+| **"I want to clone and build from source"** | PowerShell Script | `Install-BAGO.ps1` |
 | **"I prefer command line"** | Batch Wrapper | `install-bago-setup.cmd` |
 | **"I need documentation"** | Read First | `INSTALL.md` or `README-INSTALLERS.md` |
 
@@ -13,13 +14,13 @@
 
 ## Detailed Comparison
 
-### 1. ⭐ EXE Installer (Easiest)
+### 1. ⭐ Official NSIS EXE Installer (Easiest)
 
-**File**: `bago-4.8.2-setup.exe` (36.8 KB)
+**File**: `BAGO-Installation-Manager-4.9.0-win-x64.exe` (97.64 MB)
 
 **How to use**:
 ```
-Just double-click the file and follow prompts
+Double-click the file and follow prompts
 ```
 
 **Pros**:
@@ -28,21 +29,71 @@ Just double-click the file and follow prompts
 - ✓ Full installation output shown
 - ✓ No PowerShell configuration needed
 - ✓ Standard Windows executable
-- ✓ Works with Windows SmartScreen
+- ✓ Full payload bundled (no extra downloads)
 - ✓ Easy for non-technical users
 
 **Cons**:
 - ✗ No scriptable parameters
-- ✗ Can't run silently
-- ✗ Slightly larger than PowerShell script
+- ✗ Larger file size (~98 MB)
+- ✗ Must download full installer each update
 
 **Best for**: End users, GUI-preferred, first-time installers
 
-**Installation time**: 10-15 minutes
+**Installation time**: 5-10 minutes
 
 ---
 
-### 2. 🔧 PowerShell Script (Best for Automation)
+### 2. 📦 Package-Driven PowerShell (Best for Automation)
+
+**File**: `install-v4.ps1` + `bago-v4.9.0.zip` (1.72 MB)
+
+**How to use**:
+```powershell
+# Option A: Simple execution
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip
+
+# Option B: With parameters
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 `
+  -PackageZip bago-v4.9.0.zip `
+  -InstallDir "C:\CustomBAGO"
+```
+
+**Available Parameters**:
+```powershell
+-PackageZip "path"         # Path to bago-v4.9.0.zip
+-InstallDir "path"         # Custom installation directory
+```
+
+**Pros**:
+- ✓ Fast, reproducible deployment
+- ✓ Fully scriptable and customizable
+- ✓ Best for CI/CD pipelines
+- ✓ Small payload to transfer
+- ✓ Transparent—see all output
+- ✓ Can be run silently
+
+**Cons**:
+- ✗ Requires PowerShell knowledge
+- ✗ Need two files (script + zip)
+- ✗ Need to run as Administrator manually
+
+**Best for**: DevOps, CI/CD, automation, fast deployments
+
+**Installation time**: 3-5 minutes
+
+**Example in CI/CD**:
+```yaml
+# GitHub Actions example
+- name: Install BAGO
+  run: |
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 `
+      -PackageZip bago-v4.9.0.zip `
+      -InstallDir "D:\BAGO-CI"
+```
+
+---
+
+### 3. 🔧 Legacy PowerShell Script (Source Install)
 
 **File**: `Install-BAGO.ps1` (6.5 KB)
 
@@ -68,34 +119,24 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
 **Pros**:
 - ✓ Direct execution, no wrapper
 - ✓ Fully scriptable and customizable
-- ✓ Best for CI/CD pipelines
 - ✓ Easy to debug
 - ✓ Transparent—see all output
-- ✓ Can be run silently with -ErrorAction SilentlyContinue
+- ✓ Can be run silently
 - ✓ Smallest file size (6.5 KB)
 
 **Cons**:
+- ✗ Requires internet + Git clone
 - ✗ Requires PowerShell knowledge
 - ✗ Need to run as Administrator manually
 - ✗ Requires ExecutionPolicy adjustment
 
-**Best for**: DevOps, CI/CD, automation, developers
+**Best for**: Developers, custom source builds
 
 **Installation time**: 10-15 minutes
 
-**Example in CI/CD**:
-```yaml
-# GitHub Actions example
-- name: Install BAGO
-  run: |
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
-      -InstallDir "D:\BAGO-CI" `
-      -AppGitRef "main"
-```
-
 ---
 
-### 3. 📟 Batch Wrapper (Command Line)
+### 4. 📟 Batch Wrapper (Command Line)
 
 **File**: `install-bago-setup.cmd` (1.06 KB)
 
@@ -140,7 +181,7 @@ echo Installation successful
 
 ---
 
-### 4. 🪟 VBS Launcher (Alternative GUI)
+### 5. 🪟 VBS Launcher (Alternative GUI)
 
 **File**: `install-bago-setup.vbs` (1.39 KB)
 
@@ -174,19 +215,19 @@ echo Installation successful
 
 ## Feature Comparison Table
 
-| Feature | EXE | PowerShell | Batch | VBS |
-|---------|-----|------------|-------|-----|
-| **File Size** | 36.8 KB | 6.5 KB | 1.06 KB | 1.39 KB |
-| **Double-click** | ✓ | ✗ | ✗ | ✓ |
-| **Command-line** | ✓ | ✓ | ✓ | ✗ |
-| **Scriptable** | ✗ | ✓ | ✗ | ✗ |
-| **Custom Parameters** | ✗ | ✓ | Limited | ✗ |
-| **Silent Execution** | ✗ | ✓ | ✓ | ✗ |
-| **Admin Auto-Elevate** | ✓ | ✗ | ✗ | ✓ |
-| **PowerShell Required** | ✗ | ✓ | ✓ | ✗ |
-| **Transparent Output** | ✓ | ✓ | ✓ | ✗ |
-| **CI/CD Friendly** | ✗ | ✓ | ✓ | ✗ |
-| **Legacy Windows** | ✓ | ~ | ✓ | ✓ |
+| Feature | NSIS EXE | Package PS | Source PS | Batch | VBS |
+|---------|----------|------------|-----------|-------|-----|
+| **File Size** | 97.64 MB | 6.5 KB + zip | 6.5 KB | 1.06 KB | 1.39 KB |
+| **Double-click** | ✓ | ✗ | ✗ | ✗ | ✓ |
+| **Command-line** | ✓ | ✓ | ✓ | ✓ | ✗ |
+| **Scriptable** | ✗ | ✓ | ✓ | ✗ | ✗ |
+| **Custom Parameters** | ✗ | ✓ | ✓ | Limited | ✗ |
+| **Silent Execution** | ✗ | ✓ | ✓ | ✓ | ✗ |
+| **Admin Auto-Elevate** | ✓ | ✗ | ✗ | ✗ | ✓ |
+| **PowerShell Required** | ✗ | ✓ | ✓ | ✓ | ✗ |
+| **Transparent Output** | ✓ | ✓ | ✓ | ✓ | ✗ |
+| **CI/CD Friendly** | ✗ | ✓ | ✓ | ✓ | ✗ |
+| **Fastest Install** | ~ | ✓ | ✗ | ✗ | ✗ |
 
 ---
 
@@ -194,20 +235,20 @@ echo Installation successful
 
 ### Scenario 1: End User on Windows 11
 ```
-→ Use: bago-4.8.2-setup.exe
+→ Use: BAGO-Installation-Manager-4.9.0-win-x64.exe
 ✓ Single click, automatic admin elevation, easiest experience
 ```
 
-### Scenario 2: Developer Running Locally
+### Scenario 2: Fast CI/CD Deployment
+```
+→ Use: install-v4.ps1 -PackageZip bago-v4.9.0.zip
+✓ Fast, reproducible, small payload
+```
+
+### Scenario 3: Developer Building from Source
 ```
 → Use: Install-BAGO.ps1 with parameters
 ✓ Full control, scriptable, easy to debug custom installations
-```
-
-### Scenario 3: CI/CD Pipeline (GitHub Actions)
-```
-→ Use: Install-BAGO.ps1 in PowerShell step
-✓ Fully automated, customizable, CI-friendly
 ```
 
 ### Scenario 4: Batch Deployment Script
@@ -218,14 +259,14 @@ echo Installation successful
 
 ### Scenario 5: PowerShell Restricted Environment
 ```
-→ Use: install-bago-setup.vbs or bago-4.8.2-setup.exe
+→ Use: install-bago-setup.vbs or BAGO-Installation-Manager-4.9.0-win-x64.exe
 ✓ Bypasses PowerShell execution policy issues
 ```
 
 ### Scenario 6: Automation with Parameters
 ```
-→ Use: Install-BAGO.ps1 with -InstallDir and -AppGitRef
-✓ Only PowerShell script supports custom parameters
+→ Use: install-v4.ps1 with -PackageZip and -InstallDir
+✓ Only package-driven script supports thin payload parameters
 ```
 
 ---
@@ -234,20 +275,25 @@ echo Installation successful
 
 ### Public Release (GitHub, Web)
 **Recommended**:
-- `bago-4.8.2-setup.exe` ← Main file (easiest for users)
-- `bago-4.8.2-setup.exe.sha256` (for verification)
+- `BAGO-Installation-Manager-4.9.0-win-x64.exe` ← Main file (easiest for users)
+- `BAGO-Installation-Manager-4.9.0-win-x64.exe.sha256` (for verification)
+- `bago-v4.9.0.zip` (update package)
+- `bago-v4.9.0.zip.sha256` (for verification)
+- `latest.yml` (auto-update metadata)
 - `INSTALL.md` (quick start)
 - `README-INSTALLERS.md` (comprehensive guide)
 
 ### Enterprise/Corporate
 **Recommended**:
-- `Install-BAGO.ps1` (for SCCM, Intune, etc.)
+- `install-v4.ps1` + `bago-v4.9.0.zip` (for SCCM, Intune, etc.)
+- `Install-BAGO.ps1` (for source-based deployments)
 - `install-bago-setup.cmd` (for batch scripts)
 - `DELIVERY.md` (official documentation)
 
 ### Developer Release
 **Include**:
 - `Install-BAGO.ps1` (direct access)
+- `install-v4.ps1` (package-driven)
 - `install-bago-setup.cmd` (for CI/CD)
 - All source documentation
 - ZIP packages (for offline installation)
@@ -260,8 +306,14 @@ echo Installation successful
 - ✓ Try: Run as Administrator (right-click → "Run as administrator")
 - ✓ Try: Disable antivirus temporarily
 - ✓ Try: Check Windows SmartScreen (click "Run anyway")
+- ✓ Verify SHA256: `9AE9507F435DEBF978A3D268E5B59FC98BD37F45567E652DD976B4B85A012230`
 
-### PowerShell Script Won't Execute
+### Package-Driven PowerShell Won't Execute
+- ✓ Try: Open PowerShell as Administrator first
+- ✓ Try: Run entire command: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 -PackageZip bago-v4.9.0.zip`
+- ✓ Check if `bago-v4.9.0.zip` is in the same directory or use full path
+
+### Legacy PowerShell Script Won't Execute
 - ✓ Try: Open PowerShell as Administrator first
 - ✓ Try: Run entire command: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1`
 - ✓ Try: Check if PowerShell Execution Policy is set: `Get-ExecutionPolicy`
@@ -284,7 +336,7 @@ After any installation method, verify success:
 
 ```powershell
 # Check if BAGO.exe exists
-Test-Path "$env:LOCALAPPDATA\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe"
+Test-Path "$env:LOCALAPPDATA\BAGO\BAGO.exe"
 # Should return: True
 
 # Check if shortcuts were created
@@ -292,7 +344,7 @@ Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\BAGO"
 # Should return: True
 
 # Launch BAGO
-& "$env:LOCALAPPDATA\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe"
+& "$env:LOCALAPPDATA\BAGO\BAGO.exe"
 ```
 
 ---
@@ -301,13 +353,13 @@ Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\BAGO"
 
 | Goal | Method | File |
 |------|--------|------|
-| **Simplest** | Double-click | `bago-4.8.2-setup.exe` |
-| **Most Control** | PowerShell | `Install-BAGO.ps1` |
-| **CI/CD** | PowerShell Script | `Install-BAGO.ps1` |
+| **Simplest** | Double-click | `BAGO-Installation-Manager-4.9.0-win-x64.exe` |
+| **Fastest / CI/CD** | Package PowerShell | `install-v4.ps1 -PackageZip bago-v4.9.0.zip` |
+| **Most Control** | Source PowerShell | `Install-BAGO.ps1` |
 | **Batch/Legacy** | Batch Wrapper | `install-bago-setup.cmd` |
 | **Alternative GUI** | VBS Launcher | `install-bago-setup.vbs` |
 
-**All methods produce identical installations.** Choose based on your preference and use case.
+**Official and package-driven methods produce identical installations.** Choose based on your preference and use case.
 
 ---
 

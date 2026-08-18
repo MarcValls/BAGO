@@ -1,4 +1,4 @@
-# BAGO 4.8.2 - Release Files Index
+# BAGO 4.9.0 - Release Files Index
 
 ## 📦 Distribution Package Contents
 
@@ -13,21 +13,29 @@
 ## 🚀 Installation Executables
 
 ### Primary Installer (Recommended)
-- **`bago-4.8.2-setup.exe`** (36.8 KB)
-  - Compiled PowerShell installer wrapper
+- **`BAGO-Installation-Manager-4.9.0-win-x64.exe`** (97.64 MB)
+  - Official electron-builder NSIS installer
+  - Bundles backend, frontend and Electron payload
   - Single-click installation for Windows users
   - Automatic administrator elevation
-  - SHA256: `0FF315E407D4AFA5032E7486CB1C7633AB2B454408465BEEDD645D843358F5B8`
+  - SHA256: `9AE9507F435DEBF978A3D268E5B59FC98BD37F45567E652DD976B4B85A012230`
 
-### Alternative Methods
+### Alternative / Update Methods
+- **`bago-v4.9.0.zip`** (1.72 MB)
+  - Thin update package used by the installer and auto-updater
+  - SHA256: `7D67CCDE3BF77702DAF0F79941DA662F316AF7FFF1DF48CBAFFD902CAFCD8F65`
+
 - **`Install-BAGO.ps1`** (6.5 KB)
   - Direct PowerShell script
   - Use for automation, CI/CD, custom parameters
   - Command: `powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1`
 
+- **`install-v4.ps1`**
+  - Package-driven installer for v4.x
+  - Command: `install-v4.ps1 -PackageZip bago-v4.9.0.zip`
+
 - **`install-bago-setup.cmd`** (1.06 KB)
-  - Batch wrapper for PowerShell installer
-  - Use for command-line tools, legacy systems
+  - Batch wrapper for legacy PowerShell installer
   - Command: `install-bago-setup.cmd`
 
 - **`install-bago-setup.vbs`** (1.39 KB)
@@ -37,7 +45,13 @@
 
 - **`bago-installer-launcher.ps1`** (1.71 KB)
   - Pretty PowerShell wrapper with formatted output
-  - Used internally by compiled EXE
+  - Used internally by legacy compiled EXE
+
+### Offline / Legacy Installer
+- **`bago-4.9.0-setup.exe`** (~143.55 MB)
+  - Legacy NSIS + PowerShell offline installer
+  - Embeds `bago-4.9.0-distribution.zip`
+  - SHA256: `D2DD1004230346CB2648E2070408AE2C6DEF65AB6F9DB9822BAB4ABBCEBB8C72`
 
 ### Uninstaller
 - **`Uninstall-BAGO.ps1`** (2.4 KB)
@@ -72,7 +86,7 @@
    - Support and troubleshooting
 
 4. **`INSTALLATION-METHODS.md`**
-   - Detailed comparison of all 4 methods
+   - Detailed comparison of all methods
    - Feature matrix
    - Usage scenarios
    - Method-specific troubleshooting
@@ -87,49 +101,46 @@
 
 ## 📂 Application Packages
 
-These are automatically downloaded by installers but included here for offline installation:
+- **`bago-v4.9.0.zip`** (1.72 MB)
+  - Thin update package: backend + frontend + Electron metadata
+  - Downloaded/used by the official installer
 
-- **`bago-4.8.2-backend.zip`** (204.63 MB)
-  - Backend application code and dependencies
-  - Python FastAPI service
-
-- **`bago-4.8.2-frontend.zip`** (0.17 MB)
-  - Frontend React assets
-  - Built and optimized for production
-
-- **`bago-4.8.2-electron-viewer.zip`** (0.01 MB)
-  - Electron application wrapper
-  - Desktop application shell
+- **`bago-4.9.0-distribution.zip`** (~143 MB)
+  - Offline payload embedded in `bago-4.9.0-setup.exe`
 
 ---
 
 ## 📋 Metadata Files
 
-- **`bago-4.8.2-setup.exe.sha256`**
-  - Checksum for verifying installer integrity
-  - SHA256: `0FF315E407D4AFA5032E7486CB1C7633AB2B454408465BEEDD645D843358F5B8`
-  - Size: 36,864 bytes
+- **`BAGO-Installation-Manager-4.9.0-win-x64.exe.sha256`**
+  - Checksum for the official installer
+
+- **`bago-v4.9.0.zip.sha256`**
+  - Checksum for the update package
+
+- **`bago-v4.9.0.zip.manifest.json`**
+  - File manifest of the update package
+
+- **`latest.yml`**
+  - Auto-update metadata pointing to the official installer
 
 - **`MANIFEST.md`**
-  - Detailed file manifest
-  - Version information
-  - Build details
+  - Detailed release manifest
 
 - **`RELEASE_NOTES_REAL.md`**
-  - Feature release notes for version 4.8.2
-  - Bug fixes and improvements
+  - Feature release notes for version 4.9.0
 
 ---
 
 ## 🎯 Installation Quick Start
 
-### For End Users
+### For End Users (Official)
 ```
-1. Download: bago-4.8.2-setup.exe
+1. Download: BAGO-Installation-Manager-4.9.0-win-x64.exe
 2. Double-click
 3. Accept admin prompt
-4. Wait 10-15 minutes
-5. Done!
+4. Wait 5-10 minutes
+5. Launch BAGO from Start Menu or Desktop
 ```
 
 ### For Developers
@@ -137,10 +148,9 @@ These are automatically downloaded by installers but included here for offline i
 # Method 1: Direct PowerShell
 powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 
-# Method 2: With custom parameters
-powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
-  -InstallDir "C:\MyBAGO" `
-  -AppGitRef "develop"
+# Method 2: Package-driven
+powershell -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 `
+  -PackageZip bago-v4.9.0.zip
 ```
 
 ### For CI/CD
@@ -148,9 +158,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
 # Example: GitHub Actions
 - name: Install BAGO
   run: |
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
-      -InstallDir "D:\BAGO" `
-      -AppGitRef "main"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-v4.ps1 `
+      -PackageZip bago-v4.9.0.zip `
+      -InstallDir "D:\BAGO"
 ```
 
 ---
@@ -158,7 +168,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1 `
 ## ✅ Verification Checklist
 
 After installation:
-- [ ] BAGO.exe exists at: `%LOCALAPPDATA%\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe`
+- [ ] `BAGO.exe` exists at: `%LOCALAPPDATA%\BAGO\BAGO.exe`
 - [ ] Start Menu shortcut appears
 - [ ] Desktop shortcut appears
 - [ ] Can launch BAGO from Start Menu
@@ -170,35 +180,41 @@ After installation:
 
 | Category | Count | Purpose |
 |----------|-------|---------|
-| **Installers** | 5 | Multiple installation methods |
+| **Official installer** | 1 | Main deliverable |
+| **Update package** | 1 | Thin installer payload |
+| **Checksums/metadata** | 5 | Verification and auto-update |
+| **Install scripts** | 5 | Alternative installation methods |
 | **Documentation** | 5 | Setup guides and references |
-| **Packages** | 3 | Application files (optional) |
-| **Metadata** | 3 | Checksums and manifests |
-| **Total** | 16 | Complete release package |
+| **Total** | 17 | Complete release package |
 
 ---
 
 ## 🚀 Recommended Distribution
 
 ### Minimal (For Users)
-- `bago-4.8.2-setup.exe` (main file)
-- `bago-4.8.2-setup.exe.sha256` (verification)
+- `BAGO-Installation-Manager-4.9.0-win-x64.exe` (main file)
+- `BAGO-Installation-Manager-4.9.0-win-x64.exe.sha256` (verification)
 - `QUICK-REFERENCE.md` (quick guide)
 - `INSTALL.md` (detailed guide)
 
 ### Standard (For Public Release)
 - All of the above plus:
+- `bago-v4.9.0.zip`
+- `bago-v4.9.0.zip.sha256`
+- `latest.yml`
 - `README-INSTALLERS.md` (complete guide)
 - `INSTALLATION-METHODS.md` (method comparison)
 
 ### Complete (For Developers)
 - All of the above plus:
 - `Install-BAGO.ps1` (direct script)
+- `install-v4.ps1` (package-driven installer)
 - `install-bago-setup.cmd` (batch wrapper)
 - `install-bago-setup.vbs` (VBS alternative)
+- `bago-v4.9.0.zip.manifest.json`
 - `DELIVERY.md` (release summary)
 - `MANIFEST.md` (file manifest)
-- ZIP packages (for offline installation)
+- `RELEASE_NOTES_REAL.md` (release notes)
 
 ---
 
@@ -207,7 +223,7 @@ After installation:
 ### First Time Installing
 1. Read: `QUICK-REFERENCE.md` (5 min)
 2. Read: `INSTALL.md` (10 min)
-3. Run: `bago-4.8.2-setup.exe` (double-click)
+3. Run: `BAGO-Installation-Manager-4.9.0-win-x64.exe` (double-click)
 
 ### Experienced Users
 1. Read: `INSTALLATION-METHODS.md` (choose your method)
@@ -216,7 +232,7 @@ After installation:
 
 ### Developers/Automation
 1. Read: `INSTALLATION-METHODS.md` (scenarios section)
-2. Use: `Install-BAGO.ps1` with custom parameters
+2. Use: `install-v4.ps1 -PackageZip bago-v4.9.0.zip`
 3. Integrate: Into your CI/CD pipeline
 
 ### Troubleshooting
@@ -238,14 +254,14 @@ After installation:
 
 ### Checksum Verification
 ```powershell
-$hash = (Get-FileHash bago-4.8.2-setup.exe -Algorithm SHA256).Hash
-$expected = "0FF315E407D4AFA5032E7486CB1C7633AB2B454408465BEEDD645D843358F5B8"
+$hash = (Get-FileHash BAGO-Installation-Manager-4.9.0-win-x64.exe -Algorithm SHA256).Hash
+$expected = "9AE9507F435DEBF978A3D268E5B59FC98BD37F45567E652DD976B4B85A012230"
 $hash -eq $expected  # Should be: True
 ```
 
 ### Installation Verification
 ```powershell
-Test-Path "$env:LOCALAPPDATA\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe"
+Test-Path "$env:LOCALAPPDATA\BAGO\BAGO.exe"
 # Should return: True
 ```
 
@@ -254,10 +270,11 @@ Test-Path "$env:LOCALAPPDATA\BAGO\electron-viewer\dist\win-unpacked\BAGO.exe"
 ## 📦 Version Information
 
 - **Product**: BAGO (BAGO Framework)
-- **Version**: 4.8.2
-- **Release Date**: August 7, 2026
+- **Version**: 4.9.0
+- **Release Date**: August 18, 2026
 - **Build Status**: ✓ Stable
-- **Git Commit**: 9e1c49bb3f5388b991ed21ad0287059f4d4d9875
+- **Git Commit**: 4ad27a0a4a154d20740d62bfbc20c888a0f2f3cc
+- **Git Tag**: `v4.9.0` (f1dcd765f63989e1a66a774c8fba9805fdfef3ee)
 
 ---
 
