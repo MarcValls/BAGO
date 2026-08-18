@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.capability/v1",
+  "id": "local.text-stats",
+  "name": "Estadísticas de texto",
+  "version": "1.0.0",
+  "description": "Cuenta palabras, caracteres y líneas sin servicios externos.",
+  "author": "BAGO example",
+  "permissions": [],
+  "runtime": {
+    "kind": "python",
+    "entrypoint": "run.py",
+    "timeout_s": 15
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "lowercase": {
+        "type": "boolean",
+        "title": "Convertir a minúsculas",
+        "default": false
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "title": "Texto"
+      }
+    },
+    "required": ["text"]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "tags": ["local", "texto"]
+}

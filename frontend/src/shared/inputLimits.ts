@@ -1,0 +1,1 @@
+export const PIPELINE_TASK_MAX_LENGTH = 24_000;

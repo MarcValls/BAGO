@@ -1,11 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "installCommand": "",
-  "buildCommand": "node scripts/build_vercel_site.cjs",
-  "outputDirectory": "site-dist",
-  "rewrites": [
-    { "source": "/manager", "destination": "/manager.html" },
-    { "source": "/manager/", "destination": "/manager.html" }
-  ]
+  "github": {
+    "enabled": false,
+    "silent": true
+  },
+  "framework": "vite",
+  "installCommand": "npm ci --ignore-scripts",
+  "buildCommand": "npm run build --workspace frontend",
+  "outputDirectory": "frontend/dist"
 }

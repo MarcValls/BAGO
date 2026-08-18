@@ -1,0 +1,12 @@
+/* FIX v0.2.1: la sidebar de recent-nodes estira al alto del row
+   (que ahora es 1fr), eliminando huecos internos. Antes `min-width: 0`
+   era lo único, y el alto del card quedaba en su contenido natural. */
+.recent-nodes { min-width: 0; min-height: 0; height: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+.recent-nodes > button { width: 100%; min-height: 49px; display: grid; grid-template-columns: 9px minmax(0,1fr) 16px; align-items: center; gap: 9px; padding: 6px 4px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text-2); text-align: left; cursor: pointer; }
+.recent-nodes > button:last-child { border-bottom: 0; }
+.recent-nodes > button:hover { color: var(--text); }
+.node-type-mark { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.recent-nodes button > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.recent-nodes strong, .recent-nodes small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-nodes strong { font-size: 10px; }
+.recent-nodes small { color: var(--text-3); font-size: 8px; }

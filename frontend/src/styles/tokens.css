@@ -1,0 +1,175 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e8edf5;
+  background: #090c12;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --bg: #090c12;
+  --bg-soft: #0d1119;
+  --surface: #111722;
+  --surface-2: #151c28;
+  --surface-3: #1a2331;
+  --border: #242d3b;
+  --border-strong: #344154;
+  --text: #edf2fa;
+  --text-2: #aeb8c8;
+  --text-3: #7d8ba1;
+  --text-1: var(--text);
+  --accent: #89a7ff;
+  --accent-1: var(--accent);
+  --accent-strong: #6788f7;
+  --accent-soft: rgba(103, 136, 247, 0.14);
+  --green: #62d7a6;
+  --green-soft: rgba(98, 215, 166, 0.12);
+  --amber: #f2bf68;
+  --amber-soft: rgba(242, 191, 104, 0.13);
+  --red: #ff7c82;
+  --danger: var(--red);
+  --red-soft: rgba(255, 124, 130, 0.12);
+  --cyan: #66c9dc;
+  --cyan-soft: rgba(102, 201, 220, 0.12);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+  --radius: 8px;
+  --radius-sm: 5px;
+  --header-height: 66px;
+  --status-height: 34px;
+  --sidebar-width: 60px;
+  --sidebar-collapsed: 60px;
+  --drawer-width-left: 320px;
+  --drawer-width-right: 360px;
+  --drawer-width-tools: 280px;
+  --drawer-height-bottom: 400px;
+  --drawer-animation: 250ms;
+  --inspector-width: 350px;
+  --chat-width: 460px;
+  --z-base: 1;
+  --z-raised: 2;
+  --z-dropdown: 25;
+  --z-overlay-low: 60;
+  --z-overlay: 80;
+  --z-modal: 90;
+  --z-toast: 900;
+  --z-workspace-picker: 110;
+
+  /* Spacing semántico */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Tipografía */
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+
+  /* Radio adicional */
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  /* Sombras */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 35px 100px rgba(0, 0, 0, 0.55);
+
+  /* Duraciones */
+  --dur-fast: 100ms;
+  --dur-base: 150ms;
+  --dur-slow: 250ms;
+
+  /* Accent gradient (usado en botones primarios) */
+  --gradient-accent: linear-gradient(135deg, #a7bcff, #718ff4);
+  --gradient-accent-alt: linear-gradient(145deg, #d8e2ff, #7896f6);
+  --accent-contrast: #08101f;
+  --accent-light: #b3c4ff;
+
+  /* Fondos profundos */
+  --bg-deep: #07090e;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Superficies semánticas: conservan la intención al cambiar de tema. */
+  --surface-glass: color-mix(in srgb, var(--surface) 82%, transparent);
+  --surface-glass-strong: color-mix(in srgb, var(--surface) 94%, transparent);
+  --surface-glass-subtle: color-mix(in srgb, var(--surface) 56%, transparent);
+  --control-bg: color-mix(in srgb, var(--bg) 72%, var(--surface));
+  --canvas-bg: color-mix(in srgb, var(--bg) 58%, var(--surface));
+  --canvas-grid: color-mix(in srgb, var(--text) 3%, transparent);
+  --canvas-node: color-mix(in srgb, var(--surface-2) 95%, transparent);
+  --text-wash: color-mix(in srgb, var(--text) 5%, transparent);
+
+  /* Estado (usa los mismos valores que --green/--amber/--red pero con nombre semántico) */
+  --status-ok: var(--green);
+  --status-warn: var(--amber);
+  --status-error: var(--red);
+
+  /* File type colors (Phase J) */
+  --color-file-javascript: #f7df1e;
+  --color-file-typescript: #3178c6;
+  --color-file-python: #3572A5;
+  --color-file-json: #a6cc75;
+  --color-file-html: #e34c26;
+  --color-file-css: #563d7c;
+  --color-file-markdown: #083fa1;
+  --color-file-shell: #89e051;
+  --color-file-config: #8d8d8d;
+  --color-file-image: #c57dde;
+  --color-file-default: var(--text-3);
+}
+
+:root.theme-light,
+.app-root.theme-light {
+  --bg: #f2f4f8;
+  --bg-soft: #e9edf3;
+  --surface: #ffffff;
+  --surface-2: #f8fafd;
+  --surface-3: #edf1f7;
+  --border: #cfd8e6;
+  --border-strong: #b8c4d8;
+  --text: #172235;
+  --text-2: #32445f;
+  --text-3: #566986;
+  --accent: #3e63dd;
+  --accent-strong: #3555c2;
+  --accent-soft: rgba(62, 99, 221, 0.12);
+  --green: #168b63;
+  --green-soft: rgba(22, 139, 99, 0.12);
+  --amber: #b97400;
+  --amber-soft: rgba(185, 116, 0, 0.12);
+  --red: #b4233c;
+  --red-soft: rgba(180, 35, 60, 0.12);
+  --cyan: #0a7b8f;
+  --cyan-soft: rgba(10, 123, 143, 0.12);
+  --shadow: 0 10px 30px rgba(12, 24, 45, 0.14);
+
+  /* File type colors — light theme */
+  --color-file-javascript: #b5a600;
+  --color-file-typescript: #2564a6;
+  --color-file-python: #2b6491;
+  --color-file-json: #547A3A;
+  --color-file-html: #c23d1a;
+  --color-file-css: #3d2f7a;
+  --color-file-markdown: #0737a5;
+  --color-file-shell: #4c9036;
+  --color-file-config: #707070;
+  --color-file-image: #9b4db8;
+  --color-file-default: var(--text-3);
+}
+
+/* Recalcular derivados en el mismo elemento que posee la paleta activa. */
+.app-root {
+  --surface-glass: color-mix(in srgb, var(--surface) 82%, transparent);
+  --surface-glass-strong: color-mix(in srgb, var(--surface) 94%, transparent);
+  --surface-glass-subtle: color-mix(in srgb, var(--surface) 56%, transparent);
+  --control-bg: color-mix(in srgb, var(--bg) 72%, var(--surface));
+  --canvas-bg: color-mix(in srgb, var(--bg) 58%, var(--surface));
+  --canvas-grid: color-mix(in srgb, var(--text) 3%, transparent);
+  --canvas-node: color-mix(in srgb, var(--surface-2) 95%, transparent);
+  --text-wash: color-mix(in srgb, var(--text) 5%, transparent);
+}

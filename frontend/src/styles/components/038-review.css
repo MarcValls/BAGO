@@ -1,0 +1,4 @@
+/* Review */
+.app-root.mode-review .global-header { padding-inline: 26px; }
+.app-root.mode-review .header-leading > .icon-button, .app-root.mode-review .header-divider, .app-root.mode-review .header-location small, .app-root.mode-review .header-actions > :not(.header-button.is-active):not(.model-chip) { display: none; }
+.app-root.mode-review .chat-toolbar, .app-root.mode-review .surface-toolbar { display: none; }

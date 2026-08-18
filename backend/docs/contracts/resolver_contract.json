@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "description": "Canonical resolver contract for BAGO path, alias, and module resolution.",
+  "roots": {
+    "framework_root": ".",
+    "workspace_state_root": "~/.gabo",
+    "legacy_workspace_root": "~/.bago"
+  },
+  "pieces": [
+    {
+      "id": "framework.root",
+      "kind": "root",
+      "loader": "path",
+      "candidates": [
+        "."
+      ],
+      "aliases": [
+        "repo.root"
+      ]
+    },
+    {
+      "id": "workspace.state_root",
+      "kind": "root",
+      "loader": "path",
+      "candidates": [
+        "~/.bago",
+        "~/.gabo"
+      ],
+      "aliases": [
+        "workspace.root",
+        ".bago",
+        ".gabo"
+      ]
+    },
+    {
+      "id": "core.package",
+      "kind": "package",
+      "loader": "path",
+      "candidates": [
+        ".bago/core",
+        "bago_core"
+      ],
+      "aliases": [
+        "core"
+      ]
+    },
+    {
+      "id": "chat.package",
+      "kind": "package",
+      "loader": "path",
+      "candidates": [
+        ".bago/chat"
+      ],
+      "aliases": [
+        "chat"
+      ]
+    },
+    {
+      "id": "providers.package",
+      "kind": "package",
+      "loader": "path",
+      "candidates": [
+        ".bago/providers"
+      ],
+      "aliases": [
+        "providers"
+      ]
+    },
+    {
+      "id": "api.package",
+      "kind": "package",
+      "loader": "path",
+      "candidates": [
+        ".bago/api"
+      ],
+      "aliases": [
+        "api"
+      ]
+    },
+    {
+      "id": "tools.package",
+      "kind": "package",
+      "loader": "path",
+      "candidates": [
+        ".bago/tools"
+      ],
+      "aliases": [
+        "tools"
+      ]
+    },
+    {
+      "id": "chat.commands",
+      "kind": "module",
+      "loader": "module_path",
+      "candidates": [
+        ".bago/chat/commands.py"
+      ],
+      "aliases": [
+        "commands",
+        "repl.commands"
+      ]
+    },
+    {
+      "id": "integrations.package",
+      "kind": "package",
+      "loader": "path",
+      "candidates": [
+        ".bago/integrations"
+      ],
+      "aliases": [
+        "integrations"
+      ]
+    }
+  ]
+}

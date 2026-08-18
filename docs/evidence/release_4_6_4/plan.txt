@@ -1,6 +1,0 @@
-📋 Plan: publicar una mejora pequena y verificable de conocimiento comunitario para que otro usuario la pueda reutilizar
-
-  ○ 1. Definir una necesidad concreta que ayude al usuario.
-  ○ 2. Convertir la necesidad en una mejora pequena y verificable.
-  ○ 3. Registrar el aprendizaje como conocimiento recuperable.
-  ○ 4. Guardar la sesion y publicar la evidencia reutilizable.

@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.package/v1",
+  "kind": "capability",
+  "execution_mode": "executable",
+  "id": "local.text-stats-v1",
+  "name": "Estadísticas de texto (Package v1)",
+  "version": "1.0.0",
+  "description": "Ejemplo canónico del contrato genérico BAGO Package v1.",
+  "author": "BAGO example",
+  "definition": "definitions/capability.json",
+  "entrypoint": "runtime/run.py",
+  "permissions": [],
+  "compatibility": {
+    "bago_package": "^1.0"
+  },
+  "dependencies": [],
+  "files": [
+    {
+      "path": "definitions/capability.json",
+      "size": 484,
+      "sha256": "9618e500e57ee3443df337f520e8dede93bdab53d546ff42e3f5b77d15b979fe"
+    },
+    {
+      "path": "docs/README.md",
+      "size": 247,
+      "sha256": "1dc4f2db7a0c21fd67e65b2ba54aa3765df4920822f24b1205ad948dbb0a4cd1"
+    },
+    {
+      "path": "examples/input.json",
+      "size": 65,
+      "sha256": "fc2161a02d6bfc3ce971912be6210873e9a06d7d97495372f54df05cdb758c5c"
+    },
+    {
+      "path": "runtime/run.py",
+      "size": 273,
+      "sha256": "8d1de7b2e5fb5f43d722efa6778f13e73e569dbaecd37550591dd635aa204c5d"
+    },
+    {
+      "path": "schemas/input.schema.json",
+      "size": 146,
+      "sha256": "58b230bf7d41d8ff7d57258ce006a267f38ac9609c7ba42a42665ba39bf2ce7b"
+    }
+  ]
+}

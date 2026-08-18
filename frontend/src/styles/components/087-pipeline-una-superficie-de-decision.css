@@ -1,0 +1,85 @@
+/* Pipeline: una superficie de decisión, no un inventario de tarjetas. */
+.pipeline-surface {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-rows: auto auto auto minmax(220px, 1fr);
+  align-content: start;
+  gap: 12px 14px;
+  height: 100%;
+  overflow: auto;
+  padding: 2px 2px 18px;
+}
+.pipeline-surface.pipeline-execution-view {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0 20px 28px;
+}
+.pipeline-surface.contextual-surface {
+  grid-template: auto minmax(0, 1fr) / minmax(0, 1fr);
+  align-content: stretch;
+  overflow: hidden;
+  padding: 0;
+}
+.pipeline-surface.contextual-surface > .pipeline-view-tabs { grid-column: 1; grid-row: 1; }
+.pipeline-surface.contextual-surface > :not(.pipeline-view-tabs) { grid-column: 1; grid-row: 2; min-height: 0; }
+.pipeline-surface > .pipeline-view-tabs { grid-column: 1 / -1; grid-row: 1; }
+.pipeline-page-head {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 4px 2px 2px;
+}
+.pipeline-page-head h2 { margin: 7px 0 5px; font-size: 24px; letter-spacing: -.03em; }
+.pipeline-page-head p { max-width: 680px; margin: 0; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.pipeline-page-head .status-badge { margin-top: 2px; }
+.pipeline-execution-view .pipeline-page-head,
+.pipeline-execution-view .pipeline-contract,
+.pipeline-execution-view .pipeline-timeline { flex: none; width: 100%; grid-column: auto; grid-row: auto; }
+.pipeline-execution-view .pipeline-page-head { padding-top: 8px; }
+.pipeline-execution-view .pipeline-contract { max-height: none; overflow: visible; }
+.pipeline-execution-view .pipeline-timeline { min-height: 180px; overflow: visible; }
+.pipeline-command {
+  grid-column: 1;
+  grid-row: 3;
+  display: grid;
+  gap: 9px;
+  padding: 13px 14px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(103,136,247,.08), var(--surface-glass-strong));
+}
+.pipeline-command-head, .pipeline-command-footer, .pipeline-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pipeline-command-head strong { display: block; margin-top: 3px; font-size: 13px; }
+.pipeline-command-head > span, .pipeline-section-head > span { color: var(--text-2); font-size: 12px; }
+.pipeline-command textarea { min-width: 0; width: 100%; resize: vertical; min-height: 112px; max-height: 320px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--control-bg); color: var(--text); line-height: 1.5; }
+.pipeline-command textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pipeline-command-actions { display: flex; align-items: center; gap: 7px; }
+.pipeline-command .context-hint { margin: 0; }
+.pipeline-contract {
+  grid-column: 2;
+  grid-row: 3 / span 2;
+  align-self: stretch;
+  min-width: 0;
+  overflow: auto;
+}
+.pipeline-contract-overview, .pipeline-contract-grid { grid-template-columns: 1fr; }
+.pipeline-timeline { grid-column: 1; grid-row: 4; min-height: 0; overflow: auto; padding: 14px; }
+.pipeline-section-head { padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.pipeline-section-head strong { display: block; font-size: 15px; }
+.pipeline-runtime-empty { font-size: 12px; }
+.pipeline-timeline .pipeline-step:first-of-type { margin-top: 5px; }
+.pipeline-surface:not(:has(.pipeline-contract)) .pipeline-command,
+.pipeline-surface:not(:has(.pipeline-contract)) .pipeline-timeline { grid-column: 1 / -1; }
+@media (max-width: 900px) {
+  .pipeline-surface { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .pipeline-page-head, .pipeline-command, .pipeline-contract, .pipeline-timeline { grid-column: 1; grid-row: auto; }
+  .pipeline-contract { max-height: none; }
+}
+@media (max-width: 620px) {
+  .pipeline-page-head, .pipeline-command-head, .pipeline-command-footer, .pipeline-section-head { align-items: flex-start; flex-direction: column; }
+  .pipeline-command-actions { width: 100%; justify-content: flex-end; }
+}

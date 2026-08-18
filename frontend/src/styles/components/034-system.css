@@ -1,0 +1,27 @@
+/* System */
+.system-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.system-item { min-width: 0; min-height: 77px; display: grid; grid-template-columns: 37px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 11px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text-2); text-align: left; cursor: pointer; }
+.system-item:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-2); }
+.system-item-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; color: var(--accent); background: var(--accent-soft); }
+.system-item > span:nth-child(2) { min-width: 0; display: grid; gap: 4px; }
+.system-item small, .system-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.system-item small { color: var(--text-3); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.system-item strong { font-size: 11px; }
+.system-secondary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.system-panel-head, .system-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.system-panel-head strong { display: block; margin-top: 3px; font-size: 11px; }
+.system-panel-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.system-router-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.system-router-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.system-router-row > button:first-child { width: 100%; min-height: 49px; display: grid; grid-template-columns: 32px minmax(0,1fr) 18px; align-items: center; gap: 9px; padding: 6px 2px; border: 0; background: transparent; color: var(--text-2); text-align: left; cursor: pointer; }
+.system-router-row > button:first-child:hover { color: var(--text); }
+.system-router-row > button:first-child .compact-list-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 7px; background: var(--surface-3); color: var(--text-3); }
+.system-router-row > button:first-child span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.system-router-row > button:first-child strong, .system-router-row > button:first-child small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.system-router-row > button:first-child strong { font-size: 10px; }
+.system-router-row > button:first-child small { color: var(--text-3); font-size: 8px; }
+.system-panel-foot { margin-top: 10px; color: var(--text-3); font-size: 9px; }
+.authority-list { display: grid; gap: 0; margin: 10px 0 12px; }
+.authority-list > div { display: grid; grid-template-columns: 85px minmax(0,1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.authority-list dt { color: var(--text-3); font-size: 9px; }
+.authority-list dd { margin: 0; color: var(--text-2); font-family: ui-monospace, monospace; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

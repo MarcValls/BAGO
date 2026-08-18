@@ -1,0 +1,29 @@
+{
+  "id": "local.text-stats-v1",
+  "runtime": {
+    "kind": "python",
+    "timeout_s": 15
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "lowercase": {
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string"
+      }
+    },
+    "required": ["text"]
+  },
+  "output_schema": {
+    "type": "object"
+  },
+  "tags": ["example", "text"]
+}

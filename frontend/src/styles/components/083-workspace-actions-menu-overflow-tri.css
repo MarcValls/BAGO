@@ -1,0 +1,43 @@
+/* Workspace: actions menu (overflow) trigger + items ------------------ */
+.workspace-actions-menu {
+  position: relative;
+}
+.workspace-actions-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.workspace-actions-menu-trigger:hover {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: rgba(103, 136, 247, 0.34);
+}
+.workspace-actions-menu-trigger[aria-expanded="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: rgba(103, 136, 247, 0.5);
+}
+.workspace-actions-menu-items {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 200px;
+  z-index: 30;
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}

@@ -1,0 +1,48 @@
+/* Diff modal */
+.workspace-diff-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  z-index: var(--z-overlay); display: grid; place-items: center; padding: 30px;
+}
+.workspace-diff-modal-body {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  width: min(900px, 90vw); max-height: 80vh; overflow: hidden; display: grid; grid-template-rows: auto 1fr;
+}
+.workspace-diff-modal-body > header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.workspace-diff-modal-body > header button { border: 0; background: transparent; color: var(--text-3); cursor: pointer; }
+.workspace-diff-view {
+  overflow: auto;
+  padding: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.workspace-diff-header {
+  display: grid;
+  grid-template-columns: 50px 1fr 1fr;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-base);
+}
+.workspace-diff-header span:nth-child(2) { color: var(--red); }
+.workspace-diff-header span:nth-child(3) { color: var(--green); }
+.workspace-diff-line { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 4px; padding: 1px 12px; min-height: 22px; }
+.workspace-diff-line:hover { background: rgba(255, 255, 255, 0.03); }
+.workspace-diff-line.diff-add { background: rgba(45, 184, 105, 0.08); }
+.workspace-diff-line.diff-del { background: rgba(224, 83, 61, 0.08); }
+.workspace-diff-line.diff-mod { background: rgba(245, 166, 35, 0.10); }
+.workspace-diff-num { color: var(--text-3); text-align: right; user-select: none; padding-right: 8px; border-right: 1px solid var(--border); }
+.workspace-diff-cell { white-space: pre-wrap; word-break: break-all; padding: 0 4px; }
+.workspace-diff-cell.base { color: var(--red); }
+.workspace-diff-cell.current { color: var(--green); }
+.workspace-diff-cell:empty::before { content: '·'; color: var(--text-3); opacity: 0.4; }
