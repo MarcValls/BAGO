@@ -48,63 +48,50 @@ jobs:
           if (-not (Test-Path $mk)) { throw "makensis.exe no disponible" }
           "NSIS_MAKENSIS=$mk" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Download embedded distribution payload
-        shell: pwsh
-        run: |
-          $tag = "${{ inputs.release_tag }}"
-          $version = $tag.TrimStart('v')
-          $url = "https://github.com/MarcValls/BAGO/releases/download/$tag/bago-$version-distribution.zip"
-          $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
-          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
-          if (-not (Test-Path $dst)) {
-            throw "No se pudo descargar bago-$version-distribution.zip desde la release $tag"
-          }
-          $dist = Get-Item -LiteralPath $dst
-          if ($dist.Length -lt 300MB) {
-            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
-          }
-          $hasBackend = $false
-          $hasViewer = $false
-          tar -tf $dst | ForEach-Object {
-            if ($_ -like "compiled/backend/*") { $hasBackend = $true }
-            if ($_ -like "compiled/electron-viewer/*") { $hasViewer = $true }
-          }
-          if (-not $hasBackend) {
-            throw "Payload inválido: falta compiled/backend/"
-          }
-          if (-not $hasViewer) {
-            throw "Payload inválido: falta compiled/electron-viewer/"
-          }
-
-      - name: Rebuild Electron payload from checkout
+      - name: Build embedded distribution payload locally
         shell: pwsh
         run: |
           $tag = "${{ inputs.release_tag }}"
           $version = $tag.TrimStart('v')
           $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
-          if (-not (Test-Path $dst)) { throw "No existe payload: $dst" }
+          $stage = Join-Path $PWD "releases/compiled/runtime"
+          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
           npm install --no-fund --no-audit
           if ($LASTEXITCODE -ne 0) { throw "npm install falló" }
           npm run dist --workspace electron-viewer
           if ($LASTEXITCODE -ne 0) { throw "npm run dist --workspace electron-viewer falló" }
 
-          $stage = Join-Path $env:RUNNER_TEMP "bago-distribution-$version"
-          $tmp = Join-Path $env:RUNNER_TEMP "bago-$version-distribution-patched.zip"
-          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-          Expand-Archive -LiteralPath $dst -DestinationPath $stage -Force
+          # Clean backend runtime package under backend/ (layout expected by NSIS payload script)
+          python backend/scripts/package_v4.py --output-dir backend/release/v4 --release-version $version | Out-Null
+          $thinZip = Join-Path $PWD "backend/release/v4/bago-v$version.zip"
+          if (-not (Test-Path $thinZip)) { throw "No se genero bago-v$version.zip" }
+          $backendStage = Join-Path $stage "backend"
+          New-Item -ItemType Directory -Path $backendStage -Force | Out-Null
+          Expand-Archive -LiteralPath $thinZip -DestinationPath $backendStage -Force
 
-          $viewerSource = Join-Path $PWD "electron-viewer\dist\win-unpacked"
-          $viewerTarget = Join-Path $stage "compiled\electron-viewer"
-          if (-not (Test-Path $viewerSource)) { throw "Electron recompilado no existe: $viewerSource" }
-          if (-not (Test-Path (Split-Path $viewerTarget))) { throw "Payload inválido: falta compiled/" }
-          Remove-Item -LiteralPath $viewerTarget -Recurse -Force -ErrorAction SilentlyContinue
-          Copy-Item -LiteralPath $viewerSource -Destination $viewerTarget -Recurse -Force
+          # Electron viewer payload
+          $viewerSource = Join-Path $PWD "electron-viewer/dist/win-unpacked"
+          if (-not (Test-Path $viewerSource)) { throw "No existe electron-viewer/dist/win-unpacked" }
+          Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $stage "electron-viewer") -Recurse -Force
 
-          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $tmp -Force
-          Move-Item -LiteralPath $tmp -Destination $dst -Force
+          # Validate expected layout before compressing
+          if (-not (Test-Path (Join-Path $backendStage "bago_core/cli.py"))) {
+            throw "Backend payload no contiene bago_core/cli.py"
+          }
+          if (-not (Test-Path (Join-Path $stage "electron-viewer/BAGO.exe"))) {
+            throw "Electron viewer payload no contiene BAGO.exe"
+          }
+
+          Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $dst -Force
+
+          $dist = Get-Item -LiteralPath $dst
+          # Compressed payload must contain both slices; ~80 MB is a safe floor for backend + Electron viewer.
+          if ($dist.Length -lt 80MB) {
+            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
+          }
 
       - name: Build installer
         shell: pwsh
