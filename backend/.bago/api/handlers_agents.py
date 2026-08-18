@@ -87,8 +87,8 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         return
     now = ""
     try:
-        from datetime import datetime
-        now = datetime.utcnow().isoformat() + "Z"
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     except Exception:
         pass
     agent = {

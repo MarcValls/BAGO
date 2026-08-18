@@ -7,11 +7,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
-$version = "4.8.4"
+$version = "4.9.0"
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
 $viewerSource = Join-Path $repoRoot "electron-viewer\dist\win-unpacked"
 $setupFile = Join-Path $scriptDir "bago-$version-setup.exe"
-$nsiFile = Join-Path $scriptDir "bago-$version-installer.nsi"
+$nsiFile = Join-Path $scriptDir "bago-installer.nsi"
 
 function Test-ExcludedPath {
     param([Parameter(Mandatory = $true)][string]$RelativePath)
@@ -86,7 +86,11 @@ if (-not $makensis) { throw "NSIS makensis.exe no encontrado." }
 Write-Host "[5/5] Compilando NSIS..."
 Push-Location $scriptDir
 try {
-    & $makensis /V3 $nsiFile
+    & $makensis /V3 `
+        "/DAPP_VERSION=$version" `
+        "/DAPP_GIT_REF=v$version" `
+        "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
+        $nsiFile
     if ($LASTEXITCODE -ne 0) { throw "NSIS fallo con codigo $LASTEXITCODE." }
 } finally {
     Pop-Location

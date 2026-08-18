@@ -51,7 +51,7 @@ function Resolve-BagoPythonExecutable {
     foreach ($candidate in @($candidates | Select-Object -Unique)) {
         if ($candidate -and (Test-Path -LiteralPath $candidate)) { return [string]$candidate }
     }
-    throw 'bago: Python 3.11+ no está disponible. Reejecuta install-remote.ps1 para instalar la dependencia.'
+    throw 'bago: Python 3.14+ no está disponible. Reejecuta install-remote.ps1 para instalar la dependencia.'
 }
 
 $userBago = Get-DefaultUserRoot

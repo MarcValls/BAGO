@@ -139,7 +139,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Install-BAGO.ps1
 **Solution**: Install from official websites:
 - Git: https://git-scm.com
 - Node.js: https://nodejs.org (20+)
-- Python: https://python.org (3.11+)
+- Python: https://python.org (3.14+)
 
 ### Installation Too Slow
 **Note**: This is normal. Installation takes 10-15 minutes.

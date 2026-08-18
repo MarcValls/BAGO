@@ -119,7 +119,7 @@ function Resolve-SourceRoot {
 
 if (-not (Test-Path -LiteralPath $ZipPath)) {
     if (-not $ZipPath) {
-        $ZipPath = Join-Path $PSScriptRoot "bago-4.8.2-distribution.zip"
+        $ZipPath = Join-Path $PSScriptRoot "bago-4.9.0-distribution.zip"
     }
 }
 

@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-4.9.0-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
 [![Tests](https://img.shields.io/badge/tests-928%20passed%20%7C%2013%20skipped%20backend%20%7C%2052%20frontend-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
@@ -88,7 +88,7 @@ BAGO/
 | Componente | Versión mínima |
 |---|---|
 | Windows | 10 / 11 (plataforma principal) |
-| Python | 3.11+ |
+| Python | 3.14+ |
 | Node.js | 20.19.0 o ≥ 22.12.0 |
 | npm | ≥ 10.0.0 |
 | Ollama | Opcional — necesario para el path local con modelo en vivo |
