@@ -185,7 +185,7 @@ Compare against `bago-4.8.2-setup.exe.sha256`
 - **BAGO Version**: 4.8.2
 - **Release Date**: August 7, 2026
 - **Node.js Required**: 20.0 or later
-- **Python Required**: 3.11 or later
+- **Python Required**: 3.14 or later
 - **Git Required**: 2.20 or later
 - **Windows**: Windows 7 SP1 or later
 

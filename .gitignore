@@ -4,10 +4,12 @@
 # Estado local del runtime canónico
 /.bago/config.json
 /.bago/state/
+/.bago/runtime/
 /.gabo/
 /backend/.gabo/
 /backend/.bago/state/*
 !/backend/.bago/state/.gitignore
+/backend/.bago/runtime/
 
 # Node
 node_modules/
