@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/contracts/pi/bridge_request.schema.json",
+  "title": "BagoPiBridge Request",
+  "description": "Contrato de las solicitudes que BAGO envía al sidecar. Cada bridge.request transporta el cuádruplo provider/adapter/runtime/model y el ContextEnvelope serializado. La invariante provider != 'pi' se valida a nivel de schema.",
+  "contract_id": "bago.pi.bridge.request",
+  "contract_version": "0.3.0",
+  "scope": "sidecar",
+  "source_of_truth": [
+    "backend/.bago/integrations/pi/ARQ-v0.3-separacion-autoridad.md",
+    "backend/.bago/integrations/pi/contracts.py"
+  ],
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "bridge_request_id",
+    "execution_id",
+    "session_id",
+    "session_revision",
+    "workspace_id",
+    "project_root",
+    "workspace_root",
+    "workspace_scope_root",
+    "context_envelope_id",
+    "context_envelope_digest",
+    "policy_profile",
+    "policy_digest",
+    "capability_claims",
+    "requested_provider",
+    "requested_adapter",
+    "requested_runtime",
+    "requested_model",
+    "credential_ref",
+    "input",
+    "output_limits",
+    "issued_at",
+    "deadline",
+    "request_nonce"
+  ],
+  "properties": {
+    "protocol_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "bridge_request_id": { "type": "string", "pattern": "^br-[a-zA-Z0-9_-]+$" },
+    "execution_id": { "type": "string", "pattern": "^exec-[a-zA-Z0-9_-]+$" },
+    "correlation_id": { "type": "string", "description": "ID de correlación opcional." },
+    "session_id": { "type": "string", "minLength": 1 },
+    "session_revision": { "type": "string", "description": "Revisión de la sesión BAGO; detecta stale." },
+    "workspace_id": { "type": "string", "minLength": 1 },
+    "project_root": { "type": "string", "description": "Ruta absoluta al proyecto del usuario." },
+    "workspace_root": { "type": "string", "description": "Ruta absoluta al workspace BAGO." },
+    "workspace_scope_root": { "type": "string", "description": "Ruta absoluta al scope root autorizado." },
+    "context_envelope_id": { "type": "string", "description": "ID del ContextEnvelope canónico." },
+    "context_envelope_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 del envelope serializado." },
+    "policy_profile": { "type": "string", "enum": ["disabled", "provider_only", "readonly_tools", "agent_capture"] },
+    "policy_digest": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$", "description": "Identificador del policy cargado; null/phase-N si se hereda." },
+    "capability_claims": {
+      "type": "object",
+      "required": [
+        "filesystem_read",
+        "filesystem_write",
+        "process_spawn",
+        "network_mode",
+        "tools_allowed",
+        "skills_imported_ids",
+        "extensions_allowed",
+        "packages_allowed"
+      ],
+      "properties": {
+        "filesystem_read": { "type": "boolean" },
+        "filesystem_write": { "type": "boolean" },
+        "process_spawn": { "type": "boolean" },
+        "network_mode": { "type": "string", "enum": ["provider_endpoints_only", "loopback_only", "unrestricted"] },
+        "tools_allowed": { "type": "array", "items": { "type": "string" } },
+        "skills_imported_ids": { "type": "array", "items": { "type": "string" } },
+        "extensions_allowed": { "type": "array", "items": { "type": "string" } },
+        "packages_allowed": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "requested_provider": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "const": "pi" },
+      "description": "Provider upstream solicitado. INVARIANTE: nunca 'pi'."
+    },
+    "requested_model": { "type": "string", "minLength": 1 },
+    "requested_adapter": {
+      "type": "string",
+      "enum": ["pi-ai", "bago-native", "litellm"],
+      "description": "Adapter técnico solicitado. 'pi-ai' = subordinado a BAGO."
+    },
+    "requested_runtime": {
+      "type": "string",
+      "enum": ["node-sidecar", "python-inproc", "wasm"],
+      "description": "Runtime solicitado. 'node-sidecar' = proceso Node separado."
+    },
+    "credential_ref": {
+      "type": "string",
+      "pattern": "^cred-[a-zA-Z0-9_-]+$",
+      "description": "ID de credencial entregada por BagoCredentialStore. PI nunca accede a env vars ni auth.json."
+    },
+    "input": {
+      "type": "object",
+      "required": ["system", "messages"],
+      "properties": {
+        "system": { "type": "string" },
+        "messages": { "type": "array", "items": { "type": "object" } },
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "max_tokens": { "type": ["integer", "null"], "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "output_limits": {
+      "type": "object",
+      "required": ["max_tokens", "max_bytes_per_event", "max_events"],
+      "properties": {
+        "max_tokens": { "type": "integer", "minimum": 0 },
+        "max_bytes_per_event": { "type": "integer", "minimum": 0 },
+        "max_events": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "deadline": { "type": "string", "format": "date-time", "description": "Momento máximo de respuesta; el sidecar debe abortar si se excede." },
+    "request_nonce": { "type": "string", "pattern": "^nonce-[a-zA-Z0-9_-]+$", "description": "Anti-replay." }
+  },
+  "additionalProperties": false
+}

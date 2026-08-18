@@ -1,72 +1,86 @@
-# ── Estado vivo de BAGO (no distribuir) ────────────────────────────────────────
-.bago/state/
-.bago/logs/
-.bago/launch/
-.bago/tools/.bago/
-.bago/monitor.html
-.bago/credentials.json
-.bago/config.json
-.bago/session-credentials.json
-install_config.json
+# Logs y PIDs de desarrollo (creados por scripts/dev.sh y dev.ps1)
+.run/
 
-# ── Bases de datos ──────────────────────────────────────────────────────────────
-*.db
-*.sqlite
-*.sqlite3
+# Estado local del runtime canónico
+/.bago/config.json
+/.bago/state/
+/.bago/runtime/
+/.gabo/
+/backend/.gabo/
+/backend/.bago/state/*
+!/backend/.bago/state/.gitignore
+/backend/.bago/runtime/
 
-# ── Python ──────────────────────────────────────────────────────────────────────
+# Node
+node_modules/
+
+# Generated release payloads/installers. Build workflows create and publish these.
+electron-viewer/dist/
+backend/dist/
+backend/release/v4/
+releases/compiled/
+releases/bago-*-distribution.zip
+releases/bago-*-setup.exe
+releases/bago-*-setup.exe.sha256
+bago-release-*/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/
+
+# Build output
+frontend/dist/
+backend/ui-react/dist/
+
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-.Python
-
-# ── Node / React ────────────────────────────────────────────────────────────────
-node_modules/
-ui-react/node_modules/
-ui-react/dist/
-ui-react/.vite/
-*.node
-
-# ── Instalaciones de BAGO gestionadas por el Manager (runtime, no fuente) ───────
-installations/
-
-# ── Binarios de build ───────────────────────────────────────────────────────────
-esbuild.exe
-*.exe
-*.dll
+*$py.class
 *.so
-
-# ── Entornos virtuales ──────────────────────────────────────────────────────────
+.Python
+.pytest_cache/
+.mypy_cache/
 .venv/
 venv/
-env/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# ── IDEs ────────────────────────────────────────────────────────────────────────
-.vs/
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
 .vscode/
 .idea/
 *.swp
+*.swo
 *~
 
-# ── Temporales ──────────────────────────────────────────────────────────────────
-*.tmp
+# Local audit executions and screenshots
+/.codex/agents/*.bak.*
+/.codex/bago-workpack/reports/
+/output/
+/releases/bago-*-assets/
+
+# Backups
+*.tar.gz
+*.zip
 *.bak
-*.py.new
-bago_core/parsers_legacy_*.py
-tools/_diff_*.py
-dist/
-site-dist/
-build/
-release/
+*.tmp
 
-# ── Capturas y archivos de debug (no distribuir) ────────────────────────────────
-docs/repl_capture*.txt
-docs/terminal_captures.txt
-PLAN_VERTICE/
-SIGUIENTE.txt
-.vercel
-.env*
+# Secrets
+.env
+.env.local
+.env.*.local
+secrets/
+credentials.json
+accounts.json
+*.pem
+*.key
 
-# Monitor log (runtime, no distribuir)
-.bago/monitor/tablet.log
+# Impeccable hook cache
+.impeccable/hook.cache.json
+.impeccable/hook.cache.*

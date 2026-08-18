@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.package/v1",
+  "kind": "pipeline",
+  "execution_mode": "declarative",
+  "id": "local.scheduled-report",
+  "name": "Informe programable del workspace",
+  "version": "1.0.0",
+  "description": "Genera un inventario acotado y lo convierte en un informe reutilizable.",
+  "author": "BAGO examples",
+  "definition": "definitions/pipeline.json",
+  "permissions": [
+    "filesystem.read"
+  ],
+  "compatibility": {
+    "bago_package": "^1.0"
+  },
+  "dependencies": [
+    {
+      "id": "local.file-batch",
+      "version": "^1.0.0"
+    },
+    {
+      "id": "local.report-builder",
+      "version": "^1.0.0"
+    }
+  ],
+  "schedule_defaults": [
+    {
+      "name": "Informe diario del workspace",
+      "schedule_type": "cron",
+      "cron_expr": "0 9 * * 1-5",
+      "timezone": "UTC"
+    }
+  ],
+  "files": [
+    {
+      "path": "definitions/pipeline.json",
+      "size": 1362,
+      "sha256": "95a9da99ada9e6e0ffc14a259ee9b0e4a7b141b0f421e02c90aa10e2dada308c"
+    },
+    {
+      "path": "docs/README.md",
+      "size": 181,
+      "sha256": "3b80fee77f698db51c04e5deb20d333dfe031978c93529af58c18c49634026df"
+    },
+    {
+      "path": "examples/input.json",
+      "size": 46,
+      "sha256": "5727543844ae4131f30f24e902736cb233cb3a4afa2c69502d146b66c3540830"
+    }
+  ]
+}

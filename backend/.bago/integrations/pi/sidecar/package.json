@@ -1,0 +1,19 @@
+{
+  "name": "bago-pi-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BagoPiBridge sidecar (Node JS). Subordinate to BAGO backend. Quarantine.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "src/main.js",
+  "bin": {
+    "bago-pi-sidecar": "src/main.js"
+  },
+  "scripts": {
+    "test": "node test/run.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

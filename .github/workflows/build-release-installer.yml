@@ -1,0 +1,225 @@
+name: Build Release Installer Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag used for URLs and metadata (e.g., v4.9.0)
+        required: true
+        default: v4.9.0
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer:
+    name: Build NSIS installer artifact
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure NSIS is available
+        shell: pwsh
+        run: |
+          $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
+          if (-not (Test-Path $mk)) {
+            try {
+              choco install nsis -y --no-progress
+            } catch {
+              Write-Host "Chocolatey NSIS failed, using portable fallback..."
+            }
+          }
+          if (-not (Test-Path $mk)) {
+            $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
+            New-Item -ItemType Directory -Path $tools -Force | Out-Null
+            $zip = Join-Path $tools 'nsis.zip'
+            $expectedSha = '4B74E01C5B98D377C51FFA90550A9AFA3DF15995AAE3C3A7F2908BE1F980DF7E'
+            Invoke-WebRequest -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
+            $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
+            if ($actualSha -ne $expectedSha) {
+              throw "Checksum NSIS inválido. Esperado: $expectedSha, actual: $actualSha"
+            }
+            Expand-Archive -Path $zip -DestinationPath $tools -Force
+            $mk = Join-Path $tools 'nsis-3.10\makensis.exe'
+          }
+          if (-not (Test-Path $mk)) { throw "makensis.exe no disponible" }
+          "NSIS_MAKENSIS=$mk" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build embedded distribution payload locally
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
+          $stage = Join-Path $PWD "releases/compiled/runtime"
+          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+
+          npm install --no-fund --no-audit
+          if ($LASTEXITCODE -ne 0) { throw "npm install falló" }
+          npm run dist --workspace electron-viewer
+          if ($LASTEXITCODE -ne 0) { throw "npm run dist --workspace electron-viewer falló" }
+
+          # Clean backend runtime package under backend/ (layout expected by NSIS payload script)
+          python backend/scripts/package_v4.py --output-dir backend/release/v4 --release-version $version | Out-Null
+          $thinZip = Join-Path $PWD "backend/release/v4/bago-v$version.zip"
+          if (-not (Test-Path $thinZip)) { throw "No se genero bago-v$version.zip" }
+          $backendStage = Join-Path $stage "backend"
+          New-Item -ItemType Directory -Path $backendStage -Force | Out-Null
+          Expand-Archive -LiteralPath $thinZip -DestinationPath $backendStage -Force
+
+          # Electron viewer payload
+          $viewerSource = Join-Path $PWD "electron-viewer/dist/win-unpacked"
+          if (-not (Test-Path $viewerSource)) { throw "No existe electron-viewer/dist/win-unpacked" }
+          Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $stage "electron-viewer") -Recurse -Force
+
+          # Validate expected layout before compressing
+          if (-not (Test-Path (Join-Path $backendStage "bago_core/cli.py"))) {
+            throw "Backend payload no contiene bago_core/cli.py"
+          }
+          if (-not (Test-Path (Join-Path $stage "electron-viewer/BAGO.exe"))) {
+            throw "Electron viewer payload no contiene BAGO.exe"
+          }
+
+          Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $dst -Force
+
+          $dist = Get-Item -LiteralPath $dst
+          # Compressed payload must contain both slices; ~80 MB is a safe floor for backend + Electron viewer.
+          if ($dist.Length -lt 80MB) {
+            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
+          }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $setupInRoot = Join-Path $PWD "bago-$version-setup.exe"
+          $setupInReleases = Join-Path $PWD "releases/bago-$version-setup.exe"
+          Remove-Item -LiteralPath $setupInRoot -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath $setupInReleases -Force -ErrorAction SilentlyContinue
+
+          Push-Location releases
+          try {
+            & $env:NSIS_MAKENSIS `
+              "/DAPP_GIT_REF=$tag" `
+              "/DAPP_GIT_SHA=${{ github.sha }}" `
+              "/DAPP_VERSION=$version" `
+              "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
+              "/DDEV_PS1_FILE=..\scripts\dev.ps1" `
+              'bago-installer.nsi'
+            if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
+          } finally {
+            Pop-Location
+          }
+
+          if (Test-Path $setupInRoot) {
+            Move-Item -Path $setupInRoot -Destination "releases\" -Force
+          } elseif (-not (Test-Path $setupInReleases)) {
+            throw "No existe bago-$version-setup.exe ni en raíz ni en releases/"
+          }
+          $dist = Get-Item -LiteralPath (Join-Path $PWD "releases/bago-$version-distribution.zip")
+          $setup = Get-Item -LiteralPath $setupInReleases
+          if ($setup.Length -lt ($dist.Length * 0.9)) {
+            throw "Instalador incompleto: $($setup.Length) bytes para payload de $($dist.Length) bytes"
+          }
+
+      - name: Smoke installer artifact
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
+          $installRoot = Join-Path $env:LOCALAPPDATA "BAGO"
+          Remove-Item -LiteralPath $installRoot -Recurse -Force -ErrorAction SilentlyContinue
+
+          $proc = Start-Process -FilePath $setup -ArgumentList '/S' -PassThru -WindowStyle Hidden
+          $finished = $proc.WaitForExit(300000)
+          if (-not $finished) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "El instalador no terminó en 5 minutos"
+          }
+          if ($proc.ExitCode -ne 0) {
+            throw "El instalador terminó con código $($proc.ExitCode)"
+          }
+
+          $exe = Join-Path $installRoot "electron-viewer\BAGO.exe"
+          if (-not (Test-Path -LiteralPath $exe)) {
+            throw "BAGO.exe no existe tras instalar: $exe"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot "backend"))) {
+            throw "backend no existe tras instalar"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot "scripts\dev.ps1"))) {
+            throw "scripts\dev.ps1 no existe tras instalar"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot "uninstall.exe"))) {
+            throw "uninstall.exe no existe tras instalar"
+          }
+
+          $devPs1 = Join-Path $installRoot "scripts\dev.ps1"
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $devPs1 build
+          if ($LASTEXITCODE -ne 0) {
+            throw "dev.ps1 build falló en runtime instalado"
+          }
+
+          $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
+          $exe = Join-Path $installRoot "electron-viewer\BAGO.exe"
+          $bago = $null
+          try {
+            $bago = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru -WindowStyle Hidden
+            $healthy = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              $bago.Refresh()
+              if ($bago.HasExited) {
+                throw "BAGO.exe terminó antes de /health con código $($bago.ExitCode)"
+              }
+              try {
+                $r = Invoke-WebRequest -Uri "http://127.0.0.1:8080/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                if ($r.StatusCode -eq 200) { $healthy = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $healthy) { throw "BAGO.exe no levantó backend saludable" }
+
+            Wait-Process -Id $bago.Id -Timeout 90 -ErrorAction SilentlyContinue
+            $bago.Refresh()
+            if (-not $bago.HasExited) { throw "BAGO.exe no cerró automáticamente" }
+            if ($bago.ExitCode -ne 0) { throw "BAGO.exe terminó con código $($bago.ExitCode)" }
+          } finally {
+            if ($bago) {
+              $bago.Refresh()
+              if (-not $bago.HasExited) {
+                Stop-Process -Id $bago.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+            Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue |
+              Where-Object { $_.OwningProcess -ne 0 } |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+            Remove-Item Env:BAGO_E2E_AUTOCLOSE_SECONDS -ErrorAction SilentlyContinue
+          }
+
+      - name: Hash installer
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          $version = $tag.TrimStart('v')
+          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
+          if (-not (Test-Path $setup)) { throw "No existe $setup" }
+          $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
+          Set-Content -Path (Join-Path $PWD "releases/bago-$version-setup.exe.sha256") -Value $hash
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bago-setup-${{ inputs.release_tag }}
+          path: |
+            releases/bago-*-setup.exe
+            releases/bago-*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7

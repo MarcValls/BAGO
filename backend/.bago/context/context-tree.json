@@ -1,0 +1,479 @@
+{
+  "id": "ctree_juxteekzl0kn",
+  "name": "Árbol 24/7/2026, 3:59:19",
+  "archived": false,
+  "createdAt": "2026-07-24T01:59:19.847Z",
+  "updatedAt": "2026-08-09T21:05:11.972Z",
+  "rootId": "node_15cyq83gl0kn",
+  "nodes": {
+    "node_15cyq83gl0kn": {
+      "id": "node_15cyq83gl0kn",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": null,
+      "type": "root",
+      "status": "active",
+      "title": "Contexto raíz",
+      "summary": "Raíz del árbol de contexto del workspace activo.",
+      "priority": "high",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "root"
+      ],
+      "metadata": {},
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_239mj2ckl0ko": {
+      "id": "node_239mj2ckl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "intent",
+      "status": "active",
+      "title": "Intención",
+      "summary": "Objetivo raíz del contexto activo.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "intent"
+      ],
+      "metadata": {
+        "branch": "intent",
+        "context_review": {
+          "status": "warning",
+          "summary": "La intención define un objetivo raíz, pero el contenido es demasiado genérico para validar alcance, resultado medible o criterio de éxito.",
+          "findings": [
+            {
+              "severity": "warning",
+              "field": "summary",
+              "message": "El resumen indica 'Objetivo raíz del contexto activo', pero no concreta cuál es el objetivo real.",
+              "suggestion": "Sustituirlo por una frase operativa que indique qué se quiere conseguir y sobre qué proyecto o contexto."
+            },
+            {
+              "severity": "warning",
+              "field": "body",
+              "message": "El detalle está vacío, por lo que no se puede comprobar alcance, límites, riesgos ni resultado esperado.",
+              "suggestion": "Añadir alcance, acciones esperadas, exclusiones y criterio de éxito medible."
+            },
+            {
+              "severity": "info",
+              "field": "priority",
+              "message": "La prioridad medium es válida, pero no hay contenido suficiente para justificarla.",
+              "suggestion": "Mantener medium si es una intención preparatoria; subir o bajar prioridad solo con impacto concreto."
+            },
+            {
+              "severity": "info",
+              "field": "tags",
+              "message": "La etiqueta intent es coherente con el tipo de entrada.",
+              "suggestion": "Añadir etiquetas específicas si el objetivo afecta a un módulo, flujo o decisión concreta."
+            }
+          ],
+          "reviewedAt": "2026-08-09T21:05:11.972Z",
+          "provider": "codex",
+          "model": "gpt-5.5"
+        }
+      },
+      "createdBy": "system",
+      "updatedBy": "user",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-08-09T21:05:11.972Z"
+    },
+    "node_9qbx8ki1l0ko": {
+      "id": "node_9qbx8ki1l0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "source",
+      "status": "active",
+      "title": "Fuentes",
+      "summary": "Origen del contexto: archivos, fuentes y secciones activas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "sources"
+      ],
+      "metadata": {
+        "branch": "sources"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_uhk5w5dtl0ko": {
+      "id": "node_uhk5w5dtl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "decision",
+      "status": "active",
+      "title": "Decisiones",
+      "summary": "Decisiones consolidadas o pendientes de validación.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "decisions"
+      ],
+      "metadata": {
+        "branch": "decisions"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_yry0s5uwl0ko": {
+      "id": "node_yry0s5uwl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "rule",
+      "status": "active",
+      "title": "Reglas",
+      "summary": "Reglas interpretativas vigentes.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "rules"
+      ],
+      "metadata": {
+        "branch": "rules"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_jxr0gvy8l0ko": {
+      "id": "node_jxr0gvy8l0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "risk",
+      "status": "active",
+      "title": "Riesgos",
+      "summary": "Riesgos abiertos o mitigados.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "risks"
+      ],
+      "metadata": {
+        "branch": "risks"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_33lb7vfel0ko": {
+      "id": "node_33lb7vfel0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "pending",
+      "status": "active",
+      "title": "Pendientes",
+      "summary": "Tareas y elementos pendientes de resolver.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "pendings"
+      ],
+      "metadata": {
+        "branch": "pendings"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_bgaabjzsl0ko": {
+      "id": "node_bgaabjzsl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "evidence",
+      "status": "active",
+      "title": "Evidencias",
+      "summary": "Claims, receipts y referencias externas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "evidences"
+      ],
+      "metadata": {
+        "branch": "evidences"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_2fl16oa6l0ko": {
+      "id": "node_2fl16oa6l0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "proposal",
+      "status": "active",
+      "title": "Actividad del Chat",
+      "summary": "Patches propuestos por el chat y validados por el usuario.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "activity"
+      ],
+      "metadata": {
+        "branch": "activity"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "node_8046moitl0ko": {
+      "id": "node_8046moitl0ko",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "pack",
+      "status": "active",
+      "title": "Pack activo",
+      "summary": "Nodos que se enviarán al modelo.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [
+        "pack"
+      ],
+      "metadata": {
+        "branch": "pack"
+      },
+      "createdBy": "system",
+      "updatedBy": "system",
+      "createdAt": "2026-07-24T01:59:19.847Z",
+      "updatedAt": "2026-07-24T01:59:19.847Z"
+    },
+    "proactive_task_rawsil": {
+      "id": "proactive_task_rawsil",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "node_15cyq83gl0kn",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Tarea: Aplicar pack Pack principal\n\nEres el orquestador de BAGO. Genera un plan numerado y ejecutable.\nCada paso debe se",
+      "summary": "Tarea: Aplicar pack Pack principal\n\nEres el orquestador de BAGO. Genera un plan numerado y ejecutable.\nCada paso debe ser una acción concreta en uno de estos formatos EXACTOS:\n- 'Crear archivo <ruta> con contenido: <contenido>'\n- 'Leer archivo <ruta>'\n- 'Ejecutar <comando>'\n- 'Pedir aprobación <descripción>'\n\nSi el paso es informativo (no ejecutable), usa lenguaje natural\nsin esos prefijos. Añade 'con modelo <nombre>' o 'rápido'/'capaz'\nal final del paso para asignar el modelo.\n\nResponde SOLO co",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "proactive:history-21:rawsil"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T17:15:20.553Z",
+      "updatedAt": "2026-08-09T17:15:20.553Z"
+    },
+    "collect_branch_1786299885491_0_1": {
+      "id": "collect_branch_1786299885491_0_1",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "proactive_task_rawsil",
+      "type": "note",
+      "status": "proposed",
+      "title": "Tarea: Aplicar pack Pack principal",
+      "summary": "Rama propuesta por recopilación: Tarea: Aplicar pack Pack principal",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_0": {
+      "id": "collect_task_1786299885491_0",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Leer PRD del proyecto",
+      "summary": "Revisar PRD.md para extraer requisitos reales del gestor de deudas.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_1": {
+      "id": "collect_task_1786299885491_1",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Leer configuración del paquete",
+      "summary": "Revisar package.json para confirmar scripts, dependencias y comandos disponibles.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_2": {
+      "id": "collect_task_1786299885491_2",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Inspeccionar entrada React",
+      "summary": "Revisar src/App.tsx y src/main.tsx para entender pantallas, rutas y composición principal.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_3": {
+      "id": "collect_task_1786299885491_3",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Listar estructura de src",
+      "summary": "Enumerar archivos de src para ubicar componentes, páginas, lógica de datos y estilos.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_4": {
+      "id": "collect_task_1786299885491_4",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Validar build",
+      "summary": "Ejecutar npm run build para detectar bloqueos técnicos P0.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_5": {
+      "id": "collect_task_1786299885491_5",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Clasificar hallazgos P0 P1 P2",
+      "summary": "Convertir la auditoría en tabla con problema, archivo, acción y criterio de éxito.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    },
+    "collect_task_1786299885491_6": {
+      "id": "collect_task_1786299885491_6",
+      "treeId": "ctree_juxteekzl0kn",
+      "parentId": "collect_branch_1786299885491_0_1",
+      "type": "pending",
+      "status": "proposed",
+      "title": "Pedir aprobación de cambios",
+      "summary": "Solicitar confirmación antes de implementar los cambios P0 detectados.",
+      "priority": "medium",
+      "sourceRefs": [],
+      "evidenceRefs": [],
+      "linkedNodeIds": [],
+      "conflictNodeIds": [],
+      "tags": [],
+      "metadata": {
+        "createdByPatch": "collect_1786299885491"
+      },
+      "createdBy": "user",
+      "updatedBy": "user",
+      "createdAt": "2026-08-09T20:01:33.848Z",
+      "updatedAt": "2026-08-09T20:01:33.848Z"
+    }
+  }
+}

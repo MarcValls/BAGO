@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/contracts/pi/provider_attestation.schema.json",
+  "title": "BagoPiBridge Provider Attestation",
+  "description": "Atestación que el sidecar devuelve tras invocar al proveedor. Contiene el cuádruplo requested_/effective_ × {provider, model, adapter, runtime} para que BAGO detecte drift antes de certificar.",
+  "contract_id": "bago.pi.bridge.attestation",
+  "contract_version": "0.3.0",
+  "scope": "sidecar",
+  "source_of_truth": [
+    "backend/.bago/integrations/pi/ARQ-v0.3-separacion-autoridad.md",
+    "backend/.bago/integrations/pi/contracts.py"
+  ],
+  "type": "object",
+  "required": [
+    "attestation_id",
+    "execution_id",
+    "bridge_request_id",
+    "issued_at",
+    "requested_provider",
+    "effective_provider",
+    "requested_model",
+    "effective_model",
+    "requested_adapter",
+    "effective_adapter",
+    "requested_runtime",
+    "effective_runtime",
+    "endpoint_normalized",
+    "pi_package_version",
+    "pi_lockfile_hash",
+    "sidecar_artifact_hash",
+    "bridge_version",
+    "drift_detected"
+  ],
+  "properties": {
+    "attestation_id": { "type": "string", "pattern": "^att-[a-zA-Z0-9_-]+$" },
+    "execution_id": { "type": "string", "pattern": "^exec-[a-zA-Z0-9_-]+$" },
+    "bridge_request_id": { "type": "string", "pattern": "^br-[a-zA-Z0-9_-]+$" },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "requested_provider": { "type": "string", "minLength": 1, "not": { "const": "pi" } },
+    "effective_provider": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "const": "pi" },
+      "description": "Provider que realmente respondió. BAGO compara con requested para detectar drift."
+    },
+    "requested_model": { "type": "string", "minLength": 1 },
+    "effective_model": { "type": "string", "minLength": 1, "description": "Modelo que realmente respondió." },
+    "requested_adapter": { "type": "string", "enum": ["pi-ai", "bago-native", "litellm"] },
+    "effective_adapter": { "type": "string", "enum": ["pi-ai", "bago-native", "litellm"] },
+    "requested_runtime": { "type": "string", "enum": ["node-sidecar", "python-inproc", "wasm"] },
+    "effective_runtime": { "type": "string", "enum": ["node-sidecar", "python-inproc", "wasm"] },
+    "endpoint_normalized": {
+      "type": "string",
+      "description": "URL del endpoint, normalizada (sin secretos, sin query strings sensibles)."
+    },
+    "credential_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8,64}$",
+      "description": "Huella de la credencial usada (no la credencial misma). Permite auditar qué key se usó sin exponerla."
+    },
+    "pi_package_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "pi_lockfile_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "sidecar_artifact_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "bridge_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "node_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "drift_detected": {
+      "type": "boolean",
+      "description": "true si hay drift en cualquiera de los 4 vectores (provider/model/adapter/runtime)."
+    },
+    "drift_fields": {
+      "type": "array",
+      "items": { "enum": ["provider", "model", "adapter", "runtime"] },
+      "description": "Lista de campos donde se detectó drift. Vacío si drift_detected=false."
+    },
+    "tokens_in": { "type": "integer", "minimum": 0, "description": "Tokens de entrada consumidos." },
+    "tokens_out": { "type": "integer", "minimum": 0, "description": "Tokens de salida consumidos." },
+    "cost_usd": { "type": "number", "minimum": 0, "description": "Coste estimado en USD (puede ser 0 para providers locales)." },
+    "latency_ms": { "type": "integer", "minimum": 0, "description": "Latencia total de la llamada al provider." }
+  },
+  "additionalProperties": false
+}

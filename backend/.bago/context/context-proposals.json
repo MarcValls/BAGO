@@ -1,0 +1,375 @@
+[
+  {
+    "id": "collect_1786309523968",
+    "treeId": "ctree_juxteekzl0kn",
+    "validationMode": "modal",
+    "proposalType": "context_collection",
+    "title": "Recopilar contexto: propuesta del modelo",
+    "reason": "Se debe aplicar el Pack principal al proyecto gestor-de-deudas mediante una auditoría real del PRD, configuración, entrada React, estructura src y validaciones de build/lint/test antes de pedir aprobación para cambios.",
+    "riskLevel": "low",
+    "patch": {
+      "operations": [
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_0",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Leer PRD del proyecto",
+          "summary": "Leer PRD.md para extraer requisitos reales del gestor de deudas y criterios del MVP.",
+          "status": "proposed",
+          "priority": "high"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_1",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Leer configuración del paquete",
+          "summary": "Leer package.json para confirmar scripts, dependencias y comandos disponibles.",
+          "status": "proposed",
+          "priority": "high"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_2",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Inspeccionar entrada React",
+          "summary": "Leer src/App.tsx y src/main.tsx para identificar estructura inicial, rutas y montaje de la UI.",
+          "status": "proposed",
+          "priority": "high"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_3",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Listar estructura de src",
+          "summary": "Ejecutar listado de archivos en src para ubicar pantallas, componentes, estado y capa de datos.",
+          "status": "proposed",
+          "priority": "high"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_4",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Validar build",
+          "summary": "Ejecutar npm run build para detectar errores bloqueantes de compilación.",
+          "status": "proposed",
+          "priority": "high"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_5",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Validar lint si existe",
+          "summary": "Ejecutar npm run lint si el script está disponible para detectar problemas de calidad.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_6",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Validar tests si existen",
+          "summary": "Ejecutar npm run test si el script está disponible para conocer cobertura y fallos actuales.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_7",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Clasificar hallazgos P0 P1 P2",
+          "summary": "Crear tabla con prioridad, problema, archivo, acción y criterio de éxito.",
+          "status": "proposed",
+          "priority": "high"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523967_8",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Crear informe de auditoría",
+          "summary": "Crear AUDITORIA_PACK_PRINCIPAL.md con la clasificación P0/P1/P2 y orden de implementación.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786309523968_9",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Pedir aprobación de cambios",
+          "summary": "Solicitar aprobación para implementar primero los cambios P0 detectados.",
+          "status": "proposed",
+          "priority": "high"
+        }
+      ]
+    },
+    "createdAt": "2026-08-09T21:05:23.968Z",
+    "createdBy": "chat",
+    "status": "pending",
+    "metadata": {
+      "clarification": "La propuesta se limita al historial disponible: ya se detectó que existen PRD.md, package.json, src, vite.config.ts y capacitor.config.ts; no consta una auditoría real completada ni cambios aplicados.",
+      "source": "model_chat",
+      "model_error": "",
+      "history_items": "20"
+    }
+  },
+  {
+    "id": "collect_1786299885491",
+    "treeId": "ctree_juxteekzl0kn",
+    "validationMode": "modal",
+    "proposalType": "context_collection",
+    "title": "Recopilar contexto: propuesta del modelo",
+    "reason": "Se pidió aplicar el Pack principal al proyecto gestor-de-deudas. El historial muestra una intención de auditar el proyecto, revisar archivos clave, clasificar mejoras P0/P1/P2 y después pedir aprobación antes de implementar cambios.",
+    "riskLevel": "low",
+    "patch": {
+      "operations": [
+        {
+          "op": "create",
+          "nodeId": "collect_branch_1786299885491_0_1",
+          "parentId": "proactive_task_rawsil",
+          "type": "note",
+          "title": "Tarea: Aplicar pack Pack principal",
+          "summary": "Rama propuesta por recopilación: Tarea: Aplicar pack Pack principal",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_0",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Leer PRD del proyecto",
+          "summary": "Revisar PRD.md para extraer requisitos reales del gestor de deudas.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_1",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Leer configuración del paquete",
+          "summary": "Revisar package.json para confirmar scripts, dependencias y comandos disponibles.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_2",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Inspeccionar entrada React",
+          "summary": "Revisar src/App.tsx y src/main.tsx para entender pantallas, rutas y composición principal.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_3",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Listar estructura de src",
+          "summary": "Enumerar archivos de src para ubicar componentes, páginas, lógica de datos y estilos.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_4",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Validar build",
+          "summary": "Ejecutar npm run build para detectar bloqueos técnicos P0.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_5",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Clasificar hallazgos P0 P1 P2",
+          "summary": "Convertir la auditoría en tabla con problema, archivo, acción y criterio de éxito.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_6",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Pedir aprobación de cambios",
+          "summary": "Solicitar confirmación antes de implementar los cambios P0 detectados.",
+          "status": "proposed",
+          "priority": "medium"
+        }
+      ]
+    },
+    "createdAt": "2026-08-09T18:24:45.491Z",
+    "createdBy": "chat",
+    "status": "edited",
+    "metadata": {
+      "clarification": "No hay evidencia de auditoría real completada ni de lectura efectiva de archivos; solo consta el plan propuesto. La propuesta queda dentro de la rama Tarea: Aplicar pack Pack principal.",
+      "source": "model_chat",
+      "model_error": "",
+      "history_items": "20"
+    },
+    "editedPatch": {
+      "operations": [
+        {
+          "op": "create",
+          "nodeId": "collect_branch_1786299885491_0_1",
+          "parentId": "proactive_task_rawsil",
+          "type": "note",
+          "title": "Tarea: Aplicar pack Pack principal",
+          "summary": "Rama propuesta por recopilación: Tarea: Aplicar pack Pack principal",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_0",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Leer PRD del proyecto",
+          "summary": "Revisar PRD.md para extraer requisitos reales del gestor de deudas.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_1",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Leer configuración del paquete",
+          "summary": "Revisar package.json para confirmar scripts, dependencias y comandos disponibles.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_2",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Inspeccionar entrada React",
+          "summary": "Revisar src/App.tsx y src/main.tsx para entender pantallas, rutas y composición principal.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_3",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Listar estructura de src",
+          "summary": "Enumerar archivos de src para ubicar componentes, páginas, lógica de datos y estilos.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_4",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Validar build",
+          "summary": "Ejecutar npm run build para detectar bloqueos técnicos P0.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_5",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Clasificar hallazgos P0 P1 P2",
+          "summary": "Convertir la auditoría en tabla con problema, archivo, acción y criterio de éxito.",
+          "status": "proposed",
+          "priority": "medium"
+        },
+        {
+          "op": "create",
+          "nodeId": "collect_task_1786299885491_6",
+          "parentId": "collect_branch_1786299885491_0_1",
+          "type": "pending",
+          "title": "Pedir aprobación de cambios",
+          "summary": "Solicitar confirmación antes de implementar los cambios P0 detectados.",
+          "status": "proposed",
+          "priority": "medium"
+        }
+      ]
+    },
+    "appliedAt": "2026-08-09T20:01:33.876Z",
+    "receiptId": "rcpt_8d6v25hc"
+  },
+  {
+    "id": "proactive:history-21:rawsil",
+    "treeId": "ws-baa701529962",
+    "validationMode": "modal",
+    "proposalType": "chat_opportunity",
+    "title": "Oportunidad de añadir contexto",
+    "reason": "El chat contiene una tarea, decisión o elemento de UI que puede quedar como rama abierta.",
+    "riskLevel": "low",
+    "patch": {
+      "operations": [
+        {
+          "op": "create",
+          "nodeId": "proactive_task_rawsil",
+          "parentId": "node_15cyq83gl0kn",
+          "type": "pending",
+          "title": "Tarea: Aplicar pack Pack principal\n\nEres el orquestador de BAGO. Genera un plan numerado y ejecutable.\nCada paso debe se",
+          "summary": "Tarea: Aplicar pack Pack principal\n\nEres el orquestador de BAGO. Genera un plan numerado y ejecutable.\nCada paso debe ser una acción concreta en uno de estos formatos EXACTOS:\n- 'Crear archivo <ruta> con contenido: <contenido>'\n- 'Leer archivo <ruta>'\n- 'Ejecutar <comando>'\n- 'Pedir aprobación <descripción>'\n\nSi el paso es informativo (no ejecutable), usa lenguaje natural\nsin esos prefijos. Añade 'con modelo <nombre>' o 'rápido'/'capaz'\nal final del paso para asignar el modelo.\n\nResponde SOLO co",
+          "status": "proposed",
+          "priority": "medium"
+        }
+      ]
+    },
+    "createdAt": "2026-08-09T16:13:35.473641+00:00",
+    "createdBy": "chat",
+    "status": "accepted",
+    "metadata": {
+      "source": "chat_opportunity_detector",
+      "consent": "required"
+    },
+    "appliedAt": "2026-08-09T17:15:20.581Z",
+    "receiptId": "rcpt_a3ado2r4"
+  },
+  {
+    "id": "proactive:assistant-1785325739917:l5bx4v",
+    "treeId": "ws-13af6c692a73",
+    "validationMode": "modal",
+    "proposalType": "chat_opportunity",
+    "title": "Oportunidad de añadir contexto",
+    "reason": "El chat contiene una tarea, decisión o elemento de UI que puede quedar como rama abierta.",
+    "riskLevel": "low",
+    "patch": {
+      "operations": [
+        {
+          "op": "create",
+          "nodeId": "proactive_task_l5bx4v",
+          "parentId": "node_visbatz9v6oy",
+          "type": "pending",
+          "title": "Generemos un proyecto de evidencias BAGO",
+          "summary": "Generemos un proyecto de evidencias BAGO\n{\n  \"assumptions\": [],\n  \"confidence\": 1.0,\n  \"evidence\": [],\n  \"facts\": [\n    {\n      \"key\": \"workspace_state_root\",\n      \"value\": \"C:\\\\Users\\\\AMTEC_Terminal_1º\\\\Documents\\\\pruebas bago\\\\.gabo\"\n    },\n    {\n      \"key\": \"project_root\",\n      \"value\": \"C:\\\\Users\\\\AMTEC_Terminal_1º\\\\Documents\\\\pruebas bago\"\n    }\n  ],\n  \"files_required\": [\n    \"workspace_state_root\"\n  ],\n  \"intent\": \"generate_bago_project\",\n  \"missing_information\": [],\n  \"objective\": \"\",\n",
+          "status": "proposed",
+          "priority": "medium"
+        }
+      ]
+    },
+    "createdAt": "2026-07-29T11:48:59.921Z",
+    "createdBy": "chat",
+    "status": "failed",
+    "metadata": {
+      "source": "chat_opportunity_detector",
+      "consent": "required"
+    },
+    "errorMessage": "No se encontró el nodo padre: node_visbatz9v6oy"
+  }
+]

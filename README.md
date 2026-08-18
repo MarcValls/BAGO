@@ -1,93 +1,164 @@
-# BAGO v4.6.4
+# BAGO v4.9.0
 
-**Version 4.6.4**
-
-[![Version](https://img.shields.io/badge/version-4.6.4-blue)]()
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
+[![Version](https://img.shields.io/badge/version-4.9.0-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0)
+[![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
+[![Node](https://img.shields.io/badge/node-20%2B-green)]()
+[![Tests](https://img.shields.io/badge/tests-928%20passed%20%7C%2013%20skipped%20backend%20%7C%2099%20frontend-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
-BAGO is a local-first AI control plane. Its main job is to keep the session as the source of truth while providers and models remain interchangeable execution engines.
+**BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
 
-## What Problem It Solves
+---
 
-Most AI tools bind context to one provider or model. BAGO separates session state from model execution so a user can keep continuity while switching provider, model, API surface, or UI surface.
+## Novedades en 4.9.0
 
-## Current Product Status
+### Correcciones
+- **Detección de GitHub restaurada** — el panel de autenticación vuelve a reportar si `gh` está instalado y si el usuario está autenticado
+- **Navegación lateral reparada** — los botones de drawers de Herramientas, Pipeline y Capacidades ahora abren su panel correspondiente
 
-The stable MVP is intentionally small:
+## Novedades en 4.8.6
 
-| Capability | Status | Proof |
-|---|---|---|
-| CLI | Working | `python bago_core\cli.py validate` |
-| Persistent session | Working | `python test_e2e.py` |
-| Provider/model switch | Working | `python test_e2e.py` |
-| Ollama local startup | Working when Ollama is installed | `python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run` |
-| Local API | Working, localhost-first | `python .bago\api\bridge.py --test` |
-| Evidence bundles | Working | `python bago_core\cli.py evidence --test` |
-| Security validation | Working | `python test_security_release.py` |
-| React UI | Optional surface | `cd ui-react; npm run build` |
+### UI
+- **Selector de tema claro/oscuro** en la cabecera principal — persiste en sesión
+- **Modo claro** completamente funcional: todos los fondos oscuros hardcodeados migrados a variables CSS
+- **Arquitectura CSS por tokens** — `frontend/src/styles/` dividido en `tokens.css`, `reset.css`, `utilities.css`, `components.css` con tokens semánticos de espaciado, tipografía, radios, sombras y duraciones
 
-Post-MVP or experimental:
+### Ciclo de vida (Windows)
+- `ARRANCAR_BAGO.bat` — lanzador de un clic: inicia el backend, abre Electron y detiene el backend al cerrar la ventana
+- Hook `before-quit` en Electron: llama a `dev.ps1 stop` de forma síncrona antes de salir
+- Acceso directo en el Menú Inicio y Escritorio instalados por el instalador
 
-| Capability | Status | Boundary |
-|---|---|---|
-| RL policy layer | Experimental | shadow/off by default, no execution authority |
-| Agents and autopilot | Experimental | must not be claimed as stable product behavior |
-| C++ runtime | Experimental | not required for install, release, or validation |
-| Cloud multiprovider completeness | Partial | depends on configured credentials and provider health |
-| Advanced knowledge/embedding store | Partial | must remain separate from the MVP claim set |
+### Backend y sesiones
+- Sistema de capacidades avanzado (`capability-anatomy`)
+- Soporte multi-conversación con `active_conversation_id`
+- Registro de sesiones (`session registry`)
+- Integración del módulo Vision
+- Provider Center con grid de proveedores configurables
 
-## Install
+### Instalación
+- Instalador Windows `BAGO-Installation-Manager-4.9.0-win-x64.exe` (NSIS) — instala todos los componentes y crea accesos directos
+- Script `install-v4.ps1` con soporte para `-PackageZip`
 
-Requirements:
+---
 
-- Windows-first runtime.
-- Python 3.11 or newer.
-- Ollama is optional, but required for the local live-model path.
-- Cloud provider keys are optional and must stay outside the repository.
+## Estructura del monorepo
+
+```
+BAGO/
+├── backend/                  # Runtime Python (core, CLI, API local, contratos)
+│   ├── bago_core/            # Núcleo: sesiones, proveedores, capacidades, RL
+│   ├── tests/                # 928 passed, 13 skipped (pytest)
+│   ├── docs/                 # Documentación técnica
+│   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build; no en el repo)
+├── frontend/                 # UI React + TypeScript (Vite)
+│   └── src/
+│       ├── styles/           # Sistema de tokens CSS modular
+│       │   ├── tokens.css    # Variables de diseño centralizadas
+│       │   ├── reset.css     # Reset y elementos base
+│       │   ├── utilities.css # Controles y utilidades compartidas
+│       │   ├── components.css# Reglas de componentes
+│       │   └── index.css     # Entry point
+│       ├── api/              # Cliente HTTP hacia el backend
+│       ├── app/              # ControlPlane principal
+│       ├── layout/           # GlobalHeader, ChatPanel, etc.
+│       ├── modules/          # Módulos funcionales (capabilities, vision, etc.)
+│       └── state/            # uiStore (Zustand)
+├── electron-viewer/          # Visor Electron con ciclo de vida automático
+├── scripts/
+│   ├── dev.ps1               # start / stop / build / status / backend / electron
+│   └── bago-launcher.ps1     # Lanzador manual legacy
+├── releases/
+│   └── bago-installer.nsi    # Script NSIS para generar setup.exe legacy
+├── ARRANCAR_BAGO.bat         # Lanzador principal Windows
+└── package.json              # Raíz del workspace npm
+```
+
+---
+
+## Requisitos
+
+| Componente | Versión mínima |
+|---|---|
+| Windows | 10 / 11 (plataforma principal) |
+| Python | 3.14+ |
+| Node.js | 20.19.0 o ≥ 22.12.0 |
+| npm | ≥ 10.0.0 |
+| Ollama | Opcional — necesario para el path local con modelo en vivo |
+
+> macOS y Linux son experimentales hasta que sus gates de instalación y runtime sean verificados.
+
+---
+
+## Instalación
+
+### Opción A — Instalador Windows (recomendado)
+
+Descarga `BAGO-Installation-Manager-4.9.0-win-x64.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) y ejecútalo. El instalador:
+- Instala backend (Python), frontend compilado y Electron viewer
+- Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
+- El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
+- La instalación queda fijada a una referencia Git inmutable (`InstallRef`) en lugar de `main`
+
+### Opción B — Instalación desde fuentes (Windows)
 
 ```powershell
 git clone https://github.com/MarcValls/BAGO.git
 cd BAGO
-.\install-v4.ps1 -Mode Express
+.\backend\install-v4.ps1 -Mode Express
 ```
 
-Direct source run:
-
-```powershell
-python bago_core\cli.py validate
-python bago_core\cli.py llm list
-python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
-```
-
-Remote installer for the latest published release:
+### Opción C — Instalador remoto (última release publicada)
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/MarcValls/BAGO/main/install-remote.ps1 -OutFile install-remote.ps1; .\install-remote.ps1"
 ```
 
-Installation manager:
+### Instalación por perfil
 
 ```powershell
 bago profiles
-bago install --profile des
-bago install --profile ign
-bago install --profile stable
+bago install --profile des      # desarrollo
+bago install --profile ign      # ignición / staging
+bago install --profile stable   # producción estable
 ```
 
-## Minimum Use
+---
+
+## Uso mínimo
+
+### Arrancar BAGO (Windows)
+
+Doble clic en `ARRANCAR_BAGO.bat` o en el acceso directo del Menú Inicio/Escritorio.  
+Esto inicia el backend en `http://127.0.0.1:8080` y abre la ventana Electron. **Al cerrar la ventana, el backend se detiene automáticamente.**
+
+### Arrancar manualmente
 
 ```powershell
-python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b
+# Arrancar backend + build del frontend + ventana Electron
+npm run start
+
+# Sólo el backend
+npm run backend
+
+# Build de producción
+npm run build
 ```
 
-Validation without opening a chat:
+### CLI
 
 ```powershell
-python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
+# Arrancar con modelo local (Ollama)
+python backend\bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b
+
+# Validar sin abrir chat
+python backend\bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
+
+# Validar contratos, seguridad y configuración de proveedores
+python backend\bago_core\cli.py validate
 ```
 
-Agent/headless command mode:
+### Modo headless / agente
 
 ```powershell
 bago exec /help
@@ -96,129 +167,159 @@ bago exec /doctor
 bago exec /status
 ```
 
-## Main Commands
+---
 
-| Command | Purpose |
+## Comandos principales
+
+| Comando | Descripción |
 |---|---|
-| `python bago_core\cli.py validate` | checks contracts, security defaults, and provider configuration |
-| `bago exec /commands json` | exports the slash-command catalog for agents |
-| `bago exec /doctor` | checks command catalog, headless execution, install roles, and provider health |
-| `python bago_core\cli.py evidence --test` | validates evidence bundle generation |
-| `python bago_core\cli.py llm list` | lists provider/model availability |
-| `python bago_core\cli.py llm start ...` | starts or dry-runs provider-aware startup |
-| `python bago_core\cli.py serve --host 127.0.0.1 --port 8080` | starts the local API |
-| `python bago_core\cli.py rl status` | reports RL/shadow state without granting authority |
+| `python backend\bago_core\cli.py validate` | Valida contratos, defaults de seguridad y configuración de proveedores |
+| `python backend\bago_core\cli.py llm list` | Lista disponibilidad de proveedores y modelos |
+| `python backend\bago_core\cli.py llm start ...` | Arranca o simula el startup con conciencia de proveedor |
+| `python backend\bago_core\cli.py serve --host 127.0.0.1 --port 8080` | Arranca la API local |
+| `python backend\bago_core\cli.py rl status` | Reporta el estado RL/shadow sin conceder autoridad |
+| `python backend\bago_core\cli.py evidence --test` | Valida la generación del bundle de evidencias |
+| `bago exec /commands json` | Exporta el catálogo de slash-commands para agentes |
+| `bago exec /doctor` | Diagnóstico: catálogo, ejecución headless, roles de instalación y salud de proveedores |
 
-## Branch Governance (mandatory)
+---
 
-BAGO works with exactly three base branches:
+## Scripts de desarrollo (monorepo)
 
-- `main` (source of truth)
-- `windows` (platform adaptation)
-- `android` (platform adaptation)
+```powershell
+npm run start      # Arrancar backend + build frontend + Electron
+npm run stop       # Detener servicios
+npm run restart    # Reiniciar
+npm run status     # Estado de los servicios
+npm run logs       # Ver logs
+npm run build      # Build de producción
+npm run test:frontend   # Tests del frontend
+npm run typecheck       # Comprobación de tipos TypeScript
+```
 
-Mandatory flow:
+En sistemas Unix/macOS:
 
-1. Common work merges into `main`.
-2. Platform branches are updated from `main`.
-3. No reverse-merges from `windows`/`android` into `main`.
+```bash
+npm run sh:dev
+npm run sh:stop
+npm run sh:status
+```
 
-Enforcement implemented in-repo:
+---
 
-- GitHub required check: `.github/workflows/branch-flow-guard.yml`
-- Local push guard hook: `.githooks/pre-push`
-- Hook setup: `pwsh scripts/setup_git_hooks.ps1`
-- Branch protection apply script: `pwsh scripts/apply_branch_protection.ps1`
+## Proveedores soportados
 
-Break-glass (owner only, emergency):
-
-1. Temporarily relax protection in GitHub branch settings.
-2. Apply hotfix via PR flow if possible.
-3. Re-apply guardrails with `pwsh scripts/apply_branch_protection.ps1`.
-
-## Providers
-
-| Provider | Status | Notes |
+| Proveedor | Estado | Notas |
 |---|---|---|
-| `ollama-local` | Working | default local path when Ollama is installed |
-| `ollama-cloud` | Partial | requires URL/key configuration |
-| `copilot` | Partial | requires GitHub token/configuration |
-| `anthropic` | Partial | requires API key |
-| `codex` | Partial | requires API key/configuration |
-| `openrouter` | Partial | requires API key |
-| `opencode` | Partial | requires API key/configuration |
-| `cpp-local` | Experimental | hidden from the default path unless explicitly requested |
+| `ollama-local` | ✅ Activo | Path local por defecto cuando Ollama está instalado |
+| `ollama-cloud` | 🔶 Parcial | Requiere configuración de URL/clave |
+| `copilot` | 🔶 Parcial | Requiere token/configuración de GitHub |
+| `anthropic` | 🔶 Parcial | Requiere clave API |
+| `codex` | 🔶 Parcial | Requiere clave/configuración API |
+| `openrouter` | 🔶 Parcial | Requiere clave API |
+| `opencode` | 🔶 Parcial | Requiere clave/configuración API |
 
-## Security
+---
 
-BAGO must remain safe by default:
+## Estado del producto
 
-- API binds to `127.0.0.1` by default.
-- Non-localhost API exposure requires a token.
-- CORS must never use wildcard origin.
-- Credentials must not enter Git, release ZIPs, UI bundles, or evidence samples.
-- Tool execution is reject-by-default unless explicitly allowed.
-- RL, agents, and automation remain suggestion/shadow surfaces unless explicitly authorized.
+| Área | Estado | Notas |
+|---|---|---|
+| Runtime core | ✅ Estable | 928 passed, 13 skipped en backend |
+| Instalación Windows | ✅ Estable | Instalador NSIS + `ARRANCAR_BAGO.bat` |
+| Ciclo de vida Electron | ✅ Estable | Auto-stop al cerrar ventana |
+| UI React | ✅ Funcional | 99 tests frontend, tema claro/oscuro, tokens CSS |
+| Seguridad y postura API | ✅ Estable | `backend/docs/SECURITY.md` |
+| Soporte de plataforma | ✅ Windows | macOS/Linux: experimental |
+| Sistema de capacidades | ✅ Funcional | `capability-anatomy`, provider center |
+| Conversaciones multi-turno | ✅ Funcional | `active_conversation_id`, session registry |
+| Módulo Vision | 🔶 Integrado | Requiere proveedor compatible |
+| Capa RL policy | 🧪 Experimental | Shadow mode, sin autoridad de ejecución |
+| Agentes y autopilot | 🧪 Experimental | En desarrollo |
+| Runtime C++ | 🧪 Experimental | Gates de plataforma pendientes |
+| Store embeddings avanzado | 🔶 Parcial | `backend/docs/MODULES.md` |
 
-## Evidence
+---
 
-Every public claim must have at least one validation path:
+## Releases
 
-- command,
-- automated test,
-- evidence bundle,
-- functional contract,
-- or minimal demo.
+| Versión | Fecha | Artefactos |
+|---|---|---|
+| [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-18 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-v4.9.0.zip` |
+| [v4.8.7](https://github.com/MarcValls/BAGO/releases/tag/v4.8.7) | 2026-08-16 | `BAGO-Installation-Manager-4.8.7-win-x64.exe` · `bago-v4.8.7.zip` |
+| [v4.8.6](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6) | 2026-08-16 | `BAGO-Installation-Manager-4.8.6-win-x64.exe` · `bago-v4.8.6.zip` |\n| [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |
+| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
 
-See [`docs/CLAIMS.md`](docs/CLAIMS.md) for the claim-to-evidence matrix.
+Los artefactos oficiales (`BAGO-Installation-Manager-{version}-win-x64.exe` y `bago-v{version}.zip`) se generan en CI desde una referencia etiquetada/inmutable, no desde `main`. El flujo local de referencia es:
 
-## Roadmap
+```powershell
+# 1. Validar backend
+python -m pytest backend/tests
 
-The near-term order is:
+# 2. Build del frontend y del visor Electron
+npm run build
 
-1. keep the MVP frozen,
-2. keep version and Python requirements unified,
-3. run the clean-machine gate before releases,
-4. require evidence for every public claim,
-5. keep partial/experimental modules out of stable product claims.
+# 3. Empaquetar backend runtime
+python backend/scripts/package_v4.py --version 4.9.0
 
-See [`docs/MVP.md`](docs/MVP.md), [`docs/MODULES.md`](docs/MODULES.md), and [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
+# 4. Crear o mover el tag a HEAD
+# git tag -a v4.9.0 -m "BAGO v4.9.0" --force
+# git push origin v4.9.0 --force
+# La subida del release corre vía .github/workflows/release.yml usando gh release upload
+```
 
-## Known Limits
+---
 
-- The project is Windows-first today.
-- macOS and Linux are experimental until their install and runtime gates are verified.
-- A live Ollama conversation is optional and depends on a local Ollama service plus installed model.
-- React UI is not the system authority; it consumes the backend API.
-- RL, agents, C++ runtime, and advanced orchestration are not part of the stable MVP.
+## Gobernanza de ramas
 
-## License
+BAGO trabaja con exactamente tres ramas base:
 
-BAGO is proprietary at this stage.
+- `main` — fuente de verdad
+- `windows` — adaptación de plataforma
+- `android` — adaptación de plataforma
 
-Allowed:
+Flujo obligatorio:
 
-- inspect the public source,
-- run local validation,
-- submit issues or proposed changes through GitHub.
+1. El trabajo común se fusiona en `main`.
+2. Las ramas de plataforma se actualizan desde `main`.
+3. No se permiten merges inversos de `windows`/`android` a `main`.
 
-Not allowed without written permission:
+---
 
-- redistribute BAGO as a competing package,
-- sell hosted or packaged copies,
-- remove attribution,
-- extract private release assets for third-party distribution.
+## Seguridad
 
-Future licensing may change, but the current release line remains proprietary.
+Ver [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) para la postura de seguridad y los stops duros.
 
-## Documentation
+---
 
-- [`MANUAL.md`](MANUAL.md) - user manual in Spanish.
-- [`docs/MVP.md`](docs/MVP.md) - MVP boundary.
-- [`docs/MODULES.md`](docs/MODULES.md) - module status matrix.
-- [`docs/CLAIMS.md`](docs/CLAIMS.md) - claim evidence matrix.
-- [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md) - operating system support.
-- [`docs/SECURITY.md`](docs/SECURITY.md) - security defaults and gates.
-- [`docs/TESTING.md`](docs/TESTING.md) - validation commands.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) - distribution roadmap.
+## Documentación
 
+| Documento | Descripción |
+|---|---|
+| [`backend/MANUAL.md`](backend/MANUAL.md) | Manual de usuario (español) |
+| [`backend/docs/MVP.md`](backend/docs/MVP.md) | Límite del MVP |
+| [`backend/docs/MODULES.md`](backend/docs/MODULES.md) | Matriz de estado de módulos |
+| [`backend/docs/CLAIMS.md`](backend/docs/CLAIMS.md) | Matriz de evidencias |
+| [`backend/docs/SUPPORT_MATRIX.md`](backend/docs/SUPPORT_MATRIX.md) | Soporte por sistema operativo |
+| [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) | Defaults de seguridad y gates |
+| [`backend/docs/TESTING.md`](backend/docs/TESTING.md) | Comandos de validación |
+| [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Arquitectura del sistema |
+
+---
+
+## Licencia
+
+BAGO es software propietario en su estado actual.
+
+**Permitido:**
+- Inspeccionar el código fuente público.
+- Ejecutar validación local.
+- Enviar issues o cambios propuestos a través de GitHub.
+
+**No permitido sin permiso escrito:**
+- Redistribuir BAGO como paquete competidor.
+- Vender copias alojadas o empaquetadas.
+- Eliminar la atribución.
+- Extraer assets de release privados para distribución de terceros.
+
+La línea de release actual permanece propietaria.

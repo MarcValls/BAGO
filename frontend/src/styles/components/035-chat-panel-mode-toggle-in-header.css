@@ -1,0 +1,9 @@
+/* Chat panel mode toggle (in header) */
+.chat-panel-toggle { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.02); }
+.chat-panel-toggle button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--text-3); cursor: pointer; }
+.chat-panel-toggle button:hover { color: var(--text); background: var(--surface-2); }
+.chat-panel-toggle button.is-active { background: var(--accent-soft); color: var(--text); }
+.chat-panel-toggle button svg { width: 16px; height: 16px; }
+
+.app-root.mode-review .chat-panel-toggle { display: none; }
+.app-root.mode-focus .chat-panel-toggle { display: none; }

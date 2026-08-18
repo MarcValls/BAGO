@@ -1,0 +1,28 @@
+{
+  "contract_version": "bago.reflexive.rules.v1",
+  "description": "Reglas configurables del Interprete Reflexivo. El backend es autoridad; la UI solo consume resultados.",
+  "interrogative_markers": [
+    ["por que", "cause", "causa o justificacion solicitada"],
+    ["para que", "purpose", "finalidad solicitada"],
+    ["como", "method", "metodo o procedimiento solicitado"],
+    ["que", "concept", "concepto o entidad solicitada"],
+    ["cual", "selection", "seleccion entre opciones"],
+    ["cuales", "selection_set", "conjunto de opciones"],
+    ["quien", "agent", "persona o agente"],
+    ["cuando", "time", "momento o secuencia temporal"],
+    ["donde", "place", "ubicacion o ambito"],
+    ["cuanto", "amount", "cantidad o medida"]
+  ],
+  "objective_hints": {
+    "formalizar": ["formula", "matematica", "formaliza", "formalizo", "formalizar", "formalizacion", "logica", "representacion", "representar", "traduce", "traducir", "traducirias"],
+    "implementar": ["implementa", "haz", "hazlo", "crea", "construye", "genera", "desarrolla", "fusiona", "sustituye"],
+    "analizar": ["analiza", "revisa", "inspecciona", "compara", "audita", "evalua"],
+    "explicar": ["explica", "entiende", "comprende", "aclara", "define"],
+    "decidir": ["elige", "decide", "prioriza", "selecciona"],
+    "demostrar": ["demuestra", "prueba", "verifica", "certifica", "evidencia"],
+    "optimizar": ["optimiza", "mejora", "reduce", "maximiza", "minimiza"],
+    "predecir": ["predice", "estima", "anticipa", "pronostica"]
+  },
+  "deictic_terms": ["esto", "eso", "aquello", "aqui", "ahi", "anterior", "lo anterior", "esa cosa", "esta cosa"],
+  "self_reference_terms": ["pregunta", "esta pregunta", "lo que te estoy preguntando", "interpretacion", "comprension", "formalizacion", "metacognicion", "autorreferencia", "proceso de interpretar", "respuesta parece correcta"]
+}

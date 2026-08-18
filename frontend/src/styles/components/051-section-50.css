@@ -1,0 +1,70 @@
+/* WorkspaceActionsMenu: el ⋯ que reúne las acciones secundarias
+   (expandir/contraer, releer, fuentes, copiar ruta, estado). */
+.workspace-actions-menu { position: relative; }
+.workspace-actions-menu > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.workspace-actions-menu > summary::-webkit-details-marker { display: none; }
+.workspace-actions-menu[open] > summary { border-color: rgba(103,136,247,.5); color: var(--text); }
+.workspace-actions-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  max-height: min(360px, calc(100vh - 140px));
+  overflow: auto;
+  box-shadow: 0 12px 28px rgba(0,0,0,.45);
+}
+.workspace-actions-menu-section { display: grid; gap: 1px; }
+.workspace-actions-menu-title {
+  display: block;
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 4px 2px;
+}
+.workspace-actions-menu-section button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.workspace-actions-menu-section button:hover { background: var(--surface-2); color: var(--text); }
+.workspace-actions-menu-section button:disabled { opacity: .5; cursor: not-allowed; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

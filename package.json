@@ -1,111 +1,30 @@
 {
-  "name": "bago-installation-manager",
-  "version": "4.6.4",
+  "name": "bago-monorepo",
+  "version": "4.9.0",
   "private": true,
-  "description": "Electron packaged installation manager for BAGO.",
-  "main": "electron/main.cjs",
-  "author": "BAGO",
-  "license": "UNLICENSED",
+  "description": "BAGO monorepo (frontend + backend + electron viewer)",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
-    "manager:build-ui": "npm --prefix ui-react ci --ignore-scripts --no-audit --no-fund && npm --prefix ui-react run build",
-    "premanager:pack": "npm run manager:build-ui",
-    "premanager:dist": "npm run manager:build-ui",
-    "manager:dev": "electron .",
-    "manager:pack": "electron-builder --dir",
-    "manager:dist": "electron-builder --win nsis",
-    "manager:test-jobs": "node tests/test_release_job_manager.cjs",
-    "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
+    "postinstall": "node scripts/postinstall.cjs",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 start",
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 start",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 stop",
+    "restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 restart",
+    "status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 status",
+    "logs": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 logs",
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 build",
+    "typecheck": "npm run typecheck --workspace frontend",
+    "test:frontend": "npm run test --workspace frontend",
+    "backend": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 backend",
+    "electron": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 electron",
+    "sh:dev": "bash scripts/dev.sh start",
+    "sh:stop": "bash scripts/dev.sh stop",
+    "sh:status": "bash scripts/dev.sh status"
   },
-  "build": {
-    "appId": "com.bago.installation-manager",
-    "productName": "BAGO Installation Manager",
-    "artifactName": "BAGO-Installation-Manager-${version}-${os}-${arch}.${ext}",
-    "asar": true,
-    "asarUnpack": [
-      "bago_core/**/*",
-      ".bago/**/*",
-      "scripts/**/*",
-      "tools/**/*",
-      "docs/**/*",
-      "ui-react/package.json",
-      "ui-react/package-lock.json",
-      "ui-react/index.html",
-      "ui-react/vite.config.js",
-      "ui-react/src/**/*",
-      "ui-react/dist/**/*",
-      "install-v4.ps1",
-    "install-remote.ps1",
-    "bago.ps1",
-    "bago.cmd",
-    "bago.sh",
-    "versions.json",
-    "release_version.txt",
-    "MODEL_PARALLEL_SETUP.md",
-    "AUDIT_PARALLEL_SETUP.md",
-    "release/v4/bago-v4.6.4.zip"
-    ],
-    "files": [
-      "electron/**/*",
-      "manager/**/*",
-      "bago.ico",
-      "assets/**/*",
-      "bago_core/**/*",
-      ".bago/core/**/*",
-      ".bago/chat/**/*",
-      ".bago/knowledge/**/*",
-      ".bago/providers/**/*",
-      ".bago/api/**/*",
-      ".bago/tools/**/*",
-      "docs/**/*",
-      "scripts/**/*",
-      "tools/**/*",
-      "ui-react/package.json",
-      "ui-react/package-lock.json",
-      "ui-react/index.html",
-      "ui-react/vite.config.js",
-      "ui-react/src/**/*",
-      "ui-react/dist/**/*",
-      "install-v4.ps1",
-      "install-remote.ps1",
-      "bago.ps1",
-      "bago.cmd",
-      "bago.sh",
-      "versions.json",
-      "release_version.txt",
-      "MODEL_PARALLEL_SETUP.md",
-      "AUDIT_PARALLEL_SETUP.md",
-      "release/v4/bago-v4.6.4.zip"
-    ],
-    "directories": {
-      "output": "dist"
-    },
-    "win": {
-      "icon": "bago.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "BAGO Installation Manager"
-    }
-  },
-  "devDependencies": {
-    "electron": "42.3.0",
-    "electron-builder": "26.8.1",
-    "playwright": "^1.60.0"
-  },
-  "overrides": {
-    "form-data": "4.0.6",
-    "undici": "7.28.0"
-  }
+  "workspaces": [
+    "frontend",
+    "electron-viewer"
+  ]
 }

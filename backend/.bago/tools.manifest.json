@@ -1,0 +1,167 @@
+{
+  "version": "3",
+  "generated_by": "auto",
+  "tool_count": 32,
+  "tools": {
+    "auto_heal": {
+      "file": "auto_heal.py",
+      "sha256": "5d2c05449b8d128354c2b27b060d0935996ba38c7dd0192bbb3b448f87b7492c",
+      "cmd": "auto-heal"
+    },
+    "code_metrics": {
+      "file": "code_metrics.py",
+      "sha256": "31b1b2d460f0d6822d3791f10df90fe8fdf9ca04fb70df34eb49dac3ac3411af",
+      "cmd": "code-metrics"
+    },
+    "commit_readiness": {
+      "file": "commit_readiness.py",
+      "sha256": "191ed162f730fdadb6b49285203b7e5b173049f46ed8e4ef877c2cfc85947b6c",
+      "cmd": "commit-readiness"
+    },
+    "dead_code": {
+      "file": "dead_code.py",
+      "sha256": "521c4492f5fe2ac6b6152ce4e3a1f53850d6c87ed4fdcd712c1dc9b4ef39dc3f",
+      "cmd": "dead-code"
+    },
+    "debt_guard": {
+      "file": "debt_guard.py",
+      "sha256": "c1bd16150155a04b35676004949470f733b515f919d9b1b034ccffd7656d4bd5",
+      "cmd": "debt-guard"
+    },
+    "debt_scanner": {
+      "file": "debt_scanner.py",
+      "sha256": "f6a453914cfafb3d733f6efe55d87445fb318d393038f51afdcd5ceb3697c11f",
+      "cmd": "debt-scanner"
+    },
+    "dep_audit": {
+      "file": "dep_audit.py",
+      "sha256": "132a0dcbd51e36600c1dc1d0bfe7e35e70e39ac1365bc27e7f76dc004d1cd0db",
+      "cmd": "dep-audit"
+    },
+    "dir_list": {
+      "file": "dir_list.py",
+      "sha256": "6dee2932ed154b73d26edea7141de16f2b548ed41fd4003c60ca0d77096b02a5",
+      "cmd": "dir-list"
+    },
+    "doctor": {
+      "file": "doctor.py",
+      "sha256": "242f60bcf887e92ea9bdb5870af8d1fe3794dfb01945f1fa5ecf1569c83afb6e",
+      "cmd": "doctor"
+    },
+    "file_edit": {
+      "file": "file_edit.py",
+      "sha256": "93f380eaffd0b14cdcbc70b0bb61e9d4420aaea35b907db90063cfd5e1349a46",
+      "cmd": "file-edit"
+    },
+    "file_read": {
+      "file": "file_read.py",
+      "sha256": "0d6956d3205182040cd6593262c81d40ad8daa0a71d5864bca1cc5cb884326ee",
+      "cmd": "file-read"
+    },
+    "file_write": {
+      "file": "file_write.py",
+      "sha256": "3a9c06d3011f53cad252b1829d1914d874a9aca89036a44d6137ff1c3a84fa1d",
+      "cmd": "file-write"
+    },
+    "find_dependents": {
+      "file": "find_dependents.py",
+      "sha256": "5eeb8bc292da876de906a72db08a3ea30b24a87524723b922bf95597b586471c",
+      "cmd": "find-dependents"
+    },
+    "find_references": {
+      "file": "find_references.py",
+      "sha256": "f1f5aa23284ae40ad2a81b05b0ec763f421f4a2329c40c79607d8adc789a7813",
+      "cmd": "find-references"
+    },
+    "forced_dependency_scan": {
+      "file": "forced_dependency_scan.py",
+      "sha256": "6a3e204908a4f9fccfc78d93b1570d1fbceb0fe00ce51e8c6f91ad8a60312636",
+      "cmd": "forced-dependency-scan"
+    },
+    "git_context": {
+      "file": "git_context.py",
+      "sha256": "963cd52eac57c4b858bd77e0fc919b3fc787747b1d1a3d466b366eaf4d090904",
+      "cmd": "git-context"
+    },
+    "harmony_gate": {
+      "file": "harmony_gate.py",
+      "sha256": "cb466be3c9e65d1b8d9b3b98e07c3e5b7d2444cd83f45b9e1334366a2658ad77",
+      "cmd": "harmony-gate"
+    },
+    "issues_take": {
+      "file": "issues_take.py",
+      "sha256": "bb62b041b4e61b202161a007bbf7204fe089fa18b65253380cb0d54645f347ca",
+      "cmd": "issues-take"
+    },
+    "naming_check": {
+      "file": "naming_check.py",
+      "sha256": "f479d12740a19daca3085ff88899dcd000f6054cc2dd17b4c65501f93b4064c9",
+      "cmd": "naming-check"
+    },
+    "net_scan": {
+      "file": "net_scan.py",
+      "sha256": "fb8352413553b2cc8157d760e8b703b64e696ce09a327d458fef8f74c0d84ec2",
+      "cmd": "net-scan"
+    },
+    "project_memory": {
+      "file": "project_memory.py",
+      "sha256": "63560cbdd4e6ae9203727614395bd93dd07956beced347f96b55316732ca5d15",
+      "cmd": "project-memory"
+    },
+    "project_scaffold": {
+      "file": "project_scaffold.py",
+      "sha256": "de759292e2693305109a64b4aa145f6d4cf0abcc6998826356e88dca746b9df3",
+      "cmd": "project-scaffold"
+    },
+    "read_git_diff": {
+      "file": "read_git_diff.py",
+      "sha256": "d53be19fec2beea18d3fb5e8b2141d24b259eb74ffd13a3f96fbf2363bfacf7e",
+      "cmd": "read-git-diff"
+    },
+    "read_lines": {
+      "file": "read_lines.py",
+      "sha256": "a475adcb36ce0b4527578b1e5faf260831a547fde149b1ebd1cfb0d464e00bfe",
+      "cmd": "read-lines"
+    },
+    "read_repository_map": {
+      "file": "read_repository_map.py",
+      "sha256": "f3f9c3b079b7720335bf111031806cd97774ec46ea0f9d2120bb23ce6fec2f0c",
+      "cmd": "read-repository-map"
+    },
+    "search_symbol": {
+      "file": "search_symbol.py",
+      "sha256": "ffef8d83f0d61a7dca03f65780fb17990da95fb9b6a7d40fa02f5cb704dc69aa",
+      "cmd": "search-symbol"
+    },
+    "search_text": {
+      "file": "search_text.py",
+      "sha256": "1c3d13032b8d2c12e7cdb56b8714f403ad0cbd4b5e290abedb158a524b7b4b4b",
+      "cmd": "search-text"
+    },
+    "secret_scan": {
+      "file": "secret_scan.py",
+      "sha256": "c923b3311c5065609aee827d414823d2e696ec088aac2a7292cff22bb6568604",
+      "cmd": "secret-scan"
+    },
+    "sincerity_detector": {
+      "file": "sincerity_detector.py",
+      "sha256": "9fa5e0462701646736f9cabe39fe532e91bc9f46d6f23e9ad15424fd03e8b374",
+      "cmd": "sincerity-detector"
+    },
+    "todo_scan": {
+      "file": "todo_scan.py",
+      "sha256": "21b6abada6e231f2bdd703fdfbe00a3242a99c6f9981350c5e3dafdc72e9db7f",
+      "cmd": "todo-scan"
+    },
+    "token_rotation_guard": {
+      "file": "token_rotation_guard.py",
+      "sha256": "67bddebc09091ea45ea2f7b472a98912f17b01d62b5da997924b14b9cbf3f3ba",
+      "cmd": "token-rotation-guard"
+    },
+    "validate_syntax": {
+      "file": "validate_syntax.py",
+      "sha256": "801341aeec1ba38418fc44ca3f06397b9d8b5915a5592d8c51b2bd4ebb31e4f0",
+      "cmd": "validate-syntax"
+    }
+  }
+}

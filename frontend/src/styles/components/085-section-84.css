@@ -1,0 +1,12 @@
+/* Contexto: el contenido de la tarea es el protagonista. Estado arriba,
+   identificadores operativos abajo, sin otra tarjeta intermedia. */
+.workspace-shell.section-context .workspace-shell-header { margin: 4px 22px 0; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; }
+.workspace-shell.section-context .workspace-readiness { display: flex; align-items: center; gap: 8px; width: 100%; }
+.workspace-shell.section-context .workspace-readiness-head { flex: 0 0 auto; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.workspace-shell.section-context .workspace-readiness-bar { width: 118px; height: 4px; }
+.workspace-shell.section-context .workspace-readiness-stages { flex-wrap: nowrap; gap: 4px; }
+.workspace-shell.section-context .readiness-stage { padding: 2px 5px; border: 0; background: transparent; font-size: 9px; }
+.workspace-shell.section-context .workspace-shell-header + .surface-body { min-height: 0; }
+.workspace-shell-footer { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-height: 30px; padding: 4px 22px 7px; border-top: 1px solid var(--border); background: var(--surface-glass); }
+.workspace-shell-footer .workspace-shell-chip { padding: 3px 7px; font-size: 9px; }
+.workspace-shell.section-context .task-context-page { padding-top: 8px; gap: 9px; }

@@ -1,0 +1,386 @@
+{
+  "domain_id": "repository.engineering",
+  "name": "REPOSITORY ENGINEERING",
+  "version": "0.1.1",
+  "status": "PROPOSED",
+  "kernel_contract_version": "1.0",
+  "kernel_release": "RC1",
+  "domain_spec_version": "1.2",
+  "owner_scope": null,
+  "purpose": "Definir una especialización para auditar, planificar, modificar, verificar y gobernar cambios en repositorios de software manteniendo separados canon, estado, ejecución, evidencia, proyecto y runtime.",
+  "scope": {
+    "in_scope": [
+      "resolver baseline y estado de un repositorio identificado",
+      "auditar implementación y estructura contra requisitos del repositorio",
+      "preparar y aplicar cambios autorizados",
+      "verificar cambios con checks reales del repositorio",
+      "gobernar mutaciones de canon del repositorio solo con intención y autoridad explícitas",
+      "contener o revertir efectos atribuibles a la operación",
+      "preparar handoff mínimo cuando falte autoridad, contexto, dominio o runtime"
+    ],
+    "out_of_scope": [
+      "redefinir KERNEL GLOBAL o DOMAIN SPEC",
+      "tratar proyectos o repositorios como instancias o propiedad del dominio",
+      "asumir herramientas, conectores o runtimes no expuestos",
+      "ejecutar efectos VCS destructivos o remotos de forma implícita",
+      "importar canon o estado entre proyectos por asociación",
+      "declarar ejecución, verificación, validación o conformidad sin evidencia y criterio"
+    ]
+  },
+  "sources": {
+    "canonical": [
+      "DOMAIN_CANON.md una vez aceptado explícitamente",
+      "fuentes del repositorio objetivo designadas canónicas por su propia gobernanza"
+    ],
+    "authoritative_state": [
+      "estado VCS/worktree observado en el runtime activo",
+      "fuente de estado del proyecto/repository binding explícitamente designada cuando aplique",
+      "estado CI autoritativo ligado a una revisión exacta cuando aplique"
+    ],
+    "evidence": [
+      "baseline y revisión/ref observados",
+      "diff/change set contra baseline",
+      "resultados reales de comandos, build, test, lint, typecheck o CI",
+      "before/after y registro de supersession para mutaciones de canon"
+    ],
+    "reference": [
+      "README y documentación no designada canónica",
+      "issues, PRs, comentarios de código y referencias técnicas no canónicas"
+    ],
+    "memory": [
+      "convenciones estables confirmadas y preferencias no críticas de workflow"
+    ],
+    "inference": [
+      "intención arquitectónica inferida, causa probable y remediación propuesta no confirmadas"
+    ],
+    "experimental": [
+      "spikes, parches draft y pruebas de concepto explícitamente experimentales"
+    ],
+    "unresolved": [
+      "identidad/revisión/estado actual antes de inspección",
+      "binding runtime concreto antes de resolver capacidades",
+      "autoridad de mutación de canon del repositorio cuando no esté declarada"
+    ]
+  },
+  "authority": {
+    "mutation_authority": "autoridad explícitamente competente para el canon de repository.engineering; para canon del repositorio objetivo, la autoridad declarada por ese repositorio/proyecto",
+    "state_source": "DOMAIN_STATE.md para el dominio; runtime VCS/worktree y fuente autoritativa del proyecto para el repositorio objetivo",
+    "validity_rules": [
+      "la evidencia de estado es válida solo para el repositorio, revisión/worktree y alcance capturados",
+      "SUPERSEDED, DEPRECATED y CONFLICT permanecen trazables",
+      "TASK_OVERRIDE no muta canon sin intención explícita y autoridad suficiente",
+      "cambios materiales de revisión/worktree pueden invalidar baseline o verificación previa"
+    ],
+    "equivalent_source_tiebreaker": "recencia solo después de autoridad, aplicabilidad, vigencia/sustitución y fuerza de evidencia equivalentes",
+    "conflict_escalation": "kernel o gobernanza aplicable del proyecto/repositorio cuando el conflicto material no pueda resolverse localmente"
+  },
+  "canon": {
+    "locations": [
+      "DOMAIN_CANON.md"
+    ],
+    "explicit_mutation_intent_required": true,
+    "supersession_record": "DOMAIN_CANON.md#supersession-history"
+  },
+  "operations": [
+    {
+      "operation_id": "repo.resolve_baseline",
+      "purpose": "Capturar baseline de repositorio para atribuir observaciones y cambios.",
+      "required_capabilities": [
+        "repo.read"
+      ],
+      "required_evidence": [
+        "identidad del repositorio",
+        "revisión/ref y estado cuando estén disponibles",
+        "cambios preexistentes relevantes"
+      ],
+      "product": "repository_baseline_report",
+      "closure_criterion": "Baseline suficiente para el alcance o limitaciones materiales explícitas.",
+      "failure_behavior": "BLOCKED si un hecho de baseline crítico no puede resolverse; si no es crítico, reducir alcance explícitamente.",
+      "optional_capabilities": [
+        "repo.enumerate",
+        "vcs.inspect"
+      ],
+      "any_of_capabilities": []
+    },
+    {
+      "operation_id": "repo.audit",
+      "purpose": "Auditar el repositorio contra requisitos y objetivo de ingeniería con hallazgos trazables.",
+      "required_capabilities": [
+        "repo.read"
+      ],
+      "required_evidence": [
+        "fuentes/estado/checks que soportan cada hallazgo material"
+      ],
+      "product": "repository_audit_report",
+      "closure_criterion": "Informe cubre el alcance y separa evidencia, inferencia, conflicto y siguiente acción.",
+      "failure_behavior": "Emitir informe parcial con UNRESOLVED/BLOCKED y handoff cuando la fuente crítica falte.",
+      "optional_capabilities": [
+        "repo.enumerate",
+        "command.execute"
+      ],
+      "any_of_capabilities": []
+    },
+    {
+      "operation_id": "repo.plan_change",
+      "purpose": "Preparar un cambio seguro sin ejecutarlo.",
+      "required_capabilities": [],
+      "required_evidence": [
+        "baseline/requisitos suficientes para justificar alcance y checks"
+      ],
+      "product": "repository_change_plan",
+      "closure_criterion": "Plan PREPARED con efectos, límites, verificación y recuperación definidos.",
+      "failure_behavior": "BLOCKED si objetivo o restricción canónica material queda sin resolver.",
+      "optional_capabilities": [
+        "repo.read"
+      ],
+      "any_of_capabilities": []
+    },
+    {
+      "operation_id": "repo.apply_change",
+      "purpose": "Aplicar cambios autorizados preservando estado no relacionado.",
+      "required_capabilities": [
+        "repo.write"
+      ],
+      "required_evidence": [
+        "baseline",
+        "diff/change set real post-write"
+      ],
+      "product": "repository_change_set",
+      "closure_criterion": "Cambio EXECUTED y atribuible; VERIFIED solo si la evidencia confirma el change set exacto.",
+      "failure_behavior": "Detener y contener/handoff ante solapamiento, write parcial o efecto fuera de scope.",
+      "optional_capabilities": [
+        "repo.read",
+        "vcs.inspect"
+      ],
+      "any_of_capabilities": []
+    },
+    {
+      "operation_id": "repo.verify_change",
+      "purpose": "Ejecutar y documentar checks reales sobre un change set/revisión exacta.",
+      "required_capabilities": [],
+      "required_evidence": [
+        "invocación y resultado real de cada check",
+        "objetivo exacto de verificación",
+        "checks no ejecutados"
+      ],
+      "product": "repository_verification_report",
+      "closure_criterion": "Claims de verificación reconstruibles y limitados a checks realmente ejecutados.",
+      "failure_behavior": "Distinguir FAIL, BLOCKED y NOT_RUN; no promover a VALIDATED.",
+      "optional_capabilities": [
+        "repo.read",
+        "vcs.inspect"
+      ],
+      "any_of_capabilities": [
+        "command.execute",
+        "remote.check.read"
+      ]
+    },
+    {
+      "operation_id": "repo.govern_change",
+      "purpose": "Mutar canon/gobernanza del repositorio con intención y autoridad explícitas.",
+      "required_capabilities": [
+        "repo.read",
+        "repo.write"
+      ],
+      "required_evidence": [
+        "autoridad",
+        "canon before/after",
+        "versión/supersession"
+      ],
+      "product": "repository_governance_change_record",
+      "closure_criterion": "Mutación ejecutada y trazable; VERIFIED solo con evidencia exacta; VALIDATED solo con criterio de aceptación.",
+      "failure_behavior": "BLOCKED si autoridad, canon o versionado son UNRESOLVED; preparar propuesta sin aplicar cuando sea útil.",
+      "optional_capabilities": [
+        "vcs.mutate"
+      ],
+      "any_of_capabilities": []
+    },
+    {
+      "operation_id": "repo.contain_or_rollback",
+      "purpose": "Contener o revertir efectos atribuibles sin destruir trabajo no relacionado.",
+      "required_capabilities": [],
+      "required_evidence": [
+        "baseline",
+        "change set atribuible",
+        "estado final"
+      ],
+      "product": "repository_containment_report",
+      "closure_criterion": "Efectos atribuibles contenidos/restaurados y estado residual explícito.",
+      "failure_behavior": "BLOCKED si no puede aislarse de forma segura el efecto atribuible.",
+      "optional_capabilities": [],
+      "any_of_capabilities": [
+        "repo.write",
+        "vcs.mutate"
+      ]
+    },
+    {
+      "operation_id": "repo.prepare_handoff",
+      "purpose": "Transferir contexto mínimo para continuar la operación en otra autoridad/dominio/runtime.",
+      "required_capabilities": [],
+      "required_evidence": [
+        "referencias a evidencia existente"
+      ],
+      "product": "repository_handoff_packet",
+      "closure_criterion": "Handoff PREPARED con destino, razón, pendiente, contexto mínimo, conflictos y next action.",
+      "failure_behavior": "Handoff mínimo al kernel si el destino final no puede resolverse.",
+      "optional_capabilities": [],
+      "any_of_capabilities": []
+    }
+  ],
+  "products": [
+    {
+      "name": "repository_baseline_report",
+      "acceptance_criterion": "Identifica repositorio y estado inicial suficiente para la atribución declarada.",
+      "verification_scope": "REPOSITORY_BASELINE"
+    },
+    {
+      "name": "repository_audit_report",
+      "acceptance_criterion": "Cada hallazgo material es trazable y la incertidumbre está explícita.",
+      "verification_scope": "AUDIT_SCOPE"
+    },
+    {
+      "name": "repository_change_plan",
+      "acceptance_criterion": "Plan ejecutable en principio sin capacidades ni autoridad ficticias.",
+      "verification_scope": "PREPARED_ONLY"
+    },
+    {
+      "name": "repository_change_set",
+      "acceptance_criterion": "El change set coincide con el objetivo autorizado y excluye cambios no relacionados.",
+      "verification_scope": "CHANGE_SET"
+    },
+    {
+      "name": "repository_verification_report",
+      "acceptance_criterion": "Cada claim deriva de checks reales ligados al target exacto y distingue not-run/fail/pass.",
+      "verification_scope": "ENUMERATED_CHECK_SCOPES"
+    },
+    {
+      "name": "repository_governance_change_record",
+      "acceptance_criterion": "Mutación explícita, autorizada, versionada y trazable con before/after.",
+      "verification_scope": "GOVERNANCE_MUTATION"
+    },
+    {
+      "name": "repository_containment_report",
+      "acceptance_criterion": "Efectos atribuibles contenidos/restaurados sin ocultar estado residual.",
+      "verification_scope": "CONTAINMENT_SCOPE"
+    },
+    {
+      "name": "repository_handoff_packet",
+      "acceptance_criterion": "Transfiere contexto mínimo suficiente sin herencia de canon ni historial innecesario.",
+      "verification_scope": "PREPARED_ONLY"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "repo.read",
+      "dependency": "runtime filesystem/repository connector",
+      "availability_condition": "el runtime expone lectura sobre el repositorio identificado",
+      "fallback": "usar material aportado con scope reducido o BLOCKED si el estado actual es material"
+    },
+    {
+      "id": "repo.enumerate",
+      "dependency": "runtime filesystem/repository connector",
+      "availability_condition": "el runtime expone enumeración del repositorio",
+      "fallback": "usar paths aportados o BLOCKED si el inventario es material"
+    },
+    {
+      "id": "vcs.inspect",
+      "dependency": "binding VCS apropiado al repositorio",
+      "availability_condition": "metadatos VCS y mecanismo de inspección disponibles",
+      "fallback": "baseline file-only con alcance de verificación reducido"
+    },
+    {
+      "id": "repo.write",
+      "dependency": "writable filesystem/repository connector",
+      "availability_condition": "el runtime expone write/patch en el scope autorizado",
+      "fallback": "producir patch/especificación PREPARED sin afirmar ejecución"
+    },
+    {
+      "id": "command.execute",
+      "dependency": "command-capable runtime",
+      "availability_condition": "el runtime expone ejecución autorizada de comandos",
+      "fallback": "preparar comandos/checks y marcar ejecución NOT_RUN/BLOCKED"
+    },
+    {
+      "id": "vcs.mutate",
+      "dependency": "VCS mutation runtime binding",
+      "availability_condition": "capacidad concreta de mutación VCS expuesta y autorizada",
+      "fallback": "PREPARED instructions o handoff; nunca simular mutación"
+    },
+    {
+      "id": "remote.check.read",
+      "dependency": "remote repository/CI connector or API binding",
+      "availability_condition": "connector/API disponible y autorizado para la revisión objetivo",
+      "fallback": "verificación local con scope más estrecho"
+    }
+  ],
+  "runtime_bindings": [],
+  "routing": {
+    "positive_signals": [
+      "auditar, modificar, refactorizar, arreglar, verificar o gobernar un repositorio/software codebase concreto",
+      "resolver baseline, revisión, diff o estado de worktree para una operación de ingeniería",
+      "ejecutar checks reales de build/test/lint/typecheck/CI sobre un cambio de repositorio"
+    ],
+    "negative_signals": [
+      "pregunta conceptual de programación sin objeto repositorio",
+      "tarea primaria de otro dominio sin operación de repositorio",
+      "petición que exige autoridad o alcance fuera del repositorio autorizado"
+    ],
+    "ambiguous_cases": [
+      "revisión de código pegado sin estado de repositorio",
+      "pregunta educativa sobre Git/GitHub",
+      "vulnerabilidad de dependencia que puede requerir dominio especialista"
+    ],
+    "handoff_targets": [
+      "kernel",
+      "gobernanza aplicable del proyecto/repositorio",
+      "dominio especialista aplicable",
+      "runtime/operator con el binding requerido"
+    ]
+  },
+  "memory_policy": {
+    "allowed_candidates": [
+      "convenciones estables confirmadas del repositorio",
+      "preferencias recurrentes no críticas de workflow/reporting"
+    ],
+    "requires_source_refresh": [
+      "branch/ref/HEAD/worktree actual antes de efectos materiales",
+      "canon del repositorio antes de operaciones que dependan de él",
+      "autoridad de mutación antes de repo.govern_change",
+      "disponibilidad de runtime binding antes de ejecución"
+    ],
+    "forbidden_local": [
+      "canon como verdad derivada solo de memoria",
+      "estado operativo actual como verdad derivada solo de memoria",
+      "evidencia de ejecución o resultados de checks como verdad derivada solo de memoria"
+    ]
+  },
+  "relations": [],
+  "project_bindings": [],
+  "conformance": {
+    "kernel_contract_version": "1.0",
+    "kernel_release": "RC1",
+    "spec_version": "1.2",
+    "test_version": "1.2",
+    "result": "NOT_RUN"
+  },
+  "capability_requirement_semantics": {
+    "required_capabilities": "all listed capabilities are unconditionally required together",
+    "optional_capabilities": "capabilities usable when needed; absence does not by itself block the operation",
+    "any_of_capabilities": "at least one listed capability must provide the selected execution path; more than one may be used"
+  },
+  "version_history": [
+    {
+      "version": "0.1.0",
+      "status": "SUPERSEDED",
+      "cause": "replaced by v0.1.1 documentary consistency correction",
+      "conformance": "NOT_RUN"
+    },
+    {
+      "version": "0.1.1",
+      "status": "PROPOSED",
+      "package_state": "PREPARED",
+      "cause": "close capability, operation-manifest, evidence-scope, package-boundary and version-traceability divergences",
+      "conformance": "NOT_RUN"
+    }
+  ]
+}
