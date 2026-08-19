@@ -880,7 +880,7 @@ export function ContextTreeModule(props: Props) {
           </div>
           <div className="context-confirm-banner-actions">
             <button type="button" className="secondary-button compact" onClick={() => void resolvePendingConfirm(false)}>Cancelar</button>
-            <button type="button" className="primary-button compact" onClick={() => void resolvePendingConfirm(true)}>Confirmar</button>
+            <button type="button" className="primary-button compact" autoFocus onClick={() => void resolvePendingConfirm(true)}>Confirmar</button>
           </div>
         </div>
       )}
