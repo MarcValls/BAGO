@@ -490,7 +490,22 @@ function toast(msg, ms=2200) {
 }
 
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function escJsSingleQuoted(s) {
+  return String(s||'')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
 /* ── Server check ── */
@@ -1080,7 +1095,7 @@ function renderExportarPanel() {
       <div class="stat-row"><span class="stat-label">Notas</span><span class="stat-val">${(ST.transposedXml.match(/<pitch>/g) || []).length}</span></div>
     </div>
 
-    <button class="btn btn-primary" onclick="downloadXml('${esc(fname)}')" style="margin-bottom:8px">
+    <button class="btn btn-primary" onclick="downloadXml('${escJsSingleQuoted(fname)}')" style="margin-bottom:8px">
       ⬇️ Descargar MusicXML
     </button>
     <button class="btn btn-secondary" onclick="copyXml()" style="margin-bottom:8px">
