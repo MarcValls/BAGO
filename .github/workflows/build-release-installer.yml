@@ -19,7 +19,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
 
       - name: Ensure NSIS is available
         shell: pwsh
@@ -215,7 +221,7 @@ jobs:
           Set-Content -Path (Join-Path $PWD "releases/bago-$version-setup.exe.sha256") -Value $hash
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bago-setup-${{ inputs.release_tag }}
           path: |

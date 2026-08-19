@@ -30,7 +30,11 @@ const LABELS: Record<string, string> = {
   refused: 'Rechazado',
   high: 'Alto',
   unknown: '—',
-  none: '—'
+  none: '—',
+  missing: 'Sin datos',
+  not_configured: 'Sin configurar',
+  not_observed: 'No confirmada',
+  unlinked: 'Sin vincular'
 };
 
 export function quietStatus(value: string | null | undefined): string {

@@ -4,10 +4,10 @@ import { createShellActions, NAVIGATION_GROUPS, NAVIGATION_ORDER, resolveNavigat
 describe('canonical shell action registry', () => {
   it('uses the same product order for sidebar, shortcuts and palette', () => {
     expect(NAVIGATION_ORDER).toEqual([
-      'home', 'chat', 'workspace', 'context', 'pipeline', 'evidence', 'system', 'agents', 'interpreter', 'github-auth'
+      'home', 'chat', 'workspace', 'context', 'pipeline', 'evidence', 'system', 'agents', 'interpreter', 'github-auth', 'capabilities', 'tools'
     ]);
     expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.shortcut))).toEqual([
-      'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9', 'Ctrl+0'
+      'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9', 'Ctrl+0', 'Ctrl+-', 'Ctrl+='
     ]);
     expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.label))).toContain('Operaciones');
   });

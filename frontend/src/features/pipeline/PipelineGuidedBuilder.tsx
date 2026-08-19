@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon, type IconName } from '@/shared/Icon';
 import { PIPELINE_TASK_MAX_LENGTH } from '@/shared/inputLimits';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 interface PipelineTemplate {
   id: string;
@@ -85,6 +86,13 @@ export function PipelineGuidedBuilder(props: Props) {
         ? !scheduleEnabled || scheduleConfirmed
         : true;
 
+  const continueHint = stage < STAGES.length - 1 && !canAdvance ? (
+    stage === 0 ? 'Describe el objetivo para continuar.'
+    : stage === 2 ? 'Corrige el JSON de variables.'
+    : stage === 5 ? 'Confirma la programación o desmárcala.'
+    : null
+  ) : null;
+
   const create = async () => {
     const objective = props.task.trim();
     if (!objective || !variables) return;
@@ -118,7 +126,7 @@ export function PipelineGuidedBuilder(props: Props) {
       }
       props.onCreated();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo crear el Pipeline.');
+      setError(friendlyErrorMessage(cause, 'No se pudo crear el Pipeline.'));
     } finally {
       setBusy(false);
     }
@@ -151,5 +159,6 @@ export function PipelineGuidedBuilder(props: Props) {
 
     {error && <div className="system-tool-message is-error" role="alert">{error}</div>}
     <footer><button className="secondary-button" type="button" disabled={stage === 0 || busy} onClick={() => setStage((current) => Math.max(0, current - 1))}>Atrás</button>{stage < STAGES.length - 1 ? <button className="primary-button" type="button" disabled={!canAdvance || busy} onClick={() => setStage((current) => Math.min(STAGES.length - 1, current + 1))}>Continuar <Icon name="chevron" size={14} /></button> : <button className="primary-button" type="button" disabled={busy || !props.task.trim() || variables === null || (scheduleEnabled && !scheduleConfirmed)} onClick={() => void create()}><Icon name="pipeline" size={15} /> {busy ? 'Creando…' : props.hasSteps ? 'Crear nuevo plan' : 'Generar Pipeline'}</button>}</footer>
+    {continueHint && <p className="pipeline-builder-footer-hint" aria-live="polite">{continueHint}</p>}
   </section>;
 }

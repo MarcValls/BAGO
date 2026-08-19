@@ -58,6 +58,16 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+.chat-composer-blocked-hint {
+  min-width: 0;
+  padding: 0 8px;
+  color: var(--red);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .chat-send-button {
   display: inline-flex;
   align-items: center;
