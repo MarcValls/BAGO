@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BAGO Android Mini Manager</title>
+  <link rel="icon" href="../../assets/bago-wasp.svg">
+  <link rel="stylesheet" href="./android.css">
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div class="brand">
+        <img src="../../assets/bago-wasp.svg" alt="BAGO">
+        <div>
+          <h1>BAGO Android Mini</h1>
+          <p>Gestor minimo para Android con providers no-locales.</p>
+        </div>
+      </div>
+      <a class="link" href="../index.html">Abrir gestor completo</a>
+    </header>
+
+    <section class="card">
+      <h2>Provider cloud</h2>
+      <p class="muted">Esta vista Android usa OpenRouter y Codex (OpenAI). Anthropic en web movil requiere proxy por CORS.</p>
+      <label>Provider
+        <select id="provider-select">
+          <option value="openrouter">openrouter</option>
+          <option value="codex">codex (OpenAI)</option>
+        </select>
+      </label>
+      <label>Modelo
+        <input id="model-input" type="text" placeholder="modelo">
+      </label>
+      <label>Endpoint
+        <input id="endpoint-input" type="text" placeholder="https://...">
+      </label>
+      <div class="actions">
+        <button id="save-config-btn">Guardar configuracion</button>
+        <button id="health-btn">Probar conexion</button>
+      </div>
+      <p id="status-box" class="status"></p>
+    </section>
+
+    <section class="card">
+      <h2>Compatibilidad por capas</h2>
+      <p class="muted">Capas: runtime, provider, network, security y UI. Puedes cargar el JSON de <code>bago android layers --json</code>.</p>
+      <div class="actions">
+        <button id="layers-refresh-btn">Recalcular capas web</button>
+        <button id="layers-load-cli-btn">Cargar JSON CLI</button>
+      </div>
+      <label>Salida JSON de CLI (opcional)
+        <textarea id="layers-json-input" rows="5" placeholder='Pega aqui la salida de: bago android layers --json'></textarea>
+      </label>
+      <pre id="layers-box" class="output">Sin diagnostico de capas.</pre>
+    </section>
+
+    <section class="card">
+      <h2>Credencial (solo sesion)</h2>
+      <p class="muted">La API key no se guarda en localStorage. Solo queda en esta pestana (sessionStorage).</p>
+      <label>API key
+        <input id="api-key-input" type="password" placeholder="pega tu API key">
+      </label>
+      <div class="actions">
+        <button id="save-key-btn">Guardar en sesion</button>
+        <button id="clear-key-btn">Borrar clave</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Prompt rapido</h2>
+      <label>Mensaje
+        <textarea id="prompt-input" rows="6" placeholder="Escribe una tarea para BAGO Mini..."></textarea>
+      </label>
+      <div class="actions">
+        <button class="primary" id="send-btn">Enviar</button>
+      </div>
+      <pre id="response-box" class="output">Respuesta vacia.</pre>
+    </section>
+
+    <section class="card">
+      <h2>Comandos Termux</h2>
+      <p class="muted">Para BAGO CLI en Android (Termux), sin providers locales.</p>
+      <pre id="termux-box" class="output"></pre>
+      <div class="actions">
+        <button id="copy-termux-btn">Copiar comandos</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Dependencias Android</h2>
+      <ul class="muted">
+        <li>WebView/Chrome Android: <a class="link" href="https://play.google.com/store/apps/details?id=com.google.android.webview" target="_blank" rel="noopener">Android System WebView</a></li>
+        <li>CLI Android: <a class="link" href="https://termux.dev/en/" target="_blank" rel="noopener">Termux</a></li>
+        <li>Python (Termux): <a class="link" href="https://wiki.termux.com/wiki/Python" target="_blank" rel="noopener">wiki.termux.com/wiki/Python</a></li>
+        <li>Git (Termux): <a class="link" href="https://wiki.termux.com/wiki/Git" target="_blank" rel="noopener">wiki.termux.com/wiki/Git</a></li>
+        <li>OpenRouter key: <a class="link" href="https://openrouter.ai/docs/quickstart" target="_blank" rel="noopener">openrouter.ai/docs/quickstart</a></li>
+        <li>OpenAI key (Codex): <a class="link" href="https://platform.openai.com/docs/quickstart" target="_blank" rel="noopener">platform.openai.com/docs/quickstart</a></li>
+      </ul>
+    </section>
+  </main>
+  <script src="./android.js"></script>
+</body>
+</html>

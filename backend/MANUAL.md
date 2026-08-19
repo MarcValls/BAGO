@@ -117,6 +117,52 @@ Capturas del gestor:
 - CLI: `docs/evidence/manual/captures/bago-profiles-cli.png`
 - UI: `docs/evidence/manual/captures/bago-ui-index.png`
 
+### Android minimo (providers no locales)
+
+Para Android, BAGO 4.3.0 incluye una vista web minima:
+
+- `manager/android/index.html`
+- preparada para `openrouter` y `codex` (OpenAI)
+- sin dependencia de Electron
+
+Dependencias Android (calculadas):
+
+| Dependencia | Obligatoria | Uso | Enlace |
+|---|---|---|---|
+| Android System WebView / Chrome | Sí (UI web) | Ejecutar el gestor `manager/android/index.html` | https://play.google.com/store/apps/details?id=com.google.android.webview |
+| Termux | Sí (CLI Android) | Ejecutar comandos `bago` dentro de Android | https://termux.dev/en/ |
+| Python 3.11+ (pkg Termux) | Sí (CLI core) | Ejecutar `bago_core/cli.py` y `bago android ...` | https://wiki.termux.com/wiki/Python |
+| Git (pkg Termux) | Sí (instalación fuente) | Clonar y actualizar BAGO en Android | https://wiki.termux.com/wiki/Git |
+| OPENROUTER_API_KEY | Opcional (provider) | Provider cloud principal en Android Mini | https://openrouter.ai/docs/quickstart |
+| OPENAI_API_KEY (Codex) | Opcional (provider) | Provider cloud alternativo | https://platform.openai.com/docs/quickstart |
+| ANTHROPIC_API_KEY | Opcional (CLI) | Soportado en CLI; en web móvil requiere proxy por CORS | https://docs.anthropic.com/en/api/getting-started |
+
+Flujo recomendado en Termux:
+
+```bash
+bago android init --provider openrouter
+export OPENROUTER_API_KEY='<tu_clave>'
+bago llm start --provider openrouter --model openai/gpt-4o-mini --dry-run
+```
+
+Compatibilidad Android por capas (autónoma):
+
+```bash
+# 1) Diagnóstico por capas
+bago android layers --json
+
+# 2) Aplicar baseline Android (runtime cloud-first)
+bago android layers --provider openrouter --apply
+```
+
+Capas evaluadas:
+
+- `layer_runtime`: Termux/Python/Git listos.
+- `layer_provider`: provider cloud habilitado + credenciales mínimas.
+- `layer_network`: conectividad TCP al endpoint del provider.
+- `layer_security`: providers locales deshabilitados y arranque con selección de provider.
+- `layer_ui`: gestor Android presente en `manager/android/index.html`.
+
 ### Modo agente/headless
 
 Todo comando slash visible en `/help` debe poder ejecutarse sin interfaz interactiva:
