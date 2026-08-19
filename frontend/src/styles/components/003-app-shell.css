@@ -70,3 +70,52 @@
   height: 24px;
   padding: 0 6px;
 }
+
+/* Non-blocking confirmation banner replacing window.confirm */
+.confirm-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.confirm-banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.confirm-banner-content .icon {
+  flex-shrink: 0;
+  color: var(--amber);
+  margin-top: 1px;
+}
+.confirm-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.confirm-banner-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.confirm-banner-text span {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: pre-line;
+}
+.confirm-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}

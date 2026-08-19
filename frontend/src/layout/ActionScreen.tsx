@@ -24,8 +24,10 @@ interface ActionScreenProps {
 export function ActionScreen({ title, kind, summary, actions, onClose }: ActionScreenProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const previousActiveElement = useRef<Element | null>(null);
 
   useEffect(() => {
+    previousActiveElement.current = document.activeElement;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -43,6 +45,10 @@ export function ActionScreen({ title, kind, summary, actions, onClose }: ActionS
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('mousedown', onDocClick, true);
+      const previous = previousActiveElement.current;
+      if (previous instanceof HTMLElement && document.contains(previous) && previous !== document.body) {
+        previous.focus({ preventScroll: true });
+      }
     };
   }, [onClose]);
 
