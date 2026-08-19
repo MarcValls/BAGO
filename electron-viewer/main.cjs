@@ -111,6 +111,7 @@ function resolveRuntimePaths() {
 }
 
 let RUNTIME_PATHS = null;
+let BACKEND_HEALTHY = false;
 
 function getRuntimePaths() {
   if (!RUNTIME_PATHS) {
@@ -268,7 +269,7 @@ function createViewerWindow() {
     }
   });
 
-  if (app.isPackaged) {
+  if (BACKEND_HEALTHY) {
     win.loadURL(UI_URL);
   } else if (uiDist && fs.existsSync(uiDist)) {
     win.loadFile(uiDist).catch(() => { win.loadURL(UI_URL); });
@@ -361,13 +362,14 @@ app.whenReady().then(async () => {
       app.exit(1);
       return;
     }
-    const healthy = await waitForBackendHealth(HEALTH_URL, 30000);
-    if (!healthy) {
-      dialog.showErrorBox('BAGO: backend no disponible', 'El backend no respondió en /health dentro del tiempo esperado.');
-      runRuntimeService('stop');
-      app.exit(1);
-      return;
-    }
+  }
+  const healthy = await waitForBackendHealth(HEALTH_URL, 30000);
+  BACKEND_HEALTHY = healthy;
+  if (app.isPackaged && !healthy) {
+    dialog.showErrorBox('BAGO: backend no disponible', 'El backend no respondió en /health dentro del tiempo esperado.');
+    runRuntimeService('stop');
+    app.exit(1);
+    return;
   }
   const mainWin = createViewerWindow();
   const autoCloseSeconds = getAutoCloseSeconds();
@@ -385,8 +387,11 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Al cerrar, detiene el backend automáticamente.
+// Al cerrar, detiene el backend automáticamente solo en modo empaquetado.
+// En desarrollo el backend es gestionado por scripts/dev.ps1; de lo contrario
+// al cerrar la ventana se invocaría 'dev.ps1 stop' sobre sí mismo.
 app.on('before-quit', () => {
+  if (!app.isPackaged) return;
   if (!runRuntimeService('stop')) {
     appendRequestLog('[LIFECYCLE] backend stop command returned non-zero');
   }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { BagoClient } from '@/api/client';
 import type { GitHubAuthState } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 interface Props {
   client: BagoClient;
@@ -36,7 +37,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
       const state = await client.getGitHubAuthStatus();
       setAuthState(state);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
       await client.startGitHubAuth();
       await loadStatus();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setActionLoading(null);
     }
@@ -66,7 +67,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
       const state = await client.refreshGitHubAuth();
       setAuthState(state);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setActionLoading(null);
     }
@@ -80,7 +81,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
       await client.logoutGitHub();
       await loadStatus();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setActionLoading(null);
     }

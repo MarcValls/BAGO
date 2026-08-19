@@ -11,7 +11,6 @@ import { ControlSections } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
 import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
-import { DrawerOverlay } from '@/components/ui/DrawerOverlay';
 import { PanelHost, PANEL_WIDTHS } from '@/components/ui/PanelHost';
 import { useContextTree, type UseContextTreeState } from '@/features/context-tree/useContextTree';
 import { parseContextPatchRequests } from '@/features/context-tree/parseContextPatchRequests';
@@ -19,6 +18,7 @@ import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTyp
 import { buildSnapshot } from '@/app/bootstrapSnapshot';
 import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 import { normalizeChatResponse } from '@/shared/chatResponse';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
 import { markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
 import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
@@ -160,6 +160,7 @@ export function ControlPlane() {
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
   const [firstRunRequested, setFirstRunRequested] = useState(false);
+  const [firstRunDismissed, setFirstRunDismissed] = useState(false);
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
@@ -696,7 +697,7 @@ export function ControlPlane() {
         treeRef.refresh(),
         treeRef.refreshBank()
       ]).catch((e) => {
-        setLastMessage(`contexto recargado parcialmente: ${e instanceof Error ? e.message : String(e)}`);
+        setLastMessage(`contexto recargado parcialmente: ${friendlyErrorMessage(e)}`);
       });
 
       setLastMessage(`${sourceLabel}: ${cleanRoot}`);
@@ -1323,7 +1324,7 @@ export function ControlPlane() {
             />
           )}
 
-          <div className="app-main-area">
+          <div className={`app-main-area ${uiState.activePanel ? 'has-panel' : ''}`}>
             <div className="workspace-area">
               <WorkspaceShell
                 activeSection={uiState.activeSection}
@@ -1415,6 +1416,15 @@ export function ControlPlane() {
               </WorkspaceShell>
             </div>
 
+            {uiState.activePanel && (
+              <aside
+                className="inline-panel-host"
+                style={{ width: PANEL_WIDTHS[uiState.activePanel] ?? 400 }}
+                aria-label="Panel lateral"
+              >
+                <PanelHost panelId={uiState.activePanel} client={clientRef.current} onClose={panelCloseDrawer} />
+              </aside>
+            )}
           </div>
         </div>
         {(booting || busyCount > 0 || snapshot?.system.state === 'error') && (
@@ -1435,7 +1445,7 @@ export function ControlPlane() {
           }}
         />
       )}
-      {firstRunOpen && !booting && snapshot && (firstRunRequested || !shouldSkipAutomaticFirstRun(snapshot)) && (
+      {firstRunOpen && !firstRunDismissed && !booting && snapshot && (firstRunRequested || !shouldSkipAutomaticFirstRun(snapshot)) && (
         <FirstRunWizard
           snapshot={snapshot}
           providers={providers}
@@ -1448,6 +1458,8 @@ export function ControlPlane() {
           client={clientRef.current}
           onChooseWorkspace={chooseWorkspacePath}
           onClose={() => {
+            markFirstRunComplete(window.localStorage);
+            setFirstRunDismissed(true);
             setFirstRunRequested(false);
             setFirstRunOpen(false);
           }}
@@ -1486,11 +1498,6 @@ export function ControlPlane() {
           onClose={() => setInspectorSelection(null)}
           onOpenActionScreen={(selection) => openActionScreen(selection)}
         />
-      )}
-      {uiState.activePanel && (
-        <DrawerOverlay isOpen={true} onClose={panelCloseDrawer} position="right" width={PANEL_WIDTHS[uiState.activePanel] ?? 400}>
-          <PanelHost panelId={uiState.activePanel} client={clientRef.current} onClose={panelCloseDrawer} />
-        </DrawerOverlay>
       )}
     </>
   );

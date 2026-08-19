@@ -4,6 +4,7 @@
 // para que los componentes solo tengan que llamar funciones.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BagoClient } from '@/api/client';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 import type { BackendStatus } from '@/contracts/backend';
 import type {
   ContextBankItem,
@@ -166,7 +167,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     try {
       await saveContextTree(client, next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -175,7 +176,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     try {
       await saveContextPacks(client, next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -184,7 +185,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     try {
       await saveContextPatchRequests(client, next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -194,7 +195,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await appendContextReceipt(client, receipt);
       setReceipts((current) => [receipt, ...current].slice(0, 200));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -236,7 +237,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
         setActivePackId(loadedPacks[0].id);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setLoading(false);
       setReady(true);
@@ -250,7 +251,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       const snap = await loadContextBank(client);
       setBank(snap);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setBankLoading(false);
     }
@@ -267,7 +268,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       const list = await loadSourceDirectories(client);
       setSourceDirectories(Array.isArray(list) ? list : []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setSourceDirectoriesLoading(false);
     }
@@ -337,7 +338,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       setSourceDirectories(after);
       return withFiles;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
       return null;
     }
   };
@@ -351,7 +352,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await saveSourceDirectories(client, next);
       setSourceDirectories(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -380,7 +381,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await saveSourceDirectories(client, next);
       setSourceDirectories(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -398,7 +399,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     try {
       await saveSourceDirectories(client, next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -416,7 +417,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
     try {
       await saveSourceDirectories(client, next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -776,7 +777,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       }));
       return item;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
       return null;
     }
   };
@@ -792,7 +793,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
         manual: snapshot.manual.filter((existing) => existing.id !== itemId)
       }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   };
 
@@ -838,7 +839,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await persistProposals(nextProposals);
       return { ok: true };
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = friendlyErrorMessage(e);
       const nextProposals = proposals.map((p) => p.id === patchId ? { ...p, status: 'failed' as const, errorMessage: message } : p);
       setProposals(nextProposals);
       await persistProposals(nextProposals);
@@ -893,7 +894,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await persistProposals(nextProposals);
       return { ok: true };
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = friendlyErrorMessage(e);
       const nextProposals = proposals.map((p) => p.id === patchId ? { ...p, status: 'failed' as const, errorMessage: message } : p);
       setProposals(nextProposals);
       await persistProposals(nextProposals);
@@ -915,7 +916,7 @@ export function useContextTree(client: BagoClient | null): UseContextTreeState {
       await persistProposals(nextProposals);
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      return { ok: false, error: friendlyErrorMessage(e) };
     }
   };
 

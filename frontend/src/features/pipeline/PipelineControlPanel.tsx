@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 type RecordValue = Record<string, unknown>;
 
@@ -41,7 +42,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
       setJobs(records(jobPayload.jobs));
       setSchedules(records(schedulePayload.jobs));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     }
   }
 
@@ -54,7 +55,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
         setJobs(records(jobPayload.jobs));
         setSchedules(records(schedulePayload.jobs));
       })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
+      .catch((cause) => { if (active) setError(friendlyErrorMessage(cause)); });
     return () => { active = false; };
   }, [client]);
 
@@ -71,7 +72,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
         setTimeout(() => onSetSection('chat'), 0);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     } finally {
       setBusy('');
     }
@@ -84,7 +85,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
       const payload = await client.getJob(executionId);
       setSelectedJob(payload.job && typeof payload.job === 'object' ? payload.job as RecordValue : payload);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     } finally {
       setBusy('');
     }
@@ -176,6 +177,9 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
           <label><span>Cada (minutos)</span><input type="number" min={1} value={scheduleMinutes} onChange={(event) => setScheduleMinutes(Math.max(1, Number(event.target.value) || 1))} /></label>
           <label className="capability-package-check"><input type="checkbox" checked={scheduleConfirmed} onChange={(event) => setScheduleConfirmed(event.target.checked)} /><span>Confirmo la creación y ejecución recurrente</span></label>
           <button className="primary-button compact" type="submit" disabled={Boolean(busy) || !scheduleName.trim() || !scheduleTask.trim() || !scheduleConfirmed}>{busy === 'schedule:create' ? 'Creando…' : 'Crear programación'}</button>
+          {(!scheduleName.trim() || !scheduleTask.trim() || !scheduleConfirmed) && (
+            <p className="pipeline-schedule-hint">Completa nombre, tarea y marca la confirmación para activar el botón.</p>
+          )}
         </form>
         <div className="pipeline-schedule-list">
           {schedules.length === 0 && <p className="pipeline-runtime-empty">No hay tareas programadas.</p>}
