@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 type RecordValue = Record<string, unknown>;
 type EventFilter = 'all' | 'success' | 'failure';
@@ -14,7 +15,7 @@ function records(value: unknown): RecordValue[] {
 }
 
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
+  return friendlyErrorMessage(cause);
 }
 
 function formatTime(value: unknown): string {

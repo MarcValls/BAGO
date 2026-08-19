@@ -62,6 +62,14 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
       { id: 'interpreter', label: 'Intérprete', icon: 'interpreter', helper: 'Observar interpretación de consultas', shortcut: 'Ctrl+9', isPanel: true },
       { id: 'github-auth', label: 'GitHub', icon: 'github', helper: 'Autenticación y scopes de GitHub', shortcut: 'Ctrl+0', isPanel: true }
     ]
+  },
+  {
+    id: 'catalog',
+    label: 'Catálogo',
+    items: [
+      { id: 'capabilities', label: 'Capacidades', icon: 'pack', helper: 'Anatomía de capacidades externas', shortcut: 'Ctrl+-', isPanel: true },
+      { id: 'tools', label: 'Herramientas', icon: 'tools', helper: 'Catálogo de herramientas', shortcut: 'Ctrl+=', isPanel: true }
+    ]
   }
 ];
 

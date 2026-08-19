@@ -1103,12 +1103,12 @@ export function ControlSections(props: Props) {
       },
       inspect: () => {
         const latest = evidenceItems.length ? (evidenceItems[0] as RecordValue) : historyMessages.length ? historyMessages[historyMessages.length - 1] : (asRecord(snapshot?.context) || {});
-        const receiptId = snapshot?.context.receiptId || String(latest.id || latest.receipt_id || latest.envelope_id || 'No disponible');
+        const receiptId = snapshot?.context.receiptId || String(latest.id || latest.receipt_id || latest.envelope_id || 'Sin identificador');
         const selection = buildSelection(
           receiptId,
           'module-evidence',
           'Última evidencia',
-          String(latest.message || latest.text || latest.summary || summarizeMessage(latest) || `Receipt ${receiptId}`),
+          String(latest.message || latest.text || latest.summary || summarizeMessage(latest) || `Evidencia ${receiptId}`),
           [
             `status: ${snapshot?.context.certificationStatus || snapshot?.context.state || 'unknown'}`,
             `source: ${String(latest.source || latest.origin || 'backend')}`
@@ -1806,12 +1806,12 @@ export function ControlSections(props: Props) {
     }
     const latest = evidenceItems.length ? (evidenceItems[0] as RecordValue) : historyMessages.length ? historyMessages[historyMessages.length - 1] : (asRecord(snapshot?.context) || {});
     const previous = historyMessages.length > 1 ? historyMessages[historyMessages.length - 2] : null;
-    const receiptId = snapshot?.context.receiptId || String(latest.id || latest.receipt_id || latest.envelope_id || 'No disponible');
+    const receiptId = snapshot?.context.receiptId || String(latest.id || latest.receipt_id || latest.envelope_id || 'Sin identificador');
     const latestSelection = buildSelection(
       receiptId,
       'evidence',
       'Última evidencia',
-      String(latest.message || latest.text || latest.summary || summarizeMessage(latest) || `Receipt ${receiptId}`),
+      String(latest.message || latest.text || latest.summary || summarizeMessage(latest) || `Evidencia ${receiptId}`),
       [`status: ${snapshot?.context.certificationStatus || snapshot?.context.state || 'unknown'}`, `source: ${String(latest.source || latest.origin || 'backend')}`, `context revision: ${String(snapshot?.context.revision || 'unknown')}`],
       latest,
       'evidence.item'

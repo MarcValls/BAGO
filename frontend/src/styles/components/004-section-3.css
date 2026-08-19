@@ -19,7 +19,13 @@
   min-height: 0;
   display: grid;
   grid-template-areas: "ws";
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
+}
+
+.app-main-area.has-panel {
+  grid-template-areas: "ws panel";
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .workspace-area {
@@ -30,6 +36,29 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+.inline-panel-host {
+  grid-area: panel;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+
+.inline-panel-host > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.app-root.mode-focus .inline-panel-host,
+.app-root.mode-review .inline-panel-host {
+  display: none;
 }
 
 .main-sidebar { grid-area: side; }
