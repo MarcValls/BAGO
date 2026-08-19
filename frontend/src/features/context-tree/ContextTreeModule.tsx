@@ -763,6 +763,7 @@ export function ContextTreeModule(props: Props) {
     }
   };
   const handleRejectPatch = (patchId: string) => {
+    if (pendingConfirm) return;
     setPendingConfirm({ type: 'reject', patchId });
   };
   const handleEditPatch = (patchId: string) => {
@@ -778,6 +779,7 @@ export function ContextTreeModule(props: Props) {
     setEditingPatch(null);
   };
   const handleRevertPatch = (patchId: string) => {
+    if (pendingConfirm) return;
     setPendingConfirm({ type: 'revert', patchId });
   };
   const handleOpenInTree = (patchId: string) => {
@@ -788,6 +790,7 @@ export function ContextTreeModule(props: Props) {
     }
   };
   const handleReviewPatch = (patchId: string) => {
+    if (pendingConfirm) return;
     setPendingConfirm({ type: 'review', patchId });
   };
 
