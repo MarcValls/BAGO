@@ -153,6 +153,7 @@ export function ContextTreeModule(props: Props) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopImmediatePropagation();
         setPendingConfirm(null);
       }
     };

@@ -223,6 +223,7 @@ export function ControlPlane() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopImmediatePropagation();
         resolveConfirmation(false);
       }
     };
