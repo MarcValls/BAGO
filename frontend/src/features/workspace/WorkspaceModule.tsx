@@ -78,6 +78,8 @@ export function WorkspaceModule(props: Props) {
   const [githubRepo, setGithubRepo] = useState('');
   const [githubState, setGithubState] = useState<Record<string, unknown> | null>(null);
   const [githubMessage, setGithubMessage] = useState('');
+  const [pendingCreate, setPendingCreate] = useState<'github' | 'mcp' | null>(null);
+  const [newRepoName, setNewRepoName] = useState('');
   const editorRef = useRef<HTMLDivElement | null>(null);
   const githubWorkspaceKey = deriveWorkspaceGitHubKey(props.snapshot);
 
@@ -132,9 +134,10 @@ export function WorkspaceModule(props: Props) {
   };
 
   const createGitHub = async () => {
-    const name = window.prompt('Nombre del nuevo repositorio GitHub');
+    const name = newRepoName.trim();
     if (!name) return;
-    if (!window.confirm(`Crear ${name} en GitHub como repositorio privado?`)) return;
+    setPendingCreate(null);
+    setNewRepoName('');
     try {
       const result = await props.client.createGitHubRepository(name, { private: true });
       setGithubMessage(`Repositorio creado: ${String(result.url || name)}`);
@@ -144,14 +147,26 @@ export function WorkspaceModule(props: Props) {
   };
 
   const createGitHubViaMcp = async () => {
-    const name = window.prompt('Nombre del nuevo repositorio GitHub vía MCP');
-    if (!name || !window.confirm(`Crear ${name} vía MCP como repositorio privado?`)) return;
+    const name = newRepoName.trim();
+    if (!name) return;
+    setPendingCreate(null);
+    setNewRepoName('');
     try {
       const result = await props.client.createGitHubRepositoryViaMcp(name, { private: true, confirm: true });
       setGithubMessage(`Repositorio creado vía MCP: ${String(result.url || name)}`);
     } catch (error) {
       setGithubMessage(error instanceof Error ? error.message : 'No se pudo crear el repositorio vía MCP');
     }
+  };
+
+  const startCreate = (kind: 'github' | 'mcp') => {
+    setPendingCreate(kind);
+    setNewRepoName('');
+  };
+
+  const cancelCreate = () => {
+    setPendingCreate(null);
+    setNewRepoName('');
   };
 
   // Atajo de teclado: Ctrl+S ya está capturado en CodeEditorPane.
@@ -377,10 +392,34 @@ export function WorkspaceModule(props: Props) {
         <div className="workspace-github-actions">
           <input aria-label="Repositorio GitHub" value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} placeholder="owner/repo" />
           <button type="button" className="secondary-button compact" onClick={() => void connectGitHub()} disabled={!githubRepo.trim()}>Conectar y leer</button>
-          <button type="button" className="secondary-button compact" onClick={() => void createGitHub()} disabled={githubState?.authenticated !== true}>Crear repositorio</button>
-          <button type="button" className="secondary-button compact" onClick={() => void createGitHubViaMcp()} disabled={githubState?.authenticated !== true}>Crear vía MCP</button>
+          {!pendingCreate && (
+            <>
+              <button type="button" className="secondary-button compact" onClick={() => startCreate('github')} disabled={githubState?.authenticated !== true}>Crear repositorio</button>
+              <button type="button" className="secondary-button compact" onClick={() => startCreate('mcp')} disabled={githubState?.authenticated !== true}>Crear vía MCP</button>
+            </>
+          )}
           <button type="button" className="text-button" onClick={() => void refreshGitHub()}>Actualizar</button>
         </div>
+
+        {pendingCreate && (
+          <form
+            className="workspace-github-create-form"
+            onSubmit={(event) => { event.preventDefault(); void (pendingCreate === 'mcp' ? createGitHubViaMcp() : createGitHub()); }}
+          >
+            <input
+              autoFocus
+              aria-label={pendingCreate === 'mcp' ? 'Nombre del repositorio vía MCP' : 'Nombre del repositorio GitHub'}
+              value={newRepoName}
+              onChange={(event) => setNewRepoName(event.target.value)}
+              placeholder={pendingCreate === 'mcp' ? 'Nombre vía MCP' : 'Nombre del repositorio'}
+            />
+            <button type="button" className="text-button" onClick={cancelCreate}>Cancelar</button>
+            <button type="submit" className="secondary-button compact" disabled={!newRepoName.trim()}>
+              {pendingCreate === 'mcp' ? 'Crear vía MCP' : 'Crear repositorio'}
+            </button>
+          </form>
+        )}
+
         {githubMessage && <small className="workspace-github-message" role="status">{githubMessage}</small>}
       </section>
 

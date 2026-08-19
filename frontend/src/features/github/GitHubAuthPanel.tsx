@@ -29,6 +29,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -74,7 +75,7 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
   }, [client]);
 
   const handleLogout = useCallback(async () => {
-    if (!window.confirm('¿Cerrar sesión de GitHub en BAGO?')) return;
+    setConfirmLogout(false);
     setActionLoading('logout');
     setError(null);
     try {
@@ -228,15 +229,23 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
                     <Icon name="refresh" size={14} />
                     {actionLoading === 'refresh' ? 'Refrescando...' : 'Refrescar estado'}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn--danger"
-                    onClick={handleLogout}
-                    disabled={actionLoading !== null}
-                  >
-                    <Icon name="close" size={14} />
-                    {actionLoading === 'logout' ? 'Cerrando...' : 'Cerrar sesión'}
-                  </button>
+                  {!confirmLogout ? (
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      onClick={() => setConfirmLogout(true)}
+                      disabled={actionLoading !== null}
+                    >
+                      <Icon name="close" size={14} />
+                      {actionLoading === 'logout' ? 'Cerrando...' : 'Cerrar sesión'}
+                    </button>
+                  ) : (
+                    <div className="inline-confirm" role="group" aria-label="Confirmar cierre de sesión">
+                      <span className="inline-confirm-label">¿Cerrar sesión de GitHub?</span>
+                      <button type="button" className="btn btn--ghost" onClick={() => setConfirmLogout(false)}>Cancelar</button>
+                      <button type="button" className="btn btn--danger" onClick={handleLogout}>Sí, cerrar</button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
