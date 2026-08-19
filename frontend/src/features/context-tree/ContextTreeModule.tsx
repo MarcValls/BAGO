@@ -148,6 +148,17 @@ export function ContextTreeModule(props: Props) {
     const t = setTimeout(() => setModuleNotice(null), 6000);
     return () => clearTimeout(t);
   }, [moduleNotice]);
+  useEffect(() => {
+    if (!pendingConfirm) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPendingConfirm(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [pendingConfirm]);
 
   // CANON[CTX-016]: el chat puede pedir abrir un patch en modo edición.
   // Cuando lo recibimos, abrimos el preview y limpiamos el flag.

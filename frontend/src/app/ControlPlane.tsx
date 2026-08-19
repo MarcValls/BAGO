@@ -218,6 +218,18 @@ export function ControlPlane() {
     resolve?.(value);
   }, []);
 
+  useEffect(() => {
+    if (!pendingConfirm) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        resolveConfirmation(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [pendingConfirm, resolveConfirmation]);
+
   const applyBootData = (
     data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
     requestedConversationRevision = conversationRevisionRef.current
