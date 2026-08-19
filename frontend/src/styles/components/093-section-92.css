@@ -82,3 +82,20 @@
   background: var(--amber-soft);
   color: var(--amber);
 }
+
+.inline-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+
+.inline-confirm-label {
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
