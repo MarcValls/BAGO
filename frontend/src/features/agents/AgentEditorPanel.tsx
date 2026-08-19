@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { BagoClient } from '@/api/client';
 import type { AgentConfig, AgentUpdateRequest } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 interface Props {
   client: BagoClient;
@@ -53,7 +54,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
       const data = await client.listAgents();
       setState((s) => ({ ...s, agents: data.agents, loading: false, error: null }));
     } catch (e) {
-      setState((s) => ({ ...s, loading: false, error: String(e) }));
+      setState((s) => ({ ...s, loading: false, error: friendlyErrorMessage(e) }));
     }
   }, [client]);
 
@@ -104,8 +105,8 @@ export function AgentEditorPanel({ client, onClose }: Props) {
       }));
       setTimeout(() => setState((s) => ({ ...s, savedMessage: null })), 2000);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const isConflict = msg.includes('409') || msg.toLowerCase().includes('conflict');
+      const msg = friendlyErrorMessage(e);
+      const isConflict = msg.includes('409') || msg.toLowerCase().includes('conflicto');
       setState((s) => ({
         ...s,
         saving: false,
@@ -130,7 +131,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
       setState((s) => ({
         ...s,
         testing: false,
-        error: e instanceof Error ? e.message : String(e),
+        error: friendlyErrorMessage(e),
       }));
     }
   }, [client, state.selectedAgent]);
@@ -149,7 +150,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
         isDirty: false, error: null,
       }));
     } catch (e: unknown) {
-      setState((s) => ({ ...s, error: e instanceof Error ? e.message : String(e) }));
+      setState((s) => ({ ...s, error: friendlyErrorMessage(e) }));
     }
   }, [client, state.selectedAgent]);
 

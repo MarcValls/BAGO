@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 type RecordValue = Record<string, unknown>;
 
@@ -41,7 +42,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
       setJobs(records(jobPayload.jobs));
       setSchedules(records(schedulePayload.jobs));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     }
   }
 
@@ -54,7 +55,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
         setJobs(records(jobPayload.jobs));
         setSchedules(records(schedulePayload.jobs));
       })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
+      .catch((cause) => { if (active) setError(friendlyErrorMessage(cause)); });
     return () => { active = false; };
   }, [client]);
 
@@ -71,7 +72,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
         setTimeout(() => onSetSection('chat'), 0);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     } finally {
       setBusy('');
     }
@@ -84,7 +85,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
       const payload = await client.getJob(executionId);
       setSelectedJob(payload.job && typeof payload.job === 'object' ? payload.job as RecordValue : payload);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     } finally {
       setBusy('');
     }

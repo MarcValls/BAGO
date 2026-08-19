@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type { BagoClient } from '@/api/client';
 import type { InterpretationResult, InterpretationStage, InterpretationStageType } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 interface Props {
   client: BagoClient;
@@ -66,7 +67,7 @@ export function InterpreterPanel({ client, onClose }: Props) {
       const res = await client.createInterpretation({ input: input.trim() });
       setResult(res);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     } finally {
       setSubmitting(false);
     }
@@ -78,7 +79,7 @@ export function InterpreterPanel({ client, onClose }: Props) {
       await client.cancelInterpretation(result.interpretationId);
       setResult((r) => r ? { ...r, cancelledAt: new Date().toISOString() } : r);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyErrorMessage(e));
     }
   }, [client, result]);
 

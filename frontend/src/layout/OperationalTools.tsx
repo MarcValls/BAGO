@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 
 type RecordValue = Record<string, unknown>;
 
@@ -42,7 +43,7 @@ export function ProviderRuntimeTools({ client }: { client: BagoClient }) {
     let active = true;
     Promise.all([client.getCatalogStatus(), client.getProviderBufferStatus()])
       .then(([nextCatalog, nextBuffer]) => { if (active) { setCatalog(nextCatalog); setBuffer(nextBuffer); } })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
+      .catch((cause) => { if (active) setError(friendlyErrorMessage(cause)); });
     return () => { active = false; };
   }, [client]);
 
@@ -53,7 +54,7 @@ export function ProviderRuntimeTools({ client }: { client: BagoClient }) {
       setMessage(String(result.message || (result.ok === false ? result.error || 'Operación rechazada.' : 'Configuración actualizada.')));
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(friendlyErrorMessage(cause));
     } finally { setBusy(''); }
   }
 
@@ -102,7 +103,7 @@ export function SimulationControls({ client, current, onChanged }: { client: Bag
       const result = await client.setSimulationConfig({ enabled: mode === 'off' ? false : enabled, mode });
       onChanged(result);
       setMessage('Configuración de simulación aplicada. La autoridad continúa en solo observación.');
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { setMessage(friendlyErrorMessage(cause)); }
     finally { setBusy(false); }
   }
 
@@ -128,7 +129,7 @@ export function InterpretControls({ client, onCompleted }: { client: BagoClient;
       const next = await client.postInterpret({ question: question.trim() });
       setResult(next);
       await onCompleted();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { setError(friendlyErrorMessage(cause)); }
     finally { setBusy(false); }
   }
 
@@ -153,7 +154,7 @@ export function MemoryOperations({ client }: { client: BagoClient }) {
 
   useEffect(() => {
     let active = true;
-    client.getMemoryStatus().then((next) => { if (active) setStatus(next); }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
+    client.getMemoryStatus().then((next) => { if (active) setStatus(next); }).catch((cause) => { if (active) setError(friendlyErrorMessage(cause)); });
     return () => { active = false; };
   }, [client]);
 
@@ -161,7 +162,7 @@ export function MemoryOperations({ client }: { client: BagoClient }) {
     event.preventDefault(); if (!query.trim()) return;
     setBusy('search'); setError('');
     try { setResult(await client.searchMemory({ query: query.trim(), limit: 20 })); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    catch (cause) { setError(friendlyErrorMessage(cause)); }
     finally { setBusy(''); }
   }
 
@@ -174,7 +175,7 @@ export function MemoryOperations({ client }: { client: BagoClient }) {
       const next = await client.upsertEmbedding({ memory_id: memoryId.trim(), content: content.trim(), vector: parsed });
       setMessage(`Embedding ${String(next.memory_id || memoryId)} guardado (${String(next.vector_dim || parsed.length)} dimensiones).`);
       setStatus(await client.getMemoryStatus());
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { setError(friendlyErrorMessage(cause)); }
     finally { setBusy(''); }
   }
 
@@ -209,7 +210,7 @@ export function VisionOperations({ client }: { client: BagoClient }) {
     setBusy(true); setError('');
     try {
       setResult(await client.analyzeVision({ image_base64: toBase64(await file.arrayBuffer()), prompt: prompt.trim(), ...(model.trim() ? { model: model.trim() } : {}) }));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { setError(friendlyErrorMessage(cause)); }
     finally { setBusy(false); }
   }
 

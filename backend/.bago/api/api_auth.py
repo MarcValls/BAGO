@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 LOCAL_CORS_ORIGINS: FrozenSet[str] = frozenset(
     f"http://{host}:{port}"
     for host in ("localhost", "127.0.0.1", "[::1]")
-    for port in (3000, 4173, 5173, 8080)
+    for port in (3000, 4173, 5173, 5179, 8080)
 )
 
 
