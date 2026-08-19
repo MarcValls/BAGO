@@ -176,6 +176,9 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
           <label><span>Cada (minutos)</span><input type="number" min={1} value={scheduleMinutes} onChange={(event) => setScheduleMinutes(Math.max(1, Number(event.target.value) || 1))} /></label>
           <label className="capability-package-check"><input type="checkbox" checked={scheduleConfirmed} onChange={(event) => setScheduleConfirmed(event.target.checked)} /><span>Confirmo la creación y ejecución recurrente</span></label>
           <button className="primary-button compact" type="submit" disabled={Boolean(busy) || !scheduleName.trim() || !scheduleTask.trim() || !scheduleConfirmed}>{busy === 'schedule:create' ? 'Creando…' : 'Crear programación'}</button>
+          {(!scheduleName.trim() || !scheduleTask.trim() || !scheduleConfirmed) && (
+            <p className="pipeline-schedule-hint">Completa nombre, tarea y marca la confirmación para activar el botón.</p>
+          )}
         </form>
         <div className="pipeline-schedule-list">
           {schedules.length === 0 && <p className="pipeline-runtime-empty">No hay tareas programadas.</p>}

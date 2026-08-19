@@ -160,6 +160,7 @@ export function ControlPlane() {
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
   const [firstRunRequested, setFirstRunRequested] = useState(false);
+  const [firstRunDismissed, setFirstRunDismissed] = useState(false);
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
@@ -1435,7 +1436,7 @@ export function ControlPlane() {
           }}
         />
       )}
-      {firstRunOpen && !booting && snapshot && (firstRunRequested || !shouldSkipAutomaticFirstRun(snapshot)) && (
+      {firstRunOpen && !firstRunDismissed && !booting && snapshot && (firstRunRequested || !shouldSkipAutomaticFirstRun(snapshot)) && (
         <FirstRunWizard
           snapshot={snapshot}
           providers={providers}
@@ -1448,6 +1449,8 @@ export function ControlPlane() {
           client={clientRef.current}
           onChooseWorkspace={chooseWorkspacePath}
           onClose={() => {
+            markFirstRunComplete(window.localStorage);
+            setFirstRunDismissed(true);
             setFirstRunRequested(false);
             setFirstRunOpen(false);
           }}

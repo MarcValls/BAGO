@@ -14,12 +14,12 @@ interface Props {
 }
 
 export const PANEL_WIDTHS: Record<PanelId, number> = {
-  agents: 480,
-  interpreter: 440,
-  'github-auth': 400,
-  capabilities: 320,
-  pipeline: 360,
-  tools: 280,
+  agents: 640,
+  interpreter: 620,
+  'github-auth': 560,
+  capabilities: 560,
+  pipeline: 720,
+  tools: 520,
 };
 
 export function PanelHost({ panelId, client, onClose }: Props) {

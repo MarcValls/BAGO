@@ -3,12 +3,12 @@ import { PANEL_WIDTHS } from '../src/components/ui/PanelHost';
 
 describe('PANEL_WIDTHS', () => {
   it('exports correct widths for each panel', () => {
-    expect(PANEL_WIDTHS.agents).toBe(480);
-    expect(PANEL_WIDTHS.interpreter).toBe(440);
-    expect(PANEL_WIDTHS['github-auth']).toBe(400);
-    expect(PANEL_WIDTHS.capabilities).toBe(320);
-    expect(PANEL_WIDTHS.pipeline).toBe(360);
-    expect(PANEL_WIDTHS.tools).toBe(280);
+    expect(PANEL_WIDTHS.agents).toBe(640);
+    expect(PANEL_WIDTHS.interpreter).toBe(620);
+    expect(PANEL_WIDTHS['github-auth']).toBe(560);
+    expect(PANEL_WIDTHS.capabilities).toBe(560);
+    expect(PANEL_WIDTHS.pipeline).toBe(720);
+    expect(PANEL_WIDTHS.tools).toBe(520);
   });
 
   it('has all PanelId keys', () => {
