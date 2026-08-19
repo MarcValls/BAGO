@@ -1360,7 +1360,7 @@ export function ControlPlane() {
                 </div>
                 <div className="confirm-banner-actions">
                   <button type="button" className="secondary-button compact" onClick={() => resolveConfirmation(false)}>Cancelar</button>
-                  <button type="button" className="primary-button compact" onClick={() => resolveConfirmation(true)}>Confirmar</button>
+                  <button type="button" className="primary-button compact" onClick={() => resolveConfirmation(true)}>{pendingConfirm.confirmLabel || 'Confirmar'}</button>
                 </div>
               </div>
             )}
