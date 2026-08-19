@@ -136,11 +136,13 @@ export function AgentEditorPanel({ client, onClose }: Props) {
     }
   }, [client, state.selectedAgent]);
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const handleDelete = useCallback(async () => {
     if (!state.selectedAgent) return;
-    if (!window.confirm(`Eliminar "${state.selectedAgent.name}"? Esta acción no se puede deshacer.`)) return;
     try {
       await client.deleteAgent(state.selectedAgent.id);
+      setConfirmDelete(false);
       setState((s) => ({
         ...s,
         agents: s.agents.filter((a) => a.id !== s.selectedAgent!.id),
@@ -323,15 +325,35 @@ export function AgentEditorPanel({ client, onClose }: Props) {
                   {state.testing ? 'Probando...' : 'Probar'}
                 </button>
 
-                <button
-                  type="button"
-                  className="btn btn--danger"
-                  onClick={handleDelete}
-                  title="Eliminar agente"
-                >
-                  <Icon name="alert" size={14} />
-                  Eliminar
-                </button>
+                {!confirmDelete ? (
+                  <button
+                    type="button"
+                    className="btn btn--danger"
+                    onClick={() => setConfirmDelete(true)}
+                    title="Eliminar agente"
+                  >
+                    <Icon name="alert" size={14} />
+                    Eliminar
+                  </button>
+                ) : (
+                  <div className="inline-confirm" role="group" aria-label="Confirmar eliminación">
+                    <span className="inline-confirm-label">¿Eliminar "{state.selectedAgent?.name}"?</span>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      onClick={handleDelete}
+                    >
+                      Sí, eliminar
+                    </button>
+                  </div>
+                )}
 
                 <button
                   type="submit"

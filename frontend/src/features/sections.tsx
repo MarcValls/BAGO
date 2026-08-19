@@ -608,6 +608,7 @@ export function ControlSections(props: Props) {
   const [graphFiltered, setGraphFiltered] = useState(true);
   const [chatView, setChatView] = useState<'conversation' | 'router' | 'providers' | 'subagents' | 'interpret'>('conversation');
   const [pipelineView, setPipelineView] = useState<'create' | 'execution' | 'flow' | 'control' | 'capabilities' | 'simulation' | 'rl'>('create');
+  const [flowNotice, setFlowNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const [operationView, setOperationView] = useState<'providers' | 'runtime' | 'memory' | 'vision' | 'configuration'>('providers');
   const [pendingStep, setPendingStep] = useState<RecordValue | null>(null);
   const [pendingStepBusy, setPendingStepBusy] = useState(false);
@@ -623,6 +624,11 @@ export function ControlSections(props: Props) {
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
   const snapshot = props.snapshot;
+  useEffect(() => {
+    if (!flowNotice) return;
+    const t = setTimeout(() => setFlowNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [flowNotice]);
   const allFiles = useMemo(() => flattenFiles(props.files), [props.files]);
   const sourceRoots = useMemo(() => flattenSourceRoots(props.files), [props.files]);
   const visibleFiles = useMemo(() => {
@@ -1593,6 +1599,13 @@ export function ControlSections(props: Props) {
     if (pipelineView === 'flow') {
       return <div className="pipeline-surface pipeline-flow-view" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
         {pipelineTabs}
+        {flowNotice && (
+          <div className={`context-collection-notice tone-${flowNotice.tone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 12px 0' }}>
+            <Icon name={flowNotice.tone === 'error' ? 'warning' : flowNotice.tone === 'warning' ? 'alert' : 'check-circle'} size={12} />
+            <span style={{ flex: 1 }}>{flowNotice.message}</span>
+            <button type="button" className="icon-only" aria-label="Cerrar aviso" onClick={() => setFlowNotice(null)}><Icon name="close" size={12} /></button>
+          </div>
+        )}
         <WorkGraph
           proposals={props.contextTree.proposals}
           tasks={taskNodes}
@@ -1600,7 +1613,7 @@ export function ControlSections(props: Props) {
           pipelineStatus={pipelineStatus}
           focused={graphFiltered}
           onFocusedChange={setGraphFiltered}
-          onValidate={(proposal) => { void props.contextTree.acceptPatch(proposal.id).then((result) => { if (!result.ok) window.alert(result.error || 'No se pudo validar la mención.'); }); }}
+          onValidate={(proposal) => { void props.contextTree.acceptPatch(proposal.id).then((result) => { if (!result.ok) setFlowNotice({ tone: 'error', message: result.error || 'No se pudo validar la mención.' }); }); }}
           onEdit={(proposal) => { props.onEditContextPatch?.(proposal.id); props.onSetSection('context'); }}
           onStartProposal={(proposal) => startFlowTask(proposal.title, proposal.reason || 'Ejecutar la tarea mencionada en el contexto.')}
           onStartTask={(taskNode) => startFlowTask(taskNode.title, taskNode.summary || 'Ejecutar la tarea abierta desde el contexto de trabajo.')}

@@ -21,12 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Fail-fast sentinel
-        if: ${{ false }}
-        shell: bash
-        run: |
-          exit 1
+        uses: actions/checkout@v5
       - name: Scan JavaScript
         uses: ajinabraham/njsscan-action@7237412fdd36af517e2745077cedbf9d6900d711
         with:

@@ -14,6 +14,7 @@ import type {
 } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { quietStatus } from '@/shared/quiet-status';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { ContextPatchValidationCard } from '@/features/context-tree/ContextPatchValidationCard';
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildChatModelOptions } from '@/layout/chatModelOptions';
@@ -300,7 +301,7 @@ export function ChatPanel(props: Props) {
     try {
       await props.onSetSessionModel(nextModel);
     } catch (error) {
-      setModelError(error instanceof Error ? error.message : 'No se pudo cambiar el modelo');
+      setModelError(friendlyErrorMessage(error, 'No se pudo cambiar el modelo'));
     } finally {
       setModelChanging(false);
     }
@@ -312,7 +313,7 @@ export function ChatPanel(props: Props) {
     try {
       await props.onSetReasoningDepth(depth);
     } catch (error) {
-      setModelError(error instanceof Error ? error.message : 'No se pudo cambiar la profundidad');
+      setModelError(friendlyErrorMessage(error, 'No se pudo cambiar la profundidad'));
     } finally {
       setReasoningChanging(false);
     }
@@ -325,7 +326,7 @@ export function ChatPanel(props: Props) {
       await action();
       setWelcomeOpen(false);
     } catch (error) {
-      setConversationError(error instanceof Error ? error.message : 'No se pudo actualizar la conversación.');
+      setConversationError(friendlyErrorMessage(error, 'No se pudo actualizar la conversación.'));
     } finally {
       setConversationBusy('');
     }

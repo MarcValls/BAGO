@@ -545,6 +545,7 @@ function ReleaseUpdateCard({ client }: { client: BagoClient }) {
   const [updateState, setUpdateState] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [confirmInstall, setConfirmInstall] = useState(false);
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -582,7 +583,7 @@ function ReleaseUpdateCard({ client }: { client: BagoClient }) {
   };
 
   const apply = async () => {
-    if (!window.confirm('BAGO se cerrará y volverá a abrirse al terminar. ¿Instalar la actualización ahora?')) return;
+    setConfirmInstall(false);
     setBusy(true);
     try {
       const result = await client.applyReleaseUpdate();
@@ -620,7 +621,18 @@ function ReleaseUpdateCard({ client }: { client: BagoClient }) {
     <div className="system-panel-actions">
       <button className="text-button" type="button" onClick={() => void refresh()} disabled={busy || active}>Comprobar</button>
       {available && !ready && !active && <button className="primary-button compact" type="button" onClick={() => void download()} disabled={busy || !canInstall}>Descargar y verificar</button>}
-      {ready && <button className="primary-button compact" type="button" onClick={() => void apply()} disabled={busy}>Instalar y reiniciar</button>}
+      {ready && !confirmInstall && (
+        <button className="primary-button compact" type="button" onClick={() => setConfirmInstall(true)} disabled={busy}>
+          Instalar y reiniciar
+        </button>
+      )}
+      {ready && confirmInstall && (
+        <div className="inline-confirm" role="group" aria-label="Confirmar instalación">
+          <span className="inline-confirm-label">¿Reiniciar BAGO ahora?</span>
+          <button className="text-button" type="button" onClick={() => setConfirmInstall(false)} disabled={busy}>Cancelar</button>
+          <button className="primary-button compact" type="button" onClick={() => void apply()} disabled={busy}>Sí, instalar</button>
+        </div>
+      )}
     </div>
   </article>;
 }
