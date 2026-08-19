@@ -161,6 +161,9 @@ export function ControlPlane() {
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
   const [firstRunRequested, setFirstRunRequested] = useState(false);
   const [firstRunDismissed, setFirstRunDismissed] = useState(false);
+  // Banner de confirmación no bloqueante para reemplazar window.confirm.
+  const [pendingConfirm, setPendingConfirm] = useState<{ title: string; description: string; confirmLabel?: string } | null>(null);
+  const confirmResolveRef = useRef<((value: boolean) => void) | null>(null);
   // Modelos activos del provider activo (Fase D). Se cruza con el router
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
@@ -199,6 +202,34 @@ export function ControlPlane() {
       return next;
     });
   };
+
+  const requestConfirmation = useCallback(async (options: { title: string; description: string; confirmLabel?: string }) => {
+    if (pendingConfirm || confirmResolveRef.current) return false;
+    return new Promise<boolean>((resolve) => {
+      confirmResolveRef.current = resolve;
+      setPendingConfirm(options);
+    });
+  }, [pendingConfirm]);
+
+  const resolveConfirmation = useCallback((value: boolean) => {
+    setPendingConfirm(null);
+    const resolve = confirmResolveRef.current;
+    confirmResolveRef.current = null;
+    resolve?.(value);
+  }, []);
+
+  useEffect(() => {
+    if (!pendingConfirm) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        resolveConfirmation(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [pendingConfirm, resolveConfirmation]);
 
   const applyBootData = (
     data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
@@ -1054,10 +1085,7 @@ export function ControlPlane() {
     ensureChatPanel: () => openShell('chat'),
     writeClipboard,
     setAndPersistUiState,
-    confirm: async (options: { title: string; description: string; confirmLabel?: string }) => {
-      // TODO: Replace with proper dialog implementation
-      return window.confirm(options.description || options.title);
-    },
+    confirm: requestConfirmation,
     addWorkspacePathToContextTree: (path, kind) => enqueueContextBankItem(path, kind, 'tree'),
     addWorkspacePathToContextPack: (path) => enqueueContextBankItem(path, 'file', 'pack'),
     createContextClaimFromWorkspacePath: (path) => enqueueContextBankItem(path, 'file', 'tree', 'claim'),
@@ -1074,7 +1102,13 @@ export function ControlPlane() {
 
   const runAction = async (action: UiAction) => {
     if (!action.enabled) return;
-    if (action.confirmation?.required && !window.confirm(action.confirmation.description || action.label)) return;
+    if (action.confirmation?.required) {
+      const confirmed = await requestConfirmation({
+        title: action.confirmation.title || action.label || 'Confirmar acción',
+        description: action.confirmation.description || action.label || '¿Continuar?'
+      });
+      if (!confirmed) return;
+    }
     if (action.kind === 'navigate' && action.payload?.section) {
       navigate(String(action.payload.section) as ActiveSection);
       return;
@@ -1092,7 +1126,10 @@ export function ControlPlane() {
         return;
       }
       const seedAfterLink = shouldOfferSeed(snapshot, root)
-        ? window.confirm(`La ruta ${root} no está validada todavía.\n\n¿Sembrar ahora para dejarla válida?`)
+        ? await requestConfirmation({
+            title: 'Sembrar workspace',
+            description: `La ruta ${root} no está validada todavía. ¿Sembrar ahora para dejarla válida?`
+          })
         : false;
       await activateWorkspaceRoot(root, 'workspace enlazado', { seedAfterLink });
       return;
@@ -1325,6 +1362,21 @@ export function ControlPlane() {
           )}
 
           <div className={`app-main-area ${(uiState.activePanel || inspectorSelection) ? 'has-panel' : ''}`}>
+            {pendingConfirm && (
+              <div className="confirm-banner" role="alertdialog" aria-live="polite" aria-modal="false">
+                <div className="confirm-banner-content">
+                  <Icon name="warning" size={18} />
+                  <div className="confirm-banner-text">
+                    <strong>{pendingConfirm.title}</strong>
+                    <span>{pendingConfirm.description}</span>
+                  </div>
+                </div>
+                <div className="confirm-banner-actions">
+                  <button type="button" className="secondary-button compact" onClick={() => resolveConfirmation(false)}>Cancelar</button>
+                  <button type="button" className="primary-button compact" autoFocus onClick={() => resolveConfirmation(true)}>{pendingConfirm.confirmLabel || 'Confirmar'}</button>
+                </div>
+              </div>
+            )}
             <div className="workspace-area">
               <WorkspaceShell
                 activeSection={uiState.activeSection}
