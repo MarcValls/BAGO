@@ -1324,7 +1324,7 @@ export function ControlPlane() {
             />
           )}
 
-          <div className={`app-main-area ${uiState.activePanel ? 'has-panel' : ''}`}>
+          <div className={`app-main-area ${(uiState.activePanel || inspectorSelection) ? 'has-panel' : ''}`}>
             <div className="workspace-area">
               <WorkspaceShell
                 activeSection={uiState.activeSection}
@@ -1416,13 +1416,28 @@ export function ControlPlane() {
               </WorkspaceShell>
             </div>
 
-            {uiState.activePanel && (
+            {uiState.activePanel && !inspectorSelection && (
               <aside
                 className="inline-panel-host"
                 style={{ width: PANEL_WIDTHS[uiState.activePanel] ?? 400 }}
                 aria-label="Panel lateral"
               >
                 <PanelHost panelId={uiState.activePanel} client={clientRef.current} onClose={panelCloseDrawer} />
+              </aside>
+            )}
+
+            {inspectorSelection && (
+              <aside
+                className="inline-panel-host inspector-panel"
+                style={{ width: 520 }}
+                aria-label="Inspector"
+              >
+                <InspectorDrawer
+                  selection={inspectorSelection.selection}
+                  level={inspectorSelection.level}
+                  onClose={() => setInspectorSelection(null)}
+                  onOpenActionScreen={(selection) => openActionScreen(selection)}
+                />
               </aside>
             )}
           </div>
@@ -1489,14 +1504,6 @@ export function ControlPlane() {
           summary={actionScreenSelection.summary}
           actions={buildContextActions(actionScreenSelection)}
           onClose={() => setActionScreenSelection(null)}
-        />
-      )}
-      {inspectorSelection && (
-        <InspectorDrawer
-          selection={inspectorSelection.selection}
-          level={inspectorSelection.level}
-          onClose={() => setInspectorSelection(null)}
-          onOpenActionScreen={(selection) => openActionScreen(selection)}
         />
       )}
     </>
