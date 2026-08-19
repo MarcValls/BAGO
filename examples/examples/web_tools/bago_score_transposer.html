@@ -634,9 +634,23 @@ async function loadExample(type='taberna') {
 }
 
 /* ── Parse & inventory MusicXML ── */
+function sanitizeMusicXmlInput(xmlStr) {
+  if (typeof xmlStr !== 'string') return null;
+  const trimmed = xmlStr.trim();
+  if (!trimmed) return null;
+  // MusicXML input should not need DOCTYPE or processing instructions from user paste.
+  // Rejecting these reduces parser abuse surface for untrusted XML text.
+  if (/<!DOCTYPE/i.test(trimmed)) return null;
+  if (/<\?(?!xml[\s?>])/i.test(trimmed)) return null;
+  return trimmed;
+}
+
 function parseMusicXml(xmlStr) {
+  const safeXml = sanitizeMusicXmlInput(xmlStr);
+  if (!safeXml) return null;
+
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlStr, 'application/xml');
+  const doc = parser.parseFromString(safeXml, 'application/xml');
   const err = doc.querySelector('parseerror');
   if (err) return null;
 
