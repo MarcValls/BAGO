@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import './provider-center.css';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { normalizeProviderBaseUrl } from '../../shared/providerRegistration';
 
 export interface ProviderCenterProvider {
@@ -337,7 +338,7 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
       setConfigForm(null);
       props.onRefreshRouter?.();
     } catch (error) {
-      setConfigError(error instanceof Error ? error.message : 'No se pudo guardar el proveedor');
+      setConfigError(friendlyErrorMessage(error, 'No se pudo guardar el proveedor'));
     } finally {
       setConfigSaving(false);
     }
