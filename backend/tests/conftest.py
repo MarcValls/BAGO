@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from bago_core.resolver import add_piece_paths
+from bago_core.resolver import add_piece_paths, resolve_piece_path
 
 INSTALLED_MARKERS = (
     "AppData\\Local\\BAGO",
@@ -61,6 +61,12 @@ MODULE_NAMES = {
 
 def _ensure_local_paths() -> None:
     add_piece_paths("core.package", "chat.package", "providers.package", "api.package", "tools.package")
+    # Ensure the legacy chat package wins over bago_core/commands when test
+    # files import the bare `commands` module used by the .bago/chat REPL.
+    chat_path = str(resolve_piece_path("chat.package"))
+    if chat_path in sys.path:
+        sys.path.remove(chat_path)
+    sys.path.insert(0, chat_path)
 
 
 def _is_bago_module(name: str, module: object) -> bool:
