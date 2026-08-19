@@ -6,6 +6,9 @@ on:
     paths:
       - 'landing/**'
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
