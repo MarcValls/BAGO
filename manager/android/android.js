@@ -1,5 +1,6 @@
 const CONFIG_KEY = 'bago.android.mini.config.v1';
 const SESSION_KEY_PREFIX = 'bago.android.mini.key.';
+const runtimeApiKeys = Object.create(null);
 
 const PRESETS = {
   openrouter: {
@@ -60,15 +61,16 @@ function sessionKeyName(provider) {
 }
 
 function setSessionApiKey(provider, value) {
+  const keyName = sessionKeyName(provider);
   if (!value) {
-    sessionStorage.removeItem(sessionKeyName(provider));
+    delete runtimeApiKeys[keyName];
     return;
   }
-  sessionStorage.setItem(sessionKeyName(provider), value);
+  runtimeApiKeys[keyName] = value;
 }
 
 function getSessionApiKey(provider) {
-  return sessionStorage.getItem(sessionKeyName(provider)) || '';
+  return runtimeApiKeys[sessionKeyName(provider)] || '';
 }
 
 function setStatus(message, ok = true) {
