@@ -170,3 +170,35 @@
 .context-tree-empty h3,
 .context-tree-error h3 { margin: 0; color: var(--text); font-size: 16px; }
 .context-tree-empty p { margin: 0; max-width: 460px; font-size: 12px; }
+
+.context-confirm-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.context-confirm-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.context-confirm-banner-content .icon {
+  flex-shrink: 0;
+  color: var(--amber);
+}
+.context-confirm-banner-content span {
+  white-space: pre-line;
+}
+.context-confirm-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}

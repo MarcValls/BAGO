@@ -141,6 +141,7 @@ export function ContextTreeModule(props: Props) {
   const [reviewingNodeId, setReviewingNodeId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string>('');
   const [moduleNotice, setModuleNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{ type: 'reject' | 'revert' | 'review'; patchId: string } | null>(null);
   const clearModuleNotice = useCallback(() => setModuleNotice(null), []);
   useEffect(() => {
     if (!moduleNotice) return;
@@ -749,9 +750,8 @@ export function ContextTreeModule(props: Props) {
       setModuleNotice({ tone: 'error', message: result.error });
     }
   };
-  const handleRejectPatch = async (patchId: string) => {
-    if (!window.confirm('¿Rechazar el patch? El árbol no se modificará.')) return;
-    await ctx.rejectPatch(patchId);
+  const handleRejectPatch = (patchId: string) => {
+    setPendingConfirm({ type: 'reject', patchId });
   };
   const handleEditPatch = (patchId: string) => {
     const patch = ctx.proposals.find((p) => p.id === patchId);
@@ -765,12 +765,8 @@ export function ContextTreeModule(props: Props) {
     }
     setEditingPatch(null);
   };
-  const handleRevertPatch = async (patchId: string) => {
-    if (!window.confirm('¿Revertir este cambio? Volverá al snapshot previo.')) return;
-    const result = await ctx.revertPatch(patchId);
-    if (!result.ok && result.error) {
-      setModuleNotice({ tone: 'error', message: result.error });
-    }
+  const handleRevertPatch = (patchId: string) => {
+    setPendingConfirm({ type: 'revert', patchId });
   };
   const handleOpenInTree = (patchId: string) => {
     const patch = ctx.proposals.find((p) => p.id === patchId);
@@ -780,9 +776,28 @@ export function ContextTreeModule(props: Props) {
     }
   };
   const handleReviewPatch = (patchId: string) => {
-    if (!window.confirm('Marcar el patch como revisión CRIT. Se creará una nueva versión y se rechazará el patch actual. ¿Continuar?')) return;
-    // Para CRIT: no aplicamos. Sugerimos crear nueva versión (no-op por ahora).
-    void ctx.rejectPatch(patchId);
+    setPendingConfirm({ type: 'review', patchId });
+  };
+
+  const resolvePendingConfirm = async (confirm: boolean) => {
+    const request = pendingConfirm;
+    setPendingConfirm(null);
+    if (!confirm || !request) return;
+    if (request.type === 'reject') {
+      await ctx.rejectPatch(request.patchId);
+      return;
+    }
+    if (request.type === 'revert') {
+      const result = await ctx.revertPatch(request.patchId);
+      if (!result.ok && result.error) {
+        setModuleNotice({ tone: 'error', message: result.error });
+      }
+      return;
+    }
+    if (request.type === 'review') {
+      // Para CRIT: no aplicamos. Sugerimos crear nueva versión (no-op por ahora).
+      await ctx.rejectPatch(request.patchId);
+    }
   };
 
   const handleAddChild = (parentId: string) => {
@@ -851,6 +866,24 @@ export function ContextTreeModule(props: Props) {
 
   return (
     <div className="task-context-page">
+      {pendingConfirm && (
+        <div className="context-confirm-banner" role="alertdialog" aria-live="polite" aria-modal="false">
+          <div className="context-confirm-banner-content">
+            <Icon name="warning" size={18} />
+            <span>
+              {pendingConfirm.type === 'reject'
+                ? '¿Rechazar el patch? El árbol no se modificará.'
+                : pendingConfirm.type === 'revert'
+                  ? '¿Revertir este cambio? Volverá al snapshot previo.'
+                  : 'Marcar el patch como revisión CRIT. Se creará una nueva versión y se rechazará el patch actual. ¿Continuar?'}
+            </span>
+          </div>
+          <div className="context-confirm-banner-actions">
+            <button type="button" className="secondary-button compact" onClick={() => void resolvePendingConfirm(false)}>Cancelar</button>
+            <button type="button" className="primary-button compact" onClick={() => void resolvePendingConfirm(true)}>Confirmar</button>
+          </div>
+        </div>
+      )}
       <header className="context-workbench-header">
         <div className="context-workbench-title">
           <p>{openTaskBranches.length} {openTaskBranches.length === 1 ? 'tarea abierta' : 'tareas abiertas'} · {pendingProposals.length} {pendingProposals.length === 1 ? 'mención por validar' : 'menciones por validar'}</p>
