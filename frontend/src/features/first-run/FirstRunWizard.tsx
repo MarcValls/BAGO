@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { firstRunProviderOptions, firstRunReadiness } from './firstRun';
 import type { BagoClient } from '@/api/client';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
@@ -55,7 +56,7 @@ export function FirstRunWizard(props: Props) {
       });
       setMessage(`${options.find((item) => item.id === providerId)?.label || providerId} configurado`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(friendlyErrorMessage(error, 'No se pudo configurar el proveedor'));
     } finally {
       setWorking(false);
     }
@@ -73,7 +74,7 @@ export function FirstRunWizard(props: Props) {
       setTested((current) => ({ ...current, [id]: { ok: result.ok, detail: result.detail || (result.ok ? 'Responde correctamente' : 'No responde') } }));
       setMessage(result.ok ? `${id} responde correctamente` : `${id}: ${result.detail || 'no responde'}`);
     } catch (error) {
-      setTested((current) => ({ ...current, [id]: { ok: false, detail: error instanceof Error ? error.message : String(error) } }));
+      setTested((current) => ({ ...current, [id]: { ok: false, detail: friendlyErrorMessage(error, 'No se pudo probar el proveedor') } }));
     } finally { setWorking(false); }
   };
 
@@ -91,7 +92,7 @@ export function FirstRunWizard(props: Props) {
         setStep(3);
       } else setMessage('BAGO no pudo activar el proyecto. Revisa la ruta.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(friendlyErrorMessage(error, 'BAGO no pudo activar el proyecto'));
     } finally {
       setWorking(false);
     }

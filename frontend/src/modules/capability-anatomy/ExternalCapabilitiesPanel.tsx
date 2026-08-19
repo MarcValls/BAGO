@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
+import { friendlyErrorMessage } from '@/shared/friendly-error';
 import type {
   CapabilityObjectSchema,
   CapabilityPackageRecord,
@@ -52,7 +53,7 @@ function encodeBase64(buffer: ArrayBuffer): string {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'La operación no pudo completarse.';
+  return friendlyErrorMessage(error, 'La operación no pudo completarse.');
 }
 
 function SchemaForm({ legend, schema, values, disabled, onChange }: SchemaFormProps) {
