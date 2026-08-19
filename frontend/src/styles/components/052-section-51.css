@@ -310,3 +310,30 @@
   justify-content: space-between;
   gap: 10px;
 }
+
+/* Inline inspector panel: ocupa la celda de panel de app-main-area */
+.inline-panel-host.inspector-panel .inspector-drawer {
+  position: static;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.inline-panel-host.inspector-panel .inspector-drawer-header {
+  flex: 0 0 auto;
+}
+
+.inline-panel-host.inspector-panel .inspector-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
