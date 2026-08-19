@@ -1,7 +1,7 @@
 // ContextTreeModule: componente raíz del módulo de arquitectura de
 // contexto. Junta Toolbar + Banco + Canvas + Inspector + Bandeja +
 // Pack bar. Reemplaza la antigua pantalla pasiva de métricas.
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Drawer } from '@/lib/Drawer';
 import type { ActiveSection, ContextTargetKind, SelectionRecord } from '@/contracts/backend';
 import type {
@@ -140,6 +140,13 @@ export function ContextTreeModule(props: Props) {
   const [focusedCategoryNodeId, setFocusedCategoryNodeId] = useState<string | null>(null);
   const [reviewingNodeId, setReviewingNodeId] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string>('');
+  const [moduleNotice, setModuleNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
+  const clearModuleNotice = useCallback(() => setModuleNotice(null), []);
+  useEffect(() => {
+    if (!moduleNotice) return;
+    const t = setTimeout(() => setModuleNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [moduleNotice]);
 
   // CANON[CTX-016]: el chat puede pedir abrir un patch en modo edición.
   // Cuando lo recibimos, abrimos el preview y limpiamos el flag.
@@ -665,7 +672,7 @@ export function ContextTreeModule(props: Props) {
     const result = await ctx.acceptPatch(collectionProposal.id);
     setCollectionBusy(false);
     if (!result.ok) {
-      window.alert(result.error || 'No se pudo aplicar la propuesta.');
+      setModuleNotice({ tone: 'error', message: result.error || 'No se pudo aplicar la propuesta.' });
       return;
     }
     setCollectionProposal(null);
@@ -695,7 +702,7 @@ export function ContextTreeModule(props: Props) {
     if (!selectedBranch || !closeNote.trim()) return;
     const result = await ctx.closeTask(selectedBranch.id, closeNote.trim());
     if (!result.ok) {
-      window.alert(result.error || 'No se pudo cerrar la tarea.');
+      setModuleNotice({ tone: 'error', message: result.error || 'No se pudo cerrar la tarea.' });
       return;
     }
     setCloseNote('');
@@ -705,11 +712,12 @@ export function ContextTreeModule(props: Props) {
   const reopenSelectedTask = async () => {
     if (!selectedBranch) return;
     const result = await ctx.reopenTask(selectedBranch.id);
-    if (!result.ok) window.alert(result.error || 'No se pudo reabrir la tarea.');
+    if (!result.ok) setModuleNotice({ tone: 'error', message: result.error || 'No se pudo reabrir la tarea.' });
   };
 
   const handleCopyId = (id: string) => {
     navigator.clipboard?.writeText(id);
+    setModuleNotice({ tone: 'info', message: 'ID copiado al portapapeles.' });
   };
 
   const showCompiledRaw = () => {
@@ -738,7 +746,7 @@ export function ContextTreeModule(props: Props) {
   const handleAcceptPatch = async (patchId: string) => {
     const result = await ctx.acceptPatch(patchId);
     if (!result.ok && result.error) {
-      window.alert(result.error);
+      setModuleNotice({ tone: 'error', message: result.error });
     }
   };
   const handleRejectPatch = async (patchId: string) => {
@@ -753,7 +761,7 @@ export function ContextTreeModule(props: Props) {
     if (!editingPatch) return;
     const result = await ctx.applyPatchedEdited(editingPatch.id, operations);
     if (!result.ok) {
-      window.alert(result.error || 'No se pudo aplicar el patch.');
+      setModuleNotice({ tone: 'error', message: result.error || 'No se pudo aplicar el patch.' });
     }
     setEditingPatch(null);
   };
@@ -761,7 +769,7 @@ export function ContextTreeModule(props: Props) {
     if (!window.confirm('¿Revertir este cambio? Volverá al snapshot previo.')) return;
     const result = await ctx.revertPatch(patchId);
     if (!result.ok && result.error) {
-      window.alert(result.error);
+      setModuleNotice({ tone: 'error', message: result.error });
     }
   };
   const handleOpenInTree = (patchId: string) => {
@@ -855,6 +863,13 @@ export function ContextTreeModule(props: Props) {
           </details>
         </nav>
       </header>
+      {moduleNotice && (
+        <div className={`context-collection-notice tone-${moduleNotice.tone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 16px 0' }}>
+          <Icon name={moduleNotice.tone === 'error' ? 'warning' : moduleNotice.tone === 'warning' ? 'alert' : 'check-circle'} size={12} />
+          <span style={{ flex: 1 }}>{moduleNotice.message}</span>
+          <button type="button" className="icon-only" aria-label="Cerrar aviso" onClick={clearModuleNotice}><Icon name="close" size={12} /></button>
+        </div>
+      )}
       {workbenchView === 'focus' ? (
       <main className="context-focus-view">
         <section className="context-focus-intro">
