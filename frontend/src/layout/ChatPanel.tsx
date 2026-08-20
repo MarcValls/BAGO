@@ -591,7 +591,7 @@ function chatBlockedHint(snapshot: UiBootstrapSnapshot | null): string {
   return 'El chat está temporalmente desactivado.';
 }
 
-function runtimeStep(snapshot: UiBootstrapSnapshot | null): { message: string; action?: () => void; label?: string } | null {
+export function runtimeStep(snapshot: UiBootstrapSnapshot | null): { message: string; action?: () => void; label?: string } | null {
   if (!snapshot) return { message: 'Esperando datos del backend…' };
   if (!snapshot.system.backendAvailable) {
     return { message: 'No hay conexión con el backend. Comprueba que BAGO está ejecutándose.' };
@@ -646,7 +646,7 @@ function RuntimeStatus({ snapshot, onRefresh, onNavigate }: { snapshot: UiBootst
       />
       <RuntimeStatusItem
         label="Proveedor / modelo"
-        value={quietStatus(provider) || `${snapshot?.model.provider} · ${snapshot.model.effectiveModel}`}
+        value={quietStatus(provider) || `${snapshot?.model.provider} · ${snapshot?.model.effectiveModel}`}
         ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'}
         raw={provider}
         action={snapshot?.model.state !== 'confirmed' && onNavigate ? { label: 'Configurar', onClick: () => onNavigate('system') } : undefined}
@@ -674,6 +674,21 @@ function RuntimeStatus({ snapshot, onRefresh, onNavigate }: { snapshot: UiBootst
   </section>;
 }
 
-function RuntimeStatusItem({ label, value, ok, raw }: { label: string; value: string; ok: boolean; raw: string }) {
-  return <div className={`start-chat-runtime-item ${ok ? 'is-ok' : 'is-pending'}`}><span className="start-chat-runtime-dot" /><div><small>{label}</small><strong title={raw}>{value}</strong></div></div>;
+interface RuntimeStatusItemProps {
+  label: string;
+  value: string;
+  ok: boolean;
+  raw: string;
+  action?: { label: string; onClick: () => void } | undefined;
+}
+
+function RuntimeStatusItem({ label, value, ok, raw, action }: RuntimeStatusItemProps) {
+  return <div className={`start-chat-runtime-item ${ok ? 'is-ok' : 'is-pending'} ${action ? 'has-action' : ''}`}>
+    <span className="start-chat-runtime-dot" />
+    <div className="start-chat-runtime-item-main">
+      <small>{label}</small>
+      <strong title={raw}>{value}</strong>
+    </div>
+    {action && <button type="button" className="text-button compact" onClick={action.onClick}>{action.label}</button>}
+  </div>;
 }
