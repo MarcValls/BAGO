@@ -17,6 +17,7 @@ node_modules/
 # Generated release payloads/installers. Build workflows create and publish these.
 electron-viewer/dist/
 electron-viewer/*.log
+electron-viewer/*.png
 backend/dist/
 backend/release/v4/
 releases/compiled/

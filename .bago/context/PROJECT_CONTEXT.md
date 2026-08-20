@@ -31,6 +31,6 @@
 8. `fix(frontend): ensure full-screen chat always owns the workspace area`
 9. `fix(frontend): prevent side panels from sharing the screen on startup`
 10. `fix(frontend): update HelpOverlay copy for chat-dock behavior`
-11. `fix(frontend): update the actual HelpOverlay used by ControlPlane`
+12. `refactor(frontend): consolidate ActivityToast, HelpOverlay, and CommandPalette into ControlPlaneOverlays.tsx`
 
-Working tree is clean. Backend: 928 passed / 13 skipped (one unrelated flaky failure in `test_node_control_split.py::test_matrix_distinguishes_available_from_detached`, passes in isolation). Frontend: 114 tests passed / typecheck OK / build OK. Open conflict: duplicate HelpOverlay/CommandPalette definitions (hygiene).
+Working tree is clean. Backend: 928 passed / 13 skipped (one unrelated flaky failure in `test_node_control_split.py::test_matrix_distinguishes_available_from_detached`, passes in isolation). Frontend: 114 tests passed / typecheck OK / build OK. Open conflicts: none.
