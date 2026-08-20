@@ -27,5 +27,6 @@
 4. `hygiene: remove unused imports and stale alias comment`
 5. `docs(agents): add project-local agent context and Pi skills`
 6. `chore(gitignore): ignore electron-viewer generated logs`
+7. `fix(frontend): evita cierre obsoleto en el atajo de chat acoplado y añade tests de layout`
 
-Working tree is clean.
+Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 110 tests passed / typecheck OK / build OK.
