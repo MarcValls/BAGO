@@ -24,3 +24,8 @@
 1. `feat(frontend): chat acoplado como panel lateral combinado con cualquier pantalla`
 2. `test(backend): decodifica stdout de PowerShell según la code page de consola`
 3. `infra(runtime): initialize BAGO working-tree runtime wrapper and persistent state`
+4. `hygiene: remove unused imports and stale alias comment`
+5. `docs(agents): add project-local agent context and Pi skills`
+6. `chore(gitignore): ignore electron-viewer generated logs`
+
+Working tree is clean.
