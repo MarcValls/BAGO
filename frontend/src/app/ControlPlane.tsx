@@ -169,7 +169,7 @@ export function ControlPlane() {
   // el panel y se descarta la selección del inspector. También se
   // evita que la sección activa sea 'chat' (ya que el chat ya sería
   // la pantalla principal).
-  const setChatDocked = (willDock: boolean) => {
+  const setChatDocked = useCallback((willDock: boolean) => {
     setUiState((current) => {
       const next = patchUiState(current, {
         chatDocked: willDock,
@@ -182,7 +182,7 @@ export function ControlPlane() {
       return next;
     });
     if (willDock) setInspectorSelection(null);
-  };
+  }, []);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -549,7 +549,7 @@ export function ControlPlane() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [entered]);
+  }, [entered, uiState.chatDocked]);
 
   useEffect(() => {
     const bridge = getElectronBridge();
