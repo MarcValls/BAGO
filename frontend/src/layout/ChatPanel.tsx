@@ -448,7 +448,7 @@ export function ChatPanel(props: Props) {
                   </div>
 
                   <div className="start-chat-home-grid">
-                    <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} />
+                    <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} onNavigate={props.onNavigate} />
                     <section className="start-chat-recent" aria-label="Trabajos recientes">
                       <div className="start-chat-recent-head"><strong>Trabajos recientes</strong><span>{props.recentProjects?.length ? 'Selecciona uno para abrirlo' : 'Aún no hay actividad'}</span></div>
                       {props.recentProjects?.length ? (
@@ -462,7 +462,15 @@ export function ChatPanel(props: Props) {
                           ))}
                         </div>
                       ) : (
-                        <div className="start-chat-no-recent"><Icon name="history" size={16} /><span>Los trabajos que abras o crees aparecerán aquí.</span></div>
+                        <div className="start-chat-no-recent">
+                          <Icon name="history" size={16} />
+                          <div className="start-chat-no-recent-body">
+                            <p>Los trabajos que abras o crees aparecerán aquí.</p>
+                            <button type="button" className="text-button" onClick={props.onStartNew}>
+                              Crear un objetivo
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </section>
                   </div>
@@ -583,7 +591,27 @@ function chatBlockedHint(snapshot: UiBootstrapSnapshot | null): string {
   return 'El chat está temporalmente desactivado.';
 }
 
-function RuntimeStatus({ snapshot, onRefresh }: { snapshot: UiBootstrapSnapshot | null; onRefresh?: () => void }) {
+function runtimeStep(snapshot: UiBootstrapSnapshot | null): { message: string; action?: () => void; label?: string } | null {
+  if (!snapshot) return { message: 'Esperando datos del backend…' };
+  if (!snapshot.system.backendAvailable) {
+    return { message: 'No hay conexión con el backend. Comprueba que BAGO está ejecutándose.' };
+  }
+  if (!snapshot.workspace.linkedToSession) {
+    return { message: 'Selecciona un workspace para empezar.' };
+  }
+  if (snapshot.workspace.manifestState !== 'valid') {
+    return { message: 'El workspace necesita ser sembrado o reparado.' };
+  }
+  if (snapshot.model.state !== 'confirmed') {
+    return { message: 'Configura un proveedor y un modelo en el panel Sistema.' };
+  }
+  if (snapshot.session.state !== 'valid' && snapshot.session.state !== 'recoverable') {
+    return { message: 'La sesión no está activa. Reinicia o recupera la sesión.' };
+  }
+  return null;
+}
+
+function RuntimeStatus({ snapshot, onRefresh, onNavigate }: { snapshot: UiBootstrapSnapshot | null; onRefresh?: () => void; onNavigate?: (section: ActiveSection) => void }) {
   const backend = snapshot?.system.backendAvailable ? snapshot.system.state : 'error';
   const provider = snapshot?.model.provider && snapshot.model.effectiveModel
     ? `${snapshot.model.provider} · ${snapshot.model.effectiveModel}` : 'not_configured';
@@ -593,15 +621,55 @@ function RuntimeStatus({ snapshot, onRefresh }: { snapshot: UiBootstrapSnapshot 
   const context = snapshot?.context.state || 'unknown';
   const session = snapshot?.session.state || 'missing';
   const version = snapshot?.system.version || snapshot?.framework.version || 'not_observed';
+  const step = runtimeStep(snapshot);
+
   return <section className="start-chat-runtime-status" aria-label="Estado real de BAGO">
     <div className="start-chat-runtime-head"><strong>Estado real de BAGO</strong><span>Leído del backend activo</span>{onRefresh && <button type="button" className="text-button" onClick={onRefresh}>Actualizar</button>}</div>
+    {step && <div className="start-chat-runtime-step" role="status">
+      <Icon name="warning" size={14} />
+      <span>{step.message}</span>
+      {step.action && step.label && <button type="button" className="text-button" onClick={step.action}>{step.label}</button>}
+    </div>}
     <div className="start-chat-runtime-grid">
-      <RuntimeStatusItem label="Backend" value={quietStatus(backend) || 'Operativo'} ok={backend === 'confirmed' || backend === 'degraded'} raw={backend} />
-      <RuntimeStatusItem label="Sesión" value={quietStatus(session) || 'Activa'} ok={session === 'valid' || session === 'recoverable'} raw={session} />
-      <RuntimeStatusItem label="Proveedor / modelo" value={quietStatus(provider) || `${snapshot?.model.provider} · ${snapshot?.model.effectiveModel}`} ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'} raw={provider} />
-      <RuntimeStatusItem label="Workspace" value={workspace === 'valid' ? 'Vinculado y válido' : quietStatus(workspace)} ok={workspace === 'valid'} raw={workspace} />
-      <RuntimeStatusItem label="Contexto" value={quietStatus(context) || 'Confirmado'} ok={context === 'confirmed' || context === 'partial'} raw={context} />
-      <RuntimeStatusItem label="Versión runtime" value={quietStatus(version) || version} ok={version !== 'not_observed'} raw={version} />
+      <RuntimeStatusItem
+        label="Backend"
+        value={quietStatus(backend) || 'Operativo'}
+        ok={backend === 'confirmed' || backend === 'degraded'}
+        raw={backend}
+        action={!snapshot?.system.backendAvailable && onRefresh ? { label: 'Reintentar', onClick: onRefresh } : undefined}
+      />
+      <RuntimeStatusItem
+        label="Sesión"
+        value={quietStatus(session) || 'Activa'}
+        ok={session === 'valid' || session === 'recoverable'}
+        raw={session}
+      />
+      <RuntimeStatusItem
+        label="Proveedor / modelo"
+        value={quietStatus(provider) || `${snapshot?.model.provider} · ${snapshot.model.effectiveModel}`}
+        ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'}
+        raw={provider}
+        action={snapshot?.model.state !== 'confirmed' && onNavigate ? { label: 'Configurar', onClick: () => onNavigate('system') } : undefined}
+      />
+      <RuntimeStatusItem
+        label="Workspace"
+        value={workspace === 'valid' ? 'Vinculado y válido' : quietStatus(workspace)}
+        ok={workspace === 'valid'}
+        raw={workspace}
+        action={workspace !== 'valid' && onNavigate ? { label: 'Elegir', onClick: () => onNavigate('workspace') } : undefined}
+      />
+      <RuntimeStatusItem
+        label="Contexto"
+        value={quietStatus(context) || 'Confirmado'}
+        ok={context === 'confirmed' || context === 'partial'}
+        raw={context}
+      />
+      <RuntimeStatusItem
+        label="Versión runtime"
+        value={quietStatus(version) || version}
+        ok={version !== 'not_observed'}
+        raw={version}
+      />
     </div>
   </section>;
 }
