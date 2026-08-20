@@ -92,7 +92,12 @@ function fireShortcut(key: string, { ctrl = false, shift = false } = {}) {
   window.dispatchEvent(event);
 }
 
-describe('ControlPlane integration', () => {
+// Helpers that distinguish the chat dock (which carries both classes) from a side panel/inspector.
+const sidePanel = (container: HTMLElement) => container.querySelector('.inline-panel-host:not(.inline-chat-host)');
+const chatDock = (container: HTMLElement) => container.querySelector('.inline-chat-host');
+const rightColumnCount = (container: HTMLElement) => container.querySelectorAll('.inline-panel-host').length;
+
+describe('ControlPlane chat-dock behaviour', () => {
   beforeEach(() => {
     window.localStorage.setItem('bago.first-run.v1.completed', 'true');
   });
@@ -102,75 +107,157 @@ describe('ControlPlane integration', () => {
     window.localStorage.clear();
   });
 
-  it('renders the main sidebar after bootstrap on large screens', async () => {
-    const { container } = render(<ControlPlane />);
-
-    await waitFor(() => {
-      const sidebar = container.querySelector('aside.main-sidebar');
-      expect(sidebar).toBeInTheDocument();
-    }, { timeout: 3000 });
-
-    const sidebar = container.querySelector('aside.main-sidebar');
-    expect(sidebar).toHaveAttribute('aria-label', 'Navegación principal');
-    expect(sidebar?.querySelector('nav.sidebar-nav')).toBeInTheDocument();
-  });
-
-  it('only renders a docked chat panel when chatDocked is true and the active section is not chat', async () => {
+  it('renders the workspace at full width when no chat is docked and no panel is open', async () => {
     const { container } = render(<ControlPlane />);
 
     await waitFor(() => {
       expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
     }, { timeout: 3000 });
 
-    // Initially no docked chat panel.
-    expect(container.querySelector('.inline-chat-host')).not.toBeInTheDocument();
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+    expect(mainArea).not.toHaveClass('has-panel');
+    expect(chatDock(container)).not.toBeInTheDocument();
+    expect(sidePanel(container)).not.toBeInTheDocument();
+  });
 
-    // Dock the chat with the canonical shortcut.
+  it('docks the chat as the only right column and uses a two-column layout', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
     fireShortcut('c', { ctrl: true, shift: true });
 
     await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).toBeInTheDocument();
+      expect(chatDock(container)).toBeInTheDocument();
     }, { timeout: 1000 });
 
-    // The chat panel should be marked as docked and labelled as such.
-    const dock = container.querySelector('.inline-chat-host');
-    expect(dock).toHaveAttribute('aria-label', 'Chat acoplado');
-
-    // The main area should reflect the two-column layout.
     const mainArea = container.querySelector('.app-main-area');
     expect(mainArea).toHaveClass('has-chat-dock');
     expect(mainArea).toHaveClass('has-panel');
-
-    // No other section can be docked; verify only the chat host exists.
-    expect(container.querySelectorAll('.inline-panel-host').length).toBe(1);
+    expect(rightColumnCount(container)).toBe(1);
+    expect(chatDock(container)).toHaveAttribute('aria-label', 'Chat acoplado');
+    expect(sidePanel(container)).not.toBeInTheDocument();
   });
 
-  it('shows the chat as full screen and hides the dock when navigating to the chat section', async () => {
+  it('mutually excludes the docked chat and a side panel: opening a panel undocks the chat', async () => {
     const { container } = render(<ControlPlane />);
 
     await waitFor(() => {
       expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
     }, { timeout: 3000 });
 
-    // Start docked.
     fireShortcut('c', { ctrl: true, shift: true });
     await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).toBeInTheDocument();
+      expect(chatDock(container)).toBeInTheDocument();
     }, { timeout: 1000 });
 
-    // Navigate to chat with Ctrl+2.
+    fireShortcut('8', { ctrl: true });
+
+    await waitFor(() => {
+      expect(chatDock(container)).not.toBeInTheDocument();
+      expect(sidePanel(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+    expect(mainArea).toHaveClass('has-panel');
+    expect(rightColumnCount(container)).toBe(1);
+  });
+
+  it('undocks the chat and closes any side panel when toggling chat dock on', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('8', { ctrl: true });
+    await waitFor(() => {
+      expect(sidePanel(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    fireShortcut('c', { ctrl: true, shift: true });
+
+    await waitFor(() => {
+      expect(sidePanel(container)).not.toBeInTheDocument();
+      expect(chatDock(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    expect(rightColumnCount(container)).toBe(1);
+    expect(container.querySelector('.inline-panel-host')).toHaveClass('inline-chat-host');
+  });
+
+  it('hides the side panel when navigating to the full-screen chat section', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('8', { ctrl: true });
+    await waitFor(() => {
+      expect(sidePanel(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
     fireShortcut('2', { ctrl: true });
 
     await waitFor(() => {
-      // The docked panel disappears; chat is the active section (full screen).
-      expect(container.querySelector('.inline-chat-host')).not.toBeInTheDocument();
+      expect(sidePanel(container)).not.toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).not.toHaveClass('has-panel');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+  });
+
+  it('toggles the docked chat off with the same keyboard shortcut', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('c', { ctrl: true, shift: true });
+    await waitFor(() => {
+      expect(chatDock(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    fireShortcut('c', { ctrl: true, shift: true });
+    await waitFor(() => {
+      expect(chatDock(container)).not.toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+    expect(mainArea).not.toHaveClass('has-panel');
+  });
+
+  it('shows the chat full screen and hides the dock when navigating to the chat section', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('c', { ctrl: true, shift: true });
+    await waitFor(() => {
+      expect(chatDock(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    fireShortcut('2', { ctrl: true });
+
+    await waitFor(() => {
+      expect(chatDock(container)).not.toBeInTheDocument();
     }, { timeout: 1000 });
 
     const mainArea = container.querySelector('.app-main-area');
     expect(mainArea).not.toHaveClass('has-chat-dock');
   });
 
-  it('restores the docked chat when leaving the chat section while chatDocked remains true', async () => {
+  it('restores the docked chat when leaving the full-screen chat section', async () => {
     const { container } = render(<ControlPlane />);
 
     await waitFor(() => {
@@ -179,40 +266,17 @@ describe('ControlPlane integration', () => {
 
     fireShortcut('c', { ctrl: true, shift: true });
     await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).toBeInTheDocument();
+      expect(chatDock(container)).toBeInTheDocument();
     }, { timeout: 1000 });
 
-    // Go to chat full screen.
     fireShortcut('2', { ctrl: true });
     await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).not.toBeInTheDocument();
+      expect(chatDock(container)).not.toBeInTheDocument();
     }, { timeout: 1000 });
 
-    // Go back to home.
     fireShortcut('1', { ctrl: true });
     await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).toBeInTheDocument();
+      expect(chatDock(container)).toBeInTheDocument();
     }, { timeout: 1000 });
-  });
-
-  it('closes the docked chat panel when toggling it off again', async () => {
-    const { container } = render(<ControlPlane />);
-
-    await waitFor(() => {
-      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
-    }, { timeout: 3000 });
-
-    fireShortcut('c', { ctrl: true, shift: true });
-    await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).toBeInTheDocument();
-    }, { timeout: 1000 });
-
-    fireShortcut('c', { ctrl: true, shift: true });
-    await waitFor(() => {
-      expect(container.querySelector('.inline-chat-host')).not.toBeInTheDocument();
-    }, { timeout: 1000 });
-
-    const mainArea = container.querySelector('.app-main-area');
-    expect(mainArea).not.toHaveClass('has-chat-dock');
   });
 });

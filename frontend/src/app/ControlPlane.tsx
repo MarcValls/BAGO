@@ -520,7 +520,7 @@ export function ControlPlane() {
           if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
             openPanel(target);
           } else {
-            setAndPersistUiState({ activeSection: target as ActiveSection });
+            navigate(target as ActiveSection);
           }
         }
         return;
@@ -1129,7 +1129,13 @@ export function ControlPlane() {
   };
 
   const navigate = (section: ActiveSection) => {
-    setAndPersistUiState({ activeSection: section });
+    setAndPersistUiState({
+      activeSection: section,
+      // CANON[CHAT-DOCK]: la pantalla completa de chat nunca comparte
+      // espacio con un panel lateral o inspector.
+      activePanel: section === 'chat' ? null : undefined,
+    });
+    if (section === 'chat') setInspectorSelection(null);
   };
 
   const runAction = async (action: UiAction) => {
@@ -1216,7 +1222,12 @@ export function ControlPlane() {
   };
 
   const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
-    setAndPersistUiState({ activeSection: section, globalMode: mode });
+    setAndPersistUiState({
+      activeSection: section,
+      globalMode: mode,
+      activePanel: section === 'chat' ? null : undefined,
+    });
+    if (section === 'chat') setInspectorSelection(null);
   };
 
   const toggleRouterSelection = async (key: string): Promise<void> => {
@@ -1587,7 +1598,7 @@ export function ControlPlane() {
               </aside>
             )}
 
-            {uiState.activePanel && !inspectorSelection && !(uiState.chatDocked && uiState.activeSection !== 'chat') && (
+            {uiState.activePanel && uiState.activeSection !== 'chat' && !inspectorSelection && (
               <aside
                 className="inline-panel-host"
                 style={{ width: PANEL_WIDTHS[uiState.activePanel] ?? 400 }}
@@ -1597,7 +1608,7 @@ export function ControlPlane() {
               </aside>
             )}
 
-            {inspectorSelection && !(uiState.chatDocked && uiState.activeSection !== 'chat') && (
+            {inspectorSelection && uiState.activeSection !== 'chat' && (
               <aside
                 className="inline-panel-host inspector-panel"
                 style={{ width: 520 }}
