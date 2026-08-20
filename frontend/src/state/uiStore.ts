@@ -37,6 +37,11 @@ export interface UiState {
   activePanel: PanelId | null;
   // Pila de historial de panels para focus return
   panelHistory: PanelId[];
+  // CANON[CHAT-DOCK]: chat acoplable a cualquier sección como columna
+  // derecha. Por defecto `false` para no romper el flujo actual de
+  // chat como sección completa; cuando se activa, el chat se monta
+  // también en ControlPlane junto a la sección activa.
+  chatDocked: boolean;
 }
 
 export interface UiStatePatch {
@@ -55,6 +60,7 @@ export interface UiStatePatch {
   contextEditPatchId?: string | null;
   activePanel?: PanelId | null;
   panelHistory?: PanelId[];
+  chatDocked?: boolean;
 }
 
 
@@ -91,7 +97,8 @@ export function createDefaultUiState(): UiState {
     contextBankPending: [],
     contextEditPatchId: null,
     activePanel: null,
-    panelHistory: []
+    panelHistory: [],
+    chatDocked: false
   };
 }
 
@@ -112,7 +119,8 @@ export function loadUiState(): UiState {
       globalMode: normalizeGlobalMode(rest.globalMode),
       appearanceTheme: normalizeAppearanceTheme(rest.appearanceTheme),
       activePanel: rest.activePanel ?? null,
-      panelHistory: rest.panelHistory ?? []
+      panelHistory: rest.panelHistory ?? [],
+      chatDocked: typeof rest.chatDocked === 'boolean' ? rest.chatDocked : false
     };
   } catch {
     return createDefaultUiState();
@@ -135,7 +143,8 @@ export function persistUiState(state: UiState): void {
     contextBankPending: state.contextBankPending,
     contextEditPatchId: state.contextEditPatchId,
     activePanel: state.activePanel,
-    panelHistory: state.panelHistory
+    panelHistory: state.panelHistory,
+    chatDocked: state.chatDocked
   };
   localStorage.setItem(KEY, JSON.stringify(persistedState));
 }

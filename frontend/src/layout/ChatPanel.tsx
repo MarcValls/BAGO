@@ -71,6 +71,11 @@ interface Props {
   onSwitchConversation?: (conversationId: string) => Promise<void>;
   onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
   onArchiveConversation?: (conversationId: string) => Promise<void>;
+  // CANON[CHAT-DOCK]: cuando se monta dentro del dock lateral (junto
+  // a otra sección) `isDocked` deshabilita el start screen, oculta
+  // tabs contextuales y reduce padding. Sin esta prop el panel se
+  // comporta como pantalla completa.
+  isDocked?: boolean;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -210,7 +215,7 @@ export function ChatPanel(props: Props) {
   const [modelPickerPos, setModelPickerPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
   const modelPickerRootRef = useRef<HTMLDivElement>(null);
   const [reasoningChanging, setReasoningChanging] = useState(false);
-  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
+  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen && !props.isDocked));
   const [conversationBusy, setConversationBusy] = useState('');
   const [conversationError, setConversationError] = useState('');
   const [renamingId, setRenamingId] = useState('');
@@ -333,7 +338,7 @@ export function ChatPanel(props: Props) {
   };
 
   return (
-    <div className={`chat-panel is-full ${showWelcome ? 'is-start-screen' : ''}`} {...inspectMenuAttrs(chatSelection, props.onInspect)}>
+    <div className={`chat-panel ${props.isDocked ? 'is-docked' : 'is-full'} ${showWelcome && !props.isDocked ? 'is-start-screen' : ''}`} {...inspectMenuAttrs(chatSelection, props.onInspect)}>
       <header className="chat-panel-header">
         <div className="chat-panel-header-title">
           <Icon name="chat" size={14} />

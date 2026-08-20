@@ -6,8 +6,9 @@ import { MainSidebar } from '@/layout/MainSidebar';
 import { WorkspaceShell } from '@/layout/WorkspaceShell';
 import { ActionScreen } from '@/layout/ActionScreen';
 import { InspectorDrawer } from '@/layout/InspectorDrawer';
+import { ChatPanel } from '@/layout/ChatPanel';
 import { createContextActions } from '@/features/context-menu/contextActions';
-import { ControlSections } from '@/features/sections';
+import { ControlSections, selectRouterEntries } from '@/features/sections';
 import { resolveOpeningState } from '@/features/opening/opening';
 import { createDefaultUiState, loadUiState, patchUiState, persistUiState, type UiState } from '@/state/uiStore';
 import { Icon } from '@/shared/Icon';
@@ -24,6 +25,7 @@ import { markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun }
 import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 import { canPersistWorkspaceAuthority } from '@/shared/workspaceAuthority';
+import { useActiveProviderModels } from '@/shared/useActiveProviderModels';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -154,8 +156,33 @@ export function ControlPlane() {
   const [lastMessage, setLastMessage] = useState('iniciando');
   const [commandResults, setCommandResults] = useState<Record<string, BackendCommandResult | null>>({});
   const [opening, setOpening] = useState(() => resolveOpeningState(null));
-  const openPanel = (panelId: PanelId) => setAndPersistUiState({ activePanel: panelId });
+  const openPanel = (panelId: PanelId) => {
+    // CANON[INSPECTOR-MUTEX]: al abrir un panel del sidebar nunca
+    // deben coexistir dos columnas derechas. Si el chat está acoplado,
+    // se desacopla primero para que la pantalla actual siga siendo
+    // lo único visible.
+    setAndPersistUiState({ activePanel: panelId, chatDocked: false });
+  };
   const panelCloseDrawer = () => setAndPersistUiState({ activePanel: null });
+  // CANON[INSPECTOR-MUTEX]: acoplar el chat es mutuamente excluyente
+  // con cualquier panel lateral o inspector. Si se activa, se cierra
+  // el panel y se descarta la selección del inspector. También se
+  // evita que la sección activa sea 'chat' (ya que el chat ya sería
+  // la pantalla principal).
+  const setChatDocked = (willDock: boolean) => {
+    setUiState((current) => {
+      const next = patchUiState(current, {
+        chatDocked: willDock,
+        activePanel: willDock ? null : current.activePanel,
+        activeSection: willDock && current.activeSection === 'chat' ? 'home' : current.activeSection
+      });
+      persistUiState(next);
+      persistApiConfig(next.apiBase || readStoredApiBase());
+      clientRef.current.setConfig(next.apiBase || readStoredApiBase(), next.apiToken || '');
+      return next;
+    });
+    if (willDock) setInspectorSelection(null);
+  };
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -168,6 +195,7 @@ export function ControlPlane() {
   // para filtrar el desplegable del chat.
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
   const conversationRevisionRef = useRef(0);
+  const { activeProvider, activeModels } = useActiveProviderModels(clientRef.current, snapshot);
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -477,6 +505,13 @@ export function ControlPlane() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
         event.preventDefault();
         setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
+        return;
+      }
+      // Ctrl+Shift+C: acoplar / desacoplar el chat a la pantalla actual.
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        const willDock = !uiState.chatDocked;
+        setChatDocked(willDock);
         return;
       }
       // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
@@ -1150,6 +1185,13 @@ export function ControlPlane() {
       toggleSidebar: () => setUiState((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })),
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
       toggleReview: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'review' ? 'normal' : 'review' }),
+      toggleChatDock: () => {
+        const willDock = !uiState.chatDocked;
+        // CANON[INSPECTOR-MUTEX]: el dock de chat es mutuamente
+        // excluyente con cualquier panel lateral o inspector.
+        setChatDocked(willDock);
+      },
+      chatDocked: uiState.chatDocked,
       runCommand: (command) => { void runCommand(command); },
       runContextCommand: (command) => { void runContextCommand(command); },
       sidebarCollapsed: uiState.sidebarCollapsed,
@@ -1343,6 +1385,14 @@ export function ControlPlane() {
             navigate('home');
           }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
+          onToggleChatDock={() => {
+            const willDock = !uiState.chatDocked;
+            // CANON[INSPECTOR-MUTEX]: el botón de la cabecera sigue
+            // la misma regla que el atajo y el palette: acoplar
+            // siempre cierra el panel/inspector a la derecha.
+            setChatDocked(willDock);
+          }}
+          chatDocked={uiState.chatDocked}
           globalMode={uiState.globalMode}
           appearanceTheme={uiState.appearanceTheme}
           sidebarCollapsed={uiState.sidebarCollapsed}
@@ -1361,7 +1411,7 @@ export function ControlPlane() {
             />
           )}
 
-          <div className={`app-main-area ${(uiState.activePanel || inspectorSelection) ? 'has-panel' : ''}`}>
+          <div className={`app-main-area ${(uiState.activePanel || inspectorSelection || (uiState.chatDocked && uiState.activeSection !== 'chat')) ? 'has-panel' : ''} ${uiState.chatDocked && uiState.activeSection !== 'chat' ? 'has-chat-dock' : ''} ${(uiState.activePanel || inspectorSelection) ? 'has-side-panel' : ''}`}>
             {pendingConfirm && (
               <div className="confirm-banner" role="alertdialog" aria-live="polite" aria-modal="false">
                 <div className="confirm-banner-content">
@@ -1439,6 +1489,8 @@ export function ControlPlane() {
                   onRenameConversation={renameConversation}
                   onArchiveConversation={archiveConversation}
                   workspaceOpenRequest={workspaceOpenRequest}
+                  activeProvider={activeProvider}
+                  activeModels={activeModels}
                   contextClient={clientRef.current}
                   contextTree={contextTree}
                   incomingContextPatches={incomingContextPatches}
@@ -1468,7 +1520,77 @@ export function ControlPlane() {
               </WorkspaceShell>
             </div>
 
-            {uiState.activePanel && !inspectorSelection && (
+            {uiState.chatDocked && uiState.activeSection !== 'chat' && (
+              <aside
+                className="inline-panel-host inline-chat-host"
+                aria-label="Chat acoplado"
+              >
+                <div className="inline-chat-host-frame">
+                  <header className="inline-chat-host-bar">
+                    <span className="inline-chat-host-title"><Icon name="chat" size={12} /> Chat acoplado</span>
+                    <div className="inline-chat-host-actions">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Ir a la pantalla de chat"
+                        aria-label="Abrir chat como pantalla"
+                        onClick={() => openShell('chat')}
+                      >
+                        <Icon name="expand" size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Cerrar el dock de chat"
+                        aria-label="Cerrar el dock de chat"
+                        onClick={() => setChatDocked(false)}
+                      >
+                        <Icon name="close" size={12} />
+                      </button>
+                    </div>
+                  </header>
+                  <div className="inline-chat-host-body">
+                    <ChatPanel
+                      isDocked
+                      snapshot={snapshot}
+                      turns={turns}
+                      drafts={uiState.drafts}
+                      chatMode={uiState.chatMode}
+                      history={history}
+                      conversations={conversations}
+                      routerEntries={selectRouterEntries(routerState)}
+                      sessionModel={sessionModel}
+                      activeProvider={activeProvider}
+                      activeModels={activeModels}
+                      onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
+                      onDraftChange={setDraft}
+                      onSendChat={sendChat}
+                      onInspect={onInspect}
+                      onRunCommand={runCommand}
+                      onRunContextCommand={runContextCommand}
+                      onNavigate={navigate}
+                      onSetSessionModel={setSessionModelCb}
+                      reasoningDepth={reasoningDepth}
+                      onSetReasoningDepth={setReasoningDepthCb}
+                      onCreateConversation={createNewConversation}
+                      onSwitchConversation={switchConversation}
+                      onRenameConversation={renameConversation}
+                      onArchiveConversation={archiveConversation}
+                      canChat={Boolean(snapshot?.permissions.canChat)}
+                      contextPatches={contextPatchDisplay}
+                      onAcceptContextPatch={acceptContextPatch}
+                      onRejectContextPatch={rejectContextPatch}
+                      onEditContextPatch={editContextPatch}
+                      onRevertContextPatch={revertContextPatch}
+                      onReviewContextPatch={reviewContextPatch}
+                      onOpenContextInTree={openContextInTree}
+                    />
+                  </div>
+                </div>
+              </aside>
+            )}
+
+            {uiState.activePanel && !inspectorSelection && !(uiState.chatDocked && uiState.activeSection !== 'chat') && (
               <aside
                 className="inline-panel-host"
                 style={{ width: PANEL_WIDTHS[uiState.activePanel] ?? 400 }}
@@ -1478,7 +1600,7 @@ export function ControlPlane() {
               </aside>
             )}
 
-            {inspectorSelection && (
+            {inspectorSelection && !(uiState.chatDocked && uiState.activeSection !== 'chat') && (
               <aside
                 className="inline-panel-host inspector-panel"
                 style={{ width: 520 }}

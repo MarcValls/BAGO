@@ -4,6 +4,7 @@ import type {
   BackendHistory,
   BackendMenu,
   BackendProviders,
+  BackendRouterEntry,
   BackendRouterList,
   BackendRouterPolicy,
   BackendRoutes,
@@ -138,12 +139,24 @@ interface Props {
   initialContextSelectedNodeId?: string | null;
   initialContextEditingPatchId?: string | null;
   onInitialContextStateConsumed?: () => void;
+  // CANON[CHAT-DOCK]: proveedor/modelos activos calculados en
+  // ControlPlane para compartirse entre el chat acoplado y el chat
+  // como pantalla completa.
+  activeProvider: string | null;
+  activeModels: Set<string>;
 }
 
-function resolveRouterEntries(router: Props['router']): Array<Record<string, unknown>> {
+function resolveRouterEntries(router: Props['router']): BackendRouterEntry[] {
   const policyEntries = router?.policy?.entries || [];
   if (policyEntries.length > 0) return policyEntries;
   return router?.list?.entries || [];
+}
+
+export function selectRouterEntries(router: { list: BackendRouterList | null; policy: BackendRouterPolicy | null } | null | undefined): BackendRouterEntry[] {
+  if (!router) return [];
+  const policyEntries = router.policy?.entries || [];
+  if (policyEntries.length > 0) return policyEntries;
+  return router.list?.entries || [];
 }
 
 type RecordValue = Record<string, unknown>;
@@ -618,8 +631,8 @@ export function ControlSections(props: Props) {
   const [evidenceCompare, setEvidenceCompare] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
+  const activeProvider = props.activeProvider;
+  const activeModels = props.activeModels;
   const [routerFallbackEntries, setRouterFallbackEntries] = useState<Array<Record<string, unknown>>>([]);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
@@ -1324,32 +1337,6 @@ export function ControlSections(props: Props) {
     workspaceFilter,
     workspaceQuery
   ]);
-
-  // Modelos activos del provider activo: alimentan el selector de
-  // modelo en la pantalla de Chat. Si no hay lista guardada, el set
-  // queda vacío y el selector hace fallback al router.
-  useEffect(() => {
-    const provider = (snapshot as any)?.model?.provider
-      || (snapshot as any)?.provider
-      || (snapshot as any)?.session?.provider
-      || (snapshot as any)?.system?.provider
-      || null;
-    if (!provider) {
-      setActiveProvider(null);
-      setActiveModels(new Set());
-      return;
-    }
-    setActiveProvider(provider);
-    props.client.getActiveProviderModels(provider)
-      .then((data) => {
-        if (Array.isArray(data.active_models)) {
-          setActiveModels(new Set(data.active_models));
-        } else {
-          setActiveModels(new Set());
-        }
-      })
-      .catch(() => setActiveModels(new Set()));
-  }, [snapshot, props.client]);
 
   if (props.section === 'chat') {
     const chatTabs = <nav className="contextual-subnav" aria-label="Herramientas de Chat">

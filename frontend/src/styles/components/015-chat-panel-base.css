@@ -4,6 +4,18 @@
 .chat-panel.is-start-screen .chat-panel-header, .chat-panel.is-start-screen .chat-composer { display: none; }
 .chat-panel.is-start-screen .chat-surface { padding: 0; }
 .chat-panel.is-start-screen .chat-timeline { display: grid; place-items: center; padding: 28px; }
+/* CANON[CHAT-DOCK]: cuando el chat se monta como panel acoplado, el
+   compositor gana altura, se eliminan las tarjetas de bienvenida y
+   el header se reduce para caber en columna estrecha. */
+.chat-panel.is-docked { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; flex: 1 1 auto; }
+.chat-panel.is-docked .chat-panel-header { padding: 6px 10px; }
+.chat-panel.is-docked .chat-panel-header-title strong, .chat-panel.is-docked .chat-panel-header-title span { font-size: 12px; }
+.chat-panel.is-docked .chat-panel-header-actions .chat-new-button { display: none; }
+.chat-panel.is-docked .chat-surface { padding: 8px 10px 10px; }
+.chat-panel.is-docked .chat-composer { padding: 6px 8px; }
+.chat-panel.is-docked .start-chat-home { padding: 8px; }
+.chat-panel.is-docked .start-chat-welcome h2 { font-size: 14px; }
+.chat-panel.is-docked .start-chat-welcome p { font-size: 12px; }
 .chat-surface.is-focus { max-width: 900px; min-height: 100%; padding: 20px 24px 24px; }
 .chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .segmented-control { display: flex; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); }

@@ -28,6 +28,20 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* CANON[CHAT-DOCK]: cuando el chat está acoplado, lo añadimos como
+   tercera columna a la derecha del panel de drawers. La anchura
+   la controla `inline-chat-host` (auto-fit). */
+.app-main-area.has-panel.has-chat-dock {
+  grid-template-areas: "ws panel chat";
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+/* Sin panel lateral pero con chat acoplado: layout de dos columnas. */
+.app-main-area.has-chat-dock:not(.has-panel) {
+  grid-template-areas: "ws chat";
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
 .workspace-area {
   grid-area: ws;
   min-width: 0;
@@ -58,6 +72,64 @@
 
 .app-root.mode-focus .inline-panel-host,
 .app-root.mode-review .inline-panel-host {
+  display: none;
+}
+
+.inline-chat-host {
+  grid-area: chat;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+
+.inline-chat-host-frame {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.inline-chat-host-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.inline-chat-host-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.inline-chat-host-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.inline-chat-host-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-root.mode-focus .inline-chat-host,
+.app-root.mode-review .inline-chat-host {
   display: none;
 }
 

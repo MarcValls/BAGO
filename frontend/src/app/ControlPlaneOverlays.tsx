@@ -35,6 +35,7 @@ export function HelpOverlay({ onClose, onOpenFirstRun }: { onClose: () => void; 
   const shortcuts = [
     ['Ctrl K', 'Abrir comandos y búsqueda'],
     ['Ctrl B', 'Mostrar u ocultar navegación'],
+    ['Ctrl Shift C', 'Acoplar o desacoplar el chat a la pantalla actual'],
     ['?', 'Abrir esta ayuda'],
     ['Esc', 'Cerrar modales, ayuda o paleta'],
     ['Enter', 'Enviar chat cuando el cursor está en el composer'],
@@ -52,7 +53,7 @@ export function HelpOverlay({ onClose, onOpenFirstRun }: { onClose: () => void; 
           {shortcuts.map(([key, description]) => <div key={key} className="help-shortcut-row"><kbd>{key}</kbd><span>{description}</span></div>)}
         </section>
         <button type="button" className="secondary-button" onClick={onOpenFirstRun}>Abrir recorrido inicial</button>
-        <p className="help-note">El sidebar contiene destinos. El chat es un panel conmutado, no una pantalla. El inspector aparece como drawer y no reduce el espacio vertical del workspace.</p>
+        <p className="help-note">El sidebar contiene destinos y el chat puede combinarse con cualquier pantalla (acoplar / desacoplar con el botón de la cabecera o Ctrl+Shift+C). El inspector aparece como drawer y no reduce el espacio vertical del workspace.</p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ActivityToast, filterPaletteActions } from '../src/app/ControlPlaneOverlays';
+import { ActivityToast, filterPaletteActions, HelpOverlay } from '../src/app/ControlPlaneOverlays';
 import type { BagoAction } from '../src/navigation/actionRegistry';
 
 const actions: BagoAction[] = [
@@ -21,5 +21,11 @@ describe('ControlPlane overlays', () => {
     expect(markup).toContain('role="status"');
     expect(markup).toContain('state-loading');
     expect(markup).toContain('procesando');
+  });
+
+  it('documents the chat dock shortcut in the help panel', () => {
+    const markup = renderToStaticMarkup(<HelpOverlay onClose={vi.fn()} onOpenFirstRun={vi.fn()} />);
+    expect(markup).toContain('Ctrl Shift C');
+    expect(markup).toContain('Acoplar o desacoplar el chat');
   });
 });

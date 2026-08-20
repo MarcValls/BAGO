@@ -104,6 +104,8 @@ interface ShellActionHandlers {
   toggleSidebar: () => void;
   toggleFocus: () => void;
   toggleReview: () => void;
+  toggleChatDock: () => void;
+  chatDocked: boolean;
   runCommand: (command: string) => void;
   runContextCommand: (command: string) => void;
   sidebarCollapsed: boolean;
@@ -140,6 +142,12 @@ export function createShellActions(handlers: ShellActionHandlers): BagoAction[] 
     {
       id: 'review', object: 'Vista', verb: handlers.globalMode === 'review' ? 'Salir de Lectura' : 'Activar Lectura',
       label: `Vista · ${handlers.globalMode === 'review' ? 'Salir de Lectura' : 'Activar Lectura'}`, group: 'Vista', icon: 'review', shortcut: 'F12', action: handlers.toggleReview
+    },
+    {
+      id: 'toggle-chat-dock', object: 'Vista', verb: handlers.chatDocked ? 'Quitar chat acoplado' : 'Acoplar chat',
+      label: `Vista · ${handlers.chatDocked ? 'Quitar chat acoplado' : 'Acoplar chat'}`,
+      group: 'Vista', icon: 'chat', shortcut: 'Ctrl+Shift+C', keywords: ['dock', 'panel', 'combinable'],
+      action: handlers.toggleChatDock
     },
     {
       id: 'cmd-status', object: 'Sistema', verb: 'Consultar estado', label: 'Sistema · Consultar estado',
