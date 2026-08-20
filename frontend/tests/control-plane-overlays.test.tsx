@@ -23,9 +23,11 @@ describe('ControlPlane overlays', () => {
     expect(markup).toContain('procesando');
   });
 
-  it('documents the chat dock shortcut in the help panel', () => {
+  it('documents the chat dock shortcut and the screen-sharing rule in the help panel', () => {
     const markup = renderToStaticMarkup(<HelpOverlay onClose={vi.fn()} onOpenFirstRun={vi.fn()} />);
     expect(markup).toContain('Ctrl Shift C');
     expect(markup).toContain('Acoplar o desacoplar el chat');
+    expect(markup).toContain('pantalla completa');
+    expect(markup).toContain('solo una columna derecha puede estar visible');
   });
 });

@@ -53,7 +53,7 @@ export function HelpOverlay({ onClose, onOpenFirstRun }: { onClose: () => void; 
           {shortcuts.map(([key, description]) => <div key={key} className="help-shortcut-row"><kbd>{key}</kbd><span>{description}</span></div>)}
         </section>
         <button type="button" className="secondary-button" onClick={onOpenFirstRun}>Abrir recorrido inicial</button>
-        <p className="help-note">El sidebar contiene destinos y el chat puede combinarse con cualquier pantalla (acoplar / desacoplar con el botón de la cabecera o Ctrl+Shift+C). El inspector aparece como drawer y no reduce el espacio vertical del workspace.</p>
+        <p className="help-note">El sidebar contiene destinos. El chat puede usarse como pantalla completa (Ctrl+2) o acoplarse junto a cualquier otra pantalla (botón de cabecera o Ctrl+Shift+C). Los paneles laterales y el inspector nunca comparten el área de trabajo con el chat acoplado: solo una columna derecha puede estar visible.</p>
       </div>
     </div>
   );
