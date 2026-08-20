@@ -371,9 +371,6 @@ export function ControlPlane() {
     openWorkspacePicker();
   };
 
-  // Alias so the two ControlSections calls can use different-looking props for the same function
-  const onChooseWorkspaceAlternate = openWorkspacePicker;
-
   const confirmWorkspacePicker = async (seedAfterLink: boolean) => {
     const selectedRoot = workspacePickerValue.trim();
     if (!selectedRoot) {
