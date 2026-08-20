@@ -33,5 +33,6 @@
 10. `fix(frontend): update HelpOverlay copy for chat-dock behavior`
 13. `chore(repo): normalize all text files to UTF-8 LF via .gitattributes`
 14. `feat(frontend): actionable runtime status and improved empty states on home`
+15. `chore(bago): add backend verification helper script`
 
-Working tree has uncommitted UX improvements. Backend: 928 passed / 13 skipped. Frontend: 119 tests passed / typecheck OK / build OK. Open conflicts: none.
+Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 119 tests passed / typecheck OK / build OK. Open conflicts: none.
