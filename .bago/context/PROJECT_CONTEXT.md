@@ -28,5 +28,6 @@
 5. `docs(agents): add project-local agent context and Pi skills`
 6. `chore(gitignore): ignore electron-viewer generated logs`
 7. `fix(frontend): evita cierre obsoleto en el atajo de chat acoplado y añade tests de layout`
+8. `fix(frontend): ensure full-screen chat always owns the workspace area`
 
-Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 110 tests passed / typecheck OK / build OK.
+Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 113 tests passed / typecheck OK / build OK.
