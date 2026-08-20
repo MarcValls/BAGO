@@ -118,8 +118,8 @@ export function loadUiState(): UiState {
       activeSection: normalizeActiveSection(rest.activeSection),
       globalMode: normalizeGlobalMode(rest.globalMode),
       appearanceTheme: normalizeAppearanceTheme(rest.appearanceTheme),
-      activePanel: rest.activePanel ?? null,
-      panelHistory: rest.panelHistory ?? [],
+      activePanel: null,
+      panelHistory: [],
       chatDocked: typeof rest.chatDocked === 'boolean' ? rest.chatDocked : false
     };
   } catch {
@@ -142,8 +142,11 @@ export function persistUiState(state: UiState): void {
     drafts: state.drafts,
     contextBankPending: state.contextBankPending,
     contextEditPatchId: state.contextEditPatchId,
-    activePanel: state.activePanel,
-    panelHistory: state.panelHistory,
+    // CANON[CHAT-DOCK]: los paneles laterales no se persisten; al
+    // recargar la aplicación nunca debe restaurarse un panel junto a
+    // una sección. Solo el chat puede compartir pantalla.
+    activePanel: null,
+    panelHistory: [],
     chatDocked: state.chatDocked
   };
   localStorage.setItem(KEY, JSON.stringify(persistedState));

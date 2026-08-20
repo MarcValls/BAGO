@@ -107,6 +107,28 @@ describe('ControlPlane chat-dock behaviour', () => {
     window.localStorage.clear();
   });
 
+  it('does not restore a persisted side panel on initial load: only chat can share the screen', async () => {
+    // Simulate a stale localStorage where a previous session left a side panel open.
+    window.localStorage.setItem('bago.ui.state', JSON.stringify({
+      activeSection: 'home',
+      activePanel: 'interpreter',
+      chatDocked: false,
+      sidebarCollapsed: true,
+    }));
+
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).not.toHaveClass('has-panel');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+    expect(sidePanel(container)).not.toBeInTheDocument();
+    expect(chatDock(container)).not.toBeInTheDocument();
+  });
+
   it('renders the workspace at full width when no chat is docked and no panel is open', async () => {
     const { container } = render(<ControlPlane />);
 
@@ -257,7 +279,7 @@ describe('ControlPlane chat-dock behaviour', () => {
     expect(mainArea).not.toHaveClass('has-chat-dock');
   });
 
-  it('restores the docked chat when leaving the full-screen chat section', async () => {
+  it('does not restore the docked chat after navigating to the full-screen chat section', async () => {
     const { container } = render(<ControlPlane />);
 
     await waitFor(() => {
@@ -274,9 +296,14 @@ describe('ControlPlane chat-dock behaviour', () => {
       expect(chatDock(container)).not.toBeInTheDocument();
     }, { timeout: 1000 });
 
+    // The full-screen chat is the primary screen; the dock flag is cleared.
     fireShortcut('1', { ctrl: true });
     await waitFor(() => {
-      expect(chatDock(container)).toBeInTheDocument();
+      expect(chatDock(container)).not.toBeInTheDocument();
     }, { timeout: 1000 });
+
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+    expect(mainArea).not.toHaveClass('has-panel');
   });
 });

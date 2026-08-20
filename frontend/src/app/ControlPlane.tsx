@@ -1131,11 +1131,14 @@ export function ControlPlane() {
   const navigate = (section: ActiveSection) => {
     setAndPersistUiState({
       activeSection: section,
-      // CANON[CHAT-DOCK]: la pantalla completa de chat nunca comparte
-      // espacio con un panel lateral o inspector.
-      activePanel: section === 'chat' ? null : undefined,
+      // CANON[CHAT-DOCK]: solo el chat puede compartir pantalla. Al
+      // navegar a cualquier sección se cierra cualquier panel lateral
+      // o inspector; si la sección destino es chat, el dock también se
+      // desactiva porque el chat ya es la pantalla principal.
+      activePanel: null,
+      chatDocked: section === 'chat' ? false : undefined,
     });
-    if (section === 'chat') setInspectorSelection(null);
+    setInspectorSelection(null);
   };
 
   const runAction = async (action: UiAction) => {
@@ -1225,9 +1228,13 @@ export function ControlPlane() {
     setAndPersistUiState({
       activeSection: section,
       globalMode: mode,
-      activePanel: section === 'chat' ? null : undefined,
+      // CANON[CHAT-DOCK]: solo el chat puede compartir pantalla. Al
+      // abrir una sección como pantalla principal se cierran panel,
+      // inspector y dock.
+      activePanel: null,
+      chatDocked: false,
     });
-    if (section === 'chat') setInspectorSelection(null);
+    setInspectorSelection(null);
   };
 
   const toggleRouterSelection = async (key: string): Promise<void> => {
