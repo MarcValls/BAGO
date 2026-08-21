@@ -28,6 +28,6 @@ describe('ControlPlane overlays', () => {
     expect(markup).toContain('Ctrl Shift C');
     expect(markup).toContain('Acoplar o desacoplar el chat');
     expect(markup).toContain('pantalla completa');
-    expect(markup).toContain('solo una columna derecha puede estar visible');
+    expect(markup).toContain('Solo el chat acoplado puede dividir la vista');
   });
 });

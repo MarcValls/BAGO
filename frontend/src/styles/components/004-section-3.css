@@ -70,6 +70,35 @@
   overflow: auto;
 }
 
+/* CANON[INSPECTOR-MUTEX]: los paneles laterales del sidebar (agentes,
+   intérprete, GitHub, capacidades, herramientas) no comparten el área
+   de trabajo con otra sección. Solo el chat acoplado puede dividir la
+   pantalla. Cuando un panel lateral está abierto, ocupa todo el espacio
+   disponible y el workspace principal queda oculto. */
+.app-main-area.has-side-panel .workspace-area {
+  display: none;
+}
+
+.app-main-area.has-side-panel .inline-panel-host.is-fullscreen {
+  grid-area: ws;
+  grid-column: 1 / -1;
+  width: 100% !important;
+  border-left: 0;
+}
+
+/* Si por algún estado transitório coexistieran chat acoplado y un panel
+   lateral, el panel lateral gana y ocupa toda el área. */
+.app-main-area.has-panel.has-chat-dock .inline-panel-host.is-fullscreen {
+  grid-area: ws;
+  grid-column: 1 / -1;
+  width: 100% !important;
+  border-left: 0;
+}
+
+.app-main-area.has-panel.has-chat-dock .inline-chat-host {
+  display: none;
+}
+
 .app-root.mode-focus .inline-panel-host,
 .app-root.mode-review .inline-panel-host {
   display: none;

@@ -1608,7 +1608,7 @@ export function ControlPlane() {
 
             {uiState.activePanel && uiState.activeSection !== 'chat' && !inspectorSelection && (
               <aside
-                className="inline-panel-host"
+                className="inline-panel-host is-fullscreen"
                 style={{ width: PANEL_WIDTHS[uiState.activePanel] ?? 400 }}
                 aria-label="Panel lateral"
               >

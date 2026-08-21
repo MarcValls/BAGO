@@ -189,6 +189,47 @@ describe('ControlPlane chat-dock behaviour', () => {
     expect(rightColumnCount(container)).toBe(1);
   });
 
+  it('renders a side panel as the only main view, hiding the workspace area', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('8', { ctrl: true });
+    await waitFor(() => {
+      expect(sidePanel(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    const mainArea = container.querySelector('.app-main-area');
+    expect(mainArea).toHaveClass('has-side-panel');
+    expect(mainArea).not.toHaveClass('has-chat-dock');
+    // The panel must be marked as fullscreen so CSS can hide the workspace.
+    const panel = container.querySelector('.inline-panel-host:not(.inline-chat-host)') as HTMLElement;
+    expect(panel).toBeInTheDocument();
+    expect(panel).toHaveClass('is-fullscreen');
+  });
+
+  it('keeps only one side panel visible at a time', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('aside.main-sidebar')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('8', { ctrl: true });
+    await waitFor(() => {
+      expect(sidePanel(container)).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    fireShortcut('0', { ctrl: true });
+    await waitFor(() => {
+      expect(container.querySelector('.inline-panel-host')).toBeInTheDocument();
+    }, { timeout: 1000 });
+
+    expect(rightColumnCount(container)).toBe(1);
+  });
+
   it('undocks the chat and closes any side panel when toggling chat dock on', async () => {
     const { container } = render(<ControlPlane />);
 
