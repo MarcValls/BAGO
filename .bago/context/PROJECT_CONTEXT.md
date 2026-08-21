@@ -34,5 +34,7 @@
 13. `chore(repo): normalize all text files to UTF-8 LF via .gitattributes`
 14. `feat(frontend): actionable runtime status and improved empty states on home`
 15. `chore(bago): add backend verification helper script`
+16. `fix(electron-viewer): prevent EPIPE crash and auto-start local backend in dev mode`
+17. `fix(frontend): enforce fullscreen for sidebar panels; only chat may split the screen`
 
-Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 119 tests passed / typecheck OK / build OK. Open conflicts: none.
+Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 121 tests passed / typecheck OK / build OK. Open conflicts: none.
