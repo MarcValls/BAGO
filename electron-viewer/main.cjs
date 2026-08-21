@@ -7,8 +7,28 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { spawnSync, execSync } = require('child_process');
+const { spawnSync, execSync, spawn } = require('child_process');
 const http = require('http');
+
+// ── Robust console logging in the main process ───────────────────────────────
+// Windows Electron can throw EPIPE when writing to a closed stdout/stderr
+// pipe (e.g. launched from a terminal that exits). Swallow those errors so
+// a stray diagnostic write never crashes the app.
+const safeWrite = (target, args) => {
+  try {
+    target.apply(console, args);
+  } catch (err) {
+    if (err?.code !== 'EPIPE') {
+      try {
+        process.stdout.write(`[console-fallback] ${args.join(' ')}\n`);
+      } catch {}
+    }
+  }
+};
+const originalLog = console.log;
+const originalError = console.error;
+console.log = (...args) => safeWrite(originalLog, args);
+console.error = (...args) => safeWrite(originalError, args);
 
 // ── Resolver raíz del repo ────────────────────────────────────────────────────
 function hasDevScript(rootPath) {
@@ -195,6 +215,40 @@ function isAllowedExternalUrl(raw) {
   }
 }
 
+// In development mode, start the local backend if it is not already running.
+// Returns true immediately if healthy or if a launch was attempted.
+let devBackendStarting = false;
+async function ensureDevBackend() {
+  if (app.isPackaged) return true;
+  if (await probeHealthOnce(HEALTH_URL)) return true;
+  const runtime = getRuntimePaths();
+  if (!runtime || !runtime.servicePs1) return false;
+  if (devBackendStarting) return true;
+  devBackendStarting = true;
+  bootLog('dev backend not healthy; starting via dev.ps1 backend');
+  return new Promise((resolve) => {
+    const child = spawn('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', runtime.servicePs1, 'backend'
+    ], { cwd: runtime.repoRoot, stdio: 'ignore' });
+    child.on('error', (err) => {
+      bootLog(`dev backend spawn error: ${err.message}`);
+      devBackendStarting = false;
+      resolve(false);
+    });
+    child.on('exit', (code) => {
+      bootLog(`dev backend launcher exited with code ${code}`);
+      devBackendStarting = false;
+      resolve(true);
+    });
+    // Also resolve after a short grace period so we don't block window creation.
+    setTimeout(() => {
+      devBackendStarting = false;
+      resolve(true);
+    }, 3000);
+  });
+}
+
 function probeHealthOnce(url) {
   return new Promise((resolve) => {
     const req = http.get(url, { timeout: 2000 }, (res) => {
@@ -353,7 +407,8 @@ app.whenReady().then(async () => {
     return;
   }
 
-  // Arrancar y validar backend antes de abrir la ventana empaquetada.
+  // En modo empaquetado arrancamos el backend local; en desarrollo lo
+  // arrancamos también si no hay nada respondiendo en 127.0.0.1:8080.
   if (app.isPackaged) {
     try { fs.mkdirSync(runtime.runDir, { recursive: true }); } catch {}
     const started = runRuntimeService('backend');
@@ -362,6 +417,8 @@ app.whenReady().then(async () => {
       app.exit(1);
       return;
     }
+  } else {
+    await ensureDevBackend();
   }
   const healthy = await waitForBackendHealth(HEALTH_URL, 30000);
   BACKEND_HEALTHY = healthy;
