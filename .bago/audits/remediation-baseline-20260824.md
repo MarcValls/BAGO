@@ -13,16 +13,6 @@
 
 This baseline is an attribution boundary. Changes listed below predate the remediation and must not be attributed to it. No code or state transition was performed while capturing this record.
 
-## Provenance limitation discovered during closure
-
-The SHA-256 above was captured, but the corresponding dirty patch bytes were
-not retained. The file list and hash prove that a dirty boundary was observed;
-they do **not** let a third party reconstruct or independently verify its exact
-contents. Consequently, strict attribution between those pre-existing edits
-and later remediation edits remains `UNRESOLVED`. This limitation must be
-carried into every handoff/package and blocks global `VALIDATED`; it must never
-be replaced by a reconstructed or inferred patch presented as the original.
-
 ## Existing tracked changes
 
 - `backend/.bago/api/handlers_jobs.py`

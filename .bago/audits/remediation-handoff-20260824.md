@@ -6,6 +6,8 @@ Remediation of BAGO-AUD-001 through BAGO-AUD-010 from the robust third-party
 audit dated 2026-08-22. The declared boundary is documented in
 `remediation-baseline-20260824.md`; its dirty patch bytes were not retained, so
 strict attribution of the six pre-existing tracked edits remains unresolved.
+The dated correction is preserved separately in
+`remediation-baseline-addendum-20260824.md`.
 
 ## Candidate contents
 
