@@ -1,5 +1,6 @@
 # Logs y PIDs de desarrollo (creados por scripts/dev.sh y dev.ps1)
 .run/
+/debug.log
 
 # Estado local del runtime canónico
 /.bago/config.json
