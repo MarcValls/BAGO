@@ -15,7 +15,7 @@
 
 ## Current gates (evidence-backed)
 
-- Backend candidate suite: 946 passed, 13 skipped, 198 subtests passed.
+- Backend candidate suite: 957 passed, 2 skipped, 198 subtests passed.
 - Backend source-package build and 12 packaging tests pass.
 - Frontend: 121 tests, typecheck, production build and live UI smoke pass.
 - Release backup/resume and release-manager contract gates pass.
