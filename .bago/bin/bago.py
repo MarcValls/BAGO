@@ -132,9 +132,11 @@ def cmd_status(_args: argparse.Namespace) -> int:
     fp = _git_fingerprint()
     dirty = bool(fp.get("dirty"))
     recorded = state.get("fingerprint") or {}
-    stale = bool(recorded) and recorded != fp
     claimed_status = str(state.get("status", "idle"))
-    effective_status = "STALE" if claimed_status.upper() in {"VERIFIED", "VALIDATED"} and (dirty or stale) else claimed_status
+    protected_claim = claimed_status.upper() in {"VERIFIED", "VALIDATED"}
+    missing_identity = protected_claim and not recorded
+    stale = protected_claim and (missing_identity or recorded != fp)
+    effective_status = "STALE" if protected_claim and (dirty or stale) else claimed_status
 
     print(f"Repository: {_repo_root()}")
     print(f"Branch:     {fp.get('branch') or '?'}")
@@ -142,12 +144,15 @@ def cmd_status(_args: argparse.Namespace) -> int:
     print(f"Dirty:      {'yes' if dirty else 'no'}")
     print(f"Status:     {effective_status}")
     if effective_status == "STALE":
-        print(f"Recorded:   {claimed_status} (invalidated by candidate drift)")
-    print(f"Note:       {state.get('note', '')}")
+        reason = "missing candidate fingerprint" if missing_identity else "candidate drift"
+        print(f"Recorded:   {claimed_status} (invalidated: {reason})")
+    note_label = "Recorded note" if effective_status == "STALE" else "Note"
+    print(f"{note_label}: {state.get('note', '')}")
     print(f"Updated:    {state.get('updated_at', '')}")
     if state.get("last_verification"):
         v = state["last_verification"]
-        print(f"Last verify: {v.get('command')} -> rc={v.get('returncode')} at {v.get('timestamp')}")
+        verify_label = "Recorded verify" if effective_status == "STALE" else "Last verify"
+        print(f"{verify_label}: {v.get('command')} -> rc={v.get('returncode')} at {v.get('timestamp')}")
 
     _print_file(_paths()["context"], "Context")
     _print_file(_paths()["handoff"], "Handoff")
