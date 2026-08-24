@@ -821,14 +821,40 @@ class ReleaseJobManager extends EventEmitter {
     const target = path.resolve(job.target);
     if (this._unsafeTarget(target)) throw new Error(`Destino inseguro: ${target}`);
     const backup = `${target}.bago-rollback-${safeName(job.id)}`;
-    if (fs.existsSync(backup)) fs.rmSync(backup, { recursive: true, force: true });
-    job.created_target = !fs.existsSync(target);
-    if (fs.existsSync(target)) {
-      fs.renameSync(target, backup);
+    const interrupted = `${target}.bago-interrupted-${safeName(job.id)}`;
+
+    // A surviving backup is authoritative recovery data from an earlier
+    // attempt. Never delete it while resuming the same job.
+    if (fs.existsSync(backup)) {
       job.backup_path = backup;
       job.rollback_available = true;
-      this._log(job, `Backup atómico creado: ${backup}.`);
+      job.created_target = false;
+      job.install_phase = 'backup_recovered';
+      this._emit(job);
+      if (fs.existsSync(target)) {
+        if (fs.existsSync(interrupted)) {
+          throw new Error(`Reanudación bloqueada: ya existe staging interrumpido ${interrupted}`);
+        }
+        fs.renameSync(target, interrupted);
+        job.interrupted_target_path = interrupted;
+      }
+      job.install_phase = 'backup_ready';
+      this._log(job, `Backup de rollback recuperado: ${backup}.`);
+      return;
     }
+
+    job.created_target = !fs.existsSync(target);
+    job.backup_path = job.created_target ? '' : backup;
+    job.rollback_available = !job.created_target;
+    job.install_phase = 'backup_planned';
+    this._emit(job); // Persist destructive intent before moving the target.
+    if (!job.created_target) {
+      fs.renameSync(target, backup);
+      job.install_phase = 'backup_ready';
+      this._log(job, `Backup atómico creado: ${backup}.`);
+      return;
+    }
+    job.install_phase = 'backup_not_required';
     this._emit(job);
   }
 

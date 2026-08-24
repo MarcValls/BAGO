@@ -233,6 +233,33 @@ class SessionTurnMixin:
     def _needs_task_response_contract(self, intent: str) -> bool:
         return intent in TASK_INTENTS
 
+    def _capture_conversational_goal(self, user_message: str, intent: str) -> bool:
+        """Capture the first substantive work request as the session goal.
+
+        The goal is session-scoped context, not a second form the user must
+        fill in.  Only affirmative work/execute turns seed it; short replies
+        such as ``sí`` or ``continúa`` therefore keep the existing objective.
+        An explicit goal already set by the user always wins.
+        """
+        if intent not in {"work", "execute"}:
+            return False
+        goal = str(getattr(self, "persistent_goal", "") or "").strip()
+        candidate = " ".join(str(user_message or "").split()).strip()
+        if goal or len(candidate) < 12:
+            return False
+        setter = getattr(self, "set_goal", None)
+        if not callable(setter):
+            return False
+        setter(candidate[:2000])
+        store = getattr(self, "store", None)
+        if store is not None and hasattr(store, "update_meta"):
+            try:
+                store.update_meta({"persistent_goal": candidate[:2000]})
+            except Exception:
+                # Goal capture must never make a chat turn fail.
+                pass
+        return True
+
     def _task_response_contract_block(self, intent: str, user_message: str) -> str:
         return task_response_guidance(intent, user_message=user_message) if self._needs_task_response_contract(intent) else ""
 
@@ -501,6 +528,7 @@ class SessionTurnMixin:
         normalized.append({"role": "user", "content": user_message})
 
         intent = "chat" if workspace_question else classify_intent(user_message)
+        self._capture_conversational_goal(user_message, intent)
         _is_file_write_request = _is_file_creation_request(user_message)
         try:
             reflexive_analysis = self.analyze_reflexive_turn(user_message)
@@ -1052,6 +1080,7 @@ class SessionTurnMixin:
 
         adapter = self._ensure_adapter()
         intent = "chat" if route_info.get("kind") == "workspace_question" else classify_intent(user_message)
+        self._capture_conversational_goal(user_message, intent)
         try:
             reflexive_analysis = self.analyze_reflexive_turn(user_message)
         except Exception as exc:

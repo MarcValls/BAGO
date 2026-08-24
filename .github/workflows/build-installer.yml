@@ -32,6 +32,20 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install and validate candidate
+        run: |
+          python -m pip install pytest==9.0.3 numpy==2.4.4 tzdata
+          npm ci
+          npm run build
+          npm run typecheck
+          npm run test:frontend
+          python -m pytest backend/tests -q
+
       - name: Resolve current version
         id: version
         run: |
@@ -99,35 +113,5 @@ jobs:
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe.sha256
           retention-days: 30
 
-      - name: Create Release and upload assets
-        if: github.event_name == 'workflow_dispatch'
-        working-directory: releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $version = $env:BAGO_VERSION
-          $tag = "${{ github.event.inputs.version }}"
-          $setupFile = "bago-$version-setup.exe"
-          $shaFile = "$setupFile.sha256"
-          $notesFile = (New-TemporaryFile).FullName
-          $notes = @(
-            "BAGO $tag Release"
-            ""
-            "## Installation"
-            'Download `$setupFile` and run it.'
-            ""
-            "## SHA256"
-            'See `$shaFile`'
-          )
-          $notes | Set-Content -Path $notesFile
-
-          gh release create $tag `
-            --title "BAGO $tag" `
-            --notes-file $notesFile `
-            $setupFile $shaFile
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: gh release create failed"
-            exit 1
-          }
-        shell: pwsh
+      # Publication remains tag-gated in canonical-ci.yml. A manual build can
+      # create an artifact, but cannot publish a release on its own authority.

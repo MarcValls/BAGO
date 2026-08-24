@@ -100,6 +100,10 @@ class ConfigManager:
 
     def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
+        # An explicit state root is an isolation boundary. Do not let a
+        # caller asking for a temporary/test state accidentally inherit a
+        # user's global config through state_read_candidates().
+        self._explicit_state_root = bool(str(state_root or "").strip())
         self.config_dir = resolve_state_root(state_root)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_path = self.config_dir / "config.json"
@@ -109,7 +113,8 @@ class ConfigManager:
 
     def _load(self) -> None:
         source_path = None
-        for path in state_read_candidates("config.json"):
+        candidates = (self.config_path,) if self._explicit_state_root else state_read_candidates("config.json")
+        for path in candidates:
             if path.exists():
                 source_path = path
                 break

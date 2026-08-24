@@ -9,6 +9,7 @@ create authority, only records authority already present in the repository.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -56,9 +57,9 @@ def _ensure_dirs() -> None:
         (_bago_dir() / sub).mkdir(parents=True, exist_ok=True)
 
 
-def _git_fingerprint() -> dict[str, str | None]:
+def _git_text(*args: str) -> str:
     result = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"],
+        ["git", *args],
         cwd=_repo_root(),
         capture_output=True,
         text=True,
@@ -66,18 +67,27 @@ def _git_fingerprint() -> dict[str, str | None]:
         errors="replace",
         check=False,
     )
-    commit = result.stdout.strip() or None
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=_repo_root(),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
-    branch = result.stdout.strip() or None
-    return {"commit": commit, "branch": branch}
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def _git_fingerprint() -> dict[str, Any]:
+    commit = _git_text("rev-parse", "HEAD") or None
+    branch = _git_text("rev-parse", "--abbrev-ref", "HEAD") or None
+    remote = _git_text("remote", "get-url", "origin") or None
+    upstream = _git_text("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}") or None
+    status = _git_text("status", "--porcelain=v1", "--untracked-files=all")
+    tracked = subprocess.run(
+        ["git", "diff", "--binary", "HEAD"], cwd=_repo_root(), capture_output=True, check=False
+    ).stdout
+    digest = hashlib.sha256(tracked + status.encode("utf-8")).hexdigest()
+    return {
+        "commit": commit,
+        "branch": branch,
+        "remote": remote,
+        "upstream": upstream,
+        "dirty": bool(status),
+        "worktree_sha256": digest,
+    }
 
 
 def _load_state() -> dict[str, Any]:
@@ -120,21 +130,19 @@ def _print_file(path: Path, label: str) -> None:
 def cmd_status(_args: argparse.Namespace) -> int:
     state = _load_state()
     fp = _git_fingerprint()
-    dirty = subprocess.run(
-        ["git", "status", "--short"],
-        cwd=_repo_root(),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    ).stdout.strip()
+    dirty = bool(fp.get("dirty"))
+    recorded = state.get("fingerprint") or {}
+    stale = bool(recorded) and recorded != fp
+    claimed_status = str(state.get("status", "idle"))
+    effective_status = "STALE" if claimed_status.upper() in {"VERIFIED", "VALIDATED"} and (dirty or stale) else claimed_status
 
     print(f"Repository: {_repo_root()}")
     print(f"Branch:     {fp.get('branch') or '?'}")
     print(f"Commit:     {fp.get('commit') or '?'}")
     print(f"Dirty:      {'yes' if dirty else 'no'}")
-    print(f"Status:     {state.get('status', 'idle')}")
+    print(f"Status:     {effective_status}")
+    if effective_status == "STALE":
+        print(f"Recorded:   {claimed_status} (invalidated by candidate drift)")
     print(f"Note:       {state.get('note', '')}")
     print(f"Updated:    {state.get('updated_at', '')}")
     if state.get("last_verification"):
@@ -156,6 +164,7 @@ def cmd_state(args: argparse.Namespace) -> int:
     state["updated_at"] = _iso_now()
     state["commit"] = fp.get("commit")
     state["branch"] = fp.get("branch")
+    state["fingerprint"] = fp
     _save_state(state)
     print(f"State updated: {args.status}")
     if args.note:
@@ -205,8 +214,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
         "stdout": result.stdout[:2000] if result.stdout else "",
         "stderr": result.stderr[:2000] if result.stderr else "",
         "commit": fp.get("commit"),
+        "fingerprint": fp,
         "timestamp": _iso_now(),
     }
+    state["fingerprint"] = fp
+    if result.returncode != 0:
+        state["status"] = "EXECUTED"
+        state["note"] = f"Verification failed (rc={result.returncode}); previous verification invalidated."
+    elif fp.get("dirty"):
+        state["status"] = "EXECUTED"
+        state["note"] = "Verification command passed on a dirty candidate; global VERIFIED is not permitted."
     _save_state(state)
     return result.returncode
 

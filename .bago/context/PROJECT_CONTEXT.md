@@ -15,9 +15,18 @@
 
 ## Current gates (evidence-backed)
 
-- Backend test suite: 928 passed, 13 skipped.
-- Frontend typecheck, tests, and production build pass.
+- Backend candidate suite: 946 passed, 13 skipped, 198 subtests passed.
+- Backend source-package build and 12 packaging tests pass.
+- Frontend: 121 tests, typecheck, production build and live UI smoke pass.
+- Release backup/resume and release-manager contract gates pass.
+- `gestor-con-bago`: typecheck and production build pass against the canonical
+  BAGO health/KV contract.
 - Windows is the primary supported platform; macOS/Linux are experimental.
+
+Raw command output and candidate metadata are captured by
+`scripts/record_remediation_gate.py`. Formal closure remains governed by
+`.bago/audits/remediation-closure-contract-20260824.md`; historical counters do
+not define validity.
 
 ## Recent closure
 
@@ -37,4 +46,9 @@
 16. `fix(electron-viewer): prevent EPIPE crash and auto-start local backend in dev mode`
 17. `fix(frontend): enforce fullscreen for sidebar panels; only chat may split the screen`
 
-Working tree is clean. Backend: 928 passed / 13 skipped. Frontend: 121 tests passed / typecheck OK / build OK. Open conflicts: none.
+## Audit remediation 2026-08-24
+
+The BAGO-AUD-001..010 remediation is `EXECUTED`. The baseline, closure contract
+and immutable handoff live under `.bago/audits/`. Promotion to `VERIFIED` or
+`VALIDATED` requires candidate-bound final gates and an independent review; no
+document may infer those states from this context file alone.

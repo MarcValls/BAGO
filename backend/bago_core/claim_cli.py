@@ -34,7 +34,7 @@ def _cli(argv: list[str] | None = None) -> int:
     add_p.add_argument("--command",   default="", help="Comando que genero la evidencia")
     add_p.add_argument("--artifacts", default="", help="Rutas de artefactos separadas por coma")
     add_p.add_argument("--limits",    default="", help="Limites de lo que prueba esta evidencia")
-    add_p.add_argument("--status",    default=STATUS_OPEN, choices=[STATUS_OPEN, STATUS_SIMULATED, STATUS_VERIFIED])
+    add_p.add_argument("--status",    default=STATUS_OPEN, choices=[STATUS_OPEN, STATUS_SIMULATED])
     add_p.add_argument("--stdout",    default="", help="Salida capturada del comando")
     add_p.add_argument("--notes",     default="")
 
@@ -123,10 +123,10 @@ def _run_tests() -> int:
         assert ledger.get(cid) is not None
         assert ledger.report()["open"] == 1
 
-        # Verificar: sin artefactos -> verified (nada que comprobar)
+        # Sin artefactos no existe evidencia material verificable.
         ok = ledger.verify(cid)
-        assert ok, "verify sin artefactos debe ser True"
-        assert ledger.get(cid).status == STATUS_VERIFIED
+        assert not ok, "verify sin artefactos debe ser False"
+        assert ledger.get(cid).status == "failed"
 
         # Simulated claim
         cid2 = ledger.add(
@@ -148,9 +148,9 @@ def _run_tests() -> int:
 
         r = ledger.report()
         assert r["total_claims"] == 3
-        assert r["verified"] == 1
+        assert r["verified"] == 0
         assert r["simulated"] == 1
-        assert r["failed"] == 1
+        assert r["failed"] == 2
 
     print("claim_ledger.py: ALL PASS")
     return 0

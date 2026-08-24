@@ -40,8 +40,25 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             cid = ledger.add(claim="x", basis="observation", limits="test")
             self.assertIsNotNone(ledger.get(cid))
             ok = ledger.verify(cid)
-            self.assertTrue(ok)
+            self.assertFalse(ok)
+            self.assertEqual(ledger.get(cid).status, "failed")
+
+    def test_verified_requires_existing_material_artifact(self) -> None:
+        from bago_core.claim_storage import ClaimLedger
+        with tempfile.TemporaryDirectory() as td:
+            artifact = Path(td) / "evidence.txt"
+            artifact.write_text("evidence", encoding="utf-8")
+            ledger = ClaimLedger(base_path=td)
+            cid = ledger.add(claim="x", basis="artifact", artifacts=[str(artifact)])
+            self.assertTrue(ledger.verify(cid))
             self.assertEqual(ledger.get(cid).status, "verified")
+
+    def test_claim_cannot_be_created_as_verified(self) -> None:
+        from bago_core.claim_storage import ClaimLedger
+        with tempfile.TemporaryDirectory() as td:
+            ledger = ClaimLedger(base_path=td)
+            with self.assertRaises(ValueError):
+                ledger.add(claim="x", basis="observation", status="verified")
 
     def test_cli_module(self) -> None:
         from bago_core import claim_cli

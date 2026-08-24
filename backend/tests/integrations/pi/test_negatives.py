@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -49,6 +50,11 @@ from integrations.pi.scope_validator import assert_within_scope, deny_implicit_p
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+# The repository itself contains trusted development sources such as
+# ``.agents``. Preflight must reject those in a real workspace, so fixtures
+# use an isolated scope rather than the checkout root.
+_TEST_SCOPE = Path(tempfile.mkdtemp(prefix="bago-pi-scope-"))
+
 
 def _valid_request(
     *,
@@ -68,9 +74,9 @@ def _valid_request(
         "session_id": "sess-1",
         "session_revision": "rev-1",
         "workspace_id": "ws-1",
-        "project_root": str(Path.cwd()),
-        "workspace_root": str(Path.cwd()),
-        "workspace_scope_root": str(Path.cwd()),
+        "project_root": str(_TEST_SCOPE),
+        "workspace_root": str(_TEST_SCOPE),
+        "workspace_scope_root": str(_TEST_SCOPE),
         "context_envelope_id": "env-1",
         "context_envelope_digest": "env-1",
         "policy_profile": "disabled",

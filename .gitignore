@@ -5,7 +5,9 @@
 /.bago/config.json
 /.bago/state/
 /.bago/runtime/
+/.bago/evidence/
 /.gabo/
+/.goals/current-plan.md
 /backend/.gabo/
 /backend/.bago/state/*
 !/backend/.bago/state/.gitignore

@@ -36,6 +36,7 @@ _EXCLUDE_DIRS = {
     "build",
     "output",
     "out",
+    "release",
     ".gabo/state",
     ".gabo/logs",
     ".gabo/cache",

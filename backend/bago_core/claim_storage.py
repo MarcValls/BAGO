@@ -25,6 +25,7 @@ from bago_core.claim_model import (
     STATUS_SUPERSEDED,
     STATUS_VERIFIED,
 )
+from bago_core.operational_integrity import EvidencePolicy, EvidenceRecord
 class ClaimLedger:
     """
     Registro append-only de claims trazables.
@@ -94,6 +95,8 @@ class ClaimLedger:
         notes: str = "",
     ) -> str:
         """Anade un claim y devuelve su claim_id."""
+        if status == STATUS_VERIFIED:
+            raise ValueError("un claim debe verificarse mediante verify(); no puede crearse como verified")
         c = Claim(
             claim      = claim,
             basis      = basis,
@@ -146,10 +149,18 @@ class ClaimLedger:
         if claim is None:
             return False
 
-        all_exist = all(Path(a).exists() for a in claim.artifacts) if claim.artifacts else True
-        ok = artifacts_exist and all_exist
+        # A statement is not evidence.  This ledger currently verifies
+        # filesystem artifacts, so at least one concrete artifact is required.
+        # Other evidence kinds must first materialize a receipt/log artifact.
+        record = EvidenceRecord(
+            claim=claim.claim,
+            action=claim.command or claim.basis,
+            artifacts=tuple(claim.artifacts),
+        )
+        ok = artifacts_exist and EvidencePolicy.material(record)
         new_status = STATUS_VERIFIED if ok else STATUS_FAILED
-        self.update_status(claim_id, new_status, notes="auto-verified by ClaimLedger.verify()")
+        note = "verified material artifacts" if ok else "verification failed: material artifacts missing"
+        self.update_status(claim_id, new_status, notes=note)
         return ok
 
     # -- Reporte ---------------------------------------------------------------

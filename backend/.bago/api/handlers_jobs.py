@@ -382,13 +382,19 @@ def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body: 
         "plan_id": plan_id,
         "ok": result["ok"],
         "completed": result["completed"],
-        "failed": result["failed"]
+        "failed": result["failed"],
+        "executed": result.get("executed", result["completed"]),
+        "informational": result.get("informational", 0),
     })
     send_json(handler, 200, {
         "ok": result["ok"],
         "plan_id": plan_id,
         "completed": result["completed"],
         "failed": result["failed"],
+        "executed": result.get("executed", result["completed"]),
+        "informational": result.get("informational", 0),
+        "status": result.get("status", plan.status),
+        "error": result.get("error", ""),
         "results": result["results"]
     })
 

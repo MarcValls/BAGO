@@ -110,6 +110,21 @@ class RouteMetaTests(unittest.TestCase):
         self.assertTrue(matched)
         self.assertTrue(callable(call))
 
+    def test_agent_dynamic_routes_resolve_for_all_declared_methods(self):
+        matched_get, get_call = api_dispatch.resolve_get(object(), "/agents/a-1")
+        matched_post, post_call = api_dispatch.resolve_post(object(), "/agents/a-1/duplicate", {})
+        matched_put, put_call = api_dispatch.resolve_put(object(), "/agents/a-1", {})
+        matched_delete, delete_call = api_dispatch.resolve_delete(object(), "/agents/a-1")
+        self.assertTrue(all((matched_get, matched_post, matched_put, matched_delete)))
+        self.assertTrue(all(callable(item) for item in (get_call, post_call, put_call, delete_call)))
+
+    def test_versioned_kb_routes_resolve_for_crud(self):
+        self.assertIn("/api/v1/kb", api_dispatch.GET_ROUTES)
+        self.assertIn("/api/v1/kb", api_dispatch.POST_ROUTES)
+        self.assertTrue(api_dispatch.resolve_get(object(), "/api/v1/kb/item")[0])
+        self.assertTrue(api_dispatch.resolve_put(object(), "/api/v1/kb/item", {})[0])
+        self.assertTrue(api_dispatch.resolve_delete(object(), "/api/v1/kb/item")[0])
+
     def test_api_routes_auth_header(self):
         self.assertEqual(api_routes.auth_header(), "X-Bago-Token")
 

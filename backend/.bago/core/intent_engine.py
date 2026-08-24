@@ -425,6 +425,43 @@ def _score_intent(msg: str, tokens: list[str], stems: list[str], intent: str) ->
     return score
 
 
+_NEGATED_ACTION_FRAMES = (
+    "no quiero ",
+    "no deseo ",
+    "no necesito ",
+    "no pretendo ",
+    "no vayas a ",
+    "no debes ",
+    "sin crear ",
+    "sin ejecutar ",
+    "sin modificar ",
+)
+
+_META_QUESTION_FRAMES = (
+    "por que ",
+    "para que ",
+    "que significa ",
+    "que implicaria ",
+    "como funciona ",
+)
+
+
+def _action_stance(msg: str) -> str:
+    """Classify how the user refers to an apparent action.
+
+    A verb mentioned inside a rejection or a question about the action is not
+    execution authority. Polite requests such as ``puedes crear`` remain
+    affirmative.
+    """
+    padded = f" {msg.strip()} "
+    if any(frame in padded for frame in _NEGATED_ACTION_FRAMES):
+        return "negated"
+    stripped = msg.strip(" ?!¿¡")
+    if any(stripped.startswith(frame) for frame in _META_QUESTION_FRAMES):
+        return "interrogative"
+    return "affirmative"
+
+
 def classify_intent(user_message: str) -> str:
     """
     Classify a user message into an intent.
@@ -435,6 +472,11 @@ def classify_intent(user_message: str) -> str:
     stems = [_stem_token(token) for token in tokens]
 
     if not msg:
+        return "chat"
+
+    # Mentioning an action is not the same as requesting it. Evaluate stance
+    # before keyword and prototype scoring to avoid accidental authorization.
+    if _action_stance(msg) in {"negated", "interrogative"}:
         return "chat"
 
     if _contains_any(msg, _EXECUTE_LAUNCH_HINTS):
@@ -656,4 +698,3 @@ def intent_guidance(intent: str) -> str:
     if key not in {"chat", "review", "execute", "work"}:
         return ""
     return load_prompt(f"intent_{key}.md")
-

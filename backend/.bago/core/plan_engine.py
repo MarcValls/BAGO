@@ -329,11 +329,17 @@ class PlanEngine:
         if step.status not in ("pending",):
             return {"ok": False, "error": f"step no pendiente: {step.status}"}
         if not step.action:
-            # Paso informativo: no se ejecuta, se marca como done sin evidencia.
-            # Para mantener la invariante 'done requiere evidencia', se marca
-            # como 'done' con un evidence vacío de tipo 'informational'.
-            self.mark_step(step, "done", result="paso informativo (sin acción automática)", evidence=("informational",))
-            return {"ok": True, "result": "informational", "error": ""}
+            # Un paso informativo no es una ejecución. Mantenerlo pendiente
+            # evita que una confirmación de plan produzca un falso éxito.
+            # El ejecutor de planes lo contabiliza aparte y puede continuar
+            # buscando pasos materiales, pero nunca lo cuenta como completado.
+            return {
+                "ok": False,
+                "executed": False,
+                "informational": True,
+                "result": "paso informativo (sin acción ejecutable)",
+                "error": "no_executable_action",
+            }
         if self._executor is None:
             self.mark_step(step, "blocked", result="no hay executor configurado", evidence=("blocked",), block_reason="executor_missing", block_code="no_executor")
             return {"ok": False, "error": "executor no configurado"}
@@ -347,7 +353,7 @@ class PlanEngine:
 
         if ok:
             self.mark_step(step, "done", result=str(result)[:500], evidence=("executed",))
-            return {"ok": True, "result": result, "error": ""}
+            return {"ok": True, "executed": True, "result": result, "error": ""}
         self.mark_step(step, "failed", result=str(error)[:500], evidence=("failed",))
         return {"ok": False, "result": result, "error": error}
 
@@ -370,24 +376,64 @@ class PlanEngine:
         results = []
         completed = 0
         failed = 0
+        informational = 0
+        executed = 0
         for step in plan.steps:
             # Saltar steps ya done (idempotencia en re-ejecución)
             if step.status == "done":
+                # Compatibilidad segura con planes antiguos que marcaron
+                # pasos informativos como done usando evidencia
+                # ``informational``. Nunca convertir ese legado en ejecución.
+                if not step.action or "informational" in step.evidence:
+                    informational += 1
+                    results.append({
+                        "number": step.number,
+                        "ok": True,
+                        "executed": False,
+                        "informational": True,
+                        "result": step.result or "paso informativo (sin acción ejecutable)",
+                        "error": "no_executable_action",
+                    })
+                    continue
                 completed += 1
-                results.append({"number": step.number, "ok": True, "result": step.result, "error": ""})
+                executed += 1
+                results.append({"number": step.number, "ok": True, "executed": True, "result": step.result, "error": ""})
                 continue
             r = self.execute_step(step)
-            results.append({"number": step.number, "ok": r["ok"], "result": r.get("result", ""), "error": r.get("error", "")})
+            if r.get("informational"):
+                informational += 1
+                results.append({
+                    "number": step.number,
+                    "ok": True,
+                    "executed": False,
+                    "informational": True,
+                    "result": r.get("result", ""),
+                    "error": r.get("error", ""),
+                })
+                continue
+            results.append({
+                "number": step.number,
+                "ok": r["ok"],
+                "executed": bool(r.get("executed")),
+                "result": r.get("result", ""),
+                "error": r.get("error", ""),
+            })
             if r["ok"]:
                 completed += 1
+                executed += 1
             else:
                 failed += 1
                 if stop_on_failure:
                     break
         return {
-            "ok": failed == 0,
+            # A plan with no executable actions is prepared, not executed.
+            "ok": failed == 0 and executed > 0,
             "completed": completed,
             "failed": failed,
+            "executed": executed,
+            "informational": informational,
+            "status": plan.status,
+            "error": "no_executable_actions" if executed == 0 and failed == 0 else "",
             "results": results
         }
 

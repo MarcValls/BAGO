@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -53,3 +54,49 @@ def test_plan_step_parser_handles_repeated_prefixes_linearly():
 
     assert len(steps) == 1
     assert steps[0].description.endswith("terminar comprobacion")
+
+
+def test_informational_plan_never_reports_execution_success():
+    from plan_engine import PlanEngine
+
+    engine = PlanEngine()
+    plan = engine.create_plan_with_actions(
+        "Crear una aplicación",
+        "1. Definir los datos\n2. Diseñar la interfaz\n3. Revisar el resultado",
+    )
+
+    result = engine.execute_plan(plan)
+
+    assert result["ok"] is False
+    assert result["executed"] == 0
+    assert result["completed"] == 0
+    assert result["failed"] == 0
+    assert result["informational"] == 3
+    assert result["error"] == "no_executable_actions"
+    assert plan.status == "pending"
+    assert all(step.status == "pending" for step in plan.steps)
+    assert all(step.evidence == () for step in plan.steps)
+    assert all(item["executed"] is False for item in result["results"])
+    rendered = json.dumps(result, ensure_ascii=False).casefold()
+    assert "plan ejecutado" not in rendered
+    assert "ejecución completada" not in rendered
+
+
+def test_mixed_plan_counts_only_material_actions_as_completed():
+    from plan_engine import PlanEngine
+
+    engine = PlanEngine()
+    plan = engine.create_plan_with_actions(
+        "Preparar y verificar un archivo",
+        "1. Revisar el objetivo\n2. Ejecutar echo verificado",
+    )
+    engine.set_executor(lambda action, payload, step: (True, "verificado", ""))
+
+    result = engine.execute_plan(plan)
+
+    assert result["ok"] is True
+    assert result["executed"] == 1
+    assert result["completed"] == 1
+    assert result["informational"] == 1
+    assert plan.steps[0].status == "pending"
+    assert plan.steps[1].status == "done"
