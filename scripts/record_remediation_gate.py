@@ -17,19 +17,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def git(*args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+def git(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-c", f"safe.directory={repo.resolve().as_posix()}", *args],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def fingerprint() -> dict:
-    status = git("status", "--porcelain=v1", "--untracked-files=all")
-    patch = subprocess.run(["git", "diff", "--binary", "HEAD"], cwd=ROOT, capture_output=True).stdout
+def fingerprint(repo: Path) -> dict:
+    status = git(repo, "status", "--porcelain=v1", "--untracked-files=all")
+    patch = subprocess.run(
+        ["git", "-c", f"safe.directory={repo.resolve().as_posix()}", "diff", "--binary", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+    ).stdout
     return {
-        "sha": git("rev-parse", "HEAD"),
-        "branch": git("branch", "--show-current"),
-        "remote": git("remote", "get-url", "origin"),
-        "upstream": git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"),
+        "path": str(repo.resolve()),
+        "sha": git(repo, "rev-parse", "HEAD"),
+        "branch": git(repo, "branch", "--show-current"),
+        "remote": git(repo, "remote", "get-url", "origin"),
+        "upstream": git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"),
         "dirty": bool(status),
         "worktree_sha256": hashlib.sha256(patch + status.encode("utf-8")).hexdigest(),
     }
@@ -38,6 +50,7 @@ def fingerprint() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True)
+    parser.add_argument("--extra-repo", action="append", default=[])
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
@@ -45,11 +58,14 @@ def main() -> int:
         parser.error("command required after --")
     if os.name == "nt" and command[0].lower() in {"npm", "npx", "yarn", "pnpm"}:
         command[0] += ".cmd"
+    repositories = [ROOT, *(Path(value).resolve() for value in args.extra_repo)]
     started = datetime.now(timezone.utc).isoformat()
-    before = fingerprint()
+    before_repositories = {str(repo): fingerprint(repo) for repo in repositories}
+    before = before_repositories[str(ROOT)]
     result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
     finished = datetime.now(timezone.utc).isoformat()
-    after = fingerprint()
+    after_repositories = {str(repo): fingerprint(repo) for repo in repositories}
+    after = after_repositories[str(ROOT)]
     evidence_dir = ROOT / ".bago" / "evidence" / "remediation-gates"
     evidence_dir.mkdir(parents=True, exist_ok=True)
     safe_name = "".join(char if char.isalnum() or char in "-_" else "-" for char in args.name)
@@ -68,7 +84,9 @@ def main() -> int:
         "runtime": {"python": sys.version, "platform": platform.platform()},
         "candidate_before": before,
         "candidate_after": after,
-        "candidate_stable": before == after,
+        "candidate_repositories_before": before_repositories,
+        "candidate_repositories_after": after_repositories,
+        "candidate_stable": before_repositories == after_repositories,
         "stdout": stdout_path.name,
         "stderr": stderr_path.name,
         "stdout_sha256": hashlib.sha256(result.stdout.encode("utf-8")).hexdigest(),
