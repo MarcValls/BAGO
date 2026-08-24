@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { ControlPlane } from '../src/app/ControlPlane';
 
 vi.mock('@/api/client', async (importOriginal) => {
@@ -161,7 +161,24 @@ describe('ControlPlane chat-dock behaviour', () => {
     expect(mainArea).toHaveClass('has-panel');
     expect(rightColumnCount(container)).toBe(1);
     expect(chatDock(container)).toHaveAttribute('aria-label', 'Chat acoplado');
+    expect(chatDock(container)?.querySelector('.chat-panel.is-docked')).toBeInTheDocument();
+    expect(chatDock(container)?.querySelector('.chat-timeline')).toBeInTheDocument();
+    expect(chatDock(container)?.querySelector('#bago-chat-composer')).toBeVisible();
     expect(sidePanel(container)).not.toBeInTheDocument();
+  });
+
+  it('opens detail as a modal and never as a right-side inspector panel', async () => {
+    const { container } = render(<ControlPlane />);
+    await waitFor(() => expect(container.querySelector('.chat-panel')).toBeInTheDocument(), { timeout: 3000 });
+    fireEvent.contextMenu(container.querySelector('.chat-panel') as HTMLElement, { clientX: 80, clientY: 80 });
+    await waitFor(() => expect(container.querySelector('.action-screen-overlay')).toBeInTheDocument());
+    const detail = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Ver detalle'));
+    expect(detail).toBeDefined();
+    fireEvent.click(detail as HTMLButtonElement);
+    await waitFor(() => expect(container.querySelector('.inspector-screen-overlay')).toBeInTheDocument());
+    expect(container.querySelector('.inspector-screen-overlay')).toHaveAttribute('aria-modal', 'true');
+    expect(sidePanel(container)).not.toBeInTheDocument();
+    expect(container.querySelector('.app-main-area')).not.toHaveClass('has-side-panel');
   });
 
   it('mutually excludes the docked chat and a side panel: opening a panel undocks the chat', async () => {

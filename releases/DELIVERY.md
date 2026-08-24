@@ -1,4 +1,8 @@
-# BAGO 4.9.0 - Delivery Summary
+# BAGO 4.9.0 - Historical delivery snapshot (obsolete)
+
+> Not current-candidate evidence. The commit/tag values below are retained as
+> historical claims and conflict with the verified tag identity documented in
+> `releases/INDEX.md`. They must not be used to validate this remediation.
 
 ## Release Information
 

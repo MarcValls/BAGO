@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
+from pathlib import Path
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -16,6 +17,13 @@ def _mgr(handler):
 
 def _safe_list(value: Any) -> list[Any]:
     return list(value) if isinstance(value, list) else []
+
+
+def _claim_ledger(mgr: Any):
+    """Return the same durable ledger used by the CLI for this workspace."""
+    from bago_core.claim_storage import ClaimLedger
+
+    return ClaimLedger(base_path=Path(getattr(mgr, "base_path", Path.cwd())).resolve())
 
 
 def _evidence_items(mgr: Any) -> list[dict[str, Any]]:
@@ -88,16 +96,21 @@ def handle_claims(handler: "BaseHTTPRequestHandler") -> None:
     if mgr is None:
         send_json(handler, 503, {"ok": False, "state": "blocked", "error_code": "SESSION_MANAGER_MISSING", "message": "SessionManager no disponible"})
         return
-    claims = []
-    retrieval = dict(getattr(mgr, "last_context_retrieval", {}) or {})
-    for entry in _safe_list(retrieval.get("assertions")):
-        if isinstance(entry, dict):
-            claims.append(dict(entry))
+    try:
+        claims = [claim.to_dict() for claim in _claim_ledger(mgr).latest().values()]
+    except (OSError, ValueError) as exc:
+        send_json(handler, 500, {
+            "ok": False,
+            "state": "blocked",
+            "error_code": "CLAIM_LEDGER_INVALID",
+            "message": f"El ledger de claims no puede leerse: {exc}",
+        })
+        return
     send_json(handler, 200, {
         "ok": True,
         "claims": claims,
         "count": len(claims),
-        "receipt_id": getattr(getattr(mgr, "last_receipt", None), "envelope_id", ""),
+        "source": "claim_ledger",
     })
 
 
@@ -141,9 +154,17 @@ def handle_claim(handler: "BaseHTTPRequestHandler", claim_id: str) -> None:
         send_json(handler, 503, {"ok": False, "state": "blocked", "error_code": "SESSION_MANAGER_MISSING", "message": "SessionManager no disponible"})
         return
     target = str(claim_id or "").strip()
-    for item in _evidence_items(mgr):
-        candidate = str(item.get("claim_id") or item.get("id") or "")
-        if candidate == target:
-            send_json(handler, 200, {"ok": True, "claim": item})
-            return
+    try:
+        claim = _claim_ledger(mgr).get(target)
+    except (OSError, ValueError) as exc:
+        send_json(handler, 500, {
+            "ok": False,
+            "state": "blocked",
+            "error_code": "CLAIM_LEDGER_INVALID",
+            "message": f"El ledger de claims no puede leerse: {exc}",
+        })
+        return
+    if claim is not None:
+        send_json(handler, 200, {"ok": True, "claim": claim.to_dict(), "source": "claim_ledger"})
+        return
     send_json(handler, 404, {"ok": False, "state": "blocked", "error_code": "CLAIM_NOT_FOUND", "message": f"No existe la claim {target}"})

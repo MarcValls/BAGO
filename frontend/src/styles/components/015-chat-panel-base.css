@@ -13,6 +13,10 @@
 .chat-panel.is-docked .chat-panel-header-actions .chat-new-button { display: none; }
 .chat-panel.is-docked .chat-surface { padding: 8px 10px 10px; }
 .chat-panel.is-docked .chat-composer { padding: 6px 8px; }
+.chat-pasted-image { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 8px; margin: 0 0 7px; padding: 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-2); font-size: 11px; }
+.chat-pasted-image img { width: 48px; height: 38px; object-fit: cover; border-radius: 5px; }
+.chat-pasted-image button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; color: var(--text-2); background: transparent; cursor: pointer; }
+.message-pasted-image { display: block; max-width: min(420px, 100%); max-height: 280px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 9px; object-fit: contain; }
 .chat-panel.is-docked .start-chat-home { padding: 8px; }
 .chat-panel.is-docked .start-chat-welcome h2 { font-size: 14px; }
 .chat-panel.is-docked .start-chat-welcome p { font-size: 12px; }

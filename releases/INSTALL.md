@@ -1,4 +1,8 @@
-# BAGO 4.9.0 Installation Guide
+# BAGO 4.9.0 Installation Guide (historical obsolete snapshot)
+
+> These instructions and identities belong to a previous release snapshot.
+> They are not installation evidence for the current remediation candidate;
+> see `releases/INDEX.md` for the verified historical identity and open gates.
 
 ## Quick Start
 

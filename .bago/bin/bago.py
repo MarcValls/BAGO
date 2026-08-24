@@ -18,6 +18,10 @@ from pathlib import Path
 from typing import Any
 
 
+_LIFECYCLE = ("PROPOSED", "PREPARED", "EXECUTED", "VERIFIED", "VALIDATED")
+_MANUAL_STATES = frozenset(_LIFECYCLE[:3])
+
+
 def _repo_root() -> Path:
     # The wrapper lives at <repo>/.bago/bin/bago.py
     candidate = Path(__file__).resolve().parents[2]
@@ -136,22 +140,27 @@ def cmd_status(_args: argparse.Namespace) -> int:
     protected_claim = claimed_status.upper() in {"VERIFIED", "VALIDATED"}
     missing_identity = protected_claim and not recorded
     stale = protected_claim and (missing_identity or recorded != fp)
-    effective_status = "STALE" if protected_claim and (dirty or stale) else claimed_status
+    # PROJECT_STATE.json is project-authored context, not an independent
+    # attestation. Even an exact fingerprint cannot self-certify a protected
+    # lifecycle state; the immutable external receipt remains authoritative.
+    effective_status = "STALE" if protected_claim and (dirty or stale) else "UNVERIFIED" if protected_claim else claimed_status
 
     print(f"Repository: {_repo_root()}")
     print(f"Branch:     {fp.get('branch') or '?'}")
     print(f"Commit:     {fp.get('commit') or '?'}")
     print(f"Dirty:      {'yes' if dirty else 'no'}")
     print(f"Status:     {effective_status}")
-    if effective_status == "STALE":
+    if effective_status in {"STALE", "UNVERIFIED"}:
         reason = "missing candidate fingerprint" if missing_identity else "candidate drift"
+        if effective_status == "UNVERIFIED":
+            reason = "protected state requires independent receipt verification"
         print(f"Recorded:   {claimed_status} (invalidated: {reason})")
-    note_label = "Recorded note" if effective_status == "STALE" else "Note"
+    note_label = "Recorded note" if effective_status in {"STALE", "UNVERIFIED"} else "Note"
     print(f"{note_label}: {state.get('note', '')}")
     print(f"Updated:    {state.get('updated_at', '')}")
     if state.get("last_verification"):
         v = state["last_verification"]
-        verify_label = "Recorded verify" if effective_status == "STALE" else "Last verify"
+        verify_label = "Recorded verify" if effective_status in {"STALE", "UNVERIFIED"} else "Last verify"
         print(f"{verify_label}: {v.get('command')} -> rc={v.get('returncode')} at {v.get('timestamp')}")
 
     _print_file(_paths()["context"], "Context")
@@ -162,16 +171,43 @@ def cmd_status(_args: argparse.Namespace) -> int:
 
 
 def cmd_state(args: argparse.Namespace) -> int:
+    requested = str(args.status).strip().upper()
+    if requested in {"VERIFIED", "VALIDATED"}:
+        print(
+            f"error: {requested} is a protected evidence state and cannot be set manually",
+            file=sys.stderr,
+        )
+        return 2
     state = _load_state()
+    if requested not in _MANUAL_STATES:
+        print(
+            f"error: unknown or non-manual lifecycle state: {requested or '<empty>'}",
+            file=sys.stderr,
+        )
+        return 2
+    current = str(state.get("status") or "").strip().upper()
+    if current not in _LIFECYCLE:
+        if requested != "PROPOSED":
+            print(
+                f"error: lifecycle must start at PROPOSED, not {requested}",
+                file=sys.stderr,
+            )
+            return 2
+    elif _LIFECYCLE.index(requested) > _LIFECYCLE.index(current) + 1:
+        print(
+            f"error: lifecycle jump is not permitted: {current} -> {requested}",
+            file=sys.stderr,
+        )
+        return 2
     fp = _git_fingerprint()
-    state["status"] = args.status
+    state["status"] = requested
     state["note"] = args.note
     state["updated_at"] = _iso_now()
     state["commit"] = fp.get("commit")
     state["branch"] = fp.get("branch")
     state["fingerprint"] = fp
     _save_state(state)
-    print(f"State updated: {args.status}")
+    print(f"State updated: {state['status']}")
     if args.note:
         print(f"Note: {args.note}")
     return 0
@@ -223,12 +259,17 @@ def cmd_verify(args: argparse.Namespace) -> int:
         "timestamp": _iso_now(),
     }
     state["fingerprint"] = fp
+    # `verify` records evidence; it is not a certification authority. Even a
+    # clean successful command cannot preserve/promote a protected historical
+    # claim. VERIFIED/VALIDATED require the closure policy and review gates.
+    state["status"] = "EXECUTED"
     if result.returncode != 0:
-        state["status"] = "EXECUTED"
         state["note"] = f"Verification failed (rc={result.returncode}); previous verification invalidated."
     elif fp.get("dirty"):
-        state["status"] = "EXECUTED"
         state["note"] = "Verification command passed on a dirty candidate; global VERIFIED is not permitted."
+    else:
+        state["note"] = "Verification evidence recorded; protected state requires the closure policy and independent review."
+    state["updated_at"] = _iso_now()
     _save_state(state)
     return result.returncode
 

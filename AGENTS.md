@@ -4,8 +4,8 @@ This is the BAGO monorepo (v4.9.0). BAGO is a local AI control plane: the sessio
 
 ## Project structure
 
-- `backend/` — Python runtime (core, CLI, API, contracts). Tests: 928 passed / 13 skipped.
-- `frontend/` — React + TypeScript (Vite). Tests: 99 frontend.
+- `backend/` — Python runtime (core, CLI, API, contracts). Exact candidate results live in gate receipts.
+- `frontend/` — React + TypeScript (Vite). Exact candidate results live in gate receipts.
 - `electron-viewer/` — Electron shell with automatic backend lifecycle.
 - `.bago/` — BAGO runtime state, context, decisions, conflicts, and handoffs.
 - `.codex/agents/` — Legacy Codex CLI agent definitions (Pi does not load them; use the `.agents/skills/` equivalents).

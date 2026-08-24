@@ -21,6 +21,7 @@ import { ActivityToast, CommandPalette, HelpOverlay } from '@/app/ControlPlaneOv
 import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 import { normalizeChatResponse } from '@/shared/chatResponse';
 import { friendlyErrorMessage } from '@/shared/friendly-error';
+import { EMPTY_CLIPBOARD, readClipboardPayload, type ClipboardPayload } from '@/shared/clipboard';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
 import { markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
 import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
@@ -887,7 +888,8 @@ export function ControlPlane() {
 
   const sendChat = async (message: string) => {
     const text = message.trim();
-    if (!text) return;
+    const image = pastedImage;
+    if (!text && !image) return;
     if (!snapshot?.permissions.canChat) {
       setLastMessage('chat bloqueado por el estado del backend');
       return;
@@ -896,7 +898,7 @@ export function ControlPlane() {
     // El composer de Chat también es una superficie de comandos. No envíes
     // slash commands al modelo: deben pasar por la autoridad /api/v1/commands para
     // cambiar el estado real de la sesión (por ejemplo, /mode A).
-    if (text.startsWith('/') && !text.startsWith('//')) {
+    if (!image && text.startsWith('/') && !text.startsWith('//')) {
       setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
       await runCommand(text);
       return;
@@ -908,9 +910,10 @@ export function ControlPlane() {
     const userTurn: ChatTurn = {
       id: `user-${stamp}`,
       role: 'user',
-      text,
+      text: text || 'Imagen pegada desde el portapapeles',
       status: 'done',
-      timestamp: nowStamp()
+      timestamp: nowStamp(),
+      raw: image ? { clipboardImage: true, clipboardImageMimeType: image.mimeType } : undefined
     };
     const assistantBuffer: ChatTurn = {
       id: `assistant-${stamp}`,
@@ -923,10 +926,16 @@ export function ControlPlane() {
     };
     setTurns((current) => [...current, userTurn, assistantBuffer]);
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, chat: '' } }));
+    setPastedImage(null);
     setBusyCount((count) => count + 1);
 
     try {
-      const payload = uiState.chatMode === 'trace'
+      const payload = image
+        ? await clientRef.current.analyzeVision({
+          image_base64: image.dataUrl.includes(',') ? image.dataUrl.split(',', 2)[1] : image.dataUrl,
+          prompt: text || '¿Qué muestra esta imagen? Analízala en el contexto de esta conversación.'
+        })
+        : uiState.chatMode === 'trace'
         ? await clientRef.current.streamChat(text, (chunk) => {
           setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, text: turn.text + chunk } : turn));
         })
@@ -969,15 +978,33 @@ export function ControlPlane() {
   };
 
   const [actionScreenSelection, setActionScreenSelection] = useState<SelectionRecord | null>(null);
+  const [clipboardPayload, setClipboardPayload] = useState<ClipboardPayload>(EMPTY_CLIPBOARD);
+  const [pastedImage, setPastedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const [inspectorSelection, setInspectorSelection] = useState<{ selection: SelectionRecord; level: InspectorLevel } | null>(null);
   const [workspaceOpenRequest, setWorkspaceOpenRequest] = useState<{ path: string; kind?: 'file' | 'directory'; token: number } | null>(null);
 
   function openInspector(selection: SelectionRecord, level: InspectorLevel = 'detail') {
+    setAndPersistUiState({ activePanel: null });
     setInspectorSelection({ selection, level });
   }
 
   function openActionScreen(selection: SelectionRecord) {
     setActionScreenSelection(selection);
+    setClipboardPayload(EMPTY_CLIPBOARD);
+    void readClipboardPayload().then(setClipboardPayload).catch(() => setClipboardPayload(EMPTY_CLIPBOARD));
+  }
+
+  function pasteClipboard() {
+    if (clipboardPayload.text) {
+      const current = uiState.drafts.chat || '';
+      const separator = current && !current.endsWith('\n') ? '\n' : '';
+      setDraft('chat', `${current}${separator}${clipboardPayload.text}`);
+    }
+    if (clipboardPayload.imageDataUrl) {
+      setPastedImage({ dataUrl: clipboardPayload.imageDataUrl, mimeType: clipboardPayload.imageMimeType || 'image/png' });
+    }
+    openShell('home');
+    window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
   }
 
   function onInspect(eventOrSelection: ReactMouseEvent<HTMLElement> | SelectionRecord, hint?: InspectorLevel | { x: number; y: number }) {
@@ -1006,7 +1033,7 @@ export function ControlPlane() {
       ...nextSelection.detail.map((line) => `- ${line}`)
     ].join('\n');
     setDraft('chat', text);
-    setAndPersistUiState({ activeSection: 'chat' });
+    setAndPersistUiState({ activeSection: 'home', chatDocked: false });
     setLastMessage(`selección enviada al chat: ${nextSelection.title}`);
   };
 
@@ -1032,7 +1059,7 @@ export function ControlPlane() {
     if (targetKind.startsWith('evidence.')) return navigate('evidence');
     if (targetKind.startsWith('context.')) return navigate('context');
     if (targetKind.startsWith('system.')) return navigate('system');
-    if (targetKind === 'screen.chat') return navigate('chat');
+    if (targetKind === 'screen.chat') return navigate('home');
     if (targetKind === 'screen.home') return navigate('home');
     const kind = selection.kind.toLowerCase();
     const id = selection.id.toLowerCase();
@@ -1042,7 +1069,7 @@ export function ControlPlane() {
     if (kind.includes('context') || id.includes('context')) return navigate('context');
     if (kind.includes('router') || kind.includes('system') || kind.includes('provider')) return navigate('system');
     if (kind.includes('graph') || kind.includes('node')) return navigate('pipeline');
-    return navigate('chat');
+    return navigate('home');
   };
 
   const openWorkspaceFileFromMenu = (path: string, kind: 'file' | 'directory' = 'file') => {
@@ -1115,7 +1142,9 @@ export function ControlPlane() {
     refreshRouterState,
     setRouterAutoSwitch,
     setDraft,
-    ensureChatPanel: () => openShell('chat'),
+    ensureChatPanel: () => openShell('home'),
+    clipboardPayload,
+    pasteClipboard,
     writeClipboard,
     setAndPersistUiState,
     confirm: requestConfirmation,
@@ -1130,14 +1159,15 @@ export function ControlPlane() {
   };
 
   const navigate = (section: ActiveSection) => {
+    const destination = section === 'chat' ? 'home' : section;
     setAndPersistUiState({
-      activeSection: section,
+      activeSection: destination,
       // CANON[CHAT-DOCK]: solo el chat puede compartir pantalla. Al
       // navegar a cualquier sección se cierra cualquier panel lateral
       // o inspector; si la sección destino es chat, el dock también se
       // desactiva porque el chat ya es la pantalla principal.
       activePanel: null,
-      chatDocked: section === 'chat' ? false : undefined,
+      chatDocked: destination === 'home' ? false : undefined,
     });
     setInspectorSelection(null);
   };
@@ -1226,8 +1256,9 @@ export function ControlPlane() {
   };
 
   const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
+    const destination = section === 'chat' ? 'home' : section;
     setAndPersistUiState({
-      activeSection: section,
+      activeSection: destination,
       globalMode: mode,
       // CANON[CHAT-DOCK]: solo el chat puede compartir pantalla. Al
       // abrir una sección como pantalla principal se cierran panel,
@@ -1427,7 +1458,7 @@ export function ControlPlane() {
             />
           )}
 
-          <div className={`app-main-area ${(uiState.activePanel || inspectorSelection || (uiState.chatDocked && uiState.activeSection !== 'chat')) ? 'has-panel' : ''} ${uiState.chatDocked && uiState.activeSection !== 'chat' ? 'has-chat-dock' : ''} ${(uiState.activePanel || inspectorSelection) ? 'has-side-panel' : ''}`}>
+          <div className={`app-main-area ${(uiState.activePanel || (uiState.chatDocked && uiState.activeSection !== 'chat')) ? 'has-panel' : ''} ${uiState.chatDocked && uiState.activeSection !== 'chat' ? 'has-chat-dock' : ''} ${uiState.activePanel ? 'has-side-panel' : ''}`}>
             {pendingConfirm && (
               <div className="confirm-banner" role="alertdialog" aria-live="polite" aria-modal="false">
                 <div className="confirm-banner-content">
@@ -1463,8 +1494,8 @@ export function ControlPlane() {
                   apiToken={uiState.apiToken}
                   client={clientRef.current}
                   onApiConfigChange={(patch) => setAndPersistUiState(patch)}
-                  onPrimary={() => openShell(opening.targetSection === 'home' && snapshot?.permissions.canChat ? 'chat' : opening.targetSection)}
-                  onContinue={() => { void runCommand('/session').then(() => openShell(snapshot?.permissions.canChat ? 'chat' : 'home')); }}
+                  onPrimary={() => openShell(opening.targetSection)}
+                  onContinue={() => { void runCommand('/session').then(() => openShell('home')); }}
                   onChooseWorkspace={openWorkspacePicker}
                   onOpenPalette={() => setAndPersistUiState({ commandPaletteOpen: true })}
                   onRefresh={bootstrap}
@@ -1526,6 +1557,8 @@ export function ControlPlane() {
                   onRevertContextPatch={revertContextPatch}
                   onReviewContextPatch={reviewContextPatch}
                   onOpenContextInTree={openContextInTree}
+                  pastedImage={pastedImage}
+                  onRemovePastedImage={() => setPastedImage(null)}
                   initialContextSelectedNodeId={initialContextSelectedNodeId}
                   initialContextEditingPatchId={uiState.contextEditPatchId}
                   onInitialContextStateConsumed={() => {
@@ -1548,9 +1581,9 @@ export function ControlPlane() {
                       <button
                         type="button"
                         className="icon-button"
-                        title="Ir a la pantalla de chat"
-                        aria-label="Abrir chat como pantalla"
-                        onClick={() => openShell('chat')}
+                        title="Abrir la conversación en Inicio"
+                        aria-label="Abrir conversación en Inicio"
+                        onClick={() => openShell('home')}
                       >
                         <Icon name="expand" size={12} />
                       </button>
@@ -1600,6 +1633,8 @@ export function ControlPlane() {
                       onRevertContextPatch={revertContextPatch}
                       onReviewContextPatch={reviewContextPatch}
                       onOpenContextInTree={openContextInTree}
+                      pastedImage={pastedImage}
+                      onRemovePastedImage={() => setPastedImage(null)}
                     />
                   </div>
                 </div>
@@ -1616,20 +1651,6 @@ export function ControlPlane() {
               </aside>
             )}
 
-            {inspectorSelection && uiState.activeSection !== 'chat' && (
-              <aside
-                className="inline-panel-host inspector-panel"
-                style={{ width: 520 }}
-                aria-label="Inspector"
-              >
-                <InspectorDrawer
-                  selection={inspectorSelection.selection}
-                  level={inspectorSelection.level}
-                  onClose={() => setInspectorSelection(null)}
-                  onOpenActionScreen={(selection) => openActionScreen(selection)}
-                />
-              </aside>
-            )}
           </div>
         </div>
         {(booting || busyCount > 0 || snapshot?.system.state === 'error') && (
@@ -1696,6 +1717,19 @@ export function ControlPlane() {
           onClose={() => setActionScreenSelection(null)}
         />
       )}
+      {inspectorSelection && (
+        <div className="inspector-screen-overlay" role="dialog" aria-modal="true" aria-label="Inspector">
+          <button className="inspector-screen-backdrop" type="button" aria-label="Cerrar inspector" onClick={() => setInspectorSelection(null)} />
+          <section className="inspector-screen-dialog">
+            <InspectorDrawer
+              selection={inspectorSelection.selection}
+              level={inspectorSelection.level}
+              onClose={() => setInspectorSelection(null)}
+              onOpenActionScreen={(selection) => openActionScreen(selection)}
+            />
+          </section>
+        </div>
+      )}
     </>
   );
 }
@@ -1706,5 +1740,3 @@ function asCommandReceipt(result: BackendCommandResult): Record<string, unknown>
   const receipt = data.receipt || data.context_receipt;
   return receipt && typeof receipt === 'object' && !Array.isArray(receipt) ? receipt as Record<string, unknown> : undefined;
 }
-
-

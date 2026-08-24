@@ -90,7 +90,7 @@ async function main() {
     });
     assert.equal(contract.title, 'BAGO Control Plane');
     assert.ok(contract.header && contract.sidebar && contract.workspace && contract.surface);
-    assert.equal(contract.destinations, 12);
+    assert.equal(contract.destinations, 11);
     assert.equal(contract.active, 1);
     assert.ok(contract.scrollbarHidden);
     assert.deepEqual(contract.duplicateIds, []);
@@ -153,7 +153,7 @@ async function main() {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
     const chatNav = page.locator('.sidebar-item[title^="Chat ·"]');
-    assert.equal(await chatNav.count(), 1);
+    assert.equal(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
     const homeNav = page.locator('.sidebar-item[title^="Inicio ·"]');
     assert.equal(await homeNav.count(), 1);
     await homeNav.click();
@@ -313,7 +313,7 @@ async function main() {
           }
         }
         if (assertSystemTools) {
-          await statePage.keyboard.press('Control+7');
+          await statePage.keyboard.press('Control+6');
           await statePage.getByRole('tab', { name: 'Router', exact: true }).click();
           const autoConfig = statePage.locator('[data-system-tool="auto-config"]');
           await autoConfig.locator('summary').click();
@@ -639,14 +639,14 @@ async function main() {
           providerGridFound = await providerGrid.isVisible({ timeout: 10000 }).catch(() => false);
           if (!providerGridFound) {
             // Intentar vía atajo canónico de Operaciones.
-            await provPage.keyboard.press('Control+7');
+            await provPage.keyboard.press('Control+6');
             await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).click();
             providerGridFound = true;
           }
         } else {
           // Fallback: abrir system tools
-          await provPage.keyboard.press('Control+7');
+          await provPage.keyboard.press('Control+6');
           await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
           await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).click();
           providerGridFound = true;

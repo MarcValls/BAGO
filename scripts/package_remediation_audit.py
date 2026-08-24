@@ -18,6 +18,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SESSION_PATTERNS = ("pi-session-", "session-export", "session_export")
+SOURCE_AUDIT_SHA256 = "8f92998edbc7f815450aa246197a0b16ee68be6af27006cc9d523b762da3764d"
+REQUIRED_GATES = (
+    "focused-remediation",
+    "backend-full",
+    "frontend-tests",
+    "frontend-typecheck",
+    "frontend-build",
+    "ui-live-smoke",
+    "electron-manager-smoke",
+    "release-manager",
+    "release-resume",
+    "gestor-typecheck",
+    "gestor-build",
+    "gestor-e2e",
+    "workflow-yaml",
+    "diff-check",
+    "session-export-hygiene",
+    "source-package-tests",
+)
 
 
 def run(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
@@ -128,6 +147,49 @@ def add_tree(zf: zipfile.ZipFile, source: Path) -> list[dict]:
     return entries
 
 
+def ingest_source_audit(source_zip: Path, destination: Path, bago_baseline: str) -> dict:
+    """Copy only provenance-bearing, non-session evidence from the original audit."""
+    if not source_zip.is_file():
+        raise RuntimeError(f"source audit missing: {source_zip}")
+    digest = sha_file(source_zip)
+    if digest != SOURCE_AUDIT_SHA256:
+        raise RuntimeError(f"source audit SHA mismatch: {digest}")
+    copied: list[str] = []
+    destination.mkdir(parents=True, exist_ok=True)
+    allowed_audit = {"audit/README.md", "audit/git-diff.patch", "audit/git-diff-stat.txt", "audit/git-log-40.txt", "audit/git-status.txt"}
+    with zipfile.ZipFile(source_zip) as archive:
+        for info in archive.infolist():
+            name = info.filename.replace("\\", "/")
+            if info.is_dir() or ".." in Path(name).parts or name.lower().endswith(".html"):
+                continue
+            if name in allowed_audit:
+                relative = f"original-{Path(name).name}"
+            elif name.startswith("worktree-changes/gestor-con-bago/"):
+                relative = "gestor-snapshot/" + name.removeprefix("worktree-changes/gestor-con-bago/")
+            else:
+                continue
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(archive.read(info))
+            copied.append(relative)
+    raw_patch = destination / "original-git-diff.patch"
+    if not raw_patch.exists():
+        raise RuntimeError("original audit patch missing")
+    normalized = raw_patch.read_bytes().replace(b"\r\n", b"\n")
+    normalized_path = destination / "original-git-diff.lf.patch"
+    normalized_path.write_bytes(normalized)
+    validate_patch(ROOT, bago_baseline, normalized)
+    copied.append(normalized_path.name)
+    provenance = {
+        "contract": "bago.source-audit-provenance.v1", "source_name": source_zip.name,
+        "source_sha256": digest, "session_html": "excluded", "copied": sorted(copied),
+        "original_patch_raw_sha256": sha_file(raw_patch), "normalized_patch_sha256": sha_file(normalized_path),
+        "normalized_patch_apply_check": "PASS", "captured_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (destination / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8", newline="\n")
+    return provenance
+
+
 def build(
     output: Path,
     gestor: Path,
@@ -135,12 +197,15 @@ def build(
     bago_baseline: str,
     gestor_baseline: str,
     candidate_ref: str = "HEAD",
+    source_audit: Path | None = None,
 ) -> dict:
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="bago-remediation-bundle-") as td:
         stage = Path(td)
         audit = stage / "audit"
         audit.mkdir()
+        if source_audit is not None:
+            ingest_source_audit(source_audit, audit / "source-audit", bago_baseline)
 
         repositories = (
             ("bago", ROOT, bago_baseline),
@@ -153,6 +218,8 @@ def build(
             validate_patch(repo, baseline_ref, patch)
             (audit / f"{label}-git-diff.patch").write_bytes(patch)
             info = provenance(repo, baseline_ref, candidate_ref)
+            if info["dirty"]:
+                raise RuntimeError(f"{label} candidate is dirty; commit or remove drift before packaging")
             (audit / f"{label}-provenance.json").write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
             archive_ref(repo, baseline_ref, stage / f"{label}-baseline-git")
             copied = copy_delta(repo, baseline_ref, candidate_ref, stage / f"{label}-candidate-changes")
@@ -163,7 +230,10 @@ def build(
             raise RuntimeError("tracked remediation handoff is missing")
         shutil.copy2(handoff, audit / "REMEDIATION_HANDOFF.md")
         if logs and logs.exists():
-            shutil.copytree(logs, audit / "raw-gate-logs", dirs_exist_ok=True)
+            shutil.copytree(
+                logs, audit / "raw-gate-logs", dirs_exist_ok=True,
+                ignore=lambda _directory, names: {name for name in names if name.startswith("audit-package-verify")},
+            )
 
         package_meta = {
             "contract": "bago.third-party-remediation.v1",
@@ -171,7 +241,11 @@ def build(
             "session_exports": "excluded",
             "patch_validation": "git apply --check PASS for both baselines",
             "candidate_ref": candidate_ref,
+            "required_gates": list(REQUIRED_GATES),
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "known_limitations": [
+                "Initial dirty remediation boundary hash 943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79 has no retained patch bytes; exact attribution is UNRESOLVED."
+            ],
         }
         (audit / "bundle-contract.json").write_text(json.dumps(package_meta, indent=2) + "\n", encoding="utf-8", newline="\n")
 
@@ -194,6 +268,7 @@ def main() -> int:
     parser.add_argument("--bago-baseline", default="e76b01b0a0552d8eee7c536f8c4eef25e3a82a42")
     parser.add_argument("--gestor-baseline", default="0cb2038b118281db750263f14547b00788618816")
     parser.add_argument("--candidate-ref", default="HEAD")
+    parser.add_argument("--source-audit", default=str(ROOT / ".run" / "BAGO-third-party-audit-20260822-173517.zip"))
     args = parser.parse_args()
     result = build(
         Path(args.output),
@@ -202,6 +277,7 @@ def main() -> int:
         args.bago_baseline,
         args.gestor_baseline,
         args.candidate_ref,
+        Path(args.source_audit) if args.source_audit else None,
     )
     print(json.dumps(result, indent=2))
     return 0

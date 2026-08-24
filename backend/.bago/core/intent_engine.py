@@ -425,25 +425,27 @@ def _score_intent(msg: str, tokens: list[str], stems: list[str], intent: str) ->
     return score
 
 
-_NEGATED_ACTION_FRAMES = (
-    "no quiero ",
-    "no deseo ",
-    "no necesito ",
-    "no pretendo ",
-    "no vayas a ",
-    "no debes ",
-    "sin crear ",
-    "sin ejecutar ",
-    "sin modificar ",
+_ACTION_ROOTS = (
+    "abr", "actualiz", "adapt", "aprob", "arranc", "borr", "cambi",
+    "confirm", "constru", "cre", "despleg", "ejecut", "elimin", "escrib",
+    "gener", "haz", "implement", "inici", "instal", "modific", "public",
+    "redact", "refactor", "restaur", "revis",
 )
 
+_NEGATORS = frozenset({"no", "nunca", "jamas", "tampoco", "ni", "sin", "evita", "evitar"})
+
 _META_QUESTION_FRAMES = (
-    "por que ",
-    "para que ",
-    "que significa ",
-    "que implicaria ",
-    "como funciona ",
+    "por que ", "para que ", "que significa ", "que implicaria ",
+    "que pasa si ", "como funciona ", "como se ", "cuando ", "donde ",
+    "debo ", "deberia ", "conviene ", "seria conveniente ", "tengo que ",
+    "explicame ", "dime como ", "aclarame ",
 )
+
+_POLITE_REQUEST_FRAMES = (
+    "puedes ", "podrias ", "quiero ", "necesito ", "haz ", "hazme ",
+)
+
+_EPISTEMIC_ROOTS = ("explic", "saber", "entend", "aprend", "conoc", "aclar", "ensen", "dec", "dime")
 
 
 def _action_stance(msg: str) -> str:
@@ -453,13 +455,61 @@ def _action_stance(msg: str) -> str:
     execution authority. Polite requests such as ``puedes crear`` remain
     affirmative.
     """
-    padded = f" {msg.strip()} "
-    if any(frame in padded for frame in _NEGATED_ACTION_FRAMES):
-        return "negated"
-    stripped = msg.strip(" ?!¿¡")
-    if any(stripped.startswith(frame) for frame in _META_QUESTION_FRAMES):
+    normalized = _normalize_text(msg)
+    stripped = normalized.strip()
+    is_question = "?" in msg or "¿" in msg
+    stance_tokens = stripped.split()
+    action_positions = [
+        index for index, token in enumerate(stance_tokens)
+        if any(token.startswith(root) for root in _ACTION_ROOTS)
+    ]
+    polite_request = any(stripped.startswith(frame) for frame in _POLITE_REQUEST_FRAMES)
+    meta_explanation = bool(
+        any(token.startswith(_EPISTEMIC_ROOTS) for token in stance_tokens[:6])
+        and any(marker in f" {stripped} " for marker in (" como ", " por que ", " para que ", " si ", " que significa "))
+    )
+    if meta_explanation or any(stripped.startswith(frame) for frame in _META_QUESTION_FRAMES):
         return "interrogative"
-    return "affirmative"
+    direct_question_request = bool(
+        is_question and action_positions and (
+            action_positions[0] == 0
+            or (stance_tokens[0] in {"me", "nos"} and action_positions[0] <= 2)
+            or ("por" in stance_tokens and "favor" in stance_tokens and action_positions[0] <= 3)
+            or polite_request
+        )
+    )
+    if is_question and not direct_question_request:
+        # Una pregunta deliberativa o informativa no concede autoridad. Las
+        # peticiones corteses ("puedes/podrías...") sí la conceden.
+        return "interrogative"
+
+    saw_negated_action = False
+    # Evaluar cláusulas evita que "no lo revises, crea X" quede bloqueado por
+    # la negación de una acción distinta. No dependemos de frases completas:
+    # se relaciona cada negador con cualquier verbo de acción cercano.
+    clauses = re.split(r"[,;:.!?]+|\bpero\b|\bsino\b|\by\b", msg, flags=re.IGNORECASE)
+    for clause in clauses:
+        tokens = [token for token in _normalize_text(clause).split() if token]
+        action_positions = [
+            index
+            for index, token in enumerate(tokens)
+            if any(token.startswith(root) for root in _ACTION_ROOTS)
+        ]
+        for position in action_positions:
+            prefix = tokens[max(0, position - 6):position]
+            negated_cessation = (
+                position >= 2 and tokens[position - 2:position] == ["dejar", "de"]
+                and any(token in {"no", "nunca", "jamas"} for token in prefix[:-2])
+            )
+            if negated_cessation:
+                return "affirmative"
+            hard_negated = any(token in {"no", "nunca", "jamas", "tampoco", "ni", "evita", "evitar"} for token in prefix)
+            without_negated = bool(prefix and prefix[-1] == "sin")
+            if hard_negated or without_negated:
+                saw_negated_action = True
+            else:
+                return "affirmative"
+    return "negated" if saw_negated_action else "affirmative"
 
 
 def classify_intent(user_message: str) -> str:
@@ -476,7 +526,7 @@ def classify_intent(user_message: str) -> str:
 
     # Mentioning an action is not the same as requesting it. Evaluate stance
     # before keyword and prototype scoring to avoid accidental authorization.
-    if _action_stance(msg) in {"negated", "interrogative"}:
+    if _action_stance(user_message) in {"negated", "interrogative"}:
         return "chat"
 
     if _contains_any(msg, _EXECUTE_LAUNCH_HINTS):
@@ -623,6 +673,8 @@ def classify_command_intent(user_message: str) -> str | None:
     msg = _normalize_text(user_message)
     tokens = msg.split()
     if not msg:
+        return None
+    if _action_stance(user_message) in {"negated", "interrogative"}:
         return None
 
     # Coincidencia exacta

@@ -85,6 +85,7 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     claim_list.add_argument("--status", dest="filter_status", default="")
     claim_verify = claim_sub.add_parser("verify", help="Verifica artefactos de un claim")
     claim_verify.add_argument("claim_id")
+    claim_verify.add_argument("--gate-receipt", required=True, help="Recibo JSON creado por un gate BAGO")
     claim_sub.add_parser("report", help="Resumen del ledger")
 
     config_parser = sub.add_parser("config", help="Gestiona configuracion")

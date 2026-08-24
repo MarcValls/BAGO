@@ -6,9 +6,13 @@ These objects govern claims and closure; they do not execute product actions.
 from __future__ import annotations
 
 import json
+import hashlib
+import re
+import shlex
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Iterable, Mapping
 
 
@@ -27,7 +31,13 @@ class CandidateIdentity:
 
     @property
     def immutable(self) -> bool:
-        return bool(self.sha and self.remote and not self.dirty)
+        sha_ok = bool(re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", self.sha))
+        worktree_ok = not self.worktree_sha256 or bool(re.fullmatch(r"[0-9a-fA-F]{64}", self.worktree_sha256))
+        remote_ok = bool(
+            re.match(r"^(?:https?://|ssh://|git@)[^\s]+$", self.remote)
+            or re.match(r"^local-only:[^\r\n]+$", self.remote)
+        )
+        return bool(sha_ok and self.branch.strip() and remote_ok and worktree_ok and not self.dirty)
 
 
 @dataclass(frozen=True)
@@ -39,20 +49,73 @@ class EvidenceRecord:
     exit_code: int | None = None
     timestamp: str = ""
     candidate: CandidateIdentity | None = None
+    artifact_sha256: tuple[str, ...] = ()
+    receipt_id: str = ""
+    gate_receipt: str = ""
 
 
 class EvidencePolicy:
     @staticmethod
     def material(record: EvidenceRecord) -> bool:
-        if not record.artifacts:
+        try:
+            timestamp = datetime.fromisoformat(record.timestamp.replace("Z", "+00:00"))
+            timestamp_ok = timestamp.tzinfo is not None
+        except (TypeError, ValueError):
+            timestamp_ok = False
+        if (
+            not record.action.strip()
+            or not record.command
+            or record.exit_code != 0
+            or not record.receipt_id.strip()
+            or not record.gate_receipt.strip()
+            or not timestamp_ok
+            or not record.artifacts
+            or len(record.artifact_sha256) != len(record.artifacts)
+            or record.candidate is None
+            or not record.candidate.immutable
+        ):
             return False
-        return all(Path(item).is_file() for item in record.artifacts)
+        for artifact, expected in zip(record.artifacts, record.artifact_sha256):
+            path = Path(artifact)
+            if not path.is_file() or not expected:
+                return False
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if digest.casefold() != expected.casefold():
+                return False
+        # La política transversal no puede ser más débil que el ledger.
+        # Revalida el recibo contra el Git actual y todos los repositorios que
+        # participaron en el gate; un EvidenceRecord sintético no basta.
+        try:
+            receipt = Path(record.gate_receipt).resolve()
+            repo = receipt.parents[3]
+            from bago_core.claim_evidence import evidence_from_gate
+
+            claim = SimpleNamespace(
+                claim=record.claim,
+                command=shlex.join(record.command),
+                artifacts=list(record.artifacts),
+            )
+            derived = evidence_from_gate(repo, claim, receipt)
+        except (ImportError, IndexError, OSError, ValueError):
+            return False
+        return bool(
+            derived.claim == record.claim
+            and derived.action == record.action
+            and derived.artifacts == record.artifacts
+            and derived.command == record.command
+            and derived.exit_code == record.exit_code
+            and derived.timestamp == record.timestamp
+            and derived.candidate == record.candidate
+            and derived.artifact_sha256 == record.artifact_sha256
+            and derived.receipt_id == record.receipt_id
+            and Path(derived.gate_receipt).resolve() == receipt
+        )
 
 
 class TruthPolicy:
     @staticmethod
     def can_claim_verified(record: EvidenceRecord) -> bool:
-        return EvidencePolicy.material(record) and record.exit_code in (None, 0)
+        return EvidencePolicy.material(record)
 
     @staticmethod
     def can_claim_validated(record: EvidenceRecord, *, closure_complete: bool, independent_review: bool) -> bool:

@@ -92,7 +92,7 @@ def cmd_claim(args: argparse.Namespace) -> int:
             if args.notes:
                 argv += ["--notes", args.notes]
         elif args.claim_action == "verify":
-            argv.append(args.claim_id)
+            argv += [args.claim_id, "--gate-receipt", args.gate_receipt]
         elif args.claim_action == "list":
             if args.filter_status:
                 argv += ["--status", args.filter_status]

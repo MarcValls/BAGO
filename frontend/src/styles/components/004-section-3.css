@@ -23,6 +23,10 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
+.inspector-screen-overlay { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: 24px; }
+.inspector-screen-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(7, 10, 18, .72); backdrop-filter: blur(5px); }
+.inspector-screen-dialog { position: relative; width: min(760px, calc(100vw - 32px)); max-height: min(820px, calc(100vh - 32px)); overflow: auto; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-lg); }
+
 .app-main-area.has-panel {
   grid-template-areas: "ws panel";
   grid-template-columns: minmax(0, 1fr) auto;
@@ -156,6 +160,10 @@
   display: flex;
   flex-direction: column;
 }
+
+.inline-chat-host-body > .chat-panel,
+.chat-panel.is-docked .chat-surface { flex: 1 1 auto; min-height: 0; height: auto; }
+.chat-panel.is-docked .chat-timeline { min-height: 120px; }
 
 .app-root.mode-focus .inline-chat-host,
 .app-root.mode-review .inline-chat-host {

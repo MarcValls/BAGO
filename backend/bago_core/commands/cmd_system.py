@@ -265,6 +265,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 f"open={r['open']}, simulated={r['simulated']}, failed={failed}"
             )
         except Exception as exc:
+            claims_ok = False
             claims_detail = f"error al leer ledger: {exc}"
     _check("no_failed_claims", claims_ok, claims_detail)
 

@@ -1,12 +1,13 @@
-# BAGO 4.9.0 — local release index
+# BAGO 4.9.0 — historical pre-remediation local release index
 
-This index describes only artifacts currently present in `releases/`. It is not a publication or installation-validation claim.
+This snapshot was captured before the AUD-001..010 remediation. It describes
+file identities only and is not current candidate, publication or installation evidence.
 
 ## Immutable identity
 
-- Source HEAD used by this working tree: `e76b01b0a0552d8eee7c536f8c4eef25e3a82a42`
+- Source HEAD at historical capture: `e76b01b0a0552d8eee7c536f8c4eef25e3a82a42`
 - Tag `v4.9.0` resolves to: `1d046ea30e3efb8a031470deb204e48b4e75b350`
-- Working tree at index refresh: `DIRTY`
+- Working tree at historical capture: `DIRTY`
 
 ## Current binary artifacts
 

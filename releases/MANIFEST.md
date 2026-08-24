@@ -1,4 +1,8 @@
-# BAGO 4.9.0 Release Manifest
+# BAGO 4.9.0 Historical Release Manifest (obsolete snapshot)
+
+> This manifest is preserved as historical input only. Its commit/tag claims
+> are not authoritative for the current candidate and conflict with the tag
+> identity verified in `releases/INDEX.md`.
 
 **Release Date:** 2026-08-18  
 **Version:** 4.9.0  

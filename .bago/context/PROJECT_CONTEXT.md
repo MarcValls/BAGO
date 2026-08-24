@@ -13,20 +13,14 @@
 - `electron-viewer/` — Electron shell with automatic backend lifecycle.
 - `.bago/` — Working-tree runtime state, context, decisions, conflicts, and handoffs.
 
-## Current gates (evidence-backed)
+## Current gates
 
-- Backend candidate suite: 961 passed, 2 skipped, 198 subtests passed.
-- Backend source-package build and 12 packaging tests pass.
-- Frontend: 121 tests, typecheck, production build and live UI smoke pass.
-- Release backup/resume and release-manager contract gates pass.
-- `gestor-con-bago`: typecheck and production build pass against the canonical
-  BAGO health/KV contract.
-- Windows is the primary supported platform; macOS/Linux are experimental.
-
-Raw command output and candidate metadata are captured by
-`scripts/record_remediation_gate.py`. Formal closure remains governed by
-`.bago/audits/remediation-closure-contract-20260824.md`; historical counters do
-not define validity.
+Exact counts are deliberately not canonical here. Candidate results are valid
+only when captured by `scripts/record_remediation_gate.py` with command, runtime,
+timestamps, exit code, output hashes and Git identity. Formal closure is governed
+by `.bago/audits/remediation-closure-contract-20260824.md`; historical counters
+never define validity. Windows is the primary supported platform; macOS/Linux
+remain experimental.
 
 ## Recent closure
 

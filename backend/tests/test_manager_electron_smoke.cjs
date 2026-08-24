@@ -85,7 +85,7 @@ async function main() {
         duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
       };
     });
-    assert.strictEqual(shell.destinations, 7);
+    assert.strictEqual(shell.destinations, 11);
     assert.strictEqual(shell.active, 1);
     assert.strictEqual(shell.scrollbarHidden, true);
     assert.deepStrictEqual(shell.duplicateIds, []);
@@ -98,9 +98,9 @@ async function main() {
     };
     await dismissFirstRun();
 
-    const chatNav = window.locator('.sidebar-item').filter({ hasText: /^Chat$/ });
-    assert.strictEqual(await chatNav.count(), 0, 'Chat must not be a duplicate destination');
-    const homeNav = window.locator('.sidebar-item').filter({ hasText: 'Inicio' });
+    const chatNav = window.locator('.sidebar-item[title^="Chat ·"]');
+    assert.strictEqual(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
+    const homeNav = window.locator('.sidebar-item[title^="Inicio ·"]');
     assert.strictEqual(await homeNav.count(), 1);
     await homeNav.click();
     await dismissFirstRun();
@@ -108,7 +108,10 @@ async function main() {
     await window.keyboard.press('Control+K');
     const commandDialog = window.getByRole('dialog', { name: 'Comandos rápidos' });
     await commandDialog.waitFor({ state: 'visible', timeout: 30000 });
-    await window.waitForFunction(() => document.activeElement?.hasAttribute('data-autofocus'));
+    await window.waitForFunction(() => {
+      const dialog = document.querySelector('[role="dialog"][aria-label="Comandos rápidos"]');
+      return Boolean(dialog && dialog.contains(document.activeElement));
+    });
     await window.keyboard.press('Shift+Tab');
     assert.strictEqual(await commandDialog.evaluate((dialog) => dialog.contains(document.activeElement)), true);
     await window.keyboard.press('Escape');
@@ -118,12 +121,12 @@ async function main() {
     const entryState = await window.waitForFunction(() => {
       const model = document.querySelector('#bago-chat-model');
       if (model instanceof HTMLSelectElement && model.offsetParent) return 'chat';
-      const start = document.querySelector('.start-chat-actions .primary-button');
+      const start = document.querySelector('.start-chat-path.is-primary');
       if (start instanceof HTMLButtonElement && start.offsetParent) return 'welcome';
       return '';
     }, null, { timeout: 120000 }).then((handle) => handle.jsonValue());
     if (entryState === 'welcome') {
-      await window.locator('.start-chat-actions .primary-button').click();
+      await window.locator('.start-chat-path.is-primary').click();
     }
     await modelSelect.waitFor({ state: 'visible', timeout: 120000 });
     await window.waitForFunction(() => {
@@ -251,7 +254,7 @@ async function main() {
     }, { id: createdSessionId, count: initialSessionCount + 1 }, { timeout: 60000 });
 
     await dismissFirstRun();
-    const contextNav = window.locator('.sidebar-item').filter({ hasText: 'Contexto' });
+    const contextNav = window.locator('.sidebar-item[title^="Contexto ·"]');
     assert.strictEqual(await contextNav.count(), 1);
     await contextNav.click();
     await window.locator('.task-context-page').waitFor({ state: 'visible', timeout: 120000 });
@@ -273,7 +276,7 @@ async function main() {
     }
 
     await dismissFirstRun();
-    const pipelineNav = window.locator('.sidebar-item').filter({ hasText: 'Pipeline' });
+    const pipelineNav = window.locator('.sidebar-item[title^="Pipeline ·"]');
     await pipelineNav.click();
     await window.locator('.pipeline-surface').click({ button: 'right' });
     const stopFlow = window.getByRole('menuitem', { name: 'Detener flujo', exact: true });
@@ -294,7 +297,7 @@ async function main() {
       await window.keyboard.press('Escape');
     }
 
-    const operation = window.locator('.sidebar-item').filter({ hasText: 'Operación' });
+    const operation = window.locator('.sidebar-item[title^="Operaciones ·"]');
     assert.strictEqual(await operation.count(), 1);
     await operation.click();
     await window.getByRole('tab', { name: 'Router', exact: true }).click();
@@ -371,7 +374,7 @@ async function main() {
         await window.getByText('Resultado de la última acción', { exact: true }).waitFor({ state: 'visible', timeout: 20000 });
         rlActionDone = true;
       } catch {
-        const operationAgain = window.locator('.sidebar-item').filter({ hasText: 'Operación' });
+        const operationAgain = window.locator('.sidebar-item[title^="Operaciones ·"]');
         await operationAgain.waitFor({ state: 'visible', timeout: 30000 });
         await operationAgain.click({ force: true });
         await window.getByRole('tab', { name: 'RL', exact: false }).click();

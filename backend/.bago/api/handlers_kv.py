@@ -26,7 +26,15 @@ def _load(handler) -> dict[str, dict]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("almacén KV corrupto: se esperaba un objeto")
-    return {str(key): dict(value) for key, value in data.items() if isinstance(value, dict)}
+    validated: dict[str, dict] = {}
+    for key, value in data.items():
+        if not isinstance(value, dict):
+            raise ValueError(f"almacén KV corrupto: entrada inválida para {key}")
+        normalized = _entry(value)
+        if normalized["key"] != key:
+            raise ValueError(f"almacén KV corrupto: key interna no coincide para {key}")
+        validated[str(key)] = dict(value)
+    return validated
 
 
 def _save(handler, data: dict[str, dict]) -> None:
@@ -76,14 +84,16 @@ def handle_get(handler, key: str) -> None:
 def handle_set(handler, body: dict) -> None:
     try:
         entry = _entry(body)
+    except ValueError as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc)})
+        return
+    try:
         with _LOCK:
             data = _load(handler)
             created = entry["key"] not in data
             data[entry["key"]] = entry
             _save(handler, data)
         send_json(handler, 201 if created else 200, {"ok": True, "entry": entry, "created": created})
-    except ValueError as exc:
-        send_json(handler, 400, {"ok": False, "error": str(exc)})
     except Exception as exc:
         send_json(handler, 500, {"ok": False, "error": f"kb write failed: {exc}"})
 

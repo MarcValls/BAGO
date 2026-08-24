@@ -53,7 +53,7 @@ export function HelpOverlay({ onClose, onOpenFirstRun }: { onClose: () => void; 
           {shortcuts.map(([key, description]) => <div key={key} className="help-shortcut-row"><kbd>{key}</kbd><span>{description}</span></div>)}
         </section>
         <button type="button" className="secondary-button" onClick={onOpenFirstRun}>Abrir recorrido inicial</button>
-        <p className="help-note">El sidebar contiene destinos. El chat puede usarse como pantalla completa (Ctrl+2) o acoplarse junto a cualquier otra pantalla (botón de cabecera o Ctrl+Shift+C). Los paneles laterales del sidebar (agentes, intérprete, GitHub, capacidades, herramientas) nunca comparten el área de trabajo: al abrirse ocupan toda la pantalla. Solo el chat acoplado puede dividir la vista.</p>
+        <p className="help-note">Inicio es la única pantalla de conversación. El chat puede acoplarse junto a otra pantalla con el botón de cabecera o Ctrl+Shift+C. Los paneles laterales del sidebar (agentes, intérprete, GitHub, capacidades, herramientas) nunca comparten el área de trabajo: al abrirse ocupan la pantalla completa. Solo el chat acoplado puede dividir la vista.</p>
       </div>
     </div>
   );

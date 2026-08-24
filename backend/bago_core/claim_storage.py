@@ -5,9 +5,8 @@ This is the FASE 6.5 split of the original :mod:`bago_core.claim_ledger`
 (427 lines) into four modules. The store knows nothing about CLI or
 rendering; it only knows how to read, append, and reduce Claim rows.
 
-R0-R10:
-- R0: <200 lines
-- R1: storage only, zero argparse
+Boundary: storage/reduction only, zero argparse; receipt parsing is delegated
+to :mod:`bago_core.claim_receipts`.
 """
 from __future__ import annotations
 
@@ -26,6 +25,8 @@ from bago_core.claim_model import (
     STATUS_VERIFIED,
 )
 from bago_core.operational_integrity import EvidencePolicy, EvidenceRecord
+from bago_core.claim_receipts import ClaimReceiptStore
+from bago_core.claim_evidence import evidence_from_gate
 class ClaimLedger:
     """
     Registro append-only de claims trazables.
@@ -39,6 +40,8 @@ class ClaimLedger:
         self.evidence_dir = self.base_path / "evidence"
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.claims_file = self.evidence_dir / "claims.jsonl"
+        self.receipts_file = self.evidence_dir / "claim_receipts.jsonl"
+        self.receipts = ClaimReceiptStore(self.receipts_file)
 
     # -- Lectura ---------------------------------------------------------------
 
@@ -47,13 +50,13 @@ class ClaimLedger:
         if not self.claims_file.exists():
             return []
         claims: list[Claim] = []
-        for line in self.claims_file.read_text(encoding="utf-8").splitlines():
+        for line_number, line in enumerate(self.claims_file.read_text(encoding="utf-8").splitlines(), start=1):
             line = line.strip()
             if line:
                 try:
                     claims.append(Claim.from_dict(json.loads(line)))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    raise ValueError(f"claims.jsonl corrupt at line {line_number}: {exc}") from exc
         return claims
 
     def get(self, claim_id: str) -> Claim | None:
@@ -62,16 +65,41 @@ class ClaimLedger:
         for c in self.load_all():
             if c.claim_id == claim_id:
                 found = c
+        if found is not None and found.status == STATUS_VERIFIED:
+            evidence = self._latest_evidence(claim_id)
+            current = None
+            try:
+                if evidence is not None and evidence.gate_receipt:
+                    current = evidence_from_gate(self.base_path, found, Path(evidence.gate_receipt))
+            except (OSError, ValueError):
+                current = None
+            if (
+                evidence is None or current is None or current.receipt_id != evidence.receipt_id
+                or not EvidencePolicy.material(evidence)
+            ):
+                found.status = STATUS_FAILED
+                found.notes = "verification stale: persisted evidence no longer validates"
         return found
 
+    def latest(self) -> dict[str, Claim]:
+        """Return the authoritative latest state, revalidating durable receipts."""
+        claim_ids = {claim.claim_id for claim in self.load_all()}
+        return {claim_id: current for claim_id in claim_ids if (current := self.get(claim_id)) is not None}
+
+    def _append_evidence(self, claim_id: str, evidence: EvidenceRecord) -> None:
+        self.receipts.append(claim_id, evidence)
+
+    def _latest_evidence(self, claim_id: str) -> EvidenceRecord | None:
+        return self.receipts.latest(claim_id)
+
     def open_claims(self) -> list[Claim]:
-        return [c for c in self.load_all() if c.status == STATUS_OPEN]
+        return [c for c in self.latest().values() if c.status == STATUS_OPEN]
 
     def failed_claims(self) -> list[Claim]:
-        return [c for c in self.load_all() if c.status == STATUS_FAILED]
+        return [c for c in self.latest().values() if c.status == STATUS_FAILED]
 
     def simulated_claims(self) -> list[Claim]:
-        return [c for c in self.load_all() if c.status == STATUS_SIMULATED]
+        return [c for c in self.latest().values() if c.status == STATUS_SIMULATED]
 
     # -- Escritura -------------------------------------------------------------
 
@@ -113,11 +141,16 @@ class ClaimLedger:
         self._append(c)
         return c.claim_id
 
-    def update_status(self, claim_id: str, new_status: str, notes: str = "") -> bool:
+    def update_status(self, claim_id: str, new_status: str, notes: str = "", *, _evidence_verified: bool = False) -> bool:
         """
         Registra un nuevo estado para un claim existente.
         El ledger es append-only: el estado nuevo va como nueva entrada con mismo claim_id.
         """
+        allowed = {STATUS_OPEN, STATUS_FAILED, STATUS_SIMULATED, STATUS_SUPERSEDED, STATUS_VERIFIED}
+        if new_status not in allowed:
+            raise ValueError(f"invalid claim status: {new_status}")
+        if new_status == STATUS_VERIFIED and not _evidence_verified:
+            raise ValueError("verified requires ClaimLedger.verify with material evidence")
         original = self.get(claim_id)
         if original is None:
             return False
@@ -140,7 +173,7 @@ class ClaimLedger:
         self._append(updated)
         return True
 
-    def verify(self, claim_id: str, artifacts_exist: bool = True) -> bool:
+    def verify(self, claim_id: str, artifacts_exist: bool = True, *, evidence: EvidenceRecord | None = None) -> bool:
         """
         Verifica un claim: comprueba que sus artefactos existen en disco
         y marca el claim como verified (o failed).
@@ -152,15 +185,24 @@ class ClaimLedger:
         # A statement is not evidence.  This ledger currently verifies
         # filesystem artifacts, so at least one concrete artifact is required.
         # Other evidence kinds must first materialize a receipt/log artifact.
-        record = EvidenceRecord(
-            claim=claim.claim,
-            action=claim.command or claim.basis,
-            artifacts=tuple(claim.artifacts),
+        record_matches = bool(
+            evidence
+            and evidence.claim == claim.claim
+            and tuple(evidence.artifacts) == tuple(claim.artifacts)
+            and claim.command
+            and evidence.action == claim.command
+            and evidence.gate_receipt
         )
-        ok = artifacts_exist and EvidencePolicy.material(record)
+        ok = artifacts_exist and record_matches and EvidencePolicy.material(evidence)  # type: ignore[arg-type]
         new_status = STATUS_VERIFIED if ok else STATUS_FAILED
-        note = "verified material artifacts" if ok else "verification failed: material artifacts missing"
-        self.update_status(claim_id, new_status, notes=note)
+        note = (
+            f"verified receipt={evidence.receipt_id} candidate={evidence.candidate.sha}"
+            if ok and evidence and evidence.candidate
+            else "verification failed: executed, hashed, candidate-bound evidence required"
+        )
+        if ok and evidence is not None:
+            self._append_evidence(claim_id, evidence)
+        self.update_status(claim_id, new_status, notes=note, _evidence_verified=ok)
         return ok
 
     # -- Reporte ---------------------------------------------------------------
@@ -169,9 +211,7 @@ class ClaimLedger:
         """Resumen del ledger para validate y evidencias."""
         all_claims = self.load_all()
         # Para cada claim_id, el ultimo estado es el que manda
-        latest: dict[str, Claim] = {}
-        for c in all_claims:
-            latest[c.claim_id] = c
+        latest = self.latest()
 
         by_status: dict[str, list[str]] = {}
         for c in latest.values():

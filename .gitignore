@@ -65,6 +65,7 @@ desktop.ini
 *~
 
 # Local audit executions and screenshots
+/.codex/config.toml
 /.codex/agents/*.bak.*
 /.codex/bago-workpack/reports/
 /output/

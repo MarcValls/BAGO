@@ -76,6 +76,8 @@ interface Props {
   // tabs contextuales y reduce padding. Sin esta prop el panel se
   // comporta como pantalla completa.
   isDocked?: boolean;
+  pastedImage?: { dataUrl: string; mimeType: string } | null;
+  onRemovePastedImage?: () => void;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -228,6 +230,10 @@ export function ChatPanel(props: Props) {
     () => buildChatModelOptions(props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel),
     [props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel]
   );
+
+  useEffect(() => {
+    if (props.isDocked) setWelcomeOpen(false);
+  }, [props.isDocked]);
   const timelineGroups = useMemo(() => groupTechnicalTurns(props.turns), [props.turns]);
   const filteredModelOptions = useMemo(() => {
     const query = modelQuery.trim().toLocaleLowerCase();
@@ -296,7 +302,7 @@ export function ChatPanel(props: Props) {
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      if (canChat && draft.trim()) void props.onSendChat(draft);
+      if (canChat && (draft.trim() || props.pastedImage)) void props.onSendChat(draft);
     }
   };
 
@@ -546,6 +552,11 @@ export function ChatPanel(props: Props) {
               </div>
             </div>
             {modelError && <div className="chat-model-error" role="alert">No se pudo cambiar: {modelError}</div>}
+            {props.pastedImage && <div className="chat-pasted-image" role="status">
+              <img src={props.pastedImage.dataUrl} alt="Imagen pegada preparada para enviar" />
+              <span>Imagen del portapapeles</span>
+              <button type="button" onClick={props.onRemovePastedImage} aria-label="Quitar imagen pegada"><Icon name="close" size={12} /></button>
+            </div>}
             <textarea
               id="bago-chat-composer"
               className="chat-composer-textarea"
@@ -567,7 +578,7 @@ export function ChatPanel(props: Props) {
               <button
                 className="primary-button chat-send-button"
                 type="button"
-                disabled={!canChat || !draft.trim()}
+                disabled={!canChat || (!draft.trim() && !props.pastedImage)}
                 onClick={() => props.onSendChat(draft)}
                 title={canChat ? 'Enviar mensaje (Enter)' : chatBlockedHint(props.snapshot)}
               >

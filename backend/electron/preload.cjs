@@ -453,6 +453,19 @@ function buildRoleCommand(role, installDir) {
 
 contextBridge.exposeInMainWorld('bagoElectron', {
   readClipboardText: () => clipboard.readText(),
+  readClipboardPayload: () => {
+    const text = clipboard.readText();
+    const image = clipboard.readImage();
+    const imageBytes = image.isEmpty() ? 0 : image.toPNG().byteLength;
+    const imageTooLarge = imageBytes > 8 * 1024 * 1024;
+    return {
+      text,
+      imageDataUrl: image.isEmpty() || imageTooLarge ? '' : image.toDataURL(),
+      imageMimeType: image.isEmpty() || imageTooLarge ? '' : 'image/png',
+      imageBytes,
+      error: imageTooLarge ? 'La imagen supera el límite seguro de 8 MB' : '',
+    };
+  },
   writeClipboardText: (text) => clipboard.writeText(String(text || '')),
   openWebChat: (options) => ipcRenderer.invoke('bago:open-web-chat', options || {}),
   openCliChat: (options) => ipcRenderer.invoke('bago:open-cli-chat', options || {}),

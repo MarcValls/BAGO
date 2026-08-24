@@ -69,6 +69,26 @@ def test_kv_backend_failure_is_explicit_not_empty_collection(monkeypatch, tmp_pa
     assert payload != []
 
 
+def test_partially_corrupt_kv_store_fails_closed_and_preserves_original_bytes(monkeypatch, tmp_path):
+    import handlers_kv
+
+    responses = []
+    monkeypatch.setattr(handlers_kv, "send_json", lambda handler, status, payload: responses.append((status, payload)))
+    handler = SimpleNamespace(path="/api/v1/kb", session_mgr=SimpleNamespace(state_root=tmp_path))
+    store = tmp_path / "integrations" / "kv-v1.json"
+    store.parent.mkdir(parents=True)
+    original = b'{"gestor:contacts":{"key":"gestor:contacts","value":"[]","tags":[]},"broken":7}\n'
+    store.write_bytes(original)
+
+    handlers_kv.handle_list(handler)
+    assert responses.pop()[0] == 500
+    handlers_kv.handle_set(handler, {"key": "gestor:debts", "value": "[]", "tags": []})
+    status, payload = responses.pop()
+    assert status == 500
+    assert payload["ok"] is False
+    assert store.read_bytes() == original
+
+
 def test_real_http_dispatcher_supports_gestor_crud(tmp_path):
     from bridge import BagoAPIServer
 
