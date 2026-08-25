@@ -79,6 +79,8 @@ def main() -> int:
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error("command required after --")
+    if command[0].lower() in {"python", "python3"}:
+        command[0] = sys.executable
     if os.name == "nt" and command[0].lower() in {"npm", "npx", "yarn", "pnpm"}:
         command[0] += ".cmd"
     primary_repo = Path(args.repo).resolve()
@@ -125,3 +127,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
