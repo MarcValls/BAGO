@@ -7,11 +7,19 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
-$version = "4.9.0"
+$version = "4.9.1"
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
 $viewerSource = Join-Path $repoRoot "electron-viewer\dist\win-unpacked"
 $setupFile = Join-Path $scriptDir "bago-$version-setup.exe"
 $nsiFile = Join-Path $scriptDir "bago-installer.nsi"
+$zipFile = Join-Path $scriptDir "bago-$version-distribution.zip"
+
+function Add-ZipContents {
+    param([string]$ZipPath, [string]$SourceDir)
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($SourceDir, $ZipPath, $compressionLevel, $false)
+}
 
 function Test-ExcludedPath {
     param([Parameter(Mandatory = $true)][string]$RelativePath)
@@ -73,6 +81,10 @@ New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
 Copy-CleanTree -Source (Join-Path $repoRoot "backend") -Destination $runtimeDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Destination (Join-Path $runtimeDir "scripts\validate_global_payload.ps1") -Force
 Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $runtimeDir "electron-viewer") -Recurse -Force
+
+Write-Host "[3b/5] Comprimiendo payload offline..."
+if (Test-Path -LiteralPath $zipFile) { Remove-Item -LiteralPath $zipFile -Force }
+Add-ZipContents -ZipPath $zipFile -SourceDir $runtimeDir
 
 Write-Host "[4/5] Validando payload..."
 & (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version
