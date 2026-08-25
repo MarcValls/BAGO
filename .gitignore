@@ -90,3 +90,5 @@ accounts.json
 # Impeccable hook cache
 .impeccable/hook.cache.json
 .impeccable/hook.cache.*
+
+/ui-react/

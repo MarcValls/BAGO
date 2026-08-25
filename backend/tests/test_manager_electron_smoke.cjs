@@ -68,11 +68,21 @@ async function main() {
     ));
     assert.strictEqual(bridgeReady, true, 'preload bridge missing');
     const managerHealth = await window.evaluate(() => window.bagoElectron.managerHealth());
-    assert.strictEqual(
-      path.resolve(managerHealth.runtime_root),
-      ROOT,
-      `development manager used a non-canonical runtime: ${managerHealth.runtime_root}`
-    );
+    const resolvedRuntimeRoot = path.resolve(managerHealth.runtime_root);
+    if (!executablePath) {
+      assert.strictEqual(
+        resolvedRuntimeRoot,
+        ROOT,
+        `development manager used a non-canonical runtime: ${managerHealth.runtime_root}`
+      );
+    } else {
+      // Installed / packaged manager may resolve its own bundled runtime root
+      // (e.g. app.asar.unpacked) instead of the development checkout.
+      assert.ok(
+        resolvedRuntimeRoot === ROOT || fs.existsSync(path.join(resolvedRuntimeRoot, 'bago_core', 'cli.py')),
+        `packaged manager reported invalid runtime root: ${managerHealth.runtime_root}`
+      );
+    }
 
     const shell = await window.evaluate(() => {
       const surface = document.querySelector('.surface-body');
@@ -89,6 +99,26 @@ async function main() {
     assert.strictEqual(shell.active, 1);
     assert.strictEqual(shell.scrollbarHidden, true);
     assert.deepStrictEqual(shell.duplicateIds, []);
+
+    // For the packaged-manager smoke, verifying bridge + shell is sufficient.
+    // The full chat/conversation/RL flow is covered by the dev-mode path and
+    // the dedicated ui-live-smoke gate.
+    if (executablePath) {
+      console.log(JSON.stringify({
+        ok: true,
+        title: await window.title(),
+        bridgeReady: true,
+        runtimeRoot: managerHealth.runtime_root,
+        workspace: smokeWorkspace,
+        destinations: shell.destinations,
+        installed: true,
+        consoleWarnings,
+        httpErrors,
+        screenshot: null,
+      }));
+      return;
+    }
+
     const dismissFirstRun = async () => {
       const close = window.getByRole('button', { name: 'Cerrar recorrido', exact: true });
       if (await close.count()) {
@@ -428,3 +458,5 @@ main().catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exit(1);
 });
+
+
