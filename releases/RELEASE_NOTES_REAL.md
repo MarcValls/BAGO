@@ -1,4 +1,9 @@
-## BAGO v4.9.0
+## BAGO v4.9.0 — snapshot histórico obsoleto
+
+> Este documento conserva afirmaciones y referencias de la entrega anterior.
+> No describe ni valida el candidato de remediación actual. La identidad Git
+> comprobada del tag se registra en `releases/INDEX.md`; las referencias
+> antiguas de abajo se mantienen solo como evidencia histórica divergente.
 
 Release estable centrada en correcciones de UI, compatibilidad con Python 3.14 y entrega de artefactos de release coherentes.
 
@@ -49,6 +54,6 @@ Release estable centrada en correcciones de UI, compatibilidad con Python 3.14 y
 
 ### Verificación
 
-- Backend tests: 928 passed / 13 skipped / 188 subtests passed
-- Frontend tests: 99 passed
+- Historical release evidence: backend 928 passed / 13 skipped / 188 subtests passed (not transferable to later candidates)
+- Historical release evidence: frontend 99 passed (not transferable to later candidates)
 - Release gate: PASS

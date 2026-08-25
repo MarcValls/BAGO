@@ -90,7 +90,7 @@ async function main() {
     });
     assert.equal(contract.title, 'BAGO Control Plane');
     assert.ok(contract.header && contract.sidebar && contract.workspace && contract.surface);
-    assert.equal(contract.destinations, 6);
+    assert.equal(contract.destinations, 11);
     assert.equal(contract.active, 1);
     assert.ok(contract.scrollbarHidden);
     assert.deepEqual(contract.duplicateIds, []);
@@ -152,9 +152,9 @@ async function main() {
     assert.ok(animNone, `context-map-node animation under reduced-motion: name=${reducedMotion.animationName} duration=${reducedMotion.animationDuration}`);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-    const chatNav = page.locator('.sidebar-item').filter({ hasText: 'Chat' });
-    assert.equal(await chatNav.count(), 0);
-    const homeNav = page.locator('.sidebar-item').filter({ hasText: 'Inicio' });
+    const chatNav = page.locator('.sidebar-item[title^="Chat ·"]');
+    assert.equal(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
+    const homeNav = page.locator('.sidebar-item[title^="Inicio ·"]');
     assert.equal(await homeNav.count(), 1);
     await homeNav.click();
     await page.locator('.chat-model-selector').waitFor({ state: 'visible' });
@@ -168,7 +168,7 @@ async function main() {
     await page.locator('.activity-toast.state-error, [data-opening-state="show_blocked_state"]').first().waitFor({ state: 'visible', timeout: 60000 });
 
     const stateScreenshotDir = String(process.env.BAGO_UI_STATE_SCREENSHOT_DIR || '').trim();
-    const renderState = async ({ name, status, session, workspace, expectedState, expectedText, viewport = { width: 1280, height: 860 }, assertResponsive = false, assertSystemTools = false, assertConversationControls = false }) => {
+    const renderState = async ({ name, status, session, workspace, expectedState, expectedText, expectNoWorkspaceAlert = false, viewport = { width: 1280, height: 860 }, assertResponsive = false, assertSystemTools = false, assertConversationControls = false }) => {
       const statePage = await browser.newPage({ viewport });
       const stateErrors = [];
       statePage.on('console', (message) => { if (message.type() === 'error') stateErrors.push(message.text()); });
@@ -248,6 +248,13 @@ async function main() {
             // Wait for the expected text to appear anywhere in the page
             await statePage.getByText(expectedText, { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 });
           }
+        }
+        if (expectNoWorkspaceAlert) {
+          assert.strictEqual(
+            await statePage.getByRole('alert', { name: 'Workspace requiere atención' }).count(),
+            0,
+            `${name} rendered a workspace repair notice for a usable workspace`,
+          );
         }
         if (assertResponsive) {
           const layout = await statePage.evaluate(() => {
@@ -361,8 +368,7 @@ async function main() {
       status: { ...linkedStatus, system_state: 'degraded', workspace_state: { workspace_state: 'linked_confirmed', binding_confirmed: true }, context_revision: 'ctx-1', last_receipt: { envelope_id: 'receipt-1' } },
       session: { session_id: 'state-degraded', menu_state: { acciones_permitidas: ['session.status', 'chat.send'], acciones_bloqueadas: [] } },
       workspace: { permissions: { canChat: true } },
-      expectedState: 'show_recovery',
-      expectedText: 'Vinculado',
+      expectNoWorkspaceAlert: true,
     });
     await renderState({
       name: 'blocked',
@@ -540,7 +546,7 @@ async function main() {
         await chatPage.locator('.app-root').waitFor({ state: 'visible', timeout: 30000 });
 
         // Navegar a Inicio
-        const homeItem = chatPage.locator('.sidebar-item').filter({ hasText: 'Inicio' });
+        const homeItem = chatPage.locator('.sidebar-item[title^="Inicio ·"]');
         await homeItem.waitFor({ state: 'visible', timeout: 15000 });
         await homeItem.click();
 
@@ -562,7 +568,7 @@ async function main() {
         await newChatButton.click();
         await chatPage.waitForFunction(() => {
           const timeline = document.querySelector('.chat-timeline');
-          return Boolean(timeline && timeline.textContent && timeline.textContent.includes('Elige cómo quieres empezar'));
+          return Boolean(timeline && timeline.textContent && timeline.textContent.includes('Empieza por la tarea'));
         }, { timeout: 15000 });
 
         assert.deepEqual(chatErrors, [], `chat panel console errors: ${chatErrors.join(' | ')}`);
@@ -621,8 +627,8 @@ async function main() {
         await provPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
         await provPage.locator('.app-root').waitFor({ state: 'visible', timeout: 30000 });
 
-        // Buscar ítem de Proveedores en sidebar
-        const providerNav = provPage.locator('.sidebar-item').filter({ hasText: /proveedores|provider/i }).first();
+        // El centro de proveedores vive bajo el destino canónico Operaciones.
+        const providerNav = provPage.locator('.sidebar-item[title^="Operaciones ·"]').first();
         const providerNavCount = await providerNav.count();
 
         let providerGridFound = false;
@@ -632,7 +638,7 @@ async function main() {
           const providerGrid = provPage.locator('.provider-grid, [data-provider-grid], .provider-center, [data-section="providers"], .providers-list').first();
           providerGridFound = await providerGrid.isVisible({ timeout: 10000 }).catch(() => false);
           if (!providerGridFound) {
-            // Intentar via keyboard shortcut (Ctrl+6 abre Operación con la pestaña Proveedores)
+            // Intentar vía atajo canónico de Operaciones.
             await provPage.keyboard.press('Control+6');
             await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await provPage.getByRole('tab', { name: 'Proveedores', exact: true }).click();
@@ -762,7 +768,7 @@ async function main() {
         await sessPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
         await sessPage.locator('.app-root').waitFor({ state: 'visible', timeout: 30000 });
 
-        const homeItem = sessPage.locator('.sidebar-item').filter({ hasText: 'Inicio' });
+        const homeItem = sessPage.locator('.sidebar-item[title^="Inicio ·"]');
         await homeItem.waitFor({ state: 'visible', timeout: 15000 });
         await homeItem.click();
         await sessPage.waitForTimeout(1500);

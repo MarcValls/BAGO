@@ -4,7 +4,7 @@
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
-[![Tests](https://img.shields.io/badge/tests-928%20passed%20%7C%2013%20skipped%20backend%20%7C%2099%20frontend-brightgreen)]()
+[![Verification](https://img.shields.io/badge/verification-candidate--bound-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 **BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
@@ -48,7 +48,7 @@
 BAGO/
 ├── backend/                  # Runtime Python (core, CLI, API local, contratos)
 │   ├── bago_core/            # Núcleo: sesiones, proveedores, capacidades, RL
-│   ├── tests/                # 928 passed, 13 skipped (pytest)
+│   ├── tests/                # pytest; resultados exactos en recibos del candidato
 │   ├── docs/                 # Documentación técnica
 │   └── ui-react/dist/        # Copia del build de la UI (generada por npm run build; no en el repo)
 ├── frontend/                 # UI React + TypeScript (Vite)
@@ -263,10 +263,10 @@ npm run sh:status
 
 | Área | Estado | Notas |
 |---|---|---|
-| Runtime core | ✅ Estable | 928 passed, 13 skipped en backend |
-| Instalación Windows | ✅ Estable | Instalador NSIS + `ARRANCAR_BAGO.bat` |
-| Ciclo de vida Electron | ✅ Estable | Auto-stop al cerrar ventana |
-| UI React | ✅ Funcional | 99 tests frontend, tema claro/oscuro, tokens CSS |
+| Runtime core | Verificable | Suite y resultados ligados al SHA candidato |
+| Instalación Windows | NOT_RUN en candidato actual | El instalador NSIS histórico no valida el SHA de remediación |
+| Ciclo de vida Electron | Verificación pendiente | El código fuente tiene gates; falta validar el instalador exacto del candidato |
+| UI React | Verificable | Tests ligados al SHA candidato, tema claro/oscuro, tokens CSS |
 | Seguridad y postura API | ✅ Estable | `backend/docs/SECURITY.md` |
 | Soporte de plataforma | ✅ Windows | macOS/Linux: experimental |
 | Sistema de capacidades | ✅ Funcional | `capability-anatomy`, provider center |

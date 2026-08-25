@@ -54,7 +54,8 @@ describe('canonical context regressions', () => {
       openSectionFromSelection: vi.fn(), navigate: vi.fn(), runCommand: vi.fn(),
       runContextCommand: vi.fn(), bootstrap: vi.fn(), refreshAfterMutation: vi.fn(),
       refreshRouterState: vi.fn(), setRouterAutoSwitch: vi.fn(), setDraft, ensureChatPanel,
-      writeClipboard: vi.fn(), setAndPersistUiState: vi.fn(), confirm: vi.fn(() => true)
+      writeClipboard: vi.fn(), setAndPersistUiState: vi.fn(), confirm: vi.fn(() => true),
+      clipboardPayload: { text: '', imageDataUrl: '', imageMimeType: '', imageBytes: 0, error: '' }, pasteClipboard: vi.fn()
     } as unknown as ContextActionDeps;
     const selection = { id: 'chat', kind: 'screen-chat', targetKind: 'screen.chat', title: 'Chat', summary: '', detail: [] } as SelectionRecord;
 
@@ -62,5 +63,50 @@ describe('canonical context regressions', () => {
 
     expect(setDraft).toHaveBeenCalledWith('chat', '/plan ');
     expect(ensureChatPanel).toHaveBeenCalledOnce();
+  });
+
+  it('enables Paste only for compatible clipboard content', () => {
+    const pasteClipboard = vi.fn();
+    const base = {
+      turns: [], snapshot: null, opening: {}, booting: false,
+      routerState: { list: null, policy: null },
+      uiState: { drafts: { chat: '' }, chatMode: 'live', globalMode: 'normal' },
+      readSelectionPath: vi.fn(() => ''), useSelectionInChat: vi.fn(), openInspector: vi.fn(),
+      openShell: vi.fn(), openWorkspacePicker: vi.fn(), openWorkspaceFileFromMenu: vi.fn(),
+      openSectionFromSelection: vi.fn(), navigate: vi.fn(), runCommand: vi.fn(),
+      runContextCommand: vi.fn(), bootstrap: vi.fn(), refreshAfterMutation: vi.fn(),
+      refreshRouterState: vi.fn(), setRouterAutoSwitch: vi.fn(), setDraft: vi.fn(), ensureChatPanel: vi.fn(),
+      writeClipboard: vi.fn(), setAndPersistUiState: vi.fn(), confirm: vi.fn(() => true), pasteClipboard,
+    };
+    const selection = { id: 'chat', kind: 'screen-chat', targetKind: 'screen.chat', title: 'Chat', summary: '', detail: [] } as SelectionRecord;
+
+    const empty = createContextActions(selection, { ...base, clipboardPayload: { text: '', imageDataUrl: '', imageMimeType: '', imageBytes: 0, error: '' } } as unknown as ContextActionDeps)
+      .find((action) => action.id === 'paste-clipboard');
+    const text = createContextActions(selection, { ...base, clipboardPayload: { text: 'hola', imageDataUrl: '', imageMimeType: '', imageBytes: 0, error: '' } } as unknown as ContextActionDeps)
+      .find((action) => action.id === 'paste-clipboard');
+    const image = createContextActions(selection, { ...base, clipboardPayload: { text: '', imageDataUrl: 'data:image/png;base64,AA==', imageMimeType: 'image/png', imageBytes: 1, error: '' } } as unknown as ContextActionDeps)
+      .find((action) => action.id === 'paste-clipboard');
+
+    expect(empty).toMatchObject({ label: 'Pegar texto', disabled: true });
+    expect(text).toMatchObject({ label: 'Pegar texto', disabled: false });
+    expect(image).toMatchObject({ label: 'Pegar captura o imagen', disabled: false });
+    image?.onClick();
+    expect(pasteClipboard).toHaveBeenCalledOnce();
+  });
+
+  it('keeps an oversized clipboard image disabled', () => {
+    const selection = { id: 'chat', kind: 'screen-chat', targetKind: 'screen.chat', title: 'Chat', summary: '', detail: [] } as SelectionRecord;
+    const deps = {
+      turns: [], snapshot: null, opening: {}, booting: false, routerState: { list: null, policy: null },
+      uiState: { drafts: { chat: '' }, chatMode: 'live', globalMode: 'normal' },
+      readSelectionPath: vi.fn(() => ''), useSelectionInChat: vi.fn(), openInspector: vi.fn(), openShell: vi.fn(),
+      openWorkspacePicker: vi.fn(), openWorkspaceFileFromMenu: vi.fn(), openSectionFromSelection: vi.fn(), navigate: vi.fn(),
+      runCommand: vi.fn(), runContextCommand: vi.fn(), bootstrap: vi.fn(), refreshAfterMutation: vi.fn(), refreshRouterState: vi.fn(),
+      setRouterAutoSwitch: vi.fn(), setDraft: vi.fn(), ensureChatPanel: vi.fn(), writeClipboard: vi.fn(),
+      setAndPersistUiState: vi.fn(), confirm: vi.fn(() => true), pasteClipboard: vi.fn(),
+      clipboardPayload: { text: '', imageDataUrl: '', imageMimeType: '', imageBytes: 8 * 1024 * 1024 + 1, error: 'La imagen supera el límite seguro de 8 MB' },
+    } as unknown as ContextActionDeps;
+    expect(createContextActions(selection, deps).find((action) => action.id === 'paste-clipboard'))
+      .toMatchObject({ label: 'No se puede pegar: imagen demasiado grande', disabled: true });
   });
 });

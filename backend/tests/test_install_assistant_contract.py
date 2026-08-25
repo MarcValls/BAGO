@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import json
 import subprocess
 import sys
@@ -7,6 +8,24 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _powershell_console_encoding() -> str:
+    """Return the encoding PowerShell uses for console output on this machine.
+
+    PowerShell writes to the console using the active output code page, not
+    UTF-8 by default.  Decoding its stdout as UTF-8 fails as soon as the
+    path contains characters such as 'º'.  On Windows we ask the kernel for
+    the current console output code page; everywhere else we keep UTF-8.
+    """
+    if sys.platform == "win32":
+        try:
+            cp = ctypes.windll.kernel32.GetConsoleOutputCP()
+            if cp:
+                return f"cp{cp}"
+        except Exception:
+            pass
+    return "utf-8"
 
 
 def _write_minimal_source_tree(root: Path) -> Path:
@@ -53,6 +72,8 @@ def test_install_assistant_resolves_current_tree(tmp_path):
         ],
         capture_output=True,
         text=True,
+        encoding=_powershell_console_encoding(),
+        errors="replace",
         check=True,
     )
     assert str(current) in result.stdout

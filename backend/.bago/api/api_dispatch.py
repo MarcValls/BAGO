@@ -72,6 +72,7 @@ ROUTE_META: tuple = (
     ("GET",  "/api/v1/capability-packages", "handlers_capability_packages", "handle_list"),
     ("GET",  "/api/v1/capability-packages/receipts", "handlers_capability_packages", "handle_receipts"),
     ("GET",  "/api/v1/capability-packages/examples", "handlers_capability_packages", "handle_examples"),
+    ("GET",  "/api/v1/kb",          "handlers_kv",         "handle_list"),
     ("GET",  "/audit/project",       "handlers_audit",      "handle_project"),
     ("GET",  "/audit/bago",          "handlers_audit",      "handle_bago"),
     ("GET",  "/audit/ledger",        "handlers_audit",      "handle_ledger"),
@@ -124,6 +125,7 @@ ROUTE_META: tuple = (
     ("POST", "/chat",                "handlers_chat",       "handle"),
     ("POST", "/chat/stream",         "handlers_chat_stream", "handle"),
     ("POST", "/api/v1/commands",     "handlers_command",    "handle"),
+    ("POST", "/api/v1/kb",           "handlers_kv",         "handle_set"),
     ("POST", "/api/v1/capability-packages/import", "handlers_capability_packages", "handle_import"),
     ("POST", "/api/v1/capability-packages/inspect", "handlers_capability_packages", "handle_inspect"),
     ("POST", "/project/init",        "handlers_project",    "handle_project_init"),
@@ -167,6 +169,14 @@ ROUTE_META: tuple = (
 # Single source of truth for dynamic route discovery/documentation.
 # (method, path_pattern, handler_module, handler_fn)
 DYNAMIC_ROUTE_META: tuple = (
+    ("GET",  "/api/v1/kb/<key>",                     "handlers_kv",       "handle_get"),
+    ("PUT",  "/api/v1/kb/<key>",                     "handlers_kv",       "handle_put"),
+    ("DELETE", "/api/v1/kb/<key>",                   "handlers_kv",       "handle_delete"),
+    ("GET",  "/agents/<agent_id>",                   "handlers_agents",   "handle_get"),
+    ("POST", "/agents/<agent_id>/duplicate",         "handlers_agents",   "handle_duplicate"),
+    ("POST", "/agents/<agent_id>/test",              "handlers_agents",   "handle_test"),
+    ("PUT",  "/agents/<agent_id>",                   "handlers_agents",   "handle_put"),
+    ("DELETE", "/agents/<agent_id>",                 "handlers_agents",   "handle_delete"),
     ("GET",  "/models/<provider>",                    "handlers_models",    "handle"),
     ("GET",  "/providers/<provider>/models",         "handlers_providers", "handle_list_models"),
     ("GET",  "/providers/<provider>/active-models",  "handlers_providers", "handle_active_models_get"),
@@ -223,6 +233,14 @@ def resolve_get(handler, path: str) -> Tuple[bool, Callable | None]:
         provider = path[len("/models/"):]
         if provider:
             return True, _call("handlers_models", "handle", provider)
+    if path.startswith("/api/v1/kb/"):
+        key = path[len("/api/v1/kb/"):]
+        if key and "/" not in key:
+            return True, _call("handlers_kv", "handle_get", key)
+    if path.startswith("/agents/"):
+        agent_id = path[len("/agents/"):]
+        if agent_id and "/" not in agent_id:
+            return True, _call("handlers_agents", "handle_get", agent_id)
     if path.startswith("/providers/") and path.endswith("/models"):
         provider = path[len("/providers/"):-len("/models")]
         if provider and "/" not in provider:
@@ -271,6 +289,17 @@ def resolve_get(handler, path: str) -> Tuple[bool, Callable | None]:
 def resolve_post(handler, path: str, body: dict) -> Tuple[bool, Callable | None]:
     if path in POST_ROUTES:
         return True, POST_ROUTES[path]
+    if path.startswith("/agents/"):
+        suffix = path[len("/agents/"):].strip("/")
+        for action, function in (("duplicate", "handle_duplicate"), ("test", "handle_test")):
+            ending = f"/{action}"
+            if suffix.endswith(ending):
+                agent_id = suffix[:-len(ending)].strip("/")
+                if agent_id and "/" not in agent_id:
+                    def _agent_action(handler, body, _id=agent_id, _fn=function):
+                        module = importlib.import_module("handlers_agents")
+                        return getattr(module, _fn)(handler, _id)
+                    return True, _agent_action
     if path.startswith("/jobs/") and path.endswith("/cancel"):
         execution_id = path[len("/jobs/"):-len("/cancel")].strip("/")
         if execution_id:
@@ -323,6 +352,36 @@ def resolve_post(handler, path: str, body: dict) -> Tuple[bool, Callable | None]
                 package_id = suffix[:-len(ending)].strip("/")
                 if package_id and "/" not in package_id:
                     return True, _call("handlers_capability_packages", function, package_id)
+    return False, None
+
+
+def resolve_put(handler, path: str, body: dict) -> Tuple[bool, Callable | None]:
+    if path.startswith("/api/v1/kb/"):
+        key = path[len("/api/v1/kb/"):]
+        if key and "/" not in key:
+            def _kv_put(handler, body, _key=key):
+                from handlers_kv import handle_put
+                return handle_put(handler, _key, body)
+            return True, _kv_put
+    if path.startswith("/agents/"):
+        agent_id = path[len("/agents/"):]
+        if agent_id and "/" not in agent_id:
+            def _agent_put(handler, body, _id=agent_id):
+                from handlers_agents import handle_put
+                return handle_put(handler, body, _id)
+            return True, _agent_put
+    return False, None
+
+
+def resolve_delete(handler, path: str) -> Tuple[bool, Callable | None]:
+    if path.startswith("/api/v1/kb/"):
+        key = path[len("/api/v1/kb/"):]
+        if key and "/" not in key:
+            return True, _call("handlers_kv", "handle_delete", key)
+    if path.startswith("/agents/"):
+        agent_id = path[len("/agents/"):]
+        if agent_id and "/" not in agent_id:
+            return True, _call("handlers_agents", "handle_delete", agent_id)
     return False, None
 
 

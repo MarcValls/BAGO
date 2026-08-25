@@ -40,7 +40,7 @@ def send_json(handler, status: int, data: dict[str, Any]) -> None:
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler._send_cors_headers()
-    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
     handler.send_header(
         "Access-Control-Allow-Headers", "Content-Type, X-Bago-Token, X-Bago-Channel"
     )

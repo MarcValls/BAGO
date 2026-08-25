@@ -71,6 +71,13 @@ interface Props {
   onSwitchConversation?: (conversationId: string) => Promise<void>;
   onRenameConversation?: (conversationId: string, title: string) => Promise<void>;
   onArchiveConversation?: (conversationId: string) => Promise<void>;
+  // CANON[CHAT-DOCK]: cuando se monta dentro del dock lateral (junto
+  // a otra sección) `isDocked` deshabilita el start screen, oculta
+  // tabs contextuales y reduce padding. Sin esta prop el panel se
+  // comporta como pantalla completa.
+  isDocked?: boolean;
+  pastedImage?: { dataUrl: string; mimeType: string } | null;
+  onRemovePastedImage?: () => void;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -210,7 +217,7 @@ export function ChatPanel(props: Props) {
   const [modelPickerPos, setModelPickerPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
   const modelPickerRootRef = useRef<HTMLDivElement>(null);
   const [reasoningChanging, setReasoningChanging] = useState(false);
-  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen));
+  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen && !props.isDocked));
   const [conversationBusy, setConversationBusy] = useState('');
   const [conversationError, setConversationError] = useState('');
   const [renamingId, setRenamingId] = useState('');
@@ -223,6 +230,10 @@ export function ChatPanel(props: Props) {
     () => buildChatModelOptions(props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel),
     [props.routerEntries, props.activeProvider, props.activeModels, props.sessionModel]
   );
+
+  useEffect(() => {
+    if (props.isDocked) setWelcomeOpen(false);
+  }, [props.isDocked]);
   const timelineGroups = useMemo(() => groupTechnicalTurns(props.turns), [props.turns]);
   const filteredModelOptions = useMemo(() => {
     const query = modelQuery.trim().toLocaleLowerCase();
@@ -291,7 +302,7 @@ export function ChatPanel(props: Props) {
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      if (canChat && draft.trim()) void props.onSendChat(draft);
+      if (canChat && (draft.trim() || props.pastedImage)) void props.onSendChat(draft);
     }
   };
 
@@ -333,7 +344,7 @@ export function ChatPanel(props: Props) {
   };
 
   return (
-    <div className={`chat-panel is-full ${showWelcome ? 'is-start-screen' : ''}`} {...inspectMenuAttrs(chatSelection, props.onInspect)}>
+    <div className={`chat-panel ${props.isDocked ? 'is-docked' : 'is-full'} ${showWelcome && !props.isDocked ? 'is-start-screen' : ''}`} {...inspectMenuAttrs(chatSelection, props.onInspect)}>
       <header className="chat-panel-header">
         <div className="chat-panel-header-title">
           <Icon name="chat" size={14} />
@@ -443,7 +454,7 @@ export function ChatPanel(props: Props) {
                   </div>
 
                   <div className="start-chat-home-grid">
-                    <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} />
+                    <RuntimeStatus snapshot={props.snapshot} onRefresh={props.onRefresh} onNavigate={props.onNavigate} />
                     <section className="start-chat-recent" aria-label="Trabajos recientes">
                       <div className="start-chat-recent-head"><strong>Trabajos recientes</strong><span>{props.recentProjects?.length ? 'Selecciona uno para abrirlo' : 'Aún no hay actividad'}</span></div>
                       {props.recentProjects?.length ? (
@@ -457,7 +468,15 @@ export function ChatPanel(props: Props) {
                           ))}
                         </div>
                       ) : (
-                        <div className="start-chat-no-recent"><Icon name="history" size={16} /><span>Los trabajos que abras o crees aparecerán aquí.</span></div>
+                        <div className="start-chat-no-recent">
+                          <Icon name="history" size={16} />
+                          <div className="start-chat-no-recent-body">
+                            <p>Los trabajos que abras o crees aparecerán aquí.</p>
+                            <button type="button" className="text-button" onClick={props.onStartNew}>
+                              Crear un objetivo
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </section>
                   </div>
@@ -533,6 +552,11 @@ export function ChatPanel(props: Props) {
               </div>
             </div>
             {modelError && <div className="chat-model-error" role="alert">No se pudo cambiar: {modelError}</div>}
+            {props.pastedImage && <div className="chat-pasted-image" role="status">
+              <img src={props.pastedImage.dataUrl} alt="Imagen pegada preparada para enviar" />
+              <span>Imagen del portapapeles</span>
+              <button type="button" onClick={props.onRemovePastedImage} aria-label="Quitar imagen pegada"><Icon name="close" size={12} /></button>
+            </div>}
             <textarea
               id="bago-chat-composer"
               className="chat-composer-textarea"
@@ -554,7 +578,7 @@ export function ChatPanel(props: Props) {
               <button
                 className="primary-button chat-send-button"
                 type="button"
-                disabled={!canChat || !draft.trim()}
+                disabled={!canChat || (!draft.trim() && !props.pastedImage)}
                 onClick={() => props.onSendChat(draft)}
                 title={canChat ? 'Enviar mensaje (Enter)' : chatBlockedHint(props.snapshot)}
               >
@@ -578,7 +602,27 @@ function chatBlockedHint(snapshot: UiBootstrapSnapshot | null): string {
   return 'El chat está temporalmente desactivado.';
 }
 
-function RuntimeStatus({ snapshot, onRefresh }: { snapshot: UiBootstrapSnapshot | null; onRefresh?: () => void }) {
+export function runtimeStep(snapshot: UiBootstrapSnapshot | null): { message: string; action?: () => void; label?: string } | null {
+  if (!snapshot) return { message: 'Esperando datos del backend…' };
+  if (!snapshot.system.backendAvailable) {
+    return { message: 'No hay conexión con el backend. Comprueba que BAGO está ejecutándose.' };
+  }
+  if (!snapshot.workspace.linkedToSession) {
+    return { message: 'Selecciona un workspace para empezar.' };
+  }
+  if (snapshot.workspace.manifestState !== 'valid') {
+    return { message: 'El workspace necesita ser sembrado o reparado.' };
+  }
+  if (snapshot.model.state !== 'confirmed') {
+    return { message: 'Configura un proveedor y un modelo en el panel Sistema.' };
+  }
+  if (snapshot.session.state !== 'valid' && snapshot.session.state !== 'recoverable') {
+    return { message: 'La sesión no está activa. Reinicia o recupera la sesión.' };
+  }
+  return null;
+}
+
+function RuntimeStatus({ snapshot, onRefresh, onNavigate }: { snapshot: UiBootstrapSnapshot | null; onRefresh?: () => void; onNavigate?: (section: ActiveSection) => void }) {
   const backend = snapshot?.system.backendAvailable ? snapshot.system.state : 'error';
   const provider = snapshot?.model.provider && snapshot.model.effectiveModel
     ? `${snapshot.model.provider} · ${snapshot.model.effectiveModel}` : 'not_configured';
@@ -588,19 +632,74 @@ function RuntimeStatus({ snapshot, onRefresh }: { snapshot: UiBootstrapSnapshot 
   const context = snapshot?.context.state || 'unknown';
   const session = snapshot?.session.state || 'missing';
   const version = snapshot?.system.version || snapshot?.framework.version || 'not_observed';
+  const step = runtimeStep(snapshot);
+
   return <section className="start-chat-runtime-status" aria-label="Estado real de BAGO">
     <div className="start-chat-runtime-head"><strong>Estado real de BAGO</strong><span>Leído del backend activo</span>{onRefresh && <button type="button" className="text-button" onClick={onRefresh}>Actualizar</button>}</div>
+    {step && <div className="start-chat-runtime-step" role="status">
+      <Icon name="warning" size={14} />
+      <span>{step.message}</span>
+      {step.action && step.label && <button type="button" className="text-button" onClick={step.action}>{step.label}</button>}
+    </div>}
     <div className="start-chat-runtime-grid">
-      <RuntimeStatusItem label="Backend" value={quietStatus(backend) || 'Operativo'} ok={backend === 'confirmed' || backend === 'degraded'} raw={backend} />
-      <RuntimeStatusItem label="Sesión" value={quietStatus(session) || 'Activa'} ok={session === 'valid' || session === 'recoverable'} raw={session} />
-      <RuntimeStatusItem label="Proveedor / modelo" value={quietStatus(provider) || `${snapshot?.model.provider} · ${snapshot?.model.effectiveModel}`} ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'} raw={provider} />
-      <RuntimeStatusItem label="Workspace" value={workspace === 'valid' ? 'Vinculado y válido' : quietStatus(workspace)} ok={workspace === 'valid'} raw={workspace} />
-      <RuntimeStatusItem label="Contexto" value={quietStatus(context) || 'Confirmado'} ok={context === 'confirmed' || context === 'partial'} raw={context} />
-      <RuntimeStatusItem label="Versión runtime" value={quietStatus(version) || version} ok={version !== 'not_observed'} raw={version} />
+      <RuntimeStatusItem
+        label="Backend"
+        value={quietStatus(backend) || 'Operativo'}
+        ok={backend === 'confirmed' || backend === 'degraded'}
+        raw={backend}
+        action={!snapshot?.system.backendAvailable && onRefresh ? { label: 'Reintentar', onClick: onRefresh } : undefined}
+      />
+      <RuntimeStatusItem
+        label="Sesión"
+        value={quietStatus(session) || 'Activa'}
+        ok={session === 'valid' || session === 'recoverable'}
+        raw={session}
+      />
+      <RuntimeStatusItem
+        label="Proveedor / modelo"
+        value={quietStatus(provider) || `${snapshot?.model.provider} · ${snapshot?.model.effectiveModel}`}
+        ok={snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded'}
+        raw={provider}
+        action={snapshot?.model.state !== 'confirmed' && onNavigate ? { label: 'Configurar', onClick: () => onNavigate('system') } : undefined}
+      />
+      <RuntimeStatusItem
+        label="Workspace"
+        value={workspace === 'valid' ? 'Vinculado y válido' : quietStatus(workspace)}
+        ok={workspace === 'valid'}
+        raw={workspace}
+        action={workspace !== 'valid' && onNavigate ? { label: 'Elegir', onClick: () => onNavigate('workspace') } : undefined}
+      />
+      <RuntimeStatusItem
+        label="Contexto"
+        value={quietStatus(context) || 'Confirmado'}
+        ok={context === 'confirmed' || context === 'partial'}
+        raw={context}
+      />
+      <RuntimeStatusItem
+        label="Versión runtime"
+        value={quietStatus(version) || version}
+        ok={version !== 'not_observed'}
+        raw={version}
+      />
     </div>
   </section>;
 }
 
-function RuntimeStatusItem({ label, value, ok, raw }: { label: string; value: string; ok: boolean; raw: string }) {
-  return <div className={`start-chat-runtime-item ${ok ? 'is-ok' : 'is-pending'}`}><span className="start-chat-runtime-dot" /><div><small>{label}</small><strong title={raw}>{value}</strong></div></div>;
+interface RuntimeStatusItemProps {
+  label: string;
+  value: string;
+  ok: boolean;
+  raw: string;
+  action?: { label: string; onClick: () => void } | undefined;
+}
+
+function RuntimeStatusItem({ label, value, ok, raw, action }: RuntimeStatusItemProps) {
+  return <div className={`start-chat-runtime-item ${ok ? 'is-ok' : 'is-pending'} ${action ? 'has-action' : ''}`}>
+    <span className="start-chat-runtime-dot" />
+    <div className="start-chat-runtime-item-main">
+      <small>{label}</small>
+      <strong title={raw}>{value}</strong>
+    </div>
+    {action && <button type="button" className="text-button compact" onClick={action.onClick}>{action.label}</button>}
+  </div>;
 }

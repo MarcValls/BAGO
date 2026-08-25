@@ -1,5 +1,6 @@
 import type { ActiveSection, BackendCommandResult, BackendRouterList, BackendRouterPolicy, ChatMode, ChatTurn, ContextTargetKind, OpeningDecision, SelectionRecord, UiBootstrapSnapshot } from '@/contracts/backend';
 import type { ActionScreenAction } from '@/layout/ActionScreen';
+import { EMPTY_CLIPBOARD, clipboardHasContent, clipboardLabel, type ClipboardPayload } from '@/shared/clipboard';
 
 type GlobalMode = 'normal' | 'focus' | 'review';
 
@@ -29,6 +30,8 @@ export interface ContextActionDeps {
   writeClipboard: (label: string, value: string) => Promise<void>;
   setAndPersistUiState: (patch: Partial<{ commandPaletteOpen: boolean; chatMode: ChatMode }>) => void;
   confirm: (request: { title: string; description: string; confirmLabel?: string }) => Promise<boolean>;
+  clipboardPayload: ClipboardPayload;
+  pasteClipboard: () => void;
   // CANON[CTX-005]: acciones de Workspace → Árbol de Contexto. Permiten
   // crear un nodo de tipo file/source con un sourceRef, añadirlo al
   // pack activo o crear un claim a partir de un archivo.
@@ -88,8 +91,10 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
     deps.ensureChatPanel();
   };
   const isWorkspaceTarget = targetKind.startsWith('workspace.');
+  const clipboard = deps.clipboardPayload || EMPTY_CLIPBOARD;
 
   const actions: ActionScreenAction[] = [
+    { id: 'paste-clipboard', label: clipboardLabel(clipboard), icon: clipboard.imageDataUrl ? 'attach' : 'copy', emphasis: 'primary', onClick: deps.pasteClipboard || (() => undefined), disabled: !clipboardHasContent(clipboard) },
     { id: 'inspect-detail', label: 'Ver detalle', icon: 'inspector', emphasis: 'primary', onClick: () => deps.openInspector(selection, 'detail') },
     { id: 'use-in-chat', label: 'Enviar al chat', icon: 'send', onClick: () => deps.useSelectionInChat(selection) }
   ];
@@ -107,7 +112,6 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
     case 'screen.chat':
       actions.push(
         { id: 'chat-copy-selection', label: 'Copiar selección', icon: 'copy', onClick: () => { const sel = (typeof window !== 'undefined' ? window.getSelection() : null)?.toString().trim(); if (sel) void deps.writeClipboard('Texto', sel); }, disabled: !(typeof window !== 'undefined' && window.getSelection()?.toString().trim()) },
-        { id: 'chat-paste-to-input', label: 'Pegar en el chat', icon: 'send', onClick: () => { void navigator.clipboard.readText().then((text) => { if (text) draftCommand((deps.uiState.drafts.chat || '') + text); }).catch(() => { /* permisos denegados */ }); } },
         { id: 'chat-command-prefix', label: 'Preparar comando /', icon: 'command', separatorBefore: true, onClick: () => draftCommand((deps.uiState.drafts.chat || '').trim().startsWith('/') ? deps.uiState.drafts.chat : '/') },
         { id: 'chat-last-command', label: 'Pegar último comando', icon: 'history', onClick: () => lastCommand && draftCommand(lastCommand.text), disabled: !lastCommand },
         { id: 'chat-attach-context', label: 'Adjuntar contexto', icon: 'attach', onClick: () => void deps.runContextCommand('/context attach'), disabled: !deps.snapshot?.permissions.canInspectContext },

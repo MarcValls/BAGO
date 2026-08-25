@@ -113,23 +113,23 @@ function pmLocalSystemStamp(action,detail){
 function electronApi(){return window.bagoElectron||null;}
 let pmProvidersState = null;
 let pmProvidersStateLoading = null;
-function pmManagerBaseUrl(){
+async function pmManagerBaseUrl(){
   const api=electronApi();
   if(!api||typeof api.getManagerUrl!=='function')return '';
   try{
-    const url=String(api.getManagerUrl()||'').trim();
+    const url=String(await api.getManagerUrl()||'').trim();
     return /^https?:\/\//i.test(url)?url:'';
   }catch{return '';}
 }
-function pmProvidersEndpoint(){
-  const base=pmManagerBaseUrl();
+async function pmProvidersEndpoint(){
+  const base=await pmManagerBaseUrl();
   if(!base)return '';
   try{
     return new URL('../providers', base).toString();
   }catch{return '';}
 }
 async function pmRefreshProvidersState(){
-  const endpoint=pmProvidersEndpoint();
+  const endpoint=await pmProvidersEndpoint();
   if(!endpoint)return null;
   if(pmProvidersStateLoading)return pmProvidersStateLoading;
   pmProvidersStateLoading=fetch(endpoint,{cache:'no-store'})
@@ -242,3 +242,4 @@ let activeNodeTab='overview';
 if(nodePanel&&releasesPanel&&releasesPanel.parentNode){
   releasesPanel.parentNode.insertBefore(nodePanel,releasesPanel);
 }
+

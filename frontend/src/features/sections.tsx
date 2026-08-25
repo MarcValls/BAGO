@@ -4,6 +4,7 @@ import type {
   BackendHistory,
   BackendMenu,
   BackendProviders,
+  BackendRouterEntry,
   BackendRouterList,
   BackendRouterPolicy,
   BackendRoutes,
@@ -132,18 +133,32 @@ interface Props {
   onRevertContextPatch?: (patchId: string) => void;
   onReviewContextPatch?: (patchId: string) => void;
   onOpenContextInTree?: (patchId: string) => void;
+  pastedImage?: { dataUrl: string; mimeType: string } | null;
+  onRemovePastedImage?: () => void;
   // CANON[CTX-017]: estado inicial de selección / edición que el
   // chat puede pedir (botón "Abrir en árbol" / "Editar"). El módulo
   // lo consume y notifica para que ControlPlane lo limpie.
   initialContextSelectedNodeId?: string | null;
   initialContextEditingPatchId?: string | null;
   onInitialContextStateConsumed?: () => void;
+  // CANON[CHAT-DOCK]: proveedor/modelos activos calculados en
+  // ControlPlane para compartirse entre el chat acoplado y el chat
+  // como pantalla completa.
+  activeProvider: string | null;
+  activeModels: Set<string>;
 }
 
-function resolveRouterEntries(router: Props['router']): Array<Record<string, unknown>> {
+function resolveRouterEntries(router: Props['router']): BackendRouterEntry[] {
   const policyEntries = router?.policy?.entries || [];
   if (policyEntries.length > 0) return policyEntries;
   return router?.list?.entries || [];
+}
+
+export function selectRouterEntries(router: { list: BackendRouterList | null; policy: BackendRouterPolicy | null } | null | undefined): BackendRouterEntry[] {
+  if (!router) return [];
+  const policyEntries = router.policy?.entries || [];
+  if (policyEntries.length > 0) return policyEntries;
+  return router.list?.entries || [];
 }
 
 type RecordValue = Record<string, unknown>;
@@ -388,7 +403,7 @@ function workspaceTypeForPath(entry: RecordValue): Exclude<WorkspaceFilter, 'all
 function screenLabel(section: Props['section']): string {
   const labels: Record<Props['section'], string> = {
     home: 'Inicio',
-    chat: 'Chat',
+    chat: 'Inicio', // legacy route; normalized to the single conversation surface
     workspace: 'Workspace',
     pipeline: 'Pipeline',
     evidence: 'Evidencia',
@@ -545,7 +560,7 @@ function openContextMenuFromElement(event: ReactMouseEvent<HTMLElement>, selecti
 
 function targetKindForSection(section: Props['section']): ContextTargetKind {
   if (section === 'home') return 'screen.home';
-  if (section === 'chat') return 'screen.chat';
+  if (section === 'chat') return 'screen.home';
   if (section === 'pipeline') return 'pipeline.surface';
   if (section === 'evidence') return 'evidence.item';
   if (section === 'context') return 'context.item';
@@ -606,7 +621,6 @@ export function ControlSections(props: Props) {
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceMessage, setSourceMessage] = useState('');
   const [graphFiltered, setGraphFiltered] = useState(true);
-  const [chatView, setChatView] = useState<'conversation' | 'router' | 'providers' | 'subagents' | 'interpret'>('conversation');
   const [pipelineView, setPipelineView] = useState<'create' | 'execution' | 'flow' | 'control' | 'capabilities' | 'simulation' | 'rl'>('create');
   const [flowNotice, setFlowNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const [operationView, setOperationView] = useState<'providers' | 'runtime' | 'memory' | 'vision' | 'configuration'>('providers');
@@ -618,8 +632,8 @@ export function ControlSections(props: Props) {
   const [evidenceCompare, setEvidenceCompare] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  const [activeModels, setActiveModels] = useState<Set<string>>(new Set());
+  const activeProvider = props.activeProvider;
+  const activeModels = props.activeModels;
   const [routerFallbackEntries, setRouterFallbackEntries] = useState<Array<Record<string, unknown>>>([]);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
@@ -1325,110 +1339,7 @@ export function ControlSections(props: Props) {
     workspaceQuery
   ]);
 
-  // Modelos activos del provider activo: alimentan el selector de
-  // modelo en la pantalla de Chat. Si no hay lista guardada, el set
-  // queda vacío y el selector hace fallback al router.
-  useEffect(() => {
-    const provider = (snapshot as any)?.model?.provider
-      || (snapshot as any)?.provider
-      || (snapshot as any)?.session?.provider
-      || (snapshot as any)?.system?.provider
-      || null;
-    if (!provider) {
-      setActiveProvider(null);
-      setActiveModels(new Set());
-      return;
-    }
-    setActiveProvider(provider);
-    props.client.getActiveProviderModels(provider)
-      .then((data) => {
-        if (Array.isArray(data.active_models)) {
-          setActiveModels(new Set(data.active_models));
-        } else {
-          setActiveModels(new Set());
-        }
-      })
-      .catch(() => setActiveModels(new Set()));
-  }, [snapshot, props.client]);
-
-  if (props.section === 'chat') {
-    const chatTabs = <nav className="contextual-subnav" aria-label="Herramientas de Chat">
-      {([
-        ['conversation', 'Conversación', 'chat'],
-        ['router', 'Modelos', 'model'],
-        ['providers', 'Proveedores', 'server'],
-        ['subagents', 'Agentes', 'node'],
-        ['interpret', 'Interpretación', 'command']
-      ] as const).map(([id, label, icon]) => (
-        <button key={id} type="button" className={chatView === id ? 'is-active' : ''} onClick={() => setChatView(id)}>
-          <Icon name={icon} size={13} /> {label}
-        </button>
-      ))}
-    </nav>;
-    if (chatView !== 'conversation') {
-      return <div className="contextual-surface system-surface chat-tools-surface">
-        {chatTabs}
-        <SystemTabs
-          apiBase={props.apiBase}
-          apiToken={props.apiToken}
-          providers={providers}
-          routerEntries={routerEntries}
-          routerAuto={Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch)}
-          routerSelectedCount={props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length}
-          routerLastPick={String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—')}
-          onRefreshRouter={props.onRefreshRouter}
-          onToggleRouter={props.onToggleRouter}
-          onSetRouterAuto={props.onSetRouterAuto}
-          onConfigureProvider={(name, config) => props.onConfigureProvider ? props.onConfigureProvider(name, config) : Promise.resolve()}
-          onInspectSelection={(selection, position) => props.onInspect(selection, position)}
-          allowedTabs={[chatView]}
-          activeTab={chatView}
-          hideTabList
-        />
-      </div>;
-    }
-    return (
-      <div className="contextual-surface chat-contextual-surface">
-        {chatTabs}
-        <ChatPanel
-        snapshot={snapshot}
-        turns={props.turns}
-        drafts={props.drafts}
-        chatMode={props.chatMode}
-        history={props.history}
-        conversations={props.conversations}
-        routerEntries={chatModelEntries}
-        sessionModel={props.sessionModel ?? null}
-        activeProvider={activeProvider}
-        activeModels={activeModels}
-        onSetChatMode={props.onSetChatMode}
-        onDraftChange={props.onDraftChange}
-        onSendChat={props.onSendChat}
-        onInspect={props.onInspect}
-        onRunCommand={props.onRunCommand}
-        onRunContextCommand={props.onRunContextCommand}
-        onNavigate={props.onSetSection}
-        onSetSessionModel={(key) => props.onSetSessionModel ? props.onSetSessionModel(key) : Promise.resolve()}
-        reasoningDepth={props.reasoningDepth || 'normal'}
-        onSetReasoningDepth={(depth) => props.onSetReasoningDepth ? props.onSetReasoningDepth(depth) : Promise.resolve()}
-        onCreateConversation={props.onCreateConversation}
-        onSwitchConversation={props.onSwitchConversation}
-        onRenameConversation={props.onRenameConversation}
-        onArchiveConversation={props.onArchiveConversation}
-        canChat={Boolean(snapshot?.permissions.canChat)}
-        contextPatches={props.contextPatchDisplay}
-        onAcceptContextPatch={(id) => props.onAcceptContextPatch?.(id)}
-        onRejectContextPatch={(id) => props.onRejectContextPatch?.(id)}
-        onEditContextPatch={(id) => props.onEditContextPatch?.(id)}
-        onRevertContextPatch={(id) => props.onRevertContextPatch?.(id)}
-        onReviewContextPatch={(id) => props.onReviewContextPatch?.(id)}
-        onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
-        />
-      </div>
-    );
-  }
-
-  if (props.section === 'home') {
+  if (props.section === 'home' || props.section === 'chat') {
     const chatModeOpen = (() => {
       try { return window.sessionStorage.getItem('bago.start.chat-mode') === 'open'; } catch { return false; }
     })();
@@ -1473,6 +1384,8 @@ export function ControlSections(props: Props) {
         onRevertContextPatch={(id) => props.onRevertContextPatch?.(id)}
         onReviewContextPatch={(id) => props.onReviewContextPatch?.(id)}
         onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
+        pastedImage={props.pastedImage}
+        onRemovePastedImage={props.onRemovePastedImage}
         startScreen={!chatModeOpen}
         recentProjects={recentProjects}
         onStartNew={() => {
@@ -1491,10 +1404,6 @@ export function ControlSections(props: Props) {
       />
     );
   }
-
-  // Chat is rendered exclusively in the ChatPanel (always-on, side or focus).
-  // When the user selects the chat destination from the sidebar, the
-  // ControlPlane activates the chat panel instead of mounting a second chat here.
 
   if (props.section === 'workspace') {
     return (

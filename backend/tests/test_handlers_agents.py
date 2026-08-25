@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import handlers_agents
+import api_dispatch
 
 
 class FakeHandler:
@@ -92,3 +93,37 @@ def test_safe_handler_catches_registry_corruption(isolated_agents_state, monkeyp
     assert resp["status"] == 500
     assert resp["body"]["ok"] is False
     assert resp["body"]["code"] == "INTERNAL_ERROR"
+
+
+def test_dispatch_invokes_agent_crud_and_duplicate_contract(isolated_agents_state):
+    create_handler = FakeHandler()
+    matched, create = api_dispatch.resolve_post(create_handler, "/agents", {"name": "Routed Agent"})
+    assert matched and create
+    create(create_handler, {"name": "Routed Agent", "model": "qwen3", "provider": "ollama-local"})
+    assert create_handler.response["status"] == 201
+    agent_id = create_handler.response["body"]["agent"]["id"]
+
+    get_handler = FakeHandler()
+    matched, get_agent = api_dispatch.resolve_get(get_handler, f"/agents/{agent_id}")
+    assert matched and get_agent
+    get_agent(get_handler)
+    assert get_handler.response["body"]["agent"]["name"] == "Routed Agent"
+
+    put_handler = FakeHandler()
+    matched, put_agent = api_dispatch.resolve_put(put_handler, f"/agents/{agent_id}", {})
+    assert matched and put_agent
+    put_agent(put_handler, {"name": "Updated Agent", "revision": "1"})
+    assert put_handler.response["body"]["agent"]["name"] == "Updated Agent"
+
+    duplicate_handler = FakeHandler()
+    matched, duplicate = api_dispatch.resolve_post(duplicate_handler, f"/agents/{agent_id}/duplicate", {})
+    assert matched and duplicate
+    duplicate(duplicate_handler, {})
+    assert duplicate_handler.response["status"] == 201
+    assert duplicate_handler.response["body"]["agent"]["name"] == "Updated Agent (copy)"
+
+    delete_handler = FakeHandler()
+    matched, delete_agent = api_dispatch.resolve_delete(delete_handler, f"/agents/{agent_id}")
+    assert matched and delete_agent
+    delete_agent(delete_handler)
+    assert delete_handler.response == {"status": 200, "body": {"ok": True}}

@@ -821,14 +821,40 @@ class ReleaseJobManager extends EventEmitter {
     const target = path.resolve(job.target);
     if (this._unsafeTarget(target)) throw new Error(`Destino inseguro: ${target}`);
     const backup = `${target}.bago-rollback-${safeName(job.id)}`;
-    if (fs.existsSync(backup)) fs.rmSync(backup, { recursive: true, force: true });
-    job.created_target = !fs.existsSync(target);
-    if (fs.existsSync(target)) {
-      fs.renameSync(target, backup);
+    const interrupted = `${target}.bago-interrupted-${safeName(job.id)}`;
+
+    // A surviving backup is authoritative recovery data from an earlier
+    // attempt. Never delete it while resuming the same job.
+    if (fs.existsSync(backup)) {
       job.backup_path = backup;
       job.rollback_available = true;
-      this._log(job, `Backup atómico creado: ${backup}.`);
+      job.created_target = false;
+      job.install_phase = 'backup_recovered';
+      this._emit(job);
+      if (fs.existsSync(target)) {
+        if (fs.existsSync(interrupted)) {
+          throw new Error(`Reanudación bloqueada: ya existe staging interrumpido ${interrupted}`);
+        }
+        fs.renameSync(target, interrupted);
+        job.interrupted_target_path = interrupted;
+      }
+      job.install_phase = 'backup_ready';
+      this._log(job, `Backup de rollback recuperado: ${backup}.`);
+      return;
     }
+
+    job.created_target = !fs.existsSync(target);
+    job.backup_path = job.created_target ? '' : backup;
+    job.rollback_available = !job.created_target;
+    job.install_phase = 'backup_planned';
+    this._emit(job); // Persist destructive intent before moving the target.
+    if (!job.created_target) {
+      fs.renameSync(target, backup);
+      job.install_phase = 'backup_ready';
+      this._log(job, `Backup atómico creado: ${backup}.`);
+      return;
+    }
+    job.install_phase = 'backup_not_required';
     this._emit(job);
   }
 
@@ -884,21 +910,48 @@ class ReleaseJobManager extends EventEmitter {
   async _restoreAtomicBackup(job, automatic) {
     const target = path.resolve(job.target);
     if (this._unsafeTarget(target)) throw new Error(`Rollback bloqueado sobre destino inseguro: ${target}`);
+    const derivedBackup = `${target}.bago-rollback-${safeName(job.id)}`;
+    const backup = job.backup_path || (fs.existsSync(derivedBackup) ? derivedBackup : '');
+    const displaced = automatic || job.created_target
+      ? `${target}.bago-failed-${safeName(job.id)}`
+      : `${target}.bago-replaced-${safeName(job.id)}`;
+
+    job.backup_path = backup;
+    job.restore_automatic = !!automatic;
+    job.restore_phase = job.restore_phase || 'restore_planned';
+    if (fs.existsSync(displaced)) job.replaced_path = displaced;
+    this._emit(job);
     if (fs.existsSync(target)) {
-      if (automatic || job.created_target) {
-        fs.rmSync(target, { recursive: true, force: true });
+      if (backup && !fs.existsSync(backup) && ['backup_restore_planned', 'backup_restored'].includes(job.restore_phase)) {
+        job.restore_phase = 'backup_restored';
+        this._emit(job);
       } else {
-        const replaced = `${target}.bago-replaced-${safeName(job.id)}`;
-        if (fs.existsSync(replaced)) fs.rmSync(replaced, { recursive: true, force: true });
-        fs.renameSync(target, replaced);
-        job.replaced_path = replaced;
+        if (fs.existsSync(displaced)) {
+          throw new Error(`Rollback bloqueado: ya existe contenido recuperable en ${displaced}`);
+        }
+        job.replaced_path = displaced;
+        job.restore_phase = 'target_move_planned';
+        this._emit(job);
+        fs.renameSync(target, displaced);
+        job.restore_phase = 'target_preserved';
+        this._emit(job);
       }
+    } else if (fs.existsSync(displaced) && job.restore_phase === 'target_move_planned') {
+      job.replaced_path = displaced;
+      job.restore_phase = 'target_preserved';
+      this._emit(job);
     }
-    if (job.backup_path && fs.existsSync(job.backup_path)) {
-      fs.renameSync(job.backup_path, target);
+    if (backup && fs.existsSync(backup)) {
+      if (fs.existsSync(target)) throw new Error(`Rollback bloqueado: destino y backup coexisten en ${target}`);
+      job.restore_phase = 'backup_restore_planned';
+      this._emit(job);
+      fs.renameSync(backup, target);
+      job.restore_phase = 'backup_restored';
+      this._emit(job);
       job.backup_path = '';
     }
     job.rollback_available = false;
+    job.restore_phase = 'restore_complete';
     this._emit(job);
   }
 

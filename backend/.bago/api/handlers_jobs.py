@@ -32,7 +32,7 @@ def _plan_payload(mgr: Any) -> dict[str, Any]:
                 "started_at": "",
                 "ended_at": "",
                 "evidence_id": step.evidence[0] if step.evidence else "",
-                "receipt_id": getattr(getattr(mgr, "last_receipt", None), "envelope_id", "") if step.status == "done" else "",
+                "receipt_id": step.receipt_id if step.status == "done" else "",
                 "result": step.result,
                 "block_reason": step.block_reason,
                 "block_code": step.block_code,
@@ -180,10 +180,11 @@ def handle_summary(handler: "BaseHTTPRequestHandler") -> None:
 def _plan_executor(mgr: Any):
     """Construye un executor que el PlanEngine invoca para cada step.
 
-    Firma: (action, payload, step) -> (ok, result, error)
+    Firma: (action, payload, step) -> resultado estructurado con recibo propio.
     El step lleva model_hint / model_provider / model_name para routing.
     """
-    import os
+    import hashlib
+    import json
     from pathlib import Path
 
     base = Path(getattr(mgr, "base_path", Path.cwd())).resolve()
@@ -268,56 +269,82 @@ def _plan_executor(mgr: Any):
             "source": "active",
         }
 
-    def _exec(action: str, payload: dict, step: Any = None) -> tuple[bool, str, str]:
+    def _receipt(action: str, payload: dict, evidence: list[str]) -> str:
+        material = json.dumps(
+            {"action": action, "payload": payload, "evidence": evidence},
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode("utf-8")
+        return f"plan-step:sha256:{hashlib.sha256(material).hexdigest()}"
+
+    def _success(action: str, payload: dict, result: str, evidence: list[str]) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "executed": True,
+            "result": result,
+            "error": "",
+            "evidence": evidence,
+            "receipt_id": _receipt(action, payload, evidence),
+        }
+
+    def _failure(error: str, *, blocked: bool = False, code: str = "") -> dict[str, Any]:
+        return {
+            "ok": False,
+            "executed": False,
+            "result": "",
+            "error": error,
+            "evidence": ["blocked" if blocked else "failed"],
+            "receipt_id": "",
+            "blocked": blocked,
+            "block_code": code,
+        }
+
+    def _exec(action: str, payload: dict, step: Any = None) -> dict[str, Any]:
         try:
             if action == "write_file":
                 rel = str(payload.get("path", "")).strip()
                 content = str(payload.get("content", ""))
                 if not rel:
-                    return False, "", "path vacío"
+                    return _failure("path vacío")
                 p = _safe_path(rel)
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(content, encoding="utf-8")
-                return True, f"escrito: {rel} ({len(content)} bytes)", ""
+                digest = hashlib.sha256(p.read_bytes()).hexdigest()
+                return _success(action, payload, f"escrito: {rel} ({len(content)} bytes)", [f"file_sha256:{digest}", f"path:{p}"])
 
             if action == "read_file":
                 rel = str(payload.get("path", "")).strip()
                 if not rel:
-                    return False, "", "path vacío"
+                    return _failure("path vacío")
                 p = _safe_path(rel)
                 if not p.exists():
-                    return False, "", f"no existe: {rel}"
+                    return _failure(f"no existe: {rel}")
                 content = p.read_text(encoding="utf-8", errors="replace")
-                return True, content[:500], ""
+                digest = hashlib.sha256(p.read_bytes()).hexdigest()
+                return _success(action, payload, content[:500], [f"file_sha256:{digest}", f"path:{p}"])
 
             if action == "run_command":
                 cmd = str(payload.get("command", "")).strip()
                 if not cmd:
-                    return False, "", "command vacío"
-                # Resolver modelo via routing si el step lo declara
-                routing = _resolve_model(step) if step is not None else None
-                routing_info = f" [modelo: {routing['model']} via {routing['source']}]" if routing else ""
-                # Ejecuta con el modelo resuelto. Si mgr.chat lo soporta,
-                # usa el modelo del step; si no, usa el provider activo.
-                result = None
-                if routing and hasattr(mgr, "send_with_model"):
-                    result = mgr.send_with_model(cmd, routing["provider"], routing["model"])
-                elif hasattr(mgr, "send"):
-                    result = mgr.send(cmd)
-                if result is None:
-                    return False, "", "send no disponible"
-                msg = str(result)[:500]
-                return True, msg + routing_info, ""
+                    return _failure("command vacío")
+                # ``mgr.send`` es conversación, no ejecución de comandos.
+                # Hasta que exista un gateway de comandos con política y recibo
+                # material, este tipo de paso debe quedar bloqueado.
+                return _failure(
+                    "command_execution_gateway_unavailable",
+                    blocked=True,
+                    code="command_gateway_missing",
+                )
 
             if action == "request_approval":
-                return False, "", "approval_required"
+                return _failure("approval_required", blocked=True, code="approval_required")
 
             if action == "noop" or not action:
-                return True, "noop", ""
+                return _failure("no_executable_action", blocked=True, code="noop_not_execution")
 
-            return False, "", f"acción no soportada: {action}"
+            return _failure(f"acción no soportada: {action}", blocked=True, code="unsupported_action")
         except Exception as exc:
-            return False, "", f"excepción: {exc}"
+            return _failure(f"excepción: {exc}")
 
     return _exec
 
@@ -382,13 +409,22 @@ def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body: 
         "plan_id": plan_id,
         "ok": result["ok"],
         "completed": result["completed"],
-        "failed": result["failed"]
+        "already_completed": result.get("already_completed", 0),
+        "total_completed": result.get("total_completed", result["completed"]),
+        "failed": result["failed"],
+        "executed": result.get("executed", result["completed"]),
+        "informational": result.get("informational", 0),
+        "partial": result.get("partial", False),
     })
     send_json(handler, 200, {
         "ok": result["ok"],
         "plan_id": plan_id,
         "completed": result["completed"],
         "failed": result["failed"],
+        "executed": result.get("executed", result["completed"]),
+        "informational": result.get("informational", 0),
+        "status": result.get("status", plan.status),
+        "error": result.get("error", ""),
         "results": result["results"]
     })
 

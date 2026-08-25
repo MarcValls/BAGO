@@ -126,8 +126,8 @@ def handle_put(handler: "BaseHTTPRequestHandler", body: dict, agent_id: str) -> 
                 return
             now = ""
             try:
-                from datetime import datetime
-                now = datetime.utcnow().isoformat() + "Z"
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             except Exception:
                 pass
             registry["agents"][i] = {
@@ -168,8 +168,8 @@ def handle_duplicate(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
         if agent.get("id") == agent_id:
             now = ""
             try:
-                from datetime import datetime
-                now = datetime.utcnow().isoformat() + "Z"
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             except Exception:
                 pass
             copy = {**agent}

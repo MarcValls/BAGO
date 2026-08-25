@@ -28,6 +28,7 @@ class Step:
     result: str = ""
     required_evidence: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
+    receipt_id: str = ""
     block_reason: str = ""
     block_code: str = ""
     # Acción ejecutable asociada. Si action es None, el step es solo
@@ -218,7 +219,16 @@ class PlanEngine:
     # para no acoplar el motor al resto del backend.
 
     def set_executor(self, executor) -> None:
-        """Inyecta la función que ejecuta acciones. Firma: (action, payload, step) -> (ok, result, error)"""
+        """Inyecta una ejecución que debe devolver evidencia ligada al paso.
+
+        Contrato preferido::
+
+            {"ok": bool, "executed": bool, "result": str, "error": str,
+             "evidence": [str, ...], "receipt_id": str}
+
+        Una tupla histórica de tres elementos se acepta como fallo, pero nunca
+        puede convertir un paso en ``done`` porque no contiene recibo material.
+        """
         self._executor = executor
 
     def extract_routing_hints(self, step: Step) -> None:
@@ -329,27 +339,74 @@ class PlanEngine:
         if step.status not in ("pending",):
             return {"ok": False, "error": f"step no pendiente: {step.status}"}
         if not step.action:
-            # Paso informativo: no se ejecuta, se marca como done sin evidencia.
-            # Para mantener la invariante 'done requiere evidencia', se marca
-            # como 'done' con un evidence vacío de tipo 'informational'.
-            self.mark_step(step, "done", result="paso informativo (sin acción automática)", evidence=("informational",))
-            return {"ok": True, "result": "informational", "error": ""}
+            # Un paso informativo no es una ejecución. Mantenerlo pendiente
+            # evita que una confirmación de plan produzca un falso éxito.
+            # El ejecutor de planes lo contabiliza aparte y puede continuar
+            # buscando pasos materiales, pero nunca lo cuenta como completado.
+            return {
+                "ok": False,
+                "executed": False,
+                "informational": True,
+                "result": "paso informativo (sin acción ejecutable)",
+                "error": "no_executable_action",
+            }
         if self._executor is None:
             self.mark_step(step, "blocked", result="no hay executor configurado", evidence=("blocked",), block_reason="executor_missing", block_code="no_executor")
             return {"ok": False, "error": "executor no configurado"}
 
         self.mark_step_running(step)
         try:
-            ok, result, error = self._executor(step.action, step.action_payload, step)
+            raw = self._executor(step.action, step.action_payload, step)
         except Exception as exc:
             self.mark_step(step, "failed", result=f"excepción: {exc}", evidence=("exception",))
             return {"ok": False, "error": str(exc)}
 
+        if isinstance(raw, dict):
+            outcome = dict(raw)
+        elif isinstance(raw, tuple) and len(raw) == 3:
+            ok, result, error = raw
+            outcome = {"ok": bool(ok), "executed": False, "result": result, "error": error}
+        else:
+            outcome = {"ok": False, "executed": False, "result": "", "error": "invalid_executor_result"}
+
+        ok = bool(outcome.get("ok"))
+        executed = bool(outcome.get("executed"))
+        result = outcome.get("result", "")
+        error = str(outcome.get("error", "") or "")
+        evidence = tuple(str(item).strip() for item in outcome.get("evidence", ()) if str(item).strip())
+        receipt_id = str(outcome.get("receipt_id", "") or "").strip()
+
+        if ok and executed and evidence and receipt_id:
+            step.receipt_id = receipt_id
+            self.mark_step(step, "done", result=str(result)[:500], evidence=evidence)
+            return {
+                "ok": True,
+                "executed": True,
+                "result": result,
+                "error": "",
+                "evidence": list(evidence),
+                "receipt_id": receipt_id,
+            }
+
         if ok:
-            self.mark_step(step, "done", result=str(result)[:500], evidence=("executed",))
-            return {"ok": True, "result": result, "error": ""}
-        self.mark_step(step, "failed", result=str(error)[:500], evidence=("failed",))
-        return {"ok": False, "result": result, "error": error}
+            error = error or "missing_execution_receipt"
+        if outcome.get("blocked"):
+            self.block_step(
+                step,
+                error or "action_blocked",
+                code=str(outcome.get("block_code", "action_blocked")),
+                evidence=evidence or ("blocked",),
+            )
+        else:
+            self.mark_step(step, "failed", result=error[:500], evidence=evidence or ("failed",))
+        return {
+            "ok": False,
+            "executed": False,
+            "result": result,
+            "error": error,
+            "evidence": list(evidence),
+            "receipt_id": "",
+        }
 
     def mark_step_running(self, step: Step) -> None:
         """Cambia status a running sin exigir evidencia (running no la requiere)."""
@@ -365,29 +422,100 @@ class PlanEngine:
         Si stop_on_failure=True, para en el primer fallo.
         """
         if not plan.steps:
-            return {"ok": True, "completed": 0, "failed": 0, "results": []}
+            return {
+                "ok": False,
+                "completed": 0,
+                "failed": 0,
+                "executed": 0,
+                "informational": 0,
+                "status": plan.status,
+                "error": "no_executable_actions",
+                "results": [],
+            }
 
         results = []
         completed = 0
+        already_completed = 0
         failed = 0
+        informational = 0
+        executed = 0
         for step in plan.steps:
             # Saltar steps ya done (idempotencia en re-ejecución)
             if step.status == "done":
-                completed += 1
-                results.append({"number": step.number, "ok": True, "result": step.result, "error": ""})
+                # Compatibilidad segura con planes antiguos que marcaron
+                # pasos informativos como done usando evidencia
+                # ``informational``. Nunca convertir ese legado en ejecución.
+                if not step.action or "informational" in step.evidence:
+                    informational += 1
+                    results.append({
+                        "number": step.number,
+                        "ok": True,
+                        "executed": False,
+                        "informational": True,
+                        "result": step.result or "paso informativo (sin acción ejecutable)",
+                        "error": "no_executable_action",
+                    })
+                    continue
+                already_completed += 1
+                results.append({
+                    "number": step.number,
+                    "ok": True,
+                    "executed": False,
+                    "already_completed": True,
+                    "result": step.result,
+                    "error": "",
+                    "receipt_id": step.receipt_id,
+                })
                 continue
             r = self.execute_step(step)
-            results.append({"number": step.number, "ok": r["ok"], "result": r.get("result", ""), "error": r.get("error", "")})
+            if r.get("informational"):
+                informational += 1
+                results.append({
+                    "number": step.number,
+                    "ok": True,
+                    "executed": False,
+                    "informational": True,
+                    "result": r.get("result", ""),
+                    "error": r.get("error", ""),
+                })
+                continue
+            results.append({
+                "number": step.number,
+                "ok": r["ok"],
+                "executed": bool(r.get("executed")),
+                "result": r.get("result", ""),
+                "error": r.get("error", ""),
+            })
             if r["ok"]:
                 completed += 1
+                executed += 1
             else:
                 failed += 1
                 if stop_on_failure:
                     break
+        pending = sum(1 for step in plan.steps if step.status == "pending")
+        blocked = sum(1 for step in plan.steps if step.status == "blocked")
+        fully_done = bool(plan.steps) and all(step.status == "done" for step in plan.steps)
         return {
-            "ok": failed == 0,
+            # Solo es éxito de esta ejecución si hubo acciones nuevas con
+            # recibo propio y el plan completo quedó materialmente terminado.
+            "ok": failed == 0 and blocked == 0 and executed > 0 and fully_done,
             "completed": completed,
+            "already_completed": already_completed,
+            "total_completed": completed + already_completed,
             "failed": failed,
+            "executed": executed,
+            "informational": informational,
+            "pending": pending,
+            "blocked": blocked,
+            "partial": executed > 0 and not fully_done,
+            "status": plan.status,
+            "error": (
+                "no_new_actions" if executed == 0 and already_completed > 0 and failed == 0
+                else "no_executable_actions" if executed == 0 and failed == 0 and blocked == 0
+                else "partial_execution" if executed > 0 and not fully_done
+                else ""
+            ),
             "results": results
         }
 
@@ -421,6 +549,7 @@ class PlanEngine:
                     "action": s.action,
                     "action_payload": s.action_payload,
                     "evidence": list(s.evidence),
+                    "receipt_id": s.receipt_id,
                     "model_hint": s.model_hint,
                     "model_provider": s.model_provider,
                     "model_name": s.model_name,

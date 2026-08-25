@@ -3,16 +3,15 @@
 
 FASE 6.5 split of the original :mod:`bago_core.claim_ledger`. This module
 is a thin facade: parse args, dispatch to :mod:`bago_core.claim_storage`,
-and print results. No business logic or I/O happens here.
-
-R0-R10:
-- R0: <120 lines
-- R1: CLI only
+and print results. Candidate and receipt validation live in claim_evidence.
 """
 from __future__ import annotations
 
 import argparse
+import json
+import subprocess
 import sys
+from pathlib import Path
 
 from bago_core.claim_model import (
     BASIS_TYPES,
@@ -21,6 +20,9 @@ from bago_core.claim_model import (
     STATUS_VERIFIED,
 )
 from bago_core.claim_storage import ClaimLedger
+from bago_core.claim_evidence import derive_candidate as _derive_candidate
+from bago_core.claim_evidence import evidence_from_gate as _evidence_from_gate
+from bago_core.claim_evidence import matches_expected as _matches_expected
 
 
 def _cli(argv: list[str] | None = None) -> int:
@@ -34,15 +36,16 @@ def _cli(argv: list[str] | None = None) -> int:
     add_p.add_argument("--command",   default="", help="Comando que genero la evidencia")
     add_p.add_argument("--artifacts", default="", help="Rutas de artefactos separadas por coma")
     add_p.add_argument("--limits",    default="", help="Limites de lo que prueba esta evidencia")
-    add_p.add_argument("--status",    default=STATUS_OPEN, choices=[STATUS_OPEN, STATUS_SIMULATED, STATUS_VERIFIED])
+    add_p.add_argument("--status",    default=STATUS_OPEN, choices=[STATUS_OPEN, STATUS_SIMULATED])
     add_p.add_argument("--stdout",    default="", help="Salida capturada del comando")
     add_p.add_argument("--notes",     default="")
 
     list_p = sub.add_parser("list", help="Lista los claims del ledger")
     list_p.add_argument("--status", default="", help="Filtrar por estado")
 
-    verify_p = sub.add_parser("verify", help="Verifica que los artefactos de un claim existen")
+    verify_p = sub.add_parser("verify", help="Verifica evidencia ejecutada, hasheada y ligada a candidato")
     verify_p.add_argument("claim_id", help="ID del claim a verificar")
+    verify_p.add_argument("--gate-receipt", required=True, help="JSON creado por record_remediation_gate.py")
 
     report_p = sub.add_parser("report", help="Resumen del ledger")
 
@@ -65,11 +68,7 @@ def _cli(argv: list[str] | None = None) -> int:
         return 0
 
     if args.action == "list":
-        claims = ledger.load_all()
-        # Show latest state per claim_id
-        latest: dict = {}
-        for c in claims:
-            latest[c.claim_id] = c
+        latest = ledger.latest()
         filtered = [c for c in latest.values() if not args.status or c.status == args.status]
         if not filtered:
             print("(sin claims)")
@@ -83,7 +82,16 @@ def _cli(argv: list[str] | None = None) -> int:
         return 0
 
     if args.action == "verify":
-        ok = ledger.verify(args.claim_id)
+        claim = ledger.get(args.claim_id)
+        if claim is None:
+            print(f"✗ Claim {args.claim_id} no encontrado")
+            return 1
+        try:
+            evidence = _evidence_from_gate(Path(args.base_path), claim, Path(args.gate_receipt))
+        except (OSError, ValueError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+            print(f"✗ Recibo de gate inválido: {exc}")
+            return 1
+        ok = ledger.verify(args.claim_id, evidence=evidence)
         if ok:
             print(f"\u2713 Claim {args.claim_id} verificado (artefactos presentes)")
         else:
@@ -123,10 +131,10 @@ def _run_tests() -> int:
         assert ledger.get(cid) is not None
         assert ledger.report()["open"] == 1
 
-        # Verificar: sin artefactos -> verified (nada que comprobar)
+        # Sin artefactos no existe evidencia material verificable.
         ok = ledger.verify(cid)
-        assert ok, "verify sin artefactos debe ser True"
-        assert ledger.get(cid).status == STATUS_VERIFIED
+        assert not ok, "verify sin artefactos debe ser False"
+        assert ledger.get(cid).status == "failed"
 
         # Simulated claim
         cid2 = ledger.add(
@@ -148,9 +156,9 @@ def _run_tests() -> int:
 
         r = ledger.report()
         assert r["total_claims"] == 3
-        assert r["verified"] == 1
+        assert r["verified"] == 0
         assert r["simulated"] == 1
-        assert r["failed"] == 1
+        assert r["failed"] == 2
 
     print("claim_ledger.py: ALL PASS")
     return 0

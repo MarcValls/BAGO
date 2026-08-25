@@ -1,0 +1,17 @@
+{
+  "id": "audit-remediation-20260824",
+  "state": "EXECUTED",
+  "baseline": ".bago/audits/remediation-baseline-20260824.md",
+  "findings": {
+    "BAGO-AUD-001": "EVIDENCE_PENDING",
+    "BAGO-AUD-002": "EVIDENCE_PENDING",
+    "BAGO-AUD-003": "EVIDENCE_PENDING",
+    "BAGO-AUD-004": "EVIDENCE_PENDING",
+    "BAGO-AUD-005": "EVIDENCE_PENDING",
+    "BAGO-AUD-006": "EVIDENCE_PENDING",
+    "BAGO-AUD-007": "EVIDENCE_PENDING",
+    "BAGO-AUD-008": "EVIDENCE_PENDING",
+    "BAGO-AUD-009": "EVIDENCE_PENDING",
+    "BAGO-AUD-010": "EVIDENCE_PENDING"
+  }
+}
