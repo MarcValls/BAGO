@@ -1,0 +1,11 @@
+{
+  "current": "4.9.1",
+  "history": [
+    {
+      "version": "4.9.1",
+      "started": "2026-08-25T00:00:00Z",
+      "ended": null,
+      "notes": "Remediation closure for BAGO-AUD-001..010."
+    }
+  ]
+}
