@@ -31,7 +31,7 @@ def fingerprint(repo: Path) -> dict[str, object]:
         "path": str(root), "sha": git(root, "rev-parse", "HEAD"),
         "branch": git(root, "branch", "--show-current") or "detached", "remote": remote,
         "upstream": git(root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}", allow_empty=True),
-        "dirty": bool(status), "worktree_sha256": hashlib.sha256(patch + status.encode("utf-8")).hexdigest(),
+        "dirty": bool(status), "worktree_sha256": hashlib.sha256((patch or status.encode("utf-8")) or git(root, "rev-parse", "HEAD").encode("utf-8")).hexdigest(),
     }
 
 
