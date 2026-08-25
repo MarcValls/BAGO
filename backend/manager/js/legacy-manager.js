@@ -434,7 +434,7 @@ function renderCard(inst){
   return'<div class="card" data-idx="'+escapeHtml(inst.mode)+'">'
     +'<div class="card-head"><h3 class="card-title">'+pathEnc.split(/[\\\\\\/]/).filter(Boolean).slice(-1)[0]+' <span class="mono" style="color:var(--muted);font-size:13px;font-weight:400">v'+escapeHtml(ver)+'</span></h3></div>'
     +'<div class="card-path">'+pathEnc+'</div>'
-    +'<div class="badges">'+modeBadge(inst.mode,inst.supervisor_alive?'alive':'dead')+supBadge+probeBadge+cliBadge+sealBadge+updateBadge+roleBadges+'</div>'
+    +'<div class="badges">'+modeBadge(inst.mode,inst.supervisor_alive?'alive':'dead')+supBadge+probeBadge+cliBadge+updateBadge+roleBadges+'</div>'
     +roleButtons
     +actions
     +'</div>';
@@ -602,3 +602,4 @@ document.getElementById('node-evidence').addEventListener('click',ev=>{
   const b=ev.target.closest('button.copy');if(!b)return;
   copyText(b.getAttribute('data-cmd')||'');
 });
+

@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = "$env:LOCALAPPDATA\BAGO",
-    [string]$ZipPath = ""
+    [string]$ZipPath = "",
+    [string]$Sha256Path = "",
+    [switch]$Finalize
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,12 +14,12 @@ function Assert-SafeInstallRoot {
     $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
     $root = [System.IO.Path]::GetPathRoot($full).TrimEnd('\')
     if ($full -eq $root) {
-        throw "Ruta de instalación insegura: no se permite usar la raíz del disco ($full)."
+        throw "Ruta de instalacion insegura: no se permite usar la raiz del disco ($full)."
     }
 
     $leaf = [System.IO.Path]::GetFileName($full)
     if ($leaf -ne "BAGO") {
-        throw "Ruta de instalación insegura: debe terminar en 'BAGO'. Ruta recibida: $full"
+        throw "Ruta de instalacion insegura: debe terminar en 'BAGO'. Ruta recibida: $full"
     }
 }
 
@@ -71,6 +73,41 @@ function Remove-TreeWithRetry {
     }
 }
 
+function Get-BackupDir {
+    param([Parameter(Mandatory = $true)][string]$TargetRoot)
+
+    $parent = Split-Path -Path $TargetRoot -Parent
+    return Join-Path $parent ".BAGO-rollback"
+}
+
+function Backup-Target {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Backup
+    )
+
+    if (-not (Test-Path -LiteralPath $Source)) { return }
+    if (Test-Path -LiteralPath $Backup) {
+        Remove-TreeWithRetry -Path $Backup
+    }
+    New-Item -ItemType Directory -Path $Backup -Force | Out-Null
+    Get-ChildItem -Path $Source -Force | Copy-Item -Destination $Backup -Recurse -Force
+}
+
+function Restore-Backup {
+    param(
+        [Parameter(Mandatory = $true)][string]$Backup,
+        [Parameter(Mandatory = $true)][string]$Target
+    )
+
+    if (-not (Test-Path -LiteralPath $Backup)) { return }
+    if (Test-Path -LiteralPath $Target) {
+        Remove-TreeWithRetry -Path $Target
+    }
+    New-Item -ItemType Directory -Path $Target -Force | Out-Null
+    Get-ChildItem -Path $Backup -Force | Copy-Item -Destination $Target -Recurse -Force
+}
+
 function Resolve-SourceRoot {
     param(
         [Parameter(Mandatory = $true)]
@@ -114,44 +151,87 @@ function Resolve-SourceRoot {
         return @{ Root = $nested.FullName; Backend = $nested.FullName; Viewer = (Join-Path $nested.FullName "electron-viewer") }
     }
 
-    throw "No se encontraron carpetas backend y electron-viewer en el payload extraído."
+    throw "No se encontraron carpetas backend y electron-viewer en el payload extraido."
 }
 
-if (-not (Test-Path -LiteralPath $ZipPath)) {
-    if (-not $ZipPath) {
-        $ZipPath = Join-Path $PSScriptRoot "bago-4.9.0-distribution.zip"
+Assert-SafeInstallRoot -Path $RepoRoot
+
+$backupDir = Get-BackupDir -TargetRoot $RepoRoot
+
+if ($Finalize) {
+    if (Test-Path -LiteralPath $backupDir) {
+        Write-Host "Eliminando rollback finalizado..."
+        Remove-TreeWithRetry -Path $backupDir
     }
+    return
+}
+
+if (-not $ZipPath) {
+    $ZipPath = Join-Path $PSScriptRoot "bago-4.9.0-distribution.zip"
 }
 
 if (-not (Test-Path -LiteralPath $ZipPath)) {
     throw "No existe el ZIP embebido: $ZipPath"
 }
 
-Assert-SafeInstallRoot -Path $RepoRoot
-Stop-BagoProcessesForPath -TargetRoot $RepoRoot
-if (Test-Path -LiteralPath $RepoRoot) {
-    Write-Host "Eliminando instalación previa..."
-    Remove-TreeWithRetry -Path $RepoRoot
+if (-not $Sha256Path) {
+    $Sha256Path = $ZipPath + ".sha256"
 }
-New-Item -ItemType Directory -Path $RepoRoot -Force | Out-Null
+
+if (-not (Test-Path -LiteralPath $Sha256Path)) {
+    throw "No existe el sidecar SHA-256: $Sha256Path"
+}
+
+$expectedHash = (Get-Content -LiteralPath $Sha256Path -TotalCount 1).Trim().Split()[0]
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $stream = [System.IO.File]::OpenRead($ZipPath)
+    $actualHash = [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace("-", "")
+}
+finally {
+    if ($stream) { $stream.Dispose() }
+    $sha256.Dispose()
+}
+if ($expectedHash -ne $actualHash) {
+    throw "SHA-256 mismatch: esperado $expectedHash, obtenido $actualHash"
+}
 
 $tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) ("bago-dist-tmp-" + [Guid]::NewGuid().ToString("N"))
 try {
     Expand-Archive -LiteralPath $ZipPath -DestinationPath $tempExtract -Force
-
     $sourceRoot = Resolve-SourceRoot -ExtractRoot $tempExtract
 
-    Copy-Item -Path $sourceRoot.Backend -Destination (Join-Path $RepoRoot "backend") -Recurse -Force
-    Copy-Item -Path $sourceRoot.Viewer -Destination (Join-Path $RepoRoot "electron-viewer") -Recurse -Force
-
     $exeCandidates = @(
-        (Join-Path $RepoRoot "electron-viewer\BAGO.exe"),
-        (Join-Path $RepoRoot "electron-viewer\dist\win-unpacked\BAGO.exe")
+        (Join-Path $sourceRoot.Viewer "BAGO.exe"),
+        (Join-Path $sourceRoot.Viewer "dist\win-unpacked\BAGO.exe")
     )
     $exe = $exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $exe) {
-        throw "No se encontró BAGO.exe tras instalar el payload."
+        throw "No se encontro BAGO.exe en el payload extraido."
     }
+
+    Stop-BagoProcessesForPath -TargetRoot $RepoRoot
+
+    $hasBackup = Test-Path -LiteralPath $backupDir
+    $targetExists = Test-Path -LiteralPath $RepoRoot
+    $looksUnfinalized = $targetExists -and (Test-Path (Join-Path $RepoRoot "electron-viewer\BAGO.exe"))
+
+    if ($hasBackup -and (-not $targetExists -or $looksUnfinalized)) {
+        Write-Host "Restaurando backup previo..."
+        Restore-Backup -Backup $backupDir -Target $RepoRoot
+    }
+
+    if (Test-Path -LiteralPath $RepoRoot) {
+        Backup-Target -Source $RepoRoot -Backup $backupDir
+    }
+
+    if (Test-Path -LiteralPath $RepoRoot) {
+        Remove-TreeWithRetry -Path $RepoRoot
+    }
+    New-Item -ItemType Directory -Path $RepoRoot -Force | Out-Null
+
+    Copy-Item -Path $sourceRoot.Backend -Destination (Join-Path $RepoRoot "backend") -Recurse -Force
+    Copy-Item -Path $sourceRoot.Viewer -Destination (Join-Path $RepoRoot "electron-viewer") -Recurse -Force
 }
 finally {
     Remove-Item -LiteralPath $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
