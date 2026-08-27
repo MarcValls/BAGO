@@ -83,8 +83,8 @@ Memoria `feedback/qwen-iteration-budget.md`:
 
 - **Remediación BAGO-AUD-001..010**: `EXECUTED` (canon en `PROJECT_CONTEXT.md` + `remediation-closure-contract-20260824.md` + `remediation-handoff-20260824.md`). **No** llamar `VERIFIED` ni `VALIDATED` sin gates crudos reproducibles y bundle de evidencia (`bago-provenance.json` + ZIP).
 - **Conflicto abierto**: la baseline inicial solo guardó SHA-256 del diff dirty, no los bytes. Los seis edits pre-remediación en `backend/.bago/api/handlers_jobs.py`, `backend/.bago/core/config_manager.py`, `backend/.bago/core/plan_engine.py`, `backend/.bago/core/session_turn_mixin.py`, `backend/tests/integrations/pi/test_negatives.py`, `backend/tests/test_plan_engine_contract.py` no son reconstruibles. Esto bloquea `VALIDATED` global hasta que se regeneren.
-- **Tag `v4.9.1`**: apunta a `30d8fd5a25cfcaa64bd82ba23fe95f711b25a294`. El commit de bump `eb45689c` no está bajo el tag oficial. Anotado; out of scope moverlo.
-- **Working tree sucio vivo (1 archivo)**: `scripts/dev.ps1` — `-WorkingDirectory $Root` en `Start-Electron` (antes `$ElectronDir`). Coherente con el fix #172 que ya migró electron a la raíz. Pendiente de commit por el usuario (staged con futuros cambios).
+- **Tag `v4.9.1`**: annotated tag creado por Copilot el 2026-08-25, apunta al commit `eb45689c` (bump installer). Verificar con `git show v4.9.1 --no-patch` (muestra el objeto tag y el commit target) en vez de `git rev-parse v4.9.1` (devuelve el SHA del objeto tag, NO del commit). El bump aún no está pusheado a `origin/main`.
+- **Working tree**: limpio al cierre de esta sesión. Los 4 commits locales (3 nuevos + bump `eb45689c`) están ahead de `origin/main` y aún sin pushear.
 - **Follow-up `PROPOSED`**: evaluación modular de `frontend/src/app/ControlPlane.tsx` (en `remediation-followups.md`). No parte del cierre de remediación.
 
 ## 9. Quick reference de skills cargadas en esta sesión
