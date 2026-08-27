@@ -1,6 +1,6 @@
 # Qwen Code — BAGO Operating Guide
 
-> Monorepo **BAGO v4.9.1** (HEAD `eb45689c`; tag `v4.9.1` desalineado en `30d8fd5`). Windows-first. Backend Python 3.14+, frontend React+TS+Vite, visor Electron con ciclo de vida automático. El runtime de contexto del proyecto es **`.bago/`** (no `.qwen-context/`).
+> Monorepo **BAGO** (target version 4.9.x). Windows-first. Backend Python 3.14+, frontend React+TS+Vite, visor Electron con ciclo de vida automático. El runtime de contexto del proyecto es **`.bago/`** (no `.qwen-context/`). Verifica siempre la versión canónica con `bago doctor` o leyendo `release_version.txt`; no confíes en números hard-coded aquí.
 
 ## 1. Modo de entrada
 
@@ -61,6 +61,7 @@ Formas aceptadas de `install_selection.json`: `{active:{path:...}}` o `{roles:{a
 - **Inventarios**: distinguir LLM-invocable (OpenAI schema) vs CLI (subprocess) vs scripts (`ScriptRegistry`). Memoria `feedback/bago-inventory-honest-counts.md`.
 - **Reescrituras React**: re-renderizar y verificar que el árbol vive antes de declarar hecho. Memoria `feedback/verify-render-after-rewrite.md`.
 - **Commits**: el usuario no entrega credenciales. Pedir OK explícito para `git commit` y nunca para `git push`. Memoria `feedback/never-accept-user-credentials.md`.
+- **Working directory de Electron**: `Start-Electron` debe usar `$ElectronDir` como cwd. `electron-viewer/package.json` declara `main: main.cjs`; el del frontend no tiene `main`. Cambiar el cwd rompe `npm run dev`. Memoria `feedback/qwen-cwd-is-load-bearing.md`.
 
 ## 6. Diagnóstico estándar
 
@@ -83,8 +84,8 @@ Memoria `feedback/qwen-iteration-budget.md`:
 
 - **Remediación BAGO-AUD-001..010**: `EXECUTED` (canon en `PROJECT_CONTEXT.md` + `remediation-closure-contract-20260824.md` + `remediation-handoff-20260824.md`). **No** llamar `VERIFIED` ni `VALIDATED` sin gates crudos reproducibles y bundle de evidencia (`bago-provenance.json` + ZIP).
 - **Conflicto abierto**: la baseline inicial solo guardó SHA-256 del diff dirty, no los bytes. Los seis edits pre-remediación en `backend/.bago/api/handlers_jobs.py`, `backend/.bago/core/config_manager.py`, `backend/.bago/core/plan_engine.py`, `backend/.bago/core/session_turn_mixin.py`, `backend/tests/integrations/pi/test_negatives.py`, `backend/tests/test_plan_engine_contract.py` no son reconstruibles. Esto bloquea `VALIDATED` global hasta que se regeneren.
-- **Tag `v4.9.1`**: annotated tag creado por Copilot el 2026-08-25, apunta al commit `eb45689c` (bump installer). Verificar con `git show v4.9.1 --no-patch` (muestra el objeto tag y el commit target) en vez de `git rev-parse v4.9.1` (devuelve el SHA del objeto tag, NO del commit). El bump aún no está pusheado a `origin/main`.
-- **Working tree**: limpio al cierre de esta sesión. Los 4 commits locales (3 nuevos + bump `eb45689c`) están ahead de `origin/main` y aún sin pushear.
+- **Tag `v4.9.1`**: si el tag es annotated, `git rev-parse v4.9.1` devuelve el SHA del **objeto tag**, no del commit target. Para ver a qué commit apunta el tag usa `git show <tag> --no-patch`. El comando `git rev-parse <tag>^{}` también devuelve el commit target directamente.
+- **Working tree**: el estado real se consulta con `git status` y `git log origin/main..HEAD --oneline` en cada sesión. No guardes aquí "N commits ahead" ni "tree limpio al cierre"; eso cambia entre checkouts y entre runs.
 - **Follow-up `PROPOSED`**: evaluación modular de `frontend/src/app/ControlPlane.tsx` (en `remediation-followups.md`). No parte del cierre de remediación.
 
 ## 9. Quick reference de skills cargadas en esta sesión
