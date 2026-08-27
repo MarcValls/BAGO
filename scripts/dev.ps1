@@ -167,7 +167,7 @@ function Start-Electron {
     Log "arrancando electron..."
     try {
         $proc = Start-Process -FilePath $electronBin -ArgumentList "." `
-            -WorkingDirectory $Root -WindowStyle Hidden -PassThru `
+            -WorkingDirectory $ElectronDir -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput $logfile -RedirectStandardError $errfile
     } catch {
         Err "no se pudo arrancar electron: $($_.Exception.Message)"
