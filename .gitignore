@@ -64,6 +64,9 @@ desktop.ini
 *.swo
 *~
 
+# Qwen Code local state (skills, memory, settings — never project content)
+.qwen/
+
 # Local audit executions and screenshots
 /.codex/config.toml
 /.codex/agents/*.bak.*
