@@ -15,6 +15,7 @@ on:
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
       - 'backend/scripts/package_v4.py'
+      - 'backend/release_version.txt'
       - '.github/workflows/build-installer.yml'
   pull_request:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
       - 'backend/scripts/package_v4.py'
+      - 'backend/release_version.txt'
       - '.github/workflows/build-installer.yml'
 
 permissions:
@@ -78,7 +80,7 @@ jobs:
         run: |
           Write-Host "Building canonical embedded-payload installer..."
           $version = $env:BAGO_VERSION
-          & .\build-installer.ps1 -SkipBuild
+          & .\build-installer.ps1 -SkipBuild -Version $version
 
           if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: canonical installer build failed"
