@@ -11,8 +11,18 @@ on:
       - main
       - fix/installer-e2e-path
     paths:
-      - 'releases/bago-installer-local.nsi'
+      - 'releases/bago-installer.nsi'
+      - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
+      - 'backend/scripts/package_v4.py'
+      - '.github/workflows/build-installer.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'releases/bago-installer.nsi'
+      - 'releases/install-embedded-payload.ps1'
+      - 'releases/build-installer.ps1'
+      - 'backend/scripts/package_v4.py'
       - '.github/workflows/build-installer.yml'
 
 permissions:
@@ -56,50 +66,36 @@ jobs:
         run: |
           choco install nsis -y
 
-      - name: Compile electron-viewer (if needed)
+      - name: Compile electron-viewer
         working-directory: electron-viewer
         run: |
-          if (-not (Test-Path "dist/win-unpacked/BAGO.exe")) {
-            Write-Host "Compiling BAGO.exe..."
-            npm install
-            npm run dist
-          } else {
-            Write-Host "BAGO.exe already compiled"
-          }
+          npm ci
+          npm run dist
         shell: pwsh
 
-      - name: Build installer
+      - name: Build canonical installer
         working-directory: releases
         run: |
-          Write-Host "Building installer with NSIS..."
+          Write-Host "Building canonical embedded-payload installer..."
           $version = $env:BAGO_VERSION
-          $makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
-          & $makensis /V4 "bago-installer-local.nsi"
+          & .\build-installer.ps1 -SkipBuild
 
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: NSIS compilation failed"
+            Write-Host "ERROR: canonical installer build failed"
             exit 1
           }
 
-          # Verify
           $setupFile = "bago-$version-setup.exe"
-          if (Test-Path $setupFile) {
-            $size = [Math]::Round((Get-Item $setupFile).Length / 1MB, 2)
-            Write-Host "✓ Installer created: $setupFile ($size MB)"
-          } else {
+          $sidecar = "$setupFile.sha256"
+          if (-not (Test-Path $setupFile) -or -not (Test-Path $sidecar)) {
             Write-Host "ERROR: Installer file not created"
             exit 1
           }
-        shell: pwsh
-
-      - name: Calculate SHA256
-        working-directory: releases
-        run: |
-          $version = $env:BAGO_VERSION
-          $setupFile = "bago-$version-setup.exe"
-          $sha256 = (Get-FileHash -Path $setupFile -Algorithm SHA256).Hash
-          Set-Content -Path "$setupFile.sha256" -Value $sha256
-          Write-Host "SHA256: $sha256"
+          $expected = ((Get-Content -LiteralPath $sidecar -Raw).Trim().Split(' ')[0])
+          $actual = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw "Installer SHA256 sidecar mismatch" }
+          $size = [Math]::Round((Get-Item $setupFile).Length / 1MB, 2)
+          Write-Host "✓ Installer created: $setupFile ($size MB, SHA256 verified)"
         shell: pwsh
 
       - name: Upload installer as artifact
