@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
-$version = "4.9.1"
+$version = "4.9.2"
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
 $viewerSource = Join-Path $repoRoot "electron-viewer\dist\win-unpacked"
 $setupFile = Join-Path $scriptDir "bago-$version-setup.exe"

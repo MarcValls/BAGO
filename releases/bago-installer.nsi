@@ -3,10 +3,10 @@
 
 !define APP_NAME "BAGO"
 !ifndef APP_VERSION
-!define APP_VERSION "4.9.1"
+!define APP_VERSION "4.9.2"
 !endif
 !ifndef APP_GIT_REF
-!define APP_GIT_REF "v4.9.1"
+!define APP_GIT_REF "v4.9.2"
 !endif
 !ifndef APP_GIT_SHA
 !define APP_GIT_SHA "local"

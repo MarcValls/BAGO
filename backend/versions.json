@@ -1,5 +1,5 @@
 {
-  "current": "4.9.1",
+  "current": "4.9.2",
   "history": [
     {
       "version": "4.0.0",
@@ -122,10 +122,16 @@
       "notes": "Release candidate 4.9.0: integra todos los fixes de 4.8.7 y prepara el payload de release."
     },
     {
-      "ended": null,
+      "ended": "2026-08-29",
       "version": "4.9.1",
       "notes": "Release candidate 4.9.1: remediacion AUD-001..010 parcial, contratos AUD-006 cerrados, fix AUD-008 worktree hash.",
       "released": "2026-08-25"
+    },
+    {
+      "ended": null,
+      "version": "4.9.2",
+      "notes": "Patch release: el instalador NSIS embebe y verifica el sidecar SHA-256 del payload offline.",
+      "released": "2026-08-29"
     }
   ]
 }

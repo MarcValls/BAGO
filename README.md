@@ -1,6 +1,6 @@
-# BAGO v4.9.1
+# BAGO v4.9.2
 
-[![Version](https://img.shields.io/badge/version-4.9.1-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1)
+[![Version](https://img.shields.io/badge/version-4.9.2-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,11 +11,11 @@
 
 ---
 
-## Novedades en 4.9.1
+## Novedades en 4.9.2
 
-### Release
-- Bump del instalador a `4.9.1` y empaquetado local del payload de distribución (`releases/bago-installer.nsi`, `releases/build-installer.ps1`)
-- Tag annotated `v4.9.1` creado por encima del bump; el contenido de la release es la remediación `BAGO-AUD-001..010` ya mergeada en `6dd5276b`
+### Hotfix del instalador
+- El instalador NSIS incorpora y valida el sidecar SHA-256 del ZIP de distribución antes de sustituir la instalación existente.
+- El constructor local y los workflows de release generan el sidecar de forma consistente; el smoke aislado verificó instalación, `/health` y el cierre limpio de `BAGO.exe`.
 
 ### Remediación
 - Cierre declarado `EXECUTED` (ver `.bago/context/PROJECT_CONTEXT.md` + `.bago/audits/remediation-closure-contract-20260824.md` + `remediation-handoff-20260824.md`)
@@ -107,7 +107,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `BAGO-Installation-Manager-4.9.1-win-x64.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) y ejecútalo. El instalador:
+Descarga `bago-4.9.2-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) y ejecútalo. El instalador:
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -296,6 +296,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
+| [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |
 | [v4.9.1](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) | 2026-08-25 | `BAGO-Installation-Manager-4.9.1-win-x64.exe` · `bago-v4.9.1.zip` |
 | [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-18 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-v4.9.0.zip` |
 | [v4.8.7](https://github.com/MarcValls/BAGO/releases/tag/v4.8.7) | 2026-08-16 | `BAGO-Installation-Manager-4.8.7-win-x64.exe` · `bago-v4.8.7.zip` |
@@ -313,11 +314,11 @@ python -m pytest backend/tests
 npm run build
 
 # 3. Empaquetar backend runtime
-python backend/scripts/package_v4.py --version 4.9.1
+python backend/scripts/package_v4.py --version 4.9.2
 
 # 4. Crear o mover el tag a HEAD
-# git tag -a v4.9.1 -m "BAGO v4.9.1" --force
-# git push origin v4.9.1 --force
+# git tag -a v4.9.2 -m "BAGO v4.9.2"
+# git push origin v4.9.2
 # La subida del release corre vía .github/workflows/release.yml usando gh release upload
 ```
 

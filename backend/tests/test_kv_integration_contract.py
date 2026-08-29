@@ -14,7 +14,12 @@ def _http_json(url, token, *, method="GET", body=None):
         method=method,
         headers={"X-Bago-Token": token, "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=5) as response:
+    # This contract exercises the locally spawned bridge.  Do not inherit a
+    # process-wide HTTP(S)/SOCKS proxy: some CI/sandbox environments provide
+    # one while leaving NO_PROXY empty, which would route 127.0.0.1 away from
+    # the server under test.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=5) as response:
         return response.status, json.loads(response.read().decode("utf-8"))
 
 
