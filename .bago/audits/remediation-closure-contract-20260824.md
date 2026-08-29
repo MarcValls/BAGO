@@ -12,7 +12,7 @@ gate records in the audit bundle, and the independent review.
 | BAGO-AUD-003 | Canonical `/health` and `/api/v1/kb` CRUD contract implemented by the real dispatcher and actual gestor TypeScript client. | `test_kv_integration_contract.py` plus `run_gestor_client_e2e.py`: real health/read/write/update/delete, domain roundtrip and explicit fail-closed behavior. |
 | BAGO-AUD-004 | Release backup preparation and restore are phase-aware and never delete the sole rollback or displaced target on resume. | `test_release_backup_resume.cjs` injects crashes after all three destructive rename boundaries, restarts from persisted jobs and proves recovery. |
 | BAGO-AUD-005 | Audit patches are emitted as LF bytes and applied raw to the archived baseline. | `package_remediation_audit.py` aborts unless both raw patches pass `git apply --check`; `verify_remediation_audit.py` repeats the checks from the final ZIP. |
-| BAGO-AUD-006 | Package provenance contains full baseline/candidate SHA, remote status, branch/upstream, original audited-artifact identity and manifest hashes. | Sanitized source-audit provenance, final package provenance JSON, manifest and external sidecar SHA-256. The remediation's initial dirty boundary remains `UNRESOLVED` because its patch bytes were not retained; global validation is blocked. |
+| BAGO-AUD-006 | Package provenance contains full baseline/candidate SHA, remote status, branch/upstream, original audited-artifact identity, recovered dirty-boundary bytes and manifest hashes. | Sanitized source-audit provenance, final package provenance JSON, recovered dirty-boundary patch/provenance, manifest and external sidecar SHA-256. The historical dirty boundary is resolved when `.bago/audits/recovered-dirty-boundary-20260824.patch` hashes to `943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79` and its LF-normalized form applies to baseline `e76b01b0a0552d8eee7c536f8c4eef25e3a82a42`. |
 | BAGO-AUD-007 | A purpose-built handoff is included; no session transcript is used as handoff evidence. | `remediation-handoff-20260824.md` is mandatory input to the packager. |
 | BAGO-AUD-008 | Every claimed gate has command, exit code, runtime, timestamps, output hashes and candidate identity. | `record_remediation_gate.py` records raw stdout/stderr and JSON metadata; the external verifier rejects missing, failed, dirty, unstable or SHA-divergent required gates. |
 | BAGO-AUD-009 | `gestor-con-bago` has a local Git baseline and a candidate delta with the same package standard. | Gestor baseline/candidate archive, patch, provenance, build/typecheck and real TypeScript-client integration gate. |
@@ -28,10 +28,16 @@ gate records in the audit bundle, and the independent review.
 - Release manager and crash/resume tests.
 - `gestor-con-bago` typecheck and production build.
 - Workflow YAML parse, diff check and session-export hygiene.
-- Raw patch reproducibility for BAGO and `gestor-con-bago`.
+- Raw patch reproducibility for BAGO and `gestor-con-bago`, plus recovered
+  dirty-boundary identity and LF-normalized applicability.
 - Independent final review of the candidate and evidence.
 - External package verification recalculates every manifest entry, the ZIP sidecar, every required gate and all archived patch apply checks; its report remains outside the immutable ZIP.
 
 `VALIDATED` is forbidden while any required gate has a non-zero exit code, a
 required gate is absent, candidate identities conflict, or independent review
 reports a blocking finding.
+
+The recovered dirty-boundary blocker recorded in
+`remediation-baseline-addendum-20260824.md` is closed by
+`remediation-baseline-recovery-20260828.md`; it is no longer a standalone
+reason to block global validation.

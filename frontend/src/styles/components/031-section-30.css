@@ -70,6 +70,24 @@
   align-items: start;
   gap: 12px;
 }
+.blacklist-add-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px 0;
+}
+.blacklist-add-field { display: grid; gap: 4px; min-width: 0; }
+.blacklist-add-field span { color: var(--text-2); font-size: 11px; }
+.blacklist-add-field input {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 8px;
+}
 .operation-workspace > .system-tab-panel {
   min-height: 100%;
   padding: 20px;
@@ -94,6 +112,7 @@
   .operation-tool-view,
   .operation-workspace > .system-tab-panel { padding: 14px; }
   .operation-configuration-grid { grid-template-columns: 1fr; }
+  .blacklist-add-form { grid-template-columns: 1fr; }
 }
 .pipeline-summary, .evidence-primary, .context-budget-card { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 21px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
 .pipeline-summary-copy { min-width: 0; flex: 1; }

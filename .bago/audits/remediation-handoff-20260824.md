@@ -4,10 +4,10 @@
 
 Remediation of BAGO-AUD-001 through BAGO-AUD-010 from the robust third-party
 audit dated 2026-08-22. The declared boundary is documented in
-`remediation-baseline-20260824.md`; its dirty patch bytes were not retained, so
-strict attribution of the six pre-existing tracked edits remains unresolved.
-The dated correction is preserved separately in
-`remediation-baseline-addendum-20260824.md`.
+`remediation-baseline-20260824.md`. The dirty patch bytes were not retained at
+capture time, but the active closure blocker is now resolved by
+`remediation-baseline-recovery-20260828.md`, which retains a recovered CRLF
+patch matching the recorded SHA-256.
 
 ## Candidate contents
 
@@ -33,6 +33,7 @@ raw-patch application checks.  This handoff never substitutes for those logs.
 The committed remediation is `EXECUTED`.  It becomes `VERIFIED` only when all
 candidate-bound gates pass.  It becomes `VALIDATED` only after the independent
 review also reports no blocker.  The former audited worktree and this
-remediation remain distinct state objects. Even if every source gate passes,
-global `VALIDATED` remains blocked by the unreconstructable initial dirty
-attribution boundary unless independent historical evidence is recovered.
+remediation remain distinct state objects. The previously unreconstructable
+initial dirty attribution boundary has been recovered and no longer blocks
+global `VALIDATED`; final validation still requires the candidate-bound gate
+and review evidence to refer to the same immutable candidate.

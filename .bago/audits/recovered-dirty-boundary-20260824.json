@@ -1,0 +1,43 @@
+{
+  "contract": "bago.recovered-dirty-boundary.v1",
+  "status": "VERIFIED",
+  "baseline_sha": "e76b01b0a0552d8eee7c536f8c4eef25e3a82a42",
+  "recorded_sha256": "943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79",
+  "recovered_patch": "recovered-dirty-boundary-20260824.patch",
+  "recovered_patch_sha256": "943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79",
+  "recovered_patch_size": 13711,
+  "line_endings": "crlf",
+  "normalized_lf_sha256": "4b6f71631abf8d4fc2d7e9eb028053f94e48be707965e21329602e2751be56c7",
+  "normalized_lf_size": 13416,
+  "source_log": "C:\\Users\\AMTEC_Terminal_1º\\.codex\\sessions\\2026\\08\\24\\rollout-2026-08-24T00-50-09-01a030d1-2adf-7103-9fcd-1a649215f72e.jsonl",
+  "source_lines": [
+    {
+      "line": 571,
+      "files": [
+        "backend/.bago/api/handlers_jobs.py",
+        "backend/.bago/core/plan_engine.py",
+        "backend/.bago/core/session_turn_mixin.py",
+        "backend/tests/test_plan_engine_contract.py"
+      ]
+    },
+    {
+      "line": 577,
+      "files": [
+        "backend/.bago/core/config_manager.py",
+        "backend/tests/integrations/pi/test_negatives.py"
+      ]
+    }
+  ],
+  "files": [
+    "backend/.bago/api/handlers_jobs.py",
+    "backend/.bago/core/config_manager.py",
+    "backend/.bago/core/plan_engine.py",
+    "backend/.bago/core/session_turn_mixin.py",
+    "backend/tests/integrations/pi/test_negatives.py",
+    "backend/tests/test_plan_engine_contract.py"
+  ],
+  "recovery_method": "Extract diff chunks from recorded CommandExecution stdout, order them by the original tracked baseline file list, serialize as CRLF, and verify the recorded SHA-256.",
+  "normalized_lf_apply_check": "PASS",
+  "normalized_lf_apply_stderr": "",
+  "recovered_at": "2026-08-27T23:30:16.718235+00:00"
+}

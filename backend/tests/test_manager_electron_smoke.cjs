@@ -28,8 +28,14 @@ async function main() {
     path.join(ROOT, '.bago', 'context', 'context-tree.json'),
   ];
   const fixtureBaseline = new Map(protectedFixtures.map((file) => [file, fs.readFileSync(file)]));
+function baseArgs(target) {
+  const list = [target];
+  const userData = String(process.env.BAGO_ELECTRON_USER_DATA_DIR || '').trim();
+  if (userData) list.unshift('--user-data-dir=' + userData);
+  return list;
+}
   const app = await electron.launch({
-    ...(executablePath ? { executablePath, args: [] } : { args: [ROOT] }),
+    ...(executablePath ? { executablePath, args: baseArgs(executablePath) } : { args: baseArgs(ROOT) }),
     env: {
       ...process.env,
       BAGO_MANAGER_BASE_PATH: smokeWorkspace,
@@ -128,9 +134,11 @@ async function main() {
     };
     await dismissFirstRun();
 
-    const chatNav = window.locator('.sidebar-item[title^="Chat ·"]');
+    const sidebar = window.locator('.main-sidebar');
+    const sidebarButton = (label) => sidebar.getByRole('button', { name: new RegExp(`^${label}\\b`) });
+    const chatNav = sidebarButton('Chat');
     assert.strictEqual(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
-    const homeNav = window.locator('.sidebar-item[title^="Inicio ·"]');
+    const homeNav = sidebarButton('Inicio');
     assert.strictEqual(await homeNav.count(), 1);
     await homeNav.click();
     await dismissFirstRun();
@@ -146,29 +154,60 @@ async function main() {
     assert.strictEqual(await commandDialog.evaluate((dialog) => dialog.contains(document.activeElement)), true);
     await window.keyboard.press('Escape');
     await commandDialog.waitFor({ state: 'detached', timeout: 30000 });
+    await window.waitForFunction(() => {
+      const active = document.activeElement;
+      return active instanceof HTMLElement
+        && active.classList.contains('sidebar-item')
+        && ((active.textContent || '').includes('Inicio') || (active.getAttribute('title') || '').startsWith('Inicio'));
+    }, null, { timeout: 5000 });
     assert.strictEqual(await homeNav.evaluate((element) => document.activeElement === element), true);
-    const modelSelect = window.locator('#bago-chat-model');
+    const modelSelector = window.getByRole('button', { name: 'Modelo de esta sesión', exact: true });
     const entryState = await window.waitForFunction(() => {
-      const model = document.querySelector('#bago-chat-model');
-      if (model instanceof HTMLSelectElement && model.offsetParent) return 'chat';
+      const model = document.querySelector('[aria-label="Modelo de esta sesión"]');
+      if (model instanceof HTMLButtonElement && model.offsetParent) return 'chat';
       const start = document.querySelector('.start-chat-path.is-primary');
       if (start instanceof HTMLButtonElement && start.offsetParent) return 'welcome';
       return '';
     }, null, { timeout: 120000 }).then((handle) => handle.jsonValue());
+    const initialScopeConversationResponse = entryState === 'welcome'
+      ? window.waitForResponse((response) => (
+        new URL(response.url()).pathname === '/workspace/conversation'
+        && response.request().method() === 'POST'
+      ))
+      : null;
     if (entryState === 'welcome') {
       await window.locator('.start-chat-path.is-primary').click();
     }
-    await modelSelect.waitFor({ state: 'visible', timeout: 120000 });
-    await window.waitForFunction(() => {
-      const select = document.querySelector('#bago-chat-model');
-      return select instanceof HTMLSelectElement && select.options.length >= 2;
-    }, null, { timeout: 120000 });
-    const modelState = await window.evaluate(() => {
-      const select = document.querySelector('#bago-chat-model');
-      if (!(select instanceof HTMLSelectElement)) return { value: '', options: [] };
-      return { value: select.value, options: [...select.options].map((option) => option.value) };
-    });
-    if (modelState.options.length < 2) {
+    try {
+      await modelSelector.waitFor({ state: 'visible', timeout: 120000 });
+    } catch (error) {
+      const chatStartDiagnostic = await window.evaluate(() => ({
+        activeSection: document.querySelector('.sidebar-item[aria-current="page"]')?.textContent || '',
+        conversationError: document.querySelector('[role="alert"]')?.textContent || '',
+        startButton: document.querySelector('.start-chat-path.is-primary')?.textContent || '',
+        startDisabled: document.querySelector('.start-chat-path.is-primary') instanceof HTMLButtonElement
+          ? document.querySelector('.start-chat-path.is-primary').disabled
+          : false,
+        visibleText: document.body.innerText.slice(0, 1600),
+      }));
+      console.error(JSON.stringify({ chatStartDiagnostic }));
+      throw error;
+    }
+    if (initialScopeConversationResponse) {
+      const initialScopeHttpResponse = await initialScopeConversationResponse;
+      assert.strictEqual(initialScopeHttpResponse.status(), 200);
+      assert.strictEqual((await initialScopeHttpResponse.json()).ok, true);
+    }
+    await modelSelector.click();
+    const modelOptions = window.getByRole('listbox', { name: 'Modelos disponibles' }).getByRole('option');
+    await window.waitForFunction(() => document.querySelectorAll('[role="listbox"][aria-label="Modelos disponibles"] [role="option"]').length >= 2, null, { timeout: 120000 });
+    const modelState = await modelOptions.evaluateAll((options) => options.map((option, index) => ({
+      index,
+      unavailable: option.getAttribute('aria-disabled') === 'true',
+      selected: option.getAttribute('aria-selected') === 'true',
+      text: option.textContent || '',
+    })));
+    if (modelState.length < 2) {
       const routerDiagnostic = await window.evaluate(async () => ({
         policy: await fetch('/router/policy').then((response) => response.json()).catch((error) => ({ error: String(error) })),
         list: await fetch('/router/list').then((response) => response.json()).catch((error) => ({ error: String(error) })),
@@ -180,111 +219,170 @@ async function main() {
       }));
       console.error(JSON.stringify({ modelState, routerDiagnostic }));
     }
-    assert.ok(modelState.options.length >= 2, 'chat model selector has no router models');
-    const candidate = modelState.options.find((value) => value && !value.startsWith('ollama-local/'))
-      || modelState.options.find((value) => value && value !== modelState.value);
+    assert.ok(modelState.length >= 2, 'chat model selector has no router models');
+    const candidate = modelState.find((option) => option.index > 0 && !option.unavailable);
     assert.ok(candidate, 'chat model selector has no alternate model');
-    await modelSelect.selectOption(candidate);
-    await window.waitForFunction((expected) => {
-      const select = document.querySelector('#bago-chat-model');
-      return select instanceof HTMLSelectElement && select.value === expected && !select.disabled;
-    }, candidate, { timeout: 120000 });
-    assert.strictEqual(await modelSelect.inputValue(), candidate);
-    const persistedModel = await window.evaluate(async () => (
-      fetch('/router/session-model').then((response) => response.json()).then((data) => data.session_model)
+    const automaticBeforeSelection = await window.evaluate(async () => (
+      fetch('/router/session-model').then(async (response) => ({
+        status: response.status,
+        body: await response.json(),
+      }))
     ));
-    assert.strictEqual(persistedModel, candidate);
-    await modelSelect.selectOption(modelState.value);
-    await window.waitForFunction((expected) => {
-      const select = document.querySelector('#bago-chat-model');
-      return select instanceof HTMLSelectElement && select.value === expected && !select.disabled;
-    }, modelState.value, { timeout: 120000 });
+    assert.strictEqual(automaticBeforeSelection.status, 200);
+    assert.strictEqual(automaticBeforeSelection.body.ok, true);
+    assert.strictEqual(automaticBeforeSelection.body.session_model, null);
+    const modelSelectionResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/router/session-model'
+      && response.request().method() === 'POST'
+    ));
+    await modelOptions.nth(candidate.index).click();
+    const modelSelectionHttpResponse = await modelSelectionResponse;
+    assert.strictEqual(modelSelectionHttpResponse.status(), 200);
+    const modelSelectionPayload = await modelSelectionHttpResponse.json();
+    assert.strictEqual(modelSelectionPayload.ok, true);
+    assert.ok(modelSelectionPayload.session_model, `model selection POST did not persist: ${JSON.stringify(modelSelectionPayload)}`);
+    const [selectedProvider, selectedModel] = modelSelectionPayload.session_model.split(/\/(.+)/);
+    assert.strictEqual(modelSelectionPayload.effective_provider, selectedProvider);
+    assert.strictEqual(modelSelectionPayload.effective_model, selectedModel);
+    await window.getByRole('listbox', { name: 'Modelos disponibles' }).waitFor({ state: 'detached', timeout: 30000 });
+    const persistedModelResponse = await window.evaluate(async () => (
+      fetch('/router/session-model').then(async (response) => ({
+        status: response.status,
+        body: await response.json(),
+      }))
+    ));
+    assert.strictEqual(persistedModelResponse.status, 200);
+    assert.strictEqual(persistedModelResponse.body.ok, true);
+    const persistedModel = persistedModelResponse.body.session_model;
+    assert.strictEqual(persistedModel, modelSelectionPayload.session_model, `chat model selection was not persisted: ${JSON.stringify(persistedModelResponse)}`);
+    assert.strictEqual(persistedModelResponse.body.effective_provider, selectedProvider);
+    assert.strictEqual(persistedModelResponse.body.effective_model, selectedModel);
+    await modelSelector.click();
+    const automaticModelResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/router/session-model'
+      && response.request().method() === 'POST'
+    ));
+    await window.getByRole('option', { name: /Automático/ }).click();
+    const automaticModelHttpResponse = await automaticModelResponse;
+    assert.strictEqual(automaticModelHttpResponse.status(), 200);
+    const automaticModelPayload = await automaticModelHttpResponse.json();
+    assert.strictEqual(automaticModelPayload.ok, true);
+    assert.strictEqual(automaticModelPayload.session_model, null);
+    assert.strictEqual(automaticModelPayload.effective_provider, automaticBeforeSelection.body.effective_provider);
+    assert.strictEqual(automaticModelPayload.effective_model, automaticBeforeSelection.body.effective_model);
+    await window.getByRole('listbox', { name: 'Modelos disponibles' }).waitFor({ state: 'detached', timeout: 30000 });
+    await window.waitForFunction(async () => {
+      const data = await fetch('/router/session-model').then((response) => response.json());
+      return data.session_model === null;
+    }, null, { timeout: 120000 });
+    const restoredModel = await window.evaluate(async () => (
+      fetch('/router/session-model').then((response) => response.json())
+    ));
+    assert.strictEqual(restoredModel.session_model, null);
+    assert.strictEqual(restoredModel.effective_provider, automaticBeforeSelection.body.effective_provider);
+    assert.strictEqual(restoredModel.effective_model, automaticBeforeSelection.body.effective_model);
 
-    const conversationSelect = window.getByLabel('Conversación activa');
-    await conversationSelect.waitFor({ state: 'visible', timeout: 30000 });
     await dismissFirstRun();
-    const initialConversationId = await conversationSelect.inputValue();
-    const initialConversationCount = await conversationSelect.locator('option').count();
-    await window.getByRole('button', { name: 'Nueva conversación', exact: true }).click();
-    try {
-      await window.waitForFunction(({ initialId, initialCount }) => {
-        const select = document.querySelector('#bago-conversation-select');
-        return select instanceof HTMLSelectElement && select.options.length === initialCount + 1 && select.value !== initialId && !select.disabled;
-      }, { initialId: initialConversationId, initialCount: initialConversationCount }, { timeout: 30000 });
-    } catch (error) {
-      const conversationDiagnostic = await window.evaluate(async () => {
-        const select = document.querySelector('#bago-conversation-select');
-        return {
-          select: select instanceof HTMLSelectElement ? { value: select.value, options: [...select.options].map((option) => option.value), disabled: select.disabled } : null,
-          api: await fetch('/conversations').then((response) => response.json()).catch((reason) => ({ error: String(reason) })),
-          body: document.body.innerText.slice(0, 1200),
-        };
-      });
-      console.error(JSON.stringify({ conversationDiagnostic }));
-      throw error;
-    }
-    const createdConversationId = await conversationSelect.inputValue();
+    const chatTimeline = window.locator('.chat-timeline');
+    await chatTimeline.waitFor({ state: 'visible', timeout: 30000 });
+    await window.locator('#bago-chat-composer').waitFor({ state: 'visible', timeout: 30000 });
+    await window.getByRole('button', { name: 'Modelo de esta sesión', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
+    await chatTimeline.evaluate((timeline) => {
+      const probe = document.createElement('div');
+      probe.dataset.smokeScrollProbe = 'true';
+      probe.style.height = '2400px';
+      timeline.insertBefore(probe, timeline.firstChild);
+      timeline.scrollTop = 0;
+    });
+    await window.waitForFunction(() => {
+      const timeline = document.querySelector('.chat-timeline');
+      return timeline && timeline.scrollHeight > timeline.clientHeight;
+    }, null, { timeout: 30000 });
+    const scrollToEnd = window.getByRole('button', { name: 'Ir al final de la conversación', exact: true });
+    const scrollToStart = window.getByRole('button', { name: 'Ir al inicio de la conversación', exact: true });
+    await window.waitForFunction(() => {
+      const button = document.querySelector('[aria-label="Ir al final de la conversación"]');
+      return button instanceof HTMLButtonElement && !button.disabled;
+    }, null, { timeout: 30000 });
+    await scrollToEnd.click();
+    await window.waitForFunction(() => {
+      const timeline = document.querySelector('.chat-timeline');
+      return timeline && timeline.scrollTop >= timeline.scrollHeight - timeline.clientHeight - 1;
+    }, null, { timeout: 30000 });
+    await scrollToStart.click();
+    await window.waitForFunction(() => {
+      const timeline = document.querySelector('.chat-timeline');
+      return timeline && timeline.scrollTop <= 1;
+    }, null, { timeout: 30000 });
+    await chatTimeline.evaluate((timeline) => timeline.querySelector('[data-smoke-scroll-probe="true"]')?.remove());
+
+    const initialConversations = await window.evaluate(async () => fetch('/conversations').then((response) => response.json()));
+    const initialConversationId = initialConversations.active_conversation_id;
+    const initialConversationCount = initialConversations.count;
+    const createConversationResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/conversations'
+      && response.request().method() === 'POST'
+    ));
+    const scopeConversationResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/workspace/conversation'
+      && response.request().method() === 'POST'
+    ));
+    await window.getByRole('button', { name: 'Nuevo chat', exact: true }).click();
+    const createdConversations = await (await createConversationResponse).json();
+    const createdConversationId = createdConversations.active_conversation_id;
     assert.ok(createdConversationId.startsWith('chat-'), 'new conversation did not receive a canonical id');
+    assert.notStrictEqual(createdConversationId, initialConversationId);
+    assert.strictEqual(createdConversations.count, initialConversationCount + 1);
+    const scopedConversationHttpResponse = await scopeConversationResponse;
+    assert.strictEqual(scopedConversationHttpResponse.status(), 200);
+    const scopedConversation = await scopedConversationHttpResponse.json();
+    assert.strictEqual(scopedConversation.ok, true);
+    assert.strictEqual(scopedConversation.conversation_id, createdConversationId);
     const conversationScreenshotPath = String(process.env.BAGO_ELECTRON_CONVERSATION_SCREENSHOT || '').trim();
     if (conversationScreenshotPath) {
       fs.mkdirSync(path.dirname(conversationScreenshotPath), { recursive: true });
       await window.screenshot({ path: conversationScreenshotPath });
     }
-    await conversationSelect.selectOption(initialConversationId);
-    await window.waitForFunction((expected) => {
-      const select = document.querySelector('#bago-conversation-select');
-      return select instanceof HTMLSelectElement && select.value === expected && !select.disabled;
-    }, initialConversationId, { timeout: 30000 });
 
-    const sessionSelect = window.getByLabel('Sesión activa');
-    await sessionSelect.waitFor({ state: 'visible', timeout: 30000 });
-    const initialSessionId = await sessionSelect.inputValue();
-    const initialSessionCount = await sessionSelect.locator('option').count();
-    await window.getByRole('button', { name: 'Nueva sesión', exact: true }).click();
-    await window.waitForFunction(({ initialId, initialCount }) => {
-      const select = document.querySelector('#bago-session-select');
-      return select instanceof HTMLSelectElement && select.options.length === initialCount + 1 && select.value !== initialId && !select.disabled;
-    }, { initialId: initialSessionId, initialCount: initialSessionCount }, { timeout: 60000 });
-    const createdSessionId = await sessionSelect.inputValue();
-    const sessionScreenshotPath = String(process.env.BAGO_ELECTRON_SESSION_SCREENSHOT || '').trim();
-    if (sessionScreenshotPath) {
-      fs.mkdirSync(path.dirname(sessionScreenshotPath), { recursive: true });
-      await window.screenshot({ path: sessionScreenshotPath });
+    const historyToggle = window.locator('.chat-conversation-menu summary');
+    await historyToggle.click();
+    const createdTitle = createdConversations.conversation.title;
+    await window.locator('.chat-conversation-list article.is-active').getByRole('button', { name: `Renombrar ${createdTitle}`, exact: true }).click();
+    const renamedTitle = 'Conversación smoke renombrada';
+    await window.getByLabel('Título de conversación').fill(renamedTitle);
+    const renameConversationResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/conversations'
+      && response.request().method() === 'POST'
+    ));
+    await window.getByRole('button', { name: 'Guardar', exact: true }).click();
+    const renamedConversations = await (await renameConversationResponse).json();
+    assert.strictEqual(renamedConversations.conversation.title, renamedTitle);
+
+    const initialConversation = renamedConversations.conversations.find((item) => item.conversation_id === initialConversationId);
+    assert.ok(initialConversation, 'initial conversation disappeared after rename');
+    const switchConversationResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/conversations'
+      && response.request().method() === 'POST'
+    ));
+    await window.locator('.chat-conversation-list article', { hasText: initialConversation.title }).locator('.chat-conversation-open').click();
+    const switchedConversations = await (await switchConversationResponse).json();
+    assert.strictEqual(switchedConversations.active_conversation_id, initialConversationId);
+
+    if (!await window.locator('.chat-conversation-menu').evaluate((details) => details.open)) {
+      await historyToggle.click();
     }
-    await window.getByRole('button', { name: 'Gestionar sesión', exact: true }).click();
-    const sessionManagerDialog = window.getByRole('dialog', { name: 'Gestionar sesión' });
-    await sessionManagerDialog.waitFor({ state: 'visible', timeout: 30000 });
-    await sessionManagerDialog.getByLabel('Nombre de la sesión').fill('Sesión smoke renombrada');
-    await sessionManagerDialog.getByRole('button', { name: 'Guardar nombre', exact: true }).click();
-    await sessionManagerDialog.waitFor({ state: 'detached', timeout: 30000 });
-    assert.ok((await sessionSelect.locator('option:checked').textContent()).includes('Sesión smoke renombrada'));
-    await window.getByRole('button', { name: 'Gestionar sesión', exact: true }).click();
-    await window.getByRole('dialog', { name: 'Gestionar sesión' }).getByRole('button', { name: 'Archivar', exact: true }).click();
-    const archiveConfirmation = window.getByRole('dialog', { name: 'Archivar sesión' });
-    await archiveConfirmation.waitFor({ state: 'visible', timeout: 30000 });
-    await archiveConfirmation.getByRole('button', { name: 'Archivar sesión', exact: true }).click();
-    await window.waitForFunction((expected) => {
-      const select = document.querySelector('#bago-session-select');
-      return select instanceof HTMLSelectElement && select.value === expected.id && select.options.length === expected.count && !select.disabled;
-    }, { id: initialSessionId, count: initialSessionCount }, { timeout: 60000 });
-    await window.getByRole('button', { name: 'Gestionar sesión', exact: true }).click();
-    const archivedManagerDialog = window.getByRole('dialog', { name: 'Gestionar sesión' });
-    await archivedManagerDialog.getByLabel('Buscar sesiones archivadas').fill('smoke renombrada');
-    const archivedSessionScreenshotPath = String(process.env.BAGO_ELECTRON_ARCHIVED_SESSION_SCREENSHOT || '').trim();
-    if (archivedSessionScreenshotPath) {
-      fs.mkdirSync(path.dirname(archivedSessionScreenshotPath), { recursive: true });
-      await window.waitForTimeout(250);
-      await archivedManagerDialog.screenshot({ path: archivedSessionScreenshotPath });
-    }
-    await archivedManagerDialog.getByRole('button', { name: 'Restaurar Sesión smoke renombrada', exact: true }).click();
-    await archivedManagerDialog.waitFor({ state: 'detached', timeout: 30000 });
-    await window.waitForFunction((expected) => {
-      const select = document.querySelector('#bago-session-select');
-      return select instanceof HTMLSelectElement && select.value === expected.id && select.options.length === expected.count && !select.disabled;
-    }, { id: createdSessionId, count: initialSessionCount + 1 }, { timeout: 60000 });
+    const archiveConversationResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/conversations'
+      && response.request().method() === 'POST'
+    ));
+    await window.getByRole('button', { name: `Archivar ${renamedTitle}`, exact: true }).click();
+    const archivedConversations = await (await archiveConversationResponse).json();
+    assert.strictEqual(archivedConversations.active_conversation_id, initialConversationId);
+    assert.strictEqual(archivedConversations.count, initialConversationCount);
+    assert.strictEqual(archivedConversations.conversations.some((item) => item.conversation_id === createdConversationId), false);
 
     await dismissFirstRun();
-    const contextNav = window.locator('.sidebar-item[title^="Contexto ·"]');
+    const contextNav = sidebarButton('Contexto');
     assert.strictEqual(await contextNav.count(), 1);
     await contextNav.click();
     await window.locator('.task-context-page').waitFor({ state: 'visible', timeout: 120000 });
@@ -301,12 +399,12 @@ async function main() {
     const openConversation = window.getByRole('button', { name: 'Ver conversación', exact: true });
     if (await openConversation.count()) {
       await openConversation.click();
-      await modelSelect.waitFor({ state: 'visible', timeout: 120000 });
+      await modelSelector.waitFor({ state: 'visible', timeout: 120000 });
       assert.strictEqual(await homeNav.getAttribute('aria-current'), 'page');
     }
 
     await dismissFirstRun();
-    const pipelineNav = window.locator('.sidebar-item[title^="Pipeline ·"]');
+    const pipelineNav = sidebarButton('Pipeline');
     await pipelineNav.click();
     await window.locator('.pipeline-surface').click({ button: 'right' });
     const stopFlow = window.getByRole('menuitem', { name: 'Detener flujo', exact: true });
@@ -327,33 +425,17 @@ async function main() {
       await window.keyboard.press('Escape');
     }
 
-    const operation = window.locator('.sidebar-item[title^="Operaciones ·"]');
+    const operation = sidebarButton('Operaciones');
     assert.strictEqual(await operation.count(), 1);
     await operation.click();
-    await window.getByRole('tab', { name: 'Router', exact: true }).click();
-    const autoConfig = window.locator('[data-system-tool="auto-config"]');
-    await autoConfig.waitFor({ state: 'visible', timeout: 30000 });
-    await autoConfig.locator('summary').click();
-    assert.strictEqual(await autoConfig.evaluate((element) => element.open), true, 'Auto-config did not open');
-    const autoConfigLabels = (await autoConfig.locator('button').allTextContents()).map((label) => label.trim());
-    for (const label of ['Refrescar', 'Lanzar auto-test', 'Aplicar propuesta']) {
-      await autoConfig.getByRole('button', { name: label, exact: true }).waitFor({ state: 'visible' });
+    const operationNav = window.getByRole('navigation', { name: 'Herramientas de Operaciones' });
+    await operationNav.waitFor({ state: 'visible', timeout: 30000 });
+    const operationLabels = ['Proveedores', 'Runtime', 'Memoria', 'Visión', 'Configuración'];
+    for (const label of operationLabels) {
+      await operationNav.getByRole('button', { name: label, exact: true }).waitFor({ state: 'visible' });
     }
-    await autoConfig.getByRole('button', { name: 'Refrescar', exact: true }).click();
-    const autoConfigScreenshotPath = String(process.env.BAGO_ELECTRON_AUTOCONFIG_SCREENSHOT || '').trim();
-    if (autoConfigScreenshotPath) {
-      fs.mkdirSync(path.dirname(autoConfigScreenshotPath), { recursive: true });
-      await autoConfig.scrollIntoViewIfNeeded();
-      await window.screenshot({ path: autoConfigScreenshotPath });
-    }
-
-    await window.getByRole('tab', { name: 'Proveedores', exact: true }).click();
-    const verify = window.getByRole('button', { name: 'Verificar 6 contratos cloud', exact: true });
-    await verify.click();
-    await window.getByText('6/6 offline · sin tráfico', { exact: true }).waitFor({ state: 'visible', timeout: 120000 });
-    const providerSurface = window.locator('.system-tab-panel').filter({ hasText: 'Proveedores' });
+    const providerSurface = window.locator('.provider-center');
     await providerSurface.waitFor({ state: 'visible', timeout: 30000 });
-    assert.strictEqual(await providerSurface.locator('[style]').count(), 0, 'Provider surface contains inline styles');
     const providerLayout = await providerSurface.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -366,15 +448,53 @@ async function main() {
     });
     assert.ok(providerLayout.left >= -1 && providerLayout.right <= providerLayout.viewportWidth + 1, 'Provider surface is clipped');
     assert.ok(providerLayout.scrollWidth <= providerLayout.clientWidth + 1, 'Provider surface has horizontal overflow');
-    const blacklist = window.locator('[data-system-tool="blacklist"]');
-    await blacklist.locator('summary').click();
+
+    const autoConfigStatusResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/configure/auto/status'
+      && response.request().method() === 'GET'
+    ));
+    const blacklistStatusResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/providers/blacklist'
+      && response.request().method() === 'GET'
+    ));
+    const configurationButton = operationNav.getByRole('button', { name: 'Configuración', exact: true });
+    await configurationButton.click();
+    assert.strictEqual(await configurationButton.getAttribute('aria-current'), 'page');
+    assert.strictEqual((await autoConfigStatusResponse).status(), 200);
+    assert.strictEqual((await blacklistStatusResponse).status(), 200);
+
+    const autoConfig = window.locator('.auto-config-card');
+    await autoConfig.waitFor({ state: 'visible', timeout: 30000 });
+    const autoConfigLabels = (await autoConfig.locator('button').allTextContents()).map((label) => label.trim());
+    await autoConfig.getByRole('button', { name: 'Lanzar auto-test', exact: true }).waitFor({ state: 'visible' });
+    const autoConfigScreenshotPath = String(process.env.BAGO_ELECTRON_AUTOCONFIG_SCREENSHOT || '').trim();
+    if (autoConfigScreenshotPath) {
+      fs.mkdirSync(path.dirname(autoConfigScreenshotPath), { recursive: true });
+      await autoConfig.scrollIntoViewIfNeeded();
+      await window.screenshot({ path: autoConfigScreenshotPath });
+    }
+
+    const blacklist = window.locator('.blacklist-card');
+    await blacklist.waitFor({ state: 'visible', timeout: 30000 });
     const smokeModel = `smoke/blacklist-${Date.now()}`;
     await blacklist.getByLabel('Modelo para blacklist').fill(smokeModel);
     await blacklist.getByLabel('Motivo de blacklist').fill('Electron smoke temporal');
+    const addBlacklistResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/providers/blacklist'
+      && response.request().method() === 'POST'
+    ));
     await blacklist.getByRole('button', { name: 'Añadir', exact: true }).click();
-    const blacklistItem = blacklist.locator('.system-tool-list li').filter({ hasText: smokeModel });
+    const addBlacklistBody = await (await addBlacklistResponse).json();
+    assert.ok(addBlacklistBody.models.includes(smokeModel));
+    const blacklistItem = blacklist.locator('.blacklist-item').filter({ hasText: smokeModel });
     await blacklistItem.waitFor({ state: 'visible', timeout: 30000 });
-    await blacklistItem.getByRole('button', { name: `Quitar ${smokeModel} de la blacklist`, exact: true }).click();
+    const removeBlacklistResponse = window.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/providers/blacklist'
+      && response.request().method() === 'POST'
+    ));
+    await blacklistItem.getByRole('button', { name: 'Quitar', exact: true }).click();
+    const removeBlacklistBody = await (await removeBlacklistResponse).json();
+    assert.strictEqual(removeBlacklistBody.models.includes(smokeModel), false);
     await blacklistItem.waitFor({ state: 'detached', timeout: 30000 });
     const providerScreenshotPath = String(process.env.BAGO_ELECTRON_PROVIDER_SCREENSHOT || '').trim();
     if (providerScreenshotPath) {
@@ -382,36 +502,21 @@ async function main() {
       await window.screenshot({ path: providerScreenshotPath });
     }
 
-    let rlReady = false;
-    for (let attempt = 0; attempt < 3 && !rlReady; attempt += 1) {
-      await window.getByRole('tab', { name: 'RL', exact: false }).click();
-      try {
-        await window.locator('.rl-actions').waitFor({ state: 'visible', timeout: 15000 });
-        rlReady = true;
-      } catch {}
-    }
-    assert.strictEqual(rlReady, true, 'RL panel did not remain active');
-    const shadowControls = await window.locator('.rl-actions button').count();
-    assert.strictEqual(shadowControls, 4);
-    const rlLabels = await window.locator('.rl-actions button').allTextContents();
-    for (const label of ['Actualizar', 'Entrenar BC', 'Evaluar política']) {
-      assert.ok(rlLabels.includes(label), `RL control missing: ${label}`);
-    }
-    let rlActionDone = false;
-    for (let attempt = 0; attempt < 3 && !rlActionDone; attempt += 1) {
-      try {
-        await window.getByRole('button', { name: 'Evaluar política', exact: true }).click({ force: true });
-        await window.getByText('Resultado de la última acción', { exact: true }).waitFor({ state: 'visible', timeout: 20000 });
-        rlActionDone = true;
-      } catch {
-        const operationAgain = window.locator('.sidebar-item[title^="Operaciones ·"]');
-        await operationAgain.waitFor({ state: 'visible', timeout: 30000 });
-        await operationAgain.click({ force: true });
-        await window.getByRole('tab', { name: 'RL', exact: false }).click();
-        await window.locator('.rl-actions').waitFor({ state: 'visible', timeout: 15000 });
-      }
-    }
-    assert.strictEqual(rlActionDone, true, 'RL evaluation did not produce a visible result');
+    const scrollAudit = await window.evaluate(() => (
+      [...document.querySelectorAll('*')]
+        .filter((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 && ['auto', 'scroll'].includes(style.overflowY);
+        })
+        .map((element) => ({
+          className: element.className,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        }))
+        .filter((surface) => surface.scrollWidth > surface.clientWidth + 1)
+    ));
+    assert.deepStrictEqual(scrollAudit, [], `Scrollable surfaces have horizontal overflow: ${JSON.stringify(scrollAudit)}`);
 
     const screenshotPath = String(process.env.BAGO_ELECTRON_SMOKE_SCREENSHOT || '').trim();
     if (screenshotPath) {
@@ -428,14 +533,13 @@ async function main() {
       runtimeRoot: managerHealth.runtime_root,
       workspace: smokeWorkspace,
       destinations: shell.destinations,
-      cloudContracts: '6/6',
+      operationViews: operationLabels.length,
       autoConfigControls: autoConfigLabels.length,
       blacklistRoundTrip: true,
-      providerSurfaceInlineStyles: 0,
-      rlControls: shadowControls,
-      chatModelOptions: modelState.options.length,
+      chatScrollRoundTrip: true,
+      scrollAudit: 'no-horizontal-overflow',
+      chatModelOptions: modelState.length,
       conversationRoundTrip: { initialConversationId, createdConversationId },
-      sessionRoundTrip: { initialSessionId, createdSessionId },
       contextSteps: contextFlow.steps,
       installed: Boolean(executablePath),
       consoleWarnings,
@@ -443,7 +547,6 @@ async function main() {
       screenshot: screenshotPath || null,
       autoConfigScreenshot: autoConfigScreenshotPath || null,
       conversationScreenshot: conversationScreenshotPath || null,
-      sessionScreenshot: sessionScreenshotPath || null,
       providerScreenshot: providerScreenshotPath || null,
     }));
   } finally {

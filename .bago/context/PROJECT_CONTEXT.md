@@ -1,7 +1,7 @@
 # BAGO Project Context
 
 - **Name:** BAGO
-- **Version:** 4.9.0
+- **Version authority:** `release_version.txt` (resolve during preflight; do not copy a mutable value here)
 - **Purpose:** Local AI control plane. The session is the source of truth; providers and models are interchangeable execution engines.
 - **Repository root:** `<repo>`
 - **Main branch:** `main`

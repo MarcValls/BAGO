@@ -223,6 +223,7 @@ export function ChatPanel(props: Props) {
   const [renamingId, setRenamingId] = useState('');
   const [renameTitle, setRenameTitle] = useState('');
   const timelineRef = useRef<HTMLElement>(null);
+  const [timelinePosition, setTimelinePosition] = useState({ canScroll: false, atStart: true, atEnd: true });
   const draft = props.drafts.chat || '';
   const canChat = props.canChat;
   const historyMessages = Array.isArray(props.history?.messages) ? props.history.messages : [];
@@ -246,9 +247,48 @@ export function ChatPanel(props: Props) {
   const conversationItems = props.conversations?.conversations || [];
   const activeConversationId = props.conversations?.active_conversation_id || props.history?.conversation_id || '';
   const activeConversation = conversationItems.find((item) => item.conversation_id === activeConversationId) || null;
+  const updateTimelinePosition = useCallback(() => {
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    const maxScrollTop = Math.max(0, timeline.scrollHeight - timeline.clientHeight);
+    setTimelinePosition({
+      canScroll: maxScrollTop > 1,
+      atStart: timeline.scrollTop <= 1,
+      atEnd: timeline.scrollTop >= maxScrollTop - 1,
+    });
+  }, []);
+
+  const moveTimeline = useCallback((target: 'start' | 'end', behavior: ScrollBehavior = 'smooth') => {
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    timeline.scrollTo({ top: target === 'start' ? 0 : timeline.scrollHeight, behavior });
+    window.requestAnimationFrame(updateTimelinePosition);
+  }, [updateTimelinePosition]);
+
   useEffect(() => {
-    if (timelineRef.current) timelineRef.current.scrollTop = 0;
-  }, [props.history?.conversation_id]);
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    const frame = window.requestAnimationFrame(() => moveTimeline('end', 'auto'));
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.history?.conversation_id, props.turns.length, historyMessages.length, moveTimeline]);
+
+  useEffect(() => {
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    const observer = new ResizeObserver(updateTimelinePosition);
+    const mutationObserver = new MutationObserver(updateTimelinePosition);
+    observer.observe(timeline);
+    mutationObserver.observe(timeline, { childList: true, subtree: true, characterData: true });
+    timeline.addEventListener('scroll', updateTimelinePosition, { passive: true });
+    window.addEventListener('resize', updateTimelinePosition);
+    updateTimelinePosition();
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+      timeline.removeEventListener('scroll', updateTimelinePosition);
+      window.removeEventListener('resize', updateTimelinePosition);
+    };
+  }, [updateTimelinePosition]);
 
   const closeModelPicker = useCallback(() => {
     setModelPickerOpen(false);
@@ -511,6 +551,14 @@ export function ChatPanel(props: Props) {
               {finalMessages.map(({ turn }) => <TurnArticle key={turn.id} {...props} turn={turn} contextPatches={props.contextPatches || []} />)}
             </section>;
           })}
+          <nav className="chat-timeline-jumps" aria-label="Navegación de conversación">
+            <button type="button" className="icon-button" aria-label="Ir al inicio de la conversación" title="Ir al inicio" disabled={!timelinePosition.canScroll || timelinePosition.atStart} onClick={() => moveTimeline('start')}>
+              <Icon name="chevronUp" size={14} />
+            </button>
+            <button type="button" className="icon-button" aria-label="Ir al final de la conversación" title="Ir al final" disabled={!timelinePosition.canScroll || timelinePosition.atEnd} onClick={() => moveTimeline('end')}>
+              <Icon name="chevronDown" size={14} />
+            </button>
+          </nav>
         </section>
 
         <footer className="chat-composer">

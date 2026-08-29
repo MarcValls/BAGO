@@ -121,6 +121,11 @@ jobs:
           npm ci
           npm run manager:test-jobs
 
+      - name: Manager smoke (dev-mode Electron)
+        working-directory: backend
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run manager:test-smoke
+
       - name: Verify build did not modify tracked source
         shell: pwsh
         run: |

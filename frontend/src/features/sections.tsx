@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type {
   BackendCommandResult,
   BackendHistory,
@@ -2312,24 +2312,46 @@ function AutoConfigCard({ client }: { client: BagoClient }) {
 function BlacklistCard({ client }: { client: BagoClient }) {
   const [data, setData] = useState<{ models: string[]; reasons: Record<string, string>; path?: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [modelToAdd, setModelToAdd] = useState('');
+  const [reasonToAdd, setReasonToAdd] = useState('');
+  const requestVersion = useRef(0);
+
+  const applyData = (payload: Record<string, unknown>) => {
+    setData({
+      models: Array.isArray(payload.models) ? payload.models.map(String) : [],
+      reasons: payload.reasons && typeof payload.reasons === 'object' && !Array.isArray(payload.reasons) ? payload.reasons as Record<string, string> : {},
+      path: typeof payload.path === 'string' ? payload.path : undefined,
+    });
+  };
 
   const refresh = async () => {
+    const version = ++requestVersion.current;
     try {
       const d = await client.getModelBlacklist();
-      setData({
-        models: Array.isArray(d.models) ? d.models.map(String) : [],
-        reasons: d.reasons && typeof d.reasons === 'object' && !Array.isArray(d.reasons) ? d.reasons as Record<string, string> : {},
-        path: typeof d.path === 'string' ? d.path : undefined
-      });
-    } catch { setData(null); }
+      if (version === requestVersion.current) applyData(d);
+    } catch {
+      if (version === requestVersion.current) setData(null);
+    }
   };
   useEffect(() => { void refresh(); }, [client]);
 
   const remove = async (model: string) => {
+    ++requestVersion.current;
     setBusy(true);
     try {
-      await client.modifyModelBlacklist({ action: 'remove', model });
-      await refresh();
+      applyData(await client.modifyModelBlacklist({ action: 'remove', model }));
+    } finally { setBusy(false); }
+  };
+
+  const add = async () => {
+    const model = modelToAdd.trim();
+    if (!model) return;
+    ++requestVersion.current;
+    setBusy(true);
+    try {
+      applyData(await client.modifyModelBlacklist({ action: 'add', model, reason: reasonToAdd.trim() }));
+      setModelToAdd('');
+      setReasonToAdd('');
     } finally { setBusy(false); }
   };
 
@@ -2347,6 +2369,19 @@ function BlacklistCard({ client }: { client: BagoClient }) {
           </button>
         </div>
       </div>
+      <form className="blacklist-add-form" onSubmit={(event) => { event.preventDefault(); void add(); }}>
+        <label className="blacklist-add-field">
+          <span>Modelo</span>
+          <input aria-label="Modelo para blacklist" value={modelToAdd} onChange={(event) => setModelToAdd(event.target.value)} placeholder="provider/model" disabled={busy} />
+        </label>
+        <label className="blacklist-add-field">
+          <span>Motivo</span>
+          <input aria-label="Motivo de blacklist" value={reasonToAdd} onChange={(event) => setReasonToAdd(event.target.value)} placeholder="Motivo opcional" disabled={busy} />
+        </label>
+        <button className="primary-button compact" type="submit" disabled={busy || !modelToAdd.trim()}>
+          <Icon name="plus" size={14} /> Añadir
+        </button>
+      </form>
       {data && data.models.length > 0 && (
         <ul className="blacklist-list">
           {data.models.map((model) => (
@@ -2361,7 +2396,7 @@ function BlacklistCard({ client }: { client: BagoClient }) {
         </ul>
       )}
       {data && data.models.length === 0 && (
-        <p className="blacklist-empty">Blacklist vacía. Añade modelos con `POST /providers/blacklist {`{action:"add", model:"x", reason:"y"}`}`.</p>
+        <p className="blacklist-empty">Blacklist vacía.</p>
       )}
     </article>
   );

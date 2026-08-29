@@ -8,9 +8,24 @@ from pathlib import Path
 from bago_core.operational_integrity import CandidateIdentity
 
 
+def _safe_directory_args(repo: Path) -> list[str]:
+    resolved = repo.resolve()
+    safe_dirs = [resolved]
+    for candidate in (resolved, *resolved.parents):
+        if (candidate / ".git").exists():
+            if candidate not in safe_dirs:
+                safe_dirs.append(candidate)
+            break
+    return [
+        item
+        for safe_dir in safe_dirs
+        for item in ("-c", f"safe.directory={safe_dir.as_posix()}")
+    ]
+
+
 def git(repo: Path, *args: str, allow_empty: bool = False) -> str:
     result = subprocess.run(
-        ["git", "-c", f"safe.directory={repo.resolve().as_posix()}", *args],
+        ["git", *_safe_directory_args(repo), *args],
         cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if result.returncode != 0 and not allow_empty:

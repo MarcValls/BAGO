@@ -19,6 +19,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SESSION_PATTERNS = ("pi-session-", "session-export", "session_export")
 SOURCE_AUDIT_SHA256 = "8f92998edbc7f815450aa246197a0b16ee68be6af27006cc9d523b762da3764d"
+RECOVERED_DIRTY_BOUNDARY_SHA256 = "943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79"
+RECOVERED_DIRTY_BOUNDARY_PATCH = ROOT / ".bago" / "audits" / "recovered-dirty-boundary-20260824.patch"
+RECOVERED_DIRTY_BOUNDARY_PROVENANCE = ROOT / ".bago" / "audits" / "recovered-dirty-boundary-20260824.json"
+RECOVERED_DIRTY_BOUNDARY_LF = "recovered-dirty-boundary.lf.patch"
 REQUIRED_GATES = (
     "focused-remediation",
     "backend-full",
@@ -190,6 +194,39 @@ def ingest_source_audit(source_zip: Path, destination: Path, bago_baseline: str)
     return provenance
 
 
+def ingest_recovered_dirty_boundary(destination: Path, bago_baseline: str) -> dict:
+    if not RECOVERED_DIRTY_BOUNDARY_PATCH.is_file():
+        raise RuntimeError(f"recovered dirty boundary missing: {RECOVERED_DIRTY_BOUNDARY_PATCH}")
+    if not RECOVERED_DIRTY_BOUNDARY_PROVENANCE.is_file():
+        raise RuntimeError(f"recovered dirty boundary provenance missing: {RECOVERED_DIRTY_BOUNDARY_PROVENANCE}")
+    patch = RECOVERED_DIRTY_BOUNDARY_PATCH.read_bytes()
+    digest = sha_bytes(patch)
+    if digest != RECOVERED_DIRTY_BOUNDARY_SHA256:
+        raise RuntimeError(f"recovered dirty boundary SHA mismatch: {digest}")
+    provenance = json.loads(RECOVERED_DIRTY_BOUNDARY_PROVENANCE.read_text(encoding="utf-8"))
+    if provenance.get("contract") != "bago.recovered-dirty-boundary.v1":
+        raise RuntimeError("recovered dirty boundary provenance has invalid contract")
+    if provenance.get("status") != "VERIFIED":
+        raise RuntimeError("recovered dirty boundary provenance is not VERIFIED")
+    if provenance.get("recorded_sha256") != RECOVERED_DIRTY_BOUNDARY_SHA256:
+        raise RuntimeError("recovered dirty boundary recorded hash mismatch")
+    if provenance.get("recovered_patch_sha256") != RECOVERED_DIRTY_BOUNDARY_SHA256:
+        raise RuntimeError("recovered dirty boundary provenance hash mismatch")
+    if provenance.get("line_endings") != "crlf":
+        raise RuntimeError("recovered dirty boundary line-ending identity mismatch")
+    normalized = patch.replace(b"\r\n", b"\n")
+    if provenance.get("normalized_lf_sha256") != sha_bytes(normalized):
+        raise RuntimeError("recovered dirty boundary normalized hash mismatch")
+    if provenance.get("normalized_lf_apply_check") != "PASS":
+        raise RuntimeError("recovered dirty boundary normalized apply check missing")
+    validate_patch(ROOT, bago_baseline, normalized)
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(RECOVERED_DIRTY_BOUNDARY_PATCH, destination / "recovered-dirty-boundary.patch")
+    shutil.copy2(RECOVERED_DIRTY_BOUNDARY_PROVENANCE, destination / "recovered-dirty-boundary.json")
+    (destination / RECOVERED_DIRTY_BOUNDARY_LF).write_bytes(normalized)
+    return provenance
+
+
 def build(
     output: Path,
     gestor: Path,
@@ -206,6 +243,7 @@ def build(
         audit.mkdir()
         if source_audit is not None:
             ingest_source_audit(source_audit, audit / "source-audit", bago_baseline)
+        recovered_dirty_boundary = ingest_recovered_dirty_boundary(audit, bago_baseline)
 
         repositories = (
             ("bago", ROOT, bago_baseline),
@@ -239,12 +277,21 @@ def build(
             "contract": "bago.third-party-remediation.v1",
             "findings": [f"BAGO-AUD-{index:03d}" for index in range(1, 11)],
             "session_exports": "excluded",
-            "patch_validation": "git apply --check PASS for both baselines",
+            "patch_validation": "git apply --check PASS for both baselines and the LF-normalized recovered dirty boundary",
             "candidate_ref": candidate_ref,
             "required_gates": list(REQUIRED_GATES),
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "known_limitations": [
-                "Initial dirty remediation boundary hash 943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79 has no retained patch bytes; exact attribution is UNRESOLVED."
+            "known_limitations": [],
+            "resolved_limitations": [
+                {
+                    "id": "initial_dirty_remediation_boundary",
+                    "state": "RESOLVED",
+                    "patch": "audit/recovered-dirty-boundary.patch",
+                    "normalized_patch": f"audit/{RECOVERED_DIRTY_BOUNDARY_LF}",
+                    "provenance": "audit/recovered-dirty-boundary.json",
+                    "sha256": recovered_dirty_boundary["recovered_patch_sha256"],
+                    "normalized_sha256": recovered_dirty_boundary["normalized_lf_sha256"],
+                }
             ],
         }
         (audit / "bundle-contract.json").write_text(json.dumps(package_meta, indent=2) + "\n", encoding="utf-8", newline="\n")

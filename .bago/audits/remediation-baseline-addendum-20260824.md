@@ -13,3 +13,10 @@ Consequently, strict attribution between those pre-existing edits and later
 remediation edits remains `UNRESOLVED`. This limitation must be carried into
 every handoff/package and blocks global `VALIDATED`; it must never be replaced
 by a reconstructed or inferred patch presented as the original.
+
+## Superseding recovery
+
+As of 2026-08-28, `remediation-baseline-recovery-20260828.md` resolves the
+active closure blocker by retaining a recovered CRLF patch whose SHA-256 exactly
+matches the recorded dirty-boundary hash. This addendum remains historical
+evidence for the capture-time gap; it is no longer the current closure state.

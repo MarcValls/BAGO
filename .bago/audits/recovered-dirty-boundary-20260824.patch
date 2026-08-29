@@ -1,0 +1,295 @@
+diff --git a/backend/.bago/api/handlers_jobs.py b/backend/.bago/api/handlers_jobs.py
+index e611af21..6abb0230 100644
+--- a/backend/.bago/api/handlers_jobs.py
++++ b/backend/.bago/api/handlers_jobs.py
+@@ -382,13 +382,19 @@ def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body:
+         "plan_id": plan_id,
+         "ok": result["ok"],
+         "completed": result["completed"],
+-        "failed": result["failed"]
++        "failed": result["failed"],
++        "executed": result.get("executed", result["completed"]),
++        "informational": result.get("informational", 0),
+     })
+     send_json(handler, 200, {
+         "ok": result["ok"],
+         "plan_id": plan_id,
+         "completed": result["completed"],
+         "failed": result["failed"],
++        "executed": result.get("executed", result["completed"]),
++        "informational": result.get("informational", 0),
++        "status": result.get("status", plan.status),
++        "error": result.get("error", ""),
+         "results": result["results"]
+     })
+ 
+diff --git a/backend/.bago/core/config_manager.py b/backend/.bago/core/config_manager.py
+index dfa734ce..19927ecc 100644
+--- a/backend/.bago/core/config_manager.py
++++ b/backend/.bago/core/config_manager.py
+@@ -100,6 +100,10 @@ class ConfigManager:
+ 
+     def __init__(self, base_path: str | None = None, state_root: str | None = None):
+         self.base_path = Path(base_path or os.getcwd())
++        # An explicit state root is an isolation boundary. Do not let a
++        # caller asking for a temporary/test state accidentally inherit a
++        # user's global config through state_read_candidates().
++        self._explicit_state_root = bool(str(state_root or "").strip())
+         self.config_dir = resolve_state_root(state_root)
+         self.config_dir.mkdir(parents=True, exist_ok=True)
+         self.config_path = self.config_dir / "config.json"
+@@ -109,7 +113,8 @@ class ConfigManager:
+ 
+     def _load(self) -> None:
+         source_path = None
+-        for path in state_read_candidates("config.json"):
++        candidates = (self.config_path,) if self._explicit_state_root else state_read_candidates("config.json")
++        for path in candidates:
+             if path.exists():
+                 source_path = path
+                 break
+diff --git a/backend/.bago/core/plan_engine.py b/backend/.bago/core/plan_engine.py
+index 8ba346ae..fddb617c 100644
+--- a/backend/.bago/core/plan_engine.py
++++ b/backend/.bago/core/plan_engine.py
+@@ -329,11 +329,17 @@ class PlanEngine:
+         if step.status not in ("pending",):
+             return {"ok": False, "error": f"step no pendiente: {step.status}"}
+         if not step.action:
+-            # Paso informativo: no se ejecuta, se marca como done sin evidencia.
+-            # Para mantener la invariante 'done requiere evidencia', se marca
+-            # como 'done' con un evidence vacío de tipo 'informational'.
+-            self.mark_step(step, "done", result="paso informativo (sin acción automática)", evidence=("informational",))
+-            return {"ok": True, "result": "informational", "error": ""}
++            # Un paso informativo no es una ejecución. Mantenerlo pendiente
++            # evita que una confirmación de plan produzca un falso éxito.
++            # El ejecutor de planes lo contabiliza aparte y puede continuar
++            # buscando pasos materiales, pero nunca lo cuenta como completado.
++            return {
++                "ok": False,
++                "executed": False,
++                "informational": True,
++                "result": "paso informativo (sin acción ejecutable)",
++                "error": "no_executable_action",
++            }
+         if self._executor is None:
+             self.mark_step(step, "blocked", result="no hay executor configurado", evidence=("blocked",), block_reason="executor_missing", block_code="no_executor")
+             return {"ok": False, "error": "executor no configurado"}
+@@ -347,7 +353,7 @@ class PlanEngine:
+ 
+         if ok:
+             self.mark_step(step, "done", result=str(result)[:500], evidence=("executed",))
+-            return {"ok": True, "result": result, "error": ""}
++            return {"ok": True, "executed": True, "result": result, "error": ""}
+         self.mark_step(step, "failed", result=str(error)[:500], evidence=("failed",))
+         return {"ok": False, "result": result, "error": error}
+ 
+@@ -370,24 +376,64 @@ class PlanEngine:
+         results = []
+         completed = 0
+         failed = 0
++        informational = 0
++        executed = 0
+         for step in plan.steps:
+             # Saltar steps ya done (idempotencia en re-ejecución)
+             if step.status == "done":
++                # Compatibilidad segura con planes antiguos que marcaron
++                # pasos informativos como done usando evidencia
++                # ``informational``. Nunca convertir ese legado en ejecución.
++                if not step.action or "informational" in step.evidence:
++                    informational += 1
++                    results.append({
++                        "number": step.number,
++                        "ok": True,
++                        "executed": False,
++                        "informational": True,
++                        "result": step.result or "paso informativo (sin acción ejecutable)",
++                        "error": "no_executable_action",
++                    })
++                    continue
+                 completed += 1
+-                results.append({"number": step.number, "ok": True, "result": step.result, "error": ""})
++                executed += 1
++                results.append({"number": step.number, "ok": True, "executed": True, "result": step.result, "error": ""})
+                 continue
+             r = self.execute_step(step)
+-            results.append({"number": step.number, "ok": r["ok"], "result": r.get("result", ""), "error": r.get("error", "")})
++            if r.get("informational"):
++                informational += 1
++                results.append({
++                    "number": step.number,
++                    "ok": True,
++                    "executed": False,
++                    "informational": True,
++                    "result": r.get("result", ""),
++                    "error": r.get("error", ""),
++                })
++                continue
++            results.append({
++                "number": step.number,
++                "ok": r["ok"],
++                "executed": bool(r.get("executed")),
++                "result": r.get("result", ""),
++                "error": r.get("error", ""),
++            })
+             if r["ok"]:
+                 completed += 1
++                executed += 1
+             else:
+                 failed += 1
+                 if stop_on_failure:
+                     break
+         return {
+-            "ok": failed == 0,
++            # A plan with no executable actions is prepared, not executed.
++            "ok": failed == 0 and executed > 0,
+             "completed": completed,
+             "failed": failed,
++            "executed": executed,
++            "informational": informational,
++            "status": plan.status,
++            "error": "no_executable_actions" if executed == 0 and failed == 0 else "",
+             "results": results
+         }
+ 
+diff --git a/backend/.bago/core/session_turn_mixin.py b/backend/.bago/core/session_turn_mixin.py
+index d22f9dca..6ec5f373 100644
+--- a/backend/.bago/core/session_turn_mixin.py
++++ b/backend/.bago/core/session_turn_mixin.py
+@@ -233,6 +233,33 @@ class SessionTurnMixin:
+     def _needs_task_response_contract(self, intent: str) -> bool:
+         return intent in TASK_INTENTS
+ 
++    def _capture_conversational_goal(self, user_message: str, intent: str) -> bool:
++        """Capture the first substantive work request as the session goal.
++
++        The goal is session-scoped context, not a second form the user must
++        fill in.  Only affirmative work/execute turns seed it; short replies
++        such as ``sí`` or ``continúa`` therefore keep the existing objective.
++        An explicit goal already set by the user always wins.
++        """
++        if intent not in {"work", "execute"}:
++            return False
++        goal = str(getattr(self, "persistent_goal", "") or "").strip()
++        candidate = " ".join(str(user_message or "").split()).strip()
++        if goal or len(candidate) < 12:
++            return False
++        setter = getattr(self, "set_goal", None)
++        if not callable(setter):
++            return False
++        setter(candidate[:2000])
++        store = getattr(self, "store", None)
++        if store is not None and hasattr(store, "update_meta"):
++            try:
++                store.update_meta({"persistent_goal": candidate[:2000]})
++            except Exception:
++                # Goal capture must never make a chat turn fail.
++                pass
++        return True
++
+     def _task_response_contract_block(self, intent: str, user_message: str) -> str:
+         return task_response_guidance(intent, user_message=user_message) if self._needs_task_response_contract(intent) else ""
+ 
+@@ -501,6 +528,7 @@ class SessionTurnMixin:
+         normalized.append({"role": "user", "content": user_message})
+ 
+         intent = "chat" if workspace_question else classify_intent(user_message)
++        self._capture_conversational_goal(user_message, intent)
+         _is_file_write_request = _is_file_creation_request(user_message)
+         try:
+             reflexive_analysis = self.analyze_reflexive_turn(user_message)
+@@ -1052,6 +1080,7 @@ class SessionTurnMixin:
+ 
+         adapter = self._ensure_adapter()
+         intent = "chat" if route_info.get("kind") == "workspace_question" else classify_intent(user_message)
++        self._capture_conversational_goal(user_message, intent)
+         try:
+             reflexive_analysis = self.analyze_reflexive_turn(user_message)
+         except Exception as exc:
+diff --git a/backend/tests/integrations/pi/test_negatives.py b/backend/tests/integrations/pi/test_negatives.py
+index 9256c347..0e0f48de 100644
+--- a/backend/tests/integrations/pi/test_negatives.py
++++ b/backend/tests/integrations/pi/test_negatives.py
+@@ -8,6 +8,7 @@ from __future__ import annotations
+ import json
+ import os
+ import sys
++import tempfile
+ import time
+ from datetime import datetime, timezone, timedelta
+ from pathlib import Path
+@@ -49,6 +50,11 @@ from integrations.pi.scope_validator import assert_within_scope, deny_implicit_p
+ 
+ # ── Helpers ────────────────────────────────────────────────────────────────
+ 
++# The repository itself contains trusted development sources such as
++# ``.agents``. Preflight must reject those in a real workspace, so fixtures
++# use an isolated scope rather than the checkout root.
++_TEST_SCOPE = Path(tempfile.mkdtemp(prefix="bago-pi-scope-"))
++
+ 
+ def _valid_request(
+     *,
+@@ -68,9 +74,9 @@ def _valid_request(
+         "session_id": "sess-1",
+         "session_revision": "rev-1",
+         "workspace_id": "ws-1",
+-        "project_root": str(Path.cwd()),
+-        "workspace_root": str(Path.cwd()),
+-        "workspace_scope_root": str(Path.cwd()),
++        "project_root": str(_TEST_SCOPE),
++        "workspace_root": str(_TEST_SCOPE),
++        "workspace_scope_root": str(_TEST_SCOPE),
+         "context_envelope_id": "env-1",
+         "context_envelope_digest": "env-1",
+         "policy_profile": "disabled",
+diff --git a/backend/tests/test_plan_engine_contract.py b/backend/tests/test_plan_engine_contract.py
+index d3575b59..413987db 100644
+--- a/backend/tests/test_plan_engine_contract.py
++++ b/backend/tests/test_plan_engine_contract.py
+@@ -53,3 +53,45 @@ def test_plan_step_parser_handles_repeated_prefixes_linearly():
+ 
+     assert len(steps) == 1
+     assert steps[0].description.endswith("terminar comprobacion")
++
++
++def test_informational_plan_never_reports_execution_success():
++    from plan_engine import PlanEngine
++
++    engine = PlanEngine()
++    plan = engine.create_plan_with_actions(
++        "Crear una aplicación",
++        "1. Definir los datos\n2. Diseñar la interfaz\n3. Revisar el resultado",
++    )
++
++    result = engine.execute_plan(plan)
++
++    assert result["ok"] is False
++    assert result["executed"] == 0
++    assert result["completed"] == 0
++    assert result["failed"] == 0
++    assert result["informational"] == 3
++    assert result["error"] == "no_executable_actions"
++    assert plan.status == "pending"
++    assert all(step.status == "pending" for step in plan.steps)
++    assert all(item["executed"] is False for item in result["results"])
++
++
++def test_mixed_plan_counts_only_material_actions_as_completed():
++    from plan_engine import PlanEngine
++
++    engine = PlanEngine()
++    plan = engine.create_plan_with_actions(
++        "Preparar y verificar un archivo",
++        "1. Revisar el objetivo\n2. Ejecutar echo verificado",
++    )
++    engine.set_executor(lambda action, payload, step: (True, "verificado", ""))
++
++    result = engine.execute_plan(plan)
++
++    assert result["ok"] is True
++    assert result["executed"] == 1
++    assert result["completed"] == 1
++    assert result["informational"] == 1
++    assert plan.steps[0].status == "pending"
++    assert plan.steps[1].status == "done"
