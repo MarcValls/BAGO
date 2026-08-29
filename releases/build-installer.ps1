@@ -85,6 +85,9 @@ Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $runtimeDir "electr
 Write-Host "[3b/5] Comprimiendo payload offline..."
 if (Test-Path -LiteralPath $zipFile) { Remove-Item -LiteralPath $zipFile -Force }
 Add-ZipContents -ZipPath $zipFile -SourceDir $runtimeDir
+$zipHash = (Get-FileHash -LiteralPath $zipFile -Algorithm SHA256).Hash
+$zipHashLine = "$zipHash  $([System.IO.Path]::GetFileName($zipFile))"
+Set-Content -LiteralPath "$zipFile.sha256" -Value $zipHashLine -Encoding ASCII
 
 Write-Host "[4/5] Validando payload..."
 & (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version

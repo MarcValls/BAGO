@@ -92,6 +92,8 @@ jobs:
 
           Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $dst -Force
+          $hash = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
+          Set-Content -LiteralPath "$dst.sha256" -Value "$hash  $([System.IO.Path]::GetFileName($dst))" -Encoding ascii
 
           $dist = Get-Item -LiteralPath $dst
           # Compressed payload must contain both slices; ~80 MB is a safe floor for backend + Electron viewer.

@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = ROOT / "releases" / "install-embedded-payload.ps1"
+NSIS = ROOT / "releases" / "bago-installer.nsi"
+BUILDER = ROOT / "releases" / "build-installer.ps1"
 
 
 def _payload(path: Path, *, complete: bool) -> Path:
@@ -100,3 +102,13 @@ def test_resume_rolls_back_unfinalized_replacement_before_retry(tmp_path: Path) 
     assert result.returncode == 0, result.stderr
     assert (rollback / "original.txt").read_text(encoding="utf-8") == "recover-me"
     assert (target / "electron-viewer" / "BAGO.exe").read_bytes() == b"MZ-test"
+
+
+def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:
+    """The embedded installer must satisfy the payload script's mandatory hash input."""
+    nsi = NSIS.read_text(encoding="utf-8")
+    builder = BUILDER.read_text(encoding="utf-8")
+
+    assert 'File /oname=bago-${APP_VERSION}-distribution.zip.sha256 "${DISTRIBUTION_ZIP_FILE}.sha256"' in nsi
+    assert '-Sha256Path "$PLUGINSDIR\\bago-${APP_VERSION}-distribution.zip.sha256"' in nsi
+    assert 'Set-Content -LiteralPath "$zipFile.sha256"' in builder
