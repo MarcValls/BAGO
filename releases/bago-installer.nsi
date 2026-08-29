@@ -50,10 +50,11 @@ Section "BAGO Core" SecCore
   DetailPrint "Extrayendo payload offline..."
   SetOutPath "$PLUGINSDIR"
   File /oname=bago-${APP_VERSION}-distribution.zip "${DISTRIBUTION_ZIP_FILE}"
+  File /oname=bago-${APP_VERSION}-distribution.zip.sha256 "${DISTRIBUTION_ZIP_FILE}.sha256"
   File /oname=install-embedded-payload.ps1 "install-embedded-payload.ps1"
 
   DetailPrint "Instalando BAGO ${APP_VERSION} desde payload embebido..."
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -ZipPath "$PLUGINSDIR\bago-${APP_VERSION}-distribution.zip"' $0
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -ZipPath "$PLUGINSDIR\bago-${APP_VERSION}-distribution.zip" -Sha256Path "$PLUGINSDIR\bago-${APP_VERSION}-distribution.zip.sha256"' $0
 
   ${If} $0 != 0
     IfSilent +2
