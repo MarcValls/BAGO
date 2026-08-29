@@ -3,8 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from handlers_router import restore_session_model, restore_session_reasoning
-from handlers_router import handle_auto
+from handlers_router import (
+    handle_auto,
+    handle_session_model,
+    handle_session_model_get,
+    restore_session_model,
+    restore_session_reasoning,
+)
 
 
 class FakeManager:
@@ -96,6 +101,55 @@ def test_restore_session_model_reapplies_persisted_provider_and_model(tmp_path: 
     assert report["restored"] is True
     assert manager.switches == [("copilot", "gpt-5.4-mini", True)]
     assert (manager.provider, manager.model) == ("copilot", "gpt-5.4-mini")
+
+
+def test_session_model_post_get_and_clear_round_trip(tmp_path: Path, monkeypatch):
+    manager = FakeManager(tmp_path)
+    handler = FakeHandler(tmp_path, manager)
+    monkeypatch.setattr("handlers_router._state_root", lambda _handler: tmp_path)
+    monkeypatch.setattr("api_serializers.send_json", _send_json)
+    monkeypatch.setattr("event_bus.emit", lambda *_args, **_kwargs: None)
+
+    handle_session_model(handler, {"model": "copilot/gpt-5.4-mini"})
+
+    assert handler.response == (200, {
+        "ok": True,
+        "session_model": "copilot/gpt-5.4-mini",
+        "effective_provider": "copilot",
+        "effective_model": "gpt-5.4-mini",
+    })
+    assert json.loads((tmp_path / ".bago_session_model.json").read_text(encoding="utf-8")) == {
+        "model": "copilot/gpt-5.4-mini",
+        "automatic_provider": "ollama-local",
+        "automatic_model": "llama3.2:3b",
+    }
+
+    handle_session_model_get(handler)
+
+    assert handler.response is not None
+    assert handler.response[0] == 200
+    assert handler.response[1]["session_model"] == "copilot/gpt-5.4-mini"
+    assert handler.response[1]["effective_provider"] == "copilot"
+    assert handler.response[1]["effective_model"] == "gpt-5.4-mini"
+
+    handle_session_model(handler, {"model": None})
+    assert handler.response == (200, {
+        "ok": True,
+        "session_model": None,
+        "cleared": True,
+        "effective_provider": "ollama-local",
+        "effective_model": "llama3.2:3b",
+    })
+    assert manager.switches[-1] == ("ollama-local", "llama3.2:3b", True)
+    assert not (tmp_path / ".bago_session_model.json").exists()
+
+    handle_session_model_get(handler)
+    assert handler.response == (200, {
+        "ok": True,
+        "session_model": None,
+        "effective_provider": "ollama-local",
+        "effective_model": "llama3.2:3b",
+    })
 
 
 def test_restore_session_reasoning_reapplies_persisted_depth(tmp_path: Path):

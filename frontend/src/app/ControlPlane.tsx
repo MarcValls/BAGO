@@ -1337,10 +1337,15 @@ export function ControlPlane() {
       || ''
     ).trim();
     if (!conversationId) throw new Error('El backend no confirmó la nueva conversación.');
-    replaceConversationState(created);
     const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
-    if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+    if (root) {
+      const scoped = await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+      if (scoped.ok === false || String(scoped.conversation_id || '') !== conversationId) {
+        throw new Error('El backend no confirmó el alcance del workspace para el chat nuevo.');
+      }
+    }
     await refreshAfterMutation();
+    replaceConversationState(created);
     setLastMessage('nuevo chat creado');
     window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
   };

@@ -19,7 +19,8 @@
 
 ### Remediación
 - Cierre declarado `EXECUTED` (ver `.bago/context/PROJECT_CONTEXT.md` + `.bago/audits/remediation-closure-contract-20260824.md` + `remediation-handoff-20260824.md`)
-- Conflictos abiertos documentados (atribución inicial de baseline solo SHA-256 del diff dirty) que bloquean la promoción a `VERIFIED`/`VALIDATED` hasta regenerar los gates crudos y el bundle de evidencia
+- La atribución inicial del baseline dirty fue recuperada: `.bago/audits/recovered-dirty-boundary-20260824.patch` conserva el patch CRLF con SHA-256 `943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79`, y su forma LF normalizada aplica contra el baseline archivado
+- La promoción a `VERIFIED`/`VALIDATED` sigue dependiendo de gates crudos, bundle reproducible e identidad de candidato coherente
 
 > Estado `EXECUTED` no equivale a `VERIFIED` ni `VALIDATED`. No afirmar promoción sin bundle reproducible.
 

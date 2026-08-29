@@ -6,6 +6,7 @@ const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([di
 interface Options {
   closeDisabled?: boolean;
   initialFocusSelector?: string;
+  returnFocusSelector?: string;
 }
 
 export function useDialogAccessibility<T extends HTMLElement>(
@@ -17,9 +18,11 @@ export function useDialogAccessibility<T extends HTMLElement>(
   const closeRef = useRef(onClose);
   const closeDisabledRef = useRef(Boolean(options.closeDisabled));
   const initialFocusSelectorRef = useRef(options.initialFocusSelector || '[data-autofocus]');
+  const returnFocusSelectorRef = useRef(options.returnFocusSelector || '');
   closeRef.current = onClose;
   closeDisabledRef.current = Boolean(options.closeDisabled);
   initialFocusSelectorRef.current = options.initialFocusSelector || '[data-autofocus]';
+  returnFocusSelectorRef.current = options.returnFocusSelector || '';
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +68,17 @@ export function useDialogAccessibility<T extends HTMLElement>(
       window.removeEventListener('keydown', onKeyDown);
       const index = dialogStack.lastIndexOf(id);
       if (index >= 0) dialogStack.splice(index, 1);
-      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+      const restoreFocus = () => {
+        const previousIsUsable = previouslyFocused?.isConnected
+          && previouslyFocused !== document.body
+          && !ref.current?.contains(previouslyFocused);
+        const fallback = returnFocusSelectorRef.current
+          ? document.querySelector<HTMLElement>(returnFocusSelectorRef.current)
+          : null;
+        (previousIsUsable ? previouslyFocused : fallback)?.focus();
+      };
+      restoreFocus();
+      window.setTimeout(restoreFocus, 0);
     };
   }, [open]);
 

@@ -16,6 +16,7 @@
     "manager:pack": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --dir",
     "manager:dist": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --win nsis",
     "manager:test-jobs": "node tests/test_release_job_manager.cjs",
+    "manager:test-smoke": "node tests/test_manager_electron_smoke.cjs",
     "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
   },
   "build": {

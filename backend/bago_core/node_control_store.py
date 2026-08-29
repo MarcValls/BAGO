@@ -51,7 +51,7 @@ def jsonl_append(path: Path, payload: dict[str, Any]) -> None:
         fh.write("\n")
 
 def registry_paths(base_path: str | Path) -> RegistryPaths:
-    root = state_root() / "node_control"
+    root = Path(base_path).resolve() / ".bago" / "node_control"
     return RegistryPaths(
         root=root,
         installations=root / "installations.json",

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { BagoAction } from '@/navigation/actionRegistry';
+import { useDialogAccessibility } from '@/lib/useDialogAccessibility';
 import { Icon } from '@/shared/Icon';
 
 export function filterPaletteActions(actions: BagoAction[], query: string): BagoAction[] {
@@ -61,22 +62,18 @@ export function HelpOverlay({ onClose, onOpenFirstRun }: { onClose: () => void; 
 
 export function CommandPalette({ actions, onClose }: { actions: BagoAction[]; onClose: () => void }) {
   const [query, setQuery] = useState('');
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(true, onClose, {
+    initialFocusSelector: 'input',
+    returnFocusSelector: '.main-sidebar .sidebar-item[aria-current="page"]',
+  });
   const filtered = filterPaletteActions(actions, query);
 
-  useEffect(() => {
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return (
-    <div className="command-palette-backdrop" role="dialog" aria-modal="true" aria-label="Comandos rápidos">
+    <div ref={dialogRef} className="command-palette-backdrop" role="dialog" aria-modal="true" aria-label="Comandos rápidos" tabIndex={-1}>
       <div className="command-palette">
         <div className="command-palette-search">
           <span>/</span>
-          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
           <kbd>Esc</kbd>
         </div>
         <div className="command-palette-list">

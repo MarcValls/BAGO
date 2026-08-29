@@ -72,6 +72,10 @@
 *.dylib    -text
 *.bin      -text
 
+# Preserve recovered audit evidence byte-for-byte. This patch intentionally
+# uses CRLF because that is the recorded baseline hash input.
+.bago/audits/recovered-dirty-boundary-20260824.patch -text -diff
+
 # Keep BAGO core context patterns and evidence docs as LF.
 backend/.bago/core/context_patterns/** text eol=lf
 backend/docs/evidence/** text eol=lf

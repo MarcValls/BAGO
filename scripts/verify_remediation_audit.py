@@ -20,6 +20,7 @@ from typing import Any
 
 MANIFEST = "MANIFEST.sha256.json"
 SESSION_PATTERNS = ("pi-session-", "session-export", "session_export")
+RECOVERED_DIRTY_BOUNDARY_SHA256 = "943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79"
 
 
 def sha_bytes(data: bytes) -> str:
@@ -153,6 +154,34 @@ def verify_gate_receipts(files: dict[str, bytes], provenance: dict[str, dict[str
     return validated
 
 
+def verify_recovered_dirty_boundary(files: dict[str, bytes]) -> dict[str, Any]:
+    patch_name = "audit/recovered-dirty-boundary.patch"
+    normalized_name = "audit/recovered-dirty-boundary.lf.patch"
+    provenance_name = "audit/recovered-dirty-boundary.json"
+    patch = files[patch_name]
+    normalized = files[normalized_name]
+    if sha_bytes(patch) != RECOVERED_DIRTY_BOUNDARY_SHA256:
+        raise ValueError("recovered dirty boundary patch hash mismatch")
+    provenance = load_json(files[provenance_name], provenance_name)
+    if provenance.get("contract") != "bago.recovered-dirty-boundary.v1":
+        raise ValueError("invalid recovered dirty boundary contract")
+    if provenance.get("status") != "VERIFIED":
+        raise ValueError("recovered dirty boundary is not VERIFIED")
+    if provenance.get("recorded_sha256") != RECOVERED_DIRTY_BOUNDARY_SHA256:
+        raise ValueError("recovered dirty boundary recorded hash mismatch")
+    if provenance.get("recovered_patch_sha256") != RECOVERED_DIRTY_BOUNDARY_SHA256:
+        raise ValueError("recovered dirty boundary provenance hash mismatch")
+    if provenance.get("line_endings") != "crlf":
+        raise ValueError("recovered dirty boundary line-ending identity mismatch")
+    if normalized != patch.replace(b"\r\n", b"\n"):
+        raise ValueError("recovered dirty boundary normalized patch mismatch")
+    if provenance.get("normalized_lf_sha256") != sha_bytes(normalized):
+        raise ValueError("recovered dirty boundary normalized hash mismatch")
+    if provenance.get("normalized_lf_apply_check") != "PASS":
+        raise ValueError("recovered dirty boundary normalized apply check missing")
+    return provenance
+
+
 def apply_patch(baseline: Path, patch: Path) -> None:
     result = subprocess.run(["git", "apply", "--check", str(patch)], cwd=baseline, capture_output=True)
     if result.returncode != 0:
@@ -167,6 +196,7 @@ def verify_patches(package: Path) -> list[str]:
             archive.extractall(target)
         pairs = (
             ("bago-baseline-git", "audit/bago-git-diff.patch"),
+            ("bago-baseline-git", "audit/recovered-dirty-boundary.lf.patch"),
             ("gestor-baseline-git", "audit/gestor-git-diff.patch"),
             ("bago-baseline-git", "audit/source-audit/original-git-diff.lf.patch"),
         )
@@ -181,6 +211,7 @@ def verify(package: Path) -> dict[str, Any]:
     with zipfile.ZipFile(package) as archive:
         files = verify_manifest(archive)
     provenance = verify_provenance(files)
+    dirty_boundary = verify_recovered_dirty_boundary(files)
     gates = verify_gate_receipts(files, provenance)
     patches = verify_patches(package)
     return {
@@ -191,6 +222,10 @@ def verify(package: Path) -> dict[str, Any]:
         "manifest_entries": len(files),
         "gates": gates,
         "patches": patches,
+        "recovered_dirty_boundary": {
+            "sha256": dirty_boundary["recovered_patch_sha256"],
+            "status": dirty_boundary["status"],
+        },
         "session_exports": "excluded",
         "result": "PASS",
     }

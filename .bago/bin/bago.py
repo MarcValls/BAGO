@@ -200,6 +200,18 @@ def cmd_state(args: argparse.Namespace) -> int:
         )
         return 2
     fp = _git_fingerprint()
+    previous_fingerprint = state.get("fingerprint")
+    if (
+        isinstance(previous_fingerprint, dict)
+        and previous_fingerprint.get("commit")
+        and previous_fingerprint.get("commit") != fp.get("commit")
+    ):
+        previous_verification = state.pop("last_verification", None)
+        if isinstance(previous_verification, dict):
+            history = state.setdefault("history", {})
+            continuity = history.setdefault("continuity", {})
+            continuity["last_verification"] = previous_verification
+            continuity["superseded_by"] = fp.get("commit")
     state["status"] = requested
     state["note"] = args.note
     state["updated_at"] = _iso_now()

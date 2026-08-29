@@ -32,6 +32,22 @@
 .brief-history button span { color: var(--accent); font-size: 9px; text-transform: uppercase; }
 .brief-history button p { margin: 5px 0 0; font-size: 10px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .chat-timeline { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 8px 14px; scrollbar-color: var(--border-strong) transparent; scroll-padding-bottom: 14px; }
+.chat-timeline-jumps {
+  position: sticky;
+  bottom: 8px;
+  display: flex;
+  width: max-content;
+  gap: 2px;
+  margin: 10px 0 0 auto;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
+}
+.chat-timeline-jumps .icon-button { width: 25px; height: 25px; }
+.chat-timeline-jumps .icon-button:disabled { opacity: .35; cursor: default; }
 .chat-empty { min-height: 340px; display: grid; place-items: center; align-content: center; text-align: center; }
 .chat-empty-icon { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 17px; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(103,136,247,.18); }
 .chat-empty h3 { margin: 16px 0 7px; font-size: 18px; }

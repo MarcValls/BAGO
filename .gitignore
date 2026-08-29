@@ -95,3 +95,8 @@ accounts.json
 .impeccable/hook.cache.*
 
 /ui-react/
+
+# BAGO runtime transient artifacts
+/.bago/tmp/
+/.bago/audits/electron-closure/
+/backend/.bago/node_control/

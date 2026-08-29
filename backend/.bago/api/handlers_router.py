@@ -296,18 +296,57 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
     override_path = _override_path(state)
 
+    mgr = getattr(handler, "session_mgr", None)
+
     if model_key is None or model_key == "":
-        # Clear override
+        # Clearing a manual override must restore the effective automatic
+        # adapter before removing persistence. Otherwise the UI says
+        # "Automático" while the previous manual adapter remains live.
+        persisted: dict = {}
+        if override_path.exists():
+            try:
+                persisted = json.loads(override_path.read_text(encoding="utf-8"))
+            except Exception:
+                persisted = {}
+        automatic_provider = str(persisted.get("automatic_provider") or "").strip()
+        automatic_model = str(persisted.get("automatic_model") or "").strip()
+        if mgr is not None:
+            automatic_provider = automatic_provider or str(getattr(getattr(mgr, "config", None), "default_provider", "") or "").strip()
+            automatic_model = automatic_model or str(getattr(getattr(mgr, "config", None), "default_model", "") or "").strip()
+            if not automatic_provider or not automatic_model:
+                send_json(handler, 409, {"ok": False, "error": "No se pudo resolver el modelo automático"})
+                return
+            if mgr.provider != automatic_provider or mgr.model != automatic_model:
+                switch_result = mgr.switch(automatic_provider, automatic_model, force=True)
+                if not switch_result.get("ok"):
+                    send_json(handler, 400, {
+                        "ok": False,
+                        "error": switch_result.get("error") or "No se pudo restaurar el modelo automático",
+                    })
+                    return
         if override_path.exists():
             override_path.unlink()
-        send_json(handler, 200, {"ok": True, "session_model": None, "cleared": True})
+        send_json(handler, 200, {
+            "ok": True,
+            "session_model": None,
+            "cleared": True,
+            "effective_provider": getattr(mgr, "provider", None),
+            "effective_model": getattr(mgr, "model", None),
+        })
         emit("router.session_model_cleared", {})
         return
 
     # Apply through SessionManager so the adapter is rebuilt. Mutating only
     # provider/model leaves the previous adapter alive (for example Ollama
     # answering after the user selected Copilot).
-    mgr = getattr(handler, "session_mgr", None)
+    persisted: dict = {}
+    if override_path.exists():
+        try:
+            persisted = json.loads(override_path.read_text(encoding="utf-8"))
+        except Exception:
+            persisted = {}
+    automatic_provider = str(persisted.get("automatic_provider") or getattr(mgr, "provider", "") or "").strip()
+    automatic_model = str(persisted.get("automatic_model") or getattr(mgr, "model", "") or "").strip()
     if mgr is not None:
         try:
             parts = str(model_key).split("/", 1)
@@ -322,7 +361,11 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
             send_json(handler, 400, {"ok": False, "error": f"No se pudo activar el modelo: {exc}"})
             return
 
-    override = {"model": str(model_key)}
+    override = {
+        "model": str(model_key),
+        "automatic_provider": automatic_provider,
+        "automatic_model": automatic_model,
+    }
     tmp = override_path.with_suffix(".tmp")
     Path(state).mkdir(parents=True, exist_ok=True)
     tmp.write_text(json.dumps(override, indent=2), encoding="utf-8")
@@ -369,7 +412,12 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     except Exception as exc:
         buffer_report = {"error": str(exc)}
 
-    response_body: dict = {"ok": True, "session_model": model_key}
+    response_body: dict = {
+        "ok": True,
+        "session_model": model_key,
+        "effective_provider": getattr(mgr, "provider", None),
+        "effective_model": getattr(mgr, "model", None),
+    }
     if buffer_report is not None:
         response_body["buffer"] = {
             "target": getattr(buffer_report, "target", model_key),
@@ -409,4 +457,9 @@ def handle_session_model_get(handler: "BaseHTTPRequestHandler") -> None:
         except Exception:
             pass
 
-    send_json(handler, 200, {"ok": True, "session_model": None})
+    send_json(handler, 200, {
+        "ok": True,
+        "session_model": None,
+        "effective_provider": getattr(mgr, "provider", None),
+        "effective_model": getattr(mgr, "model", None),
+    })
