@@ -1,13 +1,21 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [string]$Version = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
-$version = "4.9.2"
+$versionFile = Join-Path $repoRoot "backend\release_version.txt"
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+}
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+    throw "Version canónica inválida: '$Version'"
+}
+$version = $Version
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
 $viewerSource = Join-Path $repoRoot "electron-viewer\dist\win-unpacked"
 $setupFile = Join-Path $scriptDir "bago-$version-setup.exe"

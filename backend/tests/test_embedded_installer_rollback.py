@@ -104,6 +104,19 @@ def test_resume_rolls_back_unfinalized_replacement_before_retry(tmp_path: Path) 
     assert (target / "electron-viewer" / "BAGO.exe").read_bytes() == b"MZ-test"
 
 
+def test_builder_resolves_installer_version_from_canonical_authority() -> None:
+    """Installer artifact names must follow release_version.txt, not a hard-coded value."""
+    builder = BUILDER.read_text(encoding="utf-8")
+    workflow = (ROOT / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
+
+    assert r"backend\release_version.txt" in builder
+    assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
+    assert "-SkipBuild -Version $version" in workflow
+    assert "backend/release_version.txt" in workflow, (
+        "version authority changes must trigger the installer workflow"
+    )
+
+
 def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:
     """The embedded installer must satisfy the payload script's mandatory hash input."""
     nsi = NSIS.read_text(encoding="utf-8")
