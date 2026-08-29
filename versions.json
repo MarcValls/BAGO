@@ -1,11 +1,17 @@
 {
-  "current": "4.9.1",
+  "current": "4.9.2",
   "history": [
     {
       "version": "4.9.1",
       "started": "2026-08-25T00:00:00Z",
-      "ended": null,
+      "ended": "2026-08-29T14:17:03Z",
       "notes": "Remediation closure for BAGO-AUD-001..010."
+    },
+    {
+      "version": "4.9.2",
+      "started": "2026-08-29T14:17:03Z",
+      "ended": null,
+      "notes": "Patch release: embeds and verifies the SHA-256 sidecar required by the offline NSIS installer payload."
     }
   ]
 }

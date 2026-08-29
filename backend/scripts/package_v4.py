@@ -288,9 +288,10 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     require_inputs(root)
+    version = normalize_release_version(release_version or read_release_version(root))
     tree_result = build_install_tree(root, output_dir, release_version=release_version)
     if release_version:
-        package_name = f"bago-v{normalize_release_version(release_version)}.zip"
+        package_name = f"bago-v{version}.zip"
     else:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         package_name = f"bago-v4-local-{stamp}.zip"
@@ -305,6 +306,7 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
 
     manifest = {
         "package": package_name,
+        "release_version": version,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "root": "<repo>",
         "file_count": len(manifest_files),
@@ -401,6 +403,8 @@ def _run_tests() -> int:
             )
             assert not leaked, f"recursive/build artifacts leaked into package: {leaked[:5]}"
             assert not any(name.startswith("docs/archive/") for name in names)
+        zip_manifest = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
+        assert zip_manifest["release_version"] == bundle_version
         extract_dir = Path(td) / "extract"
         with zipfile.ZipFile(result["zip"], "r") as zf:
             zf.extractall(extract_dir)
