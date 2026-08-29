@@ -15,7 +15,7 @@ on:
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
       - 'backend/scripts/package_v4.py'
-      - 'backend/release_version.txt'
+      - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
   pull_request:
     branches: [main]
@@ -24,7 +24,7 @@ on:
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
       - 'backend/scripts/package_v4.py'
-      - 'backend/release_version.txt'
+      - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
       - name: Resolve current version
         id: version
         run: |
-          $version = (Get-Content -LiteralPath "$PWD\backend\release_version.txt" -Raw).Trim()
+          $version = (Get-Content -LiteralPath "$PWD\release_version.txt" -Raw).Trim()
           "BAGO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Resolved BAGO version: $version"
         shell: pwsh
