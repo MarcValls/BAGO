@@ -82,7 +82,7 @@ def verify(
             errors.append("AGENTS.md publishes a mutable product version")
         if "`release_version.txt`" not in agents_text:
             errors.append("AGENTS.md does not name release_version.txt as version authority")
-        if "BAGOx-BEHAVIOR-PACKAGE-v1.2-RC1" not in agents_text:
+        if "BAGOx Behavior Package v1.3-RC1-FIX2" not in agents_text:
             errors.append("AGENTS.md does not identify the scoped BAGOx package")
     if not release.is_file():
         errors.append("missing release_version.txt")
