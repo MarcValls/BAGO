@@ -109,12 +109,17 @@ def test_builder_resolves_installer_version_from_canonical_authority() -> None:
     builder = BUILDER.read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
 
-    assert r"backend\release_version.txt" in builder
+    assert r'Join-Path $repoRoot "release_version.txt"' in builder
+    assert r'backend\release_version.txt' not in builder
     assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
     assert "-SkipBuild -Version $version" in workflow
-    assert "backend/release_version.txt" in workflow, (
+    assert "release_version.txt" in workflow, (
         "version authority changes must trigger the installer workflow"
     )
+    assert "backend/release_version.txt" not in workflow
+    assert "node-version: '22.16.0'" in workflow
+    assert "python-version: '3.14.5'" in workflow
+    assert "nsis-3.10.zip" in workflow
 
 
 def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:

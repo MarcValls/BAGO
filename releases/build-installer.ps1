@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
-$versionFile = Join-Path $repoRoot "backend\release_version.txt"
+$versionFile = Join-Path $repoRoot "release_version.txt"
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (Get-Content -LiteralPath $versionFile -Raw).Trim()
 }
@@ -101,9 +101,10 @@ Write-Host "[4/5] Validando payload..."
 & (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version
 
 $makensis = @(
+    $env:NSIS_MAKENSIS,
     "C:\Program Files (x86)\NSIS\makensis.exe",
     "C:\Program Files\NSIS\makensis.exe"
-) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 if (-not $makensis) { throw "NSIS makensis.exe no encontrado." }
 
 Write-Host "[5/5] Compilando NSIS..."
