@@ -234,6 +234,7 @@ def build(
     bago_baseline: str,
     gestor_baseline: str,
     candidate_ref: str = "HEAD",
+    gestor_candidate_ref: str | None = None,
     source_audit: Path | None = None,
 ) -> dict:
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -246,21 +247,24 @@ def build(
         recovered_dirty_boundary = ingest_recovered_dirty_boundary(audit, bago_baseline)
 
         repositories = (
-            ("bago", ROOT, bago_baseline),
-            ("gestor", gestor.resolve(), gestor_baseline),
+            ("bago", ROOT, bago_baseline, candidate_ref),
+            # A BAGO candidate SHA is not a Git object in the independent
+            # gestor repository. Keep both candidate identities explicit
+            # rather than fabricating a cross-repository ref.
+            ("gestor", gestor.resolve(), gestor_baseline, gestor_candidate_ref or candidate_ref),
         )
-        for label, repo, baseline_ref in repositories:
+        for label, repo, baseline_ref, repository_candidate_ref in repositories:
             if not (repo / ".git").exists():
                 raise RuntimeError(f"{label} has no Git baseline: {repo}")
-            patch = canonical_patch(repo, baseline_ref, candidate_ref)
+            patch = canonical_patch(repo, baseline_ref, repository_candidate_ref)
             validate_patch(repo, baseline_ref, patch)
             (audit / f"{label}-git-diff.patch").write_bytes(patch)
-            info = provenance(repo, baseline_ref, candidate_ref)
+            info = provenance(repo, baseline_ref, repository_candidate_ref)
             if info["dirty"]:
                 raise RuntimeError(f"{label} candidate is dirty; commit or remove drift before packaging")
             (audit / f"{label}-provenance.json").write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
             archive_ref(repo, baseline_ref, stage / f"{label}-baseline-git")
-            copied = copy_delta(repo, baseline_ref, candidate_ref, stage / f"{label}-candidate-changes")
+            copied = copy_delta(repo, baseline_ref, repository_candidate_ref, stage / f"{label}-candidate-changes")
             (audit / f"{label}-delta-files.json").write_text(json.dumps(copied, indent=2) + "\n", encoding="utf-8", newline="\n")
 
         handoff = ROOT / ".bago" / "audits" / "remediation-handoff-20260824.md"
@@ -279,6 +283,10 @@ def build(
             "session_exports": "excluded",
             "patch_validation": "git apply --check PASS for both baselines and the LF-normalized recovered dirty boundary",
             "candidate_ref": candidate_ref,
+            "repository_candidates": {
+                "bago": candidate_ref,
+                "gestor": gestor_candidate_ref or candidate_ref,
+            },
             "required_gates": list(REQUIRED_GATES),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "known_limitations": [],
@@ -315,6 +323,7 @@ def main() -> int:
     parser.add_argument("--bago-baseline", default="e76b01b0a0552d8eee7c536f8c4eef25e3a82a42")
     parser.add_argument("--gestor-baseline", default="0cb2038b118281db750263f14547b00788618816")
     parser.add_argument("--candidate-ref", default="HEAD")
+    parser.add_argument("--gestor-candidate-ref", default=None)
     parser.add_argument("--source-audit", default=str(ROOT / ".run" / "BAGO-third-party-audit-20260822-173517.zip"))
     args = parser.parse_args()
     result = build(
@@ -324,6 +333,7 @@ def main() -> int:
         args.bago_baseline,
         args.gestor_baseline,
         args.candidate_ref,
+        args.gestor_candidate_ref,
         Path(args.source_audit) if args.source_audit else None,
     )
     print(json.dumps(result, indent=2))
