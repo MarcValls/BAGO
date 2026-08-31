@@ -13,6 +13,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,8 @@ from typing import Any
 
 _LIFECYCLE = ("PROPOSED", "PREPARED", "EXECUTED", "VERIFIED", "VALIDATED")
 _MANUAL_STATES = frozenset(_LIFECYCLE[:3])
+_REMEDIATION_RECEIPT_CONTRACT = "bago.third-party-remediation-verification.v1"
+_INDEPENDENT_REVIEW_CONTRACT = "bago.independent-review.v1"
 
 
 def _repo_root() -> Path:
@@ -123,6 +126,72 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _sha_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_json_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid {label}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"invalid {label}: JSON object required")
+    return value
+
+
+def _remediation_candidate(package: Path) -> str:
+    try:
+        with zipfile.ZipFile(package) as archive:
+            provenance = json.loads(archive.read("audit/bago-provenance.json"))
+    except (OSError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
+        raise ValueError(f"invalid remediation package: {exc}") from exc
+    candidate = provenance.get("candidate_sha") if isinstance(provenance, dict) else None
+    if not isinstance(candidate, str) or len(candidate) != 40:
+        raise ValueError("invalid remediation package: BAGO candidate SHA is missing")
+    if provenance.get("dirty") is not False:
+        raise ValueError("invalid remediation package: BAGO candidate was dirty")
+    return candidate
+
+
+def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) -> bool:
+    receipt = state.get("protected_receipt")
+    if not isinstance(receipt, dict) or fp.get("dirty"):
+        return False
+    if receipt.get("candidate_sha") != fp.get("commit") or receipt.get("package_sha256") is None:
+        return False
+    try:
+        package = Path(str(receipt["package"]))
+        verification = _load_json_object(Path(str(receipt["receipt"])), "verification receipt")
+        if _sha_file(package) != receipt["package_sha256"]:
+            return False
+        if receipt.get("receipt_sha256") != _sha_file(Path(str(receipt["receipt"]))):
+            return False
+        verified = (
+            verification.get("contract") == _REMEDIATION_RECEIPT_CONTRACT
+            and verification.get("result") == "PASS"
+            and verification.get("package") == package.name
+            and verification.get("package_sha256") == receipt["package_sha256"]
+        )
+        if state.get("status") != "VALIDATED":
+            return verified
+        review_path = Path(str(receipt["review"]))
+        review = _load_json_object(review_path, "independent review receipt")
+        return verified and (
+            review.get("contract") == _INDEPENDENT_REVIEW_CONTRACT
+            and review.get("result") == "PASS"
+            and review.get("candidate_sha") == fp.get("commit")
+            and review.get("package_sha256") == receipt["package_sha256"]
+            and receipt.get("review_sha256") == _sha_file(review_path)
+        )
+    except (KeyError, OSError, ValueError):
+        return False
+
+
 def _print_file(path: Path, label: str) -> None:
     print(f"\n=== {label}: {path} ===")
     if path.is_file():
@@ -143,7 +212,8 @@ def cmd_status(_args: argparse.Namespace) -> int:
     # PROJECT_STATE.json is project-authored context, not an independent
     # attestation. Even an exact fingerprint cannot self-certify a protected
     # lifecycle state; the immutable external receipt remains authoritative.
-    effective_status = "STALE" if protected_claim and (dirty or stale) else "UNVERIFIED" if protected_claim else claimed_status
+    has_receipt = _has_current_protected_receipt(state, fp)
+    effective_status = "STALE" if protected_claim and (dirty or stale) else "UNVERIFIED" if protected_claim and not has_receipt else claimed_status
 
     print(f"Repository: {_repo_root()}")
     print(f"Branch:     {fp.get('branch') or '?'}")
@@ -286,6 +356,63 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return result.returncode
 
 
+def cmd_consume_remediation_receipt(args: argparse.Namespace) -> int:
+    """Promote a protected state only from a candidate-bound external receipt."""
+    target = str(args.status).upper()
+    package = Path(args.package).resolve()
+    receipt_path = Path(args.receipt).resolve()
+    try:
+        if not package.is_file():
+            raise ValueError(f"remediation package not found: {package}")
+        receipt = _load_json_object(receipt_path, "verification receipt")
+        package_sha = _sha_file(package)
+        candidate = _remediation_candidate(package)
+        if receipt.get("contract") != _REMEDIATION_RECEIPT_CONTRACT:
+            raise ValueError("verification receipt has an unsupported contract")
+        if receipt.get("result") != "PASS":
+            raise ValueError("verification receipt does not report PASS")
+        if receipt.get("package") != package.name or receipt.get("package_sha256") != package_sha:
+            raise ValueError("verification receipt is not bound to this package")
+        fp = _git_fingerprint()
+        if fp.get("dirty"):
+            raise ValueError("current candidate is dirty")
+        if fp.get("commit") != candidate:
+            raise ValueError("remediation package candidate does not match current HEAD")
+        review: dict[str, Any] | None = None
+        if target == "VALIDATED":
+            if not args.review:
+                raise ValueError("VALIDATED requires --review with an independent review receipt")
+            review = _load_json_object(Path(args.review).resolve(), "independent review receipt")
+            if review.get("contract") != _INDEPENDENT_REVIEW_CONTRACT or review.get("result") != "PASS":
+                raise ValueError("independent review receipt does not report PASS under the required contract")
+            if review.get("candidate_sha") != candidate or review.get("package_sha256") != package_sha:
+                raise ValueError("independent review receipt is not bound to this candidate and package")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    state = _load_state()
+    state["status"] = target
+    state["note"] = f"{target} accepted from external remediation receipt bound to {candidate}."
+    state["updated_at"] = _iso_now()
+    state["commit"] = fp.get("commit")
+    state["branch"] = fp.get("branch")
+    state["fingerprint"] = fp
+    state["protected_receipt"] = {
+        "receipt": str(receipt_path),
+        "receipt_contract": receipt["contract"],
+        "package": str(package),
+        "package_sha256": package_sha,
+        "candidate_sha": candidate,
+        "receipt_sha256": _sha_file(receipt_path),
+        "review": str(Path(args.review).resolve()) if review is not None else None,
+        "review_sha256": _sha_file(Path(args.review).resolve()) if review is not None else None,
+    }
+    _save_state(state)
+    print(f"Protected state accepted: {target}")
+    return 0
+
+
 def cmd_init(_args: argparse.Namespace) -> int:
     _ensure_dirs()
     for label, path in _paths().items():
@@ -322,6 +449,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Command to run (use -- before the command)",
     )
 
+    receipt_parser = sub.add_parser(
+        "consume-remediation-receipt",
+        help="Consume a candidate-bound external remediation receipt for a protected state",
+    )
+    receipt_parser.add_argument("--package", required=True, help="Immutable remediation ZIP")
+    receipt_parser.add_argument("--receipt", required=True, help="External verification JSON receipt")
+    receipt_parser.add_argument("--status", choices=("VERIFIED", "VALIDATED"), required=True)
+    receipt_parser.add_argument("--review", help="Independent review JSON receipt (required for VALIDATED)")
+
     sub.add_parser("init", help="Create missing .bago directories and empty files")
 
     args = parser.parse_args(argv)
@@ -334,6 +470,7 @@ def main(argv: list[str] | None = None) -> int:
         "state": cmd_state,
         "handoff": cmd_handoff,
         "verify": cmd_verify,
+        "consume-remediation-receipt": cmd_consume_remediation_receipt,
         "init": cmd_init,
     }
     return dispatch[args.cmd](args)
