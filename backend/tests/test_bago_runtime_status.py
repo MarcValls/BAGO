@@ -23,11 +23,13 @@ def _module():
     return module
 
 
-def _run_status(monkeypatch, capsys, state: dict, fingerprint: dict) -> str:
+def _run_status(monkeypatch, capsys, state: dict, fingerprint: dict, verifier=None) -> str:
     module = _module()
     monkeypatch.setattr(module, "_load_state", lambda: state)
     monkeypatch.setattr(module, "_git_fingerprint", lambda: fingerprint)
     monkeypatch.setattr(module, "_print_file", lambda *_args: None)
+    if verifier is not None:
+        monkeypatch.setattr(module, "_verify_remediation_package", verifier)
     assert module.cmd_status(None) == 0
     return capsys.readouterr().out
 
@@ -157,16 +159,35 @@ def _remediation_receipt_files(tmp_path: Path, candidate: str = "a" * 40) -> tup
     return package, receipt
 
 
+def _mock_recalculation(monkeypatch, module, package: Path) -> None:
+    monkeypatch.setattr(module, "_verify_remediation_package", lambda _package: {
+        "contract": "bago.third-party-remediation-verification.v1", "result": "PASS",
+        "package": package.name, "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+    })
+
+
+def _review_receipt(tmp_path: Path, package: Path, candidate: str = "a" * 40) -> Path:
+    review = tmp_path / "review.json"
+    review.write_text(json.dumps({
+        "contract": "bago.independent-review.v1", "result": "PASS",
+        "reviewer": "independent-test-reviewer",
+        "candidate_sha": candidate, "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+    }), encoding="utf-8")
+    return review
+
+
 def test_consume_remediation_receipt_promotes_verified_only_when_candidate_matches(monkeypatch, tmp_path: Path) -> None:
     module = _module()
     package, receipt = _remediation_receipt_files(tmp_path)
+    review = _review_receipt(tmp_path, package)
     current = {"commit": "a" * 40, "branch": "main", "dirty": False, "worktree_sha256": "clean"}
     saved: dict = {}
     monkeypatch.setattr(module, "_git_fingerprint", lambda: current)
     monkeypatch.setattr(module, "_load_state", lambda: {"status": "EXECUTED"})
     monkeypatch.setattr(module, "_save_state", lambda state: saved.update(state))
+    _mock_recalculation(monkeypatch, module, package)
     assert module.cmd_consume_remediation_receipt(SimpleNamespace(
-        package=str(package), receipt=str(receipt), status="VERIFIED", review=None,
+        package=str(package), receipt=str(receipt), status="VERIFIED", review=str(review),
     )) == 0
     assert saved["status"] == "VERIFIED"
     assert saved["protected_receipt"]["candidate_sha"] == "a" * 40
@@ -174,16 +195,20 @@ def test_consume_remediation_receipt_promotes_verified_only_when_candidate_match
 
 def test_status_accepts_verified_state_with_current_external_receipt(monkeypatch, capsys, tmp_path: Path) -> None:
     package, receipt = _remediation_receipt_files(tmp_path)
+    review = _review_receipt(tmp_path, package)
     current = {"commit": "a" * 40, "branch": "main", "dirty": False, "worktree_sha256": "clean"}
     state = {
         "status": "VERIFIED", "fingerprint": current,
         "protected_receipt": {
             "package": str(package), "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
             "receipt": str(receipt), "receipt_sha256": hashlib.sha256(receipt.read_bytes()).hexdigest(),
-            "candidate_sha": "a" * 40, "review": None, "review_sha256": None,
+            "candidate_sha": "a" * 40, "review": str(review), "review_sha256": hashlib.sha256(review.read_bytes()).hexdigest(),
         },
     }
-    output = _run_status(monkeypatch, capsys, state, current)
+    output = _run_status(
+        monkeypatch, capsys, state, current,
+        lambda _package: {"contract": "bago.third-party-remediation-verification.v1", "result": "PASS", "package": package.name, "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest()},
+    )
     assert "Status:     VERIFIED" in output
     assert "Recorded:" not in output
 
@@ -191,6 +216,7 @@ def test_status_accepts_verified_state_with_current_external_receipt(monkeypatch
 def test_consume_remediation_receipt_rejects_candidate_drift(monkeypatch, tmp_path: Path, capsys) -> None:
     module = _module()
     package, receipt = _remediation_receipt_files(tmp_path)
+    _mock_recalculation(monkeypatch, module, package)
     monkeypatch.setattr(module, "_git_fingerprint", lambda: {"commit": "b" * 40, "dirty": False})
     monkeypatch.setattr(module, "_save_state", lambda _state: pytest.fail("protected state was persisted"))
     assert module.cmd_consume_remediation_receipt(SimpleNamespace(
@@ -202,6 +228,7 @@ def test_consume_remediation_receipt_rejects_candidate_drift(monkeypatch, tmp_pa
 def test_consume_remediation_receipt_requires_independent_review_for_validated(monkeypatch, tmp_path: Path, capsys) -> None:
     module = _module()
     package, receipt = _remediation_receipt_files(tmp_path)
+    _mock_recalculation(monkeypatch, module, package)
     monkeypatch.setattr(module, "_git_fingerprint", lambda: {"commit": "a" * 40, "dirty": False})
     monkeypatch.setattr(module, "_save_state", lambda _state: pytest.fail("protected state was persisted"))
     assert module.cmd_consume_remediation_receipt(SimpleNamespace(
@@ -213,16 +240,12 @@ def test_consume_remediation_receipt_requires_independent_review_for_validated(m
 def test_consume_remediation_receipt_promotes_validated_with_bound_review(monkeypatch, tmp_path: Path) -> None:
     module = _module()
     package, receipt = _remediation_receipt_files(tmp_path)
-    package_sha = hashlib.sha256(package.read_bytes()).hexdigest()
-    review = tmp_path / "review.json"
-    review.write_text(json.dumps({
-        "contract": "bago.independent-review.v1", "result": "PASS",
-        "candidate_sha": "a" * 40, "package_sha256": package_sha,
-    }), encoding="utf-8")
+    review = _review_receipt(tmp_path, package)
     saved: dict = {}
     monkeypatch.setattr(module, "_git_fingerprint", lambda: {"commit": "a" * 40, "dirty": False})
     monkeypatch.setattr(module, "_load_state", lambda: {"status": "VERIFIED"})
     monkeypatch.setattr(module, "_save_state", lambda state: saved.update(state))
+    _mock_recalculation(monkeypatch, module, package)
     assert module.cmd_consume_remediation_receipt(SimpleNamespace(
         package=str(package), receipt=str(receipt), status="VALIDATED", review=str(review),
     )) == 0
