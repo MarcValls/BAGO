@@ -288,7 +288,13 @@ export function ControlPlane() {
       return current.length ? current : historyToTurns(nextHistory || undefined);
     });
     if (nextOpening.id === 'enter_directly') {
-      setUiState((current) => current.activeSection === 'chat' ? current : patchUiState(current, { activeSection: 'home' }));
+      // A late bootstrap must not overwrite a navigation chosen while the
+      // conversation mutation was in flight. `chat` is only a compatibility
+      // alias for Inicio, so normalize that stale value and preserve every
+      // real destination selected by the user.
+      setUiState((current) => current.activeSection === 'chat'
+        ? patchUiState(current, { activeSection: 'home' })
+        : current);
     }
     return nextSnapshot;
   };
