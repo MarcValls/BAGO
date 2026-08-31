@@ -26,6 +26,8 @@
   position: sticky;
   z-index: var(--z-raised);
   top: 0;
+  flex-wrap: wrap;
+  overflow-x: visible;
   background: color-mix(in srgb, var(--surface) 93%, transparent);
   backdrop-filter: blur(12px);
 }

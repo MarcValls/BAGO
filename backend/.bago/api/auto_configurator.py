@@ -682,16 +682,21 @@ def get_status() -> dict:
     """Estado del job en memoria. Si está idle, intenta cargar el último
     job terminado desde disco (sobrevive a reinicios)."""
     with JOB_LOCK:
-        if JOB.status == "idle":
-            last = _load_last_job()
-            if last:
-                return {
-                    "ok": True,
-                    "status": "idle",
-                    "last_job": last,
-                    "message": "no hay job activo; mostrando el último terminado",
-                }
-        return {"ok": True, **JOB.to_dict()}
+        status = JOB.status
+        snapshot = JOB.to_dict()
+    # State-root resolution and disk access must not retain JOB_LOCK: this
+    # endpoint is polled by the Electron UI while background work may update
+    # the job state.
+    if status == "idle":
+        last = _load_last_job()
+        if last:
+            return {
+                "ok": True,
+                "status": "idle",
+                "last_job": last,
+                "message": "no hay job activo; mostrando el último terminado",
+            }
+    return {"ok": True, **snapshot}
 
 
 def apply_generated_config(force: bool = False) -> dict:

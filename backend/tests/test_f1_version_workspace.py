@@ -136,6 +136,37 @@ def test_session_manager_load_restores_workspace_state_root():
             os.chdir(ws)  # restore
 
 
+def test_session_manager_load_keeps_explicit_workspace_over_saved_session_root():
+    """An explicit launch workspace must override historical session metadata."""
+    from session_manager import SessionManager
+
+    with tempfile.TemporaryDirectory() as td:
+        saved_workspace = tempfile.mkdtemp()
+        launch_workspace = tempfile.mkdtemp()
+        mgr = SessionManager(
+            session_id="test-f1-explicit-workspace",
+            provider="ollama-local",
+            model="qwen2.5:14b",
+            base_path=saved_workspace,
+            state_root=td,
+        )
+        try:
+            mgr.save()
+        finally:
+            mgr.close()
+
+        loaded = SessionManager.load(
+            "test-f1-explicit-workspace",
+            base_path=launch_workspace,
+            state_root=td,
+        )
+        try:
+            assert Path(loaded.project_root).resolve() == Path(launch_workspace).resolve()
+            assert Path(loaded.workspace_state_root).resolve() == Path(launch_workspace, ".gabo").resolve()
+        finally:
+            loaded.close()
+
+
 def test_session_manager_load_uses_current_runtime_framework_root():
     """A restored session must not reactivate a stale source/runtime path."""
     from session_manager import SessionManager

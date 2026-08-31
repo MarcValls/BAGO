@@ -1329,6 +1329,18 @@ export function ControlPlane() {
 
   const createNewConversation = async (): Promise<void> => {
     conversationRevisionRef.current += 1;
+    // The welcome view can become interactive before the first bootstrap has
+    // committed its snapshot. Resolve the authoritative workspace first so a
+    // new chat is never created outside its confirmed workspace scope.
+    let workspaceSnapshot = snapshot;
+    let root = String(workspaceSnapshot?.project.root || workspaceSnapshot?.workspace.root || '').trim();
+    if (!root) {
+      workspaceSnapshot = await refreshAfterMutation();
+      root = String(workspaceSnapshot?.project.root || workspaceSnapshot?.workspace.root || '').trim();
+    }
+    if (!root) {
+      throw new Error('El backend no confirmó un workspace para la conversación nueva.');
+    }
     const created = await clientRef.current.createConversation();
     const conversationId = String(
       created.conversation?.conversation_id
@@ -1337,12 +1349,9 @@ export function ControlPlane() {
       || ''
     ).trim();
     if (!conversationId) throw new Error('El backend no confirmó la nueva conversación.');
-    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
-    if (root) {
-      const scoped = await clientRef.current.scopeWorkspaceConversation(root, conversationId);
-      if (scoped.ok === false || String(scoped.conversation_id || '') !== conversationId) {
-        throw new Error('El backend no confirmó el alcance del workspace para el chat nuevo.');
-      }
+    const scoped = await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+    if (scoped.ok === false || String(scoped.conversation_id || '') !== conversationId) {
+      throw new Error('El backend no confirmó el alcance del workspace para el chat nuevo.');
     }
     await refreshAfterMutation();
     replaceConversationState(created);
@@ -1354,7 +1363,7 @@ export function ControlPlane() {
     conversationRevisionRef.current += 1;
     const switched = await clientRef.current.switchConversation(conversationId);
     replaceConversationState(switched);
-    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    const root = String(snapshot?.project.root || snapshot?.workspace.root || '').trim();
     if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     await refreshAfterMutation();
     setLastMessage('conversación activada');
@@ -1372,7 +1381,7 @@ export function ControlPlane() {
     const archived = await clientRef.current.archiveConversation(conversationId);
     replaceConversationState(archived);
     const activeId = String(archived.active_conversation_id || archived.history?.conversation_id || '').trim();
-    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    const root = String(snapshot?.project.root || snapshot?.workspace.root || '').trim();
     if (root && activeId) await clientRef.current.scopeWorkspaceConversation(root, activeId);
     await refreshAfterMutation();
     setLastMessage('conversación archivada');

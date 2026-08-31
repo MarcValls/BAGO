@@ -29,4 +29,28 @@ describe('bootstrap snapshot normalization', () => {
   it('returns null for an absent backend payload', () => {
     expect(buildSnapshot(null)).toBeNull();
   });
+
+  it('uses the modern workspace binding project root for conversation scope', () => {
+    const snapshot = buildSnapshot({
+      status: { provider: 'ollama-local', model: 'llama3.2:3b' },
+      session: { session_id: 'session-1' },
+      workspace: {
+        root: 'C:/Work/project',
+        state_root: 'C:/Work/project/.gabo',
+        scope_root: 'C:/Work/project',
+        binding: {
+          project_root: 'C:/Work/project',
+          workspace_state_root: 'C:/Work/project/.gabo',
+          workspace_scope_root: 'C:/Work/project',
+          binding_confirmed: true,
+          binding_reason: 'ok'
+        },
+        permissions: { canChat: true }
+      }
+    });
+
+    expect(snapshot?.project.root).toBe('C:/Work/project');
+    expect(snapshot?.workspace.root).toBe('C:/Work/project');
+    expect(snapshot?.workspace.root).not.toContain('.gabo');
+  });
 });

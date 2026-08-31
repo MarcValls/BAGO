@@ -396,7 +396,7 @@ export function ChatPanel(props: Props) {
             <div className="chat-conversation-popover">
               <header><strong>Conversaciones</strong><small>Persistentes en esta sesión</small></header>
               <div className="chat-conversation-list">
-                {conversationItems.map((item) => <article key={item.conversation_id} className={item.active ? 'is-active' : ''}>
+                {conversationItems.map((item) => <article key={item.conversation_id} data-conversation-id={item.conversation_id} className={item.active ? 'is-active' : ''}>
                   {renamingId === item.conversation_id ? (
                     <form onSubmit={(event) => {
                       event.preventDefault();
