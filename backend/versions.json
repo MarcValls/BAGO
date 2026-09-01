@@ -1,5 +1,5 @@
 {
-  "current": "4.9.2",
+  "current": "4.9.3",
   "history": [
     {
       "version": "4.0.0",
@@ -128,10 +128,16 @@
       "released": "2026-08-25"
     },
     {
-      "ended": null,
+      "ended": "2026-09-01",
       "version": "4.9.2",
       "notes": "Patch release: el instalador NSIS embebe y verifica el sidecar SHA-256 del payload offline.",
       "released": "2026-08-29"
+    },
+    {
+      "ended": null,
+      "version": "4.9.3",
+      "notes": "Patch release: corrige la descarga verificable de NSIS y añade el consumidor de recibos de remediación protegidos.",
+      "released": "2026-09-01"
     }
   ]
 }
