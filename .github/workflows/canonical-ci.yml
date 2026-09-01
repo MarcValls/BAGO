@@ -196,7 +196,7 @@ jobs:
             New-Item -ItemType Directory -Path $tools -Force | Out-Null
             $zip = Join-Path $tools 'nsis.zip'
             $expectedSha = 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
-            Invoke-WebRequest -Uri 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
+            curl.exe --fail --location --retry 3 --output $zip 'https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download'
             $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
             if ($actualSha -ne $expectedSha) {
               throw "Checksum NSIS inválido. Esperado: $expectedSha, actual: $actualSha"
@@ -395,7 +395,7 @@ jobs:
             New-Item -ItemType Directory -Path $tools -Force | Out-Null
             $zip = Join-Path $tools 'nsis.zip'
             $expectedSha = 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
-            Invoke-WebRequest -Uri 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
+            curl.exe --fail --location --retry 3 --output $zip 'https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download'
             $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
             if ($actualSha -ne $expectedSha) {
               throw "Checksum NSIS inválido. Esperado: $expectedSha, actual: $actualSha"
