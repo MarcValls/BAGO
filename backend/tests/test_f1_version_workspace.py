@@ -143,6 +143,21 @@ def test_session_manager_load_keeps_explicit_workspace_over_saved_session_root()
     with tempfile.TemporaryDirectory() as td:
         saved_workspace = tempfile.mkdtemp()
         launch_workspace = tempfile.mkdtemp()
+        subprocess.run(["git", "-C", saved_workspace, "init", "-b", "main"], check=True, capture_output=True, text=True)
+        subprocess.run(["git", "-C", launch_workspace, "init", "-b", "release-target"], check=True, capture_output=True, text=True)
+        for workspace in (saved_workspace, launch_workspace):
+            subprocess.run(
+                ["git", "-C", workspace, "-c", "user.name=BAGO test", "-c", "user.email=bago@example.invalid", "commit", "--allow-empty", "-m", "initial"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            state_root = Path(workspace) / ".gabo"
+            state_root.mkdir()
+            (state_root / "workspace.json").write_text(
+                json.dumps({"project_root": workspace, "workspace_scope_root": workspace}),
+                encoding="utf-8",
+            )
         mgr = SessionManager(
             session_id="test-f1-explicit-workspace",
             provider="ollama-local",
@@ -163,6 +178,10 @@ def test_session_manager_load_keeps_explicit_workspace_over_saved_session_root()
         try:
             assert Path(loaded.project_root).resolve() == Path(launch_workspace).resolve()
             assert Path(loaded.workspace_state_root).resolve() == Path(launch_workspace, ".gabo").resolve()
+            status = loaded.status()
+            assert Path(status["repo_root"]).resolve() == Path(launch_workspace).resolve()
+            assert status["repo_branch"] == "release-target"
+            assert status["binding_confirmed"] is True
         finally:
             loaded.close()
 

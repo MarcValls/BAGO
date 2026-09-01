@@ -715,8 +715,12 @@ class SessionPersistenceMixin:
                 mgr.workspace_manifest = Path(mgr.workspace_state_root) / "workspace.json"
                 mgr.workspace_binding = resolve_workspace_binding(mgr.project_root).to_dict()
                 mgr.workspace_binding["workspace_id"] = mgr.workspace_id or mgr.workspace_binding.get("workspace_id", "")
-            mgr.repo_root = data.get("repo_root", "")
-            mgr.repo_branch = data.get("repo_branch", "")
+                # The persisted Git identity describes the restored workspace.
+                # With an explicit workspace, SessionManager already derives its
+                # identity from that launch target; restoring the old values
+                # would make the otherwise valid binding look mismatched.
+                mgr.repo_root = data.get("repo_root", "")
+                mgr.repo_branch = data.get("repo_branch", "")
             return mgr
 
         store_base = next(
