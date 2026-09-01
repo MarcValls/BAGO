@@ -69,8 +69,8 @@ jobs:
           $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
           New-Item -ItemType Directory -Path $tools -Force | Out-Null
           $zip = Join-Path $tools 'nsis-3.10.zip'
-          Invoke-WebRequest -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
-          $expectedSha = '4B74E01C5B98D377C51FFA90550A9AFA3DF15995AAE3C3A7F2908BE1F980DF7E'
+          Invoke-WebRequest -Uri 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip' -OutFile $zip -UseBasicParsing
+          $expectedSha = 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
           $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
           if ($actualSha -ne $expectedSha) { throw "Checksum NSIS inválido" }
           Expand-Archive -Path $zip -DestinationPath $tools -Force
