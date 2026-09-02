@@ -99,14 +99,19 @@ def test_nonpass_workpack_verdicts_are_machine_readable(
     assert result.stdout.strip().endswith(expected)
 
 
-def test_plan_requires_named_pr_workflows() -> None:
+def test_plan_declares_governing_tasks_and_named_pr_workflows() -> None:
     plan = json.loads(PLAN.read_text(encoding="utf-8"))
     assert plan["schema_version"] == "1.1"
+    assert plan["execution_policy"]["implementation_task"] == "20-implement-approved-pr"
+    assert plan["execution_policy"]["verification_task"] == "22-verify-change"
     assert plan["execution_policy"]["required_pr_workflows"] == [
         "Canonical CI",
         "Validate Expected",
         "njsscan sarif",
     ]
+    assert len(plan["fronts"]) == 15
+    assert len({front["id"] for front in plan["fronts"]}) == 15
+    assert all(front["acceptance"] for front in plan["fronts"])
 
 
 def test_supervisor_contains_required_authority_and_remote_gates() -> None:
@@ -114,6 +119,11 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
 
     required_fragments = [
         'ExpectedRepository = "MarcValls/BAGO"',
+        'ExpectedPlanSchema = "1.1"',
+        'Assert-PlanContract',
+        '$implementationTask = [string]$Plan.execution_policy.implementation_task',
+        '$verificationTask = [string]$Plan.execution_policy.verification_task',
+        '("reports\\$RunId-$($front.id)-verify\\" + $verificationTask + ".md")',
         'Unknown StartAt',
         'required_pr_workflows',
         'Wait-ForRequiredWorkflowRuns',
@@ -135,6 +145,11 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     ]
     for fragment in required_fragments:
         assert fragment in text
+
+    # The task IDs are plan authority, not supervisor constants.
+    assert '-Task "20-implement-approved-pr"' not in text
+    assert '-Task "22-verify-change"' not in text
+    assert "22-verify-change.md" not in text
 
     # Avoid a known registration race: the supervisor must not immediately
     # enter gh-pr-checks watch mode before GitHub has registered the required
