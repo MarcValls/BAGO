@@ -13,6 +13,7 @@ $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PlanPath = Join-Path $Here "remediation-plan.json"
 $VerdictModule = Join-Path $Here "VerificationVerdict.psm1"
 $Workpack = Join-Path (Split-Path -Parent $Here) "bago-workpack\Run.ps1"
+$WorkpackManifestPath = Join-Path (Split-Path -Parent $Workpack) "manifest.json"
 $ExpectedRepository = "MarcValls/BAGO"
 $ExpectedPlanSchema = "1.1"
 
@@ -49,9 +50,48 @@ function Assert-PlanContract($PlanObject) {
     }
 
     $policy = $PlanObject.execution_policy
-    Assert-ObjectProperty $policy "implementation_task" "plan.execution_policy"
-    Assert-ObjectProperty $policy "verification_task" "plan.execution_policy"
-    Assert-ObjectProperty $policy "required_pr_workflows" "plan.execution_policy"
+    foreach ($name in @(
+        "mode",
+        "implementation_task",
+        "verification_task",
+        "close_only_on_verified",
+        "auto_merge_only_after_ci",
+        "self_certification_forbidden",
+        "failure_policy",
+        "evidence_required",
+        "required_pr_workflows"
+    )) {
+        Assert-ObjectProperty $policy $name "plan.execution_policy"
+    }
+
+    if ([string]$policy.mode -ne "sequential_dependency_safe") {
+        throw "Unsupported execution mode '$($policy.mode)'"
+    }
+    if ($policy.close_only_on_verified -ne $true) {
+        throw "Plan must keep close_only_on_verified=true"
+    }
+    if ($policy.auto_merge_only_after_ci -ne $true) {
+        throw "Plan must keep auto_merge_only_after_ci=true"
+    }
+    if ($policy.self_certification_forbidden -ne $true) {
+        throw "Plan must keep self_certification_forbidden=true"
+    }
+    if ([string]$policy.failure_policy -ne "stop_and_block") {
+        throw "Plan must keep failure_policy=stop_and_block"
+    }
+    if ($policy.evidence_required -ne $true) {
+        throw "Plan must keep evidence_required=true"
+    }
+
+    foreach ($taskProperty in @("implementation_task", "verification_task")) {
+        $taskId = [string]$policy.$taskProperty
+        if ($taskId -notmatch '^[A-Za-z0-9._-]+$') {
+            throw "Unsafe task id in plan.execution_policy.$taskProperty: '$taskId'"
+        }
+    }
+    if ([string]$policy.implementation_task -eq [string]$policy.verification_task) {
+        throw "Implementation and verification tasks must be different"
+    }
 
     $requiredWorkflows = @($policy.required_pr_workflows)
     if ($requiredWorkflows.Count -eq 0) {
@@ -64,21 +104,74 @@ function Assert-PlanContract($PlanObject) {
     }
 
     $fronts = @($PlanObject.fronts)
-    if ($fronts.Count -eq 0) { throw "Remediation plan contains no fronts" }
+    if ($fronts.Count -ne 15) { throw "Schema $ExpectedPlanSchema requires exactly 15 remediation fronts" }
     $seen = @{}
-    foreach ($front in $fronts) {
+    for ($index = 0; $index -lt $fronts.Count; $index++) {
+        $front = $fronts[$index]
         Assert-ObjectProperty $front "id" "plan.fronts[]"
         Assert-ObjectProperty $front "priority" "plan.fronts[$($front.id)]"
         Assert-ObjectProperty $front "title" "plan.fronts[$($front.id)]"
         Assert-ObjectProperty $front "objective" "plan.fronts[$($front.id)]"
         Assert-ObjectProperty $front "acceptance" "plan.fronts[$($front.id)]"
+
+        $expectedId = "F{0:D2}" -f ($index + 1)
+        if ([string]$front.id -ne $expectedId) {
+            throw "Remediation front order must be F01..F15; expected $expectedId at index $index but found '$($front.id)'"
+        }
+        if ([string]$front.id -notmatch '^F[0-9]{2}$') {
+            throw "Unsafe remediation front id '$($front.id)'"
+        }
+        if ([string]$front.priority -notmatch '^P[0-3]$') {
+            throw "Unsupported priority '$($front.priority)' for front '$($front.id)'"
+        }
         if (@($front.acceptance).Count -eq 0) {
             throw "Front '$($front.id)' has no acceptance criteria"
+        }
+        foreach ($criterion in @($front.acceptance)) {
+            if ([string]::IsNullOrWhiteSpace([string]$criterion)) {
+                throw "Front '$($front.id)' contains a blank acceptance criterion"
+            }
         }
         if ($seen.ContainsKey([string]$front.id)) {
             throw "Duplicate remediation front id '$($front.id)'"
         }
         $seen[[string]$front.id] = $true
+    }
+}
+
+function Assert-WorkpackTaskContract($Manifest, [string]$ImplementationTaskId, [string]$VerificationTaskId) {
+    if ($null -eq $Manifest -or $null -eq $Manifest.PSObject.Properties["tasks"]) {
+        throw "Workpack manifest is missing tasks"
+    }
+
+    $implementationMatches = @($Manifest.tasks | Where-Object { $_.id -eq $ImplementationTaskId })
+    $verificationMatches = @($Manifest.tasks | Where-Object { $_.id -eq $VerificationTaskId })
+    if ($implementationMatches.Count -ne 1) {
+        throw "Implementation task '$ImplementationTaskId' must resolve exactly once in the workpack manifest"
+    }
+    if ($verificationMatches.Count -ne 1) {
+        throw "Verification task '$VerificationTaskId' must resolve exactly once in the workpack manifest"
+    }
+
+    $implementation = $implementationMatches[0]
+    $verification = $verificationMatches[0]
+    if ([string]$implementation.sandbox -ne "workspace-write") {
+        throw "Implementation task '$ImplementationTaskId' must use workspace-write sandbox"
+    }
+    if ([string]$implementation.agent -notmatch '^bago_.*_worker$') {
+        throw "Implementation task '$ImplementationTaskId' must use a BAGO worker agent"
+    }
+    if ($implementation.requires_extra -ne $true) {
+        throw "Implementation task '$ImplementationTaskId' must require explicit approved scope"
+    }
+    if ([string]$verification.sandbox -ne "read-only") {
+        throw "Verification task '$VerificationTaskId' must use read-only sandbox"
+    }
+    if ([string]$verification.agent -ne "bago_final_verifier") {
+        throw "Verification task '$VerificationTaskId' must use bago_final_verifier"
+    }
+    if ($verification.requires_extra -ne $true) {
+        throw "Verification task '$VerificationTaskId' must require explicit verification target"
     }
 }
 
@@ -159,6 +252,7 @@ if (-not (Test-Path (Join-Path $Repo ".git"))) { throw "RepoRoot is not a Git re
 if (-not (Test-Path $PlanPath)) { throw "Missing remediation plan: $PlanPath" }
 if (-not (Test-Path $VerdictModule)) { throw "Missing verification verdict module: $VerdictModule" }
 if (-not (Test-Path $Workpack)) { throw "Missing BAGO workpack runner: $Workpack" }
+if (-not (Test-Path $WorkpackManifestPath)) { throw "Missing BAGO workpack manifest: $WorkpackManifestPath" }
 
 Import-Module $VerdictModule -Force
 $Plan = Get-Content $PlanPath -Raw | ConvertFrom-Json
@@ -166,8 +260,13 @@ Assert-PlanContract $Plan
 $implementationTask = [string]$Plan.execution_policy.implementation_task
 $verificationTask = [string]$Plan.execution_policy.verification_task
 $requiredPrWorkflows = @($Plan.execution_policy.required_pr_workflows)
+$WorkpackManifest = Get-Content $WorkpackManifestPath -Raw | ConvertFrom-Json
+Assert-WorkpackTaskContract -Manifest $WorkpackManifest -ImplementationTaskId $implementationTask -VerificationTaskId $verificationTask
+
 $safeRunId = ($RunId -replace '[^A-Za-z0-9._-]+','-').Trim('-')
 if (-not $safeRunId) { throw "RunId must contain at least one safe character" }
+if ($safeRunId -in @(".", "..")) { throw "RunId resolves to an unsafe physical path segment" }
+if ($safeRunId.Length -gt 64) { throw "RunId is too long after sanitization; maximum physical length is 64 characters" }
 
 Push-Location $Repo
 try {
@@ -178,6 +277,8 @@ try {
     if ($originUrl -notmatch '(?i)github\.com[:/]MarcValls/BAGO(?:\.git)?$') {
         throw "Refusing orchestration: origin is not $ExpectedRepository ($originUrl)"
     }
+
+    Invoke-Checked { git check-ref-format --branch $($Plan.base_branch) | Out-Null } "base branch format validation"
 
     $status = (git status --porcelain=v1 | Out-String).Trim()
     if ($status) { throw "Base worktree must be clean before orchestration. Commit/stash changes first." }
@@ -192,7 +293,7 @@ try {
     }
 
     $gitDir = Get-AbsoluteGitDir $Repo
-    $LedgerRoot = Join-Path $gitDir ("bago-remediation-runs\" + $safeRunId)
+    $LedgerRoot = Join-Path $gitDir ("bago-remediation-runs\run-" + $safeRunId)
     if (Test-Path $LedgerRoot) {
         throw "RunId '$RunId' already has preserved evidence at $LedgerRoot. Use a new RunId."
     }
@@ -224,6 +325,7 @@ try {
         $front = $Plan.fronts[$i]
         $slug = ($front.title.ToLowerInvariant() -replace '[^a-z0-9]+','-').Trim('-')
         if ($slug.Length -gt 34) { $slug = $slug.Substring(0,34).Trim('-') }
+        if (-not $slug) { $slug = $front.id.ToLowerInvariant() }
         $branch = "remediation/$($front.id.ToLowerInvariant())-$slug-$safeRunId"
         $worktree = Join-Path $WorktreeRoot $front.id
         $implementationRunId = "$safeRunId-$($front.id)-impl"
