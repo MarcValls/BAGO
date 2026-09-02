@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0",
+  "name": "BAGO 15-point governed remediation",
+  "base_branch": "main",
+  "execution_policy": {
+    "mode": "sequential_dependency_safe",
+    "implementation_task": "20-implement-approved-pr",
+    "verification_task": "22-verify-change",
+    "close_only_on_verified": true,
+    "auto_merge_only_after_ci": true,
+    "self_certification_forbidden": true,
+    "failure_policy": "stop_and_block",
+    "evidence_required": true
+  },
+  "fronts": [
+    {
+      "id": "F01",
+      "priority": "P0",
+      "title": "Recover a verifiable current candidate",
+      "objective": "Restore a candidate-bound green Canonical CI and align HEAD, release_version, manifests, package metadata and release evidence without publishing a release unless all authorities agree.",
+      "acceptance": ["Canonical CI green for the exact candidate SHA", "version authorities agree", "no stale evidence is promoted", "repository validation passes"]
+    },
+    {
+      "id": "F02",
+      "priority": "P0",
+      "title": "Close authority and evidence risks",
+      "objective": "Eliminate paths that can validate or restore authority from evidence, package hashes, reviewers, sessions or workspaces not bound to the exact current candidate.",
+      "acceptance": ["candidate/package binding is cryptographically checked", "legacy restore cannot silently regain authority", "negative tests cover bypasses", "security/authority tests pass"]
+    },
+    {
+      "id": "F03",
+      "priority": "P0",
+      "title": "Consolidate the architectural kernel boundary",
+      "objective": "Make the BAGO kernel boundary explicit as session + context + policy + providers + capabilities + security + evidence and prevent domain features from becoming kernel authority.",
+      "acceptance": ["kernel boundary documented and enforced by imports/contracts where practical", "no new parallel authority", "architecture tests/docs updated", "existing behavior preserved"]
+    },
+    {
+      "id": "F04",
+      "priority": "P1",
+      "title": "Unify the Python backend packaging model",
+      "objective": "Reduce the structural duplication between backend/bago_core and backend/.bago/core, remove avoidable sys.path manipulation and establish normal versioned Python package boundaries incrementally without a flag-day rewrite.",
+      "acceptance": ["canonical import path defined", "legacy imports isolated behind compatibility boundary", "tests no longer rely on accidental repository layout for migrated modules", "backend test suite passes"]
+    },
+    {
+      "id": "F05",
+      "priority": "P1",
+      "title": "Formalize authority, state and workspace",
+      "objective": "Ensure one source of truth for session, project, framework root, workspace root, persistent context and recovery; clients remain non-authoritative projections.",
+      "acceptance": ["authority matrix is explicit", "workspace/framework roots cannot be conflated", "recovery is candidate/state bound", "contract tests cover authority conflicts"]
+    },
+    {
+      "id": "F06",
+      "priority": "P1",
+      "title": "Contractualize context governance",
+      "objective": "Turn classifier -> planner -> source resolution -> ranking -> contradiction detection -> verification -> token budget -> receipt into an explicit versioned subsystem contract.",
+      "acceptance": ["versioned context decision/receipt schema exists", "source authority and ranking reasons are inspectable", "contradiction behavior is tested", "token budgeting is deterministic for fixtures"]
+    },
+    {
+      "id": "F07",
+      "priority": "P1",
+      "title": "Rebuild model and provider routing around capabilities",
+      "objective": "Separate model identity, observed capabilities, availability and routing policy; reduce hardcoded equivalence as a source of truth.",
+      "acceptance": ["identity/capabilities/policy are separate concepts", "provider discovery feeds routing", "hardcoded catalog is fallback or versioned evidence rather than sole authority", "routing receipts explain decisions"]
+    },
+    {
+      "id": "F08",
+      "priority": "P1",
+      "title": "Create a stable versioned BAGO API and SDK boundary",
+      "objective": "Expose sessions, chat, providers, switching, context, capabilities, permissions and evidence through stable versioned contracts without requiring clients to import internal modules.",
+      "acceptance": ["versioned API surface documented", "typed/schema contracts exist", "compatibility tests exist", "existing clients can migrate incrementally"]
+    },
+    {
+      "id": "F09",
+      "priority": "P1",
+      "title": "Unify capabilities and permissions",
+      "objective": "Require tools/plugins to declare filesystem, network, write, approval, dry-run and effect permissions and route all clients through the same enforcement layer.",
+      "acceptance": ["capability manifest/schema exists", "deny-by-default behavior is tested", "CLI/API/Electron paths share enforcement", "receipts record granted effects"]
+    },
+    {
+      "id": "F10",
+      "priority": "P2",
+      "title": "Extract ecosystem projects from the kernel",
+      "objective": "Define integration boundaries so domain repositories become capabilities/clients/knowledge providers instead of alternate BAGO authorities.",
+      "acceptance": ["plugin/client/knowledge contracts documented", "no domain repository is required for kernel correctness", "reference adapters/examples exist where justified", "authority remains in BAGO core"]
+    },
+    {
+      "id": "F11",
+      "priority": "P2",
+      "title": "Resolve documentation and version canon drift",
+      "objective": "Reduce authoritative documents, mark historical material explicitly and generate version/module/endpoint/provider state from machine authorities where possible.",
+      "acceptance": ["one canonical product version authority", "historical docs cannot masquerade as current canon", "generated checks detect drift", "README/docs are consistent with source state"]
+    },
+    {
+      "id": "F12",
+      "priority": "P2",
+      "title": "Security hardening",
+      "objective": "Harden local API authentication, least privilege, secrets handling, tool isolation, supply-chain gates and execution receipts without breaking local-first operation.",
+      "acceptance": ["sensitive API operations require authenticated/session-bound access", "critical dependency findings block protected integration paths", "secrets stay outside artifacts", "security regression tests pass"]
+    },
+    {
+      "id": "F13",
+      "priority": "P2",
+      "title": "Manager and frontend completion on stable contracts",
+      "objective": "Complete the manager/workspace UI only after backend contracts are stable: real model/provider selector, workspace editor, inspector, Agents, Interpreter, GitHub, simulation and evidence views.",
+      "acceptance": ["UI consumes versioned backend contracts", "no UI-owned duplicate authority", "major panels have integration tests", "build/typecheck/frontend tests pass"]
+    },
+    {
+      "id": "F14",
+      "priority": "P3",
+      "title": "Portability and deployment",
+      "objective": "Make the headless kernel and packaging progressively portable to Linux/macOS while keeping Electron packaging separate from the core deployment contract.",
+      "acceptance": ["platform assumptions are isolated", "headless smoke path works cross-platform in CI where supported", "state/workspace paths are portable", "Windows path remains regression-tested"]
+    },
+    {
+      "id": "F15",
+      "priority": "P3",
+      "title": "Benchmark BAGO governance and routing",
+      "objective": "Create reproducible benchmarks measuring whether context governance, switching and routing improve quality, cost, latency, continuity and error rate against explicit baselines.",
+      "acceptance": ["benchmark protocol is versioned", "baseline and BAGO conditions are reproducible", "results are candidate-bound", "claims are generated from measured evidence rather than narrative"]
+    }
+  ]
+}
