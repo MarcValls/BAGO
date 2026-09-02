@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE = REPO_ROOT / ".codex" / "bago-remediation" / "VerificationVerdict.psm1"
 SUPERVISOR = REPO_ROOT / ".codex" / "bago-remediation" / "Run-Remediation.ps1"
 PLAN = REPO_ROOT / ".codex" / "bago-remediation" / "remediation-plan.json"
+WORKPACK_MANIFEST = REPO_ROOT / ".codex" / "bago-workpack" / "manifest.json"
 POWERSHELL = shutil.which("powershell") or shutil.which("pwsh")
 CANDIDATE = "a" * 40
 
@@ -99,19 +100,43 @@ def test_nonpass_workpack_verdicts_are_machine_readable(
     assert result.stdout.strip().endswith(expected)
 
 
-def test_plan_declares_governing_tasks_and_named_pr_workflows() -> None:
+def test_plan_declares_non_relaxable_safety_policy_and_15_fronts() -> None:
     plan = json.loads(PLAN.read_text(encoding="utf-8"))
+    policy = plan["execution_policy"]
     assert plan["schema_version"] == "1.1"
-    assert plan["execution_policy"]["implementation_task"] == "20-implement-approved-pr"
-    assert plan["execution_policy"]["verification_task"] == "22-verify-change"
-    assert plan["execution_policy"]["required_pr_workflows"] == [
+    assert policy["mode"] == "sequential_dependency_safe"
+    assert policy["implementation_task"] == "20-implement-approved-pr"
+    assert policy["verification_task"] == "22-verify-change"
+    assert policy["close_only_on_verified"] is True
+    assert policy["auto_merge_only_after_ci"] is True
+    assert policy["self_certification_forbidden"] is True
+    assert policy["failure_policy"] == "stop_and_block"
+    assert policy["evidence_required"] is True
+    assert policy["required_pr_workflows"] == [
         "Canonical CI",
         "Validate Expected",
         "njsscan sarif",
     ]
-    assert len(plan["fronts"]) == 15
-    assert len({front["id"] for front in plan["fronts"]}) == 15
-    assert all(front["acceptance"] for front in plan["fronts"])
+    assert [front["id"] for front in plan["fronts"]] == [f"F{i:02d}" for i in range(1, 16)]
+    assert all(front["priority"] in {"P0", "P1", "P2", "P3"} for front in plan["fronts"])
+    assert all(front["acceptance"] and all(front["acceptance"]) for front in plan["fronts"])
+
+
+def test_plan_selected_workpack_roles_preserve_separation_of_duties() -> None:
+    plan = json.loads(PLAN.read_text(encoding="utf-8"))
+    manifest = json.loads(WORKPACK_MANIFEST.read_text(encoding="utf-8"))
+    tasks = {task["id"]: task for task in manifest["tasks"]}
+    implementation = tasks[plan["execution_policy"]["implementation_task"]]
+    verification = tasks[plan["execution_policy"]["verification_task"]]
+
+    assert implementation["sandbox"] == "workspace-write"
+    assert implementation["agent"].startswith("bago_")
+    assert implementation["agent"].endswith("_worker")
+    assert implementation["requires_extra"] is True
+    assert verification["sandbox"] == "read-only"
+    assert verification["agent"] == "bago_final_verifier"
+    assert verification["requires_extra"] is True
+    assert implementation["id"] != verification["id"]
 
 
 def test_supervisor_contains_required_authority_and_remote_gates() -> None:
@@ -120,13 +145,21 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     required_fragments = [
         'ExpectedRepository = "MarcValls/BAGO"',
         'ExpectedPlanSchema = "1.1"',
+        'WorkpackManifestPath',
         'Assert-PlanContract',
+        'Assert-WorkpackTaskContract',
+        'Plan must keep self_certification_forbidden=true',
+        'Verification task \'$VerificationTaskId\' must use read-only sandbox',
+        'Verification task \'$VerificationTaskId\' must use bago_final_verifier',
         '$implementationTask = [string]$Plan.execution_policy.implementation_task',
         '$verificationTask = [string]$Plan.execution_policy.verification_task',
         '$implementationRunId = "$safeRunId-$($front.id)-impl"',
         '$verificationRunId = "$safeRunId-$($front.id)-verify"',
         '("reports\\$verificationRunId\\" + $verificationTask + ".md")',
         'run_id_safe = $safeRunId',
+        'bago-remediation-runs\\run-',
+        'RunId resolves to an unsafe physical path segment',
+        'maximum physical length is 64 characters',
         'Unknown StartAt',
         'required_pr_workflows',
         'Wait-ForRequiredWorkflowRuns',
